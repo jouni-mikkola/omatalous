@@ -4,7 +4,7 @@
  * initials, which could be read as a brand. The disc sits on the plate the bank logos and the chain marks use, at the
  * same size, so the three line up in a column. Nothing is fetched and no logo set is bundled.
  */
-import { companyForms, fold, householdWords, isBusinessRow, mayBePerson, nameMayBePerson, type Transaction } from "@banking/core";
+import { companyForms, fold, householdWords, isBusinessRow, mayBePerson, nameMayBePerson, type Transaction, LOCALE } from "@banking/core";
 import { useContext } from "react";
 import { MetaContext } from "../hooks.ts";
 import type { Meta } from "../types.ts";
@@ -29,11 +29,11 @@ export function initialsOf(name: string): string {
   const words = name
     .replace(/\([^)]*\)|\[[^\]]*\]/gu, " ")
     .split(/[\s\-–/.,&]+/)
-    .filter((w) => /\p{L}/u.test(w) && !FORMS.has(w.toLocaleUpperCase("fi-FI")));
+    .filter((w) => /\p{L}/u.test(w) && !FORMS.has(w.toLocaleUpperCase(LOCALE)));
   if (!words.length) return "?";
   const letter = (w: string) => [...w.replace(/[^\p{L}]/gu, "")];
   const [a = "", b = ""] = words;
-  return (b ? [letter(a)[0] ?? "", letter(b)[0] ?? ""] : letter(a).slice(0, 2)).join("").toLocaleUpperCase("fi-FI") || "?";
+  return (b ? [letter(a)[0] ?? "", letter(b)[0] ?? ""] : letter(a).slice(0, 2)).join("").toLocaleUpperCase(LOCALE) || "?";
 }
 
 const householdOf = new WeakMap<Meta, ReadonlySet<string>>();

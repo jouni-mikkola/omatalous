@@ -139,7 +139,10 @@ export function generateDemoData(today: string, months = 14): DemoAccount[] {
       if (rand() < 0.03) add(card, date, -between(9, 28), null, "BOLT.EU/O/2405", { mcc: "4121" });
       if (rand() < 0.03) add(card, date, -between(14, 45), null, "ALKO KAMPPI HELSINKI", { mcc: "5921" });
     }
+    // the draw stays as it was; a month the draw skipped gets a fixed visit before the last three months, so beauty has an expected
+    // level over the 20 € a month the Nousseet menot report needs in its base (the mean of the base months, no longer the median)
     if (rand() < 0.6) add(card, day(m, 16), -between(28, 42), null, "PARTURI-KAMPAAMO SAKSET HELSINKI", { mcc: "7230" });
+    else if (monthsAgo >= 4) add(card, day(m, 16), -3300, null, "PARTURI-KAMPAAMO SAKSET HELSINKI", { mcc: "7230" });
     if (m.slice(5) === "06") add(card, day(m, 14), -38900, null, "FINNAIR OYJ HELSINKI-VANTAA", { mcc: "3005" });
     if (m.slice(5) === "06") add(card, day(m, 15), -24600, null, "BOOKING.COM AMSTERDAM NL", { mcc: "7011" });
     if (monthsAgo === 5) add(card, day(m, 21), 5995, null, "ZALANDO SE BERLIN DE", { mcc: "5651" });

@@ -2,9 +2,6 @@ import { getCategory } from "../categories.ts";
 import type { AnalysisTx } from "./context.ts";
 import { spendingBase } from "./data-quality.ts";
 
-/** The categories the first page names one by one, in the table and in the waterfall; the rest are one row, "Muut (n)". */
-export const NAMED_CATEGORIES = 9;
-
 export interface CategoryTotal {
   category: string;
   label: string;

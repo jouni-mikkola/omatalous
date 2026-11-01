@@ -93,7 +93,7 @@ function takeRestore(s: Services, by: string): IntactCopy | Refusal {
   // a bank fetch, the hourly tick or the tasks after an update: the stop would cut them off
   if (inflightCount() > 0) return { why: "taustatyö kesken", error: new HttpUserError("Pankkihaku tai muu taustatyö on kesken. Yritä hetken päästä uudelleen.", 409) };
   const under = dangerUnderWay(s);
-  if (under === "restore") return { why: "palautus jo pyydetty", error: new HttpUserError("Tietokannan palautus on jo pyydetty. Se tehdään, kun sovellus käynnistyy uudelleen.", 409) };
+  if (under === "restore") return { why: "palautus jo pyydetty", error: new HttpUserError("Tietokannan palautus on jo pyydetty. Teemme sen, kun sovellus käynnistyy uudelleen.", 409) };
   // a reset waits for the bank between its copy and its delete: the stop would cut it off after the consents ended
   if (under) return busy();
   const dir = dataDirOf(s);

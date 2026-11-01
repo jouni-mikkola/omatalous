@@ -3,7 +3,7 @@
  * `pnpm docs:shots`: remakes the pictures of the README and the docs in docs/images/ from the built app, with the example household.
  * It runs `tools/shots.mjs` for each household and screen width (the demo household, or the fake bank alone), with this file as the
  * `--steps` module: the step sets the screen to the size of the picture and clips the page to it, so each picture is the viewport and
- * not the whole page. The light look unless a picture says night, scale 1, animations run to their end, the pointer at the corner: all of it is shots.mjs's own.
+ * not the whole page. Scale 1, animations run to their end, the pointer at the corner: all of it is shots.mjs's own.
  */
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from "node:fs";
@@ -18,14 +18,13 @@ const LABEL = "docs";
 
 /**
  * The pictures: the file, the household it shows (the demo's, or the fake bank's alone: no account is there twice), the page id of
- * `pnpm shots`, the screen it is taken at, the look (light unless it says night), the heading at the top of the picture and the account the list is filtered to, if any.
- * @typedef {{ file: string, household: string, route: string, width: number, height: number, look?: string, at?: string, account?: string }} Picture
+ * `pnpm shots`, the screen it is taken at, the heading at the top of the picture and the account the list is filtered to, if any.
+ * @typedef {{ file: string, household: string, route: string, width: number, height: number, at?: string, account?: string }} Picture
  */
 /** @type {Picture[]} */
 export const PICTURES = [
   { file: "yhteenveto.png", household: "demo", route: "overview", width: 1280, height: 800 },
-  { file: "yhteenveto-yo.png", household: "demo", route: "overview", width: 1280, height: 800, look: "night" },
-  { file: "varallisuus.png", household: "demo", route: "overview", width: 1280, height: 800, at: "Varallisuus" },
+  { file: "varallisuus.png", household: "demo", route: "overview", width: 1280, height: 800, at: "Varat ja velat" },
   { file: "tilit.png", household: "bank", route: "settings", width: 1280, height: 800 },
   { file: "raportit.png", household: "demo", route: "reports", width: 1280, height: 800 },
   { file: "tapahtumat.png", household: "demo", route: "transactions", width: 1280, height: 800, account: "Käyttötili (esimerkki)" },
@@ -35,16 +34,16 @@ export const PICTURES = [
 /** No picture is larger than this many bytes. */
 export const MAX_BYTES = 300_000;
 
-/** One start of the app makes the pictures of one household, width, look and heading: the label keeps their file names apart. */
+/** One start of the app makes the pictures of one household, width and heading: the label keeps their file names apart. */
 function group(/** @type {Picture} */ p) {
-  return [p.household, p.width, p.look ?? "light", p.at ?? "", p.account ?? ""].join("|");
+  return [p.household, p.width, p.at ?? "", p.account ?? ""].join("|");
 }
 function label(/** @type {Picture} */ p) {
-  return [LABEL, p.look, p.at?.toLowerCase()].filter(Boolean).join("-");
+  return [LABEL, p.at?.toLowerCase()].filter(Boolean).join("-");
 }
 
 /** The step of `shots.mjs`: the screen is the picture's size, and the page is put in a box of that height. */
-export default async function step(/** @type {import("@playwright/test").Page} */ page, /** @type {string} */ route) {
+export default async function step(/** @type {import("@playwright/test").Page} */ page) {
   const width = page.viewportSize()?.width ?? 1280;
   const height = width < 600 ? 844 : 800;
   await page.setViewportSize({ width, height });
@@ -65,18 +64,6 @@ export default async function step(/** @type {import("@playwright/test").Page} *
       const section = h.closest("section") ?? h;
       // 48 px of top bar and 16 of room above the section
       return Math.max(0, Math.round(section.getBoundingClientRect().top + window.scrollY - 64));
-    });
-  } else if (route === "settings") {
-    // the joint account's row, with the block of its months under it, at the top of the picture
-    const heading = page.locator("#tilit").getByRole("heading", { name: "Tilille tullut ja lähtenyt raha kuukausittain", exact: true });
-    await heading.waitFor({ state: "visible", timeout: 30_000 });
-    scroll = await heading.evaluate((h) => {
-      // the account's own row stands above its rows of use, split and months
-      /** @type {Element | null} */
-      let row = h.closest("tr");
-      while (row?.classList.contains("edit-row") && row.previousElementSibling) row = row.previousElementSibling;
-      // 48 px of top bar and 16 of room above the row
-      return Math.max(0, Math.round((row ?? h).getBoundingClientRect().top + window.scrollY - 64));
     });
   }
   await page.evaluate(
@@ -108,7 +95,7 @@ function main() {
       const routes = [...new Set(here.map((p) => p.route))];
       const run = spawnSync(
         process.execPath,
-        [join(ROOT, "tools/shots.mjs"), ...routes, first.household === "demo" ? "--demo" : "--fake-bank", "--look", first.look ?? "light", "--widths", String(first.width), "--name", label(first), "--steps", fileURLToPath(import.meta.url)],
+        [join(ROOT, "tools/shots.mjs"), ...routes, first.household === "demo" ? "--demo" : "--fake-bank", "--widths", String(first.width), "--name", label(first), "--steps", fileURLToPath(import.meta.url)],
         { cwd: ROOT, stdio: "inherit", env: { ...process.env, SHOTS_DIR: work, SHOTS_DISPLAY_NAME: "Matti", DOCS_SHOTS_AT: first.at ?? "", DOCS_SHOTS_ACCOUNT: first.account ?? "" } },
       );
       if (run.status !== 0) throw new Error(`tools/shots.mjs exited with ${run.status}`);

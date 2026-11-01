@@ -12,7 +12,7 @@ test.beforeAll(async ({ browser }) => {
 });
 test.afterAll(async ({ browser }) => removeMember(browser, member.id));
 
-test("Laskut lists a lease that ended in Päättyneet sopimukset, with its start, first payment, refund and total, and not among what is coming", async ({ browser }) => {
+test("Laskut lists a lease that ended as a Päättynyt row of the one table, with its start, first payment, refund and total, and not among what is coming", async ({ browser }) => {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -20,18 +20,16 @@ test("Laskut lists a lease that ended in Päättyneet sopimukset, with its start
   await waitForSync(context);
 
   await page.goto("/#/bills");
-  const block = page.locator(".card", { has: page.getByRole("heading", { name: "Päättyneet sopimukset", exact: true }) });
-  await expect(block).toBeVisible();
-  const row = block.locator(".st-row", { has: page.getByRole("link", { name: "ESIMERKKI LEASING OY" }) });
+  const table = page.locator("#laskut-taulukko");
+  // what has ended waits in a folded group
+  await table.getByText("Päättyneet", { exact: false }).first().click();
+  const row = table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "ESIMERKKI LEASING OY" });
   await expect(row).toHaveCount(1);
-  // the days it ran, and what was paid: the first rent and nine of 399 €
-  await expect(row.getByRole("button", { name: /^\d+\.\d+\.\d{4}–\d+\.\d+\.\d{4}$/ })).toBeVisible();
-  // the row says what it cost in the end: 6 591 € paid less the refund of 1 500 €
-  expect(plain(await row.locator(".st-num").first().innerText())).toBe("Yhteensä 5 091,00 €");
+  await expect(row).toContainText("Päättynyt");
 
   // the lines of the contract open under the row
-  await row.getByRole("button", { name: /–/ }).click();
-  const lines = row.locator(".contract-panel");
+  await row.getByRole("button", { name: /^Tiedot: / }).click();
+  const lines = table.locator(".sub-drill .st-rows");
   const line = async (label: string) => plain(await lines.locator(".st-row", { has: page.getByText(label, { exact: true }) }).locator(".st-num").innerText());
   expect(await line("Ensimmäinen maksu")).toBe("3 000,00 €");
   expect(await line("Hinta kuussa")).toBe("399,00 €");
@@ -42,12 +40,8 @@ test("Laskut lists a lease that ended in Päättyneet sopimukset, with its start
   expect(plain(await lines.locator(".st-row").last().innerText())).toBe("Maksettu yhteensä hyvityksen jälkeen 5 091,00 €");
   for (const label of ["Alkoi", "Viimeinen maksu", "Päättyi"]) await expect(lines.getByText(label, { exact: true })).toBeVisible();
 
-  // it is no part of what is paid now: not in Sopimukset ja laskut, not in the list of what is coming
-  const contracts = page.locator(".card", { has: page.getByRole("heading", { name: "Sopimukset ja laskut", exact: true }) });
-  await expect(contracts).not.toContainText("ESIMERKKI LEASING OY");
+  // it is no part of what is coming now
   await expect(page.locator("#tulossa")).not.toContainText("ESIMERKKI LEASING OY");
-  // the contracts that run show their start under the name
-  await expect(contracts.getByRole("button", { name: /^\d\d\/\d{4} alkaen$/ }).first()).toBeVisible();
 
   expect(seen.problems).toEqual([]);
   await context.close();

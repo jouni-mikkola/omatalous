@@ -5,12 +5,14 @@
  * operators' prices (no fact). A subscription the household answered on Laskut or in an alert (Lopetettu, or Käytössä
  * within a year, `answeredSubscriptions`) has no finding: a rise counts as answered only by a Käytössä given after it.
  */
-import { overlapGroups } from "../../analysis/alerts.ts";
+import { overlapGroups, overlapNoun } from "../../analysis/alerts.ts";
 import type { AnalysisTx } from "../../analysis/context.ts";
 import { finnishList, formatEur, formatFiDate } from "../../analysis/format.ts";
+import { messageIn } from "../../messages.ts";
+import type { Language } from "../../locale.ts";
 import { notAPrice, PLAN_CATEGORIES, priceRiseItems } from "../../analysis/insights/prices.ts";
 import { renewalItems } from "../../analysis/insights/renewals.ts";
-import { answeredSubscriptions, answerOf, type SubscriptionAnswer, settledBy } from "../../analysis/insights/shared.ts";
+import { answeredSubscriptions, answerOf, capitalise, countWord, type SubscriptionAnswer, settledBy } from "../../analysis/insights/shared.ts";
 import { addDays } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { findingId, GATE_YEARLY_CENTS, rowsById } from "../common.ts";
@@ -21,13 +23,11 @@ const FEW_BEFORE = 6;
 /** The renewal deadline lands in Seuraavat 60 päivää. */
 const RENEW_DAYS = 60;
 
-const COUNT_WORD = ["", "Yksi", "Kaksi", "Kolme", "Neljä", "Viisi", "Kuusi", "Seitsemän", "Kahdeksan", "Yhdeksän"];
-const RENEWAL_NOUN: Readonly<Record<string, string>> = { yearly: "vuositilaus", semiannual: "puolivuotistilaus" };
+const RENEWAL_NOUN = { yearly: "opt.sub_yearly", semiannual: "opt.sub_semiannual" } as const;
 
 /** A price as a single charge shows it: whole euros stay whole, 10,99 keeps its cents. */
-const price = (cents: number) => formatEur(cents, cents % 100 !== 0);
-const decimal = (x: number) => String(Math.round(x * 10) / 10).replace(".", ",");
-const payee = (merchant: string): CalcLine => ({ label: "Maksunsaaja", value: merchant });
+const price = (cents: number, lang: Language) => formatEur(cents, cents % 100 !== 0, lang);
+const payee = (merchant: string, lang: Language): CalcLine => ({ label: messageIn(lang, "opt.sub_payee"), value: merchant });
 
 /**
  * Whether anything but the default put the series in its category. A default "other" series is a payment nobody
@@ -38,6 +38,7 @@ const recognised = (s: RecurringSeries, byId: ReadonlyMap<string, AnalysisTx>) =
 type Answers = ReadonlyMap<string, SubscriptionAnswer>;
 
 function rises(a: AreaInput, answered: Answers): FindingDraft[] {
+  const lang = a.lang;
   const byId = rowsById(a.ctx);
   return priceRiseItems(a.ctx, a.end)
     // phone and broadband beside the subscription set: contracts whose price the household can negotiate
@@ -54,32 +55,29 @@ function rises(a: AreaInput, answered: Answers): FindingDraft[] {
         area: "subscriptions",
         kind: "rise",
         subject: s.id,
-        title: `${s.merchant}: hinta nousi ${formatEur(fromCents)} → ${formatEur(toCents)} ${formatFiDate(date)}. Nousu on ${formatEur(yearlyCents, false)} vuodessa.`,
-        action: telecom ? "Neuvottele hinnasta tai kilpailuta liittymä." : "Neuvottele hinnasta tai irtisano tilaus.",
+        title: messageIn(lang, "opt.sub_rise_title", { merchant: s.merchant, date: formatFiDate(date, lang) }),
+        action: messageIn(lang, telecom ? "opt.sub_rise_action_telecom" : "opt.sub_rise_action"),
         euros: { lowCents: yearlyCents, midCents: yearlyCents, highCents: yearlyCents },
         decideBy: null,
-        weaknesses: before < FEW_BEFORE ? [{ id: "estimate", reason: `Vanhaa hintaa on veloitettu ${before === 1 ? "vain kerran" : `vain ${before} kertaa`}.` }] : [],
+        weaknesses: before < FEW_BEFORE ? [{ id: "estimate", reason: before === 1 ? messageIn(lang, "opt.sub_old_once") : messageIn(lang, "opt.sub_old_times", { n: before }) }] : [],
         shared: false,
         calc: [
-          payee(s.merchant),
-          { label: "Hinta ennen", value: formatEur(fromCents) },
-          { label: "Hinta nyt", value: formatEur(toCents) },
-          { label: "Uusi hinta alkaen", value: formatFiDate(date) },
-          { label: "Veloituksia ennen nousua", value: String(before) },
-          { label: "Veloituksia vuodessa", value: decimal(perYear) },
-          { label: "Nousu vuodessa", value: formatEur(yearlyCents, false) },
+          payee(s.merchant, lang),
+          { label: messageIn(lang, "opt.sub_new_from"), value: formatFiDate(date, lang) },
+          { label: messageIn(lang, "opt.sub_rise_year"), value: formatEur(yearlyCents, false, lang) },
         ],
         rows: dated.filter((t) => t.bookingDate >= addDays(date, -365)).map((t) => t.id),
         struck: [],
         claims: [`series:${s.id}`],
         measure: { kind: "series", keys: [s.id], perYear: Math.max(1, Math.round(perYear)) },
         facts: [],
-        change: { date, label: "Uusi hinta" },
+        change: { date, label: messageIn(lang, "opt.sub_new_price") },
       } satisfies FindingDraft;
     });
 }
 
 function overlaps(a: AreaInput, answered: Answers): FindingDraft[] {
+  const lang = a.lang;
   return overlapGroups(a.ctx.recurring).flatMap((g): FindingDraft[] => {
     // a service the user marked cancelled is already being dropped
     const matched = g.matched.filter((m) => answerOf(answered, m.s)?.mark !== "cancelled");
@@ -105,18 +103,18 @@ function overlaps(a: AreaInput, answered: Answers): FindingDraft[] {
         area: "subscriptions",
         kind: "overlap",
         subject: g.type,
-        title: `${COUNT_WORD[brands.size] ?? brands.size} ${g.noun} yhteensä ${formatEur(total)} kuussa: ${finnishList(names)}.`,
-        action: "Irtisano yksi palveluista tai pidä palvelut voimassa vuorotellen.",
+        title: messageIn(lang, "opt.sub_overlap_title", { count: capitalise(countWord(brands.size, lang)), noun: overlapNoun(g.type, lang), total: formatEur(total, true, lang), names: finnishList(names, lang) }),
+        action: messageIn(lang, "opt.sub_overlap_action"),
         euros: { lowCents: low, midCents: mid, highCents: high },
         decideBy: null,
-        weaknesses: [{ id: "estimate", reason: "Tiedoista ei näy, kuka käyttää mitäkin palvelua." }],
+        weaknesses: [{ id: "estimate", reason: messageIn(lang, "opt.sub_overlap_weak") }],
         shared: false,
         calc: [
-          ...series.map((s) => ({ label: s.merchant, value: `${price(s.monthlyCents)}/kk` })),
-          { label: "Yhteensä kuussa", value: formatEur(total) },
-          { label: "Halvin palvelu vuodessa", value: formatEur(low, false) },
-          { label: "Muut kuin kallein vuodessa", value: formatEur(high, false) },
-          { label: "Arvio vuodessa, vaihteluvälin keskikohta", value: formatEur(mid, false) },
+          ...series.map((s) => ({ label: s.merchant, value: `${price(s.monthlyCents, lang)}${lang === "en" ? "/mo" : "/kk"}` })),
+          { label: messageIn(lang, "opt.sub_total_month"), value: formatEur(total, true, lang) },
+          { label: messageIn(lang, "opt.sub_cheapest"), value: formatEur(low, false, lang) },
+          { label: messageIn(lang, "opt.sub_not_dearest"), value: formatEur(high, false, lang) },
+          { label: messageIn(lang, "opt.sub_estimate"), value: formatEur(mid, false, lang) },
         ],
         rows: series.flatMap((s) => s.transactionIds.filter((id) => (byId.get(id)?.bookingDate ?? "") > since)),
         struck: [],
@@ -129,28 +127,29 @@ function overlaps(a: AreaInput, answered: Answers): FindingDraft[] {
 }
 
 function renewals(a: AreaInput): FindingDraft[] {
+  const lang = a.lang;
   const byId = rowsById(a.ctx);
   return renewalItems(a.ctx, a.inputs, RENEW_DAYS)
     .filter((s) => s.yearlyCents >= GATE_YEARLY_CENTS && addDays(s.nextDate!, -1) >= a.today && recognised(s, byId))
     .map((s) => {
       const decideBy = addDays(s.nextDate!, -1);
-      const noun = RENEWAL_NOUN[s.cadence ?? ""] ?? "tilaus";
+      const noun = messageIn(lang, s.cadence === "yearly" || s.cadence === "semiannual" ? RENEWAL_NOUN[s.cadence] : "opt.sub_plain");
       return {
         id: findingId("subscriptions", "renewal", s.id),
         area: "subscriptions",
         kind: "renewal",
         subject: s.id,
-        title: `${s.merchant}: ${noun} uusiutuu ${formatFiDate(s.nextDate!)}, ${price(s.typicalAmountCents)}. Edellinen veloitus ${formatFiDate(s.lastDate)}.`,
-        action: `Irtisano tilaus viimeistään ${formatFiDate(decideBy)}, jos et halua sen jatkuvan.`,
+        title: messageIn(lang, "opt.sub_renew_title", { merchant: s.merchant, noun, next: formatFiDate(s.nextDate!, lang), price: price(s.typicalAmountCents, lang), last: formatFiDate(s.lastDate, lang) }),
+        action: messageIn(lang, "opt.sub_renew_action", { date: formatFiDate(decideBy, lang) }),
         euros: null,
         decideBy,
         weaknesses: [],
         shared: false,
         calc: [
-          payee(s.merchant),
-          { label: "Hinta", value: price(s.typicalAmountCents) },
-          { label: "Edellinen veloitus", value: formatFiDate(s.lastDate) },
-          { label: "Seuraava veloitus", value: formatFiDate(s.nextDate!) },
+          payee(s.merchant, lang),
+          { label: messageIn(lang, "opt.sub_price"), value: price(s.typicalAmountCents, lang) },
+          { label: messageIn(lang, "opt.sub_last_charge"), value: formatFiDate(s.lastDate, lang) },
+          { label: messageIn(lang, "opt.sub_next_charge"), value: formatFiDate(s.nextDate!, lang) },
         ],
         rows: s.transactionIds.slice(-2),
         struck: [],
@@ -161,10 +160,10 @@ function renewals(a: AreaInput): FindingDraft[] {
     });
 }
 
-const CHECKS: readonly Check[] = [
-  { id: "subscriptions:rise", label: "Sopimusten ja tilausten hinnat", status: "clear" },
-  { id: "subscriptions:overlap", label: "Päällekkäiset palvelut", status: "clear" },
-  { id: "subscriptions:renewal", label: "Uusiutuvat tilaukset", status: "clear" },
+const checks = (lang: Language): readonly Check[] => [
+  { id: "subscriptions:rise", label: messageIn(lang, "opt.sub_chk_rise"), status: "clear" },
+  { id: "subscriptions:overlap", label: messageIn(lang, "opt.sub_chk_overlap"), status: "clear" },
+  { id: "subscriptions:renewal", label: messageIn(lang, "opt.sub_chk_renewal"), status: "clear" },
 ];
 
 export const subscriptions: Area = {
@@ -175,6 +174,6 @@ export const subscriptions: Area = {
     // no contract or subscription series at all: the three checks have no subject
     const any = a.ctx.recurring.some((s) => s.kind === "subscription" || PLAN_CATEGORIES.has(s.category));
     const findings = [...rises(a, answered), ...overlaps(a, answered), ...renewals(a)];
-    return { findings, checks: any ? CHECKS : CHECKS.map((c) => ({ ...c, status: "no_subject" as const })) };
+    return { findings, checks: any ? checks(a.lang) : checks(a.lang).map((c) => ({ ...c, status: "no_subject" as const })) };
   },
 };

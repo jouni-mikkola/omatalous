@@ -107,7 +107,7 @@ export function formOfLoan(loan: Loan): LoanForm {
   return { id: loan.id, seriesKey: loan.seriesKey, name: loan.name, kind: loan.kind, values, source: null, confirmed: [], paymentKind: null, accountId: loan.accountId ?? "" };
 }
 
-const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
+export const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
 
 /**
  * The fields the chosen kind has. A card or a credit line has a limit and no repayment plan (the server refuses one);
@@ -156,7 +156,7 @@ export function toggleConfirmed(form: LoanForm, key: LoanFieldKey, on: boolean):
 
 export const setKind = (form: LoanForm, kind: LoanKind | ""): LoanForm => ({ ...form, kind });
 
-/** The parameters of the address the Lainat report links to (`#/settings?linkLoan=…&linkAccount=…`): the editor of that loan opens with that account chosen. */
+/** The parameters of the address the Lainat report links to (`#/settings/household?linkLoan=…&linkAccount=…`): the editor of that loan opens with that account chosen. */
 export const LOAN_LINK_PARAM = { loan: "linkLoan", account: "linkAccount" } as const;
 
 /** A card or loan account a loan can be linked to, with the text the select shows for it. */

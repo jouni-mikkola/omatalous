@@ -40,7 +40,7 @@ interface PayeeQuestion {
   service?: string;
 }
 
-/** A monthly payment that looks like a loan the app cannot place: "Mikä laina tämä on?", answered with `LOAN_KIND_ANSWERS`, or marked "Ei laina". One a loan's kind is known of is not asked (`LoanProposal.placed`); Asetukset > Lainat saves it. */
+/** A monthly payment that looks like a loan the app cannot place: "Mikä laina tämä on?", answered with `LOAN_KIND_ANSWERS`, or marked "Ei ole laina". One a loan's kind is known of is not asked (`LoanProposal.placed`); Asetukset > Lainat saves it. */
 interface LoanQuestion {
   kind: "loan";
   key: string;

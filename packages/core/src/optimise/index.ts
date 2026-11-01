@@ -1,3 +1,5 @@
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { flagLoanPayment } from "../loan-payment.ts";
 /**
  * Optimoi: the household's decisions with a price or a deadline. Each area (`areas/*.ts`) returns its findings and what
@@ -33,9 +35,9 @@ import {
   qualityOf,
   shortHistoryWeakness,
   sortWeaknesses,
-  WIDE_RANGE,
-  WHY_FACTS,
-  WHY_OTHER,
+  wideRange,
+  whyFacts,
+  whyOther,
   whyHistory,
   yearWindow,
 } from "./common.ts";
@@ -51,6 +53,7 @@ export * from "./common.ts";
 export * from "./facts/index.ts";
 export * from "./headline.ts";
 export * from "./inputs.ts";
+export * from "./order.ts";
 export * from "./others.ts";
 export * from "./rates.ts";
 export * from "./situation.ts";
@@ -78,6 +81,8 @@ export interface OptimiseInput {
   industry?: ReadonlyMap<string, string>;
   /** The areas to run; tests pass their own. */
   areas?: readonly Area[];
+  /** The language of the texts of the findings; Finnish without one. */
+  lang?: Language;
 }
 
 /** The last day of the last complete month: the month before today's. */
@@ -88,6 +93,7 @@ export function optimiseEnd(today: IsoDate): IsoDate {
 /** What every area gets. Exported so an area's own tests can call `assess` directly. */
 export function areaInputOf(input: OptimiseInput): AreaInput {
   const { ctx } = input;
+  const lang = input.lang ?? DEFAULT_LANGUAGE;
   const end = optimiseEnd(ctx.today);
   const window = yearWindow(ctx, end);
   return {
@@ -99,7 +105,8 @@ export function areaInputOf(input: OptimiseInput): AreaInput {
     inputs: input.inputs ?? NO_INPUTS,
     values: input.values ?? {},
     industry: input.industry ?? new Map(),
-    quality: qualityOf(ctx, { from: window.from ?? end, to: end }, input.balances),
+    quality: qualityOf(ctx, { from: window.from ?? end, to: end }, input.balances, lang),
+    lang,
   };
 }
 
@@ -120,11 +127,11 @@ function settle(draft: FindingDraft, a: AreaInput): Finding | Dropped {
   const rows = draft.rows.slice(-MAX_ROWS);
   const kept = new Set(rows);
   const weaknesses = [...draft.weaknesses];
-  if (draft.euros && months < 12 && !weaknesses.some((w) => w.id === "short_history")) weaknesses.push(shortHistoryWeakness(months));
-  weaknesses.push(...evidenceWeakness(a.ctx, rows, a.quality));
-  if (draft.euros && draft.euros.highCents - draft.euros.lowCents > draft.euros.midCents) weaknesses.push(WIDE_RANGE);
+  if (draft.euros && months < 12 && !weaknesses.some((w) => w.id === "short_history")) weaknesses.push(shortHistoryWeakness(months, a.lang));
+  weaknesses.push(...evidenceWeakness(a.ctx, rows, a.quality, a.lang));
+  if (draft.euros && draft.euros.highCents - draft.euros.lowCents > draft.euros.midCents) weaknesses.push(wideRange(a.lang));
   const sorted = sortWeaknesses(weaknesses);
-  return { ...draft, rows, struck: draft.struck.filter((id) => kept.has(id)), weaknesses: sorted, certainty: certaintyOf(sorted) };
+  return { ...draft, rows, struck: draft.struck.filter((id) => kept.has(id)), weaknesses: sorted, certainty: certaintyOf(sorted, a.lang) };
 }
 
 const weightOf = (f: Finding) => (f.euros ? f.euros.midCents * CERTAINTY_WEIGHT[f.certainty.level] : 0);
@@ -198,14 +205,14 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
       if (kinds.has(kind) || decided.has(kind)) return { ...c, status: "finding" };
       const why = dropped.get(kind);
       if (why === "history") return c.status === "clear" || c.status === "finding" ? { ...c, status: "no_data", why: whyHistory(a, need.get(kind)!) } : c;
-      if (why === "facts") return c.status === "clear" || c.status === "finding" ? { ...c, status: "no_data", why: WHY_FACTS } : c;
+      if (why === "facts") return c.status === "clear" || c.status === "finding" ? { ...c, status: "no_data", why: whyFacts(a.lang) } : c;
       return c.status === "finding" ? { ...c, status: "clear" } : c;
-    }).map((c) => (c.status === "no_data" && !c.why ? { ...c, why: WHY_OTHER } : c));
+    }).map((c) => (c.status === "no_data" && !c.why ? { ...c, why: whyOther(a.lang) } : c));
     shown.sort(byRank);
     active.push(...shown);
     views.push({
       id: area.id,
-      label: area.label,
+      label: a.lang === DEFAULT_LANGUAGE ? area.label : messageIn(a.lang, `opt.area_${area.id}`),
       findings: shown,
       checks,
       ...(result.summary ? { summary: result.summary } : {}),
@@ -234,7 +241,7 @@ export function buildOptimise(input: OptimiseInput): OptimiseData {
     historyMonths: completeMonthsBefore(ctx, monthOf(today), 1200).length,
     dataTo: ctx.txs.length ? ctx.txs[ctx.txs.length - 1]!.bookingDate : null,
     accounts: ctx.accounts.length,
-    situation: situationOf(ctx, a.months, input.balances, a.inputs),
+    situation: situationOf(ctx, a.months, input.balances, a.inputs, a.lang),
     headline: headlineOf(active),
     household: householdWeakness(a.quality),
     areas: views,

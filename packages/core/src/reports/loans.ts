@@ -31,26 +31,6 @@ import type { AccountType, BalanceInput, IsoDate, Loan, Part, UserInputs } from 
 // where the loan area of Säästövinkit and the reports' index read them, as before they moved
 export { type MaybeTwice, maybeTwice };
 
-// The words the Lainat report shares with Saldot and the loan area of Optimoi, so the three say a thing one way. The
-// full sentences that name the debts are the report's own (the web section).
-
-/** What the household did not tell is said so. A figure that is not known is never printed as zero. */
-export const FIGURE_UNKNOWN = "ei tiedossa";
-
-/** The short warning for a debt that may be in a total twice (`maybeTwice`). The report adds which debts and what to do. */
-export const SAME_DEBT_TWICE = "Sama velka voi olla summassa kahdesti";
-
-/** The name of the accounts less the debts. It holds no home and no investments, so it is not called net worth. */
-export const ACCOUNTS_LESS_DEBT = { label: "Tilit miinus velat", sub: "Asunnon ja sijoitusten arvo ei ole mukana." } as const;
-
-/**
- * Loans counted for a figure that cannot be told of them: "yksi laina, jonka korkoa ei tiedetä", "3 lainaa, joiden
- * korkoa ei tiedetä". `after` gives "yhtä lainaa" for a sentence that needs the partitive ("ilman yhtä lainaa, ...").
- * `what` is the field in the partitive.
- */
-export const loansWithout = (n: number, what: string, after = false): string =>
-  n === 1 ? `${after ? "yhtä lainaa" : "yksi laina"}, jonka ${what} ei tiedetä` : `${n} lainaa, joiden ${what} ei tiedetä`;
-
 /** The reference rate moves the scenario lines tell, in hundredths of a percent: one percentage point down and up. */
 const RATE_SHIFTS_BP = [-100, 100] as const;
 

@@ -64,11 +64,10 @@ test("the app is installable: a manifest with icons the browser accepts and a se
 
 test("Yhteenveto opens with no network after one visit and says when its figures were fetched", async ({ browser }) => {
   const { context, page } = await signedInContext(browser);
-  const pace = page.getByRole("region", { name: "Menot tässä kuussa", exact: true });
+  const pace = page.getByRole("region", { name: "Kuukausi", exact: true });
   await expect(pace).toBeVisible({ timeout: 15_000 });
   // what the page kept: who is signed in, the shell's answer, the questions and the figures of the month
-  await expect.poll(async () => (await kept(page))?.some((p) => p.startsWith("/api/reports?")) ?? false).toBe(true);
-  expect(await kept(page)).toEqual(expect.arrayContaining(["/api/auth/state", "/api/meta", "/api/review", expect.stringMatching(/^\/api\/dashboard\?/)]));
+    expect(await kept(page)).toEqual(expect.arrayContaining(["/api/auth/state", "/api/meta", "/api/review/count", expect.stringMatching(/^\/api\/dashboard\?/)]));
   // nothing the page marked as not for keeping: the login's answers, the security log and the like
   expect((await kept(page))!.filter((p) => /security|users|auth\/login/.test(p))).toEqual([]);
   await expect(page.getByText("Ei yhteyttä palvelimeen")).toHaveCount(0);
@@ -77,7 +76,7 @@ test("Yhteenveto opens with no network after one visit and says when its figures
   await expect(pace).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Yhteenveto" })).toBeAttached();
   const notice = page.getByRole("status").filter({ hasText: "Ei yhteyttä palvelimeen" });
-  await expect(notice).toContainText(/Näkyvät luvut on haettu \d{1,2}\.\d{1,2}\.\d{4} klo \d{1,2}\.\d{2}\./);
+  await expect(notice).toContainText(/Näkyvät luvut ovat ajalta \d{1,2}\.\d{1,2}\.(?:\d{4})? klo \d{1,2}\.\d{2}\./);
   // no line about a failed fetch from the bank: nothing was asked of it
   await expect(page.getByText("Tapahtumien haku pankista epäonnistui")).toHaveCount(0);
 
@@ -90,7 +89,7 @@ test("Yhteenveto opens with no network after one visit and says when its figures
 
 test("logout empties the kept figures, and with no session and no network there is nothing to open", async ({ browser }) => {
   const { context, page } = await signedInContext(browser);
-  await expect(page.getByRole("region", { name: "Menot tässä kuussa", exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: "Kuukausi", exact: true })).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => kept(page)).toEqual(expect.arrayContaining(["/api/meta"]));
 
   await page.locator(".user-menu > summary").click();
@@ -100,7 +99,7 @@ test("logout empties the kept figures, and with no session and no network there 
 
   await openOffline(context, page);
   await expect(page.getByText("Palvelimeen ei saada yhteyttä")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Menot tässä kuussa", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Kuukausi", exact: true })).toHaveCount(0);
   expect(await kept(page)).toBeNull();
   await context.close();
 });
@@ -115,7 +114,7 @@ test("a lost session and another user's sign-in empty what the last user's visit
   await admin.close();
   try {
     const { context, page } = await signedInContext(browser);
-    await expect(page.getByRole("region", { name: "Menot tässä kuussa", exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: "Kuukausi", exact: true })).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => kept(page)).toEqual(expect.arrayContaining(["/api/meta"]));
 
     // the session ends without a logout in the page (it ran out, or the cookie was cleared): the next visit finds no user
@@ -133,6 +132,35 @@ test("a lost session and another user's sign-in empty what the last user's visit
     const stored = await page.evaluate(async (name) => (await (await (await caches.open(name)).match("/api/auth/state"))!.json()) as { user: { username: string } }, STORE);
     expect(stored.user.username).toBe(username);
     expect((await kept(page))!.filter((p) => p.startsWith("/api/dashboard"))).toEqual([]);
+    await context.close();
+  } finally {
+    await removeMember(browser, id);
+  }
+});
+
+test("another user who signs in after a logout, with no reload, is the one the user menu names", async ({ browser }) => {
+  const dir = process.env.E2E_DIR ?? ".";
+  const admin = await browser.newContext({ storageState: join(dir, "admin-state.json") });
+  const member = await browser.newContext();
+  const username = "switchmember";
+  const id = await createMember(admin, member, username);
+  await member.close();
+  await admin.close();
+  try {
+    const { context, page } = await signedInContext(browser);
+    const menu = page.locator(".user-menu");
+    await expect(menu).toContainText(`${ADMIN.username} · ylläpitäjä`);
+    await page.locator(".user-menu > summary").click();
+    await page.getByRole("button", { name: "Kirjaudu ulos" }).click();
+    await expect(page.getByRole("heading", { name: "Kirjaudu sisään" })).toBeVisible();
+
+    // the same document: the shell of the administrator must not stay under the member
+    await page.getByLabel("Käyttäjätunnus").fill(username);
+    await page.getByLabel("Salasana").fill(`${username}-123456`);
+    await page.getByRole("button", { name: "Kirjaudu" }).click();
+    await expect(page.getByRole("navigation", { name: "Päävalikko" })).toBeVisible();
+    await expect(menu).toContainText(`${username} · jäsen`);
+    await expect(menu).not.toContainText(ADMIN.username);
     await context.close();
   } finally {
     await removeMember(browser, id);
@@ -196,10 +224,10 @@ test("answers that reach an old tab after another user signed in, in another tab
     await expect(next.getByRole("navigation", { name: "Päävalikko" })).toBeVisible();
     await expect.poll(() => kept(next)).toEqual(expect.arrayContaining(["/api/auth/state"]));
 
-    // the old answer arrives now, and gets a moment to be written
+    // the old answers arrive now, and the tabs that held them go quiet once they are handled and written
     releaseAuth();
     release();
-    await old.waitForTimeout(1500);
+    await Promise.all([old.waitForLoadState("networkidle"), late.waitForLoadState("networkidle")]);
     const keys = (await kept(next))!;
     expect(keys.filter((p) => /^\/api\/(dashboard|reports)/.test(p))).toEqual([]);
     expect(await next.evaluate(async (name) => (await (await (await caches.open(name)).match("/figures/owner"))!.text()), STORE)).toBe(id);

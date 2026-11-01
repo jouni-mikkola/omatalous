@@ -3,20 +3,13 @@
  * line in the last 90 days covers it, and a usual level needs 8 covered weeks.
  */
 import { describe, expect, it } from "vitest";
-import { bestOfSync, calibrate, slowerNow } from "../../../tools/lib/timing.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { behaviourOf } from "../src/behaviour/index.ts";
 import { addDays, dateIn } from "../src/dates.ts";
 import type { Account, Transaction } from "../src/types.ts";
+import { card, checking, householdRows, paid, TODAY, MONDAY } from "./behaviour-coverage-kit.ts";
 import { tx } from "./helpers.ts";
 
-const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
-const card: Account = { id: "card-1", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
-const TODAY = "2026-10-14";
-const MONDAY = "2026-10-12";
-
-const paid = (bookingDate: string, cents: number, merchant: string, category: string, accountId = "acc-1") =>
-  tx({ bookingDate, amountCents: -cents, merchant, category, categorySource: "rule", accountId });
 const rent = Array.from({ length: 10 }, (_, i) => paid(dateIn(`2026-${String(i + 1).padStart(2, "0")}`, 2), 45_000, "Asunto Oy Esimerkki", "housing"));
 const order = (day: string, accountId = "acc-1") => paid(day, 2_500, "Esimerkkiruoka", "food_delivery", accountId);
 const world = (rows: readonly Transaction[], accounts: Account[] = [checking], today = TODAY) => behaviourOf(createContext(rows, accounts, today));
@@ -70,20 +63,9 @@ describe("gambling stakes", () => {
 });
 
 describe("cost", () => {
-  it("counts a household of 100 000 rows in under 100 ms", () => {
-    const merchants: [string, string][] = [["Esimerkkikauppa", "groceries"], ["Esimerkkiruoka", "food_delivery"], ["Esimerkkipelit", "gambling"], ["Kahvila", "restaurants"]];
-    const rows = Array.from({ length: 100_000 }, (_, i) => {
-      const [merchant, category] = merchants[i % 4]!;
-      return paid(addDays("2023-10-01", Math.floor(i / 90)), 500 + (i % 3_000), merchant, category, i % 3 ? "acc-1" : "card-1");
-    });
-    const ctx = createContext(rows, [checking, card], TODAY);
-    // the CPU time of the best of five runs, each on a fresh copy of the context (the result is cached per context): the
-    // budget is for the counting. A loaded machine slows a single run several times over, and still makes the best one
-    // cost more, so the budget stretches as the calibration runs slower than idle (tools/lib/timing.ts)
-    let copy = { ...ctx };
-    const before = calibrate();
-    const { ms } = bestOfSync(5, () => behaviourOf(copy), () => void (copy = { ...ctx }));
-    expect(ms).toBeLessThan(100 * slowerNow(before));
+  // the time of this is in behaviour-coverage.perf.test.ts
+  it("counts a household of 100 000 rows", () => {
+    const ctx = createContext(householdRows(), [checking, card], TODAY);
     expect(behaviourOf(ctx).groceries.week.visits).toBeGreaterThan(0);
   }, 60_000);
 });

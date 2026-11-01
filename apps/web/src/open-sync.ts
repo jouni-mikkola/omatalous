@@ -1,4 +1,5 @@
-import { clockTime, dayMonth, localDay } from "./format.ts";
+import { dateTime, localDay } from "./format.ts";
+import { t } from "./text.ts";
 
 /** What `POST /api/sync/open` answers: whether rows were fetched when the app was opened, and when. */
 export type OpenSync = {
@@ -8,30 +9,36 @@ export type OpenSync = {
   nextAt: string | null;
 };
 
-/** A time as the page reads it: "klo 18.02", and with the date in front when it is not today, "12.10. klo 18.02". */
-function stamp(iso: string, now: Date): string {
-  const day = localDay(iso);
-  return `${day === localDay(now.toISOString()) ? "" : `${dayMonth(day)} `}klo ${clockTime(iso)}`;
-}
+/** A time as the page reads it: "23.10. klo 18.02", with the year when it is not this year. */
+const stamp = (iso: string, now: Date): string => dateTime(iso, localDay(now.toISOString()));
 
-/** The one line at the top of the page, or null when there is nothing to say. */
-export function lineText(answer: OpenSync | null, now: Date): string | null {
+/**
+ * What the foot of the page says about the last fetch, or null when there is nothing to say: "Päivitetty 23.10. klo 18.15",
+ * that a fetch is running, or that the bank holds the next one back. A failed fetch is not here: it rises to the top
+ * of the page (`failureText`).
+ */
+export function footText(answer: OpenSync | null, now: Date): string | null {
   if (!answer) return null;
   const { state, lastAt, nextAt } = answer;
   switch (state) {
     case "fresh":
-      return lastAt ? `Tapahtumat päivitetty ${stamp(lastAt, now)}` : null;
+      return lastAt ? t("sync.updated", { stamp: stamp(lastAt, now) }) : null;
     case "running":
-      return "Haetaan tapahtumia pankista…";
+      return t("sync.running");
     case "limited": {
-      const limit = `Pankki rajoittaa hakukertoja${nextAt ? `, seuraava haku ${stamp(nextAt, now)}` : ""}.`;
-      return lastAt ? `Tapahtumat päivitetty ${stamp(lastAt, now)}. ${limit}` : limit;
+      const limit = nextAt ? t("sync.next", { stamp: stamp(nextAt, now) }) : t("sync.no_next");
+      return lastAt ? t("sync.limited", { updated: t("sync.updated", { stamp: stamp(lastAt, now) }), limit }) : limit;
     }
-    case "failed":
-      return `Tapahtumien haku pankista epäonnistui.${lastAt ? ` Edellinen haku ${stamp(lastAt, now)}.` : ""}`;
     default:
       return null;
   }
+}
+
+/** The exception that rises to the top of the page: the fetch failed. Everything else is quiet. */
+export function failureText(answer: OpenSync | null, now: Date): string | null {
+  if (answer?.state !== "failed") return null;
+  const failed = t("sync.failed");
+  return answer.lastAt ? t("sync.failed_last", { failed, stamp: stamp(answer.lastAt, now) }) : failed;
 }
 
 /** The page asks when it was never asked, or the last question is a minute old. */

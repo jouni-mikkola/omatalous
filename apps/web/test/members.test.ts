@@ -12,7 +12,7 @@ describe("memberInstructions", () => {
       "Omatalous: http://192.168.1.50:8080",
       "Käyttäjätunnus: anna",
       "Väliaikainen salasana: k3f9-2mxq",
-      "Salasana pitää vaihtaa ensimmäisellä kirjautumiskerralla.",
+      "Jäsenen pitää vaihtaa salasana ensimmäisellä kirjautumiskerralla.",
     ]);
   });
 });
@@ -23,7 +23,7 @@ describe("the new member's password box", () => {
   it("shows the password once and offers Kopioi ohje", () => {
     const html = box("anna", "k3f9-2mxq");
     expect(html).toContain("<code>k3f9-2mxq</code>");
-    expect(html).toContain("Näytetään vain kerran.");
+    expect(html).toContain("Näet tämän vain kerran.");
     expect(html).toContain(">Kopioi ohje</button>");
   });
 
@@ -33,13 +33,12 @@ describe("the new member's password box", () => {
 });
 
 describe("the form for a new member", () => {
-  it("has a visible label per field and says the username's rule up front", () => {
+  it("is closed behind one Lisää jäsen button until it is asked for", () => {
     const user = { id: "u1", username: "admin", displayName: "Admin", role: "admin" } as never;
     vi.stubGlobal("window", { location: { origin: ADDRESS } });
-    const html = renderToStaticMarkup(createElement(Members, { me: user, onChange: () => {} }));
+    const html = renderToStaticMarkup(createElement(Members, { me: user, meta: { accounts: [] } as never, onChange: () => {} }));
     vi.unstubAllGlobals();
-    for (const label of ["Käyttäjätunnus", "Nimi", "Rooli"]) expect(html).toContain(`<label class="field">${label}`);
-    expect(html).toContain("3–32 merkkiä: kirjaimet, numerot, piste, alaviiva tai viiva");
-    expect(html).not.toContain("placeholder=");
+    expect(html).toContain(">Lisää jäsen</button>");
+    expect(html).not.toContain("<form");
   });
 });

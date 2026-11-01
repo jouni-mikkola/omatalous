@@ -1,2 +1,4 @@
 /* Ruoka on Raportit (sections/Food.tsx): an opened line holds its parts under each other. */
+@layer pages {
 .food-open { display: grid; gap: 12px; }
+}

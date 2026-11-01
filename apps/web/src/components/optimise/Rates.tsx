@@ -6,7 +6,8 @@
  */
 import { type LoanRates, RATE_MOVES_BP, type RateMove } from "@banking/core";
 import { logoForInstitution } from "../../banks.ts";
-import { money, rateText } from "../../format.ts";
+import { money, plainNumber, rateText } from "../../format.ts";
+import { t } from "../../text.ts";
 import { useMeta } from "../../hooks.ts";
 import { BankLogo } from "../BankLogo.tsx";
 import { Section } from "../Section.tsx";
@@ -16,9 +17,9 @@ import { type Column, Table } from "../table/Table.tsx";
 /** "Viitekorko laskee 1 prosenttiyksikön", "Viitekorko nousee 2 prosenttiyksikköä": the move as words, no abbreviation. */
 export const shiftHead = (bp: number) => {
   const n = Math.abs(bp / 100);
-  return `Viitekorko ${bp < 0 ? "laskee" : "nousee"} ${n.toLocaleString("fi-FI")} ${n === 1 ? "prosenttiyksikön" : "prosenttiyksikköä"}`;
+  return t(`ow.rt_${bp < 0 ? "down" : "up"}_${n === 1 ? "one" : "many"}`, { n: plainNumber(n) });
 };
-const unit = (months: number | null) => (months === null || months === 1 ? "kuussa" : `${months} kuukauden välein`);
+const unit = (months: number | null) => (months === null || months === 1 ? t("ow.rt_unit_month") : t("ow.rt_unit_every", { months }));
 const signed = (cents: number) => `${cents > 0 ? "+" : cents < 0 ? "−" : "±"}${money(Math.abs(cents))}`;
 
 function MoveCell({ move, months }: { move: RateMove | undefined; months: number | null }) {
@@ -28,8 +29,8 @@ function MoveCell({ move, months }: { move: RateMove | undefined; months: number
       <span className="rate-pay">{money(move.paymentCents)}</span>
       <span className="sr-only"> {unit(months)}</span>
       {move.paymentChangeCents ? <DeltaChip delta={move.paymentChangeCents} text={signed(move.paymentChangeCents)} meaning="spend" /> : null}
-      {move.interestCents !== null && <span className="sub">korkoa {money(move.interestCents, false)} vuodessa</span>}
-      {move.movedBp !== null && move.movedBp !== move.shiftBp && <span className="sub">korko laskee vain {rateText(Math.abs(move.movedBp))} prosenttiyksikköä</span>}
+      {move.interestCents !== null && <span className="sub">{t("ow.rt_interest", { amount: money(move.interestCents, false) })}</span>}
+      {move.movedBp !== null && move.movedBp !== move.shiftBp && <span className="sub">{t("ow.rt_moved_only", { n: rateText(Math.abs(move.movedBp)) })}</span>}
     </>
   );
 }
@@ -43,18 +44,18 @@ export function Rates({ rates }: { rates: readonly LoanRates[] }) {
   return (
     <Section
       id="korot"
-      title="Mitä koron nousu tai lasku tekisi lainoille?"
-      sub={moving && up?.paymentChangeCents != null ? `${moving.name}: jos viitekorko nousee yhden prosenttiyksikön, erä kasvaa ${money(up.paymentChangeCents)} ${unit(moving.intervalMonths)}.` : undefined}
+      title={t("ow.rt_title")}
+      sub={moving && up?.paymentChangeCents != null ? t("ow.rt_sub", { name: moving.name, amount: money(up.paymentChangeCents), unit: unit(moving.intervalMonths) }) : undefined}
     >
       <Table<LoanRates>
-        caption="Korkojen muutosten vaikutus lainoihin"
+        caption={t("ow.rt_caption")}
         className="rates"
         rows={[...rates]}
         rowKey={(l) => l.loanId}
         columns={[
           {
             key: "loan",
-            label: "Laina",
+            label: t("ow.rt_loan"),
             kind: "text",
             rowHead: true,
             cell: (l) => {
@@ -64,17 +65,17 @@ export function Rates({ rates }: { rates: readonly LoanRates[] }) {
                   <MarkCell name={l.name} mark={src ? <BankLogo src={src} name={l.lender ?? l.name} size="sm" /> : undefined}>
                     <span className="rt-who-text">
                       <span>{l.name}</span>
-                      {l.balanceCents !== null && <span className="sub">{money(l.balanceCents, false)} jäljellä</span>}
+                      {l.balanceCents !== null && <span className="sub">{t("ow.rt_left", { amount: money(l.balanceCents, false) })}</span>}
                     </span>
                   </MarkCell>
-                  {!l.moves.length && <span className="sub rates-fixed">{l.reference === null || l.rateBp === null ? "Viitekorkoa tai korkoa ei ole kerrottu." : "Kiinteä korko: viitekoron muutos ei muuta erää."}</span>}
+                  {!l.moves.length && <span className="sub rates-fixed">{l.reference === null || l.rateBp === null ? t("ow.rt_unknown") : t("ow.rt_fixed")}</span>}
                 </>
               );
             },
           },
           {
             key: "rate",
-            label: "Korko nyt",
+            label: t("ow.rt_rate_now"),
             kind: "count",
             cell: (l) => (
               <>
@@ -85,13 +86,13 @@ export function Rates({ rates }: { rates: readonly LoanRates[] }) {
           },
           {
             key: "payment",
-            label: "Erä nyt",
+            label: t("ow.rt_pay_now"),
             kind: "money",
             main: true,
             cell: (l) => (
               <>
                 {l.paymentCents !== null ? money(l.paymentCents) : "–"}
-                {l.interestCents !== null && <span className="sub">korkoa {money(l.interestCents, false)} vuodessa</span>}
+                {l.interestCents !== null && <span className="sub">{t("ow.rt_interest", { amount: money(l.interestCents, false) })}</span>}
               </>
             ),
           },

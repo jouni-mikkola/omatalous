@@ -8,14 +8,16 @@ import type { IsoDate } from "../types.ts";
 import type { AnalysisTx } from "./context.ts";
 import { accountCovers } from "./coverage.ts";
 import { formatFiDate } from "./format.ts";
-import { INCOME_TYPES, type IncomeType, payerKey } from "./income.ts";
-import { COUNT_INESSIVE, eur, type IncomeBase, type IncomeChange, inessive, isKela, passes, shortDate } from "./income-series.ts";
+import { type IncomeType, payerKey } from "./income.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
+import { eur, type IncomeBase, type IncomeChange, isKela, monthIn, passes, shortDate, typeName } from "./income-series.ts";
 import { isOtherTaxText, isResidualTaxText } from "../wording.ts";
 
 const NEW_SOURCE_DAYS = 92;
 const NEVER_NEW: ReadonlySet<IncomeType> = new Set(["tax_refund", "holiday_pay", "other_pay", "persons", "refunds"]);
 
-export function newSources(b: IncomeBase, skip: ReadonlySet<string>): IncomeChange[] {
+export function newSources(b: IncomeBase, skip: ReadonlySet<string>, lang: Language = DEFAULT_LANGUAGE): IncomeChange[] {
   const byPayer = new Map<string, AnalysisTx[]>();
   for (const t of b.rows) {
     const type = b.types.get(t.id)!;
@@ -39,8 +41,8 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>): IncomeChan
       kind: "new_source",
       type: b.types.get(first.id)!,
       payer: first.merchant,
-      title: `Uusi tulo: ${first.merchant}, ${eur(total)} ${months === 1 ? "kuukaudessa" : `${COUNT_INESSIVE[months]} kuukaudessa`}`,
-      detail: rows.length === 1 ? `Yksi maksu ${formatFiDate(first.bookingDate)}.` : `${rows.length} maksua ${formatFiDate(first.bookingDate)} alkaen.`,
+      title: messageIn(lang, `inc.new_${months as 1 | 2 | 3}`, { name: first.merchant, amount: eur(total, lang) }),
+      detail: rows.length === 1 ? messageIn(lang, "inc.new_one", { date: formatFiDate(first.bookingDate, lang) }) : messageIn(lang, "inc.new_many", { n: rows.length, date: formatFiDate(first.bookingDate, lang) }),
       monthlyCents: Math.round(total / 3),
       yearlyCents: Math.round((total / 3) * 12),
       txIds: rows.map((t) => t.id),
@@ -52,22 +54,26 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>): IncomeChan
 const WINDFALL_TYPES: readonly IncomeType[] = ["holiday_pay", "other_pay", "tax_refund"];
 const WINDFALL_DAYS = 60;
 
-export function windfalls(b: IncomeBase): IncomeChange[] {
+export function windfalls(b: IncomeBase, lang: Language = DEFAULT_LANGUAGE): IncomeChange[] {
   const out: IncomeChange[] = [];
   const endDay = dayNumber(b.end);
   for (const type of WINDFALL_TYPES) {
     const of = b.rows.filter((t) => b.types.get(t.id) === type && t.amountCents > 0);
     const recent = of.filter((t) => endDay - t.day <= WINDFALL_DAYS);
-    const label = INCOME_TYPES[type].label;
+    const label = typeName(type, lang);
     if (recent.length) {
       const total = recent.reduce((s, t) => s + t.amountCents, 0);
       const last = recent[recent.length - 1]!;
       const before = of.filter((t) => Math.abs(last.day - 365 - t.day) <= 75);
       const knows = accountCovers(b.ctx, recent.map((t) => t.accountId), fromDayNumber(last.day - 365 - 75));
       const prior = before.reduce((s, t) => s + t.amountCents, 0);
-      const detail = before.length ? `Viime vuonna ${eur(prior)} ${inessive(before[before.length - 1]!.bookingDate)}.` : knows ? "Viime vuonna samaan aikaan ei vastaavaa." : `${last.merchant}, ${recent.length} ${recent.length === 1 ? "maksu" : "maksua"}.`;
+      const detail = before.length
+        ? messageIn(lang, "inc.windfall_before", { amount: eur(prior, lang), when: monthIn(before[before.length - 1]!.bookingDate, lang) })
+        : knows
+          ? messageIn(lang, "inc.windfall_none")
+          : messageIn(lang, recent.length === 1 ? "inc.windfall_pay_1" : "inc.windfall_pay_n", { name: last.merchant, n: recent.length });
       if (!passes(b, total / 12)) continue;
-      out.push({ id: `income:windfall:${type}:${last.bookingDate}`, kind: "windfall", type, payer: last.merchant, title: `${label} ${eur(total)} tuli ${shortDate(last.bookingDate)}`, detail, monthlyCents: Math.round(total / 12), yearlyCents: total, txIds: recent.map((t) => t.id) });
+      out.push({ id: `income:windfall:${type}:${last.bookingDate}`, kind: "windfall", type, payer: last.merchant, title: messageIn(lang, "inc.windfall", { label, amount: eur(total, lang), date: shortDate(last.bookingDate, lang) }), detail, monthlyCents: Math.round(total / 12), yearlyCents: total, txIds: recent.map((t) => t.id) });
       continue;
     }
     // in spring, last summer's holiday pay: when it came and how much
@@ -79,7 +85,7 @@ export function windfalls(b: IncomeBase): IncomeChange[] {
     const total = summer.reduce((s, t) => s + t.amountCents, 0);
     if (!passes(b, total / 12)) continue;
     const first = summer[0]!;
-    out.push({ id: `income:windfall-ahead:${lastYear}`, kind: "windfall_ahead", type, payer: first.merchant, title: `Lomaraha viime vuonna ${eur(total)} ${inessive(first.bookingDate)}`, detail: `${first.merchant}, ${formatFiDate(first.bookingDate)}.`, monthlyCents: Math.round(total / 12), yearlyCents: total, txIds: summer.map((t) => t.id) });
+    out.push({ id: `income:windfall-ahead:${lastYear}`, kind: "windfall_ahead", type, payer: first.merchant, title: messageIn(lang, "inc.windfall_ahead", { amount: eur(total, lang), when: monthIn(first.bookingDate, lang) }), detail: `${first.merchant}, ${formatFiDate(first.bookingDate, lang)}.`, monthlyCents: Math.round(total / 12), yearlyCents: total, txIds: summer.map((t) => t.id) });
   }
   return out;
 }
@@ -89,7 +95,7 @@ const TAX_OFFICE = /(?<![A-Z])VEROHALLINTO(?![A-Z])/;
 /** The tax year whose residual tax a row pays: August to December of the year, or January after it. */
 const taxSeason = (d: IsoDate) => (d.slice(5, 7) >= "08" ? Number(d.slice(0, 4)) : d.slice(5, 7) === "01" ? Number(d.slice(0, 4)) - 1 : null);
 
-export function residualTax(b: IncomeBase): IncomeChange | null {
+export function residualTax(b: IncomeBase, lang: Language = DEFAULT_LANGUAGE): IncomeChange | null {
   const seasons = new Map<number, AnalysisTx[]>();
   for (const t of b.ctx.txs) {
     if (t.bookingDate > b.end || t.amountCents >= 0 || t.category !== "taxes") continue;
@@ -106,7 +112,7 @@ export function residualTax(b: IncomeBase): IncomeChange | null {
     // with only a reference: two payments to Verohallinto about two months apart
     const paired = rows.filter((t) => rows.some((o) => o !== t && Math.abs(Math.abs(o.day - t.day) - 61) <= 10));
     const used = worded.length ? worded : paired;
-    return { rows: used, cents: -used.reduce((s, t) => s + t.amountCents, 0) };
+    return { rows: used, cents: used.reduce((s, t) => s - t.amountCents, 0) };
   };
   const latest = [...seasons.keys()].sort().pop();
   if (latest === undefined) return null;
@@ -115,14 +121,15 @@ export function residualTax(b: IncomeBase): IncomeChange | null {
   if (!lastRow || now.cents < 10000 || dayNumber(b.end) - lastRow.day > 120) return null;
   const prev = sumOf(latest - 1);
   const knows = accountCovers(b.ctx, now.rows.map((t) => t.accountId), `${latest - 1}-08-01`);
-  const parts = COUNT_INESSIVE[Math.min(now.rows.length, 4)] ?? `${now.rows.length}`;
-  const detail = prev.cents >= 10000 ? `Toinen vuosi peräkkäin, viime vuonna ${eur(prev.cents)}.` : knows ? "Viime vuonna ei jäännösveroa." : `Viimeinen erä ${formatFiDate(lastRow.bookingDate)}.`;
+  const parts = Math.min(now.rows.length, 4) as 1 | 2 | 3 | 4;
+  const detail = prev.cents >= 10000 ? messageIn(lang, "inc.tax_second", { amount: eur(prev.cents, lang) }) : knows ? messageIn(lang, "inc.tax_none") : messageIn(lang, "inc.tax_last", { date: formatFiDate(lastRow.bookingDate, lang) });
   return {
     id: `income:residual-tax:${latest}`,
     kind: "residual_tax",
+    ...(prev.cents >= 10000 || knows ? { beforeCents: prev.cents } : { unknownBefore: lastRow.bookingDate }),
     type: null,
     payer: lastRow.merchant,
-    title: `Jäännösveroa ${eur(now.cents)} ${parts} erässä`,
+    title: messageIn(lang, `inc.tax_${parts}`, { amount: eur(now.cents, lang) }),
     detail,
     monthlyCents: -Math.round(now.cents / 12),
     yearlyCents: now.cents,

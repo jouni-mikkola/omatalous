@@ -68,14 +68,14 @@ export async function resetData(s: Services, user: User, input: { password?: unk
     if (!sessionId || !(await s.users.getSession(sessionId))) {
       return await refuse("istunto päättynyt", new HttpUserError("Istunto on päättynyt. Kirjaudu sisään uudelleen.", 409));
     }
-    const notAdmin = () => refuse("ei ylläpitäjä", new HttpUserError("Tunnuksesi ei ole enää ylläpitäjä, joten mitään ei tyhjennetty.", 403));
+    const notAdmin = () => refuse("ei ylläpitäjä", new HttpUserError("Tunnuksesi ei ole enää ylläpitäjä, joten emme tyhjentäneet mitään.", 403));
     // the asker as the database has them now, before a consent is ended
     if ((await s.users.get(user.id))?.role !== "admin") return await notAdmin();
     if (await s.ops.hasActiveMutating(READ_ONLY)) await deny(busy());
     const file = await s.users.databaseFile();
     const db = s.db as typeof s.db & { exec?: (sql: string) => void };
     if (!file || typeof db.exec !== "function") {
-      return await refuse("ei tietokantatiedostoa", new HttpUserError("Tietokannasta ei saa tässä asennuksessa varmuuskopiota, joten mitään ei tyhjennetty.", 503));
+      return await refuse("ei tietokantatiedostoa", new HttpUserError("Tietokannasta ei saa tässä asennuksessa varmuuskopiota, joten emme tyhjentäneet mitään.", 503));
     }
     // a bank fetch or a scheduled run would write rows after the copy: they would be in neither
     if (inflightCount() > 0) await refuse("haku kesken", new HttpUserError("Tietojen haku on kesken. Yritä hetken päästä uudelleen.", 409));
@@ -93,7 +93,7 @@ export async function resetData(s: Services, user: User, input: { password?: unk
       if (!check.ok) throw new Error(`the copy ${basename(copy)} failed its check: ${check.reason}`);
     } catch (err) {
       console.error("data reset: the copy could not be made, nothing was deleted:", told(s, err));
-      return await refuse("varmuuskopio epäonnistui", new HttpUserError("Varmuuskopion teko epäonnistui, joten mitään ei tyhjennetty.", 503));
+      return await refuse("varmuuskopio epäonnistui", new HttpUserError("Varmuuskopion teko epäonnistui, joten emme tyhjentäneet mitään.", 503));
     }
 
     // 2. the consents, while the keys exist
@@ -119,7 +119,7 @@ export async function resetData(s: Services, user: User, input: { password?: unk
       console.error("data reset: the delete failed and was rolled back:", told(s, err));
       await recordEvent(s, { kind: "ops_denied", userId: user.id, ...req, detail: `${WHAT}: tyhjennys epäonnistui, varmuuskopio ${basename(copy)}, ${counts}` });
       throw new HttpUserError(
-        bank.revoked ? "Tietojen tyhjennys epäonnistui, ja tiedot ovat ennallaan. Pankkiyhteydet ehdittiin lopettaa: yhdistä pankki uudelleen." : "Tietojen tyhjennys epäonnistui, ja tiedot ovat ennallaan.",
+        bank.revoked ? "Tietojen tyhjennys epäonnistui, ja tietosi ovat ennallaan. Ehdimme lopettaa pankkiyhteydet: yhdistä pankki uudelleen." : "Tietojen tyhjennys epäonnistui, ja tietosi ovat ennallaan.",
         503,
       );
     }

@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
-import { bannersOf, type SecurityNotice } from "./notices.ts";
-
+import { t } from "../text.ts";
+import { bannersOf, noticeText, type SecurityNotice } from "./notices.ts";
+import { Button } from "./ui/Button.tsx";
+import { Notice } from "./ui/Notice.tsx";
+import { settingsHash } from "../routes.ts";
 /**
  * The notice of the server that stays a banner on every page (`BANNER_KINDS`: a damaged database). Every other notice is a
  * row of Ilmoitukset on Yhteenveto.
@@ -15,23 +18,22 @@ export function SecurityNotices() {
   return (
     <div role="status">
       {banners.map((n) => (
-        <div key={n.id} className="notice warning">
-          {n.text} <a href="#/settings?section=security">Turvallisuus</a>
-        </div>
+        <Notice key={n.id} tone="warning">
+          {noticeText(n)} <a href={settingsHash("security")}>{t("notice.security")}</a>
+        </Notice>
       ))}
-      <div className="form-row" style={{ marginTop: -8 }}>
-        <button
-          className="btn btn-small"
-          type="button"
+      <div className="form-row pull">
+        <Button
+          
           onClick={() => {
             api("/api/security/notices/seen", { method: "POST" })
               .then(reload)
               .catch((e: Error) => setError(e.message));
           }}
         >
-          Kuittaa
-        </button>
-        {error && <span className="error">{error}</span>}
+          {t("notice.read")}
+        </Button>
+        {error && <span className="field-error">{error}</span>}
       </div>
     </div>
   );

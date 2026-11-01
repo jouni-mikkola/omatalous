@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript6";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const isTest = (/** @type {string} */ f) => /(^|\/)(test|fixtures)\//.test(f) || /\.(test|spec)\.(tsx?|sh)$/.test(f);

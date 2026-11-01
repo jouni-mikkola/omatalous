@@ -46,3 +46,8 @@ export const isCarBrandName = (folded: string) => BRANDS.test(folded) && !OTHER_
 /** A folded brand name that is no garage, parts shop, inspection or car park: the maker's showroom. */
 export const isCarBrandDealer = (folded: string) =>
   isCarBrandName(folded) && !UPKEEP_WORDS.test(folded) && !isCarServiceText(folded) && !isInspectionText(folded) && !isParkingText(folded);
+
+/** A payment to a car dealer buys the car from this sum on; under it the row is the car's upkeep. */
+const CAR_PRICE_CENTS = 150_000;
+/** The category of a car dealer's row by its sum. Money in follows the same sum: a deposit paid back is the purchase's. */
+export const dealerCategory = (amountCents: number) => (Math.abs(amountCents) >= CAR_PRICE_CENTS ? "vehicle_purchase" : "car");

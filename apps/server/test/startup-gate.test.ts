@@ -445,13 +445,13 @@ describe("what the admins are told", () => {
     const { s, adminId, member } = await setupApp();
     const eero = await member("eero");
     const event = gateEvent({ state: "restored", lines: [], cause: "damaged", copy: { name: "auto-2026-10-10.db", at: DAY_10 } }, time);
-    expect(event).toEqual({ kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta auto-2026-10-10.db (10.10. klo 03.15)" });
+    expect(event).toEqual({ kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta auto-2026-10-10.db (10.10. klo 03.15)" });
     await recordEvent(s, { ...event, userId: adminId, notify: true });
 
     expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => [n.kind, n.text])).toEqual([
       [
         "db_restored",
-        "Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta auto-2026-10-10.db (10.10. klo 03.15). Sen jälkeen tehdyt muutokset menetettiin. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.",
+        "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta auto-2026-10-10.db (10.10. klo 03.15). Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.",
       ],
     ]);
     expect(await noticesFor(s, { id: eero.id, role: "member" })).toEqual([]);
@@ -461,10 +461,10 @@ describe("what the admins are told", () => {
     const { s, adminId } = await setupApp();
     const name = `${"k".repeat(99)}.db`;
     const event = gateEvent({ state: "restored", lines: [], cause: "requested", copy: { name, at: DAY_11 } }, time);
-    expect(event.detail).toBe(`Tietokanta palautettiin varmuuskopiosta ${name} (11.10. klo 03.15)`);
+    expect(event.detail).toBe(`Palautimme tietokannan varmuuskopiosta ${name} (11.10. klo 03.15)`);
     await recordEvent(s, { ...event, userId: adminId, notify: true });
     expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.text)).toEqual([
-      `Tietokanta palautettiin varmuuskopiosta ${name} (11.10. klo 03.15). Sen jälkeen tehdyt muutokset menetettiin. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.`,
+      `Palautimme tietokannan varmuuskopiosta ${name} (11.10. klo 03.15). Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.`,
     ]);
     // the damaged case is the longer sentence
     expect(gateEvent({ state: "restored", lines: [], cause: "damaged", copy: { name, at: DAY_11 } }, time).detail.length).toBeLessThanOrEqual(200);
@@ -476,7 +476,7 @@ describe("what the admins are told", () => {
     expect(event).toEqual({ kind: "db_damaged", detail: "quick_check: *** in database main ***" });
     await recordEvent(s, { ...event, userId: adminId, notify: true });
     expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => [n.kind, n.text])).toEqual([
-      ["db_damaged", "Tietokanta on vaurioitunut, eikä ehjää varmuuskopiota löytynyt. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md."],
+      ["db_damaged", "Tietokanta on vaurioitunut, emmekä löytäneet ehjää varmuuskopiota. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md."],
     ]);
   });
 
@@ -490,14 +490,14 @@ describe("what the admins are told", () => {
     const name = `${"k".repeat(99)}.db`;
     await recordEvent(s, { ...gateEvent({ state: "damaged", lines: [], reason: "x", waiting: { name, why: "y".repeat(200) } }, time), userId: adminId, notify: true });
 
-    const tail = "on tallessa, mutta sitä ei saatu käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: varmuuskopio palautetaan käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.";
+    const tail = "on tallessa, mutta emme saaneet sitä käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: sovellus palauttaa varmuuskopion käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.";
     const texts = (await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.text);
     expect(texts).toEqual([`Tietokanta on vaurioitunut. Ehjä varmuuskopio auto-2026-10-11.db ${tail}`, `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${name} ${tail}`]);
     for (const text of texts) expect(text).not.toMatch(/eikä ehjää varmuuskopiota löytynyt/);
   });
 
   it("after a start that only finished an earlier one: the restore without the copy's name", () => {
-    expect(gateEvent({ state: "restored", lines: [], cause: "damaged", copy: null }, time)).toEqual({ kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta" });
+    expect(gateEvent({ state: "restored", lines: [], cause: "damaged", copy: null }, time)).toEqual({ kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta" });
   });
 
   it("tells a database that stays damaged once, and again when the notice would read differently", () => {
@@ -513,7 +513,7 @@ describe("what the admins are told", () => {
     expect(isNews(waits, [{ kind: "db_damaged", detail: "varmuuskopio auto-2026-10-10.db odottaa: ENOSPC" }])).toBe(true);
     expect(isNews(none, [waits])).toBe(true);
     // a restore is told every time
-    expect(isNews({ kind: "db_restored", detail: "Tietokanta palautettiin varmuuskopiosta" }, [{ kind: "db_restored", detail: "Tietokanta palautettiin varmuuskopiosta" }])).toBe(true);
+    expect(isNews({ kind: "db_restored", detail: "Palautimme tietokannan varmuuskopiosta" }, [{ kind: "db_restored", detail: "Palautimme tietokannan varmuuskopiosta" }])).toBe(true);
   });
 });
 
@@ -570,7 +570,7 @@ describe("the entry point", () => {
     expect(err).toMatch(/^database: .+banking\.db was damaged \(.+\)\. It was moved to .+banking-\d{8}T\d{6}\.db and backups\/auto-2026-10-11\.db/m);
     expect(readdirSync(h.damaged).filter((f) => f.endsWith(".db"))).toHaveLength(1);
     expect(events(h.path)).toEqual([
-      { user_id: "u-aino", kind: "db_restored", detail: expect.stringMatching(/^Tietokanta oli vaurioitunut\. Se palautettiin varmuuskopiosta auto-2026-10-11\.db \(11\.10\. klo \d\d\.15\)$/), notify: 1, seen_at: null },
+      { user_id: "u-aino", kind: "db_restored", detail: expect.stringMatching(/^Tietokanta oli vaurioitunut\. Palautimme sen varmuuskopiosta auto-2026-10-11\.db \(11\.10\. klo \d\d\.15\)$/), notify: 1, seen_at: null },
     ]);
   }, 120_000);
 
@@ -586,7 +586,7 @@ describe("the entry point", () => {
     expect(second.out).toMatch(/listening on/);
     expect(users(h.path)).toEqual(["aino"]);
     // the admin is told by the start that finished it, and not again
-    expect(events(h.path)).toEqual([{ user_id: "u-aino", kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta", notify: 1, seen_at: null }]);
+    expect(events(h.path)).toEqual([{ user_id: "u-aino", kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta", notify: 1, seen_at: null }]);
   }, 120_000);
 
   it("leaves an admin one unread notice of a database that stays damaged, whatever the number of starts", async () => {

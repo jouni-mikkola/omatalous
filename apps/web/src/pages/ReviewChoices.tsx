@@ -4,26 +4,28 @@
  */
 import { LOAN_KIND_ANSWERS, type LoanKind, loanKindSubject, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
 import type { Loan } from "@banking/core";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
-import { formOfProposal } from "../components/loans/form.ts";
+import { formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
+import type { LoanFieldKey } from "../components/loans/labels.ts";
 import { editorHelp } from "../components/loans/proposal-words.ts";
 import { InputForm } from "../components/optimise/Inputs.tsx";
 import { useApi } from "../hooks.ts";
-import { SETTINGS_ANCHOR } from "../routes.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 import type { Category, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
 import { type Choice, extensionChoices, groupCategories, loanKindChoices, MAX_PLAN_PAYMENTS, offeredCategories, payerChoices, planEnd, type ReviewItem } from "./review-items.ts";
-
+import { Button } from "../components/ui/Button.tsx";
+import { t } from "../text.ts";
+import { useModal } from "../components/useModal.ts";
 /** One large button. It carries the wait while its own answer is on its way; the others are only held. */
-export function ChoiceButton({ primary = false, className = "btn review-choice", busy, label, onClick, children }: { primary?: boolean; className?: string; busy: boolean; label?: string; onClick: () => void; children: React.ReactNode }) {
+export function ChoiceButton({ primary = false, className = "review-choice", busy, label, onClick, children }: { primary?: boolean; className?: string; busy: boolean; label?: string; onClick: () => void; children: React.ReactNode }) {
   const [pressed, setPressed] = useState(false);
   if (pressed && !busy) setPressed(false);
   return (
-    <button
+    <Button
       className={`${className}${primary ? " is-guess" : ""}`}
-      type="button"
       disabled={busy}
       aria-busy={(busy && pressed) || undefined}
       aria-label={label}
@@ -33,7 +35,7 @@ export function ChoiceButton({ primary = false, className = "btn review-choice",
       }}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -43,7 +45,7 @@ function Buttons<T>({ choices, busy, label, onPick }: { choices: Choice<T>[]; bu
     <div className="review-choices">
       {choices.map((c) => (
         <ChoiceButton key={c.label} primary={c.guess} busy={busy} label={label(c)} onClick={() => onPick(c.value)}>
-          <span>{c.label}</span> {c.guess && <span className="review-guess">Ehdotus</span>}
+          <span>{c.label}</span> {c.guess && <span className="review-guess">{t("set.rc.suggestion")}</span>}
         </ChoiceButton>
       ))}
     </div>
@@ -57,7 +59,7 @@ const mark = (subject: string, value: string) => () => api("/api/marks", { metho
 
 export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
-  const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} Ehdotus` : c.label);
+  const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
   switch (item.kind) {
     case "payee_out":
     case "payee_in":
@@ -88,18 +90,18 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
       );
     }
     case "subscription":
-      return <Buttons choices={[plain("Käytössä", "in_use"), plain("Lopetettu", "cancelled")]} busy={busy} label={named} onPick={(value) => onAnswer(mark(item.subject, value))} />;
+      return <Buttons choices={[plain(t("set.rc.in_use"), "in_use"), plain(t("set.rc.ended"), "cancelled")]} busy={busy} label={named} onPick={(value) => onAnswer(mark(item.subject, value))} />;
     case "input":
-      return <InputForm inputKey={item.key} today={meta.today} scope="own" answer={onAnswer} waiting={busy} />;
+      return <InputForm inputKey={item.key} today={meta.today} scope="own" answer={onAnswer} waiting={busy} quiet />;
     case "mortgage":
       // adding the loan is done on its own page; the question goes once the loan is saved
       return (
         <div className="review-choices">
-          <a className="btn review-choice" href={`#/settings#${SETTINGS_ANCHOR.loans}`}>
-            Lisää asuntolaina
-          </a>
+          <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.loans)}>
+            {t("set.rc.add_a_home_loan")}
+          </Button>
           <ChoiceButton busy={busy} onClick={() => onAnswer(mark(MORTGAGE_QUESTION, "dismissed"))}>
-            <span>Ei asuntolainaa</span>
+            <span>{t("set.rc.no_home_loan")}</span>
           </ChoiceButton>
         </div>
       );
@@ -123,12 +125,12 @@ function CategoryChoices({ item, categories, busy, onPick }: { item: Extract<Rev
       <div className="review-choices">
         {picks.map((c) => (
           <ChoiceButton key={c.id} primary={c.id === guess?.category} busy={busy} onClick={() => onPick(c.id)}>
-            <span>{c.label}</span> {c.id === guess?.category && <span className="review-guess">Ehdotus</span>}
+            <span>{c.label}</span> {c.id === guess?.category && <span className="review-guess">{t("set.rc.suggestion")}</span>}
           </ChoiceButton>
         ))}
-        <button className="btn review-choice" type="button" disabled={busy} aria-haspopup="dialog" onClick={() => setSheet(true)}>
-          Muu kategoria…
-        </button>
+        <Button className="review-choice" disabled={busy} aria-haspopup="dialog" onClick={() => setSheet(true)}>
+          {t("set.rc.other_category")}
+        </Button>
         {sheet && (
           <CategorySheet
             categories={offered}
@@ -140,20 +142,15 @@ function CategoryChoices({ item, categories, busy, onPick }: { item: Extract<Rev
           />
         )}
       </div>
-      {guess && <p className="review-note">Ehdotuksen peruste: {why}.</p>}
+      {guess && <p className="review-note">{t("set.rc.why", { why })}</p>}
     </>
   );
 }
 
 /** Every category the payee may take, grouped as the reports group them, with a search over the names. */
 function CategorySheet({ categories, onPick, onClose }: { categories: Category[]; onPick: (id: string) => void; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const ref = useModal();
   const [search, setSearch] = useState("");
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
-  }, []);
   const groups = groupCategories(categories, search);
   return (
     <dialog
@@ -166,13 +163,13 @@ function CategorySheet({ categories, onPick, onClose }: { categories: Category[]
       }}
     >
       <div className="review-sheet-head">
-        <h2 id="review-sheet-h">Valitse kategoria</h2>
+        <h2 id="review-sheet-h">{t("set.rc.choose_a_category")}</h2>
         <button className="review-skip" type="button" onClick={onClose}>
-          Peruuta
+          {t("set.rc.cancel")}
         </button>
       </div>
       <label className="review-plan-field">
-        <span>Hae kategoriaa</span>
+        <span>{t("set.rc.search_categories")}</span>
         <input type="search" autoFocus value={search} onChange={(e) => setSearch(e.target.value)} />
       </label>
       <div className="review-sheet-list">
@@ -181,14 +178,14 @@ function CategorySheet({ categories, onPick, onClose }: { categories: Category[]
             <h3>{group}</h3>
             <div className="review-choices">
               {list.map((c) => (
-                <button key={c.id} className="btn review-choice" type="button" onClick={() => onPick(c.id)}>
+                <Button key={c.id} className="review-choice" onClick={() => onPick(c.id)}>
                   {c.label}
-                </button>
+                </Button>
               ))}
             </div>
           </section>
         ))}
-        {groups.length === 0 && <p className="review-note">Haulla ei löydy kategoriaa.</p>}
+        {groups.length === 0 && <p className="review-note">{t("set.rc.no_category_matches_the_search")}</p>}
       </div>
     </dialog>
   );
@@ -215,12 +212,12 @@ function PlanChoices({ item, busy, onAnswer }: { item: Extract<ReviewItem, { kin
         }}
       >
         <label className="review-plan-field">
-          <span>Maksuja jäljellä</span>
+          <span>{t("set.rc.payments_left")}</span>
           <input type="number" min={1} max={MAX_PLAN_PAYMENTS} inputMode="numeric" value={left} disabled={busy} onChange={(e) => setLeft(e.target.value)} />
         </label>
-        <button className="btn review-choice" type="submit" disabled={busy || end === null} aria-busy={busy && sent === "count" ? true : undefined}>
-          Tallenna
-        </button>
+        <Button className="review-choice" type="submit" disabled={busy || end === null} aria-busy={busy && sent === "count" ? true : undefined}>
+          {t("set.rc.save")}
+        </Button>
       </form>
       <form
         className="review-plan-row"
@@ -230,16 +227,16 @@ function PlanChoices({ item, busy, onAnswer }: { item: Extract<ReviewItem, { kin
         }}
       >
         <label className="review-plan-field">
-          <span>Viimeinen kuukausi</span>
+          <span>{t("set.rc.last_month")}</span>
           <input type="month" min={monthOf(item.lastDate)} value={month} disabled={busy} onChange={(e) => setMonth(e.target.value)} />
         </label>
-        <button className="btn review-choice" type="submit" disabled={busy || !month} aria-busy={busy && sent === "month" ? true : undefined}>
-          Tallenna kuukausi
-        </button>
+        <Button className="review-choice" type="submit" disabled={busy || !month} aria-busy={busy && sent === "month" ? true : undefined}>
+          {t("set.rc.save_month")}
+        </Button>
       </form>
       <div className="review-choices">
         <ChoiceButton busy={busy} onClick={() => store(null)}>
-          En tiedä
+          {t("set.rc.i_don_t_know")}
         </ChoiceButton>
       </div>
     </div>
@@ -247,7 +244,16 @@ function PlanChoices({ item, busy, onAnswer }: { item: Extract<ReviewItem, { kin
 }
 
 /**
- * Every loan is asked one way: its kinds, the one its rows suggest first, and "Ei laina". A loan the app can place is
+ * What a proposal still asks: the rate, the way of paying back and the amount granted (the limit of a card or credit
+ * line), and the balance only where no connected loan account told it. The rows gave the rest.
+ */
+function proposalAsk(form: LoanForm): LoanFieldKey[] {
+  const own = shownFields(form).filter((key) => key === "grantedCents" || key === "limitCents" || key === "rateBp" || key === "repayment");
+  return form.values.balanceCents === "" ? ["balanceCents", ...own] : own;
+}
+
+/**
+ * Every loan is asked one way: its kinds, the one its rows suggest first, and "Ei ole laina". A loan the app can place is
  * saved with the form Asetukset > Lainat opens, filled from the rows with the kind picked; one it cannot place stores
  * the kind as the household's answer.
  */
@@ -255,7 +261,7 @@ function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem,
   const [kind, setKind] = useState<LoanKind | null>(null);
   const loans = useApi<{ loans: Loan[] }>(kind ? "/api/loans" : null);
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
-  const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} Ehdotus` : c.label);
+  const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
   if (kind && loans.data) {
     const row = { key: item.key, payee: item.payee, paymentCents: item.paymentCents, months: item.months, firstDate: item.firstDate, lastDate: item.lastDate, kind };
     const initial = formOfProposal(row, meta.today, meta.accounts, loans.data.loans);
@@ -266,7 +272,8 @@ function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem,
           <LoanEditor
             initial={initial}
             today={meta.today}
-            cancelLabel="Peruuta"
+            cancelLabel={t("set.rc.cancel")}
+            ask={proposalAsk(initial)}
             onSave={async (body) => {
               // the editor shows its own error; the page moves on only after the loan is saved
               await loanCalls.add(body);
@@ -281,7 +288,7 @@ function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem,
   const answers = LOAN_KIND_ANSWERS as readonly LoanKind[];
   return (
     <Buttons
-      choices={[...loanKindChoices(item), plain<LoanKind | null>("Ei laina", null)]}
+      choices={[...loanKindChoices(item), plain<LoanKind | null>(t("set.rc.not_a_loan"), null)]}
       busy={busy || kind !== null}
       label={named}
       onPick={(picked) => {

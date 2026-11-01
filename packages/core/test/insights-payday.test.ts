@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { insightInputOf, rankInsights } from "../src/analysis/insights/index.ts";
 import { addDays } from "../src/dates.ts";
 import { NO_INPUTS } from "../src/types.ts";
+import { view } from "./insight-view.ts";
 import type { AnalysisContext } from "../src/analysis/context.ts";
 import { banking, type RowSpec } from "./kit/frame.ts";
 import { frame, TODAY, withRows } from "./behaviour-model/household.ts";
@@ -17,7 +18,7 @@ function afterPay(count: number, cycles: number, spec: Partial<RowSpec> = {}): R
 }
 
 const running = { from: `${TODAY.slice(0, 7)}-01`, to: TODAY };
-const payday = (ctx: AnalysisContext, range = running) => rankInsights(insightInputOf(ctx, range, NO_INPUTS)).find((i) => i.id === "payday");
+const payday = (ctx: AnalysisContext, range = running) => rankInsights(insightInputOf(ctx, range, NO_INPUTS)).map(view).find((i) => i.id === "payday");
 
 describe("payday insight", () => {
   it("hit: tells the days after pay with the figure of D6 over a year of pays, its rows and its working", () => {

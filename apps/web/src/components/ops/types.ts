@@ -1,4 +1,4 @@
-export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew" | "access" | "prerelease-on" | "prerelease-off";
+export type OpsAction = "update" | "rollback" | "backup" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew" | "access" | "prerelease-on" | "prerelease-off" | "offsite";
 
 export interface OpsRequestView {
   id: string;
@@ -82,6 +82,8 @@ export interface OpsState {
   state: OpsSnapshot;
   appBackups: Backup[];
   requests: OpsRequestView[];
+  /** How each action last ended, by action name. */
+  last: Record<string, OpsRequestView>;
   active: boolean;
   readOnlyActive: boolean;
   now: string;

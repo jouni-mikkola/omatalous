@@ -4,11 +4,12 @@
  */
 import { AccountMark as BankMark } from "../../components/BankLogo.tsx";
 import { MerchantAvatar } from "../../components/MerchantAvatar.tsx";
+import { t } from "../../text.ts";
 import type { Account, AccountType, BankOption, Meta } from "../../types.ts";
 
 /** The payee's mark: initials on a tinted disc, a person glyph for a payment to or from a person. */
 export function PayeeMark({ name, person }: { name: string; person?: boolean }) {
-  return <MerchantAvatar name={name} person={person} />;
+  return <MerchantAvatar name={name} person={person} size="s" />;
 }
 
 export interface AccountLook {
@@ -21,13 +22,13 @@ export interface AccountLook {
   short: string;
 }
 
-const TYPE_WORD: Partial<Record<AccountType, string>> = { credit_card: "Kortti", checking: "Käyttötili", savings: "Säästötili", loan: "Laina" };
+const typeWord = (type: AccountType): string => (type === "credit_card" ? t("tx.type_card") : type === "checking" ? t("tx.type_checking") : type === "savings" ? t("tx.type_savings") : type === "loan" ? t("tx.type_loan") : t("tx.type_other"));
 
 /** A name the user gave that fits the cell whole; a longer one would be cut, so the type's word stands instead. */
 const SHORT_NAME = 14;
 
 const shortOf = (a: Pick<Account, "digits" | "customName" | "type">): string =>
-  a.digits ? `•• ${a.digits}` : a.customName && a.customName.length <= SHORT_NAME ? a.customName : (TYPE_WORD[a.type] ?? "Tili");
+  a.digits ? `•• ${a.digits}` : a.customName && a.customName.length <= SHORT_NAME ? a.customName : typeWord(a.type);
 
 /** The look of every account in view, by id: own accounts and the ones shared with the viewer. */
 export function accountLooks(meta: Meta): Map<string, AccountLook> {
@@ -45,7 +46,7 @@ export function AccountMark({ look, fallback }: { look: AccountLook | undefined;
   const name = look?.name ?? fallback;
   return (
     <span className="tx-acct" title={name}>
-      <BankMark name={name} institution={look?.bank || null} banks={look?.banks ?? []} />
+      <BankMark name={name} institution={look?.bank || null} banks={look?.banks ?? []} size="s" />
       <span className="sr-only">{name}</span>
       <span className="tx-acct-short" aria-hidden="true">
         {look?.short ?? "Tili"}

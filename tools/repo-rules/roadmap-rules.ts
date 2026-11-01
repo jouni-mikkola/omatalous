@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, readText } from "./lib.ts";
-import { shippedAsComing } from "./roadmap.ts";
+import { shippedAsComing, staleReview } from "./roadmap.ts";
 
 describe("repo rules: roadmap", () => {
   it("rule 34: docs/ROADMAP.md lists no released version as coming", () => {
@@ -13,5 +13,13 @@ describe("repo rules: roadmap", () => {
     expect(text, "docs/ROADMAP.md has a Coming releases section").toMatch(/^## Coming releases/m);
     const found: Finding[] = shippedAsComing(text, released).map((f) => ({ file: "docs/ROADMAP.md", ...f }));
     expectNoFindings("roadmap", found, 'move the shipped release from "## Coming releases" to "## Done" in docs/ROADMAP.md');
+  });
+
+  it("rule 44: the payment rules review note in docs/ENABLE_BANKING.md is at most 6 months old", () => {
+    // The clock is read here, in tools; roadmap.ts takes the date as an argument.
+    const today = new Date().toISOString().slice(0, 10);
+    const stale = staleReview(readText("docs/ENABLE_BANKING.md"), today);
+    const found: Finding[] = stale ? [{ file: "docs/ENABLE_BANKING.md", ...stale }] : [];
+    expectNoFindings("payment rules review", found, 'review the EU payment rules (PSD3, PSR, FiDA), update "## Payment rules watch" and its "Last reviewed" date in docs/ENABLE_BANKING.md');
   });
 });

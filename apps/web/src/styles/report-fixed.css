@@ -1,0 +1,5 @@
+/* Fixed costs of Raportit (pages/reports/pages/FixedCosts.tsx): the styles of its own sections, which no other page reads. */
+@layer pages {
+/* Kiinteät: the layer's colour before its name in the head stands for the chart's legend */
+.fv-key { display: inline-block; inline-size: var(--bar-h); block-size: var(--bar-h); margin-right: var(--sp-4); border-radius: var(--radius-s); vertical-align: baseline; }
+}

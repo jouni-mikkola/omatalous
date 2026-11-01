@@ -2,10 +2,11 @@
  * Säästöt: money that has stayed on the checking accounts beyond a month of spending, priced at the household's own
  * savings yield. The yield and the account helpers are shared with the loans area.
  */
-import { formatFiDate } from "../../analysis/format.ts";
+import { formatFiDate, formatFiRange } from "../../analysis/format.ts";
+import { messageIn } from "../../messages.ts";
 import { dayNumber, fromDayNumber } from "../../dates.ts";
 import { lowestDayBalance } from "../../reports/balances.ts";
-import { accountsBefore, eur, findingId, ownAccounts, pct, savingsYield, usualSpend, walksOf, whyHistory } from "../common.ts";
+import { accountsBefore, eur, findingId, ownAccounts, pct, savingsYield, expectedSpend, walksOf, whyHistory } from "../common.ts";
 import type { Area, AreaInput, Check, FindingDraft, NoDataWhy } from "../types.ts";
 
 /** Idle money under this is not worth a move (the plan's gate). */
@@ -22,12 +23,13 @@ const FRESH_BALANCE_DAYS = 7;
 const HOUSEHOLD_SIGNALS = new Set(["own_unconnected", "no_balance"]);
 
 const IDLE_ID = "savings:idle_cash";
-const IDLE_LABEL = "Käyttötilin ylimääräinen saldo";
-const STALE_BALANCE: NoDataWhy = { cause: "other", text: "Käyttötilin saldo puuttuu tai on liian vanha." };
-const HOLES: NoDataWhy = { cause: "other", text: "Tapahtumissa on aukko tai tilin tiedot ovat vanhentuneet." };
+const why = (a: AreaInput, code: "opt.sav_stale" | "opt.sav_holes" | "opt.sav_no_yield"): NoDataWhy => ({ cause: "other", text: messageIn(a.lang, code) });
 
 function idleCash(a: AreaInput): { check: Check; draft?: FindingDraft } {
-  const noData = (why: NoDataWhy) => ({ check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_data" as const, why } });
+  const IDLE_LABEL = messageIn(a.lang, "opt.sav_idle");
+  const STALE_BALANCE = why(a, "opt.sav_stale");
+  const HOLES = why(a, "opt.sav_holes");
+  const noData = (w: NoDataWhy) => ({ check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_data" as const, why: w } });
   const checking = ownAccounts(a, "checking");
   if (!checking.length) return { check: { id: IDLE_ID, label: IDLE_LABEL, status: "no_subject" as const } };
   if (checking.some((b) => b.balanceCents === null)) return noData(STALE_BALANCE);
@@ -36,42 +38,41 @@ function idleCash(a: AreaInput): { check: Check; draft?: FindingDraft } {
   if (a.quality.signals.some((s) => HOUSEHOLD_SIGNALS.has(s.id))) return noData(HOLES);
   if (checking.some((b) => (["gap", "stale"] as const).some((k) => a.quality.byAccount[b.id]?.includes(k)))) return noData(HOLES);
   const yieldOf = savingsYield(a);
-  if (!yieldOf) return noData({ cause: "other", text: "Säästötilin korkoa ei voi päätellä tapahtumista." });
-  const usual = usualSpend(a);
+  if (!yieldOf) return noData(why(a, "opt.sav_no_yield"));
+  const usual = expectedSpend(a);
   const from = `${a.months[0]}-01`;
   const before = accountsBefore(a.ctx, from);
   const walks = walksOf(a, checking);
   // the lowest runs to today, so money spent since the window ended is not counted as idle
   const lowest = usual !== null && walks && checking.every((b) => before.has(b.id)) ? lowestDayBalance(walks, dayNumber(from), todayDay) : null;
-  // the usual spending (`usualSpend`) needs three complete months
+  // the usual spending (`expectedSpend`) needs three complete months
   if (usual === null || !lowest) return noData(whyHistory(a, 3));
   const idle = lowest.cents - usual;
   const clear = { check: { id: IDLE_ID, label: IDLE_LABEL, status: "clear" as const } };
   if (idle < IDLE_MIN_CENTS || yieldOf.rate < MIN_YIELD) return clear;
   const yearly = Math.round((idle * yieldOf.rate) / 100) * 100;
-  const span = `${formatFiDate(from)}–${formatFiDate(a.today)}`;
+  const lang = a.lang;
+  const span = formatFiRange(from, a.today, lang);
   const draft: FindingDraft = {
     id: findingId("savings", "idle_cash"),
     area: "savings",
     kind: "idle_cash",
     subject: null,
-    title:
-      `${checking.length === 1 ? "Käyttötilillä" : "Käyttötileillä"} on ollut ${formatFiDate(from)} alkaen vähintään ${eur(lowest.cents)}, ja menot ovat yleensä ${eur(usual)} kuussa. ` +
-      `${yieldOf.accounts.length === 1 ? "Säästötilin" : "Säästötilien"} tuotto oli ${pct(yieldOf.rate)}.`,
-    action: "Siirrä ylimääräinen saldo säästötilille.",
+    title: messageIn(lang, `opt.sav_title_${checking.length === 1 ? (yieldOf.accounts.length === 1 ? "one" : "one_many") : yieldOf.accounts.length === 1 ? "many_one" : "many"}`, { from: formatFiDate(from, lang), low: eur(lowest.cents, lang), usual: eur(usual, lang), rate: pct(yieldOf.rate, lang) }),
+    action: messageIn(lang, "opt.sav_action"),
     euros: { lowCents: yearly, midCents: yearly, highCents: yearly },
     decideBy: null,
     weaknesses: [],
     shared: false,
     calc: [
-      { label: "Jakso", value: span },
-      { label: `Käyttötilien pienin saldo (${formatFiDate(fromDayNumber(lowest.day))})`, value: eur(lowest.cents) },
-      { label: "Tavalliset menot kuussa", value: eur(usual) },
-      { label: "Ylimääräinen saldo", value: eur(idle) },
-      { label: "Säästötileille maksettu korko 12 kuukaudessa", value: eur(yieldOf.interestCents) },
-      { label: "Säästötilien keskisaldo kuun lopussa", value: eur(yieldOf.meanBalanceCents) },
-      { label: "Säästötilien tuotto", value: pct(yieldOf.rate) },
-      { label: "Tuotto vuodessa", value: eur(yearly) },
+      { label: messageIn(lang, "opt.sav_period"), value: span },
+      { label: messageIn(lang, "opt.sav_lowest", { date: formatFiDate(fromDayNumber(lowest.day), lang) }), value: eur(lowest.cents, lang) },
+      { label: messageIn(lang, "opt.sav_expected"), value: eur(usual, lang) },
+      { label: messageIn(lang, "opt.sav_extra"), value: eur(idle, lang) },
+      { label: messageIn(lang, "opt.sav_interest"), value: eur(yieldOf.interestCents, lang) },
+      { label: messageIn(lang, "opt.sav_mean"), value: eur(yieldOf.meanBalanceCents, lang) },
+      { label: messageIn(lang, "opt.sav_yield"), value: pct(yieldOf.rate, lang) },
+      { label: messageIn(lang, "opt.sav_yearly"), value: eur(yearly, lang) },
     ],
     rows: yieldOf.rows,
     struck: [],

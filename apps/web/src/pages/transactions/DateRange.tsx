@@ -5,8 +5,10 @@
  */
 import { addDays } from "@banking/core";
 import { useState } from "react";
-import { date, dayMonth, monthLong } from "../../format.ts";
-
+import { date, dateRange, mondayFirstWeekdays, monthLong } from "../../format.ts";
+import { t } from "../../text.ts";
+import { Button } from "../../components/ui/Button.tsx";
+import { IconButton } from "../../components/ui/IconButton.tsx";
 export interface Period {
   from: string;
   to: string;
@@ -26,12 +28,12 @@ export function presets(today: string): { label: string; period: Period }[] {
   const year = today.slice(0, 4);
   const last = shiftMonth(month, -1);
   return [
-    { label: "Tämä kuu", period: { from: monthStart(today), to: today } },
-    { label: "Edellinen kuu", period: { from: `${last}-01`, to: monthEnd(last) } },
-    { label: "3 kuukautta", period: { from: `${shiftMonth(month, -2)}-01`, to: today } },
-    { label: "Tämä vuosi", period: { from: `${year}-01-01`, to: today } },
-    { label: "Edellinen vuosi", period: { from: `${Number(year) - 1}-01-01`, to: `${Number(year) - 1}-12-31` } },
-    { label: "Koko historia", period: { from: "", to: "" } },
+    { label: t("range.this_month"), period: { from: monthStart(today), to: today } },
+    { label: t("range.last_month"), period: { from: `${last}-01`, to: monthEnd(last) } },
+    { label: t("range.3_months"), period: { from: `${shiftMonth(month, -2)}-01`, to: today } },
+    { label: t("range.this_year"), period: { from: `${year}-01-01`, to: today } },
+    { label: t("range.last_year"), period: { from: `${Number(year) - 1}-01-01`, to: `${Number(year) - 1}-12-31` } },
+    { label: t("range.all"), period: { from: "", to: "" } },
   ];
 }
 
@@ -39,11 +41,9 @@ export function presets(today: string): { label: string; period: Period }[] {
 export function periodLabel(p: Period, today: string): string {
   const named = presets(today).find((x) => x.period.from === p.from && x.period.to === p.to);
   if (named) return named.label;
-  if (p.from && p.to) return p.from.slice(0, 4) === p.to.slice(0, 4) ? `${dayMonth(p.from)}–${date(p.to)}` : `${date(p.from)}–${date(p.to)}`;
-  return p.from ? `${date(p.from)} alkaen` : `${date(p.to)} asti`;
+  if (p.from && p.to) return dateRange(p.from, p.to);
+  return p.from ? t("range.since", { date: date(p.from) }) : t("range.until", { date: date(p.to) });
 }
-
-const WEEKDAYS = ["ma", "ti", "ke", "to", "pe", "la", "su"];
 
 /** The days of a month's calendar, Monday first; null fills the week before the first day. */
 function monthGrid(month: string): (string | null)[] {
@@ -63,7 +63,7 @@ export function DateRange({ value, today, onCommit }: { value: Period; today: st
   const inRange = (d: string) => !!draft.from && d >= draft.from && d <= (draft.to || draft.from);
   return (
     <div className="tx-range">
-      <ul className="tx-range-presets" aria-label="Valmiit jaksot">
+      <ul className="tx-range-presets" aria-label={t("range.presets")}>
         {presets(today).map((p) => {
           const on = p.period.from === value.from && p.period.to === value.to;
           return (
@@ -77,16 +77,16 @@ export function DateRange({ value, today, onCommit }: { value: Period; today: st
       </ul>
       <div className="tx-cal">
         <div className="tx-cal-head">
-          <button type="button" className="icon-btn" aria-label="Edellinen kuukausi" onClick={() => setMonth(shiftMonth(month, -1))}>
+          <IconButton label={t("range.prev_month")} onClick={() => setMonth(shiftMonth(month, -1))}>
             ‹
-          </button>
+          </IconButton>
           <span className="tx-cal-month">{monthLong(month)}</span>
-          <button type="button" className="icon-btn" aria-label="Seuraava kuukausi" disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}>
+          <IconButton label={t("range.next_month")} disabled={month >= today.slice(0, 7)} onClick={() => setMonth(shiftMonth(month, 1))}>
             ›
-          </button>
+          </IconButton>
         </div>
         <div className="tx-cal-grid" role="grid" aria-label={monthLong(month)}>
-          {WEEKDAYS.map((w) => (
+          {mondayFirstWeekdays().map((w) => (
             <span key={w} className="tx-cal-wd" aria-hidden="true">
               {w}
             </span>
@@ -110,10 +110,10 @@ export function DateRange({ value, today, onCommit }: { value: Period; today: st
           )}
         </div>
         <div className="tx-cal-foot">
-          <span className="tx-cal-pick">{draft.from ? periodLabel({ from: draft.from, to: draft.to || draft.from }, today) : "Valitse ensimmäinen päivä"}</span>
-          <button type="button" className="btn btn-primary btn-small" disabled={!draft.from} onClick={() => onCommit({ from: draft.from, to: draft.to || draft.from })}>
-            Näytä jakso
-          </button>
+          <span className="tx-cal-pick">{draft.from ? periodLabel({ from: draft.from, to: draft.to || draft.from }, today) : t("range.pick_first")}</span>
+          <Button variant="primary" disabled={!draft.from} onClick={() => onCommit({ from: draft.from, to: draft.to || draft.from })}>
+            {t("range.show")}
+          </Button>
         </div>
       </div>
     </div>

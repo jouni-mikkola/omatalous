@@ -3,6 +3,7 @@
  * statement classes (statement.css).
  */
 
+@layer components {
 /* a label that opens its lines: a button that reads as the text, with an arrow that turns when it is open */
 .themes-toggle { display: flex; align-items: baseline; width: 100%; max-width: 100%; margin: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .themes-toggle:focus-visible { outline-offset: -2px; }
@@ -15,3 +16,4 @@
 .themes-large > .st-row { border-bottom: 0; }
 .themes-large-rows { padding-left: 16px; border-top: 1px solid var(--grid); }
 .themes-large-rows .themes-date { width: 5rem; text-align: left; }
+}

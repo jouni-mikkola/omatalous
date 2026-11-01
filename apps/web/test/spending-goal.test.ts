@@ -1,6 +1,6 @@
 import type { SpendingGoal } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { goalAnswer } from "../src/components/overview/SpendingGoal.tsx";
+import { goalAnswer } from "../src/components/home/SpendingGoal.tsx";
 
 const goal = (g: Partial<SpendingGoal>): SpendingGoal => ({ cents: 250_000, leftCents: 100_000, end: { low: 200_000, high: 230_000 }, perDayCents: 4_000, state: "within", ...g });
 const text = (g: Partial<SpendingGoal>) => goalAnswer(goal(g)).replace(/[\u00a0\u202f]/g, " ");

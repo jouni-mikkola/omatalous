@@ -24,12 +24,12 @@ describe("one-offs", () => {
   it("the sofa in August is struck by the insights, the change report and Optimoi alike", () => {
     expect(monthOneOffs(ctx, "2026-08", completeMonthsBefore(ctx, "2026-08")).map((t) => t.id)).toEqual(["sofa"]);
     expect(monthRows(ctx, "2026-08").purchases - purchasesWithoutOneOff(ctx, "2026-08")).toBe(89000);
-    expect(spendingChange(ctx, "usual", "2026-08")!.pieces.find((p) => p.kind === "oneoff")).toMatchObject({ category: "home", cents: 89000 });
+    expect(spendingChange(ctx, "expected", "2026-08")!.pieces.find((p) => p.kind === "oneoff")).toMatchObject({ category: "home", cents: 89000 });
     expect(levelWithoutOneOffs(ctx.txs.filter((t) => t.category === "home"), months).struck).toEqual(["sofa"]);
   });
 
   it("a sofa in a base month does not move the usual level of the month after", () => {
-    const september = spendingChange(ctx, "usual", "2026-09")!;
+    const september = spendingChange(ctx, "expected", "2026-09")!;
     // the usual level is the struck months' 165,40 €, so September is no cheaper than usual
     expect(september.baseCents).toBe(16540);
     expect(september.pieces.filter((p) => p.category === "home")).toEqual([]);

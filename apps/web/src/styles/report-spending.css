@@ -1,0 +1,24 @@
+/* Spending of Raportit (pages/reports/pages/Spending.tsx): the styles of its own sections, which no other page reads. */
+@layer pages {
+.heat-table td.num { font-size: var(--fs-label); padding: var(--sp-4) var(--sp-8); }
+.heat-table th { font-size: var(--fs-label); padding: var(--sp-4) var(--sp-8); }
+.heat-table td.cell { border-radius: 0; }
+
+/* CP1's split of a rise: one line of two parts, each an estimate that opens its basis under the line */
+.price-parts { margin-top: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.price-line { margin: 0; }
+.price-name { color: var(--text-2); }
+.price-fig { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-basis { margin-top: var(--sp-8); padding: var(--sp-8) var(--sp-12); border-left: var(--tick) solid var(--estimate-edge); background: var(--well); border-radius: var(--radius-s); color: var(--text); }
+.price-basis p { margin: 0 0 var(--sp-4); }
+.price-basis p:last-child { margin-bottom: 0; }
+.price-basis .price-source { color: var(--text-2); }
+.rt-detail .price-basis { margin-top: 0; max-inline-size: 72ch; }
+
+/* Nousseet: the step from the usual level to the new one, drawn in the text colour over the columns */
+.chart .drift-step { fill: none; stroke: var(--text); stroke-width: 1.5; stroke-linejoin: round; }
+.drift-tile .sm-col { fill: var(--heat-3); }
+
+/* Ruoka: the sentence that names the table's months and bases, and why the card bills' row has no share */
+.food-base { margin-bottom: var(--sp-8); }
+}

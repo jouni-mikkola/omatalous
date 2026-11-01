@@ -124,6 +124,15 @@ export function parseSeriesId(id: string): SeriesIdParts | null {
   return { direction, accountId, merchant: merchant!, product };
 }
 
+/**
+ * The price of a series that is one fixed-price product among several of its merchant on the account (Apple 12,99
+ * beside Apple 0,99), else null. Every page that lists series adds it to the name, so the two read apart everywhere.
+ */
+export const productCents = (id: string): number | null => {
+  const product = parseSeriesId(id)?.product;
+  return typeof product === "number" ? product : null;
+};
+
 const LOOKBACK_DAYS = 800;
 const OVERDUE_DAYS = 5;
 

@@ -13,10 +13,12 @@ import { readAccessRequest, writeAccessRequest } from "../src/services/access-re
 import { settleRemoteAccess } from "../src/services/remote-access.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
 import { waitFor } from "./helpers.ts";
-import { ANNA, HOST, LAN, LIISA, PASSWORD, prepared, TUNNEL, turnedOn, world } from "./remote-access-kit.ts";
+import { ANNA, HOST, LAN, LIISA, PASSWORD, prepared, TUNNEL, turnedOn, useWorlds, world } from "./remote-access-kit.ts";
+
+useWorlds();
 
 const MINUTE = 60_000;
-const REVERTED = "Etäkäyttö otettiin pois käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta 15 minuutissa.";
+const REVERTED = "Poistimme etäkäytön käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta 15 minuutissa.";
 
 afterEach(() => void vi.useRealTimers());
 
@@ -164,7 +166,7 @@ describe("remote access: where the copy answers after off", () => {
       expect((await w.state()).access.afterOff).toBe(address);
       const r = await w.off();
       expect(r.status).toBe(400);
-      expect(r.body.error).toBe(`Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa ${address}. Vahvista, että tämä sopii.`);
+      expect(r.body.error).toBe(`Kun otat etäkäytön pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa ${address}. Vahvista, että tämä sopii.`);
     }
     expect((await w.off(PASSWORD, { localOnly: "kyllä" })).status).toBe(400);
     expect(existsSync(w.file)).toBe(false);

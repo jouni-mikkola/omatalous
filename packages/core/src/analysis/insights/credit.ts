@@ -11,14 +11,13 @@
  * No link: the transaction list is filtered by category, payee and dates (`InsightLink`), and each of them shows other
  * interest too, so the list would not add up to the figure. `rows` names the rows.
  */
-import { CARD_COST_MONTHS, cardCosts } from "../credit.ts";
-import { finnishList, formatEur, monthName } from "../format.ts";
-import { ITEM_GATE_MONTHLY_CENTS, monthSpan } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { cardCosts } from "../credit.ts";
+import { formatEur } from "../format.ts";
+import { insightOf, ITEM_GATE_MONTHLY_CENTS, REPORT } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
-const ESSIVE = ["", "yhtenä", "kahtena", "kolmena", "neljänä", "viitenä", "kuutena", "seitsemänä", "kahdeksana", "yhdeksänä", "kymmenenä"];
-
-export function cardInterest({ ctx, end, current, alerts }: InsightArgs): Insight[] {
+export function cardInterest({ ctx, end, current, alerts, lang }: InsightArgs): Insight[] {
   const { months, cards } = cardCosts(ctx, end);
   const charged = cards.filter((c) => c.interestCents > 0);
   const interest = charged.reduce((sum, c) => sum + c.interestCents, 0);
@@ -29,23 +28,23 @@ export function cardInterest({ ctx, end, current, alerts }: InsightArgs): Insigh
     const inPeriod = new Set(current.map((t) => t.id));
     if (rows.filter((id) => inPeriod.has(id)).length > rows.length / 2) return [];
   }
-  const first = months[0]!;
-  const last = months[months.length - 1]!;
   const carried = new Set(charged.flatMap((c) => c.carriedMonths)).size;
-  const over = months.length === CARD_COST_MONTHS ? "vuodessa" : `${months.length} kuukaudessa`;
   return [
-    {
+    insightOf({
+      lang,
       id: "card-interest",
-      tone: "warning",
-      title: `${charged.length === 1 ? "Luottokortin" : "Luottokorttien"} korkoihin meni ${formatEur(interest, false)} ${over}`,
-      detail: `${finnishList(charged.map((c) => c.name))}: korkoa veloitettiin ${ESSIVE[carried] ?? carried} kuukautena, ${first === last ? `${monthName(first)} ${first.slice(0, 4)}` : monthSpan(first, last)}.`,
-      yearlyCents: interest,
+      fact: { type: "card-interest", cards: charged.map((c) => c.name), cents: interest, months: months.length, carried },
+      // a card paid in full every month is charged no interest
+      comparison: { label: "paidInFull", value: q.cents(0) },
+      action: { label: "seeCardInterest", target: { page: "reports", anchor: REPORT.loans } },
+      yearlyCents: -interest,
+      kind: "pattern",
       rows,
       calc: [
-        ...charged.map((c) => ({ label: `${c.name}, korot`, value: formatEur(c.interestCents, false) })),
-        { label: "Korot yhteensä", value: formatEur(interest, false) },
-        { label: "Kuukausia", value: String(months.length) },
+        ...charged.map((c) => ({ label: messageIn(lang, "calc.card_interest", { name: c.name }), value: formatEur(c.interestCents, false, lang) })),
+        { label: messageIn(lang, "calc.interest_total"), value: formatEur(interest, false, lang) },
+        { label: messageIn(lang, "calc.months"), value: String(months.length) },
       ],
-    },
+    }),
   ];
 }

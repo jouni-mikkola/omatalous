@@ -1,5 +1,5 @@
 // An --answers module for `pnpm shots`: the technical page with a working helper, a new version on offer and eight copies.
-// Try it: pnpm shots "settings?section=technical" --demo --fake-bank --answers tools/shots-examples/answers-update-offered.mjs --steps tools/shots-examples/steps-open-update.mjs --name update
+// Try it: pnpm shots "settings/server" --demo --fake-bank --answers tools/shots-examples/answers-update-offered.mjs --steps tools/shots-examples/steps-open-update.mjs --name update
 export default {
   "/api/ops/state": (ops) => {
     const at = (days) => new Date(Date.now() - days * 86_400_000).toISOString();

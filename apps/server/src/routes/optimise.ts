@@ -1,5 +1,5 @@
 /**
- * Optimoi, mounted at its own prefix behind the `optimise` flag. The route parses the request and calls
+ * Optimoi, mounted at its own prefix. The route parses the request and calls
  * services/optimise.ts, which builds the page and owns the writes (inputs, decisions, the monthly snapshot).
  */
 import { addDays, DISMISS_REASONS, type DismissReason, type IsoDate, parseFindingId } from "@banking/core";
@@ -28,7 +28,7 @@ function parseId(value: unknown): string {
 function parseState(raw: unknown, today: IsoDate): StateRequest {
   const input = strictObject(raw, ["status", "reason", "until", "effectiveDate"] as const);
   const status = input.status;
-  if (status === undefined || (status !== null && !(STATUSES as readonly unknown[]).includes(status))) throw new UserError("Valitse tila: tehty, ei koske meitä tai lykätty.");
+  if (status === undefined || (status !== null && !(STATUSES as readonly unknown[]).includes(status))) throw new UserError("Valitse tila: tehty, ohitettu tai lykätty.");
   const stray = () => new UserError("Kenttä ei kuulu tähän valintaan.");
   if (status !== "dismissed" && !absent(input.reason)) throw stray();
   if (status !== "snoozed" && !absent(input.until)) throw stray();
@@ -57,16 +57,16 @@ function parseState(raw: unknown, today: IsoDate): StateRequest {
 export function optimiseRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
-  app.get("/", async (c) => c.json(await optimisePage(s, c.get("user").id, parseScope(c.req.query("scope")))));
+  app.get("/", async (c) => c.json(await optimisePage(s, c.get("user").id, parseScope(c.req.query("scope")), c.get("user").language, !c.get("serviceToken"))));
 
   app.get("/evidence", async (c) => {
     const id = parseId(c.req.query("id"));
-    return c.json(await optimiseEvidence(s, c.get("user").id, parseScope(c.req.query("scope")), id));
+    return c.json(await optimiseEvidence(s, c.get("user").id, parseScope(c.req.query("scope")), id, c.get("user").language));
   });
 
   app.put("/inputs/:key", async (c) => {
     const { value } = strictObject(await body(c), ["value"] as const);
-    return c.json(await setInput(s, c.get("user").id, parseScope(c.req.query("scope")), c.req.param("key"), value));
+    return c.json(await setInput(s, c.get("user").id, parseScope(c.req.query("scope")), c.req.param("key"), value, c.get("user").language));
   });
 
   app.delete("/inputs/:key", async (c) => c.json(await deleteInput(s, c.get("user").id, c.req.param("key"))));
@@ -74,7 +74,7 @@ export function optimiseRoutes(s: Services) {
   app.put("/findings/:id", async (c) => {
     const id = parseId(c.req.param("id"));
     const request = parseState(await body(c), s.today());
-    return c.json(await decide(s, c.get("user").id, parseScope(c.req.query("scope")), id, request));
+    return c.json(await decide(s, c.get("user").id, parseScope(c.req.query("scope")), id, request, c.get("user").language));
   });
 
   return app;

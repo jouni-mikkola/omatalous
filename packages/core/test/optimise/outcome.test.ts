@@ -134,7 +134,7 @@ describe("outcomeOf: a monthly item", () => {
     expect(outcomeOf(ctx, done(id, "2026-09-03", 24000), null)).toEqual({
       verdict: "odottaa",
       monthlyCents: null,
-      reason: "Tulos lasketaan, kun muutoksen jälkeen on 2 valmista kuukautta: 1.12.2026.",
+      reason: "Tulos näkyy, kun muutoksen jälkeen on 2 päättynyttä kuukautta: 1.12.2026.",
     });
     expect(outcomeOf(ctx, done(id, "2026-08-03", 24000), null)).toMatchObject({ verdict: "odottaa", reason: expect.stringContaining("1.11.2026") });
     // a change dated ahead waits too
@@ -156,7 +156,7 @@ describe("outcomeOf: a monthly item", () => {
     // the card's rows end in July: its subscription looks stopped only because nothing was fetched
     const ctx = ctxOf(monthly("Netflix", "subscriptions", "2024-10", "2026-07", 8, () => 1999, "o-card"));
     const id = findingId("subscriptions", "unused", seriesId(ctx, "Netflix"));
-    expect(outcomeOf(ctx, done(id, "2026-07-10", 24000), null)).toEqual({ verdict: "epäselvä", monthlyCents: null, reason: "Tilin Kortti tapahtumia ei ole haettu 8.7.2026 jälkeen." });
+    expect(outcomeOf(ctx, done(id, "2026-07-10", 24000), null)).toEqual({ verdict: "epäselvä", monthlyCents: null, reason: "Emme ole hakeneet tilin Kortti tapahtumia 8.7.2026 jälkeen." });
     // a card that paid it until March 2025 is outside the year the baseline stands on
     const moved = ctxOf([...monthly("Netflix", "subscriptions", "2024-10", "2025-03", 8, () => 1999, "o-card"), ...monthly("Netflix", "subscriptions", "2025-04", "2026-07", 8, () => 1999)]);
     const name = findingId("subscriptions", "unused", "Netflix");
@@ -195,7 +195,7 @@ describe("outcomeOf: a switch to a new payee", () => {
     const o = outcomeOf(ctx, done(id, "2026-07-01", 18000), null);
     expect(o.replacement).toEqual({ merchant: "Oomi", date: "2026-07-05", text: "Korvaava palvelu alkoi: Oomi" });
     expect(o).toMatchObject({ verdict: "vahvistui", monthlyCents: 1500 });
-    expect(o.reason).toContain("Oomi on laskettu mukaan.");
+    expect(o.reason).toContain("Mukana on myös Oomi.");
     // the same switch against a larger mid is only likely or unclear, never confirmed
     expect(outcomeOf(ctx, done(id, "2026-07-01", 60000), null).verdict).toBe("epäselvä");
   });
@@ -259,7 +259,7 @@ describe("outcomeOf: quarterly and yearly items, seasons and the unit price", ()
     // dated in October 2025, eleven complete months follow: one cycle is twelve
     expect(outcomeOf(ctx, done("insurance:renewal:Lähivakuutus", "2025-10-20", 15000), measured(measure))).toMatchObject({
       verdict: "odottaa",
-      reason: "Tulos lasketaan, kun muutoksen jälkeen on 12 valmista kuukautta: 1.11.2026.",
+      reason: "Tulos näkyy, kun muutoksen jälkeen on 12 päättynyttä kuukautta: 1.11.2026.",
     });
     // the same price a year later is the old yearly series going on, at its own cadence
     const same = ctxOf([row("2024-11-10", -60000, "Lähivakuutus", "insurance"), row("2025-11-10", -60000, "Lähivakuutus", "insurance")]);
@@ -317,7 +317,7 @@ describe("outcomeOf: quarterly and yearly items, seasons and the unit price", ()
     const o = outcomeOf(ctx, done("seasons:christmas", "2025-11-15", 12000), measured({ kind: "season", keys: ["gifts_donations"] }));
     // December 2025: 500 € × 1,002 − 300 €; January 2026: 100 € × 0,998 − 80 €; the median of the two
     expect(o).toMatchObject({ verdict: "vahvistui", monthlyCents: Math.round((50100 - 30000 + 9980 - 8000) / 2) });
-    expect(o.reason).toBe("110 € vähemmän kuussa kuin samaan aikaan vuotta aiemmin. Vuoden takaiset summat on korjattu kuluttajahintojen muutoksella.");
+    expect(o.reason).toBe("110 € vähemmän kuussa kuin samaan aikaan vuotta aiemmin. Korjasimme vuoden takaiset summat kuluttajahintojen muutoksella.");
   });
 
   it("the unit compares the bills of the same months a year earlier, says so, and is never more than todennäköinen", () => {

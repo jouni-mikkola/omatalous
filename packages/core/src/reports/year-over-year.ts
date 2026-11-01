@@ -2,8 +2,10 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import { accountsCoverage, LEFT_OUT_SHARE } from "../analysis/coverage.ts";
 import type { DateRange } from "../analysis/period.ts";
-import { MIN_COMPARE_MONTHS } from "../analysis/usual.ts";
+import { MIN_COMPARE_MONTHS } from "../thresholds.ts";
 import { monthEnd } from "../dates.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 
 export interface YearOverYearReport {
   year: number;
@@ -146,13 +148,11 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
  * The line under a year comparison: the months it rests on, and that accounts were left out; or why there is none yet.
  * null when there is nothing to say (no rows at all).
  */
-export function yearComparisonNote(r: Pick<YearOverYearReport, "comparable" | "comparableMonths" | "dataFrom" | "shortHistory" | "leftOutAccounts">): string | null {
+export function yearComparisonNote(r: Pick<YearOverYearReport, "comparable" | "comparableMonths" | "dataFrom" | "shortHistory" | "leftOutAccounts">, lang: Language = DEFAULT_LANGUAGE): string | null {
   if (!r.comparable) {
     if (r.dataFrom === null) return null;
-    return r.shortHistory
-      ? `Vertailuun ei ole vielä tarpeeksi tietoja: tiedot alkavat ${Number(r.dataFrom.slice(5, 7))}/${r.dataFrom.slice(0, 4)}.`
-      : "Vertailuun ei ole tarpeeksi kuukausia, joilta on tiedot samoista tileistä molempina vuosina.";
+    return r.shortHistory ? messageIn(lang, "rep.yoy_short", { from: `${Number(r.dataFrom.slice(5, 7))}/${r.dataFrom.slice(0, 4)}` }) : messageIn(lang, "rep.yoy_few");
   }
-  const months = r.comparableMonths === 1 ? "Verrattu 1 kuukausi, jolta on tiedot molempina vuosina." : `Verrattu ${r.comparableMonths} kuukautta, joilta on tiedot molempina vuosina.`;
-  return r.leftOutAccounts ? `${months} Mukana eivät ole tilit, joilta puuttuu toisen vuoden tiedot.` : months;
+  const months = r.comparableMonths === 1 ? messageIn(lang, "rep.yoy_compared_one") : messageIn(lang, "rep.yoy_compared_many", { count: r.comparableMonths });
+  return r.leftOutAccounts ? `${months} ${messageIn(lang, "rep.yoy_left_out")}` : months;
 }

@@ -4,17 +4,31 @@
  * beside. A mark carries no word of its own.
  */
 
+@layer utilities {
 /* M2 the title block of a panel: NAME | DATUM | TOOL, as in a drawing; a cell without content is not drawn */
 .card-head.tb { align-items: stretch; flex-wrap: nowrap; gap: 0; padding: 0; }
 .card-head.tb > * { display: flex; align-items: center; min-height: 52px; padding: 8px var(--sp-12); }
-.card-head.tb > .card-name { flex: 1 1 auto; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; padding-left: var(--pad); }
+.card-head.tb > .card-name { flex: 1 1 auto; min-width: 0; flex-direction: column; align-items: flex-start; justify-content: center; padding-left: 0; }
 .card-head.tb > :is(.card-datum, .card-tool) { flex: 0 0 auto; }
-.card-head.tb > :last-child { padding-right: var(--pad); }
+.card-head.tb > :last-child { padding-right: 0; }
+/* a folded section: the chevron stands in the middle of the name strip, the datum at the far end */
+details.card > summary.card-head.tb { align-items: center; }
+details.card > summary.card-head.tb > .card-datum { margin-left: auto; text-align: right; }
+details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 /* the datum is the panel's own summary figure: the size of a small figure, so the head says the answer before the body */
 .card-datum { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 @media (max-width: 640px) {
   .card-head.tb { flex-wrap: wrap; }
-  .card-head.tb > .card-tool { flex: 1 0 100%; padding-left: var(--pad); }
+  .card-head.tb > .card-tool { flex: 1 0 100%; padding-left: 0; }
+  /* a folded card of Raportit keeps its name and its sum on one row: the sum wraps in its own cell before it drops under the name */
+  .q-page > details.card > summary.card-head.tb { flex-wrap: nowrap; }
+  .q-page > details.card > summary.card-head.tb > .card-datum { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: right; }
+}
+
+/* Saldot's datum names its figure and day, so on a phone it wraps under the name instead of pushing the page sideways. It sits here, in the layer of the head's own rule, which a rule of `components` cannot beat. */
+@media (max-width: 599px) {
+  #saldot .card-head.tb > .card-datum { flex: 0 1 auto; min-width: 0; white-space: normal; justify-content: flex-end; text-align: right; }
+  #saldot .saldot-datum { flex-wrap: wrap; justify-content: flex-end; }
 }
 
 /* M3 the column register went in VD0: the tick row under the band read as debug art */
@@ -26,7 +40,7 @@
   --split-8: calc(var(--col-w) * 8 + 7.5 * var(--gap) - 1px); }
 
 /* M4 the sheet foot: release, view, day */
-.sheet-foot { display: flex; justify-content: space-between; gap: var(--sp-16); margin-top: var(--sp-24); padding-top: var(--sp-8); border-top: 1px solid var(--axis);
+.sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-4) var(--sp-24); margin-top: var(--sp-24); padding-top: var(--sp-8); border-top: 1px solid var(--axis);
   font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
 
 /* M7 the share track: the last 100 px of a row's rule, 1 px a percent; --from and --part come from shares() */
@@ -43,12 +57,18 @@ td.share { min-width: var(--share-w); }
 .adds-up > .part-last:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 100%; }
 
 /* M15 the ordinal: the browser counts the rows that are there; only on a table sorted by its own figure column.
-   A row marked .unranked is outside that ranking: it takes no number and does not count (the indent stays). */
+   A row marked .unranked, and the opened detail of a row, is outside that ranking: it takes no number and does not count (the indent stays). */
 .ranked { counter-reset: rank; }
 .ranked tbody tr { counter-increment: rank; }
 .ranked tbody tr > :first-child::before { content: counter(rank) "."; display: inline-block; min-width: 24px; margin-right: var(--sp-8); text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
 .ranked tbody tr.unranked { counter-increment: none; }
+.ranked tbody tr.rt-detail { counter-increment: none; }
 .ranked tbody tr.unranked > :first-child::before { content: ""; }
+.ranked tbody tr.rt-detail > :first-child::before { content: ""; }
+/* a row that opens has its chevron and name in one flex line (.rt-lead): the number stands in that line, not above it */
+.ranked tbody tr > :first-child:has(> .rt-lead)::before { content: none; }
+.ranked tbody tr > :first-child > .rt-lead::before { content: counter(rank) "."; content: counter(rank) "." / ""; flex: none; min-width: 1.5rem; margin-right: var(--sp-8); text-align: right; color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; line-height: 1.5rem; }
+.ranked tbody tr.unranked > :first-child > .rt-lead::before { content: ""; }
 
 /* M16 the source shape: a disc when the bank or the user gave the day and sum, a ring when the app estimates them */
 .src { display: inline-block; width: 8px; height: 8px; margin-right: var(--sp-8); border-radius: 50%; background: var(--text-2); }
@@ -61,13 +81,13 @@ td.share { min-width: var(--share-w); }
    takes the wide plate, which a bank logo fills, so its name starts at one place. A series tint at --mix-chip-edge over
    the plate, so the disc reads in both looks */
 .mk-plate { flex: none; display: inline-grid; place-items: center; box-sizing: border-box; --mk-disc: var(--avatar); inline-size: calc(var(--mk-disc) + var(--tick)); block-size: calc(var(--mk-disc) + var(--tick));
-  border-radius: var(--radius-m); background: var(--plate); box-shadow: inset 0 0 0 1px var(--plate-edge); filter: var(--plate-filter); overflow: hidden; }
+  border-radius: var(--radius-m); background: var(--plate); box-shadow: inset 0 0 0 1px var(--plate-edge); overflow: hidden; }
 .mk-s { --mk-disc: var(--avatar-s); }
 .mk-l { --mk-disc: calc(var(--avatar) + var(--sp-16)); }
 .mk-wide { inline-size: calc(var(--avatar) * 2 + var(--sp-8)); }
 .mk-logo { display: block; inline-size: 100%; block-size: 100%; object-fit: contain; padding: var(--sp-4); box-sizing: border-box; }
-.mk-disc { display: inline-grid; place-items: center; inline-size: var(--mk-disc); block-size: var(--mk-disc); border-radius: 50%; font-size: var(--fs-tick); font-weight: var(--w-strong); letter-spacing: 0.02em; color: var(--plate-ink); background: color-mix(in srgb, var(--plate-ink) var(--mix-chip), var(--plate)); }
-.mk-l .mk-disc { font-size: var(--fs-ui); }
+.mk-disc { display: inline-grid; place-items: center; inline-size: var(--mk-disc); block-size: var(--mk-disc); border-radius: 50%; font-size: var(--fs-label); font-weight: var(--w-strong); letter-spacing: 0.02em; color: var(--plate-ink); background: color-mix(in srgb, var(--plate-ink) var(--mix-chip), var(--plate)); }
+.mk-l .mk-disc { font-size: var(--fs-body); }
 .mk-disc[data-tint="1"] { background: color-mix(in srgb, var(--series-1) var(--mix-chip-edge), var(--plate)); }
 .mk-disc[data-tint="2"] { background: color-mix(in srgb, var(--series-2) var(--mix-chip-edge), var(--plate)); }
 .mk-disc[data-tint="3"] { background: color-mix(in srgb, var(--series-3) var(--mix-chip-edge), var(--plate)); }
@@ -78,9 +98,10 @@ td.share { min-width: var(--share-w); }
 .mk-disc svg { inline-size: calc(var(--mk-disc) / 2); block-size: calc(var(--mk-disc) / 2); fill: var(--plate-ink); opacity: 0.6; }
 /* the line of an account: the mark beside its name */
 .acc-name { display: flex; align-items: flex-start; gap: var(--sp-8); }
-.acc-name > :first-child { margin-top: var(--sp-2); }
+.acc-name > :first-child { margin-top: var(--sp-4); }
 /* the card of Muut havainnot: the payee's mark before the title */
 .other-head { display: flex; align-items: center; gap: var(--sp-8); }
 .acc-mark { display: inline-flex; flex: none; }
 /* an account line wears the wide plate: a long name wraps beside it at a phone width and is not cut */
 .holding-account .st-name { overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+}

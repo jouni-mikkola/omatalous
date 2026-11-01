@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { AnalysisContext } from "../src/analysis/context.ts";
 import { insightInputOf, rankInsights } from "../src/analysis/insights/index.ts";
 import { NO_INPUTS } from "../src/types.ts";
+import { view } from "./insight-view.ts";
 import type { RowSpec } from "./kit/frame.ts";
 import { frame, monthly, TODAY, withRows } from "./behaviour-model/household.ts";
 
 const running = { from: `${TODAY.slice(0, 7)}-01`, to: TODAY };
-const small = (ctx: AnalysisContext) => rankInsights(insightInputOf(ctx, running, NO_INPUTS)).find((i) => i.id === "small-purchases");
+const small = (ctx: AnalysisContext) => rankInsights(insightInputOf(ctx, running, NO_INPUTS)).map(view).find((i) => i.id === "small-purchases");
 const DAYS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26];
 
 /** A kiosk purchase of 7 € on each of `DAYS` from `fromAgo` months back to `toAgo`. */
@@ -19,7 +20,7 @@ describe("small purchases insight", () => {
     expect(i).toBeDefined();
     expect(i.direction).toBe(1);
     expect(i.tone).toBe("info");
-    expect(i.title.replace(/\s/g, " ")).toMatch(/^Alle 10 € ostokset [\d ]+ € kuussa, vuosi sitten [\d ]+ €$/);
+    expect(i.title.replace(/\s/g, " ")).toMatch(/^Alle 10 € ostokset [\d ]+ € kuussa$/);
     expect(i.detail).toMatch(/R-Kioski/i);
     for (const n of i.title.replace(/ /g, " ").match(/\d+(?: \d{3})*/g)!) expect(i.calc!.some((c) => c.value.replace(/ /g, " ").includes(n))).toBe(true);
   });

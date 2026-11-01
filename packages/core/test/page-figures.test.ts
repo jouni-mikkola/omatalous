@@ -1,36 +1,17 @@
 /**
- * Laskut's totals and the sums of its bills ahead have one definition each in core (ADR 0004), so the page adds up
- * nothing: Tilaukset and Sopimukset ja laskut are the fixed costs of the strip, Säännöllinen säästäminen is
- * `fixedSplit`'s savings, and the groups of Erääntyvät maksut are `upcoming` once over with their sums. Which month
+ * The sums of Laskut's bills ahead have one definition in core (ADR 0004), so the page adds up nothing: the groups
+ * of Erääntyvät maksut are `upcoming` once over with their sums. Which month
  * Yhteenveto opens on is core's too.
  */
 import { describe, expect, it } from "vitest";
-import { cashAhead, openingMonth, upcomingGroups } from "../src/analysis/ahead.ts";
+import { cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
-import { monthWaterfall } from "../src/analysis/waterfall.ts";
-import { contractsMonthlyCents, fixedMonthlyCents, fixedSplit, isContract, isSavingsPlan, savingsPlansMonthlyCents, subscriptionsMonthlyCents } from "../src/commitments.ts";
 import { type Account, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { contextOf, demoHousehold } from "../../../tools/findings/households.ts";
 
 const h = demoHousehold();
 const ctx = contextOf(h);
-
-describe("Laskut's totals", () => {
-  it("Tilaukset and Sopimukset ja laskut add up to the fixed costs, with and without a cancelled series", () => {
-    const contracts = ctx.recurring.filter(isContract);
-    expect(contracts.length).toBeGreaterThan(0);
-    expect(subscriptionsMonthlyCents(ctx.recurring) + contractsMonthlyCents(ctx.recurring)).toBe(fixedMonthlyCents(ctx.recurring));
-    const gone = new Set([contracts[0]!.merchant]);
-    expect(contractsMonthlyCents(ctx.recurring, gone)).toBe(contractsMonthlyCents(ctx.recurring) - contracts.filter((s) => s.merchant === contracts[0]!.merchant).reduce((sum, s) => sum + s.monthlyCents, 0));
-    expect(subscriptionsMonthlyCents(ctx.recurring, gone) + contractsMonthlyCents(ctx.recurring, gone)).toBe(fixedMonthlyCents(ctx.recurring, gone));
-  });
-
-  it("Säännöllinen säästäminen is the savings of fixedSplit, its rows' sum", () => {
-    expect(savingsPlansMonthlyCents(ctx.recurring)).toBe(fixedSplit(ctx.recurring).savingsCents);
-    expect(savingsPlansMonthlyCents(ctx.recurring)).toBe(ctx.recurring.filter(isSavingsPlan).reduce((sum, s) => sum + s.monthlyCents, 0));
-  });
-});
 
 describe("the groups of Erääntyvät maksut", () => {
   it("hold every paying row of upcoming once, in its order, and each sum is its rows'", () => {
@@ -40,6 +21,16 @@ describe("the groups of Erääntyvät maksut", () => {
     expect(paying.length).toBeGreaterThan(0);
     expect(groups.flatMap((g) => g.rows).sort((a, b) => a - b)).toEqual(paying);
     for (const g of groups) expect(g.cents).toBe(g.rows.reduce((sum, i) => sum - ahead.upcoming[i]!.cents!, 0));
+  });
+
+  it("what is paid elsewhere is told by itself, and the group of the days is every bill an account pays", () => {
+    const row = (date: string, cents: number, more = {}) => ({ date, name: date, category: null, cents, source: "recurring" as const, ...more });
+    const upcoming = [row("2026-10-12", -1000), row("2026-10-13", -300, { onCard: true }), row("2026-10-20", -4000)];
+    const groups = upcomingGroups({ upcoming, to: "2026-10-30", reason: "none", payday: null });
+    expect(groups.filter((g) => g.key !== "card").reduce((sum, g) => sum + g.cents, 0)).toBe(5000);
+    expect(upcomingElsewhereCents(upcoming)).toBe(0);
+    // near miss: a bill an account outside the balance pays is in the 30 days and in no figure of the window
+    expect(upcomingElsewhereCents([...upcoming, row("2026-10-22", -2000, { outside: true as const })])).toBe(2000);
   });
 
   it("a pay that ends the window splits the list at its day; a bill paid from the pay goes after it; a card's charges are last", () => {
@@ -79,18 +70,5 @@ describe("the month Yhteenveto opens on", () => {
     expect(openingMonth({ from: "2026-10-03", payday: null })).toBe("month");
     // a pay behind its day this month has not come
     expect(openingMonth({ from: "2026-10-17", payday: { date: "2026-10-17", expected: "2026-10-15", name: "Palkka", pay: null } })).toBe("last-month");
-  });
-});
-
-describe("the month's sentence for a reader who does not see the waterfall", () => {
-  it("has Tulot, Menot and what went to savings and credit from core, and they are the bars' and add up to Tulos", () => {
-    for (const month of ["2026-07", "2026-08", "2026-09"]) {
-      const w = monthWaterfall(ctx, month, { from: `${month}-01`, to: `${month}-31` })!;
-      const bar = (keep: (key: string) => boolean) => w.bars.filter((b) => keep(b.key)).reduce((s, b) => s + b.cents, 0);
-      expect(w.incomeCents).toBe(bar((k) => k === "income"));
-      expect(-w.spentCents).toBe(bar((k) => k === "other" || k.startsWith("category:")));
-      expect(w.transfersCents).toBe(bar((k) => k === "transfers"));
-      expect(w.incomeCents - w.spentCents + w.transfersCents).toBe(w.leftCents);
-    }
   });
 });

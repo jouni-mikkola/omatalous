@@ -24,6 +24,8 @@
 #   BACKUP_COPY_TO=/mnt/nas/omatalous
 #   KEEP_DAYS=30
 #
+# BACKUP_NO_COPY=1 (shell only) skips that copy: scripts/offsite.sh makes its own copy in a private folder and sends it.
+#
 # --schedule writes one crontab line for this folder, ending in `# talous-backup:<folder>`. A second run replaces it and
 # the lines of other folders and of the user stay.
 #
@@ -194,6 +196,11 @@ trap cleanup EXIT
 # way out is caught by comparing sizes, and the compressed file by gzip -t.
 # shellcheck source=lib/dbcopy.sh
 . scripts/lib/dbcopy.sh
+# A secret rotation re-seals the database and then replaces the secret file. A pair taken on both sides of it could not
+# be opened again, so the secret is fingerprinted before the copy and again when the file is taken: a change fails the run.
+# While /secrets/app_secret.next exists a rotation is under way (the database may already hold the new seal): no print, so the run fails.
+secret_print() { docker compose exec -T banking node -e 'const fs=require("node:fs");if(!fs.existsSync("/secrets/app_secret.next"))process.stdout.write(require("node:crypto").createHash("sha256").update(fs.readFileSync("/secrets/app_secret")).digest("hex"))' 2>/dev/null || true; }
+secret_before=$(secret_print)
 docker compose exec -T banking node --disable-warning=ExperimentalWarning -e "$DBCOPY_JS" - /data/backup.db
 want=$(docker compose exec -T banking node -e 'console.log(require("node:fs").statSync("/data/backup.db").size)' | tr -d '\r')
 docker compose cp banking:/data/backup.db "$TARGET" >/dev/null
@@ -209,8 +216,10 @@ if [[ -n ${BACKUP_AGE_RECIPIENT:-} ]]; then
   [[ -s $TARGET.gz.age ]] || die "age wrote an empty file."
   chmod 600 "$TARGET.gz.age"
   rm -f "$TARGET.gz"
+  [[ -n $secret_before && $(secret_print) == "$secret_before" ]] || die "the app secret changed while the backup was made (a rotation?). Nothing was kept, run the backup again."
   # the secret goes straight from the container into age, never to disk in plain text
   docker compose exec -T banking cat /secrets/app_secret | age -r "$BACKUP_AGE_RECIPIENT" -o "$SECRET_TARGET"
+  [[ $(secret_print) == "$secret_before" ]] || { rm -f "$TARGET.gz.age" "$SECRET_TARGET"; die "the app secret changed while the backup was made (a rotation?). Nothing was kept, run the backup again."; }
   echo "$(date '+%F %T') backup$TAG: $TARGET.gz.age and $SECRET_TARGET (encrypted)"
 else
   echo "$(date '+%F %T') backup$TAG: $TARGET.gz (app secret not included, keep it in a password manager)"
@@ -221,14 +230,19 @@ for f in "$TARGET.gz" "$TARGET.gz.age" "$SECRET_TARGET"; do [[ ! -e $f ]] || fsy
 fsync_path "$OUT_DIR"
 
 # the local backup is good: a copy that fails is a warning and changes neither the files nor the exit status
-if [[ -n $BACKUP_COPY_TO ]]; then copy_out || true; fi
+if [[ -n $BACKUP_COPY_TO && ${BACKUP_NO_COPY:-} != 1 ]]; then copy_out || true; fi
 
 # Only now, with this run's good copy in place: a run that failed above never gets here, and a machine that was off for
 # weeks keeps its old files until a new one is made. Only plain files of this folder, in the names this script writes;
 # this run's own files are never candidates. -mtime +N counts whole 24 hour periods and rounds down, so +7 deletes a
 # file at 192 hours (8 days) and keeps one of 191 hours 59 minutes. The folder of BACKUP_COPY_TO is not pruned.
 if [[ $KEEP_DAYS =~ ^[0-9]+$ ]]; then
-  find "$OUT_DIR" -maxdepth 1 -type f \( -name 'talous-*.db.gz*' -o -name 'talous-*.app_secret.age' \) ! -name "talous-$STAMP.*" -mtime +"$KEEP_DAYS" -delete
+  # The three newest copies (this run's included) stay whatever their age, as in the app's own rule (db/backup-keep.ts).
+  newest=$(find "$OUT_DIR" -maxdepth 1 -type f -name 'talous-*.db.gz*' -printf '%T@ %f\n' | sort -rn | head -n 3 | sed -E 's/^[^ ]+ (talous-[^.]+)\..*/\1/')
+  while IFS= read -r -d '' old; do
+    base=${old##*/}
+    grep -qxF -- "${base%%.*}" <<<"$newest" || rm -f -- "$old"
+  done < <(find "$OUT_DIR" -maxdepth 1 -type f \( -name 'talous-*.db.gz*' -o -name 'talous-*.app_secret.age' \) ! -name "talous-$STAMP.*" -mtime +"$KEEP_DAYS" -print0)
 else
   warn "KEEP_DAYS is '$KEEP_DAYS', not a whole number of days, so no old backup was deleted."
 fi

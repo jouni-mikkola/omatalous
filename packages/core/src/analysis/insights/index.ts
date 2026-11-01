@@ -1,10 +1,13 @@
 /**
- * Insights: observations a household would not have thought to check, each with its number, its basis, its rows and
- * what it is worth over a year (`yearlyCents`). Every source below has its own file, gate and history rule;
- * this file only ranks them. Säästövinkit shows them as Muut havainnot
+ * Insights: observations a household would not have thought to check, each a fact, what it is set against, what to do
+ * next and what it is worth over a year (`effectPerYear`, a calc line). Every source below has its own file, gate and
+ * history rule; this file ranks them: a recurring pattern before a single row, then the larger effect first, and a
+ * single row only when it is worth `SINGLE_MIN_YEARLY_CENTS` and is among the largest rows of its month. Säästövinkit shows them as Muut havainnot
  * (optimise/others.ts); with that page switched off the overview shows the first three and the Havainnot report all
  * of them. What the alerts say (alerts.ts) and what the spending change says (change.ts) is not repeated.
  */
+import { DEFAULT_LANGUAGE, type Language } from "../../locale.ts";
+import { INSIGHT_RETURN_SHARE, OVERVIEW_INSIGHTS, SINGLE_MIN_YEARLY_CENTS } from "../../thresholds.ts";
 import { NO_INPUTS, type UserInputs, type UserMark } from "../../types.ts";
 import { buildAlerts } from "../alerts.ts";
 import { type AnalysisContext, inDays } from "../context.ts";
@@ -21,16 +24,14 @@ import { priceRises } from "./prices.ts";
 import { renewals } from "./renewals.ts";
 import { smallPurchases } from "./small-purchases.ts";
 import { expensiveMonths } from "./seasons.ts";
-import { gateMonthly } from "./shared.ts";
+import { amongLargestRows, gateMonthly } from "./shared.ts";
 import { spendingChanges } from "./spending.ts";
 import { stoppedPayments } from "./stopped.ts";
 import { subscriptionChanges } from "./subscriptions.ts";
+import { weekdays } from "./weekdays.ts";
 import type { Insight, InsightArgs, InsightInput, InsightSource } from "./types.ts";
 
-export type { Insight, InsightArgs, InsightInput, InsightLink, InsightSource, InsightTone } from "./types.ts";
-
-/** At most this many on the overview (H-insights section 1). */
-export const OVERVIEW_INSIGHTS = 3;
+export type { Action, Comparison, EffectLine, Insight, InsightArgs, InsightEvidence, InsightFact, InsightInput, InsightLink, InsightSource, Quantity } from "./types.ts";
 
 /** Each returns only what passed its own gate. To add a source, add one line here. */
 const SOURCES: readonly InsightSource[] = [
@@ -48,17 +49,23 @@ const SOURCES: readonly InsightSource[] = [
   spendingChanges,
   paydaySpending,
   smallPurchases,
+  weekdays,
 ];
 
-/** A dismissed insight comes back when its yearly figure has moved this much from the one it was dismissed at. */
-const RETURN_SHARE = 0.25;
+/** The order of the list: a pattern before a single row, then the larger yearly effect, then the id. */
+function compareInsights(a: Insight, b: Insight): number {
+  return Number(a.kind === "single") - Number(b.kind === "single") || yearlyOf(b) - yearlyOf(a) || a.id.localeCompare(b.id);
+}
+
+/** The yearly figure of an insight without its sign: what a dismissal is compared with. */
+const yearlyOf = (i: Pick<Insight, "effectPerYear">) => Math.abs(i.effectPerYear?.cents ?? 0);
 
 /**
  * The mark subject that dismisses an insight at its current figure: `alert:<id>@<yearlyCents>` (PUT /api/marks with
  * mark "dismissed").
  */
-export function insightDismissSubject(i: Pick<Insight, "id" | "yearlyCents">): string {
-  return `alert:${i.id}@${i.yearlyCents}`;
+export function insightDismissSubject(i: Pick<Insight, "id" | "effectPerYear">): string {
+  return `alert:${i.id}@${yearlyOf(i)}`;
 }
 
 /**
@@ -71,7 +78,7 @@ function dismissalOf(i: Insight, marks: readonly UserMark[]): UserMark | null {
     const at = m.subject.lastIndexOf("@");
     if (at < 0 || m.subject.slice(0, at) !== `alert:${i.id}`) continue;
     const then = Number(m.subject.slice(at + 1));
-    if (Number.isFinite(then) && Math.abs(i.yearlyCents - then) < RETURN_SHARE * Math.abs(then)) return m;
+    if (Number.isFinite(then) && Math.abs(yearlyOf(i) - then) < INSIGHT_RETURN_SHARE * Math.abs(then)) return m;
   }
   return null;
 }
@@ -82,7 +89,12 @@ export interface AnsweredInsight {
   dismissal: UserMark | null;
 }
 
-/** Every insight that passed its gate, largest `yearlyCents` first, each with the dismissal that hides it. */
+/** Whether a single row is large enough to be told: worth the threshold a year and among the largest rows of its month. */
+function singleShown(args: InsightArgs, i: Insight): boolean {
+  return yearlyOf(i) >= SINGLE_MIN_YEARLY_CENTS && amongLargestRows(args.ctx, i.evidence.rows);
+}
+
+/** Every insight that passed its gate, a pattern before a single row and then the larger effect first, each with the dismissal that hides it. */
 export function answeredInsights(input: InsightInput): AnsweredInsight[] {
   const { ctx, range } = input;
   const end = range.to < ctx.today ? range.to : ctx.today;
@@ -97,17 +109,18 @@ export function answeredInsights(input: InsightInput): AnsweredInsight[] {
     inputs,
     alerts: input.alerts ?? [],
     gateMonthlyCents: gateMonthly(ctx, end),
+    lang: input.lang ?? DEFAULT_LANGUAGE,
   };
   const dismissals = inputs.marks.filter((m) => m.mark === "dismissed");
   // what an alert names already (a merchant, a category) is not told twice
   const alerted = new Set(args.alerts.flatMap((a) => [a.merchant, a.category]).filter((x): x is string => !!x));
   return SOURCES.flatMap((source) => source(args))
-    .filter((i) => i.yearlyCents > 0 && !(i.merchant && alerted.has(i.merchant)))
-    .sort((a, b) => b.yearlyCents - a.yearlyCents || a.id.localeCompare(b.id))
+    .filter((i) => i.effectPerYear !== null && !(i.evidence.merchant && alerted.has(i.evidence.merchant)) && (i.kind === "pattern" || singleShown(args, i)))
+    .sort(compareInsights)
     .map((insight) => ({ insight, dismissal: dismissalOf(insight, dismissals) }));
 }
 
-/** Every insight that passed its gate, largest `yearlyCents` first, dismissed ones left out. */
+/** Every insight that passed its gate, in the order above, dismissed ones left out. */
 export function rankInsights(input: InsightInput): Insight[] {
   return answeredInsights(input)
     .filter((a) => !a.dismissal)
@@ -119,9 +132,9 @@ export function rankInsights(input: InsightInput): Insight[] {
  * so a list and the overview's first three agree and nothing an alert says repeats. The Havainnot report and
  * Säästövinkit (optimise/others.ts) read this.
  */
-export function insightInputOf(ctx: AnalysisContext, range: DateRange, inputs: UserInputs): InsightInput {
+export function insightInputOf(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): InsightInput {
   const current = inDays(ctx, toDayRange(range));
-  return { ctx, range, current, totals: totalsOf(current.map((t) => t.flows)), inputs, alerts: buildAlerts(ctx, range, inputs) };
+  return { ctx, range, current, totals: totalsOf(current.map((t) => t.flows)), inputs, alerts: buildAlerts(ctx, range, inputs, lang), lang };
 }
 
 /** The overview's insights: the first three of `rankInsights`. */

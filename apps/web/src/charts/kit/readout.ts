@@ -1,7 +1,11 @@
 /**
- * The readout of a chart: which datum a pointer, a finger or the keyboard is on, where its box stands and the sentence
- * a screen reader hears. Shared by every chart form, so hover, tap and the arrow keys behave the same everywhere.
+ * The one way every chart is read: the pointer or the arrow keys move from mark to mark, the readout says the value and
+ * what it is set against (a sentence a screen reader hears at once, `aria-live="polite"`), a click or Enter sends the
+ * mark's key to the table under the chart, and Escape lets go. This file is the pure part, `Readout.tsx` draws it.
  */
+
+/** Under this screen width a chart with a mark per month is drawn as a dot plot: one dot a month, no bars or steps. */
+export const DOT_PLOT_BELOW = 600;
 
 /** The index of the position nearest to `px` in `xs` (ascending pixels). Binary search: 2 000 points take 11 steps. */
 export function nearestIndex(xs: readonly number[], px: number): number {
@@ -51,9 +55,12 @@ export function boxPlace(x: number, containerWidth: number, boxWidth = 190, gap 
   return { right: containerWidth - x + gap };
 }
 
-/** The sentence of one readout for `aria-live`: "loka 2026: Menot 1 234,00 €, Tulot 2 000,00 €". */
+/**
+ * The sentence of one readout for `aria-live`: "loka 2026: Menot 1 234,00 €, Tulot 2 000,00 €". A row with no value
+ * (a note on the month) is its name alone.
+ */
 export function readoutText(title: string, rows: readonly { name: string; value: string }[]): string {
-  return rows.length ? `${title}: ${rows.map((r) => `${r.name} ${r.value}`).join(", ")}` : title;
+  return rows.length ? `${title}: ${rows.map((r) => (r.value ? `${r.name} ${r.value}` : r.name)).join(", ")}` : title;
 }
 
 /** A cell of a grid chart (a calendar's week and weekday). */

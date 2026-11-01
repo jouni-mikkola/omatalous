@@ -66,7 +66,8 @@ export const CATEGORIES: readonly Category[] = [
   { id: "pension", label: "Eläkesäästö", kind: "savings", group: "Säästöt ja sijoitukset" },
   // ── income ──
   { id: "salary", label: "Palkka", kind: "income", group: "Tulot" },
-  { id: "benefits", label: "Etuudet, eläke ja veronpalautus", kind: "income", group: "Tulot" },
+  { id: "benefits", label: "Etuudet ja eläke", kind: "income", group: "Tulot" },
+  { id: "tax_refund", label: "Veronpalautukset", kind: "income", group: "Tulot" },
   { id: "investment_income", label: "Osingot ja korot", kind: "income", group: "Tulot" },
   { id: "sales", label: "Myyntitulot", kind: "income", group: "Tulot" },
   { id: "reimbursements", label: "Hyvitykset", kind: "income", group: "Tulot" },

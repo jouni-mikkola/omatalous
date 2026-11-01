@@ -2,8 +2,9 @@
 import type { LoansReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { Table } from "../../components/table/Table.tsx";
-import { approxText } from "../../components/Why.tsx";
-import { money, monthLong } from "../../format.ts";
+import { approxText } from "../../approx.ts";
+import { money, monthLong, monthLongIn } from "../../format.ts";
+import { t } from "../../text.ts";
 import { crisp } from "../draw.ts";
 import { axisRoom, frame, tickTarget } from "../kit/layout.ts";
 import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
@@ -12,27 +13,26 @@ import { linear, points } from "../kit/scale.ts";
 import { areaPath, linePath } from "../kit/path.ts";
 import { moneyAxis } from "../kit/ticks.ts";
 import { spreadLabels, Tip, ValueGrid } from "./parts.tsx";
+import { color } from "../../design/tokens.ts";
+import { css } from "../../css.ts";
 
 type Path = LoansReport["path"];
 
 /** The two layers bottom up: what is owed, and the interest still to come on top of it. */
 const LAYERS = [
-  { key: "balance", label: "Velka", color: "var(--series-1)" },
-  { key: "interest", label: "Korko", color: "var(--series-4)" },
+  { key: "balance", get label() { return t("rpt.db_debt"); }, color: color["series-1"] },
+  { key: "interest", get label() { return t("rpt.ln_interest"); }, color: color["series-4"] },
 ] as const;
 
-/** "marraskuussa 2041": the month of a day in the inessive (every month's name ends in -kuu). */
-const inMonth = (day: string) => {
-  const [name, year] = monthLong(day.slice(0, 7)).split(" ");
-  return `${name}ssa ${year}`;
-};
+/** "marraskuussa 2041": the month of a day, in the inessive in Finnish. */
+const inMonth = (day: string) => monthLongIn(day.slice(0, 7));
 
-const soft = (color: string) => `color-mix(in srgb, ${color} 60%, var(--surface))`;
+const soft = (base: string) => `color-mix(in srgb, ${base} 60%, ${color.surface})`;
 
 /** A move of the reference rate as a line's short label; the answer and the table name its size. */
-const moveLabel = (shiftBp: number) => (shiftBp > 0 ? "jos korko nousee" : "jos korko laskee");
+const moveLabel = (shiftBp: number) => t(shiftBp > 0 ? "rpt.db_move_up" : "rpt.db_move_down");
 /** A move of the reference rate in full, as the readout and the table name it: every move the report draws is one point. */
-const moveName = (shiftBp: number) => `Jos viitekorko ${shiftBp > 0 ? "nousee" : "laskee"} prosenttiyksikön`;
+const moveName = (shiftBp: number) => t(shiftBp > 0 ? "rpt.db_name_up" : "rpt.db_name_down");
 
 /**
  * The loans from today to the day they are paid (`loans.path`): what is owed at the bottom and the interest still to
@@ -70,11 +70,11 @@ export function DebtPath({ path }: { path: Path }) {
         f.innerH,
       );
   const fifth = Math.min(n - 1, Math.round((n - 1) / 5));
-  const title = (i: number) => (i === 0 ? `${monthLong(month(i))} (nyt)` : monthLong(month(i)));
+  const title = (i: number) => (i === 0 ? t("rpt.db_now", { month: monthLong(month(i)) }) : monthLong(month(i)));
   const tipRows = (i: number) => [
-    { name: "Velkaa", value: money(path.balanceCents[i]!, false), key: <span className="swatch" style={{ background: soft(LAYERS[0].color) }} /> },
-    { name: "Korkoa vielä", value: money(path.interestCents[i]!, false), key: <span className="swatch" style={{ background: soft(LAYERS[1].color) }} /> },
-    { name: "Yhteensä", value: money(path.tops[i]!, false) },
+    { name: t("rpt.ln_debt"), value: money(path.balanceCents[i]!, false), key: <span className="swatch" ref={css({ background: soft(LAYERS[0].color) })} /> },
+    { name: t("rpt.db_interest_left"), value: money(path.interestCents[i]!, false), key: <span className="swatch" ref={css({ background: soft(LAYERS[1].color) })} /> },
+    { name: t("rpt.fd_total"), value: money(path.tops[i]!, false) },
     ...path.moves.map((m) => ({ name: moveName(m.shiftBp), value: approxText(money(m.tops[i]!, false), true) })),
   ];
   return (
@@ -83,18 +83,19 @@ export function DebtPath({ path }: { path: Path }) {
         <p className="use-key" aria-hidden="true">
           {LAYERS.map((l) => (
             <span key={l.key}>
-              <i className="swatch" style={{ background: soft(l.color) }} />
+              <i className="swatch" ref={css({ background: soft(l.color) })} />
               {l.label}
             </span>
           ))}
         </p>
       )}
       {width > 0 && n > 1 && (
-        <svg width={f.width} height={f.height} role="img" aria-label="Velka ja maksettava korko kuukausittain siihen asti, kun lainat on maksettu">
+        <svg width={f.width} height={f.height}>
           <g transform={`translate(${f.margin.left},${f.margin.top})`}>
+            <g role="img" aria-label={t("rpt.db_aria")}>
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
-            <path d={areaPath(zero, path.balanceCents, x, y)} fill={soft(LAYERS[0].color)} stroke="var(--surface)" strokeWidth={1} />
-            <path d={areaPath(path.balanceCents, path.tops, x, y)} fill={soft(LAYERS[1].color)} stroke="var(--surface)" strokeWidth={1} />
+            <path d={areaPath(zero, path.balanceCents, x, y)} fill={soft(LAYERS[0].color)} stroke={color.surface} strokeWidth={1} />
+            <path d={areaPath(path.balanceCents, path.tops, x, y)} fill={soft(LAYERS[1].color)} stroke={color.surface} strokeWidth={1} />
             <path className="qc-line qc-now" d={linePath(path.balanceCents, x, y)} />
             {path.moves.map((m) => (
               <g key={m.shiftBp}>
@@ -121,12 +122,13 @@ export function DebtPath({ path }: { path: Path }) {
               <g>
                 <line className="kit-event-rule" x1={crisp(x(payoff))} x2={crisp(x(payoff))} y1={0} y2={f.innerH} />
                 <text className="qc-note" x={x(payoff) - 6} y={10} textAnchor="end">
-                  {`maksettu ${inMonth(path.payoff!)}`}
+                  {t("rpt.db_paid", { month: inMonth(path.payoff!) })}
                 </text>
               </g>
             )}
             {at !== null && <circle className="qc-dot" cx={x(at)} cy={y(path.tops[at]!)} r={4} pointerEvents="none" />}
-            <ReadoutLayer xs={path.days.map((_, i) => x(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} label="Velka ja korko kuukausittain. Nuolinäppäimillä siirryt kuukaudesta toiseen." />
+            </g>
+            <ReadoutLayer xs={path.days.map((_, i) => x(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={path.days} label={t("rpt.db_readout")} />
           </g>
         </svg>
       )}
@@ -141,14 +143,14 @@ export function DebtPathTable({ path }: { path: Path }) {
   const rows = path.days.flatMap((_, i) => (i % 12 === 0 || i === path.days.length - 1 ? [i] : []));
   return (
     <Table
-      caption="Velkapolku vuosi kerrallaan taulukkona"
+      caption={t("rpt.db_caption")}
       rows={rows}
       rowKey={(i) => path.days[i]!}
       columns={[
-        { key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (i) => monthLong(path.days[i]!.slice(0, 7)) },
-        { key: "balance", label: "Velkaa", kind: "money", cents: (i) => path.balanceCents[i]! },
-        { key: "interest", label: "Korkoa vielä", kind: "money", cents: (i) => path.interestCents[i]! },
-        { key: "tops", label: "Yhteensä", kind: "money", main: true, cell: (i) => <strong>{money(path.tops[i]!, false)}</strong> },
+        { key: "month", label: t("rpt.month_col"), kind: "text", rowHead: true, cell: (i) => monthLong(path.days[i]!.slice(0, 7)) },
+        { key: "balance", label: t("rpt.ln_debt"), kind: "money", cents: (i) => path.balanceCents[i]! },
+        { key: "interest", label: t("rpt.db_interest_left"), kind: "money", cents: (i) => path.interestCents[i]! },
+        { key: "tops", label: t("rpt.fd_total"), kind: "money", main: true, cell: (i) => <strong>{money(path.tops[i]!, false)}</strong> },
         ...path.moves.map((m) => ({
           key: `move${m.shiftBp}`,
           label: moveName(m.shiftBp),

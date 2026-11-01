@@ -61,7 +61,7 @@ const fi = (iso: string) => `${Number(iso.slice(8))}.${Number(iso.slice(5, 7))}.
 async function importFile(browser: Browser) {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/data");
   const card = page.locator(".card", { has: page.getByRole("heading", { level: 2, name: "Tiedot", exact: true }) });
   await card.locator("input[type=file]").setInputFiles({ name: "omatalous.json", mimeType: "application/json", buffer: Buffer.from(file) });
   await card.getByRole("button", { name: "Tuo", exact: true }).click();
@@ -75,7 +75,9 @@ async function openStatement(page: Page) {
   const row = page.locator("table.tx-table tbody tr:not(.rt-detail)", { hasText: "ESIMERKKI KORTTILASKU" });
   const open = row.locator(".rt-drill");
   if ((await open.getAttribute("aria-expanded")) !== "true") await open.click();
-  await page.locator(".rt-detail").getByRole("button", { name: "Erittele ostot" }).click();
+  // the action sits in the row's menu (BA-7 moved it from a button of the detail)
+  await page.locator(".rt-detail").getByRole("button", { name: /^Muuta: / }).click();
+  await page.getByRole("menuitem", { name: "Erittele ostot" }).click();
 }
 
 test("pasted statement lines are read, saved, told on the bill row, and undone", async ({ browser }) => {
@@ -92,9 +94,9 @@ test("pasted statement lines are read, saved, told on the bill row, and undone",
   await expect(dialog.getByRole("heading", { name: "Erittele ostot" })).toBeVisible();
   const lines = [`${fi(dayOf(5))} K-MARKET ESIMERKKI 12,50`, `${fi(dayOf(4))} ESIMERKKI RAVINTOLA 8,00`, `${fi(dayOf(3))} S-MARKET ESIMERKKI 25,00`, `${fi(dayOf(2))} MAKSU KIITOS 100,00`];
   await dialog.getByLabel("Liitä rivit").fill(lines.join("\n"));
-  await dialog.getByRole("button", { name: "Lue", exact: true }).click();
+  await dialog.getByRole("button", { name: "Lue rivit", exact: true }).click();
   await expect(dialog.locator(".cs-rows tbody tr")).toHaveCount(3);
-  await expect(dialog.getByText("1 maksurivi jätettiin pois.")).toBeVisible();
+  await expect(dialog.getByText("Jätimme 1 maksurivin pois.")).toBeVisible();
   // 12,50 + 8,00 + 25,00 = 45,50 of 123,45
   await expect(dialog.locator(".cs-difference")).toContainText("77,95");
   await expect(dialog.locator(".cs-difference")).toContainText("selvittämättä");
@@ -147,8 +149,24 @@ test("the server's sentence shows when the rows are over the bill", async ({ bro
   await openStatement(page);
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Liitä rivit").fill(`${fi(dayOf(5))} ESIMERKKI KAUPPA 999,00`);
-  await dialog.getByRole("button", { name: "Lue", exact: true }).click();
+  await dialog.getByRole("button", { name: "Lue rivit", exact: true }).click();
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog.getByRole("alert")).toHaveText("Rivien summa on yli laskun.");
+  await context.close();
+});
+
+test("closing the statement view by Escape or Peruuta puts the focus back on the row's menu button", async ({ browser }) => {
+  const { context, page } = await importFile(browser);
+  await page.goto("/#/transactions?merchant=ESIMERKKI%20KORTTILASKU");
+  await page.reload();
+  for (const how of ["Escape", "Peruuta"] as const) {
+    await openStatement(page);
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    if (how === "Escape") await page.keyboard.press("Escape");
+    else await dialog.getByRole("button", { name: "Peruuta", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(page.locator(".rt-detail").getByRole("button", { name: /^Muuta: / }), `closed with ${how}`).toBeFocused();
+  }
   await context.close();
 });

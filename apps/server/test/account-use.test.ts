@@ -138,9 +138,9 @@ describe("saying who uses an account", () => {
     for (const [users, error] of refusals) {
       const res = await say(aino, "aino-own", users);
       expect(res.status, JSON.stringify(users)).toBe(400);
-      expect(res.body, JSON.stringify(users)).toEqual({ error });
+      expect(res.body, JSON.stringify(users)).toMatchObject({ error });
     }
-    expect((await aino.call("PUT", "/api/accounts/aino-own/use", { users: [me], saidBy: eero.id })).body).toEqual({ error: "Tuntematon kenttä: saidBy" });
+    expect((await aino.call("PUT", "/api/accounts/aino-own/use", { users: [me], saidBy: eero.id })).body).toMatchObject({ error: "Tuntematon kenttä: saidBy" });
     expect(await stored(db)).toEqual([]);
     // near misses: the largest weight, a weight of nothing beside one cent, the user with no id once
     expect((await say(aino, "aino-own", [{ userId: aino.id, weight: 100_000_000 }, { userId: eero.id, weight: 0 }, { userId: null, weight: 1 }])).status).toBe(200);

@@ -1,5 +1,5 @@
 /**
- * A household of a stated size for the performance budgets (perf-reprocess.test.ts, perf-front.test.ts): two members,
+ * A household of a stated size for the performance budgets (perf-reprocess.perf.test.ts, perf-front.perf.test.ts): two members,
  * six accounts (one of them joint, linked by both), five years of rows (about 12 000 counting the joint account's two
  * copies), rules, marks, answers, a split, loans and expected bills. Made-up names and sums only, and the same
  * household every time: a seeded generator, no clock and no Math.random.

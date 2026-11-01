@@ -1,5 +1,6 @@
 /* Asetukset > Ylläpito. */
 
+@layer pages {
 /* Asetukset > Ylläpito */
 .ops-command { background: var(--surface-2); border-radius: var(--radius-s); padding: 4px 8px; overflow-wrap: anywhere; user-select: all; }
 .ops-log { background: var(--surface-2); border-radius: var(--radius-s); padding: 8px 12px; margin: 8px 0 0; max-height: 320px; overflow: auto; font-size: var(--fs-label); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -12,3 +13,15 @@
 .ops-tools li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
 .ops-tools li:first-child { border-top: 0; }
 @media (max-width: 600px) { .ops-tools li { flex-direction: column; align-items: stretch; } }
+}
+@layer pages {
+.server-status-line { display: flex; flex-wrap: wrap; gap: var(--gap); margin: 0; }
+.server-status-line > div { display: flex; gap: 0.5em; }
+.server-status-line dt { color: var(--muted); }
+.server-status-line dd { margin: 0; }
+.server-status-line .bad dd { color: var(--bad, inherit); font-weight: 600; }
+.ops-last.warning { color: var(--bad, inherit); }
+}
+.ops-line { margin: var(--sp-4) 0; }
+.field.field-block { display: block; margin: var(--sp-12) 0; }
+.field-block .input-block, .input-block { display: block; width: 100%; }

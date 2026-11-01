@@ -23,7 +23,7 @@ const detachedOf = async (db: { all<T>(sql: string): Promise<T[]> }) =>
 /** Aino has a current account, a card and a loan; Eero has a current account. Bills are made-up and booked in March. */
 async function household() {
   const app = await setupApp();
-  const { db, s, admin, adminId } = app;
+  const { db, s, adminId } = app;
   const eero = await app.member("eero", "Eero");
   const account = (id: string, userId: string, type: string, name = id) =>
     s.finance(userId).upsertAccount({ id, connectionId: null, provider: "csv", externalId: null, identity: null, name, bankName: name, holder: "Matti Meikalainen", iban: null, currency: "EUR", type } as never);

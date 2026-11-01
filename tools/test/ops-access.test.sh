@@ -102,7 +102,7 @@ after_kill() {
 # or that tick would find the lock held and do nothing.
 killed_tick() { tick 2>/dev/null; flock -w 20 "$CL/ops/.lock" true; after_kill; }
 # this world's copy of the helper writes every command it runs, as bash expanded it, into S/trace
-traced() { sed -i 's|^set +x$|exec 9>>"$OPS_STUB_DIR/trace"; BASH_XTRACEFD=9; set -x|' "$CL/scripts/ops-helper.sh"; }
+traced() { sed -i 's|^set +x$|exec 7>>"$OPS_STUB_DIR/trace"; BASH_XTRACEFD=7; set -x|' "$CL/scripts/ops-helper.sh"; }
 n_calls() { grep -cE "$1" "$S/calls.log" || true; }
 reported() { grep -q "\"status\":\"$1\"" "$S/report.json" 2>/dev/null; }
 summary() { grep -qF "\"summary\":\"$1\"" "$S/report.json" 2>/dev/null; }
@@ -136,7 +136,7 @@ t_tunnel_on_from_lan() {
   check "tunnel on: the tunnel runs" test -e "$S/tunnel-up"
   check "tunnel on: the old .env is kept (600)" bash -c "cmp -s '$CL/ops/env.prev' '$W/env.before' && [[ \$(stat -c %a '$CL/ops/env.prev') == 600 ]]"
   check "tunnel on: the report tells the new mode and address" bash -c "grep -q '\"mode\":\"tunnel\"' '$S/report.json' && grep -q '\"address\":\"https://$HOST\"' '$S/report.json'"
-  check "tunnel on: the request was read as version 5" test "$(n_calls 'dist/node.js ops access --helper 5$')" = 1
+  check "tunnel on: the request was read as version 6" test "$(n_calls 'dist/node.js ops access --helper 6$')" = 1
   check "tunnel on: the journal says reported" grep -q '"reported":true' "$CL/ops/journal/$ID.json"
   check "tunnel on: no token in the journal, the logs, the output, the report or a command line" test -z "$(token_in)"
 }
@@ -188,7 +188,7 @@ t_unhealthy_puts_the_old_env_back() {
   lan_world; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; echo TRUST_PROXY=true >"$S/bad-when"
   tick
   check "never healthy: reported failed" reported failed
-  check "never healthy: the summary says the old settings are back and work" summary "Sovellus ei käynnistynyt uusilla asetuksilla. Aiemmat asetukset palautettiin, ja sovellus toimii niillä."
+  check "never healthy: the summary says the old settings are back and work" summary "Sovellus ei käynnistynyt uusilla asetuksilla. Palautimme aiemmat asetukset, ja sovellus toimii niillä."
   check "never healthy: .env is the old file again (600)" env_same
   check "never healthy: the app was started again with the old .env" bash -c "[[ \$(grep -c '^docker compose up -d --no-build\$' '$S/calls.log') == 2 ]] && cmp -s '$W/env.before' '$S/env.live'"
   check "never healthy: the tunnel the new settings started is removed" bash -c "[[ ! -e '$S/tunnel-up' ]] && grep -q '^docker compose --profile tunnel rm -sf tunnel\$' '$S/calls.log'"
@@ -196,7 +196,7 @@ t_unhealthy_puts_the_old_env_back() {
 
   lan_world; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; touch "$S/unhealthy"
   tick
-  check "app stays down: the summary says the old settings are back and the app does not answer" summary "Sovellus ei käynnistynyt uusilla asetuksilla. Aiemmat asetukset palautettiin, mutta sovellus ei vastaa."
+  check "app stays down: the summary says the old settings are back and the app does not answer" summary "Sovellus ei käynnistynyt uusilla asetuksilla. Palautimme aiemmat asetukset, mutta sovellus ei vastaa."
   check "app stays down: .env is the old file again (600)" env_same
 
   lan_world; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; touch "$S/up-fails"
@@ -405,13 +405,13 @@ t_cut_short_access() {
   tick
   check "cut short, never healthy: no version rollback" no_rollback
   check "cut short, never healthy: .env is the old file again (600), the app runs with it, the tunnel is gone" bash -c "cmp -s '$CL/.env' '$W/env.before' && [[ \$(stat -c %a '$CL/.env') == 600 && ! -e '$CL/.env.new' && ! -e '$S/tunnel-up' ]] && cmp -s '$W/env.before' '$S/env.live'"
-  check "cut short, never healthy: the summary says the old settings are back" summary "$cut Sovellus ei käynnistynyt uusilla asetuksilla. Aiemmat asetukset palautettiin, ja sovellus toimii niillä."
+  check "cut short, never healthy: the summary says the old settings are back" summary "$cut Sovellus ei käynnistynyt uusilla asetuksilla. Palautimme aiemmat asetukset, ja sovellus toimii niillä."
 
   # the same, and the owner has changed .env by hand before the next tick
   lan_world; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; echo TRUST_PROXY=true >"$S/bad-when"; touch "$S/kill-on-up"; killed_tick; echo OWNER_EDIT=1 >>"$CL/.env"
   tick
   check "cut short, a hand edit since: the owner's file is left as it is" bash -c "grep -qx OWNER_EDIT=1 '$CL/.env' && grep -qx 'COMPOSE_PROFILES=tunnel' '$CL/.env' && cmp -s '$CL/ops/env.prev' '$W/env.before'"
-  check "cut short, a hand edit since: the summary says so and names the kept copy" summary "$cut Tiedostoa .env on sen jälkeen muutettu käsin, eikä siihen koskettu. Sovellus ei vastaa. Aiemmat asetukset ovat palvelimella tiedostossa ops/env.prev."
+  check "cut short, a hand edit since: the summary says so and names the kept copy" summary "$cut Tiedostoa .env on muutettu sen jälkeen käsin, eikä siihen koskettu. Sovellus ei vastaa. Aiemmat asetukset ovat palvelimella tiedostossa ops/env.prev."
 
   # to the home network, killed right after the tunnel was removed: .env still asks for the tunnel and for Access
   tunnel_world BIND_ADDRESS=192.0.2.10; touch "$S/kill-on-rm"; killed_tick
@@ -430,7 +430,7 @@ t_cut_short_other_actions() {
   check "restart cut short: no version rollback" no_rollback
   check "restart cut short: the containers were started, .env is the same file" bash -c "[[ \$(grep -c '^docker compose up -d --no-build\$' '$S/calls.log') == 1 && ! -e '$S/app-down' ]] && cmp -s '$CL/.env' '$W/env.before'"
   check "restart cut short: reported failed" reported failed
-  check "restart cut short: the summary says the app is up" summary "Apuri keskeytyi kesken uudelleenkäynnistyksen. Sovellus käynnistettiin, ja se vastaa."
+  check "restart cut short: the summary says the app is up" summary "Apuri keskeytyi kesken uudelleenkäynnistyksen. Käynnistimme sovelluksen, ja se vastaa."
 
   # any other action cut short with the app down is only finished as failed
   lan_world; rm -f "$S/poll"; cut_journal backup; touch "$S/app-down"; after_kill; tick
@@ -463,14 +463,14 @@ t_files_beside_env() {
   printf '#!/bin/sh\n[ -e "%s/edited" ] || { echo OWNER_EDIT=1 >>"%s/.env"; touch "%s/edited"; }\nexec /bin/sleep 0.01\n' "$S" "$CL" "$S" >"$S/bin/sleep"
   tick
   check "hand edit during the wait: the owner's file is left as it is and nothing is started again" bash -c "grep -qx OWNER_EDIT=1 '$CL/.env' && grep -qx 'COMPOSE_PROFILES=tunnel' '$CL/.env' && [[ \$(grep -c '^docker compose up -d --no-build\$' '$S/calls.log') == 1 ]]"
-  check "hand edit during the wait: the summary says so and names the kept copy" summary "Sovellus ei käynnistynyt uusilla asetuksilla. Tiedostoa .env on sen jälkeen muutettu käsin, joten aiempia asetuksia ei palautettu. Ne ovat palvelimella tiedostossa ops/env.prev."
+  check "hand edit during the wait: the summary says so and names the kept copy" summary "Sovellus ei käynnistynyt uusilla asetuksilla. Tiedostoa .env on muutettu sen jälkeen käsin, joten aiempia asetuksia ei palautettu. Ne ovat palvelimella tiedostossa ops/env.prev."
   check "hand edit during the wait: the kept copy is the old .env" cmp -s "$CL/ops/env.prev" "$W/env.before"
 }
 
 t_version_and_constructs() {
-  check "the helper is version 5" test "$("$SRC/scripts/ops-helper.sh" --version)" = 5
+  check "the helper is version 6" test "$("$SRC/scripts/ops-helper.sh" --version)" = 6
   lan_world; traced; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"; tick
-  check "the helper polls as version 5" test "$(n_calls 'dist/node.js ops poll --helper 5 ')" = 1
+  check "the helper polls as version 6" test "$(n_calls 'dist/node.js ops poll --helper 6 ')" = 1
   # Every command of that tick, as bash expanded it. The token may only be in a test, an assignment, the pairs handed
   # to access_env_write and by it to the writer of .env (envfile_stage, a function like it), and the printf builtin that
   # writes its line of .env: any other command had it as an argument.
@@ -479,6 +479,21 @@ t_version_and_constructs() {
   check "access: no eval, source, bash -c or sudo" bash -c "! grep -vE '^[[:space:]]*#' '$SRC/scripts/lib/ops-access.sh' | grep -nE '(^|[;&|(])[[:space:]]*(eval|source)[[:space:]]|bash -c|sudo '"
   # the values of a request may only meet bash builtins: no line of the file hands one to another program
   check "access: a value never goes on a command line" bash -c "! grep -nE '\\b(grep|sed|awk|cut|tr|head|tail|echo|docker|timeout|run_cap|in_app|cp|mv|cat|tee|logger|log|say_log)\\b[^|;]*\\\$\\{?(A_TOKEN|A_AUD|A_TEAM|pairs|out|line|pair|[htad])\\b' '$SRC/scripts/lib/ops-access.sh'"
+}
+
+# An install, update or restore holds the folder's lock: the change waits, says so and touches nothing. The staged
+# .env.new of the installer is not the helper's to clean up then either.
+t_install_lock() {
+  lan_world; tunnel_json "$HOST" "$TOKEN" "$AUD" "$TEAM" >"$S/access"
+  echo staged >"$CL/.env.new"
+  ( exec 9<"$CL"; flock -n 9 && sleep 15 ) & local holder=$!
+  sleep 1
+  tick
+  check "install lock: the change is reported failed and says an install or update runs" bash -c "grep -q '\"status\":\"failed\"' '$S/report.json' && grep -q 'Asennus tai päivitys on käynnissä' '$S/report.json'"
+  check "install lock: .env is as it was and nothing was started" bash -c "cmp -s '$CL/.env' '$W/env.before' && [[ \$(grep -c '^docker compose up' '$S/calls.log') == 0 ]]"
+  check "install lock: the installer's .env.new is left" test -e "$CL/.env.new"
+  kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null || true
+  rm -f "$CL/.env.new"
 }
 
 for t in $(declare -F | awk '{print $3}' | grep '^t_'); do

@@ -31,7 +31,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
     rows,
     upcoming: rows.filter((r) => r.cents! < 0),
     everydayPerDayCents: 3_849,
-    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: 0, transferCents: 0, dueCents, incomeCents: sum("income") },
+    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: 0, transferCents: 0, dueCents, leavingCents: dueCents, incomeCents: sum("income") },
     balance: balance({ freeCents: 200_000 - dueCents }),
     missing: null,
     ...over,
@@ -55,7 +55,7 @@ describe("the line under the heading, by what the window waits for", () => {
     const behind = { date: "2026-10-12", expected: "2026-10-09", name: "Esimerkki Oy", pay: steady(300_000) };
     const waited = ahead({ to: "2026-11-05", days: 24, payday: { ...behind, next: "2026-11-06" } }, []);
     expect(windowLine(waited)).toBe("Palkkapäivään asti, pe 6.11. Palkka ei ole vielä tullut. Sen piti tulla pe 9.10.");
-    expect(paymentsCaption(waited)).toBe("Erääntyvät maksut ennen palkkapäivää");
+    expect(paymentsCaption(waited)).toBe("Maksut ennen palkkapäivää");
     // the pay the window waits for carries its sum for the door to its basis, where "≈" says what "noin" says here
     expect(incoming(waited).map((l) => ({ ...l, sum: plain(l.sum ?? ""), payday: plain(l.payday ?? "") }))).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000, estimate: true, sum: "noin 3 000 €", payday: "3 000 €" }]);
     // the next pay is another salary's and it is today: the window is today alone, and no day gone by is named as its end
@@ -64,7 +64,7 @@ describe("the line under the heading, by what the window waits for", () => {
     // no pay to come within the days looked at: the 30 days, and the same second sentence
     const alone = ahead({ to: "2026-11-11", days: 30, payday: behind }, []);
     expect(windowLine(alone)).toBe("Seuraavat 30 päivää. Palkka ei ole vielä tullut. Sen piti tulla pe 9.10.");
-    expect(paymentsCaption(alone)).toBe("Erääntyvät maksut seuraavan 30 päivän aikana");
+    expect(paymentsCaption(alone)).toBe("Maksut seuraavan 30 päivän aikana");
     // near miss: the same pay due today has one day, and it is today
     const due = ahead({ to: "2026-10-12", days: 0, payday: { date: "2026-10-12", name: "Esimerkki Oy", pay: steady(300_000) } }, []);
     expect([windowLine(due), incoming(due)[0]!.day]).toEqual(["Palkkapäivään asti, ma 12.10.", "12.10."]);
@@ -77,7 +77,7 @@ describe("the line under the heading, by what the window waits for", () => {
     const out = html(ahead({ from: "2026-10-07", to: "2026-10-22", days: 15, payday: pay, balance: balance({ startCents: 40_000, freeCents: -50_000, shortCents: 50_000, shortOn: "2026-10-08" }) }, [bill]));
     expect(out).toContain("Palkkapäivään asti, pe 23.10. Palkka ei ole vielä tullut. Sen piti tulla ma 5.10.");
     expect(out).not.toContain("Ei erääntyviä maksuja");
-    expect(out).toContain("Tilin kate ei riitä 8.10. erääntyvään maksuun. Puuttuu 500,00 €.");
+    expect(out).toContain("Tilillä ei ole tarpeeksi rahaa 8.10. erääntyvään maksuun. Puuttuu 500,00 €.");
     expect(names(out)).toEqual(["Esimerkkivakuutus", "Toinen Esimerkki Oy"]);
   });
 
@@ -87,13 +87,13 @@ describe("the line under the heading, by what the window waits for", () => {
     const late = ahead({ from: "2026-09-29", to: "2026-10-04", days: 5, reason: "late", payday: { date: "2026-09-23", name: "Esimerkki Oy", pay: steady(278_000) }, balance: balance({ startCents: 150_000, freeCents: 60_000 }) }, [rent]);
     expect(windowLine(late)).toBe("Seuraavat 5 päivää. Palkka on myöhässä. Sen piti tulla ke 23.9.");
     const out = html(late);
-    expect(out).not.toContain("Tilin kate ei riitä");
-    expect(out).toContain('<caption class="sr-only">Erääntyvät maksut seuraavan 5 päivän aikana</caption>');
+    expect(out).not.toContain("Tilillä ei ole tarpeeksi rahaa");
+    expect(out).toContain('<caption class="sr-only">Maksut seuraavan 5 päivän aikana</caption>');
     expect(names(out)).toEqual(["Vuokra Esimerkki"]);
   });
 
   it("without a payday it is the 30 days from today", () => {
-    expect(windowLine(ahead(NONE))).toBe("Seuraavat 30 päivää. Palkkapäivä ei ole tiedossa.");
+    expect(windowLine(ahead(NONE))).toBe("Seuraavat 30 päivää. Emme tiedä palkkapäivääsi.");
   });
 
   it("with a late pay it says the pay is late and since when, and the late pay is no row to arrive", () => {
@@ -145,12 +145,12 @@ describe("the three figures", () => {
     const none = ahead({ balance: null, missing: "balance" });
     expect(figures(none)).toBeNull();
     const out = html(none);
-    expect(out).toContain(`Tilin saldo ei ole tiedossa. <a href="#/settings#${SETTINGS_ANCHOR.accounts}">Lisää saldo</a>`);
+    expect(out).toContain(`Emme tiedä tilin saldoa. <a href="#/settings/banks#${SETTINGS_ANCHOR.accounts}">Lisää saldo</a>`);
     expect(out).not.toContain("Käytettävissä");
     expect(out).not.toContain("<dl");
     expect(names(out)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkivakuutus", "Vuokra Esimerkki", "Esimerkki Oy"]);
     // near miss: with a balance the sentence is not there
-    expect(html(ahead())).not.toContain("Tilin saldo ei ole tiedossa.");
+    expect(html(ahead())).not.toContain("Emme tiedä tilin saldoa.");
   });
 });
 
@@ -158,7 +158,7 @@ describe("the warning", () => {
   const short = ahead({ balance: balance({ freeCents: -21_240, shortCents: 21_240, shortOn: "2026-10-16" }) });
 
   it("names the day of the first payment the balance does not reach, and what is missing", () => {
-    expect(plain(warning(short)!)).toBe("Tilin kate ei riitä 16.10. erääntyvään maksuun. Puuttuu 212,40 €.");
+    expect(plain(warning(short)!)).toBe("Tilillä ei ole tarpeeksi rahaa 16.10. erääntyvään maksuun. Puuttuu 212,40 €.");
   });
 
   it("is not there when nothing is missing, without a balance, or for an account below zero with nothing due", () => {
@@ -167,24 +167,24 @@ describe("the warning", () => {
     expect(warning(ahead({ balance: null, missing: "balance" }))).toBeNull();
     expect(warning(ahead({ balance: balance({ startCents: -5000, freeCents: -5000, shortCents: 5000, shortOn: null }) }, []))).toBeNull();
     // a cent missing is missing
-    expect(plain(warning(ahead({ balance: balance({ freeCents: -1, shortCents: 1, shortOn: "2026-10-21" }) }))!)).toBe("Tilin kate ei riitä 21.10. erääntyvään maksuun. Puuttuu 0,01 €.");
+    expect(plain(warning(ahead({ balance: balance({ freeCents: -1, shortCents: 1, shortOn: "2026-10-21" }) }))!)).toBe("Tilillä ei ole tarpeeksi rahaa 21.10. erääntyvään maksuun. Puuttuu 0,01 €.");
   });
 
   it("is no warning when every payment of that day is an estimate", () => {
     const of = (rows: Row[]) => ahead({ balance: balance({ freeCents: -500, shortCents: 500, shortOn: "2026-10-20" }) }, rows);
     const card = (basis: Row["basis"]) => row({ date: "2026-10-20", name: "Luottokortti", category: "transfer", cents: -30_000, source: "card", basis });
-    expect(plain(warning(of(BILLS))!)).toBe("Arvion mukaan 20.10. maksuista jää kattamatta noin 5,00 €.");
+    expect(plain(warning(of(BILLS))!)).toBe("Arvion mukaan 20.10. erääntyvistä maksuista puuttuu noin 5,00 €.");
     expect(shortIsEstimate(of(BILLS))).toBe(true);
     expect(shortIsEstimate(of([card("usual")]))).toBe(true);
     // what the card owes today is the bank's figure, and a typed-in bill the household's
-    expect(plain(warning(of([card("balance")]))!)).toBe("Tilin kate ei riitä 20.10. erääntyvään maksuun. Puuttuu 5,00 €.");
+    expect(plain(warning(of([card("balance")]))!)).toBe("Tilillä ei ole tarpeeksi rahaa 20.10. erääntyvään maksuun. Puuttuu 5,00 €.");
     expect(shortIsEstimate(of([card("usual"), row({ date: "2026-10-20", source: "expected" })]))).toBe(false);
     expect(shortIsEstimate(short)).toBe(false);
   });
 
   it("is drawn above the figures, and only when something is missing", () => {
     const out = html(short);
-    expect(out).toContain('<p class="notice warning ahead-warning">Tilin kate ei riitä 16.10. erääntyvään maksuun. Puuttuu 212,40 €.</p>');
+    expect(out).toContain('<p class="notice ahead-warning" data-tone="warning">Tilillä ei ole tarpeeksi rahaa 16.10. erääntyvään maksuun. Puuttuu 212,40 €.</p>');
     expect(out.indexOf("ahead-warning")).toBeLessThan(out.indexOf("<dl"));
     expect(html(ahead())).not.toContain("warning");
   });
@@ -198,7 +198,7 @@ describe("the two tables", () => {
       ["21.10.", "Vuokra Esimerkki", 105_000],
     ]);
     const out = html(ahead());
-    expect(out).toContain('<caption class="sr-only">Erääntyvät maksut ennen palkkapäivää</caption>');
+    expect(out).toContain('<caption class="sr-only">Maksut ennen palkkapäivää</caption>');
     expect(out).toContain('<th scope="col">Eräpäivä</th><th scope="col">Saaja</th><th scope="col" class="num">Summa</th>');
     expect(out).toContain('<tr><td data-label="Eräpäivä"><span class="src src-est" aria-hidden="true"></span>15.10.</td><td title="Sähköyhtiö Esimerkki" data-label="Saaja"><a href="#/transactions?merchant=S%C3%A4hk%C3%B6yhti%C3%B6+Esimerkki">Sähköyhtiö Esimerkki</a></td><td class="num" data-label="Summa">45,00 €</td></tr>');
   });
@@ -211,7 +211,7 @@ describe("the two tables", () => {
     expect(listed.reduce((s, c) => s + c, 0)).toBe(ahead().totals.dueCents);
   });
 
-  it("Saapuvat maksut holds other pay of the window and the pay it waits for as its last row", () => {
+  it("Tulossa tilille holds other pay of the window and the pay it waits for as its last row", () => {
     const a = ahead({}, [...BILLS, OTHER_PAY].sort((x, y) => x.date.localeCompare(y.date)));
     expect(incoming(a).map((l) => [l.day, l.name, l.cents])).toEqual([
       ["14.10.", "Pieni Esimerkki Oy", 80_000],
@@ -221,17 +221,17 @@ describe("the two tables", () => {
     expect(payments(a).map((l) => l.name)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkivakuutus", "Vuokra Esimerkki"]);
     const out = html(a);
     expect(names(out)).toEqual(["Sähköyhtiö Esimerkki", "Esimerkkivakuutus", "Vuokra Esimerkki", "Pieni Esimerkki Oy", "Esimerkki Oy"]);
-    expect(out).toContain('<caption class="st-cap">Saapuvat maksut</caption>');
+    expect(out).toContain('<caption class="st-cap">Tulossa tilille</caption>');
     expect(out).toContain('<th scope="col">Päivä</th><th scope="col">Maksaja</th><th scope="col" class="num">Summa</th>');
     expect(out).toContain('<td class="num" data-label="Summa">noin 3 000 €</td>');
-    expect(out.indexOf("Saapuvat maksut")).toBeGreaterThan(out.indexOf("</table>"));
+    expect(out.indexOf("Tulossa tilille")).toBeGreaterThan(out.indexOf("</table>"));
   });
 
-  it("Saapuvat maksut is not drawn without a pay to arrive", () => {
-    expect(html(ahead(NONE))).not.toContain("Saapuvat maksut");
-    expect(html(ahead(LATE))).not.toContain("Saapuvat maksut");
+  it("Tulossa tilille is not drawn without a pay to arrive", () => {
+    expect(html(ahead(NONE))).not.toContain("Tulossa tilille");
+    expect(html(ahead(LATE))).not.toContain("Tulossa tilille");
     // other pay alone is enough
-    expect(html(ahead(NONE, [OTHER_PAY]))).toContain("Saapuvat maksut");
+    expect(html(ahead(NONE, [OTHER_PAY]))).toContain("Tulossa tilille");
   });
 
   it("calls every row by the name core gives it: the card's plain name, and a bracket in a merchant's name stays", () => {
@@ -252,8 +252,8 @@ describe("the two tables", () => {
   });
 
   it("names the table of the payments for a reader that has no eyes for it", () => {
-    expect(paymentsCaption(ahead())).toBe("Erääntyvät maksut ennen palkkapäivää");
-    expect(paymentsCaption(ahead(NONE))).toBe("Erääntyvät maksut seuraavan 30 päivän aikana");
+    expect(paymentsCaption(ahead())).toBe("Maksut ennen palkkapäivää");
+    expect(paymentsCaption(ahead(NONE))).toBe("Maksut seuraavan 30 päivän aikana");
   });
 });
 
@@ -294,7 +294,9 @@ describe("what stands in place of the payments, and under the tables", () => {
   it("draws the line of days only when a payment is due, and has no canvas, no switch and no table of days", () => {
     const out = html(ahead({}, [...BILLS, OTHER_PAY]));
     expect(out).toContain('class="nd-line');
-    for (const gone of ["<canvas", "<button", "Kaavio", "Taulukko", "Alin saldo", "Lähtösaldo"]) expect(out, gone).not.toContain(gone);
+    for (const gone of ["<canvas", "Kaavio", "Taulukko", "Alin saldo", "Lähtösaldo"]) expect(out, gone).not.toContain(gone);
+    // the only buttons are those of the tables' own toolbars and sort heads, none switches the line to a table
+    expect(out).not.toMatch(/<button(?![^>]*class="(btn|rt-sort|rtb-clear|rtb-chip)")/);
     // no payment: the block is its figures and its tables, with no empty axis
     for (const a of [ahead({}, []), ahead({}, [OTHER_PAY]), ahead(NONE, [])]) for (const gone of ["nd-line", "<svg", "nd-axis"]) expect(html(a), gone).not.toContain(gone);
   });
@@ -316,10 +318,10 @@ describe("the coming pay is an estimate", () => {
   it("says a pay that varies as the range of the estimate, with one sentence of the pays that came", () => {
     const a = pay({ date: "2026-10-23", name: "Esimerkki Oy", pay: varies({ baseCents: 195_000 }) });
     expect(sumsOf(a)).toEqual(["2 100–2 900 €"]);
-    expect(plain(payNote(a)!)).toBe("Palkka vaihtelee: viimeiset 12 palkkaa 1 950–3 240 €, useimmiten 2 480 €. Joka kerta on tullut vähintään 1 950 €.");
+    expect(plain(payNote(a)!)).toBe("Palkka vaihtelee: viimeiset 12 palkkaa 1 950–3 240 €, useimmiten 2 480 €. Palkkaa on tullut joka kerta vähintään 1 950 €.");
     const out = html(a);
     expect(out).toContain('<td class="num" data-label="Summa">2 100–2 900 €</td>');
-    expect(out.indexOf("Palkka vaihtelee")).toBeGreaterThan(out.indexOf("Saapuvat maksut"));
+    expect(out.indexOf("Palkka vaihtelee")).toBeGreaterThan(out.indexOf("Tulossa tilille"));
     // the sum of no figure of the block moves with the estimate
     expect(figures(a)!.map((f) => f.cents)).toEqual(figures(ahead())!.map((f) => f.cents));
   });

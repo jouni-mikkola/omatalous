@@ -17,7 +17,8 @@ upgrade: Migration 0009 runs on the first start, after the usual copy.
 - `section:` comes first and names where the entries go: Money and reports, Fetching and importing, Look, Reliability,
   Maintenance or For developers. That is also their order in `CHANGELOG.md`. A fragment has one section.
 - Every other line is an entry. A leading `- ` is optional. Write what changes for the reader, in English, plain and short
-  (the writing rules in `CLAUDE.md` apply). Name commands and menus the way the docs do.
+  (the writing rules in `CLAUDE.md` apply). Name commands and menus the way the docs do. The section is the release
+  notes: a short patch note per change, one line of at most about 100 characters, with no detail of how it works.
 - `upgrade: <line>` goes to the Upgrade list of the release, whatever the section. Use it for anything an installer
   must know: a migration, a changed default, a new `.env` key, something that stops working. The release script
   refuses a release that adds a migration and has no `upgrade:` line.

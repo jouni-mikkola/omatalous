@@ -1,15 +1,23 @@
-/* Motion: only opacity, nothing moves or scales, nothing loops, nothing waits on scroll, every time under 0.4 s.
-   A mark stands at its true place and length from the first frame; a length fades in. The last block turns all of it off. */
+/* Motion: a mark stands at its true place and length from the first frame; a length fades in. Every time is a --t-* token
+   and none is longer than --t-draw, but the skeleton's pulse (--t-pulse). The last block turns all of it off.
+   Nothing rises, slides or scales: a popover, a tooltip and a slide-in fade. What moves is named here, each with the
+   change it shows, and the --t-* tokens are zero under prefers-reduced-motion:
+   - a pressed button sinks 1 px (base.css, .btn:active): the press registered
+   - a chevron or arrow turns a quarter or half turn (optimise.css, table.css): a row or section opened or closed
+   - a chart line is wiped in from the left (charts.css, .draw): the line's data first shows
+   - a skeleton pulses in opacity while it loads (reports.css, --t-pulse): data is still coming; it loops only until it arrives
+   - the heat calendar fades its days in from left to right (charts.css, calendar-heat.css): the month's data first shows */
 
+@layer utilities {
 @keyframes enter { from { opacity: 0; } }
 @keyframes settle { from { opacity: 0.35; } }
 
 /* a page's panels, once, when its data first shows: all readable at 320 ms */
 .stack > *, .page-grid > * { animation: enter var(--t-open) var(--ease-out) backwards; }
-.stack > :nth-child(2), .page-grid > :nth-child(2) { animation-delay: 30ms; }
-.stack > :nth-child(3), .page-grid > :nth-child(3) { animation-delay: 60ms; }
-.stack > :nth-child(4), .page-grid > :nth-child(4) { animation-delay: 90ms; }
-.stack > :nth-child(n + 5), .page-grid > :nth-child(n + 5) { animation-delay: 120ms; }
+.stack > :nth-child(2), .page-grid > :nth-child(2) { animation-delay: calc(var(--t-stagger) * 1); }
+.stack > :nth-child(3), .page-grid > :nth-child(3) { animation-delay: calc(var(--t-stagger) * 2); }
+.stack > :nth-child(4), .page-grid > :nth-child(4) { animation-delay: calc(var(--t-stagger) * 3); }
+.stack > :nth-child(n + 5), .page-grid > :nth-child(n + 5) { animation-delay: calc(var(--t-stagger) * 4); }
 
 /* a figure whose text changed is a new element (Figure keys its span by the text) */
 .fig { animation: settle var(--t-state) var(--ease-out); }
@@ -21,4 +29,5 @@ dialog.confirm { transition: opacity var(--t-open) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) {
   .stack > *, .page-grid > *, .fig { animation: none; }
   dialog.confirm { transition: none; }
+}
 }

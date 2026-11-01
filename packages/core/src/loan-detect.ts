@@ -1,6 +1,6 @@
 /**
  * Loans the household pays and never typed in: a debt series that still runs every month is proposed as a loan, for the
- * page that lets the household save it (`Loan`, loans.ts) or say "Ei laina".
+ * page that lets the household save it (`Loan`, loans.ts) or say "Ei ole laina".
  *
  * What is proposed: a series of `ctx.recurring` that is active, monthly, money out, in a loan's category (mortgage,
  * loans, student_loan), with three or more charges of at least 20 € and one payment reference, or any references when
@@ -14,8 +14,8 @@
  *
  * The key of a proposal is the series id with its payment, `out:<account>:<payee>#<cents>` (`seriesId`, ADR 0009). It
  * is what `Loan.seriesKey` holds once the loan is saved, and `loan-proposal:<key>` is the subject of the mark that
- * says "Ei laina" (`notLoanMark`). The subject is the proposal's own: Laskut marks the same series as `series:<key>`,
- * and the marks table keeps one mark for a subject, so a shared subject would let Käytössä take "Ei laina" away. The
+ * says "Ei ole laina" (`notLoanMark`). The subject is the proposal's own: Laskut marks the same series as `series:<key>`,
+ * and the marks table keeps one mark for a subject, so a shared subject would let Käytössä take "Ei ole laina" away. The
  * payment is in the key so that a second loan from the same lender gets a key of its own.
  *
  * A payment is read at the bank's amount (`billCents`), also in a member's own view, where the rows of a joint account
@@ -110,7 +110,7 @@ const LOAN_CATEGORIES: ReadonlySet<string> = new Set(["mortgage", "loans", "stud
 const NOT_LOAN_SUBJECT = "loan-proposal:";
 
 /**
- * The series key an "Ei laina" mark's subject names (`loan-proposal:<key>`), or null for any other subject and for a
+ * The series key an "Ei ole laina" mark's subject names (`loan-proposal:<key>`), or null for any other subject and for a
  * key no series has. The marks route asks it before it stores such a subject.
  */
 export function notLoanKey(subject: string): string | null {
@@ -140,7 +140,7 @@ export function sameSeriesKey(a: string, b: string, others: readonly string[] = 
 }
 
 /**
- * Whether a stored key (a loan's `seriesKey`, or the key of an "Ei laina" mark) names this series: the same payee,
+ * Whether a stored key (a loan's `seriesKey`, or the key of an "Ei ole laina" mark) names this series: the same payee,
  * account and direction, and a payment the series has charged. `covers` owns how far apart two payments of one
  * contract can be, and reads the key as a mark on the series. Every charge is asked, so a key holds after the rate has
  * moved the payment many times. A key without a payment names every series the payee has on the account.
@@ -337,7 +337,7 @@ function answeredPlan(inputs: UserInputs): (s: RecurringSeries, charges: Charges
 
 /**
  * Whether a series is spoken for, asked of the series and its charges: a saved loan is linked to it (`Loan.seriesKey`),
- * or the household said "Ei laina" of it. A key holds the payment as it was in the view that saved it, so the part
+ * or the household said "Ei ole laina" of it. A key holds the payment as it was in the view that saved it, so the part
  * and the bank's amount of every charge are asked. The proposals and the home loans of the first page read the one
  * answer (`housing.ts`).
  */
@@ -372,7 +372,7 @@ export function notLoanMark(proposal: Pick<LoanProposal, "key">): Pick<UserMark,
 }
 
 /**
- * The loans to propose today, the largest payment first. A series the household marked "Ei laina" or cancelled, and one
+ * The loans to propose today, the largest payment first. A series the household marked "Ei ole laina" or cancelled, and one
  * a saved loan is linked to, is left out.
  */
 export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): LoanProposal[] {

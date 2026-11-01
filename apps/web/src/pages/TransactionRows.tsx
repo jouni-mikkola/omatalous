@@ -1,19 +1,22 @@
 import { fold, isCardBill } from "@banking/core";
-import { useSyncExternalStore } from "react";
-import { dayHeading, money, plural } from "../format.ts";
+import { type ReactNode, useSyncExternalStore } from "react";
+import { dayHeading, money } from "../format.ts";
+import { t as msg, tn } from "../text.ts";
 import { Why } from "../components/Why.tsx";
 import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
 import { barShare } from "../components/table/cells.ts";
-import { type Column, Table } from "../components/table/Table.tsx";
+import { type Column, Table, type TableView } from "../components/table/Table.tsx";
 import { partAnchor } from "../part.ts";
+import { settingsCardHash } from "../routes.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
-import { CategoryChip, CategoryLabel } from "./transactions/CategoryChip.tsx";
+import { CategoryLabel, CategoryMenu, SharedCategory } from "./transactions/CategoryChip.tsx";
 import { AccountMark, type AccountLook, PayeeMark } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
-
+import { RowMenu } from "./transactions/RowMenu.tsx";
+import { css } from "../css.ts";
 // The rows of Tapahtumat: the shared table with a group for each day. A row says who, which account, which category and
-// how much, and its one control is the chevron: it opens the row, which holds the way to the payee's rows, the category
-// picker and the payee's twelve months. The page, its filters and its saving are in Transactions.tsx.
+// how much, and its one control is the chevron: it opens the row, which holds the row's one menu
+// (the category and whether it becomes a rule, the payee's rows, the card bill's statement, whose share it is) and the payee's twelve months. The page, its filters and its saving are in Transactions.tsx.
 
 /** The width under which the page floats its answers above the list (the width of the table's block layout). */
 const PHONE = "(max-width: 600px)";
@@ -49,7 +52,7 @@ export interface DaySum {
 export type ListedRow = TransactionItem & { partCents?: number };
 
 /** The link of a row whose payer is not told: to the account's parts on Tilit, where the question is answered. null for a row with none open. */
-export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string | null => (t.openCents ? `#/settings#${partAnchor(t.accountId)}` : null);
+export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string | null => (t.openCents ? settingsCardHash(partAnchor(t.accountId)) : null);
 
 /**
  * The row's figure: the viewer's part where the server gives one (a joint account's row in the own view), else the bank's
@@ -57,7 +60,7 @@ export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string
  */
 const shownCents = (t: ListedRow): number => t.partCents ?? t.amountCents;
 /** The bank's amount under a row whose figure is a part of it; null for a row that is all the viewer's. */
-const wholeOfRow = (t: ListedRow): string | null => (t.partCents === undefined || t.partCents === t.amountCents ? null : `koko summa ${signed(t.amountCents)}`);
+const wholeOfRow = (t: ListedRow): string | null => (t.partCents === undefined || t.partCents === t.amountCents ? null : msg("row.whole", { amount: signed(t.amountCents) }));
 /** Money in wears its plus, as on the row's figure. */
 const signed = (cents: number): string => (cents > 0 ? `+${money(cents)}` : money(cents));
 
@@ -71,7 +74,6 @@ const bankText = (t: ListedRow): string | null => {
   return parts.length ? parts.join(" · ") : null;
 };
 
-const CARD_BILL_LABEL = "Korttilasku: ostot eivät näy";
 const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
 const isPerson = (t: ListedRow): boolean => t.category === "p2p" || t.category === "p2p_in";
 
@@ -86,19 +88,19 @@ function Tags({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explain
   const company = t.industry ? [t.industry.companyName, t.industry.businessId, t.industry.label].filter(Boolean).join(", ") : null;
   return (
     <>
-      {t.status === "pending" && <span className="tx-tag warn">varaus</span>}
-      {t.isTransfer && <span className="tx-tag">oma siirto</span>}
+      {t.status === "pending" && <span className="tx-tag warn">{msg("row.tag_pending")}</span>}
+      {t.isTransfer && <span className="tx-tag">{msg("row.tag_transfer")}</span>}
       {t.categorySource === "match" && (
-        <span className="tx-tag" title="Palautus aiemmasta maksusta. Se pienentää menoja eikä ole tuloa.">
-          palautus
+        <span className="tx-tag" title={msg("row.tag_refund_title")}>
+          {msg("row.tag_refund")}
         </span>
       )}
       {company && (
         <span className="tx-tag" title={company}>
-          YTJ
+          {msg("row.tag_register")}
         </span>
       )}
-      {cardBill(t) && <span className="tx-tag">{explained ? `ostoja eritelty ${money(explained)}` : CARD_BILL_LABEL}</span>}
+      {cardBill(t) && <span className="tx-tag">{explained ? msg("row.tag_itemised", { sum: money(explained) }) : msg("row.card_bill")}</span>}
     </>
   );
 }
@@ -112,6 +114,9 @@ export interface RowProps extends StatementProps {
   note?: string;
   look?: AccountLook;
   account: string;
+  /** The rule a change of category makes for the payee's other rows: on or off, set where the category is picked. */
+  remember?: boolean;
+  onRemember?: (on: boolean) => void;
 }
 
 /** The row's figure is plain text; its basis belongs to the opened detail. */
@@ -122,7 +127,7 @@ function Amount({ t }: { t: ListedRow }) {
 /** The bank's amount under the viewer's part; the way to name the payer is in the detail. */
 function Part({ t }: { t: ListedRow }) {
   const whole = wholeOfRow(t);
-  return <>{whole && <span className="tx-part">{whole}</span>}{ownerLink(t) && <span className="tx-part">jako kertomatta</span>}</>;
+  return <>{whole && <span className="tx-part">{whole}</span>}{ownerLink(t) && <span className="tx-part">{msg("row.no_split")}</span>}</>;
 }
 
 /** The payee's mark and name, the quiet tags and what the build's extensions mark; the bank's own text is the line under them. */
@@ -146,20 +151,53 @@ function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explaine
 }
 
 /** What the opened row holds: the category picker, the way to the payee's rows, the card bill's statement, and the payee's months. */
-function Detail({ t, categories, pending, onCategory, onStatement, note, scope }: RowProps & { scope: Scope }) {
+function Detail({ t, categories, pending, onCategory, onStatement, note, scope, remember, onRemember, look, account }: RowProps & { scope: Scope }) {
   const owner = ownerLink(t);
   const text = signed(shownCents(t));
+  const shown = pending ?? t.category;
+  const categoryLabel = categories.find((c) => c.id === shown)?.label ?? shown;
+  const bank = bankText(t);
   return (
     <div className="tx-detail">
+      {/* what a phone's row leaves out: the account with its digits and the bank's own text */}
+      <p className="tx-detail-facts">
+        <span>{msg("row.account")}: {account}{look?.short.startsWith("••") ? ` ${look.short}` : ""}</span>
+        {bank && <span className="sub">{bank}</span>}
+      </p>
       <div className="tx-detail-acts">
-        <CategoryChip categories={categories} value={t.category} pending={pending} merchant={t.merchant} note={note} manual={t.categorySource === "user"} onPick={t.own ? (c) => onCategory(t.id, c) : undefined} />
-        <a className="btn btn-small" href={`#/transactions?merchant=${encodeURIComponent(t.merchant)}`}>
-          Kaikki: {t.merchant}
-        </a>
-        {cardBill(t) && t.own && onStatement && <button className="btn btn-small" type="button" aria-label={`Erittele ostot: ${t.merchant}`} onClick={() => onStatement(t)}>Erittele ostot</button>}
-        {owner && <a className="btn btn-small" href={owner}>Kenen?</a>}
+        {!t.own && <SharedCategory categories={categories} value={t.category} manual={t.categorySource === "user"} />}
+        <RowMenu
+          label={msg("row.actions", { name: t.merchant })}
+          panel={
+            t.own
+              ? {
+                  key: "category",
+                  label: msg("row.category", { category: categoryLabel }),
+                  ariaLabel: msg("row.category_now", { name: t.merchant, category: categoryLabel }),
+                  title: msg("row.category_of", { name: t.merchant }),
+                  render: (close) => (
+                    <CategoryMenu
+                      categories={categories}
+                      value={pending ?? t.category}
+                      note={note}
+                      onPick={(id) => {
+                        close();
+                        if (id !== (pending ?? t.category)) onCategory(t.id, id);
+                      }}
+                    />
+                  ),
+                }
+              : null
+          }
+          toggles={t.own && onRemember ? [{ key: "remember", label: msg("row.remember"), checked: remember ?? true, onChange: onRemember }] : []}
+          items={[
+            { key: "all", label: msg("row.all_of", { name: t.merchant }), href: `#/transactions?merchant=${encodeURIComponent(t.merchant)}` },
+            ...(cardBill(t) && t.own && onStatement ? [{ key: "statement", label: msg("row.itemise"), onAction: () => onStatement(t) }] : []),
+            ...(owner ? [{ key: "owner", label: msg("row.whose"), href: owner }] : []),
+          ]}
+        />
         {wholeOfRow(t) && shownCents(t) !== 0 && (
-          <span>Osuutesi: <Why figure="share.part" title="Osuutesi" range={{ from: t.bookingDate, to: t.bookingDate }} scope="own" row={t.id} account={t.accountId} text={text}>{text}</Why></span>
+          <span>{msg("row.your_share")}: <Why figure="share.part" title={msg("row.your_share")} range={{ from: t.bookingDate, to: t.bookingDate }} scope="own" row={t.id} account={t.accountId} text={text}>{text}</Why></span>
         )}
       </div>
       <ExtensionRowParts row={t} />
@@ -167,6 +205,12 @@ function Detail({ t, categories, pending, onCategory, onStatement, note, scope }
     </div>
   );
 }
+
+/** The toolbar's chips: rows the reader or the bank has marked. The table counts them in the rows it has. */
+export const rowChips = () => [
+  { key: "manual", label: msg("row.chip_manual"), test: (t: ListedRow) => t.categorySource === "user" },
+  { key: "pending", label: msg("row.chip_pending"), test: (t: ListedRow) => t.status === "pending" },
+];
 
 /** A day's sums in its group row: what went out and what came in, own transfers left out; nothing for a day of transfers only. */
 export function DaySums({ sum }: { sum: DaySum | undefined }) {
@@ -187,18 +231,20 @@ const dayMax = (items: ListedRow[]): number => (items.length > 1 ? Math.max(0, .
  * server's), and the bars of its amounts are drawn against its largest. The rows stay newest first as the server sends
  * them. An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, today, daySums, rowProps, scope, open, onOpen }: { items: ListedRow[]; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void }) {
+export function TxTable({ items, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
   const days = byDay(items);
   const maxOf = new Map(days.flatMap((d) => d.items.map((t) => [t.id, dayMax(d.items)] as const)));
   const columns: Column<ListedRow>[] = [
-    { key: "who", label: "Saaja tai maksaja", kind: "text", rowHead: true, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
-    { key: "account", label: "Tili", kind: "text", className: () => "tx-account", headClass: "tx-account", cell: (t) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> },
-    { key: "category", label: "Kategoria", kind: "text", className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
+    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
+    ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
+    // a chip is for a mark some row has: "Varaukset 0" filters to nothing
+    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {
       key: "amount",
-      label: "Summa",
+      label: msg("table.amount"),
       kind: "money",
       main: true,
+      csv: (t) => shownCents(t) / 100,
       cell: (t) => {
         const share = !t.isTransfer && maxOf.get(t.id) ? barShare(Math.abs(shownCents(t)), maxOf.get(t.id)!) : 0;
         return (
@@ -207,7 +253,7 @@ export function TxTable({ items, today, daySums, rowProps, scope, open, onOpen }
             <Part t={t} />
             {share > 0 && (
               <span className={`tx-bar${t.amountCents > 0 ? " in" : ""}`} aria-hidden="true">
-                <span style={{ inlineSize: `${(share * 100).toFixed(1)}%` }} />
+                <span ref={css({ "inline-size": `${(share * 100).toFixed(1)}%` })} />
               </span>
             )}
           </>
@@ -217,7 +263,7 @@ export function TxTable({ items, today, daySums, rowProps, scope, open, onOpen }
   ];
   return (
     <Table<ListedRow>
-      caption="Tapahtumat"
+      caption={msg("row.transactions")}
       className="tx-table"
       rows={items}
       rowKey={(t) => t.id}
@@ -229,18 +275,25 @@ export function TxTable({ items, today, daySums, rowProps, scope, open, onOpen }
           title: (
             <>
               {dayHeading(d.day, today)}
-              <span className="rt-group-count">{plural(sum?.count ?? d.items.length, "tapahtuma", "tapahtumaa")}</span>
+              <span className="rt-group-count">{tn(sum?.count ?? d.items.length, "row.day_one", "row.day_many")}</span>
             </>
           ),
           figure: <DaySums sum={sum} />,
           figureSpan: 2,
+          csv: d.day,
           rows: d.items,
         };
       })}
       open={open}
       onOpen={onOpen}
       drill={(t) => <Detail {...rowProps(t)} scope={scope} />}
-      drillLabel={(t) => `Avaa ${t.merchant}: 12 kuukautta`}
+      drillLabel={(r) => msg("row.open_months", { name: r.merchant })}
+      csv
+      rowsSearched
+      searchLabel={searchLabel}
+      toolbarExtra={filters}
+      view={view}
+      onView={onView}
     />
   );
 }
@@ -249,7 +302,7 @@ export function TxTable({ items, today, daySums, rowProps, scope, open, onOpen }
 export function RowsSkeleton() {
   return (
     <div className="tx-skel-rows" role="status" aria-live="polite">
-      <span className="sr-only">Ladataan…</span>
+      <span className="sr-only">{msg("load.loading")}</span>
       <span className="tx-skel-group" aria-hidden="true">
         <span className="sk-bar sk-label" />
       </span>

@@ -106,13 +106,13 @@ describe("security events", () => {
     const created = await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" });
     const eero = client();
     await eero.call("POST", "/api/auth/login", { username: "eero", password: created.body.temporaryPassword });
-    await eero.call("POST", "/api/auth/password", { current: created.body.temporaryPassword, next: "eero-uusi-salasana" });
+    await eero.call("POST", "/api/auth/first-password", { next: "eero-uusi-salasana" });
     expect(((await eero.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).some((n) => n.kind === "password_reset_by_admin")).toBe(false);
 
     const reset = await admin.call("POST", `/api/users/${created.body.user.id}/reset-password`, {});
     const again = client();
     await again.call("POST", "/api/auth/login", { username: "eero", password: reset.body.temporaryPassword });
-    await again.call("POST", "/api/auth/password", { current: reset.body.temporaryPassword, next: "eero-kolmas-salasana" });
+    await again.call("POST", "/api/auth/first-password", { next: "eero-kolmas-salasana" });
     const notices = (await again.call("GET", "/api/security/notices")).body.notices as { kind: string; text: string }[];
     expect(notices.find((n) => n.kind === "password_reset_by_admin")?.text).toContain("Ylläpitäjä nollasi salasanasi");
     await again.call("POST", "/api/security/notices/seen", {});

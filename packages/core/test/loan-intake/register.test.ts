@@ -97,7 +97,7 @@ describe("loan intake: the credit register's listing", () => {
   it("a balance above the granted amount lowers both and changes neither", () => {
     const [draft] = parseLoanText(text("Myönnetty määrä 10 000,00 €", "Luoton saldo 12 000,00 €", "Kokonaiskorko 5,5 %"));
     expect(read(draft!)).toEqual({ grantedCents: "1000000 check", balanceCents: "1200000 check", rateBp: "550 sure" });
-    expect(draft!.warnings).toEqual([{ id: "balance_over_granted", text: "Lainaa on jäljellä enemmän kuin sitä myönnettiin. Tarkista summat.", fields: ["balanceCents", "grantedCents"] }]);
+    expect(draft!.warnings).toEqual([{ id: "balance_over_granted", text: "Lainaa on jäljellä enemmän kuin pankki myönsi. Tarkista summat.", fields: ["balanceCents", "grantedCents"] }]);
     // equal is no warning: a loan drawn and not yet paid
     expect(parseLoanText(text("Myönnetty määrä 10 000,00 €", "Luoton saldo 10 000,00 €")).map(warned)).toEqual([[]]);
   });

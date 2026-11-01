@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { incomeBase, passes } from "../src/analysis/income-series.ts";
-import { usualIncome } from "../src/analysis/usual.ts";
+import { expectedIncome } from "../src/analysis/expected.ts";
 import { addMonths, dateIn, monthEnd } from "../src/dates.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -34,8 +34,8 @@ describe("unknown money in", () => {
   const told = createContext(household("rule"), [checking], today);
 
   it("stays out of the usual income until the user says what it is", () => {
-    expect(usualIncome(unknown, "2026-10")).toBe(300_000);
-    expect(usualIncome(told, "2026-10")).toBe(400_000);
+    expect(expectedIncome(unknown, "2026-10")).toBe(300_000);
+    expect(expectedIncome(told, "2026-10")).toBe(400_000);
   });
 
   it("stays out of the gate the income views read from the usual income", () => {

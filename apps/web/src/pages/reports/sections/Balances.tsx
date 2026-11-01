@@ -1,19 +1,21 @@
 // Decision: is the buffer growing and the debt shrinking
-import { ACCOUNTS_LESS_DEBT, addDays, SAME_DEBT_TWICE } from "@banking/core";
+import { addDays } from "@banking/core";
 import { BalanceLine } from "../../../charts/forms/BalanceLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
-import { AccountMark } from "../../../components/BankLogo.tsx";
-import { DeltaChip, SparkCell } from "../../../components/table/Cells.tsx";
+import { DeltaChip } from "../../../components/table/Cells.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../../../components/holdings/FigureRow.tsx";
-import { date, dayMonth, money, monthLong, plural, signedMoney } from "../../../format.ts";
-import { ownPart, partText } from "../../../part.ts";
+import { Holdings } from "../../../components/holdings/Holdings.tsx";
+import { date, dayMonth, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
 import "../../../styles/statement.css";
+import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { overdraftTwice } from "./Loans.tsx";
+import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
+import { rich, t } from "../../../text.ts";
 
 /** The saved loans of the rows. A loan linked to an account is in the accounts' total already, so with one the row says which loans its figure holds. */
-const savedLabel = (linked: boolean) => (linked ? "Tallennetut lainat, joita ei ole liitetty tiliin" : "Tallennetut lainat");
+const savedLabel = (linked: boolean) => t(linked ? "rpt.bal_saved_unlinked" : "rpt.bal_saved");
 
 function Balances({ ctx }: SectionProps) {
   const r = ctx.data.balances;
@@ -31,81 +33,44 @@ function Balances({ ctx }: SectionProps) {
     <>
       {now !== null && (
         <>
-          Tilien ja korttien saldo oli {date(nowDay)} <strong>{money(now, false)}</strong>
-          {r.change === null ? "." : <>, {money(Math.abs(r.change.cents), false)} {r.change.cents >= 0 ? "enemmän" : "vähemmän"} kuin {date(r.change.from)}.</>}
+          {rich("rpt.bal_was", { date: date(nowDay), amount: money(now, false) })}
+          {r.change === null ? "." : t("rpt.bal_diff", { diff: money(Math.abs(r.change.cents), false), direction: t(r.change.cents >= 0 ? "rep.more" : "rep.less"), date: date(r.change.from) })}
         </>
       )}
       {r.lowest && (
         <>
           {" "}
-          Alimmillaan saldo oli {date(r.lowest.day)}, <strong>{money(r.lowest.cents, false)}</strong>.
+          {rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) })}
         </>
       )}
-      {biggest && ` Suurin kertaosto oli ${biggest.label} ${dayMonth(biggest.day)}, ${money(-biggest.cents, false)}.`}
+      {biggest && ` ${t("rpt.bal_biggest", { label: biggest.label, day: dayMonth(biggest.day), amount: money(-biggest.cents, false) })}`}
     </>
   );
-  const bankOf = (id: string) => r.holdings.accounts.find((h) => h.id === id)?.bank ?? r.holdings.cards.find((c) => c.id === id)?.bank ?? null;
-  const accounts = (
-    <Table<(typeof r.accounts)[number]>
-      caption="Tilit ja niiden saldot"
-      className="saldot-accounts"
-      rows={r.accounts}
-      rowKey={(a) => a.accountId}
-      columns={[
-        {
-          key: "account",
-          label: "Tili",
-          kind: "text",
-          rowHead: true,
-          cell: (a) => (
-            <span className="saldot-name">
-              <AccountMark name={a.name} institution={bankOf(a.accountId)} banks={ctx.meta.bank?.banks ?? []} />
-              {a.name}
-            </span>
-          ),
-        },
-        { key: "months", label: "Kuukaudet", kind: "text", phone: "hide", cell: (a) => <SparkCell values={a.values} label={`${a.name}: saldo kuukausittain`} /> },
-        { key: "balance", label: "Saldo", kind: "money", main: true, cell: (a) => { const current = a.values.findLast((v) => v !== null) ?? null; return current === null ? "–" : money(current, false); } },
-        { key: "change", label: "Muutos", kind: "money", cell: (a) => (a.changeCents !== null && Math.abs(a.changeCents) >= 100 ? <DeltaChip delta={a.changeCents} text={signedMoney(a.changeCents)} meaning="gain" /> : null) },
-      ]}
-    />
-  );
-  const monthRows = r.months.map((m, i) => i);
+  const monthRows = r.months.map((_, i) => i);
   const tableColumns: Column<number>[] = [
     {
       key: "month",
-      label: "Kuukausi",
+      label: t("rpt.month"),
       kind: "text",
       rowHead: true,
-      cell: (i) => (i === last && lastIsToday ? `${monthLong(r.months[i]!)} (tänään)` : monthLong(r.months[i]!)),
+      cell: (i) => (i === last && lastIsToday ? `${monthLong(r.months[i]!)}${t("rpt.bal_today")}` : monthLong(r.months[i]!)),
     },
     {
       key: "total",
-      label: "Yhteensä, arvio",
+      label: t("rpt.bal_total_est"),
       kind: "money",
       main: true,
       cell: (i) => (r.total[i] === null ? "–" : money(r.total[i]!, false)),
     },
-    ...r.accounts.map((a): Column<number> => {
-      // the figures of an account at a part are that part: the own view only, Koko talous counts it whole
-      const part = partText(ctx.scope === "own" ? ownPart(ctx.meta, a.accountId) : undefined, "account");
-      return {
-        key: `account:${a.accountId}`,
-        label: (
-          <>
-            {a.name}
-            {part && <div className="small muted">{part}</div>}
-          </>
-        ),
-        text: a.name,
-        kind: "money",
-        series: true,
-        cell: (i) => (a.values[i] === null ? "–" : money(a.values[i]!, false)),
-      };
-    }),
+    {
+      key: "change",
+      label: t("rpt.bal_month_change"),
+      kind: "money",
+      cell: (i) => (r.monthChange[i] === null || r.monthChange[i] === undefined ? "–" : signedMoney(r.monthChange[i]!)),
+    },
   ];
   const tableView = (
-    <Table caption="Saldot kuukausittain" rows={monthRows} rowKey={(i) => r.months[i]!} columns={tableColumns} seriesLabel="Tilit" />
+    <Table caption={t("rpt.bal_by_month")} rows={monthRows} rowKey={(i) => r.months[i]!} search={false} columns={tableColumns} />
   );
   return (
     <ReportPanel
@@ -114,7 +79,7 @@ function Balances({ ctx }: SectionProps) {
       datum={
         now === null ? undefined : (
           <span className="saldot-datum">
-            {`Tilien ja korttien saldo ${date(nowDay)} ${money(now, false)}`}
+            {t("rpt.bal_datum", { date: date(nowDay), amount: money(now, false) })}
             {r.change !== null && Math.abs(r.change.cents) >= 100 && <DeltaChip delta={r.change.cents} text={signedMoney(r.change.cents)} meaning="gain" />}
           </span>
         )
@@ -124,35 +89,48 @@ function Balances({ ctx }: SectionProps) {
       {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
         <>
           <dl className="st-rows balance-rows">
-            <FigureRow label="Tilien ja korttien saldo">{money(r.total[last]!)}</FigureRow>
+            <FigureRow label={t("rpt.bal_row")}>{money(r.total[last]!)}</FigureRow>
             <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
-            <FigureRow label={ACCOUNTS_LESS_DEBT.label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
+            <FigureRow label={accountsLessDebt().label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
           </dl>
           {(maybeTwice.length > 0 || overdrafts.length > 0) && (
             <ul className="loans-notes">
-              {maybeTwice.length > 0 && <li className="warn">{SAME_DEBT_TWICE}: katso Lainat.</li>}
+              {maybeTwice.length > 0 && <li className="warn">{t("rpt.bal_twice_see", { text: sameDebtTwice() })}</li>}
               {overdrafts.length > 0 && <li className="warn">{overdraftTwice()}</li>}
             </ul>
           )}
         </>
       )}
-      <QuestionChart id="saldot-kaavio" question="Kasvaako puskuri, ja mikä sitä pienensi?" answer={answer} table={tableView}>
+      <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView}>
         <BalanceLine r={r} />
       </QuestionChart>
       <hr className="qc-rule" />
-      <QuestionChart id="saldot-tilit" question="Millä tileillä rahat ovat?" answer={r.change ? `${plural(r.accounts.length, "tili", "tiliä")}. Tilien muutokset ${date(r.change.from)}–${date(r.change.to)} ovat yhteensä otsikon ${signedMoney(r.change.cents)}.` : plural(r.accounts.length, "tili", "tiliä")} >
-        {accounts}
-      </QuestionChart>
+      <Holdings holdings={r.holdings} meta={ctx.meta} scope={ctx.scope} />
+      {r.missing.length > 0 && (
+        <>
+          <hr className="qc-rule" />
+          <QuestionChart id="saldot-puuttuvat" question={t("rpt.bal_q_missing")} answer={t(r.missing.length === 1 ? "rpt.bal_missing_one" : "rpt.bal_missing_many", { count: plural(r.missing.length, t("rpt.u_account"), t("rpt.u_accounts")) })}>
+            <dl className="st-rows balance-rows">
+              {r.missing.map((m) => (
+                <FigureRow key={m.accountId} label={m.name}>
+                  {m.foreign ? moneyIn(m.foreign.cents, m.foreign.currency) : t("rpt.bal_unknown")}
+                </FigureRow>
+              ))}
+            </dl>
+          </QuestionChart>
+        </>
+      )}
     </ReportPanel>
   );
 }
 
 export const section: ReportSection = {
-  id: "saldot",
-  title: "Saldot",
+  id: BALANCES_ID,
+  get title() {
+    return t("rpt.sec_balances");
+  },
   order: 110,
   page: "reports",
-  tab: "varat",
   reports: ["balances", "loans"],
   visible: (ctx) => ctx.data.balances.accounts.length > 0,
   Component: Balances,

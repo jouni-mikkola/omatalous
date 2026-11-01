@@ -12,7 +12,9 @@ import { incomeBase } from "../src/analysis/income-series.ts";
 import { INCOME_TYPES, incomeTypeOf, isEarnedIncome } from "../src/analysis/income.ts";
 import { debtShareOf } from "../src/analysis/insights/borrowing.ts";
 import { gateMonthly } from "../src/analysis/insights/shared.ts";
-import { GATE_FLOOR_CENTS, gateFor, usualIncome, usualSpending } from "../src/analysis/usual.ts";
+import { expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
+import { gateFor } from "../src/analysis/usual.ts";
+import { GATE_FLOOR_CENTS } from "../src/thresholds.ts";
 import { CATEGORIES } from "../src/categories.ts";
 import { addDays, addMonths } from "../src/dates.ts";
 import { householdDebts } from "../src/household-debts.ts";
@@ -26,7 +28,7 @@ import { bufferReport } from "../src/reports/buffer.ts";
 import { buildReports } from "../src/reports/index.ts";
 import { type Account, type Loan, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
-import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./optimise/household.ts";
+import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./optimise/household-kit.ts";
 import * as loansPart from "./optimise/parts/loans.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -58,7 +60,7 @@ describe("usual income has one owner", () => {
       const row = { category: c.id, merchant: "Maksaja", counterparty: null, description: null, amountCents: 10000, flows: { consumption: 0, debt: 0, saved: 0, income: 10000, borrowed: 0 } };
       expect(isEarnedIncome(row), c.id).toBe(INCOME_TYPES[incomeTypeOf(row)].earned);
     }
-    expect(usualIncome(ctx, "2026-10")).toBe(300000);
+    expect(expectedIncome(ctx, "2026-10")).toBe(300000);
   });
 
   it("the buffer report, the fixed costs share, debt service, the overview and the income views read the same income", () => {
@@ -96,31 +98,31 @@ describe("the shares of the usual income name their months", () => {
 
 describe("usual spending has one owner", () => {
   it("the buffer report and the insights' gate read the same usual month", () => {
-    const usual = usualSpending(ctx, "2026-10")!;
+    const usual = expectedSpending(ctx, "2026-10")!;
     expect(usual).toBeGreaterThan(0);
-    expect(bufferReport(ctx, [], NO_INPUTS).usualSpendCents).toBe(usual);
+    expect(bufferReport(ctx, [], NO_INPUTS).expectedSpendCents).toBe(usual);
     expect(gateMonthly(ctx, today)).toBe(gateFor(usual));
   });
 
   it("Yhteenveto says one usual total per month: the change report's, a running month on its days so far", () => {
-    // a dinner and a coat now and then: each median is nothing, yet most months have one, so the usual month is more
-    // than the sum of the categories' levels
+    // a dinner and a coat now and then: a median of each is nothing, yet the expected month holds them; the headline is
+    // the sum of the categories' expected figures, so nothing is left over
     const sparse = [
       ...monthlyOn(18, (i) => (i % 3 === 0 ? -9000 : 0), { category: "restaurants", merchant: "Ravintola" }),
       ...monthlyOn(7, (i) => (i % 3 === 1 ? -9000 : 0), { category: "shopping", merchant: "Vaatekauppa" }),
     ];
     const c = createContext([...household, ...sparse], [checking], today);
-    const september = spendingChange(c, "usual", "2026-09")!;
-    expect(september.baseCents).toBe(usualSpending(c, "2026-09"));
+    const september = spendingChange(c, "expected", "2026-09")!;
+    expect(september.baseCents).toBe(expectedSpending(c, "2026-09"));
     const levels = september.categories.filter((r) => r.kind === "category").reduce((s, r) => s + r.baseCents, 0);
     const smaller = september.categories.find((r) => r.kind === "smaller");
     expect(levels + (smaller?.baseCents ?? 0)).toBe(september.baseCents);
-    // the case this guards: the categories' own levels leave part of the usual month to Muut
-    expect(september.pieces.some((p) => p.category === null && p.kind === "spread")).toBe(true);
+    // the case this guards: the categories' own levels leave no part of the expected month to Muut
+    expect(september.pieces.some((p) => p.category === null && p.kind === "spread")).toBe(false);
 
-    const october = spendingChange(c, "usual", "2026-10")!;
+    const october = spendingChange(c, "expected", "2026-10")!;
     expect(october.running).toBe(true);
-    expect(october.baseCents).toBe(usualSpending(c, "2026-10", 9));
+    expect(october.baseCents).toBe(expectedSpending(c, "2026-10", 9));
   });
 });
 
@@ -132,7 +134,7 @@ describe("the gate has one owner", () => {
   });
 
   it("the change sentences of a complete month pass the gate the insights use", () => {
-    const change = spendingChange(ctx, "usual", "2026-09")!;
+    const change = spendingChange(ctx, "expected", "2026-09")!;
     expect(change.gateCents).toBeGreaterThan(GATE_FLOOR_CENTS);
     expect(change.gateCents).toBe(gateMonthly(ctx, "2026-09-30"));
   });

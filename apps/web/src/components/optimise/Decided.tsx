@@ -2,15 +2,16 @@
  * Päätetyt: every finding and insight the household has answered, newest first, each with its state (Tehty, Ei koske
  * meitä or Muistutus) and a way to take the answer back.
  */
-import type { DismissedInsight, Finding, FindingState, OptimiseData } from "@banking/core";
+import { type DismissedInsight, type Finding, type FindingState, insightText, type OptimiseData } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../../api.ts";
-import { date, money } from "../../format.ts";
+import { date, language, money } from "../../format.ts";
+import { t } from "../../text.ts";
 import type { Scope } from "../../types.ts";
 import { insightFigure } from "./Others.tsx";
 import { Section } from "../Section.tsx";
-import { type Changed, nameOf, REASON_TEXT } from "./shared.tsx";
-
+import { type Changed, nameOf, reasonText } from "./shared.tsx";
+import { Button } from "../ui/Button.tsx";
 /** "Peruuta": the answer is taken back and the finding or insight returns to its place. */
 function Undo({ title, take, onChanged }: { title: string; take: () => Promise<unknown>; onChanged: Changed }) {
   const [busy, setBusy] = useState(false);
@@ -19,15 +20,15 @@ function Undo({ title, take, onChanged }: { title: string; take: () => Promise<u
     setBusy(true);
     setError(null);
     take()
-      .then(() => onChanged("Päätös peruutettiin."))
+      .then(() => onChanged(t("ow.dec_undone")))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
   return (
     <div className="decided-undo">
-      <button className="btn btn-small" type="button" aria-label={`Peruuta päätös: ${title}`} disabled={busy} aria-busy={busy || undefined} onClick={undo}>
-        Peruuta
-      </button>
+      <Button aria-label={t("ow.dec_undo_aria", { title })} busy={busy} onClick={undo}>
+        {t("ow.dec_undo")}
+      </Button>
       {error && (
         <span className="field-error error" role="alert">
           {error}
@@ -52,7 +53,7 @@ const note = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ")
 
 const estimate = (state: FindingState, finding: Finding | null) => {
   const mid = state.midCents ?? finding?.euros?.midCents ?? null;
-  return mid === null ? null : `arvio ${money(mid, false)} vuodessa`;
+  return mid === null ? null : t("ow.dec_estimate", { amount: money(mid, false) });
 };
 
 function entriesOf(data: OptimiseData, scope: Scope): Entry[] {
@@ -62,7 +63,7 @@ function entriesOf(data: OptimiseData, scope: Scope): Entry[] {
     ...data.done.map(({ state, finding }) => ({
       key: state.findingId,
       title: finding?.title ?? nameOf(state.findingId, data.areas),
-      note: note(`Tehty ${date(state.effectiveDate ?? state.decidedAt)}`, finding ? null : "ei enää näy tiedoissa", estimate(state, finding)),
+      note: note(t("ow.dec_done", { date: date(state.effectiveDate ?? state.decidedAt) }), finding ? null : t("ow.dec_gone"), estimate(state, finding)),
       at: state.decidedAt,
       take: takeState(state.findingId),
     })),
@@ -70,21 +71,21 @@ function entriesOf(data: OptimiseData, scope: Scope): Entry[] {
     ...data.snoozed.map(({ state, finding }) => ({
       key: state.findingId,
       title: finding?.title ?? nameOf(state.findingId, data.areas),
-      note: note(`Muistutus ${date(state.until)}`, finding ? null : "ei nyt näy tiedoissa", estimate(state, finding)),
+      note: note(t("ow.dec_remind", { date: date(state.until) }), finding ? null : t("ow.dec_gone_now"), estimate(state, finding)),
       at: state.decidedAt,
       take: takeState(state.findingId),
     })),
     ...data.dismissed.map(({ state, finding }) => ({
       key: state.findingId,
       title: finding.title,
-      note: note("Ei koske meitä", state.reason ? REASON_TEXT[state.reason] : "syytä ei annettu", estimate(state, finding)),
+      note: note(t("ow.dec_notmine"), state.reason ? reasonText(state.reason) : t("ow.dec_noreason"), estimate(state, finding)),
       at: state.decidedAt,
       take: takeState(state.findingId),
     })),
     ...data.othersDismissed.map((d) => ({
       key: d.subject,
-      title: d.insight.title,
-      note: note("Ei koske meitä", insightFigure(d.insight), "palaa, jos summa muuttuu 25 % tai enemmän"),
+      title: insightText(d.insight, language()).title,
+      note: note(t("ow.dec_notmine"), insightFigure(d.insight), t("ow.dec_returns")),
       at: d.markedAt,
       take: takeMark(d),
     })),
@@ -96,7 +97,7 @@ export function Decided({ data, scope, onChanged }: { data: OptimiseData; states
   const entries = entriesOf(data, scope);
   if (!entries.length) return null;
   return (
-    <Section id="paatetyt" title="Päätetyt">
+    <Section id="paatetyt" title={t("ow.dec_title")}>
       <ul className="decided-list">
         {entries.map((e) => (
           <li key={e.key} className="decided">

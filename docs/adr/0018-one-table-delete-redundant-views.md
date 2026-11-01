@@ -13,9 +13,8 @@ The server supplies money totals. A narrow container turns rows into blocks and 
 lists under their rows; no horizontal scrolling is offered. Sorting belongs only to complete lists read by size.
 One subject's facts use `KeyValue`; an empty list is a sentence.
 
-Delete a view nobody needs, including its code, styles, tests and texts. Do not hide it by default or offer a
-setting to bring it back. A chart may keep an explicit Kaavio / Taulukko choice for its accessible text form,
-which mounts only when chosen.
+Delete a view nobody needs, with its code and everything that belongs to it. Do not hide it by default. Do not offer a
+setting to bring it back. The chart-and-table switch this record first kept is gone. See [ADR 0023](0023-chart-and-table-together.md).
 
 ## Consequences
 

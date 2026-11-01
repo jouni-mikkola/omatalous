@@ -15,21 +15,19 @@ async function open(browser: Browser, path: string, width = 1280, height = 900) 
   return { context, page, seen };
 }
 
-const rows = (page: Page) => page.locator("table.tx-table tbody tr:not(.rt-group):not(.rt-detail)");
+const rows = (page: Page) => page.locator("table.tx-table tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)");
 const heights = (page: Page, n: number) => rows(page).evaluateAll((els, n) => els.slice(0, n).map((el) => Math.round(el.getBoundingClientRect().height)), n);
 
-test("a row is one line of 44 px, a day's row about 32 px", async ({ browser }) => {
+test("a row is one line of 33 px, a day's row about 25 px", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions");
   await expect(rows(page).first()).toBeVisible();
   // a linked document (private build) or a joint part adds a line; the plain rows of the demo are one line each
   const roomy = await heights(page, 20);
-  expect(roomy.filter((h) => Math.abs(h - 44) <= 1.5).length, `heights ${roomy.join(", ")}`).toBeGreaterThanOrEqual(18);
+  expect(roomy.filter((h) => Math.abs(h - 33) <= 1.5).length, `heights ${roomy.join(", ")}`).toBeGreaterThanOrEqual(18);
   const groups = await page.locator("table.tx-table tr.rt-group").evaluateAll((els) => els.slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
-  expect(groups.every((h) => h >= 28 && h <= 34), `day rows ${groups.join(", ")}`).toBe(true);
-  // the density has no switch: the menu holds the download and the rule shortcut only
-  await page.getByRole("button", { name: "Listan asetukset" }).click();
+  expect(groups.every((h) => h >= 23 && h <= 27), `day rows ${groups.join(", ")}`).toBe(true);
+  // the density has no switch
   await expect(page.getByRole("group", { name: "Rivien tiheys" })).toHaveCount(0);
-  await page.keyboard.press("Escape");
   expect(await overflow(page)).toBe(0);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -48,7 +46,8 @@ test("a day's row says the server's whole-day sums, also for a day the page cuts
 });
 
 test("a row opens on its payee's twelve months and closes again", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, "/#/transactions");
+  // searched for, so the row is there however the days near today fall (the list is windowed from the newest day)
+  const { context, page, seen } = await open(browser, "/#/transactions?q=K-Supermarket");
   const row = rows(page).filter({ has: page.locator(".tx-name", { hasText: "K-Supermarket" }) }).first();
   await expect(row).toBeVisible();
   const toggle = row.getByRole("button", { name: "Avaa K-Supermarket: 12 kuukautta" });
@@ -59,7 +58,9 @@ test("a row opens on its payee's twelve months and closes again", async ({ brows
   await expect(drill.getByText("Ostoskerta keskimäärin")).toBeVisible();
   await expect(drill.locator(".tx-drill-bars li")).toHaveCount(12);
   await expect(drill.locator(".tx-drill-bars li.peak")).toHaveCount(1);
-  await expect(drill.getByRole("link", { name: "Kaikki: K-Supermarket" })).toHaveAttribute("href", /merchant=K-Supermarket/);
+  await drill.getByRole("button", { name: "Muuta: K-Supermarket" }).click();
+  await expect(page.getByRole("menuitem", { name: "Kaikki: K-Supermarket" })).toHaveAttribute("href", /merchant=K-Supermarket/);
+  await page.keyboard.press("Escape");
   await toggle.click();
   await expect(drill).toHaveCount(0);
   expect(seen.problems).toEqual([]);
@@ -75,7 +76,7 @@ test("the period is a named one or two days on our own calendar, never a browser
   await range.getByRole("button", { name: "Edellinen kuu", exact: true }).click();
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-01&to=\d{4}-\d{2}-\d{2}/);
   await expect(page.locator(".tx-fchip.set")).toContainText("Edellinen kuu");
-  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" })).toContainText("Menot päivittäin");
+  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" })).toContainText("Rahaa ulos päivittäin");
 
   await page.locator(".tx-fchip.set .tx-fchip-main").click();
   const calendar = page.getByRole("dialog", { name: "Aikaväli" });
@@ -84,7 +85,7 @@ test("the period is a named one or two days on our own calendar, never a browser
   await expect(calendar.getByRole("button", { name: "Näytä jakso" })).toBeEnabled();
   await days.nth(9).click();
   await calendar.getByRole("button", { name: "Näytä jakso" }).click();
-  await expect(page.locator(".tx-fchip.set")).toContainText(/\d{1,2}\.\d{1,2}\.–\d{1,2}\.\d{1,2}\.\d{4}/);
+  await expect(page.locator(".tx-fchip.set")).toContainText(/\d{1,2}\.(\d{1,2}\.)?–\d{1,2}\.\d{1,2}\.\d{4}/);
   const url = new URLSearchParams(page.url().split("?")[1]);
   expect(url.get("to")! > url.get("from")!).toBe(true);
   await page.getByRole("button", { name: "Poista rajaus: Aikaväli" }).click();
@@ -95,15 +96,9 @@ test("the period is a named one or two days on our own calendar, never a browser
 
 test("Enter on the histogram narrows the list to its tallest bin, and a filter that matches nothing can be cleared", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions");
-  const hist = page.getByRole("img", { name: /^Menot (päivittäin|viikoittain|kuukausittain), suurin / });
+  const hist = page.getByRole("img", { name: /^Rahaa ulos (päivittäin|viikoittain|kuukausittain), suurin / });
   await expect(hist).toBeVisible();
-  await expect(page.locator(".tx-hist-readout")).toContainText("maksettu");
-  // Kalenteri opens the rhythm of the same rows under the strip, shaded by the server
-  await page.getByRole("group", { name: "Kuvan muoto" }).getByRole("button", { name: "Kalenteri" }).click();
-  await expect(page.locator(".tx-rhythm")).toBeVisible();
-  await expect(page.locator(".tx-rhythm").getByText("Minä päivinä rahaa meni?").or(page.getByRole("img", { name: /Minä päivinä rahaa meni/ })).first()).toBeAttached();
-  await page.getByRole("group", { name: "Kuvan muoto" }).getByRole("button", { name: "Pylväät" }).click();
-  await expect(page.locator(".tx-rhythm")).toHaveCount(0);
+  await expect(page.locator(".tx-hist-readout")).toContainText("rahaa ulos");
   await hist.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);

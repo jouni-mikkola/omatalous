@@ -3,12 +3,14 @@
  * A folder in connectors/ that is not listed here fails apps/server/test/connectors.test.ts.
  */
 import type { Services } from "../services/context.ts";
+import { bankFile } from "./bank-file/index.ts";
+import { cardFile } from "./card-file/index.ts";
 import { csvImport } from "./csv-import/index.ts";
 import { enableBanking } from "./enable-banking/index.ts";
 import type { Connector } from "./types.ts";
 
 /** In the order of the folders. */
-export const CONNECTORS: readonly Connector[] = [csvImport, enableBanking];
+export const CONNECTORS: readonly Connector[] = [bankFile, cardFile, csvImport, enableBanking];
 
 /** Ends every active consent of a user at every connector that has consents, for a member who is being removed. */
 export async function revokeAllConnections(s: Services, userId: string): Promise<{ revoked: number; failed: number }> {

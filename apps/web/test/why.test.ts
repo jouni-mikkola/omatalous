@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import ts from "typescript";
+import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { MarkCell } from "../src/components/table/Cells.tsx";
 import { approxText, BasisDoor, basisPerson, Estimate, Why } from "../src/components/Why.tsx";
@@ -101,7 +101,7 @@ describe("the basis of a figure opens from the figure", () => {
   });
 
   it("writes the estimate's ≈ only through Why.tsx (Estimate, approxText), so one mark means one thing", () => {
-    const found = all.flatMap(([f, tree]) => (f === "components/Why.tsx" ? [] : texts(tree).filter((t) => t.includes("≈")).map(() => f)));
+    const found = all.flatMap(([f, tree]) => (f === "components/Why.tsx" || f === "approx.ts" ? [] : texts(tree).filter((t) => t.includes("≈")).map(() => f)));
     expect(found.filter((f) => !HAND_APPROX.has(f)), "a new ≈ by hand: use Estimate or approxText").toEqual([]);
   });
 
@@ -123,7 +123,7 @@ describe("Why, the door", () => {
 
   it("says a calculation opens for a loan figure, and takes no other name than the two forms", () => {
     expect(door({ figure: "loan.balance", loan: "account:a1", title: "Autolaina, velkaa", text: "1 240,00 €" })).toContain('aria-label="Näytä laskelma: Autolaina, velkaa 1 240,00 €"');
-    const figures = ["spend.month", "share.part", "holdings.accounts", "bills.paid", "loans.total", "loans.interest", "loans.payments", "holdings.loans", "loan.balance", "loan.interest", "loan.payment", "loan.monthly"];
+    const figures = ["spend.month", "share.part", "holdings.accounts", "bills.fixed", "loans.total", "loans.interest", "loans.payments", "holdings.loans", "loan.balance", "loan.interest", "loan.payment", "loan.monthly"];
     const names = figures.map((figure) => /aria-label="([^"]*)"/.exec(door({ figure }))![1]!);
     expect(names.filter((n) => !DOOR_FORMS.test(n))).toEqual([]);
     expect(names.filter((n) => n.startsWith("Näytä laskelma"))).toHaveLength(8);
@@ -146,8 +146,8 @@ describe("BasisDoor, Estimate and approxText", () => {
   const door = (props: Partial<Parameters<typeof BasisDoor>[0]>) => renderToStaticMarkup(createElement(BasisDoor, { text: "12,40 €", open: false, onToggle: () => {}, controls: "s", ...props }));
 
   it("opens a sheet in place with the look and the name of every door", () => {
-    expect(door({ label: "Säästöt" })).toBe('<button type="button" class="why-door why-fig" aria-expanded="false" aria-controls="s" aria-label="Näytä peruste: Säästöt 12,40 €">12,40 €</button>');
-    expect(door({ estimate: true, className: "spend-fig", open: true })).toBe('<button type="button" class="why-door spend-fig" aria-expanded="true" aria-controls="s" aria-label="Näytä peruste: arvio 12,40 €"><span class="fig-approx"><span class="fig-approx-sign">≈</span>12,40 €</span></button>');
+    expect(door({ label: "Säästöt" })).toBe('<button type="button" class="why-door why-fig" aria-expanded="false" aria-controls="s" aria-label="Näytä, mihin tämä perustuu: Säästöt 12,40 €">12,40 €</button>');
+    expect(door({ estimate: true, className: "spend-fig", open: true })).toBe('<button type="button" class="why-door spend-fig" aria-expanded="true" aria-controls="s" aria-label="Näytä, mihin tämä perustuu: arvio 12,40 €"><span class="fig-approx"><span class="fig-approx-sign">≈</span>12,40 €</span></button>');
   });
 
   it("marks an estimate and leaves an exact figure as it is", () => {

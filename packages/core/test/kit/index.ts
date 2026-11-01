@@ -49,10 +49,11 @@ export const KIT_TODAY = "2026-10-15";
 
 /**
  * The Poisson seed of the base: of the first 400, the one whose only loud statement is the Spotify question (`alerts
- * forgotten`) and whose change sentences stay furthest under their gates (an eighth of each), so an event that moves a
- * figure a little does not flip a sentence by chance.
+ * forgotten`) and whose change sentences stay furthest under their gates (under half of each, the expected view the
+ * nearest), so an event that moves a figure a little does not flip a sentence by chance. Chosen again for the expected
+ * figure (ADR 0021): the old seed, 231, was 1.7 gates from the expected month.
  */
-export const KIT_SEED = 231;
+export const KIT_SEED = 273;
 
 export const EVENTS: readonly LifeEvent[] = [
   moveSameLandlord,

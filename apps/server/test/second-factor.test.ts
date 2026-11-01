@@ -97,7 +97,7 @@ describe("second factor: sign-in", () => {
     const c = t.client();
     const login = await c.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD });
     expect(login.status).toBe(200);
-    expect(login.body).toEqual({ needsFactor: true });
+    expect(login.body).toEqual({ needsFactor: true, passkey: false, codes: true });
     expect(login.res.headers.get("set-cookie")).toContain("_half=");
     expect(login.res.headers.get("set-cookie")).toContain("HttpOnly");
 
@@ -307,7 +307,7 @@ describe("second factor: removal and recovery codes", () => {
     const second = await t.admin.call("POST", "/api/users", { username: "toinen", displayName: "Toinen", role: "admin" });
     const other = t.client();
     await other.call("POST", "/api/auth/login", { username: "toinen", password: second.body.temporaryPassword });
-    await other.call("POST", "/api/auth/password", { current: second.body.temporaryPassword, next: "toinen-uusi-salasana" });
+    await other.call("POST", "/api/auth/first-password", { next: "toinen-uusi-salasana" });
     const { secret } = await enrol(t.admin);
     expect((await other.call("DELETE", `/api/users/${t.adminId}/factor`)).status).toBe(400);
     expect((await t.admin.call("DELETE", `/api/users/${t.adminId}/factor`)).status).toBe(400);
@@ -519,5 +519,31 @@ describe("second factor: the secret file against the running secret", () => {
     expect(secretFileDiffers(`${file}.missing`, OLD_SECRET)).toBe(false);
     expect(secretFileDiffers(null, OLD_SECRET)).toBe(false);
     expect(secretFileDiffers(file, undefined)).toBe(false);
+  });
+
+  it("differs while a rotation is under way, from the first step to the rename", () => {
+    const file = join(scratchDir("secret-next"), "app_secret");
+    writeFileSync(file, `${OLD_SECRET}\n`);
+    expect(secretFileDiffers(file, OLD_SECRET)).toBe(false);
+    writeFileSync(`${file}.next`, `${NEW_SECRET}\n`);
+    expect(secretFileDiffers(file, OLD_SECRET)).toBe(true);
+  });
+});
+
+describe("the last factor is kept by the statement that deletes it", () => {
+  it("an authenticator secret stays when its passkey went in between, and goes while a passkey is there", async () => {
+    const t = await setupApp();
+    const at = "2026-10-01T00:00:00Z";
+    const passkey = { credentialId: "cred-1", publicKey: "key", counter: 0, transports: [], rpId: "talous.example.fi", label: "Puhelin" };
+    await t.s.factors.enable(t.adminId, "sealed", 1, [], at);
+    await t.s.factors.addPasskey(t.adminId, passkey, [], at);
+    // the passkey is taken away after the service looked at it: the authenticator is now the only factor
+    const [only] = await t.s.factors.passkeys(t.adminId);
+    expect(await t.s.factors.removePasskey(t.adminId, only!.id)).toBe(true);
+    expect(await t.s.factors.removeTotp(t.adminId, true)).toBe(false);
+    expect(await t.s.factors.hasTotp(t.adminId)).toBe(true);
+    await t.s.factors.addPasskey(t.adminId, { ...passkey, credentialId: "cred-2" }, [], at);
+    expect(await t.s.factors.removeTotp(t.adminId, true)).toBe(true);
+    expect(await t.s.factors.hasTotp(t.adminId)).toBe(false);
   });
 });

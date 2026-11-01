@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import ts from "typescript";
+import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { FORMS as DASH_FORMS, isResearch } from "./em-dash-forms.mjs";
 import "./finnish.ts";
@@ -41,8 +41,6 @@ describe("repo rules: text", () => {
     // Text that stays English, and what it is. An entry whose text is gone must be removed (the list only shrinks).
     const ALLOWED: { file: string; text: string }[] = [
       // Enable Banking's own option names, quoted in the instructions for its control panel: what the user sees on enablebanking.com
-      { file: "apps/web/src/pages/settings/BankAppSetup.tsx", text: "Generate outside the browser and import public certificate" },
-      { file: "apps/web/src/pages/settings/BankAppSetup.tsx", text: "Generate in the browser" },
       { file: "apps/web/src/pages/settings/BankAppSetup.tsx", text: "Email for data protection matters" },
     ];
     // JSX attributes that never hold text for the user: styling, addresses, identity, form wiring and SVG drawing
@@ -56,8 +54,8 @@ describe("repo rules: text", () => {
     );
     // Files whose every string is shown to the user (a message table, error texts), read as a whole
     const WHOLE_FILES = ["apps/web/src/components/ops/ops-strings.ts", "apps/web/src/api.ts"];
-    // lowercase codes such as "check-update" or "same-origin" are identifiers, not text
-    const CODE = /^[a-z0-9]+([-_][a-z0-9]+)*$/;
+    // lowercase codes such as "check-update", "same-origin" or the message code "why.whole" are identifiers, not text
+    const CODE = /^[a-z0-9]+([-_.][a-z0-9]+)*$/;
     // an address or a path has no spaces: "https://..." and "./scripts/update.sh"
     const ADDRESS = /^(https?:\/\/|\.{0,2}\/)\S*$/;
     const COMPARISONS = new Set([ts.SyntaxKind.EqualsEqualsToken, ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken]);
@@ -145,10 +143,7 @@ describe("repo rules: text", () => {
     // "alle 3 %": a rule's limit written into the page
     const LIMIT = /(?<!\p{L})(alle|yli)\s+\d+\s?%/iu;
     // Literals that break the rule today, as `<file>  <start of the text>`. The list may only shrink.
-    const BASELINE = [
-      // the 18 and 24 months are the insights' own history rules (analysis/insights); the insights report should return them
-      "apps/web/src/pages/reports/sections/Insights.tsx  Tähän tulevat hinnankorotukset",
-    ];
+    const BASELINE: string[] = [];
     const seen = new Set<string>();
     const found: Finding[] = [];
     const check = (file: string, line: number, text: string) => {
@@ -184,7 +179,7 @@ describe("repo rules: text", () => {
       { re: /(?<!\p{L})vakiomaks\p{L}*/iu, name: "rejected term", fix: 'write "sopimus"' },
       { re: /(?<!\p{L})(normaali\p{L}*|oma(n|an)? taso\p{L}*|oman tasonsa)/iu, name: "rejected term", fix: 'write "tavallisesti" (median of complete months) or "keskimäärin" (mean)' },
       { re: /(?<!\p{L})(kulut|kuluja|kulujen|kuluihin|kuluista)(?!\p{L})/iu, name: "rejected term", fix: 'write "menot"; kulut only in pankkikulut, luottokulut and myöhästymiskulut' },
-      { re: /(?<!\p{L})(tilitapahtum|kaupparekister)\p{L}*/iu, name: "rejected term", fix: 'write "tapahtuma" or "toimialahaku YTJ:stä"' },
+      { re: /(?<!\p{L})tilitapahtum\p{L}*/iu, name: "rejected term", fix: 'write "tapahtuma"' },
       { re: /(?<!\p{L})(Selvä|Peru|Uusi yhteys)(?!\p{L})/u, name: "rejected button text", fix: 'write "Kuittaa", "Peruuta" or "Yhdistä uudelleen"' },
       { re: /(?<!\p{L})(haara|haaran|haaraa|pikakel\p{L}*|(?<![\p{L}./-])commit(ia|in|it|eja)?(?![\p{L}-])|kontti\p{L}*|kontin|docker-kuv\p{L}*)(?!\p{L})/iu, name: "Git or Docker word", fix: 'write "versio", "päivitys", "päivityslähde" or "sovellus"' },
       { re: /(?<!\p{L})(kannattaa|kannattaisi|riittävä|tarkoituksellis\p{L}*|kyseinen|kyseisen|kyseiseltä|on tärkeää)(?!\p{L})|(^|[.?]\s+)Voit\s/iu, name: "advice or verdict word", fix: "give the number and its basis, or use the imperative" },

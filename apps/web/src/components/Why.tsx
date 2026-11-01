@@ -3,13 +3,15 @@ import { type Explanation, type FigureId, isLoanFigure, type Reason, sentenceOf 
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { query } from "../api.ts";
-import { date, dayMonth, money, monthLong } from "../format.ts";
+import { dateRange, dayMonth, money, monthLong } from "../format.ts";
 import { useApi, useMeta } from "../hooks.ts";
 import type { Scope } from "../types.ts";
 import { MarkCell } from "./table/Cells.tsx";
 import { type Column, Table } from "./table/Table.tsx";
 import "../styles/why.css";
-
+import { Button } from "./ui/Button.tsx";
+import { useModal } from "./useModal.ts";
+import { t, tn } from "../text.ts";
 /** The rows shown before "Näytä kaikki". */
 const FIRST_ROWS = 50;
 
@@ -27,7 +29,7 @@ interface WhyFigure {
   row?: string;
   /** `share.part`: the row's account, whose users name the lines. */
   account?: string;
-  /** `loan.*`: the loan, as the Lainat report and Varallisuus name it. */
+  /** `loan.*`: the loan, as the Lainat report and Varat ja velat name it. */
   loan?: string;
   /** What the button shows: the figure, or the waterfall's bar. */
   children: ReactNode;
@@ -59,7 +61,7 @@ export function Estimate({ when = true, mark = "approx", children }: { when?: bo
 }
 
 /** The same mark where the figure is plain text (a datum, a cell, a sentence a screen reader reads): "≈ 12,40 €". */
-export const approxText = (text: string, estimated: boolean): string => (estimated ? `≈ ${text}` : text);
+export { approxText } from "../approx.ts";
 
 /** The accessible name of a door: what opens, what the figure is, and that an estimate is one. */
 /**
@@ -67,13 +69,13 @@ export const approxText = (text: string, estimated: boolean): string => (estimat
  * loans and the steps of a figure), or the sheet of BasisDoor.
  */
 type DoorKind = "rows" | "calculation" | "sheet";
-const OPENS: Record<DoorKind, string> = { rows: "Näytä tapahtumat", calculation: "Näytä laskelma", sheet: "Näytä peruste" };
+const OPENS: Record<DoorKind, "why.show_rows" | "why.show_calc" | "why.show_basis"> = { rows: "why.show_rows", calculation: "why.show_calc", sheet: "why.show_basis" };
 
 /** The kind of a figure's basis: a loan figure is a calculation, every other figure the panel opens is a sum of rows. */
 const doorKind = (figure: WhyFigureId): DoorKind => (isLoanFigure(figure) ? "calculation" : "rows");
 
 function doorName(kind: DoorKind, title: string, text?: string, estimate?: boolean): string {
-  return `${OPENS[kind]}: ${[title, text && estimate ? `arvio ${text}` : text].filter(Boolean).join(" ")}`;
+  return `${t(OPENS[kind])}: ${[title, text && estimate ? t("why.estimate", { text }) : text].filter(Boolean).join(" ")}`;
 }
 
 /**
@@ -91,14 +93,14 @@ export function BasisDoor({ label, text, estimate = false, open, onToggle, contr
 
 /** The days a basis covers: "9.10.2026", or "1.10.–31.10.2026" for a range. */
 function periodText({ from, to }: { from: string; to: string }): string {
-  return from === to ? date(from) : `${from.slice(0, 4) === to.slice(0, 4) ? dayMonth(from) : date(from)}–${date(to)}`;
+  return dateRange(from, to);
 }
 
 /** "Täsmää" when a sum adds up, the difference when it does not (never left out); a median or an estimate has no such line. */
 function checkText(check: Explanation["check"]): string | null {
   if (check.kind === "n/a") return null;
-  if (check.diffCents === 0) return check.kind === "sum" ? "Täsmää" : null;
-  return `Ero ${money(check.diffCents)}`;
+  if (check.diffCents === 0) return check.kind === "sum" ? t("why.matches") : null;
+  return t("why.difference", { sum: money(check.diffCents) });
 }
 
 type Line = Explanation["lines"][number];
@@ -138,7 +140,7 @@ const viaOf = (why: readonly Reason[]): string | undefined => {
 function shareNote(why: readonly Reason[]): string | undefined {
   const use = why.find((r) => r.rule === "part.use");
   const cent = why.find((r) => r.rule === "rounding.cent");
-  const parts = [use ? `Osuus ${Number(use.to) - Number(use.from)}/${use.of}` : null, cent ? sentenceOf(cent) : null].filter(Boolean);
+  const parts = [use ? t("why.share_of", { part: Number(use.to) - Number(use.from), of: String(use.of) }) : null, cent ? sentenceOf(cent) : null].filter(Boolean);
   return parts.length ? parts.join(". ") : undefined;
 }
 
@@ -207,7 +209,7 @@ export const basisPerson = (figure: string, id: string): boolean => figure === "
 /** The viewer's part of a debt, under the line that takes the others' part off. */
 function partNote(why: readonly Reason[]): string | undefined {
   const use = why.find((r) => r.rule === "part.use");
-  return use ? `Osuutesi velasta ${Number(use.to) - Number(use.from)}/${use.of}` : undefined;
+  return use ? t("why.debt_share", { part: Number(use.to) - Number(use.from), of: String(use.of) }) : undefined;
 }
 
 /** The note under a line: what is said under its day, name and cents. */
@@ -223,35 +225,35 @@ function lineNote(l: Line, shown: Shown, kind: "counted" | "left" | "plain"): Re
     <div className="why-more-in">
       {reason && <div className="why-reason">{reason}</div>}
       {via && <div className="why-reason">{via}</div>}
-      {whole && <div className="why-reason">Tapahtuman summa {money(l.whole!)}</div>}
+      {whole && <div className="why-reason">{t("why.whole", { sum: money(l.whole!) })}</div>}
     </div>
   );
 }
 
 /** What the name column holds where a line is no payee: an account, or an account and the payments of the window. */
-const WHO: Partial<Record<WhyFigureId, string>> = {
-  "holdings.accounts": "Tili",
-  "ahead.free": "Tili tai maksu",
-  "ahead.pay": "Maksaja",
-  "loans.total": "Laina",
-  "loans.interest": "Laina",
-  "loans.payments": "Laina",
-  "holdings.loans": "Laina",
-  "loan.balance": "Erittely",
-  "loan.interest": "Erittely",
-  "loan.payment": "Erittely",
-  "loan.monthly": "Erittely",
+const WHO: Partial<Record<WhyFigureId, "why.who_account" | "why.who_account_or_payment" | "why.who_payer" | "why.who_loan" | "why.who_breakdown">> = {
+  "holdings.accounts": "why.who_account",
+  "ahead.free": "why.who_account_or_payment",
+  "ahead.pay": "why.who_payer",
+  "loans.total": "why.who_loan",
+  "loans.interest": "why.who_loan",
+  "loans.payments": "why.who_loan",
+  "holdings.loans": "why.who_loan",
+  "loan.balance": "why.who_breakdown",
+  "loan.interest": "why.who_breakdown",
+  "loan.payment": "why.who_breakdown",
+  "loan.monthly": "why.who_breakdown",
 };
 
 /** The lines of the answer: the day, the name and the cents, then what is said under them. */
-function LineTable({ lines, shown, who, kind, id }: { lines: Line[]; shown: Shown; who: string; kind: "counted" | "left" | "plain"; id: string }) {
+function LineTable({ lines, shown, who, kind }: { lines: Line[]; shown: Shown; who: string; kind: "counted" | "left" | "plain" }) {
   const { figure, names } = shown;
   const categoryOf = (l: Line) => {
     const tx = names.rows.get(l.id);
     return tx ? (names.labels.get(tx.category) ?? tx.category) : "";
   };
   const columns: Column<Line>[] = [
-    { key: "day", label: "Päivä", kind: "text", className: () => "why-day", cell: (l) => dayMonth(l.day) },
+    { key: "day", label: t("ui.day"), kind: "text", className: () => "why-day", cell: (l) => dayMonth(l.day) },
     {
       key: "who",
       label: who,
@@ -264,12 +266,12 @@ function LineTable({ lines, shown, who, kind, id }: { lines: Line[]; shown: Show
         </>
       ),
     },
-    ...(shown.categories ? [{ key: "cat", label: "Kategoria", kind: "text" as const, className: () => "why-cat", headClass: "why-cat", cell: categoryOf }] : []),
-    { key: "sum", label: "Summa", kind: "money", cell: (l) => money(l.cents) },
+    ...(shown.categories ? [{ key: "cat", label: t("why.col_category"), kind: "text" as const, className: () => "why-cat", headClass: "why-cat", cell: categoryOf }] : []),
+    { key: "sum", label: t("ui.amount"), kind: "money", cell: (l) => money(l.cents) },
   ];
   return (
     <Table<Line>
-      caption={`Rivit: ${who}`}
+      caption={t("why.rows", { who })}
       rows={lines}
       rowKey={(l) => l.id}
       columns={columns}
@@ -283,7 +285,7 @@ function LineTable({ lines, shown, who, kind, id }: { lines: Line[]; shown: Show
 /** The rows of a month of a median, with their own category column. */
 function MonthTable({ lines, shown }: { lines: Line[]; shown: Shown }) {
   const own = { ...shown, categories: varies(lines, shown.names) };
-  return <LineTable id="why-month" lines={lines} shown={own} who="Saaja" kind="counted" />;
+  return <LineTable lines={lines} shown={own} who={t("ui.payee")} kind="counted" />;
 }
 
 /** A month of a median: its figure, and its rows once it is opened. */
@@ -301,13 +303,8 @@ function Month({ label, cents, lines, shown }: { label: string; cents: number; l
 }
 
 function WhyPanel({ figure, title, range, scope, category, row, account, loan, onClose }: Omit<WhyFigure, "children" | "className" | "text"> & { onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const ref = useModal();
   const [all, setAll] = useState(false);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
-  }, []);
   const why = useApi<Explanation & { rows: NamedRow[] }>(`/api/explain${query({ figure, ...range, scope, category, row, loan })}`);
   const e = why.data;
   const meta = useMeta();
@@ -344,7 +341,7 @@ function WhyPanel({ figure, title, range, scope, category, row, account, loan, o
       <h2 id="why-title">{title}</h2>
       <p className="why-period">{periodText(range)}</p>
       {why.error && <p role="alert">{why.error}</p>}
-      {!e && !why.error && <p role="status">Ladataan…</p>}
+      {!e && !why.error && <p role="status">{t("load.loading")}</p>}
       {e && (
         <>
           <div className="why-scroll">
@@ -358,31 +355,31 @@ function WhyPanel({ figure, title, range, scope, category, row, account, loan, o
             )}
             {method?.kind !== "median" && (
               <>
-                <LineTable id="why-rows" lines={shownRows} shown={shown} who={WHO[figure] ?? "Saaja"} kind={kind} />
+                <LineTable lines={shownRows} shown={shown} who={WHO[figure] ? t(WHO[figure]) : t("ui.payee")} kind={kind} />
                 {counted.length > FIRST_ROWS && !all && (
-                  <button type="button" className="btn btn-small" onClick={() => setAll(true)}>
-                    Näytä kaikki
-                  </button>
+                  <Button variant="link" onClick={() => setAll(true)}>
+                    {t("why.show_all")}
+                  </Button>
                 )}
                 {method?.kind === "estimate" && <p className="why-reason">{method.rule}</p>}
               </>
             )}
             {left.length > 0 && (
               <details className="why-left">
-                <summary>{`Ei laskettu mukaan: ${left.length === 1 ? "1 tapahtuma" : `${left.length} tapahtumaa`}`}</summary>
-                <LineTable id="why-left" lines={left} shown={leftShown} who="Saaja" kind="left" />
+                <summary>{tn(left.length, "why.left_out_one", "why.left_out_many")}</summary>
+                <LineTable lines={left} shown={leftShown} who={t("ui.payee")} kind="left" />
               </details>
             )}
           </div>
           <div className="why-foot">
             {whole !== undefined && (
               <div className="why-total">
-                <span>Tapahtuman summa</span>
+                <span>{t("why.whole_label")}</span>
                 <span className="num">{money(whole)}</span>
               </div>
             )}
             <div className="why-total">
-              <span>{method ? title : "Yhteensä"}</span>
+              <span>{method ? title : t("why.total")}</span>
               <span className="num" data-why-total>
                 {e.cents === null ? "–" : money(e.cents)}
               </span>
@@ -396,9 +393,9 @@ function WhyPanel({ figure, title, range, scope, category, row, account, loan, o
         </>
       )}
       <div className="form-row">
-        <button type="button" className="btn" onClick={onClose}>
-          Sulje
-        </button>
+        <Button onClick={onClose}>
+          {t("ui.close")}
+        </Button>
       </div>
     </dialog>
   );

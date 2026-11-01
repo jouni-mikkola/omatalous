@@ -8,132 +8,32 @@
  * table.css; a page writes cells and never a `<table>`. It adds nothing up: a total is the node the page passes, and
  * `cents` is only formatted.
  */
-import { type ComponentProps, type CSSProperties, Fragment, type ReactNode, useState } from "react";
+import { Fragment, type KeyboardEvent, type ReactNode, useState } from "react";
 import { money } from "../../format.ts";
+import { t } from "../../text.ts";
 import { useMore } from "../More.tsx";
+import { Button } from "../ui/Button.tsx";
 import { BarFigure, SortHead } from "./Cells.tsx";
+import { RowFilterNotice, useRowPick } from "./selection.tsx";
 import "../../styles/table.css";
-import { sortBy, sortMessage, sortRows, useSort } from "./sort.ts";
+import { type Column, FIGURE, searchFns, textOf, valueOf } from "./columns.ts";
+import { saveCsv, tableCsv } from "./csv.ts";
+import { type Section, useShown } from "./model.ts";
+import { sortMessage, sortPhrase, sortRows } from "./sort.ts";
+import { useOpenRow } from "./use-drill.ts";
+import { useMarkup } from "./use-markup.ts";
+import { Toolbar } from "./LazyToolbar.ts";
+import { useOwnView } from "./use-view.ts";
+import { useWindow, WINDOW_MIN_ROWS } from "./use-window.ts";
 import { SLIM, useBlock } from "./use-block.ts";
+import type { HeadCell, RowGroup, TableProps } from "./types.ts";
+import { LONG_LIST_ROWS, pressSort, type TableView } from "./view.ts";
+import { css } from "../../css.ts";
 
-/** What a column holds: it sets the alignment, the tabular figures and the first direction of its sort. */
-export type ColumnKind = "text" | "money" | "count" | "date" | "share";
+export type { ChipDef, Column, ColumnKind } from "./columns.ts";
+export type { TableView, ViewControl } from "./view.ts";
 
-export type Column<R> = {
-  key: string;
-  /** A node when the head carries more than text (a note under the name); then `text` names it for the sort and the pairs of a phone row. */
-  label: ReactNode;
-  text?: string;
-  kind: ColumnKind;
-  /** The cell. A money column with `cents` may leave it out. */
-  cell?: (row: R) => ReactNode;
-  /** The amount of a money column in cents; it is printed to its `precision`, so one column never mixes 29,90 € and 30 €. */
-  cents?: (row: R) => number | null;
-  precision?: "cents" | "euros";
-  /**
-   * The column sorts: `true` by its `cents`, or by this value. Only a column of a complete set the household reads by
-   * size sorts; a series in time and a cut of the rows do not.
-   */
-  sort?: true | ((row: R) => number | string | null);
-  /** One of the months (or other steps) of a row: a column while there is room, else the list the row's button opens. */
-  series?: boolean;
-  /** This cell is the row's `th scope="row"`, and the title of its block on a phone. */
-  rowHead?: boolean;
-  /** The figure on the block's first line on a phone. */
-  main?: boolean;
-  /** A class of the cell by its row (the tone of a figure that got worse). */
-  className?: (row: R) => string | undefined;
-  /** The `title` of the cell by its row (the full name of a cut one). */
-  title?: (row: R) => string | undefined;
-  /** An inline style of the cell by its row (a custom property the stylesheet reads). */
-  style?: (row: R) => CSSProperties | undefined;
-  /** The head's label is read, not drawn (a column of row heads or of buttons has no visible name). */
-  headHidden?: boolean;
-  /** A class of the column's head cell (the cells have `className`). */
-  headClass?: string;
-  /** Left out on a phone. */
-  phone?: "hide";
-  /** A bar: the row's own figure against the column's scale, drawn before `cell` (or alone). It computes no money. */
-  bar?: {
-    value: (row: R) => number;
-    max: number;
-    color?: (row: R) => string | undefined;
-  };
-};
-
-/** Attributes and handlers of a `<tr>` (hover, focus, a data attribute); `className` is the table's own. */
-export type RowProps = Omit<ComponentProps<"tr">, "className" | "children"> &
-  Record<`data-${string}`, string | undefined>;
-
-/** A cell of the upper head row of a two-row head. */
-export type HeadCell = {
-  key: string;
-  label: ReactNode;
-  colSpan?: number;
-  rowSpan?: number;
-  className?: string;
-  /** The head of a column with no visible name (a link, a button): its label is read, not drawn. */
-  hidden?: boolean;
-};
-
-/** A body of its own under a head row, with the group's figure above its rows. */
-export type RowGroup<R> = {
-  key: string;
-  /** The group's head row; a group with none runs on from the one above it. */
-  title?: ReactNode;
-  /** The group's figure, in the last column of its head row. It is the server's or the page's, never added here. */
-  figure?: ReactNode;
-  /** How many of the last columns the figure takes (a pair of sums needs two). */
-  figureSpan?: number;
-  /** The group's figures by column, when its head row has one for more than the last column; the first column holds `title`. */
-  cells?: Record<string, ReactNode>;
-  /** What the sort orders the groups by, per column, when the groups are ranked by the same figures as their rows. */
-  values?: Record<string, number | string | null>;
-  rows: readonly R[];
-  adds?: boolean;
-};
-
-export type Total = { label: string; cells: Record<string, ReactNode> };
-
-export type TableProps<R> = {
-  caption: string;
-  captionVisible?: boolean;
-  /** A class of a visible caption. */
-  captionClass?: string;
-  rows: readonly R[];
-  rowKey: (row: R) => string;
-  columns: Column<R>[];
-  /** The server's figures for the foot rows. */
-  total?: Total | Total[];
-  /** The detail under a row; the chevron stands in its first cell. A row whose detail is null has neither. */
-  drill?: (row: R) => ReactNode;
-  drillLabel?: (row: R) => string;
-  /** Rows the page writes under a row: its own `<tr>`s, as wide as the shown columns (a form, a row that draws itself or nothing). */
-  rowsAfter?: (row: R) => ReactNode;
-  /** The detail under a row that is always open (no chevron). */
-  subRow?: (row: R) => ReactNode;
-  /** The row whose detail is open, when the page holds it (its own button toggles it); `drill` still makes the detail. */
-  open?: string | null;
-  onOpen?: (key: string | null) => void;
-  /** False when the page has the button: no chevron in the first cell. */
-  drillButton?: boolean;
-  /** An upper head row; the row of the columns follows it, without the `covered` columns. */
-  headTop?: { cells: HeadCell[]; covered?: string[] };
-  /** The rows in bodies of their own, in this order (`rows` still holds them all, flat); the sort orders each group. */
-  groups?: RowGroup<R>[];
-  /** The columns that add up to the total: drawn as the sum bracket. */
-  sums?: string[];
-  /** A class of the `<table>`. */
-  className?: string;
-  /** A class of a row (a muted or marked row). */
-  rowClassName?: (row: R) => string | undefined;
-  /** More attributes of a row (a data attribute for an e2e or a title). */
-  rowProps?: (row: R) => RowProps;
-  /** Rows shown at first, then "Näytä lisää" (More.tsx): the sort orders every row, groups are never cut. */
-  page?: number;
-  /** The name of the button that opens a row's `series` columns on a narrow screen. */
-  seriesLabel?: string;
-};
+export type { HeadCell, RowGroup, RowProps, TableProps, Total } from "./types.ts";
 
 const spanOf = (h: HeadCell) => ({
   key: h.key,
@@ -141,11 +41,6 @@ const spanOf = (h: HeadCell) => ({
   rowSpan: h.rowSpan,
   className: h.className,
 });
-
-const FIGURE: ColumnKind[] = ["money", "count", "share"];
-
-const textOf = <R,>(c: Column<R>): string =>
-  c.text ?? (typeof c.label === "string" ? c.label : c.key);
 
 const cellOf = <R,>(c: Column<R>, row: R): ReactNode => {
   const plain = (): ReactNode => {
@@ -161,11 +56,6 @@ const cellOf = <R,>(c: Column<R>, row: R): ReactNode => {
     </BarFigure>
   );
 };
-
-const valueOf = <R,>(
-  c: Column<R>,
-): ((row: R) => number | string | null) | undefined =>
-  c.sort === true ? (c.cents ? (r) => c.cents!(r) : undefined) : c.sort;
 
 export function Table<R>({
   caption,
@@ -189,27 +79,51 @@ export function Table<R>({
   rowClassName,
   rowProps,
   page,
-  seriesLabel = "Kuukaudet",
+  seriesLabel = t("table.months"),
+  csv: csvWanted,
+  toolbar,
+  search: searchWanted = true,
+  searchLabel,
+  rowsSearched = false,
+  toolbarExtra,
+  view: viewProp,
+  onView,
 }: TableProps<R>) {
   const slim = columns.filter((c) => !c.series && c.phone !== "hide").length <= SLIM;
   const [wrap, block] = useBlock(slim);
-  const [openOwn, setOpenOwn] = useState<string | null>(null);
+  const [openOwn, setOpenOwn] = useOpenRow(caption);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const controlled = openProp !== undefined;
   const open = controlled ? openProp : openOwn;
   const setOpen = (k: string | null) => (controlled ? onOpen?.(k) : setOpenOwn(k));
   const textKeys = columns.filter((c) => c.kind === "text").map((c) => c.key);
-  const [sort, onSort, touched] = useSort<string>(textKeys);
-
+  const [viewOwn, setViewOwn] = useOwnView(caption, columns.map((c) => c.key));
+  const view = viewProp ?? viewOwn;
+  const setView = (next: TableView) => (viewProp !== undefined ? onView?.(next) : setViewOwn(next));
+  // the live region stays silent until the reader has done something
+  const [touched, setTouched] = useState(false);
+  const change = (next: TableView) => {
+    setTouched(true);
+    setView(next);
+  };
+  const sort = view.sort;
+  const markup = useMarkup(toolbar !== false && (csvWanted === true || rows.length > LONG_LIST_ROWS));
+  const shown = useShown(rows, columns, rowKey, rowsSearched ? { ...view, query: "" } : view, markup);
   const hasSeries = columns.some((c) => c.series);
-  const order = (list: readonly R[]) =>
-    sortBy(list, sort, (r, k) => {
-      const c = columns.find((x) => x.key === k);
-      return c ? (valueOf(c)?.(r) ?? null) : null;
-    });
-  const sorted = order(rows);
-  const orderGroups = (list: RowGroup<R>[]) =>
-    sort && list.some((g) => g.values) ? sortRows(list, (g) => g.values?.[sort.key] ?? null, sort.dir) : list;
+  // a chart above this table may have picked a mark: only that mark's row stays, when the table has such a row
+  const { pick, kept, keptRow, only } = useRowPick(rows, rowKey);
+  const keptHead = columns.find((c) => c.rowHead);
+  // a group of the page keeps its own order of rows without a sort; with one, the rows follow the rank the model gave them
+  const order = (list: readonly R[]): readonly R[] => {
+    const kept = list.filter((r) => shown.rank.has(rowKey(r)));
+    return sort ? [...kept].sort((a, b) => shown.rank.get(rowKey(a))! - shown.rank.get(rowKey(b))!) : kept;
+  };
+  const filtered = (!rowsSearched && view.query.trim() !== "") || view.chip !== null;
+  const orderGroups = (list: RowGroup<R>[]) => {
+    const ordered = sort && list.some((g) => g.values) ? sortRows(list, (g) => g.values?.[sort.key] ?? null, sort.dir) : list;
+    // a group none of whose rows match, or none that the picked mark keeps, is left out with its head and its figures
+    return filtered || kept !== null ? ordered.filter((g) => only(g.rows).some((r) => shown.rank.has(rowKey(r)))) : ordered;
+  };
   const sortedColumn = sort ? columns.find((c) => c.key === sort.key) : undefined;
   const live = touched ? sortMessage(sortedColumn ? textOf(sortedColumn) : "", sort?.dir ?? null, sortedColumn?.kind === "text") : "";
   const summed = new Set(sums ?? []);
@@ -223,8 +137,33 @@ export function Table<R>({
     ]
       .filter(Boolean)
       .join(" ") || undefined;
-  const { shown: visible, more } = useMore(sorted, groups ? Infinity : (page ?? Infinity));
+  const { shown: visible, more } = useMore(only(shown.rows), groups ? Infinity : (page ?? Infinity));
   const last = visible.length - 1;
+  const ordered = !shown.sections && groups ? orderGroups(groups) : [];
+  // a long table of groups draws the groups near the screen only (use-window.ts)
+  const win = useWindow(wrap, ordered.map((g) => g.key), ordered.map((g) => g.rows.length + 1), ordered.length > 0 && rows.length > WINDOW_MIN_ROWS);
+
+  // a page that has the server search its rows always has the box; otherwise only a long list does
+  const searchable = rowsSearched || (searchWanted && searchFns(columns).length > 0 && rows.length > LONG_LIST_ROWS);
+  const groupable = columns.filter((c) => c.group).map((c) => ({ key: c.key, label: textOf(c) }));
+  const sortable = columns.filter((c) => valueOf(c));
+  // the toolbar holds what narrows the rows: a search box, chips, grouping. A table with none of them has no bar
+  const tools = toolbar ?? (searchable || shown.chips.length > 0 || groupable.length > 0);
+  // the file is a seldom need: one link under the table, for a long list or where the page asks, never a button above it
+  const csvLink = toolbar !== false && csvWanted !== false && (csvWanted || rows.length > LONG_LIST_ROWS) && shown.rows.length > 0;
+  // a phone shows no head to press, so the toolbar carries the choice of order
+  const phoneSort = block && sortable.length > 0;
+  const sortChoices = sortable.flatMap((c) => {
+    const first = c.kind === "text" ? "ascending" : "descending";
+    const other = first === "ascending" ? "descending" : "ascending";
+    return [first, other].map((dir) => ({ key: c.key, text: textOf(c), dir: dir as "ascending" | "descending", phrase: sortPhrase(textOf(c), dir as "ascending" | "descending", c.kind === "text") }));
+  });
+  const count = shown.rows.length;
+  const note = !filtered ? undefined : count === 0 ? t("table.no_match") : `${t("table.shown", { count, total: shown.total })}${totals.length > 0 ? t("table.total_all") : ""}`;
+  // the file keeps the order the table draws: the reader's groups, else the page's groups with their rows ranked by the sort
+  const pickedSections = shown.sections && (kept === null ? shown.sections : shown.sections.map((g) => ({ ...g, rows: [...only(g.rows)] })).filter((g) => g.rows.length > 0));
+  const drawn: Section<R>[] | null = pickedSections ?? (groups ? ordered.map((g) => ({ key: g.key, title: typeof g.title === "string" ? g.title : (g.csv ?? ""), rows: [...order(g.rows)] })) : null);
+  const download = () => saveCsv(caption, tableCsv(columns, drawn ? drawn.flatMap((g) => g.rows) : only(shown.rows), drawn && drawn.some((g) => g.title !== "") ? drawn : null));
 
   /** The button of a row (or a total) that opens its `series` cells; only a block shows it. */
   const foldButton = (key: string) => (
@@ -243,6 +182,15 @@ export function Table<R>({
       {seriesLabel}
     </button>
   );
+
+  /** Escape closes the open detail and the focus goes back to the button of its row, where the reader was. */
+  const closeOnEscape = (e: KeyboardEvent, key: string) => {
+    if (e.key !== "Escape" || open !== key) return;
+    e.stopPropagation();
+    setOpen(null);
+    const back = [...(wrap.current?.querySelectorAll<HTMLElement>("[data-drill]") ?? [])].find((b) => b.dataset.drill === key);
+    back?.focus();
+  };
 
   const renderRow = (row: R, at: number, last: number, bracket: boolean) => {
     const key = rowKey(row);
@@ -272,7 +220,9 @@ export function Table<R>({
                 <DrillButton
                   open={isOpen}
                   onToggle={() => setOpen(isOpen ? null : key)}
-                  label={drillLabel?.(row) ?? "Avaa rivi"}
+                  label={drillLabel?.(row) ?? t("table.open_row")}
+                  rowKey={key}
+                  onKeyDown={(e) => closeOnEscape(e, key)}
                 />
               ) : null;
             const fold = i === 0 && hasSeries ? foldButton(key) : null;
@@ -288,7 +238,7 @@ export function Table<R>({
                       .join(" "),
                   )}
                   title={c.title?.(row)}
-                  style={c.style?.(row)}
+                  ref={c.style ? css(c.style(row) ?? {}) : undefined}
                 >
                   {lead ? (
                     <span className="rt-lead">
@@ -317,7 +267,7 @@ export function Table<R>({
                     .join(" "),
                 )}
                 title={c.title?.(row)}
-                style={c.style?.(row)}
+                ref={c.style ? css(c.style(row) ?? {}) : undefined}
                 data-label={c.main || c.headHidden ? undefined : textOf(c)}
                 data-rt={c.main ? "main" : undefined}
               >
@@ -334,7 +284,7 @@ export function Table<R>({
           })}
         </tr>
         {isOpen && (
-          <tr className="rt-detail">
+          <tr className="rt-detail" onKeyDown={(e) => closeOnEscape(e, key)}>
             <td colSpan={columns.length}>{detail}</td>
           </tr>
         )}
@@ -350,7 +300,27 @@ export function Table<R>({
 
   return (
     <>
-      <div className="rt-wrap" ref={wrap} data-block={block ? "" : undefined}>
+      {pick && keptRow !== undefined && <RowFilterNotice pick={pick} name={keptHead ? cellOf(keptHead, keptRow) : null} />}
+      {(tools || phoneSort) && (
+        <Toolbar
+          label={t("table.filter_of", { caption })}
+          searchLabel={searchLabel ?? t("table.search_of", { caption })}
+          searchable={searchable}
+          query={view.query}
+          onQuery={(q) => change({ ...view, query: q })}
+          chips={shown.chips}
+          all={shown.all}
+          chip={view.chip}
+          onChip={(chip) => change({ ...view, chip })}
+          groups={groupable}
+          group={view.group}
+          onGroup={(group) => change({ ...view, group })}
+          sort={phoneSort ? { choices: sortChoices, value: sort, onChange: (next) => change({ ...view, sort: next }) } : undefined}
+          note={note}
+          extra={toolbarExtra}
+        />
+      )}
+      <div className="rt-wrap" ref={wrap} data-block={block ? "" : undefined} data-plain={!searchWanted && csvWanted === false ? "" : undefined} onFocusCapture={win?.onFocus}>
         <table className={["rt", className ?? ""].filter(Boolean).join(" ")}>
           <caption className={captionVisible ? captionClass : "sr-only"}>
             {caption}
@@ -388,17 +358,33 @@ export function Table<R>({
                       dir={dir}
                       numeric={FIGURE.includes(c.kind)}
                       className={cls(c, c.headClass)}
-                      onSort={() => onSort(c.key)}
+                      onSort={() => change(pressSort(view, c.key, textKeys))}
                     />
                   );
                 })}
             </tr>
           </thead>
-          {groups ? (
-            orderGroups(groups).map((g, gi, shown) => (
-              <tbody key={g.key} className={g.adds ? "adds-up" : undefined}>
+          {pickedSections ? (
+            pickedSections.map((sec) => (
+              <tbody key={sec.key}>
+                <tr className="rt-group">
+                  <th colSpan={columns.length} scope="rowgroup">
+                    {sec.title || t("table.no_value")}
+                    <span className="rt-group-count">{sec.rows.length}</span>
+                  </th>
+                </tr>
+                {sec.rows.map((row, at) => renderRow(row, at, sec.rows.length - 1, false))}
+              </tbody>
+            ))
+          ) : groups ? (
+            <>
+              {win && <Spacer px={win.before} span={columns.length} />}
+              {ordered.slice(win?.from ?? 0, win?.to ?? ordered.length).map((g, at) => {
+                const gi = (win?.from ?? 0) + at;
+                return (
+              <tbody key={g.key} className={g.adds ? "adds-up" : undefined} data-vkey={win ? g.key : undefined}>
                 {g.title !== undefined && (
-                  <tr className={["rt-group", g.adds && g.cells ? (gi === 0 ? "part-first" : "") : "", g.adds && g.cells && gi === shown.length - 1 ? "part-last" : ""].filter(Boolean).join(" ")}>
+                  <tr className={["rt-group", g.adds && g.cells ? (gi === 0 ? "part-first" : "") : "", g.adds && g.cells && gi === ordered.length - 1 ? "part-last" : ""].filter(Boolean).join(" ")}>
                     {g.cells ? (
                       <>
                         <th scope="rowgroup" className={cls(columns[0]!)}>
@@ -432,11 +418,14 @@ export function Table<R>({
                     )}
                   </tr>
                 )}
-                {order(g.rows).map((row, at) =>
-                  renderRow(row, at, g.rows.length - 1, g.adds === true && !g.cells),
+                {order(only(g.rows)).map((row, at) =>
+                  renderRow(row, at, only(g.rows).length - 1, g.adds === true && !g.cells),
                 )}
               </tbody>
-            ))
+                );
+              })}
+              {win && <Spacer px={win.after} span={columns.length} />}
+            </>
           ) : (
             <tbody className={summed.size ? "adds-up" : undefined}>
               {visible.map((row, at) => renderRow(row, at, last, summed.size > 0))}
@@ -476,15 +465,34 @@ export function Table<R>({
         </div>
       </div>
       {more}
+      {csvLink && (
+        <p className="rt-csv">
+          <Button variant="link" onClick={download}>
+            {t("table.csv")}
+          </Button>
+        </p>
+      )}
     </>
   );
 }
 
 /** The button that opens a row's detail under it. Its name says what opens, not "Näytä tapahtumat", which Miksi? uses. */
-export function DrillButton({ open, onToggle, label }: { open: boolean; onToggle: () => void; label: string }) {
+export function DrillButton({ open, onToggle, label, rowKey, onKeyDown }: { open: boolean; onToggle: () => void; label: string; rowKey?: string; onKeyDown?: (e: KeyboardEvent) => void }) {
   return (
-    <button type="button" className="rt-drill" aria-expanded={open} aria-label={label} onClick={onToggle}>
+    <button type="button" className="rt-drill" aria-expanded={open} aria-label={label} data-drill={rowKey} onClick={onToggle} onKeyDown={onKeyDown}>
       <span aria-hidden="true">›</span>
     </button>
+  );
+}
+
+/** Stands for the groups a windowed table leaves out: an empty body as high as they would be. */
+function Spacer({ px, span }: { px: number; span: number }) {
+  if (px <= 0) return null;
+  return (
+    <tbody className="rt-spacer" aria-hidden="true" ref={css({ "--rt-gap": `${Math.round(px)}px` })}>
+      <tr className="rt-spacer">
+        <td colSpan={span} />
+      </tr>
+    </tbody>
   );
 }

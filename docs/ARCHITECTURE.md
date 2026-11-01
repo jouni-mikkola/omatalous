@@ -52,6 +52,19 @@ each row becomes a block; series columns open as a labelled list beneath it. No 
 One subject's facts use `KeyValue` (`dl`); an empty list uses a sentence. A redundant view is deleted with its
 styles, tests and texts (see [ADR 0018](adr/0018-one-table-delete-redundant-views.md)).
 
+### The web stack
+
+The web app is React 19.3 with the React Compiler. Controls come from React Aria Components, with Finnish and
+English only.
+Routing is TanStack Router with hash history and typed search parameters.
+Data and tables use TanStack Query, Table and Virtual.
+Charts are our own kit on d3 modules.
+Styles are plain CSS with tokens from one file.
+Page changes use the browser's View Transitions.
+
+The ADR lists what was rejected and why.
+[ADR 0019](adr/0019-ui-stack.md).
+
 ## Structure
 
 ```mermaid
@@ -65,6 +78,8 @@ flowchart LR
     S --> L[industry lookup] --> DB
   end
   PRH[Trade register] --> L
+  STAT[Statistics Finland] --> PI[price index]
+  PI --> DB
   UI[React UI] <--> API
 ```
 
@@ -75,7 +90,8 @@ flowchart LR
   overlap, balances, reprocessing and the register lookup. The stored ids `enablebanking` and `csv` are connector ids,
   `demo` marks the demo data, and none of them ever changes.
 - No route takes a file: the CSV import and its parser were removed in 0.9.0, and every request body is limited to
-  256 KB. The id `csv` and `connectors/csv-import/index.ts` stay for the accounts and rows that earlier versions
+  256 KB. A card statement is read in the browser (`pages/settings/CardFile.tsx`, `readCardFile` of core) and
+  `POST /api/card-file` takes only its rows, as a source of their own (connector `cardfile`, ADR 0025). A bank's CSV export or camt.053 statement is read the same way (`pages/settings/BankFile.tsx`, `readBankCsvRows` and `readBankCamt` of core, `POST /api/bank-file`, connector `bankfile`); the matched columns stay in the browser. The id `csv` and `connectors/csv-import/index.ts` stay for the accounts and rows that earlier versions
   imported. They are counted like any others, and linking a bank folds a CSV account with the same IBAN into the bank's
   account (`connectors/fold-accounts.ts`), so the sync skips what it already has.
 - All SQL is in `db/` (`*-repo.ts`, and `db/finance/` for the modules behind `FinanceRepo`) and goes through a small `Db`
@@ -100,6 +116,16 @@ flowchart LR
   `merchant_industry_users` records which names each user's lookups asked about. A user gets answers only
   for those names. The category is worked out from the stored TOL code at every reprocess, so a change to
   the mapping needs no new lookup. What is sent: [SECURITY.md](SECURITY.md#trade-register-lookup).
+- Price index (`services/price-index.ts`, `providers/statfin`): off until an admin sets `priceIndex` under Asetukset >
+  Palvelin. Then the hourly tick fetches, at most once a day, the consumer price index of Statistics Finland (StatFin
+  table `khi/11xs`, column `ip_0_1972`, the index with 1972 = 100, which carries every month; PxWeb API
+  `https://statfin.stat.fi/PxWeb/api/v1/en/StatFin/khi/11xs.px`, POST, json-stat2; verifiedAt 2026-10-30, limits 120 000
+  cells and 40 calls a minute). The request names the series and sends nothing of the household. The last 120 months
+  are kept in the settings key `instance_price_index`, read per request in `requestInputs` while the setting is on and
+  handed to core as `UserInputs.priceIndex`. Core `reports/price-change.ts` divides the household's own series (a fixed
+  basket of the subscription and fixed expense series that existed at the start of the window, each priced at the
+  month's end from its price steps) by the index over the same 12 months. Without a series the report says there is no
+  comparison.
 - Loans (`packages/core/src/loans.ts`, ADR 0012): the loans a user confirmed are rows of `loans`, one list per user.
   Every figure of one loan (owed on a day, interest, payoff date, next payment, credit use) comes from that file, and the
   list of the household's debts behind every debt total (`householdDebts`) from `household-debts.ts`. A loan can name the
@@ -160,7 +186,7 @@ flowchart LR
   never marks one done itself. The first own-scope visit of a month stores a snapshot (`snapshot.ts`) of each finding's
   id, area, mid, certainty and status; the page lists what changed since the last one and draws found against
   confirmed euros a year once two snapshots exist. The flag `optimise` ships on (preview); an admin switches it off in
-  Asetukset > Tekniset asetukset > Palvelin. `test/optimise/household.ts` joins every area's hit into one household: every area with a
+  Asetukset > Palvelin ja ylläpito > Palvelin. `test/optimise/household.ts` joins every area's hit into one household: every area with a
   finding kind must hit on it, every near miss must stay quiet and the headline must be the overlap-free sum.
 - Merchants (`routes/merchants.ts`): `GET /api/merchants` lists the user's merchants with their category,
   row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
@@ -180,6 +206,60 @@ flowchart LR
   `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words the line under its heading, its three figures, its warning and the rows of its two
   tables (the rules
   are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).
+
+## Target architecture
+
+This is the target and it is not built yet. Each step is a change of its own that can be reverted, and the defaults
+stay the same, so an install that updates behaves as before. The web libraries are decided in
+[ADR 0019](adr/0019-ui-stack.md). Core stays pure, secrets stay sealed and existing installs keep their names.
+
+Each of these has one owner and the others read it:
+
+| Source (one owner) | Read by |
+|---|---|
+| `project.json` at the repo root: owner, repository, image, signer, return page | build scripts and a generated file at build time, never at run time |
+| `packages/core/src/settings/schema.ts`: key, type, default, min, max, restart, who edits | `Settings` in the server: default, then environment, then database |
+| `packages/core/src/figures/registry.ts` and `thresholds.ts`: each figure and limit with its definition and source, and the pages that show it | the analysis, the reports and the pages that show it |
+| `packages/core/src/messages/fi.ts`: code to text | the browser words a `{ code, params }` the server returns |
+| `apps/web/design/tokens.json` in DTCG format | generates `tokens.css` and `tokens.ts`, and charts read their colours from the tokens |
+
+The web modules and what each owns:
+
+- Routes and typed search parameters: TanStack Router, one lazy chunk per page, addresses `#/page?param=x#anchor` as today.
+- Server state: TanStack Query, in place of `useApi`.
+- `components/table/Table.tsx`: the markup of ADR 0018 over headless TanStack Table, with Virtual for long lists.
+- `charts/kit` and `charts/forms`: d3 scales and shapes, one file per chart form.
+- Controls: React Aria Components styled with the tokens.
+
+The interfaces between them:
+
+```ts
+Settings.get<K extends SettingKey>(key: K): SettingValue<K>
+type Message = { code: MessageCode; params: Record<string, string | number> }
+type Figure = { id; definition; source; unit; pages: string[] }
+type Threshold = { id; value; reason; source; verifiedAt }
+type Verdict = { question; answer; compare; why: string[]; action?; basis }
+```
+
+`Verdict` is the contract between a report and its page. The first page's answer is its first user.
+
+The data flows:
+
+- Settings: the schema gives the defaults, the database holds the admin's values and `Settings` gives them to the services. A change of a limit writes a `security_events` row, and it bumps `data_version` only when it changes a calculation.
+- A figure goes from `figures` to analysis, report, server answer, `Verdict` and page. Every number in a sentence is a calc line.
+
+| Step | What | Done when |
+|---|---|---|
+| 0 | The stack decided, tests stable, helper images pinned | ADR 0019 is merged and the tests run fast and without timing failures |
+| 1 | Figures and limits in one registry, tokens from one source | a figure or a colour is changed in one file |
+| 2 | Identity in `project.json` | no owner or repository name is typed anywhere else |
+| 3 | Settings schema and limits | every limit has a key, a range and an editor |
+| 4 | Message catalogue | the server sends codes and no Finnish text |
+| 5 | Password hashing | the cost is a setting and old hashes still work |
+| 6 | Bank dialect as data and a style policy without inline styles | a rule refuses an inline style |
+
+Steps 2 to 4 wait until the page rewrites are done, since the catalogue touches the same files. Step 1 comes first
+because pages read figures and tokens.
 
 ## Settings and secrets
 
@@ -236,7 +316,7 @@ The copies and the checks around them, each in one place:
   of the household's.
 - The reserve (`services/disk.ts`): `<data>/.reserve` is 64 MB of zeros, given up when under 128 MB is free so that a full
   disk still lets an admin sign in and free space, and written again once over 1 GB is free.
-- *Palauta uusin varmuuskopio* (`services/db-restore.ts`): the app notes the request in `<data>/.restore-request` and
+- *Palauta*, the row action of the newest copy in *Varmuuskopiot* (`services/db-restore.ts`): the app notes the request in `<data>/.restore-request` and
   ends as `docker stop` does (`entry/shutdown.ts`). Docker's restart policy (`restart: unless-stopped`) starts it again
   and the startup check puts the copy in place, so there is one restore path. A request older than 15 minutes is dropped.
 - *Tyhjennä kaikki tiedot* (`services/reset.ts`): writes a checked `pre-reset-` copy first, ends every bank consent, deletes
@@ -244,7 +324,8 @@ The copies and the checks around them, each in one place:
 
 ## Maintenance from the browser
 
-*Asetukset > Tekniset asetukset > Ylläpito* writes a request row (`services/ops.ts`, `db/ops-repo.ts`, migrations 0006 and 0007). A host
+<!-- language-allow: comma-density the list is the ten fixed actions, one item each -->
+*Asetukset > Palvelin ja ylläpito > Ylläpito* writes a request row. The code is in `services/ops.ts`, `db/ops-repo.ts` and migrations 0006 and 0007. A host
 helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of ten fixed actions (check-update, update,
 rollback, backup, restart, doctor, logs, prune, helper-renew, access) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
@@ -275,7 +356,7 @@ before an update swaps the files on disk.
   the clone's folder, which `install.sh`, `update.sh`, `restore.sh` and `reset.sh` hold for a whole run, so an update
   that replaces `scripts/install.sh` does not end it.
 
-*Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö* sets up a Cloudflare Tunnel with Access from the browser. It does not use the
+*Asetukset > Palvelin ja ylläpito > Palvelin > Etäkäyttö* sets up a Cloudflare Tunnel with Access from the browser. It does not use the
 request row to carry values. The routes (`routes/admin.ts`, `services/remote-access*.ts`) ask for the admin's password,
 call Cloudflare's API in process with the saved token (`providers/cloudflare/`, the logic of the installer's
 `cloudflare up`), write the values to `<data>/ops/access-request.json` (`services/access-request.ts`) and queue the
@@ -315,7 +396,7 @@ fetch from the same day. The other accounts go on.
 
 | Table | Holds |
 |---|---|
-| `users` | user name, display name, PBKDF2 hash, role, forced password change |
+| `users` | user name, display name, password hash (Argon2id), role, forced password change |
 | `sessions` | SHA-256 of the session token, expiry |
 | `bank_credentials` | a member's own Enable Banking app, key encrypted |
 | `connections` | bank consents per user, validity, status |
@@ -330,12 +411,13 @@ fetch from the same day. The other accounts go on.
 | `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
 | `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
 | `spending_goal` | the monthly spending goal of a user (Yhteenveto, Menot tässä kuussa): one amount in cents per user, bounded by `routes/spending-goal.ts`, read per request with the other inputs |
+| `category_goal` | the monthly spending goal of a user per category (groceries, restaurants, transport, car; Kategoriat): cents per user and category, bounded by `routes/category-goals.ts`, read per request with the other inputs, so saving one moves no data version |
 | `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit, and the connected card or loan account it is the same debt as (`account_id`, migration 0016, null when the account goes). Own rows only, bounded by `routes/loans.ts` |
 | `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
 | `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
 | `optimise_snapshots` | one snapshot of the findings per user and month, for the follow-up |
 | `security_events` | logins, lockouts, new devices, password changes and resets, ended sessions, added and deleted users, `ops_*` requests and results: time, user, IP, user agent. A `notify` event is shown once to its user. Kept 90 days, at most 2,000 |
-| `ops_requests` | maintenance requests from *Asetukset > Tekniset asetukset > Ylläpito*: the action, its status, who asked, the helper's summary, output and steps. The newest 200 finished ones are kept |
+| `ops_requests` | maintenance requests from *Asetukset > Palvelin ja ylläpito > Ylläpito*: what was asked and by whom, its status and the helper's report. The newest 200 finished ones are kept |
 | `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted), the Cloudflare API token of the Etäkäyttö page (encrypted) and its record |
 | `_migrations` | applied migrations with checksums and compatibility floors |
 

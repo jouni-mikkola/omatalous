@@ -136,7 +136,7 @@ access_not_made() { # access_not_made WHY
 access_back() { # access_back ID WHY
   local why=$2
   if [[ $(access_env_state "$1") != new ]]; then
-    fail "$why Tiedostoa .env on sen jälkeen muutettu käsin, joten aiempia asetuksia ei palautettu. Ne ovat palvelimella tiedostossa ops/env.prev."; return
+    fail "$why Tiedostoa .env on muutettu sen jälkeen käsin, joten aiempia asetuksia ei palautettu. Ne ovat palvelimella tiedostossa ops/env.prev."; return
   fi
   echo "Sovellus ei vastannut uusilla asetuksilla. Palautetaan aiemmat asetukset." >>"$LOGF"
   if ! envfile_restore .env "$OPS/env.prev"; then
@@ -145,10 +145,18 @@ access_back() { # access_back ID WHY
   # a tunnel the new settings started does not stay up beside settings that have none
   [[ $(env_get COMPOSE_PROFILES) == *tunnel* ]] || access_tunnel_off || true
   run_cap "$T_ACCESS" docker compose up -d --no-build || true
-  if wait_healthy 45; then fail "$why Aiemmat asetukset palautettiin, ja sovellus toimii niillä."
-  else fail "$why Aiemmat asetukset palautettiin, mutta sovellus ei vastaa."; fi
+  if wait_healthy 45; then fail "$why Palautimme aiemmat asetukset, ja sovellus toimii niillä."
+  else fail "$why Palautimme aiemmat asetukset, mutta sovellus ei vastaa."; fi
 }
 
+# The change rewrites .env and makes the containers again, so it holds the install's lock like an install or an update; the
+# lock is given up when it is done (fd 9 and 6, see installer_lock), and a run that holds it makes this one wait for the next press.
+access_locked() { # access_locked ID
+  declare -F installer_lock >/dev/null || { fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; return; }
+  installer_lock || { fail "Asennus tai päivitys on käynnissä. Mitään ei muutettu. Yritä hetken päästä uudelleen."; return; }
+  access_apply "$1"
+  exec 9<&- 6<&-
+}
 access_apply() { # access_apply ID
   local id=$1 url bind pairs=()
   step_say "1/3 Luetaan valmisteltu muutos"
@@ -205,19 +213,19 @@ cut_short() { # cut_short ID ACTION
       case $state in
         new) SUMMARY="$said Uudet asetukset ovat käytössä, ja sovellus toimii niillä. Osoite: $(env_get APP_BASE_URL)" ;;
         old) SUMMARY="$said Aiemmat asetukset ovat käytössä, ja sovellus toimii niillä." ;;
-        *) SUMMARY="$said Tiedostoa .env on sen jälkeen muutettu käsin, ja sovellus toimii sen asetuksilla." ;;
+        *) SUMMARY="$said Tiedostoa .env on muutettu sen jälkeen käsin, ja sovellus toimii sen asetuksilla." ;;
       esac
     else
       case $state in
         new) access_back "$id" "$said Sovellus ei käynnistynyt uusilla asetuksilla." ;;
         old) SUMMARY="$said Aiemmat asetukset ovat käytössä, mutta sovellus ei vastaa." ;;
-        *) SUMMARY="$said Tiedostoa .env on sen jälkeen muutettu käsin, eikä siihen koskettu. Sovellus ei vastaa. Aiemmat asetukset ovat palvelimella tiedostossa ops/env.prev." ;;
+        *) SUMMARY="$said Tiedostoa .env on muutettu sen jälkeen käsin, eikä siihen koskettu. Sovellus ei vastaa. Aiemmat asetukset ovat palvelimella tiedostossa ops/env.prev." ;;
       esac
     fi
   elif ! app_running; then
     said="Apuri keskeytyi kesken uudelleenkäynnistyksen."
     run_cap "$T_ACCESS" docker compose up -d --no-build || true
-    if wait_healthy 45; then SUMMARY="$said Sovellus käynnistettiin, ja se vastaa."; else SUMMARY="$said Sovellus käynnistettiin, mutta se ei vastaa."; fi
+    if wait_healthy 45; then SUMMARY="$said Käynnistimme sovelluksen, ja se vastaa."; else SUMMARY="$said Käynnistimme sovelluksen, mutta se ei vastaa."; fi
   fi
   [[ -z $SUMMARY ]] || store_result "$id" failed 1 "$SUMMARY" "$LOGF"
   LOGF=""

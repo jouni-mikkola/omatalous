@@ -37,7 +37,7 @@ export function emailOf(entry: unknown): string | null {
 
 /** The list of them from the page. An address given twice is kept once. */
 export function parseEmails(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length === 0) throw new UserError("Anna vähintään yksi sähköpostiosoite, jolla saa kirjautua.");
+  if (!Array.isArray(value) || value.length === 0) throw new UserError("Anna vähintään yksi sähköpostiosoite, jolla voi kirjautua.");
   if (value.length > MAX_EMAILS) throw new UserError(`Sähköpostiosoitteita voi olla enintään ${MAX_EMAILS}.`);
   const out: string[] = [];
   value.forEach((entry, i) => {

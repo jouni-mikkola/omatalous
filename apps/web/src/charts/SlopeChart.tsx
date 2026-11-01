@@ -1,5 +1,6 @@
 // Decision: which of these rose and which fell between two periods, and by how much
 import { type KeyboardEvent, useId, useState } from "react";
+import { useSelect } from "../components/table/selection.tsx";
 import { money, signedMoney } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { crisp } from "./draw.ts";
@@ -77,6 +78,7 @@ function crowded(strong: readonly SlopeItem[], [lo, hi]: readonly [number, numbe
 export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readonly SlopeItem[]; fromLabel: string; toLabel: string; label: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
+  const scope = useSelect();
   const grad = useId().replace(/:/g, "");
   const strong = items.filter((i) => i.strong);
   const basis = strong.length ? strong : items;
@@ -119,14 +121,25 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
       { name: "Muutos", value: signedMoney(active.change) },
     ],
   };
+  const pick = (i: SlopeItem | null) => i && scope?.select(i.key);
   const onKey = (e: KeyboardEvent<SVGGElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      pick(active);
+      return;
+    }
+    if (e.key === "Escape" && at === null && scope?.selected) {
+      e.preventDefault();
+      scope.select(null);
+      return;
+    }
     const next = stepIndex(e.key, at, drawn.length);
     if (next === undefined) return;
     e.preventDefault();
     setAt(next);
   };
   const line = (i: SlopeItem, n: number) => (
-    <g key={i.key} className={`slope ${i.strong ? tone(i) : "slope-quiet"}${at === n ? " active" : ""}`} onPointerEnter={() => setAt(n)} onPointerDown={() => setAt(n)} onPointerLeave={(e) => e.pointerType === "mouse" && setAt(null)}>
+    <g key={i.key} className={`slope ${i.strong ? tone(i) : "slope-quiet"}${at === n ? " active" : ""}${scope?.selected === i.key ? " picked" : ""}`} onClick={() => pick(i)} onPointerEnter={() => setAt(n)} onPointerDown={() => setAt(n)} onPointerLeave={(e) => e.pointerType === "mouse" && setAt(null)}>
       <line className="slope-hit" x1={x0} y1={y(i.from)} x2={x1} y2={y(i.to)} />
       <line className="slope-line draw" x1={x0} y1={y(i.from)} x2={x1} y2={y(i.to)} stroke={i.strong && i.tone !== "flat" ? `url(#${grad}-${i.tone})` : undefined} />
       {i === largest && <circle className="slope-halo" cx={x1} cy={y(i.to)} r={11} />}
@@ -138,7 +151,7 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
   return (
     <div className="chart slope-chart" ref={ref}>
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={label}>
+        <svg width={width} height={height} role="group" aria-label={label}>
           <defs>
             {(["bad", "good"] as const).map((d) => (
               <linearGradient key={d} id={`${grad}-${d}`} gradientUnits="userSpaceOnUse" x1={x0} x2={x1} y1="0" y2="0">
@@ -163,7 +176,7 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
                 {money(lo, false)}
               </text>
             )}
-            <g tabIndex={0} role="group" aria-label={`${label}. Nuolinäppäimet siirtävät viivasta toiseen.`} onKeyDown={onKey} onFocus={() => at === null && drawn.length && setAt(0)} onBlur={() => setAt(null)}>
+            <g tabIndex={0} role="group" aria-label={`${label}. Nuolinäppäimet siirtävät viivasta toiseen, Enter näyttää rivin taulukossa.`} onKeyDown={onKey} onFocus={() => at === null && drawn.length && setAt(0)} onBlur={() => setAt(null)}>
               {quiet.map((i) => line(i, drawn.indexOf(i)))}
               {strong.map((i) => line(i, drawn.indexOf(i)))}
             </g>

@@ -13,9 +13,6 @@ describe("Säästövinkit, Tapahtumat and Laskut: the lines left at 700 and 390 
     // at most 12rem, and never wider than its row, so it does not run over the account mark beside it
     expect(c).toMatch(/\.tx-table td \.tx-chip \{ display: flex; width: fit-content; max-width: 100%;/);
   });
-  it("balances a name in Sopimukset ja laskut so its last word is not left alone above a phone", () => {
-    expect(css("bills.css")).toMatch(/min-width: 601px\) \{ \.series-table th:first-child \{ text-wrap: balance; \}/);
-  });
 });
 
 describe("Raportit: figures on one line, the list in two columns", () => {

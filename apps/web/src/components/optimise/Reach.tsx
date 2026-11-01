@@ -2,19 +2,20 @@
  * Decision: which area to work on first: where the saving is largest, and how large against what the area costs a year.
  * One row per area with tips, in the server's order (the largest saving first), its 12 months of spending as a bar and
  * its saving as a range on a scale shared by the column. Every figure is `OptimiseData.reach`; the web only finds the
- * largest of a column for the scale.
+ * largest of a column for the scale. An area's name narrows the tips above to that area.
  */
 import { Estimate } from "../Why.tsx";
-import type { AreaReach, AreaView } from "@banking/core";
+import type { AreaId, AreaReach, AreaView } from "@banking/core";
 import { money, percent } from "../../format.ts";
+import { t, tn } from "../../text.ts";
 import { Section } from "../Section.tsx";
 import { Table } from "../table/Table.tsx";
 import { AreaMark, RangeBar } from "./marks.tsx";
 import { rangeText } from "./shared.tsx";
 
-const tips = (n: number) => (n === 1 ? "1 vinkki" : `${n} vinkkiä`);
+const tips = (n: number) => tn(n, "ow.cnt_finding_one", "ow.cnt_finding_many");
 
-export function Reach({ reach, areas }: { reach: readonly AreaReach[]; areas: readonly AreaView[] }) {
+export function Reach({ reach, areas, onPick }: { reach: readonly AreaReach[]; areas: readonly AreaView[]; onPick: (area: AreaId) => void }) {
   const label = new Map(areas.map((a) => [a.id, a.label]));
   const rows = reach.filter((r) => label.has(r.area));
   // one area is no comparison: its saving is the headline of the lead strip, said there once
@@ -26,33 +27,33 @@ export function Reach({ reach, areas }: { reach: readonly AreaReach[]; areas: re
   return (
     <Section
       id="alueet"
-      title="Missä on eniten säästettävää?"
-      sub={`${label.get(first.area)}: arviolta ${firstRange} vuodessa${first.share !== null ? `, ${percent(first.share, first.share < 0.1 ? 1 : 0)} alueen menoista` : ""}.`}
+      title={t("ow.rc_title")}
+      sub={first.share !== null ? t("ow.rc_sub_share", { area: label.get(first.area)!, range: firstRange, share: percent(first.share, first.share < 0.1 ? 1 : 0) }) : t("ow.rc_sub", { area: label.get(first.area)!, range: firstRange })}
     >
       <Table<AreaReach>
-        caption="Missä on eniten säästettävää"
+        caption={t("ow.rc_caption")}
         className="reach"
         rows={rows}
         rowKey={(r) => r.area}
         columns={[
           {
             key: "area",
-            label: "Alue",
+            label: t("ow.rc_area"),
             kind: "text",
             rowHead: true,
             cell: (r) => (
-              <a className="rt-who" href={`#alue-${r.area}`}>
+              <button className="rt-who reach-pick" type="button" onClick={() => onPick(r.area)}>
                 <AreaMark id={r.area} />
                 <span className="rt-who-text">
                   <span className="reach-name">{label.get(r.area)}</span>
                   <span className="sub">{tips(r.count)}</span>
                 </span>
-              </a>
+              </button>
             ),
           },
           {
             key: "spend",
-            label: "Menot 12 kuukaudessa",
+            label: t("ow.rc_spend"),
             kind: "money",
             className: () => "reach-spend",
             cell: (r) => (r.spendCents !== null ? money(r.spendCents, false) : "–"),
@@ -62,10 +63,10 @@ export function Reach({ reach, areas }: { reach: readonly AreaReach[]; areas: re
             key: "range",
             label: (
               <>
-                Säästö vuodessa, arvio <span className="muted">0–{money(highMax, false)}</span>
+                {t("ow.ld_est")} <span className="muted">0–{money(highMax, false)}</span>
               </>
             ),
-            text: "Säästö vuodessa, arvio",
+            text: t("ow.ld_est"),
             kind: "text",
             main: true,
             className: () => "reach-range",
@@ -83,7 +84,7 @@ export function Reach({ reach, areas }: { reach: readonly AreaReach[]; areas: re
               );
             },
           },
-          { key: "share", label: "Osuus menoista", kind: "share", cell: (r) => (r.share !== null ? percent(r.share, r.share < 0.1 ? 1 : 0) : "–") },
+          { key: "share", label: t("ow.rc_share"), kind: "share", cell: (r) => (r.share !== null ? percent(r.share, r.share < 0.1 ? 1 : 0) : "–") },
         ]}
       />
     </Section>

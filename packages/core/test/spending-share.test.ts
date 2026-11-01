@@ -35,6 +35,6 @@ describe("a share when another category nets below zero", () => {
     // nets +100,00 and the base is 700,00 (spendingBase), of which the 600,00 in Muut menot is not known
     const ctx = createContext(rows("other"), [checking], "2026-10-31");
     const s = buildReports({ ctx, range: { from: "2026-10-01", to: "2026-10-31" }, balances: [] }).dataQuality.signals.find((x) => x.id === "uncategorised");
-    expect(s?.title.replace(/\s/g, " ")).toBe("14 % viimeisen 12 valmiin kuukauden menoista on tunnistettu");
+    expect(s?.title.replace(/\s/g, " ")).toBe("14 % viimeisen 12 kuukauden menoista on luokiteltu");
   });
 });

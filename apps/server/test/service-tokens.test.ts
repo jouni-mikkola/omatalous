@@ -31,9 +31,20 @@ describe("service tokens", () => {
     for (const path of ["/api/admin/instance", "/api/users", "/api/security/events", "/api/security/sessions", "/api/export/transactions.csv", "/api/ops/state"]) {
       expect((await agent.call("GET", path, undefined, bearer(token))).status, path).toBe(403);
     }
+    // a GET that writes (it freezes the closed months) is shut to tokens
+    expect((await agent.call("GET", "/api/settlement", undefined, bearer(token))).status).toBe(403);
     expect((await agent.call("POST", "/api/demo", undefined, bearer(token))).status).toBe(403);
-    expect((await agent.call("PUT", "/api/admin/features", { optimise: false }, bearer(token))).status).toBe(403);
+    expect((await agent.call("PUT", "/api/admin/features", {}, bearer(token))).status).toBe(403);
     expect((await agent.call("POST", "/api/auth/logout", undefined, bearer(token))).status).toBe(403);
+  });
+
+  it("opens the Optimoi page without storing its monthly snapshot, which the signed-in page does", async () => {
+    const { s, db, client, admin } = await setupApp();
+    const { token } = await createServiceToken(s, { username: "aino", name: "agent" });
+    expect((await client().call("GET", "/api/optimise", undefined, bearer(token))).status).toBe(200);
+    expect(await db.all("SELECT 1 FROM optimise_snapshots")).toHaveLength(0);
+    expect((await admin.call("GET", "/api/optimise")).status).toBe(200);
+    expect(await db.all("SELECT 1 FROM optimise_snapshots")).toHaveLength(1);
   });
 
   it("is answered by the token alone: an admin's cookie beside it gives no more", async () => {
@@ -146,7 +157,9 @@ describe("service tokens", () => {
   it("names its routes: reads of the data pages only", () => {
     expect(serviceMayRead("GET", "/api/dashboard")).toBe(true);
     expect(serviceMayRead("HEAD", "/api/meta")).toBe(true);
-    expect(serviceMayRead("GET", "/api/accounts/a1/sources")).toBe(true);
+    expect(serviceMayRead("GET", "/api/review/count")).toBe(true);
+    expect(serviceMayRead("POST", "/api/review/count")).toBe(false);
+    expect(serviceMayRead("GET", "/api/accounts/a1/use/suggestion")).toBe(true);
     expect(serviceMayRead("GET", "/api/connections/callback")).toBe(false);
     expect(serviceMayRead("GET", "/api/security/notices")).toBe(false);
     expect(serviceMayRead("GET", "/api/meta/../admin/instance")).toBe(false);

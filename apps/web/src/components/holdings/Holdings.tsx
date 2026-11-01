@@ -1,7 +1,7 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
  * with what is used of its limit, each loan with what is left, and a total at the foot of each group. Yhteenveto opens
- * with it, under the heading Varallisuus. Tilit and Lainat stand side by side, the cards in a row of their own under
+ * with it, under the heading Varat ja velat. Tilit and Lainat stand side by side, the cards in a row of their own under
  * them; where a group is missing the others close up, so a household with no loan has Tilit and its cards side by
  * side and no hole. A card and a loan have one form: the name as a link, then its figures as rows; a card has its picture
  * (CardFace) and, when it has a limit, the arc of what is used (CreditArc) beside its name. Every figure is the one in
@@ -9,12 +9,13 @@
  * left out, and every account has its row, in the order core gives. The name of an account, a card or a loan is a link:
  * to the rows of the account in Tapahtumat, to the report Lainat.
  */
-import type { CSSProperties, ReactNode } from "react";
-import { cardName, daysBetween, SAME_DEBT_TWICE } from "@banking/core";
+import type { ReactNode } from "react";
+import { cardName, daysBetween } from "@banking/core";
 import { query } from "../../api.ts";
 import { date, localDay, money, moneyIn } from "../../format.ts";
+import { figureName, t, tn } from "../../text.ts";
 import { partText, typedByText } from "../../part.ts";
-import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR } from "../../routes.ts";
+import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../routes.ts";
 import type { DashboardData, Meta, ReconcileState, Scope } from "../../types.ts";
 import { AccountMark, cardBankOf } from "../BankLogo.tsx";
 import { Figure } from "../Figure.tsx";
@@ -25,6 +26,7 @@ import { FigureRow } from "./FigureRow.tsx";
 import { cardMasks, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../styles/statement.css";
 import "../../styles/holdings.css";
+import { css } from "../../css.ts";
 
 type Answer = DashboardData["holdings"];
 
@@ -34,7 +36,7 @@ const figure = (cents: number | null, foreign?: { currency: string; cents: numbe
 
 /** The line that dates a balance the bank gave more than a day ago; nothing for a fresh one. */
 function sinceLine(balanceAt: string | null, today: string): string | null {
-  return balanceAt && daysBetween(localDay(balanceAt), today) > 1 ? `Saldo päivältä ${date(balanceAt)}` : null;
+  return balanceAt && daysBetween(localDay(balanceAt), today) > 1 ? t("ahead.balance_on", { date: date(balanceAt) }) : null;
 }
 
 /** A name that is a link, in the colour of the row until it is pointed at; `mask` tells apart two that share a name. */
@@ -112,7 +114,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   });
   return (
     <section>
-      <h3 className="st-cap">Tilit</h3>
+      <h3 className="st-cap">{t("holdings.accounts")}</h3>
       <ul className={adds ? "st-rows adds-up" : "st-rows"}>
         {accounts.map((a, i) => {
           const part = partText(a.part, "account", meta.accounts.find((m) => m.id === a.id)?.traced);
@@ -120,20 +122,20 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           const track = tracks?.[i];
           const classes = ["st-row", "holding-account", track ? "share" : "", adds && i === known[0] ? "part-first" : "", adds && i === known[known.length - 1] ? "part-last" : ""];
           return (
-            <li key={a.id} className={classes.filter(Boolean).join(" ")} style={track ? ({ "--from": track.at, "--part": track.p } as CSSProperties) : undefined}>
+            <li key={a.id} className={classes.filter(Boolean).join(" ")} ref={css({ "--from": track?.at, "--part": track?.p })}>
               <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} mark={<AccountMark name={a.name} institution={a.bank} banks={meta.bank?.banks ?? []} />} />
               <span className="st-num">
                 <Tick state={a.reconcile} />
                 {figure(a.balanceCents, a.foreign)}
               </span>
-              {a.loanPayment && <span className="st-sub">Lainanhoitotili</span>}
+              {a.loanPayment && <span className="st-sub">{t("holdings.loan_account")}</span>}
               {part && <span className="st-sub">{part}</span>}
               {since && <span className="st-sub">{since}</span>}
             </li>
           );
         })}
       </ul>
-      <Total label="Tilit yhteensä" cents={accountsCents} note={missing > 0 ? `Ilman ${missing} tilin saldoa` : undefined} />
+      <Total label={t("holdings.accounts_total")} cents={accountsCents} note={missing > 0 ? tn(missing, "holdings.missing_one", "holdings.missing_many") : undefined} />
     </section>
   );
 }
@@ -144,10 +146,10 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   return (
     <section className="holding-cards">
       <header className="holding-cards-head">
-        <h3 className="st-cap">Luottokortit</h3>
+        <h3 className="st-cap">{t("holdings.cards")}</h3>
         {cards.length > 1 && (
           <dl className="holding-inline">
-            <dt>Luottokortit yhteensä</dt>
+            <dt>{t("holdings.cards_total")}</dt>
             <dd>
               <Figure text={figure(cardsCents)} size="s" />
             </dd>
@@ -169,12 +171,12 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
               face={<CardFace card={c} bank={cardBankOf(c.name, c.bank, meta.bank?.banks ?? [])} href={href} />}
               arc={<CreditArc usedCents={used} limitCents={limit} />}
             >
-              <FigureRow label="Käytetty luotto" bad={over !== null}>
+              <FigureRow label={t("holdings.used")} bad={over !== null}>
                 <Tick state={c.reconcile} />
                 {figure(used)}
               </FigureRow>
-              {limit !== null && <FigureRow label="Luottoraja">{money(limit)}</FigureRow>}
-              {limit !== null && (over !== null ? <FigureRow label="Luottoraja ylitetty">{money(over)}</FigureRow> : free !== null && <FigureRow label="Käytettävissä">{money(free)}</FigureRow>)}
+              {limit !== null && <FigureRow label={t("holdings.limit")}>{money(limit)}</FigureRow>}
+              {limit !== null && (over !== null ? <FigureRow label={t("holdings.over")}>{money(over)}</FigureRow> : free !== null && <FigureRow label={t("holdings.free")}>{money(free)}</FigureRow>)}
             </Unit>
           );
         })}
@@ -194,30 +196,30 @@ function Loans({ holdings, door }: { holdings: Answer; door: Door }) {
   const day = { from: door.today, to: door.today };
   return (
     <section>
-      <h3 className="st-cap">Lainat</h3>
+      <h3 className="st-cap">{t("holdings.loans")}</h3>
       <ul className="holding-units holding-loans">
         {loans.map((l) => (
           <Unit
             key={l.id}
             name={l.name}
             href={`#/reports#${LOANS_REPORT_ANCHOR}`}
-            lines={[l.lender, l.paidOff ? "Maksettu" : null, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
-            note={l.maybeTwice && <p className="st-note">{SAME_DEBT_TWICE}: katso Lainat.</p>}
+            lines={[l.lender, l.paidOff ? t("holdings.paid_off") : null, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
+            note={l.maybeTwice && <p className="st-note">{t("holdings.twice_see", { twice: t("holdings.twice") })}</p>}
           >
             {!l.paidOff && (
-              <FigureRow label="Lainaa jäljellä">
+              <FigureRow label={t("holdings.left")}>
                 {l.leftCents === null ? (
                   figure(l.leftCents)
                 ) : (
-                  <Why figure="loan.balance" loan={l.id} title={`${l.name}, lainaa jäljellä`} range={day} scope={door.scope} text={money(l.leftCents)}>
+                  <Why figure="loan.balance" loan={l.id} title={t("holdings.left_named", { name: l.name })} range={day} scope={door.scope} text={money(l.leftCents)}>
                     {money(l.leftCents)}
                   </Why>
                 )}
               </FigureRow>
             )}
             {l.monthlyPaymentCents !== null && (
-              <FigureRow label="Kuukausierä">
-                <Why figure="loan.monthly" loan={l.id} title={`${l.name}, kuukausierä`} range={day} scope={door.scope} text={money(l.monthlyPaymentCents)}>
+              <FigureRow label={t("holdings.monthly")}>
+                <Why figure="loan.monthly" loan={l.id} title={t("holdings.monthly_named", { name: l.name })} range={day} scope={door.scope} text={money(l.monthlyPaymentCents)}>
                   {money(l.monthlyPaymentCents)}
                 </Why>
               </FigureRow>
@@ -227,10 +229,10 @@ function Loans({ holdings, door }: { holdings: Answer; door: Door }) {
       </ul>
       {loansCents !== null && loansCents > 0 && (
         <Total
-          label="Lainat yhteensä"
+          label={t("holdings.loans_total")}
           cents={loansCents}
           door={(text, shown) => (
-            <Why figure="holdings.loans" title="Lainat yhteensä" range={day} scope={door.scope} text={text}>
+            <Why figure="holdings.loans" title={t("holdings.loans_total")} range={day} scope={door.scope} text={text}>
               {shown}
             </Why>
           )}
@@ -253,22 +255,22 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
   const noBalance = loans.filter((l) => l.leftCents === null).length;
   const unknown = noBalance + (unsavedLoans?.count ?? 0);
   const known = loans.length - noBalance;
-  const netLabel = unknown === 0 ? (debtCents > 0 ? "Netto" : null) : known === 0 ? "Netto (ilman lainoja)" : `Netto (ilman ${unknown} lainaa)`;
+  const netLabel = unknown === 0 ? (debtCents > 0 ? figureName("netWorth") : null) : known === 0 ? t("holdings.net_without_loans") : tn(unknown, "holdings.net_without_one", "holdings.net_without_many", { net: figureName("netWorth") });
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
-  const unsaved = unsavedLoans ? `${unsavedLoans.count} ${unsavedLoans.count === 1 ? "laina" : "lainaa"} ilman saldoa, ${money(unsavedLoans.paymentCents)}/kk` : null;
+  const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
 
   return (
     <section className="card holdings" aria-labelledby="holdings-h">
       <div className="card-head tb">
         <div className="card-name">
-          <h2 id="holdings-h">Varallisuus</h2>
+          <h2 id="holdings-h">{t("holdings.title")}</h2>
         </div>
         {/* what the household has net, the accounts less the debts (core's netCents) */}
         {netCents !== null && (
           <div className="card-datum">
             {netLabel && (
               <span className="datum-label">
-                {unknown === 0 ? netLabel : <a href={`#/settings#${SETTINGS_ANCHOR.loans}`} title="Lisää lainojen saldot">{netLabel}</a>}
+                {unknown === 0 ? netLabel : <a href={settingsCardHash(SETTINGS_ANCHOR.loans)} title={t("holdings.add_balances")}>{netLabel}</a>}
               </span>
             )}
             <Figure text={money(netCents, false)} size="s" />
@@ -284,9 +286,9 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
         <dl className="st-rows holding-foot">
           {debts && (
             <div className="st-row">
-              <dt className="st-name st-strong">Velat yhteensä</dt>
+              <dt className="st-name st-strong">{t("holdings.debts_total")}</dt>
               <dd className="st-num st-strong">
-                <Why figure="loans.total" title="Velat yhteensä" range={{ from: meta.today, to: meta.today }} scope={scope} text={money(debtCents)}>
+                <Why figure="loans.total" title={t("holdings.debts_total")} range={{ from: meta.today, to: meta.today }} scope={scope} text={money(debtCents)}>
                   {money(debtCents)}
                 </Why>
               </dd>
@@ -294,8 +296,10 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
           )}
           {unsaved && (
             <div className="st-row">
-              <dt className="st-name">{debts ? "Lisäksi" : "Ilman saldoa"}</dt>
-              <dd className="st-num">{unsaved}</dd>
+              <dt className="st-name">{t("holdings.no_balance")}</dt>
+              <dd className="st-num">
+                {unsaved}. <a href={settingsCardHash(SETTINGS_ANCHOR.loans)}>{t("holdings.add_balances_short")}</a>
+              </dd>
             </div>
           )}
         </dl>

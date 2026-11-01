@@ -31,7 +31,7 @@ test("the answers a member gave are listed with the rules: change one, restore t
   await expect(card.locator(".question-row")).toHaveCount(2);
   const ville = card.locator(".question-row").filter({ hasText: "Esimerkki Ville" });
   await expect(ville.getByLabel("Mitä nämä ovat: Esimerkki Ville")).toHaveValue("sales");
-  expect(plain(await ville.innerText())).toMatch(/^Esimerkki Ville 12 tapahtumaa .* Palauta ehdotus$/);
+  expect(plain(await ville.innerText())).toMatch(/^Esimerkki Ville ?12 tapahtumaa .* Palauta ehdotus$/);
   const choices = (label: string) => card.getByLabel(label).locator("option").evaluateAll((els) => els.map((el) => el.textContent));
   expect(await choices("Mitä nämä ovat: Esimerkki Ville")).toEqual(["Yhteisten menojen osuus", "Myynti", "Omaa rahaa", "Lahja", "Palkka tai etuus"]);
   expect(await choices("Mitä nämä ovat: Esimerkki Firma Oy")).not.toContain("Omaa rahaa");

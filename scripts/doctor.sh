@@ -14,18 +14,19 @@ set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 ROOT="$(pwd)"
 
-JSON=false
+JSON=false; JSON_EN=false
 case ${1:-} in
   "") ;;
   --json) JSON=true ;;
-  *) echo "Usage: ./scripts/doctor.sh [--json]" >&2; exit 64 ;;
+  --json-en) JSON=true; JSON_EN=true ;;
+  *) echo "Usage: ./scripts/doctor.sh [--json | --json-en]" >&2; exit 64 ;;
 esac
-# --json: no text, one line of JSON at the end for the maintenance helper (Asetukset > Ylläpito)
+# --json: no text, one line of JSON at the end for the maintenance helper (Asetukset > Ylläpito); --json-en: the same items in English
 $JSON && exec 3>&1 1>/dev/null
 
-# t ENGLISH FINNISH: the terminal gets English, the --json items (listed by Asetukset > Ylläpito) get Finnish.
+# t ENGLISH FINNISH: the terminal and --json-en get English, the --json items (listed by Asetukset > Ylläpito) get Finnish.
 # Every check text goes through it, so a check cannot have only one language.
-t() { if $JSON; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
+t() { if $JSON && ! $JSON_EN; then printf '%s' "$2"; else printf '%s' "$1"; fi; }
 
 bold=$'\e[1m'; dim=$'\e[2m'; green=$'\e[32m'; yellow=$'\e[33m'; red=$'\e[31m'; reset=$'\e[0m'
 PROBLEMS=0; WARNINGS=0

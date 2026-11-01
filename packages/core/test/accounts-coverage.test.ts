@@ -14,7 +14,7 @@ import { areaInputOf } from "../src/optimise/index.ts";
 import { buildReports, yearComparisonNote } from "../src/reports/index.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series } from "./helpers.ts";
-import { FRAME, householdInput, joinHousehold } from "./optimise/household.ts";
+import { FRAME, householdInput, joinHousehold } from "./optimise/household-kit.ts";
 import * as S from "./optimise/parts/seasons.ts";
 
 const today = "2026-10-09";
@@ -142,7 +142,7 @@ describe("the year comparison sums the accounts both years have", () => {
     expect(small.comparedMonths).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(small).toMatchObject({ comparable: true, leftOutAccounts: true });
     expect(Math.abs(percent(small))).toBeLessThan(0.05);
-    expect(yearComparisonNote(small)).toBe("Verrattu 9 kuukautta, joilta on tiedot molempina vuosina. Mukana eivät ole tilit, joilta puuttuu toisen vuoden tiedot.");
+    expect(yearComparisonNote(small)).toBe("Vertailussa on 9 kuukautta, joilta on tiedot molempina vuosina. Mukana eivät ole tilit, joilta puuttuu toisen vuoden tiedot.");
     const large = yoy([...spend("a", "2024-01-01"), ...spend("n", "2026-02-10", today, -3000)]);
     expect(large).toMatchObject({ comparable: false, shortHistory: false, dataFrom: "2024-01" });
     expect(yearComparisonNote(large)).toBe("Vertailuun ei ole tarpeeksi kuukausia, joilta on tiedot samoista tileistä molempina vuosina.");
@@ -165,7 +165,7 @@ describe("the year comparison sums the accounts both years have", () => {
     it("five shared months are compared and named, though the older account covers all nine", () => {
       const y = withMain("2025-05-01");
       expect(y).toMatchObject({ comparedMonths: [5, 6, 7, 8, 9], comparableMonths: 5, comparable: true, shortHistory: false });
-      expect(yearComparisonNote(y)).toBe("Verrattu 5 kuukautta, joilta on tiedot molempina vuosina.");
+      expect(yearComparisonNote(y)).toBe("Vertailussa on 5 kuukautta, joilta on tiedot molempina vuosina.");
       // the main account's months of both years are summed, and only those
       const mainOnly = yoy(spend("b", "2025-05-01"));
       expect(y.ytdCents - mainOnly.ytdCents).toBeGreaterThan(0);
@@ -188,7 +188,7 @@ describe("the year comparison sums the accounts both years have", () => {
       // its purchases are on neither side
       expect(y.ytdCents).toBe(without.ytdCents);
       expect(y.previousYtdCents).toBe(without.previousYtdCents);
-      expect(yearComparisonNote(y)).toBe("Verrattu 5 kuukautta, joilta on tiedot molempina vuosina. Mukana eivät ole tilit, joilta puuttuu toisen vuoden tiedot.");
+      expect(yearComparisonNote(y)).toBe("Vertailussa on 5 kuukautta, joilta on tiedot molempina vuosina. Mukana eivät ole tilit, joilta puuttuu toisen vuoden tiedot.");
       // a card past a tenth of the spending leaves the months it is in out of the comparison, and too few months are left
       expect(withMain("2025-05-01", spend("c", "2026-03-01", today, -400))).toMatchObject({ comparedMonths: [], comparable: false });
     });
@@ -218,8 +218,8 @@ describe("the year comparison sums the accounts both years have", () => {
 
   it("tells how many months it rests on, in the singular and the plural, and why when too few", () => {
     const full = { comparable: true, comparableMonths: 9, dataFrom: "2024-01", shortHistory: false, leftOutAccounts: false };
-    expect(yearComparisonNote(full)).toBe("Verrattu 9 kuukautta, joilta on tiedot molempina vuosina.");
-    expect(yearComparisonNote({ ...full, comparableMonths: 1 })).toBe("Verrattu 1 kuukausi, jolta on tiedot molempina vuosina.");
+    expect(yearComparisonNote(full)).toBe("Vertailussa on 9 kuukautta, joilta on tiedot molempina vuosina.");
+    expect(yearComparisonNote({ ...full, comparableMonths: 1 })).toBe("Vertailussa on 1 kuukausi, jolta on tiedot molempina vuosina.");
     expect(yearComparisonNote({ ...full, comparable: false, shortHistory: true, dataFrom: "2025-11" })).toBe("Vertailuun ei ole vielä tarpeeksi tietoja: tiedot alkavat 11/2025.");
     expect(yearComparisonNote({ ...full, comparable: false })).toBe("Vertailuun ei ole tarpeeksi kuukausia, joilta on tiedot samoista tileistä molempina vuosina.");
     expect(yearComparisonNote({ ...full, comparable: false, dataFrom: null })).toBeNull();
@@ -280,7 +280,7 @@ describe("the period against the one before", () => {
 
 describe("Kalliit kuukaudet and the finding beside it say the same about the history", () => {
   const input = (extra: Transaction[], accountsOf: Account[] = []) => householdInput(joinHousehold([S.hit(FRAME), { txs: extra, accounts: accountsOf }], FRAME));
-  const args = (i: ReturnType<typeof input>) => ({ ctx: i.ctx, end: i.ctx.today, gateMonthlyCents: 1000 }) as InsightArgs;
+  const args = (i: ReturnType<typeof input>) => ({ ctx: i.ctx, end: i.ctx.today, gateMonthlyCents: 1000, lang: "fi" }) as InsightArgs;
   const answer = (i: ReturnType<typeof input>) => {
     const r = seasons.assess(areaInputOf(i));
     return { status: r.checks[0]!.status, findings: r.findings.length, months: seasonMonths(i.ctx, i.ctx.today).length, insight: expensiveMonths(args(i)).length, items: expensiveMonthItems(args(i)).length };

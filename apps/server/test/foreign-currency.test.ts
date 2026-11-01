@@ -14,6 +14,9 @@ const inCurrency = (currency: string, ref: string | null, date: string, amount: 
   return { ...(ref === null ? {} : { entry_reference }), ...row, transaction_amount: { currency, amount } };
 };
 
+/** An answer without the coverage notices: they are the one thing a row in another currency is meant to change in the reports. */
+const unnoticed = (body: unknown): unknown => JSON.parse(JSON.stringify(body, (key, value) => (key === "notices" ? undefined : value)));
+
 async function kept(f: Awaited<ReturnType<typeof connectedFeed>>) {
   return (await f.repo.foreignRowsOf([accountKey(f.chk)])).map((r) => `${r.bookingDate} ${r.currency} ${r.amountMinor}/${r.scale}`).sort();
 }
@@ -37,7 +40,10 @@ describe("rows in another currency, a fetch", () => {
     expect(await f.stored()).toEqual(["2026-10-04 booked -1200 Kauppa A"]);
     // no euro figure moved: the first page and the reports are the same answers
     expect((await f.admin.call("GET", "/api/dashboard")).body).toEqual(before);
-    expect((await f.admin.call("GET", "/api/reports")).body).toEqual(beforeReports);
+    // the reports differ in their notices only: the dollar rows are told with their sum, and no euro figure moves
+    const reports = (await f.admin.call("GET", "/api/reports")).body;
+    expect(unnoticed(reports)).toEqual(unnoticed(beforeReports));
+    expect(JSON.stringify(reports)).toContain("3 riviä, −30,00 ja +130,00 USD");
 
     // the same fetch again: nothing new, no row doubled
     expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);
@@ -124,11 +130,11 @@ describe("rows in another currency, a fetch", () => {
     const f = await connectedFeed();
     f.feed.rows = [inCurrency("USD", "u1", "2026-10-02", "30.00", "DBIT", "AMAZON TEST")];
     await syncUser(f.s, f.adminId, "manual");
-    expect(await foreignDaysOf(f.s, f.adminId, [f.chk])).toEqual([{ accountId: f.chk.id, count: 1, newestDay: "2026-10-02" }]);
+    expect(await foreignDaysOf(f.s, f.adminId, [f.chk])).toEqual([{ accountId: f.chk.id, count: 1, newestDay: "2026-10-02", rows: [{ day: "2026-10-02", currency: "USD", amountMinor: -3000, scale: 2 }] }]);
     f.feed.rows.push(inCurrency("USD", "u2", "2026-10-05", "30.00", "CRDT", "AMAZON TEST"));
     await syncUser(f.s, f.adminId, "manual");
     expect(await kept(f)).toEqual(["2026-10-02 USD -3000/2", "2026-10-05 USD 3000/2"]);
-    expect(await foreignDaysOf(f.s, f.adminId, [f.chk])).toEqual([{ accountId: f.chk.id, count: 2, newestDay: "2026-10-05" }]);
+    expect(await foreignDaysOf(f.s, f.adminId, [f.chk])).toEqual([{ accountId: f.chk.id, count: 2, newestDay: "2026-10-05", rows: expect.arrayContaining([{ day: "2026-10-05", currency: "USD", amountMinor: 3000, scale: 2 }]) }]);
   });
 
   it("a row whose amount is not a plain decimal is not kept and is counted in the note; a pending row too", async () => {
@@ -146,7 +152,7 @@ describe("rows in another currency, the day walk", () => {
     f.feed.rows = [ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A"), inCurrency("USD", "u1", "2026-10-03", "20.00", "DBIT", "AMAZON TEST")];
     await syncUser(f.s, f.adminId, "manual");
     const { ctx } = await f.s.analysis.get(f.s, f.adminId, "own");
-    expect(ctx.foreignRows).toEqual([{ accountId: f.chk.id, count: 1, newestDay: "2026-10-03" }]);
+    expect(ctx.foreignRows).toEqual([{ accountId: f.chk.id, count: 1, newestDay: "2026-10-03", rows: [{ day: "2026-10-03", currency: "USD", amountMinor: -2000, scale: 2 }] }]);
   });
 });
 

@@ -4,7 +4,7 @@
  * long. The failure then looks like a false finding while it is a busy machine. A loop over seeds is long on purpose:
  * give the test the time instead of lowering the seeds.
  */
-import ts from "typescript";
+import ts from "typescript6";
 import { lineOf, walk } from "./lib.ts";
 
 export const MIN_MS = 30_000;

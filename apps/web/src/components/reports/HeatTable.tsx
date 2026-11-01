@@ -1,4 +1,5 @@
 // Decision: find the month a category jumped
+import { t, tn } from "../../text.ts";
 import type { ReactNode } from "react";
 import { money, monthLabel, monthLong } from "../../format.ts";
 import { addsUpPrinted } from "../../marks.ts";
@@ -9,7 +10,7 @@ import { type Column, Table } from "../table/Table.tsx";
 type Report = ReportsData["pivot"];
 
 /** How many months a mean is over: a category's own accounts may cover fewer months than the household's (a card linked late). */
-const meanMonths = (n: number) => `${n} kuukauden keskiarvo`;
+const meanMonths = (n: number) => tn(n, "rpt.hm_mean_one", "rpt.hm_mean_many");
 
 /** Every category by every month as it was: the months are columns while there is room and a list under the row's name when there is not. */
 export function HeatTable({ r }: { r: Report }) {
@@ -25,7 +26,7 @@ export function HeatTable({ r }: { r: Report }) {
       label: (
         <>
           {monthLabel(m, m.endsWith("-01") || m === r.months[0])}
-          {!r.complete[i] && <span className="partial-tag">vajaa</span>}
+          {!r.complete[i] && <span className="partial-tag">{t("rpt.fv_partial")}</span>}
         </>
       ),
       text: monthLabel(m, true),
@@ -35,18 +36,18 @@ export function HeatTable({ r }: { r: Report }) {
       title: (row) => `${row.label}, ${monthLong(m)}: ${money(row.values[i]!)}`,
       cell: (row) => (row.values[i] ? money(row.values[i]!, false) : ""),
     })),
-    { key: "total", label: "Yhteensä", kind: "money", main: true, cell: (row) => money(row.totalCents, false) },
+    { key: "total", label: t("rpt.hm_total"), kind: "money", main: true, cell: (row) => money(row.totalCents, false) },
     ...(hasAverage
       ? [
           {
             key: "average",
             label: (
               <>
-                Keskimäärin kuussa
+                {t("rpt.hm_average")}
                 <span className="partial-tag">{meanMonths(r.averageMonths)}</span>
               </>
             ),
-            text: "Keskimäärin kuussa",
+            text: t("rpt.hm_average"),
             kind: "money",
             cell: (row: Row) => (
               <>
@@ -63,13 +64,13 @@ export function HeatTable({ r }: { r: Report }) {
   if (hasAverage) foot.average = money(r.averageCents!, false);
   return (
     <Table
-      caption="Kategoriat kuukausittain"
+      caption={t("rpt.hm_caption")}
       className="heat-table"
       rows={r.rows}
       rowKey={(row) => `${row.group}/${row.category}`}
       columns={columns}
       sums={sums ? ["total"] : undefined}
-      total={{ label: "Yhteensä", cells: foot }}
+      total={{ label: t("rpt.hm_total"), cells: foot }}
     />
   );
 }

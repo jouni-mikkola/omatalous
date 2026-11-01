@@ -1,0 +1,38 @@
+/*
+ * The toolbar of a table (components/table/Toolbar.tsx): a search box, the chips with their counts, the grouping menu and
+ * the CSV button, in one row that wraps. Tokens only. The chosen chip is the page's filled control, as the segmented
+ * switch is, and carries the accent foot, so the choice is not told by a colour alone.
+ */
+
+@layer components {
+.rtb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); margin: 0 0 var(--sp-8); }
+.rtb-search { position: relative; display: inline-flex; flex: 0 1 20rem; min-inline-size: 12rem; }
+.rtb-search input { flex: 1 1 auto; inline-size: 100%; padding-inline-end: var(--control-h); }
+.rtb-search input::-webkit-search-cancel-button { display: none; }
+.rtb-clear { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: var(--control-h); border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; }
+.rtb-clear:hover { color: var(--text); }
+.rtb-search[data-empty] .rtb-clear { display: none; }
+.rtb-chips { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+.rtb-chip { display: inline-flex; align-items: center; gap: var(--sp-4); min-block-size: var(--control-h); padding: 0 var(--sp-12); border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: var(--fs-body); cursor: pointer; }
+.rtb-chip b { font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; }
+.rtb-chip[data-hovered] { background: var(--control-hover); color: var(--text); }
+.rtb-chip[data-selected] { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
+.rtb-chip[data-selected] b { color: inherit; }
+.rtb-tools { display: flex; flex-wrap: wrap; gap: var(--sp-8); margin-inline-start: auto; }
+.rtb-sort { display: inline-flex; align-items: center; gap: var(--sp-8); }
+.rtb-label { color: var(--muted); font-size: var(--fs-body); }
+.rtb-note { flex: 1 1 100%; margin: 0; color: var(--muted); font-size: var(--fs-label); line-height: var(--lh-label); }
+
+/* the popup of the grouping menu and of the sort choice */
+.rtb-pop { min-inline-size: 12rem; padding: var(--sp-4); border: 1px solid var(--pop-edge); border-radius: var(--radius-m); background: var(--surface); color: var(--text); box-shadow: var(--pop-shadow); }
+.rtb-list { margin: 0; padding: 0; outline: 0; }
+.rtb-item { display: block; padding: var(--sp-8) var(--sp-12); border-radius: var(--radius-s); color: var(--text); font-size: var(--fs-body); cursor: pointer; outline: 0; }
+.rtb-item[data-focused], .rtb-item[data-hovered] { background: var(--control-hover); }
+.rtb-item[data-selected] { font-weight: var(--w-strong); box-shadow: inset 1px 0 0 var(--accent); }
+
+/* a phone: the search box takes the row, and the sort choice (shown only where the head is hidden) the tools' row */
+@media (max-width: 599.98px) {
+  .rtb-search { flex: 1 1 100%; }
+  .rtb-tools { margin-inline-start: 0; inline-size: 100%; }
+}
+}

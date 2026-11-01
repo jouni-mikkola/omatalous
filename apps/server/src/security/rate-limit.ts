@@ -27,10 +27,19 @@ export class RateLimiter {
   private readonly hits = new Map<string, Entry>();
 
   constructor(
-    private readonly limit: number,
-    private readonly windowMs: number,
+    private limit: number,
+    private windowMs: number,
     private readonly maxKeys = 10_000,
   ) {}
+
+  /**
+   * Sets a new limit and window (a changed setting). A window already running keeps its end, so no lockout is cut
+   * short or stretched; a lower limit holds at once for the counts already made, and the next window has the new length.
+   */
+  configure(limit: number, windowMs: number): void {
+    this.limit = limit;
+    this.windowMs = windowMs;
+  }
 
   /** Returns seconds to wait, or 0 when the attempt is allowed. Does not count. */
   check(key: string, now = Date.now()): number {
@@ -131,6 +140,12 @@ export class LoginLimiter {
   constructor(limit: number, windowMs: number, maxKeys = 10_000, spareKeys = 1_000) {
     this.main = new RateLimiter(limit, windowMs, maxKeys);
     this.spare = new RateLimiter(limit, windowMs, spareKeys);
+  }
+
+  /** As RateLimiter.configure, for the main limiter and the spare. */
+  configure(limit: number, windowMs: number): void {
+    this.main.configure(limit, windowMs);
+    this.spare.configure(limit, windowMs);
   }
 
   /** As RateLimiter.consume. `remembered` tells that the attempt comes from a remembered address. */
@@ -252,7 +267,12 @@ function ipv6Groups(text: string): number[] | null {
 export class Gate {
   private active = 0;
 
-  constructor(private readonly max: number) {}
+  constructor(private max: number) {}
+
+  /** A changed setting: hashes running now finish, the new cap counts from the next entry. */
+  setMax(max: number): void {
+    this.max = max;
+  }
 
   tryEnter(): boolean {
     if (this.active >= this.max) return false;

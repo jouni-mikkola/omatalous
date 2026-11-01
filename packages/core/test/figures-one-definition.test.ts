@@ -8,6 +8,7 @@ import { situationOf } from "../src/optimise/situation.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+import { view } from "./insight-view.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";
@@ -95,10 +96,10 @@ describe("credit drawn is the net of the window and never below zero", () => {
 
   it("the insight counts the draws but tells the net, and says nothing when the net is a repayment", () => {
     const ctx = ctxOf([...base, draw("2026-08-05", 80000), draw("2026-08-20", 40000), draw("2026-08-28", -50000)]);
-    const borrowed = buildDashboard(ctx, { from: "2026-08-01", to: "2026-08-31" }).insights.find((i) => i.id === "borrowed")!;
+    const borrowed = view(buildDashboard(ctx, { from: "2026-08-01", to: "2026-08-31" }).insights.find((i) => i.id === "borrowed")!);
     expect(borrowed.yearlyCents).toBe(70000);
     expect(borrowed.title).toContain("700");
-    expect(borrowed.detail).toContain("2 nostoa");
+    expect(borrowed.detail).toContain("tavallisista kuukausituloista");
     const repaid = ctxOf([...base, draw("2026-08-05", 20000), draw("2026-08-28", -50000)]);
     expect(buildDashboard(repaid, { from: "2026-08-01", to: "2026-08-31" }).insights.find((i) => i.id === "borrowed")).toBeUndefined();
   });

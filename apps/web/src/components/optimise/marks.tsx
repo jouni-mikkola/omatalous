@@ -3,6 +3,8 @@
  * verdict as a sign. Each draws a figure or a word the row already prints, so all are hidden from a screen reader.
  */
 import { AREA_IDS, type AreaId, type CertaintyLevel, type Verdict } from "@banking/core";
+import { css } from "../../css.ts";
+import { t } from "../../text.ts";
 
 /** One 16 px line drawing per area, on a 16 by 16 box: a sign of what the area is about, never a provider's logo. */
 const GLYPH: Record<AreaId, string> = {
@@ -25,7 +27,7 @@ const GLYPH: Record<AreaId, string> = {
 export function AreaMark({ id, size = 28 }: { id: AreaId; size?: number }) {
   const hue = (AREA_IDS.indexOf(id) % 7) + 1;
   return (
-    <span className={`area-mark rt-hue-${hue}`} style={{ inlineSize: size, blockSize: size }} aria-hidden="true">
+    <span className={`area-mark rt-hue-${hue}`} ref={css({ "inline-size": size, "block-size": size })} aria-hidden="true">
       <svg viewBox="0 0 16 16" width={size * 0.57} height={size * 0.57} focusable="false">
         <path d={GLYPH[id]} />
       </svg>
@@ -43,8 +45,8 @@ export function RangeBar({ low, mid, high, max }: { low: number; mid: number; hi
   const at = (v: number) => `${((Math.min(v, max) / max) * 100).toFixed(2)}%`;
   return (
     <span className="range-bar" aria-hidden="true">
-      <span className="range-band" style={{ insetInlineStart: at(low), inlineSize: `calc(${at(high)} - ${at(low)})` }} />
-      <span className="range-mid" style={{ insetInlineStart: at(mid) }} />
+      <span className="range-band" ref={css({ "inset-inline-start": at(low), "inline-size": `calc(${at(high)} - ${at(low)})` })} />
+      <span className="range-mid" ref={css({ "inset-inline-start": at(mid) })} />
     </span>
   );
 }
@@ -61,28 +63,28 @@ export function CertaintySteps({ level }: { level: CertaintyLevel }) {
           <span key={i} className={i <= n ? "on" : ""} />
         ))}
       </span>
-      Varmuus {level}
+      {t(`ow.cert_${level}`)}
     </span>
   );
 }
 
 /** A verdict's sign and word. The tone is a support: the sign and the word carry it without colour. */
-export const VERDICT_MARK: Record<Verdict, { sign: string; text: string; tone: "good" | "bad" | "level" }> = {
-  vahvistui: { sign: "✓", text: "Vahvistui", tone: "good" },
-  todennäköinen: { sign: "≈", text: "Todennäköinen", tone: "level" },
-  epäselvä: { sign: "?", text: "Epäselvä", tone: "level" },
-  huonompi: { sign: "▲", text: "Menot kasvoivat", tone: "bad" },
-  odottaa: { sign: "…", text: "Odottaa kuukausia", tone: "level" },
-};
+export const VERDICT_MARK = {
+  vahvistui: { sign: "✓", text: "ow.vd_confirmed", tone: "good" },
+  todennäköinen: { sign: "≈", text: "ow.vd_likely", tone: "level" },
+  epäselvä: { sign: "?", text: "ow.vd_unclear", tone: "level" },
+  huonompi: { sign: "▲", text: "ow.vd_worse", tone: "bad" },
+  odottaa: { sign: "…", text: "ow.vd_waiting", tone: "level" },
+} as const satisfies Record<Verdict, { sign: string; text: string; tone: "good" | "bad" | "level" }>;
 
 export function VerdictMark({ verdict }: { verdict: Verdict }) {
   const v = VERDICT_MARK[verdict];
   return (
-    <span className={`verdict verdict-${v.tone}`}>
-      <span className="verdict-sign" aria-hidden="true">
+    <span className={`outcome-mark outcome-${v.tone}`}>
+      <span className="outcome-sign" aria-hidden="true">
         {v.sign}
       </span>
-      {v.text}
+      {t(v.text)}
     </span>
   );
 }

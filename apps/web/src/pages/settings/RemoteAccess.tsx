@@ -3,6 +3,7 @@
  * Decision: whether the copy can be reached from outside the home network, and by whom. The admin turns it on, changes
  * the allowed emails and turns it off here instead of at a shell on the server; a member never sees the section.
  */
+import { FoldCard } from "../../components/ui/FoldCard.tsx";
 import { useRef, useState } from "react";
 import { ApiError } from "../../api.ts";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
@@ -10,13 +11,15 @@ import { usePolled } from "../../components/ops/use-polled.ts";
 import "../../styles/remote-access.css";
 import "../../styles/settings.css";
 import { REMOTE_ACCESS_PATH, type RemoteAccessState, remoteAccessCalls, saveTokenFrom } from "./remote-access-api.ts";
-import { canTurnOff, canTurnOn, homeStoppedAnswering, needsLocalChoice, pollDelay, stageOf, startEmails, startHostname } from "./remote-access-model.ts";
+import { canTurnOff, nextStep, canTurnOn, homeStoppedAnswering, needsLocalChoice, pollDelay, remoteSummary, stageOf, startEmails, startHostname } from "./remote-access-model.ts";
 import { AfterOff, OffAsk, OnAsk, RemoveTokenAsk } from "./RemoteAccessAsk.tsx";
 import { TurnOnForm } from "./RemoteAccessForm.tsx";
 import { Status } from "./RemoteAccessStatus.tsx";
 import { TokenBlock } from "./RemoteAccessToken.tsx";
 import { HomeBlocked } from "./RemoteAccessTrial.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
 /** What the page reads from the poll: the state, or why there is none. */
 export interface RemoteAccessPoll {
   data: RemoteAccessState | null;
@@ -29,10 +32,9 @@ export interface RemoteAccessPoll {
 
 type Ask = { kind: "token" } | { kind: "removeToken" } | { kind: "on"; hostname: string; emails: string[] } | { kind: "off" } | null;
 
-export function RemoteAccess() {
-  // a 403 is a member: asking again will not change it
-  const poll = usePolled<RemoteAccessState>(REMOTE_ACCESS_PATH, pollDelay, (status) => status === 401 || status === 403);
-  return <RemoteAccessBody poll={poll} />;
+/** The page holds the poll: the status line at its top reads the same answer as the card. A 403 is a member: asking again will not change it. */
+export function useRemoteAccessPoll(): RemoteAccessPoll {
+  return usePolled<RemoteAccessState>(REMOTE_ACCESS_PATH, pollDelay, (status) => status === 401 || status === 403);
 }
 
 /** `now` is the clock the page compares the end of a trial with; tests give their own. */
@@ -40,20 +42,19 @@ export function RemoteAccessBody({ poll, now = Date.now() }: { poll: RemoteAcces
   const { data: s, error, errorStatus } = poll;
   const stopped = homeStoppedAnswering(s, errorStatus);
   if (errorStatus === 401 || (errorStatus === 403 && !stopped)) return null;
+  // nothing is on or under way: the card is the offer, and it folds
+  const idle = (s === null || (stageOf(s) === "off" && s.pending === null)) && !stopped;
   return (
-    <div className="card remote-access" id="etakaytto">
-      <div>
-        <h2>Etäkäyttö</h2>
-        <p>Etäkäytöllä sovellukseen pääsee kotiverkon ulkopuolelta.</p>
-      </div>
+    <FoldCard className="remote-access" id="etakaytto" title={t("set.remote.remote_access")} sub={s ? (stopped ? remoteSummary(s) : nextStep(s)) : undefined} folded={idle}>
+      <p>{t("set.remote.remote_access_lets_you_reach")}</p>
       {error && !s && (
-        <div className="notice warning" role="alert">
+        <Notice tone="warning" role="alert">
           {error}
-        </div>
+        </Notice>
       )}
-      {!s && !error && <div className="small muted">Ladataan…</div>}
+      {!s && !error && <div className="small muted">{t("set.remote.loading")}</div>}
       {s && (stopped ? <HomeBlocked s={s} /> : <Panel s={s} poll={poll} now={now} />)}
-    </div>
+    </FoldCard>
   );
 }
 
@@ -105,9 +106,9 @@ function Panel({ s, poll, now }: { s: RemoteAccessState; poll: RemoteAccessPoll;
     <>
       <Status s={s} down={downSince !== null && s.pending !== null} onCancel={(id) => void cancel(id)} now={now} />
       {message && (
-        <div className="notice warning" role="alert">
+        <Notice tone="warning" role="alert">
           {message}
-        </div>
+        </Notice>
       )}
 
       {stage !== "domain" && (
@@ -140,52 +141,52 @@ function Panel({ s, poll, now }: { s: RemoteAccessState; poll: RemoteAccessPoll;
       )}
       {canTurnOff(s) && (
         <div className="remote-block">
-          <h4 className="field-label">Ota etäkäyttö pois käytöstä</h4>
+          <h4 className="field-label">{t("set.remote.turn_remote_access_off")}</h4>
           {stage === "on" ? (
             <>
-              <p>Kun etäkäyttö otetaan pois käytöstä, etäosoitteella avattu selain menettää yhteyden.</p>
+              <p>{t("set.remote.when_remote_access_is_turned")}</p>
               <AfterOff s={s} />
             </>
           ) : (
-            <p>Kun etäkäyttö otetaan pois käytöstä, osoite poistetaan Cloudflaresta. Sovelluksen omaa osoitetta se ei muuta.</p>
+            <p>{t("set.remote.when_remote_access_is_turned_2")}</p>
           )}
           <div className="form-row">
-            <button className="btn btn-danger" type="button" onClick={() => setAsk({ kind: "off" })}>
-              Ota etäkäyttö pois käytöstä
-            </button>
+            <Button onClick={() => setAsk({ kind: "off" })}>
+              {t("set.remote.turn_remote_access_off")}
+            </Button>
           </div>
         </div>
       )}
 
       {ask?.kind === "token" && (
         <PasswordDialog
-          title="Tallenna API-tunniste"
-          submitLabel="Tallenna"
+          title={t("set.remote.save_api_token")}
+          submitLabel={t("set.remote.save")}
           onCancel={() => {
             clearToken();
             setAsk(null);
           }}
           onSubmit={async (password) => {
             const field = tokenField.current;
-            if (!field) throw new Error("Tunnistekenttä ei ole enää näkyvissä. Kirjoita tunniste uudelleen.");
+            if (!field) throw new Error(t("set.remote.token_field_gone"));
             set(await saveTokenFrom(field, password));
             setHasToken(false);
             setReplacing(false);
             setAsk(null);
           }}
         >
-          <p>Kirjoita salasanasi, niin tunniste tallennetaan.</p>
+          <p>{t("set.remote.enter_your_password_to_save")}</p>
         </PasswordDialog>
       )}
       {ask?.kind === "removeToken" && (
-        <PasswordDialog title="Poista API-tunniste" submitLabel="Poista tunniste" danger onCancel={close} onSubmit={(password) => send(() => remoteAccessCalls.removeToken(password))}>
+        <PasswordDialog title={t("set.remote.remove_api_token")} submitLabel={t("set.remote.remove_token")} danger onCancel={close} onSubmit={(password) => send(() => remoteAccessCalls.removeToken(password))}>
           <RemoveTokenAsk s={s} />
         </PasswordDialog>
       )}
       {ask?.kind === "on" && (
         <PasswordDialog
-          title={s.access.on ? "Tarkista sallitut sähköpostiosoitteet" : "Tarkista ennen käyttöönottoa"}
-          submitLabel={s.access.on ? "Kyllä, tallenna lista" : "Kyllä, ota käyttöön"}
+          title={s.access.on ? t("set.remote.check_the_allowed_email_addresses") : t("set.remote.check_before_turning_on")}
+          submitLabel={s.access.on ? t("set.remote.save_list") : t("set.remote.turn_on")}
           onCancel={close}
           onSubmit={(password) => send(() => remoteAccessCalls.turnOn(ask.hostname, ask.emails, password))}
         >
@@ -194,13 +195,13 @@ function Panel({ s, poll, now }: { s: RemoteAccessState; poll: RemoteAccessPoll;
       )}
       {ask?.kind === "off" && (
         <PasswordDialog
-          title="Ota etäkäyttö pois käytöstä"
-          submitLabel="Ota pois käytöstä"
+          title={t("set.remote.turn_remote_access_off")}
+          submitLabel={t("set.remote.turn_off")}
           danger
           onCancel={close}
           onSubmit={(password) => {
             // the choice is the admin's own: the server is asked for the server-only answer only after the tick
-            if (needsLocalChoice(s) && !localChoice) return Promise.reject(new Error("Merkitse ensin, että ymmärrät sovelluksen vastaavan tämän jälkeen vain palvelimella itsellään."));
+            if (needsLocalChoice(s) && !localChoice) return Promise.reject(new Error(t("set.remote.tick_first")));
             return send(() => remoteAccessCalls.turnOff(password, needsLocalChoice(s) && localChoice));
           }}
         >

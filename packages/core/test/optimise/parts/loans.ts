@@ -8,7 +8,7 @@ import { addDays, addMonths } from "../../../src/dates.ts";
 import type { InputValues, LoanReference } from "../../../src/optimise/types.ts";
 import { bufferReport } from "../../../src/reports/buffer.ts";
 import type { Account, BalanceInput, Loan, Transaction } from "../../../src/types.ts";
-import { baseRows, enrich, type Frame, type Part, type PartHousehold } from "../household.ts";
+import { baseRows, enrich, type Frame, type Part, type PartHousehold } from "../household-kit.ts";
 
 const LOAN: Account = { id: "l-loan", name: "Asuntolaina", iban: "FI5512345600000123", currency: "EUR", type: "loan" };
 const CARD: Account = { id: "l-card", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
@@ -92,7 +92,7 @@ function mortgaged(frame: Frame, o: Rows & { marginBp: number; reference: LoanRe
 function usualWith(frame: Frame, txs: readonly Transaction[], accounts: readonly Account[]): number {
   const all = [...frame.accounts, ...accounts];
   const sorted = [...baseRows(frame), ...txs].sort((a, b) => a.bookingDate.localeCompare(b.bookingDate) || (a.id < b.id ? -1 : 1));
-  return bufferReport(createContext(enrich(sorted, all), all, frame.today), []).usualSpendCents!;
+  return bufferReport(createContext(enrich(sorted, all), all, frame.today), []).expectedSpendCents!;
 }
 
 /**

@@ -1,7 +1,7 @@
 /**
  * tools/release/fixture.mjs, part c: the refusals about the output and the version, --facts, and the fixture of 0.11.0.
  */
-import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { AT, cleanup, FIXTURES, freshContract, load, MIGRATIONS, NOTE_ROWS, release, run, scratch, shippedMigrations } from "./fixture-kit.ts";

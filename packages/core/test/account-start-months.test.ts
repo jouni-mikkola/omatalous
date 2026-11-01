@@ -40,10 +40,10 @@ describe("a month is complete for the accounts that sum it", () => {
     const small = ctxOf([...filler("acc-1", "2025-12-01"), ...series("2026-08-10", 30, 3, -1000, { accountId: "acc-2", merchant: "K-Market", category: "groceries" })]);
     expect(isCompleteMonth(small, "2026-08")).toBe(false);
     expect(completeMonthsBefore(small, "2026-10")).toEqual(["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-09"]);
-    expect(planOf(small, "usual", "2026-10")?.base).toEqual(["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-09"]);
+    expect(planOf(small, "expected", "2026-10")?.base).toEqual(["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-09"]);
     // the same account at half the household's spending: the window waits (see the first test)
     expect(completeMonthsBefore(later(), "2026-10")).toEqual(["2026-09"]);
-    expect(planOf(later(), "usual", "2026-10")).toBeNull();
+    expect(planOf(later(), "expected", "2026-10")).toBeNull();
     // an account named by the reader always stops
     expect(completeMonthsBefore(small, "2026-10", 6, ["acc-1", "acc-2"])).toEqual(["2026-09"]);
   });
@@ -71,7 +71,7 @@ describe("the plan of a spending change", () => {
   it("builds the usual level only from months after the late account joined, and reads the noise across them", () => {
     const ctx = later();
     // August 2026 is the joining month: October's usual base is September alone, under three months
-    expect(planOf(ctx, "usual", "2026-10")).toBeNull();
+    expect(planOf(ctx, "expected", "2026-10")).toBeNull();
     const season = planOf(ctxOf([...filler("acc-1", "2024-12-01"), ...series("2026-08-10", 30, 3, -1000, { accountId: "acc-2", merchant: "K-Market", category: "groceries" })]), "season", "2026-10");
     expect(season?.noise).toContain("2026-03");
     expect(season?.noise).toContain("2026-09");
@@ -79,7 +79,7 @@ describe("the plan of a spending change", () => {
   });
 
   it("gives accounts that start on one day the usual base of six months", () => {
-    expect(planOf(together(), "usual", "2026-10")?.base).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(planOf(together(), "expected", "2026-10")?.base).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
   });
 });
 

@@ -17,13 +17,9 @@ const EXPLAINED = [
   "income.month",
   "income.earned",
   "yli_jai.month",
-  "usual.spend",
+  "expected.spend",
   "usual.income",
   "share.part",
-  "bills.paid",
-  "bills.coming",
-  "bills.missing",
-  "bills.due",
   "bills.fixed",
   "bills.subs",
   "holdings.accounts",
@@ -88,7 +84,7 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
   if (req.loanId) throw new UserError("Tuntematon raportti.");
   if (req.figure === "spend.category" && (!req.category || !isKnownCategory(req.category))) throw new UserError("Tuntematon kategoria.");
   // a usual level and a figure of Laskut are of the whole view; a part is of one row
-  if ((req.figure === "usual.spend" || req.figure === "usual.income" || req.figure.startsWith("bills.")) && req.accountIds) throw new UserError("Tuntematon raportti.");
+  if ((req.figure === "expected.spend" || req.figure === "usual.income" || req.figure.startsWith("bills.")) && req.accountIds) throw new UserError("Tuntematon raportti.");
   if (req.figure === "share.part" && !req.rowId) throw new UserError("Tuntematon raportti.");
   const why = createWhy(req.scope);
   const { ctx: scoped, accounts, shares } = await scopeWithReasons(s, userId, req.scope, why, req.figure === "share.part");
@@ -146,7 +142,7 @@ async function explainToday(s: Services, userId: string, req: ExplainRequest): P
 }
 
 /**
- * The loan figures of Lainat and Varallisuus, from the same context and inputs as /reports and the dashboard, so the basis
+ * The loan figures of Lainat and Varat ja velat, from the same context and inputs as /reports and the dashboard, so the basis
  * is of the figure the page shows. The loans are those of the viewer's view (`requestInputs`), as the report lists them:
  * a loan outside it is not found. Core names every line.
  */

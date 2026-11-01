@@ -56,8 +56,8 @@ describe("a category's monthly mean", () => {
   });
 });
 
-describe("the shade of a month is set against the row's usual month, not its mean", () => {
-  it("a row of 100 € months with one 400 € month: the dear month is shade 4 and the jump names the usual 100 €, where the mean says 125 €", () => {
+describe("the shade of a month is set against the row's expected month", () => {
+  it("a row of 100 € months with one 400 € month: the dear month is shade 4 and the jump names the expected 150 €", () => {
     const rows = Array.from({ length: 12 }, (_, i) => {
       const m = addMonths("2025-12", i);
       return tx({ bookingDate: dateIn(m, 15), amountCents: -(m === "2026-08" ? 40_000 : 10_000), merchant: "Kauppa", category: "groceries", categorySource: "rule", accountId: "acc-1" });
@@ -65,9 +65,10 @@ describe("the shade of a month is set against the row's usual month, not its mea
     const ctx = createContext([...rent, ...rows], [checking], TODAY);
     const r = pivotReport(ctx, RANGE);
     const row = r.rows.find((x) => x.category === "groceries")!;
-    expect(row.usualCents).toBe(10_000);
+    // the mean of the six months before December (ADR 0021), the mean of all twelve stays the average
+    expect(row.expectedCents).toBe(15_000);
     expect(row.averageCents).toBe(12_500);
-    expect(r.jump).toMatchObject({ category: "groceries", cents: 40_000, usualCents: 10_000 });
+    expect(r.jump).toMatchObject({ category: "groceries", cents: 40_000, expectedCents: 15_000 });
   });
 
   it("near miss: a month 9 € over a 15 € usual is shade 4 and under the household's gate, so there is no jump", () => {

@@ -4,11 +4,13 @@
  * a running cost whatever its category; a row of the category Auton osto is a car bought once, shown apart and left out of the
  * running cost and of the yearly figure per kilometre. A household with no car row at all has a check that says so.
  */
+import { localeOf, type Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import type { AnalysisTx } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { fold } from "../../merchant.ts";
 import { monthOf } from "../../dates.ts";
-import { annualise, findingId, levelWithoutOneOffs, MAX_ROWS, netCost } from "../common.ts";
+import { annualise, eur, findingId, levelWithoutOneOffs, MAX_ROWS, netCost } from "../common.ts";
 import { valueOf } from "../inputs.ts";
 import type { Area, AreaInput, AreaResult, AreaSummary, CalcLine, Check, FindingDraft, Weakness } from "../types.ts";
 import { mccKind } from "../../industry.ts";
@@ -21,28 +23,28 @@ const PARKING_GATE_CENTS = 30_000;
 const SUMMARY_MONTHS = 6;
 
 /** In the order the summary prints them. `purchase` is no running cost: it comes after the total. */
-const LABELS: Readonly<Record<Line, string>> = {
-  fuel: "Polttoaine",
-  charging: "Sähkölataus",
-  parking: "Pysäköinti",
-  service: "Huolto ja renkaat",
-  inspection: "Katsastus",
-  insurance: "Liikenne- ja autovakuutus",
-  tax: "Ajoneuvovero",
-  finance: "Rahoitus",
-  lease: "Leasing",
-  other: "Muut",
-  purchase: "Auton osto, ei mukana summassa",
-};
+const LINES: readonly Line[] = ["fuel", "charging", "parking", "service", "inspection", "insurance", "tax", "finance", "lease", "other", "purchase"];
+const CODES = {
+  fuel: "opt.car_fuel",
+  charging: "opt.car_charging",
+  parking: "opt.car_parking",
+  service: "opt.car_service",
+  inspection: "opt.car_inspection",
+  insurance: "opt.car_insurance",
+  tax: "opt.car_tax",
+  finance: "opt.car_finance",
+  lease: "opt.car_lease",
+  other: "opt.car_other",
+  purchase: "opt.car_purchase",
+} as const satisfies Record<Line, string>;
+const labelOf = (line: Line, lang: Language) => messageIn(lang, CODES[line]);
 
 const textOf = (t: AnalysisTx) => fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
 
 /** Parking the resident permit could replace: a car row paid to a parking app or with the parking card code. */
 const isStreetParking = (t: AnalysisTx) => !t.isTransfer && t.category === "car" && (mccKind(t.mcc) === "parking" || isStreetParkingText(textOf(t)));
 
-const eur = (cents: number) => formatEur(cents, false);
-
-const OUTSIDE_ZONE: Weakness = { id: "estimate", reason: "Mukana on myös pysäköinti asuinalueen ulkopuolella." };
+const outsideZone = (lang: Language): Weakness => ({ id: "estimate", reason: messageIn(lang, "opt.car_outside") });
 
 /** What the car cost in the window, by line. Every row is on one line, so the lines add up to the rows. */
 function costsOf(a: AreaInput): Map<Line, number> {
@@ -61,21 +63,22 @@ function summaryOf(a: AreaInput, sums: ReadonlyMap<Line, number>): AreaSummary |
   const purchase = sums.get("purchase") ?? 0;
   const total = [...sums].reduce((s, [line, x]) => (line === "purchase" ? s : s + x), 0);
   if (!total && !purchase) return null;
-  const lines: CalcLine[] = (Object.keys(LABELS) as Line[]).filter((l) => l !== "purchase" && sums.get(l)).map((l) => ({ label: LABELS[l], value: eur(sums.get(l)!) }));
-  if (total) lines.push({ label: "Yhteensä", value: eur(total) });
+  const lang = a.lang;
+  const lines: CalcLine[] = LINES.filter((l) => l !== "purchase" && sums.get(l)).map((l) => ({ label: labelOf(l, lang), value: eur(sums.get(l)!, lang) }));
+  if (total) lines.push({ label: messageIn(lang, "opt.car_total"), value: eur(total, lang) });
   const km = total ? valueOf(a.values, "car_km", a.today) : null;
   if (km) {
     const yearly = Math.round((total / a.months.length) * 12);
-    lines.push({ label: "Ajokilometrit vuodessa", value: `${new Intl.NumberFormat("fi-FI").format(km)}\u00a0km` }, { label: "Kilometriä kohden", value: formatEur(Math.round(yearly / km)) });
+    lines.push({ label: messageIn(lang, "opt.car_km"), value: `${new Intl.NumberFormat(localeOf(lang)).format(km)}\u00a0km` }, { label: messageIn(lang, "opt.car_per_km"), value: formatEur(Math.round(yearly / km), true, lang) });
   }
-  if (purchase) lines.push({ label: LABELS.purchase, value: eur(purchase) });
-  return { title: `Auton menot ${a.months.length} kuukaudessa`, lines };
+  if (purchase) lines.push({ label: labelOf("purchase", lang), value: eur(purchase, lang) });
+  return { title: messageIn(lang, "opt.car_sum_title", { n: a.months.length }), lines };
 }
 
 function parkingOf(a: AreaInput): { finding: FindingDraft | null; check: Check | null } {
   const rows = a.ctx.txs.filter(isStreetParking);
   if (!rows.length) return { finding: null, check: null };
-  const check: Check = { id: "car:parking", label: "Pysäköinti ja asukaspysäköintitunnus", status: "clear" };
+  const check: Check = { id: "car:parking", label: messageIn(a.lang, "opt.car_park_chk"), status: "clear" };
   const level = levelWithoutOneOffs(rows, a.months);
   const year = annualise(level.byMonth);
   if (!year || year.yearlyCents < PARKING_GATE_CENTS) return { finding: null, check };
@@ -86,6 +89,7 @@ function parkingOf(a: AreaInput): { finding: FindingDraft | null; check: Check |
       check: { ...check, status: "needs_input", input: "parking_permit_price" },
     };
   }
+  const lang = a.lang;
   const mid = year.yearlyCents - permit;
   if (mid <= 0) return { finding: null, check };
   const inWindow = new Set(a.months);
@@ -95,12 +99,12 @@ function parkingOf(a: AreaInput): { finding: FindingDraft | null; check: Check |
   const evidence = inYear.slice(-MAX_ROWS);
   const merchants = [...new Set(evidence.map((t) => t.merchant))].sort();
   const calc: CalcLine[] = [
-    { label: "Kuukausia", value: String(year.months) },
-    { label: "Pysäköintimaksuja", value: String(counted) },
-    { label: "Pysäköinti vuodessa", value: eur(year.yearlyCents) },
-    { label: "Asukaspysäköintitunnus vuodessa", value: eur(permit) },
-    { label: "Ero vuodessa", value: eur(mid) },
-    ...evidence.filter((t) => struck.has(t.id)).map((t) => ({ label: `${t.merchant} ${formatFiDate(t.bookingDate)}`, value: formatEur(netCost(t)), struck: true })),
+    { label: messageIn(lang, "opt.car_months"), value: String(year.months) },
+    { label: messageIn(lang, "opt.car_fees"), value: String(counted) },
+    { label: messageIn(lang, "opt.car_park_year"), value: eur(year.yearlyCents, lang) },
+    { label: messageIn(lang, "opt.car_permit_year"), value: eur(permit, lang) },
+    { label: messageIn(lang, "opt.car_diff"), value: eur(mid, lang) },
+    ...evidence.filter((t) => struck.has(t.id)).map((t) => ({ label: `${t.merchant} ${formatFiDate(t.bookingDate, lang)}`, value: formatEur(netCost(t), true, lang), struck: true })),
   ];
   return {
     check,
@@ -109,11 +113,11 @@ function parkingOf(a: AreaInput): { finding: FindingDraft | null; check: Check |
       area: "car",
       kind: "parking",
       subject: null,
-      title: `Pysäköinti ${eur(year.yearlyCents)} vuodessa, asukaspysäköintitunnus ${eur(permit)} vuodessa. Pohjana ${counted} pysäköintimaksua ${year.months} kuukaudessa.`,
-      action: "Hae asukaspysäköintitunnus.",
+      title: messageIn(lang, "opt.car_park_title", { year: eur(year.yearlyCents, lang), permit: eur(permit, lang), counted, months: year.months }),
+      action: messageIn(lang, "opt.car_park_action"),
       euros: { lowCents: mid, midCents: mid, highCents: mid },
       decideBy: null,
-      weaknesses: year.weakness ? [OUTSIDE_ZONE, year.weakness] : [OUTSIDE_ZONE],
+      weaknesses: year.weakness ? [outsideZone(lang), year.weakness] : [outsideZone(lang)],
       shared: false,
       calc,
       rows: evidence.map((t) => t.id),
@@ -132,14 +136,14 @@ function assess(a: AreaInput): AreaResult {
   const checks: Check[] = [];
   if (parking.check) checks.push(parking.finding ? { ...parking.check, status: "finding" } : parking.check);
   // a household with no car row has nothing to add up: the area says so and is not counted as looked at
-  if (sums && !summary) checks.push({ id: "car:cost", label: "Auton menot", status: "no_rows" });
+  if (sums && !summary) checks.push({ id: "car:cost", label: messageIn(a.lang, "opt.car_cost_chk"), status: "no_rows" });
   // the summary asks for the yearly distance, so the page can offer the input
   if (summary) {
     const km = valueOf(a.values, "car_km", a.today);
     checks.push(
       km
-        ? { id: "car:per_km", label: "Auton menot kilometriä kohden", status: "clear" }
-        : { id: "car:per_km", label: "Auton menot kilometriä kohden", status: "needs_input", input: "car_km" },
+        ? { id: "car:per_km", label: messageIn(a.lang, "opt.car_perkm_chk"), status: "clear" }
+        : { id: "car:per_km", label: messageIn(a.lang, "opt.car_perkm_chk"), status: "needs_input", input: "car_km" },
     );
   }
   return { findings: parking.finding ? [parking.finding] : [], checks, ...(summary ? { summary } : {}) };

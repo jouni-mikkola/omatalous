@@ -1,23 +1,19 @@
 /**
- * "Tavallisesti" and "valmis kuukausi": the one yardstick every view uses to say what is usual and which months may
- * be compared. A running month, or one the history does not cover from the 1st, is never part of it, and fewer than
- * three months say nothing. A comparison by category or by day also says nothing while those months hold card bills the
- * rows do not itemise or that precede a linked card's history (`itemisedMonthsBefore`). The usual spending, the usual earned income and the gate a cause must
- * pass are defined here once (ADR 0004). The page's "Säännölliset tulot kuussa" is another figure: the income report's own median of twelve
- * months of regular income (`stability.medianCents`). See docs/MONEY_FLOWS.md.
+ * "Valmis kuukausi": the one yardstick every view uses to say which months may be compared. A running month, or one the
+ * history does not cover from the 1st, is never part of it, and fewer than three months say nothing. A comparison by
+ * category or by day also says nothing while those months hold card bills the rows do not itemise or that precede a
+ * linked card's history (`itemisedMonthsBefore`). The figure read from these months is the expected spending
+ * (`expected.ts`, ADR 0021); the gate a cause must pass is defined here once (ADR 0004). The page's "Säännölliset tulot
+ * kuussa" is another figure over the same six months: the income report's median of regular income only
+ * (`stability.medianCents`). See docs/MONEY_FLOWS.md.
  */
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
-import { median } from "../stats.ts";
+import { GATE_FLOOR_CENTS, GATE_SHARE, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import { type AnalysisContext, historyCovers } from "./context.ts";
 import { accountCovers, coverage, LEFT_OUT_SHARE } from "./coverage.ts";
 import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
 import type { IsoDate } from "../types.ts";
 import type { DayRange } from "./period.ts";
-
-/** The usual level is the median of this many complete months at most. */
-export const USUAL_MONTHS = 6;
-/** Fewer complete months than this give no usual level and no comparison. */
-export const MIN_COMPARE_MONTHS = 3;
 
 /** The accounts with a row in each month (`2026-09`), found once per context. */
 const rowAccounts = new WeakMap<AnalysisContext, Map<string, Set<string>>>();
@@ -115,27 +111,14 @@ function cardGapIn(ctx: AnalysisContext, month: string): boolean {
 }
 
 /**
- * Whether the months "tavallisesti" would be read from (`completeMonthsBefore`, at least three) hold a gap of card
+ * Whether the months the expected figure would be read from (`completeMonthsBefore`, at least three) hold a gap of card
  * purchases (`cardGapIn`): the month in hand holds the purchases of a linked card in their categories where those months
  * hold nothing or a bill, so a comparison by category or by day says what the data does not hold. Month totals are
- * comparable (a bill counts as spending), so `usualSpending` and the buffer read through it.
+ * comparable (a bill counts as spending), so the expected spending and the buffer read through it.
  */
 export function cardsBreakUsual(ctx: AnalysisContext, month: string): boolean {
   const months = completeMonthsBefore(ctx, month);
   return months.length >= MIN_COMPARE_MONTHS && months.some((m) => cardGapIn(ctx, m));
-}
-
-/** The months a comparison by category or by day reads: `completeMonthsBefore`, none while `cardsBreakUsual`. */
-export function itemisedMonthsBefore(ctx: AnalysisContext, month: string): string[] {
-  return cardsBreakUsual(ctx, month) ? [] : completeMonthsBefore(ctx, month);
-}
-
-/**
- * The usual level of a month figure: the median of the values of `completeMonthsBefore(ctx, month, USUAL_MONTHS)`,
- * in whole cents, or null under three values.
- */
-export function usualCents(values: readonly number[]): number | null {
-  return values.length < MIN_COMPARE_MONTHS ? null : Math.round(median(values));
 }
 
 interface MonthSums {
@@ -169,7 +152,7 @@ function monthSums(ctx: AnalysisContext, month: string): MonthSums {
   return e;
 }
 
-/** A month's earned income (`isEarnedIncome`): what `usualIncome` is the median of. */
+/** A month's earned income (`isEarnedIncome`): what `expectedIncome` is the mean of. */
 export function earnedIncome(ctx: AnalysisContext, month: string): number {
   let cache = earnedSums.get(ctx);
   if (!cache) earnedSums.set(ctx, (cache = new Map()));
@@ -185,39 +168,6 @@ export function earnedIncome(ctx: AnalysisContext, month: string): number {
 export function spendingThrough(ctx: AnalysisContext, month: string, day = 31): number {
   return monthSums(ctx, month).through[Math.min(31, Math.max(1, day)) - 1]!;
 }
-
-/**
- * The usual level of spending over `months`, each counted on its days 1 to `day` (31: whole months): their median,
- * null under three. Every view that says what a month usually costs reads it, so a month has one usual total
- * (`usualSpending`); a view that leaves out months the rows do not cover passes its own months.
- */
-export function usualSpendingOver(ctx: AnalysisContext, months: readonly string[], day = 31): number | null {
-  return usualCents(months.map((m) => spendingThrough(ctx, m, day)));
-}
-
-/**
- * The usual level of a month's total spending: the median of the complete months before it, on its days 1 to `day`
- * (31: whole months, the forecast's "Tavallisesti kuussa"; a running month's day: "tavallisesti tähän mennessä").
- * null under three complete months.
- */
-export function usualSpending(ctx: AnalysisContext, month: string, day = 31): number | null {
-  return usualSpendingOver(ctx, completeMonthsBefore(ctx, month), day);
-}
-
-/**
- * The median earned income of the complete months before `month` (at most six): the yardstick of the income shares and
- * gates of the insights (borrowing, commitments, large income, the income series), written out in their texts as "tavalliset
- * tulot". Money from people, refunds and own money are left out. null under three complete months. The income page's
- * figure of the same name is the report's `stability.medianCents`, a longer window of regular income.
- */
-export function usualIncome(ctx: AnalysisContext, month: string): number | null {
-  return usualCents(completeMonthsBefore(ctx, month).map((m) => earnedIncome(ctx, m)));
-}
-
-/** A cause or a finding is worth its own line from this share of its base a month (H-insights section 1). */
-export const GATE_SHARE = 0.02;
-/** The gate is never under 10 € a month. */
-export const GATE_FLOOR_CENTS = 1000;
 
 /**
  * The smallest figure worth its own line against `baseCents` a month: 2 % of it, at least `floorCents` (10 €). The

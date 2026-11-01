@@ -260,6 +260,11 @@ export class HouseholdRepo {
     }));
   }
 
+  /** Whether any other member has an account: one yes or no, nothing of what it holds. */
+  async othersHaveAccounts(userId: string): Promise<boolean> {
+    return (await this.db.all<Row>("SELECT 1 FROM accounts WHERE user_id <> ? LIMIT 1", [userId])).length > 0;
+  }
+
   /** Every account of the instance, whoever linked it: the payers of a joint account are found among them by IBAN (services/money-trace.ts). */
   async allAccounts(): Promise<StoredAccount[]> {
     return (await this.db.all<Row>(`SELECT a.*, ${accountBank("a")} FROM accounts a ORDER BY a.id`)).map(toAccount);

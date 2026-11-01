@@ -1,8 +1,8 @@
-import { expect, test, type Browser, type BrowserContext } from "@playwright/test";
+import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { fakeBank, watch } from "./helpers.ts";
 
-// Asetukset > Palvelin > Enable Banking -sovellus and Pankkiyhteydet as the administrator sees them against the fake bank:
+// Asetukset > Pankit ja tilit > Pankkisovellus and Pankkiyhteydet as the administrator sees them against the fake bank:
 // the outside steps with their links, the redirect self-test, what the bank supports, and the line on an ended consent.
 // The household's own application is saved and removed again by the test that needs it, so the other specs meet none.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -29,6 +29,14 @@ async function seenFacts(context: BrowserContext) {
   return ((await answer.json()) as { banks: { bankId: string; cardAccounts: boolean; pending: boolean; balanceTypes: string[]; historyDays: number | null }[] }).banks;
 }
 
+/** A working application folds its card; the test opens it as a reader does. */
+async function unfold(page: Page) {
+  const card = page.locator("#pankkisovellus");
+  await expect(card.getByText(/^Toimii\. Sovelluksen tunnus /)).toBeVisible();
+  if ((await card.getAttribute("open")) === null) await card.locator("summary").click();
+  await expect(card).toHaveAttribute("open", "");
+}
+
 async function saveApp(context: BrowserContext) {
   const bank = fakeBank();
   const saved = await context.request.put("/api/admin/bank-app", { data: { appId: bank.appId, privateKeyPem: bank.privateKeyPem }, headers: FETCH });
@@ -39,24 +47,33 @@ test.afterEach(async () => {
   await setAnswer("ok");
 });
 
-test("the four outside steps each have a link to Enable Banking and the done list has the linked accounts", async ({ browser }) => {
+test("the three outside steps each have a link to Enable Banking and the done list has the linked accounts", async ({ browser }) => {
   const { context, page, seen } = await admin(browser);
   expect((await context.request.delete("/api/admin/bank-app", { headers: FETCH })).ok()).toBe(true);
-  await page.goto("/#/settings?section=server");
+  await page.goto("/#/settings/banks");
+  // the guide is folded until it is asked for
+  await expect(page.locator(".setup-steps")).toHaveCount(0);
+  // with no application the page offers at most 10 buttons and choices (the tabs of Asetukset left out)
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const choices = await page.evaluate(() =>
+    Array.from(document.querySelectorAll("main button, main a[href], main input:not([type=hidden]), main select, main textarea, main summary"))
+      .filter((el) => !el.closest("nav") && (el as HTMLElement).checkVisibility({ checkVisibilityCSS: true })).length,
+  );
+  expect(choices).toBeLessThanOrEqual(10);
+  await page.getByRole("button", { name: "Näytä ohje" }).click();
   const steps = page.locator(".setup-steps > li");
   await expect(steps).toHaveCount(5);
   const href = (name: string) => page.getByRole("link", { name, exact: true });
   await expect(href("Avaa kirjautuminen")).toHaveAttribute("href", "https://enablebanking.com/sign-in/");
   await expect(href("Avaa Enable Banking")).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
   await expect(href("Avaa Control Panel")).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
-  await expect(href("Avaa sovellusluettelo")).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
   // one link in each of the outside steps, and the key step has none
-  await expect(steps.filter({ has: page.locator("a[target=_blank]") })).toHaveCount(4);
+  await expect(steps.filter({ has: page.locator("a[target=_blank]") })).toHaveCount(3);
   const checklist = page.getByLabel("Enable Banking -sovelluksen vaiheet");
-  await expect(checklist.getByRole("listitem")).toHaveText(["Avain luotu", "Varmenne ladattu Enable Bankingiin", "Application ID toimii", "Tilit lisätty Enable Bankingiin"].map((t) => new RegExp(`^${t}`)));
+  await expect(checklist.getByRole("listitem")).toHaveText(["Salausavain luotu", "Varmenne lisätty Enable Bankingiin", "Sovelluksen tunnus toimii", "Pankkitilisi yhdistetty Enable Bankingissa"].map((t) => new RegExp(`^${t}`)));
   // done exactly when some bank has been seen: which it is depends on the specs this worker ran before, not on this one
   const linked = (await seenFacts(context)).some((b) => b.cardAccounts || b.pending || b.balanceTypes.length > 0 || b.historyDays !== null);
-  const item = checklist.getByText("Tilit lisätty Enable Bankingiin");
+  const item = checklist.getByText("Pankkitilisi yhdistetty Enable Bankingissa");
   if (linked) await expect(item).toHaveClass(/done/);
   else await expect(item).not.toHaveClass(/done/);
   expect(seen.problems).toEqual([]);
@@ -66,7 +83,8 @@ test("the four outside steps each have a link to Enable Banking and the done lis
 test("Testaa paluuosoite: one line for a working address, for one the application lacks, and for a failure", async ({ browser }) => {
   const { context, page, seen } = await admin(browser);
   await saveApp(context);
-  await page.goto("/#/settings?section=server");
+  await page.goto("/#/settings/banks");
+  await unfold(page);
   const test = page.getByRole("button", { name: "Testaa paluuosoite" });
   await test.click();
   await expect(page.getByText("Paluuosoite toimii.")).toBeVisible();
@@ -88,23 +106,29 @@ test("Testaa paluuosoite: one line for a working address, for one the applicatio
   await context.close();
 });
 
-test("what each bank supports: a row for the bank the list named, a fact not seen reads ei vielä tiedossa", async ({ browser }) => {
+test("the saved application shows no table of what each bank supports, and the outside steps give way to the ticked list", async ({ browser }) => {
   const { context, page, seen } = await admin(browser);
   await saveApp(context);
-  // Testaa yhteys reads the bank list, which is what makes the record
+  // Testaa yhteys reads the bank list, which still makes the record the setup checklist reads
   expect((await context.request.post("/api/admin/bank-app/test", { headers: FETCH })).ok()).toBe(true);
-  await page.goto("/#/settings?section=server");
-  const list = page.locator("h3", { hasText: "Nordea" }).locator("xpath=following-sibling::dl[1]");
-  const cell = (label: string) => list.locator("div", { has: page.getByText(label, { exact: true }) }).locator("dd");
-  await expect(cell("Suostumuksen pituus")).toHaveText("180 päivää");
-  // a fact reads ei vielä tiedossa until a link or a fetch has seen it; an earlier spec of this worker may have seen it
-  const facts = (await seenFacts(context)).find((b) => b.bankId === "nordea-fi")!;
-  expect(facts, "the record of the bank the list named").toBeTruthy();
-  await expect(cell("Korttitilit")).toHaveText(facts.cardAccounts ? "kyllä" : "ei vielä tiedossa");
-  await expect(cell("Saldotyypit")).toHaveText(facts.balanceTypes.length ? facts.balanceTypes.join(", ") : "ei vielä tiedossa");
-  await expect(cell("Historia")).toHaveText(facts.historyDays === null ? "ei vielä tiedossa" : /päiv/);
-  // the outside steps are for the setup: once the application is saved they give way to the facts and the test
-  await expect(page.getByLabel("Enable Banking -sovelluksen vaiheet")).toHaveCount(0);
+  expect((await seenFacts(context)).find((b) => b.bankId === "nordea-fi"), "the record of the bank the list named").toBeTruthy();
+  await page.goto("/#/settings/banks");
+  await expect(page.getByRole("heading", { name: "Pankkisovellus", exact: true })).toBeVisible();
+  // the card is folded while the Application ID works, with the state under its name
+  const card = page.locator("#pankkisovellus");
+  await expect(card).not.toHaveAttribute("open", "");
+  await expect(card.getByText(/^Toimii\. Sovelluksen tunnus /)).toBeVisible();
+  await unfold(page);
+  await expect(page.getByText("Suostumuksen pituus")).toHaveCount(0);
+  await expect(page.getByText("ei vielä tiedossa")).toHaveCount(0);
+  // the checked list stays: the saved application ticks its first three steps, the last one when some bank has been seen
+  const list = page.getByLabel("Enable Banking -sovelluksen vaiheet");
+  await expect(list.getByRole("listitem")).toHaveCount(4);
+  for (const step of ["Salausavain luotu", "Varmenne lisätty Enable Bankingiin", "Sovelluksen tunnus toimii"]) await expect(list.getByText(step)).toHaveClass(/done/);
+  const linked = (await seenFacts(context)).some((b) => b.cardAccounts || b.pending || b.balanceTypes.length > 0 || b.historyDays !== null);
+  if (linked) await expect(list.getByText("Pankkitilisi yhdistetty Enable Bankingissa")).toHaveClass(/done/);
+  else await expect(page.getByText("Activate by linking accounts")).toBeVisible();
+  await expect(page.locator(".setup-steps")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

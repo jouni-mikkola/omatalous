@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { ROOT, readText } from "../repo-rules/lib.ts";
 
 // ── the YAML this repository writes workflows in ──────────────────────────────────────────────────────────────────
@@ -437,12 +437,6 @@ function candidateViolations(text: string): string[] {
   return out;
 }
 
-/** The job's block of the workflow text, from its name line to the next job. */
-const jobText = (id: string) => {
-  const start = WORKFLOW.indexOf(`\n  ${id}:\n`);
-  const end = WORKFLOW.slice(start + 1).search(/\n {2}[a-z-]+:\n/);
-  return WORKFLOW.slice(start, end < 0 ? undefined : start + 1 + end);
-};
 
 describe("release workflow on a candidate branch", () => {
   const w = parseYaml(WORKFLOW) as unknown as Workflow;

@@ -2,8 +2,8 @@
  * Category rules and the categories set by hand. Each write here also decides how much to reprocess: a merchant's own
  * rule redoes that merchant's rows, anything broader redoes everything (both bump the user's data version).
  */
-import { type CategoryRule, isUnknownMerchant, namesUnknownMerchant, type RuleField, rulePatternKey } from "@banking/core";
-import type { FinanceRepo } from "../db/finance-repo.ts";
+import { type CategoryRule, isKnownCategory, isUnknownMerchant, namesUnknownMerchant, type RuleField, rulePatternKey } from "@banking/core";
+import type { FinanceRepo, MerchantRule } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
@@ -62,8 +62,33 @@ export async function deleteRule(s: Services, userId: string, id: number): Promi
 }
 
 /**
+ * What a hand-made change took over, enough to give it back: the category the row had set by hand (null when the rules
+ * decided it) and, when the change made the merchant's rule, the rules it replaced (none when there were none), with
+ * their field and priority: a rule that sat among the user's own ones must come back in its place.
+ */
+export interface CategoryUndo {
+  category: string | null;
+  rule?: MerchantRule[];
+}
+
+/** The body of an undo as the browser sends it back: checked, because the rules it names are written to the database. */
+export function parseCategoryUndo(input: { category?: unknown; rule?: unknown }): CategoryUndo {
+  const known = (v: unknown) => v === null || (typeof v === "string" && isKnownCategory(v));
+  // a merchant field, a known category, a small whole priority
+  const ruleOk = (v: unknown): v is MerchantRule => {
+    if (typeof v !== "object" || v === null) return false;
+    const r = v as Record<string, unknown>;
+    return (r.field === "merchant" || r.field === "merchant_exact") && typeof r.category === "string" && isKnownCategory(r.category) && Number.isInteger(r.priority) && (r.priority as number) >= 0 && (r.priority as number) <= 1000;
+  };
+  const rules = input.rule;
+  if (input.category === undefined || !known(input.category) || (rules !== undefined && (!Array.isArray(rules) || rules.length > 10 || !rules.every(ruleOk)))) throw new UserError("Virheellinen pyyntö.");
+  return { category: input.category as string | null, ...(rules !== undefined ? { rule: (rules as MerchantRule[]).map(({ field, category, priority }) => ({ field, category, priority })) } : {}) };
+}
+
+/**
  * One row's category by hand, and with `createRule` the merchant's rule as well, except for a row without a merchant
  * name: that one changes alone. Someone else's (shared) transaction is read-only and looks the same as a missing one.
+ * The answer carries `undo`, which `undoTransactionCategory` takes.
  */
 export async function setTransactionCategory(s: Services, userId: string, id: string, category: string | null, createRule: boolean) {
   const repo = s.finance(userId);
@@ -73,6 +98,7 @@ export async function setTransactionCategory(s: Services, userId: string, id: st
   // replacing this merchant's rule keeps the count; a new one must fit under the cap
   if (rule && !(await repo.hasMerchantRule(tx.merchant))) await checkRuleRoom(repo);
   const oldRules = await repo.listRules();
+  const undo: CategoryUndo = { category: tx.categorySource === "user" ? tx.category : null, ...(rule ? { rule: await repo.merchantRules(tx.merchant) } : {}) };
   await repo.setUserCategory(id, category);
   if (rule) await repo.setMerchantRule(tx.merchant, category);
   const { recategorised } = await reprocessMerchantChange(repo, s.settings, {
@@ -85,7 +111,31 @@ export async function setTransactionCategory(s: Services, userId: string, id: st
   const updated = await repo.getTransaction(id);
   // the row itself was set by hand before the rules ran, so reprocess did not count it
   const self = category !== null && category !== tx.category ? 1 : 0;
-  return { transaction: updated ? publicTx(updated) : null, changed: recategorised + self };
+  return { transaction: updated ? publicTx(updated) : null, changed: recategorised + self, undo };
+}
+
+/**
+ * Gives a hand-made change back: the row returns to what it had (its own category, or the rules' choice), the
+ * merchant's rule the change made goes or takes its old category back, and the merchant's other rows follow the rules
+ * again. The rows end where they were before the change.
+ */
+export async function undoTransactionCategory(s: Services, userId: string, id: string, undo: CategoryUndo): Promise<{ changed: number }> {
+  const repo = s.finance(userId);
+  const tx = await repo.getTransaction(id);
+  if (!tx) throw new NotFound("Tapahtumaa ei löydy.");
+  const oldRules = await repo.listRules();
+  const rule = undo.rule !== undefined;
+  await repo.setUserCategory(id, undo.category);
+  if (undo.rule) await repo.restoreMerchantRules(tx.merchant, undo.rule);
+  const { recategorised } = await reprocessMerchantChange(repo, s.settings, {
+    merchants: [tx.merchant],
+    rule,
+    before: new Map([[id, { category: tx.category, categorySource: tx.categorySource }]]),
+    oldRules,
+    // a whole-word rule given back reaches longer names too, as one taken away did: neither is the merchant's rows alone
+    incremental: (await derivedStateIsCurrent(s)) && !(rule && (replacesWordRule(oldRules, tx.merchant) || undo.rule!.some((r) => r.field === "merchant"))),
+  });
+  return { changed: recategorised };
 }
 
 /** The reprocess after a merchant's rule was set, replaced or removed: only that merchant's rows, unless an older whole-word rule went with it. */

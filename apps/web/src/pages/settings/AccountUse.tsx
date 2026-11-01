@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import { api } from "../../api.ts";
-import { accountNumber, money } from "../../format.ts";
+import { accountNumber } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { partAnchor } from "../../part.ts";
 import type { Account, AccountQuestion, Meta } from "../../types.ts";
@@ -32,7 +32,10 @@ import {
   takeBackCall,
   usersFor,
 } from "./account-use.ts";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { Segmented } from "../../components/ui/Segmented.tsx";
+import { t } from "../../text.ts";
 type Choices = Pick<Meta, "user" | "members">;
 
 const accountUrl = (account: Pick<Account, "id">, part: string) => `/api/accounts/${encodeURIComponent(account.id)}/${part}`;
@@ -42,7 +45,7 @@ const putUse = (account: Pick<Account, "id">, users: Said[]) => api(useUrl(accou
 /** The select with a name for the account it belongs to; the choices are the options of account-use.ts. */
 function ChoiceSelect({ value, account, meta, onPick }: { value: string; account: Account; meta: Choices; onPick: (choice: string) => void }) {
   return (
-    <select value={value} aria-label={`Tilin ${account.name} käyttäjä`} onChange={(e) => onPick(e.target.value)}>
+    <select value={value} aria-label={t("set.acuse.user_of_account", { name: account.name })} onChange={(e) => onPick(e.target.value)}>
       {optionsOf(account, meta).map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
@@ -57,7 +60,7 @@ export function UseSelect({ account, meta, saved, onSaved, onChange, onError }: 
   const use = account.use;
   if (!use) return null;
   const options = optionsOf(account, meta);
-  if (options.length < 2) return <>Minä</>;
+  if (options.length < 2) return <>{t("set.acuse.me")}</>;
   const run = async (fn: () => Promise<unknown>) => {
     try {
       await fn();
@@ -72,14 +75,14 @@ export function UseSelect({ account, meta, saved, onSaved, onChange, onError }: 
       <ChoiceSelect value={choiceOf(use)} account={account} meta={meta} onPick={(choice) => void run(() => putUse(account, usersFor(choice, account, meta)))} />
       {saved && (
         <div className="small muted" role="status">
-          Tallennettu.
+          {t("set.acuse.saved")}
         </div>
       )}
       {use.source === "said" && (
         <div className="small">
-          <button className="text-button" type="button" onClick={() => void run(() => api(useUrl(account), { method: "DELETE" }))}>
-            Palauta pankin tiedoista
-          </button>
+          <Button variant="link" onClick={() => void run(() => api(useUrl(account), { method: "DELETE" }))}>
+            {t("set.acuse.reset_to_the_bank_s")}
+          </Button>
         </div>
       )}
     </>
@@ -92,10 +95,10 @@ interface Suggestion {
 }
 
 /** The labels of the three buttons of a joint account, in the order they are drawn. */
-const SPLITS: { split: Split; label: string }[] = [
-  { split: "source", label: "Sen mukaan, kuka tilille on maksanut" },
-  { split: "equal", label: "Tasan" },
-  { split: "percent", label: "Prosentit" },
+const splits = (): { split: Split; label: string }[] => [
+  { split: "source", label: t("set.acuse.by_who_has_paid_into") },
+  { split: "equal", label: t("set.acuse.equally") },
+  { split: "percent", label: t("set.acuse.by_shares") },
 ];
 
 /**
@@ -108,7 +111,7 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
   const people = peopleOf(account, meta);
   const owners = ownersOf(account, meta);
   const chosen = splitOf(use);
-  // the fields are open while "Prosentit" is pressed, also when the account is cut otherwise until another button is
+  // the fields are open while "Osuuksien mukaan" is pressed, also when the account is cut otherwise until another button is
   const [open, setOpen] = useState(chosen === "percent");
   const [initial] = useState(() => percentFieldsOf(people, use));
   const [fields, setFields] = useState(initial);
@@ -164,13 +167,13 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
     <div className="use-parts" id={partAnchor(account.id)}>
       {isJoint(use) && (
         <>
-          <div className="segmented" role="group" aria-label={`Tilin ${account.name} osuudet`}>
-            {SPLITS.map((s) => (
-              <button key={s.split} type="button" aria-pressed={pressed === s.split} disabled={busy !== null} aria-busy={busy === s.split || undefined} onClick={() => choose(s.split)}>
-                {s.label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label={t("set.acuse.shares_of_account", { name: account.name })}
+            value={pressed}
+            options={splits().map((s) => ({ value: s.split, label: s.label, disabled: busy !== null }))}
+            busy={splits().find((s) => s.split === busy)?.split ?? null}
+            onChange={choose}
+          />
           {pressed === "percent" && (
             <form
               className="use-fields"
@@ -196,36 +199,36 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
                   </label>
                 );
               })}
-              <button className="btn btn-primary" type="submit" disabled={busy !== null || !changed || problem !== null} aria-busy={busy === "percent" || undefined}>
-                Tallenna
-              </button>
+              <Button variant="primary" type="submit" disabled={busy !== null || !changed || problem !== null} aria-busy={busy === "percent" || undefined}>
+                {t("set.acuse.save")}
+              </Button>
             </form>
           )}
           {account.offer && (
             <ul className="use-list">
               <li className="use-row">
-                <span className="use-label">Tilille maksettu</span>
+                <span className="use-label">{t("set.acuse.paid_into_account")}</span>
                 <span className="use-sum">{offerText(account.offer, people)}</span>
                 <span className="use-actions">
-                  <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={busy === "offer" || undefined} onClick={() => void act("offer", putSource)}>
-                    Käytä tätä
-                  </button>
+                  <Button variant="link" disabled={busy !== null} aria-busy={busy === "offer" || undefined} onClick={() => void act("offer", putSource)}>
+                    {t("set.acuse.use_this")}
+                  </Button>
                 </span>
               </li>
             </ul>
           )}
           {answers.length > 0 && (
             <>
-              <h3 className="use-head">Vastaukset</h3>
+              <h3 className="use-head">{t("set.acuse.answers")}</h3>
               <ul className="use-list">
                 {answers.map((a) => (
                   <li key={`${a.kind}:${a.key}`} className="use-row">
                     <span className="use-label">{questionLabel(a)}</span>
                     <span className="use-sum">{answerLabel(a.owner, owners)}</span>
                     <span className="use-actions">
-                      <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={working(a) || undefined} aria-label={`Poista: ${questionLabel(a)}`} onClick={() => send(takeBackCall(account.id, a))}>
-                        Poista
-                      </button>
+                      <Button variant="link" disabled={busy !== null} aria-busy={working(a) || undefined} aria-label={t("set.acuse.remove_answer", { label: questionLabel(a) })} onClick={() => send(takeBackCall(account.id, a))}>
+                        {t("set.acuse.remove")}
+                      </Button>
                     </span>
                   </li>
                 ))}
@@ -236,13 +239,13 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
       )}
       {data?.unseen.map((id) => (
         <div key={id} className="use-line small" role="status">
-          <span>{meta.members.find((m) => m.id === id)?.displayName ?? "Käyttäjä"} ei näe tätä tiliä, joten osuus ei näy hänen luvuissaan.</span>
-          <button className="btn btn-small" type="button" onClick={() => void share(id)}>
-            Jaa tili
-          </button>
+          <span>{t("set.acuse.cannot_see_account", { name: meta.members.find((m) => m.id === id)?.displayName ?? t("set.acuse.user") })}</span>
+          <Button variant="link" onClick={() => void share(id)}>
+            {t("set.acuse.share_account")}
+          </Button>
         </div>
       ))}
-      {error && <div className="error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
 }
@@ -264,7 +267,7 @@ export function LinkQuestion({ meta, onChange, onSaved }: { meta: Meta; onChange
     setError(null);
     try {
       for (const a of accounts) await putUse(a, usersFor(chosen[a.id] ?? choiceOf(a.use!), a, meta));
-      onSaved({ tone: "good", text: "Tallennettu." });
+      onSaved({ tone: "good", text: t("set.acuse.saved") });
       onChange();
     } catch (err) {
       setError((err as Error).message);
@@ -276,8 +279,8 @@ export function LinkQuestion({ meta, onChange, onSaved }: { meta: Meta; onChange
     <div className="card" id="tilien-kayttajat">
       <div className="card-head">
         <div>
-          <h2>Tilien käyttäjät</h2>
-          <div className="card-sub">Valittuna ovat pankin tiedoista päätellyt käyttäjät.</div>
+          <h2>{t("set.acuse.account_users")}</h2>
+          <div className="card-sub">{t("set.acuse.the_users_inferred_from_the")}</div>
         </div>
       </div>
       <ul className="acc-pick">
@@ -292,11 +295,11 @@ export function LinkQuestion({ meta, onChange, onSaved }: { meta: Meta; onChange
         ))}
       </ul>
       <div className="form-row">
-        <button className="btn btn-primary" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void save()}>
-          {busy ? "Tallennetaan…" : "Tallenna"}
-        </button>
+        <Button variant="primary" busy={busy} onClick={() => void save()}>
+          {busy ? t("set.acuse.saving") : t("set.acuse.save")}
+        </Button>
       </div>
-      {error && <div className="error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
 }

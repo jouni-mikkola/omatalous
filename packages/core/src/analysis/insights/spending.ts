@@ -7,16 +7,16 @@
  */
 import { fromMonthIndex, monthEnd, monthIndex } from "../../dates.ts";
 import { spendingChange } from "../change.ts";
-import { changeMonths, signed } from "../change-text.ts";
+import { changeMonths } from "../change-text.ts";
+import { GROCERY_MIN_SAME_SHOPS, GROCERY_MIN_VISITS } from "../../thresholds.ts";
 import { formatEur } from "../format.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import type { AnalysisContext, AnalysisTx } from "../context.ts";
 import type { DateRange } from "../period.ts";
 import { meansApart, monthlyNoise } from "../signal.ts";
-import type { Insight, InsightSource } from "./types.ts";
-
-
-const GROCERY_MIN_VISITS = 8;
-const GROCERY_MIN_SAME_SHOPS = 0.7;
+import { insightOf } from "./shared.ts";
+import { type Insight, type InsightSource, q } from "./types.ts";
 
 /** Every month from `first` to `last`, both included. */
 /** "+12 %", "−3 %", "±0 %" */
@@ -52,12 +52,11 @@ function byMonth(rows: readonly AnalysisTx[], months: readonly string[]): { visi
 }
 
 /** Candidate 12, the grocery basket: price or visits, from the year view or else the season view. */
-export function spendingInsights(ctx: AnalysisContext, range: DateRange): Insight[] {
+export function spendingInsights(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): Insight[] {
   const { month, lastComplete } = changeMonths(ctx, range);
   const c = spendingChange(ctx, "year", lastComplete) ?? spendingChange(ctx, "season", lastComplete === month ? month : lastComplete);
   if (!c || c.running) return [];
   const k = c.target.months.length;
-  const monthly = (cents: number) => Math.round(cents / k);
   const out: Insight[] = [];
   const g = c.categories.find((r) => r.category === "groceries");
   if (g && g.visitsNow / k >= GROCERY_MIN_VISITS && g.visitsBase / k >= GROCERY_MIN_VISITS && g.nowCents > 0 && g.baseCents > 0 && g.sameShopsNowCents / g.nowCents >= GROCERY_MIN_SAME_SHOPS && g.sameShopsBaseCents / g.baseCents >= GROCERY_MIN_SAME_SHOPS) {
@@ -73,25 +72,28 @@ export function spendingInsights(ctx: AnalysisContext, range: DateRange): Insigh
       const visitPct = Math.round((now / base - 1) * 100);
       const byPrice = Math.abs(priceCents) >= Math.abs(volumeCents);
       if (Math.max(Math.abs(priceCents), Math.abs(volumeCents)) >= c.gateCents && clearOfNoise(ctx, c.target.months, c.base.months, byPrice)) {
-        const title = byPrice ? `Ruokakaupan ostoskerta ${Math.abs(ticketPct)} % ${priceCents > 0 ? "kalliimpi" : "halvempi"}` : `Ruokakaupassa käyntejä ${Math.abs(visitPct)} % ${volumeCents > 0 ? "enemmän" : "vähemmän"}`;
         const changeCents = priceCents + volumeCents;
-        out.push({
-          id: "spending-groceries",
-          tone: "info",
-          title,
-          detail: `${Math.round(now / k)} käyntiä kuussa, vuotta aiemmin ${Math.round(base / k)}, samoissa kaupoissa. Ostoskerta ${signed(monthly(priceCents))}, käyntien määrä ${signed(monthly(volumeCents))} kuussa.`,
-          yearlyCents: Math.round((Math.abs(changeCents) / k) * 12),
-          direction: changeCents < 0 ? -1 : 1,
-          link: { category: "groceries", from: `${c.target.months[0]}-01`, to: monthEnd(c.target.months[k - 1]!) },
-          calc: [
-            { label: "Käyntejä nyt", value: String(now) },
-            { label: "Käyntejä vuotta aiemmin", value: String(base) },
-            { label: "Käyntien muutos", value: signedPct(visitPct) },
-            { label: "Ostokset nyt", value: formatEur(nowCents, false) },
-            { label: "Ostokset vuotta aiemmin", value: formatEur(baseCents, false) },
-            { label: "Ostoskerran muutos", value: signedPct(ticketPct) },
-          ],
-        });
+        const yearly = Math.round((Math.abs(changeCents) / k) * 12);
+        out.push(
+          insightOf({
+            lang,
+            id: "spending-groceries",
+            fact: { type: "groceries", byPrice, percent: byPrice ? ticketPct : visitPct, visitsPerMonth: Math.round(now / k) },
+            comparison: byPrice ? { label: "yearAgoTicket", value: q.cents(Math.round(baseCents / base)) } : { label: "yearAgoVisits", value: q.count(Math.round(base / k)) },
+            action: { label: "seeRows", target: { page: "transactions", filter: { category: "groceries", from: `${c.target.months[0]}-01`, to: monthEnd(c.target.months[k - 1]!) } } },
+            yearlyCents: changeCents < 0 ? yearly : -yearly,
+            kind: "pattern",
+            link: { category: "groceries", from: `${c.target.months[0]}-01`, to: monthEnd(c.target.months[k - 1]!) },
+            calc: [
+              { label: messageIn(lang, "calc.visits_now"), value: String(now) },
+              { label: messageIn(lang, "calc.visits_then"), value: String(base) },
+              { label: messageIn(lang, "calc.visits_change"), value: signedPct(visitPct) },
+              { label: messageIn(lang, "calc.purchases_now"), value: formatEur(nowCents, false, lang) },
+              { label: messageIn(lang, "calc.purchases_year_ago"), value: formatEur(baseCents, false, lang) },
+              { label: messageIn(lang, "calc.ticket_change"), value: signedPct(ticketPct) },
+            ],
+          }),
+        );
       }
     }
   }
@@ -117,4 +119,4 @@ function clearOfNoise(ctx: AnalysisContext, target: readonly string[], base: rea
   return byPrice ? meansApart(a.tickets, b.tickets, monthlyNoise(all.tickets)) : meansApart(a.visits, b.visits, monthlyNoise(all.visits));
 }
 
-export const spendingChanges: InsightSource = (a) => spendingInsights(a.ctx, a.range);
+export const spendingChanges: InsightSource = (a) => spendingInsights(a.ctx, a.range, a.lang);

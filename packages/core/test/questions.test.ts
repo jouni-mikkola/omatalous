@@ -125,7 +125,7 @@ describe("what would mend it most", () => {
     expect(q.total).toBe(6);
   });
 
-  it("gives a loan proposal a row of twelve payments, and none once it is marked Ei laina", () => {
+  it("gives a loan proposal a row of twelve payments, and none once it is marked Ei ole laina", () => {
     const rows: Transaction[] = Array.from({ length: 6 }, (_, i) =>
       tx({ bookingDate: `${addMonths("2026-10", i - 5)}-05`, amountCents: -41200, description: "LAINAN LYHENNYS 44512", counterparty: "ESIMERKKI PALVELUT OY", merchant: normalizeMerchant("ESIMERKKI PALVELUT OY", "LAINAN LYHENNYS 44512") }),
     );

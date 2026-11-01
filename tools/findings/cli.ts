@@ -6,6 +6,9 @@
  * Without a household flag it runs the demo and N plain and N settled seeds (N = 5). `--event` runs the life-event
  * kit's base household and that event on it. `--golden` rewrites packages/core/test/golden/*.txt instead.
  */
+// the texts are read through the catalogue: English and the late Finnish tables install themselves on import
+import "../../packages/core/src/messages-en.ts";
+import "../../packages/core/src/messages-late.ts";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { EVENTS, kitHousehold } from "../../packages/core/test/kit/index.ts";

@@ -16,26 +16,31 @@ import { BankLogo } from "../../components/BankLogo.tsx";
 import { BankPicker, lastUsedBank } from "../../components/BankPicker.tsx";
 import { WARN_DAYS, type RoundView } from "@banking/core";
 import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../../consent-notices.ts";
-import { accountNumber, date, dateTime, localDay, plural } from "../../format.ts";
+import { accountNumber, date, dateTime, localDay } from
+ "../../format.ts";
 import type { Account, BankOption, Connection, Meta } from "../../types.ts";
 import { LinkQuestion } from "./AccountUse.tsx";
 import { RenewalRound } from "./RenewalRound.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { SETTINGS_ANCHOR, settingsHash } from "../../routes.ts";
+import { useLookAgain, waitsForFirstFetch } from "../../first-fetch.ts";
+import { labelTable, rich, t, tn } from "../../text.ts";
 /**
  * The bank callback sends only these codes (routes/bank.ts). The link reasons have the same words as LINK_FAILURES in
  * the server's connectors/link-state.ts, which a pasted address gets; anything else reads as "failed".
  */
-export const CONNECT_ERRORS: Record<string, string> = {
-  session: "Kirjautuminen vanheni. Kirjaudu ja yhdistä pankki uudelleen.",
-  setup: "Pankkiyhteydet eivät ole käytössä. Pyydä ylläpitäjää ottamaan ne käyttöön.",
-  failed: "Yhdistäminen epäonnistui. Yritä uudelleen.",
-  cancelled: "Yhdistäminen keskeytyi.",
-  bank: "Pankki keskeytti yhdistämisen. Syy näkyy Enable Bankingin Control Panelissa sovelluksen pyyntölokissa.",
-  inactive: "Enable Banking ei vielä päästä sovellusta pankkeihin. Ylläpitäjän pitää painaa Control Panelissa Activate by linking accounts.",
-  app: "Enable Banking ei tunnistanut sovellusta. Ylläpitäjän pitää tarkistaa se kohdassa Asetukset > Palvelin > Testaa yhteys.",
-  refused: "Enable Banking hylkäsi yhdistämisen. Syy näkyy Control Panelissa sovelluksen pyyntölokissa.",
-  expired: "Yhdistäminen vanheni. Yritä uudelleen.",
-};
+export const CONNECT_ERRORS: Record<string, string> = labelTable({
+  session: () => t("set.conn.the_sign_in_expired_sign"),
+  setup: () => t("set.conn.bank_connections_are_not_in"),
+  failed: () => t("set.conn.connecting_failed_try_again"),
+  cancelled: () => t("set.conn.connecting_was_cancelled"),
+  bank: () => t("set.conn.the_bank_cancelled_the_connection"),
+  inactive: () => t("set.conn.enable_banking_does_not_yet"),
+  app: () => t("set.conn.enable_banking_did_not_recognise"),
+  refused: () => t("set.conn.enable_banking_refused_the_connection"),
+  expired: () => t("set.conn.the_connection_expired_try_again"),
+});
 
 /** hasOwn: the code comes from the address bar, so "constructor" must not find an inherited value. */
 export function connectError(code: string): string {
@@ -45,32 +50,19 @@ export function connectError(code: string): string {
 /** The Tila column: the same words as the notice and Tietojen laatu, and no date ahead for a consent that broke or ended before its date. */
 export function connectionStateText(c: Pick<Connection, "state" | "validUntil">, today = ""): string {
   // an end marked before its date is no "vanhentui" with a date ahead
-  if (c.state === "lapsed") return today && (c.validUntil ? localDay(c.validUntil) : "") > today ? "päättynyt" : `vanhentui ${date(c.validUntil)}`;
-  if (c.state === "broken") return "katkesi";
-  if (c.state === "removed") return "poistettu";
-  return "käytössä";
+  if (c.state === "lapsed") return today && (c.validUntil ? localDay(c.validUntil) : "") > today ? t("set.conn.ended") : t("set.conn.expired_on", { date: date(c.validUntil) });
+  if (c.state === "broken") return t("set.conn.broken");
+  if (c.state === "removed") return t("set.conn.removed");
+  return t("set.conn.in_use");
 }
 
 /** A consent that ended and has no newer one of its bank: Yhdistä uudelleen is the next step, and the row says why. */
 export function renewalLine(c: Pick<Connection, "needsRenewal" | "replaced">): string | null {
-  return c.needsRenewal && !c.replaced ? "Pankin yhteys päättyi." : null;
+  return c.needsRenewal && !c.replaced ? t("set.conn.the_bank_connection_ended") : null;
 }
 
 /**
- * True while an active consent has no answer yet: an account not fetched (and with no stopping problem), or no account
- * at all, which is how a consent looks before its first fetch has listed them. The page looks again while this holds.
- */
-export function waitsForFirstFetch(connections: readonly Pick<Connection, "id" | "state">[], accounts: readonly Pick<Account, "connectionId" | "lastSyncedAt" | "problem">[]): boolean {
-  return connections
-    .filter((c) => c.state === "active")
-    .some((c) => {
-      const own = accounts.filter((a) => a.connectionId === c.id);
-      return own.length === 0 || own.some((a) => !a.lastSyncedAt && !a.problem);
-    });
-}
-
-/**
- * The Haettu column: when the accounts of a consent were last fetched, or, while none was, why. A consent that ended
+ * The Päivitetty column: when the accounts of a consent were last fetched, or, while none was, why. A consent that ended
  * keeps the date of its last run.
  */
 export function fetchedText(conn: Pick<Connection, "id" | "state" | "lastSyncedAt">, accounts: readonly Pick<Account, "connectionId" | "lastSyncedAt" | "problem">[]): string {
@@ -78,9 +70,9 @@ export function fetchedText(conn: Pick<Connection, "id" | "state" | "lastSyncedA
   const last = own.reduce<string | null>((late, a) => (a.lastSyncedAt && (!late || a.lastSyncedAt > late) ? a.lastSyncedAt : late), null);
   if (last) return dateTime(last);
   if (conn.state !== "active" || !own.length) return dateTime(conn.lastSyncedAt);
-  if (own.some((a) => a.problem?.kind === "not_linked")) return "Ei lisätty Control Panelissa";
-  if (own.some((a) => a.problem?.kind === "failed")) return "Haku epäonnistui";
-  return "Odottaa ensimmäistä hakua";
+  if (own.some((a) => a.problem?.kind === "not_linked")) return t("set.conn.not_added_in_the_control");
+  if (own.some((a) => a.problem?.kind === "failed")) return t("set.conn.fetch_failed");
+  return t("set.conn.waiting_for_the_first_fetch");
 }
 
 /**
@@ -90,8 +82,8 @@ export function fetchedText(conn: Pick<Connection, "id" | "state" | "lastSyncedA
  */
 export function connectedMessage(accounts: number): { tone: "good" | "warning"; text: string } {
   return accounts > 0
-    ? { tone: "good", text: `Pankki yhdistetty, ${plural(accounts, "tili", "tiliä")}. Tapahtumat tulevat hetken päästä.` }
-    : { tone: "warning", text: "Pankki ei antanut tilejä. Lisää tilit Enable Bankingissa (Link accounts) ja yritä uudelleen." };
+    ? { tone: "good", text: t("set.conn.connected", { accounts: tn(accounts, "set.conn.account_one", "set.conn.account_many") }) }
+    : { tone: "warning", text: t("set.conn.the_bank_gave_no_accounts") };
 }
 
 /**
@@ -152,7 +144,7 @@ export function BankConnections({
     setPicking(true);
     setFocusSignal((n) => n + 1);
   };
-  // the banner of an ended consent links here (#/settings?add=1) while the page may already be open
+  // the banner of an ended consent links here (#/settings/banks?add=1) while the page may already be open
   useEffect(() => {
     if (pickerOpen) openPicker();
   }, [pickerOpen]);
@@ -163,6 +155,8 @@ export function BankConnections({
   // a consent that owns no account is not listed: its accounts moved to a newer one, or it never had any
   const current = meta.connections.filter((c) => !c.history);
   const isAdmin = meta.user.role === "admin";
+  // a member of an install with no bank app (neither the administrator's nor their own key) and no consent left has no bank to pick: the statement file is the way on
+  const noApp = !isAdmin && meta.bank.source === null && current.length === 0;
   // an app that reads Inactive is not held back here: starting a connection tests it again and says what is wrong
   const canStart = meta.bank.configured || !!meta.bank.inactive;
   const accountsOf = (connectionId: string) => meta.accounts.filter((a) => a.connectionId === connectionId);
@@ -173,14 +167,7 @@ export function BankConnections({
   // The first fetch of a new connection runs after the bank sent the browser back. Until every account of an active
   // consent has an answer (fetched, or what stopped it) the page looks again, for a minute at most.
   const waiting = linked && waitsForFirstFetch(meta.connections, meta.accounts);
-  const reload = useRef(onChange);
-  reload.current = onChange;
-  useEffect(() => {
-    if (!waiting) return;
-    let looked = 0;
-    const timer = setInterval(() => (++looked > 12 ? clearInterval(timer) : reload.current()), 5000);
-    return () => clearInterval(timer);
-  }, [waiting]);
+  useLookAgain(waiting, onChange);
 
   // Set when this page is on its way to the bank: busy then stays set, so a late second press starts no second consent.
   const leaving = useRef(false);
@@ -261,23 +248,29 @@ export function BankConnections({
     <div className="card" id="pankkiyhteydet">
       <div className="card-head">
         <div>
-          <h2>Pankkiyhteydet</h2>
+          <h2>{t("set.conn.bank_connections")}</h2>
         </div>
-        <div className="form-row" style={{ margin: 0 }}>
+        <div className="form-row flush">
           {sync && meta.connections.some((c) => c.status === "active") && (
-            <button className="btn" type="button" disabled={sync.disabled} aria-busy={sync.busy || undefined} onClick={sync.start}>
-              {sync.busy ? "Haetaan…" : "Hae nyt"}
-            </button>
+            <Button disabled={sync.disabled} aria-busy={sync.busy || undefined} onClick={sync.start}>
+              {sync.busy ? t("set.conn.fetching") : t("set.conn.fetch_now")}
+            </Button>
           )}
-          {!picking && (
-            <button className="btn btn-primary" type="button" onClick={openPicker}>
-              {linked ? "Yhdistä toinen pankki" : "Yhdistä pankki"}
-            </button>
+          {!picking && !noApp && (
+            <Button variant="primary" onClick={openPicker}>
+              {linked ? t("set.conn.connect_another_bank") : t("set.conn.connect_a_bank")}
+            </Button>
           )}
         </div>
       </div>
 
-      {picking && (
+      {noApp && (
+        <Notice tone="warning">
+          {t("set.conn.no_app")} <a href={settingsHash("banks", SETTINGS_ANCHOR.statement)}>{t("start.statement")}</a>
+        </Notice>
+      )}
+
+      {picking && !noApp && (
         <BankPicker
           banks={meta.bank.banks}
           lastUsed={lastUsedBank(meta.connections, meta.bank.banks)}
@@ -289,17 +282,17 @@ export function BankConnections({
           onClose={() => setPicking(false)}
         >
           {meta.bank.configured ? (
-            <p className="small muted">Lisää jokainen tili ja luottokortti erikseen.</p>
+            <p className="small muted">{t("set.conn.add_each_account_and_credit")}</p>
           ) : meta.bank.inactive ? (
-            <div className="notice warning">
-              {CONNECT_ERRORS.inactive} Kun tilit on lisätty, yhteys testataan uudelleen, kun valitset pankin.
-            </div>
+            <Notice tone="warning">
+              {CONNECT_ERRORS.inactive} {t("set.conn.after_adding")}
+            </Notice>
           ) : isAdmin ? (
-            <div className="notice warning">
-              Määritä ensin Enable Banking kohdassa Asetukset &gt; <a href="#/settings?section=server">Palvelin</a>.
-            </div>
+            <Notice tone="warning">
+              {rich("set.conn.set_up_app_first", {}, { app: <a href={settingsHash("banks", SETTINGS_ANCHOR.bankApp)}>{t("set.conn.eb_app")}</a> })}
+            </Notice>
           ) : (
-            <div className="notice warning">Ylläpitäjän pitää ensin ottaa pankkiyhteydet käyttöön.</div>
+            <Notice tone="warning">{t("set.conn.the_administrator_must_first_turn")}</Notice>
           )}
         </BankPicker>
       )}
@@ -307,7 +300,7 @@ export function BankConnections({
       <RenewalRound meta={meta} disabled={!canStart || busy !== null} busy={busy} onStart={startRound} onNext={(bank) => void connect(bank)} onClose={closeRound} />
 
       {unlinked.length > 0 && (
-        <div className="notice warning unlinked" role="status">
+        <Notice tone="warning" className="unlinked" role="status">
           <p>{unlinkedTitle(unlinked.length)}</p>
           <ul>
             {unlinked.map((a) => (
@@ -320,23 +313,23 @@ export function BankConnections({
               <>
                 {" "}
                 <a href={CONTROL_PANEL} target="_blank" rel="noopener noreferrer">
-                  Avaa Control Panel
+                  {t("set.conn.open_control_panel")}
                 </a>
               </>
             )}
           </p>
-        </div>
+        </Notice>
       )}
 
       {current.length > 0 ? (
         <Table
-          caption="Pankkiyhteydet"
+          caption={t("set.conn.bank_connections")}
           rows={current}
           rowKey={(c) => c.id}
           columns={[
             {
               key: "bank",
-              label: "Pankki",
+              label: t("set.conn.bank"),
               kind: "text",
               rowHead: true,
               cell: (c) => (
@@ -358,18 +351,18 @@ export function BankConnections({
             },
             {
               key: "state",
-              label: "Tila",
+              label: t("set.conn.state"),
               kind: "text",
               cell: (c) => (
                 <>
                   {validityText(c) || connectionStateText(c, meta.today)}
-                  {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">vanhenee pian</span>}
+                  {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">{t("set.conn.expires_soon")}</span>}
                   {renewalLine(c) && <div>{renewalLine(c)}</div>}
                   {reminderOf(c) && (
                     <div className="small">
-                      <button className="text-button" type="button" onClick={() => saveReminder(c)}>
-                        Muistutus kalenteriin
-                      </button>{" "}
+                      <Button variant="link" onClick={() => saveReminder(c)}>
+                        {t("set.conn.add_a_reminder_to_the")}
+                      </Button>{" "}
                       <span className="muted">{date(reminderOf(c))}</span>
                     </div>
                   )}
@@ -378,26 +371,26 @@ export function BankConnections({
             },
             {
               key: "fetched",
-              label: "Haettu",
+              label: t("set.conn.updated"),
               kind: "text",
               cell: (c) => fetchedText(c, meta.accounts),
             },
             {
               key: "actions",
-              label: "Toiminnot",
+              label: t("set.conn.actions"),
               headHidden: true,
               kind: "text",
               className: () => "num",
               cell: (c) => (
                 <span className="row-actions">
                   {canReconnect(c) && (
-                    <button className={renewalLine(c) ? "btn btn-small btn-primary" : "btn btn-small"} type="button" disabled={busy !== null} aria-busy={busy === `connect-${renewalBank(meta.bank.banks, c.institution, canStart)}` || undefined} onClick={() => reconnect(c)}>
-                      Yhdistä uudelleen
-                    </button>
+                    <Button variant={renewalLine(c) ? "primary" : "link"} disabled={busy !== null} aria-busy={busy === `connect-${renewalBank(meta.bank.banks, c.institution, canStart)}` || undefined} onClick={() => reconnect(c)}>
+                      {t("set.conn.reconnect")}
+                    </Button>
                   )}
                   {c.state === "active" && (
-                    <button
-                      className="btn btn-small btn-danger"
+                    <Button
+                      variant="link"
                       disabled={busy !== null}
                       aria-busy={busy === `del-${c.id}` || undefined}
                       onClick={() =>
@@ -407,8 +400,8 @@ export function BankConnections({
                         })
                       }
                     >
-                      Poista
-                    </button>
+                      {t("set.conn.remove")}
+                    </Button>
                   )}
                 </span>
               ),
@@ -416,12 +409,12 @@ export function BankConnections({
           ]}
         />
       ) : (
-        !picking && <p className="muted">Yhdistä pankki, niin tilit ja tapahtumat haetaan tänne.</p>
+        !picking && <p className="muted">{t("set.conn.connect_a_bank_and_the")}</p>
       )}
 
       {meta.bank.configured && (
         <details open={pasteOpen || undefined} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
-          <summary className="small muted">{mode === "paste" ? "Liitä pankin viimeisen sivun osoite" : "Viimeistele yhteys osoitteella"}</summary>
+          <summary className="small muted">{mode === "paste" ? t("set.conn.paste_the_address_of_the") : t("set.conn.if_connecting_was_left_unfinished")}</summary>
           <form
             className="form-row"
             onSubmit={(e) => {
@@ -437,18 +430,18 @@ export function BankConnections({
           >
             <input
               type="text"
-              style={{ flex: 1, minWidth: 220 }}
-              placeholder="Liitä osoite selaimen osoiteriviltä"
-              aria-label="Pankin palauttama osoite"
+              className="bank-return-input"
+              placeholder={t("set.conn.paste_the_address_from_the")}
+              aria-label={t("set.conn.the_address_the_bank_returned")}
               spellCheck={false}
               autoComplete="off"
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
               required
             />
-            <button className="btn" type="submit" disabled={busy !== null} aria-busy={busy === "paste" || undefined}>
-              Viimeistele
-            </button>
+            <Button type="submit" disabled={busy !== null} aria-busy={busy === "paste" || undefined}>
+              {t("set.conn.finish")}
+            </Button>
           </form>
         </details>
       )}

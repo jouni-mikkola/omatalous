@@ -35,7 +35,7 @@ export async function startConnection(s: Services, userId: string, bankId: unkno
     throw linkFailure(err);
   }
   if (!aspsp) throw new UserError(`Pankkia ${bank.name} (${country}) ei löytynyt Enable Bankingista.`);
-  const seconds = Math.min(s.config.bank.consentDays * 86_400, aspsp.maximum_consent_validity ?? Number.POSITIVE_INFINITY);
+  const seconds = Math.min(s.instance.limits.get("consentDays") * 86_400, aspsp.maximum_consent_validity ?? Number.POSITIVE_INFINITY);
 
   // the state ties the bank's redirect to this user: another user cannot complete it
   const state = await issueLinkState(s, userId, returnTo);

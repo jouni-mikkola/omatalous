@@ -162,7 +162,7 @@ export function creditStack(ctx: AnalysisContext): CreditStack {
   const consumer = lines.filter((l) => !PLANNED.has(l.kind));
   const running = consumer.filter((l) => l.active);
   const fresh = running.filter((l) => l.openedKnown && today - dayNumber(l.firstDay) <= NEW_DAYS);
-  const links = linksOf(ctx, found);
+  const links = linksOf(found);
   const stacked = running.length >= STACK_ACTIVE && fresh.length >= STACK_NEW;
   // the lines are read by rule from payee names and categories; the counts of rows are known, the lines estimated
   const confidence: Confidence = "estimated";
@@ -176,7 +176,7 @@ export function creditStack(ctx: AnalysisContext): CreditStack {
 }
 
 /** Each draw of credit followed within `LINK_DAYS` by payments to other lines beyond their usual instalment. */
-function linksOf(ctx: AnalysisContext, found: ReadonlyMap<string, { kind: CreditKind; rows: AnalysisTx[] }>): CreditLink[] {
+function linksOf(found: ReadonlyMap<string, { kind: CreditKind; rows: AnalysisTx[] }>): CreditLink[] {
   const lineOfRow = new Map<string, string>();
   for (const [key, l] of found) for (const t of l.rows) lineOfRow.set(t.id, key);
   const links: CreditLink[] = [];

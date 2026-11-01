@@ -65,7 +65,7 @@ async function readPicture(browser: Browser, png: Buffer): Promise<{ form: Form;
   try {
     const page: Page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/settings");
+    await page.goto("/#/settings/household");
     const card = page.locator("#lainat");
     const started = Date.now();
     await card.getByLabel("Kuva tai PDF lainasta").setInputFiles({ name: "lainan-tiedot.png", mimeType: "image/png", buffer: png });

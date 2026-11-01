@@ -1,0 +1,31 @@
+/** The English table of card-file; the Finnish one it must match is in ../messages-card-file.ts. */
+import type { FI_CARD_FILE } from "../messages-card-file.ts";
+
+export const EN_CARD_FILE: Record<keyof typeof FI_CARD_FILE, string> = {
+  "card_file.title": "Statement from a file",
+  "card_file.sub": "If the bank does not send the transactions, you can bring them in from a file. The file is opened only in this browser and is not stored: only the transaction rows are kept.",
+  "card_file.pick": "Choose a file",
+  "card_file.formats": "An account's CSV export, a camt.053 statement (XML) or a card statement (CSV, text or PDF). We recognise the file ourselves.",
+  "card_file.reading": "Reading…",
+  "card_file.err_empty": "No rows were found in the file.",
+  "card_file.err_many": "The file has too many rows: {max} at most at a time.",
+  "card_file.err_pdf": "The PDF could not be read. Try the text version of the file.",
+  "card_file.err_big": "The file is too large.",
+  "card_file.err_save": "The rows could not be saved. Try again.",
+  "card_file.found": "Found {rows} rows for {from}–{to}.",
+  "card_file.unread": "{count} lines could not be read.",
+  "card_file.card": "Card",
+  "card_file.card_new": "New card",
+  "card_file.name": "Card name",
+  "card_file.save": "Save rows",
+  "card_file.saved": "Saved. New rows {inserted}, already stored {known}.",
+  "card_file.col_day": "Day",
+  "card_file.col_text": "Text",
+  "card_file.col_sum": "Amount",
+  "card_file.caption": "Statement rows",
+  "card_file.default_name": "Card",
+  "card_file.bad_rows": "The rows of the file are not valid.",
+  "card_file.too_many": "Too many rows: {max} at most at a time.",
+  "card_file.future": "The file has rows dated in the future.",
+  "card_file.bad_account": "Rows cannot be saved to this account.",
+};

@@ -119,7 +119,7 @@ describe("unlinkedAccounts", () => {
   it("leaves out other failures, accounts without a consent and consents that ended or moved on", () => {
     const old = [conn("a", "Nordea", "active", 90), conn("l", "OP", "lapsed", null), conn("h", "Aktia", "active", 50, { history: true })];
     const list = unlinkedAccounts(old, [
-      row("failed", "a", { problem: { kind: "failed", message: "pankki vastasi virheellä 500" } }),
+      row("failed", "a", { problem: { kind: "failed", message: "pankki ei vastannut oikein" } }),
       row("csv", null, { problem }),
       row("lapsed", "l", { problem }),
       row("history", "h", { problem }),
@@ -139,8 +139,8 @@ describe("maskedNumber, unlinkedTitle and unlinkedStep", () => {
   });
 
   it("counts in good Finnish", () => {
-    expect(unlinkedTitle(1)).toBe("Yhtä tiliä ei ole lisätty Enable Bankingissa.");
-    expect(unlinkedTitle(3)).toBe("3 tiliä ei ole lisätty Enable Bankingissa.");
+    expect(unlinkedTitle(1)).toBe("Yksi tili puuttuu Enable Bankingista.");
+    expect(unlinkedTitle(3)).toBe("3 tiliä puuttuu Enable Bankingista.");
   });
 
   it("gives the step to who can take it, and says who does otherwise", () => {
@@ -287,7 +287,7 @@ describe("the round that renews every consent", () => {
       { connection: "b", bank: "nordea-fi", done: false },
     ];
     expect(roundText({ consents, finished: false })).toBe("1 / 2 uusittu");
-    expect(roundText({ consents: consents.map((c) => ({ ...c, done: true })), finished: true })).toBe("Kaikki yhteydet on uusittu.");
+    expect(roundText({ consents: consents.map((c) => ({ ...c, done: true })), finished: true })).toBe("Uusit kaikki yhteydet.");
   });
 });
 

@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { autoSaveWanted, startDownload } from "../src/pages/settings/BankAppSetup.tsx";
-import { BankCapabilities, bankSeen } from "../src/pages/settings/BankCapabilities.tsx";
+import { bankSeen } from "../src/pages/settings/bank-seen.ts";
 import { BankConnections } from "../src/pages/settings/BankConnections.tsx";
 import { BankKey } from "../src/pages/settings/BankKey.tsx";
 import { bankLinked, firstRunSteps } from "../src/components/EmptyStart.tsx";
@@ -75,6 +75,14 @@ describe("Valmis only with a bank linked", () => {
   });
 });
 
+describe("firstRunSteps for a member", () => {
+  it("starts at the bank: the app and its key are the administrator's", () => {
+    const m = { bank: { source: null }, connections: [], lastSync: null } as unknown as Meta;
+    expect(firstRunSteps(m, true).map((s) => s.label)).toEqual(["Pankki yhdistetty", "Ensimmäinen haku tehty"]);
+    expect(firstRunSteps(m)).toHaveLength(3);
+  });
+});
+
 describe("firstRunSteps", () => {
   const base = { bank: { source: null }, connections: [], lastSync: null } as unknown as Meta;
   const done = (m: Meta) => firstRunSteps(m).map((s) => s.done);
@@ -118,54 +126,33 @@ describe("Pankkiyhteydet: the bank tile", () => {
   });
 });
 
-describe("Oma Enable Banking -sovellus", () => {
+describe("Oma sovellus", () => {
   const meta = {
     user: { role: "member" },
     bank: { source: null, canStoreOwnKeys: true, redirectUrl: "https://relay.example/talous/callback/", privacyUrl: "https://relay.example/talous/privacy/", termsUrl: "https://relay.example/talous/terms/" },
   } as unknown as Meta;
   const out = renderToStaticMarkup(createElement(BankKey, { meta, onChange: () => {} }));
 
-  it("lists the addresses the registration form asks for, each with a copy button", () => {
+  it("lists the addresses the registration form asks for, with one button that copies them all", () => {
     for (const [label, url] of [
       ["Allowed redirect URLs", "https://relay.example/talous/callback/"],
       ["Privacy URL", "https://relay.example/talous/privacy/"],
       ["Terms URL", "https://relay.example/talous/terms/"],
     ] as const) {
       expect(out).toContain(`<code class="copyable" title="Kopioi">${url}</code>`);
-      expect(out).toContain(`aria-label="Kopioi ${label}"`);
+      expect(out).toContain(label);
     }
+    expect(out).toContain(">Kopioi kaikki</button>");
+    expect(out).not.toContain(">Kopioi</button>");
   });
   it("saves with a test", () => {
     expect(out).toContain("Tallenna ja testaa");
   });
 });
 
-describe("Oma Enable Banking -sovellus: its name strip", () => {
-  const meta = { user: { role: "member" }, bank: { source: "user", canStoreOwnKeys: true, redirectUrl: "https://example.test/a", privacyUrl: "https://example.test/b", termsUrl: "https://example.test/c" } } as unknown as Meta;
-  it("has the name strip every panel has, with the state under the name", () => {
-    const out = renderToStaticMarkup(createElement(BankKey, { meta, onChange: () => {} }));
-    expect(out).toContain('<summary class="card-head">');
-    expect(out).toContain("<h2>Oma Enable Banking -sovellus</h2>");
-    expect(out).toContain('<div class="card-sub">käytössä oma avain</div>');
-  });
-});
-
-describe("Pankkien tiedot", () => {
+describe("Pankkitilisi yhdistetty Enable Bankingissa", () => {
   const none: BankCapability = { bankId: "nordea-fi", consentDays: null, requiredPsuHeaders: null, psuTypes: null, cardAccounts: false, pending: false, balanceTypes: [], historyDays: null };
-  it("reads a fact not seen yet as ei vielä tiedossa and a seen one as its value", () => {
-    const blank = renderToStaticMarkup(createElement(BankCapabilities, { banks: [none] }));
-    expect(blank.match(/ei vielä tiedossa/g)).toHaveLength(6);
-    const seen = renderToStaticMarkup(
-      createElement(BankCapabilities, { banks: [{ ...none, consentDays: 180, cardAccounts: true, balanceTypes: ["CLAV", "ITAV"], historyDays: 90, requiredPsuHeaders: ["Psu-Ip-Address"] }] }),
-    );
-    expect(seen).toContain("180 päivää");
-    expect(seen).toContain("CLAV, ITAV");
-    expect(seen).toContain("90 päivää");
-    expect(seen).toContain("Psu-Ip-Address");
-    expect(seen.match(/ei vielä tiedossa/g)).toHaveLength(1);
-  });
-  it("draws nothing for no bank, and counts a bank as seen only after a link or a fetch", () => {
-    expect(renderToStaticMarkup(createElement(BankCapabilities, { banks: [] }))).toBe("");
+  it("counts a bank as seen only after a link or a fetch", () => {
     expect(bankSeen({ ...none, consentDays: 180 })).toBe(false);
     expect(bankSeen({ ...none, pending: true })).toBe(true);
     expect(bankSeen({ ...none, historyDays: 0 })).toBe(true);

@@ -6,7 +6,8 @@ import { addDays, addMonths, dateIn, fromDayNumber, fromMonthIndex, monthEnd, mo
 import type { IsoDate } from "../types.ts";
 import type { ChangeView, ChangeWindow } from "./change.ts";
 import type { AnalysisContext } from "./context.ts";
-import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "./usual.ts";
+import { completeMonthsBefore, isCompleteMonth } from "./usual.ts";
+import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 
 export interface Plan {
   view: ChangeView;
@@ -120,7 +121,7 @@ export function planOf(full: AnalysisContext, view: ChangeView, month: string, y
   if (month > monthOf(full.today) || `${month}-01` > through) return null;
   const running = through < monthEnd(month);
   const cap = running ? Number(through.slice(8, 10)) : 31;
-  if (view === "usual") {
+  if (view === "expected") {
     const base = before(month);
     return base.length < MIN_COMPARE_MONTHS ? null : { view, target: [month], base, cap, running, mean: true, noise: noiseBefore(month) };
   }

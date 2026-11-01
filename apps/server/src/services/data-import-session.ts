@@ -43,9 +43,11 @@ export function open(s: Services): Map<string, Session> {
 export const expiry = (s: Services) => s.now().getTime() + IMPORT_LIMITS.sessionMinutes * 60_000;
 
 /** The user's own live session, else the one sentence for a session that is missing, over or somebody else's. */
-export function sessionOf(s: Services, user: { id: string }, id: string): Session {
+export function sessionOf(s: Services, user: { id: string; role?: string }, id: string): Session {
   const ses = open(s).get(id);
   if (!ses || ses.user.id !== user.id) throw new UserError(GONE);
+  // the role of the request, not of the start: a demoted admin must not commit household rows from an older session
+  if (user.role !== undefined) ses.user = { ...ses.user, role: user.role };
   return ses;
 }
 
@@ -53,7 +55,7 @@ export function sessionOf(s: Services, user: { id: string }, id: string): Sessio
 export function startImport(s: Services, user: User, head: unknown): { session: string; expiresAt: string; limits: typeof IMPORT_LIMITS } {
   const h = typeof head === "object" && head !== null && !Array.isArray(head) ? (head as Record<string, unknown>) : {};
   if (h.format !== IMPORT_FORMAT) throw new UserError("Tiedosto ei ole Omatalouden tietotiedosto.");
-  if (h.version !== IMPORT_VERSION) throw new UserError(`Tiedoston versiota ei voi tuoda. Tämä Omatalous lukee tiedoston version ${IMPORT_VERSION}.`);
+  if (h.version !== IMPORT_VERSION) throw new UserError(`Emme voi tuoda tämän version tiedostoa. Tämä Omatalous lukee tiedoston version ${IMPORT_VERSION}.`);
   if (h.exportedBy !== undefined && h.exportedBy !== user.username) throw new UserError("Tiedosto on toisen käyttäjän. Tuo vain omat tietosi.");
   const all = open(s);
   for (const [id, ses] of all) if (ses.user.id === user.id) all.delete(id);
@@ -85,7 +87,7 @@ export function refuse(s: Services, ses: Session, what: string): never {
  * the size of a chunk and of the whole file, and every row of a known store passes its checks; a store the import does not
  * know is counted and dropped. The first failure ends the session, so no later chunk lands in it.
  */
-export function addChunk(s: Services, user: { id: string }, id: string, seq: unknown, bytes: number, stores: unknown): { staged: number } {
+export function addChunk(s: Services, user: { id: string; role?: string }, id: string, seq: unknown, bytes: number, stores: unknown): { staged: number } {
   const ses = sessionOf(s, user, id);
   if (seq !== ses.nextChunk) refuse(s, ses, "Tiedoston osa puuttuu tai on väärässä järjestyksessä.");
   if (bytes > IMPORT_LIMITS.chunkBytes || ses.bytes + bytes > IMPORT_LIMITS.totalBytes || ses.nextChunk >= IMPORT_LIMITS.chunks) refuse(s, ses, "Tiedosto on liian suuri tuotavaksi.");

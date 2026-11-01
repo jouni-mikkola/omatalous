@@ -89,8 +89,8 @@ describe("the forgotten question", () => {
   it("names the cost per month and per year, then asks", () => {
     const a = ofKind(alertsOf(household(), inputs()), "forgotten");
     expect(a.map((x) => [x.title, x.detail])).toEqual([
-      ["Elixia 59 € kuussa, 708 € vuodessa", expect.stringMatching(/^Maksettu \d+ kuukautta\.$/)],
-      ["Max 10,99 € kuussa, 132 € vuodessa", expect.stringMatching(/^Maksettu \d+ kuukautta\.$/)],
+      ["Elixia 59 € kuussa, 708 € vuodessa", expect.stringMatching(/^Olet maksanut \d+ kuukautta\.$/)],
+      ["Max 10,99 € kuussa, 132 € vuodessa", expect.stringMatching(/^Olet maksanut \d+ kuukautta\.$/)],
     ]);
     expect(a[0]).toMatchObject({ tone: "info", merchant: "Elixia" });
   });

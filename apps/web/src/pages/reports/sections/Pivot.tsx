@@ -1,43 +1,38 @@
-// Decision: find the month a category jumped
-import { HeatGrid } from "../../../charts/forms/HeatGrid.tsx";
-import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
+// Decision: whether a category's high month was a one-off to let go or a new level to cut
+import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { HeatTable } from "../../../components/reports/HeatTable.tsx";
-import { money, monthLong } from "../../../format.ts";
-import { ExportLink, NEGATIVE_TOTAL_NOTE } from "../parts.tsx";
+import { money, monthLongIn } from "../../../format.ts";
+import { LONG_LIST_ROWS } from "../../../components/table/view.ts";
+import { ExportLink, negativeTotalNote } from "../parts.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
+import { rich, t } from "../../../text.ts";
 
 /** The answer: the month a category jumped most over its own average (core's `jump`), both figures the server's. */
 function jumpAnswer(r: SectionProps["ctx"]["data"]["pivot"]) {
-  if (r.peak === null) return "Kuukausien vertailuun ei ole vielä tarpeeksi valmiita kuukausia.";
+  if (r.peak === null) return t("rpt.pivot_none");
   const j = r.jump;
-  if (!j) return "Minkään kategorian menot eivät nousseet selvästi tavallista suuremmiksi.";
-  return (
-    <>
-      {j.label}: {monthLong(r.months[j.month]!).replace(/^(\S+)/, "$1ssa")} meni <strong>{money(j.cents, false)}</strong>, tavallisesti {money(j.usualCents, false)} kuussa.
-    </>
-  );
+  if (!j) return t("rpt.pivot_flat");
+  return rich("rpt.pivot_jump", { label: j.label, month: monthLongIn(r.months[j.month]!), amount: money(j.cents, false), expected: money(j.expectedCents, false) });
 }
 
 function Pivot({ ctx }: SectionProps) {
   const r = ctx.data.pivot;
-  // the strip's twelve complete months, or every month of a range too short for a strip
-  const months = r.strip.length ? r.strip : r.months.map((_, i) => i);
   return (
-    <ReportPanel id={section.id} title={section.title} datum={r.averageCents === null ? undefined : `Keskimäärin ${money(r.averageCents, false)} kuussa`} actions={<ExportLink href={ctx.exportHref("pivot")} />}>
-      <QuestionChart id="kuukaudet-heat" question="Minä kuukautena jonkin kategorian menot nousivat selvästi?" answer={jumpAnswer(r)} table={<HeatTable r={r} />}>
-        <HeatGrid r={r} months={months} />
-      </QuestionChart>
-      {r.rows.some((row) => row.totalCents < 0) && <p className="small muted">{NEGATIVE_TOTAL_NOTE}</p>}
+    <ReportPanel id={section.id} title={section.title} datum={r.averageCents === null ? undefined : t("rpt.pivot_avg", { amount: money(r.averageCents, false) })} actions={r.rows.length > LONG_LIST_ROWS ? <ExportLink href={ctx.exportHref("pivot")} /> : undefined}>
+      <p className="qc-a">{jumpAnswer(r)}</p>
+      <HeatTable r={r} />
+      {r.rows.some((row) => row.totalCents < 0) && <p className="small muted">{negativeTotalNote()}</p>}
     </ReportPanel>
   );
 }
 
 export const section: ReportSection = {
   id: "kuukaudet",
-  title: "Menot kuukausittain",
+  get title() {
+    return t("rpt.sec_pivot");
+  },
   order: 50,
   page: "reports",
-  tab: "menot",
   reports: ["pivot"],
   Component: Pivot,
 };

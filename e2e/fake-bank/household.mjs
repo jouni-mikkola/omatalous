@@ -16,6 +16,10 @@ const IBAN = {
 /** Cents in the account before the first row. */
 const OPENING = { chk: 120_000, sav: 450_000, joint: 40_000, card: 0 };
 
+/** The one account OP's consent brings (server.mjs): a second bank for the specs that renew more than one consent. It has no rows, so its balance is what it opened with. */
+export const OP_ACCOUNT = { uid: "fb-op", identification_hash: "fb-op-hash", account_id: { iban: "FI4950009420028730" }, name: "MEIKALAINEN MATTI", product: "OP-tili", currency: "EUR", cash_account_type: "CACC" };
+export const OP_BALANCE = 2500;
+
 const ACCOUNTS = [
   { key: "chk", uid: "fb-chk", hash: "fb-hash-chk", name: "MEIKALAINEN MATTI", product: "Käyttötili", type: "CACC", iban: IBAN.checking },
   { key: "sav", uid: "fb-sav", hash: "fb-hash-sav", name: "MEIKALAINEN MATTI", product: "Säästötili", type: "SVGS", iban: IBAN.savings },
@@ -120,11 +124,14 @@ export function household(today, own = false) {
 
   const transactions = {};
   const balances = {};
+  /** What each account held before its first row: balance = opening + the rows, to the cent (the balances test holds every dataset to it). */
+  const openings = {};
   const accounts = ACCOUNTS.map((a) => {
     const history = rows[a.key].sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
     const uid = id(a.uid);
     // newest first, as banks answer
     transactions[uid] = history.map((row, n) => toBank(uid, row, n)).reverse();
+    openings[uid] = OPENING[a.key];
     balances[uid] = OPENING[a.key] + history.reduce((sum, row) => sum + row.cents, 0);
     return {
       uid,
@@ -143,6 +150,7 @@ export function household(today, own = false) {
   const dollars = { ...toBank(usd.uid, { date: dayOf(today, 1, 3), cents: -2000, text: "ESIMERKKI INC", party: { name: "ESIMERKKI INC" } }, 1), transaction_amount: { currency: "USD", amount: "20.00" } };
   transactions[usd.uid] = [dollars, toBank(usd.uid, { date: dayOf(today, 2, 3), cents: 5000, text: "TALLETUS", party: { name: "MEIKALAINEN MATTI" } }, 0)];
   balances[usd.uid] = 5000;
+  openings[usd.uid] = 0;
   const dollarAccount = { uid: usd.uid, identification_hash: usd.hash, account_id: { iban: "FI4012345600000843" }, name: "MEIKALAINEN MATTI", product: "Dollaritili", currency: "EUR", cash_account_type: "CACC" };
-  return { accounts, transactions, balances, dollarAccount };
+  return { accounts, transactions, balances, openings, dollarAccount };
 }

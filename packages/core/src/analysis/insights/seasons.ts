@@ -8,18 +8,18 @@
  */
 import { addMonths, monthEnd } from "../../dates.ts";
 import { monthSpan, sameAccounts } from "../coverage.ts";
-import { formatEur, monthInessive, monthName, monthStem } from "../format.ts";
-import { completeMonthsBefore, isCompleteMonth, MIN_COMPARE_MONTHS, usualSpending } from "../usual.ts";
-import { capitalise, lastCompleteMonths, monthRows, oneOffCents } from "./shared.ts";
+import { formatEur, monthNameIn } from "../format.ts";
+import { messageIn } from "../../messages.ts";
+import { expectedSpending } from "../expected.ts";
+import { completeMonthsBefore, isCompleteMonth } from "../usual.ts";
+import { MIN_COMPARE_MONTHS, MIN_SEASON_SHARE, NOISE_MONTHS, SEASON_YEARS } from "../../thresholds.ts";
+import { capitalise, insightOf, lastCompleteMonths, monthRows, oneOffCents } from "./shared.ts";
 import { MIN_T, monthlyNoise, monthT } from "../signal.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
-const MIN_SHARE = 0.2;
-const YEARS = 2;
+const YEARS = SEASON_YEARS;
 /** Each year's share of the test: two independent years at MIN_T / √2 each stand MIN_T apart together. */
 const YEAR_T = MIN_T / Math.sqrt(YEARS);
-/** The noise is read from up to this many months before the month: the same month a year earlier is left out, so a season does not count itself as noise. */
-const NOISE_MONTHS = 11;
 
 /** A month's spending with its one-offs struck by the level rule (`oneOffs`, LEVEL). */
 function struckSpend(ctx: InsightArgs["ctx"], month: string): number {
@@ -71,10 +71,10 @@ export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<Insight
     const extras: number[] = [];
     const usuals: number[] = [];
     for (const m of years) {
-      const usual = isCompleteMonth(ctx, m) ? usualSpending(ctx, m) : null;
+      const usual = isCompleteMonth(ctx, m) ? expectedSpending(ctx, m) : null;
       if (usual === null || usual <= 0) break;
       const excess = struckSpend(ctx, m) - usual;
-      if (excess < Math.max(MIN_SHARE * usual, 5 * gateMonthlyCents) || monthT(excess, noise(ctx, m), completeMonthsBefore(ctx, m).length) < YEAR_T) break;
+      if (excess < Math.max(MIN_SEASON_SHARE * usual, 5 * gateMonthlyCents) || monthT(excess, noise(ctx, m), completeMonthsBefore(ctx, m).length) < YEAR_T) break;
       extras.push(excess);
       usuals.push(usual);
     }
@@ -84,35 +84,34 @@ export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<Insight
 }
 
 export function expensiveMonths(args: InsightArgs): Insight[] {
-  const { gateMonthlyCents } = args;
+  const { gateMonthlyCents, lang } = args;
   const seasons = expensiveMonthItems(args);
   const yearly = seasons.reduce((s, x) => s + x.extra, 0);
   if (!seasons.length || yearly < 12 * gateMonthlyCents) return [];
   const top = [...seasons].sort((a, b) => b.extra - a.extra)[0]!;
-  const stems = seasons.map((s) => monthStem(s.month));
-  const names = stems.length === 1 ? `${stems[0]}kuun` : `${stems.slice(0, -1).map((s) => `${s}-`).join(", ")} ja ${stems[stems.length - 1]}kuun`;
   return [
-    {
+    insightOf({
+      lang,
       id: `seasons:${seasons.map((s) => s.month.slice(5)).join("-")}`,
-      tone: "info",
-      title: `${capitalise(monthInessive(top.month))} meni ${formatEur(top.extra, false)} tavallista enemmän kahtena vuonna`,
-      detail: `${capitalise(names)} lisämenot ${formatEur(yearly, false)} vuodessa, ${formatEur(Math.round(yearly / 12), false)} kuussa; kertaostot eivät ole mukana.`,
-      yearlyCents: yearly,
+      fact: { type: "season", month: top.month, months: seasons.map((s) => s.month), extraCents: top.extra, years: YEARS },
+      comparison: { label: "expectedMonth", value: q.cents(top.usuals[0]!) },
+      action: { label: "setAside", target: { page: "transactions", filter: { from: `${top.month}-01`, to: monthEnd(top.month) } } },
+      yearlyCents: -yearly,
+      kind: "pattern",
       link: { from: `${top.month}-01`, to: monthEnd(top.month) },
       calc: [
         ...top.extras.flatMap((e, k) => {
           const m = addMonths(top.month, -12 * k);
-          const name = `${capitalise(monthName(m))} ${m.slice(0, 4)}`;
+          const name = `${capitalise(monthNameIn(m, lang))} ${m.slice(0, 4)}`;
           return [
-            { label: `${name}, tavallinen taso`, value: formatEur(top.usuals[k]!, false) },
-            { label: `${name}, yli tavallisen`, value: formatEur(e, false) },
+            { label: messageIn(lang, "calc.season_expected", { name }), value: formatEur(top.usuals[k]!, false, lang) },
+            { label: messageIn(lang, "calc.season_over", { name }), value: formatEur(e, false, lang) },
           ];
         }),
-        { label: `${capitalise(monthName(top.month))}, keskimäärin yli tavallisen`, value: formatEur(top.extra, false) },
-        ...seasons.filter((s) => s !== top).map((s) => ({ label: `${capitalise(monthName(s.month))}, keskimäärin yli tavallisen`, value: formatEur(s.extra, false) })),
-        { label: "Lisämenot vuodessa", value: formatEur(yearly, false) },
-        { label: "Lisämenot kuussa", value: formatEur(Math.round(yearly / 12), false) },
+        { label: messageIn(lang, "calc.season_avg_over", { name: capitalise(monthNameIn(top.month, lang)) }), value: formatEur(top.extra, false, lang) },
+        ...seasons.filter((s) => s !== top).map((s) => ({ label: messageIn(lang, "calc.season_avg_over", { name: capitalise(monthNameIn(s.month, lang)) }), value: formatEur(s.extra, false, lang) })),
+        { label: messageIn(lang, "calc.extra_month"), value: formatEur(Math.round(yearly / 12), false, lang) },
       ],
-    },
+    }),
   ];
 }

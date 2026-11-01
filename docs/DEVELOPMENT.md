@@ -11,6 +11,7 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 |---|---|
 | `pnpm check` | typecheck, tests, shell lint and shell suites, short output |
 | `pnpm test` | all tests (Vitest), including `tools/repo-rules`, the invariants of CLAUDE.md as tests |
+| `pnpm coverage` | the web tests with line coverage by area (App, Auth, the loan intake, pages, components) against the floor in `apps/web/coverage-floor.json`; exit 1 when an area is under it. About 30 s. `--raise` writes the floor up to what the run reached (a tenth of a percent, rounded down), and a run refuses a floor lower than on `origin/main`. Run it with `pnpm check` before a change to the web app is handed back; it is not part of CI |
 | `pnpm test:sh` | the shell suites in `tools/test/` |
 | `pnpm lint:sh` | lint of every shell file (`tools/ci/shell-lint.sh`) |
 | `pnpm typecheck` | TypeScript for every package, then `e2e`, `tools` and the root config files (`tsconfig.json`) |
@@ -19,10 +20,12 @@ pnpm dev           # API on :8080, Vite on :5173 with hot reload
 | `pnpm release:prepare X.Y.Z` | bump the version and build the CHANGELOG section from `changelog.d/` ([RELEASING.md](RELEASING.md)) |
 | `pnpm release:fixture X.Y.Z` | `tools/release/fixture.mjs`: write the frozen database fixture of a release ([RELEASING.md](RELEASING.md)) |
 | `pnpm shots <route>...` | full-page PNGs of pages of the built app at several widths, with the demo household, the fake bank, changed API answers or a step of your own ([Pictures of a page](#pictures-of-a-page)) |
+| `pnpm first-evening` | the First evening check (`e2e/first-evening/`): an empty install, the setup form, the fake bank's made-up household linked, and the share of the rows' value (at least 95 %) that lands in the category the data expects, in at most 30 minutes of scripted steps. Needs `pnpm build` first. Local only: not in `pnpm e2e`, not in CI |
+| `bash tools/install-hour.sh` | the Install hour check: the one-line install in a clean Ubuntu container, then the First evening steps against that install with the fake bank, the second of each step in a log (`$TMPDIR/install-hour/install-hour.log`) and a failure over 60 minutes (`--budget`). Needs Docker, `pnpm build` and a Playwright Chromium. Local only |
 | `pnpm build` | web (Vite) and server (esbuild, one file `apps/server/dist/node.js`) |
 | `pnpm start` | runs the built server, data in `./data` |
 
-Node: `.npmrc` sets `use-node-version=22.23.0`, so `pnpm <script>` and `pnpm exec` fetch that node once (the first run needs the network) and run on it, whatever the system has. Scripts such as `pnpm shots` read `.ts` files with plain node, which Ubuntu's `nodejs` package cannot (`process.features.typescript` is false). Run things through pnpm, and `tools/check.sh` started by hand goes through it once. CI (`setup-node`) and the image (`Dockerfile`) name the same version, and `tools/node-pin.test.ts` keeps the three together. pnpm does not switch when the system node already has the pinned version, so pin a version your system package does not ship.
+Node: `.npmrc` sets `use-node-version=24.22.2`, so `pnpm <script>` and `pnpm exec` fetch that node once (the first run needs the network) and run on it, whatever the system has. Scripts such as `pnpm shots` read `.ts` files with plain node, which Ubuntu's `nodejs` package cannot (`process.features.typescript` is false). Run things through pnpm, and `tools/check.sh` started by hand goes through it once. CI (`setup-node`) and the image (`Dockerfile`) name the same version, and `tools/node-pin.test.ts` keeps the three together. pnpm does not switch when the system node already has the pinned version, so pin a version your system package does not ship.
 
 In the private repository a push runs no CI, because Actions minutes are billed there. `pnpm check`, `pnpm build` and
 `pnpm e2e` are the check: they run before a change lands and before a release is pushed, and the release then starts
@@ -77,13 +80,13 @@ apps/server/src
   entry/secret-rotate.ts     the secret rotation command
   db/startup-gate.ts         the check before the database opens; backup-keep.ts, backup-check.ts which copies pruning
                              keeps and the deep check of a copy (ARCHITECTURE.md, "Keeping the data safe")
-  services/db-restore.ts     Palauta uusin varmuuskopio; reset.ts Tyhjennä kaikki tiedot; disk.ts the reserve file;
+  services/db-restore.ts     the restore of the newest copy; reset.ts Tyhjennä kaikki tiedot; disk.ts the reserve file;
                              db-health.ts the notices about the safety net
 
 apps/web/src
   App.tsx                    login gate, header, routing
   pages/                     pages; pages/settings/ for the settings sections; Wizard.tsx
-  charts/                    own SVG charts
+  charts/                    own SVG charts; kit/ the shared parts, forms/ one file per form (ADR 0019)
   banks.ts                   bank logos (files in public/banks/)
 
 scripts/                     what runs on the host: install.sh, update.sh, backup.sh, restore.sh, doctor.sh, reset.sh,
@@ -121,11 +124,12 @@ principal figure `main`; use `kind: "money"` with `cents` for amounts. Pass tota
 - Use `groups` for sections, `drill` for row details and `page` for a long ungrouped list.
 - Mark month columns `series`: they fold into a labelled list when the container cannot fit them. The shared
   layout handles narrow cards as well as phones; do not add a page-specific mobile table.
-- A chart's Taulukko choice mounts its text form only when selected. Delete an unnecessary view, including its
-  styles, tests and texts; do not keep a hidden copy or a setting to restore it.
+- A chart has no Kaavio / Taulukko switch: its table stands under it in `ChartWithTable`, and the chart passes `keys`
+  (the `rowKey` of each mark's row) to `ReadoutLayer` so a click filters the table ([ADR 0023](adr/0023-chart-and-table-together.md)).
+  Delete a view nobody needs, with its code and everything that belongs to it. Keep no hidden copy and no setting to restore it.
 
 `apps/web/test/table.test.ts` guards the single table implementation. `e2e/table-views.spec.ts` checks visibility,
-sideways scrolling and axe at 390 and 1440 px in both looks. Add a new view to that coverage and inspect screenshots
+sideways scrolling and axe at 390 and 1440 px, and `e2e/table-sort.spec.ts` the toolbar, the sort and the opened row. Add a new view to that coverage and inspect screenshots
 at both widths. The decision is [ADR 0018](adr/0018-one-table-delete-redundant-views.md).
 
 ### The repo rules
@@ -187,18 +191,41 @@ No migration is needed. After the next update every member's history is categori
 1. `packages/core/src/reports/<name>.ts`: a pure function `(ctx, range) => data`, starting with a `Decision:` comment
    that names what the household decides with it. A repo rule checks it, also in the section file.
 2. Register it in `reports/index.ts`. The API and types follow.
-3. A section file in `apps/web/src/pages/reports/sections/` (copy an existing one). `registry.ts` finds it; its
-   `reports` list names the core reports it reads, its `page` names the page that shows it (`reports` for Raportit),
-   and a repo rule checks that every report has a section and every section a page.
-4. A test in `packages/core/test/reports.test.ts` that checks its totals against the other reports.
+3. A section file in `apps/web/src/pages/reports/sections/` (copy an existing one). Its `reports` list names the core
+   reports it reads and its `page` names the page that shows it (`reports` for Raportit). A repo rule checks that every
+   report has a section and every section a page.
+4. Add the section to the question page that asks the question it answers: `pages/reports/pages/<Page>.tsx` lists its
+   sections, and the page's own styles go in `styles/report-<page>.css`. `registry.ts` reads only those files.
+5. A test in `packages/core/test/reports.test.ts` that checks its totals against the other reports.
+
+### New question page of Raportit
+
+Raportit is six question pages (seven for a household with a joint account), one frame (`pages/reports/Frame.tsx`) and
+one `Conclusion` per page (`packages/core/src/reports/conclusion.ts`). A page task edits its own files only.
+
+1. `packages/core/src/reports/conclusions/<page>.ts` builds the `Conclusion` from the reports that `input.read(...)` gives
+   it. It has the question, one figure with its comparison and an explanation. It also has the recommended insight, the
+   four comparisons and the basis. `compareFigure` in `conclusions/shared.ts` works out every comparison. The basis rows
+   add up to the figure to the cent.
+2. Name the question in `QUESTIONS` (`reports/conclusions/kinds.ts`) and read the conclusion in `conclusion.ts`.
+3. `apps/web/src/pages/reports/pages/<Page>.tsx` exports `page` with the question id, its short name and its sections.
+   The frame draws the question, the verdict and the comparison switch around them. It also draws the recommendation
+   and Peruste.
+4. A test in `packages/core/test/reports.test.ts` checks that every page has a conclusion and that its basis adds up.
+   Add a line to `e2e/reports-frame.spec.ts` if the page needs one of its own.
+
+The question, the comparison and the period are in the address (`#/reports?q=menot&compare=previous&period=12m`).
 
 ### Module behind a feature flag
 
-1. An entry in `FEATURES` in `packages/core/src/features.ts`: id, Finnish label, stage and default.
-2. The module's routes in their own `Hono` app, mounted with `gated(s, id, routes)` from `auth/middleware.ts` at the
-   module's prefix. While the flag is off they answer 404 like an unknown path.
-3. Its nav entry in `apps/web/src/nav.ts` names the flag, so it is hidden while the flag is off. `/api/meta` carries
-   the resolved flags; admins switch them in Asetukset > Tekniset asetukset > Palvelin.
+A module that ships finished has no flag: Säästövinkit had one and lost it. The shared build has no flag today, and a
+module that needs one is added as an extension (`apps/server/src/extensions.ts`, `apps/web/src/extensions.ts`).
+
+1. The extension declares its flag: the id, a Finnish label, the stage and whether it starts on.
+2. The module's routes in their own `Hono` app, mounted at `/api/<id>` behind the flag. While the flag is off they
+   answer 404 like an unknown path.
+3. Its page is listed by `extensionPages` in `apps/web/src/nav.ts` only while the flag is on. `/api/meta` carries
+   the resolved flags. The entry sets no `tab`. On a phone it is in the user menu and takes no place in the tab bar.
 
 ### New bank
 
@@ -214,7 +241,7 @@ A new place rows come from is a folder in `apps/server/src/connectors/` with an 
 changes. A connector that fetches by itself gives a `sync` (open a puller, classify errors) and the loop in
 `connectors/sync.ts` does the rest. `connectors.test.ts` fails when the folder and the registry disagree.
 
-There is no recipe for an import format: the CSV import was removed in 0.9.0 and the app reads no files.
+There is no recipe for an import format: the CSV import was removed in 0.9.0 and the server reads no files. The one reader is the card statement, read in the browser (ADR 0025): a new layout is a reader in `packages/core/src/card-file.ts` and a made-up statement in its test. A bank's CSV export needs no reader of its own: `packages/core/src/bank-csv.ts` guesses the columns from the header and the household settles them once; a header word it does not know is added to its word lists, with a made-up export in `bank-csv.test.ts`. A camt.053 statement is read by `packages/core/src/bank-camt.ts`, which refuses a file whose closing balance is not its opening balance plus the rows.
 
 ### Database change
 
@@ -287,6 +314,21 @@ reads the route list of the app, so a new route is checked for the login require
 members' data and secrets in the response without any change to that file. A route that must be reachable
 without a login goes into its `PUBLIC` list.
 
+### New dependency
+
+A new package in a `dependencies` list is decided in a record in `docs/adr/` before the commit that adds it. The
+record gives the reason, the measured size, a review date and what makes it review earlier.
+
+The web stack is decided in [ADR 0019](adr/0019-ui-stack.md). A library on its chosen list needs no new record. The
+task that first uses it adds it, loads it through route splitting so it lands only on its pages, and checks that the
+size is close to the one in the record. A library from its rejected list, or one it does not name, needs a new record
+that names 0019.
+
+Measure as the record does. Write a test entry that imports what the app uses and bundle it with
+`esbuild --bundle --minify`. Run `gzip -9` on the result and subtract React and ReactDOM. Do it in a temporary
+folder outside the repo. A devDependency used only by tests or tooling needs
+no record. One that changes what is built, such as a compiler or a bundler plugin, does.
+
 ## Performance
 
 The analysis context (enriched transactions, recurring series) is built once per data version and cached
@@ -312,6 +354,16 @@ nothing differs it marks nothing, processes nothing and leaves the version alone
 SQLite needs table statistics to pick the partial indexes (pending and uncategorised rows) over the wide ones:
 `PRAGMA optimize` runs at start and in the hourly tick (`db/pragmas.ts`).
 
+### Budgets
+
+The figures are held by tests on invented data; no big file is in the repo.
+
+- Data: `apps/server/scripts/history-gen.ts` makes five years of rows (the demo household topped up with everyday purchases to 100 000 or more); `pnpm seed:years` loads them into `./data`.
+- Dashboard: `pnpm test:perf apps/server/test/dashboard.perf.test.ts`. A repeated request is served from `services/dashboard-memo.ts`, one answer per period and inputs for a cached context. The budget is 1 s of CPU warm. A period asked for the first time builds the whole answer (about 1 s on an idle machine, spread over many small analyses) and has 1.5 s.
+- Transaction list: `pnpm e2e:years` starts a server of its own, loads the history and times the first rows of Tapahtumat under a 4x CPU slowdown (1 s). A local check, not part of `pnpm e2e` or CI.
+- Entry bundle: `pnpm budgets` after `pnpm build` adds up the gzip size of the files `index.html` names and holds it within 10 % of `apps/web/bundle-budget.json`, and holds the script of Yhteenveto (entry, page chunk, page texts and what they import statically, before gzip) within 5 % of `firstPageScriptBytes`; run it before a release. A bigger entry is fixed with route splitting; the base changes only by a decision, with the measurement in the pull request.
+- Fetched rows: `apps/server/test/ingest.test.ts` ("every fetched row is accounted for"). Each row ends stored, counted as skipped, replaced or pending, or refused and listed in Tietojen laatu.
+
 ## Tests
 
 - Core: money flow scenarios, recurring detection, reports checked against each other.
@@ -331,6 +383,45 @@ SQLite needs table statistics to pick the partial indexes (pending and uncategor
 - The shell suites (`tools/test/*.test.sh`) of the maintenance helper share one fake host, clone and set of ticks,
   `tools/test/ops-world.sh`, and `ops-helper.test.sh` has a scenario for each place the helper calls one of its libraries.
 - A new feature gets a test. A bug fix starts with a test that shows the bug.
+
+### Timing tests and the vitest projects
+
+`vitest.config.ts` splits the suite into projects, so a test that depends on the clock never runs beside the rest:
+
+- `core`: `packages/*` tests, run with `isolate: false`, so the files of a worker share one module cache.
+- `rules`: the three files of the repo rules (`tools/repo-rules/repo-rules*.test.ts`), without isolation, so they parse
+  each source once between them (`warm.ts`). A new rule module goes into the file of its group (the header of
+  `repo-rules.test.ts` names the groups).
+- `main`: the other tests, also without isolation.
+- `isolated`: every `*.isolated.test.ts`, a fresh module cache per file. A test that mocks a module of the code it tests
+  (`vi.mock`) is named so, because with a shared cache the mock misses code another file loaded first.
+- `perf`: every `*.perf.test.ts`, one file at a time, after the others.
+
+Where files share modules, a kit a test imports loads once per worker. A hook written at the top of a kit
+(`beforeEach`, `afterAll`) then reaches the first file only: put it in `tools/lib/test-setup.ts`, or export a function
+the test files call (`useWorlds()` in `remote-access-kit.ts`). Make temporary folders with `tempDir()`.
+
+A test that compares elapsed time with a limit is a `*.perf.test.ts`. It calls `performance.now` or `Date.now() -`.
+It may also call `bestOf` or `budgetRatio` of `tools/lib/timing.ts`.
+
+Its other half stays in the ordinary file as a check of the work. That check counts the rows read, the size of the
+answer or the result. The shared setup goes in a `*-kit.ts` file beside them.
+
+`pnpm test` and `pnpm check` leave the `perf` project out. A loaded machine, or several runs at once, is no place to
+measure seconds. `pnpm test:perf [files]` waits for a quiet machine (`tools/wait-quiet.sh`, as a check does) and then
+runs them. `PERF_WAIT_MAX` is the longest wait in seconds, and 0 does not wait. A change that touches a perf test file
+gets it in its `pnpm check --changed`.
+
+`--sequence.shuffle` runs the files and the tests of each in a random order: `pnpm test --sequence.shuffle` is how to
+find a test that leans on another's leftovers, and it is worth running twice on a change of a project's setup.
+
+### Tests that click and type
+
+`apps/web/test/*.dom.test.ts` run in the `dom` project (happy-dom, `tools/lib/dom-environment.ts`). `dom-kit.ts` has
+`startServer()`, which puts the real server with the demo household behind `fetch`, and `openApp(hash, heading)`, which
+renders the app at a page. Write what the household does and what it sees, and check the request that went out
+(`server.seen`). `stubApi(table)` answers from a table where the real server cannot be used. A test that only renders
+a page does not belong here.
 
 ### How to test a change
 
@@ -361,10 +452,12 @@ antialiasing passes), when its size changed or when it is missing. The diff pict
 stay in `visual/` in `$TMPDIR` (else `/tmp`). A branch that is not meant to change a page's look runs it on the pages it touches,
 for example `tools/visual-check.sh origin/main -- reports --demo --widths 1280,390`.
 
-`pnpm docs:shots` remakes the pictures of the README and the docs in `docs/images/` (`yhteenveto`, `yhteenveto-yo` in the
-night look, `varallisuus`, `tilit`, `raportit`, `tapahtumat`, `tarkistettavat` at 1280 x 800 and `yhteenveto-puhelin` at
-390 x 844) from the example household, each under 300 kB. Run it before a release when a page changed, and read the
-pictures. A picture a document names that nobody makes turns `pnpm test` red.
+`pnpm readme:video` remakes the animation at the top of the README (`docs/images/omatalous.png`, an APNG of five scenes of the example household in English, under 1 MB) and its still for reduced motion (`omatalous-still.png`). The scenes and captions are `SCENES` in `tools/readme-video.mjs`. Run it when a page it shows changed, and read the frames.
+
+`pnpm docs:shots` remakes the pictures of the README and the docs in `docs/images/`. They come from the example
+household and each is under 300 kB. The pages are `yhteenveto`, `varallisuus`, `tilit`, `raportit`,
+`tapahtumat` and `tarkistettavat` at 1280 x 800. The phone view is `yhteenveto-puhelin` at 390 x 844.
+Run it before a release when a page changed. Read the pictures. A picture a document names that nobody makes turns `pnpm test` red.
 
 - `--demo` loads the demo household; `--fake-bank` links the fake bank (a joint account, a card with a limit and a
   possible loan from the payments, see [the fake bank](#the-fake-bank)). With both, the household holds both.
@@ -388,7 +481,7 @@ pictures. A picture a document names that nobody makes turns `pnpm test` red.
   `categories?tab=rules` and `categories?tab=merchants`) give the same picture, and the tool says so.
 
 ```bash
-pnpm shots overview "reports?tab=income" --demo --widths 1280,390
+pnpm shots overview "reports?q=tulot" --demo --widths 1280,390
 pnpm shots settings --fake-bank --name bank
 pnpm shots overview transactions --fake-bank --member --parts 60:40 --scope household --widths 1280,390 --name joint
 pnpm shots overview --demo --answers tools/shots-examples/answers.mjs --steps tools/shots-examples/steps.mjs --name overspent
@@ -410,25 +503,40 @@ source. They are output and never edited by hand. `golden.test.ts` fails when th
 
 ### The contrast test
 
-`apps/web/test/contrast.test.ts` reads `apps/web/src/styles/tokens.css` as text and measures every `#rrggbb` token of both
-sets (`:root` is the light look, the default; `:root[data-look="night"]` is the night look, reached only by the attribute,
-for pictures and tests) with the WCAG 2 formulas: text tokens at 4.5 to 1 on the page, both surfaces, the well and the four
-tints, text and second text at 7 to 1, muted at 6 to 1 on the surface, the status colours at 4.5 on it, the text of the
-header band (`--on-ink` and `--on-ink-2` on `--ink`) at 7 to 1, series colours and the two darkest heat steps at 3 to 1 on
-the surface, the border at 1.5 to 1, the grid at 1.3, and the lines that carry meaning (`--axis`, `--corner`,
-`--control-edge`, `--pop-edge`) at 3 on the page and every surface. Neighbouring series are 1.2 to 1 in luminance or 60
-degrees of hue apart, and the surface stands at least 1.10 to 1 off the page. A failure names the pair and its figure
-(`muted on surface-2: 4.31 < 4.5`). When a new token fails, move the colour, not the test: darken or lighten it in linear
-light by the smallest step that passes, plus a little margin, so its hue stays. A new text or series token goes on its
-list in the test. The test also holds `theme-color` and `color-scheme` in `apps/web/index.html` equal to the band colour
-(`--ink`) and the scheme of the set the page selects. `pnpm shots --look night|light` takes a picture in either look.
+`apps/web/test/contrast.test.ts` measures the colours of the one look with the WCAG 2 formulas. It takes the `#rrggbb`
+values from `apps/web/src/design/tokens.ts`. `pnpm tokens` writes that file from `apps/web/design/tokens.json`.
+
+- Text, second text and muted text read at 7 to 1 on the page and on both surfaces.
+- Text reads at 7 to 1 on the four tinted backgrounds.
+- The header band text (`--on-ink` and `--on-ink-2` on `--ink`) reads at 7 to 1.
+- The series colours show at 3 to 1 on the page and on both surfaces. So do the colours for saved and earned money and for rise and fall.
+- The parts of the interface show at 3 to 1: the edge of a control, the axis, the edge of a popup and the accent.
+- The heat ladder gets darker by 1.3 to 1 per step from the surface, and the ink of each step reads at 7 to 1.
+- The border is 1.5 to 1 off the surface and the grid is 1.3 to 1.
+- Neighbouring series are 1.2 to 1 apart in luminance or 60 degrees apart in hue.
+- The status colours stay apart for a reader with a colour vision deficiency (an OKLab distance of 0.08).
+- The surface stands at least 1.08 to 1 off the page, the second surface is darker than the surface and the tints are no brighter than the well.
+- `theme-color` and `color-scheme` in `apps/web/index.html` equal the band colour (`--ink`) and `light`.
+
+A failure names the pair and its figure (`muted on surface-2: 4.31 < 4.5`). When a token fails, move the colour and
+leave the test. Darken or lighten it in linear light by the smallest step that passes, plus a little margin, so its hue
+stays. A new text or series token goes on its list in the test. There is one look and no second set to test.
 
 ### End-to-end tests
 
 `pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default a third of the CPUs, from 3 to 8, and no more than the cores the run is leased). Each is a copy of the
 build in a temp directory, on a free port, with a data directory and a fake bank of its own (see below), and the
 Playwright specs in `e2e/` run with one worker for each server. The data directories are deleted at the end.
-`E2E_WORKERS=1` runs the specs one after the other. As root with `unshare` on the PATH the runner starts itself again in
+`E2E_WORKERS=1` runs the specs one after the other. A failed test leaves its trace as `test-results/e2e/<test>/trace.zip` (`trace: "retain-on-failure"`).
+Open it with `pnpm exec playwright show-trace`. `E2E_RETRY=1` runs a failed test once more. The runner lists by name the
+tests that passed only on the rerun, so a flaky test is seen and not hidden.
+
+A spec never waits for a fixed time. It waits for a condition with `expect(locator)`, `expect.poll`,
+`page.waitForResponse` or `waitForLoadState`.
+
+The one `waitForTimeout` left says why in a comment. It proves that something does not happen.
+
+As root with `unshare` on the PATH the runner starts itself again in
 a network of its own with only the loopback up, so a container or VPN changing the machine's interfaces cannot drop a
 request of the browser; `E2E_NETNS=0` keeps the machine's network.
 
@@ -462,8 +570,7 @@ To click through a bank connection in a dev server by hand:
 2. Start the app with `EB_API_URL=<base> EB_AUTH_HOSTS=<consentHost>`. `EB_API_URL` takes only a loopback address
    (`127.0.0.1`, `localhost` or `[::1]`), because the requests signed with the bank key go wherever it points: with any
    other address the app stops at start. `EB_API_URL` is a developer setting and no other doc names it.
-3. Save any Application ID in UUID form and any RSA private key in PEM form as your own: on *Asetukset* open *Oma Enable
-   Banking -sovellus* (it shows when the household has no shared app, see
+3. Save any Application ID in UUID form and any RSA private key in PEM form as your own: on *Asetukset > Pankit ja tilit* open *Pankkisovellus* and choose *Oma sovellus* (see
    [A member's own app](ENABLE_BANKING.md#a-members-own-app)) and press *Tallenna ja testaa*. The fake bank accepts any pair.
 4. Open *Asetukset > Pankkiyhteydet > Yhdistä pankki* and choose *Yhdistä Nordea*, the only bank it lists. The consent
    page is on a host that does not exist, so take the path of the address you are sent to (`/consent/<id>`) and open it

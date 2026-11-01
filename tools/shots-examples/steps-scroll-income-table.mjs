@@ -1,8 +1,7 @@
-// A --steps module for `pnpm shots`: turns the chart of Tulot ja menot into its table, says how many columns stand whole in sight, then moves the table to its end.
+// A --steps module for `pnpm shots`: waits for the table under the chart of Tulot ja menot, says how many columns stand whole in sight, then moves the table to its end.
 // Try it: pnpm shots reports --demo --fake-bank --widths 390 --steps tools/shots-examples/steps-scroll-income-table.mjs --name income-table-end
 export default async (page) => {
   const card = page.locator("#kassavirta");
-  await card.getByRole("button", { name: "Taulukko" }).first().click();
   const wrap = card.locator(".table-wrap").first();
   await wrap.locator("table.ruled").waitFor();
   const count = () =>

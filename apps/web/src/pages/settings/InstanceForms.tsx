@@ -1,43 +1,39 @@
 /**
  * Instance setup forms (admin), shared by the first-run wizard and
  * Asetukset > Palvelin. The server validates everything again; the checks
- * here only give faster feedback.
+ * here only give faster feedback. The time zone and the length of the history
+ * are not asked: the form sends the stored values back unchanged.
  */
-import { type FormEvent, type ReactNode, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { setTimeZone } from "../../format.ts";
 import type { InstanceSettings, InstanceState } from "../../types.ts";
 import "../../styles/settings.css";
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
+/**
+ * The times of the automatic fetch for each number of fetches a day; the index is the number. The server allows at
+ * most four (MAX_SYNCS_PER_DAY). The household picks how many, and the times are spread over the day.
+ */
+const SYNC_SCHEDULES: readonly (readonly number[])[] = [[], [6], [6, 18], [6, 12, 18], [6, 10, 14, 18]];
 
-const HISTORY_OPTIONS = [
-  [90, "3 kuukautta"],
-  [180, "6 kuukautta"],
-  [365, "1 vuosi"],
-  [730, "2 vuotta"],
-] as const;
-const MAX_SYNCS = 4;
+const hh = (h: number) => `${h}.15`;
 
-function timeZones(): string[] {
-  const all = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? ["Europe/Helsinki", "Europe/Stockholm", "UTC"];
-  // the household's own zone first
-  return ["Europe/Helsinki", ...all.filter((z) => z !== "Europe/Helsinki")];
-}
-
-const hh = (h: number) => `${String(h).padStart(2, "0")}.15`;
-
+/** "klo 6.15, 18.15" (docs/UI_STYLE.md: a full stop, no zero before the hour). */
 export function syncHoursLabel(hours: number[]): string {
-  return hours.length ? hours.map(hh).join(", ") : "ei kellonaikoja";
+  return hours.length ? t("set.iform.at_times", { times: hours.map(hh).join(", ") }) : t("set.iform.no_set_times");
 }
 
 /** Same rule as the server (parseBaseUrl): http or https, a host, no path. */
 function addressProblem(value: string): string | null {
-  const message = "Anna osoite muodossa https://talous.oma.fi (ilman polkua).";
+  const message = t("set.iform.enter_the_address_like_https");
   try {
     const u = new URL(value);
     if ((u.protocol !== "https:" && u.protocol !== "http:") || u.pathname.replace(/\/+$/, "") || u.search || u.hash) return message;
     return null;
   } catch {
-    return value ? message : "Anna osoite.";
+    return value ? message : t("set.iform.enter_the_address");
   }
 }
 
@@ -63,17 +59,17 @@ export function GeneralForm({
     syncHours: state.settings.syncHours,
     historyDays: state.settings.historyDays,
     industryLookup: state.settings.industryLookup,
+    priceIndex: state.settings.priceIndex,
   }));
   const [error, setError] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   const urlInput = useRef<HTMLInputElement>(null);
-  const zones = useMemo(timeZones, []);
 
   const plainHttp = /^http:\/\//.test(form.appBaseUrl) && !/^http:\/\/(localhost|127\.0\.0\.1)(:|$|\/)/.test(form.appBaseUrl);
-  const toggleHour = (h: number) =>
-    setForm((f) => ({ ...f, syncHours: f.syncHours.includes(h) ? f.syncHours.filter((x) => x !== h) : [...f.syncHours, h].sort((a, b) => a - b) }));
+  // a stored schedule that is not one of the presets keeps its times until the household picks another number
+  const setFetchCount = (count: number) => setForm((f) => (f.syncHours.length === count ? f : { ...f, syncHours: [...(SYNC_SCHEDULES[count] ?? [])] }));
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,7 +104,7 @@ export function GeneralForm({
   return (
     <form className="setup-form" onSubmit={submit} noValidate>
       <label>
-        <span className="field-label">Sovelluksen osoite</span>
+        <span className="field-label">{t("set.iform.app_address")}</span>
         <input
           ref={urlInput}
           type="url"
@@ -125,69 +121,49 @@ export function GeneralForm({
           autoComplete="off"
         />
         {urlError && (
-          <span className="error" id="err-address">
+          <span className="field-error" id="err-address">
             {urlError}
           </span>
         )}
       </label>
       {plainHttp && (
-        <div className="notice warning">Yhteys ei ole salattu. Käytä HTTPS:ää, jos sovellukseen pääsee kotiverkon ulkopuolelta.</div>
+        <Notice tone="warning">{t("set.iform.the_address_is_not_encrypted")}</Notice>
       )}
 
-      <div className="field-grid">
-        <label>
-          <span className="field-label">Aikavyöhyke</span>
-          <select value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>
-            {zones.map((z) => (
-              <option key={z} value={z}>
-                {z.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="field-label">Haettava historia</span>
-          <select value={form.historyDays} onChange={(e) => setForm({ ...form, historyDays: Number(e.target.value) })}>
-            {HISTORY_OPTIONS.map(([days, label]) => (
-              <option key={days} value={days}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <fieldset className="hour-picker">
-        <legend className="field-label">
-          Automaattinen haku <span className="muted">({syncHoursLabel(form.syncHours)})</span>
-        </legend>
-        <div className="hours" role="group" aria-label="Hakuajat">
-          {Array.from({ length: 24 }, (_, h) => {
-            const on = form.syncHours.includes(h);
-            return (
-              <button key={h} type="button" aria-pressed={on} disabled={!on && form.syncHours.length >= MAX_SYNCS} onClick={() => toggleHour(h)} aria-label={`klo ${hh(h)}`}>
-                {String(h).padStart(2, "0")}
-              </button>
-            );
-          })}
-        </div>
-        <span className="field-help">Enintään {MAX_SYNCS} kertaa päivässä.</span>
-      </fieldset>
+      <label>
+        <span className="field-label">{t("set.iform.fetches_per_day")}</span>
+        <select value={form.syncHours.length} onChange={(e) => setFetchCount(Number(e.target.value))}>
+          {SYNC_SCHEDULES.map((_, count) => (
+            <option key={count} value={count}>
+              {count === 0 ? t("set.iform.no_automatic_fetches") : count}
+            </option>
+          ))}
+        </select>
+        <span className="field-help">{form.syncHours.length ? t("set.iform.fetch_is_made", { when: syncHoursLabel(form.syncHours) }) : t("set.iform.fetched_when_opened")}</span>
+      </label>
 
       <label className="check">
         <input type="checkbox" checked={form.industryLookup} onChange={(e) => setForm({ ...form, industryLookup: e.target.checked })} />
         <span>
-          Hae tuntemattomien kauppiaiden toimiala YTJ:stä
-          <span className="field-help">YTJ:hin lähetetään vain kauppiaan nimi.</span>
+          {t("set.iform.look_up_industry")}
+          <span className="field-help">{t("set.iform.only_the_merchant_name")}</span>
         </span>
       </label>
 
-      {error && <div className="error">{error}</div>}
+      <label className="check">
+        <input type="checkbox" checked={form.priceIndex} onChange={(e) => setForm({ ...form, priceIndex: e.target.checked })} />
+        <span>
+          {t("set.iform.fetch_price_index")}
+          <span className="field-help">{t("set.iform.price_index_help")}</span>
+        </span>
+      </label>
+
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
-          {busy ? "Tallennetaan…" : submitLabel}
-        </button>
-        {saved && !error && <span className="small muted">Tallennettu.</span>}
+        <Button variant="primary" type="submit" busy={busy}>
+          {busy ? t("set.iform.saving") : submitLabel}
+        </Button>
+        {saved && !error && <span className="small muted">{t("set.iform.saved")}</span>}
         {extraActions}
       </div>
     </form>

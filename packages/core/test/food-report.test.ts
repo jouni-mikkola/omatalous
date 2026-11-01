@@ -13,7 +13,7 @@ import { addMonths, dateIn, monthIndex, monthOf } from "../src/dates.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
-import { enrich } from "./optimise/household.ts";
+import { enrich } from "./optimise/household-kit.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 /** The 10th of October: September 2026 is the last complete month. */
@@ -298,7 +298,7 @@ describe("the card bills", () => {
     expect(gap.cents).toBe(30_000);
     expect(gap.window).toEqual({ from: "2026-07-01", to: "2026-09-30" });
     expect(gap.bills).toMatchObject([{ issuer: "Esimerkkipankki Oyj", cents: 30_000, reason: "not_connected" }]);
-    expect(gap.text.replace(/\u00a0/g, " ")).toBe("Ruoan menoja ei lasketa: ajalla 1.7.2026–30.9.2026 on korttilaskuja 300 €, mutta Esimerkkipankki Oyj ei ole yhdistetty.");
+    expect(gap.text.replace(/\u00a0/g, " ")).toBe("Ruoan menoja ei lasketa: ajalla 1.7.–30.9.2026 on korttilaskuja 300 €, mutta Esimerkkipankki Oyj ei ole yhdistetty.");
   });
 
   it("says since when a connected card has rows when the bill is of the time before: the window ends where the card begins", () => {

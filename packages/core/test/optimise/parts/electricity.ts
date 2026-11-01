@@ -5,7 +5,7 @@
 import { addMonths, daysInMonth } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Transaction } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 
 export interface BillOpts {
   /** Seller cents in a winter month (November to March) and in another month. */

@@ -14,17 +14,17 @@ describe("the words of Täsmää pankin saldoon", () => {
   it("gives each reason id its bank phrase and no tick", () => {
     const text = (reason: ReconcileResult["reason"]) => reconcileView(result({ status: "unknown", type: null, reason })).reason;
     expect(text("only_available")).toBe("vain käytettävissä oleva saldo");
-    expect(text("no_reference_day")).toBe("ei viitepäivää");
-    expect(text("type_changed")).toBe("tyyppi vaihtui");
-    expect(text("too_few")).toBe("liian vähän saldoja");
+    expect(text("no_reference_day")).toBe("pankki ei ole kertonut saldoa tältä päivältä");
+    expect(text("type_changed")).toBe("saldon tyyppi vaihtui");
+    expect(text("too_few")).toBe("saldoja on liian vähän");
     expect(reconcileView(result({ status: "unknown", reason: "too_few" })).proved).toBe(false);
   });
 
   it("says a check that cannot be made yet is not a mismatch", () => {
     const line = (reason: ReconcileResult["reason"]) => reconcileView(result({ status: "unknown", type: null, reason })).headline;
-    expect(line("too_few")).toBe("Saldoa ei voi vielä verrata pankkiin: saldotietoja on liian vähän");
-    expect(line("only_available")).toBe("Saldoa ei voi vielä verrata pankkiin: pankki kertoo vain käytettävissä olevan saldon");
-    expect(line("type_changed")).toBe("Saldoa ei voi vielä verrata pankkiin: saldon tyyppi vaihtui");
+    expect(line("too_few")).toBe("Saldoa ei voi vielä tarkistaa: pankin saldotietoja on vielä liian vähän");
+    expect(line("only_available")).toBe("Saldoa ei voi vielä tarkistaa: pankki kertoo vain käytettävissä olevan saldon");
+    expect(line("type_changed")).toBe("Saldoa ei voi vielä tarkistaa: saldon tyyppi vaihtui");
     expect(reconcileView(result({ status: "differs" })).headline).toBe("Ei täsmää pankin saldoon");
     expect(reconcileView(result({})).headline).toBe("Täsmää pankin saldoon");
   });
@@ -34,7 +34,7 @@ describe("the words of Täsmää pankin saldoon", () => {
     expect(v.proved).toBe(true);
     expect(v.reason).toBeNull();
     expect(v.rows).toEqual([{ from: "2026-10-01", to: "2026-10-07", days: "7 päivää", text: "täsmää", stop: false }]);
-    expect(periodText(v.rows[0]!)).toBe("1.10.2026–7.10.2026");
+    expect(periodText(v.rows[0]!)).toBe("1.–7.10.2026");
   });
 
   it("folds neighbours that match into one stretch and says where the walk stopped, with a signed difference", () => {
@@ -72,7 +72,7 @@ describe("the words of Täsmää pankin saldoon", () => {
     expect(v.rows.map((r) => r.text)).toEqual(["osa tapahtumista on muussa valuutassa", "tapahtumat alkavat myöhemmin"]);
     const t = reconcileView(result({ reason: "type_changed", intervals: [interval("2026-10-01", "2026-10-02")] }));
     expect(t.proved).toBe(true);
-    expect(t.after).toBe("tyyppi vaihtui");
+    expect(t.after).toBe("saldon tyyppi vaihtui");
   });
 
   it("has nothing to open when there are no intervals", () => {

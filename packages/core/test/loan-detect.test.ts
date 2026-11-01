@@ -200,7 +200,7 @@ describe("what the household already answered", () => {
     marks: proposalsOf(from).map((p) => ({ ...notLoanMark(p), markedAt: "2026-10-10T09:00:00" })),
   });
 
-  it("a series marked \"Ei laina\" is not proposed again, and taking the mark away brings the proposal back", () => {
+  it("a series marked \"Ei ole laina\" is not proposed again, and taking the mark away brings the proposal back", () => {
     const rows = carLoan();
     const inputs = marked(rows);
     expect(inputs.marks).toEqual([{ subject: "loan-proposal:out:chk:Toyota Finance Finland#25000", mark: "dismissed", markedAt: "2026-10-10T09:00:00" }]);
@@ -230,7 +230,7 @@ describe("what the household already answered", () => {
     for (const mark of others) expect(proposalsOf(carLoan(), { ...NO_INPUTS, marks: [mark] }), mark.subject).toHaveLength(1);
   });
 
-  it("\"Ei laina\" has a subject of its own: a mark made on Laskut neither replaces it nor is replaced by it", () => {
+  it("\"Ei ole laina\" has a subject of its own: a mark made on Laskut neither replaces it nor is replaced by it", () => {
     const rows = carLoan();
     const context = createContext(rows.map((t) => ({ ...t, category: "loans" })), [checking], TODAY);
     const series = context.recurring.find((s) => s.merchant === "Toyota Finance Finland")!;

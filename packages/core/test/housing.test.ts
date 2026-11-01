@@ -1,12 +1,13 @@
 /**
  * The block Asuminen of the first page (`housing.ts`): the home loans with their terms, then the rent and the charges.
- * It owns no figure, so the tests hold it to the owners: the loans of Varallisuus > Lainat, the plan's next payment
+ * It owns no figure, so the tests hold it to the owners: the loans of Varat ja velat > Lainat, the plan's next payment
  * and the series' own month. Made-up payees and sums only.
  */
 import { describe, expect, it } from "vitest";
 import { applyUse } from "../src/account-use.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildHousing } from "../src/housing.ts";
 import { loanProposals } from "../src/loan-detect.ts";
 import { loanNextPayment } from "../src/loans.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
@@ -35,7 +36,7 @@ function page(rows: readonly Transaction[], loans: Loan[] = [], marks: UserMark[
   const ctx = createContext([...rows], balances.map(accountOf), today);
   const inputs: UserInputs = { marks, expectedBills: [], loans };
   const dashboard = buildDashboard(ctx, range, balances, inputs);
-  return { ctx, inputs, housing: dashboard.housing, holdings: dashboard.holdings };
+  return { ctx, inputs, housing: buildHousing(ctx, balances, inputs), holdings: dashboard.holdings };
 }
 const monthOf = (ctx: ReturnType<typeof page>["ctx"], merchant: string) => ctx.recurring.filter((s) => s.merchant === merchant).map((s) => s.monthlyCents);
 
@@ -60,7 +61,7 @@ describe("the home loans of Asuminen", () => {
       atPart: false,
       ask: false,
     });
-    // the figures are the owners': the plan's payment and the month of Varallisuus > Lainat
+    // the figures are the owners': the plan's payment and the month of Varat ja velat > Lainat
     expect(housing!.loans[0]!.next).toEqual(loanNextPayment(home, today));
     expect(holdings.loans.map((row) => [row.id, row.monthlyPaymentCents])).toEqual([["home", 91_240]]);
   });
@@ -119,7 +120,7 @@ describe("the home loans of Asuminen", () => {
     expect(linked.housing!.totalMonthlyCents).toBe(91_240);
     expect(loanProposals(linked.ctx, linked.inputs)).toEqual([]);
 
-    // "Ei laina" of the proposal: the payments are no home loan
+    // "Ei ole laina" of the proposal: the payments are no home loan
     const refused = page(rows, [], [{ subject: `loan-proposal:${proposals[0]!.key}`, mark: "dismissed", markedAt: "2026-10-01T08:00:00.000Z" }]);
     expect(refused.housing).toMatchObject({ loans: [], ask: true });
   });
@@ -335,7 +336,7 @@ describe("the charges of Asuminen", () => {
 });
 
 describe("Asuminen against the first page's holdings", () => {
-  it("on every seeded household the saved home loans are the rows of Varallisuus > Lainat, and each row is in the total once", () => {
+  it("on every seeded household the saved home loans are the rows of Varat ja velat > Lainat, and each row is in the total once", () => {
     const problems: string[] = [];
     let rows = 0;
     for (let seed = 1; seed <= 20; seed++) {
@@ -350,7 +351,8 @@ describe("Asuminen against the first page's holdings", () => {
         ...(seed % 2 ? [loan({ id: `open-${seed}`, balanceDate: "2025-10-01", repayment: null, intervalMonths: null, paymentCents: null })] : []),
       ];
       const inputs: UserInputs = { marks: [], expectedBills: [], loans: saved };
-      const { housing, holdings } = buildDashboard(ctx, { from: "2025-10-01", to: on }, balances, inputs);
+      const { holdings } = buildDashboard(ctx, { from: "2025-10-01", to: on }, balances, inputs);
+      const housing = buildHousing(ctx, balances, inputs);
       if (!housing) {
         problems.push(`${seed}: no block`);
         continue;

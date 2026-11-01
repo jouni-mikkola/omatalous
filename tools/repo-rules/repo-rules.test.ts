@@ -4,10 +4,14 @@
  * with `pnpm test` and in CI. They look at the tracked files and at the untracked ones that are not ignored, so a new
  * file meets them before its commit.
  *
- * One test file on purpose: vitest runs each file in its own worker, and every worker would load the compiler
- * and parse the same sources again. Here they load once and share the parse cache, which keeps all rules together
- * under 3 seconds. Each rule is its own `it` in one of the modules below, so a failure names the rule, then
- * `file:line`, then what to do.
+ * Three test files, one per group of modules, which the `rules` project of vitest.config.ts runs without isolation: the
+ * files that land on one worker share its module cache, so they load the compiler and parse each source once
+ * (`warmParse`, warm.ts). The groups are about equal in time, so the run is no longer than its slowest group:
+ *   repo-rules.test.ts         the text of the UI and the docs     text-rules, finnish, glossary-rule, dialect
+ *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, exports-rule, size, timeouts-rules, figures-rules, css-tokens, limiters-rules
+ *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, modules, roadmap-rules
+ * A new rule module is imported by the file of its group. Each rule is its own `it` in one of the modules, so a failure
+ * names the rule, then `file:line`, then what to do.
  *
  *   rule 1   core is pure                                     code-rules.ts
  *   rule 2   SQL only in db/                                  code-rules.ts
@@ -43,28 +47,24 @@
  *   rule 33  no loop in `uses`; the type-import group has a ceiling modules.ts
  *   rule 34  docs/ROADMAP.md lists no released version as coming roadmap-rules.ts
  *   rule 35  the UI text keeps the glossary: removed words stay out glossary-rule.ts (words: glossary.ts)
+ *   rule 36  no window.confirm, alert or prompt in the web app    code-rules.ts
+ *   rule 37  one name, one figure: the registry agrees with the code   figures-rules.ts (detector: figures.ts)
+ *   rule 38  a limit is in thresholds.ts, not a constant of analysis/ or reports/   figures-rules.ts
+ *   rule 39  no median or mean of its own in analysis/ or reports/: the expected figure   figures-rules.ts
+ *   rule 40  the look comes from tokens: no new px, colour or font-size literal, baseline only shrinks   css-tokens.ts (detector: css-look.ts)
+ *   rule 41  only the files on card-users.json import Card, the list only shrinks   css-tokens.ts
+ *   rule 42  a rate limiter is built from the limits schema, not a number written at the call   limiters-rules.ts (detector: limiters.ts)
+ *   rule 43  no hand-written Finnish locale tag: LOCALE of core locale.ts is the one   code-rules.ts
+ *   rule 44  the payment rules review note is at most 6 months old   roadmap-rules.ts
+ *   rule 45  no style attribute in the web app (style-src has no 'unsafe-inline')   code-rules.ts
+ *   rule 46  an own class selector is styled in one stylesheet, base.css apart   css-tokens.ts (detector: css-look.ts)
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */
-import { beforeAll } from "vitest";
-import { parse, sourceFiles } from "./lib.ts";
-import "./code-rules.ts";
-import "./dialect.ts";
+import { warmParse } from "./warm.ts";
 import "./text-rules.ts";
-import "./boundaries.ts";
-import "./parity.ts";
-import "./size.ts";
-import "./timeouts-rules.ts";
-import "./runners-rules.ts";
-import "./exports-rule.ts";
-import "./shell-rules.ts";
-import "./modules.ts";
-import "./roadmap-rules.ts";
+import "./finnish.ts";
 import "./glossary-rule.ts";
+import "./dialect.ts";
 
-// The sources every rule walks are parsed once, here, and not inside whichever rule runs first: that rule would carry the
-// whole cost of the cold start in its own timeout (a full check on a busy machine took over 20 s for it). The hook has
-// the time the parse needs; a rule's timeout then measures that rule.
-beforeAll(() => {
-  for (const f of sourceFiles("packages/", "apps/", "tools/findings/")) parse(f);
-}, 300_000);
+warmParse();

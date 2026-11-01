@@ -1,5 +1,6 @@
-import { addMonths, monthEnd, monthName } from "@banking/core";
+import { addMonths, monthEnd } from "@banking/core";
 import { monthLong } from "./format.ts";
+import { t } from "./text.ts";
 
 /** Yhteenveto offers the running month and the one before it. The ids stay in a bookmark; the label is the month's name. */
 const MONTH_IDS = ["month", "last-month"] as const;
@@ -13,11 +14,11 @@ function monthPeriodLabel(id: (typeof MONTH_IDS)[number], today: string): string
 
 /** Raportit compares months and years, so none of its presets is a single month. */
 export const REPORT_PERIODS = [
-  { id: "3m", label: "3 kk" },
-  { id: "6m", label: "6 kk" },
-  { id: "12m", label: "12 kk" },
-  { id: "year", label: "Tämä vuosi" },
-  { id: "last-year", label: "Viime vuosi" },
+  { id: "3m", get label() { return t("period.m3"); } },
+  { id: "6m", get label() { return t("period.m6"); } },
+  { id: "12m", get label() { return t("period.m12"); } },
+  { id: "year", get label() { return t("period.year"); } },
+  { id: "last-year", get label() { return t("period.last_year"); } },
 ] as const;
 
 export interface PeriodPreset {
@@ -42,8 +43,23 @@ export function periodsOf(page: string, today: string): readonly PeriodPreset[] 
 /** The pages that draw their own switch, in the block it changes: the shell draws none above them. */
 const OWN_SWITCH: readonly string[] = ["overview"];
 
-/** The presets the shell draws above a page: those of `periodsOf`, none for a page that draws its own switch. */
-export function shellPeriodsOf(page: string, today: string): readonly PeriodPreset[] {
+/** The one question of Raportit that is about the running month, whatever period is chosen. */
+const MONTH_QUESTION = "kuukausi";
+
+/** The questions of Raportit whose reports answer the same for every period (`report-period.test.ts` asks each page for two), so their page draws no switch. */
+export const PERIOD_FREE_QUESTIONS: readonly string[] = [MONTH_QUESTION, "velat"];
+
+/**
+ * The question an address asks for before any answer is there: the month question when it anchors the one section of
+ * that page (#kuukausi, as Yhteenveto links it), else its `q`. Kept here so the shell need not load the report pages.
+ */
+export function askedQuestion(q: string | null, anchor: string | undefined): string | null {
+  return anchor === MONTH_QUESTION ? MONTH_QUESTION : q;
+}
+
+/** The presets the shell draws above a page: those of `periodsOf`, none for a page that draws its own switch or a question the period does not change. */
+export function shellPeriodsOf(page: string, today: string, question: string | null = null): readonly PeriodPreset[] {
+  if (page === "reports" && question !== null && PERIOD_FREE_QUESTIONS.includes(question)) return [];
   return OWN_SWITCH.includes(page) ? [] : periodsOf(page, today);
 }
 
@@ -64,14 +80,16 @@ export function periodFor(page: string, param: string | null, opening: "month" |
 /**
  * Preset id → inclusive date range, relative to the server's "today". 3, 6 and
  * 12 kk are the last whole months: a running month holds this month's bills
- * but not yet its salary, which would make a year look like a loss. Any other
+ * but not yet its salary, which would make a year look like a loss. Once the
+ * salary has come (`opening` is "month", the month Yhteenveto opens on) the
+ * running month is in them, so both pages read the same month. Any other
  * id is the running month, and "Tämä vuosi" runs to today.
  */
-export function periodRange(period: string, today: string): { from: string; to: string } {
+export function periodRange(period: string, today: string, opening: "month" | "last-month" = "last-month"): { from: string; to: string } {
   const month = today.slice(0, 7);
   const year = Number(today.slice(0, 4));
   const prev = addMonths(month, -1);
-  const lastMonths = (n: number) => ({ from: `${addMonths(month, -n)}-01`, to: monthEnd(prev) });
+  const lastMonths = (n: number) => (opening === "month" && period !== "last-month" ? { from: `${addMonths(month, 1 - n)}-01`, to: today } : { from: `${addMonths(month, -n)}-01`, to: monthEnd(prev) });
   switch (period) {
     case "last-month":
       return lastMonths(1);
@@ -92,11 +110,14 @@ export function periodRange(period: string, today: string): { from: string; to: 
 
 /**
  * The line that says where a window of whole months stops, for 3, 6 and 12 kk: the running month is left out, and
- * nothing else tells the reader so. Null for the presets that run to today or to a year's end.
+ * nothing else tells the reader so. Null for the presets that run to today or to a year's end, and once the running
+ * month is in.
  */
-export function windowNote(period: string, today: string): string | null {
+export function windowNote(period: string, today: string, opening: "month" | "last-month" = "last-month"): string | null {
   if (period !== "3m" && period !== "6m" && period !== "12m") return null;
+  if (opening === "month") return null;
   const month = today.slice(0, 7);
-  const first = `${monthName(addMonths(month, -1))}n`;
-  return `${first.charAt(0).toUpperCase()}${first.slice(1)} loppuun asti, ${monthName(month)} ei ole vielä mukana`;
+  const bare = (m: string) => monthLong(m).slice(0, -5);
+  const first = t("period.genitive", { month: bare(addMonths(month, -1)) });
+  return t("period.window", { prev: `${first.charAt(0).toUpperCase()}${first.slice(1)}`, month: bare(month) });
 }

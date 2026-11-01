@@ -1,7 +1,8 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { IMAGES, PICTURES } from "../docs-shots.mjs";
+import { FILES as VIDEO, MAX_BYTES as VIDEO_MAX } from "../readme-video.mjs";
 
 const ROOT = join(import.meta.dirname, "../..");
 /** Photographs of an outside site: nobody here makes them. */
@@ -24,7 +25,16 @@ describe("docs:shots", () => {
   });
 
   it("every picture a document names is made by the script or is on the list of two that are not ours", () => {
-    const ours = new Set([...(PICTURES as { file: string }[]).map((p) => p.file), ...NOT_OURS]);
+    const ours = new Set([...(PICTURES as { file: string }[]).map((p) => p.file), ...NOT_OURS, ...Object.values(VIDEO)]);
     expect(named(ROOT).filter((f) => !ours.has(f))).toEqual([]);
+  });
+
+  it("the README starts with the video and a still for reduced motion, both made by readme:video, under the cap", () => {
+    const readme = readFileSync(join(ROOT, "README.md"), "utf8");
+    const picture = /<picture>[\s\S]*?<\/picture>/.exec(readme)?.[0] ?? "";
+    expect(readme.indexOf("<picture>")).toBeLessThan(readme.indexOf("![Yhteenveto"));
+    expect(picture).toContain(`media="(prefers-reduced-motion: reduce)" srcset="docs/images/${VIDEO.still}"`);
+    expect(picture).toMatch(new RegExp(`<img src="docs/images/${VIDEO.video}" alt="[^"]{20,}"`));
+    expect(statSync(join(IMAGES, VIDEO.video)).size).toBeLessThan(VIDEO_MAX);
   });
 });

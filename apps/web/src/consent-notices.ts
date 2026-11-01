@@ -1,6 +1,7 @@
 import { type RoundView, WARN_DAYS } from "@banking/core";
-import { accountNumber, date, localDay, plural } from "./format.ts";
+import { accountNumber, date, localDay } from "./format.ts";
 import type { Account, Connection } from "./types.ts";
+import { t, tn } from "./text.ts";
 
 /** The applications page of the Enable Banking Control Panel, where Link accounts is. */
 export const CONTROL_PANEL = "https://enablebanking.com/cp/applications";
@@ -26,7 +27,7 @@ interface ConsentNotice {
  * account is linked: a restricted application leaves the others out of a session.
  */
 export function leftOutText(accountName: string): string {
-  return `${accountName} ei tullut mukaan uuteen yhteyteen. Lisää se Enable Bankingissa (API applications > Omatalous > Link accounts) ja yhdistä uudelleen.`;
+  return t("conn.left_out", { name: accountName });
 }
 
 /**
@@ -55,27 +56,27 @@ export function consentNotices(connections: readonly Connection[], accounts: rea
 
 /** The connection stays active through its last day, so 0 means today. */
 export function expiresIn(daysLeft: number): string {
-  return daysLeft <= 0 ? "tänään" : daysLeft === 1 ? "huomenna" : `${daysLeft} päivän päästä`;
+  return daysLeft <= 0 ? t("conn.today") : daysLeft === 1 ? t("conn.tomorrow") : t("conn.in_days", { days: daysLeft });
 }
 
 /** The same words as the connections table and Tietojen laatu; a consent that broke shows no date. */
 export function consentNoticeText(n: ConsentNotice): string {
   if (n.kind === "left_out") return leftOutText(n.accountName ?? n.institution);
-  if (n.kind === "lapsed") return `${n.institution}: yhteys vanhentui${n.endedOn ? ` ${date(n.endedOn)}` : ""}.`;
-  if (n.kind === "broken") return `${n.institution}: yhteys katkesi.`;
-  return `${n.institution}: yhteys vanhenee ${expiresIn(n.daysLeft ?? 0)}.`;
+  if (n.kind === "lapsed") return n.endedOn ? t("conn.lapsed_on", { bank: n.institution, date: date(n.endedOn) }) : t("conn.lapsed", { bank: n.institution });
+  if (n.kind === "broken") return t("conn.broken", { bank: n.institution });
+  return t("conn.expires", { bank: n.institution, when: expiresIn(n.daysLeft ?? 0) });
 }
 
 // ── the round that renews every consent ───────────────────────────────────────────
 
 /** The line above the button that begins a round: the consents by name, in the order the round takes them. */
 export function dueText(names: readonly string[]): string {
-  return `Yhteys päättyy tai on päättynyt: ${names.join(", ")}.`;
+  return t("conn.due", { names: names.join(", ") });
 }
 
 /** The progress of a begun round, "1 / 2 uusittu"; the end says so. */
 export function roundText(round: Pick<RoundView, "consents" | "finished">): string {
-  return round.finished ? "Kaikki yhteydet on uusittu." : `${round.consents.filter((c) => c.done).length} / ${round.consents.length} uusittu`;
+  return round.finished ? t("conn.round_done") : t("conn.round_progress", { done: round.consents.filter((c) => c.done).length, total: round.consents.length });
 }
 
 /**
@@ -124,16 +125,14 @@ export function unlinkedAccounts(connections: readonly Connection[], accounts: r
 
 /** The line above the list. */
 export function unlinkedTitle(count: number): string {
-  return count === 1 ? "Yhtä tiliä ei ole lisätty Enable Bankingissa." : `${count} tiliä ei ole lisätty Enable Bankingissa.`;
+  return count === 1 ? t("conn.unlinked_one") : t("conn.unlinked_many", { count });
 }
 
 /** The one step that fixes it: who takes it depends on whose Enable Banking application reads the accounts. */
 export function unlinkedStep(count: number, canFix: boolean): string {
-  const them = count === 1 ? "se" : "ne";
+  const them = count === 1 ? t("conn.them_one") : t("conn.them_many");
   const where = "API applications > Omatalous > Link accounts";
-  return canFix
-    ? `Lisää ${them} Control Panelissa (${where}). Paina sen jälkeen Hae nyt.`
-    : `Ylläpitäjän pitää lisätä ${them} Control Panelissa (${where}). Paina sen jälkeen Hae nyt.`;
+  return t(canFix ? "conn.fix_self" : "conn.fix_admin", { them, where });
 }
 
 // ── the calendar reminder ───────────────────────────────────────────────────────────
@@ -146,10 +145,10 @@ const SHOW_DAYS_LEFT = 30;
 /** "voimassa 14.1.2027 asti"; the days left are added from the last month on ("…, vielä 12 päivää"); the last day says so. Empty for a consent that is not active. */
 export function validityText(c: Pick<Connection, "state" | "validUntil" | "daysLeft">): string {
   if (c.state !== "active" || !c.validUntil) return "";
-  if (c.daysLeft === null) return `voimassa ${date(c.validUntil)} asti`;
-  if (c.daysLeft <= 0) return "voimassa enää tänään";
-  const until = `voimassa ${date(c.validUntil)} asti`;
-  return c.daysLeft < SHOW_DAYS_LEFT ? `${until}, vielä ${plural(c.daysLeft, "päivä", "päivää")}` : until;
+  const until = t("conn.valid_until", { date: date(c.validUntil) });
+  if (c.daysLeft === null) return until;
+  if (c.daysLeft <= 0) return t("conn.valid_today");
+  return c.daysLeft < SHOW_DAYS_LEFT ? tn(c.daysLeft, "conn.valid_left_one", "conn.valid_left_many", { until }) : until;
 }
 
 /** The day of the reminder (YYYY-MM-DD), counted from the date the page shows for the end. Null without a date. */
@@ -224,7 +223,7 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
   }
   if (!day || !c.validUntil || !/^https?:$/.test(address.protocol)) return null;
   const link = `${address.origin}/#/settings`;
-  const title = `Omatalous: pankkiyhteys vanhenee ${date(c.validUntil)}`;
+  const title = t("conn.reminder_title", { date: date(c.validUntil) });
   const compact = (iso: string) => iso.replaceAll("-", "");
   const after = new Date(`${day}T00:00:00Z`);
   after.setUTCDate(after.getUTCDate() + 1);
@@ -240,7 +239,7 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
     `DTSTART;VALUE=DATE:${compact(day)}`,
     `DTEND;VALUE=DATE:${compact(after.toISOString().slice(0, 10))}`,
     `SUMMARY:${icsText(title)}`,
-    `DESCRIPTION:${icsText(`${c.institution}: yhteys vanhenee ${date(c.validUntil)}. Avaa Omatalous ja valitse Asetukset > Pankkiyhteydet > Yhdistä uudelleen.\n${link}`)}`,
+    `DESCRIPTION:${icsText(`${t("conn.reminder_text", { bank: c.institution, date: date(c.validUntil) })}\n${link}`)}`,
     `URL:${link}`,
     "TRANSP:TRANSPARENT",
     "BEGIN:VALARM",
@@ -252,6 +251,6 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
     "END:VCALENDAR",
   ];
   const slug = c.institution.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const filename = `${["pankkiyhteys", slug, localDay(c.validUntil)].filter(Boolean).join("-")}.ics`;
+  const filename = `${[t("ics.file"), slug, localDay(c.validUntil)].filter(Boolean).join("-")}.ics`;
   return { day, filename, ics: `${lines.map(foldLine).join("\r\n")}\r\n` };
 }

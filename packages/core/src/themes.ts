@@ -13,6 +13,9 @@
  */
 import { type AnalysisContext, type AnalysisTx, netPurchase } from "./analysis/context.ts";
 import { getCategory } from "./categories.ts";
+import { categoryLabel } from "./category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
+import { messageFromWire } from "./messages.ts";
 import { mccKind } from "./industry.ts";
 import { fold } from "./merchant.ts";
 import { isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isVehicleTaxText } from "./wording.ts";
@@ -101,6 +104,13 @@ export const THEMES: readonly Theme[] = [
   { id: "loans", heading: "Lainat ja luotot", lines: labelled("loans", "student_loan", "interest", "collection") },
   { id: "other", heading: "Raha-asiat", lines: labelled("cash", "p2p", "card_bill", "other") },
 ];
+
+/** A theme's heading in a language (`theme.<id>`); the Finnish heading stays the key and the fallback. */
+export const themeName = (theme: Pick<Theme, "id" | "heading">, lang: Language = DEFAULT_LANGUAGE): string => messageFromWire(`theme.${theme.id}`, undefined, lang) ?? theme.heading;
+
+/** A line's heading in a language: a category line has the category's name, a line of Auto its own (`carline.<id>`). */
+export const lineName = (theme: Pick<Theme, "id">, line: ThemeLine, lang: Language = DEFAULT_LANGUAGE): string =>
+  theme.id === "car" || line.id === CAR_PURCHASE ? (messageFromWire(`carline.${line.id === CAR_PURCHASE ? "purchase" : line.id}`, undefined, lang) ?? line.heading) : categoryLabel({ id: line.id, label: line.heading }, lang);
 
 /** Where the rows of a category count when no words take them elsewhere. Kategoriat groups the categories by it too. */
 export const BY_CATEGORY: ReadonlyMap<string, Placement> = new Map(

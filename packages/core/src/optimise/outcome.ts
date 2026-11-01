@@ -8,6 +8,8 @@
  */
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { formatEur, formatFiDate } from "../analysis/format.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { ITEM_GATE_MONTHLY_CENTS } from "../analysis/insights/shared.ts";
 import { paysAhead, type Replacement, replacementOf } from "../analysis/insights/stopped.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
@@ -95,13 +97,13 @@ const CPI_LAG_MONTHS = 3;
 /** A charge within this share of a series' typical price is a charge of that series at its cadence. */
 const SAME_PRICE = 0.5;
 
-const eur = (cents: number) => formatEur(Math.abs(Math.round(cents)), false);
+const eur = (cents: number, lang: Language) => formatEur(Math.abs(Math.round(cents)), false, lang);
 
 /** "13 € kuussa vähemmän", "8 € kuussa enemmän", "±0 € kuussa". */
-function difference(effect: number): string {
+function difference(effect: number, lang: Language): string {
   const rounded = Math.round(effect / 100) * 100;
-  if (rounded === 0) return `±${formatEur(0, false)} kuussa`;
-  return `${eur(rounded)} ${rounded > 0 ? "vähemmän" : "enemmän"} kuussa`;
+  if (rounded === 0) return messageIn(lang, "opt.diff_zero", { amount: formatEur(0, false, lang) });
+  return messageIn(lang, rounded > 0 ? "opt.diff_less" : "opt.diff_more", { amount: eur(rounded, lang) });
 }
 
 /** The measure of a done finding: the finding's own, or read from its id when the finding no longer shows. */
@@ -222,16 +224,19 @@ interface Prepared {
   judge: (last: string) => FindingOutcome;
 }
 
-const unmeasurable: FindingOutcome = { verdict: "epäselvä", monthlyCents: null, reason: "Tätä muutosta ei voi mitata tapahtumista." };
+const unmeasurable = (lang: Language): FindingOutcome => ({ verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_unmeasurable") });
 
 /** Monthly sums and charges of the measure, read once, so the line can judge the same decision at several months. */
-function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFinding | null): Prepared {
+function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFinding | null, lang: Language): Prepared {
   const measure = measureOf(ctx, state.findingId, finding);
   const effective = state.effectiveDate ?? state.decidedAt.slice(0, 10);
-  if (!measure || measure.kind === "none") return { fixed: unmeasurable, judge: () => unmeasurable };
+  if (!measure || measure.kind === "none") {
+    const none = unmeasurable(lang);
+    return { fixed: none, judge: () => none };
+  }
 
   const switched = switchOf(ctx, measure);
-  const replacement = switched ? { merchant: switched.to.merchant, date: switched.to.firstDate, text: `Korvaava palvelu alkoi: ${switched.to.merchant}` } : undefined;
+  const replacement = switched ? { merchant: switched.to.merchant, date: switched.to.firstDate, text: messageIn(lang, "opt.out_replacement", { merchant: switched.to.merchant }) } : undefined;
   const matches = matcherOf(ctx, measure, replacement?.merchant ?? null);
   const changeover = monthOf(effective);
   const sums = new Map<string, number>();
@@ -257,14 +262,14 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
   const contract = measure.kind === "series" || (measure.kind === "merchants" && measure.perYear !== undefined);
   const series = seriesOf(ctx, measure);
   // only a cancellation is expected to stop the payment; a renegotiated loan or a new electricity price keeps billing
-  const cancels = finding?.action?.toLocaleLowerCase("fi").startsWith("irtisano") ?? false;
+  const cancels = /^(irtisano|cancel)/i.test(finding?.action ?? "");
   const stillBilling = cancels && series.length > 0 && series.every((s) => s.active && monthOf(s.lastDate) > changeover) ? series[0]! : null;
 
   const withReplacement = (o: FindingOutcome): FindingOutcome => {
-    const named = replacement ? { ...o, replacement, reason: `${o.reason} ${replacement.merchant} on laskettu mukaan.` } : o;
+    const named = replacement ? { ...o, replacement, reason: messageIn(lang, "opt.out_counted", { reason: o.reason, merchant: replacement.merchant }) } : o;
     // a cancelled payment that still bills says so when the figures show no saving
     if ((named.verdict === "epäselvä" || named.verdict === "huonompi") && stillBilling && named.monthlyCents !== null) {
-      return { ...named, reason: `${named.reason} ${stillBilling.merchant}: veloituksia tulee yhä, viimeksi ${formatFiDate(stillBilling.lastDate)}.` };
+      return { ...named, reason: messageIn(lang, "opt.out_still_billing", { reason: named.reason, merchant: stillBilling.merchant, date: formatFiDate(stillBilling.lastDate, lang) }) };
     }
     return named;
   };
@@ -284,7 +289,7 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
   const judge = (last: string): FindingOutcome => {
     const after = last > changeover ? monthRange(addMonths(changeover, 1), last).filter((m) => isCompleteMonth(ctx, m)) : [];
     const ready = `${addMonths(changeover, wait + 1)}-01`;
-    const waiting = (reason = `Tulos lasketaan, kun muutoksen jälkeen on ${wait} valmista kuukautta: ${formatFiDate(ready)}.`): FindingOutcome => ({ verdict: "odottaa", monthlyCents: null, reason });
+    const waiting = (reason = messageIn(lang, "opt.out_waiting", { wait, date: formatFiDate(ready, lang) })): FindingOutcome => ({ verdict: "odottaa", monthlyCents: null, reason });
     if (after.length < wait) return waiting();
     // an account that stopped syncing would read as a saving: its rows must reach the last month judged
     const lastMonth = after[after.length - 1]!;
@@ -292,45 +297,45 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
       const seen = lastBooking.get(account)!;
       if (seen < `${lastMonth}-01`) {
         const name = ctx.accounts.find((a) => a.id === account)?.name ?? account;
-        return { verdict: "epäselvä", monthlyCents: null, reason: `Tilin ${name} tapahtumia ei ole haettu ${formatFiDate(seen)} jälkeen.` };
+        return { verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_account_stale", { name, date: formatFiDate(seen, lang) }) };
       }
     }
 
     if (measure.kind === "season" || measure.kind === "unit") {
-      if (after.some((m) => !isCompleteMonth(ctx, addMonths(m, -12)))) return { verdict: "epäselvä", monthlyCents: null, reason: "Vertailuun tarvitaan samat kuukaudet vuotta aiemmin." };
+      if (after.some((m) => !isCompleteMonth(ctx, addMonths(m, -12)))) return { verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_need_year_ago") };
       // the months of the season: a month without spending in either year says nothing about the change
       const months = after.filter((m) => sumOf(m) > 0 || sumOf(addMonths(m, -12)) > 0).slice(-BEFORE_MONTHS);
-      if (!months.length) return { verdict: "epäselvä", monthlyCents: null, reason: "Samoina kuukausina vuotta aiemmin ei ole menoja vertailuun." };
+      if (!months.length) return { verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_no_spending_year_ago") };
       let note: string;
       let factor: (m: string) => number;
       if (measure.kind === "season") {
         const cpi = months.map((m) => cpiFor(m, ctx.today));
-        if (cpi.some((c) => c === null)) return { verdict: "epäselvä", monthlyCents: null, reason: "Vertailutieto on vanhentunut." };
+        if (cpi.some((c) => c === null)) return { verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_fact_stale") };
         const byMonth = new Map(months.map((m, i) => [m, 1 + cpi[i]! / 100]));
         factor = (m) => byMonth.get(m)!;
-        note = "Vuoden takaiset summat on korjattu kuluttajahintojen muutoksella.";
+        note = messageIn(lang, "opt.out_cpi_note");
       } else {
         // the old kWh is not stored, so no price per kWh can be told: the bills are compared as they are
         factor = () => 1;
-        note = "Vertailussa ovat laskujen summat, joten kulutuksen muutos näkyy luvussa.";
+        note = messageIn(lang, "opt.out_bills_note");
       }
       const diffs = months.map((m) => sumOf(addMonths(m, -12)) * factor(m) - sumOf(m));
       const effect = Math.round(median(diffs));
       let verdict = verdictOf(effect, diffs.every((d) => d > 0));
       // a lower bill may be a milder year: the bills alone never confirm a cheaper price
       if (measure.kind === "unit" && verdict === "vahvistui") verdict = "todennäköinen";
-      return withReplacement({ verdict, monthlyCents: effect, reason: `${difference(effect)} kuin samaan aikaan vuotta aiemmin. ${note}` });
+      return withReplacement({ verdict, monthlyCents: effect, reason: messageIn(lang, "opt.out_year_ago", { difference: difference(effect, lang), note }) });
     }
 
     if (!contract) {
       let beforeSums: Baseline = completeMonthsBefore(ctx, changeover, BEFORE_MONTHS).map((month) => ({ month, cents: sumOf(month) }));
       if (beforeSums.length < MIN_BEFORE_MONTHS && (state.baseline?.length ?? 0) >= MIN_BEFORE_MONTHS) beforeSums = state.baseline!;
       let before = beforeSums.map((b) => b.cents);
-      if (before.length < MIN_BEFORE_MONTHS) return { verdict: "epäselvä", monthlyCents: null, reason: `Ennen muutosta on alle ${MIN_BEFORE_MONTHS} valmista kuukautta vertailuun.` };
+      if (before.length < MIN_BEFORE_MONTHS) return { verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_few_before", { n: MIN_BEFORE_MONTHS }) };
       const b = median(before);
       // a payment that covers months ahead (a yearly fee instead of monthly ones) in the changeover month would leave
       // the months after empty and read as a saving
-      if (paysAhead(sumOf(changeover), Math.max(b, ITEM_GATE_MONTHLY_CENTS))) return waiting("Uuden maksun laskutusväli ei vielä näy.");
+      if (paysAhead(sumOf(changeover), Math.max(b, ITEM_GATE_MONTHLY_CENTS))) return waiting(messageIn(lang, "opt.out_cycle_unseen"));
       const afterMonths = after.slice(-BEFORE_MONTHS);
       const xs = afterMonths.map(sumOf);
       const a = median(xs);
@@ -338,7 +343,7 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
       return withReplacement({
         verdict: verdictOf(effect, xs.every((x) => x < b)),
         monthlyCents: effect,
-        reason: `${difference(effect)}: muutoksen jälkeen yleensä ${eur(a)} kuussa (${xs.length} kuukautta), ennen sitä ${eur(b)}.`,
+        reason: messageIn(lang, "opt.out_after_median", { difference: difference(effect, lang), after: eur(a, lang), n: xs.length, before: eur(b, lang) }),
         detail: {
           before: { cents: Math.round(b), months: before.length },
           after: { cents: Math.round(a), months: xs.length },
@@ -354,16 +359,16 @@ function prepare(ctx: AnalysisContext, state: FindingState, finding: FollowedFin
     const end = monthEnd(lastMonth);
     const beforeRows = paid.filter((t) => t.bookingDate < start && t.bookingDate >= `${addMonths(changeover, -2 * BEFORE_MONTHS)}-01` && t.merchant !== replacement?.merchant);
     const before = beforeCost(beforeRows, start, perYear);
-    if (before === null) return { verdict: "epäselvä", monthlyCents: null, reason: "Ennen muutosta ei ole maksuja vertailuun." };
+    if (before === null) return { verdict: "epäselvä", monthlyCents: null, reason: messageIn(lang, "opt.out_no_before") };
     const afterRows = paid.filter((t) => t.bookingDate >= start && t.bookingDate <= end);
     const now = afterCost(ctx, afterRows, start, end, changeover);
-    if (now.loose) return waiting("Uuden maksun laskutusväli ei vielä näy.");
+    if (now.loose) return waiting(messageIn(lang, "opt.out_cycle_unseen"));
     // no charge yet: the next one may be days late, so a stop is read only a month past the cycle and when no series runs
-    if (now.monthly === 0 && (after.length < cycle + 1 || series.some((s) => s.active))) return waiting("Seuraava maksu ei ole vielä näkynyt.");
+    if (now.monthly === 0 && (after.length < cycle + 1 || series.some((s) => s.active))) return waiting(messageIn(lang, "opt.out_next_unseen"));
     const effect = before - now.monthly;
     const reason = now.monthly
-      ? `${difference(effect)}: maksut ${eur(now.monthly)} kuussa muutoksen jälkeen ja ${eur(before)} ennen sitä.`
-      : `${difference(effect)}: muutoksen jälkeen ei maksuja ${after.length} kuukauteen, ennen ${eur(before)} kuussa.`;
+      ? messageIn(lang, "opt.out_contract_paid", { difference: difference(effect, lang), now: eur(now.monthly, lang), before: eur(before, lang) })
+      : messageIn(lang, "opt.out_contract_stopped", { difference: difference(effect, lang), n: after.length, before: eur(before, lang) });
     const afterMonths = after.slice(-BEFORE_MONTHS);
     const detail: OutcomeDetail = {
       before: { cents: before, months: new Set(beforeRows.map((t) => monthOf(t.bookingDate))).size },
@@ -388,8 +393,8 @@ function lastComplete(ctx: AnalysisContext): string | null {
  * months; a season against the same months a year earlier deflated by CPI; the unit's bills against the same months a
  * year earlier, never above todennäköinen.
  */
-export function outcomeOf(ctx: AnalysisContext, state: FindingState, finding: FollowedFinding | null): FindingOutcome {
-  const prepared = prepare(ctx, state, finding);
+export function outcomeOf(ctx: AnalysisContext, state: FindingState, finding: FollowedFinding | null, lang: Language = DEFAULT_LANGUAGE): FindingOutcome {
+  const prepared = prepare(ctx, state, finding, lang);
   if (prepared.fixed) return prepared.fixed;
   return prepared.judge(lastComplete(ctx) ?? addMonths(monthOf(ctx.today), -1));
 }
@@ -398,11 +403,11 @@ export function outcomeOf(ctx: AnalysisContext, state: FindingState, finding: Fo
  * An active finding whose change the data shows: every payment of its measure stopped and a new payee in the category
  * took over (the switch test of the stopped insight). The page asks to confirm; nothing here stores a decision.
  */
-export function proposalOf(ctx: AnalysisContext, finding: Pick<Finding, "id" | "measure">): SwitchProposal | null {
+export function proposalOf(ctx: AnalysisContext, finding: Pick<Finding, "id" | "measure">, lang: Language = DEFAULT_LANGUAGE): SwitchProposal | null {
   const switched = switchOf(ctx, finding.measure);
   if (!switched || switched.to.firstDate < addDays(ctx.today, -PROPOSAL_DAYS)) return null;
-  const what = switched.from.category === "subscriptions" ? "tilauksen" : "sopimuksen";
-  return { findingId: finding.id, date: switched.to.firstDate, text: `Näyttää siltä, että vaihdoit ${what} ${formatFiDate(switched.to.firstDate)}. Vahvista.` };
+  const text = messageIn(lang, switched.from.category === "subscriptions" ? "opt.proposal_subscription" : "opt.proposal_contract", { date: formatFiDate(switched.to.firstDate, lang) });
+  return { findingId: finding.id, date: switched.to.firstDate, text };
 }
 
 /**
@@ -410,11 +415,11 @@ export function proposalOf(ctx: AnalysisContext, finding: Pick<Finding, "id" | "
  * the euros a year found (mid of the findings not dismissed and not matala) against the euros a year confirmed by then
  * (12 times the monthly effect of each decision judged vahvistui with the months up to the one before).
  */
-export function followUpOf(ctx: AnalysisContext, data: OptimiseData, snapshots: readonly Snapshot[]): FollowUp {
-  const prepared = data.done.map(({ state, finding }) => ({ state, prepared: prepare(ctx, state, finding) }));
+export function followUpOf(ctx: AnalysisContext, data: OptimiseData, snapshots: readonly Snapshot[], lang: Language = DEFAULT_LANGUAGE): FollowUp {
+  const prepared = data.done.map(({ state, finding }) => ({ state, prepared: prepare(ctx, state, finding, lang) }));
   const last = lastComplete(ctx) ?? addMonths(monthOf(ctx.today), -1);
   const outcomes = prepared.map(({ state, prepared: p }) => ({ findingId: state.findingId, outcome: p.fixed ?? p.judge(last) }));
-  const proposals = shownFindings(data).flatMap((f) => proposalOf(ctx, f) ?? []);
+  const proposals = shownFindings(data).flatMap((f) => proposalOf(ctx, f, lang) ?? []);
   const line = [...snapshots]
     .sort((a, b) => a.month.localeCompare(b.month))
     .slice(-LINE_MONTHS)

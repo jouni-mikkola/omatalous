@@ -1,9 +1,9 @@
+import { LOCALE } from "@banking/core";
+import { t } from "../../text.ts";
 /**
  * The one sort of every table: the order a press gives, the rows in that order and the sentence a screen reader hears.
  * Pure, so the tests run it without a page. The web adds up nothing here; it only orders what the server sent.
  */
-import { useState } from "react";
-
 export type SortDir = "ascending" | "descending";
 export type Sort<K extends string> = { key: K; dir: SortDir } | null;
 
@@ -23,7 +23,7 @@ export function nextSort<K extends string>(s: Sort<K>, key: K, textKeys: readonl
  */
 export function sortRows<T>(rows: readonly T[], value: (row: T) => number | string | null, dir: SortDir): T[] {
   const sign = dir === "ascending" ? 1 : -1;
-  const collator = new Intl.Collator("fi-FI");
+  const collator = new Intl.Collator(LOCALE);
   return rows
     .map((row, i) => ({ row, i, v: value(row) }))
     .sort((a, b) => {
@@ -39,19 +39,13 @@ export function sortBy<R, K extends string>(rows: readonly R[], sort: Sort<K>, v
   return sort ? sortRows(rows, (r) => value(r, sort.key), sort.dir) : rows;
 }
 
-/** What the table's live region says after a press. A column of names goes by the alphabet, figures by size. */
-export function sortMessage(label: string, dir: SortDir | null, text: boolean): string {
-  if (!dir) return "Alkuperäinen järjestys";
-  if (text) return `Järjestetty: ${label}, ${dir === "ascending" ? "aakkosjärjestys" : "käänteinen aakkosjärjestys"}`;
-  return `Järjestetty: ${label}, ${dir === "descending" ? "suurin ensin" : "pienin ensin"}`;
+/** The order a column gives, in words: "Lokakuu, suurin ensin". A column of names goes by the alphabet, figures by size. */
+export function sortPhrase(label: string, dir: SortDir, text: boolean): string {
+  if (text) return `${label}, ${dir === "ascending" ? t("table.sort_az") : t("table.sort_za")}`;
+  return `${label}, ${dir === "descending" ? t("table.sort_desc") : t("table.sort_asc")}`;
 }
 
-/** The sort of one table. `touched` is false until the first press, so the live region stays silent on load. */
-export function useSort<K extends string>(textKeys: readonly K[] = []): [Sort<K>, (key: K) => void, boolean] {
-  const [state, setState] = useState<{ sort: Sort<K>; touched: boolean }>({
-    sort: null,
-    touched: false,
-  });
-  const toggle = (key: K) => setState((s) => ({ sort: nextSort(s.sort, key, textKeys), touched: true }));
-  return [state.sort, toggle, state.touched];
+/** What the table's live region says after a press. */
+export function sortMessage(label: string, dir: SortDir | null, text: boolean): string {
+  return dir ? t("table.sorted", { phrase: sortPhrase(label, dir, text) }) : t("table.original");
 }

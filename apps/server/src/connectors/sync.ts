@@ -21,7 +21,7 @@ import { skippedNote, splitByCurrency } from "./foreign-split.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
 import { type RefusedByAccount, readRefusedRows, writeRefusedRows } from "./refused-rows.ts";
-import type { BalanceReading, Connector, PullAccount, Puller, UserHeaders } from "./types.ts";
+import type { BalanceReading, Connector, PullAccount, Puller, RefusedRows, UserHeaders } from "./types.ts";
 
 /** "2026-09-30" → "30.9.2026" */
 const finnishDate = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
@@ -242,7 +242,7 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
         const note = skippedNote(split.skipped, account.name);
         if (note) summary.messages.push(note);
         const r = await ingestTransactions(repo, account.id, split.euro, connector.id);
-        const refused = puller.refused?.(target) ?? {};
+        const refused: RefusedRows = { ...puller.refused?.(target), ...(r.skipped ? { twin: r.skipped } : {}) };
         if (JSON.stringify(refused) !== JSON.stringify(tally.refused[account.id] ?? {})) {
           tally.refused[account.id] = refused;
           tally.refusedChanged = true;
@@ -364,7 +364,19 @@ async function backfill(s: Services, repo: FinanceRepo, connector: Connector, pu
         await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), attended ? "backfill" : "backfill-bare"));
         const rows = await puller.transactions(target, { dateFrom, dateTo: to, initial: false });
         const split = splitByCurrency(rows, accountKey(account));
+        const note = skippedNote(split.skipped, account.name);
+        if (note && !summary.messages.includes(note)) summary.messages.push(note);
         const r = await ingestTransactions(repo, account.id, split.euro, connector.id, { keepPending: true });
+        // the older days' twins and unreadable rows add to the account's count of the fetch (the days before it are not read
+        // again by the next ordinary fetch, which then counts its own)
+        const unread: RefusedRows = { ...puller.refused?.(target), ...(r.skipped ? { twin: r.skipped } : {}) };
+        if (Object.keys(unread).length) {
+          const held: RefusedRows = tally.refused[account.id] ?? {};
+          tally.refused[account.id] = Object.fromEntries(
+            (["status", "amount", "date", "twin"] as const).flatMap((k) => (held[k] || unread[k] ? [[k, (held[k] ?? 0) + (unread[k] ?? 0)]] : [])),
+          ) as RefusedRows;
+          tally.refusedChanged = true;
+        }
         summary.fetched += r.fetched;
         summary.inserted += r.inserted;
         tally.rowsChanged += r.changed + (await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString()));

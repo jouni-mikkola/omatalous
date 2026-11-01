@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pageOfPeriod, periodFor, periodRange, periodsOf, REPORT_PERIODS, shellPeriodsOf, windowNote } from "../src/period.ts";
+import { askedQuestion, pageOfPeriod, periodFor, periodRange, periodsOf, REPORT_PERIODS, shellPeriodsOf, windowNote } from "../src/period.ts";
 
 const TODAY = "2026-10-11";
 const labels = (page: string, today: string) => periodsOf(page, today).map((p) => p.label);
@@ -39,6 +39,8 @@ describe("periods belong to one page", () => {
     expect(shellPeriodsOf("overview", TODAY)).toEqual([]);
     expect(periodsOf("overview", TODAY)).toHaveLength(2);
     expect(shellPeriodsOf("reports", TODAY)).toEqual(REPORT_PERIODS);
+    expect(shellPeriodsOf("reports", TODAY, "kuukausi")).toEqual([]);
+    expect(shellPeriodsOf("reports", TODAY, "menot")).toEqual(REPORT_PERIODS);
     expect(shellPeriodsOf("bills", TODAY)).toEqual([]);
   });
 
@@ -80,6 +82,19 @@ describe("periods belong to one page", () => {
   });
 });
 
+describe("the windows once the running month's pay has come", () => {
+  it("end today, so Raportit reads the month Yhteenveto opens on", () => {
+    expect(periodRange("12m", TODAY, "month")).toEqual({ from: "2025-11-01", to: TODAY });
+    expect(periodRange("3m", TODAY, "month")).toEqual({ from: "2026-08-01", to: TODAY });
+    expect(periodRange("12m", TODAY, "last-month")).toEqual(periodRange("12m", TODAY));
+    expect(periodRange("last-month", TODAY, "month")).toEqual({ from: "2026-09-01", to: "2026-09-30" });
+  });
+
+  it("have no line about a month left out", () => {
+    for (const id of ["3m", "6m", "12m"]) expect(windowNote(id, TODAY, "month")).toBeNull();
+  });
+});
+
 describe("the line under the windows of whole months", () => {
   it("says where 3, 6 and 12 kk stop and that the running month is left out", () => {
     for (const id of ["3m", "6m", "12m"]) expect(windowNote(id, TODAY)).toBe("Syyskuun loppuun asti, lokakuu ei ole vielä mukana");
@@ -100,5 +115,13 @@ describe("the line under the windows of whole months", () => {
 
   it("is none for the presets that run to today or to a year's end", () => {
     for (const id of ["year", "last-year", "month", "last-month"]) expect(windowNote(id, TODAY)).toBeNull();
+  });
+});
+
+describe("the question an address asks for before the answer", () => {
+  it("is the month question for its anchor, else the q", () => {
+    expect(askedQuestion(null, "kuukausi")).toBe("kuukausi");
+    expect(askedQuestion("menot", undefined)).toBe("menot");
+    expect(askedQuestion(null, undefined)).toBeNull();
   });
 });

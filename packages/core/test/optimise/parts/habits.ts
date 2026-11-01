@@ -4,7 +4,7 @@
  */
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Account } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 import { rows, spread } from "./food.ts";
 
 /** Visits to a kiosk: `count(month)` a month on days over the whole week, 4,20–6,60 € (or `cents`). */

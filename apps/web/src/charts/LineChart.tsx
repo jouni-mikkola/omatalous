@@ -12,6 +12,8 @@ import { linear, points } from "./kit/scale.ts";
 import { moneyAxis } from "./kit/ticks.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
+import { color } from "../design/tokens.ts";
+import { css } from "../css.ts";
 
 interface LineSeries {
   key: string;
@@ -30,7 +32,7 @@ const RING = 3.5;
 /** Where a wide chart stops being 240 px tall: a fifth of its width, at most this tall, so one line keeps a shape a reader can follow. */
 const TALLEST = 320;
 
-export function LineChart({ labels, series, height: minHeight = 240, format = (v: number) => money(v, false) }: { labels: string[]; series: LineSeries[]; height?: number; format?: (v: number) => string }) {
+export function LineChart({ labels, series, height: minHeight = 240, format = (v: number) => money(v, false), keys }: { labels: string[]; series: LineSeries[]; height?: number; format?: (v: number) => string; /** The table row key of each label, so a click on a point keeps that row in the table under the chart. */ keys?: readonly string[] }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const innerW = Math.max(0, width - MARGIN.left - MARGIN.right);
@@ -60,15 +62,16 @@ export function LineChart({ labels, series, height: minHeight = 240, format = (v
         <div className="legend" aria-hidden="true">
           {series.map((s, si) => (
             <span key={s.key}>
-              <i className="line-key" style={keyStyle(s.color, dashOf(si))} />
+              <i className="line-key" ref={css(keyStyle(s.color, dashOf(si)))} />
               {s.label}
             </span>
           ))}
         </div>
       )}
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={series.map((s) => s.label).join(", ")}>
+        <svg width={width} height={height}>
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+            <g role="img" aria-label={series.map((s) => s.label).join(", ")}>
             <ValueAxis ticks={ticks} y={y} width={innerW} height={innerH} label={moneyAxis} />
             {labels.map((l, i) => (
               <g key={l + i}>
@@ -86,7 +89,7 @@ export function LineChart({ labels, series, height: minHeight = 240, format = (v
                   <g key={s.key}>
                     <path d={path(s.values)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap={dash ? "butt" : "round"} strokeDasharray={dash} />
                     {last >= 0 && cy + RING + 4 < innerH && <line className="tick" x1={cx} x2={cx} y1={cy + RING + 4} y2={innerH} />}
-                    {last >= 0 && <circle cx={cx} cy={cy} r={RING} fill="var(--surface)" stroke={s.color} strokeWidth={2} />}
+                    {last >= 0 && <circle cx={cx} cy={cy} r={RING} fill={color.surface} stroke={s.color} strokeWidth={2} />}
                   </g>
                 );
               })}
@@ -95,11 +98,12 @@ export function LineChart({ labels, series, height: minHeight = 240, format = (v
               <g pointerEvents="none">
                 <line className="axis-line" x1={crisp(x(hover))} x2={crisp(x(hover))} y1={0} y2={innerH} />
                 {series.map((s) =>
-                  s.values[hover] != null ? <circle key={s.key} cx={crisp(x(hover))} cy={y(s.values[hover]!)} r={4} fill={s.color} stroke="var(--surface)" strokeWidth={2} /> : null,
+                  s.values[hover] != null ? <circle key={s.key} cx={crisp(x(hover))} cy={y(s.values[hover]!)} r={4} fill={s.color} stroke={color.surface} strokeWidth={2} /> : null,
                 )}
               </g>
             )}
-            <ReadoutLayer xs={xs} innerW={innerW} innerH={innerH} at={hover} onAt={setHover} label="Siirry nuolinäppäimillä" crosshair={false} />
+            </g>
+            <ReadoutLayer xs={xs} innerW={innerW} innerH={innerH} at={hover} onAt={setHover} keys={keys} label="Siirry nuolinäppäimillä" crosshair={false} />
           </g>
         </svg>
       )}

@@ -216,7 +216,7 @@ load_used() {
   USED=()
   local ids; ids=$(docker ps -aq 2>/dev/null || true)
   if [[ -n $ids ]]; then
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086 # $ids is a list of container ids; it must split into one argument each
     while IFS= read -r line; do
       proj=${line%%|*}; rest=${line#*|}; wd=${rest%%|*}; rest=${rest#*|}
       IFS=, read -ra bindings <<<"$rest"
@@ -759,7 +759,7 @@ if [[ ${TALOUS_CHANNEL:-$(existing TALOUS_CHANNEL)} != source ]]; then
 fi
 if [[ $CHANNEL == release ]]; then
   say "Channel: release $REL_TAG"
-  # shellcheck disable=SC2034
+  # shellcheck disable=SC2034 # lib/release.sh tags the pulled image with IMAGE
   IMAGE=$INSTANCE
   docker image inspect "$INSTANCE:latest" >/dev/null 2>&1 || say "${dim}Pulling the image takes a moment.${reset}"
   fetch_release_image "$REL_TAG" "$REL_COMMIT"
@@ -775,7 +775,7 @@ if ((build_rc != 0)); then
   elif grep -qiE '429 Too Many|toomanyrequests|rate limit' "$LOG"; then
     die "Docker Hub limits pulls from this address (too many requests). Wait an hour and run this again, or log in: docker login"
   elif grep -qiE 'ETIMEDOUT|ENOTFOUND|EAI_AGAIN|ECONNRESET|ECONNREFUSED|could not resolve|temporary failure in name|i/o timeout|dial tcp|TLS handshake|failed to fetch|failed to resolve source|network is unreachable|unable to get image|Get "https' "$LOG"; then
-    die "The build had no network connection (packages and the base image are downloaded). Check the connection (curl -I https://registry.npmjs.org, docker pull node:22-alpine) and run this again."
+    die "The build had no network connection (packages and the base image are downloaded). Check the connection (curl -I https://registry.npmjs.org, docker pull node:24-alpine) and run this again."
   elif grep -qE 'FAIL|Test Files .*failed|tests? failed' "$LOG"; then
     die "The tests of the build failed. The code on this branch is broken. Try another version or report the problem (end of the log above)."
   fi
@@ -877,5 +877,6 @@ if [[ $ACCESS == 1 ]]; then
 else
   say "Maintenance helper: $OPS_LABEL. Troubleshooting: ${IN}./scripts/doctor.sh"
 fi
+[[ $OPS_KIND == none ]] || say "${dim}Back up to another machine, encrypted: Asetukset > Palvelin > Varmuuskopio toiselle koneelle. Nothing is sent until you name a machine.${reset}"
 [[ $ACCESS != 4 ]] || say "${dim}Let's Encrypt: a DNS A record to the public IP and ports 80 and 443 forwarded to this machine.${reset}"
 [[ $ACCESS != 3 ]] || cf_final

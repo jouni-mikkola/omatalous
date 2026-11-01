@@ -15,10 +15,14 @@ import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import { accessEmail } from "../security/cf-access.ts";
+import { noticesView, saveNotices } from "../services/outside-notices.ts";
+import { makeKeys, offsiteView, removeOffsite, runOffsiteNow, saveOffsite } from "../services/offsite.ts";
 import { recordEvent } from "../services/security.ts";
 import { startLookup } from "../services/industry.ts";
+import { startPriceIndex } from "../services/price-index.ts";
 import { listServiceTokens, revokeServiceToken } from "../services/service-tokens.ts";
 import { remoteAccessState, removeToken, saveToken, turnOff, turnOn } from "../services/remote-access.ts";
+import { unopenedViews } from "../services/view-opens.ts";
 import { body, requestInfo } from "./shared.ts";
 
 export function adminRoutes(s: Services) {
@@ -34,13 +38,43 @@ export function adminRoutes(s: Services) {
 
   app.get("/instance", async (c) => c.json(await state()));
 
+  /** The views no member opened for a quarter, with their last day (services/view-opens.ts). */
+  app.get("/unopened-views", async (c) => c.json(await unopenedViews(s)));
+
   app.put("/instance", async (c) => {
     const wasOn = s.instance.current.industryLookup;
+    const indexWasOn = s.instance.current.priceIndex;
     const saved = await s.instance.save(await body(c));
     // names that waited while it was off are looked up now
     if (saved.industryLookup && !wasOn) startLookup(s);
+    if (saved.priceIndex && !indexWasOn) startPriceIndex(s);
     return c.json(await state());
   });
+
+  /** The numeric limits (platform/limits.ts) with their layers; a change holds from the next request and is a security event. */
+  app.get("/limits", (c) => c.json({ limits: s.instance.limits.view() }));
+
+  app.put("/limits", async (c) => {
+    await s.instance.load();
+    const { changed, restart } = await s.instance.limits.save(await body(c));
+    if (changed.length) {
+      await recordEvent(s, { kind: "limits_changed", userId: c.get("user").id, ...requestInfo(c, s), detail: changed.map((x) => `${x.key} ${x.from} > ${x.to}`).join(", ") });
+    }
+    return c.json({ limits: s.instance.limits.view(), restart });
+  });
+
+  /** Notices outside the browser (services/outside-notices.ts). The address and the token go in and never come out. */
+  app.get("/notices", async (c) => c.json(await noticesView(s)));
+
+  app.put("/notices", async (c) => c.json(await saveNotices(s, strictObject(await body(c), ["enabled", "address", "token"] as const), { userId: c.get("user").id, language: c.get("user").language, ...requestInfo(c, s) })));
+
+  /** The encrypted copy to another machine (services/offsite.ts). Every change asks for the admin's password; the keys never come out but the SSH public line and the age secret once. */
+  app.get("/offsite", async (c) => c.json(await offsiteView(s, c.get("user").language)));
+  const offsiteWho = (c: Parameters<typeof requestInfo>[0]) => ({ user: c.get("user"), req: requestInfo(c, s) });
+  app.post("/offsite/keys", async (c) => c.json(await makeKeys(s, offsiteWho(c), strictObject(await body(c), ["password"] as const).password)));
+  app.put("/offsite", async (c) => c.json(await saveOffsite(s, offsiteWho(c), strictObject(await body(c), ["password", "enabled", "host", "port", "user", "dir", "recipient", "keyConfirmed"] as const))));
+  app.post("/offsite/run", async (c) => c.json(await runOffsiteNow(s, offsiteWho(c), strictObject(await body(c), ["password"] as const).password)));
+  app.delete("/offsite", async (c) => c.json(await removeOffsite(s, offsiteWho(c), strictObject(await body(c), ["password"] as const).password)));
 
   /** Service tokens (services/service-tokens.ts): listed and removed here, made only on the command line. */
   app.get("/service-tokens", async (c) => {
@@ -49,11 +83,11 @@ export function adminRoutes(s: Services) {
   });
 
   app.delete("/service-tokens/:id", async (c) => {
-    if (!(await revokeServiceToken(s, c.req.param("id"), c.get("user").username))) throw new UserError("Palvelutunnusta ei löydy.");
+    if (!(await revokeServiceToken(s, c.req.param("id"), c.get("user").username, requestInfo(c, s)))) throw new UserError("Palvelutunnusta ei löydy.");
     return c.json({ ok: true });
   });
 
-  /** Feature flags: a partial map of ids from core's FEATURES to on or off. */
+  /** Feature flags: a partial map of ids of the extensions' flags to on or off. */
   app.put("/features", async (c) => {
     await s.instance.setFeatures(await body(c));
     return c.json(await state());
@@ -117,7 +151,7 @@ export function adminRoutes(s: Services) {
 
   // ── remote access through Cloudflare (services/remote-access.ts): every answer is the state the page shows ──
 
-  app.get("/remote-access", async (c) => c.json(await remoteAccessState(s)));
+  app.get("/remote-access", async (c) => c.json(await remoteAccessState(s, c.get("user").language)));
 
   /** `{ token, password }`: Cloudflare's API token, tried against Cloudflare and kept sealed. Never sent back. */
   app.put("/remote-access/token", async (c) => c.json(await saveToken(s, c.get("user"), strictObject(await body(c), ["token", "password"] as const), requestInfo(c, s))));

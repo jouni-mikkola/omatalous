@@ -148,6 +148,7 @@ main() {
   SCRATCH=""
   trap cleanup EXIT
 
+  # This file runs before any clone exists, so it cannot read project.json; a test compares these two with it.
   API_URL=https://api.github.com/repos/jouni-mikkola/omatalous/releases/latest
   REPO_URL=https://github.com/jouni-mikkola/omatalous.git
   PROTO='=https'; GIT_PROTO=https; TTY_DEV=/dev/tty

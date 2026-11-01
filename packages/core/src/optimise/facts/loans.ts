@@ -77,9 +77,10 @@ const euribor: Fact[] = EURIBOR.flatMap((row) =>
   }),
 );
 
-const margin = (id: string, label: string, value: number): Fact => ({
+const margin = (id: string, label: string, labelEn: string, value: number): Fact => ({
   id,
   label,
+  labelEn,
   value,
   unit: "%",
   kind: "sample",
@@ -93,6 +94,6 @@ const margin = (id: string, label: string, value: number): Fact => ({
 
 export const LOANS_FACTS: readonly Fact[] = [
   ...euribor,
-  margin("mortgage_margin_sample_low", "Esimerkkitarjousten pienin marginaali", 0.5),
-  margin("mortgage_margin_sample_high", "Esimerkkitarjousten suurin marginaali", 0.8),
+  margin("mortgage_margin_sample_low", "Esimerkkitarjousten pienin marginaali", "Smallest margin of the sample offers", 0.5),
+  margin("mortgage_margin_sample_high", "Esimerkkitarjousten suurin marginaali", "Largest margin of the sample offers", 0.8),
 ];

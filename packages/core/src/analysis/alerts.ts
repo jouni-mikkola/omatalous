@@ -1,4 +1,7 @@
 import { getCategory } from "../categories.ts";
+import { categoryLabel } from "../category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { addDays, DAYS_PER_MONTH, dayNumber, daysBetween, monthIndex } from "../dates.ts";
 import { fold, UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
@@ -8,7 +11,8 @@ import { categoryRises } from "./change.ts";
 import { changeMonths, cutWords } from "./change-text.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netPurchase, netSpend, recurringAt } from "./context.ts";
 import { isBankFee, isLateFee } from "./fees.ts";
-import { finnishList, formatEur, formatFiDate, monthInessive } from "./format.ts";
+import { finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
+import { capitalise, countWord } from "./insights/shared.ts";
 import { shortDate } from "./income-series.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
@@ -41,23 +45,23 @@ const MAX_ALERTS = 6;
  * `inputs` carries the user's marks: a dismissed alert is left out, a subscription marked in use or cancelled is not
  * asked about, and a charge after a subscription was marked cancelled is a warning of its own.
  */
-export function buildAlerts(ctx: AnalysisContext, range: DateRange, inputs: UserInputs = NO_INPUTS): Alert[] {
+export function buildAlerts(ctx: AnalysisContext, range: DateRange, inputs: UserInputs = NO_INPUTS, lang: Language = DEFAULT_LANGUAGE): Alert[] {
   const current = inDays(ctx, toDayRange(range));
   const recurring = recurringAt(ctx, range.to);
-  const overlaps = overlapAlerts(recurring);
+  const overlaps = overlapAlerts(recurring, lang);
   const merchantMarks = marksBySubject(inputs.marks);
   const dismissed = dismissedIds(inputs.marks);
   return pick(
     [
-      ...doubleCharges(ctx, current, recurring, range),
-      ...lateFees(current),
-      ...chargedAfterCancelling(current.filter(isCharge), merchantMarks, ctx.recurring),
-      ...uncategorised(ctx, range, dismissed),
+      ...doubleCharges(ctx, current, recurring, range, lang),
+      ...lateFees(current, lang),
+      ...chargedAfterCancelling(current.filter(isCharge), merchantMarks, ctx.recurring, lang),
+      ...uncategorised(ctx, range, dismissed, lang),
       ...overlaps.alerts,
-      ...spikes(ctx, range),
-      ...(range.to >= ctx.today ? forgotten(ctx.recurring, overlaps.merchants, merchantMarks, ctx.today) : []),
-      ...bankFees(ctx, current, range),
-      ...habits(ctx, range),
+      ...spikes(ctx, range, lang),
+      ...(range.to >= ctx.today ? forgotten(ctx.recurring, overlaps.merchants, merchantMarks, ctx.today, lang) : []),
+      ...bankFees(ctx, current, range, lang),
+      ...habits(ctx, range, lang),
     ],
     dismissed,
   );
@@ -118,7 +122,7 @@ function sameDayCharges(ctx: AnalysisContext) {
   return result;
 }
 
-function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], recurring: readonly RecurringSeries[], range: DateRange): Alert[] {
+function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], recurring: readonly RecurringSeries[], range: DateRange, lang: Language): Alert[] {
   const { fromDay, toDay } = toDayRange(range);
   const { groups, routine } = sameDayCharges(ctx);
 
@@ -133,8 +137,8 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
       id: `double:${t.id}`,
       kind: "double_charge",
       tone: "warning",
-      title: `Sama veloitus ${group.length === 2 ? "kahdesti" : `${group.length} kertaa`}: ${t.merchant} ${formatEur(-t.amountCents)}`,
-      detail: formatFiDate(t.bookingDate),
+      title: group.length === 2 ? messageIn(lang, "alr.double_twice", { merchant: t.merchant, amount: formatEur(-t.amountCents, true, lang) }) : messageIn(lang, "alr.double_times", { n: group.length, merchant: t.merchant, amount: formatEur(-t.amountCents, true, lang) }),
+      detail: formatFiDate(t.bookingDate, lang),
       merchant: t.merchant,
       date: t.bookingDate,
     });
@@ -159,8 +163,8 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
         id: `double:${b.id}`,
         kind: "double_charge",
         tone: "warning",
-        title: `Sama veloitus kahdesti: ${b.merchant} ${formatEur(-b.amountCents)}`,
-        detail: `${formatFiDate(a.bookingDate)} ja ${formatFiDate(b.bookingDate)}`,
+        title: messageIn(lang, "alr.double_twice", { merchant: b.merchant, amount: formatEur(-b.amountCents, true, lang) }),
+        detail: messageIn(lang, "alr.double_days", { first: formatFiDate(a.bookingDate, lang), second: formatFiDate(b.bookingDate, lang) }),
         merchant: b.merchant,
         date: b.bookingDate,
       });
@@ -175,20 +179,20 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
 
 // ── late payment fees ────────────────────────────────────
 
-function lateFees(current: readonly AnalysisTx[]): Alert[] {
+function lateFees(current: readonly AnalysisTx[], lang: Language): Alert[] {
   const rows = current.filter(isLateFee);
   if (!rows.length) return [];
   const total = rows.reduce((s, t) => s - t.amountCents, 0);
   const merchants = [...new Set(rows.map((t) => t.merchant))];
   const dates = [...new Set(rows.map((t) => t.bookingDate))].sort();
-  const when = dates.length === 1 ? formatFiDate(dates[0]!) : dates.length === 2 ? finnishList(dates.map(formatFiDate)) : `viimeksi ${formatFiDate(dates[dates.length - 1]!)}`;
+  const when = dates.length === 1 ? formatFiDate(dates[0]!, lang) : dates.length === 2 ? finnishList(dates.map((d) => formatFiDate(d, lang)), lang) : messageIn(lang, "alr.late_last", { date: formatFiDate(dates[dates.length - 1]!, lang) });
   return [
     {
       id: `late:${rows[rows.length - 1]!.id}`,
       kind: "late_fee",
       tone: "warning",
-      title: `Myöhästymiskuluja ${formatEur(total)}`,
-      detail: `${finnishList(merchants)}, ${when}`,
+      title: messageIn(lang, "alr.late_title", { amount: formatEur(total, true, lang) }),
+      detail: `${finnishList(merchants, lang)}, ${when}`,
       ...(merchants.length === 1 ? { merchant: merchants[0] } : {}),
     },
   ];
@@ -205,7 +209,7 @@ const MAX_UNCATEGORISED = 3;
  * there. One row each for the three largest of the year up to the period's end, so the day reads without its year.
  * The row is gone when the payment has a category, and one set aside gives its place to the next largest.
  */
-function uncategorised(ctx: AnalysisContext, range: DateRange, dismissed: ReadonlySet<string>): Alert[] {
+function uncategorised(ctx: AnalysisContext, range: DateRange, dismissed: ReadonlySet<string>, lang: Language): Alert[] {
   const toDay = dayNumber(range.to);
   return inDays(ctx, { fromDay: toDay - UNCATEGORISED_DAYS + 1, toDay })
     .filter((t) => t.status === "booked" && !t.isTransfer && t.category === "other" && t.categorySource === "default" && netSpend(t) >= UNCATEGORISED_MIN_CENTS)
@@ -216,8 +220,8 @@ function uncategorised(ctx: AnalysisContext, range: DateRange, dismissed: Readon
       id: `uncategorised:${t.id}`,
       kind: "uncategorised",
       tone: "info",
-      title: "Luokittelematon maksu",
-      detail: `${t.merchant} ${shortDate(t.bookingDate)} ${formatEur(netSpend(t))}`,
+      title: messageIn(lang, "alr.uncategorised"),
+      detail: `${t.merchant} ${shortDate(t.bookingDate, lang)} ${formatEur(netSpend(t), true, lang)}`,
       row: { merchant: t.merchant, date: t.bookingDate },
     }));
 }
@@ -226,7 +230,12 @@ function uncategorised(ctx: AnalysisContext, range: DateRange, dismissed: Readon
 
 export type ServiceType = "audiobooks" | "music" | "cloud" | "video";
 
+const OVERLAP_NOUN = { audiobooks: "alr.noun_audiobooks", music: "alr.noun_music", cloud: "alr.noun_cloud", video: "alr.noun_video" } as const;
+
 /** Substitutes first: two audiobook services is plainly one too many, several video services is common. */
+/** The noun of a service type, partitive, after a count word: "musiikkipalvelua". */
+export const overlapNoun = (type: ServiceType, lang: Language): string => messageIn(lang, OVERLAP_NOUN[type]);
+
 const SERVICES: readonly { type: ServiceType; noun: string; brands: readonly [string, RegExp][] }[] = [
   {
     type: "audiobooks",
@@ -277,8 +286,6 @@ const SERVICES: readonly { type: ServiceType; noun: string; brands: readonly [st
   },
 ];
 
-const COUNT_WORD = ["", "Yksi", "Kaksi", "Kolme", "Neljä", "Viisi", "Kuusi", "Seitsemän", "Kahdeksan", "Yhdeksän"];
-
 /** Services of one type from two or more brands, dearest series first. */
 export interface OverlapGroup {
   type: ServiceType;
@@ -307,10 +314,10 @@ export function overlapGroups(recurring: readonly RecurringSeries[]): OverlapGro
   return out;
 }
 
-function overlapAlerts(recurring: readonly RecurringSeries[]): { alerts: Alert[]; merchants: Set<string> } {
+function overlapAlerts(recurring: readonly RecurringSeries[], lang: Language): { alerts: Alert[]; merchants: Set<string> } {
   const alerts: Alert[] = [];
   const merchants = new Set<string>();
-  for (const { type, noun, matched, distinct } of overlapGroups(recurring)) {
+  for (const { type, matched, distinct } of overlapGroups(recurring)) {
     const names = [...new Set(matched.map((m) => m.s.merchant))];
     const monthly = matched.reduce((sum, m) => sum + m.s.monthlyCents, 0);
     const categories = new Set(matched.map((m) => m.s.category));
@@ -319,8 +326,8 @@ function overlapAlerts(recurring: readonly RecurringSeries[]): { alerts: Alert[]
       id: `overlap:${type}`,
       kind: "overlap",
       tone: type === "video" ? "info" : "warning",
-      title: `${COUNT_WORD[distinct] ?? distinct} ${noun}`,
-      detail: `${finnishList(names)}, yhteensä ${formatEur(monthly)} kuussa`,
+      title: messageIn(lang, "alr.overlap_title", { count: capitalise(countWord(distinct, lang)), noun: messageIn(lang, OVERLAP_NOUN[type]) }),
+      detail: messageIn(lang, "alr.overlap_detail", { names: finnishList(names, lang), amount: formatEur(monthly, true, lang) }),
       ...(categories.size === 1 ? { category: [...categories][0] } : {}),
     });
   }
@@ -351,13 +358,13 @@ const SEASONAL = new Map<number, ReadonlySet<string>>([
  * decides the rest: how large a rise in purchases is worth a warning, and that a month which is high every year is
  * none.
  */
-function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
+function spikes(ctx: AnalysisContext, range: DateRange, lang: Language): Alert[] {
   const { month } = changeMonths(ctx, range);
   const found = categoryRises(ctx, month);
   if (!found) return [];
   const season = SEASONAL.get(Number(month.slice(5, 7)));
   // the rows end before today (a sync that lags): the report cuts both figures at that day, and the alert names it
-  const cutAt = cutWords(found.running, found.through, ctx.today);
+  const cutAt = cutWords(found.running, found.through, ctx.today, lang);
   return found.rises
     .filter((r) => {
       // uncategorised rows are no category to act on, and a loan payment is no purchase
@@ -366,21 +373,21 @@ function spikes(ctx: AnalysisContext, range: DateRange): Alert[] {
       // month (fuel swings from 60 € to 330 €; a new level is told in its first month and then by the report)
       if (r.purchases < SPIKE_MIN_PURCHASES || 2 * r.moreCents < r.changeCents || !r.peak) return false;
       // on its own it is worth a line in the report, 50 € and half as much again as usual
-      if (r.moreCents < Math.max(SPIKE_MIN_CENTS, found.gateCents) || r.usualCents + r.moreCents <= SPIKE_RATIO * r.usualCents) return false;
+      if (r.moreCents < Math.max(SPIKE_MIN_CENTS, found.gateCents) || r.expectedCents + r.moreCents <= SPIKE_RATIO * r.expectedCents) return false;
       // the same month a year ago moved as far; without a year of history, Christmas presents and summer trips are still no surprise
       return !r.season && (r.yearAgoCents !== null || !season?.has(r.category));
     })
     .sort((a, b) => b.moreCents - a.moreCents || a.category.localeCompare(b.category))
     .slice(0, MAX_SPIKES)
     .map((r) => {
-      const usual = r.usualCents >= 100 ? `noin ${formatEur(roundTo(r.usualCents, 100), false)}` : "ei lainkaan";
+      const expected = r.expectedCents >= 100 ? messageIn(lang, "alr.spike_about", { amount: formatEur(roundTo(r.expectedCents, 100), false, lang) }) : messageIn(lang, "alr.spike_none");
       return {
         id: `spike:${r.category}:${month}`,
         kind: "spike" as const,
         tone: "warning" as const,
-        title: `${r.label} ${formatEur(r.nowCents, false)} ${cutAt ?? monthInessive(month)}`,
-        // a running month is set against the same days of its usual months, as the report sets it
-        detail: cutAt ? `Tavallisesti siihen mennessä ${usual}` : found.running ? `Tavallisesti tähän mennessä ${usual}` : `Tavallisesti ${usual}${r.usualCents >= 100 ? "/kk" : ""}`,
+        title: messageIn(lang, "alr.spike_title", { label: categoryLabel(getCategory(r.category), lang), amount: formatEur(r.nowCents, false, lang), when: cutAt ?? (lang === "en" ? messageIn(lang, "alr.spike_in_month", { month: monthNameIn(month, lang) }) : monthInessive(month)) }),
+        // a running month is set against the same days of its expected month, as the report sets it
+        detail: cutAt ? messageIn(lang, "alr.spike_cut", { expected }) : found.running ? messageIn(lang, "alr.spike_so_far", { expected }) : messageIn(lang, r.expectedCents >= 100 ? "alr.spike_expected_month" : "alr.spike_expected", { expected }),
         category: r.category,
       };
     });
@@ -392,7 +399,7 @@ const FEES_MIN_YEARLY = 10000;
 const FEES_MIN_MONTHS = 6;
 const FEES_MIN_DAYS = 150;
 
-function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: DateRange): Alert[] {
+function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: DateRange, lang: Language): Alert[] {
   if (monthIndex(range.to) - monthIndex(range.from) + 1 < FEES_MIN_MONTHS || !ctx.dataFrom) return [];
   const from = ctx.dataFrom > range.from ? ctx.dataFrom : range.from;
   const to = ctx.today < range.to ? ctx.today : range.to;
@@ -412,8 +419,8 @@ function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: D
       id: `fees:${range.from}:${range.to}`,
       kind: "fees",
       tone: "info",
-      title: `Pankkikuluja ${formatEur(roundTo(yearly, 100), false)} vuodessa`,
-      detail: finnishList(top),
+      title: messageIn(lang, "alr.fees_title", { amount: formatEur(roundTo(yearly, 100), false, lang) }),
+      detail: finnishList(top, lang),
       category: "fees",
     },
   ];
@@ -468,14 +475,14 @@ export function habitItems(ctx: AnalysisContext, range: DateRange): HabitItem[] 
   return out;
 }
 
-function habits(ctx: AnalysisContext, range: DateRange): Alert[] {
+function habits(ctx: AnalysisContext, range: DateRange, lang: Language): Alert[] {
   return habitItems(ctx, range)
     .map(({ merchant, perMonth, yearly }) => ({
       id: `habit:${merchant}`,
       kind: "habit" as const,
       tone: "info" as const,
-      title: `${merchant} ${perMonth} kertaa kuussa`,
-      detail: `Noin ${formatEur(yearly, false)} vuodessa`,
+      title: messageIn(lang, "alr.habit_title", { merchant, n: perMonth }),
+      detail: messageIn(lang, "alr.habit_detail", { amount: formatEur(yearly, false, lang) }),
       merchant,
       yearly,
     }))

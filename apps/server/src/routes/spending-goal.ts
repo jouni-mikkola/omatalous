@@ -22,6 +22,8 @@ function parseGoal(raw: unknown): number {
 export function spendingGoalRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
+  app.get("/spending-goal", async (c) => c.json({ monthlyCents: await s.finance(c.get("user").id).spendingGoal() }));
+
   app.put("/spending-goal", async (c) => {
     const monthlyCents = parseGoal(await body(c));
     // read per request like the other inputs: nothing is cached and no data version moves

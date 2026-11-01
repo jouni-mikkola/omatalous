@@ -13,23 +13,16 @@ import { type PriceChange, priceChangeYearlyCents, type RecurringSeries } from "
 import type { IsoDate } from "../../types.ts";
 import { isRent } from "../../wording.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
-import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { answeredSubscriptions, answerOf, capitalise, countWord, isLender, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { formatEur, formatFiDate } from "../format.ts";
+import { MAX_HOUSING_STEP_TENTHS, MAX_PLAN_STEP, MIN_RISE_CENTS, MIN_RISE_SHARE } from "../../thresholds.ts";
+import { answeredSubscriptions, answerOf, insightOf, isLender, ITEM_GATE_MONTHLY_CENTS, REPORT, settledBy } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 import { isMunicipality } from "../../wording.ts";
-
-const MIN_RISE_CENTS = 100;
-const MIN_RISE_SHARE = 0.05;
 
 /** Phone and broadband beside the subscription set: contracts whose plan, tier and line count the household picks. */
 export const PLAN_CATEGORIES: ReadonlySet<string> = new Set([...SUBSCRIPTION_CATEGORIES, "telecom"]);
-/**
- * A step over this share is a plan, tier or line change (a family plan gaining a line, a campaign price ending into
- * another plan); the bill shows no line count, so such a step is never told as a price rise.
- */
-const MAX_PLAN_STEP = 0.3;
-/** A rent step over this, in tenths of a percent, is a move or a new contract, never a rise. A vastike really rises more. */
-export const MAX_HOUSING_STEP_TENTHS = 100;
+export { MAX_HOUSING_STEP_TENTHS };
 /** Fees of these categories that a city or municipality charges follow the family's income and care hours. */
 const INCOME_LINKED: ReadonlySet<string> = new Set(["kids", "education"]);
 
@@ -86,7 +79,7 @@ export function priceRiseItems(ctx: AnalysisContext, end: IsoDate, days = 365): 
     .sort((a, b) => b.yearlyCents - a.yearlyCents || a.series.merchant.localeCompare(b.series.merchant));
 }
 
-export function priceRises({ ctx, end, inputs }: InsightArgs): Insight[] {
+export function priceRises({ ctx, end, inputs, lang }: InsightArgs): Insight[] {
   const since = addDays(end, -365);
   const answered = answeredSubscriptions(inputs, ctx.today);
   const rises = priceRiseItems(ctx, end)
@@ -98,35 +91,38 @@ export function priceRises({ ctx, end, inputs }: InsightArgs): Insight[] {
   if (rises.length === 1) {
     const { s, yearly } = rises[0]!;
     const { fromCents, toCents, date } = s.priceChange!;
-    const debt = getCategory(s.category).kind === "debt";
     return [
-      {
+      insightOf({
+        lang,
         id: `price:${s.id}`,
-        tone: "warning",
-        title: `${s.merchant}: ${debt ? "erä kasvoi" : "hinta nousi"}, ${formatEur(yearly, false)} enemmän vuodessa`,
-        detail: `${formatEur(fromCents)} → ${formatEur(toCents)} ${formatFiDate(date)} alkaen.`,
-        yearlyCents: yearly,
+        fact: { type: "price-rise", merchant: s.merchant, debt: getCategory(s.category).kind === "debt", fromCents, toCents, since: date },
+        comparison: { label: "before", value: q.cents(fromCents) },
+        action: { label: "checkPrice", target: { page: "transactions", filter: { merchant: s.merchant } } },
+        yearlyCents: -yearly,
+        kind: "pattern",
         rows,
         link: { merchant: s.merchant },
         merchant: s.merchant,
         calc: [
-          { label: "Aiempi hinta", value: formatEur(fromCents) },
-          { label: `Hinta ${formatFiDate(date)} alkaen`, value: formatEur(toCents) },
-          { label: "Lisää vuodessa", value: formatEur(yearly, false) },
+          { label: messageIn(lang, "calc.price_before"), value: formatEur(fromCents, true, lang) },
+          { label: messageIn(lang, "calc.price_from", { date: formatFiDate(date, lang) }), value: formatEur(toCents, true, lang) },
         ],
-      },
+      }),
     ];
   }
   const total = rises.reduce((sum, r) => sum + r.yearly, 0);
+  const costNow = rises.reduce((sum, r) => sum + r.s.yearlyCents, 0);
   return [
-    {
+    insightOf({
+      lang,
       id: "price-rises",
-      tone: "warning",
-      title: `${capitalise(countWord(rises.length))} toistuvaa maksua kallistui, yhteensä ${formatEur(total, false)} enemmän vuodessa`,
-      detail: `${finnishList(rises.map((r) => r.s.merchant))}, 12 kuukauden ajalta ${formatFiDate(addDays(since, 1))} alkaen.`,
-      yearlyCents: total,
+      fact: { type: "price-rises", merchants: rises.map((r) => r.s.merchant), since: addDays(since, 1) },
+      comparison: { label: "yearAgoCost", value: q.cents(costNow - total) },
+      action: { label: "checkPrice", target: { page: "reports", anchor: REPORT.prices } },
+      yearlyCents: -total,
+      kind: "pattern",
       rows,
-      calc: [...rises.map((r) => ({ label: `${r.s.merchant}, lisää vuodessa`, value: formatEur(r.yearly, false) })), { label: "Yhteensä vuodessa", value: formatEur(total, false) }],
-    },
+      calc: [...rises.map((r) => ({ label: messageIn(lang, "calc.rise_year", { merchant: r.s.merchant }), value: formatEur(r.yearly, false, lang) })), { label: messageIn(lang, "calc.same_year_ago"), value: formatEur(costNow - total, false, lang) }],
+    }),
   ];
 }

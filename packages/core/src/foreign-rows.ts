@@ -1,5 +1,7 @@
 // Decision: a bank row whose own currency is not the euro is kept apart from the euro rows, in the bank's own figure, and never summed with them.
 
+import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
+
 /** The code for "no currency" (ISO 4217): a row whose currency the bank did not name properly. */
 const UNKNOWN_CURRENCY = "XXX";
 
@@ -62,10 +64,10 @@ export function foreignTotals(rows: readonly { currency: string; amountMinor: nu
 }
 
 /** An amount for reading: Finnish decimal comma, thousands apart by a no-break space, a plus or minus in front when `signed`. No currency sign. */
-export function formatForeignAmount(minor: number, scale: number, signed = false): string {
+export function formatForeignAmount(minor: number, scale: number, signed = false, lang: Language = DEFAULT_LANGUAGE): string {
   const abs = String(Math.abs(minor)).padStart(scale + 1, "0");
-  const whole = abs.slice(0, abs.length - scale).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-  const text = scale ? `${whole},${abs.slice(abs.length - scale)}` : whole;
+  const whole = abs.slice(0, abs.length - scale).replace(/\B(?=(\d{3})+(?!\d))/g, lang === "en" ? "," : " ");
+  const text = scale ? `${whole}${lang === "en" ? "." : ","}${abs.slice(abs.length - scale)}` : whole;
   return minor < 0 ? `−${text}` : signed && minor > 0 ? `+${text}` : text;
 }
 
@@ -75,4 +77,6 @@ export interface ForeignDay {
   count: number;
   /** The newest booking day (YYYY-MM-DD) of the account's rows in another currency. */
   newestDay: string;
+  /** The rows themselves, for the notices that sum them in a period (`coverageNotices`); the walk needs only the count and the day. */
+  rows?: { day: string; currency: string; amountMinor: number; scale: number }[];
 }

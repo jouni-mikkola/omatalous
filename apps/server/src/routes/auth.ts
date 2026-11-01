@@ -2,15 +2,19 @@
 import { Hono } from "hono";
 import { clientIp } from "../auth/middleware.ts";
 import { endHalfSession, endSession, readHalfSession, startHalfSession, startSession } from "../auth/session.ts";
-import { DUMMY_HASH, verifyPassword } from "../security/password.ts";
+import { verifyUniform } from "../security/password.ts";
 import { addressKey } from "../security/rate-limit.ts";
-import { TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
+import { coded, tooMany, tooManyBody, UserError } from "../platform/errors.ts";
 import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
+import { passkeyChallenge, relyingParty, takePasskey } from "../services/passkeys.ts";
 import { takeCode } from "../services/second-factor.ts";
-import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup } from "../services/users.ts";
+import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup, passwordCost, setFirstPassword, upgradePasswordHash } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
 import { body, optionalString, requestInfo } from "./shared.ts";
+
+/** A name typed at login goes in the event log only if it has the shape of a user name: a password typed in the wrong field must not stay 90 days. */
+const shown = (typed: string) => (/^[a-z0-9._-]{3,32}$/i.test(typed.trim()) ? typed.trim() : "(ei käyttäjänimen muotoinen)");
 
 export function authRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -30,7 +34,7 @@ export function authRoutes(s: Services) {
     // the code is the only thing between a stranger and an admin account: guesses are counted before they are checked
     const ip = clientIp(c, s);
     const attempt = s.setupLimiter.consume(addressKey(ip));
-    if (attempt.wait) throw new TooManyAttempts(tooManyMessage(attempt.wait), attempt.wait);
+    if (attempt.wait) throw tooMany(attempt.wait);
     const raw = strictObject(await body(c), ["code", "username", "displayName", "password", "confirm"] as const);
     const input = {
       code: optionalString(raw.code, 100) ?? "",
@@ -39,7 +43,7 @@ export function authRoutes(s: Services) {
       password: optionalString(raw.password, 1024) ?? "",
     };
     const user = await createFirstAdmin(s, input);
-    await recordEvent(s, { kind: "user_created", userId: user.id, ip, detail: `admin, ${user.username}` });
+    await recordEvent(s, { kind: "user_created", userId: user.id, ip, userAgent: c.req.header("user-agent") ?? null, detail: `admin, ${user.username}` });
     await recordLogin(s, user.id, ip, c.req.header("user-agent") ?? null);
     await startSession(c, s, user.id);
     return c.json({ user });
@@ -54,7 +58,7 @@ export function authRoutes(s: Services) {
     // the limits count an IPv6 client by its /64, the events record the address itself
     const ipKey = addressKey(ip);
     const userAgent = c.req.header("user-agent") ?? null;
-    const refuse = (wait: number) => c.json({ error: tooManyMessage(wait) }, 429, { "Retry-After": String(wait) });
+    const refuse = (wait: number) => c.json(tooManyBody(wait), 429, { "Retry-After": String(wait) });
     // a login succeeded from this address lately. It changes one thing: when a limiter below is full of locked
     // keys and refuses every new key, this attempt is counted in that limiter's spare, under the same limit.
     const remembered = limits.remembered.has(ipKey);
@@ -66,7 +70,7 @@ export function authRoutes(s: Services) {
       return refuse(ipTry.wait);
     }
     // usernames are at most 32 characters: anything longer is not worth a limiter entry or a hash
-    if (username.length > 64 || password.length > 1024) return c.json({ error: "Väärä käyttäjätunnus tai salasana." }, 401);
+    if (username.length > 64 || password.length > 1024) return c.json(coded("auth.bad_login"), 401);
     // per user name and address: a stranger's guesses at "aino" cannot lock Aino out from her own address
     const name = username.trim().toLowerCase();
     const userKey = `${ipKey}|${name}`;
@@ -77,14 +81,14 @@ export function authRoutes(s: Services) {
     const userTry = limits.user.consume(userKey, remembered);
     if (userTry.wait) {
       limits.ip.release(ipKey);
-      if (userTry.first) await lockout(username.trim());
+      if (userTry.first) await lockout(shown(username));
       return refuse(userTry.wait);
     }
     const nameTry = limits.name.consume(name, remembered);
     if (nameTry.wait) {
       limits.ip.release(ipKey);
       limits.user.release(userKey);
-      if (nameTry.first) await lockout(`${username.trim()}, kaikista osoitteista`);
+      if (nameTry.first) await lockout(`${shown(username)}, kaikista osoitteista`);
       return refuse(nameTry.wait);
     }
     // at most a few hashes at once: the rest would only queue up behind the thread pool
@@ -92,29 +96,38 @@ export function authRoutes(s: Services) {
       limits.ip.release(ipKey);
       limits.user.release(userKey);
       limits.name.release(name);
-      return c.json({ error: "Palvelin on kiireinen. Yritä hetken päästä uudelleen." }, 429, { "Retry-After": "2" });
+      return c.json(coded("auth.busy"), 429, { "Retry-After": "2" });
     }
     let record: Awaited<ReturnType<typeof s.users.findForLogin>>;
     let ok = false;
     try {
       record = await s.users.findForLogin(username);
       // verify against a dummy hash for unknown users, so timing does not reveal valid usernames
-      ok = await verifyPassword(password, record?.passwordHash ?? DUMMY_HASH);
+      ok = await verifyUniform(password, record?.passwordHash ?? null, passwordCost(s), await s.users.legacyRounds());
+      // the slot is still held: the rewrite of an older hash costs one more hash
+      if (record && ok) {
+        const stored = await upgradePasswordHash(s, record, password, { ip, userAgent });
+        if (stored === null) ok = false;
+        else record.passwordHash = stored;
+      }
     } finally {
       s.hashGate.leave();
     }
     if (!record || !ok) {
-      await recordEvent(s, { kind: "login_fail", userId: record?.id ?? null, ip, userAgent, detail: username.trim() });
-      return c.json({ error: "Väärä käyttäjätunnus tai salasana." }, 401);
+      await recordEvent(s, { kind: "login_fail", userId: record?.id ?? null, ip, userAgent, detail: shown(username) });
+      return c.json(coded("auth.bad_login"), 401);
     }
     limits.user.reset(userKey);
     limits.ip.release(ipKey);
     // given back, not cleared: a correct password must not refill a stranger's guesses at the name
     limits.name.release(name);
     // with a second factor the password is half of it: no session, no remembered address and no login record until the code
-    if (await s.factors.hasTotp(record.id)) {
+    if (await s.factors.hasAny(record.id)) {
       await startHalfSession(c, s, record.id, record.passwordHash);
-      return c.json({ needsFactor: true });
+      // what the second step may offer: a code (authenticator app or recovery code) and a passkey the address allows
+      const rp = relyingParty(s);
+      const passkey = rp.usable && (await s.factors.passkeys(record.id)).some((p) => p.rpId === rp.id);
+      return c.json({ needsFactor: true, passkey, codes: (await s.factors.hasTotp(record.id)) || (await s.factors.recoveryLeft(record.id)) > 0 });
     }
     // the only place an address is remembered: after a correct password
     limits.remembered.add(ipKey);
@@ -129,9 +142,31 @@ export function authRoutes(s: Services) {
     const raw = strictObject(await body(c), ["code"] as const);
     const code = optionalString(raw.code, 64) ?? "";
     const user = await readHalfSession(c, s);
-    if (!user) return c.json({ error: "Kirjautuminen vanheni. Kirjaudu uudelleen.", code: "half_expired" }, 401);
+    if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
     const req = requestInfo(c, s);
-    if (!(await takeCode(s, user, code, req))) return c.json({ error: "Koodi on väärä." }, 401);
+    if (!(await takeCode(s, user, code, req))) return c.json(coded("auth.bad_code"), 401);
+    s.loginLimiter.remembered.add(addressKey(req.ip ?? "local"));
+    await recordLogin(s, user.id, req.ip ?? "local", req.userAgent);
+    await startSession(c, s, user.id);
+    await endHalfSession(c, s);
+    return c.json({ user });
+  });
+
+  /** The options for the passkey of a sign-in, for the half session the password step set. */
+  app.post("/passkey/options", async (c) => {
+    strictObject(await body(c), [] as const);
+    const user = await readHalfSession(c, s);
+    if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
+    return c.json(await passkeyChallenge(s, user));
+  });
+
+  /** The device's answer to those options: the other way to finish the sign-in the code step finishes. */
+  app.post("/passkey", async (c) => {
+    const raw = strictObject(await body(c), ["response"] as const);
+    const user = await readHalfSession(c, s);
+    if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
+    const req = requestInfo(c, s);
+    if (!(await takePasskey(s, user, raw.response, req))) return c.json(coded("passkey.sign_in_failed"), 401);
     s.loginLimiter.remembered.add(addressKey(req.ip ?? "local"));
     await recordLogin(s, user.id, req.ip ?? "local", req.userAgent);
     await startSession(c, s, user.id);
@@ -148,12 +183,22 @@ export function authRoutes(s: Services) {
 
   app.post("/password", async (c) => {
     const user = c.get("user");
-    if (!user) return c.json({ error: "Kirjaudu sisään." }, 401);
+    if (!user) return c.json(coded("auth.login_required"), 401);
     const raw = strictObject(await body(c), ["current", "next"] as const);
     const current = optionalString(raw.current, 1024) ?? "";
     const next = optionalString(raw.next, 1024) ?? "";
-    if (!next) throw new UserError("Anna uusi salasana.");
+    if (!next) throw UserError.of("auth.new_password_missing");
     await changePassword(s, user, current, next, c.get("sessionId"), requestInfo(c, s));
+    return c.json({ ok: true });
+  });
+
+  app.post("/first-password", async (c) => {
+    const user = c.get("user");
+    if (!user) return c.json(coded("auth.login_required"), 401);
+    const raw = strictObject(await body(c), ["next"] as const);
+    const next = optionalString(raw.next, 1024) ?? "";
+    if (!next) throw UserError.of("auth.new_password_missing");
+    await setFirstPassword(s, user, next, c.get("sessionId"), requestInfo(c, s));
     return c.json({ ok: true });
   });
 

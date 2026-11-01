@@ -14,7 +14,7 @@ FILTER=${1:-}
 PASS=0; FAILED=0
 pass() { PASS=$((PASS + 1)); echo "ok   $1"; }
 fail() { FAILED=$((FAILED + 1)); echo "FAIL $1"; [[ -z ${2:-} ]] || echo "       $2"; }
-check() { local n=$1; shift; if "$@"; then pass "$n"; else fail "$n" "$(tail -n 6 "$W/out" 2>/dev/null | tr '\n' '|')"; fi; }
+check() { local n=$1; shift; if "$@"; then pass "$n"; else fail "$n" "$(tail -n 20 "$W/out" 2>/dev/null | tr '\n' '|')"; fi; }
 want() { [[ -z $FILTER || $1 == *$FILTER* ]]; }
 
 ROOT=$(mktemp -d)
@@ -446,7 +446,7 @@ import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 const out = args.find((a) => a.startsWith("--outputFile=")).slice("--outputFile=".length);
 const excludes = args.flatMap((a, i) => (args[i - 1] === "--exclude" ? [a.replace(/\*\*$/, "")] : []));
-const filters = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--exclude");
+const filters = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--exclude" && args[i - 1] !== "--project");
 const all = execFileSync("git", ["ls-files", "--", "*.test.ts"], { encoding: "utf8" }).split("\n").filter(Boolean);
 const res = { numTotalTests: 0, numFailedTests: 0, numPendingTests: 0, testResults: [] };
 let t = 1000;
@@ -674,7 +674,7 @@ t_stamps_a_change_of_check_or_lockfile_misses_everything() {
   local f
   for f in pnpm-lock.yaml tools/check.sh tools/check/reads.txt package.json; do
     srun
-    echo "# $f" >>"$W/$f"; wcommit; lockinstall
+    if [[ $f == package.json ]]; then printf '{"changed": "%s"}\n' "$f" >"$W/$f"; else echo "# $f" >>"$W/$f"; fi; wcommit; lockinstall
     srun
     check "stamps: a change of $f misses every step" test "$(ranlog)" = "$ALL_RAN"
   done

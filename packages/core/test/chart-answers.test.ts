@@ -38,10 +38,10 @@ describe("the cash flow stacks", () => {
 });
 
 describe("the bar of Tulojen käyttö", () => {
-  it("is the settled totals' bar: `closed` in a running range, else the range's totals", () => {
+  it("is the range's totals' bar, the running month in it", () => {
     for (const { r } of households) {
-      const settled = r.cashflow.running ? r.cashflow.closed : r.cashflow.totals;
-      expect(r.cashflow.bridge?.totals ?? null).toEqual(settled);
+      expect(r.cashflow.bridge.totals).toEqual(r.cashflow.totals);
+      expect(r.cashflow.whole.leftCents).toBe(r.cashflow.totals.leftCents);
     }
   });
 
@@ -83,8 +83,8 @@ describe("the shade of the category table", () => {
         const steady = !full.length || Math.max(...full) <= Math.min(...full) * 1.15;
         row.heat.forEach((h, i) => {
           const v = row.values[i]!;
-          if (!r.pivot.complete[i] || v <= 0 || steady || row.usualCents === null || row.usualCents <= 0) return expect(h, `seed ${seed} ${row.category} ${i}`).toBe(0);
-          const avg = row.usualCents;
+          if (!r.pivot.complete[i] || v <= 0 || steady || row.expectedCents === null || row.expectedCents <= 0) return expect(h, `seed ${seed} ${row.category} ${i}`).toBe(0);
+          const avg = row.expectedCents;
           expect(h, `seed ${seed} ${row.category} ${i}`).toBe(v < avg / 2 ? 1 : v <= avg ? 2 : v <= avg * 1.5 ? 3 : 4);
         });
       }
@@ -95,7 +95,7 @@ describe("the shade of the category table", () => {
     const jumps = households.filter(({ r }) => r.pivot.jump !== null);
     expect(jumps.length).toBeGreaterThan(0);
     for (const { seed, r } of households) {
-      const over = r.pivot.rows.flatMap((row) => r.pivot.strip.filter((i) => row.heat[i] === 4).map((i) => row.values[i]! - row.usualCents!).filter((o) => o >= gateFor(row.usualCents!)));
+      const over = r.pivot.rows.flatMap((row) => r.pivot.strip.filter((i) => row.heat[i] === 4).map((i) => row.values[i]! - row.expectedCents!).filter((o) => o >= gateFor(row.expectedCents!)));
       if (!over.length) {
         expect(r.pivot.jump, `seed ${seed}`).toBeNull();
         continue;
@@ -105,8 +105,8 @@ describe("the shade of the category table", () => {
       expect(r.pivot.strip).toContain(j.month);
       expect(row.heat[j.month]).toBe(4);
       expect(j.cents).toBe(row.values[j.month]);
-      expect(j.usualCents).toBe(row.usualCents);
-      expect(j.cents - j.usualCents).toBe(Math.max(...over));
+      expect(j.expectedCents).toBe(row.expectedCents);
+      expect(j.cents - j.expectedCents).toBe(Math.max(...over));
     }
   });
 });

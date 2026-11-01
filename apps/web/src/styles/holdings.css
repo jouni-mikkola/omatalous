@@ -1,13 +1,13 @@
 /* The first page's holdings: accounts, credit cards and loans (components/holdings/). */
 
+@layer pages {
 /* The groups, ruled as the columns of a block (statement.css .st-cols): to the card's edges, a rule between them. Two stand
    side by side from 900 px, in five parts and seven, from 1040 px on the register's own split (--split-5). Of three, the first two
    stand side by side and the cards have a row of their own under them, across the card. Below 900 px they stand under each other. */
 .holdings > .card-head { margin-bottom: 0; }
-.holding-groups { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 calc(-1 * var(--pad)); }
-.holding-groups > * { min-width: 0; padding: 16px var(--pad) 16px; }
+.holding-groups { display: grid; grid-template-columns: minmax(0, 1fr); }
+.holding-groups > * { min-width: 0; padding: 16px 0; }
 .holding-groups > * + * { border-top: 1px solid var(--border); }
-.holdings > .holding-groups:last-child { margin-bottom: calc(-1 * var(--pad)); }
 @media (min-width: 900px) {
   .holding-groups-2, .holding-groups-3 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
   .holding-groups-3 > .holding-cards { grid-column: 1 / -1; }
@@ -132,3 +132,9 @@
 .holding-tick-diff { color: var(--bad); }
 .holding-tick-ok::before { content: "\2713"; }
 .holding-tick-diff::before { content: "\21"; }
+/* a datum with a word before its figure: "Netto" */
+.datum-label { margin-right: var(--sp-8); font-weight: 400; color: var(--text-2); }
+/* the account's mark before its name; under 360 px the name needs the room: the mark goes, the name stays whole */
+.holding-name .acc-mark { margin-right: var(--sp-8); vertical-align: middle; }
+@media (max-width: 359px) { .holding-name .acc-mark { display: none; } }
+}

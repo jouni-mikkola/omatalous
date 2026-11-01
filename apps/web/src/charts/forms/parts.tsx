@@ -1,45 +1,28 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Section } from "../../components/Section.tsx";
 import { ChartQuestion } from "../../components/table/ChartTable.tsx";
-import { TableToggle } from "../../components/TableToggle.tsx";
+import { ChartWithTable } from "../../components/table/selection.tsx";
 import { crisp } from "../draw.ts";
 import type { Linear } from "../kit/scale.ts";
 import { boxPlace } from "../kit/readout.ts";
 import "../../styles/question-chart.css";
+import { css } from "../../css.ts";
 
-/** Whether the panel shows its charts as tables: one switch in the panel's head turns every chart of the panel. */
-const TableView = createContext(false);
-
-/**
- * A panel of Raportit: its name, the summary figure in the head (the datum) and one Kaavio/Taulukko switch for every
- * chart in it (critic 7: one switch a panel), then the CSV link or other actions.
- */
+/** A panel of Raportit: its name, the summary figure in the head (the datum), then the CSV link or other actions. */
 export function ReportPanel({ id, title, datum, actions, children }: { id: string; title: string; datum?: ReactNode; actions?: ReactNode; children: ReactNode }) {
-  const [table, setTable] = useState(false);
   return (
-    <Section
-      id={id}
-      title={title}
-      datum={datum}
-      actions={
-        <>
-          <TableToggle table={table} onChange={setTable} />
-          {actions}
-        </>
-      }
-    >
-      <TableView.Provider value={table}>{children}</TableView.Provider>
+    <Section id={id} title={title} datum={datum} actions={actions}>
+      {children}
     </Section>
   );
 }
 
 /**
  * One chart under its question (ILME 4, rule 1): the title asks what the household asks and the line under it answers
- * with the figure. The panel's switch shows the same rows as a table, the chart's accessible form; a part that is a table
- * already has no `table` and stays as it is.
+ * with the figure. A chart's rows stand under it as a table (ADR 0018) unless another table of the page carries them; pointing at a mark of the chart reads
+ * it out, and a click on it keeps only that mark's row in the table. A part that is a table already has no `table`.
  */
-export function QuestionChart({ id, question, answer, table, children, wide }: { id: string; question: string; answer: ReactNode; table?: ReactNode; children: ReactNode; wide?: boolean }) {
-  const showTable = useContext(TableView);
+export function QuestionChart({ id, question, answer, table, children, wide }: { id: string; question: string; answer: ReactNode; table?: ReactNode; children?: ReactNode; wide?: boolean }) {
   return (
     <figure className={wide ? "qc qc-wide" : "qc"} aria-labelledby={`${id}-q`}>
       <figcaption className="qc-head">
@@ -50,11 +33,7 @@ export function QuestionChart({ id, question, answer, table, children, wide }: {
           <p className="qc-a">{answer}</p>
         </div>
       </figcaption>
-      {showTable && table ? (
-        <ChartQuestion.Provider value={question}>{table}</ChartQuestion.Provider>
-      ) : (
-        children
-      )}
+      <ChartWithTable chart={children} table={table ? <ChartQuestion.Provider value={question}>{table}</ChartQuestion.Provider> : undefined} />
     </figure>
   );
 }
@@ -79,7 +58,7 @@ export function ValueGrid({ y, innerW, format }: { y: Linear; innerW: number; fo
 export function Tip({ x, left, width, title, rows }: { x: number; left: number; width: number; title: string; rows: { name: string; value: string; key?: ReactNode }[] }) {
   const place = boxPlace(x + left, width);
   return (
-    <div className="tooltip" style={{ ...place, top: 8 }} role="presentation">
+    <div className="tooltip" ref={css({ left: undefined, right: undefined, ...place, top: 8 })} role="presentation">
       <div className="tooltip-title">{title}</div>
       {rows.map((r) => (
         <div className="tooltip-row" key={r.name}>

@@ -23,17 +23,19 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
 
   // any account can have a name of its own, bank-linked or not; the original stays on a line of its own
   await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili (esimerkki)" }).click();
-  await page.getByLabel("Oma nimi").fill("Yhteinen tili");
+  await page.getByLabel("Tilin nimi").fill("Yhteinen tili");
   await page.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(tilit.getByText("Tallennettu.").first()).toBeVisible();
   await expect(row("Yhteinen tili")).toContainText("Pankin nimi: Käyttötili (esimerkki)");
   await expect(row("Yhteinen tili")).toContainText("FI21 1234 5600 0007 85");
-  await expect(tilit.getByLabel("Tilin Yhteinen tili tyyppi").first()).toHaveValue("checking");
 
   // an empty name brings the original back
   await page.getByRole("button", { name: "Muokkaa tiliä Yhteinen tili" }).click();
-  await expect(page.getByLabel("Oma nimi")).toHaveValue("Yhteinen tili");
-  await page.getByLabel("Oma nimi").fill("");
+  await expect(page.getByLabel("Tilin nimi")).toHaveValue("Yhteinen tili");
+  // the type is chosen in the form, not on the row, and the name did not change it
+  await expect(tilit.getByLabel("Tilin Yhteinen tili tyyppi")).toHaveValue("checking");
+  await expect(row("Yhteinen tili").getByRole("combobox")).toHaveCount(0);
+  await page.getByLabel("Tilin nimi").fill("");
   await page.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(row("Käyttötili (esimerkki)")).toBeVisible();
   await expect(tilit.getByText("Pankin nimi:")).toHaveCount(0);

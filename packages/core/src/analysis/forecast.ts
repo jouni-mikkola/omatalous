@@ -1,6 +1,6 @@
 /**
- * How the running month is going: the pace curve, its spending so far against the usual month and the month before on
- * the same days, and the rest of the month as the usual months spent it.
+ * How the running month is going: the pace curve, its spending so far against the expected month and the month before on
+ * the same days, and the rest of the month as the base months spent it.
  */
 import { billCents } from "../account-use.ts";
 import { expectedDates } from "../commitments.ts";
@@ -8,12 +8,12 @@ import { addDays, addMonths, addMonthsToDate, dayNumber, daysInMonth, monthEnd, 
 import { fold } from "../merchant.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { normalizeReference, PAID_EARLY_DAYS } from "../recurring-settled.ts";
-import { median } from "../stats.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
-import { cardsBreakUsual, completeMonthsBefore, itemisedMonthsBefore, MIN_COMPARE_MONTHS, spendingThrough, usualIncome, usualSpendingOver } from "./usual.ts";
+import { expectedFor, expectedIncome } from "./expected.ts";
+import { cardsBreakUsual } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -34,38 +34,38 @@ export interface MonthPace {
     toToday: number;
   } | null;
   /**
-   * The household's usual month, day by day: at index d − 1 the usual spending on days 1 to d (`usualSpending`, the
-   * median of the complete months before), with the lower and the upper quartile of the same months as its band. null
-   * under three complete months.
+   * The expected month, day by day: at index d − 1 the expected spending on days 1 to d (`expectedFor`, the sum of the
+   * categories' expected figures), with the lower and the upper quartile of the base months' totals moved to it as its
+   * band. null under three complete months.
    */
-  usual: {
+  expected: {
     curve: number[];
     low: number[];
     high: number[];
     /** How many complete months it is read from. */
     months: number;
-    /** `curve` on today's day of the month: "tavallisesti tähän päivään mennessä". 0 before the 1st. */
+    /** `curve` on today's day of the month: "odotettu tähän päivään mennessä". 0 before the 1st. */
     toToday: number;
-    /** `currentTotal` less `toToday`: above zero the month has cost more than usual so far. */
+    /** `currentTotal` less `toToday`: above zero the month has cost more than expected so far. */
     diffCents: number;
   } | null;
-  /** The months to compare lack the purchases of a linked card (`cardsBreakUsual`): `usual` is null for that reason, not for lack of months. */
+  /** The months to compare lack the purchases of a linked card (`cardsBreakUsual`): `expected` is null for that reason, not for lack of months. */
   cardGap: boolean;
   /**
-   * The rest of a running month as the usual months spent it: on each day from today's to the last, `currentTotal` plus
-   * what the lower and the upper quartile months of `usual` added after today's day; `low` and `high` start at today.
-   * An estimate. null for a month that has ended or has not begun, and without `usual`.
+   * The rest of a running month as the base months spent it: on each day from today's to the last, `currentTotal` plus
+   * what the lower and the upper quartile months of `expected` added after today's day; `low` and `high` start at today.
+   * An estimate. null for a month that has ended or has not begun, and without `expected`.
    */
   projection: { fromDay: number; low: number[]; high: number[] } | null;
   /** The month's largest purchase so far that is in no recurring series (the rent says nothing), the line's one event besides pay. null with none. */
   largest: { day: number; name: string; cents: number } | null;
-  /** The days of the month so far that brought earned income of at least a quarter of the usual month's: the pay days the line marks. */
+  /** The days of the month so far that brought earned income of at least a quarter of the expected month's: the pay days the line marks. */
   payDays: number[];
 }
 
 /**
- * A month's cumulative spending on each of its days, of the rows the waterfall and the month table count (`spendRows`):
- * a card statement puts a purchase on its own day and lowers the bill, so the curve ends at the waterfall's Menot.
+ * A month's cumulative spending on each of its days, of the rows the month table counts (`spendRows`):
+ * a card statement puts a purchase on its own day and lowers the bill, so the curve ends at the month's Menot.
  */
 function spendingCurve(ctx: AnalysisContext, month: string): number[] {
   const first = dayNumber(`${month}-01`);
@@ -82,7 +82,7 @@ function hasRows(ctx: AnalysisContext, month: string): boolean {
 
 /**
  * What the month has cost so far, day by day, and what the month before had cost by the same day: both are sums of
- * the rows the waterfall counts (`spendRows`), nothing is estimated, so the figure and the waterfall's Menot agree.
+ * the rows the month table counts (`spendRows`), nothing is estimated, so the figure and the month's Menot agree.
  */
 export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): MonthPace {
   const days = daysInMonth(month);
@@ -98,47 +98,39 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
     current: cur.map((v, i) => (i < lastDay ? v : null)),
     currentTotal: lastDay ? cur[lastDay - 1]! : 0,
     previous: curve && { month: before, curve, day, toToday: day ? curve[day - 1]! : 0 },
-    ...usualPace(ctx, month, lastDay, lastDay ? cur[lastDay - 1]! : 0),
+    ...expectedPace(ctx, month, lastDay, lastDay ? cur[lastDay - 1]! : 0),
     largest: largestOneOff(ctx, month, lastDay),
     payDays: payDaysOf(ctx, month, lastDay),
   };
 }
 
-/** The value at share `q` of sorted values, between the two nearest by linear interpolation, in whole cents. */
-function quantile(sorted: readonly number[], q: number): number {
-  const at = (sorted.length - 1) * q;
-  const lo = Math.floor(at);
-  const hi = Math.ceil(at);
-  return Math.round(sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (at - lo));
-}
-
-/** The usual month and the projection of the rest of this one (`MonthPace.usual`, `MonthPace.projection`). */
-function usualPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "usual" | "projection" | "cardGap"> {
+/** The expected month and the projection of the rest of this one (`MonthPace.expected`, `MonthPace.projection`). */
+function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "expected" | "projection" | "cardGap"> {
   const days = daysInMonth(month);
-  const months = itemisedMonthsBefore(ctx, month);
-  if (months.length < MIN_COMPARE_MONTHS) return { usual: null, projection: null, cardGap: cardsBreakUsual(ctx, month) };
+  const figure = expectedFor(ctx, month);
+  if (!figure || !figure.itemised) return { expected: null, projection: null, cardGap: cardsBreakUsual(ctx, month) };
   const curve: number[] = [];
   const low: number[] = [];
   const high: number[] = [];
   for (let d = 1; d <= days; d++) {
-    const values = months.map((m) => spendingThrough(ctx, m, d)).sort((a, b) => a - b);
-    curve.push(usualSpendingOver(ctx, months, d)!);
-    low.push(quantile(values, 0.25));
-    high.push(quantile(values, 0.75));
+    const at = figure.at(d);
+    curve.push(at.cents);
+    low.push(at.lowCents);
+    high.push(at.highCents);
   }
   const toToday = lastDay ? curve[lastDay - 1]! : 0;
-  const usual = { curve, low, high, months: months.length, toToday, diffCents: total - toToday };
-  if (!lastDay || lastDay >= days) return { usual, projection: null, cardGap: false };
+  const expected = { curve, low, high, months: figure.months.length, toToday, diffCents: total - toToday };
+  if (!lastDay || lastDay >= days) return { expected, projection: null, cardGap: false };
   const at = lastDay - 1;
   const projection = { fromDay: lastDay, low: [] as number[], high: [] as number[] };
   for (let d = at; d < days; d++) {
-    // the lower quartile month can add more after today than the upper one did: the band is the two, lower edge first
+    // the band is the rest of the month in the lower and the upper quartile months, the lower edge first
     const a = total + low[d]! - low[at]!;
     const b = total + high[d]! - high[at]!;
     projection.low.push(Math.min(a, b));
     projection.high.push(Math.max(a, b));
   }
-  return { usual, projection, cardGap: false };
+  return { expected, projection, cardGap: false };
 }
 
 /** The month's largest purchase on its days 1 to `lastDay` that belongs to no recurring series. */
@@ -150,41 +142,14 @@ function largestOneOff(ctx: AnalysisContext, month: string, lastDay: number): Mo
   return top ? { day: top.day - first + 1, name: top.merchant, cents: top.spend } : null;
 }
 
-/** The days of the month to `lastDay` whose earned income is at least a quarter of the usual month's; none without a usual income. */
+/** The days of the month to `lastDay` whose earned income is at least a quarter of the expected month's; none without an expected income. */
 function payDaysOf(ctx: AnalysisContext, month: string, lastDay: number): number[] {
-  const usual = usualIncome(ctx, month);
-  if (!lastDay || !usual) return [];
+  const expected = expectedIncome(ctx, month);
+  if (!lastDay || !expected) return [];
   const first = dayNumber(`${month}-01`);
   const byDay = new Map<number, number>();
   for (const t of earnedSelect(ctx, { fromDay: first, toDay: first + lastDay - 1 }).counted) byDay.set(t.day - first + 1, (byDay.get(t.day - first + 1) ?? 0) + earnedOf(t));
-  return [...byDay].filter(([, cents]) => cents * 4 >= usual).map(([d]) => d).sort((a, b) => a - b);
-}
-
-/** The usual day is read from this many whole weeks at most, the latest ones. */
-const USUAL_WEEKS = 13;
-/** Fewer whole weeks than this say nothing of a usual day. */
-const MIN_USUAL_WEEKS = 8;
-
-/**
- * The usual everyday spending of a day for the month, in cents and fractional: the median week by seven. Everyday is
- * what is in no subscription or bill series. The weeks are spans of seven days, the last one ending on the last day of
- * the last complete month before `month`, thirteen at most, and each wholly inside the history. One large purchase
- * moves one week of thirteen and leaves the median where it was. 0 under eight such weeks. With `accounts`, what those
- * accounts paid themselves: the payday window passes the accounts whose balance it counts.
- */
-export function everydayPerDay(ctx: AnalysisContext, month: string, accounts?: ReadonlySet<string>): number {
-  const [last] = completeMonthsBefore(ctx, month, 1);
-  if (!last) return 0;
-  const end = dayNumber(monthEnd(last));
-  // a complete month has a first row behind it
-  const whole = Math.min(USUAL_WEEKS, Math.floor((end - dayNumber(ctx.dataFrom!) + 1) / 7));
-  if (whole < MIN_USUAL_WEEKS) return 0;
-  const weeks = new Array<number>(whole).fill(0);
-  for (const t of inDays(standingOf(ctx), { fromDay: end - 7 * whole + 1, toDay: end })) {
-    if (ctx.fixedIds.has(t.id) || (accounts && !accounts.has(t.accountId))) continue;
-    weeks[Math.floor((end - t.day) / 7)]! += t.spend;
-  }
-  return median(weeks) / 7;
+  return [...byDay].filter(([, cents]) => cents * 4 >= expected).map(([d]) => d).sort((a, b) => a - b);
 }
 
 /** A date of a bill the household typed in. */

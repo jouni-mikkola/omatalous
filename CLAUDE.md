@@ -66,14 +66,14 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   request (`requestInputs`) and are not part of the cached context. So are the Optimoi inputs, decisions and snapshots
   (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never reprocesses.
 - `category_source = 'user'` is never overwritten by automation. Likewise `accounts.custom_name` (the user's name for an
-  account) is written only by `PATCH /accounts/:id`; `accounts.name` is the bank's and every link rewrites it.
+  account) is written only by `PATCH /accounts/:id` and by an import of the user's own export into an account it creates; `accounts.name` is the bank's and every link rewrites it.
   `StoredAccount.name` is the display name (the user's, else the bank's); matching reads the bank's (`bankName`).
 - Every money movement lands in exactly one flow (consumption, debt, saved, income, borrowed) or is a
   transfer. A card bill is a transfer when that card's account is connected. See `docs/MONEY_FLOWS.md`.
 - The app secret is a file (`APP_SECRET_FILE`, created on first start by `entry/app-secret.ts`, Docker volume
   `banking-secrets`). Bank keys live in the DB AES-GCM sealed: users' with the user id as AAD, the shared app's with
   `instance:enablebanking`, and the Cloudflare API token of the Etäkäyttö page (settings key `instance_cloudflare`) with
-  `instance:cloudflare`. Never log or return secrets, private keys, that token or `raw` bank payloads (only the certificate).
+  `instance:cloudflare`, and the address and token of the notices outside the browser (settings key `instance_notices`) with `instance:notices`. Never log or return secrets, private keys, those tokens, that address or `raw` bank payloads (only the certificate).
 - Only merchant names of business rows (core `isBusinessRow`) are sent to the trade register, and only if core
   `isLookupName` accepts them (never a name shaped like a person's) and `mayBePerson` does not refuse them (a word of a
   name the household has, an invoice alone as the only evidence of a business); `askRegister` is the one door and checks
@@ -135,31 +135,35 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - The Finnish of the UI (glossary, tone, dates, sums, plurals): `docs/UI_STYLE.md`; rule 35 refuses the words it removed.
 - Code, identifiers and comments in English. Comments explain why.
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
-  `apps/web/src/pages/reports/sections/` that names the reports it reads + invariant test in
-  `packages/core/test/reports.test.ts`. Each report and section starts with a `Decision:` comment naming what the
-  household decides with it (repo rule 11); a view with no decision is not built.
-- New module behind a flag: an entry in `FEATURES` (`packages/core/src/features.ts`), its routes mounted through
-  `gated(s, id, routes)` (`auth/middleware.ts`), and its `nav.ts` entry names the flag. Admins switch flags in
-  Asetukset > Palvelin.
+  `apps/web/src/pages/reports/sections/` that names the reports it reads, listed by the question page that shows it
+  (`pages/reports/pages/<Page>.tsx`) + invariant test in `packages/core/test/reports.test.ts`. A question page has its
+  `Conclusion` in `reports/conclusions/<page>.ts` (its basis rows add up to its figure) and its styles in
+  `styles/report-<page>.css`. Each report and section starts with a `Decision:` comment naming what the household
+  decides with it (repo rule 11). A view with no decision is not built.
+- New module behind a flag: an extension (`apps/server/src/extensions.ts`) whose routes are mounted behind its flag.
+  Core has no flag. A finished module loses its flag, and no setting switches a page off.
 - New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`. A payee or
-  payment word list goes in `wording.ts` (repo rule 21), shared with `categorize.ts` through one constant.
+  payment word list goes in `packages/core/src/wordlists.json` (repo rule 21), read through `wordlists.ts` and shared with `categorize.ts` through one constant of `wording.ts`.
 - New Optimoi finding: in its area file, with a hit and near misses in `packages/core/test/optimise/parts/`, quiet on the
   random households (`quiet.test.ts`). An outside figure is a row in `optimise/facts/` only after its primary source
   was opened (`verifiedAt`); it expires and then hides its comparison. Findings never rank providers or advise a
   product, and every number in a title is a calc line.
 - New connector: a folder in `apps/server/src/connectors/` listed in its `registry.ts` (recipe in
   `docs/DEVELOPMENT.md`). A `Connector` (`connectors/types.ts`) is an `id`, an optional `sync` and an optional
-  `revokeAll`, and the id is stored and never renamed. The app reads no files: there is no import format.
+  `revokeAll`, and the id is stored and never renamed. The app reads no files on the server and has no import format. The one exception is a statement, a card's or a bank's CSV export or camt.053 file, read in the browser, of which only the rows go to the install (`connectors/card-file/`, `connectors/bank-file/`, ADR 0025).
 - Tables: every list of rows is `components/table/Table.tsx` (columns, groups, a total, a drill; `KeyValue` for the facts of
   one subject). A page writes cells and never a `<table>`, a column sorts only in a complete list read by size, and under
   600 px of room a row becomes a block, never a sideways scroll. A view nobody needs is deleted with its code, styles, tests
   and texts, never hidden behind a switch or a fold. `e2e/table-views.spec.ts` checks every view at 390 and 1440 px.
-- Charts follow the dataviz conventions already in `apps/web/src/charts` (one axis, legend + table view,
-  fixed category colour order from the server, tokens in `styles/tokens.css`). The light look is the set on `:root`, the default
-  with no attribute; `:root[data-look="night"]` holds the night set, reached only by the attribute (`pnpm shots --look
-  night` shows it). Stylesheets read tokens; the drawn card face of `holdings.css` is the one place with colours of its own.
-- `apps/web/test/contrast.test.ts` measures the `#rrggbb` tokens of each set of `styles/tokens.css` against the page
-  and the surfaces of that set and holds the theme colour in `index.html` equal to the header band (`--ink`) of the set
-  `<html>` selects (the light set). A token that fails is moved, never the test.
+- Table toolbar: `Toolbar.tsx` is the one toolbar of a table. A column opts in with `search`, `chips`, `group` or `csv`.
+  `model.ts` runs the sorting on TanStack Table v9. A page never writes a toolbar.
+- Table view: `view` and `onView` of `Table` keep the reader's view in the address (`view.ts`). Without them the view
+  is local state. CSV text is `csv` of `@banking/core`, which the server uses too.
+- Charts follow the dataviz conventions already in `apps/web/src/charts`: one axis, a legend and a table view, and the
+  category colour order from the server. There is one look, a light bank-like one, in `:root` of the generated `styles/tokens.css`.
+  Its source is `apps/web/design/tokens.json` (`pnpm tokens`). Stylesheets read tokens. Charts read them from
+  `src/design/tokens.ts`. The drawn card face of `holdings.css` is the one place with colours of its own.
+- `apps/web/test/contrast.test.ts` measures the colours of `src/design/tokens.ts` against the page
+  and the surfaces and holds the theme colour in `index.html` equal to the header band (`--ink`). A token that fails is moved, never the test.
 - Repo rules (`tools/repo-rules`, listed in the header of `repo-rules.test.ts`) read tracked files and untracked files
   git does not ignore, so a new file meets them before `git add`. A failing rule names itself and the fix.

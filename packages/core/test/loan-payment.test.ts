@@ -9,7 +9,7 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { buildHousing } from "../src/housing.ts";
 import { loanKindSubject, loanProposals, parseLoanKindSubject } from "../src/loan-detect.ts";
-import { flagLoanPayment, loanPaymentAccounts } from "../src/loan-payment.ts";
+import { flagLoanPayment } from "../src/loan-payment.ts";
 import { buildQuestions } from "../src/analysis/questions.ts";
 import type { Account, BalanceInput, Loan, Part, Transaction, UserInputs, UserMark } from "../src/types.ts";
 import { tx } from "./helpers.ts";

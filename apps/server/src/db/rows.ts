@@ -1,5 +1,5 @@
 /** Row types and SQL row → object mappers shared by the repositories. */
-import type { Account, AccountType, CategorySource, Transaction, TransactionStatus } from "@banking/core";
+import { DEFAULT_LANGUAGE, isLanguage, type Account, type AccountType, type CategorySource, type Language, type Transaction, type TransactionStatus } from "@banking/core";
 import type { SqlValue } from "./types.ts";
 
 export type Row = Record<string, SqlValue>;
@@ -81,6 +81,8 @@ export interface User {
   displayName: string;
   role: Role;
   mustChangePassword: boolean;
+  /** The language the member reads the app in (core `LANGUAGES`). */
+  language: Language;
   createdAt: string;
 }
 
@@ -184,6 +186,8 @@ export function toUser(r: Row): User {
     displayName: String(r.display_name),
     role: String(r.role) as Role,
     mustChangePassword: Number(r.must_change_password) === 1,
+    // a value this build does not know (a newer version stored it) reads as the default
+    language: isLanguage(r.language) ? r.language : DEFAULT_LANGUAGE,
     createdAt: String(r.created_at),
   };
 }

@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { clockTime, date, dateTime, dayTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { clockTime, date, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
 import { addedOn } from "../src/pages/settings/Members.tsx";
-import { factRows } from "../src/pages/settings/SecondFactor.tsx";
+import { factLine } from "../src/pages/settings/SecondFactor.tsx";
 
 describe("the texts of amount and rate inputs", () => {
   it("writes cents and hundredths of a percent as the household types them, with plain spaces", () => {
@@ -116,16 +116,17 @@ describe("timestamps are read in the instance's time zone", () => {
   });
 
   it("gives the day and the clock of a timestamp together, and a dash for none", () => {
-    expect(dateTime("2026-10-23T22:30:00Z")).toBe("24.10.2026 klo 1.30");
+    expect(dateTime("2026-10-23T22:30:00Z", "2026-10-25")).toBe("24.10. klo 1.30");
     expect(clockTime("2026-10-12T11:35:00Z")).toBe("14.35");
-    expect(dayTime("2026-10-12T12:30:00Z")).toBe("12.10. klo 15.30");
+    // the year is written when the stamp is not of this year
+    expect(dateTime("2026-10-12T12:30:00Z", "2027-01-02")).toBe("12.10.2026 klo 15.30");
     expect(date(null)).toBe("–");
     expect(dateTime(undefined)).toBe("–");
   });
 
   it("follows the zone the server names and ignores one the browser does not know", () => {
     setTimeZone("America/New_York");
-    expect(dateTime("2026-10-23T22:30:00Z")).toBe("23.10.2026 klo 18.30");
+    expect(dateTime("2026-10-23T22:30:00Z", "2026-10-25")).toBe("23.10. klo 18.30");
     setTimeZone("Not/AZone");
     expect(timeZone()).toBe("America/New_York");
     setTimeZone(undefined);
@@ -133,9 +134,30 @@ describe("timestamps are read in the instance's time zone", () => {
   });
 
   it("dates the second factor's start and the member's addition by the household's clock", () => {
-    const rows = Object.fromEntries(factRows({ since: "2026-10-23T22:30:00Z", lastUsedAt: "2026-10-23T22:45:00Z", recoveryLeft: 10 }));
-    expect(rows["Käytössä alkaen"]).toBe("24.10.2026");
-    expect(rows["Viimeksi käytetty"]).toBe("24.10.2026 klo 1.45");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2027-01-15T12:00:00Z"));
+    expect(factLine({ since: "2026-10-23T22:30:00Z", lastUsedAt: "2026-10-23T22:45:00Z", recoveryLeft: 10 })).toBe(
+      "Käytössä alkaen 24.10.2026, viimeksi käytetty 24.10.2026 klo 1.45, palautuskoodeja jäljellä 10.",
+    );
+    expect(factLine({ since: null, lastUsedAt: null, recoveryLeft: 3 })).toBe("Käytössä, ei vielä käytetty, palautuskoodeja jäljellä 3.");
     expect(addedOn({ createdAt: "2026-10-23T22:30:00Z" })).toBe("24.10.2026");
+    vi.useRealTimers();
+  });
+});
+
+describe("the language of sums and dates", () => {
+  afterEach(() => setLanguage("fi"));
+
+  it("follows the member's language, and goes back to Finnish", () => {
+    setLanguage("en");
+    expect(money(123456)).toBe("€1,234.56");
+    expect(date("2026-10-09")).toBe("9/10/2026");
+    expect(dayMonth("2026-10-09")).toBe("9/10");
+    expect(dayHeading("2026-10-12", "2026-10-30")).toBe("Mon 12/10");
+    expect(signedMoney(5000)).toBe("+€50");
+    expect(percent(0.0325, 2)).toBe("3.25%");
+    setLanguage("fi");
+    expect(date("2026-10-09")).toBe("9.10.2026");
+    expect(dayHeading("2026-10-12", "2026-10-30")).toBe("ma 12.10.");
   });
 });

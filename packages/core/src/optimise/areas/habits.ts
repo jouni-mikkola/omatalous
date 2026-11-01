@@ -9,12 +9,13 @@
 import { habitItems, SMALL_PURCHASE_CENTS as SMALL_CENTS } from "../../analysis/alerts.ts";
 import type { AnalysisTx } from "../../analysis/context.ts";
 import { netPurchase } from "../../analysis/context.ts";
+import { messageIn } from "../../messages.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { capitalise, monthSpan } from "../../analysis/insights/shared.ts";
 import { clearlyAbove } from "../../analysis/signal.ts";
 import { addDays, monthOf } from "../../dates.ts";
 import { median } from "../../stats.ts";
-import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, levelWithoutOneOffs, MAX_ROWS, mean, whyHistory, YEAR_OVER_YEAR_NEED, yearOverYear } from "../common.ts";
+import { accountsBefore, EATING_OUT_CLAIMS, eur, findingId, formatCount, levelWithoutOneOffs, MAX_ROWS, mean, whyHistory, YEAR_OVER_YEAR_NEED, yearOverYear } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft, NoDataWhy } from "../types.ts";
 
 /** The alert's window: the habit is judged on the last 90 days of complete months. */
@@ -26,8 +27,6 @@ const MIN_HABIT_YEARLY = 20000;
 const WEEKDAY_SHARE = 0.8;
 const NOT_A_HABIT: ReadonlySet<string> = new Set(["p2p", "cash"]);
 const FOOD: ReadonlySet<string> = new Set(["restaurants", "food_delivery"]);
-
-const eur = (cents: number) => formatEur(cents, false);
 
 /** The category most of the rows have; ties by id so the result does not depend on row order. */
 function mainCategory(rows: readonly AnalysisTx[]): string {
@@ -56,6 +55,7 @@ function rise(now: readonly number[], then: readonly number[]): { now: number; t
 }
 
 function habitFinding(a: AreaInput, merchant: string, win: { now: string[]; then: string[] }): FindingDraft | null {
+  const lang = a.lang;
   const months = [...win.then, ...win.now];
   const inWindow = new Set(months);
   const accounts = accountsBefore(a.ctx, `${win.then[0]}-01`);
@@ -86,27 +86,27 @@ function habitFinding(a: AreaInput, merchant: string, win: { now: string[]; then
   const highCents = Math.max(midCents, Math.round((own6.now - thenMean) * ticket * 12));
 
   const weaknesses =
-    recent.filter((t) => t.weekday < 5).length >= WEEKDAY_SHARE * recent.length ? [{ id: "estimate" as const, reason: "Osa voi olla työpäivän ostoksia." }] : [];
-  const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[win.now.length - 1]!));
-  const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[win.then.length - 1]!));
+    recent.filter((t) => t.weekday < 5).length >= WEEKDAY_SHARE * recent.length ? [{ id: "estimate" as const, reason: messageIn(lang, "opt.hab_workday") }] : [];
+  const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[win.now.length - 1]!, lang));
+  const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[win.then.length - 1]!, lang));
   const struckRows = rows.filter((t) => struck.has(t.id)).sort((x, y) => netPurchase(y) - netPurchase(x));
   const evidence = [...struckRows.slice(0, 10), ...visits.slice(-(MAX_ROWS - Math.min(10, struckRows.length)))];
   const calc: CalcLine[] = [
-    { label: `${nowSpan}, kertaa kuussa tavallisesti`, value: formatCount(own6.now) },
-    { label: `${thenSpan}, kertaa kuussa tavallisesti`, value: formatCount(own6.then) },
-    { label: `${thenSpan}, kertaa kuussa keskimäärin`, value: formatCount(thenMean) },
-    { label: "Ostoskerta keskimäärin", value: formatEur(ticket) },
-    { label: "Ero vuodessa", value: eur(midCents) },
-    ...struckRows.slice(0, 5).map((t) => ({ label: `Kertaosto ${formatFiDate(t.bookingDate)}`, value: formatEur(netPurchase(t)), struck: true })),
+    { label: messageIn(lang, "opt.hab_usual", { span: nowSpan }), value: formatCount(own6.now, lang) },
+    { label: messageIn(lang, "opt.hab_usual", { span: thenSpan }), value: formatCount(own6.then, lang) },
+    { label: messageIn(lang, "opt.hab_mean", { span: thenSpan }), value: formatCount(thenMean, lang) },
+    { label: messageIn(lang, "opt.c_ticket"), value: formatEur(ticket, true, lang) },
+    { label: messageIn(lang, "opt.c_diff_year"), value: eur(midCents, lang) },
+    ...struckRows.slice(0, 5).map((t) => ({ label: messageIn(lang, "opt.hab_one_off", { date: formatFiDate(t.bookingDate, lang) }), value: formatEur(netPurchase(t), true, lang), struck: true })),
   ];
-  if (more < own6.now - own6.then) calc.splice(3, 0, { label: "Pieniä ostoksia lisää kuussa, sama kategoria", value: formatCount(all.now - all.then) });
+  if (more < own6.now - own6.then) calc.splice(3, 0, { label: messageIn(lang, "opt.hab_more_small"), value: formatCount(all.now - all.then, lang) });
   return {
     id: findingId("habits", "repeat", merchant),
     area: "habits",
     kind: "repeat",
     subject: merchant,
-    title: `${merchant}: ${formatCount(own6.now)} kertaa kuussa, vuotta aiemmin ${formatCount(own6.then)}. Ostoskerta keskimäärin ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[win.now.length - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
-    action: `Tarkista käyntien määrä: vuotta aiemmin ${formatCount(own6.then)} kertaa kuussa.`,
+    title: messageIn(lang, "opt.hab_title", { merchant, now: formatCount(own6.now, lang), then: formatCount(own6.then, lang), ticket: formatEur(ticket, true, lang), span: monthSpan(win.now[0]!, win.now[win.now.length - 1]!, lang) }),
+    action: messageIn(lang, "opt.hab_action", { then: formatCount(own6.then, lang) }),
     euros: { lowCents: Math.round(midCents / 2), midCents, highCents },
     decideBy: null,
     weaknesses,
@@ -127,7 +127,7 @@ export const habits: Area = {
   assess: (a) => {
     const win = yearOverYear(a);
     const check = (status: Check["status"], why?: NoDataWhy): Check[] => [
-      { id: "habits:repeat", label: "Arkiostot", status, ...(why ? { why } : {}) },
+      { id: "habits:repeat", label: messageIn(a.lang, "opt.hab_chk"), status, ...(why ? { why } : {}) },
     ];
     if (!win) return { findings: [], checks: check("no_data", whyHistory(a, YEAR_OVER_YEAR_NEED)) };
     const candidates = habitItems(a.ctx, { from: addDays(a.end, -(HABIT_DAYS - 1)), to: a.end }).map((h) => h.merchant).sort();

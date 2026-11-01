@@ -1,14 +1,15 @@
 /**
- * Optional: a member's own Enable Banking application (app id + private key,
- * stored encrypted on the server). Usually the household's shared app,
- * set up by the admin, is enough. The page lists the addresses Enable Banking's
- * registration form asks for, and saving tries the pair against Enable Banking.
+ * The body of the own-application choice of the bank app card: a user's own Enable Banking application (app id +
+ * private key, stored encrypted on the server). Usually the household's shared app, set up by the admin, is enough.
+ * It lists the addresses Enable Banking's registration form asks for, and saving tries the pair against Enable Banking.
  */
 import { type FormEvent, useState } from "react";
 import { api } from "../../api.ts";
 import type { Meta } from "../../types.ts";
-import { CopyValue } from "./CopyValue.tsx";
-
+import { CopyAll, Copyable } from "./CopyValue.tsx";
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
 export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }) {
   const [appId, setAppId] = useState("");
   const [pem, setPem] = useState("");
@@ -18,7 +19,7 @@ export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }
   const readFile = async (file: File | undefined) => {
     if (!file) return;
     // a key is a few kilobytes; the server refuses anything over 16 KB anyway
-    if (file.size > 16 * 1024) return setMessage({ ok: false, text: "Tiedosto ei ole avain." });
+    if (file.size > 16 * 1024) return setMessage({ ok: false, text: t("set.key.the_file_is_not_a") });
     setPem(await file.text());
   };
 
@@ -40,59 +41,58 @@ export function BankKey({ meta, onChange }: { meta: Meta; onChange: () => void }
   };
 
   return (
-    <details className="card">
-      <summary className="card-head">
-        <div>
-          <h2>Oma Enable Banking -sovellus</h2>
-          <div className="card-sub">
-            {meta.bank.source === "user" ? "käytössä oma avain" : meta.bank.source === "instance" ? "käytössä talouden yhteinen sovellus" : "ei määritetty"}
-          </div>
-        </div>
-      </summary>
-      <p className="small muted">Vain jos et käytä yhteistä sovellusta. Enable Bankingin rekisteröintilomake kysyy nämä osoitteet:</p>
+    <>
+      <p className="small muted">{t("set.key.only_if_you_do_not")}</p>
       <ul className="small">
         <li>
-          <span className="eb-label">Allowed redirect URLs</span>: <CopyValue value={meta.bank.redirectUrl} label="Allowed redirect URLs" />
+          <span className="eb-label">Allowed redirect URLs</span>: <Copyable value={meta.bank.redirectUrl} />
         </li>
         <li>
-          <span className="eb-label">Privacy URL</span>: <CopyValue value={meta.bank.privacyUrl} label="Privacy URL" />
+          <span className="eb-label">Privacy URL</span>: <Copyable value={meta.bank.privacyUrl} />
         </li>
         <li>
-          <span className="eb-label">Terms URL</span>: <CopyValue value={meta.bank.termsUrl} label="Terms URL" />
+          <span className="eb-label">Terms URL</span>: <Copyable value={meta.bank.termsUrl} />
         </li>
       </ul>
+      <div className="form-row">
+        <CopyAll
+          fields={[
+            { label: "Allowed redirect URLs", value: meta.bank.redirectUrl },
+            { label: "Privacy URL", value: meta.bank.privacyUrl },
+            { label: "Terms URL", value: meta.bank.termsUrl },
+          ]}
+        />
+      </div>
       {!meta.bank.canStoreOwnKeys ? (
-        <p className="notice warning">Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää katsomaan palvelimen lokia.</p>
+        <Notice tone="warning" as="p">{t("set.key.the_keys_cannot_be_saved")}</Notice>
       ) : (
-        <form className="stack" onSubmit={save} style={{ gap: 8 }}>
-          <input type="text" placeholder="Application ID (UUID)" value={appId} onChange={(e) => setAppId(e.target.value)} required aria-label="Application ID" />
-          <input type="file" accept=".pem,.key,text/plain" onChange={(e) => void readFile(e.target.files?.[0])} aria-label="Yksityinen avain tiedostona" />
-          <textarea placeholder="Liitä avain tai valitse tiedosto" value={pem} onChange={(e) => setPem(e.target.value)} required aria-label="Yksityinen avain" spellCheck={false} />
+        <form className="stack stack-8" onSubmit={save}>
+          <input type="text" placeholder={t("set.app.application_id_12345678_abcd")} value={appId} onChange={(e) => setAppId(e.target.value)} required aria-label={t("set.app.id_label")} />
+          <input type="file" accept=".pem,.key,text/plain" onChange={(e) => void readFile(e.target.files?.[0])} required aria-label={t("set.key.private_key_as_a_file")} />
           <div className="form-row">
-            <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
-              {busy ? "Testataan…" : "Tallenna ja testaa"}
-            </button>
+            <Button variant="primary" type="submit" busy={busy}>
+              {busy ? t("set.key.testing") : t("set.key.save_and_test")}
+            </Button>
             {meta.bank.source === "user" && (
-              <button
-                className="btn btn-danger"
-                type="button"
+              <Button
+                
                 onClick={async () => {
                   try {
                     await api("/api/bank/credentials", { method: "DELETE" });
-                    setMessage({ ok: true, text: "Oma avain poistettu." });
+                    setMessage({ ok: true, text: t("set.key.own_key_removed") });
                     onChange();
                   } catch (err) {
                     setMessage({ ok: false, text: (err as Error).message });
                   }
                 }}
               >
-                Poista oma avain
-              </button>
+                {t("set.key.remove_own_key")}
+              </Button>
             )}
           </div>
         </form>
       )}
-      {message && <div className={message.ok ? "notice good" : "notice warning"}>{message.text}</div>}
-    </details>
+      {message && <Notice tone={message.ok ? "good" : "warning"}>{message.text}</Notice>}
+    </>
   );
 }

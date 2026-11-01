@@ -165,6 +165,82 @@ describe("all of this merchant", () => {
     expect(rules.map((x: { field: string; pattern: string }) => `${x.field}:${x.pattern}`).sort()).toEqual(["any:Meikäläinen", "merchant_exact:Matti Meikäläinen"]);
   });
 
+  it("gives the change back: every row of the merchant, the tapped one too, returns to where it was", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const rows = async (): Promise<Tx[]> => (await admin.call("GET", "/api/transactions?limit=50")).body.items;
+    const before = await rows();
+    const matti = before.filter((t) => t.merchant === "Matti Meikäläinen");
+    const state = (list: Tx[]) => list.map((t) => `${t.id}:${t.category}:${t.categorySource}`).sort();
+
+    const r = await admin.call("PATCH", `/api/transactions/${matti[0]!.id}`, { category: "gifts_donations", createRule: true });
+    expect(r.body.undo).toEqual({ category: null, rule: [] });
+    const undone = await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, r.body.undo);
+    expect(undone).toMatchObject({ status: 200, body: { changed: 3 } });
+    expect(state(await rows())).toEqual(state(before));
+    expect((await admin.call("GET", "/api/rules")).body.rules).toEqual([]);
+  });
+
+  it("gives back a rule the change replaced, and a category the row had by hand", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const rows = async (): Promise<Tx[]> => (await admin.call("GET", "/api/transactions?limit=50")).body.items;
+    const matti = (await rows()).filter((t) => t.merchant === "Matti Meikäläinen");
+    await admin.call("PATCH", `/api/transactions/${matti[0]!.id}`, { category: "gifts_donations", createRule: true });
+    const mid = await rows();
+
+    const r = await admin.call("PATCH", `/api/transactions/${matti[1]!.id}`, { category: "shopping", createRule: true });
+    expect(r.body.undo).toEqual({ category: null, rule: [{ field: "merchant_exact", category: "gifts_donations", priority: 5 }] });
+    await admin.call("POST", `/api/transactions/${matti[1]!.id}/undo-category`, r.body.undo);
+    expect(await rows()).toEqual(mid);
+    expect((await admin.call("GET", "/api/rules")).body.rules).toMatchObject([{ field: "merchant_exact", category: "gifts_donations" }]);
+
+    // a row alone (no rule) that had its own category by hand goes back to that, not to the rules' choice
+    const alone = await admin.call("PATCH", `/api/transactions/${matti[0]!.id}`, { category: "shopping" });
+    expect(alone.body.undo).toEqual({ category: "gifts_donations" });
+    await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, alone.body.undo);
+    expect(await rows()).toEqual(mid);
+
+    expect((await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, { category: null, rule: [{ field: "any", category: "shopping", priority: 5 }] })).status).toBe(400);
+    expect((await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, { category: null, rule: "shopping" })).status).toBe(400);
+    expect((await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, { category: "nonsense" })).status).toBe(400);
+    expect((await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, {})).status).toBe(400);
+  });
+
+  it("gives back a rule with its own field and priority, so the rows end under the rule that held them before", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const rows = async (): Promise<Tx[]> => (await admin.call("GET", "/api/transactions?limit=50")).body.items;
+    const matti = (await rows()).filter((t) => t.merchant === "Matti Meikäläinen");
+    // a broader rule first, then the merchant's own at the same priority: the broader one wins by its id
+    await admin.call("POST", "/api/rules", { field: "any", pattern: "Meikäläinen", category: "education" });
+    await admin.call("POST", "/api/rules", { field: "merchant", pattern: "Matti Meikäläinen", category: "pets" });
+    const before = await rows();
+    const r = await admin.call("PATCH", `/api/transactions/${matti[0]!.id}`, { category: "gambling", createRule: true });
+    expect(r.body.undo.rule).toEqual([{ field: "merchant", category: "pets", priority: 10 }]);
+    await admin.call("POST", `/api/transactions/${matti[0]!.id}/undo-category`, r.body.undo);
+    expect(await rows()).toEqual(before);
+    expect((await admin.call("GET", "/api/rules")).body.rules).toMatchObject([{ field: "any" }, { field: "merchant", category: "pets", priority: 10 }]);
+  });
+
+  it("gives back a whole-word rule to the longer names it reached too, with no other rule to hold them", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const rows = async (): Promise<Tx[]> => (await admin.call("GET", "/api/transactions?limit=50")).body.items;
+    await admin.call("POST", "/api/rules", { field: "merchant", pattern: "Matti Meikäläinen", category: "pets" });
+    // the shortcut of a single change runs only on data the current build has derived
+    await s.settings.set("app_build", s.build.id);
+    const before = await rows();
+    const mobilepay = (list: Tx[]) => list.find((t) => t.merchant === "Mobilepay Matti Meikäläinen")!;
+    expect(mobilepay(before).category).toBe("pets");
+
+    const tapped = before.find((t) => t.merchant === "Matti Meikäläinen")!;
+    const r = await admin.call("PATCH", `/api/transactions/${tapped.id}`, { category: "gambling", createRule: true });
+    expect(mobilepay(await rows()).category).not.toBe("pets");
+    await admin.call("POST", `/api/transactions/${tapped.id}/undo-category`, r.body.undo);
+    expect(await rows()).toEqual(before);
+  });
+
   it("accepts merchant_exact from the rules page", async () => {
     const { admin, s } = await setupApp();
     await seedCsv(s, admin, { content, accountName: "Käyttötili" });

@@ -10,6 +10,13 @@ export function watch(page: Page): { problems: string[] } {
     if (m.type() === "error" || m.type() === "assert") seen.problems.push(`console ${m.type()}: ${m.text()} (${m.location().url})`);
   });
   page.on("pageerror", (e) => seen.problems.push(`page error: ${e.message}`));
+  // Any blocked style, script or image is a policy report: the strict content policy (no 'unsafe-inline') holds only while none fires.
+  // The console line is the report; a frame the page opens later gets the listener too, because the script runs in every document.
+  void page.addInitScript(() => {
+    document.addEventListener("securitypolicyviolation", (e) => {
+      console.error(`policy report: ${e.violatedDirective} blocked ${e.blockedURI || "inline"} (${e.sourceFile}:${e.lineNumber})`);
+    });
+  });
   page.on("requestfailed", (r) => {
     // The app never aborts a request itself, so an aborted GET is one that a reload or navigation cut off.
     // The one POST the page starts by itself is the fetch on open: the server goes on with it whether the page waits or not.
@@ -58,11 +65,11 @@ async function post(context: BrowserContext, path: string, data: object): Promis
  * A member with a household of its own, signed in: the state file to open a context with, and the id for `removeMember`.
  * The administrator of the worker's server is there already (run.mjs made it).
  */
-export async function makeMember(browser: Browser, username: string): Promise<{ state: string; id: string }> {
+export async function makeMember(browser: Browser, username: string, role: "member" | "admin" = "member"): Promise<{ state: string; id: string }> {
   const dir = process.env.E2E_DIR ?? ".";
   const admin = await browser.newContext({ storageState: join(dir, "admin-state.json") });
   const member = await browser.newContext();
-  const id = await createMember(admin, member, username);
+  const id = await createMember(admin, member, username, username, role);
   await admin.close();
   const state = join(dir, `${username}-state.json`);
   await member.storageState({ path: state });
@@ -75,10 +82,10 @@ export async function makeMember(browser: Browser, username: string): Promise<{ 
  * changes the temporary password, as a person does at the first visit. The username needs five letters or more. Returns the
  * member's id. `makeMember` and `pnpm shots --member` make a member this way.
  */
-export async function createMember(admin: BrowserContext, member: BrowserContext, username: string, displayName = username): Promise<string> {
-  const { user, temporaryPassword } = await post(admin, "/api/users", { username, displayName, role: "member" });
+export async function createMember(admin: BrowserContext, member: BrowserContext, username: string, displayName = username, role: "member" | "admin" = "member"): Promise<string> {
+  const { user, temporaryPassword } = await post(admin, "/api/users", { username, displayName, role });
   await post(member, "/api/auth/login", { username, password: temporaryPassword });
-  await post(member, "/api/auth/password", { current: temporaryPassword, next: `${username}-123456` });
+  await post(member, "/api/auth/first-password", { next: `${username}-123456` });
   return user.id;
 }
 
@@ -100,9 +107,9 @@ export function fakeBank(): { url: string; consentHost: string; appId: string; p
  * Asetukset > Pankkiyhteydet as the signed-in user of `page` does it: the fake bank's application is saved as their own,
  * the bank is picked, the consent page answers, and the page comes back linked. Only the host of the consent page does not
  * exist here; every other request goes where it would in production. `dollars` adds the account in dollars, `own` links the
- * household under ids and a joint account no other link has (fake-bank/household.mjs). `bank: "OP"` links the second bank, which brings one account.
+ * household under ids and a joint account no other link has (fake-bank/household.mjs). `coverage` links the household whose figures leave things out (fake-bank/coverage-household.mjs). `bank: "OP"` links the second bank, which brings one account, or with `second` the second household (fake-bank/second-household.mjs).
  */
-export async function linkFakeBank(page: Page, options: { dollars?: boolean; own?: boolean; bank?: "Nordea" | "OP" } = {}): Promise<void> {
+export async function linkFakeBank(page: Page, options: { dollars?: boolean; own?: boolean; evening?: boolean; second?: boolean; coverage?: boolean; bank?: "Nordea" | "OP" } = {}): Promise<void> {
   const bank = fakeBank();
   const context = page.context();
   const saved = await context.request.put("/api/bank/credentials", { data: { appId: bank.appId, privateKeyPem: bank.privateKeyPem }, headers: FETCH });
@@ -111,7 +118,7 @@ export async function linkFakeBank(page: Page, options: { dollars?: boolean; own
   // of a plain-http install; the browser would not follow a second answered hop, so that page's job is done here: it
   // sends the browser on to the app with the same query.
   await context.route(`https://${bank.consentHost}/**`, async (route) => {
-    const asked = new URLSearchParams([...(options.dollars ? [["dollars", "1"]] : []), ...(options.own ? [["own", "1"]] : [])]).toString();
+    const asked = new URLSearchParams([...(options.dollars ? [["dollars", "1"]] : []), ...(options.own ? [["own", "1"]] : []), ...(options.evening ? [["evening", "1"]] : []), ...(options.second ? [["second", "1"]] : []), ...(options.coverage ? [["coverage", "1"]] : [])]).toString();
     const answer = await route.fetch({ url: `${bank.url}${new URL(route.request().url()).pathname}${asked ? `?${asked}` : ""}`, maxRedirects: 0 });
     const back = new URL(answer.headers().location ?? "");
     await route.fulfill({ status: 302, headers: { location: `${process.env.E2E_BASE_URL}/api/connections/callback${back.search}` } });
@@ -180,4 +187,21 @@ export const cents = (s: string) => Math.round(Number(plain(s).replace(/[ €≈
 export async function columnLine(page: Page, card: { x: number; width: number }, n: number): Promise<number> {
   const gap = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--gap")));
   return card.x + (n * (card.width - 11 * gap)) / 12 + (n - 0.5) * gap;
+}
+
+/** In an opened Tapahtumat row: the row's menu, then its category item, which opens the picker (the dialog "Kategoria: <payee>"). */
+export async function openCategoryPicker(page: Page, merchant: string, now: string): Promise<void> {
+  await page.getByRole("button", { name: `Muuta: ${merchant}` }).first().click();
+  await page.getByRole("menuitem", { name: `Kategoria: ${merchant}, nyt ${now}` }).click();
+}
+
+/** Rahankäyttö folds its sections under their names: opens the ones with these ids that the page has. */
+export async function unfold(page: Page, ...ids: string[]): Promise<void> {
+  // the categories are always there: once they show, the page has loaded and a section that is not there is not coming
+  await expect(page.locator("details#kategoriat")).toBeVisible({ timeout: 20_000 });
+  for (const id of ids) {
+    const fold = page.locator(`details#${id}`);
+    if ((await fold.count()) === 0) continue;
+    if (!(await fold.evaluate((d) => (d as HTMLDetailsElement).open))) await fold.locator("summary").click();
+  }
 }

@@ -79,7 +79,7 @@ describe("an instalment service paid the same sum in three months running", () =
     for (const bad of ["question:plan-end:2027-13:" + key, "question:plan-end:" + key, "question:plan-end:2027-03:nonsense", "question:plan-left:6:" + key]) expect(parsePlanSubject(bad)).toBeNull();
   });
 
-  it("is set aside by Ei laina", () => {
+  it("is set aside by Ei ole laina", () => {
     const ctx = contextOf(steady());
     const marked: UserInputs = { ...NO_INPUTS, marks: [{ ...notLoanMark(loanProposals(ctx, NO_INPUTS)[0]!), markedAt: "2026-10-18T10:00:00Z" }] };
     expect(loanProposals(ctx, marked)).toEqual([]);

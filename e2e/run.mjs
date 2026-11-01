@@ -2,6 +2,9 @@
  * `pnpm e2e`: starts the built server on a temporary data directory and a free port (e2e/server.mjs), then runs the
  * Playwright specs against it. Run `pnpm build` first. The servers and their data are removed afterwards.
  *
+ * `E2E_RETRY=1` (any number above 0) runs a failed test once more (a test that only passes on the rerun is listed at the end, by name, and the run
+ * is not stamped); with no value the run has no retry. A failed test, and the rerun of it, leaves a trace (test-results/e2e/<test>/trace.zip).
+ *
  * `E2E_WORKERS` is the number of Playwright workers. The default is a third of the CPUs, at least 3 and at most 8 (28 CPUs:
  * 8). On a 28-CPU machine the whole suite took 83 s with 3 workers, 58 s with 6, 54 s with 8; 10 or more were a few seconds
  * faster but failed one run in three when the machine was busy, so 8 is the cap. Each worker has a server of its own, with its own port, data
@@ -16,6 +19,7 @@ import { availableParallelism, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join, resolve } from "node:path";
 import { holdCores } from "../tools/lib/cores.mjs";
+import { checkRecorded } from "../tools/lib/outside-hosts.mjs";
 import { root, startServer } from "./server.mjs";
 
 /**
@@ -112,7 +116,29 @@ function verdict(file) {
   if (!passed || passed !== report.stats?.expected || report.stats?.skipped) return { why: `the report counts ${passed} passed, ${report.stats?.skipped} skipped` };
   return { passed };
 }
+
+/** The tests of a Playwright JSON report that failed and then passed on a rerun: "file: title" each. */
+function reruns(file) {
+  let report;
+  try {
+    report = JSON.parse(readFileSync(file, "utf8"));
+  } catch {
+    return [];
+  }
+  const found = [];
+  const walk = (suite) => {
+    for (const spec of suite.specs ?? []) {
+      for (const test of spec.tests ?? []) if (test.status === "flaky") found.push(`${spec.file}: ${spec.title}`);
+    }
+    (suite.suites ?? []).forEach(walk);
+  };
+  (report.suites ?? []).forEach(walk);
+  return found;
+}
 const stampDir = openStamp();
+// the JSON report is written for a stamp and for the list of reruns
+const reportDir = stampDir ?? (Number(process.env.E2E_RETRY) > 0 ? mkdtempSync(join(tmpdir(), "e2e-report-")) : null);
+if (!stampDir && reportDir) process.on("exit", () => rmSync(reportDir, { recursive: true, force: true }));
 
 /**
  * As root with `unshare` at hand (and `E2E_NETNS` not `0`) the runner starts itself again inside a network of its own with
@@ -182,10 +208,15 @@ const apps = [];
 process.on("exit", () => apps.forEach((app) => app.stop()));
 let code = 1;
 let built = "";
+let hostsDir = "";
 try {
   if (!Number.isInteger(workers) || workers < 1) throw new Error(`E2E_WORKERS is "${process.env.E2E_WORKERS}": use a whole number from 1.`);
   // the servers (also app.spec.ts's, in a Playwright worker) take the build from E2E_BUILD when it is set; a value of the caller is dropped
   delete process.env.E2E_BUILD;
+  // the recorders of the server (e2e/record-sockets.mjs) and of the browser (e2e/browser-hosts.ts) write the hosts they see here
+  hostsDir = mkdtempSync(join(tmpdir(), "e2e-hosts-"));
+  process.on("exit", () => rmSync(hostsDir, { recursive: true, force: true }));
+  process.env.E2E_HOSTS_DIR = hostsDir;
   quietWait();
   if (stampDir) {
     console.error("e2e: building the app first (a run that can be stamped builds it itself)");
@@ -225,12 +256,23 @@ ${(build.stdout + build.stderr).slice(-2000)}`);
   );
   for (const one of started) if (one.status === "rejected") throw one.reason;
   const servers = apps.map(({ base, dir, setupCode, fakeBank }) => ({ base, dir, setupCode, fakeBank }));
-  const pw = spawnSync(process.execPath, [join(root, "node_modules/@playwright/test/cli.js"), "test", "-c", join(root, "e2e/playwright.config.ts"), ...(stampDir ? ["--reporter=list,json"] : []), ...(process.argv.slice(2).some((arg) => !arg.startsWith("-")) ? [] : ["--forbid-only"]), ...process.argv.slice(2)], {
+  const pw = spawnSync(process.execPath, [join(root, "node_modules/@playwright/test/cli.js"), "test", "-c", join(root, "e2e/playwright.config.ts"), ...(reportDir ? ["--reporter=list,json"] : []), ...(process.argv.slice(2).some((arg) => !arg.startsWith("-")) ? [] : ["--forbid-only"]), ...process.argv.slice(2)], {
     cwd: root,
     stdio: "inherit",
-    env: { ...process.env, E2E_SERVERS: JSON.stringify(servers), ...(stampDir && { PLAYWRIGHT_JSON_OUTPUT_NAME: join(stampDir, "report.json") }) },
+    env: { ...process.env, E2E_SERVERS: JSON.stringify(servers), ...(reportDir && { PLAYWRIGHT_JSON_OUTPUT_NAME: join(reportDir, "report.json") }) },
   });
   code = pw.status ?? 1;
+  // every host the server and the browser called must be on the list in docs/SECURITY.md (the fake bank's consent host and the machine itself are named in the check)
+  const hosts = checkRecorded(hostsDir, readFileSync(join(root, "docs/SECURITY.md"), "utf8"), apps.map((app) => JSON.parse(app.fakeBank).consentHost).filter(Boolean));
+  console.log(`e2e: hosts called by the server and the browser:\n${hosts.report}`);
+  if (hosts.bad.length) {
+    console.error(`e2e: ${hosts.bad.length} host${hosts.bad.length === 1 ? "" : "s"} not on the list in docs/SECURITY.md (Outside parties): ${hosts.bad.join(", ")}. Remove the call; a host is added to the list only when the household turns the service on itself.`);
+    code = 1;
+  }
+  if (Number(process.env.E2E_RETRY) > 0 && reportDir) {
+    const again = reruns(join(reportDir, "report.json"));
+    if (again.length) console.log(`e2e: ${again.length} test${again.length === 1 ? "" : "s"} passed only on the rerun:\n${again.map((t) => `  ${t}`).join("\n")}`);
+  }
   if (stampDir && code === 0) {
     const { passed, why } = verdict(join(stampDir, "report.json"));
     if (why) console.log(`e2e: no stamp written, ${why}`);

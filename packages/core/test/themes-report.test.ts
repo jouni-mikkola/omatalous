@@ -19,7 +19,7 @@ import { themeOf } from "../src/themes.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
-import { enrich } from "./optimise/household.ts";
+import { enrich } from "./optimise/household-kit.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const card: Account = { id: "card-1", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
@@ -678,7 +678,7 @@ describe("the themes and the large purchases add up to the spending of the windo
     expect(r.window).toEqual({ first: "2025-10", last: "2026-09", months: 12 });
     // the same purchases on a new account id: the answer of the household whose card was not replaced
     expect(r).toEqual(themesReport(views("kit:base")["Koko talous"]!));
-    expect(changes(r)).toMatchObject({ shopping: 75 });
+    expect(changes(r)).toMatchObject({ food: 4, car: -10 });
   });
 });
 

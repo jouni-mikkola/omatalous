@@ -8,7 +8,9 @@ import { CloudflareApi } from "../src/providers/cloudflare/api.ts";
 import { CloudflareClient } from "../src/providers/cloudflare/client.ts";
 import { cloudflareUp } from "../src/providers/cloudflare/reconcile.ts";
 import { waitFor } from "./helpers.ts";
-import { ANNA, BASE, HOST, IN_PROGRESS, LAN, PASSWORD, prepared, TUNNEL, turnedOn, world } from "./remote-access-kit.ts";
+import { ANNA, BASE, HOST, IN_PROGRESS, LAN, PASSWORD, prepared, TUNNEL, turnedOn, useWorlds, world } from "./remote-access-kit.ts";
+
+useWorlds();
 
 describe("remote access: the password", () => {
   it("on with a wrong password changes nothing, and the limiter is the one maintenance requests share", async () => {

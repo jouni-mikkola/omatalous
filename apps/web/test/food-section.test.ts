@@ -74,4 +74,15 @@ describe("Raportit: Ruoka", () => {
     const lines = [line("groceries", "Ruokakauppa", 721_440, { changeCents: 4_100 })];
     expect(html(food({ lines }, lines))).toContain("+41 €");
   });
+
+  it("gives the two basket slopes a table of their own, so a mark of either keeps its row", () => {
+    const basket = { now: { meanCents: 4_800, perMonth: 9 }, before: { meanCents: 4_000, perMonth: 8 } };
+    const out = html(food({ basket }));
+    const table = out.split("<table").find((t) => t.includes("Ruokakaupan käynnit ja ostoskerta")) ?? "";
+    expect(table).toContain("Käyntejä kuussa");
+    expect(table).toContain("Ostoskerta keskimäärin");
+    expect(table).toContain("48 €");
+    // with no basket to compare there is no such table
+    expect(html(food())).not.toContain("Ruokakaupan käynnit ja ostoskerta");
+  });
 });

@@ -43,7 +43,7 @@ t_source_url_branch_dirty() {
   check "source: changed branch refused" grep -q 'Päivityslähteen versiolinja on muuttunut' <<<"$(report)"
   git -C "$CL" checkout -q main; echo dirty >>"$CL/scripts/doctor.sh"; rm -f "$S/reports"/*
   poll update op_1111111111111111; tick
-  check "source: dirty tree refused" grep -q 'muutettu käsin' <<<"$(report)"
+  check "source: dirty tree refused" grep -q 'Asennuskansion tiedostoja on muutettu käsin' <<<"$(report)"
   check "source: none of the refusals built anything" test "$(n_calls '^docker compose build')" = 0
 }
 t_source_remote_types() {
@@ -74,6 +74,8 @@ t_source_compose_policy() {
   policy_case "quoted privileged and pid" inject '^  banking:$' '    "privileged": true\n    "pid": "host"'
   policy_case "flow merge" inject '^  banking:$' "    <<: {privileged: true, pid: host}"
   policy_case "cap_add" inject '^  banking:$' "    cap_add: [SYS_ADMIN]"
+  policy_case "env_file of a host file" inject '^  banking:$' "    env_file: /etc/hostname"
+  policy_case "environment taken from the host" inject "APP_BASE_URL: " "      HOME:"
   policy_case "network_mode host" inject '^  banking:$' "    network_mode: host"
   policy_case "long bind of /" inject 'banking-secrets:/secrets' '      - type: bind\n        source: /\n        target: /host'
   policy_case "flow bind of /" inject 'banking-secrets:/secrets' "      - {type: bind, source: /, target: /host}"
@@ -85,13 +87,18 @@ t_source_compose_policy() {
   policy_case "extra capability-free key (devices)" inject '^  banking:$' "    devices: [/dev/sda:/dev/sda]"
   policy_case "a compose.yaml next to it" bash -c "printf 'services: {}\n' >'$W/seed/compose.yaml'"
   policy_case "an override file" bash -c "printf 'services: {}\n' >'$W/seed/docker-compose.override.yml'"
-  local i h; h=$(printf %064d 0); for i in evil/cloudflared:2026.9.1 "evil/cloudflared:latest@sha256:$h" ghcr.io/cloudflare/cloudflared:2026.9.1 cloudflare/cloudflared:2026.9.1-arm64 cloudflare/cloudflared:2026.9 "cloudflare/cloudflared:2026.9.1@sha256:${h:1}" "cloudflare/cloudflared@sha256:$h" "cloudflare/cloudflared:latest@sha256:$h"; do policy_case "tunnel image $i" sed -i "s#image: cloudflare/cloudflared.*#image: $i#" "$W/seed/docker-compose.yml"; done
+  local i h; h=$(printf %064d 0)
+  for i in evil/caddy:2.11.7 "evil/caddy:2.11.7@sha256:$h" docker.io/library/caddy:2.11.7 caddy:2.11.7-alpine caddy:2.11 caddy:latest "caddy:latest@sha256:$h" "caddy:2.11.7@sha256:${h:1}" "caddy@sha256:$h" caddy:3.0.0; do policy_case "caddy image $i" sed -i "s#image: caddy.*#image: $i#" "$W/seed/docker-compose.yml"; done
+  for i in evil/cloudflared:2026.9.1 "evil/cloudflared:latest@sha256:$h" ghcr.io/cloudflare/cloudflared:2026.9.1 cloudflare/cloudflared:2026.9.1-arm64 cloudflare/cloudflared:2026.9 "cloudflare/cloudflared:2026.9.1@sha256:${h:1}" "cloudflare/cloudflared@sha256:$h" "cloudflare/cloudflared:latest@sha256:$h"; do policy_case "tunnel image $i" sed -i "s#image: cloudflare/cloudflared.*#image: $i#" "$W/seed/docker-compose.yml"; done
 }
-t_real_compose_passes() { # as it is, and with the tunnel image at latest or pinned to a cloudflared release, with and without a digest
+t_real_compose_passes() { # as it is, and with the tunnel image at latest or pinned to a cloudflared release and Caddy pinned to a 2.X.Y release, with and without a digest
   new_world; setenv TALOUS_CHANNEL=source
   [[ -n $REAL_COMPOSE ]] || { fail "compose policy: needs Docker Compose v2 on this machine (real_compose in ops-world.sh)"; return; }
   local i; for i in '' latest 2026.9.1 "2026.9.1@sha256:$(printf %064d 0)"; do [[ -z $i ]] || sed -i "s#image: cloudflare/cloudflared.*#image: cloudflare/cloudflared:$i#" "$W/seed/docker-compose.yml"; src_commit
     check "source: the project's own docker-compose.yml passes the policy check${i:+ with the tunnel image at $i}" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/lib/ops-git.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep 'image: cloudflare/cloudflared.*$i\$' >/dev/null && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
+  done
+  for i in 2 2.11.7 "2.11.7@sha256:$(printf %064d 0)"; do sed -i "s#image: caddy.*#image: caddy:$i#" "$W/seed/docker-compose.yml"; src_commit
+    check "source: the project's own docker-compose.yml passes the policy check with Caddy at $i" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/lib/ops-git.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep 'image: caddy:$i\$' >/dev/null && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
   done
 }
 make_signers() {

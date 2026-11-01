@@ -1,4 +1,5 @@
 /* Rows in another currency under an account in Asetukset > Tilit: body size and text colour, figures tabular and to the right. */
+@layer components {
 .acc-foreign { margin-top: 8px; white-space: normal; }
 .acc-foreign-currency + .acc-foreign-currency { margin-top: 8px; }
 .acc-foreign-head { display: flex; flex-wrap: wrap; gap: 2px 12px; }
@@ -11,3 +12,4 @@
   .acc-foreign-rows li { grid-template-columns: 5.5rem 1fr auto; gap: 8px; }
 }
 .acc-foreign-more summary { cursor: pointer; width: fit-content; }
+}

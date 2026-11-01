@@ -21,7 +21,7 @@ async function page(browser: Browser, state: string) {
 
 /** Clicks the button of the Tiedot card and returns the file it downloads, as text. */
 async function download(p: Awaited<ReturnType<typeof page>>["page"]): Promise<{ name: string; text: string }> {
-  await p.goto("/#/settings");
+  await p.goto("/#/settings/data");
   const card = p.locator(".card", { has: p.getByRole("heading", { level: 2, name: "Tiedot", exact: true }) });
   await expect(card.getByText("Tiedosto sisältää omat tietosi ja sinulle jaetut tiedot. Säilytä se turvallisesti.")).toBeVisible();
   const [file] = await Promise.all([p.waitForEvent("download"), card.getByRole("button", { name: "Vie kaikki tiedot" }).click()]);
@@ -40,6 +40,7 @@ test("the administrator downloads one file that parses, is version 1 and holds n
   expect(file.transactions.length).toBeGreaterThan(0);
   expect(text).not.toContain("password_hash");
   expect(text).not.toContain("pbkdf2");
+  expect(text).not.toContain("argon2id");
   expect(seen.problems).toEqual([]);
   await context.close();
 });

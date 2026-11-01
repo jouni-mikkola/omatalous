@@ -127,7 +127,8 @@ describe("the shared app must be active before a bank can be connected", () => {
     const { admin, bank } = await rig("inactive");
     bank.status = 401;
     const r = await admin.call("PUT", "/api/admin/bank-app", { appId: randomUUID() });
-    expect(r.body.result.message).toContain("401");
+    expect(r.body.result.message).toContain("ei tunnistanut sovellusta");
+    expect(r.body.result.message).not.toMatch(/\b401\b/);
     expect(r.body.bankApp.inactiveMessage).toBeNull();
   });
 
@@ -144,7 +145,7 @@ describe("the shared app must be active before a bank can be connected", () => {
 
 describe("a member's own key is tried before it is saved", () => {
   const pem = () => generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-  async function own(reply: Reply = "active", deps: { now?: () => Date } = {}) {
+  async function own(reply: Reply = "active", deps: { now?: () => Date; secretStale?: () => boolean } = {}) {
     const bank = mockBank();
     const { app, fetchMock } = withApplication(bank);
     app.reply = reply;
@@ -152,6 +153,15 @@ describe("a member's own key is tried before it is saved", () => {
     const eero = await t.member("eero");
     return { ...t, eero, bank, app };
   }
+
+  it("saves nothing while a rotation of the app secret waits for its restart", async () => {
+    let stale = false;
+    const { eero, s } = await own("active", { secretStale: () => stale });
+    stale = true;
+    const refused = await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem() });
+    expect(refused.status).toBe(409);
+    expect(await s.users.getBankCredentials((await eero.call("GET", "/api/meta")).body.user.id)).toBeNull();
+  });
 
   it("saves a pair that works and says so", async () => {
     const { eero, bank, s } = await own();
@@ -171,7 +181,7 @@ describe("a member's own key is tried before it is saved", () => {
     bank.status = 401;
     const wrong = await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem() });
     expect(wrong.status).toBe(400);
-    expect(wrong.body.error).toBe("Enable Banking ei tunnistanut sovellusta (401). Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta. Avainta ei tallennettu.");
+    expect(wrong.body.error).toBe("Enable Banking ei tunnistanut sovellusta. Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta. Avainta ei tallennettu.");
     bank.status = 200;
     bank.appIds.clear();
     await eero.call("POST", "/api/connections/start", {});
@@ -193,7 +203,7 @@ describe("a member's own key is tried before it is saved", () => {
     bank.status = 500;
     const saved = await eero.call("PUT", "/api/bank/credentials", { appId: randomUUID(), privateKeyPem: pem() });
     expect(saved.status).toBe(200);
-    expect(saved.body.result).toEqual({ verified: false, message: "Avain tallennettu. Enable Banking vastasi virheellä 500. Yritä myöhemmin uudelleen." });
+    expect(saved.body.result).toEqual({ verified: false, message: "Avain tallennettu. Enable Banking ei vastaa juuri nyt. Yritä myöhemmin uudelleen." });
   });
 
   it("a key that is not a key is refused before any call to Enable Banking", async () => {

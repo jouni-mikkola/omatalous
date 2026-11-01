@@ -5,7 +5,10 @@
  * (FAKE_BANK_PORT picks the port, else a free one). It prints one line of JSON: its address and the consent host.
  */
 import { createServer } from "node:http";
-import { household } from "./household.mjs";
+import { firstEvening } from "./first-evening.mjs";
+import { coverageHousehold } from "./coverage-household.mjs";
+import { secondHousehold } from "./second-household.mjs";
+import { household, OP_ACCOUNT, OP_BALANCE } from "./household.mjs";
 
 const PAGE_SIZE = 40;
 /** The host of the consent page the API names. It does not exist: the browser is sent to it and a spec answers for it. */
@@ -17,6 +20,18 @@ const { accounts, transactions, balances, dollarAccount } = household(today);
 const own = household(today, true);
 Object.assign(transactions, own.transactions);
 Object.assign(balances, own.balances);
+/** The household of the first-evening check, with the category each of its rows is expected to get: a link that asks for it (?evening=1) gets it. */
+const evening = firstEvening(today);
+Object.assign(transactions, evening.transactions);
+Object.assign(balances, evening.balances);
+/** The second household at the second bank (OP): a link to OP that asks for it (?second=1) gets it instead of OP's one account. */
+const second = secondHousehold(today);
+Object.assign(transactions, second.transactions);
+Object.assign(balances, second.balances);
+/** The household whose figures leave things out (a short history, an unconnected card's bills, a dollar row): a Nordea link that asks for it (?coverage=1) gets it. */
+const coverage = coverageHousehold(today);
+Object.assign(transactions, coverage.transactions);
+Object.assign(balances, coverage.balances);
 /** Authorisations that were started: the consent page sends the browser back to the redirect URL given there. */
 const authorizations = new Map();
 let sessions = 0;
@@ -25,9 +40,11 @@ let authAnswer = "ok";
 /** When set, a session ends in this many days whatever the app asked for (PUT /fake/valid-days): a consent that is about to end. */
 let validDays = null;
 /** The one account OP's consent brings: a second bank for the specs that renew more than one consent. */
-const opAccount = { uid: "fb-op", identification_hash: "fb-op-hash", account_id: { iban: "FI4950009420028730" }, name: "MEIKALAINEN MATTI", product: "OP-tili", currency: "EUR", cash_account_type: "CACC" };
+const opAccount = OP_ACCOUNT;
 transactions[opAccount.uid] = [];
-balances[opAccount.uid] = 2500;
+balances[opAccount.uid] = OP_BALANCE;
+
+let balanceCalls = 0;
 
 function send(res, status, body) {
   if (body === undefined) return res.writeHead(status).end();
@@ -52,6 +69,9 @@ async function handle(req, res) {
     // a link that asks for it (?dollars=1) also gets the account with a row in dollars; the others never see it
     authorization.dollars = url.searchParams.get("dollars") === "1";
     authorization.own = url.searchParams.get("own") === "1";
+    authorization.evening = url.searchParams.get("evening") === "1";
+    authorization.second = url.searchParams.get("second") === "1";
+    authorization.coverage = url.searchParams.get("coverage") === "1";
     const back = new URL(authorization.redirectUrl);
     back.searchParams.set("code", `code-${consent[1]}`);
     back.searchParams.set("state", authorization.state);
@@ -63,6 +83,11 @@ async function handle(req, res) {
     authAnswer = String((await readJson(req)).mode);
     return send(res, 204);
   }
+  // how many times the app asked for a balance: a spec that must show no fetch compares it before and after
+  if (route === "GET /fake/balance-calls") return send(res, 200, { calls: balanceCalls });
+  if (route === "GET /fake/evening-expected") return send(res, 200, evening.expected);
+  if (route === "GET /fake/coverage-expected") return send(res, 200, coverage.expected);
+  if (route === "GET /fake/second-expected") return send(res, 200, { expected: second.expected, pending: second.pending });
   if (route === "PUT /fake/valid-days") {
     const { days } = await readJson(req);
     validDays = days === null ? null : Number(days);
@@ -87,7 +112,7 @@ async function handle(req, res) {
     const authorization = authorizations.get(String(code).replace(/^code-/, ""));
     if (!authorization) return send(res, 422, { error: "WRONG_AUTHORIZATION_CODE" });
     const validUntil = validDays === null ? authorization.validUntil : new Date(Date.now() + validDays * 86_400_000).toISOString();
-    const brought = authorization.bank === "OP" ? [opAccount] : authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts;
+    const brought = authorization.bank === "OP" ? (authorization.second ? second.accounts : [opAccount]) : authorization.coverage ? coverage.accounts : authorization.evening ? evening.accounts : authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts;
     return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: authorization.bank, country: "FI" }, access: { valid_until: validUntil }, accounts: brought });
   }
   if (req.method === "DELETE" && url.pathname.startsWith("/sessions/")) return send(res, 204);
@@ -95,12 +120,13 @@ async function handle(req, res) {
   const account = /^GET \/accounts\/([\w-]+)\/(details|balances|transactions)$/.exec(route);
   const uid = account?.[1] ?? "";
   if (!account || !Object.hasOwn(transactions, uid)) return send(res, 404, { error: "NOT_FOUND" });
-  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts, opAccount].find((a) => a.uid === uid));
+  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts, ...evening.accounts, ...second.accounts, ...coverage.accounts, opAccount].find((a) => a.uid === uid));
   if (account[2] === "balances") {
+    balanceCalls++;
     const amount = { currency: "EUR", amount: (balances[uid] / 100).toFixed(2) };
     return send(res, 200, { balances: [{ name: "Kirjattu saldo", balance_amount: amount, balance_type: "CLBD", reference_date: today }] });
   }
-  const rows = transactions[uid].filter((t) => t.booking_date >= (url.searchParams.get("date_from") ?? ""));
+  const rows = transactions[uid].filter((t) => (t.booking_date ?? t.transaction_date) >= (url.searchParams.get("date_from") ?? ""));
   const from = Number(url.searchParams.get("continuation_key")) || 0;
   const next = from + PAGE_SIZE;
   return send(res, 200, { transactions: rows.slice(from, next), continuation_key: next < rows.length ? String(next) : null });

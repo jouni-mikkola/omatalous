@@ -138,12 +138,12 @@ describe("the unattended fetches of an account", () => {
 
   it("answers limited to an open without headers only when every account is at its limit, and still starts one with headers", async () => {
     const { admin, s, adminId, chk, card, note } = await connected({ TRUST_PROXY: "true" });
-    await s.db.run("UPDATE sync_runs SET started_at = ?, finished_at = ? WHERE user_id = ?", [new Date(Date.now() - 2 * HOUR).toISOString(), new Date(Date.now() - 2 * HOUR).toISOString(), adminId]);
+    await s.db.run("UPDATE sync_runs SET started_at = ?, finished_at = ? WHERE user_id = ?", [new Date(Date.now() - 30 * HOUR).toISOString(), new Date(Date.now() - 30 * HOUR).toISOString(), adminId]);
     await note(chk, "schedule", 4);
     const one = await admin.call("POST", "/api/sync/open");
     expect(one.body.state).toBe("running"); // the card still has room
     await waitFor(async () => (await admin.call("GET", "/api/sync/runs")).body.runs.every((r: { status: string }) => r.status !== "running"));
-    await s.db.run("UPDATE sync_runs SET started_at = ?, finished_at = ? WHERE user_id = ?", [new Date(Date.now() - 2 * HOUR).toISOString(), new Date(Date.now() - 2 * HOUR).toISOString(), adminId]);
+    await s.db.run("UPDATE sync_runs SET started_at = ?, finished_at = ? WHERE user_id = ?", [new Date(Date.now() - 30 * HOUR).toISOString(), new Date(Date.now() - 30 * HOUR).toISOString(), adminId]);
     await note(card, "schedule", 4);
     expect((await admin.call("POST", "/api/sync/open")).body.state).toBe("limited");
     const headers = { "X-Forwarded-For": "203.0.113.7", "User-Agent": "Mozilla/5.0 Esimerkki/1.0" };

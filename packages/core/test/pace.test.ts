@@ -34,9 +34,9 @@ describe("pace: the month against the month before", () => {
     expect(pace.previous!.curve[11]).toBe(15_000);
     expect(pace.previous!.curve[12]).toBe(15_700);
     expect(pace.previous!.curve[29]).toBe(16_700);
-    // under three complete months there is no usual month and so no projection
-    expect(Object.keys(pace).sort()).toEqual(["cardGap", "current", "currentTotal", "daysInMonth", "largest", "month", "payDays", "previous", "projection", "usual"]);
-    expect(pace.usual).toBeNull();
+    // under three complete months there is no expected month and so no projection
+    expect(Object.keys(pace).sort()).toEqual(["cardGap", "current", "currentTotal", "daysInMonth", "expected", "largest", "month", "payDays", "previous", "projection"]);
+    expect(pace.expected).toBeNull();
     expect(pace.projection).toBeNull();
   });
 
@@ -139,20 +139,20 @@ describe("pace: in the dashboard", () => {
 
 describe("pace: the usual month and the rest of this one", () => {
   const today = "2026-10-10";
-  // five complete months (the history starts on 30 April), each with pay on the 1st, 100 € on the 5th and a sum on the 20th of 100, 200, 300, 400 and 500 €
+  // five complete months (the history starts on 30 April), each with pay on the 1st, 100 € on the 5th and a sum on the 20th of 100, 150, 200, 250 and 300 € (none is a one-off, which the expected figure leaves out)
   const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
-  const history = [pay("2026-04-30"), ...months.flatMap((m, i) => [pay(`${m}-01`), buy(`${m}-05`, 10_000), buy(`${m}-20`, (i + 1) * 10_000)])];
+  const history = [pay("2026-04-30"), ...months.flatMap((m, i) => [pay(`${m}-01`), buy(`${m}-05`, 10_000), buy(`${m}-20`, (i + 2) * 5_000)])];
   const rows = [...history, pay("2026-10-01"), buy("2026-10-05", 15_000)];
 
-  it("is the median of the complete months on each day, with their quartiles as the band", () => {
-    const { usual } = paceOf(rows, "2026-10", today);
+  it("is the mean of the complete months on each day, with their quartiles as the band", () => {
+    const { expected: usual } = paceOf(rows, "2026-10", today);
     expect(usual!.months).toBe(5);
     expect(usual!.curve).toHaveLength(31);
     expect(usual!.curve[3]).toBe(0);
     expect(usual!.curve[4]).toBe(10_000);
-    // on the 20th: 100 € and the median of 100 to 500 €, the quartiles of the five months around it
-    expect(usual!.curve[19]).toBe(40_000);
-    expect([usual!.low[19], usual!.high[19]]).toEqual([30_000, 50_000]);
+    // on the 20th: 100 € and the mean of 100 to 300 €, the quartiles of the five months around it
+    expect(usual!.curve[19]).toBe(30_000);
+    expect([usual!.low[19], usual!.high[19]]).toEqual([25_000, 35_000]);
     // today, the 10th: 150 € spent against the usual 100 €
     expect(usual!.toToday).toBe(10_000);
     expect(usual!.diffCents).toBe(5_000);
@@ -163,13 +163,13 @@ describe("pace: the usual month and the rest of this one", () => {
     expect(projection!.fromDay).toBe(10);
     expect(projection!.low).toHaveLength(22);
     expect([projection!.low[0], projection!.high[0]]).toEqual([15_000, 15_000]);
-    expect([projection!.low.at(-1), projection!.high.at(-1)]).toEqual([15_000 + 20_000, 15_000 + 40_000]);
+    expect([projection!.low.at(-1), projection!.high.at(-1)]).toEqual([15_000 + 15_000, 15_000 + 25_000]);
   });
 
   it("has no projection for a month that has ended", () => {
     const pace = paceOf(rows, "2026-09", today);
     expect(pace.projection).toBeNull();
-    expect(pace.usual).not.toBeNull();
+    expect(pace.expected).not.toBeNull();
   });
 
   it("marks the pay day and the largest purchase that is in no series: not the rent, nor the monthly grocery round", () => {

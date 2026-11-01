@@ -1,37 +1,29 @@
 /**
- * Reports page: fetches the reports of the server and shows the sections of `reports/registry.ts` in order, each
- * with a link in the nav row. A section is one file in `reports/sections/`, from the whole picture to the details:
- * money in and out, where it went, month by month, what is locked in, what changed.
+ * Reports page: fetches the reports of the server and shows one question page of `reports/pages/` in the frame
+ * (`reports/Frame.tsx`). The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
+ * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
+import { t } from "../text.ts";
+import { REPORT_PERIODS } from "../period.ts";
+import { type ConclusionsReport, QUESTIONS, type QuestionId } from "@banking/core";
 import { useEffect, useRef } from "react";
 import { query } from "../api.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { navigate, useApi } from "../hooks.ts";
+import { useApi } from "../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
-import { reportsOf, visibleSections } from "./reports/registry.ts";
-import type { ReportRange, ReportTab } from "./reports/types.ts";
+import { Frame, openQuestions } from "./reports/Frame.tsx";
+import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./reports/registry.ts";
+import type { ReportRange } from "./reports/types.ts";
+import { FoldContext } from "../components/Section.tsx";
+import { Opened } from "../view-opens.tsx";
 import "../styles/reports.css";
 
-/** The tabs in their order; the sections of a tab are those that name it (`ReportSection.tab`). */
-export const REPORT_TABS: readonly { id: ReportTab; label: string }[] = [
-  { id: "virta", label: "Rahavirta" },
-  { id: "menot", label: "Menot" },
-  { id: "varat", label: "Varat ja velat" },
-];
-type TabId = ReportTab;
-
-/** Loading: the tabs and the first panel at the size it will have, a chart's frame and five rows, with no figures. */
+/** Loading: the question and the first panel at the size they will have, with no figures. */
 function ReportsSkeleton() {
   return (
-    <div className="stack" aria-busy="true" aria-label="Raportit latautuvat">
-      <div className="report-tabs" aria-hidden="true">
-        {REPORT_TABS.map((t) => (
-          <button key={t.id} type="button" disabled>
-            {t.label}
-          </button>
-        ))}
-      </div>
+    <div className="stack" aria-busy="true" aria-label={t("rpt.reports_loading")}>
+      <span className="sk sk-title" aria-hidden="true" />
       <section className="card skeleton-card" aria-hidden="true">
         <div className="card-head tb">
           <div className="card-name">
@@ -52,10 +44,21 @@ function ReportsSkeleton() {
   );
 }
 
-export function Reports({ meta, range, scope, params, anchor }: { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string }) {
-  // the reports this page's sections read: the spending change is Yhteenveto's
-  const q = query({ ...range, scope, reports: reportsOf("reports").join(",") });
-  const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${q}`);
+/**
+ * The question to open: the page that holds the anchored section, else the one `q` names when it has something to say,
+ * else the first that follows the chosen period. The month question ignores the period, so a bare address never lands on it
+ * and hides the switch the reader just used.
+ */
+export function questionOf(conclusions: ConclusionsReport, asked: string | null, anchor: string | undefined): QuestionId {
+  const open = openQuestions(conclusions);
+  const byAnchor = anchor ? REPORT_PAGES.find((p) => open.includes(p.id) && p.sections.some((s) => s.id === anchor))?.id : undefined;
+  return byAnchor ?? open.find((id) => id === asked) ?? open.find((id) => id !== "kuukausi") ?? open[0] ?? QUESTIONS[0];
+}
+
+export function Reports({ meta, range, scope, params, anchor, onQuestion }: { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void }) {
+  // every page's reports are asked for at once, so a switch of question needs no new answer
+  const wanted = [...new Set(REPORT_PAGES.flatMap(reportsOfPage))];
+  const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${query({ ...range, scope, reports: wanted.join(",") })}`);
   // an address names a section (#/reports?period=12m#kuukaudet from Yhteenveto): scroll to it once the sections are there
   const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
@@ -63,47 +66,33 @@ export function Reports({ meta, range, scope, params, anchor }: { meta: Meta; ra
     scrolledFor.current = anchor;
     document.getElementById(anchor)?.scrollIntoView({ block: "start" });
   }, [anchor, data]);
+  const shown = data ? questionOf(data.conclusions, params?.get("q") ?? null, anchor) : null;
+  useEffect(() => {
+    onQuestion?.(shown);
+    return () => onQuestion?.(null);
+  }, [shown, onQuestion]);
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
   if (!data) return <ReportsSkeleton />;
-  const ctx = reportContext(data, meta, range, scope);
-  // an anchor picks the tab that holds its section, so an old address to #kuukaudet still lands on it
-  const asked = params?.get("tab");
-  const all = visibleSections(ctx, "reports");
-  const tab: TabId = all.find((s) => s.id === anchor)?.tab ?? REPORT_TABS.find((t) => t.id === asked)?.id ?? "virta";
-  const current = REPORT_TABS.find((t) => t.id === tab)!;
-  // a section in no tab is not drawn: Havainnot is Säästövinkit's Muut havainnot (lead decision)
-  const sections = all.filter((s) => s.tab === tab);
-  const pick = (id: TabId) => navigate("reports", { tab: id }, true);
+  const open = params ?? new URLSearchParams();
+  const span = REPORT_PERIODS.find((p) => p.id === open.get("period"))?.label ?? REPORT_PERIODS.find((p) => p.id === "12m")?.label;
+  const ctx = { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare"), span };
+  const page = reportPage(questionOf(data.conclusions, open.get("q"), anchor));
+  const sections = visiblePageSections(ctx, page);
 
   return (
-    <div className={`stack ${loading ? "loading" : ""}`}>
-      <div className="report-tabs" role="tablist" aria-label="Raportit">
-        {REPORT_TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" id={`tab-${t.id}`} aria-selected={t.id === tab} aria-controls="report-panel" onClick={() => pick(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-      <nav className="report-nav" aria-label={`${current.label}: osiot`}>
-        {sections.map((s) => (
-          <a
-            key={s.id}
-            href="#/reports"
-            onClick={(e) => {
-              // the hash is used by the router, so scroll instead of navigating
-              e.preventDefault();
-              document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth" });
-            }}
-          >
-            {s.title}
-          </a>
-        ))}
-      </nav>
-      <div id="report-panel" role="tabpanel" aria-labelledby={`tab-${tab}`} className="stack">
-        {sections.map((s) => (
-          <s.Component key={s.id} ctx={ctx} />
-        ))}
-      </div>
+    <div className={loading ? "loading" : undefined}>
+      <Frame ctx={ctx} page={page} conclusions={data.conclusions} params={open} note={open.get("q") === "yhteiset" && page.id !== "yhteiset" ? t("rpt.q_not_open") : undefined}>
+        <Opened views={sections.map((s) => `report:${s.id}`)} />
+        {sections.map((s) =>
+          page.fold ? (
+            <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>
+              <s.Component ctx={ctx} />
+            </FoldContext.Provider>
+          ) : (
+            <s.Component key={s.id} ctx={ctx} />
+          ),
+        )}
+      </Frame>
     </div>
   );
 }

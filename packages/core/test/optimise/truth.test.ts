@@ -10,7 +10,9 @@ import { type AreaView, buildOptimise, type OptimiseData } from "../../src/optim
 import type { MarkKind, UserMark } from "../../src/types.ts";
 import { randomHistory } from "../gen.ts";
 import { tx } from "../helpers.ts";
-import { enrich, FRAME, household, householdInput, joinHousehold, PARTS, type PartHousehold } from "./household.ts";
+import { yearly } from "../insight-view.ts";
+import { household, PARTS } from "./household.ts";
+import { enrich, FRAME, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as car from "./parts/car.ts";
 import { rowsOf } from "./parts/tax.ts";
 
@@ -96,7 +98,7 @@ const insightsOn = (today: string) => {
 describe("the other insights stand on the window of the findings", () => {
   it("are the same list with the same figures on the 2nd of a month and on the 28th", () => {
     const [early, late] = [insightsOn("2026-10-02"), insightsOn("2026-10-28")];
-    const figures = (data: OptimiseData) => data.others.map((i) => `${i.id} ${i.yearlyCents}`);
+    const figures = (data: OptimiseData) => data.others.map((i) => `${i.id} ${yearly(i)}`);
     expect(figures(early)).toContain("new:out:h-chk:Viaplay 15588");
     // the car loan alone is under the 200 € of fixed costs the buffer report's share needs, so no commitments share
     expect(figures(early)).toEqual(["new:out:h-chk:Viaplay 15588"]);
@@ -117,18 +119,18 @@ describe("the other insights stand on the window of the findings", () => {
       // an insight the new window does not hold has nothing to keep
       if (!now) continue;
       compared += 1;
-      const moved = Math.abs(now.yearlyCents - old.yearlyCents) / old.yearlyCents;
+      const moved = Math.abs(yearly(now) - yearly(old)) / yearly(old);
       expect(
         data.othersDismissed.some((d) => d.insight.id === old.id),
-        `${old.id}: ${old.yearlyCents} then, ${now.yearlyCents} now`,
+        `${old.id}: ${yearly(old)} then, ${yearly(now)} now`,
       ).toBe(moved < 0.25);
     }
     expect(compared).toBeGreaterThan(0);
     // and the rule itself, at the figure of the new window: 20 % off it stays, 30 % off it returns
     const now = buildOptimise(input).others.find((i) => i.id === "new:out:h-chk:Viaplay")!;
     const dismissedAt = (cents: number) => buildOptimise({ ...input, inputs: { marks: [mark(`alert:${now.id}@${cents}`, "dismissed")], expectedBills: [] } });
-    expect(dismissedAt(Math.round(now.yearlyCents / 1.2)).othersDismissed.map((d) => d.insight.id)).toEqual([now.id]);
-    expect(dismissedAt(Math.round(now.yearlyCents / 1.3)).others.map((i) => i.id)).toContain(now.id);
+    expect(dismissedAt(Math.round(yearly(now) / 1.2)).othersDismissed.map((d) => d.insight.id)).toEqual([now.id]);
+    expect(dismissedAt(Math.round(yearly(now) / 1.3)).others.map((i) => i.id)).toContain(now.id);
   });
 });
 

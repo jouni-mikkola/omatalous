@@ -95,7 +95,8 @@ export async function startServer() {
     appId: randomUUID(),
     privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }),
   });
-  const nodeArgs = ["--disable-warning=ExperimentalWarning", bundle];
+  // with E2E_HOSTS_DIR set (pnpm e2e) the server records the hosts it connects to
+  const nodeArgs = ["--disable-warning=ExperimentalWarning", ...(process.env.E2E_HOSTS_DIR ? ["--import", join(root, "e2e/record-sockets.mjs")] : []), bundle];
   try {
     const setup = spawnSync(process.execPath, [...nodeArgs, "setup-code"], { env, encoding: "utf8" });
     if (setup.status !== 0) throw new Error(`setup-code failed: ${setup.stderr || setup.stdout}`);

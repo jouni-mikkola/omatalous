@@ -11,6 +11,34 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Yli jäi", "Yli jäi viime kuussa", "Kuun lopussa. yli jäi 120 €"],
     ok: ["Tulos viime kuussa", "Jäi yli 120 €", "Ylijäämä"],
   },
+  Vaihteluväli: {
+    bad: ["Odotettu vaihteluväli", "Vaihteluvälin ylä"],
+    ok: ["Tavallisesti 2 700–3 260 €", "Vaihtelu on suurta"],
+  },
+  Prosenttipiste: {
+    bad: ["5.–95. prosenttipiste", "prosenttipisteet"],
+    ok: ["2 prosenttiyksikköä", "Prosentti"],
+  },
+  Todennäköisin: {
+    bad: ["Todennäköisin", "Todennäköinen väli", "Todennäköisesti se on 3 000–4 000 €"],
+    ok: ["Arvio", "Se voi olla 3 000–4 000 €", "Todennäköisyys"],
+  },
+  "Luvun osat": {
+    bad: ["Luvun osat", "luvun osat"],
+    ok: ["Mistä luku koostuu", "Luvun selitys"],
+  },
+  "Valmis kuukausi": {
+    bad: ["Valmiiden kuukausien keskiarvo", "kuuden valmiin kuukauden keskiarvo"],
+    ok: ["Päättyneiden kuukausien keskiarvo", "Valmis, kuukausi alkaa"],
+  },
+  Nettovarat: {
+    bad: ["Nettovarat", "Nettovarat −119 000 €"],
+    ok: ["Varat velkojen jälkeen"],
+  },
+  Jäämä: {
+    bad: ["Jäämä", "jäämä kuussa"],
+    ok: ["Ylijäämä", "Käteen jäi 120 €"],
+  },
   "Tileillä as a figure name": {
     bad: ["Tileillä", "Tileillä yhteensä", "Tileillä ${money(total)}"],
     ok: ["Tilien saldo", "Tilien saldo riittää 3 kuukauden menoihin.", "Tileillä olevat rahat riittävät kolmeksi kuukaudeksi, kun menot pysyvät samana.", "Rahaa tileillä"],
@@ -18,6 +46,22 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
   Linkitä: {
     bad: ["Linkitä tili Enable Bankingissa.", "Tili on linkitetty", "Ylläpitäjä linkittää tilin", "Ei linkitetty"],
     ok: ["Lisää tili Enable Bankingissa (Link accounts).", 'Paina painiketta "Linkitä tili".', "Kopioi linkki ja avaa kaikki linkit.", "Yhdistä pankki"],
+  },
+  "Näin heading": {
+    bad: ["Näin katetaan", "Näin lasketaan luku"],
+    ok: ["Näin hyvin säästit", "Näitä ei katettu"],
+  },
+  Katetaan: {
+    bad: ["Laskut katetaan.", "Katetaan"],
+    ok: ["Laskuihin riittää.", "Laskusi on katettu."],
+  },
+  "Passive verb": {
+    bad: ["Luetaan kuvaa, kun se on valittu", "Tapahtumat haetaan pankin palvelusta.", "Summa lasketaan kerran.", "Se tehdään vasta myöhemmin"],
+    ok: ["Luemme kuvaa…", "Testaa yhteys", "Ladataan…", "Testataan yhteyttä", "Kenttä ei kuulu tähän valintaan.", "Lisää kohtaan Päätetyt.", "Haetaan tapahtumia pankista…", "Tallennetaan…", "Laskettu summa", "Päivässä voi kuluttaa enintään 40 €.", "Katso viimeistään perjantaina.", "Maksoit osan omista rahoistasi.", "Kuuluu rahoistaan maksavalle."],
+  },
+  "Question heading": {
+    bad: ["Mihin raha menee?", "Miten tämä kuukausi menee?", "Kestääkö puskuri?", "Paljonko jää säästöön?"],
+    ok: ["Rahankäyttö", "Kuukauden tilanne", "Haluatko varmasti poistaa tilin?", "Mihin raha menee. Katso erittely."],
   },
 };
 

@@ -1,12 +1,14 @@
 /**
  * Decision: what to do about each tip: change it, set it aside or be reminded later.
- * The tips with a day to decide by come first, on a 60-day line; the rest follow grouped by area, each group headed by
- * its mark, its count and the area's saving. A tip's figure opens its calculation and rows: no key with words for it.
+ * The tips worth most a year come first, in one list; the ones with a day to decide by within 60 days stand on a line of
+ * their own. A tip's figure opens its calculation and rows: no key with words for it.
  */
 import { Estimate } from "../Why.tsx";
-import { addDays, type AreaView, type Finding, type IsoDate } from "@banking/core";
+import { addDays, type AreaId, type AreaView, byYearlyEffect, type Finding, type IsoDate } from "@banking/core";
 import { useId, useState } from "react";
 import { date, dayMonth, money } from "../../format.ts";
+import { t } from "../../text.ts";
+import { PRICE_RISES_HASH } from "../../routes.ts";
 import type { Scope } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 import { Section } from "../Section.tsx";
@@ -14,7 +16,9 @@ import { Evidence } from "./Evidence.tsx";
 import { FindingActions } from "./FindingActions.tsx";
 import { AreaMark, CertaintySteps } from "./marks.tsx";
 import { type Changed, rangeText } from "./shared.tsx";
-
+import { Button } from "../ui/Button.tsx";
+import { css } from "../../css.ts";
+import { findingView, Opened } from "../../view-opens.tsx";
 const SOON_DAYS = 60;
 /** A deadline this near, or one past, wears the warn status; a later one is a quiet pin. */
 export const NEAR_DAYS = 30;
@@ -22,44 +26,36 @@ export const NEAR_DAYS = 30;
 /** Days from `from` to `to`, both ISO dates (UTC midnights, so no clock is read). */
 const daysBetween = (from: IsoDate, to: IsoDate) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
-export function TipCard({ finding: f, today, scope, onChanged }: { finding: Finding; today: IsoDate; scope: Scope; onChanged: Changed }) {
+export function TipCard({ finding: f, area, today, scope, onChanged }: { finding: Finding; area?: string; today: IsoDate; scope: Scope; onChanged: Changed }) {
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const range = f.euros ? rangeText(f.euros) : null;
   // only an estimate wears ≈: a range, or a figure the certainty marks down; a price rise read off the rows is exact
   const estimate = range !== null || f.certainty.level !== "korkea";
   const left = f.decideBy ? daysBetween(today, f.decideBy) : null;
-  const label = `Laskelma: ${f.euros ? `${estimate ? "arviolta " : ""}${money(f.euros.midCents, false)} vuodessa` : `määräpäivä ${date(f.decideBy)}`}`;
   const chevron = (
     <svg className="tip-chev" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
       <path d="M4 6l4 4 4-4" />
     </svg>
   );
-  // an exact figure the title already says is said once: the title's own figure opens the basis
-  const said = f.euros && !estimate ? money(f.euros.midCents, false) : null;
-  const at = said ? f.title.indexOf(said) : -1;
-  const title =
-    at >= 0 ? (
-      <>
-        {f.title.slice(0, at)}
-        <button className="tip-inline why-fig" type="button" aria-expanded={open} aria-label={label} onClick={() => setOpen((o) => !o)}>
-          {said}
-          {chevron}
-        </button>
-        {f.title.slice(at + said!.length)}
-      </>
-    ) : (
-      f.title
-    );
   return (
-    <article className={`tip${open ? " tip-open" : ""}${at >= 0 ? " tip-said" : ""}`} aria-labelledby={titleId}>
+    <article className={`tip${open ? " tip-open" : ""}`} aria-labelledby={titleId}>
       <AreaMark id={f.area} size={32} />
       <div className="tip-main">
         <p className="tip-title" id={titleId}>
-          {title}
+          {f.title}
         </p>
-        <p className="tip-action">{f.action}</p>
+        <p className="tip-action">
+          {f.action}
+          {f.area === "subscriptions" && f.kind === "rise" && (
+            <>
+              {" "}
+              <a href={PRICE_RISES_HASH}>{t("ow.tp_rise_calc")}</a>
+            </>
+          )}
+        </p>
         <p className="tip-meta">
+          {area && <span className="tip-area">{area}</span>}
           {/* the certainty is told only when it is not high */}
           {f.certainty.level !== "korkea" && (
             <>
@@ -70,36 +66,34 @@ export function TipCard({ finding: f, today, scope, onChanged }: { finding: Find
           {/* a tip of a deadline alone has the day as its figure: the chip would say it again */}
           {f.decideBy && f.euros && (
             <span className={`tip-due${left !== null && left < NEAR_DAYS ? " tip-due-near" : ""}`}>
-              <span aria-hidden="true">◷</span> Päätä viimeistään {date(f.decideBy)}
+              {t("ow.tp_decide_by", { date: date(f.decideBy) })}
             </span>
           )}
-          {f.shared && <span className="tip-shared">Päätetään yhdessä</span>}
-          {f.reopened && <span className="badge warn">Palasi, koska arvio nousi</span>}
+          {f.shared && <span className="tip-shared">{t("ow.tp_shared")}</span>}
+          {f.reopened && <span className="badge warn">{t("ow.tp_reopened")}</span>}
         </p>
       </div>
-      {at < 0 && (
-        <button className="tip-figure" type="button" aria-expanded={open} aria-describedby={titleId} onClick={() => setOpen((o) => !o)}>
-          {f.euros ? (
-            <>
-              <span className="tip-fig">
-                <Estimate when={estimate}>
-                  <Figure text={money(f.euros.midCents, false)} size="m" />
-                </Estimate>
-              </span>
-              <span className="tip-unit">{range ? `vuodessa · ${range}` : "vuodessa"}</span>
-            </>
-          ) : (
-            <>
-              <span className="tip-fig">
-                <span className="fig fig-m">{dayMonth(f.decideBy!)}</span>
-              </span>
-              <span className="tip-unit">määräpäivä</span>
-            </>
-          )}
-          <span className="sr-only">, laskelma</span>
-          {chevron}
-        </button>
-      )}
+      <button className="tip-figure" type="button" aria-expanded={open} aria-describedby={titleId} onClick={() => setOpen((o) => !o)}>
+        {f.euros ? (
+          <>
+            <span className="tip-fig">
+              <Estimate when={estimate}>
+                <Figure text={money(f.euros.midCents, false)} size="m" />
+              </Estimate>
+            </span>
+            <span className="tip-unit">{range ? t("ow.tp_unit_range", { range }) : t("ow.tp_unit")}</span>
+          </>
+        ) : (
+          <>
+            <span className="tip-fig">
+              <span className="fig fig-m">{dayMonth(f.decideBy!)}</span>
+            </span>
+            <span className="tip-unit">{t("ow.tp_deadline")}</span>
+          </>
+        )}
+        <span className="sr-only">{`. ${t("ow.tp_calc_sr")}`}</span>
+        {chevron}
+      </button>
       <div className="tip-actions">
         <FindingActions finding={f} describedBy={titleId} today={today} scope={scope} onChanged={onChanged} />
       </div>
@@ -119,14 +113,14 @@ function DueLine({ soon, today, short }: { soon: readonly Finding[]; today: IsoD
   return (
     <div className="due-line" aria-hidden="true">
       <div className="due-axis">
-        {ticks.map((t) => (
-          <span key={t} className="due-tick" style={{ insetInlineStart: `${(t / SOON_DAYS) * 100}%` }}>
-            <span>{t === 0 ? "Tänään" : dayMonth(addDays(today, t))}</span>
+        {ticks.map((tick) => (
+          <span key={tick} className="due-tick" ref={css({ "inset-inline-start": `${(tick / SOON_DAYS) * 100}%` })}>
+            <span>{tick === 0 ? t("ow.tp_today") : dayMonth(addDays(today, tick))}</span>
           </span>
         ))}
       </div>
       {pins.map(({ f, at }, i) => (
-        <span key={f.id} className={`due-pin due-row-${i % 3}${daysBetween(today, f.decideBy!) < NEAR_DAYS ? " due-near" : ""}`} style={{ insetInlineStart: `${(at / SOON_DAYS) * 100}%` }}>
+        <span key={f.id} className={`due-pin due-row-${i % 3}${daysBetween(today, f.decideBy!) < NEAR_DAYS ? " due-near" : ""}`} ref={css({ "inset-inline-start": `${(at / SOON_DAYS) * 100}%` })}>
           <span className="due-pin-label">
             <strong>{dayMonth(f.decideBy!)}</strong> <span className="due-pin-name">{short(f)}</span>
           </span>
@@ -136,71 +130,82 @@ function DueLine({ soon, today, short }: { soon: readonly Finding[]; today: IsoD
   );
 }
 
-export function Soon({ soon, today, scope, onChanged, short }: { soon: readonly Finding[]; today: IsoDate; scope: Scope; onChanged: Changed; short: (f: Finding) => string }) {
+export function Soon({ soon, today, short }: { soon: readonly Finding[]; today: IsoDate; short: (f: Finding) => string }) {
   if (!soon.length) return null;
   const first = soon[0]!;
   const left = first.decideBy ? daysBetween(today, first.decideBy) : null;
   return (
-    <Section id="seuraavat" title="Mitä pitää päättää 60 päivän sisällä?" sub={left !== null ? `${left} päivää ensimmäiseen määräpäivään.` : undefined}>
+    <Section id="seuraavat" title={t("ow.tp_soon_title")} sub={left !== null ? t("ow.tp_soon_sub", { left }) : undefined}>
       <DueLine soon={soon} today={today} short={short} />
-      <div className="tips">
-        {soon.map((f) => (
-          <TipCard key={f.id} finding={f} today={today} scope={scope} onChanged={onChanged} />
-        ))}
-      </div>
     </Section>
   );
 }
 
-/** Tips a group shows before Näytä lisää. */
-const SHOWN = 3;
+/** Tips shown before Näytä kaikki: the ones worth most a year. */
+const SHOWN = 5;
 
-function Group({ area, above, today, scope, onChanged }: { area: AreaView; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed }) {
-  const [all, setAll] = useState(false);
-  const here = area.findings.filter((f) => !above.has(f.id));
-  if (!here.length) return null;
-  const shown = all ? here : here.slice(0, SHOWN);
+/** The figures an area shows beside its tips (fees by price list line, car costs): kept behind one line, not between the tips. */
+function Summaries({ areas }: { areas: readonly AreaView[] }) {
+  const withSummary = areas.filter((a) => a.summary);
+  if (!withSummary.length) return null;
   return (
-    <div className="tip-group" id={`alue-${area.id}`}>
-      <h3 className="tip-group-head">
-        <AreaMark id={area.id} size={24} />
-        <span>{area.label}</span>
-        <span className="rt-group-count">{here.length}</span>
-      </h3>
-      <div className="tips">
-        {shown.map((f) => (
-          <TipCard key={f.id} finding={f} today={today} scope={scope} onChanged={onChanged} />
-        ))}
-      </div>
-      {here.length > SHOWN && (
-        <button className="btn btn-small tips-more" type="button" onClick={() => setAll((v) => !v)} aria-expanded={all}>
-          {all ? "Näytä vähemmän" : `Näytä kaikki ${here.length}`}
-        </button>
-      )}
-      {area.summary && (
-        <dl className="calc tip-summary" aria-label={area.summary.title}>
-          {area.summary.lines.map((l, i) => (
-            <div key={i}>
-              <dt>{l.label}</dt>
-              <dd>{l.value}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </div>
+    <details className="tip-sums">
+      <summary>{t("ow.tp_sums")}</summary>
+      {withSummary.map((a) => (
+        <div key={a.id} className="tip-sum">
+          <h3 className="tip-sum-head">
+            <AreaMark id={a.id} size={24} />
+            <span>{a.summary!.title}</span>
+          </h3>
+          <dl className="calc tip-summary" aria-label={a.summary!.title}>
+            {a.summary!.lines.map((l, i) => (
+              <div key={i}>
+                <dt>{l.label}</dt>
+                <dd>{l.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </details>
   );
 }
 
-export function Tips({ areas, above, today, scope, onChanged }: { areas: readonly AreaView[]; above: ReadonlySet<string>; today: IsoDate; scope: Scope; onChanged: Changed }) {
-  const groups = areas.filter((a) => a.findings.some((f) => !above.has(f.id)));
-  if (!groups.length) return null;
+/**
+ * The tips in one list, the largest effect a year first (core `byYearlyEffect`), five at a time. A tip names its area
+ * on its card; Suurimmat säästökohteet narrows the list to one area and the line above it gives the way back.
+ */
+export function Tips({ areas, today, scope, onChanged, area, onArea }: { areas: readonly AreaView[]; today: IsoDate; scope: Scope; onChanged: Changed; area: AreaId | null; onArea: (area: AreaId | null) => void }) {
+  const [all, setAll] = useState(false);
+  const label = new Map(areas.map((a) => [a.id, a.label]));
+  const every = byYearlyEffect(areas);
+  if (!every.length) return null;
+  const here = area ? every.filter((f) => f.area === area) : every;
+  const shown = all ? here : here.slice(0, SHOWN);
   return (
-    <Section id="vinkit" title="Vinkit alueittain">
-      <div className="tip-groups">
-        {groups.map((a) => (
-          <Group key={a.id} area={a} above={above} today={today} scope={scope} onChanged={onChanged} />
+    <Section id="vinkit" title={t("ow.tp_title")}>
+      {area && (
+        <p className="rt-filter" role="status">
+          <span>
+            {t("ow.tp_only_area")} <strong>{label.get(area)}</strong>.
+          </span>
+          <Button variant="link" onClick={() => onArea(null)}>
+            {t("ow.tp_all_areas")}
+          </Button>
+        </p>
+      )}
+      <Opened views={shown.map((f) => findingView(f.id))} />
+      <div className="tips">
+        {shown.map((f) => (
+          <TipCard key={f.id} finding={f} area={label.get(f.area)} today={today} scope={scope} onChanged={onChanged} />
         ))}
       </div>
+      {here.length > SHOWN && (
+        <Button className="tips-more" onClick={() => setAll((v) => !v)} aria-expanded={all}>
+          {all ? t("ow.tp_fewer") : t("ow.tp_all", { n: here.length })}
+        </Button>
+      )}
+      <Summaries areas={area ? areas.filter((a) => a.id === area) : areas} />
     </Section>
   );
 }

@@ -54,7 +54,8 @@ describe("the window: a card's bill", () => {
     const d = run(today, [...days(today, 1000), ...statements(today, 1000)], 6000, -11_000);
     expect(cardRowsOf(d)).toEqual([{ date: "2026-11-09", name: "Luottokortti", category: "transfer", cents: -11_000, source: "card", basis: "balance" }]);
     expect(d.balance).toMatchObject({ shortOn: "2026-11-09", shortCents: 5000 });
-    expect(d.everydayPerDayCents).toBe(2000);
+    // 20 euros a day on the own account and 10 on the card
+    expect(d.everydayPerDayCents).toBe(3000);
   });
 
   it("a statement paid in full with nothing left on the card: no bill and no warning", () => {

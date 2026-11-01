@@ -4,7 +4,9 @@ import { dateTime } from "../../format.ts";
 import type { RemoteAccessState } from "./remote-access-api.ts";
 import { canRemoveToken, helperProblem, tokenNeededForOff, zonesSentence } from "./remote-access-model.ts";
 import { TokenGuide } from "./RemoteAccessGuide.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
 export interface TokenBlockProps {
   s: RemoteAccessState;
   /** The token lives in this field only. */
@@ -30,30 +32,30 @@ export function TokenBlock({ s, field, hasToken, replacing: replacingAsked, onTy
   const removable = canRemoveToken(s) && !s.access.on;
   return (
     <div className="remote-block">
-      <h4 className="field-label">Cloudflaren API-tunniste (API Token)</h4>
+      <h4 className="field-label">{t("set.rtoken.cloudflare_api_token")}</h4>
       {s.token.saved && s.token.usable && !replacing && (
         <>
           <p>
-            Tallennettu {dateTime(s.token.savedAt)}. {zonesSentence(s.token.zones)}
+            {t("set.rtoken.saved_at", { at: dateTime(s.token.savedAt) })} {zonesSentence(s.token.zones)}
           </p>
-          {(s.access.on || tokenNeededForOff(s)) && <p className="small muted">Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.</p>}
+          {(s.access.on || tokenNeededForOff(s)) && <p className="small muted">{t("set.rtoken.the_token_is_needed_when")}</p>}
           <div className="form-row">
             {helperReady && (
-              <button className="btn" type="button" onClick={onReplace}>
-                Vaihda tunniste
-              </button>
+              <Button onClick={onReplace}>
+                {t("set.rtoken.replace_token")}
+              </Button>
             )}
             {removable && (
-              <button className="btn btn-danger" type="button" onClick={onRemove}>
-                Poista tunniste
-              </button>
+              <Button onClick={onRemove}>
+                {t("set.rtoken.remove_token")}
+              </Button>
             )}
           </div>
-          {!canRemoveToken(s) && <p className="small muted">Tunnisteen voi poistaa, kun muutos on valmis.</p>}
+          {!canRemoveToken(s) && <p className="small muted">{t("set.rtoken.the_token_can_be_removed")}</p>}
         </>
       )}
-      {s.token.saved && !s.token.usable && <div className="notice warning">Tallennettua tunnistetta ei voi enää avata. Tallenna se uudelleen.</div>}
-      {!s.token.saved && <p className="small muted">Tallenna tunniste ensin, niin etäkäytön voi ottaa käyttöön. Tunnistetta ei näytetä tallennuksen jälkeen.</p>}
+      {s.token.saved && !s.token.usable && <Notice tone="warning">{t("set.rtoken.the_saved_token_can_no")}</Notice>}
+      {!s.token.saved && <p className="small muted">{t("set.rtoken.save_the_token_first_then")}</p>}
       {showForm && (
         <>
           <TokenGuide />
@@ -65,17 +67,17 @@ export function TokenBlock({ s, field, hasToken, replacing: replacingAsked, onTy
             }}
           >
             <label>
-              <span className="field-label">API-tunniste</span>
+              <span className="field-label">{t("set.rtoken.api_token")}</span>
               <input ref={field} name="cloudflare-api-token" type="password" autoComplete="off" spellCheck={false} maxLength={300} onChange={(e) => onTyped(e.target.value.trim() !== "")} />
             </label>
             <div className="form-row">
-              <button className="btn btn-primary" type="submit" disabled={!hasToken}>
-                Tallenna tunniste
-              </button>
+              <Button variant="primary" type="submit" disabled={!hasToken}>
+                {t("set.rtoken.save_token")}
+              </Button>
               {s.token.saved && s.token.usable && (
-                <button className="btn" type="button" onClick={onCancelReplace}>
-                  Peruuta
-                </button>
+                <Button onClick={onCancelReplace}>
+                  {t("set.rtoken.cancel")}
+                </Button>
               )}
             </div>
           </form>

@@ -22,8 +22,8 @@ export interface PaidRow {
  * The findings tell this insight: over half of its rows go to their payees (`told`, every finding's together), or some
  * do and the rest of the figure, shared out by the rows' amounts, is under the gate (rule 3).
  */
-export function coveredBy(insight: Pick<Insight, "rows" | "yearlyCents">, rowOf: (row: string) => PaidRow | undefined, told: ReadonlySet<string>): boolean {
-  const rows = (insight.rows ?? []).map(rowOf);
+export function coveredBy(insight: Pick<Insight, "evidence" | "effectPerYear">, rowOf: (row: string) => PaidRow | undefined, told: ReadonlySet<string>): boolean {
+  const rows = insight.evidence.rows.map(rowOf);
   if (!rows.length) return false;
   const isTold = (r: PaidRow | undefined): r is PaidRow => r !== undefined && told.has(r.payee);
   const ours = rows.filter(isTold);
@@ -31,7 +31,7 @@ export function coveredBy(insight: Pick<Insight, "rows" | "yearlyCents">, rowOf:
   if (!ours.length) return false;
   const size = (list: readonly (PaidRow | undefined)[]) => list.reduce((s, r) => s + Math.abs(r?.cents ?? 0), 0);
   const all = size(rows);
-  return all > 0 && (insight.yearlyCents * (all - size(ours))) / all < GATE_YEARLY_CENTS;
+  return all > 0 && (Math.abs(insight.effectPerYear?.cents ?? 0) * (all - size(ours))) / all < GATE_YEARLY_CENTS;
 }
 
 /** The insights no finding covers: shown, or dismissed while their figure stays within 25 % of the dismissed one. */
@@ -49,7 +49,7 @@ export function othersOf(a: AreaInput, findingRows: readonly (readonly string[])
   const others: Insight[] = [];
   const othersDismissed: DismissedInsight[] = [];
   // the page is read today: a renewal that is due in the next days is not a matter of the window
-  for (const { insight, dismissal } of answeredInsights({ ...insightInputOf(ctx, range, a.inputs), running: true })) {
+  for (const { insight, dismissal } of answeredInsights({ ...insightInputOf(ctx, range, a.inputs, a.lang), running: true })) {
     if (coveredBy(insight, rowOf, told)) continue;
     if (dismissal) othersDismissed.push({ insight, subject: dismissal.subject, markedAt: dismissal.markedAt });
     else others.push(insight);

@@ -16,7 +16,7 @@ test("a number Säästövinkit waits for is asked in Tarkistettavat and saved th
     await page.goto("/#/optimise");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByRole("heading", { name: "Tiedot, joita tarvitaan" })).toHaveCount(0);
-    await expect(page.locator('#seuraavat input, #vinkit input, #tarkistettu input')).toHaveCount(0);
+    await expect(page.locator('#seuraavat input, #vinkit input')).toHaveCount(0);
 
     const before = (await (await context.request.get("/api/review")).json()).items as { id: string; kind: string }[];
     expect(before.map((i) => i.id)).toContain("input:car_km");
@@ -42,7 +42,7 @@ test("a number Säästövinkit waits for is asked in Tarkistettavat and saved th
   }
 });
 
-test("Muut havainnot at 390: the Ei koske meitä button stands under the avatar and the title, in both looks", async ({ browser }) => {
+test("Muut havainnot at 390: the Ei koske meitä button stands under the avatar and the title", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   try {
@@ -50,16 +50,13 @@ test("Muut havainnot at 390: the Ei koske meitä button stands under the avatar 
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     const tips = page.locator(".tip.other");
     await expect(tips.first()).toBeVisible({ timeout: 15_000 });
-    for (const look of ["light", "night"]) {
-      await page.evaluate((l) => (l === "night" ? document.documentElement.setAttribute("data-look", "night") : document.documentElement.removeAttribute("data-look")), look);
-      for (let i = 0; i < (await tips.count()); i++) {
-        const tip = tips.nth(i);
-        await tip.scrollIntoViewIfNeeded();
-        const button = (await tip.getByRole("button", { name: "Ei koske meitä" }).boundingBox())!;
-        const head = (await tip.locator(".other-head").boundingBox())!;
-        // the button starts below the head's bottom: it covers neither the avatar nor the title
-        expect(button.y, `${look}: tip ${i}`).toBeGreaterThanOrEqual(head.y + head.height - 1);
-      }
+    for (let i = 0; i < (await tips.count()); i++) {
+      const tip = tips.nth(i);
+      await tip.scrollIntoViewIfNeeded();
+      const button = (await tip.getByRole("button", { name: "Ei koske meitä" }).boundingBox())!;
+      const head = (await tip.locator(".other-head").boundingBox())!;
+      // the button starts below the head's bottom: it covers neither the avatar nor the title
+      expect(button.y, `tip ${i}`).toBeGreaterThanOrEqual(head.y + head.height - 1);
     }
   } finally {
     await context.close();

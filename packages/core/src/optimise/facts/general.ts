@@ -3,7 +3,7 @@
  * 11.10.2026 from Statistics Finland's table 122p (updated 14.9.2026); July and August also stand in the release
  * "Inflaatio 2,2 % elokuussa 2026". The series ages as one: every row has the release's `asOf`.
  */
-import { monthInessive } from "../../analysis/format.ts";
+import { monthInessive, monthNameIn } from "../../analysis/format.ts";
 import type { Fact } from "./index.ts";
 
 const RELEASE = { title: "Tilastokeskus: Inflaatio 2,2 % elokuussa 2026", url: "https://stat.fi/julkaisu/cmfazvwen2ssk07usvgxvpcq6" };
@@ -40,6 +40,7 @@ const CPI_YOY: readonly [string, number][] = [
 export const GENERAL_FACTS: readonly Fact[] = CPI_YOY.map(([month, value]) => ({
   id: `cpi_yoy:${month}`,
   label: `Inflaatio ${monthInessive(month)} ${month.slice(0, 4)}`,
+  labelEn: `Inflation in ${monthNameIn(month, "en")} ${month.slice(0, 4)}`,
   value,
   unit: "%",
   kind: "cpi",

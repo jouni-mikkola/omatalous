@@ -3,7 +3,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../src/banks.ts";
-import { BankConnections, connectionStateText, renewalLine, waitsForFirstFetch } from "../src/pages/settings/BankConnections.tsx";
+import { waitsForFirstFetch } from "../src/first-fetch.ts";
+import { BankConnections, connectionStateText, renewalLine } from "../src/pages/settings/BankConnections.tsx";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
 const BANKS = [{ id: "nordea-fi", name: "Nordea", country: "FI" }];
@@ -122,7 +123,7 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     const out = html([conn("a", "active", 93)]);
     expect(out.match(/<table class="rt/g)).toHaveLength(1);
     expect(out).toContain('data-label="Tila"');
-    expect(out).toContain('data-label="Haettu"');
+    expect(out).toContain('data-label="Päivitetty"');
   });
 
   it("lists no earlier consents: two that own no account are left out, and one whose date passed keeps its renewal", () => {
@@ -157,11 +158,11 @@ describe("Pankkiyhteydet: when the consent ends", () => {
 
   it("offers the calendar reminder while its day has not passed, and not on an ended consent", () => {
     const out = html([conn("a", "active", 93, { validUntil: "2027-01-14T00:00:00Z" })]);
-    expect(out).toContain("Muistutus kalenteriin");
+    expect(out).toContain("Lisää muistutus kalenteriin");
     expect(out).toContain("7.1.2027");
     // the reminder day was 10.10.: the renewal button is the way
-    expect(html([conn("a", "active", 5, { validUntil: "2026-10-17T00:00:00Z" })])).not.toContain("Muistutus kalenteriin");
-    expect(html([conn("a", "lapsed", null)])).not.toContain("Muistutus kalenteriin");
+    expect(html([conn("a", "active", 5, { validUntil: "2026-10-17T00:00:00Z" })])).not.toContain("Lisää muistutus kalenteriin");
+    expect(html([conn("a", "lapsed", null)])).not.toContain("Lisää muistutus kalenteriin");
   });
 });
 
@@ -187,7 +188,7 @@ describe("Pankkiyhteydet: accounts that are not linked in the Control Panel", ()
 
   it("names one account by the bank's name and the last four digits, and the one step", () => {
     const out = html(cs, true, [account("Käyttötili", "c", { iban: "FI2112345600000785", problem: notLinked }), account("Nordea Gold", "c")], undefined, "admin");
-    expect(out).toContain("Yhtä tiliä ei ole lisätty Enable Bankingissa.");
+    expect(out).toContain("Yksi tili puuttuu Enable Bankingista.");
     expect(out).toContain("<li>Käyttötili · •••• 0785</li>");
     expect(out).not.toContain("Nordea Gold ·");
     expect(out).toContain("Lisää se Control Panelissa (API applications &gt; Omatalous &gt; Link accounts). Paina sen jälkeen Hae nyt.");
@@ -201,7 +202,7 @@ describe("Pankkiyhteydet: accounts that are not linked in the Control Panel", ()
       account("Säästötili", "c", { iban: "FI4950009420028730", problem: notLinked }),
     ];
     const out = html(cs, true, accounts);
-    expect(out).toContain("3 tiliä ei ole lisätty Enable Bankingissa.");
+    expect(out).toContain("3 tiliä puuttuu Enable Bankingista.");
     expect(out.match(/<li>/g)).toHaveLength(3);
     expect(out).toContain("<li>Nordea Gold · •••• 1144</li>");
     expect(out).toContain("<li>Säästötili · •••• 8730</li>");
@@ -303,7 +304,7 @@ describe("Pankkiyhteydet: the round that renews every consent", () => {
 
   it("says so when every consent is done, and offers only to close it", () => {
     const out = withRenewal({ due: [], round: { consents: [{ ...nordea, done: true }, { ...op, done: true }], finished: true } });
-    expect(out).toContain("Kaikki yhteydet on uusittu.");
+    expect(out).toContain("Uusit kaikki yhteydet.");
     expect(out).toContain("Sulje");
     expect(out).not.toContain("Uusi OP");
   });

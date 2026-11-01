@@ -94,7 +94,7 @@ test("every consent has Yhdistä uudelleen, also with months left, and it starts
   await expect.poll(() => started.length).toBe(1);
   expect(started[0]).toMatchObject({ bank: "op-fi" });
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toHaveCount(0);
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings?connected=1");
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks?connected=1");
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -106,7 +106,7 @@ test("the calendar file: one all-day event seven days before the end, with the a
   await expect(card(page).getByText("voimassa 14.1.2027 asti")).toBeVisible();
   await expect(card(page).getByText("7.1.2027")).toBeVisible();
 
-  const [download] = await Promise.all([page.waitForEvent("download"), card(page).getByRole("button", { name: "Muistutus kalenteriin" }).click()]);
+  const [download] = await Promise.all([page.waitForEvent("download"), card(page).getByRole("button", { name: "Lisää muistutus kalenteriin" }).click()]);
   expect(download.suggestedFilename()).toBe("pankkiyhteys-nordea-2027-01-14.ics");
   const stream = await download.createReadStream();
   const chunks: Buffer[] = [];
@@ -150,7 +150,7 @@ test("a link that left accounts unread lists them by the bank's name and the las
 
   const list = card(page).locator(".unlinked");
   await expect(list).toBeVisible({ timeout: 25_000 });
-  await expect(list.getByText("2 tiliä ei ole lisätty Enable Bankingissa.")).toBeVisible();
+  await expect(list.getByText("2 tiliä puuttuu Enable Bankingista.")).toBeVisible();
   await expect(list.getByRole("listitem")).toHaveText(["Käyttötili · •••• 0785", "Nordea Gold · •••• 1144"]);
   await expect(list).toContainText("Lisää ne Control Panelissa (API applications > Omatalous > Link accounts). Paina sen jälkeen Hae nyt.");
   await expect(list.getByRole("link", { name: "Avaa Control Panel" })).toHaveAttribute("href", "https://enablebanking.com/cp/applications");
@@ -171,7 +171,7 @@ test("the list is one line for one account, and not there when every account is 
   const connections = [consent("n1", "Nordea", 180, "2027-04-06T00:00:00Z")];
   const one = await open(browser, () => ({ connections, accounts: [account("Käyttötili", "n1", { iban: IBANS.chk, problem: notLinked }), account("Säästötili", "n1", { iban: IBANS.sav })] }));
   await one.page.goto("/#/settings");
-  await expect(card(one.page).getByText("Yhtä tiliä ei ole lisätty Enable Bankingissa.")).toBeVisible();
+  await expect(card(one.page).getByText("Yksi tili puuttuu Enable Bankingista.")).toBeVisible();
   await expect(card(one.page).locator(".unlinked").getByRole("listitem")).toHaveText(["Käyttötili · •••• 0785"]);
   await expect(card(one.page).getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
   expect(one.seen.problems).toEqual([]);
@@ -231,12 +231,12 @@ test("a second press after the browser has left for the bank starts nothing more
   await page.goto("/#/settings");
   const renew = card(page).getByRole("button", { name: "Yhdistä uudelleen" });
   await renew.dblclick();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings?connected=1");
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks?connected=1");
   // the address is set: the buttons stay disabled for as long as this page is there, so a late press posts nothing
   await expect(renew).toBeDisabled();
   await expect(card(page).getByRole("button", { name: "Poista" })).toBeDisabled();
   await renew.click({ force: true });
-  await page.waitForTimeout(500);
+  await page.waitForLoadState("networkidle");
   expect(started).toHaveLength(1);
   expect(seen.problems).toEqual([]);
   await context.close();

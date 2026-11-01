@@ -9,13 +9,10 @@ import { median } from "../../stats.ts";
 import { formatEur } from "../format.ts";
 import { clearlyAbove } from "../signal.ts";
 import { earnedIncome, isCompleteMonth } from "../usual.ts";
-import { capitalise, lastCompleteMonths, monthSpan, purchasesWithoutOneOff } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
-
-/** Purchases must grow this many percentage points more than income. */
-const MIN_GAP = 0.05;
-/** Flat purchases are no news, whatever income did. */
-const MIN_GROWTH = 0.05;
+import { MIN_PURCHASE_GAP, MIN_PURCHASE_GROWTH } from "../../thresholds.ts";
+import { insightOf, lastCompleteMonths, purchasesWithoutOneOff, REPORT } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
 /** "+14 %", "−3 %", "±0 %" */
 function signedPercent(share: number): string {
@@ -23,13 +20,13 @@ function signedPercent(share: number): string {
   return p === 0 ? "±0 %" : `${p > 0 ? "+" : "−"}${Math.abs(p)} %`;
 }
 
-/** Purchases of the window without one-offs, month by month and in total, and its usual monthly income. */
+/** Purchases of the window without one-offs, month by month and in total, and its monthly income (the median, so a one-off income of a month does not move it). */
 function window(ctx: InsightArgs["ctx"], months: readonly string[]): { monthly: number[]; purchases: number; income: number } {
   const monthly = months.map((m) => purchasesWithoutOneOff(ctx, m));
   return { monthly, purchases: monthly.reduce((s, v) => s + v, 0), income: median(months.map((m) => earnedIncome(ctx, m))) };
 }
 
-export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
+export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents, lang }: InsightArgs): Insight[] {
   const twelve = lastCompleteMonths(ctx, end, 12);
   const long = twelve.length === 12 && isCompleteMonth(ctx, addMonths(twelve[0]!, -12));
   const now = long ? twelve : twelve.slice(-6);
@@ -43,28 +40,30 @@ export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents }: InsightAr
   // what purchases cost beyond keeping pace with income, over a year, and never more than they grew
   const extra = Math.min(a.purchases - b.purchases, a.purchases - b.purchases * (1 + incomeGrowth));
   const yearly = Math.round((extra * 12) / now.length);
-  if (purchasesGrowth < MIN_GROWTH || purchasesGrowth - incomeGrowth < MIN_GAP || yearly < 12 * gateMonthlyCents) return [];
+  if (purchasesGrowth < MIN_PURCHASE_GROWTH || purchasesGrowth - incomeGrowth < MIN_PURCHASE_GAP || yearly < 12 * gateMonthlyCents) return [];
   // purchases swing month to month: the months now must stand clear of that
   if (!clearlyAbove(a.monthly, b.monthly)) return [];
   const first = now[0]!;
   const last = now[now.length - 1]!;
   return [
-    {
+    insightOf({
+      lang,
       id: "spending-growth",
-      tone: "warning",
-      title: `Ostokset ${signedPercent(purchasesGrowth)} vuodessa, tulot ${signedPercent(incomeGrowth)}`,
-      detail: `${capitalise(monthSpan(first, last))} verrattuna samaan aikaan vuotta aiemmin, ilman laskuja, tilauksia ja kertaostoja; ero ${formatEur(yearly, false)} vuodessa.`,
-      yearlyCents: yearly,
+      fact: { type: "spending-growth", purchasesPercent: Math.round(purchasesGrowth * 100), first, last },
+      // purchases against income of the same months a year earlier: the pace the household should have kept
+      comparison: { label: "incomeChange", value: q.percent(Math.round(incomeGrowth * 100)) },
+      action: { label: "seeGrowth", target: { page: "reports", anchor: REPORT.years } },
+      yearlyCents: -yearly,
+      kind: "pattern",
       link: { from: `${first}-01`, to: monthEnd(last) },
       calc: [
-        { label: "Ostokset nyt", value: formatEur(a.purchases, false) },
-        { label: "Ostokset vuotta aiemmin", value: formatEur(b.purchases, false) },
-        { label: "Ostosten muutos", value: signedPercent(purchasesGrowth) },
-        { label: "Tavalliset tulot kuussa nyt", value: formatEur(a.income, false) },
-        { label: "Tavalliset tulot kuussa vuotta aiemmin", value: formatEur(b.income, false) },
-        { label: "Tulojen muutos", value: signedPercent(incomeGrowth) },
-        { label: "Ero vuodessa", value: formatEur(yearly, false) },
+        { label: messageIn(lang, "calc.purchases_now"), value: formatEur(a.purchases, false, lang) },
+        { label: messageIn(lang, "calc.purchases_year_ago"), value: formatEur(b.purchases, false, lang) },
+        { label: messageIn(lang, "calc.purchases_change"), value: signedPercent(purchasesGrowth) },
+        { label: messageIn(lang, "calc.income_median_now"), value: formatEur(a.income, false, lang) },
+        { label: messageIn(lang, "calc.income_median_year_ago"), value: formatEur(b.income, false, lang) },
+        { label: messageIn(lang, "calc.income_change"), value: signedPercent(incomeGrowth) },
       ],
-    },
+    }),
   ];
 }

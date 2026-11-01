@@ -7,6 +7,8 @@ import { SecretBox } from "../security/secretbox.ts";
 import { AAD, ACTIVE, PENDING } from "../connectors/enable-banking/app-setup.ts";
 import { EXTENSIONS, type ExtensionSealed } from "../extensions.ts";
 import type { Services } from "./context.ts";
+import { AAD as OFFSITE_AAD, KEY as OFFSITE_KEY } from "./offsite.ts";
+import { AAD as NOTICES_AAD, KEY as NOTICES_KEY } from "./outside-notices.ts";
 import { AAD as CLOUDFLARE_AAD, TOKEN_KEY as CLOUDFLARE_KEY } from "./remote-access-cloudflare.ts";
 
 export interface ResealResult {
@@ -24,7 +26,7 @@ async function collect(s: Services): Promise<Sealed[]> {
   const out: Sealed[] = [];
   for (const c of await s.users.allBankCredentials()) out.push({ kind: "user", userId: c.userId, sealed: c.privateKeyEnc });
   // each settings key with the context its value was sealed under
-  for (const [key, aad] of [[ACTIVE, AAD], [PENDING, AAD], [CLOUDFLARE_KEY, CLOUDFLARE_AAD]] as const) {
+  for (const [key, aad] of [[ACTIVE, AAD], [PENDING, AAD], [CLOUDFLARE_KEY, CLOUDFLARE_AAD], [NOTICES_KEY, NOTICES_AAD], [OFFSITE_KEY, OFFSITE_AAD]] as const) {
     const raw = await s.settings.get(key);
     if (!raw) continue;
     const json = JSON.parse(raw) as Record<string, unknown>;
@@ -55,16 +57,25 @@ export const triedAgainstToken = async (s: Services): Promise<boolean> => isToke
  */
 export const tokenStops = (how: string) => `The Cloudflare API token saved in Asetukset > Palvelin > Etäkäyttö ${how}. Remove it there and run the rotation again. Nothing was changed.`;
 
-/** True when the first sealed value opens with this secret (nothing sealed: true). */
+/**
+ * True when the first sealed value of each kind (bank key, second factor, each shared setting, each extension) opens
+ * with this secret (nothing sealed: true). One value alone would pass a database that holds values of two secrets.
+ */
 export async function databaseOpensWith(s: Services, secret: string): Promise<boolean> {
-  const first = (await collect(s))[0];
-  if (!first) return true;
-  try {
-    await (await SecretBox.fromSecret(secret)).open(first.sealed, contextOf(first));
-    return true;
-  } catch {
-    return false;
+  const heads = new Map<string, Sealed>();
+  for (const item of await collect(s)) {
+    const group = item.kind === "instance" ? `instance:${item.key}` : item.kind === "extension" ? `extension:${item.id}` : item.kind;
+    if (!heads.has(group)) heads.set(group, item);
   }
+  const box = await SecretBox.fromSecret(secret);
+  for (const item of heads.values()) {
+    try {
+      await box.open(item.sealed, contextOf(item));
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }
 
 export async function resealAll(s: Services, oldSecret: string, newSecret: string): Promise<ResealResult> {

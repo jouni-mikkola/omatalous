@@ -12,7 +12,7 @@
  * and a lost .next would leave keys sealed with a secret nobody has.
  */
 import { randomBytes } from "node:crypto";
-import { chmodSync, copyFileSync, existsSync, readFileSync, renameSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { dirname } from "node:path";
 import { fsyncDir, fsyncFile, writeNewFileDurable } from "../platform/durable.ts";
 import type { Services } from "../services/context.ts";
@@ -33,7 +33,8 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   const lines: string[] = [];
 
   let newSecret: string;
-  if (existsSync(next)) {
+  const resumed = existsSync(next);
+  if (resumed) {
     newSecret = readFileSync(next, "utf8").trim();
     if (!isAppSecret(newSecret)) throw new Error(`${next} is too short. Delete it and run the command again.`);
     lines.push("The previous run was interrupted, continuing from it.");
@@ -49,6 +50,8 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
   } else if (await databaseOpensWith(s, newSecret)) {
     lines.push("The keys are already sealed with the new secret.");
   } else {
+    // a refusal leaves no .next behind: it would keep the running app from sealing anything (secretFileDiffers)
+    if (!resumed) rmSync(next, { force: true });
     if (await triedAgainstToken(s)) throw new Error(tokenStops("opens with neither the old nor the new secret"));
     throw new Error("The keys in the database open with neither the old nor the new secret. Nothing was changed.");
   }
@@ -60,13 +63,14 @@ export async function rotateAppSecret(s: Services, opts: RotateOptions): Promise
 }
 
 /**
- * True when the secret file holds another secret than the one this process runs with: a rotation was made and the app
- * waits for its restart, so whatever it sealed now would be sealed with a key that is gone after it.
+ * True when the secret file holds another secret than the one this process runs with, or a rotation is under way
+ * (<file>.next exists): the app waits for its restart, so whatever it sealed now would be sealed with a key that is
+ * gone after it, or lost to the re-seal that has already read the database.
  */
 export function secretFileDiffers(file: string | null, running: string | null | undefined): boolean {
   if (!file || !running) return false;
   try {
-    return readFileSync(file, "utf8").trim() !== running;
+    return existsSync(`${file}.next`) || readFileSync(file, "utf8").trim() !== running;
   } catch {
     return false;
   }

@@ -394,7 +394,7 @@ describe("the block Asuminen beside a loan typed in and paid from a joint accoun
     }
     await save(aino, { ...mortgage, lender: "ESIMERKKIPANKKI OYJ" });
     const month = async (member: Member, scope: "own" | "household" = "own") =>
-      ((await member.call("GET", `/api/dashboard?from=2026-09-01&to=2026-09-30&scope=${scope}`)).body.housing.loans as { monthlyCents: number | null }[]).reduce((sum, l) => sum + (l.monthlyCents ?? 0), 0);
+      ((await member.call("GET", `/api/reports?from=2026-09-01&to=2026-09-30&scope=${scope}&reports=housing`)).body.housing.loans as { monthlyCents: number | null }[]).reduce((sum, l) => sum + (l.monthlyCents ?? 0), 0);
     expect([await month(aino), await month(eero)]).toEqual([50_401, 33_600]);
     expect(await month(aino, "household")).toBe(84_001);
   });

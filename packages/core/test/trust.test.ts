@@ -32,7 +32,7 @@ describe("no average from a running month", () => {
     const stats = r.categories.groups.flatMap((g) => g.categories);
     expect(stats.length).toBeGreaterThan(0);
     for (const s of stats) {
-      expect([s.monthlyAvgCents, s.medianMonthCents, s.minMonthCents, s.maxMonthCents]).toEqual([null, null, null, null]);
+      expect([s.monthlyAvgCents, s.minMonthCents, s.maxMonthCents]).toEqual([null, null, null]);
     }
     expect(r.pivot.rows.every((row) => row.averageCents === null)).toBe(true);
     expect(r.pivot.averageCents).toBeNull();
@@ -47,7 +47,7 @@ describe("no average from a running month", () => {
   it("a range with one complete month averages that month only", () => {
     const r = reports(dataset(), { from: "2026-09-01", to: today });
     const housing = r.categories.groups.flatMap((g) => g.categories).find((c) => c.category === "housing")!;
-    expect(housing).toMatchObject({ monthlyAvgCents: 105000, medianMonthCents: 105000, minMonthCents: 105000, maxMonthCents: 105000 });
+    expect(housing).toMatchObject({ monthlyAvgCents: 105000, minMonthCents: 105000, maxMonthCents: 105000 });
     expect(r.pivot.rows.find((row) => row.category === "housing")!.averageCents).toBe(105000);
   });
 
@@ -210,7 +210,7 @@ describe("data quality: savings out of sight, missing balances, quiet cards", ()
       expect(expected).toBe(3 * 20000 + 3 * 5000);
       const signal = find(found, "own_unconnected")!;
       expect(signal.cents).toBe(expected);
-      expect(signal.title).toMatch(/^Säästöön meni .+ tilille, jota ei ole yhdistetty$/);
+      expect(signal.title).toMatch(/^Siirsit säästöön .+ tilille, jota et ole vielä yhdistänyt$/);
       // the largest payee first
       expect(signal.detail.indexOf("Nordnet")).toBeGreaterThan(-1);
       expect(signal.detail.indexOf("Nordnet")).toBeLessThan(signal.detail.indexOf("Elo"));

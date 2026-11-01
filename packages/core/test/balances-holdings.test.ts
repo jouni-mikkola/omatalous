@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildHousing } from "../src/housing.ts";
 import { buildHoldings, cardLimitCents } from "../src/holdings.ts";
 import { loanBalanceOn } from "../src/loans.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
@@ -32,7 +33,7 @@ function household(balances: BalanceInput[], loans: Loan[] = [], txs: Transactio
   const ctx = createContext(txs, accounts, on);
   const inputs = inputsOf(loans);
   const report = balanceReport(ctx, { ...range, to: on }, balances, inputs);
-  return { ctx, report, holdings: report.holdings, dashboard: buildDashboard(ctx, { ...range, to: on }, balances, inputs) };
+  return { ctx, report, holdings: report.holdings, housing: buildHousing(ctx, balances, inputs), dashboard: buildDashboard(ctx, { ...range, to: on }, balances, inputs) };
 }
 
 const owed = (h: ReturnType<typeof buildHoldings>) => h.cards.reduce((s, c) => s + (c.usedCents ?? 0), 0) + h.loans.reduce((s, l) => s + (l.leftCents ?? 0), 0);
@@ -114,18 +115,18 @@ describe("holdings of the balance report", () => {
   });
 
   it("a loan account with no saved loan is one loan in the holdings, the dashboard's holdings and the housing block, as the bank tells it", () => {
-    const { holdings, report, dashboard } = household([input("loan-acc", "Asuntolaina", "loan", -14_912_345)]);
+    const { holdings, report, dashboard, housing } = household([input("loan-acc", "Asuntolaina", "loan", -14_912_345)]);
     const row = { id: "account:loan-acc", name: "Asuntolaina", kind: "mortgage", source: "account", leftCents: 14_912_345, monthlyPaymentCents: null, maybeTwice: false };
     expect(holdings.loans).toMatchObject([row]);
     expect(dashboard.holdings.loans).toMatchObject([row]);
     expect(report.debt.cents).toBe(14_912_345);
     // the block of the home lists it with the figures it cannot know left empty
-    expect(dashboard.housing?.loans).toMatchObject([{ id: "account:loan-acc", name: "Asuntolaina", monthlyCents: null, rateBp: null, reference: null, marginBp: null, referenceBp: null }]);
-    expect(dashboard.housing?.partial).toBe(true);
+    expect(housing?.loans).toMatchObject([{ id: "account:loan-acc", name: "Asuntolaina", monthlyCents: null, rateBp: null, reference: null, marginBp: null, referenceBp: null }]);
+    expect(housing?.partial).toBe(true);
     // a name that does not say home loan stays out of the home block, in the loans
     const other = household([input("loan-acc", "Lainatili", "loan", -14_912_345)]);
     expect(other.holdings.loans).toMatchObject([{ kind: "other", leftCents: 14_912_345 }]);
-    expect(other.dashboard.housing?.loans ?? []).toEqual([]);
+    expect(other.housing?.loans ?? []).toEqual([]);
   });
 
   it("a saved loan linked to a card is that card's use, and the card is not a loan too", () => {

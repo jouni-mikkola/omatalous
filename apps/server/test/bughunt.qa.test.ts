@@ -5,10 +5,9 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { hourlyTick } from "../src/services/schedule.ts";
-import { seedCsv } from "./csv-seed.ts";
+import { longCsv, seedCsv } from "./csv-seed.ts";
 import { mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";
-import { bestOf } from "../../../tools/lib/timing.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const HEADER = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
@@ -37,14 +36,12 @@ describe("CSV rows of the test seed: the ingest", () => {
     expect((await admin.call("GET", "/api/transactions?from=2026-01-01&to=2026-12-31")).body.total).toBe(4);
   });
 
-  it("a long file imports in reasonable time", async () => {
-    const rows = Array.from({ length: 20000 }, (_, i) => ROW(new Date(Date.UTC(2024, 0, 1) + (i % 700) * 86400000).toISOString().slice(0, 10).replace(/-/g, "/"), `-${1 + (i % 400) / 10}`.replace(".", ","), `KAUPPA ${i % 200} ${i}`));
-    const content = file(...rows);
-    // each run into an instance of its own, made outside the clock; the best of two after a warm-up holds the budget
-    let app = await setupApp();
-    const { ms, result: r } = await bestOf(2, () => seedCsv(app.s, app.admin, { content, accountName: "Pitkä" }), async () => (app = await setupApp()));
+  // the time of this is in bughunt.perf.test.ts
+  it("a long file imports whole", async () => {
+    const { admin, s } = await setupApp();
+    const content = longCsv(20000);
+    const r = await seedCsv(s, admin, { content, accountName: "Pitkä" });
     expect(r.body.inserted).toBe(20000);
-    expect(ms).toBeLessThan(20_000);
   }, 120_000);
 });
 

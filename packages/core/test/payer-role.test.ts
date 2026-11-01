@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildQuestions } from "../src/analysis/questions.ts";
-import { earnedIncome, usualIncome } from "../src/analysis/usual.ts";
+import { expectedIncome } from "../src/analysis/expected.ts";
+import { earnedIncome } from "../src/analysis/usual.ts";
 import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
 import { applyPayerRoles, PAYER_ROLES, payerKeyOf, payerRoleOf } from "../src/payer-role.ts";
 import { type Account, type CategoryRule, NO_INPUTS, type PayerRole, type PayerRoleRow, type Transaction } from "../src/types.ts";
@@ -144,12 +145,12 @@ describe("a role in the run", () => {
 
   it("makes the payer's sums earned income and the usual income from the next month on (sales, not for Maija)", () => {
     const rows = [anchor(), ...villeRows()];
-    expect(usualIncome(ctxOf(settled(rows, [])), "2026-11")).toBe(0);
+    expect(expectedIncome(ctxOf(settled(rows, [])), "2026-11")).toBe(0);
     const matti = settled(rows, [member("1", VILLE, "sales")]);
-    expect(usualIncome(ctxOf(matti), "2026-11")).toBe(eur(300));
+    expect(expectedIncome(ctxOf(matti), "2026-11")).toBe(eur(300));
     // Maija's own copy of the rows is categorised on her run with her roles: nothing of Matti's reaches it
     const maija = settled(rows, [member("1", VILLE, "sales")], "2");
-    expect(usualIncome(ctxOf(maija), "2026-11")).toBe(0);
+    expect(expectedIncome(ctxOf(maija), "2026-11")).toBe(0);
   });
 
   it("keeps a benefit a benefit under pay, and turns a bonus of a pay payer into salary", () => {

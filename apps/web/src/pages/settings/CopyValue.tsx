@@ -1,23 +1,50 @@
 import { useState } from "react";
 import { copyText } from "../../clipboard.ts";
-
-/** A value to paste into Enable Banking, with a button that copies it. When copying fails the text stays selectable. */
-export function CopyValue({ value, label }: { value: string; label: string }) {
+import { Button } from "../../components/ui/Button.tsx";
+import { t } from "../../text.ts";
+/** Copies `text` and says so for two seconds. */
+function useCopy(text: string) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
-    if (await copyText(value)) {
+    if (await copyText(text)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
+  return { copied, copy };
+}
+
+/** A value to paste into Enable Banking, with a button that copies it. When copying fails the text stays selectable. */
+export function CopyValue({ value, label }: { value: string; label: string }) {
+  const { copied, copy } = useCopy(value);
   return (
     <>
       <code className="copyable" onClick={copy} title="Kopioi">
         {value}
       </code>{" "}
-      <button className="btn btn-small" type="button" aria-label={`${copied ? "Kopioitu" : "Kopioi"} ${label}`} onClick={copy}>
-        {copied ? "Kopioitu" : "Kopioi"}
-      </button>
+      <Button aria-label={`${copied ? t("set.cv.copied") : t("set.cv.copy")} ${label}`} onClick={copy}>
+        {copied ? t("set.cv.copied") : t("set.cv.copy")}
+      </Button>
     </>
+  );
+}
+
+/** A value of a list that one "Kopioi kaikki" button copies; a click on the value copies it alone, and the text stays selectable. */
+export function Copyable({ value }: { value: string }) {
+  const { copy } = useCopy(value);
+  return (
+    <code className="copyable" onClick={copy} title="Kopioi">
+      {value}
+    </code>
+  );
+}
+
+/** The one button of a list of values: copies one "label: value" line each. */
+export function CopyAll({ fields }: { fields: { label: string; value: string }[] }) {
+  const { copied, copy } = useCopy(fields.map((f) => `${f.label}: ${f.value}`).join("\n"));
+  return (
+    <Button onClick={copy}>
+      {copied ? t("set.cv.copied") : t("set.cv.copy_all")}
+    </Button>
   );
 }

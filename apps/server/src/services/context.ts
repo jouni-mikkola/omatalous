@@ -12,11 +12,14 @@ import { IndustryRepo } from "../db/industry-repo.ts";
 import { OpsRepo } from "../db/ops-repo.ts";
 import { SecurityRepo } from "../db/security-repo.ts";
 import { ServiceTokenRepo } from "../db/service-token-repo.ts";
+import { ViewOpensRepo } from "../db/view-opens-repo.ts";
 import { SettingsRepo } from "../db/settings-repo.ts";
 import type { Db } from "../db/types.ts";
 import { UsersRepo } from "../db/users-repo.ts";
 import type { User } from "../db/rows.ts";
+import { applyLimits, limiterShapes } from "./limiters.ts";
 import { Gate, LoginLimiter, RateLimiter, RememberedAddresses } from "../security/rate-limit.ts";
+import { HttpUserError } from "../platform/errors.ts";
 import { SecretBox } from "../security/secretbox.ts";
 import { ShortLived } from "../security/short-lived.ts";
 import { APP_VERSION } from "../version.ts";
@@ -81,6 +84,8 @@ export interface Services {
     readonly name: LoginLimiter;
     readonly remembered: RememberedAddresses;
   };
+  /** Failed Cloudflare Access checks per client address (security/cf-access.ts). */
+  readonly accessLimiter: RateLimiter;
   /** Wrong current passwords on password change, per user. */
   readonly passwordLimiter: RateLimiter;
   /** Second-factor secrets and recovery codes (services/second-factor.ts). */
@@ -89,6 +94,8 @@ export interface Services {
   readonly factorLimiter: { readonly user: RateLimiter; readonly name: RateLimiter };
   /** A secret made for an enrolment and not yet confirmed with a code, by user id; ten minutes. */
   readonly factorEnrolments: ShortLived<string>;
+  /** The challenge of a passkey ceremony in progress, by `add:` or `sign-in:` and the user id; five minutes, used once (services/passkeys.ts). */
+  readonly passkeyChallenges: ShortLived<string>;
   /**
    * A sign-in with the password right that waits for the second factor, by the hash of its cookie token to the user and the
    * password hash it was made with (a changed or reset password ends it); five minutes (auth/session.ts).
@@ -101,6 +108,8 @@ export interface Services {
   readonly security: SecurityRepo;
   /** Read-only keys for scripts and agents (services/service-tokens.ts). */
   readonly serviceTokens: ServiceTokenRepo;
+  /** The days views were opened, for the list of unopened views (services/view-opens.ts). */
+  readonly viewOpens: ViewOpensRepo;
   /** Unknown or ended service tokens per client address: 20 in 15 minutes, then 429 before any lookup. */
   readonly serviceTokenLimiter: RateLimiter;
   /** Maintenance requests for the host helper (services/ops.ts). */
@@ -133,11 +142,14 @@ export interface Services {
   secretStale(): boolean;
 }
 
+const ROTATED = "Palvelimen salausavain on vaihdettu. Käynnistä sovellus uudelleen ja yritä sitten uudelleen.";
+
 export function createServices(deps: AppDeps): Services {
   const now = deps.now ?? (() => new Date());
   let box: Promise<SecretBox | null> | undefined;
   const settings = new SettingsRepo(deps.db);
-  const instance = new InstanceStore(settings, deps.config.defaults);
+  const instance = new InstanceStore(settings, deps.config.defaults, deps.config.limits);
+  const shape = limiterShapes(instance.limits.values);
   const services: Services = {
     config: deps.config,
     build: deps.build ?? { version: APP_VERSION, id: APP_VERSION },
@@ -149,28 +161,31 @@ export function createServices(deps: AppDeps): Services {
     industry: new IndustryRepo(deps.db),
     instance,
     analysis: new AnalysisCache(),
-    // per 15 minutes: 50 failed logins per address, 10 per user name and address, 30 per user name from all
-    // addresses. Each keeps 10 000 keys and a spare of 1 000 for the 100 addresses remembered for 30 days.
+    // the limits and windows come from the schema (platform/limits.ts) and are set by applyLimits below. Each login
+    // limiter keeps 10 000 keys and a spare of 1 000 for the 100 addresses remembered for 30 days.
     loginLimiter: {
-      ip: new LoginLimiter(50, 15 * 60_000),
-      user: new LoginLimiter(10, 15 * 60_000),
-      name: new LoginLimiter(30, 15 * 60_000),
+      ip: new LoginLimiter(...shape.loginIp),
+      user: new LoginLimiter(...shape.loginUser),
+      name: new LoginLimiter(...shape.loginName),
       remembered: new RememberedAddresses(),
     },
-    passwordLimiter: new RateLimiter(5, 15 * 60_000),
+    accessLimiter: new RateLimiter(...shape.accessFailures),
+    passwordLimiter: new RateLimiter(...shape.passwordChange),
     factors: new FactorRepo(deps.db),
-    factorLimiter: { user: new RateLimiter(5, 15 * 60_000), name: new RateLimiter(15, 15 * 60_000) },
+    factorLimiter: { user: new RateLimiter(...shape.factorUser), name: new RateLimiter(...shape.factorName) },
     factorEnrolments: new ShortLived(10 * 60_000),
+    passkeyChallenges: new ShortLived(5 * 60_000),
     halfSessions: new ShortLived(HALF_SESSION_MS),
-    setupLimiter: new RateLimiter(10, 15 * 60_000),
-    hashGate: new Gate(4),
+    setupLimiter: new RateLimiter(...shape.setup),
+    hashGate: new Gate(instance.limits.get("hashSlots")),
     security: new SecurityRepo(deps.db),
     serviceTokens: new ServiceTokenRepo(deps.db),
-    serviceTokenLimiter: new RateLimiter(20, 15 * 60_000),
+    viewOpens: new ViewOpensRepo(deps.db),
+    serviceTokenLimiter: new RateLimiter(...shape.serviceToken),
     ops: new OpsRepo(deps.db),
-    opsLimiter: new RateLimiter(5, 15 * 60_000),
-    opsDownloadLimiter: new RateLimiter(5, 3600_000),
-    keyTestLimiter: new RateLimiter(8, 10 * 60_000),
+    opsLimiter: new RateLimiter(...shape.ops),
+    opsDownloadLimiter: new RateLimiter(...shape.opsDownload),
+    keyTestLimiter: new RateLimiter(...shape.keyTest),
     backupDir: deps.backupDir,
     fetch: deps.fetch,
     pause: deps.pause ?? ((ms) => new Promise((done) => setTimeout(done, ms))),
@@ -182,8 +197,13 @@ export function createServices(deps: AppDeps): Services {
     redirectMode: () => redirectModeOf(instance.current),
     finance: (userId) => new FinanceRepo(deps.db, userId),
     secretStale: deps.secretStale ?? (() => false),
-    secretBox: () => (box ??=deps.config.appSecret ? SecretBox.fromSecret(deps.config.appSecret) : Promise.resolve(null)),
+    secretBox: () => (box ??=deps.config.appSecret ? SecretBox.fromSecret(deps.config.appSecret, () => {
+          // a rotation waits for its restart: a value sealed now would be sealed with the key that is gone after it
+          if (services.secretStale()) throw new HttpUserError(ROTATED, 409);
+        }) : Promise.resolve(null)),
   };
+  // a changed limit reaches the limiters and the gate at once (services/limiters.ts)
+  instance.limits.onChange((values) => applyLimits(services, values));
   // card statements set aside or read again once the rows they depend on have changed
   afterReprocess(settings, (userId, held) => syncStatementState(services, userId, held));
   reprocessClock(settings, () => services.today());

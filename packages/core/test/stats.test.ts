@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { usualCents } from "../src/analysis/usual.ts";
+import { expectedLevel } from "../src/analysis/expected.ts";
 import { median } from "../src/stats.ts";
 
 describe("median", () => {
@@ -20,21 +20,21 @@ describe("median", () => {
   });
 });
 
-describe("usualCents", () => {
-  it("is the median in whole cents", () => {
-    expect(usualCents([100000, 120000, 90000])).toBe(100000);
-    expect(usualCents([100001, 100002, 100003, 100004])).toBe(100003);
-    expect(usualCents([-5000, -7000, -6000, -9001, -8000, -4000])).toBe(-6500);
+describe("expectedLevel", () => {
+  it("is the mean in whole cents", () => {
+    expect(expectedLevel([100000, 120000, 90000])).toBe(103333);
+    expect(expectedLevel([100001, 100002, 100003, 100004])).toBe(100003);
+    expect(expectedLevel([-5000, -7000, -6000, -9001, -8000, -4000])).toBe(-6500);
   });
 
   it("says nothing under three values, however steady they are", () => {
-    expect(usualCents([])).toBeNull();
-    expect(usualCents([50000])).toBeNull();
-    expect(usualCents([50000, 50000])).toBeNull();
-    expect(usualCents([50000, 50000, 50000])).toBe(50000);
+    expect(expectedLevel([])).toBeNull();
+    expect(expectedLevel([50000])).toBeNull();
+    expect(expectedLevel([50000, 50000])).toBeNull();
+    expect(expectedLevel([50000, 50000, 50000])).toBe(50000);
   });
 
-  it("is not moved by one extreme month", () => {
-    expect(usualCents([200000, 210000, 205000, 2000000, 195000, 190000])).toBe(202500);
+  it("is moved by one extreme month, which is why a one-off is left out before the mean (ADR 0021)", () => {
+    expect(expectedLevel([200000, 210000, 205000, 2000000, 195000, 190000])).toBe(500000);
   });
 });

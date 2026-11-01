@@ -25,7 +25,7 @@ describe("one share of uncategorised spending", () => {
     const ctx = ctxOf([groceries(800), out(100, "Kioski Oy")]);
     const u = unknownSpending(ctx, month);
     expect(u).toMatchObject({ otherCents: 10000, billCents: 0, spendingCents: 90000, otherShare: 100 / 900, share: 100 / 900 });
-    expect(signalOf(ctx)).toMatchObject({ cents: 10000, title: expect.stringMatching(/^88\s%\sviimeisen 12 valmiin kuukauden menoista on tunnistettu$/) });
+    expect(signalOf(ctx)).toMatchObject({ cents: 10000, title: expect.stringMatching(/^88\s%\sviimeisen 12 kuukauden menoista on luokiteltu$/) });
     expect(cashflowReport(ctx, month).unknownShare).toBe(u.share);
     const q = buildQuestions(ctx, month, NO_INPUTS);
     expect(q).toMatchObject({ share: 1 - u.share });
@@ -62,7 +62,7 @@ describe("one share of uncategorised spending", () => {
     // the share is of the twelve complete months: the statement's purchases of February are in its base, the bill is in neither side
     expect(u).toMatchObject({ billCents: 12850, otherCents: 5200, spendingCents: 12850 + 5200, share: 5200 / (5200 + 29150) });
     expect(u.otherShare).toBe(5200 / 18050);
-    expect(signalOf(ctx)).toMatchObject({ title: expect.stringMatching(/^84\s%\sviimeisen 12 valmiin kuukauden menoista on tunnistettu$/) });
+    expect(signalOf(ctx)).toMatchObject({ title: expect.stringMatching(/^84\s%\sviimeisen 12 kuukauden menoista on luokiteltu$/) });
     expect(cashflowReport(ctx, month).unknownShare).toBe(u.share);
     const q = buildQuestions(ctx, month, NO_INPUTS);
     expect(q.cardBills.reduce((sum, m) => sum + m.cents, 0)).toBe(12850);

@@ -1,13 +1,16 @@
 /** Tarkistettavat: the one queue of what the app cannot settle itself. Each item is answered through its own source's route. */
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
-import { reviewQueue } from "../services/review.ts";
+import { reviewCount, reviewQueue } from "../services/review.ts";
 
 export function reviewRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
   // the signed-in member's own questions: their rows, their marks, the accounts they linked
   app.get("/review", async (c) => c.json(await reviewQueue(s, c.get("user").id)));
+
+  // only the number, for the mark in the header of every page; the queue itself is read by Tarkistettavat alone
+  app.get("/review/count", async (c) => c.json(await reviewCount(s, c.get("user").id)));
 
   return app;
 }

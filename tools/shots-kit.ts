@@ -29,7 +29,6 @@ export default async (page, route) => {
     accounts: (await (await fetch("/api/meta")).json()).accounts.map((a) => ({ name: a.name, holder: a.holder, limit: a.creditLimitCents })),
     storage: Object.fromEntries(Object.entries(localStorage)),
     heading: document.querySelector("h1")?.textContent,
-    look: document.documentElement.getAttribute("data-look"),
   }));
   const meta = await page.evaluate(async () => (await (await fetch("/api/meta")).json()));
   const joint = meta.accounts.find((a) => a.name === "Yhteistili");

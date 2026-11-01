@@ -6,6 +6,8 @@
  */
 import { useId } from "react";
 import { money, percent } from "../../format.ts";
+import { css } from "../../css.ts";
+import { t } from "../../text.ts";
 
 /** The arc of a circle of radius 30 that three quarters of it make. */
 const THREE_QUARTERS = 141.37;
@@ -18,10 +20,10 @@ export function CreditArc({ usedCents, limitCents }: { usedCents: number | null;
   const length = THREE_QUARTERS * Math.min(share, 1);
   const rotate = "rotate(135 36 36)";
   return (
-    <svg className={share > 1 ? "credit-arc credit-arc-over" : "credit-arc"} viewBox="0 0 72 72" role="img" aria-label={`Käytetty luotto ${money(usedCents)}, luottoraja ${money(limitCents)}`}>
+    <svg className={share > 1 ? "credit-arc credit-arc-over" : "credit-arc"} viewBox="0 0 72 72" role="img" aria-label={t("holdings.card_arc", { used: money(usedCents), limit: money(limitCents) })}>
       <defs>
         <linearGradient id={gradient} x1="1" y1="0" x2="0" y2="0">
-          {SPECTRUM.map((token, i) => <stop key={token} offset={i / (SPECTRUM.length - 1)} style={{ stopColor: `var(${token})` }} />)}
+          {SPECTRUM.map((token, i) => <stop key={token} offset={i / (SPECTRUM.length - 1)} ref={css({ "stop-color": `var(${token})` })} />)}
         </linearGradient>
       </defs>
       <circle className="credit-arc-track" cx="36" cy="36" r="30" strokeDasharray={`${THREE_QUARTERS} 999`} transform={rotate} />

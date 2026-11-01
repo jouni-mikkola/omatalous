@@ -6,15 +6,18 @@ import { PayerAnswers } from "../components/PayerAnswers.tsx";
 import { Table } from "../components/table/Table.tsx";
 import { useApi } from "../hooks.ts";
 import { RULES_ANCHOR } from "../routes.ts";
+import { labelTable, t } from "../text.ts";
 import type { CategoryRule, Meta } from "../types.ts";
-
-const FIELD_LABEL: Record<CategoryRule["field"], string> = {
-  merchant: "Kauppias",
-  merchant_exact: "Kauppias (tarkka)",
-  description: "Viesti",
-  counterparty: "Saaja/maksaja",
-  any: "Kaikki kentät",
-};
+import { Button } from "../components/ui/Button.tsx";
+import { Notice } from "../components/ui/Notice.tsx";
+import { Empty } from "../components/ui/Empty.tsx";
+const FIELD_LABEL = labelTable<CategoryRule["field"]>({
+  merchant: () => t("rule.field_merchant"),
+  merchant_exact: () => t("rule.field_merchant_exact"),
+  description: () => t("rule.field_description"),
+  counterparty: () => t("rule.field_counterparty"),
+  any: () => t("rule.field_any"),
+});
 
 export function Rules({ meta }: { meta: Meta }) {
   const { data, error: loadError, reload } = useApi<{ rules: CategoryRule[] }>("/api/rules");
@@ -55,71 +58,71 @@ export function Rules({ meta }: { meta: Meta }) {
       <div className="card" id={RULES_ANCHOR}>
         <div className="card-head tb">
           <div className="card-name">
-            <h2>Säännöt</h2>
+            <h2>{t("rule.heading")}</h2>
           </div>
         </div>
         <form className="form-row rule-form" onSubmit={add}>
-          <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])} aria-label="Kenttä">
+          <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])} aria-label={t("rule.field")}>
             {Object.entries(FIELD_LABEL).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>
             ))}
           </select>
-          <input type="text" placeholder="esimerkiksi Lidl tai Lidl|Prisma" value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label="Hakusana" required />
-          <span className="muted">kategoriaan</span>
+          <input type="text" placeholder={t("rule.pattern_example")} value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label={t("rule.pattern")} required />
+          <span className="muted">{t("rule.to_category")}</span>
           <CategorySelect categories={meta.categories} value={category} onChange={setCategory} />
-          <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
-            Lisää
-          </button>
+          <Button variant="primary" type="submit" busy={busy}>
+            {t("rule.add")}
+          </Button>
         </form>
-        {(error ?? loadError) && <div className="error">{error ?? loadError}</div>}
+        {(error ?? loadError) && <Notice tone="error">{error ?? loadError}</Notice>}
         {data && data.rules.length > 0 && (
         <Table
-          caption="Omat säännöt"
+          caption={t("rule.own")}
           rows={data.rules}
           rowKey={(r) => String(r.id)}
           page={25}
           columns={[
-            { key: "field", label: "Kenttä", kind: "text", rowHead: true, cell: (r) => FIELD_LABEL[r.field] },
+            { key: "field", label: t("rule.field"), kind: "text", rowHead: true, cell: (r) => FIELD_LABEL[r.field] },
             {
               key: "pattern",
-              label: "Hakusana",
+              label: t("rule.pattern"),
               kind: "text",
               cell: (r) => (
                 <>
                   <code>{r.pattern}</code>
                   {/* older versions accepted regexes; only the simple ones still match */}
                   {!isUsablePattern(r.pattern) && (
-                    <span className="badge warn" title="Sääntö ei osu enää mihinkään. Poista se ja lisää tilalle sana tai kauppiaan nimi.">
-                      ei osumia
+                    <span className="badge warn" title={t("rule.no_match_title")}>
+                      {t("rule.no_match")}
                     </span>
                   )}
                 </>
               ),
             },
-            { key: "category", label: "Kategoria", kind: "text", cell: (r) => label(r.category) },
+            { key: "category", label: t("rule.category"), kind: "text", cell: (r) => label(r.category) },
             {
               key: "delete",
-              label: "Toiminnot",
+              label: t("rule.actions"),
               headHidden: true,
               kind: "count",
               cell: (r) => (
-                <button
-                  className="btn btn-small btn-danger"
+                <Button
+                  variant="link"
                   disabled={busy}
                   aria-busy={(busy && doing === `del-${r.id}`) || undefined}
-                  aria-label={`Poista sääntö: ${r.pattern}`}
+                  aria-label={t("rule.delete_label", { pattern: r.pattern })}
                   onClick={() => void run(() => api(`/api/rules/${r.id}`, { method: "DELETE" }), `del-${r.id}`)}
                 >
-                  Poista
-                </button>
+                  {t("rule.delete")}
+                </Button>
               ),
             },
           ]}
         />
         )}
-        {data && !data.rules.length && <div className="empty">Ei sääntöjä.</div>}
+        {data && !data.rules.length && <Empty>{t("rule.none")}</Empty>}
       </div>
       <PayerAnswers />
     </div>

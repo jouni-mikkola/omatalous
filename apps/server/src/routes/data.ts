@@ -110,11 +110,11 @@ export function dataRoutes(s: Services) {
     const kind = c.req.query("report") ?? "pivot";
     if (kind === "categories") {
       const rows = [
-        ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Ostoja", "Keskiostos €", "Keskimäärin kuussa €", "Tavallisesti kuussa €", "Pienin kuukausi €", "Suurin kuukausi €", "Edellinen jakso €", "Muutos 3 kuukaudessa %"],
+        ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Ostoja", "Keskiostos €", "Keskimäärin kuussa €", "Pienin kuukausi €", "Suurin kuukausi €", "Edellinen jakso €", "Muutos 3 kuukaudessa %"],
         ...reports.categories.groups.flatMap((g) =>
           g.categories.map((x) => [
             g.group, x.label, cents(x.totalCents), Math.round(x.share * 1000) / 10, x.count, cents(x.avgTxCents), centsOrEmpty(x.monthlyAvgCents),
-            centsOrEmpty(x.medianMonthCents), centsOrEmpty(x.minMonthCents), centsOrEmpty(x.maxMonthCents), cents(x.previousCents), x.trend === null ? null : Math.round(x.trend * 100),
+            centsOrEmpty(x.minMonthCents), centsOrEmpty(x.maxMonthCents), cents(x.previousCents), x.trend === null ? null : Math.round(x.trend * 100),
           ]),
         ),
       ];

@@ -1,9 +1,9 @@
 /**
- * Rules 1, 2, 3 and 5 of the repo rules: what core may use, where SQL lives, that every query on a user's data
+ * Rules 1, 2, 3, 5, 36 and 43 of the repo rules: what core may use, where SQL lives, that every query on a user's data
  * names the user, and who writes security events. Each is an invariant from CLAUDE.md that no compiler checks.
  */
 import { builtinModules } from "node:module";
-import ts from "typescript";
+import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, importsOf, lineIn, lineOf, literals, MIGHT_HOLD_SQL, parse, plainString, readText, repoFiles, SQL_START, sourceFiles, specifiersOf, walk } from "./lib.ts";
 
@@ -309,7 +309,8 @@ describe("repo rules: request bodies and marks", () => {
     // Services that check the body they are handed with strictObject themselves. An entry no call uses any more fails.
     const DELEGATES = new Map<string, string>([
       ["apps/server/src/routes/admin.ts s.instance.save", "services/instance.ts checks every field against FIELDS"],
-      ["apps/server/src/routes/admin.ts s.instance.setFeatures", "services/instance.ts checks the flags against FEATURE_IDS"],
+      ["apps/server/src/routes/admin.ts s.instance.limits.save", "services/limits.ts checks the fields against the schema of platform/limits.ts"],
+      ["apps/server/src/routes/admin.ts s.instance.setFeatures", "services/instance.ts checks the flags against the extensions' ids"],
       ["apps/server/src/routes/admin.ts activateBankApp", "app-setup.ts checks appId and privateKeyPem"],
       ["apps/server/src/routes/admin.ts checkAppId", "app-setup.ts checks appId and privateKeyPem"],
       ["apps/server/src/routes/ops.ts requestOp", "services/ops-validate.ts checks the action against the allowlist"],
@@ -372,6 +373,57 @@ describe("repo rules: request bodies and marks", () => {
       });
     }
     expectNoFindings("mark subjects and next dates in web", found, "call cancelledSubjects() or expectedCharges() from @banking/core, or look the mark up by its whole subject.");
+  });
+
+  it("rule 36: the web app asks nothing with the browser's own dialogs (ConfirmDialog is the one way to confirm)", () => {
+    const found: Finding[] = [];
+    for (const file of sourceFiles("apps/web/src/")) {
+      const sf = parse(file);
+      walk(sf, (n) => {
+        if (!ts.isCallExpression(n)) return;
+        const callee = n.expression;
+        const name = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && ["window", "globalThis"].includes(callee.expression.text) ? callee.name.text : "";
+        if (["confirm", "alert", "prompt"].includes(name)) found.push({ file, line: lineOf(sf, n), why: `${name}() is the browser's own dialog` });
+      });
+    }
+    expectNoFindings("browser dialogs in web", found, "use ConfirmDialog (components/ConfirmDialog.tsx): a title naming the thing, one sentence of consequence, the act verb and Peruuta; or offer Kumoa after the act.");
+  });
+
+  it("rule 43: the language is named once: no hand-written Finnish locale tag in the source, LOCALE of core locale.ts is the one", () => {
+    const found: Finding[] = [];
+    // the private modules may speak another service's protocol, whose locale tag is theirs and not the app's language
+    const OTHERS_PROTOCOL = `${SERVER_SRC}private/`;
+    for (const file of sourceFiles("apps/web/src/", "apps/server/src/", "packages/core/src/")) {
+      if (file === "packages/core/src/locale.ts" || file.startsWith(OTHERS_PROTOCOL)) continue;
+      const sf = parse(file);
+      walk(sf, (n) => {
+        if ((ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) && n.text === "fi-FI") found.push({ file, line: lineOf(sf, n), why: `"${n.text}" is the app's language written by hand` });
+      });
+    }
+    expectNoFindings("the app language written by hand", found, "import LOCALE from @banking/core (packages/core/src/locale.ts) and pass it to Intl, toLocaleString and the collators.");
+  });
+
+  it("rule 45: the web app has no style attribute: the policy has no 'unsafe-inline' (a class in a stylesheet, or css() of css.ts for a computed value)", () => {
+    const found: Finding[] = [];
+    for (const file of sourceFiles("apps/web/src/")) {
+      const sf = parse(file);
+      walk(sf, (n) => {
+        if (ts.isJsxAttribute(n) && ts.isIdentifier(n.name) && n.name.text === "style") found.push({ file, line: lineOf(sf, n), why: "a style attribute" });
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "setAttribute" && n.arguments[0] && ts.isStringLiteralLike(n.arguments[0]) && n.arguments[0].text.toLowerCase() === "style") {
+          found.push({ file, line: lineOf(sf, n), why: 'setAttribute("style") is a style attribute' });
+        }
+        if (ts.isJsxOpeningLikeElement(n) && n.tagName.getText(sf) === "style") found.push({ file, line: lineOf(sf, n), why: "a style element" });
+        if (ts.isCallExpression(n) && ts.isPropertyAccessExpression(n.expression) && n.expression.name.text === "createElement" && n.arguments[0] && ts.isStringLiteralLike(n.arguments[0]) && n.arguments[0].text.toLowerCase() === "style") {
+          found.push({ file, line: lineOf(sf, n), why: 'createElement("style") is a style element' });
+        }
+        if (ts.isPropertyAccessExpression(n) && ["innerHTML", "outerHTML"].includes(n.name.text)) found.push({ file, line: lineOf(sf, n), why: `${n.name.text} writes markup, which may carry a style attribute` });
+        if (ts.isJsxAttribute(n) && ts.isIdentifier(n.name) && n.name.text === "dangerouslySetInnerHTML") found.push({ file, line: lineOf(sf, n), why: "dangerouslySetInnerHTML writes markup, which may carry a style attribute" });
+        if ((ts.isStringLiteralLike(n) || ts.isTemplateExpression(n)) && /<[a-z][^>]*\sstyle\s*=/i.test(ts.isTemplateExpression(n) ? n.head.text : n.text)) found.push({ file, line: lineOf(sf, n), why: "markup with a style attribute" });
+      });
+    }
+    const page = "apps/web/index.html";
+    if (/\sstyle\s*=|<style[\s>]/i.test(readText(page))) found.push({ file: page, line: 1, why: "a style attribute or a style element in the page" });
+    expectNoFindings("style attributes in web", found, "give the element a class in the styles/ file of its page (tokens, no colour literals); a value computed at run time is set with ref={css({ width: ... })} (apps/web/src/css.ts), which goes through the CSSOM.");
   });
 });
 

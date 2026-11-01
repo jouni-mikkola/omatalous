@@ -6,7 +6,7 @@
 import { addMonths } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Transaction } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 import { on, rows } from "./food.ts";
 
 type Add = ReturnType<typeof rows>["add"];

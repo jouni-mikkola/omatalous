@@ -1,35 +1,37 @@
 /** The numbers a household may type in: the values given and the form that stores one (Tarkistettavat asks for the missing ones). */
-import { addMonthsToDate, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate } from "@banking/core";
+import { addMonthsToDate, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate, choiceLabel, inputLabel, inputUnit, localeOf } from "@banking/core";
 import { type FormEvent, useState } from "react";
 import { api, query } from "../../api.ts";
-import { date, eurosText, money, parseEuros, rateText } from "../../format.ts";
+import { date, eurosText, language, money, parseEuros, rateText } from "../../format.ts";
+import { t } from "../../text.ts";
 import type { Scope } from "../../types.ts";
 import { Section } from "../Section.tsx";
 import { type Changed, subjectName } from "./shared.tsx";
-
-const num = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 2 });
+import { Button } from "../ui/Button.tsx";
+const num = { format: (n: number) => new Intl.NumberFormat(localeOf(language()), { maximumFractionDigits: 2 }).format(n) };
 /** A margin is stored in hundredths of a percent: 125 is 1,25 %. */
-const percent = (bp: number) => `${num.format(bp / 100)} %`;
+const percent = (bp: number) => `${num.format(bp / 100)}${language() === "en" ? "%" : " %"}`;
 
 /** The label of an input, with the subscription it belongs to for a quote. */
 function labelOf(def: InputDef, subject: string | null): string {
-  return subject ? `${def.label}: ${subjectName(subject)}` : def.label;
+  const name = inputLabel(def, language());
+  return subject ? `${name}: ${subjectName(subject)}` : name;
 }
 
 /** A stored value as a person reads it ("12 000 km vuodessa", "Kerrostalo"). */
 export function valueText(def: InputDef, value: InputValue): string {
   switch (def.kind) {
     case "integer":
-      return `${num.format(value as number)} ${def.unit ?? ""}`.trim();
+      return `${num.format(value as number)} ${inputUnit(def, language()) ?? ""}`.trim();
     case "cents":
-      return `${money(value as number, false)} vuodessa`;
+      return t("opt.loan_a_year", { eur: money(value as number, false) });
     case "date":
       return date(value as string);
     case "choice":
-      return def.choices!.find((c) => c.id === value)?.label ?? String(value);
+      return def.choices!.some((c) => c.id === value) ? choiceLabel(def, String(value), language()) : String(value);
     case "loan_rate": {
       const rate = value as { marginBp: number; reference: string };
-      return `${percent(rate.marginBp)} ja ${def.choices!.find((c) => c.id === rate.reference)?.label ?? rate.reference}`;
+      return t("ow.in_and", { margin: percent(rate.marginBp), reference: def.choices!.some((c) => c.id === rate.reference) ? choiceLabel(def, rate.reference, language()) : rate.reference });
     }
   }
 }
@@ -105,7 +107,7 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
     setBusy(true);
     setError(null);
     send()
-      .then(() => onSaved?.("Tieto tallennettu."))
+      .then(() => onSaved?.(t("ow.in_saved")))
       .catch((err: Error) => setError(err.message))
       .finally(() => setBusy(false));
   };
@@ -117,10 +119,10 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
       case "choice":
         return (
           <select value={text} onChange={(e) => setText(e.target.value)}>
-            <option value="">Valitse</option>
+            <option value="">{t("ow.in_choose")}</option>
             {def.choices!.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.label}
+                {choiceLabel(def, c.id, language())}
               </option>
             ))}
           </select>
@@ -128,12 +130,12 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
       case "loan_rate":
         return (
           <>
-            <input type="text" inputMode="decimal" size={6} value={text} onChange={(e) => setText(e.target.value)} aria-label="Marginaali prosentteina" aria-invalid={error ? true : undefined} />
+            <input type="text" inputMode="decimal" size={6} value={text} onChange={(e) => setText(e.target.value)} aria-label={t("ow.in_margin_aria")} aria-invalid={error ? true : undefined} />
             <span className="muted">%</span>
-            <select value={reference} onChange={(e) => setReference(e.target.value)} aria-label="Viitekorko">
+            <select value={reference} onChange={(e) => setReference(e.target.value)} aria-label={t("ow.in_ref_aria")}>
               {def.choices!.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.label}
+                  {choiceLabel(def, c.id, language())}
                 </option>
               ))}
             </select>
@@ -143,7 +145,7 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
         return (
           <>
             <input type="text" inputMode={def.kind === "cents" ? "decimal" : "numeric"} size={9} value={text} onChange={(e) => setText(e.target.value)} aria-invalid={error ? true : undefined} />
-            {def.unit && <span className="muted">{def.unit}</span>}
+            {def.unit && <span className="muted">{inputUnit(def, language())}</span>}
           </>
         );
     }
@@ -165,13 +167,13 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
       )}
       <div className="form-row">
         {/* an empty field has nothing to save: the server refuses it, so the button waits for a value */}
-        <button className="btn btn-small btn-primary" type="submit" disabled={busy || waiting || !text.trim()} aria-busy={busy || waiting || undefined}>
-          Tallenna
-        </button>
+        <Button variant="primary" type="submit" disabled={busy || waiting || !text.trim()} aria-busy={busy || waiting || undefined}>
+          {t("ow.fa_save")}
+        </Button>
         {onCancel && (
-          <button className="btn btn-small" type="button" onClick={onCancel}>
-            Peruuta
-          </button>
+          <Button onClick={onCancel}>
+            {t("ow.cancel")}
+          </Button>
         )}
       </div>
       {error && (
@@ -195,7 +197,7 @@ function GivenRow({ row, today, scope, onChanged }: { row: InputRow; today: IsoD
     setBusy(true);
     setError(null);
     api(`/api/optimise/inputs/${encodeURIComponent(row.key)}${query({ scope })}`, { method: "DELETE" })
-      .then(() => onChanged("Tieto poistettu."))
+      .then(() => onChanged(t("ow.in_removed")))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
@@ -204,7 +206,7 @@ function GivenRow({ row, today, scope, onChanged }: { row: InputRow; today: IsoD
       <div className="needed-text">
         <strong>{label}</strong>
         <span>
-          {valueText(found.def, row.value)} <span className="small muted">annettu {date(row.asOf)}</span>
+          {valueText(found.def, row.value)} <span className="small muted">{t("ow.in_given", { date: date(row.asOf) })}</span>
         </span>
         {error && <span className="field-error error" role="alert">{error}</span>}
       </div>
@@ -212,12 +214,12 @@ function GivenRow({ row, today, scope, onChanged }: { row: InputRow; today: IsoD
         <InputForm inputKey={row.key} current={row.value} today={today} scope={scope} onSaved={(m) => { setEditing(false); onChanged(m); }} onCancel={() => setEditing(false)} quiet />
       ) : (
         <div className="form-row">
-          <button className="btn btn-small" type="button" aria-label={`Muuta: ${label}`} onClick={() => setEditing(true)}>
-            Muuta
-          </button>
-          <button className="btn btn-small" type="button" aria-label={`Poista: ${label}`} disabled={busy} aria-busy={busy || undefined} onClick={remove}>
-            Poista
-          </button>
+          <Button variant="link" aria-label={t("ow.in_change_aria", { label })} onClick={() => setEditing(true)}>
+            {t("ow.in_change")}
+          </Button>
+          <Button variant="link" aria-label={t("ow.in_remove_aria", { label })} busy={busy} onClick={remove}>
+            {t("ow.in_remove")}
+          </Button>
         </div>
       )}
     </li>
@@ -229,7 +231,7 @@ export function InputsCard({ given, today, scope, onChanged }: { given: readonly
   const kept = given.filter((g) => inputDefOf(g.key));
   if (!kept.length) return null;
   return (
-    <Section id="tiedot" title="Annetut tiedot">
+    <Section id="tiedot" title={t("ow.in_title")}>
       <ul className="needed-list">
         {kept.map((g) => (
           <GivenRow key={g.key} row={g} today={today} scope={scope} onChanged={onChanged} />

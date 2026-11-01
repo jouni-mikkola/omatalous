@@ -27,6 +27,17 @@ one way was never read the other way.
   wording-loan-pages.ts, wording-lenders.ts, wording-car.ts, industry.ts or merchant.ts. The income view's benefit words
   and the alert's cloud brands are its baseline, which only shrinks.
 
+## Update (word lists as JSON)
+
+The lists that were string constants moved out of the TypeScript files into `packages/core/src/wordlists.json`: the
+alternations of the `*_WORDS` constants (each with an `about` line), the gambling lists with their sources, the company
+forms and the gambling merchant codes. `wordlists.schema.json` is the schema and `wordlists.ts` the one typed door,
+a static JSON import that runs on Node and in the browser, so core still reads no file. The constants keep their names
+and values (`alternation("REFUND_WORDS")` joins the alternatives with `|`), the predicates and the matching stay in
+`wording.ts` and its siblings, and the classification golden files did not change. `packages/core/test/wordlists.test.ts`
+fails on an empty, duplicate, unreadable or undescribed list. Repo rule 21 now points a new word list to the JSON file.
+The JSON is imported with `with { type: "json" }`, which Node needs (the findings tool runs core on plain Node). Lists written inside a predicate with `words(...)`, composed lists (`PAYMENT_METHOD_WORDS`, the dealer lists of `wording-car.ts`) and regexes with lookarounds are still in the TypeScript files; moving them is a follow-up.
+
 ## Consequences
 
 A new seller, lender or payment word is one line in one file, and every view reads it. More rows are recognised where

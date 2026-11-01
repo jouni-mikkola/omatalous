@@ -2,14 +2,16 @@
 
 insights · demo · new:out:card:OpenAI
   Uusi toistuva maksu: OpenAI 23 € kuussa
-  = 276.00 € a year
-  | Ensimmäinen veloitus 5.8.2026, 3 veloitusta tähän mennessä.
+  = -276.00 € a year
+  | Ensimmäinen veloitus 5.8.2026, 3 veloitusta tähän mennessä. Mieti, jatkatko tilausta.
   | tone info
+  | pattern decideSubscription
   rows 3
 
 insights · demo · price-rises
-  Kaksi toistuvaa maksua kallistui, yhteensä 168 € enemmän vuodessa
-  = 168.00 € a year
-  | Adobe ja Netflix, 12 kuukauden ajalta 10.10.2025 alkaen.
+  Kaksi maksuasi kallistui
+  = -168.00 € a year
+  | Vuosi sitten maksoit näistä yhteensä 948 € vuodessa: Adobe ja Netflix. Tarkista, oletko hyväksynyt korotuksen.
   | tone warning
+  | pattern checkPrice
   rows 4

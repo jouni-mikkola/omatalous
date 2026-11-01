@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, RunningPool, Waterfall, FeatureState, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { Language, AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, RunningPool, FeatureState, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, RecurringSeries, ReportsData };
 /** What `GET /api/dashboard` sends, with the verdicts and the joint pools the server adds. */
@@ -11,6 +11,7 @@ export interface User {
   displayName: string;
   role: "admin" | "member";
   mustChangePassword: boolean;
+  language: Language;
   /** Only in the member list of an admin. */
   hasFactor?: boolean;
   createdAt: string;
@@ -50,8 +51,8 @@ export interface Account {
   lastSyncedAt: string | null;
   /** What the last fetch of the user's own account ran into; a shared account has none. */
   problem?: { kind: "not_linked" | "failed"; message: string } | null;
-  /** The rows of the last fetch of the user's own account the app could not read, by reason; null when it read every row. */
-  refused?: Partial<Record<"status" | "amount" | "date", number>> | null;
+  /** The rows of the last fetch of the user's own account that are not among the stored ones, by reason (unreadable, or the same payment stored from another source); null when every row was stored. */
+  refused?: Partial<Record<"status" | "amount" | "date" | "twin", number>> | null;
   /** Who uses the account. /api/meta always tells it; a page reads a missing one as nothing to say. */
   use?: AccountUse;
   /** The viewer's part of it (their own accounts and those shared with them). */
@@ -137,16 +138,20 @@ export interface Meta {
   /** The month Yhteenveto opens on without a period in the address: the last one until the running month's pay has come (core `openingMonth`). */
   opening: "month" | "last-month";
   user: User;
-  categories: Category[];
+  categories: (Category & { groupName?: string })[];
   kinds: Record<string, string>;
   accounts: Account[];
   sharedAccounts: SharedAccount[];
+  /** Another member has linked accounts: the start page then offers no example data. */
+  householdHasAccounts: boolean;
   members: { id: string; displayName: string }[];
   shares: { accountId: string; userId: string }[];
   connections: Connection[];
   /** The consents to renew now and the round begun over them, else null (core `consent-round.ts`). */
   renewal: { due: RoundConsent[]; round: RoundView | null };
   lastSync: SyncRun | null;
+  /** The version of the data this user sees. The cache of answers (hooks.ts `useApi`) is dropped when it moves. */
+  dataVersion: string;
   bank: {
     /** A bank can be connected: an app is set up and the household's app is not known to be inactive. */
     configured: boolean;
@@ -188,6 +193,7 @@ export interface InstanceSettings {
   syncHours: number[];
   historyDays: number;
   industryLookup: boolean;
+  priceIndex: boolean;
   setupDone: boolean;
 }
 
@@ -235,8 +241,11 @@ export type LoanProposalRow = Pick<LoanProposal, "key" | "payee" | "paymentCents
 /** own = my accounts; household = mine + accounts shared with me. */
 export type Scope = "own" | "household";
 
-/** The month as a waterfall: each bar a signed change of the running total, the bars adding up to `leftCents` (Tulos). */
-export type WaterfallAnswer = Waterfall;
+/** What a hand-made category change took over, as the server returns it and `POST /api/transactions/:id/undo-category` takes it back. */
+export interface CategoryUndo {
+  category: string | null;
+  rule?: { field: "merchant" | "merchant_exact"; category: string; priority: number }[];
+}
 
 /** What each joint pool's members paid above (positive) or under (negative) their share, for the running month. */
 export type SettlementAnswer = RunningPool;

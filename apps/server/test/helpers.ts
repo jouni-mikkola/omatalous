@@ -1,7 +1,6 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterAll } from "vitest";
+import { tempDir } from "../../../tools/lib/tmp-kit.ts";
 import { type AppDeps, createApp } from "../src/app.ts";
 import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
@@ -13,16 +12,9 @@ import { openDatabase } from "../src/db/open.ts";
  * surviving a power loss, a full disk or a folder's permissions makes its folder in tmpdir() itself.
  */
 const SCRATCH = existsSync("/dev/shm") ? "/dev/shm" : tmpdir();
-const made: string[] = [];
-afterAll(() => {
-  for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
-
 /** A new empty folder in memory-backed storage; the file's last test removes it (memory is not cleaned by the system). */
 export function scratchDir(prefix: string): string {
-  const dir = mkdtempSync(join(SCRATCH, prefix));
-  made.push(dir);
-  return dir;
+  return tempDir(prefix, SCRATCH);
 }
 
 export const NOW = new Date("2026-10-09T10:00:00Z");
@@ -46,8 +38,9 @@ export interface Client {
 export async function setupApp(env: Record<string, string> = {}, fetchMock?: typeof fetch, deps: Partial<AppDeps> = {}) {
   const { db } = await openDatabase(":memory:");
   const config = loadConfig({
-    // fast hashing in tests; production uses 600 000 iterations
-    PASSWORD_ITERATIONS: "1000",
+    // fast hashing in tests; production uses 19 MiB and 2 passes
+    PASSWORD_MEMORY_KIB: "8",
+    PASSWORD_PASSES: "1",
     APP_SECRET: "test-secret-that-is-long-enough-0123456789",
     SETUP_CODE,
     APP_BASE_URL: "http://localhost:8080",
@@ -84,7 +77,7 @@ export async function setupApp(env: Record<string, string> = {}, fetchMock?: typ
     const created = await admin.call("POST", "/api/users", { username, displayName });
     const m = client();
     await m.call("POST", "/api/auth/login", { username, password: created.body.temporaryPassword });
-    await m.call("POST", "/api/auth/password", { current: created.body.temporaryPassword, next: `${username}-uusi-salasana` });
+    await m.call("POST", "/api/auth/first-password", { next: `${username}-uusi-salasana` });
     return Object.assign(m, { id: created.body.user.id as string });
   }
 

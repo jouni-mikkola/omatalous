@@ -1,3 +1,4 @@
+import { labelTable, t } from "../text.ts";
 import type { FiledWithoutAsking, PayerRole } from "@banking/core";
 
 /** The whole percent of the money that is classified, rounded down: 99,6 % is "99 %", never "100 %". */
@@ -12,33 +13,32 @@ const SMALLEST_PERCENT = 1;
 /** A share as the page says it: whole percent rounded down, "alle 1 %" for a share above 0 that rounds to nothing. */
 export function percentText(share: number): string {
   const percent = classifiedPercent(share);
-  return share > 0 && percent < SMALLEST_PERCENT ? `alle ${SMALLEST_PERCENT} %` : `${percent} %`;
+  return share > 0 && percent < SMALLEST_PERCENT ? t("rpt.qt_under", { n: SMALLEST_PERCENT }) : `${percent} %`;
 }
 
 /** The lines of Tietojen laatu about the spending filed without asking: none when nothing was spent; the sentences on the guess and on the user's answers only when above zero. */
 export function filedLines(filed: FiledWithoutAsking | null): string[] {
   if (!filed) return [];
   return [
-    `Viimeisen 12 kuukauden menoista ${percentText(filed.share)} on luokiteltu ilman kysymistä.`,
-    ...(filed.guessShare > 0 ? [`Näistä arvioita ${percentText(filed.guessShare)}.`] : []),
-    ...(filed.userShare > 0 ? [`Itse luokittelit ${percentText(filed.userShare)}.`] : []),
+    t("rpt.qt_filed", { share: percentText(filed.share), guess: filed.guessShare > 0 ? t("rpt.qt_guess", { share: percentText(filed.guessShare) }) : "" }),
+    ...(filed.userShare > 0 ? [t("rpt.qt_own", { share: percentText(filed.userShare) })] : []),
   ];
 }
 
 /** What money from a payer can be, in the page's words (core `PAYER_ROLES` in page order). */
-export const PAYER_ROLE_LABEL: Record<PayerRole, string> = {
-  cost_share: "Yhteisten menojen osuus",
-  sales: "Myynti",
-  own_money: "Omaa rahaa",
-  gift: "Lahja",
-  pay: "Palkka tai etuus",
-};
+export const PAYER_ROLE_LABEL = labelTable<PayerRole>({
+  cost_share: () => t("payers.role_cost_share"),
+  sales: () => t("payers.role_sales"),
+  own_money: () => t("payers.role_own_money"),
+  gift: () => t("payers.role_gift"),
+  pay: () => t("payers.role_pay"),
+});
 
 /** The same roles for MobilePay money that names no sender: shares of shared purchases, sales, other income. */
-export const WALLET_ROLE_LABEL: Partial<Record<PayerRole, string>> = {
-  cost_share: "Osuuksia yhteisistä ostoista",
-  sales: "Myyntituloja",
-  gift: "Muuta tuloa",
-};
+export const WALLET_ROLE_LABEL: Partial<Record<PayerRole, string>> = labelTable<"cost_share" | "sales" | "gift">({
+  cost_share: () => t("payers.wallet_cost_share"),
+  sales: () => t("payers.wallet_sales"),
+  gift: () => t("payers.wallet_gift"),
+});
 
 

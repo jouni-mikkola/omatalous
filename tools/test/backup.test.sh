@@ -38,6 +38,9 @@ case " $* " in
     exit 0 ;;
   *'statSync("/data/backup.db").size'*) echo 8192; exit 0 ;;
   *"cat /secrets/app_secret"*) printf 'SECRET-VALUE-XYZ'; exit 0 ;;
+  *createHash*) # with STUB/rotate the second look at the secret finds another one
+    n=$(($(cat "$STUB/looks" 2>/dev/null || echo 0) + 1)); echo "$n" >"$STUB/looks"
+    if [[ -e $STUB/rotate && $n -ge 2 ]]; then printf FP2; else printf FP1; fi; exit 0 ;;
 esac
 exit 0
 EOF
@@ -110,6 +113,8 @@ bk() {
   while (($#)) && [[ $1 != -- ]]; do envs+=("$1"); shift; done
   (($#)) && shift
   args=("$@")
+  # the prune keeps the three newest copies, so the prune tests set PAD: three fresh files that are those
+  if [[ -n ${PAD:-} ]]; then local p; for p in 1 2 3; do aged "talous-pad$p.db.gz" "$p hours ago"; done; fi
   (cd "$dir" && env -i PATH="$PATHX" HOME="$W/home" STUB="$S" "${envs[@]}" ./scripts/backup.sh "${args[@]}") >"$W/out" 2>&1
   RC=$?
 }
@@ -471,7 +476,21 @@ t_prune_newest_survives() {
   check "prune newest: a machine that was off for three weeks keeps its old copy until a run makes a new one" bash -c "$(declare -f kept); CL='$CL'; [[ $RC != 0 ]] && kept $OLD_GZ"
 }
 
-for t in plain env_file env_file_forms age_missing not_running copy copy_refused copy_links schedule schedule_messages schedule_other_lines schedule_refused cron_line_runs doctor_hint prune_default prune_setting prune_edge prune_forms prune_other_kinds prune_failed_run prune_newest_survives; do
+t_prune_three_newest() {
+  PAD="" new_world; mkdir -p "$CL/backups"
+  aged talous-o1.db.gz "40 days ago"; aged talous-o2.db.gz "41 days ago"; aged talous-o3.db.gz "42 days ago"
+  PAD="" bk
+  check "prune three newest: this run's copy and the two newest old ones stay at any age, the third old one goes" bash -c "$(declare -f kept gone); CL='$CL'; [[ $RC = 0 ]] && kept talous-o1.db.gz && kept talous-o2.db.gz && gone talous-o3.db.gz"
+}
+
+t_secret_rotated() {
+  new_world; envfile 'BACKUP_AGE_RECIPIENT=age1abc'; touch "$S/rotate"
+  bk
+  check "rotation during the backup: the run fails, says why and keeps no secret file" bash -c "[[ $RC != 0 ]] && grep -q 'app secret changed' '$W/out' && ! compgen -G '$CL/backups/talous-*.app_secret.age' >/dev/null && ! compgen -G '$CL/backups/talous-*.db.gz*' >/dev/null"
+}
+
+for t in plain env_file env_file_forms age_missing not_running copy copy_refused copy_links schedule schedule_messages schedule_other_lines schedule_refused cron_line_runs doctor_hint prune_default prune_setting prune_edge prune_forms prune_other_kinds prune_failed_run prune_newest_survives prune_three_newest secret_rotated; do
+  PAD=; [[ $t == prune_* ]] && PAD=1
   want "$t" && "t_$t"
 done
 

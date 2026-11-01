@@ -1,6 +1,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { messageFromWire } from "@banking/core";
 import { LINK_FAILURES } from "../src/connectors/link-state.ts";
 import { HOLDER, HOLDER_IBAN, mockBank } from "./mock-bank.ts";
 import { setupApp, waitFor } from "./helpers.ts";
@@ -148,9 +149,9 @@ describe("per-account errors", () => {
     await connect(admin, bank);
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     bank.answers["GET /accounts/u-card/balances"] = { status: 500, body: { code: 500, error: "ASPSP_ERROR", message: "Error interacting with ASPSP" } };
-    expect((await admin.call("POST", "/api/sync")).body.messages).toEqual(["Nordea Gold: pankki vastasi virheellä 500 (ASPSP_ERROR)."]);
+    expect((await admin.call("POST", "/api/sync")).body.messages).toEqual(["Nordea Gold: pankki ei vastannut oikein, yritä myöhemmin uudelleen."]);
     const card = (await meta(admin)).accounts.find((a: { name: string }) => a.name === "Nordea Gold");
-    expect(card.problem).toEqual({ kind: "failed", message: "pankki vastasi virheellä 500 (ASPSP_ERROR)." });
+    expect(card.problem).toEqual({ kind: "failed", message: "pankki ei vastannut oikein, yritä myöhemmin uudelleen." });
     errors.mockRestore();
   });
 });
@@ -231,7 +232,11 @@ describe("linking ends in one message (no retry loop)", () => {
 
   it("the web app shows the callback's reasons in the words a pasted address gets", () => {
     const web = readFileSync(new URL("../../web/src/pages/settings/BankConnections.tsx", import.meta.url), "utf8");
-    for (const [reason, text] of Object.entries(LINK_FAILURES)) expect(web, reason).toContain(`  ${reason}: ${JSON.stringify(text)},`);
+    for (const [reason, text] of Object.entries(LINK_FAILURES)) {
+      const code = new RegExp(`^  ${reason}: \\(\\) => t\\("([\\w.]+)"\\),$`, "m").exec(web)?.[1];
+      expect(code, reason).toBeDefined();
+      expect(messageFromWire(code, {}, "fi"), reason).toBe(text);
+    }
   });
 
   it("a 4xx from creating the session ends in one reason, with no connection and no fetch", async () => {

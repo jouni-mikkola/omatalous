@@ -16,7 +16,7 @@ describe("repo rules: glossary", () => {
     expect(rows.length, "the scan found the UI texts").toBeGreaterThan(1000);
     const found: Finding[] = [];
     for (const r of rows) {
-      for (const w of removedIn(r.text)) found.push({ file: r.file, line: r.line, why: `${w.name} (${w.fix}): ${r.text.replace(/\s+/g, " ").slice(0, 80)}` });
+      for (const w of removedIn(r.text, r.file)) found.push({ file: r.file, line: r.line, why: `${w.name} (${w.fix}): ${r.text.replace(/\s+/g, " ").slice(0, 80)}` });
     }
     expectNoFindings("removed glossary words", found, "write the term of the glossary in docs/UI_STYLE.md. A word is quoted only when it is another service's own (put it in double quotes).");
   }, 90_000);

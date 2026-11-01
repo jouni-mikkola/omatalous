@@ -16,18 +16,26 @@ const LISTED = 20;
 /** Per account that has rows in another currency: how many and the newest day. */
 export async function foreignDaysOf(s: Services, userId: string, accounts: readonly Held[]): Promise<ForeignDay[]> {
   const rows = await s.finance(userId).foreignRowsOf([...new Set(accounts.map(accountKey))]);
-  const byKey = new Map<string, { count: number; newestDay: string }>();
+  const byKey = new Map<string, Required<Pick<ForeignDay, "count" | "newestDay" | "rows">>>();
   for (const r of rows) {
+    const row = { day: r.bookingDate, currency: r.currency, amountMinor: r.amountMinor, scale: r.scale };
     const held = byKey.get(r.accountKey);
-    if (!held) byKey.set(r.accountKey, { count: 1, newestDay: r.bookingDate });
+    if (!held) byKey.set(r.accountKey, { count: 1, newestDay: r.bookingDate, rows: [row] });
     else {
       held.count++;
+      held.rows.push(row);
       if (r.bookingDate > held.newestDay) held.newestDay = r.bookingDate;
     }
   }
+  // two copies of one real account (a joint account linked by two members) carry the rows once, or a period's sum would double
+  const given = new Set<string>();
   return accounts.flatMap((a) => {
-    const held = byKey.get(accountKey(a));
-    return held ? [{ accountId: a.id, ...held }] : [];
+    const key = accountKey(a);
+    const held = byKey.get(key);
+    if (!held) return [];
+    const rows = given.has(key) ? [] : held.rows;
+    given.add(key);
+    return [{ accountId: a.id, count: held.count, newestDay: held.newestDay, rows }];
   });
 }
 

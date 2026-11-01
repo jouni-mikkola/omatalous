@@ -16,7 +16,8 @@
  */
 import { type CategoryKind, getCategory, isKnownCategory } from "./categories.ts";
 import { categoryForMcc } from "./categorize-mcc.ts";
-import { categoryByTradeWord, dealerCategory } from "./categorize.ts";
+import { categoryByTradeWord } from "./categorize.ts";
+import { dealerCategory } from "./wording-car.ts";
 import { daysBetween } from "./dates.ts";
 import { companyKey } from "./industry.ts";
 import { lexiconCategory } from "./lexicon.ts";

@@ -39,7 +39,7 @@ interface ItemRow {
 const ROWS = 24;
 
 /**
- * A payee of Muut menot or Muut tulot: a category for it (POST /api/rules) or "Älä kysy enää" (mark `question:payee:`).
+ * A payee of Muut menot or Muut tulot: a category for it (POST /api/rules) or "Älä kysy tästä enää" (mark `question:payee:`).
  * `picks` are the categories offered first: the guess when there is one (`payeeGuesser`, core payee-guess.ts), then the
  * categories the household uses most on that side, which are no guess about the payee.
  */
@@ -50,7 +50,7 @@ type PayerItem = Base & Omit<PayerAsked, "cents" | "offMedianCents" | "rowIds">;
 
 /**
  * A monthly payment to a lender nobody saved as a loan. Placed: the app knows what it is and asks to save it
- * (POST /api/loans). Not placed: "Mikä laina tämä on?" (mark `question:loan-kind:`). "Ei laina" either way.
+ * (POST /api/loans). Not placed: "Mikä laina tämä on?" (mark `question:loan-kind:`). "Ei ole laina" either way.
  */
 interface LoanItem extends Base {
   kind: "loan";
@@ -192,7 +192,7 @@ function usedMost(txs: readonly Pick<AnalysisTx, "bookingDate" | "status" | "isT
   return { out: top(counts.out), in: top(counts.in) };
 }
 
-// a plan is asked its end once; a loan is asked until it is saved or marked "Ei laina". Its rows are its series' own, at the
+// a plan is asked its end once; a loan is asked until it is saved or marked "Ei ole laina". Its rows are its series' own, at the
 // bank's whole charge as the payment is (a joint account counted at a part cuts them in the view)
 const loans: Source = async (s, userId) => {
   const { ctx } = await s.analysis.get(s, userId, "own");
@@ -230,9 +230,9 @@ const subscriptions: Source = async (s, userId) => {
     .map((r) => ({ kind: "subscription", id: `subscription:${r.id}`, cents: r.yearlyCents, seriesId: r.id, subject: seriesMarkSubject(r), merchant: r.merchant, monthlyCents: r.monthlyCents, lastDate: r.lastDate, rowIds: r.transactionIds }));
 };
 
-// the numbers Säästövinkit waits for, while the module is on: the page itself asks nothing
+// the numbers Säästövinkit waits for: the page itself asks nothing
 const inputs: Source = async (s, userId) =>
-  s.instance.enabled("optimise") ? (await neededInputs(s, userId)).map((n) => ({ kind: "input", id: `input:${n.key}`, cents: n.cents, key: n.key, def: n.def, subject: n.subject, old: n.old })) : [];
+  (await neededInputs(s, userId)).map((n) => ({ kind: "input", id: `input:${n.key}`, cents: n.cents, key: n.key, def: n.def, subject: n.subject, old: n.old }));
 
 // no money rides on the answer, so the question comes last; a household with no rows yet is asked nothing
 const mortgage: Source = async (s, userId) => {
@@ -258,4 +258,9 @@ export async function reviewQueue(s: Services, userId: string): Promise<Review> 
     })
     .sort((a, b) => b.cents - a.cents || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { items };
+}
+
+/** How many questions are open: the length of the queue, which is what the header's mark and the page's title both say. */
+export async function reviewCount(s: Services, userId: string): Promise<{ count: number }> {
+  return { count: (await reviewQueue(s, userId)).items.length };
 }

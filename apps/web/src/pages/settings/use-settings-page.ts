@@ -1,5 +1,8 @@
-/** What the two pages of Asetukset share: the run of one action with its message, and the scroll to a card an address names. */
+/** What the targets of Asetukset share: the run of one action with its message, and the scroll to a card an address names. */
 import { useCallback, useEffect, useRef, useState } from "react";
+
+/** The longest the cards of a target stay hidden behind the loading placeholder. */
+const SHOW_AFTER_MS = 4000;
 
 export type Message = { tone: "good" | "warning"; text: string };
 
@@ -62,4 +65,30 @@ export function useReportLoaded(done: boolean, onLoaded?: (failed: boolean) => v
   useEffect(() => {
     if (done) onLoaded?.(failed);
   }, [done, failed, onLoaded]);
+}
+
+/**
+ * When the cards of a target are drawn. They stay mounted while they load their data (each reports in through the
+ * `partLoaded` it is given) but nothing of them is drawn until `expected` have, until the target's own reads (`ready`)
+ * are done, when one read failed (that card shows its own error, the others work), or after a few seconds at the
+ * latest, so that one card that never answers cannot keep the target on its placeholder. `shown` is also when an
+ * address that names a card may scroll to it.
+ */
+export function useCardsShown({ expected, ready = true, failed = false }: { expected: number; ready?: boolean; failed?: boolean }) {
+  const [loaded, countLoaded] = useLoadedCount();
+  const [cardFailed, setCardFailed] = useState(false);
+  const partLoaded = useCallback(
+    (didFail?: boolean) => {
+      countLoaded();
+      if (didFail) setCardFailed(true);
+    },
+    [countLoaded],
+  );
+  const [waited, setWaited] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setWaited(true), SHOW_AFTER_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+  const shown = (ready && loaded >= expected) || cardFailed || failed || waited;
+  return { shown, partLoaded };
 }

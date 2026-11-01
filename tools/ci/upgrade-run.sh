@@ -138,6 +138,35 @@ run_update() {
   return "$rc"
 }
 said() { grep -qi -- "$1" "$WORK/update.log"; }
+# The time budget of an update is the line "Update budget: N s" in docs/RELEASING.md; UPGRADE_BUDGET=N overrides it (to
+# see the run fail). budget_check WHAT SECONDS fails the run when an update took longer than that.
+budget() {
+  local b=${UPGRADE_BUDGET:-$(sed -n 's/^Update budget: \([0-9][0-9]*\) s\b.*/\1/p' "$SRC/docs/RELEASING.md" 2>/dev/null | head -1)}
+  [[ $b =~ ^[0-9]+$ ]] || fail "docs/RELEASING.md has no line 'Update budget: N s'"
+  echo "$b"
+}
+budget_check() {
+  local b
+  b=$(budget) || exit 1
+  phase "$1 total" "$2" "budget $b s"
+  (($2 <= b)) || fail "$1 took $2 s, over the budget of $b s (docs/RELEASING.md, Update budget)"
+}
+# steps_check WALL: the steps this checkout's update.sh tells (its "Update took N s (step n s, ...)" line) become one phase
+# line each, and their total is held to the budget. A script that tells none fails: the steps are part of the budget.
+steps_check() {
+  local line total
+  line=$(grep -a '^Update took ' "$WORK/update.log" | tail -1) || fail "update.sh told no steps (no 'Update took' line in its output)"
+  total=$(sed -n 's/^Update took \([0-9][0-9]*\) s (.*/\1/p' <<<"$line")
+  [[ -n $total && $line == *"("*")" ]] || fail "update.sh told its steps in a form this check cannot read: $line"
+  local steps=${line#*\(} step
+  steps=${steps%\)}
+  while IFS= read -r step; do
+    [[ $step =~ ^(.+)\ ([0-9]+)\ s$ ]] || fail "a step with no seconds in: $line"
+    phase "step ${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+  done < <(sed 's/, /\n/g' <<<"$steps")
+  # the wall time of the whole script ($1) is held to the budget too, so that work after the told steps cannot hide
+  budget_check "update.sh on the next release" "$(($1 > total ? $1 : total))"
+}
 
 [[ -z ${UPGRADE_UNTIL:-} || $UPGRADE_UNTIL == update ]] || fail "UPGRADE_UNTIL knows only 'update' (it is '$UPGRADE_UNTIL')"
 
@@ -214,6 +243,7 @@ else
   echo "phase new image: not measured (the image was made before the update began)"
   phase update
 fi
+budget_check "update from $B" "$TOOK"
 NEW_VERSION=$(app_version)
 [[ $NEW_VERSION == "$(head_version)" ]] || fail "version is $NEW_VERSION, expected $(head_version)"
 expect_equal "the data" "$GOLD0" "$(golden)"
@@ -292,8 +322,11 @@ HEAD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
 push_release "ci: next release" '
   sed -i "s/^export const APP_VERSION = .*/export const APP_VERSION = \"9999.0.0\";/" apps/server/src/version.ts
   echo "ALTER TABLE accounts ADD COLUMN ci_note TEXT;" >apps/server/migrations/9999_ci_next.sql'
+NEXT0=$SECONDS
 run_update --yes >/dev/null
+NEXT_TOOK=$((SECONDS - NEXT0))
 said 'Updated\|Päivitetty' || fail "update to the next release failed"
+steps_check "$NEXT_TOOK"
 wait_up
 [[ $(app_version) == 9999.0.0 ]] || fail "next release is not running"
 expect_equal "the data after the next release" "$GOLD_HEAD" "$(golden)"

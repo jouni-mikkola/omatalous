@@ -78,8 +78,6 @@ apps/server/src/security/cf-access.ts  AccessKeys
 apps/server/src/security/cf-access.ts  AccessRefusal
 apps/server/src/security/cf-access.ts  AccessResult
 apps/server/src/security/cf-access.ts  AccessVerifier
-apps/server/src/security/password.ts  DEFAULT_ITERATIONS
-apps/server/src/security/password.ts  MIN_PASSWORD_LENGTH
 apps/server/src/security/private-key.ts  MAX_PEM_BYTES
 apps/server/src/security/rate-limit.ts  Attempt
 apps/server/src/security/x509.ts  GeneratedKey
@@ -101,7 +99,6 @@ apps/server/src/services/enrich.ts  reprocessDetailed
 apps/server/src/services/health.ts  Health
 apps/server/src/services/industry.ts  askRegister
 apps/server/src/services/industry.ts  lookupIndustries
-apps/server/src/services/ingest.ts  IngestResult
 apps/server/src/services/ingest.ts  sameParty
 apps/server/src/services/instance.ts  parseFeatureOverrides
 apps/server/src/services/instance.ts  parseSettingsUpdate
@@ -120,7 +117,6 @@ apps/server/src/services/ops.ts  ACTION_LABEL
 apps/server/src/services/ops.ts  ENABLE_COMMAND
 apps/server/src/services/ops.ts  PolledRequest
 apps/server/src/services/ops.ts  helperInfo
-apps/server/src/services/ops.ts  listAppBackups
 apps/server/src/services/rules.ts  checkRuleRoom
 apps/server/src/services/rules.ts  replacesWordRule
 apps/server/src/services/schedule.ts  TickResult
@@ -135,8 +131,6 @@ packages/core/src/analysis/ahead.ts  AheadBalance
 packages/core/src/analysis/ahead.ts  AheadRow
 packages/core/src/analysis/alerts.ts  AlertKind
 packages/core/src/analysis/alerts.ts  HabitItem
-packages/core/src/analysis/alerts.ts  OverlapGroup
-packages/core/src/analysis/alerts.ts  ServiceType
 packages/core/src/analysis/change-signal.ts  CHANGE_T
 packages/core/src/analysis/change-signal.ts  MonthSeries
 packages/core/src/analysis/change-split.ts  MIN_PRICE_VISITS
@@ -145,14 +139,12 @@ packages/core/src/analysis/change.ts  ChangePiece
 packages/core/src/analysis/change.ts  ContextIndex
 packages/core/src/analysis/change.ts  MonthRises
 packages/core/src/analysis/change.ts  contextIndex
-packages/core/src/analysis/change.ts  restLabel
 packages/core/src/analysis/credit.ts  CardCost
 packages/core/src/analysis/credit.ts  CardCosts
 packages/core/src/analysis/data-quality.ts  DataQualityReport
 packages/core/src/analysis/data-quality.ts  QualityTone
 packages/core/src/analysis/flows.ts  FlowInput
 packages/core/src/analysis/forecast.ts  ExpectedBillRow
-packages/core/src/analysis/income-changes.ts  IncomeInsight
 packages/core/src/analysis/income.ts  IncomeRow
 packages/core/src/analysis/income.ts  IncomeTypeDef
 packages/core/src/analysis/insights/borrowing.ts  DebtShare
@@ -163,10 +155,8 @@ packages/core/src/analysis/insights/shared.ts  MonthRows
 packages/core/src/analysis/insights/spending.ts  spendingInsights
 packages/core/src/analysis/insights/stopped.ts  newPayeeIn
 packages/core/src/analysis/insights/types.ts  InsightLink
-packages/core/src/analysis/insights/types.ts  InsightTone
 packages/core/src/analysis/one-offs.ts  OneOffPolicy
 packages/core/src/analysis/themes-report.ts  ThemeWindow
-packages/core/src/analysis/usual.ts  GATE_SHARE
 packages/core/src/categorize.ts  CategorizeResult
 packages/core/src/categorize.ts  compilePattern
 packages/core/src/commitments.ts  MERCHANT_MONTHS
@@ -219,9 +209,7 @@ packages/core/src/pay-day.ts  toBankingDay
 packages/core/src/pipeline.ts  IslandInput
 packages/core/src/pipeline.ts  IslandResult
 packages/core/src/reports/balances.ts  BalanceSeries
-packages/core/src/reports/buffer.ts  BufferReport
 packages/core/src/reports/cashflow.ts  CashflowRow
-packages/core/src/reports/categories.ts  CategoryReport
 packages/core/src/reports/categories.ts  GroupStat
 packages/core/src/reports/drift.ts  DriftReport
 packages/core/src/reports/fixed-variable.ts  FixedVariableRow
@@ -231,13 +219,8 @@ packages/core/src/reports/income.ts  IncomePayDay
 packages/core/src/reports/income.ts  IncomePayerRow
 packages/core/src/reports/income.ts  IncomeRowRef
 packages/core/src/reports/income.ts  IncomeStability
-packages/core/src/reports/index.ts  REPORTS
 packages/core/src/reports/index.ts  ReportInput
-packages/core/src/reports/insights.ts  InsightsReport
 packages/core/src/reports/pivot.ts  PivotRow
-packages/core/src/reports/price-changes.ts  PriceChangeItem
-packages/core/src/reports/price-changes.ts  PriceChangesReport
-packages/core/src/reports/spending-change.ts  ChangeBar
 packages/core/src/reports/spending-change.ts  ChangeViewReport
 packages/core/src/reports/spending-change.ts  SpendingChangeReport
 packages/core/src/reports/summary.ts  SummaryCategory
@@ -254,6 +237,5 @@ packages/core/src/transfers.ts  TransferOptions
 packages/core/src/wording-loan-pages.ts  LOAN_LABELS
 packages/core/src/wording-loan-pages.ts  LOAN_LABELS_UNSURE
 packages/core/src/wording.ts  CAR_FINANCIER_WORDS
-packages/core/src/wording.ts  FormUse
 packages/core/src/wording.ts  REFUND_WORDS
 packages/core/src/wording.ts  isCreditText

@@ -9,13 +9,16 @@
  * filesystem, put in a shell command or executed: the values are a URL
  * origin, an IANA time-zone name, small integers and a flag.
  *
- * The same row holds the admin's feature flag overrides (`features`, ids from core's FEATURES, on or off).
+ * The same row holds the admin's feature flag overrides (`features`, ids of the extensions' flags, on or off).
  */
-import { FEATURE_IDS, type FeatureId, type FeatureOverrides, type FeatureState, resolveFeatures } from "@banking/core";
+import project from "../../../../project.json";
+import type { FeatureId, FeatureOverrides, FeatureState } from "@banking/core";
 import { EXTENSIONS, type ExtensionFlags } from "../extensions.ts";
 import type { InstanceSettings } from "../platform/config.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
 import { UserError } from "../platform/errors.ts";
+import { limitField } from "../platform/limits.ts";
+import { LimitStore } from "./limits.ts";
 import { parseBaseUrl, parseBoolean, parseHistoryDays, parseSyncHours, parseTimezone, strictObject } from "../platform/validate.ts";
 
 /**
@@ -37,7 +40,7 @@ const KEY = "instance_settings";
 /** Set when an upgrade turned the register lookup off for an existing install; admins see a one-time notice (services/security.ts). */
 export const INDUSTRY_NOTICE_KEY = "notice_industry_lookup_off";
 
-const FIELDS = ["appBaseUrl", "timezone", "syncHours", "historyDays", "industryLookup"] as const;
+const FIELDS = ["appBaseUrl", "timezone", "syncHours", "historyDays", "industryLookup", "priceIndex"] as const;
 
 /** Validates a partial update on top of the current values. */
 export function parseSettingsUpdate(input: unknown, current: InstanceSettings): InstanceSettings {
@@ -48,10 +51,11 @@ export function parseSettingsUpdate(input: unknown, current: InstanceSettings): 
     syncHours: o.syncHours === undefined ? current.syncHours : parseSyncHours(o.syncHours),
     historyDays: o.historyDays === undefined ? current.historyDays : parseHistoryDays(o.historyDays),
     industryLookup: o.industryLookup === undefined ? current.industryLookup : parseBoolean(o.industryLookup),
+    priceIndex: o.priceIndex === undefined ? current.priceIndex : parseBoolean(o.priceIndex),
   };
 }
 
-/** A partial map of flag ids to on or off: an id that is not in FEATURES is refused, and so is any other value. */
+/** A partial map of flag ids to on or off: an id that is no flag of an extension is refused, and so is any other value. */
 export function parseFeatureOverrides(input: unknown): FeatureOverrides {
   const ids = featureIds();
   const o = strictObject(input, ids);
@@ -60,8 +64,8 @@ export function parseFeatureOverrides(input: unknown): FeatureOverrides {
   return out;
 }
 
-/** The flags of core's FEATURES and of the build's extensions (extensions.ts). */
-const featureIds = (): string[] => [...FEATURE_IDS, ...EXTENSIONS.map((e) => e.id)];
+/** The flags of the build's extensions (extensions.ts); core has none. */
+const featureIds = (): string[] => EXTENSIONS.map((e) => e.id);
 
 /** The stored overrides. A flag that no longer exists or holds another type is dropped: an old row must not stop a start. */
 function storedOverrides(raw: unknown): FeatureOverrides {
@@ -87,8 +91,9 @@ function sanitizeDefaults(d: InstanceSettings): InstanceSettings {
     appBaseUrl: safe(() => parseBaseUrl(d.appBaseUrl), "http://localhost:8080"),
     timezone: safe(() => parseTimezone(d.timezone), "Europe/Helsinki"),
     syncHours: safe(() => parseSyncHours(d.syncHours), [6, 18]),
-    historyDays: safe(() => parseHistoryDays(d.historyDays), 730),
+    historyDays: safe(() => parseHistoryDays(d.historyDays), limitField("historyDays").default),
     industryLookup: d.industryLookup !== false,
+    priceIndex: d.priceIndex === true,
   };
 }
 
@@ -99,11 +104,15 @@ export class InstanceStore {
   private state: InstanceState;
   private overrides: FeatureOverrides = {};
   private loaded = false;
+  /** The numeric limits in their layers (services/limits.ts); loaded with the rest of the instance row. */
+  readonly limits: LimitStore;
 
   constructor(
     private readonly settings: SettingsRepo,
     defaults: InstanceSettings,
+    envLimits: Record<string, number> = {},
   ) {
+    this.limits = new LimitStore(settings, envLimits);
     this.defaults = sanitizeDefaults(defaults);
     this.state = { ...this.defaults, setupDone: false, redirectMode: null };
   }
@@ -120,6 +129,7 @@ export class InstanceStore {
    */
   async load(force = false): Promise<InstanceState> {
     if (!force && this.loaded) return this.state;
+    await this.limits.load(force);
     const raw = await this.settings.get(KEY);
     let stored: Partial<InstanceState> & { features?: unknown } = {};
     try {
@@ -172,7 +182,7 @@ export class InstanceStore {
     // keyed by string: in a build with no extension keyof ExtensionFlags is never, which nothing can be written under
     const extra: Record<string, boolean> = {};
     for (const e of EXTENSIONS) extra[e.id] = (this.overrides as Record<string, boolean | undefined>)[e.id] ?? e.feature.default;
-    return { ...resolveFeatures(this.overrides), ...extra } as FeatureState & Readonly<Record<keyof ExtensionFlags, boolean>>;
+    return extra as FeatureState & Readonly<Record<keyof ExtensionFlags, boolean>>;
   }
 
   enabled(id: FeatureId | keyof ExtensionFlags): boolean {
@@ -205,7 +215,7 @@ export function redirectModeOf(state: Pick<InstanceState, "appBaseUrl" | "setupD
 }
 
 /** The return page the project publishes; EB_RELAY_URL points a self-hosted copy of it elsewhere. */
-export const DEFAULT_RELAY_URL = "https://jouni-mikkola.github.io/omatalous/callback/";
+export const DEFAULT_RELAY_URL = project.returnUrl;
 
 /** Where Enable Banking sends the browser back after consent. Production requires https. EB_REDIRECT_URL wins. */
 export function redirectUrlFor(

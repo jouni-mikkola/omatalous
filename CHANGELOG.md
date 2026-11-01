@@ -3,8 +3,220 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.0.0
+
+- Sign-in can use a passkey or an authenticator app, and a public address needs one of them.
+- The app reads in Finnish or English, per member.
+- Bank balances are checked against the rows, and an import of your own export gives back the same figures.
+- Restore, update and upgrade from every supported version are rehearsed and have time budgets.
+- Tables, reports and pages are shorter and work on a phone; the dashboard stays quick on years of rows.
+
+Money and reports
+
+- A move between your own accounts ("Siirto tililtä", "Siirto omalle tilille") is a transfer, so it no longer shows as income or saving.
+- "Korttimaksu/Nosto" is a cash withdrawal, and a refund from the tax office has its own category, Veronpalautukset, apart from benefits.
+- Google Workspace (GSuite) counts as a subscription, Avanza as an investment and Posti as shopping.
+- "Erääntyvät maksut" on Yhteenveto no longer includes transfers to your own accounts. They have their own line, "Siirrot omille tileille", and "Käytettävissä" still subtracts them.
+- "Säännölliset tulot" on the income report is the median of the last six complete months, the same months as the usual income elsewhere (it was twelve).
+- The credit card face says "Luottoa jäljellä" for the credit left, so "Käytettävissä" means only the money left until the payday.
+- Core has one list of the figures the pages show (`packages/core/src/figures.ts`) and one module of the limits they read, each with its unit and reason (`packages/core/src/thresholds.ts`). Two repo rules and a test over the demo and seeded households keep them in step with the code.
+- Yhteenveto and Raportit give one expected figure for a month, "Odotettu". It is made per category and added up. The waterfall, the change report and the pace chart now add up to the same headline.
+- A bill that comes every three months or less often (a quarterly insurance) is expected in the month it falls due and in no other. An active monthly bill is expected at its latest amount, and a one-off purchase does not raise the next month.
+- Texts say what the figure is read from, for example "odotettu 2 825 € (6 kuukauden keskiarvo)". The median column "Tavallisesti kuussa" is gone from the category report and its CSV file.
+- "Tavalliset tulot" is "Odotetut tulot", the mean earned income of the last six complete months.
+- Core has one place that makes the figure (`packages/core/src/analysis/expected.ts`, [ADR 0021](docs/adr/0021-expected-figure.md)), and a repo rule keeps analysis and report files from taking their own median or mean over months.
+- The change on Saldot counts from the close of the day before the range starts, so the first day's rows are in it. In the demo household the change was 136,83 euros too large. When the balance before the start is not known, the answer names the first day it counts from.
+- The cash flow answer has a bridge from income to the change of the accounts: income, consumption, debt service and money moved out as savings or investments add up to the change, each line with its sum and its rows. Pages show it later.
+- The everyday spending of a day in the payday window was 0 when the household bought on a card that is paid by a monthly bill. It now counts the card's purchases and reads from the expected figure (the mean of the last complete months), so it is above 0 for such a household.
+- The dashboard answer has a new `runway`: what the accounts hold on the day before the next payday, as a range. It takes the balance less the payments of the window (the card's bill among them) and less the everyday spending expected until the payday. A card's purchases are taken off once, with the bill that pays them, including the purchases expected up to the bill's day when it falls before the payday. If the payday is not known, it says why and gives no figure.
+- Havainnot on Yhteenvedossa ja Säästövinkeissä kolme lausetta: mitä tapahtui, mihin se rinnastetaan ja mitä sille voi tehdä. Vertailu on odotettu kuukausi tai sama aika vuosi sitten, ei kohteen oma mediaani.
+- Jokaisella havainnolla on euromäärä vuodessa, ja se näkyy laskelman viimeisenä rivinä. Havainnot ovat järjestyksessä euromäärän mukaan, ja toistuva kuvio menee yksittäisen rivin edelle.
+- Yksittäinen rivi näkyy vain, jos se on vuodessa vähintään 300 euron arvoinen ja kuukauden kymmenen suurimman rivin joukossa.
+- Viikonpäivähavainto ("lauantaina menee enemmän kuin muina päivinä") siirtyi raportista Menot päivittäin havainnoksi. Se näkyy vain, kun ero on selvä.
+- Havaintojen rajat ovat tiedostossa `packages/core/src/thresholds.ts` syineen, ja havaintojen sanat tehdään yhdessä paikassa, `packages/core/src/explain/insights.ts`.
+- The housing block (loans and charges of the home) is now in Raportit > Kiinteät ja muuttuvat. The full account list is in Raportit > Saldot, with the cards and the loans under it.
+- The dashboard answer has a new `home` field. It holds everything the first page says. The `housing` field is gone. Raportit gives it as the report `housing`.
+- Raportit is six questions. How is this month going? Where does the money go? How much is left to save? Which costs are fixed? Does the buffer hold? Does net worth grow? A household with a joint account gets a seventh, on the shared costs.
+- Each question has one figure, what it is set beside and one explanation. You choose the comparison in one place: the expected, the period before, a year ago or the budget. The budget choice is off until a budget is set.
+- The question, the comparison and the period are in the address, so a link and a reload keep them. Old addresses (`?tab=menot`) open the page that now holds their reports.
+- Peruste says how the figure is worked out, which parts add up to it and which accounts were read. The notes on data quality are there.
+- Menot päivittäin is gone. The weekday finding is still in Säästövinkit.
+- Kuukausi, Saldot and Velat now speak to you in plain words: forecasts are rounded and the statistics words are gone.
+- The texts of Yhteenveto speak to you: the payday sum is a rounded "noin 4 500 €", the month's headline and its sentence no longer disagree, and the notices on savings and price rises are shorter.
+- Saldot names the accounts missing from the picture (an account in another currency with its balance, or one with no balance told) and shows the change of the accounts' total month by month.
+- Tulot has each month once, as one row of the table under Tulot ja menot; a row opens to the figures of its month. The tables of the months under the income, savings rate and use charts, and the two month lines, are gone, as is the income table of Verovuoden rivit (the CSV keeps it). The page is 3 345 px tall at 1440 px (6 015 before) and 4 349 px at 390 px (8 404 before).
+- A closed card on Raportit has no empty band under its name, "Vertaa" stays on one row on a phone, and each sum on a card and in the list of topics says the period it covers.
+- The address of the joint-account topic says why it shows the other topics when there is no joint account.
+- Tulot is half as tall: Mistä luku koostuu no longer repeats the parts of Tulojen käyttö in a second table, and Säästöaste names only the comparison with a year ago.
+- The text under the chart of Kiinteiden menojen osuus, the end label of the chart and the table now print the same percent for a month, and the rows of Verovuoden rivit show cents, so a refund of 412,50 € is no longer 413 € there.
+- The Adobe-style price rise is worked out on Kiinteät menot only. Säästövinkit and Laskut name it and link there.
+- The link of a price-rise note opens Hinnanmuutokset.
+- Raportit, the question pages, their conclusions, tables and charts, show in English for a member who chose English. The Finnish texts are unchanged.
+- Optimoi, the insights and the alerts show in English for a member who chose English. The Finnish texts are unchanged.
+- Laskut now answers what is coming and how much: one 30-day timeline with its sums, and one table of bills, contracts and subscriptions with search, filters and a drill for prices, the contract and marks. Each bill shows once. The month board, the price changes report and the `/api/bill-month` route are gone.
+- Asetukset > Pankit ja tilit > Pankin CSV-tiedosto also reads a bank's camt.053 statement. The file is read in your browser and only its rows reach the install. The closing balance is checked against the rows, and a file that does not add up is refused with the difference shown.
+- Raportit opens again on the Saldot question. The page asked for more reports than the server accepted and it cut the last ones, so Saldot failed with "Tietojen haku epäonnistui".
+- Tulot ja säästäminen shows how the accounts' change came about, line by line, and the savings rate of the latest month against the month before and a year ago.
+- A tax refund is a group of its own in the income types, and no longer counts as earned income.
+- Raportit > Rahankäyttö is lighter: no repeated 12 month column, no empty "Kertaostot" or "Vuosivertailu" cards, the goals table folded until a goal is set, and no line of reasons under the comparison switch.
+- Raportit shows the same month as Yhteenveto: once the month's pay has come, 3, 6 and 12 kk include it.
+- Figures that look alike now carry names that tell them apart, each sum is rounded once, and the day estimate on the first page matches its range.
+- The button that opens the list of report topics on a phone reads "Aiheet" (a noun) instead of "Vaihda aihetta".
+- Each question page of Raportit says what its figure leaves out, with the sum: card bills whose purchases are not seen, rows in other currencies and the days before the bank history.
+- Saldot tells the money on the accounts and the card debt apart. Velat names the monthly spending its buffer uses, and the largest single purchase and the largest category are named as such.
+
+Look
+
+- A table with something to choose has a toolbar above it. It has a search box, filter chips with row counts ("Kaikki 21"), a grouping menu and "Lataa CSV".
+- Raportit > Menot > Kategoriat has the search, the chips Kasvanut, Pienentynyt and Kiinteät, and the CSV.
+- "Lataa CSV" saves the rows you see in the order you see them. Sums are numbers.
+- The sorted column shows an arrow. On a phone the toolbar has a "Järjestys" choice where the head would be.
+- Opening a row of Kategoriat shows its ten newest transactions and one sentence ("12 tapahtumaa, keskimäärin 57 €"). "Näytä kaikki" opens Tapahtumat with the same filter. Escape closes the row and the focus returns to it.
+- A chart and its table are one part. The Kaavio and Taulukko switch is gone and the table always stands under the chart.
+- Click a bar, a point or a day in a chart, or press Enter on it. The table under it then shows only that row. "Näytä kaikki rivit" or Escape brings the rest back.
+- Every chart reads out its value and the figure it is compared with. The arrow keys move from mark to mark and a screen reader hears each one.
+- On a phone the small monthly charts show one dot a month.
+- Yhteenveto is rebuilt around one question: do the money last to the payday, and how much is left. The first block answers it in one sentence. Under it a sum row shows the balance less the payments. "Näytä maksut" lists the payments.
+- The page has five blocks. The first is the answer. Kuukauden tilanne compares the month with the expected month. The difference section names the three categories behind the difference. Huomioitavaa has three findings at most, each with its euros a year. Varat ja velat closes the page.
+- The page is about 1 400 px high on a desktop and 2 400 px on a phone. The answer is on the first screen of a phone. The Väljä and Tiivis switch, the waterfall and the housing block are gone, and so are the account and card lists.
+- Under the heading a line says the month, the day of it and when the accounts were last fetched. A second line says when card purchases are missing from the figures.
+- The loading frame has the size of the finished page, so nothing moves when the answer lands.
+- Tapahtumat opens with the whole filtered list, up to 5 000 rows, and draws only the rows near the screen. A year of rows opens at once and the page has about 35 buttons instead of hundreds.
+- The search box is the toolbar's. Beside it stand the chips "Käsin luokitellut" and "Varaukset" and the filters Aikaväli, Kategoria, Tili and Tulot.
+- The search, the filters and the chip stay in the address. A reload or a link brings back the same list.
+- "Lataa CSV" on Tapahtumat saves the rows you see.
+- An opened row has one "Toiminnot" menu. The category picker and the choice "Sama kategoria kauppiaan muille tapahtumille" are in it.
+- The same menu has "Kaikki: <kauppias>", "Erittele ostot" and "Kenen osuus?".
+- The list's "…" menu and the "Näytä lisää" button are gone.
+- Säästövinkit starts with the tips worth most a year. All tips are in one list, also those with a day to decide by. The largest yearly effect is first, five tips show at a time, and each card names its area.
+- In *Missä on eniten säästettävää* a click on an area narrows the tips to it. *Näytä kaikki alueet* brings the whole list back.
+- *Mitä tarkistettiin* is closed behind one line per area. The *Tarkistimme* tile at the top of the page, the ◷ sign and the three groups are gone.
+- Tarkistettavat shows one number. The mark in the header, the page heading, the tab title and the queue say the same count. This holds right after an answer too.
+- Asetukset is split into six pages. Each has its own address such as `#/settings/security`. A row of links to all six sits at the top of every page.
+- "Tekniset asetukset" is gone. Its cards moved to the page that fits them, and Palvelin ja ylläpito is shown only to an admin.
+- Old addresses (`#/settings#lainat`, `?section=server`) still open the card they named, on its new page.
+- Asetukset > Palvelin ja ylläpito has no "Kokeiltavat toiminnot" card any more. Säästövinkit is always on.
+- Yhteenveto no longer lists insights in Ilmoitukset, and Raportit has no Havainnot section. Säästövinkit tells them as "Muut havainnot".
+- The saved Enable Banking application no longer shows the table of what each bank supports. The checklist still ticks "Tilit lisätty Enable Bankingiin".
+- Asetukset has no cards of its own for About, service tokens, members without a login or sharing an account. The footer of every page names the version and the author, and links the licence and the source. Service tokens are rows of Omat istunnot. A member without a login is a row of Talouden jäsenet. An account is shared in its edit form.
+- Palauta uusin varmuuskopio is a "Palauta" button on the newest row of Varmuuskopiot.
+- Kaksivaiheinen kirjautuminen says in one line since when it is on, when it was last used and how many recovery codes are left.
+- The fetch times are one choice, "Hakuja päivässä", and the time zone and history length are not set on the page. The stored values stay as they are.
+- The maintenance log has one row for each action: the result replaces the request row.
+- A joint account has no monthly tables under it any more.
+- The period switch of Raportit stays on a bare address and follows the question the page opens.
+- Tapahtumat has one search box and one filter row on both tabs. Tili and Tulot moved under "Lisää", the Kauppiaat tab uses the same Aikaväli and Kategoria chips, and the row panel button reads "Muuta" instead of "Toiminnot".
+- Laskut no longer shows search and kind chips over the list, and its columns no longer sort. The rows stay in the order of the next payment.
+- The Säästövinkit page words its total, headings and links as whole sentences and buttons ("Näytä laskelma", "Näytä tapahtumat", "Ei koske meitä").
+- Asetukset > Pankit ja tilit speaks to a bank customer: "Application ID" is "sovelluksen tunnus", the statement file note says what is stored in plain words, the second link to the application list is gone, and a member's own key is chosen as a file only.
+- The English interface reads as written English, not translated Finnish: plainer sentences on the overview and in the reports, and ranges show the euro sign once ("€4,313–4,655").
+- Tarkistettavat shows the open count once, in the header mark. The link to a card's transactions and the savings tip line read as whole sentences.
+- Kiinteät menot and Tulot no longer show search boxes, CSV links and sort buttons on their tables.
+- A new member with no account is told both ways on, an own bank or an account another member shares, and gets no example data button when the household has data. Säästövinkit with no tip shows no sum.
+- On a phone a row of Tapahtumat is two lines, at most 64 px tall, and shows the whole name of a short merchant. The account's digits and the bank's own text are in the opened row.
+- On a phone, the days of the bills in Laskut start at the same place in every row, and the button that opens a row is no longer at the screen edge.
+- After Säästövinkit the report pages no longer scroll sideways on a phone: the mark of a tip and the verdict of a report shared one class name.
+- A member of an install with no bank app now reads that the administrator sets up the bank connection and is offered the statement file instead of the bank list, and Pankit ja tilit no longer links to the example data while another member has accounts.
+- Tasaus of a joint account whose split is not told shows the question and the sum without shares, and no longer lists each member with Maksanut 0,00 € and Osuus 0,00 €.
+- Tarkistettavat has no empty bar above the card, payees are no longer cut, and the skip button reads *Ohita*.
+- Velat no longer shows the period switch, since none of its figures changes with the period. The credit drawn in the period is told on Menot instead of Velat.
+- Pankit ja tilit has one card for the bank app, "Pankkisovellus", with the choices "Talouden sovellus" and "Oma sovellus". It replaces "Enable Banking -sovellus" and "Oma Enable Banking -sovellus". A member of a household with a shared app sees the card too.
+- The line of upcoming payments on Laskut ends on payday, where its sum ends, and marks the payday. A key under it names the filled and hollow circles.
+- A member who signs in with a temporary password is asked only the new password, twice. The server takes it only in that session, within 10 minutes of the sign-in.
+- Popovers and tooltips fade in without rising, and every animation uses the same few durations.
+- On a phone, small controls such as the sort buttons of a table, the footer links and the folds are at least 24 px high.
+- Each member can choose English in Asetukset > Turvallisuus > Kieli / Language. Sums, dates and the messages of the app follow the choice once signed in. The rest of the texts are still Finnish.
+- With English chosen, the frame of the app is in English: the page names, the header and its menus, loading, the password change and the footer. The pages themselves, the bank connection notices and the fetch status are still Finnish.
+- With English chosen, Yhteenveto, Laskut and Tapahtumat are in English too, with the tables, the category names, the period switch and the bank connection and security notices. Reports, Optimoi, Tarkistettavat and Asetukset are still Finnish, and so are the sign-in and setup screens until the language is remembered on the device.
+- Asetukset and Tarkistettavat show in English for a member who chose English, including the maintenance cards. The Finnish texts are unchanged.
+- A screen reader now announces the keyboard stop of a chart with its name and hint (Orca on Linux checked it), and the arrow keys then read the day or month. Before, the stop was hidden inside the chart image. The heat map, slope charts, calendar and price line are groups of named marks instead of one image, and the heat map cells have names.
+- The app is light again, like the Finnish banks.
+- The Finnish text speaks plainly to you, and headings are short names: "Mihin raha menee?" is now "Rahankäyttö".
+- The settings pages and server messages now speak to you directly in the active voice.
+- Bills, transactions, savings tips, alerts and cards speak plainly to you, and buttons say what they do.
+- A table's search box and "Lataa CSV" show only for a list of more than ten rows. The CSV is one link under the table, no longer a button above it, so short tables (security log, members, accounts) have no toolbar.
+- Bills and transactions are easier to scan: fewer buttons, ended bills in a fold, and the add form opens as a dialog.
+- Yhteenveto gives each thing one place: the spending goal is set in Asetukset > Talous, the language is in the user menu.
+- The month's estimate is right on the last day of a month.
+- Asetukset is calmer: one "Kopioi kaikki" for the bank application values, a working Enable Banking card and the empty or rarely needed cards fold, "Tyhjennä kaikki tiedot" sits in its own folded group, and an account row shows only name, balance and Muokkaa.
+- "Tee myöhemmin" in the setup is remembered, so it no longer returns at every sign-in. A member lands on Yhteenveto after changing the password, and an empty start no longer shows them the administrator's steps.
+- Säästövinkit shows each tip's amount once and drops "Mitä tarkistettiin?".
+- The link to the data notes under a report is tall enough to tap on a phone.
+- Rahankäyttö folds its sections under their names, and Raportit no longer repeats the month, the account list, the basis table or empty sheets.
+- Explanations now use everyday words: "usual" instead of "expected", "Varat velkojen jälkeen" instead of "Nettovarat", plain estimate notes, and a shorter end screen in Tarkistettavat.
+- Small text fixes: one place to read a statement file on Pankit ja tilit, a clearer Tapahtumat tab, "Viime kuussa" in the month chart, and the price index note only for the administrator.
+- The period switch of Raportit follows the question the page opens, not the `q` in the address.
+- The app opens faster over a slow connection: the built script and style files are sent compressed (Brotli or gzip, by what the browser accepts), and API answers over 1 kB are compressed too.
+- The app has one dim grey look. The night look and the light look are gone. A section is a heading and a hairline, with no box around it.
+- The font is IBM Plex Sans Variable. Sums line up in columns and the phone gets a narrower cut.
+- Tapahtumat shows twelve rows on a 1440 x 900 screen.
+
+Reliability
+
+- The period and the sort order of a table are in the address, so a reload or a shared link opens the page as it was. Addresses from older versions open the same page as before.
+- Pages load when they are opened, so the app starts with a smaller first download.
+- The number of open questions in the header comes from a small request. The full list is read only on Tarkistettavat.
+- Transactions no longer swaps its rows for a loading view while the table parts load.
+- A public address needs a second factor. Etäkäyttö refuses to turn on while an admin has none, and names who lacks one. An admin keeps a second factor while the address is public.
+- Passkeys beside the authenticator app: Asetukset > Turvallisuus > Passkey adds a passkey of a phone, laptop or security key, and the sign-in asks for it after the password. A passkey needs an https address or localhost, and the card says so on a home network address. Adding, using and removing a passkey are security events.
+
+Maintenance
+
+- The Buy Me a Coffee link moved from the top of the README to its end, and the repository no longer shows a Sponsor button.
+- The Caddy and tunnel images are pinned to Caddy 2.11.7 and cloudflared 2026.10.4 with their digests, so an install pulls the images that were tested.
+- The maintenance helper accepts a Caddy or tunnel image pinned to a release and its digest.
+- A weekly check (`pnpm audit --audit-level high`) fails on a critical or high vulnerability in a dependency.
+- Hono, React and Vite are updated to their latest patch releases. So are @hono/node-server and React DOM.
+
+For developers
+
+- The top of the README shows a short animation of the demo household in English, with a still picture for readers who ask for reduced motion. `pnpm readme:video` makes both (docs/DEVELOPMENT.md).
+- Routes are a TanStack Router tree in `apps/web/src/router.tsx` on the hash history, with typed search parameters per page in `search.ts`. `routes.ts` keeps the old addresses and their redirects.
+- `useApi` runs on TanStack Query. A successful write marks every cached answer old, and `/api/meta` carries `dataVersion` so a change by another session does the same.
+- `GET /api/review/count` returns `{ count }`. A service token may read it. The React Compiler runs in the web build (ADR 0023).
+- `components/table/Table.tsx` runs its sorting through TanStack Table v9 in `model.ts`. The toolbar uses react-aria-components in `Toolbar.tsx`.
+- A page still writes the same `Column` objects. A column adds `search`, `chips`, `group` or `csv` to join the toolbar.
+- A page can keep a table's view in the address. `Table` takes `view` and `onView`, and `view.ts` has `viewToParams` and `viewFromParams`.
+- CSV formatting moved to `packages/core/src/csv.ts`. The server's exports and the table's download use one definition.
+- `TableToggle` is deleted. `ChartWithTable` holds the chart, the table and the one pick between them. See ADR 0023.
+- `components/overview/` is deleted with `overview.css` and `waterfall.css`. The new blocks are in `components/home/` with `home.css`.
+- A report question page lives in its own files: `reports/conclusions/<page>.ts`, `pages/reports/pages/<Page>.tsx` and `styles/report-<page>.css`. The frame is `pages/reports/Frame.tsx` and the recipe is in `docs/DEVELOPMENT.md`.
+- `dayHeat` moved to `analysis/day-heat.ts`. The `days` and `insights` reports are gone, and `insightsReport` with them (`rankInsights` is the one list).
+- `components/table/use-window.ts` windows a grouped table of over 200 rows. `Table` draws the groups near the screen between two spacers and measures each group it draws. No new dependency.
+- `Table` takes `rowsSearched` (the page searched the rows already) and `toolbarExtra` (the page's own controls in the toolbar). A `RowGroup` takes `csv` for the group column when its title is a node.
+- `pages/transactions/FilterBar.tsx` is now `FilterChips.tsx` and holds the server-side filters only. `RowMenu.tsx` is the row's menu: items, a checkable choice and a panel that holds the category picker. `MAX_LIST_ROWS` in core is the one cap of a list answer, read by the server and the page.
+- `byYearlyEffect` in `packages/core/src/optimise/order.ts` orders the tips by the yearly figure they show. `Tips`, `Checked` and `Reach` replace the list grouped by area and the *Tarkistimme* tile.
+- `reviewTitle` and `OPEN_WORD` in `review-count.ts` are the one wording of the open count. `Review` publishes the number of items the sitting still has open.
+- Core has no feature flag now: `FEATURES` is gone with the `optimise` flag. A module that needs a flag is an extension (`apps/server/src/extensions.ts`).
+- The `insights` report (`reports/insights.ts`) is deleted. Insights are read through `rankInsights(insightInputOf(...))`.
+- Deleted: `About.tsx`, `ServiceTokens.tsx`, `NamelessMembers.tsx`, `Sharing.tsx`, `AccountSources.tsx`, `RestoreLatest.tsx`, `BankCapabilities.tsx`, `Features.tsx`, and the route `GET /api/accounts/:id/sources` with `services/account-sources.ts` and core's `money-sources.ts`. The routes `GET /api/ops/restore-latest` and `POST /api/ops/restore-latest` stay. `components/ops/use-restore.ts` and the list of copies use them.
+- `opsAudit` in `services/ops.ts` joins the request and the result of an action into one row.
+- `tools/install-hour.sh` runs the one-line install in a clean container and the household's year against the fake bank, with the time of each step in a log. The First evening household has a year of rows (twelve months, six before).
+- `e2e/a11y.spec.ts` walks every route at 390 and 1440 px: axe, heading order, visible focus and the size of touch targets.
+- The message catalogue has an English table beside the Finnish one, and a test fails for a code without an English text. `users.language` holds the choice, `PUT /api/language` sets it, and `formatEur`, `formatFiDate` and `formatFiRange` take the language as a parameter.
+- The message catalogue has an area file beside `messages.ts` (`messages-shell.ts`), tested by the same coverage test. The web reads it with `t(code, params)` (`apps/web/src/text.ts`). `checkPassword` takes the language. `e2e/english-scan.spec.ts` compares the visible text of every page in English with a Finnish word list.
+- The message catalogue has four more area files (`messages-overview.ts`, `messages-bills.ts`, `messages-transactions.ts`, `messages-tables.ts`), under the same coverage test. `GET /api/meta` gives the category labels and the new `groupName` in the member's language (`services/category-names.ts`); the Finnish group stays the key. `e2e/english-scan.spec.ts` reads Yhteenveto, Laskut and Tapahtumat whole, and `e2e/finnish-words.ts` leaves out the made-up bank's own account names.
+- The texts of Raportit are in `messages-reports-1.ts` to `-5.ts`, and `e2e/english-scan.spec.ts` scans every question page in full. Text marked `lang="fi"` is skipped by the scan until the findings have English (part 5).
+- Passkeys use `@simplewebauthn/server` (ADR 0024). `apps/server/test/webauthn-device.ts` is a software authenticator for server tests, and `e2e/passkey.spec.ts` uses Chromium's virtual authenticator. A browser accepts a passkey only on a domain, so the spec sets the install address to `http://localhost:<port>` while it runs.
+- The texts of the findings are in `messages-optimise*.ts`, `messages-income.ts`, `messages-insights.ts` and `messages-alerts.ts`. `e2e/english-scan.spec.ts` scans Optimoi in full and no longer skips text marked `lang="fi"`. The Finnish golden files of the findings are unchanged.
+- The texts of Asetukset are in `messages-set-*.ts` and `messages-set-ops.ts` (`ops.*`); the Tarkistettavat texts are in `messages-set-ri.ts`, `-rv.ts` and `-rc.ts`. `e2e/english-scan.spec.ts` scans Tarkistettavat and every tab of Asetukset in full, the administrator's tabs with the worker's administrator.
+- Tests that hold a time against a limit are `*.perf.test.ts` in a project of their own, run by `pnpm test:perf` on a quiet machine, so `pnpm test` and `pnpm check` no longer fail on a loaded one.
+- The page tests keep a trace of a failed test, wait for conditions and not fixed times, and `E2E_RETRY=1` reruns a failed test once and lists what only passed on the rerun.
+- The repo rules run as three files that share a parse cache, and the core tests share their modules, so `pnpm test` is shorter.
+- The look comes from `apps/web/design/tokens.json`. `pnpm tokens` writes `tokens.css` and `src/design/tokens.ts`, and a test fails when they differ from it. Charts read colours from `tokens.ts`.
+- Stylesheets sit in cascade layers. Repo rule 40 refuses a new px value or colour in a stylesheet, and a font-size that is not a token. Rule 41 keeps new code from importing `Card`. See docs/DESIGN.md and ADR 0021.
+- The type check runs on TypeScript 7. Tools that read code through the compiler API import the TypeScript 6 package as `typescript6`.
+- The web stack and the libraries a page may add are decided in ADR 0019, with measured sizes and review dates. A new dependency is decided in a record first (docs/DEVELOPMENT.md).
+
+Upgrade
+
+- Migration 0028 adds a language column to users on the first start, after the usual copy. Finnish stays the default.
+- Migration 0029 adds the passkey columns to the second factor table on the first start, after the usual copy. Nothing changes for a member who has no passkey.
+- An install on an earlier version cannot take this update from the browser, because its maintenance helper refuses the pinned images. In the install folder run once `git fetch origin && git checkout -B main origin/main && ./scripts/update.sh`.
+
 ## 0.70.0
 
+- Asetukset > Pankit ja tilit > Pankin CSV-tiedosto reads a bank's own CSV export of an account. The file is read in your browser and only its rows reach the install; you match the columns once and they are remembered for that bank's files.
 - Yhteenveto takes a monthly spending goal and draws it on the pace chart, with the most a day may cost to stay within it.
 - Asetukset > Pankkiyhteydet renews every consent that ends soon in one round, one bank after another.
 - Omatalous installs as an app, and the installed app opens Yhteenveto with no network from the figures of the last visit.
@@ -27,6 +239,7 @@ Money and reports
 
 Fetching and importing
 
+- Asetukset > Pankit ja tilit > Korttien tiliotteet reads a card statement file (CSV, text or PDF) for a card the bank gives no rows for. The file is read in your browser and only its rows reach the install, as a source of their own. Reading the same statement again stores nothing twice, and a card bill is matched to the statement's purchases.
 - A card is asked again for the older days on a fetch the member starts: windows of 12 months back to five years (further than the first fetch's 730 days), also past windows with no row, once a month for an account. Accounts that already exist are covered by the next *Hae nyt*. How many older rows come depends on the bank and the consent; nothing is promised. The fetch right after *Yhdistä uudelleen* always asks.
 - The history record of an account says the window the bank answered for, so a card that fell back to 360 days no longer reads as two years.
 - docs/ENABLE_BANKING.md explains how far back a card goes and why a Nordea card's first fetch brought only a month: the bank refused the long request and later sent no older rows.

@@ -333,7 +333,8 @@ describe("categorize", () => {
     });
 
     it("a purpose in the wording decides before a code, and a code before a merchant's name: an employer may be a shop or a hospital", () => {
-      for (const payer of ["Kela", "Keva", "Varma", "Ilmarinen", "Verohallinto"]) expect(coded("RCDT-SALA", 14000, payer).category, payer).toBe("benefits");
+      for (const payer of ["Kela", "Keva", "Varma", "Ilmarinen"]) expect(coded("RCDT-SALA", 14000, payer).category, payer).toBe("benefits");
+      expect(coded("RCDT-SALA", 14000, "Verohallinto").category).toBe("tax_refund");
       for (const employer of ["Zalando", "HUS-yhtymä", "Lidl Suomi Ky", "VR-Yhtymä Oyj", "Elisa Oyj", "Helsingin yliopisto"])
         expect(coded("RCDT-SALA", 250000, employer), employer).toEqual({ category: "salary", source: "rule" });
       // a staffing company with a lender's word in its name pays wages: no money borrowed

@@ -6,6 +6,7 @@
  *   docker compose exec -T banking node dist/node.js ops state [--helper <ver>]    (JSON on stdin)
  *   docker compose exec -T banking node dist/node.js ops progress [--helper <ver>] (one JSON line on stdin)
  *   docker compose exec -T banking node dist/node.js ops access --helper <ver>
+ *   docker compose exec -T banking node dist/node.js ops offsite --helper <ver>
  * Each prints one JSON object on stdout and exits 0 unless the database is unreachable. Secrets and
  * results go through stdin and stdout, never argv.
  *
@@ -20,8 +21,12 @@
  * `ops access` prints the change of remote access the app has prepared (services/access-request.ts), with the keys in
  * this order: {"want":"tunnel","hostname","tunnelToken","accessAud","teamDomain"}, {"want":"lan"} or {"want":null}.
  * The helper matches the line as text and checks every value again.
+ *
+ * `ops offsite` prints the target of the copy to another machine (services/offsite-request.ts), with the keys in this
+ * order: {"host","port","user","dir","recipient","key"} where key is the SSH key as base64 of its PEM, or {"host":null}.
  */
 import { option } from "./cli-args.ts";
+import { readOffsiteRequest } from "./services/offsite-request.ts";
 import { readAccessRequest } from "./services/access-request.ts";
 import type { Services } from "./services/context.ts";
 import { UserError } from "./platform/errors.ts";
@@ -46,6 +51,11 @@ export async function runOpsCli(s: Services, args: string[], readStdin: () => Pr
     if (sub === "access") {
       // only for a helper that knows the action; an older one has no use for the tunnel token
       print((helperKnows(helper, "access") ? readAccessRequest(s) : null) ?? { want: null });
+      return 0;
+    }
+    if (sub === "offsite") {
+      const r = helperKnows(helper, "offsite") ? readOffsiteRequest(s) : null;
+      print(r ? { host: r.host, port: r.port, user: r.user, dir: r.dir, recipient: r.recipient, key: Buffer.from(r.sshKey).toString("base64") } : { host: null });
       return 0;
     }
     if (sub === "report" || sub === "state" || sub === "progress") {
@@ -79,6 +89,6 @@ export async function runOpsCli(s: Services, args: string[], readStdin: () => Pr
     }
     throw err;
   }
-  console.error("Usage: ops poll [--dry] --helper <version> --done <ids> | ops report | ops progress | ops state | ops access --helper <version>");
+  console.error("Usage: ops poll [--dry] --helper <version> --done <ids> | ops report | ops progress | ops state | ops access --helper <version> | ops offsite --helper <version>");
   return 1;
 }

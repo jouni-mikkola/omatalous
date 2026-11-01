@@ -153,12 +153,14 @@ const b64 = (v: unknown) => Buffer.from(JSON.stringify(v)).toString("base64url")
 const worlds: { s: Awaited<ReturnType<typeof setupApp>>["s"]; answers: string[]; dir: string }[] = [];
 
 /** An app with its admin, a fake Cloudflare behind its fetch, a data folder and a clock the test moves. */
-export async function world(env: Record<string, string> = {}) {
+export async function world(env: Record<string, string> = {}, opts: { withoutFactor?: boolean } = {}) {
   const dir = scratchDir("remote-access-");
   const cf = fakeCloudflare();
   let at = NOW.getTime();
   // through `cf`, so a test can put its own fetch in front of the fake
   const t = await setupApp(env, ((input, init) => cf.fetch(input, init)) as typeof fetch, { backupDir: join(dir, "backups"), now: () => new Date(at) });
+  // a public address needs a second factor of every admin, so the admin has one unless the test is about its absence
+  if (!opts.withoutFactor) await t.s.factors.enable(t.adminId, "test-seed", 0, [], new Date(at).toISOString());
   const answers: string[] = [];
   const call = async (method: string, path: string, payload?: unknown) => {
     const r = await t.admin.call(method, `${BASE}${path}`, payload);
@@ -201,7 +203,7 @@ export async function world(env: Record<string, string> = {}) {
     behindAccess(aud: string = cf.apps[0]!.aud) {
       const certs = { keys: [{ kid: "key-1", alg: "RS256", use: "sig", ...teamKey.publicKey.export({ format: "jwk" }) }] };
       const send = (async (input: string | URL | Request, init?: RequestInit) => (String(input) === `https://${TEAM}/cdn-cgi/access/certs` ? Response.json(certs) : cf.fetch(input, init))) as typeof fetch;
-      const env = { PASSWORD_ITERATIONS: "1000", APP_SECRET: t.s.config.appSecret!, SETUP_CODE, APP_BASE_URL: `https://${HOST}`, INDUSTRY_LOOKUP: "false", TRUST_PROXY: "true" };
+      const env = { PASSWORD_MEMORY_KIB: "8", PASSWORD_PASSES: "1", APP_SECRET: t.s.config.appSecret!, SETUP_CODE, APP_BASE_URL: `https://${HOST}`, INDUSTRY_LOOKUP: "false", TRUST_PROXY: "true" };
       const app = createApp({ db: t.db, config: loadConfig({ ...env, CF_ACCESS_AUD: aud, CF_ACCESS_TEAM_DOMAIN: TEAM }), now: () => new Date(at), fetch: send, backupDir: join(dir, "backups") });
       const token = (claims: Rec = {}) => {
         const seconds = Math.floor(at / 1000);
@@ -249,19 +251,22 @@ export async function turnedOn() {
   return w;
 }
 
-beforeEach(() => {
-  logged.length = 0;
-  for (const level of ["log", "info", "warn", "error"] as const) vi.spyOn(console, level).mockImplementation((...parts: unknown[]) => void logged.push(parts.map(String).join(" ")));
-});
+/** Called at the top of each test file that makes worlds: hooks written in this module itself would reach one file per worker, as workers share modules (vitest.config.ts). */
+export function useWorlds(): void {
+  beforeEach(() => {
+    logged.length = 0;
+    for (const level of ["log", "info", "warn", "error"] as const) vi.spyOn(console, level).mockImplementation((...parts: unknown[]) => void logged.push(parts.map(String).join(" ")));
+  });
 
-afterEach(async () => {
-  for (const w of worlds.splice(0)) {
-    const kept = [await w.s.settings.get(TOKEN_KEY), await w.s.settings.get("remote_access"), JSON.stringify(await w.s.security.list({ limit: 500 })), JSON.stringify(await w.s.ops.recent(40))];
-    const seen = [...w.answers, ...logged, ...kept].join("\n");
-    expect(seen).not.toContain(API_TOKEN);
-    expect(seen).not.toContain("tunnel-token-of-");
-    expect(seen).not.toContain(CLOUDFLARE_SAID);
-    rmSync(w.dir, { recursive: true, force: true });
-  }
-  vi.restoreAllMocks();
-});
+  afterEach(async () => {
+    for (const w of worlds.splice(0)) {
+      const kept = [await w.s.settings.get(TOKEN_KEY), await w.s.settings.get("remote_access"), JSON.stringify(await w.s.security.list({ limit: 500 })), JSON.stringify(await w.s.ops.recent(40))];
+      const seen = [...w.answers, ...logged, ...kept].join("\n");
+      expect(seen).not.toContain(API_TOKEN);
+      expect(seen).not.toContain("tunnel-token-of-");
+      expect(seen).not.toContain(CLOUDFLARE_SAID);
+      rmSync(w.dir, { recursive: true, force: true });
+    }
+    vi.restoreAllMocks();
+  });
+}

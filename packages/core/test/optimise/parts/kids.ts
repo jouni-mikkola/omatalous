@@ -6,7 +6,7 @@
  */
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Transaction } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 import { rowsOf } from "./tax.ts";
 
 const CITY = { merchant: "Espoon kaupunki", counterparty: "ESPOON KAUPUNKI", counterpartyIban: "FI0310093000048217", description: "VARHAISKASVATUSMAKSU" };

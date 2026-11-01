@@ -6,6 +6,13 @@ import { type FinanceContext, writeBatch } from "./context.ts";
 /** Rules made with "all of this merchant". */
 const MERCHANT_RULE_FIELDS = "('merchant', 'merchant_exact')";
 
+/** A rule of "all of this merchant" without its name (the merchant is the pattern): what an undo needs to give it back. */
+export interface MerchantRule {
+  field: "merchant" | "merchant_exact";
+  category: string;
+  priority: number;
+}
+
 /** The part of a stored row `settleMerchantRules` reads. */
 interface SettleRow {
   merchant: string;
@@ -49,7 +56,25 @@ export class RulesRepo {
   }
 
   async hasMerchantRule(merchant: string): Promise<boolean> {
-    return (await this.ctx.db.first(`SELECT 1 FROM category_rules WHERE user_id = ? AND field IN ${MERCHANT_RULE_FIELDS} AND pattern = ?`, [this.ctx.userId, merchant])) !== null;
+    return (await this.merchantRules(merchant)).length > 0;
+  }
+
+  /** The merchant's "all of this merchant" rules as stored (field, category, priority), so a change that replaces them can give them back. */
+  async merchantRules(merchant: string): Promise<MerchantRule[]> {
+    const rows = await this.ctx.db.all<Row>(`SELECT field, category, priority FROM category_rules WHERE user_id = ? AND field IN ${MERCHANT_RULE_FIELDS} AND pattern = ? ORDER BY priority, id`, [this.ctx.userId, merchant]);
+    return rows.map((r) => ({ field: String(r.field) as MerchantRule["field"], category: String(r.category), priority: Number(r.priority) }));
+  }
+
+  /** Puts the merchant's rules back as `merchantRules` read them: whatever "all of this merchant" rule there is now goes, these come. */
+  async restoreMerchantRules(merchant: string, rules: readonly MerchantRule[]): Promise<void> {
+    const now = new Date().toISOString();
+    await writeBatch(this.ctx.db, [
+      { sql: `DELETE FROM category_rules WHERE user_id = ? AND field IN ${MERCHANT_RULE_FIELDS} AND pattern = ?`, params: [this.ctx.userId, merchant] },
+      ...rules.map((r) => ({
+        sql: "INSERT INTO category_rules (user_id, field, pattern, category, priority, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        params: [this.ctx.userId, r.field, merchant, r.category, r.priority, now],
+      })),
+    ]);
   }
 
   /**

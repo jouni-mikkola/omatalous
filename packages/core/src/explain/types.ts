@@ -14,7 +14,7 @@ export type FigureId =
   | "income.month"
   | "income.earned"
   | "yli_jai.month"
-  | "usual.spend"
+  | "expected.spend"
   | "usual.income"
   | "share.part"
   | "settlement.over"
@@ -24,11 +24,11 @@ export type FigureId =
   | "ahead.pay"
   | LoanFigureId;
 
-/** Lainat and the loans of Varallisuus: the totals, then the figures of one loan (`explain/loans.ts`). */
+/** Lainat and the loans of Varat ja velat: the totals, then the figures of one loan (`explain/loans.ts`). */
 export type LoanFigureId = "loans.total" | "loans.interest" | "loans.payments" | "holdings.loans" | "loan.balance" | "loan.interest" | "loan.payment" | "loan.monthly";
 
-/** Laskut: the month board's states and due (`billMonth`), the fixed costs of a month and the subscriptions of a month. */
-export type BillFigureId = "bills.paid" | "bills.coming" | "bills.missing" | "bills.due" | "bills.fixed" | "bills.subs";
+/** Laskut: the fixed costs of a month and the subscriptions of a month. */
+export type BillFigureId = "bills.fixed" | "bills.subs";
 
 /** What placed a row or decided its cents; each has a sentence in `catalogue.ts`. */
 export type RuleId =

@@ -1,11 +1,13 @@
 import { addDays } from "@banking/core";
 import { Table } from "../table/Table.tsx";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api } from "../../api.ts";
 import { date, eurosText, money, parseEuros, plural } from "../../format.ts";
 import { readStatement, type StatementLine } from "./read-statement.ts";
 import "../../styles/card-statement.css";
-
+import { Button } from "../ui/Button.tsx";
+import { useModal } from "../useModal.ts";
+import { Notice } from "../ui/Notice.tsx";
 /** One saved statement as /api/statements gives it (only what the page reads). */
 export interface SavedStatement {
   billId: string;
@@ -27,12 +29,7 @@ const sameRow = (a: StatementLine, b: StatementLine) => a.day === b.day && a.cen
 
 /** The view of one card bill's purchases: the saved rows, a form for one more, a box for lines copied from the statement. */
 export function CardStatement({ bill, saved, onClose, onChanged }: { bill: BillFacts; saved: SavedStatement | null; onClose: () => void; onChanged: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
-  }, []);
+  const ref = useModal();
   const [from, setFrom] = useState(saved?.periodFrom ?? addDays(bill.bookingDate, -30));
   const [to, setTo] = useState(saved?.periodTo ?? bill.bookingDate);
   const [rows, setRows] = useState<StatementLine[]>(saved?.rows ?? []);
@@ -110,9 +107,9 @@ export function CardStatement({ bill, saved, onClose, onChanged }: { bill: BillF
                 headHidden: true,
                 kind: "text",
                 cell: (r) => (
-                  <button className="btn btn-small" type="button" aria-label={`Poista rivi: ${r.text}`} onClick={() => setRows((now) => now.filter((n) => !sameRow(n, r)))}>
+                  <Button variant="link" aria-label={`Poista rivi: ${r.text}`} onClick={() => setRows((now) => now.filter((n) => !sameRow(n, r)))}>
                     Poista
-                  </button>
+                  </Button>
                 ),
               },
             ]}
@@ -129,45 +126,45 @@ export function CardStatement({ bill, saved, onClose, onChanged }: { bill: BillF
         <input type="date" aria-label="Päivä" value={day} onChange={(e) => setDay(e.target.value)} />
         <input type="text" aria-label="Kuvaus" value={text} onChange={(e) => setText(e.target.value)} />
         <input type="text" inputMode="decimal" aria-label="Summa" value={sum} placeholder={eurosText(0)} onChange={(e) => setSum(e.target.value)} />
-        <button className="btn" type="button" onClick={addOne}>
+        <Button onClick={addOne}>
           Lisää
-        </button>
+        </Button>
       </div>
       <label className="field-label" htmlFor="cs-paste">
         Liitä rivit
       </label>
       <textarea id="cs-paste" rows={4} value={pasted} onChange={(e) => setPasted(e.target.value)} />
       <div className="form-row">
-        <button className="btn" type="button" disabled={!pasted.trim()} onClick={readPasted}>
-          Lue
-        </button>
+        <Button disabled={!pasted.trim()} onClick={readPasted}>
+          Lue rivit
+        </Button>
       </div>
-      {note && note.payments > 0 && <p>{plural(note.payments, "maksurivi", "maksuriviä")} jätettiin pois.</p>}
+      {note && note.payments > 0 && <p>Jätimme {plural(note.payments, "maksurivin", "maksuriviä")} pois.</p>}
       {note && note.unread.length > 0 && (
         <div className="cs-unread">
-          <span className="field-label">Ei luettu</span>
+          <span className="field-label">Emme osanneet lukea</span>
           {note.unread.map((l, i) => (
             <div key={`${i}|${l}`}>{l}</div>
           ))}
         </div>
       )}
       {error && (
-        <p className="error" role="alert">
+        <Notice tone="error" as="p">
           {error}
-        </p>
+        </Notice>
       )}
       <div className="form-row">
         {saved && (
-          <button className="btn btn-danger" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => call("DELETE")}>
+          <Button busy={busy} onClick={() => call("DELETE")}>
             Poista erittely
-          </button>
+          </Button>
         )}
-        <button className="btn" type="button" onClick={onClose}>
+        <Button onClick={onClose}>
           Peruuta
-        </button>
-        <button className="btn btn-primary" type="button" disabled={busy || rows.length === 0} aria-busy={busy || undefined} onClick={() => call("PUT")}>
+        </Button>
+        <Button variant="primary" disabled={busy || rows.length === 0} aria-busy={busy || undefined} onClick={() => call("PUT")}>
           Tallenna
-        </button>
+        </Button>
       </div>
     </dialog>
   );

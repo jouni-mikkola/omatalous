@@ -5,7 +5,9 @@ import { emptyForm, formOfDraft, type LoanForm } from "../../components/loans/fo
 import { LoanEditor } from "../../components/loans/LoanEditor.tsx";
 import { isPdf, isText, whatWasPasted } from "../../components/loans/paste.ts";
 import { type PictureProgress, ReadAborted, ReadError, readPdf, readPicture } from "../../components/loans/read-source.ts";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t, tn } from "../../text.ts";
 /** A pasted page of text is a few thousand characters; more than this is no loan page. */
 const MAX_TEXT = 200_000;
 /** A screenshot is a few megabytes at most. A larger file is refused before it fills the phone's memory. */
@@ -21,10 +23,10 @@ interface Draft {
 
 /** What the status line says while a file is read. The percent is shown beside it and not announced. */
 function progressText(progress: PictureProgress | "pdf"): string {
-  if (progress === "pdf") return "Luetaan PDF-tiedostoa…";
-  if (progress.step === "load") return "Ladataan kuvanlukijaa. Ensimmäisellä kerralla ladataan noin 11 megatavua.";
+  if (progress === "pdf") return t("set.ln.reading_the_pdf");
+  if (progress.step === "load") return t("set.ln.loading_the_image_reader_the");
   // measured on a phone-sized Chromium at a quarter of the CPU: a screenshot of three loans takes about five seconds
-  return "Luetaan kuvaa…";
+  return t("set.ln.reading_the_image");
 }
 
 /**
@@ -51,7 +53,6 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
   /** The element that gets focus after the next render: the first form after a read, the box after a save. */
   const focusAfter = useRef<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
-  const canReadClipboard = typeof navigator.clipboard?.read === "function";
   const boxId = `${uid}-text`;
   const headingId = (key: number) => `${uid}-draft-${key}`;
 
@@ -75,10 +76,10 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
     setSource(from);
     const found = parseLoanText(content.slice(0, MAX_TEXT), { asOf: today, source: from });
     const first = nextKey.current;
-    setDrafts(found.map((draft, i) => ({ key: nextKey.current++, title: found.length > 1 ? `Laina ${i + 1}` : "Luettu laina", form: formOfDraft(draft, today), read: true })));
+    setDrafts(found.map((draft, i) => ({ key: nextKey.current++, title: found.length > 1 ? t("set.ln.loan_n", { n: i + 1 }) : t("set.ln.loan_read"), form: formOfDraft(draft, today), read: true })));
     if (found.length > 0) focusAfter.current = headingId(first);
-    setNote(found.length > 0 ? `Löytyi ${found.length} ${found.length === 1 ? "laina" : "lainaa"}.` : "");
-    const advice = from === "ocr" ? "Kuvasta ei löytynyt lainan tietoja. Kokeile tarkempaa kuvaa, liitä lainan tiedot tekstinä tai lisää laina käsin." : "Tekstistä ei löytynyt lainan tietoja. Liitä lainasta kuvakaappaus tai lisää laina käsin.";
+    setNote(found.length > 0 ? tn(found.length, "set.ln.found_one", "set.ln.found_many") : "");
+    const advice = from === "ocr" ? t("set.ln.no_loan_details_were_found") : t("set.ln.no_loan_details_were_found_2");
     setProblem(found.length > 0 ? null : advice);
   };
 
@@ -99,12 +100,12 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
     setNote("");
     setDrafts([]);
     try {
-      if (file.size > MAX_FILE_BYTES) throw new ReadError("Tiedosto on liian suuri. Ota lainan tiedoista kuvakaappaus.");
+      if (file.size > MAX_FILE_BYTES) throw new ReadError(t("set.ln.the_file_is_too_large"));
       if (isPdf(file)) {
         setProgress("pdf");
         const content = await readPdf(await file.arrayBuffer(), mine.signal);
         if (id !== reading.current) return;
-        if (!/\p{L}/u.test(content)) throw new ReadError("PDF-tiedostossa on pelkkä kuva. Ota siitä kuvakaappaus ja liitä se.");
+        if (!/\p{L}/u.test(content)) throw new ReadError(t("set.ln.the_pdf_has_only_an"));
         show(content, "text");
       } else if (file.type.startsWith("image/")) {
         setProgress({ step: "load", share: 0 });
@@ -113,9 +114,9 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
       } else if (isText(file)) {
         const content = await file.text();
         if (id === reading.current) show(content, "text");
-      } else throw new ReadError("Tiedosto ei ole kuva, PDF eikä teksti.");
+      } else throw new ReadError(t("set.ln.the_file_is_not_an"));
     } catch (err) {
-      if (id === reading.current && !(err instanceof ReadAborted)) setProblem(err instanceof ReadError ? err.message : "Tiedostoa ei voitu lukea. Yritä uudelleen tai liitä lainan tiedot tekstinä.");
+      if (id === reading.current && !(err instanceof ReadAborted)) setProblem(err instanceof ReadError ? err.message : t("set.ln.the_file_could_not_be"));
     } finally {
       if (running.current === mine) running.current = null;
       if (id === reading.current) setProgress(null);
@@ -127,7 +128,7 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
     stopReading();
     reading.current++;
     setProgress(null);
-    setNote("Lukeminen keskeytettiin.");
+    setNote(t("set.ln.reading_was_cancelled"));
     focusAfter.current = boxId;
   };
 
@@ -152,25 +153,6 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
     if (file) return void takeFile(file);
     const dropped = e.dataTransfer.getData("text/plain");
     if (dropped.trim() !== "") showText(dropped);
-  };
-
-  const fromClipboard = async () => {
-    try {
-      const items = await navigator.clipboard.read();
-      // a picture beside text (Word, Excel) is read as the text
-      for (const item of items) {
-        if (!item.types.includes("text/plain")) continue;
-        const pasted = await (await item.getType("text/plain")).text();
-        if (pasted.trim() !== "") return showText(pasted);
-      }
-      for (const item of items) {
-        const type = item.types.find((t) => t.startsWith("image/"));
-        if (type) return void takeFile(new File([await item.getType(type)], "leikepöytä", { type }));
-      }
-      setProblem("Leikepöydällä ei ole kuvaa eikä tekstiä. Kopioi lainan tiedot tai ota niistä kuvakaappaus.");
-    } catch {
-      setProblem("Selain ei antanut lukea leikepöytää. Liitä kenttään tai valitse tiedosto.");
-    }
   };
 
   const close = (key: number) => {
@@ -203,13 +185,13 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
         onDrop={onDrop}
       >
         <label className="field-label" htmlFor={boxId}>
-          Liitä kuva tai teksti lainasta
+          {t("set.ln.paste_an_image_or_text")}
         </label>
         <textarea
           id={boxId}
           value={text}
           rows={4}
-          placeholder="Liitä tähän kuvakaappaus tai teksti, pudota kuva tai PDF, tai kirjoita lainan tiedot."
+          placeholder={t("set.ln.paste_a_screenshot_or_text")}
           aria-describedby={`${uid}-privacy`}
           onChange={(e) => {
             setText(e.target.value);
@@ -217,25 +199,20 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
           }}
         />
         <div className="form-row">
-          <button className="btn btn-primary" type="button" disabled={text.trim() === "" || progress !== null} onClick={() => showText(text, source)}>
-            Lue tiedot
-          </button>
-          <button className="btn" type="button" onClick={() => picker.current?.click()}>
-            Valitse kuva tai PDF
-          </button>
-          {canReadClipboard && (
-            <button className="btn" type="button" onClick={() => void fromClipboard()}>
-              Liitä leikepöydältä
-            </button>
-          )}
-          <button className="link-btn" type="button" onClick={() => setDrafts([...drafts, { key: nextKey.current++, title: "Uusi laina", form: emptyForm(today), read: false }])}>
-            Lisää käsin
-          </button>
+          <Button variant="primary" disabled={text.trim() === "" || progress !== null} onClick={() => showText(text, source)}>
+            {t("set.ln.read_the_loan_details")}
+          </Button>
+          <Button onClick={() => picker.current?.click()}>
+            {t("set.ln.choose_an_image_or_pdf")}
+          </Button>
+          <Button variant="link" onClick={() => setDrafts([...drafts, { key: nextKey.current++, title: "Uusi laina", form: emptyForm(today), read: false }])}>
+            {t("set.ln.add_by_hand")}
+          </Button>
           <input
             ref={picker}
             type="file"
             hidden
-            aria-label="Kuva tai PDF lainasta"
+            aria-label={t("set.ln.image_or_pdf_of_the")}
             accept="image/*,application/pdf,.pdf,text/plain"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -245,27 +222,27 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
           />
         </div>
         <p id={`${uid}-privacy`}>
-          Kuva ja teksti luetaan tässä selaimessa.
+          {t("set.ln.the_image_and_text_are")}
         </p>
       </div>
 
       {/* mounted all the time, so a screen reader hears what is put into it: the read, then how many loans it found */}
       <div className={`loan-readline${status ? " busy" : ""}`}>
-        {progress && <progress value={progress !== "pdf" && progress.step === "read" ? progress.share : undefined} max={1} aria-label="Lukeminen" />}
+        {progress && <progress value={progress !== "pdf" && progress.step === "read" ? progress.share : undefined} max={1} aria-label={t("set.ln.reading")} />}
         <div className="loan-status" role="status">
           {status}
         </div>
         {progress && progress !== "pdf" && progress.step === "read" && <span aria-hidden="true">{Math.round(progress.share * 100)} %</span>}
         {progress && (
-          <button className="link-btn" type="button" onClick={cancel}>
-            Keskeytä
-          </button>
+          <Button variant="link" onClick={cancel}>
+            {t("set.ln.stop")}
+          </Button>
         )}
       </div>
       {problem && (
-        <div className="notice warning" role="alert">
+        <Notice tone="warning" role="alert">
           {problem}
-        </div>
+        </Notice>
       )}
 
       {drafts.map((draft) => (
@@ -276,7 +253,7 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
           <LoanEditor
             initial={draft.form}
             today={today}
-            cancelLabel="Hylkää"
+            cancelLabel={t("set.ln.discard")}
             onSave={async (body) => {
               await loanCalls.add(body);
               close(draft.key);
@@ -287,7 +264,7 @@ export function LoanIntake({ today, onSaved }: { today: string; onSaved: (name: 
         </section>
       ))}
 
-      <p className="loan-tip">Kuvakaappaus positiivisesta luottotietorekisteristä tuo kaikki lainat kerralla.</p>
+      <p className="loan-tip">{t("set.ln.a_screenshot_of_the_positive")}</p>
     </div>
   );
 }

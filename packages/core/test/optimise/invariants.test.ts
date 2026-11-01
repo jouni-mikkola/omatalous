@@ -18,7 +18,8 @@ import {
   MAX_ROWS,
 } from "../../src/optimise/index.ts";
 import { rng } from "../gen.ts";
-import { household, householdInput } from "./household.ts";
+import { household } from "./household.ts";
+import { householdInput } from "./household-kit.ts";
 import { numbersIn } from "./numbers.ts";
 
 const STYLE: [RegExp, string][] = [

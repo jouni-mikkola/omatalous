@@ -5,6 +5,7 @@
  * numerals, hairlines between rows, no colour on a sum.
  */
 
+@layer components {
 /* a list or a dl of rows */
 .st-rows { margin: 0; padding: 0; list-style: none; }
 /* a row is 32 px: 7 px above and below a line of 18 px; name left, figure right, a line under the name when there is one */
@@ -26,9 +27,7 @@
 .st-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }
 
 /* a part of a block across the card, under a rule that runs to the card's edges */
-.st-part { margin: 0 calc(-1 * var(--pad)); padding: 16px var(--pad) 16px; border-top: 1px solid var(--border); }
-/* the last part of a block ends on the card's bottom edge */
-.st-block > :is(.st-part, .st-cols):last-child { margin-bottom: calc(-1 * var(--pad)); }
+.st-part { padding: 16px 0; border-top: 1px solid var(--border); }
 
 /*
  * The groups of a block: side by side from 900 px, under each other below with a hairline between. `.st-cols-3` holds
@@ -36,8 +35,8 @@
  * of them two (`.st-wide`), so its rule stands on a rule of the block above. The groups run to the edges of the card,
  * so the hairlines do.
  */
-.st-cols { display: grid; grid-template-columns: minmax(0, 1fr); margin: 0 calc(-1 * var(--pad)); border-top: 1px solid var(--border); }
-.st-cols > * { min-width: 0; padding: 16px var(--pad) 16px; }
+.st-cols { display: grid; grid-template-columns: minmax(0, 1fr); border-top: 1px solid var(--border); }
+.st-cols > * { min-width: 0; padding: 16px 0; }
 .st-cols > * + * { border-top: 1px solid var(--border); }
 @media (min-width: 900px) {
   .st-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -55,3 +54,4 @@
 /* the name strip of a block is the last thing above its first part: no gap, and no rule twice */
 .st-block > .card-head { margin-bottom: 0; }
 .st-block > .card-head + :is(.st-part, .st-cols) { border-top: 0; }
+}

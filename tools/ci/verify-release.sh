@@ -12,12 +12,14 @@
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
+# shellcheck source=tools/lib/project.sh
+. tools/lib/project.sh
 
 if [[ ${1:-} == --pull ]]; then
   version=${2:-}
   version=${version#v}
   [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: verify-release.sh --pull X.Y.Z"; exit 1; }
-  image=$(sed -n 's/^REGISTRY_IMAGE=//p' scripts/lib/release.sh)
+  image=$PROJECT_IMAGE
   host=${image%%/*}
   name=${image#*/}
   token=$(curl -fsS "https://$host/token?service=$host&scope=repository:$name:pull" | jq -r '.token // empty') || token=
@@ -45,7 +47,7 @@ if [[ ${1:-} == --pull ]]; then
   exit 0
 fi
 
-repo=jouni-mikkola/omatalous
+repo=$PROJECT_OWNER/$PROJECT_REPO
 # the first release of a new root (release.sh --new-root, docs/RELEASING.md) has no release before it to verify. Only
 # that run says so, and only an empty list from GitHub counts: a failed request is no answer and the check runs as ever.
 if (($# == 0)) && [[ ${VERIFY_RELEASE_FIRST:-} == 1 ]] \

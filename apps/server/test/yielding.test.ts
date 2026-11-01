@@ -1,41 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { normalizeMerchant, type RawTransaction } from "@banking/core";
-import type { StoredTransaction } from "../src/db/rows.ts";
 import { AnalysisCache } from "../src/services/analysis.ts";
 import { lockedOutside, reprocess, withUserLock } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { setupApp } from "./helpers.ts";
-
-type Setup = Awaited<ReturnType<typeof setupApp>>;
-
-async function history(setup: Setup, count: number, accountId = "acc", userId = setup.adminId) {
-  const repo = setup.s.finance(userId);
-  await repo.upsertAccount({ id: accountId, connectionId: null, provider: "csv", externalId: null, identity: accountId, name: accountId, iban: null, currency: "EUR", type: "checking" });
-  const rows: Omit<StoredTransaction, "userId">[] = Array.from({ length: count }, (_, i) => ({
-    id: `${accountId === "acc" ? "" : `${accountId}-`}r${String(i).padStart(6, "0")}`,
-    accountId,
-    // a few dates only, so the id breaks most ties and page borders fall inside a day
-    bookingDate: `2026-0${1 + (i % 9)}-0${1 + (i % 3)}`,
-    valueDate: null,
-    amountCents: -(100 + (i % 977)),
-    currency: "EUR",
-    status: "booked" as const,
-    counterparty: null,
-    counterpartyIban: null,
-    description: i % 2 ? "K-MARKET KAMPPI" : `KAUPPA ${i % 300}`,
-    reference: null,
-    mcc: null,
-    merchant: i % 2 ? "K-Market Kamppi" : `Kauppa ${i % 300}`,
-    category: "other",
-    categorySource: "default" as const,
-    isTransfer: false,
-    source: "test",
-    raw: null,
-  }));
-  await repo.batch(repo.upsertStatements(rows, "2026-10-09T10:00:00Z"));
-  return repo;
-}
+import { history, type Setup } from "./yielding-kit.ts";
 
 /** Counts how often the event loop gets a turn while `work` runs. */
 async function turnsDuring(work: () => Promise<unknown>): Promise<number> {
@@ -180,51 +150,7 @@ describe("a big import is written in pieces", () => {
   });
 });
 
-/** The longest time the event loop went without a turn while `work` ran, and how long `work` took. */
-async function longestHold(work: () => Promise<unknown>): Promise<{ hold: number; total: number }> {
-  let hold = 0;
-  let last = performance.now();
-  const timer = setInterval(() => {
-    const now = performance.now();
-    hold = Math.max(hold, now - last);
-    last = now;
-  }, 1);
-  const start = performance.now();
-  await work();
-  const total = performance.now() - start;
-  // a hold that ends with the work is seen by the next tick only
-  await new Promise((r) => setTimeout(r, 2));
-  clearInterval(timer);
-  return { hold, total };
-}
-
 describe("one user's reprocess and the others' requests", () => {
-  it("a reprocess and the build of its analysis leave the loop to other members in short turns", async () => {
-    const setup = await setupApp();
-    const repo = await history(setup, 12_000);
-    const other = await setup.member("toinen");
-    // what the other member does meanwhile: a short request at a time
-    const waits: number[] = [];
-    let done = false;
-    const asking = (async () => {
-      while (!done) {
-        const start = performance.now();
-        expect((await other.call("GET", "/api/auth/state")).status).toBe(200);
-        waits.push(performance.now() - start);
-        await new Promise((r) => setTimeout(r, 2));
-      }
-    })();
-    const run = await longestHold(() => reprocess(repo, setup.s.settings));
-    const build = await longestHold(() => setup.s.analysis.get(setup.s, setup.adminId, "own"));
-    done = true;
-    await asking;
-    // relative bounds hold on a busy machine too: no piece takes half of the whole
-    expect(run.hold).toBeLessThan(run.total / 2);
-    expect(build.hold).toBeLessThan(build.total / 2);
-    expect(waits.length).toBeGreaterThan(4);
-    expect(Math.max(...waits)).toBeLessThan((run.total + build.total) / 2);
-  });
-
   it("two reprocesses of one user run one after the other, and the version moves once for each", async () => {
     const setup = await setupApp();
     const repo = await history(setup, 3000);

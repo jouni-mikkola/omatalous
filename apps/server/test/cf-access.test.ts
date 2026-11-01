@@ -257,6 +257,19 @@ describe("the team's keys", () => {
     expect(await reason(token({}, { kid: "key-2" }, team1.privateKey))).toBe("signature");
   });
 
+  it("a key the team withdrew stops counting within the hour, though its kid is held", async () => {
+    const { reason, team, clock } = verifier();
+    const long = () => token({ exp: SECONDS + 10_000 });
+    expect(await reason(long())).toBe("ok");
+    team.keys = { "key-2": team2.publicKey };
+    clock.ms += 59 * 60_000;
+    expect(await reason(long())).toBe("ok");
+    expect(team.calls).toHaveLength(1);
+    clock.ms += 60_000;
+    expect(await reason(long())).toBe("unknown_key");
+    expect(team.calls).toHaveLength(2);
+  });
+
   it("requests that arrive during a fetch share it", async () => {
     const { reason, team } = verifier();
     expect(await Promise.all([reason(token()), reason(token()), reason(token({}, { kid: "key-9" }))])).toEqual(["ok", "ok", "unknown_key"]);
@@ -352,7 +365,8 @@ describe("the team's keys", () => {
 async function accessApp(team = fakeTeam(), env: Record<string, string> = {}) {
   const { db } = await openDatabase(":memory:");
   const config = loadConfig({
-    PASSWORD_ITERATIONS: "1000",
+    PASSWORD_MEMORY_KIB: "8",
+    PASSWORD_PASSES: "1",
     APP_SECRET: "test-secret-that-is-long-enough-0123456789",
     SETUP_CODE,
     APP_BASE_URL: "https://talous.example.fi",

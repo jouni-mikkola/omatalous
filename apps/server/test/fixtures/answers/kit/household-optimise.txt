@@ -17,23 +17,23 @@
    {
     "id": "fixed_share",
     "label": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta",
-    "value": 0.6035795454545455,
+    "value": 0.5562985631980447,
     "unit": "share",
-    "text": "60 %"
+    "text": "56 %"
    },
    {
     "id": "buffer",
     "label": "Puskuri",
-    "value": 6.401347307836949,
+    "value": 5.603105350575395,
     "unit": "months",
-    "text": "6,4 kuukautta"
+    "text": "5,6 kuukautta"
    },
    {
     "id": "debt_share",
     "label": "Velanhoito tavallisista tuloista, viimeiset 6 kuukautta",
-    "value": 0.17397727272727273,
+    "value": 0.16059454597425346,
     "unit": "share",
-    "text": "17 %"
+    "text": "16 %"
    }
   ],
   "headline": {
@@ -134,7 +134,7 @@
       "status": "no_data",
       "why": {
        "cause": "other",
-       "text": "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten hintaa ei voi verrata."
+       "text": "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten emme voi verrata hintaa."
       }
      },
      {
@@ -264,11 +264,11 @@
      "lines": [
       {
        "label": "Polttoaine",
-       "value": "1 451 €"
+       "value": "1 693 €"
       },
       {
        "label": "Yhteensä",
-       "value": "1 451 €"
+       "value": "1 693 €"
       }
      ]
     },

@@ -8,7 +8,7 @@
 import { addMonths, daysInMonth, monthRange } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Account, Transaction } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 
 export const CARD: Account = { id: "h-card", name: "Nordea Platinum", iban: null, currency: "EUR", type: "credit_card" };
 const OTHER_BANK_CARD: Account = { ...CARD, name: "Platinum", bank: "Bank Norwegian" };

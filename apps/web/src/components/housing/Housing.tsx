@@ -1,22 +1,20 @@
 /**
- * Decision: what the home costs a month, and whether the household has a home loan to add. Yhteenveto shows it as the
+ * Decision: what the home costs a month, and whether the household has a home loan to add. Kiinteät ja muuttuvat shows it as the
  * block Asuminen, a statement: the table Lainat with the terms the household typed, one row a loan; under it the table
- * Asumiskulut, one row a charge, beside the sums. Every figure is the one in `housing` (the answer Yhteenveto already
- * loads); nothing here adds anything up. With no loan the charges stand alone and the total is the foot of their
+ * Asumiskulut, one row a charge, beside the sums. Every figure is the one in `housing` (the housing report); nothing here adds anything up. With no loan the charges stand alone and the total is the foot of their
  * table. Whether a household with no home loan has one is asked in Tarkistettavat, never here.
  */
-import type { CSSProperties } from "react";
 import { query } from "../../api.ts";
 import { money } from "../../format.ts";
-import { SETTINGS_ANCHOR } from "../../routes.ts";
-import type { DashboardData } from "../../types.ts";
+import { t } from "../../text.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../../routes.ts";
+import type { ReportsData } from "../../types.ts";
 import { type Column, Table } from "../table/Table.tsx";
 import { DASH, housingView, LOAN_COLUMNS } from "./housing.ts";
 import "../../styles/statement.css";
 import "../../styles/housing.css";
 
-const SETTINGS_LOANS = `#/settings#${SETTINGS_ANCHOR.loans}`;
-const NEXT_PAYMENT = "Seuraava maksuerä";
+const SETTINGS_LOANS = settingsCardHash(SETTINGS_ANCHOR.loans);
 const paymentsOf = (payee: string) => `#/transactions${query({ merchant: payee })}`;
 
 type View = ReturnType<typeof housingView>;
@@ -33,8 +31,8 @@ function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: stri
   const before = LOAN_COLUMNS.filter((c) => !c.next && c.key !== "month");
   const loanColumn = (c: (typeof LOAN_COLUMNS)[number]): Column<Row> => ({
     key: c.key,
-    label: c.head,
-    text: c.next ? `${NEXT_PAYMENT}: ${c.head.toLowerCase()}` : c.head,
+    label: t(c.head),
+    text: c.next ? `${t("rpt.ho_next")}: ${t(c.head).toLowerCase()}` : t(c.head),
     kind: c.figure ? "money" : "text",
     main: c.key === "month",
     className: () => `housing-${c.key}`,
@@ -43,7 +41,7 @@ function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: stri
   const columns: Column<Row>[] = [
     {
       key: "name",
-      label: "Laina",
+      label: t("rpt.ho_loan"),
       kind: "text",
       rowHead: true,
       className: () => "housing-name",
@@ -58,17 +56,17 @@ function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: stri
     },
     ...LOAN_COLUMNS.map(loanColumn),
     ...(linked
-      ? [{ key: "link", label: "Toiminnot", headHidden: true, kind: "text" as const, className: () => "housing-link", cell: (row: Row) => (row.link ? <a href={SETTINGS_LOANS}>{row.link}</a> : null) }]
+      ? [{ key: "link", label: t("rpt.ho_actions"), headHidden: true, kind: "text" as const, className: () => "housing-link", cell: (row: Row) => (row.link ? <a href={SETTINGS_LOANS}>{t(row.link === "complete" ? "rpt.ho_complete" : "rpt.ho_add_loan")}</a> : null) }]
       : []),
   ];
   const figureHead = (c: { figure: boolean }) => (c.figure ? "num" : undefined);
   return (
     <div className="st-part">
       <h3 className="st-cap" id="housing-loans-h">
-        Lainat
+        {t("rpt.ho_loans")}
       </h3>
       <Table<Row>
-        caption="Lainat"
+        caption={t("rpt.ho_loans")}
         rows={rows}
         rowKey={(row) => row.key}
         columns={columns}
@@ -76,11 +74,11 @@ function Loans({ rows, reportAnchor }: { rows: View["loans"]; reportAnchor: stri
         headTop={{
           covered: ["name", ...before.map((c) => c.key), "group", "month", ...(linked ? ["link"] : [])],
           cells: [
-            { key: "name", label: "Laina", rowSpan: 2 },
-            ...before.map((c) => ({ key: c.key, label: c.head, rowSpan: 2, className: figureHead(c) })),
-            { key: "next", label: NEXT_PAYMENT, colSpan: next.length },
-            { key: "month", label: "Kuussa", rowSpan: 2, className: "num" },
-            ...(linked ? [{ key: "link", label: "Toiminnot", rowSpan: 2, hidden: true }] : []),
+            { key: "name", label: t("rpt.ho_loan"), rowSpan: 2 },
+            ...before.map((c) => ({ key: c.key, label: t(c.head), rowSpan: 2, className: figureHead(c) })),
+            { key: "next", label: t("rpt.ho_next"), colSpan: next.length },
+            { key: "month", label: t("rpt.fc_per_month"), rowSpan: 2, className: "num" },
+            ...(linked ? [{ key: "link", label: t("rpt.ho_actions"), rowSpan: 2, hidden: true }] : []),
           ],
         }}
       />
@@ -95,7 +93,7 @@ function Charges({ rows, addsUp, total }: { rows: View["charges"]; addsUp: boole
   const columns: Column<ChargeRowView>[] = [
     {
       key: "kind",
-      label: "Kulu",
+      label: t("rpt.ho_charge"),
       kind: "text",
       rowHead: true,
       cell: (row) => (
@@ -107,28 +105,28 @@ function Charges({ rows, addsUp, total }: { rows: View["charges"]; addsUp: boole
     },
     {
       key: "payee",
-      label: "Saaja",
+      label: t("rpt.ho_payee"),
       kind: "text",
       title: (row) => row.payee,
       cell: (row) => <a href={paymentsOf(row.payee)}>{row.payee}</a>,
     },
     {
       key: "cents",
-      label: "Kuussa",
+      label: t("rpt.fc_per_month"),
       kind: "money",
       main: true,
       className: (row) => `sum${row.share ? " share" : ""}`,
-      style: (row) => (row.share ? ({ "--from": row.share.from, "--part": row.share.part } as CSSProperties) : undefined),
+      style: (row) => (row.share ? { "--from": row.share.from, "--part": row.share.part } : { "--from": undefined, "--part": undefined }),
       cell: (row) => money(row.cents),
     },
   ];
   return (
     <>
       <h3 className="st-cap" id="housing-charges-h">
-        Asumiskulut
+        {t("rpt.ho_charges")}
       </h3>
       <Table<ChargeRowView>
-        caption="Asumiskulut"
+        caption={t("rpt.ho_charges")}
         rows={rows}
         rowKey={(row) => row.key}
         columns={columns}
@@ -160,7 +158,7 @@ function Sums({ view }: { view: View }) {
  * `housing` is the running month's answer and is null when there is nothing to show; `reportAnchor` is the section of
  * Raportit that tells a loan's payments, which the page that mounts the block names.
  */
-export function Housing({ housing, reportAnchor }: { housing: NonNullable<DashboardData["housing"]>; reportAnchor: string }) {
+export function Housing({ housing, reportAnchor }: { housing: NonNullable<ReportsData["housing"]>; reportAnchor: string }) {
   const view = housingView(housing);
   if (view.sums.length === 0) return null;
   // with no loan the one sum is the charges' own total: the foot of their table, in one column
@@ -170,10 +168,10 @@ export function Housing({ housing, reportAnchor }: { housing: NonNullable<Dashbo
     <section className="card st-block housing" aria-labelledby="housing-h">
       <div className="card-head tb">
         <div className="card-name">
-          <h2 id="housing-h">Asuminen</h2>
+          <h2 id="housing-h">{t("rpt.ho_title")}</h2>
         </div>
         {/* the block's one total, as its last sum row has it */}
-        {view.sums.at(-1)?.cents != null && <div className="card-datum">{money(view.sums.at(-1)!.cents!, false)}/kk</div>}
+        {view.sums.at(-1)?.cents != null && <div className="card-datum">{t("rpt.ln_per_month", { amount: money(view.sums.at(-1)!.cents!, false) })}</div>}
       </div>
       {view.loans.length > 0 && <Loans rows={view.loans} reportAnchor={reportAnchor} />}
       {alone ? (

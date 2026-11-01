@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript6";
 
 export const ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 

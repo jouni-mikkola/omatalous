@@ -55,7 +55,7 @@ async function household(browser: Browser): Promise<void> {
   await admin.close();
   const member = await browser.newContext();
   await post(member, "/api/auth/login", { username: USERNAME, password: temporaryPassword });
-  await post(member, "/api/auth/password", { current: temporaryPassword, next: "e2e-lainat-123456" });
+  await post(member, "/api/auth/first-password", { next: "e2e-lainat-123456" });
   today = ((await (await member.request.get(`${BASE}/api/meta`, { headers: FETCH })).json()) as { today: string }).today;
   expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   await post(member, "/api/demo", {});
@@ -90,7 +90,7 @@ async function open(browser: Browser, width: number): Promise<{ page: Page; seen
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 844 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=velat");
   await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeVisible();
   return { page, seen, context };
 }
@@ -113,8 +113,8 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   // the totals: both loans are owed
   const tiles = await texts(page, "#lainat .kv > div");
   expect(tiles[0]).toBe("Velkaa yhteensä 121 240 €");
-  expect(tiles[1]).toMatch(/^Korot 12 kuukaudessa \d[\d ]* €$/);
-  expect(tiles[2]).toBe("Maksuerät kuussa 1 000 €");
+  expect(tiles[1]).toMatch(/^Korot seuraavan 12 kuukauden aikana \(arvio\) \d[\d ]* €$/);
+  expect(tiles[2]).toBe("Maksut kuussa 1 000 €");
   // a figure the card lacks is a dash in its row, and no sentence tells which loans a sum leaves out
   await expect(section.locator(".loans-notes")).toHaveCount(0);
   await expect(section).not.toContainText(/puuttuu|ei tiedossa/);
@@ -128,18 +128,18 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   const home = rows.nth(0);
   await expect(home.locator(".loan-head")).toHaveText(/Kodin laina\s*Asuntolaina · Esimerkkipankki/);
   const figures = (await home.locator(".loan-figures > div").allInnerTexts()).map(plain);
-  expect(figures.slice(0, 3)).toEqual(["Velkaa 120 000,00 €", "Korko 4,00 % 12 kuukauden Euribor", "Maksuerä 1 000,00 €/kk Korko 400,00 € Lyhennys 600,00 €"]);
+  expect(figures.slice(0, 3)).toEqual(["Velkaa 120 000,00 €", "Korko 4,00 % 12 kuukauden Euribor", "Maksu 1 000,00 €/kk Korko 400,00 € Lyhennys 600,00 €"]);
   expect(figures[3]).toBe(tiles[1]);
-  expect(figures[4]).toMatch(/^Viimeinen eräpäivä \d{1,2}\.\d{1,2}\.\d{4}$/);
+  expect(figures[4]).toMatch(/^Viimeinen maksupäivä \d{1,2}\.\d{1,2}\.\d{4}$/);
 
   // a point down the payment is smaller and a point up larger, and so is the year's interest
   const line = plain(await home.locator(".loan-scenario").innerText());
-  const moved = /^Jos viitekorko laskee prosenttiyksikön: maksuerä ([\d ,]+ €), korot 12 kuukaudessa ([\d ]+ €)\. Jos viitekorko nousee prosenttiyksikön: maksuerä ([\d ,]+ €), korot 12 kuukaudessa ([\d ]+ €)\.$/.exec(line);
+  const moved = /^Jos viitekorko laskee prosenttiyksikön: maksu ([\d ,]+ €), korot 12 kuukaudessa ([\d ]+ €)\. Jos viitekorko nousee prosenttiyksikön: maksu ([\d ,]+ €), korot 12 kuukaudessa ([\d ]+ €)\.$/.exec(line);
   expect(moved, line).not.toBeNull();
   const [downPay, downInterest, upPay, upInterest] = moved!.slice(1).map(cents);
   expect(downPay!).toBeLessThan(100000);
   expect(upPay!).toBeGreaterThan(100000);
-  const interest = cents(tiles[1]!.replace("Korot 12 kuukaudessa ", ""));
+  const interest = cents(tiles[1]!.replace("Korot seuraavan 12 kuukauden aikana (arvio) ", ""));
   expect(downInterest!).toBeLessThan(interest);
   expect(upInterest!).toBeGreaterThan(interest);
 
@@ -151,13 +151,13 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   expect((await card.locator(".loan-figures > div").allInnerTexts()).map(plain)).toEqual([
     `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.${today.slice(0, 4)}`,
     "Korko –",
-    "Maksuerä –",
-    "Korot 12 kuukaudessa –",
-    "Viimeinen eräpäivä –",
+    "Maksu –",
+    "Korot seuraavan 12 kuukauden aikana (arvio) –",
+    "Viimeinen maksupäivä –",
   ]);
   await expect(card.locator(".loan-scenario")).toHaveCount(0);
   await expect(card.getByRole("link")).toHaveCount(1);
-  await expect(card.getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings#lainat");
+  await expect(card.getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings/household#lainat");
 
   expect(await overflow(page)).toBe(0);
   await shot(page, 1280);
@@ -183,7 +183,7 @@ test("a loan figure opens its calculation, whose lines add up to the figure show
   const total = await calculation(/^Näytä laskelma: Velkaa yhteensä /);
   expect(total.total).toBe("121 240,00 €");
   expect(total.lines.map((l) => l.replace(/^\S+ /, ""))).toEqual(["Kodin laina 120 000,00 €", "Kaupan kortti 1 240,00 €"]);
-  const payment = await calculation(/^Näytä laskelma: Kodin laina, maksuerä /);
+  const payment = await calculation(/^Näytä laskelma: Kodin laina, maksu /);
   expect(payment.lines.map((l) => l.replace(/^\S+ /, ""))).toEqual(["Korko 400,00 €", "Lyhennys 600,00 €"]);
   expect(payment.total).toBe("1 000,00 €");
   expect(seen.problems).toEqual([]);
@@ -193,7 +193,7 @@ test("a loan figure opens its calculation, whose lines add up to the figure show
 test("Täydennä opens Asetukset at the card Lainat, where the loan can be changed", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
   await page.locator("#lainat .loan-list > li").nth(1).getByRole("link", { name: "Täydennä", exact: true }).click();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings#lainat");
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/household#lainat");
   await expect(page.getByRole("button", { name: "Muokkaa lainaa Kaupan kortti" })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -201,19 +201,22 @@ test("Täydennä opens Asetukset at the card Lainat, where the loan can be chang
 
 test("Raportit draws its figures as charts under their questions, and none of the paragraphs the figures replaced", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
-  await page.goto("/#/reports?tab=virta");
+  await page.goto("/#/reports?q=tulot");
   await expect(page.locator("#kassavirta").getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
   // each chart answers a question written as its title
   const questions = (await page.locator("main .qc-q").allInnerTexts()).map((q) => q.trim());
-  for (const q of ["Jääkö tänä vuonna enemmän yli kuin viime vuonna?", "Pysyykö säästöaste tavallisella tasolla?", "Tuleeko tuloja yhtä paljon kuin ennen?", "Kuinka suuri osa menoista on lukittu ennen kuun alkua?"]) expect(questions).toContain(q);
+  for (const q of ["Säästöaste", "Tulotaso"]) expect(questions).toContain(q);
   // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulot
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
+  await page.goto("/#/reports?q=kiinteat");
+  await expect(page.locator("main .qc-q", { hasText: "Kiinteiden menojen osuus" })).toBeVisible();
   await expect(page.locator("#kiinteat .qc-a").first()).toContainText("Kiinteät menot ovat nyt");
+  await page.goto("/#/reports?q=tulot");
   await expect(page.locator("#tulot").getByRole("heading", { name: "Tulot", exact: true })).toBeVisible();
   // Saldot: the balance by day under its question, with no legend
-  await page.goto("/#/reports?tab=varat");
-  await expect(page.locator("#saldot").getByRole("heading", { name: "Kasvaako puskuri, ja mikä sitä pienensi?" })).toBeVisible();
-  await expect(page.locator("#saldot svg[role='img']").first()).toHaveAttribute("aria-label", "Tilien saldo päivittäin, alin päivä ja suuret ostot");
+  await page.goto("/#/reports?q=saldot");
+  await expect(page.locator("#saldot").getByRole("heading", { name: "Saldojen kehitys" })).toBeVisible();
+  await expect(page.locator("#saldot [role='img']").first()).toHaveAttribute("aria-label", "Tilien saldo päivittäin, alin päivä ja suuret ostot");
   await expect(page.locator("#saldot .legend")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();

@@ -7,6 +7,7 @@ import { buildAlerts, habitItems } from "../../src/analysis/alerts.ts";
 import { gateMonthly } from "../../src/analysis/insights/shared.ts";
 import { expensiveMonths, seasonMonths } from "../../src/analysis/insights/seasons.ts";
 import type { InsightArgs } from "../../src/analysis/insights/types.ts";
+import { view } from "../insight-view.ts";
 import { addDays, addMonths, monthRange, weekdayOf } from "../../src/dates.ts";
 import { food } from "../../src/optimise/areas/food.ts";
 import { habits } from "../../src/optimise/areas/habits.ts";
@@ -14,7 +15,7 @@ import { seasons } from "../../src/optimise/areas/seasons.ts";
 import { allFindings, type Area, areaInputOf, buildOptimise, type FindingDraft } from "../../src/optimise/index.ts";
 import { createContext } from "../../src/analysis/context.ts";
 import { randomHistory, rng } from "../gen.ts";
-import { enrich, FRAME, type Frame, householdInput, joinHousehold, type PartHousehold } from "./household.ts";
+import { enrich, FRAME, type Frame, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as F from "./parts/food.ts";
 import * as H from "./parts/habits.ts";
 import * as S from "./parts/seasons.ts";
@@ -42,7 +43,6 @@ const byId = (findings: readonly FindingDraft[], id: string) => findings.find((f
 const calcValue = (f: FindingDraft, label: RegExp) => f.calc.find((c) => label.test(c.label))!.value;
 /** "1 234 €" or "29,92 €" in cents. */
 const cents = (value: string) => Math.round(Number(value.replace(/[^\d,]/g, "").replace(",", ".")) * 100);
-const count = (value: string) => Number(value.replace(/[^\d,]/g, "").replace(",", "."));
 
 const LONG: Frame = { ...FRAME, start: "2023-10-01", months: monthRange("2023-10", "2026-09") };
 const SHORT: Frame = { ...FRAME, start: "2025-06-01", months: monthRange("2025-06", "2026-09") };
@@ -208,7 +208,7 @@ describe("Vuosimenot", () => {
   it("prices July by the extra interest after it in both years, korkea", () => {
     expect(findings.map((f) => f.id)).toEqual(["seasons:month:07"]);
     expect(july.euros).toMatchObject({ lowCents: 15000, midCents: 15000, highCents: 15000 });
-    expect(july.title).toMatch(/^Heinäkuu on ollut kahtena vuonna .+ tavallista kalliimpi\. Elo–syyskuussa korkoa maksettiin keskimäärin 150 € enemmän kuin touko–kesäkuussa\.$/);
+    expect(july.title).toMatch(/^Heinäkuu on ollut kahtena vuonna .+ tavallista kalliimpi\. Elo–syyskuussa maksoit korkoa keskimäärin 150 € enemmän kuin touko–kesäkuussa\.$/);
     expect(july.action).toMatch(/^Maksa heinäkuun menot ilman luottoa: varaa \d+ € kuussa\.$/);
     expect(july.claims).toEqual(["category:interest"]);
     for (const id of july.rows) expect(input.ctx.txs.find((t) => t.id === id)!.isTransfer).toBe(false);
@@ -218,9 +218,9 @@ describe("Vuosimenot", () => {
 
   it("tells the same excess as the seasons insight", () => {
     const { today } = input.ctx;
-    const insight = expensiveMonths({ ctx: input.ctx, end: today, gateMonthlyCents: gateMonthly(input.ctx, today) } as InsightArgs)[0]!;
+    const insight = expensiveMonths({ ctx: input.ctx, end: today, gateMonthlyCents: gateMonthly(input.ctx, today), lang: "fi" } as InsightArgs)[0]!;
     const extra = calcValue(july, /^Keskimäärin yli tavallisen/);
-    expect(plain(insight.title)).toBe(`Heinäkuussa meni ${extra} tavallista enemmän kahtena vuonna`);
+    expect(plain(view(insight).title)).toBe(`Heinäkuussa meni ${extra} tavallista enemmän kahtena vuonna`);
     expect(july.title).toContain(` ${extra} tavallista kalliimpi.`);
   });
 
@@ -251,7 +251,7 @@ describe("Vuosimenot", () => {
     const part = S.hit(FRAME);
     const status = (parts: readonly PartHousehold[]) => {
       const r = run(parts);
-      return { judged: seasonMonths(r.a.ctx, r.a.today).length, check: r.checks.find((c) => c.id === "seasons:month")!.status, insight: expensiveMonths({ ctx: r.a.ctx, end: r.a.today, gateMonthlyCents: gateMonthly(r.a.ctx, r.a.today) } as InsightArgs).length };
+      return { judged: seasonMonths(r.a.ctx, r.a.today).length, check: r.checks.find((c) => c.id === "seasons:month")!.status, insight: expensiveMonths({ ctx: r.a.ctx, end: r.a.today, gateMonthlyCents: gateMonthly(r.a.ctx, r.a.today), lang: "fi" } as InsightArgs).length };
     };
     const whole = status([part]);
     expect(whole.judged).toBeGreaterThan(0);

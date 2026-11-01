@@ -108,21 +108,6 @@ export function subscriptionsMonthlyCents(
   return sum;
 }
 
-/**
- * Contracts per month (`isContract`), the ones marked cancelled left out: Sopimukset ja laskut of Laskut. With
- * `subscriptionsMonthlyCents` they are `fixedMonthlyCents`.
- */
-export function contractsMonthlyCents(series: readonly (FixedInput & Pick<RecurringSeries, "merchant">)[], cancelled: ReadonlySet<string> = new Set()): number {
-  let sum = 0;
-  for (const s of series) if (isContract(s) && !isCancelled(cancelled, s)) sum += s.monthlyCents;
-  return sum;
-}
-
-/** Monthly savings (`isSavingsPlan`) per month, the ones marked cancelled left out: `fixedSplit`'s savings, Säännöllinen säästäminen of Laskut. */
-export function savingsPlansMonthlyCents(series: readonly FixedInput[], cancelled: ReadonlySet<string> = new Set()): number {
-  return fixedSplit(series, cancelled).savingsCents;
-}
-
 /** A merchant without an active series is counted over this many complete months at most. */
 export const MERCHANT_MONTHS = 12;
 
@@ -198,8 +183,7 @@ export function cancelledSubjects(inputs: UserInputs, today?: IsoDate): Readonly
 }
 
 /**
- * A subscription or bill that is spending or debt service: what the forecast expects and the month board of Laskut
- * lists (`billMonth`), one definition for both. With `savings` a monthly saving is one too.
+ * A subscription or bill that is spending or debt service: what the forecast expects. With `savings` a monthly saving is one too.
  */
 export function isBillSeries(s: Pick<RecurringSeries, "kind" | "category">, savings = false): boolean {
   if (s.kind !== "subscription" && s.kind !== "bill") return false;

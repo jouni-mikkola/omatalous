@@ -12,10 +12,10 @@ import { loans as loanArea } from "../src/optimise/areas/loans.ts";
 import { eur } from "../src/optimise/common.ts";
 import { areaInputOf } from "../src/optimise/index.ts";
 import { buildReports } from "../src/reports/index.ts";
-import { SAME_DEBT_TWICE } from "../src/reports/loans.ts";
+const SAME_DEBT_TWICE = "Sama velka voi olla summassa kahdesti";
 import type { Account, BalanceInput, Loan } from "../src/types.ts";
 import { tx } from "./helpers.ts";
-import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./optimise/household.ts";
+import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./optimise/household-kit.ts";
 import * as loansPart from "./optimise/parts/loans.ts";
 
 const today = "2026-10-09";

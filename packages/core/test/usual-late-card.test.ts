@@ -6,7 +6,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { completeMonthsBefore, usualSpending } from "../src/analysis/usual.ts";
+import { expectedSpending } from "../src/analysis/expected.ts";
+import { completeMonthsBefore } from "../src/analysis/usual.ts";
 import { addMonths, dateIn, monthEnd } from "../src/dates.ts";
 import { pivotReport } from "../src/reports/pivot.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -34,7 +35,7 @@ const ctx = createContext(rows, [checking, card], TODAY);
 describe("a card linked in month 10 of 12", () => {
   it("stops the household's walk at its first month", () => {
     expect(completeMonthsBefore(ctx, "2026-12")).toEqual(["2026-10", "2026-11"]);
-    expect(usualSpending(ctx, "2026-12")).toBeNull();
+    expect(expectedSpending(ctx, "2026-12")).toBeNull();
   });
 
   it("leaves the checking account's months to a reader that names it", () => {
@@ -48,9 +49,9 @@ describe("a card linked in month 10 of 12", () => {
     const housing = themes.find((t) => t.id === "housing")!;
     const food = themes.find((t) => t.id === "food")!;
     const shopping = themes.find((t) => t.id === "shopping")!;
-    expect(housing.usualCents).toBe(90_000);
-    expect(food.usualCents).toBe(30_000);
-    expect(food.lines.find((l) => l.id === "groceries")!.usualCents).toBe(30_000);
-    expect(shopping.usualCents).toBeNull();
+    expect(housing.expectedCents).toBe(90_000);
+    expect(food.expectedCents).toBe(30_000);
+    expect(food.lines.find((l) => l.id === "groceries")!.expectedCents).toBe(30_000);
+    expect(shopping.expectedCents).toBeNull();
   });
 });

@@ -1,15 +1,17 @@
 /* App.tsx: the rail, the phone's tab bar, user menu, skip link. */
 
+@layer components {
 .app { max-width: var(--container); margin: 0 auto; padding: 0 16px 48px; }
-/* when the rows were last fetched: right on a wide screen, left and wrapping on a phone; empty it takes no room */
-.sync-line { margin: 0 0 var(--sp-8); font-size: var(--fs-label); text-align: right; overflow-wrap: anywhere; }
-.sync-line:empty { display: none; }
-@media (max-width: 640px) { .sync-line { text-align: left; } }
-
+.app-error { margin-top: var(--sp-24); }
 /* the band runs the full width of the window in --ink; what is in it is as wide as the page below */
 .topbar { background: var(--ink); color: var(--on-ink); margin-bottom: 20px; box-shadow: inset 0 -1px 0 var(--bar-edge); }
 .topbar-in { max-width: var(--container); margin: 0 auto; height: var(--rail-h); padding: 0 16px; display: flex; align-items: center; flex-wrap: nowrap; gap: 0 20px; }
-.topbar :focus-visible { outline-color: var(--on-ink); box-shadow: none; }
+.topbar :focus-visible, .nav :focus-visible { outline-color: var(--on-ink); box-shadow: none; }
+/* a control is as tall as its bar, so a ring drawn outside it is cut at the bar's edge and reads as two vertical lines: the ring sits inside the control */
+.topbar :focus-visible, .nav :focus-visible { outline-offset: calc(-1 * var(--sp-4)); }
+/* the view switch is short and its pressed key is filled with the ring's colour: its ring stays outside it, well inside the bar; the menu is on a light surface */
+.topbar .segmented :focus-visible { outline-offset: var(--sp-4); }
+.topbar .menu :focus-visible { outline-color: var(--accent); outline-offset: var(--sp-4); }
 .topbar .brand { padding-bottom: 0; }
 .topbar .brand-mark { background: var(--on-ink); }
 .topbar .brand-mark i { background: var(--ink); }
@@ -22,7 +24,7 @@
 /* between a phone and 1100 px the pages do not fit beside the switch: one row needs 1066 px with the switch drawn (the pages, the switch on one line, the tray with its count, Asetukset, the user); they take a row of their own under the first */
 @media (min-width: 641px) and (max-width: 1099px) {
   .topbar-in { height: auto; flex-wrap: wrap; gap: 0 12px; }
-  .topbar .brand, .settings-link, .user-menu { min-height: var(--rail-h); }
+  .topbar .brand, .review-link, .user-menu { min-height: var(--rail-h); }
   .topbar .brand { align-items: center; }
   .user-menu summary { min-height: var(--rail-h); }
   .nav { order: 9; flex: 0 0 100%; margin: 0 -12px; box-shadow: inset 0 1px 0 var(--bar-edge); }
@@ -30,37 +32,33 @@
 /* the user's small text (the household or role line) gives way under 1100 px so the one row holds a long name */
 @media (max-width: 1099px) { .user-menu summary .small { display: none; } }
 .nav { display: flex; gap: 0; }
-.nav a, .settings-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 12px; color: var(--on-ink-2); font-size: var(--fs-body); font-weight: 600; text-decoration: none; }
+.nav a, .review-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 var(--sp-12); color: var(--on-ink-2); font-size: var(--fs-body); font-weight: 600; text-decoration: none; }
 /* one row up to 1299 px holds the private build's extra page beside the view switch and a long name: the links sit closer */
-@media (min-width: 990px) and (max-width: 1299px) { .nav a, .settings-link { padding: 0 8px; } }
+@media (min-width: 990px) and (max-width: 1299px) { .nav a, .review-link { padding: 0 var(--sp-8); } }
 /* and the items stand closer: at 1100 px the private build's extra page, the view switch and the review count need the 12 px less a gap */
 @media (min-width: 1100px) and (max-width: 1299px) { .topbar-in { gap: 0 8px; } }
-.nav a:hover, .settings-link:hover { background: var(--ink-2); color: var(--on-ink); }
-.nav a[aria-current="page"], .settings-link[aria-current="page"] { background: none; color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--on-ink); }
+/* the pages a module adds are in the user menu on a phone; a wider screen links them from the bar */
+@media (min-width: 641px) { .menu .menu-phone-only { display: none; } }
+.nav a:hover, .review-link:hover { background: var(--ink-2); color: var(--on-ink); }
+.nav a[aria-current="page"], .review-link[aria-current="page"] { background: none; color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--on-ink); }
 
-/* Tarkistettavat beside Asetukset: a tray, the word, and the count of open questions when there are any */
+/* Tarkistettavat in the header: the word and the count of open questions when there are any, the same count the page shows */
 .review-link { gap: 8px; }
-.review-glyph { inline-size: 16px; block-size: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
 .nav-count { min-inline-size: 20px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--on-ink); color: var(--ink); font-size: var(--fs-label); line-height: 20px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
-/* the word gives way where the header row is full: the tray and the count stay, and the link's name says both */
-/* on a phone the count stands small at the tray's upper right, past its edge and never over it, in the gap after the link: the row keeps the width it had without the count */
-@media (max-width: 640px) {
-  .review-link { position: relative; padding: 0 8px; }
-  .review-link .nav-count { position: absolute; top: 4px; left: 23px; min-inline-size: 16px; padding: 0 4px; font-size: var(--fs-tick); line-height: 16px; }
-}
-@media (max-width: 1239px) { .review-link-text { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
 
 .topbar .segmented { background: var(--ink-2); border-color: transparent; flex: none; white-space: nowrap; }
-.topbar .segmented button { white-space: nowrap; }
+.topbar .segmented button { white-space: nowrap; padding: 0 8px; }
 .topbar .segmented button { color: var(--on-ink-2); }
 .topbar .segmented button:hover { color: var(--on-ink); }
 .topbar .segmented button[aria-pressed="true"] { background: var(--on-ink); color: var(--ink); }
 .scope-toggle { margin-left: 4px; }
 
-.range-label { color: var(--muted); font-size: var(--fs-ui); }
+.range-label { color: var(--muted); font-size: var(--fs-body); }
 
-.user-menu { position: relative; }
-.user-menu summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-m); }
+.user-menu { position: relative; min-width: 0; max-width: calc(var(--sp-48) * 5); }
+.user-menu summary { max-width: 100%; list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-m); }
+/* a long name stays on one line of the bar */
+.user-menu summary .small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .user-menu summary::-webkit-details-marker { display: none; }
 .user-menu summary:hover { background: var(--ink-2); }
 .avatar { width: 28px; height: 28px; border-radius: var(--radius-m); background: var(--on-ink); color: var(--ink); display: inline-grid; place-items: center; font-size: var(--fs-label); font-weight: 600; }
@@ -73,14 +71,19 @@
 @media (max-width: 640px) {
   .topbar-in { padding: 0 12px; gap: 0 8px; }
   .user-menu summary .small { display: none; }
-  .user-menu summary, .settings-link { min-height: 44px; }
-  /* the mark alone beside the switch */
-  .topbar-in:has(.scope-toggle) .brand { font-size: 0; gap: 0; }
+  .user-menu summary, .review-link { min-height: var(--tap-min); }
+  .review-link { padding: 0 var(--sp-4); gap: var(--sp-4); }
+  .user-menu summary { padding: var(--sp-4); }
+  .nav-count { padding: 0 var(--sp-4); }
+  /* the view switch, the word with its count (up to three digits) and the user need the whole row: the mark gives way */
+  .topbar-in:has(.scope-toggle) .brand { display: none; }
   .scope-toggle { margin-left: 0; }
   .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-tabbar); height: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom); background: var(--ink); box-shadow: inset 0 1px 0 var(--bar-edge); }
-  .nav a { flex: 1 1 auto; height: var(--tabbar-h); justify-content: center; padding: 0 2px; font-size: var(--fs-label); white-space: nowrap; }
+  /* five tabs sized by their words, none under a finger's width; what a module adds has no tab, it is in the user menu */
+  .nav a { flex: 1 1 auto; min-inline-size: var(--tap-min); height: var(--tabbar-h); justify-content: center; padding: 0 var(--sp-4); font-size: var(--fs-label); white-space: nowrap; }
   .nav a[aria-current="page"] { box-shadow: inset 0 3px 0 var(--on-ink); }
+  .nav .nav-wide-only { display: none; }
   .app { padding: 0 12px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
 }
 
@@ -88,10 +91,16 @@
 .skip-link { position: absolute; left: -9999px; top: 8px; z-index: var(--z-skip); background: var(--on-ink); color: var(--ink); padding: 8px 12px; border-radius: var(--radius-s); text-decoration: none; box-shadow: 0 0 0 2px var(--ink); }
 .skip-link:focus { left: 8px; }
 main:focus { outline: none; }
-/* at 320 px the five tabs are 3 px wider than the screen with 2 px of padding each: 1 px does it */
+/* under 360 px the switch, the word, a count of three digits and the user need a tighter row: less room at the edges and between the parts */
+@media (max-width: 359px) {
+  .topbar-in:has(.scope-toggle) { padding: 0 var(--sp-8); gap: 0 var(--sp-4); }
+  .topbar-in:has(.scope-toggle) .user-menu summary { padding: 0; }
+  .topbar-in:has(.scope-toggle) .review-link { padding: 0; gap: var(--sp-4); }
+  .topbar-in:has(.scope-toggle) .nav-count { padding: 0 var(--sp-4); }
+  .topbar-in:has(.scope-toggle) .segmented button { padding: 0 var(--sp-4); }
+}
+/* at 320 px the five tabs are 3 px wider than the screen with a little padding each: none does it */
 @media (max-width: 340px) {
-  .nav a { padding: 0 1px; }
-  /* and the header row holds Tarkistettavat's tray with 2 px a side */
-  .review-link { padding: 0 2px; }
-  .review-link .nav-count { left: 10px; }
+  .nav a { padding: 0; }
+}
 }

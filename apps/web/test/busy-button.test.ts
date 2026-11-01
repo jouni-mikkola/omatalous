@@ -12,10 +12,10 @@ function sources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === "private" ? [] : sources(join(dir, e.name))) : e.name.endsWith(".tsx") ? [join(dir, e.name)] : []));
 }
 
-// The opening tags of every <button, read to the closing ">" outside braces (an arrow "=>" sits inside them).
+// The opening tags of every <button and <Button, read to the closing ">" outside braces (an arrow "=>" sits inside them).
 function buttonTags(src: string): string[] {
   const tags: string[] = [];
-  for (const m of src.matchAll(/<button\b/g)) {
+  for (const m of src.matchAll(/<[bB]utton\b/g)) {
     let depth = 0;
     let i = m.index!;
     for (; i < src.length; i++) {
@@ -39,8 +39,9 @@ const NOT_OWN_ACTION: [string, string, string][] = [
   ["pages/ReviewChoices.tsx", "setSheet(true)", "opens the sheet of categories; a category's button there sends"],
   ["pages/Review.tsx", "onSkip", "Ohita sends nothing; it is held while an answer is on its way"],
   ["pages/Transactions.tsx", "setPaging", "disabled also at the last page, and a page fetch is not this click"],
-  ["pages/settings/AccountUse.tsx", "aria-pressed", "a choice switch that saves with the form below"],
-  ["pages/settings/Members.tsx", "setRemoving(u)", "opens the dialog; the dialog's button waits"],
+  ["pages/settings/Members.tsx", "setAsking(", "opens the dialog; the dialog's button waits"],
+  ["pages/settings/Members.tsx", "setRemovingNameless(", "opens the dialog; the dialog's button waits"],
+  ["pages/settings/Security.tsx", "setRevoking(", "opens the dialog; the dialog's button waits"],
 ];
 
 const confirm = (busy: boolean) => renderToStaticMarkup(createElement(ConfirmDialog, { title: "Poistetaanko?", children: "ESIMERKKI OY", confirmLabel: "Poista", busy, onConfirm: () => {}, onCancel: () => {} }));
@@ -70,7 +71,7 @@ describe("a button that waits for its request", () => {
     const bare: string[] = [];
     for (const file of sources(SRC)) {
       for (const tag of buttonTags(readFileSync(file, "utf8"))) {
-        if (!WAITING.test(tag) || tag.includes("aria-busy")) continue;
+        if (!WAITING.test(tag) || tag.includes("aria-busy") || /\sbusy[={ ]/.test(tag)) continue;
         const where = relative(SRC, file).replaceAll("\\", "/");
         if (NOT_OWN_ACTION.some(([f, needle]) => f === where && tag.includes(needle))) continue;
         bare.push(`${where}: ${tag.replace(/\s+/g, " ").slice(0, 90)}`);
@@ -80,9 +81,11 @@ describe("a button that waits for its request", () => {
   });
 
   it("finds the opening tag across lines and arrows, passes a busy button, fails a bare one", () => {
-    const tags = (src: string) => buttonTags(src).filter((t) => WAITING.test(t) && !t.includes("aria-busy"));
+    const tags = (src: string) => buttonTags(src).filter((t) => WAITING.test(t) && !t.includes("aria-busy") && !/\sbusy[={ ]/.test(t));
     expect(tags("<button\n  disabled={busy}\n  onClick={() => go()}\n>")).toHaveLength(1);
     expect(tags("<button disabled={busy} aria-busy={busy || undefined} onClick={() => go()}>")).toHaveLength(0);
     expect(tags("<button disabled={text === \"\"} onClick={() => go()}>")).toHaveLength(0);
+    expect(tags("<Button disabled={busy} onClick={() => go()}>")).toHaveLength(1);
+    expect(tags("<Button busy={busy} onClick={() => go()}>")).toHaveLength(0);
   });
 });

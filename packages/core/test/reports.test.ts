@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
+import { savingsRateOf } from "../src/analysis/bridge.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { type Flows, totalsOf } from "../src/analysis/flows.ts";
-import { completeMonthsBefore, isCompleteMonth, USUAL_MONTHS, usualCents } from "../src/analysis/usual.ts";
+import { expectedLevel } from "../src/analysis/expected.ts";
+import { completeMonthsBefore, isCompleteMonth } from "../src/analysis/usual.ts";
+import { USUAL_MONTHS } from "../src/thresholds.ts";
 import { SUBSCRIPTION_CATEGORIES } from "../src/categories.ts";
 import { expectedDates, fixedMonthlyCents, fixedSplit, isContract, isSavingsPlan, isSubscription, subscriptionsMonthlyCents } from "../src/commitments.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
@@ -12,29 +15,11 @@ import { addDays, addMonths, monthIndex } from "../src/dates.ts";
 import { debtInterestNext12Months, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "../src/loans.ts";
 import type { Account, ExpectedCadence, Loan, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
+import { dataset, monthlyOn } from "./report-dataset.ts";
 
 // test helpers put every transaction on account "acc-1"
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";
-
-function dataset(): Transaction[] {
-  return [
-    ...series("2025-09-25", 30.44, 13, 300000, { category: "salary", merchant: "Acme Oy" }),
-    ...series("2025-09-02", 30.44, 13, -105000, { category: "housing", merchant: "Sato Oyj" }),
-    ...series("2025-09-12", 30.44, 13, -1199, { category: "subscriptions", merchant: "Spotify" }),
-    ...series("2025-09-05", 30.44, 13, -25000, { category: "loans", merchant: "Nordea Rahoitus Suomi Oy" }),
-    ...series("2025-09-06", 30.44, 13, -20000, { category: "investments", merchant: "Nordnet" }),
-    ...series("2025-09-01", 3.5, 115, (i) => -(2000 + (i % 7) * 900), { category: "groceries", merchant: "K-Market" }),
-    ...monthlyOn("2025-09", 8, 14, (i) => (i < 9 ? -1399 : -1599), { category: "subscriptions", merchant: "Netflix" }),
-    tx({ bookingDate: "2026-06-14", amountCents: -38900, category: "travel", merchant: "Finnair" }),
-    tx({ bookingDate: "2026-09-20", amountCents: -12900, category: "home", merchant: "Uusi Kauppa" }),
-  ].filter((t) => t.bookingDate <= today);
-}
-
-/** `count` charges on day `day` of consecutive months from `firstMonth`. */
-function monthlyOn(firstMonth: string, day: number, count: number, amount: (i: number) => number, partial: Partial<Transaction>): Transaction[] {
-  return Array.from({ length: count }, (_, i) => tx({ ...partial, bookingDate: `${addMonths(firstMonth, i)}-${String(day).padStart(2, "0")}`, amountCents: amount(i) }));
-}
 
 describe("reports", () => {
   const ctx = createContext(dataset(), [checking], today);
@@ -57,19 +42,19 @@ describe("reports", () => {
     expect(r.pivot.totalCents).toBe(spend);
     expect(r.pivot.rows.reduce((s, x) => s + x.totalCents, 0)).toBe(spend);
     const housing = r.categories.groups.find((g) => g.group === "Asuminen")!.categories.find((c) => c.category === "housing")!;
-    expect(housing).toMatchObject({ monthsActive: 9, monthlyAvgCents: 105000, medianMonthCents: 105000, count: 9 });
+    expect(housing).toMatchObject({ monthsActive: 9, monthlyAvgCents: 105000, count: 9 });
     expect(r.categories.groups.find((g) => g.group === "Lainat ja luotot")!.totalCents).toBe(9 * 25000);
   });
 
-  it("median month of a category is whole cents when the middle two months average to half a cent", () => {
+  it("monthly average of a category is whole cents when two months average to half a cent", () => {
     const two = [
       tx({ bookingDate: "2026-01-10", amountCents: -10001, category: "home", merchant: "Kodin Terra" }),
       tx({ bookingDate: "2026-02-10", amountCents: -10002, category: "home", merchant: "Kodin Terra" }),
     ];
     const c = buildReports({ ctx: createContext(two, [checking], "2026-03-15"), range: { from: "2026-01-01", to: "2026-02-28" }, balances: [] }).categories;
     const home = c.groups.flatMap((g) => g.categories).find((x) => x.category === "home")!;
-    expect(home.medianMonthCents).toBe(10002);
-    expect(Number.isInteger(home.medianMonthCents)).toBe(true);
+    expect(home.monthlyAvgCents).toBe(10002);
+    expect(Number.isInteger(home.monthlyAvgCents)).toBe(true);
   });
 
   it("splits spending into fixed (loan instalments included), habits, variable and other debt service", () => {
@@ -78,6 +63,25 @@ describe("reports", () => {
     expect(t.fixedCents).toBeGreaterThanOrEqual(9 * (105000 + 1199 + 25000));
     // the monthly instalment is a fixed series, so no debt service is left outside it
     expect(t.debtCents).toBe(0);
+  });
+
+  it("fixed costs: the monthly total is the sum of its rows and a price rise shows its yearly effect", () => {
+    const f = r.fixedCosts;
+    expect(f.rows.reduce((s, x) => s + x.monthlyCents, 0)).toBe(f.monthlyCents);
+    expect(f.rows.reduce((s, x) => s + x.yearlyCents, 0)).toBe(f.yearlyCents);
+    expect(f.monthlyCents).toBe(fixedMonthlyCents(ctx.recurring));
+    expect(f.priceChanges).toEqual([{ id: "out:acc-1:Netflix", merchant: "Netflix", date: "2026-06-08", fromCents: 1399, toCents: 1599, charges: 12, yearlyEffectCents: 2400, debt: false }]);
+    // the calculation line (to - from) × charges is the figure
+    for (const p of f.priceChanges) expect(Math.round((p.toCents - p.fromCents) * p.charges)).toBe(p.yearlyEffectCents);
+    expect(f.priceYearlyEffectCents).toBe(2400);
+  });
+
+  it("fixed costs: an ended subscription is listed with its euros and is not in the total", () => {
+    const rows = [...dataset(), ...monthlyOn("2025-09", 15, 10, () => -999, { category: "subscriptions", merchant: "Viaplay" })];
+    const f = buildReports({ ctx: createContext(rows, [checking], today), range, balances: [] }).fixedCosts;
+    expect(f.ended).toEqual([{ merchant: "Viaplay", lastDate: "2026-06-15", monthlyCents: 999, yearlyCents: 999 * 12 }]);
+    expect(f.endedMonthlyCents).toBe(999);
+    expect(f.rows.map((x) => x.merchant)).not.toContain("Viaplay");
   });
 
   it("summary agrees with cash flow and the category report", () => {
@@ -101,34 +105,6 @@ describe("reports", () => {
     const sept = (y: number, category: string) =>
       ctx.txs.filter((t) => t.category === category && t.bookingDate >= `${y}-09-01` && t.bookingDate <= `${y}-09-30`).reduce((a, t) => a + t.spend, 0);
     for (const c of s.changes) expect([c.cents, c.previousCents]).toEqual([sept(2026, c.category), sept(2025, c.category)]);
-  });
-
-  it("insights: every one that passed its gate, largest yearly figure first, each with its basis and rows", () => {
-    const loan = series("2025-07-20", 30.44, 12, -25000, { merchant: "Autolaina", category: "loans" });
-    const withLoan = createContext([...dataset(), ...loan], [checking], today);
-    const { items, months } = buildReports({ ctx: withLoan, range, balances: [] }).insights;
-    expect(items.length).toBeGreaterThan(0);
-    expect(items.map((i) => i.yearlyCents)).toEqual(items.map((i) => i.yearlyCents).sort((a, b) => b - a));
-    for (const i of items) {
-      expect(i.yearlyCents, i.id).toBeGreaterThan(0);
-      expect(i.detail, i.id).toMatch(/\.$/);
-      expect(i.rows?.length || i.link, i.id).toBeTruthy();
-    }
-    expect(months).toBe(completeMonthsBefore(withLoan, "2026-09", 36).length);
-    // the overview shows the first three of the same list
-    expect(buildDashboard(withLoan, range).insights.map((i) => i.id)).toEqual(items.slice(0, 3).map((i) => i.id));
-  });
-
-  it("price changes: dated in the window, yearly effects add up", () => {
-    const p = r.priceChanges;
-    expect(p.items).toEqual([
-      { merchant: "Netflix", category: "subscriptions", fromCents: 1399, toCents: 1599, date: "2026-06-08", yearlyEffectCents: 200 * 12 },
-    ]);
-    expect(p.totalYearlyEffectCents).toBe(p.items.reduce((s, i) => s + i.yearlyEffectCents, 0));
-    // a one-month range still shows the changes of the 12 months before its end
-    expect(buildReports({ ctx, range: { from: "2026-09-01", to: "2026-09-30" }, balances: [] }).priceChanges.items).toHaveLength(1);
-    // a change after the range's end is not known yet then
-    expect(buildReports({ ctx, range: { from: "2026-01-01", to: "2026-05-31" }, balances: [] }).priceChanges.items).toEqual([]);
   });
 
   it("pivot total average is over complete months only", () => {
@@ -236,14 +212,6 @@ describe("averages and partial periods", () => {
     expect(r.pivot.rows.find((row) => row.category === "home")!.totalCents).toBe(12900 - 50000);
   });
 
-  it("a smaller loan instalment is kept apart from price rises", () => {
-    const rows = [...dataset(), ...monthlyOn("2025-09", 20, 13, (i) => (i < 6 ? -98450 : -95120), { category: "mortgage", merchant: "Nordea Bank Abp" })];
-    const p = buildReports({ ctx: createContext(rows, [checking], today), range: { from: "2026-01-01", to: "2026-09-30" }, balances: [] }).priceChanges;
-    expect(p.items.map((i) => i.merchant).sort()).toEqual(["Netflix", "Nordea Bank Abp"]);
-    expect(p.totalYearlyEffectCents).toBe(200 * 12);
-    expect(p.debtYearlyEffectCents).toBe(-3330 * 12);
-  });
-
   it("year over year has nothing to compare when last year's data starts after this year's months", () => {
     // the history starts in October 2025: January–September 2026 has no counterpart
     const young = createContext(dataset().filter((t) => t.bookingDate >= "2025-10-01"), [checking], today);
@@ -347,7 +315,7 @@ describe("upcoming bills, rising costs and the buffer", () => {
     const d = food(monthly("2025-09", 13, 40000, { "2026-07": 52000, "2026-08": 53000, "2026-09": 54000 }));
     expect(d.months).toEqual(["2026-07", "2026-08", "2026-09"]);
     expect(d.items.map((i) => i.category)).toEqual(["groceries"]);
-    expect(d.items[0]).toMatchObject({ usualCents: 40000, recentCents: 53000, extraYearlyCents: 13000 * 12 });
+    expect(d.items[0]).toMatchObject({ expectedCents: 40000, recentCents: 53000, extraYearlyCents: 13000 * 12 });
     expect(d.advice).toContain("Ruokakauppa");
   });
 
@@ -382,10 +350,10 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(at("2026-10-09").months).toEqual(["2026-07", "2026-08", "2026-09"]);
   });
 
-  /** The yardstick by hand: spending of each complete month before today's, groceries and loan instalments included. */
-  const usualSpend = (rows: Transaction[]) => {
+  /** The yardstick by hand: the mean spending of the complete months before today's, groceries and loan instalments included, the one-off trip (389 €) left out. */
+  const expectedSpend = (rows: Transaction[]) => {
     const c = createContext(rows, [checking], today);
-    return usualCents(completeMonthsBefore(c, "2026-10").map((m) => c.txs.filter((t) => t.bookingDate.startsWith(m)).reduce((sum, t) => sum + t.spend, 0)));
+    return expectedLevel(completeMonthsBefore(c, "2026-10").map((m) => c.txs.filter((t) => t.bookingDate.startsWith(m) && t.merchant !== "Finnair").reduce((sum, t) => sum + t.spend, 0)));
   };
   const account = (id: string, type: BalanceInput["type"], balanceCents: number | null): BalanceInput => ({ id, name: id, type, balanceCents, ownerName: null, balanceAt: null });
 
@@ -395,8 +363,13 @@ describe("upcoming bills, rising costs and the buffer", () => {
     expect(b.incomeMonthlyCents).toBe(300000);
     expect(b.fixedShare).toBeCloseTo(b.fixedMonthlyCents / 300000, 6);
     expect(b.fixedMonthlyCents).toBeGreaterThanOrEqual(130000);
-    expect(b.usualSpendCents).toBe(usualSpend(dataset()));
-    expect(b.bufferMonths).toBeCloseTo(300000 / b.usualSpendCents!, 6);
+    // the mean of the months, but the Netflix contract stands at its latest price: two of the six months had it 2 € cheaper
+    // (a third of 2 € = 67 cents), and the headline adds the categories' rounded means, a cent each at most
+    expect(Math.abs(b.expectedSpendCents! - expectedSpend(dataset())! - 67)).toBeLessThanOrEqual(5);
+    // the bills due before the payday are spoken for: the buffer is the cash less them
+    expect(b.dueBeforePaydayCents).toBeGreaterThan(0);
+    expect(b.netCents).toBe(300000 - b.dueBeforePaydayCents);
+    expect(b.bufferMonths).toBeCloseTo(b.netCents! / b.expectedSpendCents!, 6);
     expect(b.bufferMonths!).toBeLessThan(3);
     const big = reports(dataset(), [account("sav", "savings", 900000)]).buffer;
     expect(big.bufferMonths!).toBeGreaterThanOrEqual(3);
@@ -406,22 +379,37 @@ describe("upcoming bills, rising costs and the buffer", () => {
     const withFood = reports(dataset(), [account("sav", "savings", 300000), account("acc-1", "checking", 500000)]).buffer;
     const noFood = reports(dataset().filter((t) => t.category !== "groceries"), [account("sav", "savings", 300000)]).buffer;
     // the food shop is in the base: leaving it out would make the buffer look longer
-    expect(withFood.usualSpendCents!).toBeGreaterThan(noFood.usualSpendCents! + 20000);
-    expect(noFood.usualSpendCents!).toBeGreaterThanOrEqual(noFood.fixedMonthlyCents);
+    expect(withFood.expectedSpendCents!).toBeGreaterThan(noFood.expectedSpendCents! + 20000);
+    expect(noFood.expectedSpendCents!).toBeGreaterThanOrEqual(noFood.fixedMonthlyCents);
     expect(withFood.cashCents).toBe(800000);
-    expect(withFood.bufferMonths).toBeCloseTo(800000 / withFood.usualSpendCents!, 6);
+    expect(withFood.bufferMonths).toBeCloseTo((800000 - withFood.dueBeforePaydayCents) / withFood.expectedSpendCents!, 6);
     // a checking balance alone is a buffer too
     const checkingOnly = reports(dataset(), [account("acc-1", "checking", 500000)]).buffer;
-    expect(checkingOnly.bufferMonths).toBeCloseTo(500000 / checkingOnly.usualSpendCents!, 6);
-    // a card in debt and a loan are not cash
-    const withDebts = reports(dataset(), [account("sav", "savings", 300000), account("card", "credit_card", -80000), account("loan", "loan", -9000000)]).buffer;
+    expect(checkingOnly.bufferMonths).toBeCloseTo((500000 - checkingOnly.dueBeforePaydayCents) / checkingOnly.expectedSpendCents!, 6);
+    // a card in debt and a loan are not cash, and the card's debt is taken off the cash: its purchases leave with its bill
+    const accounts = [account("sav", "savings", 300000), account("card", "credit_card", -80000), account("loan", "loan", -9000000)];
+    const withDebts = reports(dataset(), accounts).buffer;
     expect(withDebts.cashCents).toBe(300000);
+    expect(withDebts.cardDebtCents).toBe(80000);
+    expect(withDebts.netCents).toBe(300000 - 80000 - withDebts.dueBeforePaydayCents);
+    // the debt of the loan account is no cash either: only a card is taken off
+    expect(reports(dataset(), [account("sav", "savings", 300000), account("loan", "loan", -9000000)]).buffer.cardDebtCents).toBe(0);
+  });
+
+  it("10 000 € on the accounts, a card at -2 000 € and 2 000 € of usual spending a month make 4.0 months", () => {
+    const rows = monthly("2025-09", 13, 200000);
+    const accounts = [account("sav", "savings", 800000), account("acc-1", "checking", 200000), account("card", "credit_card", -200000)];
+    const b = reports(rows, accounts).buffer;
+    expect(b.expectedSpendCents).toBe(200000);
+    expect(b.dueBeforePaydayCents).toBe(0);
+    expect(b.netCents).toBe(800000);
+    expect(b.bufferMonths).toBe(4);
   });
 
   it("the month in progress is not part of the usual spending", () => {
-    const before = reports(dataset(), [account("sav", "savings", 300000)]).buffer.usualSpendCents;
+    const before = reports(dataset(), [account("sav", "savings", 300000)]).buffer.expectedSpendCents;
     const big = tx({ bookingDate: "2026-10-05", amountCents: -400000, category: "home", merchant: "Isompi Kauppa" });
-    expect(reports([...dataset(), big], [account("sav", "savings", 300000)]).buffer.usualSpendCents).toBe(before);
+    expect(reports([...dataset(), big], [account("sav", "savings", 300000)]).buffer.expectedSpendCents).toBe(before);
   });
 
   it("no buffer without a balance, no usual level under three whole months, nothing without fixed costs", () => {
@@ -433,44 +421,40 @@ describe("upcoming bills, rising costs and the buffer", () => {
     // two months of history: no income level and no share
     const short = reports(dataset().filter((t) => t.bookingDate >= "2026-08-01"), [account("sav", "savings", 300000)]).buffer;
     expect(short.fixedShare).toBeNull();
-    expect(short.usualSpendCents).toBeNull();
+    expect(short.expectedSpendCents).toBeNull();
     expect(short.bufferMonths).toBeNull();
     // without fixed costs the buffer still reads from the spending
     const food = reports(monthly("2025-09", 13, 40000), [account("acc-1", "checking", 500000)]).buffer;
-    expect(food.usualSpendCents).toBe(40000);
+    expect(food.expectedSpendCents).toBe(40000);
     expect(food.bufferMonths).toBeCloseTo(12.5, 6);
     expect(food.fixedShare).toBeNull();
   });
 });
 
 describe("a running month in the cash flow", () => {
-  it("the margin is told from the months that ended, the running month has its bills but not yet its salary", () => {
+  it("the range's one sum holds the running month, and only its savings rate is told from the months that ended", () => {
     const ctx = createContext(dataset().filter((t) => t.bookingDate <= "2026-10-09"), [checking], today);
     const run = buildReports({ ctx, range: { from: "2026-01-01", to: today }, balances: [] }).cashflow;
     expect(run.running).toBe(true);
-    const ended = run.rows.filter((x) => x.month < "2026-10");
-    expect(run.closed!.incomeCents).toBe(ended.reduce((s, x) => s + x.incomeCents, 0));
-    expect(run.closed!.netCents).toBe(ended.reduce((s, x) => s + x.netCents, 0));
-    expect(run.totals.netCents).toBe(run.rows.reduce((s, x) => s + x.netCents, 0));
+    const ended = run.rows.filter((x) => x.complete);
+    expect(run.whole.incomeCents).toBe(run.rows.reduce((s, x) => s + x.incomeCents, 0));
+    expect(run.whole.netCents).toBe(run.rows.reduce((s, x) => s + x.netCents, 0));
+    expect(run.whole.savingsRate).toBe(savingsRateOf(ctx, ended.map((x) => x.month)).rate);
     const past = buildReports({ ctx, range: { from: "2026-01-01", to: "2026-09-30" }, balances: [] }).cashflow;
-    expect(past).toMatchObject({ running: false, closed: null });
-    // the running month alone has nothing that ended
-    expect(buildReports({ ctx, range: { from: "2026-10-01", to: today }, balances: [] }).cashflow.closed).toBeNull();
-    // the bar's title counts the months `closed` holds: August starts before the range, so only September
-    const late = createContext(dataset(), [checking], "2026-10-18");
-    expect(buildReports({ ctx: late, range: { from: "2026-08-15", to: "2026-10-31" }, balances: [] }).cashflow.closedMonths).toBe(1);
+    expect(past.running).toBe(false);
+    expect(past.whole.savingsRate).toBe(past.totals.savingsRate);
+    // the running month alone has no month that ended, so no rate
+    expect(buildReports({ ctx, range: { from: "2026-10-01", to: today }, balances: [] }).cashflow.whole.savingsRate).toBeNull();
   });
 
-  it("each row says what stayed on the accounts and whether the month is complete, and the closed totals leave out the partial ones", () => {
+  it("each row says what stayed on the accounts and whether the month is complete, and the rows add up to the one sum", () => {
     // the history starts on 20.9.2025: that month is partial, like the running one
     const ctx = createContext(dataset().filter((t) => t.bookingDate >= "2025-09-20"), [checking], today);
     const cash = buildReports({ ctx, range: { from: "2025-09-01", to: today }, balances: [] }).cashflow;
     expect(cash.rows.map((x) => x.complete)).toEqual([false, ...Array<boolean>(12).fill(true), false]);
     for (const x of cash.rows) expect(x.leftCents).toBe(x.incomeCents + x.borrowedCents - x.consumptionCents - x.debtCents - x.savedCents);
-    expect(cash.rows.reduce((s, x) => s + x.leftCents, 0)).toBe(cash.totals.leftCents);
+    expect(cash.rows.reduce((s, x) => s + x.leftCents, 0)).toBe(cash.whole.leftCents);
     const whole = cash.rows.filter((x) => x.complete);
-    expect(cash.closed!.incomeCents).toBe(whole.reduce((s, x) => s + x.incomeCents, 0));
-    expect(cash.closed!.leftCents).toBe(whole.reduce((s, x) => s + x.leftCents, 0));
     expect(cash.average!.leftCents).toBe(Math.round(whole.reduce((s, x) => s + x.leftCents, 0) / whole.length));
   });
 });

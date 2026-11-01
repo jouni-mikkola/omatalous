@@ -22,6 +22,7 @@ You need this only to open Omatalous outside your home network. Try the options 
 |---|---|---|
 | [VPN](#vpn) | Your router can run a VPN server, such as WireGuard. The app stays closed to the internet, so this is the safest. | A VPN on the router and on the phone |
 | [Cloudflare Tunnel](#cloudflare-tunnel) | Your router has no VPN, or your internet has no public address. | A domain on Cloudflare |
+| [A https name for the home network](#a-https-name-for-the-home-network) | You want https inside the home only, for example to link a bank without the return page, and you run a reverse proxy and a certificate authority of your own. | A name such as `koti.home.arpa`, a reverse proxy, a certificate authority |
 | [Own domain](#own-domain) | Your internet has a public address and you want a normal https address without Cloudflare. The login page is then on the internet. | A domain, two forwarded ports |
 
 Your internet has a public address when the internet address in your router's status page is the same one a site such
@@ -46,11 +47,11 @@ steps 1 and 2 of the script below make. The browser needs the maintenance helper
 
 #### From the browser
 
-You need the maintenance helper in its current version (if *Asetukset > Tekniset asetukset > Ylläpito* or the page says it is missing or out
+You need the maintenance helper in its current version (if *Asetukset > Palvelin ja ylläpito > Ylläpito* or the page says it is missing or out
 of date, run `./scripts/install.sh --ops-helper`), a copy that is reached at a home network address and does not use
 its own domain with Caddy, and steps 1 and 2 of the script below.
 
-1. As an admin open *Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö*. Paste the token (*Cloudflaren API-tunniste*), press
+1. As an admin open *Asetukset > Palvelin ja ylläpito > Palvelin > Etäkäyttö*. Paste the token (*Cloudflaren API-tunniste*), press
    *Tallenna API-tunniste* and give your password. The app checks the token with Cloudflare and keeps it encrypted. It
    refuses a token that sees no active domain.
 2. Give the address, for example `talous.example.fi`, with at most one label before the domain the token sees, and up to
@@ -61,7 +62,7 @@ its own domain with Caddy, and steps 1 and 2 of the script below.
 4. From then on the home address answers 403 with the text *Pääsy estetty.* Open `https://talous.example.fi`, with
    Wi-Fi off on the phone, sign in through Cloudflare's one-time PIN and then to Omatalous. This has to happen within 15
    minutes. If nobody gets in by then, the server takes the new address off by itself and the home address works again.
-5. Add the redirect URL under *Asetukset > Tekniset asetukset > Palvelin*, `https://talous.example.fi/api/connections/callback`, to your
+5. Add the redirect URL under *Asetukset > Palvelin ja ylläpito > Palvelin*, `https://talous.example.fi/api/connections/callback`, to your
    app's Redirect URLs in the Enable Banking Control Panel.
 
 Changing who may sign in, and turning remote access off (*Ota etäkäyttö pois käytöstä*), are on the same page and ask
@@ -147,9 +148,9 @@ Without the file, or with `TALOUS_TUNNEL_TOKEN` given, you make the tunnel by ha
    TALOUS_TUNNEL_TOKEN=eyJ... ./scripts/install.sh --access tunnel --domain talous.example.fi
    ```
 
-5. Open `https://talous.example.fi`, add the redirect URL under *Asetukset > Tekniset asetukset > Palvelin*,
-   `https://talous.example.fi/api/connections/callback`, to your app's Redirect URLs in the Enable Banking Control Panel,
-   and check it from the phone with Wi-Fi off.
+5. Open `https://talous.example.fi`. Add the redirect URL under *Asetukset > Palvelin ja ylläpito > Palvelin*
+   `https://talous.example.fi/api/connections/callback` to your app's Redirect URLs in the Enable Banking Control Panel.
+   Check it from the phone with Wi-Fi off.
 
 From now on the household uses the https address at home too. The old `http://` address stops working. Cloudflare sees
 the traffic unencrypted on its way through.
@@ -164,6 +165,41 @@ installer keeps the pair while the address stays. With the check on, `http://loc
 too, and only the Cloudflare address works. If everything answers 403 after you set the values by hand, one of them is
 wrong: fix it, or remove both lines and run `docker compose up -d`.
 
+### A https name for the home network
+
+Enable Banking accepts a private https name as the return address (`docs/ENABLE_BANKING.md`, Result: private return
+names). The bank sends the browser back to it with `code` and `state`; Enable Banking never opens the address itself,
+so it can resolve only inside your home. Use a name that cannot exist on the internet: `.home.arpa` (RFC 8375) or `.lan`.
+The app stays closed to the internet, as with the VPN.
+
+1. Make the name resolve to the machine, with a DNS record in your router or home DNS server, for example
+   `koti.home.arpa` to `192.168.1.10`.
+2. Put a reverse proxy in front of the app and give it a certificate from a certificate authority (CA) of your own.
+   Caddy does both: it makes its own CA with `tls internal`.
+
+   ```
+   koti.home.arpa {
+       tls internal
+       reverse_proxy 127.0.0.1:8080
+   }
+   ```
+
+   Another proxy and a CA such as `step-ca` or `mkcert` work as well. Omatalous needs only an https address that
+   reaches port 8080 (or your `HOST_PORT`).
+3. Trust the CA's root certificate on each device that logs in, phone included: install it as a trusted root in the
+   system or browser settings. Without it the browser stops at the bank's return and the page does not open. Keep the
+   CA's private key on the machine only.
+4. Save `https://koti.home.arpa` under *Asetukset > Palvelin ja ylläpito > Palvelin*. An https address puts the app in
+   its own return mode.
+5. Add the redirect URL, `https://koti.home.arpa/api/connections/callback`, to your app's Redirect URLs in the Enable
+   Banking Control Panel. *Asetukset > Pankit ja tilit* shows it with a copy button.
+6. Check it: on a device that trusts the certificate, link a bank. The browser returns to
+   `https://koti.home.arpa/api/connections/callback` and the account is linked. A device that does not trust the
+   certificate shows the browser's warning there.
+
+The return page of the project (`relay/callback`) stays for plain `http` addresses. An install on a private https name
+never uses it.
+
 ### Own domain
 
 1. Point a DNS record, for example `talous.example.fi`, to your public address. If that address changes now and then,
@@ -177,7 +213,7 @@ wrong: fix it, or remove both lines and run `docker compose up -d`.
 
    Caddy gets a Let's Encrypt certificate by itself. Its notices go to the email address. The installer also saves the
    new address in the app.
-4. Open `https://talous.example.fi` and add the redirect URL under *Asetukset > Tekniset asetukset > Palvelin*,
+4. Open `https://talous.example.fi` and add the redirect URL under *Asetukset > Palvelin ja ylläpito > Palvelin*,
    `https://talous.example.fi/api/connections/callback`, to your app's Redirect URLs in the Enable Banking Control Panel.
 5. Check it: turn Wi-Fi off on the phone and open `https://talous.example.fi`.
 
@@ -232,7 +268,7 @@ How the copies are kept apart is in [Settings in .env](#settings-in-env).
 ## Backups
 
 Omatalous copies its database once a day and keeps the seven newest copies on the machine. They help after a bad update
-but not if the disk breaks. For most households it is enough to download *Lataa uusin* under *Asetukset > Tekniset asetukset > Ylläpito* now
+but not if the disk breaks. For most households it is enough to download *Lataa uusin* under *Asetukset > Palvelin ja ylläpito > Ylläpito* now
 and then. Set up the daily backup below when you want copies on a NAS without pressing anything.
 
 ### Daily backup to a NAS
@@ -279,6 +315,37 @@ app secret is not backed up.
 
 With several copies, run `--schedule` in each copy's folder and give each its own `BACKUP_COPY_TO` folder.
 
+### Backup to another machine
+
+Asetukset > Palvelin > *Varmuuskopio toiselle koneelle* sends an encrypted copy of the database and the app secret to
+another machine every day. The first page and the end of `install.sh` suggest it. Nothing is sent until you enter a
+machine, and the copy is encrypted on the host with age before it leaves.
+
+1. On the page, press *Tee avaimet* (admin password). The app makes two keys:
+   - an SSH key for signing in to the other machine. Its public line is shown. Add it to `~/.ssh/authorized_keys` of a
+     user on the other machine (a NAS, a friend's server, a cheap VPS). The private half stays sealed in the app.
+   - an age key. The app shows its secret half once, and never stores it. Save it where this machine is not: your
+     password manager, a printout in a drawer, another machine. It is the only thing that opens the copies, and the copies
+     are useless without it, which is the point: whoever holds the other machine cannot read them. If this machine and
+     the saved key are both lost, the copies cannot be opened by anyone. The key is never sent along with the copy.
+2. Enter the machine's address, port, user and a folder (relative to that user's home, made if its parent exists).
+   Save with the admin password and confirm that the key is saved.
+3. *Kopioi nyt* runs one copy at once. Then one runs every day by itself. The log of the helper (`ops/helper.log`) and the
+   page tell the result. The machine's host key is trusted on first use and remembered in `ops/offsite_known_hosts`;
+   if it changes, the copy stops and says so.
+
+The other machine keeps the newest 30 copies. Needs `age` and `sftp` on this machine (`sudo apt install age
+openssh-client`) and the maintenance helper of this version (`docs/INSTALL.md`).
+
+To restore from it on a clean machine, fetch the two newest files of one stamp from the other machine and run:
+
+```bash
+./scripts/restore.sh talous-<time>.db.gz.age --key ~/omatalous-offsite.key --secret talous-<time>.app_secret.age
+```
+
+where the key file holds the saved age secret (one line, `AGE-SECRET-KEY-1...`). `tools/ci/offsite-drill.sh` rehearses
+exactly this.
+
 ### The app's own copies
 
 The app keeps its copies in the data volume, in `/data/backups`: the daily `auto-` copy, and a `pre-` copy before an
@@ -299,8 +366,8 @@ update, a rollback, a restore, a reset or a secret rotation. *Lataa uusin* gives
   200 MB database). It leaves the copies alone while any copy's file changed in the last two minutes and runs at the
   next hourly tick. A copy that fails is renamed `<name>.damaged`. It stays in `/data/backups` until you delete it by
   hand, is not restored from and is not protected.
-- Admins see four notices on the notice list. *Ehjää varmuuskopiota ei ole tehty 36 tuntiin.* (not in the first 36
-  hours of an install), *Varmuuskopio ... ei läpäissyt tarkistusta eikä sitä enää käytetä palautukseen.*,
+- Admins see four notices on the notice list. *Uusin ehjä varmuuskopio on yli 36 tuntia vanha.* (not in the first 36
+  hours of an install), *Varmuuskopio ... ei läpäissyt tarkistusta, joten emme käytä sitä enää palautukseen.*,
   *Palvelimen levyllä on enää ... Mt vapaata tilaa.* (under 1 GB free, or the reserve given up) and *Ylläpitoapurista
   ei ole kuulunut vuorokauteen.* (24 hours after the helper was last seen). *Kuittaa* hides a notice until its
   problem ends and comes back.
@@ -343,7 +410,7 @@ At every start of the server (not for commands such as `restore`) the app checks
 A damaged file goes with its `-wal` and `-shm` files to `/data/damaged/banking-<time>.db`, and the newest intact copy
 takes its place. Nothing is deleted, and the app never empties `/data/damaged`: remove old files there by hand.
 Changes made after that copy are lost, and the next bank fetch brings the transactions again. The log lines start with
-`database:`. Every admin gets a notice, *Tietokanta oli vaurioitunut. Se palautettiin varmuuskopiosta ...*, and the
+`database:`. Every admin gets a notice, *Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta ...*, and the
 security log has the entry *Tietokanta palautettu varmuuskopiosta*.
 
 With no intact copy the app does not stop, because a stop at start would loop. It starts on the damaged file, and the
@@ -359,7 +426,7 @@ hand as above.
 
 #### Restore the newest copy from the browser
 
-*Asetukset > Tekniset asetukset > Ylläpito > Palauta uusin varmuuskopio* replaces the database with the newest intact copy in
+The *Palauta* button on the newest row of *Asetukset > Palvelin ja ylläpito > Ylläpito > Varmuuskopiot* replaces the database with the newest intact copy in
 `/data/backups`. The admin gives the password and types `PALAUTA`. The app then ends by itself, as `docker stop` ends it,
 and Docker's restart policy starts it again (`restart: unless-stopped` in `docker-compose.yml`). The copy goes in at
 that start. Nothing else starts the app: with no restart policy, with `on-failure` or with a bare `node` process the
@@ -390,7 +457,7 @@ done. The log has `restore request: backups/<name> is restored at the next start
 3. Log in at the new address. The script set *Sovelluksen osoite* from `.env`.
 
 Without the app secret your users, transactions and settings come back, but the saved bank keys stay locked. Set
-Enable Banking up again under *Asetukset > Tekniset asetukset > Palvelin* as [ENABLE_BANKING.md](ENABLE_BANKING.md) says and connect the
+Enable Banking up again under *Asetukset > Pankit ja tilit > Pankkisovellus* as [ENABLE_BANKING.md](ENABLE_BANKING.md) says and connect the
 accounts again.
 
 ## Start over
@@ -399,7 +466,10 @@ You need this when you want to empty the data, or to delete the install and all 
 
 ### Empty the data and keep the install
 
-*Asetukset > Tekniset asetukset > Ylläpito > Tyhjennä kaikki tiedot* starts again with an empty database on the same install. The admin gives
+*Asetukset > Palvelin ja ylläpito > Ylläpito > Tyhjennä kaikki tiedot* starts again with an empty database on the same install.
+
+<!-- language-allow: comma-density the list is what the reset deletes, one item each -->
+The admin gives
 the password and types `TYHJENNÄ`. It deletes every member except the admin who asks, and all accounts, transactions,
 rules, marks, loans, expected bills, saving tips, bank keys and bank connections. It keeps that admin's account and
 password, the server's settings, the shared bank application and the answers of the trade register about companies.
@@ -407,7 +477,7 @@ Payee names the register did not find as a company are deleted. Everyone is sign
 
 A copy `pre-reset-<time>.db` is made first in `/data/backups` and kept at least 14 days. The list of copies on the
 page shows it as *ennen tyhjennystä*. Restoring it undoes the
-reset. *Palauta uusin varmuuskopio* does that only while this copy is the newest, which is until the next daily
+reset. The *Palauta* button does that only while this copy is the newest, which is until the next daily
 copy, less than a day later. After that restore it by its name as in [Restore a backup](#restore-a-backup). A restore
 brings the rows back and not the bank connections, so connect every bank again. The reset ends the bank consents at the
 bank first, and one that could not be ended expires there on its own.
@@ -479,7 +549,7 @@ It needs `curl` and `jq` (`sudo apt install -y jq`).
 
 ## Enable Banking options
 
-The redirect URL to register depends on how the app is reached. *Asetukset > Tekniset asetukset > Palvelin* always shows the right one.
+The redirect URL to register depends on how the app is reached. *Asetukset > Palvelin ja ylläpito > Palvelin* always shows the right one.
 
 | The app is reached at | Redirect URL |
 |---|---|
@@ -490,13 +560,12 @@ The redirect URL to register depends on how the app is reached. *Asetukset > Tek
 To let Enable Banking make the key in the browser instead, choose *Generate in the browser* when you register the app and
 upload the downloaded `.pem` file under *Muut vaihtoehdot > Minulla on .pem-tiedosto*. Delete the file afterwards.
 
-A member can use an Enable Banking app of their own under *Asetukset > Oma Enable Banking -sovellus*, see
-[A member's own app](ENABLE_BANKING.md#a-members-own-app). The card shows when the household has no shared app, or
-when the member already uses an own key.
+A member can use an Enable Banking app of their own under *Asetukset > Pankit ja tilit > Pankkisovellus* (*Oma sovellus*), see
+[A member's own app](ENABLE_BANKING.md#a-members-own-app).
 
 ## The maintenance helper
 
-You need this when *Asetukset > Tekniset asetukset > Ylläpito* says "Ylläpitoapuri ei ole käytössä" or that the helper is out of date. The
+You need this when *Asetukset > Palvelin ja ylläpito > Ylläpito* says "Ylläpitoapuri ei ole käytössä" or that the helper is out of date. The
 buttons on that page work through a small helper on the machine, which the installer sets up. To set it up again:
 
 ```bash
@@ -585,7 +654,7 @@ has been gone from the machine for ten minutes and the network interface that ha
 now (10/8, 172.16/12 or 192.168/16). It then writes the new address to `.env` (and to `APP_BASE_URL` when that was the
 installer's own `http://` address), starts the app on it, and does so at most once an hour. The app restarts once.
 `ops/helper.log` and the journal (`journalctl --user -u talous-ops-<name>`) get one line that tells the new address,
-"Osoite vaihtui: http://10.0.0.5:8080". *Asetukset > Tekniset asetukset > Palvelin* may still show the old address. A reservation of the
+"Osoite vaihtui: http://10.0.0.5:8080". *Asetukset > Palvelin ja ylläpito > Palvelin* may still show the old address. A reservation of the
 address in the router remains the better advice.
 
 It follows only the interface that had the address, and never a tunnel or a point-to-point link such as a VPN. It does
@@ -622,6 +691,8 @@ An update pulls the signed image from `ghcr.io` and checks its signature against
 copies the database before the new version starts, and goes back by itself if the new version does not start.
 `./scripts/update.sh --yes` does the same from cron.
 
+The Caddy and tunnel images in `docker-compose.yml` are pinned to a release and its digest, so an install pulls the image that was tested. The maintenance helper of an install updated before the pin takes only `caddy:2` and refuses the new file, so that install updates once from the command line: in its folder run `git fetch origin && git checkout -B main origin/main && ./scripts/update.sh`. The same command is in [TROUBLESHOOTING.md](TROUBLESHOOTING.md#updates).
+
 Two copies of Omatalous on one machine may fetch the same version at the same moment, and the one that finishes first
 removes the registry tag of the image. The other update then pulls the image once more and goes on. If the tag is gone
 again after that second pull, the update stops and the old version keeps running. When the script asks GitHub which
@@ -639,7 +710,7 @@ check fails, the update stops with exit code 3 and the old version keeps running
 could not run at all (a Docker error, no memory), the exit code is 4 and nothing is known about the migrations. The check
 is skipped when the new image does not have the command. How long the check took sets how long the new version may take
 to start: three times that, at least two minutes and at most 15, and never beyond the time the maintenance helper has
-left for the update. The update records whether it changed the database structure, and *Asetukset > Tekniset asetukset > Ylläpito* warns
+left for the update. The update records whether it changed the database structure, and *Asetukset > Palvelin ja ylläpito > Ylläpito* warns
 before a rollback that data written since the update is lost if the previous version cannot read the updated database,
 also when the update did not record an answer.
 
@@ -663,7 +734,7 @@ or the check took too long. Both ways the current database is saved first in the
 Each release starts on GitHub as a pre-release, and an install follows the latest full release. The project's promotion
 workflow, which looks every six hours, promotes a release once it is 48 hours old, so an install is offered it two days
 after it came out. The hourly check, *Päivitä* and `./scripts/update.sh` all wait for that, and nothing installs by
-itself. With the switch *Tarjoa uudet versiot heti* under *Asetukset > Tekniset asetukset > Ylläpito* on, they follow the newest release
+itself. With the switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito* on, they follow the newest release
 instead, a pre-release too. The maintenance helper then sets the line `TALOUS_PRERELEASE=yes` in `.env`, or `no` when
 the switch is turned off, leaves every other line as it was and checks for a new version at once. An install without
 the helper has no switch: write the line in `.env` by hand. The default is `no`. The key does nothing with
@@ -736,7 +807,7 @@ What a token can do:
 - Its first use in each hour is a security event with the address. The user it reads as gets a notice when it is made.
 - 20 unknown tokens from one address in 15 minutes stop that address for the rest of the window.
 
-An admin sees the tokens under *Asetukset > Tekniset asetukset > Palvelutunnukset* and can remove them there. Give an
+An admin sees the tokens as rows of the list under *Asetukset > Turvallisuus > Omat istunnot* (the card is named *Istunnot ja palvelutunnukset* while a token exists) and removes one there with *Poista tunnus*. Give an
 agent a token of a user made for it when it should not read the household's real data.
 
 ## Settings in .env
@@ -756,7 +827,7 @@ one, never half of one, and a line of any other key stays as it was.
 | `BIND_ADDRESS` | the address the port listens on, the home network address by default |
 | `CADDY_ADDRESS` | the address for Caddy's ports 80 and 443, needed only when two copies use their own domains |
 | `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
-| `TALOUS_PRERELEASE` | `yes` or `no`, default `no`. `yes` follows the newest release, a pre-release too, in its first 48 hours, see [Updates in detail](#updates-in-detail). The switch *Tarjoa uudet versiot heti* under *Asetukset > Tekniset asetukset > Ylläpito* sets it. It stays over a re-run and `--reconfigure`. |
+| `TALOUS_PRERELEASE` | `yes` or `no` (default `no`). `yes` also follows pre-releases in their first 48 hours (see [Updates in detail](#updates-in-detail)). The switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito* sets it. It stays over a re-run and `--reconfigure`. |
 | `TRUST_PROXY` | `true` behind Caddy or a tunnel, so the app sees each visitor's own address. The installer sets it. |
 | `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together. Each address is printable ASCII with one `@` and a host name that is no IP address, at most 50 in all. |
 | `CF_ACCESS_AUD`, `CF_ACCESS_TEAM_DOMAIN` | the Access application's audience tag and the team domain. With both set the app checks Cloudflare's signature on every request, see [Cloudflare Tunnel](#cloudflare-tunnel). Set both or neither. The installer and the Etäkäyttö page write them. |
@@ -771,3 +842,28 @@ starts empty. Changing `INSTANCE_NAME` signs everyone out. An install made befor
 The database lives in the volume `<name>_banking-data`, and `<name>_banking-secrets` holds the key that opens the saved
 bank keys. Both survive restarts, updates and image rebuilds. Only `./scripts/reset.sh` and `docker compose down -v`
 delete them.
+
+### Limits
+
+The numeric limits come from one schema, `apps/server/src/platform/limits.ts`: a key, a type, a default, a minimum, a
+maximum and whether a change needs a restart. A value has three layers. The default is what the code always used. A key
+in `.env` replaces it, and a value an admin saves replaces both. A value outside the minimum and maximum is not used: the
+environment falls back to the default with a warning, and the API answers 400.
+
+| Key in `.env` | Limit (default) |
+|---|---|
+| `LOGIN_IP_LIMIT`, `LOGIN_USER_LIMIT`, `LOGIN_NAME_LIMIT` | failed sign-ins per address (50), per name and address (10) and per name (30) in one window |
+| `AUTH_WINDOW_MINUTES` | the window of the sign-in, password, second factor, setup, service token, maintenance and Access limits (15) |
+| `PASSWORD_CHANGE_LIMIT`, `FACTOR_USER_LIMIT`, `FACTOR_NAME_LIMIT`, `SETUP_LIMIT`, `SERVICE_TOKEN_LIMIT`, `OPS_LIMIT`, `ACCESS_FAILURE_LIMIT` | tries per window (5, 5, 15, 10, 20, 5, 10) |
+| `OPS_DOWNLOAD_LIMIT`, `OPS_DOWNLOAD_WINDOW_MINUTES` | backup downloads per window (5 in 60 minutes) |
+| `KEY_TEST_LIMIT`, `KEY_TEST_WINDOW_MINUTES` | tests of a bank key per window (8 in 10 minutes) |
+| `REQUEST_MAX_KB` | the largest request body (256 kB) |
+| `HASH_SLOTS` | password hashes running at once (4) |
+| `PASSWORD_MEMORY_KIB`, `PASSWORD_PASSES` | Argon2id memory in KiB (19456, up to 32768) and passes (2, up to 10) of a new password hash. Memory is held by each running hash, so `HASH_SLOTS` times memory is what a burst of sign-ins takes (4 times 19 MiB is 76 MiB of the 512 MiB the container may use). A hash made earlier keeps its own cost until the next sign-in rewrites it |
+| `EB_CONSENT_DAYS`, `HISTORY_DAYS` | the length of a bank consent (180) and of the history fetched (730) |
+
+An admin reads them with `GET /api/admin/limits` and changes them with `PUT /api/admin/limits`, which takes a partial
+object of keys (`loginUser`, `requestKb`, ...) and `null` to give a value back to the layers below. A change holds from
+the next request with no restart, and each change is a security event (`limits_changed`) with the old and new value. A window already running keeps the end it had; the new length applies to the next one.
+The `.env` keys reach the app only if `docker-compose.yml` passes them on, so in Docker use the admin API.
+The history depth is kept in the instance settings of *Asetukset > Palvelin* and follows the same minimum and maximum.

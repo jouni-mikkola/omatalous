@@ -6,7 +6,7 @@ follows, with the additional term below.
 
 Additional term under section 7(b) of the licence: each copy and each modified version keeps the author attribution
 "Omatalous, Jouni Mikkola" and a link to https://github.com/jouni-mikkola/omatalous where the app shows its
-information (the Tietoja view of Asetukset, from apps/web/src/about.ts).
+information (the footer of every page, from apps/web/src/about.ts).
 
 Earlier versions: versions before 0.66.0 are under the MIT License, and 0.66.0 is under the Omatalous Personal Use
 License 1.0. Those terms still apply to copies of those versions.

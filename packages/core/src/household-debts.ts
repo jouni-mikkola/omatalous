@@ -235,18 +235,20 @@ export function overdraftTwice(balances: readonly BalanceInput[], debts: Househo
   return pairs(balances, (b) => (!counted.has(b.id) && (b.balanceCents ?? 0) < 0 ? lines : []));
 }
 
-/** The loans the rows show and nobody saved (`loanProposals`): how many, and their payments a month in all. */
+/** The loans the rows show and nobody saved (`loanProposals`): how many, who is paid, and their payments a month in all. */
 export interface UnsavedLoans {
   count: number;
+  /** The payee of each, as the rows name it. */
+  names: string[];
   paymentCents: number;
 }
 
 /**
  * The debts the total cannot hold: a lender paid every month whose loan was not saved has no balance, so the total
- * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei laina".
+ * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole laina".
  */
-export function unsavedLoans(proposals: readonly Pick<LoanProposal, "paymentCents">[]): UnsavedLoans | null {
+export function unsavedLoans(proposals: readonly Pick<LoanProposal, "payee" | "paymentCents">[]): UnsavedLoans | null {
   if (!proposals.length) return null;
-  return { count: proposals.length, paymentCents: proposals.reduce((sum, p) => sum + p.paymentCents, 0) };
+  return { count: proposals.length, names: proposals.map((p) => p.payee), paymentCents: proposals.reduce((sum, p) => sum + p.paymentCents, 0) };
 }
 

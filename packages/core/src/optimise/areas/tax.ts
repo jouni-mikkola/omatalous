@@ -4,12 +4,14 @@
  * (a card purchase, an e-invoice, a payee with a company form) can be work from a company in the prepayment register.
  * A row counts in the year of its booking date only, so one payment is never in two years.
  */
+import { localeOf, type Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import { type AnalysisTx, netPurchase } from "../../analysis/context.ts";
-import { formatEur } from "../../analysis/format.ts";
 import { businessMerchants, deductibleWorkOf, isBusinessRow, isMobilePay, ledgersWithPayeeAccounts, mccKind } from "../../industry.ts";
+import { joinRange } from "../../analysis/format.ts";
 import { fold } from "../../merchant.ts";
-import { findingId, MAX_ROWS } from "../common.ts";
-import { type Fact, factOn, proposedFact } from "../facts/index.ts";
+import { eur, findingId, MAX_ROWS } from "../common.ts";
+import { type Fact, factLabel, factOn, proposedFact } from "../facts/index.ts";
 import type { Area, AreaInput, AreaResult, CalcLine, Check, FindingDraft, Weakness } from "../types.ts";
 import { isBuildingWorkText, isCleaningWorkText } from "../../wording.ts";
 
@@ -53,13 +55,13 @@ function factFor(id: string, year: number, today: string): Fact | null {
   return f && f.validFrom <= `${year}-01-01` && (!f.validTo || `${year}-12-31` <= f.validTo) ? f : null;
 }
 
-const pct = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 1 });
-const eur = (cents: number) => formatEur(cents, false);
+const pctFormat = (lang: Language) => new Intl.NumberFormat(localeOf(lang), { maximumFractionDigits: 1 });
 
-const ESTIMATE: Weakness = { id: "estimate", reason: "Laskuista ei näy, paljonko niistä on työtä." };
+const estimate = (lang: Language): Weakness => ({ id: "estimate", reason: messageIn(lang, "opt.tax_estimate") });
 
 function assess(a: AreaInput): AreaResult {
-  const { ctx, today, end } = a;
+  const { ctx, today, end, lang } = a;
+  const pct = pctFormat(lang);
   const cards = new Set(ctx.accounts.filter((acc) => acc.type === "credit_card").map((acc) => acc.id));
   const shops = businessMerchants(ctx.txs, ledgersWithPayeeAccounts(ctx.txs));
   const findings: FindingDraft[] = [];
@@ -95,22 +97,22 @@ function assess(a: AreaInput): AreaResult {
     // nothing left after the deductible; a mid over the gate always leaves the low above zero
     if (low <= 0) continue;
 
-    const calc: CalcLine[] = [{ label: `Maksettu yrityksille ${year}`, value: eur(paid) }];
-    if (sums.cleaning) calc.push({ label: "Siivous ja pihatyöt, työn osuus 100\u00a0%", value: eur(sums.cleaning) });
-    if (sums.other) calc.push({ label: "Muut työt, työn osuus 50–100\u00a0%", value: eur(sums.other) });
+    const calc: CalcLine[] = [{ label: messageIn(lang, "opt.tax_paid", { year }), value: eur(paid, lang) }];
+    if (sums.cleaning) calc.push({ label: messageIn(lang, "opt.tax_cleaning"), value: eur(sums.cleaning, lang) });
+    if (sums.other) calc.push({ label: messageIn(lang, "opt.tax_other"), value: eur(sums.other, lang) });
     calc.push(
-      { label: rate.label, value: `${pct.format(rate.value)}\u00a0%` },
-      { label: deductible.label, value: eur(deductible.value) },
-      { label: cap.label, value: eur(cap.value) },
+      { label: factLabel(rate, lang), value: `${pct.format(rate.value)}\u00a0%` },
+      { label: factLabel(deductible, lang), value: eur(deductible.value, lang) },
+      { label: factLabel(cap, lang), value: eur(cap.value, lang) },
     );
-    if (sums.other) calc.push({ label: "Vähennys, vaihteluväli", value: `${eur(low).replace(/\s€$/, "")}–${eur(high)}` });
-    calc.push({ label: sums.other ? "Vähennys, työn osuus 75\u00a0%" : "Vähennys", value: eur(mid) });
+    if (sums.other) calc.push({ label: messageIn(lang, "opt.tax_range"), value: joinRange(eur(low, lang), eur(high, lang)) });
+    calc.push({ label: messageIn(lang, sums.other ? "opt.tax_mid_75" : "opt.tax_mid"), value: eur(mid, lang) });
     const proposedRate = proposedFact("household_deduction_rate", today);
     const proposedCap = proposedFact("household_deduction_cap", today);
     const covers = (f: Fact) => f.validFrom <= `${year}-01-01` && (!f.validTo || `${year}-12-31` <= f.validTo);
     if (proposedRate && proposedCap && covers(proposedRate) && covers(proposedCap)) {
       const ifPassed = deduction(OTHER_SHARE.mid, proposedRate, proposedCap);
-      calc.push({ label: `Jos esitys hyväksytään (${pct.format(proposedRate.value)}\u00a0%, enintään ${eur(proposedCap.value)})`, value: eur(Math.max(0, ifPassed)) });
+      calc.push({ label: messageIn(lang, "opt.tax_if_passed", { rate: pct.format(proposedRate.value), cap: eur(proposedCap.value, lang) }), value: eur(Math.max(0, ifPassed), lang) });
     }
 
     const merchants = [...new Set(rows.map((t) => t.merchant))].sort();
@@ -119,19 +121,17 @@ function assess(a: AreaInput): AreaResult {
       area: "tax",
       kind: KIND,
       subject: String(year),
-      title: `Kotitalousvähennys ${eur(mid)} vuodelta ${year}. Maksoit yrityksille ${eur(paid)} töistä, joista voi saada vähennystä.`,
+      title: messageIn(lang, "opt.tax_title", { mid: eur(mid, lang), year, paid: eur(paid, lang) }),
       // the running year's pre-filled return arrives next spring
       action:
-        year === Number(today.slice(0, 4))
-          ? `Tarkista keväällä ${year + 1} esitäytetystä veroilmoituksesta, että vähennys on mukana, ja lisää se OmaVerossa, jos ei ole.`
-          : "Tarkista, että vähennys on esitäytetyssä veroilmoituksessa, ja lisää se OmaVerossa, jos ei ole.",
+        year === Number(today.slice(0, 4)) ? messageIn(lang, "opt.tax_action_now", { year: year + 1 }) : messageIn(lang, "opt.tax_action_past"),
       euros: {
         lowCents: low,
         midCents: mid,
         highCents: high,
       },
       decideBy: null,
-      weaknesses: [ESTIMATE],
+      weaknesses: [estimate(lang)],
       shared: false,
       calc,
       rows: rows.slice(-MAX_ROWS).map((t) => t.id),
@@ -143,7 +143,7 @@ function assess(a: AreaInput): AreaResult {
     });
   }
 
-  const check: Check = { id: `tax:${KIND}`, label: "Kotitalousvähennys", status: findings.length ? "finding" : looked ? "clear" : "no_subject" };
+  const check: Check = { id: `tax:${KIND}`, label: messageIn(lang, "opt.tax_chk"), status: findings.length ? "finding" : looked ? "clear" : "no_subject" };
   return { findings, checks: [check] };
 }
 

@@ -8,12 +8,12 @@ import { addDays } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { UserInputs } from "../../types.ts";
 import type { AnalysisContext } from "../context.ts";
-import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { answeredSubscriptions, answerOf, capitalise, countWord, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { formatEur, formatFiDate } from "../format.ts";
+import { RENEW_DAYS } from "../../thresholds.ts";
+import { answeredSubscriptions, answerOf, insightOf, ITEM_GATE_MONTHLY_CENTS, settledBy } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
-const RENEW_DAYS = 45;
-const NOUN = { yearly: ["vuositilaus", "vuositilausta"], semiannual: ["puolivuotistilaus", "puolivuotistilausta"] } as const;
 
 /** A yearly or half-yearly subscription: the insight's set. Optimoi passes its own filter for other contracts. */
 export const isLongSubscription = (s: RecurringSeries) => isSubscription(s) && (s.cadence === "yearly" || s.cadence === "semiannual");
@@ -37,7 +37,7 @@ export function renewalItems(
     .sort((a, b) => a.nextDate!.localeCompare(b.nextDate!) || a.merchant.localeCompare(b.merchant));
 }
 
-export function renewals({ ctx, running, inputs }: InsightArgs): Insight[] {
+export function renewals({ ctx, running, inputs, lang }: InsightArgs): Insight[] {
   if (!running) return [];
   const due = renewalItems(ctx, inputs, RENEW_DAYS);
   const total = due.reduce((sum, s) => sum + s.typicalAmountCents, 0);
@@ -48,37 +48,41 @@ export function renewals({ ctx, running, inputs }: InsightArgs): Insight[] {
   if (due.length === 1) {
     const s = due[0]!;
     return [
-      {
+      insightOf({
+        lang,
         id,
-        tone: "info",
-        title: `${s.merchant} uusiutuu ${formatFiDate(s.nextDate!)}, ${formatEur(s.typicalAmountCents)}`,
-        detail: `${capitalise(NOUN[s.cadence as "yearly" | "semiannual"][0])}, viimeksi veloitettu ${formatFiDate(s.lastDate)}.`,
-        yearlyCents: yearly,
+        fact: { type: "renewal", merchant: s.merchant, date: s.nextDate!, cents: s.typicalAmountCents, cadence: s.cadence as "yearly" | "semiannual", lastDate: s.lastDate },
+        comparison: { label: "lastCharge", value: q.cents(s.lastAmountCents) },
+        action: { label: "decideRenewal", target: { page: "transactions", filter: { merchant: s.merchant } } },
+        yearlyCents: -yearly,
+        kind: "single",
         rows,
         link: { merchant: s.merchant },
         merchant: s.merchant,
         calc: [
-          { label: "Uusiutuu", value: formatFiDate(s.nextDate!) },
-          { label: "Edellinen veloitus", value: formatEur(s.typicalAmountCents) },
-          { label: "Viimeksi veloitettu", value: formatFiDate(s.lastDate) },
+          { label: messageIn(lang, "calc.renews"), value: formatFiDate(s.nextDate!, lang) },
+          { label: messageIn(lang, "calc.last_charge"), value: formatEur(s.lastAmountCents, true, lang) },
+          { label: messageIn(lang, "calc.last_charged"), value: formatFiDate(s.lastDate, lang) },
         ],
-      },
+      }),
     ];
   }
-  const noun = due.every((s) => s.cadence === "yearly") ? NOUN.yearly[1] : "tilausta";
+  const first = due[0]!;
   return [
-    {
+    insightOf({
+      lang,
       id,
-      tone: "info",
-      title: `${capitalise(countWord(due.length))} ${noun} uusiutuu ${RENEW_DAYS} päivän kuluessa, ${formatEur(total, false)}`,
-      detail: `${finnishList(due.map((s) => `${s.merchant} ${formatFiDate(s.nextDate!)}`))}.`,
-      yearlyCents: yearly,
+      fact: { type: "renewals", items: due.map((s) => ({ merchant: s.merchant, date: s.nextDate! })), cents: total, days: RENEW_DAYS, yearly: due.every((s) => s.cadence === "yearly") },
+      comparison: { label: "lastCharge", value: q.cents(due.reduce((sum, s) => sum + s.lastAmountCents, 0)) },
+      action: { label: "decideRenewal", target: { page: "transactions", filter: { merchant: first.merchant } } },
+      yearlyCents: -yearly,
+      kind: "single",
       rows,
       calc: [
-        ...due.map((s) => ({ label: `${s.merchant} ${formatFiDate(s.nextDate!)}`, value: formatEur(s.typicalAmountCents) })),
-        { label: "Yhteensä", value: formatEur(total, false) },
-        { label: "Katsottu eteenpäin", value: `${RENEW_DAYS} päivää` },
+        ...due.map((s) => ({ label: `${s.merchant} ${formatFiDate(s.nextDate!, lang)}`, value: formatEur(s.typicalAmountCents, true, lang) })),
+        { label: messageIn(lang, "calc.total"), value: formatEur(total, false, lang) },
+        { label: messageIn(lang, "calc.looked_ahead"), value: messageIn(lang, "calc.days", { n: RENEW_DAYS }) },
       ],
-    },
+    }),
   ];
 }

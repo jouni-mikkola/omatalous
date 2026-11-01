@@ -1,10 +1,17 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { accountNumber, formatIban } from "../src/format.ts";
 import { Accounts } from "../src/pages/settings/Accounts.tsx";
 import { BankConnections, fetchedText } from "../src/pages/settings/BankConnections.tsx";
 import type { Account, Connection, Meta } from "../src/types.ts";
+
+// a stamp of this year has no year, so the clock stands in the year after the dates of the tests
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2027-01-15T12:00:00Z"));
+});
+afterAll(() => vi.useRealTimers());
 
 describe("formatIban", () => {
   it("groups an IBAN by four, whatever spacing or case it came in", () => {
@@ -28,7 +35,7 @@ describe("accountNumber", () => {
   });
 });
 
-describe("fetchedText: the Haettu column of a connection in Pankkiyhteydet", () => {
+describe("fetchedText: the Päivitetty column of a connection in Pankkiyhteydet", () => {
   const conn = { id: "c1", state: "active" as const, lastSyncedAt: null };
   const acc = (extra: Record<string, unknown> = {}) => ({ connectionId: "c1", lastSyncedAt: null, problem: null, ...extra }) as Parameters<typeof fetchedText>[1][number];
 
@@ -119,16 +126,16 @@ describe("Tilit: what tells accounts apart", () => {
     expect(full).not.toContain("yli luottorajan");
   });
 
-  it("has a column of users only when some account has a choice to make, and a row under a joint account for its split", () => {
+  it("has no column of users, and a row under a joint account for its split", () => {
     const alone = render([account({})]);
-    expect(alone).not.toContain("Käyttäjä");
-    expect(alone).not.toContain("Prosentit");
+    expect(alone).not.toContain("Osuuksien mukaan");
     const use = { users: [{ userId: "u1", label: "Matti", weight: 1 }, { userId: null, label: "Maija Mallikas", weight: 1 }], source: "bank" as const };
     const joint = render([account({ use })]);
-    expect(joint).toContain("Käyttäjä");
-    expect(joint).toContain("Sen mukaan, kuka tilille on maksanut Tasan Prosentit");
+    // who uses the account is chosen in the edit form of the row
+    expect(joint).not.toContain("Käyttäjä");
+    expect(joint).toContain("Sen mukaan, kuka tilille on maksanut Tasan Osuuksien mukaan");
     // near miss: the same two holders but one user's part is 0, so the account is one user's and has no parts to open
-    expect(render([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("Prosentit");
+    expect(render([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("Osuuksien mukaan");
   });
 
   it("does not say the holder twice when the bank gave no product and the name is the holder", () => {
@@ -136,17 +143,20 @@ describe("Tilit: what tells accounts apart", () => {
     expect(out.split("Testi Esimerkki").length - 1).toBe(1);
   });
 
-  it("has no Haettu column and names no provider after the number: the table is the account, its type, its balance and Muokkaa", () => {
+  it("has no Haettu column and names no provider after the number: the table is the account, its balance and Muokkaa", () => {
     const out = render([account({ iban: "FI2112345600000785", lastSyncedAt: "2026-10-03T08:00:00Z" }), account({ id: "a2", provider: "demo", connectionId: null })]);
     expect(out).not.toContain("Haettu");
     expect(out).not.toContain("3.10.2026");
-    expect(out).not.toMatch(/pankkiyhteys|demo|CSV/);
-    expect(out).toMatch(/Tili Tyyppi Saldo/);
+    // the toolbar of every table offers "Lataa CSV", which is not an import
+    expect(out.replace("Lataa CSV", "")).not.toMatch(/pankkiyhteys|demo|CSV/);
+    expect(out).toMatch(/Tili Saldo/);
+    // the type is chosen in the edit form of the row
+    expect(out).not.toContain("Tyyppi");
   });
 
   it("says what to do, with no column heads, when there is no account", () => {
-    expect(render([])).toContain("Tilit tulevat tähän, kun yhdistät pankin. Kokeile esimerkkitiedoilla");
-    expect(render([])).not.toContain("Tili Tyyppi Saldo");
+    expect(render([])).toContain("Tilit tulevat tähän, kun yhdistät pankin. Kokeile esimerkkitiedoilla.");
+    expect(render([])).not.toContain("Tili Saldo");
   });
 
   it("every account has Muokkaa, a bank account too", () => {

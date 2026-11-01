@@ -1,25 +1,26 @@
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { addMonths, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { flagLoanPayment } from "../loan-payment.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
-import { buildHousing, type Housing } from "../housing.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { type CategoryTotal, categoryTotals } from "./category-totals.ts";
 import { type ConnectNotice, connectNotice, dataQualityReport, type QualitySignal } from "./data-quality.ts";
-import { type AheadData, cashAhead } from "./ahead.ts";
+import { type AheadData, aheadBasis } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, type AnalysisTx, inDays, recurringAt, spendRows, spendTotals } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, spendRows, spendTotals } from "./context.ts";
 import { accountsCoverage, comparableWith } from "./coverage.ts";
 import { fixedSeriesAt } from "./fixed-share.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
+import { buildHome, type Home } from "../home.ts";
+import { type CategoryGoalPace, categoryGoalPaces } from "./category-goals.ts";
 import { type SpendingGoal, spendingGoal } from "./spending-goal.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { buildQuestions, type Questions, withoutRowIds } from "./questions.ts";
-import { monthWaterfall, type Waterfall, withUsual } from "./waterfall.ts";
 import { type ThemesReport, themesReport } from "./themes-report.ts";
 import { isCompleteMonth } from "./usual.ts";
 
@@ -67,8 +68,12 @@ export interface DashboardData {
   pace: MonthPace;
   /** The user's monthly spending goal against `pace`; null when none is set. */
   goal: SpendingGoal | null;
+  /** The goals per category against the same month's spending so far; empty when none is set. */
+  categoryGoals: CategoryGoalPace[];
   /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the three figures. null when the selected period does not include today. */
   ahead: AheadData | null;
+  /** What the first page says in its five blocks; the page only draws it. */
+  home: Home;
   /** Cost traps and mistakes; the overview shows them before insights. */
   alerts: Alert[];
   /** The first warning from the data quality report but the card bills, which `connectNotice` says, so a user who never opens Reports still sees it. */
@@ -78,22 +83,8 @@ export interface DashboardData {
   insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
-  /** What the home costs a month and the terms of its loan, today whatever the range. null when the view has no home loan, no charge of a home and nothing to ask. */
-  housing: Housing | null;
   /** How much of the last 365 days' money is classified, and the payees and loan payments that would mend it most. */
   questions: Questions;
-  /**
-   * The month the range ends in (today's when the range runs past it), told as steps from income to Tulos, whatever
-   * the range's length. null when the range starts after today or the month has no rows.
-   */
-  waterfall: Waterfall | null;
-}
-
-/** The month's waterfall with the usual of each bar, read to the same day as the month is. */
-function usualWaterfall(ctx: AnalysisContext, range: DateRange): Waterfall | null {
-  const end = range.to < ctx.today ? range.to : ctx.today;
-  const wf = monthWaterfall(ctx, monthOf(end), range);
-  return wf && withUsual(ctx, wf, Number(end.slice(8, 10)));
 }
 
 /** The totals of every day of the calendar month before `month`; null when it has no rows. */
@@ -135,7 +126,7 @@ export type DashboardAnswer = Omit<DashboardData, "holdings"> & {
  * `balances` and `inputs` are what the cached context does not hold: the
  * account balances and the user's marks and expected bills, read per request.
  */
-export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBalances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): DashboardData {
+export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBalances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs), lang: Language = DEFAULT_LANGUAGE): DashboardData {
   const balances = flagLoanPayment(ctx, accountBalances);
   // a running period is compared with the same days of the previous one, or the
   // salary on the 15th makes the first nine days look like a loss of income
@@ -157,10 +148,13 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const comparedNow = new Map<string, number>();
   for (const t of onShared(rows)) if (t.spend) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
   const categories = categoryTotals(rows, onShared(previousRows)).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
-  const alerts = buildAlerts(ctx, range, inputs);
+  const alerts = buildAlerts(ctx, range, inputs, lang);
   const quality = dataQualityReport(ctx, range, balances);
   const settled = running ? settledTotals(ctx, range) : null;
+  const basis = running ? aheadBasis(ctx, balances, inputs) : null;
   const pace = monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to);
+
+  const insights = buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs, lang });
 
   return {
     range: { from: range.from, to: range.to, previousFrom },
@@ -178,14 +172,14 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     themes: themesReport(ctx),
     pace,
     goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
-    ahead: running ? cashAhead(ctx, balances, inputs) : null,
+    categoryGoals: categoryGoalPaces(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to, inputs.categoryGoals ?? {}),
+    ahead: basis?.ahead ?? null,
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
-    connectNotice: connectNotice(ctx),
-    insights: buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs }),
+    connectNotice: connectNotice(ctx, ctx.today, lang),
+    insights,
+    home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, proposals),
-    housing: buildHousing(ctx, balances, inputs),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),
-    waterfall: range.from > ctx.today ? null : usualWaterfall(ctx, range),
   };
 }

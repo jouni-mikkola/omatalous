@@ -110,7 +110,7 @@ describe("POST /api/data/export", () => {
     expect(hashes.length).toBe(2);
     const cookieValue = (c: { cookie: string }) => c.cookie.split("=")[1] ?? "";
     expect(cookieValue(setup.admin).length).toBeGreaterThan(10);
-    const secrets = [...PLANTED, APP_SECRET, SETUP_CODE, "aino-salasana-123", "kaisa-uusi-salasana", ...hashes, cookieValue(setup.admin), cookieValue(kaisa), "pbkdf2"];
+    const secrets = [...PLANTED, APP_SECRET, SETUP_CODE, "aino-salasana-123", "kaisa-uusi-salasana", ...hashes, cookieValue(setup.admin), cookieValue(kaisa), "pbkdf2", "argon2id"];
     for (const secret of secrets) expect(text, secret).not.toContain(secret);
   });
 });
@@ -298,7 +298,7 @@ describe("what the file holds is decided table by table", () => {
     const tableColumns = async (table: string) => (await s.db.all<{ name: string }>(`PRAGMA table_info(${table})`)).map((c) => c.name);
     // the exact list of each: a column of the table that is in neither list fails here, so it is decided in the open
     const pinned = {
-      users: { table: "users", written: ["id", "username", "display_name", "role", "created_at"], kept: ["password_hash", "must_change_password"] },
+      users: { table: "users", written: ["id", "username", "display_name", "role", "created_at"], kept: ["password_hash", "must_change_password", "language"] },
       accounts: {
         table: "accounts",
         written: ["id", "user_id", "provider", "identity", "name", "iban", "currency", "type", "balance_cents", "balance_at", "last_synced_at", "created_at", "custom_name", "holder", "card_mask", "credit_limit_cents",

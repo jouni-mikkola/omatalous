@@ -4,25 +4,25 @@ behaviour · demo · behaviour:credit (quiet)
   2 consumer credit lines running, 0 opened in 180 days (estimated)
   | card Nordea Gold (esimerkki): 2025-09-01..2026-10-09, start before the history, paid 3893.61 € in 90 days
   | loan Nordea Rahoitus Suomi Oy: 2025-09-05..2026-10-05, start before the history, paid 867.00 € in 90 days
-  rows 676
+  rows 680
 
 behaviour · demo · behaviour:payday (quiet)
-  days after pay at 1.19 times the days before, chance 0.54 (estimated)
-  = 30.78 € a cycle beyond the pace before
+  days after pay at 1.19 times the days before, chance 0.528 (estimated)
+  = 30.77 € a cycle beyond the pace before
   | 11 cycles counted
   rows 55
 
 behaviour · kit:base · behaviour:credit (quiet)
   1 consumer credit lines running, 0 opened in 180 days (estimated)
-  | card Nordea Gold: 2024-04-05..2026-10-14, start before the history, paid 2811.65 € in 90 days
+  | card Nordea Gold: 2024-04-02..2026-10-14, start before the history, paid 3196.12 € in 90 days
   | mortgage Nordea Bank Abp: 2024-04-05..2026-10-05, start before the history, paid 1837.20 € in 90 days
-  rows 976
+  rows 1030
 
 behaviour · kit:base · behaviour:payday (quiet)
-  days after pay at 0.89 times the days before, chance 0.919 (estimated)
-  = -14.78 € a cycle beyond the pace before
+  days after pay at 1.42 times the days before, chance 0.084 (estimated)
+  = 55.52 € a cycle beyond the pace before
   | 12 cycles counted
-  rows 43
+  rows 59
 
 behaviour · bank:op-couple · behaviour:credit (quiet)
   1 consumer credit lines running, 0 opened in 180 days (estimated)

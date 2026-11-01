@@ -23,3 +23,13 @@ export async function seedCsv(s: Services, caller: SeedCaller, input: CsvImportI
   if (!userId) throw new Error("seedCsv: the caller is not signed in");
   return { status: 200, body: JSON.parse(JSON.stringify(await importCsv(s, userId, input))) };
 }
+
+/** A seed file of `count` rows over 700 days, for the tests of a long import. */
+export function longCsv(count: number): string {
+  const head = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
+  const rows = Array.from({ length: count }, (_, i) => {
+    const day = new Date(Date.UTC(2024, 0, 1) + (i % 700) * 86400000).toISOString().slice(0, 10).replace(/-/g, "/");
+    return `${day};-${1 + (i % 400) / 10}`.replace(".", ",") + `;FI2112345600000785;;;KAUPPA ${i % 200} ${i};;EUR`;
+  });
+  return [head, ...rows].join("\n");
+}

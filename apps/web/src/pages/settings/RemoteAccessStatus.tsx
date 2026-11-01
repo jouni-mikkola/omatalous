@@ -3,7 +3,10 @@ import { dateTime } from "../../format.ts";
 import type { RemoteAccessState } from "./remote-access-api.ts";
 import { isInstallerHost, onTrial, stageOf, tunnelUrl } from "./remote-access-model.ts";
 import { Reverted, Trial } from "./RemoteAccessTrial.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../../routes.ts";
+import { t } from "../../text.ts";
 /** An address worth a link: the https one a tunnel gives. A home network address stays plain text. */
 function Address({ value }: { value: string }) {
   if (!/^https:\/\/\S+$/.test(value)) return <code>{value}</code>;
@@ -19,26 +22,30 @@ function Pending({ s, pending, down, onCancel }: { s: RemoteAccessState; pending
   // a first turning on takes the home address away: say so while the page can still be read
   const takesHomeAway = pending.want === "tunnel" && !s.access.on && pending.hostname !== null;
   return (
-    <div className="notice" role="status">
-      <strong>{pending.status === "running" ? "Muutos on käynnissä." : "Muutos odottaa ylläpitoapuria."}</strong>
+    <Notice role="status">
+      <strong>{pending.status === "running" ? t("set.rstatus.change_is_running") : t("set.rstatus.change_waits_for_helper")}</strong>
       <p>
-        {pending.want === "tunnel" ? `Etäkäyttö otetaan käyttöön${pending.hostname ? ` osoitteessa ${pending.hostname}` : ""}.` : "Etäkäyttö otetaan pois käytöstä."} Tämä sivu päivittyy, kun muutos on
-        valmis. <a href="#/settings?section=maintenance">Katso Ylläpito</a>
+        {pending.want === "tunnel"
+          ? pending.hostname
+            ? t("set.rstatus.turning_on_at", { host: pending.hostname })
+            : t("set.rstatus.turning_on")
+          : t("set.rstatus.turning_off")}{" "}
+        {t("set.rstatus.page_updates")} <a href={settingsCardHash(SETTINGS_ANCHOR.maintenance)}>{t("set.rstatus.see_maintenance")}</a>
       </p>
       {takesHomeAway && pending.hostname && (
         <p>
-          Kun muutos on tehty, kotiverkon osoite ei enää vastaa. Avaa silloin {tunnelUrl(pending.hostname)} ja kirjaudu sisään Cloudflaren kautta 15 minuutin kuluessa.
+          {t("set.rstatus.after_change_open", { url: tunnelUrl(pending.hostname) })}
         </p>
       )}
-      {down && <p>Yhteys sovellukseen katkesi hetkeksi. Sovellus käynnistyy uudelleen muutoksen aikana. Jos et pääse takaisin, avaa se kotiverkon osoitteella.</p>}
+      {down && <p>{t("set.rstatus.the_connection_to_the_app")}</p>}
       {pending.status === "queued" && (
         <div className="form-row">
-          <button className="btn btn-small" type="button" onClick={() => onCancel(pending.requestId)}>
-            Peruuta muutos
-          </button>
+          <Button variant="link" onClick={() => onCancel(pending.requestId)}>
+            {t("set.rstatus.cancel_the_change")}
+          </Button>
         </div>
       )}
-    </div>
+    </Notice>
   );
 }
 
@@ -53,7 +60,7 @@ function Allowed({ s }: { s: RemoteAccessState }) {
       </ul>
     );
   }
-  return <>Lista on tehty palvelimella asennusohjelmalla, eikä se näy täällä.</>;
+  return <>{t("set.rstatus.the_list_was_made_on")}</>;
 }
 
 /** Where remote access stands: off, on (or on trial) with the address and who gets in, left over in Cloudflare, or not possible here. */
@@ -61,44 +68,44 @@ function Standing({ s, now }: { s: RemoteAccessState; now: number }) {
   const stage = stageOf(s);
   const note = s.cloudflare.note;
   if (stage === "domain") {
-    return <div className="notice warning">Tällä asennuksella on oma verkkotunnus (Caddy), eikä etäkäyttöä oteta käyttöön sen rinnalle.</div>;
+    return <Notice tone="warning">{t("set.rstatus.this_installation_has_its_own")}</Notice>;
   }
   if (stage === "on") {
     const trial = onTrial(s);
     return (
-      <div className={`notice ${trial ? "warning" : "good"}`} role="status">
-        <strong>{trial ? "Uusi osoite on kokeilussa." : "Etäkäyttö on käytössä."}</strong>
+      <Notice tone={trial ? "warning" : "good"} role="status">
+        <strong>{trial ? t("set.rstatus.new_address_on_trial") : t("set.rstatus.remote_access_is_on")}</strong>
         {trial && <Trial s={s} now={now} />}
         <dl className="remote-facts">
-          <dt>Osoite</dt>
+          <dt>{t("set.rstatus.address")}</dt>
           <dd>{s.access.address ? <Address value={s.access.address} /> : (s.access.hostname ?? "")}</dd>
-          <dt>Sallitut sähköpostiosoitteet</dt>
+          <dt>{t("set.rstatus.allowed_email_addresses")}</dt>
           <dd>
             <Allowed s={s} />
           </dd>
         </dl>
-        {!s.access.checked && <p>Sovellus ei tarkista itse, että kävijä on kirjautunut Cloudflaren kautta.</p>}
-        {isInstallerHost(s) && <p>Etäkäyttö on otettu käyttöön palvelimella asennusohjelmalla. Muuta sitä palvelimella komennolla ./scripts/install.sh. Täältä voit ottaa sen pois käytöstä.</p>}
+        {!s.access.checked && <p>{t("set.rstatus.the_app_does_not_check")}</p>}
+        {isInstallerHost(s) && <p>{t("set.rstatus.remote_access_was_turned_on")}</p>}
         {note && <p>{note}</p>}
-      </div>
+      </Notice>
     );
   }
   if (stage === "left") {
     const removing = s.cloudflare.removal === "waiting";
     return (
-      <div className="notice warning" role="status">
-        <strong>{removing ? "Etäkäyttö otetaan pois käytöstä." : `Cloudflaressa on osoite ${s.cloudflare.hostname}, mutta sovellus ei ole sen takana.`}</strong>
+      <Notice tone="warning" role="status">
+        <strong>{removing ? t("set.rstatus.turning_off") : t("set.rstatus.left_in_cloudflare", { host: s.cloudflare.hostname ?? "" })}</strong>
         {note && <p>{note}</p>}
-        {!removing && !note && <p>Ota etäkäyttö uudelleen käyttöön tai ota se pois käytöstä.</p>}
-      </div>
+        {!removing && !note && <p>{t("set.rstatus.turn_remote_access_on_again")}</p>}
+      </Notice>
     );
   }
   return (
-    <div className="notice" role="status">
-      <strong>Etäkäyttö ei ole käytössä.</strong>
-      {s.access.address && <p>Sovelluksen osoite on nyt {s.access.address}.</p>}
+    <Notice role="status">
+      <strong>{t("set.rstatus.remote_access_is_off")}</strong>
+      {s.access.address && <p>{t("set.rstatus.app_address_now", { address: s.access.address })}</p>}
       {note && <p>{note}</p>}
-    </div>
+    </Notice>
   );
 }
 
@@ -110,11 +117,11 @@ export function Status({ s, down, onCancel, now }: { s: RemoteAccessState; down:
       <Standing s={s} now={now} />
       {s.last?.outcome === "reverted" && !s.access.on && <Reverted last={s.last} />}
       {s.last?.outcome === "failed" && (
-        <div className="notice warning" role="alert">
-          <strong>Edellinen muutos ei onnistunut.</strong>
+        <Notice tone="warning" role="alert">
+          <strong>{t("set.rstatus.the_last_change_did_not")}</strong>
           <p>{s.last.summary}</p>
           <p className="small muted">{dateTime(s.last.at)}</p>
-        </div>
+        </Notice>
       )}
     </>
   );

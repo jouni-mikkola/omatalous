@@ -3,8 +3,10 @@ import { createContext, historyCovers, inDays } from "../src/analysis/context.ts
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { formatEur } from "../src/analysis/format.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
-import { buildInsights, type Insight, insightDismissSubject, OVERVIEW_INSIGHTS, rankInsights } from "../src/analysis/insights/index.ts";
-import { lastCompleteMonths } from "../src/analysis/insights/shared.ts";
+import { buildInsights, insightDismissSubject, rankInsights } from "../src/analysis/insights/index.ts";
+import { OVERVIEW_INSIGHTS } from "../src/thresholds.ts";
+import { insightOf, lastCompleteMonths } from "../src/analysis/insights/shared.ts";
+import type { Insight as InsightData } from "../src/analysis/insights/types.ts";
 import { paydayEffect } from "../src/behaviour/payday.ts";
 import { type DateRange, toDayRange } from "../src/analysis/period.ts";
 import { isCompleteMonth } from "../src/analysis/usual.ts";
@@ -13,6 +15,7 @@ import { enrichTransactions } from "../src/pipeline.ts";
 import { type Account, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { randomHistory } from "./gen.ts";
 import { tx } from "./helpers.ts";
+import { type InsightView as Insight, view } from "./insight-view.ts";
 
 const today = "2026-10-09";
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -39,17 +42,39 @@ function household(): Transaction[] {
 function insightsOf(txs: Transaction[], range: DateRange = running, inputs: UserInputs = NO_INPUTS): Insight[] {
   const ctx = createContext(txs, [checking], today);
   const current = inDays(ctx, toDayRange(range));
-  return rankInsights({ ctx, range, current, totals: totalsOf(current.map((t) => t.flows)), inputs });
+  return rankInsights({ ctx, range, current, totals: totalsOf(current.map((t) => t.flows)), inputs }).map(view);
 }
 
 const byId = (list: Insight[], prefix: string) => list.find((i) => i.id.startsWith(prefix));
 /** Texts with plain spaces: euro amounts and percentages carry no-break spaces. */
 const plain = (s: string | undefined) => s?.replace(/ /g, " ");
 
-/** Every insight a scenario below produced, for the style sheet check. */
-const seen: Insight[] = [];
+/**
+ * Every list a scenario below builds goes through this: the style sheet and the calc lines are held for each insight in it,
+ * so the check does not depend on which scenarios ran before it (the files run in a random order under `--sequence.shuffle`).
+ */
 const keep = (list: Insight[]) => {
-  seen.push(...list);
+  for (const i of list) {
+    const words = i.title.split(/[\s ]+/).filter((w) => /\p{L}/u.test(w));
+    expect(words.length, i.title).toBeLessThanOrEqual(8);
+    expect(i.title, i.title).not.toMatch(/[?!]|\/kk|\/v\b|vs\./);
+    // the detail is the comparison and the action: two sentences, each ending in a full stop (dates like 7.6.2026 have no space after their dots)
+    expect(i.detail.trim(), i.detail).toMatch(/^[^\s].*\.$/);
+    expect(i.detail.slice(0, -1).split(/\.\s+/).length, i.detail).toBeLessThanOrEqual(3);
+    expect(`${i.title} ${i.detail}`, i.title).not.toMatch(/kannattaa|muista|tärkeää|riittävä|paljon|noin|normaali|keskiarvo|Voit /i);
+    expect(i.yearlyCents).toBeGreaterThan(0);
+    expect(i.rows?.length || i.link, i.id).toBeTruthy();
+    // the insight has what it is set against and what to do, and its euro amount is the last calc line
+    const { comparison, action, effectPerYear } = i.insight;
+    expect(comparison.label, i.id).toBeTruthy();
+    expect(action.label, i.id).toBeTruthy();
+    expect(effectPerYear, i.id).not.toBeNull();
+    expect(i.calc.at(-1), i.id).toEqual(effectPerYear);
+    expect(effectPerYear!.value, i.id).toBe(`${effectPerYear!.cents > 0 ? "+" : ""}${formatEur(effectPerYear!.cents, false)}`);
+    // every number in a title is a calc line
+    const values = i.calc.map((c) => plain(c.value)!);
+    for (const n of plain(i.title)!.match(/\d+(?: \d{3})*(?:,\d+)?/g) ?? []) expect(values.some((v) => v.includes(n)), `${i.id}: ${n} of ${i.title}`).toBe(true);
+  }
   return list;
 };
 
@@ -62,8 +87,8 @@ describe("insights", () => {
     const elisa = monthly("2025-10", 7, 12, (i) => (i < 8 ? -10990 : -13990), { merchant: "Elisa", category: "telecom" });
     const one = keep(insightsOf([...household(), ...elisa]));
     expect(one.map((i) => i.id)).toEqual([expect.stringMatching(/^price:/)]);
-    expect(plain(one[0]!.title)).toBe("Elisa: hinta nousi, 360 € enemmän vuodessa");
-    expect(plain(one[0]!.detail)).toBe("109,90 € → 139,90 € 7.6.2026 alkaen.");
+    expect(plain(one[0]!.title)).toBe("Elisa: hinta nousi, nyt 139,90 €");
+    expect(plain(one[0]!.detail)).toBe("Aiemmin 109,90 €, uusi hinta 7.6.2026 alkaen. Tarkista, oletko hyväksynyt korotuksen.");
     expect(one[0]).toMatchObject({ yearlyCents: 36000, merchant: "Elisa" });
     expect(one[0]!.rows!.length).toBeGreaterThan(0);
 
@@ -71,8 +96,8 @@ describe("insights", () => {
     const spotify = monthly("2025-10", 13, 12, (i) => (i < 6 ? -1199 : -1299), { merchant: "Spotify", category: "subscriptions" });
     const three = keep(insightsOf([...household(), ...elisa, ...netflix, ...spotify]));
     const rises = byId(three, "price-rises")!;
-    expect(plain(rises.title)).toBe("Kolme toistuvaa maksua kallistui, yhteensä 408 € enemmän vuodessa");
-    expect(plain(rises.detail)).toBe("Elisa, Netflix ja Spotify, 12 kuukauden ajalta 10.10.2025 alkaen.");
+    expect(plain(rises.title)).toBe("Kolme maksuasi kallistui");
+    expect(plain(rises.detail)).toBe("Vuosi sitten maksoit näistä yhteensä 1 619 € vuodessa: Elisa, Netflix ja Spotify. Tarkista, oletko hyväksynyt korotuksen.");
     expect(rises.yearlyCents).toBe(40800);
     // a rise under a euro or under 5 % is rounding
     const small = monthly("2025-10", 7, 12, (i) => (i < 8 ? -2990 : -3050), { merchant: "Elisa", category: "telecom" });
@@ -85,7 +110,7 @@ describe("insights", () => {
     expect(freed).toHaveLength(1);
     expect(freed[0]).toMatchObject({ tone: "good", yearlyCents: 300000, link: { merchant: "Autolaina" } });
     expect(plain(freed[0]!.title)).toBe("Autolaina: 250 € kuussa vapautui");
-    expect(freed[0]!.detail).toBe(`Viimeinen maksu 20.7.2026, 12 maksua 20.8.2025 alkaen, yhteensä ${formatEur(300000)}.`);
+    expect(plain(freed[0]!.detail)).toBe(`Tavallisesti 250 € kuussa, 12 maksua 20.8.2025 alkaen, yhteensä ${plain(formatEur(300000, false))}. Päätä, mihin vapautunut raha menee.`);
     // waits two intervals: a month after the last instalment it may be late
     expect(insightsOf([...household(), ...loan], { from: "2026-08-01", to: "2026-08-25" }).some((i) => i.id.startsWith("stopped:"))).toBe(false);
     const refinanced = monthly("2026-08", 1, 3, -26000, { merchant: "Lainapankki", category: "loans" });
@@ -98,7 +123,7 @@ describe("insights", () => {
     const list = keep(insightsOf([...household(), trial, ...paid]));
     const n = byId(list, "new:")!;
     expect(plain(n.title)).toBe("Uusi toistuva maksu: Storytel 29,99 € kuussa");
-    expect(plain(n.detail)).toBe("1 € kokeilu 22.7.2026, sen jälkeen 3 veloitusta 5.8.2026 alkaen.");
+    expect(plain(n.detail)).toBe("Kokeilu 22.7.2026 maksoi 1 €, ensimmäinen täysi veloitus 5.8.2026. Mieti, jatkatko tilausta.");
     expect(n.rows).toContain(trial.id);
     expect(n.yearlyCents).toBe(2999 * 12);
   });
@@ -133,8 +158,8 @@ describe("insights", () => {
     ];
     const list = keep(insightsOf([...household(), ...old, ...added]));
     const a = byId(list, "subscriptions-added")!;
-    expect(plain(a.title)).toBe("Tilauksia 4, vuosi sitten 1: +29 € kuussa");
-    expect(plain(a.detail)).toBe("Uudet: HBO Max, Disney+ ja Strava, 348 € vuodessa.");
+    expect(plain(a.title)).toBe("Tilauksia nyt 4, uusia 3");
+    expect(plain(a.detail)).toBe("Vuosi sitten tilauksia oli 1. Uudet: HBO Max, Disney+ ja Strava, yhteensä 29 € kuussa. Mieti, jatkatko tilausta.");
     expect(a.yearlyCents).toBe(2897 * 12);
   });
 
@@ -143,7 +168,7 @@ describe("insights", () => {
     const list = keep(insightsOf([...household(), ...adobe]));
     const r = byId(list, "renewals:")!;
     expect(plain(r.title)).toBe("Adobe uusiutuu 20.10.2026, 359,88 €");
-    expect(r.detail).toBe("Vuositilaus, viimeksi veloitettu 20.10.2025.");
+    expect(plain(r.detail)).toBe("Edellinen veloitus 359,88 €, 20.10.2025. Päätä ennen uusiutumista, jatkuuko tilaus.");
     expect(r.yearlyCents).toBe(35988);
     expect(insightsOf([...household(), ...adobe], { from: "2026-09-01", to: "2026-09-30" }).some((i) => i.id.startsWith("renewals:"))).toBe(false);
   });
@@ -153,7 +178,7 @@ describe("insights", () => {
     const list = keep(insightsOf([...household(), ...klarna]));
     const i = byId(list, "instalments")!;
     expect(plain(i.title)).toBe("Klarna: osamaksuja 45 € kuussa");
-    expect(i.detail).toBe("Sama erä vähintään kolmena kuukautena peräkkäin.");
+    expect(plain(i.detail)).toBe("Se on 4 % tavallisista kuukausimenoista. Katso erät ja päätä, otatko uusia.");
     expect(i.rows).toEqual(klarna.map((t) => t.id));
     expect(insightsOf([...household(), klarna[2]!]).some((x) => x.id === "instalments")).toBe(false);
   });
@@ -179,8 +204,8 @@ describe("insights", () => {
     );
     const list = keep(insightsOf([...household(), ...more]));
     const g = byId(list, "spending-growth")!;
-    expect(plain(g.title)).toMatch(/^Ostokset \+\d+ % vuodessa, tulot ±0 %$/);
-    expect(plain(g.detail)).toMatch(/^Loka 2025 – syyskuu 2026|^Lokakuu 2025 – syyskuu 2026 verrattuna samaan aikaan vuotta aiemmin/);
+    expect(plain(g.title)).toMatch(/^Ostokset \+\d+ % vuodessa$/);
+    expect(plain(g.detail)).toMatch(/^Tulot ±0 % samassa vertailussa \(lokakuu 2025–syyskuu 2026\)\./);
     // the extra purchases of six months in the twelve compared: their sum is the yearly figure
     expect(g.yearlyCents).toBe(-more.reduce((sum, t) => sum + t.amountCents, 0));
   });
@@ -189,8 +214,8 @@ describe("insights", () => {
     const loan = monthly("2026-01", 20, 9, -40000, { merchant: "Autolaina", category: "loans" });
     const list = keep(insightsOf([...household(), ...loan]));
     const c = byId(list, "commitments-share")!;
-    expect(plain(c.title)).toBe("Kiinteät menot 37 % tavallisista tuloista, vuosi sitten 26 %");
-    expect(plain(c.detail)).toBe("Kiinteät menot 1 300 € ja tavalliset tulot 3 500 € kuussa; vuosi sitten 900 € ja 3 500 €.");
+    expect(plain(c.title)).toBe("Kiinteät menot 37 % tavallisista tuloista");
+    expect(plain(c.detail)).toBe("Vuosi sitten osuus oli 26 %. Katso kiinteät menot ja päätä, mistä voi luopua.");
     expect(c.tone).toBe("warning");
   });
 
@@ -198,7 +223,7 @@ describe("insights", () => {
     const draw = tx({ bookingDate: "2026-09-10", amountCents: 100000, merchant: "Nordea", category: "credit_draw" });
     const list = keep(insightsOf([...household(), draw], { from: "2026-09-01", to: "2026-09-30" }));
     expect(byId(list, "borrowed")).toMatchObject({ yearlyCents: 100000, rows: [draw.id], link: { category: "credit_draw" } });
-    expect(plain(byId(list, "borrowed")!.detail)).toBe("Yksi nosto 1.–30.9.2026.");
+    expect(plain(byId(list, "borrowed")!.detail)).toBe("Se on 29 % tavallisista kuukausituloista. Katso nostot ja mieti, mistä rahan saa ilman luottoa.");
   });
 
   it("ranks by yearlyCents and shows three on the overview", () => {
@@ -217,39 +242,17 @@ describe("insights", () => {
     expect(yearly).toEqual([...yearly].sort((a, b) => b - a));
     const ctx = createContext(txs, [checking], today);
     const current = inDays(ctx, toDayRange(running));
-    expect(buildInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) })).toEqual(all.slice(0, OVERVIEW_INSIGHTS));
+    expect(buildInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) }).map(view)).toEqual(all.slice(0, OVERVIEW_INSIGHTS));
   });
 
   it("a dismissed insight returns only when its number moves 25 %", () => {
     const loan = monthly("2025-08", 20, 12, -25000, { merchant: "Autolaina", category: "loans" });
     const insight = insightsOf([...household(), ...loan])[0]!;
     const dismissedAt = (subject: string): UserInputs => ({ marks: [{ subject, mark: "dismissed", markedAt: "2026-10-01T10:00:00" }], expectedBills: [] });
-    expect(insightDismissSubject(insight)).toBe(`alert:${insight.id}@300000`);
-    expect(insightsOf([...household(), ...loan], running, dismissedAt(insightDismissSubject(insight)))).toEqual([]);
+    expect(insightDismissSubject(insight.insight)).toBe(`alert:${insight.id}@300000`);
+    expect(insightsOf([...household(), ...loan], running, dismissedAt(insightDismissSubject(insight.insight)))).toEqual([]);
     expect(insightsOf([...household(), ...loan], running, dismissedAt(`alert:${insight.id}@260000`))).toEqual([]);
     expect(insightsOf([...household(), ...loan], running, dismissedAt(`alert:${insight.id}@200000`))).toHaveLength(1);
-  });
-
-  it("titles and details follow the style sheet", () => {
-    expect(seen.length).toBeGreaterThan(10);
-    for (const i of seen) {
-      const words = i.title.split(/[\s ]+/).filter((w) => /\p{L}/u.test(w));
-      expect(words.length, i.title).toBeLessThanOrEqual(8);
-      expect(i.title, i.title).not.toMatch(/[?!]|\/kk|\/v\b|vs\./);
-      // one sentence: a full stop only at the end (dates like 7.6.2026 have no space after their dots)
-      expect(i.detail.trim(), i.detail).toMatch(/^[^\s].*\.$/);
-      expect(i.detail.slice(0, -1), i.detail).not.toMatch(/[.!?]\s/);
-      expect(`${i.title} ${i.detail}`, i.title).not.toMatch(/kannattaa|muista|tärkeää|riittävä|paljon|noin|normaali|keskiarvo|Voit /i);
-      expect(i.yearlyCents).toBeGreaterThan(0);
-      expect(i.rows?.length || i.link, i.id).toBeTruthy();
-    }
-  });
-
-  it("every number in a title is a calc line", () => {
-    for (const i of seen) {
-      const values = (i.calc ?? []).map((c) => plain(c.value)!);
-      for (const n of plain(i.title)!.match(/\d+(?: \d{3})*(?:,\d+)?/g) ?? []) expect(values.some((v) => v.includes(n)), `${i.id}: ${n} of ${i.title}`).toBe(true);
-    }
   });
 });
 
@@ -269,7 +272,7 @@ describe("what the review found", () => {
     const txs = [...household().filter((t) => t.merchant !== "Vuokranantaja"), ...stale];
     const ctx = createContext(txs, [checking, other], today);
     const current = inDays(ctx, toDayRange(running));
-    expect(stopped(rankInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) }))).toEqual([]);
+    expect(stopped(rankInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) }).map(view))).toEqual([]);
   });
 
   it("stopped: a new provider in the same category is a switch", () => {
@@ -300,7 +303,7 @@ describe("what the review found: growth", () => {
       tx({ bookingDate: `${addMonths("2026-04", Math.floor(k / 6))}-${String([3, 6, 14, 15, 24, 28][k % 6]).padStart(2, "0")}`, amountCents: -(4000 + ((k * 731) % 2000)), merchant: shops[k % 3]!, category: "restaurants" }),
     );
     const carSale = tx({ bookingDate: "2026-05-20", amountCents: 500000, merchant: "Matti Myyjä", category: "sales" });
-    expect(growth(insightsOf([...household(), ...more, carSale]))).toEqual([expect.stringMatching(/^Ostokset \+\d+ % vuodessa, tulot ±0 %$/)]);
+    expect(growth(insightsOf([...household(), ...more, carSale]))).toEqual([expect.stringMatching(/^Ostokset \+\d+ % vuodessa$/)]);
   });
 });
 
@@ -321,8 +324,8 @@ describe("what the review found: debt share", () => {
   it("counts the loan instalments against usual income", () => {
     const list = keep(insightsOf([...household(), ...mortgage(30, "2024-04", -150000)]));
     const d = byId(list, "debt")!;
-    expect(plain(d.title)).toBe("Velanhoitoon 43 % tuloista");
-    expect(plain(d.detail)).toBe("Lainojen erät 1 500 € ja tavalliset tulot 3 500 € kuussa, huhti–syyskuu 2026.");
+    expect(plain(d.title)).toBe("Lainojen erät 43 % tavallisista tuloista");
+    expect(plain(d.detail)).toBe("Raja on 35 % tuloista. Katso lainat ja niiden erät.");
     expect(d.yearlyCents).toBe((150000 - 122500) * 12);
     expect(d.rows).toHaveLength(6);
   });
@@ -338,7 +341,7 @@ describe("what the review found: subscriptions", () => {
     // two new ones beside them: the year ago count holds the yearly ones too
     const added = [...monthly("2026-03", 4, 7, -1599, { merchant: "HBO Max", category: "subscriptions" }), ...monthly("2026-03", 6, 7, -1399, { merchant: "Disney+", category: "subscriptions" })];
     const a = byId(insightsOf([...household(), ...netflix, ...adobe, ...office, ...added]), "subscriptions-added")!;
-    expect(plain(a.title)).toBe("Tilauksia 5, vuosi sitten 3: +30 € kuussa");
+    expect(plain(a.title)).toBe("Tilauksia nyt 5, uusia 2");
   });
 
   it("the year of new subscriptions is their own yearly cost: a quarterly one counts its four charges", () => {
@@ -399,13 +402,13 @@ describe("what the life-event kit found", () => {
   it("a rent step over 10 % is a move or a new contract; a smaller one is a rise", () => {
     const rent = (to: number) => monthly("2024-04", 2, 30, (i) => (i < 24 ? -90000 : -to), { merchant: "Vuokranantaja", category: "housing" });
     expect(titles(insightsOf([...noRent(), ...rent(100000)]), "price")).toEqual([]);
-    expect(titles(insightsOf([...noRent(), ...rent(94500)]), "price")).toEqual(["Vuokranantaja: hinta nousi, 540 € enemmän vuodessa"]);
+    expect(titles(insightsOf([...noRent(), ...rent(94500)]), "price")).toEqual(["Vuokranantaja: hinta nousi, nyt 945 €"]);
   });
 
   it("a municipal day-care fee follows income and hours: no price rise; a private one's is", () => {
     const fee = (merchant: string) => monthly("2024-04", 8, 30, (i) => (i < 28 ? -27990 : -33500), { merchant, category: "kids" });
     expect(titles(insightsOf([...household(), ...fee("Helsingin Kaupunki")]), "price")).toEqual([]);
-    expect(titles(insightsOf([...household(), ...fee("Touhula Oy")]), "price")).toEqual(["Touhula Oy: hinta nousi, 661 € enemmän vuodessa"]);
+    expect(titles(insightsOf([...household(), ...fee("Touhula Oy")]), "price")).toEqual(["Touhula Oy: hinta nousi, nyt 335 €"]);
   });
 
   it("a monthly fee that became one yearly payment is a new cadence, no stop", () => {
@@ -417,9 +420,9 @@ describe("what the life-event kit found", () => {
 
   it("hit: a vastike or a storage unit up 13 to 15 % is a price rise; only rent steps over 10 % are a move", () => {
     const vastike = monthly("2024-04", 3, 30, (i) => (i < 24 ? -30000 : -33900), { merchant: "As Oy Kotikallio", description: "HOITOVASTIKE", category: "housing" });
-    expect(titles(insightsOf([...household(), ...vastike]), "price")).toEqual(["As Oy Kotikallio: hinta nousi, 468 € enemmän vuodessa"]);
+    expect(titles(insightsOf([...household(), ...vastike]), "price")).toEqual(["As Oy Kotikallio: hinta nousi, nyt 339 €"]);
     const storage = monthly("2024-04", 4, 30, (i) => (i < 24 ? -10000 : -11500), { merchant: "Pelican Self Storage", description: "VARASTON VUOKRA", category: "housing" });
-    expect(titles(insightsOf([...household(), ...storage]), "price")).toEqual(["Pelican Self Storage: hinta nousi, 180 € enemmän vuodessa"]);
+    expect(titles(insightsOf([...household(), ...storage]), "price")).toEqual(["Pelican Self Storage: hinta nousi, nyt 115 €"]);
   });
 
   it("hit: a large last payment on a loan pays it off, so the loan ended", () => {
@@ -443,7 +446,7 @@ describe("what the life-event kit found", () => {
     const groceries = (txs: Transaction[]) => {
       const ctx = createContext(txs, [checking, card, spare], today);
       const current = inDays(ctx, toDayRange(running));
-      return titles(rankInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) }), "spending-groceries");
+      return titles(rankInsights({ ctx, range: running, current, totals: totalsOf(current.map((t) => t.flows)) }).map(view), "spending-groceries");
     };
     // the card's rows end in July: August and September are missing data
     expect(groceries([...household(), ...[...shop, ...fee].filter((t) => t.bookingDate < "2026-08-01")])).toEqual([]);
@@ -477,7 +480,7 @@ describe("insights on random households", () => {
       const ctx = createContext(enrichTransactions(txs, accounts, rules), accounts, "2025-11-15");
       for (const range of [{ from: "2025-11-01", to: "2025-11-15" }, { from: "2025-06-01", to: "2025-08-31" }]) {
         const current = inDays(ctx, toDayRange(range));
-        for (const i of rankInsights({ ctx, range, current, totals: totalsOf(current.map((t) => t.flows)) })) loud.push(`${seed} ${i.id}: ${plain(i.title)}`);
+        for (const i of rankInsights({ ctx, range, current, totals: totalsOf(current.map((t) => t.flows)) }).map(view)) loud.push(`${seed} ${i.id}: ${plain(i.title)}`);
       }
     }
     expect(loud).toEqual([]);
@@ -509,7 +512,7 @@ describe("insights on random households", () => {
       reach("18 complete months with small purchases (small purchases)", six.length === 6 && isCompleteMonth(ctx, addMonths(six[0]!, -12)) && ctx.txs.some((t) => t.bookingDate < `${addMonths(six[0]!, -12)}-28` && t.spend > 0 && t.spend < 1000));
       for (const range of [{ from: "2025-11-01", to: judged }, { from: "2025-06-01", to: "2025-08-31" }]) {
         const current = inDays(ctx, toDayRange(range));
-        for (const i of rankInsights({ ctx, range, current, totals: totalsOf(current.map((t) => t.flows)) })) loud.push(`${seed} ${i.id}: ${plain(i.title)}`);
+        for (const i of rankInsights({ ctx, range, current, totals: totalsOf(current.map((t) => t.flows)) }).map(view)) loud.push(`${seed} ${i.id}: ${plain(i.title)}`);
       }
     }
     expect(loud).toEqual([]);
@@ -526,4 +529,65 @@ describe("insights on random households", () => {
       "18 complete months with small purchases (small purchases)": 10,
     });
   }, 30_000);
+});
+
+describe("the shape of an insight", () => {
+  const made = (id: string, kind: InsightData["kind"], yearlyCents: number) =>
+    insightOf({
+      id,
+      fact: { type: "weekday", weekday: 5, cents: 1000, weeks: 30 },
+      comparison: { label: "otherDays", value: { unit: "cents", value: 500 } },
+      action: { label: "seeWeekday", target: { page: "reports", anchor: "tulot" } },
+      yearlyCents,
+      kind,
+      calc: [{ label: "Viikkoja", value: "30" }],
+    });
+
+  it("does not compile without a comparison or an action", () => {
+    const whole = made("a", "pattern", -1000);
+    // @ts-expect-error an insight with no comparison
+    const noComparison: InsightData = { id: whole.id, fact: whole.fact, action: whole.action, effectPerYear: whole.effectPerYear, kind: whole.kind, evidence: whole.evidence };
+    // @ts-expect-error an insight with no action
+    const noAction: InsightData = { id: whole.id, fact: whole.fact, comparison: whole.comparison, effectPerYear: whole.effectPerYear, kind: whole.kind, evidence: whole.evidence };
+    expect([noComparison, noAction]).toHaveLength(2);
+  });
+
+  it("has its euro amount as a calc line that matches, the last of its working", () => {
+    const i = made("a", "pattern", -123456);
+    expect(i.effectPerYear).toEqual({ label: expect.any(String), value: `−${formatEur(123456, false)}`, cents: -123456 });
+    expect(i.evidence.calc.at(-1)).toBe(i.effectPerYear);
+  });
+
+  it("ranks a recurring pattern before a single row, even a larger one", () => {
+    const rise = monthly("2025-10", 7, 12, (i) => (i < 8 ? -10990 : -13990), { merchant: "Elisa", category: "telecom" });
+    const draw = tx({ bookingDate: "2026-10-05", amountCents: 900000, merchant: "Nordea", category: "credit_draw" });
+    const list = insightsOf([...household(), ...rise, draw]);
+    const ids = list.map((i) => i.id);
+    expect(ids).toContain("borrowed");
+    expect(ids.some((id) => id.startsWith("price:"))).toBe(true);
+    const single = list.findIndex((i) => i.insight.kind === "single");
+    expect(single).toBeGreaterThanOrEqual(0);
+    expect(list.slice(single).every((i) => i.insight.kind === "single")).toBe(true);
+    const patterns = list.slice(0, single).map((i) => i.yearlyCents);
+    expect(patterns).toEqual([...patterns].sort((a, b) => b - a));
+    expect(list.find((i) => i.id === "borrowed")!.yearlyCents).toBeGreaterThan(Math.min(...patterns));
+  });
+
+  it("tells a single row only when it is worth the threshold and among the month's largest rows", () => {
+    const draw = (cents: number) => tx({ bookingDate: "2026-09-10", amountCents: cents, merchant: "Nordea", category: "credit_draw" });
+    const september = { from: "2026-09-01", to: "2026-09-30" };
+    const drawn = (cents: number, extra: Transaction[] = []) => insightsOf([...household(), draw(cents), ...extra], september).filter((i) => i.id === "borrowed");
+    expect(drawn(100000)).toHaveLength(1);
+    // under the threshold of a year
+    expect(drawn(1000)).toEqual([]);
+    // ten draws of 100 € each beside eleven dearer rows: no single draw is among the month's ten largest rows, though together they are a lot
+    const tens = Array.from({ length: 10 }, (_, k) => tx({ bookingDate: `2026-09-${String(10 + k).padStart(2, "0")}`, amountCents: 10000, merchant: "Nordea", category: "credit_draw" }));
+    const bigger = Array.from({ length: 11 }, (_, k) => tx({ bookingDate: `2026-09-0${1 + (k % 6)}`, amountCents: -50000 - k * 1000, merchant: `Kauppa ${k}`, category: "shopping" }));
+    expect(drawn(0, [...tens, ...bigger])).toEqual([]);
+    expect(drawn(0, tens).length).toBe(1);
+    // ten dearer rows in the month: the draw is not among the largest
+    const crowd = Array.from({ length: 10 }, (_, k) => tx({ bookingDate: `2026-09-0${1 + (k % 6)}`, amountCents: -500000 - k * 1000, merchant: `Kauppa ${k}`, category: "shopping" }));
+    expect(drawn(100000, crowd)).toEqual([]);
+  });
+
 });

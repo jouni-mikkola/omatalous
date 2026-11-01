@@ -23,7 +23,8 @@ import { type Coverage, coverage } from "./coverage.ts";
 import { totalsOf } from "./flows.ts";
 import { largePurchases } from "./large.ts";
 import { toDayRange } from "./period.ts";
-import { completeMonthsBefore, gateFor, MIN_COMPARE_MONTHS } from "./usual.ts";
+import { completeMonthsBefore, gateFor } from "./usual.ts";
+import { MIN_COMPARE_MONTHS } from "../thresholds.ts";
 
 /** The months of the window at most, and what a year's figure and a change need. */
 const YEAR = 12;

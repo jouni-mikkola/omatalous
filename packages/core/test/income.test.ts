@@ -165,6 +165,18 @@ describe("what changed", () => {
     expect(ended!.detail).toBe("Viimeinen maksu 1.7.2026; tuki on tullut kuun ensimmäisenä pankkipäivänä.");
   });
 
+  it("says the same changes in English, with the same numbers", () => {
+    const at = (rows: Transaction[], lang: "fi" | "en") => incomeChanges(incomeBase(ctxOf([...rows, ...filler("2025-06-01", TODAY)], TODAY), TODAY), true, lang);
+    const ended = at(monthly("2025-12", 8, 31200, kela("ASUMISTUKI"), 1, "next"), "en").find((c) => c.kind === "benefit_ended")!;
+    expect(ended.title).toBe("Housing allowance ended: −€312 a month");
+    expect(ended.detail).toBe("Last payment 1/7/2026; it was paid on the first banking day of the month.");
+    const missing = at(monthly("2025-09", 13, 300000, salary("Yritys Oy")), "en").find((c) => c.kind === "missing")!;
+    expect(missing.title).toBe("Pay is missing, expected 15/10");
+    const payers = at([...monthly("2025-08", 12, 300000, salary("Vanha Oy"), 15), ...monthly("2026-08", 3, 310000, salary("Uusi Oy"), 25)], "en");
+    expect(payers[0]!.title).toBe("Employer changed: €3,100 a month");
+    for (const c of [ended, missing, ...payers]) expect(`${c.title} ${c.detail} ${(c.calc ?? []).map((l) => l.label).join(" ")}`).not.toMatch(/[äöå]/);
+  });
+
   it("keeps työmarkkinatuki turning into yleistuki one benefit", () => {
     const rows = [...monthly("2025-10", 7, 70000, kela("TYÖMARKKINATUKI"), 7), ...monthly("2026-05", 6, 70000, kela("YLEISTUKI"), 7)];
     expect(changesOf(rows).filter((c) => c.type === "kela_general")).toEqual([]);
@@ -181,7 +193,7 @@ describe("what changed", () => {
     const rows = monthly("2025-09", 13, 300000, salary("Yritys Oy"));
     const missing = changesOf(rows).find((c) => c.kind === "missing");
     expect(missing).toBeDefined();
-    expect(missing!.title).toBe("Palkka puuttuu, odotettu 15.10.");
+    expect(missing!.title).toBe("Palkka puuttuu, odotimme sitä 15.10.");
     expect(missing!.detail).toContain("tilillä on tapahtumia 20.10.2026 asti");
   });
 
@@ -220,9 +232,12 @@ describe("income report", () => {
     ...filler("2025-06-01", TODAY),
   ];
 
-  it("leaves money from people and refunds out of earned income", () => {
+  it("leaves money from people, refunds and the tax refund out of earned income, the tax refund as a group of its own", () => {
     const r = incomeReport(ctxOf(household(), TODAY), lastYear(TODAY));
-    expect(r.notEarnedCents).toBe(17000);
+    expect(r.notEarnedCents).toBe(17000 + 64000);
+    expect(r.kinds.map((k) => [k.id, k.label])).toEqual([["earned", "Ansiotulot"], ["tax_refund", "Veronpalautus"], ["other", "Muut tulot"]]);
+    expect(r.kinds.find((k) => k.id === "tax_refund")!.totalCents).toBe(64000);
+    expect(r.types.find((t) => t.type === "tax_refund")).toMatchObject({ kind: "tax_refund", earned: false, share: null });
     const all = r.months.reduce((s, m) => s + m.totalCents, 0);
     expect(r.earnedCents + r.notEarnedCents).toBe(all);
     // and the income of the same twelve months in the money flows: Ansiotulot and Tulot differ by what is not earned
@@ -266,15 +281,16 @@ describe("income report", () => {
     expect(r.stability).toMatchObject({ medianCents: 300000, spread: 0, lowShare: 0, worstRunWeeks: 0 });
   });
 
-  it("needs twelve complete months for stability and three for the composition", () => {
+  it("needs three complete months for stability and for the composition", () => {
     const rows = [...monthly("2026-07", 4, 300000, salary("Yritys Oy")), ...filler("2026-07-01", TODAY)];
     const r = incomeReport(ctxOf(rows, TODAY), range(TODAY));
     expect(r.enough).toBe(true);
     expect(r.completeMonths).toBe(3);
-    expect(r.stability).toBeNull();
+    expect(r.stability).not.toBeNull();
     expect(r.previousEarnedCents).toBeNull();
     const early = incomeReport(ctxOf(rows.filter((t) => t.bookingDate >= "2026-08-01"), TODAY), range(TODAY));
     expect(early.enough).toBe(false);
+    expect(early.stability).toBeNull();
   });
 
   it("splits by member only by whose account it is, and keeps a joint account whole", () => {
@@ -319,7 +335,7 @@ describe("income report: what the page prints", () => {
     const TODAY = "2026-10-20";
     const rows = [...monthly("2024-07", 28, (i) => (i < 15 ? 300000 : 330000), salary("Yritys Oy")), ...filler("2024-06-01", TODAY)];
     const r = incomeReport(ctxOf(rows, TODAY), lastYear(TODAY));
-    expect(r.needs).toEqual({ compositionMonths: 3, stabilityMonths: 12, previousYearMonths: 24, steadySpread: 0.03 });
+    expect(r.needs).toEqual({ compositionMonths: 3, stabilityMonths: 3, previousYearMonths: 24, steadySpread: 0.03 });
     expect(r.previousEarnedCents).not.toBeNull();
     expect(r.earnedChange).toBeCloseTo((r.earnedCents - r.previousEarnedCents!) / r.previousEarnedCents!, 10);
     expect(r.earnedChange!).toBeGreaterThan(0);

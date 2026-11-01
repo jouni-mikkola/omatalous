@@ -12,7 +12,9 @@ import { writeAccessRequest } from "../src/services/access-request.ts";
 import { settleRemoteAccess, turnOff, turnOn } from "../src/services/remote-access.ts";
 import { AAD, TOKEN_KEY } from "../src/services/remote-access-cloudflare.ts";
 import { NOW, waitFor } from "./helpers.ts";
-import { ANNA, API_TOKEN, BASE, CLOUDFLARE_SAID, HOST, IN_PROGRESS, LAN, LIISA, logged, PASSWORD, PEKKA, prepared, TUNNEL, turnedOn, world } from "./remote-access-kit.ts";
+import { ANNA, API_TOKEN, BASE, HOST, IN_PROGRESS, LAN, LIISA, logged, PASSWORD, PEKKA, prepared, TUNNEL, turnedOn, useWorlds, world } from "./remote-access-kit.ts";
+
+useWorlds();
 
 describe("remote access: who may call and with what", () => {
   it("a member gets 403, a signed-out caller 401 and a form post is refused", async () => {
@@ -163,7 +165,7 @@ describe("remote access: the API token", () => {
     w.cf.unreachable = true;
     r = await w.saveToken();
     expect(r.status).toBe(502);
-    expect(r.body.error).toBe("Cloudflareen ei saatu yhteyttä. Yritä hetken päästä uudelleen.");
+    expect(r.body.error).toBe("Emme saaneet yhteyttä Cloudflareen. Yritä hetken päästä uudelleen.");
     w.cf.unreachable = false;
     w.cf.zones = [];
     r = await w.saveToken();
@@ -296,7 +298,7 @@ describe("remote access: on, a change and off", () => {
     expect((await w.off()).status).toBe(200);
     await w.helper("ok", LAN);
     await waitFor(async () => (await w.state()).cloudflare.removal === "kept");
-    expect((await w.state()).cloudflare).toMatchObject({ hostname: HOST, removal: "kept", note: expect.stringContaining("kirjautumissuojaus (Access) jätettiin päälle") });
+    expect((await w.state()).cloudflare).toMatchObject({ hostname: HOST, removal: "kept", note: expect.stringContaining("jätimme kirjautumissuojauksen (Access) päälle") });
     expect([w.cf.apps.length, w.cf.policies.length]).toEqual([1, 1]);
     expect(await w.events("remote_access_failed")).toEqual([`${HOST}: Cloudflaren puolta ei poistettu (osoitteeseen johtaa vielä muuta)`]);
 
@@ -402,7 +404,7 @@ describe("remote access: what Cloudflare refuses", () => {
     await refused(w, "Zero Trust ei ole käytössä tällä Cloudflare-tilillä. Ota se käyttöön Cloudflaren hallinnassa (Free-taso riittää) ja yritä uudelleen.");
     w.cf.zeroTrust = true;
     w.cf.unreachable = true;
-    await refused(w, "Cloudflareen ei saatu yhteyttä. Yritä hetken päästä uudelleen.");
+    await refused(w, "Emme saaneet yhteyttä Cloudflareen. Yritä hetken päästä uudelleen.");
     w.cf.unreachable = false;
     expect(w.cf.writes()).toBe(0);
     expect((await w.state()).cloudflare.hostname).toBeNull();

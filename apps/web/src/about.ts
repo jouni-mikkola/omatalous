@@ -1,11 +1,13 @@
-/** Who made Omatalous and where it lives: read by the Tietoja block of Asetukset and by nothing else. */
+import project from "../../../project.json";
+
+/** Who made Omatalous and where it lives: read by the footer of every page (components/AboutFoot.tsx) and by nothing else. */
 export const ABOUT = {
   /** The attribution the licence's additional term (LICENSE, section 7(b)) keeps in every copy: the app's name, then the author's. */
-  appName: "Omatalous",
-  authorName: "Jouni Mikkola",
-  authorUrl: "https://www.linkedin.com/in/jouni-mikkola",
-  sourceUrl: "https://github.com/jouni-mikkola/omatalous",
+  appName: project.name,
+  authorName: project.author,
+  authorUrl: project.authorUrl,
+  sourceUrl: `https://github.com/${project.owner}/${project.repo}`,
   licence: "AGPL-3.0",
-  /** Where to help with the development costs. Empty: the block shows no support sentence and no support link. */
-  supportUrl: "https://buymeacoffee.com/jouni.mikkola",
+  /** Where to help with the development costs. Empty: the footer shows no support link. */
+  supportUrl: project.supportUrl,
 };

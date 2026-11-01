@@ -14,9 +14,10 @@ const SURVEY = {
 };
 const RENT = { title: "Tilastokeskus: Vuokraindeksi ja keskineliövuokrat, neljännesvuosittain (15fa)", url: "https://pxdata.stat.fi/PXWeb/pxweb/fi/StatFin/StatFin__asvu/15fa.px" };
 
-const survey = (type: "kerrostalo" | "rivitalo", words: string, value: number): Fact => ({
+const survey = (type: "kerrostalo" | "rivitalo", words: string, wordsEn: string, value: number): Fact => ({
   id: `hoitovastike_rise:${type}:2026`,
   label: `Hoitovastikkeiden nousu ${words} vuonna 2026, kysely`,
+  labelEn: `Rise in maintenance charges in ${wordsEn} in 2026, survey`,
   value,
   unit: "%",
   kind: "survey",
@@ -36,9 +37,10 @@ const RENT_YOY: readonly [string, number, number, number][] = [
 
 const QUARTER_START = ["01", "04", "07", "10"];
 
-const rent = (id: string, quarter: string, words: string, value: number): Fact => ({
+const rent = (id: string, quarter: string, words: string, wordsEn: string, value: number): Fact => ({
   id: `${id}:${quarter}`,
   label: `Vuokraindeksin vuosimuutos ${quarter.slice(5)}. neljänneksellä ${quarter.slice(0, 4)}, ${words}`,
+  labelEn: `Rent index change on a year earlier, Q${quarter.slice(5)} ${quarter.slice(0, 4)}, ${wordsEn}`,
   value,
   unit: "%",
   kind: "cpi",
@@ -51,11 +53,11 @@ const rent = (id: string, quarter: string, words: string, value: number): Fact =
 });
 
 export const HOUSING_FACTS: readonly Fact[] = [
-  survey("kerrostalo", "kerrostaloissa", 1.5),
-  survey("rivitalo", "rivitaloissa", 2.8),
+  survey("kerrostalo", "kerrostaloissa", "blocks of flats", 1.5),
+  survey("rivitalo", "rivitaloissa", "terraced houses", 2.8),
   ...RENT_YOY.flatMap(([q, all, free, ara]) => [
-    rent("rent_index_yoy", q, "kaikki vuokra-asunnot", all),
-    rent("rent_index_yoy_free", q, "vapaarahoitteiset", free),
-    rent("rent_index_yoy_ara", q, "valtion tukemat", ara),
+    rent("rent_index_yoy", q, "kaikki vuokra-asunnot", "all rental dwellings", all),
+    rent("rent_index_yoy_free", q, "vapaarahoitteiset", "free-financed", free),
+    rent("rent_index_yoy_ara", q, "valtion tukemat", "state-subsidised", ara),
   ]),
 ];

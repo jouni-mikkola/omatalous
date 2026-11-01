@@ -10,6 +10,7 @@ export const KIDS_FACTS: readonly Fact[] = [
   {
     id: "daycare_max_fee",
     label: "Varhaiskasvatuksen enimmäismaksu",
+    labelEn: "Maximum early childhood education fee",
     value: 31_100,
     unit: "snt",
     kind: "law",
@@ -24,6 +25,7 @@ export const KIDS_FACTS: readonly Fact[] = [
   {
     id: "daycare_max_fee",
     label: "Varhaiskasvatuksen enimmäismaksu",
+    labelEn: "Maximum early childhood education fee",
     value: 33_500,
     unit: "snt",
     kind: "law",

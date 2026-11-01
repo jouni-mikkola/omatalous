@@ -80,7 +80,7 @@ describe("scheduler hours", () => {
 describe("setup-code CLI", () => {
   it("prints a fresh code that creates the first admin, then refuses", async () => {
     const { db } = await openDatabase(":memory:");
-    const app = createApp({ db, config: loadConfig({ PASSWORD_ITERATIONS: "1000" }) });
+    const app = createApp({ db, config: loadConfig({ PASSWORD_MEMORY_KIB: "8", PASSWORD_PASSES: "1" }) });
     const out: string[] = [];
     const log = console.log;
     console.log = (line: string) => out.push(line);

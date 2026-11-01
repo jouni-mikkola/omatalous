@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { reportsOf, REPORT_SECTIONS } from "../src/pages/reports/registry.ts";
+import { QUESTIONS } from "@banking/core";
+import { REPORT_PAGES, reportsOf, reportsOfPage, REPORT_SECTIONS } from "../src/pages/reports/registry.ts";
 import type { ReportContext } from "../src/pages/reports/types.ts";
 
 const DIR = new URL("../src/pages/reports/sections/", import.meta.url);
@@ -25,13 +26,20 @@ describe("a page asks the server for the reports of its own sections", () => {
     expect(reportsOf("reports")).not.toContain("spendingChange");
   });
 
-  it("every section of Raportit names its tab, in the order of the tabs, and an old anchor's section stays on its tab", () => {
-    const own = REPORT_SECTIONS.filter((s) => s.page === "reports");
-    expect(own.filter((s) => !s.tab).map((s) => s.id)).toEqual([]);
-    const tabOf = (id: string) => own.find((s) => s.id === id)?.tab;
-    expect(tabOf("kuukaudet")).toBe("menot");
-    expect(tabOf("kassavirta")).toBe("virta");
-    expect(tabOf("lainat")).toBe("varat");
+  it("every section of Raportit is on exactly one question page, and a page asks for its conclusion and the data notes besides", () => {
+    const own = REPORT_SECTIONS.filter((s) => s.page === "reports").map((s) => s.id);
+    const placed = REPORT_PAGES.flatMap((p) => p.sections.map((s) => s.id));
+    expect([...placed].sort()).toEqual([...own].sort());
+    expect(new Set(placed).size).toBe(placed.length);
+    for (const p of REPORT_PAGES) expect(reportsOfPage(p), p.id).toEqual(expect.arrayContaining(["conclusions", "dataQuality"]));
+  });
+
+  it("the question pages are the list of core, one file each, and an old anchor's section is on the page its tab became", () => {
+    expect(REPORT_PAGES.map((p) => p.id)).toEqual([...QUESTIONS]);
+    const pageOf = (id: string) => REPORT_PAGES.find((p) => p.sections.some((s) => s.id === id))?.id;
+    expect(pageOf("kuukaudet")).toBe("menot");
+    expect(pageOf("kassavirta")).toBe("tulot");
+    expect(pageOf("lainat")).toBe("velat");
   });
 
   it("Asetukset asks for the data quality notes only, and Raportit no longer shows them", () => {

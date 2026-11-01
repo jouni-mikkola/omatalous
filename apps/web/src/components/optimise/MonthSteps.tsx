@@ -5,7 +5,8 @@
  * pointer, tap and keys. The sums are the server's; the web draws them.
  */
 import { monthOf } from "@banking/core";
-import { date, money, monthLong } from "../../format.ts";
+import { date, language, money, monthLong } from "../../format.ts";
+import { t } from "../../text.ts";
 import { Table } from "../table/Table.tsx";
 import { useWidth } from "../../hooks.ts";
 import { EventMarkers, LANE_H } from "../../charts/kit/Annotations.tsx";
@@ -46,8 +47,9 @@ export function MonthSteps({ sums, change, label }: StepSums & { label: string }
   return (
     <div className="chart" ref={ref}>
       {width > 0 && (
-        <svg width={f.width} height={f.height} role="img" aria-label={`${label} kuukausittain${change ? `, ${change.label.toLocaleLowerCase("fi")} ${date(change.date)}` : ""}`}>
+        <svg width={f.width} height={f.height}>
           <g transform={`translate(${f.margin.left},${f.margin.top})`}>
+            <g role="img" aria-label={change ? t("ow.ms_aria", { label, change: change.label.toLocaleLowerCase(language()), date: date(change.date) }) : t("ow.ms_by_month", { label })}>
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
             {ticks.map((t, i) =>
               t.printed ? (
@@ -58,7 +60,8 @@ export function MonthSteps({ sums, change, label }: StepSums & { label: string }
             )}
             <EventMarkers markers={markers} innerH={f.innerH} base={f.innerH + 14} />
             <path className="qc-line qc-now draw" d={stepPath([...values, values[values.length - 1] ?? null], x, y)} />
-            <ReadoutLayer xs={months.map((_, i) => mid(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} label={`${label} kuukausittain. Nuolinäppäimillä siirryt kuukaudesta toiseen.`} />
+            </g>
+            <ReadoutLayer xs={months.map((_, i) => mid(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={months} label={t("ow.ms_keys", { label })} />
           </g>
         </svg>
       )}
@@ -73,16 +76,16 @@ export function MonthStepsTable({ sums, change, label }: StepSums & { label: str
   const marked = changeAt({ sums, change });
   return (
     <Table
-      caption={`${label} kuukausittain`}
+      caption={t("ow.ms_by_month", { label })}
       rows={[...sums]}
       rowKey={(s) => s.month}
       columns={[
         {
           key: "month",
-          label: "Kuukausi",
+          label: t("ow.ms_month"),
           kind: "text",
           rowHead: true,
-          cell: (s) => `${monthLong(s.month)}${s.month === sums[marked]?.month && change ? ` (${change.label.toLocaleLowerCase("fi")} ${date(change.date)})` : ""}`,
+          cell: (s) => `${monthLong(s.month)}${s.month === sums[marked]?.month && change ? ` (${change.label.toLocaleLowerCase(language())} ${date(change.date)})` : ""}`,
         },
         { key: "sum", label, kind: "money", precision: "cents", main: true, cents: (s) => s.cents },
       ]}

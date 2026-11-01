@@ -15,16 +15,20 @@ import type { AccessConfig } from "../platform/config.ts";
 import { readCappedText } from "../platform/outbound.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { recordEvent } from "../services/security.ts";
-import { addressKey, RateLimiter } from "./rate-limit.ts";
+import { limitField } from "../platform/limits.ts";
+import { addressKey } from "./rate-limit.ts";
 
 const ACCESS_HEADER = "cf-access-jwt-assertion";
 /** What a refused request gets: 403, plain text, nothing about why. */
 export const ACCESS_REFUSAL = "Pääsy estetty.";
 /** Failed checks an address may make in a window; after that it is refused without a look at its token. */
-export const ACCESS_FAILURES = 10;
-export const ACCESS_WINDOW_MS = 15 * 60_000;
+/** The defaults of the limits schema (platform/limits.ts); the live values are `s.accessLimiter`. */
+export const ACCESS_FAILURES = limitField("accessFailures").default;
+export const ACCESS_WINDOW_MS = limitField("authWindowMinutes").default * 60_000;
 /** The keys are fetched at most this often, whatever the tokens name. */
 export const ACCESS_REFETCH_MS = 60_000;
+/** How long a held key is trusted without a look at the team's list. */
+const ACCESS_KEYS_MAX_AGE_MS = 60 * 60_000;
 
 /** Clock difference allowed for `exp` and `nbf`. */
 const SKEW_SECONDS = 60;
@@ -110,7 +114,8 @@ export class AccessKeys {
 
   async find(kid: string): Promise<KeyObject | null> {
     const held = this.keys.get(kid);
-    if (held) return held;
+    // a key the team has withdrawn must stop counting: held keys are looked at again once an hour, and a failing fetch keeps them
+    if (held && this.now() - this.fetchedAt < ACCESS_KEYS_MAX_AGE_MS) return held;
     await this.refetch();
     return this.keys.get(kid) ?? null;
   }
@@ -218,8 +223,7 @@ export const accessEmail = (c: Context): string | null => signedIn.get(c) ?? nul
 export function cfAccess(s: Services, config: AccessConfig, onPass?: () => Promise<void>): MiddlewareHandler<AppEnv> {
   const now = () => s.now().getTime();
   const verifier = new AccessVerifier(config, s.fetch ?? fetch, now);
-  // built here and not on Services: it exists only when Access is configured, and this handler is its one reader
-  const failures = new RateLimiter(ACCESS_FAILURES, ACCESS_WINDOW_MS);
+  const failures = s.accessLimiter;
 
   return async (c, next) => {
     if (c.req.method === "GET" && c.req.path === "/api/health") return next();

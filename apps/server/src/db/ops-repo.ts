@@ -77,6 +77,11 @@ export class OpsRepo {
     return (await this.db.all<Row>(`${SELECT} ORDER BY r.requested_at DESC, r.rowid DESC LIMIT ?`, [limit])).map(toRequest);
   }
 
+  /** The newest request of each action, whatever its state: the page shows how every action last ended. */
+  async lastPerAction(): Promise<OpsRequest[]> {
+    return (await this.db.all<Row>(`${SELECT} WHERE r.rowid IN (SELECT MAX(rowid) FROM ops_requests GROUP BY action)`)).map(toRequest);
+  }
+
   /** Requests made since `since`, leaving out the actions in `excluding` (the read-only ones, to count mutating requests). */
   async countSince(since: string, excluding: readonly string[] = []): Promise<number> {
     const r = await this.db.first<{ c: number }>(`SELECT COUNT(*) AS c FROM ops_requests WHERE requested_at > ?${excluding.length ? ` AND action NOT IN (${marks(excluding)})` : ""}`, [since, ...excluding]);

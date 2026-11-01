@@ -6,6 +6,7 @@ import type { RecurringSeries } from "../recurring.ts";
 import type { Bucket, BucketKind, CategoryChange } from "./change.ts";
 import type { Plan } from "./change-plan.ts";
 import type { AnalysisTx } from "./context.ts";
+import type { ExpectedDue } from "./expected.ts";
 import { MONTHLY_OR_LONGER } from "./insights/shared.ts";
 
 export const MIN_PRICE_VISITS = 3;
@@ -78,7 +79,10 @@ export interface Merch {
 
 export type Split = Partial<Record<BucketKind, number>>;
 
-export function splitMerchant(m: Merch, f: Facts, plan: Plan, n: number, seriesOf: ReadonlyMap<string, RecurringSeries>): Split {
+/** The bills that fall due in the target month, by series id (`Expected.due`): the expected figure holds them whole. */
+export const NO_DUE: ReadonlyMap<string, Pick<ExpectedDue, "cents">> = new Map();
+
+export function splitMerchant(m: Merch, f: Facts, plan: Plan, n: number, seriesOf: ReadonlyMap<string, RecurringSeries>, due: ReadonlyMap<string, Pick<ExpectedDue, "cents">>): Split {
   const out: Split = {};
   const add = (kind: BucketKind, cents: number) => {
     if (cents) out[kind] = (out[kind] ?? 0) + cents;
@@ -101,15 +105,17 @@ export function splitMerchant(m: Merch, f: Facts, plan: Plan, n: number, seriesO
   for (const g of [...groups.values()].sort((a, b) => a.series.id.localeCompare(b.series.id))) {
     const rare = RARE.has(g.series.cadence ?? "");
     if (g.series.cadence !== "monthly" && !rare) continue;
-    const expected = rare ? (plan.mean ? 0 : g.base.length) : plan.target.length;
+    const dueCents = plan.mean && rare ? due.get(g.series.id)?.cents : undefined;
+    const expected = rare ? (plan.mean ? (dueCents === undefined ? 0 : 1) : g.base.length) : plan.target.length;
     if (g.now.length > expected) {
       const extra = [...g.now].sort((a, b) => b.spend - a.spend || b.bookingDate.localeCompare(a.bookingDate) || a.id.localeCompare(b.id)).slice(0, g.now.length - expected);
       add("timing", spendOf(extra));
       now -= spendOf(extra);
       visits -= extra.length;
-    } else if (g.now.length < expected && g.series.active && (plan.mean ? g.base.length / n : g.base.length) >= PRESENCE * expected) {
+    } else if (g.now.length < expected && g.series.active && (dueCents !== undefined || (plan.mean ? g.base.length / n : g.base.length) >= PRESENCE * expected)) {
       const missing = expected - g.now.length;
-      const cents = Math.min(Math.round((missing * spendOf(g.base)) / g.base.length), Math.max(0, base));
+      // a bill due in the month is missing at the amount the figure expects, one of the base months at its mean
+      const cents = Math.min(dueCents ?? Math.round((missing * spendOf(g.base)) / g.base.length), Math.max(0, base));
       add("timing", -cents);
       base -= cents;
       baseVisits = Math.max(0, baseVisits - missing);

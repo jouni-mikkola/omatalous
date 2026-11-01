@@ -18,6 +18,7 @@ import { situationOf } from "../src/optimise/situation.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+import { view } from "./insight-view.ts";
 
 const today = "2026-10-16";
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -135,7 +136,7 @@ describe("savings rate and debt share in Tilanne", () => {
     expect(fact("debt_share").label).toBe("Velanhoito tavallisista tuloista, viimeiset 6 kuukautta");
     const share = debtShareOf(ctx, today, NO_INPUTS)!;
     expect(fact("debt_share").value).toBeCloseTo(share.debtCents / share.incomeCents, 10);
-    const finding = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }).insights.find((i) => i.id === "debt");
+    const finding = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }).insights.map(view).find((i) => i.id === "debt");
     expect(finding).toBeDefined();
     const pct = Number(/(\d+)\s%/.exec(finding!.title.replace(/\s/g, " "))![1]);
     expect(fact("debt_share").text.replace(/\s/g, " ")).toBe(`${pct} %`);
@@ -162,9 +163,9 @@ describe("credit drawn: the net of a period, never below zero", () => {
 
   it("tells no credit drawn on the overview for June, and the net of July with its two draws", () => {
     expect(buildDashboard(ctx, monthRange("2026-06")).insights.find((i) => i.id === "borrowed")).toBeUndefined();
-    const july = buildDashboard(ctx, monthRange("2026-07")).insights.find((i) => i.id === "borrowed")!;
-    expect(july.title.replace(/\s/g, " ")).toBe("Luottoa nostettu 500 €");
-    expect(july.detail).toMatch(/^2 nostoa /);
+    const july = view(buildDashboard(ctx, monthRange("2026-07")).insights.find((i) => i.id === "borrowed")!);
+    expect(july.title.replace(/\s/g, " ")).toBe("Nostit luottoa 500 €");
+    expect(july.detail).toMatch(/^Se on \d+ % tavallisista kuukausituloista\./);
   });
 
   it("over twelve months pools the net, never below zero", () => {
@@ -179,8 +180,12 @@ describe("labels the brief names in the web files (read as text)", () => {
 
   it("names the report's usual income Säännölliset tulot kuussa", () => {
     const income = web("pages/reports/sections/Income.tsx");
-    expect(income).toContain("Säännölliset tulot kuussa");
-    expect(income).not.toContain("Tavalliset tulot kuukaudessa");
+    // the words live in the catalogue, the page asks for them by code
+    const words = [1, 2, 3, 4, 5].map((n) => readFileSync(new URL(`../src/messages-reports-${n}.ts`, import.meta.url), "utf8")).join("\n");
+    expect(words).toContain('"rpt.in_why": "Säännölliset tulot kuussa"');
+    expect(income).toContain("rpt.in_why");
+    expect(income).not.toContain("Odotetut tulot kuukaudessa");
+    expect(words).not.toContain("Odotetut tulot kuukaudessa");
   });
 });
 

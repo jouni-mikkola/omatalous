@@ -60,7 +60,6 @@ describe("parts a level under a category", () => {
         expect(c.parts.filter((p) => p.id !== "rest").length).toBeLessThanOrEqual(7);
         expect(new Set(c.parts.map((p) => p.id)).size).toBe(c.parts.length);
       }
-      for (const b of dash.waterfall?.bars ?? []) if (b.split) expect(b.split.reduce((s, p) => s + p.cents, 0)).toBe(-b.cents);
     });
   }
 

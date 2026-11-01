@@ -1,6 +1,6 @@
 import { expect, type BrowserContext, type Page, test as base } from "@playwright/test";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { openCategoryPicker, overflow, unfold, watch } from "./helpers.ts";
 import { startServer } from "./server.mjs";
 
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
@@ -25,8 +25,8 @@ const PAGES = [
   ["transactions", "Tapahtumat"],
   ["bills", "Laskut"],
   ["transactions?view=merchants", "Tapahtumat"],
-  ["settings", "Asetukset"],
-  ["settings?section=technical", "Asetukset"],
+  ["settings/banks", "Asetukset"],
+  ["settings/server", "Asetukset"],
 ] as const;
 
 test.describe.configure({ mode: "serial" });
@@ -41,15 +41,20 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   await page.getByLabel("Käyttäjätunnus").fill(ADMIN.username);
   await page.getByLabel("Nimi", { exact: true }).fill(ADMIN.displayName);
   await page.getByLabel("Salasana (vähintään 12 merkkiä)").fill("lyhyt");
-  await page.getByLabel("Salasana uudelleen").fill("lyhyt");
+  await expect(page.locator(".password-hint")).toContainText("vähintään 12 merkkiä");
+  // a common password is refused with the reason, while typing and at the button
+  await page.getByLabel("Salasana (vähintään 12 merkkiä)").fill("Salasana123456");
+  await expect(page.locator(".password-hint")).toContainText("liian yleinen");
+  await page.getByLabel("Salasana uudelleen").fill("Salasana123456");
   await page.getByRole("button", { name: "Luo ja kirjaudu" }).click();
-  await expect(page.getByText("Vähintään 12 merkkiä.")).toBeVisible();
+  await expect(page.locator(".field-error").first()).toContainText("liian yleinen");
 
   await page.getByLabel("Asennuskoodi").fill("väärä-koodi");
   await page.getByLabel("Salasana (vähintään 12 merkkiä)").fill(ADMIN.password);
+  await expect(page.locator(".password-hint")).not.toContainText("liian yleinen");
   await page.getByLabel("Salasana uudelleen").fill(ADMIN.password);
   await page.getByRole("button", { name: "Luo ja kirjaudu" }).click();
-  await expect(page.locator(".error").first()).toBeVisible();
+  await expect(page.locator(".field-error").first()).toBeVisible();
 
   await page.getByLabel("Asennuskoodi").fill(app.setupCode);
   await page.getByRole("button", { name: "Luo ja kirjaudu" }).click();
@@ -58,7 +63,7 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   // the wizard starts at Enable Banking: the address and schedule were saved with their defaults
   await expect(page.getByLabel("Vaiheet", { exact: true }).getByText("Osoite ja aikataulu")).toHaveCount(0);
   await expect(page.getByLabel("Vaiheet", { exact: true }).getByRole("listitem")).toHaveCount(2);
-  // step 2 lists the fields of Enable Banking's form in its order, each value with its own copy button
+  // step 2 lists the fields of Enable Banking's form in its order, the values to copy in code, one button for all
   const fields = page.locator(".setup-steps li li");
   await expect(fields.locator(".eb-label")).toHaveText(["Environment", "Private key", "Application name", "Allowed redirect URLs", "Application description", "Email for data protection matters", "Privacy URL", "Terms URL"]);
   await expect(fields.filter({ hasText: "Allowed redirect URLs" }).locator("code.copyable")).toHaveText(/github\.io\/omatalous\/callback\/$/);
@@ -70,14 +75,16 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   const checklist = page.getByLabel("Enable Banking -sovelluksen vaiheet");
   await expect(checklist.locator("li.done")).toHaveCount(0);
   await page.getByRole("button", { name: "Luo avain" }).click();
-  await expect(checklist.getByText("Avain luotu")).toHaveClass(/done/);
+  await expect(checklist.getByText("Salausavain luotu")).toHaveClass(/done/);
   // the .pem option is behind "Muut vaihtoehdot"; the copy button works on plain http too
   await expect(page.getByRole("button", { name: "Minulla on .pem-tiedosto" })).toBeHidden();
   await page.getByText("Muut vaihtoehdot").click();
   await expect(page.getByRole("button", { name: "Minulla on .pem-tiedosto" })).toBeVisible();
-  await page.getByRole("button", { name: "Kopioi Allowed redirect URLs" }).click();
-  await expect(page.getByRole("button", { name: "Kopioitu Allowed redirect URLs" })).toBeVisible();
-  await page.getByRole("button", { name: "Ohita" }).click();
+  // one button copies the five values of the registration form
+  await expect(page.getByRole("button", { name: "Kopioi", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Kopioi kaikki" }).click();
+  await expect(page.getByRole("button", { name: "Kopioitu", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Jatka" }).click();
   await expect(page.getByText("Salausavain")).toBeVisible();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
   await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
@@ -119,16 +126,18 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the page opens on the month's pace (VC1), the days to the payday come before the month's waterfall
-          const pace = page.getByRole("region", { name: "Menot tässä kuussa", exact: true });
-          await expect(pace).toBeVisible();
-          const month = page.getByRole("region", { name: "Tulot ja menot", exact: true });
-          const ahead = page.getByRole("heading", { name: "Erääntyvät maksut", exact: true });
-          await expect(ahead).toBeVisible();
-          const [paceBox, monthBox, aheadBox] = [await pace.boundingBox(), await month.boundingBox(), await ahead.boundingBox()];
-          expect(paceBox!.y, "the pace is above the days to the payday").toBeLessThan(aheadBox!.y);
-          expect(aheadBox!.y, "the days to the payday are above the month").toBeLessThan(monthBox!.y);
-          // the month columns and the merchants are Raportit's and Tapahtumat's: no heading and no link here
+          // the page opens on the answer, then the month's pace, the findings and the assets and debts, in that order
+          const order = [".home-answer", ".home-pace", ".home-notable", ".home-direction"];
+          // the document order is the reading order of a phone and a screen reader; a wide screen sets the pace beside the findings, so only the answer is checked to stand on top
+          const names = await page.evaluate((selectors) => {
+            const found = selectors.map((s) => document.querySelector(s)!);
+            return found.map((el, i) => (i === 0 || found[i - 1]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING ? selectors[i] : `${selectors[i]} out of order`));
+          }, order);
+          expect(names, "the blocks stand in the order of the question").toEqual(order);
+          const tops: number[] = [];
+          for (const selector of order) tops.push((await page.locator(selector).first().boundingBox())!.y);
+          expect(tops[0], "the answer is the topmost block").toBe(Math.min(...tops));
+          // what belongs to Raportit and Tapahtumat is not here
           await expect(page.getByRole("heading", { name: "Menot kuukausittain" })).toHaveCount(0);
         }
       }
@@ -143,28 +152,15 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
   }
 }
 
-test("a period belongs to one page: Yhteenveto offers two months, Raportit five, and an old address opens the page that has its period", async ({ browser }) => {
+test("a period belongs to one page: Yhteenveto has no period, Raportit five, and an old address opens the page that has its period", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   const toolbar = page.getByRole("toolbar", { name: "Aikaväli" });
   const pressed = toolbar.locator("button[aria-pressed=true]");
-  // Yhteenveto draws its own switch in the block it changes, Raportit has the shell's toolbar
-  const months = page.getByRole("group", { name: "Kuukausi" });
-  const pressedMonth = months.locator("button[aria-pressed=true]");
-  // the two months are named by the server's own day: "Lokakuu 2026" and the one before it
-  const { today, opening } = (await (await context.request.get("/api/meta")).json()) as { today: string; opening: "month" | "last-month" };
-  const monthName = (back: number) => {
-    const at = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 1 - back, 1));
-    const name = new Intl.DateTimeFormat("fi-FI", { month: "long", year: "numeric", timeZone: "UTC" }).format(at);
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  };
-  const [thisMonth, lastMonth] = [monthName(0), monthName(1)];
-
+  // Yhteenveto is always the running month: it has no switch and no toolbar, Raportit has the shell's toolbar
   await page.goto("/#/overview");
-  await expect(months.getByRole("button")).toHaveText([thisMonth, lastMonth]);
-  // the page opens on the month the server names: the last one until the running month's pay has come
-  await expect(pressedMonth).toHaveText(opening === "month" ? thisMonth : lastMonth);
+  await expect(page.getByRole("group", { name: "Kuukausi" })).toHaveCount(0);
   await expect(toolbar).toHaveCount(0);
   await page.goto("/#/reports");
   await expect(toolbar.getByRole("button")).toHaveText(["3 kk", "6 kk", "12 kk", "Tämä vuosi", "Viime vuosi"]);
@@ -177,21 +173,29 @@ test("a period belongs to one page: Yhteenveto offers two months, Raportit five,
     ["overview?period=12m", "reports?period=12m", /^Raportit/, "12 kk"],
     ["overview?period=year", "reports?period=year", /^Raportit/, "Tämä vuosi"],
     ["overview?period=last-year", "reports?period=last-year", /^Raportit/, "Viime vuosi"],
-    ["reports?period=month", "overview?period=month", /^Yhteenveto/, thisMonth],
-    ["reports?period=last-month", "overview?period=last-month", /^Yhteenveto/, lastMonth],
+    ["reports?period=month", "overview?period=month", /^Yhteenveto/, null],
+    ["reports?period=last-month", "overview?period=last-month", /^Yhteenveto/, null],
   ] as const;
   for (const [old, now, title, label] of MOVED) {
     await page.goto("/#/transactions");
     await page.goto(`/#/${old}`);
     await expect.poll(() => new URL(page.url()).hash, `${old} is rewritten`).toBe(`#/${now}`);
     await expect(page).toHaveTitle(title);
-    await expect(title.source.includes("Yhteenveto") ? pressedMonth : pressed).toHaveText(label);
+    if (label) await expect(pressed).toHaveText(label);
     await page.goBack();
     expect(page.url(), `Back from ${old} skips the old address`).toMatch(/#\/transactions$/);
   }
   // an address a page does not offer a period for opens the page's own default
   await page.goto("/#/reports?period=nonsense");
   await expect(pressed).toHaveText("12 kk");
+  // a page whose figures do not depend on the period draws no switch
+  for (const q of ["velat", "kuukausi"]) {
+    await page.goto(`/#/reports?q=${q}`);
+    await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
+    await expect(toolbar, q).toHaveCount(0);
+  }
+  await page.goto("/#/reports?q=menot");
+  await expect(toolbar).toHaveCount(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -239,12 +243,12 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   for (const cell of await page.locator("table.merchant-table td[data-label=Kuussa]").allInnerTexts()) expect(cell.trim(), "Kuussa is euros or a dash").toMatch(/€|–/);
   const all = await rows.count();
 
-  // the tabs: Tapahtumat is the list, and a period carries over to it
-  await page.getByRole("button", { name: "Tapahtumat", exact: true }).click();
+  // the tabs: Lista is the list, and a period carries over to it
+  await page.getByRole("button", { name: "Lista", exact: true }).click();
   await expect(page).toHaveURL(/#\/transactions$/);
-  await expect(page.getByRole("heading", { name: "Luokittelematta" }).or(page.getByRole("heading", { name: "Tapahtumat", level: 2 })).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Luokittelematta" }).or(page.getByRole("region", { name: "Tapahtumat" })).first()).toBeVisible();
   await page.goto("/#/transactions?view=merchants&from=2026-01-01&to=2026-03-31");
-  await page.getByRole("button", { name: "Tapahtumat", exact: true }).click();
+  await page.getByRole("button", { name: "Lista", exact: true }).click();
   await expect(page).toHaveURL(/#\/transactions\?from=2026-01-01&to=2026-03-31$/);
 
   // a period leaves out the merchants it has no rows of, and the merchant link keeps it
@@ -266,7 +270,8 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
     trs.map((tr) => ({
       unranked: tr.classList.contains("unranked"),
       moneyIn: (tr.querySelector('td[data-rt="main"]')?.textContent ?? "").startsWith("+"),
-      mark: getComputedStyle(tr.firstElementChild as Element, "::before").content,
+      // a row that opens draws its number inside .rt-lead, in line with the chevron and the name
+      mark: getComputedStyle((tr.firstElementChild?.querySelector(":scope > .rt-lead") ?? tr.firstElementChild) as Element, "::before").content,
     })),
   );
   expect(ordinals.every((r) => r.unranked === r.moneyIn), "only a row of money in is unranked").toBe(true);
@@ -281,9 +286,9 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   await expect(rows.first()).toBeVisible();
   // the page has no switch for them: only the address sets the filter, and the chip is shown while it is on
   await expect(page.getByRole("group", { name: "Kauppiaiden rajaus" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Poista rajaus Arkiostot" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Poista rajaus: Arkiostot" })).toHaveCount(0);
   await page.goto("/#/transactions?view=merchants&habit=1");
-  const chip = page.getByRole("button", { name: "Poista rajaus Arkiostot" });
+  const chip = page.getByRole("button", { name: "Poista rajaus: Arkiostot" });
   await expect(chip).toBeVisible();
   await expect.poll(() => rows.count()).toBeLessThan(all);
   const shown = await rows.locator(".m-name a").allInnerTexts();
@@ -298,34 +303,6 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   await context.close();
 });
 
-test("the last month tells why it differed (Menojen muutos), the running month in its own panel beside the waterfall, and Raportit has it no more", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/overview?period=last-month");
-  const change = page.getByRole("region", { name: "Menojen muutos" });
-  await expect(change).toBeVisible();
-  await expect(change.getByRole("heading", { name: /tavallista suurempaa tai pienempää\?$/ })).toBeVisible();
-  // one usual total: the sentence and the table's footer say the same figure, and the panel's figure is the footer's change
-  const usual = (await change.locator(".change-table tfoot td").nth(1).innerText()).trim();
-  const moved = (await change.locator(".change-table tfoot td").nth(2).innerText()).trim();
-  await expect(change.locator(".card-datum")).toHaveText(`Muutos ${moved}`);
-  const sentence = (await change.locator(".qc-a").innerText()).replace(/\s/g, " ");
-  if (sentence.includes("tavallisesti")) expect(sentence).toContain(`tavallisesti ${usual.replace(/\s/g, " ")}`);
-  await expect(page.getByRole("heading", { name: "Menojen kertymä" })).toHaveCount(0);
-  await expect(page.getByText("Tasauserä")).toHaveCount(0);
-
-  await page.getByRole("group", { name: "Kuukausi" }).getByRole("button").first().click();
-  // the running month tells it in its own panel beside the waterfall, the report's usual view (VC1)
-  await expect(page.getByRole("region", { name: "Miksi kuu poikkeaa tavallisesta" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Menojen muutos" })).toHaveCount(0);
-  await page.goto("/#/reports");
-  await expect(page.getByRole("heading", { name: "Tulot ja menot" }).first()).toBeVisible();
-  await expect(page.getByRole("region", { name: "Menojen muutos" })).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
 test("the merchants of the month on Tapahtumat, and a merchant there has a summary of its whole history", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
@@ -336,6 +313,12 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // (an income series, in a table): "tbody a" can still find one of those. Look only in the merchant table.
   const link = page.locator(".merchant-table tbody a[href*='merchant=']").first();
   await expect(link).toBeVisible();
+  // a closed row only reads its category: the picker is in the opened row
+  await expect(page.locator(".merchant-table select, .merchant-table .select-lite")).toHaveCount(0);
+  await page.locator(".merchant-table").getByRole("button", { name: /^Avaa / }).first().click();
+  await expect(page.locator(".merchant-table .select-lite")).toHaveCount(1);
+  // the opened detail takes no rank number, so the payees below it keep theirs
+  await expect(page.locator(".merchant-table tbody tr.rt-detail")).toHaveCSS("counter-increment", "none");
   const merchant = (await link.innerText()).trim();
   await link.click();
   // the link that was read is the one that opened
@@ -349,15 +332,15 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // the strip above states the filtered sums; the card's whole history stands once, and not at all when the merchant is
   // the only filter (the strip then says the same)
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
-  await expect(strip.getByText("Maksettu", { exact: true })).toBeVisible();
-  for (const term of ["Maksettu yhteensä", "Saatu yhteensä", "Maksuja"]) expect(await page.getByText(term, { exact: true }).count()).toBeLessThanOrEqual(1);
+  await expect(strip.getByText("Rahaa ulos", { exact: true })).toBeVisible();
+  for (const term of ["Menot yhteensä", "Tulot yhteensä", "Maksuja"]) expect(await page.getByText(term, { exact: true }).count()).toBeLessThanOrEqual(1);
   await page.goto(`/#/transactions?merchant=${encodeURIComponent(merchant)}`);
   await expect(summary.getByRole("heading", { name: merchant })).toBeVisible();
-  for (const term of ["Maksettu yhteensä", "Saatu yhteensä", "Maksuja"]) await expect(summary.getByText(term, { exact: true })).toHaveCount(0);
+  for (const term of ["Menot yhteensä", "Tulot yhteensä", "Maksuja"]) await expect(summary.getByText(term, { exact: true })).toHaveCount(0);
   // without a merchant filter there is no summary, and the strip holds the figures, once each
   await page.goto("/#/transactions");
   await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
-  for (const term of ["Maksettu", "Saatu", "Ero"]) await expect(page.getByText(term, { exact: true })).toHaveCount(1);
+  for (const term of ["Rahaa ulos", "Rahaa sisään", "Erotus"]) await expect(page.getByText(term, { exact: true })).toHaveCount(1);
   await expect(page.getByText(/omia siirtoja ei lasketa/)).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -371,8 +354,8 @@ test("an empty Tapahtumat says so: with a filter that it matches nothing, withou
   await page.route("**/api/transactions?*", (route) => route.fulfill({ json: { total: 0, inCents: 0, outCents: 0, items: [] } }));
   await page.goto("/#/transactions");
   const empty = page.locator(".tx-card .empty");
-  await expect(empty).toHaveText(/^Tapahtumia ei vielä ole\.\s*Yhdistä pankki$/);
-  await expect(empty.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings?add=1");
+  await expect(empty).toHaveText(/^Tapahtumia ei vielä ole\.\s*Yhdistä pankki, niin tapahtumat tulevat tähän\.$/);
+  await expect(empty.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings/banks?add=1");
   // no figures for nothing
   await expect(page.getByText("Tapahtumia", { exact: true })).toHaveCount(0);
   await page.goto("/#/transactions?q=zzzz");
@@ -386,7 +369,7 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
-  const rows = page.locator("tbody tr:not(.rt-group):not(.rt-detail)");
+  const rows = page.locator("tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)");
   await expect(rows.first()).toBeVisible();
 
   // pick a row that was categorised by rule so that "käsin" (by hand) is new after the change
@@ -395,12 +378,12 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   const before = (await row.locator(".tx-category .tx-chip-label").innerText()).trim();
   // the category is changed in the opened row
   await row.getByRole("button", { name: `Avaa ${merchant}: 12 kuukautta` }).click();
-  await page.getByRole("button", { name: `Kategoria: ${merchant}, nyt ${before}` }).first().click();
+  await openCategoryPicker(page, merchant, before);
   // the picker is a list of our own, not a native select
   const target = before === "Lemmikit" ? "Rahapelit" : "Lemmikit";
   await page.getByRole("dialog", { name: `Kategoria: ${merchant}` }).getByRole("option", { name: target }).click();
-  // "Tapahtuma siirrettiin" or "N tapahtumaa siirrettiin" confirms the save
-  await expect(page.getByText(/siirrettiin kategoriaan/)).toBeVisible();
+  // "Siirsimme N tapahtumaa kategoriaan" confirms the save
+  await expect(page.getByText(/Siirsimme .* kategoriaan/)).toBeVisible();
 
   await page.reload();
   const same = rows.filter({ has: page.locator(".tx-name", { hasText: merchant }) }).filter({ has: page.locator(".tx-category .tx-chip-label", { hasText: target }) });
@@ -411,67 +394,15 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   await context.close();
 });
 
-test("a dismissed alert stays away after a reload", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  // the running month is named: before the pay Yhteenveto opens on the month before, and alerts show only in a range that reaches today
-  await page.goto("/#/overview?period=month");
-  await expect(page.getByRole("heading", { name: "Tulot ja menot", exact: true })).toBeVisible();
-  const alerts = page.getByRole("list", { name: "Ilmoitukset" });
-  // a forgotten service is answered, not only dismissed (the buttons are looked at, not pressed: a mark would change the Laskut page)
-  await expect(alerts.getByRole("button", { name: /^Käytössä: / }).first()).toBeVisible();
-  await expect(alerts.getByRole("button", { name: /^Lopetettu: / }).first()).toBeVisible();
-
-  const dismiss = alerts.getByRole("button", { name: /^Kuittaa: / }).first();
-  await expect(dismiss).toBeVisible();
-  const name = (await dismiss.getAttribute("aria-label"))!;
-  await dismiss.click();
-  await expect(alerts.getByRole("button", { name, exact: true })).toHaveCount(0);
-
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Tulot ja menot", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
-  await expect(alerts.getByRole("button", { name, exact: true }), "the dismissed alert is back after a reload").toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("the Laskut tables fit a phone: the date of the next charge is inside the card at 390 px", async ({ browser }) => {
+test("Menot kuukausittain is a heat table under its name, keeps the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/bills");
-  await expect(page.getByRole("heading", { name: "Tilaukset", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
-  // a table wider than its card scrolls sideways inside the card and clips the last column
-  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
-  expect(clipped, "tables that scroll sideways").toBe(0);
-  // the list of what falls due has its three heads, and the page fits the screen
-  await expect(page.locator("#tulossa thead th")).toHaveText(["Eräpäivä", "Saaja", "Summa"]);
-  await fitsScreen(page, "Laskut");
-  // Tilaukset is cards on a phone; the table of contracts keeps its heads
-  const next = page.locator(".series-table th", { hasText: "Seuraava" }).first();
-  // the list of what falls due comes first, so the table is below the fold: scrolled to, it is whole inside the screen
-  await next.scrollIntoViewIfNeeded();
-  await expect(next).toBeInViewport({ ratio: 1 });
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("Menot kuukausittain is a heat map of core's shades under its question, keeps the CSV, the table is behind Taulukko, and 390 px does not scroll sideways", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/reports?tab=menot");
+  await page.goto("/#/reports?q=menot");
+  await unfold(page, "kuukaudet");
   const card = page.locator("#kuukaudet", { has: page.getByRole("heading", { name: "Menot kuukausittain" }) });
-  await expect(card.getByRole("button", { name: "Kaavio" })).toHaveAttribute("aria-pressed", "true");
-  await expect(card.getByRole("heading", { name: "Minä kuukautena jonkin kategorian menot nousivat selvästi?" })).toBeVisible();
-  expect(await card.locator(".heat-grid rect.heat-cell").count(), "a cell a category and month").toBeGreaterThan(0);
-  expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the heat map fits its card at 390px").toBe(true);
-  await card.getByRole("button", { name: "Taulukko" }).click();
   await expect(card.locator("table.heat-table tbody tr").first()).toBeVisible();
-  await expect(card.getByRole("link", { name: "Lataa CSV" })).toBeVisible();
+  await expect(card.getByRole("link", { name: "Lataa taulukko (CSV)" })).toBeVisible();
   expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the table fits its card at 390px").toBe(true);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -486,23 +417,41 @@ async function fitsScreen(page: Page, what: string): Promise<void> {
   expect(clipped, `${what} has a table that scrolls sideways in its card`).toBe(0);
 }
 
-test("Säästövinkit at its default flag: a demo finding is listed, decisions survive a reload with their follow-up, and everything fits a phone", async ({ browser }) => {
+test("Säästövinkit without tips shows no sum", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 } });
+  try {
+    // the server's answer is emptied here because the demo household always has tips
+    await context.route(/\/api\/optimise(\?|$)/, async (route) => {
+      const response = await route.fetch();
+      const body = await response.json();
+      const areas = body.data.areas.map((a: { findings: unknown[] }) => ({ ...a, findings: [] }));
+      await route.fulfill({ response, json: { ...body, data: { ...body.data, areas, soon: [], headline: { ...body.data.headline, count: 0, midCents: 0, lowCents: 0, highCents: 0 } } } });
+    });
+    const page = await context.newPage();
+    await page.goto("/#/optimise");
+    const lead = page.getByRole("region", { name: "Säästövinkit lyhyesti" });
+    await expect(lead).toContainText("Ei vinkkejä juuri nyt");
+    await expect(lead).not.toContainText("€");
+  } finally {
+    await context.close();
+  }
+});
+
+test("Säästövinkit: a demo finding is listed, decisions survive a reload with their follow-up, and everything fits a phone", async ({ browser }) => {
   const desktop = await browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 800 } });
   const page = await desktop.newPage();
   const seen = watch(page);
-  // the module ships on; an admin can switch it off in Asetukset > Palvelin, and the end of the test does that through the same API
-  const flag = (on: boolean) => desktop.request.put("/api/admin/features", { headers: { "X-Requested-With": "fetch" }, data: { optimise: on } });
-  try {
+  {
     await page.goto("/#/optimise");
     await expect(page).toHaveTitle(/^Säästövinkit/);
     await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Säästövinkit" })).toBeVisible();
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
 
-    // the lead strip opens on the euros a year of the tips and what was checked
+    // the lead strip opens on the euros a year of the tips; what was checked is told further down, behind one line per area
     const lead = page.getByRole("region", { name: "Säästövinkit lyhyesti" });
-    const found = lead.locator(".kf", { has: page.getByText("Säästö vuodessa, arvio", { exact: true }) }).locator(".fig");
+    const found = lead.locator(".kf", { has: page.getByText("Arvioitu säästö vuodessa", { exact: true }) }).locator(".fig");
     await expect(found).toHaveText(/^\d[\d\s]*€$/);
-    await expect(lead.getByText("Tarkistettu", { exact: true })).toBeVisible();
+    await expect(lead.getByText("Tarkistimme", { exact: true })).toHaveCount(0);
     // a tile shows only with something to say: the demo has no deadline in 60 days and no confirmed change
     for (const tile of ["Seuraava määräpäivä", "Vahvistettu säästö"]) await expect(lead.getByText(tile, { exact: true })).toHaveCount(0);
     // what the numbers rest on and what waits are not told on the page, and no area is a list of nothing
@@ -517,22 +466,21 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     const overlap = cards.filter({ hasText: "videopalvelua yhteensä" });
     await expect(rise).toBeVisible();
     await expect(overlap).toBeVisible();
-    await expect(rise).toContainText(/144\s€ vuodessa/);
+    await expect(rise).toContainText(/144\s€\s*vuodessa/);
     // the certainty is told only when it is not high, as a badge with its reason
     await expect(rise).not.toContainText("Varmuus");
-    await expect(overlap.locator(".tip-meta .certainty")).toHaveText("Varmuus keskitaso");
+    await expect(overlap.locator(".tip-meta .certainty")).toHaveText("Arvio on suuntaa antava");
     await expect(overlap.locator(".tip-reason")).toHaveText(/.+/);
 
-    // the calculation opens from the figure, with no key of words: its lines, the months as bars with a table view, and a way to check the categories
+    // the calculation opens from the figure, with no key of words: its lines, the months as bars with their table under them, and a way to check the categories
     await expect(rise.getByRole("button", { name: "Avaa laskelma" })).toHaveCount(0);
-    await rise.getByRole("button", { name: /^Laskelma:/ }).click();
-    await expect(rise.getByText("Hinta ennen")).toBeVisible();
+    await rise.getByRole("button", { name: /\. Näytä laskelma$/ }).click();
+    await expect(rise.getByText("Nousu vuodessa")).toBeVisible();
     await expect(rise.getByRole("img", { name: "Menot kuukausittain" })).toBeVisible();
-    await rise.getByRole("button", { name: "Taulukko" }).click();
     await expect(rise.locator("th", { hasText: "Kuukausi" })).toBeVisible();
     await expect(rise.getByRole("link", { name: "Adobe", exact: true })).toHaveAttribute("href", /#\/transactions\?merchant=Adobe/);
-    await rise.getByRole("button", { name: /^Laskelma:/ }).click();
-    await expect(rise.getByText("Hinta ennen")).toHaveCount(0);
+    await rise.getByRole("button", { name: /\. Näytä laskelma$/ }).click();
+    await expect(rise.getByText("Nousu vuodessa")).toHaveCount(0);
 
     // Ei koske meitä takes the finding out of its area and the headline to Päätetyt, and the choice stays after a reload
     const title = (await overlap.locator(".tip-title").innerText()).trim();
@@ -542,9 +490,9 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await overlap.getByRole("button", { name: "Tarvitsen tämän" }).click();
     const decided = page.getByRole("region", { name: "Päätetyt" });
     await expect(decided).toContainText(title);
-    await expect(decided).toContainText("Ei koske meitä · Tarvitsen tämän");
+    await expect(decided).toContainText("Ohitettu · Tarvitsen tämän");
     // the card the keyboard was on is gone: focus is on the message
-    await expect(page.getByRole("status").filter({ hasText: "Vinkki siirrettiin kohtaan Päätetyt." })).toBeFocused();
+    await expect(page.getByRole("status").filter({ hasText: "Siirsimme vinkin kohtaan Päätetyt." })).toBeFocused();
     await expect(overlap).toHaveCount(0);
     // the euros of the headline are one tip fewer
     await expect(found).not.toHaveText(before);
@@ -559,9 +507,9 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     await expect(overlap).toBeVisible();
     await expect(decided).toHaveCount(0);
 
-    // Tein tämän keeps its date, and Muistuta myöhemmin hides the finding until then
+    // Merkitse tehdyksi keeps its date, and Muistuta myöhemmin hides the finding until then
     await rise.getByRole("button", { name: "Päätä" }).click();
-    await rise.getByRole("button", { name: "Tein tämän" }).click();
+    await rise.getByRole("button", { name: "Merkitse tehdyksi" }).click();
     await rise.getByRole("button", { name: "Tallenna" }).click();
     await expect(decided).toContainText("Adobe: hinta nousi");
     await expect(rise).toHaveCount(0);
@@ -569,7 +517,7 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     const done = decided.getByRole("listitem").filter({ hasText: "Adobe: hinta nousi" });
     await expect(done).toContainText(/Tehty \d+\.\d+\.\d{4}/);
     // the follow-up judges the change once complete months show it: made today, it waits
-    const followUp = page.getByRole("region", { name: "Tuottivatko muutokset säästöä?" });
+    const followUp = page.getByRole("region", { name: "Muutosten säästö" });
     await expect(followUp.locator("tr", { hasText: "Adobe" })).toContainText("Odottaa kuukausia");
     // one visit makes one snapshot: no line and no changes yet
     await expect(followUp.getByRole("heading", { name: "Arvioitu ja vahvistettu" })).toHaveCount(0);
@@ -580,7 +528,7 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     const small = await phone.newPage();
     const seenSmall = watch(small);
     await small.goto("/#/optimise");
-    await expect(small.getByRole("region", { name: "Tuottivatko muutokset säästöä?" })).toContainText("Odottaa kuukausia");
+    await expect(small.getByRole("region", { name: "Muutosten säästö" })).toContainText("Odottaa kuukausia");
     await small.waitForLoadState("networkidle");
     await fitsScreen(small, "Päätetyt with its follow-up at 390px");
 
@@ -603,19 +551,18 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     // the first tip's title is on the first screen of a phone, with no scrolling
     await expect(small.locator("article.tip .tip-title").first()).toBeInViewport({ ratio: 1 });
     await fitsScreen(small, "Säästövinkit at 390px");
-    await smallRise.getByRole("button", { name: /^Laskelma:/ }).click();
-    await expect(smallRise.getByText("Hinta ennen")).toBeVisible();
+    await smallRise.getByRole("button", { name: /\. Näytä laskelma$/ }).click();
+    await expect(smallRise.getByText("Nousu vuodessa")).toBeVisible();
     await expect(smallRise.getByRole("img", { name: "Menot kuukausittain" })).toBeVisible();
     await fitsScreen(small, "an open calculation at 390px");
     // a tip has one key at rest; Päätä shows the answers
     await expect(smallRise.locator(".finding-actions button")).toHaveCount(1);
     await smallRise.getByRole("button", { name: "Päätä" }).click();
-    await expect(smallRise.getByRole("button", { name: "Tein tämän" })).toBeVisible();
+    await expect(smallRise.getByRole("button", { name: "Merkitse tehdyksi" })).toBeVisible();
     const more = smallRise.getByRole("button", { name: /^Näytä kaikki / });
     if (await more.count()) await more.click();
-    await smallRise.getByRole("button", { name: "Taulukko" }).click();
     await fitsScreen(small, "the rows and the table of months at 390px");
-    for (const panel of ["Tein tämän", "Ei koske meitä", "Muistuta myöhemmin"]) {
+    for (const panel of ["Merkitse tehdyksi", "Ei koske meitä", "Muistuta myöhemmin"]) {
       await smallRise.getByRole("button", { name: panel }).click();
       await fitsScreen(small, `${panel} at 390px`);
     }
@@ -623,16 +570,6 @@ test("Säästövinkit at its default flag: a demo finding is listed, decisions s
     expect(seenSmall.problems).toEqual([]);
     await phone.close();
     expect(seen.problems).toEqual([]);
-
-    // switched off, the flags come with the page load: a reload hides the entry, and the address opens the overview
-    expect((await flag(false)).ok()).toBe(true);
-    await page.reload();
-    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Yhteenveto" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Säästövinkit" })).toHaveCount(0);
-    await expect(page).toHaveTitle(/^Yhteenveto/);
-  } finally {
-    // the flag is back at its default, so the pages after this test see the app as shipped
-    await flag(true);
   }
   await desktop.close();
 });
@@ -653,17 +590,49 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-test("an expected bill is added in the list of what falls due on Laskut, is still there after a reload and can be removed", async ({ browser }) => {
+test("the Laskut page fits a phone: the timeline and the table are inside the screen at 390 px, in at most 3000 px", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/bills");
+  await expect(page.getByRole("heading", { name: "Laskut, sopimukset ja tilaukset" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  // a table wider than its card scrolls sideways inside the card and clips the last column
+  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
+  expect(clipped, "tables that scroll sideways").toBe(0);
+  await fitsScreen(page, "Laskut");
+  expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 390 px").toBeLessThanOrEqual(3000);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sideways", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/bills");
+  await expect(page.getByRole("heading", { name: "Laskut, sopimukset ja tilaukset" })).toBeVisible();
+  await page.waitForLoadState("networkidle");
+  expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1800);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("an expected bill is added on the timeline of Laskut, shows in its one table, is still there after a reload and can be removed", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/bills");
   const coming = page.locator("#tulossa");
-  await expect(coming.getByRole("heading", { name: "Erääntyvät maksut" })).toBeVisible();
-  // the form is behind the button
-  await expect(coming.getByRole("form", { name: "Lisää lasku" })).toHaveCount(0);
+  const table = page.locator("#laskut-taulukko");
+  await expect(coming.getByRole("heading", { name: "Tulevat maksut" })).toBeVisible();
+  // the form is a dialog behind the button: it pushes nothing down
+  await expect(page.getByRole("dialog", { name: "Lisää lasku" })).toHaveCount(0);
+  const tableTop = (await table.boundingBox())!.y;
   await coming.getByRole("button", { name: "Lisää lasku" }).click();
-  const form = coming.getByRole("form", { name: "Lisää lasku" });
+  const form = page.getByRole("dialog", { name: "Lisää lasku" });
+  expect((await table.boundingBox())!.y, "the table stays where it was").toBe(tableTop);
 
   // a missing name is explained next to the form, nothing is sent
   await form.getByRole("button", { name: "Lisää lasku" }).click();
@@ -677,48 +646,26 @@ test("an expected bill is added in the list of what falls due on Laskut, is stil
   await form.getByLabel("Toistuu").selectOption({ label: "vuosittain" });
   await form.getByRole("button", { name: "Lisää lasku" }).click();
 
-  await expect(coming.getByRole("form", { name: "Lisää lasku" })).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Lisää lasku" })).toHaveCount(0);
   await expect(coming.getByText("Lasku E2E-ajoneuvovero lisätty.")).toBeVisible();
-  await expect(coming.getByRole("row", { name: /E2E-ajoneuvovero/ })).toContainText("lisätty käsin");
-  const rare = page.locator("#tulevat");
-  await expect(rare.getByRole("heading", { name: "Harvinaiset laskut" })).toBeVisible();
-  const remove = (p: Page) => p.locator("#tulevat").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
+  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).toContainText("Lisätty käsin");
+  const remove = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
+  const open = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Tiedot: E2E-ajoneuvovero" });
+  await open(page).click();
   await expect(remove(page)).toBeVisible();
-  // the monthly figure stands beside the heading, and there is no sentence about it
-  await expect(rare.locator(".card-head .card-datum")).toHaveText(/^\d[\d\s]*\s€\/kk$/);
-  await expect(rare.getByText(/vuodessa eli/)).toHaveCount(0);
 
   await page.reload();
-  await expect(remove(page)).toBeVisible();
-  await expect(page.locator("#tulossa").getByRole("row", { name: /E2E-ajoneuvovero/ })).toBeVisible();
+  await expect(open(page)).toBeVisible();
 
+  await open(page).click();
   await remove(page).click();
-  await expect(remove(page)).toHaveCount(0);
-  // the list of what is coming is fetched again too
+  await page.getByRole("dialog", { name: "Poista lasku E2E-ajoneuvovero?" }).getByRole("button", { name: "Poista lasku" }).click();
+  await expect(open(page)).toHaveCount(0);
+  // the timeline is fetched again too
   await expect(page.locator("#tulossa").getByText("E2E-ajoneuvovero")).toHaveCount(0);
   await page.reload();
   await expect(page.locator("#tulossa").getByRole("button", { name: "Lisää lasku" })).toBeVisible();
   await expect(page.getByText("E2E-ajoneuvovero")).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("Harvinaiset laskut at 1280 px: the due month of a row stands on one line", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/bills");
-  const months = page.locator("#tulevat .rare-table .due-col");
-  await expect(months.first()).toBeVisible();
-  // a text that wraps has one box per line
-  const wrapped = await months.evaluateAll((cells) =>
-    cells.filter((cell) => {
-      const range = document.createRange();
-      range.selectNodeContents(cell);
-      return range.getClientRects().length > 1;
-    }).length,
-  );
-  expect(wrapped, "months that wrap").toBe(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -734,35 +681,29 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await page.goto("/#/recurring");
   await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
   await expect(page).toHaveTitle(/^Laskut/);
-  await expect(page.locator("#tulossa").getByRole("heading", { name: "Erääntyvät maksut" })).toBeVisible();
+  await expect(page.locator("#tulossa").getByRole("heading", { name: "Tulevat maksut" })).toBeVisible();
   await expect(nav.getByRole("link", { name: "Laskut" })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("link", { name: "Toistuvat" })).toHaveCount(0);
   await page.goBack();
   expect(page.url()).toMatch(/#\/transactions$/);
 
-  // what the page holds: the month board with the fixed costs, the one list of what is coming, the cards of subscriptions and contracts
+  // what the page holds: the 30 days with their sums and the one table with the fixed costs, and no old tile or list
   await page.goto("/#/bills");
-  await expect(page.locator(".mb-fixed", { hasText: "Kiinteät menot kuussa" })).toBeVisible();
-  for (const heading of ["Erääntyvät maksut", "Tilaukset", "Sopimukset ja laskut"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-  // the report sections that moved here, and none of the old tiles or the old second list
-  await expect(page.getByRole("heading", { name: "Tulevat laskut" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Tulossa tässä kuussa" })).toHaveCount(0);
-  await page.goto("/#/reports");
+  for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+  await expect(page.locator("#laskut-taulukko .card-datum")).toContainText("/kk");
+  for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
+  await page.goto("/#/reports?q=kiinteat");
   await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Tulevat laskut" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Hinnanmuutokset" })).toHaveCount(0);
+  // the price changes of the fixed costs are a section of this report since BA-9; Laskut has none (checked above)
+  await expect(page.locator("#kiinteat-hinnat").getByRole("heading", { name: "Hinnanmuutokset" })).toBeVisible();
 
-  // the card of the days to the payday lists the payments and sends on to Laskut
+  // Yhteenveto lists the payments and sends on to Laskut
   await page.goto("/#/overview");
-  // the fixed costs in the block "Tulot ja menot" link to the page itself, not to the old address that is redirected
-  await expect(page.getByRole("region", { name: "Tulot ja menot", exact: true }).getByRole("link", { name: "Kiinteät menot kuussa", exact: true })).toHaveAttribute("href", "#/bills");
-  const ahead = page.locator(".card", { has: page.getByRole("heading", { name: "Erääntyvät maksut", exact: true }) });
-  await expect(ahead).toBeVisible();
-  // the card lists all of them, so it has no Näytä kaikki; the list on Laskut has the form for a bill
-  await expect(ahead.getByRole("button", { name: /^Näytä kaikki/ })).toHaveCount(0);
-  await ahead.getByRole("link", { name: "Laskut" }).click();
+  // the payments are opened by Näytä maksut and the list sends on to Laskut
+  await page.getByRole("button", { name: "Näytä maksut" }).click();
+  await page.getByRole("link", { name: "Laskut", exact: true }).first().click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
-  await expect(page.locator("#tulossa").getByRole("heading", { name: "Erääntyvät maksut" })).toBeVisible();
+  await expect(page.locator("#tulossa").getByRole("heading", { name: "Tulevat maksut" })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

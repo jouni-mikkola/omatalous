@@ -36,15 +36,15 @@ describe("the queued sentence", () => {
     expect(queuedSentence(NOW - 17_000, NOW)).toContain("noin 45 s kuluttua");
   });
   it("is the short one when the moment has passed or the time is missing", () => {
-    expect(html(req(), 90_000)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Odotettu 30 s.");
+    expect(html(req(), 90_000)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Olet odottanut 30 s.");
     expect(html(req(), null)).not.toContain("kuluttua");
   });
   it("promises seconds only from a helper that wakes and polled under 50 s ago", () => {
-    expect(html(req(), 20_000, null, true)).toContain("Jonossa. Apuri aloittaa muutamassa sekunnissa. Odotettu 30 s.");
+    expect(html(req(), 20_000, null, true)).toContain("Jonossa. Apuri aloittaa muutamassa sekunnissa. Olet odottanut 30 s.");
     expect(html(req(), 49_000, null, true)).toContain("muutamassa sekunnissa");
     // polled 50 s ago or more: the earlier sentences, as they were
     expect(html(req(), 50_000, null, true)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa, seuraavan kerran noin 10 s kuluttua.");
-    expect(html(req(), 90_000, null, true)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Odotettu 30 s.");
+    expect(html(req(), 90_000, null, true)).toContain("Jonossa. Apuri hakee pyynnöt kerran minuutissa. Olet odottanut 30 s.");
     // an older helper never promises it, however fresh its last look
     expect(html(req(), 5_000, null, false)).toContain("seuraavan kerran noin 55 s kuluttua");
     expect(html(req(), null, null, true)).not.toContain("sekunnissa");
@@ -53,10 +53,10 @@ describe("the queued sentence", () => {
 
 describe("a live and a finished request", () => {
   it("shows the time a running request has taken", () => {
-    expect(html(req({ status: "running", requestedAt: ago(72_000) }))).toContain("Käynnissä, aikaa kulunut 1 min 12 s.");
+    expect(html(req({ status: "running", requestedAt: ago(72_000) }))).toContain("Käynnissä 1 min 12 s.");
   });
   it("counts a down app from when the page lost it", () => {
-    expect(html(req({ status: "running" }), null, NOW - 12_000)).toContain("Sovellus käynnistyy uudelleen… Odotettu 12 s.");
+    expect(html(req({ status: "running" }), null, NOW - 12_000)).toContain("Sovellus käynnistyy uudelleen… Olet odottanut 12 s.");
   });
   it("stops the timer when the request is done, and shows the duration", () => {
     const stop = startTicker(() => {});
@@ -110,20 +110,20 @@ describe("the wait is counted on the server's clock", () => {
     // the server wrote the request 30 s before its own now; the browser's clock reads two minutes later than the server's
     const serverNow = new Date(NOW - 120_000).toISOString();
     const request = req({ requestedAt: new Date(NOW - 150_000).toISOString() });
-    expect(withServer(request, serverNow)).toContain("Odotettu 30 s.");
+    expect(withServer(request, serverNow)).toContain("Olet odottanut 30 s.");
     // the same request on the browser's clock alone: the false wait
-    expect(withServer(request, null)).toContain("Odotettu 2 min 30 s.");
+    expect(withServer(request, null)).toContain("Olet odottanut 2 min 30 s.");
   });
 
   it("shows no false wait when the browser's clock is behind the server's, nor a negative one", () => {
     const serverNow = new Date(NOW + 300_000).toISOString();
-    expect(withServer(req({ requestedAt: new Date(NOW + 270_000).toISOString() }), serverNow)).toContain("Odotettu 30 s.");
-    expect(withServer(req({ status: "running", requestedAt: new Date(NOW + 240_000).toISOString() }), serverNow)).toContain("aikaa kulunut 1 min 0 s.");
+    expect(withServer(req({ requestedAt: new Date(NOW + 270_000).toISOString() }), serverNow)).toContain("Olet odottanut 30 s.");
+    expect(withServer(req({ status: "running", requestedAt: new Date(NOW + 240_000).toISOString() }), serverNow)).toContain("Käynnissä 1 min 0 s.");
   });
 
   it("is the same on a browser whose clock is right, and falls back to the browser's clock without or with a bad server time", () => {
-    expect(withServer(req(), new Date(NOW).toISOString())).toContain("Odotettu 30 s.");
-    expect(withServer(req(), "not a time")).toContain("Odotettu 30 s.");
+    expect(withServer(req(), new Date(NOW).toISOString())).toContain("Olet odottanut 30 s.");
+    expect(withServer(req(), "not a time")).toContain("Olet odottanut 30 s.");
     expect(clockGap(undefined, NOW)).toBe(0);
     expect(clockGap("", NOW)).toBe(0);
     expect(clockGap(new Date(NOW + 5_000).toISOString(), NOW)).toBe(5_000);

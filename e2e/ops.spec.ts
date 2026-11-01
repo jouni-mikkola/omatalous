@@ -57,9 +57,9 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
     void d.dismiss();
   });
 
-  // reachable from Asetukset > Tekniset asetukset
+  // reachable from Asetukset > Palvelin ja ylläpito
   await page.goto("/#/settings");
-  await page.getByRole("link", { name: "Avaa", exact: true }).click();
+  await page.getByRole("navigation", { name: "Asetukset" }).getByRole("link", { name: "Palvelin ja ylläpito" }).click();
   await expect(page.getByRole("heading", { name: "Ylläpito" }).first()).toBeVisible();
 
   // no helper yet: a clear state, the command to enable it, and no way to queue anything
@@ -70,10 +70,11 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await expect(page.getByRole("button", { name: "Tarkista päivitykset" })).toBeDisabled();
   // without the helper the page is the notice, the version and the reset; the controls that cannot work are not drawn
   await expect(page.getByRole("heading", { name: "Versio" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tietoja", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Tyhjennä kaikki tiedot" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ota varmuuskopio nyt" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Lue lokit" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Palauta uusin varmuuskopio" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Varmuuskopiot" })).toHaveCount(0);
 
   // the helper reports in, with a snapshot full of hostile strings
   helper(
@@ -106,11 +107,22 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   expect(await page.locator("main script, .ops-commits img, .ops-doctor img").count()).toBe(0);
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
 
+  // one status line on top; an action nobody has run says so, and the page stays short at 1440 px
+  const line = page.locator(".server-status-line");
+  await expect(line).not.toContainText("Versio");
+  await expect(line).toContainText("Varmuuskopiot");
+  await expect(line).toContainText("Levy");
+  await expect(line).toContainText("Etäkäyttö");
+  await expect(page.getByText("Ei ajettu vielä.").first()).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(4000);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
   // a wrong password is explained in the dialog and queues nothing
   await page.getByRole("button", { name: "Päivitä", exact: true }).click();
   const dialog = page.getByRole("dialog");
   // the dialog names the version it installs
-  await expect(dialog.getByText("Päivitetään versioon 99.1.0.")).toBeVisible();
+  await expect(dialog.getByText("Päivitämme versioon 99.1.0.")).toBeVisible();
   // the content fits the frame: no scrollbar either way
   expect(await dialog.evaluate((d) => [d.scrollWidth - d.clientWidth, d.scrollHeight - d.clientHeight])).toEqual([0, 0]);
   await dialog.getByLabel("Salasanasi").fill("väärä-salasana-1234");
@@ -222,8 +234,8 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await expect(newVersions).toBeDisabled();
   const switchReq = helper(["poll", "--helper", "4", "--done", ""]);
   expect(switchReq.request).toMatchObject({ action: "prerelease-on", params: {}, secret: null });
-  helper(["report"], JSON.stringify({ id: switchReq.request.id, status: "ok", exit_code: 0, summary: "Uudet versiot tarjotaan heti.", state: { prerelease: "yes", channel: "release" } }));
-  await expect(page.getByText("Uudet versiot tarjotaan heti.")).toBeVisible({ timeout: 15_000 });
+  helper(["report"], JSON.stringify({ id: switchReq.request.id, status: "ok", exit_code: 0, summary: "Tarjoamme uudet versiot heti.", state: { prerelease: "yes", channel: "release" } }));
+  await expect(page.getByText("Tarjoamme uudet versiot heti.")).toBeVisible({ timeout: 15_000 });
   await expect(newVersions).toBeEnabled();
   await expect(newVersions).toBeChecked();
   await expect(page.getByRole("cell", { name: "uudet versiot tarjolle heti" }).first()).toBeVisible();
@@ -237,8 +249,8 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await context.close();
 });
 
-// Palauta uusin varmuuskopio and Tyhjennä kaikki tiedot. A real restore stops the shared e2e server and a real reset
-// removes its users, so both POSTs are answered here and never reach it. The copy GET is answered with a made-up copy.
+// Palauta (a row of Varmuuskopiot) and Tyhjennä kaikki tiedot. A real restore stops the shared e2e server and a real reset
+// removes its users, so both POSTs are answered here and never reach it. The copy GET and the list of copies are answered with a made-up copy.
 const COPY = { name: "auto-2026-10-09.db", at: "2026-10-09T03:00:00.000Z", size: 3_200_000, kind: "daily" };
 const PRE_RESET = { name: "pre-reset-20261009T100000.db", at: "2026-10-09T07:00:00.000Z", size: 3_300_000, kind: "pre-reset" };
 
@@ -250,18 +262,23 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
     seen.push(`unexpected dialog: ${d.message()}`);
     void d.dismiss();
   });
-  const restoreCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Palauta uusin varmuuskopio" }) });
+  const restoreCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varmuuskopiot", exact: true }) });
+  const restoreRow = () => restoreCard.getByRole("button", { name: `Palauta ${copy.name}` });
   const resetCard = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Tyhjennä kaikki tiedot" }) });
 
-  // the earlier test leaves the helper working; the restore card is not drawn without it
-  // the real server answers the first read: with a copy or with none, the card has its words either way
-  await page.goto("/#/settings?section=maintenance");
-  await expect(restoreCard.getByText(/Ehjää varmuuskopiota ei ole\.|Uusin ehjä varmuuskopio/)).toBeVisible();
+  // the earlier test leaves the helper working; the list of copies is not drawn without it
+  await page.goto("/#/settings/server#yllapito");
+  await expect(page.getByRole("heading", { name: "Palauta uusin varmuuskopio" })).toHaveCount(0);
   await expect(resetCard).toContainText("Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.");
 
   const sent = { restore: [] as unknown[], reset: [] as unknown[] };
   let copy: typeof COPY = COPY;
   let reads = 0;
+  // the list of copies has the copy the restore would take
+  await page.route("**/api/ops/state", async (route) => {
+    const answer = await route.fetch();
+    await route.fulfill({ response: answer, json: { ...(await answer.json()), appBackups: [copy] } });
+  });
   const restoreAnswers = [
     { status: 403, json: { error: "Salasana ei täsmää." } },
     { status: 202, json: { copy: COPY } },
@@ -291,18 +308,18 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   });
   await page.reload();
 
-  // the card shows the copy's time large, its file and what is lost; the newest copy was made before this mistake or after it
-  await expect(restoreCard.getByText("Uusin ehjä varmuuskopio")).toBeVisible();
-  await expect(restoreCard).toContainText(/9\.10\.2026 klo 6\.00/);
-  await expect(restoreCard).toContainText("auto-2026-10-09.db");
-  await expect(restoreCard).toContainText("Varmuuskopion jälkeen tehdyt muutokset häviävät. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.");
-  await expect(restoreCard).not.toContainText("juuri ennen tietojen tyhjennystä");
+  // the row of the copy has Palauta; the dialog names the copy's time, its file and what is lost
+  await expect(restoreRow()).toBeVisible();
   expect(reads).toBe(1);
+  await restoreRow().click();
+  let dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Korvaamme tietokannan varmuuskopiolla ajalta")).toBeVisible();
+  await expect(dialog).toContainText(/9\.10\. klo 6\.00/);
+  await expect(dialog).toContainText("auto-2026-10-09.db");
+  await expect(dialog).toContainText("Varmuuskopion jälkeen tekemäsi muutokset häviävät. Haemme pankkitapahtumat uudelleen seuraavassa haussa.");
+  await expect(dialog).not.toContainText("juuri ennen tietojen tyhjennystä");
 
   // a word in the wrong case is stopped by the form: nothing is sent
-  await restoreCard.getByRole("button", { name: "Palauta uusin varmuuskopio" }).click();
-  let dialog = page.getByRole("dialog");
-  await expect(dialog.getByText("Tietokanta korvataan varmuuskopiolla ajalta")).toBeVisible();
   await dialog.getByLabel("Salasanasi").fill("väärä-salasana-1234");
   await dialog.getByLabel("Kirjoita PALAUTA vahvistukseksi").fill("palauta");
   await dialog.getByRole("button", { name: "Palauta", exact: true }).click();
@@ -323,7 +340,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   expect(sent.restore.at(-1)).toEqual({ password: "esimerkki-salasana-123", confirm: "PALAUTA" });
   const asked = page.getByRole("status").filter({ hasText: "Palautus on pyydetty." });
   await expect(asked).toContainText("Sovellus käynnistyy uudelleen ja korvaa tietokannan varmuuskopiolla ajalta");
-  await expect(restoreCard.getByRole("button", { name: "Palauta uusin varmuuskopio" })).toHaveCount(0);
+  await expect(restoreRow()).toHaveCount(0);
   // it never says the restore was done: the notice after the start tells that
   await expect(asked).toContainText("Sivun yläreunan ilmoitus kertoo, tehtiinkö palautus.", { timeout: 20_000 });
   await expect(asked.getByRole("button", { name: "Lataa sivu uudelleen" })).toBeVisible();
@@ -334,8 +351,11 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   // the copy of a reset is named for what it does
   copy = PRE_RESET;
   await page.reload();
-  await expect(restoreCard).toContainText("Tämä varmuuskopio on otettu juuri ennen tietojen tyhjennystä.");
-  await expect(restoreCard).toContainText("Sen palautus tuo tyhjennetyt tiedot takaisin.");
+  await restoreRow().click();
+  dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Otimme tämän varmuuskopion juuri ennen tietojen tyhjennystä.");
+  await expect(dialog).toContainText("Palautus tuo tyhjennetyt tiedot takaisin.");
+  await dialog.getByRole("button", { name: "Peruuta" }).click();
 
   // on a phone: nothing runs sideways
   await page.setViewportSize({ width: 390, height: 844 });
@@ -344,9 +364,12 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   // the reset card says before the click what goes, that a copy is taken first and that the banks are connected again
   await resetCard.scrollIntoViewIfNeeded();
   await expect(resetCard).toContainText("Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.");
-  await expect(resetCard).toContainText("Varmuuskopio otetaan ensin, ja sen voi palauttaa vuorokauden ajan.");
+  await expect(resetCard).toContainText("Otamme ensin varmuuskopion, jonka voit palauttaa vuorokauden ajan.");
   await expect(resetCard).toContainText("Pankkiyhteydet pitää yhdistää uudelleen.");
+  // the card is folded: the reader opens it before the button shows
   const resetButton = resetCard.locator("button", { hasText: "Tyhjennä kaikki tiedot" });
+  await expect(resetButton).toBeHidden();
+  await resetCard.locator("summary").click();
   await resetButton.click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Salasanasi").fill("esimerkki-salasana-123");
@@ -379,7 +402,8 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
   await done.getByRole("link", { name: "Kirjaudu sisään" }).click();
   await expect(page.getByRole("heading", { name: "Kirjaudu sisään" })).toBeVisible();
 
-  // only the answers played above were refused or cut off
-  expect(seen.filter((p) => !/status of (403|409)|ERR_FAILED/.test(p))).toEqual([]);
+  // only the answers played above were refused or cut off; after the reset the session is gone, so the page's last calls
+  // (the data of the header, the notices) answer 401
+  expect(seen.filter((p) => !/status of (401|403|409)|ERR_FAILED/.test(p))).toEqual([]);
   await context.close();
 });

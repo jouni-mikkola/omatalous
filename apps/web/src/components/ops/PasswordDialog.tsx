@@ -1,6 +1,9 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import "../../styles/ops.css";
+import { type FormEvent, type ReactNode, useRef, useState } from "react";
 import { S } from "./ops-strings.ts";
-
+import { Button } from "../ui/Button.tsx";
+import { useModal } from "../useModal.ts";
+import { Notice } from "../ui/Notice.tsx";
 /**
  * Asks for the password again before a request that changes the installation. The value is read from the
  * field when the form is sent and is not kept in state. A typed confirmation word is optional.
@@ -14,15 +17,10 @@ export function PasswordDialog({ title, children, submitLabel, confirmWord, dang
   onSubmit: (password: string, confirm: string) => Promise<void>;
   onCancel: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const ref = useModal();
   const form = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
-  }, []);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -46,24 +44,24 @@ export function PasswordDialog({ title, children, submitLabel, confirmWord, dang
       <form ref={form} onSubmit={(e) => void send(e)} autoComplete="off">
         <h2 id="ops-dialog-title">{title}</h2>
         {children}
-        <label className="field" style={{ display: "block", margin: "12px 0" }}>
+        <label className="field field-block">
           <span className="field-label">{S.password}</span>
-          <input name="password" type="password" autoComplete="current-password" required autoFocus style={{ display: "block", width: "100%" }} />
+          <input name="password" type="password" autoComplete="current-password" required autoFocus className="input-block" />
         </label>
         {confirmWord && (
-          <label className="field" style={{ display: "block", margin: "12px 0" }}>
+          <label className="field field-block">
             <span className="field-label">{S.rollbackConfirm(confirmWord)}</span>
-            <input name="confirm" type="text" autoComplete="off" required pattern={confirmWord} style={{ display: "block", width: "100%" }} />
+            <input name="confirm" type="text" autoComplete="off" required pattern={confirmWord} className="input-block" />
           </label>
         )}
-        {error && <div className="error" role="alert">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <div className="form-row">
-          <button className="btn" type="button" onClick={onCancel}>
+          <Button onClick={onCancel}>
             {S.cancel}
-          </button>
-          <button className={`btn ${danger ? "btn-danger" : "btn-primary"}`} type="submit" disabled={busy} aria-busy={busy || undefined}>
+          </Button>
+          <Button variant="primary" danger={danger} type="submit" busy={busy}>
             {busy ? S.working : submitLabel}
-          </button>
+          </Button>
         </div>
       </form>
     </dialog>

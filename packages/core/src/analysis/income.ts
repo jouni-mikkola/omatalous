@@ -42,7 +42,7 @@ export type IncomeType =
   | "unknown";
 
 /** The chart layers, in their fixed colour order. */
-export type IncomeGroup = "salary" | "extra_pay" | "kela" | "fund" | "pension" | "other" | "not_earned" | "unknown";
+export type IncomeGroup = "salary" | "extra_pay" | "kela" | "fund" | "pension" | "tax_refund" | "other" | "not_earned" | "unknown";
 
 export interface IncomeTypeDef {
   label: string;
@@ -70,7 +70,8 @@ export const INCOME_TYPES: Record<IncomeType, IncomeTypeDef> = {
   unemployment_fund: { label: "Ansiosidonnainen päiväraha", group: "fund", regular: true, earned: true },
   earnings_pension: { label: "Työeläke", group: "pension", regular: true, earned: true },
   benefit_other: { label: "Muut etuudet", group: "other", regular: false, earned: true },
-  tax_refund: { label: "Veronpalautus", group: "other", regular: false, earned: true },
+  // a refund is not earnings: it is its own group and stays out of the earned income the shares are of
+  tax_refund: { label: "Veronpalautus", group: "tax_refund", regular: false, earned: false },
   investment: { label: "Osingot ja korot", group: "other", regular: false, earned: true },
   sales: { label: "Myyntitulot", group: "other", regular: false, earned: true },
   other_income: { label: "Muut tulot", group: "other", regular: false, earned: true },
@@ -88,6 +89,7 @@ export const INCOME_GROUPS: readonly { id: IncomeGroup; label: string }[] = [
   { id: "kela", label: "Kela" },
   { id: "fund", label: "Ansiosidonnainen" },
   { id: "pension", label: "Työeläke" },
+  { id: "tax_refund", label: "Veronpalautus" },
   { id: "other", label: "Muut tulot" },
   { id: "not_earned", label: "Maksut henkilöiltä ja hyvitykset" },
   { id: "unknown", label: "Tunnistamattomat tulot" },
@@ -162,6 +164,8 @@ export function incomeTypeOf(t: IncomeRow, role: PayerRole | null = null): Incom
     }
     case "benefits":
       return benefitType(textOf(t), t);
+    case "tax_refund":
+      return "tax_refund";
     case "investment_income":
       return "investment";
     case "sales":
@@ -182,7 +186,7 @@ export const isIncomeRow = (t: Pick<AnalysisTx, "flows">) => t.flows.income !== 
 /**
  * Earned income: an income row whose type is earned (`INCOME_TYPES`): not money from people, not a refund, and not the
  * member's own money, whether the category says so or it is money in on a spending category (`moneyIn`). The one
- * predicate behind every "tavalliset tulot" (`usualIncome` in usual.ts) and the earned split of the income report.
+ * predicate behind every "odotetut tulot" (`usualIncome` in usual.ts) and the earned split of the income report.
  */
 export const isEarnedIncome = (t: Pick<AnalysisTx, "flows"> & IncomeRow, role: PayerRole | null = null) => isIncomeRow(t) && INCOME_TYPES[incomeTypeOf(t, role)].earned;
 

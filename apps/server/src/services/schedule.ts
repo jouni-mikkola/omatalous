@@ -13,8 +13,12 @@ import { watchCopies } from "./db-health.ts";
 import { keepReserve } from "./disk.ts";
 import { drainLookups, type LookupResult } from "./industry.ts";
 import { expireStale } from "./ops.ts";
+import { refreshPriceIndex } from "./price-index.ts";
 import { finishPendingReprocess } from "./recovery.ts";
 import { upgradeAndLog } from "./upgrade.ts";
+import { queueOffsiteDaily } from "./offsite.ts";
+import { sweepOffsiteRequest } from "./offsite-request.ts";
+import { deliverNotices } from "./outside-notices.ts";
 import { pruneEvents } from "./security.ts";
 import { isSyncHour } from "./instance.ts";
 import { remoteAccessState } from "./remote-access.ts";
@@ -65,6 +69,9 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
   keepReserve(s); // and again after the copy, which is what takes the space
   await watchCopies(s, today, backup !== null); // the weekly check of the newest copy, in a tick that wrote none
   await optimizeDatabase(s.db);
+  await queueOffsiteDaily(s, today); // off unless an admin gave a target and turned it on
+  await sweepOffsiteRequest(s); // the target and its key leave the volume when no request waits for them
+  await deliverNotices(s); // off unless an admin turned it on; each event once
   try {
     await finishLeftovers(s);
   } catch (err) {
@@ -101,6 +108,12 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     lookup = await drainLookups(s, { maxBatches: MAX_LOOKUP_BATCHES });
   } catch (err) {
     console.error("industry lookup failed:", err);
+  }
+
+  try {
+    await refreshPriceIndex(s);
+  } catch (err) {
+    console.error("price index failed:", err);
   }
 
   await s.users.deleteExpiredSessions();

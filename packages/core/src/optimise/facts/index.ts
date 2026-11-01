@@ -3,6 +3,7 @@
  * here, and a row past its expiry hides its comparison, so the page never compares against an old number. Each row
  * was read from its source page on `verifiedAt`; a figure nobody opened at its source is left out.
  */
+import { DEFAULT_LANGUAGE, type Language } from "../../locale.ts";
 import type { IsoDate } from "../../types.ts";
 import { BANK_FACTS } from "./bank.ts";
 import { ELECTRICITY_FACTS } from "./electricity.ts";
@@ -26,6 +27,8 @@ export interface Fact {
   id: string;
   /** Finnish, as a calc line shows it. */
   label: string;
+  /** English, set on every row an area shows in a calc line (not on the CPI classes, which none does). */
+  labelEn?: string;
   value: number;
   /** "%", "c/kWh", "snt" (money facts are in cents), "€/kk" in a value cell only. */
   unit: string;
@@ -43,6 +46,9 @@ export interface Fact {
   /** The day a worker opened `source.url` and read the figure there. */
   verifiedAt: IsoDate;
 }
+
+/** The label of `f` in `lang`. */
+export const factLabel = (f: Pick<Fact, "label" | "labelEn">, lang: Language = DEFAULT_LANGUAGE): string => (lang === "en" ? (f.labelEn ?? f.label) : f.label);
 
 /** A survey or a sample stands for other households, not this one: a certainty step (rule 7). */
 export const isSampleFact = (f: Pick<Fact, "kind">) => f.kind === "survey" || f.kind === "sample";
@@ -65,7 +71,7 @@ export function factFrom(rows: readonly Fact[], id: string, today: IsoDate): Fac
   return latest(rows.filter((f) => f.id === id && f.status === "valid" && f.validFrom <= today && (!f.validTo || today <= f.validTo) && today <= f.expires));
 }
 
-/** A proposed row of `id` that has not expired: shown only as a calc line ("Jos esitys hyväksytään: 520 €"), never in euros. */
+/** A proposed row of `id` that has not expired: shown only as a calc line ("Jos eduskunta hyväksyy esityksen: 520 €"), never in euros. */
 export function proposedFrom(rows: readonly Fact[], id: string, today: IsoDate): Fact | null {
   return latest(rows.filter((f) => f.id === id && f.status === "proposed" && today <= f.expires));
 }

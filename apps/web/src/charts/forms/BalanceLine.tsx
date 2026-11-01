@@ -1,7 +1,8 @@
 // Decision: is the buffer growing, and what took it down when it fell
 import type { BalanceReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { dayMonth, money, monthLabel, monthLong } from "../../format.ts";
+import { dayMonth, money, monthLabel } from "../../format.ts";
+import { t } from "../../text.ts";
 import { crisp } from "../draw.ts";
 import { decimate } from "../kit/decimate.ts";
 import { LANE_H } from "../kit/Annotations.tsx";
@@ -13,14 +14,10 @@ import { dayNumber, isoDay, linear, monthStarts, points } from "../kit/scale.ts"
 import { linePath } from "../kit/path.ts";
 import { moneyAxis } from "../kit/ticks.ts";
 import { Tip, ValueGrid } from "./parts.tsx";
+import { color } from "../../design/tokens.ts";
+import { css } from "../../css.ts";
 
 const LANES = 2;
-
-/** "2026-09" → "syyskuun 2026": the month name in the genitive, as "lopussa" asks. */
-export const monthGenitive = (m: string) => {
-  const [name, year] = monthLong(m).split(" ");
-  return `${name}n ${year}`;
-};
 
 /** A payee short enough for a lane: its first word, cut at twelve letters. */
 const short = (label: string) => {
@@ -65,10 +62,10 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
     LANES,
   );
   const low = r.lowest && indexOf(r.lowest.day) >= 0 ? r.lowest : null;
-  const title = (i: number) => (i === last ? `${dayMonth(iso(i))} (viimeisin)` : dayMonth(iso(i)));
+  const title = (i: number) => (i === last ? t("rpt.bl_latest", { day: dayMonth(iso(i)) }) : dayMonth(iso(i)));
   const tipRows = (i: number) => [
-    { name: "Tilien ja korttien saldo", value: days[i] === null ? "–" : money(days[i]!, false), key: <span className="line-key" style={{ background: "var(--series-1)" }} /> },
-    ...(pays.some((d) => indexOf(d) === i) ? [{ name: "Palkkapäivä", value: "" }] : []),
+    { name: t("rpt.bl_balance"), value: days[i] === null ? "–" : money(days[i]!, false), key: <span className="line-key" ref={css({ background: color["series-1"] })} /> },
+    ...(pays.some((d) => indexOf(d) === i) ? [{ name: t("rpt.bl_payday"), value: "" }] : []),
     ...events.filter((e) => indexOf(e.day) === i).map((e) => ({ name: e.label, value: money(e.cents, false) })),
   ];
   // one pay day named, the one nearest the middle: the ends carry today's balance and often the lowest day
@@ -78,8 +75,9 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   return (
     <div className="chart" ref={ref}>
       {width > 0 && known.length > 1 && (
-        <svg width={f.width} height={f.height} role="img" aria-label="Tilien saldo päivittäin, alin päivä ja suuret ostot">
+        <svg width={f.width} height={f.height}>
           <g transform={`translate(${f.margin.left},${f.margin.top})`}>
+            <g role="img" aria-label={t("rpt.bl_aria")}>
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
             {starts.map((s, k) =>
               k % every === 0 ? (
@@ -95,7 +93,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
             ))}
             {namedPay && (
               <text className="qc-end-sub" x={x(indexOf(namedPay))} y={y(days[indexOf(namedPay)]!) - 8} textAnchor="middle">
-                palkka
+                {t("rpt.bl_pay")}
               </text>
             )}
             {markers.map((m, k) => {
@@ -103,7 +101,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
               return (
                 <g key={m.key}>
                   {/* the step the purchase took: from the day before's balance to the day's */}
-                  <line className="qc-line" style={{ stroke: "var(--bad)" }} x1={crisp(m.x)} x2={crisp(m.x)} y1={y(e.step!.beforeCents)} y2={y(e.step!.afterCents)} />
+                  <line className="qc-line qc-bad" x1={crisp(m.x)} x2={crisp(m.x)} y1={y(e.step!.beforeCents)} y2={y(e.step!.afterCents)} />
                   <line className="kit-event-rule" x1={crisp(m.x)} x2={crisp(m.x)} y1={y(e.step!.afterCents)} y2={f.innerH} />
                   {m.lane >= 0 && (
                     <text className="kit-event-label" x={m.x} y={f.innerH + 20 + LANE_H * (m.lane + 1)} textAnchor={m.anchor}>
@@ -118,7 +116,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
                 <circle className="qc-low" cx={x(indexOf(low.day))} cy={y(low.cents)} r={5} />
                 {/* under the dot, or over it when the dot sits on the axis's labels */}
                 <text className="qc-note" x={x(indexOf(low.day))} y={y(low.cents) + 18 > f.innerH - 2 ? y(low.cents) - 10 : y(low.cents) + 18} textAnchor={x(indexOf(low.day)) > f.innerW - 90 ? "end" : x(indexOf(low.day)) < 90 ? "start" : "middle"}>
-                  {`alin ${dayMonth(low.day)} ${money(low.cents, false)}`}
+                  {t("rpt.bl_low", { day: dayMonth(low.day), amount: money(low.cents, false) })}
                 </text>
               </g>
             )}
@@ -131,7 +129,8 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
               </g>
             )}
             {at !== null && days[at] != null && <circle className="qc-dot" cx={x(at)} cy={y(days[at]!)} r={4} pointerEvents="none" />}
-            <ReadoutLayer xs={xs} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} label="Tilien saldo päivittäin. Nuolinäppäimillä siirryt päivästä toiseen." />
+            </g>
+            <ReadoutLayer xs={xs} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={days.map((_, i) => iso(i).slice(0, 7))} label={t("rpt.bl_readout")} />
           </g>
         </svg>
       )}

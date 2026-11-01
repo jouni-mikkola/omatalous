@@ -18,7 +18,7 @@ describe("an inline bar", () => {
     expect(barShare(-50, 200)).toBe(0.25);
     expect(barShare(500, 200)).toBe(1);
     expect(barShare(5, 0)).toBe(0);
-    expect(renderToStaticMarkup(createElement(BarCell, { value: 1, max: 3 }))).toContain("width:33.3%");
+    expect(renderToStaticMarkup(createElement(BarCell, { value: 1, max: 3 }))).not.toContain("style=");
   });
 });
 

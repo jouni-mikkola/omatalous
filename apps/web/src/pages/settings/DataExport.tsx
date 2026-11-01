@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { apiDownload, saveFile } from "../../api.ts";
 import { DataImport } from "./DataImport.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
 /** Asetukset > Tiedot: the user's own data and what is shared with them as one file; its format is docs/DATA_EXPORT.md. */
 export function DataExport() {
   const [busy, setBusy] = useState(false);
@@ -21,16 +23,16 @@ export function DataExport() {
   return (
     <div className="card">
       <div className="card-head">
-        <h2>Tiedot</h2>
-        <div className="form-row" style={{ margin: 0 }}>
-          <button type="button" className="btn" disabled={busy} aria-busy={busy} onClick={() => void download()}>
-            Vie kaikki tiedot
-          </button>
+        <h2>{t("set.dx.data")}</h2>
+        <div className="form-row flush">
+          <Button disabled={busy} aria-busy={busy} onClick={() => void download()}>
+            {t("set.dx.export_all_data")}
+          </Button>
           <DataImport />
         </div>
       </div>
-      <p>Tiedosto sisältää omat tietosi ja sinulle jaetut tiedot. Säilytä se turvallisesti.</p>
-      {error && <div className="error">{error}</div>}
+      <p>{t("set.dx.the_file_holds_your_own")}</p>
+      {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
 }

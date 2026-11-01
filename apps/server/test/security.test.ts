@@ -12,7 +12,7 @@ import { mockBank } from "./mock-bank.ts";
 import { NOW, SETUP_CODE, setupApp } from "./helpers.ts";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
-const ENV = { PASSWORD_ITERATIONS: "1000", APP_SECRET: "test-secret-that-is-long-enough-0123456789", SETUP_CODE, APP_BASE_URL: "http://localhost:8080", INDUSTRY_LOOKUP: "false" };
+const ENV = { PASSWORD_MEMORY_KIB: "8", PASSWORD_PASSES: "1", APP_SECRET: "test-secret-that-is-long-enough-0123456789", SETUP_CODE, APP_BASE_URL: "http://localhost:8080", INDUSTRY_LOOKUP: "false" };
 
 /** An app before first-run setup. */
 async function bareApp(env: Record<string, string> = {}) {

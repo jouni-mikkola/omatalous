@@ -31,10 +31,6 @@ describe("GET /api/transactions: the strip and the day rows", () => {
     expect(all.histogram.bins).toHaveLength(42);
     const binOut = all.histogram.bins.reduce((n: number, b: DaySum) => n + b.outCents, 0);
     expect(binOut).toBe(all.outCents);
-    // the calendar is every day of the span with its shade; a day with no row is 0
-    expect(all.calendar.days).toHaveLength(42);
-    expect(all.calendar.days.find((d: { date: string }) => d.date === "2026-09-05")).toMatchObject({ cents: 5415, count: 2 });
-    expect(all.calendar.days.find((d: { date: string }) => d.date === "2026-09-06")).toMatchObject({ cents: 0, count: 0, heat: 0 });
 
     // the newest three rows: 30.9., 16.9. and one of the two rows of 5.9.; the day still says both
     const page = (await admin.call("GET", "/api/transactions?limit=3")).body;

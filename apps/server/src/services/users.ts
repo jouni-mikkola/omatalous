@@ -3,18 +3,64 @@ import type { Role, User } from "../db/rows.ts";
 export type { Role } from "../db/rows.ts";
 import { USER_DATA_VERSION } from "../db/settings-repo.ts";
 import { sha256, timingSafeEqual, utf8 } from "../security/encoding.ts";
-import { generatePassword, hashPassword, passwordProblem, verifyPassword } from "../security/password.ts";
+import { generatePassword, hashPassword, needsRehash, type PasswordCost, passwordRefusal, pbkdf2Rounds, verifyPassword } from "../security/password.ts";
 import { UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { randomToken } from "../platform/ids.ts";
 import { revokeAllConnections } from "../connectors/registry.ts";
+import { refuseAdminWithoutFactor } from "./remote-access.ts";
 import { recordEvent } from "./security.ts";
-import { TooManyAttempts, tooManyMessage } from "../platform/errors.ts";
+import { hashBusy, tooMany } from "../platform/errors.ts";
 
 /** Address and browser of the request behind an action, for the security event. */
 export interface RequestInfo {
   ip: string | null;
   userAgent: string | null;
+}
+
+/** The Argon2id cost a new hash gets now: the admin's limits, read at each use. */
+export const passwordCost = (s: Services): PasswordCost => ({ memoryKib: s.instance.limits.get("passwordMemoryKib"), passes: s.instance.limits.get("passwordPasses") });
+
+/** A new hash, behind the same gate as a check: each running hash holds its memory, so only `hashSlots` run at once. */
+async function hashed(s: Services, password: string): Promise<string> {
+  if (!s.hashGate.tryEnter()) throw hashBusy();
+  try {
+    return await hashPassword(password, passwordCost(s));
+  } finally {
+    s.hashGate.leave();
+  }
+}
+
+/**
+ * After a correct password: a hash made by an earlier scheme or at another cost is rewritten as Argon2id at the cost now
+ * set. The caller holds a hash slot. The write only lands while the stored hash is still the one that was checked. When
+ * it was not (a password change, a reset or another sign-in got there first), the password is checked against what is
+ * stored now, and any doubt refuses the sign-in. Returns the hash that is stored, or null when the sign-in must be
+ * refused. A hash that cannot be made keeps the old one, which still works. (A password changed after a check of a hash
+ * that needed no rewrite is not seen here: that window is as wide as the check itself.)
+ */
+export async function upgradePasswordHash(s: Services, record: { id: string; username: string; passwordHash: string }, password: string, req: RequestInfo): Promise<string | null> {
+  const cost = passwordCost(s);
+  const stored = record.passwordHash;
+  if (!needsRehash(stored, cost)) return stored;
+  let next: string;
+  try {
+    next = await hashPassword(password, cost);
+  } catch (e) {
+    console.error("password hash upgrade failed, the old hash stays", e instanceof Error ? e.message : e);
+    return stored;
+  }
+  try {
+    if (await s.users.replaceHash(record.id, stored, next)) {
+      await recordEvent(s, { kind: "password_rehashed", userId: record.id, ...req, detail: pbkdf2Rounds(stored) !== null ? "PBKDF2:sta Argon2id:ksi" : "uusi kustannus" }).catch((e) => console.error("password_rehashed event not written", e instanceof Error ? e.message : e));
+      return next;
+    }
+    const now = await s.users.findForLogin(record.username);
+    return now && (await verifyPassword(password, now.passwordHash)) ? now.passwordHash : null;
+  } catch (e) {
+    console.error("password hash upgrade could not settle which hash is stored, sign-in refused", e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 const USERNAME = /^[a-z0-9._-]{3,32}$/i;
@@ -97,24 +143,24 @@ async function checkSetupCode(s: Services, code: string): Promise<"ok" | "wrong"
 }
 
 export async function createFirstAdmin(s: Services, input: { code: string; username: string; displayName: string; password: string }): Promise<User> {
-  if (!(await needsSetup(s))) throw new UserError("Sovellus on jo otettu käyttöön.");
+  if (!(await needsSetup(s))) throw UserError.of("auth.setup_done");
   const check = await checkSetupCode(s, input.code);
   // both sentences name the command, not install.sh: a re-run of install.sh shows no code when it comes from SETUP_CODE
-  if (check === "expired") throw new UserError("Asennuskoodi on vanhentunut. Uuden saa komennolla docker compose exec banking node dist/node.js setup-code");
-  if (check === "wrong") throw new UserError("Väärä asennuskoodi. Uuden saa komennolla docker compose exec banking node dist/node.js setup-code");
+  if (check === "expired") throw UserError.of("auth.setup_code_expired");
+  if (check === "wrong") throw UserError.of("auth.setup_code_wrong");
   const username = input.username.trim();
-  if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa pitää olla 3–32 merkkiä (a–z, 0–9, . _ -).");
-  const problem = passwordProblem(input.password);
-  if (problem) throw new UserError(problem);
+  if (!USERNAME.test(username)) throw UserError.of("auth.username_shape");
+  const refusal = passwordRefusal(input.password);
+  if (refusal) throw refusal;
   const id = randomToken();
   // the empty-table check and the insert are one statement: two parallel setups cannot both create an admin
   const created = await s.users.createIfNoUsers({
     id,
     username,
     displayName: input.displayName.trim() || username,
-    passwordHash: await hashPassword(input.password, s.config.passwordIterations),
+    passwordHash: await hashed(s, input.password),
   });
-  if (!created) throw new UserError("Sovellus on jo otettu käyttöön.");
+  if (!created) throw UserError.of("auth.setup_done");
   await forgetSetupCode(s);
   return (await s.users.get(id))!;
 }
@@ -127,18 +173,19 @@ export async function createUser(
   req: RequestInfo = { ip: null, userAgent: null },
 ): Promise<{ user: User; temporaryPassword: string | null }> {
   const username = input.username.trim();
-  if (!USERNAME.test(username)) throw new UserError("Käyttäjätunnuksessa pitää olla 3–32 merkkiä (a–z, 0–9, . _ -).");
-  if (await s.users.findForLogin(username)) throw new UserError("Käyttäjätunnus on jo käytössä.");
+  if (!USERNAME.test(username)) throw UserError.of("auth.username_shape");
+  if (input.role === "admin") await refuseAdminWithoutFactor(s, null);
+  if (await s.users.findForLogin(username)) throw UserError.of("auth.username_taken");
   const temporary = input.password ? null : generatePassword();
   const password = input.password ?? temporary!;
-  const problem = passwordProblem(password);
-  if (problem) throw new UserError(problem);
+  const refusal = passwordRefusal(password);
+  if (refusal) throw refusal;
   const id = randomToken();
   await s.users.create({
     id,
     username,
     displayName: input.displayName.trim() || username,
-    passwordHash: await hashPassword(password, s.config.passwordIterations),
+    passwordHash: await hashed(s, password),
     role: input.role,
     mustChangePassword: !!temporary,
   });
@@ -149,17 +196,17 @@ export async function createUser(
 /**
  * The password typed again for an action that needs it (a change, taking the second factor away). Counted per user
  * before the slow hash, so a burst of parallel guesses is counted too. `what` names the action in the event and the
- * lockout; `wrong` is the sentence for a wrong password.
+ * lockout; `wrong` is the catalogue code for a wrong password.
  */
-export async function confirmPassword(s: Services, user: { id: string; username: string }, password: string, req: RequestInfo, what: string, wrong: string): Promise<void> {
+export async function confirmPassword(s: Services, user: { id: string; username: string }, password: string, req: RequestInfo, what: string, wrong: "auth.password_wrong" | "auth.current_password_wrong"): Promise<void> {
   const attempt = s.passwordLimiter.consume(user.id);
   if (attempt.wait) {
     if (attempt.first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: what });
-    throw new TooManyAttempts(tooManyMessage(attempt.wait), attempt.wait);
+    throw tooMany(attempt.wait);
   }
   if (!s.hashGate.tryEnter()) {
     s.passwordLimiter.release(user.id);
-    throw new TooManyAttempts("Palvelin on kiireinen. Yritä hetken päästä uudelleen.", 2);
+    throw hashBusy();
   }
   let ok = false;
   try {
@@ -170,26 +217,57 @@ export async function confirmPassword(s: Services, user: { id: string; username:
   }
   if (!ok) {
     await recordEvent(s, { kind: "login_fail", userId: user.id, ...req, detail: what });
-    throw new UserError(wrong);
+    throw UserError.of(wrong);
   }
   s.passwordLimiter.reset(user.id);
 }
 
 export async function changePassword(s: Services, user: User, current: string, next: string, keepSessionId: string, req: RequestInfo = { ip: null, userAgent: null }): Promise<void> {
-  await confirmPassword(s, user, current, req, "salasanan vaihto", "Nykyinen salasana on väärä.");
-  const problem = passwordProblem(next);
-  if (problem) throw new UserError(problem);
-  if (current === next) throw new UserError("Uusi salasana ei voi olla sama kuin vanha.");
-  await s.users.setPassword(user.id, await hashPassword(next, s.config.passwordIterations), false);
+  if (user.mustChangePassword) throw UserError.of("auth.use_first_password");
+  await confirmPassword(s, user, current, req, "salasanan vaihto", "auth.current_password_wrong");
+  const refusal = passwordRefusal(next);
+  if (refusal) throw refusal;
+  if (current === next) throw UserError.of("auth.password_unchanged");
+  await s.users.setPassword(user.id, await hashed(s, next), false);
   await s.users.deleteSessionsOf(user.id, keepSessionId); // sign out other devices
   await recordEvent(s, { kind: "password_changed", userId: user.id, ...req });
 }
 
+/** How long after the sign-in with a temporary password the first password is still taken. */
+const FIRST_PASSWORD_MINUTES = 10;
+
+/**
+ * The first password of a member who signed in with a temporary one. The sign-in just proved the temporary password,
+ * so only the new one is asked, and only in the session that sign-in made and within ten minutes of it.
+ */
+export async function setFirstPassword(s: Services, user: User, next: string, sessionId: string, req: RequestInfo = { ip: null, userAgent: null }): Promise<void> {
+  if (!user.mustChangePassword) throw UserError.of("auth.first_password_not_due");
+  const session = await s.users.getSession(sessionId);
+  if (!session || s.now().getTime() - new Date(session.createdAt).getTime() > FIRST_PASSWORD_MINUTES * 60_000) {
+    await s.users.deleteSession(sessionId);
+    throw UserError.of("auth.first_password_expired");
+  }
+  const refusal = passwordRefusal(next);
+  if (refusal) throw refusal;
+  // the temporary password is not a password of their own; the check is a hash, so it runs behind the gate
+  if (!s.hashGate.tryEnter()) throw hashBusy();
+  let same = false;
+  try {
+    same = await verifyPassword(next, (await s.users.findForLogin(user.username))?.passwordHash ?? "");
+  } finally {
+    s.hashGate.leave();
+  }
+  if (same) throw UserError.of("auth.password_unchanged");
+  await s.users.setPassword(user.id, await hashed(s, next), false);
+  await s.users.deleteSessionsOf(user.id, sessionId);
+  await recordEvent(s, { kind: "password_changed", userId: user.id, ...req, detail: "ensimmäinen salasana" });
+}
+
 /** `actor` is the admin who did it (null for the command line); the member sees a notice. */
 export async function resetPassword(s: Services, userId: string, actor: { username: string } | null = null, req: RequestInfo = { ip: null, userAgent: null }): Promise<string> {
-  if (!(await s.users.get(userId))) throw new UserError("Käyttäjää ei löydy.");
+  if (!(await s.users.get(userId))) throw UserError.of("user.missing");
   const temporary = generatePassword();
-  await s.users.setPassword(userId, await hashPassword(temporary, s.config.passwordIterations), true);
+  await s.users.setPassword(userId, await hashed(s, temporary), true);
   await s.users.deleteSessionsOf(userId);
   await recordEvent(s, { kind: "password_reset_by_admin", userId, ...req, detail: actor ? `ylläpitäjä ${actor.username}` : "komentorivi", notify: true });
   return temporary;
@@ -208,7 +286,7 @@ export interface RemovalResult {
  */
 export async function removeUser(s: Services, userId: string, by: string, req: RequestInfo = { ip: null, userAgent: null }): Promise<RemovalResult> {
   const target = await s.users.get(userId);
-  if (!target) throw new UserError("Käyttäjää ei löydy.");
+  if (!target) throw UserError.of("user.missing");
   const bank = await revokeAllConnections(s, userId);
   // the member's rows of who uses an account go with them, and their weight stays with the others as a part of the holders who are no user
   await s.household.removeMember(userId);
@@ -227,10 +305,11 @@ export async function removeUser(s: Services, userId: string, by: string, req: R
 /** A new display name or role. A role change is a security event: it gives or takes the admin's rights. */
 export async function updateUser(s: Services, actor: User, userId: string, input: { displayName?: string; role?: Role }, req: RequestInfo): Promise<void> {
   const before = await s.users.get(userId);
-  if (!before) throw new UserError("Käyttäjää ei löydy.");
+  if (!before) throw UserError.of("user.missing");
   if (input.role === "member" && before.role === "admin" && userId === actor.id && (await s.users.countAdmins()) <= 1) {
-    throw new UserError("Et voi poistaa ylläpito-oikeutta viimeiseltä ylläpitäjältä.");
+    throw UserError.of("user.last_admin_role");
   }
+  if (input.role === "admin" && before.role !== "admin") await refuseAdminWithoutFactor(s, userId);
   await s.users.update(userId, input);
   if (input.role && input.role !== before.role) {
     await recordEvent(s, { kind: "role_changed", userId, ...req, detail: `${before.role} -> ${input.role}, ylläpitäjä ${actor.username}` });
@@ -238,9 +317,9 @@ export async function updateUser(s: Services, actor: User, userId: string, input
 }
 
 export async function deleteUser(s: Services, actor: User, userId: string, req?: RequestInfo): Promise<RemovalResult> {
-  if (actor.id === userId) throw new UserError("Et voi poistaa omaa tunnustasi.");
+  if (actor.id === userId) throw UserError.of("user.delete_self");
   const target = await s.users.get(userId);
-  if (!target) throw new UserError("Käyttäjää ei löydy.");
-  if (target.role === "admin" && (await s.users.countAdmins()) <= 1) throw new UserError("Viimeistä ylläpitäjää ei voi poistaa.");
+  if (!target) throw UserError.of("user.missing");
+  if (target.role === "admin" && (await s.users.countAdmins()) <= 1) throw UserError.of("user.delete_last_admin");
   return removeUser(s, userId, actor.username, req);
 }

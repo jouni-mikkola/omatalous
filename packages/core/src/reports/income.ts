@@ -1,15 +1,18 @@
 // Decision: is our income changing, and does the buffer match how it moves
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { isUntold, partCents, partOf, WHOLE } from "../account-use.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { INCOME_GROUPS, INCOME_TYPE_ORDER, INCOME_TYPES, type IncomeGroup, type IncomeType, nextPayDate } from "../analysis/income.ts";
 import { benefitName, type IncomeBase, incomeBase, type IncomeChange, incomeChanges, payDayText } from "../analysis/income-changes.ts";
-import { payPieces } from "../analysis/income-series.ts";
+import { payPieces, typeName } from "../analysis/income-series.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { addDays, addMonths, dayNumber, monthEnd, monthOf, monthRange } from "../dates.ts";
 import { belowWhole } from "../household-debts.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
+import { MIN_COMPARE_MONTHS, MIN_COMPOSITION_MONTHS, PREVIOUS_YEAR_MONTHS, STEADY_SPREAD, USUAL_MONTHS } from "../thresholds.ts";
 import type { BalanceInput, IsoDate, Part } from "../types.ts";
 
 export interface IncomeRowRef {
@@ -36,6 +39,8 @@ export interface IncomeTypeRow {
   group: IncomeGroup;
   regular: boolean;
   earned: boolean;
+  /** The kind (`IncomeKind`) the type is grouped under. */
+  kind: IncomeKindId;
   totalCents: number;
   /** Over the complete months of the window, null without one. */
   monthlyCents: number | null;
@@ -52,8 +57,14 @@ export interface IncomeTypeRow {
   payers: IncomePayerRow[];
 }
 
-/** Earned income or the other money in, as the types' group: the sums of its types. */
+/** Earned income, tax refunds (a group of their own) or the other money in. */
+type IncomeKindId = "earned" | "tax_refund" | "other";
+
+const kindOf = (type: IncomeType): IncomeKindId => (INCOME_TYPES[type].earned ? "earned" : type === "tax_refund" ? "tax_refund" : "other");
+
+/** The kinds of money in, as the types' group: the sums of its types. */
 interface IncomeKind {
+  id: IncomeKindId;
   earned: boolean;
   label: string;
   totalCents: number;
@@ -72,7 +83,7 @@ export interface IncomeMonth {
 }
 
 export interface IncomeStability {
-  /** Median of the regular income of the twelve months. */
+  /** Median of the regular income of the complete months of the usual period (six, under three there is none). */
   medianCents: number;
   /** Median month-to-month change over the median. */
   spread: number;
@@ -142,22 +153,14 @@ export interface IncomeReport {
 }
 
 const zeroGroups = (): Record<IncomeGroup, number> => Object.fromEntries(INCOME_GROUPS.map((g) => [g.id, 0])) as Record<IncomeGroup, number>;
-const MIN_COMPOSITION_MONTHS = 3;
-/** The months a usual regular income is the median of: the twelve the report reads, all of them complete. */
-export const USUAL_INCOME_MONTHS = 12;
-const STABILITY_MONTHS = USUAL_INCOME_MONTHS;
-/** The comparison with the year before needs this year's twelve months and the twelve before them. */
-const PREVIOUS_YEAR_MONTHS = 24;
-/** A median month-to-month change under 3 % reads as steady income. */
-const STEADY_SPREAD = 0.03;
 const WEEKS_PER_MONTH = 52 / 12;
 
 /** A regular series still pays when its last payment is within its usual gap plus ten days. */
 const stillPaying = (b: IncomeBase, s: IncomeBase["series"][number]) => dayNumber(b.end) - s.rows[s.rows.length - 1]!.day <= s.gapDays + 10;
 
-/** The usual regular income of a month: the median of the twelve months, null under twelve or when it is not above 0. */
+/** The usual regular income of a month: the median of the complete months of the usual period, null under three or when it is not above 0. */
 export function usualRegularCents(cents: readonly number[]): number | null {
-  if (cents.length < STABILITY_MONTHS) return null;
+  if (cents.length < MIN_COMPARE_MONTHS) return null;
   const mid = median(cents);
   return mid > 0 ? Math.round(mid) : null;
 }
@@ -193,26 +196,28 @@ function stabilityOf(values: readonly { month: string; cents: number }[]): Incom
  * add up to the row. Where the use is not known the account is its owner's, and a joint account both partners linked,
  * or one whose split nobody told, stays one line.
  */
-function membersOf(a: BalanceInput): { label: string; part: Part }[] {
+/** The name of an income group in a language: the table in `analysis/income.ts` is the Finnish one. */
+const groupLabel = (group: IncomeGroup, lang: Language): string => messageIn(lang, `income.group_${group}` as "income.shared");
+function membersOf(a: BalanceInput, lang: Language): { label: string; part: Part }[] {
   const use = a.use;
   const users = use?.users.filter((u) => u.weight > 0) ?? [];
-  if (!use || !users.length) return [{ label: a.joint ? "Yhteinen tili" : (a.ownerName ?? "Omat tilit"), part: WHOLE }];
+  if (!use || !users.length) return [{ label: a.joint ? messageIn(lang, "income.shared") : (a.ownerName ?? messageIn(lang, "income.own")), part: WHOLE }];
   // a split nobody told gives every user the whole: the account's income is one line, never counted once per user (ADR 0017)
-  if (users.length > 1 && isUntold(partOf(use, users[0]!.userId))) return [{ label: "Yhteinen tili", part: WHOLE }];
+  if (users.length > 1 && isUntold(partOf(use, users[0]!.userId))) return [{ label: messageIn(lang, "income.shared"), part: WHOLE }];
   return users.map((u) => ({ label: u.label, part: partOf(use, u.userId) }));
 }
 
 /**
  * The months a report of `range` reads, and its payments, each as one part or two. `labels` are the range's own months
- * (up to today), the ones Tulot ja menot draws; `usual` the twelve up to the last complete month, which the usual level
- * is the median of.
+ * (up to today), the ones Tulot ja menot draws; `usual` the six up to the last complete month, which the usual level
+ * is the median of (the period of every usual level).
  */
 function windowOf(ctx: AnalysisContext, range: DateRange) {
   const end = range.to < ctx.today ? range.to : ctx.today;
   const b = incomeBase(ctx, end);
   const first = monthOf(range.from) < monthOf(end) ? monthOf(range.from) : monthOf(end);
   const labels = monthRange(first, monthOf(end));
-  const usual = Array.from({ length: 12 }, (_, i) => addMonths(b.anchor, i - 11));
+  const usual = Array.from({ length: USUAL_MONTHS }, (_, i) => addMonths(b.anchor, i + 1 - USUAL_MONTHS));
   // a payment is one part, or two when a regular payer's only payment stands above the usual level
   const parts = b.rows.flatMap((t) => payPieces(b, t).map((p) => ({ t, ...p })));
   return { end, today: end === ctx.today, b, labels, usual, parts };
@@ -226,7 +231,7 @@ interface RegularMonth {
   rows: { id: string; day: IsoDate; cents: number; whole: number }[];
 }
 
-/** The complete months of the window with their regular income by pay period: the months "Tavalliset tulot" is the median of. */
+/** The complete months of the window with their regular income by pay period: the months "Odotetut tulot" is the median of. */
 function regularMonthsOf({ b, usual, parts }: Window, ctx: AnalysisContext): RegularMonth[] {
   const byMonth = new Map(usual.filter((m) => isCompleteMonth(ctx, m)).map((m) => [m, { month: m, cents: 0, rows: [] as RegularMonth["rows"] }]));
   for (const { t, type, cents } of parts) {
@@ -244,7 +249,7 @@ function regularMonthsOf({ b, usual, parts }: Window, ctx: AnalysisContext): Reg
 /** What the page's "Säännölliset tulot kuussa" is the median of, for the report of `range`; its median is `incomeReport(...).stability.medianCents`. */
 export const regularIncomeMonths = (ctx: AnalysisContext, range: DateRange): RegularMonth[] => regularMonthsOf(windowOf(ctx, range), ctx);
 
-export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): IncomeReport {
+export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], lang: Language = DEFAULT_LANGUAGE): IncomeReport {
   const window = windowOf(ctx, range);
   const { today, b, labels, parts } = window;
   const anchor = b.anchor;
@@ -304,10 +309,11 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
       .sort((x, y) => y.totalCents - x.totalCents);
     return {
       type,
-      label: def.label,
+      label: typeName(type, lang),
       group: def.group,
       regular: def.regular,
       earned: def.earned,
+      kind: kindOf(type),
       totalCents: r.total,
       monthlyCents: completeMonths ? Math.round(r.complete / completeMonths) : null,
       share: def.earned && earnedCents > 0 ? r.total / earnedCents : null,
@@ -318,15 +324,18 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     };
   });
 
-  const kinds: IncomeKind[] = [
-    { earned: true, label: "Ansiotulot" },
-    { earned: false, label: "Muut tulot" },
-  ].flatMap(({ earned, label }) => {
-    const own = types.filter((t) => t.earned === earned);
+  const kindDefs: { id: IncomeKindId; earned: boolean; label: string }[] = [
+    { id: "earned", earned: true, label: messageIn(lang, "income.kind_earned") },
+    { id: "tax_refund", earned: false, label: groupLabel("tax_refund", lang) },
+    { id: "other", earned: false, label: groupLabel("other", lang) },
+  ];
+  const kinds: IncomeKind[] = kindDefs.flatMap(({ id, earned, label }) => {
+    const own = types.filter((t) => t.kind === id);
     if (!own.length) return [];
     const complete = own.reduce((sum, t) => sum + typeRows.get(t.type)!.complete, 0);
     return [
       {
+        id,
         earned,
         label,
         totalCents: own.reduce((sum, t) => sum + t.totalCents, 0),
@@ -350,7 +359,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
         .filter(({ t, type, cents }) => inWindow.has(monthOf(t.bookingDate)) && ["holiday_pay", "other_pay", "tax_refund"].includes(type) && cents > 0)
         .reduce<{ month: string; label: string; cents: number }[]>((acc, { t, type, cents }) => {
           const month = addMonths(monthOf(t.bookingDate), 12);
-          const label = INCOME_TYPES[type].label;
+          const label = typeName(type, lang);
           const hit = acc.find((x) => x.month === month && x.label === label);
           if (hit) hit.cents += cents;
           else acc.push({ month, label, cents });
@@ -363,16 +372,16 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const payDays: IncomePayDay[] = activeSeries
     .filter((s) => s.payDay)
     .map((s) => ({
-      label: s.type === "salary" ? "Palkka" : benefitName(s.type),
+      label: s.type === "salary" ? typeName("salary", lang) : benefitName(s.type, lang),
       payer: s.payer,
-      text: payDayText(s.payDay!),
+      text: payDayText(s.payDay!, lang),
       nextDate: nextPayDate(addDays(s.rows[s.rows.length - 1]!.bookingDate, 5), s.payDay!),
       usualCents: s.usualCents,
     }))
     .sort((x, y) => (x.nextDate! < y.nextDate! ? -1 : 1));
 
   let members: IncomeMember[] | null = null;
-  const whose = new Map(balances.map((a) => [a.id, membersOf(a)]));
+  const whose = new Map(balances.map((a) => [a.id, membersOf(a, lang)]));
   // an account at a part holds the viewer's part of each row and nobody else's: a member's own view, which has no split
   const ownView = balances.some((a) => belowWhole(a.part));
   if (!ownView && balances.some((a) => a.ownerName !== null || whose.get(a.id)!.length > 1)) {
@@ -397,19 +406,20 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     earnedCents,
     notEarnedCents,
     totalCents: earnedCents + notEarnedCents,
-    fromPeopleCents: notEarnedCents - unknownCents,
+    // people and refunds: the tax refund has its own group and the unknown money its own sentence
+    fromPeopleCents: notEarnedCents - unknownCents - (typeRows.get("tax_refund")?.total ?? 0),
     unknownCents,
     unknownShare: earnedCents + notEarnedCents > 0 ? Math.min(1, Math.max(0, unknownCents / (earnedCents + notEarnedCents))) : 0,
     window: { from: `${labels[0]}-01`, to: monthEnd(labels[labels.length - 1]!) },
     previousEarnedCents: previousCovered ? previous : null,
     earnedChange: previousCovered && previous ? (earnedComplete - previous) / previous : null,
-    needs: { compositionMonths: MIN_COMPOSITION_MONTHS, stabilityMonths: STABILITY_MONTHS, previousYearMonths: PREVIOUS_YEAR_MONTHS, steadySpread: STEADY_SPREAD },
+    needs: { compositionMonths: MIN_COMPOSITION_MONTHS, stabilityMonths: MIN_COMPARE_MONTHS, previousYearMonths: PREVIOUS_YEAR_MONTHS, steadySpread: STEADY_SPREAD },
     types,
     kinds,
-    groups: INCOME_GROUPS,
+    groups: INCOME_GROUPS.map((g) => ({ id: g.id, label: groupLabel(g.id, lang) })),
     projection,
     markers,
-    changes: incomeChanges(b, today),
+    changes: incomeChanges(b, today, lang),
     stability: stabilityOf(regularByMonth),
     payDays,
     members,

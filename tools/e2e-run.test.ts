@@ -103,6 +103,7 @@ appendFileSync(process.env.FAKE_LOG, "playwright " + process.argv.slice(2).join(
 appendFileSync(process.env.FAKE_LOG + ".env", (process.env.E2E_BUILD ?? "") + "\n");
 appendFileSync(process.env.FAKE_LOG + ".servers", JSON.parse(process.env.E2E_SERVERS ?? "[]").length + "\n");
 const mode = process.env.FAKE_PW ?? "ok";
+if (process.env.FAKE_HOST) appendFileSync(process.env.E2E_HOSTS_DIR + "/browser-1.log", "browser\t" + process.env.FAKE_HOST + "\n");
 const one = (status = "expected", results = [{ retry: 0, status: "passed" }]) => ({ status, results });
 const tests = [one(), one(), one()];
 if (mode === "retry") tests[1] = one("flaky", [{ retry: 0, status: "failed" }, { retry: 1, status: "passed" }]);
@@ -151,6 +152,8 @@ beforeAll(() => {
   copyFileSync(join(root, "e2e/run.mjs"), join(world, "e2e/run.mjs"));
   mkdirSync(join(world, "tools/lib"), { recursive: true });
   copyFileSync(join(root, "tools/lib/cores.mjs"), join(world, "tools/lib/cores.mjs")); // run.mjs reads its share of the cores through it
+  copyFileSync(join(root, "tools/lib/outside-hosts.mjs"), join(world, "tools/lib/outside-hosts.mjs")); // and checks the hosts of the run against the list of docs/SECURITY.md
+  put("docs/SECURITY.md", "<!-- outside-hosts -->\n| Host | Called by | Why |\n|---|---|---|\n| `api.example.com` | server | a test |\n<!-- /outside-hosts -->\n");
   put("e2e/server.mjs", SERVER);
   put("package.json", '{"name":"world"}\n');
   put("pnpm-workspace.yaml", "packages: []\n");
@@ -186,7 +189,7 @@ function playwrightLine(args: string[]) {
 /** One run of the stand-in world, as a worker's `pnpm e2e`: no lock, no network of its own, one worker. */
 function e2e(env: Record<string, string | undefined> = {}, args: string[] = []) {
   const run: Record<string, string | undefined> = { ...process.env, CUT_LOCK_HELD: "1", E2E_NETNS: "0", E2E_WORKERS: "1", CHECK_STAMPS_DIR: stamps, FAKE_LOG: calls };
-  for (const name of ["CI", "CHECK_FRESH", "SHOTS_DIR", "E2E_SHOTS", "FAKE_BANK_PORT", "CHECK_LOG", "FAKE_PW", "FAKE_PW_TOUCH", "FAKE_BUILD", "NODE_ENV", "PWDEBUG", "PW_TEST_CONNECT_WS_ENDPOINT", "E2E_BUILD"]) delete run[name];
+  for (const name of ["CI", "CHECK_FRESH", "SHOTS_DIR", "E2E_SHOTS", "FAKE_BANK_PORT", "CHECK_LOG", "FAKE_PW", "FAKE_PW_TOUCH", "FAKE_BUILD", "FAKE_HOST", "NODE_ENV", "PWDEBUG", "PW_TEST_CONNECT_WS_ENDPOINT", "E2E_BUILD"]) delete run[name];
   run.TMPDIR = tmp; // vitest sets NODE_ENV, which the runner refuses; the build folders of a run are counted in `tmp`
   run.PLAYWRIGHT_BROWSERS_PATH = browsers("a");
   run.PATH = `${join(dir, "bin")}:${process.env.PATH}`;
@@ -209,6 +212,14 @@ describe("pnpm e2e and its stamp", { timeout: 60_000 }, () => {
     writeFileSync(`${calls}.servers`, "");
     e2e({ ...free, E2E_WORKERS: "3" }, ["e2e/a.spec.ts"]);
     expect(Math.max(...readFileSync(`${calls}.servers`, "utf8").trim().split("\n").filter(Boolean).map(Number))).toBe(3);
+  });
+
+  it("fails a run that called a host that is not on the list of docs/SECURITY.md, and lets a listed one and the machine pass", () => {
+    const bad = e2e({ FAKE_HOST: "fonts.example.net" }, ["e2e/a.spec.ts"]);
+    expect(bad.status).toBe(1);
+    expect(bad.out).toContain("NOT LISTED fonts.example.net");
+    expect(bad.out).toContain("not on the list in docs/SECURITY.md");
+    for (const host of ["api.example.com", "127.0.0.1"]) expect(e2e({ FAKE_HOST: host }, ["e2e/a.spec.ts"]).status).toBe(0);
   });
 
   it("builds, runs and stamps a whole run; the second run is a hit and starts nothing", () => {
@@ -340,7 +351,7 @@ describe("pnpm e2e and its stamp", { timeout: 60_000 }, () => {
   });
 
   it("has every name that changes what the page tests find in its key: another value is a miss, the same one a hit", () => {
-    const keyed = ["E2E_WORKERS", "TZ", "INSTANCE_NAME", "SESSION_DAYS", "HISTORY_DAYS", "PASSWORD_ITERATIONS", "TRUST_PROXY", "CF_ACCESS_AUD", "CF_ACCESS_TEAM_DOMAIN"];
+    const keyed = ["E2E_WORKERS", "TZ", "INSTANCE_NAME", "SESSION_DAYS", "HISTORY_DAYS", "PASSWORD_MEMORY_KIB", "PASSWORD_PASSES", "TRUST_PROXY", "CF_ACCESS_AUD", "CF_ACCESS_TEAM_DOMAIN"];
     e2e();
     for (const name of keyed) {
       const first = e2e({ [name]: "2" }).out;

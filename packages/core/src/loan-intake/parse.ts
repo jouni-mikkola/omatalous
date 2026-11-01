@@ -17,7 +17,7 @@
  * - A lender's name printed over "Velkoja" and a figure printed over a caption like "Maksamatta" are read from the line
  *   above when the label's own line holds no value (a lone letter or sign there is a picture), and are `check`.
  */
-import type { IsoDate, LoanKind } from "../types.ts";
+import type { LoanKind } from "../types.ts";
 import { type LoanLabelField, type LoanLabelHit, isLoanLenderLine, loanKindHeading, loanKindOfLender, loanLabelsIn } from "../wording-loan-pages.ts";
 import { type DraftFields, crossCheck, lower } from "./checks.ts";
 import { type Line, MARKS, brokenLabel, foldLine, isIcon, labelsOf, lenderCaption, toLine, wordCount } from "./labels.ts";

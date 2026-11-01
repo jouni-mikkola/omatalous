@@ -5,7 +5,7 @@
 # ── build: install, bundle (the release workflow runs the tests before it builds) ─
 # The build stage runs on the builder's own platform: its output is plain JS and static files, and an arm64 install under
 # QEMU crashed and hung the 0.7.0 and 0.8.0 release builds.
-FROM --platform=$BUILDPLATFORM node:22.23-alpine3.24 AS build
+FROM --platform=$BUILDPLATFORM node:24.22-alpine3.24 AS build
 WORKDIR /app
 RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -35,7 +35,7 @@ RUN if [ "$RUN_TESTS" = true ]; then pnpm test; fi \
  && chmod -R a+rX apps/server/dist apps/server/migrations apps/web/dist
 
 # ── runtime: one bundled JS file + static UI, no node_modules ─
-FROM node:22.23-alpine3.24
+FROM node:24.22-alpine3.24
 ENV NODE_ENV=production \
     DATA_DIR=/data \
     PORT=8080 \

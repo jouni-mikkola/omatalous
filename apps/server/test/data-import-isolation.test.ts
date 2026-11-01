@@ -4,7 +4,7 @@ import { setupApp } from "./helpers.ts";
 
 const AT = "2026-10-01T00:00:00Z";
 const HEAD = { format: "omatalous-export", version: 1, appVersion: "x", exportedAt: AT };
-type Res = { status: number; body: any }; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Res = { status: number; body: any }; // eslint-disable-line @typescript-eslint/no-explicit-any -- the body is whatever JSON the route returned
 type Who = { call: (m: string, p: string, b?: unknown) => Promise<Res> };
 type Stores = Record<string, unknown[]>;
 
@@ -37,7 +37,7 @@ const commit = async (who: Who, id: string) => {
   expect(r.status, JSON.stringify(r.body)).toBe(200);
   return r.body;
 };
-const countsOf = (plan: any, key: string) => plan.stores.find((s: { key: string }) => s.key === key); // eslint-disable-line @typescript-eslint/no-explicit-any
+const countsOf = (plan: any, key: string) => plan.stores.find((s: { key: string }) => s.key === key); // eslint-disable-line @typescript-eslint/no-explicit-any -- the plan is the route's JSON
 
 const acc = (id: string, user: string, identity: string | null, iban: string | null = null) => ({ id, user_id: user, provider: "csv", identity, name: "Oma tili", iban, currency: "EUR", type: "checking", created_at: AT });
 const tx = (id: string, account: string, merchant: string, over: Record<string, unknown> = {}) => ({
@@ -173,6 +173,16 @@ describe("what only the household's admin writes", () => {
     expect(await w.a.db.first("SELECT COUNT(*) AS n FROM household_member")).toEqual({ n: 0 });
     expect(await w.a.db.all("SELECT id, kind, day FROM valued_asset")).toEqual([{ id: "aino-asset", kind: "car", day: "2026-09-01" }]);
     expect(await w.a.db.all("SELECT scope, user_id FROM payer_role")).toEqual([{ scope: "member", user_id: w.k.id }]);
+  });
+
+  it("an admin demoted after the start of an import no longer commits household rows", async () => {
+    const w = await world(null);
+    const admin = w.a.admin;
+    const id = await upload(admin, { ...stores(), users: [{ ...kaisa, id: "U1", username: "aino", role: "admin" }] });
+    await w.a.db.run("UPDATE users SET role = 'member' WHERE id = ?", [w.a.adminId]);
+    await commit(admin, id);
+    expect(await w.a.db.first("SELECT COUNT(*) AS n FROM household_member")).toEqual({ n: 0 });
+    expect(await w.a.db.first("SELECT COUNT(*) AS n FROM valued_asset")).toEqual({ n: 0 });
   });
 
   it("an admin's file adds them; an asset id that is here with another kind or name gets a fresh id with all its days", async () => {

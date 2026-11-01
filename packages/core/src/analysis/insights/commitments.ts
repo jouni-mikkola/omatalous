@@ -12,11 +12,11 @@ import type { AnalysisContext } from "../context.ts";
 import { accountCovers } from "../coverage.ts";
 import { formatEur } from "../format.ts";
 import { fixedSeriesAt, fixedShareOn } from "../fixed-share.ts";
-import { usualIncome } from "../usual.ts";
-import type { Insight, InsightArgs } from "./types.ts";
-
-/** A change under five percentage points is ordinary movement of pay and small subscriptions (random households reach 3). */
-const MIN_POINTS = 5;
+import { expectedIncome } from "../expected.ts";
+import { MIN_FIXED_SHARE_POINTS } from "../../thresholds.ts";
+import { insightOf, REPORT } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
 /** Fixed costs a month against usual income a month. */
 interface FixedShare {
@@ -50,11 +50,11 @@ function commitmentsShareOf(ctx: AnalysisContext, end: IsoDate, inputs: UserInpu
   // account that carries a fixed cost, now or then, needs them: a card connected later would make the costs look risen
   const carriers = new Set([...series.filter(isFixedCost), ...ranThen].map((s) => parseSeriesId(s.id)?.accountId ?? ""));
   if (carriers.size && !accountCovers(ctx, carriers, addDays(yearAgo, -183))) return { now, then: null, series };
-  const then = share(fixedMonthlyCents(ranThen.map((s) => ({ ...s, active: true }))), usualIncome(ctx, monthOf(yearAgo)));
+  const then = share(fixedMonthlyCents(ranThen.map((s) => ({ ...s, active: true }))), expectedIncome(ctx, monthOf(yearAgo)));
   return { now, then, series };
 }
 
-export function commitmentsShare({ ctx, end, inputs, gateMonthlyCents }: InsightArgs): Insight[] {
+export function commitmentsShare({ ctx, end, inputs, gateMonthlyCents, lang }: InsightArgs): Insight[] {
   const share = commitmentsShareOf(ctx, end, inputs);
   if (!share.now || !share.then) return [];
   const { series } = share;
@@ -62,25 +62,26 @@ export function commitmentsShare({ ctx, end, inputs, gateMonthlyCents }: Insight
   const { fixedCents: fixedThen, incomeCents: incomeThen, pct: then } = share.then;
   const yearly = Math.round((Math.abs(now - then) / 100) * incomeNow * 12);
   // a falling share is told where it comes from: a loan that ended (stopped.ts) or a raise (income insights)
-  if (now - then < MIN_POINTS || yearly < 12 * gateMonthlyCents) return [];
+  if (now - then < MIN_FIXED_SHARE_POINTS || yearly < 12 * gateMonthlyCents) return [];
   return [
-    {
+    insightOf({
+      lang,
       id: "commitments-share",
-      tone: "warning",
-      // the words of the share's label on Raportit and Tilanne
-      title: `Kiinteät menot ${now} % tavallisista tuloista, vuosi sitten ${then} %`,
-      detail: `Kiinteät menot ${formatEur(fixedNow, false)} ja tavalliset tulot ${formatEur(incomeNow, false)} kuussa; vuosi sitten ${formatEur(fixedThen, false)} ja ${formatEur(incomeThen, false)}.`,
-      yearlyCents: yearly,
+      fact: { type: "commitments-share", percent: now, fixedCents: fixedNow, incomeCents: incomeNow },
+      comparison: { label: "yearAgo", value: q.percent(then) },
+      action: { label: "seeFixedCosts", target: { page: "reports", anchor: REPORT.fixed } },
+      yearlyCents: -yearly,
+      kind: "pattern",
       // the latest charge of each fixed cost
       rows: series.filter(isFixedCost).map((s) => s.transactionIds[s.transactionIds.length - 1]!),
       calc: [
-        { label: "Kiinteät menot kuussa", value: formatEur(fixedNow, false) },
-        { label: "Tavalliset tulot kuussa", value: formatEur(incomeNow, false) },
-        { label: "Osuus nyt", value: `${now} %` },
-        { label: "Kiinteät menot vuosi sitten", value: formatEur(fixedThen, false) },
-        { label: "Tavalliset tulot vuosi sitten", value: formatEur(incomeThen, false) },
-        { label: "Osuus vuosi sitten", value: `${then} %` },
+        { label: messageIn(lang, "calc.fixed_month"), value: formatEur(fixedNow, false, lang) },
+        { label: messageIn(lang, "calc.expected_income_month"), value: formatEur(incomeNow, false, lang) },
+        { label: messageIn(lang, "calc.share_now"), value: `${now} %` },
+        { label: messageIn(lang, "calc.fixed_year_ago"), value: formatEur(fixedThen, false, lang) },
+        { label: messageIn(lang, "calc.income_year_ago"), value: formatEur(incomeThen, false, lang) },
+        { label: messageIn(lang, "calc.share_year_ago"), value: `${then} %` },
       ],
-    },
+    }),
   ];
 }

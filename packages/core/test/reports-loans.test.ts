@@ -6,7 +6,6 @@ import { createContext } from "../src/analysis/context.ts";
 import { debtPaymentsPerMonth, loanNextPayment, loanRateScenario } from "../src/loans.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports } from "../src/reports/index.ts";
-import { loansWithout } from "../src/reports/loans.ts";
 import type { Account, Loan } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -203,11 +202,3 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
   });
 });
 
-describe("the words the report shares with Saldot and Optimoi", () => {
-  it("counts the loans a figure cannot be told of, in the case the sentence needs", () => {
-    expect(loansWithout(1, "korkoa")).toBe("yksi laina, jonka korkoa ei tiedetä");
-    expect(loansWithout(3, "maksuerää")).toBe("3 lainaa, joiden maksuerää ei tiedetä");
-    expect(loansWithout(1, "korkoa", true)).toBe("yhtä lainaa, jonka korkoa ei tiedetä");
-    expect(loansWithout(2, "korkoa", true)).toBe("2 lainaa, joiden korkoa ei tiedetä");
-  });
-});

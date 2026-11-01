@@ -286,6 +286,17 @@ Table `spending_goal`, one object per row: the user's monthly spending goal, at 
 | `monthly_cents` | integer | the goal for a month's spending, 100 to 100 000 000 |
 | `updated_at` | string |  |
 
+### categoryGoals
+
+Table `category_goal`, one object per row: the user's monthly spending goal for a category, at most one row per user and category.
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `user_id` | string |  |
+| `category` | string | `groceries`, `restaurants`, `transport` or `car` |
+| `monthly_cents` | integer | the goal for a month's spending in the category, 100 to 100 000 000 |
+| `updated_at` | string |  |
+
 ### optimiseInputs
 
 Table `optimise_inputs`, one object per row.

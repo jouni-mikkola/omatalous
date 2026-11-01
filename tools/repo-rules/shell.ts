@@ -11,7 +11,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { type Finding, ROOT } from "./lib.ts";
+import { ROOT } from "./lib.ts";
 
 /** A shell file: `.sh`, `.bash`, or a file without an extension whose first line is a shell shebang. */
 export function isShellFile(rel: string): boolean {

@@ -79,8 +79,8 @@ const PAPER: Record<string, { columns: string[]; indexes: string[] }> = {
     indexes: [],
   },
   user_factor: {
-    columns: ["id TEXT PK1", "user_id TEXT NN", "kind TEXT NN", "secret TEXT NN", "label TEXT", "last_step INTEGER", "created_at TEXT NN", "last_used_at TEXT"],
-    indexes: ["idx_user_factor_user (user_id, kind)"],
+    columns: ["id TEXT PK1", "user_id TEXT NN", "kind TEXT NN", "secret TEXT NN", "label TEXT", "last_step INTEGER", "created_at TEXT NN", "last_used_at TEXT", "credential_id TEXT", "transports TEXT", "rp_id TEXT"],
+    indexes: ["UNIQUE idx_user_factor_credential (credential_id)", "idx_user_factor_user (user_id, kind)"],
   },
   valued_asset: { columns: ["id TEXT NN PK1", "kind TEXT NN", "name TEXT NN", "day TEXT NN PK2", "cents INTEGER NN"], indexes: [] },
   contract_terms: {

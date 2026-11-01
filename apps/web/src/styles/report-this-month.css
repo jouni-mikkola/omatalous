@@ -1,0 +1,5 @@
+/* ThisMonth of Raportit (pages/reports/pages/ThisMonth.tsx): the styles of its own sections, which no other page reads. */
+@layer pages {
+.month-note { margin: var(--sp-8) 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); max-inline-size: 72ch; }
+.month-cap { margin: var(--sp-16) 0 var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text); text-align: start; }
+}

@@ -8,6 +8,8 @@ import { dashOf, keyStyle } from "./draw.ts";
 import { valueAxis } from "./scale.ts";
 import { Tooltip, TooltipRow } from "./Tooltip.tsx";
 import "../styles/charts.css";
+import { color } from "../design/tokens.ts";
+import { css } from "../css.ts";
 
 export interface PriceSeries {
   key: string;
@@ -42,14 +44,14 @@ export function PriceLine({ series, label, unit }: { series: readonly PriceSerie
         <div className="legend" aria-hidden="true">
           {series.map((s, i) => (
             <span key={s.key}>
-              <i className="line-key" style={keyStyle(s.color, dashOf(i))} />
+              <i className="line-key" ref={css(keyStyle(s.color, dashOf(i)))} />
               {s.label}
             </span>
           ))}
         </div>
       )}
       {width > 0 && (
-        <svg width={width} height={HEIGHT} role="img" aria-label={label}>
+        <svg width={width} height={HEIGHT} role="group" aria-label={label}>
           <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
             <ValueAxis ticks={axis.ticks} y={y} width={innerW} height={innerH} label={(t) => `${money(t)}`} />
             <text className="axis-note" x={0} y={innerH + 20}>
@@ -73,7 +75,7 @@ export function PriceLine({ series, label, unit }: { series: readonly PriceSerie
                         cx={x(p.day)}
                         cy={y(p.cents)}
                         r={changed || on ? 4.5 : 2.5}
-                        fill={changed ? "var(--surface)" : s.color}
+                        fill={changed ? color.surface : s.color}
                         stroke={s.color}
                         strokeWidth={changed ? 2 : 0}
                         tabIndex={0}

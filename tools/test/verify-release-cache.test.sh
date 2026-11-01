@@ -20,6 +20,7 @@ R=$TMP/repo BIN=$TMP/bin PLAY=$TMP/play
 mkdir -p "$R/tools/ci" "$R/scripts/lib" "$R/.github" "$BIN" "$PLAY"
 cp "$REPO/tools/ci/verify-release.sh" "$R/tools/ci/"
 cp "$REPO/scripts/lib/release.sh" "$R/scripts/lib/"
+mkdir -p "$R/tools/lib"; cp "$REPO/tools/lib/project.sh" "$R/tools/lib/"; cp "$REPO/project.json" "$R/"
 git -C "$R" init -q
 git -C "$R" -c user.name=t -c user.email=t@t add -A
 git -C "$R" -c user.name=t -c user.email=t@t commit -q -m base

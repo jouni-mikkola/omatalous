@@ -6,6 +6,8 @@
  */
 import {
   addMonths,
+  DEFAULT_LANGUAGE,
+  type Language,
   allFindings,
   baselineOf,
   buildOptimise,
@@ -59,7 +61,7 @@ const ownersOf = (userId: string, accounts: readonly { userId: string }[]) => [.
 const viewOf = (scope: Scope): View => (scope === "own" ? "used" : scope);
 
 /** What the page and the evidence are built from, for the signed-in user. */
-async function compute(s: Services, userId: string, scope: Scope, without?: string) {
+async function compute(s: Services, userId: string, scope: Scope, lang: Language, without?: string) {
   const repo = s.finance(userId);
   const { ctx, accounts } = await s.analysis.get(s, userId, viewOf(scope));
   const [{ balances, inputs }, inputRows, states, codes] = await Promise.all([requestInputs(s, userId, accounts), repo.listInputs(), repo.listStates(), repo.industryCodes(ownersOf(userId, accounts))]);
@@ -68,16 +70,16 @@ async function compute(s: Services, userId: string, scope: Scope, without?: stri
   const merchants = new Set(ctx.txs.map((t) => t.merchant));
   const industry = new Map([...codes].filter(([merchant]) => merchants.has(merchant)).flatMap(([merchant, { code }]): [string, string][] => (code ? [[merchant, code]] : [])));
   // a state is left out when the finding it names is wanted as the frame sees it before the decision
-  const data = buildOptimise({ ctx, balances, inputs, values, states: without ? states.filter((st) => st.findingId !== without) : states, industry });
+  const data = buildOptimise({ ctx, balances, inputs, values, states: without ? states.filter((st) => st.findingId !== without) : states, industry, lang });
   return { ctx, accounts, data, inputRows, states, balances, inputs };
 }
 
 /**
  * The stored snapshots for the follow-up, newest first, and this month's written on its first visit. Only the own
  * view keeps them: the table has one row per user and month, and the household view shows other findings. Neither
- * a failed read nor a failed write stops the page; it then shows no changes.
+ * a failed read nor a failed write stops the page; it then shows no changes. A service token only reads (`store` false).
  */
-async function snapshots(s: Services, userId: string, entries: SnapshotEntry[]): Promise<{ previous: Snapshot | null; line: Snapshot[] }> {
+async function snapshots(s: Services, userId: string, entries: SnapshotEntry[], store: boolean): Promise<{ previous: Snapshot | null; line: Snapshot[] }> {
   const repo = s.finance(userId);
   const month = monthOf(s.today());
   const current: Snapshot = { month, entries };
@@ -90,7 +92,7 @@ async function snapshots(s: Services, userId: string, entries: SnapshotEntry[]):
       stored.push({ month: row.month, entries: parseSnapshot(row.data) });
       at = addMonths(row.month, -1);
     }
-    if (stored[0]?.month !== month) {
+    if (store && stored[0]?.month !== month) {
       try {
         await repo.putSnapshot(month, entries, isoIn(s.instance.current.timezone, s.now()));
       } catch (err) {
@@ -110,28 +112,28 @@ async function snapshots(s: Services, userId: string, entries: SnapshotEntry[]):
  * The page: the findings, the checks, what is missing, the viewer's inputs and decisions, the changes since the last
  * snapshot and the follow-up of done decisions. The first visit of a month stores its snapshot.
  */
-export async function optimisePage(s: Services, userId: string, scope: Scope): Promise<OptimiseResponse> {
-  const { ctx, data, inputRows, states, balances, inputs } = await compute(s, userId, scope);
+export async function optimisePage(s: Services, userId: string, scope: Scope, lang: Language, store = true): Promise<OptimiseResponse> {
+  const { ctx, data, inputRows, states, balances, inputs } = await compute(s, userId, scope, lang);
   const entries = snapshotOf(data, states);
-  const { previous, line } = scope === "own" ? await snapshots(s, userId, entries) : { previous: null, line: [] };
+  const { previous, line } = scope === "own" ? await snapshots(s, userId, entries, store) : { previous: null, line: [] };
   const changes = previous ? changesSince(previous.entries, entries) : [];
-  return { data, inputs: inputRows, states, changes, followUp: followUpOf(ctx, data, line), rates: loanRatesOf(balances, inputs, ctx.today) };
+  return { data, inputs: inputRows, states, changes, followUp: followUpOf(ctx, data, line, lang), rates: loanRatesOf(balances, inputs, ctx.today) };
 }
 
 /**
  * The inputs Säästövinkit waits for, asked in Tarkistettavat: each with the money it is about, the largest mid of a
  * tip that a value would make exact, 0 when only a check waits for it. Saving one never reprocesses (`setInput`).
  */
-export async function neededInputs(s: Services, userId: string): Promise<(NeededInput & { cents: number })[]> {
-  const { data } = await compute(s, userId, "own");
+export async function neededInputs(s: Services, userId: string, lang: Language = DEFAULT_LANGUAGE): Promise<(NeededInput & { cents: number })[]> {
+  const { data } = await compute(s, userId, "own", lang);
   const mids = new Map<string, number>();
   for (const f of data.areas.flatMap((a) => a.findings)) for (const key of f.needs ?? []) mids.set(key, Math.max(mids.get(key) ?? 0, f.euros?.midCents ?? 0));
   return data.needed.map((n) => ({ ...n, cents: mids.get(n.key) ?? 0 }));
 }
 
 /** The finding recomputed: its calc, the rows it stands on and the monthly sums of what it measures. */
-export async function optimiseEvidence(s: Services, userId: string, scope: Scope, id: string): Promise<EvidenceResponse> {
-  const { ctx, accounts, data } = await compute(s, userId, scope);
+export async function optimiseEvidence(s: Services, userId: string, scope: Scope, id: string, lang: Language): Promise<EvidenceResponse> {
+  const { ctx, accounts, data } = await compute(s, userId, scope, lang);
   const finding = allFindings(data).find((f) => f.id === id);
   if (!finding) throw new NotFound("Vinkkiä ei löydy.");
   const byId = rowsById(ctx);
@@ -145,10 +147,10 @@ export async function optimiseEvidence(s: Services, userId: string, scope: Scope
 }
 
 /** One value per key; a later one replaces the earlier and takes today's date. */
-export async function setInput(s: Services, userId: string, scope: Scope, key: string, value: unknown) {
+export async function setInput(s: Services, userId: string, scope: Scope, key: string, value: unknown, lang: Language) {
   const found = inputDefOf(key);
   if (!found) throw new UserError("Tuntematon tieto.");
-  const parsed = parseInputValue(found.def, value, s.today());
+  const parsed = parseInputValue(found.def, value, s.today(), lang);
   if (!parsed.ok) throw new UserError(parsed.error);
   if (found.subject !== null) {
     // a quote belongs to a subscription or bill the history has found, in the scope the page is showing
@@ -174,7 +176,7 @@ export async function deleteInput(s: Services, userId: string, key: string) {
  * Done, dismissed or snoozed; null takes the decision back. The finding must be one the page can show now or a
  * decision already stored. Its mid and, for done, the baseline come from the finding computed here, never from the request.
  */
-export async function decide(s: Services, userId: string, scope: Scope, id: string, request: StateRequest) {
+export async function decide(s: Services, userId: string, scope: Scope, id: string, request: StateRequest, lang: Language) {
   const repo = s.finance(userId);
   const stored = await repo.listStates();
   const known = stored.some((st) => st.findingId === id);
@@ -183,7 +185,7 @@ export async function decide(s: Services, userId: string, scope: Scope, id: stri
     return { states: await repo.listStates() };
   }
   // the finding as it is without this decision: a snoozed one is hidden while its state stands
-  const { ctx, data } = await compute(s, userId, scope, id);
+  const { ctx, data } = await compute(s, userId, scope, lang, id);
   const finding = allFindings(data).find((f) => f.id === id);
   if (!finding) throw new NotFound("Vinkkiä ei löydy.");
   if (request.status !== null) {

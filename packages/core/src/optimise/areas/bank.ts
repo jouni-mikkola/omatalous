@@ -5,13 +5,15 @@
  */
 import { isBankFee, isLateFee, isLateFeeAlone } from "../../analysis/fees.ts";
 import { type AnalysisTx, netPurchase } from "../../analysis/context.ts";
-import { formatEur, formatFiDate } from "../../analysis/format.ts";
+import { formatEur, formatFiDate, formatFiRange } from "../../analysis/format.ts";
+import type { Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import { monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import type { Account } from "../../types.ts";
-import { annualise, findingId, WHY_FACTS, GATE_YEARLY_CENTS, netCost, rowsById } from "../common.ts";
-import { type Fact, factOn } from "../facts/index.ts";
+import { annualise, findingId, whyFacts, GATE_YEARLY_CENTS, netCost, rowsById } from "../common.ts";
+import { type Fact, factLabel, factOn } from "../facts/index.ts";
 import type { Area, AreaInput, AreaSummary, CalcLine, Check, FindingDraft } from "../types.ts";
 import { isCardText, isNordeaAccount } from "../../wording.ts";
 
@@ -22,7 +24,7 @@ const TIERS = ["gold", "platinum"] as const;
 /** A card price charged this many times in a row is the card's fee, not a coincidence. */
 const MIN_CHARGES = 6;
 /** Debit and Credit cost the same, so a 2,99 fee off the card's own account is either. */
-const DEBIT_OR_CREDIT = "Nordea Debit- tai Credit-kortti";
+const debitOrCredit = (lang: Language) => messageIn(lang, "opt.bank_debit_or_credit");
 /** A fee at one amount on one account in this many months is a monthly price, not a one-off. */
 const MIN_LINE_MONTHS = 2;
 /** A reminder fee or collection cost is tens of euros; a larger row pays something else too. */
@@ -34,7 +36,7 @@ const priceFact = (line: string, today: string) => factOn(`nordea_price:${line}`
 /** Nordea's price list applies: by the IBAN, and for a card, which has none, by the bank of its connection. */
 const isNordea = (a: Account | undefined) => !!a && isNordeaAccount(a);
 
-const listDate = (f: Fact) => formatFiDate(f.validFrom);
+const listDate = (f: Fact, lang: Language) => formatFiDate(f.validFrom, lang);
 
 /** A fixed monthly bank fee series: the shape a card or account price takes. */
 const isMonthlyFee = (s: RecurringSeries) => s.active && s.kind === "subscription" && s.cadence === "monthly" && s.category === "fees";
@@ -61,6 +63,7 @@ function latestRun(s: RecurringSeries, byId: ReadonlyMap<string, AnalysisTx>, ce
 }
 
 function cardTiers(a: AreaInput, w: Window | null): FindingDraft[] {
+  const lang = a.lang;
   const credit = priceFact("credit", a.today);
   if (!w || !credit) return [];
   const byId = rowsById(a.ctx);
@@ -92,19 +95,19 @@ function cardTiers(a: AreaInput, w: Window | null): FindingDraft[] {
         area: "bank",
         kind: "card_tier",
         subject: s.id,
-        title: `${fact.label}: ${formatEur(fact.value)} kuussa, ${credit.label} ${formatEur(credit.value)}. Ero on ${formatEur(yearly, false)} vuodessa.`,
-        action: `Vaihda kortti ${credit.label.replace(/ -kortti$/, " -korttiin")}.`,
+        title: messageIn(lang, "opt.bank_tier_title", { card: factLabel(fact, lang), fee: formatEur(fact.value, true, lang), credit: factLabel(credit, lang), creditFee: formatEur(credit.value, true, lang), yearly: formatEur(yearly, false, lang) }),
+        action: messageIn(lang, "opt.bank_tier_action", { card: lang === "en" ? factLabel(credit, lang) : credit.label.replace(/ -kortti$/, " -korttiin") }),
         euros: { lowCents: yearly, midCents: yearly, highCents: yearly },
         decideBy: null,
-        weaknesses: [{ id: "estimate", reason: "Kortin lisäetujen arvoa ei ole tiedoissa." }],
+        weaknesses: [{ id: "estimate", reason: messageIn(lang, "opt.bank_tier_weak") }],
         shared: false,
         calc: [
-          { label: `Kortin maksu tililtä ${account.name}`, value: formatEur(fact.value) },
-          { label: "Veloituksia tällä hinnalla", value: String(run.length) },
-          { label: `${fact.label}, hinnasto ${listDate(fact)}`, value: `${formatEur(fact.value)}/kk` },
-          { label: `${credit.label}, hinnasto ${listDate(credit)}`, value: `${formatEur(credit.value)}/kk` },
-          { label: `Ostot kortilla ${formatFiDate(w.from)}–${formatFiDate(w.to)}`, value: formatEur(bought, false) },
-          { label: "Ero vuodessa", value: formatEur(yearly, false) },
+          { label: messageIn(lang, "opt.bank_card_fee", { account: account.name }), value: formatEur(fact.value, true, lang) },
+          { label: messageIn(lang, "opt.bank_charges_price"), value: String(run.length) },
+          { label: messageIn(lang, "opt.bank_list_line", { card: factLabel(fact, lang), date: listDate(fact, lang) }), value: `${formatEur(fact.value, true, lang)}${lang === "en" ? "/mo" : "/kk"}` },
+          { label: messageIn(lang, "opt.bank_list_line", { card: factLabel(credit, lang), date: listDate(credit, lang) }), value: `${formatEur(credit.value, true, lang)}${lang === "en" ? "/mo" : "/kk"}` },
+          { label: messageIn(lang, "opt.bank_bought", { span: formatFiRange(w.from, w.to, lang) }), value: formatEur(bought, false, lang) },
+          { label: messageIn(lang, "opt.bank_diff"), value: formatEur(yearly, false, lang) },
         ],
         rows: run.map((t) => t.id),
         struck: [],
@@ -118,6 +121,7 @@ function cardTiers(a: AreaInput, w: Window | null): FindingDraft[] {
 }
 
 function lateFees(a: AreaInput, w: Window | null): FindingDraft[] {
+  const lang = a.lang;
   if (!w) return [];
   const all = a.ctx.txs.filter((t) => w.months.has(monthOf(t.bookingDate)) && isLateFee(t) && netCost(t) > 0);
   // only a fee alone counts: a row that also pays the bill or the debt, or is over 100 €, is listed struck
@@ -131,15 +135,15 @@ function lateFees(a: AreaInput, w: Window | null): FindingDraft[] {
   for (const t of rows) byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + netCost(t));
   const merchants = [...byMerchant].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
   const last = rows.reduce((d, t) => (t.bookingDate > d ? t.bookingDate : d), "");
-  const count = rows.length === 1 ? "1 veloitus" : `${rows.length} veloitusta`;
+  const count = rows.length === 1 ? messageIn(lang, "opt.bank_count_one") : messageIn(lang, "opt.bank_count_many", { n: rows.length });
   const calc: CalcLine[] = [
-    ...merchants.slice(0, 5).map(([m, cents]) => ({ label: m, value: formatEur(cents) })),
-    ...(merchants.length > 5 ? [{ label: "Muut", value: formatEur(merchants.slice(5).reduce((sum, [, c]) => sum + c, 0)) }] : []),
-    { label: `Yhteensä ${formatFiDate(w.from)}–${formatFiDate(w.to)}`, value: formatEur(total, false) },
-    ...(year.months < 12 ? [{ label: `Vuodessa, laskettu ${year.months} kuukaudesta`, value: formatEur(year.yearlyCents, false) }] : []),
-    { label: "Veloituksia", value: String(rows.length) },
-    { label: "Viimeisin veloitus", value: formatFiDate(last) },
-    ...(left.length ? [{ label: "Jätetty pois: lasku mukana tai yli 100 €", value: formatEur(left.reduce((sum, t) => sum + netCost(t), 0)), struck: true }] : []),
+    ...merchants.slice(0, 5).map(([m, cents]) => ({ label: m, value: formatEur(cents, true, lang) })),
+    ...(merchants.length > 5 ? [{ label: messageIn(lang, "opt.bank_others"), value: formatEur(merchants.slice(5).reduce((sum, [, c]) => sum + c, 0), true, lang) }] : []),
+    { label: messageIn(lang, "opt.bank_total_span", { span: formatFiRange(w.from, w.to, lang) }), value: formatEur(total, false, lang) },
+    ...(year.months < 12 ? [{ label: messageIn(lang, "opt.bank_yearly_from", { n: year.months }), value: formatEur(year.yearlyCents, false, lang) }] : []),
+    { label: messageIn(lang, "opt.bank_charges"), value: String(rows.length) },
+    { label: messageIn(lang, "opt.bank_last"), value: formatFiDate(last, lang) },
+    ...(left.length ? [{ label: messageIn(lang, "opt.bank_left_out"), value: formatEur(left.reduce((sum, t) => sum + netCost(t), 0), true, lang), struck: true }] : []),
   ];
   return [
     {
@@ -147,8 +151,8 @@ function lateFees(a: AreaInput, w: Window | null): FindingDraft[] {
       area: "bank",
       kind: "late_fees",
       subject: null,
-      title: `Myöhästymiskuluja ${formatEur(year.yearlyCents, false)} vuodessa, ${count}. Viimeisin ${formatFiDate(last)}.`,
-      action: "Maksa laskut viimeistään eräpäivänä.",
+      title: messageIn(lang, "opt.bank_late_title", { yearly: formatEur(year.yearlyCents, false, lang), count, date: formatFiDate(last, lang) }),
+      action: messageIn(lang, "opt.bank_late_action"),
       euros: { lowCents: year.yearlyCents, midCents: year.yearlyCents, highCents: year.yearlyCents },
       decideBy: null,
       weaknesses: year.weakness ? [year.weakness] : [],
@@ -169,21 +173,22 @@ function lateFees(a: AreaInput, w: Window | null): FindingDraft[] {
  * The price list line of fees at `cents` on `account`, or null. The account and the price must agree: the account and
  * banking id fees on the checking account, a card price on the card's own account or with card text in the message.
  */
-function priceLineOf(cents: number, account: Account | undefined, cardText: boolean, today: string): string | null {
+function priceLineOf(cents: number, account: Account | undefined, cardText: boolean, today: string, lang: Language): string | null {
   if (!account || !isNordea(account)) return null;
   const matches = PRICE_LINES.filter((line) => {
     const f = priceFact(line, today);
     if (!f || f.value !== cents) return false;
     return CARD_LINES.has(line) ? account.type === "credit_card" || cardText : account.type === "checking";
   });
-  if (matches.length <= 1) return matches[0] ? priceFact(matches[0], today)!.label : null;
+  if (matches.length <= 1) return matches[0] ? factLabel(priceFact(matches[0], today)!, lang) : null;
   // Debit and Credit share a price: on the card's own account it is the Credit card
-  return account.type === "credit_card" ? priceFact("credit", today)!.label : DEBIT_OR_CREDIT;
+  return account.type === "credit_card" ? factLabel(priceFact("credit", today)!, lang) : debitOrCredit(lang);
 }
 
 /** Bank fees of the window by price list line; no saving claimed. Absent without a fee in the window. */
 function feeSummary(a: AreaInput, w: Window | null): AreaSummary | undefined {
   if (!w) return undefined;
+  const lang = a.lang;
   const rows = a.ctx.txs.filter((t) => w.months.has(monthOf(t.bookingDate)) && isBankFee(t));
   if (!rows.length) return undefined;
   const accounts = new Map(a.ctx.accounts.map((acc) => [acc.id, acc]));
@@ -198,18 +203,18 @@ function feeSummary(a: AreaInput, w: Window | null): AreaSummary | undefined {
   for (const group of groups.values()) {
     if (new Set(group.map((t) => monthOf(t.bookingDate))).size < MIN_LINE_MONTHS) continue;
     const cardText = group.some((t) => isCardText(fold(t.description ?? "")));
-    const label = priceLineOf(-group[0]!.amountCents, accounts.get(group[0]!.accountId), cardText, a.today);
+    const label = priceLineOf(-group[0]!.amountCents, accounts.get(group[0]!.accountId), cardText, a.today, lang);
     if (label) for (const t of group) labelOf.set(t.id, label);
   }
   const sums = new Map<string, number>();
   for (const t of rows) {
-    const label = t.category === "interest" ? "Korot" : (labelOf.get(t.id) ?? "Muut pankkikulut");
+    const label = t.category === "interest" ? messageIn(lang, "opt.bank_interest") : (labelOf.get(t.id) ?? messageIn(lang, "opt.bank_other_fees"));
     sums.set(label, (sums.get(label) ?? 0) + t.spend);
   }
-  const order = [...PRICE_LINES.map((line) => priceFact(line, a.today)?.label ?? ""), DEBIT_OR_CREDIT, "Muut pankkikulut", "Korot"];
-  const lines = [...sums].sort((x, y) => order.indexOf(x[0]) - order.indexOf(y[0])).map(([label, cents]) => ({ label, value: formatEur(cents, false) }));
+  const order = [...PRICE_LINES.map((line) => { const f = priceFact(line, a.today); return f ? factLabel(f, lang) : ""; }), debitOrCredit(lang), messageIn(lang, "opt.bank_other_fees"), messageIn(lang, "opt.bank_interest")];
+  const lines = [...sums].sort((x, y) => order.indexOf(x[0]) - order.indexOf(y[0])).map(([label, cents]) => ({ label, value: formatEur(cents, false, lang) }));
   const total = rows.reduce((sum, t) => sum + t.spend, 0);
-  return { title: `Pankkikulut ${formatFiDate(w.from)}–${formatFiDate(w.to)}`, lines: [...lines, { label: "Yhteensä", value: formatEur(total, false) }] };
+  return { title: messageIn(lang, "opt.bank_sum_title", { span: formatFiRange(w.from, w.to, lang) }), lines: [...lines, { label: messageIn(lang, "opt.bank_total"), value: formatEur(total, false, lang) }] };
 }
 
 export const bank: Area = {
@@ -221,8 +226,8 @@ export const bank: Area = {
     const hasFee = a.ctx.recurring.some(isMonthlyFee);
     const hasLate = !!w && a.ctx.txs.some((t) => w.months.has(monthOf(t.bookingDate)) && isLateFee(t) && netCost(t) > 0);
     const checks: Check[] = [
-      { id: "bank:card_tier", label: "Kortin hintataso", status: !list ? "no_data" : hasFee ? "clear" : "no_subject", ...(!list ? { why: WHY_FACTS } : {}) },
-      { id: "bank:late_fees", label: "Myöhästymiskulut", status: hasLate ? "clear" : "no_subject" },
+      { id: "bank:card_tier", label: messageIn(a.lang, "opt.bank_chk_tier"), status: !list ? "no_data" : hasFee ? "clear" : "no_subject", ...(!list ? { why: whyFacts(a.lang) } : {}) },
+      { id: "bank:late_fees", label: messageIn(a.lang, "opt.bank_chk_late"), status: hasLate ? "clear" : "no_subject" },
     ];
     const summary = feeSummary(a, w);
     return { findings: [...cardTiers(a, w), ...lateFees(a, w)], checks, ...(summary ? { summary } : {}) };

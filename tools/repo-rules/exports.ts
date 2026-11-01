@@ -7,7 +7,7 @@
  * only shrinks: an entry that is read, or gone, fails too. A folder the public tree leaves out keeps its entries in an
  * unread-exports.txt of its own, so the public list names none of its files.
  */
-import ts from "typescript";
+import ts from "typescript6";
 import { isTestFile, lineOf } from "./lib.ts";
 
 /** Where an export must be read: the sources of the product, and the findings tool that runs core. */

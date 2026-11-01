@@ -27,6 +27,7 @@ flowchart LR
   browser -->|"http, home network only"| app
   app -->|"HTTPS: your transactions and balances, bank logos"| eb["Enable Banking API"]
   app -.->|"HTTPS: business names only, can be turned off"| prh["PRH trade register"]
+  app -.->|"HTTPS: asks for the public price index, off until you turn it on"| stat["Statistics Finland"]
   helper -.->|"HTTPS: hourly version check, update when you press Päivitä"| gh["GitHub and ghcr.io<br/>signed releases"]
   browser -->|"bank login, every 180 days"| bank["Nordea login<br/>via Enable Banking"]
   bank -->|"after the login"| relay["Return page<br/>github.io"]
@@ -64,7 +65,11 @@ flowchart LR
 - Strict headers on every response: a Content-Security-Policy that allows only the app's own files,
   `frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, HSTS, and `Cache-Control: no-store` on the API.
   Its `script-src` has `'wasm-unsafe-eval'` so that the picture reader of Asetukset > Lainat, a WebAssembly module
-  the app serves itself, can run in the browser; the token allows no `eval` and no inline script. A served bank logo
+  the app serves itself, can run in the browser; the token allows no `eval` and no inline script. Its `style-src` is `'self'` alone: the web app carries no style attribute
+  (repo rule 45), and a value computed at run time is set through the CSSOM, which the policy does not block. The policy is
+  what stops injected markup from styling the page (a style attribute or a style element in HTML); rule 45 keeps the app's own code
+  inside it. One known gap: on iOS Safari react-aria's scroll lock adds a style element when a menu opens, the policy blocks it, and the
+  page behind the menu may scroll. A served bank logo
   has a stricter policy of its own (`default-src 'none'`, no framing and a sandbox, so opened on its own it can load
   and run nothing) and is the one API answer a browser may keep, for a day. It is passed on as fetched, an SVG
   included, and the headers are what make a browser only draw it.
@@ -72,6 +77,47 @@ flowchart LR
   manifest from the app's own address need no new source). The service worker keeps the app's own files and never an
   `/api/` answer, so its cache holds nothing of a household. It does not touch the session cookie either. The figures
   kept for offline use are the page's own, listed under "Copies and how long they live".
+
+## Outside parties
+
+The only hosts the app and your browser call are the bank connection, the return page after the bank login and the
+services you turn on yourself. There is no analytics, no font or script from a CDN and no telemetry. This table is the
+list: `pnpm e2e` writes down every host the server and the browser call and fails on a host that is not here. `host`
+names that host only, `*.host` the host and its subdomains. The run allows the machine itself (`127.0.0.1`, `localhost`,
+`::1`) and the host of its fake bank by name, and no other. The sign-in hosts of the banks are those of
+`connectors/enable-banking/banks.ts` (a test holds the two together). The maintenance helper's calls to GitHub and
+`ghcr.io` run on the host, outside the app, and are under [Third parties](#third-parties).
+
+<!-- outside-hosts -->
+| Host | Called by | Why |
+|---|---|---|
+| `api.enablebanking.com` | server | The bank connection: token, accounts, balances, transactions. Always. |
+| `*.enablebanking.com` | server | Bank logos, fetched once per bank (https only, no redirect). |
+| `jouni-mikkola.github.io` | browser | The return page after a bank login from an http address. Static, no scripts of others. |
+| `avoindata.prh.fi` | server | Trade register lookup of business names. Can be turned off. |
+| `statfin.stat.fi` | server | The published consumer price index, for the price comparison of Kiinteät menot. The request names the public series and carries nothing of the household. Only if you turn it on. [opt-in: price-index] |
+| `api.cloudflare.com` | server | Etäkäyttö page, with the token you saved there. Only if you use it. |
+| `*.cloudflareaccess.com` | server | The keys of your Access team, for the check behind Cloudflare Access. Only if you turn it on. |
+| The machine you name | server | Backup to another machine: an encrypted copy over SFTP (OpenSSH, port you choose, host key trusted on first use) to the host and folder you enter on Asetukset > Palvelin. Only if you turn it on; nothing leaves before you give a target. The copy is encrypted with age on the host before it is sent. [opt-in: offsite] |
+| `ntfy.sh` | server | Notices outside the browser, if you turn them on and enter an ntfy topic. A webhook address you enter is called instead, and is yours to choose. [opt-in: notices] |
+| `*.aktia.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.alandsbanken.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.banknorwegian.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.danskebank.com` | browser | Sign-in page of the bank, during the bank login. |
+| `*.danskebank.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.eurocard.com` | browser | Sign-in page of the bank, during the bank login. |
+| `*.holvi.com` | browser | Sign-in page of the bank, during the bank login. |
+| `*.morrowbank.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.my.spendwise.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.nordea.com` | browser | Sign-in page of the bank, during the bank login. |
+| `*.nordea.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.omasp.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.op.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.poppankki.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.resursbank.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.s-pankki.fi` | browser | Sign-in page of the bank, during the bank login. |
+| `*.saastopankki.fi` | browser | Sign-in page of the bank, during the bank login. |
+<!-- /outside-hosts -->
 
 ## A copy on the internet
 
@@ -153,7 +199,7 @@ maintenance helper is current. The installer's script path does the same and sta
 
 ## Login
 
-- Passwords: PBKDF2-HMAC-SHA256 with 600 000 iterations and a random salt. At least 12 characters.
+- Passwords: Argon2id (19 MiB, 2 passes, 1 lane, random salt; the cost is set in `Asetukset`, `docs/ADVANCED.md`). A PBKDF2 hash from an earlier version still signs in and is rewritten as Argon2id at that sign-in. At least 12 characters.
 - Sessions: a random 256-bit token in an HttpOnly, SameSite=Lax cookie (Secure over https). The database
   stores its SHA-256 only. Sessions expire after 30 days without use.
 - Logins are counted before the password hash runs, so parallel guesses cannot slip past the limit. The limits per 15
@@ -167,6 +213,17 @@ maintenance helper is current. The installer's script path does the same and sta
   then counted in a spare of 1 000 entries with the same limits. An address or name has one count, in the limit or in
   its spare, so the spare allows no extra guesses and ends no lockout. Only a correct password gets an address
   remembered. Unknown user names take the same time to check as real ones, and only a few hashes run at once.
+- Second factor: a member can turn on an authenticator app code (TOTP, RFC 6238; the seed is sealed with the user id as
+  AAD and never returned), passkeys (WebAuthn, checked with `@simplewebauthn/server`, [ADR 0024](adr/0024-webauthn-library.md)),
+  or both. A passkey is asked after the password and never replaces it; attestation is not requested and the public key
+  is all the app stores. The rp id and origin are the host and origin of the install's address, so a passkey needs an
+  https address, or the name `localhost`, and the Passkey card says so on a home network address. Recovery codes are
+  stored as hashes. Every try is counted by the limiters before it is checked. Turning on, removal, use and failure
+  of each are security events (`factor_on`, `factor_off`, `passkey_added`, `passkey_removed`, `passkey_used`, and
+  `login_fail` with the detail `passkey`).
+- A public address (the tunnel or the installer's own domain) needs a second factor of every admin: *Etäkäyttö* refuses
+  to turn on without it, names the admins who lack one and records `remote_access_failed`. While the address is public
+  an admin keeps a second factor, so the last one cannot be removed until remote access is off.
 - Failed logins, lockouts, logins from a new device, password changes and resets, signed-out sessions and member
   changes are recorded as security events with the time, IP address and browser of the request. The admin sees them
   under *Asetukset*. Events are kept 90 days, at most 2 000. A member sees a notice after a login from a new device
@@ -178,7 +235,7 @@ maintenance helper is current. The installer's script path does the same and sta
   works for 24 hours, and the page then says *Asennuskoodi on vanhentunut.* A new one comes from the command
   `setup-code` in the app container. A fixed `SETUP_CODE` from `.env` does not expire and must have at least 16
   characters; a shorter one is not used and a generated code works instead.
-- New members get a temporary password that must be changed before anything else.
+- New members get a temporary password that must be changed before anything else. The change asks only the new password and is taken only in the session of that sign-in, within 10 minutes of it (`POST /api/auth/first-password`); a later try ends the session. It is a `password_changed` event with the detail *ensimmäinen salasana*.
 - Service tokens (`Authorization: Bearer omt_…`, ADVANCED.md#service-tokens) give a script or an agent read access to one
   user's data. They are made only on the command line, stored as SHA-256, end within 90 days, carry a member's rights
   whatever the user's role, and reach only an allowlist of GET routes; anything else is 403. Use is logged once an hour
@@ -209,6 +266,7 @@ maintenance helper is current. The installer's script path does the same and sta
 | Household bank key | database | Created on the server with WebCrypto, or uploaded. Encrypted at once with AES-256-GCM (key derived from `app_secret` with HKDF). Only the public certificate ever leaves the server. |
 | Members' own bank keys | database | Same, with the user id as additional data, so a copied value does not decrypt on another row. |
 | Cloudflare API token saved on the Etäkäyttö page | database (`settings`, key `instance_cloudflare`) | Encrypted at once with AES-256-GCM and the context `instance:cloudflare`. Never returned. `secret rotate` seals it again, and it sits in database backups in sealed form. |
+| Address and token of the notices outside the browser | database (`settings`, key `instance_notices`) | Encrypted at once with AES-256-GCM and the context `instance:notices`, rotated with the app secret. Never returned or logged. |
 | `.env` | disk, mode 600 | Holds no bank keys. The Cloudflare tunnel token is here because cloudflared reads it; the app container does not get it. It also holds the Access pair (`CF_ACCESS_AUD`, `CF_ACCESS_TEAM_DOMAIN`), which are not secrets. |
 
 Secrets never appear in `docker inspect`, in logs or in API responses. Raw bank payloads stay on the server.
@@ -373,7 +431,7 @@ found gives the category. An unclear match is left alone.
   damaged file, because a stop at start would loop. Both cases are security events (*Tietokanta palautettu
   varmuuskopiosta*, *Tietokanta vaurioitunut*) and a notice to every admin. The app never empties `/data/damaged`, and
   the files in it hold transactions in plain text.
-- *Palauta uusin varmuuskopio* and *Tyhjennä kaikki tiedot* in *Asetukset > Tekniset asetukset > Ylläpito* change the database itself.
+- *Palauta* on a row of *Varmuuskopiot* and *Tyhjennä kaikki tiedot* in *Asetukset > Palvelin ja ylläpito* change the database itself.
   Each asks for the admin's password again and a typed word (`PALAUTA`, `TYHJENNÄ`), and is recorded as a security event
   with the asker's name. Neither goes through the host helper. A restore writes a marker, `/data/.restore-request`, which
   holds the file name of a copy in `/data/backups` and the asker's id. The app then ends itself as `docker stop` does,
@@ -517,6 +575,8 @@ elsewhere keep them until you delete those. Free pages in the database file are 
 
 - Enable Banking and Nordea hold the consent and their own logs, for up to 180 days.
 - The Finnish trade register (PRH) sees the names of businesses you pay and your IP address, unless the lookup is off.
+- Statistics Finland sees your IP address once a day, if you turn on the price index under Asetukset > Palvelin. The
+  request names the public series (table 11xs) and carries no data of the household.
 - GitHub sees your IP address when the helper checks for a release once an hour (an install that follows its source
   branch runs a `git fetch` against its remote at the same hourly check, and that remote sees the address instead), and
   `ghcr.io` and Sigstore when an image is pulled and checked. GitHub Pages sees the request for the return page.
@@ -560,6 +620,13 @@ The project publishes software and is not the controller of the data in anyone's
 6. A malicious release suspected: disable the helper (`systemctl --user disable --now talous-ops-<name>.timer`), do not
    update and report it, see [SECURITY.md](../SECURITY.md).
 7. A stolen machine: do step 4 and assume the disk is readable unless it is encrypted.
+
+## Audit
+
+The Version 1.0 audit was made on 30 October 2026 and covered the code, the host scripts, the compose file, the image
+build and the workflows, as listed in `docs/security-audit-2026-10.md`. It found no critical issue; the major and
+minor ones are fixed with tests, or have a written reason in the report. A scan of the image is not part of it. The
+next audit is due before the next major version, or after a change to sign-in, the sealed keys or the host helper.
 
 ## Checked by tests
 

@@ -232,6 +232,7 @@ describe("check --changed: tests that read a changed file as text", () => {
       "apps/server/test/by-name.test.ts": 'join(dir, "legacy.css")',
       "apps/server/test/index.test.ts": 'readFileSync("apps/server/src/index.ts")',
       "packages/core/test/unrelated.test.ts": "nothing here",
+      "apps/server/test/timed.perf.test.ts": 'readFileSync("apps/server/src/timed.ts")',
     },
     e2e: {
       "e2e/bills.spec.ts": 'import { go } from "./helpers";\nawait page.locator(".bill-row").click();\nawait expect(page.getByText("Tulevat maksut")).toBeVisible();',
@@ -246,6 +247,12 @@ describe("check --changed: tests that read a changed file as text", () => {
     expect(s.readers).toEqual(["tools/css-lint.test.ts", ...SHOTS]);
     expect(s.tests).toEqual(expect.arrayContaining(["apps/web", RULES, ...SHOTS, "tools/css-lint.test.ts"]));
     expect(s.e2e).toEqual([]);
+  });
+
+  it("a timing test is in a scope only when its own file changed", () => {
+    const timed = "apps/server/test/timed.perf.test.ts";
+    expect(scope(["apps/server/src/timed.ts"]).tests).not.toContain(timed);
+    expect(scope([timed]).tests).toContain(timed);
   });
 
   it("a stylesheet named only by its file name is found, and a generic file name needs its whole path", () => {

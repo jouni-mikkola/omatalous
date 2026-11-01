@@ -29,12 +29,13 @@ import {
   INPUT_DEFS,
   valueOf,
   type Weakness,
-  WHY_FACTS,
+  whyFacts,
   yearWindow,
 } from "../../src/optimise/index.ts";
 import type { Account, Transaction } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
-import { enrich, household, householdInput } from "./household.ts";
+import { household } from "./household.ts";
+import { enrich, householdInput } from "./household-kit.ts";
 import { numbersIn } from "./numbers.ts";
 
 const TODAY = "2026-10-15";
@@ -178,7 +179,7 @@ describe("optimise frame: what is shown", () => {
   });
 
   it("steps certainty down per weakness, names the first in rule order and never goes below matala", () => {
-    expect(certaintyOf([])).toEqual({ level: "korkea", reason: "Laskettu omista tiedoista." });
+    expect(certaintyOf([])).toEqual({ level: "korkea", reason: "Perustuu omiin tietoihisi." });
     expect(certaintyOf([weak("wide_range"), weak("estimate")])).toEqual({ level: "matala", reason: "Heikkous estimate." });
     expect(certaintyOf([weak("estimate"), weak("estimate")]).level).toBe("keskitaso");
     expect(certaintyOf([weak("estimate"), weak("sample"), weak("gap"), weak("stale")])).toEqual({ level: "matala", reason: "Heikkous estimate." });
@@ -195,7 +196,7 @@ describe("optimise frame: what is shown", () => {
 
   it("adds a step for a range wider than mid", () => {
     const f = shown(run(CTX12, area([draft({ mid: 30000, low: 10000, high: 50000 })])))[0]!;
-    expect(f.certainty).toEqual({ level: "keskitaso", reason: "Vaihteluväli on suurempi kuin arvio." });
+    expect(f.certainty).toEqual({ level: "keskitaso", reason: "Arvio on epävarma, koska luvut vaihtelevat paljon." });
   });
 
   it("orders areas by mid times the certainty weight", () => {
@@ -240,8 +241,8 @@ describe("optimise frame: history rule", () => {
 
   it("annualises 6 to 11 months with one certainty step", () => {
     const f = shown(run(ctxWith(8), both())).find((x) => x.euros)!;
-    expect(f.certainty).toEqual({ level: "keskitaso", reason: "Vuoden summa on laskettu 8 kuukauden tiedoista." });
-    expect(annualise([100, 100, 100, 100, 100, 100, 100, 100])).toEqual({ yearlyCents: 1200, months: 8, weakness: { id: "short_history", reason: "Vuoden summa on laskettu 8 kuukauden tiedoista." } });
+    expect(f.certainty).toEqual({ level: "keskitaso", reason: "Vuoden summa perustuu 8 kuukauden tietoihin." });
+    expect(annualise([100, 100, 100, 100, 100, 100, 100, 100])).toEqual({ yearlyCents: 1200, months: 8, weakness: { id: "short_history", reason: "Vuoden summa perustuu 8 kuukauden tietoihin." } });
     expect(annualise([1, 2, 3, 4, 5])).toBeNull();
     expect(annualise(Array.from({ length: 14 }, (_, i) => i))?.yearlyCents).toBe(2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 + 11 + 12 + 13);
   });
@@ -358,11 +359,11 @@ describe("optimise frame: inputs and facts", () => {
         draft({
           mid,
           facts: [fee.id],
-          calc: [{ label: fee.label, value: formatEur(mid, false) }, ...(proposed ? [{ label: "Jos esitys hyväksytään", value: formatEur(proposed.value, false) }] : [])],
+          calc: [{ label: fee.label, value: formatEur(mid, false) }, ...(proposed ? [{ label: "Jos eduskunta hyväksyy esityksen", value: formatEur(proposed.value, false) }] : [])],
         }),
       ];
     },
-    (a) => [{ id: "subscriptions:rise", label: "Maksu", status: factFrom(ROWS, "rate", a.today) ? "clear" : "no_data", ...(factFrom(ROWS, "rate", a.today) ? {} : { why: WHY_FACTS }) }],
+    (a) => [{ id: "subscriptions:rise", label: "Maksu", status: factFrom(ROWS, "rate", a.today) ? "clear" : "no_data", ...(factFrom(ROWS, "rate", a.today) ? {} : { why: whyFacts() }) }],
   );
 
   it("hides a comparison whose fact expired and shows a proposed fact only as a calc line", () => {
@@ -374,7 +375,7 @@ describe("optimise frame: inputs and facts", () => {
     const fresh = area((a) => {
       const fee = factFrom(rateValid, "fee", a.today)!;
       const proposed = proposedFrom(rateValid, "fee", a.today);
-      return [draft({ mid: fee.value, calc: [{ label: fee.label, value: formatEur(fee.value, false) }, { label: "Jos esitys hyväksytään", value: formatEur(proposed!.value, false) }] })];
+      return [draft({ mid: fee.value, calc: [{ label: fee.label, value: formatEur(fee.value, false) }, { label: "Jos eduskunta hyväksyy esityksen", value: formatEur(proposed!.value, false) }] })];
     });
     const f = shown(run(CTX12, fresh))[0]!;
     expect(f.euros!.midCents).toBe(33500);
@@ -454,7 +455,7 @@ describe("optimise frame: evidence and common helpers", () => {
       ["Elisa", "korkea", []],
       ["Ilman", "korkea", []],
     ]);
-    expect(data.household.map((h) => ({ ...h, reason: h.reason.replace(/\s/g, " ") }))).toEqual([{ id: "uncategorised", reason: "88 % viimeisen 12 valmiin kuukauden menoista on tunnistettu." }]);
+    expect(data.household.map((h) => ({ ...h, reason: h.reason.replace(/\s/g, " ") }))).toEqual([{ id: "uncategorised", reason: "88 % viimeisen 12 kuukauden menoista on luokiteltu." }]);
     // near miss: a household with nothing wrong says nothing
     expect(run(CTX12, area([draft()])).household).toEqual([]);
   });
@@ -511,7 +512,7 @@ describe("optimise frame: why a check has no data", () => {
   it("names the short history with the months the data has and the months the check needs", () => {
     const c = why(run(ctxWith(2), one));
     expect(c.status).toBe("no_data");
-    expect(c.why).toEqual({ cause: "history", text: "Vertailuun tarvitaan 6 valmista kuukautta, mutta tapahtumahistoriassa on vain 2 valmista kuukautta." });
+    expect(c.why).toEqual({ cause: "history", text: "Vertailuun tarvitsemme 6 päättynyttä kuukautta, mutta tapahtumahistoriassa on vain 2 päättynyttä kuukautta." });
   });
 
   it("names the card purchases that are missing before it names a short history", () => {

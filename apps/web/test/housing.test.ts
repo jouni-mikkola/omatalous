@@ -1,9 +1,9 @@
-import type { HousingCharge, HousingLoan } from "@banking/core";
+import type { Housing, HousingCharge, HousingLoan } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import { t } from "../src/text.ts";
 import { DASH, housingView, LOAN_COLUMNS } from "../src/components/housing/housing.ts";
-import type { DashboardData } from "../src/types.ts";
 
-type Answer = NonNullable<DashboardData["housing"]>;
+type Answer = Housing;
 
 /** Spaces and no-break spaces as a reader sees them. */
 const flat = (text: string): string => text.replace(/[\s  ]+/g, " ");
@@ -59,7 +59,7 @@ const untold = { cents: null, interestCents: null, amortisationCents: null, inte
 
 describe("the columns of the table Lainat", () => {
   it("are the heads of the statement, the three of the next payment under their group", () => {
-    expect(LOAN_COLUMNS.map((c) => c.head)).toEqual(["Korko", "Viitekorko ja marginaali", "Koron tarkistuspäivä", "Eräpäivä", "Lyhennys", "Korko", "Kuussa"]);
+    expect(LOAN_COLUMNS.map((c) => t(c.head))).toEqual(["Korko", "Viitekorko ja marginaali", "Koron tarkistuspäivä", "Eräpäivä", "Lyhennys", "Korko", "Kuussa"]);
     expect(LOAN_COLUMNS.filter((c) => c.next).map((c) => c.key)).toEqual(["due", "amortisation", "interest"]);
   });
 });
@@ -78,7 +78,7 @@ describe("the row of a saved loan", () => {
   it("has a dash for the reference rate and the margin until the loan names all of it, and the link to add the rest", () => {
     for (const lacking of [{ marginBp: null, referenceBp: null }, { reference: null, referenceBp: null }, { referenceBp: null }] as Partial<HousingLoan>[]) {
       const row = rowOf(saved(lacking));
-      expect([row.cells.rate, row.cells.reference, row.link]).toEqual(["3,10 %", DASH, "Täydennä"]);
+      expect([row.cells.rate, row.cells.reference, row.link]).toEqual(["3,10 %", DASH, "complete"]);
     }
   });
 
@@ -89,7 +89,7 @@ describe("the row of a saved loan", () => {
 
   it("has a dash for a rate that is not known and does not make one up", () => {
     const row = rowOf(saved({ rateBp: null, marginBp: null, referenceBp: null, reference: null, reviewDate: null }));
-    expect([row.cells.rate, row.cells.reference, row.cells.review, row.link]).toEqual([DASH, DASH, DASH, "Täydennä"]);
+    expect([row.cells.rate, row.cells.reference, row.cells.review, row.link]).toEqual([DASH, DASH, DASH, "complete"]);
   });
 
   it("tells a rate of nought as a rate", () => {
@@ -101,14 +101,14 @@ describe("the row of a saved loan", () => {
     expect([rowOf(saved({ reviewDate: "2026-10-13" })).cells.review, rowOf(saved({ reviewDate: "2026-10-13" })).link]).toEqual(["13.10.2026", null]);
     for (const reviewDate of ["2026-03-14", "2026-10-12"]) {
       const row = rowOf(saved({ reviewDate, reviewPassed: true }));
-      expect([row.cells.review, row.link]).toEqual([DASH, "Täydennä"]);
+      expect([row.cells.review, row.link]).toEqual([DASH, "complete"]);
     }
-    expect([rowOf(saved({ reviewDate: null })).cells.review, rowOf(saved({ reviewDate: null })).link]).toEqual([DASH, "Täydennä"]);
+    expect([rowOf(saved({ reviewDate: null })).cells.review, rowOf(saved({ reviewDate: null })).link]).toEqual([DASH, "complete"]);
   });
 
   it("tells each part of the next payment the plan has, and a dash to mend for one it lacks", () => {
     expect(cells(saved({ next: untold, monthlyCents: null })).slice(3)).toEqual([DASH, DASH, DASH, DASH]);
-    expect(rowOf(saved({ next: untold, monthlyCents: null })).link).toBe("Täydennä");
+    expect(rowOf(saved({ next: untold, monthlyCents: null })).link).toBe("complete");
     expect(cells(saved({ next: { ...untold, date: "2026-10-15" } })).slice(3)).toEqual(["15.10.", DASH, DASH, "912,40 €"]);
     expect(cells(saved({ next: { ...untold, date: "2026-10-15", amortisationCents: 52_947 } })).slice(3, 6)).toEqual(["15.10.", "529,47 €", DASH]);
     // a payment with no due date keeps its sums
@@ -124,7 +124,7 @@ describe("the row of a saved loan", () => {
     const lacking = { marginBp: null, referenceBp: null, reviewDate: null } as const;
     expect(rowOf(saved({ ...lacking, typedByOther: true })).link).toBeNull();
     expect(rowOf(saved({ ...lacking, typedByOther: true })).cells.reference).toBe(DASH);
-    expect(rowOf(saved(lacking)).link).toBe("Täydennä");
+    expect(rowOf(saved(lacking)).link).toBe("complete");
   });
 
   it("says the viewer's part of a joint account under the name, and nothing on a row that is all theirs", () => {
@@ -136,7 +136,7 @@ describe("the row of a saved loan", () => {
 describe("payments with no saved loan behind them", () => {
   it("are a row by the payee's name with the month, a dash for every term, and the link to add the loan", () => {
     const row = rowOf(paid());
-    expect(row).toMatchObject({ name: "ESIMERKKIPANKKI OYJ", lender: null, saved: false, link: "Lisää laina" });
+    expect(row).toMatchObject({ name: "ESIMERKKIPANKKI OYJ", lender: null, saved: false, link: "add" });
     expect(cells(paid())).toEqual([DASH, DASH, DASH, DASH, DASH, DASH, "600,00 €"]);
   });
 });

@@ -4,7 +4,9 @@
  * Optimoi. See docs/MONEY_FLOWS.md.
  */
 import { median } from "../stats.ts";
-import { type AnalysisContext, type AnalysisTx, netSpend } from "./context.ts";
+import { monthEnd } from "../dates.ts";
+import { type AnalysisContext, type AnalysisTx, inDays, netSpend } from "./context.ts";
+import { toDayRange } from "./period.ts";
 
 export interface OneOffPolicy {
   name: "level" | "pay" | "large";
@@ -151,11 +153,11 @@ const monthCache = new WeakMap<AnalysisContext, Map<number, readonly AnalysisTx[
 export function monthOneOffs(ctx: AnalysisContext, month: string, usualMonths: readonly string[]): readonly AnalysisTx[] {
   let cache = monthCache.get(ctx);
   if (!cache) monthCache.set(ctx, (cache = new Map()));
-  const window = new Set([...usualMonths, month]);
   const key = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
   let found = cache.get(key);
   if (!found) {
-    const rows = ctx.txs.filter((t) => window.has(t.bookingDate.slice(0, 7)));
+    // the months are read by their days, not by a scan of every row of the history for each of them
+    const rows = [...new Set([...usualMonths, month])].sort().flatMap((m) => inDays(ctx, toDayRange({ from: `${m}-01`, to: monthEnd(m) })));
     const struck = oneOffs(rows, LEVEL, ctx.fixedIds);
     found = rows.filter((t) => struck.has(t.id) && t.bookingDate.startsWith(month)).sort((a, b) => netSpend(b) - netSpend(a) || a.id.localeCompare(b.id));
     cache.set(key, found);

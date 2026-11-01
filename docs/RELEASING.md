@@ -65,11 +65,27 @@ because the tag is made in `publish` after `verify` and both smoke tests, but it
 Every job runs on `ubuntu-24.04` or `ubuntu-24.04-arm`, and a repo rule refuses a `-latest` label. Moving to a newer image
 is `RUNNERS` in `tools/repo-rules/runners.ts` and the `runs-on` lines together, then a rehearsal.
 
+## Passwords and rollback
+
+From the version of migration `0027_password_argon2id.sql`, a new or changed password is stored as Argon2id and an old
+PBKDF2 hash is rewritten at the next good sign-in. A version before it reads only PBKDF2, so a database that holds an
+Argon2id hash would lock its members out after a rollback. The rule that prevents it is the migration: it changes no
+table and carries no compat floor on purpose, so the older version refuses the database, and `scripts/update.sh --rollback`
+puts back the copy from before the update instead of keeping the live database. The cost is that what happened after the
+update (rows synced, a changed password) is gone, the same as for any release with a migration the old version cannot
+read (0020 is the other). Never give that migration a compat floor, and never move the first Argon2id write to a version
+without such a migration. A later version that drops the PBKDF2 branch of `verifyPassword` must first be sure that every
+install has signed in once since this one, or the members who have not need a new password (`reset-password`).
+
+While any user still has a PBKDF2 hash, every sign-in spends one PBKDF2 and one Argon2id derivation whoever the name
+belongs to (`verifyUniform`), so the time of a check does not tell a known name from an unknown one. The extra derivation
+ends when the last old hash has been rewritten.
+
 ## Promotion, holding and pulling
 
 Every release is created as a pre-release. GitHub's `/releases/latest`, which installs read, skips pre-releases, so an
 install is offered a release only after it is promoted: at its next check or when *Päivitä* is pressed, never by itself.
-An install with the switch *Tarjoa uudet versiot heti* on (*Asetukset > Tekniset asetukset > Ylläpito*; without the helper, `TALOUS_PRERELEASE=yes` in its `.env`) follows pre-releases too and is offered one at once.
+An install with the switch *Tarjoa uudet versiot heti* on (*Asetukset > Palvelin ja ylläpito > Ylläpito*) follows pre-releases too and is offered one at once. Without the helper, `TALOUS_PRERELEASE=yes` in its `.env` does the same.
 
 `promote.yml` (Actions, Promote) runs every six hours and by hand, in the public repository only. It looks at the highest
 version of all releases, drafts included. When that is a pre-release that is 48 hours old, above the release now marked

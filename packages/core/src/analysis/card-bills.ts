@@ -4,6 +4,8 @@
  * purchases behind it in no category. The months view names this sum so a list of categories is not read as the whole,
  * and the food report is a reason, not figures, when its window holds one.
  */
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { finnishList, formatFiDate } from "./format.ts";
 import { cardIssuerName, cardIssuerOfAccountText, cardName, fold } from "../merchant.ts";
 import type { Account, BalanceInput, IsoDate } from "../types.ts";
@@ -91,15 +93,15 @@ export function missingCardPurchases(ctx: AnalysisContext, range: DateRange, bal
  * What the missing purchases are, in the words of a sentence that goes on after "mutta": since when a connected card has
  * rows, which issuer is not connected, and that some bills pair with no purchase. Null for no bill.
  */
-export function cardGapCause(bills: readonly MissingCardPurchases[]): string | null {
+export function cardGapCause(bills: readonly MissingCardPurchases[], lang: Language = DEFAULT_LANGUAGE): string | null {
   const began = bills.filter((b) => b.reason === "before_history" && b.since).map((b) => b.since!).sort()[0];
   const unconnected = [...new Set(bills.filter((b) => b.reason === "not_connected").map((b) => b.issuer))];
   const cause = [
-    ...(began ? [`kortin ostot alkavat vasta ${formatFiDate(began)}`] : []),
-    ...(unconnected.length ? [`${finnishList(unconnected)} ei ole yhdistetty`] : []),
-    ...(bills.some((b) => b.reason === "unmatched") ? ["osa korttilaskuista ei vastaa kortin ostoja"] : []),
+    ...(began ? [messageIn(lang, "rep.gap_began", { date: formatFiDate(began, lang) })] : []),
+    ...(unconnected.length ? [messageIn(lang, "rep.gap_unconnected", { names: finnishList(unconnected, lang) })] : []),
+    ...(bills.some((b) => b.reason === "unmatched") ? [messageIn(lang, "rep.gap_unmatched")] : []),
   ];
-  return cause.length ? finnishList(cause) : null;
+  return cause.length ? finnishList(cause, lang) : null;
 }
 
 /** The last four digits a bank's card number ends in ("•••• 1234", "5225********1144"), or null where it gives fewer. */

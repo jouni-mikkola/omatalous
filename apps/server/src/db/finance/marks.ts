@@ -59,7 +59,7 @@ export class MarksRepo {
 
   /**
    * A merchant's name was derived again: its marks follow, the old one on the merchant, the ones on its series and an
-   * "Ei laina" answer on one (core `renamedMarkSubject` knows the subjects). When the new name has that mark already,
+   * "Ei ole laina" answer on one (core `renamedMarkSubject` knows the subjects). When the new name has that mark already,
    * that one stays and the old one is dropped. A saved loan linked to one of its series gets the new key in the same
    * transaction (finance/loans.ts `seriesKeyMoves`).
    */

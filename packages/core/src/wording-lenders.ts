@@ -4,6 +4,7 @@
  * words of the other bank rows are in wording.ts. Last, the words of a school or an association, which the rules about
  * people read (categorize-people.ts).
  */
+import { alternation } from "./wordlists.ts";
 import { isHousingCompanyName, isInsuranceText, words } from "./wording.ts";
 
 /**
@@ -21,7 +22,7 @@ const BANK_NAME = words(String.raw`(?:SAASTO|OSUUS|HYPO|ASUNTO|SPARE|HANDELS)?(?
 /** Payment firms carry FINANCIAL (Esimerkki Financial Services Ltd) and pay out as a business: a lender when paid, none when it pays. */
 const FINANCIAL_NAME = words("FINANCIAL");
 /** The forms of a limited company here and next door. AS is left out: it is a word of a person's name, and a bank that only takes deposits carries it. */
-const LENDER_FORM = words("OY|OYJ|AB|ABP|A/S|LTD|LIMITED|PLC|GMBH|BV");
+const LENDER_FORM = words(alternation("LENDER_FORM_WORDS"));
 const ASA_FORM = words("ASA");
 /** ASA is a form behind a name only: Bank Åsa folds to BANK ASA, and that is a person with a bank's word for a surname. */
 const hasLenderForm = (foldedPayee: string) => LENDER_FORM.test(foldedPayee) || (ASA_FORM.test(foldedPayee) && foldedPayee.trim().split(/\s+/).length >= 3);

@@ -1,16 +1,19 @@
 # Omatalous
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/jouni.mikkola)
-
 Omatalous is a personal finance app for a Finnish household that runs in Docker on your own Linux machine and reads
 your bank accounts through PSD2, by way of [Enable Banking](https://enablebanking.com).
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/images/omatalous-still.png">
+  <img src="docs/images/omatalous.png" alt="A short animation of Omatalous with example data. It shows the month's spending against a usual month, net assets, debts and the buffer, the transactions sorted into categories, the report questions and a question the app asks the household.">
+</picture>
 
 ![Yhteenveto, the overview page, with example data: what is available until the next payday, this month's spending against a usual month, last month's surplus and the total on the accounts, and a chart of the month's spending day by day](docs/images/yhteenveto.png)
 
 ## What it does
 
 The app fetches the household's transactions from the bank at 6 and 18 by default, sorts each one and shows the result in
-Finnish, in a browser on a computer or a phone. All figures above and below are from the example household that comes
+Finnish or English, in a browser on a computer or a phone. All figures above and below are from the example household that comes
 with the code.
 
 - Every money movement goes into one of five flows: spending, loan payments, saving, income and borrowing. A move
@@ -19,8 +22,12 @@ with the code.
 - Yhteenveto (the overview) shows what is available until the next payday after the bills due before it, and how this
   month's spending compares with a usual month on the same day.
 - Accounts, credit cards and loans are listed with their balances. A card shows how much of its limit is used.
-- Raportit (reports) has 18 reports, among them income against spending month by month, fixed and variable costs,
-  price changes of recurring bills and a comparison with the same months a year earlier. A report's table downloads as CSV.
+- Raportit (reports) answers six questions on six pages (this month, spending, income, fixed costs, debts and
+  balances), and a seventh about shared accounts when two members share one. Among the sections are income against
+  spending month by month, fixed and variable costs, and, once there are 15 months of rows, a comparison
+  with the same months a year earlier. Most tables of more than ten rows download as CSV.
+- A bank's CSV export, a camt.053 statement or a card statement (CSV, text or PDF) is read in the browser, and only
+  its rows go to the install. It fills an account the bank does not give through PSD2.
 - The app finds subscriptions and bills that repeat, and warns about double charges and late fees. Säästövinkit
   (saving tips) shows where the household could spend less, with the calculation behind each figure.
 - A joint account is split between its users by who paid into it, equally or by percentages, and each member sees
@@ -52,11 +59,9 @@ with the code.
 </tr>
 <tr>
 <td><img src="docs/images/tilit.png" alt="A joint account in Asetukset > Tilit: how its costs are split, and a monthly table of what each member paid in and their share of the costs"></td>
-<td><img src="docs/images/yhteenveto-yo.png" alt="The overview page in the night look: light text on a dark background, with the same figures and chart"></td>
 </tr>
 <tr>
 <td>A joint account month by month.</td>
-<td>The night look.</td>
 </tr>
 </table>
 
@@ -94,7 +99,7 @@ You need Ubuntu Server 26.04 LTS on a machine that stays on at home (x86-64 or a
 2 GB of memory and 20 GB of disk. Paste this into a terminal on that machine, as your normal user:
 
 ```bash
-curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/install.sh && echo "b744b460e74dd1a65e9146c85541dcc6d291cd2d16929ac8ac930e4bd50aab38  omatalous-install.sh" | sha256sum -c && bash omatalous-install.sh
+curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/install.sh && echo "481871f3ed740a5d2fdd91c30ca62253ccd32705f6ff6eeb60747694c77591db  omatalous-install.sh" | sha256sum -c && bash omatalous-install.sh
 ```
 
 The command downloads a small script, checks its sha256 against the one in the command and runs it only when they
@@ -151,11 +156,6 @@ Releases and their notes are on the [releases page](https://github.com/jouni-mik
 [CHANGELOG.md](CHANGELOG.md). Each release is a signed Docker image for linux/amd64 and linux/arm64, and an update checks the
 signature before it starts the image. The app offers an update on its maintenance page when the helper is on.
 
-## Support
-
-If Omatalous is useful to you, you can [buy me a coffee](https://buymeacoffee.com/jouni.mikkola) to help cover its
-development costs.
-
 ## Author
 
 Built and maintained by [Jouni Mikkola](https://www.linkedin.com/in/jouni-mikkola).
@@ -168,6 +168,7 @@ Omatalous stands on these projects and services.
 |---|---|---|
 | [Enable Banking](https://enablebanking.com) | the PSD2 connection to the banks | a service under its own terms |
 | [PRH open data](https://avoindata.prh.fi) | business names and industries from the Finnish trade register | open data of the Finnish Patent and Registration Office |
+| [Statistics Finland](https://stat.fi) | the consumer price index, only if the admin turns it on | open statistics of Statistics Finland, under its own terms |
 | [Hono](https://hono.dev) | the server | MIT |
 | [React](https://react.dev) | the page | MIT |
 | [Vite](https://vite.dev) | building the page | MIT |
@@ -182,7 +183,7 @@ The notices of every package in the build are in [THIRD_PARTY_NOTICES](THIRD_PAR
 
 Omatalous is open source under the [GNU Affero General Public License 3.0](LICENSE) (AGPL-3.0-only), with one
 additional term under its section 7(b): every copy and every modified version keeps the attribution "Omatalous, Jouni
-Mikkola" and a link to https://github.com/jouni-mikkola/omatalous in the app's Tietoja view (Asetukset > Tietoja).
+Mikkola" and a link to https://github.com/jouni-mikkola/omatalous in the footer of every page of the app.
 Versions before 0.66.0 stay under the MIT licence, and 0.66.0 under the Omatalous Personal Use License 1.0.
 
 The Nordea logo in `apps/web/public/banks/` is Nordea's trademark, and the licence does not cover it. The other banks'
@@ -191,3 +192,5 @@ image also carry works under other licences, among them Apache-2.0 ones (pdf.js,
 the loan reader. The notices of all packages in the build are in `THIRD_PARTY_NOTICES`, also in the image. The
 reader's licence texts are in `/THIRD-PARTY-LICENSES.txt`, which the app serves. That file covers the reader's parts
 only: React and the IBM Plex fonts are not in it.
+
+If Omatalous is useful to you, you can [buy me a coffee](https://buymeacoffee.com/jouni.mikkola).

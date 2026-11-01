@@ -37,11 +37,12 @@ async function household(): Promise<World> {
 async function look(w: World, userId: string) {
   const c = w.as(userId);
   const now = (await c.call("GET", "/api/dashboard?scope=own")).body;
+  const housing = (await c.call("GET", "/api/reports?scope=own&reports=housing")).body.housing;
   const month = (await c.call("GET", "/api/transactions?scope=own&from=2026-09-01&to=2026-09-30&limit=500")).body;
   return {
     fixedMonthlyCents: now.fixedMonthlyCents,
     upcoming: now.ahead.upcoming.map((u: { date: string; name: string; cents: number; source: string }) => `${u.date} ${u.name} ${u.cents} ${u.source}`),
-    loans: now.housing.loans.map((l: { monthlyCents: number; next: { date: string | null } }) => [l.monthlyCents, l.next.date]),
+    loans: housing.loans.map((l: { monthlyCents: number; next: { date: string | null } }) => [l.monthlyCents, l.next.date]),
     spending: month.outCents as number,
     income: month.inCents as number,
   };

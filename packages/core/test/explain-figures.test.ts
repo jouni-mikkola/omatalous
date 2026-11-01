@@ -7,12 +7,13 @@ import { contextOf, demoHousehold } from "../../../tools/findings/households.ts"
 import { createContext, spendTotals } from "../src/analysis/context.ts";
 import { leftOf, totalsOf } from "../src/analysis/flows.ts";
 import { toDayRange } from "../src/analysis/period.ts";
-import { completeMonthsBefore, usualIncome, usualSpending } from "../src/analysis/usual.ts";
+import { expectedSpending } from "../src/analysis/expected.ts";
+import { completeMonthsBefore } from "../src/analysis/usual.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import type { StatementBill } from "../src/analysis/statement-explain.ts";
 import { monthEnd, monthOf, monthRange } from "../src/dates.ts";
-import { sentenceOf } from "../src/explain/catalogue.ts";
+import { expectedHow, sentenceOf } from "../src/explain/catalogue.ts";
 import { explain } from "../src/explain/explain.ts";
 import type { Explanation, FigureId } from "../src/explain/types.ts";
 import { createWhy } from "../src/explain/why.ts";
@@ -98,18 +99,18 @@ describe("explain: the usual levels", () => {
   const monthly = (cents: number[], category = "other") => cents.map((c, i) => tx({ id: `m${i}`, bookingDate: `2026-0${i + 1}-01`, amountCents: -c, merchant: "ESIMERKKI OY", category }));
   const ctxOf = (cents: number[]) => createContext(monthly(cents), [account], TODAY);
 
-  it("four months: the two middle ones are averaged and rounded half up, and the check recomputes it", () => {
-    const e = explain("usual.spend", ctxOf([130001, 150000, 120000, 170000]), argsOf("2026-05"));
+  it("four months: the mean is rounded to whole cents, and the check recomputes it", () => {
+    const e = explain("expected.spend", ctxOf([130001, 150000, 120000, 170000]), argsOf("2026-05"));
     expect(e.kind).toBe("median");
-    expect(e.cents).toBe(140001);
+    expect(e.cents).toBe(142500);
     expect(e.lines).toEqual([]);
     expect(e.check).toEqual({ kind: "recompute", diffCents: 0 });
-    expect(e.method).toMatchObject({ kind: "median", tie: "Mediaani eli kahden keskimmäisen kuukauden keskiarvo" });
+    expect(e.method).toMatchObject({ kind: "median", tie: expectedHow() });
     expect(e.method!.kind === "median" && e.method!.values.map((v) => [v.label, v.cents])).toEqual([["2026-01", 130001], ["2026-02", 150000], ["2026-03", 120000], ["2026-04", 170000]]);
   });
 
   it("each listed month opens its own sum, which adds up to the month's value", () => {
-    const e = explain("usual.spend", ctxOf([130001, 150000, 120000, 170000]), argsOf("2026-05"));
+    const e = explain("expected.spend", ctxOf([130001, 150000, 120000, 170000]), argsOf("2026-05"));
     if (e.method?.kind !== "median") throw new Error("not a median");
     for (const v of e.method.values) {
       expect(v.explain!.kind).toBe("sum");
@@ -119,36 +120,36 @@ describe("explain: the usual levels", () => {
     }
   });
 
-  it("an odd count takes the middle one; a median never carries the sum's check", () => {
-    const e = explain("usual.spend", ctxOf([100000, 300000, 200000, 500000, 400000]), argsOf("2026-06"));
+  it("an odd count is the mean of its months too; a mean never carries the sum's check", () => {
+    const e = explain("expected.spend", ctxOf([100000, 300000, 200000, 500000, 400000]), argsOf("2026-06"));
     expect(e.cents).toBe(300000);
-    expect(e.method).toMatchObject({ tie: "Mediaani eli keskimmäinen kuukausi" });
+    expect(e.method).toMatchObject({ tie: expectedHow() });
     expect(e.check.kind).toBe("recompute");
     expect(JSON.stringify(e.check)).not.toContain("sum");
   });
 
   it("under three complete months the figure is null and says how many there were", () => {
-    const e = explain("usual.spend", ctxOf([130001, 150000]), argsOf("2026-03"));
+    const e = explain("expected.spend", ctxOf([130001, 150000]), argsOf("2026-03"));
     expect(e.cents).toBeNull();
     expect(e.lines).toEqual([]);
-    expect(e.method).toMatchObject({ rule: "Vertailuun tarvitaan 3 kuukautta, tietoja on 2" });
+    expect(e.method).toMatchObject({ rule: "Vertailuun tarvitsemme 3 kuukautta, tietoja on 2" });
     expect(e.check).toEqual({ kind: "recompute", diffCents: 0 });
     // three is enough
-    expect(explain("usual.spend", ctxOf([130001, 150000, 120000]), argsOf("2026-04")).cents).toBe(130001);
+    expect(explain("expected.spend", ctxOf([130001, 150000, 120000]), argsOf("2026-04")).cents).toBe(133334);
   });
 
   it("a running month and a month the history does not cover are no part of it", () => {
-    const e = explain("usual.spend", createContext(monthly([100000, 100000, 100000]), [account], "2026-04-10"), argsOf("2026-04"));
+    const e = explain("expected.spend", createContext(monthly([100000, 100000, 100000]), [account], "2026-04-10"), argsOf("2026-04"));
     expect(e.method!.kind === "median" && e.method!.values.map((v) => v.label)).toEqual(["2026-01", "2026-02", "2026-03"]);
-    const later = explain("usual.spend", createContext(monthly([100000, 100000, 100000]), [account], "2026-03-10"), argsOf("2026-03"));
+    const later = explain("expected.spend", createContext(monthly([100000, 100000, 100000]), [account], "2026-03-10"), argsOf("2026-03"));
     expect(later.cents).toBeNull();
   });
 
   it("the usual spending of the demo household is the report's number, each month with a difference of 0", () => {
     let figures = 0;
     for (const m of months) {
-      const spend = explain("usual.spend", plain, argsOf(m));
-      expect(spend.cents, m).toBe(usualSpending(plain, m));
+      const spend = explain("expected.spend", plain, argsOf(m));
+      expect(spend.cents, m).toBe(expectedSpending(plain, m));
       expect(spend.kind).toBe("median");
       expect(spend.check).toEqual({ kind: "recompute", diffCents: 0 });
       if (spend.method?.kind !== "median") throw new Error("not a median");
@@ -178,8 +179,8 @@ describe("explain: the usual levels", () => {
       }
       if (e.cents !== null) {
         figures++;
-        expect(e.method.values).toHaveLength(12);
-        expect(e.method.rule).toBe("Säännölliset tulot viimeiseltä 12 valmiilta kuukaudelta");
+        expect(e.method.values.length).toBeLessThanOrEqual(6);
+        expect(e.method.rule).toBe("Säännölliset tulot viimeisiltä valmiilta kuukausilta (enintään 6)");
       }
     }
     expect(figures).toBeGreaterThan(1);
@@ -190,28 +191,26 @@ describe("explain: the usual levels", () => {
     const raised = contextOf({ ...h, txs: h.txs.map((t) => (t.amountCents > 0 && t.bookingDate >= "2026-04" ? { ...t, amountCents: Math.round(t.amountCents * 1.2) } : t)) });
     const range = RANGES[0]!;
     const e = explain("usual.income", raised, { view: "own", range });
-    // the median of the six months before the last one, which the panel read before, is another number
-    expect(usualIncome(raised, "2026-10")).not.toBe(pageIncome(raised, range));
     expect(e.cents).toBe(pageIncome(raised, range));
     expect(e.check).toEqual({ kind: "recompute", diffCents: 0 });
-    // a range the page draws over a whole year, which the old figure (the six months before its last month) could not tell
+    // a range the page draws over a whole year
     const year = explain("usual.income", raised, { view: "own", range: RANGES[1]! });
     expect(year.cents).toBe(pageIncome(raised, RANGES[1]!));
     expect(year.cents).not.toBeNull();
   });
 
-  it("under twelve complete months the page has no median and the figure says how many there were out of twelve", () => {
-    const rows = Array.from({ length: 4 }, (_, i) => tx({ id: `p${i}`, bookingDate: `2026-0${i + 1}-25`, amountCents: 300000, merchant: "ESIMERKKI OY", category: "income" }));
-    const ctx = createContext(rows, [account], "2026-05-10");
-    const e = explain("usual.income", ctx, { view: "own", range: { from: "2026-01-01", to: "2026-05-10" } });
+  it("under three complete months the page has no median and the figure says how many there were out of three", () => {
+    const rows = Array.from({ length: 2 }, (_, i) => tx({ id: `p${i}`, bookingDate: `2026-0${i + 1}-25`, amountCents: 300000, merchant: "ESIMERKKI OY", category: "income" }));
+    const ctx = createContext(rows, [account], "2026-04-10");
+    const e = explain("usual.income", ctx, { view: "own", range: { from: "2026-01-01", to: "2026-04-10" } });
     expect(e.cents).toBeNull();
-    expect(pageIncome(ctx, { from: "2026-01-01", to: "2026-05-10" })).toBeNull();
-    expect(e.method).toMatchObject({ rule: expect.stringMatching(/^Vertailuun tarvitaan 12 kuukautta, tietoja on \d+$/) });
+    expect(pageIncome(ctx, { from: "2026-01-01", to: "2026-04-10" })).toBeNull();
+    expect(e.method).toMatchObject({ rule: expect.stringMatching(/^Vertailuun tarvitsemme 3 kuukautta, tietoja on \d+$/) });
     expect(e.check).toEqual({ kind: "recompute", diffCents: 0 });
   });
 
   it("refuses a figure of some accounts, which the reports have none of", () => {
-    expect(() => explain("usual.spend", plain, argsOf(months.at(-1)!, { accountIds: ["x"] }))).toThrow("some accounts");
+    expect(() => explain("expected.spend", plain, argsOf(months.at(-1)!, { accountIds: ["x"] }))).toThrow("some accounts");
   });
 });
 
@@ -321,7 +320,7 @@ describe("explain: the figures are the same with and without a collector", () =>
 
   it("each new figure gives one number either way", () => {
     for (const m of months) {
-      for (const f of ["yli_jai.month", "usual.spend", "usual.income"] as FigureId[]) {
+      for (const f of ["yli_jai.month", "expected.spend", "usual.income"] as FigureId[]) {
         const a = explain(f, withWhy, argsOf(m, { why: w }));
         const b = explain(f, plain, argsOf(m));
         expect(a.cents, `${f} ${m}`).toBe(b.cents);
@@ -352,7 +351,7 @@ describe("explain: the reasons of card bills, card channels and returns", () => 
     const w = run([pay("june", "2026-06-03", -50000), ...card, pay("soon", "2026-09-25", -12000)]);
     expect(w.of("june")).toEqual([{ rule: "card.bill", card: "card" }]);
     expect(w.of("soon")).toEqual([{ rule: "card.bill", card: "card" }]);
-    expect(sentenceOf(w.of("june")[0]!)).toBe("Luottokortin lasku. Kortin ostoja ei näy, joten lasku lasketaan velanhoitoon.");
+    expect(sentenceOf(w.of("june")[0]!)).toBe("Luottokortin lasku. Kortin ostoja ei näy, joten laskemme laskun velanhoitoon.");
     // the pair itself is a transfer between accounts, not a card bill
     expect(w.of("pay").map((r) => r.rule)).toEqual(["transfer.pair"]);
   });

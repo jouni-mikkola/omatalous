@@ -47,6 +47,6 @@ describe("rule 28: the patterns of the Finnish voice", () => {
 
   it("takes the plain sentence the app writes today", () => {
     expect(breaks("Palautus aiemmasta maksusta. Pienentää menoja, ei ole tuloa.")).toEqual([]);
-    expect(breaks("Harvinaiset laskut ovat 564 € vuodessa eli 47 € kuussa.")).toEqual([]);
+    expect(breaks("Harvoin tulevat laskut ovat 564 € vuodessa eli 47 € kuussa.")).toEqual([]);
   });
 });

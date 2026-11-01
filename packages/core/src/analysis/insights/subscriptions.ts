@@ -12,25 +12,15 @@ import { addDays, daysBetween } from "../../dates.ts";
 import { parseSeriesId, type RecurringSeries } from "../../recurring.ts";
 import { netPurchase, recurringAt } from "../context.ts";
 import { accountCovers } from "../coverage.ts";
-import { finnishList, formatEur, formatFiDate } from "../format.ts";
-import { answeredSubscriptions, answerOf, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { formatEur, formatFiDate } from "../format.ts";
+import { MOVE_GAP, NEW_SUBSCRIPTION_DAYS, SETTLE_DAYS, TRIAL_DAYS, TRIAL_MAX_CENTS, YEAR_HISTORY_DAYS } from "../../thresholds.ts";
+import { answeredSubscriptions, answerOf, insightOf, isLender, ITEM_GATE_MONTHLY_CENTS, MONTHLY_OR_LONGER, settledBy } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
-/** A charge that started this many days before the end is new. */
-const NEW_DAYS = 75;
-/** Near the start of the history everything looks new. */
-const SETTLE_DAYS = 45;
-/** A subscription that moved to another account starts there within this many intervals of its last charge on the old one. */
-const MOVE_GAP = 1.5;
-/** A trial costs this much at most and comes this many days before the first full charge (H-insights 13). */
-const TRIAL_MAX_CENTS = 200;
-const TRIAL_DAYS = 45;
-/** The year comparison needs the year-ago list settled: a year and the days a monthly series needs to show. */
-const YEAR_HISTORY_DAYS = 365 + 75;
 
-const price = (cents: number) => formatEur(cents, cents % 100 !== 0);
-
-export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[] {
+export function subscriptionChanges({ ctx, end, inputs, lang }: InsightArgs): Insight[] {
+  const price = (cents: number) => formatEur(cents, cents % 100 !== 0, lang);
   const cancelled = cancelledSubjects(inputs);
   // a new charge the household answered (Lopetettu or Käytössä) is known to them
   const answered = answeredSubscriptions(inputs, ctx.today);
@@ -59,21 +49,24 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     // one new subscription is told on its own below, with its trial when it had one
     if (added.length >= 2 && subs.length > then && monthly >= ITEM_GATE_MONTHLY_CENTS) {
       for (const s of added) told.add(s.id);
-      out.push({
-        id: "subscriptions-added",
-        tone: "info",
-        title: `Tilauksia ${subs.length}, vuosi sitten ${then}: +${formatEur(monthly, false)} kuussa`,
-        detail: `Uudet: ${finnishList(added.map((s) => s.merchant))}, ${formatEur(yearly, false)} vuodessa.`,
-        yearlyCents: yearly,
-        rows: added.flatMap((s) => s.transactionIds),
-        calc: [
-          { label: "Tilauksia nyt", value: String(subs.length) },
-          { label: "Tilauksia vuosi sitten", value: String(then) },
-          ...added.map((s) => ({ label: `${s.merchant} kuussa`, value: formatEur(s.monthlyCents, false) })),
-          { label: "Uudet yhteensä kuussa", value: formatEur(monthly, false) },
-          { label: "Uudet yhteensä vuodessa", value: formatEur(yearly, false) },
-        ],
-      });
+      out.push(
+        insightOf({
+          lang,
+          id: "subscriptions-added",
+          fact: { type: "subscriptions-added", merchants: added.map((s) => s.merchant), now: subs.length, monthlyCents: monthly },
+          comparison: { label: "yearAgoSubscriptions", value: q.count(then) },
+          action: { label: "decideSubscription", target: { page: "bills" } },
+          yearlyCents: -yearly,
+          kind: "pattern",
+          rows: added.flatMap((s) => s.transactionIds),
+          calc: [
+            { label: messageIn(lang, "calc.subs_now"), value: String(subs.length) },
+            { label: messageIn(lang, "calc.subs_year_ago"), value: String(then) },
+            ...added.map((s) => ({ label: messageIn(lang, "calc.sub_month", { merchant: s.merchant }), value: formatEur(s.monthlyCents, false, lang) })),
+            { label: messageIn(lang, "calc.new_total_month"), value: formatEur(monthly, false, lang) },
+          ],
+        }),
+      );
     }
   }
 
@@ -98,31 +91,31 @@ export function subscriptionChanges({ ctx, end, inputs }: InsightArgs): Insight[
     );
   };
   for (const s of now) {
-    if (!isNew(s) || told.has(s.id) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_DAYS || !accountCovers(ctx, [accountOf(s) ?? ""], addDays(s.firstDate, -SETTLE_DAYS)) || movedFrom(s)) continue;
+    if (!isNew(s) || told.has(s.id) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_SUBSCRIPTION_DAYS || !accountCovers(ctx, [accountOf(s) ?? ""], addDays(s.firstDate, -SETTLE_DAYS)) || movedFrom(s)) continue;
     if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
     const trial = ctx.txs.find(
       (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,
     );
-    const charges = s.occurrences === 1 ? "yksi veloitus" : `${s.occurrences} veloitusta`;
-    out.push({
-      id: `new:${s.id}`,
-      tone: "info",
-      title: `Uusi toistuva maksu: ${s.merchant} ${price(s.monthlyCents)} kuussa`,
-      detail: trial
-        ? `${price(netPurchase(trial))} kokeilu ${formatFiDate(trial.bookingDate)}, sen jälkeen ${charges} ${formatFiDate(s.firstDate)} alkaen.`
-        : `Ensimmäinen veloitus ${formatFiDate(s.firstDate)}, ${charges} tähän mennessä.`,
-      yearlyCents: s.yearlyCents,
-      rows: trial ? [trial.id, ...s.transactionIds] : s.transactionIds,
-      link: { merchant: s.merchant },
-      merchant: s.merchant,
-      calc: [
-        ...(trial ? [{ label: `Kokeilu ${formatFiDate(trial.bookingDate)}`, value: price(netPurchase(trial)) }] : []),
-        { label: "Ensimmäinen veloitus", value: formatFiDate(s.firstDate) },
-        { label: "Veloituksia", value: String(s.occurrences) },
-        { label: "Kuussa", value: price(s.monthlyCents) },
-        { label: "Vuodessa", value: formatEur(s.yearlyCents, false) },
-      ],
-    });
+    out.push(
+      insightOf({
+        lang,
+        id: `new:${s.id}`,
+        fact: { type: "new-subscription", merchant: s.merchant, monthlyCents: s.monthlyCents, firstDate: s.firstDate, charges: s.occurrences, trial: trial ? { cents: netPurchase(trial), date: trial.bookingDate } : null },
+        comparison: { label: "before", value: q.cents(0) },
+        action: { label: "decideSubscription", target: { page: "transactions", filter: { merchant: s.merchant } } },
+        yearlyCents: -s.yearlyCents,
+        kind: "pattern",
+        rows: trial ? [trial.id, ...s.transactionIds] : s.transactionIds,
+        link: { merchant: s.merchant },
+        merchant: s.merchant,
+        calc: [
+          ...(trial ? [{ label: messageIn(lang, "calc.trial", { date: formatFiDate(trial.bookingDate, lang) }), value: price(netPurchase(trial)) }] : []),
+          { label: messageIn(lang, "calc.first_charge"), value: formatFiDate(s.firstDate, lang) },
+          { label: messageIn(lang, "calc.charges"), value: String(s.occurrences) },
+          { label: messageIn(lang, "calc.month"), value: price(s.monthlyCents) },
+        ],
+      }),
+    );
   }
   return out;
 }

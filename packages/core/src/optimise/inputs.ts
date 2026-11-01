@@ -3,8 +3,10 @@
  * goes stale after a time: a stale input counts as missing, so no euro figure stands on an old number. The server
  * validates every value with `parseInputValue` before it stores it (`optimise_inputs`).
  */
+import { DEFAULT_LANGUAGE, type Language, localeOf } from "../locale.ts";
+import { messageIn, type MessageCode } from "../messages.ts";
 import { addMonthsToDate, dayNumber, fromDayNumber } from "../dates.ts";
-import { formatFiDate } from "../analysis/format.ts";
+import { formatFiRange } from "../analysis/format.ts";
 import type { IsoDate } from "../types.ts";
 import { isSubject } from "./common.ts";
 import type { InputKey, InputValue, InputValueMap, InputValues, LoanReference, StoredInput } from "./types.ts";
@@ -144,9 +146,29 @@ export function inputKey(def: InputKey, subject?: string | null): string {
   return subject ? `${def}:${subject}` : def;
 }
 
+/** A catalogue line with no holes, named by a code built from an id the type cannot follow. */
+const plain = (lang: Language, code: string): string => messageIn(lang, code as MessageCode & `opt.w_none`);
+
+/** What a field is called, in a language: the Finnish `label` of the definition, or its English line. */
+export const inputLabel = (def: InputDef, lang: Language = DEFAULT_LANGUAGE): string => (lang === DEFAULT_LANGUAGE ? def.label : plain(lang, `opt.in_${def.key}`));
+
+/** The unit after the field, in a language; null for a field without one. */
+export const inputUnit = (def: InputDef, lang: Language = DEFAULT_LANGUAGE): string | null => (!def.unit ? null : lang === DEFAULT_LANGUAGE ? def.unit : plain(lang, `opt.in_${def.key}_unit`));
+
+/** The name of one choice of a field (a housing type, a reference rate), in a language. */
+export function choiceLabel(def: InputDef, id: string, lang: Language = DEFAULT_LANGUAGE): string {
+  const found = def.choices?.find((c) => c.id === id);
+  if (!found) return id;
+  if (lang === DEFAULT_LANGUAGE) return found.label;
+  return plain(lang, def.kind === "loan_rate" ? `opt.ref_${id}` : `opt.housing_${id}`);
+}
+
+/** The name of a reference rate in a language: the one list every page and finding reads. */
+export const referenceLabel = (reference: LoanReference, lang: Language = DEFAULT_LANGUAGE): string => (lang === DEFAULT_LANGUAGE ? LOAN_REFERENCE_LABEL[reference] : plain(lang, `opt.ref_${reference}`));
+
 export type ParsedInput = { ok: true; value: InputValue } | { ok: false; error: string };
 
-const num = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 2 });
+const numberFormat = (lang: Language) => new Intl.NumberFormat(localeOf(lang), { maximumFractionDigits: 2 });
 const isRealDate = (v: unknown): v is IsoDate => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) && fromDayNumber(dayNumber(v)) === v;
 const inRange = (v: unknown, def: InputDef): v is number => Number.isSafeInteger(v) && (v as number) >= def.min! && (v as number) <= def.max!;
 const dateBounds = (def: InputDef, today: IsoDate): [IsoDate, IsoDate] => [addMonthsToDate(today, def.minMonths!), addMonthsToDate(today, def.maxMonths!)];
@@ -155,18 +177,19 @@ const dateBounds = (def: InputDef, today: IsoDate): [IsoDate, IsoDate] => [addMo
  * The server's validator: the value of `def` from the request body, or a Finnish error for a 400. Money comes in
  * cents and a margin in hundredths of a percent, so nothing here parses a decimal. `today` bounds the dates.
  */
-export function parseInputValue(def: InputDef, raw: unknown, today: IsoDate): ParsedInput {
+export function parseInputValue(def: InputDef, raw: unknown, today: IsoDate, lang: Language = DEFAULT_LANGUAGE): ParsedInput {
+  const num = numberFormat(lang);
   switch (def.kind) {
     case "integer":
-      return inRange(raw, def) ? { ok: true, value: raw } : { ok: false, error: `Anna kokonaisluku väliltä ${num.format(def.min!)}–${num.format(def.max!)}.` };
+      return inRange(raw, def) ? { ok: true, value: raw } : { ok: false, error: messageIn(lang, "opt.err_integer", { from: num.format(def.min!), to: num.format(def.max!) }) };
     case "cents":
-      return inRange(raw, def) ? { ok: true, value: raw } : { ok: false, error: `Anna summa väliltä ${num.format(def.min! / 100)}–${num.format(def.max! / 100)} €.` };
+      return inRange(raw, def) ? { ok: true, value: raw } : { ok: false, error: messageIn(lang, "opt.err_cents", { from: num.format(def.min! / 100), to: num.format(def.max! / 100) }) };
     case "date": {
       const [from, to] = dateBounds(def, today);
-      return isRealDate(raw) && raw >= from && raw <= to ? { ok: true, value: raw } : { ok: false, error: `Anna päivämäärä väliltä ${formatFiDate(from)}–${formatFiDate(to)}.` };
+      return isRealDate(raw) && raw >= from && raw <= to ? { ok: true, value: raw } : { ok: false, error: messageIn(lang, "opt.err_date", { range: formatFiRange(from, to, lang) }) };
     }
     case "choice":
-      return typeof raw === "string" && def.choices!.some((c) => c.id === raw) ? { ok: true, value: raw as InputValue } : { ok: false, error: "Valitse yksi vaihtoehdoista." };
+      return typeof raw === "string" && def.choices!.some((c) => c.id === raw) ? { ok: true, value: raw as InputValue } : { ok: false, error: messageIn(lang, "opt.err_choice") };
     case "loan_rate": {
       const o = raw as Record<string, unknown> | null;
       const ok =
@@ -178,7 +201,7 @@ export function parseInputValue(def: InputDef, raw: unknown, today: IsoDate): Pa
         def.choices!.some((c) => c.id === o.reference);
       return ok
         ? { ok: true, value: { marginBp: o.marginBp as number, reference: o.reference as InputValueMap["loan_rate"]["reference"] } }
-        : { ok: false, error: `Anna marginaali väliltä ${num.format(def.min! / 100)}–${num.format(def.max! / 100)} % ja valitse viitekorko.` };
+        : { ok: false, error: messageIn(lang, "opt.err_loan_rate", { from: num.format(def.min! / 100), to: num.format(def.max! / 100) }) };
     }
   }
 }

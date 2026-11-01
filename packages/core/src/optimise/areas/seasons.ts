@@ -7,15 +7,18 @@
  * month is a deadline when it starts within 60 days: a monthly reserve, with no euros claimed.
  */
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
-import { formatEur, formatFiDate, monthInessive, monthName, monthStem } from "../../analysis/format.ts";
+import { formatEur, formatFiDate, monthInessive, monthName, monthNameIn, monthStem } from "../../analysis/format.ts";
+import type { Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import { expensiveMonthItems, seasonMonths, type Season } from "../../analysis/insights/seasons.ts";
 import { capitalise, gateMonthly, monthRows } from "../../analysis/insights/shared.ts";
 import { monthOneOffs } from "../../analysis/one-offs.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../../analysis/usual.ts";
 import { getCategory } from "../../categories.ts";
+import { categoryLabel } from "../../category-names.ts";
 import { addMonths, daysBetween } from "../../dates.ts";
 import { median } from "../../stats.ts";
-import { findingId, GATE_YEARLY_CENTS, netCost, whyHistory } from "../common.ts";
+import { eur, findingId, GATE_YEARLY_CENTS, netCost, whyHistory } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft } from "../types.ts";
 
 const SOON_DAYS = 60;
@@ -24,11 +27,12 @@ const ROWS_PER_YEAR = 25;
 /** The category behind a season must carry at least this share of each year's excess. */
 const DRIVER_SHARE = 1 / 3;
 
-const eur = (cents: number) => formatEur(cents, false);
-/** "tammi–helmikuussa" for the two months from `month`. */
-const twoMonthsInessive = (month: string) => `${monthStem(month)}–${monthInessive(addMonths(month, 1))}`;
-/** "joulukuun" */
-const monthGenitive = (month: string) => `${monthName(month)}n`;
+/** "tammi–helmikuussa" for the two months from `month`; "January–February" in English, where the sentence has the "in". */
+const twoMonthsInessive = (month: string, lang: Language) => (lang === "en" ? `${monthNameIn(month, lang)}–${monthNameIn(addMonths(month, 1), lang)}` : `${monthStem(month)}–${monthInessive(addMonths(month, 1))}`);
+/** "joulukuun"; the name of the month in English. */
+const monthGenitive = (month: string, lang: Language) => (lang === "en" ? monthNameIn(month, lang) : `${monthName(month)}n`);
+/** "joulukuussa"; the name of the month in English. */
+const monthWhen = (month: string, lang: Language) => (lang === "en" ? monthNameIn(month, lang) : monthInessive(month));
 
 interface CreditCost {
   /** Interest in the two months after less the interest in the two months before, cents. */
@@ -83,10 +87,10 @@ function driverOf(ctx: AnalysisContext, month: string, one: AnalysisTx | null): 
 }
 
 function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
-  const { ctx, today } = a;
+  const { ctx, today, lang } = a;
   const mm = s.month.slice(5);
   const years = [s.month, addMonths(s.month, -12)];
-  const name = capitalise(monthName(s.month));
+  const name = capitalise(monthNameIn(s.month, lang));
   const reserve = Math.ceil(s.extra / 1200) * 100;
   const evidence = years.map((m) => monthEvidence(ctx, m));
   // a season is the same purchases coming back: two dear months a year apart for different reasons are chance,
@@ -97,10 +101,10 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
   if (drivers.some((d, i) => d?.category !== driver || d.excess < DRIVER_SHARE * s.extras[i]!)) return null;
   const struck = evidence.flatMap((e) => (e.one ? [e.one] : []));
   const calc: CalcLine[] = [
-    ...years.map((m, i) => ({ label: `${capitalise(monthName(m))} ${m.slice(0, 4)}, yli tavallisen`, value: eur(s.extras[i]!) })),
-    { label: "Keskimäärin yli tavallisen", value: eur(s.extra) },
-    { label: "Suurin lisä molempina vuosina", value: getCategory(driver).label },
-    ...struck.map((t) => ({ label: `Kertaosto ${t.merchant} ${formatFiDate(t.bookingDate)}`, value: formatEur(netCost(t)), struck: true })),
+    ...years.map((m, i) => ({ label: messageIn(lang, "opt.sea_over", { month: capitalise(monthNameIn(m, lang)), year: m.slice(0, 4) }), value: eur(s.extras[i]!, lang) })),
+    { label: messageIn(lang, "opt.sea_over_avg"), value: eur(s.extra, lang) },
+    { label: messageIn(lang, "opt.sea_driver"), value: categoryLabel(getCategory(driver), lang) },
+    ...struck.map((t) => ({ label: messageIn(lang, "opt.c_one_off_at", { merchant: t.merchant, date: formatFiDate(t.bookingDate, lang) }), value: formatEur(netCost(t), true, lang), struck: true })),
   ];
   const base = {
     id: findingId("seasons", "month", mm),
@@ -122,23 +126,23 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
         const c = credit[i]!;
         const after = addMonths(m, 1);
         const lines: CalcLine[] = [
-          { label: `Korko ${twoMonthsInessive(after)} ${addMonths(m, 2).slice(0, 4)}`, value: eur(c.after) },
-          { label: `Korko ${twoMonthsInessive(addMonths(m, -2))} ${addMonths(m, -1).slice(0, 4)}`, value: eur(c.before) },
+          { label: messageIn(lang, "opt.sea_interest", { span: twoMonthsInessive(after, lang), year: addMonths(m, 2).slice(0, 4) }), value: eur(c.after, lang) },
+          { label: messageIn(lang, "opt.sea_interest", { span: twoMonthsInessive(addMonths(m, -2), lang), year: addMonths(m, -1).slice(0, 4) }), value: eur(c.before, lang) },
         ];
-        if (c.drawn > 0) lines.push({ label: `Luottoa nostettu ${twoMonthsInessive(after)} ${addMonths(m, 2).slice(0, 4)}`, value: eur(c.drawn) });
+        if (c.drawn > 0) lines.push({ label: messageIn(lang, "opt.sea_drawn", { span: twoMonthsInessive(after, lang), year: addMonths(m, 2).slice(0, 4) }), value: eur(c.drawn, lang) });
         return lines;
       });
       return {
         ...base,
-        title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(twoMonthsInessive(addMonths(s.month, 1)))} korkoa maksettiin keskimäärin ${eur(midCents)} enemmän kuin ${twoMonthsInessive(addMonths(s.month, -2))}.`,
-        action: `Maksa ${monthGenitive(s.month)} menot ilman luottoa: varaa ${eur(reserve)} kuussa.`,
+        title: messageIn(lang, "opt.sea_credit_title", { name, extra: eur(s.extra, lang), span: lang === "en" ? twoMonthsInessive(addMonths(s.month, 1), lang) : capitalise(twoMonthsInessive(addMonths(s.month, 1), lang)), mid: eur(midCents, lang), before: twoMonthsInessive(addMonths(s.month, -2), lang) }),
+        action: messageIn(lang, "opt.sea_credit_action", { month: monthGenitive(s.month, lang), reserve: eur(reserve, lang) }),
         euros: { lowCents: Math.min(...extras), midCents, highCents: Math.max(...extras) },
         decideBy: null,
         calc: [
           ...calc,
           ...creditCalc,
-          { label: "Korkoa enemmän, keskimäärin", value: eur(midCents) },
-          { label: "Varaus kuussa", value: eur(reserve) },
+          { label: messageIn(lang, "opt.sea_more_interest"), value: eur(midCents, lang) },
+          { label: messageIn(lang, "opt.sea_reserve"), value: eur(reserve, lang) },
         ],
         rows: [...evidence.flatMap((e) => e.rows), ...credit.flatMap((c) => c!.rows.slice(0, 5))].map((t) => t.id),
         claims: ["category:interest"],
@@ -153,11 +157,11 @@ function seasonFinding(a: AreaInput, s: Season): FindingDraft | null {
   if (daysBetween(today, start) > SOON_DAYS) return null;
   return {
     ...base,
-    title: `${name} on ollut kahtena vuonna ${eur(s.extra)} tavallista kalliimpi. ${capitalise(monthInessive(s.month))} ${s.month.slice(0, 4)} menoja oli ${eur(s.extras[0]!)} tavallista enemmän, vuotta aiemmin ${eur(s.extras[1]!)}. Kertaostot eivät ole mukana.`,
-    action: `Varaa ${monthGenitive(s.month)} menoihin ${eur(reserve)} kuussa.`,
+    title: messageIn(lang, "opt.sea_soon_title", { name, extra: eur(s.extra, lang), when: `${capitalise(monthWhen(s.month, lang))} ${s.month.slice(0, 4)}`, now: eur(s.extras[0]!, lang), then: eur(s.extras[1]!, lang) }),
+    action: messageIn(lang, "opt.sea_soon_action", { month: monthGenitive(s.month, lang), reserve: eur(reserve, lang) }),
     euros: null,
     decideBy: start,
-    calc: [...calc, { label: "Varaus kuussa", value: eur(reserve) }],
+    calc: [...calc, { label: messageIn(lang, "opt.sea_reserve"), value: eur(reserve, lang) }],
     rows: evidence.flatMap((e) => e.rows).map((t) => t.id),
     claims: [],
     measure: { kind: "none", keys: [] },
@@ -171,7 +175,7 @@ export const seasons: Area = {
     // the insight's own history test: a month with a complete same month a year earlier
     const enough = seasonMonths(a.ctx, a.today).length > 0;
     const checks: Check[] = [
-      { id: "seasons:month", label: "Kalliit kuukaudet", status: enough ? "clear" : "no_data", ...(enough ? {} : { why: whyHistory(a, 13) }) },
+      { id: "seasons:month", label: messageIn(a.lang, "opt.sea_chk"), status: enough ? "clear" : "no_data", ...(enough ? {} : { why: whyHistory(a, 13) }) },
     ];
     if (!enough) return { findings: [], checks };
     const items = expensiveMonthItems({ ctx: a.ctx, end: a.today, gateMonthlyCents: gateMonthly(a.ctx, a.today) });

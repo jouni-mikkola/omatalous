@@ -1,0 +1,583 @@
+{
+  "$schema": "./wordlists.schema.json",
+  "alternations": {
+    "MOBILEPAY_WORDS": {
+      "about": "The texts that mark a MobilePay, Pivo or Vipps payment. Callers add what they need around it.",
+      "alternatives": [
+        "MOBILEPAY",
+        "MOBILE PAY",
+        "PIVO",
+        "VIPPS MOBILEPAY",
+        "VIPPS"
+      ]
+    },
+    "PERSON_PAYMENT_WORDS": {
+      "about": "A bank's own words for a payment between people, sent by phone number. They name nobody.",
+      "alternatives": [
+        "MOBIILIMAKSU",
+        "SIIRTO-MAKSU"
+      ]
+    },
+    "INVOICE_WORDS": {
+      "about": "The words of an invoice in a message, with the endings a sole trader writes, and INV by itself.",
+      "alternatives": [
+        "LASKU[A-Z]*",
+        "INVOICE[A-Z]*",
+        "FAKTURA[A-Z]*",
+        "INV"
+      ]
+    },
+    "LANDLORD_WORDS": {
+      "about": "Landlords that rent homes: the housing rule and the rent predicate read it.",
+      "alternatives": [
+        "SATO",
+        "KOJAMO",
+        "LUMO",
+        "HEKA",
+        "TA-YHTYMA",
+        "AVARA",
+        "M2-KODIT",
+        "Y-SAATIO",
+        "ASUNTOSAATIO",
+        "HOAS",
+        "TOAS",
+        "PSOAS",
+        "TYS",
+        "KOAS",
+        "JOENSUUN ELLI",
+        "SIVAKKA",
+        "LAHDEN TALOT",
+        "ESPOON ASUNNOT",
+        "VANTAAN ASUNNOT"
+      ]
+    },
+    "ELECTRICITY_SELLER_WORDS": {
+      "about": "Electricity sellers, read by the rules and by the electricity predicate.",
+      "alternatives": [
+        "FORTUM",
+        "VATTENFALL",
+        "OOMI",
+        "\\bVARE\\b",
+        "HELEN",
+        "LUMME",
+        "NORDIC GREEN",
+        "LOISTE",
+        "HERRFORS"
+      ]
+    },
+    "ELECTRICITY_NETWORK_WORDS": {
+      "about": "Electricity network companies.",
+      "alternatives": [
+        "CARUNA",
+        "ELENIA",
+        "JARVI-SUOMEN ENERGIA",
+        "ROVAKAIRA"
+      ]
+    },
+    "DAYCARE_WORDS": {
+      "about": "Words of day care and early education.",
+      "alternatives": [
+        "[A-Z]*PAIVAKOTI[A-Z]*",
+        "[A-Z]*PAIVAHOITO[A-Z]*",
+        "VARHAISKASVATUS[A-Z]*"
+      ]
+    },
+    "LATE_FEE_WORDS": {
+      "about": "Words of a reminder or late fee.",
+      "alternatives": [
+        "MUISTUTUSMAKSU",
+        "VIIVASTYSKORKO",
+        "PERINTAKULU",
+        "KARHUMAKSU",
+        "MAKSUMUISTUTUS"
+      ]
+    },
+    "INSTALMENT_SERVICE_WORDS": {
+      "about": "Instalment payment services.",
+      "alternatives": [
+        "KLARNA",
+        "WALLEY",
+        "RIVERTY",
+        "AFTERPAY",
+        "ANYDAY"
+      ]
+    },
+    "RESURS_WORDS": {
+      "about": "Resurs Bank, a card issuer and an instalment lender.",
+      "alternatives": [
+        "RESURS BANK"
+      ]
+    },
+    "CARD_ISSUER_BANK_WORDS": {
+      "about": "Banks whose card payments name them as the issuer.",
+      "alternatives": [
+        "BANK NORWEGIAN",
+        "KOMPLETT BANK",
+        "MORROW BANK",
+        "SEB KORT"
+      ]
+    },
+    "CARD_BRAND_WORDS": {
+      "about": "Card brands that name an issuer.",
+      "alternatives": [
+        "ENTERCARD",
+        "RE:?MEMBER"
+      ]
+    },
+    "NORDEA_FINANCE_WORDS": {
+      "about": "Nordea's finance company names.",
+      "alternatives": [
+        "NORDEA RAHOITUS",
+        "NORDEA FINANCE"
+      ]
+    },
+    "NORDEA_CARD_WORDS": {
+      "about": "Names of Nordea's credit cards.",
+      "alternatives": [
+        "NORDEA GOLD",
+        "NORDEA PLATINUM",
+        "NORDEA CREDIT"
+      ]
+    },
+    "LOAN_WORDS": {
+      "about": "Words of a loan payment in a row's text.",
+      "alternatives": [
+        "OSAMAKSU[A-Z]*",
+        "LAINA[A-Z]*",
+        "LYHENNYS",
+        "LAINANHOITO",
+        "RAHOITUSSOPIMUS",
+        "KULUTUSLUOTTO"
+      ]
+    },
+    "REFUND_WORDS": {
+      "about": "Words of a refund or a correction.",
+      "alternatives": [
+        "HYVITYS",
+        "PALAUTUS",
+        "REFUND",
+        "ATERBETALNING",
+        "CHARGEBACK",
+        "OIKAISU",
+        "LIIKASUORITUS",
+        "YLISUORITUS"
+      ]
+    },
+    "RESIDUAL_TAX_WORDS": {
+      "about": "Words of residual tax, which the tax office takes back.",
+      "alternatives": [
+        "JAANNOSVERO",
+        "OMAVERO"
+      ]
+    },
+    "OTHER_TAX_WORDS": {
+      "about": "Words of other taxes: property, car, advance, collection, gift and transfer tax.",
+      "alternatives": [
+        "KIINTEISTOVERO",
+        "AUTOVERO",
+        "AJONEUVOVERO",
+        "ENNAKKOVERO",
+        "PERINTOVERO",
+        "LAHJAVERO",
+        "VARAINSIIRTOVERO"
+      ]
+    },
+    "PENSION_PAYER_WORDS": {
+      "about": "Earnings pension companies and the pension centre, as the whole name of a payer.",
+      "alternatives": [
+        "ILMARINEN",
+        "VARMA",
+        "KEVA",
+        "VERITAS",
+        "ELAKETURVAKESKUS",
+        "PENSIONSSKYDDSCENTRALEN",
+        "ELO KESKINAINEN"
+      ]
+    },
+    "CAR_FINANCIER_WORDS": {
+      "about": "Financing companies of car makers.",
+      "alternatives": [
+        "TOYOTA (?:FINANCE|FINANCIAL|RAHOITUS)[A-Z]*",
+        "VOLKSWAGEN (?:FINANCE|FINANCIAL|FINANS|RAHOITUS)[A-Z]*"
+      ]
+    },
+    "CONSUMER_LENDER_WORDS": {
+      "about": "Consumer lenders.",
+      "alternatives": [
+        "SANTANDER",
+        "SVEA BANK",
+        "SVEA EKONOMI",
+        "COLLECTOR BANK",
+        "INSTABANK",
+        "TF BANK",
+        "IKANO",
+        "NORDAX",
+        "NOBA",
+        "AVIDA",
+        "NORTHMILL",
+        "FERRATUM",
+        "MONEYGO",
+        "EUROLOAN",
+        "AXO FINANS",
+        "SAMBLA",
+        "LENDO",
+        "ZMARTA"
+      ]
+    },
+    "PEER_LENDING_WORDS": {
+      "about": "Peer lending platforms.",
+      "alternatives": [
+        "FELLOW FINANCE",
+        "ESTATEGURU",
+        "INVESDOR",
+        "MINTOS",
+        "TWINO",
+        "PEERBERRY",
+        "ROBOCASH",
+        "LENDERMARKET",
+        "ESKETIT",
+        "SWAPER",
+        "IUVO",
+        "VIAINVEST",
+        "REINVEST24",
+        "TESSIN NORDIC",
+        "VAURAUS SUOMI"
+      ]
+    },
+    "INSURER_WORDS": {
+      "about": "Insurers and the word for insurance.",
+      "alternatives": [
+        "VAKUUTUS",
+        "LAHITAPIOLA",
+        "FENNIA",
+        "\\bIF P&C\\b",
+        "\\bTURVA\\b",
+        "POHJOLA VAKUUTUS",
+        "\\bMANDATUM\\b",
+        "\\bPOHJANTAHTI\\b",
+        "\\bFOLKSAM\\b",
+        "\\bALANDIA\\b",
+        "\\bEUROP ASSISTANCE\\b"
+      ]
+    },
+    "TAX_REFUND_WORDS": {
+      "about": "Money in from the tax office: a refund of tax paid too much.",
+      "alternatives": [
+        "VEROHALLINTO",
+        "VEROPALAUTUS",
+        "VERONPALAUTUS",
+        "SKATTEFORVALTNINGEN",
+        "SKATTEATERBETALNING"
+      ]
+    },
+    "OWN_ACCOUNT_TRANSFER_WORDS": {
+      "about": "The bank's own words for a move between the household's accounts when it gives no account number.",
+      "alternatives": [
+        "SIIRTO TILILTA",
+        "SIIRTO OMALLE TILILLE"
+      ]
+    },
+    "CARD_CASH_WORDS": {
+      "about": "A cash withdrawal the bank types as a card payment.",
+      "alternatives": [
+        "KORTTIMAKSU ?/ ?NOSTO",
+        "KORTTIMAKSU NOSTO",
+        "KORTTIOSTO ?/ ?NOSTO"
+      ]
+    },
+    "SWEDISH_BANK_FEE_WORDS": {
+      "about": "A Swedish-speaking bank's fee for an account or a card.",
+      "alternatives": [
+        "KONTOAVGIFT",
+        "AVGIFT KONTO",
+        "KORTAVGIFT",
+        "AVGIFT KORT"
+      ]
+    },
+    "HOME_LOAN_WORDS": {
+      "about": "Words of a home loan.",
+      "alternatives": [
+        "ASUNTOLAINA[A-Z]*",
+        "ASUNTOLUOTTO",
+        "ASP-LAINA[A-Z]*"
+      ]
+    },
+    "STUDENT_LOAN_WORDS": {
+      "about": "Words of a student loan.",
+      "alternatives": [
+        "OPINTOLAINA[A-Z]*"
+      ]
+    },
+    "GAMBLING_LICENSED": {
+      "about": "Gambling licence holders of mainland Finland and Åland, and the games a row names them by.",
+      "alternatives": [
+        "VEIKKAUS",
+        "FINTOTO",
+        "PAF",
+        "ALANDS PENNINGAUTOMATFORENING"
+      ],
+      "sources": {
+        "VEIKKAUS": "licence register, Veikkaus Oy",
+        "FINTOTO": "licence register, Fintoto Oy (horse betting, from 2027)",
+        "PAF": "Ålands landskapsregering, Ålands Penningautomatförening",
+        "ALANDS PENNINGAUTOMATFORENING": "the same, its legal name"
+      }
+    },
+    "GAMBLING_OFFSHORE": {
+      "about": "Operators that market to Finns without a Finnish licence, by brand and by the company behind the brand.",
+      "alternatives": [
+        "UNIBET",
+        "TRANNEL INTERNATIONAL",
+        "BETSSON",
+        "NORDICBET",
+        "BETSAFE",
+        "BML GROUP",
+        "LEOVEGAS",
+        "COOLBET",
+        "MR ?GREEN",
+        "CASUMO",
+        "VIDEOSLOTS",
+        "SPEEDYBET",
+        "POKERSTARS",
+        "BETWAY",
+        "BETFAIR",
+        "COMEON",
+        "PROZONE",
+        "SUPERNOPEA",
+        "BETHARD",
+        "TURBOVEGAS",
+        "ROOTZ",
+        "WILDZ",
+        "CAXINO",
+        "SKILL ON NET",
+        "PLAYOJO",
+        "KOLIKKOPELIT",
+        "BET365",
+        "HILLSIDE NEW MEDIA",
+        "HILLSIDE SPORTS",
+        "NETBET",
+        "1XBET"
+      ],
+      "sources": {
+        "UNIBET": "unibet.fi",
+        "TRANNEL INTERNATIONAL": "unibet.fi, the company behind Unibet",
+        "BETSSON": "betsson.com",
+        "NORDICBET": "betsson.com, a Betsson brand",
+        "BETSAFE": "betsson.com, a Betsson brand",
+        "BML GROUP": "betsson.com, the company behind Betsson, NordicBet and Betsafe",
+        "LEOVEGAS": "leovegas.com, LeoVegas Gaming plc",
+        "COOLBET": "coolbet.com",
+        "MR ?GREEN": "mrgreen.com, Mr Green Limited",
+        "CASUMO": "casumo.com, Casumo Services Limited",
+        "VIDEOSLOTS": "videoslots.com, Videoslots Ltd",
+        "SPEEDYBET": "speedybet.com",
+        "POKERSTARS": "pokerstars.com",
+        "BETWAY": "betway.com, Betway Limited",
+        "BETFAIR": "betfair.com",
+        "COMEON": "comeon.com",
+        "PROZONE": "supernopea.com, Prozone Limited runs SuperNopea, Bethard and TurboVegas",
+        "SUPERNOPEA": "supernopea.com",
+        "BETHARD": "bethard.com",
+        "TURBOVEGAS": "turbovegas.com",
+        "ROOTZ": "wildz.com, Rootz Limited runs Wildz and Caxino",
+        "WILDZ": "wildz.com",
+        "CAXINO": "caxino.com",
+        "SKILL ON NET": "playojo.com, Skill On Net Ltd runs PlayOJO",
+        "PLAYOJO": "playojo.com",
+        "KOLIKKOPELIT": "kolikkopelit.com",
+        "BET365": "bet365.com",
+        "HILLSIDE NEW MEDIA": "bet365.com, Hillside (New Media Malta) Plc runs Bet365's casino",
+        "HILLSIDE SPORTS": "bet365.com, Hillside (Sports) ENC runs Bet365's betting",
+        "NETBET": "netbet.com",
+        "1XBET": "1xbet.com"
+      }
+    },
+    "GAMBLING_WORDS": {
+      "about": "Words of gambling and the names of Veikkaus's games. Alone a word is weaker than an operator.",
+      "alternatives": [
+        "[A-Z]*KASINO[A-Z]*",
+        "[A-Z]*CASINO[A-Z]*",
+        "BET",
+        "SLOTS",
+        "SPINS",
+        "[A-Z]*POKER[A-Z]*",
+        "KOLIKKOPELI[A-Z]*",
+        "BINGO",
+        "VEDONLYONTI[A-Z]*",
+        "RAHAPELI[A-Z]*",
+        "EUROJACKPOT",
+        "LOTTO",
+        "TOTO",
+        "KENO"
+      ],
+      "sources": {
+        "[A-Z]*KASINO[A-Z]*": "Finnish",
+        "[A-Z]*CASINO[A-Z]*": "English, Swedish",
+        "BET": "English, in operators' names",
+        "SLOTS": "English",
+        "SPINS": "English, free spins",
+        "[A-Z]*POKER[A-Z]*": "Finnish (pokeri) and English",
+        "KOLIKKOPELI[A-Z]*": "Finnish, slot machines",
+        "BINGO": "Finnish and English",
+        "VEDONLYONTI[A-Z]*": "Finnish, betting",
+        "RAHAPELI[A-Z]*": "Finnish, gambling",
+        "EUROJACKPOT": "veikkaus.fi, a Veikkaus game",
+        "LOTTO": "veikkaus.fi",
+        "TOTO": "veikkaus.fi",
+        "KENO": "veikkaus.fi"
+      }
+    },
+    "GAMBLING_INTERMEDIARIES": {
+      "about": "Payment services that carry money to and from operators. A row of one alone is no evidence of gambling.",
+      "alternatives": [
+        "ZIMPLER",
+        "TRUSTLY",
+        "BRITE",
+        "PAYSAFECARD",
+        "PAYSAFE",
+        "SKRILL",
+        "NETELLER",
+        "SOFORT",
+        "MUCHBETTER",
+        "EUTELLER"
+      ],
+      "sources": {
+        "ZIMPLER": "zimpler.com, Pay N Play deposits and payouts",
+        "TRUSTLY": "trustly.com, Pay N Play deposits and payouts",
+        "BRITE": "britepayments.com, instant deposits and payouts",
+        "PAYSAFECARD": "paysafecard.com, prepaid vouchers",
+        "PAYSAFE": "paysafe.com, the company behind Paysafecard, Skrill and Neteller",
+        "SKRILL": "skrill.com, e-wallet",
+        "NETELLER": "neteller.com, e-wallet",
+        "SOFORT": "sofort.com, bank payment",
+        "MUCHBETTER": "muchbetter.com, e-wallet",
+        "EUTELLER": "euteller.com, bank payment"
+      }
+    },
+    "CAR_PLACE_WORDS": {
+      "about": "A parking place, garage or car shelter: a row of its own in Asuminen, never a home's rent.",
+      "alternatives": [
+        "AUTOPAIK[A-Z]*",
+        "AUTOTALLI[A-Z]*",
+        "AUTOKATOS[A-Z]*"
+      ]
+    },
+    "HOUSEHOLD_LOANS": {
+      "about": "What a household's loan is named after, before LAINA or LAINAN.",
+      "alternatives": [
+        "ASUNTO",
+        "AUTO",
+        "KULUTUS",
+        "PANKKI",
+        "REMONTTI",
+        "VENE",
+        "YHDISTELY",
+        "PIKA",
+        "JOUSTO",
+        "KERTA",
+        "LIMIITTI",
+        "MOKKI",
+        "MOOTTORIPYORA",
+        "VELKAKIRJA"
+      ]
+    },
+    "LENDER_FORM_WORDS": {
+      "about": "Company forms that end a lender's name.",
+      "alternatives": [
+        "OY",
+        "OYJ",
+        "AB",
+        "ABP",
+        "A/S",
+        "LTD",
+        "LIMITED",
+        "PLC",
+        "GMBH",
+        "BV"
+      ]
+    }
+  },
+  "companyForms": {
+    "OY": [
+      "strip",
+      "payee"
+    ],
+    "OYJ": [
+      "strip",
+      "payee"
+    ],
+    "AB": [
+      "strip",
+      "payee"
+    ],
+    "ABP": [
+      "strip",
+      "payee"
+    ],
+    "KY": [
+      "strip",
+      "payee"
+    ],
+    "AY": [
+      "strip",
+      "payee"
+    ],
+    "RY": [
+      "strip",
+      "payee"
+    ],
+    "TMI": [
+      "strip",
+      "payee"
+    ],
+    "OSK": [
+      "strip",
+      "payee"
+    ],
+    "KOY": [
+      "strip",
+      "payee"
+    ],
+    "LTD": [
+      "strip",
+      "payee"
+    ],
+    "RF": [
+      "strip"
+    ],
+    "AOY": [
+      "strip"
+    ],
+    "AS": [
+      "strip"
+    ],
+    "SR": [
+      "strip"
+    ],
+    "LIMITED": [
+      "payee"
+    ],
+    "INC": [
+      "payee"
+    ],
+    "GMBH": [
+      "payee"
+    ],
+    "LLC": [
+      "payee"
+    ],
+    "PLC": [
+      "payee"
+    ],
+    "BV": [
+      "payee"
+    ]
+  },
+  "gamblingMcc": [
+    7800,
+    7801,
+    7802,
+    7995,
+    9406
+  ]
+}

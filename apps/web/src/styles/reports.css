@@ -1,19 +1,43 @@
 /* Reports page: section nav, key figures, pivot and heat tables. */
 
-/* the tabs of Raportit: one kind of question each, the chosen one underlined in the accent */
-.report-tabs { display: flex; gap: var(--sp-4, 4px); border-bottom: 1px solid var(--border); margin-bottom: 4px; overflow-x: auto; scrollbar-width: none; }
-.report-tabs button { flex: none; min-height: 44px; padding: 0 16px; border: 0; background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: 600; cursor: pointer; box-shadow: inset 0 -2px 0 transparent; white-space: nowrap; }
-.report-tabs button:hover { color: var(--text); }
-.report-tabs button[aria-selected="true"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
-.report-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.report-nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-.report-nav a { display: inline-flex; align-items: center; min-height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-m); background: none; color: var(--text-2); font-size: var(--fs-label); font-weight: 600; text-decoration: none; }
-.report-nav a:hover { color: var(--text); border-color: var(--control-edge); }
-/* a phone: one row that scrolls sideways instead of nine chips on three rows before any content */
-@media (max-width: 640px) {
-  .report-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -12px; padding-inline: 12px; }
-  .report-nav::-webkit-scrollbar { display: none; }
-  .report-nav a { flex: none; white-space: nowrap; min-height: 44px; padding: 0 12px; }
+@layer pages {
+/* the frame of the question pages (pages/reports/Frame.tsx): the list of questions beside the open one; a phone folds the list behind a button */
+.q-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); }
+.q-list { list-style: none; margin: 0; padding: 0; }
+.q-rail { display: grid; gap: var(--sp-8); align-content: start; }
+.q-rail .q-list { display: none; }
+.q-rail.open .q-list { display: block; }
+.q-list a { display: block; padding: var(--sp-8) var(--sp-12); border-left: var(--tick) solid transparent; color: var(--text); text-decoration: none; font-weight: 600; }
+.q-list a:hover { background: var(--surface-2); }
+.q-list a[aria-current="page"] { border-left-color: var(--accent); background: var(--surface-2); }
+.q-list small { display: block; margin-top: var(--sp-4); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
+.q-switch { justify-self: start; min-height: var(--control-h); padding: 0 var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); background: var(--surface); color: var(--text); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
+.q-page { min-width: 0; }
+.q-head { display: grid; gap: var(--sp-12); }
+.q-title { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
+.verdict { display: grid; gap: var(--sp-8); }
+.verdict p { margin: 0; }
+.verdict-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }
+.verdict-label { color: var(--text-2); }
+.verdict-vs { color: var(--text-2); }
+.verdict-why { max-width: 70ch; line-height: var(--lh-prose); }
+.compare { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
+.compare-label { color: var(--text-2); font-size: var(--fs-label); }
+/* the four choices stay on one row on a phone: the buttons share the row and give up their side padding, never wrap */
+.compare .segmented { flex-wrap: nowrap; max-width: 100%; }
+.compare .segmented button { flex: 1 1 auto; padding: 0 var(--sp-8); white-space: nowrap; }
+@media (max-width: 480px) { .compare .segmented button { padding: 0 var(--sp-4); font-size: var(--fs-label); } }
+/* a closed card is its name and sum on one even band: the sum's cell is the height of the row, the card has no padding of its own, and the gap below it is taken back so the band is as tall above the text as below */
+.q-page > details.card:not([open]) { padding-block: 0; margin-bottom: calc(var(--gap) * -1); }
+.coverage-notices { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-8); max-width: 70ch; color: var(--muted); font-size: var(--fs-body); line-height: var(--lh-prose); }
+.recommendation { margin: 0; max-width: 70ch; line-height: var(--lh-prose); }
+.q-method, .q-accounts { margin: 0 0 var(--sp-12); max-width: 70ch; line-height: var(--lh-prose); }
+/* the link to the notes stands alone, not in a sentence: on a phone it needs the height of a target */
+.q-quality { display: inline-flex; align-items: center; }
+@media (min-width: 900px) {
+  .q-frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); gap: var(--sp-24); }
+  .q-rail .q-list { display: block; }
+  .q-switch { display: none; }
 }
 /* the readouts: five across at most (a cell is a fifth of the row, 184 px at least so a sum with its share fits), two across on a phone */
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(184px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
@@ -23,12 +47,6 @@
 .kv .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .kv .v { margin-top: 2px; }
 @media (max-width: 640px) { .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-/* Saldot: the accounts, the saved loans and what is left, as rows of the statement look; a label is told whole */
-.balance-rows { max-width: 420px; margin-bottom: 12px; }
-.balance-rows .st-name { overflow: visible; white-space: normal; }
-.heat-table td.num { font-size: var(--fs-label); padding: 4px 8px; }
-.heat-table th { font-size: var(--fs-tick); padding: 4px 8px; }
-.heat-table td.cell { border-radius: 0; }
 
 /* pivot heat cells: one blue ramp; ink flips where the fill gets dark */
 .heat-l1 { background: var(--heat-1); color: var(--heat-ink-1); }
@@ -46,35 +64,8 @@
 .sk-plot { block-size: 260px; }
 .sk-row { block-size: 28px; }
 @media (prefers-reduced-motion: no-preference) {
-  .skeleton-card .sk { animation: sk-pulse 1.6s var(--ease-out) infinite alternate; }
+  .skeleton-card .sk { animation: sk-pulse var(--t-pulse) var(--ease-out) infinite alternate; }
   @keyframes sk-pulse { to { opacity: 0.55; } }
 }
 
-/* VT3: the table kit on Raportit */
-/* a category with nothing to open keeps its name in line with the names after an arrow (24 px and its 4 px margin) */
-/* the chip is the button that opens the row's base: the chip's own ground, the figure's focus ring */
-.why-fig.cat-chip { border-radius: var(--radius-pill); }
-.why-fig.cat-chip:hover .tc-delta, .why-fig.cat-chip[aria-expanded="true"] .tc-delta { box-shadow: inset 0 0 0 1px currentColor; }
-.cat-detail { display: grid; gap: var(--sp-8); }
-.cat-base { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-
-/* CP1's split of a rise: one line of two parts, each an estimate that opens its basis under the line */
-.price-parts { margin-top: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.price-line { margin: 0; }
-.price-name { color: var(--text-2); }
-.price-fig { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.price-basis { margin-top: var(--sp-8); padding: var(--sp-8) var(--sp-12); border-left: 2px solid var(--estimate-edge); background: var(--well); border-radius: var(--radius-s); color: var(--text); }
-.price-basis p { margin: 0 0 var(--sp-4); }
-.price-basis p:last-child { margin-bottom: 0; }
-.price-basis .price-source { color: var(--text-2); }
-.rt-detail .price-basis { margin-top: 0; max-inline-size: 640px; }
-
-/* Nousseet: the step from the usual level to the new one, drawn in the text colour over the columns */
-.chart .drift-step { fill: none; stroke: var(--text); stroke-width: 1.5; stroke-linejoin: round; }
-.drift-tile .sm-col { fill: var(--heat-3); }
-
-/* Kiinteät: the layer's colour before its name in the head stands for the chart's legend */
-.fv-key { display: inline-block; inline-size: 8px; block-size: 8px; margin-right: var(--sp-4); border-radius: var(--radius-s); vertical-align: baseline; }
-
-/* Ruoka: the sentence that names the table's months and bases, and why the card bills' row has no share */
-.food-base { margin-bottom: var(--sp-8); }
+}

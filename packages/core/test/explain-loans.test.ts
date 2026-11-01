@@ -1,5 +1,5 @@
 /**
- * The basis of each loan figure adds up to the figure Lainat and Varallisuus show, to the cent: the totals, every loan's
+ * The basis of each loan figure adds up to the figure Lainat and Varat ja velat show, to the cent: the totals, every loan's
  * own figures, at a part too. Made-up loans only.
  */
 import { describe, expect, it } from "vitest";

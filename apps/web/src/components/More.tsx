@@ -4,7 +4,8 @@
  * buttons under a table.
  */
 import { type ReactNode, useState } from "react";
-
+import { Button } from "./ui/Button.tsx";
+import { t } from "../text.ts";
 /** The count and the buttons under a cut list; nothing when the list was short enough to show whole. */
 export function MoreButtons({ shown, total, step, onMore, onLess }: { shown: number; total: number; step: number; onMore: () => void; onLess: () => void }) {
   if (total <= step) return null;
@@ -12,14 +13,14 @@ export function MoreButtons({ shown, total, step, onMore, onLess }: { shown: num
     <div className="rt-more">
       <span className="muted small">{`${shown} / ${total}`}</span>
       {shown < total && (
-        <button className="btn btn-small" type="button" onClick={onMore}>
-          {`Näytä lisää (${Math.min(step, total - shown)})`}
-        </button>
+        <Button onClick={onMore}>
+          {t("more.show_n", { count: Math.min(step, total - shown) })}
+        </Button>
       )}
       {shown > step && (
-        <button className="btn btn-small" type="button" onClick={onLess}>
-          Näytä vähemmän
-        </button>
+        <Button variant="link" onClick={onLess}>
+          {t("more.show_less")}
+        </Button>
       )}
     </div>
   );

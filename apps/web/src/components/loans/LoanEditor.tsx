@@ -2,9 +2,10 @@ import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanKind 
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
 import { money } from "../../format.ts";
 import type { Account } from "../../types.ts";
-import { checksLeft, defaultName, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "./form.ts";
+import { checksLeft, defaultName, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "./form.ts";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
-
+import { Button } from "../ui/Button.tsx";
+import { Notice } from "../ui/Notice.tsx";
 const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", rateBp: "%", marginBp: "%" };
 
 /**
@@ -14,18 +15,25 @@ const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grant
  */
 export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: readonly Loan[] }>({ accounts: [], loans: [] });
 
-const LINK_HELP = "Kun laina on liitetty tiliin, velka lasketaan vain kerran ja saldo tulee pankista.";
+const LINK_HELP = "Kun yhdistät lainan tiliin, laskemme sen velkana vain kerran ja saldo tulee pankista.";
 /** Under the balance of a linked loan: the bank's balance counts while the bank tells one, and the typed one otherwise. */
-const LINKED_BALANCE_HELP = "Velkana käytetään pankin saldoa aina, kun pankki ilmoittaa sen. Muulloin käytetään tähän kirjattua saldoa.";
+const LINKED_BALANCE_HELP = "Velkana on pankin saldo aina, kun pankki ilmoittaa sen. Muulloin velka on tähän kirjoittamasi saldo.";
 const REVIEW_HELP = "Päivä, jona pankki seuraavan kerran tarkistaa viitekoron. Näkyy lainasopimuksessa ja verkkopankissa.";
 
 /** What the payment figure is, by the way the loan is paid back. */
 function paymentHelp(form: LoanForm): string | null {
   const read = form.source?.payment;
   if (form.paymentKind === "amortisation" && form.values.paymentCents === "" && read) return `Tekstissä oli pelkkä lyhennys (${read} €). Kirjoita koko maksuerä tai jätä kenttä tyhjäksi.`;
-  if (form.values.repayment === "equal_principal") return "Pelkkä lyhennys. Korko maksetaan sen lisäksi.";
+  if (form.values.repayment === "equal_principal") return "Pelkkä lyhennys. Korko tulee sen lisäksi.";
   if (form.values.repayment === "annuity" || form.values.repayment === "fixed_instalment") return "Koko erä, korko mukana.";
-  return form.paymentKind === "amortisation" ? "Tekstistä luettiin pelkkä lyhennys." : null;
+  return form.paymentKind === "amortisation" ? "Tekstissä oli pelkkä lyhennys." : null;
+}
+
+/** What a proposal's form filled from the bank's rows, in one line. */
+function prefilledLine(form: LoanForm): string {
+  const payment = !isCredit(form.kind) && form.values.paymentCents && `${form.values.paymentCents} € ${intervalLabel(Number(form.values.intervalMonths) || 1).toLowerCase()}`;
+  const parts = [form.values.lender, payment, form.accountId && form.values.balanceCents && `saldo ${form.values.balanceCents} € pankista`].filter(Boolean);
+  return parts.length > 0 ? `Pankin riveistä: ${parts.join(", ")}.` : "Pankin rivit eivät kerro lainasta muuta.";
 }
 
 /**
@@ -33,8 +41,13 @@ function paymentHelp(form: LoanForm): string | null {
  * each field the line it was read from and how sure the reading is, and a field to check must be ticked or changed
  * before the loan can be saved. Nothing is sent before Tallenna.
  */
-export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
+export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel }: {
   initial: LoanForm;
+  /**
+   * The fields the household is asked for, when the rest is filled from the bank's rows (a proposal). The others stay
+   * in the form, shown in one line, and "Näytä kaikki kentät" opens them. Without it every field shows.
+   */
+  ask?: readonly LoanFieldKey[];
   /** The instance's day: the latest day a balance can be of. */
   today: string;
   cancelLabel: string;
@@ -46,7 +59,9 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
   const [errors, setErrors] = useState<FormErrors>({});
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const shown = shownFields(form);
+  const [all, setAll] = useState(false);
+  const compact = ask !== undefined && !all;
+  const shown = shownFields(form).filter((key) => !compact || ask.includes(key));
   const left = checksLeft(form);
   const warnings = warningsOf(form);
   const interest = interestOverPayment(form);
@@ -62,6 +77,8 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
     if (busy) return;
     const { body, errors: found } = readForm({ ...form, accountId: linked });
     setErrors(found);
+    // an error on a field that is not shown opens the rest of the form
+    if (compact && (interest !== null || Object.keys(found).some((key) => key !== "kind" && !shown.includes(key as LoanFieldKey)))) setAll(true);
     const stop = Object.keys(found)[0] ?? left[0] ?? (interest !== null ? "paymentCents" : null);
     if (!body || stop) {
       setProblem(
@@ -111,6 +128,8 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
 
   return (
     <form className="loan-form" onSubmit={(e) => void submit(e)} noValidate>
+      {compact && <p className="small muted loan-note">{prefilledLine(form)}</p>}
+      {!compact && (
       <div className="loan-fields">
         <div className="loan-field">
           <label className="field-label" htmlFor={idOf("name")}>
@@ -132,19 +151,22 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
             ))}
           </select>
           {errors.kind && (
-            <span id={idOf("kind-error")} className="error field-error">
+            <span id={idOf("kind-error")} className="field-error">
               {errors.kind}
             </span>
           )}
         </div>
       </div>
+      )}
 
       {warnings.length > 0 && (
-        <ul className="notice warning loan-warnings">
-          {warnings.map((w) => (
-            <li key={w.id}>{w.text}</li>
-          ))}
-        </ul>
+        <Notice tone="warning">
+          <ul className="loan-warnings">
+            {warnings.map((w) => (
+              <li key={w.id}>{w.text}</li>
+            ))}
+          </ul>
+        </Notice>
       )}
 
       <div className="loan-fields">
@@ -185,7 +207,7 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
                 </span>
               )}
               {errors[key] && (
-                <span id={idOf(`${key}-error`)} className="error field-error">
+                <span id={idOf(`${key}-error`)} className="field-error">
                   {errors[key]}
                 </span>
               )}
@@ -194,7 +216,7 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
         })}
       </div>
 
-      {choices.length > 0 && (
+      {choices.length > 0 && !compact && (
         <div className="loan-field">
           <label className="field-label" htmlFor={idOf("account")}>
             Sama velka pankin tilillä
@@ -213,31 +235,36 @@ export function LoanEditor({ initial, today, cancelLabel, onSave, onCancel }: {
         </div>
       )}
 
-      {form.values.repayment === "bullet" && shown.includes("repayment") && <p className="small muted loan-note">Kertalyhenteinen laina maksetaan kerralla viimeisenä eräpäivänä, joten sillä ei ole maksuerää.</p>}
+      {form.values.repayment === "bullet" && shown.includes("repayment") && <p className="small muted loan-note">Kertalyhenteisen lainan maksat kerralla viimeisenä eräpäivänä, joten sillä ei ole maksuerää.</p>}
 
       {interest !== null && (
-        <div className="notice warning loan-interest" role="status">
+        <Notice tone="warning" className="loan-interest" role="status">
           <p>
             Maksuerä on pienempi kuin korko ({money(interest)}). Laina ei lyhene. Tarkista luvut. Jos maksat vain korkoa, jätä maksuerä tyhjäksi.
           </p>
-          <button className="btn btn-small" type="button" onClick={() => change("paymentCents", "")}>
+          <Button variant="link" onClick={() => change("paymentCents", "")}>
             Tyhjennä maksuerä
-          </button>
-        </div>
+          </Button>
+        </Notice>
       )}
 
       {problem && (
-        <div className="error" role="alert">
+        <Notice tone="error">
           {problem}
-        </div>
+        </Notice>
       )}
       <div className="form-row">
-        <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
+        <Button variant="primary" type="submit" busy={busy}>
           {busy ? "Tallennetaan…" : "Tallenna"}
-        </button>
-        <button className="btn" type="button" disabled={busy} onClick={onCancel}>
+        </Button>
+        <Button disabled={busy} onClick={onCancel}>
           {cancelLabel}
-        </button>
+        </Button>
+        {compact && (
+          <Button variant="link" onClick={() => setAll(true)}>
+            Näytä kaikki kentät
+          </Button>
+        )}
         {left.length > 0 && <span className="small muted">Tarkistettavia kenttiä: {left.length}</span>}
       </div>
     </form>

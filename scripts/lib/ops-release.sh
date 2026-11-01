@@ -111,12 +111,12 @@ act_prerelease() { # act_prerelease yes|no
   [[ $want != yes ]] || mode=newest
   if [[ $(release_mode 2>/dev/null) != "$mode" ]]; then
     say_log "TALOUS_PRERELEASE=$want was written, but the daily check does not read it from .env."
-    fail "Asetus kirjoitettiin tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella."
+    fail "Kirjoitimme asetuksen tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella."
     return
   fi
   say_log "TALOUS_PRERELEASE=$want is the setting in .env."
   step_say "2/2 Tarkistetaan uusi versio"
-  if [[ $want == yes ]]; then SUMMARY="Uudet versiot tarjotaan heti."; else SUMMARY="Uudet versiot tarjotaan kaksi päivää julkaisun jälkeen."; fi
+  if [[ $want == yes ]]; then SUMMARY="Tarjoamme uudet versiot heti."; else SUMMARY="Tarjoamme uudet versiot kaksi päivää julkaisun jälkeen."; fi
   if check_update; then [[ $UPDATE_AVAILABLE != true ]] || SUMMARY+=" Uusi versio on saatavilla."
   else rm -f "$OPS/last-check"; SUMMARY+=" Uutta versiota ei voitu tarkistaa."; fi
 }

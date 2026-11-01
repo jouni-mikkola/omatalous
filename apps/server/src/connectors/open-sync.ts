@@ -1,6 +1,7 @@
 /**
- * A member opens the app: if their rows are older than half an hour, a fetch of their own connections starts in
- * the background, inside what the bank allows. The answer is at once and never waits for the bank.
+ * A member opens the app: if their rows are older than the gap between the scheduled fetches (the sync hours of the
+ * instance settings), a fetch of their own connections starts in the background, inside what the bank allows. The
+ * answer is at once and never waits for the bank, and the app shows what it has stored before any fetch ends.
  */
 import { hourIn } from "../platform/config.ts";
 import type { Services } from "../services/context.ts";
@@ -9,7 +10,20 @@ import { accountsAtLimit, rateLimitedUntil } from "./bank-limit.ts";
 import { LOCK_TTL_MS, syncUser } from "./sync.ts";
 import type { UserHeaders } from "./types.ts";
 
-const FRESH_MINUTES = 30;
+const HOUR_MS = 3600_000;
+const DAY_HOURS = 24;
+
+/**
+ * How old the newest fetch may be before an open starts another: the longest gap between two sync hours, round the
+ * clock. While the schedule runs the rows are never older, so an open fetches only when a scheduled fetch was missed.
+ * With no sync hours the schedule is off and the gap is a day.
+ */
+function freshMs(syncHours: readonly number[]): number {
+  const hours = [...new Set(syncHours)].sort((a, b) => a - b);
+  if (hours.length < 2) return DAY_HOURS * HOUR_MS;
+  const gaps = hours.map((h, i) => hours[(i + 1) % hours.length]! - h + (i === hours.length - 1 ? DAY_HOURS : 0));
+  return Math.max(...gaps) * HOUR_MS;
+}
 
 /** The trigger of an open that carried the member's headers; any other trigger is a fetch without them. */
 const WITH_HEADERS = "open";
@@ -55,7 +69,9 @@ export async function openSync(s: Services, userId: string, userHeaders: UserHea
   const limited = () => answer("limited", { nextAt: nextSyncHour(s, s.now()) });
 
   if (runs.some((r) => r.status === "running" && now - Date.parse(r.startedAt) < LOCK_TTL_MS)) return answer("running");
-  const recent = newest && now - Date.parse(newest.finishedAt!) < FRESH_MINUTES * 60_000 ? newest : null;
+  const fresh = freshMs(s.instance.current.syncHours);
+  const age = newest ? now - Date.parse(newest.finishedAt!) : Infinity;
+  const recent = newest && age < fresh ? newest : null;
   if (recent && recent.status !== "failed") return answer("fresh", { lastAt: recent.finishedAt, inserted: recent.inserted });
   if (await rateLimitedUntil(s, userId)) return limited();
   if (recent) return answer("failed");

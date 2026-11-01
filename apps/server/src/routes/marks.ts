@@ -10,7 +10,7 @@ import { body } from "./shared.ts";
 const MARK_KINDS: readonly MarkKind[] = ["in_use", "cancelled", "dismissed"];
 
 /**
- * `series:<key>` (one subscription), `alert:<id>`, `loan-proposal:<key>` ("Ei laina" on a proposed loan, a subject of
+ * `series:<key>` (one subscription), `alert:<id>`, `loan-proposal:<key>` ("Ei ole laina" on a proposed loan, a subject of
  * its own so that a mark Laskut puts on the same series never replaces it), or `merchant:<name>` (every subscription of
  * a merchant: what a mark was before it named a series, kept so that those are still stored and taken away), or
  * `question:<name>` (the answer to a question the first page asks: `question:mortgage`, and `question:payee:<merchant>`

@@ -20,7 +20,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript6";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 

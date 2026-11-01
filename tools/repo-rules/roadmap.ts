@@ -31,3 +31,33 @@ export function shippedAsComing(text: string, released: string): { line: number;
   });
   return found;
 }
+
+const REVIEWED = /^Last reviewed: (\d{4})-(\d{2})-(\d{2})\s*$/m;
+const MONTHS = 6;
+
+/**
+ * The dated review note of the payment rules watch in docs/ENABLE_BANKING.md. `today` is given by the caller (core stays
+ * pure, and so does this module: the test reads the clock). The note is stale when `today` is more than 6 calendar
+ * months after the date, or when it is missing, unparsable or dated in the future.
+ */
+export function staleReview(text: string, today: string): { line: number; why: string } | undefined {
+  const section = /^## Payment rules watch\s*$/m.exec(text);
+  if (!section) return { line: 1, why: 'has no "## Payment rules watch" section' };
+  const rest = text.slice(section.index);
+  const next = rest.slice(3).search(/^## /m);
+  const body = next < 0 ? rest : rest.slice(0, next + 3);
+  const m = REVIEWED.exec(body);
+  const line = text.slice(0, section.index + (m?.index ?? 0)).split("\n").length;
+  const fail = (why: string) => ({ line, why });
+  if (!m) return fail('the Payment rules watch section has no "Last reviewed: YYYY-MM-DD" line');
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return fail(`the review date ${m[1]}-${m[2]}-${m[3]} is not a date`);
+  const iso = `${m[1]}-${m[2]}-${m[3]}`;
+  if (iso > today) return fail(`the review date ${iso} is after ${today}`);
+  const limit = new Date(Date.UTC(y, mo - 1 + MONTHS, d));
+  // A day that does not exist 6 months later (31 August + 6) rolls over; clamp to the last day of that month.
+  if (limit.getUTCDate() !== d) limit.setUTCDate(0);
+  const limitIso = limit.toISOString().slice(0, 10);
+  return today > limitIso ? fail(`the review of ${iso} is more than ${MONTHS} months old on ${today}; review the rules again and set the date`) : undefined;
+}

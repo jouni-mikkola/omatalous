@@ -1,0 +1,32 @@
+/** The English table of set-split; the Finnish one it must match is in ../messages-set-split.ts. */
+import type { FI_SET_SPLIT } from "../messages-set-split.ts";
+
+export const EN_SET_SPLIT: Record<keyof typeof FI_SET_SPLIT, string> = {
+  "set.split.equally": "Equally",
+  "set.split.by_shares": "By shares",
+  "set.split.in_proportion_to_income": "In proportion to income",
+  "set.split.fixed_amount": "Fixed amount",
+  "set.split.the_split_of_the_rest": "The split of the rest is not given",
+  "set.split.removed_member": "removed member",
+  "set.split.approve": "Approve",
+  "set.split.reject": "Reject",
+  "set.split.cancel_the_proposal": "Cancel the proposal",
+  "set.split.split_of_account_name": "Split of account {name}",
+  "set.split.split": "Split",
+  "set.split.no_split_has_been_agreed": "No split has been agreed. Costs are shared by the account users' shares.",
+  "set.split.earlier_splits": "Earlier splits",
+  "set.split.change_the_split": "Change the split",
+  "set.split.choose_at_least_one_user": "Choose at least one user.",
+  "set.split.enter_the_shares_as_whole": "Enter the shares as whole numbers.",
+  "set.split.choose_how_the_rest_is": "Choose how the rest is shared.",
+  "set.split.enter_the_amount_in_euros": "Enter the amount in euros, for example 300.00.",
+  "set.split.change_the_split_of_account": "Change the split of account {name}",
+  "set.split.how_to_split": "How to split",
+  "set.split.the_rest_is_shared": "The rest is shared",
+  "set.split.choose": "Choose",
+  "set.split.in_force_from": "In force from",
+  "set.split.save": "Save",
+  "set.split.cancel": "Cancel",
+  "set.split.rest": "Rest: {kind}",
+  "set.split.awaiting": "Awaiting approval: {names}",
+};

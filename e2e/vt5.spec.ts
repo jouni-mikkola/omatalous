@@ -1,6 +1,6 @@
 import { type Browser, expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { watch } from "./helpers.ts";
+import { unfold, watch } from "./helpers.ts";
 
 // VT5: the basis of a figure opens from the figure. Every door (Why) on Yhteenveto and Laskut opens its panel by Enter, by
 // Space and by a tap; Escape and Sulje close it and give the focus back to the figure; on a phone the panel is a sheet at the
@@ -9,7 +9,7 @@ import { watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const PAGES = [
-  { route: "/#/overview?period=last-month", name: "Yhteenveto", doors: true },
+  { route: "/#/overview", name: "Yhteenveto", doors: false },
   { route: "/#/bills", name: "Laskut", doors: true },
 ];
 
@@ -35,7 +35,7 @@ async function opened(page: Page, door: Locator): Promise<Locator> {
   const panel = page.getByRole("dialog");
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(panel.locator(".why-period")).toHaveText(/^\d{1,2}\.\d{1,2}\./);
+  await expect(panel.locator(".why-period")).toHaveText(/^\d{1,2}\.(\d{1,2}\.|–)/);
   // the panel stands under body, so nothing of the figure's cell reaches it: no underline, no right alignment, no capitals
   expect(await panel.evaluate((d) => d.parentElement === document.body)).toBe(true);
   expect(await panel.evaluate((d) => [getComputedStyle(d).textAlign, getComputedStyle(d.querySelector("h2")!).textTransform])).toEqual(["left", "none"]);
@@ -96,7 +96,9 @@ for (const p of PAGES) {
 }
 
 test("Raportit > Menot: the total's basis shows its first row below the head, not under it, and a category column only when the rows differ", async ({ browser }) => {
-  const { page, seen, close } = await open(browser, "/#/reports?period=12m&tab=menot", false);
+  const { page, seen, close } = await open(browser, "/#/reports?period=12m&q=menot", false);
+  // Rahankäyttö folds its sections: the total sits in Kategoriat
+  await unfold(page, "kategoriat");
   const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
   await total.getByRole("button", { name: /Näytä tapahtumat/ }).click();
   const panel = page.getByRole("dialog");
@@ -111,29 +113,10 @@ test("Raportit > Menot: the total's basis shows its first row below the head, no
   await close();
 });
 
-test("Yhteenveto: Käytettävissä, Tilien saldo and the coming pay open their basis; the pay is an estimate and says so", async ({ browser }) => {
-  const { page, seen, close } = await open(browser, "/#/overview", false);
-  for (const name of [/^Näytä tapahtumat: Käytettävissä /, /^Näytä tapahtumat: Tilien saldo, ilman korttia /]) {
-    await page.getByRole("button", { name }).click();
-    const panel = page.getByRole("dialog");
-    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
-    await page.keyboard.press("Escape");
-  }
-  const pay = page.getByRole("button", { name: /^Näytä tapahtumat: Palkka, .+ arvio / });
-  await expect(pay).toContainText("≈");
-  await pay.click();
-  const panel = page.getByRole("dialog");
-  await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  expect(await panel.locator("tr[data-why-row], table.why-rows tbody tr").count()).toBeGreaterThan(2);
-  await expect(panel.locator(".why-reason").last()).toContainText("viimeisimmän palkan");
-  await page.keyboard.press("Escape");
-  expect(seen.problems).toEqual([]);
-  await close();
-});
-
 test("Raportit > Menot at 390 px: the total's basis fits the screen, each row's category under its name", async ({ browser }) => {
-  const { page, seen, close } = await open(browser, "/#/reports?period=12m&tab=menot", true);
+  const { page, seen, close } = await open(browser, "/#/reports?period=12m&q=menot", true);
+  // Rahankäyttö folds its sections: the total sits in Kategoriat
+  await unfold(page, "kategoriat");
   const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
   await total.getByRole("button", { name: /Näytä tapahtumat/ }).tap();
   const panel = page.getByRole("dialog");

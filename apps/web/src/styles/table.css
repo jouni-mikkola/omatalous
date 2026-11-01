@@ -10,7 +10,10 @@
  * `data-block` and each row is a block (see the end of the file).
  */
 
+@layer components {
 .rt-wrap { position: relative; }
+/* holds the place of the toolbar while its chunk loads, so the table does not jump */
+.rt-toolbar-wait { min-block-size: var(--control-h); margin: 0 0 var(--sp-8); }
 .rt { width: 100%; border-collapse: collapse; font-size: var(--fs-body); line-height: 20px; font-variant-numeric: tabular-nums lining-nums; }
 .rt :is(th, td) { padding: 12px 0 12px 16px; border-bottom: 1px solid var(--grid); text-align: left; vertical-align: middle; font-weight: 400; }
 .rt :is(th, td):first-child { padding-left: 0; }
@@ -25,7 +28,7 @@
 
 /* the head: the label of the figures under it, in 12 px, with the axis under it. It stays in view while the rows scroll
    under it, and from 1100 px under the rail, which is sticky too */
-.rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--surface); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
+.rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--page); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
 @media (min-width: 1100px) { .rt thead :is(th, td) { top: var(--rail-h); } }
 .rt thead tr + tr :is(th, td) { top: calc(var(--lh-label) + 16px); }
 @media (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--lh-label) + 16px); } }
@@ -46,7 +49,7 @@
 /* a sortable head: the whole label is the button, the arrow muted until the column is the one sorted */
 .rt-sort { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .rt-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
-.rt-sort::after { content: "↕" / ""; color: var(--muted); font-size: var(--fs-tick); }
+.rt-sort::after { content: "↕" / ""; color: var(--muted); font-size: var(--fs-label); }
 th[aria-sort="ascending"] .rt-sort::after { content: "▲" / ""; color: var(--accent-ink); }
 th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--accent-ink); }
 
@@ -72,14 +75,14 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 
 /* the drill: a chevron that turns, and the opened row on the well */
 /* the chevron stands at the left of the first line of the cell it opens */
-.rt-lead { display: flex; align-items: flex-start; }
+.rt-lead { display: flex; align-items: flex-start; min-width: 0; }
 .rt-lead-body { flex: 1 1 auto; min-width: 0; }
 .rt-drill { flex: none; inline-size: 32px; block-size: 32px; margin: -4px 4px -4px -8px; padding: 0; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font-size: var(--fs-h2); line-height: 1; cursor: pointer; vertical-align: middle; }
 .rt-drill:hover { background: var(--control-hover); color: var(--text); }
 .rt-drill:focus-visible, .rt-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.rt-drill span { display: inline-block; transition: transform 150ms; }
+.rt-drill span { display: inline-block; }
 .rt-drill[aria-expanded="true"] span { transform: rotate(90deg); }
-@media (prefers-reduced-motion: reduce) { .rt-drill span { transition: none; } }
+@media (prefers-reduced-motion: no-preference) { .rt-drill span { transition: transform var(--t-state) var(--ease-out); } }
 /* a row under its row that is always open */
 .rt tr.rt-subrow > td { padding-top: 0; }
 .rt tr.rt-detail > td { background: var(--well); padding: 8px 12px 12px 40px; }
@@ -94,7 +97,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-bar-track > span { display: block; height: 100%; background: var(--series-1); border-radius: 0 3px 3px 0; }
 /* the change: text tokens carry the sign and the euros, the tinted ground and the arrow carry the tone */
 .tc-delta { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--fs-label); line-height: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-.rt-delta-arrow { font-size: var(--fs-tick); }
+.rt-delta-arrow { font-size: var(--fs-label); }
 .rt-delta-bad { background: var(--bad-bg); }
 .rt-delta-bad .rt-delta-arrow { color: var(--bad); }
 .rt-delta-good { background: var(--good-bg); }
@@ -105,6 +108,9 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 
 /* the cut of a long table (Table `page`): the count and the buttons under its last row */
 .rt-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
+
+/* "Lataa CSV" under a table */
+.rt-csv { margin: var(--sp-8) 0 0; }
 
 /* the button that folds the months of a row into a list: only a block has it */
 .rt-fold { display: none; }
@@ -121,6 +127,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-wrap[data-block] .rt tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; column-gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--grid); }
 .rt-wrap[data-block] .rt :is(td, th) { display: block; width: auto; min-width: 0; padding: 0; border: 0; box-shadow: none; }
 .rt-wrap[data-block] .rt tbody tr:last-child { border-bottom: 0; }
+/* the opener stands on the table's own edge, 12 px from the screen's: its name keeps its place */
+.rt-wrap[data-block] .rt-drill { margin-inline: 0 -4px; }
 .rt-wrap[data-block] .rt tbody tr:has(+ .rt-detail), .rt-wrap[data-block] .rt tbody tr:has(+ .rt-subrow) { border-bottom-color: transparent; }
 .rt-wrap[data-block] .rt tbody tr:last-child:has(+ tfoot) { border-bottom: 0; }
 .rt-wrap[data-block] .rt tr > :is(th[scope="row"], td:first-child) { grid-column: 1; }
@@ -129,7 +137,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-wrap[data-block] .rt td[data-label] { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 2px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); text-align: right; white-space: normal; }
 .rt-wrap[data-block] .rt td[data-label]::before { content: attr(data-label); flex: none; color: var(--muted); text-align: left; }
 .rt-wrap[data-block] .rt td[data-label]:empty { display: none; }
-.rt-wrap[data-block] .rt .hide-phone { display: none; }
+.rt-wrap[data-block] .rt td.hide-phone { display: none; }
 .rt-wrap[data-block] .rt .sub { max-width: none; white-space: normal; }
 .rt-wrap[data-block] .rt tbody th[scope="row"], .rt-wrap[data-block] .rt tfoot th { overflow-wrap: anywhere; }
 .rt-wrap[data-block] .rt tr.rt-group, .rt-wrap[data-block] .rt tfoot tr { display: grid; padding: 8px; background: var(--surface-2); border-bottom: 0; }
@@ -146,9 +154,9 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-wrap[data-block] .rt tr.rt-total, .rt-wrap[data-block] .rt tbody tr { background: none; }
 /* the months of a row: closed behind the button, in two columns of pairs when it is open */
 .rt-wrap[data-block] .rt-fold { display: inline-block; margin-left: 12px; padding: 0 4px; min-block-size: 28px; border: 0; background: none; color: var(--accent-ink); font: inherit; font-size: var(--fs-label); font-weight: 600; cursor: pointer; }
-.rt-wrap[data-block] .rt-fold::before { content: "›"; display: inline-block; margin-right: 4px; transition: transform 150ms; }
+.rt-wrap[data-block] .rt-fold::before { content: "›"; display: inline-block; margin-right: 4px; }
 .rt-wrap[data-block] .rt-fold[aria-expanded="true"]::before { transform: rotate(90deg); }
-@media (prefers-reduced-motion: reduce) { .rt-wrap[data-block] .rt-fold::before { transition: none; } }
+@media (prefers-reduced-motion: no-preference) { .rt-wrap[data-block] .rt-fold::before { transition: transform var(--t-state) var(--ease-out); } }
 .rt-wrap[data-block] .rt td.rt-series { display: none; }
 .rt-wrap[data-block] .rt tr[data-series-open] td.rt-series { display: flex; }
 
@@ -169,3 +177,12 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-spark path { stroke: var(--series-1); }
 .rt-spark circle { fill: var(--series-1); }
 .rt-spark-usual { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 3 3; }
+
+/* the row a chart's picked mark leaves: what is shown, and the way back to every row */
+.rt-filter { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-8); margin: 0 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.rt-filter strong { color: var(--text); font-weight: var(--w-strong); }
+
+/* the groups a windowed table leaves out (use-window.ts): one body as high as they would be */
+.rt-wrap .rt tbody.rt-spacer > tr { display: block; padding: 0; border: 0; }
+.rt-wrap .rt tbody.rt-spacer > tr > td { display: block; padding: 0; border: 0; block-size: var(--rt-gap); }
+}

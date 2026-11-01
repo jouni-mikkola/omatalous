@@ -26,6 +26,13 @@ function errorCode(body: string): string {
  */
 export const NOT_LINKED_CODES: readonly string[] = ["NO_ACCOUNTS_ADDED"];
 
+/** What a failed call means for the reader, with no status code: those stay in the log line of the error. */
+export function plainFault(status: number): string {
+  if (status === 429) return "Enable Banking rajoitti hakuja. Yritä hetken päästä uudelleen.";
+  if (status >= 500) return "Enable Banking ei vastaa juuri nyt. Yritä myöhemmin uudelleen.";
+  return "Enable Banking ei hyväksynyt pyyntöä. Yritä myöhemmin uudelleen.";
+}
+
 export class EnableBankingError extends UpstreamError {
   readonly body!: string;
 
@@ -34,7 +41,7 @@ export class EnableBankingError extends UpstreamError {
     body: string,
     path: string,
   ) {
-    super(`Enable Banking ${status} on ${path}${errorCode(body) ? ` ${errorCode(body)}` : ""}`, `Enable Banking vastasi virheellä ${status}. Yritä myöhemmin uudelleen.`);
+    super(`Enable Banking ${status} on ${path}${errorCode(body) ? ` ${errorCode(body)}` : ""}`, plainFault(status));
     // not enumerable, so printing the error to the log does not print the response
     Object.defineProperty(this, "body", { value: body, enumerable: false });
   }
@@ -134,7 +141,13 @@ export class EnableBankingClient {
     const text = await readCappedText(res, MAX_BODY_BYTES);
     if (text === null) throw new Error("Enable Banking response too large");
     if (!res.ok) throw new EnableBankingError(res.status, text, path);
-    return (text ? JSON.parse(text) : {}) as T;
+    if (!text) return {} as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // the parser's message quotes the start of the body, which is the bank's and does not go to a log
+      throw new UpstreamError(`Enable Banking answered ${path} with text that is not JSON`, "Emme voineet lukea pankin vastausta.");
+    }
   }
 
   /** The application's own details; only `active` is read. */

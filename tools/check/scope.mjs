@@ -31,6 +31,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const RULES = "tools/repo-rules";
+/** A timing test, which runs in the perf project and not in a check (docs/DEVELOPMENT.md). */
+const PERF_TEST = /\.perf\.test\.ts$/;
+
 /** A source file of a package, which tools/ui-strings.test.ts reads for the literal sentences of the pages. */
 const PACKAGE_SOURCE = /^(apps|packages)\/[^/]+\/src\//;
 const UI_STRINGS = "tools/ui-strings.test.ts";
@@ -431,6 +434,7 @@ export function scopeOf(files, pkgs = workspace(), corpus = undefined, diffs = {
       continue;
     }
     const pkg = pkgs.find((p) => f.startsWith(`${p.dir}/`));
+    if (PERF_TEST.test(f)) tests.add(f);
     if (PACKAGE_SOURCE.test(f)) tests.add(UI_STRINGS);
     const reached = pkg || f.startsWith("tools/") ? reachedBy(f) : [];
     if (reached.length) for (const t of reached) tests.add(t);
@@ -453,10 +457,13 @@ export function scopeOf(files, pkgs = workspace(), corpus = undefined, diffs = {
     }
   }
   for (const d of touched) tests.add(d);
-  // a file named under a folder that runs whole is already in
+  // a timing test (`*.perf.test.ts`, the perf project: docs/DEVELOPMENT.md) is in a scope only when its own file changed; a
+  // changed source it reaches does not pull it in, as a check is no place to hold a time against a limit
+  for (const t of tests) if (PERF_TEST.test(t) && !files.includes(t)) tests.delete(t);
+  // a file named under a folder that runs whole is already in, except a timing test: the folder's run leaves the perf project out
   const all = [...tests].sort();
   const dirs = all.filter((t) => !t.endsWith(".ts"));
-  return { full: false, tests: all.filter((t) => !t.endsWith(".ts") || !dirs.some((d) => t.startsWith(`${d}/`))), lint, sh, suites: shSuites, why: "", ...extra };
+  return { full: false, tests: all.filter((t) => !t.endsWith(".ts") || PERF_TEST.test(t) || !dirs.some((d) => t.startsWith(`${d}/`))), lint, sh, suites: shSuites, why: "", ...extra };
 }
 
 /**

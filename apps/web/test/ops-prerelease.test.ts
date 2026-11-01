@@ -118,7 +118,7 @@ describe("Versio with nothing to show", () => {
     expect(panel(bare, { on: false, onChange: () => {} })).toContain('role="switch"');
   });
   it("the update dialog names the version to install", () => {
-    expect(S.updateTo("0.59.0")).toBe("Päivitetään versioon 0.59.0.");
+    expect(S.updateTo("0.59.0")).toBe("Päivitämme versioon 0.59.0.");
     // the version not known: no line, the dialog keeps its old text
     expect(S.updateTo(undefined)).toBeNull();
     expect(S.updateTo("")).toBeNull();

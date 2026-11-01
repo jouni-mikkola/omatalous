@@ -5,6 +5,7 @@ import { pastedParams } from "../src/routes/bank.ts";
 import { syncEveryone } from "../src/connectors/sync.ts";
 import { mockBank } from "./mock-bank.ts";
 import { NOW, setupApp, waitFor } from "./helpers.ts";
+import project from "../../../project.json";
 
 const pem = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 
@@ -60,7 +61,7 @@ describe("Enable Banking flow (mocked API)", () => {
     bank.calls.length = 0;
     const sync = await admin.call("POST", "/api/sync");
     expect(sync.body.status).toBe("partial");
-    expect(sync.body.messages).toEqual(["Nordea Gold: pankki vastasi virheellä 400 (ASPSP_ERROR)."]);
+    expect(sync.body.messages).toEqual(["Nordea Gold: pankki ei vastannut oikein, yritä myöhemmin uudelleen."]);
     expect(bank.calls.filter((c) => c.startsWith("GET /accounts/u-card/transactions"))).toHaveLength(1);
   });
 
@@ -120,7 +121,7 @@ describe("Enable Banking flow (mocked API)", () => {
 });
 
 describe("bank return modes", () => {
-  const RELAY = "https://jouni-mikkola.github.io/omatalous/callback/";
+  const RELAY = project.returnUrl;
   const decode = (state: string) => originFromRelayState(state);
 
   it("relay mode registers the return page and carries the browser's local address in the state", async () => {
@@ -183,7 +184,7 @@ describe("bank return modes", () => {
     const { admin } = await setupApp({ EB_APP_ID: randomUUID(), EB_PRIVATE_KEY: pem }, bank.fetchMock);
     bank.authFailure = { status: 500, body: JSON.stringify({ error: "ASPSP_ERROR", message: "Account FI2112345600000785 balance 1234.50" }) };
     const r = await admin.call("POST", "/api/connections/start", {});
-    expect(r).toMatchObject({ status: 502, body: { error: "Enable Banking vastasi virheellä 500. Yritä myöhemmin uudelleen." } });
+    expect(r).toMatchObject({ status: 502, body: { error: "Enable Banking ei vastaa juuri nyt. Yritä myöhemmin uudelleen." } });
     expect(JSON.stringify(r.body)).not.toContain("FI2112345600000785");
   });
 
@@ -203,7 +204,7 @@ describe("bank return modes", () => {
     expect((await admin.call("POST", "/api/admin/bank-app/check", { appId })).body).toMatchObject({ verified: true });
     expect((await admin.call("GET", "/api/admin/instance")).body.bankApp.source).toBeNull();
     bank.status = 401;
-    expect((await admin.call("POST", "/api/admin/bank-app/check", { appId })).body.message).toContain("401");
+    expect((await admin.call("POST", "/api/admin/bank-app/check", { appId })).body.message).toContain("ei tunnistanut sovellusta");
     bank.status = 403;
     expect((await admin.call("POST", "/api/admin/bank-app/check", { appId })).body.message).toContain("Activate by linking accounts");
     expect((await admin.call("POST", "/api/admin/bank-app/check", { appId: "x" })).status).toBe(400);

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { cashAhead } from "../src/analysis/ahead.ts";
 import { categoryTotals } from "../src/analysis/category-totals.ts";
 import { createContext, spendRows } from "../src/analysis/context.ts";
-import { toDayRange } from "../src/analysis/period.ts";
 import { marksBySubject, seriesMarkSubject } from "../src/analysis/subscription-alerts.ts";
 import { expectedCharges, isContract, isEndedContract } from "../src/commitments.ts";
 import { addDays } from "../src/dates.ts";

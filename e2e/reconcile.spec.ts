@@ -28,14 +28,14 @@ for (const [width, height] of [[1280, 800], [390, 844]] as const) {
 
     // the savings account has only the available balance: the reason, nothing to open
     const savings = row("Säästötili (esimerkki)").locator(".acc-rec");
-    await expect(savings).toContainText("Saldoa ei voi vielä verrata pankkiin");
+    await expect(savings).toContainText("Saldoa ei voi vielä tarkistaa");
     await expect(savings).toContainText("pankki kertoo vain käytettävissä olevan saldon");
     await expect(savings.getByRole("img")).toHaveCount(0);
     await expect(savings.locator("details, summary")).toHaveCount(0);
 
     // a card is reconciled too; the demo's has one balance, so the line gives the reason
     const card = row("Nordea Gold (esimerkki)").locator(".acc-rec");
-    await expect(card).toContainText("saldotietoja on liian vähän");
+    await expect(card).toContainText("saldotietoja on vielä liian vähän");
     await expect(card.getByRole("img")).toHaveCount(0);
 
     expect(await overflow(page)).toBeLessThanOrEqual(1);

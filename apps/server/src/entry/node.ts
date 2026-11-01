@@ -3,12 +3,14 @@
  * SQLite in DATA_DIR. With arguments (`node dist/node.js user …`) it runs
  * the user-management CLI instead of the server.
  */
+import "@banking/core/english";
+import "@banking/core/late";
 import { createHash } from "node:crypto";
+import type { AddressInfo } from "node:net";
 import { existsSync, readFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
 import { Cron } from "croner";
 import { createApp } from "../app.ts";
 import { runCli } from "../cli.ts";
@@ -24,6 +26,7 @@ import { type BuildInfo, createServices } from "../services/context.ts";
 import { track, waitForInflight } from "../platform/inflight.ts";
 import { logLookup } from "../services/industry.ts";
 import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
+import { staticFiles } from "../static-files.ts";
 import { hourlyTick } from "../services/schedule.ts";
 import { fiTime, recordEvent } from "../services/security.ts";
 import { upgradeAndLog } from "../services/upgrade.ts";
@@ -181,15 +184,7 @@ await reportGate().catch((err) => console.error("recording what the database che
 
 const staticDir = env.STATIC_DIR ?? [resolve(here, "../public"), resolve(here, "../../web/dist")].find((p) => existsSync(p));
 if (staticDir) {
-  // Vite's /assets/* names contain a content hash: cache forever. The page itself must be
-  // revalidated, so a browser picks up a new version right after an upgrade.
-  app.use("/*", async (c, next) => {
-    await next();
-    if (c.req.path.startsWith("/api/") || !c.res.ok) return;
-    c.header("Cache-Control", c.req.path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "no-cache");
-  });
-  app.use("/*", serveStatic({ root: staticDir }));
-  app.get("*", serveStatic({ root: staticDir, path: "index.html" }));
+  staticFiles(app, staticDir);
 } else {
   console.warn("web UI build not found (pnpm build), serving the API only");
 }
@@ -217,7 +212,8 @@ await recoverAfterCrash(s, new Date()).catch((err) => console.error("recovery at
 await optimizeDatabase(s.db);
 
 const port = Number(env.PORT ?? 8080);
-const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }, async (info) => {
+// serve takes a callback that returns nothing, so the async work runs here and a failure is logged, not left unhandled
+const announce = async (info: AddressInfo) => {
   const settings = await s.instance.load(true);
   console.log(`banking-app ${build.version} (${build.id}) listening on http://${info.address}:${info.port} (${settings.appBaseUrl})`);
   console.log(`database: ${dbPath} · sync hours: ${settings.syncHours.join(", ") || "-"} (${settings.timezone})`);
@@ -237,6 +233,9 @@ const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }
   );
   // no register lookup here: the first hourly tick does it, so after an upgrade an admin
   // has time to see the new setting before any merchant name leaves the server
+};
+const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }, (info) => {
+  announce(info).catch((err) => console.error("startup notice failed:", err));
 });
 
 let stopping = false;

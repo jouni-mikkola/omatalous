@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { overflow } from "./helpers.ts";
 
 // Asetukset does not scroll sideways on a phone when a bank gives long holder names: the select of "Nimi pankin tiedoissa"
-// (Jäsenet ilman tunnusta) is as wide as its longest option unless the form keeps it inside the card. The holders are the
+// (Talouden jäsenet, a member without a login) is as wide as its longest option unless the form keeps it inside the card. The holders are the
 // account holders of /api/meta, so the test gives the page long ones.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const LONG = [
@@ -21,8 +21,10 @@ for (const width of [390, 320]) {
       meta.accounts = [...meta.accounts, ...LONG.map((holder, i) => ({ ...meta.accounts[0], id: 900000 + i, holder }))];
       await route.fulfill({ response: res, json: meta });
     });
-    await page.goto("/#/settings");
-    const card = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Jäsenet ilman tunnusta", level: 2 }) });
+    await page.goto("/#/settings/members");
+    const card = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Talouden jäsenet", level: 2 }) });
+    await card.getByRole("button", { name: "Lisää jäsen", exact: true }).click();
+    await card.getByLabel("Ilman kirjautumista").check();
     const select = card.getByLabel("Nimi pankin tiedoissa");
     await expect(select).toBeVisible();
     await expect(select.locator("option", { hasText: LONG[0]!.slice(0, 20) })).toHaveCount(1);

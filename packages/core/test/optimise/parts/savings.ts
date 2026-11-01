@@ -10,7 +10,7 @@ import type { InputValues } from "../../../src/optimise/types.ts";
 import { lowestDayBalance } from "../../../src/reports/balances.ts";
 import { bufferReport } from "../../../src/reports/buffer.ts";
 import type { Account, BalanceInput, Transaction } from "../../../src/types.ts";
-import { type Frame, householdInput, joinHousehold, type Part, type PartHousehold } from "../household.ts";
+import { type Frame, householdInput, joinHousehold, type Part, type PartHousehold } from "../household-kit.ts";
 
 const IBAN = { chk: "FI2112345600000785", sav: "FI1410093000123458", second: "FI7933000100000080" };
 const SECOND: Account = { id: "s-chk2", name: "Toinen käyttötili", iban: IBAN.second, currency: "EUR", type: "checking" };
@@ -87,7 +87,7 @@ export const nearMiss: Part["nearMiss"] = (frame) => {
   const a = areaInputOf(householdInput(joinHousehold([probe], frame)));
   const chk = a.balances.find((b) => b.id === "h-chk")!;
   const low = lowestDayBalance([balanceWalk(a.ctx, chk)!], dayNumber(`${a.months[0]}-01`), a.ctx.todayDay)!;
-  const usual = bufferReport(a.ctx, a.balances, a.inputs).usualSpendCents!;
+  const usual = bufferReport(a.ctx, a.balances, a.inputs).expectedSpendCents!;
   const idle1900 = saver(frame, { interest: 45000, chk: chk.balanceCents! - (low.cents - usual - 190000) });
   return [
     // 120 € on about 37 000 € is 0,3 %

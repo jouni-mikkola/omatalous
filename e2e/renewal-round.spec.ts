@@ -44,8 +44,12 @@ test("two banks whose consents end are renewed in one round: one press goes to t
   });
 
   await consentDays(5);
-  await linkFakeBank(page);
-  await linkFakeBank(page, { bank: "OP" });
+  // each link is waited for to the end (?connected=n in the address, since the notice of the first link may still show, and the sync)
+  for (const options of [{}, { bank: "OP" as const }]) {
+    await linkFakeBank(page, options);
+    await expect(page).toHaveURL(/connected=\d/);
+    await waitForSync(context);
+  }
   await page.goto("/#/settings");
   await page.waitForLoadState("networkidle");
   await page.reload();
@@ -71,7 +75,7 @@ test("two banks whose consents end are renewed in one round: one press goes to t
   expect(started[0]).toBe(left === "OP" ? "nordea-fi" : "op-fi");
   await progress.getByRole("button", { name: `Uusi ${left}` }).click();
 
-  await expect(progress).toContainText("Kaikki yhteydet on uusittu.", { timeout: 30_000 });
+  await expect(progress).toContainText("Uusit kaikki yhteydet.", { timeout: 30_000 });
   await expect(progress.locator(".badge.good")).toHaveCount(2);
   expect([...started].sort()).toEqual(["nordea-fi", "op-fi"]);
 
@@ -126,17 +130,18 @@ test("a bank with two consents is not done until both are renewed: Nordea gives 
 
   // press the next left consent until none is left; an `own` consent is renewed with the `own` accounts
   const ownJoint = "FI12 1234 5600 0008 50";
-  for (let step = 0; step < 6 && (await progress.locator(".badge.warn").count()) > 0; step++) {
+  // the loop ends on the "all renewed" text, not on an empty warn count, which is also true while the list is being redrawn
+  for (let step = 0; step < 6 && !(await progress.innerText()).includes("Uusit kaikki yhteydet"); step++) {
     const left = await progress.getByRole("listitem").filter({ has: page.locator(".badge.warn") }).first().innerText();
     own = left.includes(ownJoint);
     const done = await progress.locator(".badge.good").count();
     await progress.getByRole("button", { name: /^Uusi / }).click();
     // a positive match: while the browser is at the bank the list is gone, and a count of the other number would pass
-    await expect(progress).toContainText(new RegExp(`${done + 1} / 3 uusittu|Kaikki yhteydet on uusittu`), { timeout: 30_000 });
+    await expect(progress).toContainText(new RegExp(`${done + 1} / 3 uusittu|Uusit kaikki yhteydet`), { timeout: 30_000 });
   }
 
   // finished only when every consent is done, and no expiring consent is left in the list
-  await expect(progress).toContainText("Kaikki yhteydet on uusittu.");
+  await expect(progress).toContainText("Uusit kaikki yhteydet.");
   await expect(progress.locator(".badge.good")).toHaveCount(3);
   await expect(card.getByRole("table").getByText("vanhenee pian")).toHaveCount(0);
   await progress.getByRole("button", { name: "Sulje" }).click();

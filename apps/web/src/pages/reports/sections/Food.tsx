@@ -14,6 +14,8 @@ import {
   Table,
 } from "../../../components/table/Table.tsx";
 import {
+  decimalMax1,
+  mondayFirstWeekdays,
   monthLabel,
   money,
   roundedShares,
@@ -22,34 +24,25 @@ import {
 } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
+import { rich, t } from "../../../text.ts";
 
 type FoodReport = Exclude<NonNullable<ReportsData["food"]>, { gap: unknown }>;
 type Line = FoodReport["lines"][number];
 
-/** Visits a month with a decimal comma; a whole number has none. */
-const count = (x: number | null) =>
-  x === null ? "" : String(x).replace(".", ",");
-/** Monday first, as the report counts. */
-const WEEKDAYS = ["ma", "ti", "ke", "to", "pe", "la", "su"];
+/** Visits a month with the language's decimal mark; a whole number has none. */
+const count = (x: number | null) => (x === null ? "" : decimalMax1(x));
 
 /** The answer about the basket: visits and the mean purchase, now and before, each a server figure. */
 function basketAnswer(b: FoodReport["basket"]) {
   if (!b || b.now.meanCents === null || b.before.meanCents === null)
-    return "Ostoskertojen vertailuun ei ole vielä tarpeeksi kuukausia tai ostoskertoja.";
-  return (
-    <>
-      Ruokakaupassa käytiin viimeiset kolme kuukautta{" "}
-      <strong>{count(b.now.perMonth)}</strong> kertaa kuussa, sitä ennen{" "}
-      {count(b.before.perMonth)}. Ostoskerta oli keskimäärin{" "}
-      <strong>{money(b.now.meanCents, false)}</strong>, sitä ennen{" "}
-      {money(b.before.meanCents, false)}.
-    </>
-  );
+    return t("rpt.fd_basket_none");
+  return rich("rpt.fd_basket", { now: count(b.now.perMonth), before: count(b.before.perMonth), mean: money(b.now.meanCents, false), meanBefore: money(b.before.meanCents, false) });
 }
 
 /** What an open line holds: its payees as bars against the largest, and the weekdays of its visits. */
 function LineDetail({ line }: { line: Line }) {
   const top = Math.max(...line.payees.map((p) => p.cents), 1);
+  const weekdays = mondayFirstWeekdays();
   const busiest = line.weekdays ? Math.max(...line.weekdays, 1) : 1;
   // the payees and Muut make up the line: their euros rounded together to the line's (core `printedParts`)
   const printed = printedParts(
@@ -71,7 +64,7 @@ function LineDetail({ line }: { line: Line }) {
           ))}
           {line.otherCents !== 0 && (
             <li>
-              <span className="rt-month">Muut</span>
+              <span className="rt-month">{t("rpt.fd_other")}</span>
               <span />
               <span className="num">
                 {money(printed[line.payees.length]!, false)}
@@ -81,13 +74,13 @@ function LineDetail({ line }: { line: Line }) {
         </ul>
       )}
       {line.weekdays && (
-        <ul className="rt-months" aria-label="Ostoskerrat viikonpäivittäin">
+        <ul className="rt-months" aria-label={t("rpt.fd_weekdays")}>
           {line.weekdays.map((n, i) => (
             <li
-              key={WEEKDAYS[i]}
+              key={weekdays[i]}
               className={n === busiest ? "rt-peak" : undefined}
             >
-              <span className="rt-month">{WEEKDAYS[i]}</span>
+              <span className="rt-month">{weekdays[i]}</span>
               <BarCell value={n} max={busiest} />
               <span className="num">{n}</span>
             </li>
@@ -131,27 +124,27 @@ function Lines({ r }: { r: FoodReport }) {
   const cols: Column<Row>[] = [
     {
       key: "heading",
-      label: "Ruoka",
+      label: t("rpt.fd_food"),
       kind: "text",
       rowHead: true,
       cell: (x) => x.line.heading,
     },
     {
       key: "months",
-      label: "Kuukaudet",
+      label: t("rpt.fd_trend"),
       kind: "text",
       phone: "hide",
       cell: (x) =>
         x.line.monthCents.length >= 3 ? (
           <SparkCell
             values={x.line.monthCents}
-            label={`${x.line.heading}: ${x.line.monthCents.length} kuukautta`}
+            label={t("rpt.in_spark", { label: x.line.heading, n: x.line.monthCents.length })}
           />
         ) : null,
     },
     {
       key: "monthly",
-      label: "Kuussa",
+      label: t("rpt.in_a_month"),
       kind: "money",
       main: true,
       sort: true,
@@ -159,32 +152,32 @@ function Lines({ r }: { r: FoodReport }) {
     },
     {
       key: "share",
-      label: "Osuus",
+      label: t("rpt.fd_share"),
       kind: "share",
       bar: { value: (x) => shares[x.i] ?? 0, max: 100 },
       cell: (x) =>
         shares[x.i] == null ? (
-          <span className="muted">ei osuutta</span>
+          <span className="muted">{t("rpt.in_no_share")}</span>
         ) : (
           shareText(shares[x.i]!)
         ),
     },
     {
       key: "mean",
-      label: "Ostoskerta",
+      label: t("rpt.fd_basket_col"),
       kind: "money",
       phone: "hide",
       // under six purchases a mean says nothing: the cell says there were too few
       cell: (x) =>
         x.line.meanCents === null ? (
-          <span className="muted">liian vähän ostoja</span>
+          <span className="muted">{t("rpt.fd_too_few")}</span>
         ) : (
           money(x.line.meanCents, false)
         ),
     },
     {
       key: "perMonth",
-      label: "Kertaa kuussa",
+      label: t("rpt.fd_times_month"),
       kind: "count",
       phone: "hide",
       cell: (x) => (x.line.perMonth === null ? dash : count(x.line.perMonth)),
@@ -193,7 +186,7 @@ function Lines({ r }: { r: FoodReport }) {
       ? [
           {
             key: "change",
-            label: "Muutos",
+            label: t("rpt.fd_change"),
             kind: "money" as const,
             cell: (x: Row) =>
               x.line.changeCents !== null ? (
@@ -214,14 +207,11 @@ function Lines({ r }: { r: FoodReport }) {
   return (
     <>
       <p className="qc-a food-base">
-        Kuussa, ostoskerta ja kertaa kuussa ovat {r.window.months} kuukauden
-        keskiarvoja ({span(r.window)}).
-        {change || usualOnly
-          ? " Muutos on kolmen viimeisen kuukauden keskiarvo kuuden niitä edeltävän kuukauden tavalliseen tasoon verrattuna."
-          : ""}
+        {t("rpt.fd_base", { n: r.window.months, span: span(r.window) })}
+        {change || usualOnly ? t("rpt.fd_base_change") : ""}
       </p>
       <Table
-        caption="Ruokarivit"
+        caption={t("rpt.fd_lines_caption")}
         className="food-lines"
         rows={rows}
         rowKey={(x) => x.id}
@@ -231,9 +221,9 @@ function Lines({ r }: { r: FoodReport }) {
             <LineDetail line={x.line} />
           ) : null
         }
-        drillLabel={(x) => `Kauppiaat: ${x.line.heading}`}
+        drillLabel={(x) => t("rpt.fd_merchants", { heading: x.line.heading })}
         total={{
-          label: "Yhteensä",
+          label: t("rpt.fd_total"),
           cells: {
             monthly: <strong>{money(r.monthlyCents, false)}</strong>,
             share: hasShares ? <BarFigure value={100} max={100}>100 %</BarFigure> : "",
@@ -265,17 +255,38 @@ function Food({ ctx }: SectionProps) {
     (best, l) => (best === null || l.cents > best.cents ? l : best),
     null,
   );
+  // the two basket lines are the rows of the table under them; a mark of either slope keeps its row
+  const basketRows =
+    both && b
+      ? [
+          { key: "visits", label: t("rpt.fd_visits_month"), before: t("rpt.fd_n_times", { n: count(b.before.perMonth!) }), now: t("rpt.fd_n_times", { n: count(b.now.perMonth!) }) },
+          { key: "mean", label: t("rpt.fd_avg_basket"), before: money(b.before.meanCents!, false), now: money(b.now.meanCents!, false) },
+        ]
+      : [];
   return (
     <ReportPanel
       id={section.id}
       title={section.title}
-      datum={`Ruoka ${money(r.monthlyCents, false)} kuussa`}
+      datum={t("rpt.fd_datum", { amount: money(r.monthlyCents, false) })}
     >
       <QuestionChart
         id="ruoka-kauppa"
-        question="Kasvoivatko ruokakaupan menot käyntien vai ostoskerran takia?"
+        question={t("rpt.fd_q_basket")}
         answer={basketAnswer(b)}
-        table={<Lines r={r} />}
+        table={
+          basketRows.length > 0 ? (
+            <Table
+              caption={t("rpt.fd_basket_caption")}
+              rows={basketRows}
+              rowKey={(row) => row.key}
+              columns={[
+                { key: "line", label: t("rpt.fd_figure"), kind: "text", rowHead: true, cell: (row) => row.label },
+                { key: "before", label: t("rpt.fd_before"), kind: "text", cell: (row) => row.before },
+                { key: "now", label: t("rpt.fd_last3"), kind: "text", cell: (row) => row.now },
+              ]}
+            />
+          ) : undefined
+        }
       >
         {both && (
           <div className="qc-pair">
@@ -283,18 +294,18 @@ function Food({ ctx }: SectionProps) {
               items={[
                 {
                   key: "visits",
-                  label: "Kertaa kuussa",
+                  label: t("rpt.fd_times_month"),
                   from: b.before.perMonth!,
                   to: b.now.perMonth!,
                   strong: true,
                   tone: "flat",
                 },
               ]}
-              fromLabel="Sitä ennen"
-              toLabel="Viimeiset 3 kuukautta"
-              format={(v) => `${count(v)} kertaa`}
-              label="Ruokakaupan käynnit kuussa, ennen ja nyt"
-              caption="Käyntejä kuussa"
+              fromLabel={t("rpt.fd_before")}
+              toLabel={t("rpt.fd_last3")}
+              format={(v) => t("rpt.fd_n_times", { n: count(v) })}
+              label={t("rpt.fd_visits_label")}
+              caption={t("rpt.fd_visits_month")}
               height={120}
               zero={false}
             />
@@ -302,18 +313,18 @@ function Food({ ctx }: SectionProps) {
               items={[
                 {
                   key: "mean",
-                  label: "Ostoskerta",
+                  label: t("rpt.fd_basket_col"),
                   from: b.before.meanCents!,
                   to: b.now.meanCents!,
                   strong: true,
                   tone: b.now.meanCents! > b.before.meanCents! ? "bad" : "good",
                 },
               ]}
-              fromLabel="Sitä ennen"
-              toLabel="Viimeiset 3 kuukautta"
+              fromLabel={t("rpt.fd_before")}
+              toLabel={t("rpt.fd_last3")}
               format={(v) => money(v, false)}
-              label="Ruokakaupan ostoskerta keskimäärin, ennen ja nyt"
-              caption="Ostoskerta keskimäärin"
+              label={t("rpt.fd_basket_label")}
+              caption={t("rpt.fd_avg_basket")}
               height={120}
               zero={false}
             />
@@ -323,19 +334,12 @@ function Food({ ctx }: SectionProps) {
       <hr className="qc-rule" />
       <QuestionChart
         id="ruoka-lajit"
-        question="Mihin ruokarahat menevät?"
+        question={t("rpt.fd_q_where")}
         answer={
-          top ? (
-            <>
-              Ruokaan meni <strong>{money(r.monthlyCents, false)}</strong>{" "}
-              kuussa, eniten: {top.heading.toLowerCase()}{" "}
-              {money(top.monthlyCents, false)} kuussa.
-            </>
-          ) : (
-            "Jaksolla ei ole ruokamenoja."
-          )
+          top
+            ? rich("rpt.fd_where", { amount: money(r.monthlyCents, false), top: top.heading.toLowerCase(), topAmount: money(top.monthlyCents, false) })
+            : t("rpt.fd_none")
         }
-        table={<Lines r={r} />}
       >
         <Lines r={r} />
       </QuestionChart>
@@ -345,10 +349,11 @@ function Food({ ctx }: SectionProps) {
 
 export const section: ReportSection = {
   id: "ruoka",
-  title: "Ruoka",
+  get title() {
+    return t("rpt.sec_food");
+  },
   order: 35,
   page: "reports",
-  tab: "menot",
   reports: ["food"],
   // under three months there is no window, and without food there is nothing to tell
   visible: (ctx) => ctx.data.food != null,

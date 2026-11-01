@@ -6,10 +6,12 @@
 import { describe, expect, it } from "vitest";
 import { answeredInsights, type Insight, insightDismissSubject, insightInputOf } from "../../src/analysis/insights/index.ts";
 import { seriesMarkSubject } from "../../src/analysis/subscription-alerts.ts";
+import { insightText } from "../../src/explain/insights.ts";
 import { allFindings, buildOptimise, coveredBy, type FindingState, type OptimiseInput } from "../../src/optimise/index.ts";
 import type { MarkKind, UserMark } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
-import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./household.ts";
+import { covering, yearly } from "../insight-view.ts";
+import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as subsPart from "./parts/subscriptions.ts";
 
 const plain = (s: string) => s.replace(/[  ]/g, " ");
@@ -33,7 +35,7 @@ describe("Muut havainnot", () => {
     const input = inputOf([NEW_SERVICE]);
     const data = buildOptimise(input);
     expect(ids(data.others)).toEqual([NEW_ID]);
-    expect(plain(data.others[0]!.title)).toBe("Uusi toistuva maksu: Viaplay 12,99 € kuussa");
+    expect(plain(insightText(data.others[0]!).title)).toBe("Uusi toistuva maksu: Viaplay 12,99 € kuussa");
     expect(data.othersDismissed).toEqual([]);
     expect(data.headline.count).toBe(0);
     expect(data.checked.findings).toBe(0);
@@ -64,16 +66,15 @@ describe("Muut havainnot", () => {
     // Adobe's rise is one finding, Netflix is in the video overlap
     const told = new Set(["Adobe", "Netflix", "Max"]);
     // the demo's two rises together, 168 €: every euro of it is a finding's already
-    expect(coveredBy({ rows: ["a", "b", "c", "d"], yearlyCents: 16800 }, row, told)).toBe(true);
+    expect(coveredBy(covering(["a", "b", "c", "d"], 16800), row, told)).toBe(true);
     // half told, and the rest is 1199 / 8698 of 168 €, about 23 €: under the 120 € gate
-    expect(coveredBy({ rows: ["a", "s"], yearlyCents: 16800 }, row, told)).toBe(true);
+    expect(coveredBy(covering(["a", "s"], 16800), row, told)).toBe(true);
     // half told, and the rest is 40000 / 47499 of 600 €, about 505 €: the insight has its own to tell
-    expect(coveredBy({ rows: ["a", "k"], yearlyCents: 60000 }, row, told)).toBe(false);
+    expect(coveredBy(covering(["a", "k"], 60000), row, told)).toBe(false);
     // nothing told: the insight passed its own gate, however small
-    expect(coveredBy({ rows: ["s"], yearlyCents: 2000 }, row, told)).toBe(false);
-    expect(coveredBy({ rows: ["x"], yearlyCents: 2000 }, row, told)).toBe(false);
-    expect(coveredBy({ rows: [], yearlyCents: 2000 }, row, told)).toBe(false);
-    expect(coveredBy({ yearlyCents: 2000 }, row, told)).toBe(false);
+    expect(coveredBy(covering(["s"], 2000), row, told)).toBe(false);
+    expect(coveredBy(covering(["x"], 2000), row, told)).toBe(false);
+    expect(coveredBy(covering([], 2000), row, told)).toBe(false);
   });
 
   it("keeps a dismissed insight in Päätetyt with its mark until its figure moves 25 %", () => {
@@ -83,10 +84,10 @@ describe("Muut havainnot", () => {
     expect(data.others).toEqual([]);
     expect(data.othersDismissed).toEqual([{ insight: shown, subject, markedAt: "2026-10-10T12:00:00" }]);
     // dismissed at a figure the insight has since grown from by 25 %: it returns
-    const smaller = `alert:${shown.id}@${Math.round(shown.yearlyCents / 1.25)}`;
+    const smaller = `alert:${shown.id}@${Math.round(yearly(shown) / 1.25)}`;
     expect(ids(buildOptimise(inputOf([NEW_SERVICE], [mark(smaller, "dismissed", "2026-10-10")])).others)).toEqual([NEW_ID]);
     // and within 25 % it stays away
-    const near = `alert:${shown.id}@${Math.round(shown.yearlyCents / 1.2)}`;
+    const near = `alert:${shown.id}@${Math.round(yearly(shown) / 1.2)}`;
     expect(buildOptimise(inputOf([NEW_SERVICE], [mark(near, "dismissed", "2026-10-10")])).othersDismissed.map((d) => d.subject)).toEqual([near]);
   });
 });

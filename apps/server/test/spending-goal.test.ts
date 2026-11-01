@@ -57,8 +57,12 @@ describe("spending goal", () => {
     await eero.call("PUT", "/api/spending-goal", { monthlyCents: 90_000 });
     expect((await admin.call("GET", "/api/dashboard")).body.goal.cents).toBe(250_000);
     expect((await eero.call("GET", "/api/dashboard")).body.goal.cents).toBe(90_000);
+    // the page of Asetukset reads its own goal back, and null where there is none
+    expect((await admin.call("GET", "/api/spending-goal")).body).toEqual({ monthlyCents: 250_000 });
+    expect((await eero.call("GET", "/api/spending-goal")).body).toEqual({ monthlyCents: 90_000 });
     // one member's removal leaves the other's goal
     await eero.call("DELETE", "/api/spending-goal");
+    expect((await eero.call("GET", "/api/spending-goal")).body).toEqual({ monthlyCents: null });
     expect((await admin.call("GET", "/api/dashboard")).body.goal.cents).toBe(250_000);
     await eero.call("PUT", "/api/spending-goal", { monthlyCents: 90_000 });
     await admin.call("DELETE", `/api/users/${eero.id}`);

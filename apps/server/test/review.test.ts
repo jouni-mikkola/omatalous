@@ -59,6 +59,16 @@ describe("the review queue", () => {
     expect(await queue(maija)).toEqual([]);
   });
 
+  it("the count is the length of the queue, for the mark in the header, and a member with no rows has none", async () => {
+    const t = await household();
+    const res = await t.admin.call("GET", "/api/review/count");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ count: (await queue(t.admin)).length });
+    expect(res.body.count).toBeGreaterThan(0);
+    const maija = await t.member("maija", "Maija");
+    expect((await maija.call("GET", "/api/review/count")).body).toEqual({ count: 0 });
+  });
+
   it("each item sends its own rows, newest first: a payee's the question counts, a series' its own and no other of the payee", async () => {
     const t = await household();
     const items = await queue(t.admin);
@@ -90,7 +100,7 @@ describe("the review queue", () => {
     expect(await ids(t.admin)).toEqual(before.filter((id) => id !== "payee_out:Kummakauppa Xyz"));
     const shop = (await t.s.finance(t.adminId).allTransactions()).filter((r) => r.merchant === "Kummakauppa Xyz");
     expect(new Set(shop.map((r) => r.category))).toEqual(new Set(["groceries"]));
-    // "Älä kysy enää" is the old Ohita's mark: the payee keeps its money and is not asked again
+    // "Älä kysy tästä enää" is the old Ohita's mark: the payee keeps its money and is not asked again
     expect((await t.admin.call("PUT", "/api/marks", { subject: "question:payee:Max", mark: "dismissed" })).status).toBe(200);
     expect(await ids(t.admin)).not.toContain("payee_out:Max");
   });
@@ -144,8 +154,8 @@ describe("the review queue", () => {
     // the household answered on the first page before the question moved: the same mark, the same route
     expect((await t.admin.call("PUT", "/api/marks", { subject: "question:mortgage", mark: "dismissed" })).status).toBe(200);
     expect(await ids(t.admin)).not.toContain("mortgage");
-    // the dashboard's answer agrees
-    expect((await t.admin.call("GET", "/api/dashboard")).body.housing?.ask ?? false).toBe(false);
+    // the housing report agrees
+    expect((await t.admin.call("GET", "/api/reports?reports=housing")).body.housing?.ask ?? false).toBe(false);
 
     const u = await owner();
     expect(await ids(u.admin)).toContain("mortgage");
@@ -161,7 +171,7 @@ describe("the review queue", () => {
     expect(await ids(v.admin)).not.toContain("mortgage");
   });
 
-  it("a loan goes with Ei laina, and with a loan saved for its series", async () => {
+  it("a loan goes with Ei ole laina, and with a loan saved for its series", async () => {
     const t = await household();
     const [loan] = (await queue(t.admin)).filter((i) => i.kind === "loan");
     expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan!.key as string }))).status).toBe(200);
@@ -217,15 +227,6 @@ describe("the review queue", () => {
     expect(end).toMatchObject({ id: "input:electricity_contract_end", key: "electricity_contract_end", subject: null, old: null, cents: 0 });
     expect((await t.admin.call("PUT", "/api/optimise/inputs/electricity_contract_end?scope=own", { value: "2027-03-31" })).status).toBe(200);
     expect(await ids(t.admin)).not.toContain(end.id);
-  });
-
-  it("asks no number of Säästövinkit while the module is off", async () => {
-    const t = await household();
-    const repo = t.s.finance(t.adminId);
-    await ingestTransactions(repo, "chk", MONTHS.map((m) => raw(`${m}-12`, -64.3, "HELEN OY", "SÄHKÖLASKU")), "csv");
-    await reprocess(repo, t.s.settings);
-    expect((await t.admin.call("PUT", "/api/admin/features", { optimise: false })).status).toBe(200);
-    expect((await queue(t.admin)).filter((i) => i.kind === "input")).toEqual([]);
   });
 
   it("a payer's role moves the member's rows as on the old card", async () => {

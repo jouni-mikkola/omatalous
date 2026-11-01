@@ -20,7 +20,5 @@ export const unknownLender: LifeEvent = {
     // the instalments, 152 € a month that were not there a year ago: named as loan payments (Kulutusluotot), with no cause made up
     /^change change:season:/,
     /^change change:year:/,
-    // fixed costs take a larger share of income than a year ago, by the instalment
-    /^insights commitments-share$/,
   ],
 };

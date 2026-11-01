@@ -1,59 +1,48 @@
+import type { DoctorItem, OpsRequestView } from "../src/components/ops/types.ts";
+import { diskItem, lastResult, newestBackup } from "../src/components/ops/ops-last.ts";
+import { nextStep, remoteSummary } from "../src/pages/settings/remote-access-model.ts";
+import type { RemoteAccessState } from "../src/pages/settings/remote-access-api.ts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ResetCard, ResetDone } from "../src/components/ops/ResetCard.tsx";
-import { RestoreFacts, RestoreLatest } from "../src/components/ops/RestoreLatest.tsx";
-import { confirmBody, formatSize, kindLabel,REQUEST_LAPSES_MS, restoreView, restoreWait, S, SLOW_MS, START_HELP } from "../src/components/ops/ops-strings.ts";
+import { BackupList, RestoreStatus } from "../src/components/ops/BackupList.tsx";
+import { confirmBody, kindLabel, REQUEST_LAPSES_MS, restorable, restoreWait, S, SLOW_MS, START_HELP } from "../src/components/ops/ops-strings.ts";
 import type { ResetResult, RestoreState } from "../src/components/ops/types.ts";
 import { dateTime } from "../src/format.ts";
 
 const AT = "2026-10-09T03:00:00.000Z";
 const auto: RestoreState = { copy: { name: "auto-2026-10-09.db", at: AT, size: 3_200_000, kind: "daily" }, pending: false };
-const preReset: RestoreState = { copy: { name: "pre-reset-20261009T100000.db", at: AT, size: 3_200_000, kind: "pre-reset" }, pending: false };
 
-const facts = (state: RestoreState | null, error: string | null = null) => renderToStaticMarkup(createElement(RestoreFacts, { state, error }));
-
-describe("Palauta uusin varmuuskopio: the texts for a copy and for none", () => {
-  it("names the copy by its time, size and file, and says what is lost", () => {
-    const html = facts(auto);
-    expect(html).toContain(dateTime(AT));
-    expect(html).toContain("auto-2026-10-09.db");
-    expect(html).toContain(formatSize(3_200_000));
-    expect(html).toContain("Varmuuskopion jälkeen tehdyt muutokset häviävät. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.");
-    expect(html).toContain(S.restoreMistake);
-    expect(html).not.toContain(S.restoreUndoesReset);
+describe("Palauta, the row action of Varmuuskopiot", () => {
+  it("is offered for the copy the server would take, and for none while it reads, when a request waits or no copy is intact", () => {
+    expect(restorable(auto)).toEqual(auto.copy);
+    expect(restorable(null)).toBeNull();
+    expect(restorable({ ...auto, pending: true })).toBeNull();
+    expect(restorable({ copy: null, pending: false })).toBeNull();
   });
 
-  it("says in plain words that a pre-reset copy undoes a reset", () => {
-    // the server says what the copy is; a name alone decides nothing on the page
-    expect(facts({ ...preReset, copy: { ...preReset.copy!, kind: "manual" } })).toContain(S.restoreMistake);
-    const html = facts(preReset);
-    expect(html).toContain("juuri ennen tietojen tyhjennystä");
-    expect(html).toContain("tuo tyhjennetyt tiedot takaisin");
-    expect(html).not.toContain(S.restoreMistake);
+  it("names the copy in the dialog by its time and says what is lost; a pre-reset copy also says it undoes a reset", () => {
+    expect(S.restoreDialog(dateTime(AT))[0]).toContain(dateTime(AT));
+    expect(S.restoreLoses).toContain("Varmuuskopion jälkeen tekemäsi muutokset häviävät.");
+    expect(S.restoreUndoesReset).toContain("juuri ennen tietojen tyhjennystä");
+    expect(S.restoreUndoesReset).toContain("tuo tyhjennetyt tiedot takaisin");
+    expect(S.restoreMistake).not.toContain("tyhjennetyt");
   });
 
-  it("with no intact copy says so and shows no time", () => {
-    expect(restoreView({ copy: null, pending: false })).toBe("none");
-    const html = facts({ copy: null, pending: false });
-    expect(html).toContain("Ehjää varmuuskopiota ei ole.");
-    expect(html).not.toContain("<button");
+  it("before the first answer the list offers no button", () => {
+    const html = renderToStaticMarkup(createElement(BackupList, { app: [{ name: auto.copy!.name, at: AT, size: 3_200_000, kind: "daily" }], host: [], disabled: false, restoreDisabled: false, canDownload: true, onBackup: () => {}, onDownload: () => {} }));
+    expect(html).toContain(auto.copy!.name);
+    expect(html).not.toContain(`>${S.restoreRow}<`);
   });
 
-  it("with a request waiting shows that and not the copy", () => {
-    expect(restoreView({ ...auto, pending: true })).toBe("pending");
-    const html = facts({ ...auto, pending: true });
-    expect(html).toContain("Palautus on jo pyydetty.");
-    expect(html).not.toContain("auto-2026-10-09.db");
-  });
-
-  it("before the answer the card reads nothing and offers no button; an error is shown as the server worded it", () => {
-    expect(restoreView(null)).toBe("loading");
-    expect(facts(null)).toContain("Haetaan uusinta varmuuskopiota…");
-    expect(facts(null, "Palvelimeen ei saada yhteyttä. Yritä uudelleen.")).toContain("Palvelimeen ei saada yhteyttä.");
-    const card = renderToStaticMarkup(createElement(RestoreLatest, { listKey: "", disabled: false }));
-    expect(card).toContain("<h2>Palauta uusin varmuuskopio</h2>");
-    expect(card).not.toContain("<button");
+  it("after the request says what it waits for and gives the page back to the reader once the app answers", () => {
+    const waiting = renderToStaticMarkup(createElement(RestoreStatus, { copy: auto.copy!, back: false, waited: 0, stillPending: null }));
+    expect(waiting).toContain(S.restoreWaiting);
+    expect(waiting).not.toContain("<button");
+    const back = renderToStaticMarkup(createElement(RestoreStatus, { copy: auto.copy!, back: true, waited: 30_000, stillPending: false }));
+    expect(back).toContain(S.restoreBack);
+    expect(back).toContain(S.reload);
   });
 
   it("tells what to do when the app stays down, and that an old request lapses", () => {
@@ -110,13 +99,13 @@ describe("Tyhjennä kaikki tiedot", () => {
   it("says before the click, in three lines of body text, what goes, that a copy is taken first and that the banks are connected again", () => {
     expect(S.resetLines).toEqual([
       "Poistaa tilit, tapahtumat, lainat, säännöt ja muut käyttäjät.",
-      "Varmuuskopio otetaan ensin, ja sen voi palauttaa vuorokauden ajan.",
+      "Otamme ensin varmuuskopion, jonka voit palauttaa vuorokauden ajan.",
       "Pankkiyhteydet pitää yhdistää uudelleen.",
     ]);
     const html = renderToStaticMarkup(createElement(ResetCard, { disabled: false }));
     for (const line of S.resetLines) expect(html).toContain(`<p>${line}</p>`);
     expect(html).toContain("<h2>Tyhjennä kaikki tiedot</h2>");
-    expect(html).not.toMatch(/<ul|<li|card-sub|muted|small/);
+    expect(html).not.toMatch(/<ul|<li|muted|small/);
     // the button opens the password dialog, which asks for the word TYHJENNÄ (e2e/ops.spec.ts drives it)
     expect(html).toContain(">Tyhjennä kaikki tiedot</button>");
     expect(html).not.toContain("<dialog");
@@ -140,5 +129,30 @@ describe("Tyhjennä kaikki tiedot", () => {
     expect(mine.length).toBeGreaterThan(20);
     const all = JSON.stringify(mine);
     expect(all).not.toMatch(/(?<![a-zäö])kopio(?![a-zäö])/i);
+  });
+});
+
+describe("the last result of an action", () => {
+  const req = (status: OpsRequestView["status"], summary: string | null): OpsRequestView => ({ id: "a", action: "backup", label: "Varmuuskopio", status, by: null, requestedAt: AT, finishedAt: AT, summary, output: null, steps: [] });
+  it("says when it last ended and how, or that it has not run", () => {
+    expect(lastResult(undefined).text).toBe(S.neverRun);
+    expect(lastResult(req("ok", "Kopio otettu")).text).toBe(`Viimeksi ${dateTime(AT)}: Onnistui`);
+    expect(lastResult(req("failed", "Levy täynnä"))).toEqual({ text: `Viimeksi ${dateTime(AT)}: Epäonnistui. Levy täynnä`, tone: "warning" });
+  });
+  it("finds the disk line of the system check and the newest copy", () => {
+    const item = (title: string): DoctorItem => ({ id: "", level: "warn", title, detail: "", hint: "" });
+    expect(diskItem({ at: AT, items: [item("Docker"), item("Levy (kansio /x): vapaata 1 Gt")] })?.title).toContain("Levy");
+    expect(diskItem(undefined)).toBeUndefined();
+    expect(newestBackup([[{ at: "2026-01-01" }], [{ at: "2026-02-01" }]])).toBe("2026-02-01");
+    expect(newestBackup([[], []])).toBeNull();
+  });
+});
+
+describe("the next step of remote access", () => {
+  it("names the first thing that is missing when it is off", () => {
+    const s = { pending: null, access: { on: false, mode: null }, cloudflare: { hostname: null, removal: null }, helper: { status: "ok", knowsAccess: true }, token: { saved: false, usable: false } } as unknown as RemoteAccessState;
+    expect(nextStep(s)).toContain("Tallenna Cloudflaren tunniste");
+    expect(nextStep({ ...s, token: { saved: true, usable: true } } as RemoteAccessState)).toContain("ota etäkäyttö käyttöön");
+    expect(remoteSummary(s)).toBe("pois käytöstä");
   });
 });

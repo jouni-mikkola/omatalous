@@ -41,8 +41,8 @@ export function merchantRoutes(s: Services) {
       await s.finance(user.id).merchantSummaries({
         q: q?.slice(0, 100),
         category: category || undefined,
-        from: from ? parseIsoDate(from, "Virheellinen aikaväli.") : undefined,
-        to: to ? parseIsoDate(to, "Virheellinen aikaväli.") : undefined,
+        from: from ? parseIsoDate(from, "check.date_range") : undefined,
+        to: to ? parseIsoDate(to, "check.date_range") : undefined,
         only,
         limit: Math.min(Math.max(queryInt(limit) ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
         basis: merchantBasis(ctx),

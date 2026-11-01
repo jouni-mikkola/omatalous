@@ -6,19 +6,22 @@
 import type { AnalysisContext } from "../analysis/context.ts";
 import { savingsRateOf } from "../analysis/bridge.ts";
 import { debtShareOf } from "../analysis/insights/borrowing.ts";
-import { MIN_COMPARE_MONTHS } from "../analysis/usual.ts";
+import { FIGURES } from "../figures.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
+import { MIN_COMPARE_MONTHS } from "../thresholds.ts";
 import { monthOf } from "../dates.ts";
-import { usualIncomeOf } from "../analysis/fixed-share.ts";
+import { expectedIncomeSpan } from "../analysis/fixed-share.ts";
 import { bufferReport } from "../reports/buffer.ts";
 import type { BalanceInput, UserInputs } from "../types.ts";
 import type { SituationFact } from "./types.ts";
 
 const pct = (share: number) => `${share < 0 ? "\u2212" : ""}${Math.abs(Math.round(share * 100))}\u00a0%`;
-const monthsText = (n: number) => `${n.toFixed(1).replace(".", ",")} kuukautta`;
+const monthsText = (n: number, lang: Language) => messageIn(lang, "opt.sit_months", { n: lang === "en" ? n.toFixed(1) : n.toFixed(1).replace(".", ",") });
 
 /** `months` are the complete months of the window, oldest first (`yearWindow`). */
-export function situationOf(ctx: AnalysisContext, months: readonly string[], balances: readonly BalanceInput[], inputs: UserInputs): SituationFact[] {
-  const saving = savingsRateOf(ctx, months);
+export function situationOf(ctx: AnalysisContext, months: readonly string[], balances: readonly BalanceInput[], inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): SituationFact[] {
+  const saving = savingsRateOf(ctx, months, lang);
   const rate = saving.months.length >= MIN_COMPARE_MONTHS ? saving.rate : null;
   const savings: SituationFact = {
     id: "savings_rate",
@@ -30,7 +33,7 @@ export function situationOf(ctx: AnalysisContext, months: readonly string[], bal
 
   // the share Raportit > Kiinteät ja muuttuvat shows, from the same report: about today, so this month's series
   // against the usual income of the complete months before this one
-  const buffer = bufferReport(ctx, balances, inputs);
+  const buffer = bufferReport(ctx, balances, inputs, lang);
   const fixedShare: SituationFact = {
     id: "fixed_share",
     label: buffer.fixedShareLabel,
@@ -41,10 +44,10 @@ export function situationOf(ctx: AnalysisContext, months: readonly string[], bal
 
   const bufferFact: SituationFact = {
     id: "buffer",
-    label: "Puskuri",
+    label: lang === "en" ? messageIn(lang, "opt.sit_buffer") : FIGURES.buffer.name,
     value: buffer.bufferMonths,
     unit: "months",
-    text: buffer.bufferMonths === null ? "" : monthsText(buffer.bufferMonths),
+    text: buffer.bufferMonths === null ? "" : monthsText(buffer.bufferMonths, lang),
   };
 
   // the loan instalments of today against the usual income, the end the overview's insights use: Raportit's
@@ -53,7 +56,7 @@ export function situationOf(ctx: AnalysisContext, months: readonly string[], bal
   const debtValue = debt && debt.incomeCents > 0 ? debt.debtCents / debt.incomeCents : null;
   const debtFact: SituationFact = {
     id: "debt_share",
-    label: `Velanhoito ${usualIncomeOf(ctx, monthOf(ctx.today))}`,
+    label: messageIn(lang, "opt.sit_debt", { span: expectedIncomeSpan(ctx, monthOf(ctx.today), lang) }),
     value: debtValue,
     unit: "share",
     text: debtValue === null ? "" : pct(debtValue),

@@ -1,6 +1,7 @@
 // Decision: does the account cover what is due before the next pay
 import { daysBetween } from "@banking/core";
 import { date, dayHeading, dayMonth, localDay, money } from "../format.ts";
+import { figureName, t } from "../text.ts";
 import type { DashboardData } from "../types.ts";
 
 export type Ahead = NonNullable<DashboardData["ahead"]>;
@@ -28,21 +29,21 @@ export function windowPayday({ reason, payday }: Ahead): string | null {
 export function windowLine(ahead: Ahead): string {
   const { payday, reason, from, days } = ahead;
   const until = windowPayday(ahead);
-  const span = until ? `Palkkapäivään asti, ${dayHeading(until, from)}` : `Seuraavat ${days} päivää.`;
-  if (reason === "payday" && payday) return payday.expected ? `${span} Palkka ei ole vielä tullut. Sen piti tulla ${dayHeading(payday.expected, from)}` : span;
-  if (reason === "late" && payday) return `${span} Palkka on myöhässä. Sen piti tulla ${dayHeading(payday.date, from)}`;
-  return `${span} Palkkapäivä ei ole tiedossa.`;
+  const span = until ? t("ahead.until_payday", { day: dayHeading(until, from) }) : t("ahead.next_days", { days });
+  if (reason === "payday" && payday) return payday.expected ? t("ahead.pay_pending", { span, day: dayHeading(payday.expected, from) }) : span;
+  if (reason === "late" && payday) return t("ahead.pay_late", { span, day: dayHeading(payday.date, from) });
+  return t("ahead.pay_unknown", { span });
 }
 
 /** Which accounts the balance adds up, when that is not the one checking account in view. */
 const COUNTS: Record<Balance["counts"], (accounts: number) => string | null> = {
-  all: (accounts) => (accounts > 1 ? `${accounts} käyttötiliä` : null),
-  own: () => "Omat käyttötilit, ilman yhteistä tiliä",
-  part: () => "Osuutesi yhteisestä tilistä",
+  all: (accounts) => (accounts > 1 ? t("ahead.accounts", { count: accounts }) : null),
+  own: () => t("ahead.own_accounts"),
+  part: () => t("ahead.your_share"),
 };
 
 interface Figure {
-  key: "balance" | "due" | "free";
+  key: "balance" | "due" | "transfer" | "free";
   label: string;
   cents: number;
   /** The lines under the label. */
@@ -50,18 +51,19 @@ interface Figure {
 }
 
 /**
- * The three figures: what the counted accounts hold today, what is due in the window and what is left after it. Core
- * has each of them, and none is added up here. Under the balance: which accounts it counts, and the day of a balance
+ * The figures: what the counted accounts hold today, what is due in the window, the own transfers of the window when
+ * there are any (they are no payments) and what is left after both. Core has each of them, and none is added up here. Under the balance: which accounts it counts, and the day of a balance
  * that is older than a day. Null without a checking balance.
  */
 export function figures(ahead: Ahead): Figure[] | null {
   const { balance, totals, from } = ahead;
   if (!balance) return null;
-  const old = balance.balanceAt && daysBetween(localDay(balance.balanceAt), from) > 1 ? `Saldo päivältä ${date(balance.balanceAt)}` : null;
+  const old = balance.balanceAt && daysBetween(localDay(balance.balanceAt), from) > 1 ? t("ahead.balance_on", { date: date(balance.balanceAt) }) : null;
   return [
-    { key: "balance", label: "Saldo", cents: balance.startCents, notes: [COUNTS[balance.counts](balance.accounts), old].filter((x): x is string => !!x) },
-    { key: "due", label: "Erääntyvät maksut", cents: totals.dueCents, notes: [] },
-    { key: "free", label: "Käytettävissä", cents: balance.freeCents, notes: [] },
+    { key: "balance", label: t("ahead.balance"), cents: balance.startCents, notes: [COUNTS[balance.counts](balance.accounts), old].filter((x): x is string => !!x) },
+    { key: "due", label: figureName("due"), cents: totals.dueCents, notes: [] },
+    ...(totals.transferCents > 0 ? [{ key: "transfer" as const, label: figureName("ownTransfers"), cents: totals.transferCents, notes: [] }] : []),
+    { key: "free", label: figureName("free"), cents: balance.freeCents, notes: [] },
   ];
 }
 
@@ -75,8 +77,8 @@ export function figures(ahead: Ahead): Figure[] | null {
 export function warning(ahead: Ahead): string | null {
   const { balance } = ahead;
   if (!balance || balance.shortCents <= 0 || !balance.shortOn) return null;
-  if (shortIsEstimate(ahead)) return `Arvion mukaan ${dayMonth(balance.shortOn)} maksuista jää kattamatta noin ${money(balance.shortCents)}.`;
-  return `Tilin kate ei riitä ${dayMonth(balance.shortOn)} erääntyvään maksuun. Puuttuu ${money(balance.shortCents)}.`;
+  if (shortIsEstimate(ahead)) return t("ahead.short_estimate", { day: dayMonth(balance.shortOn), amount: money(balance.shortCents) });
+  return t("ahead.short", { day: dayMonth(balance.shortOn), amount: money(balance.shortCents) });
 }
 
 /** Whether every payment of the day the balance runs short is one the app estimates. */
@@ -98,8 +100,8 @@ const SOURCE: Record<Row["source"], { note: (r: Row) => string | null; merchant:
   // the household typed the day and the sum in itself
   expected: { note: () => null, merchant: true, estimate: () => false },
   // a card's bill with no basis is the usual bill: the estimate is never left unsaid
-  card: { note: (r) => (r.basis === "balance" ? "Luottokortin lasku" : "Luottokortin lasku, arvio aiemmista laskuista"), merchant: false, estimate: (r) => r.basis !== "balance" },
-  transfer: { note: () => "Oma siirto", merchant: false, estimate: () => true },
+  card: { note: (r) => (r.basis === "balance" ? t("ahead.card_bill") : t("ahead.card_bill_estimate")), merchant: false, estimate: (r) => r.basis !== "balance" },
+  transfer: { note: () => t("ahead.own_transfer"), merchant: false, estimate: () => true },
 };
 
 /** A row whose day and sum the app estimates from the bank's rows, against one the household typed in or the card owes today. */
@@ -169,7 +171,7 @@ const range = (low: number, high: number): string => `${figure(low)}–${money(h
  */
 export function paySum(pay: Pay | null): string | null {
   const f = payFigure(pay);
-  return f && pay!.kind === "steady" ? `noin ${f}` : f;
+  return f && pay!.kind === "steady" ? t("ahead.about", { sum: f }) : f;
 }
 
 /** The pay's sum without its word of estimate, for the door that marks it with "≈" (Why): the usual sum, or the range. */
@@ -185,8 +187,8 @@ function payFigure(pay: Pay | null): string | null {
 export function payNote({ payday, reason }: Ahead): string | null {
   const pay = reason === "payday" ? payday?.pay : null;
   if (!pay || pay.kind !== "varies") return null;
-  const facts = `Palkka vaihtelee: viimeiset ${pay.count} palkkaa ${range(pay.lowCents, pay.highCents)}, useimmiten ${money(pay.usualCents, false)}.`;
-  return pay.baseCents === undefined ? facts : `${facts} Joka kerta on tullut vähintään ${money(pay.baseCents, false)}.`;
+  const facts = t("ahead.pay_varies", { count: pay.count, range: range(pay.lowCents, pay.highCents), usual: money(pay.usualCents, false) });
+  return pay.baseCents === undefined ? facts : t("ahead.pay_base", { facts, base: money(pay.baseCents, false) });
 }
 
 /** The arrivals as the lines of the second table: every one is projected from the pays that came, so every one is an estimate. */
@@ -195,5 +197,5 @@ export const incoming = (ahead: Ahead): Line[] =>
 
 /** What the table of the payments is about, for a reader of the page that has no eyes for it. */
 export function paymentsCaption(ahead: Ahead): string {
-  return windowPayday(ahead) ? "Erääntyvät maksut ennen palkkapäivää" : `Erääntyvät maksut seuraavan ${ahead.days} päivän aikana`;
+  return windowPayday(ahead) ? t("ahead.caption_payday") : t("ahead.caption_days", { days: ahead.days });
 }

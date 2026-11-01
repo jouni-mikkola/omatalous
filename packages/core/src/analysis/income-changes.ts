@@ -13,38 +13,24 @@ import { accountCovers } from "./coverage.ts";
 import { formatEur, formatFiDate } from "./format.ts";
 import { addBankingDays, JOB_END_WORDS, nextPayDate, payerKey } from "./income.ts";
 import { newSources, residualTax, windfalls } from "./income-events.ts";
-import { benefitName, elative, eur, type IncomeBase, incomeBase, type IncomeChange, type IncomeChangeKind, type IncomeSeries, inessive, isKela, passes, payDayAdessive, type Period, shortDate } from "./income-series.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { type MessageCode, type MessageParams, messageIn } from "../messages.ts";
+import { benefitName, eur, type IncomeBase, incomeBase, type IncomeChange, type IncomeChangeKind, type IncomeSeries, isKela, monthFrom, monthIn, passes, payDayWhen, type Period, shortDate } from "./income-series.ts";
 import type { DateRange } from "./period.ts";
-import { completeMonthsBefore, usualCents } from "./usual.ts";
-import type { Insight } from "./insights/types.ts";
+import { expectedLevel } from "./expected.ts";
+import { completeMonthsBefore } from "./usual.ts";
+import { BASE_SPREAD, BENEFIT_GRACE_DAYS, FIRST_PAGE_DAYS, LEVEL_SPREAD, MIN_STEP_SHARE, PAY_GRACE_BANKING_DAYS, SWITCH_DAYS, SWITCH_LEVEL, SWITCH_PERIODS, VARIABLE_SPREAD } from "../thresholds.ts";
+import { insightOf, REPORT } from "./insights/shared.ts";
+import { type Insight, q } from "./insights/types.ts";
 
 export type { IncomeBase, IncomeChange, IncomeChangeKind, IncomeSeries } from "./income-series.ts";
 export { benefitName, incomeBase, payDayText } from "./income-series.ts";
 
-/** Income changes as insights, in the shape the insight ranking takes. */
-export type IncomeInsight = Insight;
+/** The first letter of a name in capitals or, for the middle of a sentence, small unless the name is Kela's. */
+const capital = (text: string) => text[0]!.toUpperCase() + text.slice(1);
+const lowerName = (name: string) => (name.startsWith("Kela") ? name : name[0]!.toLowerCase() + name.slice(1));
 
 // ── detectors ──
-
-/** Base of a pay step: at least three periods within 5 %; the new level: at least two within 2 %. */
-const BASE_SPREAD = 0.05;
-const LEVEL_SPREAD = 0.02;
-/** The smallest step that counts as a new level, as a share of the base. */
-const MIN_STEP_SHARE = 0.025;
-/** Pay whose median month-to-month change is over this share of its median is variable pay: a range, never a step. */
-const VARIABLE_SPREAD = 0.08;
-/** A benefit has ended when its usual gap plus this many days passed with no payment. */
-const BENEFIT_GRACE_DAYS = 10;
-/** A stop and a start within this many days are one change (a payer or a benefit that changed). */
-const SWITCH_DAYS = 45;
-/** A payer stops and another begins within this many pay periods: one change of payer. */
-const SWITCH_PERIODS = 2;
-/** A new payer on another account is the old one's successor only at a level within this share of the old level. */
-const SWITCH_LEVEL = 0.25;
-/** A change of payer stays on the first page this many days after the old payer's last payment; the report keeps twelve months. */
-const FIRST_PAGE_DAYS = 120;
-/** Banking days after the pay day before pay counts as missing: a weekend, a holiday, a slow sync. */
-const PAY_GRACE_BANKING_DAYS = 2;
 
 export function levelStep(p: readonly Period[]): { base: number; level: number; start: Period; run: number; basePeriods: number } | null {
   const n = p.length;
@@ -70,10 +56,11 @@ function savedUsually(b: IncomeBase, from: IsoDate): number | null {
   const months = completeMonthsBefore(b.ctx, monthOf(from));
   const saved = new Map<string, number>();
   for (const t of b.ctx.txs) if (t.flows.saved) saved.set(monthOf(t.bookingDate), (saved.get(monthOf(t.bookingDate)) ?? 0) + t.flows.saved);
-  return usualCents(months.map((m) => saved.get(m) ?? 0));
+  return expectedLevel(months.map((m) => saved.get(m) ?? 0));
 }
 
-function payChanges(b: IncomeBase, s: IncomeSeries): IncomeChange[] {
+function payChanges(b: IncomeBase, s: IncomeSeries, lang: Language): IncomeChange[] {
+  const m = <C extends MessageCode>(code: C, ...params: MessageParams<C>) => messageIn(lang, code, ...params);
   const yearAgo = fromDayNumber(dayNumber(b.end) - 365);
   const step = levelStep(s.periods);
   const idsFrom = (d: IsoDate) => s.rows.filter((t) => t.bookingDate >= d).map((t) => t.id);
@@ -87,23 +74,24 @@ function payChanges(b: IncomeBase, s: IncomeSeries): IncomeChange[] {
     const up = diff > 0;
     const id = `income:pay:${s.key}:${step.start.month}`;
     const calc = [
-      { label: "Aiemmin kuussa", value: eur(step.base) },
-      { label: "Nyt kuussa", value: eur(step.level) },
-      { label: "Muutos kuussa", value: eur(diff) },
+      { label: m("inc.before_month"), value: eur(step.base, lang) },
+      { label: m("inc.now_month"), value: eur(step.level, lang) },
+      { label: m("inc.change_month"), value: eur(diff, lang) },
     ];
-    const common = { id, type: s.type, payer: s.payer, monthlyCents: diff, yearlyCents: Math.abs(diff) * 12, txIds: idsFrom(step.start.date), calc };
+    const from = monthFrom(startMonth, lang);
+    const common = { id, type: s.type, payer: s.payer, beforeCents: step.base, monthlyCents: diff, yearlyCents: Math.abs(diff) * 12, txIds: idsFrom(step.start.date), calc };
     // a new tax card and the employee contributions change in January: a net step with the year's first pay is not a raise
     if (firstOfYear)
-      return [{ ...common, kind: "tax_card", title: `Nettopalkka ${up ? "nousi" : "pieneni"} ${eur(diff)} kuussa`, detail: `${s.payer}, ${elative(startMonth)} alkaen ${eur(step.level)} kuussa. Verokortti ja työntekijän maksut vaihtuvat tammikuussa.` }];
+      return [{ ...common, kind: "tax_card", title: m(up ? "inc.net_up" : "inc.net_down", { amount: eur(diff, lang) }), detail: m("inc.tax_card_detail", { payer: s.payer, from, level: eur(step.level, lang) }) }];
     if (!up && month >= 9)
-      return [{ ...common, kind: "tax_limit", title: `Nettopalkka pieneni ${eur(diff)} kuussa`, detail: `${s.payer}, ${elative(startMonth)} alkaen. Jos verokortin tuloraja ylittyi, pidätys on suurempi vuoden loppuun.` }];
+      return [{ ...common, kind: "tax_limit", title: m("inc.net_down", { amount: eur(diff, lang) }), detail: m("inc.tax_limit_detail", { payer: s.payer, from }) }];
     const saved = up ? savedUsually(b, step.start.date) : null;
     return [
       {
         ...common,
         kind: up ? "raise" : "cut",
-        title: `Palkka ${up ? "nousi" : "pieneni"} ${eur(diff)} kuussa`,
-        detail: `${s.payer}, ${step.run} viimeisimmän palkan perusteella ${elative(startMonth)} alkaen${saved !== null && saved > 0 ? `; säästöön siirtyi tavallisesti ${eur(saved)} kuussa` : ""}.`,
+        title: m(up ? "inc.pay_up" : "inc.pay_down", { amount: eur(diff, lang) }),
+        detail: m("inc.pay_detail", { payer: s.payer, run: step.run, from, saved: saved !== null && saved > 0 ? m("inc.pay_saved", { amount: eur(saved, lang) }) : "" }),
       },
     ];
   }
@@ -121,17 +109,18 @@ function payChanges(b: IncomeBase, s: IncomeSeries): IncomeChange[] {
         {
           id: `income:variable:${s.key}`,
           kind: "variable",
+          beforeCents: Math.round(mid),
           type: s.type,
           payer: s.payer,
-          title: `Palkka vaihteli ${eur(low).replace(/\s€$/, "")}–${eur(high)} kuussa`,
-          detail: `${s.payer}, ${recent.length} kuukautta; pienin ${inessive(lowP.date)} ${eur(low)}.`,
+          title: m("inc.pay_varied", { low: lang === "en" ? eur(low, lang) : eur(low).replace(/\s€$/, ""), high: eur(high, lang) }),
+          detail: m("inc.pay_varied_detail", { payer: s.payer, n: recent.length, when: monthIn(lowP.date, lang), low: eur(low, lang) }),
           monthlyCents: -(mid - low),
           yearlyCents: (mid - low) * 12,
           calc: [
-            { label: "Pienin kuussa", value: eur(low) },
-            { label: "Suurin kuussa", value: eur(high) },
-            { label: "Mediaani kuussa", value: eur(mid) },
-            { label: "Kuukausia", value: String(recent.length) },
+            { label: m("inc.lowest_month"), value: eur(low, lang) },
+            { label: m("inc.highest_month"), value: eur(high, lang) },
+            { label: m("inc.median_month"), value: eur(mid, lang) },
+            { label: m("inc.months"), value: String(recent.length) },
           ],
           txIds: s.rows.filter((t) => t.bookingDate >= yearAgo).map((t) => t.id),
         },
@@ -141,7 +130,7 @@ function payChanges(b: IncomeBase, s: IncomeSeries): IncomeChange[] {
   return [];
 }
 
-function benefitStep(b: IncomeBase, s: IncomeSeries): IncomeChange | null {
+function benefitStep(b: IncomeBase, s: IncomeSeries, lang: Language): IncomeChange | null {
   const step = levelStep(s.periods);
   const yearAgo = fromDayNumber(dayNumber(b.end) - 365);
   if (step && step.start.date >= yearAgo && passes(b, step.level - step.base)) {
@@ -151,15 +140,16 @@ function benefitStep(b: IncomeBase, s: IncomeSeries): IncomeChange | null {
       kind: "benefit_step",
       type: s.type,
       payer: s.payer,
-      title: `${benefitName(s.type)} ${diff > 0 ? "nousi" : "pieneni"} ${eur(diff)} kuussa`,
-      detail: `${elative(`${step.start.month}-01`)[0]!.toUpperCase()}${elative(`${step.start.month}-01`).slice(1)} alkaen ${eur(step.level)} kuussa, aiemmin ${eur(step.base)}.`,
+      beforeCents: step.base,
+      title: messageIn(lang, diff > 0 ? "inc.ben_up" : "inc.ben_down", { name: benefitName(s.type, lang), amount: eur(diff, lang) }),
+      detail: messageIn(lang, "inc.ben_step_detail", { from: capital(monthFrom(`${step.start.month}-01`, lang)), level: eur(step.level, lang), base: eur(step.base, lang) }),
       monthlyCents: diff,
       yearlyCents: Math.abs(diff) * 12,
       txIds: s.rows.filter((t) => t.bookingDate >= step.start.date).map((t) => t.id),
       calc: [
-        { label: "Aiemmin kuussa", value: eur(step.base) },
-        { label: "Nyt kuussa", value: eur(step.level) },
-        { label: "Muutos kuussa", value: eur(diff) },
+        { label: messageIn(lang, "inc.before_month"), value: eur(step.base, lang) },
+        { label: messageIn(lang, "inc.now_month"), value: eur(step.level, lang) },
+        { label: messageIn(lang, "inc.change_month"), value: eur(diff, lang) },
       ],
     };
   }
@@ -178,7 +168,8 @@ function hasStarted(b: IncomeBase, s: IncomeSeries): boolean {
   return s.rows.length >= 2 && dayNumber(b.end) - first.day <= 120 && accountCovers(b.ctx, [s.accountId], addDays(first.bookingDate, -92));
 }
 
-function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] {
+function benefitEvents(b: IncomeBase, benefits: IncomeSeries[], lang: Language): IncomeChange[] {
+  const m = <C extends MessageCode>(code: C, ...params: MessageParams<C>) => messageIn(lang, code, ...params);
   const out: IncomeChange[] = [];
   const ended = benefits.filter((s) => hasEnded(b, s));
   const started = benefits.filter((s) => hasStarted(b, s));
@@ -195,14 +186,15 @@ function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] 
         kind: "benefit_changed",
         type: next.type,
         payer: next.payer,
-        title: `${benefitName(a.type)} vaihtui: ${benefitName(next.type).toLowerCase()} ${eur(next.usualCents)} kuussa`,
-        detail: `Aiemmin ${eur(a.usualCents)} kuussa, viimeinen maksu ${formatFiDate(last.bookingDate)}.`,
+        beforeCents: a.usualCents,
+        title: m("inc.ben_changed", { name: benefitName(a.type, lang), next: lowerName(benefitName(next.type, lang)), amount: eur(next.usualCents, lang) }),
+        detail: m("inc.ben_changed_detail", { before: eur(a.usualCents, lang), date: formatFiDate(last.bookingDate, lang) }),
         monthlyCents: diff,
         yearlyCents: Math.abs(diff) * 12,
         txIds: [...a.rows.slice(-3), ...next.rows].map((t) => t.id),
         calc: [
-          { label: "Aiemmin kuussa", value: eur(a.usualCents) },
-          { label: "Nyt kuussa", value: eur(next.usualCents) },
+          { label: m("inc.before_month"), value: eur(a.usualCents, lang) },
+          { label: m("inc.now_month"), value: eur(next.usualCents, lang) },
         ],
       });
       continue;
@@ -213,14 +205,15 @@ function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] 
       kind: "benefit_ended",
       type: a.type,
       payer: a.payer,
-      title: `${benefitName(a.type)} päättyi: ${formatEur(-a.usualCents, false).replace("-", "−")} kuussa`,
-      detail: `Viimeinen maksu ${formatFiDate(last.bookingDate)}${a.payDay ? `; tuki on tullut ${payDayAdessive(a.payDay)}` : ""}.`,
+      beforeCents: a.usualCents,
+      title: m("inc.ben_ended", { name: benefitName(a.type, lang), amount: formatEur(-a.usualCents, false, lang).replace("-", "−") }),
+      detail: m("inc.ben_ended_detail", { date: formatFiDate(last.bookingDate, lang), paid: a.payDay ? m("inc.ben_paid_on", { when: payDayWhen(a.payDay, lang) }) : "" }),
       monthlyCents: -a.usualCents,
       yearlyCents: a.usualCents * 12,
       txIds: a.rows.slice(-3).map((t) => t.id),
       calc: [
-        { label: "Tavallisesti kuussa", value: eur(a.usualCents) },
-        { label: "Viimeinen maksu", value: formatFiDate(last.bookingDate) },
+        { label: m("inc.usual_month"), value: eur(a.usualCents, lang) },
+        { label: m("inc.last_payment"), value: formatFiDate(last.bookingDate, lang) },
       ],
     });
   }
@@ -231,19 +224,19 @@ function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] 
       kind: "benefit_started",
       type: s.type,
       payer: s.payer,
-      title: `${benefitName(s.type)} alkoi: ${eur(s.usualCents)} kuussa`,
-      detail: `Ensimmäinen maksu ${formatFiDate(s.rows[0]!.bookingDate)}, ${s.rows.length} maksua.`,
+      title: m("inc.ben_started", { name: benefitName(s.type, lang), amount: eur(s.usualCents, lang) }),
+      detail: m("inc.ben_started_detail", { date: formatFiDate(s.rows[0]!.bookingDate, lang), n: s.rows.length }),
       monthlyCents: s.usualCents,
       yearlyCents: s.usualCents * 12,
       txIds: s.rows.map((t) => t.id),
       calc: [
-        { label: "Kuussa", value: eur(s.usualCents) },
-        { label: "Maksuja", value: String(s.rows.length) },
+        { label: m("inc.per_month"), value: eur(s.usualCents, lang) },
+        { label: m("inc.payments"), value: String(s.rows.length) },
       ],
     });
   }
   for (const s of benefits) if (!ended.includes(s) && !started.includes(s)) {
-    const c = benefitStep(b, s);
+    const c = benefitStep(b, s, lang);
     if (c) out.push(c);
   }
   return out;
@@ -253,7 +246,7 @@ function benefitEvents(b: IncomeBase, benefits: IncomeSeries[]): IncomeChange[] 
  * Salary that did not come, read at the end of the window: a payer that changed, or pay that stopped, when its last
  * payment falls in the window; one missed pay day only in a view of today.
  */
-function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean): { changes: IncomeChange[]; newSeries: Set<IncomeSeries> } {
+function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean, lang: Language): { changes: IncomeChange[]; newSeries: Set<IncomeSeries> } {
   const changes: IncomeChange[] = [];
   const newSeries = new Set<IncomeSeries>();
   for (const s of salaries) {
@@ -296,14 +289,15 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean): { 
         kind: "payer_changed",
         type: "salary",
         payer: other.payer,
-        title: `Palkanmaksaja vaihtui: ${eur(other.usualCents)} kuussa`,
-        detail: `${s.payer}, sitten ${other.payer} ${formatFiDate(other.rows[0]!.bookingDate)} alkaen; aiemmin ${eur(s.usualCents)} kuussa.`,
+        beforeCents: s.usualCents,
+        title: messageIn(lang, "inc.payer_changed", { amount: eur(other.usualCents, lang) }),
+        detail: messageIn(lang, "inc.payer_changed_detail", { payer: s.payer, other: other.payer, date: formatFiDate(other.rows[0]!.bookingDate, lang), before: eur(s.usualCents, lang) }),
         monthlyCents: diff,
         yearlyCents: Math.abs(diff) * 12,
         txIds: [...s.rows.slice(-2), ...other.rows].map((t) => t.id),
         calc: [
-          { label: "Aiemmin kuussa", value: eur(s.usualCents) },
-          { label: "Nyt kuussa", value: eur(other.usualCents) },
+          { label: messageIn(lang, "inc.before_month"), value: eur(s.usualCents, lang) },
+          { label: messageIn(lang, "inc.now_month"), value: eur(other.usualCents, lang) },
         ],
         lastPaid: lastMain.bookingDate,
       });
@@ -317,8 +311,12 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean): { 
         kind: "stopped",
         type: "salary",
         payer: s.payer,
-        title: `Palkkaa ei ole tullut ${shortDate(lastMain.bookingDate)} jälkeen`,
-        detail: `${s.payer} maksoi tavallisesti ${eur(s.usualCents)} kuussa${jobEnd ? `; lomakorvaus ${eur(jobEnd.amountCents)} tuli ${formatFiDate(jobEnd.bookingDate)}` : ""}.`,
+        title: messageIn(lang, "inc.stopped", { date: shortDate(lastMain.bookingDate, lang) }),
+        detail: messageIn(lang, "inc.stopped_detail", {
+          payer: s.payer,
+          usual: eur(s.usualCents, lang),
+          end: jobEnd ? messageIn(lang, "inc.stopped_end", { amount: eur(jobEnd.amountCents, lang), date: formatFiDate(jobEnd.bookingDate, lang) }) : "",
+        }),
         monthlyCents: -s.usualCents,
         yearlyCents: s.usualCents * 12,
         txIds: [...s.rows.slice(-2), ...later].map((t) => t.id),
@@ -333,8 +331,8 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean): { 
       kind: "missing",
       type: "salary",
       payer: s.payer,
-      title: `Palkka puuttuu, odotettu ${shortDate(e1)}`,
-      detail: `${s.payer} on maksanut ${pd.hits} kertaa ${payDayAdessive(pd)}; tilillä on tapahtumia ${formatFiDate(lastSeen)} asti.`,
+      title: messageIn(lang, "inc.missing", { date: shortDate(e1, lang) }),
+      detail: messageIn(lang, "inc.missing_detail", { payer: s.payer, hits: pd.hits, when: payDayWhen(pd, lang), date: formatFiDate(lastSeen, lang) }),
       monthlyCents: -s.usualCents,
       yearlyCents: s.usualCents * 12,
       txIds: s.rows.slice(-3).map((t) => t.id),
@@ -343,20 +341,20 @@ function payMissing(b: IncomeBase, salaries: IncomeSeries[], today: boolean): { 
   return { changes, newSeries };
 }
 
-export function incomeChanges(b: IncomeBase, today: boolean): IncomeChange[] {
+export function incomeChanges(b: IncomeBase, today: boolean, lang: Language = DEFAULT_LANGUAGE): IncomeChange[] {
   const salaries = b.series.filter((s) => s.type === "salary");
   const benefits = b.series.filter((s) => s.type !== "salary");
-  const missing = payMissing(b, salaries, today);
+  const missing = payMissing(b, salaries, today, lang);
   const skip = new Set<string>([...missing.newSeries].map((s) => payerKey(s.rows[0]!)));
   for (const s of benefits) if (hasStarted(b, s)) skip.add(payerKey(s.rows[0]!));
   const out = [
     ...missing.changes,
-    ...salaries.filter((s) => !missing.newSeries.has(s)).flatMap((s) => payChanges(b, s)),
-    ...(today ? benefitEvents(b, benefits) : benefits.map((s) => benefitStep(b, s)).filter((c): c is IncomeChange => c !== null)),
-    ...newSources(b, skip),
-    ...windfalls(b),
+    ...salaries.filter((s) => !missing.newSeries.has(s)).flatMap((s) => payChanges(b, s, lang)),
+    ...(today ? benefitEvents(b, benefits, lang) : benefits.map((s) => benefitStep(b, s, lang)).filter((c): c is IncomeChange => c !== null)),
+    ...newSources(b, skip, lang),
+    ...windfalls(b, lang),
   ];
-  const tax = residualTax(b);
+  const tax = residualTax(b, lang);
   if (tax) out.push(tax);
   return out.sort((x, y) => Math.abs(y.monthlyCents) - Math.abs(x.monthlyCents));
 }
@@ -377,24 +375,31 @@ const INSIGHT_KINDS: ReadonlySet<IncomeChangeKind> = new Set([
   "new_source",
 ]);
 
+/** A level change recurs every month; a new source or a residual tax is one event. */
+const SINGLE_KINDS: ReadonlySet<IncomeChangeKind> = new Set(["residual_tax", "new_source"]);
+
 /**
- * Income insights in the shape of analysis/insights.ts, each with `yearlyCents` for the ranking. The report keeps a
- * change of payer for twelve months; the first page drops one whose old payer was last paid over `FIRST_PAGE_DAYS`
- * before the end of the view: there a change is news for about four months, not for a year.
+ * Income insights in the shape of analysis/insights/types.ts. The report keeps a change of payer for twelve months; the
+ * first page drops one whose old payer was last paid over `FIRST_PAGE_DAYS` before the end of the view: there a change
+ * is news for about four months, not for a year. The comparison is the level before; the change is worth twelve
+ * months of the monthly difference.
  */
-export function incomeInsights(ctx: AnalysisContext, range: DateRange, _inputs: UserInputs): IncomeInsight[] {
+export function incomeInsights(ctx: AnalysisContext, range: DateRange, _inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): Insight[] {
   const end = range.to < ctx.today ? range.to : ctx.today;
   const b = incomeBase(ctx, end);
-  return incomeChanges(b, end === ctx.today)
+  return incomeChanges(b, end === ctx.today, lang)
     .filter((c) => INSIGHT_KINDS.has(c.kind) && (!c.lastPaid || dayNumber(end) - dayNumber(c.lastPaid) <= FIRST_PAGE_DAYS))
-    .map((c) => ({
-      id: c.id,
-      tone: c.kind === "residual_tax" || c.monthlyCents < 0 ? "warning" : c.kind === "raise" || c.kind === "benefit_started" || c.kind === "new_source" ? "good" : "info",
-      title: c.title,
-      detail: c.detail,
-      ...(c.payer && c.payer !== "Kela" ? { merchant: c.payer } : {}),
-      yearlyCents: c.yearlyCents,
-      ...(c.txIds?.length ? { rows: [...c.txIds] } : {}),
-      ...(c.calc ? { calc: c.calc } : {}),
-    }));
+    .map((c) =>
+      insightOf({
+        id: c.id,
+        fact: { type: "income", change: c.kind, title: c.title, monthlyCents: c.monthlyCents },
+        comparison: c.unknownBefore ? { label: "lastInstalment", value: q.date(c.unknownBefore) } : { label: c.kind === "residual_tax" ? "yearAgo" : "incomeBefore", value: q.cents(c.beforeCents ?? 0) },
+        action: { label: "seeIncome", target: { page: "reports", anchor: REPORT.income } },
+        yearlyCents: c.monthlyCents * 12,
+        kind: SINGLE_KINDS.has(c.kind) ? "single" : "pattern",
+        rows: c.txIds,
+        ...(c.payer && c.payer !== "Kela" ? { merchant: c.payer } : {}),
+        calc: c.calc ?? [],
+      }),
+    );
 }

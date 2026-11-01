@@ -5,6 +5,8 @@
  * month so far) the latest complete month stands in and the page names it. Before any month has ended, the latest month
  * with income stands in, marked as partial.
  */
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { fromMonthIndex, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { type AnalysisContext, spendRows, spendTotals } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
@@ -42,10 +44,10 @@ interface SavingsRate {
  * overview's bridge reads. A month that is running, or that the history covers only in part, is left out, so no view
  * tells the rate of a month with half its income missing.
  */
-export function savingsRateOf(ctx: AnalysisContext, months: readonly string[]): SavingsRate {
+export function savingsRateOf(ctx: AnalysisContext, months: readonly string[], lang: Language = DEFAULT_LANGUAGE): SavingsRate {
   const complete = months.filter((m) => isCompleteMonth(ctx, m));
   const totals = totalsOf(complete.flatMap((m) => spendRows(ctx, toDayRange({ from: `${m}-01`, to: monthEnd(m) })).map((t) => t.flows)));
-  return { rate: complete.length ? totals.savingsRate : null, months: complete, label: `Säästöaste, ${complete.length === 1 ? "viimeinen kuukausi" : `viimeiset ${complete.length} kuukautta`}` };
+  return { rate: complete.length ? totals.savingsRate : null, months: complete, label: complete.length === 1 ? messageIn(lang, "opt.sit_saving_one") : messageIn(lang, "opt.sit_saving_many", { n: complete.length }) };
 }
 
 function monthTotals(ctx: AnalysisContext, month: string): PeriodTotals {

@@ -28,8 +28,8 @@ describe("the wide screen: panels side by side from 1600 px", () => {
   });
 
   it("makes the column 100 px: the container less its margins is twelve columns and eleven gutters", () => {
-    const scale = css("scale.css");
-    const container = Number(/@media \(min-width: 1600px\) \{ :root \{ --container: (\d+)px;/.exec(scale)?.[1]);
+    const tokens = css("tokens.css");
+    const container = Number(/@media \(min-width: 1600px\) \{\s*:root \{\s*--container: (\d+)px;/.exec(tokens)?.[1]);
     const pad = 16;
     expect((container - 2 * pad - 11 * 16) / 12).toBe(100);
   });

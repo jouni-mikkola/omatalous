@@ -7,7 +7,8 @@ import { createContext } from "../../src/analysis/context.ts";
 import { allFindings, buildOptimise, type InputValues, type OptimiseData } from "../../src/optimise/index.ts";
 import { randomHistory } from "../gen.ts";
 import { bankHouseholds } from "../kit/households/index.ts";
-import { enrich, neutralValues } from "./household.ts";
+import { neutralValues } from "./household.ts";
+import { enrich } from "./household-kit.ts";
 
 const JUDGED = "2025-11-15";
 const plain = (s: string) => s.replace(/[  ]/g, " ");

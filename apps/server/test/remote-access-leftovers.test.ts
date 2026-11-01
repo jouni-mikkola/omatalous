@@ -7,11 +7,13 @@ import { describe, expect, it } from "vitest";
 import { readAccessRequest } from "../src/services/access-request.ts";
 import { pollOps, reportOps } from "../src/services/ops.ts";
 import { waitFor } from "./helpers.ts";
-import { HOST, LAN, logged, prepared, turnedOn } from "./remote-access-kit.ts";
+import { HOST, LAN, logged, prepared, turnedOn, useWorlds } from "./remote-access-kit.ts";
+
+useWorlds();
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
-const TOKEN_WHILE_ON = "Ota etäkäyttö ensin pois käytöstä. Tunniste tarvitaan siihen.";
+const TOKEN_WHILE_ON = "Ota etäkäyttö ensin pois käytöstä. Tarvitset siihen tunnisteen.";
 
 describe("remote access: the last result is told for a day", () => {
   it("a failed change is in the state at 23 hours and gone at 25, and the record keeps it", async () => {

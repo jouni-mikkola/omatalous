@@ -31,6 +31,8 @@ import { helperKnows } from "./ops-validate.ts";
 import { AAD, clientFor, openToken, QUIET, readJson, type Refusal, refusalOf, SAYS, sealedBox, setUpForThisCopy, SHORT, type StoredToken, TOKEN_KEY, upstream } from "./remote-access-cloudflare.ts";
 import { parseApiToken, parseEmails, parseHostname, parsePassword } from "./remote-access-input.ts";
 import { change, copyName, exclusive, hostOf, IN_PROGRESS, inForce, LAST_TOLD_MS, type Made, type Ops, onTunnel, openTrial, type Pending, TRIAL_MS, type Trial } from "./remote-access-record.ts";
+import type { Language } from "@banking/core";
+import { opsText } from "./ops-english.ts";
 import { finishRemoval, REMOVAL_NOTE, REVERTED, removeFromCloudflare, settle } from "./remote-access-settle.ts";
 import { recordEvent } from "./security.ts";
 
@@ -42,8 +44,8 @@ const LOCAL_ONLY = /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::|$)/i;
 
 const INSTALLERS =
   "Tämän asennuksen etäkäyttö on tehty palvelimella asennusohjelmalla, joten muuta sitä siellä (./scripts/install.sh).";
-const TOKEN_WHILE_ON = "Ota etäkäyttö ensin pois käytöstä. Tunniste tarvitaan siihen.";
-const NO_PAIR = "Cloudflare ei antanut tietoja, joilla sovellus tarkistaa kirjautumisen. Etäkäyttöä ei otettu käyttöön. Yritä hetken päästä uudelleen.";
+const TOKEN_WHILE_ON = "Ota etäkäyttö ensin pois käytöstä. Tarvitset siihen tunnisteen.";
+const NO_PAIR = "Cloudflare ei antanut tietoja, joilla sovellus tarkistaa kirjautumisen. Emme ottaneet etäkäyttöä käyttöön. Yritä hetken päästä uudelleen.";
 
 /** A DNS label of the copy's name: the cut comes first, so the label never ends in a hyphen. */
 const hostLabel = (copy: string) => copy.replace(/_/g, "-").slice(0, 63).replace(/^-+|-+$/g, "") || "talous";
@@ -98,16 +100,16 @@ async function queueAccess(s: Services, user: User, proof: PasswordProof, req: R
  * keeps it, so nothing is stored and no timer runs to make it go. "applied" also when its request failed but the host
  * now runs as it asked.
  */
-function lastOf(rec: Made, ops: Ops, now: Date) {
+function lastOf(rec: Made, ops: Ops, now: Date, language: Language) {
   const last = rec.last;
   if (!last || now.getTime() - Date.parse(last.at) >= LAST_TOLD_MS) return null;
   const done = last.applied || inForce(ops, last.want, last.hostname);
   // "reverted": the server itself took a new address off, because nobody got in through it (remote-access-trial.ts)
   const outcome = !done ? ("failed" as const) : last.reverted ? ("reverted" as const) : ("applied" as const);
-  return { want: last.want, hostname: last.hostname, outcome, summary: outcome === "reverted" ? REVERTED : last.summary, at: last.at };
+  return { want: last.want, hostname: last.hostname, outcome, summary: opsText(outcome === "reverted" ? REVERTED : last.summary, language), at: last.at };
 }
 
-export async function remoteAccessState(s: Services) {
+export async function remoteAccessState(s: Services, language: Language = "fi") {
   const { ops, rec } = await settle(s);
   finishRemoval(s, ops, rec);
   const stored = await readJson<StoredToken>(s, TOKEN_KEY);
@@ -141,10 +143,10 @@ export async function remoteAccessState(s: Services) {
       /** Where the copy answers after an off, by the helper. Null from a helper that does not say. */
       afterOff: await lanAddressAfterTunnel(s),
     },
-    /** Cloudflare's side as this page made it. `note` tells in Finnish why a removal has not finished. */
-    cloudflare: { hostname: rec.hostname, emails: rec.emails, removal: rec.removal, note: rec.removal ? REMOVAL_NOTE[rec.removal] : null },
+    /** Cloudflare's side as this page made it. `note` tells why a removal has not finished. */
+    cloudflare: { hostname: rec.hostname, emails: rec.emails, removal: rec.removal, note: rec.removal && REMOVAL_NOTE[rec.removal] ? opsText(REMOVAL_NOTE[rec.removal]!, language) : null },
     pending: rec.pending && row ? pendingOf(rec.pending, row.status) : null,
-    last: lastOf(rec, ops, s.now()),
+    last: lastOf(rec, ops, s.now(), language),
     helper: { status: ops.helper.status, version: ops.helper.version, knowsAccess: helperKnows(ops.helper.version, "access"), enableCommand: ops.helper.enableCommand },
     /** Another maintenance action is queued or running: a change would be refused. */
     busy: ops.active,
@@ -191,7 +193,7 @@ export async function saveToken(s: Services, user: User, o: Sent<"token" | "pass
   }
   await s.settings.set(TOKEN_KEY, JSON.stringify({ keyEnc: await box.seal(token, AAD), savedAt: s.now().toISOString(), zones: names } satisfies StoredToken));
   await recordEvent(s, { kind: "cloudflare_token_saved", userId: user.id, ...req, detail: `verkkotunnukset: ${names.slice(0, 5).join(", ")}` });
-  return remoteAccessState(s);
+  return remoteAccessState(s, user.language);
 }
 
 /**
@@ -209,7 +211,34 @@ export async function removeToken(s: Services, user: User, o: Sent<"password">, 
     await s.settings.delete(TOKEN_KEY);
     await recordEvent(s, { kind: "cloudflare_token_removed", userId: user.id, ...req });
   }
-  return remoteAccessState(s);
+  return remoteAccessState(s, user.language);
+}
+
+// ── a second factor before the address is public ─────────
+
+/** Whether the app is reachable on a public address now: behind the tunnel, or on the installer's own domain. */
+export async function publicAddressUp(s: Services): Promise<boolean> {
+  const { ops, rec } = await settle(s);
+  // a turning on that waits for the helper counts: the check for a second factor was made when it was asked
+  return onTunnel(ops) || ops.state.mode === "domain" || rec.pending?.want === "tunnel";
+}
+
+/** While the address is public an admin has a second factor: no new admin, and no promotion of a member who has none. */
+export async function refuseAdminWithoutFactor(s: Services, userId: string | null): Promise<void> {
+  if (userId && (await s.factors.hasAny(userId))) return;
+  if (await publicAddressUp(s)) throw UserError.of("remote.admin_needs_factor");
+}
+
+/**
+ * A public address is reached by anyone, so every admin must have a second factor (an authenticator app or a passkey)
+ * before it is published. The refusal names the admins who lack one and is a `remote_access_failed` event.
+ */
+async function requireSecondFactor(s: Services, user: User, hostname: string, req: Req): Promise<void> {
+  const missing: string[] = [];
+  for (const u of await s.users.list()) if (u.role === "admin" && !(await s.factors.hasFactorFor(u.id, hostname))) missing.push(u.username);
+  if (!missing.length) return;
+  await recordEvent(s, { kind: "remote_access_failed", userId: user.id, ...req, detail: `${hostname}: toinen tekijä puuttuu, ${missing.join(", ")}`.slice(0, 190) });
+  throw UserError.of("remote.second_factor_needed", { names: missing.join(", ") });
 }
 
 // ── on, change, off ──────────────────────────────────────
@@ -228,10 +257,11 @@ export async function turnOn(s: Services, user: User, o: Sent<"hostname" | "emai
   return exclusive(s, async () => {
     const { ops, rec } = await settle(s);
     if (rec.pending) throw new HttpUserError(IN_PROGRESS, 409);
-    if (ops.state.mode === "domain") throw new UserError("Tällä asennuksella on oma verkkotunnus (Caddy), eikä etäkäyttöä oteta käyttöön sen rinnalle.");
+    if (ops.state.mode === "domain") throw new UserError("Tällä asennuksella on oma verkkotunnus (Caddy), joten etäkäyttöä ei voi ottaa sen rinnalle.");
     const behind = onTunnel(ops) ? hostOf(ops.state.address) : null;
     const current = rec.hostname ?? behind;
     if (current && current !== hostname) throw new UserError(`Etäkäyttö on jo tehty osoitteelle ${current}. Ota se ensin pois käytöstä, jos haluat vaihtaa osoitteen.`);
+    await requireSecondFactor(s, user, hostname, req);
     await ready(s);
     const token = await openToken(s);
     if (!token) throw new UserError((await s.settings.get(TOKEN_KEY)) ? "Tallenna Cloudflaren API-tunniste uudelleen." : "Tallenna ensin Cloudflaren API-tunniste.");
@@ -266,7 +296,7 @@ export async function turnOn(s: Services, user: User, o: Sent<"hostname" | "emai
     const pending: Pending = { want: "tunnel", requestId, hostname, by: user.id, at: s.now().toISOString() };
     const trial: Trial = { aud: made.accessAud, by: user.id, appliedAt: null, confirmedAt: null };
     await change(s, (r) => ({ ...r, pending, trial: behind === hostname ? r.trial : trial }));
-    return remoteAccessState(s);
+    return remoteAccessState(s, user.language);
   });
 }
 
@@ -296,7 +326,7 @@ export async function turnOff(s: Services, user: User, o: Sent<"password" | "loc
       await ready(s);
       const after = await lanAddressAfterTunnel(s);
       if (after && LOCAL_ONLY.test(after) && o.localOnly !== true) {
-        throw new UserError(`Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa ${after}. Vahvista, että tämä sopii.`);
+        throw new UserError(`Kun otat etäkäytön pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa ${after}. Vahvista, että tämä sopii.`);
       }
     }
     const proof = await checkPassword(s, user, password, req, LABEL);
@@ -309,7 +339,7 @@ export async function turnOff(s: Services, user: User, o: Sent<"password" | "loc
     } else if (hostname) {
       await removeFromCloudflare(s, hostname, user.id, req);
     }
-    return remoteAccessState(s);
+    return remoteAccessState(s, user.language);
   });
 }
 

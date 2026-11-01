@@ -1,0 +1,113 @@
+{
+  "contract": "ops state",
+  "about": "`node dist/node.js ops state --helper <version>` with the state snapshot of the helper on stdin (state_json in scripts/ops-helper.sh). Heartbeat only: stdout is not read beyond the exit code. The first snapshot below is what the helper of 0.10.0 (version 4) sends; every key of it is kept by the app. Since 0.10.0 it carries `prerelease` (yes or no: the switch for new versions as the host's .env has it, said every time so that a no replaces a stored yes, and left out when the install has no .env) and `channel` (source: the install follows a branch and has no releases to follow; else release), which state_json adds and normaliseState keeps (services/ops-validate.ts); an app of 0.9.0 or older drops both like any unknown key. The second is the snapshot after the helper took an update back because the app did not answer (watchdog_tick in scripts/lib/ops-watchdog.sh sends it at once), so it is a snapshot of the helper of the version taken back to, 0.9.0 (version 3), and has neither new key: it shows that the app still takes a state from that helper. It adds `watchdog` {at, from, to, reason} (state_json reads ops/watchdog.frag, written by watchdog_report) and a doctor item with the id `watchdog` (watchdog_doctor_item), which has the five keys every item has. The app reads `watchdog` and does not keep it (parseWatchdog in services/ops-watchdog.ts), so that case does not set keepsStateKeys.",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "allowed",
+  "cases": [
+    {
+      "name": "a snapshot with the checks",
+      "setup": "none",
+      "args": [
+        "state",
+        "--helper",
+        "4"
+      ],
+      "stdin": {
+        "version": "0.10.0",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "build": "0123456",
+        "can_rollback": false,
+        "schema_changed": false,
+        "mode": "tunnel",
+        "port": 8080,
+        "prerelease": "yes",
+        "channel": "release",
+        "address": "https://talous.example.org",
+        "update_available": true,
+        "checked_at": "2026-10-09T08:00:00Z",
+        "doctor": {
+          "at": "2026-10-09T08:00:00Z",
+          "items": [
+            {
+              "id": "disk",
+              "level": "ok",
+              "title": "Levy",
+              "detail": "12 GB vapaana",
+              "hint": ""
+            }
+          ]
+        },
+        "backups": [
+          {
+            "name": "talous-20261009.db.gz",
+            "size": 1048576,
+            "at": "2026-10-09T03:00:00Z",
+            "kind": "manual"
+          }
+        ]
+      },
+      "keepsStateKeys": true,
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    },
+    {
+      "name": "text that is not JSON",
+      "setup": "none",
+      "args": [
+        "state",
+        "--helper",
+        "4"
+      ],
+      "stdinText": "not json",
+      "shape": {
+        "ok": "boolean",
+        "error": "string"
+      },
+      "lineRegex": "\"ok\":false"
+    },
+    {
+      "name": "a snapshot after the watchdog took an update back",
+      "setup": "none",
+      "args": [
+        "state",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "version": "0.9.0",
+        "commit": "0123456789abcdef0123456789abcdef01234567",
+        "build": "0123456",
+        "can_rollback": false,
+        "schema_changed": true,
+        "mode": "tunnel",
+        "port": 8080,
+        "address": "https://talous.example.org",
+        "doctor": {
+          "at": "2026-10-09T08:10:00Z",
+          "items": [
+            {
+              "id": "watchdog",
+              "level": "error",
+              "title": "Edellinen versio palautettiin, koska sovellus ei vastannut 10 minuuttiin",
+              "detail": "Ylläpitoapuri vaihtoi itse version 0.10.0 takaisin versioon 0.9.0. Rivi poistuu seuraavassa tarkistuksessa.",
+              "hint": "Loki ajalta ennen palautusta on palvelimella: ops/run/watchdog-20261009T080000Z.log"
+            }
+          ]
+        },
+        "watchdog": {
+          "at": "2026-10-09T08:00:00Z",
+          "from": "0.10.0",
+          "to": "0.9.0",
+          "reason": "unhealthy"
+        }
+      },
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    }
+  ]
+}

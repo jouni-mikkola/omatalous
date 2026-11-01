@@ -1,15 +1,17 @@
 // Decision: is the change in spending a reason to act, and where
-import { type BucketKind, bucketLabel, type ChangeView, namedCauses, type SpendingChange, spendingChange } from "../analysis/change.ts";
+import { type BucketKind, bucketLabel, type CategoryChange, type ChangeView, type MerchantChange, namedCauses, restLabel, type SpendingChange, spendingChange } from "../analysis/change.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { changeMonths, cutWords, signed, spanLabel, upper } from "../analysis/change-text.ts";
-import { formatEur, monthName } from "../analysis/format.ts";
+import { formatEur, monthNameIn } from "../analysis/format.ts";
 import type { DateRange } from "../analysis/period.ts";
-import { isCompleteMonth } from "../analysis/usual.ts";
-import { addMonths, monthIndex, monthOf } from "../dates.ts";
+import { getCategory } from "../categories.ts";
+import { categoryLabel } from "../category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import type { IsoDate } from "../types.ts";
 
 /** One bar of the bridge: a cause in a category, or the causes that stay under the gate together. */
-export interface ChangeBar {
+interface ChangeBar {
   category: string | null;
   label: string;
   kind: BucketKind | "rest";
@@ -40,7 +42,7 @@ export interface SpendingChangeReport {
 
 const MAX_BARS = 5;
 /** The rest bar: not "Muut", the table's row of small categories, which has a change of its own. */
-const REST_LABEL = "Muut muutokset";
+const restBarLabel = (lang: Language) => messageIn(lang, "rep.rest_changes");
 
 /**
  * The four categories that moved most with a cause over the gate, then what is left together, so the bars add up to
@@ -49,7 +51,7 @@ const REST_LABEL = "Muut muutokset";
  * shop is a new and a stopped shop of the same size), and so is one whose change does not stand out from its own
  * month-to-month noise: a busy month of the household's own is no cause.
  */
-function barsOf(c: SpendingChange): ChangeBar[] {
+function barsOf(c: SpendingChange, lang: Language): ChangeBar[] {
   const top = c.categories
     .flatMap((r) => {
       // the rows the spike alert may tell as well (ADR 0013)
@@ -64,12 +66,12 @@ function barsOf(c: SpendingChange): ChangeBar[] {
     kind: named[0]!.kind,
     cents: r.changeCents,
     season: r.season,
-    cause: named.map((b) => bucketLabel(b.kind, b.cents, r.bills).toLowerCase()).join(", "),
+    cause: named.map((b) => bucketLabel(b.kind, b.cents, r.bills, lang).toLowerCase()).join(", "),
   }));
   // without a named bar the rest would be the whole change under a name the table gives its small categories
   if (!bars.length) return [];
   const rest = c.changeCents - bars.reduce((s, b) => s + b.cents, 0);
-  if (rest !== 0) bars.push({ category: null, label: REST_LABEL, kind: "rest", cents: rest, season: false, cause: "" });
+  if (rest !== 0) bars.push({ category: null, label: restBarLabel(lang), kind: "rest", cents: rest, season: false, cause: "" });
   return bars;
 }
 
@@ -79,58 +81,58 @@ const callsTotal = (c: SpendingChange) => c.standsOut && Math.abs(c.changeCents)
 /** The sentence states the totals only: no total and no category change stands out. */
 const isQuiet = (c: SpendingChange, bars: readonly ChangeBar[]) => !callsTotal(c) && !bars.some((b) => b.kind !== "rest");
 
-function sentenceOf(c: SpendingChange, subject: string, baseLabel: string, bars: readonly ChangeBar[], today: IsoDate): string {
-  const abs = formatEur(Math.abs(c.changeCents), false);
+function sentenceOf(c: SpendingChange, subject: string, baseLabel: string, bars: readonly ChangeBar[], today: IsoDate, lang: Language): string {
+  const abs = formatEur(Math.abs(c.changeCents), false, lang);
   const up = c.changeCents > 0;
   // a running month says the day its figures are cut at when the rows end before today, as the spike alert does
-  const upTo = cutWords(c.running, c.target.to, today) ?? (c.running ? "tähän asti" : null);
+  const upTo = cutWords(c.running, c.target.to, today, lang) ?? (c.running ? messageIn(lang, "rep.change_so_far") : null);
+  const average = messageIn(lang, "rep.change_average", { count: c.base.months.length });
   let lead: string;
-  if (!callsTotal(c)) lead = `${subject}: menot ${formatEur(c.nowCents, false)}, ${c.view === "usual" ? "tavallisesti" : baseLabel} ${formatEur(c.baseCents, false)}`;
-  else if (c.view === "usual") lead = `${subject}: menot ${upTo ? `${upTo} ` : ""}${abs} tavallista ${up ? "suuremmat" : "pienemmät"}`;
-  else lead = `${subject}: menot ${abs} ${up ? "suuremmat" : "pienemmät"} kuin ${baseLabel}`;
+  if (!callsTotal(c)) lead = messageIn(lang, "rep.change_quiet", { subject, now: formatEur(c.nowCents, false, lang), base: baseLabel, baseSum: formatEur(c.baseCents, false, lang), average: c.view === "expected" ? ` (${average})` : "" });
+  else if (c.view === "expected") lead = messageIn(lang, up ? "rep.change_expected_up" : "rep.change_expected_down", { subject, upTo: upTo ? `${upTo} ` : "", amount: abs, average });
+  else lead = messageIn(lang, up ? "rep.change_other_up" : "rep.change_other_down", { subject, amount: abs, base: baseLabel });
   if (isQuiet(c, bars) || !bars.length) return `${lead}.`;
-  const parts = bars.map((b) => (b.kind === "rest" ? `${REST_LABEL.toLowerCase()} ${signed(b.cents)}` :`${b.label} ${signed(b.cents)}${b.cause ? ` (${b.cause}${b.season ? ", sama kuukausi vuotta aiemmin" : ""})` : ""}`));
+  const parts = bars.map((b) => (b.kind === "rest" ? `${restBarLabel(lang).toLowerCase()} ${signed(b.cents, lang)}` : `${b.label} ${signed(b.cents, lang)}${b.cause ? ` (${b.cause}${b.season ? `, ${messageIn(lang, "rep.change_season")}` : ""})` : ""}`));
   return `${lead}. ${upper(parts.join(", "))}.`;
 }
 
 
+/** The labels of the change the analysis writes in Finnish (a category's name, the row of the small ones, the spread), in `lang`. */
+function inLanguage(c: SpendingChange, lang: Language): SpendingChange {
+  // the count of the small ones is only in the Finnish label: "Muut (3)"
+  const rest = (label: string) => restLabel(Number(/\((\d+)\)$/.exec(label)?.[1] ?? 0), lang);
+  const merchant = (m: MerchantChange): MerchantChange => (m.kind === "smaller" ? { ...m, label: rest(m.label) } : m.kind === "spread" ? { ...m, label: bucketLabel("spread", m.changeCents, false, lang) } : m);
+  const category = (r: CategoryChange): CategoryChange => ({
+    ...r,
+    label: r.kind === "smaller" ? rest(r.label) : categoryLabel(getCategory(r.category!), lang),
+    merchants: r.merchants.map(merchant),
+  });
+  return { ...c, categories: c.categories.map(category) };
+}
+
 /** One view of the change as the report tells it; null when the history does not support the comparison. */
-function viewOf(ctx: AnalysisContext, view: ChangeView, m: string, title: string, yearMonths?: number): ChangeViewReport | null {
-  const change = spendingChange(ctx, view, m, yearMonths);
-  if (!change) return null;
-  const periodLabel = view === "usual" ? upper(monthName(m)) : upper(spanLabel(change.target.months));
-  const baseLabel = view === "usual" ? "tavallisesti" : spanLabel(change.base.months);
-  const bars = barsOf(change);
-  const sentence = sentenceOf(change, view === "season" ? `${upper(monthName(m))} ${m.slice(0, 4)}` : periodLabel, baseLabel, bars, ctx.today);
+function viewOf(ctx: AnalysisContext, view: ChangeView, m: string, title: string, lang: Language, yearMonths?: number): ChangeViewReport | null {
+  const found = spendingChange(ctx, view, m, yearMonths);
+  if (!found) return null;
+  const change = lang === DEFAULT_LANGUAGE ? found : inLanguage(found, lang);
+  const periodLabel = view === "expected" ? upper(monthNameIn(m, lang)) : upper(spanLabel(change.target.months, lang));
+  const baseLabel = view === "expected" ? messageIn(lang, "rep.change_expected_word") : spanLabel(change.base.months, lang);
+  const bars = barsOf(change, lang);
+  const sentence = sentenceOf(change, view === "season" ? `${upper(monthNameIn(m, lang))} ${m.slice(0, 4)}` : periodLabel, baseLabel, bars, ctx.today, lang);
   return { view, title, sentence, quiet: isQuiet(change, bars), periodLabel, baseLabel, bars, change };
 }
 
 /**
- * The complete months of the range (at most twelve) against the same months a year earlier, in causes: what Raportit
- * answers for the range of its period bar. null when the history has no year for it.
- */
-export function rangeChangeReport(ctx: AnalysisContext, range: DateRange): ChangeViewReport | null {
-  const { lastComplete } = changeMonths(ctx, range);
-  // the rows of a bank may stop inside the last month: the change planner then does not count it as complete, the month before is the last
-  for (const m of [lastComplete, addMonths(lastComplete, -1)]) {
-    const inRange = monthIndex(m) - monthIndex(monthOf(range.from)) + 1;
-    const view = inRange < 1 ? null : viewOf(ctx, "year", m, "Vuosi vuodelta", Math.min(12, inRange));
-    if (view) return view;
-  }
-  return null;
-}
-
-/**
- * Why spending changed, in the views the history supports: the month against its usual level, the last months against
+ * Why spending changed, in the views the history supports: the month against its expected figure, the last months against
  * the same months a year earlier, and the month against the same month a year ago.
  */
-export function spendingChangeReport(ctx: AnalysisContext, range: DateRange): SpendingChangeReport {
+export function spendingChangeReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): SpendingChangeReport {
   const { month, lastComplete } = changeMonths(ctx, range);
   const specs: [ChangeView, string, string][] = [
-    ["usual", month, "Tavallisesti"],
-    ["year", lastComplete, "Vuosi vuodelta"],
-    ["season", month, "Sama kuukausi vuotta aiemmin"],
+    ["expected", month, messageIn(lang, "rep.expected")],
+    ["year", lastComplete, messageIn(lang, "rep.change_year")],
+    ["season", month, messageIn(lang, "rep.change_season_title")],
   ];
-  const views = specs.flatMap(([view, m, title]) => viewOf(ctx, view, m, title) ?? []);
+  const views = specs.flatMap(([view, m, title]) => viewOf(ctx, view, m, title, lang) ?? []);
   return { views };
 }

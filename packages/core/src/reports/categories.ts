@@ -12,11 +12,12 @@ import { fromMonthIndex, monthIndex } from "../dates.ts";
 import { totalsOf } from "../analysis/flows.ts";
 import { type DateRange, previousRange, toDayRange } from "../analysis/period.ts";
 import { type CategoryPart, categoryParts } from "../analysis/row-parts.ts";
-import { median } from "../stats.ts";
-import { THEMES } from "../themes.ts";
+import { categoryLabel } from "../category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { themeName, THEMES } from "../themes.ts";
 import { carsOf, fullMonths, placeLabel, placeOf, rangeMonthIndexes, themeHeading } from "./shared.ts";
 
-export interface CategoryStat {
+interface CategoryStat {
   category: string;
   label: string;
   /** The heading of its theme (`placeOf`), the theme of Menot kuukausittain with the same sum. A category may have a row in two groups. */
@@ -39,13 +40,12 @@ export interface CategoryStat {
   count: number;
   avgTxCents: number;
   /**
-   * The four month figures are over the complete months of the range that the category's own accounts cover, as the
+   * The three month figures are over the complete months of the range that the category's own accounts cover, as the
    * average of Menot kuukausittain is, and null without one: a running month is not a monthly figure.
    */
   monthlyAvgCents: number | null;
-  /** The months the four figures are over ("N kuukauden keskiarvo"); 0 with none. */
+  /** The months the three figures are over ("N kuukauden keskiarvo"); 0 with none. */
   averageMonths: number;
-  medianMonthCents: number | null;
   minMonthCents: number | null;
   maxMonthCents: number | null;
   monthsActive: number;
@@ -108,7 +108,7 @@ export interface CategoryReport {
 }
 
 /** Spending (consumption + debt) per group and category with monthly statistics. */
-export function categoryReport(ctx: AnalysisContext, range: DateRange): CategoryReport {
+export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): CategoryReport {
   const months = rangeMonthIndexes(range, 120, ctx);
   const firstMonth = months[0]!;
   // the rows `spendRows` gives (context.ts), and the ones that count: the select `explain` lists
@@ -178,7 +178,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     .map((key) => {
       const [theme, category] = key.split("/") as [string, string];
       const e = perCategory.get(key) ?? none;
-      entryOf.set(`${themeHeading(theme)}/${category}`, e);
+      entryOf.set(`${themeHeading(theme, lang)}/${category}`, e);
       const c = getCategory(category);
       const [recent, before] = trendSums.get(key) ?? [0, 0];
       // a category spent on in the previous period only has no account of its own: 0 over the household's months
@@ -186,8 +186,8 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
       const parts = categoryParts(rowsOf.get(key) ?? [], ctx.rowParts, category);
       return {
         category,
-        label: placeLabel(theme, category, c.label),
-        group: themeHeading(theme),
+        label: placeLabel(theme, category, categoryLabel(c, lang), lang),
+        group: themeHeading(theme, lang),
         kind: c.kind,
         totalCents: e.total,
         share: base ? e.total / base : 0,
@@ -198,8 +198,6 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
         count: e.count,
         avgTxCents: e.count ? Math.round(e.total / e.count) : 0,
         monthlyAvgCents: averagedAt.length ? Math.round(averagedAt.reduce((sum, i) => sum + e.monthly[i]!, 0) / averagedAt.length) : null,
-        // whole cents: the middle two months may average to half a cent
-        medianMonthCents: averagedAt.length ? Math.round(median(averagedAt.map((i) => e.monthly[i]!))) : null,
         minMonthCents: averagedAt.length ? Math.min(...averagedAt.map((i) => e.monthly[i]!)) : null,
         maxMonthCents: averagedAt.length ? Math.max(...averagedAt.map((i) => e.monthly[i]!)) : null,
         averageMonths: averagedAt.length,
@@ -215,7 +213,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange): Category
     })
     .sort((a, b) => b.totalCents - a.totalCents || b.previousCents - a.previousCents || a.category.localeCompare(b.category));
 
-  const groups = THEMES.map((theme) => theme.heading).map((group) => {
+  const groups = THEMES.map((theme) => themeName(theme, lang)).map((group) => {
     const categories = stats.filter((s) => s.group === group);
     const groupTotal = categories.reduce((s, c) => s + c.totalCents, 0);
     const entries = categories.map((c) => entryOf.get(`${c.group}/${c.category}`) ?? none);

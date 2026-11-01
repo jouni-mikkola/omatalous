@@ -4,7 +4,7 @@ import { loadDemoData } from "../src/demo.ts";
 import type { Services } from "../src/services/context.ts";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { seedCsv } from "./csv-seed.ts";
-import { NOW, setupApp } from "./helpers.ts";
+import { setupApp } from "./helpers.ts";
 import { normalizeMerchant, seriesId } from "@banking/core";
 
 /** NOW is 10:00 UTC; the instance time zone is Helsinki (UTC+3 in October), and a mark carries the local time with its offset. */
@@ -69,7 +69,7 @@ describe("marks on subscriptions and alerts", () => {
       { subject: `series:out:acc-1:${"x".repeat(191)}`, mark: "in_use" },
       { subject: "series:out:acc-1:Net\u0000flix", mark: "in_use" },
       { subject: "Series:out:acc-1:Netflix", mark: "in_use" },
-      // "Ei laina" names the series of the proposal the same way
+      // "Ei ole laina" names the series of the proposal the same way
       { subject: "loan-proposal:", mark: "dismissed" },
       { subject: "loan-proposal:Nordea Bank Abp", mark: "dismissed" },
       { subject: "loan-proposal:out::Nordea Bank Abp#60000", mark: "dismissed" },
@@ -95,7 +95,7 @@ describe("marks on subscriptions and alerts", () => {
     for (const subject of ["series:out:acc-1:Netflix#799", "series:out:acc-1:Helen", "series:out:acc-1:Prisma#habit", `series:out:acc-1:${"x".repeat(190)}`]) {
       expect((await admin.call("PUT", "/api/marks", { subject, mark: "in_use" })).status, subject).toBe(200);
     }
-    // "Ei laina" on a proposed loan is a mark of its own beside the one Laskut keeps for the same series
+    // "Ei ole laina" on a proposed loan is a mark of its own beside the one Laskut keeps for the same series
     for (const subject of ["series:out:acc-1:Nordea Bank Abp#60000", "loan-proposal:out:acc-1:Nordea Bank Abp#60000"]) {
       expect((await admin.call("PUT", "/api/marks", { subject, mark: "dismissed" })).status, subject).toBe(200);
     }
@@ -107,7 +107,7 @@ describe("marks on subscriptions and alerts", () => {
     expect((await admin.call("GET", "/api/recurring")).body.marks).toHaveLength(6);
   });
 
-  it("a series of the longest stored name can be marked, and answered Ei laina", async () => {
+  it("a series of the longest stored name can be marked, and answered Ei ole laina", async () => {
     const { admin } = await setupApp();
     // a derived name is cut at 40 characters (core normalizeMerchant) and no other name is stored
     const name = normalizeMerchant("KIINTEISTOHUOLTOPALVELUOSUUSKUNTAPOHJANMAANRANNIKKO", null);
@@ -243,7 +243,7 @@ describe("marks reach the dashboard", () => {
   });
 
   type Housing = { loans: unknown[]; charges: { seriesId: string }[]; ask: boolean } | null;
-  const housingOf = async (client: Parameters<typeof alertsOf>[0]): Promise<Housing> => (await client.call("GET", "/api/dashboard")).body.housing;
+  const housingOf = async (client: Parameters<typeof alertsOf>[0]): Promise<Housing> => (await client.call("GET", "/api/reports?reports=housing")).body.housing;
 
   it("the question about a home loan is the member's own: a tenant is not asked, one with nothing of a home is until that member answers, and the other is still asked", async () => {
     const { admin, member } = await setupApp();
@@ -314,7 +314,7 @@ describe("a mark follows a merchant whose name is derived again", () => {
     expect((await repo.listMarks()).map((m) => `${m.subject}=${m.mark}`).sort()).toEqual(["series:out:acc-1:Spotify#1099=in_use", "series:out:acc-1:Wolt#1299=cancelled", "series:out:acc-1:Wolt#799=cancelled"]);
   });
 
-  it("moves an Ei laina answer and the series of a saved loan the same way, and only the user's own", async () => {
+  it("moves an Ei ole laina answer and the series of a saved loan the same way, and only the user's own", async () => {
     const { s, adminId, admin, member } = await setupApp();
     const repo = s.finance(adminId);
     await loadDemoData(repo, s.settings, s.today());

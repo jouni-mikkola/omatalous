@@ -9,7 +9,9 @@ import { bankIdForInstitution, bankLogo } from "../banks.ts";
 import type { BankOption, Connection } from "../types.ts";
 import { BankLogo } from "./BankLogo.tsx";
 import "../styles/bank-picker.css";
-
+import { Button } from "./ui/Button.tsx";
+import { Notice } from "./ui/Notice.tsx";
+import { SETTINGS_ANCHOR, settingsHash } from "../routes.ts";
 /** A list longer than this gets a search field. */
 const SEARCH_ABOVE = 8;
 
@@ -88,20 +90,20 @@ export function BankPicker({
         <h3 id="bank-picker-title" ref={heading} tabIndex={-1}>
           Valitse pankki
         </h3>
-        <button className="btn btn-small" type="button" onClick={onClose}>
+        <Button variant="link" onClick={onClose}>
           Sulje
-        </button>
+        </Button>
       </div>
       {banks.length === 0 ? (
-        <div className="notice warning">
+        <Notice tone="warning">
           {isAdmin ? (
             <>
-              Enable Banking -sovelluksesi pankkilistalla ei ole pankkeja, joita Omatalous tukee. Tarkista sovellus kohdassa <a href="#/settings?section=server">Asetukset &gt; Palvelin</a>.
+              Enable Banking -sovelluksesi pankkilistalla ei ole pankkeja, joita Omatalous tukee. Tarkista sovellus kohdassa <a href={settingsHash("banks", SETTINGS_ANCHOR.bankApp)}>Enable Banking -sovellus</a>.
             </>
           ) : (
-            "Enable Banking -sovelluksen pankkilistalla ei ole pankkeja, joita Omatalous tukee. Ylläpitäjän pitää tarkistaa sovellus kohdassa Asetukset > Palvelin."
+            "Enable Banking -sovelluksen pankkilistalla ei ole pankkeja, joita Omatalous tukee. Ylläpitäjän pitää tarkistaa sovellus."
           )}
-        </div>
+        </Notice>
       ) : (
         <>
           {searchable && <input type="search" className="bank-search" placeholder="Hae pankkia" aria-label="Hae pankkia" autoComplete="off" spellCheck={false} value={query} onChange={(e) => setQuery(e.target.value)} />}
@@ -124,7 +126,7 @@ export function BankPicker({
               Haulla ei löydy pankkia.
             </p>
           )}
-          {hasOtherBanks(banks) && <p className="small muted">Muiden pankkien kuin Nordean tapahtumat luokitellaan pankin omien koodien mukaan. Tarkista ensimmäisen kuukauden kategoriat.</p>}
+          {hasOtherBanks(banks) && <p className="small muted">Luokittelemme muiden pankkien kuin Nordean tapahtumat pankin omien koodien mukaan. Tarkista ensimmäisen kuukauden kategoriat.</p>}
           {children}
         </>
       )}

@@ -231,6 +231,53 @@ describe("rows the bank sends that cannot be read", () => {
   });
 });
 
+describe("every fetched row is accounted for", () => {
+  it("ends stored, or counted as skipped, replaced, pending or refused, with duplicates and broken rows in one answer", async () => {
+    const f = await connectedFeed();
+    const dup = ebRow("d", "2026-10-02", "12.00", "DBIT", "KAUPPA D");
+    f.feed.rows = [
+      ebRow("a", "2026-10-01", "10.00", "DBIT", "KAUPPA A"),
+      dup,
+      { ...dup },
+      ebRow("p", "2026-10-08", "8.50", "DBIT", "KAHVILA", "PDNG"),
+      ebRow("x", "2026-10-04", "1,2,3", "DBIT", "KAUPPA X"),
+      { ...ebRow("y", "2026-10-05", "5.00", "DBIT", "KAUPPA Y"), booking_date: "5.10." },
+      ebRow("h", "2026-10-03", "45.00", "DBIT", "HOTELLI", "HOLD"),
+    ];
+    expect((await syncUser(f.s, f.adminId, "manual")).status).toBe("ok");
+    const shown = async () => ((await f.admin.call("GET", "/api/meta")).body.accounts as { id: string; refused: Record<string, number> | null }[]).find((a) => a.id === f.chk.id)!.refused;
+    // The bank names "d" twice in one answer: the repeat is a second payment (the rule of the equal purchases above), so
+    // both are stored. Rows a, d, d and p are stored; x, y and h are refused and listed. Nothing vanishes unseen.
+    const stored = await f.stored();
+    const refused = (await shown()) ?? {};
+    const refusedCount = Object.values(refused).reduce((n, v) => n + v, 0);
+    expect(refusedCount).toBe(3);
+    expect(stored.length + refusedCount).toBe(f.feed.rows.length);
+    expect(refused).toEqual({ status: 1, amount: 1, date: 1 });
+  });
+
+  it("splits a fetch into inserted, updated, skipped, replaced and pending with no row left over", async () => {
+    const { fetchBank, importCsv } = await withAccount();
+    await importCsv([raw("2026-10-01", -12, "KAUPPA A")]);
+    const rows = [
+      raw("2026-10-01", -12, "KAUPPA A"), // the CSV holds it: the bank row takes its place
+      raw("2026-10-02", -5, "KAUPPA B", { externalId: "b" }),
+      raw("2026-10-02", -5, "KAUPPA B", { externalId: "b" }),
+      raw("2026-10-03", -9, "KAUPPA C", { externalId: "c1", status: "pending" }),
+      raw("2026-10-04", -9, "KAUPPA C", { externalId: "c2" }),
+      raw("2026-10-06", -3, "KAUPPA E", { externalId: "e", status: "pending" }),
+    ];
+    const r = await fetchBank(rows);
+    expect(r.fetched).toBe(rows.length);
+    expect(r.inserted + r.updated + r.skipped + r.replaced + r.pending).toBe(rows.length);
+    expect(r).toMatchObject({ updated: 1, replaced: 1, pending: 1 });
+
+    // the other way round, a CSV over rows the bank gave is skipped and counted, not dropped unseen
+    const csv = await importCsv([raw("2026-10-02", -5, "KAUPPA B"), raw("2026-10-09", -7, "KAUPPA F")]);
+    expect(csv).toMatchObject({ fetched: 2, inserted: 1, skipped: 1 });
+  });
+});
+
 describe("a fetch that fails or is cut short", () => {
   it("leaves the earlier rows, including pending ones, and the next fetch brings what was missed", async () => {
     const f = await connectedFeed();
@@ -246,7 +293,7 @@ describe("a fetch that fails or is cut short", () => {
     const failed = await syncUser(f.s, f.adminId, "manual");
     // the card account was fetched, the checking account was not
     expect(failed.status).toBe("partial");
-    expect(failed.messages.join(" ")).toContain("500");
+    expect(failed.messages.join(" ")).toContain("ei vastannut oikein");
     expect(await f.stored()).toEqual(before);
 
     f.feed.failAtPage = 0;

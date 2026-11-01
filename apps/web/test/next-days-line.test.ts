@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NextDays } from "../src/components/NextDays.tsx";
-import { billLine, endCents, isWeekend, zeroY } from "../src/components/next-days-line.ts";
+import { billLine, endCents, isWeekend, thirtyDayLine, zeroY } from "../src/components/next-days-line.ts";
 import type { Ahead } from "../src/components/next-days.ts";
 import { steady } from "./pay-fixture.ts";
 
@@ -27,7 +27,7 @@ function ahead(rows: Row[], over: Partial<Ahead> = {}): Ahead {
     rows,
     upcoming: rows.filter((r) => r.cents! < 0),
     everydayPerDayCents: 0,
-    totals: { recurringCents: 0, typedCents: 0, cardCents: 0, transferCents: 0, dueCents: due, incomeCents: 0 },
+    totals: { recurringCents: 0, typedCents: 0, cardCents: 0, transferCents: 0, dueCents: due, leavingCents: due, incomeCents: 0 },
     balance: { startCents: 200_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", freeCents: 200_000 - due, shortCents: 0, shortOn: null },
     missing: null,
     ...over,
@@ -37,6 +37,8 @@ const NONE: Partial<Ahead> = { reason: "none", payday: null, days: 30, to: "2026
 
 const html = (a: Ahead) => plain(renderToStaticMarkup(createElement(NextDays, { ahead: a })));
 const count = (out: string, what: string) => out.split(what).length - 1;
+/** The line of days alone: the tables under it have their own toolbars and tab stops. */
+const line = (out: string) => out.slice(out.indexOf('class="nd-line'), out.indexOf("nd-axis"));
 /** The days of the axis: one list item each. */
 const days = (out: string) => (out.slice(out.indexOf("nd-axis")).match(/<li[ >]/g) ?? []).length;
 /** The names the dots of the line read out, in the order of the markup. */
@@ -49,6 +51,18 @@ describe("the days of the line", () => {
     expect(line.axis[0]).toEqual({ iso: "2026-10-12", weekday: "ma", day: 12, payday: false, weekend: false });
     expect(line.axis[11]).toEqual({ iso: "2026-10-23", weekday: "pe", day: 23, payday: true, weekend: false });
     expect(line.axis.filter((d) => d.payday)).toHaveLength(1);
+  });
+
+  it("of Laskut end on the payday the sum ends before, and leave out what is paid after it", () => {
+    const before = row({});
+    const after = row({ date: "2026-10-27", name: "Myöhemmin" });
+    const line = thirtyDayLine(ahead([before, after]))!;
+    expect(line.axis.at(-1)).toMatchObject({ iso: "2026-10-23", payday: true });
+    expect(line.axis).toHaveLength(12);
+    expect(line.bills.map((b) => b.name)).toEqual([before.name]);
+    expect(thirtyDayLine(ahead([before], NONE))!.axis).toHaveLength(31);
+    const late = ahead([before], { reason: "late", to: "2026-10-20", days: 8, payday: { date: "2026-10-10", name: "Esimerkki Oy", pay: steady(300_000) } });
+    expect(thirtyDayLine(late)!.axis.at(-1)).toMatchObject({ iso: "2026-10-20", payday: false });
   });
 
   it("run over the 30 days of a window with no payday, none of them the payday", () => {
@@ -164,7 +178,7 @@ describe("a dot's name", () => {
     expect(billLine(ahead(rows))!.bills.map((b) => b.estimate)).toEqual([true, false, true, true, false, true]);
   });
 
-  it("uses the plain name of a card, as Varallisuus does", () => {
+  it("uses the plain name of a card, as Varat ja velat does", () => {
     expect(billLine(ahead([CARD]))!.bills[0]).toMatchObject({ name: "Esimerkkipankki Gold", estimate: false });
     expect(plain(billLine(ahead([CARD]))!.bills[0]!.label)).toBe("Esimerkkipankki Gold, 642,30 €, to 15.10.");
   });
@@ -211,9 +225,10 @@ describe("the line as the page shows it", () => {
 
   it("is one tab stop, the first dot: the arrows go on from there", () => {
     const out = html(ahead([row({}), TYPED]));
-    expect(count(out, 'tabindex="0"')).toBe(1);
-    expect(count(out, 'tabindex="-1"')).toBe(2);
-    expect(out.indexOf('tabindex="0"')).toBeLessThan(out.indexOf('tabindex="-1"'));
+    const dots = line(out);
+    expect(count(dots, 'tabindex="0"')).toBe(1);
+    expect(count(dots, 'tabindex="-1"')).toBe(2);
+    expect(dots.indexOf('tabindex="0"')).toBeLessThan(dots.indexOf('tabindex="-1"'));
   });
 
   it("is a group named by the heading of the block, with an axis of days that a reader without eyes skips, and no new sentence", () => {
@@ -251,7 +266,7 @@ describe("the line as the page shows it", () => {
 
   it("with a payday that is not known runs over the month, and the block still says so", () => {
     const out = html(ahead([row({})], NONE));
-    expect(out).toContain("Palkkapäivä ei ole tiedossa.");
+    expect(out).toContain("Emme tiedä palkkapäivääsi.");
     expect(days(out)).toBe(31);
   });
 });

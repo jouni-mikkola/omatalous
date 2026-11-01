@@ -9,12 +9,14 @@
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { bookedLeftSelect, bookedSpendSelect, earnedOf, earnedSelect, incomeCentsOf, incomeSelect, leftCentsOf, spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { toDayRange } from "../analysis/period.ts";
-import { completeMonthsBefore, earnedIncome, spendingThrough, usualCents, usualSpending } from "../analysis/usual.ts";
+import { expectedFor, expectedSpending } from "../analysis/expected.ts";
+import { completeMonthsBefore, earnedIncome, spendingThrough } from "../analysis/usual.ts";
 import { monthEnd, monthOf, monthRange } from "../dates.ts";
 import { cashflowReport } from "../reports/cashflow.ts";
 import { categoryReport } from "../reports/categories.ts";
-import { incomeReport, regularIncomeMonths, USUAL_INCOME_MONTHS, usualRegularCents } from "../reports/income.ts";
-import { incomeRule, medianRule, medianTie, tooFewMonths } from "./catalogue.ts";
+import { incomeReport, regularIncomeMonths, usualRegularCents } from "../reports/income.ts";
+import { THRESHOLDS } from "../thresholds.ts";
+import { expectedHow, expectedRule, incomeRule, medianTie, tooFewMonths } from "./catalogue.ts";
 import { explainBills } from "./bills.ts";
 import { explainShare } from "./figures.ts";
 import type { ExplainArgs, Explanation, FigureId, Line, Reason } from "./types.ts";
@@ -32,7 +34,7 @@ interface Sum {
 /** Reasons that say why a row adds nothing to spending. */
 const NOT_SPENDING = new Set(["transfer.pair", "transfer.channel", "card.bill"]);
 
-/** `booked`: a month's spending as the usual level reads it (`bookedSpendSelect`), which `usual.spend` lists month by month. */
+/** `booked`: a month's spending as the usual level reads it (`bookedSpendSelect`), which `expected.spend` lists month by month. */
 function sumOfFigure(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs, booked: boolean): Sum {
   const range = toDayRange(args.range);
   const keep = (t: AnalysisTx) => (!args.accountIds || args.accountIds.includes(t.accountId)) && (figure !== "spend.category" || t.category === args.category);
@@ -98,27 +100,28 @@ function sumExplanation(figure: FigureId, ctx: AnalysisContext, args: ExplainArg
 const recomputeDiff = (figure: number | null, again: number | null): number => (figure === again ? 0 : (figure ?? 0) - (again ?? 0) || 1);
 
 /**
- * `usual.spend`: the median of the complete months before the range's month, each month a sum of its own, listed. The
- * check recomputes the median from the listed values; under `MIN_COMPARE_MONTHS` months the figure is null and the
- * method says how many there were.
+ * `expected.spend`: the expected spending of the range's month, the sum of its categories' expected figures. The months it
+ * reads are listed, each a sum of its own, and the rule says how they make the figure. The check adds the categories
+ * up again; under `MIN_COMPARE_MONTHS` months the figure is null and the method says how many there were.
  */
-function usualSpendExplanation(ctx: AnalysisContext, args: ExplainArgs): Explanation {
-  if (args.accountIds) throw new Error("explain: usual.spend is not a figure of some accounts");
+function expectedSpendExplanation(ctx: AnalysisContext, args: ExplainArgs): Explanation {
+  if (args.accountIds) throw new Error("explain: expected.spend is not a figure of some accounts");
   const month = monthOf(args.range.from);
   const values = completeMonthsBefore(ctx, month).map((label) => {
     const explain = sumExplanation("spend.month", ctx, { ...args, range: { from: `${label}-01`, to: monthEnd(label) }, accountIds: undefined }, true);
     return { label, cents: explain.cents!, explain };
   });
-  const cents = usualSpending(ctx, month);
-  const again = usualCents(values.map((v) => v.cents));
-  const rule = again === null ? tooFewMonths(values.length) : medianRule();
-  return { figure: "usual.spend", kind: "median", cents, lines: [], method: { kind: "median", values, rule, tie: medianTie(values.length) }, check: { kind: "recompute", diffCents: recomputeDiff(cents, again) } };
+  const cents = expectedSpending(ctx, month);
+  const figure = expectedFor(ctx, month);
+  const again = figure && figure.itemised ? sumOf(figure.at().categories, (c) => c.cents) : cents;
+  const rule = cents === null ? tooFewMonths(values.length) : expectedRule();
+  return { figure: "expected.spend", kind: "median", cents, lines: [], method: { kind: "median", values, rule, tie: expectedHow() }, check: { kind: "recompute", diffCents: recomputeDiff(cents, again) } };
 }
 
 /**
  * `usual.income`: the page's "Säännölliset tulot kuussa", the income report's own median (`stability.medianCents`),
  * over the months that report reads, each listed with the payments of its pay period. The check recomputes the median
- * from the listed months and compares it with the report's number; under twelve complete months the report has none.
+ * from the listed months and compares it with the report's number; under three complete months the report has none.
  */
 function usualIncomeExplanation(ctx: AnalysisContext, args: ExplainArgs): Explanation {
   if (args.accountIds) throw new Error("explain: usual.income is not a figure of some accounts");
@@ -130,23 +133,19 @@ function usualIncomeExplanation(ctx: AnalysisContext, args: ExplainArgs): Explan
     return { label: m.month, cents: m.cents, explain };
   });
   const again = usualRegularCents(values.map((v) => v.cents));
-  const rule = again === null ? tooFewMonths(values.length, USUAL_INCOME_MONTHS) : incomeRule();
+  const rule = again === null ? tooFewMonths(values.length, THRESHOLDS.minCompareMonths.value) : incomeRule();
   return { figure: "usual.income", kind: "median", cents, lines: [], method: { kind: "median", values, rule, tie: medianTie(values.length) }, check: { kind: "recompute", diffCents: recomputeDiff(cents, again) } };
 }
 
 export function explain(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs): Explanation {
   if (args.why && args.why.view !== args.view) throw new Error("explain: the collector is of another view");
   switch (figure) {
-    case "usual.spend":
-      return usualSpendExplanation(ctx, args);
+    case "expected.spend":
+      return expectedSpendExplanation(ctx, args);
     case "usual.income":
       return usualIncomeExplanation(ctx, args);
     case "share.part":
       return explainShare(ctx, args);
-    case "bills.paid":
-    case "bills.coming":
-    case "bills.missing":
-    case "bills.due":
     case "bills.fixed":
     case "bills.subs":
       return explainBills(figure, ctx, args);

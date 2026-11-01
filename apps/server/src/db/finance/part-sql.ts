@@ -68,7 +68,7 @@ export function partSql(parts: ReadonlyMap<string, ViewPart>, column: string): S
       ? [{ sql: ` WHEN ? THEN ${plain(part)}`, params: [] as string[] }]
       : [{ sql: ` WHEN ? THEN (CASE WHEN EXISTS (SELECT 1 FROM tx_part WHERE tx_id = id) THEN ${traced(part)} ELSE ${plain(part)} END)`, params: [part.viewer] }];
   });
-  return { sql: `(CASE account_id${whens.map((w) => w.sql).join("")} ELSE ${column} END)`, params: cut.flatMap(([id, part], i) => [id, ...whens[i]!.params]) };
+  return { sql: `(CASE account_id${whens.map((w) => w.sql).join("")} ELSE ${column} END)`, params: cut.flatMap(([id], i) => [id, ...whens[i]!.params]) };
 }
 
 /** The condition that keeps the rows of the accounts left out of the view from being read; empty when there is none. */

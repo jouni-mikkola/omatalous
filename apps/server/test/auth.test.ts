@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SETUP_CODE, setupApp } from "./helpers.ts";
+import { NOW, SETUP_CODE, setupApp } from "./helpers.ts";
 
 describe("first-run setup", () => {
   it("creates the first admin only with the setup code, and only once", async () => {
@@ -15,7 +15,7 @@ describe("first-run setup", () => {
     const { createApp } = await import("../src/app.ts");
     const { loadConfig } = await import("../src/platform/config.ts");
     const { db } = await openDatabase(":memory:");
-    const app = createApp({ db, config: loadConfig({ SETUP_CODE: "oikea-asennuskoodi", PASSWORD_ITERATIONS: "1000" }) });
+    const app = createApp({ db, config: loadConfig({ SETUP_CODE: "oikea-asennuskoodi", PASSWORD_MEMORY_KIB: "8", PASSWORD_PASSES: "1" }) });
     const res = await app.request("http://localhost:8080/api/auth/setup", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Requested-With": "fetch" },
@@ -100,7 +100,7 @@ describe("sessions and login", () => {
     const r = await admin.call("GET", "/api/meta");
     // the whole policy, so a source added later (a CDN, blob:, 'unsafe-eval') fails here; 'wasm-unsafe-eval' is the loan reader's
     expect(r.res.headers.get("content-security-policy")).toBe(
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'none'; object-src 'none'",
     );
     expect(r.res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(r.res.headers.get("cache-control")).toBe("no-store");
@@ -116,9 +116,39 @@ describe("household members", () => {
     await eero.call("POST", "/api/auth/login", { username: "eero", password: created.body.temporaryPassword });
     const blocked = await eero.call("GET", "/api/meta");
     expect(blocked).toMatchObject({ status: 403, body: { code: "password_change_required" } });
-    expect((await eero.call("POST", "/api/auth/password", { current: created.body.temporaryPassword, next: "lyhyt" })).status).toBe(400);
-    expect((await eero.call("POST", "/api/auth/password", { current: created.body.temporaryPassword, next: "eeron-oma-salasana" })).status).toBe(200);
+    expect((await eero.call("POST", "/api/auth/first-password", { next: "lyhyt" })).status).toBe(400);
+    const common = await eero.call("POST", "/api/auth/first-password", { next: "Salasana123456" });
+    expect(common).toMatchObject({ status: 400, body: { error: expect.stringContaining("liian yleinen") } });
+    expect((await eero.call("POST", "/api/auth/first-password", { next: "eeron-oma-salasana" })).status).toBe(200);
     expect((await eero.call("GET", "/api/meta")).status).toBe(200);
+  });
+
+  it("takes the first password only from the session of the temporary sign-in within 10 minutes", async () => {
+    const { admin, client, db } = await setupApp();
+    const created = await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" });
+    const temporary = created.body.temporaryPassword;
+    // a member who is not on a temporary password has no first password to set
+    expect((await admin.call("POST", "/api/auth/first-password", { next: "ainon-uusi-salasana" })).status).toBe(400);
+    // the old route no longer takes the temporary password
+    const old = client();
+    await old.call("POST", "/api/auth/login", { username: "eero", password: temporary });
+    expect((await old.call("POST", "/api/auth/password", { current: temporary, next: "eeron-oma-salasana" })).status).toBe(400);
+    // 9 minutes in it is still taken (the refusal is of the password, not of the age); the limit is the 10
+    await db.run("UPDATE sessions SET created_at = ? WHERE user_id = ?", [new Date(NOW.getTime() - 9 * 60_000).toISOString(), created.body.user.id]);
+    expect(await old.call("POST", "/api/auth/first-password", { next: temporary })).toMatchObject({ status: 400, body: { error: expect.stringContaining("sama kuin vanha") } });
+    // a session older than 10 minutes is ended and refused
+    await db.run("UPDATE sessions SET created_at = ? WHERE user_id = ?", [new Date(NOW.getTime() - 11 * 60_000).toISOString(), created.body.user.id]);
+    const late = await old.call("POST", "/api/auth/first-password", { next: "eeron-oma-salasana" });
+    expect(late).toMatchObject({ status: 400, body: { error: expect.stringContaining("10 minuuttia") } });
+    expect((await old.call("GET", "/api/meta")).status).toBe(401);
+    // a new sign-in works, and the change is one security event
+    const fresh = client();
+    await fresh.call("POST", "/api/auth/login", { username: "eero", password: temporary });
+    expect((await fresh.call("POST", "/api/auth/first-password", { next: temporary })).status).toBe(400);
+    expect((await fresh.call("POST", "/api/auth/first-password", { next: "eeron-oma-salasana" })).status).toBe(200);
+    const events = (await admin.call("GET", "/api/security/events")).body.events as { kind: string; detail: string }[];
+    expect(events.filter((e) => e.kind === "password_changed" && e.detail === "ensimmäinen salasana")).toHaveLength(1);
+    expect((await fresh.call("POST", "/api/auth/first-password", { next: "eeron-toinen-salasana" })).status).toBe(400);
   });
 
   it("only admins manage users; the last admin cannot be removed", async () => {

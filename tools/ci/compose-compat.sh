@@ -26,8 +26,27 @@ mkdir -p "$OPS/run"
 POLICY_MSG=""
 # shellcheck source=/dev/null
 . "$work/policy.sh"
+# A helper that does not know the pin form of a helper image refuses it: the tunnel pin before 0.8.7, the Caddy pin in
+# every release before the one that taught the helper. Those installs update once by hand (docs/TROUBLESHOOTING.md,
+# Updates). The check expects exactly those refusals from such a baseline when this commit pins the image, and fails when
+# the answer is anything else: a pass means the helper changed under us, another refusal means this commit broke more.
+expected=""
+add_expected() { # add_expected SERVICE IMAGE-PREFIX PIN-RULE-IN-THE-POLICY
+  local image
+  image=$(git show HEAD:docker-compose.yml | sed -n "s|^ *image: *\($2:.*\)\$|\1|p" | head -1)
+  if [[ $image == *@sha256:* ]] && ! grep -qF "$3" "$work/policy.sh"; then expected+="${expected:+;}$1: image $image"; fi
+}
+add_expected caddy caddy '^caddy:2[.]'
+add_expected tunnel cloudflare/cloudflared 'cloudflare/cloudflared:[0-9]'
 if compose_policy_ok HEAD; then
+  if [[ -n $expected ]]; then
+    echo "The maintenance helper of $base accepts the pinned helper images, but it was expected to refuse them ($expected)." >&2
+    echo "The known refusal changed: update the expectation here and the update note in docs/TROUBLESHOOTING.md." >&2
+    exit 1
+  fi
   echo "The compose file passes the compose policy of $base's maintenance helper."
+elif [[ -n $expected && $POLICY_MSG == "$expected" ]]; then
+  echo "The maintenance helper of $base refuses the pinned helper images, as expected: installs on $base update once by hand."
 else
   echo "The maintenance helper of $base refuses this docker-compose.yml: $POLICY_MSG" >&2
   echo "Installs on $base could not update from the browser. Keep the change for a later release." >&2

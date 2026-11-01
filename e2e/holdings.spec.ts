@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { cents, overflow, plain, watch } from "./helpers.ts";
 
-// Varallisuus: the names of accounts, cards and loans are links, the sums of a group stand on one right edge, Tilit and
+// Varat ja velat: the names of accounts, cards and loans are links, the sums of a group stand on one right edge, Tilit and
 // Lainat stand side by side from 900 px with the cards in a row under them (a household with no loan has Tilit and its
 // cards side by side), a card's face stays flat and its arc shows what is used. The demo household of the
 // administrator (e2e/run.mjs) has a checking and a savings account and a card with no limit and no last digits; the
@@ -12,7 +12,7 @@ const FETCH = { "X-Requested-With": "fetch" };
 
 test.describe.configure({ mode: "serial" });
 
-const holdingsOf = (page: Page) => page.getByRole("region", { name: "Varallisuus", exact: true });
+const holdingsOf = (page: Page) => page.getByRole("region", { name: "Varat ja velat", exact: true });
 const groupOf = (page: Page, heading: string) => holdingsOf(page).locator("section", { has: page.getByRole("heading", { name: heading, exact: true }) });
 const colour = (el: Locator) => el.evaluate((node) => getComputedStyle(node).color);
 /** Where the right edges of the elements are, to a tenth of a pixel. */
@@ -29,7 +29,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
@@ -56,7 +56,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   expect(new URL(page.url()).hash).toBe(`#/transactions?accountId=${encodeURIComponent(first.id)}`);
 
   // a card: the same, with the card's name as the account is called
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   await holdingsOf(page).getByRole("link", { name: "Nordea Gold (esimerkki)" }).click();
   await expect(page).toHaveURL(/#\/transactions\?accountId=/);
   await expect(tili).toBeVisible();
@@ -65,7 +65,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   expect(second.id).not.toBe(first.id);
 
   // the card's face is a link for a pointer to the same rows
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   await holdingsOf(page).locator(".card-face-link").click();
   await expect(page).toHaveURL(/#\/transactions\?accountId=/);
   expect((await chosen()).id).toBe(second.id);
@@ -77,7 +77,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
 test("the focus of a link shows whole, inside the name that is cut", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   const link = holdingsOf(page).getByRole("link", { name: "Käyttötili (esimerkki)" });
   await expect(link).toBeVisible();
   // by the keyboard, so that the browser shows the ring
@@ -101,7 +101,7 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
@@ -162,15 +162,16 @@ test("every card has its face at the left of its unit, drawn by the app and hidd
   const cards = ["Esimerkkipankki Gold", "Esimerkkipankki Platinum", "Esimerkkipankki Black", "Esimerkkipankki Silver", "Esimerkkipankki Luotto"].map((name, i) => ({
     id: `face-${i}`, name, bank: "Esimerkkipankki", ownerName: null, mask: `•••• ${1000 + i}`, limitCents: 300_000, usedCents: 120_000 * i, freeCents: Math.max(0, 300_000 - 120_000 * i), overCents: Math.max(0, 120_000 * i - 300_000), balanceAt: null,
   }));
-  await page.route(/\/api\/dashboard(\?|$)/, async (route) => {
+  await page.route(/\/api\/reports(\?|$)/, async (route) => {
     const response = await route.fetch().catch(() => null);
     const json = await response?.json().catch(() => null);
     if (!response || !json) return;
-    json.holdings.cards = cards;
-    json.holdings.cardsCents = cards.reduce((sum, c) => sum + c.usedCents, 0);
+    if (!json.balances) return route.fulfill({ response, json });
+    json.balances.holdings.cards = cards;
+    json.balances.holdings.cardsCents = cards.reduce((sum, c) => sum + c.usedCents, 0);
     await route.fulfill({ response, json });
   });
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   const group = groupOf(page, "Luottokortit");
   const units = group.locator(".holding-unit");
   await expect(units).toHaveCount(5);
@@ -249,7 +250,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/overview");
+  await page.goto("/#/reports?tab=varat");
   const holdings = holdingsOf(page);
   const lainat = groupOf(page, "Lainat");
   await expect(lainat).toBeVisible();
@@ -257,7 +258,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   // the loan's own sums, the sum of the loans, and the debts of the block under all three groups on one right edge
   const foot = holdings.locator(".holding-foot");
   await expect(lainat.locator(".st-total .st-name")).toHaveText("Lainat yhteensä");
-  await expect(foot.locator(".st-name")).toHaveText(["Velat yhteensä", "Lisäksi"]);
+  await expect(foot.locator(".st-name")).toHaveText(["Velat yhteensä", "Lainoja, joiden saldo puuttuu"]);
   const edges = [...(await rights(lainat.locator(".st-num"))), ...(await rights(foot.locator(".st-num")))];
   expect(edges.length).toBeGreaterThanOrEqual(4);
   expect(new Set(edges).size, `the sums of Lainat and the foot end at ${edges.join(", ")}`).toBe(1);
@@ -310,7 +311,7 @@ test("a card's face stays where it is under the pointer, and the keyboard's ring
     const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, reducedMotion: reduced ? "reduce" : "no-preference" });
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/overview");
+    await page.goto("/#/reports?tab=varat");
     const holdings = holdingsOf(page);
     const link = holdings.locator(".card-face-link").first();
     const face = link.locator(".card-face");

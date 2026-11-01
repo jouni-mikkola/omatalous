@@ -3,7 +3,8 @@ import type { DateRange } from "../analysis/period.ts";
 import { themeWindow } from "../analysis/themes-report.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
-import { BY_CATEGORY, fuelPurchases, themeOf, THEMES } from "../themes.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { BY_CATEGORY, fuelPurchases, themeName, themeOf, THEMES } from "../themes.ts";
 
 /**
  * Month indexes covered by a range, capped to the latest `max` months. With a context, the months before the history
@@ -46,7 +47,7 @@ type Cars = Parameters<typeof themeOf>[2];
 
 /** The categories Auto holds whole when the household has a car; it takes rows of no other category on a page. */
 const CAR_CATEGORIES: ReadonlySet<string> = new Set(["car", "leasing", "vehicle_purchase"]);
-const HEADINGS: ReadonlyMap<string, string> = new Map(THEMES.map((theme) => [theme.id, theme.heading]));
+const NAMED: ReadonlyMap<string, (typeof THEMES)[number]> = new Map(THEMES.map((theme) => [theme.id, theme]));
 
 /** The cars that place a range's rows: the theme window's, else the fuel of the range's spending `rows`, as the themes report does. */
 export function carsOf(ctx: AnalysisContext, rows: readonly AnalysisTx[]): Cars {
@@ -72,10 +73,13 @@ export function placeOf(ctx: AnalysisContext, t: AnalysisTx, cars: Cars): Place 
 }
 
 /** The name of a category row: a category outside its own group (the car's insurance in Auto) names the group it is in. */
-export function placeLabel(theme: string, category: string, label: string): string {
+export function placeLabel(theme: string, category: string, label: string, lang: Language = DEFAULT_LANGUAGE): string {
   const home = BY_CATEGORY.get(category)?.theme ?? "other";
-  return theme === home || CAR_CATEGORIES.has(category) ? label : `${label} (${themeHeading(theme)})`;
+  return theme === home || CAR_CATEGORIES.has(category) ? label : `${label} (${themeHeading(theme, lang)})`;
 }
 
 /** A theme's heading: the group a page shows. */
-export const themeHeading = (theme: string): string => HEADINGS.get(theme) ?? theme;
+export const themeHeading = (theme: string, lang: Language = DEFAULT_LANGUAGE): string => {
+  const found = NAMED.get(theme);
+  return found ? themeName(found, lang) : theme;
+};

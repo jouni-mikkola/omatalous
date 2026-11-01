@@ -1,4 +1,6 @@
+import { WEB_EXTENSIONS } from "./extensions.ts";
 import { pageOfPeriod } from "./period.ts";
+import { t } from "./text.ts";
 
 export interface Route {
   /** The page id in the address (`#/<id>`). */
@@ -19,25 +21,108 @@ export const SETTINGS_ANCHOR = {
   quality: "laatu",
   accounts: "tilit",
   loans: "lainat",
+  goal: "menotavoite",
+  bankApp: "pankkisovellus",
+  statement: "tiliote",
   server: "palvelin",
   maintenance: "yllapito",
 } as const;
 
-/** The `?section=` values that open the technical page of Asetukset. `server` and `maintenance` also name the card to scroll to. */
-const TECHNICAL_SECTIONS: ReadonlySet<string> = new Set(["technical", "server", "maintenance"]);
+/**
+ * The six targets of Asetukset, in the order the reader sees them. Each is a route of its own (`#/settings/<id>`); an
+ * `admin` target is not offered to a member and its address opens the first target instead.
+ */
+export const SETTINGS_TARGETS = [
+  { id: "banks", get label() { return t("set.tab.banks"); } },
+  { id: "household", get label() { return t("set.tab.household"); } },
+  { id: "members", get label() { return t("set.tab.members"); }, admin: true },
+  { id: "security", get label() { return t("set.tab.security"); } },
+  { id: "data", get label() { return t("set.tab.data"); } },
+  { id: "server", get label() { return t("set.tab.server"); }, admin: true },
+] as const satisfies readonly { id: string; label: string; admin?: true }[];
 
-/** The cards of the technical page that an address named before the page existed, when they sat on the page of everyone. */
-const MOVED_CARDS: ReadonlySet<string> = new Set([SETTINGS_ANCHOR.login, SETTINGS_ANCHOR.securityLog, SETTINGS_ANCHOR.quality]);
+export type SettingsTarget = (typeof SETTINGS_TARGETS)[number]["id"];
 
-/** Whether an address of Asetukset opens the technical page and not the plain one. */
-export function onTechnicalPage(params: URLSearchParams): boolean {
-  return TECHNICAL_SECTIONS.has(params.get("section") ?? "");
+/** The target a member lands on, and an address of Asetukset with nothing to say where. */
+const FIRST_TARGET: SettingsTarget = "banks";
+
+/** The targets a user of this role is offered. */
+export function settingsTargets(role: "admin" | "member"): readonly (typeof SETTINGS_TARGETS)[number][] {
+  return SETTINGS_TARGETS.filter((t) => role === "admin" || !("admin" in t));
 }
 
-/** The card an address of Asetukset scrolls to: the one its anchor names, else the one its `section` is about. */
-export function settingsCard(route: Route): string | undefined {
-  const section = route.params.get("section");
-  return route.anchor ?? (section === "server" ? SETTINGS_ANCHOR.server : section === "maintenance" ? SETTINGS_ANCHOR.maintenance : undefined);
+/** The target a card is on, by its anchor. The cards of the build's extensions are on Talous. */
+const CARD_TARGET: Record<string, SettingsTarget> = {
+  pankkiyhteydet: "banks",
+  [SETTINGS_ANCHOR.bankApp]: "banks",
+  [SETTINGS_ANCHOR.statement]: "banks",
+  [SETTINGS_ANCHOR.accounts]: "banks",
+  "tilien-kayttajat": "banks",
+  [SETTINGS_ANCHOR.loans]: "household",
+  [SETTINGS_ANCHOR.goal]: "household",
+  "jasenet-ilman-tunnusta": "members",
+  "tilien-jakaminen": "banks",
+  [SETTINGS_ANCHOR.password]: "security",
+  [SETTINGS_ANCHOR.login]: "security",
+  [SETTINGS_ANCHOR.securityLog]: "security",
+  palvelutunnukset: "security",
+  [SETTINGS_ANCHOR.quality]: "data",
+  [SETTINGS_ANCHOR.server]: "server",
+  etakaytto: "server",
+  [SETTINGS_ANCHOR.maintenance]: "server",
+};
+
+/** The addresses of the targets only an admin is offered. */
+const ADMIN_ONLY_PAGES: readonly string[] = SETTINGS_TARGETS.filter((t) => "admin" in t).map((t) => `settings/${t.id}`);
+
+/** The anchor of an account's own row (part.ts `partAnchor`) opens Pankit ja tilit. */
+const ACCOUNT_ROW_PREFIX = "tili-";
+
+/** What the removed `?section=` values of Asetukset meant: the card to open, and for `technical` the target of the old page. */
+const SECTION_CARD: Record<string, string> = { server: SETTINGS_ANCHOR.server, maintenance: SETTINGS_ANCHOR.maintenance };
+
+/** The address of a target, and of a card on it (`#/settings/security#salasana`). */
+export function settingsHash(target: SettingsTarget, anchor?: string, params: URLSearchParams = new URLSearchParams()): string {
+  return hashOf({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) });
+}
+
+/** Where a price rise is worked out: Kiinteät menot, Hinnanmuutokset. Every other page names the rise in one line and links here. */
+export const PRICE_RISES_HASH = hashOf({ page: "reports", params: new URLSearchParams({ q: "kiinteat" }), anchor: "kiinteat-hinnat" });
+
+/** Where a bank is connected: Pankkiyhteydet opens its bank list. */
+export const CONNECT_BANK_HASH = hashOf({ page: `settings/${FIRST_TARGET}`, params: new URLSearchParams({ add: "1" }) });
+
+/** The address of a card of Asetukset by its anchor: the card's target is looked up, so a link names only the card. */
+export function settingsCardHash(anchor: string, params?: URLSearchParams): string {
+  return settingsHash(targetOfCard(anchor) ?? FIRST_TARGET, anchor, params);
+}
+
+function targetOfCard(anchor: string | undefined): SettingsTarget | undefined {
+  if (!anchor) return undefined;
+  if (WEB_EXTENSIONS.some((e) => e.settingsAnchor === anchor)) return "household";
+  return CARD_TARGET[anchor] ?? (anchor.startsWith(ACCOUNT_ROW_PREFIX) ? "banks" : undefined);
+}
+
+/** The route as the role may open it: an admin's target is the first target for a member, and its cards are not there to name. */
+function opened(route: Route, role: "admin" | "member"): Route {
+  if (role === "admin" || !ADMIN_ONLY_PAGES.includes(route.page)) return route;
+  return { page: `settings/${FIRST_TARGET}`, params: route.params };
+}
+
+/**
+ * Where the address of Asetukset from before its targets lives now. The card named by the anchor, or by the removed
+ * `?section=server|maintenance|security`, decides the target; the old technical page opens the server for an admin and
+ * the first target for a member. `?add=1`, `connected` and `error` (the return from a bank) are Pankit ja tilit.
+ */
+function settingsMoved(route: Route, role: "admin" | "member"): Route {
+  const params = new URLSearchParams(route.params);
+  const section = params.get("section");
+  const security = section === "security";
+  const anchor = security ? (role === "admin" ? SETTINGS_ANCHOR.securityLog : SETTINGS_ANCHOR.login) : (route.anchor ?? (section ? SECTION_CARD[section] : undefined));
+  params.delete("section");
+  params.delete("tab");
+  const target = targetOfCard(anchor) ?? (section === "technical" && role === "admin" ? "server" : FIRST_TARGET);
+  return opened({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) }, role);
 }
 
 /** The card of Raportit that tells the loans, as the anchor of its section. */
@@ -68,29 +153,26 @@ export function parseHash(hash: string): Route {
   return { page: path || "overview", params: new URLSearchParams(search), ...(anchor ? { anchor } : {}) };
 }
 
+/** The three tabs Raportit had (`?tab=`) and the question page that now holds most of what each showed. */
+const LEGACY_REPORT_TABS: Readonly<Record<string, string>> = { virta: "tulot", menot: "menot", varat: "saldot" };
+
 /**
  * Where an old address lives now, or null when it is current. The router rewrites the address with `replaceState`,
  * so a bookmark keeps working and Back does not return to the old address. A period belongs to one page: a Raportit
- * period on the month page, or a month on Raportit, opens the page that offers it. The merchants and the rules were
+ * period on the month page, or a month on Raportit, opens the page that offers it. The tabs of Raportit (`?tab=menot`) became question pages (`?q=menot`). The merchants and the rules were
  * a page of their own (`#/categories`, `?tab=rules`, `#/rules`) and are now the Kauppiaat tab of Tapahtumat, the rules
- * under its table. Toistuvat (`#/recurring`) became Laskut (`#/bills`). Asetukset is a plain page and a technical one
- * (`?section=technical`). Its old Talous tab (`?tab=talous`) is gone: the page of everyone has the household's members,
- * and the log of the Talous tab is on the technical page. The old security page (`?section=security`) split by role: a
- * member's sessions and an admin's log are both cards of the technical page. A card that moved there keeps its anchor
- * (`#laatu`, `#kirjautuminen`, `#turvallisuusloki`). `?section=server`, `?section=maintenance` and `?add=1` are read by
- * the page itself and need no redirect.
+ * under its table. Toistuvat (`#/recurring`) became Laskut (`#/bills`). Lisää (`#/more`) opens Yhteenveto. Asetukset has six targets, each a route of its own
+ * (`#/settings/security`): the bare `#/settings`, `?section=` (technical, server, maintenance, security), `?tab=talous`
+ * and an anchor from before the targets open the target that has the card (`settingsMoved`), and a member's address of
+ * the server target opens the first target.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
-  if (route.page === "settings") {
-    const params = new URLSearchParams(route.params);
-    const security = params.get("section") === "security";
-    const anchor = security ? (role === "admin" ? SETTINGS_ANCHOR.securityLog : SETTINGS_ANCHOR.login) : route.anchor;
-    const moved = security || (anchor !== undefined && MOVED_CARDS.has(anchor) && !onTechnicalPage(params));
-    const talous = params.get("tab") === "talous";
-    if (moved) params.set("section", "technical");
-    if (talous) params.delete("tab");
-    if (moved || talous) return { page: "settings", params, ...(anchor ? { anchor } : {}) };
-  }
+  if (route.page === "settings") return settingsMoved(route, role);
+  // an address under settings/ that names no target (typed by hand) opens the first one
+  if (route.page.startsWith("settings/") && !SETTINGS_TARGETS.some((t) => route.page === `settings/${t.id}`)) return { page: `settings/${FIRST_TARGET}`, params: route.params };
+  if (ADMIN_ONLY_PAGES.includes(route.page) && role !== "admin") return opened(route, role);
+  // the Lisää screen (phone) is gone: its two links are a tab and the user menu
+  if (route.page === "more") return { page: "overview", params: route.params };
   if (route.page === "recurring") return { page: "bills", params: route.params, ...(route.anchor ? { anchor: route.anchor } : {}) };
   if (route.page === "categories" || route.page === "rules") {
     const params = new URLSearchParams(route.params);
@@ -99,6 +181,13 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
     const rules = route.page === "rules" || route.params.get("tab") === "rules";
     const anchor = rules ? RULES_ANCHOR : route.anchor;
     return { page: "transactions", params, ...(anchor ? { anchor } : {}) };
+  }
+  if (route.page === "reports" && route.params.has("tab")) {
+    const params = new URLSearchParams(route.params);
+    const q = LEGACY_REPORT_TABS[params.get("tab") ?? ""];
+    params.delete("tab");
+    if (q && !params.has("q")) params.set("q", q);
+    return { page: "reports", params, ...(route.anchor ? { anchor: route.anchor } : {}) };
   }
   const period = route.params.get("period");
   if (period && (route.page === "overview" || route.page === "reports")) {

@@ -125,7 +125,7 @@ describe("the card bills that count as spending, by issuer", () => {
     expect(signal.cents).toBe(183000);
     const cents = questions.cardBills.reduce((sum, m) => sum + m.cents, 0);
     expect(cents).toBe(signal.cents);
-    expect(signal.title).toBe(`Korttilaskuja ${formatEur(cents, false)}, mutta kortin ostot puuttuvat`);
+    expect(signal.title).toBe(`Kortin ostot puuttuvat: korttilaskuja ${formatEur(cents, false)}`);
     // the twelve complete months up to September hold every bill of the range
     expect(questions.cardBills).toEqual(missingCardPurchases(ctx, { from: "2025-10-01", to: "2026-09-30" }));
     expect(signal.cardPurchases).toEqual(missingCardPurchases(ctx, range));

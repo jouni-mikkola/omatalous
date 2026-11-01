@@ -1,12 +1,13 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { accountDigits, ACCOUNT_TYPES, type AccountType, billMonth, billMonthOf, calendarDays, buildDashboard, cancelledSubjects, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, CATEGORIES, fromDayNumber, isKnownCategory, KIND_LABEL, moneyBins, partCents, patternProblem, type RuleField, openingMonth, upcomingGroups } from "@banking/core";
+import { accountDigits, ACCOUNT_TYPES, type AccountType, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, fromDayNumber, isKnownCategory, moneyBins, partCents, patternProblem, type RuleField, openingMonth, upcomingElsewhereCents, upcomingGroups } from "@banking/core";
 import { Hono } from "hono";
 import { parseScope, proposalsFor, requestInputs, rowsInView, sharedInView, usesWithTraces } from "../services/analysis.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseDateRange, parseLoanRef, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
+import { categoriesIn, kindLabelsIn } from "../services/category-names.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
-import { accountSources } from "../services/account-sources.ts";
+import { dashboardOf } from "../services/dashboard-memo.ts";
 import { explainFigure, isExplained, MAX_ACCOUNTS } from "../services/explain.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
 import { reconcileOf } from "../services/reconcile.ts";
@@ -16,7 +17,7 @@ import type { AppEnv, Services } from "../services/context.ts";
 import { extensionRowFields } from "../extensions.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
 import { runningSettlement } from "../services/settlement.ts";
-import { addRule, deleteRule, publicTx, setTransactionCategory } from "../services/rules.ts";
+import { addRule, deleteRule, parseCategoryUndo, publicTx, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
 import { body, optionalString, parseRange, parseReportIds, queryInt } from "./shared.ts";
 
 const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "counterparty", "any"];
@@ -95,16 +96,19 @@ export function financeRoutes(s: Services) {
       today,
       opening,
       user,
-      categories: CATEGORIES,
-      kinds: KIND_LABEL,
+      categories: categoriesIn(user.language),
+      kinds: kindLabelsIn(user.language),
       accounts: await Promise.all((await accountsView(s, user.id, accounts)).map(async (account) => ({ ...account, digits: accountDigits(account), ...(paying.has(account.id) ? { loanPayment: true as const } : {}), ...uses.get(account.id), ...(await split(account, true)), reconcile: reconciled.get(account.id) ?? null }))),
       // without the bank of the owner's connection: the member sees the account by its name, and a card has no IBAN that tells more
       sharedAccounts: await Promise.all(sharedAccounts.map(async ({ bank: _bank, ...account }) => ({ ...account, digits: accountDigits(account), ...uses.get(account.id), ...(await split(account, false)), reconcile: reconciled.get(account.id) ?? null }))),
       members: members.map((m) => ({ id: m.id, displayName: m.displayName })),
       shares: await s.household.sharesOf(user.id),
+      householdHasAccounts: await s.household.othersHaveAccounts(user.id),
       connections: views,
       renewal: await renewalOf(s, user.id, views, new Set(banks.map((b) => b.id))),
       lastSync: runs[0] ?? null,
+      // the version of the data the viewer sees (the analysis cache's key): the web app drops its cached answers when it moves
+      dataVersion: await s.settings.dataVersionOf([user.id, ...sharedAccounts.map((a) => a.userId)]),
       bank: {
         // the household's app counts once Enable Banking says it is active; a member's own key is not checked
         configured: !!creds || (!!shared && !inactive),
@@ -141,7 +145,7 @@ export function financeRoutes(s: Services) {
     const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
     const userId = c.get("user").id;
-    const dashboard = buildDashboard(ctx, parseRange(c, s.today()), balances, inputs, await proposalsFor(s, userId));
+    const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, await proposalsFor(s, userId), c.get("user").language);
     // the same answer as Asetukset > Tilit, in three words; an account that is not reconciled (a loan) has none to give
     const shown = new Set([...dashboard.holdings.accounts, ...dashboard.holdings.cards].map((h) => h.id));
     const reconciled = await reconcileOf(s, userId, accounts.filter((a) => shown.has(a.id)));
@@ -158,13 +162,14 @@ export function financeRoutes(s: Services) {
     const { balances, inputs } = await requestInputs(s, userId, accounts);
     const ahead = cashAhead(ctx, balances, inputs);
     // Laskut's groups of the bills ahead come with their sums: the page adds up nothing
-    return c.json({ ahead: { ...ahead, groups: upcomingGroups(ahead) } });
+    const groups = upcomingGroups(ahead);
+    return c.json({ ahead: { ...ahead, groups, elsewhereCents: upcomingElsewhereCents(ahead.upcoming) } });
   });
 
   app.get("/reports", async (c) => {
     const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
-    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs }, parseReportIds(c.req.query("reports"))));
+    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs, lang: c.get("user").language }, parseReportIds(c.req.query("reports"))));
   });
 
   // "Miksi?": the rows of one figure and why each counts so; the figure's own access, no names in the answer
@@ -182,18 +187,6 @@ export function financeRoutes(s: Services) {
     const { ctx } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
     // the household view shows the viewer's own marks, as the dashboard does
     return c.json({ series: ctx.recurring.map(({ transactionIds: _ids, ...rest }) => rest), marks: await repoOf(userId).listMarks() });
-  });
-
-  /**
-   * The month board of Laskut: each bill of the month paid, missing or coming, with the totals of each and the fixed
-   * costs of a month (core `billMonth`). The month is clamped to the twelve before this one and the next. The viewer's
-   * own marks say what is cancelled, and an instalment plan whose answered last month has passed is over, as on the dashboard.
-   */
-  app.get("/bill-month", async (c) => {
-    const userId = c.get("user").id;
-    const { ctx, accounts } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
-    const { inputs } = await requestInputs(s, userId, accounts);
-    return c.json({ board: billMonth(ctx, billMonthOf(ctx.today, c.req.query("month")), cancelledSubjects(inputs, ctx.today)) });
   });
 
   // ── transactions ─────────────────────────────────────
@@ -239,9 +232,8 @@ export function financeRoutes(s: Services) {
       outCents,
       netCents: inCents - outCents,
       span,
-      // the totals strip's histogram, the calendar of the last 53 weeks of the span, and each listed day's whole sums
+      // the totals strip's histogram and each listed day's whole sums
       histogram: span ? moneyBins(days, histogramFrom(span), span.to) : null,
-      calendar: span ? calendarDays(days, span.from, span.to, s.today(), q.kind === "income") : null,
       daySums: days.filter((d) => onPage.has(d.date)),
       items: items.map((t) => {
         const part = own.parts.get(t.accountId);
@@ -264,6 +256,12 @@ export function financeRoutes(s: Services) {
     const category = input.category;
     if (category !== null && (typeof category !== "string" || !isKnownCategory(category))) throw new UserError("Tuntematon kategoria.");
     return c.json(await setTransactionCategory(s, c.get("user").id, c.req.param("id"), category, parseOptionalBoolean(input.createRule)));
+  });
+
+  app.post("/transactions/:id/undo-category", async (c) => {
+    const input = strictObject(await body(c), ["category", "rule"] as const);
+    const undo = parseCategoryUndo(input);
+    return c.json(await undoTransactionCategory(s, c.get("user").id, c.req.param("id"), undo));
   });
 
   // ── rules ────────────────────────────────────────────
@@ -349,9 +347,6 @@ export function financeRoutes(s: Services) {
     await takeBackAnswer(s, await ownKey(s, user.id, c.req.param("id")), kind, key);
     return c.json({ ok: true });
   });
-
-  // what each member paid in, bore and moved, month by month, for a member who sees the account
-  app.get("/accounts/:id/sources", async (c) => c.json(await accountSources(s, c.get("user").id, c.req.param("id"))));
 
   // the members the use names who cannot see the account: asked by who linked it
   app.get("/accounts/:id/use/suggestion", async (c) => c.json(await suggestAccountUse(s, c.get("user").id, c.req.param("id"))));

@@ -49,7 +49,7 @@ async function signedOut(browser: Browser, width = 1280): Promise<{ context: Bro
 async function password(page: Page, username: string): Promise<void> {
   await page.getByLabel("Käyttäjätunnus").fill(username);
   await page.getByLabel("Salasana").fill(`${username}-123456`);
-  await page.getByRole("button", { name: "Kirjaudu", exact: true }).click();
+  await page.getByRole("button", { name: "Kirjaudu sisään", exact: true }).click();
 }
 
 test("a member turns the second factor on, signs in with a code and once with a recovery code, the administrator takes it away", async ({ browser }) => {
@@ -59,7 +59,7 @@ test("a member turns the second factor on, signs in with a code and once with a 
     const own = await browser.newContext({ storageState: state });
     const page = await own.newPage();
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.goto("/#/settings");
+    await page.goto("/#/settings/security");
     const card = page.locator(".card", { has: page.getByRole("heading", { name: "Kaksivaiheinen kirjautuminen", exact: true }) });
     await expect(card.getByText("Ei käytössä.", { exact: true })).toBeVisible();
 
@@ -80,7 +80,7 @@ test("a member turns the second factor on, signs in with a code and once with a 
     await card.getByRole("button", { name: "Ota käyttöön" }).click();
 
     // ten recovery codes, shown once with the line that says so
-    await expect(card.getByText("Koodit näytetään vain nyt.")).toBeVisible();
+    await expect(card.getByText("Näet koodit vain nyt.")).toBeVisible();
     const codes = await card.locator(".recovery-codes code").allTextContents();
     expect(codes).toHaveLength(10);
     for (const c of codes) expect(c).toMatch(/^[A-Z0-9]{5}-[A-Z0-9]{5}$/);
@@ -92,9 +92,9 @@ test("a member turns the second factor on, signs in with a code and once with a 
       await page.setViewportSize({ width: 1280, height: 900 });
     }
     await card.getByRole("button", { name: "Valmis" }).click();
-    await expect(card.getByText("Käytössä alkaen", { exact: true })).toBeVisible();
-    await expect(card.getByText("Palautuskoodeja jäljellä")).toBeVisible();
-    await expect(card.locator("dl > div", { hasText: "Palautuskoodeja jäljellä" })).toContainText("10");
+    // one line, not a table
+    await expect(card.getByText(/^Käytössä alkaen .*, palautuskoodeja jäljellä 10\.$/)).toBeVisible();
+    await expect(card.locator("dl")).toHaveCount(0);
     if (SHOTS) {
       await card.screenshot({ path: join(SHOTS, "factor-on-1280.png") });
       await page.setViewportSize({ width: 390, height: 900 });
@@ -118,10 +118,10 @@ test("a member turns the second factor on, signs in with a code and once with a 
         await login.locator(".auth-card").screenshot({ path: join(SHOTS, "login-code-390.png") });
       }
       await codeField.fill("000000");
-      await login.getByRole("button", { name: "Kirjaudu", exact: true }).click();
+      await login.getByRole("button", { name: "Kirjaudu sisään", exact: true }).click();
       await expect(login.getByText("Koodi on väärä.")).toBeVisible();
       await codeField.fill(totp(secret, 1));
-      await login.getByRole("button", { name: "Kirjaudu", exact: true }).click();
+      await login.getByRole("button", { name: "Kirjaudu sisään", exact: true }).click();
       await expect(login.getByRole("heading", { name: "Kirjaudu sisään", exact: true })).toHaveCount(0);
       await context.close();
     }
@@ -132,7 +132,7 @@ test("a member turns the second factor on, signs in with a code and once with a 
       await password(login, username);
       await login.getByRole("button", { name: "Käytä palautuskoodia" }).click();
       await login.getByLabel("Palautuskoodi").fill(codes[0]!.toLowerCase());
-      await login.getByRole("button", { name: "Kirjaudu", exact: true }).click();
+      await login.getByRole("button", { name: "Kirjaudu sisään", exact: true }).click();
       if (attempt === "works") await expect(login.getByRole("heading", { name: "Kirjaudu sisään", exact: true })).toHaveCount(0);
       else await expect(login.getByText("Koodi on väärä.")).toBeVisible();
       await context.close();
@@ -141,10 +141,10 @@ test("a member turns the second factor on, signs in with a code and once with a 
     // the administrator takes the factor away; the member signs in with the password alone
     const admin = await browser.newContext({ storageState: join(process.env.E2E_DIR ?? ".", "admin-state.json") });
     const adminPage = await admin.newPage();
-    await adminPage.goto("/#/settings");
+    await adminPage.goto("/#/settings/members");
     const row = adminPage.getByRole("row", { name: new RegExp(username) });
-    adminPage.once("dialog", (d) => void d.accept());
     await row.getByRole("button", { name: "Poista kaksivaiheinen kirjautuminen" }).click();
+    await adminPage.getByRole("dialog").getByRole("button", { name: "Poista kaksivaiheinen kirjautuminen" }).click();
     await expect(row.getByRole("button", { name: "Poista kaksivaiheinen kirjautuminen" })).toHaveCount(0);
     await admin.close();
     const again = await browser.newContext();

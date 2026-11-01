@@ -6,7 +6,7 @@
  */
 import { EXTENSIONS } from "../extensions.ts";
 import { isIsoDate } from "../platform/validate.ts";
-import { ACCOUNT_TYPES, CATEGORY_SOURCES, type RuleField } from "@banking/core";
+import { ACCOUNT_TYPES, CATEGORY_SOURCES, GOAL_CATEGORIES, type RuleField } from "@banking/core";
 
 /** A value that is not what its column holds. */
 export class BadValue extends Error {}
@@ -160,6 +160,7 @@ const IMPORT_STORES: readonly ImportStore[] = [
     idColumn: "id",
   },
   { key: "spendingGoals", table: "spending_goal", cols: { user_id: id, monthly_cents: whole(100, 1e8), updated_at: at }, max: 1000, pk: ["user_id"], user: "user_id" },
+  { key: "categoryGoals", table: "category_goal", cols: { user_id: id, category: oneOf(GOAL_CATEGORIES), monthly_cents: whole(100, 1e8), updated_at: at }, max: 1000, pk: ["user_id", "category"], user: "user_id" },
   { key: "optimiseInputs", table: "optimise_inputs", cols: { user_id: id, key: text(100), value: text(2000, 0), as_of: day }, max: 1000, pk: ["user_id", "key"], user: "user_id" },
   {
     key: "optimiseStates",

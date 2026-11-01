@@ -1,15 +1,17 @@
 // Decision: which days and weekdays the money goes on, and whether a big day was a one-off
 import { addDays, dayHeat, dayNumber, weekdayOf } from "@banking/core";
-import { type CSSProperties, type KeyboardEvent, type ReactNode, useId, useState } from "react";
-import { dayHeading, dayMonth, money, MONTHS_SHORT } from "../format.ts";
+import { type KeyboardEvent, type ReactNode, useId, useState } from "react";
+import { dayHeading, dayMonth, mondayFirstWeekdays, money, monthTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
+import { t } from "../text.ts";
+import { useSelect } from "../components/table/selection.tsx";
 import { crisp } from "./draw.ts";
 import { Tip } from "./forms/parts.tsx";
 import { LiveReadout } from "./kit/Readout.tsx";
 import { type Cell, gridStep, readoutText } from "./kit/readout.ts";
-import { WEEKDAYS_SHORT } from "./kit/ticks.ts";
 import "../styles/charts.css";
 import "../styles/calendar-heat.css";
+import { css, type Css } from "../css.ts";
 
 /** A day of the series: its spending, its rows, and the shade core gave it (`dayHeat`; worked out by core here when absent). */
 export interface HeatDay {
@@ -19,7 +21,7 @@ export interface HeatDay {
   heat?: number;
 }
 
-const WEEKDAYS_LONG = ["Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai", "Sunnuntai"];
+const weekdayLong = (i: number): string => [t("cal.day_1"), t("cal.day_2"), t("cal.day_3"), t("cal.day_4"), t("cal.day_5"), t("cal.day_6"), t("cal.day_7")][i]!;
 const GAP = 2;
 const LEFT = 24;
 const TOP = 18;
@@ -48,18 +50,17 @@ const PHONE_WEEKS = 13;
  * The key of the four shades, one wording on every heat map (critic round 3): each cell against its own usual (the
  * usual spending day of a calendar, a category's own average in Menot kuukausittain; the readout and the answer name it).
  */
-export function HeatKey({ plain }: { plain?: string }) {
-  const steps = ["alle puolet", "enintään sama", "enintään puolitoistakertainen", "enemmän"];
+export function HeatKey() {
+  const steps = [t("cal.key_1"), t("cal.key_2"), t("cal.key_3"), t("cal.key_4")];
   return (
     <p className="use-key heat-key" aria-hidden="true">
-      <span>Tavalliseen verrattuna:</span>
+      <span>{t("cal.key_lead")}</span>
       {steps.map((s, i) => (
         <span key={s} className="heat-key-step">
           <i className={`swatch heat-key-${i + 1}`} />
           {s}
         </span>
       ))}
-      {plain && <span>{plain}</span>}
     </p>
   );
 }
@@ -95,9 +96,10 @@ export function CalendarHeat<T extends { date: string }>(props: {
   /** What the count of a day counts in the readout. */
   countName?: string;
 }) {
-  const { today, weekdayAvgCents, question, countName = "Ostoksia" } = props;
+  const { today, weekdayAvgCents, question, countName = t("cal.purchases") } = props;
   const [ref, width] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<At>(null);
+  const scope = useSelect();
   const grad = useId().replace(/:/g, "");
   const shaded = props.days.every((d) => d.heat !== undefined) ? props.days.map((d) => d.heat!) : dayHeat(props.days, today).heat;
   const usual = props.usualCents !== undefined ? props.usualCents : dayHeat(props.days, today).usualCents;
@@ -127,7 +129,7 @@ export function CalendarHeat<T extends { date: string }>(props: {
   const byCell = new Map(days.map((d, i) => [`${cellOf(d.date).col},${cellOf(d.date).row}`, i]));
   // a month's name stands over the first week whose Monday is in it, so a week of late April is never under "touko";
   // the first column takes the month of its first day shown
-  const monthOf = (date: string) => MONTHS_SHORT[Number(date.slice(5, 7)) - 1]!;
+  const monthOf = (date: string) => monthTick(Number(date.slice(5, 7)));
   const months = Array.from({ length: cols }, (_, c) => addDays(from, c * 7))
     .map((monday, c) => ({ x: LEFT + c * pitch, label: c === 0 ? monthOf(days[0]?.date ?? monday) : monthOf(monday), turn: c === 0 || monday.slice(5, 7) !== addDays(monday, -7).slice(5, 7) }))
     .filter((m) => m.turn);
@@ -155,14 +157,23 @@ export function CalendarHeat<T extends { date: string }>(props: {
   const widestMean = Math.max(1, ...means.map((c) => c ?? 0));
   const peakDay = means.reduce<number>((b, c, i) => ((c ?? -1) > (means[b] ?? -1) ? i : b), 0);
   const meanX = LEFT + cols * pitch + 10;
-  // cells come in column by column over the draw time; charts.css turns it off for a reader who asked for less motion
-  const sweep = (col: number): CSSProperties => ({ "--d": `${Math.round((col / Math.max(1, cols)) * 250)}ms` }) as CSSProperties;
+  // cells come in column by column over 0.6 of the draw time; charts.css turns it off for a reader who asked for less motion
+  const sweep = (col: number): Css => ({ "--d": `calc(var(--t-draw) * ${((col / Math.max(1, cols)) * 0.6).toFixed(3)})` });
   const hit = (kind: "week" | "mean", i: number) => ({
     onPointerEnter: () => setAt({ kind, i }),
     onPointerDown: () => setAt({ kind, i }),
     onPointerLeave: () => setAt(null),
   });
   const onKey = (e: KeyboardEvent<SVGGElement>) => {
+    // Enter picks the day under the readout for the table under the chart, as a click does
+    if (e.key === "Enter" && scope && at?.kind === "day") {
+      const picked = days[byCell.get(`${at.cell.col},${at.cell.row}`) ?? -1];
+      if (picked) {
+        e.preventDefault();
+        scope.select(picked.date);
+      }
+      return;
+    }
     const next = gridStep(e.key, at?.kind === "day" ? at.cell : null, cols, 7);
     if (next === undefined) return;
     e.preventDefault();
@@ -174,24 +185,24 @@ export function CalendarHeat<T extends { date: string }>(props: {
   if (atDay !== undefined) {
     const d = days[atDay]!;
     const rows = [
-      { name: "Menot", value: money(d.cents, false) },
+      { name: t("cal.spending"), value: money(d.cents, false) },
       { name: countName, value: String(d.count) },
     ];
-    if (usual !== null && d.date < today) rows.push({ name: "Tavallinen ostospäivä", value: money(usual, false) });
+    if (usual !== null && d.date < today) rows.push({ name: t("cal.usual_day"), value: money(usual, false) });
     readout = { x: place(d.date).x + cell, title: dayHeading(d.date, today), rows };
   } else if (at?.kind === "week" && weeks?.[at.i]) {
     const w = weeks[at.i]!;
-    readout = { x: LEFT + at.i * pitch + cell, title: `Viikko ${dayMonth(w.from)}–${dayMonth(addDays(w.from, 6))}`, rows: [{ name: "Menot", value: money(w.cents, false) }] };
+    readout = { x: LEFT + at.i * pitch + cell, title: t("cal.week", { from: dayMonth(w.from), to: dayMonth(addDays(w.from, 6)) }), rows: [{ name: t("cal.spending"), value: money(w.cents, false) }] };
   } else if (at?.kind === "mean") {
     const c = means[at.i];
-    readout = { x: meanX, title: WEEKDAYS_LONG[at.i]!, rows: [{ name: "Keskimäärin", value: c == null ? "ei päiviä" : money(c, false) }] };
+    readout = { x: meanX, title: weekdayLong(at.i), rows: [{ name: t("cal.average"), value: c == null ? t("cal.no_days") : money(c, false) }] };
   }
 
   return (
     <div className="chart calendar" ref={ref}>
       <HeatKey />
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label={question}>
+        <svg width={width} height={height} role="group" aria-label={question}>
           <defs>
             <linearGradient id={`${grad}-mean`} x1="0" x2="1" y1="0" y2="0">
               <stop offset="0" className="calendar-stop-soft" />
@@ -207,19 +218,18 @@ export function CalendarHeat<T extends { date: string }>(props: {
               {m.label}
             </text>
           ))}
-          {WEEKDAYS_SHORT.map((w, i) => (
+          {mondayFirstWeekdays().map((w, i) => (
             <text key={w} x={0} y={TOP + i * pitch + cell - 2} className={weekdayAvgCents && i === peakDay ? "calendar-peak-label" : "calendar-weekday"}>
               {w}
             </text>
           ))}
-          <g className="calendar-grid" tabIndex={0} role="group" aria-label={`${question} Nuolinäppäimet siirtävät päivästä toiseen.`} onKeyDown={onKey} onFocus={() => at === null && days.length && setAt({ kind: "day", cell: cellOf(days[days.length - 1]!.date) })} onBlur={() => setAt(null)}>
+          <g className="calendar-grid" tabIndex={0} role="group" aria-label={t("cal.keys", { question })} onKeyDown={onKey} onFocus={() => at === null && days.length && setAt({ kind: "day", cell: cellOf(days[days.length - 1]!.date) })} onBlur={() => setAt(null)}>
             {days.map((d, i) => {
               const { x, y } = place(d.date);
               return (
                 <rect
                   key={d.date}
-                  className={`calendar-day heat-${d.heat}${d.date === today ? " today" : ""}${atDay === i ? " active" : ""}`}
-                  style={sweep((x - LEFT) / pitch)}
+                  className={`calendar-day heat-${d.heat}${d.date === today ? " today" : ""}${scope ? " pick" : ""}${atDay === i ? " active" : ""}`}
                   x={x}
                   y={y}
                   width={cell}
@@ -228,6 +238,8 @@ export function CalendarHeat<T extends { date: string }>(props: {
                   onPointerEnter={() => setAt({ kind: "day", cell: cellOf(d.date) })}
                   onPointerDown={() => setAt({ kind: "day", cell: cellOf(d.date) })}
                   onPointerLeave={(e) => e.pointerType === "mouse" && setAt(null)}
+                  onClick={scope ? () => scope.select(d.date) : undefined}
+                  ref={css(sweep((x - LEFT) / pitch))}
                 />
               );
             })}
@@ -254,7 +266,7 @@ export function CalendarHeat<T extends { date: string }>(props: {
                 return (
                   <g key={w.from} className={`calendar-week${i === peakWeek ? " peak" : ""}${at?.kind === "week" && at.i === i ? " active" : ""}`}>
                     <rect className="calendar-week-hit" x={LEFT + i * pitch} y={gridBottom + 4} width={pitch} height={stripBase - gridBottom - 4} {...hit("week", i)} />
-                    {h > 0 && <path className="calendar-week-bar" style={sweep(i)} fill={`url(#${grad}-week)`} d={`M${LEFT + i * pitch},${stripBase}v${-(h - 2)}q0,-2 2,-2h${cell - 4}q2,0 2,2v${h - 2}z`} />}
+                    {h > 0 && <path className="calendar-week-bar" ref={css(sweep(i))} fill={`url(#${grad}-week)`} d={`M${LEFT + i * pitch},${stripBase}v${-(h - 2)}q0,-2 2,-2h${cell - 4}q2,0 2,2v${h - 2}z`} />}
                   </g>
                 );
               })}
@@ -287,14 +299,14 @@ export function CalendarHeat<T extends { date: string }>(props: {
               })}
               <line className="axis-line" x1={crisp(meanX)} x2={crisp(meanX)} y1={TOP} y2={gridBottom - GAP} />
               <text x={meanX} y={TOP - 6} className="calendar-month">
-                ka / pv
+                {t("cal.mean_head")}
               </text>
             </>
           )}
         </svg>
       )}
       {props.topNote && top.length > 0 && (
-        <ol className="calendar-notes" aria-label="Suurimmat päivät">
+        <ol className="calendar-notes" aria-label={t("cal.largest")}>
           {top.map((d) => (
             <li key={d.date}>
               <span className="badge-n">{rank.get(d.date)}</span>
@@ -303,7 +315,7 @@ export function CalendarHeat<T extends { date: string }>(props: {
           ))}
         </ol>
       )}
-      {skip > 0 && <p className="calendar-cut">Kuvassa ovat {PHONE_WEEKS} viimeistä viikkoa. Kaikki päivät ovat taulukossa.</p>}
+      {skip > 0 && <p className="calendar-cut">{t("cal.cut", { count: PHONE_WEEKS })}</p>}
       {readout && <Tip x={readout.x} left={0} width={width} title={readout.title} rows={readout.rows} />}
       <LiveReadout text={readout ? readoutText(readout.title, readout.rows) : ""} />
     </div>

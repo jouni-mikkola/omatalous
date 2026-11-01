@@ -10,6 +10,10 @@ export interface IngestResult {
   updated: number;
   /** Already stored: given by another source (a CSV covering the same days) or by an earlier import of the same kind in another layout. */
   skipped: number;
+  /** Pending rows of the answer that a booked row of the same answer replaced: the booked row is the payment. */
+  replaced: number;
+  /** Pending rows kept as the answer gave them. Every fetched row is `inserted`, `updated`, `skipped`, `replaced` or `pending`. */
+  pending: number;
   /**
    * Rows written or removed. Zero when the rows were all stored already with the same bank fields: nothing was
    * written then, and there is nothing to process again.
@@ -63,7 +67,7 @@ function closest<T extends Party>(candidates: readonly T[], party: Party): T | u
 export async function ingestTransactions(repo: FinanceRepo, accountId: string, raws: readonly RawTransaction[], source: string, opts: { keepPending?: boolean } = {}): Promise<IngestResult> {
   const booked = raws.filter((r) => r.status === "booked");
   const pending = raws.filter((r) => r.status === "pending");
-  const result: IngestResult = { fetched: raws.length, inserted: 0, updated: 0, skipped: 0, changed: 0 };
+  const result: IngestResult = { fetched: raws.length, inserted: 0, updated: 0, skipped: 0, replaced: 0, pending: 0, changed: 0 };
 
   const dates = booked.map((r) => r.bookingDate).sort();
   const existing = dates.length ? await repo.transactionKeys(accountId, dates[0]!, dates[dates.length - 1]!) : [];
@@ -164,7 +168,11 @@ export async function ingestTransactions(repo: FinanceRepo, accountId: string, r
         userCategory = replaceOldPending(entry);
       }
     } else {
-      if (droppedPending.has(id)) continue;
+      if (droppedPending.has(id)) {
+        result.replaced++;
+        continue;
+      }
+      result.pending++;
       // a pending row sent again keeps the user's category, also when the bank changed its identity or text a little
       const same = stored.find((p) => p.id === id);
       const moved = same ?? closest(storedLike(entry, -BOOKING_DELAY_DAYS, BOOKING_DELAY_DAYS), party);

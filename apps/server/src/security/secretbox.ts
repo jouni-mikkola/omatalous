@@ -10,9 +10,13 @@ import { isAppSecret } from "../entry/app-secret.ts";
 import { fromBase64Url, randomBytes, toBase64Url, utf8 } from "./encoding.ts";
 
 export class SecretBox {
-  private constructor(private readonly key: CryptoKeyLike) {}
+  private constructor(
+    private readonly key: CryptoKeyLike,
+    private readonly beforeSeal?: () => void,
+  ) {}
 
-  static async fromSecret(secret: string): Promise<SecretBox> {
+  /** `beforeSeal` runs ahead of every seal and may throw: a box that has been outlived by a rotation must write nothing. */
+  static async fromSecret(secret: string, beforeSeal?: () => void): Promise<SecretBox> {
     if (!isAppSecret(secret)) throw new Error("APP_SECRET must be at least 32 characters");
     const material = await crypto.subtle.importKey("raw", utf8.encode(secret), "HKDF", false, ["deriveKey"]);
     const key = await crypto.subtle.deriveKey(
@@ -22,10 +26,11 @@ export class SecretBox {
       false,
       ["encrypt", "decrypt"],
     );
-    return new SecretBox(key);
+    return new SecretBox(key, beforeSeal);
   }
 
   async seal(plaintext: string, context: string): Promise<string> {
+    this.beforeSeal?.();
     const iv = randomBytes(12);
     const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: utf8.encode(context) }, this.key, utf8.encode(plaintext));
     return `v1.${toBase64Url(iv)}.${toBase64Url(new Uint8Array(ct))}`;

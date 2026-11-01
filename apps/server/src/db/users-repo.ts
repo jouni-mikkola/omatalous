@@ -1,4 +1,5 @@
 /** Users, sessions and per-user bank credentials. */
+import type { Language } from "@banking/core";
 import { type Role, type Row, toUser, type User } from "./rows.ts";
 import { bumpDataVersionStatement } from "./settings-repo.ts";
 import { SWEEP_UNHELD_KEYS } from "./household-repo.ts";
@@ -17,6 +18,8 @@ export interface SessionRecord {
   userId: string;
   expiresAt: string;
   lastSeenAt: string;
+  /** When the sign-in happened. */
+  createdAt: string;
 }
 
 export class UsersRepo {
@@ -60,6 +63,23 @@ export class UsersRepo {
 
   async setPassword(id: string, passwordHash: string, mustChange: boolean): Promise<void> {
     await this.db.run("UPDATE users SET password_hash = ?, must_change_password = ? WHERE id = ?", [passwordHash, mustChange ? 1 : 0, id]);
+  }
+
+  /** Replaces the hash only while it is still `from` (the sign-in that checked it), and says whether it did. Leaves must_change_password and sessions alone. */
+  async replaceHash(id: string, from: string, to: string): Promise<boolean> {
+    const r = await this.db.run("UPDATE users SET password_hash = ? WHERE id = ? AND password_hash = ?", [to, id, from]);
+    return r.changes > 0;
+  }
+
+  /** The most rounds of any hash of the scheme before Argon2id that a user still has, or null when none is left. */
+  async legacyRounds(): Promise<number | null> {
+    const rows = await this.db.all<{ password_hash: string }>("SELECT password_hash FROM users WHERE password_hash LIKE 'pbkdf2\\_sha256$%' ESCAPE '\\'");
+    const rounds = rows.map((r) => Number(r.password_hash.split("$")[1]) || 0);
+    return rows.length === 0 ? null : Math.max(...rounds, 1);
+  }
+
+  async setLanguage(id: string, language: Language): Promise<void> {
+    await this.db.run("UPDATE users SET language = ? WHERE id = ?", [language, id]);
   }
 
   async update(id: string, patch: { displayName?: string; role?: Role }): Promise<void> {
@@ -116,8 +136,8 @@ export class UsersRepo {
   }
 
   // ── sessions (id = SHA-256 of the cookie token) ─────────
-  async createSession(id: string, userId: string, expiresAt: string, userAgent: string | null): Promise<void> {
-    const now = new Date().toISOString();
+  async createSession(id: string, userId: string, expiresAt: string, userAgent: string | null, at: Date = new Date()): Promise<void> {
+    const now = at.toISOString();
     await this.db.run("INSERT INTO sessions (id, user_id, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?)", [
       id,
       userId,
@@ -129,8 +149,8 @@ export class UsersRepo {
   }
 
   async getSession(id: string): Promise<SessionRecord | null> {
-    const r = await this.db.first<Row>("SELECT user_id, expires_at, last_seen_at FROM sessions WHERE id = ?", [id]);
-    return r ? { userId: String(r.user_id), expiresAt: String(r.expires_at), lastSeenAt: String(r.last_seen_at) } : null;
+    const r = await this.db.first<Row>("SELECT user_id, expires_at, last_seen_at, created_at FROM sessions WHERE id = ?", [id]);
+    return r ? { userId: String(r.user_id), expiresAt: String(r.expires_at), lastSeenAt: String(r.last_seen_at), createdAt: String(r.created_at) } : null;
   }
 
   async touchSession(id: string, expiresAt: string): Promise<void> {

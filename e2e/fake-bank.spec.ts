@@ -30,8 +30,8 @@ test("linking the fake bank brings four accounts: the joint one with both holder
   const tilit = page.locator("#tilit");
   // every row holds the account types in its select, so a row is found by the name it starts with
   const row = (name: string) => tilit.getByRole("row", { name: new RegExp(`^${name} `) });
-  // the header, four accounts, the row under the joint account that has its parts, the row that has its split (Jako), and the row that has its months (its own table is not counted)
-  await expect(tilit.locator(".accounts-table > thead > tr, .accounts-table > tbody > tr")).toHaveCount(8);
+  // the header, four accounts, the row under the joint account that has its parts, and the row that has its split (Jako)
+  await expect(tilit.locator(".accounts-table > thead > tr, .accounts-table > tbody > tr")).toHaveCount(7);
   await expect(row("Käyttötili")).toContainText("FI21 1234 5600 0007 85");
   await expect(row("Käyttötili")).toContainText("MEIKALAINEN MATTI");
   await expect(row("Säästötili")).toContainText("FI14 1009 3000 1234 58");
@@ -46,11 +46,11 @@ test("linking the fake bank brings four accounts: the joint one with both holder
   await expect(card.locator(".credit-bar")).toBeVisible();
   await expect(tilit.locator(".credit-bar")).toHaveCount(1);
 
-  // Yhteenveto shows the balance the bank gave for the checking account
+  // Saldot shows the balance the bank gave for the checking account
   const bank = fakeBank();
   const balances = await (await context.request.get(`${bank.url}/accounts/fb-chk/balances`, { headers: { Authorization: "Bearer test" } })).json();
-  await page.goto("/#/overview");
-  const holdings = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varallisuus", exact: true }) });
+  await page.goto("/#/reports?tab=varat");
+  const holdings = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varat ja velat", exact: true }) });
   const amount = holdings.locator(".st-row", { hasText: "Käyttötili" }).locator(".st-num");
   await expect(amount).toBeVisible();
   expect(cents(await amount.innerText())).toBe(cents(balances.balances[0].balance_amount.amount.replace(".", ",")));

@@ -3,6 +3,7 @@
  * can do now, what the form starts with. No React here, so the rules are tested without a page.
  */
 import type { RemoteAccessState } from "./remote-access-api.ts";
+import { t } from "../../text.ts";
 
 /** The permissions of the Cloudflare API token, as Cloudflare shows them (apps/server providers/cloudflare/api.ts, PERMISSION). */
 export const TOKEN_PERMISSIONS = [
@@ -134,10 +135,10 @@ const LOOKS_LIKE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * valid for Cloudflare is the server's to say.
  */
 export function emailProblem(emails: string[]): string | null {
-  if (emails.length === 0) return "Anna vähintään yksi sähköpostiosoite, jolla saa kirjautua.";
-  if (emails.length > 50) return "Sähköpostiosoitteita voi olla enintään 50.";
+  if (emails.length === 0) return t("set.ra.enter_at_least_one_email");
+  if (emails.length > 50) return t("set.ra.there_can_be_at_most");
   const bad = emails.findIndex((e) => !LOOKS_LIKE_EMAIL.test(e));
-  return bad >= 0 ? `Osoite ${bad + 1} ei ole sähköpostiosoite.` : null;
+  return bad >= 0 ? t("set.ra.address_n_not_email", { n: bad + 1 }) : null;
 }
 
 /** "https://Talous.Example.fi/" typed into the address field is the address talous.example.fi. */
@@ -148,7 +149,7 @@ export function cleanHostname(text: string): string {
 /** "Se näkee verkkotunnuksen x." for one zone, "Se näkee verkkotunnukset x ja y." for more, nothing without one. */
 export function zonesSentence(zones: string[]): string {
   if (zones.length === 0) return "";
-  return `Se näkee ${zones.length === 1 ? "verkkotunnuksen" : "verkkotunnukset"} ${zoneList(zones)}.`;
+  return t(zones.length === 1 ? "set.ra.sees_one" : "set.ra.sees_many", { zones: zoneList(zones) });
 }
 
 /** The host the tunnel gives, as far as the state knows it: the change under way, the host that is on, else what Cloudflare has. */
@@ -171,6 +172,31 @@ export function tunnelUrl(host: string): string {
 
 /** The zones the token sees, a few by name and the rest counted. */
 export function zoneList(zones: string[], shown = 4): string {
-  if (zones.length <= shown) return zones.length > 1 ? `${zones.slice(0, -1).join(", ")} ja ${zones[zones.length - 1]}` : (zones[0] ?? "");
-  return `${zones.slice(0, shown).join(", ")} ja ${zones.length - shown} muuta`;
+  if (zones.length <= shown) return zones.length > 1 ? t("set.ra.and_last", { first: zones.slice(0, -1).join(", "), last: zones[zones.length - 1]! }) : (zones[0] ?? "");
+  return t("set.ra.and_others", { first: zones.slice(0, shown).join(", "), count: zones.length - shown });
+}
+
+/** The state in a few words, for the status line of the page. */
+export function remoteSummary(s: RemoteAccessState): string {
+  if (s.pending) return t("set.ra.change_under_way");
+  const stage = stageOf(s);
+  if (stage === "on") return onTrial(s) ? t("set.ra.on_trial") : t("set.ra.on");
+  if (stage === "domain") return t("set.ra.own_domain");
+  if (stage === "left") return s.cloudflare.removal === "waiting" ? t("set.ra.next_step_wait_for_the") : t("set.ra.left_unfinished");
+  return t("set.ra.off");
+}
+
+/** The one thing to do next, in a sentence. The blocks below carry the forms; this says which of them is the turn. */
+export function nextStep(s: RemoteAccessState): string {
+  if (s.pending) return t("set.ra.next_step_wait_for_the_2");
+  const stage = stageOf(s);
+  if (stage === "domain") return t("set.ra.nothing_to_do_your_own");
+  if (stage === "on") return onTrial(s) ? t("set.ra.next_step_open_the_new") : t("set.ra.nothing_to_do_change_the");
+  if (stage === "left") return t("set.ra.next_step_turn_remote_access");
+  const problem = helperProblem(s);
+  if (problem === "off") return t("set.ra.next_step_turn_on_the");
+  if (problem === "old") return t("set.ra.next_step_update_the_maintenance");
+  if (!s.token.saved) return t("set.ra.next_step_save_the_cloudflare");
+  if (!s.token.usable) return t("set.ra.next_step_save_the_token");
+  return t("set.ra.next_step_choose_the_address");
 }

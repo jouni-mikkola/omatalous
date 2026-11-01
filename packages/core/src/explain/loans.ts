@@ -1,5 +1,5 @@
 /**
- * The loan figures of Lainat and of Varallisuus: what is owed, the interest of the next 12 months and the payments. Each
+ * The loan figures of Lainat and of Varat ja velat: what is owed, the interest of the next 12 months and the payments. Each
  * is a calculation, not rows of a range: a total's lines are its loans, a loan's lines are the steps of its own figure
  * (the balance as told and each amortisation since, the interest of each payment, the parts of a payment). Every figure
  * is read from the function that gives the page its number (`loans.ts`, `householdDebts`, `buildHoldings`), so the check

@@ -107,10 +107,10 @@ test("pasted text fills the form with each figure's source line, a field to chec
   const seen = watch(page);
   const writes = loanWrites(page);
   const loan = listing(await today(context));
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await expect(card.getByText("Ei lainoja.")).toBeVisible();
-  await expect(card.getByText("Kuvakaappaus positiivisesta luottotietorekisteristä tuo kaikki lainat kerralla.")).toBeVisible();
+  await expect(card.getByText("Kuvakaappaus positiivisesta luottotietorekisteristä lisää kaikki lainat kerralla.")).toBeVisible();
 
   // the keyboard reaches the box and its buttons
   const box = card.getByLabel("Liitä kuva tai teksti lainasta");
@@ -188,7 +188,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   const context = await administrator(browser);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await card.getByRole("button", { name: "Muokkaa lainaa Asuntolaina, Esimerkkipankki Oyj" }).click();
   const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
@@ -216,11 +216,11 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   expect(loans[0]).toMatchObject({ name: "Kodin laina", kind: "mortgage", lender: "Esimerkkipankki Oyj", balanceCents: 11_950_000, grantedCents: 15_000_000, rateBp: 339, reference: "euribor_12", marginBp: 65, repayment: "annuity", intervalMonths: 1, paymentCents: null, limitCents: null, seriesKey: null });
 
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
-  const question = page.getByRole("dialog", { name: "Poistetaanko laina?" });
+  const question = page.getByRole("dialog", { name: "Poista Kodin laina?" });
   await question.getByRole("button", { name: "Peruuta" }).click();
   await expect(row).toBeVisible();
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
-  await question.getByRole("button", { name: "Poista" }).click();
+  await question.getByRole("button", { name: "Poista laina" }).click();
   await said(card, "Laina poistettu.");
   await expect(card.getByText("Ei lainoja.")).toBeVisible();
   expect(seen.problems).toEqual([]);
@@ -233,7 +233,7 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   const page = await context.newPage();
   const seen = watch(page);
   const loans = async () => (await (await context.request.get("/api/loans", RESEND)).json()).loans as { name: string; reference: string | null; rateReviewDate?: string | null }[];
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await card.getByRole("button", { name: "Lisää käsin" }).click();
   const form = card.getByRole("region", { name: "Uusi laina" });
@@ -304,11 +304,11 @@ test("a pasted picture is read in the browser from the app's own files, every fi
   const origin = new URL(test.info().project.use.baseURL!).origin;
   const requests: string[] = [];
   page.on("request", (r) => requests.push(r.url()));
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await paste(card.getByLabel("Liitä kuva tai teksti lainasta"), { file: { name: "kuvakaappaus.png", type: "image/png", bytes: png } });
   await expect(card.getByRole("progressbar")).toBeVisible();
-  await expect(reader(card)).toContainText(/Ladataan kuvanlukijaa|Luetaan kuvaa/);
+  await expect(reader(card)).toContainText(/Lataamme kuvanlukijaa|Luemme kuvaa/);
   const draft = card.getByRole("region", { name: "Luettu laina" });
   await expect(draft.getByLabel("Lainaa jäljellä (€)")).toHaveValue("8 450,00", { timeout: 150_000 });
   await expect(card.getByRole("progressbar")).toHaveCount(0);
@@ -354,7 +354,7 @@ test("a PDF's text is read, two loans in it become two forms, and a discarded on
   const origin = new URL(test.info().project.use.baseURL!).origin;
   const requests: string[] = [];
   page.on("request", (r) => requests.push(r.url()));
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await card.getByLabel("Kuva tai PDF lainasta").setInputFiles({ name: "lainat.pdf", mimeType: "application/pdf", buffer: pdf });
   const first = card.getByRole("region", { name: "Laina 1" });
@@ -386,14 +386,14 @@ test("a PDF's text is read, two loans in it become two forms, and a discarded on
   await context.close();
 });
 
-test("typed text is read with Lue tiedot, a field's reason is tied to it, and a discarded form gives the focus to the box", async ({ browser }) => {
+test("typed text is read with Lue lainan tiedot, a field's reason is tied to it, and a discarded form gives the focus to the box", async ({ browser }) => {
   const context = await administrator(browser);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   const box = card.getByLabel("Liitä kuva tai teksti lainasta");
-  const read =card.getByRole("button", { name: "Lue tiedot" });
+  const read =card.getByRole("button", { name: "Lue lainan tiedot" });
   await expect(read).toBeDisabled();
   await box.fill(listing(await today(context)).text);
   await read.click();
@@ -427,7 +427,7 @@ test("a file of the wrong type, one too large and one with too many pixels are r
   const seen = watch(page);
   const requests: string[] = [];
   page.on("request", (r) => requests.push(r.url()));
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   const pick = card.getByLabel("Kuva tai PDF lainasta");
   const refused = (text: string) => expect(card.getByRole("alert")).toHaveText(text);
@@ -453,7 +453,7 @@ test("a clipboard that holds a picture and text is read as the text", async ({ b
   const seen = watch(page);
   const requests: string[] = [];
   page.on("request", (r) => requests.push(r.url()));
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await paste(card.getByLabel("Liitä kuva tai teksti lainasta"), { text: listing(await today(context)).text, file: { name: "image.png", type: "image/png", bytes: pngHeader(800, 600) } });
   const draft = card.getByRole("region", { name: "Luettu laina" });
@@ -465,13 +465,11 @@ test("a clipboard that holds a picture and text is read as the text", async ({ b
   await context.close();
 });
 
-test("text dropped on the box and text taken with Liitä leikepöydältä are read", async ({ browser }) => {
+test("text dropped on the box is read", async ({ browser }) => {
   const context = await administrator(browser);
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings");
-  await page.bringToFront();
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   const loan = listing(await today(context));
   // a drop, as the browser gives it to the page
@@ -483,14 +481,6 @@ test("text dropped on the box and text taken with Liitä leikepöydältä are re
   const draft = card.getByRole("region", { name: "Luettu laina" });
   await expect(draft.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00");
   await expect(reader(card)).toHaveText("Löytyi 1 laina.");
-  await draft.getByRole("button", { name: "Hylkää" }).click();
-  await expect(draft).toHaveCount(0);
-
-  // the button reads the real clipboard
-  await page.evaluate((text) => navigator.clipboard.writeText(text), loan.text);
-  await card.getByRole("button", { name: "Liitä leikepöydältä" }).click();
-  await expect(draft.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00");
-  await expect(draft.getByRole("heading", { name: "Luettu laina" })).toBeFocused();
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -526,7 +516,7 @@ test("a new paste and Keskeytä end the read that is running, and the worker wit
       const { made, ended } = (window as unknown as { __workers: { made: Worker[]; ended: Set<Worker> } }).__workers;
       return { made: made.length, ended: ended.size };
     });
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   const box = card.getByLabel("Liitä kuva tai teksti lainasta");
   const picture = { name: "kuvakaappaus.png", type: "image/png", bytes: png };
@@ -535,7 +525,7 @@ test("a new paste and Keskeytä end the read that is running, and the worker wit
   await paste(box, { file: picture });
   await expect.poll(async () => (await workers()).made).toBe(1);
   await card.getByRole("button", { name: "Keskeytä" }).click();
-  await expect(reader(card)).toHaveText("Lukeminen keskeytettiin.");
+  await expect(reader(card)).toHaveText("Lukeminen keskeytyi.");
   await expect(card.getByRole("progressbar")).toHaveCount(0);
   await expect(box).toBeFocused();
   await expect.poll(async () => (await workers()).ended).toBe(1);
@@ -572,10 +562,10 @@ test("a member sees and changes only their own loans, and the page fits a phone"
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   try {
     expect((await context.request.post("/api/auth/login", { headers: FETCH, data: { username: "lainaaja", password: temporaryPassword } })).status()).toBe(200);
-    expect((await context.request.post("/api/auth/password", { headers: FETCH, data: { current: temporaryPassword, next: PASSWORD } })).status()).toBe(200);
+    expect((await context.request.post("/api/auth/first-password", { headers: FETCH, data: { next: PASSWORD } })).status()).toBe(200);
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/settings");
+    await page.goto("/#/settings/household");
     const card = lainat(page);
     // the administrator's card of the last test is not the member's
     await expect(card.getByText("Ei lainoja.")).toBeVisible();
@@ -603,7 +593,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
 
     // the administrator's list has the card and not the member's car loan
     const adminPage = await admin.newPage();
-    await adminPage.goto("/#/settings");
+    await adminPage.goto("/#/settings/household");
     await expect(lainat(adminPage).getByRole("row").filter({ hasText: "Luottokortti, Mallirahoitus Bank AB" })).toBeVisible();
     await expect(lainat(adminPage).getByText("Auton laina")).toHaveCount(0);
     expect(seen.problems).toEqual([]);
@@ -636,7 +626,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   // both are in the total: the report names the pair and ends the sentence with the link
   await page.goto("/#/reports#lainat");
   const report = page.locator("#lainat");
-  const sentence = report.locator("li.notice.warning").filter({ hasText: "Sama velka voi olla summassa kahdesti" });
+  const sentence = report.locator('li.notice[data-tone="warning"]').filter({ hasText: "Sama velka voi olla summassa kahdesti" });
   await expect(sentence).toContainText("tallennettu laina Esimerkkikortti ja yhdistetty tili Nordea Gold (esimerkki)");
   const before = await owed(report);
   await sentence.getByRole("link", { name: "Liitä Esimerkkikortti tiliin Nordea Gold (esimerkki)" }).click();
@@ -645,8 +635,8 @@ test("the Lainat report offers to link a saved card to the card account, and the
   const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
   await expect(dialog.getByLabel("Nimi")).toHaveValue("Esimerkkikortti");
   await expect(dialog.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);
-  await expect(dialog.getByText("Velkana käytetään pankin saldoa aina, kun pankki ilmoittaa sen.")).toBeVisible();
-  await expect(page).toHaveURL(/#\/settings#lainat$/);
+  await expect(dialog.getByText("Velkana on pankin saldo aina, kun pankki ilmoittaa sen.")).toBeVisible();
+  await expect(page).toHaveURL(/#\/settings\/household#lainat$/);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
   const card = lainat(page);
@@ -657,7 +647,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   // back at the report, with no reload by hand: the sentence is gone and the total fell by the typed balance
   await page.goBack();
   await expect(report.getByText("Esimerkkikortti").first()).toBeVisible();
-  await expect(report.locator("li.notice.warning").filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
+  await expect(report.locator('li.notice[data-tone="warning"]').filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
   expect(before - (await owed(report))).toBe(1000);
 
   expect(seen.problems).toEqual([]);
@@ -674,7 +664,7 @@ test("a refusal of the server stands in the form where its other errors are, and
   for (const name of ["Esimerkkikortti A", "Esimerkkikortti B"]) expect((await context.request.post("/api/loans", { headers: FETCH, data: cardLoan(name, day) })).status()).toBe(200);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await card.getByRole("button", { name: "Muokkaa lainaa Esimerkkikortti B" }).click();
   const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });

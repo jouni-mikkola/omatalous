@@ -146,11 +146,11 @@ function classify(err: unknown): SyncProblem | null {
   if (!(err instanceof EnableBankingError)) return null;
   if (err.notLinked) return { kind: "not_linked", message: NOT_LINKED_MESSAGE };
   if (err.appRejected) {
-    return { kind: "app_rejected", message: `Enable Banking hylkäsi avaimen (${err.status}). Ylläpitäjä voi tarkistaa sen kohdassa Asetukset > Palvelin > Testaa yhteys.` };
+    return { kind: "app_rejected", message: "Enable Banking hylkäsi avaimen. Ylläpitäjä voi tarkistaa sen kohdassa Asetukset > Pankit ja tilit > Testaa yhteys." };
   }
   if (err.consentExpired) return { kind: "consent_expired" };
-  // the bank's response text is not for the user's screen, only its status
-  return { kind: "upstream", message: `pankki vastasi virheellä ${err.status}${err.code ? ` (${err.code})` : ""}`, rateLimited: err.rateLimited };
+  // the bank's response text and its status are not for the user's screen
+  return { kind: "upstream", message: err.rateLimited ? "pankki rajoitti hakuja, yritä hetken päästä uudelleen" : "pankki ei vastannut oikein, yritä myöhemmin uudelleen", rateLimited: err.rateLimited };
 }
 
 export const enableBanking: Connector = {

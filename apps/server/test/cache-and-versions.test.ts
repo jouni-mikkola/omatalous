@@ -102,7 +102,7 @@ describe("per-user data versions", () => {
   });
 
   it("a shared account's owner counts for the members who see it, and for no one else", async () => {
-    const { admin, member, s, adminId } = await setupApp();
+    const { admin, member, s } = await setupApp();
     const eero = await member("eero");
     const liisa = await member("liisa");
     await seedCsv(s, admin, { content: csvOf(10), accountName: "Tili" });

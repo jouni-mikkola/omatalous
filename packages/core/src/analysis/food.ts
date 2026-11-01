@@ -19,12 +19,15 @@
  */
 import { behaviourOf, isPurchase } from "../behaviour/index.ts";
 import { dateIn, daysBetween, fromMonthIndex, monthEnd, weekdayOf } from "../dates.ts";
-import { formatEur, formatFiDate } from "./format.ts";
-import { THEMES, themeOf } from "../themes.ts";
+import { formatEur, formatFiRange } from "./format.ts";
+import { lineName, THEMES, themeOf } from "../themes.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { cardGapCause, type MissingCardPurchases, missingCardPurchases } from "./card-bills.ts";
 import { type AnalysisContext, type AnalysisTx, netPurchase } from "./context.ts";
 import { sharedOut, themeWindow } from "./themes-report.ts";
-import { gateFor, usualCents } from "./usual.ts";
+import { expectedLevel } from "./expected.ts";
+import { gateFor } from "./usual.ts";
 import type { IsoDate } from "../types.ts";
 
 /** Purchases a line needs before its mean, its visits a month and its weekdays are told. */
@@ -106,9 +109,9 @@ interface FoodFigures {
 export type FoodReport = FoodFigures | { gap: FoodGap };
 
 /** The sentence of a gap: what is missing and since when, in the words of the data quality signal. */
-function gapText(bills: readonly MissingCardPurchases[], from: IsoDate, to: IsoDate): string {
+function gapText(bills: readonly MissingCardPurchases[], from: IsoDate, to: IsoDate, lang: Language): string {
   const cents = bills.reduce((s, b) => s + b.cents, 0);
-  return `Ruoan menoja ei lasketa: ajalla ${formatFiDate(from)}–${formatFiDate(to)} on korttilaskuja ${formatEur(cents, false)}, mutta ${cardGapCause(bills)}.`;
+  return messageIn(lang, "rep.food_gap", { range: formatFiRange(from, to, lang), amount: formatEur(cents, false, lang), cause: String(cardGapCause(bills, lang)) });
 }
 
 /** The change of a line: see the head of the file. */
@@ -117,7 +120,7 @@ function changeOf(monthCents: readonly number[]): number | null {
   if (n < SIDE + USUAL_SIDE) return null;
   const before = monthCents.slice(n - SIDE - USUAL_SIDE, n - SIDE);
   const recent = Math.round(sum(monthCents.slice(n - SIDE)) / SIDE);
-  const usual = usualCents(before);
+  const usual = expectedLevel(before);
   if (usual === null || (recent >= Math.min(...before) && recent <= Math.max(...before))) return null;
   return Math.abs(recent - usual) > gateFor(usual) ? recent - usual : null;
 }
@@ -130,7 +133,7 @@ function sideOf(rows: readonly AnalysisTx[]): Side {
  * The food of the last complete months; null without a window (see `themeWindow`) and without food in it. A window
  * with card bills whose purchases are not in the data is a `FoodGap`, even without food on the accounts.
  */
-export function foodReport(ctx: AnalysisContext): FoodReport | null {
+export function foodReport(ctx: AnalysisContext, lang: Language = DEFAULT_LANGUAGE): FoodReport | null {
   const w = themeWindow(ctx);
   if (!w) return null;
   const { months, rows, cars, large } = w;
@@ -138,7 +141,7 @@ export function foodReport(ctx: AnalysisContext): FoodReport | null {
   const from = dateIn(fromMonthIndex(months[0]!), 1);
   const to = monthEnd(fromMonthIndex(months[n - 1]!));
   const bills = missingCardPurchases(ctx, { from, to });
-  if (bills.length) return { gap: { window: { from, to }, cents: bills.reduce((s, b) => s + b.cents, 0), bills, text: gapText(bills, from, to) } };
+  if (bills.length) return { gap: { window: { from, to }, cents: bills.reduce((s, b) => s + b.cents, 0), bills, text: gapText(bills, from, to, lang) } };
   const food = THEMES.find((theme) => theme.id === "food")!;
   const counts = behaviourOf(ctx);
   /** Is the row a purchase of its line? */
@@ -176,7 +179,7 @@ export function foodReport(ctx: AnalysisContext): FoodReport | null {
     const top = Math.max(0, ...monthCents);
     return {
       id: l.id,
-      heading: l.heading,
+      heading: lineName(food, l, lang),
       cents: cents[i]!,
       monthlyCents: listed.includes(i) ? shared[listed.indexOf(i)]! : 0,
       monthCents,

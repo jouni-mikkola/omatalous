@@ -1,47 +1,8 @@
-// Decision: what the user must act on, as one short list of one-line rows
-import { type Insight, insightDismissSubject, type MarkKind, OVERVIEW_INSIGHTS } from "@banking/core";
-import { query } from "../api.ts";
-import { SETTINGS_ANCHOR } from "../routes.ts";
-import { dayTime } from "../format.ts";
-import { partAnchor } from "../part.ts";
-import type { Account, DashboardData } from "../types.ts";
-
-/** The most rows the list shows; the link to Säästövinkit holds the rest. */
-export const MAX_ROWS = 4;
-
-/** The most alerts the list takes in (core cuts at six too); insights stop at core's `OVERVIEW_INSIGHTS`, the data-quality warning is one. */
-const MAX_ALERTS = 6;
-
-type Alert = DashboardData["alerts"][number];
-
-/** The tone as a word for a screen reader; only a warning is drawn differently. */
-const READ: Record<Insight["tone"], string> = { good: "Hyvä", warning: "Huomio", info: "Tiedoksi" };
-
-/** What a button of a row sends: a mark on a subject (`PUT /api/marks`), or the security notices read (`POST /api/security/notices/seen`). */
-export type Send = { subject: string; mark: MarkKind } | "seen";
-
-/** One button of a row. */
-interface Answer {
-  label: "Käytössä" | "Lopetettu" | "Kuittaa";
-  /** The button's accessible name: the label and what it is about. */
-  name: string;
-  send: Send;
-}
-
-export interface Notice {
-  /** What `answered` holds for the row: the alert's or the insight's own id, and the security notice's. */
-  id: string;
-  kind: "security" | "quality" | "connect" | "account" | "alert" | "insight";
-  title: string;
-  detail: string;
-  /** "Huomio", "Tiedoksi" or "Hyvä", read before the title. */
-  read: string;
-  warning: boolean;
-  href: string | null;
-  /** The words of the link, where the row has a link of its own at the right and its text is no link. */
-  link?: string;
-  answers: Answer[];
-}
+// Decision: which notice of the server the household reads first, and where it is mended
+import { localeOf, messageFromWire } from "@banking/core";
+import { dateTime, language, timeZone } from "../format.ts";
+import { t } from "../text.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 
 /** A notice of the server (`/api/security/notices`): `detail` is the device of a sign-in from a new one. */
 export interface SecurityNotice {
@@ -49,7 +10,17 @@ export interface SecurityNotice {
   kind: string;
   at: string | null;
   text: string;
+  /** The message code and parameters of the text (the server's security.ts), for the member's language. */
+  code?: string;
+  params?: Record<string, string | number>;
   detail?: string;
+}
+
+/** One line of the notices on Yhteenveto: its text and where it leads. */
+export interface NoticeLine {
+  id: string;
+  title: string;
+  href: string;
 }
 
 /**
@@ -64,126 +35,24 @@ export const bannersOf = (notices: readonly SecurityNotice[]): SecurityNotice[] 
 /** Notices about copies, the disk and the host helper: their text sends the admin to Asetukset > Ylläpito (the server's db-health.ts). */
 const MAINTENANCE = new Set(["copy_missing", "copy_check_failed", "disk_low", "helper_silent"]);
 
-/** Where a card or an account is connected: Pankkiyhteydet opens its bank list. */
-const CONNECT_HREF = "#/settings?add=1";
+/** The day and time of a notice's sentence, as the server's own Finnish text writes it: "24.10. 01.30", in the instance's time zone. */
+const whenOf = (at: string): string => new Intl.DateTimeFormat(localeOf(language()), { timeZone: timeZone(), day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(at));
 
-const dismiss = (title: string, send: Send): Answer => ({ label: "Kuittaa", name: `Kuittaa: ${title}`, send });
-
-/**
- * A notice of the server is one row that leads where the banner led, and Kuittaa reads them all, as the banner's button
- * did. A sign-in from a new device is told as a title ("Uusi kirjautuminen 12.10. klo 15.30 (Chrome, Windows)"); every other
- * notice is its own sentence, whole in the title attribute when the line cuts it.
- */
-function securityNotice(n: SecurityNotice): Notice {
-  const title = n.kind === "new_device" && n.at && n.detail ? `Uusi kirjautuminen ${dayTime(n.at)} (${n.detail})` : n.text;
-  const href = n.kind === "industry_lookup_off" ? "#/settings?section=server" : MAINTENANCE.has(n.kind) ? "#/settings?section=maintenance" : `#/settings#${SETTINGS_ANCHOR.login}`;
-  return { id: n.id, kind: "security", title, detail: "", read: READ.warning, warning: true, href, answers: [dismiss(title, "seen")] };
+/** The sentence of a notice in the member's language; a notice with no code, or one this build does not know, keeps the server's text. */
+export function noticeText(n: SecurityNotice): string {
+  if (!n.code) return n.text;
+  return messageFromWire(n.code, { ...n.params, when: n.at ? whenOf(n.at) : "" }, language()) ?? n.text;
 }
 
 /**
- * An alert opens its merchant's whole history (a double charge or a forgotten subscription shows in context) or its
- * category's rows of the chosen month. An alert about one payment opens that payee's rows of the payment's day, behind
- * a link that says what to do there. The question about a forgotten service is answered with Käytössä or Lopetettu on
- * that one series; every alert can be set aside with Kuittaa.
+ * A notice of the server is one line that leads where the banner led. A sign-in from a new device is told as a title
+ * ("Kirjautuminen uudelta laitteelta 12.10. klo 15.30 (Chrome, Windows)"); every other notice is its own sentence.
  */
-function alertNotice(a: Alert, range: { from: string; to: string }): Notice {
-  const subject = a.kind === "forgotten" ? a.markSubject : undefined;
-  const question: Answer[] =
-    subject && a.merchant
-      ? [
-          { label: "Käytössä", name: `Käytössä: ${a.merchant}`, send: { subject, mark: "in_use" } },
-          { label: "Lopetettu", name: `Lopetettu: ${a.merchant}`, send: { subject, mark: "cancelled" } },
-        ]
-      : [];
-  const filter = a.row ? { merchant: a.row.merchant, from: a.row.date, to: a.row.date } : a.merchant ? { merchant: a.merchant } : a.category ? { category: a.category, from: range.from, to: range.to } : null;
-  const link = a.kind === "uncategorised" ? { link: "Luokittele" } : {};
-  // two rows of one title are told apart by their detail, so the button's name carries it
-  const answers = [...question, dismiss(a.row ? `${a.title} ${a.detail}` : a.title, { subject: `alert:${a.id}`, mark: "dismissed" })];
-  return { id: a.id, kind: "alert", title: a.title, detail: a.detail, read: READ[a.tone], warning: a.tone === "warning", href: filter && `#/transactions${query(filter)}`, ...link, answers };
+function lineOf(n: SecurityNotice): NoticeLine {
+  const title = n.kind === "new_device" && n.at && n.detail ? t("notice.new_device_title", { when: dateTime(n.at), device: n.detail }) : noticeText(n);
+  const href = n.kind === "industry_lookup_off" ? settingsCardHash(SETTINGS_ANCHOR.server) : MAINTENANCE.has(n.kind) ? settingsCardHash(SETTINGS_ANCHOR.maintenance) : settingsCardHash(SETTINGS_ANCHOR.login);
+  return { id: n.id, title, href };
 }
 
-/** What /meta tells of an account that a notice about its split is built from. */
-type Noted = Pick<Account, "id" | "name" | "split" | "offer">;
-
-/**
- * The two notices about an account's split, each closed by the member's mark on its subject. The subject holds the figure
- * the notice is about, so a changed figure is another subject and the row comes back: the day the app set the split and the
- * percents of the offer; its open questions are asked in Tarkistettavat. A mark is `alert:`-prefixed, the form the marks route takes.
- */
-function accountNotices(accounts: readonly Noted[]): Notice[] {
-  const notice = (a: Noted, subject: string, title: string): Notice => ({
-    id: subject,
-    kind: "account",
-    title,
-    detail: "",
-    read: READ.info,
-    warning: false,
-    href: `#/settings#${partAnchor(a.id)}`,
-    link: "Katso",
-    answers: [dismiss(title, { subject, mark: "dismissed" })],
-  });
-  return accounts.flatMap((a) => [
-    ...(a.split?.by === "app" ? [notice(a, `alert:split:${a.id}:${a.split.at}`, `Tilin ${a.name} jako muuttui`)] : []),
-    ...(a.offer ? [notice(a, `alert:offer:${a.id}:${a.offer.map((o) => `${o.userId ?? ""}=${o.percent}`).join(",")}`, `Tilin ${a.name} jako ei vastaa maksuja`)] : []),
-  ]);
-}
-
-/** Core decides when a changed figure brings a dismissed insight back (`insightDismissSubject`). */
-function insightNotice(i: Insight): Notice {
-  return {
-    id: i.id,
-    kind: "insight",
-    title: i.title,
-    detail: i.detail,
-    read: READ[i.tone],
-    warning: i.tone === "warning",
-    href: i.merchant ? `#/transactions${query({ merchant: i.merchant })}` : null,
-    answers: [dismiss(i.title, { subject: insightDismissSubject(i), mark: "dismissed" })],
-  };
-}
-
-/**
- * The rows in one order: the notices of the server (a new sign-in first), the data-quality warning, the card or account to connect, the notices of an
- * account's split (those the member has not closed with a mark), the alerts in core's
- * order (six at most), the insights (three at most, and only while Säästövinkit is switched off: with it on, Muut havainnot
- * tells them; one that only tells good news is no row). What the household has answered is left out before the cut, so
- * the next one takes its place. `rows` are the first `MAX_ROWS`, `total` is how many there are, the link to the rest
- * counts them. No row is no list.
- */
-export function noticesOf(
-  data: Pick<DashboardData, "dataNotice" | "connectNotice" | "alerts" | "insights">,
-  options: {
-    range: { from: string; to: string };
-    answered: ReadonlySet<string>;
-    insights: boolean;
-    security?: readonly SecurityNotice[];
-    /** The member's own accounts as /meta tells them, and the subjects of their marks. */
-    accounts?: readonly Noted[];
-    marked?: ReadonlySet<string>;
-  },
-): { rows: Notice[]; total: number } {
-  const { range, answered } = options;
-  const banners = new Set(bannersOf(options.security ?? []));
-  const security = (options.security ?? []).filter((n) => !banners.has(n));
-  const quality: Notice[] = data.dataNotice
-    ? [{ id: data.dataNotice.id, kind: "quality", title: data.dataNotice.title, detail: data.dataNotice.detail, read: READ.warning, warning: true, href: `#/settings#${SETTINGS_ANCHOR.quality}`, answers: [] }]
-    : [];
-  // no Kuittaa: the row goes when the card is connected
-  const connect: Notice[] = data.connectNotice
-    ? [{ id: "connect", kind: "connect", title: data.connectNotice.title, detail: data.connectNotice.detail, read: READ.warning, warning: true, href: CONNECT_HREF, link: "Yhdistä", answers: [] }]
-    : [];
-  const alerts = data.alerts.filter((a) => !answered.has(a.id)).slice(0, MAX_ALERTS);
-  const insights = options.insights ? data.insights.filter((i) => i.tone !== "good" && !answered.has(i.id)).slice(0, OVERVIEW_INSIGHTS) : [];
-  const split = accountNotices(options.accounts ?? []).filter((n) => !answered.has(n.id) && !options.marked?.has(n.id));
-  const all = [...security.map(securityNotice), ...quality, ...connect, ...split, ...alerts.map((a) => alertNotice(a, range)), ...insights.map(insightNotice)];
-  return { rows: all.slice(0, MAX_ROWS), total: all.length };
-}
-
-/** A title as the first sentence of a line: the titles carry no full stop, so one is added unless the title already ends in a mark, an ellipsis, or a closing bracket after one. */
-export const sentenceTitle = (title: string): string => {
-  const t = title.trimEnd();
-  return /(?:[.?!:…]|[.?!:…]\))$/.test(t) ? t : `${t}.`;
-};
-
-/** A title and its detail as two sentences. */
-export const joinSentences = (title: string, detail: string): string => (detail ? `${sentenceTitle(title)} ${detail}` : title);
+/** The lines of the notices that are no banner, in the server's order. */
+export const securityRows = (notices: readonly SecurityNotice[]): NoticeLine[] => notices.filter((n) => !BANNER_KINDS.has(n.kind)).map(lineOf);

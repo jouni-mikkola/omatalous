@@ -3,12 +3,13 @@ import { barShare, deltaTone, type Meaning, sparkGeometry } from "./cells.ts";
 import type { SortDir } from "./sort.ts";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import "../../styles/table.css";
+import { css } from "../../css.ts";
 
 /** An inline bar anchored at the left of its cell; the figure itself stands in its own cell, the bar is hidden from readers. */
 export function BarCell({ value, max, color }: { value: number; max: number; color?: string }) {
   return (
     <span className="rt-bar-track" aria-hidden="true">
-      <span style={{ width: `${(barShare(value, max) * 100).toFixed(1)}%`, ...(color ? { background: color } : {}) }} />
+      <span ref={css({ width: `${(barShare(value, max) * 100).toFixed(1)}%`, background: color })} />
     </span>
   );
 }

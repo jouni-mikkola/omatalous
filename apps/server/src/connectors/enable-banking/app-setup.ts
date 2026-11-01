@@ -15,7 +15,7 @@
  * A saved app wins over EB_APP_ID / EB_PRIVATE_KEY from the environment.
  */
 import type { EnableBankingConfig } from "../../platform/config.ts";
-import { EnableBankingClient, EnableBankingError } from "./client.ts";
+import { EnableBankingClient, EnableBankingError, plainFault } from "./client.ts";
 import { canonicalPrivateKey, KeyProblem } from "../../security/private-key.ts";
 import { generateKeyAndCertificate } from "../../security/x509.ts";
 import { BANKS, type BankOption, DEFAULT_BANK, findAspsp, offeredFrom } from "./banks.ts";
@@ -235,16 +235,16 @@ function probeProblem(err: unknown, saved: boolean, own: boolean): ActivationRes
   if (err instanceof EnableBankingError) {
     if (err.status === 401) {
       const message = own
-        ? "Enable Banking ei tunnistanut sovellusta (401). Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta."
-        : "Enable Banking ei tunnistanut sovellusta (401). Tarkista Application ID ja varmista, että Enable Bankingissa on Omatalouden luoma varmenne.";
+        ? "Enable Banking ei tunnistanut sovellusta. Tarkista, että Application ID ja .pem-tiedosto ovat samasta sovelluksesta."
+        : "Enable Banking ei tunnistanut sovellusta. Tarkista Application ID ja varmista, että Enable Bankingissa on Omatalouden luoma varmenne.";
       return { verified: false, keyRefused: true, message };
     }
     if (err.status === 403) {
-      return { verified: false, message: "Enable Banking ei vielä päästä sovellusta pankkeihin (403). Paina Control Panelissa Activate by linking accounts ja valitse pankkisi." };
+      return { verified: false, message: "Enable Banking ei vielä päästä sovellusta pankkeihin. Paina Control Panelissa Activate by linking accounts ja valitse pankkisi." };
     }
-    return { verified: false, message: `Enable Banking vastasi virheellä ${err.status}.${kept} Yritä myöhemmin uudelleen.` };
+    return { verified: false, message: `${plainFault(err.status)}${kept}` };
   }
-  return { verified: false, message: `Enable Bankingiin ei saatu yhteyttä.${kept} Yritä myöhemmin uudelleen.` };
+  return { verified: false, message: `Emme saaneet yhteyttä Enable Bankingiin.${kept} Yritä myöhemmin uudelleen.` };
 }
 
 /**

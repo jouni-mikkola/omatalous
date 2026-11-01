@@ -1,8 +1,8 @@
 import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { cents, columnLine, linkFakeBank, makeMember, overflow, plain, removeMember, sayJointUse, setScope, waitForSync, watch } from "./helpers.ts";
+import { cents, linkFakeBank, makeMember, overflow, plain, removeMember, sayJointUse, setScope, waitForSync, watch } from "./helpers.ts";
 
-// The block Asuminen of Yhteenveto. The demo household of the administrator (e2e/run.mjs made it) pays rent and electricity, so
+// The block Asuminen of Raportit. The demo household of the administrator (e2e/run.mjs made it) pays rent and electricity, so
 // it is a tenant's; a loan saved here gives it a mortgage's row and goes at the end. The question about a home loan needs a
 // household that is no tenant: two members who link the fake bank (e2e/fake-bank/) have electricity and a joint account whose
 // payments no category calls a mortgage. They are made here and go at the end.
@@ -52,7 +52,7 @@ async function open(browser: Browser, state: string, path: string, options: { wi
   return { context, page, seen };
 }
 
-/** The block: the only region of that name on Yhteenveto. */
+/** The block: the only region of that name on Raportit. */
 const blockOf = (page: Page) => page.getByRole("region", { name: "Asuminen", exact: true });
 /** The two tables. Below 1040 px Lainat is drawn as pairs and is no table to a reader, so both are found by their class. */
 const loansOf = (block: Locator) => block.locator(".housing-loans");
@@ -74,7 +74,7 @@ const SENTENCES = ["Yhteisen tilin maksuista näkyy osuutesi.", "Asuntolainaa ei
 const ANSWER = { subject: "question:mortgage", mark: "dismissed" };
 
 test("a tenant's block: the rent and the electricity as the table Asumiskulut, one total, no table of loans and no question", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, STATE, "/#/overview");
+  const { context, page, seen } = await open(browser, STATE, "/#/reports?q=kiinteat");
   const block = blockOf(page);
   await expect(block.getByRole("heading", { level: 2 })).toHaveText("Asuminen");
   await expect(block.getByRole("table", { name: "Asumiskulut", exact: true })).toBeVisible();
@@ -97,11 +97,6 @@ test("a tenant's block: the rent and the electricity as the table Asumiskulut, o
   await expect(addLink(block)).toHaveCount(0);
   for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
 
-  // the block is the width of the page, under Erääntyvät maksut and on its edges
-  const mine = (await block.boundingBox())!;
-  const due = (await page.getByRole("region", { name: "Erääntyvät maksut", exact: true }).boundingBox())!;
-  expect([mine.x, mine.width]).toEqual([due.x, due.width]);
-  expect(mine.y).toBeGreaterThanOrEqual(due.y + due.height);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -123,7 +118,7 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   adminLoanId = (await saved.json()).loan.id;
   await context.close();
 
-  const { context: shown, page, seen } = await open(browser, STATE, "/#/overview");
+  const { context: shown, page, seen } = await open(browser, STATE, "/#/reports?q=kiinteat");
   const block = blockOf(page);
   const table = block.getByRole("table", { name: "Lainat", exact: true });
   await expect(table).toBeVisible();
@@ -154,11 +149,9 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   await expect(block.getByText(/Summasta puuttuu/)).toHaveCount(0);
   for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
 
-  // the sums are the block's last four columns: the charges end where they begin
+  // the sums stand beside the charges, which end where they begin
   const [left, right] = [(await chargesOf(block).boundingBox())!, (await block.locator(".housing-sums").boundingBox())!];
   expect(left.x + left.width).toBeLessThan(right.x);
-  const card = (await block.boundingBox())!;
-  expect(Math.abs(right.x - 24 - (await columnLine(page, card, 8))), "the sums start on the page's column line").toBeLessThanOrEqual(2);
 
   // the name opens the loans of Raportit
   await block.getByRole("link", { name: "Kodin laina" }).click();
@@ -168,12 +161,13 @@ test("a saved mortgage is a row of the table Lainat with its terms and its next 
   await shown.close();
 });
 
-test("the table Lainat fits the card at 1040 px, where it is narrowest, and under it a loan is a block: the name and the month, the terms as label and value pairs", async ({ browser }) => {
-  for (const width of [1040, 700, 390]) {
-    const { context, page, seen } = await open(browser, STATE, "/#/overview", { width });
+test("the table Lainat fits the card at 1040 px, and at 390 px a loan is a block: the name and the month, the terms as label and value pairs", async ({ browser }) => {
+  // the report's column is the page's width, so the table holds from 600 px of room and becomes a block only on a phone
+  for (const width of [1040, 390]) {
+    const { context, page, seen } = await open(browser, STATE, "/#/reports?q=kiinteat", { width });
     const block = blockOf(page);
     await expect(block.getByRole("link", { name: "Kodin laina" })).toBeVisible();
-    expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
+    expect(await overflow(page), `Raportit scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
     const card = (await block.boundingBox())!;
     for (const box of await block.locator("th, td, .st-row").evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).map((el) => el.getBoundingClientRect().toJSON()))) {
       expect(box.left, `a cell stays inside the card at ${width} px`).toBeGreaterThanOrEqual(card.x);
@@ -217,8 +211,8 @@ async function openQuestion(browser: Browser, state: string, width = 1280) {
   return { context, page, seen, card: page.locator(".review-item") };
 }
 
-test("Yhteenveto asks nothing: a household with a charge and no home loan sees the charge and its total in one table, and no question", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, members[0]!.state, "/#/overview");
+test("Raportit asks nothing: a household with a charge and no home loan sees the charge and its total in one table, and no question", async ({ browser }) => {
+  const { context, page, seen } = await open(browser, members[0]!.state, "/#/reports?q=kiinteat");
   const block = blockOf(page);
   await expect(chargesOf(block)).toBeVisible();
   // the electricity is the one charge; with no loan the total is the table's foot, under the figure it sums
@@ -236,12 +230,12 @@ test("Yhteenveto asks nothing: a household with a charge and no home loan sees t
   await context.close();
 });
 
-test("Tarkistettavat asks it instead: Onko teillä asuntolaina? with the link to the card Lainat of Asetukset; at 390 px nothing scrolls sideways", async ({ browser }) => {
+test("Tarkistettavat asks it instead: Onko taloudessa asuntolaina? with the link to the card Lainat of Asetukset; at 390 px nothing scrolls sideways", async ({ browser }) => {
   for (const width of [1280, 390]) {
     const { context, page, seen, card } = await openQuestion(browser, members[0]!.state, width);
-    await expect(card.getByRole("heading", { level: 2 })).toHaveText("Onko teillä asuntolaina?");
+    await expect(card.getByRole("heading", { level: 2 })).toHaveText("Onko taloudessa asuntolaina?");
     await expect(card.locator(".review-kind")).toHaveText("Asuminen");
-    await expect(addLink(card)).toHaveAttribute("href", "#/settings#lainat");
+    await expect(addLink(card)).toHaveAttribute("href", "#/settings/household#lainat");
     await expect(answerButton(card)).toBeEnabled();
     expect(await overflow(page), `Tarkistettavat scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
     const box = (await card.boundingBox())!;
@@ -251,7 +245,7 @@ test("Tarkistettavat asks it instead: Onko teillä asuntolaina? with the link to
     }
     if (width === 1280) {
       await addLink(card).click();
-      await expect(page).toHaveURL(/#\/settings#lainat$/);
+      await expect(page).toHaveURL(/#\/settings\/household#lainat$/);
       await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat", exact: true })).toBeVisible();
     }
     expect(seen.problems).toEqual([]);
@@ -272,12 +266,12 @@ test("Ei asuntolainaa stores the mark the first page stored, holds the button wh
   expect((await sent).postDataJSON()).toEqual(ANSWER);
   await expect(answerButton(card)).toBeDisabled();
   release();
-  await expect(page.getByRole("heading", { name: "Onko teillä asuntolaina?" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Onko taloudessa asuntolaina?" })).toHaveCount(0);
   await page.reload();
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Onko teillä asuntolaina?" })).toHaveCount(0);
-  // the charge stays on Yhteenveto
-  await page.goto("/#/overview?period=month");
+  await expect(page.getByRole("heading", { name: "Onko taloudessa asuntolaina?" })).toHaveCount(0);
+  // the charge stays on Raportit
+  await page.goto("/#/reports?q=kiinteat");
   await expect(chargesOf(blockOf(page))).toBeVisible({ timeout: 15_000 });
   expect((await chargeRows(blockOf(page))).map((r) => r[0])).toEqual(["Sähkö"]);
   expect(seen.problems).toEqual([]);
@@ -299,17 +293,17 @@ test("the answer is the member's own: the other member is asked still, and an an
   await context.close();
 });
 
-test("with nothing of a home left Yhteenveto shows no block, and the question waits in Tarkistettavat", async ({ browser }) => {
-  const { context, page } = await open(browser, members[1]!.state, "/#/overview");
+test("with nothing of a home left Raportit shows no block, and the question waits in Tarkistettavat", async ({ browser }) => {
+  const { context, page } = await open(browser, members[1]!.state, "/#/reports?q=kiinteat");
   // the electricity is called cancelled, as the marks route takes it: nothing of a home is known
-  const housing = (await (await context.request.get("/api/dashboard")).json()).housing as { charges: { seriesId: string }[] };
+  const housing = (await (await context.request.get("/api/reports?reports=housing")).json()).housing as { charges: { seriesId: string }[] };
   for (const charge of housing.charges) {
     const marked = await context.request.put("/api/marks", { headers: FETCH, data: { subject: `series:${charge.seriesId}`, mark: "cancelled" } });
     expect(marked.ok(), `PUT /api/marks answered ${marked.status()}`).toBe(true);
   }
   await page.reload();
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Varallisuus", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Raportit", level: 1 })).toBeVisible();
   await expect(blockOf(page)).toHaveCount(0);
   const items = (await (await context.request.get("/api/review")).json()).items as { kind: string }[];
   expect(items.some((i) => i.kind === "mortgage")).toBe(true);
@@ -336,7 +330,7 @@ async function saveProposedMortgage(browser: Browser, state: string): Promise<vo
 test("a loan paid from a joint account is the member's part with the line that says so and the whole in Koko talous; its missing terms are dashes, and only the member who typed it is offered Täydennä", async ({ browser }) => {
   await saveProposedMortgage(browser, members[1]!.state);
   const [first, second] = members as [Member, Member];
-  const own = await open(browser, first.state, "/#/overview", { scope: { id: first.id, choice: "own" } });
+  const own = await open(browser, first.state, "/#/reports?q=kiinteat", { scope: { id: first.id, choice: "own" } });
   const ownBlock = blockOf(own.page);
   // the loan the partner saved is a row with the rate it was typed with and a dash for the terms it lacks; no question is asked
   await expect(loanRows(ownBlock)).toHaveCount(1);
@@ -355,7 +349,7 @@ test("a loan paid from a joint account is the member's part with the line that s
   expect(own.seen.problems).toEqual([]);
   await own.context.close();
 
-  const whole = await open(browser, first.state, "/#/overview", { scope: { id: first.id, choice: "household" } });
+  const whole = await open(browser, first.state, "/#/reports?q=kiinteat", { scope: { id: first.id, choice: "household" } });
   const wholeBlock = blockOf(whole.page);
   const all = cents(await cell(loanRows(wholeBlock).first(), "month"));
   // 60 % of what the joint account pays, and the whole of it in Koko talous, where no row is a part
@@ -368,11 +362,11 @@ test("a loan paid from a joint account is the member's part with the line that s
   await whole.context.close();
 
   // the member who typed the loan sees the same dashes, and the one link that mends them
-  const typist = await open(browser, second.state, "/#/overview", { scope: { id: second.id, choice: "own" } });
+  const typist = await open(browser, second.state, "/#/reports?q=kiinteat", { scope: { id: second.id, choice: "own" } });
   const typed = loanRows(blockOf(typist.page)).first();
   expect([await cell(typed, "reference"), await cell(typed, "review")]).toEqual([DASH, DASH]);
   expect((await typed.locator(".housing-name .sub").allInnerTexts()).map(plain)).toContain("osuutesi 40 %");
-  await expect(typed.locator(".housing-link").getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings#lainat");
+  await expect(typed.locator(".housing-link").getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings/household#lainat");
   expect(typist.seen.problems).toEqual([]);
   await typist.context.close();
 });

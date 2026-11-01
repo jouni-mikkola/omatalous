@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(new URL("../src/styles/motion.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+// the sheet sits in a cascade layer (base.css); the rules below are read without that wrapper
+const css = readFileSync(new URL("../src/styles/motion.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*@layer [a-z]+ \{/, "").replace(/\}\s*$/, "");
 const REDUCE = "@media (prefers-reduced-motion: reduce)";
 const at = css.indexOf(REDUCE);
 const outside = css.slice(0, at);
@@ -55,7 +56,7 @@ describe("motion.css", () => {
   });
 
   it("keeps every duration and delay under 0.4 s and moves only opacity", () => {
-    const tokens = readFileSync(new URL("../src/styles/scale.css", import.meta.url), "utf8");
+    const tokens = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
     const ms = (v: string, u: string) => (u === "ms" ? Number(v) : Number(v) * 1000);
     const times: number[] = [];
     for (const m of outside.matchAll(/(?<![\w-])(\d*\.?\d+)(ms|s)\b/g)) times.push(ms(m[1]!, m[2]!));
@@ -66,6 +67,10 @@ describe("motion.css", () => {
     }
     expect(times.length).toBeGreaterThan(0);
     for (const t of times) expect(t).toBeLessThan(400);
+    // a panel waits its stagger step times n, then fades for --t-open: all readable under 400 ms
+    const steps = [...outside.matchAll(/calc\(var\(--t-stagger\) \* (\d+)\)/g)].map((m) => Number(m[1]));
+    expect(steps.length).toBeGreaterThan(0);
+    expect(Math.max(...steps) * Number(/--t-stagger:\s*(\d+)ms/.exec(tokens)![1]) + Number(/--t-open:\s*(\d+)ms/.exec(tokens)![1])).toBeLessThan(400);
 
     expect(outside).not.toMatch(/\b(width|height|top|left|margin|visibility|display)\s*:/);
     expect(outside).not.toMatch(/infinite|scroll\(|animation-timeline/);

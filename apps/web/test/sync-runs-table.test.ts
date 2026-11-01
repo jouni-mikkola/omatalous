@@ -1,8 +1,8 @@
-/** Haku pankista: a column nobody filled is not drawn, and Uusia is a figure column. */
+/** Päivitykset: a column nobody filled is not drawn, and Uusia is a figure column. */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { RunsTable } from "../src/pages/settings/Technical.tsx";
+import { RunsTable } from "../src/pages/settings/SyncRuns.tsx";
 import type { SyncRun } from "../src/types.ts";
 
 const run = (id: number, message: string | null): SyncRun => ({ id, startedAt: "2026-10-13T06:15:00Z", trigger: "schedule", status: "ok", inserted: 3, message }) as unknown as SyncRun;

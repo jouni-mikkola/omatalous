@@ -9,7 +9,7 @@ import { car } from "../../src/optimise/areas/car.ts";
 import { kids } from "../../src/optimise/areas/kids.ts";
 import { tax } from "../../src/optimise/areas/tax.ts";
 import { type Area, areaInputOf, buildOptimise, optimiseEnd } from "../../src/optimise/index.ts";
-import { ACCOUNTS, FRAME, type Frame, householdInput, joinHousehold, type PartHousehold } from "./household.ts";
+import { ACCOUNTS, FRAME, type Frame, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as carPart from "./parts/car.ts";
 import * as kidsPart from "./parts/kids.ts";
 import * as taxPart from "./parts/tax.ts";
@@ -39,14 +39,14 @@ describe("tax: household deduction", () => {
     expect(calcOf(f!)).toMatchObject({
       "Siivous ja pihatyöt, työn osuus 100 %": "1 720 €",
       "Muut työt, työn osuus 50–100 %": "2 000 €",
-      "Vähennys, vaihteluväli": "802–1 152 €",
+      "Vähennys, arvioitu väli": "802–1 152 €",
       // 40 % of 3 220 € less 150 €; never in the euros
-      "Jos esitys hyväksytään (40 %, enintään 2 100 €)": "1 138 €",
+      "Jos eduskunta hyväksyy esityksen (40 %, enintään 2 100 €)": "1 138 €",
     });
     expect(f!.rows).toHaveLength(12);
     expect(f!.facts).not.toContain("household_deduction_proposed");
     const data = shown(tax, [taxPart.hit(FRAME)]);
-    expect(data.areas[0]!.findings.map((x) => x.certainty)).toEqual([{ level: "keskitaso", reason: "Laskuista ei näy, paljonko niistä on työtä." }]);
+    expect(data.areas[0]!.findings.map((x) => x.certainty)).toEqual([{ level: "keskitaso", reason: "Emme näe laskuista, paljonko niissä on työtä." }]);
   });
 
   it("counts cleaning in full: 35 % of 1 080 € less 150 €", () => {
@@ -199,7 +199,7 @@ describe("car: parking and costs", () => {
     const [f, ...rest] = result.findings;
     expect(rest).toEqual([]);
     expect(f!.euros).toMatchObject({ lowCents: 25_200, midCents: 25_200, highCents: 25_200 });
-    expect(plain(f!.title)).toBe("Pysäköinti 432 € vuodessa, asukaspysäköintitunnus 180 € vuodessa. Pohjana 48 pysäköintimaksua 12 kuukaudessa.");
+    expect(plain(f!.title)).toBe("Pysäköinti 432 € vuodessa, asukaspysäköintitunnus 180 € vuodessa. Laskelma perustuu 48 pysäköintimaksuun 12 kuukaudessa.");
     expect(f!.struck).toHaveLength(1);
     expect(f!.calc.find((c) => c.struck)).toMatchObject({ label: "EasyPark 3.7.2026" });
     expect(result.summary!.title).toBe("Auton menot 12 kuukaudessa");

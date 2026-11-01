@@ -13,29 +13,31 @@
  * moved), which is price. A category with fewer than four rows in the base, and every debt category, has
  * only one-off and timing, the rest is "other".
  *
- * The usual level of a category is a median, and medians do not add up, so the merchants' mean base differs from it
- * by a bucket of its own (`spread`). That bucket is the only one that is no cause. The same holds one level up: the
- * usual month is the median of the month totals (`usualSpendingOver`, the one usual total of ADR 0004). The categories'
- * own levels add up to more or less than it (their one-offs are struck), and the difference is a spread in the row of
- * the smaller categories, which can be negative.
+ * The expected level of a category is its own figure of `expected.ts` (ADR 0021): a mean of the base months with a
+ * bill that comes every three months or less often placed in the month it falls due, so the categories add up to the
+ * expected month to the cent. The merchants' mean base differs from it by a bucket of its own (`spread`), which is the only
+ * one that is no cause.
  *
  * The usual view also owns what a category cost against its usual level for the spike alert (ADR 0013):
  * `categoryRises` gives the categories that rose over the gate and stand out, and whose ordinary purchases stand out
  * on their own, with the report's own figures, and the alert tells nothing else.
  */
 import { getCategory } from "../categories.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { addMonths, monthIndex } from "../dates.ts";
 import { monthSpan, sameAccounts } from "./coverage.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import type { IsoDate } from "../types.ts";
 import { type Plan, planOf, rowsComplete, windowOf } from "./change-plan.ts";
 import { floorsOf, monthSeries, type SignalInput, standsOut } from "./change-signal.ts";
-import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, isMonthlyOrLonger, type Merch, MIN_BASE_ROWS, netReturns, purchases, RARE, type Split, spendOf, splitMerchant, sum } from "./change-split.ts";
+import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, isMonthlyOrLonger, type Merch, MIN_BASE_ROWS, NO_DUE, netReturns, purchases, RARE, type Split, spendOf, splitMerchant, sum } from "./change-split.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { LEVEL, oneOffs } from "./one-offs.ts";
-import { gateFor, isCompleteMonth, usualCents, usualSpendingOver } from "./usual.ts";
+import { type ExpectedDue, expectedFor, expectedLevel, expectedOver } from "./expected.ts";
+import { gateFor, isCompleteMonth } from "./usual.ts";
 
-export type ChangeView = "usual" | "year" | "season";
+export type ChangeView = "expected" | "year" | "season";
 export type BucketKind = "oneoff" | "timing" | "new" | "stopped" | "price" | "volume" | "spread" | "other";
 
 export interface Bucket {
@@ -58,10 +60,7 @@ export interface MerchantChange {
   buckets: Bucket[];
 }
 
-/**
- * A named category, or the row for the smaller ones. In the usual view that row also holds what the categories' own
- * levels leave of the usual month, as its spread.
- */
+/** A named category, or the row for the smaller ones. */
 export interface CategoryChange {
   kind: "category" | "smaller";
   category: string | null;
@@ -115,7 +114,7 @@ export interface SpendingChange {
   nowCents: number;
   baseCents: number;
   changeCents: number;
-  /** A cause shows on its own at this size or more (10 € and 2 % of the usual monthly spending, for each month of the target). */
+  /** A cause shows on its own at this size or more (10 € and 2 % of the expected monthly spending, for each month of the target). */
   gateCents: number;
   /** The total's change stands out from the household's month-to-month noise: only then is the period dearer or cheaper. */
   standsOut: boolean;
@@ -130,9 +129,9 @@ export interface SpendingChange {
 export interface CategoryRise {
   category: string;
   label: string;
-  /** The category's row of the report: the month's spending and its usual level, both to the same day in a running month. */
+  /** The category's row of the report: the month's spending and its expected level, both to the same day in a running month. */
   nowCents: number;
-  usualCents: number;
+  expectedCents: number;
   changeCents: number;
   /**
    * The rise in ordinary purchases: rows that are no one-off and no bill or subscription of a month or longer
@@ -188,12 +187,17 @@ export function contextIndex(ctx: AnalysisContext): ContextIndex {
   return index;
 }
 
-/** The row for the categories under the gate together; with none, the row holds only the usual month's spread. */
-export const restLabel = (count: number) => (count ? `Muut (${count})` : "Muut");
+/** The row for the categories under the gate together. */
+export const restLabel = (count: number, lang: Language = DEFAULT_LANGUAGE) => (count ? messageIn(lang, "rep.rest_count", { count }) : messageIn(lang, "rep.other"));
 
 const LABEL: Record<BucketKind, string> = { oneoff: "Kertaosto", timing: "Ajoitus", new: "Uudet kaupat", stopped: "Ostoja jäi pois", price: "Kalliimpi ostoskerta", volume: "Useammin", spread: "Kuukausien vaihtelu", other: "Syy ei näy tiedoista" };
 
-export function bucketLabel(kind: BucketKind, cents: number, bills = false): string {
+export function bucketLabel(kind: BucketKind, cents: number, bills = false, lang: Language = DEFAULT_LANGUAGE): string {
+  if (lang !== DEFAULT_LANGUAGE) {
+    if (bills && kind === "price") return messageIn(lang, cents < 0 ? "rep.bucket_smaller_bill" : "rep.bucket_bigger_bill");
+    if (cents < 0 && kind === "price") return messageIn(lang, "rep.bucket_cheaper");
+    return messageIn(lang, cents < 0 && kind === "volume" ? "rep.bucket_rarer" : (`rep.bucket_${kind}` as const));
+  }
   // a contract's moved amount is a bigger bill, never a dearer purchase
   if (bills && kind === "price") return cents < 0 ? "Pienempi lasku" : "Suurempi lasku";
   if (cents < 0 && kind === "price") return "Halvempi ostoskerta";
@@ -214,6 +218,20 @@ interface Rows {
   gate: number;
   signal: SignalInput;
   yearAgo: Map<string, number> | null;
+  /** The usual view: the expected spending of each category and in all on the days of the plan (`expectedFor`), else null. */
+  expected: { byCategory: ReadonlyMap<string, number>; totalCents: number; due: ReadonlyMap<string, ExpectedDue> } | null;
+}
+
+/** The expected figure of the usual view's month on the plan's days, from the plan's own base months. */
+function expectedOfPlan(ctx: AnalysisContext, plan: Plan): Rows["expected"] {
+  if (!plan.mean) return null;
+  const month = plan.target[0]!;
+  const shared = expectedFor(ctx, month);
+  const figure = shared && shared.months.join() === plan.base.join() ? shared : expectedOver(ctx, month, plan.base);
+  const at = figure.at(plan.cap);
+  // the bills that fall due in the month by the plan's last day: a yearly bill is expected in its month, not a timing
+  const due = new Map(figure.due.filter((d) => d.day <= plan.cap).map((d) => [d.seriesId, d]));
+  return { byCategory: new Map(at.categories.map((c) => [c.category, c.cents])), totalCents: at.cents, due };
 }
 
 function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
@@ -223,7 +241,7 @@ function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
   const rowsOf = (m: string) => (byMonth.get(monthIndex(m)) ?? []).filter((t) => t.spend !== 0 && dayOfMonth(t) <= plan.cap);
   const target = netReturns(plan.target.flatMap(rowsOf), returns);
   const struck = oneOffs([...target, ...plan.base.flatMap(rowsOf)], LEVEL, ctx.fixedIds);
-  // the usual level is a median of months with their one-offs struck, so a pair nets inside its month; otherwise the
+  // the expected level is read from months with their one-offs struck, so a pair nets inside its month; otherwise the
   // base is the whole period as it was
   const baseByMonth = plan.mean ? plan.base.map((m) => netReturns(rowsOf(m), returns).filter((t) => !struck.has(t.id))) : [netReturns(plan.base.flatMap(rowsOf), returns)];
   const noiseRows = plan.noise.flatMap(rowsOf);
@@ -238,25 +256,29 @@ function rowsFor(ctx: AnalysisContext, plan: Plan): Omit<Rows, "gate"> {
   // a year ago, for the season mark of the usual view
   const ago = addMonths(plan.target[0]!, -12);
   let yearAgo: Map<string, number> | null = null;
-  if (plan.view === "usual" && isCompleteMonth(ctx, ago, undefined, { from: rowsComplete(ctx).from, today: ctx.today }) && sameAccounts(ctx, monthSpan(ago), monthSpan(plan.target[0]!))) {
+  if (plan.view === "expected" && isCompleteMonth(ctx, ago, undefined, { from: rowsComplete(ctx).from, today: ctx.today }) && sameAccounts(ctx, monthSpan(ago), monthSpan(plan.target[0]!))) {
     yearAgo = new Map();
     for (const t of rowsOf(ago)) yearAgo.set(t.category, (yearAgo.get(t.category) ?? 0) + t.spend);
   }
-  return { plan, rowsOf, target, baseByMonth, struck, seriesOf, n: plan.mean ? plan.base.length : 1, signal, yearAgo };
+  return { plan, rowsOf, target, baseByMonth, struck, seriesOf, n: plan.mean ? plan.base.length : 1, signal, yearAgo, expected: expectedOfPlan(ctx, plan) };
 }
 
 /** The merchants of a category with their base, a mean over the months in the usual view (apportioned to whole cents). */
-function merchantsOf(r: Rows, target: AnalysisTx[], flatBase: AnalysisTx[]): Merch[] {
+function merchantsOf(r: Rows, id: string, target: AnalysisTx[], flatBase: AnalysisTx[]): Merch[] {
   const byName = new Map<string, Merch>();
   const merch = (name: string) => byName.get(name) ?? (byName.set(name, { name, target: [], base: [], baseCents: 0, baseVisits: 0 }), byName.get(name)!);
   for (const t of target) merch(t.merchant).target.push(t);
   // a bill of a rare cadence is not part of an ordinary month, so it is not in the mean base
   for (const t of flatBase) if (!(r.plan.mean && RARE.has(r.seriesOf.get(t.id)?.cadence ?? ""))) merch(t.merchant).base.push(t);
+  // a bill that falls due in the month is in the expected figure whole: its merchant has it as its base
+  const dues = [...(r.expected?.due.values() ?? [])].filter((d) => d.category === id);
+  for (const d of dues) merch(d.merchant);
   const list = [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
   const shares = r.plan.mean ? apportion(list.map((m) => spendOf(m.base)), r.n) : list.map((m) => spendOf(m.base));
   list.forEach((m, i) => {
-    m.baseCents = shares[i]!;
-    m.baseVisits = purchases(m.base).length / r.n;
+    const own = dues.filter((d) => d.merchant === m.name);
+    m.baseCents = shares[i]! + sum(own.map((d) => d.cents));
+    m.baseVisits = purchases(m.base).length / r.n + own.length;
   });
   return list;
 }
@@ -283,20 +305,20 @@ function categoryChange(r: Rows, id: string, pieces: ChangePiece[]): CategoryCha
   const target = r.target.filter((t) => t.category === id);
   const baseMonths = r.baseByMonth.map((rows) => rows.filter((t) => t.category === id));
   const flatBase = baseMonths.flat();
-  const baseCents = r.plan.mean ? (usualCents(baseMonths.map(spendOf)) ?? 0) : spendOf(flatBase);
+  const baseCents = r.expected ? (r.expected.byCategory.get(id) ?? 0) : spendOf(flatBase);
   const nowCents = spendOf(target);
   const facts: Facts = { category: id, change: nowCents - baseCents, oneOffs: r.struck, restricted: purchases(flatBase).length < MIN_BASE_ROWS || getCategory(id).kind === "debt" };
-  const list = merchantsOf(r, target, flatBase);
+  const list = merchantsOf(r, id, target, flatBase);
   const total: Split = {};
   const items = list.map((m): Item => {
-    const split = splitMerchant(m, facts, r.plan, r.n, r.seriesOf);
+    const split = splitMerchant(m, facts, r.plan, r.n, r.seriesOf, r.expected?.due ?? NO_DUE);
     addSplit(total, split);
     const now = spendOf(m.target);
     const visitsNow = purchases(m.target).length;
     const ticketBaseCents = m.baseVisits > 0 ? Math.round(m.baseCents / m.baseVisits) : null;
     return { kind: "merchant", label: m.name, nowCents: now, baseCents: m.baseCents, changeCents: now - m.baseCents, visitsNow, visitsBase: Math.round(m.baseVisits * 10) / 10, ticketNowCents: visitsNow ? Math.round(now / visitsNow) : null, ticketBaseCents, buckets: bucketList(split), split };
   });
-  // the merchants' base is a mean, the category's usual level a median: the difference is a bucket, not a cause
+  // the merchants' base is a mean of the months, the category's expected figure also holds its bills by their months: the difference is a bucket, not a cause
   const spread = sum(list.map((m) => m.baseCents)) - baseCents;
   addSplit(total, spread ? { spread } : {});
   const both = items.filter((m) => m.visitsNow > 0 && m.baseCents > 0);
@@ -340,30 +362,24 @@ function categoryStandsOut(r: Rows, change: number, target: readonly AnalysisTx[
 
 const KEYS = ["nowCents", "baseCents", "changeCents", "visitsNow", "visitsBase", "sameShopsNowCents", "sameShopsBaseCents", "sameShopsVisitsNow", "sameShopsVisitsBase"] as const;
 
-/**
- * The categories that did not make the list, as one row, with `gap`: the part of the usual month that no category's own
- * level holds (usual view), a spread like the one inside a category.
- */
-function smallerRow(rest: readonly CategoryChange[], pieces: readonly ChangePiece[], gate: number, gap: number): CategoryChange {
+/** The categories that did not make the list, as one row. */
+function smallerRow(rest: readonly CategoryChange[], pieces: readonly ChangePiece[], gate: number): CategoryChange {
   const split: Split = {};
   const ids = new Set(rest.map((c) => c.category));
   for (const p of pieces) if (p.category !== null && ids.has(p.category)) split[p.kind] = (split[p.kind] ?? 0) + p.cents;
-  if (gap) split.spread = (split.spread ?? 0) - gap;
   const totals = Object.fromEntries(KEYS.map((key) => [key, sum(rest.map((c) => c[key]))])) as Record<(typeof KEYS)[number], number>;
-  totals.baseCents += gap;
-  totals.changeCents -= gap;
   return { kind: "smaller", category: null, label: restLabel(rest.length), ...totals, ...gated(split, gate), yearAgoCents: null, season: false, standsOut: false, bills: false, merchants: [] };
 }
 
 /**
  * The total stands out from its noise without its one-offs, or one of its categories does. The noise is read from
- * month totals with their one-offs struck, so in the usual view the month is set against the median of the base
- * months' struck totals (`monthT`): the usual total's own definition without the one-offs.
+ * month totals with their one-offs struck, so in the usual view the month is set against the expected total less
+ * the one-offs it already leaves out.
  */
 function totalStandsOut(r: Rows, categories: readonly CategoryChange[], nowTotal: number, change: number): boolean {
   const oneOffNow = spendOf(r.target.filter((t) => r.struck.has(t.id)));
   const moved = r.plan.mean
-    ? nowTotal - oneOffNow - (usualCents(r.baseByMonth.map(spendOf)) ?? 0)
+    ? nowTotal - oneOffNow - r.expected!.totalCents
     : change - oneOffNow + spendOf(r.baseByMonth.flat().filter((t) => r.struck.has(t.id)));
   // like a category, the total counts only a move the same way as the change the sentence states
   return (Math.sign(moved) === Math.sign(change) && standsOut(r.signal, null, moved)) || categories.some((c) => c.standsOut && Math.abs(c.changeCents) >= r.gate && Math.sign(c.changeCents) === Math.sign(change));
@@ -392,9 +408,9 @@ function riseOf(r: Rows, row: CategoryChange): CategoryRise[] {
   const ordinary = (rows: readonly AnalysisTx[]) => rows.filter((t) => t.category === id && !r.struck.has(t.id) && !isMonthlyOrLonger(r.seriesOf.get(t.id)));
   const now = ordinary(r.target);
   const months = r.baseByMonth.map((rows) => spendOf(ordinary(rows)));
-  const moreCents = spendOf(now) - (usualCents(months) ?? 0);
+  const moreCents = spendOf(now) - (expectedLevel(months) ?? 0);
   if (moreCents <= 0 || !standsOut(r.signal, id, moreCents)) return [];
-  return [{ category: id, label: row.label, nowCents: row.nowCents, usualCents: row.baseCents, changeCents: row.changeCents, moreCents, purchases: purchases(now).length, peak: spendOf(now) > Math.max(...months), season: row.season, yearAgoCents: row.yearAgoCents }];
+  return [{ category: id, label: row.label, nowCents: row.nowCents, expectedCents: row.baseCents, changeCents: row.changeCents, moreCents, purchases: purchases(now).length, peak: spendOf(now) > Math.max(...months), season: row.season, yearAgoCents: row.yearAgoCents }];
 }
 
 interface Analysis {
@@ -404,11 +420,10 @@ interface Analysis {
 
 /**
  * The change of spending (consumption + debt) in a view, split into causes. `month` is the month the view is about:
- * the month itself for "usual" and "season", the last month of the `yearMonths` (twelve unless a shorter range asks) for "year". null when the history does not
- * support the comparison. The usual level of a category is its own (the median of its months with one-offs struck), so a
- * deposit, a repayment or a trip in one base month does not move it. The usual total is the month's usual spending
- * (`usualSpendingOver` on the base months and days), the figure every view of the month calls "tavallisesti"; what the
- * categories' levels leave of it goes to the row of the smaller categories.
+ * the month itself for "expected" and "season", the last month of the `yearMonths` (twelve unless a shorter range asks) for "year". null when the history does not
+ * support the comparison. The expected level of a category is its own (`expectedFor`: its months' mean with one-offs
+ * struck and bills of a rare cadence in their own month), so a deposit, a repayment or a trip in one base month does not
+ * move it. The expected total is the sum of the categories, the figure every view of the month calls "odotettu".
  */
 export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: string, yearMonths = 12): SpendingChange | null {
   return analyse(ctx, view, month, yearMonths)?.change ?? null;
@@ -419,7 +434,7 @@ export function spendingChange(ctx: AnalysisContext, view: ChangeView, month: st
  * null when the history gives the month no usual view.
  */
 export function categoryRises(ctx: AnalysisContext, month: string): MonthRises | null {
-  const a = analyse(ctx, "usual", month);
+  const a = analyse(ctx, "expected", month);
   return a && { running: a.change.running, through: a.change.target.to, gateCents: a.change.gateCents, rises: a.rises };
 }
 
@@ -427,22 +442,15 @@ function analyse(ctx: AnalysisContext, view: ChangeView, month: string, yearMont
   const plan = planOf(ctx, view, month, yearMonths);
   if (!plan) return null;
   const base = rowsFor(ctx, plan);
-  const ids = [...new Set([...base.target, ...base.baseByMonth.flat()].map((t) => t.category))].sort();
-  const categoryBase = (id: string) => {
-    const months = base.baseByMonth.map((rows) => spendOf(rows.filter((t) => t.category === id)));
-    return plan.mean ? (usualCents(months) ?? 0) : sum(months);
-  };
-  const categoriesBase = sum(ids.map(categoryBase));
-  // medians do not add up: a category bought from now and then has a usual level of nothing, yet a usual month has some of it
-  const baseTotal = plan.mean ? (usualSpendingOver(ctx, plan.base, plan.cap) ?? 0) : categoriesBase;
-  const gap = baseTotal - categoriesBase;
+  // the expected categories join those with rows: a bill due this month is expected where no row of the base month has it
+  const ids = [...new Set([...base.target, ...base.baseByMonth.flat()].map((t) => t.category).concat([...(base.expected?.byCategory.keys() ?? [])]))].sort();
+  const baseTotal = base.expected ? base.expected.totalCents : sum(ids.map((id) => sum(base.baseByMonth.map((rows) => spendOf(rows.filter((t) => t.category === id))))));
   const nowTotal = spendOf(base.target);
   const months = plan.target.length;
   // the gate of a month against the base of a month, so a year's base is divided by its months
   const r: Rows = { ...base, gate: gateFor(plan.mean ? baseTotal : baseTotal / months) * months };
   const pieces: ChangePiece[] = [];
   const categories = ids.map((id) => categoryChange(r, id, pieces));
-  if (gap) pieces.push({ category: null, kind: "spread", cents: -gap, season: false });
   pieces.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || (a.category ?? "").localeCompare(b.category ?? "") || a.kind.localeCompare(b.kind));
 
   const ranked = categories
@@ -450,7 +458,7 @@ function analyse(ctx: AnalysisContext, view: ChangeView, month: string, yearMont
     .sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents) || (a.category ?? "").localeCompare(b.category ?? ""));
   const rows = ranked.filter((c) => Math.abs(c.changeCents) >= MIN_ROW_CENTS).slice(0, MAX_CATEGORIES);
   const rest = ranked.filter((c) => !rows.includes(c));
-  if (rest.length || gap) rows.push(smallerRow(rest, pieces, r.gate, gap));
+  if (rest.length) rows.push(smallerRow(rest, pieces, r.gate));
 
   const change: SpendingChange = {
     view,

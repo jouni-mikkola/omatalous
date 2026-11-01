@@ -45,7 +45,7 @@ t_a_key_is_set() {
   file 'KEY_2=a\nKEY=b\nXKEY=c\n'
   check "set: a key whose name is a part of another's is not that key" wrote 'KEY_2=a\nKEY=d\nXKEY=c\n' place 600 KEY=d
   file 'A=1\n'
-  # shellcheck disable=SC2016
+  # shellcheck disable=SC2016 # single quotes on purpose: $HOME and the backticks must reach the file as text
   check "set: a value is written as it is given, whatever it holds" wrote 'A=1\nK=a=b= $HOME `id` "q" \\n *\n' place 600 'K=a=b= $HOME `id` "q" \n *'
   check "set: an empty value is a value" wrote 'A=\nK=\n' place 600 K= A=
   file 'A=1\nK=1\nB=2\nK=2\n'

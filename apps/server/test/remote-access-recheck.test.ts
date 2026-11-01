@@ -12,7 +12,9 @@ import { readAccessRequest, writeAccessRequest } from "../src/services/access-re
 import { TOKEN_KEY } from "../src/services/remote-access-cloudflare.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
 import { waitFor } from "./helpers.ts";
-import { ANNA, API_TOKEN, HOST, LAN, LIISA, PASSWORD, PEKKA, prepared, TUNNEL, turnedOn } from "./remote-access-kit.ts";
+import { ANNA, API_TOKEN, HOST, LAN, LIISA, PASSWORD, PEKKA, prepared, TUNNEL, turnedOn, useWorlds } from "./remote-access-kit.ts";
+
+useWorlds();
 
 const MINUTE = 60_000;
 const NOT_SAID = "Ylläpitoapuri ei ole vielä kertonut, onko asennus tunnelin takana. Yritä hetken päästä uudelleen.";

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-
+import { t } from "../text.ts";
+import { Empty } from "./ui/Empty.tsx";
 /**
  * Placeholder while a page's data is on its way. Silent for the first moment so a fast
  * answer does not flash, a hint when the wait gets long. The frames are the page's own panels at their final size,
@@ -23,7 +24,7 @@ export function Loading({ shape }: { shape?: "overview" } = {}) {
     </div>
   );
   return (
-    <div className="stack" role="status" aria-live="polite" style={{ visibility: stage ? "visible" : "hidden" }}>
+    <div className={stage ? "stack" : "stack stack-hidden"} role="status" aria-live="polite">
       {shape === "overview" && (
         <div className="key-figures sk-strip" aria-hidden="true">
           {[0, 1, 2, 3].map((i) => (
@@ -47,7 +48,7 @@ export function Loading({ shape }: { shape?: "overview" } = {}) {
         ))}
       </div>
       {shape !== "overview" && plotCard}
-      <div className="empty">{stage === 2 ? "Lataus kestää tavallista kauemmin. Odota tai lataa sivu uudelleen." : "Ladataan…"}</div>
+      <Empty>{stage === 2 ? t("load.slow") : t("load.loading")}</Empty>
     </div>
   );
 }

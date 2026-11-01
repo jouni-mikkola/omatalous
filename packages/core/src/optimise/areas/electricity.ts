@@ -4,6 +4,8 @@
  * them alone gives a price too low to compare. The yearly kWh is one typed number (`electricity_kwh`), never Datahub.
  * Left out: spot against fixed (no verdict), hourly use, district heat, water and waste.
  */
+import { localeOf, type Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { addDays, dayNumber, monthOf } from "../../dates.ts";
@@ -11,8 +13,8 @@ import { fold } from "../../merchant.ts";
 import { cadenceMonths } from "../../recurring.ts";
 import { median } from "../../stats.ts";
 import type { IsoDate } from "../../types.ts";
-import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS, WHY_FACTS, whyHistory } from "../common.ts";
-import { type Fact, factOn } from "../facts/index.ts";
+import { accountsBefore, findingId, levelWithoutOneOffs, MAX_ROWS, whyFacts, whyHistory } from "../common.ts";
+import { type Fact, factLabel, factOn } from "../facts/index.ts";
 import { inputStatus, valueOf } from "../inputs.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft, NoDataWhy } from "../types.ts";
 import { electricityRoleOf } from "../../industry.ts";
@@ -54,19 +56,12 @@ export function billKind(t: Pick<AnalysisTx, "merchant" | "counterparty" | "desc
   return isElectricitySeller(name) ? "seller" : null;
 }
 
-const one = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const whole = new Intl.NumberFormat("fi-FI");
-const perKwh = (tenths: number) => `${one.format(tenths / 10)}\u00a0c/kWh`;
-const kwhText = (kwh: number) => `${whole.format(kwh)}\u00a0kWh`;
+const perKwh = (tenths: number, lang: Language) => `${new Intl.NumberFormat(localeOf(lang), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(tenths / 10)}\u00a0c/kWh`;
+const kwhText = (kwh: number, lang: Language) => `${new Intl.NumberFormat(localeOf(lang)).format(kwh)}\u00a0kWh`;
 const tenthsOf = (f: Fact) => Math.round(f.value * 10);
 
 /** The year's bills are partly of the old home: they are not compared. */
-const MOVED: NoDataWhy = { cause: "other", text: "Muutto on tehty vuoden sisällä, joten vanhan kodin laskuja ei vertailla." };
-const ONE_BILL: NoDataWhy = { cause: "other", text: "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten hintaa ei voi verrata." };
-const TWO_ADDRESSES: NoDataWhy = { cause: "other", text: "Laskuissa on kaksi verkkoyhtiötä, joten annettu kulutus ei koske kaikkia." };
-const TOO_DEAR: NoDataWhy = { cause: "other", text: "Laskut ovat yli kaksinkertaiset vertailuhintaan nähden, joten niissä on luultavasti muutakin kuin sähköä." };
-const PRICE_LABEL = "Sähkön hinta";
-const CONTRACT_LABEL = "Sähkösopimuksen päättyminen";
+const why = (a: AreaInput, code: "opt.el_moved" | "opt.el_one_bill" | "opt.el_two_addr" | "opt.el_too_dear"): NoDataWhy => ({ cause: "other", text: messageIn(a.lang, code) });
 
 interface Bills {
   bills: { t: AnalysisTx; kind: BillKind }[];
@@ -111,24 +106,24 @@ function coversYear(ctx: AnalysisContext, side: readonly AnalysisTx[], industry:
   return months === 12;
 }
 
-function priceCheck(status: Check["status"], input?: string, why?: NoDataWhy): Check {
-  return { id: "electricity:price", label: PRICE_LABEL, status, ...(input ? { input } : {}), ...(why ? { why } : {}) };
-}
+const priceCheckOf = (a: AreaInput) => (status: Check["status"], input?: string, why?: NoDataWhy): Check => ({ id: "electricity:price", label: messageIn(a.lang, "opt.el_price_chk"), status, ...(input ? { input } : {}), ...(why ? { why } : {}) });
 
 function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check } {
   const { ctx, today } = a;
+  const lang = a.lang;
+  const priceCheck = priceCheckOf(a);
   if (a.months.length < 12) return { finding: null, check: priceCheck("no_data", undefined, whyHistory(a, 12)) };
   const from = `${a.months[0]}-01`;
   const moved = valueOf(a.values, "moved_on", today);
   // the bills of the old home are another household's use: the year starts after the move
-  if (moved && moved >= from) return { finding: null, check: priceCheck("no_data", undefined, MOVED) };
+  if (moved && moved >= from) return { finding: null, check: priceCheck("no_data", undefined, why(a, "opt.el_moved")) };
   const { bills, credits } = billsOf(ctx, a, a.months, from);
   if (!bills.length) return { finding: null, check: priceCheck("no_subject") };
   const sellers = bills.filter((b) => b.kind !== "network");
   const networks = bills.filter((b) => b.kind !== "seller");
-  if (!networks.length || !sellers.length) return { finding: null, check: priceCheck("no_data", undefined, ONE_BILL) };
+  if (!networks.length || !sellers.length) return { finding: null, check: priceCheck("no_data", undefined, why(a, "opt.el_one_bill")) };
   // two network companies in one year are two addresses: the typed kWh is for one of them
-  if (new Set(networks.map((b) => b.t.merchant)).size > 1) return { finding: null, check: priceCheck("no_data", undefined, TWO_ADDRESSES) };
+  if (new Set(networks.map((b) => b.t.merchant)).size > 1) return { finding: null, check: priceCheck("no_data", undefined, why(a, "opt.el_two_addr")) };
   // a one-off (a connection fee, a final bill) leaves the level and the count. A payee with under three bills has no
   // usual bill of its own (a seller switched at the window's edge): its winter bill is no one-off against the network's
   const perPayee = new Map<string, number>();
@@ -143,7 +138,7 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   if (kwh === null) return { finding: null, check: priceCheck("needs_input", "electricity_kwh") };
   const at = BANDS.findIndex((b) => kwh <= b.max);
   const band = factOn(`electricity_price:${BANDS[at]!.id}`, today);
-  if (!band) return { finding: null, check: priceCheck("no_data", undefined, WHY_FACTS) };
+  if (!band) return { finding: null, check: priceCheck("no_data", undefined, whyFacts(lang)) };
   const dearer = at > 0 ? factOn(`electricity_price:${BANDS[at - 1]!.id}`, today) : null;
   const cheaper = at < BANDS.length - 1 ? factOn(`electricity_price:${BANDS[at + 1]!.id}`, today) : null;
 
@@ -154,7 +149,7 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   if (total <= 0) return { finding: null, check: priceCheck("clear") };
   const own = Math.round((total / kwh) * 10);
   const bandT = tenthsOf(band);
-  if (own > MAX_FACTOR * bandT) return { finding: null, check: priceCheck("no_data", undefined, TOO_DEAR) };
+  if (own > MAX_FACTOR * bandT) return { finding: null, check: priceCheck("no_data", undefined, why(a, "opt.el_too_dear")) };
   // the band's edges lie halfway to the neighbouring bands' means: the price this household could expect is between them
   const lowEdge = dearer ? Math.round(((band.value + dearer.value) / 2) * 10) : bandT;
   const highEdge = cheaper ? Math.round(((band.value + cheaper.value) / 2) * 10) : bandT;
@@ -170,18 +165,18 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
   const bothSum = sum("both");
   const struckRows = bills.filter((b) => struck.has(b.t.id)).map((b) => b.t);
   const calc: CalcLine[] = [
-    ...(sellerSum ? [{ label: "Sähkönmyyjän laskut 12 kuukaudessa", value: formatEur(sellerSum, false) }] : []),
-    ...(networkSum ? [{ label: "Verkkoyhtiön laskut 12 kuukaudessa", value: formatEur(networkSum, false) }] : []),
-    ...(bothSum ? [{ label: "Myynnin ja siirron yhteislaskut 12 kuukaudessa", value: formatEur(bothSum, false) }] : []),
-    ...(creditSum ? [{ label: "Hyvitykset samoilta yhtiöiltä", value: formatEur(-creditSum, false) }] : []),
-    ...struckRows.map((t) => ({ label: `${t.merchant} ${formatFiDate(t.bookingDate)}, kertaluonteinen`, value: formatEur(t.spend), struck: true })),
-    { label: "Sähkölaskut yhteensä", value: formatEur(total, false) },
-    { label: `Vuosikulutus, annettu ${formatFiDate(kwhDate)}`, value: kwhText(kwh) },
-    { label: "Oma hinta", value: perKwh(own) },
-    { label: band.label, value: perKwh(bandT) },
-    ...(dearer ? [{ label: "Vertailuhinta enintään: oman ja pienemmän kulutuksen kokoluokan puoliväli", value: perKwh(lowEdge) }] : []),
-    ...(cheaper ? [{ label: "Vertailuhinta vähintään: oman ja suuremman kulutuksen kokoluokan puoliväli", value: perKwh(highEdge) }] : []),
-    { label: `Ero ${perKwh(gap)} × ${kwhText(kwh)}`, value: formatEur(mid, false) },
+    ...(sellerSum ? [{ label: messageIn(lang, "opt.el_sellers"), value: formatEur(sellerSum, false, lang) }] : []),
+    ...(networkSum ? [{ label: messageIn(lang, "opt.el_networks"), value: formatEur(networkSum, false, lang) }] : []),
+    ...(bothSum ? [{ label: messageIn(lang, "opt.el_both"), value: formatEur(bothSum, false, lang) }] : []),
+    ...(creditSum ? [{ label: messageIn(lang, "opt.el_credits"), value: formatEur(-creditSum, false, lang) }] : []),
+    ...struckRows.map((t) => ({ label: messageIn(lang, "opt.el_one_off", { merchant: t.merchant, date: formatFiDate(t.bookingDate, lang) }), value: formatEur(t.spend, true, lang), struck: true })),
+    { label: messageIn(lang, "opt.el_bills_total"), value: formatEur(total, false, lang) },
+    { label: messageIn(lang, "opt.el_use", { date: formatFiDate(kwhDate, lang) }), value: kwhText(kwh, lang) },
+    { label: messageIn(lang, "opt.el_own"), value: perKwh(own, lang) },
+    { label: factLabel(band, lang), value: perKwh(bandT, lang) },
+    ...(dearer ? [{ label: messageIn(lang, "opt.el_high_edge"), value: perKwh(lowEdge, lang) }] : []),
+    ...(cheaper ? [{ label: messageIn(lang, "opt.el_low_edge"), value: perKwh(highEdge, lang) }] : []),
+    { label: messageIn(lang, "opt.el_gap", { gap: perKwh(gap, lang), kwh: kwhText(kwh, lang) }), value: formatEur(mid, false, lang) },
   ];
   // the one-offs stay among the rows, the latest bills fill the rest
   const kept = struckRows.slice(0, MAX_ROWS).map((t) => t.id);
@@ -194,11 +189,11 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
     area: "electricity",
     kind: "price",
     subject: null,
-    title: `Sähkö ${perKwh(own)}, kokoluokan keskihinta ${perKwh(bandT)}. Laskut ${formatEur(total, false)} ja kulutus ${kwhText(kwh)} 12 kuukaudessa.`,
-    action: "Kilpailuta sähkösopimus Energiaviraston hintavertailussa (sahkonhinta.fi).",
+    title: messageIn(lang, "opt.el_title", { own: perKwh(own, lang), band: perKwh(bandT, lang), total: formatEur(total, false, lang), kwh: kwhText(kwh, lang) }),
+    action: messageIn(lang, "opt.el_action"),
     euros: { lowCents: euros(lowEdge), midCents: mid, highCents: euros(highEdge) },
     decideBy: null,
-    weaknesses: [{ id: "estimate", reason: "Vertailuhinta on saman kokoluokan kotitalouksien keskiarvo." }],
+    weaknesses: [{ id: "estimate", reason: messageIn(lang, "opt.el_weak") }],
     shared: false,
     calc,
     rows,
@@ -212,9 +207,9 @@ function assessPrice(a: AreaInput): { finding: FindingDraft | null; check: Check
 
 /** A typed contract end: put it out to tender two weeks before. A deadline, so no euros. */
 function assessContract(a: AreaInput, hasBills: boolean): { finding: FindingDraft | null; check: Check | null } {
-  const { today } = a;
+  const { today, lang } = a;
   const end = valueOf(a.values, "electricity_contract_end", today);
-  const check: Check = { id: "electricity:contract_end", label: CONTRACT_LABEL, status: "clear" };
+  const check: Check = { id: "electricity:contract_end", label: messageIn(lang, "opt.el_contract_chk"), status: "clear" };
   if (!end) {
     // asked only of a household that pays electricity bills; an open-ended contract leaves it unanswered
     return { finding: null, check: hasBills ? { ...check, status: "needs_input", input: "electricity_contract_end" } : null };
@@ -223,21 +218,21 @@ function assessContract(a: AreaInput, hasBills: boolean): { finding: FindingDraf
   const decideBy = lead >= today ? lead : end;
   const stored = inputStatus(a.values, "electricity_contract_end", today);
   const typed = stored.state === "ok" ? stored.stored.asOf : today;
-  const short = decideBy.slice(0, 4) === today.slice(0, 4) ? formatFiDate(decideBy).replace(/\d{4}$/, "") : formatFiDate(decideBy);
+  const short = decideBy.slice(0, 4) === today.slice(0, 4) ? formatFiDate(decideBy, lang).replace(lang === "en" ? /\/\d{4}$/ : /\d{4}$/, "") : formatFiDate(decideBy, lang);
   const finding: FindingDraft = {
     id: findingId("electricity", "contract_end"),
     area: "electricity",
     kind: "contract_end",
     subject: null,
-    title: `Sähkösopimus päättyy ${formatFiDate(end)}.`,
-    action: `Kilpailuta sopimus ennen ${short}`,
+    title: messageIn(lang, "opt.el_end_title", { date: formatFiDate(end, lang) }),
+    action: messageIn(lang, "opt.el_end_action", { date: short }),
     euros: null,
     decideBy,
     weaknesses: [],
     shared: false,
     calc: [
-      { label: `Sopimus päättyy, annettu ${formatFiDate(typed)}`, value: formatFiDate(end) },
-      { label: "Kilpailuta viimeistään", value: formatFiDate(decideBy) },
+      { label: messageIn(lang, "opt.el_end_line", { date: formatFiDate(typed, lang) }), value: formatFiDate(end, lang) },
+      { label: messageIn(lang, "opt.el_by"), value: formatFiDate(decideBy, lang) },
     ],
     rows: [],
     struck: [],

@@ -5,6 +5,7 @@
  */
 import { type AccountUse, belowWhole, isUntold, type Part } from "@banking/core";
 import { percent } from "./format.ts";
+import { t } from "./text.ts";
 import type { Account, Meta } from "./types.ts";
 
 /** What /meta tells of an account beyond `Account`: who uses it and the viewer's part of it. */
@@ -20,10 +21,10 @@ const share = (part: Part): string => percent((part.to - part.from) / part.of);
  * users whose split nobody told counts whole: "Yhteinen tili, jako kertomatta" (ADR 0017).
  */
 export function partText(part: Part | undefined, kind: "account" | "debt", traced?: boolean): string | null {
-  if (traced && kind === "account") return "Yhteinen tili, osuutesi";
-  if (isUntold(part)) return kind === "account" ? "Yhteinen tili, jako kertomatta" : "jako kertomatta";
+  if (traced && kind === "account") return t("part.joint_traced");
+  if (isUntold(part)) return kind === "account" ? t("part.joint_untold") : t("part.untold");
   if (!belowWhole(part)) return null;
-  return kind === "account" ? `Yhteinen tili, osuutesi ${share(part)}` : `osuutesi ${share(part)}`;
+  return kind === "account" ? t("part.joint_share", { share: share(part) }) : t("part.share", { share: share(part) });
 }
 
 /**
@@ -31,7 +32,7 @@ export function partText(part: Part | undefined, kind: "account" | "debt", trace
  * viewer's own loan and for an account's debt. A row with it offers no edit and no link to the loan's editor: the
  * loan is its typist's to change.
  */
-export const typedByText = (typedBy: string | undefined): string | null => (typedBy ? `Lisännyt ${typedBy}` : null);
+export const typedByText = (typedBy: string | undefined): string | null => (typedBy ? t("part.added_by", { name: typedBy }) : null);
 
 /** The viewer's part of one of their own accounts, where it is below the whole. */
 export function ownPart(meta: Pick<Meta, "accounts">, accountId: string): Part | undefined {
@@ -46,5 +47,5 @@ export const viewsParts = (meta: Pick<Meta, "accounts">): boolean => meta.accoun
 export const hasJointAccount = (meta: Pick<Meta, "accounts" | "sharedAccounts">): boolean =>
   [...meta.accounts, ...meta.sharedAccounts].some((a) => ((a as Told).use?.users.length ?? 0) > 1);
 
-/** The anchor of an account's parts on Tilit, where "Kenen?" and the notices of a split lead. */
+/** The anchor of an account's parts on Tilit, where "Valitse, kenen osuus" and the notices of a split lead. */
 export const partAnchor = (accountId: string): string => `tili-${accountId}`;

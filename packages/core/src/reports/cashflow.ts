@@ -3,12 +3,14 @@ import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { unknownSpending } from "../analysis/data-quality.ts";
 import { incomeCentsOf, incomeSelect, sumOf } from "../analysis/counted.ts";
 import { savingsRateOf } from "../analysis/bridge.ts";
+import { type MoneyBridge, moneyBridge } from "../analysis/money-bridge.ts";
 import { type BridgeView, bridgeView } from "../analysis/bridge-view.ts";
 import { unknownIncomeShare } from "../analysis/income.ts";
 import { coverOf, type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
-import { monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
+import { addMonths, monthEnd, monthOf, monthRange } from "../dates.ts";
+import { type BalanceInput } from "../types.ts";
 import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 export interface CashflowRow {
@@ -33,6 +35,14 @@ export interface CashflowRow {
   stack: { inCents: number; outCents: number; gapCents: number };
 }
 
+interface RateCompare {
+  month: string;
+  rate: number;
+  /** The rate of the month before and of the same month a year earlier (`savingsRateOf`); null when that month is not complete or has no income. */
+  previous: { month: string; rate: number | null };
+  yearAgo: { month: string; rate: number | null };
+}
+
 export interface CashflowReport {
   rows: CashflowRow[];
   /** The share of the range's spending that is not itemised, 0 to 1 (`unknownSpending`): Raportit says so when it is over 20 %. */
@@ -44,65 +54,39 @@ export interface CashflowReport {
   average: Omit<CashflowRow, "month" | "savingsRate" | "complete" | "stack"> | null;
   /** The range holds the month that has not ended: its bills are out but its salary may not be in. */
   running: boolean;
+  /** The bar Tulojen käyttö of the range's totals, the running month in them as in every other figure of the page. */
+  bridge: BridgeView;
   /**
-   * Totals of the complete months of a range that holds the running month; null when it has no running month or
-   * no complete one. The margin and savings rate are told from these, since a month in progress reads as a loss.
+   * The range's totals with `inCents`, the money in (income and credit drawn) the period row of Raportit's month table
+   * is laid against. One sum for the page: the rows of the table add up to it. Only `savingsRate` is told from the
+   * complete months of a running range, since a month in progress reads as a loss.
    */
-  closed: PeriodTotals | null;
-  /** How many complete months `closed` holds: the title of the bar names them. 0 without a running month. */
-  closedMonths: number;
-  /** The bar Tulojen käyttö of the settled totals (`closed` of a running range, else `totals`); null with no settled month. */
-  bridge: BridgeView | null;
+  whole: PeriodTotals & { inCents: number };
   /**
-   * The totals the page tells as the period's (the bridge's: `closed` of a running range, else `totals`) with
-   * `inCents`, the money in (income and credit drawn) the period row of Raportit's month table is laid against. null
-   * when a running range has no complete month.
+   * Where the money went, from the money in to the change of the accounts (Saldot's own `change`): the lines add up to
+   * it with no remainder. Each line has its sum and the rows it is made of. null with no balances, or when Saldot has
+   * no change to tell.
    */
-  settled: (PeriodTotals & { inCents: number }) | null;
-  /** Tulos added up from January, this year against the year before: the cumulative chart of Raportit. */
-  yearToDate: YearToDate;
+  moneyBridge: MoneyBridge | null;
+  /** The savings rate of the newest complete month beside the month before and the same month a year ago; null without a complete month with a rate. */
+  rateCompare: RateCompare | null;
   /** The usual savings rate: the middle half of the complete months' rates and their median; null under four such months. */
   usualRate: { low: number; mid: number; high: number; months: number } | null;
-}
-
-export interface YearToDate {
-  /** The calendar year of the range's end. */
-  year: number;
-  /**
-   * Tulos added up from 1 January to the end of each month (index 0 = January). A year whose January the history
-   * does not cover from the 1st has no line (all null): a sum from a later month would read as a smaller year.
-   */
-  current: (number | null)[];
-  previous: (number | null)[];
-  /** The month (0–11) of `current` that has not ended: its point is an estimate, its salary may not be in yet. */
-  partialMonth: number | null;
-  /** This year less last year at the end of the newest ended month both lines have: the answer under the chart. */
-  compared: { month: number; cents: number } | null;
-}
-
-/** Tulos from January of `year`, month by month up to `lastMonth` (1–12), or all null when a month is not covered. */
-function leftFromJanuary(ctx: AnalysisContext, year: number, lastMonth: number): (number | null)[] {
-  const out: (number | null)[] = Array.from({ length: 12 }, () => null);
-  const txs = inDays(ctx, toDayRange({ from: `${year}-01-01`, to: `${year}-12-31` }));
-  let sum = 0;
-  for (let m = 1; m <= lastMonth; m++) {
-    const month = `${year}-${String(m).padStart(2, "0")}`;
-    const running = monthEnd(month) >= ctx.today;
-    // the running month is whole from its 1st when the month before it is: every earlier month of the year was checked
-    // already, and January's is last December
-    if (running ? m === 1 && !isCompleteMonth(ctx, `${year - 1}-12`) : !isCompleteMonth(ctx, month)) return out.fill(null);
-    sum += totalsOf(txs.filter((x) => x.month === monthIndex(month)).map((x) => x.flows)).leftCents;
-    out[m - 1] = sum;
-    if (running) break;
-  }
-  return out;
 }
 
 /** Nearest-rank quantile of sorted values. */
 const quantile = (sorted: readonly number[], q: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1))]!;
 
+/** The newest complete month's savings rate beside the month before and the same month a year ago, each told as `savingsRateOf` tells it. */
+function rateCompareOf(ctx: AnalysisContext, rows: readonly CashflowRow[]): RateCompare | null {
+  const last = rows.findLast((x) => x.complete && x.savingsRate !== null);
+  if (!last) return null;
+  const at = (month: string) => ({ month, rate: savingsRateOf(ctx, [month]).rate });
+  return { month: last.month, rate: last.savingsRate!, previous: at(addMonths(last.month, -1)), yearAgo: at(addMonths(last.month, -12)) };
+}
+
 /** Money in vs. where it went (consumption, debt, savings), month by month. */
-export function cashflowReport(ctx: AnalysisContext, range: DateRange): CashflowReport {
+export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): CashflowReport {
   const months = rangeMonthIndexes(range, 24, ctx);
   // a range longer than the shown months: the rows are the last 24, the totals still cover the whole range
   const all = inDays(ctx, toDayRange(range));
@@ -134,36 +118,24 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange): Cashflow
     };
   });
   const running = range.from <= ctx.today && ctx.today <= range.to;
-  // the same months as the dashboard's settled totals: complete, and in the range from their 1st
-  const closedMonths = new Set(monthRange(monthOf(range.from), monthOf(range.to)).filter((m) => `${m}-01` >= range.from && isCompleteMonth(ctx, m)).map(monthIndex));
-  const closedFlows = running ? all.filter((x) => closedMonths.has(x.month)) : [];
   const averaged = new Set(fullMonths(ctx, range, months));
   const base = rows.filter((_, i) => averaged.has(months[i]!));
   const avg = (key: keyof Omit<CashflowRow, "month" | "savingsRate" | "complete" | "stack">) => Math.round(base.reduce((s, r) => s + r[key], 0) / base.length);
   const totals = totalsOf(all.map((x) => x.flows));
-  const closed = closedFlows.length ? totalsOf(closedFlows.map((x) => x.flows)) : null;
-  const settled = running ? closed : totals;
-  const end = monthOf(range.to);
-  const year = Number(end.slice(0, 4));
-  const lastMonth = Number(end.slice(5, 7));
-  const current = leftFromJanuary(ctx, year, lastMonth);
-  const previous = leftFromJanuary(ctx, year - 1, 12);
-  const partialMonth = monthEnd(end) >= ctx.today ? lastMonth - 1 : null;
-  const both = current.map((v, i) => (v !== null && previous[i] !== null && i !== partialMonth ? i : -1)).filter((i) => i >= 0);
-  const at = both.length ? both[both.length - 1]! : null;
+  const closedMonths = monthRange(monthOf(range.from), monthOf(range.to)).filter((m) => `${m}-01` >= range.from && isCompleteMonth(ctx, m));
+  const whole = { ...totals, inCents: totals.incomeCents + coverOf(totals).creditDrawnCents, savingsRate: running ? (closedMonths.length ? savingsRateOf(ctx, closedMonths).rate : null) : totals.savingsRate };
   const rates = rows.filter((x) => x.complete && x.savingsRate !== null).map((x) => x.savingsRate!).sort((a, b) => a - b);
   return {
     rows,
-    bridge: settled ? bridgeView(settled) : null,
-    settled: settled && { ...settled, inCents: settled.incomeCents + coverOf(settled).creditDrawnCents },
-    yearToDate: { year, current, previous, partialMonth, compared: at === null ? null : { month: at, cents: current[at]! - previous[at]! } },
+    bridge: bridgeView(totals),
+    moneyBridge: moneyBridge(ctx, range, balances),
+    whole,
+    rateCompare: rateCompareOf(ctx, rows),
     usualRate: rates.length < 4 ? null : { low: quantile(rates, 0.25), mid: quantile(rates, 0.5), high: quantile(rates, 0.75), months: rates.length },
     unknownShare: unknownSpending(ctx, range).share,
     unknownIncomeShare: unknownIncomeShare(all),
     totals,
     running,
-    closed,
-    closedMonths: closedFlows.length ? closedMonths.size : 0,
     average: !base.length ? null : {
       incomeCents: avg("incomeCents"),
       consumptionCents: avg("consumptionCents"),

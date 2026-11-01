@@ -5,28 +5,14 @@
  */
 import { describe, expect, it } from "vitest";
 import { type Flows, flowsOf, totalsOf } from "../src/analysis/flows.ts";
-import { normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { detectTransfers } from "../src/transfers.ts";
 import type { Account, Transaction } from "../src/types.ts";
-import { tx } from "./helpers.ts";
+import { row, run } from "./flow-helpers.ts";
 
 const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" };
 const savingsAcc: Account = { id: "sav", name: "Säästötili", iban: "FI1410093000123458", currency: "EUR", type: "savings" };
 const gold: Account = { id: "gold", name: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" };
-
-function row(accountId: string, bookingDate: string, euros: number, description: string, counterparty: string | null = null, extra: Partial<Transaction> = {}) {
-  return tx({ accountId, bookingDate, amountCents: Math.round(euros * 100), description, counterparty, merchant: normalizeMerchant(counterparty, description), ...extra });
-}
-
-function run(rows: Transaction[], accounts: Account[]) {
-  const changed = new Map(enrichTransactions(rows, accounts, []).map((t) => [t.id, t]));
-  const final = rows.map((t) => changed.get(t.id) ?? t);
-  const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
-  const loanIds = new Set(accounts.filter((a) => a.type === "loan").map((a) => a.id));
-  const flows = final.map((t) => flowsOf(t, savingsIds, loanIds));
-  return { final, flows, totals: totalsOf(flows), byDesc: (d: string) => final.find((t) => t.description === d)! };
-}
 
 const neutral: Flows = { consumption: 0, debt: 0, saved: 0, income: 0, borrowed: 0 };
 
@@ -222,7 +208,7 @@ describe("everyday money", () => {
     [15, "MOBILEPAY LIISA V", null, "p2p_in", "income"],
     [59.95, "ZALANDO SE", null, "shopping", "consumption"],
     [3420, "PALKKA 09/2026", "ACME OY", "salary", "income"],
-    [412.5, "VERONPALAUTUS", "VEROHALLINTO", "benefits", "income"],
+    [412.5, "VERONPALAUTUS", "VEROHALLINTO", "tax_refund", "income"],
     [-890, "JÄÄNNÖSVERO", "VEROHALLINTO", "taxes", "consumption"],
     [12.4, "OSINKO NOKIA", "NORDNET BANK AB", "investment_income", "income"],
     [35, "TORI.FI MYYNTI", null, "sales", "income"],

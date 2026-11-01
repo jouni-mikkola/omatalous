@@ -13,7 +13,9 @@ import { settleRemoteAccess } from "../src/services/remote-access.ts";
 import { AAD, TOKEN_KEY } from "../src/services/remote-access-cloudflare.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
 import { waitFor } from "./helpers.ts";
-import { API_TOKEN, HOST, LAN, prepared, TUNNEL, turnedOn } from "./remote-access-kit.ts";
+import { API_TOKEN, HOST, LAN, prepared, TUNNEL, turnedOn, useWorlds } from "./remote-access-kit.ts";
+
+useWorlds();
 
 const MINUTE = 60_000;
 const cloudflareSide = (w: Awaited<ReturnType<typeof prepared>>) => [w.cf.tunnels.length, w.cf.records.length, w.cf.apps.length];

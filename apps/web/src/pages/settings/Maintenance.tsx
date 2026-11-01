@@ -9,11 +9,11 @@ import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
+import { LastResult } from "../../components/ops/LastResult.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
 import { prereleaseAction, prereleaseOn, S, showsPrerelease } from "../../components/ops/ops-strings.ts";
 import { ResetCard } from "../../components/ops/ResetCard.tsx";
-import { RestoreLatest } from "../../components/ops/RestoreLatest.tsx";
 import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
@@ -22,17 +22,20 @@ import { restartWait } from "../../components/ops/ops-elapsed.ts";
 import { usePolled } from "../../components/ops/use-polled.ts";
 import { dateTime } from "../../format.ts";
 import "../../styles/ops.css";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { Empty } from "../../components/ui/Empty.tsx";
+import { t } from "../../text.ts";
 /** Polls every 3 s while something runs, every 60 s otherwise. A failing fetch (the app restarts) backs off. */
-function useOpsState() {
+export function useOpsState() {
   const { data, error, downSince, reload } = usePolled<OpsState>("/api/ops/state", (d) => (d.active || d.readOnlyActive ? 3000 : 60_000), undefined, restartWait);
   return { data, error, downSince, reload };
 }
 
 type Dialog = "update" | "rollback" | "download" | null;
 
-export function Maintenance() {
-  const { data, error, downSince, reload } = useOpsState();
+export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
+  const { data, error, downSince, reload } = ops;
   const audit = useApiAudit(data?.requests[0] ? `${data.requests[0].id}:${data.requests[0].status}` : "");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -80,17 +83,19 @@ export function Maintenance() {
         app={data.appBackups}
         host={data.state.backups ?? []}
         disabled={blocked}
+        restoreDisabled={data.active || pending}
         canDownload={data.appBackups.length > 0}
+        last={data.last.backup}
         onBackup={() => void quick("backup")}
         onDownload={() => setDialog("download")}
       />
-      <RestoreLatest listKey={data.appBackups.map((b) => b.name).join()} disabled={data.active || pending} />
-      <DoctorList doctor={data.state.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
+      <DoctorList doctor={data.state.doctor} last={data.last.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
       <ToolsPanel
         disabled={blocked}
         readDisabled={helperOff || pending || data.readOnlyActive}
         supported={data.helper.tools || helperOff}
         enableCommand={data.helper.enableCommand}
+        last={data.last}
         onLogs={() => void quick("logs")}
         onPrune={() => void quick("prune")}
         onRenew={() => void quick("helper-renew")}
@@ -100,10 +105,11 @@ export function Maintenance() {
           <div>
             <h2>{S.restart}</h2>
             <div className="card-sub">{S.restartHelp}</div>
+            <LastResult request={data.last.restart} />
           </div>
-          <button className="btn" type="button" disabled={blocked} onClick={() => void quick("restart")}>
+          <Button disabled={blocked} onClick={() => void quick("restart")}>
             {S.restart}
-          </button>
+          </Button>
         </div>
       </div>
       <div className="card">
@@ -111,17 +117,17 @@ export function Maintenance() {
           <h2>{S.events}</h2>
         </div>
         {audit.length === 0 ? (
-          <div className="empty">{S.noEvents}</div>
+          <Empty>{S.noEvents}</Empty>
         ) : (
           <Table
             caption={S.events}
             rows={audit}
             rowKey={(e) => String(e.id)}
             columns={[
-              { key: "at", label: "Aika", kind: "date", rowHead: true, cell: (e) => dateTime(e.at) },
-              { key: "user", label: "Käyttäjä", kind: "text", cell: (e) => e.username ?? "" },
-              { key: "action", label: "Toiminto", kind: "text", cell: (e) => e.action },
-              { key: "outcome", label: "Tulos", kind: "text", cell: (e) => <span className="small">{e.outcome}</span> },
+              { key: "at", label: t("set.mt.time"), kind: "date", rowHead: true, cell: (e) => dateTime(e.at) },
+              { key: "user", label: t("set.mt.user"), kind: "text", cell: (e) => e.username ?? "" },
+              { key: "action", label: t("set.mt.action"), kind: "text", cell: (e) => e.action },
+              { key: "outcome", label: t("set.mt.result"), kind: "text", cell: (e) => <span className="small">{e.outcome}</span> },
             ]}
           />
         )}
@@ -135,14 +141,14 @@ export function Maintenance() {
         <div className="card-head">
           <h2>{S.title}</h2>
         </div>
-        {!data && !error && <div className="muted">Ladataan…</div>}
-        {error && !data && <div className="error">{error}</div>}
+        {!data && !error && <div className="muted">{t("set.mt.loading")}</div>}
+        {error && !data && <Notice tone="error">{error}</Notice>}
         {data && <HelperStatus helper={data.helper} />}
-        {message && <div className="notice warning" role="alert">{message}</div>}
+        {message && <Notice tone="warning" role="alert">{message}</Notice>}
         {data && latest && (
           <OpsProgress request={latest} down={downSince !== null && data.active} downSince={downSince} helperSeenAt={data.helper.seenAt ? Date.parse(data.helper.seenAt) : null} helperWakes={data.helper.wakes} serverNow={data.now} onCancel={(id) => void cancel(id)} />
         )}
-        {downSince !== null && data && !data.active && <div className="notice warning" role="status">{S.restarting}</div>}
+        {downSince !== null && data && !data.active && <Notice tone="warning" role="status">{S.restarting}</Notice>}
       </div>
 
       {data && (
@@ -151,6 +157,7 @@ export function Maintenance() {
             version={data.version}
             build={data.build}
             state={data.state}
+            last={data.last}
             disabled={blocked}
             prerelease={showsPrerelease(data.helper, data.state) ? { on: prereleaseOn(data.state, latest), onChange: (on) => void quick(prereleaseAction(on)) } : null}
             onCheck={() => void quick("check-update")}
@@ -193,11 +200,11 @@ export function Maintenance() {
           }}
         >
           <p>{S.rollbackBody}</p>
-          {data?.state.schema_changed && <p className="error">{S.rollbackSchema}</p>}
+          {data?.state.schema_changed && <Notice tone="error" as="p">{S.rollbackSchema}</Notice>}
         </PasswordDialog>
       )}
       {dialog === "download" && (
-        <PasswordDialog title={S.downloadTitle} submitLabel="Lataa" onCancel={() => setDialog(null)} onSubmit={download}>
+        <PasswordDialog title={S.downloadTitle} submitLabel={t("set.mt.download")} onCancel={() => setDialog(null)} onSubmit={download}>
           <p>{S.downloadBody}</p>
         </PasswordDialog>
       )}

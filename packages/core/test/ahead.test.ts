@@ -53,15 +53,15 @@ describe("cash ahead", () => {
   // the same household without its pay: no payday sets the window, so it is the 30 days (ahead-payday.test.ts has the window)
   const unpaid = createContext(upTo(all.filter((t) => t.merchant !== "Acme Oy"), today), [checking], today);
 
-  it("what is free is the balance less the rows, and the usual day is taken off nothing", () => {
+  it("what is free is the balance less the rows, and the expected everyday spending is taken off nothing", () => {
     const d = cashAhead(unpaid, [balance(200_000)], NO_INPUTS);
     const b = d.balance!;
     expect([d.from, d.to]).toEqual(["2026-10-09", "2026-11-08"]);
     expect(b.startCents).toBe(200_000);
     expect(d.totals.dueCents).toBe(-sum(d.rows));
     expect(b.freeCents).toBe(200_000 - 1199 - 95_000);
-    // 30 euros a day; the purchase of 30 to 70 euros a month is in three weeks of thirteen and leaves the median week where it was
-    expect(d.everydayPerDayCents).toBe(3000);
+    // 30 euros a day and a purchase of 30 to 70 euros a month on top, 50 euros on the mean of six months: 3 000 + 5 000 / 30,5
+    expect(d.everydayPerDayCents).toBe(3163);
     expect(d.rows.map((r) => [r.date, r.name, r.cents])).toEqual([
       ["2026-10-11", "Spotify", -1199],
       ["2026-11-02", "Sato", -95_000],

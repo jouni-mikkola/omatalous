@@ -44,6 +44,7 @@ import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
 import { statementsInView } from "./statements.ts";
 import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
+import { priceIndexInput } from "./price-index.ts";
 
 /**
  * own = what I use: my accounts and the ones shared with me that I have a part of, a joint account at my part, and
@@ -405,7 +406,7 @@ export async function rowsInView(s: Services, userId: string, scope: Scope): Pro
  */
 export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
   const repo = s.finance(userId);
-  const [marks, expectedBills, loans, roles, spendingGoalCents] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles(), repo.spendingGoal()]);
+  const [marks, expectedBills, loans, roles, spendingGoalCents, categoryGoals, priceIndex] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles(), repo.spendingGoal(), repo.categoryGoals(), priceIndexInput(s)]);
   const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
   // The totals and the walks count in euros: an account in another currency tells its balance beside them, never in them.
   // A balance stored before the currency was kept is the account's currency's: one whose currency is unknown is a dash.
@@ -428,7 +429,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.part ? { part: a.part } : {}),
     ...(a.traced ? { traced: true as const } : {}),
   }));
-  return { balances, inputs: { marks, expectedBills, loans, payers: { memberId: userId, roles }, spendingGoalCents } };
+  return { balances, inputs: { marks, expectedBills, loans, payers: { memberId: userId, roles }, spendingGoalCents, categoryGoals, priceIndex } };
 }
 
 /**

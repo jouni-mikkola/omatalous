@@ -3,6 +3,8 @@
  * accounts that existed before a window, the level without one-offs, the yearly figure, certainty from weaknesses and
  * the evidence checks behind them.
  */
+import { DEFAULT_LANGUAGE, type Language, localeOf } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend } from "../analysis/context.ts";
 import { accountCovers, monthSpan, sameAccounts } from "../analysis/coverage.ts";
 import { dataQualityReport, type QualitySignal } from "../analysis/data-quality.ts";
@@ -16,7 +18,7 @@ import { completeMonthsBefore, isCompleteMonth } from "../analysis/usual.ts";
 import { addMonths, dayNumber, monthEnd, monthOf } from "../dates.ts";
 import { priceChangeYearlyCents, type RecurringSeries } from "../recurring.ts";
 import { bufferReport } from "../reports/buffer.ts";
-import { mean, median } from "../stats.ts";
+import { mean } from "../stats.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 import { AREA_IDS, type AreaId, type AreaInput, type Certainty, type CertaintyLevel, type EvidenceQuality, type NoDataWhy, type Weakness, type WeaknessId } from "./types.ts";
 
@@ -102,8 +104,8 @@ export function levelWithoutOneOffs(rows: readonly AnalysisTx[], months: readonl
 }
 
 /** Rule 7 weakness for a yearly figure from fewer than 12 months. */
-export function shortHistoryWeakness(months: number): Weakness {
-  return { id: "short_history", reason: `Vuoden summa on laskettu ${months} kuukauden tiedoista.` };
+export function shortHistoryWeakness(months: number, lang: Language = DEFAULT_LANGUAGE): Weakness {
+  return { id: "short_history", reason: messageIn(lang, "opt.w_short", { months }) };
 }
 
 export interface Annualised {
@@ -117,19 +119,17 @@ export interface Annualised {
  * Rule 2: the sum of the last 12 monthly values; 6 to 11 values give their mean times 12 with one certainty step;
  * under 6 there is no yearly figure.
  */
-export function annualise(byMonth: readonly number[]): Annualised | null {
+export function annualise(byMonth: readonly number[], lang: Language = DEFAULT_LANGUAGE): Annualised | null {
   const n = Math.min(12, byMonth.length);
   if (n < 6) return null;
   const sum = byMonth.slice(-n).reduce((s, x) => s + x, 0);
-  return n === 12 ? { yearlyCents: sum, months: 12, weakness: null } : { yearlyCents: Math.round((sum / n) * 12), months: n, weakness: shortHistoryWeakness(n) };
+  return n === 12 ? { yearlyCents: sum, months: 12, weakness: null } : { yearlyCents: Math.round((sum / n) * 12), months: n, weakness: shortHistoryWeakness(n, lang) };
 }
 
 /** The order of rule 7: the first weakness present names the reason. */
 export const WEAKNESS_ORDER: readonly WeaknessId[] = ["short_history", "estimate", "sample", "gap", "stale", "own_unconnected", "uncategorised", "uncertain_rows", "wide_range"];
 
-export const WIDE_RANGE: Weakness = { id: "wide_range", reason: "Vaihteluväli on suurempi kuin arvio." };
-
-const NO_WEAKNESS = "Laskettu omista tiedoista.";
+export const wideRange = (lang: Language = DEFAULT_LANGUAGE): Weakness => ({ id: "wide_range", reason: messageIn(lang, "opt.w_wide") });
 
 /** The same weakness twice counts once; the rest in rule 7's order. */
 export function sortWeaknesses(weaknesses: readonly Weakness[]): Weakness[] {
@@ -146,9 +146,9 @@ export function sortWeaknesses(weaknesses: readonly Weakness[]): Weakness[] {
 const LEVELS = ["korkea", "keskitaso", "matala"] as const;
 
 /** Rule 7: korkea, one step keskitaso, two steps or more matala. A finding is never hidden for its certainty. */
-export function certaintyOf(weaknesses: readonly Weakness[]): Certainty {
+export function certaintyOf(weaknesses: readonly Weakness[], lang: Language = DEFAULT_LANGUAGE): Certainty {
   const sorted = sortWeaknesses(weaknesses);
-  return { level: LEVELS[Math.min(2, sorted.length)]!, reason: sorted[0]?.reason ?? NO_WEAKNESS };
+  return { level: LEVELS[Math.min(2, sorted.length)]!, reason: sorted[0]?.reason ?? messageIn(lang, "opt.w_none") };
 }
 
 const ACCOUNT_SIGNALS: ReadonlySet<QualitySignal["id"]> = new Set(["gap", "stale", "own_unconnected"]);
@@ -157,12 +157,12 @@ const ACCOUNT_SIGNALS: ReadonlySet<QualitySignal["id"]> = new Set(["gap", "stale
  * The quality signals over the window for the household and for each account alone. Each account is run through the
  * same report with only its own rows, so the signal names the account it is about.
  */
-export function qualityOf(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[]): EvidenceQuality {
-  const signals = dataQualityReport(ctx, range, balances).signals;
+export function qualityOf(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[], lang: Language = DEFAULT_LANGUAGE): EvidenceQuality {
+  const signals = dataQualityReport(ctx, range, balances, lang).signals;
   const byAccount: Record<string, QualitySignal["id"][]> = {};
   for (const account of ctx.accounts) {
     const own = { ...ctx, accounts: [account], txs: ctx.txs.filter((t) => t.accountId === account.id) };
-    byAccount[account.id] = dataQualityReport(own, range, []).signals.map((s) => s.id).filter((id) => ACCOUNT_SIGNALS.has(id));
+    byAccount[account.id] = dataQualityReport(own, range, [], lang).signals.map((s) => s.id).filter((id) => ACCOUNT_SIGNALS.has(id));
   }
   return { signals, byAccount };
 }
@@ -178,11 +178,6 @@ export function rowsById(ctx: AnalysisContext): ReadonlyMap<string, AnalysisTx> 
   if (!map) byIdCache.set(ctx, (map = new Map(ctx.txs.map((t) => [t.id, t]))));
   return map;
 }
-
-const ACCOUNT_REASON: Record<"gap" | "stale", (name: string) => string> = {
-  gap: (name) => `Tilin ${name} tiedoissa on tauko.`,
-  stale: (name) => `Tilin ${name} uusimpia tapahtumia ei ole haettu.`,
-};
 
 /**
  * What is wrong with the household's data as a whole, counted on no finding: over 5 % of spending uncategorised and an
@@ -202,7 +197,7 @@ export function householdWeakness(quality: EvidenceQuality): Weakness[] {
  * 30 % of the rows categorised by default or industry. Nothing for a finding without rows. The household's own faults
  * are in `householdWeakness`, not here.
  */
-export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], quality: EvidenceQuality): Weakness[] {
+export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], quality: EvidenceQuality, lang: Language = DEFAULT_LANGUAGE): Weakness[] {
   const byId = rowsById(ctx);
   const txs = rows.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t);
   if (!txs.length) return [];
@@ -210,11 +205,11 @@ export function evidenceWeakness(ctx: AnalysisContext, rows: readonly string[], 
   const accounts = [...new Set(txs.map((t) => t.accountId))];
   for (const kind of ["gap", "stale"] as const) {
     const hit = accounts.find((id) => quality.byAccount[id]?.includes(kind));
-    if (hit) out.push({ id: kind, reason: ACCOUNT_REASON[kind](ctx.accounts.find((a) => a.id === hit)?.name ?? hit) });
+    if (hit) out.push({ id: kind, reason: messageIn(lang, kind === "gap" ? "opt.w_gap" : "opt.w_stale", { name: ctx.accounts.find((a) => a.id === hit)?.name ?? hit }) });
   }
   const uncertain = txs.filter((t) => t.categorySource === "default" || t.categorySource === "industry").length / txs.length;
   if (uncertain > UNCERTAIN_ROW_SHARE) {
-    out.push({ id: "uncertain_rows", reason: `${Math.round(uncertain * 100)}\u00a0% laskelman tapahtumista on luokiteltu toimialan mukaan tai oletuksena.` });
+    out.push({ id: "uncertain_rows", reason: messageIn(lang, "opt.w_uncertain", { percent: `${Math.round(uncertain * 100)}\u00a0%` }) });
   }
   return out;
 }
@@ -232,9 +227,9 @@ export const EATING_OUT_CLAIMS: readonly string[] = ["category:restaurants", "ca
 export { mean };
 
 /** "8", "8,5": a count a month with at most one decimal. */
-export function formatCount(x: number): string {
+export function formatCount(x: number, lang: Language = DEFAULT_LANGUAGE): string {
   const r = Math.round(x * 10) / 10;
-  return Number.isInteger(r) ? String(r) : r.toFixed(1).replace(".", ",");
+  return Number.isInteger(r) ? String(r) : lang === "en" ? r.toFixed(1) : r.toFixed(1).replace(".", ",");
 }
 
 /** The last six complete months, the same six a year earlier and every month between, or null without 18. */
@@ -247,9 +242,9 @@ export function yearOverYear(a: AreaInput): { now: string[]; then: string[]; all
 }
 
 /** An outside figure the check compares with is old or missing (`factOn`). */
-export const WHY_FACTS: NoDataWhy = { cause: "facts", text: "Vertailuluku on vanhentunut tai puuttuu." };
+export const whyFacts = (lang: Language = DEFAULT_LANGUAGE): NoDataWhy => ({ cause: "facts", text: messageIn(lang, "opt.why_facts") });
 /** A check that could not say and has no cause of the other kinds: it does not guess one. */
-export const WHY_OTHER: NoDataWhy = { cause: "other", text: "Tarkistus ei saanut kaikkia tarvitsemiaan tietoja." };
+export const whyOther = (lang: Language = DEFAULT_LANGUAGE): NoDataWhy => ({ cause: "other", text: messageIn(lang, "opt.why_other") });
 
 /**
  * Why a check on the year's spending could not say with `need` full months: card bills in the year whose purchases are
@@ -257,12 +252,12 @@ export const WHY_OTHER: NoDataWhy = { cause: "other", text: "Tarkistus ei saanut
  * counts. A history long enough is no cause, so the check has no reason of this kind to name.
  */
 export function whyHistory(a: AreaInput, need: number): NoDataWhy {
-  const cause = cardGapCause(missingCardPurchases(a.ctx, { from: `${addMonths(monthOf(a.end), -11)}-01`, to: a.end }));
-  if (cause) return { cause: "cards", text: `Korttilaskuja on, mutta ${cause}.` };
+  const cause = cardGapCause(missingCardPurchases(a.ctx, { from: `${addMonths(monthOf(a.end), -11)}-01`, to: a.end }), a.lang);
+  if (cause) return { cause: "cards", text: messageIn(a.lang, "opt.why_cards", { cause }) };
   const months = completeMonthsBefore(a.ctx, monthOf(a.today), 1200).length;
-  if (months >= need) return WHY_OTHER;
-  const count = (n: number) => (n === 1 ? "1 valmis kuukausi" : `${n} valmista kuukautta`);
-  return { cause: "history", text: `Vertailuun tarvitaan ${count(need)}, mutta tapahtumahistoriassa ${months === 0 ? "ei ole yhtään" : `on vain ${count(months)}`}.` };
+  if (months >= need) return whyOther(a.lang);
+  const count = (n: number) => (n === 1 ? messageIn(a.lang, "opt.months_one") : messageIn(a.lang, "opt.months_many", { n }));
+  return { cause: "history", text: messageIn(a.lang, "opt.why_history", { need: count(need), have: months === 0 ? messageIn(a.lang, "opt.have_none") : messageIn(a.lang, "opt.have_only", { count: count(months) }) }) };
 }
 
 /** Over this the "interest" cannot be a deposit rate. */
@@ -274,12 +269,12 @@ const MIRROR_DAYS = 3;
 /** A withholding tax the bank books as its own row beside the interest. */
 const WITHHOLDING = /L[AÄ]HDEVERO/i;
 
-const pctFormat = new Intl.NumberFormat("fi-FI", { maximumFractionDigits: 2 });
+const pctFormat = (lang: Language) => new Intl.NumberFormat(localeOf(lang), { maximumFractionDigits: 2 });
 
 /** 0.0153 → "1,53 %". */
-export const pct = (fraction: number) => `${pctFormat.format(fraction * 100)}\u00a0%`;
+export const pct = (fraction: number, lang: Language = DEFAULT_LANGUAGE) => `${pctFormat(lang).format(fraction * 100)}\u00a0%`;
 
-export const eur = (cents: number) => formatEur(cents, false);
+export const eur = (cents: number, lang: Language = DEFAULT_LANGUAGE) => formatEur(cents, false, lang);
 
 /** The viewer's own accounts of a type: the money the viewer can move. */
 export function ownAccounts(a: AreaInput, type: BalanceInput["type"]): BalanceInput[] {
@@ -345,8 +340,8 @@ export function savingsYield(a: AreaInput): SavingsYield | null {
 }
 
 /** Spending in a usual month, the buffer's yardstick (median of complete months); null under three. */
-export function usualSpend(a: AreaInput): number | null {
-  const usual = bufferReport(a.ctx, a.balances, a.inputs).usualSpendCents;
+export function expectedSpend(a: AreaInput): number | null {
+  const usual = bufferReport(a.ctx, a.balances, a.inputs).expectedSpendCents;
   return usual !== null && usual > 0 ? usual : null;
 }
 

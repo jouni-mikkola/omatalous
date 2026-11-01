@@ -3,17 +3,17 @@
  * gambling money would tell an outsider that someone in the household gambles (industry.ts). "Pelikasino" and
  * "Onnenpyörä" are made up; every entry of wording-gambling.ts is read from the file.
  */
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import wordLists from "../src/wordlists.json" with { type: "json" };
 import { industryCandidates, isLookupName } from "../src/industry.ts";
 import type { Account } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
-const SOURCE = readFileSync(new URL("../src/wording-gambling.ts", import.meta.url), "utf8");
 /** Each list entry as a name a row could carry: the regex syntax of the few patterns taken out. */
-const ENTRIES = [...SOURCE.matchAll(/^\s+(?:"([^"]+)"|String\.raw`([^`]+)`), \/\//gm)].map((m) =>
-  (m[1] ?? m[2]!).replace(/\[A-Z\]\*/g, "").replace(/ \?/g, " "),
-);
+const ENTRIES = Object.entries(wordLists.alternations)
+  .filter(([name]) => name.startsWith("GAMBLING_"))
+  .flatMap(([, list]) => list.alternatives)
+  .map((entry) => entry.replace(/\[A-Z\]\*/g, "").replace(/ \?/g, " "));
 const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" };
 const card: Account = { id: "card", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
 

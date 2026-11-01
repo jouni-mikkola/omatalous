@@ -74,7 +74,7 @@ describe("a mark belongs to one series: its subject", () => {
     const renames = new Map([["APPLE COM BILL", "Apple"]]);
     expect(renamedMarkSubject("series:out:acc-1:APPLE COM BILL#799", renames)).toBe(STORAGE);
     expect(renamedMarkSubject("merchant:APPLE COM BILL", renames)).toBe("merchant:Apple");
-    // "Ei laina" on a proposed loan names its series after a prefix of its own (loan-detect.ts)
+    // "Ei ole laina" on a proposed loan names its series after a prefix of its own (loan-detect.ts)
     expect(renamedMarkSubject("loan-proposal:out:acc-1:APPLE COM BILL#799", renames)).toBe("loan-proposal:out:acc-1:Apple#799");
     for (const kept of [STORAGE, "merchant:Apple", "alert:forgotten:out:acc-1:APPLE COM BILL", "alert:out:acc-1:APPLE COM BILL", "series:out:acc-1:Netflix", "loan-proposal:out:acc-1:Netflix#799", "loan-proposal:APPLE COM BILL"]) {
       expect(renamedMarkSubject(kept, renames), kept).toBeNull();

@@ -120,7 +120,7 @@ describe("GET /api/explain: the figures that are not a sum of one range", () => 
   it("a usual level is the median of its months, each month a sum of its own; under three months it says nothing", async () => {
     const { admin, s } = await setupApp();
     expect((await seedCsv(s, admin, { content: LONG_CSV, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
-    const spend = await admin.call("GET", `/api/explain?figure=usual.spend&${OCTOBER}`);
+    const spend = await admin.call("GET", `/api/explain?figure=expected.spend&${OCTOBER}`);
     expect(spend.status).toBe(200);
     expect(spend.body).toMatchObject({ kind: "median", check: { kind: "recompute", diffCents: 0 } });
     const values = spend.body.method.values as { label: string; cents: number; explain: { lines: unknown[]; check: { diffCents: number } } }[];
@@ -129,12 +129,16 @@ describe("GET /api/explain: the figures that are not a sum of one range", () => 
     expect(spend.body.cents).toBe(25050);
     for (const v of values) expect(v.explain.check.diffCents).toBe(0);
     const income = await admin.call("GET", `/api/explain?figure=usual.income&${OCTOBER}`);
-    // the page's usual income is a median of twelve complete months: four are too few, and the figure says so
-    expect(income.body).toMatchObject({ kind: "median", cents: null, check: { kind: "recompute", diffCents: 0 }, method: { rule: "Vertailuun tarvitaan 12 kuukautta, tietoja on 4" } });
+    // the page's usual income is a median of the six complete months before the range's end, the same months as the usual level of spending
+    expect(income.body).toMatchObject({ kind: "median", check: { kind: "recompute", diffCents: 0 } });
+    expect(income.body.method.values.length).toBeLessThanOrEqual(6);
+    // near miss: a range that ends in the second month has fewer than three complete months, and the figure says nothing
+    const early = await admin.call("GET", "/api/explain?figure=usual.income&from=2026-06-01&to=2026-07-31");
+    expect(early.body).toMatchObject({ kind: "median", cents: null, check: { kind: "recompute", diffCents: 0 }, method: { rule: expect.stringMatching(/^Vertailuun tarvitsemme 3 kuukautta, tietoja on \d$/) } });
     // near miss: a month with one month before it is too few, and the figure says nothing
-    const few = await admin.call("GET", "/api/explain?figure=usual.spend&from=2026-07-01&to=2026-07-31");
-    expect(few.body).toMatchObject({ cents: null, method: { rule: "Vertailuun tarvitaan 3 kuukautta, tietoja on 1" } });
-    expect((await admin.call("GET", `/api/explain?figure=usual.spend&${OCTOBER}&accounts=nope`)).status).toBe(400);
+    const few = await admin.call("GET", "/api/explain?figure=expected.spend&from=2026-07-01&to=2026-07-31");
+    expect(few.body).toMatchObject({ cents: null, method: { rule: "Vertailuun tarvitsemme 3 kuukautta, tietoja on 1" } });
+    expect((await admin.call("GET", `/api/explain?figure=expected.spend&${OCTOBER}&accounts=nope`)).status).toBe(400);
   });
 
   it("the part of a joint account's row is cut by the weights and adds up to the bank's amount; another member's row is 404", async () => {
@@ -169,7 +173,7 @@ describe("GET /api/explain: each opener explains the number its page shows", () 
     expect(reports.income.stability.medianCents).toBeGreaterThan(0);
     const income = await admin.call("GET", `/api/explain?figure=usual.income&${YEAR}`);
     expect(income.body.cents).toBe(reports.income.stability.medianCents);
-    expect(income.body.method.values).toHaveLength(12);
+    expect(income.body.method.values).toHaveLength(6);
     expect(income.body.check).toEqual({ kind: "recompute", diffCents: 0 });
     const month = (await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=cashflow")).body.cashflow;
     const left = await admin.call("GET", `/api/explain?figure=yli_jai.month&from=2026-09-01&to=2026-09-30`);

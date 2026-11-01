@@ -14,7 +14,7 @@ import { subscriptions } from "../../src/optimise/areas/subscriptions.ts";
 import { allFindings, areaInputOf, buildOptimise, type Finding, type OptimiseInput } from "../../src/optimise/index.ts";
 import { NO_INPUTS, type Transaction } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
-import { ACCOUNTS, type Frame, FRAME, householdInput, joinHousehold, type PartHousehold } from "./household.ts";
+import { ACCOUNTS, type Frame, FRAME, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as bankPart from "./parts/bank.ts";
 import * as subsPart from "./parts/subscriptions.ts";
 
@@ -44,7 +44,7 @@ describe("Puhelin ja tilaukset", () => {
   it("a phone bill that rose: the rise over a year of charges, korkea, the dates and prices only", () => {
     const f = one(SUBS_SHOWN, "rise");
     expect(f.id).toBe("subscriptions:rise:out:h-chk:Elisa");
-    expect(plain(f.title)).toBe("Elisa: hinta nousi 44,90 € → 56,90 € 12.3.2026. Nousu on 144 € vuodessa.");
+    expect(plain(f.title)).toBe("Elisa: hinta nousi 12.3.2026.");
     expect(f.euros).toEqual({ lowCents: 14400, midCents: 14400, highCents: 14400 });
     expect(f.claims).toEqual(["series:out:h-chk:Elisa"]);
     expect(f.certainty.level).toBe("korkea");
@@ -62,7 +62,7 @@ describe("Puhelin ja tilaukset", () => {
     expect(f.id).toBe("subscriptions:overlap:music");
     expect(plain(f.title)).toBe("Kaksi musiikkipalvelua yhteensä 22,98 € kuussa: Spotify ja Tidal.");
     expect(f.euros).toEqual({ lowCents: 13188, midCents: 13188, highCents: 13188 });
-    expect(f.certainty).toEqual({ level: "keskitaso", reason: "Tiedoista ei näy, kuka käyttää mitäkin palvelua." });
+    expect(f.certainty).toEqual({ level: "keskitaso", reason: "Emme näe, kuka käyttää mitäkin palvelua." });
     expect(f.action.startsWith("Irtisano")).toBe(true);
   });
 

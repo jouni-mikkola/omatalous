@@ -250,9 +250,9 @@ export function gateEvent(r: Exclude<GateResult, { state: "ok" }>, time: (iso: s
   // a copy that waits: its name first, so the cut at 200 characters shortens the reason and never the name
   if (r.state === "damaged") return { kind: "db_damaged", detail: r.waiting ? `${WAITS(r.waiting.name)}${r.waiting.why}` : r.reason };
   const copy = r.copy ? `varmuuskopiosta ${r.copy.name} (${time(r.copy.at)})` : "varmuuskopiosta";
-  if (r.cause === "damaged") return { kind: "db_restored", detail: `Tietokanta oli vaurioitunut. Se palautettiin ${copy}` };
+  if (r.cause === "damaged") return { kind: "db_restored", detail: `Tietokanta oli vaurioitunut. Palautimme sen ${copy}` };
   // `asker`: the display name of the admin who asked, when the restored database still knows them
-  return { kind: "db_restored", detail: asker ? `${asker} palautti tietokannan ${copy}` : `Tietokanta palautettiin ${copy}` };
+  return { kind: "db_restored", detail: asker ? `${asker} palautti tietokannan ${copy}` : `Palautimme tietokannan ${copy}` };
 }
 
 /**

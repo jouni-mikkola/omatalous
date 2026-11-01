@@ -2,5 +2,5 @@
 // Try it: pnpm shots overview --demo --fake-bank --steps tools/shots-examples/steps-open-user-menu.mjs --name user-menu --only .user-menu
 export default async (page) => {
   await page.getByLabel("Käyttäjävalikko").click();
-  await page.getByRole("link", { name: "Vaihda salasana" }).waitFor();
+  await page.getByRole("link", { name: "Asetukset" }).waitFor();
 };

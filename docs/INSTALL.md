@@ -9,7 +9,7 @@ only while the machine is on and catches up the next time.
 Paste this into a terminal on the machine, as your normal user:
 
 ```bash
-curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/install.sh && echo "b744b460e74dd1a65e9146c85541dcc6d291cd2d16929ac8ac930e4bd50aab38  omatalous-install.sh" | sha256sum -c && bash omatalous-install.sh
+curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/install.sh && echo "481871f3ed740a5d2fdd91c30ca62253ccd32705f6ff6eeb60747694c77591db  omatalous-install.sh" | sha256sum -c && bash omatalous-install.sh
 ```
 
 `curl` saves the install script as `omatalous-install.sh`. `sha256sum -c` compares the file with the hash in the
@@ -93,7 +93,8 @@ banks differ and what the error messages mean.
 
 After that Omatalous fetches at 6.15 and 18.15. Change the hours under *Asetukset > Tekniset asetukset > Palvelin*.
 
-A bank connection is the only way transactions come in. The import of Nordea CSV files was removed in 0.9.0. An account
+A bank connection is the main way transactions come in. A statement file read in the browser (*Asetukset > Pankit ja
+tilit*) fills an account the bank does not give. The server-side import of Nordea CSV files was removed in 0.9.0. An account
 that an older version made from CSV files stays with its rows, and when you connect the same account through the bank,
 those rows move into the bank's account.
 
@@ -101,7 +102,7 @@ those rows move into the bank's account.
 
 Optional. Add the others under *Asetukset > Talouden jäsenet*. Each gets a temporary password and picks their own at
 the first login. Members do not register anything at Enable Banking. They press *Yhdistä pankki* and log in with
-their own Nordea ID. Under *Asetukset > Tilien jakaminen* a member can share an account with the others, read-only.
+their own Nordea ID. A member can share an account with the others, read-only, with *Jaa tili* in the account's edit form under *Asetukset > Pankit ja tilit*.
 
 ## 6. Add your loans
 
@@ -133,8 +134,8 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
   [Updates in detail](ADVANCED.md#updates-in-detail).
 - The app keeps a database copy from each of the last seven days on the machine. Now and then press *Lataa uusin* under
   *Asetukset > Tekniset asetukset > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
-  a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta uusin varmuuskopio* in the same place
-  brings the newest copy back, and at every start the app checks its database and restores a damaged one from the
+  a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta* on a row of *Varmuuskopiot* in the same
+  place brings that copy back, and at every start the app checks its database and restores a damaged one from the
   newest intact copy.
 - Over https (a tunnel or your own domain) or at `localhost`, the browser offers to install Omatalous as an app: *Asenna*
   in the address bar of Chrome and Edge, *Lisää Koti-valikkoon* on iPhone, *Asenna sovellus* on Android. The app then opens

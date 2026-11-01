@@ -1,5 +1,6 @@
-/* The calendar of Käynnit (charts/CalendarHeat.tsx, VD0's composition): the same rules as VD0's charts.css, kept here until
-   that file lands, so the private page draws the calendar on any base. One hue in four steps (--heat-1..4). */
+/* The calendar of Käynnit (charts/CalendarHeat.tsx). Its legend and notes are styled in charts.css, which the page loads
+   with its charts. One hue in four steps (--heat-1..4). */
+@layer components {
 /* the calendar of days: one hue in four steps, an empty day a hairline square, the largest days ringed in text ink with
    a numbered badge; the week strip and the weekday column share the grid's axes and fade from a tint into the series hue */
 .calendar .calendar-day { fill: var(--grid); outline: none; }
@@ -11,7 +12,7 @@
 .calendar .calendar-day.active, .calendar .calendar-day:focus-visible { stroke: var(--text); stroke-width: 2; stroke-dasharray: none; }
 .calendar .calendar-top rect { fill: none; stroke: var(--text); stroke-width: 1.5; pointer-events: none; }
 .calendar .calendar-top circle { fill: var(--text); stroke: var(--surface); stroke-width: 2; pointer-events: none; }
-.calendar .calendar-top text { fill: var(--surface); font-size: var(--fs-tick); font-weight: var(--w-strong); pointer-events: none; }
+.calendar .calendar-top text { fill: var(--surface); font-size: var(--fs-label); font-weight: var(--w-strong); pointer-events: none; }
 .calendar .calendar-month, .calendar .calendar-strip-label { fill: var(--muted); }
 .calendar .calendar-peak-label { fill: var(--text); font-weight: var(--w-strong); }
 .calendar .calendar-stop { stop-color: var(--series-1); }
@@ -20,18 +21,8 @@
 .calendar .calendar-week-bar, .calendar .calendar-mean-bar { opacity: 0.55; pointer-events: none; }
 .calendar .peak .calendar-week-bar, .calendar .peak .calendar-mean-bar, .calendar .active .calendar-week-bar, .calendar .active .calendar-mean-bar { opacity: 1; }
 .calendar .calendar-mean.peak text, .calendar .calendar-annot { fill: var(--text); font-weight: var(--w-strong); }
-.calendar-legend { align-items: center; gap: 4px 8px; }
-.calendar-legend .swatch { border-radius: var(--radius-s); }
-.calendar-legend .calendar-legend-ring { margin-left: 12px; }
-.calendar-legend .calendar-ring-key { background: none; border: 1.5px solid var(--text); }
-.chart-answer { margin: 0 0 2px; font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); }
-.chart-note { margin: 0 0 8px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
-.calendar-notes { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-label); color: var(--text-2); }
-.calendar-notes li { display: inline-flex; align-items: center; gap: 8px; }
-.calendar-notes .badge-n { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-tick); font-weight: var(--w-strong); }
-.calendar-notes b { color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 @media (prefers-reduced-motion: no-preference) {
-  .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade 150ms var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
+  .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade var(--t-state) var(--ease-out) backwards; animation-delay: var(--d, 0s); }
 }
 .calendar .calendar-weekday { fill: var(--muted); }
 .calendar .calendar-grid { outline: none; }
@@ -41,7 +32,6 @@
 .heat-key { align-items: center; }
 .heat-key .heat-key-step { display: inline-flex; align-items: center; gap: 4px; }
 .heat-key .swatch { border-radius: var(--radius-s); }
-.heat-pages { margin: 0 0 8px; }
 
 /* the slope (charts/SlopeChart.tsx): its tone classes, the change beside the end figure, the note on lines left out */
 .chart .slope-flat .slope-line, .chart .slope-flat .slope-dot { stroke: var(--series-1); }
@@ -54,5 +44,7 @@
 .slope-chart g[role="group"] { outline: none; }
 .slope-off { margin: 4px 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .calendar-cut { margin: 4px 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
-/* a day with no shade is a hairline square, so at night it never reads as more than the first step */
+/* a day with no shade is a hairline square, so it never reads as more than the first step */
 .calendar .calendar-day.heat-0 { fill: transparent; stroke: var(--grid); stroke-width: 1; }
+}
+.calendar .calendar-day.pick { cursor: pointer; }

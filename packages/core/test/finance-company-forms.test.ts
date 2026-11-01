@@ -60,7 +60,7 @@ describe("a steady payment to a finance company", () => {
     expect(questions).toEqual([]);
   });
 
-  it.each(FORMS)("to %s, once answered Ei laina, is asked no more and is no proposal", (payee) => {
+  it.each(FORMS)("to %s, once answered Ei ole laina, is asked no more and is no proposal", (payee) => {
     const first = loanAsk(monthly(8, -189.5, payee));
     const marks = first.proposals.map((p) => ({ subject: `loan-proposal:${p.key}`, mark: "dismissed" as const, markedAt: "2026-10-01T08:00:00.000Z" }));
     const again = loanAsk(monthly(8, -189.5, payee), { marks, expectedBills: [] });

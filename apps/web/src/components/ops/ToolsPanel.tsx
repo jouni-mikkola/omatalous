@@ -1,6 +1,9 @@
 import { Command } from "./HelperStatus.tsx";
+import { LastResult } from "./LastResult.tsx";
 import { S } from "./ops-strings.ts";
-
+import type { OpsRequestView } from "./types.ts";
+import { Button } from "../ui/Button.tsx";
+import { Notice } from "../ui/Notice.tsx";
 interface Props {
   /** Buttons that need the one mutating slot (prune, renew). */
   disabled: boolean;
@@ -9,51 +12,56 @@ interface Props {
   /** The helper knows these actions. */
   supported: boolean;
   enableCommand: string;
+  /** How each action last ended, by action name. */
+  last: Record<string, OpsRequestView>;
   onLogs: () => void;
   onPrune: () => void;
   onRenew: () => void;
 }
 
 /** Logs, disk clean-up and helper renewal. None of them takes input, so there is no dialog. */
-export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, onLogs, onPrune, onRenew }: Props) {
+export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, last, onLogs, onPrune, onRenew }: Props) {
   return (
     <div className="card">
       <div className="card-head">
         <h2>{S.tools}</h2>
       </div>
       {!supported && (
-        <div className="notice warning" role="status">
+        <Notice tone="warning" role="status">
           {S.toolsOutdated}
           <Command text={enableCommand} />
-        </div>
+        </Notice>
       )}
       <ul className="ops-tools">
         <li>
           <div>
             <strong>{S.logs}</strong>
             <div className="small muted">{S.logsHelp}</div>
+            <LastResult request={last["logs"]} />
           </div>
-          <button className="btn" type="button" disabled={readDisabled || !supported} onClick={onLogs}>
+          <Button disabled={readDisabled || !supported} onClick={onLogs}>
             {S.logs}
-          </button>
+          </Button>
         </li>
         <li>
           <div>
             <strong>{S.prune}</strong>
             <div className="small muted">{S.pruneHelp}</div>
+            <LastResult request={last["prune"]} />
           </div>
-          <button className="btn" type="button" disabled={disabled || !supported} onClick={onPrune}>
+          <Button disabled={disabled || !supported} onClick={onPrune}>
             {S.prune}
-          </button>
+          </Button>
         </li>
         <li>
           <div>
             <strong>{S.renew}</strong>
             <div className="small muted">{S.renewHelp}</div>
+            <LastResult request={last["helper-renew"]} />
           </div>
-          <button className="btn" type="button" disabled={disabled || !supported} onClick={onRenew}>
+          <Button disabled={disabled || !supported} onClick={onRenew}>
             {S.renew}
-          </button>
+          </Button>
         </li>
       </ul>
     </div>

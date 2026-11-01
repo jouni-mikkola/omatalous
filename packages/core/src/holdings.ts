@@ -140,9 +140,9 @@ export interface Holdings {
   loansCents: number | null;
   /** What the household owes in all, the one debt total of `householdDebts`: the cards' `usedCents` and the loans' `leftCents` add up to it, to the cent. 0 without debt. */
   debtCents: number;
-  /** `accountsCents` less `debtCents`: what the household has net, Varallisuus's head figure. Null when `accountsCents` is. */
+  /** `accountsCents` less `debtCents`: what the household has net, the head figure of Varat ja velat. Null when `accountsCents` is. */
   netCents: number | null;
-  /** The loans the rows show and nobody saved, which `debtCents` cannot hold: told beside it ("N lainaa ilman saldoa, X €/kk"). Left out with none. */
+  /** The loans the rows show and nobody saved, which `debtCents` cannot hold: told beside it ("Lainoja, joiden saldo puuttuu: N (X €/kk)"). Left out with none. */
   unsavedLoans?: UnsavedLoans;
 }
 

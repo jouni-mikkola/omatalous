@@ -8,17 +8,13 @@
 import { addDays, monthIndex } from "../../dates.ts";
 import { type AnalysisTx, inDays } from "../context.ts";
 import { cardCosts } from "../credit.ts";
-import { finnishList, formatEur } from "../format.ts";
+import { formatEur } from "../format.ts";
+import { messageIn } from "../../messages.ts";
 import { toDayRange } from "../period.ts";
-import { capitalise, countWord, isLender } from "./shared.ts";
+import { LAST_PAYMENT_DAYS, MIN_INSTALMENT_MONTHLY_CENTS, PLAN_MONTHS, SAME_AMOUNT_CENTS } from "../../thresholds.ts";
+import { insightOf, isLender, shareOfExpectedSpending } from "./shared.ts";
 import type { Insight, InsightArgs } from "./types.ts";
 
-const INESSIVE = ["", "yhdessä", "kahdessa", "kolmessa", "neljässä", "viidessä", "kuudessa", "seitsemässä", "kahdeksassa", "yhdeksässä"];
-const PLAN_MONTHS = 3;
-const SAME_AMOUNT_CENTS = 100;
-const LAST_PAYMENT_DAYS = 45;
-/** H-insights 16: 20 € a month. */
-const MIN_MONTHLY = 2000;
 
 interface Plan {
   merchant: string;
@@ -49,7 +45,7 @@ function plansOf(merchant: string, txs: readonly AnalysisTx[], end: string): Pla
   return plans;
 }
 
-export function instalments({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
+export function instalments({ ctx, end, gateMonthlyCents, lang }: InsightArgs): Insight[] {
   const from = addDays(end, -183);
   const recent = inDays(ctx, toDayRange({ from, to: end }));
   const byLender = new Map<string, AnalysisTx[]>();
@@ -61,33 +57,34 @@ export function instalments({ ctx, end, gateMonthlyCents }: InsightArgs): Insigh
   }
   const plans = [...byLender].flatMap(([merchant, txs]) => plansOf(merchant, txs, end));
   const monthly = plans.reduce((sum, p) => sum + p.cents, 0);
-  if (!plans.length || monthly < Math.max(MIN_MONTHLY, gateMonthlyCents)) return [];
+  if (!plans.length || monthly < Math.max(MIN_INSTALMENT_MONTHLY_CENTS, gateMonthlyCents)) return [];
   const services = [...new Set(plans.map((p) => p.merchant))].sort();
   const yearAgo = addDays(end, -365);
   const cardInterest = new Set(cardCosts(ctx, end).cards.flatMap((c) => c.interestRows));
   const interest = inDays(ctx, toDayRange({ from: yearAgo, to: end })).filter((t) => t.category === "interest" && !cardInterest.has(t.id)).reduce((sum, t) => sum + t.spend, 0);
   const months = Math.min(12, monthIndex(end) - monthIndex(ctx.dataFrom ?? end) + 1);
   const interestMonthly = months > 0 ? Math.round(interest / months) : 0;
+  const against = shareOfExpectedSpending(ctx, end, monthly);
+  if (!against) return [];
   const one = services.length === 1;
   const s = services[0]!;
   return [
-    {
+    insightOf({
+      lang,
       id: "instalments",
-      tone: "warning",
-      title: one ? `${s}: osamaksuja ${formatEur(monthly, false)} kuussa` : `Osamaksuja ${INESSIVE[services.length] ?? services.length} palvelussa, ${formatEur(monthly, false)} kuussa`,
-      detail:
-        `${plans.length === 1 ? "Sama erä" : `${capitalise(countWord(plans.length))} samaa erää`} vähintään kolmena kuukautena peräkkäin` +
-        (one ? "" : `: ${finnishList(services)}`) +
-        (interestMonthly >= 100 ? `; korkoja ja luottokuluja ${formatEur(interestMonthly, false)} kuussa.` : "."),
-      yearlyCents: monthly * 12,
+      fact: { type: "instalments", services, plans: plans.length, monthlyCents: monthly, interestMonthlyCents: interestMonthly >= 100 ? interestMonthly : 0 },
+      comparison: against,
+      action: { label: "seeInstalments", target: { page: "transactions", filter: one ? { merchant: s } : {} } },
+      yearlyCents: -monthly * 12,
+      kind: "pattern",
       rows: plans.flatMap((p) => p.rows.map((t) => t.id)),
       ...(one ? { link: { merchant: s }, merchant: s } : {}),
       calc: [
-        ...plans.map((p) => ({ label: `${p.merchant}, erä kuussa`, value: formatEur(p.cents, false) })),
-        { label: "Palveluja", value: String(services.length) },
-        { label: "Yhteensä kuussa", value: formatEur(monthly, false) },
-        ...(interestMonthly >= 100 ? [{ label: "Korot ja luottokulut kuussa", value: formatEur(interestMonthly, false) }] : []),
+        ...plans.map((p) => ({ label: messageIn(lang, "calc.plan_instalment", { merchant: p.merchant }), value: formatEur(p.cents, false, lang) })),
+        { label: messageIn(lang, "calc.services"), value: String(services.length) },
+        { label: messageIn(lang, "calc.total_month"), value: formatEur(monthly, false, lang) },
+        ...(interestMonthly >= 100 ? [{ label: messageIn(lang, "calc.interest_credit_month"), value: formatEur(interestMonthly, false, lang) }] : []),
       ],
-    },
+    }),
   ];
 }

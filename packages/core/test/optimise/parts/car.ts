@@ -4,7 +4,7 @@
  * misses park without a price, park only 280 € a year, and pay more for the permit than for parking.
  */
 import type { InputValues } from "../../../src/optimise/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 import { rowsOf } from "./tax.ts";
 
 const lastYear = (frame: Frame) => frame.months.slice(-12);

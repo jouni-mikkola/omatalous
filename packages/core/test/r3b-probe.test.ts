@@ -90,7 +90,7 @@ describe("one share of unknown spending", () => {
     expect(u.share).toBeCloseTo(1 - classifiedShare(u), 10);
     expect(signal).toBeDefined();
     expect(signal!.cents).toBe(u.otherCents);
-    expect(plain(signal!.title)).toBe(`${Math.floor(classifiedShare(u) * 100)} % viimeisen 12 valmiin kuukauden menoista on tunnistettu`);
+    expect(plain(signal!.title)).toBe(`${Math.floor(classifiedShare(u) * 100)} % viimeisen 12 kuukauden menoista on luokiteltu`);
   });
 
   it("is of spending alone: unknown money in is a question, not part of the share", () => {
@@ -143,7 +143,7 @@ describe("a Muut menot row the user set", () => {
     expect(dataQualityReport(ctx, september).signals.some((s) => s.id === "uncategorised")).toBe(false);
     // near miss: 80 € unknown of 1 480 € (5.4 %) is told
     const more = createContext([...rows, other("2026-09-22", -4_000, "Tuntematon Maksu")], [checking], today);
-    expect(dataQualityReport(more, september).signals.find((s) => s.id === "uncategorised")?.title.replace(/\s/g, " ")).toBe("94 % viimeisen 12 valmiin kuukauden menoista on tunnistettu");
+    expect(dataQualityReport(more, september).signals.find((s) => s.id === "uncategorised")?.title.replace(/\s/g, " ")).toBe("94 % viimeisen 12 kuukauden menoista on luokiteltu");
   });
 });
 
@@ -165,7 +165,7 @@ describe("savings to an account that is not connected", () => {
       tx({ bookingDate: "2026-09-20", amountCents: -50_000, merchant: "Esimerkki Rahasto", category: "savings", categorySource: "rule" }),
     ];
     const s = dataQualityReport(createContext(rows, [checking], today), september).signals.find((x) => x.id === "own_unconnected")!;
-    expect(plain(s.title)).toBe("Säästöön meni 500 € tilille, jota ei ole yhdistetty");
+    expect(plain(s.title)).toBe("Siirsit säästöön 500 € tilille, jota et ole vielä yhdistänyt");
     expect(s.detail).toBe("Suurimmat saajat: Esimerkki Rahasto. Yhdistä tili.");
   });
 

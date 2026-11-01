@@ -4,7 +4,7 @@
  * The rows are the bank's, whole, in every view; the sums above the list are sums of the viewer's parts, and they and
  * the category filter count a row as the view does (`toldSql`).
  */
-import { CATEGORIES, fold } from "@banking/core";
+import { CATEGORIES, fold, MAX_LIST_ROWS } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
@@ -152,7 +152,7 @@ export class TransactionListRepo {
       inCents += Number(r?.inc ?? 0);
       outCents += Number(r?.outc ?? 0);
     }
-    const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), 5000), Math.max(f.offset ?? 0, 0));
+    const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), MAX_LIST_ROWS), Math.max(f.offset ?? 0, 0));
     const days = [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
     return { total, inCents, outCents, days, items };
   }

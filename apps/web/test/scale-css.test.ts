@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 /**
  * Every stylesheet of the web app, the private pages' too, as its path under src and its rules without comments. The drawn
  * card face of holdings.css (`.card-face`) is left out: it scales its words and gaps with its own width and has its own
- * colours, so no token reaches it (card-face.test.ts).
+ * colours, so no token reaches it (card-face.test.ts). fonts.css is left out too: its font-weight is the range the face holds.
  */
 function sheets(): [string, string][] {
   const root = new URL("../src/", import.meta.url);
   return (readdirSync(root, { recursive: true }) as string[])
-    .filter((f) => f.endsWith(".css"))
+    .filter((f) => f.endsWith(".css") && f !== "styles/fonts.css")
     .sort()
     .map((f): [string, string] => [f, withoutFace(readFileSync(new URL(f, root), "utf8"))]);
 }
@@ -54,9 +54,18 @@ describe("the type scale and the spacing step in every stylesheet", () => {
     expect(offStep(css)).toEqual(["padding: 6px 8px"]);
   });
 
-  it("reads every font-size from the scale (scale.css), so a page sets no size of its own", () => {
+  it("reads every font-size from the scale (tokens.css), so a page sets no size of its own", () => {
     const found = sheets().flatMap(([f, css]) => sizeLiterals(css).map((v) => `${f}: ${v}`));
     expect(found).toEqual([]);
+  });
+
+  it("has five sizes in the scale, 12, 14, 16, 20 and 32 px, and the display size of 3.25 rem for the answer number only", () => {
+    const tokens = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
+    const sizes = [...new Set([...tokens.matchAll(/--fs-[a-z0-9-]+:\s*(\d+)px/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
+    expect(sizes).toEqual([12, 14, 16, 20, 32]);
+    expect(/--fs-display:\s*([^;]+);/.exec(tokens)?.[1]).toBe("3.25rem");
+    const users = sheets().flatMap(([f, css]) => (css.includes("var(--fs-display)") ? [f] : []));
+    expect(users, "the display size stands in one place, the answer number").toHaveLength(1);
   });
 
   it("uses the two weights only", () => {

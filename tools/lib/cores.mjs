@@ -16,6 +16,15 @@ import { fileURLToPath } from "node:url";
 
 const script = join(dirname(fileURLToPath(import.meta.url)), "..", "cores.sh");
 
+/**
+ * True when the process was started to run vitest. A tool that only reads vitest.config.ts (knip in the clean-code gate)
+ * imports the file in a process of its own, and a lease taken there waits for a free place for nothing.
+ * @param {readonly string[]} [argv]
+ */
+export function startedByVitest(argv = process.argv) {
+  return argv.slice(1).some((arg) => /(^|[\\/])vitest(\.mjs|\.js)?$/.test(arg));
+}
+
 /** @param {string} label @param {NodeJS.ProcessEnv} [env] @returns {Promise<number | null>} */
 export function holdCores(label, env = process.env) {
   const given = Number(env.CORES_SHARE);

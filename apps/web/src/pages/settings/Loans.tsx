@@ -12,26 +12,25 @@ import { hashOf, SETTINGS_ANCHOR } from "../../routes.ts";
 import type { Meta } from "../../types.ts";
 import { LoanIntake } from "./LoanIntake.tsx";
 import "../../styles/loans.css";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { useModal } from "../../components/useModal.ts";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { Empty } from "../../components/ui/Empty.tsx";
+import { t } from "../../text.ts";
 const rateOf = (loan: Loan) => (loan.rateBp === null ? null : percent(loan.rateBp / 10_000, 2));
 /** The payment of an equal-principal loan is the amortisation alone: the list says so. */
-const paymentOf = (loan: Loan) => (loan.paymentCents === null ? null : `${money(loan.paymentCents)}${loan.repayment === "equal_principal" ? " + korko" : ""}`);
+const paymentOf = (loan: Loan) => (loan.paymentCents === null ? null : `${money(loan.paymentCents)}${loan.repayment === "equal_principal" ? t("set.loans.plus_interest") : ""}`);
 
 /** A saved loan in a dialog, with the form a new loan is confirmed in. `account` is the account the select starts on, "" for the loan's own. */
 function EditDialog({ loan, account, today, onSaved, onCancel }: { loan: Loan; account: string; today: string; onSaved: () => void; onCancel: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
-  }, []);
+  const ref = useModal();
   return (
     <dialog ref={ref} className="confirm loan-dialog" aria-labelledby="loan-dialog-title" onCancel={(e) => { e.preventDefault(); onCancel(); }}>
-      <h2 id="loan-dialog-title">Muokkaa lainaa</h2>
+      <h2 id="loan-dialog-title">{t("set.loans.edit_loan")}</h2>
       <LoanEditor
         initial={account ? { ...formOfLoan(loan), accountId: account } : formOfLoan(loan)}
         today={today}
-        cancelLabel="Peruuta"
+        cancelLabel={t("set.loans.cancel")}
         onSave={async (body) => {
           await loanCalls.replace(loan.id, body);
           onSaved();
@@ -62,21 +61,21 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   // the account a loan is linked to, while it is one of the household's own cards or loan accounts
   const linkedTo = (loan: Loan) => meta.accounts.find((a) => a.id === loan.accountId && DEBT_ACCOUNT_TYPES.includes(a.type));
 
-  // the Lainat report offers the link (#/settings?linkLoan=<loan>&linkAccount=<account>): the editor opens on that loan
+  // the Lainat report offers the link (#/settings/household?linkLoan=<loan>&linkAccount=<account>): the editor opens on that loan
   // with the account chosen, once, and the address is cleaned so that a reload does not open it again
-  const route = useHashRoute(meta.user.role);
+  const route = useHashRoute();
   const opened = useRef<string | null>(null);
   useEffect(() => {
-    const id = route.page === "settings" ? route.params.get(LOAN_LINK_PARAM.loan) : null;
+    const id = route.page.startsWith("settings/") ? route.params.get(LOAN_LINK_PARAM.loan) : null;
     if (!id || !list.data || opened.current === id) return;
     opened.current = id;
     const params = new URLSearchParams(route.params);
     const account = params.get(LOAN_LINK_PARAM.account) ?? "";
     params.delete(LOAN_LINK_PARAM.loan);
     params.delete(LOAN_LINK_PARAM.account);
-    window.history.replaceState(null, "", hashOf({ page: "settings", params, ...(route.anchor ? { anchor: route.anchor } : {}) }));
+    window.history.replaceState(null, "", hashOf({ page: route.page, params, ...(route.anchor ? { anchor: route.anchor } : {}) }));
     const loan = list.data.loans.find((l) => l.id === id);
-    if (!loan) return setMessage({ tone: "warning", text: "Lainaa ei enää löydy." });
+    if (!loan) return setMessage({ tone: "warning", text: t("set.loans.the_loan_can_no_longer") });
     setEditing({ loan, account: linkChoices(meta.accounts, list.data.loans, loan.id).some((c) => c.id === account) ? account : "" });
   }, [route, list.data, meta.accounts]);
 
@@ -89,7 +88,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
     setBusy(true);
     try {
       await loanCalls.remove(loan.id);
-      done("Laina poistettu.");
+      done(t("set.loans.loan_removed"));
     } catch (err) {
       setMessage({ tone: "warning", text: (err as Error).message });
     } finally {
@@ -102,74 +101,72 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
     <div className="card" id={SETTINGS_ANCHOR.loans}>
       <div className="card-head">
         <div>
-          <h2>Lainat</h2>
+          <h2>{t("set.loans.loans")}</h2>
         </div>
       </div>
       {message && (
-        <div className={`notice ${message.tone}`} role="status">
+        <Notice tone={message.tone} role="status">
           {message.text}
-        </div>
+        </Notice>
       )}
       {loans.length > 0 && (
         <Table
-          caption="Lainat"
+          caption={t("set.loans.loans")}
           rows={loans}
           rowKey={(loan) => loan.id}
           columns={[
             {
               key: "name",
-              label: "Laina",
+              label: t("set.loans.loan"),
               kind: "text",
               rowHead: true,
               cell: (loan) => (
                 <>
                   {loan.name}
                   <div className="sub">{KIND_LABEL[loan.kind]}</div>
-                  {linkedTo(loan) && <div className="sub">{`Liitetty tiliin ${linkedTo(loan)!.name}`}</div>}
+                  {linkedTo(loan) && <div className="sub">{t("set.loans.linked_to_account_name", { name: linkedTo(loan)!.name })}</div>}
                 </>
               ),
             },
-            { key: "lender", label: "Lainanantaja", kind: "text", cell: (loan) => loan.lender ?? "–" },
+            { key: "lender", label: t("set.loans.lender"), kind: "text", cell: (loan) => loan.lender ?? "–" },
             {
               key: "balance",
-              label: "Jäljellä",
+              label: t("set.loans.remaining"),
               kind: "money",
               main: true,
               cell: (loan) => (
                 <>
                   {money(loan.balanceCents)}
-                  <div className="sub">{linkedTo(loan) ? `kirjattu ${date(loan.balanceDate)}` : date(loan.balanceDate)}</div>
+                  <div className="sub">{linkedTo(loan) ? t("set.loans.recorded", { date: date(loan.balanceDate) }) : date(loan.balanceDate)}</div>
                 </>
               ),
             },
-            { key: "rate", label: "Korko", kind: "count", cell: (loan) => rateOf(loan) ?? "–" },
-            { key: "payment", label: "Maksuerä", kind: "count", cell: (loan) => paymentOf(loan) ?? "–" },
-            { key: "end", label: "Viimeinen eräpäivä", kind: "date", cell: (loan) => date(loan.endDate) },
+            { key: "rate", label: t("set.loans.rate"), kind: "count", cell: (loan) => rateOf(loan) ?? "–" },
+            { key: "payment", label: t("set.loans.payment"), kind: "count", cell: (loan) => paymentOf(loan) ?? "–" },
+            { key: "end", label: t("set.loans.last_due_date"), kind: "date", cell: (loan) => date(loan.endDate) },
             {
               key: "actions",
-              label: "Toiminnot",
+              label: t("set.loans.actions"),
               headHidden: true,
               kind: "count",
               cell: (loan) => (
                 <span className="row-actions">
-                  <button className="btn btn-small" type="button" onClick={() => setEditing({ loan, account: "" })} aria-label={`Muokkaa lainaa ${loan.name}`}>
-                    Muokkaa
-                  </button>
-                  <button className="btn btn-small btn-danger" type="button" onClick={() => setRemoving(loan)} aria-label={`Poista laina ${loan.name}`}>
-                    Poista
-                  </button>
+                  <Button variant="link" onClick={() => setEditing({ loan, account: "" })} aria-label={t("set.loans.edit_loan_name", { name: loan.name })}>
+                    {t("set.loans.edit")}
+                  </Button>
+                  <Button variant="link" onClick={() => setRemoving(loan)} aria-label={t("set.loans.remove_loan_name", { name: loan.name })}>
+                    {t("set.loans.remove")}
+                  </Button>
                 </span>
               ),
             },
           ]}
         />
       )}
-      {list.error && <div className="error">{list.error}</div>}
+      {list.error && <Notice tone="error">{list.error}</Notice>}
       {/* while the list is on its way the line keeps its room, so the cards below do not move when it arrives */}
       {loans.length === 0 && !list.error && (
-        <div className={`empty${list.data ? "" : " loans-wait"}`}>
-          Ei lainoja.
-        </div>
+        <Empty className={list.data ? undefined : "loans-wait"}>{t("set.loans.no_loans")}</Empty>
       )}
 
       <LoanIntake today={meta.today} onSaved={(name) => done(`${name} tallennettu.`)} />
@@ -188,8 +185,8 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
         />
       )}
       {removing && (
-        <ConfirmDialog title="Poistetaanko laina?" confirmLabel="Poista" busy={busy} onConfirm={() => void remove(removing)} onCancel={() => setRemoving(null)}>
-          <p>{removing.name} poistuu luvuista. Tapahtumat pysyvät ennallaan.</p>
+        <ConfirmDialog title={t("set.loans.remove_name", { name: removing.name })} confirmLabel={t("set.loans.remove_loan")} busy={busy} onConfirm={() => void remove(removing)} onCancel={() => setRemoving(null)}>
+          <p>{t("set.loans.the_loan_is_removed_from")}</p>
         </ConfirmDialog>
       )}
     </div>

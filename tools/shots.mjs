@@ -21,7 +21,7 @@ const MAX_PART = 100_000_000;
 const SECOND = { username: "eero-esimerkki", displayName: "Eero" };
 
 export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the built app, one per route and width
-  <route>          a page id with an optional query: overview, "reports?tab=income". Several routes share one app start and one login
+  <route>          a page id with an optional query: overview, "reports?q=tulot". Several routes share one app start and one login
   --widths a,b     pixel widths (default ${WIDTHS.join(",")})
   --demo           the demo household: 14 months of made-up rows on its own accounts (--demo-years: 26, both sides of a year comparison)
   --fake-bank      links the fake bank (e2e/fake-bank/): a checking and a savings account, a joint account of MEIKALAINEN MATTI;KORHONEN ELISA,
@@ -44,7 +44,6 @@ export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the b
   --name label     in the file names: <route>-<label>-<width>.png, so two states do not overwrite each other
   --only "x"       a CSS selector or heading text, found on the page the steps end on: a second picture of that part (with what stands outside it, no sticky bar)
                    beside the whole page: <route>-<label>-<slug of x>-<width>.png; exit 1 when nothing matches. E.g. --only "Säännöt" or "#saannot"
-  --look night|light night puts data-look="night" on <html>, light takes it away (before the steps and the picture); without it the page is as served
 Pictures go to $SHOTS_DIR (default shots in $TMPDIR, else /tmp); $SHOTS_DISPLAY_NAME is the administrator's name on the page (default Shots). Exit 1 when a picture scrolls sideways or a table is wider than the screen.`;
 
 /** @typedef {((answer: any) => unknown) | { fail: { status: number, body: object } } | { hold: true }} AnswerSpec */
@@ -52,7 +51,7 @@ Pictures go to $SHOTS_DIR (default shots in $TMPDIR, else /tmp); $SHOTS_DISPLAY_
 /**
  * @typedef {{ help: boolean, routes: string[], widths: number[], demo: boolean, demoYears: boolean, fakeBank: boolean, answers: string | null,
  *   steps: string | null, scope: "own" | "household" | null, name: string | null, member: boolean, parts: [number, number] | null,
- *   loan: boolean, only: string | null, look: "night" | "light" | null }} Options
+ *   loan: boolean, only: string | null }} Options
  */
 
 /**
@@ -61,7 +60,7 @@ Pictures go to $SHOTS_DIR (default shots in $TMPDIR, else /tmp); $SHOTS_DISPLAY_
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { help: false, routes: [], widths: WIDTHS, demo: false, demoYears: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null, look: null };
+  const o = { help: false, routes: [], widths: WIDTHS, demo: false, demoYears: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? "";
     const eq = a.startsWith("--") ? a.indexOf("=") : -1;
@@ -102,14 +101,10 @@ export function parseArgs(argv) {
       const v = value().trim();
       if (!v || v.startsWith("--")) throw new Error(`--only takes a CSS selector or the text of a panel's heading (got: ${v || "nothing"})`);
       o.only = v;
-    } else if (flag === "--look") {
-      const v = value();
-      if (v !== "night" && v !== "light") throw new Error(`--look takes night or light (got: ${v})`);
-      o.look = v;
     } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (pnpm shots --help lists them)`);
     else {
       const route = a.replace(/^#?\/?/, "");
-      if (!/^[a-z][a-z-]*(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`a route is a page id with an optional query, like overview or reports?tab=income (got: ${route})`);
+      if (!/^[a-z][a-z-]*(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`a route is a page id with an optional query, like overview or reports?q=tulot (got: ${route})`);
       if (!o.routes.includes(route)) o.routes.push(route);
     }
   }
@@ -269,14 +264,7 @@ function stale() {
   return ["apps/web/src", "apps/web/public", "apps/server/src", "packages/core/src"].some((d) => newest(join(ROOT, d)) > oldest) || statSync(join(ROOT, "apps/web/index.html")).mtimeMs > oldest;
 }
 
-/** What `--look` does inside the page: `night` puts the attribute on <html>, `light` is the look without it. */
-export function applyLook(/** @type {"night" | "light"} */ look) {
-  const root = document.documentElement;
-  if (look === "night") root.setAttribute("data-look", "night");
-  else root.removeAttribute("data-look");
-}
-
-/** How a picture is taken: finite animations and transitions are run to their end (a button that is moving from one look to the other is not a state), infinite ones stand at their start. */
+/** How a picture is taken: finite animations and transitions are run to their end (a button that is moving is not a state), infinite ones stand at their start. */
 export function pictureOptions(/** @type {string} */ path) {
   return { path, fullPage: true, animations: /** @type {const} */ ("disabled") };
 }
@@ -304,7 +292,7 @@ async function main() {
   }
   const { startServer } = await import("../e2e/server.mjs");
   const { createMember, linkFakeBank, sayJointUse, setScope, waitForSync } = await import("../e2e/helpers.ts");
-  const { chromium, expect } = await import("@playwright/test");
+  const { chromium } = await import("@playwright/test");
   const out = process.env.SHOTS_DIR ?? join(tmpdir(), "shots");
   mkdirSync(out, { recursive: true });
   // SHOTS_STILL=1 (tools/visual-check.sh): no animation is caught half way, so two runs give the same pixels
@@ -393,7 +381,6 @@ async function main() {
         heldAsks = 0;
         await page.goto(`/#/${route}`);
         await settle(page, () => heldAsks, holding);
-        if (o.look) await page.evaluate(applyLook, o.look);
         if (steps) {
           await steps(page, route);
           await settle(page, () => heldAsks, holding);

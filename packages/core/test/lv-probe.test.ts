@@ -8,11 +8,11 @@ import * as opsElapsed from "../../../apps/web/src/components/ops/ops-elapsed.ts
 import { cashAhead } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { dataQualityReport } from "../src/analysis/data-quality.ts";
-import { addDays, addMonths } from "../src/dates.ts";
+import { addDays } from "../src/dates.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 import { trace, type TraceRow } from "../src/money-trace.ts";
 import { type Settlement, settlement } from "../src/settlement.ts";
-import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
+import { type Account, type BalanceInput, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { dayNumber } from "../src/dates.ts";
 import { tx } from "./helpers.ts";
 

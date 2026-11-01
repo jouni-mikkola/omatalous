@@ -8,7 +8,8 @@ import { dailyBackup, EmptyDatabaseError, openDatabase, takeSnapshot } from "../
 import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import { RestoreError, restoreDatabase } from "../src/db/restore.ts";
 import { UserError } from "../src/platform/errors.ts";
-import { backupForDownload, listAppBackups } from "../src/services/ops.ts";
+import { listAppBackups } from "../src/services/ops.ts";
+import { backupForDownload } from "../src/services/ops-download.ts";
 import { setupApp, scratchDir } from "./helpers.ts";
 
 const dirs: string[] = [];
@@ -166,7 +167,6 @@ describe("verified copies", () => {
   it("removes a copy that fails its check and a copy that could not be written", async () => {
     const dir = tmp();
     const path = join(dir, "banking.db");
-    const file = join(dir, "backups", "auto-2026-10-10.db");
     // the copy is written under the name in the statement (a part file) and gets its own name when it is good
     const target = (sql: string) => /^VACUUM INTO '(.+)'$/.exec(sql)![1]!;
     // a database whose VACUUM INTO leaves an empty file, as a full disk does
@@ -185,7 +185,7 @@ describe("verified copies", () => {
 
   it("lists only usable copies and downloads the newest one that passes", async () => {
     const dir = tmp();
-    const { path, db } = await realDb(dir);
+    const { db } = await realDb(dir);
     const backups = join(dir, "backups");
     mkdirSync(backups);
     db.exec(`VACUUM INTO '${join(backups, "auto-2026-10-08.db")}'`);

@@ -27,13 +27,13 @@ const TOUCH_MS = 60 * 60_000;
 /**
  * The routes a token reads, by path. Deny by default: a route added later stays closed to tokens until it is named
  * here. Left out on purpose: sign-in and sessions, the security log and its notices (reading a notice marks it read),
- * the admin and maintenance routes, the bank's callback (a GET that writes), and the exports (a whole copy of the data).
+ * the admin and maintenance routes, the bank's callback (a GET that writes), the settlement (a GET that freezes the closed
+ * months) and the exports (a whole copy of the data).
  */
 const READABLE: readonly RegExp[] = [
   /^\/api\/auth\/state$/,
-  /^\/api\/(meta|foreign-rows|dashboard|ahead|reports|explain|recurring|bill-month|transactions|rules|payer-roles|review|household-members|expected-bills|statements|merchants|merchants\/summary|merchants\/uncategorised|sync\/runs)$/,
-  /^\/api\/accounts\/[^/]+\/(sources|use\/suggestion)$/,
-  /^\/api\/settlement(\/agreements\/[^/]+)?$/,
+  /^\/api\/(meta|foreign-rows|dashboard|ahead|reports|explain|recurring|transactions|rules|payer-roles|review|review\/count|household-members|expected-bills|statements|merchants|merchants\/summary|merchants\/uncategorised|sync\/runs)$/,
+  /^\/api\/accounts\/[^/]+\/use\/suggestion$/,
   /^\/api\/loans(\/proposals)?$/,
   /^\/api\/optimise(\/evidence)?$/,
   /^\/api\/bank\/logos\/[^/]+$/,
@@ -92,10 +92,10 @@ export async function listServiceTokens(s: Services): Promise<ServiceTokenInfo[]
 }
 
 /** Removes a token at once; `by` says where (the command line, an admin's name). False when there was none. */
-export async function revokeServiceToken(s: Services, id: string, by: string): Promise<boolean> {
+export async function revokeServiceToken(s: Services, id: string, by: string, req: { ip?: string | null; userAgent?: string | null } = {}): Promise<boolean> {
   const gone = await s.serviceTokens.remove(id);
   if (!gone) return false;
-  await recordEvent(s, { kind: "service_token_removed", userId: gone.userId, detail: `${gone.name} (${gone.id}), ${by}` });
+  await recordEvent(s, { kind: "service_token_removed", userId: gone.userId, ip: req.ip ?? null, userAgent: req.userAgent ?? null, detail: `${gone.name} (${gone.id}), ${by}` });
   return true;
 }
 

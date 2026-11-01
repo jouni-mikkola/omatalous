@@ -6,6 +6,7 @@
  */
 import { type FindingOutcome, type FindingState, type OptimiseData, type OutcomeDetail, parseFindingId } from "@banking/core";
 import { date, money } from "../../format.ts";
+import { t } from "../../text.ts";
 import { DeltaChip, MarkCell } from "../table/Cells.tsx";
 import { type Column, Table } from "../table/Table.tsx";
 import { AreaMark, VerdictMark } from "./marks.tsx";
@@ -43,7 +44,7 @@ function Who({ state, data }: { state: FindingState; data: OptimiseData }) {
   const text = (
     <span className="rt-who-text">
       <span>{nameOf(state.findingId, data.areas)}</span>
-      <span className="sub">Tehty {date(state.effectiveDate ?? state.decidedAt)}</span>
+      <span className="sub">{t("ow.dec_done", { date: date(state.effectiveDate ?? state.decidedAt) })}</span>
     </span>
   );
   return named ? (
@@ -60,7 +61,7 @@ const perMonth = (m: { cents: number; months: number } | undefined) =>
   m ? (
     <>
       {money(m.cents)}
-      <span className="sub">yleensä, {m.months} kuukautta</span>
+      <span className="sub">{t("ow.oc_usually", { months: m.months })}</span>
     </>
   ) : (
     <span className="muted">–</span>
@@ -77,21 +78,21 @@ export function Outcomes({ data, outcomes }: { data: OptimiseData; outcomes: Rea
   if (!rows.length) return null;
   type Row = (typeof rows)[number];
   const columns: Column<Row>[] = [
-    { key: "change", label: "Muutos", kind: "text", rowHead: true, cell: (r) => <Who state={r.state} data={data} /> },
-    { key: "before", label: "Ennen, kuussa", kind: "money", cell: (r) => perMonth(r.outcome.detail?.before) },
-    { key: "after", label: "Jälkeen, kuussa", kind: "money", cell: (r) => perMonth(r.outcome.detail?.after) },
+    { key: "change", label: t("ow.oc_change"), kind: "text", rowHead: true, cell: (r) => <Who state={r.state} data={data} /> },
+    { key: "before", label: t("ow.oc_before_col"), kind: "money", cell: (r) => perMonth(r.outcome.detail?.before) },
+    { key: "after", label: t("ow.oc_after_col"), kind: "money", cell: (r) => perMonth(r.outcome.detail?.after) },
     {
       key: "diff",
-      label: "Ero kuussa",
+      label: t("ow.oc_diff"),
       kind: "money",
       main: true,
       // the saving a month is spending that fell: the chip shows the spending's change, so a saving reads as down and good
       cell: (r) => (r.outcome.monthlyCents !== null ? <DeltaChip delta={-r.outcome.monthlyCents} text={signed(-r.outcome.monthlyCents)} meaning="spend" flat={99} /> : <span className="muted">–</span>),
     },
-    { key: "months", label: "Kuukaudet", kind: "text", className: () => "ba-cell", cell: (r) => r.outcome.detail && <BeforeAfter detail={r.outcome.detail} /> },
+    { key: "months", label: t("ow.oc_months"), kind: "text", className: () => "ba-cell", cell: (r) => r.outcome.detail && <BeforeAfter detail={r.outcome.detail} /> },
     {
       key: "result",
-      label: "Tulos",
+      label: t("ow.oc_result"),
       kind: "text",
       cell: (r) => (
         <>
@@ -103,9 +104,9 @@ export function Outcomes({ data, outcomes }: { data: OptimiseData; outcomes: Rea
   ];
   return (
     <>
-      <Table<Row> caption="Tehtyjen muutosten tulokset" className="outcomes" rows={rows} rowKey={(r) => r.state.findingId} columns={columns} />
+      <Table<Row> caption={t("ow.oc_caption")} className="outcomes" rows={rows} rowKey={(r) => r.state.findingId} columns={columns} />
       <p className="small muted outcomes-key">
-        <span className="ba-key ba-key-before" aria-hidden="true" /> ennen <span className="ba-key ba-key-after" aria-hidden="true" /> jälkeen, muutoksen kuukausi ei ole mukana. Katkoviiva on tavallinen taso.
+        <span className="ba-key ba-key-before" aria-hidden="true" /> {t("ow.oc_before")} <span className="ba-key ba-key-after" aria-hidden="true" /> {t("ow.oc_after")}
       </p>
     </>
   );

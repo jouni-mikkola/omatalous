@@ -1,10 +1,12 @@
 // Decision: what the home costs a month and on what terms its loan runs, told as a statement
-import { CATEGORIES, type DashboardData, type HousingCharge, type HousingLoan, LOAN_REFERENCE_LABEL } from "@banking/core";
-import { date, dayMonth, money, rateText } from "../../format.ts";
+import { CATEGORIES, categoryLabel, type Housing, type HousingCharge, type HousingLoan } from "@banking/core";
+import { date, dayMonth, language, money, rateText } from "../../format.ts";
 import { addsUp, shares } from "../../marks.ts";
 import { partText } from "../../part.ts";
+import { referenceName } from "../loans/labels.ts";
+import { t, tn } from "../../text.ts";
 
-type Answer = NonNullable<DashboardData["housing"]>;
+type Answer = Housing;
 
 /** A value that is not known. */
 export const DASH = "–";
@@ -14,13 +16,13 @@ export const DASH = "–";
  * "Seuraava maksuerä"; a column of figures is right-aligned.
  */
 export const LOAN_COLUMNS = [
-  { key: "rate", head: "Korko", figure: true, next: false },
-  { key: "reference", head: "Viitekorko ja marginaali", figure: false, next: false },
-  { key: "review", head: "Koron tarkistuspäivä", figure: false, next: false },
-  { key: "due", head: "Eräpäivä", figure: false, next: true },
-  { key: "amortisation", head: "Lyhennys", figure: true, next: true },
-  { key: "interest", head: "Korko", figure: true, next: true },
-  { key: "month", head: "Kuussa", figure: true, next: false },
+  { key: "rate", head: "rpt.ho_rate", figure: true, next: false },
+  { key: "reference", head: "rpt.ho_reference", figure: false, next: false },
+  { key: "review", head: "rpt.ho_review", figure: false, next: false },
+  { key: "due", head: "rpt.ho_due", figure: false, next: true },
+  { key: "amortisation", head: "rpt.ho_amortisation", figure: true, next: true },
+  { key: "interest", head: "rpt.ho_interest", figure: true, next: true },
+  { key: "month", head: "rpt.fc_per_month", figure: true, next: false },
 ] as const;
 type Column = (typeof LOAN_COLUMNS)[number]["key"];
 
@@ -51,7 +53,7 @@ function cellsOf(loan: HousingLoan): Record<Column, Cell> {
   const unknown = nothingDue ? NONE : MISSING;
   return {
     rate: rateBp === null ? MISSING : told(rateOf(rateBp)),
-    reference: fixed ? told("Kiinteä") : reference !== null && referenceBp !== null && marginBp !== null ? told(`${LOAN_REFERENCE_LABEL[reference]} ${rateOf(referenceBp)} + ${rateOf(marginBp)}`) : MISSING,
+    reference: fixed ? told(t("rpt.ho_fixed")) : reference !== null && referenceBp !== null && marginBp !== null ? told(`${referenceName(reference)} ${rateOf(referenceBp)} + ${rateOf(marginBp)}`) : MISSING,
     review: fixed ? NONE : reviewDate !== null && !reviewPassed ? told(date(reviewDate)) : MISSING,
     due: next?.date ? told(dayMonth(next.date)) : unknown,
     amortisation: next && next.amortisationCents !== null ? told(money(next.amortisationCents)) : unknown,
@@ -61,7 +63,7 @@ function cellsOf(loan: HousingLoan): Record<Column, Cell> {
 }
 
 /** The one link that ends a loan's row; both open the card Lainat of Asetukset. */
-type RowLink = "Täydennä" | "Lisää laina";
+type RowLink = "complete" | "add";
 
 interface LoanRow {
   key: string;
@@ -126,13 +128,31 @@ function loanRow(loan: HousingLoan): LoanRow {
     saved,
     part: partText(loan.part, "debt"),
     cells: Object.fromEntries(LOAN_COLUMNS.map(({ key }) => [key, cells[key].text])) as Record<Column, string>,
-    link: saved ? (mend ? "Täydennä" : null) : "Lisää laina",
+    link: saved ? (mend ? "complete" : null) : "add",
   };
 }
 
+/** Core names a charge in Finnish (`housingCharge`, wording.ts) and gives no id, so the name is read back by its Finnish text. */
+const CHARGE_KIND = {
+  Rahoitusvastike: "rpt.ho_k_financing",
+  Pääomavastike: "rpt.ho_k_capital",
+  Hoitovastike: "rpt.ho_k_maintenance",
+  Käyttövastike: "rpt.ho_k_occupancy",
+  Vesimaksu: "rpt.ho_k_water_charge",
+  Autopaikka: "rpt.ho_k_parking",
+  Vuokra: "rpt.ho_k_rent",
+  Vastike: "rpt.ho_k_charge",
+  Jätehuolto: "rpt.ho_k_waste",
+  Sähkönsiirto: "rpt.ho_k_grid",
+  Sähkö: "rpt.ho_k_electricity",
+  Kaukolämpö: "rpt.ho_k_district_heat",
+  Vesi: "rpt.ho_k_water",
+} as const;
+const chargeKind = (label: string | null): string | null => (label === null ? null : label in CHARGE_KIND ? t(CHARGE_KIND[label as keyof typeof CHARGE_KIND]) : label);
+
 const chargeRow = (charge: HousingCharge): ChargeRow => ({
   key: charge.seriesId,
-  kind: charge.label ?? CATEGORIES.find((c) => c.id === charge.category)?.label ?? DASH,
+  kind: chargeKind(charge.label) ?? (CATEGORIES.find((c) => c.id === charge.category) ? categoryLabel(CATEGORIES.find((c) => c.id === charge.category)!, language()) : DASH),
   payee: charge.payee,
   part: partText(charge.part, "debt"),
   cents: charge.monthlyCents,
@@ -143,9 +163,9 @@ const chargeRow = (charge: HousingCharge): ChargeRow => ({
 function sumsOf({ loans, charges, loansMonthlyCents, chargesMonthlyCents, totalMonthlyCents }: Answer): SumRow[] {
   if (loans.length + charges.length === 0) return [];
   const paid = loans.some((loan) => loan.monthlyCents !== null);
-  const total: SumRow = { label: "Asuminen yhteensä kuussa", cents: paid || charges.length > 0 ? totalMonthlyCents : null, total: true };
+  const total: SumRow = { label: t("rpt.ho_total"), cents: paid || charges.length > 0 ? totalMonthlyCents : null, total: true };
   if (loans.length === 0 || charges.length === 0) return [total];
-  return [{ label: "Lainojen maksuerät", cents: paid ? loansMonthlyCents : null, total: false }, { label: "Asumiskulut", cents: chargesMonthlyCents, total: false }, total];
+  return [{ label: t("rpt.ho_loan_payments"), cents: paid ? loansMonthlyCents : null, total: false }, { label: t("rpt.ho_charges"), cents: chargesMonthlyCents, total: false }, total];
 }
 
 /** The block from core's answer: the loans in core's order, the charges in core's order, the sums as core gives them. */
@@ -167,7 +187,7 @@ export function housingView(housing: Answer): HousingView {
     loans: housing.loans.map(loanRow),
     charges,
     sums,
-    missing: housing.partial ? `Summasta puuttuu ${unpaid} lainan maksuerä.` : null,
+    missing: housing.partial ? tn(unpaid, "rpt.ho_missing_one", "rpt.ho_missing_many") : null,
     ask: housing.ask,
     chargesAddUp,
     sumsAddUp: total !== null && addsUp(paid, total),

@@ -72,7 +72,11 @@ services:
   # Needs DOMAIN and ACME_EMAIL in .env, a DNS A record to your public IP and
   # ports 80 + 443 forwarded to this machine.
   caddy:
-    image: caddy:2
+    # Pinned to a release and its digest, like the tunnel below, so an install pulls the image that was tested. Only
+    # the maintenance helper of this release and later accepts this form (COMPOSE_JQ in scripts/lib/ops-git.sh); the
+    # helper of an older install refuses it, so that install updates once by hand (tools/ci/compose-compat.sh expects
+    # that refusal and nothing else).
+    image: caddy:2.11.7@sha256:504a44d7d74bd2bc28a66afc4774912fc21223ca8a67734af1c54ab2f999b489
     profiles: ["caddy"]
     restart: unless-stopped
     depends_on: [banking]
@@ -95,9 +99,9 @@ services:
   # Cloudflare Tunnel: HTTPS from anywhere without opening ports. Pair it with
   # Cloudflare Access (Zero Trust) so only your e-mail can reach the login page.
   tunnel:
-    # Not pinned to a version: the maintenance helper of installed 0.8.x copies accepts only this image name
-    # (COMPOSE_JQ in scripts/ops-helper.sh) and refuses a browser update to a compose file with another one.
-    image: cloudflare/cloudflared:latest
+    # Pinned to a release and its digest, so an install pulls the image that was tested. The maintenance helper of
+    # 0.8.7 and later accepts this form (COMPOSE_JQ in scripts/lib/ops-git.sh); the one of 0.4.0 to 0.8.6 refuses it.
+    image: cloudflare/cloudflared:2026.10.4@sha256:c6c7ae1d5dfdcb094ad344ed68ccffc26635c9c6be80965664c33baf064b0515
     profiles: ["tunnel"]
     restart: unless-stopped
     depends_on: [banking]

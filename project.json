@@ -1,0 +1,12 @@
+{
+  "name": "Omatalous",
+  "owner": "jouni-mikkola",
+  "repo": "omatalous",
+  "image": "ghcr.io/jouni-mikkola/omatalous",
+  "signerWorkflow": ".github/workflows/release.yml",
+  "pagesUrl": "https://jouni-mikkola.github.io/omatalous/",
+  "returnUrl": "https://jouni-mikkola.github.io/omatalous/callback/",
+  "author": "Jouni Mikkola",
+  "authorUrl": "https://www.linkedin.com/in/jouni-mikkola",
+  "supportUrl": "https://buymeacoffee.com/jouni.mikkola"
+}

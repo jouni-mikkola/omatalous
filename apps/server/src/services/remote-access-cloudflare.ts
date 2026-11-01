@@ -47,7 +47,7 @@ export const SAYS: Record<Refusal, string> = {
   "zero-trust": "Zero Trust ei ole käytössä tällä Cloudflare-tilillä. Ota se käyttöön Cloudflaren hallinnassa (Free-taso riittää) ja yritä uudelleen.",
   taken: "Osoite on jo käytössä Cloudflaressa, eikä tämä asennus ole tehnyt sitä. Valitse toinen osoite tai poista vanha Cloudflaren hallinnasta.",
   zone: "Osoite ei kuulu yhteenkään verkkotunnukseen, jonka API-tunniste näkee. Valitse osoite tunnisteen verkkotunnuksen alta.",
-  unreachable: "Cloudflareen ei saatu yhteyttä. Yritä hetken päästä uudelleen.",
+  unreachable: "Emme saaneet yhteyttä Cloudflareen. Yritä hetken päästä uudelleen.",
   other: "Cloudflare ei hyväksynyt muutosta. Yritä hetken päästä uudelleen.",
 };
 /** The same kinds for the event list. */

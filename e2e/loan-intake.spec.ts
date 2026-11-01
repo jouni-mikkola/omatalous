@@ -51,7 +51,7 @@ test("a PDF that is only a picture is told so, shows no form and no spinner, and
   const context = await administrator(browser);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   await card.getByLabel("Kuva tai PDF lainasta").setInputFiles({ name: "skannaus.pdf", mimeType: "application/pdf", buffer: scannedPdf() });
 
@@ -60,7 +60,7 @@ test("a PDF that is only a picture is told so, shows no form and no spinner, and
   await readEnded(card);
   await expect(card.getByRole("region")).toHaveCount(0);
   await expect(card.getByLabel("Liitä kuva tai teksti lainasta")).toHaveValue("");
-  await expect(card.getByRole("button", { name: "Lue tiedot" })).toBeDisabled();
+  await expect(card.getByRole("button", { name: "Lue lainan tiedot" })).toBeDisabled();
 
   // the way out the page keeps: the loan typed in by hand. Its form is not marked as read.
   await card.getByRole("button", { name: "Lisää käsin" }).click();
@@ -85,7 +85,7 @@ test("a PDF under a password is told to be protected, whatever was on the page b
   const context = await administrator(browser);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings");
+  await page.goto("/#/settings/household");
   const card = lainat(page);
   const pick = card.getByLabel("Kuva tai PDF lainasta");
 
@@ -103,7 +103,7 @@ test("a PDF under a password is told to be protected, whatever was on the page b
   // what the sentence asks for works: the text of the loan, pasted into the box
   const box = card.getByLabel("Liitä kuva tai teksti lainasta");
   await box.fill(STATEMENT.join("\n"));
-  await card.getByRole("button", { name: "Lue tiedot" }).click();
+  await card.getByRole("button", { name: "Lue lainan tiedot" }).click();
   await expect(reader(card)).toHaveText("Löytyi 1 laina.");
   await expect(card.getByRole("alert")).toHaveCount(0);
   await expect(card.getByRole("region", { name: "Luettu laina" }).getByLabel("Lainaa jäljellä (€)")).toHaveValue("21 300,00");
@@ -140,7 +140,7 @@ test("the edit dialog of a saved loan on a phone reaches every field, scrolls in
   try {
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/settings");
+    await page.goto("/#/settings/household");
     const card = lainat(page);
     await card.getByRole("button", { name: "Muokkaa lainaa Esimerkkilaina puhelimella" }).click();
     const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });

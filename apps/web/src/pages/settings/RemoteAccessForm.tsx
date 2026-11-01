@@ -2,7 +2,8 @@
 import { type FormEvent, useState } from "react";
 import type { RemoteAccessState } from "./remote-access-api.ts";
 import { cleanHostname, emailProblem, parseEmails, startEmails, startHostname } from "./remote-access-model.ts";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { t } from "../../text.ts";
 export function TurnOnForm({ s, onSubmit }: { s: RemoteAccessState; onSubmit: (hostname: string, emails: string[]) => void }) {
   const start = startHostname(s);
   const [host, setHost] = useState(start.host);
@@ -13,7 +14,7 @@ export function TurnOnForm({ s, onSubmit }: { s: RemoteAccessState; onSubmit: (h
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const hostname = cleanHostname(host);
-    if (!hostname) return setProblem({ field: "host", text: "Anna osoite muodossa talous.oma.fi (ilman https://-alkua ja polkua)." });
+    if (!hostname) return setProblem({ field: "host", text: t("set.rform.enter_the_address_like_talous") });
     const emails = parseEmails(text);
     const bad = emailProblem(emails);
     if (bad) return setProblem({ field: "emails", text: bad });
@@ -23,9 +24,9 @@ export function TurnOnForm({ s, onSubmit }: { s: RemoteAccessState; onSubmit: (h
 
   return (
     <form className="setup-form remote-block" onSubmit={submit} noValidate>
-      <h4 className="field-label">{on ? "Muuta sallittuja sähköpostiosoitteita" : "Ota etäkäyttö käyttöön"}</h4>
+      <h4 className="field-label">{on ? t("set.rform.change_the_allowed_email_addresses") : t("set.rform.turn_on_remote_access")}</h4>
       <label>
-        <span className="field-label">Osoite</span>
+        <span className="field-label">{t("set.rform.address")}</span>
         <input
           name="hostname"
           type="text"
@@ -40,13 +41,13 @@ export function TurnOnForm({ s, onSubmit }: { s: RemoteAccessState; onSubmit: (h
         />
         <span className="field-help">
           {start.locked
-            ? "Osoitetta ei voi vaihtaa. Ota etäkäyttö ensin pois käytöstä."
-            : "Ilman https://-alkua. Osoitteen pitää kuulua tunnisteen verkkotunnukseen, ja verkkotunnuksen edessä saa olla vain yksi osa."}
+            ? t("set.rform.cannot_change_address")
+            : t("set.rform.address_help")}
         </span>
-        {problem?.field === "host" && <span className="error">{problem.text}</span>}
+        {problem?.field === "host" && <span className="field-error">{problem.text}</span>}
       </label>
       <label>
-        <span className="field-label">Sallitut sähköpostiosoitteet</span>
+        <span className="field-label">{t("set.rform.allowed_email_addresses")}</span>
         <textarea
           name="emails"
           rows={4}
@@ -57,15 +58,14 @@ export function TurnOnForm({ s, onSubmit }: { s: RemoteAccessState; onSubmit: (h
           aria-invalid={problem?.field === "emails" ? true : undefined}
         />
         <span className="field-help">
-          Yksi osoite riville. Vain nämä osoitteet pääsevät kirjautumaan.{" "}
-          {on ? "Poistettu osoite pääsee silti sisään, kunnes sen avoin kirjautuminen päättyy." : "Oman osoitteesi pitää olla listalla."}
+          {t("set.rform.one_per_line")} {on ? t("set.rform.removed_still_in") : t("set.rform.own_address_listed")}
         </span>
-        {problem?.field === "emails" && <span className="error">{problem.text}</span>}
+        {problem?.field === "emails" && <span className="field-error">{problem.text}</span>}
       </label>
       <div className="form-row">
-        <button className="btn btn-primary" type="submit">
-          {on ? "Tallenna sallitut osoitteet" : "Ota etäkäyttö käyttöön"}
-        </button>
+        <Button variant="primary" type="submit">
+          {on ? t("set.rform.save_allowed_addresses") : t("set.rform.turn_on_remote_access")}
+        </Button>
       </div>
     </form>
   );

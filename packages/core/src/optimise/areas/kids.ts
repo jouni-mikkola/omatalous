@@ -4,6 +4,8 @@
  * and the change of the maximum, and the household reads its fee decision. Only a municipality's fee is compared: a
  * private provider sets its own prices.
  */
+import { localeOf, type Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import type { AnalysisTx } from "../../analysis/context.ts";
 import { formatEur } from "../../analysis/format.ts";
 import { fold } from "../../merchant.ts";
@@ -42,27 +44,23 @@ function chargesOf(rows: readonly AnalysisTx[]): Charge[] {
 /** The same fee, within 3 % and 50 cents, as the recurring series compare charges. */
 const sameFee = (x: number, y: number) => Math.abs(x - y) < 50 || Math.abs(x - y) < 0.03 * Math.max(x, y);
 
-const pct = new Intl.NumberFormat("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const percent = (share: number) => `${pct.format(share * 100)}\u00a0%`;
+const percent = (share: number, lang: Language) => new Intl.NumberFormat(localeOf(lang), { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(share * 100);
 
 /**
  * The August change of one fee as the check's hint, or null without one: the old fee is the last charge before
  * 1.8 (settled: the one before it agrees), the new one the first charge from 1.9 to 5.10 in a complete month, so
  * billing in advance and in arrears both read the new fee.
  */
-function changeOf(rows: readonly AnalysisTx[], year: number, end: string, statutory: number): string | null {
+function changeOf(rows: readonly AnalysisTx[], year: number, end: string, statutory: number, lang: Language): string | null {
   const charges = chargesOf(rows);
   const old = charges.filter((c) => c.date < `${year}-08-01`);
   const fresh = charges.find((c) => c.date >= `${year}-09-01` && c.date <= `${year}-10-05` && c.date <= end);
   const last = old[old.length - 1];
   if (!fresh || !last || old.length < 2 || !sameFee(last.cents, old[old.length - 2]!.cents) || sameFee(last.cents, fresh.cents)) return null;
   const rise = fresh.cents / last.cents - 1;
-  const verb = rise > 0 ? "nousi" : "laski";
+  const verb = messageIn(lang, rise > 0 ? "opt.kid_rose" : "opt.kid_fell");
   const sign = rise > 0 ? "" : "\u2212";
-  return (
-    `Maksu ${verb} elokuussa ${formatEur(last.cents)} → ${formatEur(fresh.cents)} (${sign}${percent(Math.abs(rise))}). ` +
-    `Enimmäismaksu nousi ${percent(statutory)}. Jos tulot tai hoitoaika eivät muuttuneet, tarkista maksupäätös.`
-  );
+  return messageIn(lang, "opt.kid_hint", { verb, from: formatEur(last.cents, true, lang), to: formatEur(fresh.cents, true, lang), sign, share: percent(Math.abs(rise), lang), max: percent(statutory, lang) });
 }
 
 function assess(a: AreaInput): AreaResult {
@@ -77,7 +75,7 @@ function assess(a: AreaInput): AreaResult {
   }
   if (!groups.size) return { findings: [], checks: [] };
 
-  const check: Check = { id: `kids:${KIND}`, label: "Päivähoitomaksun nousu", status: "clear" };
+  const check: Check = { id: `kids:${KIND}`, label: messageIn(a.lang, "opt.kid_chk"), status: "clear" };
   // the latest August whose new fee has been paid in a complete month: September, or a few days into October
   const year = Number(end.slice(0, 4)) - (end.slice(5, 7) < "09" ? 1 : 0);
   const before = factFrom(FACTS, FACT, `${year}-07-31`);
@@ -86,7 +84,7 @@ function assess(a: AreaInput): AreaResult {
   if (!before || !after || after.validFrom !== `${year}-08-01` || factOn(FACT, today) !== after) return { findings: [], checks: [check] };
   const statutory = after.value / before.value - 1;
   for (const rows of groups.values()) {
-    const hint = changeOf(rows, year, end, statutory);
+    const hint = changeOf(rows, year, end, statutory, a.lang);
     if (hint) return { findings: [], checks: [{ ...check, hint }] };
   }
   return { findings: [], checks: [check] };

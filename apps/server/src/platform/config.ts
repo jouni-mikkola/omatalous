@@ -6,6 +6,7 @@
  * services/instance.ts.
  */
 import { isAppSecret } from "../entry/app-secret.ts";
+import { envLimits } from "./limits.ts";
 
 export interface EnableBankingConfig {
   appId: string;
@@ -23,6 +24,8 @@ export interface InstanceSettings {
   historyDays: number;
   /** Look up unknown merchants' industry in the public trade register (services/industry.ts). */
   industryLookup: boolean;
+  /** Fetch the published consumer price index from Statistics Finland (services/price-index.ts). Off until an admin turns it on. */
+  priceIndex: boolean;
 }
 
 /** The app's own check of Cloudflare Access (security/cf-access.ts). */
@@ -58,8 +61,8 @@ export interface Config {
   trustProxy: boolean;
   /** One-time code for creating the first admin in the browser. */
   setupCode: string | null;
-  /** PBKDF2 iterations; lower only for tests. */
-  passwordIterations: number;
+  /** The environment layer of the limits (platform/limits.ts); the database layer is services/limits.ts. */
+  limits: Record<string, number>;
   /** Optional instance app from the environment (EB_APP_ID + EB_PRIVATE_KEY_FILE); one saved in the browser wins. */
   enableBanking: EnableBankingConfig | null;
   bank: {
@@ -67,7 +70,6 @@ export interface Config {
     redirectUrl: string | null;
     /** The static return page used for plain-http installs (EB_RELAY_URL); null means the project's own. */
     relayUrl: string | null;
-    consentDays: number;
     /** Extra host names (with their subdomains) the bank's consent page may be on, on top of the built-in list (EB_AUTH_HOSTS). */
     authHosts: string[];
     /** Where the bank's API is (EB_API_URL), for the fake bank of the browser specs. Always a loopback address; undefined means Enable Banking's own. */
@@ -159,14 +161,16 @@ export function normalizePem(pem: string): string {
 
 export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?: string } = {}): Config {
   const pem = normalizePem(files.privateKeyPem ?? env.EB_PRIVATE_KEY ?? "");
+  const limits = envLimits(env);
   return {
     defaults: {
       // without an address the app is opened on this machine, at the port it listens on
       appBaseUrl: (env.APP_BASE_URL || `http://localhost:${int(env.PORT, 8080)}`).replace(/\/+$/, ""),
       timezone: env.TZ || "Europe/Helsinki",
       syncHours: hours(env.SYNC_HOURS, [6, 18]),
-      historyDays: int(env.HISTORY_DAYS, 730),
+      historyDays: limits.historyDays!,
       industryLookup: env.INDUSTRY_LOOKUP !== "false",
+      priceIndex: false,
     },
     access: accessConfig(env),
     appSecret: validSecret((files.appSecret ?? env.APP_SECRET ?? "").trim()),
@@ -174,12 +178,11 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
     sessionCookie: cookieName(env.INSTANCE_NAME),
     trustProxy: env.TRUST_PROXY === "true" || env.TRUST_PROXY === "1",
     setupCode: validSetupCode(env.SETUP_CODE),
-    passwordIterations: int(env.PASSWORD_ITERATIONS, 600_000),
+    limits,
     enableBanking: env.EB_APP_ID && pem ? { appId: env.EB_APP_ID, privateKeyPem: pem } : null,
     bank: {
       redirectUrl: env.EB_REDIRECT_URL?.trim() || null,
       relayUrl: /^https:\/\/[^\s]+$/.test(env.EB_RELAY_URL?.trim() ?? "") ? env.EB_RELAY_URL!.trim() : null,
-      consentDays: int(env.EB_CONSENT_DAYS, 180),
       authHosts: (env.EB_AUTH_HOSTS ?? "").split(",").map((h) => h.trim().toLowerCase()).filter((h) => /^[a-z0-9][a-z0-9.-]{1,100}$/.test(h)),
       apiUrl: bankApiUrl(env.EB_API_URL),
     },

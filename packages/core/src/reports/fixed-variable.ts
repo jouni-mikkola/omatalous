@@ -22,11 +22,26 @@ interface FixedVariableBand extends FixedVariableRow {
   tops: [number, number, number, number];
   /** Fixed costs as a share of the month's spending; null when it spent nothing. */
   fixedShare: number | null;
+  /** `fixedShare` in whole percent, the figure the table prints and the text under the chart reads (not the layer's rounding-together in `shares`). */
+  fixedPercent: number | null;
   /**
    * Each layer's share of the month's spending in whole percent, rounded together so they add up to 100: the labels at
    * the chart's right end. A layer below zero (a month of refunds) is null and stands outside; all null when it spent nothing.
    */
   shares: [number | null, number | null, number | null, number | null];
+}
+
+/**
+ * The fixed layer's whole percent (what the table prints, `Math.round` of the share itself) and the four layers' whole
+ * percents for the chart's end labels. The fixed layer prints the table's percent; the others are rounded together into
+ * what is left of the hundred, so the labels still add up.
+ */
+function layerShares(r: Pick<FixedVariableRow, "fixedCents" | "habitCents" | "variableCents" | "debtCents">, spending: number): { fixedPercent: number | null; shares: FixedVariableBand["shares"] } {
+  if (!(spending > 0)) return { fixedPercent: null, shares: [null, null, null, null] };
+  const fixedPercent = Math.round((r.fixedCents / spending) * 100);
+  const rest = r.fixedCents < 0 || r.habitCents < 0 || r.variableCents < 0 || r.debtCents < 0 ? null : roundedShares([r.habitCents, r.variableCents, r.debtCents], spending, 0, 100 - fixedPercent);
+  const shares = (rest ? [fixedPercent, ...rest] : roundedShares([r.fixedCents, r.habitCents, r.variableCents, r.debtCents], spending)) as FixedVariableBand["shares"];
+  return { fixedPercent, shares };
 }
 
 export interface FixedVariableReport {
@@ -69,8 +84,8 @@ export function fixedVariableReport(ctx: AnalysisContext, range: DateRange): Fix
   );
   const bands = rows.map((r) => {
     const tops: [number, number, number, number] = [r.fixedCents, r.fixedCents + r.habitCents, r.fixedCents + r.habitCents + r.variableCents, r.fixedCents + r.habitCents + r.variableCents + r.debtCents];
-    const shares = (tops[3] > 0 ? roundedShares([r.fixedCents, r.habitCents, r.variableCents, r.debtCents], tops[3]) : [null, null, null, null]) as FixedVariableBand["shares"];
-    return { ...r, tops, fixedShare: tops[3] > 0 ? r.fixedCents / tops[3] : null, shares };
+    const { fixedPercent, shares } = layerShares(r, tops[3]);
+    return { ...r, tops, fixedShare: tops[3] > 0 ? r.fixedCents / tops[3] : null, fixedPercent, shares };
   });
   const spendingCents = totals.fixedCents + totals.habitCents + totals.variableCents + totals.debtCents;
   return { rows: bands, totals: { ...totals, spendingCents, fixedShare: spendingCents > 0 ? totals.fixedCents / spendingCents : null } };

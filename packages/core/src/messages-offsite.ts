@@ -1,0 +1,62 @@
+/**
+ * The catalogue of the copy to another machine (Asetukset > Palvelin): the refusals of the server and the card. Same
+ * shape as the tables of `messages.ts` (a Finnish table gives the codes, the English one must have the same codes and
+ * holes) and the same test.
+ * Decision: the household is told in plain words what leaves the machine (an encrypted copy and nothing else), where
+ * the key that opens it must be kept and why, in the language they chose.
+ */
+export const FI_OFFSITE = {
+  // refusals
+  "offsite.host": "Anna toisen koneen osoite: verkkonimi (esimerkiksi nas.example.com) tai IP-numero, enintään 253 merkkiä.",
+  "offsite.port": "Portti on luku väliltä 1–65535.",
+  "offsite.user": "Anna käyttäjätunnus, jossa on 1–32 merkkiä (a–z, 0–9, . _ -) ja joka ei ala viivalla.",
+  "offsite.dir": "Anna kansion polku: kirjaimia, numeroita sekä merkit . _ - ja /, enintään 120 merkkiä, ei ..-osaa.",
+  "offsite.recipient": "Anna age-julkinen avain (alkaa age1) tai luo uusi painikkeella.",
+  "offsite.key_missing": "Luo ensin avaimet. Toinen kone tarvitsee tämän koneen SSH-avaimen.",
+  "offsite.incomplete": "Täytä osoite, tunnus, kansio ja age-avain ennen kuin otat kopion käyttöön.",
+  "offsite.saved_key_confirm": "Vahvista, että olet tallentanut salausavaimen muualle kuin tähän koneeseen.",
+  "offsite.no_secret": "Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.",
+  "offsite.not_set": "Kopion kohdetta ei ole annettu. Anna se kohdassa Asetukset > Palvelin.",
+  "offsite.no_folder": "Emme tunne palvelimen tietokansiota, joten emme voi aloittaa kopiota.",
+  "offsite.unreadable": "Emme voi avata tallennettua kohdetta nykyisellä salausavaimella. Poista se ja anna uudelleen.",
+  // the card
+  "offsite.title": "Varmuuskopio toiselle koneelle",
+  "offsite.recommended": "Suositus",
+  "offsite.intro": "Tämä kone ei saa olla ainoa paikka, jossa tietosi ovat. Lähetämme joka yö salatun kopion tietokannasta ja sovelluksen salaisuudesta toiselle koneelle SFTP:llä, esimerkiksi NAS-laitteelle tai vuokratulle levytilalle. Salaamme kopion ennen lähetystä, joten toinen kone ei näe sisältöä. Mitään ei lähde, ennen kuin annat kohteen.",
+  "offsite.key_reason": "Salausavain on ainoa tapa avata kopio. Emme tallenna sitä tälle koneelle emmekä kopion mukaan, koska silloin kopion saaja saisi myös avaimen. Tallenna se salasanamanageriin ja kirjoita myös paperille. Jos avain katoaa, kukaan ei voi avata kopiota.",
+  "offsite.step_keys": "1. Luo avaimet",
+  "offsite.make_keys": "Luo avaimet",
+  "offsite.make_keys_again": "Luo uudet avaimet",
+  "offsite.secret_title": "Salausavain, näet sen vain nyt",
+  "offsite.secret_place": "Tallenna salasanamanageriin ja toiselle laitteelle, ei tälle koneelle eikä kopion kohteeseen. Palautus tarvitsee sen: ./scripts/restore.sh <kopio> --secret <sovelluksen salaisuus> --key <avaintiedosto>.",
+  "offsite.secret_download": "Lataa avaintiedostona",
+  "offsite.secret_saved": "Olen tallentanut salausavaimen muualle kuin tähän koneeseen.",
+  "offsite.ssh_title": "SSH-avain toiselle koneelle",
+  "offsite.ssh_place": "Lisää tämä rivi toisen koneen tiedostoon ~/.ssh/authorized_keys sille käyttäjälle, jolla tallennamme kopion.",
+  "offsite.step_target": "2. Anna kopion kohde",
+  "offsite.host_label": "Toisen koneen osoite",
+  "offsite.port_label": "Portti",
+  "offsite.user_label": "Käyttäjä",
+  "offsite.dir_label": "Kansio toisella koneella",
+  "offsite.dir_help": "Kansion pitää olla olemassa tai sen yläkansion kirjoitettava. Sinne tulee vain salattuja tiedostoja: talous-*.db.gz.age ja talous-*.app_secret.age.",
+  "offsite.recipient_label": "Salausavain (julkinen osa)",
+  "offsite.recipient_help": "Alkaa age1. Tämä osa vain salaa, sillä ei voi avata mitään. Voit liittää oman age-avaimesi tai luoda uuden yllä.",
+  "offsite.password": "Salasanasi",
+  "offsite.enable": "Lähetä kopio joka yö",
+  "offsite.save": "Tallenna",
+  "offsite.saving": "Tallennetaan…",
+  "offsite.saved": "Tallennettu.",
+  "offsite.run_now": "Kopioi nyt",
+  "offsite.queued": "Kopiointi on jonossa. Tulos näkyy tässä ja kohdassa Ylläpito.",
+  "offsite.remove": "Poista kohde",
+  "offsite.removed": "Kohde poistettu. Toisella koneella jo olevat kopiot jäävät sinne.",
+  "offsite.state_off": "Ei käytössä. Mitään ei lähde tältä koneelta.",
+  "offsite.state_set": "Käytössä: kopio lähtee joka yö kohteeseen {target}.",
+  "offsite.state_paused": "Kohde on tallennettu mutta ei käytössä.",
+  "offsite.last_ok": "Viimeisin kopio: {at}. {summary}",
+  "offsite.last_failed": "Viimeisin yritys {at} epäonnistui. {summary}",
+  "offsite.last_none": "Kopiota ei ole vielä viety.",
+  "offsite.stale": "Onnistunutta kopiota ei ole viety yli kolmeen vuorokauteen. Katso Ylläpito-kohdan loki.",
+  "offsite.no_secret_note": "Palvelimen salausavain puuttuu, joten kohdetta ei voi tallentaa.",
+  "offsite.helper_note": "Kopio lähtee ylläpitoapurin kautta. Ota apuri käyttöön kohdassa Ylläpito. Koneella pitää olla age ja sftp (sudo apt install age openssh-client).",
+} as const;

@@ -7,7 +7,7 @@ import { ensureSetupCode } from "../src/services/users.ts";
 
 const START = new Date("2026-10-12T08:00:00Z");
 const HOUR = 3_600_000;
-const ENV = { PASSWORD_ITERATIONS: "1000", APP_SECRET: "test-secret-that-is-long-enough-0123456789", APP_BASE_URL: "http://localhost:8080", INDUSTRY_LOOKUP: "false" };
+const ENV = { PASSWORD_MEMORY_KIB: "8", PASSWORD_PASSES: "1", APP_SECRET: "test-secret-that-is-long-enough-0123456789", APP_BASE_URL: "http://localhost:8080", INDUSTRY_LOOKUP: "false" };
 // both sentences send the reader to the same command
 const NEW_CODE = "Uuden saa komennolla docker compose exec banking node dist/node.js setup-code";
 const EXPIRED = `Asennuskoodi on vanhentunut. ${NEW_CODE}`;

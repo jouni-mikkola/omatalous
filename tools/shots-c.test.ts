@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NO_BROWSER, ROOT, stateKit } from "./shots-kit.ts";
+import { NO_BROWSER, stateKit } from "./shots-kit.ts";
 
 // real runs: the built app, a Chromium, and what a step module saw of the page before the picture
 describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
@@ -51,20 +51,9 @@ describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
     const r = run("overview", "settings", "--demo", "--widths", "700,390", "--steps", steps, "--scope", "household", "--name", "s");
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(seen().map((s) => [s.route, s.width])).toEqual([["overview", 700], ["overview", 390], ["settings", 700], ["settings", 390]]);
-    expect(seen().every((s) => s.url.endsWith(`#/${s.route}`) && s.heading)).toBe(true);
+    // the bare #/settings is rewritten to its first target before the steps run
+    expect(seen().every((s) => s.url.endsWith(`#/${s.route === "settings" ? "settings/banks" : s.route}`) && s.heading)).toBe(true);
     expect(Object.entries(seen()[0].storage).filter(([key]) => key.startsWith("scope:"))).toEqual([[expect.stringMatching(/^scope:/), "household"]]);
     expect(readdirSync(out).filter((f) => f.includes("-s-")).sort()).toEqual(["overview-s-390.png", "overview-s-700.png", "settings-s-390.png", "settings-s-700.png"]);
   }, 180_000);
-
-  it("--look light takes the attribute of <html> away and --look night puts it there, before the steps run; without it the page is as index.html serves it", () => {
-    const served = /<html\b[^>]*\sdata-look="([a-z]+)"/.exec(readFileSync(join(ROOT, "apps/web/index.html"), "utf8"))?.[1] ?? null;
-    const looks = (...args: string[]) => {
-      const r = run("overview", "--widths", "390", "--steps", steps, "--name", "look", ...args);
-      expect(r.status, r.stdout + r.stderr).toBe(0);
-      return seen().map((s) => s.look);
-    };
-    expect(looks("--look", "light")).toEqual([null]);
-    expect(looks("--look", "night")).toEqual(["night"]);
-    expect(looks()).toEqual([served]);
-  }, 300_000);
 });

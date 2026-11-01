@@ -1,5 +1,10 @@
 /* Settings page and the server and bank app forms the wizard reuses. */
 
+@layer pages {
+/* settings: the cards of a target stay mounted to load their data while the placeholder shows; .stack sets a display, so [hidden] needs its own rule */
+.card-stack[hidden] { display: none; }
+/* settings: a button row inside a card head sits flush with the title */
+.settings-flush { margin: 0; }
 /* settings: an account's own edit row */
 .edit-row td { background: var(--surface-2); }
 @media (max-width: 600px) { .account-form label { max-width: none; } }
@@ -11,7 +16,7 @@
 .rt .sub.acc-line { max-width: none; white-space: normal; overflow: visible; }
 .conn-accounts { margin-top: 2px; }
 /* settings: how much of an account's credit limit is in use, under the line that says it */
-.credit-bar { position: relative; height: 8px; margin: 4px 0 8px; max-width: 14rem; background: var(--surface-2); box-shadow: var(--sink); }
+.credit-bar { position: relative; height: 8px; margin: 4px 0 8px; max-width: 14rem; background: var(--surface-2); }
 .credit-bar span { display: block; height: 100%; background: var(--series-1); }
 /* the quarter scale: ticks at 0, 25, 50, 75 and 100 % of the limit */
 .credit-bar::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 3px; background: linear-gradient(90deg, var(--axis) 0 1px, transparent 1px) 0 0 / 25% 100% repeat-x, linear-gradient(var(--axis), var(--axis)) 100% 0 / 1px 100% no-repeat; }
@@ -41,9 +46,8 @@
 /* the sentence of a member who cannot see the account is running text: it has a measure */
 .use-line > span { max-width: 70ch; text-wrap: pretty; }
 .use-line { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
-.shared-list { margin: 2px 0 0; padding-left: 20px; }
 .account-form .form-row { margin: 0; flex: 1 1 260px; }
-.account-form .error { flex-basis: 100%; }
+.account-form .notice { flex-basis: 100%; }
 
 .secret-box { background: var(--warn-bg); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 8px 12px; margin: 8px 0; }
 .secret-box code { font-size: var(--fs-body); user-select: all; }
@@ -53,17 +57,8 @@
 .setup-form label.check { flex-direction: row; align-items: flex-start; gap: 8px; }
 .setup-form label.check > span { display: flex; flex-direction: column; gap: 2px; }
 .setup-form label.check input { margin-top: 4px; }
-.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 16rem)); gap: 16px; }
-.setup-form input[type="url"] { max-width: 24rem; }
-.hour-picker { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.hour-picker legend { padding: 0; margin-bottom: 8px; }
-.hours { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
-@media (max-width: 520px) { .hours { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-/* a key of the buttons; the chosen one is raised with the accent foot, as the switch's */
-.hours button { min-height: var(--control-h); padding: 0; border: 1px solid var(--control-edge); border-radius: var(--radius-m); background: var(--control); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2); cursor: pointer; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-2); }
-.hours button:hover:not(:disabled) { background: var(--control-hover); border-color: var(--control-edge-hover); color: var(--text); }
-.hours button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2), inset 0 -2px 0 var(--accent); }
-.hours button:disabled { cursor: default; background: transparent; border-color: var(--border); color: var(--muted); box-shadow: none; }
+/* one width for the fields of a form; the text areas and the check boxes keep their own */
+.setup-form input:not([type="checkbox"]):not([type="radio"]), .setup-form select { max-width: 24rem; }
 .setup-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 16px; }
 .setup-steps li::marker { color: var(--muted); font-weight: 600; }
 .setup-steps li > .small.muted { margin-top: 8px; }
@@ -73,12 +68,11 @@
 .run-when { white-space: nowrap; }
 .eb-label { color: var(--muted); }
 /* what the app has seen of a bank (KeyValue) */
-.bank-facts { width: 100%; max-width: 520px; }
-.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-ui); color: var(--muted); }
-/* a square, not a ring: a ring on Yhteenveto means an estimate, and here nothing can be pressed */
-.checklist li::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border: 1px solid var(--axis); box-sizing: border-box; }
+.checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-body); color: var(--muted); }
+/* a tick or a dash, not a box: nothing here can be pressed */
+.checklist li::before { content: "–" / ""; display: inline-block; width: 1em; margin-right: 4px; text-align: center; }
 .checklist li.done { color: var(--text); }
-.checklist li.done::before { background: var(--good); border-color: var(--good); }
+.checklist li.done::before { content: "✓" / ""; color: var(--good); font-weight: var(--w-strong); }
 .bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 8px 12px; }
 .bank-app-status code { overflow-wrap: anywhere; }
 
@@ -96,8 +90,6 @@
 .renewal ul { margin: 0 0 12px; padding-left: 0; list-style: none; }
 .renewal li { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .renewal li .badge { margin-left: 0; }
-.text-button { background: none; border: 0; padding: 0; font: inherit; color: var(--accent-ink); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
-.text-button:hover { text-decoration-thickness: 2px; }
 /* Tuo tiedot sits in the Tiedot card head; its progress, dry run and answer take whole lines under the buttons */
 .data-import-line { flex: 0 0 100%; min-width: 0; }
 .data-import-plan { margin-bottom: 8px; }
@@ -106,7 +98,7 @@
 
 /* a visible label above its field: forms of the household and the log filter */
 .form-fields { align-items: flex-end; }
-.field { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-ui); }
+.field { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-body); }
 /* a select is as wide as its longest option: a bank's long holder names must not widen the page, so it shrinks to its card and cuts the name */
 .field { max-width: 100%; min-width: 0; }
 .field select, .field input { max-width: 100%; min-width: 0; box-sizing: border-box; }
@@ -116,9 +108,15 @@
 .field-inline { max-width: 100%; min-width: 0; }
 .field-inline select { min-width: 0; max-width: 60vw; }
 
-/* Tilien jakaminen: an account and, under its name, one check box for each other member */
-.share-list { display: grid; }
-.share-list fieldset { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 24px; margin: 0; padding: 12px 0; border: 0; border-bottom: 1px solid var(--grid); }
-.share-list fieldset:last-of-type { border-bottom: 0; }
-.share-list legend { float: left; width: 100%; padding: 0; font-weight: 600; }
-.share-list label { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; font-size: var(--fs-ui); }
+/* Tilin jakaminen: in the edit form of an account, one check box for each other member */
+.share-list { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 24px; margin: 0; padding: 0; border: 0; }
+.share-list legend { float: left; width: 100%; padding: 0; margin-bottom: 4px; }
+/* beside the text: .account-form label stacks its children */
+.share-list label { display: inline-flex; flex-direction: row; flex: 0 1 auto; max-width: none; align-items: center; gap: 8px; min-height: 32px; font-size: var(--fs-body); }
+}
+.bank-app-id { flex: 1 1 16.25rem; max-width: 24rem; }
+.bank-return-input { flex: 1; min-width: 13.75rem; }
+
+/* the one destructive action of a page: last, folded, and set apart by a red rule */
+.danger-zone { margin-top: var(--sp-32); border-top-color: var(--bad); }
+.danger-zone h2 { color: var(--bad); }

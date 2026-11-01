@@ -1,18 +1,16 @@
 import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { stubCockpit, type Cockpit } from "./cockpit-stub.ts";
 import { overflow, watch } from "./helpers.ts";
 
-// Yhteenveto on a phone, at 320, 360 and 390 px wide: the waterfall of the month, the sentence of the joint pools and the ticks
-// beside the balances. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
+// Yhteenveto on a phone, at 320, 360 and 390 px wide: the answer and its sum row, the five blocks under each other, and the
+// chart of the month. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-async function open(context: BrowserContext, how: Cockpit): Promise<Page> {
-  await stubCockpit(context, how);
+async function open(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
   await page.goto("/#/overview");
+  await expect(page.locator(".home-answer-line")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator(".wf")).toBeVisible();
   return page;
 }
 
@@ -34,54 +32,46 @@ const small = (list: Locator): Promise<string[]> =>
   );
 
 for (const width of [320, 360, 390]) {
-  test(`${width} px: the waterfall has a row for each bar, the sentence and the ticks fit, nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the blocks stand under each other inside the screen, the sum row and the bars fit, nothing scrolls sideways`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
-    const page = await open(context, { settlement: "uneven" });
+    const page = await open(context);
     const seen = watch(page);
-    const rows = page.locator(".wf-row");
-    expect(await rows.count(), "income, four categories, the rest, transfers and Tulos").toBe(8);
-    // the figure is at the right edge of its row, the bar under the name; both are on the screen
-    for (const row of await rows.all()) {
-      for (const part of [row.locator(".wf-fig"), row.locator(".wf-track")]) {
-        const box = (await part.boundingBox())!;
-        expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
-        expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
-      }
+    // four blocks in one column: each starts on the left edge of the page and none is beside another
+    const blocks = page.locator(".home-answer, .home-pace, .home-notable, .home-direction");
+    let bottom = 0;
+    for (const block of await blocks.all()) {
+      const box = (await block.boundingBox())!;
+      expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
+      expect(box.y, "starts under the block before").toBeGreaterThanOrEqual(bottom - 1);
+      bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".wf-label, .wf-fig, .wf-settle p")), "text cut").toEqual([]);
-    // down is hatched and up is solid: the pattern is the cue besides colour
-    expect(await page.locator(".wf-down .wf-bar").first().evaluate((e) => getComputedStyle(e).backgroundImage)).toContain("repeating-linear-gradient");
-    expect(await page.locator(".wf-up .wf-bar").first().evaluate((e) => getComputedStyle(e).backgroundImage)).not.toContain("repeating-linear-gradient");
-    // the three ticks of the demo's accounts: ✓, !, and none
-    await expect(page.locator(".holding-tick-ok")).toHaveAttribute("title", "Täsmää pankin saldoon");
-    await expect(page.locator(".holding-tick-diff")).toHaveAttribute("title", "Ei täsmää pankin saldoon");
-    expect(await cut(page.locator(".holding-account .st-num, .holding-account .st-name")), "balance rows cut").toEqual([]);
-    // the controls of the new parts are tapped with a thumb
-    expect(await small(page.locator("button.wf-hit, .wf-toggle, .wf-settle a")), "tap targets under 44 px").toEqual([]);
-    // and so is everything else that is tapped on the page
-    expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a")), "tap targets under 44 px").toEqual([]);
+    expect(await cut(page.locator(".home-answer-line, .home-sum-row dt, .home-sum-row dd, .home-row, .home-note")), "text cut").toEqual([]);
+    // the sum row's three figures are all inside the screen
+    for (const cell of await page.locator(".home-sum-row > div").all()) {
+      const box = (await cell.boundingBox())!;
+      expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
+    }
+    // everything that is tapped on the page is tapped with a thumb
+    expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
     expect(seen.problems).toEqual([]);
     await context.close();
   });
 }
 
-test("390 px: the bar of Tulos opens its rows, an empty month says so in a sentence, an even pool says so", async ({ browser }) => {
+test("390 px: Näytä maksut opens the payments inside the screen and Piilota maksut closes them", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
-  const page = await open(context, { settlement: "even" });
-  await expect(page.locator(".wf-settle")).toContainText("Yhteiset menot ovat tasan.");
-  await page.getByRole("button", { name: "Näytä tapahtumat: Tulos" }).tap();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByRole("dialog").locator("table.why-rows tbody tr").first()).toBeVisible();
-  await page.keyboard.press("Escape");
+  const page = await open(context);
+  const open_ = page.getByRole("button", { name: "Näytä maksut" });
+  test.skip((await open_.count()) === 0, "the demo has no payment before its payday");
+  await open_.tap();
+  const table = page.getByRole("table", { name: "Maksut ennen palkkapäivää" });
+  await expect(table).toBeVisible();
+  const box = (await table.boundingBox())!;
+  expect(box.x + box.width, "the list ends on the screen").toBeLessThanOrEqual(390);
+  expect(await overflow(page)).toBe(0);
+  await page.getByRole("button", { name: "Piilota maksut" }).tap();
+  await expect(table).toHaveCount(0);
   await context.close();
-
-  const empty = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
-  await stubCockpit(empty, { empty: true, settlement: "none" });
-  const blank = await empty.newPage();
-  await blank.goto("/#/overview");
-  await expect(blank.locator(".wf-empty")).toHaveText("Tässä kuussa ei ole vielä tapahtumia.");
-  await expect(blank.locator(".wf-settle")).toHaveCount(0);
-  expect(await overflow(blank)).toBe(0);
-  await empty.close();
 });

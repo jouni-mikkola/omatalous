@@ -1,5 +1,6 @@
 /* Asetukset > Lainat: the saved loans, the box a picture or text of a loan goes into, and the form that confirms what was read. */
 
+@layer pages {
 .loans-wait { visibility: hidden; }
 
 /* the box: a dashed edge says "drop here", as file boxes do */
@@ -32,9 +33,9 @@
 /* a field the reading was not sure of, until the household ticks or changes it */
 .loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); }
 .loan-source { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
-.loan-confirm { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-ui); align-self: flex-start; cursor: pointer; }
+.loan-confirm { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-body); align-self: flex-start; cursor: pointer; }
 .loan-confirm input { margin: 0; accent-color: var(--fill); }
-.loan-warnings { padding-left: 28px; }
+.loan-warnings { margin: 0; padding-left: 16px; }
 .loan-warnings li + li { margin-top: 4px; }
 .loan-interest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 
@@ -44,7 +45,7 @@ dialog.loan-dialog h2 { margin-bottom: 16px; }
 dialog.loan-dialog .loan-form p { color: inherit; }
 dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0; }
 
-/* Reports > Lainat: the totals (.kv), what they leave out (.notice.warning), each debt with its figures side by side, and a move of the reference rate. */
+/* Reports > Lainat: the totals (.kv), what they leave out (.notice with the warning tone), each debt with its figures side by side, and a move of the reference rate. */
 
 .loans-tile-sub { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); margin-top: 2px; }
 .loans-notes { list-style: none; margin: 0 0 var(--sp-16); padding: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
@@ -72,3 +73,4 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 .loan-scenario { margin: 8px 0 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
 
 @media (max-width: 700px) { .loan-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+}

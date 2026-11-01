@@ -1,11 +1,14 @@
 import { dateTime } from "../../format.ts";
 import { S } from "./ops-strings.ts";
-import type { OpsSnapshot } from "./types.ts";
-
-export function UpdatePanel({ version, build, state, disabled, prerelease, onCheck, onUpdate, onRollback }: {
+import { LastResult } from "./LastResult.tsx";
+import type { OpsRequestView, OpsSnapshot } from "./types.ts";
+import { Button } from "../ui/Button.tsx";
+export function UpdatePanel({ version, build, state, last, disabled, prerelease, onCheck, onUpdate, onRollback }: {
   version: string;
   build: string;
   state: OpsSnapshot;
+  /** How the check, the update and the rollback last ended. */
+  last?: Record<string, OpsRequestView>;
   disabled: boolean;
   /** The switch for new versions and where it stands. Null: no switch (an older helper, a source install). */
   prerelease: { on: boolean; onChange: (on: boolean) => void } | null;
@@ -14,6 +17,9 @@ export function UpdatePanel({ version, build, state, disabled, prerelease, onChe
   onRollback: () => void;
 }) {
   const behind = state.behind_commits ?? [];
+  // the switch is two actions, on and off: the newer one tells how the last turn ended
+  const turns = [last?.["prerelease-on"], last?.["prerelease-off"]].filter((r): r is OpsRequestView => r !== undefined);
+  const switched = turns.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0];
   return (
     <div className="card">
       <div className="card-head">
@@ -27,9 +33,9 @@ export function UpdatePanel({ version, build, state, disabled, prerelease, onChe
           </div>
           {state.channel && <div className="card-sub">{S.channel(state.channel)}</div>}
         </div>
-        <button className="btn" type="button" disabled={disabled} onClick={onCheck}>
+        <Button disabled={disabled} onClick={onCheck}>
           {S.checkUpdates}
-        </button>
+        </Button>
       </div>
       {state.update_available ? (
         <>
@@ -53,28 +59,31 @@ export function UpdatePanel({ version, build, state, disabled, prerelease, onChe
         // before the first check there is nothing to say: no dash, and with nothing else the head stands alone
         state.checked_at && <p className="muted">{S.upToDate(dateTime(state.checked_at))}</p>
       )}
+      {/* each stands only once the action has been run: before that the head stands alone */}
+      {(["check-update", "update", "rollback"] as const).map((a) => last?.[a] && <LastResult key={a} label={S.actionNames[a]} request={last[a]} />)}
       {(state.update_available || state.can_rollback) && (
         <div className="form-row">
           {state.update_available && (
-            <button className="btn btn-primary" type="button" disabled={disabled} onClick={onUpdate}>
+            <Button variant="primary" disabled={disabled} onClick={onUpdate}>
               {S.update}
-            </button>
+            </Button>
           )}
           {state.can_rollback && (
-            <button className="btn btn-danger" type="button" disabled={disabled} onClick={onRollback}>
+            <Button disabled={disabled} onClick={onRollback}>
               {S.rollback}
-            </button>
+            </Button>
           )}
         </div>
       )}
       {prerelease && (
-        // drawn as Features.tsx draws a checkbox with its label and help: the input first, the words and the help beside it, and the whole row is the label
+        // a checkbox with its label and help: the input first, the words and the help beside it, and the whole row is the label
         <div className="setup-form">
           <label className="check">
             <input type="checkbox" role="switch" aria-label={S.prerelease} checked={prerelease.on} disabled={disabled} onChange={(e) => prerelease.onChange(e.target.checked)} />
             <span>
               {S.prerelease}
               <span className="field-help">{S.prereleaseHelp}</span>
+              {switched && <LastResult request={switched} />}
             </span>
           </label>
         </div>

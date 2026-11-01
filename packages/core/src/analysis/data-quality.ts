@@ -1,8 +1,10 @@
 import { missingCardPurchases, type MissingCardPurchases } from "./card-bills.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netSpend, spendRows } from "./context.ts";
 import { type FiledWithoutAsking, filedWithoutAsking } from "./filed.ts";
-import { finnishList, formatEur, formatFiDate } from "./format.ts";
+import { finnishList, formatEur, formatFiDate, formatFiRange } from "./format.ts";
 import { type DateRange, toDayRange } from "./period.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 import { addMonths, dateIn, daysBetween, monthEnd, monthOf } from "../dates.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 
@@ -135,22 +137,22 @@ export interface ConnectNotice {
  * complete months of `knownSpending`. A bill before a connected card's rows begin or one that pairs with none is not
  * said here: connecting changes neither. null when nothing is missing.
  */
-export function connectNotice(ctx: AnalysisContext, to: IsoDate = ctx.today): ConnectNotice | null {
+export function connectNotice(ctx: AnalysisContext, to: IsoDate = ctx.today, lang: Language = DEFAULT_LANGUAGE): ConnectNotice | null {
   const window = completeYear(to < ctx.today ? to : ctx.today);
   const cards = missingCardPurchases(ctx, window).filter((m) => m.reason === "not_connected");
   const cardCents = cards.reduce((s, m) => s + m.cents, 0);
   const saved = savedToUnconnected(inDays(ctx, toDayRange(window)));
-  const savedLine = saved ? `Säästöön meni ${formatEur(saved.cents, false)} tilille, jota ei ole yhdistetty.` : "";
+  const savedLine = saved ? messageIn(lang, "home.cn_saved", { amount: formatEur(saved.cents, false, lang) }) : "";
   if (cardCents > 0) {
-    const issuers = finnishList(cards.slice(0, 3).map((m) => m.issuer));
-    return { title: `Korttilaskuja ${formatEur(cardCents, false)} viimeiseltä 12 kuukaudelta, mutta kortin ostot puuttuvat`, detail: `Yhdistämättömät kortit: ${issuers}.${savedLine ? ` ${savedLine}` : ""}`, cents: cardCents };
+    const issuers = finnishList(cards.slice(0, 3).map((m) => m.issuer), lang);
+    return { title: messageIn(lang, "home.cn_cards_title", { amount: formatEur(cardCents, false, lang) }), detail: messageIn(lang, "home.cn_cards_detail", { issuers, saved: savedLine ? ` ${savedLine}` : "" }), cents: cardCents };
   }
-  if (saved) return { title: `Säästöön meni ${formatEur(saved.cents, false)} viimeisen 12 kuukauden aikana tilille, jota ei ole yhdistetty`, detail: saved.largest.length ? `Suurimmat saajat: ${finnishList(saved.largest)}.` : "", cents: saved.cents };
+  if (saved) return { title: messageIn(lang, "home.cn_own_title", { amount: formatEur(saved.cents, false, lang) }), detail: saved.largest.length ? messageIn(lang, "home.cn_own_detail", { names: finnishList(saved.largest, lang) }) : "", cents: saved.cents };
   return null;
 }
 
 /** The measure in the page's words, its window named. */
-const knownTitle = (share: number): string => `${knownPercent(share)} % viimeisen 12 valmiin kuukauden menoista on tunnistettu`;
+const knownTitle = (share: number, lang: Language): string => messageIn(lang, "rep.q_known", { percent: knownPercent(share) });
 
 const GAP_DAYS = 14;
 const STALE_DAYS = 7;
@@ -166,7 +168,7 @@ const ACTIVE_TYPES = new Set(["checking", "credit_card"]);
  * Each signal says what is wrong and what it does to the figures. `balances`
  * are the accounts in view, as the balance report reads them.
  */
-export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): DataQualityReport {
+export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], lang: Language = DEFAULT_LANGUAGE): DataQualityReport {
   const signals: QualitySignal[] = [];
   const days = toDayRange(range);
   const inRange = inDays(ctx, days);
@@ -177,8 +179,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       signals.push({
         id: "short_history",
         tone: "info",
-        title: "Historiaa on vasta vähän",
-        detail: `Tapahtumat alkavat ${formatFiDate(ctx.dataFrom)}. Vertailut tarkentuvat, kun historiaa on kolme kuukautta.`,
+        title: messageIn(lang, "rep.q_short_title"),
+        detail: messageIn(lang, "rep.q_short_detail", { date: formatFiDate(ctx.dataFrom, lang) }),
       });
     }
   }
@@ -192,8 +194,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     signals.push({
       id: "uncategorised",
       tone: "warning",
-      title: knownTitle(known.share),
-      detail: `${formatEur(known.otherCents, false)} on kategoriassa Muut menot${top.length ? `, suurimpina ${top.join(", ")}` : ""}. Luokittele kauppiaat, niin vertailut tarkentuvat.`,
+      title: knownTitle(known.share, lang),
+      detail: messageIn(lang, "rep.q_uncat_detail", { amount: formatEur(known.otherCents, false, lang), top: top.length ? messageIn(lang, "rep.q_uncat_top", { names: top.join(", ") }) : "" }),
       category: "other",
       cents: known.otherCents,
     });
@@ -213,8 +215,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       signals.push({
         id: "gap",
         tone: "warning",
-        title: `Tilin ${account.name} tiedoissa on ${widest.days} päivän tauko`,
-        detail: `${formatFiDate(widest.from)}–${formatFiDate(widest.to)} ei ole tapahtumia. Hae tapahtumat uudelleen, jos tilillä oli liikettä.`,
+        title: messageIn(lang, "rep.q_gap_title", { name: account.name, days: widest.days, range: formatFiRange(widest.from, widest.to, lang) }),
+        detail: messageIn(lang, "rep.q_gap_detail"),
       });
     }
     const last = dates[dates.length - 1]!;
@@ -222,8 +224,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       signals.push({
         id: "stale",
         tone: "info",
-        title: `Tilin ${account.name} viimeinen tapahtuma on ${formatFiDate(last)}`,
-        detail: "Uudempia tapahtumia ei ole haettu. Jakson lopun luvut voivat olla vajaita.",
+        title: messageIn(lang, "rep.q_stale_title", { name: account.name, date: formatFiDate(last, lang) }),
+        detail: messageIn(lang, "rep.q_stale_detail"),
       });
     }
   }
@@ -234,8 +236,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     signals.push({
       id: "card_bills",
       tone: "warning",
-      title: `Korttilaskuja ${formatEur(billTotal, false)}, mutta kortin ostot puuttuvat`,
-      detail: missing.some((m) => m.reason === "not_connected") ? "Yhdistä kortti." : "",
+      title: messageIn(lang, "rep.q_bills_title", { amount: formatEur(billTotal, false, lang) }),
+      detail: missing.some((m) => m.reason === "not_connected") ? messageIn(lang, "rep.q_bills_connect") : "",
       category: "card_bill",
       cents: billTotal,
       cardPurchases: missing,
@@ -248,8 +250,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     signals.push({
       id: "own_unconnected",
       tone: "info",
-      title: `Säästöön meni ${formatEur(saved.cents, false)} tilille, jota ei ole yhdistetty`,
-      detail: `${saved.largest.length ? `Suurimmat saajat: ${finnishList(saved.largest)}. ` : ""}Yhdistä tili.`,
+      title: messageIn(lang, "rep.q_own_title", { amount: formatEur(saved.cents, false, lang) }),
+      detail: messageIn(lang, "rep.q_own_detail", { largest: saved.largest.length ? messageIn(lang, "rep.q_own_largest", { names: finnishList(saved.largest, lang) }) : "" }),
       category: saved.category,
       cents: saved.cents,
     });
@@ -261,8 +263,8 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     signals.push({
       id: "no_balance",
       tone: "info",
-      title: unknown.length === 1 ? `Tilin ${unknown[0]!.name} saldoa ei tiedetä` : `${unknown.length} tilin saldoa ei tiedetä: ${finnishList(unknown.map((a) => a.name))}`,
-      detail: "Lisää saldo kohdassa Asetukset > Tilit, niin puskuri ja seuraavat 30 päivää näkyvät.",
+      title: unknown.length === 1 ? messageIn(lang, "rep.q_nobal_one", { name: unknown[0]!.name }) : messageIn(lang, "rep.q_nobal_many", { count: unknown.length, names: finnishList(unknown.map((a) => a.name), lang) }),
+      detail: messageIn(lang, "rep.q_nobal_detail"),
     });
   }
   return { signals, filed: filedWithoutAsking(ctx, range.to) };

@@ -1,0 +1,25 @@
+{
+  "areas": {
+    "App.tsx": {
+      "path": "apps/web/src/App.tsx",
+      "lines": 78.5
+    },
+    "Auth.tsx": {
+      "path": "apps/web/src/pages/Auth.tsx",
+      "lines": 100
+    },
+    "LoanIntake.tsx": {
+      "path": "apps/web/src/pages/settings/LoanIntake.tsx",
+      "lines": 94.1
+    },
+    "pages": {
+      "path": "apps/web/src/pages/",
+      "lines": 59.7
+    },
+    "components": {
+      "path": "apps/web/src/components/",
+      "lines": 66.5
+    }
+  },
+  "domTests": 42
+}

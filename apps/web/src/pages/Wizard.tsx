@@ -1,6 +1,6 @@
 /**
  * First-run setup for the admin, shown after the first account is created
- * until it is finished (skipping it only hides it in this browser until the next load): the household's Enable Banking app, done.
+ * until it is finished or closed with "Tee myöhemmin" (remembered per user in this browser; the same setup is in Asetukset > Pankit ja tilit): the household's Enable Banking app, done.
  * Address and schedule are saved with their defaults when the wizard opens
  * (the address the admin came in through); all of it stays editable in
  * Asetukset > Palvelin.
@@ -10,11 +10,15 @@ import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
 import { bankLinked } from "../components/EmptyStart.tsx";
 import type { InstanceState, Meta } from "../types.ts";
+import { wizardDue } from "../wizard-due.ts";
 import { BankAppSetup } from "./settings/BankAppSetup.tsx";
 import { syncHoursLabel } from "./settings/InstanceForms.tsx";
 import "../styles/wizard.css";
-
-const STEPS = ["Enable Banking", "Yhteenveto"] as const;
+import { Button } from "../components/ui/Button.tsx";
+import { Notice } from "../components/ui/Notice.tsx";
+import { ErrorCard } from "../components/ErrorCard.tsx";
+import { Empty } from "../components/ui/Empty.tsx";
+const STEPS = ["Enable Banking", "Tarkistus"] as const;
 const STEP_KEY = "wizard-step";
 
 /** A refresh in the middle of the wizard resumes at the same step. */
@@ -78,26 +82,26 @@ export function WizardDone({ current, linked, finishing, onBack, onFinish }: { c
         <dt>Salausavain</dt>
         <dd>{current.secret.available ? <span className="badge good">kunnossa</span> : <span className="badge warn">puuttuu</span>}</dd>
       </dl>
-      {current.bankApp.inactiveMessage && <div className="notice warning">{current.bankApp.inactiveMessage}</div>}
+      {current.bankApp.inactiveMessage && <Notice tone="warning">{current.bankApp.inactiveMessage}</Notice>}
       {linked ? (
-        <p className="notice good">Valmis. Pankki on yhdistetty.</p>
+        <Notice tone="good" as="p">Valmis. Pankki on yhdistetty.</Notice>
       ) : (
-        <p className="notice warning">
+        <Notice tone="warning" as="p">
           {current.bankApp.source ? "Pankki puuttuu vielä. Yhdistä se painikkeesta Yhdistä pankki." : "Enable Banking -sovellus ja pankki puuttuvat vielä. Palaa edelliseen vaiheeseen."}
-        </p>
+        </Notice>
       )}
       <div className="form-row wizard-nav">
-        <button className="btn" type="button" onClick={onBack}>
+        <Button onClick={onBack}>
           Takaisin
-        </button>
+        </Button>
         <span className="spacer" />
-        <button className={current.bankApp.source ? "btn" : "btn btn-primary"} type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => onFinish("overview")}>
+        <Button variant={current.bankApp.source ? "secondary" : "primary"} busy={finishing} onClick={() => onFinish("overview")}>
           Siirry sovellukseen
-        </button>
+        </Button>
         {current.bankApp.source && (
-          <button className="btn btn-primary" type="button" disabled={finishing} aria-busy={finishing || undefined} onClick={() => onFinish("connect")}>
+          <Button variant="primary" busy={finishing} onClick={() => onFinish("connect")}>
             Yhdistä pankki
-          </button>
+          </Button>
         )}
       </div>
     </>
@@ -105,14 +109,14 @@ export function WizardDone({ current, linked, finishing, onBack, onFinish }: { c
 }
 
 /**
- * "Tee myöhemmin" only closes the wizard in this browser: nothing is written, so setupDone stays false and the wizard
- * opens again on the next visit (of any admin) until the setup is finished from its last step.
+ * "Tee myöhemmin" closes the wizard and the shell remembers it for this user in this browser. Nothing is written to the
+ * server, so setupDone stays false until the setup is finished from the last step.
  */
 export function WizardSkip({ disabled, onSkip }: { disabled: boolean; onSkip: () => void }) {
   return (
-    <button className="btn btn-small" type="button" disabled={disabled} aria-busy={disabled || undefined} onClick={onSkip}>
+    <Button variant="link" busy={disabled} onClick={onSkip}>
       Tee myöhemmin
-    </button>
+    </Button>
   );
 }
 
@@ -136,7 +140,7 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
     const { appBaseUrl: _old, setupDone: _done, ...rest } = d.settings;
     api<InstanceState>("/api/admin/instance", { method: "PUT", body: { ...rest, appBaseUrl: address } })
       .then(setState)
-      .catch((err: Error) => setError(`Osoitetta ei voitu tallentaa: ${err.message} Muuta se kohdassa Asetukset > Palvelin.`))
+      .catch((err: Error) => setError(`Emme voineet tallentaa osoitetta: ${err.message} Muuta se kohdassa Asetukset > Palvelin.`))
       .finally(() => setPrepared(true));
   }, [loaded.data]);
 
@@ -163,14 +167,14 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
   };
 
   return (
-    <div className="wizard-wrap">
+    <main className="wizard-wrap">
       <div className="card wizard">
         <div className="card-head wizard-head">
           <div className="brand">
             <span className="brand-mark" aria-hidden="true">
-              <i style={{ height: 6 }} />
-              <i style={{ height: 10 }} />
-              <i style={{ height: 13 }} />
+              <i />
+              <i />
+              <i />
             </span>
             Omatalous
           </div>
@@ -191,45 +195,40 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
           />
         </div>
         <h1 className="auth-title">Käyttöönotto</h1>
-        <p className="muted">Kaiken voi muuttaa myöhemmin kohdassa Asetukset &gt; Palvelin.</p>
 
-        {error && <div className="error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         {!current ? (
           loaded.error ? (
-            <div className="card error" role="alert">
-              <p>{loaded.error}</p>
-              <button className="btn" type="button" onClick={loaded.reload}>
-                Yritä uudelleen
-              </button>
-            </div>
+            <ErrorCard message={loaded.error} onRetry={loaded.reload} />
           ) : (
-            <div className="empty">Ladataan…</div>
+            <Empty>Ladataan…</Empty>
           )
         ) : step === 0 ? (
           <>
             <p className="small muted">Yksi sovellus riittää koko taloudelle. Omien tilien käyttö on maksutonta.</p>
             <BankAppSetup state={current} onState={setState} />
+            <p className="small muted">Osoitteen ja aikataulun löydät kohdasta Asetukset &gt; Palvelin, Enable Banking -sovelluksen kohdasta Asetukset &gt; Pankit ja tilit.</p>
             <div className="form-row wizard-nav">
               <span className="spacer" />
-              <button className={current.bankApp.source ? "btn btn-primary" : "btn"} type="button" onClick={() => goTo(1)}>
-                {current.bankApp.source ? "Jatka" : "Ohita vaihe"}
-              </button>
+              <Button variant={current.bankApp.source ? "primary" : "secondary"} onClick={() => goTo(1)}>
+                Jatka
+              </Button>
             </div>
           </>
         ) : (
           <WizardDone current={current} linked={bankLinked(meta)} finishing={finishing} onBack={() => goTo(0)} onFinish={(next) => void finish(next)} />
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
 /**
  * What App shows before the pages: the wizard for an admin of an install whose setup is not finished and who has not
- * closed it in this browser, else null. "Tee myöhemmin" only calls `close`; finishing also reloads meta.
+ * closed it in this browser (remembered), else null. "Tee myöhemmin" only calls `close`; finishing also reloads meta.
  */
 export function firstRunWizard(o: { role: string; meta: Meta; closed: boolean; close: () => void; reloadMeta: () => void; goToSettings: () => void }) {
-  if (o.role !== "admin" || o.meta.setupDone || o.closed) return null;
+  if (!wizardDue(o)) return null;
   return (
     <Wizard
       meta={o.meta}

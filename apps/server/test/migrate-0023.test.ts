@@ -13,7 +13,8 @@ import { scratchDir } from "./helpers.ts";
 
 const NAME = "0023_account_bank_type.sql";
 const COLUMNS = ["bank_type_code", "bank_usage", "bank_product", "psu_status", "type_source"];
-const all = () => buildMigrations(findMigrationsDir()).sort((a, b) => a.name.localeCompare(b.name));
+// 0027 has no floor on purpose (docs/RELEASING.md, "Passwords and rollback"), so a build before it refuses the database: it is left out of this chain
+const all = () => buildMigrations(findMigrationsDir()).filter((m) => m.name < "0027").sort((a, b) => a.name.localeCompare(b.name));
 const FIXTURES = new URL("./fixtures/db/", import.meta.url);
 // the newest release before 0023: the cut of 0.66.0 adds its own fixture, which already holds 0023
 const newestFixture = () => readdirSync(FIXTURES).filter((f) => f.endsWith(".sql") && f.localeCompare("0.66.0.sql", "en", { numeric: true }) < 0).sort((a, b) => a.localeCompare(b, "en", { numeric: true })).at(-1)!;

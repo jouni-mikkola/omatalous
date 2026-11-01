@@ -37,23 +37,22 @@ describe("percent text: no decimals, alle 1 %, never 100 % unless all filed", ()
     const r = run([buy(99_600, "mcc"), buy(400, "default")]);
     expect(r.share).toBeCloseTo(0.996, 10);
     const first = sp(filedLines(r)[0]!);
-    expect(first).toBe("Viimeisen 12 kuukauden menoista 99 % on luokiteltu ilman kysymistä.");
+    expect(first).toBe("Sovellus luokitteli automaattisesti 99 % viimeisen 12 kuukauden menoista.");
   });
 
   it("the guess and user lines come only when above zero, alle 1 % for a sliver", () => {
     const none = filedLines(run([buy(10_000, "mcc")])).map(sp);
-    expect(none).toEqual(["Viimeisen 12 kuukauden menoista 100 % on luokiteltu ilman kysymistä."]);
+    expect(none).toEqual(["Sovellus luokitteli automaattisesti 100 % viimeisen 12 kuukauden menoista."]);
     const r = run([buy(99_700, "mcc"), buy(200, "industry"), buy(100, "user")]);
     const lines = filedLines(r).map(sp);
-    expect(lines[0]).toBe("Viimeisen 12 kuukauden menoista 99 % on luokiteltu ilman kysymistä.");
-    expect(lines).toContain("Näistä arvioita alle 1 %.");
+    expect(lines[0]).toBe("Sovellus luokitteli automaattisesti 99 % viimeisen 12 kuukauden menoista, joista alle 1 % arvauksena.");
     expect(lines).toContain("Itse luokittelit alle 1 %.");
   });
 
   it("nothing filed prints 0 %, and a user-only household has no guess line", () => {
     const lines = filedLines(run([buy(10_000, "user")])).map(sp);
-    expect(lines[0]).toBe("Viimeisen 12 kuukauden menoista 0 % on luokiteltu ilman kysymistä.");
-    expect(lines.some((l) => l.startsWith("Näistä arvioita"))).toBe(false);
+    expect(lines[0]).toBe("Sovellus luokitteli automaattisesti 0 % viimeisen 12 kuukauden menoista.");
+    expect(lines[0]!.includes("arvauksena")).toBe(false);
     expect(lines).toContain("Itse luokittelit 100 %.");
   });
 });

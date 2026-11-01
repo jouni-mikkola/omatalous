@@ -77,7 +77,7 @@ test("seventeen banks: searchable, the bank used last first, reachable by keyboa
   await expect(page.locator(".bank-picker").getByText("Viimeksi käytetty")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Yhdistä Nordea" }).getByRole("img", { name: "Nordea" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Yhdistä Holvi" })).toContainText("Holvi");
-  await expect(page.getByText("Muiden pankkien kuin Nordean tapahtumat luokitellaan pankin omien koodien mukaan.")).toBeVisible();
+  await expect(page.getByText("Luokittelemme muiden pankkien kuin Nordean tapahtumat pankin omien koodien mukaan.")).toBeVisible();
 
   // the search ignores case and accents and says so when nothing matches
   const search = page.getByRole("searchbox", { name: "Hae pankkia" });
@@ -113,22 +113,22 @@ test("one bank: no search and no line about other banks, the list names Nordea a
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
   await expect(tiles(page)).toHaveCount(1);
   await expect(tiles(page).first()).toHaveAccessibleName("Yhdistä Nordea");
-  await expect(page.getByRole("searchbox")).toHaveCount(0);
+  await expect(page.locator(".bank-picker").getByRole("searchbox")).toHaveCount(0);
   await expect(page.locator(".bank-picker").getByText("Viimeksi käytetty")).toHaveCount(0);
   await expect(page.getByText("pankin omien koodien")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
 
-test("no bank on the list: it says what is wrong and links to the application in Asetukset > Palvelin", async ({ browser }) => {
+test("no bank on the list: it says what is wrong and links to the application card on Pankit ja tilit", async ({ browser }) => {
   const { context, page, seen } = await open(browser, [], []);
   await page.goto("/#/settings?add=1");
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
   await expect(tiles(page)).toHaveCount(0);
   await expect(page.getByText("ei ole pankkeja, joita Omatalous tukee")).toBeVisible();
-  await page.getByRole("link", { name: "Asetukset > Palvelin" }).click();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings?section=server");
-  await expect(page.getByRole("heading", { name: "Palvelin", exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "Enable Banking -sovellus" }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks#pankkisovellus");
+  await expect(page.getByRole("heading", { name: "Pankkisovellus", exact: true })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -165,6 +165,16 @@ const WIDE = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48"><rect
 const SQUARE = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><circle cx="48" cy="48" r="48" fill="#a3261d"/><circle cx="48" cy="48" r="20" fill="#fff"/></svg>';
 /** Set by a run that wants pictures of the page: SHOTS_DIR=$TMPDIR/shots pnpm e2e e2e/app.spec.ts e2e/bank-picker.spec.ts */
 const SHOTS = process.env.SHOTS_DIR;
+
+/** The paint of the logo plate: the `--plate` token as the browser computes it, so a change of the token is no change of the test. */
+const platePaint = (page: Page) =>
+  page.evaluate(() => {
+    const probe = document.body.appendChild(document.createElement("i"));
+    probe.style.background = "var(--plate)";
+    const paint = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return paint;
+  });
 
 test("served logos: a wide wordmark and a square mark fit the plate at 1366 and 390 px, and the name stays where the picture fails", async ({ browser }) => {
   // OP and Danske Bank have a picture, S-Pankki's fails, and the server has none for the other banks
@@ -221,16 +231,14 @@ test("served logos: a wide wordmark and a square mark fit the plate at 1366 and 
       expect(fit.inside, `${name} stays inside its plate at ${width} px`).toBe(true);
       expect(fit.height, `${name} is large enough to read at ${width} px`).toBeGreaterThanOrEqual(16);
       expect(Math.abs(fit.width / fit.height / shape - 1), `${name} keeps its shape at ${width} px`).toBeLessThan(0.04);
-      expect(fit.plate).toBe("rgb(255, 255, 255)");
+      expect(fit.plate).toBe(await platePaint(page));
     }
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     if (SHOTS) await page.screenshot({ path: join(SHOTS, `bank-logos-${width}.png`), fullPage: true });
   }
 
-  // the plate is white in dark mode too: a logo keeps its own colours
-  await page.emulateMedia({ colorScheme: "dark" });
-  expect(await tile("OP").locator(".bank-logo").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe("rgb(255, 255, 255)");
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, "bank-logos-390-dark.png"), fullPage: true });
+  // the plate is white: a logo keeps its own colours
+  expect(await tile("OP").locator(".bank-logo").evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(await platePaint(page));
 
   // every picture came from the app's own address, and the one failure is the logo that was made to fail
   const origin = new URL(page.url()).origin;
@@ -254,7 +262,7 @@ test("a connection's row shows the logo the server serves for its bank, and none
     const box = img.getBoundingClientRect();
     return { inside: box.left >= plate.left && box.right <= plate.right && box.top >= plate.top && box.bottom <= plate.bottom, plate: getComputedStyle(img.parentElement!).backgroundColor };
   });
-  expect(fit).toEqual({ inside: true, plate: "rgb(255, 255, 255)" });
+  expect(fit).toEqual({ inside: true, plate: await platePaint(page) });
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "bank-logos-connections.png") });
   expect(seen.problems).toEqual([]);
   await context.close();

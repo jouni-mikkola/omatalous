@@ -65,7 +65,7 @@ describe("the picker with three banks", () => {
     expect(out).toContain('src="/banks/nordea.png"');
   });
   it("tells that other banks are sorted by their own codes", () => {
-    expect(out).toContain("Muiden pankkien kuin Nordean tapahtumat luokitellaan pankin omien koodien mukaan. Tarkista ensimmäisen kuukauden kategoriat.");
+    expect(out).toContain("Luokittelemme muiden pankkien kuin Nordean tapahtumat pankin omien koodien mukaan. Tarkista ensimmäisen kuukauden kategoriat.");
   });
 });
 
@@ -120,16 +120,16 @@ describe("the order of the banks", () => {
 });
 
 describe("the picker with no bank", () => {
-  it("says what is wrong and sends an admin to the application in Asetukset > Palvelin", () => {
+  it("says what is wrong and sends an admin to the application card", () => {
     const out = render([], { isAdmin: true });
     expect(out).toContain("ei ole pankkeja, joita Omatalous tukee");
-    expect(out).toContain('href="#/settings?section=server"');
+    expect(out).toContain('href="#/settings/banks#pankkisovellus"');
     expect(out).not.toContain("bank-grid");
     expect(out).not.toContain('type="search"');
   });
   it("tells a member to ask the admin, with no link", () => {
     const out = render([], { isAdmin: false });
-    expect(out).toContain("Ylläpitäjän pitää tarkistaa sovellus kohdassa Asetukset");
+    expect(out).toContain("Ylläpitäjän pitää tarkistaa sovellus.");
     expect(out).not.toContain("href=");
   });
 });

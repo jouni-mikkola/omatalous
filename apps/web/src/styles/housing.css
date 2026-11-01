@@ -1,5 +1,6 @@
 /* Yhteenveto: the block Asuminen (components/housing/). The tables, the rows and the columns are the shared statement classes (statement.css); this file holds what only this block needs. */
 
+@layer pages {
 /* the table Lainat: a figure and a day never wrap; the group head stands over its three columns, on the rule that holds them together */
 .housing-loans .housing-due, .housing-loans .housing-review, .housing-loans .housing-link { white-space: nowrap; }
 .housing-loans .housing-link { text-align: right; }
@@ -17,3 +18,4 @@
   background-image: var(--track); background-size: var(--share-w) 2px; background-position: right var(--mark-gutter) bottom 0; background-repeat: no-repeat; }
 .housing-charges .adds-up > tr.part-first > td.share { background-image: linear-gradient(var(--axis), var(--axis)), var(--track); background-size: 4px 1px, var(--share-w) 2px; background-position: 100% 0, right var(--mark-gutter) bottom 0; }
 .housing-charges .adds-up > tr.part-last > td.share { background-image: linear-gradient(var(--axis), var(--axis)), var(--track); background-size: 4px 1px, var(--share-w) 2px; background-position: 100% 100%, right var(--mark-gutter) bottom 0; }
+}

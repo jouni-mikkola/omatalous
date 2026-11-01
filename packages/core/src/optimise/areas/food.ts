@@ -8,13 +8,15 @@
  */
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
 import { netPurchase, paidToPerson } from "../../analysis/context.ts";
+import type { Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
 import { formatEur, formatFiDate } from "../../analysis/format.ts";
 import { capitalise, monthSpan } from "../../analysis/insights/shared.ts";
 import { clearlyAbove } from "../../analysis/signal.ts";
 import { monthOf } from "../../dates.ts";
 import { UNKNOWN_MERCHANT } from "../../merchant.ts";
 import { median } from "../../stats.ts";
-import { accountsBefore, EATING_OUT_CLAIMS, findingId, formatCount, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS, mean, whyHistory, YEAR_OVER_YEAR_NEED, YEAR_OVER_YEAR_SIDE, yearOverYear } from "../common.ts";
+import { accountsBefore, EATING_OUT_CLAIMS, eur, findingId, formatCount, GATE_YEARLY_CENTS, levelWithoutOneOffs, MAX_ROWS, mean, whyHistory, YEAR_OVER_YEAR_NEED, YEAR_OVER_YEAR_SIDE, yearOverYear } from "../common.ts";
 import type { Area, AreaInput, CalcLine, Check, FindingDraft, NoDataWhy } from "../types.ts";
 
 const EATING_OUT: ReadonlySet<string> = new Set(["restaurants", "food_delivery"]);
@@ -34,15 +36,13 @@ function eatingOutRows(ctx: AnalysisContext, months: readonly string[]): Analysi
   );
 }
 
-const eur = (cents: number) => formatEur(cents, false);
-
 /** The struck rows as calc lines, largest first, at most five. */
-function struckLines(rows: readonly AnalysisTx[], struck: ReadonlySet<string>): CalcLine[] {
+function struckLines(rows: readonly AnalysisTx[], struck: ReadonlySet<string>, lang: Language): CalcLine[] {
   return rows
     .filter((t) => struck.has(t.id))
     .sort((x, y) => netPurchase(y) - netPurchase(x))
     .slice(0, 5)
-    .map((t) => ({ label: `Kertaosto ${t.merchant} ${formatFiDate(t.bookingDate)}`, value: formatEur(netPurchase(t)), struck: true }));
+    .map((t) => ({ label: messageIn(lang, "opt.c_one_off_at", { merchant: t.merchant, date: formatFiDate(t.bookingDate, lang) }), value: formatEur(netPurchase(t), true, lang), struck: true }));
 }
 
 /** Evidence ids, at most `MAX_ROWS`: the struck rows first, then the latest counted ones. */
@@ -54,6 +54,7 @@ function evidence(rows: readonly AnalysisTx[], struck: ReadonlySet<string>): { r
 }
 
 function eatingOut(a: AreaInput, win: { now: string[]; then: string[]; all: string[] }, rows: readonly AnalysisTx[]): FindingDraft | null {
+  const lang = a.lang;
   const level = levelWithoutOneOffs(rows, win.all);
   const at = (m: string) => level.byMonth[win.all.indexOf(m)]!;
   const now = win.now.map(at);
@@ -67,8 +68,8 @@ function eatingOut(a: AreaInput, win: { now: string[]; then: string[]; all: stri
   const recent = a.months.slice(-12).map(at);
   const cheapest = Math.round(mean([...recent].sort((x, y) => x - y).slice(0, 3)));
   const highCents = Math.max(midCents, (nowLevel - cheapest) * 12);
-  const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!));
-  const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[YEAR_OVER_YEAR_SIDE - 1]!));
+  const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!, lang));
+  const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[YEAR_OVER_YEAR_SIDE - 1]!, lang));
   const struck = new Set(level.struck);
   const shown = rows.filter((t) => win.now.includes(monthOf(t.bookingDate)) || win.then.includes(monthOf(t.bookingDate)));
   const ev = evidence(shown, struck);
@@ -77,18 +78,18 @@ function eatingOut(a: AreaInput, win: { now: string[]; then: string[]; all: stri
     area: "food",
     kind: "eating_out",
     subject: null,
-    title: `Ravintolat ja ruoan kotiinkuljetus: ${eur(nowLevel)} kuussa, vuotta aiemmin ${eur(thenLevel)}. ${nowSpan} verrattuna samaan aikaan vuotta aiemmin, tavallinen kuukausi ilman kertaostoja.`,
-    action: `Varaa ravintoloihin ja ruoan kotiinkuljetukseen ${eur(thenLevel)} kuussa, kuten vuotta aiemmin.`,
+    title: messageIn(lang, "opt.food_eo_title", { now: eur(nowLevel, lang), then: eur(thenLevel, lang), span: nowSpan }),
+    action: messageIn(lang, "opt.food_eo_action", { then: eur(thenLevel, lang) }),
     euros: { lowCents: Math.round(midCents / 2), midCents, highCents },
     decideBy: null,
-    weaknesses: [{ id: "estimate", reason: "Kotitalouden koko ei näy tiedoista." }],
+    weaknesses: [{ id: "estimate", reason: messageIn(lang, "opt.food_household") }],
     shared: false,
     calc: [
-      { label: `${nowSpan}, tavallisesti kuussa`, value: eur(nowLevel) },
-      { label: `${thenSpan}, tavallisesti kuussa`, value: eur(thenLevel) },
-      { label: "Kolmen edullisimman kuukauden keskiarvo 12 kuukaudesta", value: eur(cheapest) },
-      { label: "Ero vuodessa", value: eur(midCents) },
-      ...struckLines(shown, struck),
+      { label: messageIn(lang, "opt.c_expected_month", { span: nowSpan }), value: eur(nowLevel, lang) },
+      { label: messageIn(lang, "opt.c_expected_month", { span: thenSpan }), value: eur(thenLevel, lang) },
+      { label: messageIn(lang, "opt.food_cheapest"), value: eur(cheapest, lang) },
+      { label: messageIn(lang, "opt.c_diff_year"), value: eur(midCents, lang) },
+      ...struckLines(shown, struck, lang),
     ],
     rows: ev.rows,
     struck: ev.struck,
@@ -116,7 +117,8 @@ function ordersRose(now: readonly number[], then: readonly number[]): boolean {
   return n >= (1 + MIN_ORDER_RISE_SHARE) * p && n - p >= MIN_ORDER_RISE && clearlyAbove(now, then);
 }
 
-function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: readonly AnalysisTx[]): FindingDraft[] {
+function delivery(a: AreaInput, win: { now: string[]; then: string[]; all: string[] }, rows: readonly AnalysisTx[]): FindingDraft[] {
+  const lang = a.lang;
   const side = [...win.then, ...win.now];
   const level = levelWithoutOneOffs(rows, side);
   const struck = new Set(level.struck);
@@ -139,23 +141,23 @@ function delivery(win: { now: string[]; then: string[]; all: string[] }, rows: r
     const midCents = Math.round(rise * ticket * 12);
     if (midCents < GATE_YEARLY_CENTS) continue;
     const highCents = Math.max(midCents, Math.round((nowOrders - thenOrders) * ticket * 12));
-    const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!));
-    const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[YEAR_OVER_YEAR_SIDE - 1]!));
+    const nowSpan = capitalise(monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!, lang));
+    const thenSpan = capitalise(monthSpan(win.then[0]!, win.then[YEAR_OVER_YEAR_SIDE - 1]!, lang));
     const shown = rows.filter((t) => t.merchant === merchant && side.includes(monthOf(t.bookingDate)));
     const ev = evidence(shown, struck);
     const calc: CalcLine[] = [
-      { label: `${nowSpan}, kertaa kuussa`, value: formatCount(nowOrders) },
-      { label: `${thenSpan}, kertaa kuussa`, value: formatCount(thenOrders) },
+      { label: messageIn(lang, "opt.food_times_month", { span: nowSpan }), value: formatCount(nowOrders, lang) },
+      { label: messageIn(lang, "opt.food_times_month", { span: thenSpan }), value: formatCount(thenOrders, lang) },
     ];
-    if (Math.abs(rise - (nowOrders - thenOrders)) > 1e-9) calc.push({ label: "Kotiinkuljetuksia lisää kuussa, kaikki palvelut", value: formatCount(mean(allNow) - mean(allThen)) });
-    calc.push({ label: "Ostoskerta keskimäärin", value: formatEur(ticket) }, { label: "Ero vuodessa", value: eur(midCents) }, ...struckLines(shown, struck));
+    if (Math.abs(rise - (nowOrders - thenOrders)) > 1e-9) calc.push({ label: messageIn(lang, "opt.food_more_deliveries"), value: formatCount(mean(allNow) - mean(allThen), lang) });
+    calc.push({ label: messageIn(lang, "opt.c_ticket"), value: formatEur(ticket, true, lang) }, { label: messageIn(lang, "opt.c_diff_year"), value: eur(midCents, lang) }, ...struckLines(shown, struck, lang));
     out.push({
       id: findingId("food", "delivery", merchant),
       area: "food",
       kind: "delivery",
       subject: merchant,
-      title: `${merchant}: ${formatCount(nowOrders)} kertaa kuussa, vuotta aiemmin ${formatCount(thenOrders)}. Ostoskerta keskimäärin ${formatEur(ticket)}, ${monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!)} verrattuna samaan aikaan vuotta aiemmin.`,
-      action: `Tarkista ruoan kotiinkuljetus: vuotta aiemmin ${formatCount(thenOrders)} kertaa kuussa.`,
+      title: messageIn(lang, "opt.food_del_title", { merchant, now: formatCount(nowOrders, lang), then: formatCount(thenOrders, lang), ticket: formatEur(ticket, true, lang), span: monthSpan(win.now[0]!, win.now[YEAR_OVER_YEAR_SIDE - 1]!, lang) }),
+      action: messageIn(lang, "opt.food_del_action", { then: formatCount(thenOrders, lang) }),
       euros: { lowCents: Math.round(midCents / 2), midCents, highCents },
       decideBy: null,
       weaknesses: [],
@@ -177,12 +179,12 @@ export const food: Area = {
   assess: (a) => {
     const win = yearOverYear(a);
     const checks = (status: Check["status"], why?: NoDataWhy): Check[] => [
-      { id: "food:eating_out", label: "Ravintolat ja kotiinkuljetus", status, ...(why ? { why } : {}) },
-      { id: "food:delivery", label: "Ruoan kotiinkuljetus", status, ...(why ? { why } : {}) },
+      { id: "food:eating_out", label: messageIn(a.lang, "opt.food_chk_eo"), status, ...(why ? { why } : {}) },
+      { id: "food:delivery", label: messageIn(a.lang, "opt.food_chk_del"), status, ...(why ? { why } : {}) },
     ];
     if (!win) return { findings: [], checks: checks("no_data", whyHistory(a, YEAR_OVER_YEAR_NEED)) };
     const rows = eatingOutRows(a.ctx, win.all);
-    const findings = [eatingOut(a, win, rows), ...delivery(win, rows)].filter((f): f is FindingDraft => f !== null);
+    const findings = [eatingOut(a, win, rows), ...delivery(a, win, rows)].filter((f): f is FindingDraft => f !== null);
     // no restaurant or delivery row at all: nothing was looked at
     const [out, orders] = checks("clear");
     return { findings, checks: [rows.length ? out! : { ...out!, status: "no_subject" }, rows.some((t) => t.category === "food_delivery") ? orders! : { ...orders!, status: "no_subject" }] };

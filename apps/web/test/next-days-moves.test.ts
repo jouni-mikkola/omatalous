@@ -24,10 +24,11 @@ const ALL: Row[] = [
 
 const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 300_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", freeCents: 65_500, shortCents: 0, shortOn: null, ...over });
 
-/** A window as core gives it: its totals are the sums of the rows by source, and what is due is the four kinds of payment. */
+/** A window as core gives it: its totals are the sums of the rows by source, what is due is the three kinds of payment and an own transfer is counted apart. */
 function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
   const sum = (source: Row["source"]) => rows.filter((r) => r.source === source).reduce((s, r) => s + Math.abs(r.cents ?? 0), 0);
-  const dueCents = sum("recurring") + sum("expected") + sum("card") + sum("transfer");
+  const dueCents = sum("recurring") + sum("expected") + sum("card");
+  const leavingCents = dueCents + sum("transfer");
   return {
     from: "2026-10-12",
     to: "2026-10-22",
@@ -37,8 +38,8 @@ function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
     rows,
     upcoming: rows.filter((r) => r.source === "recurring" || r.source === "expected"),
     everydayPerDayCents: 3_000,
-    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: sum("card"), transferCents: sum("transfer"), dueCents, incomeCents: sum("income") },
-    balance: balance({ freeCents: 300_000 - dueCents }),
+    totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: sum("card"), transferCents: sum("transfer"), dueCents, leavingCents, incomeCents: sum("income") },
+    balance: balance({ freeCents: 300_000 - leavingCents }),
     missing: null,
     ...over,
   };
@@ -81,24 +82,27 @@ describe("every kind of row has its words", () => {
 });
 
 describe("the figure of what is due is what core totals", () => {
-  it("holds the four kinds of payment and no pay, and what is free is core's own figure", () => {
+  it("holds the three kinds of payment, the own transfer in a figure of its own and no pay, and what is free is core's own figure", () => {
     const a = ahead();
-    const [, due, free] = figures(a)!;
-    expect(due!.cents).toBe(4_500 + 105_000 + 65_000 + 60_000);
+    const [, due, transfer, free] = figures(a)!;
+    expect(due!.cents).toBe(4_500 + 105_000 + 65_000);
+    expect(transfer).toMatchObject({ label: "Siirrot omille tileille", cents: 60_000 });
     // 3 000,00 - 2 345,00 = 655,00: the 200,00 of other pay is in neither figure
     expect(free!.cents).toBe(65_500);
   });
 
-  it("is the sum of the listed payments, a card's bill and a transfer among them", () => {
+  it("is the sum of the listed payments less the own transfer, which the list shows on its own line", () => {
     const out = html(ahead());
     const table = out.slice(out.indexOf("<table"), out.indexOf("</table>"));
     const listed = [...table.matchAll(/<td class="num" data-label="Summa">([\d ]+,\d\d) €<\/td>/g)].map((m) => Math.round(Number(m[1]!.replace(/ /g, "").replace(",", ".")) * 100));
     expect(listed).toHaveLength(4);
-    expect(listed.reduce((s, c) => s + c, 0)).toBe(figures(ahead())![1]!.cents);
+    expect(listed.reduce((s, c) => s + c, 0)).toBe(figures(ahead())![1]!.cents + 60_000);
   });
 
-  it("a household with no card's bill and no transfer has the figure of its bills", () => {
-    expect(figures(ahead([ALL[0]!, ALL[1]!]))![1]!.cents).toBe(4_500 + 105_000);
+  it("a household with no card's bill and no transfer has the figure of its bills and no line for transfers", () => {
+    const f = figures(ahead([ALL[0]!, ALL[1]!]))!;
+    expect(f[1]!.cents).toBe(4_500 + 105_000);
+    expect(f.map((x) => x.key)).toEqual(["balance", "due", "free"]);
   });
 });
 

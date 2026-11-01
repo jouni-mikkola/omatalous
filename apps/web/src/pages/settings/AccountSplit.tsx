@@ -8,7 +8,9 @@ import { api } from "../../api.ts";
 import { date, money, parseEuros } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import type { Account } from "../../types.ts";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { labelTable, t } from "../../text.ts";
 type Kind = "equal" | "share" | "income" | "fixed";
 interface Row {
   validFrom: string;
@@ -26,7 +28,7 @@ interface Answer {
   agreements: Row[];
 }
 
-const KIND_LABEL: Record<Kind, string> = { equal: "Tasan", share: "Osuuksina", income: "Tulojen suhteessa", fixed: "Kiinteä summa" };
+const KIND_LABEL: Record<Kind, string> = labelTable({ equal: () => t("set.split.equally"), share: () => t("set.split.by_shares"), income: () => t("set.split.in_proportion_to_income"), fixed: () => t("set.split.fixed_amount") });
 const REST_KINDS = ["equal", "income"] as const;
 
 /** The values of one agreement as a line: the names with their parts. */
@@ -38,7 +40,7 @@ export function valuesOf(row: Row, name: (owner: string) => string): string {
   }
   if (row.kind === "fixed") {
     const fixed = Object.entries(row.value.cents ?? {}).map(([o, c]) => `${name(o)} ${money(c)}`);
-    return [...fixed, row.value.rest ? `Loput: ${KIND_LABEL[row.value.rest.kind].toLowerCase()}` : "Loppuosan jakoa ei ole kerrottu"].join(" · ");
+    return [...fixed, row.value.rest ? t("set.split.rest", { kind: KIND_LABEL[row.value.rest.kind].toLowerCase() }) : t("set.split.the_split_of_the_rest")].join(" · ");
   }
   return (row.value.who ?? []).map(name).join(" · ");
 }
@@ -53,7 +55,7 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
   const [error, setError] = useState<string | null>(null);
   if (!data) return null;
   const names = Object.fromEntries(data.users.map((u) => [u.owner, u.name]));
-  const name = (owner: string) => names[owner] ?? (data.removed.includes(owner) ? "poistettu jäsen" : owner);
+  const name = (owner: string) => names[owner] ?? (data.removed.includes(owner) ? t("set.split.removed_member") : owner);
   const current = inForce(data.agreements, today);
   const waiting = data.agreements.filter((r) => r.pending);
   const earlier = [...data.agreements].filter((r) => r !== current && !r.pending).sort((a, b) => b.validFrom.localeCompare(a.validFrom));
@@ -77,23 +79,23 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
     <li key={`wait-${row.validFrom}`} className="use-row">
       <span className="use-label">
         {KIND_LABEL[row.kind]}
-        <div className="sub">Odottaa hyväksyntää: {row.pending!.waiting.map(name).join(", ")}</div>
+        <div className="sub">{t("set.split.awaiting", { names: row.pending!.waiting.map(name).join(", ") })}</div>
       </span>
       <span className="use-sum">{date(row.validFrom)}</span>
       {row.pending!.mayRemove === "decline" && (
         <>
-          <button className="btn btn-small btn-primary" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void answer(row, true)}>
-            Hyväksy
-          </button>
-          <button className="btn btn-small" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void answer(row, false)}>
-            Hylkää
-          </button>
+          <Button variant="primary" busy={busy} onClick={() => void answer(row, true)}>
+            {t("set.split.approve")}
+          </Button>
+          <Button busy={busy} onClick={() => void answer(row, false)}>
+            {t("set.split.reject")}
+          </Button>
         </>
       )}
       {row.pending!.mayRemove === "withdraw" && (
-        <button className="btn btn-small" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void answer(row, false)}>
-          Peruuta ehdotus
-        </button>
+        <Button variant="link" busy={busy} onClick={() => void answer(row, false)}>
+          {t("set.split.cancel_the_proposal")}
+        </Button>
       )}
     </li>
   );
@@ -109,19 +111,19 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
   return (
     <tr className="edit-row">
       <td colSpan={5}>
-    <div className="use-parts" role="group" aria-label={`Tilin ${account.name} jako`}>
-      <h3 className="use-head">Jako</h3>
+    <div className="use-parts" role="group" aria-label={t("set.split.split_of_account_name", { name: account.name })}>
+      <h3 className="use-head">{t("set.split.split")}</h3>
       <ul className="use-list">
         {current ? line(current) : (
           // with no row the account's own shares (Osuudet in its use) cut the costs: core's rule for an account without an agreement
           <li className="use-row">
-            <span className="use-label">Jakoa ei ole sovittu. Menot jaetaan tilin käyttäjien osuuksien mukaan.</span>
+            <span className="use-label">{t("set.split.no_split_has_been_agreed")}</span>
           </li>
         )}
         {waiting.map(waits)}
       </ul>
-      {error && <div className="error" role="alert">{error}</div>}
-      {earlier.length > 0 && <ul className="use-list" aria-label="Aiemmat jaot">{earlier.map(line)}</ul>}
+      {error && <Notice tone="error">{error}</Notice>}
+      {earlier.length > 0 && <ul className="use-list" aria-label={t("set.split.earlier_splits")}>{earlier.map(line)}</ul>}
       {open ? (
         <SplitForm
           key={data.agreements.length}
@@ -136,9 +138,9 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
           }}
         />
       ) : (
-        <button className="btn btn-small" type="button" onClick={() => setOpen(true)}>
-          Muuta jakoa
-        </button>
+        <Button variant="link" onClick={() => setOpen(true)}>
+          {t("set.split.change_the_split")}
+        </Button>
       )}
     </div>
       </td>
@@ -149,7 +151,7 @@ export function AccountSplit({ account, today }: { account: Account; today: stri
 function SplitForm({ account, users, card, today, onCancel, onSaved }: { account: Account; users: Answer["users"]; card: boolean; today: string; onCancel: () => void; onSaved: () => void }) {
   const [kind, setKind] = useState<Kind>("equal");
   const [who, setWho] = useState<string[]>(users.map((u) => u.owner));
-  // the figure of each user: parts for "Osuuksina", euros for "Kiinteä summa" (empty: not listed)
+  // the figure of each user: parts for "Osuuksien mukaan", euros for "Kiinteä summa" (empty: not listed)
   const [fields, setFields] = useState<Record<string, string>>({});
   const [rest, setRest] = useState<(typeof REST_KINDS)[number] | "">("");
   const [from, setFrom] = useState(today);
@@ -157,26 +159,26 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
   const [error, setError] = useState<string | null>(null);
 
   const build = (): { value: unknown } | { problem: string } => {
-    if (kind === "equal" || kind === "income") return who.length ? { value: { who } } : { problem: "Valitse vähintään yksi käyttäjä." };
+    if (kind === "equal" || kind === "income") return who.length ? { value: { who } } : { problem: t("set.split.choose_at_least_one_user") };
     if (kind === "share") {
       const weights: Record<string, number> = {};
       for (const u of users) {
         const w = Number((fields[u.owner] ?? "").replace(",", "."));
-        if (!Number.isInteger(w) || w < 0) return { problem: "Anna osuudet kokonaislukuina." };
+        if (!Number.isInteger(w) || w < 0) return { problem: t("set.split.enter_the_shares_as_whole") };
         if (w > 0) weights[u.owner] = w;
       }
-      return Object.keys(weights).length ? { value: { weights } } : { problem: "Anna osuudet kokonaislukuina." };
+      return Object.keys(weights).length ? { value: { weights } } : { problem: t("set.split.enter_the_shares_as_whole") };
     }
-    if (!rest) return { problem: "Valitse, miten loput jaetaan." };
+    if (!rest) return { problem: t("set.split.choose_how_the_rest_is") };
     const cents: Record<string, number> = {};
     for (const u of users) {
       const text = (fields[u.owner] ?? "").trim();
       if (!text) continue;
       const c = parseEuros(text);
-      if (c === null || c <= 0) return { problem: "Anna summa euroina, esimerkiksi 300,00." };
+      if (c === null || c <= 0) return { problem: t("set.split.enter_the_amount_in_euros") };
       cents[u.owner] = c;
     }
-    return Object.keys(cents).length ? { value: { cents, rest: { kind: rest } } } : { problem: "Anna summa euroina, esimerkiksi 300,00." };
+    return Object.keys(cents).length ? { value: { cents, rest: { kind: rest } } } : { problem: t("set.split.enter_the_amount_in_euros") };
   };
 
   const save = async (e: FormEvent) => {
@@ -197,9 +199,9 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
 
   const kinds = (Object.keys(KIND_LABEL) as Kind[]).filter((k) => !(card && k === "fixed"));
   return (
-    <form className="use-fields" onSubmit={(e) => void save(e)} aria-label={`Muuta tilin ${account.name} jakoa`}>
+    <form className="use-fields" onSubmit={(e) => void save(e)} aria-label={t("set.split.change_the_split_of_account", { name: account.name })}>
       <label className="use-field">
-        <span className="field-label">Miten jaetaan</span>
+        <span className="field-label">{t("set.split.how_to_split")}</span>
         <select value={kind} onChange={(e) => setKind(e.target.value as Kind)}>
           {kinds.map((k) => (
             <option key={k} value={k}>
@@ -224,9 +226,9 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
         ))}
       {kind === "fixed" && (
         <label className="use-field">
-          <span className="field-label">Loput jaetaan</span>
+          <span className="field-label">{t("set.split.the_rest_is_shared")}</span>
           <select value={rest} onChange={(e) => setRest(e.target.value as (typeof REST_KINDS)[number] | "")}>
-            <option value="">Valitse</option>
+            <option value="">{t("set.split.choose")}</option>
             {REST_KINDS.map((k) => (
               <option key={k} value={k}>
                 {KIND_LABEL[k]}
@@ -236,16 +238,16 @@ function SplitForm({ account, users, card, today, onCancel, onSaved }: { account
         </label>
       )}
       <label className="use-field use-field-date">
-        <span className="field-label">Voimassa alkaen</span>
+        <span className="field-label">{t("set.split.in_force_from")}</span>
         <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} required />
       </label>
-      <button className="btn btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
-        Tallenna
-      </button>
-      <button className="btn" type="button" onClick={onCancel}>
-        Peruuta
-      </button>
-      {error && <div className="error" role="alert">{error}</div>}
+      <Button variant="primary" type="submit" busy={busy}>
+        {t("set.split.save")}
+      </Button>
+      <Button onClick={onCancel}>
+        {t("set.split.cancel")}
+      </Button>
+      {error && <Notice tone="error">{error}</Notice>}
     </form>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * Logos and names of the banks the server can connect (apps/server/src/connectors/enable-banking/banks.ts).
- * A logo is shown on a white plate, so the brand colours stay as intended in dark mode too. It is official artwork
+ * A logo is shown on a white plate, so the brand colours stay as intended on any page colour. It is official artwork
  * bundled in public/banks/, or the picture the server serves from the app's own address: Enable Banking's logo of the
  * bank, fetched by the server, so the browser calls no third party. A bank with neither has its name on the plate.
  */

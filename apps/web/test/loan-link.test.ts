@@ -34,7 +34,7 @@ describe("the select of the loan form", () => {
     const out = editor(formOfLoan(saved("b")), [card], [saved("a")]);
     expect(out).toContain("Sama velka pankin tilillä");
     expect(accountSelect(out)).toContain('<option value="" selected="">Ei liitetty</option><option value="card">Esimerkkikortti</option>');
-    expect(out).toContain("Kun laina on liitetty tiliin, velka lasketaan vain kerran ja saldo tulee pankista.");
+    expect(out).toContain("Kun yhdistät lainan tiliin, laskemme sen velkana vain kerran ja saldo tulee pankista.");
     // not linked: the balance field has no line about the bank
     expect(out).not.toContain("Velkana käytetään pankin saldoa");
   });
@@ -42,7 +42,7 @@ describe("the select of the loan form", () => {
   it("a linked loan shows its account chosen, and its balance says the bank's counts while the bank tells one", () => {
     const out = editor(formOfLoan(saved("a", "card")), [card], [saved("a", "card")]);
     expect(accountSelect(out)).toContain('<option value="card" selected="">Esimerkkikortti</option>');
-    expect(out).toContain("Velkana käytetään pankin saldoa aina, kun pankki ilmoittaa sen. Muulloin käytetään tähän kirjattua saldoa.");
+    expect(out).toContain("Velkana on pankin saldo aina, kun pankki ilmoittaa sen. Muulloin velka on tähän kirjoittamasi saldo.");
   });
 
   it("a stored link to an account that is not offered any more is shown as no link", () => {
@@ -57,14 +57,14 @@ describe("the Lainat report offers the link", () => {
     payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, interest: { cents: null, unknown: null }, payoff: { date: null, unknown: null, never: false }, scenarios: [] };
   const report = (twice: unknown) => ({ day, saved: 1, loans: [row], total: { cents: 100_000, unknown: [] }, interest: { cents: 0, unknown: [] }, interestKnown: true, withoutRate: 0, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 }, path: { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [], left: [] }, maybeTwice: [twice], overdraftTwice: [] }) as unknown as LoansReport;
   const html = (r: LoansReport, own: string[], scope = "own") => {
-    const balances = { months: [], total: [], accountsLessDebt: [], lowest: null, events: [], accounts: [], debt: { day, cents: 0, savedCents: 0 } };
+    const balances = { months: [], total: [], accountsLessDebt: [], monthChange: [], missing: [], lowest: null, events: [], accounts: [], debt: { day, cents: 0, savedCents: 0 } };
     const ctx = { data: { loans: r, balances }, meta: { today: day, accounts: own.map((id) => ({ id })) }, running: null, scope, exportHref: () => "" } as unknown as ReportContext;
     return renderToStaticMarkup(createElement(loans.Component, { ctx })).replace(/&amp;/g, "&").replace(/&gt;/g, ">");
   };
 
   it("ends the sentence with a link to the loan's editor with the account chosen", () => {
     const out = html(report({ loans: [{ id: "home", name: "Kodin laina" }], accounts: [{ id: "card", name: "Esimerkkikortti" }] }), ["card"]);
-    expect(out).toContain("Jos kyse on samasta velasta, se lasketaan vain kerran, kun liität lainan tiliin. <a href=\"#/settings?linkLoan=home&linkAccount=card#lainat\">Liitä Kodin laina tiliin Esimerkkikortti</a></li>");
+    expect(out).toContain("Jos kyse on samasta velasta, laskemme sen vain kerran, kun liität lainan tiliin. <a href=\"#/settings/household?linkLoan=home&linkAccount=card#lainat\">Liitä Kodin laina tiliin Esimerkkikortti</a></li>");
   });
 
   it("offers each loan beside each own account, and none for an account that is not the household's own", () => {
@@ -72,12 +72,12 @@ describe("the Lainat report offers the link", () => {
     expect(out).toContain("Liitä Laina A tiliin Kortti 1");
     expect(out).toContain("Liitä Laina B tiliin Kortti 1");
     expect(out).not.toContain("Puolison kortti</a>");
-    expect(out.match(/<a href="#\/settings\?linkLoan/g)).toHaveLength(2);
+    expect(out.match(/<a href="#\/settings\/household\?linkLoan/g)).toHaveLength(2);
   });
 
   it("with no account of its own to link to, the sentence keeps the way of removing the saved loan", () => {
     const out = html(report({ loans: [{ id: "home", name: "Kodin laina" }], accounts: [{ id: "partner", name: "Puolison kortti" }] }), [], "household");
-    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset > Lainat, niin se lasketaan vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset > Lainat, niin laskemme sen vain kerran.");
     expect(out).not.toContain("linkLoan");
   });
 });

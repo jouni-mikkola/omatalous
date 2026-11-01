@@ -5,17 +5,21 @@ import { accountCovers, monthSpan, sameAccounts } from "../analysis/coverage.ts"
 import type { DateRange } from "../analysis/period.ts";
 import { formatEur } from "../analysis/format.ts";
 import { CATEGORY_COICOP, type PriceSplit, priceSplit } from "../analysis/prices.ts";
+import { expectedLevel, quantile } from "../analysis/expected.ts";
 import { fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
-import { median } from "../stats.ts";
+import { categoryLabel } from "../category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
+import { RANGE_HIGH } from "../thresholds.ts";
 
-/** Months that must all be above the usual level: one month is a spike, three is a new level. */
+/** Months that must all be above the expected level: one month is a spike, three is a new level. */
 const RECENT_MONTHS = 3;
-/** The usual level is the median of up to this many complete months before the recent ones. */
+/** The expected level is the mean of up to this many complete months before the recent ones. */
 const BASE_MONTHS = 12;
-/** Fewer base months say too little about a usual level. */
+/** Fewer base months say too little about an expected level. */
 const MIN_BASE_MONTHS = 6;
 const MIN_RISE = 1.15;
-/** A category with a usual month of a few euros has nothing to drift from. */
+/** A category with an expected month of a few euros has nothing to drift from. */
 const MIN_BASE_CENTS = 2000;
 const MIN_EXTRA_CENTS = 4000;
 const MAX_ITEMS = 4;
@@ -29,16 +33,16 @@ export interface DriftItem {
   /** The recent months, oldest first. */
   months: string[];
   monthlyCents: number[];
-  /** The middle one of the recent months. */
+  /** The mean of the recent months. */
   recentCents: number;
-  /** Median month before them. */
-  usualCents: number;
+  /** Expected month before them: the mean of the base months. */
+  expectedCents: number;
   /** What the new level adds to a year. */
   extraYearlyCents: number;
-  /** The recent months as a share above the usual level. */
+  /** The recent months as a share above the expected level. */
   rise: number;
   /**
-   * The month's rise (`recentCents - usualCents`) split into the part prices explain and the part bought more, the
+   * The month's rise (`recentCents - expectedCents`) split into the part prices explain and the part bought more, the
    * index of the recent months set against that of the base months. Null without a class or valid index rows.
    */
   prices: PriceSplit | null;
@@ -52,11 +56,11 @@ export interface DriftReport {
   /** Categories that were compared with their own level: big enough to have one. */
   checked: number;
   /**
-   * The covered months before the recent ones whose median `usualCents` is, 6 to 12; 0 when nothing was judged. A
-   * longer window than the usual level of ADR 0004 (six complete months), so the page names it.
+   * The covered months before the recent ones whose mean `expectedCents` is, 6 to 12; 0 when nothing was judged. A
+   * longer window than the expected month of ADR 0021 (six complete months), so the page names it.
    */
   baseMonths: number;
-  /** The smallest usual month, in cents, that a category needs to be compared. */
+  /** The smallest expected month, in cents, that a category needs to be compared. */
   minLevelCents: number;
   /** Complete months of history the check needs: the recent ones and the months it compares them with. */
   neededMonths: number;
@@ -94,7 +98,7 @@ function lastWholeMonth(ctx: AnalysisContext, range: DateRange): number {
  * range, so a past period reads as it was then. Without nine months of
  * history it judges nothing and says from when it can (`readyFrom`).
  */
-export function driftReport(ctx: AnalysisContext, range: DateRange): DriftReport {
+export function driftReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): DriftReport {
   const last = lastWholeMonth(ctx, range);
   const recent = Array.from({ length: RECENT_MONTHS }, (_, i) => last - RECENT_MONTHS + 1 + i);
   // the accounts of the rows the recent months are read from: a base month counts when all of them were in the data
@@ -128,26 +132,26 @@ export function driftReport(ctx: AnalysisContext, range: DateRange): DriftReport
     // mostly bills: a dearer bill is a price change, told on its own
     if (c.kind !== "expense" || SKIPPED.has(category) || e.bills >= 0.8 * e.all) continue;
     const baseValues = base.map((m) => at(e.values, m));
-    const usual = median(baseValues);
+    const usual = expectedLevel(baseValues)!;
     if (usual < MIN_BASE_CENTS) continue;
     checked += 1;
     const monthly = recent.map((m) => at(e.values, m));
-    // the middle month, so one dear month among three does not carry the rise
-    const level = median(monthly);
+    // the mean of the recent months; the check below needs every one of them above the range
+    const level = expectedLevel(monthly)!;
     if (level - usual < MIN_EXTRA_CENTS) continue;
-    // all three months above the usual range, not one high and two ordinary
-    const upper = [...baseValues].sort((a, b) => a - b)[Math.ceil(0.75 * baseValues.length) - 1]!;
+    // all three months above the expected range, not one high and two ordinary
+    const upper = quantile([...baseValues].sort((a, b) => a - b), RANGE_HIGH);
     if (Math.min(...monthly) < Math.max(usual * MIN_RISE, upper)) continue;
     // the same months a year earlier were as dear: the season, not a new level
     const lastYear = recent.map((m) => (sameAccounts(ctx, monthSpan(fromMonthIndex(m - 12)), monthSpan(fromMonthIndex(m))) ? at(e.values, m - 12) : null));
-    if (lastYear.every((v) => v !== null) && median(lastYear as number[]) >= 0.9 * level) continue;
+    if (lastYear.every((v) => v !== null) && expectedLevel(lastYear as number[])! >= 0.9 * level) continue;
     items.push({
       category,
-      label: c.label,
+      label: categoryLabel(c, lang),
       months: recent.map(fromMonthIndex),
       monthlyCents: monthly,
       recentCents: Math.round(level),
-      usualCents: Math.round(usual),
+      expectedCents: Math.round(usual),
       extraYearlyCents: Math.round((level - usual) * 12),
       rise: level / usual - 1,
       prices: priceSplit(CATEGORY_COICOP[category], { cents: Math.round(usual), months: base.map(fromMonthIndex) }, { cents: Math.round(level), months: recent.map(fromMonthIndex) }, ctx.today),
@@ -155,12 +159,12 @@ export function driftReport(ctx: AnalysisContext, range: DateRange): DriftReport
   }
   items.sort((a, b) => b.extraYearlyCents - a.extraYearlyCents);
   const shown = items.slice(0, MAX_ITEMS);
-  return { months: recent.map(fromMonthIndex), items: shown, advice: shown.length ? advice(shown) : "", checked, baseMonths: base.length, ...frame };
+  return { months: recent.map(fromMonthIndex), items: shown, advice: shown.length ? advice(shown, lang) : "", checked, baseMonths: base.length, ...frame };
 }
 
-function advice(items: readonly DriftItem[]): string {
+function advice(items: readonly DriftItem[], lang: Language): string {
   const total = items.reduce((s, i) => s + i.extraYearlyCents, 0);
-  const who = items.length === 1 ? `${items[0]!.label}: menot ovat` : `${items.length} kategoriassa menot ovat`;
+  const who = items.length === 1 ? messageIn(lang, "rep.drift_one", { name: items[0]!.label }) : messageIn(lang, "rep.drift_many", { count: items.length });
   // rounded to ten euros: the level is an estimate
-  return `${who} olleet kolme kuukautta peräkkäin tavallista suuremmat. Jos taso pysyy, menot kasvavat ${formatEur(Math.round(total / 1000) * 1000 || total, false)} vuodessa.`;
+  return messageIn(lang, "rep.drift_advice", { who, amount: formatEur(Math.round(total / 1000) * 1000 || total, false, lang) });
 }

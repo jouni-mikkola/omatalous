@@ -34,7 +34,7 @@ git_policy() {
 COMPOSE_JQ='
   ["banking","caddy","tunnel"] as $names
   | ["build","cap_drop","command","container_name","depends_on","entrypoint","environment","image","mem_limit","networks","pids_limit","ports","profiles","read_only","restart","security_opt","stop_grace_period","tmpfs","volumes"] as $keys
-  | {"banking":"banking-app:latest","caddy":"caddy:2","tunnel":"cloudflare/cloudflared:latest"} as $images | "^cloudflare/cloudflared:[0-9]{4}[.][0-9]{1,2}[.][0-9]+(@sha256:[0-9a-f]{64})?\\z" as $pin # the tunnel may also be pinned: a cloudflared release tag, with or without its digest
+  | {"banking":"banking-app:latest","caddy":"caddy:2","tunnel":"cloudflare/cloudflared:latest"} as $images | {"caddy":"^caddy:2[.][0-9]+[.][0-9]+(@sha256:[0-9a-f]{64})?\\z","tunnel":"^cloudflare/cloudflared:[0-9]{4}[.][0-9]{1,2}[.][0-9]+(@sha256:[0-9a-f]{64})?\\z"} as $pins # Caddy and the tunnel may also be pinned: a release tag of the same repository, with or without its digest
   | (.volumes // {}) as $named
   | [
       (keys_unsorted[] | select(IN("name","services","networks","volumes","x-talous-compat") | not) | "ylätason avain \(.)"),
@@ -43,7 +43,8 @@ COMPOSE_JQ='
       ((.services // {}) | to_entries[] | .key as $n | .value as $s
         | (if ($names | index($n)) then empty else "palvelu \($n)" end),
           ($s | keys_unsorted[] | select(IN($keys[]) | not) | "\($n): avain \(.)"),
-          (($s.image // "") as $i | if $i == ($images[$n] // "") or ($n == "tunnel" and ($i | test($pin))) then empty else "\($n): image \($s.image)" end),
+          (($s.image // "") as $i | if $i == ($images[$n] // "") or (($pins[$n] // null) as $p | $p != null and ($i | test($p))) then empty else "\($n): image \($s.image)" end),
+          (($s.environment // {}) | to_entries[] | select(.value == null) | "\($n): environment \(.key) ilman arvoa"), # takes the value from the host
           (if $s.entrypoint != null then "\($n): entrypoint" else empty end),
           (if $s.command != null and ($n != "tunnel" or $s.command != ["tunnel","--no-autoupdate","run"]) then "\($n): command" else empty end),
           (($s.security_opt // [])[] | select(. != "no-new-privileges:true") | "\($n): security_opt \(.)"),
@@ -67,6 +68,8 @@ compose_policy_ok() { # compose_policy_ok COMMIT: the commit's compose file, as 
   dir=$(mktemp -d "$OPS/run/policy.XXXXXX") || { POLICY_MSG="väliaikaiskansio puuttuu"; return 1; }
   dir=$(cd "$dir" && pwd -P)
   git show "$1:docker-compose.yml" >"$dir/docker-compose.yml" 2>/dev/null || { rm -rf "$dir"; POLICY_MSG="docker-compose.yml puuttuu"; return 1; }
+  # Compose folds env_file into environment and drops the key, so the file it names (a host secret) is refused in the raw text
+  if [[ -n $(grep -v '^[[:space:]]*#' "$dir/docker-compose.yml" | grep -i 'env_file') ]]; then rm -rf "$dir"; POLICY_MSG="env_file"; return 1; fi
   out=$(cd "$dir" && timeout 30 env -i PATH="$PATH" HOME="${HOME:-/}" docker compose -f docker-compose.yml --env-file /dev/null --profile '*' config --format json 2>/dev/null) || rc=$?
   if ((rc != 0)) || [[ -z $out ]]; then rm -rf "$dir"; POLICY_MSG="asetustiedostoa ei voi lukea"; return 1; fi
   POLICY_MSG=$(jq -r --arg dir "$dir" "$COMPOSE_JQ" <<<"$out" 2>&1 | head -3 | paste -sd';' -)

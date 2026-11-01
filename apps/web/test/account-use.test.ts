@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { answerCall, answerLabel, choiceOf, fieldsChanged, JOINT, offerText, openQuestions, optionsOf, ownerOf, ownersOf, peopleOf, percentFieldsOf, questionLabel, questionOf, readPercents, restText, sharedUseText, splitOf, takeBackCall, usersFor } from "../src/pages/settings/account-use.ts";
-import type { Account, Connection, Meta, SharedAccount } from "../src/types.ts";
+import { answerCall, answerLabel, choiceOf, fieldsChanged, JOINT, offerText, openQuestions, optionsOf, ownerOf, ownersOf, peopleOf, percentFieldsOf, questionLabel, questionOf, readPercents, restText, splitOf, takeBackCall, usersFor } from "../src/pages/settings/account-use.ts";
+import type { Account, Connection, Meta } from "../src/types.ts";
 
 const MATTI = "u-matti";
 const ELISA = "u-elisa";
@@ -58,7 +58,7 @@ describe("the button that is pressed", () => {
     expect(splitOf({ ...said(600, 400), mode: "source" })).toBe("source");
   });
 
-  it("is Tasan when nothing is said or 1 and 1 are, Prosentit for 600 and 400", () => {
+  it("is Tasan when nothing is said or 1 and 1 are, Osuuksien mukaan for 600 and 400", () => {
     expect(splitOf(joint())).toBe("equal");
     expect(splitOf(said(1, 1))).toBe("equal");
     expect(splitOf(said(600, 400))).toBe("percent");
@@ -66,7 +66,7 @@ describe("the button that is pressed", () => {
   });
 });
 
-describe("the fields of Prosentit", () => {
+describe("the fields of Osuuksien mukaan", () => {
   const people = peopleOf(account(joint()), meta);
   const trio = [...people, { userId: ELISA, label: "Elisa" }];
 
@@ -139,21 +139,6 @@ describe("the questions and the answers", () => {
     expect(answerLabel("none", people)).toBe("En tiedä");
     expect(ownersOf(account(joint([600, 0])), meta).map((p) => p.label)).toEqual(["Matti"]);
     expect(ownersOf(account(joint()), meta).map((p) => p.label)).toEqual(["Matti", "KORHONEN ELISA"]);
-  });
-});
-
-describe("what a member is told of an account shared with them", () => {
-  const shared = (use: Account["use"], part?: SharedAccount["part"]) => ({ ...account(use), userId: "u-aino", part }) as SharedAccount;
-
-  it("gives their part of a joint account, and says when they have none", () => {
-    expect(sharedUseText(shared(joint([60000, 40000]), { from: 3, to: 5, of: 5 }), MATTI)).toBe("yhteinen tili, osuutesi 40 %");
-    expect(sharedUseText(shared(joint(), { from: 0, to: 0, of: 1 }), MATTI)).toBe("yhteinen tili, sinulla ei ole osuutta");
-  });
-
-  it("says nothing when the owner uses it alone, and who does when somebody else does", () => {
-    expect(sharedUseText(shared({ users: [user("u-aino", "Aino")], source: "owner" }), MATTI)).toBeNull();
-    expect(sharedUseText(shared({ users: [user(MATTI, "Matti")], source: "said" }), MATTI)).toBe("käyttäjä: sinä");
-    expect(sharedUseText(shared({ users: [user(ELISA, "Elisa")], source: "said" }), MATTI)).toBe("käyttäjä: Elisa");
   });
 });
 

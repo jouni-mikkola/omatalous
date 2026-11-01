@@ -10,12 +10,14 @@ import { applyUse } from "../src/account-use.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { themesReport } from "../src/analysis/themes-report.ts";
 import { addMonths, dateIn, monthEnd } from "../src/dates.ts";
-import { type PivotReport, pivotReport } from "../src/reports/pivot.ts";
+import { pivotReport } from "../src/reports/pivot.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+
+type PivotReport = ReturnType<typeof pivotReport>;
 import { carLoan } from "./kit/events/car-loan.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
-import { enrich } from "./optimise/household.ts";
+import { enrich } from "./optimise/household-kit.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 /** The 10th of November: October 2026 is the last complete month and November is running. */
@@ -158,7 +160,7 @@ describe("Tavallisesti and Ero", () => {
 
   it("is empty inside the lowest-to-highest of the months before, and printed outside it", () => {
     const inside = pivot(groceries(405), "2026-10", "2026-10");
-    expect(food(inside).usualCents).toBe(40_000);
+    expect(food(inside).expectedCents).toBe(40_000);
     expect(food(inside).diffCents).toBeNull();
     const above = pivot(groceries(520), "2026-10", "2026-10");
     expect(food(above).diffCents).toBe(12_000);
@@ -178,15 +180,15 @@ describe("Tavallisesti and Ero", () => {
     // the range is October alone and the six months before it are outside it
     const r = pivot(groceries(405), "2026-10", "2026-10");
     expect(r.months).toEqual(["2026-10"]);
-    expect(food(r).lines[0]!.usualCents).toBe(40_000);
+    expect(food(r).lines[0]!.expectedCents).toBe(40_000);
   });
 
   it("with two complete months before is a dash, and no difference", () => {
     const r = pivot([...rent("2026-08"), ...monthly("2026-08", "2026-10", 300, "Kauppa A", "groceries")], "2026-08");
     expect(r.last).toBe(2);
-    expect(food(r).usualCents).toBeNull();
+    expect(food(r).expectedCents).toBeNull();
     expect(food(r).diffCents).toBeNull();
-    expect(food(r).lines[0]!.usualCents).toBeNull();
+    expect(food(r).lines[0]!.expectedCents).toBeNull();
   });
 
   it("a running month is in no usual level, no mean and no strip", () => {
@@ -197,7 +199,7 @@ describe("Tavallisesti and Ero", () => {
     expect(r.last).toBe(r.months.length - 2);
     expect(r.strip).not.toContain(r.months.length - 1);
     expect(r.peak).not.toBe(r.months.length - 1);
-    expect(food(r).usualCents).toBe(40_000);
+    expect(food(r).expectedCents).toBe(40_000);
     expect(r.averageCents).toBe(Math.round(sum(r.monthTotals.slice(0, -1)) / (r.months.length - 1)));
   });
 
@@ -205,7 +207,7 @@ describe("Tavallisesti and Ero", () => {
     const r = pivot(rent("2026-11"), "2026-11", "2026-11");
     expect(r.complete).toEqual([false]);
     expect([r.last, r.peak, r.strip, r.peakRows]).toEqual([null, null, [], []]);
-    expect(r.themes.map((t) => [t.id, t.totalCents, t.usualCents, t.diffCents])).toEqual([["housing", 45_000, null, null]]);
+    expect(r.themes.map((t) => [t.id, t.totalCents, t.expectedCents, t.diffCents])).toEqual([["housing", 45_000, null, null]]);
   });
 });
 

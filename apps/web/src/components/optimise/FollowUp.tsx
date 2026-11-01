@@ -5,14 +5,16 @@
 import { type AreaView, type FollowUp as FollowUpData, parseFindingId, type SwitchProposal } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { Table } from "../table/Table.tsx";
-import { TableToggle } from "../TableToggle.tsx";
+import { ChartWithTable } from "../table/selection.tsx";
 import { api, query } from "../../api.ts";
 import { LineChart } from "../../charts/LineChart.tsx";
 import { date, monthLabel, monthLong } from "../../format.ts";
+import { t } from "../../text.ts";
 import type { Scope } from "../../types.ts";
 import { Section } from "../Section.tsx";
 import { type Changed, nameOf, subjectName } from "./shared.tsx";
-
+import { Button } from "../ui/Button.tsx";
+import { color } from "../../design/tokens.ts";
 /** What the confirmation names: the merchant of the finding's series, else its area ("vinkki Helen", "vinkki Sähkö"). */
 function shortName(id: string, areas: readonly AreaView[]): string {
   const parts = parseFindingId(id);
@@ -30,7 +32,7 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
     setBusy(true);
     setError(null);
     api(`/api/optimise/findings/${encodeURIComponent(proposal.findingId)}${query({ scope })}`, { method: "PUT", body: { status: "done", effectiveDate: proposal.date } })
-      .then(() => onChanged("Vinkki siirrettiin kohtaan Päätetyt."))
+      .then(() => onChanged(t("ow.fa_moved")))
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false));
   };
@@ -41,21 +43,21 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
         <span className="small muted">{proposal.text}</span>
       </div>
       {asking ? (
-        <div className="decide-form" role="group" aria-label={`Vahvista: ${name}`}>
+        <div className="decide-form" role="group" aria-label={t("ow.fu_confirm_aria", { name })}>
           <span>
-            Merkitäänkö vinkki {short} tehdyksi {date(proposal.date)} alkaen?
+            {t("ow.fu_ask", { short, date: date(proposal.date) })}
           </span>
-          <button className="btn btn-small btn-primary" type="button" disabled={busy} aria-busy={busy || undefined} onClick={confirm}>
-            Merkitse tehdyksi
-          </button>
-          <button className="btn btn-small" type="button" onClick={() => setAsking(false)}>
-            Peruuta
-          </button>
+          <Button variant="primary" busy={busy} onClick={confirm}>
+            {t("ow.fu_mark")}
+          </Button>
+          <Button onClick={() => setAsking(false)}>
+            {t("ow.cancel")}
+          </Button>
         </div>
       ) : (
-        <button className="btn btn-small" type="button" aria-label={`Vahvista: ${name}`} onClick={() => setAsking(true)}>
-          Vahvista
-        </button>
+        <Button aria-label={t("ow.fu_confirm_aria", { name })} onClick={() => setAsking(true)}>
+          {t("ow.fu_confirm")}
+        </Button>
       )}
       {error && (
         <span className="field-error error" role="alert">
@@ -66,39 +68,41 @@ function Proposal({ proposal, name, short, scope, onChanged }: { proposal: Switc
   );
 }
 
-const FOUND = "Arvioitu vuodessa";
-const CONFIRMED = "Vahvistettu vuodessa";
+const FOUND = "ow.fu_found";
+const CONFIRMED = "ow.fu_confirmed";
 
-/** Found against confirmed euros a year, one axis, with a table view. */
+/** Found against confirmed euros a year, one axis, with the months as a table under it. */
 function Line({ line }: { line: FollowUpData["line"] }) {
-  const [table, setTable] = useState(false);
   return (
     <div className="evidence-part">
       <div className="evidence-head">
-        <h3>Arvioitu ja vahvistettu</h3>
-        <TableToggle table={table} onChange={setTable} />
+        <h3>{t("ow.fu_line")}</h3>
       </div>
-      {table ? (
-        <Table
-          caption="Arvioitu ja vahvistettu kuukausittain"
-          rows={line}
-          rowKey={(p) => p.month}
-          columns={[
-            { key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (p) => monthLong(p.month) },
-            { key: "found", label: FOUND, kind: "money", main: true, cents: (p) => p.foundCents },
-            { key: "confirmed", label: CONFIRMED, kind: "money", cents: (p) => p.confirmedCents },
-          ]}
-        />
-      ) : (
-        <LineChart
-          labels={line.map((p, i) => monthLabel(p.month, i === 0 || p.month.endsWith("-01")))}
-          series={[
-            { key: "found", label: FOUND, color: "var(--series-1)", values: line.map((p) => p.foundCents) },
-            { key: "confirmed", label: CONFIRMED, color: "var(--series-2)", values: line.map((p) => p.confirmedCents) },
-          ]}
-          height={200}
-        />
-      )}
+      <ChartWithTable
+        chart={
+          <LineChart
+            labels={line.map((p, i) => monthLabel(p.month, i === 0 || p.month.endsWith("-01")))}
+            keys={line.map((p) => p.month)}
+            series={[
+              { key: "found", label: t(FOUND), color: color["series-1"], values: line.map((p) => p.foundCents) },
+              { key: "confirmed", label: t(CONFIRMED), color: color["series-2"], values: line.map((p) => p.confirmedCents) },
+            ]}
+            height={200}
+          />
+        }
+        table={
+          <Table
+            caption={t("ow.fu_table")}
+            rows={line}
+            rowKey={(p) => p.month}
+            columns={[
+              { key: "month", label: t("ow.ms_month"), kind: "text", rowHead: true, cell: (p) => monthLong(p.month) },
+              { key: "found", label: t(FOUND), kind: "money", main: true, cents: (p) => p.foundCents },
+              { key: "confirmed", label: t(CONFIRMED), kind: "money", cents: (p) => p.confirmedCents },
+            ]}
+          />
+        }
+      />
     </div>
   );
 }
@@ -110,7 +114,7 @@ export function FollowUp({ followUp, areas, titles, scope, onChanged, head, chil
   const drawn = line.length >= 4;
   if (!proposals.length && !drawn && !children) return null;
   return (
-    <Section id="seuranta" title={head?.title ?? "Seuranta"} sub={head?.sub} datum={head?.datum}>
+    <Section id="seuranta" title={head?.title ?? t("ow.fu_title")} sub={head?.sub} datum={head?.datum}>
       {children}
       {proposals.length > 0 && (
         <ul className="decided-list">

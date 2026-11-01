@@ -1,5 +1,5 @@
 /**
- * Every statement the product makes about money, as stable text: what the overview and Havainnot say (insights,
+ * Every statement the product makes about money, as stable text: what Säästövinkit says as Muut havainnot (insights,
  * alerts), Optimoi's findings and their follow-up, Mikä muuttui (income) and the spending change sentences. One block
  * per statement with its number and its calc, so a reviewer reads a change in what the product says as a text diff.
  * Last, the rows the product holds apart as large (`large`), what goes where by theme over the last twelve complete
@@ -9,9 +9,11 @@
 import { buildAlerts } from "../../packages/core/src/analysis/alerts.ts";
 import { type AnalysisContext, netSpend } from "../../packages/core/src/analysis/context.ts";
 import { incomeBase, incomeChanges } from "../../packages/core/src/analysis/income-changes.ts";
+import { insightInputOf, rankInsights } from "../../packages/core/src/analysis/insights/index.ts";
 import { largeIncome, largePurchases } from "../../packages/core/src/analysis/large.ts";
 import type { DateRange } from "../../packages/core/src/analysis/period.ts";
 import { themesReport } from "../../packages/core/src/analysis/themes-report.ts";
+import { insightText } from "../../packages/core/src/explain/insights.ts";
 import { creditStack } from "../../packages/core/src/behaviour/credit-stack.ts";
 import { paydayEffect } from "../../packages/core/src/behaviour/payday.ts";
 import { splitCandidates } from "../../packages/core/src/behaviour/split.ts";
@@ -20,7 +22,6 @@ import { allFindings, buildOptimise } from "../../packages/core/src/optimise/ind
 import { outcomeOf } from "../../packages/core/src/optimise/outcome.ts";
 import { baselineOf } from "../../packages/core/src/optimise/state.ts";
 import type { Finding, FindingState } from "../../packages/core/src/optimise/types.ts";
-import { insightsReport } from "../../packages/core/src/reports/insights.ts";
 import { spendingChangeReport } from "../../packages/core/src/reports/spending-change.ts";
 import { contextOf, type Household } from "./households.ts";
 
@@ -73,15 +74,18 @@ type Maker = (r: Run) => Omit<Statement, "source" | "household">[];
 
 const MAKERS: Record<SourceId, Maker> = {
   insights: ({ h, ctx, range }) =>
-    insightsReport(ctx, range, h.inputs).items.map((i) => ({
-      id: i.id,
-      kind: i.id.split(":")[0]!,
-      title: i.title,
-      figure: `${i.direction === -1 ? "-" : ""}${eur(i.yearlyCents)} a year`,
-      calc: [i.detail, `tone ${i.tone}`],
-      rows: i.rows?.length ?? 0,
-      loud: true,
-    })),
+    rankInsights(insightInputOf(ctx, range, h.inputs)).map((i) => {
+      const text = insightText(i);
+      return {
+        id: i.id,
+        kind: i.id.split(":")[0]!,
+        title: text.title,
+        figure: `${(i.effectPerYear?.cents ?? 0) < 0 ? "-" : ""}${eur(Math.abs(i.effectPerYear?.cents ?? 0))} a year`,
+        calc: [text.detail, `tone ${text.tone}`, `${i.kind} ${i.action.label}`],
+        rows: i.evidence.rows.length,
+        loud: true,
+      };
+    }),
   alerts: ({ h, ctx, range }) =>
     buildAlerts(ctx, range, h.inputs).map((a) => ({ id: a.id, kind: a.kind, title: a.title, figure: "", calc: [a.detail, `tone ${a.tone}`], rows: null, loud: true })),
   optimise: ({ findings }) =>

@@ -6,51 +6,9 @@ import { IMPORT_BY_KEY, IMPORT_LIMITS, importStores } from "../src/services/data
 import { exportStores, storeColumns } from "../src/services/data-export-stores.ts";
 import { perfHousehold } from "./perf-household.ts";
 import { setupApp } from "./helpers.ts";
-import { bestOf } from "../../../tools/lib/timing.ts";
+import { check, commit, exportOf, HEAD_KEYS, importFile, upload, type File, type Setup, type Who } from "./data-import-kit.ts";
 
-type Setup = Awaited<ReturnType<typeof setupApp>>;
-type Who = { call: Setup["admin"]["call"] };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type File = Record<string, any>;
 const AT = "2026-10-01T00:00:00Z";
-
-const exportOf = async (who: Who): Promise<File> => {
-  const res = await (who as Setup["admin"]).call("POST", "/api/data/export", {});
-  expect(res.status).toBe(200);
-  return typeof res.body === "string" ? JSON.parse(res.body) : res.body;
-};
-const HEAD_KEYS = ["format", "version", "exportedAt", "appVersion", "exportedBy", "notExported"];
-
-/** The page's part: the head, then the rows of each store in chunks under the size of one, then nothing else. */
-async function upload(who: Who, file: File, over: { head?: object; chunk?: (rows: unknown[], key: string) => object } = {}) {
-  const started = await who.call("POST", "/api/data/import", over.head ?? { format: file.format, version: file.version, appVersion: file.appVersion, exportedAt: file.exportedAt });
-  if (started.status !== 200) return { started, refused: started };
-  const id = started.body.session as string;
-  let seq = 0;
-  for (const [key, rows] of Object.entries(file)) {
-    if (HEAD_KEYS.includes(key) || !Array.isArray(rows)) continue;
-    for (let at = 0; at < rows.length || (at === 0 && !rows.length); ) {
-      let end = at;
-      let size = 0;
-      while (end < rows.length && (end === at || size + JSON.stringify(rows[end]).length < 120_000)) size += JSON.stringify(rows[end++]).length;
-      const res = await who.call("POST", `/api/data/import/${id}/chunk`, { seq: seq++, stores: { [key]: rows.slice(at, end) } });
-      if (res.status !== 200) return { started, id, refused: res };
-      at = Math.max(end, at + 1);
-    }
-  }
-  return { started, id, refused: null };
-}
-const check = (who: Who, id: string) => who.call("POST", `/api/data/import/${id}/check`, {});
-const commit = (who: Who, id: string) => who.call("POST", `/api/data/import/${id}/commit`, {});
-async function importFile(who: Who, file: File) {
-  const up = await upload(who, file);
-  expect(up.refused, JSON.stringify(up.refused?.body)).toBeNull();
-  const dry = await check(who, up.id!);
-  expect(dry.status, JSON.stringify(dry.body)).toBe(200);
-  const done = await commit(who, up.id!);
-  expect(done.status, JSON.stringify(done.body)).toBe(200);
-  return { dry: dry.body, done: done.body };
-}
 
 /** Every table but the ones a request itself writes, as text: two snapshots are equal when nothing was changed. */
 async function snapshot(db: Db): Promise<string> {
@@ -97,6 +55,7 @@ async function keep(db: Db, userId: string, tag: string, other?: string) {
   await run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('member', ?, ?, 'sales', ?, ?)", userId, `${tag}-PAYER`, userId, AT);
   await run("INSERT INTO expected_bills (id, user_id, name, amount_cents, due_date, cadence, created_at) VALUES (?, ?, ?, 100, '2026-11-01', 'once', ?)", `${tag}-bill`, userId, `${tag} lasku`, AT);
   await run("INSERT INTO spending_goal (user_id, monthly_cents, updated_at) VALUES (?, 250000, ?)", userId, AT);
+  await run("INSERT INTO category_goal (user_id, category, monthly_cents, updated_at) VALUES (?, 'groceries', 60000, ?)", userId, AT);
   await run("INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES (?, 'in', ?, ?, ?, ?)", `${tag}-ident`, `${tag}-ANSWER`, `u:${userId}`, userId, AT);
   await run("INSERT INTO account_balances (account_key, day, type, cents, fetched_at, source) VALUES (?, '2026-09-30', 'closingBooked', 5, ?, 'csv')", `${tag}-ident`, AT);
   await run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES (?, ?, 1, ?, ?)", `${tag}-ident`, userId, userId, AT);
@@ -436,25 +395,17 @@ describe("who may import, and what is recorded", () => {
   });
 });
 
-// about 10x the median measured on a busy machine (PB1 notes), held against the best of two runs after a warm-up
-// (`bestOf`): a busy machine slows a run, rarely all of them, and a slowdown by an order of magnitude fails every one
-const IMPORT_BUDGET_MS = 10_000;
-
+// the time of the import is in data-roundtrip.perf.test.ts
 describe("a household of PB1's size", () => {
-  it("imports into an empty instance under a budget, and a second time adds nothing", async () => {
+  it("imports into an empty instance, and a second time adds nothing", async () => {
     const w = await perfHousehold();
     // the administrator is aino whichever of the two ids sorts first; the empty instance has the same username
     const file = await exportOf(w.admin);
     expect(file.transactions.length).toBeGreaterThan(5000);
-    // each run into an empty instance of its own, made outside the clock
-    let empty = await setupApp();
-    const fresh = async () => {
-      empty = await setupApp();
-      expect((await empty.member("ville", "Ville")).id).toBeTruthy();
-    };
-    const { ms, result: first } = await bestOf(2, () => importFile(empty.admin, file), fresh);
+    const empty = await setupApp();
+    expect((await empty.member("ville", "Ville")).id).toBeTruthy();
+    const first = await importFile(empty.admin, file);
     expect(first.done.total.add).toBeGreaterThan(5000);
-    expect(ms).toBeLessThan(IMPORT_BUDGET_MS);
     const again = await importFile(empty.admin, file);
     expect(again.dry.total.add).toBe(0);
   }, 180_000);
@@ -487,5 +438,81 @@ describe("exportedBy", () => {
       const done = (await commit(b.admin, up.id!)).body;
       if (round === 1) expect(done.total.add).toBe(0);
     }
+  });
+});
+
+describe("the figures after a round trip", () => {
+  /** An answer with the user ids named by username: the two instances made their own ids, which are no figure. */
+  const read = async (who: Who, path: string, ids: Record<string, string>) => {
+    const res = await (who as Setup["admin"]).call("GET", path);
+    expect(res.status, path).toBe(200);
+    return JSON.parse(Object.entries(ids).reduce((text, [id, name]) => text.replaceAll(id, `user:${name}`), JSON.stringify(res.body)));
+  };
+
+  /** A mark that moves a figure: the first forgotten service of the dashboard is said to be in use. */
+  async function markOneAlert(who: Who) {
+    const subject = /"markSubject":"([^"]+)"/.exec(JSON.stringify(await read(who, "/api/dashboard", {})))?.[1];
+    expect(subject, "the demo household has an alert to mark").toBeTruthy();
+    expect((await (who as Setup["admin"]).call("PUT", "/api/marks", { subject, mark: "in_use" })).status).toBe(200);
+  }
+
+  const paths = ["/api/dashboard", "/api/ahead", "/api/reports", "/api/optimise"];
+
+  it("the whole dashboard answer, and the answers beside it, are equal to the cent before and after", async () => {
+    const { a, ka, b, kb } = await pair();
+    await a.admin.call("POST", "/api/demo");
+    await markOneAlert(a.admin);
+    // what is read per request and is no part of the cached context: marks, bills, loans, goals, Optimoi inputs
+    for (const t of ["user_marks", "expected_bills", "loans", "spending_goal", "category_goal", "optimise_inputs", "optimise_states", "category_rules"]) expect((await a.db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${t} WHERE user_id = ?`, [a.adminId]))!.n, t).toBeGreaterThan(0);
+    const idsOf = (x: Setup, k: { id: string }) => ({ [x.adminId]: "aino", [k.id]: "kaisa" });
+    const before = new Map<string, unknown>();
+    for (const [who, name] of [[a.admin, "aino"], [ka, "kaisa"]] as const) for (const p of paths) before.set(`${name} ${p}`, await read(who, p, idsOf(a, ka)));
+    await importFile(b.admin, await exportOf(a.admin));
+    await importFile(kb, await exportOf(ka));
+    for (const [who, name] of [[b.admin, "aino"], [kb, "kaisa"]] as const) for (const p of paths) expect(await read(who, p, idsOf(b, kb)), `${name} ${p}`).toEqual(before.get(`${name} ${p}`));
+  });
+
+  it("the comparison sees each per-request input: without one of them in the copy an answer differs", async () => {
+    const { a, b } = await pair();
+    await a.admin.call("POST", "/api/demo");
+    await markOneAlert(a.admin);
+    const all = async (x: Setup) => JSON.stringify(await Promise.all(paths.map((p) => read(x.admin, p, { [x.adminId]: "aino" }))));
+    const want = await all(a);
+    await importFile(b.admin, await exportOf(a.admin));
+    expect(await all(b)).toBe(want);
+    const still: string[] = [];
+    for (const table of ["user_marks", "expected_bills", "loans", "spending_goal", "category_goal", "optimise_inputs", "optimise_states"]) {
+      const rows = await b.db.all(`SELECT * FROM ${table} WHERE user_id = ?`, [b.adminId]);
+      await b.db.run(`DELETE FROM ${table} WHERE user_id = ?`, [b.adminId]);
+      await b.s.settings.bumpUserDataVersion(b.adminId);
+      if ((await all(b)) === want) still.push(table);
+      // put it back: the next table is tested against the full copy
+      await importFile(b.admin, await exportOf(a.admin));
+      expect(await all(b), `${table} back`).toBe(want);
+      expect(rows.length, table).toBeGreaterThan(0);
+    }
+    expect(still).toEqual([]);
+  });
+
+  it("an old file, with no exporter, no later store and no later column, is still taken and gives the same dashboard", async () => {
+    const { a, b } = await pair();
+    await a.admin.call("POST", "/api/demo");
+    // the stores below are the later ones: the old file has none of them, and the file is the current exporter's with the later columns taken out (no frozen file of an old release exists)
+    const LATER_STORES = ["spendingGoals", "categoryGoals", "optimiseInputs", "optimiseStates", "optimiseSnapshots", "contractTerms", "valuedAssets", "accountAgreements", "settlementClosed", "statementBills", "statementRows"];
+    const LATER_COLUMNS = ["bank_type_code", "bank_usage", "bank_product", "psu_status", "type_source", "exportedBy"];
+    for (const store of exportStores().filter((st) => LATER_STORES.includes(st.key))) await a.db.run(`DELETE FROM ${store.table}`);
+    await a.s.settings.bumpDataVersion();
+    const ids = (x: Setup) => ({ [x.adminId]: "aino" });
+    const want = await read(a.admin, "/api/dashboard", ids(a));
+    const file = await exportOf(a.admin);
+    const old: File = { format: file.format, version: file.version, appVersion: "0.48.0", exportedAt: file.exportedAt };
+    for (const [key, rows] of Object.entries(file)) {
+      if (HEAD_KEYS.includes(key) || !Array.isArray(rows) || LATER_STORES.includes(key)) continue;
+      old[key] = rows.map((r: Record<string, unknown>) => Object.fromEntries(Object.entries(r).filter(([k]) => !LATER_COLUMNS.includes(k))));
+    }
+    const done = (await importFile(b.admin, old)).done;
+    expect(done.committed).toBe(true);
+    expect(done.total.add).toBeGreaterThan(50);
+    expect(await read(b.admin, "/api/dashboard", ids(b))).toEqual(want);
   });
 });

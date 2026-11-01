@@ -336,13 +336,13 @@ t_rollback_renews_helper() {
 switch_world() { world; release 0.2.0; prerelease 0.3.0; list "$(rel v0.3.0 false true)" "$(rel v0.2.0 false false)"; }
 # One request of the switch. ENV is a printf format, so a last line can lack its newline. The file as it was before the
 # tick is env.before, the report is REP.
-# shellcheck disable=SC2059
+# shellcheck disable=SC2059 # $2 is a printf format on purpose (see above)
 flip() { # flip on|off [ENV]
   [[ $# -lt 2 ]] || { printf "$2" >"$CL/.env"; chmod 600 "$CL/.env"; }
   cp -p "$CL/.env" "$W/env.before"; rm -f "$S/reports"/* "$CL/ops/journal"/*; : >"$S/calls.log"
   poll "prerelease-$1"; tick; REP=$(report)
 }
-# shellcheck disable=SC2059
+# shellcheck disable=SC2059 # $1 is a printf format on purpose: the .env is compared to the byte
 env_is() { printf "$1" | cmp -s - "$CL/.env"; } # .env to the byte
 env_kept() { cmp -s "$CL/.env" "$W/env.before" && [[ ! -e $CL/.env.new && ! -L $CL/.env.new ]]; } # as before the tick, and no .env.new
 said() { jq -r "$1" <<<"$REP" 2>/dev/null; } # a field of the report
@@ -353,7 +353,7 @@ t_switch_changes_one_line() {
   check "on, no key: the line is added last and the rest is as it was" env_is 'HOST_PORT=8081\n# a note\nTALOUS_PRERELEASE=yes\n'
   check "on: reported ok, with the position and the channel" test "$(said '.status + " " + .state.prerelease + " " + .state.channel')" = "ok yes release"
   check "on: the check that follows asks for the newest and offers the pre-release" bash -c "[[ \$1 == 0.3.0 && \$2 == 'curl $API?per_page=20' ]]" x "$(said .state.latest_version)" "$(curls)"
-  check "on: the summary says what is offered now" test "$(said .summary)" = "Uudet versiot tarjotaan heti. Uusi versio on saatavilla."
+  check "on: the summary says what is offered now" test "$(said .summary)" = "Tarjoamme uudet versiot heti. Uusi versio on saatavilla."
   flip off
   check "off from yes: the line changes where it stood" env_is 'HOST_PORT=8081\n# a note\nTALOUS_PRERELEASE=no\n'
   check "off: reported, and the check asks /releases/latest alone and offers the release" bash -c "[[ \$1 == 'ok no 0.2.0' && \$2 == 'curl $API/latest' ]]" x "$(said '.status + " " + .state.prerelease + " " + .state.latest_version')" "$(curls)"
@@ -383,7 +383,7 @@ t_switch_keeps_the_file() {
   check "a write that fails half way: reported failed with the reason" test "$(said '.status + " " + .state.prerelease + " " + .summary')" = "failed no Tiedostoa .env ei voitu kirjoittaa. Mitään ei muutettu."
   check "and .env is as it was, with no .env.new" env_kept
   echo 500 >"$S/list.status"; touch "$CL/ops/last-check"; flip on 'A=1\n'
-  check "no answer to the check after the write: the setting stands and the summary says both" test "$(said '.status + " " + .summary')" = "ok Uudet versiot tarjotaan heti. Uutta versiota ei voitu tarkistaa."
+  check "no answer to the check after the write: the setting stands and the summary says both" test "$(said '.status + " " + .summary')" = "ok Tarjoamme uudet versiot heti. Uutta versiota ei voitu tarkistaa."
   check "and the daily check is due again" bash -c "[[ ! -e '$CL/ops/last-check' ]] && grep -qx 'TALOUS_PRERELEASE=yes' '$CL/.env'"
 }
 t_switch_refusals() {
@@ -406,7 +406,7 @@ t_switch_says_done_only_when_the_host_reads_it() {
   switch_world
   # grep reads nothing from a file with a NUL byte in it, so the daily check would not see the line the switch wrote
   flip on 'A=1\n# x\0y\n'
-  check "a .env the daily check cannot read: reported failed with the reason, and the position stays off" test "$(said '.status + " " + .state.prerelease + " " + .summary')" = "failed no Asetus kirjoitettiin tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella."
+  check "a .env the daily check cannot read: reported failed with the reason, and the position stays off" test "$(said '.status + " " + .state.prerelease + " " + .summary')" = "failed no Kirjoitimme asetuksen tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella."
   check "and no check for a new version was made" test -z "$(curls)"
 }
 t_switch_asks_the_file_again_before_the_write() {

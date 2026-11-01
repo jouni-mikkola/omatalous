@@ -19,7 +19,7 @@ export const LINK_FAILURES = {
   cancelled: "Yhdistäminen keskeytyi.",
   bank: "Pankki keskeytti yhdistämisen. Syy näkyy Enable Bankingin Control Panelissa sovelluksen pyyntölokissa.",
   inactive: "Enable Banking ei vielä päästä sovellusta pankkeihin. Ylläpitäjän pitää painaa Control Panelissa Activate by linking accounts.",
-  app: "Enable Banking ei tunnistanut sovellusta. Ylläpitäjän pitää tarkistaa se kohdassa Asetukset > Palvelin > Testaa yhteys.",
+  app: "Enable Banking ei tunnistanut sovellusta. Ylläpitäjän pitää tarkistaa se kohdassa Asetukset > Pankit ja tilit > Testaa yhteys.",
   refused: "Enable Banking hylkäsi yhdistämisen. Syy näkyy Control Panelissa sovelluksen pyyntölokissa.",
   expired: "Yhdistäminen vanheni. Yritä uudelleen.",
 } as const;
@@ -58,7 +58,7 @@ function stateFor(s: Services, returnTo: unknown): string {
   const origin =
     (typeof returnTo === "string" ? parseLocalOrigin(returnTo) : null) ?? parseLocalOrigin(s.instance.current.appBaseUrl);
   if (!origin) {
-    throw new UserError("Avaa Omatalous kotiverkon osoitteesta, esimerkiksi http://192.168.1.10:8080, tai ota käyttöön oma https-osoite kohdassa Asetukset > Palvelin.");
+    throw new UserError("Avaa Omatalous kotiverkon osoitteesta, esimerkiksi http://192.168.1.10:8080, tai ota käyttöön oma https-osoite. Tallenna osoite kohdassa Asetukset > Palvelin. Englanninkielinen ohje on tiedostossa docs/ADVANCED.md, kohdassa A https name for the home network.");
   }
   return relayState(token, origin);
 }
@@ -80,8 +80,8 @@ export async function consumeLinkState(s: Services, userId: string, state: strin
   const key = `${LINK_STATE_PREFIX}${state}`;
   // a state that names a return address must still name a private one (the page and the server both check)
   if (state.includes(".") && !originFromRelayState(state)) throw new AuthStateExpired();
-  const raw = await s.settings.get(key);
-  if (raw) await s.settings.delete(key);
+  // one statement: two callbacks with the same state cannot both get it
+  const raw = await s.settings.take(key);
   const pending = raw ? (JSON.parse(raw) as { userId: string; createdAt: number }) : null;
   if (!pending || pending.userId !== userId || s.now().getTime() - pending.createdAt > STATE_TTL_MS) {
     throw new AuthStateExpired();

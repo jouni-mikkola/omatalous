@@ -410,7 +410,7 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
 }
 
 /** Dry run: what a commit of this session would add, keep and skip. Writes nothing; the session stays open for the commit. */
-export async function dryRun(s: Services, user: { id: string }, id: string, checks: ImportChecks): Promise<ImportPlan> {
+export async function dryRun(s: Services, user: { id: string; role?: string }, id: string, checks: ImportChecks): Promise<ImportPlan> {
   const ses = sessionOf(s, user, id);
   ses.expires = expiry(s);
   return (await buildPlan(s, ses, false, checks)).plan;

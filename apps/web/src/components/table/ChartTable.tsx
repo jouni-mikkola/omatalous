@@ -5,6 +5,7 @@
  * and a caption that names the chart's question. Each chart passes its own rows; no figure is made here.
  */
 import { createContext, useContext } from "react";
+import { t } from "../../text.ts";
 import { Table } from "./Table.tsx";
 
 /** The question of the chart whose table is shown (QuestionChart sets it), so the caption names the chart. */
@@ -33,9 +34,11 @@ export function ChartTable({
   const question = useContext(ChartQuestion);
   return (
     <Table
-      caption={question ? `${question} taulukkona` : `${xLabel}, taulukkona`}
+      caption={question ? t("table.as_table", { question }) : t("table.as_table_x", { label: xLabel })}
       rows={rows}
       rowKey={(r) => r.key}
+      search={false}
+      csv={false}
       columns={[
         {
           key: "x",

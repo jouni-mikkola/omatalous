@@ -37,7 +37,7 @@ export async function canonicalPrivateKey(input: unknown): Promise<string> {
     throw new KeyProblem("Avainta ei voitu lukea RSA-avaimena.");
   }
   const algorithm = key.algorithm as { modulusLength?: number };
-  if ((algorithm.modulusLength ?? 0) < 2048) throw new KeyProblem("Avain on liian lyhyt. Tarvitaan vähintään 2048-bittinen RSA-avain.");
+  if ((algorithm.modulusLength ?? 0) < 2048) throw new KeyProblem("Avain on liian lyhyt. Käytä vähintään 2048-bittistä RSA-avainta.");
 
   // the stored key is our own encoding; the uploaded text is discarded
   return toPem(new Uint8Array(await crypto.subtle.exportKey("pkcs8", key)));

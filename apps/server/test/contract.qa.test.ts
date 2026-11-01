@@ -12,7 +12,9 @@ const PEM = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.expor
 // Reachable without a session on purpose.
 const PUBLIC = new Set(["GET /api/health", "GET /api/auth/state", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/factor", "POST /api/auth/logout", "GET /api/connections/callback"]);
 // Answers 401 itself, so it is not public but sits above the shared login gate.
-const SELF_AUTH = new Set(["POST /api/auth/password"]);
+const SELF_AUTH = new Set(["POST /api/auth/password", "POST /api/auth/first-password"]);
+// The steps after a correct password: they need the half session and answer "half_expired" without it.
+const HALF_SESSION = new Set(["POST /api/auth/passkey/options", "POST /api/auth/passkey"]);
 const ADMIN_PREFIXES = ["/api/users", "/api/admin/"];
 const CANARY = "RAW-BANK-PAYLOAD-CANARY-7f3a";
 
@@ -41,7 +43,8 @@ describe("no session", () => {
       // a wrong login is a 401 too, but not the "sign in first" one
       if (PUBLIC.has(key)) expect(res.body?.code, key).not.toBe("unauthenticated");
       else expect(res.status, key).toBe(401);
-      if (!PUBLIC.has(key) && !SELF_AUTH.has(key)) expect(res.body.code, key).toBe("unauthenticated");
+      if (HALF_SESSION.has(key)) expect(res.body.code, key).toBe("half_expired");
+      else if (!PUBLIC.has(key) && !SELF_AUTH.has(key)) expect(res.body.code, key).toBe("unauthenticated");
     }
   });
 
@@ -171,7 +174,7 @@ describe("secrets in responses", () => {
     const m = await member("ville");
     const hashes = (await db.all<{ password_hash: string }>("SELECT password_hash FROM users")).map((r) => r.password_hash);
     const sealed = (await db.all<{ value: string }>("SELECT value FROM settings")).map((r) => r.value).filter((v) => v.length > 60);
-    const forbidden = [CANARY, "PRIVATE KEY", "test-secret-that-is-long-enough-0123456789", "pbkdf2_sha256$", ...hashes, ...sealed];
+    const forbidden = [CANARY, "PRIVATE KEY", "test-secret-that-is-long-enough-0123456789", "pbkdf2_sha256$", "argon2id$", ...hashes, ...sealed];
 
     const accountId: string = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
     const txId: string = (await admin.call("GET", "/api/transactions?limit=1")).body.items[0].id;
@@ -215,6 +218,7 @@ describe("data versions", () => {
   const MOVES = [
     "POST /api/demo",
     "PATCH /api/transactions/:id",
+    "POST /api/transactions/:id/undo-category",
     "POST /api/rules",
     "DELETE /api/rules/:id",
     "PUT /api/merchants/category",
@@ -243,12 +247,16 @@ describe("data versions", () => {
   // Moves the instance version (data_version): every member's household view may have shown the removed member's accounts. Run below.
   const MOVES_EVERYONE = ["DELETE /api/users/:id"];
   // Moves it only when a row changed (CLAUDE.md: a sync that changed nothing does not): sync.ts decides.
-  const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync", "POST /api/sync/open"];
+  const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync", "POST /api/sync/open", "POST /api/card-file", "POST /api/bank-file"];
   // Read for each request (requestInputs), never cached: saving them moves no version. optimise.test.ts checks the Optimoi ones.
   const PER_REQUEST = [
     "PUT /api/marks",
+    "PUT /api/language",
+    "POST /api/views/open",
     "PUT /api/spending-goal",
     "DELETE /api/spending-goal",
+    "PUT /api/category-goals",
+    "DELETE /api/category-goals",
     "POST /api/expected-bills",
     "DELETE /api/expected-bills/:id",
     "POST /api/loans",
@@ -289,7 +297,7 @@ describe("data versions", () => {
       const res = await call();
       expect(res.status, `${key}: ${JSON.stringify(res.body)}`).toBe(200);
       const after = await Promise.all(ids.map(version));
-      ids.forEach((id, i) => (moves ? expect(after[i], key).not.toBe(before[i]) : expect(after[i], key).toBe(before[i])));
+      ids.forEach((_, i) => (moves ? expect(after[i], key).not.toBe(before[i]) : expect(after[i], key).toBe(before[i])));
       ran.add(key);
       return res;
     };
@@ -297,6 +305,7 @@ describe("data versions", () => {
     const tx = (await admin.call("GET", "/api/transactions?limit=1")).body.items[0];
     const accountId: string = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
     await step("PATCH /api/transactions/:id", () => admin.call("PATCH", `/api/transactions/${tx.id}`, { category: "groceries" }), true);
+    await step("POST /api/transactions/:id/undo-category", () => admin.call("POST", `/api/transactions/${tx.id}/undo-category`, { category: tx.category }), true);
     await step("POST /api/rules", () => admin.call("POST", "/api/rules", { field: "merchant", pattern: "Testikauppa", category: "groceries" }), true);
     const ruleId = (await admin.call("GET", "/api/rules")).body.rules[0].id;
     await step("DELETE /api/rules/:id", () => admin.call("DELETE", `/api/rules/${ruleId}`), true);
@@ -318,8 +327,11 @@ describe("data versions", () => {
     await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
 
     await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);
+    await step("POST /api/views/open", () => admin.call("POST", "/api/views/open", { views: ["report:ennuste"] }), false);
     await step("PUT /api/spending-goal", () => admin.call("PUT", "/api/spending-goal", { monthlyCents: 250_000 }), false);
     await step("DELETE /api/spending-goal", () => admin.call("DELETE", "/api/spending-goal"), false);
+    await step("PUT /api/category-goals", () => admin.call("PUT", "/api/category-goals", { category: "groceries", monthlyCents: 60_000 }), false);
+    await step("DELETE /api/category-goals", () => admin.call("DELETE", "/api/category-goals", { category: "groceries" }), false);
     const bill = await step("POST /api/expected-bills", () => admin.call("POST", "/api/expected-bills", { name: "Vesi", amountCents: 5000, dueDate: "2026-11-20", cadence: "once" }), false);
     await step("DELETE /api/expected-bills/:id", () => admin.call("DELETE", `/api/expected-bills/${bill.body.bill.id}`), false);
     const loan = await step("POST /api/loans", () => admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" }), false);

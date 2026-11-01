@@ -21,7 +21,8 @@ import {
 } from "../../src/optimise/index.ts";
 import { balanceReport, lowestDayBalance } from "../../src/reports/balances.ts";
 import type { Account, BalanceInput, Transaction } from "../../src/types.ts";
-import { enrich, FRAME, type Household, household, householdInput, joinHousehold } from "./household.ts";
+import { household } from "./household.ts";
+import { enrich, FRAME, type Household, householdInput, joinHousehold } from "./household-kit.ts";
 import * as loansPart from "./parts/loans.ts";
 import * as savingsPart from "./parts/savings.ts";
 
@@ -222,7 +223,7 @@ describe("loans", () => {
   it("counts card interest in months the checking account held the whole debt", () => {
     const f = draft(r, "card_interest")!;
     expect(euros(f)).toEqual([18000, 18000, 18000]);
-    expect(plain(f.title)).toBe("Luottokortin korkoja maksettiin 180 € 12 kuukautena, joiden alussa ja lopussa käyttötilin saldo kattoi kortin velan.");
+    expect(plain(f.title)).toBe("Maksoit luottokortin korkoja 180 € 12 kuukautena, vaikka käyttötilin saldo kattoi kortin velan kuun alussa ja lopussa.");
     expect(calc(f)["Kortin velka kuun vaihteessa enintään"]).toBe("1 100 €");
     expect(f.rows).toHaveLength(12);
   });

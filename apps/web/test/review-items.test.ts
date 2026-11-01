@@ -8,14 +8,18 @@ const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
 describe("a sitting", () => {
   it("shows the first open item and counts the items it will show", () => {
     const view = sittingView(queue(3), NEW_SITTING);
-    expect(view).toMatchObject({ state: "item", position: 1, of: 3, open: 3 });
+    expect(view).toMatchObject({ state: "item", position: 1, of: 3 });
     expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
+  });
+
+  it("counts the whole queue, the number the header badge shows, not the 25 of one sitting", () => {
+    expect(sittingView(queue(40), NEW_SITTING)).toMatchObject({ state: "item", of: SITTING });
   });
 
   it("takes an answered item away at once and moves past a skipped one", () => {
     const view = sittingView(queue(3), { answered: ["payee_out:Kauppa 0"], skipped: ["payee_out:Kauppa 1"] });
     // the answered one is no longer open; the skipped one still is
-    expect(view).toMatchObject({ state: "item", position: 3, of: 3, open: 2 });
+    expect(view).toMatchObject({ state: "item", position: 3, of: 3 });
     expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 2");
   });
 
@@ -50,7 +54,7 @@ describe("the choices", () => {
   it("ask a split with no guess", () => {
     const split: ReviewItem = { kind: "split", id: "split:a:opening:o", cents: 312_045, accountId: "a", accountName: "Yhteistili", question: "opening", key: "o", label: "2026-07-01" };
     expect(split).not.toHaveProperty("guess");
-    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili: Yhteistili", "Saldo ennen 1.7.2026", "Kenen rahaa tämä oli?"]);
+    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili Yhteistili", "Saldo ennen 1.7.2026", "Kenen rahaa tämä oli?"]);
   });
 
   it("say a subscription's month and year", () => {

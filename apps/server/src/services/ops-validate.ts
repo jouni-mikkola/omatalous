@@ -3,10 +3,11 @@
  * sends back. The helper repeats the action list and the scrub in bash (`ACTIONS` and `scrub_out` in
  * scripts/ops-helper.sh); tools/repo-rules/parity.ts fails when the action lists differ.
  *
- * None of the twelve actions takes parameters. `access` applies the change of remote access the app has prepared in a
+ * None of the thirteen actions takes parameters. `access` applies the change of remote access the app has prepared in a
  * file of its own (services/access-request.ts); the request itself says nothing about it. `prerelease-on` and
  * `prerelease-off` are the two positions of one switch as two names, so that no value travels to the host. `port` is
- * reserved and refused. A new action needs an entry in OPS_ACTIONS and ACTION_SINCE and the helper's `ACTIONS` and
+ * reserved and refused. `offsite` sends an encrypted copy to another machine with the target the app has prepared in a
+ * file of its own (services/offsite-request.ts). A new action needs an entry in OPS_ACTIONS and ACTION_SINCE and the helper's `ACTIONS` and
  * `case`. This list and the helper's are the gates: the table stores any name since migration 0017 dropped the CHECK
  * on ops_requests.action, and a row is only ever written for a name that parseOpsRequest let through.
  */
@@ -16,7 +17,7 @@ import { strictObject } from "../platform/validate.ts";
 /** The setting that holds when the host helper was last heard of (ISO): written at every real poll, report and state (services/ops.ts), read for the page and for the notice of a silent helper (services/db-health.ts). */
 export const HELPER_SEEN_KEY = "ops_helper_seen";
 
-export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access", "prerelease-on", "prerelease-off"] as const;
+export const OPS_ACTIONS = ["update", "rollback", "backup", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "access", "prerelease-on", "prerelease-off", "offsite"] as const;
 export type OpsAction = (typeof OPS_ACTIONS)[number];
 
 /** Reserved for a later release. */
@@ -194,6 +195,7 @@ export const ACTION_SINCE: Record<OpsAction, number> = {
   access: 3,
   "prerelease-on": 4,
   "prerelease-off": 4,
+  offsite: 6,
 };
 
 /** The first helper version that waits for the app's wake (WAKE_WAIT in scripts/ops-helper.sh): it starts a request within seconds. */
@@ -240,6 +242,11 @@ export function helperOutdated(version: string | null): boolean {
 
 // ── state snapshot from the helper ───────────────────────
 
+interface DoctorResult {
+  at: string;
+  items: { id: string; level: "ok" | "warn" | "error"; title: string; detail: string; hint: string }[];
+}
+
 export interface OpsState {
   version?: string;
   build?: string;
@@ -260,7 +267,9 @@ export interface OpsState {
   prerelease?: "yes" | "no";
   /** `source`: the install follows a branch and has no releases to follow, so the page shows no switch. `private`: the folder follows the private repository (scripts/use-private.sh, switched on the host only). */
   channel?: "source" | "release" | "private";
-  doctor?: { at: string; items: { id: string; level: "ok" | "warn" | "error"; title: string; detail: string; hint: string }[] };
+  doctor?: DoctorResult;
+  /** The same items in English (doctor.sh --json-en); the page of a member who reads English gets these in `doctor` (opsState). */
+  doctor_en?: DoctorResult;
   backups?: { name: string; size: number; at: string; kind: string }[];
 }
 
@@ -276,6 +285,26 @@ function lanAddress(v: unknown, secrets: readonly string[]): string | undefined 
   const hit = LAN_ADDRESS.exec(v);
   if (!hit || (hit[1] !== undefined && (Number(hit[1]) < 1 || Number(hit[1]) > 65535))) return undefined;
   return scrub(v, secrets) === v ? v : undefined;
+}
+
+function doctorResult(v: unknown, secrets: readonly string[]): DoctorResult | undefined {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return undefined;
+  const d = v as Record<string, unknown>;
+  const at = isoOrNull(d.at);
+  if (!at || !Array.isArray(d.items)) return undefined;
+  return {
+    at,
+    items: d.items.slice(0, 40).map((i) => {
+      const r = (typeof i === "object" && i !== null ? i : {}) as Record<string, unknown>;
+      return {
+        id: text(r.id, 40, secrets) ?? "",
+        level: r.level === "ok" || r.level === "warn" || r.level === "error" ? r.level : "warn",
+        title: text(r.title, 100, secrets) ?? "",
+        detail: text(r.detail, 300, secrets) ?? "",
+        hint: text(r.hint, 300, secrets) ?? "",
+      };
+    }),
+  };
 }
 
 /**
@@ -310,25 +339,10 @@ export function normaliseState(input: unknown, secrets: readonly string[] = []):
       })
       .filter((c) => c.hash);
   }
-  if (typeof o.doctor === "object" && o.doctor !== null && !Array.isArray(o.doctor)) {
-    const d = o.doctor as Record<string, unknown>;
-    const at = isoOrNull(d.at);
-    if (at && Array.isArray(d.items)) {
-      out.doctor = {
-        at,
-        items: d.items.slice(0, 40).map((i) => {
-          const r = (typeof i === "object" && i !== null ? i : {}) as Record<string, unknown>;
-          return {
-            id: text(r.id, 40, secrets) ?? "",
-            level: r.level === "ok" || r.level === "warn" || r.level === "error" ? r.level : "warn",
-            title: text(r.title, 100, secrets) ?? "",
-            detail: text(r.detail, 300, secrets) ?? "",
-            hint: text(r.hint, 300, secrets) ?? "",
-          };
-        }),
-      };
-    }
-  }
+  const doctor = doctorResult(o.doctor, secrets);
+  if (doctor) out.doctor = doctor;
+  const doctorEn = doctorResult(o.doctor_en, secrets);
+  if (doctorEn) out.doctor_en = doctorEn;
   if (Array.isArray(o.backups)) {
     out.backups = o.backups.slice(0, 50).flatMap((b) => {
       const r = (typeof b === "object" && b !== null ? b : {}) as Record<string, unknown>;
@@ -342,5 +356,8 @@ export function normaliseState(input: unknown, secrets: readonly string[] = []):
 }
 
 export function mergeState(old: OpsState, next: OpsState): OpsState {
-  return { ...old, ...next };
+  const merged = { ...old, ...next };
+  // a new Finnish result with no English twin (an older doctor.sh) must not keep the old twin
+  if (next.doctor && !next.doctor_en) delete merged.doctor_en;
+  return merged;
 }

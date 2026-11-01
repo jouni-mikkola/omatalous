@@ -111,7 +111,7 @@ describe("loan intake: the payment of an equal-principal loan", () => {
     const draft = one(["Lyhennystapa: Tasalyhennys", "Kuukausierä: 839,00 €"]);
     expect(read(draft)).toEqual({ repayment: "equal_principal sure", paymentCents: "83900 check" });
     expect(draft.warnings).toEqual([
-      { id: "payment_whole", text: "Tasalyhennyslainan maksueräksi merkitään pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.", fields: ["paymentCents"] },
+      { id: "payment_whole", text: "Kirjaa tasalyhennyslainan maksueräksi pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.", fields: ["paymentCents"] },
     ]);
   });
 

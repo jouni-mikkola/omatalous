@@ -1,4 +1,5 @@
 // Decision: is the buffer growing and the debt shrinking
+import { type BalanceChange, balanceChange, balanceDays, totalOn } from "../analysis/balance-change.ts";
 import { type BalanceWalk, balanceWalk } from "../analysis/balance-walk.ts";
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { largePurchases } from "../analysis/large.ts";
@@ -66,12 +67,8 @@ export interface BalanceReport {
    * draws, so its dips are the days the money went. null on a day an account is not known yet or is blanked.
    */
   daily: { from: IsoDate; cents: (number | null)[] };
-  /**
-   * The one change of Saldot: the total of `daily` on its newest known day less on its first known day (the first day
-   * every account is known), the days named. The accounts' `changeCents` are over the same two days and add up to it.
-   * null with fewer than two known days.
-   */
-  change: { from: IsoDate; to: IsoDate; cents: number } | null;
+  /** The one change of Saldot (`balanceChange`); null when no baseline day is known. */
+  change: BalanceChange | null;
   /** The lowest end-of-day total of the range and the first day it was reached (`lowestDayBalance`); null when an account is not known at the start. */
   lowest: { day: IsoDate; cents: number } | null;
   /**
@@ -81,19 +78,21 @@ export interface BalanceReport {
    * day) or a day is not known: such a purchase is told in the readout, with no tick.
    */
   events: { day: IsoDate; label: string; cents: number; step: { beforeCents: number; afterCents: number } | null }[];
+  /**
+   * The change of `total` at each month end from the month before (`total` less the previous `total`); null where either is
+   * unknown or an account has no value at either month end. The accounts' own changes (`values[i]` less `values[i - 1]`)
+   * then add up to it.
+   */
+  monthChange: (number | null)[];
+  /**
+   * The accounts in view that are in no total, no line and no row above, each with what is known of it: in another
+   * currency its balance in that currency (`foreign`, never added to euros), with no balance told `foreign` is null.
+   */
+  missing: { accountId: string; name: string; type: AccountType; foreign: { currency: string; cents: number } | null }[];
   /** The pay days of `daily`'s days (`payDays`), oldest first: the days the line climbs with the pay. */
   payDays: IsoDate[];
   /** What the household has and owes today, laid out for the first page: the same answer as `DashboardData.holdings`. */
   holdings: Holdings;
-}
-
-const DAILY_MAX = 2000;
-
-/** The first and the newest known index of a series; null with fewer than two. */
-function knownEnds(values: readonly (number | null)[]): [number, number] | null {
-  const first = values.findIndex((v) => v !== null);
-  const last = values.findLastIndex((v) => v !== null);
-  return first >= 0 && last > first ? [first, last] : null;
 }
 
 /**
@@ -161,14 +160,8 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   const low = lowestDayBalance([...walks.values()], fromDay, toDay);
   const all = [...walks.values()];
   const daily: (number | null)[] = [];
-  // the chart's budget is 2 000 points a series (ENGINE 3): a longer range draws its newest 2 000 days
-  const dailyFrom = Math.max(fromDay, toDay - (DAILY_MAX - 1));
-  // an account not known yet or blanked by a row in another currency makes the day's total unknown
-  const totalOn = (d: number) => {
-    const vals = all.map((w) => (w.blanked(d) ? null : w.at(d)));
-    return vals.some((v) => v === null) ? null : vals.reduce<number>((s, v) => s + v!, 0);
-  };
-  for (let d = dailyFrom; d <= toDay && all.length; d++) daily.push(totalOn(d));
+  const { fromDay: dailyFrom } = balanceDays(ctx, range);
+  for (let d = dailyFrom; d <= toDay && all.length; d++) daily.push(totalOn(all, d));
   const large = largePurchases(ctx);
   const events = inDays(ctx, { fromDay, toDay })
     .filter((x) => large.has(x.id))
@@ -176,19 +169,21 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
     .slice(0, 8)
     .sort((a, b) => a.day - b.day)
     .map((x) => {
-      const before = all.length ? totalOn(x.day - 1) : null;
-      const after = all.length ? totalOn(x.day) : null;
+      const before = all.length ? totalOn(all, x.day - 1) : null;
+      const after = all.length ? totalOn(all, x.day) : null;
       // the day took at least the purchase: a pay or a refund the same day leaves no step of its size to point at
       const step = before !== null && after !== null && after - before <= x.amountCents ? { beforeCents: before, afterCents: after } : null;
       return { day: x.bookingDate, label: x.counterparty ?? x.description ?? "", cents: x.amountCents, step };
     });
   const pays = payDays(ctx).filter((d) => d >= dailyFrom && d <= toDay).map(fromDayNumber);
   // one definition (critic): the total's change and each account's are over the same two days, so the rows add up to the head
-  const ends = knownEnds(daily);
-  const change = ends && { from: fromDayNumber(dailyFrom + ends[0]), to: fromDayNumber(dailyFrom + ends[1]), cents: daily[ends[1]]! - daily[ends[0]]! };
-  const withChange = series.map((s) => {
-    const w = walks.get(s.accountId)!;
-    return { ...s, changeCents: ends ? w.at(dailyFrom + ends[1])! - w.at(dailyFrom + ends[0])! : null };
-  });
-  return { months: monthLabels(months), accounts: withChange, total, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
+  const moved = balanceChange(all, dailyFrom, toDay);
+  const withChange = series.map((s) => ({ ...s, changeCents: moved?.byAccount.get(s.accountId) ?? null }));
+  const change = moved && { from: moved.from, to: moved.to, cents: moved.cents, basis: moved.basis };
+  // only where every account has a value at both month ends: an account that starts in between would count its whole balance as change
+  const monthChange = total.map((t, m) => (t === null || m === 0 || total[m - 1] === null || series.some((s) => s.values[m] === null || s.values[m - 1] === null) ? null : t - total[m - 1]!));
+  // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
+  const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
+  const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));
+  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
 }

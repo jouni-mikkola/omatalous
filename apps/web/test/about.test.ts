@@ -1,33 +1,25 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { About } from "../src/pages/settings/About.tsx";
+import { AboutFoot } from "../src/components/AboutFoot.tsx";
 
-const render = (supportUrl?: string) => renderToStaticMarkup(createElement(About, { version: "1.2.3", ...(supportUrl === undefined ? {} : { supportUrl }) }));
+const render = (supportUrl?: string) => renderToStaticMarkup(createElement(AboutFoot, { version: "1.2.3", ...(supportUrl === undefined ? {} : { supportUrl }) }));
 
-describe("Tietoja", () => {
+describe("the footer's line about the app", () => {
   it("shows the version, the attribution the licence keeps, the source address and the licence", () => {
     const out = render("");
-    expect(out).toContain("Versio");
-    expect(out).toContain("1.2.3");
-    expect(out).toMatch(/Omatalous, <a href="https:\/\/www\.linkedin\.com\/in\/jouni-mikkola" target="_blank" rel="noopener noreferrer">Jouni Mikkola<\/a>/);
-    expect(out).toMatch(/<a href="https:\/\/github\.com\/jouni-mikkola\/omatalous" target="_blank" rel="noopener noreferrer">github\.com\/jouni-mikkola\/omatalous<\/a>/);
+    expect(out).toContain("<span>1.2.3</span>");
+    expect(out).toMatch(/Omatalous,\s*<a href="https:\/\/www\.linkedin\.com\/in\/jouni-mikkola" target="_blank" rel="noopener noreferrer">Jouni Mikkola<\/a>/);
+    expect(out).toMatch(/<a href="https:\/\/github\.com\/jouni-mikkola\/omatalous" target="_blank" rel="noopener noreferrer">Lähdekoodi<\/a>/);
     expect(out).toContain("AGPL-3.0");
   });
 
-  it("has no support sentence and no support link while the support address is empty", () => {
-    const out = render("");
-    expect(out).not.toContain("tukea kehitystä");
-    expect(out).not.toContain("ilmainen");
+  it("has no support link while the support address is empty", () => {
+    expect(render("")).not.toContain("Tue kehitystä");
   });
 
-  it("links to the address of the constants when none is passed", () => {
-    expect(render()).toMatch(/<a href="https:\/\/buymeacoffee\.com\/jouni\.mikkola" target="_blank" rel="noopener noreferrer">tukea kehitystä<\/a>\./);
-  });
-
-  it("has both when the support address is set, the link inside the one sentence", () => {
-    const out = render("https://example.org/support");
-    expect(out).toContain("Omatalous on ilmainen. Jos pidät siitä, voit ");
-    expect(out).toMatch(/<a href="https:\/\/example\.org\/support" target="_blank" rel="noopener noreferrer">tukea kehitystä<\/a>\./);
+  it("links to the address of the constants when none is passed, and to the one given otherwise", () => {
+    expect(render()).toMatch(/<a href="https:\/\/buymeacoffee\.com\/jouni\.mikkola" target="_blank" rel="noopener noreferrer">Tue kehitystä<\/a>/);
+    expect(render("https://example.org/support")).toContain('href="https://example.org/support"');
   });
 });

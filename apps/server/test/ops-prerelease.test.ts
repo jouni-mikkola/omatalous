@@ -97,7 +97,7 @@ describe("ops: the switch for new versions", () => {
     expect(notices[0]!.detail).toContain("Aino käynnisti toiminnon: uudet versiot tarjolle heti");
     // the helper gets the name and nothing with it
     expect(await cli(s, ["poll", "--helper", "4", "--done", ""])).toEqual({ request: { id, action: "prerelease-on", params: {}, secret: null } });
-    await cli(s, ["report"], JSON.stringify({ id, status: "ok", exit_code: 0, summary: "Uudet versiot tarjotaan heti.", state: { prerelease: "yes", channel: "release" } }));
+    await cli(s, ["report"], JSON.stringify({ id, status: "ok", exit_code: 0, summary: "Tarjoamme uudet versiot heti.", state: { prerelease: "yes", channel: "release" } }));
     expect((await admin.call("GET", "/api/ops/state")).body.state).toMatchObject({ prerelease: "yes", channel: "release" });
     // once a minute, as for restart
     t.advance(30_000);

@@ -7,12 +7,13 @@ import { describe, expect, it } from "vitest";
 import { type AnalysisContext, createContext } from "../src/analysis/context.ts";
 import { CARD_COST_MONTHS, cardCosts } from "../src/analysis/credit.ts";
 import { isBankFee } from "../src/analysis/fees.ts";
-import { type Insight, insightInputOf, rankInsights } from "../src/analysis/insights/index.ts";
+import { insightInputOf, rankInsights } from "../src/analysis/insights/index.ts";
 import type { DateRange } from "../src/analysis/period.ts";
 import { addMonths } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+import { type InsightView, view } from "./insight-view.ts";
 
 const today = "2026-10-12";
 const checking: Account = { id: "chk", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -49,7 +50,7 @@ const SIX = [1500, 1800, 2100, 2400, 2700, 3000];
 const sixMonths = () => SIX.map((cents, i) => interest(addMonths("2026-04", i), cents));
 
 const contextOf = (txs: Transaction[], accounts: Account[] = [checking, gold]) => createContext(txs, accounts, today);
-const insightsOf = (ctx: AnalysisContext, range: DateRange = running): Insight[] => rankInsights(insightInputOf(ctx, range, NO_INPUTS));
+const insightsOf = (ctx: AnalysisContext, range: DateRange = running): InsightView[] => rankInsights(insightInputOf(ctx, range, NO_INPUTS)).map(view);
 const insightOf = (ctx: AnalysisContext, range: DateRange = running) => insightsOf(ctx, range).find((i) => i.id === "card-interest");
 /** Texts with plain spaces: euro amounts carry no-break spaces. */
 const plain = (s: string | undefined) => s?.replace(/[  ]/g, " ");
@@ -77,7 +78,7 @@ describe("what a card costs", () => {
 
     const i = insightOf(ctx)!;
     expect(plain(i.title)).toBe("Luottokortin korkoihin meni 135 € vuodessa");
-    expect(plain(i.detail)).toBe("Nordea Gold: korkoa veloitettiin kuutena kuukautena, lokakuu 2025 – syyskuu 2026.");
+    expect(plain(i.detail)).toBe("Maksoit korkoa kuutena kuukautena: Nordea Gold. Kokonaan maksettu kortti ei maksa korkoa. Katso kortit ja maksa saldo pois, jos voit.");
     expect(i.yearlyCents).toBe(13500);
     expect(i.tone).toBe("warning");
     expect(i.rows).toEqual(rows.map((t) => t.id));
@@ -88,7 +89,7 @@ describe("what a card costs", () => {
     const [card] = cardCosts(ctx, today).cards;
     expect(card!.interestCents).toBe(13000);
     expect(card!.carriedMonths).toEqual(["2026-06"]);
-    expect(plain(insightOf(ctx)!.detail)).toBe("Nordea Gold: korkoa veloitettiin yhtenä kuukautena, lokakuu 2025 – syyskuu 2026.");
+    expect(plain(insightOf(ctx)!.detail)).toBe("Maksoit korkoa yhtenä kuukautena: Nordea Gold. Kokonaan maksettu kortti ei maksa korkoa. Katso kortit ja maksa saldo pois, jos voit.");
   });
 
   it("interest the bank takes back lowers the sum, whatever the row was sorted as", () => {
@@ -177,7 +178,7 @@ describe("the card interest insight", () => {
     expect(cardCosts(ctx, today).months).toEqual(["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
     const i = insightOf(ctx)!;
     expect(plain(i.title)).toBe("Luottokortin korkoihin meni 140 € 5 kuukaudessa");
-    expect(plain(i.detail)).toBe("Nordea Gold: korkoa veloitettiin neljänä kuukautena, touko–syyskuu 2026.");
+    expect(plain(i.detail)).toBe("Maksoit korkoa neljänä kuukautena: Nordea Gold. Kokonaan maksettu kortti ei maksa korkoa. Katso kortit ja maksa saldo pois, jos voit.");
     expect(i.yearlyCents).toBe(14000);
   });
 
@@ -186,7 +187,7 @@ describe("the card interest insight", () => {
     const ctx = contextOf([...household(), ...sixMonths(), interest("2026-08", 4000, { accountId: "visa" }), interest("2026-09", 4100, { accountId: "visa" })], [checking, gold, visa]);
     const i = insightOf(ctx)!;
     expect(plain(i.title)).toBe("Luottokorttien korkoihin meni 216 € vuodessa");
-    expect(plain(i.detail)).toBe("Nordea Gold ja Osuuskortti Visa: korkoa veloitettiin kuutena kuukautena, lokakuu 2025 – syyskuu 2026.");
+    expect(plain(i.detail)).toBe("Maksoit korkoa kuutena kuukautena: Nordea Gold ja Osuuskortti Visa. Kokonaan maksettu kortti ei maksa korkoa. Katso kortit ja maksa saldo pois, jos voit.");
     expect(i.yearlyCents).toBe(13500 + 8100);
     expect(i.rows).toHaveLength(8);
   });
@@ -244,6 +245,6 @@ describe("card interest is told once", () => {
     const plan = list.find((i) => i.id === "instalments")!;
     expect(plain(plan.title)).toBe("Klarna: osamaksuja 45 € kuussa");
     // 24 € over 12 months; with the card's 135 € it would read 13 € a month
-    expect(plain(plan.detail)).toBe("Sama erä vähintään kolmena kuukautena peräkkäin; korkoja ja luottokuluja 2 € kuussa.");
+    expect(plain(plan.detail)).toBe("Se on 3 % tavallisista kuukausimenoista. Korkoja ja luottokuluja 2 € kuussa. Katso erät ja päätä, otatko uusia.");
   });
 });

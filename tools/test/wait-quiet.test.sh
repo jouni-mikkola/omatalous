@@ -29,7 +29,8 @@ cd "$TMP/me" || exit 1
 wait_for() { local i; for ((i = 0; i < 100; i++)); do [[ -s $1 ]] && return 0; sleep 0.1; done; return 1; }
 gone() { local s; s=$(ps -o stat= -p "$1" 2>/dev/null); [[ -z $s || $s == Z* ]]; }
 
-# heavy NAME DIR: a program that runs a script of the pattern's folder with DIR as its directory, its pid in NAME.pid
+# heavy NAME DIR [ARG]: a program that runs a script of the pattern's folder with DIR as its directory, its pid in NAME.pid;
+# ARG only lands in its command line
 heavy() {
   cat >"$TMP/heavy-$1.sh" <<'EOF'
 #!/usr/bin/env bash
@@ -38,7 +39,7 @@ sleep 60 & s=$!
 trap 'kill $s; exit 0' TERM
 wait $s
 EOF
-  (cd "$2" && bash "$TMP/heavy-$1.sh" "$TMP/$1.pid" </dev/null >/dev/null 2>&1 &)
+  (cd "$2" && bash "$TMP/heavy-$1.sh" "$TMP/$1.pid" "${3:-}" </dev/null >/dev/null 2>&1 &)
   wait_for "$TMP/$1.pid"
 }
 stop() { local p; p=$(<"$TMP/$1.pid"); kill "$p" 2>/dev/null; rm -f "$TMP/$1.pid"; }
@@ -56,6 +57,27 @@ t_heavy_process_of_another_worktree_is_busy() {
   local ok=1
   rc_is 3 && out_has "busy: " && out_has "$TMP/other" || ok=0
   stop a
+  ((ok))
+}
+t_playwright_cli_daemon_is_not_busy_but_a_playwright_test_run_is() {
+  heavy pd "$TMP/other" "node_modules/@playwright/cli/node_modules/playwright-core/lib/entry/cliDaemon.js" || return 1
+  run --max 1
+  local ok=1
+  rc_is 0 || ok=0
+  stop pd
+  heavy ps "$TMP/other" "node_modules/@playwright/cli/node_modules/playwright-core/lib/entry/dashboardApp.js --port=9323" || return 1
+  run --max 1
+  rc_is 0 || ok=0
+  stop ps
+  heavy pt "$TMP/other" "node_modules/@playwright/test/cli.js test" || return 1
+  run --max 1
+  rc_is 3 || ok=0
+  stop pt
+  # a test run that merely names such a path is still a test run
+  heavy pu "$TMP/other" "node_modules/@playwright/test/cli.js test --output=/tmp/@playwright/cli/out entry/cliDaemon.js.spec.ts" || return 1
+  run --max 1
+  rc_is 3 || ok=0
+  stop pu
   ((ok))
 }
 t_process_of_the_own_worktree_does_not_count() {
@@ -131,6 +153,48 @@ EOF
   local ok=1
   rc_is 0 || ok=0
   : >"$TMP/flag-g"
+  ((ok))
+}
+t_holders_of_slots_do_not_wait_for_a_run_queued_for_a_slot() {
+  # two runs hold both slots and wait in wait-quiet; a third waits in slots.sh, its command line naming a heavy script.
+  # The holders must go on at once: the queued run runs nothing, and it is the holders it waits for.
+  local i ok=1 slots=$TMP/slots
+  cat >"$TMP/heavy-hold.sh" <<EOF
+#!/usr/bin/env bash
+echo \$\$ >"$TMP/h\$1.pid"
+until [[ -e "$TMP/go" ]]; do sleep 0.1; done
+bash "$WQ" --max 20 >"$TMP/h\$1.out" 2>&1
+echo \$? >"$TMP/h\$1.rc"
+EOF
+  mkdir -p "$TMP/o1" "$TMP/o2" "$TMP/o3"
+  for i in 1 2; do
+    (cd "$TMP/o$i" && CHECK_SLOT_POLL=0.1 SLOTS_LOG="" bash "$HERE/../slots.sh" --dir "$slots" --slots 2 -- bash "$TMP/heavy-hold.sh" "$i" </dev/null >/dev/null 2>&1 &)
+    wait_for "$TMP/h$i.pid" || return 1
+  done
+  # through sh -c, as pnpm starts a check
+  (cd "$TMP/o3" && CHECK_SLOT_POLL=0.1 SLOTS_LOG="" sh -c "bash '$HERE/../slots.sh' --dir '$slots' --slots 2 -- bash '$TMP/heavy-hold.sh' 3; :" </dev/null >/dev/null 2>&1 &)
+  sleep 1
+  [[ ! -e $TMP/h3.pid ]] || ok=0 # the third waits for a slot
+  : >"$TMP/go"
+  for i in 1 2; do wait_for "$TMP/h$i.rc" || { ok=0; continue; }; [[ $(<"$TMP/h$i.rc") == 0 ]] || ok=0; done
+  wait_for "$TMP/h3.rc" || ok=0 # the third runs once a slot is free; let it end
+  ((ok)) || cp "$TMP/h1.out" "$TMP/out" 2>/dev/null
+  ((ok))
+}
+t_a_run_that_holds_a_slot_for_a_child_is_still_busy() {
+  # a check in its shell suites runs slots.sh as a child: it must count
+  cat >"$TMP/heavy-parent.sh" <<EOF
+#!/usr/bin/env bash
+echo \$\$ >"$TMP/parent.pid"
+bash "$HERE/../slots.sh" --dir "$TMP/slots2" --slots 1 -- sleep 4
+EOF
+  (cd "$TMP/other" && SLOTS_LOG="" bash "$TMP/heavy-parent.sh" </dev/null >/dev/null 2>&1 &)
+  wait_for "$TMP/parent.pid" || return 1
+  sleep 0.5
+  run --max 1
+  local ok=1
+  rc_is 3 || ok=0
+  stop parent
   ((ok))
 }
 t_max_above_280_is_cut_to_280() {

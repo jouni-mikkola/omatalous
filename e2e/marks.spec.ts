@@ -32,24 +32,28 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   try {
     expect((await context.request.post("/api/auth/login", { headers: FETCH, data: { username: "merkki", password: temporaryPassword } })).status()).toBe(200);
-    expect((await context.request.post("/api/auth/password", { headers: FETCH, data: { current: temporaryPassword, next: PASSWORD } })).status()).toBe(200);
+    expect((await context.request.post("/api/auth/first-password", { headers: FETCH, data: { next: PASSWORD } })).status()).toBe(200);
     expect((await context.request.post("/api/demo", { headers: FETCH })).status()).toBe(200);
 
     const page = await context.newPage();
     const seen = watch(page);
 
-    // the dearer one is a small service paid for a year, and the overview asks about it; the 0,99 is too small to ask about
-    await page.goto("/#/overview?period=month");
-    const alerts = page.getByRole("list", { name: "Ilmoitukset" });
-    await expect(alerts.getByText(/Apple 12,99\s€ kuussa/)).toBeVisible();
-    await expect(alerts.getByText(/Apple 0,99\s€ kuussa/)).toHaveCount(0);
+    // the dearer one is a small service paid for a year, and Tarkistettavat asks about it; the 0,99 is too small to ask about
+    const asked = async () => {
+      const { items } = (await (await context.request.get("/api/review")).json()) as { items: { kind: string; merchant?: string; monthlyCents?: number; subject?: string }[] };
+      return items.filter((i) => i.kind === "subscription" && i.merchant === "Apple");
+    };
+    expect((await asked()).map((i) => i.monthlyCents)).toEqual([1299]);
 
     // Laskut: one merchant, two rows, each with its price in its name; a row's one action is in its drill
     await page.goto("/#/bills");
-    const subs = page.locator(".card", { has: page.getByRole("heading", { name: "Tilaukset", exact: true }) });
-    const drill = (price: string) => page.getByRole("button", { name: new RegExp(`^Hinnat ja lopetus: Apple ${price}\\s€$`) });
+    const subs = page.locator("#laskut-taulukko");
+    const drill = (price: string) => page.getByRole("button", { name: new RegExp(`^Tiedot: Apple ${price}\\s€$`) });
     const row = (price: string) => subs.locator("tr", { has: drill(price) });
-    const stopped = subs.locator("tbody", { hasText: "Merkitty lopetetuksi" });
+    // the rows of the table that carry a drill door and the badge; the open drill has the badge too but no door
+    const stopped = subs.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "Merkitty lopetetuksi" });
+    // a stopped subscription waits in the folded Päättyneet
+    const unfold = () => subs.locator("details.sub-ended").evaluate((d: HTMLDetailsElement) => (d.open = true));
     const total = async () => euros(await subs.locator(".card-head .card-datum").innerText());
     await expect(drill("0,99")).toHaveCount(1);
     await expect(drill("12,99")).toHaveCount(1);
@@ -63,17 +67,16 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     expect((await sent).postDataJSON()).toMatchObject({ subject: expect.stringMatching(/^series:out:[^:]+:Apple#1299$/), mark: "cancelled" });
     await expect(page.getByRole("button", { name: /^Kumoa: Apple 12,99\s€$/ })).toBeVisible();
     // it stands under Merkitty lopetetuksi; the other one is still a subscription, and the only Apple in the total
-    await expect(stopped.locator("tr", { has: drill("12,99") })).toHaveCount(1);
-    await expect(stopped.locator("tr", { has: drill("0,99") })).toHaveCount(0);
+    await expect(stopped.filter({ has: drill("12,99") })).toHaveCount(1);
+    await expect(stopped.filter({ has: drill("0,99") })).toHaveCount(0);
     await expect.poll(async () => before - (await total())).toBeGreaterThanOrEqual(12);
     expect(before - (await total())).toBeLessThanOrEqual(13);
 
-    // after a reload the same, and the overview no longer asks about the one that was answered
+    // after a reload the same, and Tarkistettavat no longer asks about the one that was answered
     await page.reload();
-    await expect(stopped.locator("tr", { has: drill("12,99") })).toHaveCount(1);
-    await page.goto("/#/overview?period=month");
-    await expect(alerts.getByRole("listitem").first()).toBeVisible();
-    await expect(alerts.getByText(/Apple 12,99\s€ kuussa/)).toHaveCount(0);
+    await unfold();
+    await expect(stopped.filter({ has: drill("12,99") })).toHaveCount(1);
+    expect(await asked()).toEqual([]);
 
     // the rows and an open drill fit a phone
     await page.setViewportSize({ width: 390, height: 844 });
@@ -92,8 +95,9 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     // a mark stored before marks named a series is on the merchant: it covers both rows, says so, and Kumoa on one takes it from both
     expect((await context.request.put("/api/marks", { headers: FETCH, data: { subject: "merchant:Apple", mark: "cancelled" } })).status()).toBe(200);
     await page.reload();
-    await expect(stopped.locator("tr", { has: drill("12,99") })).toHaveCount(1);
-    await expect(stopped.locator("tr", { has: drill("0,99") })).toHaveCount(1);
+    await unfold();
+    await expect(stopped.filter({ has: drill("12,99") })).toHaveCount(1);
+    await expect(stopped.filter({ has: drill("0,99") })).toHaveCount(1);
     await drill("0,99").click();
     await expect(subs.getByText("Koskee kaikkia kauppiaan tilauksia.")).toHaveCount(1);
     // both Apple prices leave the sum: 13,98 a month
@@ -104,13 +108,11 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     await expect(stopped).toHaveCount(0);
     await expect.poll(total).toBe(before);
 
-    // the question on the overview is answered for the one series it names; Laskut asks nothing of it
-    await page.goto("/#/overview?period=month");
-    await expect(alerts.getByText(/Apple 12,99\s€ kuussa/)).toBeVisible();
-    const answered = page.waitForRequest((r) => r.url().endsWith("/api/marks") && r.method() === "PUT");
-    await alerts.getByRole("listitem").filter({ hasText: /Apple 12,99\s€ kuussa/ }).getByRole("button", { name: "Käytössä: Apple" }).click();
-    expect((await answered).postDataJSON()).toMatchObject({ subject: expect.stringMatching(/^series:out:[^:]+:Apple#1299$/), mark: "in_use" });
-    await expect(alerts.getByText(/Apple 12,99\s€ kuussa/)).toHaveCount(0);
+    // the question in Tarkistettavat is answered for the one series it names; Laskut asks nothing of it
+    const [question] = await asked();
+    expect(question?.subject).toMatch(/^series:out:[^:]+:Apple#1299$/);
+    expect((await context.request.put("/api/marks", { headers: FETCH, data: { subject: question!.subject, mark: "in_use" } })).status()).toBe(200);
+    expect(await asked()).toEqual([]);
     await page.goto("/#/bills");
     await expect(row("12,99")).toHaveCount(1);
     await expect(subs.getByRole("button", { name: /^Käytössä/ })).toHaveCount(0);

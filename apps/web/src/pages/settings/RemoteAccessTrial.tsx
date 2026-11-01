@@ -5,7 +5,8 @@
 import { clockTime, dateTime } from "../../format.ts";
 import type { RemoteAccessState } from "./remote-access-api.ts";
 import { trialOverdue, tunnelHost, tunnelUrl } from "./remote-access-model.ts";
-
+import { Notice } from "../../components/ui/Notice.tsx";
+import { rich, t } from "../../text.ts";
 function Link({ host }: { host: string }) {
   const url = tunnelUrl(host);
   return (
@@ -17,7 +18,7 @@ function Link({ host }: { host: string }) {
 
 /** What happens if nobody comes in: said the same way before, during and after the turning on. */
 function IfNobody() {
-  return <p>Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.</p>;
+  return <p>{t("set.trial.if_nobody_signs_in_the")}</p>;
 }
 
 /** On, and nobody has come in through the new address yet. `now` is the clock the overdue test reads. */
@@ -25,25 +26,26 @@ export function Trial({ s, now }: { s: RemoteAccessState; now: number }) {
   const host = tunnelHost(s);
   const at = s.access.revertAt;
   const overdue = trialOverdue(at, now);
+  const link = host ? <Link host={host} /> : t("set.trial.new_address");
   return (
     <>
       {at === null && (
         <p>
-          Avaa {host ? <Link host={host} /> : "uusi osoite"} ja kirjaudu sisään Cloudflaren kautta 15 minuutin kuluessa.
+          {rich("set.trial.open_link_within", {}, { link })}
         </p>
       )}
       {at !== null && !overdue && (
         <p>
-          Avaa {host ? <Link host={host} /> : "uusi osoite"} kerran ja kirjaudu sisään Cloudflaren kautta ennen kello {clockTime(at)}.
+          {rich("set.trial.open_link_once_before", { time: clockTime(at) }, { link })}
         </p>
       )}
       {at !== null && overdue && (
         <p>
-          Kokeiluaika päättyi kello {clockTime(at)}. Jos palvelin ei ole vielä ottanut osoitetta pois käytöstä, avaa {host ? <Link host={host} /> : "uusi osoite"} ja kirjaudu sisään Cloudflaren kautta.
+          {rich("set.trial.trial_ended_open_link", { time: clockTime(at) }, { link })}
         </p>
       )}
       {!overdue && <IfNobody />}
-      {overdue && <p>Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.</p>}
+      {overdue && <p>{t("set.trial.if_nobody_signs_in_the")}</p>}
     </>
   );
 }
@@ -54,15 +56,14 @@ export function Trial({ s, now }: { s: RemoteAccessState; now: number }) {
  */
 export function Reverted({ last }: { last: NonNullable<RemoteAccessState["last"]> }) {
   return (
-    <div className="notice warning" role="status">
-      <strong>Uusi osoite ei toiminut, joten etäkäyttö otettiin pois käytöstä.</strong>
+    <Notice tone="warning" role="status">
+      <strong>{t("set.trial.the_new_address_did_not")}</strong>
       <p>
-        {last.hostname ? `Osoitteella ${last.hostname} ` : "Uudella osoitteella "}
-        kukaan ei päässyt sisään 15 minuutissa. Sovellus vastaa taas kotiverkon osoitteessa.
+        {last.hostname ? t("set.trial.nobody_got_in_host", { host: last.hostname }) : t("set.trial.nobody_got_in_new")}
       </p>
-      <p>Tarkista, että sähköpostiosoitteet on kirjoitettu oikein ja että verkkotunnuksen DNS-asetukset ovat Cloudflaressa kunnossa. Ota etäkäyttö sitten uudelleen käyttöön.</p>
+      <p>{t("set.trial.check_that_the_email_addresses")}</p>
       <p className="small muted">{dateTime(last.at)}</p>
-    </div>
+    </Notice>
   );
 }
 
@@ -75,13 +76,11 @@ export function HomeBlocked({ s }: { s: RemoteAccessState }) {
   if (!host) return null;
   const proven = s.access.on && s.access.confirmed;
   return (
-    <div className="notice warning" role="status">
-      <strong>Etäkäyttö on otettu käyttöön, eikä kotiverkon osoite enää vastaa.</strong>
-      <p>
-        Avaa <Link host={host} /> {proven ? "ja kirjaudu sisään Cloudflaren kautta." : "ja kirjaudu sisään Cloudflaren kautta 15 minuutin kuluessa."}
-      </p>
-      {!proven && <p>Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.</p>}
-      <p className="small muted">Kun kotiverkon osoite vastaa taas, lataa tämä sivu uudelleen.</p>
-    </div>
+    <Notice tone="warning" role="status">
+      <strong>{t("set.trial.remote_access_is_on_home")}</strong>
+      <p>{rich(proven ? "set.trial.open_link_proven" : "set.trial.open_link_unproven", {}, { link: <Link host={host} /> })}</p>
+      {!proven && <p>{t("set.trial.if_nobody_signs_in_the")}</p>}
+      <p className="small muted">{t("set.trial.when_the_home_network_address")}</p>
+    </Notice>
   );
 }

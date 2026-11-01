@@ -24,9 +24,9 @@
    {
     "id": "buffer",
     "label": "Puskuri",
-    "value": 4.372983372907808,
+    "value": 3.520980500476028,
     "unit": "months",
-    "text": "4,4 kuukautta"
+    "text": "3,5 kuukautta"
    },
    {
     "id": "debt_share",
@@ -45,7 +45,7 @@
   "household": [
    {
     "id": "own_unconnected",
-    "reason": "Säästöön meni 1 800 € tilille, jota ei ole yhdistetty."
+    "reason": "Siirsit säästöön 1 800 € tilille, jota et ole vielä yhdistänyt."
    }
   ],
   "areas": [
@@ -58,7 +58,7 @@
       "area": "subscriptions",
       "kind": "rise",
       "subject": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
-      "title": "Adobe: hinta nousi 62,99 € → 74,99 € 14.4.2026. Nousu on 144 € vuodessa.",
+      "title": "Adobe: hinta nousi 14.4.2026.",
       "action": "Neuvottele hinnasta tai irtisano tilaus.",
       "euros": {
        "lowCents": 14400,
@@ -74,24 +74,8 @@
         "value": "Adobe"
        },
        {
-        "label": "Hinta ennen",
-        "value": "62,99 €"
-       },
-       {
-        "label": "Hinta nyt",
-        "value": "74,99 €"
-       },
-       {
         "label": "Uusi hinta alkaen",
         "value": "14.4.2026"
-       },
-       {
-        "label": "Veloituksia ennen nousua",
-        "value": "7"
-       },
-       {
-        "label": "Veloituksia vuodessa",
-        "value": "12"
        },
        {
         "label": "Nousu vuodessa",
@@ -131,7 +115,7 @@
       },
       "certainty": {
        "level": "korkea",
-       "reason": "Laskettu omista tiedoista."
+       "reason": "Perustuu omiin tietoihisi."
       }
      },
      {
@@ -150,7 +134,7 @@
       "weaknesses": [
        {
         "id": "estimate",
-        "reason": "Tiedoista ei näy, kuka käyttää mitäkin palvelua."
+        "reason": "Emme näe, kuka käyttää mitäkin palvelua."
        }
       ],
       "shared": false,
@@ -176,7 +160,7 @@
         "value": "144 €"
        },
        {
-        "label": "Arvio vuodessa, vaihteluvälin keskikohta",
+        "label": "Arvio vuodessa, välin keskikohta",
         "value": "144 €"
        }
       ],
@@ -223,7 +207,7 @@
       "facts": [],
       "certainty": {
        "level": "keskitaso",
-       "reason": "Tiedoista ei näy, kuka käyttää mitäkin palvelua."
+       "reason": "Emme näe, kuka käyttää mitäkin palvelua."
       }
      }
     ],
@@ -315,7 +299,7 @@
       "status": "no_data",
       "why": {
        "cause": "other",
-       "text": "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten hintaa ei voi verrata."
+       "text": "Vuoden laskuissa on vain sähkön myynti tai vain siirto, joten emme voi verrata hintaa."
       }
      },
      {
@@ -369,7 +353,7 @@
       "status": "no_data",
       "why": {
        "cause": "history",
-       "text": "Vertailuun tarvitaan 18 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+       "text": "Vertailuun tarvitsemme 18 päättynyttä kuukautta, mutta tapahtumahistoriassa on vain 12 päättynyttä kuukautta."
       }
      },
      {
@@ -378,7 +362,7 @@
       "status": "no_data",
       "why": {
        "cause": "history",
-       "text": "Vertailuun tarvitaan 18 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+       "text": "Vertailuun tarvitsemme 18 päättynyttä kuukautta, mutta tapahtumahistoriassa on vain 12 päättynyttä kuukautta."
       }
      }
     ],
@@ -395,7 +379,7 @@
       "status": "no_data",
       "why": {
        "cause": "history",
-       "text": "Vertailuun tarvitaan 18 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+       "text": "Vertailuun tarvitsemme 18 päättynyttä kuukautta, mutta tapahtumahistoriassa on vain 12 päättynyttä kuukautta."
       }
      }
     ],
@@ -412,7 +396,7 @@
       "status": "no_data",
       "why": {
        "cause": "history",
-       "text": "Vertailuun tarvitaan 13 valmista kuukautta, mutta tapahtumahistoriassa on vain 12 valmista kuukautta."
+       "text": "Vertailuun tarvitsemme 13 päättynyttä kuukautta, mutta tapahtumahistoriassa on vain 12 päättynyttä kuukautta."
       }
      }
     ],
@@ -491,36 +475,65 @@
   "others": [
    {
     "id": "new:out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
-    "tone": "info",
-    "title": "Uusi toistuva maksu: OpenAI 23 € kuussa",
-    "detail": "Ensimmäinen veloitus 5.8.2026, 2 veloitusta tähän mennessä.",
-    "yearlyCents": 27600,
-    "rows": [
-     "54f2307e23830edae0c5fcc1",
-     "54d7ba287b2a3cb16b38e4b4"
-    ],
-    "link": {
-     "merchant": "OpenAI"
+    "fact": {
+     "type": "new-subscription",
+     "merchant": "OpenAI",
+     "monthlyCents": 2300,
+     "firstDate": "2026-08-05",
+     "charges": 2,
+     "trial": null
     },
-    "merchant": "OpenAI",
-    "calc": [
-     {
-      "label": "Ensimmäinen veloitus",
-      "value": "5.8.2026"
-     },
-     {
-      "label": "Veloituksia",
-      "value": "2"
-     },
-     {
-      "label": "Kuussa",
-      "value": "23 €"
-     },
-     {
-      "label": "Vuodessa",
-      "value": "276 €"
+    "comparison": {
+     "label": "before",
+     "value": {
+      "unit": "cents",
+      "value": 0
      }
-    ]
+    },
+    "action": {
+     "label": "decideSubscription",
+     "target": {
+      "page": "transactions",
+      "filter": {
+       "merchant": "OpenAI"
+      }
+     }
+    },
+    "effectPerYear": {
+     "label": "Vuodessa",
+     "value": "−276 €",
+     "cents": -27600
+    },
+    "kind": "pattern",
+    "evidence": {
+     "rows": [
+      "54f2307e23830edae0c5fcc1",
+      "54d7ba287b2a3cb16b38e4b4"
+     ],
+     "link": {
+      "merchant": "OpenAI"
+     },
+     "merchant": "OpenAI",
+     "calc": [
+      {
+       "label": "Ensimmäinen veloitus",
+       "value": "5.8.2026"
+      },
+      {
+       "label": "Veloituksia",
+       "value": "2"
+      },
+      {
+       "label": "Kuussa",
+       "value": "23 €"
+      },
+      {
+       "label": "Vuodessa",
+       "value": "−276 €",
+       "cents": -27600
+      }
+     ]
+    }
    }
   ],
   "othersDismissed": [],

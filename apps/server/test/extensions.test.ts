@@ -21,9 +21,8 @@ import { scratchDir, setupApp } from "./helpers.ts";
  * augmentation here would let `gated(s, "koe", ...)` compile in src too.
  */
 function flagsAreTyped(s: Services, routes: Hono<AppEnv>): void {
+  // @ts-expect-error a flag that does not exist does not compile: core has none, Säästövinkit's went with its switch
   gated(s, "optimise", routes);
-  // @ts-expect-error a typo'd flag does not compile
-  gated(s, "optimize", routes);
   // @ts-expect-error the stand-in's id is no flag of the program
   gated(s, "koe", routes);
 }

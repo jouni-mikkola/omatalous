@@ -1,20 +1,28 @@
-import { UNKNOWN_MERCHANT } from "@banking/core";
+import { MAX_LIST_ROWS, UNKNOWN_MERCHANT, LOCALE } from "@banking/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, query } from "../api.ts";
 import { CardStatement, type SavedStatement } from "../components/cards/CardStatement.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { CADENCE_LABEL, date, money, plural } from "../format.ts";
+import { CADENCE_LABEL, date, money } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
-import type { Meta, Scope } from "../types.ts";
-import { CalendarHeat, type HeatDay } from "../charts/CalendarHeat.tsx";
+import { t, tn } from "../text.ts";
+import type { CategoryUndo, Meta, Scope } from "../types.ts";
 import { Merchants } from "./Merchants.tsx";
-import { type DaySum, type ListedRow, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
+import { type DaySum, type ListedRow, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
-import { type Filters, FilterBar } from "./transactions/FilterBar.tsx";
-import { Popover } from "./transactions/Popover.tsx";
+import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
 import { StripSkeleton, type Totals, TotalsStrip } from "./transactions/TotalsStrip.tsx";
 import "../styles/transactions.css";
-
+import { SEARCH_DELAY_MS } from "../components/FilterInputs.tsx";
+import type { TableView } from "../components/table/Table.tsx";
+import { loadTableParts } from "../components/table/use-markup.ts";
+import { Button } from "../components/ui/Button.tsx";
+import { IconButton } from "../components/ui/IconButton.tsx";
+import { Notice } from "../components/ui/Notice.tsx";
+import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
+import { Segmented } from "../components/ui/Segmented.tsx";
+import { Empty } from "../components/ui/Empty.tsx";
+import { CONNECT_BANK_HASH } from "../routes.ts";
 interface MerchantHistory {
   merchant: string;
   count: number;
@@ -43,20 +51,20 @@ function MerchantSummary({ merchant, scope, refresh, alone, categoryLabel }: { m
   if (!s || s.merchant !== merchant) return null;
   const facts: [string, string][] = [];
   if (!alone) {
-    if (s.outCents > 0) facts.push(["Maksettu yhteensä", money(s.outCents)]);
-    if (s.inCents > 0) facts.push(["Saatu yhteensä", money(s.inCents)]);
-    facts.push(["Maksuja", String(s.count)]);
+    if (s.outCents > 0) facts.push([t("tx.sum_out"), money(s.outCents)]);
+    if (s.inCents > 0) facts.push([t("tx.sum_in"), money(s.inCents)]);
+    facts.push([t("tx.payments"), String(s.count)]);
   }
   const m = s.monthly;
-  if (m.fromSeries) facts.push(["Kuussa", m.monthlyCents === null ? "–" : money(m.monthlyCents)], ["Vuodessa", money(m.yearCents)]);
-  else if (m.monthlyCents) facts.push([m.months === 1 ? "Viimeinen valmis kuukausi" : `Viimeiset ${m.months} kuukautta`, money(m.yearCents)], ["Kuussa", money(m.monthlyCents)]);
-  facts.push(["Ensimmäinen", date(s.firstDate)], ["Viimeisin", date(s.lastDate)]);
+  if (m.fromSeries) facts.push([t("tx.per_month"), m.monthlyCents === null ? "–" : money(m.monthlyCents)], [t("tx.per_year"), money(m.yearCents)]);
+  else if (m.monthlyCents) facts.push([m.months === 1 ? t("tx.last_full_month") : t("tx.last_months", { months: m.months }), money(m.yearCents)], [t("tx.per_month"), money(m.monthlyCents)]);
+  facts.push([t("tx.first"), date(s.firstDate)], [t("tx.latest"), date(s.lastDate)]);
   if (s.recurring?.active) {
-    facts.push(["Toistuu", CADENCE_LABEL[s.recurring.cadence] ?? s.recurring.cadence]);
-    if (s.recurring.nextDate) facts.push(["Seuraava odotettu", date(s.recurring.nextDate)]);
+    facts.push([t("tx.repeats"), CADENCE_LABEL[s.recurring.cadence] ?? s.recurring.cadence]);
+    if (s.recurring.nextDate) facts.push([t("tx.next_expected"), date(s.recurring.nextDate)]);
   }
   return (
-    <section className="card" aria-label={`Yhteenveto: ${s.merchant}`}>
+    <section className="card" aria-label={t("tx.summary_of", { merchant: s.merchant })}>
       <div className="card-head">
         <div>
           <h2>{s.merchant}</h2>
@@ -83,29 +91,26 @@ function Facts({ facts }: { facts: [string, string][] }) {
 }
 
 /** A count of rows with its thousands set apart, as the cut mark prints it. */
-const count = (n: number): string => n.toLocaleString("fi-FI");
-
-/** Rows asked for at a time: a phone carries a short list, a desktop a longer one. */
-const PAGE = { phone: 25, wide: 100 };
-const MAX_ROWS = 500;
+const count = (n: number): string => n.toLocaleString(LOCALE);
 
 /**
  * Two views of the same rows: the list, and the merchants with the rules under them. The merchant list takes a period
  * (`from`, `to`) that the list shares, so a merchant's rows open for the period its figures add up.
  */
 export function Transactions({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
+  // the table parts load while the first answer is on its way, so the rows come with their toolbar
+  useEffect(() => void loadTableParts(), []);
   const merchants = params.get("view") === "merchants";
   const period = { from: params.get("from") ?? "", to: params.get("to") ?? "" };
   return (
     <div className="stack">
-      <div className="segmented view-tabs" role="group" aria-label="Tapahtumat ja kauppiaat">
-        <button type="button" aria-pressed={!merchants} onClick={() => navigate("transactions", period)}>
-          Tapahtumat
-        </button>
-        <button type="button" aria-pressed={merchants} onClick={() => navigate("transactions", { view: "merchants", ...period })}>
-          Kauppiaat
-        </button>
-      </div>
+      <Segmented
+        className="view-tabs"
+        label={t("tx.tabs")}
+        value={merchants ? "merchants" : "transactions"}
+        options={[{ value: "transactions", label: t("tx.tab_list") }, { value: "merchants", label: t("tx.tab_merchants") }]}
+        onChange={(v) => navigate("transactions", v === "merchants" ? { view: "merchants", ...period } : period)}
+      />
       {merchants ? <Merchants meta={meta} params={params} scope={scope} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
     </div>
   );
@@ -114,46 +119,13 @@ export function Transactions({ meta, params, scope, anchor }: { meta: Meta; para
 interface ListAnswer extends Totals {
   items: ListedRow[];
   daySums?: DaySum[];
-  /** Every day of the last 53 weeks of the span with its shade (core `calendarDays`), for the rhythm calendar. */
-  calendar?: { days: HeatDay[]; usualCents: number | null } | null;
-}
-
-/** The quiet menu of the list's head: the download and the rule a category change makes. */
-function ListMenu({ csv, remember, setRemember, ownRows }: { csv: string; remember: boolean; setRemember: (v: boolean) => void; ownRows: boolean }) {
-  const [open, setOpen] = useState(false);
-  const button = useRef<HTMLButtonElement>(null);
-  return (
-    <span className="tx-menu-wrap">
-      <button ref={button} type="button" className="icon-btn tx-menu-btn" aria-haspopup="dialog" aria-expanded={open} aria-label="Listan asetukset" onClick={() => setOpen((v) => !v)}>
-        <svg viewBox="0 0 16 16" aria-hidden="true">
-          <circle cx="3.5" cy="8" r="1.3" />
-          <circle cx="8" cy="8" r="1.3" />
-          <circle cx="12.5" cy="8" r="1.3" />
-        </svg>
-      </button>
-      <Popover open={open} onClose={() => setOpen(false)} anchor={button} label="Listan asetukset" className="tx-menu">
-        {ownRows && (
-          <label className="tx-menu-item">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-            <span>
-              Sama kategoria kauppiaan muille tapahtumille
-              <span className="tx-menu-sub">Myös tulevat tapahtumat saavat saman kategorian.</span>
-            </span>
-          </label>
-        )}
-        <a className="tx-menu-item tx-menu-link" href={csv} download onClick={() => setOpen(false)}>
-          Lataa CSV
-          <span className="tx-menu-sub">Rajatut tapahtumat taulukkona</span>
-        </a>
-      </Popover>
-    </span>
-  );
 }
 
 function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
   const accounts = [...meta.accounts, ...(scope === "household" ? meta.sharedAccounts : [])];
   const filters: Filters = {
     q: params.get("q") ?? "",
+    chip: rowChips().some((c) => c.key === params.get("chip")) ? params.get("chip")! : "",
     category: params.get("category") ?? "",
     kind: params.get("kind") === "income" ? "income" : "",
     // a shared account stays in the address after switching back to the own view
@@ -162,28 +134,26 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
   };
-  // a filter change starts from the first page, also when it goes back to an earlier filter;
-  // resetting during render means the request for the old page size is never sent
   const filterKey = `${scope}?${params.toString()}`;
   const phone = usePhone();
-  const step = phone ? PAGE.phone : PAGE.wide;
-  const [paging, setPaging] = useState({ key: filterKey, limit: step });
-  if (paging.key !== filterKey) setPaging({ key: filterKey, limit: step });
-  const { limit } = paging;
   const [remember, setRemember] = useState(true);
   const rememberRef = useRef(remember);
   rememberRef.current = remember;
   const [saving, setSaving] = useState<{ id: string; category: string } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [changed, setChanged] = useState<{ count: number; merchant: string; category: string; rule: boolean } | null>(null);
+  const [changed, setChanged] = useState<{ id: string; count: number; merchant: string; category: string; rule: boolean; undo: CategoryUndo } | null>(null);
+  // the answer to "Kumoa": the line that says the change is back, in the place of the one that offered it
+  const [undone, setUndone] = useState(false);
+  const [undoing, setUndoing] = useState(false);
+  const [ownTransfer, setOwnTransfer] = useState<{ id: string; category: string } | null>(null);
   const [edits, setEdits] = useState(0);
   const [opened, setOpened] = useState<string | null>(null);
-  const [chart, setChart] = useState<"bars" | "calendar">("bars");
-  const { data, error, loading, reload } = useApi<ListAnswer>(`/api/transactions${query({ ...filters, scope, limit })}`);
+  // the chip narrows the rows the table has; the server does not know it
+  const serverFilters = { ...filters, chip: undefined };
+  const { data, error, loading, reload } = useApi<ListAnswer>(`/api/transactions${query({ ...serverFilters, scope, limit: MAX_LIST_ROWS })}`);
   const statements = useApi<{ statements: SavedStatement[] }>("/api/statements");
   const [billOpen, setBillOpen] = useState<ListedRow | null>(null);
   const savedOf = (id: string) => statements.data?.statements?.find((s) => s.billId === id) ?? null;
-  const anyOwn = data?.items.some((t) => t.own) ?? false;
   const transferIds = useRef(new Set<string>());
   transferIds.current = new Set(data?.items.filter((t) => t.isTransfer).map((t) => t.id));
   const merchantOf = useRef(new Map<string, string>());
@@ -192,23 +162,47 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const daySums = useMemo(() => new Map((data?.daySums ?? []).map((d) => [d.date, d])), [data]);
 
   const set = (patch: Partial<Filters>) => navigate("transactions", { ...filters, ...patch });
+  // the search box shows what is typed at once; the address (and so the server) follows after a pause
+  const [draft, setDraft] = useState(filters.q);
+  const [seenQ, setSeenQ] = useState(filters.q);
+  if (seenQ !== filters.q) {
+    setSeenQ(filters.q);
+    setDraft(filters.q);
+  }
+  useEffect(() => {
+    if (draft.trim() === filters.q) return;
+    const timer = window.setTimeout(() => navigate("transactions", { ...filters, q: draft.trim() }), SEARCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filters is read from the render of this filterKey
+  }, [draft, filterKey]);
+  const view: TableView = { query: draft, chip: filters.chip || null, group: null, sort: null };
+  const onView = (next: TableView) => {
+    setDraft(next.query);
+    if ((next.chip ?? "") !== filters.chip) set({ chip: next.chip ?? "" });
+  };
   const categoryLabel = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
 
   // stable, so the rows (memo) do not re-render while the user types or ticks the box
   const recategorize = useCallback(
-    async (id: string, category: string) => {
+    async (id: string, category: string, confirmed = false) => {
       // an own transfer is neutral; giving it a spending category counts the money twice
       const kind = meta.categories.find((c) => c.id === category)?.kind;
-      if (transferIds.current.has(id) && kind !== "transfer" && !window.confirm("Tämä on oma siirto. Muutetaanko silti?")) return;
+      if (!confirmed && transferIds.current.has(id) && kind !== "transfer") {
+        setOwnTransfer({ id, category });
+        return;
+      }
       const merchant = merchantOf.current.get(id) ?? "";
       // a row without a merchant name changes alone: its placeholder merchant stands for every unnamed row
       const createRule = rememberRef.current && merchant !== UNKNOWN_MERCHANT;
       setSaving({ id, category });
       setSaveError(null);
       setChanged(null);
+      setUndone(false);
       try {
-        const r = await api<{ changed?: number }>(`/api/transactions/${encodeURIComponent(id)}`, { method: "PATCH", body: { category, createRule } });
+        const r = await api<{ changed?: number; undo: CategoryUndo }>(`/api/transactions/${encodeURIComponent(id)}`, { method: "PATCH", body: { category, createRule } });
         setChanged({
+          id,
+          undo: r.undo,
           count: typeof r?.changed === "number" ? r.changed : 1,
           merchant,
           category: meta.categories.find((c) => c.id === category)?.label ?? category,
@@ -223,6 +217,22 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     },
     [reload, meta.categories],
   );
+  const undoChange = async () => {
+    if (!changed || undoing) return;
+    setUndoing(true);
+    setSaveError(null);
+    try {
+      await api(`/api/transactions/${encodeURIComponent(changed.id)}/undo-category`, { method: "POST", body: changed.undo });
+      setChanged(null);
+      setUndone(true);
+      setEdits((n) => n + 1);
+      reload();
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setUndoing(false);
+    }
+  };
   // the saved value shows until the reload settles; a failed reload must not leave the chip disabled
   useEffect(() => {
     if (!loading) setSaving(null);
@@ -235,10 +245,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   }, [phone, changed]);
 
   const anyFilter = Object.values(filters).some(Boolean);
-  // the calendar answers a span of four weeks or more; a shorter one is a few cells
-  const rhythm = (data?.calendar?.days.length ?? 0) >= 28;
-  const csv = `/api/export/transactions.csv${query({ ...filters, from: filters.from || "2000-01-01", to: filters.to || meta.today, scope })}`;
-  const note = remember ? "Muutos koskee myös kauppiaan muita ja tulevia tapahtumia." : "Muutos koskee vain tätä tapahtumaa.";
+  const note = remember ? t("tx.note_remember") : t("tx.note_only");
   const rowProps = (t: ListedRow) => ({
     t,
     categories: meta.categories,
@@ -247,12 +254,28 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     note,
     look: looks.get(t.accountId),
     account: looks.get(t.accountId)?.name ?? t.accountId,
+    remember,
+    onRemember: setRemember,
     explained: savedOf(t.id)?.read ? savedOf(t.id)!.explainedCents : null,
     onStatement: setBillOpen,
   });
 
   return (
     <div className="stack tx-page">
+      {ownTransfer && (
+        <ConfirmDialog
+          title={t("tx.own_ask")}
+          confirmLabel={t("tx.own_confirm")}
+          onConfirm={() => {
+            const { id, category } = ownTransfer;
+            setOwnTransfer(null);
+            void recategorize(id, category, true);
+          }}
+          onCancel={() => setOwnTransfer(null)}
+        >
+          <p>{t("tx.own_note")}</p>
+        </ConfirmDialog>
+      )}
       {billOpen && (
         <CardStatement
           key={billOpen.id}
@@ -266,7 +289,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
           }}
         />
       )}
-      <FilterBar filters={filters} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => navigate("transactions")} />
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}
       {!data && !error && <StripSkeleton />}
       {data && data.total > 0 && (
@@ -278,111 +300,82 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             whole={!filters.from && !filters.to}
             today={meta.today}
             onPick={(p) => set(p)}
-            tool={
-              rhythm ? (
-                <div className="segmented tx-chart-switch" role="group" aria-label="Kuvan muoto">
-                  <button type="button" aria-pressed={chart === "bars"} onClick={() => setChart("bars")}>
-                    Pylväät
-                  </button>
-                  <button type="button" aria-pressed={chart === "calendar"} onClick={() => setChart("calendar")}>
-                    Kalenteri
-                  </button>
-                </div>
-              ) : undefined
-            }
           />
-          {/* the rhythm of the filtered rows: VC3's calendar of the days the server shaded */}
-          {rhythm && chart === "calendar" && data.calendar && (
-            <div className="tx-rhythm">
-              <CalendarHeat
-                question={filters.kind === "income" ? "Minä päivinä rahaa tuli?" : "Minä päivinä rahaa meni?"}
-                days={data.calendar.days}
-                usualCents={data.calendar.usualCents}
-                today={meta.today}
-                countName="Tapahtumia"
-              />
-            </div>
-          )}
         </div>
       )}
 
       {error && !data ? (
         <ErrorCard message={error} onRetry={reload} />
       ) : (
-        <section className={`card tx-card ${loading ? "loading" : ""}`} aria-labelledby="tx-title">
-          <div className="card-head tx-head">
-            <h2 id="tx-title">Tapahtumat</h2>
-            {data && data.total > 0 && (
-              <span className="tx-head-datum">
-                {data.total > data.items.length ? `${count(data.items.length)} / ${count(data.total)}` : plural(data.total, "tapahtuma", "tapahtumaa")}
-              </span>
-            )}
-            <ListMenu csv={csv} remember={remember} setRemember={setRemember} ownRows={anyOwn} />
-          </div>
+        <section className={`card tx-card ${loading ? "loading" : ""}`} aria-label={t("nav.transactions")}>
           {error && (
-            <div className="error" role="alert">
+            <Notice tone="error">
               {error}{" "}
-              <button className="btn btn-small" type="button" onClick={reload}>
-                Yritä uudelleen
-              </button>
-            </div>
+              <Button onClick={reload}>
+                {t("load.retry")}
+              </Button>
+            </Notice>
           )}
           {/* on a phone this floats at the bottom of the screen: the row that was changed is far from the top of the card */}
           <div className="tx-feedback">
             {saveError && (
-              <div className="error" role="alert">
+              <Notice tone="error">
                 {saveError}
                 {phone && (
-                  <button className="icon-btn" type="button" onClick={() => setSaveError(null)} aria-label="Sulje">
+                  <IconButton label={t("ui.close")} onClick={() => setSaveError(null)}>
                     ×
-                  </button>
+                  </IconButton>
                 )}
-              </div>
+              </Notice>
             )}
             {changed !== null && !saveError && (
-              <div className="notice good" role="status">
+              <Notice tone="good" role="status" action={<Button variant="link" busy={undoing} onClick={() => void undoChange()}>{t("bills.undo")}</Button>}>
                 {changed.rule && changed.merchant
-                  ? `${changed.merchant}: ${plural(changed.count, "tapahtuma", "tapahtumaa")} siirrettiin kategoriaan ${changed.category}. Myös tulevat tapahtumat menevät sinne.`
-                  : `Tapahtuma siirrettiin kategoriaan ${changed.category}.`}
+                  ? tn(changed.count, "tx.moved_rule_one", "tx.moved_rule_many", { merchant: changed.merchant, category: changed.category })
+                  : t("tx.moved", { category: changed.category })}
                 {phone && (
-                  <button className="icon-btn" type="button" onClick={() => setChanged(null)} aria-label="Sulje">
+                  <IconButton label={t("ui.close")} onClick={() => setChanged(null)}>
                     ×
-                  </button>
+                  </IconButton>
                 )}
-              </div>
+              </Notice>
+            )}
+            {undone && changed === null && !saveError && (
+              <Notice tone="info" role="status">
+                {t("tx.undone")}
+                {phone && (
+                  <IconButton label={t("ui.close")} onClick={() => setUndone(false)}>
+                    ×
+                  </IconButton>
+                )}
+              </Notice>
             )}
           </div>
           <div>
-            {data && data.items.length > 0 && <TxTable items={data.items} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} />}
+            {data && data.items.length > 0 && <TxTable items={data.items} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => navigate("transactions")} />} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {!data && !error && <RowsSkeleton />}
             {data && !data.items.length && (
-              <div className="empty">
+              <Empty>
                 {anyFilter ? (
                   <>
-                    Näillä rajauksilla ei ole tapahtumia.{" "}
-                    <button type="button" className="btn btn-small" onClick={() => navigate("transactions")}>
-                      Tyhjennä rajaukset
-                    </button>
+                    {t("tx.no_match")}{" "}
+                    <Button variant="link" onClick={() => navigate("transactions")}>
+                      {t("tx.clear")}
+                    </Button>
                   </>
                 ) : (
                   <>
-                    Tapahtumia ei vielä ole. <a href="#/settings?add=1">Yhdistä pankki</a>
+                    {t("tx.none_a")} <a href={CONNECT_BANK_HASH}>{t("start.connect")}</a>, {t("tx.none_b")}
                   </>
                 )}
-              </div>
+              </Empty>
             )}
           </div>
           {data && data.total > data.items.length && (
-            <div className="form-row tx-more">
-              <span className="cut-mark">
-                1–{count(data.items.length)} / {count(data.total)}
-              </span>
-              <button className="btn" onClick={() => setPaging({ key: filterKey, limit: limit + step })} disabled={loading || limit >= MAX_ROWS}>
-                Näytä lisää
-              </button>
-              {limit >= MAX_ROWS && <span className="small muted">Näytetään enintään {MAX_ROWS}. Rajaa hakua.</span>}
-            </div>
+            <p className="small muted tx-cut">
+              {t("tx.cut", { shown: count(data.items.length), total: count(data.total) })}
+            </p>
           )}
         </section>
       )}

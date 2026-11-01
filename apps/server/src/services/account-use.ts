@@ -76,7 +76,7 @@ export function parseSaidUsers(value: unknown): SaidUser[] {
   if (value.length > MAX_USERS) throw new UserError("Tilillä voi olla enintään kahdeksan käyttäjää.");
   const users = value.map((row): SaidUser => {
     const { userId, weight } = strictObject(row, ["userId", "weight"] as const);
-    if (userId !== null && (typeof userId !== "string" || !userId)) throw new UserError("Käyttäjää ei löydy.");
+    if (userId !== null && (typeof userId !== "string" || !userId)) throw UserError.of("user.missing");
     if (typeof weight !== "number" || !Number.isInteger(weight) || weight < 0 || weight > MAX_WEIGHT) throw new UserError("Virheellinen osuus.");
     return { userId, weight };
   });
@@ -106,7 +106,7 @@ export async function bumpSeers(s: Services, key: string): Promise<void> {
 export async function sayAccountUse(s: Services, userId: string, accountId: string, users: readonly SaidUser[]): Promise<void> {
   const key = await ownKey(s, userId, accountId);
   const known = new Set((await s.users.list()).map((u) => u.id));
-  if (users.some((u) => u.userId !== null && !known.has(u.userId))) throw new UserError("Käyttäjää ei löydy.");
+  if (users.some((u) => u.userId !== null && !known.has(u.userId))) throw UserError.of("user.missing");
   await s.household.setUse(key, users, userId, s.now().toISOString());
   // weights said are weights: the account is no longer cut by who paid it
   await s.household.clearSplit(key);

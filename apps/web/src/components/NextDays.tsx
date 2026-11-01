@@ -1,8 +1,9 @@
 // Decision: does the account cover what is due before the next pay
 import { useState } from "react";
 import { query } from "../api.ts";
-import { dayMonth, money } from "../format.ts";
-import { SETTINGS_ANCHOR } from "../routes.ts";
+import { money } from "../format.ts";
+import { t } from "../text.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 import "../styles/ahead.css";
 import "../styles/statement.css";
 import { type Active, NextDaysLine } from "./NextDaysLine.tsx";
@@ -12,7 +13,7 @@ import type { Scope } from "../types.ts";
 import { type Column, Table } from "./table/Table.tsx";
 import { Why } from "./Why.tsx";
 import { type Ahead, figures, incoming, payNote, payments, paymentsCaption, shortIsEstimate, warning, windowLine } from "./next-days.ts";
-
+import { Notice } from "./ui/Notice.tsx";
 type Line = ReturnType<typeof payments>[number];
 
 /**
@@ -35,12 +36,12 @@ export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
     <section className="card st-block" aria-labelledby="ahead-h">
       <div className="card-head tb">
         <div className="card-name">
-          <h2 id="ahead-h">Erääntyvät maksut</h2>
+          <h2 id="ahead-h">{t("ahead.title")}</h2>
         </div>
         {/* the window's one total: what leaves the accounts before the pay */}
         <div className="card-datum">{money(-ahead.totals.dueCents, false)}</div>
       </div>
-      {short && <p className={shortIsEstimate(ahead) ? "notice ahead-warning" : "notice warning ahead-warning"}>{short}</p>}
+      {short && <Notice as="p" tone={shortIsEstimate(ahead) ? "info" : "warning"} className="ahead-warning">{short}</Notice>}
       <div className="st-cols st-cols-3">
         <div>
           <h3 className="st-cap ahead-window">{windowLine(ahead)}</h3>
@@ -62,19 +63,19 @@ export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
             </dl>
           ) : (
             <p className="ahead-missing">
-              Tilin saldo ei ole tiedossa. <a href={`#/settings#${SETTINGS_ANCHOR.accounts}`}>Lisää saldo</a>
+              {t("ahead.no_balance")} <a href={settingsCardHash(SETTINGS_ANCHOR.accounts)}>{t("ahead.add_balance")}</a>
             </p>
           )}
         </div>
         <div className="st-wide">
-          {due.some((l) => l.estimate) && <p className="st-note ahead-estimates">Eräpäivät ja summat ovat arvioita.</p>}
+          {due.some((l) => l.estimate) && <p className="st-note ahead-estimates">{t("bills.estimates")}</p>}
           {line && <NextDaysLine line={line} active={active} onActive={setActive} />}
-          {due.length > 0 ? <Lines caption={paymentsCaption(ahead)} hidden head={["Eräpäivä", "Saaja"]} lines={due} kind="bill" active={active} onActive={setActive} /> : <p className="st-note">Ei erääntyviä maksuja.</p>}
-          {coming.length > 0 && <Lines caption="Saapuvat maksut" head={["Päivä", "Maksaja"]} lines={coming} kind="pay" active={active} onActive={setActive} door={scope ? { range: { from: ahead.from, to: ahead.payday?.date ?? ahead.to }, scope } : undefined} />}
+          {due.length > 0 ? <Lines caption={paymentsCaption(ahead)} hidden head={[t("ahead.due_date"), t("ahead.payee")]} lines={due} kind="bill" active={active} onActive={setActive} /> : <p className="st-note">{t("ahead.none")}</p>}
+          {coming.length > 0 && <Lines caption={t("ahead.incoming")} head={[t("ahead.day"), t("ahead.payer")]} lines={coming} kind="pay" active={active} onActive={setActive} door={scope ? { range: { from: ahead.from, to: ahead.payday?.date ?? ahead.to }, scope } : undefined} />}
           {varies && <p className="st-note ahead-pay-note">{varies}</p>}
           <p className="st-links">
-            <a href="#/bills">Laskut</a>
-            <a href="#/bills">Lisää lasku</a>
+            <a href="#/bills">{t("nav.bills")}</a>
+            <a href="#/bills">{t("bills.form.add")}</a>
           </p>
         </div>
       </div>
@@ -129,11 +130,11 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive, d
     },
     {
       key: "sum",
-      label: "Summa",
+      label: t("ahead.amount"),
       kind: "money",
       cell: (l) =>
         door && l.payday ? (
-          <Why figure="ahead.pay" title={`Palkka, ${l.name}`} range={door.range} scope={door.scope} text={l.payday} estimate="approx">
+          <Why figure="ahead.pay" title={t("ahead.pay_named", { name: l.name })} range={door.range} scope={door.scope} text={l.payday} estimate="approx">
             {l.payday}
           </Why>
         ) : l.sum !== undefined ? (

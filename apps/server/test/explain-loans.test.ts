@@ -1,5 +1,5 @@
 /**
- * The loan figures of Lainat and Varallisuus open their basis (explain/loans.ts): each is the figure /reports and the
+ * The loan figures of Lainat and Varat ja velat open their basis (explain/loans.ts): each is the figure /reports and the
  * dashboard send, its lines add up to it and each is named. A loan of the figure is one of the viewer's view.
  */
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ type Answer = { figure: string; cents: number | null; lines: { id: string; cents
 const mortgage = { name: "Asuntolaina", kind: "mortgage", lender: "Esimerkkipankki", balanceCents: 15_000_000, balanceDate: "2026-06-01", rateBp: 350, reference: "euribor_12", marginBp: 70, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: "2045-06-01" };
 
 describe("the basis of a loan figure", () => {
-  it("adds up to the figures of Lainat and Varallisuus, every line named", async () => {
+  it("adds up to the figures of Lainat and Varat ja velat, every line named", async () => {
     const app = await setupApp();
     const added = await app.admin.call("POST", "/api/loans", mortgage);
     expect(added.status).toBe(200);

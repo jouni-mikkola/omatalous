@@ -25,16 +25,20 @@ const USES_SPEND_ROWS = [
   "analysis/context.ts",
   "analysis/counted.ts",
   "analysis/dashboard.ts",
+  "analysis/expected.ts",
   "analysis/filed.ts",
+  "analysis/category-goals.ts",
   "analysis/food.ts",
   "analysis/questions.ts",
-  // the rows its callers (categories.ts, waterfall.ts) give it, from spendRows
+  // the rows its callers (categories.ts) give it, from spendRows
   "analysis/row-parts.ts",
   "analysis/themes-report.ts",
-  "analysis/waterfall.ts",
   "reports/categories.ts",
+  "reports/spending-table.ts",
   "reports/pivot.ts",
   "reports/summary.ts",
+  "reports/tax-year.ts",
+  "reports/this-month.ts",
 ];
 
 /** Reads `spend` of the bill whole on purpose: the series, the returns, a change plan, a bill's own cost, a single-merchant list. */
@@ -56,7 +60,7 @@ const BILL_WHOLE = [
   "analysis/money-in.ts",
   "analysis/one-offs.ts",
   "analysis/statement-explain.ts",
-  // name the figure "usual.spend" only
+  // name the figure "expected.spend" only
   "explain/explain.ts",
   "explain/types.ts",
   "optimise/areas/bank.ts",

@@ -84,6 +84,8 @@ const ALLOWED_ENV: Record<string, string> = {
   FAKE_LOG: "set by the test itself for the stub it starts",
   FAKE_PW: "set by the test itself for the stub it starts",
   FAKE_PW_TOUCH: "set by the test itself for the stub it starts",
+  FAKE_HOST: "set by the test itself for the stub it starts",
+  E2E_HOSTS_DIR: "set by the runner under test for the stub it starts",
   PLAYWRIGHT_JSON_OUTPUT_NAME: "set by the test itself for the stub it starts",
   RUNLOG: "the file a suite's own stub writes its calls to, set by the suite before it reads it",
   DBG: "a debug print of the install suite only",

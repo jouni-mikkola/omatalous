@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { Css } from "../css.ts";
 
 /** A unit of an axis: 4 px; a unit whose value is printed: 8 px (the `--tick` and `--tick-l` of the scale). */
 export const TICK = 4;
@@ -19,7 +19,7 @@ export function dashOf(index: number): string | undefined {
 }
 
 /** The legend key of a line: the same dashes as the line itself. */
-export function keyStyle(color: string, dash?: string): CSSProperties {
+export function keyStyle(color: string, dash?: string): Css {
   if (!dash) return { background: color };
   const [on = 0, off = 0] = dash.split(" ").map(Number);
   return { background: `repeating-linear-gradient(90deg, ${color} 0 ${on}px, transparent ${on}px ${on + off}px)` };

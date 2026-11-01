@@ -1,7 +1,8 @@
 import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
 import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
-import { categorize, compileRules, dealerCategory } from "./categorize.ts";
+import { categorize, compileRules } from "./categorize.ts";
+import { dealerCategory } from "./wording-car.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
 import { holdersOf } from "./categorize-people.ts";
 import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, isMobilePay, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";

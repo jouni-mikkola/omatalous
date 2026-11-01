@@ -43,6 +43,11 @@ export class SettingsRepo {
     await this.db.run("DELETE FROM settings WHERE key = ?", [key]);
   }
 
+  /** Reads and removes `key` in one statement: of two callers at once, only one gets the value. */
+  async take(key: string): Promise<string | null> {
+    return (await this.db.first<{ value: string }>("DELETE FROM settings WHERE key = ? RETURNING value", [key]))?.value ?? null;
+  }
+
   /** Sets `key` to `value` unless it already has that value; true when this call changed it. */
   async claim(key: string, value: string): Promise<boolean> {
     const r = await this.db.run(

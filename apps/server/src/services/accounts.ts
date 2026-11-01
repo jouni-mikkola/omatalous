@@ -100,13 +100,13 @@ export async function updateAccount(s: Services, userId: string, id: string, edi
   return repo.getAccount(id);
 }
 
-/** Imported and demo accounts only: a bank-linked one would come back at the next sync. */
+/** Imported, statement and demo accounts only: a bank-linked one would come back at the next sync. */
 export async function deleteAccount(s: Services, userId: string, id: string): Promise<void> {
   const repo = s.finance(userId);
   // another member's account looks the same as a missing one
   const account = await repo.getAccount(id);
   if (!account) throw new NotFound("Tiliä ei löydy.");
-  if (account.provider !== "csv" && account.provider !== "demo") throw new UserError("Pankkiyhteyden tiliä ei voi poistaa.");
+  if (account.provider !== "csv" && account.provider !== "cardfile" && account.provider !== "bankfile" && account.provider !== "demo") throw new UserError("Pankkiyhteyden tiliä ei voi poistaa.");
   await repo.deleteAccount(account.id);
   // transfers that paired with the removed rows are counted again
   await reprocess(repo, s.settings);

@@ -20,7 +20,7 @@ export const PATTERNS: readonly Pattern[] = [
   { name: "keskiostos, skripti", re: /keskiostos|skripti/iu, fix: 'write "ostoskerta keskimäärin" or "asennusohjelma"' },
   // what the 0.67 pass took out of the Finnish: word order, calques and terms
   { name: "Ylläpitäjä tarkistaa as an instruction", re: /(?<!\p{L})Ylläpitäjä\s+(painaa|tarkistaa|lisää|avaa|valitsee|ottaa)(?!\p{L})/u, fix: 'write "Ylläpitäjän pitää tarkistaa"' },
-  { name: "a thing that needs", re: /\p{L}\s+tarvitse(e|vat)\s+(\$\{|\{|\d)/u, fix: 'write "Vertailuun tarvitaan" or "X varten tarvitaan"' },
+  { name: "a thing that needs", re: /\p{L}\s+tarvitse(e|vat)\s+(\$\{|\{|\d)/u, fix: 'write "Vertailuun tarvitsemme" or "X varten tarvitsemme"' },
   // an amount after "alkaen" is fine ("helmikuusta alkaen 2 400 €"); a date there is the English order
   { name: "alkaen before a date", re: /(?<!\p{L})alkaen\s+(\$?\{\s*(monthYear|formatFiDate|fiDate|dayHeading)\(|\d{1,2}[./]\d)/u, fix: 'put it after: "10/2026 alkaen"' },
   { name: "money that pays", re: /(?<!\p{L})(korot|kulut|menot)\s+maksoi(vat)?(?!\p{L})/iu, fix: 'say where the money went: "korkoihin meni 120 €"' },

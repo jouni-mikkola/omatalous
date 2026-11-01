@@ -3,6 +3,7 @@
  * These types are the contract between the frame (`index.ts`), the thirteen areas (`areas/*.ts`), the server (stored
  * inputs and states) and the page. Money is integer cents, dates are YYYY-MM-DD.
  */
+import type { Language } from "../locale.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { QualitySignal } from "../analysis/data-quality.ts";
 import type { Insight } from "../analysis/insights/types.ts";
@@ -231,6 +232,8 @@ export interface AreaInput {
   /** Merchant name to TOL code, from the user's own register lookups. */
   industry: ReadonlyMap<string, string>;
   quality: EvidenceQuality;
+  /** The language of every text the areas write. */
+  lang: Language;
 }
 
 export interface Area {
@@ -299,7 +302,7 @@ export interface AreaView {
 
 /**
  * What an area's tips reach: their euros a year summed as the headline sums them, against the household's spending of
- * the 12 complete months on the rows the tips measure. Säästövinkit's "Missä on eniten säästettävää?" table.
+ * the 12 complete months on the rows the tips measure. Säästövinkit's "Suurimmat säästökohteet" table.
  */
 export interface AreaReach {
   area: AreaId;

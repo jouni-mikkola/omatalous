@@ -2,4 +2,4 @@
 import { incomeInsights } from "../income-changes.ts";
 import type { InsightSource } from "./types.ts";
 
-export const incomeChangesSource: InsightSource = (a) => incomeInsights(a.ctx, a.range, a.inputs);
+export const incomeChangesSource: InsightSource = (a) => incomeInsights(a.ctx, a.range, a.inputs, a.lang);

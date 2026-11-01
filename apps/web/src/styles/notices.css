@@ -3,6 +3,7 @@
  * line, its title and its detail after it, cut with an ellipsis where it does not fit, and its answers at the right. Only a
  * warning is marked, by a triangle before its title, which leaves the text of every row on one line.
  */
+@layer components {
 /* a row is 40 px with or without a button, so a list of them is even; the button (27 px) sets the height */
 .notice-item { position: relative; align-items: center; row-gap: 4px; box-sizing: border-box; min-height: 40px; padding: 4px 0; }
 .notice-item.warn .notice-title::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
@@ -20,4 +21,5 @@ a.notice-text:hover .notice-title { text-decoration: underline; }
 /* where the line is narrow beside its links and key the detail wraps: its unit is never cut off */
 @media (max-width: 1039px) {
   .notice-item .notice-text { overflow: visible; text-overflow: clip; white-space: normal; }
+}
 }

@@ -11,19 +11,18 @@ import { addMonths, monthEnd, monthIndex } from "../../dates.ts";
 import { SMALL_PURCHASE_CENTS } from "../alerts.ts";
 import { netPurchase, paidToPerson } from "../context.ts";
 import { accountCovers } from "../coverage.ts";
-import { finnishList, formatEur } from "../format.ts";
+import { formatEur } from "../format.ts";
 import { meansApart } from "../signal.ts";
 import { isCompleteMonth } from "../usual.ts";
-import { capitalise, lastCompleteMonths, monthSpan } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { MAX_SMALL_ROWS, MIN_SMALL_CHANGE, TOP_PAYEES } from "../../thresholds.ts";
+import { insightOf, lastCompleteMonths } from "./shared.ts";
+import { messageIn } from "../../messages.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
 const MONTHS = 6;
-const MIN_CHANGE = 0.3;
 const NOT_SMALL_PURCHASE: ReadonlySet<string> = new Set(["p2p", "cash"]);
-const TOP_PAYEES = 3;
-const MAX_ROWS = 100;
 
-export function smallPurchases({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
+export function smallPurchases({ ctx, end, gateMonthlyCents, lang }: InsightArgs): Insight[] {
   const now = lastCompleteMonths(ctx, end, MONTHS);
   if (now.length < MONTHS) return [];
   const then = now.map((m) => addMonths(m, -12));
@@ -56,31 +55,32 @@ export function smallPurchases({ ctx, end, gateMonthlyCents }: InsightArgs): Ins
   const b = sums.then.reduce((s, v) => s + v, 0);
   if (a <= 0 || b <= 0) return [];
   const yearly = Math.round((Math.abs(a - b) * 12) / MONTHS);
-  if (Math.abs(a / b - 1) < MIN_CHANGE || yearly < 12 * gateMonthlyCents || !meansApart(sums.now, sums.then)) return [];
+  if (Math.abs(a / b - 1) < MIN_SMALL_CHANGE || yearly < 12 * gateMonthlyCents || !meansApart(sums.now, sums.then)) return [];
   const monthlyNow = Math.round(a / MONTHS);
   const monthlyThen = Math.round(b / MONTHS);
   const perMonthNow = Math.round(counts.now / MONTHS);
   const perMonthThen = Math.round(counts.then / MONTHS);
   const top = [...byPayee].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0])).slice(0, TOP_PAYEES).map(([m]) => m);
-  const small = formatEur(SMALL_PURCHASE_CENTS, false);
+  const small = formatEur(SMALL_PURCHASE_CENTS, false, lang);
+  const up = a > b;
   return [
-    {
+    insightOf({
+      lang,
       id: "small-purchases",
-      tone: "info",
-      title: `Alle ${small} ostokset ${formatEur(monthlyNow, false)} kuussa, vuosi sitten ${formatEur(monthlyThen, false)}`,
-      detail: `${capitalise(monthSpan(now[0]!, now[MONTHS - 1]!))}: ${perMonthNow} ostosta kuussa, vuotta aiemmin ${perMonthThen}; eniten ${finnishList(top)}.`,
-      yearlyCents: yearly,
-      direction: a > b ? 1 : -1,
-      rows: rows.slice(-MAX_ROWS),
+      fact: { type: "small-purchases", monthlyCents: monthlyNow, perMonth: perMonthNow, top, limitCents: SMALL_PURCHASE_CENTS, up },
+      comparison: { label: "yearAgo", value: q.cents(monthlyThen) },
+      action: { label: "seeRows", target: { page: "transactions", filter: { from: `${now[0]}-01`, to: monthEnd(now[MONTHS - 1]!) } } },
+      yearlyCents: up ? -yearly : yearly,
+      kind: "pattern",
+      rows: rows.slice(-MAX_SMALL_ROWS),
       link: { from: `${now[0]}-01`, to: monthEnd(now[MONTHS - 1]!) },
       calc: [
-        { label: "Raja", value: small },
-        { label: "Ostoksia kuussa nyt", value: String(perMonthNow) },
-        { label: "Ostoksia kuussa vuotta aiemmin", value: String(perMonthThen) },
-        { label: "Kuussa nyt", value: formatEur(monthlyNow, false) },
-        { label: "Kuussa vuotta aiemmin", value: formatEur(monthlyThen, false) },
-        { label: "Muutos vuodessa", value: formatEur(yearly, false) },
+        { label: messageIn(lang, "calc.limit"), value: small },
+        { label: messageIn(lang, "calc.purchases_month_now"), value: String(perMonthNow) },
+        { label: messageIn(lang, "calc.purchases_month_then"), value: String(perMonthThen) },
+        { label: messageIn(lang, "calc.month_now"), value: formatEur(monthlyNow, false, lang) },
+        { label: messageIn(lang, "calc.month_then"), value: formatEur(monthlyThen, false, lang) },
       ],
-    },
+    }),
   ];
 }

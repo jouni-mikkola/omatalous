@@ -2,6 +2,7 @@
 import type { FixedVariableReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { money, monthLong } from "../../format.ts";
+import { t } from "../../text.ts";
 import { axisRoom, frame, tickTarget } from "../kit/layout.ts";
 import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
 import { readoutText } from "../kit/readout.ts";
@@ -9,19 +10,21 @@ import { linear, points } from "../kit/scale.ts";
 import { areaPath, linePath } from "../kit/path.ts";
 import { moneyAxis, monthTicks } from "../kit/ticks.ts";
 import { spreadLabels, Tip, ValueGrid } from "./parts.tsx";
+import { color } from "../../design/tokens.ts";
+import { css } from "../../css.ts";
 
 /** The layers bottom up, each in a fixed slot (VD0: a part keeps its slot on every page). */
 export const LAYERS = [
-  { key: "fixedCents", label: "Kiinteät", color: "var(--series-1)" },
-  { key: "habitCents", label: "Arkiostot", color: "var(--series-3)" },
-  { key: "variableCents", label: "Satunnaiset", color: "var(--series-4)" },
-  { key: "debtCents", label: "Muu velanhoito", color: "var(--series-7)" },
+  { key: "fixedCents", get label() { return t("rpt.st_fixed"); }, color: color["series-1"] },
+  { key: "habitCents", get label() { return t("rpt.sa_habit"); }, color: color["series-3"] },
+  { key: "variableCents", get label() { return t("rpt.st_oneoffs"); }, color: color["series-4"] },
+  { key: "debtCents", get label() { return t("rpt.sa_debt"); }, color: color["series-7"] },
 ] as const;
 
 /** The layers that hold money in `rows`: a layer of nothing is not drawn, so the legend and the table do not name it. */
 export const layersOf = (rows: FixedVariableReport["rows"]) => LAYERS.filter((l) => rows.some((r) => r[l.key] !== 0));
 
-const soft = (color: string) => `color-mix(in srgb, ${color} 60%, var(--surface))`;
+const soft = (base: string) => `color-mix(in srgb, ${base} 60%, ${color.surface})`;
 
 /**
  * Spending by month as four stacked layers, each top a server field (`tops`), so the chart adds up nothing. The fixed
@@ -54,23 +57,24 @@ export function StackedArea({ rows, complete }: { rows: FixedVariableReport["row
   const ticks = monthTicks(months, f.innerW / Math.max(months.length - 1, 1));
   const title = (i: number) => monthLong(months[i]!);
   const drawn = layersOf(shown);
-  const tipRows = (i: number) => [...drawn].reverse().map((l) => ({ name: l.label, value: money(shown[i]![l.key], false), key: <span className="swatch" style={{ background: soft(l.color) }} /> }));
+  const tipRows = (i: number) => [...drawn].reverse().map((l) => ({ name: l.label, value: money(shown[i]![l.key], false), key: <span className="swatch" ref={css({ background: soft(l.color) })} /> }));
   return (
     <div className="chart" ref={ref}>
       <p className="use-key" aria-hidden="true">
         {drawn.map((l) => (
           <span key={l.key}>
-            <i className="swatch" style={{ background: soft(l.color) }} />
+            <i className="swatch" ref={css({ background: soft(l.color) })} />
             {l.label}
           </span>
         ))}
       </p>
       {width > 0 && last >= 0 && (
-        <svg width={f.width} height={f.height} role="img" aria-label={`Menot kuukausittain päällekkäin: ${drawn.map((l) => l.label.toLowerCase()).join(", ")}`}>
+        <svg width={f.width} height={f.height}>
           <g transform={`translate(${f.margin.left},${f.margin.top})`}>
+            <g role="img" aria-label={t("rpt.sa_aria", { layers: drawn.map((l) => l.label.toLowerCase()).join(", ") })}>
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
             {LAYERS.map((l, k) => (
-              <path key={l.key} d={areaPath(k ? top(k - 1) : zero, top(k), x, y)} fill={soft(l.color)} stroke="var(--surface)" strokeWidth={1} />
+              <path key={l.key} d={areaPath(k ? top(k - 1) : zero, top(k), x, y)} fill={soft(l.color)} stroke={color.surface} strokeWidth={1} />
             ))}
             <path className="qc-line qc-now" d={linePath(top(0), x, y)} />
             {ticks.map((t, i) =>
@@ -83,7 +87,7 @@ export function StackedArea({ rows, complete }: { rows: FixedVariableReport["row
             {/* a phone has no room at the right: the fixed share sits in its layer */}
             {narrow && shown[last]!.shares[0] !== null && (
               <text className="qc-note" x={x(last) - 6} y={y(shown[last]!.tops[0]) + 18} textAnchor="end">
-                {`kiinteät ${shown[last]!.shares[0]} %`}
+                {t("rpt.sa_fixed_share", { share: shown[last]!.shares[0]! })}
               </text>
             )}
             {ends.map((e) => (
@@ -91,7 +95,8 @@ export function StackedArea({ rows, complete }: { rows: FixedVariableReport["row
                 {e.label}
               </text>
             ))}
-            <ReadoutLayer xs={months.map((_, i) => x(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} label="Menot kuukausittain osina. Nuolinäppäimillä siirryt kuukaudesta toiseen." />
+            </g>
+            <ReadoutLayer xs={months.map((_, i) => x(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={months} label={t("rpt.sa_readout")} />
           </g>
         </svg>
       )}

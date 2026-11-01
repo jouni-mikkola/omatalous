@@ -7,7 +7,12 @@
 # shellcheck shell=bash disable=SC2154,SC2034
 
 # What a released image must be signed by: this project's release workflow, run for a version tag or on main (a push of
-# a new version, or by hand). Keep in step with .github/workflows/release.yml (a test compares them).
+# a new version, or by hand).
+# These copy project.json, which is not here to read: the maintenance helper runs this file from a copy of scripts/lib
+# beside its launcher (last-good), and an install must verify with what it already has. tools/test/project-identity.test.ts
+# holds them to project.json byte for byte.
+PROJECT_OWNER=jouni-mikkola
+PROJECT_REPO=omatalous
 REGISTRY_IMAGE=ghcr.io/jouni-mikkola/omatalous
 SIGN_IDENTITY_REGEXP='^https://github\.com/jouni-mikkola/omatalous/\.github/workflows/release\.yml@refs/(tags/v[0-9]+\.[0-9]+\.[0-9]+|heads/main)$'
 SIGN_ISSUER='https://token.actions.githubusercontent.com'
@@ -108,7 +113,7 @@ pull_release_image() { # pull_release_image TAG COMMIT
 # /releases/latest, which GitHub keeps free of pre-releases and drafts. Mode newest asks for the 20 newest releases and takes
 # the highest vX.Y.Z that is no draft. The address is fixed here: nothing in the environment replaces it. The tag found still
 # goes through the signature check (fetch_release_image) and the helper's own checks.
-RELEASES_API=https://api.github.com/repos/jouni-mikkola/omatalous/releases
+RELEASES_API=https://api.github.com/repos/$PROJECT_OWNER/$PROJECT_REPO/releases
 release_mode() { # the mode .env asks for (read as data); fails on a value that is not yes or no
   case $(grep -E '^TALOUS_PRERELEASE=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true) in
     yes) echo newest ;;

@@ -1,5 +1,6 @@
 import type { FeatureId } from "@banking/core";
 import { type Context, Hono, type MiddlewareHandler, type Next } from "hono";
+import { codedFor } from "../platform/errors.ts";
 import { addressKey } from "../security/rate-limit.ts";
 import { recordEvent } from "../services/security.ts";
 import { resolveServiceToken, serviceMayRead } from "../services/service-tokens.ts";
@@ -32,15 +33,15 @@ async function serviceRequest(c: Context<AppEnv>, s: Services, token: string, ne
   const ip = clientIp(c, s);
   const key = addressKey(ip);
   const now = s.now().getTime();
-  if (s.serviceTokenLimiter.check(key, now) > 0) return c.json({ error: "Liian monta yritystä. Yritä myöhemmin uudelleen.", code: "rate_limited" }, 429);
+  if (s.serviceTokenLimiter.check(key, now) > 0) return c.json({ ...codedFor(c, "auth.token_too_many"), code: "rate_limited" }, 429);
   const found = await resolveServiceToken(s, token, { ip, userAgent: c.req.header("user-agent") ?? null });
   if (!found) {
     if (s.serviceTokenLimiter.consume(key, now).wait === 0 && s.serviceTokenLimiter.check(key, now) > 0) {
       await recordEvent(s, { kind: "service_token_refused", ip, userAgent: c.req.header("user-agent") ?? null, detail: "liian monta väärää palvelutunnusta" });
     }
-    return c.json({ error: "Palvelutunnus ei kelpaa.", code: "unauthenticated" }, 401);
+    return c.json({ ...codedFor(c, "auth.token_bad"), code: "unauthenticated" }, 401);
   }
-  if (!serviceMayRead(c.req.method, c.req.path)) return c.json({ error: "Palvelutunnuksella voi vain lukea.", code: "forbidden" }, 403);
+  if (!serviceMayRead(c.req.method, c.req.path)) return c.json({ ...codedFor(c, "auth.token_read_only"), code: "forbidden" }, 403);
   c.set("user", found.user);
   c.set("serviceToken", found.tokenId);
   await next();
@@ -49,20 +50,20 @@ async function serviceRequest(c: Context<AppEnv>, s: Services, token: string, ne
 /** 401 without a session; 403 until a temporary password has been changed. */
 export const requireUser: MiddlewareHandler<AppEnv> = async (c, next) => {
   const user = c.get("user");
-  if (!user) return c.json({ error: "Kirjaudu sisään.", code: "unauthenticated" }, 401);
-  if (user.mustChangePassword) return c.json({ error: "Vaihda väliaikainen salasana ensin.", code: "password_change_required" }, 403);
+  if (!user) return c.json({ ...codedFor(c, "auth.login_required"), code: "unauthenticated" }, 401);
+  if (user.mustChangePassword) return c.json({ ...codedFor(c, "auth.change_password_first"), code: "password_change_required" }, 403);
   await next();
 };
 
 export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (c.get("user")?.role !== "admin") return c.json({ error: "Vain ylläpitäjälle.", code: "forbidden" }, 403);
+  if (c.get("user")?.role !== "admin") return c.json({ ...codedFor(c, "app.admin_only"), code: "forbidden" }, 403);
   await next();
 };
 
 /** 404 while the module's feature flag is off, with the words of an unknown path so its existence is not shown. */
 function requireFeature(s: Services, id: FeatureId | keyof ExtensionFlags): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
-    if (!s.instance.enabled(id)) return c.json({ error: "Ei löydy." }, 404);
+    if (!s.instance.enabled(id)) return c.json(codedFor(c, "app.not_found"), 404);
     await next();
   };
 }
@@ -86,10 +87,10 @@ export function gated(s: Services, id: FeatureId | keyof ExtensionFlags, routes:
 export function csrfGuard(s: Services): MiddlewareHandler<AppEnv> {
   return async (c, next) => {
     if (["GET", "HEAD", "OPTIONS"].includes(c.req.method)) return next();
-    if (c.req.header("x-requested-with") !== "fetch") return c.json({ error: "Virheellinen pyyntö. Lataa sivu uudelleen.", code: "csrf" }, 403);
+    if (c.req.header("x-requested-with") !== "fetch") return c.json({ ...codedFor(c, "app.bad_request"), code: "csrf" }, 403);
     const origin = c.req.header("origin");
     if (origin && !originAllowed(origin, c.req.url, c.req.header("host"), s.instance.current.appBaseUrl, s.config.defaults.appBaseUrl)) {
-      return c.json({ error: "Virheellinen pyyntö. Lataa sivu uudelleen.", code: "csrf" }, 403);
+      return c.json({ ...codedFor(c, "app.bad_request"), code: "csrf" }, 403);
     }
     await next();
   };

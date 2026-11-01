@@ -1,21 +1,23 @@
 {
   "name": "@banking/server",
-  "version": "0.70.0",
+  "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "DATA_DIR=${DATA_DIR:-../../data} tsx watch --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning src/entry/node.ts",
-    "build": "esbuild src/entry/node.ts --bundle --platform=node --format=esm --target=node22 --minify --keep-names --outfile=dist/node.js --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "build": "esbuild src/entry/node.ts --bundle --platform=node --format=esm --target=node24 --minify --keep-names --outfile=dist/node.js --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
     "seed:demo": "DATA_DIR=${DATA_DIR:-../../data} tsx --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning scripts/seed-demo.ts",
+    "seed:years": "DATA_DIR=${DATA_DIR:-../../data} tsx --env-file-if-exists=../../.env --disable-warning=ExperimentalWarning scripts/seed-years.ts",
     "test": "vitest run --root ../.. apps/server",
     "typecheck": "tsc -p ."
   },
   "dependencies": {
     "@banking/core": "workspace:*",
-    "@hono/node-server": "^2.1.0",
+    "@hono/node-server": "^2.1.5",
+    "@simplewebauthn/server": "^14.0.3",
     "croner": "^10.0.0",
-    "hono": "^4.13.0"
+    "hono": "^4.13.14"
   },
   "devDependencies": {
     "esbuild": "^0.28.0",

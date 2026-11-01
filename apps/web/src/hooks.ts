@@ -1,38 +1,30 @@
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createContext, type RefObject, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
+import { queryClient } from "./query-client.ts";
 import type { Meta } from "./types.ts";
-import { hashOf, parseHash, type Route, redirectRoute, withParams } from "./routes.ts";
+import { hashOf, parseHash, type Route, withParams } from "./routes.ts";
 
 /**
- * Fetches JSON and keeps the previous data while a new request is in flight,
- * so charts hold their frame (dimmed) instead of flashing empty. `keep` is for what Yhteenveto and the shell read: the
- * answer stays on the device for when the server cannot be reached (offline.ts).
+ * Fetches JSON through the shared cache (query-client.ts): the key is the path, so two components that ask for the same
+ * path share one request and one answer. While a new path loads the previous data stays (charts hold their frame,
+ * dimmed, instead of flashing empty). `keep` is for what Yhteenveto and the shell read: the answer stays on the device for
+ * when the server cannot be reached (offline.ts). `reload` asks again whatever the age of the answer.
  */
 export function useApi<T>(path: string | null, keep = false): { data: T | null; error: string | null; loading: boolean; reload: () => void } {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (!path) return;
-    let cancelled = false;
-    setLoading(true);
-    api<T>(path, { keep })
-      .then((d) => {
-        if (cancelled) return;
-        setData(d);
-        setError(null);
-      })
-      .catch((e: Error) => !cancelled && setError(e.message))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [path, tick]);
-
-  const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { data, error, loading, reload };
+  const answer = useQuery<T, Error>(
+    {
+      queryKey: [path],
+      queryFn: () => api<T>(path!, { keep }),
+      enabled: path !== null,
+      placeholderData: keepPreviousData,
+    },
+    queryClient,
+  );
+  const reload = useCallback(() => {
+    if (path) void queryClient.invalidateQueries({ queryKey: [path], exact: true });
+  }, [path]);
+  return { data: answer.data ?? null, error: answer.error?.message ?? null, loading: answer.isFetching, reload };
 }
 
 /** Width of an element, tracked with ResizeObserver. */
@@ -50,19 +42,15 @@ export function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
   return [ref, width];
 }
 
-/** Minimal hash router: "#/transactions?category=x" → { page, params }. The role decides where the old security address goes. */
-export function useHashRoute(role: "admin" | "member"): Route {
-  const read = (): Route => {
-    const route = parseHash(window.location.hash);
-    const moved = redirectRoute(route, role);
-    if (!moved) return route;
-    // replaceState fires no hashchange and leaves no old entry for Back
-    window.history.replaceState(null, "", hashOf(moved));
-    return moved;
-  };
-  const [route, setRoute] = useState(read);
+/**
+ * The open address as a route: "#/transactions?category=x" gives { page, params }, read again when it changes. The
+ * router (router.tsx) has already moved an old address by the time a page reads this; the shell hands the pages their
+ * parameters, and this is for a component that reads the address on its own (Asetukset > Lainat).
+ */
+export function useHashRoute(): Route {
+  const [route, setRoute] = useState(() => parseHash(window.location.hash));
   useEffect(() => {
-    const onChange = () => setRoute(read());
+    const onChange = () => setRoute(parseHash(window.location.hash));
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);

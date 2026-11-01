@@ -4,6 +4,7 @@
  * password, token or financial data. Maintenance code (ops_* kinds) writes
  * through recordEvent too.
  */
+import { LOCALE, type MessageCode } from "@banking/core";
 import type { SecurityEvent } from "../db/security-repo.ts";
 import { waitingCopy } from "../db/startup-gate.ts";
 import type { Services } from "./context.ts";
@@ -18,6 +19,7 @@ export const EVENT_KINDS = [
   "new_device",
   "password_changed",
   "password_reset_by_admin",
+  "password_rehashed",
   "session_revoked",
   "user_created",
   "user_deleted",
@@ -34,6 +36,10 @@ export const EVENT_KINDS = [
   "factor_removed_by_admin",
   "recovery_codes_made",
   "recovery_code_used",
+  // passkeys (passkeys.ts)
+  "passkey_added",
+  "passkey_removed",
+  "passkey_used",
   // Asetukset > Palvelin > Etäkäyttö (remote-access.ts)
   "remote_access_on",
   "remote_access_off",
@@ -55,6 +61,12 @@ export const EVENT_KINDS = [
   "service_token_removed",
   "service_token_used",
   "service_token_refused",
+  // a numeric limit changed in the settings (routes/admin.ts, platform/limits.ts)
+  "limits_changed",
+  // the notices outside the browser turned on or off, or their address or token changed (outside-notices.ts)
+  "notices_changed",
+  // the target of the copy to another machine, its keys or its switch changed (offsite.ts)
+  "offsite_changed",
 ] as const;
 
 /** Maintenance requests and results use kinds that start with ops_. */
@@ -138,6 +150,9 @@ export interface Notice {
   kind: string;
   at: string | null;
   text: string;
+  /** The message code and parameters of the text, for a browser that reads another language; `{when}` is made from `at`. A notice with no code is shown as its text. */
+  code?: MessageCode;
+  params?: Record<string, string | number>;
   /** The device of a sign-in from a new one ("Chrome, Windows"), for the first page's row; left out on every other notice. */
   detail?: string;
 }
@@ -152,7 +167,7 @@ const INDUSTRY_NOTICE = INDUSTRY_NOTICE_KEY;
 const failSeenKey = (userId: string) => `notice_fail_seen:${userId}`;
 
 export const fiTime = (iso: string, tz: string) =>
-  new Intl.DateTimeFormat("fi-FI", { timeZone: tz, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 
 /**
  * A database that was found damaged at start and stayed (db/startup-gate.ts). Two cases the admin must tell apart:
@@ -161,8 +176,8 @@ export const fiTime = (iso: string, tz: string) =>
 function damagedNotice(detail: string | null): string {
   const copy = waitingCopy(detail);
   // no copy in the data folder: one the household kept elsewhere is put back on the server (docs/ADVANCED.md)
-  if (!copy) return "Tietokanta on vaurioitunut, eikä ehjää varmuuskopiota löytynyt. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.";
-  return `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${copy} on tallessa, mutta sitä ei saatu käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: varmuuskopio palautetaan käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.`;
+  if (!copy) return "Tietokanta on vaurioitunut, emmekä löytäneet ehjää varmuuskopiota. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.";
+  return `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${copy} on tallessa, mutta emme saaneet sitä käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: sovellus palauttaa varmuuskopion käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.`;
 }
 
 /** `probes`: a made disk in tests. */
@@ -170,27 +185,31 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   const tz = s.instance.current.timezone;
   const out: Notice[] = [];
   for (const e of await s.security.unseenNotices(user.id)) {
-    if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
-    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjauduttiin uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, detail: e.detail ?? "tuntematon" });
-    else if (e.kind === "factor_removed_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
-    else if (e.kind === "recovery_code_used") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellesi kirjauduttiin palautuskoodilla ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja tee uudet palautuskoodit.` });
+    if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.reset_by_admin" });
+    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjautui joku uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, code: "notice.new_device", params: { device: e.detail ?? "tuntematon" }, detail: e.detail ?? "tuntematon" });
+    else if (e.kind === "factor_removed_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.factor_removed" });
+    else if (e.kind === "recovery_code_used") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellesi kirjautui joku palautuskoodilla ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja tee uudet palautuskoodit.`, code: "notice.recovery_used" });
     else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "watchdog_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
-    else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Tietokanta palautettiin varmuuskopiosta"}. Sen jälkeen tehdyt muutokset menetettiin. Pankkitapahtumat haetaan uudelleen seuraavassa haussa.` });
-    else if (e.kind === "db_damaged") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: damagedNotice(e.detail) });
+    else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Palautimme tietokannan varmuuskopiosta"}. Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.` });
+    else if (e.kind === "db_damaged") {
+      const copy = waitingCopy(e.detail);
+      out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: damagedNotice(e.detail), ...(copy ? { code: "notice.db_damaged_waiting" as const, params: { copy } } : { code: "notice.db_damaged_none" as const }) });
+    }
   }
   const mark = await s.settings.get(failSeenKey(user.id));
   const since = mark && mark > new Date(s.now().getTime() - 86_400_000).toISOString() ? mark : new Date(s.now().getTime() - 86_400_000).toISOString();
   const failed = await s.security.countSince(user.id, "login_fail", since);
   if (failed > 0) {
-    out.push({ id: "fails", kind: "login_fail", at: null, text: `Tunnuksellasi epäonnistui ${failed === 1 ? "yksi kirjautuminen" : `${failed} kirjautumista`} viime vuorokauden aikana.` });
+    out.push({ id: "fails", kind: "login_fail", at: null, text: `Tunnuksellasi epäonnistui ${failed === 1 ? "yksi kirjautuminen" : `${failed} kirjautumista`} viime vuorokauden aikana.`, ...(failed === 1 ? { code: "notice.login_fail_one" as const } : { code: "notice.login_fail_many" as const, params: { count: failed } }) });
   }
   if (user.role === "admin" && (await s.settings.get(INDUSTRY_NOTICE))) {
     out.push({
       id: "industry",
       kind: "industry_lookup_off",
       at: null,
-      text: "Kauppiaiden toimialahaku YTJ:stä on pois päältä. Ota se käyttöön:",
+      text: "Kauppiaiden toimialahaku kaupparekisteristä on pois päältä. Ota se käyttöön:",
+      code: "notice.industry_off",
     });
   }
   // the safety net: copies, the disk and the host helper (db-health.ts), for admins

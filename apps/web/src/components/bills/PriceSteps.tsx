@@ -1,53 +1,25 @@
-/**
- * Decision: which subscription's price moved, and whether it is still worth what it costs now.
- *
- * One small step chart per subscription whose price has changed, every price dated (the series' `priceSteps`, core
- * recurring; `priceChange` is only the last move). Each tile has its own scale, so the chart shows when and how the
- * price moved and the labels say how much; the axis does not start at zero, which is said in the panel's note. The line
- * under each tile is the last move and what it adds to a year, both the server's.
- */
+/** The step lines of a subscription whose price moved: the drill of Laskut' table shows them. */
 import type { PriceStep } from "@banking/core";
-import { money, monthYear, plural } from "../../format.ts";
+import { money, monthYear } from "../../format.ts";
+import { t } from "../../text.ts";
+import { PRICE_RISES_HASH } from "../../routes.ts";
 import type { Recurring as Series } from "../../types.ts";
-import { MerchantAvatar } from "../MerchantAvatar.tsx";
+import { css } from "../../css.ts";
 
 /** The subscriptions whose price moved: those with two prices or more. */
 export const priceMoved = (s: Series): boolean => (s.priceSteps?.length ?? 0) > 1;
 
-export function PriceSteps({ subs, today }: { subs: Series[]; today: string }) {
-  const moved = subs.filter(priceMoved);
-  if (!moved.length) return null;
-  return (
-    <section className="card ps span-12" aria-labelledby="ps-title">
-      <div className="card-head tb">
-        <div className="card-name">
-          <h2 id="ps-title">Tilaukset, joiden hinta muuttui</h2>
-        </div>
-        <div className="card-datum">{plural(moved.length, "tilaus", "tilausta")}</div>
-      </div>
-      <ul className="ps-tiles">
-        {moved.map((s) => (
-          <li key={s.id} className="ps-tile">
-            <div className="ps-head">
-              <MerchantAvatar name={s.merchant} person={false} />
-              <span className="ps-name">{s.merchant}</span>
-            </div>
-            <StepLine name={s.merchant} steps={s.priceSteps!} today={today} />
-            <MoveLine step={s.priceSteps!.at(-1)!} />
-          </li>
-        ))}
-      </ul>
-      <p className="ps-note">Jokaisella tilauksella on oma asteikkonsa, joka ei ala nollasta.</p>
-    </section>
-  );
-}
-
-/** The last move in words: "Nousi 2,00 € 06/2026, 24,00 € enemmän vuodessa". Both figures are the step's own fields. */
-export function MoveLine({ step }: { step: PriceStep }) {
+/** The last move in words: "Nousi 2,00 € 06/2026, 24,00 € enemmän vuodessa". Both figures are the step's own fields. `calculated`: Kiinteät menot lists the rise, so the line links to its calculation. */
+export function MoveLine({ step, calculated }: { step: PriceStep; calculated: boolean }) {
   if (step.deltaCents === undefined) return null;
   const up = step.deltaCents > 0;
-  const yearly = step.yearlyDeltaCents === undefined ? "" : `, ${money(Math.abs(step.yearlyDeltaCents))} ${up ? "enemmän" : "vähemmän"} vuodessa`;
-  return <p className="ps-move">{`${up ? "Nousi" : "Laski"} ${money(Math.abs(step.deltaCents))} ${monthYear(step.date)}${yearly}`}</p>;
+  const params = { amount: money(Math.abs(step.deltaCents)), month: monthYear(step.date), yearly: step.yearlyDeltaCents === undefined ? "" : money(Math.abs(step.yearlyDeltaCents)) };
+  const code = step.yearlyDeltaCents === undefined ? (up ? "bills.step_up" : "bills.step_down") : up ? "bills.step_up_year" : "bills.step_down_year";
+  return (
+    <p className="ps-move">
+      {t(code, params)} {up && calculated && <a href={PRICE_RISES_HASH}>{t("bills.step_calc")}</a>}
+    </p>
+  );
 }
 
 /**
@@ -77,26 +49,26 @@ export function StepLine({ name, steps, today }: { name: string; steps: PriceSte
     <>
       <div className="ps-plot" aria-hidden="true">
         <span className="ps-end ps-end-first">
-          <span style={{ insetBlockStart: `${((y(steps[0]!.cents) / H) * 100).toFixed(1)}%` }}>{money(steps[0]!.cents)}</span>
+          <span ref={css({ "inset-block-start": `${((y(steps[0]!.cents) / H) * 100).toFixed(1)}%` })}>{money(steps[0]!.cents)}</span>
         </span>
         <svg className="ps-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" focusable="false">
           <path d={d} vectorEffect="non-scaling-stroke" />
         </svg>
         <span className="ps-end ps-end-now">
-          <span style={{ insetBlockStart: `${((y(last.cents) / H) * 100).toFixed(1)}%` }}>{money(last.cents)}</span>
+          <span ref={css({ "inset-block-start": `${((y(last.cents) / H) * 100).toFixed(1)}%` })}>{money(last.cents)}</span>
         </span>
         <div className="ps-dates">
           {dated.map((p) => (
-            <span key={p.date} style={{ insetInlineStart: `${((x(p.date) / W) * 100).toFixed(1)}%` }}>
+            <span key={p.date} ref={css({ "inset-inline-start": `${((x(p.date) / W) * 100).toFixed(1)}%` })}>
               {monthYear(p.date)}
             </span>
           ))}
         </div>
       </div>
-      <ol className="sr-only" aria-label={`${name}: hinnat`}>
+      <ol className="sr-only" aria-label={t("bills.prices", { name })}>
         {steps.map((p) => (
           <li key={p.date}>
-            {monthYear(p.date)} alkaen {money(p.cents)}
+            {t("bills.price_from", { month: monthYear(p.date), price: money(p.cents) })}
           </li>
         ))}
       </ol>

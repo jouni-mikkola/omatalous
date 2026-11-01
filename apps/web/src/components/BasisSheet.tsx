@@ -2,6 +2,7 @@
 // is known and the rows behind it, which the caller fetches only once the sheet is open. The figure is Why's BasisDoor:
 // nothing at rest, an accent underline under the pointer or focus; an estimate alone has "≈".
 import { type ReactNode, useCallback, useId, useState } from "react";
+import { t } from "../text.ts";
 import { Figure } from "./Figure.tsx";
 import { BasisDoor } from "./Why.tsx";
 import "../styles/basis.css";
@@ -31,7 +32,7 @@ export function BasisSheet({ id, open, title, rule, basis, note, onClose, childr
     <div className="basis-sheet" id={id} role="region" aria-labelledby={heading}>
       <div className="basis-head">
         <h3 id={heading}>{title}</h3>
-        <button type="button" className="basis-close" aria-label="Sulje" onClick={onClose}>
+        <button type="button" className="basis-close" aria-label={t("ui.close")} onClick={onClose}>
           ×
         </button>
       </div>

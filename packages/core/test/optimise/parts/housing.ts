@@ -5,7 +5,7 @@
 import { addMonths } from "../../../src/dates.ts";
 import type { HousingType, InputValues } from "../../../src/optimise/types.ts";
 import type { Transaction } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 
 export interface ChargeOpts {
   merchant?: string;

@@ -12,7 +12,6 @@ const MONEY = /[a-zA-Z]Cents\s*[-+]\s*[a-zA-Z.]*Cents|reduce\(.*Cents|\+=\s*[a-z
 
 const KNOWN: Record<string, number> = {
   "components/next-days-line.ts": 1,
-  "pages/Bills.tsx": 1,
   "pages/settings/account-use.ts": 1,
 };
 

@@ -19,7 +19,6 @@ interface Shown {
 
 async function demoPage(now: Date) {
   const app = await setupApp({}, undefined, { now: () => now });
-  expect((await app.admin.call("PUT", "/api/admin/features", { optimise: true })).status).toBe(200);
   await app.admin.call("POST", "/api/demo");
   const { status, body } = await app.admin.call("GET", "/api/optimise");
   expect(status).toBe(200);
@@ -35,7 +34,7 @@ describe("the demo history on the Optimoi page", () => {
       ["subscriptions", "overlap", 14_388, 14_388, 14_388, "keskitaso"],
     ]);
     expect(shown[0]!.id).toMatch(/^subscriptions:rise:.*:Adobe$/);
-    expect(shown[0]!.title).toBe("Adobe: hinta nousi 62,99 € → 74,99 € 14.4.2026. Nousu on 144 € vuodessa.");
+    expect(shown[0]!.title).toBe("Adobe: hinta nousi 14.4.2026.");
     expect(shown[1]!.id).toBe("subscriptions:overlap:video");
     expect(shown[1]!.title).toBe("Kaksi videopalvelua yhteensä 29,98 € kuussa: Netflix ja Max.");
     // the two findings share no series, so the headline is their sum
@@ -79,7 +78,7 @@ describe("the demo history on the Optimoi page", () => {
     expect(data.others.map((i: Insight) => i.id)).toEqual([expect.stringMatching(/^new:out:demo-.+:OpenAI$/)]);
     expect(data.othersDismissed).toEqual([]);
     const first: Insight = data.others[0];
-    const subject = `alert:${first.id}@${first.yearlyCents}`;
+    const subject = `alert:${first.id}@${Math.abs(first.effectPerYear.cents)}`;
     expect((await call("PUT", "/api/marks", { subject, mark: "dismissed" })).status).toBe(200);
     const dismissed = (await call("GET", "/api/optimise")).body.data;
     expect(dismissed.others).toEqual([]);
@@ -101,5 +100,5 @@ describe("the demo history on the Optimoi page", () => {
 
 interface Insight {
   id: string;
-  yearlyCents: number;
+  effectPerYear: { cents: number };
 }

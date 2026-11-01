@@ -3,6 +3,7 @@
  * wears nothing at rest (VD0, owner rule): the pointer, a solid accent underline under the pointer or the keyboard's focus,
  * and its accessible name say it opens. The dotted underline and "≈" belong to estimates alone (.fig-est).
  */
+@layer components {
 /* every door (Why): the pointer and the focus ring, whatever it draws (a figure, a bar) */
 .why-door { cursor: pointer; }
 .why-door:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -56,4 +57,5 @@ dialog.why .btn { font-weight: 600; }
   dialog.why { margin: auto 0 0; width: 100vw; max-width: 100vw; max-height: 85dvh; border-radius: var(--radius) var(--radius) 0 0; padding-bottom: calc(var(--pad) + env(safe-area-inset-bottom)); }
   .why-rows .why-cat { display: none; }
   .why-cat-sub { display: block; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+}
 }

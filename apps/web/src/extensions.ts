@@ -10,6 +10,8 @@ export interface WebExtension {
   readonly id: string;
   /** A card of Asetukset, after Lainat. */
   readonly settingsCard?: ComponentType;
+  /** The anchor of that card, so an address that names it opens Talous, where the extensions' cards are. */
+  readonly settingsAnchor?: string;
   /** A page of its own at `#/<id>`, its nav entry after the shared ones. */
   readonly page?: { readonly label: string; readonly component: ComponentType<{ params: URLSearchParams }> };
   /** Labels of its security events in Asetukset > Turvallisuus. */

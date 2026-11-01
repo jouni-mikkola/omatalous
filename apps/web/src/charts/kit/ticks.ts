@@ -31,6 +31,23 @@ export function monthTicks(months: readonly string[], pitch: number, keep: Reado
   return months.map((m, i) => ({ text: texts[i]!, year: every && m.endsWith("-01") ? m.slice(0, 4) : null, printed: room.has(i) }));
 }
 
+/**
+ * The labels of a long month axis at one even step (every 1, 2, 3, 4, 6 or 12 months from the first): the step is the
+ * smallest that leaves each label its room, so the printed ones stand at equal distances whatever their widths. A
+ * printed label carries its year under it at the first one, at each January and at every one when the step is a year,
+ * so the same month name twice stays two points in time.
+ */
+export function evenMonthTicks(months: readonly string[], pitch: number): { text: string; year: string | null; printed: boolean }[] {
+  const roomy = monthTicks(months, pitch);
+  const fit = roomy.filter((t) => t.printed).length;
+  const step = [1, 2, 3, 4, 6, 12].find((n) => n * fit >= months.length) ?? 12;
+  return roomy.map((t, i) => {
+    const printed = i % step === 0;
+    const year = printed && (i === 0 || step >= 12 || months[i]!.endsWith("-01")) ? months[i]!.slice(0, 4) : null;
+    return { ...t, year, printed };
+  });
+}
+
 /** The days of a month axis that carry a label: 1, 5, 10, 15, 20, 25 and the last, the 25th leaving out when the last is close. */
 export function dayTicks(days: number): number[] {
   return [1, 5, 10, 15, 20, 25, days].filter((d, i, a) => d <= days && a.indexOf(d) === i && !(d === 25 && days - 25 < 3));

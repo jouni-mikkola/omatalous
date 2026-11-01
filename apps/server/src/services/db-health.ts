@@ -123,7 +123,7 @@ export async function watchCopies(s: Services, today: string, copiedNow: boolean
 
 // ── the notices ──────────────────────────────────────────
 
-type Kind = "copy_missing" | "copy_check_failed" | "disk_low" | "helper_silent";
+export type Kind = "copy_missing" | "copy_check_failed" | "disk_low" | "helper_silent";
 
 interface Condition {
   kind: Kind;
@@ -183,7 +183,7 @@ async function began(s: Services, holds: { copy_missing: boolean; disk_low: bool
 }
 
 /** What is wrong with the safety net now. Reads files and settings; writes only the two beginnings above. */
-async function conditions(s: Services, probes: HealthProbes = {}): Promise<Condition[]> {
+export async function conditions(s: Services, probes: HealthProbes = {}): Promise<Condition[]> {
   const now = s.now().getTime();
   // a new install has no copy before its first night: the first 36 hours after the first user are left alone
   const installed = Date.parse((await s.users.list())[0]?.createdAt ?? "");
@@ -196,9 +196,9 @@ async function conditions(s: Services, probes: HealthProbes = {}): Promise<Condi
   const helperSeen = await s.settings.get(HELPER_SEEN_KEY);
 
   const out: Condition[] = [];
-  if (copyMissing) out.push({ kind: "copy_missing", key: since.copy_missing!, text: `Ehjää varmuuskopiota ei ole tehty 36 tuntiin. Ota varmuuskopio kohdassa ${WHERE}.` });
+  if (copyMissing) out.push({ kind: "copy_missing", key: since.copy_missing!, text: `Uusin ehjä varmuuskopio on yli 36 tuntia vanha. Ota varmuuskopio kohdassa ${WHERE}.` });
   if (check && check.ok === false) {
-    out.push({ kind: "copy_check_failed", key: String(check.at), text: `Varmuuskopio ${check.file} ei läpäissyt tarkistusta eikä sitä enää käytetä palautukseen. Ota uusi varmuuskopio kohdassa ${WHERE}.` });
+    out.push({ kind: "copy_check_failed", key: String(check.at), text: `Varmuuskopio ${check.file} ei läpäissyt tarkistusta, joten emme käytä sitä enää palautukseen. Ota uusi varmuuskopio kohdassa ${WHERE}.` });
   }
   if (diskLow) out.push({ kind: "disk_low", key: since.disk_low!, text: `Palvelimen levyllä on enää ${Math.floor((disk.freeBytes ?? 0) / MB)} Mt vapaata tilaa. Siivoa levy kohdassa ${WHERE}.` });
   // "stale" is the helper's own word for it (ops-validate.ts): seen once, and not for 24 hours

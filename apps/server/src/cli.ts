@@ -133,6 +133,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 1;
   }
   if (command === "create") {
+    await s.instance.load();
     const { user, temporaryPassword } = await createUser(s, {
       username,
       displayName: option(args, "--name") ?? username,
@@ -148,11 +149,12 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 1;
   }
   if (command === "reset-password") {
+    await s.instance.load();
     console.log(`New temporary password for ${username}: ${await resetPassword(s, record.id)}`);
     return 0;
   }
   if (command === "remove-factor") {
-    if (!(await s.factors.hasTotp(record.id))) {
+    if (!(await s.factors.hasAny(record.id))) {
       console.error(`${username} has no second sign-in factor.`);
       return 1;
     }

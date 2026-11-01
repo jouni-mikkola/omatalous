@@ -2,7 +2,9 @@
 import { useState } from "react";
 import { api } from "../../api.ts";
 import { CopyValue } from "./CopyValue.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { rich, t } from "../../text.ts";
 type Answer = "ok" | "redirect_not_allowed" | "error";
 
 export function BankRedirectTest({ redirectUrl }: { redirectUrl: string }) {
@@ -20,16 +22,16 @@ export function BankRedirectTest({ redirectUrl }: { redirectUrl: string }) {
     }
   };
   return (
-    <div className="form-row" style={{ margin: 0 }}>
-      <button className="btn" type="button" disabled={busy} aria-busy={busy || undefined} onClick={() => void test()}>
-        {busy ? "Testataan…" : "Testaa paluuosoite"}
-      </button>
-      {answer === "ok" && <span className="notice good" role="status">Paluuosoite toimii.</span>}
-      {answer === "error" && <span className="notice warning" role="status">Testi epäonnistui.</span>}
+    <div className="form-row flush">
+      <Button busy={busy} onClick={() => void test()}>
+        {busy ? t("set.brt.testing") : t("set.brt.test_the_return_address")}
+      </Button>
+      {answer === "ok" && <Notice tone="good" role="status">{t("set.brt.the_return_address_works")}</Notice>}
+      {answer === "error" && <Notice tone="warning" role="status">{t("set.brt.the_test_failed")}</Notice>}
       {answer === "redirect_not_allowed" && (
-        <span className="notice warning" role="status">
-          Osoite puuttuu Redirect URLs -kohdasta: <CopyValue value={redirectUrl} label="paluuosoite" />
-        </span>
+        <Notice tone="warning" role="status">
+          {rich("set.brt.address_missing", {}, { copy: <CopyValue value={redirectUrl} label={t("set.brt.return_address")} /> })}
+        </Notice>
       )}
     </div>
   );

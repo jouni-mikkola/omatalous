@@ -1,6 +1,6 @@
 /**
  * GET /api/loans/proposals: the loans the bank rows show and the household has not answered. A proposal goes when a loan
- * with its series key is saved and when "Ei laina" is marked, at once and with no data version moving; another user's
+ * with its series key is saved and when "Ei ole laina" is marked, at once and with no data version moving; another user's
  * rows give nothing.
  */
 import { notLoanMark, type RawTransaction } from "@banking/core";
@@ -75,7 +75,7 @@ describe("loan proposals", () => {
     expect((await t.proposals()).map((p) => p.key)).toEqual([proposal!.key]);
   });
 
-  it("goes when Ei laina is marked, at once, and comes back when the mark is taken away", async () => {
+  it("goes when Ei ole laina is marked, at once, and comes back when the mark is taken away", async () => {
     const t = await withLoanRows();
     const [proposal] = await t.proposals();
     const version = await t.s.settings.dataVersionOf([t.adminId]);

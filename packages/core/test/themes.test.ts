@@ -18,7 +18,7 @@ import { fuelPurchases, themeOf, THEMES } from "../src/themes.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
-import { enrich, FRAME, householdInput, joinHousehold } from "./optimise/household.ts";
+import { enrich, FRAME, householdInput, joinHousehold } from "./optimise/household-kit.ts";
 import * as carPart from "./optimise/parts/car.ts";
 import { rowsOf } from "./optimise/parts/tax.ts";
 

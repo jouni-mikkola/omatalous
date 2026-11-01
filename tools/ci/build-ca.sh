@@ -44,6 +44,10 @@ fi
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REAL=$(cat "$HERE/real")
+# REAL may be a shim that looks for the first docker on PATH outside its own folder (the run gate of the machine): this
+# folder's docker would be that one, and the two would call each other for ever. So docker is run without this folder in PATH.
+PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF "$HERE" | paste -sd: -) || true
+export PATH
 CA=$HERE/build-ca.crt
 [[ -f $CA ]] || CA=''
 die() { echo "PROOF_BUILD_CA: $*" >&2; exit 1; }

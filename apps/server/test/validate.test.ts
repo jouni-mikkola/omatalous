@@ -7,6 +7,10 @@ describe("input validators", () => {
   it("parseBaseUrl keeps an http(s) origin and refuses paths, credentials and odd characters", () => {
     expect(parseBaseUrl("https://talous.oma.fi")).toBe("https://talous.oma.fi");
     expect(parseBaseUrl("http://localhost:8080/")).toBe("http://localhost:8080");
+    // names of the home network, behind the household's own proxy and certificate authority
+    for (const name of ["https://koti.home.arpa", "https://omatalous.lan", "https://192.168.1.10", "https://koti.home.arpa:8443/"]) {
+      expect(parseBaseUrl(name), name).toBe(name.replace(/\/$/, ""));
+    }
     for (const bad of ["https://talous.oma.fi/api", "https://u:p@talous.oma.fi", "ftp://talous.oma.fi", "https://talous.oma.fi?x=1", "https://a b.fi", 5, null]) {
       expect(() => parseBaseUrl(bad), String(bad)).toThrow(UserError);
     }

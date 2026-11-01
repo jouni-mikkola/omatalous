@@ -4,7 +4,7 @@ import { detectTransfers } from "../src/transfers.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { detectTransfersReference } from "./transfers-reference.ts";
-import { bestOfSync } from "../../../tools/lib/timing.ts";
+import { weeklyMoves } from "./transfers-kit.ts";
 
 const accounts: Account[] = [
   { id: "a", name: "Käyttötili", iban: "FI0000000000000001", currency: "EUR", type: "checking" },
@@ -59,16 +59,10 @@ describe("detectTransfers pairing window", () => {
     expect(paired).toBeGreaterThan(1000);
   });
 
-  it("pairs thousands of identical weekly moves in well under a second", () => {
-    const pairs = 4000;
-    const txs: Transaction[] = [];
-    for (let i = 0; i < pairs; i++) {
-      const day = addDays("2010-01-01", i * 3);
-      txs.push(tx({ id: `o${i}`, accountId: "a", bookingDate: day, amountCents: -20000 }), tx({ id: `i${i}`, accountId: "b", bookingDate: day, amountCents: 20000 }));
-    }
-    const { ms, result: found } = bestOfSync(3, () => detectTransfers(txs, accounts));
-    expect(found.size).toBe(pairs * 2);
-    expect(ms).toBeLessThan(1000);
+  // the time of this is in transfers.perf.test.ts
+  it("pairs thousands of identical weekly moves", () => {
+    const found = detectTransfers(weeklyMoves(4000), accounts);
+    expect(found.size).toBe(8000);
   });
 });
 

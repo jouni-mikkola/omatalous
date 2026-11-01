@@ -7,7 +7,9 @@ import { logoForInstitution } from "../../banks.ts";
 import { BankLogo } from "../../components/BankLogo.tsx";
 import { dueText, roundLabel, roundText } from "../../consent-notices.ts";
 import type { Meta } from "../../types.ts";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
 export function RenewalRound({ meta, disabled, busy, onStart, onNext, onClose }: {
   meta: Meta;
   /** No bank can be started yet, or another press is on its way. */
@@ -26,21 +28,21 @@ export function RenewalRound({ meta, disabled, busy, onStart, onNext, onClose }:
   if (!round) {
     if (due.length < 2) return null;
     return (
-      <div className="notice warning renewal">
+      <Notice tone="warning" className="renewal">
         <p>{dueText(due.map((c) => labelOf(due, c)))}</p>
-        <p className="small">Uusi ne yhdellä kierroksella: yhteys kerrallaan, ja tästä näet, mitkä ovat valmiit.</p>
-        <button className="btn btn-primary" type="button" disabled={disabled} aria-busy={busy === "connect-round" || undefined} onClick={onStart}>
-          Uusi kaikki yhteydet
-        </button>
-      </div>
+        <p className="small">{t("set.rr.renew_them_in_one_round")}</p>
+        <Button variant="primary" disabled={disabled} aria-busy={busy === "connect-round" || undefined} onClick={onStart}>
+          {t("set.rr.renew_all_connections")}
+        </Button>
+      </Notice>
     );
   }
 
   const next = round.consents.find((c) => !c.done);
   return (
-    <div className={round.finished ? "notice good renewal" : "notice warning renewal"} role="status">
+    <Notice tone={round.finished ? "good" : "warning"} className="renewal" role="status">
       <p>
-        <strong>Yhteyksien uusiminen</strong> · {roundText(round)}
+        <strong>{t("set.rr.renewing_connections")}</strong> · {roundText(round)}
       </p>
       <ul>
         {round.consents.map((c) => {
@@ -49,21 +51,21 @@ export function RenewalRound({ meta, disabled, busy, onStart, onNext, onClose }:
           return (
             <li key={c.connection}>
               {logo && <BankLogo src={logo} name={name} size="sm" />} {labelOf(round.consents, c)}
-              <span className={c.done ? "badge good" : "badge warn"}>{c.done ? "uusittu" : "odottaa"}</span>
+              <span className={c.done ? "badge good" : "badge warn"}>{c.done ? t("set.rr.renewed") : t("set.rr.waiting")}</span>
             </li>
           );
         })}
       </ul>
-      <div className="form-row" style={{ margin: 0 }}>
+      <div className="form-row flush">
         {next && (
-          <button className="btn btn-primary" type="button" disabled={disabled} aria-busy={busy === `connect-${next.bank}` || undefined} onClick={() => onNext(next.bank)}>
-            Uusi {labelOf(round.consents, next)}
-          </button>
+          <Button variant="primary" disabled={disabled} aria-busy={busy === `connect-${next.bank}` || undefined} onClick={() => onNext(next.bank)}>
+            {t("set.rr.renew_label", { label: labelOf(round.consents, next) })}
+          </Button>
         )}
-        <button className="btn" type="button" disabled={busy !== null} aria-busy={busy === "round-close" || undefined} onClick={onClose}>
-          {round.finished ? "Sulje" : "Lopeta kierros"}
-        </button>
+        <Button disabled={busy !== null} aria-busy={busy === "round-close" || undefined} onClick={onClose}>
+          {round.finished ? t("set.rr.close") : t("set.rr.end_the_round")}
+        </Button>
       </div>
-    </div>
+    </Notice>
   );
 }

@@ -7,7 +7,7 @@
 import { daysInMonth } from "../../../src/dates.ts";
 import type { InputValues } from "../../../src/optimise/types.ts";
 import type { Account, Transaction } from "../../../src/types.ts";
-import type { Frame, Part, PartHousehold } from "../household.ts";
+import type { Frame, Part, PartHousehold } from "../household-kit.ts";
 
 type Row = Partial<Transaction> & Pick<Transaction, "bookingDate" | "amountCents" | "merchant">;
 

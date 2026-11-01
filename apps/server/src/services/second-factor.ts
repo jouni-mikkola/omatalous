@@ -1,14 +1,15 @@
 /**
- * The second sign-in factor: an authenticator app (TOTP, security/totp.ts) and ten recovery codes. The secret is
+ * The second sign-in factor: an authenticator app (TOTP, security/totp.ts), ten recovery codes and passkeys (passkeys.ts). The secret is
  * sealed with the server's key like the bank keys; a recovery code is stored only as a hash. Every code typed, at
  * sign-in, at enrolment and when removing, counts in one throttle (factorLimiter) and fails into the same events.
  */
 import { timingSafeEqual } from "node:crypto";
-import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
+import { HttpUserError, tooMany, UserError } from "../platform/errors.ts";
 import { randomBytes, sha256 } from "../security/encoding.ts";
 import { addressKey } from "../security/rate-limit.ts";
 import { newSecret, otpauthUri, stepOf, totpCode } from "../security/totp.ts";
 import type { Services } from "./context.ts";
+import { publicAddressUp } from "./remote-access.ts";
 import { databaseOpensWith } from "./secret-rotation.ts";
 import { recordEvent } from "./security.ts";
 import { confirmPassword, type RequestInfo } from "./users.ts";
@@ -16,16 +17,15 @@ import { confirmPassword, type RequestInfo } from "./users.ts";
 const RECOVERY_COUNT = 10;
 const RECOVERY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const RECOVERY_SHAPE = /^[A-HJ-NP-Z2-9]{10}$/;
-const WRONG_CODE = "Koodi on väärä.";
-const WRONG_PASSWORD = "Salasana on väärä.";
+const WRONG_PASSWORD = "auth.password_wrong";
 /** What a pending enrolment holds while one confirm is storing it, so a second confirm at the same moment finds it taken. */
 const CLAIMED = "";
 
 const sealContext = (userId: string) => `factor:${userId}`;
-const recoveryHash = (userId: string, code: string) => sha256(`recovery:${userId}:${code}`);
+export const recoveryHash = (userId: string, code: string) => sha256(`recovery:${userId}:${code}`);
 
 /** Ten codes as the user is shown them, `XXXXX-XXXXX`; 50 random bits each. */
-function newRecoveryCodes(): string[] {
+export function newRecoveryCodes(): string[] {
   return Array.from({ length: RECOVERY_COUNT }, () => {
     const chars = Array.from(randomBytes(10), (b) => RECOVERY_ALPHABET[b & 31]).join("");
     return `${chars.slice(0, 5)}-${chars.slice(5)}`;
@@ -48,22 +48,22 @@ function matchStep(secret: string, code: string, nowMs: number, lastStep: number
   return found;
 }
 
-const normalRecovery = (code: string) => code.toUpperCase().replace(/[\s-]/g, "");
+export const normalRecovery = (code: string) => code.toUpperCase().replace(/[\s-]/g, "");
 
 export async function factorStatus(s: Services, userId: string): Promise<{ enabled: boolean; since: string | null; lastUsedAt: string | null; recoveryLeft: number }> {
   const factor = await s.factors.totp(userId);
-  return { enabled: !!factor, since: factor?.createdAt ?? null, lastUsedAt: factor?.lastUsedAt ?? null, recoveryLeft: factor ? await s.factors.recoveryLeft(userId) : 0 };
+  return { enabled: !!factor, since: factor?.createdAt ?? null, lastUsedAt: factor?.lastUsedAt ?? null, recoveryLeft: await s.factors.recoveryLeft(userId) };
 }
 
 /**
  * Counts the try before it is made (parallel guesses cannot slip past), per address and user and per user from
  * every address, and gives it back when it succeeds. A wrong code is a `login_fail` event like a wrong password.
  */
-async function throttled<T>(s: Services, user: { id: string; username: string }, req: RequestInfo, attempt: () => Promise<T | null>): Promise<T | null> {
+export async function throttled<T>(s: Services, user: { id: string; username: string }, req: RequestInfo, attempt: () => Promise<T | null>, what = "koodi"): Promise<T | null> {
   const userKey = `${addressKey(req.ip ?? "local")}|${user.id}`;
   const refuse = async (wait: number, first: boolean): Promise<never> => {
-    if (first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: "koodi" });
-    throw new TooManyAttempts(tooManyMessage(wait), wait);
+    if (first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: what });
+    throw tooMany(wait);
   };
   const byUser = s.factorLimiter.user.consume(userKey);
   if (byUser.wait) return refuse(byUser.wait, byUser.first);
@@ -74,7 +74,7 @@ async function throttled<T>(s: Services, user: { id: string; username: string },
   }
   const result = await attempt();
   if (result === null) {
-    await recordEvent(s, { kind: "login_fail", userId: user.id, ...req, detail: `koodi, ${user.username}` });
+    await recordEvent(s, { kind: "login_fail", userId: user.id, ...req, detail: `${what}, ${user.username}` });
     return null;
   }
   s.factorLimiter.user.reset(userKey);
@@ -155,7 +155,7 @@ export async function confirmEnrol(s: Services, user: { id: string; username: st
   if (secret === CLAIMED) throw alreadyOn();
   await keyIsCurrent(s);
   const step = await throttled(s, user, req, async () => matchStep(secret, input.replace(/\s/g, ""), s.now().getTime(), null));
-  if (step === null) throw new UserError(WRONG_CODE);
+  if (step === null) throw UserError.of("auth.bad_code");
   const pending = s.factorEnrolments.get(user.id, s.now().getTime());
   if (pending !== secret) {
     if (pending === CLAIMED || (await s.factors.hasTotp(user.id))) throw alreadyOn();
@@ -174,22 +174,30 @@ export async function confirmEnrol(s: Services, user: { id: string; username: st
   return codes;
 }
 
+/**
+ * An admin keeps a second factor while the address is public (remote-access.ts refuses to publish without one): the
+ * last one is not taken away until the access is off.
+ */
+export async function mustKeepFactor(s: Services, userId: string): Promise<boolean> {
+  return (await s.users.get(userId))?.role === "admin" && (await publicAddressUp(s));
+}
+
 /** Password and a code, for what takes the factor away or makes new codes. */
-async function confirmOwner(s: Services, user: { id: string; username: string }, password: string, code: string, req: RequestInfo): Promise<void> {
-  if (!(await s.factors.hasTotp(user.id))) throw new UserError("Kaksivaiheinen kirjautuminen ei ole käytössä.");
+async function confirmOwner(s: Services, user: { id: string; username: string }, password: string, code: string, req: RequestInfo, has: "totp" | "any"): Promise<void> {
+  if (!(await (has === "totp" ? s.factors.hasTotp(user.id) : s.factors.hasAny(user.id)))) throw new UserError("Kaksivaiheinen kirjautuminen ei ole käytössä.");
   await confirmPassword(s, user, password, req, "kaksivaiheinen kirjautuminen", WRONG_PASSWORD);
-  if (!(await takeCode(s, user, code, req))) throw new UserError(WRONG_CODE);
+  if (!(await takeCode(s, user, code, req))) throw UserError.of("auth.bad_code");
 }
 
 export async function removeOwnFactor(s: Services, user: { id: string; username: string }, password: string, code: string, req: RequestInfo): Promise<void> {
-  await confirmOwner(s, user, password, code, req);
-  await s.factors.removeAll(user.id);
+  await confirmOwner(s, user, password, code, req, "totp");
+  if (!(await s.factors.removeTotp(user.id, await mustKeepFactor(s, user.id)))) throw UserError.of("factor.keep_while_public");
   await recordEvent(s, { kind: "factor_off", userId: user.id, ...req });
 }
 
 /** New recovery codes; the ones before are gone. */
 export async function remakeRecoveryCodes(s: Services, user: { id: string; username: string }, password: string, code: string, req: RequestInfo): Promise<string[]> {
-  await confirmOwner(s, user, password, code, req);
+  await confirmOwner(s, user, password, code, req, "any");
   const codes = newRecoveryCodes();
   await s.factors.replaceRecovery(user.id, await Promise.all(codes.map((c) => recoveryHash(user.id, normalRecovery(c)))), s.now().toISOString());
   await recordEvent(s, { kind: "recovery_codes_made", userId: user.id, ...req });
@@ -209,8 +217,8 @@ export async function removeFactorOf(s: Services, targetId: string, by: string, 
 /** An admin takes a member's factor away. An admin's own factor is removed by that admin alone, with removeOwnFactor (or by the host's command line). */
 export async function removeFactorByAdmin(s: Services, admin: { username: string }, targetId: string, req: RequestInfo): Promise<void> {
   const target = await s.users.get(targetId);
-  if (!target) throw new UserError("Käyttäjää ei löydy.");
-  if (target.role === "admin") throw new UserError("Ylläpitäjän kaksivaiheisen kirjautumisen voi poistaa vain hän itse.");
-  if (!(await s.factors.hasTotp(targetId))) throw new UserError("Jäsenellä ei ole kaksivaiheista kirjautumista.");
+  if (!target) throw UserError.of("user.missing");
+  if (target.role === "admin") throw new UserError("Ylläpitäjä voi poistaa kaksivaiheisen kirjautumisensa vain itse.");
+  if (!(await s.factors.hasAny(targetId))) throw new UserError("Jäsenellä ei ole kaksivaiheista kirjautumista.");
   await removeFactorOf(s, targetId, `ylläpitäjä ${admin.username}`, req);
 }

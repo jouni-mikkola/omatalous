@@ -7,8 +7,8 @@
 # oldest row through `docker compose exec ... ops poll`, checks it against a fixed list, runs one of our own
 # scripts and reports the result back through `ops report`. Nothing from the database reaches a shell: the
 # row is accepted only if the whole poll answer matches one exact shape, and the action is picked by a
-# `case` with a refusing default. Version 5 knows twelve actions: check-update, update, rollback, backup, restart, doctor,
-# logs, prune, helper-renew, access (scripts/lib/ops-access.sh), prerelease-on and prerelease-off. None takes parameters.
+# `case` with a refusing default. Version 6 knows thirteen actions: check-update, update, rollback, backup, restart, doctor,
+# logs, prune, helper-renew, access (scripts/lib/ops-access.sh), prerelease-on, prerelease-off and offsite (scripts/lib/ops-offsite.sh). None takes parameters.
 #
 # Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what matters.
 # A release install takes only a version the GitHub Releases API names, only if it is a semver step up from the running
@@ -28,7 +28,7 @@
 #   ops-helper.sh --version  prints the protocol version
 #   ops-helper.sh --self-test  runs self_test (scripts/lib/ops-selftest.sh), the only argument it takes
 # ──────────────────────────────────────────────────────────────────────────────
-OPS_HELPER_VERSION=5
+OPS_HELPER_VERSION=6
 set -u -o pipefail
 set +x
 
@@ -72,7 +72,7 @@ esac
 cd "$ROOT" || exit 1
 OPS=ops
 DEFAULT_INSTANCE=banking-app
-ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew access prerelease-on prerelease-off"
+ACTIONS="update rollback backup restart doctor check-update logs prune helper-renew access prerelease-on prerelease-off offsite"
 NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
@@ -149,7 +149,7 @@ scrub_out() {
 check_permissions() {
   local p me o m n r rec i=0 ex=() recs=()
   me=$(id -u)
-  for p in . .git .git/config scripts "$SELF" scripts/*.sh scripts/lib scripts/lib/*.sh "$OPS" .env "$OPS/policy" "$OPS/channel" "$OPS/journal" "$OPS/run" backups/.last-update; do
+  for p in . .git .git/config scripts "$SELF" scripts/*.sh scripts/lib scripts/lib/*.sh docker-compose.yml Dockerfile deploy deploy/Caddyfile "$OPS" .env "$OPS/policy" "$OPS/channel" "$OPS/journal" "$OPS/run" backups/.last-update; do
     [[ -e $p ]] && ex+=("$p")
   done
   for p in ${COPY[@]+"${COPY[@]}"}; do [[ -e $p ]] && ex+=("$p"); done
@@ -172,7 +172,7 @@ check_permissions() {
 load_libs() {
   local l
   # shellcheck source=/dev/null
-  for l in release selftest watchdog address housekeeping wake git actions step hourly; do . "$LIB/ops-$l.sh" || return 1; done
+  for l in release selftest watchdog address housekeeping wake git actions step hourly offsite; do . "$LIB/ops-$l.sh" || return 1; done
   # shellcheck source=lib/ops-access.sh
   ACCESS_LIB=""; . "$LIB/ops-access.sh" 2>/dev/null && ACCESS_LIB=1
   # shellcheck source=/dev/null
@@ -434,9 +434,8 @@ act_rollback() {
   elif ((ROLLBACK_RC == 0)); then fail "Palautettu sovellus ei vastaa."
   else fail "Palautus ei onnistunut. Syy on lokissa." "$ROLLBACK_RC"; fi
 }
-# backup, restart, doctor, logs, prune and helper-renew (act_backup ... act_helper_renew) are in scripts/lib/ops-actions.sh (load_libs)
-# the change of remote access the app prepared, checked there (access_apply, lib/ops-access.sh)
-act_access() { if [[ -n ${ACCESS_LIB:-} ]]; then access_apply "$1"; else fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; fi; }
+# act_backup ... act_helper_renew are in lib/ops-actions.sh, act_offsite in lib/ops-offsite.sh; the change of remote access the app prepared is checked in lib/ops-access.sh (access_apply)
+act_access() { if [[ -n ${ACCESS_LIB:-} ]]; then access_locked "$1"; else fail "Etäkäytön muutosta ei voitu tehdä: osa apurista puuttuu. Mitään ei muutettu."; fi; }
 
 # runs one request that passed validation
 # shellcheck disable=SC2034 # STEP_T0, STEP_OFF and STEP_ID are read by lib/ops-step.sh
@@ -458,6 +457,7 @@ run_request() { # run_request ID ACTION
     prune) act_prune ;;
     helper-renew) act_helper_renew ;;
     access) act_access "$id" ;;
+    offsite) act_offsite ;;
     prerelease-on) act_prerelease yes ;; # lib/ops-release.sh. The name is the whole request: yes and no are this file's words
     prerelease-off) act_prerelease no ;;
     *) fail "Tuntematon toiminto." ;;
@@ -555,7 +555,7 @@ main() {
   if ! env_check; then log ".env is invalid: $ENV_ERR. The helper does not run until it is fixed."; exit 1; fi
   [[ $INSTANCE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { log "INSTANCE_NAME is invalid"; exit 1; }
   load_libs || { log "A part of the helper does not load (scripts/lib). The helper does not run."; exit 1; }
-  now_iso >"$OPS/helper-seen"; rm -f .env.new 2>/dev/null # (left by a helper killed while it wrote .env: it holds the tunnel token)
+  now_iso >"$OPS/helper-seen"; (declare -F installer_lock >/dev/null && installer_lock && rm -f .env.new) 2>/dev/null || true # (left by a helper killed while it wrote .env: it holds the tunnel token; an installer that holds the lock may be writing it now)
   policy_docker
   docker info >/dev/null 2>&1 || { log "Docker does not respond"; exit 0; }
   # A request cut short by a kill is finished as failed. An `access` or a `restart` then starts the containers again

@@ -1,16 +1,19 @@
 /**
- * The household's Enable Banking application (admin), shared by the first-run wizard and Asetukset > Palvelin:
+ * The household's Enable Banking application (admin), shared by the first-run wizard and Asetukset > Pankit ja tilit:
  * the key, the values to type into Enable Banking's registration form, and the Application ID with its test.
  */
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { dateTime } from "../../format.ts";
 import type { InstanceState } from "../../types.ts";
-import { BankCapabilities, bankSeen, useBankCapabilities } from "./BankCapabilities.tsx";
+import { useBankSeen } from "./bank-seen.ts";
 import { BankRedirectTest } from "./BankRedirectTest.tsx";
-import { CopyValue } from "./CopyValue.tsx";
+import { CopyAll, Copyable } from "./CopyValue.tsx";
 import "../../styles/settings.css";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { rich, t } from "../../text.ts";
 const APP_ID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 /** A .pem key is a few kilobytes; the server refuses anything over 16 KB. */
 const MAX_KEY_BYTES = 16 * 1024;
@@ -19,7 +22,7 @@ const EB_PANEL = "https://enablebanking.com/cp/applications";
 const EB_SIGN_IN = "https://enablebanking.com/sign-in/";
 /** The values the registration form asks for that do not depend on the install. */
 const APP_NAME = "Omatalous";
-const APP_DESCRIPTION = "Omatalous: kotitalouden oma taloussovellus";
+const appDescription = () => t("set.app.description");
 
 const CERTIFICATE_URL = "/api/admin/bank-app/certificate";
 
@@ -47,14 +50,17 @@ export function autoSaveWanted(saved: boolean, busy: boolean, signature: string,
 export function BankAppSetup({
   state,
   onState,
+  calm,
 }: {
   state: InstanceState;
   onState: (next: InstanceState) => void;
-  /** Unused since the trailing encryption note was dropped; kept until Server.tsx stops passing it. */
-  compact?: boolean;
+  /** On Asetukset, where Yhdistä pankki is the one primary button and the guide is folded until it is asked for; the first-run wizard has no other and shows it. */
+  calm?: boolean;
 }) {
   const app = state.bankApp;
   const [changing, setChanging] = useState(false);
+  const [guideAsked, setGuideAsked] = useState(false);
+  const [asking, setAsking] = useState<"remove" | "key" | null>(null);
   const [mode, setMode] = useState<Mode>("generate");
   const [appId, setAppId] = useState("");
   const [keyFile, setKeyFile] = useState<{ name: string; text: string } | null>(null);
@@ -68,7 +74,7 @@ export function BankAppSetup({
   // the Application ID is tried against Enable Banking as soon as it is pasted (one call per distinct id and key);
   // the result carries the id and key it is for, so a result of an earlier paste is never taken for the one on screen
   const [check, setCheck] = useState<{ signature: string; busy: boolean; result: { verified: boolean; message: string } | null }>({ signature: "", busy: false, result: null });
-  const capabilities = useBankCapabilities(app.appId);
+  const banksSeen = useBankSeen(app.appId);
   const checked = useRef("");
   const autoSaved = useRef("");
 
@@ -119,7 +125,7 @@ export function BankAppSetup({
     if (!file) return setKeyFile(null);
     if (file.size > MAX_KEY_BYTES) {
       setKeyFile(null);
-      return setFileError("Tiedosto ei ole avain. Valitse Enable Bankingin .pem-tiedosto.");
+      return setFileError(t("set.app.the_file_is_not_a"));
     }
     setKeyFile({ name: file.name, text: await file.text() });
   };
@@ -133,19 +139,19 @@ export function BankAppSetup({
       setAppId("");
       setChanging(false);
       // nobody pressed a button, so say what happened
-      if (auto && next.result?.verified) setMessage({ ok: true, text: "Application ID tallennettu. Yhteys toimii." });
+      if (auto && next.result?.verified) setMessage({ ok: true, text: t("set.app.application_id_saved_the_connection") });
     }
   };
 
   const activate = (e: FormEvent) => {
     e.preventDefault();
     if (!APP_ID.test(appId)) {
-      setIdError(appId ? "Application ID on muotoa 12345678-abcd-…" : "Anna Application ID.");
+      setIdError(appId ? t("set.app.the_application_id_looks_like") : t("set.app.enter_the_application_id"));
       idInput.current?.focus();
       return;
     }
     if (mode === "upload" && !keyFile) {
-      setFileError("Valitse avaintiedosto.");
+      setFileError(t("set.app.choose_the_key_file"));
       fileInput.current?.focus();
       return;
     }
@@ -163,53 +169,58 @@ export function BankAppSetup({
 
   if (!state.secret.available) {
     return (
-      <div className="notice warning">
-        Palvelimen salausavain puuttuu (<code>/secrets/app_secret</code>). Lokin näet komennolla <code>docker compose logs banking</code>.
-      </div>
+      <Notice tone="warning">
+        {rich("set.app.no_secret")}
+      </Notice>
     );
   }
 
+  // what Enable Banking's registration form asks for; the email is the household's own
+  const registration = [
+    { label: "Application name", value: APP_NAME },
+    { label: "Allowed redirect URLs", value: app.redirectUrl },
+    { label: "Application description", value: appDescription() },
+    { label: "Privacy URL", value: app.privacyUrl },
+    { label: "Terms URL", value: app.termsUrl },
+  ];
   const configured = app.source !== null;
   const showSetup = !configured || changing || app.pendingSince !== null;
+  // a key made or a change begun is a step taken, so the guide stays open
+  const guideFolded = !!calm && !configured && !changing && !guideAsked && app.pendingSince === null;
 
   return (
-    <div className="stack" style={{ gap: 12 }}>
+    <div className="stack stack-12">
       {configured && (
         <div className="bank-app-status">
           <div>
-            <span className="badge good">käytössä</span> Application ID <code>{app.appId}</code>
+            <span className="badge good">{t("set.app.in_use")}</span> {t("set.app.id_label")} <code>{app.appId}</code>
             <div className="small muted">
-              {app.source === "web" ? `Tallennettu ${dateTime(app.savedAt)}.` : "Asetettu palvelimen ympäristömuuttujalla EB_APP_ID."}
+              {app.source === "web" ? t("set.app.saved_on", { date: dateTime(app.savedAt) }) : t("set.app.set_by_the_server_s")}
             </div>
           </div>
-          <div className="form-row" style={{ margin: 0 }}>
-            <button className="btn" type="button" disabled={busy !== null} aria-busy={busy === "test" || undefined} onClick={() => run("test", () => api<InstanceState>("/api/admin/bank-app/test", { method: "POST" }))}>
-              {busy === "test" ? "Testataan…" : "Testaa yhteys"}
-            </button>
+          <div className="form-row flush">
+            <Button disabled={busy !== null} aria-busy={busy === "test" || undefined} onClick={() => run("test", () => api<InstanceState>("/api/admin/bank-app/test", { method: "POST" }))}>
+              {busy === "test" ? t("set.app.testing") : t("set.app.test_the_connection")}
+            </Button>
             {app.hasCertificate && !app.pendingSince && (
-              <a className="btn" href="/api/admin/bank-app/certificate" download>
-                Lataa varmenne
-              </a>
+              <Button href="/api/admin/bank-app/certificate" download>
+                {t("set.app.download_certificate")}
+              </Button>
             )}
             {!changing && !app.pendingSince && (
-              <button className="btn" type="button" onClick={() => setChanging(true)}>
-                Vaihda sovellus
-              </button>
+              <Button onClick={() => setChanging(true)}>
+                {t("set.app.change_application")}
+              </Button>
             )}
             {app.source === "web" && (
-              <button
-                className="btn btn-danger"
-                type="button"
+              <Button
+                
                 disabled={busy !== null}
                 aria-busy={busy === "remove" || undefined}
-                onClick={() => {
-                  if (window.confirm("Poistetaanko Enable Banking -sovellus? Pankkiyhteydet lakkaavat toimimasta.")) {
-                    void run("remove", () => api<InstanceState>("/api/admin/bank-app", { method: "DELETE" }));
-                  }
-                }}
+                onClick={() => setAsking("remove")}
               >
-                Poista
-              </button>
+                {t("set.app.remove")}
+              </Button>
             )}
           </div>
         </div>
@@ -217,64 +228,74 @@ export function BankAppSetup({
 
       {configured && <BankRedirectTest redirectUrl={app.redirectUrl} />}
 
-      {showSetup && (
-        <>
-          <ul className="checklist" aria-label="Enable Banking -sovelluksen vaiheet">
-            <li className={keyReady || configured ? "done" : undefined}>{mode === "generate" ? "Avain luotu" : "Avaintiedosto valittu"}</li>
-            {mode === "generate" && <li className={downloaded || configured ? "done" : undefined}>Varmenne ladattu Enable Bankingiin</li>}
-            <li className={check.result?.verified || configured ? "done" : undefined}>
-              {check.busy ? "Application ID testataan…" : "Application ID toimii"}
-            </li>
-            <li className={capabilities?.some(bankSeen) ? "done" : undefined}>Tilit lisätty Enable Bankingiin</li>
-          </ul>
+      <ul className="checklist" aria-label={t("set.app.steps_of_the_enable_banking")}>
+        <li className={keyReady || configured ? "done" : undefined}>{mode === "generate" ? t("set.app.key_made") : t("set.app.key_file_chosen")}</li>
+        {mode === "generate" && <li className={downloaded || configured ? "done" : undefined}>{t("set.app.certificate_uploaded_to_enable_banking")}</li>}
+        <li className={check.result?.verified || (configured && !app.inactiveMessage && message?.ok !== false) ? "done" : undefined}>
+          {check.busy ? t("set.app.testing_the_application_id") : t("set.app.application_id_works")}
+        </li>
+        <li className={banksSeen ? "done" : undefined}>{t("set.app.accounts_added_in_enable_banking")}</li>
+      </ul>
+      {configured && !showSetup && !banksSeen && (
+        <div className="small muted">
+          {rich("set.app.press_activate")}{" "}
+          <Button variant="link" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
+            {t("set.app.open_control_panel")}
+          </Button>
+        </div>
+      )}
 
+
+      {showSetup && guideFolded && (
+        <div className="form-row">
+          <Button onClick={() => setGuideAsked(true)}>{t("set.app.show_guide")}</Button>
+        </div>
+      )}
+
+      {showSetup && !guideFolded && (
+        <>
           <ol className="setup-steps">
             <li>
-              Kirjaudu Enable Bankingiin sähköpostilinkillä.
+              {t("set.app.sign_in_to_enable_banking")}
               <div className="form-row">
-                <a className="btn btn-small" href={EB_SIGN_IN} target="_blank" rel="noopener noreferrer">
-                  Avaa kirjautuminen
-                </a>
+                <Button variant="link" href={EB_SIGN_IN} target="_blank" rel="noopener noreferrer">
+                  {t("set.app.open_sign_in")}
+                </Button>
               </div>
             </li>
             {mode === "generate" && (
               <li>
-                Luo avain. Varmenne latautuu itsestään.
+                {t("set.app.make_a_key_the_certificate")}
                 <div className="form-row">
                   {app.pendingSince ? (
                     <>
-                      <span className="badge good">avain luotu {dateTime(app.pendingSince)}</span>
-                      <a className="btn" href={CERTIFICATE_URL} download onClick={() => setDownloaded(true)}>
-                        Lataa varmenne (.crt)
-                      </a>
-                      <button
-                        className="btn btn-small"
-                        type="button"
+                      <span className="badge good">{t("set.app.key_made_on", { date: dateTime(app.pendingSince) })}</span>
+                      <Button href={CERTIFICATE_URL} download onClick={() => setDownloaded(true)}>
+                        {t("set.app.download_certificate_crt")}
+                      </Button>
+                      <Button
+                        
                         disabled={busy !== null}
                         aria-busy={busy === "key" || undefined}
-                        onClick={() => {
-                          // the certificate already uploaded to Enable Banking stops matching
-                          if (!window.confirm("Uusi avain korvaa nykyisen, ja Enable Bankingiin pitää ladata uusi varmenne. Jatketaanko?")) return;
-                          void makeKey();
-                        }}
+                        onClick={() => setAsking("key")}
                       >
-                        Luo uusi
-                      </button>
+                        {t("set.app.make_a_new_one")}
+                      </Button>
                     </>
                   ) : (
-                    <button className="btn btn-primary" type="button" disabled={busy !== null} aria-busy={busy === "key" || undefined} onClick={() => void makeKey()}>
-                      {busy === "key" ? "Luodaan…" : "Luo avain"}
-                    </button>
+                    <Button variant={calm ? undefined : "primary"} disabled={busy !== null} aria-busy={busy === "key" || undefined} onClick={() => void makeKey()}>
+                      {busy === "key" ? t("set.app.making") : t("set.app.make_key")}
+                    </Button>
                   )}
                 </div>
               </li>
             )}
             <li>
-              Avaa Enable Bankingissa <em>API applications</em> ja paina <em>Add a new application</em>. Täytä kentät:
+              {rich("set.app.open_applications")}
               <div className="form-row">
-                <a className="btn btn-small" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
-                  Avaa Enable Banking
-                </a>
+                <Button variant="link" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
+                  {t("set.app.open_enable_banking")}
+                </Button>
               </div>
               <ul>
                 <li>
@@ -282,48 +303,50 @@ export function BankAppSetup({
                 </li>
                 {mode === "generate" ? (
                   <li>
-                    <span className="eb-label">Private key</span>: <strong>Generate outside the browser and import public certificate</strong>, tiedosto{" "}
-                    <code>talous-enablebanking.crt</code>
+                    <span className="eb-label">Private key</span>: {rich("set.app.choose_outside")}
                   </li>
                 ) : (
                   <li>
-                    <span className="eb-label">Private key</span>: <strong>Generate in the browser</strong>
+                    <span className="eb-label">Private key</span>: {rich("set.app.choose_inside")}
                   </li>
                 )}
                 <li>
-                  <span className="eb-label">Application name</span>: <CopyValue value={APP_NAME} label="Application name" />
+                  <span className="eb-label">Application name</span>: <Copyable value={APP_NAME} />
                 </li>
                 <li>
-                  <span className="eb-label">Allowed redirect URLs</span>: <CopyValue value={app.redirectUrl} label="Allowed redirect URLs" />
+                  <span className="eb-label">Allowed redirect URLs</span>: <Copyable value={app.redirectUrl} />
+                  {app.redirectMode === "own" && <div className="small muted">{t("set.app.trust_certificate")}</div>}
                 </li>
                 <li>
-                  <span className="eb-label">Application description</span>: <CopyValue value={APP_DESCRIPTION} label="Application description" />
+                  <span className="eb-label">Application description</span>: <Copyable value={appDescription()} />
                 </li>
                 <li>
-                  <span className="eb-label">Email for data protection matters</span>: oma sähköpostiosoitteesi
+                  <span className="eb-label">Email for data protection matters</span>: {t("set.app.your_email")}
                 </li>
                 <li>
-                  <span className="eb-label">Privacy URL</span>: <CopyValue value={app.privacyUrl} label="Privacy URL" />
+                  <span className="eb-label">Privacy URL</span>: <Copyable value={app.privacyUrl} />
                 </li>
                 <li>
-                  <span className="eb-label">Terms URL</span>: <CopyValue value={app.termsUrl} label="Terms URL" />
+                  <span className="eb-label">Terms URL</span>: <Copyable value={app.termsUrl} />
                 </li>
               </ul>
-              <div className="small muted">Paina <em>Register</em>.</div>
+              <div className="form-row">
+                <CopyAll fields={registration} />
+              </div>
+              <div className="small muted">{rich("set.app.press_register")}</div>
             </li>
             <li>
-              Paina <em>Activate by linking accounts</em>, valitse Finland, oma pankkisi ja Personal ja kirjaudu pankkiin. Lisää muut tilit ja
-              kortit kohdasta <em>Link accounts</em>.
+              {rich("set.app.activate_steps")}
               <div className="form-row">
-                <a className="btn btn-small" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
-                  Avaa Control Panel
-                </a>
+                <Button variant="link" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
+                  {t("set.app.open_control_panel")}
+                </Button>
               </div>
             </li>
             <li>
               {configured
-                ? `Tallenna Application ID${mode === "upload" ? " ja avaintiedosto" : ""}.`
-                : `Liitä Application ID${mode === "upload" ? " ja valitse avaintiedosto" : ""}. Se tallentuu itsestään, kun testi onnistuu.`}
+                ? t(mode === "upload" ? "set.app.save_id_and_key" : "set.app.save_id")
+                : t(mode === "upload" ? "set.app.paste_id_and_key" : "set.app.paste_id")}
               <form className="form-row" onSubmit={activate} noValidate>
                 <input
                   ref={idInput}
@@ -335,71 +358,92 @@ export function BankAppSetup({
                     setAppId(e.target.value.trim());
                     setIdError(null);
                   }}
-                  placeholder="Application ID (12345678-abcd-…)"
-                  aria-label="Application ID"
+                  placeholder={t("set.app.application_id_12345678_abcd")}
+                  aria-label={t("set.app.id_label")}
                   spellCheck={false}
                   autoComplete="off"
-                  style={{ flex: "1 1 260px", maxWidth: "24rem" }}
+                  className="bank-app-id"
                 />
                 {mode === "upload" && (
-                  <input ref={fileInput} type="file" accept=".pem,.key" onChange={(e) => void readKey(e.target.files?.[0])} aria-label="Yksityinen avain (.pem)" aria-invalid={fileError ? true : undefined} />
+                  <input ref={fileInput} type="file" accept=".pem,.key" onChange={(e) => void readKey(e.target.files?.[0])} aria-label={t("set.app.private_key_pem")} aria-invalid={fileError ? true : undefined} />
                 )}
-                <button className="btn btn-primary" type="submit" disabled={busy !== null || (mode === "generate" && !app.pendingSince)} aria-busy={busy === "activate" || undefined}>
-                  {busy === "activate" ? "Tallennetaan…" : "Tallenna ja testaa"}
-                </button>
+                <Button variant={calm ? undefined : "primary"} type="submit" disabled={busy !== null || (mode === "generate" && !app.pendingSince)} aria-busy={busy === "activate" || undefined}>
+                  {busy === "activate" ? t("set.app.saving") : t("set.app.save_and_test")}
+                </Button>
                 {changing && (
-                  <button className="btn" type="button" onClick={() => setChanging(false)}>
-                    Peruuta
-                  </button>
+                  <Button onClick={() => setChanging(false)}>
+                    {t("set.app.cancel")}
+                  </Button>
                 )}
                 {idError && (
-                  <span className="error field-error" id="err-appid">
+                  <span className="field-error" id="err-appid">
                     {idError}
                   </span>
                 )}
-                {fileError && <span className="error field-error">{fileError}</span>}
+                {fileError && <span className="field-error">{fileError}</span>}
               </form>
-              <div className="form-row">
-                <a className="btn btn-small" href={EB_PANEL} target="_blank" rel="noopener noreferrer">
-                  Avaa sovellusluettelo
-                </a>
-              </div>
-              {check.result && <div className={check.result.verified ? "notice good" : "notice warning"}>{check.result.message}</div>}
-              {mode === "upload" && <div className="small muted">Poista .pem-tiedosto Lataukset-kansiosta.</div>}
+              {check.result && <Notice tone={check.result.verified ? "good" : "warning"}>{check.result.message}</Notice>}
+              {mode === "upload" && <div className="small muted">{t("set.app.delete_the_pem_file_from")}</div>}
             </li>
           </ol>
           <details className="small" open={mode === "upload" || undefined}>
-            <summary className="muted">Muut vaihtoehdot</summary>
+            <summary className="muted">{t("set.app.other_options")}</summary>
             <div className="form-row">
               {mode === "generate" ? (
-                <button className="btn btn-small" type="button" onClick={() => setMode("upload")}>
-                  Minulla on .pem-tiedosto
-                </button>
+                <Button variant="link" onClick={() => setMode("upload")}>
+                  {t("set.app.i_have_a_pem_file")}
+                </Button>
               ) : (
-                <button className="btn btn-small" type="button" onClick={() => setMode("generate")}>
-                  Luo avain tässä
-                </button>
+                <Button variant="link" onClick={() => setMode("generate")}>
+                  {t("set.app.make_the_key_here")}
+                </Button>
               )}
             </div>
           </details>
         </>
       )}
 
-      {capabilities && <BankCapabilities banks={capabilities} />}
-
       {configured && !showSetup && app.redirectMode === "paste" && (
-        <div className="notice">
-          Lisää <code>{app.relayUrl}</code> Enable Bankingin sovelluksen Redirect URLs -kohtaan ja ota sitten paluusivu käyttöön.{" "}
-          <button className="btn btn-small" type="button" disabled={busy !== null} aria-busy={busy === "relay" || undefined} onClick={() => run("relay", () => api<InstanceState>("/api/admin/instance/redirect-mode", { method: "PUT", body: { mode: "relay" } }))}>
-            Ota käyttöön
-          </button>
-        </div>
+        <Notice>
+          {rich("set.app.add_relay", { url: app.relayUrl })}{" "}
+          <Button disabled={busy !== null} aria-busy={busy === "relay" || undefined} onClick={() => run("relay", () => api<InstanceState>("/api/admin/instance/redirect-mode", { method: "PUT", body: { mode: "relay" } }))}>
+            {t("set.app.turn_on")}
+          </Button>
+        </Notice>
       )}
 
       {message ? (
-        <div className={message.ok ? "notice good" : "notice warning"}>{message.text}</div>
+        <Notice tone={message.ok ? "good" : "warning"}>{message.text}</Notice>
       ) : (
-        app.inactiveMessage && <div className="notice warning">{app.inactiveMessage}</div>
+        app.inactiveMessage && <Notice tone="warning">{app.inactiveMessage}</Notice>
+      )}
+
+      {asking === "remove" && (
+        <ConfirmDialog
+          title={t("set.app.remove_the_enable_banking_application")}
+          confirmLabel={t("set.app.remove_application")}
+          onConfirm={() => {
+            setAsking(null);
+            void run("remove", () => api<InstanceState>("/api/admin/bank-app", { method: "DELETE" }));
+          }}
+          onCancel={() => setAsking(null)}
+        >
+          <p>{t("set.app.bank_connections_will_stop_working")}</p>
+        </ConfirmDialog>
+      )}
+      {asking === "key" && (
+        <ConfirmDialog
+          title={t("set.app.make_a_new_key")}
+          confirmLabel={t("set.app.make_new_key")}
+          onConfirm={() => {
+            setAsking(null);
+            void makeKey();
+          }}
+          onCancel={() => setAsking(null)}
+        >
+          {/* the certificate already uploaded to Enable Banking stops matching */}
+          <p>{t("set.app.the_new_key_replaces_the")}</p>
+        </ConfirmDialog>
       )}
     </div>
   );

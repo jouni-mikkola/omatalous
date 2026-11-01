@@ -5,10 +5,12 @@
  * narrows the list to that day, week or month.
  */
 import { addDays } from "@banking/core";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { Figure } from "../../components/Figure.tsx";
-import { date, dayHeading, money, monthLong, plural } from "../../format.ts";
+import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
+import { t, tn } from "../../text.ts";
 import type { Period } from "./DateRange.tsx";
+import { css } from "../../css.ts";
 
 export interface MoneyBin {
   start: string;
@@ -34,11 +36,11 @@ const binEnd = (start: string, unit: "day" | "week" | "month"): string => {
 };
 
 const binName = (b: MoneyBin, unit: "day" | "week" | "month", today: string): string =>
-  unit === "day" ? dayHeading(b.start, today) : unit === "week" ? `viikko ${date(b.start)}–${date(binEnd(b.start, unit))}` : monthLong(b.start.slice(0, 7));
+  unit === "day" ? dayHeading(b.start, today) : unit === "week" ? t("tx.week", { range: dateRange(b.start, binEnd(b.start, unit)) }) : monthLong(b.start.slice(0, 7));
 
-const UNIT_TITLE = { day: "päivittäin", week: "viikoittain", month: "kuukausittain" } as const;
+const unitTitle = (unit: "day" | "week" | "month"): string => t(`tx.unit_${unit}`);
 
-function Histogram({ unit, bins, income, today, last, tool, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; income: boolean; today: string; last: string; tool?: ReactNode; onPick: (p: Period) => void }) {
+function Histogram({ unit, bins, income, today, last, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; income: boolean; today: string; last: string; onPick: (p: Period) => void }) {
   const [at, setAt] = useState<number | null>(null);
   const value = (b: MoneyBin) => (income ? b.inCents : b.outCents);
   const max = Math.max(0, ...bins.map(value));
@@ -49,18 +51,14 @@ function Histogram({ unit, bins, income, today, last, tool, onPick }: { unit: "d
   const gap = n > 60 ? 0.15 : 0.3;
   const shown = at ?? peak;
   const b = shown >= 0 ? bins[shown] : undefined;
-  const readout = b ? `${binName(b, unit, today)}: ${income ? "saatu" : "maksettu"} ${money(value(b))}, ${plural(b.count, "tapahtuma", "tapahtumaa")}` : "";
+  const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(b.count, "tx.event_one", "tx.event_many") }) : "";
+  const histTitle = t(income ? "tx.hist_in" : "tx.hist_out", { unit: unitTitle(unit) });
   return (
     <figure className="tx-hist">
-      <div className="tx-hist-head">
-        <figcaption className="tx-hist-title">
-          {income ? "Tulot" : "Menot"} {UNIT_TITLE[unit]}
-        </figcaption>
-        {tool}
-      </div>
+      <figcaption className="tx-hist-title">{histTitle}</figcaption>
       <div className="tx-hist-plot">
         {peak >= 0 && (
-          <span className="tx-hist-peak" style={{ left: `${((peak + 0.5) / n) * 100}%` }} aria-hidden="true">
+          <span className="tx-hist-peak" ref={css({ left: `${((peak + 0.5) / n) * 100}%` })} aria-hidden="true">
             {money(max)}
           </span>
         )}
@@ -68,7 +66,7 @@ function Histogram({ unit, bins, income, today, last, tool, onPick }: { unit: "d
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
           role="img"
-          aria-label={`${income ? "Tulot" : "Menot"} ${UNIT_TITLE[unit]}, suurin ${money(max)}`}
+          aria-label={t("tx.hist_aria", { title: histTitle, max: money(max) })}
           tabIndex={0}
           onPointerMove={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
@@ -106,15 +104,15 @@ function Histogram({ unit, bins, income, today, last, tool, onPick }: { unit: "d
 }
 
 /** `whole`: no period is set, so the sums are of the whole history. */
-export function TotalsStrip({ totals, income, merchant, whole, today, tool, onPick }: { totals: Totals; income: boolean; merchant: string; whole: boolean; today: string; tool?: ReactNode; onPick: (p: Period) => void }) {
+export function TotalsStrip({ totals, income, merchant, whole, today, onPick }: { totals: Totals; income: boolean; merchant: string; whole: boolean; today: string; onPick: (p: Period) => void }) {
   const span = totals.span;
-  const spanText = `${whole ? "Koko historia" : ""}${whole && span ? ", " : ""}${span ? `${date(span.from)}–${date(span.to)}` : ""}`;
+  const spanText = `${whole ? t("range.all") : ""}${whole && span ? ", " : ""}${span ? dateRange(span.from, span.to) : ""}`;
   const hist = totals.histogram;
   return (
-    <section className="tx-totals" aria-label="Rajattujen tapahtumien summat">
+    <section className="tx-totals" aria-label={t("tx.totals_label")}>
       <div className="tx-totals-figs">
         <div className="tx-totals-lead">
-          <span className="tx-totals-count">{plural(totals.total, "tapahtuma", "tapahtumaa")}</span>
+          <span className="tx-totals-count">{tn(totals.total, "tx.event_one", "tx.event_many")}</span>
           <span className="tx-totals-span">
             {merchant ? `${merchant}, ` : ""}
             {spanText}
@@ -122,29 +120,29 @@ export function TotalsStrip({ totals, income, merchant, whole, today, tool, onPi
         </div>
         <dl className="tx-totals-kv">
           <div>
-            <dt>Maksettu</dt>
+            <dt>{t("tx.spending")}</dt>
             <dd>
-              <Figure text={money(-totals.outCents)} size="m" />
+              <Figure text={money(-totals.outCents, false)} size="m" />
             </dd>
           </div>
           <div>
-            <dt>Saatu</dt>
+            <dt>{t("tx.income")}</dt>
             <dd className="tx-in">
-              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents)}`} size="m" />
+              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="m" />
             </dd>
           </div>
           {totals.netCents !== undefined && (
             <div>
-              <dt>Ero</dt>
+              <dt>{t("tx.difference")}</dt>
               <dd>
-                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents)}`} size="m" />
+                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="m" />
               </dd>
             </div>
           )}
         </dl>
-        <p className="tx-totals-note">Siirrot omien tilien välillä eivät ole mukana.</p>
+        <p className="tx-totals-note">{t("tx.transfers_out")}</p>
       </div>
-      {hist && hist.bins.length > 1 && <Histogram unit={hist.unit} bins={hist.bins} income={income} today={today} last={span?.to ?? today} tool={tool} onPick={onPick} />}
+      {hist && hist.bins.length > 1 && <Histogram unit={hist.unit} bins={hist.bins} income={income} today={today} last={span?.to ?? today} onPick={onPick} />}
     </section>
   );
 }

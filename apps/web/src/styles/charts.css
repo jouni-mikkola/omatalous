@@ -1,5 +1,6 @@
 /* Charts: legend, SVG chart parts, tooltip. */
 
+@layer components {
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); margin-bottom: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 8px; }
 .swatch { width: 10px; height: 10px; border-radius: 1px; display: inline-block; flex: none; }
@@ -7,12 +8,15 @@
 
 .chart { position: relative; width: 100%; }
 .chart svg { display: block; overflow: visible; }
-.chart text { fill: var(--text-2); font-size: var(--fs-tick); font-variant-numeric: tabular-nums lining-nums; }
+.chart text { fill: var(--text-2); font-size: var(--fs-label); font-variant-numeric: tabular-nums lining-nums; }
 .chart .grid-line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
 .chart .axis-line, .chart .tick { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
 .chart .hit { fill: transparent; cursor: default; outline: none; }
 .chart .hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
 .chart .hit-pick { cursor: pointer; }
+/* the mark picked for the table under the chart keeps a rule after the pointer has left */
+.chart .sel-line { stroke: var(--accent); stroke-width: 2; shape-rendering: crispEdges; }
+.chart .sel-band { fill: var(--accent); fill-opacity: 0.14; }
 
 /* monthly totals: one colour, period in full strength, the rest lighter */
 .chart .bar { fill: var(--series-1); }
@@ -41,8 +45,8 @@
   .chart .draw { animation: chart-wipe var(--t-draw) var(--ease-out) backwards; }
   @keyframes chart-fade { from { opacity: 0; } }
   @keyframes chart-wipe { from { clip-path: inset(-6px 100% -6px 0); } to { clip-path: inset(-6px -6px -6px 0); } }
-  .tooltip { transition: opacity var(--t-open) var(--ease-out), transform var(--t-open) var(--ease-out); }
-  @starting-style { .tooltip { opacity: 0; transform: translateY(4px); } }
+  .tooltip { transition: opacity var(--t-open) var(--ease-out); }
+  @starting-style { .tooltip { opacity: 0; } }
 }
 
 /* the calendar of days: one hue in four steps, an empty day a hairline square, the largest days ringed in text ink with
@@ -56,7 +60,7 @@
 .calendar .calendar-day.active, .calendar .calendar-day:focus-visible { stroke: var(--text); stroke-width: 2; stroke-dasharray: none; }
 .calendar .calendar-top rect { fill: none; stroke: var(--text); stroke-width: 1.5; pointer-events: none; }
 .calendar .calendar-top circle { fill: var(--text); stroke: var(--surface); stroke-width: 2; pointer-events: none; }
-.calendar .calendar-top text { fill: var(--surface); font-size: var(--fs-tick); font-weight: var(--w-strong); pointer-events: none; }
+.calendar .calendar-top text { fill: var(--surface); font-size: var(--fs-label); font-weight: var(--w-strong); pointer-events: none; }
 .calendar .calendar-month, .calendar .calendar-strip-label { fill: var(--muted); }
 .calendar .calendar-peak-label { fill: var(--text); font-weight: var(--w-strong); }
 .calendar .calendar-stop { stop-color: var(--series-1); }
@@ -73,13 +77,15 @@
 .chart-note { margin: 0 0 8px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .calendar-notes { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-label); color: var(--text-2); }
 .calendar-notes li { display: inline-flex; align-items: center; gap: 8px; }
-.calendar-notes .badge-n { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-tick); font-weight: var(--w-strong); }
+.calendar-notes .badge-n { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-label); font-weight: var(--w-strong); }
 .calendar-notes b { color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 
 /* the slope: grey context lines, the marked rows running from the grey of the past into the colour of their change */
 .chart .slope { outline: none; }
 .chart .slope-line { stroke-width: 2; stroke-linecap: round; }
 .chart .slope-hit { stroke: transparent; stroke-width: 14; }
+.chart .slope-mark { cursor: pointer; outline: none; }
+.chart .slope-mark:focus-visible .slope-hit, .chart .slope-mark.picked .slope-hit { stroke: var(--accent); stroke-opacity: 0.22; }
 .chart .slope-quiet .slope-line { stroke: var(--series-rest); stroke-opacity: 0.4; }
 .chart .slope-quiet .slope-dot { fill: var(--series-rest); }
 .chart .slope-stop-past { stop-color: var(--series-rest); }
@@ -105,19 +111,13 @@
 .slope-key-quiet { background: var(--series-rest); opacity: 0.6; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade 150ms var(--ease-out) backwards; animation-delay: var(--d, 0ms); }
-  .chart .slope-line.draw { animation-duration: 400ms; }
+  .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade var(--t-state) var(--ease-out) backwards; animation-delay: var(--d, 0s); }
+  .chart .slope-line.draw { animation-duration: var(--t-draw); }
 }
-
-/* Mikä muuttui: each change as a bar from the middle */
-.shift-table .shift-bar-cell { position: relative; }
-.shift-table .shift-bar-cell::before { content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px; border-left: 1px solid var(--axis); }
-.shift-table .shift-bar { position: absolute; top: 50%; height: 8px; margin-top: -4px; border-radius: var(--radius-s); }
-.shift-table .shift-bar.up { left: 50%; background: linear-gradient(90deg, color-mix(in srgb, var(--bad) 45%, var(--surface)), var(--bad)); }
-.shift-table .shift-bar.down { right: 50%; background: linear-gradient(270deg, color-mix(in srgb, var(--good) 45%, var(--surface)), var(--good)); }
 
 /* The chart kit (charts/kit): events, reference lines and bands. No chart draws them yet; VD0's tokens set them later. */
 .chart .kit-event-rule { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
 .chart .kit-event-label { fill: var(--text-2); }
 .chart .kit-ref-label { fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .chart .kit-band { fill: var(--series-avg); fill-opacity: 0.12; }
+}

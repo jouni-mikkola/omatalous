@@ -50,7 +50,7 @@ import {
 } from "@banking/core";
 import { isEuro } from "../connectors/balance-sign.ts";
 import type { StoredMember } from "../db/agreement-repo.ts";
-import { type AnswerRow, accountKey, type PartRow } from "../db/household-repo.ts";
+import { type AnswerRow, accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { UserError } from "../platform/errors.ts";

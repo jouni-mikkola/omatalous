@@ -1,11 +1,12 @@
 import type { PayerRole } from "@banking/core";
 import { useState } from "react";
 import { payerCalls } from "../api.ts";
-import { plural } from "../format.ts";
+import { tn, t } from "../text.ts";
 import { useApi } from "../hooks.ts";
 import { PAYER_ROLE_LABEL } from "./questions.ts";
 import "../styles/questions.css";
-
+import { Button } from "./ui/Button.tsx";
+import { Notice } from "./ui/Notice.tsx";
 interface Answer {
   key: string;
   name: string;
@@ -45,29 +46,29 @@ export function PayerAnswers() {
     <div className="card">
       <div className="card-head tb">
         <div className="card-name">
-          <h2>Maksajat</h2>
+          <h2>{t("payers.title")}</h2>
         </div>
       </div>
-      {problem && <div className="error question-error">{problem}</div>}
+      {problem && <Notice tone="error" className="question-error">{problem}</Notice>}
       {!!data?.answers.length && (
-        <ul className="st-rows question-list" aria-label="Maksajat">
+        <ul className="st-rows question-list" aria-label={t("payers.title")}>
           {data.answers.map((a) => (
             <li key={a.key} className="st-row question-row">
               <span className="st-name" title={a.name}>
                 {a.name}
               </span>
-              <span className="question-count">{plural(a.count, "tapahtuma", "tapahtumaa")}</span>
+              <span className="question-count">{tn(a.count, "tx.event_one", "tx.event_many")}</span>
               <span className="question-actions question-payer">
-                <select aria-label={`Mitä nämä ovat: ${a.name}`} value={a.role} disabled={pending !== null} onChange={(e) => void send(a.key, e.target.value as PayerRole)}>
+                <select aria-label={t("payers.what_are", { name: a.name })} value={a.role} disabled={pending !== null} onChange={(e) => void send(a.key, e.target.value as PayerRole)}>
                   {a.options.map((role) => (
                     <option key={role} value={role}>
                       {PAYER_ROLE_LABEL[role]}
                     </option>
                   ))}
                 </select>
-                <button type="button" className="btn btn-small" disabled={pending !== null} aria-busy={pending === a.key || undefined} aria-label={`Palauta ehdotus: ${a.name}`} onClick={() => void send(a.key, null)}>
-                  Palauta ehdotus
-                </button>
+                <Button variant="link" disabled={pending !== null} aria-busy={pending === a.key || undefined} aria-label={t("payers.undo_of", { name: a.name })} onClick={() => void send(a.key, null)}>
+                  {t("payers.undo")}
+                </Button>
               </span>
             </li>
           ))}

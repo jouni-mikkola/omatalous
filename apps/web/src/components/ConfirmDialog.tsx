@@ -1,6 +1,13 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useId } from "react";
+import { t } from "../text.ts";
+import { Button } from "./ui/Button.tsx";
+import { useModal } from "./useModal.ts";
 
-/** A modal question with two buttons. Escape or "Peruuta" cancels; focus starts on the cancel button. */
+/**
+ * The one way to ask before something that is hard to take back: a title that asks ("Poistetaanko X?"), a sentence on
+ * what follows and two buttons, the confirm named for the act ("Poista X"). Escape or "Peruuta" cancels and the focus
+ * goes back to the button that opened it; it starts on "Peruuta".
+ */
 export function ConfirmDialog({ title, children, confirmLabel, busy, onConfirm, onCancel }: {
   title: string;
   children: ReactNode;
@@ -9,23 +16,19 @@ export function ConfirmDialog({ title, children, confirmLabel, busy, onConfirm, 
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
-    return () => dialog?.close();
-  }, []);
+  const ref = useModal();
+  const titleId = useId();
   return (
-    <dialog ref={ref} className="confirm" aria-labelledby="confirm-title" onCancel={(e) => { e.preventDefault(); onCancel(); }}>
-      <h2 id="confirm-title">{title}</h2>
+    <dialog ref={ref} className="confirm" aria-labelledby={titleId} onCancel={(e) => { e.preventDefault(); onCancel(); }}>
+      <h2 id={titleId}>{title}</h2>
       {children}
       <div className="form-row">
-        <button className="btn" type="button" autoFocus onClick={onCancel}>
-          Peruuta
-        </button>
-        <button className="btn btn-danger" type="button" disabled={busy} aria-busy={busy || undefined} onClick={onConfirm}>
+        <Button autoFocus onClick={onCancel}>
+          {t("form.cancel")}
+        </Button>
+        <Button variant="primary" danger busy={busy} onClick={onConfirm}>
           {confirmLabel}
-        </button>
+        </Button>
       </div>
     </dialog>
   );

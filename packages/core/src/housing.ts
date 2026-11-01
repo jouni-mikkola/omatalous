@@ -4,12 +4,12 @@
  * block Asuminen and adds nothing up.
  *
  * It owns no figure (ADR 0004). A loan's month is `debtPaymentsPerMonth`'s and its next payment `loanNextPayment`'s,
- * both as Varallisuus > Lainat has them (`heldLoans`); a charge's month is its series' own (`monthlyCents`, the year
+ * both as Varat ja velat > Lainat has them (`heldLoans`); a charge's month is its series' own (`monthlyCents`, the year
  * over twelve), so a refund of one charge moves nothing here. The one sum adds the known rows once.
  *
  * - A home loan is a debt of the view whose kind is `mortgage` and that still owes.
  * - Loan payments in the rows that no saved loan is linked to are a row without terms: an active series of the
- *   category `mortgage` that no saved loan names (`Loan.seriesKey`) and the household did not call "Ei laina". A saved
+ *   category `mortgage` that no saved loan names (`Loan.seriesKey`) and the household did not call "Ei ole laina". A saved
  *   home loan with no link takes such a series as its own payments, so the loan and its payments are one row and the
  *   payment is in the total once. It takes one when a payment is typed for the loan and the series' charges fit it
  *   (`fitsPayment`), or when no payment is typed, the loan is the only one without, and the series is the only one

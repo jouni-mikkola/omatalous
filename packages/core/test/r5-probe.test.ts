@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { applyUse } from "../src/account-use.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildHousing } from "../src/housing.ts";
 import { buildQuestions } from "../src/analysis/questions.ts";
 import { LOAN_KIND_ANSWERS, loanKindSubject, loanProposals } from "../src/loan-detect.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
@@ -74,7 +75,7 @@ function view(rows: readonly Transaction[], balances: readonly BalanceInput[], i
   const ctx = createContext(all, accounts, today);
   const full: UserInputs = { marks: [], expectedBills: [], loans: [], ...inputs };
   const dashboard = buildDashboard(ctx, range, shown, full);
-  return { ctx, rows: all, balances: shown, inputs: full, housing: dashboard.housing, holdings: dashboard.holdings, questions: buildQuestions(ctx, range, full) };
+  return { ctx, rows: all, balances: shown, inputs: full, housing: buildHousing(ctx, shown, full), holdings: dashboard.holdings, questions: buildQuestions(ctx, range, full) };
 }
 type View = ReturnType<typeof view>;
 

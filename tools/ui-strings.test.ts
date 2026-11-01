@@ -160,11 +160,11 @@ describe("pnpm strings on this repository", () => {
     "Näytä jakso",
     "Ei kauppiaita näillä rajauksilla.", // pages/Merchants.tsx
     "Kauppias (tarkka)", // pages/Rules.tsx
-    "Seuraavat 30 päivää", // components/NextDays.tsx
-    "Palkkapäivä ei ole tiedossa.",
-    "Tilin saldo ei ole tiedossa.",
+    "Palkkapäivään asti", // components/NextDays.tsx
+    "Emme tiedä palkkapäivääsi.",
+    "Emme tiedä tilin saldoa.",
     "Kilpailuta asuntolainan marginaali.", // core optimise
-    "Tarkista korotuksen peruste vuokrasopimuksesta.",
+    "Tarkista vuokrasopimuksesta, mihin korotus perustuu.",
     "Väärä käyttäjätunnus tai salasana.", // server
     "Osoite on vajaa. Liitä koko osoite.",
     "Liitä koko osoite selaimen osoiteriviltä.",

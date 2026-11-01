@@ -49,7 +49,7 @@ export interface Reporter {
   secret(value: string): void;
 }
 
-export type Change = "tunnel" | "dns" | "access";
+type Change = "tunnel" | "dns" | "access";
 
 export interface UpInput {
   name: string;

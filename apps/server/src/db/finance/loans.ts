@@ -140,7 +140,7 @@ export class LoansRepo {
 
   /**
    * A merchant's name was derived again: the statements that give each loan linked to a series of it the series' new
-   * key. A key follows as the "Ei laina" answer on the same series does (core `renamedMarkSubject`). The marks repo
+   * key. A key follows as the "Ei ole laina" answer on the same series does (core `renamedMarkSubject`). The marks repo
    * runs them in the transaction that moves the marks, so a run that is cut short has moved both or neither. Each
    * loan is written by its id: two names that trade places in one run do not meet.
    */

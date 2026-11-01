@@ -1,9 +1,11 @@
+import "../../styles/ops.css";
 import { useEffect, useMemo, useState } from "react";
 import { dateTime } from "../../format.ts";
 import { clockGap, elapsed, queuedSentence, startTicker, stepTime, waitedMs } from "./ops-elapsed.ts";
 import { S } from "./ops-strings.ts";
 import type { OpsRequestView } from "./types.ts";
-
+import { Button } from "../ui/Button.tsx";
+import { Notice } from "../ui/Notice.tsx";
 const RESULT: Record<string, string> = { ok: S.ok, failed: S.failed, expired: S.expired, cancelled: S.cancelled };
 
 /**
@@ -31,20 +33,20 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, helperWake
   // the page's own timestamp of losing the app is on the browser's clock
   const downMs = downSince ? now - downSince : 0;
   const took = request.finishedAt ? Date.parse(request.finishedAt) - since : null;
-  const tone = request.status === "ok" ? "good" : live ? "" : "warning";
+  const tone = request.status === "ok" ? "good" : live ? "info" : "warning";
   return (
-    <div className={`notice ${tone}`} role="status">
+    <Notice tone={tone} role="status">
       <strong>{request.label.charAt(0).toUpperCase() + request.label.slice(1)}</strong>
       <span className="muted small"> {dateTime(request.requestedAt)}{request.by ? `, ${request.by}` : ""}</span>
       {live && (
-        <p style={{ margin: "4px 0" }}>
+        <p className="ops-line">
           {down ? `${S.restarting} ${S.waited(elapsed(downMs))}` : request.status === "queued" ? `${queuedSentence(helperSeenAt, serverTime, helperWakes)} ${S.waited(elapsed(waited))}` : S.runningFor(elapsed(waited))}
           {down && downMs > 180_000 && <span> {S.restartingLong}</span>}
         </p>
       )}
       {!live && (
-        <p style={{ margin: "4px 0" }}>
-          <span className={`badge ${request.status === "ok" ? "good" : "warn"}`} style={{ marginLeft: 0 }}>{RESULT[request.status]}</span> {request.summary}{took !== null && !Number.isNaN(took) && ` ${S.took(elapsed(took))}`}
+        <p className="ops-line">
+          <span className={`badge flush ${request.status === "ok" ? "good" : "warn"}`}>{RESULT[request.status]}</span> {request.summary}{took !== null && !Number.isNaN(took) && ` ${S.took(elapsed(took))}`}
         </p>
       )}
       {request.steps.length > 0 && (
@@ -59,17 +61,17 @@ export function OpsProgress({ request, down, downSince, helperSeenAt, helperWake
       )}
       <div className="form-row">
         {request.status === "queued" && (
-          <button className="btn btn-small" type="button" onClick={() => onCancel(request.id)}>
+          <Button onClick={() => onCancel(request.id)}>
             {S.cancelRequest}
-          </button>
+          </Button>
         )}
         {!live && (
-          <button className="btn btn-small" type="button" aria-expanded={log} onClick={() => setLog(!log)}>
+          <Button aria-expanded={log} onClick={() => setLog(!log)}>
             {log ? S.hideLog : S.showLog}
-          </button>
+          </Button>
         )}
       </div>
       {log && !live && <pre className="ops-log">{request.output || S.noLog}</pre>}
-    </div>
+    </Notice>
   );
 }

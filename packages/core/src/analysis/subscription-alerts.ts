@@ -10,6 +10,8 @@ import type { IsoDate, MarkKind, UserMark } from "../types.ts";
 import type { Alert } from "./alerts.ts";
 import type { AnalysisTx } from "./context.ts";
 import { formatEur, formatFiDate } from "./format.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { messageIn } from "../messages.ts";
 
 const ALERT_SUBJECT = "alert:";
 const MERCHANT_SUBJECT = "merchant:";
@@ -54,7 +56,7 @@ export function seriesOfMarkSubject(subject: string): SeriesIdParts | null {
 /**
  * A mark's subject after merchants got new names (old name to new), or null when it names none of them. A subject
  * follows when it names a merchant, or a series after its prefix: `series:<id>`, and the `loan-proposal:<id>` that
- * loan-detect.ts stores for "Ei laina". An alert's subject stays: its id is not a merchant's name.
+ * loan-detect.ts stores for "Ei ole laina". An alert's subject stays: its id is not a merchant's name.
  */
 export function renamedMarkSubject(subject: string, renames: ReadonlyMap<string, string>): string | null {
   if (subject.startsWith(MERCHANT_SUBJECT)) {
@@ -145,13 +147,12 @@ export function countingMark(marks: ReadonlyMap<string, UserMark>, s: MarkedSeri
 const FORGOTTEN_MAX = 2;
 
 /** A price as a single charge shows it: whole euros stay whole, 10,99 keeps its cents. */
-const price = (cents: number) => formatEur(cents, cents % 100 !== 0);
-
 /**
  * A small service that has run for months. Not asked about when the user said it is in use (for a year) or cancelled.
  * `markSubject` is what an answer to the question is stored under: this series, not its merchant.
  */
-export function forgotten(recurring: readonly RecurringSeries[], inOverlap: ReadonlySet<string>, marks: ReadonlyMap<string, UserMark>, today: IsoDate): (Alert & { markSubject: string })[] {
+export function forgotten(recurring: readonly RecurringSeries[], inOverlap: ReadonlySet<string>, marks: ReadonlyMap<string, UserMark>, today: IsoDate, lang: Language = DEFAULT_LANGUAGE): (Alert & { markSubject: string })[] {
+  const price = (cents: number) => formatEur(cents, cents % 100 !== 0, lang);
   return recurring
     .filter((s) => s.review && !inOverlap.has(s.merchant) && !countingMark(marks, s, today))
     .sort((a, b) => b.monthlyCents - a.monthlyCents)
@@ -160,8 +161,8 @@ export function forgotten(recurring: readonly RecurringSeries[], inOverlap: Read
       id: `forgotten:${s.id}`,
       kind: "forgotten" as const,
       tone: "info" as const,
-      title: `${s.merchant} ${price(s.monthlyCents)} kuussa, ${formatEur(s.yearlyCents, false)} vuodessa`,
-      detail: `Maksettu ${s.monthsActive} kuukautta.`,
+      title: messageIn(lang, "alr.forgotten_title", { merchant: s.merchant, price: price(s.monthlyCents), yearly: formatEur(s.yearlyCents, false, lang) }),
+      detail: messageIn(lang, "alr.forgotten_detail", { n: s.monthsActive }),
       merchant: s.merchant,
       markSubject: seriesMarkSubject(s),
     }));
@@ -191,7 +192,7 @@ function chargeIsUnder(mark: SeriesIdParts, t: AnalysisTx, series: RecurringSeri
  * merchant counts every charge of the merchant, a mark on one series only the charges of that series: `recurring`
  * names them, and without it the price alone decides. One warning for each mark.
  */
-export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = []): Alert[] {
+export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = [], lang: Language = DEFAULT_LANGUAGE): Alert[] {
   const onSeries = [...marks.values()].flatMap((m) => {
     const parts = m.mark === "cancelled" ? seriesOfMarkSubject(m.subject) : null;
     return parts ? [{ parts, mark: m }] : [];
@@ -220,8 +221,8 @@ export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: Re
         id: `cancelled:${last.id}`,
         kind: "cancelled" as const,
         tone: "warning" as const,
-        title: `${last.merchant} veloitti ${formatFiDate(last.bookingDate)}, vaikka merkitsit sen lopetetuksi.`,
-        detail: list.length === 1 ? formatEur(total) : `${list.length} veloitusta, yhteensä ${formatEur(total)}`,
+        title: messageIn(lang, "alr.cancelled_title", { merchant: last.merchant, date: formatFiDate(last.bookingDate, lang) }),
+        detail: list.length === 1 ? formatEur(total, true, lang) : messageIn(lang, "alr.cancelled_detail", { n: list.length, amount: formatEur(total, true, lang) }),
         merchant: last.merchant,
       };
     });

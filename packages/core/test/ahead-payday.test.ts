@@ -436,9 +436,11 @@ describe("what is free is the balance less the payments of the window", () => {
           const label = `seed ${seed}, settled ${settled}, ${today}`;
           const payments = d.rows.filter((r) => r.cents! < 0);
           const b = d.balance!;
-          expect(d.totals.dueCents, label).toBe(payments.reduce((s, r) => s - r.cents!, 0));
-          expect(d.totals.dueCents, label).toBe(d.totals.recurringCents + d.totals.typedCents + d.totals.cardCents + d.totals.transferCents);
-          expect(b.freeCents, label).toBe(b.startCents - d.totals.dueCents);
+          expect(d.totals.leavingCents, label).toBe(payments.reduce((s, r) => s - r.cents!, 0));
+          // an own transfer leaves the balance and is no payment
+          expect(d.totals.dueCents, label).toBe(d.totals.recurringCents + d.totals.typedCents + d.totals.cardCents);
+          expect(d.totals.leavingCents, label).toBe(d.totals.dueCents + d.totals.transferCents);
+          expect(b.freeCents, label).toBe(b.startCents - d.totals.leavingCents);
           // walked by hand: the payments in the order of the rows, each against the balance and the pay dated before its day
           let [paid, lowest] = [0, b.startCents];
           let crossing: IsoDate | null = null;

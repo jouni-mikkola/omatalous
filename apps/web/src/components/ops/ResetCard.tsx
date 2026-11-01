@@ -3,7 +3,8 @@ import { api, setUnauthenticatedHandler } from "../../api.ts";
 import { confirmBody, S } from "./ops-strings.ts";
 import { PasswordDialog } from "./PasswordDialog.tsx";
 import type { ResetResult } from "./types.ts";
-
+import { Button } from "../ui/Button.tsx";
+import { FoldCard } from "../ui/FoldCard.tsx";
 /** What the card shows after the answer: the server's sentence, the copy it made, the connections the bank kept, and the way to sign in. */
 export function ResetDone({ result }: { result: ResetResult }) {
   return (
@@ -14,9 +15,9 @@ export function ResetDone({ result }: { result: ResetResult }) {
       <p>{S.resetBanks}</p>
       <div className="form-row">
         {/* an address without a fragment loads the page again, and the sign-in page is what it shows */}
-        <a className="btn btn-primary" href="/">
+        <Button variant="primary" href="/">
           {S.signIn}
-        </a>
+        </Button>
       </div>
     </div>
   );
@@ -51,21 +52,20 @@ export function ResetCard({ disabled }: { disabled: boolean }) {
   };
 
   return (
-    <div className="card">
-      <div className="card-head">
-        <div>
-          <h2>{S.resetTitle}</h2>
-        </div>
-        {!done && (
-          <button className="btn btn-danger" type="button" disabled={disabled || busy} onClick={() => setAsk(true)}>
-            {S.resetTitle}
-          </button>
-        )}
-      </div>
+    <FoldCard className="danger-zone" title={S.resetTitle} sub={S.resetSub} folded>
       {done ? (
         <ResetDone result={done} />
       ) : (
-        S.resetLines.map((line) => <p key={line}>{line}</p>)
+        <>
+          {S.resetLines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+          <div className="form-row">
+            <Button disabled={disabled || busy} onClick={() => setAsk(true)}>
+              {S.resetTitle}
+            </Button>
+          </div>
+        </>
       )}
       {ask && (
         <PasswordDialog title={S.resetTitle} submitLabel={S.resetSubmit} confirmWord={S.resetWord} danger onCancel={() => setAsk(false)} onSubmit={send}>
@@ -76,6 +76,6 @@ export function ResetCard({ disabled }: { disabled: boolean }) {
           </ul>
         </PasswordDialog>
       )}
-    </div>
+    </FoldCard>
   );
 }

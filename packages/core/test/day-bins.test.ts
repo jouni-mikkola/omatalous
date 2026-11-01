@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountDigits, calendarDays, merchantMonths, moneyBins } from "../src/day-bins.ts";
+import { accountDigits, merchantMonths, moneyBins } from "../src/day-bins.ts";
 
 const day = (date: string, outCents: number, inCents = 0) => ({ date, count: 1, outCents, inCents });
 
@@ -71,24 +71,5 @@ describe("accountDigits", () => {
     expect(accountDigits({ cardMask: null, iban: "FI21 1234 5600 0007 85" })).toBe("0785");
     expect(accountDigits({ cardMask: "12", iban: null })).toBeNull();
     expect(accountDigits({})).toBeNull();
-  });
-});
-
-describe("calendarDays", () => {
-  it("fills every day of the span's last 53 weeks, shades money out or in, and keeps today out of the usual day", () => {
-    const { days, usualCents } = calendarDays([day("2026-10-01", 1000, 500), day("2026-10-03", 3000), day("2026-10-05", 9999)], "2026-10-01", "2026-10-05", "2026-10-05", false);
-    expect(days.map((d) => d.cents)).toEqual([1000, 0, 3000, 0, 9999]);
-    expect(usualCents).toBe(2000);
-    expect(days[1]!.heat).toBe(0);
-    expect(days[2]!.heat).toBeGreaterThan(days[0]!.heat);
-    expect(calendarDays([day("2026-10-01", 1000, 500)], "2026-10-01", "2026-10-01", "2026-10-05", true).days[0]!.cents).toBe(500);
-    expect(calendarDays([], "2024-01-01", "2026-10-05", "2026-10-05", false).days).toHaveLength(371);
-  });
-
-  it("keeps the same 53 weeks as before, and ends at the year 9999", () => {
-    const { days } = calendarDays([day("2025-03-03", 700)], "2024-02-01", "2025-03-10", "2025-03-10", false);
-    expect([days.length, days[0]!.date, days.at(-1)!.date]).toEqual([371, "2024-03-05", "2025-03-10"]);
-    const end = calendarDays([], "2020-01-01", "9999-12-31", "2026-10-19", false).days;
-    expect([end.length, end.at(-1)!.date]).toEqual([371, "9999-12-31"]);
   });
 });

@@ -4,6 +4,7 @@
  * here: every total is core's.
  */
 import { cardName } from "@banking/core";
+import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 
 type Answer = DashboardData["holdings"];
@@ -59,5 +60,5 @@ export function cardsOwe(cards: readonly Pick<Answer["cards"][number], "usedCent
 /** The words under a tick beside a balance: the line of Asetukset > Tilit, with "ei täsmää" where the rows differ; none where it cannot be told. */
 export function reconcileTitle(state: "ok" | "diff" | "unknown"): string | null {
   if (state === "unknown") return null;
-  return state === "ok" ? "Täsmää pankin saldoon" : "Ei täsmää pankin saldoon";
+  return state === "ok" ? t("holdings.reconciles") : t("holdings.not_reconciles");
 }

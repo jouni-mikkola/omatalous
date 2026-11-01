@@ -52,7 +52,7 @@ describe("one known share on every reader", () => {
     const september = { from: "2026-09-01", to: "2026-09-30" };
     expect(buildQuestions(ctx, september, NO_INPUTS).share).toBe(known.share);
     const signal = dataQualityReport(ctx, september).signals.find((s) => s.id === "uncategorised")!;
-    expect(signal.title.replace(/\s/g, " ")).toBe(`${percent(known.share!)} % viimeisen 12 valmiin kuukauden menoista on tunnistettu`);
+    expect(signal.title.replace(/\s/g, " ")).toBe(`${percent(known.share!)} % viimeisen 12 kuukauden menoista on luokiteltu`);
     expect(signal.cents).toBe(known.otherCents);
   });
 

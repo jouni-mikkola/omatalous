@@ -8,7 +8,7 @@ import { billKind, electricity } from "../../src/optimise/areas/electricity.ts";
 import { housing } from "../../src/optimise/areas/housing.ts";
 import { insurance } from "../../src/optimise/areas/insurance.ts";
 import { allFindings, buildOptimise, type Check, type Finding, type InputValues, type OptimiseData } from "../../src/optimise/index.ts";
-import { FRAME, type Frame, householdInput, joinHousehold, type PartHousehold } from "./household.ts";
+import { FRAME, type Frame, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as el from "./parts/electricity.ts";
 import * as hs from "./parts/housing.ts";
 import * as ins from "./parts/insurance.ts";
@@ -197,7 +197,7 @@ describe("housing charge rise", () => {
     expect(f.shared).toBe(false);
     expect(f.certainty.level).toBe("keskitaso");
     expect(plain(f.title)).toContain("Vuokraindeksin vuosimuutos oli samalla neljänneksellä 0,7 %.");
-    expect(f.action).toBe("Tarkista korotuksen peruste vuokrasopimuksesta.");
+    expect(f.action).toBe("Tarkista vuokrasopimuksesta, mihin korotus perustuu.");
     expect(data.headline.midCents).toBe(50880);
   });
 

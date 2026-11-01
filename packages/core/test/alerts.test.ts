@@ -127,7 +127,7 @@ describe("alerts", () => {
     const orders = (month: string, n: number) => Array.from({ length: n }, (_, i) => wolt(`${month}-${String(n > 3 ? i * 2 + 2 : 5 + i * 9).padStart(2, "0")}`));
     const usual = ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-04"].flatMap((m) => orders(m, 3));
     /** The usual view of the change report for the same rows and period: the alert may only repeat it (ADR 0013). */
-    const reportOf = (rows: Transaction[], range: { from: string; to: string }, now = today) => spendingChangeReport(createContext(rows, [checking], now), range).views.find((v) => v.view === "usual")!;
+    const reportOf = (rows: Transaction[], range: { from: string; to: string }, now = today) => spendingChangeReport(createContext(rows, [checking], now), range).views.find((v) => v.view === "expected")!;
 
     it("a category far above its usual months", () => {
       const [a] = ofKind(alertsOf([...household(), ...usual, ...orders("2026-03", 12)], march), "spike");
@@ -155,7 +155,7 @@ describe("alerts", () => {
           const range = { from: `${m}-01`, to: monthEnd(m) };
           const found = buildAlerts(ctx, range).filter((a) => a.kind === "spike");
           if (!found.length) continue;
-          const { change } = spendingChangeReport(ctx, range).views.find((v) => v.view === "usual")!;
+          const { change } = spendingChangeReport(ctx, range).views.find((v) => v.view === "expected")!;
           for (const a of found) {
             const row = change.categories.find((c) => c.category === a.category)!;
             expect(row).toMatchObject({ kind: "category", standsOut: true });
@@ -290,7 +290,7 @@ describe("alerts", () => {
       ].filter((t) => t.bookingDate <= now);
       const september = { from: "2026-09-01", to: "2026-09-30" };
       const { change } = reportOf(rows, september, now);
-      expect(change).toMatchObject({ baseCents: 261150, gateCents: 5223 });
+      expect(change).toMatchObject({ baseCents: 264733, gateCents: 5295 });
       expect(change.categories.find((c) => c.category === "restaurants")).toMatchObject({ nowCents: 15000, baseCents: 5000, changeCents: 10000, standsOut: true, buckets: [], restCents: 10000 });
       const spikes = buildAlerts(createContext(rows, [checking], now), september).filter((a) => a.kind === "spike");
       expect(spikes.map((a) => [plain(a.title), plain(a.detail)])).toEqual([["Ravintolat ja kahvilat 150 € syyskuussa", "Tavallisesti noin 50 €/kk"]]);
@@ -328,10 +328,10 @@ describe("alerts", () => {
         .filter((t) => t.bookingDate <= now);
       const ctx = createContext(rows, [checking, card], now);
       const october = { from: "2026-10-01", to: "2026-10-31" };
-      const { change, sentence } = spendingChangeReport(ctx, october).views.find((v) => v.view === "usual")!;
+      const { change, sentence } = spendingChangeReport(ctx, october).views.find((v) => v.view === "expected")!;
       expect(change).toMatchObject({ running: true, target: { to: "2026-10-10" } });
       // the report's lead says the same words as the alert, not "tähän asti"
-      expect(sentence.replace(/\s/g, " ")).toBe("Lokakuu: menot 10.10. mennessä 176 € tavallista suuremmat. Ravintolat ja kahvilat +176 € (useammin).");
+      expect(sentence.replace(/\s/g, " ")).toBe("Lokakuu: menot 10.10. mennessä 176 € tavallista suuremmat (viime 6 kuukauden keskiarvo). Ravintolat ja kahvilat +176 € (useammin).");
       expect(change.categories.find((c) => c.category === "restaurants")).toMatchObject({ nowCents: 20100, baseCents: 2500 });
       // the page's rows of the category add up to 300 € by the 20th, so neither figure may read as today's
       const spikes = buildAlerts(ctx, october).filter((a) => a.kind === "spike");
@@ -387,7 +387,7 @@ describe("alerts", () => {
     const max = monthly("2025-11-27", 11, -1099, { merchant: "Max", category: "subscriptions" });
     it("a small service running for months", () => {
       const [a] = ofKind(alertsOf([...household(), ...max]), "forgotten");
-      expect(a).toMatchObject({ tone: "info", title: "Max 10,99 € kuussa, 132 € vuodessa", detail: expect.stringMatching(/^Maksettu \d+ kuukautta\.$/), merchant: "Max" });
+      expect(a).toMatchObject({ tone: "info", title: "Max 10,99 € kuussa, 132 € vuodessa", detail: expect.stringMatching(/^Olet maksanut \d+ kuukautta\.$/), merchant: "Max" });
     });
 
     it("near misses: a past period, a new service, an expensive one", () => {

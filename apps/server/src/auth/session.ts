@@ -29,7 +29,7 @@ export function isHttps(c: Context, s: Services): boolean {
 export async function startSession(c: Context, s: Services, userId: string): Promise<void> {
   const token = toBase64Url(randomBytes(32));
   const expires = new Date(s.now().getTime() + s.config.sessionDays * 86_400_000);
-  await s.users.createSession(await sha256(token), userId, expires.toISOString(), c.req.header("user-agent") ?? null);
+  await s.users.createSession(await sha256(token), userId, expires.toISOString(), c.req.header("user-agent") ?? null, s.now());
   setSessionCookie(c, s, token);
 }
 

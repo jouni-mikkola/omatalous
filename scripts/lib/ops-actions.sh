@@ -30,12 +30,15 @@ act_restart() {
   step_say "2/2 Odotetaan että sovellus vastaa"
   if wait_healthy 45; then SUMMARY="Sovellus käynnistyi uudelleen."; else fail "Sovellus ei vastaa uudelleenkäynnistyksen jälkeen."; fi
 }
-# Runs doctor.sh --json and keeps its answer for the page. Exit 1 and 2 mean findings, not a failed run.
+# Runs doctor.sh --json and keeps its answer for the page, with the same items in English (doctor_en) for a member who reads
+# English; a run without them (an older doctor.sh) leaves them out. Exit 1 and 2 mean findings, not a failed run.
 run_doctor() {
-  local out rc=0
+  local out en rc=0 shape='^\{"at":"[0-9TZ:.-]+","items":\[.*\]\}$'
   out=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json 2>/dev/null | head -c 60000) || rc=$?
-  if [[ $out =~ ^\{\"at\":\"[0-9TZ:.-]+\",\"items\":\[.*\]\}$ && $out != *$'\n'* ]]; then
-    printf '"doctor":%s' "$out" >"$OPS/doctor.frag"
+  if [[ $out =~ $shape && $out != *$'\n'* ]]; then
+    en=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json-en 2>/dev/null | head -c 60000) || true
+    if [[ $en =~ $shape && $en != *$'\n'* ]]; then printf '"doctor":%s,"doctor_en":%s' "$out" "$en" >"$OPS/doctor.frag"
+    else printf '"doctor":%s' "$out" >"$OPS/doctor.frag"; fi
     DOCTOR_PROBLEMS=$(grep -o '"level":"error"' <<<"$out" | wc -l); DOCTOR_WARNINGS=$(grep -o '"level":"warn"' <<<"$out" | wc -l)
     return 0
   fi

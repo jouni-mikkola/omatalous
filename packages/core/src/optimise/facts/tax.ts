@@ -8,7 +8,7 @@ import type { Fact } from "./index.ts";
 
 const PAGE = { title: "Verohallinto: Kotitalousvähennyksen määrä", url: "https://www.vero.fi/henkiloasiakkaat/vahennykset/kotitalousvahennys/kotitalousvahennyksen-maara/" };
 const PROPOSAL = {
-  title: "Verohallinto: Kotitalousvähennykseen ehdotetaan korotusta (16.6.2026)",
+  title: "Verohallinto: ehdotus korottaa kotitalousvähennystä (16.6.2026)",
   url: "https://www.vero.fi/tietoa-verohallinnosta/uutishuone/lehdist%C3%B6tiedotteet/2026/kotitalousvahennykseen-ehdotetaan-korotusta-matkakulujen-omavastuu-pienenee/",
 };
 
@@ -18,9 +18,9 @@ const law = { kind: "law", status: "valid", validFrom: "2025-01-01", asOf: "2025
 const proposal = { kind: "law", status: "proposed", validFrom: "2026-01-01", validTo: "2027-12-31", asOf: "2026-06-16", expires: "2027-12-31", source: PROPOSAL, verifiedAt: "2026-10-11" } as const;
 
 export const TAX_FACTS: readonly Fact[] = [
-  { id: "household_deduction_rate", label: "Vähennys työn osuudesta", value: 35, unit: "%", ...law },
-  { id: "household_deduction_deductible", label: "Omavastuu", value: 15_000, unit: "snt", ...law },
-  { id: "household_deduction_cap", label: "Enimmäismäärä henkilöltä", value: 160_000, unit: "snt", ...law },
-  { id: "household_deduction_rate", label: "Vähennys työn osuudesta", value: 40, unit: "%", ...proposal },
-  { id: "household_deduction_cap", label: "Enimmäismäärä henkilöltä", value: 210_000, unit: "snt", ...proposal },
+  { id: "household_deduction_rate", label: "Vähennys työn osuudesta", labelEn: "Deduction of the labour share", value: 35, unit: "%", ...law },
+  { id: "household_deduction_deductible", label: "Omavastuu", labelEn: "Deductible", value: 15_000, unit: "snt", ...law },
+  { id: "household_deduction_cap", label: "Enimmäismäärä henkilöltä", labelEn: "Maximum per person", value: 160_000, unit: "snt", ...law },
+  { id: "household_deduction_rate", label: "Vähennys työn osuudesta", labelEn: "Deduction of the labour share", value: 40, unit: "%", ...proposal },
+  { id: "household_deduction_cap", label: "Enimmäismäärä henkilöltä", labelEn: "Maximum per person", value: 210_000, unit: "snt", ...proposal },
 ];

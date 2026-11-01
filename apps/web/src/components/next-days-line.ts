@@ -1,7 +1,8 @@
 // Decision: does the account cover what is due before the next pay (the line of days over the payments' table)
 import { addDays, daysBetween } from "@banking/core";
 import { dayHeading, money } from "../format.ts";
-import { type Ahead, arrivals, isEstimate, paymentRows, paySum, windowPayday } from "./next-days.ts";
+import { t } from "../text.ts";
+import { type Ahead, arrivals, isEstimate, isPayment, type Payment, paymentRows, paySum, windowPayday } from "./next-days.ts";
 
 /** A day of the line's axis. */
 interface Axis {
@@ -69,16 +70,34 @@ const weekdayOf = (iso: string, today: string) => dayHeading(iso, today).slice(0
 export function billLine(ahead: Ahead): BillLine | null {
   const rows = paymentRows(ahead);
   if (rows.length === 0) return null;
-  const { from, to, balance } = ahead;
   const payday = windowPayday(ahead);
-  const last = payday && payday > to ? payday : to;
+  const last = payday && payday > ahead.to ? payday : ahead.to;
+  return lineOf(ahead, rows, last, payday, true);
+}
+
+/**
+ * The days of Laskut on the same line, as many as the sum above them covers: to the payday it ends before (the payday
+ * is the last day, marked), else to the last day of the window. Every payment the accounts make up to the window's last
+ * day has a dot, and there are no balance steps, since the sum there is what is due and not what is left. A credit
+ * card's charges leave no account, so they have no dot. Null when nothing is due.
+ */
+export function thirtyDayLine(ahead: Ahead): BillLine | null {
+  const payday = windowPayday(ahead);
+  const rows = ahead.upcoming.filter((r): r is Payment => isPayment(r) && !r.onCard && r.date <= ahead.to);
+  if (rows.length === 0) return null;
+  return lineOf(ahead, rows, payday ?? ahead.to, payday, false);
+}
+
+/** The line over `rows` from today to `last`: the days, the dots and, where asked and known, the balance. */
+function lineOf(ahead: Ahead, rows: Payment[], last: string, payday: string | null, steps: boolean): BillLine {
+  const { from, balance } = ahead;
   const columns = Math.max(1, daysBetween(from, last) + 1);
   const columnOf = (iso: string) => Math.min(columns - 1, Math.max(0, daysBetween(from, iso)));
   const axis = Array.from({ length: columns }, (_, k): Axis => {
     const iso = addDays(from, k);
     return { iso, weekday: weekdayOf(iso, from), day: Number(iso.slice(8, 10)), payday: iso === payday, weekend: isWeekend(iso) };
   });
-  const start = balance ? balance.startCents : null;
+  const start = steps && balance ? balance.startCents : null;
   const bills = rows.map((r, row): Bill => {
     const cents = Math.abs(r.cents);
     const estimate = isEstimate(r);
@@ -92,17 +111,19 @@ export function billLine(ahead: Ahead): BillLine | null {
       name: r.name,
       cents,
       estimate,
-      label: `${r.name}, ${estimate ? "arvio, " : ""}${sum}, ${day}`,
-      when: `${day} · ${sum}${estimate ? " · arvio" : ""}`,
+      label: t(estimate ? "ahead.label_estimate" : "ahead.label", { name: r.name, sum, day }),
+      when: t(estimate ? "ahead.when_estimate" : "ahead.when", { day, sum }),
       leftCents: start === null ? null : start - paid,
     };
   });
-  const pays = arrivals(ahead).flatMap((a, row): Pay[] => {
-    if (a.date < from || a.date > last) return [];
-    const day = dayHeading(a.date, from);
-    const sum = paySum(a.pay);
-    return [{ row, column: daysBetween(from, a.date), name: a.name, label: `Saapuva maksu, ${a.name}, arvio, ${sum ? `${sum}, ` : ""}${day}`, when: `${day}${sum ? ` · ${sum}` : ""} · arvio` }];
-  });
+  const pays = !steps
+    ? []
+    : arrivals(ahead).flatMap((a, row): Pay[] => {
+        if (a.date < from || a.date > last) return [];
+        const day = dayHeading(a.date, from);
+        const sum = paySum(a.pay);
+        return [{ row, column: daysBetween(from, a.date), name: a.name, label: sum ? t("ahead.incoming_label", { name: a.name, sum, day }) : t("ahead.incoming_label_nosum", { name: a.name, day }), when: sum ? t("ahead.incoming_when", { day, sum }) : t("ahead.incoming_when_nosum", { day }) }];
+      });
   return { axis, bills, pays, startCents: start };
 }
 

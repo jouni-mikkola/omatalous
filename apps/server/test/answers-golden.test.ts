@@ -98,7 +98,6 @@ async function answersOf(h: Loaded): Promise<Map<string, string>> {
   vi.spyOn(globalThis.crypto, "randomUUID").mockImplementation(() => `00000000-0000-4000-8000-${String(++issued).padStart(12, "0")}`);
   try {
     const app = await setupApp({}, undefined, { now: () => new Date(`${h.day}T10:00:00Z`) });
-    expect((await app.admin.call("PUT", "/api/admin/features", { optimise: true })).status).toBe(200);
     await h.load(app);
     const answers = new Map<string, string>();
     for (const scope of SCOPES) {

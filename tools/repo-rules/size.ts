@@ -30,9 +30,7 @@ const LARGE_FILES: Record<string, number> = {
 };
 
 /** Line caps for the test files over TEST_BUDGET today (size plus 10), shrinking in the same way. */
-const LARGE_TESTS: Record<string, number> = {
-  "apps/server/test/optimise.test.ts": 820,
-};
+const LARGE_TESTS: Record<string, number> = {};
 
 describe("repo rules: size", () => {
   it(`rule 9: a source file over ${BUDGET} lines is on the shrinking LARGE_FILES list, within its cap and at most ${SLACK} lines under it`, () => {

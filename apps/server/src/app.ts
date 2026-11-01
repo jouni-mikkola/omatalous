@@ -6,6 +6,8 @@
  * session, CSRF guard, public routes (health, auth, bank callback), login
  * required, admin routes, user routes.
  */
+import "@banking/core/english";
+import "@banking/core/late";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
@@ -19,9 +21,14 @@ import { dataRoutes } from "./routes/data.ts";
 import { expectedBillRoutes } from "./routes/expected-bills.ts";
 import { financeRoutes } from "./routes/finance.ts";
 import { loanRoutes } from "./routes/loans.ts";
+import { bankFileRoutes } from "./routes/bank-file.ts";
+import { cardFileRoutes } from "./routes/card-file.ts";
+import { categoryGoalRoutes } from "./routes/category-goals.ts";
+import { languageRoutes } from "./routes/language.ts";
 import { spendingGoalRoutes } from "./routes/spending-goal.ts";
 import { statementRoutes } from "./routes/statements.ts";
 import { marksRoutes } from "./routes/marks.ts";
+import { viewOpensRoutes } from "./routes/view-opens.ts";
 import { reviewRoutes } from "./routes/review.ts";
 import { payerRoleRoutes } from "./routes/payer-roles.ts";
 import { householdMemberRoutes, settlementRoutes } from "./routes/settlement.ts";
@@ -31,7 +38,9 @@ import { factorRoutes } from "./routes/second-factor.ts";
 import { opsRoutes } from "./routes/ops.ts";
 import { merchantRoutes } from "./routes/merchants.ts";
 import { userRoutes } from "./routes/users.ts";
-import { HttpUserError, NotFound, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
+import { apiCompression } from "./platform/api-compress.ts";
+import { refusalIn } from "./platform/refusals-en.ts";
+import { codedFor, errorBody, languageOf, HttpUserError, NotFound, sentenceFor, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
 import { cfAccess } from "./security/cf-access.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
 import { EXTENSIONS } from "./extensions.ts";
@@ -46,16 +55,16 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
 
   app.onError((err, c) => {
     if (err instanceof HTTPException) return err.getResponse();
-    if (err instanceof NotFound) return c.json({ error: err.message }, 404);
-    if (err instanceof TooManyAttempts) return c.json({ error: err.message }, 429, { "Retry-After": String(err.retryAfter) });
-    if (err instanceof HttpUserError) return c.json({ error: err.message }, err.status);
-    if (err instanceof UserError) return c.json({ error: err.message }, 400);
+    if (err instanceof NotFound) return c.json({ error: refusalIn(err.message, languageOf(c)) }, 404);
+    if (err instanceof TooManyAttempts) return c.json(errorBody(sentenceFor(err, languageOf(c)), err.info), 429, { "Retry-After": String(err.retryAfter) });
+    if (err instanceof HttpUserError) return c.json(errorBody(sentenceFor(err, languageOf(c)), err.info), err.status);
+    if (err instanceof UserError) return c.json(errorBody(sentenceFor(err, languageOf(c)), err.info), 400);
     if (err instanceof UpstreamError) {
       console.error(err.message);
       return c.json({ error: err.userMessage }, 502);
     }
     console.error(err);
-    return c.json({ error: "Jokin meni vikaan. Yritä uudelleen." }, 500);
+    return c.json(codedFor(c, "app.error"), 500);
   });
 
   // first, so it is the last to touch the answer: a served bank logo carries headers of its own (routes/bank-logos.ts)
@@ -66,7 +75,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
       contentSecurityPolicy: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'"],
         imgSrc: ["'self'", "data:"],
         connectSrc: ["'self'"],
         frameAncestors: ["'none'"],
@@ -89,12 +98,19 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
     await next();
     c.header("Cache-Control", "no-store");
   });
-  // every request body is small JSON
-  app.use("/api/*", bodyLimit({ maxSize: 256 * 1024, onError: (c) => c.json({ error: "Pyyntö on liian suuri." }, 413) }));
+  // answers over 1 kB are packed to the client's gzip or deflate (platform/api-compress.ts)
+  app.use("/api/*", ...apiCompression);
   app.use("/api/*", async (_c, next) => {
-    // address, time zone etc. set in the browser (read once, then kept in memory; saving updates it)
+    // address, time zone, limits etc. set in the browser (read once, then kept in memory; saving updates it)
     await s.instance.load();
     await next();
+  });
+  // every request body is small JSON; the size is a setting, so the limiter is made again when it changes
+  let sizeLimit = { kb: 0, run: bodyLimit({ maxSize: 1 }) };
+  app.use("/api/*", (c, next) => {
+    const kb = s.instance.limits.get("requestKb");
+    if (sizeLimit.kb !== kb) sizeLimit = { kb, run: bodyLimit({ maxSize: kb * 1024, onError: (c) => c.json(codedFor(c, "app.too_large"), 413) }) };
+    return sizeLimit.run(c, next);
   });
   app.use("/api/*", sessionMiddleware(s)); // static files need no session lookup
   app.use("/api/*", csrfGuard(s));
@@ -122,22 +138,27 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api/ops", opsRoutes(s));
   app.route("/api", financeRoutes(s));
   app.route("/api", marksRoutes(s));
+  app.route("/api", viewOpensRoutes(s));
   app.route("/api", payerRoleRoutes(s));
   app.route("/api", reviewRoutes(s));
   app.route("/api", settlementRoutes(s));
   app.route("/api", expectedBillRoutes(s));
   app.route("/api", loanRoutes(s));
+  app.route("/api", languageRoutes(s));
   app.route("/api", spendingGoalRoutes(s));
+  app.route("/api", categoryGoalRoutes(s));
   app.route("/api", statementRoutes(s));
+  app.route("/api", cardFileRoutes(s));
+  app.route("/api", bankFileRoutes(s));
+  app.route("/api/optimise", optimiseRoutes(s));
   // its own prefix: a guard mounted at /api/* would gate every route registered after it
-  app.route("/api/optimise", gated(s, "optimise", optimiseRoutes(s)));
   // a plain string path: in a build with no extension the id's type is never, and so would a template of it be
   for (const e of EXTENSIONS) app.route("/api/" + e.id, gated(s, e.id, e.routes(s)));
   app.route("/api", merchantRoutes(s));
   app.route("/api", bankRoutes(s));
   app.route(BANK_LOGO_PATH, bankLogoRoutes(s));
   app.route("/api", dataRoutes(s));
-  app.all("/api/*", (c) => c.json({ error: "Ei löydy." }, 404));
+  app.all("/api/*", (c) => c.json(codedFor(c, "app.not_found"), 404));
 
   return Object.assign(app, { services: s });
 }

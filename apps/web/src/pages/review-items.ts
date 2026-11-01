@@ -1,6 +1,6 @@
 /**
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
- * (at most `SITTING` items, then "Riittää tältä kertaa"). The page draws what these return.
+ * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
 import { addMonths, fold, inputDefOf, type InputKey, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type StoredInput } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
@@ -8,7 +8,8 @@ import { valueText } from "../components/optimise/Inputs.tsx";
 import { subjectName } from "../components/optimise/shared.tsx";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { approxText } from "../components/Why.tsx";
-import { date, money, plural } from "../format.ts";
+import { date, money } from "../format.ts";
+import { labelTable, t, tn } from "../text.ts";
 
 interface Base {
   id: string;
@@ -101,16 +102,16 @@ export interface InputItem extends Base {
 }
 
 /** What Säästövinkit asks for each input, as a question. */
-export const INPUT_QUESTION: Record<InputKey, string> = {
-  loan_rate: "Mikä on asuntolainan marginaali ja viitekorko?",
-  electricity_kwh: "Paljonko sähköä kuluu vuodessa?",
-  electricity_contract_end: "Milloin sähkösopimus päättyy?",
-  housing_type: "Millaisessa asunnossa asut?",
-  moved_on: "Milloin muutit nykyiseen asuntoon?",
-  insurance_quote: "Paljonko vakuutus maksaisi uuden tarjouksen mukaan?",
-  parking_permit_price: "Mitä asukaspysäköintitunnus maksaa vuodessa?",
-  car_km: "Paljonko ajat vuodessa?",
-};
+export const INPUT_QUESTION: Record<InputKey, string> = labelTable({
+  loan_rate: () => t("set.ri.what_are_the_margin_and"),
+  electricity_kwh: () => t("set.ri.how_much_electricity_do_you"),
+  electricity_contract_end: () => t("set.ri.when_does_the_electricity_contract"),
+  housing_type: () => t("set.ri.what_kind_of_home_do"),
+  moved_on: () => t("set.ri.when_did_you_move_into"),
+  insurance_quote: () => t("set.ri.how_much_would_the_insurance"),
+  parking_permit_price: () => t("set.ri.what_does_the_resident_parking"),
+  car_km: () => t("set.ri.how_much_do_you_drive"),
+});
 
 /** Whether the household has a home loan: Lisää asuntolaina opens Asetukset > Lainat, Ei asuntolainaa is the mark `question:mortgage`. */
 export interface MortgageItem extends Base {
@@ -147,46 +148,49 @@ export interface Sitting {
 export const NEW_SITTING: Sitting = { answered: [], skipped: [] };
 
 export type SittingView =
-  | { state: "item"; item: ReviewItem; position: number; of: number; open: number }
+  | { state: "item"; item: ReviewItem; position: number; of: number }
   | { state: "enough"; left: number }
   | { state: "skipped"; left: number }
   | { state: "empty" };
+
+/** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
+export const openItems = (items: readonly ReviewItem[], sitting: Sitting) => items.filter((i) => !sitting.answered.includes(i.id));
 
 /**
  * Where the sitting stands. An answered item is gone from the queue as soon as the page knows it, also before the queue
  * is read again; a skipped one waits for the next sitting. The count is of the items still open, skipped ones too.
  */
 export function sittingView(items: readonly ReviewItem[], sitting: Sitting): SittingView {
-  const open = items.filter((i) => !sitting.answered.includes(i.id));
+  const open = openItems(items, sitting);
   const seen = sitting.answered.length + sitting.skipped.length;
   if (open.length === 0) return { state: "empty" };
   if (seen >= SITTING) return { state: "enough", left: open.length };
   const ahead = open.filter((i) => !sitting.skipped.includes(i.id));
   if (ahead.length === 0) return { state: "skipped", left: open.length };
-  return { state: "item", item: ahead[0]!, position: seen + 1, of: Math.min(SITTING, seen + ahead.length), open: open.length };
+  return { state: "item", item: ahead[0]!, position: seen + 1, of: Math.min(SITTING, seen + ahead.length) };
 }
 
 /** The small line over the item: what kind of thing it is. */
 export function eyebrow(item: ReviewItem): string {
   switch (item.kind) {
     case "payee_out":
-      return "Luokittelematon meno";
+      return t("set.ri.unclassified_expense");
     case "payee_in":
-      return "Luokittelematon tulo";
+      return t("set.ri.unclassified_income");
     case "payer":
-      return "Saapunut raha";
+      return t("set.ri.money_received");
     case "loan":
-      return "Laina";
+      return t("set.ri.loan");
     case "plan":
-      return "Osamaksu";
+      return t("set.ri.instalment_plan");
     case "split":
-      return `Yhteinen tili: ${item.accountName}`;
+      return t("set.ri.joint_account_account", { account: item.accountName });
     case "subscription":
-      return "Tilaus";
+      return t("set.ri.subscription");
     case "input":
-      return "Säästövinkit";
+      return t("set.ri.savings_tips");
     case "mortgage":
-      return "Asuminen";
+      return t("set.ri.housing");
     case "extension":
       return item.title;
   }
@@ -206,13 +210,13 @@ export function nameOf(item: ReviewItem): string {
     case "plan":
       return item.payee;
     case "split":
-      return item.question === "opening" ? `Saldo ennen ${date(item.label)}` : item.label;
+      return item.question === "opening" ? t("set.ri.balance_before_date", { date: date(item.label) }) : item.label;
     case "input": {
       const label = inputDefOf(item.key)?.def.label ?? item.def;
       return item.subject ? `${label}: ${subjectName(item.subject)}` : label;
     }
     case "mortgage":
-      return "Asuntolaina";
+      return t("set.ri.home_loan");
     case "extension":
       return item.title;
   }
@@ -227,23 +231,23 @@ export function isPerson(item: ReviewItem): boolean {
 export function questionOf(item: ReviewItem): string {
   switch (item.kind) {
     case "payee_out":
-      return item.service ? "Mihin nämä maksut menivät?" : "Mihin kategoriaan nämä maksut kuuluvat?";
+      return item.service ? t("set.ri.what_did_these_payments_go") : t("set.ri.which_category_do_these_payments");
     case "payee_in":
-      return "Mitä tämä tulo on?";
+      return t("set.ri.what_is_this_income");
     case "payer":
-      return "Mitä nämä maksut ovat?";
+      return t("set.ri.what_are_these_payments");
     case "loan":
-      return "Mikä laina tämä on?";
+      return t("set.ri.which_loan_is_this");
     case "plan":
-      return "Montako maksua on vielä jäljellä?";
+      return t("set.ri.how_many_payments_are_left");
     case "split":
-      return "Kenen rahaa tämä oli?";
+      return t("set.ri.whose_money_was_this");
     case "subscription":
-      return "Onko tilaus vielä käytössä?";
+      return t("set.ri.is_the_subscription_still_in");
     case "input":
       return INPUT_QUESTION[item.def];
     case "mortgage":
-      return "Onko teillä asuntolaina?";
+      return t("set.ri.do_you_have_a_home");
     case "extension":
       return item.question;
   }
@@ -255,27 +259,27 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     case "payee_out":
     case "payee_in":
     case "payer":
-      return { text: money(item.cents), unit: "vuodessa", line: `${plural(item.count, "maksu", "maksua")} viimeisen vuoden aikana, viimeksi ${date(item.lastDate)}` };
+      return { text: money(item.cents), unit: t("set.ri.a_year"), line: tn(item.count, "set.ri.payments_year_one", "set.ri.payments_year_many", { last: date(item.lastDate) }) };
     case "loan":
-      return { text: money(item.paymentCents), unit: "kuussa", line: `${plural(item.rowCount ?? item.months, "maksu", "maksua")} ${date(item.firstDate)} alkaen, viimeksi ${date(item.lastDate)}` };
+      return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
     case "plan":
-      return { text: money(item.paymentCents), unit: "kuussa", line: `Viimeisin maksu ${date(item.lastDate)}. Määrä lasketaan siitä eteenpäin.` };
+      return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: t("set.ri.latest_payment_date_the_amount", { date: date(item.lastDate) }) };
     case "split":
-      return { text: money(item.cents), unit: "yhteensä", line: item.question === "opening" ? "Tilillä oli rahaa jo ennen ensimmäistä tapahtumaa. Kukaan ei ole vielä kertonut, kenen se oli." : "Tämä maksaja on tuonut tilille rahaa. Kukaan ei ole vielä kertonut, kenen se oli." };
+      return { text: money(item.cents), unit: t("set.ri.in_total"), line: item.question === "opening" ? t("set.ri.the_account_already_had_money") : t("set.ri.money_has_come_into_the") };
     case "subscription":
-      return { text: money(item.monthlyCents), unit: "kuussa", line: `${money(item.cents)} vuodessa, viimeksi ${date(item.lastDate)}` };
+      return { text: money(item.monthlyCents), unit: t("set.ri.a_month"), line: t("set.ri.amount_a_year_last_date", { amount: money(item.cents), date: date(item.lastDate) }) };
     case "input": {
       const def = inputDefOf(item.key)?.def;
-      const old = item.old && def ? `Edellinen tieto ${valueText(def, item.old.value)}, annettu ${date(item.old.asOf)}, on liian vanha. ` : "";
+      const old = item.old && def ? t("set.ri.old_value", { value: valueText(def, item.old.value), date: date(item.old.asOf) }) : "";
       // the money is a tip's estimate the value makes exact; a check that waits for the value has none to show
       return item.cents > 0
-        ? { text: approxText(money(item.cents, false), true), unit: "vuodessa", line: `${old}Säästövinkin arvio tarkentuu, kun kerrot tämän.` }
-        : { text: "", line: `${old}Säästövinkit tarvitsee tämän, jotta tarkistus voidaan tehdä.` };
+        ? { text: approxText(money(item.cents, false), true), unit: t("set.ri.a_year"), line: t("set.ri.old_the_estimate_of_the", { old }) }
+        : { text: "", line: t("set.ri.old_the_savings_tips_need", { old }) };
     }
     case "mortgage":
-      return { text: "", line: "Asumiskuluissa ei näy lainaa. Kun lisäät asuntolainan, sen maksuerät tulevat Asumisen summaan." };
+      return { text: "", line: t("set.ri.housing_costs_show_no_loan") };
     case "extension":
-      return { text: money(item.cents), unit: "yhteensä", line: [item.detail, item.date && date(item.date)].filter(Boolean).join(", ") };
+      return { text: money(item.cents), unit: t("set.ri.in_total"), line: [item.detail, item.date && date(item.date)].filter(Boolean).join(", ") };
   }
 }
 
@@ -310,7 +314,7 @@ export function extensionChoices(item: ExtensionItem): Choice<ExtensionItem["cho
 }
 
 /** The line at the end of a sitting, and of an empty queue. */
-export const leftText = (left: number): string => (left === 1 ? "Jäljellä on 1 kohde. Se odottaa seuraavaa kertaa." : `Jäljellä on ${left} kohdetta. Ne odottavat seuraavaa kertaa.`);
+export const leftText = (left: number): string => (left === 1 ? t("set.ri.one_left") : t("set.ri.n_left", { left }));
 
 /** The most payments a plan may have left, as the answer is checked. */
 export const MAX_PLAN_PAYMENTS = 120;

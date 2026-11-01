@@ -145,18 +145,27 @@ watchdog_settle() {
 # report and lists these items, so after a rollback to 0.8.x this is where an admin reads about it. The next doctor run
 # writes the result again without the item.
 watchdog_doctor_item() {
-  local f=$OPS/doctor.frag body item
+  local f=$OPS/doctor.frag body fi_item en_item rest out="" n=0 item
   [[ -s $f ]] || return 0
-  body=$(sed -E 's/\{"id":"watchdog"[^}]*\},?//' "$f") || return 0
-  item="{\"id\":\"watchdog\",\"level\":\"error\",\"title\":\"Edellinen versio palautettiin, koska sovellus ei vastannut 10 minuuttiin\""
-  item+=",\"detail\":\"Ylläpitoapuri vaihtoi itse version $2 takaisin versioon $3. Rivi poistuu seuraavassa tarkistuksessa.\""
-  item+=",\"hint\":\"Loki ajalta ennen palautusta on palvelimella: ops/run/watchdog-$1.log\"}"
-  case $body in
-    '"doctor":{"at":"'*'","items":[]}') body=${body/'"items":[]'/"\"items\":[$item]"} ;;
-    '"doctor":{"at":"'*'","items":['*']}') body=${body/'"items":['/"\"items\":[$item,"} ;;
-    *) return 0 ;;
-  esac
-  printf '%s' "$body" | atomic_write "$f"
+  body=$(sed -E 's/\{"id":"watchdog"[^}]*\},?//g' "$f") || return 0
+  fi_item="{\"id\":\"watchdog\",\"level\":\"error\",\"title\":\"Edellinen versio palautettiin, koska sovellus ei vastannut 10 minuuttiin\""
+  fi_item+=",\"detail\":\"Ylläpitoapuri vaihtoi itse version $2 takaisin versioon $3. Rivi poistuu seuraavassa tarkistuksessa.\""
+  fi_item+=",\"hint\":\"Loki ajalta ennen palautusta on palvelimella: ops/run/watchdog-$1.log\"}"
+  # the same item for the English result (doctor_en) that run_doctor keeps beside the Finnish one
+  en_item="{\"id\":\"watchdog\",\"level\":\"error\",\"title\":\"The previous version was restored because the app did not respond for 10 minutes\""
+  en_item+=",\"detail\":\"The maintenance helper switched version $2 back to version $3 by itself. This line goes at the next check.\""
+  en_item+=",\"hint\":\"The log from before the restore is on the server: ops/run/watchdog-$1.log\"}"
+  [[ $body == '"doctor":{"at":"'*'","items":['* && $body == *']}' ]] || return 0
+  rest=$body
+  while [[ $rest == *'"items":['* ]]; do
+    out+=${rest%%'"items":['*}'"items":['
+    rest=${rest#*'"items":['}
+    n=$((n + 1))
+    if ((n == 1)); then item=$fi_item; else item=$en_item; fi
+    if [[ $rest == ']'* ]]; then out+=$item; else out+="$item,"; fi
+  done
+  out+=$rest
+  printf '%s' "$out" | atomic_write "$f"
 }
 
 # watchdog_rollback AT: the one rollback of this update. The mark comes first. After update.sh the files on disk are the

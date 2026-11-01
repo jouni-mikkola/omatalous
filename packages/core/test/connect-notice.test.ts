@@ -39,7 +39,7 @@ describe("the card to connect", () => {
     const ctx = ctxOf(household(), [checking]);
     const notice = connectNotice(ctx)!;
     expect(notice.cents).toBe(12 * 12_000);
-    expect(plain(notice.title)).toBe("Korttilaskuja 1 440 € viimeiseltä 12 kuukaudelta, mutta kortin ostot puuttuvat");
+    expect(plain(notice.title)).toBe("Kortin ostot puuttuvat: korttilaskuja 1 440 € viimeiseltä 12 kuukaudelta");
     expect(notice.detail).toBe("Yhdistämättömät kortit: Morrow Bank.");
     // the sum is the card_bills signal's own table, not a second count
     const signal = dataQualityReport(ctx, { from: "2025-10-01", to: "2026-09-30" }).signals.find((s) => s.id === "card_bills")!;
@@ -72,7 +72,7 @@ describe("the card to connect", () => {
     const rows = [row("fund", "chk", "2026-09-20", -50_000, "ESIMERKKI RAHASTO")].map((t) => ({ ...t, category: "savings", categorySource: "rule" as const }));
     const notice = connectNotice(ctxOf([...rows, row("food", "chk", "2026-09-05", -5_000, "PRISMA ESIMERKKI")], [checking]))!;
     expect(notice.cents).toBe(50_000);
-    expect(plain(notice.title)).toBe("Säästöön meni 500 € viimeisen 12 kuukauden aikana tilille, jota ei ole yhdistetty");
+    expect(plain(notice.title)).toBe("Siirsit vuoden aikana 500 € tilille, jota et ole yhdistänyt");
   });
 
   it("a household with neither gets no row", () => {

@@ -45,8 +45,8 @@ const RULES: Rule[] = [
   },
   {
     id: "reports-are-independent",
-    why: "a report is a pure function of the context; shared code goes in reports/shared.ts or analysis/",
-    from: new RegExp(`^${CORE}/reports/(?!index\\.ts$)`),
+    why: "a report is a pure function of the context; shared code goes in reports/shared.ts or analysis/. The conclusions of the question pages read the reports their figures come from, so they are the one place that may import them",
+    from: new RegExp(`^${CORE}/reports/(?!index\\.ts$|conclusion\\.ts$|conclusions/)`),
     deny: new RegExp(`^${CORE}/reports/(?!shared\\.ts$)`),
   },
   {

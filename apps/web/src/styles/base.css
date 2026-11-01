@@ -1,56 +1,90 @@
-/* Element defaults and the parts every page shares: buttons, cards, tables, forms, notices. Loaded first, so a page file can override it. */
+/* Element defaults and the parts every page shares: buttons, sections, forms, notices. Declares the layers in their order; every stylesheet of the app
+   sits in one of them (base-css.test.ts), and a later layer wins over an earlier one whatever the specificity of its selectors. */
+@layer reset, tokens, base, components, pages, utilities;
 
+@layer reset {
 * { box-sizing: border-box; }
 html, body { margin: 0; }
+}
+
+@layer base {
+/* the font is a token (font-body); the width axis of the variable face narrows on a phone (stretch) */
+:root { --cell-y: calc((var(--row-h) - var(--lh-body)) / 2); /* the padding above and below a line of a row: the row stays on the step */
+  font-family: var(--font-body); font-stretch: var(--stretch); font-feature-settings: "kern", "calt"; }
 body { background: var(--page); color: var(--text); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-regular); -webkit-font-smoothing: antialiased; }
 p { line-height: 20px; }
 h1, h2, h3 { letter-spacing: -0.01em; }
 button, input, select { font: inherit; color: inherit; }
 a { color: var(--accent-ink); }
+/* every figure in a column lines up: tabular and lining, in a table and wherever a sum is typeset */
+table { font-variant-numeric: tabular-nums lining-nums; }
+}
 
+@layer components {
 .brand { font-weight: 600; font-size: var(--fs-h2); letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; }
 .brand-mark { width: 20px; height: 20px; border-radius: var(--radius-m); background: var(--fill); display: inline-flex; align-items: end; justify-content: center; gap: 2px; padding: 4px; }
 .brand-mark i { display: block; width: 3px; background: var(--on-fill); border-radius: var(--radius-s); }
+.brand-mark i:nth-child(1) { height: calc(var(--sp-4) * 1.5); }
+.brand-mark i:nth-child(2) { height: calc(var(--sp-4) * 2.5); }
+.brand-mark i:nth-child(3) { height: calc(var(--sp-4) * 3.25); }
 
-/* a key: raised, its lit edge becomes the sink when it is pressed */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--control-h); padding: 0 12px;
+/* the one button (components/ui/Button.tsx): secondary is the outline, primary the filled one, link the text in a row; danger is a tone, shown in a confirmation dialog only */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--control-h); padding: 0 16px;
   border: 1px solid var(--control-edge); border-radius: var(--radius-m); background: var(--control); color: var(--text);
-  font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: 600; cursor: pointer; box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2);
+  font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); cursor: pointer;
   transition: background-color var(--t-state) var(--ease-out), border-color var(--t-state) var(--ease-out), transform var(--t-press) var(--ease-out); }
 .btn:hover:not(:disabled) { background: var(--control-hover); border-color: var(--control-edge-hover); }
-.btn:active:not(:disabled) { transform: translateY(1px); box-shadow: var(--sink); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled, .btn[aria-disabled="true"] { cursor: default; background: transparent; border-color: var(--border); color: var(--muted); box-shadow: none; }
-.btn[aria-busy="true"] { cursor: progress; background-image: repeating-linear-gradient(135deg, transparent 0 6px, var(--row-hover) 6px 12px); }
+.btn[aria-busy="true"] { cursor: progress; background: var(--row-hover); }
 .btn-primary { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
 .btn-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--fill) 86%, var(--on-fill)); border-color: var(--fill); }
-.btn-danger { color: var(--bad); }
-.btn-danger:hover:not(:disabled) { border-color: var(--bad); }
-.btn-small { position: relative; min-height: 28px; padding: 0 8px; font-size: var(--fs-label); }
-@media (pointer: coarse) { .btn-small { min-height: 32px; } .btn-small::after { content: ""; position: absolute; inset: -6px 0; } }
+.btn[data-tone="danger"] { color: var(--bad); }
+.btn[data-tone="danger"]:hover:not(:disabled) { border-color: var(--bad); }
+.btn-primary[data-tone="danger"] { background: var(--bad); border-color: var(--bad); color: var(--surface); }
+.btn-primary[data-tone="danger"]:hover:not(:disabled) { background: color-mix(in srgb, var(--bad) 86%, var(--surface)); border-color: var(--bad); }
+/* the link: no box; a thumb gets 44 px by a reach beyond the text */
+.btn-link { position: relative; display: inline; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-s); background: none; box-shadow: none;
+  color: var(--accent-ink); font-weight: var(--w-regular); text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.btn-link:hover:not(:disabled) { background: none; text-decoration-thickness: 2px; }
+.btn-link:active:not(:disabled) { transform: none; box-shadow: none; }
+.btn-link:disabled, .btn-link[aria-disabled="true"] { background: none; border: 0; color: var(--muted); }
+.btn-link[data-tone="danger"] { color: var(--bad); }
+@media (pointer: coarse) { .btn-link::after { content: ""; position: absolute; inset: -12px -4px; } }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: none; }
-.topbar :focus-visible { outline-color: var(--on-ink); }
-.icon-btn { border: none; background: none; cursor: pointer; padding: 4px; color: var(--muted); }
+/* a mark with no word: the reach is the control height, 24 px at the least inside a chip */
+.btn-icon { display: inline-flex; align-items: center; justify-content: center; min-width: var(--control-h); min-height: var(--control-h); padding: 0; border: 0; border-radius: var(--radius-m); background: none; color: var(--muted); cursor: pointer; }
+.btn-icon:hover:not(:disabled) { background: var(--control-hover); color: var(--text); }
+.btn-icon:disabled { cursor: default; opacity: 0.5; }
 
 .filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 16px; }
-/* the switch is a sunk track; the chosen key is raised to the panel's colour and carries a 2 px accent foot */
-.segmented { display: inline-flex; flex-wrap: wrap; padding: 2px; border: 1px solid var(--border); border-radius: calc(var(--radius-pill) + 1px); background: var(--surface-2); box-shadow: var(--sink); }
-.segmented button { min-height: 28px; padding: 0 8px; border: 0; border-radius: calc(var(--radius-pill) - 1px); background: none; color: var(--text-2); font-size: var(--fs-ui); font-weight: 600; cursor: pointer; }
+/* the switch is a track; the chosen key takes the page's colour and carries a 2 px accent foot */
+.segmented { display: inline-flex; flex-wrap: wrap; padding: 2px; border: 1px solid var(--border); border-radius: calc(var(--radius-pill) + 1px); background: var(--surface-2); }
+.segmented button { min-height: calc(var(--control-h) - 8px); padding: 0 12px; border: 0; border-radius: calc(var(--radius-pill) - 1px); background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
 .segmented button:hover { color: var(--text); }
-.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-2), inset 0 -2px 0 var(--accent); }
-@media (pointer: coarse) { .segmented button { min-height: 40px; } }
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+/* tabs: views of one subject (buttons) or targets of one page (links); the chosen one carries the 2 px accent foot */
+.tabs { display: flex; gap: var(--sp-4); margin-bottom: var(--sp-8); overflow-x: auto; scrollbar-width: none; }
+.tabs button, .tabs a { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 0; background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: var(--w-strong); cursor: pointer; text-decoration: none; box-shadow: inset 0 -2px 0 transparent; white-space: nowrap; }
+.tabs button:hover, .tabs a:hover { color: var(--text); }
+.tabs button[aria-selected="true"], .tabs a[aria-current="page"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
+.tabs button:focus-visible, .tabs a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* a filter that is on, with the mark that takes it off */
+.chip { display: inline-flex; align-items: center; gap: var(--sp-4); min-height: 28px; padding: 0 0 0 var(--sp-12); border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface); color: var(--text-2); font-size: var(--fs-body); }
+.chip .btn-icon { min-width: 28px; min-height: 28px; border-radius: var(--radius-s); }
 
-/* a thing you type into is sunk */
-input[type="text"], input[type="search"], input[type="date"], input[type="url"], input[type="password"], input[type="number"], select, textarea, .select-lite {
+/* a thing you type into (every input but the ones that are not typed into, so one without a type has the edge too) has the well's colour and an edge */
+input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="hidden"], [type="button"], [type="submit"], [type="color"]), select, textarea, .select-lite {
   min-height: var(--control-h); padding: 0 8px; min-width: 0; border: 1px solid var(--control-edge); border-radius: var(--radius-m);
-  background: var(--well); color: var(--text); box-shadow: var(--sink); transition: border-color var(--t-state) var(--ease-out); }
+  background: var(--well); color: var(--text); transition: border-color var(--t-state) var(--ease-out); }
 :is(input, select, textarea, .select-lite):hover:not(:disabled) { border-color: var(--control-edge-hover); }
 :is(input, select, textarea):focus-visible { outline-offset: 1px; border-color: var(--accent); }
-:is(input, select, textarea)[aria-invalid="true"] { border-color: var(--bad); box-shadow: var(--sink), inset 0 -2px 0 var(--bad); }
+:is(input, select, textarea)[aria-invalid="true"] { border-color: var(--bad); box-shadow: inset 0 -2px 0 var(--bad); }
 :is(input, select, textarea):disabled, .select-lite[aria-disabled="true"] { background: var(--surface-2); border-color: var(--border); color: var(--muted); box-shadow: none; }
 ::placeholder { color: var(--muted); opacity: 1; }
 input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill); }
 @media (pointer: coarse) { input, select, textarea { font-size: var(--fs-input); } }
-.field-label { font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: 600; color: var(--text-2); }
+.field-label { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text-2); }
 .field-help { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 
 .grid { display: grid; gap: 16px; }
@@ -59,6 +93,9 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
   .two { grid-template-columns: minmax(0, 1fr); }
 }
 .stack { display: flex; flex-direction: column; gap: var(--gap); }
+.stack-12 { gap: var(--sp-12); }
+.stack-8 { gap: var(--sp-8); }
+.stack-hidden { visibility: hidden; }
 /* from 1600 px a page that stacks its panels stands on the page's twelve columns, and two `.half` panels in a row take six each; a half with no half beside it stays whole */
 @media (min-width: 1600px) {
   .stack:has(> .half) { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
@@ -70,15 +107,12 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
 .page-grid > * { grid-column: 1 / -1; }
 @media (min-width: 1040px) { .span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } }
 
-/* the panel (VD0): a quiet frame raised off the page by its shade, no corner marks; depth tells panel from page, not lines */
-.card { position: relative; min-width: 0; padding: var(--pad); background: var(--surface); border: 1px solid color-mix(in srgb, var(--border) 60%, var(--surface));
-  border-radius: var(--radius); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-1); scroll-margin-top: calc(var(--rail-h) + 16px); }
-/* the name strip: to the frame's edges, the name in sentence case at the size of a heading; a hairline, no tinted band */
-.card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; min-height: 40px;
-  margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) var(--sp-16); padding: 4px var(--pad); border-bottom: 1px solid var(--grid);
-  background: transparent; border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0; }
-/* a panel with only its name strip (Salasana, Tekniset asetukset; a fold that is shut) has no empty ruled body under it */
-.card > .card-head:only-child, details.card:not([open]) > summary.card-head { margin-bottom: calc(-1 * var(--pad)); border-bottom: 0; border-radius: calc(var(--radius) - 1px); }
+/* a section: a hairline above it, the name under the line, no box, no ground, no shadow (docs/DESIGN.md) */
+.card { position: relative; min-width: 0; padding: var(--sp-16) 0 var(--sp-24); border-top: 1px solid var(--border); scroll-margin-top: calc(var(--rail-h) + 16px); }
+/* the name strip: the name in sentence case at the size of a heading, the tools beside it */
+.card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; min-height: 0; margin: 0 0 var(--sp-12); padding: 0; }
+/* a section with only its name (Salasana; a fold that is shut) has no empty body under it */
+.card > .card-head:only-child, details.card:not([open]) > summary.card-head { margin-bottom: 0; }
 /* a fold opens with the chevron of a row that opens (themes-table.css), not the browser's triangle: a triangle is a change or a warning */
 details:not(.user-menu) > summary { list-style: none; cursor: pointer; }
 details:not(.user-menu) > summary::-webkit-details-marker { display: none; }
@@ -112,6 +146,7 @@ td.better { color: var(--good); }
 
 
 .badge { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--surface); color: var(--text-2); font-size: var(--fs-label); line-height: 18px; white-space: nowrap; }
+.badge.flush { margin-left: 0; }
 .badge.warn { background: var(--warn-bg); color: var(--text); }
 /* a payee with the word varaus after it (PendingPayee): the name is cut with an ellipsis first, the word keeps its line */
 .payee-pending { display: flex; align-items: center; min-width: 0; }
@@ -123,19 +158,23 @@ td:has(> .payee-pending) { max-width: 0; }
 .badge.bad { background: var(--bad-bg); color: var(--bad); }
 
 .empty { padding: var(--cell-y) 0; text-align: left; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
-.card.empty { padding: var(--pad); }
-.field-error, .error { color: var(--bad); font-size: var(--fs-body); }
-.field-error { flex-basis: 100%; }
-/* a notice is told by ground, word and a 12 px shape (square, triangle, disc), never by a coloured edge */
-.notice { position: relative; margin-bottom: var(--sp-16); padding: 8px 12px 8px 36px; border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--info-bg); color: var(--text); }
+.field-error { color: var(--bad); font-size: var(--fs-body); flex-basis: 100%; }
+/* a notice is told by ground, word and a 12 px shape (square, triangle, disc, cross), never by a coloured edge */
+.notice { position: relative; margin-bottom: var(--sp-16); padding: var(--sp-8) var(--sp-12) var(--sp-8) 36px; border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--info-bg); color: var(--text); }
 .notice::before { content: ""; position: absolute; left: 12px; top: 12px; width: 12px; height: 12px; background: var(--accent); }
-.notice.warning { background: var(--warn-bg); }
-.notice.warning::before { background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.notice.good { background: var(--good-bg); }
-.notice.good::before { background: var(--good); border-radius: 50%; }
-.card.error { border-color: var(--bad); background: var(--bad-bg); color: var(--text); }
-.card.error > p { margin: 0 0 var(--sp-12); }
+.notice[data-tone="warning"] { background: var(--warn-bg); }
+.notice[data-tone="warning"]::before { background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.notice[data-tone="good"] { background: var(--good-bg); }
+.notice[data-tone="good"]::before { background: var(--good); border-radius: 50%; }
+.notice[data-tone="error"] { background: var(--bad-bg); }
+.notice[data-tone="error"]::before { background: var(--bad); clip-path: polygon(20% 0, 50% 30%, 80% 0, 100% 20%, 70% 50%, 100% 80%, 80% 100%, 50% 70%, 20% 100%, 0 80%, 30% 50%, 0 20%); }
+.notice > .notice-action { margin-left: var(--sp-12); white-space: nowrap; }
+.notice > .form-row { margin-bottom: 0; }
+.form-row > .notice { margin: 0; }
 .form-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+.form-row.flush { margin: 0; }
+.form-row.end { justify-content: flex-end; }
+.form-row.pull { margin-top: calc(var(--sp-8) * -1); }
 .muted { color: var(--muted); }
 .lead { margin: 0 0 12px; max-width: 62ch; }
 .small { font-size: var(--fs-label); }
@@ -143,7 +182,7 @@ code { background: var(--surface-2); padding: 1px 4px; border-radius: var(--radi
 
 textarea { font: inherit; color: inherit; width: 100%; min-height: 120px; padding: 8px 8px; font-family: var(--font-code); font-size: var(--fs-label); }
 
-a.btn { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
+a.btn:not(.btn-link) { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
 a.btn-primary { color: var(--on-fill); }
 .spacer { flex: 1; }
 
@@ -153,16 +192,14 @@ a.btn-primary { color: var(--on-fill); }
 .select-lite::after { content: ""; flex: none; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
 .select-lite[aria-disabled="true"] { cursor: default; }
 
-.link-btn { border: none; background: none; padding: 0; cursor: pointer; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; font: inherit; }
-.link-btn:disabled { cursor: default; color: var(--muted); }
 
-/* the empty states (EmptyStart, the end of Tarkistettavat): one centred card with a heading, a sentence and the way on */
-.empty-card { display: grid; justify-items: center; gap: var(--sp-12); padding-block: var(--sp-48); text-align: center; }
-.empty-card h2:focus { outline: none; }
-.empty-card p { margin: 0; max-width: 44ch; font-size: var(--fs-body); line-height: 20px; color: var(--text-2); }
-.empty-card .form-row { justify-content: center; }
+/* the empty states (Empty with a title: the first run, the end of Tarkistettavat): one centred card with a heading, a sentence and the way on */
+.card.empty { display: grid; justify-items: center; gap: var(--sp-12); padding-block: var(--sp-48); text-align: center; }
+.card.empty h2:focus { outline: none; }
+.card.empty p { margin: 0; max-width: 44ch; font-size: var(--fs-body); line-height: 20px; color: var(--text-2); }
+.card.empty .form-row { justify-content: center; }
 /* the first run's steps in their order: a number in a ring, a tick once done, the next one in full ink and a heavier ring */
-.empty-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: var(--sp-8); text-align: left; font-size: var(--fs-ui); color: var(--text-2); }
+.empty-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: var(--sp-8); text-align: left; font-size: var(--fs-body); color: var(--text-2); }
 .empty-steps li { counter-increment: step; display: flex; align-items: center; gap: var(--sp-8); }
 .empty-steps li::before { content: counter(step) / ""; flex: none; display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--axis); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
 .empty-steps li.done::before { content: "✓" / ""; background: var(--good); box-shadow: none; color: var(--surface); }
@@ -184,24 +221,21 @@ a.btn-primary { color: var(--on-fill); }
 .sk-sub { inline-size: 120px; block-size: 10px; }
 .skeleton-tall { min-height: 220px; }
 
-/* the key figure tiles (KeyFigures, the loading frame of Loading, any page's lead strip): tiles in one raised strip, split by
+/* the key figures (KeyFigures, the loading frame of Loading, any page's lead strip): figures in one strip, split by
  * hairlines; two by two on a phone. Shared, so a page reuses the classes and copies no rule. */
-.key-figures { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); background: var(--surface);
-  border: 1px solid color-mix(in srgb, var(--border) 60%, var(--surface)); border-radius: var(--radius); box-shadow: inset 0 1px 0 var(--edge-light), var(--lift-1); }
-.kf { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; padding: var(--sp-20) var(--pad); }
-.kf + .kf { border-left: 1px solid var(--grid); }
-.kf-label { font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--text-2); }
+.key-figures { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); padding: var(--sp-16) 0 var(--sp-8); border-top: 1px solid var(--border); }
+.kf { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; padding: var(--sp-4) var(--sp-16) var(--sp-8) 0; }
+.kf + .kf { padding-left: var(--sp-16); border-left: 1px solid var(--grid); }
+/* the display size, 3.25 rem, is for one number: the first figure of a page, the answer it was opened for */
+.key-figures > .kf:first-child .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); }
+.kf-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .kf-sub { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
-.kf-spark { display: block; max-width: 100%; height: auto; overflow: visible; }
-.kf-spark path { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.kf-spark-now { stroke: var(--accent); }
-.kf-spark-prev { stroke: var(--series-avg); stroke-dasharray: 3 3; stroke-width: 1.5 !important; }
-.kf-spark-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 @media (max-width: 640px) {
   .key-figures { grid-template-columns: 1fr 1fr; }
-  .kf { padding: var(--sp-16) var(--sp-12); }
+  .kf { padding: var(--sp-12) var(--sp-12) var(--sp-8) 0; }
+  .kf:nth-child(even) { padding-left: var(--sp-12); }
   /* two tiles side by side at 320 px: the large figure would run out of its tile, the medium one fits */
-  .kf .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+  .kf .fig-l, .key-figures > .kf:first-child .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
   .kf:nth-child(odd) { border-left: 0; }
   .kf:nth-child(n + 3) { border-top: 1px solid var(--grid); }
 }
@@ -226,8 +260,21 @@ dialog.confirm h2 { margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) var(--sp
 dialog.confirm p { margin: 0 0 8px; color: var(--text); }
 dialog.confirm .form-row { justify-content: flex-end; margin: var(--sp-16) 0 0; }
 
+/* a target of at least 24 px where the screen is a phone's (WCAG 2.5.8), also for the link that is a flex item and the sort button of a heading; a link inside a sentence is exempt.
+   A link in a cell or a name takes the height back with its margin, so the page does not grow. */
+@media (max-width: 640px), (pointer: coarse) {
+  :is(.btn-link, .rt-sort, .why-door, .why-fig, .sm-name, :is(td, th, .holding-name, .datum-label) :is(a[href], button), .sheet-foot a, details > summary, label:has(> input[type="checkbox"], > input[type="radio"])) { min-height: var(--tap-floor); }
+  :is(.rt-sort, .why-door, .why-fig, .notice > .btn-link, :is(td, th, .holding-name, .datum-label) :is(a[href], button), .sheet-foot a) { display: inline-flex; align-items: center; }
+  :is(td, th, .holding-name, .datum-label) :is(a[href], button) { margin-block: -0.2rem; }
+  .sheet-foot a { margin-block: -0.25rem; }
+  :is(td, th) a[href] { min-width: var(--tap-floor); }
+}
+
 /* a thumb: every link, button and field of Yhteenveto is 44 px high and wide where the pointer is a finger */
 @media (pointer: coarse) {
   .front :is(a, button, summary, select):not(.wf-hit), .front input:not([type="checkbox"], [type="radio"]) { box-sizing: border-box; min-height: 44px; min-width: 44px; }
   .front :is(a, button:not(.wf-hit), summary) { display: inline-flex; align-items: center; max-width: 100%; }
 }
+}
+/* the rule react-aria would inject as a style element (index.html names why): a pressable keeps the browser from waiting for a double tap */
+@layer { [data-react-aria-pressable] { touch-action: pan-x pan-y pinch-zoom; } }

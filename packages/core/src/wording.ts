@@ -4,6 +4,7 @@
  * and has no Ä, Å, Ö or Ü.
  */
 import { homeKindOf, isHeatWaterOrWaste } from "./payees.ts";
+import { alternation, COMPANY_FORMS, type FormUse } from "./wordlists.ts";
 
 export { isHeatWaterOrWaste };
 
@@ -12,7 +13,7 @@ export { isHeatWaterOrWaste };
  * it ("SIIRTO HENKILOLLE" for money out, "SIIRTO HENKILOLTA" for money in) and the word boundaries that suit them.
  * Vipps and MobilePay are one app since 2022, and a row of the new brand may say only Vipps.
  */
-export const MOBILEPAY_WORDS = "MOBILEPAY|MOBILE PAY|PIVO|VIPPS MOBILEPAY|VIPPS";
+export const MOBILEPAY_WORDS = alternation("MOBILEPAY_WORDS");
 
 /**
  * What MobilePay puts before a name when the bank books the payment as a card purchase ("MOB.PAY*STORYTEL OY 7Q2K9X
@@ -29,9 +30,9 @@ export const MOBILEPAY_SHOP_PREFIX = String.raw`MOB\.? ?PAY`;
  */
 export const PERSON_PAYMENT_PREFIX = String.raw`${MOBILEPAY_SHOP_PREFIX}|PAYPAL|PP`;
 /** A bank's own words for a payment between people, sent by phone number, as a regex alternation. They name nobody: the payee beside them does (categorize-people.ts). */
-export const PERSON_PAYMENT_WORDS = "MOBIILIMAKSU|SIIRTO-MAKSU";
+export const PERSON_PAYMENT_WORDS = alternation("PERSON_PAYMENT_WORDS");
 /** The words of an invoice in a message, as a regex alternation: with the endings a sole trader writes (LASKUTUS, LASKUNRO, FAKTURA), "E-LASKU" and "E-INVOICE" after the hyphen, and INV by itself. */
-export const INVOICE_WORDS = "LASKU[A-Z]*|INVOICE[A-Z]*|FAKTURA[A-Z]*|INV";
+export const INVOICE_WORDS = alternation("INVOICE_WORDS");
 
 const BUSINESS_PAYMENT =
   /(?<![\p{L}\p{N}])(?:KORTTIOSTO|KORTTIMAKSU|KORTKOP|CARD PURCHASE|OSTOPVM|E-LASKU|E-INVOICE|SUORAMAKSU|VERKKOMAKSU)(?![\p{L}\p{N}])|(?<!X)X{2,}\d{2,4}|(?<!\*)\*{2,}\d{2,4}/u;
@@ -49,10 +50,9 @@ export const isPaymentMethodName = (folded: string) => PAYMENT_METHOD_NAME.test(
 
 export { SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD } from "./wording-swedish.ts";
 /** Landlords that rent homes, as a regex alternation: the housing rule of categorize.ts and `isRent` read it. */
-export const LANDLORD_WORDS =
-  "SATO|KOJAMO|LUMO|HEKA|TA-YHTYMA|AVARA|M2-KODIT|Y-SAATIO|ASUNTOSAATIO|HOAS|TOAS|PSOAS|TYS|KOAS|JOENSUUN ELLI|SIVAKKA|LAHDEN TALOT|ESPOON ASUNNOT|VANTAAN ASUNNOT";
+export const LANDLORD_WORDS = alternation("LANDLORD_WORDS");
 const RENT = new RegExp(`(?<![A-Z])(?:VUOKRA[A-Z]*|${LANDLORD_WORDS})(?![A-Z])`);
-const CAR_PLACE_WORDS = "AUTOPAIK[A-Z]*|AUTOTALLI[A-Z]*|AUTOKATOS[A-Z]*";
+const CAR_PLACE_WORDS = alternation("CAR_PLACE_WORDS");
 /** A housing company's vastike, a parking place (`CAR_PLACE_WORDS`, a row of its own in Asuminen) or a storage unit: no home's rent, even when the text says VUOKRA. */
 const NOT_RENT = new RegExp(String.raw`(?<![A-Z])(?:[A-Z]*VASTIKE|AS OY|AS\. OY|ASOY|ASUNTO OY|ASUNTO-OSAKEYHTIO|${CAR_PLACE_WORDS}|PARKKI[A-Z]*|PYSAKOINTI[A-Z]*|[A-Z]*VARASTO[A-Z]*|[A-Z]*STORAGE|SHURGARD)(?![A-Z])`);
 const BESIDE_RENT = new RegExp(String.raw`(?<![A-Z])(?:(?:${CAR_PLACE_WORDS}) ?(?:JA|\+|&)|(?:JA|\+|&) ?(?:${CAR_PLACE_WORDS}))(?![A-Z])`);
@@ -65,33 +65,9 @@ export const isRent = (folded: string): boolean => RENT.test(folded) && !NOT_REN
  *   strip:  dropped from a trade register name to get the bare company name
  *   payee:  a payee that starts or ends with it is a business, so its name may go to the register
  */
-export type FormUse = "strip" | "payee";
+export type { FormUse };
 
-const ALL: readonly FormUse[] = ["strip", "payee"];
-
-const FORMS: Readonly<Record<string, readonly FormUse[]>> = {
-  OY: ALL,
-  OYJ: ALL,
-  AB: ALL,
-  ABP: ALL,
-  KY: ALL,
-  AY: ALL,
-  RY: ALL,
-  TMI: ALL,
-  OSK: ALL,
-  KOY: ALL,
-  LTD: ALL,
-  RF: ["strip"],
-  AOY: ["strip"],
-  AS: ["strip"],
-  SR: ["strip"],
-  LIMITED: ["payee"],
-  INC: ["payee"],
-  GMBH: ["payee"],
-  LLC: ["payee"],
-  PLC: ["payee"],
-  BV: ["payee"],
-};
+const FORMS = COMPANY_FORMS;
 
 /** The company forms one use trusts. */
 export function companyForms(use: FormUse): ReadonlySet<string> {
@@ -206,9 +182,9 @@ export function namesBusiness(folded: string): boolean {
 export const words = (list: string, numbered = false) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?![A-Z${numbered ? "" : "0-9"}])`);
 
 /** Electricity sellers, as a regex alternation: the utilities rule of categorize.ts and `isElectricitySeller` read it. */
-export const ELECTRICITY_SELLER_WORDS = String.raw`FORTUM|VATTENFALL|OOMI|\bVARE\b|HELEN|LUMME|NORDIC GREEN|LOISTE|HERRFORS`;
+export const ELECTRICITY_SELLER_WORDS = alternation("ELECTRICITY_SELLER_WORDS");
 /** Electricity network companies (DSOs), read the same way. */
-export const ELECTRICITY_NETWORK_WORDS = "CARUNA|ELENIA|JARVI-SUOMEN ENERGIA|ROVAKAIRA";
+export const ELECTRICITY_NETWORK_WORDS = alternation("ELECTRICITY_NETWORK_WORDS");
 const ELECTRICITY_SELLER = new RegExp(`${ELECTRICITY_SELLER_WORDS}|SAHKO`);
 const NETWORK_COMPANY = new RegExp(`SAHKOVERKKO|VERKKO|VERKOT|SIIRTO|${ELECTRICITY_NETWORK_WORDS}`);
 /** A folded payee name that sells electricity: a seller or the word for electricity. */
@@ -253,7 +229,7 @@ export const isSalaryCode = bankTxnCodes("RCDT-SALA", "RCDT-XBSA", "RRCT-SALA", 
 export const isOwnTransferCode = bankTxnCodes("ICCN-COAT", "RCCN-COAT");
 
 /** Day care, as a regex alternation: the kids rule of categorize.ts and `isDaycareText` read it. */
-export const DAYCARE_WORDS = "[A-Z]*PAIVAKOTI[A-Z]*|[A-Z]*PAIVAHOITO[A-Z]*|VARHAISKASVATUS[A-Z]*";
+export const DAYCARE_WORDS = alternation("DAYCARE_WORDS");
 const DAYCARE = new RegExp(`(?<![A-Z])(?:${DAYCARE_WORDS})(?![A-Z])`);
 export const isDaycareText = (folded: string) => DAYCARE.test(folded);
 
@@ -262,7 +238,7 @@ const MUNICIPALITY = /(?<![A-Z])(?:KAUPUNKI|KUNTA|STAD|KOMMUN)(?![A-Z])/;
 export const isMunicipality = (folded: string) => MUNICIPALITY.test(folded);
 
 /** A reminder fee, late interest or a collection cost, as a regex alternation (analysis/fees.ts). */
-export const LATE_FEE_WORDS = "MUISTUTUSMAKSU|VIIVASTYSKORKO|PERINTAKULU|KARHUMAKSU|MAKSUMUISTUTUS";
+export const LATE_FEE_WORDS = alternation("LATE_FEE_WORDS");
 
 const PURCHASE_INTEREST = /KORKO/i;
 const NOT_PURCHASE_INTEREST = /VIIV[AÄ]STYS|PALKKIO|LUOTTOKULU|LUOTTOKUSTANNU|MAKSU/i;
@@ -273,12 +249,12 @@ export const isPurchaseInterestText = (text: string) => PURCHASE_INTEREST.test(t
  * Payment services a purchase is paid through, at once or in parts, as a regex alternation: the instalment and
  * shopping rules of categorize.ts and `isLenderName` read it. Klarna Bank's every name holds KLARNA, and AfterPay is Riverty's old name.
  */
-export const INSTALMENT_SERVICE_WORDS = "KLARNA|WALLEY|RIVERTY|AFTERPAY|ANYDAY";
+export const INSTALMENT_SERVICE_WORDS = alternation("INSTALMENT_SERVICE_WORDS");
 /**
  * Resurs is an issuer by its whole name only: RESURS alone is also in an employer's name (Resurs Bemanning). It also
  * lends, so its fixed instalments stay loans (pipeline.ts).
  */
-export const RESURS_WORDS = "RESURS BANK";
+export const RESURS_WORDS = alternation("RESURS_WORDS");
 const LENDERS = new RegExp(`${INSTALMENT_SERVICE_WORDS}|${RESURS_WORDS}`);
 /** Payment services that sell instalment plans, in a folded name. */
 export const isLenderName = (folded: string) => LENDERS.test(folded);
@@ -290,13 +266,13 @@ export const isLenderName = (folded: string) => LENDERS.test(folded);
  * card bill. Komplett Bank has been Morrow Bank since 2023.
  * SEB Kort issues Eurocard and the co-branded cards.
  */
-export const CARD_ISSUER_BANK_WORDS = "BANK NORWEGIAN|KOMPLETT BANK|MORROW BANK|SEB KORT";
+export const CARD_ISSUER_BANK_WORDS = alternation("CARD_ISSUER_BANK_WORDS");
 /** Names that stand for a card and nothing else. */
-export const CARD_BRAND_WORDS = "ENTERCARD|RE:?MEMBER";
+export const CARD_BRAND_WORDS = alternation("CARD_BRAND_WORDS");
 /** Nordea's finance company lends for cars and issues the bank's cards: its name with a card word is a card bill, alone a loan. */
-export const NORDEA_FINANCE_WORDS = "NORDEA RAHOITUS|NORDEA FINANCE";
+export const NORDEA_FINANCE_WORDS = alternation("NORDEA_FINANCE_WORDS");
 /** Nordea's cards by name. They name a card and no issuer, so `isCardIssuerText` does not read them. */
-export const NORDEA_CARD_WORDS = "NORDEA GOLD|NORDEA PLATINUM|NORDEA CREDIT";
+export const NORDEA_CARD_WORDS = alternation("NORDEA_CARD_WORDS");
 export const CARD_ISSUER_WORDS = `${NORDEA_FINANCE_WORDS}|${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}|${RESURS_WORDS}`;
 const CARD_ISSUER = words(CARD_ISSUER_WORDS);
 
@@ -305,14 +281,14 @@ const SAVINGS_ACCOUNT = words(String.raw`SAASTOTILI[A-Z]*|SAASTO(?:ON|T)?|[A-Z]*
 /** A savings account or a deposit in a folded text. At an issuer that is a bank such a row is saving, in either direction. */
 export const isSavingsAccountText = (folded: string) => SAVINGS_ACCOUNT.test(folded);
 /** Words that name a loan, as a regex alternation: the loans rule of categorize.ts and `isLoanText` read it. */
-export const LOAN_WORDS = String.raw`OSAMAKSU[A-Z]*|LAINA[A-Z]*|LYHENNYS|LAINANHOITO|RAHOITUSSOPIMUS|KULUTUSLUOTTO`;
+export const LOAN_WORDS = alternation("LOAN_WORDS");
 // SOPIMUS alone is a loan's only at an issuer, where isLoanText is asked: to the category rules it is any contract
 const LOAN_TEXT = words(`${LOAN_WORDS}|SOPIMUS`);
 /** Texts that name a loan: such a payment stays a loan whatever its amount. */
 export const isLoanText = (folded: string) => LOAN_TEXT.test(folded) || isCreditText(folded);
 
 /** Refund words, as a regex alternation: `REIMBURSEMENT_WORDS` and `isRefundText` read it. */
-export const REFUND_WORDS = "HYVITYS|PALAUTUS|REFUND|ATERBETALNING|CHARGEBACK|OIKAISU|LIIKASUORITUS|YLISUORITUS";
+export const REFUND_WORDS = alternation("REFUND_WORDS");
 const REFUND_TEXT = new RegExp(`(?<![A-Z0-9])(?:${REFUND_WORDS})[A-Z]*(?![A-Z0-9])`);
 export const isRefundText = (folded: string) => REFUND_TEXT.test(folded);
 /** Money back for a cost the household paid. The reimbursements rule of categorize.ts reads the words, and its salary code steps aside for them: an employer pays a travel claim in the payroll batch. */
@@ -321,8 +297,8 @@ const REIMBURSEMENT_TEXT = words(REIMBURSEMENT_WORDS, true);
 export const isReimbursementText = (folded: string) => REIMBURSEMENT_TEXT.test(folded);
 
 /** Residual tax and the other taxes paid to the same office, as regex alternations: taxes in categorize.ts reads both. */
-export const RESIDUAL_TAX_WORDS = "JAANNOSVERO|OMAVERO";
-export const OTHER_TAX_WORDS = "KIINTEISTOVERO|AUTOVERO|AJONEUVOVERO|ENNAKKOVERO|PERINTOVERO|LAHJAVERO|VARAINSIIRTOVERO";
+export const RESIDUAL_TAX_WORDS = alternation("RESIDUAL_TAX_WORDS");
+export const OTHER_TAX_WORDS = alternation("OTHER_TAX_WORDS");
 const RESIDUAL_TAX = new RegExp(`(?<![A-Z])(?:${RESIDUAL_TAX_WORDS})(?![A-Z])`);
 const OTHER_TAX = new RegExp(`(?<![A-Z])(?:${OTHER_TAX_WORDS})(?![A-Z])`);
 export const isResidualTaxText = (folded: string) => RESIDUAL_TAX.test(folded);
@@ -330,7 +306,7 @@ export const isResidualTaxText = (folded: string) => RESIDUAL_TAX.test(folded);
 export const isOtherTaxText = (folded: string) => OTHER_TAX.test(folded);
 
 /** Earnings pension companies, as a regex alternation: the benefits rule of categorize.ts reads it as words. */
-export const PENSION_PAYER_WORDS = "ILMARINEN|VARMA|KEVA|VERITAS|ELAKETURVAKESKUS|PENSIONSSKYDDSCENTRALEN|ELO KESKINAINEN";
+export const PENSION_PAYER_WORDS = alternation("PENSION_PAYER_WORDS");
 const PENSION_PAYER = new RegExp(`^(?:${PENSION_PAYER_WORDS})$`);
 /** A payer's whole folded name: Elo and Ilmarinen are also surnames, and elo is a month. */
 export const isPensionPayerName = (name: string) => PENSION_PAYER.test(name);
@@ -349,7 +325,7 @@ export const isBuildingWorkText = (folded: string) => BUILDING_WORK.test(folded)
  * The finance companies of car makers, as a regex alternation. One list for both readers (ADR 0008): the loans rule of
  * categorize.ts through `FINANCE_LENDER_WORDS`, and `isCarFinanceText` for Optimoi and for the kind of a proposed loan.
  */
-export const CAR_FINANCIER_WORDS = String.raw`TOYOTA (?:FINANCE|FINANCIAL|RAHOITUS)[A-Z]*|VOLKSWAGEN (?:FINANCE|FINANCIAL|FINANS|RAHOITUS)[A-Z]*`;
+export const CAR_FINANCIER_WORDS = alternation("CAR_FINANCIER_WORDS");
 
 // what a car row was for: street parking is the apps the permit comparison counts; finance is a financier or a loan that names the car
 const PARKING_WORDS = words(String.raw`EASYPARK|PARKMAN|MOOVY|AIMO|AIMO PARK|APCOA|EUROPARK|Q-PARK|P-HUB|SCANDINAVIAN PARKING|PYSAKOINTI|PARKKI[A-Z]*`);
@@ -378,7 +354,7 @@ export const isCarFinanceText = (folded: string) => CAR_FINANCE_WORDS.test(folde
  * categorize.ts has read these names since before the lists below. A bank that takes anyone's deposits is left out: a
  * row of Bigbank is debt only when its text has a credit word, since a deposit there names nothing but the bank.
  */
-export const CONSUMER_LENDER_WORDS = "SANTANDER|SVEA BANK|SVEA EKONOMI|COLLECTOR BANK|INSTABANK|TF BANK|IKANO|NORDAX|NOBA|AVIDA|NORTHMILL|FERRATUM|MONEYGO|EUROLOAN|AXO FINANS|SAMBLA|LENDO|ZMARTA";
+export const CONSUMER_LENDER_WORDS = alternation("CONSUMER_LENDER_WORDS");
 
 /**
  * The finance companies of banks and car makers, as a regex alternation. OP's car finance is OP Yrityspankki and
@@ -389,7 +365,7 @@ export const FINANCE_LENDER_WORDS = String.raw`OP[- ]?RAHOITUS|OP[- ]?AUTORAHOIT
 
 // The loans a household takes, by what the word says the loan is for. A closed list: any word that ends in LAINA
 // would also be a bond (JOUKKOLAINA), a housing company's loan (YHTIOLAINA), a library's KAUKOLAINA and the name Elaina.
-const HOUSEHOLD_LOANS = "ASUNTO|AUTO|KULUTUS|PANKKI|REMONTTI|VENE|YHDISTELY|PIKA|JOUSTO|KERTA|LIMIITTI|MOKKI|MOOTTORIPYORA|VELKAKIRJA";
+const HOUSEHOLD_LOANS = alternation("HOUSEHOLD_LOANS");
 /**
  * Credit named by a compound, as a regex alternation. The loans rule reads LUOTTO, LAINA and LYHENNYS as whole words
  * and from the start of a word, which misses JOUSTOLUOTTO, AUTOLAINAN and LUOTONLYHENNYS. A word that only begins with
@@ -479,7 +455,7 @@ export const isInstalmentPlanText = (folded: string) => INSTALMENT_PLAN.test(fol
  * Bondora and Fixura are left out: they also lend to households here, and a row without a text does not say which.
  * Tessin is named in full, since a hotel carries the short name.
  */
-export const PEER_LENDING_WORDS = "FELLOW FINANCE|ESTATEGURU|INVESDOR|MINTOS|TWINO|PEERBERRY|ROBOCASH|LENDERMARKET|ESKETIT|SWAPER|IUVO|VIAINVEST|REINVEST24|TESSIN NORDIC|VAURAUS SUOMI";
+export const PEER_LENDING_WORDS = alternation("PEER_LENDING_WORDS");
 const LOAN_OR_CREDIT = /LAINA|LUOTTO|LUOTON/;
 /**
  * A loan or a credit named in any form (LAINAN, LUOTON, JOUSTOLUOTTO), in a folded text. Fellow Finance lent to
@@ -491,7 +467,7 @@ export const namesLoanOrCredit = (folded: string) => LOAN_OR_CREDIT.test(folded)
  * Insurance by its word or by an insurer's name, as a regex source: the insurance rule of categorize.ts builds its
  * regex from it. Finnish compounds (KOTIVAKUUTUS, VAHINKOVAKUUTUS) need a plain substring match.
  */
-export const INSURER_WORDS = String.raw`VAKUUTUS|LAHITAPIOLA|FENNIA|\bIF P&C\b|\bTURVA\b|POHJOLA VAKUUTUS|\bMANDATUM\b|\bPOHJANTAHTI\b|\bFOLKSAM\b|\bALANDIA\b|\bEUROP ASSISTANCE\b`;
+export const INSURER_WORDS = alternation("INSURER_WORDS");
 const INSURANCE = new RegExp(`${INSURER_WORDS}|LAINATURVA`);
 /**
  * An insurance or an insurer in a folded text. An insurer lends nothing, whatever word its instalments carry, and a

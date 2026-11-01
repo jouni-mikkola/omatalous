@@ -14,7 +14,7 @@ import { clientFor, openToken, QUIET, refusalOf, SHORT, upstream } from "./remot
 import { busy, change, copyName, exclusive, inForce, load, type Made, type Ops, onTunnel, openTrial, type Removal, TRIAL_MS, WAITING } from "./remote-access-record.ts";
 import { recordEvent } from "./security.ts";
 
-export const REVERTED = `Etäkäyttö otettiin pois käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta ${TRIAL_MS / 60_000} minuutissa.`;
+export const REVERTED = `Poistimme etäkäytön käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta ${TRIAL_MS / 60_000} minuutissa.`;
 /** A request file this young may belong to a call that wrote it a moment ago and has not queued its request yet. */
 const ORPHAN_MS = 120_000;
 
@@ -136,11 +136,11 @@ export async function removeFromCloudflare(s: Services, hostname: string, userId
 /** Why a removal has not finished, as the page tells it. */
 export const REMOVAL_NOTE: Record<Removal, string | null> = {
   removed: null,
-  waiting: "Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista.",
+  waiting: "Poistamme Cloudflaren puolen, kun ylläpitoapuri on irrottanut asennuksen tunnelista.",
   kept:
-    "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. " +
+    "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten jätimme kirjautumissuojauksen (Access) päälle. " +
     "Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä.",
-  failed: "Cloudflaren puolta ei saatu poistettua. Tarkista API-tunniste ja ota etäkäyttö uudelleen pois käytöstä.",
+  failed: "Emme saaneet poistettua Cloudflaren puolta. Tarkista API-tunniste ja ota etäkäyttö uudelleen pois käytöstä.",
   installer:
     "Tämän osoitteen on tehnyt Cloudflareen palvelimen asennusohjelma, joten tunneli, DNS-tietue ja kirjautumissuojaus (Access) jäivät sinne. " +
     "Poista ne Cloudflaren hallinnasta tai palvelimen asennusohjelmalla.",

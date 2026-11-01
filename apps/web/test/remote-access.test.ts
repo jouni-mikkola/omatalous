@@ -206,7 +206,7 @@ describe("the fields", () => {
 
   it("checks only that a line looks like an email, with the sentences of the server", () => {
     expect(emailProblem(["anna@example.fi"])).toBeNull();
-    expect(emailProblem([])).toBe("Anna vähintään yksi sähköpostiosoite, jolla saa kirjautua.");
+    expect(emailProblem([])).toBe("Anna vähintään yksi sähköpostiosoite, jolla voi kirjautua.");
     expect(emailProblem(["anna@example.fi", "matti"])).toBe("Osoite 2 ei ole sähköpostiosoite.");
     expect(emailProblem(["anna@example"])).toBe("Osoite 1 ei ole sähköpostiosoite.");
     expect(emailProblem(Array.from({ length: 50 }, (_, i) => `a${i}@example.fi`))).toBeNull();
@@ -302,14 +302,14 @@ describe("the blocks of each state", () => {
     expect(html).toContain("Tallenna sallitut osoitteet");
     expect(hostField(html)).toContain("readOnly");
     expect(html).toContain("anna@example.fi\nmatti@example.fi</textarea>");
-    const warning = html.indexOf("Kun etäkäyttö otetaan pois käytöstä, etäosoitteella avattu selain menettää yhteyden.");
+    const warning = html.indexOf("Kun otat etäkäytön pois käytöstä, etäosoitteella avattu selain menettää yhteyden.");
     const after = html.indexOf("Tämän jälkeen Omatalous löytyy osoitteesta http://192.168.1.10:8080.");
     const button = html.indexOf(">Ota etäkäyttö pois käytöstä</button>");
     expect(warning).toBeGreaterThan(0);
     expect(after).toBeGreaterThan(warning);
     expect(button).toBeGreaterThan(after);
     // the token stays while remote access is on: the server refuses its removal, so the button is not offered
-    expect(html).toContain("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.");
+    expect(html).toContain("Tarvitset tunnisteen, kun otat etäkäytön pois käytöstä.");
     expect(html).not.toContain(">Poista tunniste</button>");
     expect(html).toContain("Vaihda tunniste");
     // a confirmed address is not on trial
@@ -321,7 +321,7 @@ describe("the blocks of each state", () => {
     expect(html).toContain("Uusi osoite on kokeilussa.");
     expect(html).not.toContain("Etäkäyttö on käytössä.");
     expect(html).toContain(`<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a> kerran ja kirjaudu sisään Cloudflaren kautta ennen kello ${clockTime(REVERT_AT)}.`);
-    expect(html).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
+    expect(html).toContain("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.");
     // the address and the list stay on show, and so does the way back
     expect(html).toContain("<li>anna@example.fi</li>");
     expect(html).toContain(">Ota etäkäyttö pois käytöstä</button>");
@@ -333,7 +333,7 @@ describe("the blocks of each state", () => {
     const late = page(TRIAL, {}, Date.parse(REVERT_AT) + 60_000);
     expect(late).toContain(`Kokeiluaika päättyi kello ${clockTime(REVERT_AT)}.`);
     expect(late).not.toContain("ennen kello");
-    expect(late).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
+    expect(late).toContain("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.");
   });
 
   it("taken off by the server: says that it happened, for which address, and what to check", () => {
@@ -345,14 +345,14 @@ describe("the blocks of each state", () => {
         want: "tunnel" as const,
         hostname: "talous.example.fi",
         outcome: "reverted" as const,
-        summary: "Etäkäyttö otettiin pois käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta 15 minuutissa.",
+        summary: "Poistimme etäkäytön käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta 15 minuutissa.",
         at: "2026-10-12T11:36:00.000Z",
       },
     };
     const html = page(reverted);
-    expect(html).toContain("Uusi osoite ei toiminut, joten etäkäyttö otettiin pois käytöstä.");
+    expect(html).toContain("Uusi osoite ei toiminut, joten poistimme etäkäytön käytöstä.");
     expect(html).toContain("Osoitteella talous.example.fi kukaan ei päässyt sisään 15 minuutissa. Sovellus vastaa taas kotiverkon osoitteessa.");
-    expect(html).toContain("Tarkista, että sähköpostiosoitteet on kirjoitettu oikein ja että verkkotunnuksen DNS-asetukset ovat Cloudflaressa kunnossa.");
+    expect(html).toContain("Tarkista, että kirjoitit sähköpostiosoitteet oikein ja että verkkotunnuksen DNS-asetukset ovat Cloudflaressa kunnossa.");
     expect(html).not.toContain("Edellinen muutos ei onnistunut.");
     // the form is there to try again
     expect(html).toContain('name="hostname"');
@@ -365,7 +365,7 @@ describe("the blocks of each state", () => {
     expect(html).toContain("Etäkäyttö on otettu käyttöön, eikä kotiverkon osoite enää vastaa.");
     expect(html).toContain('<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a>');
     expect(html).toContain("15 minuutin kuluessa");
-    expect(html).toContain("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.");
+    expect(html).toContain("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.");
     expect(html).toContain("Kun kotiverkon osoite vastaa taas, lataa tämä sivu uudelleen.");
     expect(html).not.toContain("403");
     expect(html).not.toContain('name="hostname"');
@@ -394,7 +394,7 @@ describe("the blocks of each state", () => {
   it("on, made by the installer: no empty list as who may sign in, no form the server would refuse, and the way to turn it off", () => {
     const installer = { ...ON, access: { ...ON.access, emails: [], emailsKnown: false, checked: false }, cloudflare: { hostname: null, emails: [], removal: null, note: null } };
     const html = page(installer);
-    expect(html).toContain("Lista on tehty palvelimella asennusohjelmalla, eikä se näy täällä.");
+    expect(html).toContain("Palvelimen asennusohjelma teki listan, eikä se näy täällä.");
     expect(html).toContain("Etäkäyttö on otettu käyttöön palvelimella asennusohjelmalla. Muuta sitä palvelimella komennolla ./scripts/install.sh.");
     expect(html).toContain("Sovellus ei tarkista itse, että kävijä on kirjautunut Cloudflaren kautta.");
     expect(html).not.toContain("<ul");
@@ -403,7 +403,7 @@ describe("the blocks of each state", () => {
     expect(html).toContain(">Ota etäkäyttö pois käytöstä</button>");
     // on is on, whoever made it: the saved token stays
     expect(html).not.toContain(">Poista tunniste</button>");
-    expect(html).toContain("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.");
+    expect(html).toContain("Tarvitset tunnisteen, kun otat etäkäytön pois käytöstä.");
   });
 
   it("the installer's leftover in Cloudflare after an off: the server's note, as it sends it", () => {
@@ -420,17 +420,17 @@ describe("the blocks of each state", () => {
   it("a change that waits: what it is, a way to withdraw it, and neither form nor off button", () => {
     const html = page({ ...ON, pending: PENDING });
     expect(html).toContain("Muutos odottaa ylläpitoapuria.");
-    expect(html).toContain("Etäkäyttö otetaan käyttöön osoitteessa talous.example.fi.");
+    expect(html).toContain("Otamme etäkäytön käyttöön osoitteessa talous.example.fi.");
     expect(html).toContain("Peruuta muutos");
     expect(html).not.toContain('name="hostname"');
     expect(html).not.toContain("Ota etäkäyttö pois käytöstä");
     const running = page({ ...ON, pending: { ...PENDING, status: "running", want: "lan", hostname: null } });
     expect(running).toContain("Muutos on käynnissä.");
-    expect(running).toContain("Etäkäyttö otetaan pois käytöstä.");
+    expect(running).toContain("Poistamme etäkäytön käytöstä.");
     expect(running).not.toContain("Peruuta muutos");
     // the token is not removed while a change waits, and the page says when it can be
     expect(html).not.toContain(">Poista tunniste</button>");
-    expect(html).toContain("Tunnisteen voi poistaa, kun muutos on valmis.");
+    expect(html).toContain("Voit poistaa tunnisteen, kun muutos on valmis.");
     expect(page({ ...ON, pending: PENDING }, { downSince: 1 })).toContain("Yhteys sovellukseen katkesi hetkeksi.");
     expect(page({ ...ON, pending: PENDING })).not.toContain("Yhteys sovellukseen katkesi");
   });
@@ -444,7 +444,7 @@ describe("the blocks of each state", () => {
   });
 
   it("Cloudflare's side left over: the server's own note, and the way to try again or take it away", () => {
-    const note = "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä.";
+    const note = "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten jätimme kirjautumissuojauksen (Access) päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä.";
     const kept = { ...ON, access: { ...ON.access, on: false, mode: "lan" as const, hostname: null, address: "http://192.168.1.10:8080" }, cloudflare: { ...ON.cloudflare, removal: "kept" as const, note } };
     const html = page(kept);
     expect(html).toContain("Cloudflaressa on osoite talous.example.fi, mutta sovellus ei ole sen takana.");
@@ -453,11 +453,11 @@ describe("the blocks of each state", () => {
     expect(hostField(html)).toContain("readOnly");
     // remote access is off here, so the token can go, and the page says what it is still needed for
     expect(html).toContain(">Poista tunniste</button>");
-    expect(html).toContain("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.");
-    const waiting = page({ ...kept, cloudflare: { ...kept.cloudflare, removal: "waiting", note: "Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista." } });
-    expect(waiting).toContain("Etäkäyttö otetaan pois käytöstä.");
+    expect(html).toContain("Tarvitset tunnisteen, kun otat etäkäytön pois käytöstä.");
+    const waiting = page({ ...kept, cloudflare: { ...kept.cloudflare, removal: "waiting", note: "Poistamme Cloudflaren puolen, kun ylläpitoapuri on irrottanut asennuksen tunnelista." } });
+    expect(waiting).toContain("Poistamme etäkäytön käytöstä.");
     expect(waiting).not.toContain(">Poista tunniste</button>");
-    expect(waiting).toContain("Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista.");
+    expect(waiting).toContain("Poistamme Cloudflaren puolen, kun ylläpitoapuri on irrottanut asennuksen tunnelista.");
     expect(waiting).not.toContain("Ota etäkäyttö pois käytöstä");
     expect(hostField(waiting)).toBe("");
   });
@@ -473,7 +473,7 @@ describe("the blocks of each state", () => {
         expect(html).not.toContain('name="hostname"');
         expect(html).not.toContain('name="cloudflare-api-token"');
         expect(html).not.toContain("Tallenna tunniste");
-        expect(html).not.toContain("Näin teet API-tunnisteen");
+        expect(html).not.toContain("Luo API-tunniste");
         expect(html).not.toContain("palvelimella asennusohjelmalla");
       }
     }
@@ -481,7 +481,7 @@ describe("the blocks of each state", () => {
     const ready = page({ ...OFF, suggestedHostname: "talous.example.fi" });
     expect(ready).toContain('name="cloudflare-api-token"');
     expect(ready).toContain("Tallenna tunniste ensin");
-    expect(ready).toContain("Näin teet API-tunnisteen");
+    expect(ready).toContain("Luo API-tunniste");
     expect(ready).not.toContain("Ota ylläpitoapuri käyttöön palvelimella:");
   });
 
@@ -494,7 +494,7 @@ describe("the blocks of each state", () => {
 
   it("a copy with its own domain gets the server's sentence and no token or form", () => {
     const html = page({ ...OFF, access: { ...OFF.access, mode: "domain" } });
-    expect(html).toContain("Tällä asennuksella on oma verkkotunnus (Caddy), eikä etäkäyttöä oteta käyttöön sen rinnalle.");
+    expect(html).toContain("Tällä asennuksella on oma verkkotunnus (Caddy), joten etäkäyttöä ei voi ottaa sen rinnalle.");
     expect(html).not.toContain("API-tunniste");
     expect(html).not.toContain('name="hostname"');
   });
@@ -502,8 +502,8 @@ describe("the blocks of each state", () => {
   it("a member gets nothing, and a state that cannot be read gets its error", () => {
     expect(page(null, { error: "Vain ylläpitäjä voi tehdä tämän.", errorStatus: 403 })).toBe("");
     expect(page(null, { error: "Kirjaudu sisään.", errorStatus: 401 })).toBe("");
-    const failed = page(null, { error: "Palvelimeen ei saada yhteyttä. Yritä uudelleen.", errorStatus: 0 });
-    expect(failed).toContain("Palvelimeen ei saada yhteyttä. Yritä uudelleen.");
+    const failed = page(null, { error: "Palvelimeen ei saada yhteyttä. Yritä hetken kuluttua uudelleen.", errorStatus: 0 });
+    expect(failed).toContain("Palvelimeen ei saada yhteyttä. Yritä hetken kuluttua uudelleen.");
     expect(failed).toContain("Etäkäyttö");
     expect(page(null)).toContain("Ladataan…");
   });
@@ -526,7 +526,7 @@ describe("the token", () => {
   });
 
   it("goes out once in the body of the save, the field is empty after it and no later request carries it", async () => {
-    stub((url, method) => answer(200, method === "PUT" ? { ...OFF, token: SAVED } : OFF));
+    stub((_url, method) => answer(200, method === "PUT" ? { ...OFF, token: SAVED } : OFF));
     const field = { value: TOKEN };
     const next = await saveTokenFrom(field, PASSWORD);
     expect(next.token.saved).toBe(true);
@@ -601,7 +601,7 @@ describe("the answers of the server", () => {
   const ANSWERS: [number, string][] = [
     [400, "Virheellinen kenttä."],
     [400, "Etäkäyttö ei ole käytössä."],
-    [400, "Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii."],
+    [400, "Kun otat etäkäytön pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii."],
     [403, "Salasana ei täsmää."],
     [409, "Etäkäytön muutos on jo kesken. Odota, että se valmistuu."],
     [409, "Ylläpitoapuri ei ole vielä kertonut, onko asennus tunnelin takana. Yritä hetken päästä uudelleen."],
@@ -643,18 +643,18 @@ describe("the yes-step before the call", () => {
     expect(out).toContain("<dd>https://talous.example.fi</dd>");
     expect(out).toContain("<li>anna@example.fi</li>");
     expect(out).toContain("<li>matti@example.fi</li>");
-    expect(out).toContain("Kun etäkäyttö on päällä, kotiverkon osoite ei enää vastaa. Sovellukseen pääsee vain osoitteella https://talous.example.fi.");
-    expect(out).toContain("Uusi osoite on ensin kokeilussa. Avaa se 15 minuutin kuluessa ja kirjaudu sisään Cloudflaren kautta jollakin listan osoitteella. Jos kukaan ei pääse sisään, palvelin ottaa etäkäytön itse pois käytöstä.");
+    expect(out).toContain("Kun etäkäyttö on päällä, kotiverkon osoite ei enää vastaa. Pääset sovellukseen vain osoitteella https://talous.example.fi.");
+    expect(out).toContain("Kokeilemme uutta osoitetta ensin. Avaa se 15 minuutin kuluessa ja kirjaudu Cloudflaren kautta jollakin listan osoitteella. Jos kukaan ei pääse sisään, palvelin poistaa etäkäytön itse käytöstä.");
     expect(out).toContain("Varmista, että oma sähköpostiosoitteesi on listalla");
   });
 
   it("a change of the list while it is on: the list back, and that this change is not on trial", () => {
     const out = html(createElement(OnAsk, { changing: true, hostname: "talous.example.fi", emails: ["anna@example.fi", "liisa@example.fi"] }));
-    expect(out).toContain("<strong>https://talous.example.fi</strong> pääsee kirjautumaan vain näillä sähköpostiosoitteilla:");
+    expect(out).toContain("<strong>https://talous.example.fi</strong> voit kirjautua vain näillä sähköpostiosoitteilla:");
     expect(out).toContain("<li>anna@example.fi</li>");
     expect(out).toContain("<li>liisa@example.fi</li>");
     expect(out).toContain("Tällä muutoksella ei ole kokeiluaikaa. Lista on voimassa heti, ja jos oma sähköpostiosoitteesi puuttuu siitä, et pääse enää sisään.");
-    expect(out).toContain("Poistetulla osoitteella pääsee silti sisään, kunnes sen kirjautuminen Cloudflaressa vanhenee.");
+    expect(out).toContain("Poistettu osoite toimii vielä, kunnes sen kirjautuminen Cloudflaressa vanhenee.");
     expect(out).not.toContain("Uusi osoite on ensin kokeilussa");
   });
 
@@ -682,7 +682,7 @@ describe("the yes-step before the call", () => {
   it("off for what only Cloudflare still has: nothing about the copy's own address and no box", () => {
     const left = { ...ON, access: { ...ON.access, on: false, mode: "lan" as const, afterOff: null } };
     const out = html(createElement(OffAsk, { s: left, choice: false, onChoice: none }));
-    expect(out).toContain("Osoite poistetaan Cloudflaresta. Sovelluksen omaa osoitetta se ei muuta.");
+    expect(out).toContain("Poistamme osoitteen Cloudflaresta. Sovelluksen oma osoite ei muutu.");
     expect(out).not.toContain('type="checkbox"');
     expect(html(createElement(AfterOff, { s: ON }))).toBe("<p>Tämän jälkeen Omatalous löytyy osoitteesta http://192.168.1.10:8080.</p>");
   });
@@ -704,7 +704,7 @@ describe("the words", () => {
     { ...ON, pending: PENDING },
     { ...ON, pending: { ...PENDING, want: "lan", hostname: null, status: "running" } },
     { ...OFF, token: SAVED, last: RECEIPT },
-    { ...OFF, token: SAVED, cloudflare: { hostname: "talous.example.fi", emails: [], removal: "waiting", note: "Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista." } },
+    { ...OFF, token: SAVED, cloudflare: { hostname: "talous.example.fi", emails: [], removal: "waiting", note: "Poistamme Cloudflaren puolen, kun ylläpitoapuri on irrottanut asennuksen tunnelista." } },
     { ...ON, access: { ...ON.access, afterOff: "http://localhost:8080" } },
     { ...ON, access: { ...ON.access, emails: [], emailsKnown: false, checked: false } },
     { ...OFF, helper: { ...OFF.helper, status: "off", knowsAccess: false } },
@@ -728,7 +728,7 @@ describe("the words", () => {
     const on = page(ON);
     expect(on).toContain("<h4 class=\"field-label\">Ota etäkäyttö pois käytöstä</h4>");
     expect(on).toContain(">Ota etäkäyttö pois käytöstä</button>");
-    expect(on).toContain("Kun etäkäyttö otetaan pois käytöstä, ");
+    expect(on).toContain("Kun otat etäkäytön pois käytöstä, ");
   });
 
   it("plain Finnish: no em dash, no ei X vaan Y, no exclamation mark, no tilitapahtuma", () => {

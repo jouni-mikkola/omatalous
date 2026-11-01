@@ -1,16 +1,26 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-/** The selectors of base.css's top-level rules, in file order (a `@media` block counts as one rule, by its query). */
+/**
+ * The selectors of base.css's top-level rules, in file order (a `@media` block counts as one rule, by its query). A
+ * cascade layer (`@layer x { ... }`) is a wrapper: the rules inside it count as top level.
+ */
 function topLevelSelectors(css: string): string[] {
   const out: string[] = [];
+  const open: boolean[] = [];
   let depth = 0;
   let head = "";
   for (const ch of css.replace(/\/\*[\s\S]*?\*\//g, "")) {
     if (ch === "{") {
-      if (depth === 0) out.push(head.trim().replace(/\s+/g, " "));
-      depth++;
+      const wrapper = depth === 0 && /^@layer [a-z]+$/.test(head.trim());
+      open.push(wrapper);
+      if (wrapper) head = "";
+      else {
+        if (depth === 0) out.push(head.trim().replace(/\s+/g, " "));
+        depth++;
+      }
     } else if (ch === "}") {
+      if (open.pop()) continue;
       depth--;
       if (depth === 0) head = "";
     } else if (depth === 0) head += ch;
@@ -44,14 +54,14 @@ describe("base.css", () => {
   const selectors = topLevelSelectors(readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8"));
 
   it("has each rule once, so the cascade does not decide between two copies of it", () => {
-    expect(selectors).toContain(".link-btn");
-    expect(selectors).toContain(".empty-card");
+    expect(selectors).toContain(".btn-link");
+    expect(selectors).toContain(".card.empty");
     const twice = selectors.filter((sel, i) => !sel.startsWith("@") && selectors.indexOf(sel) !== i);
     expect(twice).toEqual([]);
   });
 });
 
-describe("the shared parts and the page stylesheets that read both looks", () => {
+describe("the shared parts and the page stylesheets", () => {
   const sheet = (name: string) => readFileSync(new URL(`../src/styles/${name}.css`, import.meta.url), "utf8");
   const NAMES = [
     "base", "shell", "charts", "settings", "wizard", "banks", "bank-picker", "optimise", "ops", "remote-access",
@@ -66,7 +76,7 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
   it("draws a fill from --fill: --ink and --on-ink stay in the band (its focus ring included) and in the bank tile's ring", () => {
     const perSheet = NAMES.map((n): [string, string[]] => [n, inkRules(sheet(n))]);
     const left = Object.fromEntries(perSheet.filter(([n, selectors]) => n !== "shell" && selectors.length > 0));
-    expect(left).toEqual({ base: [".topbar :focus-visible"], "bank-picker": [".bank-tile:hover:not(:disabled) .bank-logo"] });
+    expect(left).toEqual({ "bank-picker": [".bank-tile:hover:not(:disabled) .bank-logo"] });
     expect(inkRules(sheet("shell")).length).toBeGreaterThan(0);
   });
 
@@ -75,20 +85,21 @@ describe("the shared parts and the page stylesheets that read both looks", () =>
     expect(literalRadii(css)).toEqual([".a: 6px"]);
   });
 
-  it("keeps a literal radius only where both looks give the same value: marks, circles and the 10 px boxes", () => {
+  it("keeps a literal radius only where it is a mark or a circle: marks, circles and the 10 px boxes", () => {
     const perSheet = NAMES.map((n): [string, string[]] => [n, literalRadii(sheet(n))]);
     const literal = Object.fromEntries(perSheet.filter(([, radii]) => radii.length > 0));
     expect(literal).toEqual({
-      base: [".notice.good::before: 50%", ".empty-steps li::before: 50%", ".kf-due::after: 50%"],
+      base: ['.notice[data-tone="good"]::before: 50%', ".empty-steps li::before: 50%", ".kf-due::after: 50%"],
       charts: [".swatch: 1px", ".line-key: 0", ".tooltip: 10px"],
       banks: [".bank-logo-sm: 5px"],
-      optimise: [".area-mark: 50%", ".due-pin::before: 50%", ".verdict-sign: 50%", ".checked-sign: 50%"],
+      optimise: [".area-mark: 50%", ".due-pin::before: 50%", ".outcome-sign: 50%"],
     });
   });
 
-  it("shows a busy button as a still hatch: no animation, opacity is the only thing that may move", () => {
+  it("shows a busy button as a still tint: no animation, no gradient, opacity is the only thing that may move", () => {
     const busy = rules(readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8")).find((r) => r.selector === '.btn[aria-busy="true"]');
-    expect(busy?.body).toContain("repeating-linear-gradient");
+    expect(busy?.body).toContain("var(--row-hover)");
+    expect(busy?.body).not.toContain("gradient");
     expect(busy?.body).not.toContain("animation");
   });
 });

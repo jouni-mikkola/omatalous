@@ -277,7 +277,7 @@ describe("return page", () => {
     const copied: string[] = [];
     page.paluu({ search: `?code=c1&state=${state}`, assign: (u: string) => assigned.push(u) }, good.doc, { clipboard: { writeText: (t: string) => copied.push(t) } });
     expect(assigned).toEqual([`http://192.168.1.10:8080/api/connections/callback?code=c1&state=${state}`]);
-    expect(good.els.where!.textContent).toBe("Palataan Omatalouteen: http://192.168.1.10:8080");
+    expect(good.els.where!.textContent).toBe("Palaat Omatalouteen: http://192.168.1.10:8080");
     expect(good.els.go!.attrs.href).toBe(assigned[0]);
     good.els.copy!.handlers.click!();
     expect(copied).toEqual(assigned);

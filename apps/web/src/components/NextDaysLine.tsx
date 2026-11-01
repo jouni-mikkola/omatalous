@@ -1,9 +1,11 @@
-import { type CSSProperties, type KeyboardEvent, useRef, useState } from "react";
+import { type KeyboardEvent, useRef, useState } from "react";
 import { columnX, type DotIn, labelled, nextDot, placeDots, STEPS_HEIGHT, stepLine } from "../charts/bill-line.ts";
 import { money } from "../format.ts";
 import { useWidth } from "../hooks.ts";
+import { t } from "../text.ts";
 import "../styles/charts.css";
 import { type BillLine, endCents, zeroY } from "./next-days-line.ts";
+import { css } from "../css.ts";
 
 /** The dot or the mark that is lit, and the row of its table that lights with it. */
 export type Active = { kind: "bill" | "pay"; row: number } | null;
@@ -59,7 +61,7 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
   const yEnd = steps ? steps.at[columns - 1]!.y : null;
   const yZero = startCents !== null && end !== null && yStart !== null && yEnd !== null ? zeroY(startCents, end, yStart, yEnd, STEPS_HEIGHT) : null;
   const dim = axis[columns - 1]?.payday === true;
-  const band = { "--nd-top": `${height}px`, "--nd-bottom": `${(dim ? DIM_ROOM : 0) + (steps ? STEPS_GAP + STEPS_HEIGHT : 0)}px` } as CSSProperties;
+  const band = { "--nd-top": `${height}px`, "--nd-bottom": `${(dim ? DIM_ROOM : 0) + (steps ? STEPS_GAP + STEPS_HEIGHT : 0)}px` };
   const lit = active ? items.findIndex((i) => i.kind === active.kind && i.row === active.row) : -1;
   const litItem = items[lit];
   const litDot = dots[lit];
@@ -76,8 +78,16 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
   const flip = litDot !== undefined && litDot.x > width - 200;
 
   return (
-    <div ref={ref} className={lit >= 0 ? "nd-line has-on" : "nd-line"} role="group" aria-labelledby="ahead-h" style={band}>
-      <div className="nd-dots" style={{ height }}>
+    <div
+      ref={(el) => {
+        ref.current = el;
+        css(band)(el);
+      }}
+      className={lit >= 0 ? "nd-line has-on" : "nd-line"}
+      role="group"
+      aria-labelledby="ahead-h"
+    >
+      <div className="nd-dots" ref={css({ height: height })}>
         {items.map((item, i) => {
           const dot = dots[i]!;
           const pay = item.kind === "pay";
@@ -88,13 +98,13 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
               key={`${item.kind}-${item.row}`}
               ref={(el) => {
                 els.current[i] = el;
+                css({ left: dot.x - size / 2, bottom: dot.y + (pay ? (MARK_ROOM - MARK) / 2 : 0), width: size, height: size })(el);
               }}
               role="img"
               tabIndex={i === tabStop ? 0 : -1}
               aria-label={item.label}
               className={classes.filter(Boolean).join(" ")}
-              style={{ left: dot.x - size / 2, bottom: dot.y + (pay ? (MARK_ROOM - MARK) / 2 : 0), width: size, height: size }}
-              onPointerEnter={() => onActive({ kind: item.kind, row: item.row })}
+                            onPointerEnter={() => onActive({ kind: item.kind, row: item.row })}
               onPointerLeave={(e) => e.currentTarget !== document.activeElement && onActive(null)}
               onFocus={() => {
                 setStop(i);
@@ -106,14 +116,14 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
           );
         })}
         {litItem && litDot && (
-          <div className="tooltip nd-tip" aria-hidden="true" style={flip ? { right: width - litDot.x + litDot.size / 2 + 8 } : { left: litDot.x + litDot.size / 2 + 8 }}>
+          <div className="tooltip nd-tip" aria-hidden="true" ref={css({ left: flip ? undefined : litDot.x + litDot.size / 2 + 8, right: flip ? width - litDot.x + litDot.size / 2 + 8 : undefined })}>
             <b>{litItem.title}</b>
             <span>{litItem.when}</span>
-            {litItem.leftCents !== null && <span>Käytettävissä {money(litItem.leftCents)}</span>}
+            {litItem.leftCents !== null && <span>{t("ahead.left", { amount: money(litItem.leftCents) })}</span>}
           </div>
         )}
       </div>
-      <ol className="nd-axis" aria-hidden="true" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+      <ol className="nd-axis" aria-hidden="true" ref={css({ "grid-template-columns": `repeat(${columns}, minmax(0, 1fr))` })}>
         {axis.map((d, k) => (
           <li key={d.iso} className={[d.payday ? "nd-pd" : "", d.weekend ? "nd-we" : ""].filter(Boolean).join(" ") || undefined}>
             {shows(k) && (
@@ -126,12 +136,12 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
         ))}
       </ol>
       {dim && (
-        <div className="nd-dim" style={{ "--n": columns } as CSSProperties} aria-hidden="true">
+        <div className="nd-dim" ref={css({ "--n": columns })} aria-hidden="true">
           <span>{columns - 1} pv</span>
         </div>
       )}
       {steps && (
-        <div className="nd-steps" style={{ height: STEPS_HEIGHT }} aria-hidden="true">
+        <div className="nd-steps" ref={css({ height: STEPS_HEIGHT })} aria-hidden="true">
           <svg viewBox={`0 0 ${width} ${STEPS_HEIGHT}`} width={width} height={STEPS_HEIGHT}>
             <path d={steps.area} className="nd-area" />
             <path d={steps.path} className="nd-curve" />
@@ -139,25 +149,25 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
             {yZero !== null && <line className="nd-rule" x1={0} x2={width} y1={Math.round(yZero) + 0.5} y2={Math.round(yZero) + 0.5} />}
           </svg>
           {startCents !== null && yStart !== null && (
-            <span className="nd-val" style={{ left: 4, top: Math.round(yStart) + 4 }}>
+            <span className="nd-val" ref={css({ left: 4, top: Math.round(yStart) + 4 })}>
               {money(startCents, false)}
             </span>
           )}
           {end !== null && end !== startCents && (
-            <span className="nd-val" style={{ right: Math.max(0, width - steps.at[columns - 1]!.x - 4), top: Math.round(steps.at[columns - 1]!.y) + 8 }}>
+            <span className="nd-val" ref={css({ right: Math.max(0, width - steps.at[columns - 1]!.x - 4), top: Math.round(steps.at[columns - 1]!.y) + 8 })}>
               {money(end, false)}
             </span>
           )}
           {yZero !== null && (
-            <span className="nd-val" style={{ left: 4, top: Math.round(yZero) - 20 }}>
+            <span className="nd-val" ref={css({ left: 4, top: Math.round(yZero) - 20 })}>
               0 €
             </span>
           )}
-          <i className="nd-end" style={{ left: steps.at[columns - 1]!.x, top: steps.at[columns - 1]!.y }} />
-          {litAt && <i className="nd-point" style={{ left: litAt.x, top: litAt.y }} />}
+          <i className="nd-end" ref={css({ left: steps.at[columns - 1]!.x, top: steps.at[columns - 1]!.y })} />
+          {litAt && <i className="nd-point" ref={css({ left: litAt.x, top: litAt.y })} />}
         </div>
       )}
-      {litItem && litDot && <i className="nd-guide" style={{ left: columnX(width, columns, litItem.column) }} />}
+      {litItem && litDot && <i className="nd-guide" ref={css({ left: columnX(width, columns, litItem.column) })} />}
     </div>
   );
 }

@@ -3,9 +3,10 @@
  * partOf) is core's; this decides what the select offers, what each choice sends, how typed percents read and what the
  * shares of a joint account are called. No request is made here.
  */
-import type { AccountUse, AccountUser, Part } from "@banking/core";
+import type { AccountUse, AccountUser } from "@banking/core";
 import { date } from "../../format.ts";
-import type { Account, AccountQuestion, Meta, SharedAccount } from "../../types.ts";
+import type { Account, AccountQuestion, Meta } from "../../types.ts";
+import { t } from "../../text.ts";
 
 /** A user as a request says one. */
 export type Said = Pick<AccountUser, "userId" | "weight">;
@@ -52,11 +53,11 @@ export function peopleOf(account: Pick<Account, "use">, meta: Pick<Meta, "user" 
 
 /** What the select of an account offers. Only the viewer: no choice to make. */
 export function optionsOf(account: Pick<Account, "use">, meta: Pick<Meta, "user" | "members">): { value: string; label: string }[] {
-  const options = [{ value: choiceFor(meta.user.id), label: "Minä" }];
+  const options = [{ value: choiceFor(meta.user.id), label: t("set.use.me") }];
   for (const m of meta.members) if (m.id !== meta.user.id) options.push({ value: choiceFor(m.id), label: m.displayName });
   const holder = account.use?.users.find((u) => u.userId === null);
   if (holder) options.push({ value: choiceFor(null), label: holder.label });
-  if (peopleOf(account, meta).length >= 2) options.push({ value: JOINT, label: "Yhteinen tili" });
+  if (peopleOf(account, meta).length >= 2) options.push({ value: JOINT, label: t("set.use.joint_account") });
   return options;
 }
 
@@ -91,7 +92,7 @@ function tenthsOf(people: readonly Person[], use: AccountUse): number[] {
   return [...typed, 1000 - typed.reduce((sum, t) => sum + t, 0)];
 }
 
-/** The fields of "Prosentit" for a use: the percent each user has, the last one's being the rest. */
+/** The fields of "Osuuksien mukaan" for a use: the percent each user has, the last one's being the rest. */
 export function percentFieldsOf(people: readonly Person[], use: AccountUse): Record<string, string> {
   const tenths = tenthsOf(people, use);
   return Object.fromEntries(people.map((p, i) => [keyOf(p.userId), tenthsText(tenths[i]!)]));
@@ -131,12 +132,12 @@ export function readPercents(people: readonly Person[], fields: Readonly<Record<
 }
 
 /** "a", "a ja b", "a, b ja c" */
-const list = (items: readonly string[]): string => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} ja ${items.at(-1)}`);
+const list = (items: readonly string[]): string => (items.length < 2 ? items.join("") : t("set.use.first_and_last", { first: items.slice(0, -1).join(", "), last: items.at(-1)! }));
 
 /** The offer as a value: "Aino 96 % ja Ville 4 %". */
 export function offerText(offer: readonly { userId: string | null; percent: number }[], people: readonly Person[]): string {
   const label = (userId: string | null) => people.find((p) => p.userId === userId)?.label ?? "";
-  return list(offer.map((o) => `${label(o.userId)} ${o.percent} %`));
+  return list(offer.map((o) => t("set.use.person_percent", { name: label(o.userId), percent: o.percent })));
 }
 
 /** The users who have a part of the account, the viewer first: whom a question can be answered with. */
@@ -151,7 +152,7 @@ export const ownerOf = (userId: string | null): string => `u:${userId ?? ""}`;
 export const openQuestions = (account: Pick<Account, "questions">): AccountQuestion[] => [...(account.questions ?? [])].sort((a, b) => b.openCents - a.openCents);
 
 /** What a question or an answer is about: the payer as the row shows it, or the opening with its day. */
-export const questionLabel = (q: Pick<AccountQuestion, "kind" | "label">): string => (q.kind === "opening" ? `Saldo ennen ${date(q.label)}` : q.label);
+export const questionLabel = (q: Pick<AccountQuestion, "kind" | "label">): string => (q.kind === "opening" ? t("set.use.balance_before_date", { date: date(q.label) }) : q.label);
 
 /** A request the page makes to give an answer or take it back. */
 export interface Call {
@@ -170,27 +171,9 @@ export const takeBackCall = (accountId: string, a: Pick<AccountQuestion, "kind" 
 
 /** An answer in words: a user's name, "Yhteistä" or "En tiedä". */
 export function answerLabel(owner: string, people: readonly Person[]): string {
-  if (owner === "all") return "Yhteistä";
-  if (owner === "none") return "En tiedä";
+  if (owner === "all") return t("set.use.shared");
+  if (owner === "none") return t("set.use.do_not_know");
   return people.find((p) => ownerOf(p.userId) === owner)?.label ?? "";
-}
-
-/** A part of an account in whole percents. */
-const partPercent = (part: Part): number => Math.round(((part.to - part.from) / part.of) * 100);
-
-/**
- * What the viewer is told of the use of an account another member shared with them, or null when there is nothing to tell:
- * the owner uses it alone.
- */
-export function sharedUseText(account: Pick<SharedAccount, "use" | "part" | "userId">, viewerId: string): string | null {
-  const users = account.use ? using(account.use) : [];
-  if (users.length >= 2) {
-    const share = account.part ? partPercent(account.part) : 0;
-    return share > 0 ? `yhteinen tili, osuutesi ${share} %` : "yhteinen tili, sinulla ei ole osuutta";
-  }
-  const only = users[0];
-  if (!only || only.userId === account.userId) return null;
-  return only.userId === viewerId ? "käyttäjä: sinä" : `käyttäjä: ${only.label}`;
 }
 
 /**

@@ -32,6 +32,8 @@ async function follow(page: Page, items: Item[]): Promise<Stub> {
   const stub: Stub = { items: [...items], posted: [] };
   const drop = (test: (i: Item) => boolean) => (stub.items = stub.items.filter((i) => !test(i)));
   await page.route(/\/api\/review$/, (route) => route.fulfill({ json: { items: stub.items } }));
+  // the header's mark reads the count alone (routes/review.ts), and says what the queue holds
+  await page.route(/\/api\/review\/count$/, (route) => route.fulfill({ json: { count: stub.items.length } }));
   const record = async (route: Parameters<Parameters<Page["route"]>[1]>[0], json: unknown, remove: (body: any) => (i: Item) => boolean) => {
     const req = route.request();
     const body = req.postDataJSON();
@@ -69,14 +71,19 @@ async function open(browser: Browser, width: number, items: Item[]) {
 const card = (page: Page) => page.locator(".review-item");
 const question = (page: Page) => card(page).getByRole("heading", { level: 2 });
 const headerCount = (page: Page) => page.locator(".review-link .nav-count");
+/** The number the page's heading and the tab's title carry: the same one as the mark and the queue. */
+async function expectOneCount(page: Page, left: number) {
+  await expect(headerCount(page)).toHaveText(`${left} avoinna`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Tarkistettavat: ${left} avoinna`);
+  await expect(page).toHaveTitle(new RegExp(`^Tarkistettavat: ${left} avoinna`));
+}
 
 test("each kind is asked in its own words and answered through its own route, the next item at once and the count following", async ({ browser }) => {
   const { context, page, seen, stub } = await open(browser, 1280, [loan, shop, payer, split, sub, gift]);
   await expect(headerCount(page)).toHaveText("6 avoinna");
   await expect(page.getByRole("link", { name: "Tarkistettavat 6 avoinna" })).toHaveAttribute("aria-current", "page");
-  // the head is the sitting: what is open, and a track of this sitting; no sentence about the known share
-  await expect(page.locator(".review-datum")).toHaveText(/^6\s*jäljellä$/);
-  await expect(page.getByRole("progressbar", { name: "Tämä kerta" })).toHaveAttribute("aria-valuenow", "0");
+  // the head is the sitting: what is open, and no bar of its own; no sentence about the known share
+  await expect(page.getByRole("progressbar")).toHaveCount(0);
 
   // the most money first: a loan the app cannot place, its guess first and marked
   await expect(card(page).locator(".review-kind")).toHaveText("Laina");
@@ -88,14 +95,13 @@ test("each kind is asked in its own words and answered through its own route, th
   // the guess is framed, not filled: nothing reads as already chosen
   await expect(choices.first()).toHaveClass(/is-guess/);
   await expect(card(page).locator(".review-choice.btn-primary")).toHaveCount(0);
-  await expect(choices.last()).toHaveText("Ei laina");
+  await expect(choices.last()).toHaveText("Ei ole laina");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-loan-1280.png"), fullPage: true });
   await choices.last().click();
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkki Kauppa Oy");
   await expect(question(page)).toBeFocused();
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: `loan-proposal:${loan.key}`, mark: "dismissed" } });
-  await expect(headerCount(page)).toHaveText("5 avoinna");
-  await expect(page.locator(".review-datum")).toHaveText(/^5\s*jäljellä$/);
+  await expectOneCount(page, 5);
 
   // a payee: the rows behind it on a tap, then a category saved as the rule the old card saved
   // the three newest rows stand under the figure; the figure itself opens the rest, with no link text
@@ -106,11 +112,11 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(rows.first().locator(".review-row-text")).toHaveText("KORTTIOSTO ESIMERKKI KAUPPA");
   // every figure names its period: the payee's is the last year's
   // (the button holds a hidden action after the figure, for the name a screen reader hears)
-  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toMatch(/^760,50 € vuodessa(, näytä tapahtumat: Esimerkki Kauppa Oy)?$/);
-  const figure = card(page).getByRole("button", { name: /näytä tapahtumat: Esimerkki Kauppa Oy$/ });
+  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toMatch(/^760,50 € vuodessa( Näytä tapahtumat: Esimerkki Kauppa Oy)?$/);
+  const figure = card(page).getByRole("button", { name: /Näytä tapahtumat: Esimerkki Kauppa Oy$/ });
   await figure.click();
   await expect(rows).toHaveCount(5);
-  await expect(card(page).getByRole("button", { name: /piilota tapahtumat: Esimerkki Kauppa Oy$/ })).toHaveAttribute("aria-expanded", "true");
+  await expect(card(page).getByRole("button", { name: /Piilota tapahtumat: Esimerkki Kauppa Oy$/ })).toHaveAttribute("aria-expanded", "true");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-payee-rows-1280.png"), fullPage: true });
   await expect(question(page)).toHaveText("Mihin kategoriaan nämä maksut kuuluvat?");
   // the household's most used categories as buttons, none marked as a guess, then the sheet of every category; no select
@@ -125,15 +131,23 @@ test("each kind is asked in its own words and answered through its own route, th
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-category-sheet-1280.png") });
   await sheet.getByRole("button", { name: "Peruuta" }).click();
   await expect(sheet).toHaveCount(0);
+  // the sheet hands the focus back to the button that opened it, closed by Peruuta or by Escape
+  const other = card(page).getByRole("button", { name: "Muu kategoria…" });
+  await expect(other).toBeFocused();
+  await other.click();
+  await expect(sheet).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
+  await expect(other).toBeFocused();
   await card(page).getByRole("button", { name: "Ruokakauppa" }).click();
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkki Ville");
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/rules", method: "POST", body: { field: "merchant_exact", pattern: "Esimerkki Kauppa Oy", category: "groceries" } });
 
   // a payer: the proposal first, and the answer is the member's own role
   await expect(choices.first()).toHaveAccessibleName("Yhteisten menojen osuus Ehdotus");
-  await expect(card(page).locator(".review-note")).toContainText("Vastaus koskee myös aiempia kuukausia.");
+  await expect(card(page).locator(".review-note")).toContainText("Vastaus koskee myös aiempia kuukausia, mutta ei maksuja, jotka poikkeavat selvästi tavallisesta.");
   await card(page).getByRole("button", { name: "Palkka tai etuus" }).click();
-  await expect(card(page).locator(".review-kind")).toHaveText("Yhteinen tili: Yhteistili");
+  await expect(card(page).locator(".review-kind")).toHaveText("Yhteinen tili Yhteistili");
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/payer-roles", method: "PUT", body: { key: payer.key, role: "pay" } });
 
   // a shared account's money: no guess (a split exists only when a member said it), "Yhteistä" and "En tiedä"
@@ -147,21 +161,21 @@ test("each kind is asked in its own words and answered through its own route, th
   // Ohita sends nothing and the item waits for the next sitting
   await expect(question(page)).toHaveText("Onko tilaus vielä käytössä?");
   const before = stub.posted.length;
-  const left = Number(/^\d+/.exec(plain(await page.locator(".review-datum").innerText()))![0]);
+  const left = Number(/^\d+/.exec(plain(await headerCount(page).innerText()))![0]);
   await card(page).getByRole("button", { name: "Ohita" }).click();
-  // Ohita moves the count as it moves the track: one count, one truth
-  await expect(page.locator(".review-datum")).toHaveText(new RegExp(`^${left - 1}\\s*jäljellä$`));
+  // Ohita moves to the next item and not the count: the skipped item is still open, in the header as on the page
+  await expectOneCount(page, left);
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkki Täti");
   expect(stub.posted).toHaveLength(before);
 
-  // money in: "Älä kysy enää" is the old Ohita's mark on the payee
+  // money in: "Älä kysy tästä enää" is the old Ohita's mark on the payee
   await expect(question(page)).toHaveText("Mitä tämä tulo on?");
-  await card(page).getByRole("button", { name: "Älä kysy enää" }).click();
+  await card(page).getByRole("button", { name: "Älä kysy tästä enää" }).click();
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: "question:payee:Esimerkki Täti", mark: "dismissed" } });
 
   // only the skipped one is left
-  await expect(page.getByRole("heading", { name: "Loput ohitettu" })).toBeVisible();
-  await expect(page.getByText("Jäljellä on 1 kohde. Se odottaa seuraavaa kertaa.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ohitit loput" })).toBeVisible();
+  await expect(page.getByText("1 kohde jäi seuraavaan kertaan.")).toBeVisible();
   await expect(headerCount(page)).toHaveText("1 avoinna");
   expect(await overflow(page)).toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
@@ -187,7 +201,7 @@ test("on a phone three items are answered with large buttons, and nothing scroll
   await page.getByRole("dialog", { name: "Valitse kategoria" }).getByLabel("Hae kategoriaa").fill("henkil");
   await page.getByRole("dialog", { name: "Valitse kategoria" }).getByRole("button", { name: "Maksut henkilöiltä" }).click();
   await expect.poll(() => stub.posted.at(-1)?.body).toEqual({ field: "merchant_exact", pattern: "Esimerkki Täti", category: "p2p_in" });
-  await expect(page.getByRole("heading", { name: "Kaikki tarkistettu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ei kysyttävää" })).toBeVisible();
   await expect(headerCount(page)).toHaveCount(0);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-done-390.png"), fullPage: true });
@@ -202,7 +216,7 @@ test("a payee's guess comes first, framed, with its reason below; the rest are t
   await expect(choices.first()).toHaveAccessibleName("Lemmikit Ehdotus");
   await expect(choices.first()).toHaveClass(/is-guess/);
   await expect(card(page).locator(".review-choice.is-guess")).toHaveCount(1);
-  await expect(card(page).locator(".review-note")).toHaveText("Ehdotuksen peruste: sama luokka kuin Happy Dog Trimmi East.");
+  await expect(card(page).locator(".review-note")).toHaveText("Miksi ehdotamme tätä: sama luokka kuin Happy Dog Trimmi East.");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-guess-390.png"), fullPage: true });
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await choices.first().click();
@@ -234,7 +248,7 @@ test("an instalment plan is asked how many payments are left: a count, a month o
   await expect.poll(() => stub.posted.at(-1)?.body).toEqual({ subject: `question:plan-end:2027-01:${second.key}`, mark: "in_use" });
   await card(page).getByRole("button", { name: "En tiedä" }).click();
   await expect.poll(() => stub.posted.at(-1)?.body).toEqual({ subject: `question:plan-unknown:${third.key}`, mark: "in_use" });
-  await expect(page.getByRole("heading", { name: "Kaikki tarkistettu" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Ei kysyttävää" })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -257,7 +271,7 @@ test("at 390 the loan's kinds stand two to a row, and a first run with no bank s
   await page.reload();
   await expect(page.getByRole("heading", { name: "Ei vielä tarkistettavaa" })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".review-done-mark")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings?add=1");
+  await expect(page.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings/banks?add=1");
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -266,13 +280,11 @@ test("a sitting ends after 25 items with the count left", async ({ browser }) =>
   const many = Array.from({ length: 30 }, (_, n): Item => ({ ...shop, id: `payee_out:Kauppa ${n}`, merchant: `Esimerkki Kauppa ${n}`, cents: 100_000 - n }));
   const { context, page, seen } = await open(browser, 1280, many);
   for (let n = 1; n <= 25; n++) {
-    await expect(page.getByRole("progressbar", { name: "Tämä kerta" })).toHaveAttribute("aria-valuenow", String(n - 1));
-    await expect(page.getByRole("progressbar", { name: "Tämä kerta" })).toHaveAttribute("aria-valuemax", "25");
-    await card(page).getByRole("button", { name: n % 2 ? "Ohita" : "Älä kysy enää" }).click();
+    await card(page).getByRole("button", { name: n % 2 ? "Ohita" : "Älä kysy tästä enää" }).click();
   }
-  await expect(page.getByRole("heading", { name: "Riittää tältä kertaa" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kävit tämän erän läpi" })).toBeVisible();
   // 12 answered, 13 skipped: 18 wait for the next sitting
-  await expect(page.getByText("Jäljellä on 18 kohdetta. Ne odottavat seuraavaa kertaa.")).toBeVisible();
+  await expect(page.getByText("18 kohdetta jäi seuraavaan kertaan.")).toBeVisible();
   await expect(headerCount(page)).toHaveText("18 avoinna");
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -281,7 +293,7 @@ test("a sitting ends after 25 items with the count left", async ({ browser }) =>
 test("no other page asks: Yhteenveto has no question card, and the count is the header's alone", async ({ browser }) => {
   const { context, page, seen } = await open(browser, 1280, [shop, gift]);
   await page.goto("/#/overview");
-  await expect(page.locator(".key-figures, [aria-label='Tilannekuva']").first()).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".home-answer-line")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("region", { name: "Luokittelemattomat" })).toHaveCount(0);
   await expect(page.locator(".question-row")).toHaveCount(0);
   await expect(headerCount(page)).toHaveText("2 avoinna");
@@ -289,4 +301,18 @@ test("no other page asks: Yhteenveto has no question card, and the count is the 
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkki Kauppa Oy");
   expect(seen.problems).toEqual([]);
   await context.close();
+});
+
+test("the badge in the header and the head of the page show the same count, also when the queue is longer than a sitting", async ({ browser }) => {
+  const many: Item[] = Array.from({ length: 30 }, (_, n) => ({ ...shop, id: `payee_out:Kauppa ${n}`, merchant: `Kauppa ${n}`, cents: 100_000 - n, rows: [], rowCount: 0 }));
+  for (const width of [1280, 390]) {
+    const { context, page, seen } = await open(browser, width, many);
+    await expect(headerCount(page)).toHaveText("30 avoinna");
+    // on a phone the link has its word, as on a wide screen
+    await expect(page.getByRole("link", { name: "Tarkistettavat 30 avoinna" })).toBeVisible();
+    await expect(page.locator(".review-link")).toContainText("Tarkistettavat");
+    expect(await overflow(page), `${width} px scrolls sideways`).toBeLessThanOrEqual(1);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  }
 });

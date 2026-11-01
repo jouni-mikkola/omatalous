@@ -6,12 +6,13 @@ import { hasJointAccount } from "../../../part.ts";
 import "../../../styles/income.css";
 import { UnknownIncome } from "./Cashflow.tsx";
 import { Why } from "../../../components/Why.tsx";
-import { MonthLine, MonthLineTable } from "../../../charts/forms/MonthLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
+import { inSpan } from "../parts.tsx";
 import { BarFigure, DeltaChip, SparkCell } from "../../../components/table/Cells.tsx";
 import { type Column, DrillButton, Table } from "../../../components/table/Table.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
-
+import { Button } from "../../../components/ui/Button.tsx";
+import { rich, t } from "../../../text.ts";
 const rowsHref = (payer: string, r: IncomeReport) => `#/transactions?merchant=${encodeURIComponent(payer)}&from=${r.months[0]!.month}-01`;
 
 /** The changes of the usual income; the section mounts it only when there are some. */
@@ -24,19 +25,21 @@ function Changes({ r }: { r: IncomeReport }) {
         {shown.map((c) => (
           <li key={c.id} className={c.monthlyCents < 0 ? "down" : "up"}>
             <strong>{c.title}</strong>
-            <span className="muted">{c.detail}</span>
+            <span className="muted">
+              {c.detail}
+            </span>
             {c.payer && (
               <a href={rowsHref(c.payer, r)} className="income-link">
-                Tapahtumat
+                {t("rpt.in_transactions")}
               </a>
             )}
           </li>
         ))}
       </ul>
       {r.changes.length > 3 && (
-        <button className="btn btn-small" onClick={() => setAll((v) => !v)} aria-expanded={all}>
-          {all ? "Näytä vähemmän" : `Näytä kaikki (${r.changes.length})`}
-        </button>
+        <Button onClick={() => setAll((v) => !v)} aria-expanded={all}>
+          {all ? t("rpt.in_less") : t("rpt.in_all", { n: r.changes.length })}
+        </Button>
       )}
     </>
   );
@@ -52,49 +55,50 @@ function Types({ r, from }: { r: IncomeReport; from: number }) {
   const [openType, setOpenType] = useState<string | null>(null);
   const [openPayer, setOpenPayer] = useState<string | null>(null);
   // the shares of the earned types are parts of the earned income: rounded together they add up to the 100 % it is
-  const units = roundedShares(r.types.map((t) => (t.share === null ? null : t.totalCents)), r.earnedCents);
+  const units = roundedShares(r.types.map((ty) => (ty.share === null ? null : ty.totalCents)), r.earnedCents);
   const kindTotals = printedParts(r.kinds.map((k) => k.totalCents), r.totalCents);
   const kindChanges = r.kinds.map((k) => k.changeCents);
   const change = kindChanges.some((c) => c !== null);
   // one scale for every line of the table: a value picked, not a sum
-  const scale = { lo: 0, hi: Math.max(0, ...r.types.flatMap((t) => t.months.slice(from))) };
+  const scale = { lo: 0, hi: Math.max(0, ...r.types.flatMap((ty) => ty.months.slice(from))) };
   const shown = r.months.length;
   // what each type prints: its euros rounded together with its group's, and its change likewise
   const printed = new Map<string, { total: number; change: number | null; payers: (number | null)[] }>();
   const kinds = r.kinds.map((k, ki) => {
-    const types = r.types.filter((t) => t.earned === k.earned);
-    const totals = printedParts(types.map((t) => t.totalCents), k.totalCents, kindTotals[ki]!);
-    const changes = k.changeCents === null ? types.map(() => null) : printedParts(types.map((t) => t.changeCents), k.changeCents);
-    types.forEach((t, at) => printed.set(t.type, { total: totals[at]!, change: changes[at] ?? null, payers: printedParts(t.payers.map((p) => p.totalCents), t.totalCents, totals[at]!) }));
+    const types = r.types.filter((ty) => ty.kind === k.id);
+    const totals = printedParts(types.map((ty) => ty.totalCents), k.totalCents, kindTotals[ki]!);
+    const changes = k.changeCents === null ? types.map(() => null) : printedParts(types.map((ty) => ty.changeCents), k.changeCents);
+    types.forEach((ty, at) => printed.set(ty.type, { total: totals[at]!, change: changes[at] ?? null, payers: printedParts(ty.payers.map((p) => p.totalCents), ty.totalCents, totals[at]!) }));
     return { k, ki, types };
   });
-  const shareOf = (t: IncomeTypeRow) => (t.share === null ? "ei osuutta" : units[r.types.indexOf(t)] == null ? percent(t.share) : shareText(units[r.types.indexOf(t)]!));
+  const shareOf = (ty: IncomeTypeRow) => (ty.share === null ? t("rpt.in_no_share") : units[r.types.indexOf(ty)] == null ? percent(ty.share) : shareText(units[r.types.indexOf(ty)]!));
   const columns: Column<IncomeTypeRow>[] = [
-    { key: "type", label: "Tulolaji", kind: "text", rowHead: true, cell: (t) => t.label },
-    { key: "months", label: "Kuukaudet", kind: "text", phone: "hide", cell: (t) => <Line values={t.months.slice(from)} scale={scale} label={`${t.label}: ${shown} kuukautta`} /> },
-    { key: "total", label: "Yhteensä", kind: "money", main: true, cell: (t) => money(printed.get(t.type)!.total, false) },
-    { key: "month", label: "Kuussa", kind: "money", cell: (t) => (t.monthlyCents === null ? "–" : money(t.monthlyCents, false)) },
+    { key: "type", label: t("rpt.in_type"), kind: "text", rowHead: true, cell: (ty) => ty.label },
+    { key: "months", label: t("rpt.dr_months"), kind: "text", phone: "hide", cell: (ty) => <Line values={ty.months.slice(from)} scale={scale} label={t("rpt.in_spark", { label: ty.label, n: shown })} /> },
+    { key: "total", label: t("rpt.total"), kind: "money", main: true, cell: (ty) => money(printed.get(ty.type)!.total, false) },
+    { key: "month", label: t("rpt.in_a_month"), kind: "money", cell: (ty) => (ty.monthlyCents === null ? "–" : money(ty.monthlyCents, false)) },
     {
       key: "share",
-      label: "Osuus ansiotuloista",
+      label: t("rpt.in_share"),
       kind: "share",
-      cell: (t) => {
-        const u = units[r.types.indexOf(t)];
-        return <BarFigure value={t.share !== null && u ? u : 0} max={100}>{shareOf(t)}</BarFigure>;
+      cell: (ty) => {
+        const u = units[r.types.indexOf(ty)];
+        return <BarFigure value={ty.share !== null && u ? u : 0} max={100}>{shareOf(ty)}</BarFigure>;
       },
     },
-    ...(change ? [{ key: "change", label: "Muutos", kind: "money" as const, cell: (t: IncomeTypeRow) => (printed.get(t.type)!.change == null ? "–" : <Delta cents={printed.get(t.type)!.change!} />) }] : []),
+    ...(change ? [{ key: "change", label: t("rpt.change"), kind: "money" as const, cell: (ty: IncomeTypeRow) => (printed.get(ty.type)!.change == null ? "–" : <Delta cents={printed.get(ty.type)!.change!} />) }] : []),
   ];
   return (
     <>
-      {change && <p className="qc-a">Muutos on samoihin valmiisiin kuukausiin vuotta aiemmin verrattuna.</p>}
+      {change && <p className="qc-a">{t("rpt.in_change_note")}</p>}
       <Table<IncomeTypeRow>
-        caption="Tulolajit"
+        caption={t("rpt.in_types")}
         className="income-types"
         rows={r.types}
-        rowKey={(t) => t.type}
+        rowKey={(ty) => ty.type}
         columns={columns}
-        groups={kinds.map(({ k, ki, types }) => ({
+        // a group of one type repeats that type's row, so the groups stand only when one of them holds several
+        groups={kinds.every(({ types }) => types.length < 2) ? undefined : kinds.map(({ k, ki, types }) => ({
           key: k.label,
           title: (
             <>
@@ -103,10 +107,10 @@ function Types({ r, from }: { r: IncomeReport; from: number }) {
             </>
           ),
           cells: {
-            months: <Line values={k.months.slice(from)} scale={scale} label={`${k.label}: ${shown} kuukautta`} />,
+            months: <Line values={k.months.slice(from)} scale={scale} label={t("rpt.in_spark", { label: k.label, n: shown })} />,
             total: money(kindTotals[ki]!, false),
             month: k.monthlyCents === null ? "–" : money(k.monthlyCents, false),
-            share: <BarFigure value={k.earned && r.earnedCents > 0 ? 100 : 0} max={100}>{k.earned && r.earnedCents > 0 ? "100 %" : "ei osuutta"}</BarFigure>,
+            share: <BarFigure value={k.earned && r.earnedCents > 0 ? 100 : 0} max={100}>{k.earned && r.earnedCents > 0 ? "100 %" : t("rpt.in_no_share")}</BarFigure>,
             ...(change ? { change: k.changeCents === null ? "–" : <Delta cents={printedEuros(k.changeCents)} /> } : {}),
           },
           rows: types,
@@ -116,28 +120,28 @@ function Types({ r, from }: { r: IncomeReport; from: number }) {
           setOpenType(key);
           setOpenPayer(null);
         }}
-        drill={(t) => <Payers r={r} t={t} printed={printed.get(t.type)!.payers} open={openPayer} onOpen={setOpenPayer} />}
-        drillLabel={(t) => `Maksajat: ${t.label}`}
+        drill={(ty) => <Payers r={r} ty={ty} printed={printed.get(ty.type)!.payers} open={openPayer} onOpen={setOpenPayer} />}
+        drillLabel={(ty) => t("rpt.in_payers", { label: ty.label })}
       />
     </>
   );
 }
 
 /** The payers of a type under its row, each with its usual payment and, opened, its rows. */
-function Payers({ r, t, printed, open, onOpen }: { r: IncomeReport; t: IncomeTypeRow; printed: (number | null)[]; open: string | null; onOpen: (key: string | null) => void }) {
+function Payers({ r, ty, printed, open, onOpen }: { r: IncomeReport; ty: IncomeTypeRow; printed: (number | null)[]; open: string | null; onOpen: (key: string | null) => void }) {
   return (
     <ul className="income-payers">
-      {t.payers.map((p, pi) => {
-        const key = `${t.type}|${p.payer}`;
+      {ty.payers.map((p, pi) => {
+        const key = `${ty.type}|${p.payer}`;
         return (
           <li key={key}>
             <div className="income-payer">
-              <DrillButton open={open === key} onToggle={() => onOpen(open === key ? null : key)} label={`Maksut: ${p.payer}`} />
+              <DrillButton open={open === key} onToggle={() => onOpen(open === key ? null : key)} label={t("rpt.in_payments", { payer: p.payer })} />
               <span>
                 {p.payer}
                 <span className="income-note">
-                  {plural(p.payments, "maksu", "maksua")}, tavallisesti {money(p.usualCents)}
-                  {p.nextDate ? `, seuraava ${date(p.nextDate)}` : `, viimeksi ${date(p.lastDate)}`}
+                  {t("rpt.in_payer_line", { count: plural(p.payments, t("rpt.u_payment"), t("rpt.u_payments")), usual: money(p.usualCents) })}
+                  {p.nextDate ? t("rpt.in_next", { date: date(p.nextDate) }) : t("rpt.in_last", { date: date(p.lastDate) })}
                 </span>
               </span>
               <span className="num">{money(printed[pi] ?? p.totalCents, false)}</span>
@@ -152,7 +156,7 @@ function Payers({ r, t, printed, open, onOpen }: { r: IncomeReport; t: IncomeTyp
                     </li>
                   ))}
                 </ul>
-                <a href={rowsHref(p.payer, r)}>Näytä tapahtumat</a>
+                <a href={rowsHref(p.payer, r)}>{t("rpt.cf_show")}</a>
               </div>
             )}
           </li>
@@ -184,19 +188,23 @@ function historyStart(months: IncomeReport["months"]): number {
 function levelAnswer(r: IncomeReport, ctx: SectionProps["ctx"]) {
   const s = r.stability;
   const change = r.earnedChange === null ? null : Math.round(r.earnedChange * 100);
-  const year = change === null ? "" : ` Ansiotulot samoihin kuukausiin vuotta aiemmin verrattuna: ${change === 0 ? "±0" : `${change > 0 ? "+" : "−"}${Math.abs(change)}`} %.`;
-  if (!s) return `Tavallista tasoa varten tarvitaan ${r.needs.stabilityMonths} valmista kuukautta.${year}`;
+  const year = change === null ? "" : ` ${t("rpt.in_year", { change: change === 0 ? "±0" : `${change > 0 ? "+" : "−"}${Math.abs(change)}` })}`;
+  if (!s) return `${t("rpt.in_needs", { n: r.needs.stabilityMonths })}${year}`;
   return (
     <>
-      Säännölliset tulot ovat yleensä{" "}
-      <strong>
-        {/* the figure opens its months and their rows by a tap (owner rule): no link text */}
-        <Why figure="usual.income" title="Säännölliset tulot kuussa" range={ctx.range} scope={ctx.scope} text={money(s.medianCents, false)}>
-          {money(s.medianCents, false)}
-        </Why>
-      </strong>{" "}
-      kuussa
-      {s.steady ? ", ja ne ovat pysyneet tasaisina." : <>. Heikoin kuukausi oli {monthLong(s.lowMonth)}, <strong>{money(s.lowCents, false)}</strong>.</>}
+      {/* the figure opens its months and their rows by a tap (owner rule): no link text */}
+      {rich(
+        "rpt.in_usual",
+        {},
+        {
+          amount: (
+            <Why figure="usual.income" title={t("rpt.in_why")} range={ctx.range} scope={ctx.scope} text={money(s.medianCents, false)}>
+              {money(s.medianCents, false)}
+            </Why>
+          ),
+        },
+      )}
+      {s.steady ? t("rpt.in_steady") : rich("rpt.in_weakest", { month: monthLong(s.lowMonth), amount: money(s.lowCents, false) })}
       {year}
     </>
   );
@@ -207,26 +215,19 @@ function Income({ ctx }: SectionProps) {
   const r = { ...ctx.data.income, months: ctx.data.income.months.slice(from) };
   // the head and the two groups print euros that add up (core `printedParts`)
   const earned = printedParts([r.earnedCents, r.notEarnedCents], r.totalCents)[0] ?? 0;
-  const s = r.stability;
-  const months = r.months.map((m) => m.month);
-  const values = r.months.map((m) => m.totalCents);
-  const complete = r.months.map((m) => m.complete);
-  const low = s && !s.steady ? months.indexOf(s.lowMonth) : -1;
-  const top = r.types.find((t) => t.share !== null);
+  const top = r.types.find((ty) => ty.share !== null);
   return (
-    <ReportPanel id={section.id} title={section.title} datum={`Tulot ${money(r.totalCents, false)}`}>
+    <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, t("rpt.in_datum", { amount: money(r.totalCents, false) }))}>
       <UnknownIncome share={r.unknownShare} range={r.window} />
-      <QuestionChart id="tulot-taso" question="Tuleeko tuloja yhtä paljon kuin ennen?" answer={levelAnswer(r, ctx)} table={<MonthLineTable months={months} values={values} complete={complete} label="Tulot" />}>
-        <MonthLine months={months} values={values} complete={complete} usual={s?.medianCents ?? null} usualLabel={s ? `Säännölliset tulot kuussa ${money(s.medianCents, false)}` : ""} marks={low >= 0 ? [{ at: low, label: "heikoin" }] : []} label="Tulot" />
-      </QuestionChart>
+      <QuestionChart id="tulot-taso" question={t("rpt.in_q_level")} answer={levelAnswer(r, ctx)} />
       <hr className="qc-rule" />
       <QuestionChart
         id="tulot-lajit"
-        question="Mistä tulot tulevat?"
+        question={t("rpt.in_q_sources")}
         answer={
           <>
-            Palkkoja, etuuksia ja muita ansiotuloja tuli <strong>{money(earned, false)}</strong>
-            {top ? `, eniten: ${top.label.toLowerCase()}` : ""}.{r.fromPeopleCents >= 50 ? ` Maksuja henkilöiltä ja hyvityksiä tuli ${money(r.fromPeopleCents, false)}.` : ""}
+            {rich("rpt.in_sources", { amount: money(earned, false) })}
+            {top ? t("rpt.in_most", { label: top.label.toLowerCase() }) : ""}.{r.fromPeopleCents >= 50 ? ` ${t("rpt.in_people", { amount: money(r.fromPeopleCents, false) })}` : ""}
           </>
         }
       >
@@ -236,8 +237,8 @@ function Income({ ctx }: SectionProps) {
             {r.payDays.map((p) => (
               <li key={`${p.label}|${p.payer}`}>
                 {p.label}
-                {p.label === "Palkka" ? ` (${p.payer})` : ""}: {p.text}
-                {p.nextDate ? `, seuraava ${date(p.nextDate)}` : ""}, {money(p.usualCents, false)}
+                {p.label === t("income.type_salary") ? ` (${p.payer})` : ""}: {p.text}
+                {p.nextDate ? t("rpt.in_next", { date: date(p.nextDate) }) : ""}, {money(p.usualCents, false)}
               </li>
             ))}
           </ul>
@@ -246,23 +247,23 @@ function Income({ ctx }: SectionProps) {
       {r.changes.length > 0 && (
         <>
           <hr className="qc-rule" />
-          <h3 className="qc-q">Mikä tuloissa muuttui?</h3>
+          <h3 className="qc-q">{t("rpt.in_q_changed")}</h3>
           <Changes r={r} />
         </>
       )}
       {r.members && (
         <>
           <hr className="qc-rule" />
-          <h3 className="qc-q">Kenelle tulot tulevat?</h3>
+          <h3 className="qc-q">{t("rpt.in_q_whose")}</h3>
           <ul className="income-paydays">
             {r.members.map((m) => (
               <li key={m.label}>
                 {m.label}: {money(m.earnedCents, false)}
-                {!m.regular && <span className="income-note">Palkkaa tai etuuksia ei näy jaetuilla tileillä.</span>}
+                {!m.regular && <span className="income-note">{t("rpt.in_no_regular")}</span>}
               </li>
             ))}
           </ul>
-          {hasJointAccount(ctx.meta) && <p className="income-caption">Yhteisen tilin tulot on jaettu jäsenten osuuksien mukaan.</p>}
+          {hasJointAccount(ctx.meta) && <p className="income-caption">{t("rpt.in_joint")}</p>}
         </>
       )}
     </ReportPanel>
@@ -271,10 +272,11 @@ function Income({ ctx }: SectionProps) {
 
 export const section: ReportSection = {
   id: "tulot",
-  title: "Tulot",
+  get title() {
+    return t("rpt.sec_income");
+  },
   order: 25,
   page: "reports",
-  tab: "virta",
   reports: ["income"],
   // a history too short to split the income into types has nothing to tell: the section is left out until it has
   visible: (ctx) => ctx.data.income.enough,

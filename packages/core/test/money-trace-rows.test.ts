@@ -11,7 +11,7 @@ import { nameOf } from "../src/person-names.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { rng } from "./gen.ts";
 import { tx } from "./helpers.ts";
-import { bestOfSync } from "../../../tools/lib/timing.ts";
+import { pair5000 } from "./money-trace-rows-kit.ts";
 
 const AINO = "u:u-aino";
 const VILLE = "u:u-ville";
@@ -104,14 +104,10 @@ describe("joinCopies", () => {
     expect(j.rows.every((r) => r.ids.length === 1)).toBe(true);
   });
 
-  it("joins 5 000 rows through a map, not a scan", () => {
-    const next = rng(4);
-    const make = (accountId: string, prefix: string) => Array.from({ length: 5000 }, (_, i) => at(`${prefix}${i}`, `2025-0${1 + (i % 8)}-${String(1 + (i % 27)).padStart(2, "0")}`, -100 - Math.floor(next() * 10), { counterparty: `P${i % 40}` }, accountId));
-    const a = make("pool-a", "a");
-    const b = a.map((t, i) => ({ ...t, id: `b${i}`, accountId: "pool-b" }));
-    const { ms, result: j } = bestOfSync(3, () => joinCopies([{ accountId: "pool-a", rows: a }, { accountId: "pool-b", rows: b }]));
+  // the time of this is in money-trace-rows.perf.test.ts
+  it("joins 5 000 rows of two copies one to one", () => {
+    const j = joinCopies([{ accountId: "pool-a", rows: pair5000.a }, { accountId: "pool-b", rows: pair5000.b }]);
     expect(j.rows).toHaveLength(5000);
-    expect(ms).toBeLessThan(3000);
   });
 });
 

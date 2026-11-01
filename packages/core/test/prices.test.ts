@@ -35,7 +35,7 @@ describe("price split", () => {
     expect(p.coicop).toBe("01");
     expect(p.currentMonths).toEqual(["2026-07", "2026-08", "2026-09"]);
     expect(p.baseMonths).toEqual(monthsFrom("2025-07", 12));
-    expect(p.changeCents).toBe(item.recentCents - item.usualCents);
+    expect(p.changeCents).toBe(item.recentCents - item.expectedCents);
     expect(p.priceCents + p.quantityCents).toBe(p.changeCents);
     // groceries were dearer than in the year before: both parts are there, the household bought more too
     expect(p.priceCents).toBe(Math.round(40000 * (meanIndex("01", p.currentMonths) / meanIndex("01", p.baseMonths) - 1)));

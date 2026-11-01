@@ -71,7 +71,7 @@ script ok
 out=$(commit --no-gpg-sign -m three); rc=$?
 check "refuses --no-gpg-sign without calling anything" test $rc -ne 0 -a "$(calls)" = 0 -a "$(heads)" = 2
 for flag in --no-gpg --no-g "-c commit.gpgsign=false" "-ccommit.gpgsign=FALSE"; do
-  # shellcheck disable=SC2086
+  # shellcheck disable=SC2086 # $flag holds "-c x=y" as two words and must split
   out=$(commit $flag -m three); rc=$?
   check "refuses $flag without calling anything" test $rc -ne 0 -a "$(calls)" = 0 -a "$(heads)" = 2
 done

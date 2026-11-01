@@ -1,5 +1,6 @@
 /* The bank picker (components/BankPicker.tsx): a grid of plates, each the bank's logo or its name. */
 
+@layer components {
 .bank-picker { border: 1px solid var(--border); border-radius: var(--radius-m); padding: 12px; margin-bottom: 12px; background: var(--surface); }
 .bank-picker-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .bank-picker-head h3 { margin: 0; font-size: var(--fs-body); font-weight: 600; }
@@ -15,3 +16,4 @@
 /* the bank being started stays as it was: the others dim */
 .bank-tile[aria-busy="true"] .bank-logo, .bank-tile[aria-busy="true"] .bank-tile-note { opacity: 1; }
 .bank-tile-note { padding-left: 2px; }
+}

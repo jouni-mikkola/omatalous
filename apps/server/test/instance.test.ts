@@ -16,7 +16,7 @@ describe("setup wizard: instance settings", () => {
     expect((await eero.call("GET", "/api/meta")).body.setupDone).toBe(false);
 
     const r = await admin.call("GET", "/api/admin/instance");
-    expect(r.body.settings).toEqual({ appBaseUrl: "http://localhost:8080", timezone: "Europe/Helsinki", syncHours: [6, 18], historyDays: 730, industryLookup: true, setupDone: false, redirectMode: null });
+    expect(r.body.settings).toEqual({ appBaseUrl: "http://localhost:8080", timezone: "Europe/Helsinki", syncHours: [6, 18], historyDays: 730, industryLookup: true, priceIndex: false, setupDone: false, redirectMode: null });
     expect(r.body.secret.available).toBe(true);
     expect(r.body.bankApp).toMatchObject({ source: null, canStoreKeys: true, redirectUrl: "https://jouni-mikkola.github.io/omatalous/callback/", redirectMode: "relay" });
   });
@@ -165,7 +165,7 @@ describe("setup wizard: shared Enable Banking app", () => {
     const r = await admin.call("PUT", "/api/admin/bank-app", { appId: randomUUID() });
     expect(r.status).toBe(200);
     expect(r.body.result.verified).toBe(false);
-    expect(r.body.result.message).toContain("401");
+    expect(r.body.result.message).toContain("ei tunnistanut sovellusta");
     expect(r.body.bankApp.source).toBe("web");
     bank.status = 200;
     expect((await admin.call("POST", "/api/admin/bank-app/test")).body.result.verified).toBe(true);

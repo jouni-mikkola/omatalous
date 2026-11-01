@@ -18,7 +18,7 @@ import { normalizeIban, PAIR_WINDOW_DAYS } from "../transfers.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 import { balanceWalk } from "./balance-walk.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
-import { USUAL_MONTHS, usualCents } from "./usual.ts";
+import { USUAL_MONTHS } from "../thresholds.ts";
 
 /** Fewer bills than this say nothing of a card's bill day or its usual bill: nothing is guessed. */
 const MIN_PAYMENTS = 3;
@@ -76,10 +76,18 @@ interface PaidBill {
   legId: string | null;
 }
 
-/** The moves, and the connected cards the counted accounts pay as they go: no bill of theirs is expected. */
+/** The next bill of a card that is paid in full: it will hold the card's purchases of the days up to its day too. */
+export interface Settling {
+  cardId: string;
+  /** The day the bill is paid, never before the window's first day. */
+  date: IsoDate;
+}
+
+/** The moves, the connected cards the counted accounts pay as they go (no bill of theirs is expected) and the next bills of the cards paid in full. */
 interface Moves {
   moves: Move[];
   asItGoes: ReadonlySet<string>;
+  settling: Settling[];
 }
 
 /**
@@ -112,6 +120,10 @@ function hasStatement(ctx: AnalysisContext, paid: readonly PaidBill[]): boolean 
  * what it owes now is the next bill. Otherwise, and for a second bill inside the days, it is the usual bill: the median
  * of the last six, never more than the card owes. A savings plan to an account that is not connected is no
  * transfer row at all, so `expectedCharges` gives it once and this gives it never.
+ *
+ * `settling` names the bills whose sum is what the card owes today: the card is paid in full, so that bill takes the
+ * purchases made from today to its day as well, and the sum of the move does not hold them. A bill of the usual
+ * sum is a month's payment and holds them already. A card paid in full with nothing owed has a settling bill and no move.
  */
 export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>, balances: readonly BalanceInput[], from: IsoDate, until: IsoDate): Moves {
   const accountOf = new Map(ctx.accounts.map((a) => [a.id, a]));
@@ -178,6 +190,7 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
   for (const c of expectedCharges(regular, from, until)) moves.push({ date: c.date, name: accountName(c.merchant), amountCents: c.amountCents, source: "transfer" });
 
   const asItGoes = new Set<string>();
+  const settling: Settling[] = [];
   for (const [cardId, unsorted] of bills) {
     if (unsorted.length < MIN_PAYMENTS) continue;
     const paid = [...unsorted].sort((a, b) => a.out.day - b.out.day);
@@ -188,7 +201,8 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
     const last = paid.at(-1)!;
     const lastCents = -last.out.amountCents;
     const day = Math.round(median(paid.slice(-MIN_PAYMENTS).map((b) => Number(b.out.bookingDate.slice(8, 10)))));
-    const usual = usualCents(paid.slice(-USUAL_MONTHS).map((b) => -b.out.amountCents))!;
+    // the card's own bills, not a month's spending: the middle bill is the usual one, a dear month does not move it
+    const usual = Math.round(median(paid.slice(-USUAL_MONTHS).map((b) => -b.out.amountCents)));
     const card = balances.find((b) => b.id === cardId);
     const debt = card ? creditAccountLoan(card, ctx.today) : null;
     const used = debt ? creditUse(debt, ctx.today).usedCents : null;
@@ -204,10 +218,11 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
       if (date > until || sinceLast > STALE_DAYS) break;
       if (sinceLast < MIN_BILL_GAP_DAYS || daysBetween(date, from) > LATE_DAYS) continue;
       const basis = first && owed !== null && paidWhole && date >= from ? "balance" : "usual";
+      if (basis === "balance") settling.push({ cardId, date: date < from ? from : date });
       first = false;
       const amountCents = basis === "balance" ? owed! : owed === null ? usual : Math.min(usual, owed);
       if (amountCents > 0) moves.push({ date: date < from ? from : date, name: cardName(accountOf.get(cardId)!.name), amountCents, source: "card", basis });
     }
   }
-  return { moves, asItGoes };
+  return { moves, asItGoes, settling };
 }

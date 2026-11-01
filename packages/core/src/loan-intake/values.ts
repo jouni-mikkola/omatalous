@@ -8,7 +8,7 @@ import { daysInMonth } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
 import { isLoanOtherUnit, loanMoneyUnit, loanPercentUnit } from "../wording-loan-pages.ts";
 
-export interface Reading<T> {
+interface Reading<T> {
   value: T;
   clean: boolean;
   doubt: boolean;

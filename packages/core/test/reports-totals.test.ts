@@ -119,8 +119,8 @@ describe("the share of Muut menot", () => {
     expect(other.share).toBeCloseTo(1000 / 6000, 10);
     // the title joins the number and the percent sign with a no-break space
     const title = signal.title.replace(/\s/g, " ");
-    expect(title).toBe(`${100 - Math.round(other.share * 100)} % viimeisen 12 valmiin kuukauden menoista on tunnistettu`);
-    expect(title).toBe("83 % viimeisen 12 valmiin kuukauden menoista on tunnistettu");
+    expect(title).toBe(`${100 - Math.round(other.share * 100)} % viimeisen 12 kuukauden menoista on luokiteltu`);
+    expect(title).toBe("83 % viimeisen 12 kuukauden menoista on luokiteltu");
   });
 });
 

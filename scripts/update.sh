@@ -41,7 +41,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 YES=false
 for arg in "$@"; do [[ $arg == --yes || $arg == -y ]] && YES=true; done
-# shellcheck disable=SC2046
+# shellcheck disable=SC2046 # the filtered words are plain flags and values with no spaces, so they split on purpose
 set -- $(printf '%s\n' "$@" | grep -vxE -- '--yes|-y' || true)
 
 DEFAULT_INSTANCE=banking-app
@@ -66,7 +66,7 @@ fi
 
 # Release helpers (signature check, image pull, labels), shared with install.sh. Keep SIGN_IDENTITY_REGEXP there in step
 # with .github/workflows/release.yml (a test compares them).
-# shellcheck disable=SC2034
+# shellcheck disable=SC2034 # read by die messages in lib/release.sh
 KEEP_NOTE="The old version is still running."
 # shellcheck source=lib/release.sh
 . scripts/lib/release.sh
@@ -74,12 +74,11 @@ KEEP_NOTE="The old version is still running."
 . scripts/lib/dbcopy.sh
 # shellcheck source=lib/preflight.sh
 . scripts/lib/preflight.sh
-
+# shellcheck source=lib/steps.sh
+. scripts/lib/steps.sh
 [[ $IMAGE =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { echo "INSTANCE_NAME is invalid: $IMAGE" >&2; exit 1; }
-
 bold=$'\e[1m'; dim=$'\e[2m'; green=$'\e[32m'; yellow=$'\e[33m'; red=$'\e[31m'; reset=$'\e[0m'
 say()  { printf '%s\n' "$*"; }
-step() { printf '\n%s▸ %s%s\n' "$bold" "$*" "$reset"; }
 ok()   { printf '%s✓%s %s\n' "$green" "$reset" "$*"; }
 warn() { printf '%s!%s %s\n' "$yellow" "$reset" "$*"; }
 REPORTED=false
@@ -97,7 +96,6 @@ confirm() {
   read -r -p "$1 [Y/n]: " __ans
   [[ ${__ans:-Y} =~ ^[KkYy] ]]   # the Finnish K (kyllä) still works
 }
-
 running() { [[ -n $(docker compose ps --status running -q banking 2>/dev/null) ]]; }
 # runs node in the app container: the running one, or a one-off container from the current image
 in_app() {
@@ -171,7 +169,7 @@ private_build() {
 }
 # The public repository is a distribution repository with no source to build (its Dockerfile fails on purpose), so a
 # source update of a clone of it is refused before anything changes.
-public_origin() { git remote get-url origin 2>/dev/null | grep -E 'github\.com[:/]jouni-mikkola/omatalous(\.git)?/?$' >/dev/null; }
+public_origin() { git remote get-url origin 2>/dev/null | grep -E "github\\.com[:/]${PROJECT_OWNER//./\\.}/${PROJECT_REPO//./\\.}(\\.git)?/?\$" >/dev/null; }
 # the kind of build an image is (its talous.private label; a release image and one from before the label have none)
 built_private() { if [[ $(image_label "$1" talous.private) == true ]]; then echo true; else echo false; fi; }
 # true when the running container uses the image now tagged $IMAGE:latest
@@ -478,10 +476,12 @@ main() {
   ((HEALTH_WAIT <= 120)) || say "The migration check took long, so the new version gets up to $HEALTH_WAIT s to start."
   if healthy; then
     ok "Updated: $before to $(version)"
+    quiet_step Finishing # the notes, the pruning and the helper count too
     record_schema_change
     # keep the five newest pre-update copies (the names sort by time) and whatever DBCOPY_JS protects
     in_app -e "$DBCOPY_JS" 'prune,keep:^pre-update-[0-9TZ]+\.db$' /data/backups || true
     renew_helper
+    steps_summary
     say "${dim}If something is wrong: ./scripts/update.sh --rollback${reset}"
     return 0
   fi

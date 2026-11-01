@@ -7,23 +7,24 @@ const row = (over: Partial<ListedRow> = {}): ListedRow =>
   ({ id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other", ...over }) as ListedRow;
 const props = { categories: [], pending: null, onCategory: () => {}, account: "Yhteistili" };
 const list = (t: ListedRow, open = false) =>
-  renderToStaticMarkup(createElement(TxTable, { items: [t], today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open: open ? t.id : null, onOpen: () => {} }));
+  renderToStaticMarkup(createElement(TxTable, { items: [t], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
 // the list has one layout; the old phone and wide forms are both this one
 const phone = list;
 const wide = list;
 
 describe("the link of a row whose payer is not told", () => {
   it("leads to the account's parts on Tilit for a row with an open sum", () => {
-    expect(ownerLink(row({ openCents: 55_219 }))).toBe("#/settings#tili-a/1");
-    expect(list(row({ openCents: 55_219 }))).not.toContain("Kenen?");
-    expect(list(row({ openCents: 55_219 }), true)).toContain('<a class="btn btn-small" href="#/settings#tili-a/1">Kenen?</a>');
+    expect(ownerLink(row({ openCents: 55_219 }))).toBe("#/settings/banks#tili-a/1");
+    // the link stands in the row's menu, which draws its items only when it is opened
+    expect(list(row({ openCents: 55_219 }))).not.toContain("Muuta:");
+    expect(list(row({ openCents: 55_219 }), true)).toContain('aria-label="Muuta: ESIMERKKI OY"');
   });
 
   it("is not there for a row with nothing open, or with the field left out", () => {
     for (const t of [row(), row({ openCents: 0 })]) {
       expect(ownerLink(t)).toBeNull();
-      expect(phone(t)).not.toContain("Kenen?");
-      expect(wide(t)).not.toContain("Kenen?");
+      expect(phone(t)).not.toContain("Muuta:");
+      expect(wide(t)).not.toContain("Valitse, kenen osuus");
     }
   });
 });
@@ -36,11 +37,13 @@ describe("one control per closed transaction row", () => {
   it("keeps even a card bill and a shared row's secondary actions in its detail", () => {
     const bill = row({ own: true, category: "card_bill", amountCents: -60_000 });
     const shared = row({ amountCents: -60_000, partCents: -30_000, openCents: 10_000 });
-    for (const t of [bill, shared]) expect(list(t).match(/<button\b/g)).toHaveLength(1);
-    expect(list(bill)).not.toContain("Erittele ostot");
-    expect(list(bill, true)).toContain("Erittele ostot");
-    expect(list(shared)).not.toContain('href=');
-    expect(list(shared, true)).toContain("Kenen?");
+    // the toolbar over the table has its own buttons (clear the search, Lataa CSV) and the heads sort: count the rows' only
+    const inRows = (html: string) => html.slice(html.indexOf("<tbody"), html.indexOf("</tbody>")).match(/<button\b/g);
+    for (const t of [bill, shared]) expect(inRows(list(t))).toHaveLength(1);
+    // the secondary actions are the items of one menu in the opened row
+    expect(list(bill)).not.toContain("Muuta:");
+    expect(list(bill, true)).toContain("Muuta: ESIMERKKI OY");
+    expect(list(shared, true)).toContain("Muuta: ESIMERKKI OY");
   });
 });
 
@@ -73,7 +76,7 @@ describe("the part of a joint account's row", () => {
     const items = [row({ id: "j", bookingDate: "2026-09-18", amountCents: -3_624, partCents: -2_174 }), row({ id: "o", accountId: "a/2", bookingDate: "2026-09-18", amountCents: -14_599 })];
     const daySums = new Map<string, DaySum>([["2026-09-18", { date: "2026-09-18", count: 2, inCents: 0, outCents: 16_773 }]]);
     const rowProps = (t: ListedRow) => ({ t, ...props });
-    const lists = [renderToStaticMarkup(createElement(TxTable, { items, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {} }))];
+    const lists = [renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }))];
     for (const html of lists) {
       expect(figures(html, "rt-sub")).toEqual([-16_773]);
       expect(figures(html, "tx-amount").reduce((a, b) => a + b, 0)).toBe(-16_773);

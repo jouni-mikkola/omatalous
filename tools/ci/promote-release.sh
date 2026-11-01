@@ -17,7 +17,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
-REPO=${GH_REPO:-jouni-mikkola/omatalous}
+# shellcheck source=tools/lib/project.sh
+. "$ROOT/tools/lib/project.sh"
+REPO=${GH_REPO:-$PROJECT_OWNER/$PROJECT_REPO}
 export GH_REPO=$REPO
 WAIT_HOURS=48
 NOW=${PROMOTE_NOW:-$(date +%s)}

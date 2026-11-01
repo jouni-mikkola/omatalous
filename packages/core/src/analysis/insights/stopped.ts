@@ -14,20 +14,15 @@ import { daysBetween } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
 import { formatEur, formatFiDate } from "../format.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../../locale.ts";
+import { messageIn } from "../../messages.ts";
+import { FREED_MIN_MONTHLY_CENTS, MAX_STOPPED_DAYS, MIN_STOPPED_PAYMENTS, PREPAID_FACTOR, REFINANCE_DAYS, RUN_GAP_INTERVALS } from "../../thresholds.ts";
 import { PLAN_CATEGORIES } from "./prices.ts";
-import { evenlySpaced, MONTHLY_OR_LONGER } from "./shared.ts";
-import type { Insight, InsightArgs } from "./types.ts";
+import { evenlySpaced, insightOf, MONTHLY_OR_LONGER } from "./shared.ts";
+import { type Insight, type InsightArgs, q } from "./types.ts";
 
 /** Day care, after-school clubs, music lessons and hobby groups pause from June to mid-August. */
 const TERM_CATEGORIES = new Set(["kids", "education", "fitness", "entertainment"]);
-/** A payment that ran for half a year is part of the household's month; a shorter one was a try. */
-const MIN_PAYMENTS = 6;
-/** A loan or contract that ended frees at least this much a month before it is news (H-insights 8). */
-const FREED_MIN_MONTHLY = 3000;
-const MAX_DAYS = 120;
-const REFINANCE_DAYS = 60;
-/** A charge over this many times the usual one pays for months ahead (a yearly fee instead of monthly ones). */
-const PREPAID_FACTOR = 3;
 
 /** Whether a charge of `cents` pays for months ahead of a usual charge of `usualCents`. The follow-up reads it too. */
 export const paysAhead = (cents: number, usualCents: number) => cents > PREPAID_FACTOR * usualCents;
@@ -96,9 +91,6 @@ export function newPayeeIn(ctx: AnalysisContext, s: RecurringSeries, end: string
   return replacementOf(ctx, s, end) !== null;
 }
 
-/** A run of payments to one payee breaks at a pause longer than this many of the series' intervals: an older loan is another run. */
-const RUN_GAP_INTERVALS = 2;
-
 /**
  * The payments to the series' payee from its account in its category up to `end`, oldest first, but the rows of a
  * series that still runs (`running`, another loan from the same lender): the run the series is a part of, the rows
@@ -123,7 +115,7 @@ function summerBreak(s: RecurringSeries, end: string): boolean {
   return TERM_CATEGORIES.has(s.category) && (lastMonth === 5 || lastMonth === 6) && end.slice(0, 4) === s.lastDate.slice(0, 4) && end.slice(5) <= "09-30";
 }
 
-export function stoppedPayments({ ctx, end, gateMonthlyCents }: InsightArgs): Insight[] {
+export function stoppedPayments({ ctx, end, gateMonthlyCents, lang = DEFAULT_LANGUAGE }: Pick<InsightArgs, "ctx" | "end" | "gateMonthlyCents"> & { lang?: Language }): Insight[] {
   const recurring = recurringAt(ctx, end);
   const kindOf = (s: RecurringSeries) => getCategory(s.category).kind;
   const { lastBooking, accountOf } = accountDays(ctx, end);
@@ -135,7 +127,7 @@ export function stoppedPayments({ ctx, end, gateMonthlyCents }: InsightArgs): In
     const account = accountOf.get(s.transactionIds[s.transactionIds.length - 1]!);
     const since = daysBetween(s.lastDate, (account && lastBooking.get(account)) ?? s.lastDate);
     // the next payment is due an interval after what the last one paid for, and may be an interval late
-    if (since <= (intervalsPaid(s) + 1) * s.intervalDays + 5 || daysBetween(s.lastDate, end) > MAX_DAYS || summerBreak(s, end)) continue;
+    if (since <= (intervalsPaid(s) + 1) * s.intervalDays + 5 || daysBetween(s.lastDate, end) > MAX_STOPPED_DAYS || summerBreak(s, end)) continue;
     const moved = recurring.some(
       (o) =>
         o !== s &&
@@ -144,33 +136,35 @@ export function stoppedPayments({ ctx, end, gateMonthlyCents }: InsightArgs): In
         ((o.merchant === s.merchant && Math.abs(o.monthlyCents - s.monthlyCents) <= 0.2 * s.monthlyCents) ||
           (kind === "debt" && kindOf(o) === "debt" && Math.abs(daysBetween(s.lastDate, o.firstDate)) <= REFINANCE_DAYS)),
     );
-    if (moved || !MONTHLY_OR_LONGER.has(s.cadence ?? "") || s.occurrences < MIN_PAYMENTS || !evenlySpaced(ctx, s)) continue;
+    if (moved || !MONTHLY_OR_LONGER.has(s.cadence ?? "") || s.occurrences < MIN_STOPPED_PAYMENTS || !evenlySpaced(ctx, s)) continue;
     const perMonth = monthlyBefore(s);
     if (perMonth < gateMonthlyCents) continue;
     if (newPayeeIn(ctx, s, end)) continue;
     const run = runOf(ctx, s, account, end, running);
     // the payee was paid after this series at another sum: the run stops with its last row, told once
     if (run.last !== s.lastDate) continue;
-    const freed = perMonth >= FREED_MIN_MONTHLY;
-    const monthly = formatEur(perMonth, false);
-    const paid = `${run.ids.length} maksua ${formatFiDate(run.first)} alkaen, yhteensä ${formatEur(run.cents)}`;
-    out.push({
-      id: `stopped:${s.id}`,
-      tone: freed ? "good" : "info",
-      title: freed ? `${s.merchant}: ${monthly} kuussa vapautui` : `${s.merchant}: ei maksuja ${formatFiDate(s.lastDate)} jälkeen`,
-      detail: freed ? `Viimeinen maksu ${formatFiDate(s.lastDate)}, ${paid}.` : `Viimeksi ${formatEur(s.lastAmountCents)}, tavallisesti ${monthly} kuussa, ${paid}.`,
-      yearlyCents: perMonth * 12,
-      rows: run.ids,
-      link: { merchant: s.merchant },
-      merchant: s.merchant,
-      calc: [
-        { label: "Viimeinen maksu", value: formatFiDate(s.lastDate) },
-        ...(freed ? [] : [{ label: "Viimeksi maksettu", value: formatEur(s.lastAmountCents) }]),
-        { label: "Tavallisesti kuussa", value: monthly },
-        { label: "Maksuja", value: String(run.ids.length) },
-        { label: "Maksettu yhteensä", value: formatEur(run.cents) },
-      ],
-    });
+    const freed = perMonth >= FREED_MIN_MONTHLY_CENTS;
+    out.push(
+      insightOf({
+        lang,
+        id: `stopped:${s.id}`,
+        fact: { type: "stopped", merchant: s.merchant, lastDate: s.lastDate, lastCents: s.lastAmountCents, monthlyCents: perMonth, payments: run.ids.length, paidCents: run.cents, firstDate: run.first, freed },
+        comparison: { label: "usualMonthly", value: q.cents(perMonth) },
+        action: { label: freed ? "useFreed" : "checkStop", target: { page: "transactions", filter: { merchant: s.merchant } } },
+        yearlyCents: perMonth * 12,
+        kind: "pattern",
+        rows: run.ids,
+        link: { merchant: s.merchant },
+        merchant: s.merchant,
+        calc: [
+          { label: messageIn(lang, "calc.last_payment"), value: formatFiDate(s.lastDate, lang) },
+          ...(freed ? [] : [{ label: messageIn(lang, "calc.last_paid"), value: formatEur(s.lastAmountCents, true, lang) }]),
+          { label: messageIn(lang, "calc.usual_month"), value: formatEur(perMonth, false, lang) },
+          { label: messageIn(lang, "calc.payments"), value: String(run.ids.length) },
+          { label: messageIn(lang, "calc.paid_total"), value: formatEur(run.cents, true, lang) },
+        ],
+      }),
+    );
   }
   return out;
 }

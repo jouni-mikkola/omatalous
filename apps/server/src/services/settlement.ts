@@ -395,7 +395,7 @@ function parseAgreementValue(kind: Kind, value: unknown, owners: ReadonlySet<Own
   const fixed = strictObject(value, ["cents", "rest"] as const);
   const out: Record<string, unknown> = { cents: amounts(fixed.cents, owners) };
   // the rest of a fixed month is said, never taken as equal (owner rule L5)
-  if (fixed.rest === undefined) throw new UserError("Kerro, miten kiinteän summan jälkeen jäävä osa jaetaan.");
+  if (fixed.rest === undefined) throw new UserError("Kerro, miten jaat kiinteän summan jälkeen jäävän osan.");
   const rest = strictObject(fixed.rest, ["kind", "weights"] as const);
   if (rest.kind !== "equal" && rest.kind !== "share" && rest.kind !== "income") throw new UserError("Virheellinen sopimus.");
   out.rest = rest.kind === "share" ? { kind: "share", weights: amounts(rest.weights, owners) } : { kind: rest.kind };

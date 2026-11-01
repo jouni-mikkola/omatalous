@@ -4,12 +4,12 @@
  * alternation of three or more words, in a regex literal or in a string a regex is built from. Lists outside the
  * dialect files today are in BASELINE, which only shrinks: an entry that no longer occurs fails too.
  */
-import ts from "typescript";
+import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, lineIn, lineOf, parse, sourceFiles, walk } from "./lib.ts";
 
 const SELF = "tools/repo-rules/dialect.ts";
-const DIALECT = /^packages\/core\/src\/(categorize\.ts|wording(-loan-pages|-lenders|-car|-swedish|-shops)?\.ts|industry\.ts|merchant\.ts)/;
+const DIALECT = /^packages\/core\/src\/(categorize\.ts|wording(-loan-pages|-lenders|-car|-swedish|-shops|-moves)?\.ts|industry\.ts|merchant\.ts)/;
 
 /** `file  start of the list`: lists that still sit outside the dialect files. */
 const BASELINE: readonly string[] = [
@@ -70,14 +70,14 @@ function scan() {
 }
 
 describe("repo rules: bank dialect (rule 21)", () => {
-  it("rule 21a: an upper-case keyword list sits in categorize.ts, wording.ts, wording-loan-pages.ts, wording-lenders.ts, wording-car.ts, wording-swedish.ts, wording-shops.ts, industry.ts or merchant.ts, except the baseline", () => {
+  it("rule 21a: an upper-case keyword list sits in categorize.ts, wording.ts, wording-loan-pages.ts, wording-lenders.ts, wording-car.ts, wording-swedish.ts, wording-shops.ts, wording-moves.ts, industry.ts or merchant.ts, except the baseline", () => {
     expect(longestRun("SATO|KOJAMO|LUMO"), "the scan sees a list").toBe(3);
     expect(longestRun(String.raw`\d{1,2}\.\d{1,2}|[−-]?\d+`), "and no number pattern").toBe(0);
     const base = new Set(BASELINE);
     const found: Finding[] = scan()
       .filter((l) => !base.has(l.key))
       .map((l) => ({ file: l.file, line: l.line, why: `keyword list outside the dialect files: ${l.key.split("  ")[1]}` }));
-    expectNoFindings("bank dialect", found, "move the list to wording.ts (or categorize.ts, industry.ts) behind a named predicate such as isLateFeeText and call that (ADR 0008). Do not add it to BASELINE.");
+    expectNoFindings("bank dialect", found, "move the list to packages/core/src/wordlists.json and read it with alternation() in wording.ts (or categorize.ts, industry.ts) behind a named predicate such as isLateFeeText and call that (ADR 0008). Do not add it to BASELINE.");
   });
 
   it("rule 21b: every baseline entry still occurs, so the list shrinks when a list moves", () => {

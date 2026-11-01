@@ -225,7 +225,7 @@ describe("the reset from the browser", () => {
     const calls = h.bank.calls.length;
     const r = await reset(h.admin);
     expect(r.status).toBe(503);
-    expect(r.body.error).toBe("Varmuuskopion teko epäonnistui, joten mitään ei tyhjennetty.");
+    expect(r.body.error).toBe("Varmuuskopion teko epäonnistui, joten emme tyhjentäneet mitään.");
     expect(h.bank.calls.length).toBe(calls);
     const after = await dump(h.db);
     // the refusal is written down, and that is all
@@ -395,7 +395,7 @@ describe("the reset from the browser", () => {
     const was = { ...(await h.s.users.get(h.adminId))!, role: "admin" as const };
     await expect(resetData(h.s, was, { password: PASSWORD, confirm: WORD }, { ip: null, userAgent: null }, session)).rejects.toMatchObject({
       status: 403,
-      message: "Tunnuksesi ei ole enää ylläpitäjä, joten mitään ei tyhjennetty.",
+      message: "Tunnuksesi ei ole enää ylläpitäjä, joten emme tyhjentäneet mitään.",
     });
     expect(h.bank.calls.some((c) => c.startsWith("DELETE "))).toBe(false);
     expect(existsSync(join(h.dir, "backups"))).toBe(false);

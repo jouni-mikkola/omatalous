@@ -9,7 +9,7 @@
  * and the sentence.
  */
 import { posix } from "node:path";
-import ts from "typescript";
+import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { KINDS, differences, registryPath, registryText } from "../gen/registry.mjs";
 import { unreadExports } from "./exports.ts";

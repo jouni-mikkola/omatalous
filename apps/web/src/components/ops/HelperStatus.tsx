@@ -1,8 +1,11 @@
+import { t } from "../../text.ts";
+import "../../styles/ops.css";
 import { useState } from "react";
 import { clockTime, dateTime } from "../../format.ts";
 import { ENABLE_DOC, S } from "./ops-strings.ts";
 import type { HelperInfo } from "./types.ts";
-
+import { Button } from "../ui/Button.tsx";
+import { Notice } from "../ui/Notice.tsx";
 /** A command to run on the machine, with a copy button. The clipboard is missing on plain http, so the text stays selectable. */
 export function Command({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -18,9 +21,9 @@ export function Command({ text }: { text: string }) {
   return (
     <div className="form-row">
       <code className="ops-command">{text}</code>
-      <button className="btn btn-small" type="button" onClick={() => void copy()}>
-        {copied ? "Kopioitu" : "Kopioi"}
-      </button>
+      <Button onClick={() => void copy()}>
+        {copied ? t("ops.copied") : t("ops.copy")}
+      </Button>
     </div>
   );
 }
@@ -28,35 +31,35 @@ export function Command({ text }: { text: string }) {
 export function HelperStatus({ helper }: { helper: HelperInfo }) {
   if (helper.status === "off") {
     return (
-      <div className="notice warning" role="status">
+      <Notice tone="warning" role="status">
         <strong>{S.helperNever}</strong>
-        <p style={{ margin: "4px 0" }}>{helper.reason === "stale" ? S.helperStale : S.helperNeverHelp}</p>
+        <p className="ops-line">{helper.reason === "stale" ? S.helperStale : S.helperNeverHelp}</p>
         <Command text={helper.reason === "stale" ? "systemctl --user list-timers 'talous-ops-*'" : helper.enableCommand} />
         {helper.reason === "stale" && (
           <>
-            <p style={{ margin: "4px 0" }}>Jos ajastinta ei ole, asenna apuri uudelleen:</p>
+            <p className="ops-line">Jos ajastinta ei ole, asenna apuri uudelleen:</p>
             <Command text={helper.enableCommand} />
           </>
         )}
-        <a href={ENABLE_DOC} target="_blank" rel="noopener noreferrer">
+        <a className="btn-link" href={ENABLE_DOC} target="_blank" rel="noopener noreferrer">
           {S.helperDoc}
         </a>
-      </div>
+      </Notice>
     );
   }
   const seen = helper.seenAt ?? "";
   return (
     <>
       {helper.status === "ok" ? (
-        <div className="notice good" role="status">{S.helperOk(clockTime(seen))}</div>
+        <Notice tone="good" role="status">{S.helperOk(clockTime(seen))}</Notice>
       ) : (
-        <div className="notice warning" role="status">{S.helperSlow(dateTime(seen))}</div>
+        <Notice tone="warning" role="status">{S.helperSlow(dateTime(seen))}</Notice>
       )}
       {helper.outdated && (
-        <div className="notice warning" role="status">
+        <Notice tone="warning" role="status">
           {S.helperOutdated}
           <Command text={helper.enableCommand} />
-        </div>
+        </Notice>
       )}
     </>
   );

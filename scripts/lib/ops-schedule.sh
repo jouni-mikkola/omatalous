@@ -104,7 +104,7 @@ ops_scheduler_remove() { # ops_scheduler_remove INSTANCE [keep-running]
 # compares this list with the helper's: a path added there goes here too.
 ops_checked_paths() {
   local p
-  for p in . .git .git/config scripts scripts/*.sh scripts/lib scripts/lib/*.sh ops .env ops/policy ops/channel ops/journal ops/run backups/.last-update; do
+  for p in . .git .git/config scripts scripts/*.sh scripts/lib scripts/lib/*.sh docker-compose.yml Dockerfile deploy deploy/Caddyfile ops .env ops/policy ops/channel ops/journal ops/run backups/.last-update; do
     [[ -e $p ]] && printf '%s\n' "$p"
   done
   return 0

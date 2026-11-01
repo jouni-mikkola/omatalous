@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { overflow } from "./helpers.ts";
 
-// Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö against a stand-in for the routes of the server (the real ones need Cloudflare
+// Asetukset > Palvelin ja ylläpito > Palvelin > Etäkäyttö against a stand-in for the routes of the server (the real ones need Cloudflare
 // and a host helper). The stand-in plays the helper too: a change shows as waiting, and the next read settles it.
 // Addresses are example.fi. With SHOTS_DIR set the states are also saved as pictures (cw3b-<state>-<width>.png).
 const DIR = process.env.E2E_DIR ?? ".";
@@ -13,7 +13,7 @@ const TOKEN = "cfp_example-token-0123456789abcdefghijkl";
 const PASSWORD = "esimerkki-salasana-1";
 const REFUSED = "Etäkäytön muutos on jo kesken. Odota, että se valmistuu.";
 const NOT_REPORTED = "Ylläpitoapuri ei ole vielä kertonut, onko asennus tunnelin takana. Yritä hetken päästä uudelleen.";
-const LOCAL_ASKED = "Kun etäkäyttö otetaan pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii.";
+const LOCAL_ASKED = "Kun otat etäkäytön pois käytöstä, sovellus vastaa vain palvelimella itsellään osoitteessa http://localhost:8080. Vahvista, että tämä sopii.";
 const REQUEST = "op_0123456789abcdef";
 const HOME = "http://192.168.1.10:8080";
 const REVERT_AT = new Date(Date.now() + 10 * 60_000).toISOString();
@@ -94,7 +94,7 @@ async function standIn(page: Page, start: Json = OFF) {
         s.pending = PENDING("lan");
         const kept = { hostname: "talous.example.fi", emails: s.cloudflare.emails };
         const left = { want: "lan", hostname: null, outcome: "applied", summary: "Valmis.", at: "2026-10-12T09:00:00.000Z" };
-        const note = "Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista.";
+        const note = "Poistamme Cloudflaren puolen, kun ylläpitoapuri on irrottanut asennuksen tunnelista.";
         fake.ahead.push(() => Object.assign(s, { pending: null, access: { ...OFF.access }, last: left, cloudflare: { ...kept, removal: "waiting", note } }));
         fake.ahead.push(() => Object.assign(s, { cloudflare: { hostname: null, emails: [], removal: "removed", note: null } }));
       }
@@ -117,7 +117,7 @@ async function ensureAdmin(browser: Browser) {
   await page.getByLabel("Salasana uudelleen").fill("e2e-salasana-123456");
   await page.getByRole("button", { name: "Luo ja kirjaudu" }).click();
   await expect(page.getByRole("heading", { name: "Käyttöönotto" })).toBeVisible();
-  await page.getByRole("button", { name: "Ohita" }).click();
+  await page.getByRole("button", { name: "Jatka" }).click();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
   await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
   await context.storageState({ path: STATE });
@@ -141,10 +141,17 @@ async function open(browser: Browser, width: number, start: Json = OFF) {
     errors.push(`page error: ${e.message}`);
   });
   const fake = await standIn(page, start);
-  await page.goto("/#/settings?section=technical");
+  await page.goto("/#/settings/server");
   const section = page.locator("#etakaytto");
   await expect(section.getByRole("heading", { name: "Etäkäyttö", level: 2 })).toBeVisible();
+  await unfold(section);
   return { context, page, fake, section, logged, errors };
+}
+
+/** An idle card is folded; the tests read and use its body, so open it as a reader does. */
+async function unfold(section: Locator) {
+  if ((await section.getAttribute("open")) === null) await section.locator("summary").first().click();
+  await expect(section).toHaveAttribute("open", "");
 }
 
 async function shot(target: Locator, name: string, width: number) {
@@ -237,18 +244,18 @@ for (const width of [1280, 390]) {
       await expect(dialog.getByText("https://talous.example.fi", { exact: true })).toBeVisible();
       await expect(dialog.locator("li")).toHaveText(["anna@example.fi", "matti@example.fi"]);
       await expect(dialog).toContainText("Kun etäkäyttö on päällä, kotiverkon osoite ei enää vastaa.");
-      await expect(dialog).toContainText("Avaa se 15 minuutin kuluessa ja kirjaudu sisään Cloudflaren kautta");
+      await expect(dialog).toContainText("Avaa se 15 minuutin kuluessa ja kirjaudu Cloudflaren kautta");
       expect(fake.posts("/on")).toHaveLength(0);
       await shot(page.getByRole("dialog"), "yes-step", width);
 
       // turning on: the server says a change is already waiting, the page shows its sentence and reads the state again; the second try goes through
       fake.refuse = { status: 409, error: REFUSED };
       const readsBefore = fake.seen.filter((r) => r.method === "GET").length;
-      await dialog.getByRole("button", { name: "Kyllä, ota käyttöön", exact: true }).click();
+      await dialog.getByRole("button", { name: "Ota käyttöön", exact: true }).click();
       await expect(dialog.getByText(REFUSED)).toBeVisible();
       await expect.poll(() => fake.seen.filter((r) => r.method === "GET").length).toBeGreaterThan(readsBefore);
       await dialog.getByLabel("Salasanasi").fill(PASSWORD);
-      await dialog.getByRole("button", { name: "Kyllä, ota käyttöön", exact: true }).click();
+      await dialog.getByRole("button", { name: "Ota käyttöön", exact: true }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(section.getByText("Muutos odottaa ylläpitoapuria.")).toBeVisible();
       await expect(section.getByText("Kun muutos on tehty, kotiverkon osoite ei enää vastaa.")).toBeVisible();
@@ -262,11 +269,11 @@ for (const width of [1280, 390]) {
       await expect(section.locator('input[name="hostname"]')).toHaveValue("talous.example.fi");
       expect(fake.seen.filter((r) => r.method === "POST" && r.url.endsWith(`/api/ops/cancel/${REQUEST}`) && r.body === "{}")).toHaveLength(1);
       await emails.fill("anna@example.fi\nmatti@example.fi");
-      await confirm(page, button("Ota etäkäyttö käyttöön"), "Kyllä, ota käyttöön");
+      await confirm(page, button("Ota etäkäyttö käyttöön"), "Ota käyttöön");
       await expect(section.getByText("Muutos odottaa ylläpitoapuria.")).toBeVisible();
       await expect(section.getByText("Uusi osoite on kokeilussa.")).toBeVisible({ timeout: 15_000 });
       await expect(section.getByText("kirjaudu sisään Cloudflaren kautta ennen kello")).toBeVisible();
-      await expect(section.getByText("Jos kukaan ei kirjaudu sisään, osoite suljetaan pian.")).toBeVisible();
+      await expect(section.getByText("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.")).toBeVisible();
       await expect(section.getByRole("link", { name: "https://talous.example.fi" }).first()).toBeVisible();
       await shot(section, "trial", width);
 
@@ -285,17 +292,17 @@ for (const width of [1280, 390]) {
       await expect(dialog.locator("li")).toHaveText(["anna@example.fi", "matti@example.fi", "liisa@example.fi"]);
       await expect(dialog).toContainText("Tällä muutoksella ei ole kokeiluaikaa.");
       await shot(page.getByRole("dialog"), "yes-step-emails", width);
-      await dialog.getByRole("button", { name: "Kyllä, tallenna lista", exact: true }).click();
+      await dialog.getByRole("button", { name: "Tallenna lista", exact: true }).click();
       await expect(section.getByText("Muutos odottaa ylläpitoapuria.")).toBeVisible();
       await expect(section.getByText("Kun muutos on tehty, kotiverkon osoite ei enää vastaa.")).toHaveCount(0);
       await expect(section.locator(".remote-emails li")).toHaveText(["anna@example.fi", "matti@example.fi", "liisa@example.fi"], { timeout: 15_000 });
       expect(fake.posts("/on").at(-1)).toEqual({ hostname: "talous.example.fi", emails: ["anna@example.fi", "matti@example.fi", "liisa@example.fi"], password: PASSWORD });
 
       // off: the page says first where the app is found afterwards (a home network address, so no box to tick)
-      await expect(section.getByText("Kun etäkäyttö otetaan pois käytöstä, etäosoitteella avattu selain menettää yhteyden.")).toBeVisible();
+      await expect(section.getByText("Kun otat etäkäytön pois käytöstä, etäosoitteella avattu selain menettää yhteyden.")).toBeVisible();
       await expect(section.getByText(`Tämän jälkeen Omatalous löytyy osoitteesta ${HOME}.`)).toBeVisible();
       // the token stays while remote access is on
-      await expect(section.getByText("Tunniste tarvitaan, kun etäkäyttö otetaan pois käytöstä.")).toBeVisible();
+      await expect(section.getByText("Tarvitset tunnisteen, kun otat etäkäytön pois käytöstä.")).toBeVisible();
       await expect(button("Poista tunniste")).toHaveCount(0);
       await shot(section, "on-off-button", width);
       dialog = await openAsk(page, button("Ota etäkäyttö pois käytöstä"));
@@ -309,8 +316,8 @@ for (const width of [1280, 390]) {
       await expect(dialog.getByText(NOT_REPORTED)).toBeVisible();
       await dialog.getByLabel("Salasanasi").fill(PASSWORD);
       await dialog.getByRole("button", { name: "Ota pois käytöstä", exact: true }).click();
-      await expect(section.getByText("Etäkäyttö otetaan pois käytöstä.").first()).toBeVisible({ timeout: 15_000 });
-      await expect(section.getByText("Cloudflaren puoli poistetaan, kun ylläpitoapuri on irrottanut asennuksen tunnelista.")).toBeVisible();
+      await expect(section.getByText("Poistamme etäkäytön käytöstä.").first()).toBeVisible({ timeout: 15_000 });
+      await expect(section.getByText("Poistamme Cloudflaren puolen, kun ylläpitoapuri on irrottanut asennuksen tunnelista.")).toBeVisible();
       await expect(button("Ota etäkäyttö pois käytöstä")).toHaveCount(0);
       await expect(button("Poista tunniste")).toHaveCount(0);
       await shot(section, "removal-waiting", width);
@@ -355,7 +362,7 @@ for (const width of [1280, 390]) {
       await shot(page.getByRole("dialog"), "off-local-only", width);
       // not ticked: the browser holds the form back and no call is made
       await dialog.getByRole("button", { name: "Ota pois käytöstä", exact: true }).click();
-      await page.waitForTimeout(300);
+      await page.waitForLoadState("networkidle");
       expect(fake.posts("/off")).toHaveLength(0);
       // ticked, and the server still asks (as if the choice had not reached it): its sentence stays in the dialog
       await choice.check();
@@ -367,7 +374,7 @@ for (const width of [1280, 390]) {
       await dialog.getByLabel("Salasanasi").fill(PASSWORD);
       await dialog.getByRole("button", { name: "Ota pois käytöstä", exact: true }).click();
       await expect(page.getByRole("dialog")).toHaveCount(0);
-      await expect(section.getByText("Etäkäyttö otetaan pois käytöstä.").first()).toBeVisible();
+      await expect(section.getByText("Poistamme etäkäytön käytöstä.").first()).toBeVisible();
       expect(fake.posts("/off")).toEqual([{ password: PASSWORD, localOnly: true }, { password: PASSWORD, localOnly: true }]);
       expect(await overflow(page)).toBe(0);
       expect(errors.filter((l) => !/Failed to load resource.*(400|403|409)/.test(l))).toEqual([]);
@@ -383,6 +390,8 @@ for (const width of [1280, 390]) {
       await expect(section).toContainText("15 minuutin kuluessa");
       await shot(section, "home-blocked", width);
       const reads = fake.seen.filter((r) => r.method === "GET").length;
+      // Kept on purpose: that a read does NOT follow can only be seen by letting more than one poll interval pass
+      // (3 s while a change is pending, `pollDelay` in remote-access-model.ts); no event marks the absence of a request.
       await page.waitForTimeout(4000);
       expect(fake.seen.filter((r) => r.method === "GET").length).toBe(reads);
       expect(await overflow(page)).toBe(0);
@@ -409,16 +418,16 @@ for (const width of [1280, 390]) {
             want: "tunnel",
             hostname: "talous.example.fi",
             outcome: "reverted",
-            summary: "Etäkäyttö otettiin pois käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta 15 minuutissa.",
+            summary: "Poistimme etäkäytön käytöstä, koska kukaan ei päässyt sisään uuden osoitteen kautta 15 minuutissa.",
             at: "2026-10-12T08:20:00.000Z",
           },
         },
-        "Uusi osoite ei toiminut, joten etäkäyttö otettiin pois käytöstä.",
+        "Uusi osoite ei toiminut, joten poistimme etäkäytön käytöstä.",
       ],
       [
         "installer-host",
         { ...IN_TUNNEL([]), access: { ...IN_TUNNEL([]).access, emailsKnown: false, checked: false }, cloudflare: { hostname: null, emails: [], removal: null, note: null } },
-        "Lista on tehty palvelimella asennusohjelmalla",
+        "Palvelimen asennusohjelma teki listan",
       ],
       [
         "installer-left",
@@ -436,7 +445,7 @@ for (const width of [1280, 390]) {
       ],
       ["pending-first-on", { ...OFF, token: SAVED, suggestedHostname: "talous.example.fi", pending: PENDING("tunnel") }, "Kun muutos on tehty, kotiverkon osoite ei enää vastaa."],
       ["pending-queued", { ...IN_TUNNEL(["anna@example.fi"]), pending: PENDING("tunnel") }, "Muutos odottaa ylläpitoapuria."],
-      ["pending-running-off", { ...IN_TUNNEL(["anna@example.fi"]), pending: PENDING("lan", "running") }, "Etäkäyttö otetaan pois käytöstä."],
+      ["pending-running-off", { ...IN_TUNNEL(["anna@example.fi"]), pending: PENDING("lan", "running") }, "Poistamme etäkäytön käytöstä."],
       [
         "failed",
         { ...OFF, token: SAVED, suggestedHostname: "talous.example.fi", last: { want: "tunnel", hostname: "talous.example.fi", outcome: "failed", summary: "Sovellus ei käynnistynyt uudelleen, joten vanha asetus palautettiin.", at: "2026-10-12T08:05:00.000Z" } },
@@ -444,7 +453,7 @@ for (const width of [1280, 390]) {
       ],
       [
         "cloudflare-kept",
-        { ...LEFT, cloudflare: { ...LEFT.cloudflare, removal: "kept", note: "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten kirjautumissuojaus (Access) jätettiin päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä." } },
+        { ...LEFT, cloudflare: { ...LEFT.cloudflare, removal: "kept", note: "Osoitteeseen johtaa Cloudflaressa vielä jotain, mitä tämä asennus ei ole tehnyt, joten jätimme kirjautumissuojauksen (Access) päälle. Poista ylimääräinen tunneli tai DNS-tietue Cloudflaren hallinnasta ja ota etäkäyttö sitten uudelleen pois käytöstä." } },
         "Cloudflaressa on osoite talous.example.fi, mutta sovellus ei ole sen takana.",
       ],
       ["helper-off", { ...OFF, token: SAVED, helper: { ...OFF.helper, status: "off", knowsAccess: false } }, "Etäkäyttö ei ole käytössä."],
@@ -457,6 +466,7 @@ for (const width of [1280, 390]) {
       for (const [name, state, text] of STATES) {
         fake.state = structuredClone(state);
         await page.reload();
+        await unfold(section);
         await expect(section.getByText(text).first()).toBeVisible();
         await section.scrollIntoViewIfNeeded();
         expect(await overflow(page), name).toBe(0);

@@ -1,120 +1,29 @@
-/* The Laskut page: the month board, the list of what is coming, Tilaukset in the table kit, the price steps, the tables, the twelve months and the form for a typed-in bill. */
+/* The Laskut page: the 30 days, the one table, the price steps and the form for a typed-in bill. */
 
-.bills-head { font-size: var(--fs-body); font-weight: 600; margin: 16px 0 8px; }
-.bills-head .muted { font-weight: 400; font-size: var(--fs-label); margin-left: 8px; }
+@layer pages {
 
-/* a day or a month stands on one line; the payee takes the rest */
-.due-col { white-space: nowrap; }
 
-/* the typed-in bills: name and amount, the rest below. No table, so a phone needs no side scroll. */
-.bill-list { list-style: none; margin: 0; padding: 0; max-width: 640px; }
-.bill-list li { padding: 8px 0; border-bottom: 1px solid var(--grid); }
-.bill-line { display: flex; align-items: baseline; gap: 8px; font-variant-numeric: tabular-nums; }
-.bill-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.bill-line .btn { align-self: center; }
-.bill-list .sub { color: var(--muted); font-size: var(--fs-label); margin-top: 2px; }
-
-/* the form ends on a rule and a step of the scale, as a nested section does, and the table under it begins there */
-.bill-form { margin-top: var(--sp-8); margin-bottom: var(--sp-16); padding-bottom: var(--sp-8); border-bottom: 1px solid var(--border); }
-.bill-fields { display: grid; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); gap: 12px; }
+/* the form of a bill typed in is a dialog over the page */
+dialog.bill-dialog { width: min(40rem, calc(100vw - 2rem)); max-width: none; max-height: calc(100vh - 2rem); overflow-y: auto; }
+dialog.bill-dialog .bill-form p { color: var(--text-2); }
+.bill-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .bill-fields label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.bill-fields .field-label { color: var(--text-2); font-size: var(--fs-ui); font-weight: var(--w-strong); }
+.bill-fields .field-label { color: var(--text-2); font-size: var(--fs-body); font-weight: var(--w-strong); }
 .bill-fields input, .bill-fields select { width: 100%; box-sizing: border-box; }
-/* the panel is a half of the page from 1040 px: four fields would cut the chosen value of Toistuu and the date, so two rows of two */
-@media (min-width: 1040px) { .bill-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 700px) { .bill-fields { grid-template-columns: minmax(0, 1fr); } }
 
-/* the date of the next charge stays on one line */
-.series-table td.next { white-space: nowrap; }
 
 /* the one action in a subscription's drill; a mark replaces it with a badge and an undo */
 .sub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
 .sub-actions .badge { margin-left: 0; }
 
-/* a name wraps balanced, so its last word ("... Oy") does not stand alone */
-@media (min-width: 601px) { .series-table th:first-child { text-wrap: balance; } }
 
-/* a contract's start under its name opens its lines; it reads as the line of the category above it */
-.contract-toggle { display: block; margin: 0; padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-label); line-height: var(--lh-label); text-align: left; text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
-.contract-panel > td { padding-top: 0; }
-.st-row > .contract-panel { flex: 0 0 100%; }
-.contract-panel .st-row:last-child { border-bottom: 0; }
 
-/* ── The month board (PD-laskut): the head with the month arrows, the state tiles, the month's due as one split bar,
-   the days of the month as a line, then the rows by state, a missed bill first. Status colours come with an icon. */
-.mb-nav { display: flex; align-items: center; gap: var(--sp-8); }
-.mb-nav h2 { min-inline-size: 9.5em; text-align: center; }
-.mb-step { min-inline-size: 32px; font-size: var(--fs-h2); line-height: 1; padding-inline: 0; }
-.mb-top { display: grid; gap: var(--sp-16); padding-block-end: var(--sp-20); border-block-end: 1px solid var(--grid); }
-.mb-states { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--sp-12); margin: 0; }
-.mb-state { display: grid; gap: var(--sp-4); padding: var(--sp-12) var(--sp-16); border-radius: var(--radius-m); background: var(--surface-2); }
-.mb-state dt { display: flex; align-items: center; gap: var(--sp-8); font-size: var(--fs-ui); line-height: var(--lh-ui); color: var(--text-2); }
-.mb-state dd { margin: 0; }
-.mb-count { margin-inline-start: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
-.mb-missing.mb-state { background: var(--warn-bg); box-shadow: inset 3px 0 0 var(--warn); }
-.mb-missing.mb-state dt { color: var(--text); font-weight: var(--w-strong); }
-.mb-fixed.mb-state { background: transparent; box-shadow: inset 1px 0 0 var(--border); border-radius: 0; }
 
-.mb-icon { flex: none; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.mb-icon-paid circle { fill: var(--good); stroke: none; }
-.mb-icon-paid path { stroke: var(--on-fill); stroke-width: 1.8; }
-.mb-icon-coming { stroke: var(--accent); }
-.mb-icon-missing path:first-child { fill: var(--warn); stroke: var(--warn); }
-.mb-icon-missing path + path { stroke: var(--on-fill); stroke-width: 1.8; }
-
-.mb-share { display: flex; gap: 2px; block-size: 10px; border-radius: var(--radius-pill); overflow: hidden; background: var(--surface-2); }
-.mb-share > span { flex-basis: 0; min-inline-size: 3px; }
-.mb-share-paid { background: var(--good); }
-/* coming money is an estimate, so it takes the estimate pair */
-.mb-share-coming { background: var(--estimate-fill); box-shadow: inset 0 0 0 1px var(--estimate-edge); }
-.mb-share-missing { background: var(--warn); }
-
-.mb-line { padding-inline: var(--sp-8); }
-.mb-track { position: relative; block-size: 48px; border-block-end: 1px solid var(--axis); }
-.mb-today { position: absolute; inset-block: 0; inline-size: 2px; transform: translateX(-50%); background: var(--accent); }
-.mb-today-label { position: absolute; inset-block-start: -2px; inset-inline-start: var(--sp-8); font-size: var(--fs-tick); color: var(--accent); white-space: nowrap; }
-.mb-mark { position: absolute; inline-size: 10px; block-size: 10px; transform: translateX(-50%); border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
-.mb-mark-paid { background: var(--good); }
-.mb-mark-coming { background: var(--surface); box-shadow: inset 0 0 0 2px var(--accent), 0 0 0 2px var(--surface); }
-.mb-mark-missing { border-radius: 0; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); box-shadow: none; inline-size: 12px; block-size: 11px; }
-.mb-ticks { position: relative; block-size: 18px; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--muted); font-variant-numeric: tabular-nums; }
-.mb-ticks span { position: absolute; inset-block-start: 4px; transform: translateX(-50%); }
-
-.mb-group { padding-block-start: var(--sp-16); }
-.mb-group-head { display: flex; align-items: center; gap: var(--sp-8); margin: 0 0 var(--sp-4); font-size: var(--fs-ui); line-height: var(--lh-ui); font-weight: var(--w-strong); color: var(--text-2); }
-.mb-group-count { margin-inline-start: auto; font-weight: var(--w-regular); color: var(--muted); font-variant-numeric: tabular-nums; }
-.mb-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); column-gap: var(--sp-32); }
-.mb-row { display: flex; align-items: center; gap: var(--sp-12); min-block-size: 52px; padding-block: var(--sp-8); border-block-end: 1px solid var(--grid); }
-.mb-what { flex: 1 1 auto; min-inline-size: 0; display: grid; }
-.mb-merchant { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mb-day { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); }
-.mb-missing .mb-day { color: var(--text-2); }
 .mb-tag { padding-inline: var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
-.mb-sum { display: grid; justify-items: end; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-.mb-estimate { color: var(--text-2); font-weight: var(--w-regular); }
-.mb-usual { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--muted); }
-.mb-missing .mb-rows .mb-row { box-shadow: inset 3px 0 0 var(--warn); padding-inline-start: var(--sp-12); }
-.mb-empty { margin: var(--sp-16) 0 0; color: var(--muted); }
-/* a month switch fades the board while the next month loads; nothing moves */
-.mb.loading .mb-rows, .mb.loading .mb-top { opacity: 0.55; transition: opacity var(--t-state); }
-.mb-sk .mb-states { margin-block: var(--sp-16); }
-.mb-sk .mb-state { block-size: 64px; }
 .bills-first p { margin: var(--sp-8) 0 0; color: var(--text-2); }
-@media (max-width: 640px) {
-  .mb-nav h2 { min-inline-size: 0; }
-  /* a phone reads the states as lines: the word on the left, the sum on the right */
-  .mb-states { grid-template-columns: 1fr; gap: var(--sp-8); }
-  .mb-state { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); padding-block: var(--sp-8); }
-  .mb-state dt { flex: 1; }
-  .mb-fixed.mb-state { box-shadow: none; padding-inline: var(--sp-16); border-block-start: 1px solid var(--grid); border-radius: 0; }
-  .mb-rows { grid-template-columns: 1fr; }
-}
 
-/* ── Prices of the subscriptions that moved: one tile per subscription, a step line and the dated prices under it */
-.ps-tiles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-16); }
-.ps-tile { display: grid; gap: var(--sp-8); padding: var(--sp-12) var(--sp-16); border-radius: var(--radius-m); background: var(--surface-2); }
-.ps-head { display: flex; align-items: center; gap: var(--sp-8); }
-.ps-name { flex: 1; min-inline-size: 0; font-weight: var(--w-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* ── The step line of a price that moved, in the drill of the table */
 /* the line between the first price on the left and the price now on the right, each at the height of its end */
 .ps-plot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-8); }
 .ps-end { position: relative; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
@@ -126,18 +35,27 @@
 .ps-chart { display: block; inline-size: 100%; block-size: 56px; }
 .ps-chart path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
 /* the date of each step under the line at its own place, never rotated */
-.ps-dates { grid-column: 2; position: relative; block-size: 16px; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ps-dates { grid-column: 2; position: relative; block-size: 16px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums; }
 .ps-dates span { position: absolute; inset-block-start: 2px; transform: translateX(-50%); white-space: nowrap; }
 .ps-dates span:first-child:not(:last-child) { transform: none; }
 .ps-dates span:last-child { transform: translateX(-100%); }
 .ps-move { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.ps-note { margin: var(--sp-12) 0 0; font-size: var(--fs-label); color: var(--muted); }
 
 /* ── Tilaukset in the table kit: the payee beside its mark, Kuussa with its bar, the price with its last move */
 .sub-table .tc-name { display: grid; min-inline-size: 0; }
 .sub-merchant { font-weight: var(--w-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-category { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .sub-chip { margin-inline-start: var(--sp-8); }
+.sub-share { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--muted); }
+/* a phone row is the name, the day and the sum: the category line and the month's shareare in the open row */
+.rt-wrap[data-block] :is(.sub-category, .sub-share) { display: none; }
+/* the day starts at one x under its label, whatever stands after it (a late badge, "Kortilla"): right-aligned, a tag moves it */
+.rt-wrap[data-block] .sub-table td.next-col { justify-content: flex-start; gap: 0; }
+.rt-wrap[data-block] .sub-table td.next-col::before { min-inline-size: 4.5rem; }
+/* what has ended: a fold under the table, its head the same small label as a group head */
+.sub-ended { border-top: 1px solid var(--border); }
+.sub-ended > summary { padding-block: var(--sp-12); cursor: pointer; color: var(--text-2); }
+.sub-ended > summary b { margin-inline-start: var(--sp-4); font-weight: 400; color: var(--muted); }
 .sub-card { margin-inline-start: var(--sp-8); }
 .sub-stopped > * { color: var(--text-2); }
 .sub-drill { display: grid; gap: var(--sp-12); }
@@ -147,9 +65,8 @@
 .sub-facts dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
-/* ── Erääntyvät maksut: the payee beside its mark */
-.coming-payee { display: flex; align-items: center; gap: var(--sp-8); min-inline-size: 0; }
-.coming-payee > .mk-plate { flex: none; }
-/* a payment waiting to be booked cuts its long name before the word, as base.css does for a cell that holds it alone */
-.coming-payee > .payee-pending { flex: 1 1 auto; }
-.coming-est { color: var(--text-2); }
+/* ── The 30 days: the sum, the line of dots and the sums of the groups under it */
+.bills-time-sum { display: flex; align-items: baseline; gap: var(--sp-12); margin: var(--sp-8) 0 var(--sp-12); color: var(--text-2); }
+.bills-time-rows { margin-block-start: var(--sp-12); }
+.bills-time-rows .st-name { overflow: visible; white-space: normal; }
+}

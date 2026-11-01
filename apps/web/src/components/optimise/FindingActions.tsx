@@ -6,10 +6,11 @@ import { addDays, DISMISS_REASONS, type Finding, type IsoDate } from "@banking/c
 import { type FormEvent, useState } from "react";
 import { api, query } from "../../api.ts";
 import { date } from "../../format.ts";
+import { t } from "../../text.ts";
 import type { Scope } from "../../types.ts";
 import { InputForm } from "./Inputs.tsx";
-import { type Changed, REASON_TEXT } from "./shared.tsx";
-
+import { type Changed, reasonText } from "./shared.tsx";
+import { Button } from "../ui/Button.tsx";
 type Panel = "done" | "dismiss" | "snooze" | "refine";
 
 /** A decision stays valid for a year in both directions (the server's limit). */
@@ -20,12 +21,12 @@ const BEFORE_DEADLINE = 14;
 /** The days "Muistuta myöhemmin" offers; the deadline one only while it is still ahead. */
 function snoozeChoices(finding: Finding, today: IsoDate): { label: string; until: IsoDate }[] {
   const choices = [
-    { label: "30 päivää", until: addDays(today, 30) },
-    { label: "90 päivää", until: addDays(today, 90) },
-    { label: "Vuoden päästä", until: addDays(today, YEAR) },
+    { label: t("ow.sn_30"), until: addDays(today, 30) },
+    { label: t("ow.sn_90"), until: addDays(today, 90) },
+    { label: t("ow.sn_year"), until: addDays(today, YEAR) },
   ];
   const warn = finding.decideBy ? addDays(finding.decideBy, -BEFORE_DEADLINE) : null;
-  if (warn && warn > today && warn <= addDays(today, YEAR)) choices.push({ label: "Kaksi viikkoa ennen määräaikaa", until: warn });
+  if (warn && warn > today && warn <= addDays(today, YEAR)) choices.push({ label: t("ow.sn_deadline"), until: warn });
   return choices;
 }
 
@@ -60,63 +61,63 @@ export function FindingActions({ finding, describedBy, today, scope, onChanged }
   };
   const done = (e: FormEvent) => {
     e.preventDefault();
-    send({ status: "done", effectiveDate: day }, "Vinkki siirrettiin kohtaan Päätetyt.");
+    send({ status: "done", effectiveDate: day }, t("ow.fa_moved"));
   };
   const button = (label: string, on: Panel) => (
-    <button className="btn btn-small" type="button" aria-expanded={panel === on} aria-describedby={describedBy} onClick={() => toggle(on)}>
+    <Button aria-expanded={panel === on} aria-describedby={describedBy} onClick={() => toggle(on)}>
       {label}
-    </button>
+    </Button>
   );
   const cancel = (
-    <button className="btn btn-small" type="button" onClick={() => setPanel(null)}>
-      Peruuta
-    </button>
+    <Button onClick={() => setPanel(null)}>
+      {t("ow.cancel")}
+    </Button>
   );
 
   return (
     <div className="finding-actions">
-      <button className="btn btn-small decide-key" type="button" aria-expanded={choosing} aria-describedby={describedBy} onClick={() => {
+      <Button className="decide-key" aria-expanded={choosing} aria-describedby={describedBy} onClick={() => {
           setChoosing((c) => !c);
           setPanel(null);
         }}>
-        Päätä
-      </button>
+        {t("ow.fa_decide")}
+      </Button>
       {choosing && (
         <div className="form-row decide-choices">
-          {button("Tein tämän", "done")}
-          {button("Ei koske meitä", "dismiss")}
-          {button("Muistuta myöhemmin", "snooze")}
-          {finding.needs?.length ? button("Tarkenna", "refine") : null}
+          {button(t("ow.fa_did"), "done")}
+          {button(t("ow.fa_dismiss"), "dismiss")}
+          {button(t("ow.fa_later"), "snooze")}
+          {finding.needs?.length ? button(t("ow.fa_refine"), "refine") : null}
         </div>
       )}
       {panel === "done" && (
         <form className="decide-form" onSubmit={done}>
           <label>
-            Muutoksen päivä
+            {t("ow.fa_day")}
             <input type="date" value={day} min={addDays(today, -YEAR)} max={addDays(today, YEAR)} required onChange={(e) => setDay(e.target.value)} />
           </label>
-          <button className="btn btn-small btn-primary" type="submit" disabled={busy} aria-busy={busy || undefined}>
-            Tallenna
-          </button>
+          <Button variant="primary" type="submit" busy={busy}>
+            {t("ow.fa_save")}
+          </Button>
           {cancel}
         </form>
       )}
       {panel === "dismiss" && (
-        <div className="decide-form" role="group" aria-label="Syy">
+        <div className="decide-form" role="group" aria-label={t("ow.fa_reason")}>
           {DISMISS_REASONS.map((reason) => (
-            <button key={reason} className="btn btn-small" type="button" disabled={busy} aria-busy={(busy && doing === reason) || undefined} onClick={() => send({ status: "dismissed", reason }, "Vinkki siirrettiin kohtaan Päätetyt.", reason)}>
-              {REASON_TEXT[reason]}
-            </button>
+            <Button key={reason}  disabled={busy} aria-busy={(busy && doing === reason) || undefined} onClick={() => send({ status: "dismissed", reason }, t("ow.fa_moved"), reason)}>
+              {reasonText(reason)}
+            </Button>
           ))}
           {cancel}
         </div>
       )}
       {panel === "snooze" && (
-        <div className="decide-form" role="group" aria-label="Muistutus">
+        <div className="decide-form" role="group" aria-label={t("ow.fa_reminder")}>
           {snoozeChoices(finding, today).map((c) => (
-            <button key={c.label} className="btn btn-small" type="button" disabled={busy} aria-busy={(busy && doing === c.label) || undefined} onClick={() => send({ status: "snoozed", until: c.until }, `Vinkki palaa ${date(c.until)}.`, c.label)}>
+            <Button key={c.label}  disabled={busy} aria-busy={(busy && doing === c.label) || undefined} onClick={() => send({ status: "snoozed", until: c.until }, t("ow.fa_returns", { date: date(c.until) }), c.label)}>
               {c.label}
-            </button>
+            </Button>
           ))}
           {cancel}
         </div>

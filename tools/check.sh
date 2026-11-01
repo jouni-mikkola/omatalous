@@ -234,7 +234,7 @@ stamps_collect() {
       types | lint) IDS+=("$s") ;;
       sh) for f in tools/test/*.test.sh; do [[ -e $f ]] && ! tooling "$f" && IDS+=("sh:${f##*/}"); done ;;
       tests)
-        mapfile -t TESTFILES < <(git ls-files -- ':(glob)packages/*/test/**/*.test.ts' ':(glob)apps/*/test/**/*.test.ts' ':(glob)tools/**/*.test.ts' | while IFS= read -r f; do tooling "$f" || echo "$f"; done)
+        mapfile -t TESTFILES < <(git ls-files -- ':(glob)packages/*/test/**/*.test.ts' ':(glob)apps/*/test/**/*.test.ts' ':(glob)tools/**/*.test.ts' | while IFS= read -r f; do tooling "$f" || [[ $f == *.perf.test.ts ]] || echo "$f"; done)
         for f in "${TESTFILES[@]}"; do part_of "$f"; [[ $PART == rules || " ${IDS[*]:-} " == *" $PART "* ]] || IDS+=("$PART"); done ;;
     esac
   done
@@ -278,10 +278,10 @@ step_types() {
 step_tests() {
   local json=$CHECK_LOG/vitest.json log=$CHECK_LOG/vitest.log rc out f id from="" nfiles=0
   local -a args=("${SCOPE_TESTS[@]}") runfiles=() exclude=()
+  # the `perf` project (*.perf.test.ts, pnpm test:perf on a quiet machine) is left out unless the scope names a file of it
+  [[ " ${SCOPE_TESTS[*]:-} " == *.perf.test.ts* ]] || exclude+=(--project '!perf')
   # a folder of self-tests is left out unless the scope named a file in it (vitest would exclude that file too)
-  for f in "${TOOL_DIRS[@]}"; do
-    [[ " ${SCOPE_TESTS[*]:-}" == *" $f"* ]] || exclude+=(--exclude "$f**")
-  done
+  for f in "${TOOL_DIRS[@]}"; do [[ " ${SCOPE_TESTS[*]:-}" == *" $f"* ]] || exclude+=(--exclude "$f**"); done
   declare -A want=() hit=() P=() S=() X=() N=() T0=() T1=()
   if ((STAMP_ON)); then
     for f in "${TESTFILES[@]}"; do

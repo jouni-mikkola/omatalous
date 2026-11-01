@@ -6,6 +6,7 @@
 import type { ReconcileResult } from "@banking/core";
 import { periodText, reconcileView } from "./reconcile-text.ts";
 import "../../styles/reconcile.css";
+import { t } from "../../text.ts";
 
 export function Reconcile({ result }: { result: ReconcileResult }) {
   const view = reconcileView(result);
@@ -13,7 +14,7 @@ export function Reconcile({ result }: { result: ReconcileResult }) {
   const line = (
     <>
       {view.proved && (
-        <span role="img" aria-label="täsmää">
+        <span role="img" aria-label={t("set.rec.matches_2")}>
           ✓{" "}
         </span>
       )}

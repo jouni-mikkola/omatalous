@@ -6,12 +6,12 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, loanProposals, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
 import { isIsoDate, strictObject } from "../platform/validate.ts";
-import { proposalsFor, requestInputs } from "../services/analysis.ts";
+import { proposalsFor } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
 
@@ -184,7 +184,7 @@ export function loanRoutes(s: Services) {
   /**
    * The loans the bank rows show and the household has not answered (`loanProposals`). Worked out for each request
    * from the viewer's own rows and marks and the saved loans of the own view (`loansInView`: a loan another user of a
-   * joint account saved is not proposed again), outside the cached context: "Ei laina" or a saved loan takes effect
+   * joint account saved is not proposed again), outside the cached context: "Ei ole laina" or a saved loan takes effect
    * at once and moves no data version. A row id, the account and the payment reference stay on the server.
    */
   app.get("/loans/proposals", async (c) => {

@@ -1,4 +1,5 @@
 /* Erääntyvät maksut on the overview (components/NextDays.tsx): what the shared statement classes do not have. */
+@layer pages {
 /* the one warning of the block, above its two groups */
 .ahead-warning { margin: 0 0 12px; font-size: var(--fs-body); }
 /* the line that names the window is the head of the figures: as tall as the head row of the table beside it, so the rows of the two groups stand on the same lines */
@@ -44,13 +45,19 @@
 
 /* M5: a tick of --tick under every day of the axis, of --tick-l under a day whose name is printed (without :has every tick is short, which is still true) */
 .nd-axis { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--axis); }
-.nd-axis li { position: relative; min-height: 40px; padding-top: calc(var(--tick-l) + 4px); text-align: center; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.nd-axis li { position: relative; min-height: 40px; padding-top: calc(var(--tick-l) + 4px); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .nd-axis li::before { content: ""; position: absolute; top: 0; left: 50%; width: 1px; height: var(--tick); margin-left: -0.5px; background: var(--axis); }
 .nd-axis li:has(span)::before { height: var(--tick-l); }
 /* a label wider than its day (a two-digit date on a phone) spills to the right, out of the last column and past the line: the last one is set from its right edge, so it spills to the left */
 .nd-axis li:last-child { display: flex; flex-direction: column; align-items: flex-end; }
 .nd-axis span { display: block; }
-.nd-axis .nd-pd { color: var(--good); }
+.nd-axis .nd-pd { color: var(--good); font-weight: 600; }
+.nd-axis li.nd-pd::before { width: 0.15em; margin-left: -0.075em; height: var(--tick-l); background: var(--good); }
+/* the key under the line of Laskut: the dot as it is drawn, small, and the payday's tick */
+.bills-time-legend { margin: var(--sp-8) 0 0; }
+.nd-key { border-radius: 50%; background: var(--c); }
+.nd-key.nd-est { background: none; border: 0.15em solid var(--c); box-shadow: none; }
+.nd-key-pay { width: 0.15em; height: var(--sp-12); border-radius: 0; background: var(--good); }
 /* M8: a Saturday and a Sunday carry a band from the top of the dots to the foot of the steps (--nd-top and --nd-bottom come from the line) */
 .nd-axis li.nd-we::after { content: ""; position: absolute; left: 0; right: 0; top: calc(-1 * var(--nd-top)); bottom: calc(-1 * var(--nd-bottom)); z-index: -1; pointer-events: none;
   background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
@@ -60,7 +67,7 @@
 .nd-dim::before, .nd-dim::after { content: ""; position: absolute; top: -4px; width: 1px; height: var(--tick-l); background: var(--axis); }
 .nd-dim::before { left: 0; }
 .nd-dim::after { right: 0; }
-.nd-dim span { position: absolute; left: 50%; top: -8px; transform: translateX(-50%); padding: 0 4px; background: var(--surface); font-size: var(--fs-tick); line-height: 16px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.nd-dim span { position: absolute; left: 50%; top: -8px; transform: translateX(-50%); padding: 0 4px; background: var(--surface); font-size: var(--fs-label); line-height: 16px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 /* M9: the steps run between two values, printed at their two ends; zero has its line when a step goes below it */
 .nd-steps { position: relative; margin-top: var(--sp-8); }
@@ -68,12 +75,13 @@
 .nd-area { fill: color-mix(in srgb, var(--series-1) 14%, var(--surface)); stroke: none; }
 .nd-curve { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: miter; }
 .nd-rule { stroke: var(--axis); stroke-width: 1; }
-.nd-val { position: absolute; font-size: var(--fs-tick); line-height: var(--lh-tick); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.nd-val { position: absolute; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .nd-end, .nd-point { position: absolute; width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: var(--surface); box-shadow: inset 0 0 0 2px var(--series-1); }
 .nd-point { background: var(--series-1); box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--series-1); }
 .nd-guide { position: absolute; top: 0; bottom: 0; width: 1px; margin-left: -0.5px; background: var(--axis); opacity: 0.55; pointer-events: none; }
 
 /* what moves moves only when the reader has not asked for less motion */
 @media (prefers-reduced-motion: no-preference) {
-  .nd-dot { transition: opacity 0.15s; }
+  .nd-dot { transition: opacity var(--t-state); }
+}
 }

@@ -1,4 +1,6 @@
 // Decision: is the household spending more than a year ago
+import { categoryLabel } from "../category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { getCategory } from "../categories.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows, spendTotals } from "../analysis/context.ts";
 import { comparableWith } from "../analysis/coverage.ts";
@@ -37,14 +39,14 @@ function spendByCategory(txs: readonly AnalysisTx[]): Map<string, number> {
 }
 
 /** The period in a few numbers: totals, where most money went, and what changed from a year ago. */
-export function summaryReport(ctx: AnalysisContext, range: DateRange): SummaryReport {
+export function summaryReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): SummaryReport {
   const totals = spendTotals(ctx, toDayRange(range));
   const now = spendByCategory(spendRows(ctx, toDayRange(range)));
   const topCategories = [...now.entries()]
     .filter(([, cents]) => cents > 0)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
-    .map(([category, cents]) => ({ category, label: getCategory(category).label, cents }));
+    .map(([category, cents]) => ({ category, label: categoryLabel(getCategory(category), lang), cents }));
 
   const from = addMonthsToDate(range.from, -12);
   const to = addMonthsToDate(range.to, -12);
@@ -59,7 +61,7 @@ export function summaryReport(ctx: AnalysisContext, range: DateRange): SummaryRe
     // "other" is what nothing recognised: its change says more about the rules than about spending
     changes = [...new Set([...nowShared.keys(), ...before.keys()])]
       .filter((c) => c !== "other")
-      .map((category) => ({ category, label: getCategory(category).label, cents: Math.max(0, nowShared.get(category) ?? 0), previousCents: Math.max(0, before.get(category) ?? 0) }))
+      .map((category) => ({ category, label: categoryLabel(getCategory(category), lang), cents: Math.max(0, nowShared.get(category) ?? 0), previousCents: Math.max(0, before.get(category) ?? 0) }))
       .filter((c) => c.cents !== c.previousCents)
       .sort((a, b) => Math.abs(b.cents - b.previousCents) - Math.abs(a.cents - a.previousCents))
       .slice(0, 3);

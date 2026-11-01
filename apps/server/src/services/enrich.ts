@@ -88,7 +88,7 @@ const NONE: HeldLocks = new Set();
  * Whether a run holds the lock of one of these users, seen by code that holds no lock (`held` empty): such a reader
  * may serve what it built before the run, or wait for it (`whenUnlocked`). Code that holds a lock never waits on one.
  * The locks held are handed down by hand, not kept in an AsyncLocalStorage: one of those slows every await of the
- * process about three times on Node 22, and every request with it.
+ * process about three times (measured on Node 22), and every request with it.
  */
 export function lockedOutside(userIds: readonly string[], held: HeldLocks = NONE): boolean {
   return !held.size && userIds.some((id) => running.has(id));

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashOf, onTechnicalPage, parseHash, redirectRoute, type Route, settingsCard, withParams } from "../src/routes.ts";
+import { hashOf, parseHash, redirectRoute, type Route, settingsCardHash, settingsHash, settingsTargets, withParams } from "../src/routes.ts";
 
 const route = (page: string, query = "", anchor?: string): Route => ({ page, params: new URLSearchParams(query), ...(anchor ? { anchor } : {}) });
 /** Where an address ends up: the redirect when there is one, else itself. */
@@ -15,11 +15,22 @@ describe("redirectRoute", () => {
     expect(landing("reports", "period=last-month")).toBe("#/overview?period=last-month");
   });
 
+  it("a tab of Raportit opens the question page that holds its reports, and keeps the other parameters and the anchor", () => {
+    expect(landing("reports", "tab=menot")).toBe("#/reports?q=menot");
+    expect(landing("reports", "tab=virta&period=6m")).toBe("#/reports?period=6m&q=tulot");
+    expect(landing("reports", "tab=varat")).toBe("#/reports?q=saldot");
+    expect(hashOf(redirectRoute(route("reports", "tab=menot", "kuukaudet"))!)).toBe("#/reports?q=menot#kuukaudet");
+    // a question the address already names wins, and a tab nobody knows is dropped
+    expect(landing("reports", "tab=menot&q=velat")).toBe("#/reports?q=velat");
+    expect(landing("reports", "tab=nonsense")).toBe("#/reports");
+  });
+
   it("keeps the other parameters of the address", () => {
     expect(landing("overview", "period=6m&scope=household")).toBe("#/reports?period=6m&scope=household");
   });
 
   it("Toistuvat is Laskut: the old address opens the new page and keeps its other parameters", () => {
+    expect(landing("more")).toBe("#/overview");
     expect(landing("recurring")).toBe("#/bills");
     expect(landing("recurring", "scope=household")).toBe("#/bills?scope=household");
     expect(redirectRoute(redirectRoute(route("recurring"))!)).toBeNull();
@@ -77,29 +88,79 @@ describe("redirectRoute: Kategoriat is the Kauppiaat tab of Tapahtumat", () => {
   });
 });
 
-describe("redirectRoute: the security page of Asetukset", () => {
-  it("a member's old address opens Omat istunnot, an admin's opens Turvallisuusloki, both on the technical page", () => {
-    const old = route("settings", "section=security");
-    expect(hashOf(redirectRoute(old, "member")!)).toBe("#/settings?section=technical#kirjautuminen");
-    expect(hashOf(redirectRoute(old, "admin")!)).toBe("#/settings?section=technical#turvallisuusloki");
-    // the role is only known from the session, so a call without one reads as a member
-    expect(hashOf(redirectRoute(old)!)).toBe("#/settings?section=technical#kirjautuminen");
-  });
+describe("Asetukset: the target and the card every address lands on", () => {
+  type Role = "admin" | "member";
+  const both: Role[] = ["admin", "member"];
+  /** The address after the router rewrote it, which must be where the next step leaves it. */
+  const lands = (hash: string, role: Role) => {
+    const asked = parseHash(hash);
+    const final = redirectRoute(asked, role) ?? asked;
+    expect(redirectRoute(final, role), `${hash} settles in one step`).toBeNull();
+    return hashOf(final);
+  };
 
-  it("keeps the other parameters and settles in one step", () => {
-    const old = route("settings", "section=security&scope=household");
-    expect(hashOf(redirectRoute(old, "member")!)).toBe("#/settings?section=technical&scope=household#kirjautuminen");
-    for (const role of ["admin", "member"] as const) expect(redirectRoute(redirectRoute(old, role)!, role)).toBeNull();
-  });
-
-  it("leaves the addresses that keep working alone: Palvelin, the technical page, the CSV import, the bank picker, the maintenance page and the plain cards", () => {
-    for (const query of ["section=server", "section=technical", "section=csv", "add=1", "section=maintenance", "connected=2", "error=cancelled"]) {
-      for (const role of ["admin", "member"] as const) expect(redirectRoute(route("settings", query), role), query).toBeNull();
+  it("the bare address opens the first target, with the bank picker and the return from a bank", () => {
+    for (const role of both) {
+      expect(lands("#/settings", role)).toBe("#/settings/banks");
+      expect(lands("#/settings?add=1", role)).toBe("#/settings/banks?add=1");
+      expect(lands("#/settings?connected=2", role)).toBe("#/settings/banks?connected=2");
+      expect(lands("#/settings?error=cancelled", role)).toBe("#/settings/banks?error=cancelled");
+      expect(lands("#/settings?section=csv", role)).toBe("#/settings/banks");
+      expect(lands("#/settings?tab=talous", role)).toBe("#/settings/banks");
     }
-    for (const anchor of ["tilit", "lainat", "salasana"]) expect(redirectRoute(route("settings", "", anchor)), anchor).toBeNull();
-    expect(redirectRoute(route("settings", "linkLoan=home&linkAccount=card", "lainat"))).toBeNull();
-    // a card of the technical page is already on it
-    for (const anchor of ["kirjautuminen", "laatu", "turvallisuusloki"]) expect(redirectRoute(route("settings", "section=technical", anchor)), anchor).toBeNull();
+  });
+
+  it("a card is on the target that has it, and keeps its anchor and its other parameters", () => {
+    for (const role of both) {
+      expect(lands("#/settings#pankkiyhteydet", role)).toBe("#/settings/banks#pankkiyhteydet");
+      expect(lands("#/settings#tilit", role)).toBe("#/settings/banks#tilit");
+      expect(lands("#/settings#tili-12", role)).toBe("#/settings/banks#tili-12");
+      expect(lands("#/settings#lainat", role)).toBe("#/settings/household#lainat");
+      expect(lands("#/settings?linkLoan=home&linkAccount=card#lainat", role)).toBe("#/settings/household?linkLoan=home&linkAccount=card#lainat");
+      expect(lands("#/settings#tilien-jakaminen", role)).toBe("#/settings/banks#tilien-jakaminen");
+      expect(lands("#/settings#palvelutunnukset", role)).toBe("#/settings/security#palvelutunnukset");
+      expect(lands("#/settings#jasenet-ilman-tunnusta", role)).toBe(role === "admin" ? "#/settings/members#jasenet-ilman-tunnusta" : "#/settings/banks");
+      expect(lands("#/settings#salasana", role)).toBe("#/settings/security#salasana");
+      expect(lands("#/settings#kirjautuminen", role)).toBe("#/settings/security#kirjautuminen");
+      expect(lands("#/settings#turvallisuusloki", role)).toBe("#/settings/security#turvallisuusloki");
+      expect(lands("#/settings#laatu", role)).toBe("#/settings/data#laatu");
+      expect(lands("#/settings?scope=household#laatu", role)).toBe("#/settings/data?scope=household#laatu");
+    }
+  });
+
+  it("the old technical page, Palvelin and Ylläpito open the server for an admin; a member gets the first target, with no card to scroll to", () => {
+    expect(lands("#/settings?section=technical", "admin")).toBe("#/settings/server");
+    expect(lands("#/settings?section=server", "admin")).toBe("#/settings/server#palvelin");
+    expect(lands("#/settings?section=maintenance", "admin")).toBe("#/settings/server#yllapito");
+    expect(lands("#/settings?section=technical", "member")).toBe("#/settings/banks");
+    expect(lands("#/settings?section=server", "member")).toBe("#/settings/banks");
+    expect(lands("#/settings?section=maintenance", "member")).toBe("#/settings/banks");
+  });
+
+  it("the old security page opens the log for an admin and Omat istunnot for a member", () => {
+    expect(lands("#/settings?section=security", "admin")).toBe("#/settings/security#turvallisuusloki");
+    expect(lands("#/settings?section=security", "member")).toBe("#/settings/security#kirjautuminen");
+    // the role is only known from the session, so a call without one reads as a member
+    expect(hashOf(redirectRoute(route("settings", "section=security"))!)).toBe("#/settings/security#kirjautuminen");
+    expect(lands("#/settings?tab=talous#turvallisuusloki", "admin")).toBe("#/settings/security#turvallisuusloki");
+  });
+
+  it("a card of a section that is named on its target is left alone", () => {
+    for (const role of both) {
+      for (const hash of ["#/settings/banks", "#/settings/household#lainat", "#/settings/security#salasana", "#/settings/data#laatu"]) {
+        expect(redirectRoute(parseHash(hash), role), hash).toBeNull();
+      }
+    }
+    expect(redirectRoute(parseHash("#/settings/server#palvelin"), "admin")).toBeNull();
+  });
+
+  it("a member's address of the server target opens the first target, and drops its card", () => {
+    expect(lands("#/settings/server#yllapito", "member")).toBe("#/settings/banks");
+    expect(lands("#/settings/server", "member")).toBe("#/settings/banks");
+  });
+
+  it("an address under settings that names no target opens the first one", () => {
+    expect(lands("#/settings/nonsense", "admin")).toBe("#/settings/banks");
   });
 
   it("is not about another page's `section` parameter", () => {
@@ -107,62 +168,16 @@ describe("redirectRoute: the security page of Asetukset", () => {
   });
 });
 
-describe("Asetukset: the page and the card every address lands on", () => {
-  type Role = "admin" | "member";
-  /** What the page shows for an address: the address after the router rewrote it, the page, and the card it scrolls to. */
-  const lands = (hash: string, role: Role) => {
-    const asked = parseHash(hash);
-    const final = redirectRoute(asked, role) ?? asked;
-    expect(redirectRoute(final, role), `${hash} settles in one step`).toBeNull();
-    return { hash: hashOf(final), page: onTechnicalPage(final.params) ? "technical" : "plain", card: settingsCard(final) };
-  };
-  const both: Role[] = ["admin", "member"];
-
-  it("the old Talous tab opens the plain page, or the technical page at the log when it names the log", () => {
-    expect(lands("#/settings?tab=talous", "admin")).toEqual({ hash: "#/settings", page: "plain", card: undefined });
-    expect(lands("#/settings?tab=talous#turvallisuusloki", "admin")).toEqual({ hash: "#/settings?section=technical#turvallisuusloki", page: "technical", card: "turvallisuusloki" });
+describe("the targets of Asetukset", () => {
+  it("are six for an admin and four for a member, without the admin's", () => {
+    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"]);
+    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "household", "security", "data"]);
   });
 
-  it("the old security page opens the log for an admin and Omat istunnot for a member", () => {
-    expect(lands("#/settings?section=security", "admin")).toEqual({ hash: "#/settings?section=technical#turvallisuusloki", page: "technical", card: "turvallisuusloki" });
-    expect(lands("#/settings?section=security", "member")).toEqual({ hash: "#/settings?section=technical#kirjautuminen", page: "technical", card: "kirjautuminen" });
-  });
-
-  it("a card that moved to the technical page keeps its address: Tietojen laatu, a sign-in from a new device, the log", () => {
-    for (const role of both) {
-      expect(lands("#/settings#laatu", role)).toEqual({ hash: "#/settings?section=technical#laatu", page: "technical", card: "laatu" });
-      expect(lands("#/settings#kirjautuminen", role)).toEqual({ hash: "#/settings?section=technical#kirjautuminen", page: "technical", card: "kirjautuminen" });
-      expect(lands("#/settings#turvallisuusloki", role)).toEqual({ hash: "#/settings?section=technical#turvallisuusloki", page: "technical", card: "turvallisuusloki" });
-    }
-  });
-
-  it("Palvelin and Ylläpito open the technical page at their card, for a member too (who has no such card)", () => {
-    for (const role of both) {
-      expect(lands("#/settings?section=technical", role)).toEqual({ hash: "#/settings?section=technical", page: "technical", card: undefined });
-      expect(lands("#/settings?section=server", role)).toEqual({ hash: "#/settings?section=server", page: "technical", card: "palvelin" });
-      expect(lands("#/settings?section=maintenance", role)).toEqual({ hash: "#/settings?section=maintenance", page: "technical", card: "yllapito" });
-    }
-  });
-
-  it("Tilit, Lainat, Salasana, the bank picker and the loan link stay on the plain page", () => {
-    for (const role of both) {
-      expect(lands("#/settings#tilit", role)).toEqual({ hash: "#/settings#tilit", page: "plain", card: "tilit" });
-      expect(lands("#/settings#lainat", role)).toEqual({ hash: "#/settings#lainat", page: "plain", card: "lainat" });
-      expect(lands("#/settings#salasana", role)).toEqual({ hash: "#/settings#salasana", page: "plain", card: "salasana" });
-      expect(lands("#/settings?add=1", role)).toEqual({ hash: "#/settings?add=1", page: "plain", card: undefined });
-      expect(lands("#/settings?linkLoan=home&linkAccount=card#lainat", role)).toEqual({ hash: "#/settings?linkLoan=home&linkAccount=card#lainat", page: "plain", card: "lainat" });
-      expect(lands("#/settings?connected=2", role).page).toBe("plain");
-      expect(lands("#/settings?section=csv", role).page).toBe("plain");
-    }
-  });
-
-  it("keeps the other parameters of an address that moves", () => {
-    expect(lands("#/settings?tab=talous&scope=household", "admin").hash).toBe("#/settings?scope=household");
-    expect(lands("#/settings?scope=household#laatu", "member").hash).toBe("#/settings?scope=household&section=technical#laatu");
-  });
-
-  it("a card named on the technical page is not moved again", () => {
-    expect(lands("#/settings?section=server#kirjautuminen", "admin")).toEqual({ hash: "#/settings?section=server#kirjautuminen", page: "technical", card: "kirjautuminen" });
+  it("have an address, and a card's address names its target", () => {
+    expect(settingsHash("security", "salasana")).toBe("#/settings/security#salasana");
+    expect(settingsCardHash("lainat")).toBe("#/settings/household#lainat");
+    expect(settingsCardHash("etakaytto", new URLSearchParams("a=1"))).toBe("#/settings/server?a=1#etakaytto");
   });
 });
 

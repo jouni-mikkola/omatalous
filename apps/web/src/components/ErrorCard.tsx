@@ -1,11 +1,12 @@
+import { Button } from "./ui/Button.tsx";
+import { Notice } from "./ui/Notice.tsx";
+import { t } from "../text.ts";
+
 /** A failed page request with a way forward. */
 export function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="card error" role="alert">
-      <p>Tietojen haku epäonnistui. {message}</p>
-      <button className="btn" type="button" onClick={onRetry}>
-        Yritä uudelleen
-      </button>
-    </div>
+    <Notice tone="error" title={t("load.failed")} action={<Button onClick={onRetry}>{t("load.retry")}</Button>}>
+      {message}
+    </Notice>
   );
 }

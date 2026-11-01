@@ -18,7 +18,7 @@ interface Filed {
   cents: number;
   totalCents: number;
 }
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the name and module of filedWithoutAsking were guessed from the brief, so the namespaces are read untyped
 const api = { ...core, ...dq } as any;
 const filedWithoutAsking = (ctx: unknown): Filed | null => api.filedWithoutAsking(ctx);
 /** The text of the lines is in apps/web/test/ms1-probe.test.ts: here only that a range with no spending has no figure. */

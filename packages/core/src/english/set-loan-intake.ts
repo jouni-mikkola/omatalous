@@ -1,0 +1,30 @@
+/** The English table of set-loan-intake; the Finnish one it must match is in ../messages-set-loan-intake.ts. */
+import type { FI_SET_LOAN_INTAKE } from "../messages-set-loan-intake.ts";
+
+export const EN_SET_LOAN_INTAKE: Record<keyof typeof FI_SET_LOAN_INTAKE, string> = {
+  "set.ln.reading_the_pdf": "Reading the PDF…",
+  "set.ln.loading_the_image_reader_the": "Loading the image reader. The first time it downloads about 11 megabytes.",
+  "set.ln.reading_the_image": "Reading the image…",
+  "set.ln.loan_read": "Loan read",
+  "set.ln.no_loan_details_were_found": "No loan details were found in the image. Try a sharper image, paste the loan details as text or add the loan by hand.",
+  "set.ln.no_loan_details_were_found_2": "No loan details were found in the text. Paste a screenshot of the loan or add the loan by hand.",
+  "set.ln.the_file_is_too_large": "The file is too large. Take a screenshot of the loan details.",
+  "set.ln.the_pdf_has_only_an": "The PDF has only an image. Take a screenshot of it and paste that.",
+  "set.ln.the_file_is_not_an": "The file is not an image, a PDF or text.",
+  "set.ln.the_file_could_not_be": "The file could not be read. Try again or paste the loan details as text.",
+  "set.ln.reading_was_cancelled": "Reading was cancelled.",
+  "set.ln.paste_an_image_or_text": "Paste an image or text of the loan",
+  "set.ln.paste_a_screenshot_or_text": "Paste a screenshot or text here, drop an image or PDF, or type the loan details.",
+  "set.ln.read_the_loan_details": "Read the loan details",
+  "set.ln.choose_an_image_or_pdf": "Choose an image or PDF",
+  "set.ln.add_by_hand": "Add by hand",
+  "set.ln.image_or_pdf_of_the": "Image or PDF of the loan",
+  "set.ln.the_image_and_text_are": "The image and text are read in this browser.",
+  "set.ln.reading": "Reading",
+  "set.ln.stop": "Stop",
+  "set.ln.discard": "Discard",
+  "set.ln.a_screenshot_of_the_positive": "A screenshot of the positive credit register adds all the loans at once.",
+  "set.ln.loan_n": "Loan {n}",
+  "set.ln.found_one": "Found {count} loan.",
+  "set.ln.found_many": "Found {count} loans.",
+};

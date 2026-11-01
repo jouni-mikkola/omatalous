@@ -1,4 +1,5 @@
 /* Asetukset > Palvelin > Etäkäyttö. */
+@layer pages {
 .remote-access { display: flex; flex-direction: column; gap: 16px; }
 .remote-access h2, .remote-access h3, .remote-access h4, .remote-access p { margin: 0; }
 .remote-access .notice { margin-bottom: 0; }
@@ -25,3 +26,4 @@
 .remote-ask label.check input { margin-top: 4px; flex: none; }
 .remote-ask strong { overflow-wrap: anywhere; }
 @media (max-width: 520px) { .remote-facts { grid-template-columns: minmax(0, 1fr); gap: 0; } .remote-facts dd { margin-bottom: 8px; } }
+}

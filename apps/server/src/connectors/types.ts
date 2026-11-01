@@ -95,8 +95,14 @@ export interface BalanceReading {
 /** Why a source's row could not be read: a status other than booked or pending, no readable amount, no readable date. */
 export type RefusalReason = "status" | "amount" | "date";
 
-/** The rows of one fetch that could not be read, by reason. A reason with no row is left out. */
-export type RefusedRows = Partial<Record<RefusalReason, number>>;
+/**
+ * Why a fetched row is not among the stored ones: unreadable (`RefusalReason`), or `twin`: the same payment is stored
+ * already from another source, so storing it again would count it twice.
+ */
+export type SkipReason = RefusalReason | "twin";
+
+/** The rows of one fetch that were left out, by reason. A reason with no row is left out. */
+export type RefusedRows = Partial<Record<SkipReason, number>>;
 
 /** One sync run's access to a source. Created once per run, after the loop knows there is something to fetch. */
 export interface Puller {

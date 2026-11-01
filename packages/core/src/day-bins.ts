@@ -3,7 +3,6 @@
  * days or weeks of the period took the money, so the household knows where in the list to look.
  */
 import { addDays, dayNumber, daysBetween, fromDayNumber } from "./dates.ts";
-import { dayHeat } from "./reports/days.ts";
 import type { IsoDate } from "./types.ts";
 
 interface DayMoney {
@@ -110,27 +109,4 @@ export function merchantMonths(outByMonth: Readonly<Record<string, number>>, cou
 export function accountDigits(a: { cardMask?: string | null; iban?: string | null }): string | null {
   const s = (a.cardMask || a.iban || "").replace(/[^0-9A-Za-z]/g, "");
   return s.length >= 4 ? s.slice(-4) : null;
-}
-
-/** The calendar of a filtered list: the last 53 weeks of the span at most, Monday first. */
-const CALENDAR_DAYS = 371;
-
-/**
- * Every day of the end of a filtered list's span, a day with no row at 0, each with its shade against the usual day
- * (`dayHeat`): the rhythm calendar beside the strip of Tapahtumat. `income` shades the money in, else the money out.
- * Decision: on which days of the week and of the month the money of this filter goes.
- */
-export function calendarDays(days: readonly DayMoney[], from: IsoDate, to: IsoDate, today: IsoDate, income: boolean): { days: { date: IsoDate; cents: number; count: number; heat: number }[]; usualCents: number | null } {
-  if (to < from) return { days: [], usualCents: null };
-  const back = addDays(to, -(CALENDAR_DAYS - 1));
-  const start = back > from ? back : from;
-  const byDate = new Map(days.map((d) => [d.date, d]));
-  const series: { date: IsoDate; cents: number; count: number }[] = [];
-  for (let n = dayNumber(start), last = dayNumber(to); n <= last; n++) {
-    const d = fromDayNumber(n);
-    const x = byDate.get(d);
-    series.push({ date: d, cents: x ? (income ? x.inCents : x.outCents) : 0, count: x?.count ?? 0 });
-  }
-  const { usualCents, heat } = dayHeat(series, today);
-  return { days: series.map((d, i) => ({ ...d, heat: heat[i]! })), usualCents };
 }

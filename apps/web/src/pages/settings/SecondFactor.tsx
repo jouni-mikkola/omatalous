@@ -1,12 +1,13 @@
 /** Asetukset > Kaksivaiheinen kirjautuminen: turn the authenticator code on and off, make new recovery codes. */
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, useState } from "react";
 import { api } from "../../api.ts";
 import { copyText } from "../../clipboard.ts";
-import { KeyValue } from "../../components/table/KeyValue.tsx";
 import { date, dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { CopyValue } from "./CopyValue.tsx";
-
+import { Button } from "../../components/ui/Button.tsx";
+import { Notice } from "../../components/ui/Notice.tsx";
+import { t } from "../../text.ts";
 interface FactorState {
   enabled: boolean;
   since: string | null;
@@ -20,7 +21,7 @@ function groupsOfFour(secret: string): string {
 }
 
 /** The ten recovery codes: shown once, with a button that copies them all. */
-function RecoveryCodes({
+export function RecoveryCodes({
   codes,
   onDone,
 }: {
@@ -30,7 +31,7 @@ function RecoveryCodes({
   const [copied, setCopied] = useState(false);
   return (
     <div className="secret-box" role="status">
-      <strong>Palautuskoodit</strong>
+      <strong>{t("set.fac.recovery_codes")}</strong>
       <ul className="recovery-codes">
         {codes.map((c) => (
           <li key={c}>
@@ -38,24 +39,22 @@ function RecoveryCodes({
           </li>
         ))}
       </ul>
-      <div className="small">Koodit näytetään vain nyt.</div>
+      <div className="small">{t("set.fac.the_codes_are_shown_only")}</div>
       <div className="form-row">
-        <button
-          className="btn btn-small"
-          type="button"
+        <Button
+          
           onClick={async () => {
             if (await copyText(codes.join("\n"))) setCopied(true);
           }}
         >
-          {copied ? "Kopioitu" : "Kopioi koodit"}
-        </button>
-        <button
-          className="btn btn-primary btn-small"
-          type="button"
+          {copied ? t("set.fac.copied") : t("set.fac.copy_codes")}
+        </Button>
+        <Button
+          variant="primary"
           onClick={onDone}
         >
-          Valmis
-        </button>
+          {t("set.fac.done")}
+        </Button>
       </div>
     </div>
   );
@@ -98,7 +97,7 @@ function PasswordAndCode({
   return (
     <form className="auth-form" onSubmit={run(() => onSubmit(password, code))}>
       <label>
-        Salasana
+        {t("set.fac.password")}
         <input
           type="password"
           name="password"
@@ -110,7 +109,7 @@ function PasswordAndCode({
         />
       </label>
       <label>
-        Koodi sovelluksesta tai palautuskoodi
+        {t("set.fac.code_from_the_app_or")}
         <input
           type="text"
           name="code"
@@ -121,19 +120,14 @@ function PasswordAndCode({
           required
         />
       </label>
-      {error && <div className="error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="form-row">
-        <button
-          className={`btn ${danger ? "btn-danger" : "btn-primary"}`}
-          type="submit"
-          disabled={busy}
-          aria-busy={busy || undefined}
-        >
+        <Button variant="primary" danger={danger} type="submit" busy={busy}>
           {submitLabel}
-        </button>
-        <button className="btn" type="button" onClick={onCancel}>
-          Peruuta
-        </button>
+        </Button>
+        <Button onClick={onCancel}>
+          {t("set.fac.cancel")}
+        </Button>
       </div>
     </form>
   );
@@ -156,17 +150,16 @@ function TurnOn({
   const { error, busy, run } = useAction();
   const buttons = (label: string) => (
     <div className="form-row">
-      <button
-        className="btn btn-primary"
+      <Button
+        variant="primary"
         type="submit"
-        disabled={busy}
-        aria-busy={busy || undefined}
+        busy={busy}
       >
         {label}
-      </button>
-      <button className="btn" type="button" onClick={onCancel}>
-        Peruuta
-      </button>
+      </Button>
+      <Button onClick={onCancel}>
+        {t("set.fac.cancel")}
+      </Button>
     </div>
   );
   if (!started) {
@@ -183,7 +176,7 @@ function TurnOn({
         )}
       >
         <label>
-          Salasana
+          {t("set.fac.password")}
           <input
             type="password"
             name="password"
@@ -194,8 +187,8 @@ function TurnOn({
             autoFocus
           />
         </label>
-        {error && <div className="error">{error}</div>}
-        {buttons("Jatka")}
+        {error && <Notice tone="error">{error}</Notice>}
+        {buttons(t("set.fac.continue"))}
       </form>
     );
   }
@@ -214,14 +207,14 @@ function TurnOn({
       )}
     >
       <div>
-        <div className="small">Avain</div>
+        <div className="small">{t("set.fac.key")}</div>
         <div data-testid="factor-secret">
-          <CopyValue value={groupsOfFour(started.secret)} label="avain" />
+          <CopyValue value={groupsOfFour(started.secret)} label={t("set.fac.key_2")} />
         </div>
-        <a href={started.uri}>Avaa sovelluksessa</a>
+        <a href={started.uri}>{t("set.fac.open_in_the_app")}</a>
       </div>
       <label>
-        Koodi sovelluksesta
+        {t("set.fac.code_from_the_app")}
         <input
           type="text"
           name="code"
@@ -235,21 +228,19 @@ function TurnOn({
           autoFocus
         />
       </label>
-      {error && <div className="error">{error}</div>}
-      {buttons("Ota käyttöön")}
+      {error && <Notice tone="error">{error}</Notice>}
+      {buttons(t("set.fac.turn_on"))}
     </form>
   );
 }
 
-export const factRows = (f: {
-  since?: string | null;
-  lastUsedAt?: string | null;
-  recoveryLeft: number;
-}): [string, ReactNode][] => [
-  ...(f.since ? [["Käytössä alkaen", date(f.since)] as [string, ReactNode]] : []),
-  ["Viimeksi käytetty", f.lastUsedAt ? dateTime(f.lastUsedAt) : "–"],
-  ["Palautuskoodeja jäljellä", f.recoveryLeft],
-];
+/** The one line the card says while the factor is on: since when, the last use and the recovery codes left. */
+export const factLine = (f: { since?: string | null; lastUsedAt?: string | null; recoveryLeft: number }): string =>
+  [
+    f.since ? t("set.fac.in_use_since", { date: date(f.since) }) : t("set.fac.in_use"),
+    f.lastUsedAt ? t("set.fac.last_used", { time: dateTime(f.lastUsedAt) }) : t("set.fac.not_used_yet"),
+    t("set.fac.codes_left", { count: f.recoveryLeft }),
+  ].join(", ") + ".";
 
 export function SecondFactor() {
   const factor = useApi<FactorState>("/api/security/factor");
@@ -265,49 +256,44 @@ export function SecondFactor() {
     <div className="card half">
       <div className="card-head">
         <div>
-          <h2>Kaksivaiheinen kirjautuminen</h2>
+          <h2>{t("set.fac.two_step_sign_in")}</h2>
         </div>
         {f && !mode && !codes && (
-          <div className="form-row" style={{ margin: 0 }}>
+          <div className="form-row flush">
             {f.enabled ? (
               <>
-                <button
-                  className="btn"
-                  type="button"
+                <Button
+                  
                   onClick={() => setMode("new")}
                 >
-                  Luo uudet palautuskoodit
-                </button>
-                <button
-                  className="btn btn-danger"
-                  type="button"
+                  {t("set.fac.make_new_recovery_codes")}
+                </Button>
+                <Button
+                  
                   onClick={() => setMode("off")}
                 >
-                  Poista käytöstä
-                </button>
+                  {t("set.fac.turn_off")}
+                </Button>
               </>
             ) : (
-              <button
-                className="btn"
-                type="button"
+              <Button
+                
                 onClick={() => setMode("on")}
               >
-                Ota käyttöön
-              </button>
+                {t("set.fac.turn_on")}
+              </Button>
             )}
           </div>
         )}
       </div>
-      {factor.error && <div className="error">{factor.error}</div>}
-      {f && !codes && !f.enabled && <p className="muted">Ei käytössä.</p>}
-      {f && !codes && f.enabled && (
-        <KeyValue items={factRows(f)} />
-      )}
+      {factor.error && <Notice tone="error">{factor.error}</Notice>}
+      {f && !codes && !f.enabled && <p className="muted">{t("set.fac.not_in_use")}</p>}
+      {f && !codes && f.enabled && <p>{factLine(f)}</p>}
       {codes && <RecoveryCodes codes={codes} onDone={close} />}
       {!codes && mode === "on" && <TurnOn onDone={setCodes} onCancel={close} />}
       {!codes && mode === "off" && (
         <PasswordAndCode
-          submitLabel="Poista käytöstä"
+          submitLabel={t("set.fac.turn_off")}
           danger
           onCancel={close}
           onSubmit={async (password, code) => {
@@ -321,7 +307,7 @@ export function SecondFactor() {
       )}
       {!codes && mode === "new" && (
         <PasswordAndCode
-          submitLabel="Luo uudet koodit"
+          submitLabel={t("set.fac.make_new_codes")}
           onCancel={close}
           onSubmit={async (password, code) =>
             setCodes(

@@ -5,7 +5,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { allFindings, AREA_IDS, type AreaId, baselineOf, buildOptimise, type Finding, type FindingState, followUpOf, type OptimiseData } from "../../src/index.ts";
-import { FRAME, household, householdInput, joinHousehold, PARTS } from "./household.ts";
+import { household, PARTS } from "./household.ts";
+import { FRAME, householdInput, joinHousehold } from "./household-kit.ts";
 
 /** Lapset only states the day-care fee change in its check: the fee follows income, family size and hours. */
 const CHECK_ONLY: readonly AreaId[] = ["kids"];
@@ -118,7 +119,7 @@ const RULE_12: [RegExp, string][] = [
   [/(?<!\p{L})vakiomaks\p{L}*/iu, "rejected term"],
   [/(?<!\p{L})(normaali\p{L}*|oma(n|an)? taso\p{L}*|oman tasonsa)/iu, "rejected term"],
   [/(?<!\p{L})(kulut|kuluja|kulujen|kuluihin|kuluista)(?!\p{L})/iu, "rejected term"],
-  [/(?<!\p{L})(tilitapahtum|kaupparekister)\p{L}*/iu, "rejected term"],
+  [/(?<!\p{L})tilitapahtum\p{L}*/iu, "rejected term"],
   [/(?<!\p{L})(kannattaa|kannattaisi|riittävä|tarkoituksellis\p{L}*|kyseinen|kyseisen|kyseiseltä|on tärkeää)(?!\p{L})|(^|[.?]\s+)Voit\s/iu, "advice or verdict word"],
   [/(^|\s)-\d/, "ASCII hyphen before a digit"],
   [/(?<!\p{L})noin\s+[\d\s ]+,\d\d/iu, '"noin" beside cents'],

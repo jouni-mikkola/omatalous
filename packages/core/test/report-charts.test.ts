@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { totalsOf } from "../src/analysis/flows.ts";
+import { addMonths } from "../src/dates.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
-// the fields the charts of Raportit read (PD-raportit): cumulative Tulos, the usual savings rate, like-for-like
+// the fields the charts of Raportit read (PD-raportit): the savings rate beside earlier months, the usual savings rate, like-for-like
 // change per category, the lowest day and the events of the balance line
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";
@@ -20,23 +20,15 @@ const ctx = createContext(rows, [checking], today);
 describe("report fields of the Raportit charts", () => {
   const r = buildReports({ ctx, range: { from: "2025-11-01", to: "2026-10-09" }, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 500000, ownerName: null, balanceAt: null }] });
 
-  it("adds up Tulos from January, and the running month ends this year's line", () => {
-    const y = r.cashflow.yearToDate;
-    expect(y.year).toBe(2026);
-    expect(y.partialMonth).toBe(9);
-    const left = (from: string, to: string) => totalsOf(rows.filter((t) => t.bookingDate >= from && t.bookingDate <= to).map((t) => ctx.txs.find((x) => x.id === t.id)!.flows)).leftCents;
-    expect(y.current[8]).toBe(left("2026-01-01", "2026-09-30"));
-    expect(y.current[9]).toBe(left("2026-01-01", today));
-    expect(y.current[10]).toBeNull();
-    expect(y.previous[11]).toBe(left("2025-01-01", "2025-12-31"));
-    expect(y.compared).toEqual({ month: 8, cents: y.current[8]! - y.previous[8]! });
-  });
-
-  it("draws no line for a year whose January the history does not cover", () => {
-    const late = createContext(rows.filter((t) => t.bookingDate >= "2025-03-01"), [checking], today);
-    const y = buildReports({ ctx: late, range: { from: "2025-11-01", to: "2026-10-09" }, balances: [] }).cashflow.yearToDate;
-    expect(y.previous.every((v) => v === null)).toBe(true);
-    expect(y.current[0]).not.toBeNull();
+  it("sets the newest complete month's savings rate beside the month before and a year ago", () => {
+    const c = r.cashflow.rateCompare!;
+    const last = r.cashflow.rows.findLast((x) => x.complete && x.savingsRate !== null)!;
+    expect(c.month).toBe(last.month);
+    expect(c.rate).toBe(last.savingsRate);
+    expect(c.previous.month).toBe(addMonths(last.month, -1));
+    expect(c.yearAgo.month).toBe(addMonths(last.month, -12));
+    const row = (m: string) => r.cashflow.rows.find((x) => x.month === m)?.savingsRate;
+    expect(c.previous.rate).toBe(row(c.previous.month) ?? null);
   });
 
   it("gives the middle half of the complete months' savings rates", () => {
@@ -72,7 +64,7 @@ describe("report fields of the Raportit charts", () => {
   it("gives each income type its months and its change against the same months a year before", () => {
     const income = buildReports({ ctx, range: { from: "2026-01-01", to: "2026-09-30" }, balances: [] }).income;
     expect(income.totalCents).toBe(income.earnedCents + income.notEarnedCents);
-    expect(income.fromPeopleCents).toBe(income.notEarnedCents - income.unknownCents);
+    expect(income.fromPeopleCents).toBe(income.notEarnedCents - income.unknownCents - (income.types.find((t) => t.type === "tax_refund")?.totalCents ?? 0));
     const salary = income.types.find((t) => t.type === "salary")!;
     expect(salary.months).toHaveLength(income.months.length);
     expect(salary.months.reduce((a, b) => a + b, 0)).toBe(salary.totalCents);
@@ -99,7 +91,9 @@ describe("report fields of the Raportit charts", () => {
     // the purchase and that day's groceries
     expect(at("2026-06-14") - at("2026-06-13")).toBeLessThanOrEqual(-189000);
     expect(d.cents[d.cents.length - 1]).toBe(500000);
-    expect(r.balances.change).toEqual({ from: "2025-11-01", to: today, cents: d.cents[d.cents.length - 1]! - d.cents.find((v) => v !== null)! });
+    // the change counts from the close of the day before the range, so the first day's rows are in it
+    const firstDay = rows.filter((t) => t.bookingDate === "2025-11-01").reduce((sum, t) => sum + t.amountCents, 0);
+    expect(r.balances.change).toEqual({ from: "2025-10-31", to: today, cents: d.cents[d.cents.length - 1]! - (d.cents[0]! - firstDay), basis: "dayBefore" });
     expect(Math.min(...d.cents.filter((v): v is number => v !== null))).toBe(r.balances.lowest!.cents);
   });
 
@@ -125,6 +119,9 @@ describe("report fields of the Raportit charts", () => {
     for (const row of r.fixedVariable.rows) {
       expect(row.tops).toEqual([row.fixedCents, row.fixedCents + row.habitCents, row.fixedCents + row.habitCents + row.variableCents, row.fixedCents + row.habitCents + row.variableCents + row.debtCents]);
       if (row.tops[3] > 0) expect(row.fixedShare).toBeCloseTo(row.fixedCents / row.tops[3]);
+      // the text under the chart reads the percent the table prints
+      expect(row.fixedPercent).toBe(row.fixedShare === null ? null : Math.round(row.fixedShare * 100));
+      if (row.tops[3] > 0 && row.fixedCents >= 0) expect(row.shares[0], row.month).toBe(row.fixedPercent);
       // the end labels: whole percents that add up to a hundred
       if (row.tops[3] > 0 && row.debtCents >= 0) expect(row.shares.reduce<number>((s, v) => s + v!, 0)).toBe(100);
     }

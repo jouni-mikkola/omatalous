@@ -7,7 +7,7 @@ const AXE = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 /** Opens content, not header menus: closing a menu on an outside click would consume a chart's click. */
 export async function openAll(page: Page): Promise<void> {
   await page.waitForLoadState("networkidle");
-  const targets = page.locator('main button[aria-pressed="false"]:text-is("Taulukko"), main details:not([open]) > summary');
+  const targets = page.locator("main details:not([open]) > summary");
   for (let step = 0; step < 128; step++) {
     if (await targets.count() === 0) return;
     // The locator changes after each click, so choose afresh rather than indexing a shrinking list.
@@ -15,7 +15,7 @@ export async function openAll(page: Page): Promise<void> {
     await page.waitForLoadState("networkidle");
     await expect(page.locator("main .loading, main .skel")).toHaveCount(0, { timeout: 15_000 });
   }
-  throw new Error("Table choices or content details did not finish opening");
+  throw new Error("Content details did not finish opening");
 }
 
 interface Found {
@@ -30,7 +30,7 @@ export async function auditTables(page: Page, width: number): Promise<string[]> 
   await page.waitForLoadState("networkidle");
   await expect(page.locator("main .loading, main .skel")).toHaveCount(0, { timeout: 15_000 });
   const problems = await page.evaluate(() => Array.from(document.querySelectorAll("table"))
-    .filter((t) => !(t.offsetWidth || t.offsetHeight))
+    .filter((t) => !(t.offsetWidth || t.offsetHeight) && !t.closest("details.card:not([open])"))
     .map((t) => `${t.querySelector("caption")?.textContent?.trim() || "(no name)"}: hidden until something is opened`));
   await openAll(page);
   const wide = await overflow(page);
@@ -58,6 +58,6 @@ export async function auditTables(page: Page, width: number): Promise<string[]> 
     return (await run({ include: [["table"]] }, { resultTypes: ["violations"] })).violations;
   });
   for (const v of found) problems.push(`axe ${v.id}: ${v.help}: ${v.nodes.slice(0, 3).map((n) => n.target.join(" ")).join(" | ")}`);
-  await expect(page.locator('main button[aria-pressed="false"]:text-is("Taulukko")'), `all chart tables selected at ${page.url()}`).toHaveCount(0);
+  await expect(page.locator('main button:text-is("Taulukko")'), `no chart has a table switch at ${page.url()}`).toHaveCount(0);
   return problems;
 }

@@ -20,10 +20,10 @@ const PAYMENT_SLACK_CENTS = 500;
 export const LOAN_DRAFT_WARNING_TEXT: Record<LoanDraftWarningId, string> = {
   rate_sum: "Kokonaiskorko ei ole viitekoron ja marginaalin summa. Tarkista korot.",
   rate_high: `Korko on yli ${RATE_HIGH_BP / 100} %. Tarkista pilkun paikka.`,
-  balance_over_granted: "Lainaa on jäljellä enemmän kuin sitä myönnettiin. Tarkista summat.",
+  balance_over_granted: "Lainaa on jäljellä enemmän kuin pankki myönsi. Tarkista summat.",
   balance_over_limit: "Lainaa on jäljellä enemmän kuin luottoraja sallii. Tarkista summat.",
   payment_annuity: "Maksuerä ei vastaa jäljellä olevaa lainaa, korkoa ja viimeistä eräpäivää. Tarkista luvut.",
-  payment_whole: "Tasalyhennyslainan maksueräksi merkitään pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.",
+  payment_whole: "Kirjaa tasalyhennyslainan maksueräksi pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.",
   end_passed: "Viimeinen eräpäivä on jo mennyt. Tarkista päivämäärät.",
   two_values: "Tekstissä on samalle tiedolle kaksi eri arvoa. Tarkista, kumpi on oikea.",
   mixed_loans: "Osa tiedoista voi kuulua toiselle lainalle. Tarkista ne.",

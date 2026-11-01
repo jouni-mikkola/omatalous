@@ -51,8 +51,8 @@ async function setup(env: Record<string, string> = {}) {
   }
   const idle = (client: Client) => waitFor(async () => (await client.call("GET", "/api/sync/runs")).body.runs.every((r: { status: string }) => r.status !== "running"));
   const open = (client: Client, headers: Record<string, string> = {}) => client.call("POST", "/api/sync/open", undefined, headers);
-  /** Makes every stored run of the member older than the half hour, as if the app had been left alone. */
-  const age = async (userId: string, hours = 2) => {
+  /** Makes every stored run of the member older than any gap between sync hours, as if the app had been left alone. */
+  const age = async (userId: string, hours = 30) => {
     const at = new Date(Date.now() - hours * 3600_000).toISOString();
     await app.s.db.run("UPDATE sync_runs SET started_at = ?, finished_at = ? WHERE user_id = ?", [at, at, userId]);
   };
@@ -129,7 +129,7 @@ describe("a fetch when a member opens the app", () => {
     expect((await s.finance(eero.id).listSyncRuns(20)).length).toBe(eeroRuns);
   });
 
-  it("does not retry a failed fetch for half an hour", async () => {
+  it("retries a failed fetch only once the limit of the sync hours has passed", async () => {
     const { admin, adminId, open, age, clear, addRun, balanceCalls } = await setup();
     await age(adminId);
     await addRun(adminId, "manual", 5, "failed");
@@ -140,8 +140,49 @@ describe("a fetch when a member opens the app", () => {
     expect(balanceCalls()).toBe(before);
 
     await clear(adminId); // the failure is old now
-    await addRun(adminId, "manual", 40, "failed");
+    await addRun(adminId, "manual", 40, "failed"); // past the old half hour, inside the limit
+    expect((await open(admin)).body.state).toBe("failed");
+
+    await clear(adminId);
+    await addRun(adminId, "manual", 30 * 60, "failed");
     expect((await open(admin)).body.state).toBe("running");
+  });
+});
+
+describe("how old the rows may be", () => {
+  /** Whether an open starts a fetch for rows of this age under these sync hours. */
+  async function startsFor(syncHours: string, hoursOld: number) {
+    const { admin, adminId, open, addRun, clear, idle } = await setup({ SYNC_HOURS: syncHours });
+    await clear(adminId);
+    await addRun(adminId, "schedule", hoursOld * 60);
+    const state = (await open(admin)).body.state;
+    await idle(admin);
+    return state === "running";
+  }
+
+  it("is the longest gap between the sync hours round the clock, and a day with fewer than two", async () => {
+    expect(await startsFor("3,6,12", 14)).toBe(false); // the gap from 12 to 3 the next morning is 15
+    expect(await startsFor("3,6,12", 16)).toBe(true);
+    expect(await startsFor("0,8,16", 7)).toBe(false);
+    expect(await startsFor("0,8,16", 9)).toBe(true);
+    expect(await startsFor("7", 23)).toBe(false);
+    expect(await startsFor("7", 25)).toBe(true);
+  });
+
+  it("starts no fetch for rows inside the gap and one for rows beyond it, as the settings say", async () => {
+    const { admin, adminId, open, addRun, clear, idle, balanceCalls, s } = await setup({ SYNC_HOURS: "6,18" });
+    await clear(adminId);
+    await addRun(adminId, "schedule", 11 * 60); // 11 hours ago, inside the 12
+    const before = balanceCalls();
+    for (let i = 0; i < 3; i++) expect((await open(admin)).body.state).toBe("fresh"); // reloads change nothing
+    expect(balanceCalls()).toBe(before);
+    expect(await s.db.all("SELECT 1 FROM account_fetch")).toHaveLength(0);
+
+    await clear(adminId);
+    await addRun(adminId, "schedule", 13 * 60);
+    expect((await open(admin)).body.state).toBe("running");
+    await idle(admin);
+    expect(balanceCalls()).toBeGreaterThan(before);
   });
 });
 
@@ -263,7 +304,7 @@ describe("inside what the bank allows", () => {
     await age(adminId);
     await noted(s, adminId, "open-bare", 3);
     expect((await open(admin)).body.state).toBe("limited");
-    // with the headers there is no count, only the half hour
+    // with the headers there is no count, only the age of the rows
     expect((await open(admin, FROM_OUTSIDE)).body.state).toBe("running");
   });
 

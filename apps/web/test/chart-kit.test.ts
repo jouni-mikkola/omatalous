@@ -7,16 +7,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { valueAxis } from "../src/charts/scale.ts";
 import { band, dayNumber, isoDay, linear, monthStarts, points, time } from "../src/charts/kit/scale.ts";
-import { dayTicks, moneyAxis, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
+import { dayTicks, evenMonthTicks, moneyAxis, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
 import { axisRoom, frame, tickTarget } from "../src/charts/kit/layout.ts";
-import { boxPlace, gridStep, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
+import { boxPlace, DOT_PLOT_BELOW, gridStep, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
 import { bandRect, placeMarkers, referenceY, spreadLabels } from "../src/charts/kit/annotate.ts";
 import { areaPath, linePath, stepPath } from "../src/charts/kit/path.ts";
+import { markKey } from "../src/charts/kit/marks.ts";
 import { decimate } from "../src/charts/kit/decimate.ts";
 import { LiveReadout, ReadoutLayer } from "../src/charts/kit/Readout.tsx";
 import { EventMarkers, ReferenceLine } from "../src/charts/kit/Annotations.tsx";
 import { LABEL_CHAR_W, LABEL_GAP } from "../src/charts/draw.ts";
-import { bestOfSync } from "../../../tools/lib/timing.ts";
 
 describe("the linear scale", () => {
   it("keeps the ticks of the line charts' value axis when it holds zero", () => {
@@ -102,6 +102,22 @@ describe("Finnish ticks", () => {
     expect(narrow.every((m) => m.year === null)).toBe(true);
   });
 
+  it("prints a five-year axis at one even step, whatever the width of the month names", () => {
+    const months = Array.from({ length: 60 }, (_, i) => `${2026 + Math.floor((10 + i) / 12)}-${String(((10 + i) % 12) + 1).padStart(2, "0")}`);
+    const at = evenMonthTicks(months, 9)
+      .map((m, i) => (m.printed ? i : -1))
+      .filter((i) => i >= 0);
+    expect(at.length).toBeGreaterThan(4);
+    expect(new Set(at.slice(1).map((v, i) => v - at[i]!)).size).toBe(1);
+  });
+
+  it("gives a printed label its year when the same month name comes round again", () => {
+    const months = Array.from({ length: 60 }, (_, i) => `${2026 + Math.floor((10 + i) / 12)}-${String(((10 + i) % 12) + 1).padStart(2, "0")}`);
+    const yearly = evenMonthTicks(months, 1).filter((m) => m.printed);
+    expect(yearly.every((m) => m.year !== null)).toBe(true);
+    expect(new Set(yearly.map((m) => `${m.text}${m.year}`)).size).toBe(yearly.length);
+  });
+
   it("labels the days of a month like the pace chart", () => {
     expect(dayTicks(31)).toEqual([1, 5, 10, 15, 20, 25, 31]);
     expect(dayTicks(26)).toEqual([1, 5, 10, 15, 20, 26]);
@@ -158,6 +174,22 @@ describe("the readout", () => {
   it("reads one datum as a sentence", () => {
     expect(readoutText("loka 2026", [{ name: "Menot", value: "12 €" }, { name: "Tulot", value: "30 €" }])).toBe("loka 2026: Menot 12 €, Tulot 30 €");
     expect(readoutText("loka 2026", [])).toBe("loka 2026");
+    // a row with no value (a marked month) is its name alone
+    expect(readoutText("loka 2026", [{ name: "Heikoin kuu", value: "" }])).toBe("loka 2026: Heikoin kuu");
+  });
+
+  it("sends the key of the datum a click or Enter picks, and says so in the label", () => {
+    const keys = ["2026-08", "2026-09", "2026-10"];
+    const send = renderToStaticMarkup(createElement("svg", null, createElement(ReadoutLayer, { xs: [0, 50, 100], innerW: 100, innerH: 80, at: 1, onAt: () => {}, keys, onSelect: () => {}, label: "Saldo." })));
+    expect(send).toContain("hit-pick");
+    expect(send).toContain("Enter näyttää merkin rivin taulukossa.");
+    // without a table to send to the layer is only a readout
+    const quiet = renderToStaticMarkup(createElement("svg", null, createElement(ReadoutLayer, { xs: [0, 50, 100], innerW: 100, innerH: 80, at: 1, onAt: () => {}, keys, label: "Saldo." })));
+    expect(quiet).not.toContain("hit-pick");
+  });
+
+  it("goes to the dot plot under 600 px", () => {
+    expect(DOT_PLOT_BELOW).toBe(600);
   });
 
   it("draws one focusable layer with a crosshair at the datum", () => {
@@ -237,7 +269,8 @@ describe("a long series", () => {
     expect(linePath(gappy, x, y, keep).split("M").length).toBe(3);
   });
 
-  it("scales, decimates and draws 2 000 points inside a frame (16 ms)", () => {
+  // the time of this is in chart-kit.perf.test.ts
+  it("scales, decimates and draws 2 000 points inside a frame", () => {
     const run = () => {
       const s = linear(values, [240, 0]);
       const at = points(values.length, 800);
@@ -247,8 +280,6 @@ describe("a long series", () => {
     const drawn = run().match(/[ML]/g)!.length;
     expect(drawn).toBeLessThanOrEqual(4 * 800);
     expect(drawn).toBeGreaterThan(800);
-    // the time: the process's CPU time, the best of five runs after a warm-up (`bestOfSync`)
-    expect(bestOfSync(5, run).ms).toBeLessThan(16);
   });
 });
 
@@ -288,5 +319,31 @@ describe("the readout of a grid", () => {
     expect(gridStep("Home", { col: 9, row: 4 }, 53, 7)).toEqual({ col: 0, row: 0 });
     expect(gridStep("Escape", { col: 9, row: 4 }, 53, 7)).toBeNull();
     expect(gridStep("a", { col: 9, row: 4 }, 53, 7)).toBeUndefined();
+  });
+});
+
+describe("markKey", () => {
+  const press = (key: string, act: Parameters<typeof markKey>[3], i = 2) => {
+    let stopped = false;
+    const handled = markKey({ key, preventDefault: () => (stopped = true) } as never, i, 5, act);
+    return { handled, stopped };
+  };
+  it("picks with Enter and Space, lets go with Escape, and moves with the arrows", () => {
+    const calls: string[] = [];
+    const act = { pick: () => calls.push("pick"), unpick: () => calls.push("unpick"), focusAt: (n: number) => calls.push(`focus ${n}`) };
+    expect(press("Enter", act)).toEqual({ handled: true, stopped: true });
+    expect(press(" ", act).handled).toBe(true);
+    expect(press("Escape", act).handled).toBe(true);
+    expect(press("ArrowRight", act).handled).toBe(true);
+    expect(press("ArrowLeft", act).handled).toBe(true);
+    expect(press("End", act).handled).toBe(true);
+    expect(calls).toEqual(["pick", "pick", "unpick", "focus 3", "focus 1", "focus 4"]);
+  });
+  it("leaves a key alone that is not the chart's, and Enter when nothing can be picked", () => {
+    const calls: string[] = [];
+    const act = { focusAt: (n: number) => calls.push(`focus ${n}`) };
+    expect(press("a", act)).toEqual({ handled: false, stopped: false });
+    expect(press("Enter", act)).toEqual({ handled: false, stopped: false });
+    expect(calls).toEqual([]);
   });
 });

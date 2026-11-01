@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NO_BROWSER, ROOT, stateKit } from "./shots-kit.ts";
+import { NO_BROWSER, stateKit } from "./shots-kit.ts";
 
 // real runs: the built app, a Chromium, and what a step module saw of the page before the picture
 describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
@@ -33,8 +33,8 @@ describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
     expect(one.loans).toEqual([]);
   }, 180_000);
 
-  it("--parts: the first member says the joint account's use, so the first page says the part, and --loan saves a loan the second member typed in", () => {
-    const r = run("overview", "--fake-bank", "--member", "--parts", "60:40", "--loan", "--widths", "390", "--steps", steps, "--name", "parts");
+  it("--parts: the first member says the joint account's use, so Varat ja velat says the part, and --loan saves a loan the second member typed in", () => {
+    const r = run("reports?tab=varat", "--fake-bank", "--member", "--parts", "60:40", "--loan", "--widths", "390", "--steps", steps, "--name", "parts");
     expect(r.status, r.stdout + r.stderr).toBe(0);
     const [one] = seen();
     // the users stand in the order of their ids, which the server makes up: by name here

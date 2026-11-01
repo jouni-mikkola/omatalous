@@ -3,20 +3,21 @@
  * row in ops_requests; a helper on the host polls the rows through the `ops` CLI (cli-ops.ts), runs fixed
  * scripts and reports back. Every attempt is written to security_events with an ops_ kind.
  */
+import type { Language } from "@banking/core";
 import { randomBytes } from "node:crypto";
-import { createReadStream } from "node:fs";
 import { quickFileCheck } from "../db/backup-check.ts";
-import { COPY_NAME, copiesNewestFirst, copyKind, type CopyKind, restorableCopyName } from "../db/backup-keep.ts";
+import { COPY_NAME, copiesNewestFirst, copyKind, type CopyKind } from "../db/backup-keep.ts";
 import { atOrAbove } from "../db/migrate.ts";
 import type { OpsRequest } from "../db/ops-repo.ts";
-import { newestIntactCopy } from "../db/restore.ts";
 import type { User } from "../db/rows.ts";
 import { verifyPassword } from "../security/password.ts";
+import { deleteOffsiteRequest, readOffsiteRequest, sweepOffsiteRequest, type OffsiteRequest, writeOffsiteRequest } from "./offsite-request.ts";
 import { clearWake, deleteAccessRequest, readAccessRequest, touchWake, writeAccessRequest } from "./access-request.ts";
 import type { Services } from "./context.ts";
-import { HttpUserError, TooManyAttempts, tooManyMessage, UserError } from "../platform/errors.ts";
+import { HttpUserError, hashBusy, TooManyAttempts, tooMany, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import { refuser } from "./ops-danger.ts";
+import { ACTION_LABEL_EN, opsText } from "./ops-english.ts";
 import {
   busy,
   HELPER_MIN_VERSION,
@@ -65,6 +66,7 @@ export const ACTION_LABEL: Record<OpsAction, string> = {
   prune: "levyn siivous",
   "helper-renew": "apurin uusinta",
   access: "etäkäyttö",
+  offsite: "kopio toiselle koneelle",
   // no colon in a name: the audit list splits an event at its first ": "
   "prerelease-on": "uudet versiot tarjolle heti",
   "prerelease-off": "uudet versiot tarjolle kahden päivän päästä",
@@ -93,7 +95,9 @@ const ACCESS_LOOKS = /[a-z0-9-]+\.cloudflareaccess\.com|[A-Za-z0-9_=-]{20,}/gi;
  */
 function secretsFor(s: Services, action: string): { secrets: string[]; byLooks: boolean } {
   const sent = action === "access" ? readAccessRequest(s) : null;
-  const secrets = sent?.want === "tunnel" ? [...secretsOf(s), sent.tunnelToken, sent.accessAud, sent.teamDomain] : secretsOf(s);
+  const target = action === "offsite" ? readOffsiteRequest(s) : null;
+  // the key's lines one by one too: a helper may print them apart
+  const secrets = sent?.want === "tunnel" ? [...secretsOf(s), sent.tunnelToken, sent.accessAud, sent.teamDomain] : target ? [...secretsOf(s), ...target.sshKey.split("\n").filter(Boolean)] : secretsOf(s);
   return { secrets, byLooks: action === "access" && !sent };
 }
 
@@ -172,19 +176,19 @@ export function listAppBackups(s: Services): AppBackup[] {
 
 // ── what the page shows ──────────────────────────────────
 
-const view = (r: OpsRequest) => ({
+const view = (r: OpsRequest, language: Language = "fi") => ({
   id: r.id,
   action: r.action,
-  label: (ACTION_LABEL as Record<string, string>)[r.action] ?? r.action,
+  label: ((language === "en" ? ACTION_LABEL_EN : ACTION_LABEL) as Record<string, string>)[r.action] ?? r.action,
   status: r.status,
   by: r.requestedByName,
   requestedAt: r.requestedAt,
   startedAt: r.claimedAt,
   finishedAt: r.finishedAt,
   exitCode: r.exitCode,
-  summary: r.summary,
+  summary: r.summary === null ? null : opsText(r.summary, language),
   output: r.output,
-  steps: r.steps ? (JSON.parse(r.steps) as unknown) : [],
+  steps: r.steps ? (JSON.parse(r.steps) as { text: string }[]).map((st) => ({ ...st, text: opsText(st.text, language) })) : [],
 });
 
 /**
@@ -198,16 +202,24 @@ function withoutStaleOffer(snapshot: OpsState, running: string): OpsState {
   return { ...snapshot, update_available: false };
 }
 
-export async function opsState(s: Services) {
+/** The system check in the member's language; the English twin is absent for a result from an older doctor.sh, which stays Finnish. */
+function inLanguage(snapshot: OpsState, language: Language): OpsState {
+  const { doctor_en: english, ...rest } = snapshot;
+  return language === "en" && english ? { ...rest, doctor: english } : rest;
+}
+
+export async function opsState(s: Services, language: Language = "fi") {
   await expireStale(s);
-  const [helper, snapshot, requests] = await Promise.all([helperInfo(s), loadSnapshot(s), s.ops.recent(8)]);
+  const [helper, snapshot, requests, last] = await Promise.all([helperInfo(s), loadSnapshot(s), s.ops.recent(8), s.ops.lastPerAction()]);
   return {
     version: s.build.version,
     build: s.build.id,
     helper,
-    state: withoutStaleOffer(snapshot, s.build.version),
+    state: inLanguage(withoutStaleOffer(snapshot, s.build.version), language),
     appBackups: listAppBackups(s),
-    requests: requests.map(view),
+    requests: requests.map((r) => view(r, language)),
+    /** How each action last ended, by action; the steps and output stay out (the list above carries the recent ones). */
+    last: Object.fromEntries(last.map((r) => [r.action, { ...view(r, language), steps: [], output: null }])),
     /** Something is queued or running: the page polls faster and disables the buttons. */
     active: requests.some((r) => (r.status === "queued" || r.status === "running") && !READ_ONLY.includes(r.action as OpsAction)),
     readOnlyActive: requests.some((r) => (r.status === "queued" || r.status === "running") && READ_ONLY.includes(r.action as OpsAction)),
@@ -215,17 +227,30 @@ export async function opsState(s: Services) {
   };
 }
 
-/** The audit list: who asked for what and how it ended. Newest first. */
+/** What a request event says while it waits for its result: the queue, or the restore asked for in the browser. */
+const WAITING = /^(jonossa|pyydetty)/;
+
+/**
+ * The audit list: who asked for what and how it ended, newest first, one row for each action. A request event
+ * ("jonossa") and the result that ended it say the same action, so the result takes the request's place. A request with
+ * no result yet, a cancelled one and a refused one stay as they are.
+ */
 export async function opsAudit(s: Services) {
   const events = await s.security.list({ kindPrefix: "ops_", limit: 150 });
-  return events
-    .filter((e) => e.kind !== "ops_notice")
-    .slice(0, 50)
-    .map((e) => {
-      const [action = "", ...rest] = (e.detail ?? "").split(": ");
-      const outcome = rest.join(": ");
-      return { id: e.id, at: e.at, username: e.username, ip: e.ip, action, outcome: e.kind === "ops_denied" ? `kielletty, ${outcome}` : outcome };
-    });
+  const ended = new Map<string, number>();
+  const rows = [];
+  for (const e of events) {
+    if (e.kind === "ops_notice") continue;
+    const [action = "", ...rest] = (e.detail ?? "").split(": ");
+    const outcome = rest.join(": ");
+    if (e.kind === "ops_result") ended.set(action, (ended.get(action) ?? 0) + 1);
+    else if (e.kind === "ops_request" && WAITING.test(outcome) && (ended.get(action) ?? 0) > 0) {
+      ended.set(action, ended.get(action)! - 1);
+      continue;
+    }
+    rows.push({ id: e.id, at: e.at, username: e.username, ip: e.ip, action, outcome: e.kind === "ops_denied" ? `kielletty, ${outcome}` : outcome });
+  }
+  return rows.slice(0, 50);
 }
 
 // ── requests from the browser ────────────────────────────
@@ -250,11 +275,11 @@ export async function checkPassword(s: Services, user: User, password: string, r
   const attempt = s.opsLimiter.consume(key);
   if (attempt.wait) {
     if (attempt.first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: "ylläpito" });
-    throw new TooManyAttempts(tooManyMessage(attempt.wait), attempt.wait);
+    throw tooMany(attempt.wait);
   }
   if (!s.hashGate.tryEnter()) {
     s.opsLimiter.release(key);
-    throw new TooManyAttempts("Palvelin on kiireinen. Yritä hetken päästä uudelleen.", 2);
+    throw hashBusy();
   }
   let ok = false;
   try {
@@ -312,7 +337,8 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req,
   const label = ACTION_LABEL[action];
   const refuse = refuser(s, user.id, req, label);
   const checked = proof !== undefined && proofs.has(proof) && proof.userId === user.id;
-  if (action === "access" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Etäkäyttöä muutetaan kohdassa Asetukset > Palvelin > Etäkäyttö.") });
+  if (action === "offsite" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Käynnistä kopio toiselle koneelle kohdassa Asetukset > Palvelin.") });
+  if (action === "access" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Muuta etäkäyttöä kohdassa Asetukset > Palvelin > Etäkäyttö.") });
   await expireStale(s);
 
   await refuse(await helperRefusal(s, action));
@@ -329,30 +355,37 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req,
   if (!(await insertQueued(s, { id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(busy());
   await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${label}: jonossa` });
   if (NOTIFY.includes(action)) await notifyAdmins(s, user, `${user.displayName} käynnisti toiminnon: ${label}`);
-  return view((await s.ops.get(id))!);
+  return view((await s.ops.get(id))!, user.language);
 }
 
 /**
- * The one request queued with no admin's password: the server itself takes back a remote access nobody got in through
- * (remote-access-trial.ts, from its timer and the hourly tick; no route leads here). It writes the request file itself,
- * so `lan` is all it can ask of the helper. `userId` is the admin who turned remote access on. Null when the helper is
- * away or the queue is taken: the caller looks again later.
+ * A request queued with no admin's password: the server itself takes back a remote access nobody got in through
+ * (remote-access-trial.ts, from its timer and the hourly tick; no route leads here), and queues the nightly copy to
+ * another machine (offsite.ts). `write` makes the request file the helper reads (false when it could not) and `undo`
+ * removes it. `userId` is the admin it is booked to. Null when the helper is away or the queue is taken: the caller
+ * looks again later.
  */
-export async function queueOwnLan(s: Services, userId: string): Promise<string | null> {
+async function queueOwn(s: Services, userId: string, action: "access" | "offsite", write: () => boolean, undo: () => void, why: string): Promise<string | null> {
   await expireStale(s);
-  if ((await helperInfo(s)).status === "off" || !helperKnows(await s.settings.get(VERSION_KEY), "access") || (await s.ops.hasActiveMutating(READ_ONLY))) return null;
+  if ((await helperInfo(s)).status === "off" || !helperKnows(await s.settings.get(VERSION_KEY), action) || (await s.ops.hasActiveMutating(READ_ONLY)) || !write()) return null;
   const id = newId();
-  writeAccessRequest(s, { want: "lan" });
-  if (!(await insertQueued(s, { id, action: "access", requestedBy: userId, at: s.now().toISOString() }))) {
-    deleteAccessRequest(s);
+  if (!(await insertQueued(s, { id, action, requestedBy: userId, at: s.now().toISOString() }))) {
+    undo();
     return null;
   }
-  await recordEvent(s, { kind: "ops_request", userId, detail: `${ACTION_LABEL.access}: jonossa, palvelin perui etäkäytön itse` });
+  await recordEvent(s, { kind: "ops_request", userId, detail: `${ACTION_LABEL[action]}: jonossa, ${why}` });
   return id;
 }
 
+/** It writes the request file itself, so `lan` is all it can ask of the helper. */
+export const queueOwnLan = (s: Services, userId: string) =>
+  queueOwn(s, userId, "access", () => (writeAccessRequest(s, { want: "lan" }), true), () => deleteAccessRequest(s), "palvelin perui etäkäytön itse");
+
+export const queueOffsiteOwn = (s: Services, userId: string, request: OffsiteRequest) =>
+  queueOwn(s, userId, "offsite", () => writeOffsiteRequest(s, request), () => deleteOffsiteRequest(s), "yöllinen kopio");
+
 /** Every other admin sees a one-time notice (services/security.ts renders it). */
-async function notifyAdmins(s: Services, actor: User, detail: string): Promise<void> {
+export async function notifyAdmins(s: Services, actor: User, detail: string): Promise<void> {
   for (const u of await s.users.list()) {
     if (u.role === "admin" && u.id !== actor.id) await recordEvent(s, { kind: "ops_notice", userId: u.id, detail, notify: true });
   }
@@ -364,26 +397,7 @@ export async function cancelOp(s: Services, user: User, id: string, req: Req) {
   if (!row) throw new UserError("Pyyntöä ei löydy.");
   if (!(await s.ops.cancelQueued(id, s.now().toISOString()))) throw new UserError("Pyyntöä ei voi enää perua.");
   await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${(ACTION_LABEL as Record<string, string>)[row.action] ?? row.action}: peruutettu` });
-}
-
-/** The newest database copy, after the password. Returns the file to stream. */
-export async function backupForDownload(s: Services, user: User, password: string, req: Req): Promise<{ stream: ReturnType<typeof createReadStream>; name: string; size: number }> {
-  const key = `dl:${user.id}`;
-  const attempt = s.opsDownloadLimiter.consume(key);
-  if (attempt.wait) throw new TooManyAttempts("Liian monta latausta tunnissa. Yritä myöhemmin.", attempt.wait);
-  await checkPassword(s, user, password, req, "varmuuskopion lataus");
-  const copies = listAppBackups(s);
-  if (!s.backupDir || !copies.length) throw new UserError("Varmuuskopiota ei ole vielä. Ota ensin varmuuskopio.");
-  // the copy a restore would take (db/restore.ts): the full check runs on the file that is about to leave the
-  // machine, and what a restore saved of the database it replaced (pre-restore-*) is never handed out as the newest
-  const newest = newestIntactCopy(s.backupDir);
-  for (const b of copies.slice(0, Math.max(0, copies.findIndex((c) => c.name === newest?.name)))) {
-    if (restorableCopyName(b.name)) console.error(`backup download: ${b.name} failed its check and is skipped`);
-  }
-  if (!newest) throw new UserError("Varmuuskopiot eivät läpäisseet tarkistusta. Ota uusi varmuuskopio.");
-  await recordEvent(s, { kind: "ops_download", userId: user.id, ...req, detail: `varmuuskopion lataus: ladattu (${newest.name})`, notify: false });
-  await notifyAdmins(s, user, `${user.displayName} latasi tietokannan varmuuskopion`);
-  return { stream: createReadStream(newest.file), name: newest.name, size: newest.size };
+  if (row.action === "offsite") await sweepOffsiteRequest(s, true);
 }
 
 // ── expiry (hourly tick, ops poll and every state read) ──
@@ -471,6 +485,8 @@ export async function reportOps(s: Services, payload: unknown, helper?: string):
       steps: JSON.stringify(steps),
     });
     if (done) await resultEvent(s, row, o.status === "ok" ? "valmis" : "epäonnistui");
+    // the target and its key leave the volume as soon as the helper is done with them
+    if (row.action === "offsite") await sweepOffsiteRequest(s, true);
   }
   if (o.state !== undefined) await storeState(s, o.state);
 }

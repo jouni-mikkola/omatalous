@@ -70,6 +70,7 @@ describe("bad input is a 400, never a 500", () => {
     ["PATCH", "/api/accounts/x", { name: 5 }],
     ["POST", "/api/users", { username: 5 }],
     ["POST", "/api/auth/password", { current: 1, next: 2 }],
+    ["POST", "/api/auth/first-password", { next: 2 }],
   ])("%s %s %j", async (method, path, payload) => {
     const { admin, adminId } = await setupApp();
     const target = path.replace("/api/users/x", `/api/users/${adminId}`);

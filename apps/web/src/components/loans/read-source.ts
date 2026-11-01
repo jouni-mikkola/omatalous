@@ -28,7 +28,7 @@ export const STALL_MS = 120_000;
 /** A picture over this many pixels is refused before it is decoded: it would fill the memory of a phone. */
 export const MAX_PIXELS = 40_000_000;
 
-export const STALLED = "Lukeminen ei edennyt, joten se keskeytettiin. Yritä uudelleen tai liitä lainan tiedot tekstinä.";
+export const STALLED = "Lukeminen ei edennyt, joten keskeytimme sen. Yritä uudelleen tai liitä lainan tiedot tekstinä.";
 export const TOO_MANY_PIXELS = "Kuva on liian suuri, yli 40 miljoonaa pikseliä. Ota lainan tiedoista kuvakaappaus.";
 export const UNKNOWN_PICTURE = "Kuvan muotoa ei tunnistettu. Ota lainan tiedoista kuvakaappaus (PNG tai JPEG).";
 

@@ -2,7 +2,7 @@
  * Rules 7, 8 and 11 of the repo rules: lists that must agree and live in different files or languages, and the
  * comment every report carries. Rule 8 reads both layouts: the `REPORTS` registry and the section modules of features/section/. Nothing links the lists at build time, so a test reads each list and compares.
  */
-import ts from "typescript";
+import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, lineOf, parse, plainString, readText, repoFiles, walk } from "./lib.ts";
 
@@ -118,8 +118,10 @@ describe("repo rules: parity", () => {
     // no section shows fails here instead of going missing from the page.
     const SECTIONS = "apps/web/src/pages/reports/sections/";
     // reports the page may leave out on purpose
+    // upcoming: Laskut reads the typed-in bills of it for its one table, with no section of its own
     // summary: Vuosivertailu tells the year's change by category from yearOverYear (PD-raportit), and its CSV stays
-    const NO_SECTION = new Set<string>(["summary"]);
+    // conclusions: the frame of the question pages shows it (pages/reports/Frame.tsx), no section does
+    const NO_SECTION = new Set<string>(["summary", "conclusions", "upcoming"]);
     const sectionFiles = repoFiles().filter((f) => f.startsWith(SECTIONS) && /^[^/]+\.tsx$/.test(f.slice(SECTIONS.length)));
     expect(sectionFiles.length, "the web report sections are found").toBeGreaterThan(5);
     const shown = new Set<string>();

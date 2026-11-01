@@ -5,7 +5,7 @@ import { overflow, watch } from "./helpers.ts";
 
 // A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the page asks
 // about it. It is saved as a loan, with the balance typed in; removing the loan in Asetukset > Lainat asks again, and then
-// it is answered "Ei laina". The
+// it is answered "Ei ole laina". The
 // rows are the demo data of a household member made here and removed at the end, so the demo household of the other
 // specs stays as it was. Every payee and sum here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -27,7 +27,7 @@ async function administrator(browser: Browser): Promise<BrowserContext> {
   return context;
 }
 
-test("a payment that looks like a loan is asked in Tarkistettavat: saved as a loan with the balance typed in, and after the loan is removed answered Ei laina", async ({ browser }) => {
+test("a payment that looks like a loan is asked in Tarkistettavat: saved as a loan with the balance typed in, and after the loan is removed answered Ei ole laina", async ({ browser }) => {
   const admin = await administrator(browser);
   const created = await admin.request.post("/api/users", { headers: FETCH, data: { username: "ehdotus", displayName: "Ehdotus" } });
   expect(created.ok(), await created.text()).toBe(true);
@@ -35,7 +35,7 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   try {
     expect((await context.request.post("/api/auth/login", { headers: FETCH, data: { username: "ehdotus", password: temporaryPassword } })).status()).toBe(200);
-    expect((await context.request.post("/api/auth/password", { headers: FETCH, data: { current: temporaryPassword, next: PASSWORD } })).status()).toBe(200);
+    expect((await context.request.post("/api/auth/first-password", { headers: FETCH, data: { next: PASSWORD } })).status()).toBe(200);
     // nothing to ask about before the rows are there
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toEqual([]);
     expect((await context.request.post("/api/demo", { headers: FETCH })).status()).toBe(200);
@@ -77,12 +77,14 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     // Tallenna lainaksi: the form opens in the item with what the rows show, and asks for the rest
     await item.getByRole("button", { name: "Autolaina Ehdotus" }).click();
     const form = item.locator(".review-loan");
-    await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveValue(COMPANY);
-    await expect(form.getByLabel("Laji")).toHaveValue("car");
-    await expect(form.getByLabel("Maksuerä (€)")).toHaveValue("289,00");
-    await expect(form.getByLabel("Lyhennysväli", { exact: true })).toHaveValue("1");
+    // the rows gave the lender, the payment and the interval: one line says so, and only the rest is asked (at most 5 fields)
+    await expect(form.getByText(`Pankin riveistä: ${COMPANY}, 289,00 € kuukauden välein`)).toBeVisible();
+    await expect(form.locator(".loan-field")).toHaveCount(4);
+    await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveCount(0);
     await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("");
     await expect(form.getByLabel("Kokonaiskorko (%)")).toHaveValue("");
+    await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("");
+    await expect(form.getByLabel("Lyhennystapa")).toHaveValue("");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
     // the balance is the household's to type: without it nothing is saved
@@ -112,19 +114,19 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     expect(await queued()).toEqual([]);
 
     // removing the loan in Asetukset > Lainat asks again: the payments are still there
-    await page.goto("/#/settings");
+    await page.goto("/#/settings/household");
     const card = page.locator("#lainat");
     const saved = card.getByRole("row").filter({ hasText: `Autolaina, ${COMPANY}` });
     await expect(saved).toContainText(/6\s400,50\s€/);
     await saved.getByRole("button", { name: /Poista laina/ }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Poista", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Poista laina", exact: true }).click();
     await expect(card.getByRole("status").filter({ hasText: "Laina poistettu." })).toBeVisible();
     await expect(card.getByRole("heading", { name: "Mahdolliset lainat" })).toHaveCount(0);
     expect(await queued()).toHaveLength(1);
 
-    // Ei laina: the item goes at once, and the mark is stored under the subject of its own
+    // Ei ole laina: the item goes at once, and the mark is stored under the subject of its own
     await reach();
-    await item.getByRole("button", { name: "Ei laina" }).click();
+    await item.getByRole("button", { name: "Ei ole laina" }).click();
     await expect(name).not.toHaveText(COMPANY);
     const { marks } = await (await context.request.get("/api/recurring")).json();
     expect(marks.map((m: { subject: string; mark: string }) => [m.subject.replace(/^(loan-proposal:out:)[^:]+:/, "$1<account>:"), m.mark])).toContainEqual(["loan-proposal:out:<account>:Nordea Rahoitus Suomi Oy#28900", "dismissed"]);

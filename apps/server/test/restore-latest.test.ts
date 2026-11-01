@@ -168,7 +168,7 @@ describe("restore-latest: the request", () => {
     expect(requestOutcome(gate)).toEqual({ by: adminId, detail: "tietokannan palautus: tehty (pre-update-20261009T080000.db)" });
     if (gate.state === "ok") throw new Error("restored");
     expect(gateEvent(gate, () => "9.10. klo 11.00", "Aino").detail).toBe("Aino palautti tietokannan varmuuskopiosta pre-update-20261009T080000.db (9.10. klo 11.00)");
-    expect(gateEvent(gate, () => "9.10. klo 11.00").detail).toBe("Tietokanta palautettiin varmuuskopiosta pre-update-20261009T080000.db (9.10. klo 11.00)");
+    expect(gateEvent(gate, () => "9.10. klo 11.00").detail).toBe("Palautimme tietokannan varmuuskopiosta pre-update-20261009T080000.db (9.10. klo 11.00)");
     expect(names(join(dir, "banking.db"))).toEqual(["this-morning"]);
     expect(existsSync(marker)).toBe(false);
     expect(names(join(backups, "pre-restore-20261009T100500.db"))).toEqual(["today"]);

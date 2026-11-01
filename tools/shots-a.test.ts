@@ -2,20 +2,20 @@ import { spawn, spawnSync } from "node:child_process";
 import { chmodSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { tempDir } from "./lib/tmp-kit.ts";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
-import { answerTable, applyLook, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
+import { describe, expect, it } from "vitest";
+import { answerTable, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, NO_TYPES, ROOT } from "./shots-kit.ts";
 
 describe("pnpm shots arguments", () => {
   it("takes a route, widths and --demo, and without more asks for the four widths of a phone to a desktop", () => {
-    expect(parseArgs(["overview"])).toEqual({ help: false, routes: ["overview"], widths: [1280, 1000, 700, 390], demo: false, demoYears: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null, look: null });
-    expect(parseArgs(["#/reports?tab=income", "--widths", "320,768", "--demo"])).toMatchObject({ routes: ["reports?tab=income"], widths: [320, 768], demo: true });
+    expect(parseArgs(["overview"])).toEqual({ help: false, routes: ["overview"], widths: [1280, 1000, 700, 390], demo: false, demoYears: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null });
+    expect(parseArgs(["#/reports?q=tulot", "--widths", "320,768", "--demo"])).toMatchObject({ routes: ["reports?q=tulot"], widths: [320, 768], demo: true });
     expect(parseArgs(["optimise", "--widths=500"]).widths).toEqual([500]);
     expect(parseArgs(["reports", "--demo", "--demo-years"])).toMatchObject({ demo: true, demoYears: true });
   });
 
   it("takes several routes for one run and a route named twice once", () => {
-    expect(parseArgs(["overview", "reports?tab=income", "#/overview", "bills"]).routes).toEqual(["overview", "reports?tab=income", "bills"]);
+    expect(parseArgs(["overview", "reports?q=tulot", "#/overview", "bills"]).routes).toEqual(["overview", "reports?q=tulot", "bills"]);
   });
 
   it("takes --fake-bank, --answers, --steps, --scope and --name, with a space or an =", () => {
@@ -36,16 +36,9 @@ describe("pnpm shots arguments", () => {
     expect(parseArgs(["--help", "--member"]).help).toBe(true);
   });
 
-  it("takes --look night or light, with a space or an =, and refuses any other look", () => {
-    expect(parseArgs(["overview", "--look", "night"]).look).toBe("night");
-    expect(parseArgs(["overview", "--look=light"]).look).toBe("light");
-    expect(() => parseArgs(["overview", "--look", "classic"])).toThrow(/--look takes night or light \(got: classic\)/);
-    expect(() => parseArgs(["overview", "--look"])).toThrow(/--look takes night or light/);
-  });
-
   it("lists every option in --help, which needs no route", () => {
     expect(parseArgs(["--help"]).help).toBe(true);
-    for (const option of ["--widths", "--demo", "--demo-years", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only", "--look"]) expect(USAGE).toContain(option);
+    for (const option of ["--widths", "--demo", "--demo-years", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only"]) expect(USAGE).toContain(option);
     expect(USAGE.split("\n").length).toBeLessThanOrEqual(26);
   });
 
@@ -91,9 +84,9 @@ describe("pnpm shots file names", () => {
 
   it("keeps the route and the width for the plain case and puts the label of --name between them", () => {
     expect(shotName("overview", null, 390)).toBe("overview-390.png");
-    expect(shotName("reports?tab=income", null, 1280)).toBe("reports-tab-income-1280.png");
+    expect(shotName("reports?q=tulot", null, 1280)).toBe("reports-q-tulot-1280.png");
     expect(shotName("overview", "joint", 390)).toBe("overview-joint-390.png");
-    expect(shotName("reports?tab=income", "bank", 700)).toBe("reports-tab-income-bank-700.png");
+    expect(shotName("reports?q=tulot", "bank", 700)).toBe("reports-q-tulot-bank-700.png");
   });
 
   it("gives two routes, two widths and two states each a file of their own", () => {
@@ -103,27 +96,8 @@ describe("pnpm shots file names", () => {
   });
 });
 
-describe("pnpm shots look", () => {
-  it("puts data-look=night on <html> for night and takes the attribute away for light, whether or not it was there", () => {
-    const attributes = new Map<string, string>();
-    vi.stubGlobal("document", { documentElement: { setAttribute: (k: string, v: string) => attributes.set(k, v), removeAttribute: (k: string) => attributes.delete(k) } });
-    try {
-      applyLook("night");
-      expect([...attributes]).toEqual([["data-look", "night"]]);
-      applyLook("night");
-      expect([...attributes]).toEqual([["data-look", "night"]]);
-      applyLook("light");
-      expect([...attributes]).toEqual([]);
-      applyLook("light");
-      expect([...attributes]).toEqual([]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-});
-
 describe("pnpm shots picture", () => {
-  it("is taken with finite animations run to their end, so a change of look is not caught half way", () => {
+  it("is taken with finite animations run to their end, so a fade is not caught half way", () => {
     expect(pictureOptions("/x/a.png")).toEqual({ path: "/x/a.png", fullPage: true, animations: "disabled" });
   });
 });

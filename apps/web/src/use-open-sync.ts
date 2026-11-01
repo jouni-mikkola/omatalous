@@ -28,7 +28,8 @@ export function useOpenSync(onNew: (inserted: number) => void): OpenSync | null 
       lastAsked = Date.now();
       let next: OpenSync | null = null;
       try {
-        next = await api<OpenSync>("/api/sync/open", { method: "POST" });
+        // quiet: rows that arrive reach the page through `onNew`, which reads its answers again; a visit that fetched none changes nothing
+        next = await api<OpenSync>("/api/sync/open", { method: "POST", quiet: true });
       } catch (e) {
         // no route (an older server) or no server at all (offline, which the page says itself): nothing to tell about a bank fetch
         next = e instanceof ApiError && (e.status === 404 || e.status === 0) ? null : { state: "failed", lastAt: null, inserted: 0, nextAt: null };
