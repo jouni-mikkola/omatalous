@@ -42,22 +42,20 @@ is matched to the rows; a new household gets from install to its own year of fig
 you outside the browser when something needs you; the front page tells in ten seconds the money until payday, the
 pace of spending and one thing to do.
 
-Each step has a done-when: what is run or looked at, and the result that is enough. The steps are in the order they are
-done. A step waits for the ones it names. `pnpm check --changed` green is part of every step and is not repeated.
+Each step has a done-when: what is run or looked at, and the result that is enough. A step waits for the ones it names (`after`) and for its locks; the rest runs side by side. `pnpm check --changed` green is part of every step and is not repeated.
 
 ## Now
 From the third live review of 1 November 2026 (BA-156, demo data, every page at 390 and 1440 px in Finnish and English):
 what is broken first, then what confuses. The numbers go on from 45. No step is open here now.
 
 ## Next
-After the Now steps. Steps are done in the order of their `after` lines; the rest runs side by side wherever the locks are free.
+After the Now steps. Each step has a title, why, done when, locks and after.
 
 ### T54 English without the last Finnish
 - why: In English the placeholder merchant "Tuntematon" and the server's error messages ("Virheellinen sääntö.", "Tuntematon kategoria.", the pattern problems of a rule) are Finnish.
 - done when:
   - Each is in the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish.
-  - `pnpm check --changed` is green.
-- locks: texts, rules-route
+- locks: texts, merchant-names, rules-route
 - after: none
 
 ## Later
