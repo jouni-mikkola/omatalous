@@ -45,31 +45,35 @@ pace of spending and one thing to do.
 Each step has a done-when: what is run or looked at, and the result that is enough. The steps are in the order they are
 done. A step waits for the ones it names. `pnpm check --changed` green is part of every step and is not repeated.
 
-### Now
+## Now
 From the third live review of 1 November 2026 (BA-156, demo data, every page at 390 and 1440 px in Finnish and English):
-what is broken first, then what confuses. The numbers go on from 45.
+what is broken first, then what confuses. The numbers go on from 45. No step is open here now.
 
+## Next
+After the Now steps. Steps are done in the order of their `after` lines; the rest runs side by side wherever the locks are free.
 
-### Next
-After the Now steps. Roughly in this order.
-54. English without the last Finnish: In English the placeholder merchant "Tuntematon" and the server's error messages
-    ("Virheellinen sääntö.", "Tuntematon kategoria.", the pattern problems of a rule) are Finnish. Done when: each is in
-    the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish.
+### T54 English without the last Finnish
+- why: In English the placeholder merchant "Tuntematon" and the server's error messages ("Virheellinen sääntö.", "Tuntematon kategoria.", the pattern problems of a rule) are Finnish.
+- done when:
+  - Each is in the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish.
+  - `pnpm check --changed` is green.
+- locks: texts, rules-route
+- after: none
 
-### Later
-Planned, with no date and no order that cannot change.
-6. Stack review: Repeat the interface stack comparison with new measurements: charts and components by 25 April 2027, the
-   runtime by 25 October 2027, earlier if the decision record's trigger fires. Done when: the decision record has a new
-   dated row with sizes measured on the same build.
-11. Fewer overlapping reports, insights and savings tips, decided by what households actually open. Done when: each view
-    the household has not opened in a quarter is listed on that install itself (nothing is sent anywhere), and a view
-    the owner confirms as needless is deleted with its code, styles, tests and texts.
-    Done so far (BA-52, part 1): the counter and the list. Each report section, insight source and Optimoi finding kind a
-    member's page shows is recorded as one day per view and member (`view_opens`, `services/view-opens.ts`), with no data
-    version moved; Asetukset > Palvelin lists, as a table, the views no member opened for 90 days with their last day.
-    Still open: the second part, deleting the views the owner confirms as needless, waits until the owner has read the
-    list on the real install a quarter later.
+## Later
+Planned, with no date and no order that cannot change. These carry no state: they are not steps until they move up to Next.
 
+- T6 Stack review: Repeat the interface stack comparison with new measurements: charts and components by 25 April 2027, the
+  runtime by 25 October 2027, earlier if the decision record's trigger fires. Done when: the decision record has a new
+  dated row with sizes measured on the same build.
+- T11 Fewer overlapping reports, insights and savings tips, decided by what households actually open. Done when: each view
+  the household has not opened in a quarter is listed on that install itself (nothing is sent anywhere), and a view
+  the owner confirms as needless is deleted with its code, styles, tests and texts.
+  Done so far (BA-52, part 1): the counter and the list. Each report section, insight source and Optimoi finding kind a
+  member's page shows is recorded as one day per view and member (`view_opens`, `services/view-opens.ts`), with no data
+  version moved; Asetukset > Palvelin lists, as a table, the views no member opened for 90 days with their last day.
+  Still open: the second part, deleting the views the owner confirms as needless, waits until the owner has read the
+  list on the real install a quarter later.
 
 ## Done
 - Not yet released: English without Finnish (BA-157, step 46 of the BA-156 review): the overview notice about cards and savings in an account that is not connected (*Siirsit vuoden aikana ... tilille, jota et ole yhdistänyt*, also on Tiedot) and the Merchants page with its Rules block and the payer answers under it (heading, form, table, *Ei sääntöjä.*, roles) are in the catalogue in both languages; the Finnish texts are as before. `e2e/english-scan.spec.ts` scans `transactions?view=merchants` too. Left: the placeholder merchant *Tuntematon* and the server's rule errors are Finnish in English.
