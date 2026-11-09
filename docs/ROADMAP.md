@@ -55,7 +55,7 @@ After the Now steps. Each step has a title, why, done when, locks and after.
 Result: In English the app shows no Finnish: the unknown merchant and the server's error messages read in English.
 - why: In English the placeholder merchant "Tuntematon" and the server's error messages ("Virheellinen sääntö.", "Tuntematon kategoria.", the pattern problems of a rule) are Finnish.
 - done when:
-  - Each is in the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish.
+  - Each is in the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish; `pnpm strings` runs clean.
 - locks: texts, merchant-names, rules-route
 - after: none
 
