@@ -1,210 +1,373 @@
 # Roadmap
 
-Omatalous is a self-hosted household finance app for Finland. This page says where it is going. Releases are
-small and frequent; the order below can change, and nothing here is a promise of a date.
+Omatalous is a self-hosted household finance app for Finland. This file lists what is left to build: the four views of
+[the design](design/README.md) first, then the moves of [the simplification audit](audit/simplify.md) it does not
+already make. Done steps live in git history: a step's id is in its commit subject.
 
-## Direction
-1. **A true picture first.** The app says what it cannot see (card purchases, rows in other currencies, days
-   before your bank history starts) and keeps what it can only learn on the day, such as the balance your bank
-   reports.
-2. **Exact across the household.** Who paid on a joint account, fair shares, and how to settle up between
-   partners, asking you only where the bank rows cannot tell.
-3. **Figures that prove themselves.** Every figure opens the rows behind it, and balances your bank told are
-   matched against the rows.
-4. **Far past a bank's own page.** The coming months as a simulation with a range, contracts, net worth over
-   the years, your own price change against the consumer price index, a tax-year sheet, and
-   alerts through channels you run yourself.
-5. **Local.** Everything runs on your own machine. The only outside parties are the bank connection, the return
-   page after the bank login, and services you turn on yourself. The interface is in Finnish and English.
-6. **Delete, do not hide.** A view nobody needs is removed with its code, styles, tests and texts. The app keeps no
-   hidden view, no "off by default" copy and no setting that brings one back.
+- Each step is `### <id> <title>` (at most 32 characters), a `Result:` line, then `why`, `done when`, `locks`, `after`
+  and `files`. `lineclear roadmap check .` (from the Lineclear repo) checks the form.
+- A step starts once every step in its `after` is merged and no running step holds one of its locks.
+- A step writes or edits at most 400 lines; the lines it deletes are not counted. `pnpm check --changed` green is part of
+  every step and is not repeated.
+- `~/.cache/lc-bench/name-scan.sh` reads the step's branch against `origin/main` and prints a line only for words that
+  never go into this repo.
+- Audit moves 9 (the English UI), 11 (remote access as a guide), 12 (maintenance kept to update and rollback) and the
+  statement half of 25 (reading pictures) wait for the owner's decision and are not steps.
 
-## The bank connection (Enable Banking)
-- The app already makes its own keys, keeps the application id in Asetukset, lists banks live, runs the bank
-  login, consent and fetch, and keeps within the banks' daily fetch limits.
-- Some steps stay outside the app because Enable Banking offers no way to do them from it: signing in at
-  enablebanking.com, registering your own application with the certificate the app made, and linking each
-  account and card in their control panel. Asetukset > Pankkiyhteydet will walk you through each step and
-  check the result.
-- After the bank login, a fixed https page forwards your browser back to your own install. An install with its
-  own public https name can return there directly; a private or home-network https name only once Enable
-  Banking confirms it accepts such an address.
-- If a bank or a consent fails, you can read a card statement file instead (Asetukset > Pankit ja tilit > Korttien
-  tiliotteet), or a bank's CSV export or camt.053 statement (Pankin CSV-tiedosto). A file is always read in your browser and only its
-  rows reach your install.
-- We follow the coming EU payment rules (PSD3 and the Payment Services Regulation) and the financial data
-  access proposal, and adapt when they apply.
+## The design: deletions
 
-## Coming releases
+### T55 Säästövinkit is gone
+Result: The Säästövinkit page and its findings engine are gone, and the menu has one entry fewer.
+- why: design D1: a card grid that answers no question and repeats findings shown elsewhere.
+- done when: `git ls-files apps/web/src/pages/Optimise.tsx apps/web/src/components/optimise packages/core/src/optimise` lists nothing; `pnpm strings` finds no "Säästövinkit"; the e2e nav spec sees four tabs; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: nav, optimise
+- after: none
+- files: apps/web/src/pages/Optimise.tsx, apps/web/src/components/optimise, packages/core/src/optimise, packages/core/test/optimise, apps/server/src/routes/optimise.ts, apps/server/src/db/finance/optimise.ts, apps/web/src/nav.ts, CLAUDE.md
 
-Where the app should be: every figure is the sum of its rows and the same everywhere; every balance the bank reports
-is matched to the rows; a new household gets from install to its own year of figures within an hour; the app reaches
-you outside the browser when something needs you; the front page tells in ten seconds the money until payday, the
-pace of spending and one thing to do.
+### T56 Insights live in the queue
+Result: Price rises and new recurring charges show once, as items in Tarkistettavat, and no longer on the overview.
+- why: design D2: one finding was shown twice with two counts, and a problem belongs in the queue.
+- done when: `git ls-files apps/web/src/components/home/Notable.tsx` lists nothing; a `services/review.ts` test gets one item per price rise and new recurring charge, none twice; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: review, insights
+- after: T55
+- files: apps/web/src/components/home/Notable.tsx, packages/core/src/analysis/insights, apps/server/src/services/review.ts, apps/server/test
 
-Each step has a done-when: what is run or looked at, and the result that is enough. A step waits for the ones it names (`after`) and for its locks; the rest runs side by side. `pnpm check --changed` green is part of every step and is not repeated.
+### T57 The overview extras are gone
+Result: The overview loses its right column, last-days table, direction, reliability and goals, keeping one answer and the pace line.
+- why: design D3: those parts repeat the headline or compare with nothing.
+- done when: `git ls-files apps/web/src/components/holdings apps/web/src/components/home/PaceTable.tsx apps/web/src/components/home/Direction.tsx apps/web/src/components/home/Reliability.tsx apps/web/src/components/home/SpendingGoal.tsx apps/web/src/components/home/CategoryGoals.tsx apps/web/src/pages/settings/SpendingGoalCard.tsx` lists nothing; `git grep -n categoryGoals packages/core/src` is empty; a 390 and 1440 px shot of the overview is in the PR; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: overview, holdings
+- after: none
+- files: apps/web/src/components/holdings, apps/web/src/components/home, apps/web/src/pages/Overview.tsx, apps/web/src/pages/settings/SpendingGoalCard.tsx, packages/core/src/reports, CLAUDE.md
 
-## Now
-From the third live review of 1 November 2026 (BA-156, demo data, every page at 390 and 1440 px in Finnish and English):
-what is broken first, then what confuses. The numbers go on from 45. No step is open here now.
+### T58 Tapahtumat is the rows list
+Result: Tapahtumat opens on its rows, with no whole-history tiles, weekly chart, avatars, logos, chip icons or amount bars.
+- why: design D4: the tiles, the chart and four marks per row put the list below the first phone screen.
+- done when: `git ls-files apps/web/src/components/MerchantAvatar.tsx` lists nothing and `git grep -n BankLogo apps/web/src/pages/transactions` is empty; a 390 px shot shows the first row on the first screen; `e2e/table-views.spec.ts` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: transactions, table
+- after: none
+- files: apps/web/src/pages/Transactions.tsx, apps/web/src/pages/transactions, apps/web/src/components/MerchantAvatar.tsx, apps/web/src/components/BankLogo.tsx, apps/web/src/styles
 
-## Next
-After the Now steps. Each step has a title, why, done when, locks and after.
+### T59 Merchants and Rules fold in
+Result: Merchants is a grouping of the rows list and the rules sit in Asetukset > Kotitalous; old addresses lead there.
+- why: design D5: a merchant list is a grouping of rows, and rules are a setting.
+- done when: `git ls-files apps/web/src/pages/Merchants.tsx apps/web/src/pages/Rules.tsx` lists nothing; group by merchant works in the rows toolbar; a `routes.ts` test sends the old addresses to their new places; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: transactions, settings, routes
+- after: none
+- files: apps/web/src/pages/Merchants.tsx, apps/web/src/pages/Rules.tsx, apps/web/src/pages/transactions, apps/web/src/pages/settings, apps/web/src/routes.ts, apps/web/src/nav.ts
+
+### T60 The extra report sections go
+Result: Fourteen report sections and fifteen core report ids that answer nothing or repeat another view are gone.
+- why: design D6: they answer a question another view answers, or none.
+- done when: the sections and core report ids listed in section 2 of `docs/design/README.md` are gone with their tests, and `pnpm findings --golden` wrote the golden files again; `git ls-files apps/web/src/charts/PriceLine.tsx` lists nothing; `packages/core/test/reports.test.ts` covers the nine ids that stay; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: reports, golden
+- after: none
+- files: apps/web/src/pages/reports/sections, packages/core/src/reports, packages/core/test/reports.test.ts, apps/web/src/charts/PriceLine.tsx
+
+### T61 The view counter is gone
+Result: Asetukset no longer lists views nobody opened, and the app stops counting view opens.
+- why: design D7: the counter was the way to find what to delete, and the design now decides that.
+- done when: `git ls-files apps/web/src/pages/settings/UnopenedViews.tsx apps/server/src/services/view-opens.ts apps/server/src/routes/view-opens.ts` lists nothing; the table stays and no applied migration is edited; `pnpm where view_opens` finds only the migration; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: settings, view-opens
+- after: T60
+- files: apps/web/src/pages/settings/UnopenedViews.tsx, apps/server/src/services/view-opens.ts, apps/server/src/routes/view-opens.ts, apps/web/src/pages/reports
+
+### T62 A loan is a short form
+Result: A loan is added with a short form; reading a loan from a picture or a PDF is gone with its two large dependencies.
+- why: design D8: a loan is a few fields, and OCR and PDF reading add two large dependencies for one form.
+- done when: `git ls-files packages/core/src/loan-intake apps/web/src/pages/settings/LoanIntake.tsx` lists nothing; `grep -nE "tesseract|pdfjs" apps/web/package.json` is empty; an e2e spec adds a loan by the form; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: loans, deps
+- after: none
+- files: packages/core/src/loan-intake, apps/web/src/pages/settings/LoanIntake.tsx, apps/web/package.json, pnpm-lock.yaml, e2e
+
+## The design: data
+
+### T63 The Nyt answer
+Result: One core function gives the sum left before payday, the days left, the usual daily spend and the pace band.
+- why: design A1: the Nyt view needs these four from one place.
+- done when: a core test holds left = balance − bills before payday to the cent and the band equal to `analysis/usual.ts` to the same day; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: core-usual, dashboard
+- after: none
+- files: packages/core/src/analysis/usual.ts, packages/core/src/analysis, packages/core/test
+
+### T64 Usual to the same day
+Result: Each category's usual spend to the same day of the month is known, so a month can be read against it.
+- why: design A2: Kuukausi compares each category with its usual to the same day.
+- done when: a core test with 12 made-up months gives each category's usual to day 9 and the list sorted by the gap (`pnpm test packages/core`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: core-usual
+- after: none
+- files: packages/core/src/analysis/usual.ts, packages/core/test
+
+### T65 The coming list
+Result: Bills and income up to the payday after next form one list, each bill with its last amount.
+- why: design A3: Tulossa needs one list grouped by payday period.
+- done when: a core test merges `commitments.ts`, expected bills and income into one list grouped by payday period, its sums equal to the rows; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: commitments, expected-bills
+- after: none
+- files: packages/core/src/commitments.ts, packages/core/src, packages/core/test
+
+### T66 One queue of what is wrong
+Result: A balance mismatch, an ending consent, a missed bill and unsorted rows all reach the household through Tarkistettavat.
+- why: design A4: each kind of problem has one door.
+- done when: `services/review.ts` returns each kind beside today's items, the housing question kept; a server test makes one of each and gets one item each with its sum; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: review
+- after: none
+- files: apps/server/src/services/review.ts, apps/server/test
+
+### T67 The visual tokens
+Result: The look has four type sizes, five spacing steps, the neutrals, one accent and red only for problems.
+- why: design A5: section 3 of the design is the visual system.
+- done when: `apps/web/design/tokens.json` holds only those tokens, `pnpm tokens` writes them and `apps/web/test/contrast.test.ts` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: tokens, styles
+- after: none
+- files: apps/web/design/tokens.json, apps/web/src/styles/tokens.css, apps/web/src/design/tokens.ts, apps/web/src/styles
+
+### T68 Whole euros in an answer
+Result: An answer or a forecast reads in whole euros while a row keeps its cents.
+- why: design A6: an answer in cents is fake precision, a row in cents is exact.
+- done when: `apps/web/src/format.ts` has the two forms; a test formats 4 424,13 as `4 424 €` in an answer and `4 424,13 €` in a row; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: format
+- after: none
+- files: apps/web/src/format.ts, apps/web/test
+
+## The design: views
+
+### T69 Nyt
+Result: The first view answers how much the household can still spend before payday, with the pace line under it.
+- why: design V1, question 1.1.
+- done when: the view of section 1.1 replaces Yhteenveto; an e2e spec at 390 and 1440 px reads the answer equal to the T63 sum and finds no other card; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: overview, nav
+- after: T63, T67, T68
+- files: apps/web/src/pages/Overview.tsx, apps/web/src/components/home, apps/web/src/nav.ts, apps/web/src/styles, e2e
+
+### T70 Kuukausi
+Result: A tab shows where this month's money went against each category's usual to the same day.
+- why: design V2, question 1.2.
+- done when: the view of section 1.2 is a tab; an e2e spec opens a category and gets rows that add up to its sum; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: reports, nav
+- after: T64, T67
+- files: apps/web/src/pages, apps/web/src/pages/reports, apps/web/src/nav.ts, apps/web/src/styles, e2e
+
+### T71 Tulossa
+Result: Tulossa replaces Laskut with one list of what is coming up to the payday after next.
+- why: design V3, question 1.3.
+- done when: `git ls-files apps/web/src/components/bills/Timeline.tsx apps/web/src/components/bills/PriceSteps.tsx apps/web/src/components/bills/ContractPanel.tsx` lists nothing; an e2e spec adds a missing bill and sees it in the list and in the Nyt sum; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bills, nav
+- after: T65, T67
+- files: apps/web/src/pages/Bills.tsx, apps/web/src/components/bills, apps/web/src/nav.ts, e2e
+
+### T72 Tarkistettavat as a tab
+Result: Tarkistettavat is the fourth tab, with its count, and each item can be answered there.
+- why: design V4, question 1.4.
+- done when: it is the fourth tab with its count; an e2e spec answers each item kind of T66 and sees the count fall to zero; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: review, nav
+- after: T66, T67
+- files: apps/web/src/pages/Review.tsx, apps/web/src/nav.ts, e2e
+
+### T73 Lisää
+Result: The Raportit menu is gone and Lisää lists Vuosi, Tilit ja saldot, Lainat, Verovuosi and, when shared, Yhteiset.
+- why: design V5: the reports that earn a place, out of the tabs.
+- done when: `git ls-files apps/web/src/pages/Reports.tsx` lists nothing; `docs/UI_STYLE.md` names the four tabs and Lisää; `e2e/table-views.spec.ts` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: reports, nav
+- after: T70
+- files: apps/web/src/pages/Reports.tsx, apps/web/src/pages/reports, apps/web/src/nav.ts, docs/UI_STYLE.md, e2e/table-views.spec.ts
+
+### T74 Asetukset in three tabs
+Result: Asetukset has three tabs, Pankit ja tilit, Kotitalous and Palvelin, in place of six.
+- why: design V6: six tabs for a household that sets a bank and a payday.
+- done when: the three tabs hold every setting of the six; `e2e/settings.spec.ts` passes at 390 and 1440 px; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: settings
+- after: T59, T61
+- files: apps/web/src/pages/settings, apps/web/src/nav.ts, e2e/settings.spec.ts
+
+### T75 Remote access is one form
+Result: Etäkäyttö is set up from one form in Asetukset > Palvelin instead of nine files of steps.
+- why: design section 2: remote access spreads over nine files.
+- done when: `git ls-files 'apps/web/src/pages/settings/RemoteAccess*'` lists one file; `e2e/settings.spec.ts` passes and the existing remote access server tests pass; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: settings, remote-access
+- after: T74
+- files: apps/web/src/pages/settings/RemoteAccess.tsx, apps/web/src/pages/settings, e2e/settings.spec.ts
+
+### T76 First run and empty states
+Result: An install with no bank, or under three months of rows, shows each view's one line and the way to Pankit ja tilit.
+- why: design V7, section 4.
+- done when: an e2e spec on an empty install sees each view's one line and the button to Pankit ja tilit, and the wizard has two steps; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: wizard, overview
+- after: T69, T70, T71, T72
+- files: apps/web/src/pages/Wizard.tsx, apps/web/src/pages, e2e
+
+### T77 Every view holds up
+Result: Each view loads, fails, takes long names and five years of rows and fits a 390 px phone with no sideways scroll.
+- why: design V8, the rest of section 4.
+- done when: an e2e spec runs each view on a made-up household of five years with a 60-character merchant at 390 px: no sideways scroll, no cut sum, the first answer under 1 s on the seeded data, and a failed fetch kept as a queue item; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: e2e
+- after: T76
+- files: e2e, apps/web/src/pages, apps/web/src/styles
+
+## The audit
+
+### T78 No module scaffold
+Result: The generator for feature modules and its repo rules are gone, so a contributor meets one way to add code.
+- why: audit move 2: about 570 lines of scaffold that no module uses.
+- done when: `git ls-files packages/core/src/features tools/gen` lists nothing; `pnpm gen` is gone; `repo-rules.test.ts` lists no rule 29 to 33; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: repo-rules
+- after: none
+- files: packages/core/src/features, tools/gen, tools/repo-rules/modules.ts, tools/repo-rules, .gitattributes, package.json, docs/ARCHITECTURE.md
+
+### T79 One golden file per household
+Result: A household whose own and household answers agree keeps one golden file, and the test fails when they differ.
+- why: audit move 3: four golden files repeat 14 305 lines.
+- done when: `git ls-files 'apps/server/test/**/household-*.txt'` lists nothing and `apps/server/test/answers-golden.test.ts` asserts the two scopes equal; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: golden
+- after: none
+- files: apps/server/test/answers-golden.test.ts, apps/server/test
+
+### T80 Machine-load scripts leave
+Result: The repo checks run on a clean clone with no agent slot, core count or quiet-machine script.
+- why: audit move 4: about 500 lines of agent and machine tooling live in the product repo.
+- done when: `git grep -n "slots.sh\|wait-quiet\|cores.sh"` is empty and `git ls-files tools/commit.sh tools/lib/cores.mjs tools/lib/owner.sh` lists nothing; `pnpm check` runs on a clean clone; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: check-tools
+- after: none
+- files: tools/slots.sh, tools/cores.sh, tools/wait-quiet.sh, tools/commit.sh, tools/lib/cores.mjs, tools/lib/owner.sh, tools/check.sh, e2e/run.mjs
+
+### T81 Changed checks by vitest
+Result: `pnpm check --changed` runs vitest's own changed mode and the touched shell suites, with no scope finder of its own.
+- why: audit move 5: about 2 100 lines in `tools/check/scope.mjs` and its tests redo what vitest does.
+- done when: `git ls-files tools/check/scope.mjs` lists nothing; `pnpm check --changed` runs only `vitest --changed` and the shell suites of the touched folders; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: check-tools
+- after: none
+- files: tools/check, tools/check.sh, package.json
+
+### T82 Knip finds unused exports
+Result: Knip in `pnpm check` reports unused exports in place of the repo's own unread-exports rule.
+- why: audit move 6: about 400 lines of a rule that a standard tool covers.
+- done when: `git ls-files tools/repo-rules/exports.ts tools/repo-rules/exports-rule.ts tools/repo-rules/unread-exports.txt` lists nothing; `knip.json` exists and `pnpm knip` is in `pnpm check` and reports 0 with today's unused exports listed as ignored; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: repo-rules, deps
+- after: none
+- files: tools/repo-rules/exports.ts, tools/repo-rules/exports-rule.ts, tools/repo-rules/unread-exports.txt, knip.json, package.json, pnpm-lock.yaml
+
+### T83 Unused exports of core, server
+Result: Core and the server export only what another file reads.
+- why: audit move 7: knip lists about 350 unused exports and types across the repo.
+- done when: `pnpm knip` reports no unused export in `packages/core` and `apps/server` with no ignore line for them; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: exports-core
+- after: T82
+- files: packages/core/src, apps/server/src, knip.json
+
+### T84 Unused exports of the web
+Result: The web app exports only what another file reads.
+- why: audit move 7, the web half.
+- done when: `pnpm knip` reports no unused export in `apps/web` with no ignore line for it; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: exports-web
+- after: T82
+- files: apps/web/src, knip.json
+
+### T85 Dead web files go
+Result: Four web files and a stylesheet that nothing imports are gone.
+- why: audit move 8: BasisSheet with basis.css, ui/Tabs and ui/Chip are imported by nothing (PriceLine goes in T60).
+- done when: `git ls-files apps/web/src/components/BasisSheet.tsx apps/web/src/styles/basis.css apps/web/src/components/ui/Tabs.tsx apps/web/src/components/ui/Chip.tsx` lists nothing and `pnpm --filter @banking/web typecheck` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/components/BasisSheet.tsx, apps/web/src/styles/basis.css, apps/web/src/components/ui/Tabs.tsx, apps/web/src/components/ui/Chip.tsx
+
+### T86 Data import, one store each
+Result: The data import reads each store in its own function, so a fault in one store is found in one place.
+- why: audit move 13: `data-import.ts` holds one function of complexity 231.
+- done when: biome reports every function of `apps/server/src/services/data-import.ts` under 25 and the data-import tests pass (`pnpm test apps/server/test/data-import`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: data-import
+- after: none
+- files: apps/server/src/services/data-import.ts
+
+### T87 Returns and sync split
+Result: The returns matcher and the bank sync read as short functions with the same results.
+- why: audit move 14: `returns.ts:151` and `sync.ts:185` are among the most complex functions.
+- done when: biome lists no function of `packages/core/src/returns.ts` or `apps/server/src/connectors/sync.ts` over 40, and their tests pass unchanged (`pnpm test returns sync`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: returns, sync
+- after: none
+- files: packages/core/src/returns.ts, apps/server/src/connectors/sync.ts
+
+### T88 Ahead moves and trace split
+Result: The ahead moves and the money trace rows read as short functions with the same results.
+- why: audit move 14: `ahead-moves.ts:128` and `money-trace-rows.ts:152` are among the most complex functions.
+- done when: biome lists no function of `packages/core/src/analysis/ahead-moves.ts` or `packages/core/src/money-trace-rows.ts` over 40, and their tests pass unchanged (`pnpm test ahead-moves money-trace`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: ahead-moves, money-trace
+- after: none
+- files: packages/core/src/analysis/ahead-moves.ts, packages/core/src/money-trace-rows.ts
+
+### T89 Two shot examples stay
+Result: The shot examples folder keeps only the two files the docs name.
+- why: audit move 15: the other examples are read by nobody.
+- done when: `git grep -n shots-examples` names only `answers.mjs` and `steps.mjs`, and `git ls-files tools/shots-examples` lists those two; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: tools/shots-examples
+
+### T90 Architecture says what is
+Result: docs/ARCHITECTURE.md describes the app that exists, with no target section, scaffold paragraph or one-bank wording.
+- why: audit move 20: the architecture doc still describes plans and one bank.
+- done when: `grep -n "not built yet\|Nordea transactions" docs/ARCHITECTURE.md` is empty; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: arch-doc
+- after: T78
+- files: docs/ARCHITECTURE.md
+
+### T91 Changelog of ten versions
+Result: CHANGELOG.md keeps the last ten versions and points to the git tags for the rest.
+- why: audit move 21: about 1 500 lines of old entries nobody reads in the file.
+- done when: `grep -c '^## ' CHANGELOG.md` gives 10 and the file ends with the link to the tags; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: changelog
+- after: none
+- files: CHANGELOG.md
+
+### T92 One number per decision
+Result: Each decision record has its own number and the security audit sits with the other audits.
+- why: audit move 22: two ADRs share 0023 and an audit sits outside `docs/audit/`.
+- done when: `ls docs/adr | cut -c1-4 | uniq -d` is empty, `git ls-files docs/audit/security-audit-2026-10.md` lists it and `git grep -n "adr/0023"` points to one file; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: adr
+- after: none
+- files: docs/adr, docs/security-audit-2026-10.md, docs/audit
+
+### T93 Twin blocks merged
+Result: The filter chips, column picker, sign-in key list and calendar styles each exist once.
+- why: audit move 23: four pairs of copied blocks in the web app.
+- done when: jscpd at 20 lines reports no clone in `apps/web/src` (`pnpm dlx jscpd --min-lines 20 apps/web/src`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: transactions, settings
+- after: none
+- files: apps/web/src/pages/transactions/FilterChips.tsx, apps/web/src/pages/settings/BankFile.tsx, apps/web/src/pages/settings/CardFile.tsx, apps/web/src/pages/settings, apps/web/src/styles
+
+### T94 Old addresses retire
+Result: Old bookmarks that a release notice named are no longer rewritten, and only current addresses remain.
+- why: audit move 24: legacy rewrites in `routes.ts` grow with every renamed page.
+- done when: a released CHANGELOG entry named the old addresses one release earlier; `routes.test.ts` keeps only current addresses; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: routes
+- after: T59, T73
+- files: apps/web/src/routes.ts, apps/web/test
+
+### T95 Plans live in Lineclear
+Result: ADR 0001 says that plans and audits live in Lineclear and in `docs/`, as they do.
+- why: the record still names an older home for plans.
+- done when: `sed -n 5p docs/adr/0001-record-decisions.md` names Lineclear; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: adr
+- after: none
+- files: docs/adr/0001-record-decisions.md
+
+## Open from before
 
 ### T54 English without the last Finnish
 Result: In English the app shows no Finnish: the unknown merchant and the server's error messages read in English.
 - why: In English the placeholder merchant "Tuntematon" and the server's error messages ("Virheellinen sääntö.", "Tuntematon kategoria.", the pattern problems of a rule) are Finnish.
 - done when:
-  - Each is in the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish; `pnpm strings` runs clean.
+  - Each is in the catalogue in both languages and a scan with a failing rule and the unknown merchant row finds no Finnish; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: texts, merchant-names, rules-route
 - after: none
+- files: packages/core/src/english, apps/server/src/routes
 
 ## Later
-Planned, with no date and no order that cannot change. These carry no state: they are not steps until they move up to Next.
 
-- T6 Stack review: Repeat the interface stack comparison with new measurements: charts and components by 25 April 2027, the
-  runtime by 25 October 2027, earlier if the decision record's trigger fires. Done when: the decision record has a new
-  dated row with sizes measured on the same build.
-- T11 Fewer overlapping reports, insights and savings tips, decided by what households actually open. Done when: each view
-  the household has not opened in a quarter is listed on that install itself (nothing is sent anywhere), and a view
-  the owner confirms as needless is deleted with its code, styles, tests and texts.
-  Done so far (BA-52, part 1): the counter and the list. Each report section, insight source and Optimoi finding kind a
-  member's page shows is recorded as one day per view and member (`view_opens`, `services/view-opens.ts`), with no data
-  version moved; Asetukset > Palvelin lists, as a table, the views no member opened for 90 days with their last day.
-  Still open: the second part, deleting the views the owner confirms as needless, waits until the owner has read the
-  list on the real install a quarter later.
-
-## Done
-- Not yet released: English without Finnish (BA-157, step 46 of the BA-156 review): the overview notice about cards and savings in an account that is not connected (*Siirsit vuoden aikana ... tilille, jota et ole yhdistänyt*, also on Tiedot) and the Merchants page with its Rules block and the payer answers under it (heading, form, table, *Ei sääntöjä.*, roles) are in the catalogue in both languages; the Finnish texts are as before. `e2e/english-scan.spec.ts` scans `transactions?view=merchants` too. Left: the placeholder merchant *Tuntematon* and the server's rule errors are Finnish in English.
-- Not yet released: less repeated, less open (BA-165, step 53 of the BA-156 review): the head of Tulot no longer tells where Tulos comes from (*Tuloja tuli ..., menoja oli ...*), since *Tulojen käyttö* says it to the euro right below, so the sentence is said once. Jäsenet shows *Lisää jäsen* as one button and the form opens from it (and closes when the member is added or on *Peruuta*). The loan intake has no *Liitä leikepöydältä* button (3 buttons, 4 before): pasting into the box (Ctrl+V, or a long press on a phone) reads text and pictures already. Pankit draws no *Pankkihaut* card until the first fetch (the card said only *Hakuja ei ole vielä tehty*). The month table of Yhteenveto has the days newest first and the end-of-month estimate under them as *Arvio loppukuusta* (30. stood above 1.). The five-year axis of Saldot labels every 4th month (the labels were fitted by width from the end and stood 3 to 4 months apart, the last one off the rhythm; `evenMonthTicks` in `charts/kit/ticks.ts`). `e2e/settings.spec.ts`, `e2e/settlement.spec.ts` and `apps/web/test/chart-kit.test.ts` hold them.
-- Not yet released: debt total (BA-159, step 48 of the BA-156 review): the explanation of Velat names what the sum leaves out, *Summassa ei ole lainaa, jonka saldo puuttuu: <nimi>.* (*The total leaves out a loan with no balance: <name>.*), for a loan with no balance and a lender paid every month whose loan was never saved, as Saldot counts them. On the demo it names the one lender out of 2 856 €. With no known debt the line *Sovelluksessa ei ole velkoja* gives way to it. `reports-conclusions.test.ts` holds it.
-- Not yet released: tidy tables (BA-163, step 52 of the BA-156 review): Kategoriat shows a dimmed dash where a row has no fixed or no variable share (14 of 21 rows on the demo had *0,00 €*; the sum and the CSV still read the cents). Kauppiaat has the rank in the row, in one line with the chevron and the name (rows 33 px, 69 before), and the second line of a payee sits under its name. Cents stay in the Kategoriat table: `docs/UI_STYLE.md` says a table meets its total to the cent, and the *Näytä tapahtumat* dialog behind each figure adds up in cents (`why.dom.test.ts` holds the door and the dialog equal). Whole euros there, as the step asked, is left to the owner: it needs that rule changed first. The Tapahtumat filter row was already search, two row chips and *Aikaväli*, *Kategoria* and *Lisää* (the rarer filters in the one), so it is unchanged. Tests: `reports-marks.test.ts` (dash), `failed-page.test.ts` (rank rules).
-- Not yet released: Vertaa (BA-158, step 47 of the BA-156 review): a report page with fewer than two comparisons to choose from draws no *Vertaa* row. On the demo Tulot, Menot, Kiinteät menot and Velat had all four chips off (a switch that did nothing) and now show none; Kuukausi keeps the row. `e2e/reports-frame.spec.ts` holds both.
-- Not yet released: Tapahtumat header (BA-161, step 50 of the BA-156 review): the sums above the list are named *Rahaa ulos*, *Rahaa sisään* and *Erotus* (*Menot*, *Tulot* before), with the histogram titles, since they add up every movement of the filtered rows (loan payments and savings too, 43 619 € over 13 months on the demo) and not the *Menot* of the other pages (38 407 €). The note under them says so, and the period stays beside the count. `e2e/transactions-phone.spec.ts` holds the labels.
-- Not yet released: Kuukausi tables (BA-160, step 49 of the BA-156 review): the three tables of Kuukausi show their headings (*Päivät, jotka selittävät eron*, *Luokat, jotka selittävät eron*, *Laskut, joita kuun loppuun on vielä tulossa*), and a line under the bills says what makes up the rest of *Vielä tulossa kuun loppuun* (the listed bills and the other spending the base months show; `otherComingCents`). Laskut names the card line *Kortilta veloitettavat, ei summassa*, since a credit card's charges leave no account and stand outside the sum above. `e2e/reports-frame.spec.ts` holds the headings at 390 and 1440 px.
-- Not yet released: README video (BA-153, step 45): the top of the README shows a 960 x 600 animation of the demo household in English (`docs/images/omatalous.png`, an APNG of five scenes, about 120 kB; the Month chart, Assets and debts, Transactions, Reports and Tarkistettavat, each with a caption). Readers who ask for reduced motion get `docs/images/omatalous-still.png` through `<picture>`, and the picture has alt text. `pnpm readme:video` makes both from the built app with Playwright and no mocks (`tools/readme-video.mjs` writes the APNG itself, since the machine has no video tool) and fails over 1 MB. Left: the overview's *Siirsit vuoden aikana ... tilille, jota et ole yhdistänyt* notice is Finnish in the English UI (`analysis/data-quality.ts`), so the video avoids it.
-- Not yet released: Kauppiaat (BA-148, step 42 of the BA-129 review): a closed row of the payee table (Tapahtumat > Kauppiaat) reads its category as text, with the *Sääntö* badge, so the demo's table draws 0 category pickers (47 before, one per payee). The row opens (*Avaa <kauppias>*) to its picker and *Poista sääntö*, and one picker is drawn at a time. The rule field of Säännöt suggests *esimerkiksi Lidl* (was *Lidl|Prisma*), a word a household writes without knowing patterns. Measured at 390 and 1440 px on the demo, no sideways scroll; `e2e/app.spec.ts` counts the pickers closed (0) and opened (1).
-- Not yet released: Optimoi dismissal (BA-162, step 51 of the BA-156 review): a tip has one key, *Päätä* (*Katso* before), and the way to put it away carries the one phrase of the insights, *Ei koske meitä* (*Ohita vinkki* before), with its four reasons inside it. An insight under *Muut havainnot* keeps its one click, since a mark stores no reason. The chevron of a figure opens its calculation, not a dismissal. The page already has an h1 for readers of a screen (`Shell.tsx`).
-- Not yet released: motion (BA-151, step 43 of the BA-129 review): every duration reads a `--t-*` token (`--t-stagger` and `--t-pulse` are new; `150ms`, `0.15s` and `400ms` are gone), repo rule 40 refuses a literal time in a transition or an animation (`duration` in `css-look.ts`), a popover, a tooltip and a slide-in fade and no longer rise or slide, and `motion.css` names what still moves with the change it shows: the pressed button, the turning chevron, the wiped chart line, the pulsing skeleton and the calendar fade. `prefers-reduced-motion` still sets every token to 0.
-- Not yet released: price rises (BA-139, step 33 of the BA-129 review): the demo's Adobe rise (`(74,99 € − 62,99 €) × 12 = +144 €`) is worked out on one page, Kiinteät menot > Hinnanmuutokset (2 pages had its calculation, that and Säästövinkit's seven lines of working, 1 now). Säästövinkit reads *Adobe: hinta nousi 14.4.2026.* with the new price and the old one left to Kiinteät (working 3 lines, 7 before) and *Laskelma Kiinteissä menoissa.* as a link; the opened row of Laskut ends *Laskelma*, a link too; Yhteenveto's note and the tip line of Kiinteät kept their one line. The link of a price-rise insight was `#/reports#hinnat`, which names no section and opened the default page; it is `#/reports?q=kiinteat#kiinteat-hinnat` now, and `targetHref` opens the question an anchor starts with. `e2e/price-rise.spec.ts` counts the pages with the calculation on the demo at 390 and 1440 px (1: Kiinteät); screenshots before and after.
-- Not yet released: Saldot tables (BA-147, step 41 of the BA-129 review): the month tables of Saldot (*Saldot kuukausittain*, *Seuraavat 12 kuukautta*) have no search box (12 rows, one per month; each keeps its CSV link), and the legend of the forecast chart (*Arvio*, *Alin ja ylin arvio*) sits under the heading of its own chart, *Varat velkojen jälkeen vuosien yli*, and no longer above it. The forecast part is 1 534 px tall at 1440 px (1 574 before) and 2 798 px at 390 px (2 846 before). `e2e/saldot-tables.spec.ts` holds no search box on either table, the legend inside its chart under the heading, and no sideways scroll at both widths. Screenshots at 390 and 1440 px.
-- Not yet released: Lisää (BA-138, step 32 of the BA-129 review): the phone's tab bar has *Säästövinkit* as its fifth tab in place of *Lisää*, and the screen *Lisää* is gone with its route, view, page, stylesheet and texts (`nav.more`). The pages a module adds are in the user menu on a phone (a wider screen has them in the header), Asetukset stays there, and `#/more` opens Yhteenveto (`redirectRoute`, Back skips it). `e2e/navigation.spec.ts` holds the five tabs at 390 and 320 px (each at least 44 px, one row, no sideways scroll), the open tab marked and `#/more`. `docs/UI_STYLE.md` says so. `LazyToolbar.ts` calls `use()` on every render once a render has suspended, as React asks, and the promise it waits for is marked settled (`settled.ts`; `use-markup.ts` no longer suspends, BA-152): with the changed chunks `routes.spec.ts` logged a use() error from the table. Screenshots at 390 and 1440 px.
-- Not yet released: period switch (BA-140, step 34 of the BA-129 review): a report page whose figures do not depend on the period draws no switch: Velat and Kuukausi (`PERIOD_FREE_QUESTIONS` in `period.ts`). Velat is 952 px tall at 1440 px (998 before) and 1 244 px at 390 px (1 318 before). *Nostettu luotto* moved from Velat to Menot, since it sums the credit drawn in the period. `apps/web/test/report-period.test.ts` asks every page's reports for 3 and 12 months on the demo and holds the list both ways (a page that changes has the switch, one that does not has none; Yhteiset menot has no answer on the demo, so it keeps the switch and the test refuses it in the list); the data notes and the balances Velat reads for today only (`ofToday`) are left out. Left open: a period that ends before today (*Viime vuosi*) hides the *Tilit miinus velat* tile of Velat.
-- Not yet released: server page (BA-146, step 40 of the BA-129 review): *Asetukset > Palvelin ja ylläpito* shows the version once, in the *Versio* card (the status line had it too; its update notice is in the card, and the footer's version is on every page). The fields of the form are one width, 384 px at 1440 px (the address 384 px and *Hakuja päivässä* 640 px before). Each fold has its summary line under its name: *Ilmoitukset selaimen ulkopuolelle* (*Ei käytössä.*) and *Tyhjennä kaikki tiedot* (*Kysyy salasanan ennen poistoa.*) had none, and *Etäkäyttö* had none while the home network was blocked; 0 of 5 folds without one now (2 of 5 before). `e2e/server-page.spec.ts` holds the three at 390 and 1440 px; screenshots before and after.
-- Not yet released: header (BA-131, step 26): a control of the top bar and of the phone's tab bar draws its focus ring inside the bar (a negative `outline-offset` in `shell.css`), so the bar no longer cuts it into two vertical lines. `e2e/a11y.spec.ts` compares the ring's box with the bar's: 128 cut rings on the routes at 390 and 1440 px before, none after. A 40-character member name ("Liisa Meikäläinen-Virtanen von Pitkänimi") stays on one line, cut with an ellipsis and in full as its title, at 390, 1100 and 1440 px (the top bar is 48 px high, as before).
-- Not yet released: README promises (BA-143, step 37 of the BA-129 review): *What it does* said Raportit has 17 reports; the demo shows 6 question pages (a 7th, Yhteiset, when two members share an account) and says so now. It said the result is shown in Finnish (now Finnish or English) and named no statement file (now a bank's CSV export, camt.053 and a card statement as CSV, text or PDF, read in the browser). The year comparison shows only with 15 months of rows (the 26-month demo has it, the 14-month one does not) and the README says so. `docs/INSTALL.md` no longer says a bank connection is the only way rows come in. `e2e/readme-promises.spec.ts` holds the claims on the demo. No screenshots: no page changed.
-- Not yet released: first password (BA-145, step 39 of the BA-129 review): a member's first sign-in no longer asks the temporary password a second time. The forced page has 2 password fields (3 before) and sends `POST /api/auth/first-password` with the new password only; the server takes it only in the session of that sign-in, within 10 minutes of it (older: the session ends and a new sign-in is needed), and the old route `POST /api/auth/password` refuses a member on a temporary password. The change is a `password_changed` event with the detail *ensimmäinen salasana*. `apps/server/test/auth.test.ts` holds the session and the 10 minutes (9 accepted, 11 refused), the security event, and `auth.dom.test.ts` and `e2e/first-password.spec.ts` the two fields at 390 and 1440 px. Screenshots before and after.
-- Not yet released: Laskut timeline (BA-144, step 38 of the BA-129 review): the axis of *Tulevat maksut* ends on payday, 25 days on the demo (31 before), and payday is a green tick on the last day with its label in bold. A key under the line names the filled circle (*Päivä ja summa tiedossa*), the ring (*Arvio*) and *Palkkapäivä*; the sentence *Eräpäivät ja summat ovat arvioita* is gone from Laskut. A payment after payday has no dot, as it is not in the sum. `e2e/next-days.spec.ts` holds it at 390 and 1440 px; screenshots before and after.
-- Not yet released: rules and footer (BA-149, step 44 of the BA-129 review): one line separates the tabs of Asetukset from the first card (two sat 20 to 26 px apart; the tabs no longer draw a bottom border, the card's rule is the one line), and the footer's items sit in one group from the left with a 24 px gap, 540 px wide at 1440 px (1 208 px, a 158 px gap, before). `e2e/rules-footer.spec.ts` holds both on eleven pages at 390 and 1440 px. Screenshots before and after.
-- Not yet released: bank app card (BA-141, step 35 of the BA-129 review): *Pankit ja tilit* has one card for the bank app, *Pankkisovellus*, where the administrator chooses *Talouden sovellus* (the household's Enable Banking application, as before) or *Oma sovellus* (one's own key); the two cards *Enable Banking -sovellus* and *Oma Enable Banking -sovellus* are gone. A member has the same card: the household's shared application and their own key as the choices, or the own key only when there is no shared application. The administrator's page is 985 px tall at 1440 px (1 054 before) and 1 185 px at 390 px (1 250 before); the member's page is unchanged, 925 and 1 081 px. `e2e/bank-app-card.spec.ts` holds the card for an administrator and a member at both widths (one card, the choice, no sideways scroll). Nothing is sent to Enable Banking. Screenshots at 390 and 1440 px.
-- Not yet released: one rounding (BA-136, step 29 of the BA-129 review): September's fixed share is 43 % in the text under Kiinteiden menojen osuus, in the end label of the chart and in the table (44 % in the text and the label before, where the four layers were rounded together; `layerShares` now fixes the fixed layer at the table's percent and rounds the others together into what is left of the hundred, so the labels still add up). `report-charts.test.ts` holds the label and `fixedPercent` equal to the table's percent for every month, `sections.test.ts` that the text reads `fixedPercent` and not the label, and the stored answers hold the demo. The rows of Verovuoden rivit print cents: the refund reads 412,50 € there (413 € before) and 412 € under the income sources, where it is rounded in euros together with its group, so those two differ by the cents.
-- Not yet released: series names (BA-134, step 31 of the BA-129 review): a subscription that is one of several of its payee on an account (the demo's two Apple ones) reads *Apple 12,99 €* and *Apple 0,99 €* on Laskut, on the rows and the price changes of Kiinteät menot and on the services of Hintakehitys (Laskut only had it; Kiinteät read *Apple* twice, 2 of 15 rows). One rule, `seriesName` of the web (the price is in the series id, `productCents` of core), decides it, and Optimoi reads its series by it too. `e2e/series-names.spec.ts` holds both names on both pages at 390 and 1440 px and a bare *Apple* on neither; screenshots before and after.
-- Not yet released: buffer name (BA-137, step 30 of the BA-115 review): *Puskuri* names only the figure `buffer` of `figures.ts` and the sum it divides (13 414 € on the demo, 3,9 months of expected spending). The chart of Saldot that draws the account balances (14 978 €, *Tilien ja korttien saldo*) is *Saldojen kehitys* (was *Puskurin kehitys*), in English *Balances over time*. `pnpm strings` finds the word *puskuri* on the buffer's texts only. Screenshots at 390 and 1440 px.
-- Not yet released: page styles (BA-130, step 25 of the BA-129 review): a page's stylesheet stays loaded after the page is left, so a class styled in two of them changed the other page. The mark of a tip in `optimise.css` was `.verdict` (inline-flex, nowrap) like the verdict of a report in `reports.css`; it is `.outcome-mark` now, with `.outcome-sign`, `.outcome-good` and `.outcome-bad`. After Säästövinkit the page of Kuukausi was 700 px wide at 390 px (310 px over the screen on the e2e run; 1 657 px in the review), and is 390 px now. The four classes styled in both `calendar-heat.css` and `charts.css` (`calendar-legend`, `calendar-notes`, `chart-answer`, `chart-note`) are in `charts.css` only. Repo rule 46 fails on an own class selector (`.name {`) styled in two stylesheets other than `base.css`, and `e2e/no-sideways.spec.ts` opens Säästövinkit and then each of the six report pages at 390 px (310 px too wide before, none now). Screenshots at 390 and 1440 px.
-- Not yet released: settle-up (BA-133, step 28 of the BA-129 review): a joint account whose split is not told shows *Et ole kertonut jakoa*, the sum without shares (*Menot, joille ei ole osuuksia*) and *Kerro, miten tili jakautuu*, and no member with *Maksanut 0,00 €* and *Osuus 0,00 €* or an empty *Kuka on velkaa kenelle*. The block of the account is 129 px tall at 390 px (343 px before) and lists no zero row (4 before). `e2e/settlement.spec.ts` holds it at 390 and 1440 px; screenshots before and after.
-- Not yet released: member without a bank app (BA-132, step 27 of the BA-129 review): with no bank app a member's start card reads *Ylläpitäjä asettaa pankkiyhteyden. Siihen asti voit tuoda tapahtumat tiliotteesta tai pyytää toista jäsentä jakamaan tilinsä sinulle.* with one button, *Tuo tiliote* (before: *Yhdistä pankki*, which opened a bank list with Nordea greyed out and then said the administrator must turn connections on). *Pankit ja tilit* says the same in place of the bank list and *Yhdistä pankki*, and links to the statement card (anchor `tiliote`). *Tilit* no longer links to the example data when another member has accounts (`householdHasAccounts`); the example data is offered nowhere then. `e2e/empty-start.spec.ts` holds the start card and Pankit ja tilit at 390 and 1440 px (no sideways scroll). Nothing is sent to Enable Banking. Screenshots at 390 and 1440 px.
-- Not yet released: income tables (BA-120 and BA-128, step 17 of the BA-115 review): each month of Tulot is one row of the table of Tulot ja menot, which opens to the figures of its month. The page is 2 997 px tall at 1440 px (6 015 before) and 3 945 px at 390 px (8 404 before), 50 % and 47 % of what it was, measured as `scrollHeight` of the demo's Tulot at those widths. Gone: the month tables under the charts, the income and savings rate lines, the income table of Verovuoden rivit (the CSV keeps it), the table of *Mistä luku koostuu* (its parts are in the sentence of *Tulojen käyttö*), and the lines of *Säästöaste* that repeat the answer and the table (the month before shows only when the table has no row of it). `e2e/reports-fit.spec.ts` holds both heights. Left open: the *Kulutus* of that sentence (35 086 €) and of *Tilien muutos* (34 865 €) differ on the demo.
-- Not yet released: Tarkistettavat on a phone (BA-135, step 36 of the BA-129 review): the empty grey bar above the card is gone (it was empty until an item was answered; the header's mark counts what is open). The rows of an item start their payee at one x (104 px at 390 px; 82 and 91 before, on the 3 rows of the demo's car financing) and the 24-character payee *Nordea Rahoitus Suomi Oy* is shown whole (cut before), the bank's text under it. The skip button reads *Ohita* (*Ohita, kysy myöhemmin* before). `e2e/review-phone.spec.ts` measures the x of the payees, the cut and the bar at 390 and 1440 px; screenshots before and after.
-- Not yet released: bills on a phone (BA-124, step 22 of the BA-115 review): at 390 px the days of Laskut start at one x (the demo's 17 rows started at 15 different x, 167 to 337 px, depending on a late badge or *Kortilla*; now 1), and the opener of a row sits 12 px from the screen edge (4 px before). `e2e/bills-phone.spec.ts` measures both at 390 and 1440 px; screenshots before and after.
-- Not yet released: install hour (BA-127, step 24): `bash tools/install-hour.sh` runs the one-line install (`relay/install.sh --yes`) as a normal user in a clean Ubuntu 24.04 container (curl and git missing, sudo, the Docker client), builds the image from the source, links the fake bank's household of a year (12 months, 546 rows, three accounts) in the browser and logs the second of each step. With Docker's build cache emptied (`--cold`) the whole run took 121 s: download, curl, git and clone 17 s, jq 4 s, image build and start 87 s, fake bank and setup code 8 s, then the browser steps (administrator, link, first fetch, picture, 99.63 % of the value in the expected category) 5 s; with the cache 42 to 65 s over four runs. The installer asks nothing with `--yes`; the household answers in the browser the setup code, user name, name and password twice, the wizard's *Ohita* and *Siirry sovellukseen*, the bank application and the bank. The bank's own pages are not in the time (the fake bank answers at once). Stand-ins: the GitHub release answer and repository are local (the repository is private), and Docker's own install and the maintenance helper's scheduling (a container has no systemd or cron) are outside the run. Nothing is sent to Enable Banking. `pnpm first-evening` now runs on the same year of rows.
-- Not yet released: bank setup (BA-121, step 18 of the BA-115 review): the first start has one skip button (*Tee myöhemmin*; the second, *Ohita*, is *Jatka*), its second step is *Tarkistus* (was *Yhteenveto*) and the note on where the settings are comes after the setup. The status list, in the wizard and on Pankit ja tilit, marks a done item `✓` and an open one `–` (empty squares before). The sharing check boxes of an account sit beside their text at 390 and 1440 px (above it before); `settings-accounts-use.spec.ts` measures it.
-- Not yet released: first page weight (BA-126, step 23): the script Yhteenveto loads is 769 175 B before gzip (255 kB gzip), down from 1 253 854 B (407 kB gzip), 61 % of it (same method, `firstPageScript` in `tools/bundle-budget.mjs`: entry, page chunk, page texts and their static imports). The renderer of cells made of components (react-dom/server, 202 kB, in the table before) and the toolbar of a table (react-aria) are chunks of their own, fetched when a table needs them, and Yhteenveto no longer pulls in the tables of Raportit. `pnpm budgets` holds the script of Yhteenveto within 5 % of 769 175 B.
-- Not yet released: forecast table (BA-116, step 13 of the BA-115 review): the table of *Seuraavat 12 kuukautta* on Saldot has one main column (the month's net worth, or its savings when there is no net worth), so it is rows at 1440 px (blocks, with two sums on one line, before) and blocks at 390 px. Its columns are *Jää* and *Varat* with *Alin*, *Arvio*, *Ylin* each. `e2e/table-views.spec.ts` holds both widths and compares the boxes of a row's figures; screenshots at 390 and 1440 px.
-- Not yet released: member start (BA-119, step 16 of the BA-115 review): a new member whose household has accounts but who has none reads *Yhdistä oma pankkisi kohdassa Asetukset > Pankit ja tilit tai pyydä toista jäsentä jakamaan tilinsä sinulle.* with one button, *Yhdistä pankki* (before: *Pankkiyhteys ei ole vielä käytössä. Kysy ylläpitäjältä* and a second button, *Lataa esimerkkitiedot*, on every page). The example data is offered only when no other member has an account (`/api/meta` `householdHasAccounts`, one yes or no). Säästövinkit with no tip shows no sum (*0 €* before). `e2e/empty-start.spec.ts` and `e2e/app.spec.ts` hold both; screenshots at 390 and 1440 px.
-- Not yet released: phone rows (BA-122, step 19 of the BA-115 review): at 390 px a row of Tapahtumat is at most 64 px tall (109 px before) and no merchant name of 20 characters or fewer is cut (*K-Sup…* before). The row shows the bank's mark and the category and no account digits or bank text; the opened row says the account with its digits and the bank's text. `e2e/transactions-phone.spec.ts` walks the demo list to its end and measures the rows of each screen.
-- Not yet released: report cards (BA-123, step 21 of the BA-115 review): a closed card on Raportit is 53 px tall (109 px at 1440 px, 105 px at 390 px before), its name centred on the band with no empty space under it. *Vertaa* is one row at 390 px (two before). Each sum on a card and each figure in the list of topics says its span (`, 12 kk`, `kuussa`, `jakson lopussa`), and `#/reports?q=yhteiset` without a joint account says it shows the other topics.
-- Not yet released: monthly spending, one figure per name (BA-118, step 15 of the BA-115 review): Yhteenveto's buffer row shows the sum it divides, `13 414 € jaettuna odotetuilla menoilla 3 403 €/kk`, beside `Menot keskimäärin, 12 kk` (3 245 €), and Velat ja puskuri names the same 3 403 € *odotetut*. Rahankäyttö's *Keskimäärin kuussa* (3 217 €) is the mean of the months on show and keeps its name. On the demo, 3,9 months = 13 414 € / 3 403 € (was read as 3 245 €, which gives 4,1). `figures.test.ts` holds that the buffer months of the page equal the net cash divided by the sum shown beside them.
-- Not yet released: report names (BA-125, step 20 of the BA-115 review): the report pages are named *Kuukausi*, *Rahankäyttö*, *Tulot*, *Kiinteät menot*, *Velat*, *Saldot* and *Yhteiset menot* (before *Kuukauden tilanne*, *Tulot ja säästöt*, *Kiinteät menot ja tilaukset*, *Velat ja puskuri*, *Saldot ja varat velkojen jälkeen*), in English *Month*, *Income*, *Fixed costs*, *Debts* and *Balances*: one or two nouns each, in the list, the page title and the conclusion, and the card of this month on Yhteenveto (*Kuukausi*, was *Kuukauden tilanne*). The tip of Kiinteät reads *−168 € vuodessa* (was *Vuodessa −168 € vuodessa*), Rahankäyttö says *Kategoriat summautuvat menoihin* and names its largest category as every other page does, *Vuokra ja vastike* (12 600 € on the demo; *Asuminen*, the theme, 13 273 € before), and its *Mistä luku koostuu* rows are categories. `pnpm strings` finds none of the old texts. Screenshots at 390 and 1440 px.
-- Not yet released: Laskut sum: the sum above the timeline names its period (*Erääntyvät maksut, palkkapäivään asti, ke 25.11.* on the demo, 24 days; the next 30 days when no pay ends the window) and is `totals.dueCents`, the figure Yhteenveto shows as *Maksut ennen palkkapäivää*. The old 30-day figure (`thirtyDaysCents`) is gone. Under it the parts add up to the sum: bills and subscriptions 1 563,79 € and the credit card bill 1 306,91 € (a row of its own now) are 2 870,70 € on the demo, the same as Yhteenveto; what is charged to a card (277,64 €) stands apart. `apps/server/test/ahead-sum.test.ts` holds the sum equal to the window's rows and to Yhteenveto's figure to the cent, and `e2e/next-days.spec.ts` the rows on the page.
-- Not yet released: UI clarity pass and plain Finnish: three live reviews (BA-77, BA-91, BA-99) and their fixes. Raportit fits 390 px, search and CSV only on tables of more than ten rows, Laskut 12, Rahankäyttö 14 and Pankit ja tilit 9 buttons and choices on the demo data (33, 111 and 20 before), one route for each thing, the same figure as one sum on a page, and the UI text in the active voice with plain words (rule 35 refuses the old ones). Full e2e green (376 passed).
-- Not yet released: private https name as the return address: `docs/ADVANCED.md` (*A https name for the home network*) tells how to serve the app on a home-network name (`.home.arpa`, `.lan`) behind the household's own reverse proxy and certificate authority, trusted on each device that logs in, and which redirect URL to register (`https://<name>/api/connections/callback`). The refusal of a relay-mode install (`link-state.ts`, `refusals-en.ts`) points to it, and *Asetukset > Pankit ja tilit* says the logging-in device must trust the certificate. `apps/server/test/private-return.test.ts` shows `https://koti.home.arpa` as the own mode, the registered URL `https://koti.home.arpa/api/connections/callback`, a plain state, and the callback linking an account from `code` and `state`; `validate.test.ts` holds `parseBaseUrl` on these names. Open: a real Nordea login from a device that trusts the certificate, noted in `docs/ENABLE_BANKING.md` when done.
-- Not yet released: TypeScript 7: the type check (`tsc`) is TypeScript 7.0.2, the native compiler. The repo rules, `tools/where.mjs` and `tools/ui-strings.mjs` read code through the compiler API, which TypeScript 7 does not ship, so they import it from the alias `typescript6` (`npm:typescript@^6`). The type step of `pnpm check` over the four projects took 35 s warm (105 s cold) on TypeScript 5.9.3 and 5 s on 7.0.2. `packages/core` now names `types: ["node"]` because TypeScript 7 no longer loads every `@types` package by itself.
-- Not yet released: camt.053 statements: Asetukset > Pankit ja tilit > Pankin CSV-tiedosto also reads a bank's camt.053 statement (XML) in the browser and sends only the rows (connector `bankfile`, ADR 0025). The closing balance is checked against the opening balance and the rows: a file that does not add up to the cent is refused and the page shows the difference. `packages/core/test/bank-camt.test.ts` gives the exact rows of a made-up statement and the refusal with its difference, `apps/server/test/bank-file.test.ts` stores the same statement once when read twice, and `e2e/bank-file.spec.ts` records every request of a run and finds none that carries the file.
-- Not yet released: CSV statements: Asetukset > Pankit ja tilit > Pankin CSV-tiedosto reads a bank's own CSV export (semicolon, comma or tab; a signed sum column, or a debit and a credit column) in the browser and sends only the rows, as a source of their own (connector `bankfile`, ADR 0025). The household matches the columns once, proposed from the header's words, and the match is remembered in the browser under the file's header. `packages/core/test/bank-csv.test.ts` gives the exact rows of made-up exports from two banks, `apps/server/test/bank-file.test.ts` stores the same export once when read twice, and `e2e/bank-file.spec.ts` records every request of a run and finds none that carries the file, its header or its name.
-- Not yet released: card statements: Asetukset > Pankit ja tilit > Korttien tiliotteet reads a card statement file (a semicolon table, a tab table or the lines of a statement as text or PDF) in the browser and sends only the rows, as a source of their own (connector `cardfile`, ADR 0025 replaces the rule that the app reads no files with this exception). `packages/core/test/card-file.test.ts` gives the exact rows of made-up statements in three layouts, `apps/server/test/card-file.test.ts` stores the same statement once when read twice and matches a card bill to the card's payment and purchases, and `e2e/card-file.spec.ts` records every request of a run and finds none that carries the file.
-- Not yet released: longer forecasts: the coming 12 months as a seeded simulation with a range and net worth over the years (*Seuraavat 12 kuukautta*, backtest in `forecast-backtest.test.ts`: the real month lay in the range in 8 of 9 months), a tax-year sheet (*Verovuosi*) that equals the dashboard's figures to the cent, and your own price change against the consumer price index (*Hintakehitys* on Kiinteät menot): the household's fixed basket of subscription and fixed expense series priced at month ends, divided by the Statistics Finland index (StatFin table 11xs) over the same 12 months, as a test shows (`price-change.test.ts`). The index is fetched only when an admin turns it on under Asetukset > Palvelin, asks for the public series and sends nothing of the household; without it the page says there is no comparison and how to turn it on.
-- Not yet released: settings in tabs, the joint account ledger in a view of its own: Asetukset is six tabs that are real links (`#/settings/<tab>`; the open one is marked `aria-current` and, on a phone, scrolled into view in the row), Yhteiset menot (who owes whom) is the question page `#/reports?q=yhteiset`, and every address from before the split redirects to the tab that has the card. Nothing was removed or hidden. `e2e/settings.spec.ts` and `e2e/settlement.spec.ts` hold the tabs and the ledger at 390 and 1440 px, `e2e/routes.spec.ts` the old addresses and `e2e/a11y.spec.ts` axe on every tab.
-- Not yet released: backup to another machine: Asetukset > Palvelin > Varmuuskopio toiselle koneelle (offered on the first page and in the install's closing words) sends a copy of the database and the app secret every day over SFTP (OpenSSH `sftp`, the one small, well known way; rsync needs a daemon or a shell on the target) to a machine of the household's choice. The host helper's `offsite` action (no parameters; the target is read from the app as one fixed line and checked against exact forms) takes the copy with `backup.sh`, encrypts it with age to a public key before anything leaves, uploads under a hidden name, checks the size and keeps the newest 30 there. The app makes the age pair and shows the secret half once, with where to keep it and why; the app, the copy and the target never hold it. The SSH key and the target are sealed under `instance:offsite` and rotated with the app secret; every change and every run asks for the admin's password and is a security event. `tools/ci/offsite-drill.sh` sends a copy to an sshd container, checks that the files hold no plain bytes, no app secret and no age secret and that a wrong key opens nothing, takes the install away and restores a clean install from the copy and the age key alone (old app secret, first user signs in, the sealed target opens); `apps/server/test/offsite.test.ts` and `tools/test/ops-offsite.test.sh` hold the rest.
-- Not yet released: second factor for a public address: *Etäkäyttö* refuses to publish the address while an admin has no second factor (an authenticator app or a passkey) and records the refusal, and an admin keeps one while the address is public. Passkeys (WebAuthn, `@simplewebauthn/server`) are asked after the password, need an https address or `localhost`, and are added and removed under Asetukset > Turvallisuus > Passkey; security events record each add, use, removal and failure. Held by `passkeys.test.ts`, `remote-access-factor.test.ts` and `e2e/passkey.spec.ts` (Chromium's virtual authenticator). Tested with an OS-level key on 30 October 2026 (check 7 of Version 1.0); a phone, a hardware key and a key with a PIN are not tested.
-- Not yet released: strict content policy: the style policy of the response is `'self'` alone. The web app has no style attribute: fixed looks are classes in the stylesheets, and a computed value (a bar's width, a series colour) is set through the element's CSSOM by `css()` of `apps/web/src/css.ts`, which the policy does not block. Repo rule 45 fails on a style attribute in `apps/web/src`, and `watch()` of the e2e helpers fails a spec on any `securitypolicyviolation` event of the page. The bank logo answer keeps its own sandboxed policy.
-- Not yet released: upgrade from every supported version: the rehearsal (`upgrade-run.sh` after `check-migrations.sh`) runs from every supported version. The ordinary run takes the floor, every 10th version and the newest 3 (11, 13 min), the full run (`--all`) takes all 75, in 3 lanes with ports and project names of their own. All 75 passed on 2026-10-30, each with the data intact and the migration check clean: 74 min in 3 lanes, 150 min one after another.
-- Not yet released: English beside Finnish: every member reads the app in Finnish or English (`messages*.ts`, one English text for every message code, held by `packages/core/test/messages.test.ts`). Every page, including the sign-in and setup screens, is "all" in the Finnish-word scan of `e2e/english-scan.spec.ts`, which reads the administrator's tabs too. The language of a signed-out device is kept in the browser (`omatalous.language`, a picker on the sign-in and setup screens) and the member's own choice takes over after sign-in. The server's other messages follow the language: the maintenance helper's summaries and steps (`services/ops-english.ts`, read against the scripts by `ops-english.test.ts`), `doctor.sh --json-en`, the notices outside the browser (the language of the admin who saved them) and the refusals still thrown as Finnish sentences (`platform/refusals-en.ts`, read against the sources by `refusals-en.test.ts`). The Finnish texts are byte for byte as before (`pnpm strings` before and after, the golden files unchanged). Words the user types to confirm, and refusals that name a limit or a key problem, stay Finnish.
-- Not yet released: word lists as data: the bank dialect's payee, payment, tax, lender and gambling word lists, the company forms and the gambling merchant codes are in `packages/core/src/wordlists.json` (schema `wordlists.schema.json`), read through the typed `wordlists.ts` as a static import that runs on Node and in the browser; `wording.ts` and its siblings keep the predicates and call `alternation(name)`. `wordlists.test.ts` fails on an empty, duplicate, unreadable or unnamed list, and the classification golden files (`pnpm findings`) are byte for byte as before.
-- Not yet released: performance budgets: on five years of invented rows (100 000 or more, `apps/server/scripts/history-gen.ts`) `dashboard.perf.test.ts` holds the dashboard answer to 1 s warm (kept per period in `services/dashboard-memo.ts`) and to 1.5 s for a period asked for the first time; `pnpm e2e:years` draws the first rows of Tapahtumat in under 1 s at a 4x slower processor; `pnpm budgets` holds the entry bundle within 10 % of the size in `apps/web/bundle-budget.json` (English and the Finnish texts of the pages are chunks of their own, fetched only when read); a fetch with duplicate and broken rows is accounted for row by row, and rows that are not stored (a twin of a stored row, an unreadable row) are listed in Tietojen laatu.
-- Not yet released: notices outside the browser, off by default: Asetukset > Palvelin > Ilmoitukset selaimen ulkopuolelle sends a short Finnish message to a webhook (https address) or an ntfy topic when a bank consent is within two weeks of ending, the disk is low, a database copy is missing or failed its check, or the host helper took an update back. The message holds no sum, account number, bank name or name. The address and token are sealed under their own context (`instance:notices`), rotated with the app secret and never returned or logged; each event is sent once; a change is a `notices_changed` security event. E-mail is left out: it needs an SMTP client and a sealed password, which is far more than the other two for the same job (a webhook or ntfy reaches mail through any bridge). `apps/server/test/outside-notices.test.ts` plays the receiver and finds each of the four once and nothing while the setting is off; `ntfy.sh` is on the outside-parties list as opt-in and `pnpm e2e` accepts it only in a run where a spec turned notices on.
-- Not yet released: payment rules watch: `docs/ENABLE_BANKING.md` holds a dated review of PSD2, the delegated regulation 2022/2360, the PSR, PSD3 and FiDA (status, dates, what each means for consent length, SCA, account interfaces and Enable Banking's role) with the primary sources linked, and repo rule 44 fails when its date is more than 6 months old. No rule is in force that needs a change, so no step was added.
-- Not yet released: coverage notices: each question page of Raportit says what its figure leaves out, with the sum (card bills whose purchases are not seen, rows in other currencies, days before the bank history), counted once in `coverageNotices` and read from the answer; `e2e/coverage-notices.spec.ts` links a made-up household with a missing card account, a dollar row and a short history in the fake bank and finds each notice with its sum on every page that uses the figure.
-- Not yet released: Argon2id for passwords: new and changed passwords are Argon2id (19 MiB, 2 passes, 1 lane, set in the settings schema), an old PBKDF2 hash signs in and is rewritten at that sign-in, a rollback restores the copy from before the update; `apps/server/test/password-argon2id.test.ts` holds the upgrade, the unchanged hash after a wrong password and the time of a check for a known and an unknown name within 20 %.
-- Not yet released: outside parties list: `docs/SECURITY.md` holds the one list of hosts the app and the browser may call (the bank connection, bank logos, the return page, the banks' sign-in hosts, and the trade register, Cloudflare and Access that the household turns on). `pnpm e2e` writes down every host the server (every socket it opens) and the browser (every request, also those a spec answers itself) call, allows the machine and the fake bank's consent host by name, and fails the run on any other host. No call outside the list turned up, so none was removed.
-- Not yet released: second household, second bank: the fake bank brings a second household at OP (other row shape: message and reference apart, card rows without a payee, reserved rows), and `e2e/second-household.spec.ts` runs it through sync, classification and the reports beside the first household, checks the two stay apart and finds the first household's whole answers equal before and after.
-- Not yet released: security audit: `docs/security-audit-2026-10.md` (30 October 2026, code, host scripts, compose file, image build and workflows, two review rounds) has no critical finding; the major and minor ones are fixed with tests (a passkey change asks for a code once a factor is on, the secret rotation guard, `env_file` in the helper's compose policy, tokens that write) or carry a written reason; `docs/SECURITY.md` names the date and scope. Open as follow-ups: base image digest, a hardened Caddy container, an image scan.
-- Not yet released: Node 24 LTS: image, `engines`, CI and the version test moved from Node 22; no owner install exists; the documented update from the previous release to Node 24 was run on a fresh install with demo data on 30 October 2026 and passed.
-- Not yet released: restore drill: `tools/ci/restore-drill.sh` takes a backup of an install with a consent in the fake bank, removes that install, restores the file and the saved app secret into a clean one with `scripts/restore.sh`, and finds the whole dashboard answer equal to the cent and a new consent in the fake bank working; a wrong secret and a held installer lock are refused.
-- Not yet released: update budget: `update.sh` prints the seconds of each step and a total line, `docs/RELEASING.md` holds the budget (150 s, set from 41 to 52 s measured), and `tools/ci/upgrade-run.sh` fails when the update from the baseline, or this checkout's update on the next release, goes over it, or when the steps are not told.
-- Not yet released: balances match the rows: in the demo and in each household of the fake bank, every connected account's balance equals its opening plus the rows the app stored, to the cent, on the first page as well, and `apps/server/test/balances-match-rows.test.ts` fails on a cent off.
-- Not yet released: accessibility check for 1.0: every route passes axe at 390 and 1440 px, controls are at least 24 px on a phone (tab bar 44 px), headings are in order and focus is visible, each held by `e2e/a11y.spec.ts`. The screen reader pass (BA-68) used Orca on Linux in Chromium, not NVDA or VoiceOver: the front page and the report Rahankäyttö read in order, and the chart's keyboard stop is now seen by the screen reader (`e2e/a11y.spec.ts`).
-- Not yet released: export and import give back the same figures: `data-roundtrip.test.ts` compares the whole dashboard answer, the day ahead, the reports and Optimoi of each member before and after, equal to the cent, with a mark, expected bills, loans, goals and Optimoi inputs in the file, and an old file is still taken.
-- Not yet released: Sign-in, validation and the app's own errors are codes with parameters in one Finnish catalogue (`packages/core/src/messages.ts`); the server still sends the sentence beside the code, the browser formats the code, and the language of every number and date comes from `locale.ts`.
-- Not yet released: Settings schema for limits: sign-in limits, request size, password parameters and fetch age limits come from one schema (key, type, default, min, max, restart needed) in layers of default, environment and database; a changed limit holds from the next request, a value outside the schema gets a 400, the change is a security event, and a rule fails on a hand-written `RateLimiter(5, ...)`.
-- Not yet released: The project's owner, repository, image name, signer and return page address are written once in `project.json`, which the release tools, the web app and the server read; a test holds the copies that cannot (workflows, Dockerfile label, the installer, the install scripts) to it, and builds the signature pattern byte for byte.
-- Not yet released: First evening: a scripted check (`pnpm first-evening`) starts from an empty install, links a made-up household and finds at least 95 % of the rows' value in the category its data expects, in under 30 minutes of scripted steps.
-- Not yet released: wording round two: the pages of reports, settings, first start, Laskut, loans and category goals read by the glossary; the difference is *Erotus* in every table, the account field is *Tilin nimi*.
-- Not yet released: sign-in, the first start and empty states in the new look; after a bank is linked the front page says what is still being fetched.
-- Not yet released: a spending goal per category (food, restaurants, transport), proposed from the expected month and accepted by the household; the budget comparison of Rahankäyttö and the front page pace read it, and a missing goal is said.
-- Not yet released: Palvelin ja ylläpito has one status line (version, backups, disk, remote access), the last result and time of every maintenance action, and remote access as one card with its state and next step.
-- Not yet released: A loan proposed in Tarkistettavat is filled from the bank's rows (lender, payment, interval, and the balance of a connected loan account) and asks only the balance where the bank gave none, the rate, the amount granted and the way of repaying.
-- Not yet released: a new password is checked while typing and a common one is refused with the reason; importing an export names the file and its date before any count.
-- Not yet released: Velat ja puskuri shows loans and card debt with their yearly cost, credit drawn explained, and a buffer less card debt and the bills before payday.
-- Not yet released: Saldot ja nettovarat names the accounts missing from the picture with their balances and shows the change of the total month by month.
-- Not yet released: Where the money goes: one table of categories against the chosen comparison and the last 12 months, fixed and variable apart, one-offs named, each cell opening its rows.
-- Not yet released: Tulot ja säästöt answers where the income went, with the bridge to the change of the accounts, the savings rate against last month and last year, and tax refunds as a group of their own.
-- Not yet released: Reports as question pages, each with a conclusion and its rows; opening the app shows the stored data and fetches only after the sync hours' gap; settings views nobody needed removed; Laskut tells what is coming in the next 30 days and how much.
-- Not yet released: Pankit ja tilit: the Enable Banking application moved to the page of banks and accounts as a checked list, and bank errors are told in plain words with no status code.
-- Not yet released: Fixed costs and subscriptions as a question page: costs by month and year, price changes with their yearly effect as a calculation, overlapping and ended services in euros.
-- Not yet released: Web coverage: `pnpm coverage` runs the web tests with line coverage by area against a floor in `apps/web/coverage-floor.json` that only rises; pages, components, sign-in, the loan intake and the app shell have tests that click and type against the real server in happy-dom.
-- Not yet released: Yhteiset menot tells who owes whom on a joint account as one sum with its rows.
-- 0.70.0: a monthly spending goal on Yhteenveto; an installable app that opens Yhteenveto without a network; every consent renewed in one round; a card's older rows back to five years; one table look everywhere; service tokens for scripts.
-- 0.69.0: Tarkistettavat asks every open question one at a time; Yhteenveto compares the month with the usual one; the source is public under AGPL-3.0.
-- 0.66.0: the front page and charts: money until payday, the pace of spending and one thing to do at the top of Yhteenveto.
-- 0.65.0: figures right: a row sent again is stored once, and one figure per concept on every page.
-- 0.64.0: every payee in Tulot ja menot opens its transactions; the year comparison judges each month on its own.
-- 0.63.0: Tulot ja menot opens row by row.
-- 0.62.0: one figure, one value: savings rate, debt share and credit drawn read the same everywhere.
-- 0.61.0: contracts told by their start and end in Laskut.
-- 0.60.0: payments filed by what the payee does; card bills of one issuer merged.
-- 0.59.0: the waterfall and its table agree to the cent.
-- 0.58.0: Yhteenveto shows the month as a waterfall; a figure opens its own rows.
-- 0.57.0 and 0.55.0: the rows behind each figure, one click away.
-- 0.56.0: settling up between partners on joint accounts and shared cards.
-- 0.54.0: two-step sign-in with an authenticator app.
-- 0.53.0: Täsmää pankin saldoon: the bank's booked balances matched to the rows.
-- 0.52.0: money from a steady payer gets its meaning from one answer; one definition of earned income.
-- 0.51.0: the bank connection set up and kept from Asetukset alone.
-- 0.50.0: a card bill's purchases filled in by hand.
-- 0.49.0 and 0.48.0: all your data out in one file and back in.
-- 0.47.0 and 0.45.0: rows and balances in other currencies kept apart from euro figures.
-- 0.46.0: balance history kept; an update tells its steps.
-- 0.44.0: a bill paid another way counts as paid.
-
-## Version 1.0
-1.0 comes when these checks pass, not on a date. Each check has a step with its done-when under Coming releases:
-- A new household gets a well-classified picture in one evening, measured by a scripted test.
-- Bank balances match the rows in the test data, and the check fails if nothing matches.
-- An update from the previous release stays within its time budget and tells each step.
-- An upgrade works from every supported version.
-- A restore on a fresh machine, bank connection included, passes an automated drill.
-- Export and import give back the same figures.
-- Sign-in has a second factor and passkeys.
-  - Result, 30 October 2026 (BA-64): passes with an OS-level key (BA-64). A phone, a hardware key and a key with a PIN are not tested, and that is not open. The key was virtual-fido (bulwarkid, MIT), a software FIDO2 key that the kernel sees as a USB HID device (USB/IP into `vhci_hcd`, `/dev/hidraw`). It was picked because it is a complete CTAP2 key in one Go binary and works over USB/IP without a kernel patch. Its last commit is from June 2024, so a throwaway build patched it: the PIN key agreement had no curve, and the key did not offer user verification, which Chrome needs for a resident key request. The patched key reports user verification without checking anything, so no PIN was used. The app ran as the production Docker image on `http://localhost`. The browser was headed Chromium (Chrome for Testing) through playwright-cli, and WebAuthn went to the key with no Playwright virtual authenticator. Passed: sign-up, passkey added with the key, sign-out, password and passkey sign-in with no code, an authenticator app set up and used to sign in next to the passkey (the first code was refused as a replay, the next one passed), the passkey removed (the sign-in then offers only the code and the server answers `passkey.none` although the key still holds the credential). The key, the loaded kernel modules, the extra packages, the container and the images were removed after the test. Not tested: a physical phone, a hardware security key, a platform authenticator (Touch ID, Face ID, Windows Hello), a passkey synced between devices, and a key with a PIN set (Chrome's PIN dialog was reached, the key's PIN step did not finish).
-- A security audit has no serious finding open.
-- Tests cover a second household at a second bank.
-- No serious accessibility finding at phone and desktop widths.
-  - Result, 31 October 2026 (BA-68): passes with Orca on Linux in Chromium; NVDA and VoiceOver were not run, so this is not an NVDA or VoiceOver pass. Orca 50.3 with speech-dispatcher's dummy module (speech went to Orca's debug log, no audio) ran on a virtual X display with real key events from xdotool, in Chrome for Testing through playwright-cli, against the production Docker image with the demo household. Walked with the keyboard only: the front page (Yhteenveto) and the report Rahankäyttö?, and the sign-in form: heading list, landmarks, Tab through the controls, a line chart and its table, a table of rows with a search and a drill. Read in order with a name and a role: headings (one h1, h2 per section, no skipped level), the banner, navigation, main and the footer, every control of the top bar, the day chart's image name with its table under it, the tables with column and row headers, the sparklines as images with their tables, the heat map as a group of named cells. One serious finding, fixed: the keyboard stop of a chart (the arrow keys that step through the days) sat inside the chart's image, whose children are hidden from a screen reader, so Tab landed on a stop with no name, no role and no hint and only the live readout of the day was heard. The stop now sits beside the image in the nine line charts that have one, and the five interactive charts (heat map, slope charts, calendar, price line) are groups instead of images, so their named cells and lines are heard; the heat map's cells now have names. `e2e/a11y.spec.ts` fails on a control inside an image on every route. Left, minor: a row header with a drill button reads the name twice ("Tapahtumat: X X"), and in browse mode Orca takes the arrow keys, so the day readout of a chart needs focus mode (Insert+A); the table under the chart holds the same figures. Not tested: NVDA, VoiceOver, JAWS, TalkBack, a braille display, a screen reader on a phone, and the pages other than these two. The packages, the container and the image were removed after the test.
-- The app runs in English as well as Finnish.
-- Performance budgets hold; no row is dropped without being shown.
-  - Read on 1 November 2026 (BA-154): every check above has its step merged in Done, and no step is left in Now or Next. The release waits for the browser tests (`pnpm e2e`) to pass on `main` again.
+- T6 Stack review: repeat the interface stack comparison with new measurements (charts and components by 25 April 2027,
+  the runtime by 25 October 2027), and add a dated row to the decision record with sizes measured on the same build.
 
 ## Not planned
+
 - Payments from the app, credit scoring, investment advice, telemetry.
 - Asking the home router for addresses.
 - Free-text questions to the app.
