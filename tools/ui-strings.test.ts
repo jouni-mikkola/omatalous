@@ -163,8 +163,8 @@ describe("pnpm strings on this repository", () => {
     "Palkkapäivään asti", // components/NextDays.tsx
     "Emme tiedä palkkapäivääsi.",
     "Emme tiedä tilin saldoa.",
-    "Kilpailuta asuntolainan marginaali.", // core optimise
-    "Tarkista vuokrasopimuksesta, mihin korotus perustuu.",
+    "Kirjoita sana tai kauppiaan nimi.", // core categorize
+    "Edellisen jakson tiedot eivät kata samoja tilejä.", // core reports
     "Väärä käyttäjätunnus tai salasana.", // server
     "Osoite on vajaa. Liitä koko osoite.",
     "Liitä koko osoite selaimen osoiteriviltä.",

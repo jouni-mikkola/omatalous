@@ -12,6 +12,8 @@ function files(dir: string): string[] {
   });
 }
 
+/** Spelled as a code point: repo rule 4 refuses the character itself in any file. */
+const LONG_DASH = String.fromCharCode(0x2014);
 const FINNISH = /[äö]|\b(ei|ja|että|ole|Anna|Valitse|löydy)\b/;
 /** A template's holes become a word, so `${n}` fills a `{1}` part. */
 const filled = (s: string) => s.replace(/\$\{[^}]*\}/g, "x");
@@ -67,7 +69,7 @@ describe("refusals in Finnish", () => {
     expect(off).toEqual([]);
   });
   it("name no setting of the server, no code value and no long dash", () => {
-    const off = found.filter((t) => /\b[A-Z]+_[A-Z_]+\b|\b(null|undefined|NaN)\b|—/.test(t));
+    const off = found.filter((t) => /\b[A-Z]+_[A-Z_]+\b|\b(null|undefined|NaN)\b/.test(t) || t.includes(LONG_DASH));
     expect(off).toEqual([]);
   });
   it("tell the reader what to do next where nothing else can", () => {
