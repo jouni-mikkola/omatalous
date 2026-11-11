@@ -159,6 +159,8 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
       const [a, b] = [rows[i - 1]!, rows[i]!];
       const gap = b.day - a.day;
       if (gap < 1 || gap > BILL_DOUBLE_DAYS || a.amountCents !== b.amountCents || -b.amountCents < DOUBLE_MIN_CENTS || !inRange.has(b.id)) continue;
+      // the biller has already paid one of them back
+      if (a.refunded >= -a.amountCents || b.refunded >= -b.amountCents) continue;
       out.push({
         id: `double:${b.id}`,
         kind: "double_charge",
@@ -180,9 +182,11 @@ function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], rec
 // ── late payment fees ────────────────────────────────────
 
 function lateFees(current: readonly AnalysisTx[], lang: Language): Alert[] {
-  const rows = current.filter(isLateFee);
+  // a fee that was paid back counts at what is left of it, and one paid back whole is no fee
+  const left = (t: AnalysisTx) => Math.max(0, -t.amountCents - t.refunded);
+  const rows = current.filter((t) => isLateFee(t) && left(t) > 0);
   if (!rows.length) return [];
-  const total = rows.reduce((s, t) => s - t.amountCents, 0);
+  const total = rows.reduce((s, t) => s + left(t), 0);
   const merchants = [...new Set(rows.map((t) => t.merchant))];
   const dates = [...new Set(rows.map((t) => t.bookingDate))].sort();
   const when = dates.length === 1 ? formatFiDate(dates[0]!, lang) : dates.length === 2 ? finnishList(dates.map((d) => formatFiDate(d, lang)), lang) : messageIn(lang, "alr.late_last", { date: formatFiDate(dates[dates.length - 1]!, lang) });
@@ -407,8 +411,10 @@ function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: D
   if (days < FEES_MIN_DAYS) return [];
   const byMerchant = new Map<string, number>();
   for (const t of current) {
-    if (!isBankFee(t)) continue;
-    byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + t.spend);
+    // a fee the bank paid back counts at what is left of it
+    const left = netSpend(t);
+    if (!isBankFee(t) || left <= 0) continue;
+    byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + left);
   }
   const total = [...byMerchant.values()].reduce((s, v) => s + v, 0);
   const yearly = (total * 365) / days;

@@ -63,6 +63,14 @@ describe("alerts", () => {
       expect(a).toMatchObject({ id: `double:${again.id}`, title: "Sama veloitus kahdesti: Puhtaaksi Oy 119,00 €", detail: "25.8.2026 ja 29.8.2026" });
     });
 
+    it("a monthly bill paid twice is settled when the second payment came back whole", () => {
+      const bill = monthly("2025-11-25", 11, -11900, { merchant: "Puhtaaksi Oy", category: "home" });
+      const again = tx({ merchant: "Puhtaaksi Oy", category: "home", bookingDate: "2026-08-29", amountCents: -11900 });
+      const back = tx({ merchant: "Puhtaaksi Oy", category: "home", bookingDate: "2026-09-03", amountCents: 11900 });
+      expect(ofKind(alertsOf([...household(), ...bill, again]), "double_charge")).toHaveLength(1);
+      expect(ofKind(alertsOf([...household(), ...bill, again, back]), "double_charge")).toEqual([]);
+    });
+
     it("near misses: other account, small amount, a routine pair, outside the range", () => {
       const pair = (date: string, cents: number, accountId = "acc-1") => [
         tx({ ...shop, bookingDate: date, amountCents: cents }),
@@ -85,6 +93,17 @@ describe("alerts", () => {
       ];
       const [a] = ofKind(alertsOf([...household(), ...fees]), "late_fee");
       expect(a).toMatchObject({ tone: "warning", title: "Myöhästymiskuluja 6,87 €", detail: "Oomi, 3.2.2026", merchant: "Oomi" });
+    });
+
+    it("a reminder fee paid back whole is no late fee, one paid back in part counts at what is left", () => {
+      const fee = tx({ merchant: "Oomi", counterparty: "OOMI OY", description: "MUISTUTUSMAKSU", category: "fees", bookingDate: "2026-02-03", amountCents: -500 });
+      const back = (cents: number) => tx({ merchant: "Oomi", counterparty: "OOMI OY", description: "HYVITYS", category: "fees", bookingDate: "2026-02-10", amountCents: cents });
+      expect(ofKind(alertsOf([...household(), fee]), "late_fee")[0]).toMatchObject({ title: "Myöhästymiskuluja 5,00 €" });
+      expect(ofKind(alertsOf([...household(), fee, back(500)]), "late_fee")).toEqual([]);
+      expect(ofKind(alertsOf([...household(), fee, back(200)]), "late_fee")[0]).toMatchObject({ title: "Myöhästymiskuluja 3,00 €", detail: "Oomi, 3.2.2026" });
+      // the fee that came back whole leaves the sum and the days of the ones that stayed
+      const interest = tx({ merchant: "Oomi", counterparty: "OOMI OY", description: "VIIVÄSTYSKORKO", category: "interest", bookingDate: "2026-03-03", amountCents: -187 });
+      expect(ofKind(alertsOf([...household(), fee, back(500), interest]), "late_fee")[0]).toMatchObject({ title: "Myöhästymiskuluja 1,87 €", detail: "Oomi, 3.3.2026" });
     });
 
     it("near miss: an ordinary bill or a fee before the range", () => {
@@ -352,6 +371,16 @@ describe("alerts", () => {
       const alerts = alertsOf([...household(), ...fee, reminder]);
       expect(ofKind(alerts, "fees")[0]).toMatchObject({ detail: "Nordea" });
       expect(ofKind(alerts, "late_fee")[0]).toMatchObject({ title: "Myöhästymiskuluja 5,00 €" });
+    });
+
+    it("a bank fee paid back counts at what is left", () => {
+      const card = tx({ merchant: "Nordea", category: "fees", bookingDate: "2026-02-02", amountCents: -3000 });
+      const back = (cents: number) => tx({ merchant: "Nordea", category: "fees", bookingDate: "2026-02-09", amountCents: cents });
+      // 12 × 13,80 € in the range is under 100 € a year: the card fee alone carries it over
+      const small = monthly("2025-10-01", 13, -500, { merchant: "Nordea", category: "fees" });
+      expect(ofKind(alertsOf([...household(), ...small, tx({ merchant: "Nordea", category: "fees", bookingDate: "2026-02-02", amountCents: -6000 })]), "fees")).toHaveLength(1);
+      expect(ofKind(alertsOf([...household(), ...small, tx({ merchant: "Nordea", category: "fees", bookingDate: "2026-02-02", amountCents: -6000 }), back(6000)]), "fees")).toEqual([]);
+      expect(ofKind(alertsOf([...household(), ...fee, card, back(1000)]), "fees")[0]).toMatchObject({ title: "Pankkikuluja 198 € vuodessa", detail: "Nordea" });
     });
 
     it("near misses: a short range, small fees", () => {
