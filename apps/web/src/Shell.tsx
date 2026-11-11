@@ -13,7 +13,7 @@ import { date, dateRange, dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
-import { MORE, NAV, REVIEW, SETTINGS } from "./nav.ts";
+import { MORE, NAV, REVIEW, ROWS, SETTINGS } from "./nav.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
@@ -70,7 +70,7 @@ export function Shell() {
   const anchor = location.hash || undefined;
   const requested = location.pathname.split("/")[1] ?? "";
   const meta = useApi<Meta>("/api/meta", true);
-  const pages = [...NAV, SETTINGS];
+  const pages = [...NAV, ROWS, SETTINGS];
   // an unknown or old link opens the overview instead of an empty page
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
@@ -81,7 +81,8 @@ export function Shell() {
     if (shownPage.current !== page) reloadReview();
     shownPage.current = page;
   }, [page, reloadReview]);
-  const pageName = pages.find((e) => e.id === page)?.label;
+  const shown = pages.find((e) => e.id === page);
+  const pageName = shown?.title ?? shown?.label;
   // Tarkistettavat carries its count in the title and the heading, the same one the header's mark shows
   const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageName;
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
@@ -304,7 +305,7 @@ export function Shell() {
           </div>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} className={e.id === REVIEW.id ? "review-link" : e.tab ? undefined : "nav-wide-only"} current={page === e.id}>
+              <PageLink key={e.id} id={e.id} className={e.id === REVIEW.id ? "review-link" : undefined} current={page === e.id}>
                 {e.label}
                 {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
                 {e.id === REVIEW.id && open > 0 && (
@@ -344,12 +345,6 @@ export function Shell() {
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
-              {/* a page with no tab is here on a phone, where the header has no link to it */}
-              {NAV.filter((e) => !e.tab).map((e) => (
-                <PageLink key={e.id} id={e.id} className="nav-narrow-only" current={page === e.id}>
-                  {e.label}
-                </PageLink>
-              ))}
               <a href={MORE.hash} aria-current={page === "reports" && params.has("q") ? "page" : undefined}>{MORE.label}</a>
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}

@@ -56,7 +56,7 @@ test(`from an empty install to a picture in at most ${MAX_MINUTES} minutes, with
     await expect(page.getByRole("heading", { name: "Käyttöönotto" })).toBeVisible();
     await page.getByRole("button", { name: "Ohita" }).click();
     await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
-    await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
+    await expect(page.getByRole("navigation").getByText("Nyt").first()).toBeVisible();
     step("administrator made");
 
     // 3. the bank is linked and the first fetch is done
@@ -79,7 +79,7 @@ test(`from an empty install to a picture in at most ${MAX_MINUTES} minutes, with
     // 4. the picture is drawn
     await page.goto("/#/overview");
     await page.reload();
-    await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
+    await expect(page.getByRole("navigation").getByText("Nyt").first()).toBeVisible();
     await expect(page.getByText("Ei vielä tietoja")).toHaveCount(0);
     // the front page itself, not the skeleton it shows while the dashboard answer is on its way
     await expect(page.locator(".page-grid.front:not(.home-skeleton) .home-answer")).toBeVisible({ timeout: 60_000 });

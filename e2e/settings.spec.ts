@@ -53,7 +53,7 @@ test("Asetukset is in the user menu and has three targets, each its own address"
 
   // the questions in the nav, Tarkistettavat the fourth, and Asetukset in the user menu instead of among them
   await page.goto("/#/overview");
-  await expect(nav.getByRole("link")).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat"]);
+  await expect(nav.getByRole("link")).toHaveText(["Nyt", "Kuukausi", "Tulossa", /^Tarkistettavat/]);
   await expect(nav.getByRole("link", { name: "Asetukset" })).toHaveCount(0);
   const menu = page.locator(".user-menu");
   await menu.locator("summary").click();

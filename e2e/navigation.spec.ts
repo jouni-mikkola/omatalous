@@ -2,8 +2,11 @@ import { type Browser, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// The header and the phone's tab bar: five tabs at the foot of a phone (Yhteenveto, Kuukausi, Laskut, Tarkistettavat
-// with its count, Tapahtumat); Asetukset is in the user menu there.
+// The header and the phone's tab bar: the four tabs (Nyt, Kuukausi, Tulossa, Tarkistettavat with its count of open
+// items), at the foot of a phone and in the header of a wide screen; the rows list has its address and no tab, and
+// Asetukset is in the user menu.
+const FOUR = ["Nyt", "Kuukausi", "Tulossa", /^Tarkistettavat/];
+const ADDRESSES = ["#/overview", "#/reports", "#/bills", "#/review"];
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const TAP = 44;
 
@@ -14,14 +17,14 @@ const phone = async (browser: Browser, width = 390) => {
 const tabs = (page: Page) => page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link");
 
 for (const width of [390, 320]) {
-  test(`${width} px: the tab bar has five tabs, each at least ${TAP} px, in one row, and nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the tab bar has four tabs, each at least ${TAP} px, in one row, and nothing scrolls sideways`, async ({ browser }) => {
     const { context, page } = await phone(browser, width);
     const seen = watch(page);
     await page.goto("/#/overview");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat"]);
+    await expect(tabs(page)).toHaveText(FOUR);
     const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, height: r.height, right: r.right })));
-    expect(boxes).toHaveLength(5);
+    expect(boxes).toHaveLength(4);
     expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
     for (const b of boxes) {
       expect(b.width).toBeGreaterThanOrEqual(TAP);
@@ -30,6 +33,33 @@ for (const width of [390, 320]) {
     expect(Math.max(...boxes.map((b) => b.right))).toBeLessThanOrEqual(width);
     // the labels are whole words, not cut
     expect(await tabs(page).evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth).map((e) => e.textContent))).toEqual([]);
+    expect(await overflow(page)).toBeLessThanOrEqual(0);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`${width} px: the four tabs are in sight by name, each opens its page, the fourth carries the count of open items, and the rows list opens at its address with no tab`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, ...(width < 641 ? { isMobile: true, hasTouch: true } : {}) });
+    const page = await context.newPage();
+    const seen = watch(page);
+    await context.route(/\/api\/review\/count$/, (r) => r.fulfill({ json: { count: 7 } }));
+    await page.goto("/#/transactions");
+    await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    // the rows list: its own address and title, and no tab is the current one
+    expect(new URL(page.url()).hash).toBe("#/transactions");
+    await expect(page).toHaveTitle(/^Tapahtumat/);
+    await expect(tabs(page)).toHaveText(FOUR);
+    await expect(page.locator('nav.nav [aria-current="page"]')).toHaveCount(0);
+    await expect(tabs(page).nth(3).locator(".nav-count")).toHaveText(/^7/);
+    for (const [n, address] of ADDRESSES.entries()) {
+      await expect(tabs(page).nth(n)).toBeVisible();
+      await tabs(page).nth(n).click();
+      await expect.poll(() => new URL(page.url()).hash.split("?")[0]).toBe(address);
+      await expect(tabs(page).nth(n)).toHaveAttribute("aria-current", "page");
+      await expect(page.locator('nav.nav [aria-current="page"]')).toHaveCount(1);
+    }
     expect(await overflow(page)).toBeLessThanOrEqual(0);
     expect(seen.problems).toEqual([]);
     await context.close();
@@ -46,7 +76,7 @@ test("390 px: Tarkistettavat is the fourth tab and shows when open, Asetukset is
   await page.locator(".user-menu summary").tap();
   await page.locator(".user-menu .menu").getByRole("link", { name: "Asetukset" }).tap();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks");
-  await expect(tabs(page)).toHaveCount(5);
+  await expect(tabs(page)).toHaveCount(4);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await page.goto("/#/more");
   await expect.poll(() => new URL(page.url()).hash).toBe("#/overview");
@@ -58,11 +88,11 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat"]);
+  await expect(tabs(page)).toHaveText(FOUR);
   await expect(page.locator("header.topbar").getByRole("link", { name: "Asetukset", exact: true })).toHaveCount(0);
   await page.locator(".user-menu summary").click();
   const menu = page.locator(".user-menu .menu");
-  await expect(menu.getByRole("link")).toHaveText(["Asetukset"]);
+  await expect(menu.getByRole("link")).toHaveText(["Lisää", "Asetukset"]);
   await expect(menu.getByRole("button")).toHaveText(["English", "Kirjaudu ulos"]);
   await expect(menu.getByRole("button", { name: "Kirjaudu ulos" })).toBeVisible();
   await context.close();

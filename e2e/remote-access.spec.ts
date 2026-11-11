@@ -119,7 +119,7 @@ async function ensureAdmin(browser: Browser) {
   await expect(page.getByRole("heading", { name: "Käyttöönotto" })).toBeVisible();
   await page.getByRole("button", { name: "Jatka" }).click();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
-  await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("Nyt").first()).toBeVisible();
   await context.storageState({ path: STATE });
   await context.close();
 }

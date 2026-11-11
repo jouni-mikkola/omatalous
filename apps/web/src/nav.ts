@@ -5,25 +5,31 @@ export interface NavEntry {
   id: string;
   /** A getter on the built-in entries: the text is read when it is drawn, in the language the member has by then. */
   readonly label: string;
-  /** The entry has a tab of its own on a phone. */
-  tab?: true;
+  /** The name of the page in its title and heading, where the page still has another name than its tab. */
+  readonly title?: string;
 }
 
 /**
  * Tarkistettavat, the fourth tab: is anything wrong? Its link carries the count of open items when there are any, the
  * one place that asks what the app cannot settle itself.
  */
-export const REVIEW: NavEntry = { id: "review", get label() { return t("nav.review"); }, tab: true };
+export const REVIEW: NavEntry = { id: "review", get label() { return t("nav.review"); } };
 
-/** The questions the household asks of its money, in the order they are asked. Asetukset is not one of them. */
+/**
+ * The four tabs, one for each question the household asks of its money, in the order they are asked
+ * (docs/design/README.md section 1): Nyt, Kuukausi, Tulossa, Tarkistettavat. Every entry is a tab, at every width.
+ * Asetukset is not one of them.
+ */
 export const NAV: readonly NavEntry[] = [
-  { id: "overview", get label() { return t("nav.overview"); }, tab: true },
+  { id: "overview", get label() { return t("nav.now"); }, get title() { return t("nav.overview"); } },
   // Kuukausi: the month against its usual is what the tab opens; the question pages of the reports stay behind their addresses
-  { id: "reports", get label() { return t("rpt.page_thismonth"); }, tab: true },
-  { id: "bills", get label() { return t("nav.bills"); }, tab: true },
+  { id: "reports", get label() { return t("rpt.page_thismonth"); } },
+  { id: "bills", get label() { return t("nav.coming"); }, get title() { return t("nav.bills"); } },
   REVIEW,
-  { id: "transactions", get label() { return t("nav.transactions"); }, tab: true },
 ];
+
+/** The rows list keeps its address and has no tab: a figure opens it with its filter in the address. */
+export const ROWS: NavEntry = { id: "transactions", get label() { return t("nav.transactions"); } };
 
 /**
  * Lisää is in the user menu, not a tab: the reports that earn a place (Vuosi, Tilit ja saldot, Lainat, Verovuosi and, with

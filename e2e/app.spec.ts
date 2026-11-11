@@ -86,7 +86,7 @@ test("first run: the setup form creates the administrator, the wizard can be ski
   await page.getByRole("button", { name: "Jatka" }).click();
   await expect(page.getByText("Salausavain")).toBeVisible();
   await page.getByRole("button", { name: "Siirry sovellukseen" }).click();
-  await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("Nyt").first()).toBeVisible();
   await page.context().storageState({ path: STATE });
   // the only expected failures are the wrong setup code (400) and nothing else
   expect(seen.problems.filter((p) => !/HTTP 400: POST .*\/api\/auth\/setup/.test(p) && !/Failed to load resource.*400/.test(p))).toEqual([]);
@@ -428,7 +428,7 @@ test("sign out and back in", async ({ page }) => {
   await expect(page.getByLabel("Salasana")).toHaveAttribute("aria-invalid", "true");
   await page.getByLabel("Salasana").fill(ADMIN.password);
   await page.getByRole("button", { name: "Kirjaudu" }).click();
-  await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
+  await expect(page.getByRole("navigation").getByText("Nyt").first()).toBeVisible();
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
@@ -523,7 +523,7 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
   await expect(page).toHaveTitle(/^Laskut/);
   await expect(page.locator("#tulossa").getByRole("heading", { name: "Tulevat maksut" })).toBeVisible();
-  await expect(nav.getByRole("link", { name: "Laskut" })).toHaveAttribute("aria-current", "page");
+  await expect(nav.getByRole("link", { name: "Tulossa" })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("link", { name: "Toistuvat" })).toHaveCount(0);
   await page.goBack();
   expect(page.url()).toMatch(/#\/transactions$/);
