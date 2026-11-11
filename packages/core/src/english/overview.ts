@@ -171,6 +171,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "sync.next": "The bank allows the next fetch {stamp}",
   "sync.no_next": "The bank does not allow a new fetch yet",
   "sync.limited": "{updated}. {limit}",
+  "sync.partial": "{updated}. Transactions of some accounts could not be fetched",
   "sync.failed": "The transactions could not be fetched from the bank.",
   "sync.failed_last": "{failed} The last fetch was {stamp}.",
   // Notices of the server

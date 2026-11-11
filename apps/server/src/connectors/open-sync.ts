@@ -30,7 +30,7 @@ const WITH_HEADERS = "open";
 const WITHOUT_HEADERS = "open-bare";
 
 interface OpenAnswer {
-  state: "none" | "fresh" | "running" | "limited" | "failed";
+  state: "none" | "fresh" | "partial" | "running" | "limited" | "failed";
   lastAt: string | null;
   inserted: number;
   nextAt: string | null;
@@ -72,7 +72,7 @@ export async function openSync(s: Services, userId: string, userHeaders: UserHea
   const fresh = freshMs(s.instance.current.syncHours);
   const age = newest ? now - Date.parse(newest.finishedAt!) : Infinity;
   const recent = newest && age < fresh ? newest : null;
-  if (recent && recent.status !== "failed") return answer("fresh", { lastAt: recent.finishedAt, inserted: recent.inserted });
+  if (recent && recent.status !== "failed") return answer(recent.status === "partial" ? "partial" : "fresh", { lastAt: recent.finishedAt, inserted: recent.inserted });
   if (await rateLimitedUntil(s, userId)) return limited();
   if (recent) return answer("failed");
 

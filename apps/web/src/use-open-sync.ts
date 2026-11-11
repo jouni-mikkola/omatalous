@@ -49,7 +49,7 @@ export function useOpenSync(onNew: (inserted: number) => void): OpenSync | null 
         timer = setTimeout(() => void ask(), RUNNING_RETRY_MS);
         return;
       }
-      if (next?.state === "fresh" && waited && next.inserted > 0) heard.current(next.inserted);
+      if ((next?.state === "fresh" || next?.state === "partial") && waited && next.inserted > 0) heard.current(next.inserted);
       waited = false;
       tries = 0;
       setAnswer(next);

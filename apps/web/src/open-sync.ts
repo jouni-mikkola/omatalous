@@ -3,7 +3,7 @@ import { t } from "./text.ts";
 
 /** What `POST /api/sync/open` answers: whether rows were fetched when the app was opened, and when. */
 export type OpenSync = {
-  state: "none" | "fresh" | "running" | "limited" | "failed";
+  state: "none" | "fresh" | "partial" | "running" | "limited" | "failed";
   lastAt: string | null;
   inserted: number;
   nextAt: string | null;
@@ -23,6 +23,8 @@ export function footText(answer: OpenSync | null, now: Date): string | null {
   switch (state) {
     case "fresh":
       return lastAt ? t("sync.updated", { stamp: stamp(lastAt, now) }) : null;
+    case "partial":
+      return lastAt ? t("sync.partial", { updated: t("sync.updated", { stamp: stamp(lastAt, now) }) }) : null;
     case "running":
       return t("sync.running");
     case "limited": {

@@ -16,6 +16,10 @@ describe("the foot of the page", () => {
     );
   });
 
+  it("a half fetch says that some accounts were not fetched", () => {
+    expect(footText(answer({ state: "partial", lastAt: at(13, 18, 42) }), NOW)).toBe("Päivitetty 13.10. klo 18.42. Kaikkien tilien tapahtumia ei saatu haettua");
+  });
+
   it("a limit without a last time drops that sentence", () => {
     expect(footText(answer({ state: "limited", nextAt: at(13, 18, 0) }), NOW)).toBe("Pankki sallii seuraavan haun 13.10. klo 18.00");
   });

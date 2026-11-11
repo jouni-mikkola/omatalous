@@ -147,6 +147,17 @@ describe("a fetch when a member opens the app", () => {
     await addRun(adminId, "manual", 30 * 60, "failed");
     expect((await open(admin)).body.state).toBe("running");
   });
+
+  it("answers partial, not fresh, when the newest fetch got only some of the accounts", async () => {
+    const { admin, adminId, open, clear, addRun, balanceCalls } = await setup();
+    await clear(adminId);
+    await addRun(adminId, "manual", 5, "partial");
+    const before = balanceCalls();
+    const answer = await open(admin);
+    expect(answer.body.state).toBe("partial");
+    expect(answer.body.lastAt).not.toBeNull();
+    expect(balanceCalls()).toBe(before);
+  });
 });
 
 describe("how old the rows may be", () => {

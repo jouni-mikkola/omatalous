@@ -174,6 +174,7 @@ export const FI_OVERVIEW = {
   "sync.next": "Pankki sallii seuraavan haun {stamp}",
   "sync.no_next": "Pankki ei salli uutta hakua vielä",
   "sync.limited": "{updated}. {limit}",
+  "sync.partial": "{updated}. Kaikkien tilien tapahtumia ei saatu haettua",
   "sync.failed": "Emme saaneet tapahtumia pankista.",
   "sync.failed_last": "{failed} Edellinen haku {stamp}.",
   // Notices of the server
