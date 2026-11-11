@@ -1,7 +1,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { gateEvent } from "../src/db/startup-gate.ts";
-import { noticesFor, recordEvent, validKind } from "../src/services/security.ts";
+import { dismissNotices, noticesFor, recordEvent, validKind } from "../src/services/security.ts";
 import { setupApp } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
@@ -120,6 +120,16 @@ describe("security events", () => {
     const kinds = ((await admin.call("GET", "/api/security/events")).body.events as { kind: string }[]).map((e) => e.kind);
     expect(kinds).toContain("password_reset_by_admin");
     expect(kinds).toContain("user_created");
+  });
+
+  it("shows two resets in the same minute as one notice, and dismissing it clears both", async () => {
+    const { s, adminId } = await setupApp();
+    vi.spyOn(s, "now").mockReturnValue(new Date("2026-11-12T01:10:00Z"));
+    for (let i = 0; i < 2; i++) await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "komentorivi", notify: true });
+    const resets = (await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.kind === "password_reset_by_admin");
+    expect(resets).toHaveLength(1);
+    await dismissNotices(s, { id: adminId, role: "admin" });
+    expect((await noticesFor(s, { id: adminId, role: "admin" })).some((n) => n.kind === "password_reset_by_admin")).toBe(false);
   });
 
   it("lists own sessions with device and last use, ends one, and ends all", async () => {

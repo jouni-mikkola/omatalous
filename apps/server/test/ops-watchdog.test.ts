@@ -155,12 +155,14 @@ describe("ops state: the watchdog report", () => {
       await send(later);
       third.mockRestore();
       expect(await h.s.settings.get("ops_watchdog_at")).toBe("2026-10-09T09:40:00.000Z");
-      // the next state tells all of it, so the admin whose row was written reads it twice, and after that it is marked
+      // the next state tells all of it, so the admin whose row was written has two rows of it and reads one line, and after that it is marked
       await send(later);
       await send(later);
       expect(await h.s.settings.get("ops_watchdog_at")).toBe("2026-10-09T09:55:00.000Z");
       const told = await Promise.all(h.admins.map(async (id) => (await h.notices(id, "admin")).filter((text) => text === `${SELF_TEST} ${TOLD_AT}.`).length));
-      expect(told.sort()).toEqual([1, 2]);
+      expect(told).toEqual([1, 1]);
+      const rowsOf = await Promise.all(h.admins.map(async (id) => (await h.s.security.unseenNotices(id)).filter((e) => e.detail?.startsWith(SELF_TEST)).length));
+      expect(rowsOf.sort()).toEqual([1, 2]);
     } finally {
       logged.mockRestore();
     }

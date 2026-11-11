@@ -219,7 +219,9 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   }
   // the safety net: copies, the disk and the host helper (db-health.ts), for admins
   out.push(...(await healthNotices(s, user, probes)));
-  return out;
+  // two events in the same minute (two resets, say) read the same: one line says it, and dismissing marks every event
+  const texts = new Set<string>();
+  return out.filter((n) => !texts.has(n.text) && texts.add(n.text));
 }
 
 /**
