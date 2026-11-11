@@ -1,7 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { eyebrow, figureOf, groupCategories, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView } from "../src/pages/review-items.ts";
+import { eyebrow, figureOf, groupCategories, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
 const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
@@ -138,5 +138,18 @@ describe("the kinds the page has a card for", () => {
     // an older server may still send the question: it gets no card and is not counted
     expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
     expect(sittingView([of("input")], NEW_SITTING)).toEqual({ state: "empty" });
+  });
+});
+
+describe("a failed fetch", () => {
+  const run = (status: string) => ({ id: 7, status, startedAt: "2026-09-20T05:00:00Z", finishedAt: null, message: "Pankki ei vastannut" }) as unknown as Parameters<typeof withFetch>[1];
+  it("is the first item of the queue, with the run's message", () => {
+    const items = withFetch(queue(2), run("failed"));
+    expect(items).toHaveLength(3);
+    expect(items[0]).toMatchObject({ kind: "fetch", id: "fetch:7", at: "2026-09-20T05:00:00Z", message: "Pankki ei vastannut" });
+  });
+  it("leaves the queue as it is when the last run did not fail", () => {
+    expect(withFetch(queue(2), run("ok"))).toHaveLength(2);
+    expect(withFetch(queue(2), null)).toHaveLength(2);
   });
 });

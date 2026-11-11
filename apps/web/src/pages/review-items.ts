@@ -5,7 +5,8 @@
 import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
-import { date, money } from "../format.ts";
+import { date, dateTime, money } from "../format.ts";
+import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
 
 interface Base {
@@ -136,7 +137,23 @@ export interface RowItem extends Base {
   picks: string[];
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem;
+/** The last fetch from the bank failed. The page makes it from the run `/api/meta` tells; it goes when a fetch succeeds. */
+export interface FetchItem extends Base {
+  kind: "fetch";
+  /** When the run ended (or started, when it never ended). */
+  at: string;
+  /** What the run ran into, in the server's words. */
+  message: string | null;
+}
+
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem | FetchItem;
+
+/**
+ * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
+ * run succeeds, whatever page was open when it failed. No answer here removes it; Ohita passes it for this sitting.
+ * The queue the page shows: a failed fetch first, then what the server asks.
+ */
+export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | undefined): ReviewItem[] => run?.status === "failed" ? [{ kind: "fetch", id: `fetch:${run.id}`, cents: 0, at: run.finishedAt ?? run.startedAt, message: run.message }, ...items] : [...items];
 
 export interface ReviewAnswer {
   items: ReviewItem[];
@@ -163,7 +180,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, balance: true, consent: true, bill: true, row: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, balance: true, consent: true, bill: true, row: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -205,6 +222,7 @@ export function eyebrow(item: ReviewItem): string {
     case "balance":
       return t("set.ri.balance");
     case "consent":
+    case "fetch":
       return t("set.ri.bank_connection");
     case "bill":
       return t("set.ri.missed_bill");
@@ -234,6 +252,8 @@ export function nameOf(item: ReviewItem): string {
       return item.accountName;
     case "consent":
       return item.institution;
+    case "fetch":
+      return t("set.sync.fetches");
     case "bill":
       return item.merchant;
     case "row":
@@ -271,6 +291,8 @@ export function questionOf(item: ReviewItem): string {
       return item.daysLeft === null ? t("set.ri.the_connection_has_ended") : t("set.ri.the_connection_is_ending");
     case "bill":
       return t("set.ri.is_the_bill_still_coming");
+    case "fetch":
+      return t("sync.failed");
     case "row":
       return item.side === "in" ? t("set.ri.what_is_this_income") : t("set.ri.which_category_does_this_payment");
   }
@@ -311,6 +333,9 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       };
     case "bill":
       return { text: money(item.cents), line: t("set.ri.the_bill_was_expected_on", { date: date(item.dueDate) }) };
+    case "fetch":
+      // no sum: what failed, in the server's words when it has them, and when
+      return { text: "", line: [item.message, dateTime(item.at)].filter(Boolean).join(" · ") };
     case "row":
       return { text: money(item.cents), line: date(item.date) };
   }

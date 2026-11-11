@@ -16,7 +16,7 @@ import { MarkCell } from "../components/table/Cells.tsx";
 import { date, money } from "../format.ts";
 import { publishReviewCount } from "../review-count.ts";
 import type { Meta } from "../types.ts";
-import { eyebrow, figureOf, isPerson, leftText, nameOf, NEW_SITTING, openItems, questionOf, type ReviewAnswer, type ReviewItem, type Sitting, sittingView } from "./review-items.ts";
+import { eyebrow, figureOf, isPerson, leftText, nameOf, NEW_SITTING, openItems, questionOf, type ReviewAnswer, type ReviewItem, type Sitting, sittingView, withFetch } from "./review-items.ts";
 import { ChoiceButton, Choices } from "./ReviewChoices.tsx";
 import "../styles/review.css";
 import "../styles/why.css";
@@ -40,15 +40,19 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   // counts the moves to the next item; the focus follows in an effect, after the new card is in the page
   const [moved, setMoved] = useState(0);
   // the header's mark and the page's heading say the number the queue below does, an answer included
-  const left = queue.data ? openItems(queue.data.items, sitting).length : undefined;
+  // a failed fetch is an item of the queue, first in it: made here from the last run the server tells
+  const items = queue.data ? withFetch(queue.data.items, meta.lastSync) : null;
+  const left = items ? openItems(items, sitting).length : undefined;
+  // the shell's count adds the failed fetch itself, so what is published is the server's kind of count
+  const asked = left === undefined ? undefined : left - (items?.some((i) => i.kind === "fetch") ? 1 : 0);
   useEffect(() => {
-    if (left !== undefined) publishReviewCount(left);
-  }, [left]);
+    if (asked !== undefined) publishReviewCount(asked);
+  }, [asked]);
   useEffect(() => {
     if (moved > 0) heading.current?.focus();
   }, [moved]);
 
-  if (!queue.data) {
+  if (!items) {
     return queue.error ? (
       <ErrorCard message={queue.error} onRetry={queue.reload} />
     ) : (
@@ -58,7 +62,7 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
     );
   }
 
-  const view = sittingView(queue.data.items, sitting);
+  const view = sittingView(items, sitting);
   const next = (change: (s: Sitting) => Sitting) => {
     setProblem(null);
     setSitting(change);

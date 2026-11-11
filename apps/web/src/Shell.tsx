@@ -75,7 +75,9 @@ export function Shell() {
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
   // the open questions: only their count, in the header of every page and read again when a page opens, since any page can answer one (a rule, a mark, a loan); the queue is Tarkistettavat's own
-  const { count: open, reload: reloadReview } = useReviewCount();
+  const { count: asked, reload: reloadReview } = useReviewCount();
+  // a failed fetch is an item of the queue the server does not count: the mark adds it, as the page does
+  const open = asked + (meta.data?.lastSync?.status === "failed" ? 1 : 0);
   const shownPage = useRef(page);
   useEffect(() => {
     if (shownPage.current !== page) reloadReview();

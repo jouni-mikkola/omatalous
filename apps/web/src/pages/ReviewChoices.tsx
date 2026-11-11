@@ -104,6 +104,15 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
           </Button>
         </div>
       );
+    case "fetch":
+      // the fetch is tried again where the connections are (Hae nyt is there); the item goes when a fetch succeeds
+      return (
+        <div className="review-choices">
+          <Button className="review-choice" href={settingsHash("banks")}>
+            {t("set.conn.fetch_now")}
+          </Button>
+        </div>
+      );
     case "balance":
       // nothing here can make the rows add up: the account's own row tells the stretch, and a fetch or the bank's file brings the rows
       return (
