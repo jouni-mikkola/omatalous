@@ -1,12 +1,12 @@
 /** Linking a bank through Enable Banking: the consent URL, then the accounts the redirect brings back. */
 import { randomUUID } from "node:crypto";
 import type { FinanceRepo } from "../../db/finance-repo.ts";
-import { UserError } from "../../platform/errors.ts";
+import { UpstreamError, UserError } from "../../platform/errors.ts";
 import { stableId } from "../../platform/ids.ts";
 import type { Services } from "../../services/context.ts";
 import { reprocess } from "../../services/enrich.ts";
 import { foldCsvAccounts } from "../fold-accounts.ts";
-import { consumeLinkState, dropLinkState, issueLinkState, LinkFailure } from "../link-state.ts";
+import { consumeLinkState, dropLinkState, issueLinkState, LinkFailure, restoreLinkState } from "../link-state.ts";
 import { instanceAppInactive, testBankApp } from "./app-setup.ts";
 import { bankById, bankIdForAspsp, DEFAULT_BANK, findAspsp } from "./banks.ts";
 import { type EnableBankingClient, EnableBankingError } from "./client.ts";
@@ -110,12 +110,18 @@ async function stillInactive(s: Services, userId: string): Promise<boolean> {
 /** Codes of an authorisation code that was used already or waited too long: a new start works. */
 const STALE_CODE = /^(?:EXPIRED_AUTHORIZATION_CODE|WRONG_AUTHORIZATION_CODE|ALREADY_AUTHORIZED|WRONG_SESSION_STATUS)$/;
 
+/** A fault that may pass by itself: no answer from the bank, a timeout, a rate limit or a server error. The code was not used. */
+function mayPass(err: unknown): boolean {
+  if (err instanceof EnableBankingError) return err.status >= 500 || err.status === 408 || err.status === 429;
+  return err instanceof UpstreamError && err.message.includes("gave no answer");
+}
+
 /**
  * A refusal from Enable Banking while linking, as one reason the user can act on. A failure that may pass by itself
  * (a timeout, a rate limit, a server error) stays an UpstreamError that says to try later.
  */
 function linkFailure(err: unknown): unknown {
-  if (!(err instanceof EnableBankingError) || err.status < 400 || err.status >= 500 || err.status === 408 || err.status === 429) return err;
+  if (!(err instanceof EnableBankingError) || mayPass(err) || err.status < 400) return err;
   if (err.status === 401) return new LinkFailure("app");
   if (err.status === 403) return new LinkFailure("inactive");
   if (STALE_CODE.test(err.code)) return new LinkFailure("expired");
@@ -126,13 +132,17 @@ function linkFailure(err: unknown): unknown {
 
 /** Step 2: the bank redirected back with `code` and `state`. */
 export async function completeConnection(s: Services, repo: FinanceRepo, code: string, state: string): Promise<{ connectionId: string; accounts: number }> {
-  await consumeLinkState(s, repo.userId, state);
+  const issuedAt = await consumeLinkState(s, repo.userId, state);
 
   const client = await clientFor(s, repo.userId);
   let session: Awaited<ReturnType<EnableBankingClient["createSession"]>>;
   try {
     session = await client.createSession(code);
   } catch (err) {
+    // a fault that may pass (no answer, 408, 429, 5xx) leaves the state usable: the same address can be pasted again
+    if (mayPass(err)) {
+      await restoreLinkState(s, repo.userId, state, issuedAt);
+    }
     throw linkFailure(err);
   }
   await repo.upsertConnection({

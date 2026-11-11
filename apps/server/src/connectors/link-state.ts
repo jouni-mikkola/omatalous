@@ -75,8 +75,8 @@ export async function dropLinkState(s: Services, state: string): Promise<void> {
   await s.settings.delete(`${LINK_STATE_PREFIX}${state}`);
 }
 
-/** Single use: consumed by the first attempt, even a failed or foreign one. Throws AuthStateExpired unless it is this user's and fresh. */
-export async function consumeLinkState(s: Services, userId: string, state: string): Promise<void> {
+/** Single use: consumed by the first attempt, even a failed or foreign one (completeConnection restores it only after a fault that may pass). Throws AuthStateExpired unless it is this user's and fresh. Returns when it was issued. */
+export async function consumeLinkState(s: Services, userId: string, state: string): Promise<number> {
   const key = `${LINK_STATE_PREFIX}${state}`;
   // a state that names a return address must still name a private one (the page and the server both check)
   if (state.includes(".") && !originFromRelayState(state)) throw new AuthStateExpired();
@@ -86,4 +86,10 @@ export async function consumeLinkState(s: Services, userId: string, state: strin
   if (!pending || pending.userId !== userId || s.now().getTime() - pending.createdAt > STATE_TTL_MS) {
     throw new AuthStateExpired();
   }
+  return pending.createdAt;
+}
+
+/** The bank was not reached (or said to try later): the state goes back with its first time, so the same address works again. */
+export async function restoreLinkState(s: Services, userId: string, state: string, createdAt: number): Promise<void> {
+  await s.settings.set(`${LINK_STATE_PREFIX}${state}`, JSON.stringify({ userId, createdAt }));
 }
