@@ -34,6 +34,7 @@ import { ensureSetupCode } from "../services/users.ts";
 import { APP_VERSION } from "../version.ts";
 import { loadOrCreateAppSecret } from "./app-secret.ts";
 import { finishInterruptedRotation, rotateAppSecret, secretFileDiffers } from "./secret-rotate.ts";
+import { applyServerTimeouts } from "./server-timeouts.ts";
 import { SHUTDOWN_WAIT_MS, shutdown } from "./shutdown.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -237,6 +238,7 @@ const announce = async (info: AddressInfo) => {
 const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }, (info) => {
   announce(info).catch((err) => console.error("startup notice failed:", err));
 });
+applyServerTimeouts(server);
 
 let stopping = false;
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
