@@ -7,6 +7,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { stampPng } from "./privacy/png-stamp.mjs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -270,7 +271,8 @@ function main() {
     const apng = writeApng(indexed, palette, SCENES.map((s) => s.ms), WIDTH, HEIGHT);
     if (apng.length > MAX_BYTES) throw new Error(`the video is ${Math.round(apng.length / 1000)} kB, over the ${MAX_BYTES / 1000} kB cap`);
     mkdirSync(IMAGES, { recursive: true });
-    writeFileSync(join(IMAGES, FILES.video), apng);
+    // the frames were stamped by shots; the video is a new file and gets the stamp of the household they show
+    writeFileSync(join(IMAGES, FILES.video), stampPng(apng, "demo"));
     // the still is the first scene as it was taken: what the video shows first, with no motion
     writeFileSync(join(IMAGES, FILES.still), /** @type {Buffer} */ (pngs[0]));
     console.log(`readme:video: docs/images/${FILES.video} ${Math.round(apng.length / 1000)} kB, ${FILES.still} ${Math.round(statSync(join(IMAGES, FILES.still)).size / 1000)} kB`);

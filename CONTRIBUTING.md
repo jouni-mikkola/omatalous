@@ -1,7 +1,7 @@
 # Contributing
 
-Omatalous is developed in a private repository. The public one gets a commit for each published snapshot
-of the private tree ([docs/RELEASING.md](docs/RELEASING.md)).
+Omatalous is developed in this repository. An add-on module that a household may load ([docs/MODULES.md](docs/MODULES.md)) is
+kept apart and is not part of it.
 
 ## Issues
 
@@ -12,13 +12,13 @@ update problems are in [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## Pull requests
 
-Pull requests are welcome too. Each snapshot replaces the whole tree of the public repository, so the maintainer
-replays an accepted pull request in the private repository and it comes back with the next snapshot. A commit merged
-here and not replayed would be undone by that snapshot. Your change then appears in the public history inside the
-snapshot's commit.
+Pull requests are welcome too, and an accepted one is merged here.
 
 Before you open one:
 
+- Everything in it is public: the commits and their author address, the branch name, the title, the body and the
+  logs of its checks. The `privacy` check refuses real personal data, secrets, machine names and home paths, and
+  pictures `pnpm shots` did not take (CLAUDE.md, "The public repository").
 - Set up as [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) says and run `pnpm check`. CI runs on the pull request too; a
   first contribution waits until the maintainer approves the run.
 - A bug fix starts with a test that fails without it. The invariants and conventions in [CLAUDE.md](CLAUDE.md) apply,

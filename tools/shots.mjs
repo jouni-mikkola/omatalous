@@ -318,6 +318,9 @@ async function main() {
   // SHOTS_STILL=1 (tools/visual-check.sh): no animation is caught half way, so two runs give the same pixels
   const still = process.env.SHOTS_STILL === "1" ? { reducedMotion: /** @type {const} */ ("reduce") } : {};
   const app = await startServer();
+  // the stamp of each picture (tools/privacy/png-stamp.mjs): the privacy check lets only stamped pictures into the repository
+  const { stampFile } = await import("./privacy/png-stamp.mjs");
+  const household = [o.demo && "demo", o.fakeBank && "fake-bank"].filter(Boolean).join("+") || "empty";
   /** @type {import("@playwright/test").Browser | undefined} */
   let browser;
   let bad = 0;
@@ -409,12 +412,16 @@ async function main() {
         const landed = new URL(page.url()).hash.slice(1).split("#")[0];
         const twin = landedAt.get(`${width} ${landed}`);
         landedAt.set(`${width} ${landed}`, twin ?? route);
+        // a picture shows only the app this run started on an empty data folder: a step that went to another address
+        // (a real install) stops the run before any picture of it exists
+        if (new URL(page.url()).origin !== new URL(app.base).origin) throw new Error(`the page left the app this run started (it is at another address): no picture of ${route} at ${width}px is taken`);
         await page.evaluate(readyForPicture);
         const file = join(out, shotName(route, o.name, width));
         // a click in a step leaves the pointer on its key, and a key under the pointer is drawn in its hover colour
         await page.mouse.move(0, 0);
         // the whole page first: with --only the part is a second file, and the bar is hidden only for it
         await page.screenshot(pictureOptions(file));
+        stampFile(file, household);
         let shown = file;
         if (o.only) {
           // the part is looked for on the page the steps ended on
@@ -426,6 +433,7 @@ async function main() {
           const x = Math.max(0, box.x - 16);
           const y = Math.max(0, box.y - 16);
           await page.screenshot({ ...pictureOptions(shown), clip: { x, y, width: box.x + box.width + 16 - x, height: box.y + box.height + 16 - y } });
+          stampFile(shown, household);
         }
         const m = await page.evaluate(() => ({
           over: document.documentElement.scrollWidth - document.documentElement.clientWidth,

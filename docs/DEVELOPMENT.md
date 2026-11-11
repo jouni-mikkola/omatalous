@@ -139,6 +139,9 @@ at both widths. The decision is [ADR 0018](adr/0018-one-table-delete-redundant-v
 the tracked files and the new files that git does not ignore, so a new file meets the rules before its commit. Some that
 a change meets:
 
+- The `privacy` check is not a repo rule: it reads what a change adds, its commits and its pull request
+  (`node tools/privacy/scan.mjs --diff origin/main HEAD` runs it on your branch). The rules are in CLAUDE.md, "The public
+  repository".
 - Rule 6: import boundaries and no import cycle. Nothing under `apps/*/src` or `packages/*/src` imports from a `test` or
   `fixtures` folder.
 - Rule 12: Finnish style (no te-form, no "!", banned words) in the web's texts and in the sentences the server sends.
@@ -442,6 +445,10 @@ a page does not belong here.
 `$SHOTS_DIR` (default `shots` in `$TMPDIR`, else `/tmp`). It builds first when the build is old, starts the app once, signs in once,
 and fails when a picture scrolls sideways or has a table wider than the screen. `pnpm shots --help` lists the options.
 Write no spec to take pictures: the options show what a spec would.
+
+Each picture carries a stamp (a PNG text chunk `omatalous-shot` naming the made-up household, `tools/privacy/png-stamp.mjs`),
+and a run stops when a step leaves the address of the app it started. The `privacy` check lets into the repository only
+pictures with the stamp, so a picture of a real household's app cannot land (CLAUDE.md, "The public repository").
 
 `tools/visual-check.sh <base-ref> [--threshold share] -- <pnpm shots arguments>` is the visual regression check: it takes
 the pictures on the base commit (in a throwaway worktree) and on the working tree, both with `SHOTS_STILL=1` (reduced

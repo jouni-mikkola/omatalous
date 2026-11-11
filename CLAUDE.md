@@ -45,7 +45,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - `contracts/<version>/`: what older installs rely on (schema, helper CLI output), frozen when that version ships,
   checked by `apps/server/test/contracts.test.ts`.
 - `docs/` (English): INSTALL, ADVANCED, TROUBLESHOOTING, ENABLE_BANKING, MONEY_FLOWS, SECURITY, RELEASING, DEVELOPMENT,
-  ARCHITECTURE, WORKERS. `SECURITY.md` at the root is the reporting route.
+  ARCHITECTURE. `SECURITY.md` at the root is the reporting route.
 
 ## Invariants (do not break)
 
@@ -124,6 +124,33 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   next run with no migration (ADR 0015).
 - The accounts, cards and loans of the first page show the fields of `holdings` in the dashboard answer. The web adds up
   and compares no money of its own there. The share a card's arc fills (`CreditArc`) is the one figure it draws.
+
+## The public repository
+
+This repository is public, and so is everything that reaches it: commits and their author address, branch names, pull
+request titles and bodies, documents, pictures and the logs of the checks. The required check `privacy`
+(`tools/privacy/scan.mjs`, `.github/workflows/privacy.yml`) reads what a pull request adds and its title, body and
+branch name, and refuses:
+
+- Real personal data: account numbers, personal ids, e-mail addresses, phone and card numbers. Tests use the examples
+  in `tools/privacy/lists.json` or make a value up at run time.
+- The maintainer's machines: host names, account names, home paths and addresses. Write `~`, `$HOME`, `localhost` or
+  `<host>`.
+- Secrets: keys, tokens, add-on codes, `.env` files and databases.
+- The add-on module: files under any `private/` folder or `extension/`, and the words of what it does. It is "the
+  add-on module" (*lisäosa*) here. Its words are SHA-256 hashes in `lists.json`; a file that used one as bank payee
+  text before keeps that use (`baseline`).
+- A commit whose author or committer address is not GitHub's no-reply address. Set
+  `git config user.email <id>+<login>@users.noreply.github.com` in the clone before the first commit.
+- A picture that `pnpm shots` did not take. Shots starts its own app on an empty data folder, shows only made-up
+  households and stamps each picture. A screenshot of a browser session is never committed.
+
+A pull request's title and body say what changed in neutral words. They never hold a pasted log, a path or host of a
+machine, or a real row; quote an error by its message alone. A branch is named `work/<task>`.
+
+A finding names the file and line and never the value, since the log is public. Fix the line. A hit that is wrong gets
+a near miss in `tools/privacy/privacy.test.ts` and a fix of the detector, never an entry in `lists.json` to let it
+pass. A new word to refuse is added as its hash (`sha256` of the word in lower case) by the maintainer.
 
 ## Conventions
 

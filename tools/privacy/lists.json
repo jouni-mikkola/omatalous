@@ -1,0 +1,305 @@
+{
+ "words": [
+  "006226c2eb77b956de0a7ccd15a552bc02b089b808c912361ef2146939607026",
+  "02f4864a62184d13cbc413bc4e08b46f75271fe4d532e16198380fe25b97c5b3",
+  "07f29c1048d1861e53c9594a551ec024fe974fc26e7c26f43ee05ef1cca3b887",
+  "092a5b44051114bc510fb5b7a8c5ff4b62767fb2be1bd1e11308c54b4e6285ff",
+  "09a2077b8bd992fc7edb54aa37c3cdeeb533f69cdb05bd822a0d19b30ba64152",
+  "0c083abad3c6a8d537c761c9c95d73fd3661e70657d7ce43bca6ce6e7cbad1cb",
+  "1388a1dfb8e5af64e2b0e1ada1d3c22ecf8ee9dd2f14feabef4b30b7ffb4437f",
+  "13fe4e23f81941b2c388acc1d7724faeec2c05673f3836d4c34c70c4384b3c9d",
+  "143e3d70df8f87ad4c5dd102a0ad727a3825f943cbb6a63959d4a9b29ee31c23",
+  "14bd390cfe48174b382ddeff60e28e9e3e7b8eb1fb917d2f9683ebc8d0e5cb93",
+  "28f0de609541f4721b0344a949887330ec1910f6d0ad97fd53ccb7a193f3fef5",
+  "2cb63e52a560f2f1d12cc949c2438f4aa733cf0a199083769b2d25fd9a2bdc11",
+  "2e31480a724fe148d0ee0c542cee6831c8efc91472ad07857a3dce4c4b515527",
+  "2eebb708771aa53ea02371021a1644dfac69153f2d2d909d82519d16a8316228",
+  "3026e89a61353c9dfc9748d2efad71af8ecc8de9677b85be83263ea18db9b3fc",
+  "3433a0d137e0c4acace9ee6497b6e9f61da9198f7a55c430ed5ffee0cb8ad557",
+  "3619a1d05b1fe41a17aeede95dca3b2075c283281e17af896b2116f207ee3495",
+  "36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d",
+  "3db8aa035bc19f0a46136e13467c0b9c826bfb6493f960846743af8a177652ec",
+  "3f0e6d8818b5d8aa05a360cde2496a0cfbc255a2d361d1cbb898df89de9524a7",
+  "3fb695f073c03513877c17690eea8b69338630a68ebd236eb57c876513d186bd",
+  "43928646acf017c75266b98b611c9e2c76d74954510bb6560ebe92e4b6165c73",
+  "4434dc2f0910b0d8974a7d9f775afb4f83dc797c711ad9b72c628a1dfbc31599",
+  "44c0cc873181abb41e1a650eb2fefc2d105cb3b21ffc1bce43eb93cb4813681e",
+  "491fcb1c76fcd450538a7b8d61ca72da466056e1f3c4f0096454a55079e3e3f8",
+  "4c56e947c4a0456a3ca3500dc65663e3e7f3ffa92997b3e23a9c436d6923abdf",
+  "50046fd71586c091e5b3052c5bf9ca3c720029ecc668f61b964114a8a9aaca98",
+  "50f033d1018f5e672421b3b14c2e22db684f134ce4822c15b74a2df02d3bc1cf",
+  "58e5b5608346afc505eaec0de9efb7f49050d0df89b917d02565730b8732f955",
+  "638bae5ced63d841f89f0a389d820082572dc33eb4c253396292fcd048696610",
+  "6f32860910ca0fb2a20c7fda143666b09dbf8db5238195c90a586fb542ff0cad",
+  "7125a67ac5a6981792eccb810499e75cb906a8d8e1fd751f8238fc83c6a1d5cb",
+  "7d6aecf69dc3ec4ad90fd22a089e3190e7970e89907f8277862e43c17d90ca7f",
+  "7ea188ee1e306de5eb6351c5eab4cea2bb428f2bb8481e280d30d420a1d26d57",
+  "803bc011da1fc2d9e23399d28432b44eae5d1c4d3df81157664948f30766b124",
+  "81723921c9ecd092d5a22414cc318a15565b74e3f315e3c0dbe083aa6b7bb9d7",
+  "8dd48f7d936e7b9261d5688f94b004f95925a195a29a629926cfa1e620fc580c",
+  "958af3cb57a22c12278afa43dd189f7a38530cb77ebebf2b19084c41d72e0cf3",
+  "a64e98ff18a83009e15ef5bf714722bffd0a669d9c2700cf7ccd9ee625dc5733",
+  "a88cab84d1c9f766e7d637ac138c9aecc6e365aebb60733677565f1ed841b967",
+  "abc812dafabb28d8ca2c6b76a7f47c6be7fd711c4950645b249a42124b4614ba",
+  "bf30b4bf026923700b9a9cf3caa3c66f861a9011ac66273eeeb9f0728dc5a79d",
+  "c416590138107376132e34b8d47520bebcea7a1411b8db82b37b709ea831b4d3",
+  "c6a2ed84d039d1007c1b873f4d5a533386c1d56b2e2d2fb15a9d33f44a340f1c",
+  "c8e49601f76cedb2cf433ebd3af20e8cb082f1a31c54fa9fdb8761648f3e7e2b",
+  "c98d57c5f0246f8e1c1e64568ecb13ed0eb404713293ae129c6dbc7b14e9558f",
+  "ca1d4b526a032c016c415cf534c8b8c49090a9efc04f78f6b00e0bc5be7c810d",
+  "d083a3425223b805e4818d316c5897e9695baa0d98acd0c56bf3b8d7c77d653f",
+  "d4adaf23a744d23648fbf89ed423bc953eb38f906bfce9c962a20865ff5404cb",
+  "def9f1531725dfb1996b8dcef473fb3c41309a2cd293f6e610d81cdd3c0ebe0a",
+  "e1e6cf5cf29b86c3359b724fc0420270d29313ca22c07aaa97a9f2d1d51eb931",
+  "e2258058e798ad5d37a2071f8e40225d7fac397f9d9cefe024adc1d16ca99238",
+  "e931aac0a6a734c2d522d6379346d0855b738bf40bca4aee33f0aa0c82a34851",
+  "e9bc4aa47413f2084593a7b04fa4699bb4cd24391d16f24802c07d50c640a333",
+  "f0d20e353072af86b397973f84735a8516a95d9da784371a419956f92a5648ab",
+  "f2c7005c4430b8ced92c36fe4a8963e2b5ee873ccbf6f864d2b134daa772bf56",
+  "f70d3114572f0f13b38ad9ec38e3f9c34c799f91663633e8a74d9902902bb119",
+  "f9a6cbbd949c25ca607bc0822188e0cd4e99ec95f5f34605c78503bd2b24c209",
+  "f9b6c2bb10f93158826ba5777085070ee5df38dc7afcf778ef24cc47cbfe6ab1"
+ ],
+ "users": [
+  "321cbbfa854264a143d93f033e009ccbf85ad738aacd7e20ef3aa1e8fb464ea0",
+  "8dd48f7d936e7b9261d5688f94b004f95925a195a29a629926cfa1e620fc580c"
+ ],
+ "hosts": [
+  "c857d09db23e6822e3600bc06ad8d58f92ed62bc8efd81c753f77048662cb97d"
+ ],
+ "examples": {
+  "iban": [
+   "fi2112345600000785",
+   "fi4950009420028730",
+   "fi1410093000123458"
+  ],
+  "email": [
+   "git@github.com",
+   "noreply@github.com"
+  ],
+  "card": [
+   "4111111111111111",
+   "4242424242424242",
+   "5555555555554444",
+   "5105105105105100",
+   "4012888888881881",
+   "378282246310005",
+   "6011111111111117"
+  ]
+ },
+ "skip": {
+  "email": [
+   "THIRD_PARTY_NOTICES",
+   "LICENSE",
+   "pnpm-lock.yaml"
+  ]
+ },
+ "baseline": {
+  "apps/server/test/account-type.test.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/accounts.test.ts": [
+   "iban:c9252f51f3ed05e6365f68da8f49e2a543106a8284c51092e1b90bde97c9577f",
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/balance-sign.test.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/bank-connections.test.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/bank-list.test.ts": [
+   "email:53eee8ea9ac10b5ccb6bd363e7bbcebd1f4a8d44445cc28c1330ea843c9edf8e"
+  ],
+  "apps/server/test/bank-logos.test.ts": [
+   "email:cd54d1e1500440e84366d8c6b111411b5c97db5c4ba8042a129d4e988a9a6ff5"
+  ],
+  "apps/server/test/cf-access.test.ts": [
+   "email:048d56c3ac670fb555d83e274288859732368d9d5a4cc438d54b1123aec4249a"
+  ],
+  "apps/server/test/eb-balance-contract.test.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/explain.test.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/fixtures/db/0.10.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.11.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.12.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.39.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.4.0.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.46.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.5.0.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.56.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.6.0.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.66.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.7.0.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.70.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.8.0.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.8.5.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.8.7.sql": [
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/0.9.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/1.0.0.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
+  "apps/server/test/fixtures/db/seeds/0.10.0/accounts.sql": [
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb"
+  ],
+  "apps/server/test/fixtures/db/seeds/0.9.0/accounts.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a"
+  ],
+  "apps/server/test/ingest.test.ts": [
+   "word:a64e98ff18a83009e15ef5bf714722bffd0a669d9c2700cf7ccd9ee625dc5733"
+  ],
+  "apps/server/test/mapper.test.ts": [
+   "iban:0659193bff8046ab86bcdb2c78badb5629b2412222f495f3858b347535fde5c9",
+   "iban:c3c465064a01bbab817173ebfd0ebb764c7fadd0b4504e6b31b64e4f760dae00"
+  ],
+  "apps/server/test/security.test.ts": [
+   "email:281aff7fd5bca37063117e7804e34959aaf83de1dbfe6aac671721cd320cc7d3"
+  ],
+  "apps/server/test/transactions-strip.test.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/server/test/validate.test.ts": [
+   "email:0a88525f18e2f0fed0ff3e80162c2b83c80cbc9321bfb3189a2e866d036015c9"
+  ],
+  "apps/web/test/accounts-view.test.ts": [
+   "iban:c9252f51f3ed05e6365f68da8f49e2a543106a8284c51092e1b90bde97c9577f",
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "apps/web/test/card-face.test.ts": [
+   "card:8d0c677c88bf62e5a8f9045d6a69f866eb31f4c808d9c28c3eed700ee7b4790b"
+  ],
+  "apps/web/test/remote-access.test.ts": [
+   "word:6f32860910ca0fb2a20c7fda143666b09dbf8db5238195c90a586fb542ff0cad"
+  ],
+  "CHANGELOG.md": [
+   "word:a64e98ff18a83009e15ef5bf714722bffd0a669d9c2700cf7ccd9ee625dc5733"
+  ],
+  "docs/MONEY_FLOWS.md": [
+   "word:a64e98ff18a83009e15ef5bf714722bffd0a669d9c2700cf7ccd9ee625dc5733"
+  ],
+  "e2e/fake-bank.spec.ts": [
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "e2e/fake-bank/household.mjs": [
+   "iban:3c8d2738116871c9ad3fff1c3d7f8f18d4fc29d4e4933126c3835185bb1cadcc",
+   "iban:4d66e035ec03caddde33b6ccce59c64c03cebc251993cc7567cc4be856031d13",
+   "iban:88d3f9df4b8aab9a98ae91bcb7ad4c102a8e79384e78cc34ee348648f70552c4",
+   "iban:bd12e55ed15e0c234769a88768999316a6a6305acc9c49f44ebf67a2e824b349",
+   "iban:c9252f51f3ed05e6365f68da8f49e2a543106a8284c51092e1b90bde97c9577f",
+   "iban:cda4158b1352625f12ca7f2edd178fb27e50369fe4856563efd49d02013976ab"
+  ],
+  "e2e/renewal-round.spec.ts": [
+   "iban:88d3f9df4b8aab9a98ae91bcb7ad4c102a8e79384e78cc34ee348648f70552c4"
+  ],
+  "LICENSE": [
+   "word:6f32860910ca0fb2a20c7fda143666b09dbf8db5238195c90a586fb542ff0cad"
+  ],
+  "packages/core/src/merchant.ts": [
+   "word:02f4864a62184d13cbc413bc4e08b46f75271fe4d532e16198380fe25b97c5b3"
+  ],
+  "packages/core/test/ahead-card-bill.test.ts": [
+   "iban:146236f12edadfa6267c29fbf86ab0788f2115781257dbede36fe4611fe5907c"
+  ],
+  "packages/core/test/categorize.test.ts": [
+   "word:a64e98ff18a83009e15ef5bf714722bffd0a669d9c2700cf7ccd9ee625dc5733",
+   "word:def9f1531725dfb1996b8dcef473fb3c41309a2cd293f6e610d81cdd3c0ebe0a"
+  ],
+  "packages/core/test/dialect.test.ts": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a"
+  ],
+  "packages/core/test/flows-lenders.test.ts": [
+   "card:5209b1df230295b33eb28c89385ce0419f1a38fa89183e5ba19f34323dc4af2e"
+  ],
+  "packages/core/test/flows-own-accounts.test.ts": [
+   "iban:0659193bff8046ab86bcdb2c78badb5629b2412222f495f3858b347535fde5c9"
+  ],
+  "packages/core/test/flows.test.ts": [
+   "word:a64e98ff18a83009e15ef5bf714722bffd0a669d9c2700cf7ccd9ee625dc5733"
+  ],
+  "packages/core/test/instalment-plans.test.ts": [
+   "iban:11556ba4350be6b799f80d790ed60d1519dbc6e743fb5b01d8e8050d27702e27"
+  ],
+  "packages/core/test/lexicon.test.ts": [
+   "iban:3c8d2738116871c9ad3fff1c3d7f8f18d4fc29d4e4933126c3835185bb1cadcc"
+  ],
+  "packages/core/test/loan-payment.test.ts": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a"
+  ],
+  "packages/core/test/local-origin.test.ts": [
+   "email:02a8d763d6ffd2ea568eab2977a31705cf33a12711e64ba5167eecb4dd2f5568",
+   "email:10a2de068d6e9f568a1a59e6bf8f5fb0f2ef4a6c2a1355cfe7ad0a967e001ca9",
+   "email:de77dd75b065b6673b334e6efac4bd49895966ae7ac6981c53f2914fcad4a873"
+  ],
+  "packages/core/test/optimise/duties.test.ts": [
+   "iban:146236f12edadfa6267c29fbf86ab0788f2115781257dbede36fe4611fe5907c",
+   "iban:2b960f1ebbbb2ab38d70255d14a04d9b643d980166d5b5b51b6eb9e944afacd2"
+  ],
+  "packages/core/test/optimise/parts/tax.ts": [
+   "iban:146236f12edadfa6267c29fbf86ab0788f2115781257dbede36fe4611fe5907c",
+   "iban:2b960f1ebbbb2ab38d70255d14a04d9b643d980166d5b5b51b6eb9e944afacd2"
+  ],
+  "packages/core/test/runway.test.ts": [
+   "iban:146236f12edadfa6267c29fbf86ab0788f2115781257dbede36fe4611fe5907c"
+  ],
+  "packages/core/test/transfers-own.test.ts": [
+   "iban:0659193bff8046ab86bcdb2c78badb5629b2412222f495f3858b347535fde5c9"
+  ],
+  "tools/test/fake-host.sh": [
+   "email:6559557f5a2119a4422d233d572de7a01a7f0dbb1406590cfbfbae5846966a87"
+  ]
+ }
+}
