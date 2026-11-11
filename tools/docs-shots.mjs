@@ -23,13 +23,14 @@ const LABEL = "docs";
  */
 /** @type {Picture[]} */
 export const PICTURES = [
-  { file: "yhteenveto.png", household: "demo", route: "overview", width: 1280, height: 800 },
-  { file: "varallisuus.png", household: "demo", route: "overview", width: 1280, height: 800, at: "Varat ja velat" },
-  { file: "tilit.png", household: "bank", route: "settings", width: 1280, height: 800 },
-  { file: "raportit.png", household: "demo", route: "reports", width: 1280, height: 800 },
-  { file: "tapahtumat.png", household: "demo", route: "transactions", width: 1280, height: 800, account: "Käyttötili (esimerkki)" },
-  { file: "tarkistettavat.png", household: "demo", route: "review", width: 1280, height: 800 },
-  { file: "yhteenveto-puhelin.png", household: "demo", route: "overview", width: 390, height: 844 },
+  { file: "nyt.png", household: "demo", route: "overview", width: 1440, height: 900 },
+  { file: "kuukausi.png", household: "demo", route: "reports", width: 1440, height: 900 },
+  { file: "tulossa.png", household: "demo", route: "bills", width: 1440, height: 900 },
+  { file: "tarkistettavat.png", household: "demo", route: "review", width: 1440, height: 900 },
+  { file: "tapahtumat.png", household: "demo", route: "transactions", width: 1440, height: 900 },
+  { file: "tilit.png", household: "bank", route: "settings", width: 1440, height: 900 },
+  { file: "nyt-puhelin.png", household: "demo", route: "overview", width: 390, height: 844 },
+  { file: "tarkistettavat-puhelin.png", household: "demo", route: "review", width: 390, height: 844 },
 ];
 /** No picture is larger than this many bytes. */
 export const MAX_BYTES = 300_000;
@@ -45,7 +46,7 @@ function label(/** @type {Picture} */ p) {
 /** The step of `shots.mjs`: the screen is the picture's size, and the page is put in a box of that height. */
 export default async function step(/** @type {import("@playwright/test").Page} */ page) {
   const width = page.viewportSize()?.width ?? 1280;
-  const height = width < 600 ? 844 : 800;
+  const height = width < 600 ? 844 : 900;
   await page.setViewportSize({ width, height });
   const account = process.env.DOCS_SHOTS_ACCOUNT;
   if (account) {

@@ -30,11 +30,11 @@ const LABEL = "video";
  */
 /** @type {Scene[]} */
 export const SCENES = [
-  { route: "overview", at: "Month", caption: "Omatalous reads your bank accounts and shows where the money goes.", ms: 3200 },
-  { route: "overview", at: "Assets and debts", caption: "Net assets, debts and how many months the buffer lasts.", ms: 2600 },
-  { route: "transactions", caption: "Every transaction is listed and sorted into a category.", ms: 2800 },
-  { route: "reports", caption: "Reports answer six questions: spending, income, fixed costs, debts and more.", ms: 2800 },
-  { route: "review", caption: "What it cannot settle itself, it asks you, one question at a time.", ms: 3200 },
+  { route: "overview", caption: "Now: what is left until payday after the bills due before it.", ms: 3200 },
+  { route: "reports", caption: "Month: where the money went, against a usual month.", ms: 2800 },
+  { route: "bills", caption: "Coming: the bills and income before the next payday.", ms: 2800 },
+  { route: "review", caption: "To review: what the app cannot settle itself, one question at a time.", ms: 3200 },
+  { route: "transactions", caption: "Every transaction from the bank, sorted into a category.", ms: 2800 },
 ];
 
 const sceneLabel = (/** @type {Scene} */ _s, /** @type {number} */ i) => `${LABEL}${i}`;

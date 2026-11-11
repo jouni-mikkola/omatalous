@@ -444,8 +444,8 @@ for example `tools/visual-check.sh origin/main -- reports --demo --widths 1280,3
 `pnpm readme:video` remakes the animation at the top of the README (`docs/images/omatalous.png`, an APNG of five scenes of the example household in English, under 1 MB) and its still for reduced motion (`omatalous-still.png`). The scenes and captions are `SCENES` in `tools/readme-video.mjs`. Run it when a page it shows changed, and read the frames.
 
 `pnpm docs:shots` remakes the pictures of the README and the docs in `docs/images/`. They come from the example
-household and each is under 300 kB. The pages are `yhteenveto`, `varallisuus`, `tilit`, `raportit`,
-`tapahtumat` and `tarkistettavat` at 1280 x 800. The phone view is `yhteenveto-puhelin` at 390 x 844.
+household and each is under 300 kB. The pages are `nyt`, `kuukausi`, `tulossa`, `tarkistettavat`, `tapahtumat` and
+`tilit` at 1440 x 900. The phone views are `nyt-puhelin` and `tarkistettavat-puhelin` at 390 x 844.
 Run it before a release when a page changed. Read the pictures. A picture a document names that nobody makes turns `pnpm test` red.
 
 - `--demo` loads the demo household; `--fake-bank` links the fake bank (a joint account, a card with a limit and a

@@ -1,14 +1,15 @@
 # Omatalous
 
 Omatalous is a personal finance app for a Finnish household that runs in Docker on your own Linux machine and reads
-your bank accounts through PSD2, by way of [Enable Banking](https://enablebanking.com).
+your bank accounts through PSD2, by way of [Enable Banking](https://enablebanking.com). It opens on one sum: what is
+left until the next payday after the bills due before it.
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/images/omatalous-still.png">
-  <img src="docs/images/omatalous.png" alt="A short animation of Omatalous with example data. It shows the month's spending against a usual month, net assets, debts and the buffer, the transactions sorted into categories, the report questions and a question the app asks the household.">
+  <img src="docs/images/omatalous.png" alt="A short animation of Omatalous with example data, in English. It shows the four tabs: what is left until payday, the month's spending by category against a usual month, the bills coming before payday and a question the app asks the household, and then the transactions sorted into categories.">
 </picture>
 
-![Yhteenveto, the overview page, with example data: what is available until the next payday, this month's spending against a usual month, last month's surplus and the total on the accounts, and a chart of the month's spending day by day](docs/images/yhteenveto.png)
+![Nyt, the first page, with example data: 3 025 euros left until payday on the 25th, 216 euros a day, the month's spending of 2 027 euros against the usual band to the same day, and a chart of the month's spending day by day](docs/images/nyt.png)
 
 ## What it does
 
@@ -16,55 +17,59 @@ The app fetches the household's transactions from the bank at 6 and 18 by defaul
 Finnish or English, in a browser on a computer or a phone. All figures above and below are from the example household that comes
 with the code.
 
+The app has four tabs, one for each question a household asks of its money.
+
+- Nyt (now): how much is left until the next payday after the bills due before it, per day, and how this month's
+  spending compares with a usual month on the same day.
+- Kuukausi (month): this month's spending by category against the usual to the same day, the categories that explain
+  the difference first. Earlier months are a click back.
+- Tulossa (coming): the bills and income before the next payday, and the bills, contracts and subscriptions that
+  repeat, with their next date. A bill the app has not seen yet is added by hand.
+- Tarkistettavat (to review): every question the app cannot settle itself, such as which kind of loan a repeating
+  payment is or which category an unknown payee belongs to, asked one at a time.
+
+A figure opens the transactions behind it. Lisää (more), in the user menu, has the longer views: the year, accounts
+and balances, loans, the tax year and, when two members share an account, its costs.
+
 - Every money movement goes into one of five flows: spending, loan payments, saving, income and borrowing. A move
   between your own accounts counts in none of them, and neither does a card bill when the card's account is connected.
   [Money flows](docs/MONEY_FLOWS.md) explains each rule.
-- Yhteenveto (the overview) shows what is available until the next payday after the bills due before it, and how this
-  month's spending compares with a usual month on the same day.
-- Accounts, credit cards and loans are listed with their balances. A card shows how much of its limit is used.
-- Raportit (reports) answers six questions on six pages (this month, spending, income, fixed costs, debts and
-  balances), and a seventh about shared accounts when two members share one. Among the sections are income against
-  spending month by month, fixed and variable costs, and, once there are 15 months of rows, a comparison
-  with the same months a year earlier. Most tables of more than ten rows download as CSV.
 - A bank's CSV export, a camt.053 statement or a card statement (CSV or text) is read in the browser, and only
   its rows go to the install. It fills an account the bank does not give through PSD2.
-- The app finds subscriptions and bills that repeat, and warns about double charges and late fees. Säästövinkit
-  (saving tips) shows where the household could spend less, with the calculation behind each figure.
 - A joint account is split between its users by who paid into it, equally or by percentages, and each member sees
   their own part.
 - A loan at a lender that is not connected is typed into a short form.
-- Tarkistettavat (to check) collects every question the app cannot settle itself, such as which kind of loan a
-  repeating payment is, and asks them one at a time.
+- Most tables of more than ten rows download as CSV.
 - The database is copied every day. If the database is damaged, the app starts from the newest intact copy. With the
   maintenance helper, updates and rollbacks run from the settings page, and an update that leaves the app not answering
   is taken back.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/varallisuus.png" alt="Varallisuus on the overview page: two accounts with their balances, a gold credit card face showing the used credit, and a loan without a balance"></td>
-<td width="50%"><img src="docs/images/tapahtumat.png" alt="Tapahtumat filtered to the checking account: 133 transactions with totals paid and received, a weekly bar chart, and rows for an electricity bill, a MobilePay payment, a card bill and a monthly fund saving, each with its category"></td>
+<td width="50%"><img src="docs/images/kuukausi.png" alt="Kuukausi: spending of 2 027 euros from the 1st to the 11th against the usual 2 040 euros, and the categories that explain the difference, each with its sum, its usual sum and the gap in euros"></td>
+<td width="50%"><img src="docs/images/tulossa.png" alt="Tulossa: three bills before payday that add up to 1 900,54 euros, the payday on the 25th, and the list of bills, contracts and subscriptions with their kind, next date and amount"></td>
 </tr>
 <tr>
-<td>The accounts, the credit card and its used credit.</td>
-<td>Transactions of one account with their categories.</td>
+<td>Where this month's money went, against a usual month.</td>
+<td>The bills before payday and what repeats.</td>
 </tr>
 <tr>
-<td><img src="docs/images/raportit.png" alt="Raportit, the cash flow report for 12 months: income, spending, debt payments, saving and the surplus of each month as bars, with the savings rate"></td>
-<td><img src="docs/images/tarkistettavat.png" alt="Tarkistettavat: a card asking which kind of loan a repeating 289 euro payment to Nordea Rahoitus Suomi Oy is, with the car loan suggested"></td>
+<td><img src="docs/images/tarkistettavat.png" alt="Tarkistettavat: question 1 of 9 asks which kind of loan a repeating 289 euro payment to Nordea Rahoitus Suomi Oy is, with its last three payments and the car loan suggested"></td>
+<td><img src="docs/images/tapahtumat.png" alt="Tapahtumat: the rows by day with the payee, the bank's message, the account and the category, a search field and filters above them"></td>
 </tr>
 <tr>
-<td>Where twelve months of income went.</td>
 <td>A question the app asks instead of guessing.</td>
+<td>Every transaction with its category.</td>
 </tr>
 <tr>
-<td><img src="docs/images/tilit.png" alt="A joint account in Asetukset > Tilit: how its costs are split, and a monthly table of what each member paid in and their share of the costs"></td>
+<td><img src="docs/images/tilit.png" alt="Asetukset > Pankit ja tilit: a linked bank with its four accounts and cards, the consent valid until May, the time of the last fetch, and the accounts with their balances"></td>
 </tr>
 <tr>
-<td>A joint account month by month.</td>
+<td>The bank link and the accounts in Asetukset.</td>
 </tr>
 </table>
 
-<img src="docs/images/yhteenveto-puhelin.png" alt="The overview page on a phone: the four key figures in two rows, the spending chart below them and the page menu at the bottom of the screen" width="240">
+<img src="docs/images/nyt-puhelin.png" alt="Nyt on a phone: the sum left until payday, the spending chart and the four tabs at the bottom of the screen" width="240"> <img src="docs/images/tarkistettavat-puhelin.png" alt="Tarkistettavat on a phone: the loan question with its payments and the answers as buttons" width="240">
 
 ## Banks
 
@@ -127,7 +132,7 @@ the host runs updates, backups and rollbacks, and takes updates from GitHub Rele
 
 The code is TypeScript in three packages. `packages/core` holds the rules and the figures with no input or output of
 its own, so the same code runs on the server and in the browser. `apps/server` is a [Hono](https://hono.dev) server on
-Node.js 22 with its built-in SQLite, and `apps/web` is a React page built with Vite, with charts drawn in SVG by the app
+Node.js 24 with its built-in SQLite, and `apps/web` is a React page built with Vite, with charts drawn in SVG by the app
 itself. Money is counted in whole cents. A change lands after the type checks, the Vitest suites, the shell suites and the
 Playwright tests of the pages pass. See [Architecture](docs/ARCHITECTURE.md) and [Development](docs/DEVELOPMENT.md).
 
