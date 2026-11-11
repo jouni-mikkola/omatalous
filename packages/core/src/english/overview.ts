@@ -95,6 +95,13 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.shared_see_household": "The accounts shared with you are under Household.",
   "home.show_household": "Show the household",
   "home.no_payments_shown": "Payments and balance are not shown because the period does not reach today.",
+  "home.nyt_left": "Left until payday, {date}",
+  "home.nyt_per_day_one": "{sum} a day for {count} day.",
+  "home.nyt_per_day_many": "{sum} a day for {count} days.",
+  "home.nyt_usual_per_day": "Everyday spending usually takes {sum} a day.",
+  "home.nyt_spent": "Spent {sum}",
+  "home.nyt_usual_band": "usually {range} by this day",
+  "home.nyt_parts": "Balance {balance} − bills before payday {bills}",
   // Shared components
   "chart.largest": "Largest single purchase {name}",
   "chart.pay_day": "Pay {day}.",

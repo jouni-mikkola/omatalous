@@ -16,6 +16,7 @@ const CENTS = 4_321;
 interface Dashboard {
   ahead: { from: string; to: string };
   home: { runway: { sum: { paymentsCents: number; freeCents: number } } };
+  nyt: { left: { billsCents: number } };
 }
 const dashboardOf = async (context: BrowserContext): Promise<Dashboard> => (await context.request.get("/api/dashboard")).json();
 
@@ -121,8 +122,9 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
 async function paymentsOnNyt(context: BrowserContext): Promise<number> {
   const page = await context.newPage();
   await page.goto("/#/overview");
-  const row = page.locator(".home-sum-row");
-  const shown = Math.abs(cents(await row.locator("div", { has: page.getByText("Maksut ennen palkkapäivää", { exact: true }) }).first().locator("dd").innerText()));
+  // "Saldo 7 198,65 € − laskut ennen palkkapäivää 2 774,52 €": the second sum of the line
+  const line = (await page.locator(".nyt-parts").innerText()).replace(/[\s\u00a0\u202f]+/g, " ");
+  const shown = Math.abs(cents(line.match(/\d[\d ]*(?:,\d+)?\s?€/g)![1]!));
   await page.close();
   return shown;
 }
@@ -132,7 +134,7 @@ test("a missing bill added by hand on Tulossa is a row of the list and is in the
   const page = await context.newPage();
   const seen = watch(page);
   const before = await dashboardOf(context);
-  expect(await paymentsOnNyt(context)).toBe(before.home.runway.sum.paymentsCents);
+  expect(await paymentsOnNyt(context)).toBe(before.nyt.left.billsCents);
   // a day of the window Nyt counts: tomorrow when the window reaches it
   const tomorrow = new Date(Date.parse(before.ahead.from) + 86_400_000).toISOString().slice(0, 10);
   const due = tomorrow <= before.ahead.to ? tomorrow : before.ahead.from;
@@ -159,7 +161,8 @@ test("a missing bill added by hand on Tulossa is a row of the list and is in the
     const after = await dashboardOf(context);
     expect(after.home.runway.sum.paymentsCents).toBe(before.home.runway.sum.paymentsCents + CENTS);
     expect(after.home.runway.sum.freeCents).toBe(before.home.runway.sum.freeCents - CENTS);
-    expect(await paymentsOnNyt(context)).toBe(after.home.runway.sum.paymentsCents);
+    expect(await paymentsOnNyt(context)).toBe(after.nyt.left.billsCents);
+    expect(after.nyt.left.billsCents).toBe(before.nyt.left.billsCents + CENTS);
     expect(seen.problems).toEqual([]);
   } finally {
     // the demo household is shared with the other specs of the worker

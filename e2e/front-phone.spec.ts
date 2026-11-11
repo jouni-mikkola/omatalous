@@ -2,8 +2,7 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// Yhteenveto on a phone, at 320, 360 and 390 px wide: the answer and its sum row, the five blocks under each other, and the
-// chart of the month. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
+// Nyt on a phone, at 320, 360 and 390 px wide: the answer, its lines under each other, and the chart of the month. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(context: BrowserContext): Promise<Page> {
@@ -32,12 +31,12 @@ const small = (list: Locator): Promise<string[]> =>
   );
 
 for (const width of [320, 360, 390]) {
-  test(`${width} px: the blocks stand under each other inside the screen, the sum row and the bars fit, nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the lines stand under each other inside the screen, the sum fits, nothing scrolls sideways`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
     const page = await open(context);
     const seen = watch(page);
-    // the blocks in one column: each starts on the left edge of the page and none is beside another
-    const blocks = page.locator(".home-answer, .home-pace");
+    // the lines of the one block in one column: none is beside another
+    const blocks = page.locator(".home-answer-line, .nyt-per-day, .nyt-pace, .pace-chart, .nyt-parts");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -46,9 +45,9 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-answer-line, .home-sum-row dt, .home-sum-row dd, .home-row")), "text cut").toEqual([]);
-    // the sum row's three figures are all inside the screen
-    for (const cell of await page.locator(".home-sum-row > div").all()) {
+    expect(await cut(page.locator(".home-answer-line, .nyt-per-day, .nyt-pace, .nyt-parts")), "text cut").toEqual([]);
+    // the sum of the answer is inside the screen
+    for (const cell of await page.locator(".home-answer-line .fig").all()) {
       const box = (await cell.boundingBox())!;
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
@@ -59,19 +58,3 @@ for (const width of [320, 360, 390]) {
     await context.close();
   });
 }
-
-test("390 px: Näytä maksut opens the payments inside the screen and Piilota maksut closes them", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
-  const page = await open(context);
-  const open_ = page.getByRole("button", { name: "Näytä maksut" });
-  test.skip((await open_.count()) === 0, "the demo has no payment before its payday");
-  await open_.tap();
-  const table = page.getByRole("table", { name: "Maksut ennen palkkapäivää" });
-  await expect(table).toBeVisible();
-  const box = (await table.boundingBox())!;
-  expect(box.x + box.width, "the list ends on the screen").toBeLessThanOrEqual(390);
-  expect(await overflow(page)).toBe(0);
-  await page.getByRole("button", { name: "Piilota maksut" }).tap();
-  await expect(table).toHaveCount(0);
-  await context.close();
-});

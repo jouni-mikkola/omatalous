@@ -1,84 +1,23 @@
-/* Yhteenveto: the answer, the month's pace, what to notice and what the household has and owes.
-   Sections are told apart by a heading and a hairline (the `.card` rule), so nothing here has a box. A block keeps its
-   height from the first frame: the loading frame uses the same classes, so the page does not move when the answer lands. */
+/* Nyt: one block, the sum left before payday, what it is a day, the month's pace with its chart and the two figures
+   the sum is made of. Nothing here has a box. The block keeps its height from the first frame: the loading frame uses
+   the same classes, so the page does not move when the answer lands. */
 
 @layer pages {
-.home-answer { display: grid; gap: var(--sp-8); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 4); }
-.home-answer-main { display: grid; gap: var(--sp-8); align-content: start; }
-.home-eyebrow { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-question { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); color: var(--text); }
-.home-answer-line { margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
-.home-answer-line .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }
-.home-short .fig, .home-tight .fig { color: var(--bad); }
+.home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 4); }
+/* the words on the left and the sum on the right of one line; on a narrow screen the sum wraps under the words */
+.home-answer-line { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-4) var(--sp-16); margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
+.home-answer-line .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); white-space: nowrap; }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
-.home-verdict { margin: 0 0 var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--text); }
+.nyt .chart-table, .nyt .pace-chart { margin-top: var(--sp-12); }
 
-/* balance less payments is what is left: three figures on one line, ruled by hairlines */
-.home-sum { display: grid; gap: var(--sp-8); margin-top: var(--sp-8); }
-.home-sum-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-block: 1px solid var(--border); }
-.home-sum-row > div { display: grid; gap: var(--sp-4); padding: var(--sp-12) var(--sp-16); border-inline-start: 1px solid var(--border); }
-.home-sum-row > div:first-child { border-inline-start: 0; padding-inline-start: 0; }
-.home-sum-row dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-sum-row dd { margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); }
-.home-sum-left dd { color: var(--text); }
-
-/* a phone: the three figures share the line, so the figures are smaller and the padding tighter */
-@media (max-width: 40rem) {
-  .home-sum-row > div { padding-inline: var(--sp-8); }
-  .home-sum-row dd { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
-}
-
-/* wide: the sentence on the left, the sum that makes it on the right */
-@media (min-width: 1040px) {
-  .home-answer { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); column-gap: var(--gap); align-items: start; }
-  .home-sum-row { grid-template-columns: minmax(0, 1fr); }
-  .home-sum-row > div { grid-template-columns: 1fr auto; align-items: baseline; padding-inline: 0; border-inline-start: 0; }
-  .home-sum-row > div + div { border-block-start: 1px solid var(--grid); }
-  .home-sum { margin-top: 0; }
-}
-
-
-/* wide: the month's pace and the direction below it go across the page; the order in the source is the order a narrow screen reads */
-@media (min-width: 1040px) {
-  .front { grid-auto-flow: dense; }
-  .front > .home-pace { grid-column: 1 / -1; }
-  .front > .home-direction { grid-column: 1 / -1; }
-  /* across the page the figures stand side by side, name over figure, so the block is one row high */
-  .home-direction .home-rows { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--sp-24); border-bottom: 1px solid var(--grid); }
-  .home-direction .home-row { display: grid; align-content: start; gap: var(--sp-4); border-bottom: 0; }
-  .home-direction .home-row dd { text-align: start; }
-  /* the link to the accounts stands on the heading's line */
-  .front > .home-direction { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; }
-  .home-direction .home-rows { grid-column: 1 / -1; grid-row: 2; }
-  .home-direction .home-more { grid-column: 2; grid-row: 1; margin: 0; }
-}
-.home-pace .chart-table, .home-pace .pace-chart { margin-top: var(--sp-12); }
-
-/* what the household has and owes: name and figure on a line */
-.home-rows { margin: var(--sp-12) 0 0; }
-.home-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); min-block-size: var(--row-h); padding: var(--sp-8) 0; border-bottom: 1px solid var(--grid); }
-.home-row dt { color: var(--text-2); }
-.home-row dd { margin: 0; text-align: end; font-weight: var(--w-strong); }
-.home-row dd small { display: block; font-weight: var(--w-regular); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-row-lead dt { color: var(--text); }
-.home-more { margin: var(--sp-12) 0 0; }
-
-/* the line under the answer that says what the figures lack, and the notices of the server */
-.home-reliability { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+/* the first fetch of a new bank */
 .first-fetch p { margin: 0; color: var(--text-2); }
 .first-fetch-list { margin: var(--sp-8) 0 0; padding: 0; list-style: none; display: grid; gap: var(--sp-4); font-size: var(--fs-body); color: var(--text); }
-.home-server-notes { margin: 0; padding: 0; list-style: none; }
-.home-server-note { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-16); padding: var(--sp-8) 0; border-top: 1px solid var(--grid); }
 
-/* the loading frame: the same blocks, grey bars where the text will stand */
+/* the loading frame: the same block, grey bars where the text will stand */
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); }
 .home-skeleton .sk-answer { inline-size: min(28rem, 100%); block-size: var(--lh-fig-l); }
-/* each block as high as it is when loaded, so the page keeps its length */
-.home-skeleton .home-pace { min-block-size: calc(var(--row-h-roomy) * 14); }
-.home-skeleton .home-direction { min-block-size: calc(var(--row-h-roomy) * 7); }
-@media (min-width: 1040px) {
-  .home-skeleton .home-direction { min-block-size: calc(var(--row-h-roomy) * 3); }
-}
-.home-skeleton .home-answer { min-block-size: calc(var(--row-h-roomy) * 6); }
+/* the chart's place, so the block is as high as it is when loaded */
+.home-skeleton .sk-chart { block-size: calc(var(--row-h-roomy) * 6); }
 }

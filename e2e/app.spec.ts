@@ -125,9 +125,8 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the page opens on the answer, then the month's pace
-          const order = [".home-answer", ".home-pace"];
-          // the document order is the reading order of a phone and a screen reader; only the answer is checked to stand on top
+          // the page is one block: the answer, then what it is a day, the month's pace and the two figures it is made of, in that order
+          const order = [".home-answer-line", ".nyt-pace", ".nyt-parts"];
           const names = await page.evaluate((selectors) => {
             const found = selectors.map((s) => document.querySelector(s)!);
             return found.map((el, i) => (i === 0 || found[i - 1]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING ? selectors[i] : `${selectors[i]} out of order`));
@@ -538,10 +537,8 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   // the price changes of the fixed costs are a section of this report since BA-9; Laskut has none (checked above)
   await expect(page.locator("#kiinteat-hinnat").getByRole("heading", { name: "Hinnanmuutokset" })).toBeVisible();
 
-  // Yhteenveto lists the payments and sends on to Laskut
+  // Nyt sends on to Laskut
   await page.goto("/#/overview");
-  // the payments are opened by Näytä maksut and the list sends on to Laskut
-  await page.getByRole("button", { name: "Näytä maksut" }).click();
   await page.getByRole("link", { name: "Laskut", exact: true }).first().click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
   await expect(page.locator("#tulossa").getByRole("heading", { name: "Tulevat maksut" })).toBeVisible();

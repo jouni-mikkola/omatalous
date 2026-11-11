@@ -97,6 +97,14 @@ export const FI_OVERVIEW = {
   "home.shared_see_household": "Sinulle jaetut tilit näkyvät kohdassa Koko talous.",
   "home.show_household": "Näytä koko talous",
   "home.no_payments_shown": "Emme näytä maksuja ja saldoa, koska jaksosi ei ulotu tähän päivään.",
+  // Nyt: the sum left before payday, what it is a day, the month's pace and the two figures the sum is made of
+  "home.nyt_left": "Palkkapäivään {date} jää",
+  "home.nyt_per_day_one": "{sum} päivässä {count} päivän ajan.",
+  "home.nyt_per_day_many": "{sum} päivässä {count} päivän ajan.",
+  "home.nyt_usual_per_day": "Tavallisesti arkeen kuluu {sum} päivässä.",
+  "home.nyt_spent": "Käytetty {sum}",
+  "home.nyt_usual_band": "tavallinen {range} tähän päivään",
+  "home.nyt_parts": "Saldo {balance} − laskut ennen palkkapäivää {bills}",
   // Shared components
   "chart.largest": "Suurin yksittäinen osto {name}",
   "chart.pay_day": "Palkka {day}.",
