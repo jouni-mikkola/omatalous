@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { REMOVAL_NOTE, REVERTED } from "../src/services/remote-access-settle.ts";
-import { ACTION_LABEL, OPS_ACTIONS_FOR_TEST } from "./ops-english-support.ts";
+import { OPS_ACTIONS_FOR_TEST } from "./ops-english-support.ts";
 import { ACTION_LABEL_EN, opsText } from "../src/services/ops-english.ts";
 
 const root = join(import.meta.dirname, "../../..");
@@ -56,6 +56,5 @@ describe("the helper's sentences in English", () => {
   it("names every action", () => {
     expect(Object.keys(ACTION_LABEL_EN).sort()).toEqual([...OPS_ACTIONS_FOR_TEST].sort());
     for (const a of OPS_ACTIONS_FOR_TEST) expect(ACTION_LABEL_EN[a]).not.toMatch(FINNISH);
-    expect(Object.keys(ACTION_LABEL).length).toBe(OPS_ACTIONS_FOR_TEST.length);
   });
 });

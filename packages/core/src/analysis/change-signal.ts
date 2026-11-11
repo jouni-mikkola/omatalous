@@ -79,7 +79,7 @@ const MIN_RUNNING_DAYS = 7;
  * A sentence tests every category of the household, about fifteen, where an insight tests one figure: each test is
  * held this many standard errors over `MIN_T` so the sentence as a whole is as rarely wrong as one insight.
  */
-export const CHANGE_T = MIN_T + 1;
+const CHANGE_T = MIN_T + 1;
 
 /** Whether `cents` of change of `key` stands CHANGE_T standard errors from nothing. */
 export function standsOut(s: SignalInput, key: string | null, cents: number): boolean {

@@ -35,7 +35,7 @@ const ASKER_ID = /^[A-Za-z0-9_-]{1,64}$/;
  * stayed down, or an older image that does not know the file ran in between. Days later the copy it names is no
  * longer what the admin chose, so it is dropped and the admins are told.
  */
-export const MARKER_MAX_AGE_MS = 15 * 60_000;
+const MARKER_MAX_AGE_MS = 15 * 60_000;
 /** The action's name in the audit list of Asetukset > Ylläpito: the request (services/db-restore.ts) and this start's answer to it say the same words. */
 export const RESTORE_LABEL = "tietokannan palautus";
 

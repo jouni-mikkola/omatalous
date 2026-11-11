@@ -16,7 +16,7 @@ import { type Insight, type InsightArgs, q } from "./types.ts";
 
 
 /** A yearly or half-yearly subscription: the insight's set. Optimoi passes its own filter for other contracts. */
-export const isLongSubscription = (s: RecurringSeries) => isSubscription(s) && (s.cadence === "yearly" || s.cadence === "semiannual");
+const isLongSubscription = (s: RecurringSeries) => isSubscription(s) && (s.cadence === "yearly" || s.cadence === "semiannual");
 
 /**
  * Series with a next charge from today to `days` ahead, soonest first, merchants the household answered (Lopetettu,

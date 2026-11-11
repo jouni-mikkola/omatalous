@@ -18,7 +18,7 @@ const TOUCH_INTERVAL_MS = 60 * 60_000;
  * still work. Behind a TLS proxy that sets no headers, the
  * request is https when it was sent to the configured https address.
  */
-export function isHttps(c: Context, s: Services): boolean {
+function isHttps(c: Context, s: Services): boolean {
   if (s.config.trustProxy && c.req.header("x-forwarded-proto") === "https") return true;
   const url = new URL(c.req.url);
   if (url.protocol === "https:") return true;

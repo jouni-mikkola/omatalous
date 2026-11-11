@@ -32,7 +32,7 @@ import type { Db, Statement } from "./types.ts";
 
 export { WRITE_CHUNK } from "./finance/context.ts";
 export type { NewAccount } from "./finance/accounts.ts";
-export type { MerchantFilter, MerchantHistory, MerchantList, MerchantSummary, UncategorisedMerchant } from "./finance/merchants.ts";
+export type { MerchantFilter } from "./finance/merchants.ts";
 export type { OwnRows } from "./finance/part-sql.ts";
 export type { TransactionFilter } from "./finance/transaction-list.ts";
 export { bankSignature, type StoredParty, searchText } from "./finance/transactions.ts";

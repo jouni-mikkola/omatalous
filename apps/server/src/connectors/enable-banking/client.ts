@@ -24,7 +24,7 @@ function errorCode(body: string): string {
  * "No allowed accounts added to the application"; no other code is documented for it. Add a code here only when the
  * docs or a real response confirm it.
  */
-export const NOT_LINKED_CODES: readonly string[] = ["NO_ACCOUNTS_ADDED"];
+const NOT_LINKED_CODES: readonly string[] = ["NO_ACCOUNTS_ADDED"];
 
 /** What a failed call means for the reader, with no status code: those stay in the log line of the error. */
 export function plainFault(status: number): string {

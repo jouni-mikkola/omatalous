@@ -1,4 +1,5 @@
-import { type Insight, insightText } from "../src/index.ts";
+import { insightText } from "../src/explain/insights.ts";
+import type { Insight } from "../src/index.ts";
 
 /** An insight as the tests read it: its sentences from `explain/insights.ts` beside the data. */
 export interface InsightView {

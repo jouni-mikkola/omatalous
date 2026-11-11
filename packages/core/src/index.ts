@@ -26,7 +26,7 @@ export * from "./day-bins.ts";
 export * from "./stats.ts";
 export * from "./categories.ts";
 export * from "./category-names.ts";
-export { fuelPurchases, themeOf, THEMES } from "./themes.ts";
+
 export * from "./merchant.ts";
 export * from "./card-envelope.ts";
 export * from "./foreign-rows.ts";
@@ -36,12 +36,12 @@ export * from "./consent-round.ts";
 export * from "./categorize.ts";
 export * from "./rule-key.ts";
 export * from "./industry.ts";
-export { householdWords, mayBePerson } from "./payee-guard.ts";
+export { householdWords } from "./payee-guard.ts";
 export { type GuessCandidate, payeeGuesser } from "./payee-guess.ts";
-export { companyForms } from "./wording.ts";
+
 export * from "./transfers.ts";
 export * from "./recurring.ts";
-export type { Contract } from "./contract.ts";
+
 export * from "./commitments.ts";
 export * from "./loans.ts";
 export * from "./household-debts.ts";
@@ -56,19 +56,19 @@ export { isUnnamedMobilePay } from "./mobilepay.ts";
 export * from "./analysis/flows.ts";
 export * from "./analysis/bridge-view.ts";
 export * from "./analysis/printed.ts";
-export { isCardBill, type MissingCardPurchases } from "./analysis/card-bills.ts";
+export { isCardBill } from "./analysis/card-bills.ts";
 export * from "./analysis/period.ts";
 export { dayHeat } from "./analysis/day-heat.ts";
 export * from "./analysis/format.ts";
 export * from "./analysis/context.ts";
 export * from "./analysis/statement-explain.ts";
-export { FIGURES } from "./figures.ts";
+
 export { explain } from "./explain/explain.ts";
 export { explainNow } from "./explain/now.ts";
 export { explainLoan, isLoanFigure, isOneLoan } from "./explain/loans.ts";
 export { createWhy } from "./explain/why.ts";
 export { sentenceOf } from "./explain/catalogue.ts";
-export type { Explanation, FigureId, Line, LoanFigureId, Reason, RuleId, WhyCollector } from "./explain/types.ts";
+export type { Explanation, FigureId, LoanFigureId, Reason, WhyCollector } from "./explain/types.ts";
 export * from "./analysis/usual.ts";
 export * from "./thresholds.ts";
 export * from "./analysis/alerts.ts";
@@ -76,14 +76,14 @@ export * from "./analysis/subscription-alerts.ts";
 export * from "./analysis/fees.ts";
 export * from "./analysis/credit.ts";
 export * from "./analysis/insights/index.ts";
-export { insightText } from "./explain/insights.ts";
-export { type DebtShare, debtShareOf } from "./analysis/insights/borrowing.ts";
-export { type PriceRiseItem, priceRiseItems } from "./analysis/insights/prices.ts";
-export { isLongSubscription, renewalItems } from "./analysis/insights/renewals.ts";
+
+
+
+
 export * from "./analysis/dashboard.ts";
 export * from "./analysis/spending-goal.ts";
 export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
-export type { CategoryPart, RowParts } from "./analysis/row-parts.ts";
+
 export { type ComingPeriod, comingList } from "./analysis/coming.ts";
 export { cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead.ts";
 export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";

@@ -437,7 +437,7 @@ function phraseRegex(phrase: string): RegExp {
  * not "EVRY OY"). Every member's rules
  * run in the same server process, so a user pattern is never run as a regex.
  */
-export function compilePattern(pattern: string): (text: string) => boolean {
+function compilePattern(pattern: string): (text: string) => boolean {
   const phrases = userPhrases(pattern);
   if (!phrases) return () => false;
   const res = phrases.map(phraseRegex);

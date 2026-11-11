@@ -232,7 +232,7 @@ function expectedOf(input: ExpectedInput): Expected {
 const cache = new WeakMap<AnalysisContext, Map<string, Expected | null>>();
 
 /** The figure of `month` read from `months`, the rows the month table counts (`spendRows`). */
-export function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[]): Expected {
+function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[]): Expected {
   // the one-offs are judged in the window of the month and its base, as the insights and the change report judge them
   const oneOffs = expectedOneOffs(ctx, [...months, month]);
   return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m), series: ctx.recurring, oneOffs });

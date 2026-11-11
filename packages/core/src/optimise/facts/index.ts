@@ -18,9 +18,9 @@ import { TAX_FACTS } from "./tax.ts";
  * The expiry class of a row: rates, CPI and energy prices age in 6 months from `asOf`; price lists, surveys and
  * sample offers in 12; a law at its `validTo`, else 12 months after it was verified.
  */
-export type FactKind = "rate" | "cpi" | "energy" | "price_list" | "survey" | "sample" | "law";
+type FactKind = "rate" | "cpi" | "energy" | "price_list" | "survey" | "sample" | "law";
 
-export type FactStatus = "valid" | "proposed" | "repealed";
+type FactStatus = "valid" | "proposed" | "repealed";
 
 export interface Fact {
   /** Several rows may share an id with different validity (a fee before and after a change). */

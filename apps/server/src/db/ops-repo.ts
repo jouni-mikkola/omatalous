@@ -2,7 +2,7 @@
 import { type Row, str } from "./rows.ts";
 import type { Db } from "./types.ts";
 
-export type OpsStatus = "queued" | "running" | "ok" | "failed" | "expired" | "cancelled";
+type OpsStatus = "queued" | "running" | "ok" | "failed" | "expired" | "cancelled";
 
 export interface OpsRequest {
   id: string;

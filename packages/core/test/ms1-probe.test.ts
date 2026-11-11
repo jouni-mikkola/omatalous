@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import * as core from "../src/index.ts";
-import * as dq from "../src/analysis/data-quality.ts"; // API: adjust name (module that holds filedWithoutAsking)
+import * as dq from "../src/analysis/filed.ts";
 import { createContext } from "../src/analysis/context.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";

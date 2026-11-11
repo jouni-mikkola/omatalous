@@ -14,7 +14,7 @@ import { monthLabels, rangeMonthIndexes } from "./shared.ts";
 /** Defined in types.ts, below analysis and reports, because the dashboard reads balances too. */
 export type { BalanceInput };
 
-export interface BalanceSeries {
+interface BalanceSeries {
   accountId: string;
   /** With the owner's name in brackets when the account is shared with the viewer: two "Käyttötili" must be told apart. */
   name: string;

@@ -8,7 +8,7 @@ import type { PeriodTotals } from "../flows.ts";
 import type { DateRange } from "../period.ts";
 
 /** The transaction list filter that shows the rows behind an insight. */
-export interface InsightLink {
+interface InsightLink {
   merchant?: string;
   category?: string;
   from?: IsoDate;

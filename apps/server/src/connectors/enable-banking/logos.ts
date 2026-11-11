@@ -30,7 +30,7 @@ export const LOGO_MAX_BYTES = 300_000;
 const RETRY_MS = 10 * 60_000;
 
 const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp", "image/svg+xml"] as const;
-export type LogoType = (typeof LOGO_TYPES)[number];
+type LogoType = (typeof LOGO_TYPES)[number];
 
 export interface Logo {
   type: LogoType;

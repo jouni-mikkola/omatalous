@@ -12,7 +12,7 @@ import { stableId } from "../src/platform/ids.ts";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 
-export const YEARS = 5;
+const YEARS = 5;
 export const MIN_ROWS = 100_000;
 
 /** A few filler rows land on a twin of another row and are not stored; the spare keeps the stored count over `rows`. */

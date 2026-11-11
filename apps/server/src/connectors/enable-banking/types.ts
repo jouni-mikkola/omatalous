@@ -1,6 +1,6 @@
 /** The parts of the Enable Banking API (https://enablebanking.com/docs/api/reference/) this app reads. */
 
-export interface EbAmount {
+interface EbAmount {
   currency: string;
   amount: string;
 }

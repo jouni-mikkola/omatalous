@@ -16,7 +16,7 @@ import { isRefundText } from "./wording.ts";
  */
 export const REFUND_WINDOW_DAYS = 120;
 /** How long after sending money a person may pay it back. Shorter: only an exact amount from the same person is evidence. */
-export const PAYBACK_WINDOW_DAYS = 90;
+const PAYBACK_WINDOW_DAYS = 90;
 /** How long after a purchase friends may send their shares. */
 export const SHARE_WINDOW_DAYS = 10;
 /** The most people one bill is split between. */

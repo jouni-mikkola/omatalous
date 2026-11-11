@@ -5,7 +5,7 @@
 import { parseFindingId } from "./common.ts";
 import { AREA_IDS, type AreaId, type CertaintyLevel, type Finding, type FindingState, type FindingStatus, type OptimiseData } from "./types.ts";
 
-export type SnapshotStatus = "active" | FindingStatus;
+type SnapshotStatus = "active" | FindingStatus;
 
 /** One finding in the monthly snapshot, and nothing else. */
 export interface SnapshotEntry {
@@ -36,7 +36,7 @@ export interface FindingChange {
 }
 
 /** A finding's mid that moved this share or more is grown or shrunk. */
-export const CHANGE_SHARE = 0.25;
+const CHANGE_SHARE = 0.25;
 
 /** The active findings of the page once each: the areas' cards and Seuraavat 60 päivää. */
 export function shownFindings(data: Pick<OptimiseData, "areas" | "soon">): Finding[] {

@@ -37,7 +37,7 @@ interface Party {
  * merchant says nothing and agrees with any. Two different shops that charged the same amount on the same day
  * disagree, and both are kept.
  */
-export function sameParty(a: Party, b: Party): boolean {
+function sameParty(a: Party, b: Party): boolean {
   if (a.merchant === UNKNOWN_MERCHANT || b.merchant === UNKNOWN_MERCHANT) return true;
   const ma = fold(a.merchant).trim();
   const mb = fold(b.merchant).trim();

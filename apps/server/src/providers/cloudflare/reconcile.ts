@@ -38,7 +38,7 @@ export class CloudflareExit extends Error {
 }
 
 /** Where the tunnel's traffic goes: the app's container in the same Compose project. */
-export const ORIGIN = "http://banking:8080";
+const ORIGIN = "http://banking:8080";
 const SESSION = "24h";
 const SESSION_SECONDS = 24 * 3600;
 
@@ -87,7 +87,7 @@ function zoneFor(zones: Zone[], hostname: string): Zone {
 }
 
 /** The names of what is made for a host (not for the copy: the copy's name is only the same on two machines). */
-export const tunnelNameFor = (hostname: string) => `omatalous-${hostname.replace(/\./g, "-")}`;
+const tunnelNameFor = (hostname: string) => `omatalous-${hostname.replace(/\./g, "-")}`;
 export const labelFor = (hostname: string) => `Omatalous ${hostname}`;
 
 const CLOSED: IngressRule[] = [{ service: "http_status:404" }];

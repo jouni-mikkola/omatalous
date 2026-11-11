@@ -5,7 +5,7 @@
  */
 import type { Services } from "../services/context.ts";
 
-export const FETCH_PROBLEMS_PREFIX = "fetch_problems:";
+const FETCH_PROBLEMS_PREFIX = "fetch_problems:";
 
 export interface FetchProblem {
   /** not_linked: the source does not let the app read the account; failed: anything else. */

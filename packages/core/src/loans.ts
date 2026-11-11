@@ -28,7 +28,7 @@ import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPer
 import type { Account, IsoDate, Loan, UserInputs } from "./types.ts";
 import { loanKindOfName } from "./wording-loan-pages.ts";
 
-export { endOf, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };
+export { endOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };
 
 /** What a figure could not know: a field the loan lacks, or a day before the day its balance was told. */
 export type LoanUnknown = "repayment" | "interval" | "payment" | "rate" | "end_date" | "limit" | "before_balance_date";

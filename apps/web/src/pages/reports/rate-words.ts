@@ -1,5 +1,7 @@
 // The words of the usual savings rate, for the answer under Säästöaste
-import type { CashflowReport } from "@banking/core";
+import type { cashflowReport } from "@banking/core";
+
+type CashflowReport = ReturnType<typeof cashflowReport>;
 import { percent } from "../../format.ts";
 import { t } from "../../text.ts";
 

@@ -43,7 +43,7 @@ const containsPattern = (text: string) => `%${text.replace(/[\\%_]/g, "\\$&")}%`
  * Cents typed match exactly; whole euros match every amount of that euro (142 finds 142,30). A sign picks money out
  * or in, none matches both. Null for any other text.
  */
-export function amountQuery(q: string): { sign: -1 | 0 | 1; min: number; max: number } | null {
+function amountQuery(q: string): { sign: -1 | 0 | 1; min: number; max: number } | null {
   const m = /^([+\-−])?\s*(\d{1,3}(?:[  ]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(?:€|eur)?$/i.exec(q.trim());
   if (!m) return null;
   const euros = Number(m[2]!.replace(/\D/g, ""));

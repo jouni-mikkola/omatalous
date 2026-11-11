@@ -10,15 +10,15 @@ import { netCost } from "./common.ts";
 import type { Baseline, Finding, FindingState, FindingStatus } from "./types.ts";
 
 /** A dismissed finding returns when its mid grew over this share of the mid it was dismissed at... */
-export const REOPEN_SHARE = 0.5;
+const REOPEN_SHARE = 0.5;
 /** ...and by over this many cents a year. */
-export const REOPEN_CENTS = 10_000;
+const REOPEN_CENTS = 10_000;
 
 /** Months of history the default baseline stands on. */
 const BASELINE_MONTHS = 6;
 
 /** A dismissed finding's mid grew over 50 % and over 100 € since the dismissal. A deadline finding never reopens. */
-export function reopens(state: Pick<FindingState, "midCents">, midCents: number | null): boolean {
+function reopens(state: Pick<FindingState, "midCents">, midCents: number | null): boolean {
   if (midCents === null) return false;
   const then = state.midCents ?? 0;
   return midCents - then > REOPEN_SHARE * then && midCents - then > REOPEN_CENTS;

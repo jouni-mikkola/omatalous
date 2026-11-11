@@ -16,7 +16,7 @@ import { type Account, type BalanceInput, type IsoDate, isRevolving, type Loan, 
 export const DEBT_ACCOUNT_TYPES: readonly Account["type"][] = ["credit_card", "loan"];
 
 /** The account a debt of `HouseholdDebts.connected` reads its balance from. */
-export interface DebtSource {
+interface DebtSource {
   /** The debt's id in `connected`: the saved loan's id for a linked pair, `account:<account id>` otherwise. */
   loanId: string;
   accountId: string;

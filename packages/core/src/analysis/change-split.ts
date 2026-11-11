@@ -9,7 +9,7 @@ import type { AnalysisTx } from "./context.ts";
 import type { ExpectedDue } from "./expected.ts";
 import { MONTHLY_OR_LONGER } from "./insights/shared.ts";
 
-export const MIN_PRICE_VISITS = 3;
+const MIN_PRICE_VISITS = 3;
 export const MIN_BASE_ROWS = 4;
 /** A bill is expected when the base had it in this share of its months. */
 const PRESENCE = 2 / 3;

@@ -8,8 +8,6 @@ import type { AnalysisContext } from "../analysis/context.ts";
 import type { QualitySignal } from "../analysis/data-quality.ts";
 import type { Insight } from "../analysis/insights/types.ts";
 import type { BalanceInput, IsoDate, LoanReference, UserInputs } from "../types.ts";
-import type { FollowUp } from "./outcome.ts";
-import type { FindingChange } from "./snapshot.ts";
 
 export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electricity", "housing", "insurance", "food", "habits", "seasons", "tax", "kids", "car"] as const;
 export type AreaId = (typeof AREA_IDS)[number];
@@ -173,7 +171,7 @@ export interface AreaResult {
 export type HousingType = "kerrostalo" | "rivitalo" | "omakotitalo" | "vuokra" | "asumisoikeus";
 export type { LoanReference } from "../types.ts";
 
-export interface LoanRateValue {
+interface LoanRateValue {
   /** The margin in hundredths of a percentage point: 0 to 500 (0–5,00 %). */
   marginBp: number;
   reference: LoanReference;
@@ -411,33 +409,3 @@ export interface LoanRates {
   moves: RateMove[];
 }
 
-/** `GET /api/optimise` (server services/optimise.ts): the page, the viewer's own inputs and decisions, the changes since last month and the follow-up. */
-export interface OptimiseResponse {
-  data: OptimiseData;
-  inputs: InputRow[];
-  states: FindingState[];
-  changes: FindingChange[];
-  followUp: FollowUp;
-  /** Each loan of the household and what a move of its reference rate does (`loanRatesOf`). */
-  rates: LoanRates[];
-}
-
-export interface EvidenceRow {
-  id: string;
-  date: IsoDate;
-  merchant: string;
-  amountCents: number;
-  accountId: string;
-  account: string;
-  struck: boolean;
-}
-
-/** `GET /api/optimise/evidence`: the finding recomputed, with the rows it stands on and the monthly sums of what it measures. */
-export interface EvidenceResponse {
-  id: string;
-  calc: readonly CalcLine[];
-  rows: EvidenceRow[];
-  sums: Baseline;
-  /** The finding's `change`, marked on the monthly sums; null when it has none. */
-  change: { date: IsoDate; label: string } | null;
-}

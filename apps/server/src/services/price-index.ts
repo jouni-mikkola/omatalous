@@ -9,7 +9,7 @@ import type { PriceIndex } from "@banking/core";
 import { fetchPriceIndex } from "../providers/statfin/client.ts";
 import type { Services } from "./context.ts";
 
-export const KEY = "instance_price_index";
+const KEY = "instance_price_index";
 
 /** The stored series, checked again as it is read; a row edited into something else is no series. */
 function parse(raw: string | null): PriceIndex | null {

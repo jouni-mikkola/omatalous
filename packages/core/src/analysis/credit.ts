@@ -26,7 +26,7 @@ import { completeMonthsBefore } from "./usual.ts";
 export const CARD_COST_MONTHS = 12;
 
 /** What one connected card was charged in the months of `CardCosts`. */
-export interface CardCost {
+interface CardCost {
   accountId: string;
   name: string;
   /** Interest the bank charged on the card's balance, less interest it took back, never below zero. */

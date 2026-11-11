@@ -63,7 +63,7 @@ export interface AheadRow {
   outside?: true;
 }
 
-export interface AheadBalance {
+interface AheadBalance {
   /** What the counted checking accounts hold today: the bank's balance walked to today (`balanceWalk`), as the first page and Saldot have it. */
   startCents: number;
   /** Which checking accounts are counted (`Counted` in ahead-moves.ts). */

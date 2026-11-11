@@ -140,7 +140,7 @@ async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller>
 }
 
 /** The words for an account a restricted application may not read, after the account's name. */
-export const NOT_LINKED_MESSAGE = "tiliä ei ole lisätty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
+const NOT_LINKED_MESSAGE = "tiliä ei ole lisätty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
 
 function classify(err: unknown): SyncProblem | null {
   if (!(err instanceof EnableBankingError)) {

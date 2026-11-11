@@ -31,7 +31,7 @@ import { subscriptionChanges } from "./subscriptions.ts";
 import { weekdays } from "./weekdays.ts";
 import type { Insight, InsightArgs, InsightInput, InsightSource } from "./types.ts";
 
-export type { Action, Comparison, EffectLine, Insight, InsightArgs, InsightEvidence, InsightFact, InsightInput, InsightLink, InsightSource, Quantity } from "./types.ts";
+export type { Insight, InsightInput } from "./types.ts";
 export { openPriceRises } from "./prices.ts";
 export { newCharges } from "./subscriptions.ts";
 

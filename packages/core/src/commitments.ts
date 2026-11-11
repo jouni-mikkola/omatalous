@@ -109,7 +109,7 @@ export function subscriptionsMonthlyCents(
 }
 
 /** A merchant without an active series is counted over this many complete months at most. */
-export const MERCHANT_MONTHS = 12;
+const MERCHANT_MONTHS = 12;
 
 /** What a merchant's figure per month reads: the last complete months, oldest first, and the active spending series. */
 export interface MerchantBasis {

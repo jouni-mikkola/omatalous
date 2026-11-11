@@ -12,28 +12,28 @@ import type { DateRange } from "../analysis/period.ts";
 import type { AreaInput, AreaResult } from "../optimise/types.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
 
-export type { AnalysisContext, AreaInput, AreaResult, BalanceInput, DateRange, Insight, IsoDate, UserInputs };
 
-export type FeatureKind = "insight" | "check" | "section" | "payee" | "question" | "notice";
+
+type FeatureKind = "insight" | "check" | "section" | "payee" | "question" | "notice";
 /** What an answer depends on beside the context. The server builds the cache key from it. */
-export type Reads = "range" | "balances" | "inputs" | "answers";
+type Reads = "range" | "balances" | "inputs" | "answers";
 
 /** The household's answers to the questions it was asked. Placeholder until the answers store gives it its shape. */
-export type Answers = Readonly<Record<string, unknown>>;
+type Answers = Readonly<Record<string, unknown>>;
 /** A row a payee module looks at. Placeholder until the first payee module gives it its fields. */
-export interface PayeeRow {
+interface PayeeRow {
   readonly text: string;
 }
 /** What a payee module knows about a payee. Placeholder as above. */
-export interface PayeeFact {
+interface PayeeFact {
   readonly id: string;
 }
 /** A question the household is asked. Placeholder until the first question module gives it its fields. */
-export interface Question {
+interface Question {
   readonly id: string;
 }
 /** A notice shown to the household. Placeholder until the first notice module gives it its fields. */
-export interface Notice {
+interface Notice {
   readonly id: string;
 }
 
@@ -48,7 +48,7 @@ interface ModuleBase<K extends FeatureKind> {
   uses?: readonly string[];
 }
 
-export interface FeatureInput {
+interface FeatureInput {
   ctx: AnalysisContext;
   range: DateRange;
   end: IsoDate;
@@ -60,27 +60,27 @@ export interface FeatureInput {
   use<T>(id: string): T;
 }
 
-export interface InsightModule extends ModuleBase<"insight"> {
+interface InsightModule extends ModuleBase<"insight"> {
   find(input: FeatureInput): Insight[];
 }
-export interface CheckModule extends ModuleBase<"check"> {
+interface CheckModule extends ModuleBase<"check"> {
   label: string;
   assess(input: AreaInput): AreaResult;
 }
-export interface SectionModule<T = unknown> extends ModuleBase<"section"> {
+interface SectionModule<T = unknown> extends ModuleBase<"section"> {
   /** What the household decides with the section (the `Decision:` of the reports). */
   decision: string;
   build(input: FeatureInput): T;
 }
-export interface PayeeModule extends ModuleBase<"payee"> {
+interface PayeeModule extends ModuleBase<"payee"> {
   match(row: PayeeRow): PayeeFact | null;
 }
-export interface QuestionModule<A = unknown> extends ModuleBase<"question"> {
+interface QuestionModule<A = unknown> extends ModuleBase<"question"> {
   ask(input: FeatureInput): Question[];
   /** Null refuses what the browser sent. The one route validates with it. */
   parse(raw: unknown): A | null;
 }
-export interface NoticeModule extends ModuleBase<"notice"> {
+interface NoticeModule extends ModuleBase<"notice"> {
   tell(input: FeatureInput): Notice[];
 }
 export type FeatureModule = InsightModule | CheckModule | SectionModule | PayeeModule | QuestionModule | NoticeModule;

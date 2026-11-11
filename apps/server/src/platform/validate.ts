@@ -7,7 +7,7 @@ import { UserError } from "./errors.ts";
 import { limitField } from "./limits.ts";
 
 const HISTORY_DAYS = { min: limitField("historyDays").min, max: limitField("historyDays").max };
-export const MAX_SYNCS_PER_DAY = 4;
+const MAX_SYNCS_PER_DAY = 4;
 
 const HOST_LABEL = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
 const HOSTNAME = new RegExp(`^${HOST_LABEL}(?:\\.${HOST_LABEL})*$`);

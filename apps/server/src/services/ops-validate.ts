@@ -34,7 +34,7 @@ export const NEEDS_PASSWORD: readonly OpsAction[] = ["update", "rollback", "acce
 
 export const ROLLBACK_WORD = "PALAUTA";
 
-export const OPS_ID = /^op_[0-9a-f]{16}$/;
+const OPS_ID = /^op_[0-9a-f]{16}$/;
 
 export interface OpsInput {
   action: OpsAction;
@@ -82,8 +82,8 @@ export function validOpsId(id: unknown): id is string {
 
 // ── output scrub ─────────────────────────────────────────
 
-export const OUTPUT_MAX_LINES = 200;
-export const OUTPUT_MAX_BYTES = 16 * 1024;
+const OUTPUT_MAX_LINES = 200;
+const OUTPUT_MAX_BYTES = 16 * 1024;
 /** `logs` returns up to 100 lines of each of three services, so it gets a larger window. */
 export const LOGS_MAX_LINES = 320;
 export const LOGS_MAX_BYTES = 48 * 1024;
@@ -170,8 +170,8 @@ export function parseSteps(output: string): OpsStep[] {
 
 // ── helper status ────────────────────────────────────────
 
-export const HELPER_OK_MS = 3 * 60_000;
-export const HELPER_STALE_MS = 24 * 3600_000;
+const HELPER_OK_MS = 3 * 60_000;
+const HELPER_STALE_MS = 24 * 3600_000;
 export const REQUEST_EXPIRY_MS = 10 * 60_000;
 export const RUNNING_TIMEOUT_MS = 30 * 60_000;
 /** The lowest helper version this server understands; the helper sends its own in `ops poll --helper`. */

@@ -92,7 +92,7 @@ export interface CategoryChange {
 }
 
 /** One cause of one category: the pieces of all categories add up to the total change. */
-export interface ChangePiece {
+interface ChangePiece {
   category: string | null;
   kind: BucketKind;
   cents: number;
@@ -126,7 +126,7 @@ export interface SpendingChange {
  * A category that rose in the usual view (`moved`), whose ordinary purchases stand out on their own: what the spike
  * alert may tell (alerts.ts). The figures are the report's, so the two cannot disagree (ADR 0013).
  */
-export interface CategoryRise {
+interface CategoryRise {
   category: string;
   label: string;
   /** The category's row of the report: the month's spending and its expected level, both to the same day in a running month. */
@@ -162,7 +162,7 @@ const MAX_MERCHANTS = 8;
 /** A move under a euro is rounding. */
 const MIN_ROW_CENTS = 100;
 
-export interface ContextIndex {
+interface ContextIndex {
   byMonth: Map<number, AnalysisTx[]>;
   /** Transactions of subscriptions and bills (the fixed costs) to their series. */
   seriesOf: Map<string, RecurringSeries>;
@@ -171,7 +171,7 @@ export interface ContextIndex {
 const indexes = new WeakMap<AnalysisContext, ContextIndex>();
 
 /** Built once per context: a dashboard explains twelve months from the same rows. */
-export function contextIndex(ctx: AnalysisContext): ContextIndex {
+function contextIndex(ctx: AnalysisContext): ContextIndex {
   let index = indexes.get(ctx);
   if (index) return index;
   const byMonth = new Map<number, AnalysisTx[]>();

@@ -123,7 +123,7 @@ export async function watchCopies(s: Services, today: string, copiedNow: boolean
 
 // ── the notices ──────────────────────────────────────────
 
-export type Kind = "copy_missing" | "copy_check_failed" | "disk_low" | "helper_silent";
+type Kind = "copy_missing" | "copy_check_failed" | "disk_low" | "helper_silent";
 
 interface Condition {
   kind: Kind;

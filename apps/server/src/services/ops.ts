@@ -55,7 +55,7 @@ import { recordEvent } from "./security.ts";
 const VERSION_KEY = "ops_helper_version";
 const STATE_KEY = "ops_state";
 
-export const ACTION_LABEL: Record<OpsAction, string> = {
+const ACTION_LABEL: Record<OpsAction, string> = {
   update: "päivitys",
   rollback: "edellisen version palautus",
   backup: "varmuuskopio",
@@ -75,7 +75,7 @@ export const ACTION_LABEL: Record<OpsAction, string> = {
 /** These also reach the other admins as a notice. */
 const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart", "access", "prerelease-on", "prerelease-off"];
 
-export const ENABLE_COMMAND = "./scripts/install.sh --ops-helper";
+const ENABLE_COMMAND = "./scripts/install.sh --ops-helper";
 const MUTATING_PER_MINUTE_MS = 60_000;
 const PER_HOUR = 20;
 
@@ -138,7 +138,7 @@ async function storeState(s: Services, input: unknown): Promise<void> {
  */
 export const lanAddressAfterTunnel = async (s: Services): Promise<string | null> => (await loadSnapshot(s)).lanAddress ?? null;
 
-export async function helperInfo(s: Services) {
+async function helperInfo(s: Services) {
   const seenAt = await s.settings.get(HELPER_SEEN_KEY);
   const version = await s.settings.get(VERSION_KEY);
   const { status, reason } = helperStatus(seenAt, s.now());

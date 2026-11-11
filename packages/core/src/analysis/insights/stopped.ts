@@ -87,7 +87,7 @@ export function replacementOf(ctx: AnalysisContext, s: RecurringSeries, end: str
 }
 
 /** The switch test of the insight: true when `replacementOf` finds a payee. */
-export function newPayeeIn(ctx: AnalysisContext, s: RecurringSeries, end: string): boolean {
+function newPayeeIn(ctx: AnalysisContext, s: RecurringSeries, end: string): boolean {
   return replacementOf(ctx, s, end) !== null;
 }
 

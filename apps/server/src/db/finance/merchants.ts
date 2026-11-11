@@ -12,7 +12,7 @@ import type { RulesRepo } from "./rules.ts";
 import type { TransactionListRepo } from "./transaction-list.ts";
 
 /** A merchant whose spending no rule, code or register answer recognised. */
-export interface UncategorisedMerchant {
+interface UncategorisedMerchant {
   merchant: string;
   /** Money spent, positive cents (like the dashboard's merchant totals). */
   totalCents: number;
@@ -51,7 +51,7 @@ export interface MerchantHistory {
 const NO_BASIS: MerchantBasis = { months: [], series: new Map() };
 
 /** One merchant in the category settings. */
-export interface MerchantSummary {
+interface MerchantSummary {
   merchant: string;
   /** The category most of its rows are in now. */
   category: string;

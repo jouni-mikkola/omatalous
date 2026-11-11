@@ -39,7 +39,7 @@ export const INDUSTRY_NOTICE_KEY = "notice_industry_lookup_off";
 const FIELDS = ["appBaseUrl", "timezone", "syncHours", "historyDays", "industryLookup", "priceIndex"] as const;
 
 /** Validates a partial update on top of the current values. */
-export function parseSettingsUpdate(input: unknown, current: InstanceSettings): InstanceSettings {
+function parseSettingsUpdate(input: unknown, current: InstanceSettings): InstanceSettings {
   const o = strictObject(input, FIELDS);
   return {
     appBaseUrl: o.appBaseUrl === undefined ? current.appBaseUrl : parseBaseUrl(o.appBaseUrl),

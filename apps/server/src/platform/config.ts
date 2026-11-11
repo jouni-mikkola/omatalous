@@ -185,7 +185,7 @@ function accessConfig(env: Env): AccessConfig | null {
   return { aud, teamDomain };
 }
 
-export function normalizePem(pem: string): string {
+function normalizePem(pem: string): string {
   return pem.replace(/\\n/g, "\n").trim();
 }
 

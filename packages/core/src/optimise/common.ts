@@ -127,7 +127,7 @@ export function annualise(byMonth: readonly number[], lang: Language = DEFAULT_L
 }
 
 /** The order of rule 7: the first weakness present names the reason. */
-export const WEAKNESS_ORDER: readonly WeaknessId[] = ["short_history", "estimate", "sample", "gap", "stale", "own_unconnected", "uncategorised", "uncertain_rows", "wide_range"];
+const WEAKNESS_ORDER: readonly WeaknessId[] = ["short_history", "estimate", "sample", "gap", "stale", "own_unconnected", "uncategorised", "uncertain_rows", "wide_range"];
 
 export const wideRange = (lang: Language = DEFAULT_LANGUAGE): Weakness => ({ id: "wide_range", reason: messageIn(lang, "opt.w_wide") });
 

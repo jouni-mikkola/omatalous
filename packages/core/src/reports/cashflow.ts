@@ -13,7 +13,7 @@ import { addMonths, monthEnd, monthOf, monthRange } from "../dates.ts";
 import { type BalanceInput } from "../types.ts";
 import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
-export interface CashflowRow {
+interface CashflowRow {
   month: string;
   incomeCents: number;
   consumptionCents: number;

@@ -61,23 +61,23 @@ export function buildReports(input: Omit<ReportInput, "inputs" | "lang"> & { inp
   return Object.fromEntries(ids.map((id) => [id, REPORTS[id](full)])) as ReportsData;
 }
 
-export type { BalanceInput, BalanceReport, BalanceSeries } from "./balances.ts";
-export type { CashflowReport, CashflowRow } from "./cashflow.ts";
+export type { BalanceInput, BalanceReport } from "./balances.ts";
+
 export { cashflowReport } from "./cashflow.ts";
-export type { MoneyBridge } from "../analysis/money-bridge.ts";
-export type { GroupStat } from "./categories.ts";
-export { type FiledWithoutAsking, filedWithoutAsking } from "../analysis/filed.ts";
-export type { IncomeMember, IncomeMonth, IncomePayDay, IncomePayerRow, IncomeStability } from "./income.ts";
-export type { IncomeChange, IncomeChangeKind } from "../analysis/income-changes.ts";
+
+
+export { type FiledWithoutAsking } from "../analysis/filed.ts";
+
+
 export type { LoanRow, LoansReport, MaybeTwice } from "./loans.ts";
-export type { PivotRow } from "./pivot.ts";
+
 export { pivotReport } from "./pivot.ts";
-export type { ChangeViewReport, SpendingChangeReport } from "./spending-change.ts";
+
 export type { GapRow, ThisMonthReport } from "./this-month.ts";
 export { spentRows } from "./this-month.ts";
-export type { UpcomingBill, UpcomingReport } from "./upcoming.ts";
-export type { TaxRow, TaxYearReport } from "./tax-year.ts";
-export type { YearOverYearReport } from "./year-over-year.ts";
+
+export type { TaxRow } from "./tax-year.ts";
+
 export { comparisonYearRange, comparisonYears, yearComparisonNote } from "./year-over-year.ts";
 
 /** The questions of Raportit, in the order of the list. The id is in the address (`?q=menot`). */

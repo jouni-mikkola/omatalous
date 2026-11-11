@@ -30,7 +30,7 @@ export type { CategoryTotal } from "./category-totals.ts";
 type DashboardCategory = CategoryTotal & { comparedCents: number };
 
 // the pace code lives in forecast.ts; these keep the names the package index has always exported
-export { type MonthPace, monthPace } from "./forecast.ts";
+
 
 export interface DashboardData {
   range: { from: IsoDate; to: IsoDate; previousFrom: IsoDate };

@@ -8,7 +8,7 @@ import { messageIn } from "../messages.ts";
 import { addMonths, dateIn, daysBetween, monthEnd, monthOf } from "../dates.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 
-export type QualityTone = "warning" | "info";
+type QualityTone = "warning" | "info";
 
 export interface QualitySignal {
   id: "short_history" | "uncategorised" | "gap" | "stale" | "card_bills" | "own_unconnected" | "no_balance";

@@ -44,7 +44,7 @@ export function isBankingDay(d: IsoDate): boolean {
 }
 
 /** The date moved to a banking day: back for `prev`, forward for `next`. */
-export function toBankingDay(d: IsoDate, rule: PayRule): IsoDate {
+function toBankingDay(d: IsoDate, rule: PayRule): IsoDate {
   let x = d;
   while (!isBankingDay(x)) x = addDays(x, rule === "prev" ? -1 : 1);
   return x;

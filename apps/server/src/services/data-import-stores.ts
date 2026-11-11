@@ -10,7 +10,7 @@ import { ACCOUNT_TYPES, CATEGORY_SOURCES, GOAL_CATEGORIES, type RuleField } from
 /** A value that is not what its column holds. */
 export class BadValue extends Error {}
 
-export type Check = (v: unknown) => string | number | null;
+type Check = (v: unknown) => string | number | null;
 
 // control characters (a tab and a line break are text) never belong in a stored word
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;

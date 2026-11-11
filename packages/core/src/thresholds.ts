@@ -106,7 +106,6 @@ export const PREVIOUS_YEAR_MONTHS = THRESHOLDS.previousYearMonths.value;
 export const STEADY_SPREAD = THRESHOLDS.steadySpread.value;
 export const LEAD_MIN_WEEKS = THRESHOLDS.leadMinWeeks.value;
 export const LEAD_SHARE = THRESHOLDS.leadShare.value;
-export const YEAR_MONTHS = THRESHOLDS.yearMonths.value;
 export const CONCLUSION_ROWS = THRESHOLDS.conclusionRows.value;
 export const SPARSE_SHARE = THRESHOLDS.sparseShare.value;
 export const PERIODIC_MONTHS = THRESHOLDS.periodicMonths.value;

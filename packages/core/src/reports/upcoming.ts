@@ -19,9 +19,9 @@ const YEAR_MONTHS = 12;
 /** Days after today in which the next due date of a typed-in bill is looked for (a yearly bill is at most a year away). */
 const NEXT_DATE_DAYS = 400;
 
-export type BillSource = "detected" | "manual";
+type BillSource = "detected" | "manual";
 
-export interface UpcomingBill {
+interface UpcomingBill {
   merchant: string;
   /** Null for a typed-in bill without a category. */
   category: string | null;
@@ -35,7 +35,7 @@ export interface UpcomingBill {
 }
 
 /** Rare bills that fall due in one calendar month. */
-export interface BillMonth {
+interface BillMonth {
   /** `YYYY-MM`. */
   month: string;
   cents: number;
@@ -46,7 +46,7 @@ export interface BillMonth {
 }
 
 /** A bill the user typed in, for the list where it can be removed. */
-export interface ManualBill {
+interface ManualBill {
   id: string;
   name: string;
   amountCents: number;

@@ -10,7 +10,7 @@
 import { importPrivateKey } from "./rsa-key.ts";
 
 /** A 4096-bit PKCS#1 key is about 3.3 KB; anything near this limit is not a key. */
-export const MAX_PEM_BYTES = 16 * 1024;
+const MAX_PEM_BYTES = 16 * 1024;
 
 export class KeyProblem extends Error {}
 

@@ -17,7 +17,7 @@ export interface Fault {
   message: string;
 }
 
-export interface ResultInfo {
+interface ResultInfo {
   totalPages: number | null;
   totalCount: number | null;
   perPage: number | null;

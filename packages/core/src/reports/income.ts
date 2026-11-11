@@ -15,13 +15,13 @@ import { median } from "../stats.ts";
 import { MIN_COMPARE_MONTHS, MIN_COMPOSITION_MONTHS, PREVIOUS_YEAR_MONTHS, STEADY_SPREAD, USUAL_MONTHS } from "../thresholds.ts";
 import type { BalanceInput, IsoDate, Part } from "../types.ts";
 
-export interface IncomeRowRef {
+interface IncomeRowRef {
   id: string;
   date: IsoDate;
   amountCents: number;
 }
 
-export interface IncomePayerRow {
+interface IncomePayerRow {
   payer: string;
   totalCents: number;
   payments: number;
@@ -75,14 +75,14 @@ interface IncomeKind {
   changeCents: number | null;
 }
 
-export interface IncomeMonth {
+interface IncomeMonth {
   month: string;
   complete: boolean;
   totalCents: number;
   byGroup: Record<IncomeGroup, number>;
 }
 
-export interface IncomeStability {
+interface IncomeStability {
   /** Median of the regular income of the complete months of the usual period (six, under three there is none). */
   medianCents: number;
   /** Median month-to-month change over the median. */
@@ -98,7 +98,7 @@ export interface IncomeStability {
   worstRunWeeks: number;
 }
 
-export interface IncomePayDay {
+interface IncomePayDay {
   label: string;
   payer: string;
   text: string;
@@ -106,7 +106,7 @@ export interface IncomePayDay {
   usualCents: number;
 }
 
-export interface IncomeMember {
+interface IncomeMember {
   label: string;
   earnedCents: number;
   /** A salary, benefit or pension series shows on the member's accounts. */

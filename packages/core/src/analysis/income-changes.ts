@@ -23,7 +23,7 @@ import { BASE_SPREAD, BENEFIT_GRACE_DAYS, FIRST_PAGE_DAYS, LEVEL_SPREAD, MIN_STE
 import { insightOf, REPORT } from "./insights/shared.ts";
 import { type Insight, q } from "./insights/types.ts";
 
-export type { IncomeBase, IncomeChange, IncomeChangeKind, IncomeSeries } from "./income-series.ts";
+export type { IncomeBase, IncomeChange } from "./income-series.ts";
 export { benefitName, incomeBase, payDayText } from "./income-series.ts";
 
 /** The first letter of a name in capitals or, for the middle of a sentence, small unless the name is Kela's. */

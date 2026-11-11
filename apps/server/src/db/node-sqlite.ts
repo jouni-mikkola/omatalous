@@ -18,7 +18,7 @@ export interface OpenOptions {
  * line for the admin (docker compose logs, doctor.sh). Anything else is returned unchanged and ends as a
  * generic 500.
  */
-export function translateSqliteError(err: unknown): unknown {
+function translateSqliteError(err: unknown): unknown {
   const code = (err as { errcode?: number } | null)?.errcode;
   if (code === SQLITE_FULL) {
     console.error("database write failed: the disk is full (SQLITE_FULL). Free space on the data volume, nothing was changed.");

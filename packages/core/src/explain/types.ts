@@ -87,7 +87,7 @@ export interface Line {
 type Method = { kind: "median"; values: { label: string; cents: number; explain?: Explanation }[]; rule: string; tie: string } | { kind: "estimate"; rule: string };
 
 /** A sum is checked against its lines, a median against its recomputation. */
-export type Check = { kind: "sum"; diffCents: number } | { kind: "recompute"; diffCents: number } | { kind: "n/a" };
+type Check = { kind: "sum"; diffCents: number } | { kind: "recompute"; diffCents: number } | { kind: "n/a" };
 
 export interface Explanation {
   figure: FigureId;

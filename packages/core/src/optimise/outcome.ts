@@ -24,8 +24,8 @@ import type { Baseline, Finding, FindingState, Measure, OptimiseData } from "./t
 
 export * from "./snapshot.ts";
 
-export const VERDICTS = ["vahvistui", "todennäköinen", "epäselvä", "huonompi", "odottaa"] as const;
-export type Verdict = (typeof VERDICTS)[number];
+const VERDICTS = ["vahvistui", "todennäköinen", "epäselvä", "huonompi", "odottaa"] as const;
+type Verdict = (typeof VERDICTS)[number];
 
 /** What came of a done finding. */
 interface FindingOutcome {
@@ -64,7 +64,7 @@ interface SwitchProposal {
 }
 
 /** One point of the line: euros a year found that month against the euros a year the follow-up confirmed by then. */
-export interface FollowUpPoint {
+interface FollowUpPoint {
   month: string;
   foundCents: number;
   confirmedCents: number;
@@ -79,13 +79,13 @@ export interface FollowUp {
 }
 
 /** Vahvistui: the after median is lower by this share of the monthly mid, and every after month is below the baseline. */
-export const CONFIRMED_SHARE = 0.8;
+const CONFIRMED_SHARE = 0.8;
 /** Todennäköinen from this share. */
-export const LIKELY_SHARE = 0.5;
+const LIKELY_SHARE = 0.5;
 /** A monthly item waits this many complete months after the changeover month. */
-export const MONTHLY_WAIT = 2;
+const MONTHLY_WAIT = 2;
 /** Points on the follow-up line. */
-export const LINE_MONTHS = 12;
+const LINE_MONTHS = 12;
 /** Complete months before the change the baseline median stands on: a year, so a spike of a few months stays out. */
 const BEFORE_MONTHS = 12;
 /** Under this many complete months before the change there is nothing to compare with. */

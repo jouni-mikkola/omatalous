@@ -10,7 +10,7 @@ import { accountsBefore, eur, findingId, ownAccounts, pct, savingsYield, expecte
 import type { Area, AreaInput, Check, FindingDraft, NoDataWhy } from "../types.ts";
 
 /** Idle money under this is not worth a move (the plan's gate). */
-export const IDLE_MIN_CENTS = 200_000;
+const IDLE_MIN_CENTS = 200_000;
 /** A yield under this makes the move worth too little to tell. */
 const MIN_YIELD = 0.005;
 /** The walk starts from the bank's balance: an older one leaves the last days a guess. */

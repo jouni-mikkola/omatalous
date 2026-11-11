@@ -63,11 +63,11 @@ export * from "./types.ts";
 export const AREAS: readonly Area[] = [loans, savings, subscriptions, bank, electricity, housing, insurance, food, habits, seasons, tax, kids, car];
 
 /** A finding with `decideBy` this many days ahead or fewer lands in Seuraavat 60 päivää. */
-export const SOON_DAYS = 60;
+const SOON_DAYS = 60;
 /** Rule 2: under this many complete months only deadlines... */
 const MIN_MONTHS_ANY = 3;
 /** ...and under this many no euro figure. */
-export const MIN_MONTHS_EUROS = 6;
+const MIN_MONTHS_EUROS = 6;
 
 /** What the server hands in: the cached context and what the user typed, read per request. */
 export interface OptimiseInput {

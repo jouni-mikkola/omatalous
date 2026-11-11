@@ -70,7 +70,7 @@ interface PivotPeakRow {
   category: string | null;
 }
 
-export interface PivotRow {
+interface PivotRow {
   category: string;
   label: string;
   group: string;

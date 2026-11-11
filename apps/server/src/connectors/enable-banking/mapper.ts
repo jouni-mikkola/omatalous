@@ -27,7 +27,7 @@ function realDate(y: number, mo: number, d: number): boolean {
  * stays as it is. A time with an offset or Z is moved to the zone (22:30 UTC is the next day in Helsinki); a
  * time without an offset is already local. Anything else is not a date.
  */
-export function bankDate(value: string | null | undefined, timeZone = "Europe/Helsinki"): string | null {
+function bankDate(value: string | null | undefined, timeZone = "Europe/Helsinki"): string | null {
   const s = value?.trim();
   if (!s) return null;
   const plain = PLAIN_DATE.exec(s);

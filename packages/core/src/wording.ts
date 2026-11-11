@@ -325,7 +325,7 @@ export const isBuildingWorkText = (folded: string) => BUILDING_WORK.test(folded)
  * The finance companies of car makers, as a regex alternation. One list for both readers (ADR 0008): the loans rule of
  * categorize.ts through `FINANCE_LENDER_WORDS`, and `isCarFinanceText` for Optimoi and for the kind of a proposed loan.
  */
-export const CAR_FINANCIER_WORDS = alternation("CAR_FINANCIER_WORDS");
+const CAR_FINANCIER_WORDS = alternation("CAR_FINANCIER_WORDS");
 
 // what a car row was for: street parking is the apps the permit comparison counts; finance is a financier or a loan that names the car
 const PARKING_WORDS = words(String.raw`EASYPARK|PARKMAN|MOOVY|AIMO|AIMO PARK|APCOA|EUROPARK|Q-PARK|P-HUB|SCANDINAVIAN PARKING|PYSAKOINTI|PARKKI[A-Z]*`);
@@ -374,7 +374,7 @@ const HOUSEHOLD_LOANS = alternation("HOUSEHOLD_LOANS");
 export const CREDIT_WORDS = String.raw`(?!KORTTI)[A-Z]+LUOTTO|(?:${HOUSEHOLD_LOANS})LAINAN?|LUOTONLYHENNYS|VELANLYHENNYS|AUTORAHOITUS|PIKAVIPPI`;
 const CREDIT = words(CREDIT_WORDS);
 /** A folded text that names credit by one of `CREDIT_WORDS`. */
-export const isCreditText = (folded: string) => CREDIT.test(folded);
+const isCreditText = (folded: string) => CREDIT.test(folded);
 
 const LEASE = /LEASING/;
 /** A lease in a folded text (YKSITYISLEASING, HUOLTOLEASING): rent for a car, with no loan to pay off. */

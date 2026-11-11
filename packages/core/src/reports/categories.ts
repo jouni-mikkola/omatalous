@@ -68,7 +68,7 @@ interface CategoryStat {
   parts?: CategoryPart[];
 }
 
-export interface GroupStat {
+interface GroupStat {
   group: string;
   totalCents: number;
   /** Of the spending of the range. */

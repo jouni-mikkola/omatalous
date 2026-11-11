@@ -7,9 +7,9 @@
 import { isIndustryCodeSet, type IndustryMatch, type RegisterAnswer } from "@banking/core";
 import type { Db, Statement } from "./types.ts";
 
-export type IndustryStatus = IndustryMatch["status"] | "error";
+type IndustryStatus = IndustryMatch["status"] | "error";
 
-export interface IndustryEntry {
+interface IndustryEntry {
   merchant: string;
   status: IndustryStatus;
   checkedAt: string;

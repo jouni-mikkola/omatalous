@@ -1,7 +1,9 @@
 // Decision: which month let the money run out, and on what: spending, paying debt or saving
 import { KeyValue } from "../../components/table/KeyValue.tsx";
 import { Table } from "../../components/table/Table.tsx";
-import type { CashflowReport, PeriodTotals } from "@banking/core";
+import type { cashflowReport, PeriodTotals } from "@banking/core";
+
+type CashflowReport = ReturnType<typeof cashflowReport>;
 import { money, monthLong, percent } from "../../format.ts";
 import { t } from "../../text.ts";
 import { color } from "../../design/tokens.ts";

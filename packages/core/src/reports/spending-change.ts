@@ -22,7 +22,7 @@ interface ChangeBar {
   cause: string;
 }
 
-export interface ChangeViewReport {
+interface ChangeViewReport {
   view: ChangeView;
   title: string;
   /** "Lokakuu on 640 € tavallista kalliimpi: Ruoka +150 € (kalliimpi ostoskerta), ..." */

@@ -99,7 +99,7 @@ export type RefusalReason = "status" | "amount" | "date";
  * Why a fetched row is not among the stored ones: unreadable (`RefusalReason`), or `twin`: the same payment is stored
  * already from another source, so storing it again would count it twice.
  */
-export type SkipReason = RefusalReason | "twin";
+type SkipReason = RefusalReason | "twin";
 
 /** The rows of one fetch that were left out, by reason. A reason with no row is left out. */
 export type RefusedRows = Partial<Record<SkipReason, number>>;
@@ -129,7 +129,7 @@ export interface Puller {
 }
 
 /** Only a connector that fetches by itself has this. */
-export interface SyncSupport {
+interface SyncSupport {
   /** May throw a UserError: the loop ends the run with its message. */
   open(c: ConnectorContext): Promise<Puller>;
   classify(err: unknown): SyncProblem | null;

@@ -11,7 +11,7 @@ import type { IsoDate } from "../types.ts";
 import { isSubject } from "./common.ts";
 import type { InputKey, InputValue, InputValueMap, InputValues, LoanReference, StoredInput } from "./types.ts";
 
-export type InputKind = "integer" | "cents" | "date" | "choice" | "loan_rate";
+type InputKind = "integer" | "cents" | "date" | "choice" | "loan_rate";
 
 export interface InputDef {
   key: InputKey;
@@ -149,20 +149,6 @@ export function inputKey(def: InputKey, subject?: string | null): string {
 /** A catalogue line with no holes, named by a code built from an id the type cannot follow. */
 const plain = (lang: Language, code: string): string => messageIn(lang, code as MessageCode & `opt.w_none`);
 
-/** What a field is called, in a language: the Finnish `label` of the definition, or its English line. */
-export const inputLabel = (def: InputDef, lang: Language = DEFAULT_LANGUAGE): string => (lang === DEFAULT_LANGUAGE ? def.label : plain(lang, `opt.in_${def.key}`));
-
-/** The unit after the field, in a language; null for a field without one. */
-export const inputUnit = (def: InputDef, lang: Language = DEFAULT_LANGUAGE): string | null => (!def.unit ? null : lang === DEFAULT_LANGUAGE ? def.unit : plain(lang, `opt.in_${def.key}_unit`));
-
-/** The name of one choice of a field (a housing type, a reference rate), in a language. */
-export function choiceLabel(def: InputDef, id: string, lang: Language = DEFAULT_LANGUAGE): string {
-  const found = def.choices?.find((c) => c.id === id);
-  if (!found) return id;
-  if (lang === DEFAULT_LANGUAGE) return found.label;
-  return plain(lang, def.kind === "loan_rate" ? `opt.ref_${id}` : `opt.housing_${id}`);
-}
-
 /** The name of a reference rate in a language: the one list every page and finding reads. */
 export const referenceLabel = (reference: LoanReference, lang: Language = DEFAULT_LANGUAGE): string => (lang === DEFAULT_LANGUAGE ? LOAN_REFERENCE_LABEL[reference] : plain(lang, `opt.ref_${reference}`));
 
@@ -224,7 +210,7 @@ function hasShape(def: InputDef, value: unknown): boolean {
 }
 
 /** Past its age, or for a date input past its own date. */
-export function isStale(def: InputDef, stored: StoredInput, today: IsoDate): boolean {
+function isStale(def: InputDef, stored: StoredInput, today: IsoDate): boolean {
   if (def.staleAfterDays === null) return false;
   if (def.staleAfterDays === "date") return typeof stored.value === "string" && stored.value < today;
   return dayNumber(today) - dayNumber(stored.asOf) > def.staleAfterDays;
