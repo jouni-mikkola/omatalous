@@ -10,7 +10,6 @@ import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
 import { formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
 import type { LoanFieldKey } from "../components/loans/labels.ts";
 import { editorHelp } from "../components/loans/proposal-words.ts";
-import { InputForm } from "../components/InputForm.tsx";
 import { useApi } from "../hooks.ts";
 import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
 import type { Category, Meta } from "../types.ts";
@@ -91,8 +90,6 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
     }
     case "subscription":
       return <Buttons choices={[plain(t("set.rc.in_use"), "in_use"), plain(t("set.rc.ended"), "cancelled")]} busy={busy} label={named} onPick={(value) => onAnswer(mark(item.subject, value))} />;
-    case "input":
-      return <InputForm inputKey={item.key} today={meta.today} scope="own" answer={onAnswer} waiting={busy} quiet />;
     case "row":
       return <CategoryChoices item={item} income={item.side === "in"} categories={meta.categories} busy={busy} onPick={(category) => onAnswer(() => api(`/api/transactions/${encodeURIComponent(item.rowId)}`, { method: "PATCH", body: { category } }))} />;
     case "bill":

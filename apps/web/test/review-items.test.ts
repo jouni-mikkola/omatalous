@@ -1,7 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { eyebrow, figureOf, groupCategories, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView } from "../src/pages/review-items.ts";
+import { eyebrow, figureOf, groupCategories, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
 const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
@@ -129,20 +129,14 @@ describe("the choices", () => {
   });
 });
 
-describe("a number Säästövinkit waits for", () => {
-  const input = (more: Partial<Extract<ReviewItem, { kind: "input" }>> = {}): ReviewItem => ({ kind: "input", id: "input:car_km", cents: 0, key: "car_km", def: "car_km", subject: null, old: null, ...more });
+describe("the kinds the page has a card for", () => {
+  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "balance", "consent", "bill", "row"];
+  const of = (kind: string) => ({ kind, id: kind, cents: 0 }) as unknown as ReviewItem;
 
-  it("is asked as a question under Lisätiedot, by the field's own name", () => {
-    expect(eyebrow(input())).toBe("Lisätiedot");
-    expect(nameOf(input())).toBe("Ajomäärä");
-    expect(questionOf(input())).toBe("Paljonko ajat vuodessa?");
-    // a number has no rows behind it: the server sends none
-    expect(input().rows).toBeUndefined();
-  });
-
-  it("shows the estimate it makes exact, and no figure when only a check waits for it", () => {
-    expect(figureOf(input({ cents: 52000 }))).toMatchObject({ text: expect.stringMatching(/^≈ 520\s€$/), unit: "vuodessa" });
-    expect(figureOf(input()).text).toBe("");
-    expect(figureOf(input({ old: { value: 12000, asOf: "2025-01-02" } })).line).toMatch(/^Edellinen tieto 12\s000 km vuodessa, annettu 2\.1\.2025, on liian vanha\./);
+  it("are the twelve that stay: a number for the removed tips page is not one of them", () => {
+    expect(openItems(KINDS.map(of), NEW_SITTING).map((i) => i.kind)).toEqual(KINDS);
+    // an older server may still send the question: it gets no card and is not counted
+    expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
+    expect(sittingView([of("input")], NEW_SITTING)).toEqual({ state: "empty" });
   });
 });

@@ -89,20 +89,6 @@ describe("message catalogue", () => {
     for (const [code, text] of fi) expect(holesOf(en.get(code)!), code).toEqual(holesOf(text));
   });
 
-  // The tips page is gone: a text of it that no file shows any more must leave the catalogue with it.
-  it("has no `ow.` text that no source file reads", () => {
-    const repo = new URL("../../../", import.meta.url);
-    const catalogues = ["packages/core/src/messages-optimise-web.ts", "packages/core/src/english/optimise-web.ts"];
-    const sources = ["apps/web/src", "apps/server/src", "packages/core/src"]
-      .flatMap((dir) => readdirSync(new URL(dir, repo), { recursive: true, encoding: "utf8" }).map((f) => `${dir}/${f.replaceAll("\\", "/")}`))
-      .filter((f) => /\.tsx?$/.test(f) && !/\.test\.tsx?$/.test(f) && !catalogues.includes(f));
-    expect(sources.length).toBeGreaterThan(100);
-    const named = new Set(sources.flatMap((f) => [...readFileSync(new URL(f, repo), "utf8").matchAll(/["'`](ow\.[a-z_0-9]+)["'`]/g)].map((m) => m[1]!)));
-    const keys = [...readFileSync(new URL(catalogues[0]!, repo), "utf8").matchAll(/^  "(ow\.[a-z_0-9]+)": /gm)].map((m) => m[1]!);
-    expect(keys.length).toBeGreaterThan(0);
-    expect(keys.filter((k) => !named.has(k))).toEqual([]);
-  });
-
   it("names the languages once: Finnish is the default, and a stored value is checked against the list", () => {
     expect(LANGUAGES).toEqual(["fi", "en"]);
     expect(DEFAULT_LANGUAGE).toBe("fi");

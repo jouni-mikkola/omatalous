@@ -2,14 +2,11 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, inputDefOf, type InputKey, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type StoredInput } from "@banking/core";
+import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
-import { valueText } from "../components/InputForm.tsx";
-import { subjectName } from "../components/subject-name.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
-import { approxText } from "../components/Why.tsx";
 import { date, money } from "../format.ts";
-import { labelTable, t, tn } from "../text.ts";
+import { t, tn } from "../text.ts";
 
 interface Base {
   id: string;
@@ -96,27 +93,6 @@ export interface SubscriptionItem extends Base {
   lastDate: string;
 }
 
-/** A number Säästövinkit waits for: saved with PUT /api/optimise/inputs/:key, as the page's own form saved it. */
-export interface InputItem extends Base {
-  kind: "input";
-  key: string;
-  def: InputKey;
-  subject: string | null;
-  old: StoredInput | null;
-}
-
-/** What Säästövinkit asks for each input, as a question. */
-export const INPUT_QUESTION: Record<InputKey, string> = labelTable({
-  loan_rate: () => t("set.ri.what_are_the_margin_and"),
-  electricity_kwh: () => t("set.ri.how_much_electricity_do_you"),
-  electricity_contract_end: () => t("set.ri.when_does_the_electricity_contract"),
-  housing_type: () => t("set.ri.what_kind_of_home_do"),
-  moved_on: () => t("set.ri.when_did_you_move_into"),
-  insurance_quote: () => t("set.ri.how_much_would_the_insurance"),
-  parking_permit_price: () => t("set.ri.what_does_the_resident_parking"),
-  car_km: () => t("set.ri.how_much_do_you_drive"),
-});
-
 /** Whether the household has a home loan: Lisää asuntolaina opens Asetukset > Lainat, Ei asuntolainaa is the mark `question:mortgage`. */
 export interface MortgageItem extends Base {
   kind: "mortgage";
@@ -160,7 +136,7 @@ export interface RowItem extends Base {
   picks: string[];
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | InputItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem;
 
 export interface ReviewAnswer {
   items: ReviewItem[];
@@ -185,9 +161,9 @@ export type SittingView =
 
 /**
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
- * sends today, or a newer server's) is left out, since the words below have nothing to say of it.
+ * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, input: true, mortgage: true, balance: true, consent: true, bill: true, row: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, balance: true, consent: true, bill: true, row: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -224,8 +200,6 @@ export function eyebrow(item: ReviewItem): string {
       return t("set.ri.joint_account_account", { account: item.accountName });
     case "subscription":
       return item.reason === "price" && item.price ? t("set.ri.price_rose") : item.reason === "new" && item.since ? t("set.ri.new_charge") : t("set.ri.subscription");
-    case "input":
-      return t("set.ri.savings_tips");
     case "mortgage":
       return t("set.ri.housing");
     case "balance":
@@ -254,10 +228,6 @@ export function nameOf(item: ReviewItem): string {
       return item.payee;
     case "split":
       return item.question === "opening" ? t("set.ri.balance_before_date", { date: date(item.label) }) : item.label;
-    case "input": {
-      const label = inputDefOf(item.key)?.def.label ?? item.def;
-      return item.subject ? `${label}: ${subjectName(item.subject)}` : label;
-    }
     case "mortgage":
       return t("set.ri.home_loan");
     case "balance":
@@ -293,8 +263,6 @@ export function questionOf(item: ReviewItem): string {
       return t("set.ri.whose_money_was_this");
     case "subscription":
       return t("set.ri.is_the_subscription_still_in");
-    case "input":
-      return INPUT_QUESTION[item.def];
     case "mortgage":
       return t("set.ri.do_you_have_a_home");
     case "balance":
@@ -330,14 +298,6 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
             ? t("set.ri.amount_a_year_first_date", { amount: money(item.cents), date: date(item.since) })
             : t("set.ri.amount_a_year_last_date", { amount: money(item.cents), date: date(item.lastDate) });
       return { text: money(item.monthlyCents), unit: t("set.ri.a_month"), line };
-    }
-    case "input": {
-      const def = inputDefOf(item.key)?.def;
-      const old = item.old && def ? t("set.ri.old_value", { value: valueText(def, item.old.value), date: date(item.old.asOf) }) : "";
-      // the money is a tip's estimate the value makes exact; a check that waits for the value has none to show
-      return item.cents > 0
-        ? { text: approxText(money(item.cents, false), true), unit: t("set.ri.a_year"), line: t("set.ri.old_the_estimate_of_the", { old }) }
-        : { text: "", line: t("set.ri.old_the_savings_tips_need", { old }) };
     }
     case "mortgage":
       return { text: "", line: t("set.ri.housing_costs_show_no_loan") };

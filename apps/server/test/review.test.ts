@@ -248,17 +248,18 @@ describe("the review queue", () => {
     expect((await subs()).map((i) => i.merchant)).toEqual(["Max"]);
   });
 
-  it("a number Säästövinkit waits for is asked here, and saving it as the page did takes the item away", async () => {
+  it("no number for the removed tips page is asked, also of a household that was asked one, and a stored one stays", async () => {
     const t = await household();
     const repo = t.s.finance(t.adminId);
+    // an electricity bill each month: the queue asked this household when its contract ends
     await ingestTransactions(repo, "chk", MONTHS.map((m) => raw(`${m}-12`, -64.3, "HELEN OY", "SÄHKÖLASKU")), "csv");
     await reprocess(repo, t.s.settings);
-    const asked = (await queue(t.admin)).filter((i) => i.kind === "input");
-    expect(asked.map((i) => i.def)).toContain("electricity_contract_end");
-    const end = asked.find((i) => i.def === "electricity_contract_end")!;
-    expect(end).toMatchObject({ id: "input:electricity_contract_end", key: "electricity_contract_end", subject: null, old: null, cents: 0 });
+    expect((await queue(t.admin)).filter((i) => i.kind === "input")).toEqual([]);
+    expect((await ids(t.admin)).filter((id) => id.startsWith("input:"))).toEqual([]);
+    // a number typed in before is kept, and reading the queue takes none away
     expect((await t.admin.call("PUT", "/api/optimise/inputs/electricity_contract_end?scope=own", { value: "2027-03-31" })).status).toBe(200);
-    expect(await ids(t.admin)).not.toContain(end.id);
+    expect((await queue(t.admin)).filter((i) => i.kind === "input")).toEqual([]);
+    expect((await repo.listInputs()).map((i) => [i.key, i.value])).toEqual([["electricity_contract_end", "2027-03-31"]]);
   });
 
   it("a payer's role moves the member's rows as on the old card", async () => {

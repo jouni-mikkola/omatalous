@@ -3,12 +3,11 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, type InputKey, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type StoredInput } from "@banking/core";
+import { addDays, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { proposalsFor, requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
 import { industryMap } from "./enrich.ts";
-import { neededInputs } from "./optimise.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
 
@@ -112,18 +111,6 @@ interface SubscriptionItem extends Base {
 }
 
 /**
- * A number Säästövinkit waits for (PUT /api/optimise/inputs/:key, which never reprocesses): `def` names the field,
- * `subject` the series of a per-subscription input, `old` the stale value when one went out of date.
- */
-interface InputItem extends Base {
-  kind: "input";
-  key: string;
-  def: InputKey;
-  subject: string | null;
-  old: StoredInput | null;
-}
-
-/**
  * Whether the household has a home loan, asked while Asuminen shows none and nothing says they rent (core `buildHousing`'s
  * `ask`). Answered by adding the loan in Asetukset > Lainat or with the mark `question:mortgage` (PUT /api/marks), the
  * subject the first page's card stored before the question moved here, so an old answer still counts.
@@ -199,7 +186,7 @@ interface ExtensionItem extends Base {
   choices: { id: string; label: string; answer: { method: "PUT" | "POST"; path: `/api/${string}`; body: unknown } }[];
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | InputItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem | ExtensionItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem | ExtensionItem;
 
 export interface Review {
   items: ReviewItem[];
@@ -320,10 +307,6 @@ const subscriptions: Source = async (s, userId) => {
   }));
 };
 
-// the numbers Säästövinkit waits for: the page itself asks nothing
-const inputs: Source = async (s, userId) =>
-  (await neededInputs(s, userId)).map((n) => ({ kind: "input", id: `input:${n.key}`, cents: n.cents, key: n.key, def: n.def, subject: n.subject, old: n.old }));
-
 // no money rides on the answer, so the question comes last; a household with no rows yet is asked nothing
 const mortgage: Source = async (s, userId) => {
   const { ctx, accounts } = await s.analysis.get(s, userId, "own");
@@ -394,7 +377,7 @@ const rows: Source = async (s, userId) => {
   });
 };
 
-const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, inputs, mortgage, balances, consents, bills, rows];
+const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, balances, consents, bills, rows];
 
 /** The whole queue, the most money first; the page caps a sitting. */
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {
