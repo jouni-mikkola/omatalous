@@ -1796,6 +1796,38 @@ Result: The shell lint of `pnpm check` takes under half the CPU of today in the 
 - after: none
 - files: tools/ci/shell-lint.sh, tools/test/shell-lint.test.sh
 
+## The server: settings and the hourly tick
+
+Found by reading `apps/server/src/services/schedule.ts`, `platform/config.ts` and `entry/node.ts` on 11 November (N48).
+G1 to G3 and B6 are merged. Checked and found sound, so no step: `disk.ts`, `price-index.ts`, `db/pragmas.ts`,
+`db/backup-keep.ts`, `services/industry.ts` (its lock is released), `offsite.ts` and `outside-notices.ts` (each guards
+its own errors), `bank-logos.ts`, `limiters.ts` and the time zone setting (`instance.ts` falls back when it is invalid).
+Only three small faults were found, so the round has three steps. H1 stands alone, H2 and H3 share `config.ts`.
+
+### H1 One failed chore spares the rest
+Result: When one of the hourly clean-up chores fails, the others still run in the same hour.
+- why: `hourlyTick` in `services/schedule.ts` guards the sync, lookups, price index, copies, leftovers and remote access, but `deleteExpiredSessions`, `pruneEvents`, `expireStale`, `s.settings.deleteOlder(LINK_STATE_PREFIX, ...)` and `sweepOffsiteRequest` are awaited bare (lines 72 and 114 to 122 on 11 Nov). A busy database in `sweepOffsiteRequest` (line 72) leaves `hourlyTick` before the bank fetch of the hour, and in one of the others `pruneEvents`, the `expireStale` of queued requests and the clean-up of `LINK_STATE_PREFIX` wait for the next hour, and `entry/node.ts` only logs `hourly tick failed`.
+- done when: in the new `apps/server/test/schedule-chore-fault.test.ts`, which fails without the change, each of the five throws in turn (a stub on the repository or service it calls) and `hourlyTick` still returns, the other four ran, and one log line names the failed chore without a user's data; `apps/server/test/schedule-sync-fault.test.ts` and the tests of `backup.test.ts` that go through the tick pass unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: schedule-tick
+- after: none
+- files: apps/server/src/services/schedule.ts, apps/server/test/schedule-chore-fault.test.ts
+
+### H2 A blank sync hour is no midnight
+Result: A sync hours setting with a gap in it, like `6,,18`, no longer fetches from the bank at midnight, and one that is cut to four hours says so.
+- why: `hours` in `platform/config.ts` (line 120) maps each part with `Number(h.trim())`, and `Number("")` is 0, which passes the check for a whole number from 0 to 23. On main `SYNC_HOURS="6,,18"` and `"6,18,"` give `[0, 6, 18]`. The same function keeps the first four hours of a longer list with `slice(0, 4)` and says nothing, so a fifth hour is dropped without a word.
+- done when: in the new `apps/server/test/sync-hours.test.ts`, which fails without the change, `loadConfig` gives `[6, 18]` for `"6,,18"`, `"6,18,"` and `" 6 , 18 "`, `[0]` for `"0"`, the fallback `[6, 18]` for `","` and for `"abc"`, `[1, 2, 3, 4]` for `"4,3,2,1,5"` with one warning that names `SYNC_HOURS` and the limit of four, and no warning for a list of four or fewer; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: server-config
+- after: none
+- files: apps/server/src/platform/config.ts, apps/server/test/sync-hours.test.ts
+
+### H3 The port is read once
+Result: A mistyped `PORT` is told at start and the server and the address it prints agree on the port.
+- why: `platform/config.ts` reads `PORT` with `int` (line 98, `parseInt`) for the default address, so `8080abc` gives `http://localhost:8080`, while `entry/node.ts` (line 215) reads it again with `Number(env.PORT ?? 8080)`, which gives `NaN` for the same text. The server is then told to listen on `NaN` and the printed address names a port it is not on.
+- done when: `platform/config.ts` exports one `listenPort(env)` that takes only a whole number from 1 to 65535 and otherwise warns with the name `PORT` and uses 8080, `loadConfig` and `entry/node.ts` both use it, and in the new `apps/server/test/listen-port.test.ts`, which fails without the change, `8080abc`, `0`, `70000`, `1.5` and `-1` give 8080 with one warning, `"3000"` and an unset `PORT` give 3000 and 8080 with none, and the default `appBaseUrl` of `loadConfig` has the same port; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: server-config
+- after: none
+- files: apps/server/src/platform/config.ts, apps/server/src/entry/node.ts, apps/server/test/listen-port.test.ts
+
 ## Later
 
 - T6 Stack review: repeat the interface stack comparison with new measurements (charts and components by 25 April 2027,
