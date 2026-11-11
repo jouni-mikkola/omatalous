@@ -51,6 +51,13 @@ Result: The check line is quoted, so the board reads its state and starts steps.
 - locks: none
 - after: none
 
+### N4 Finished work lands again
+Result: Drop the quotes around WORKFLOW.md's check line and avoid ': ' inside it (match the roadmap rule test by a pattern without a colon)
+- why: Every PR has been train-red since 08:21: WORKFLOW.md's check line is wrapped in single quotes (commit 9c20be4) and the board runs the text after 'check:' verbatim, so sh looks for a command named the whole line and exits 127. Reproduced locally; unquoted the same line passes in 13 s.
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Finished work lands again. Drop the quotes around WORKFLOW.md's check line and avoid ': ' inside it (match the roadmap rule test by a pattern without a colon) so the line stays valid YAML and the board runs it as is; the waiting green PRs then merge.
+- locks: none
+- after: none
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
