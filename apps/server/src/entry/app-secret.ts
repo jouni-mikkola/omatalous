@@ -10,7 +10,7 @@
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname } from "node:path";
-import { writeNewFileDurable } from "../platform/durable.ts";
+import { writeNewFileDurable, type DurableIo } from "../platform/durable.ts";
 
 /**
  * Not mkdirSync(recursive): on a path under /proc Node's recursive mkdir never returns (100 % CPU, no log, a
@@ -33,7 +33,7 @@ export const isAppSecret = (text: string): boolean => text.length >= 32;
 
 export type AppSecretResult = { secret: string; created: boolean } | { secret: null; problem: string };
 
-export function loadOrCreateAppSecret(path: string): AppSecretResult {
+export function loadOrCreateAppSecret(path: string, io?: DurableIo): AppSecretResult {
   try {
     const secret = readFileSync(path, "utf8").trim();
     if (!isAppSecret(secret)) return { secret: null, problem: `${path} is too short (at least 32 characters)` };
@@ -47,7 +47,7 @@ export function loadOrCreateAppSecret(path: string): AppSecretResult {
   try {
     ensureDir(dirname(path));
     const secret = randomBytes(48).toString("base64url");
-    writeNewFileDurable(path, `${secret}\n`, 0o600, dirname(path));
+    writeNewFileDurable(path, `${secret}\n`, 0o600, dirname(path), io);
     return { secret, created: true };
   } catch (err) {
     return { secret: null, problem: `could not create the app secret (${path}): ${(err as Error).message}` };

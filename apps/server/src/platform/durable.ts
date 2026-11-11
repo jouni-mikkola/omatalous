@@ -2,7 +2,7 @@
  * Writes that survive a power loss. A file that was written and renamed is only safe once the file itself
  * and the folder that holds its name have been flushed. Node only.
  */
-import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, statSync, writeSync } from "node:fs";
+import { chmodSync, closeSync, fsyncSync, mkdirSync, openSync, statSync, unlinkSync, writeSync } from "node:fs";
 
 /** Flushes a file that was written by other means (copyFileSync). */
 export function fsyncFile(path: string): void {
@@ -28,15 +28,41 @@ export function fsyncDir(dir: string): void {
 }
 
 /** Creates a new file (never overwrites: flag wx), writes it, flushes it and its folder. */
-export function writeNewFileDurable(path: string, data: string, mode: number, dir: string): void {
+export type DurableIo = {
+  write?: (fd: number, buf: Uint8Array, offset: number, length: number) => number;
+  fsync?: (fd: number) => void;
+};
+
+/**
+ * Writes every byte (writeSync may take fewer). When a write or a flush throws, the file made here is removed, so a
+ * half file is never left; a file that was there before makes the open fail and is never touched.
+ */
+export function writeNewFileDurable(path: string, data: string, mode: number, dir: string, io: DurableIo = {}): void {
+  const write = io.write ?? ((fd, buf, offset, length) => writeSync(fd, buf, offset, length));
+  const flush = io.fsync ?? fsyncSync;
   const fd = openSync(path, "wx", mode);
   try {
-    writeSync(fd, data);
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
+    try {
+      const buf = Buffer.from(data, "utf8");
+      let done = 0;
+      while (done < buf.length) {
+        const n = write(fd, buf, done, buf.length - done);
+        if (!(n > 0)) throw new Error("write made no progress");
+        done += n;
+      }
+      flush(fd);
+    } finally {
+      closeSync(fd);
+    }
+    fsyncDir(dir);
+  } catch (err) {
+    try {
+      unlinkSync(path);
+    } catch {
+      // already gone
+    }
+    throw err;
   }
-  fsyncDir(dir);
 }
 
 /**
