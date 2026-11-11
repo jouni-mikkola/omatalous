@@ -122,10 +122,10 @@ describe("command line: a command with only its own words works as before", () =
     expect(deleted.code).toBe(0);
     expect(deleted.out).toContain("Deleted anna and all their data.");
     expect(await t.s.users.findForLogin("anna")).toBeNull();
-    // an unknown user and an unknown command are refused in their old words
+    // an unknown user and a missing username are refused in their old words, an unknown command with the lines of its group after it
     expect((await run(t, "user", "delete", "anna")).err).toBe("User anna not found.");
     expect((await run(t, "user", "delete")).err).toBe("Give a username.");
-    expect((await run(t, "user", "frobnicate", "aino")).err).toBe("Unknown command: frobnicate");
+    expect((await run(t, "user", "frobnicate", "aino")).err).toMatch(/^Unknown command: frobnicate\n/);
   });
 
   it("sessions revoke-all signs everyone out", async () => {

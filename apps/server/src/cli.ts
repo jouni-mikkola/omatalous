@@ -2,7 +2,7 @@
  * Command-line helpers, run inside the container:
  *   docker compose exec banking node dist/node.js setup-code      (a new code for creating the first admin in the browser, good for 24 hours)
  *   docker compose exec banking node dist/node.js version
- *   docker compose exec banking node dist/node.js user create <username> [--admin] [--name "Nimi"]
+ *   docker compose exec banking node dist/node.js user create <username> [--admin] [--name "Name"]
  *   docker compose exec banking node dist/node.js user reset-password <username>
  *   docker compose exec banking node dist/node.js user remove-factor <username>      (a lost phone and recovery codes: the second sign-in factor off, the user signed out)
  *   docker compose exec banking node dist/node.js user list
@@ -16,11 +16,13 @@
  *   docker compose exec banking node dist/node.js address set <url>        (the app's own address, install.sh runs it)
  *   docker compose exec -T banking node dist/node.js ops poll|report|state  (the host helper, see cli-ops.ts)
  *   docker compose exec banking node dist/node.js service-token create|list|revoke   (read-only keys for scripts and agents, see cli-service-token.ts)
+ * `help`, `--help` and `-h` print this list, one command to a line (cli-usage.ts, which has to name every line above).
  */
 import { readFileSync } from "node:fs";
 import { option, readWords, type Takes } from "./cli-args.ts";
 import { runOpsCli } from "./cli-ops.ts";
 import { runServiceTokenCli } from "./cli-service-token.ts";
+import { COMMANDS, HELP_WORDS, refuseUnknown } from "./cli-usage.ts";
 import { isAppSecret } from "./entry/app-secret.ts";
 import { UserError } from "./platform/errors.ts";
 import type { Services } from "./services/context.ts";
@@ -50,6 +52,10 @@ const USER_TAKES = new Map<string, Takes>([
 
 export async function runCli(s: Services, args: string[], ctx: CliContext = {}): Promise<number> {
   const [group, command, word] = args;
+  if (group !== undefined && HELP_WORDS.includes(group)) {
+    for (const line of COMMANDS) console.log(line);
+    return 0;
+  }
   if (group === "version") {
     console.log(`${s.build.version} (${s.build.id})`);
     return 0;
@@ -126,13 +132,10 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     console.log(`The secret fits ${what}.`);
     return 0;
   }
-  if (group !== "user" || !command) {
-    console.log(`Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user remove-factor <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | secret check <file> | address set <url> | ops poll|report|state | service-token create|list|revoke`);
-    return 1;
-  }
-  // a command this map does not know is refused as unknown at the end, as before
-  const takes = USER_TAKES.get(command);
-  const { plain: [username], stray } = takes ? readWords(args.slice(2), takes) : { plain: args.slice(2), stray: undefined };
+  // a command this map does not know is refused before its words are read: no username can make it exist
+  const takes = group === "user" && command ? USER_TAKES.get(command) : undefined;
+  if (!takes) return refuseUnknown(group, command);
+  const { plain: [username], stray } = readWords(args.slice(2), takes);
   if (stray) {
     console.error(stray);
     return 1;
@@ -175,12 +178,9 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     console.log(`Removed the second sign-in factor and the recovery codes of ${username}, and signed them out. They sign in with the password alone.`);
     return 0;
   }
-  if (command === "delete") {
-    const r = await removeUser(s, record.id, "komentorivi");
-    console.log(`Deleted ${username} and all their data.`);
-    if (r.revoked || r.failed) console.log(`Bank connections ended: ${r.revoked}${r.failed ? `, ${r.failed} failed (they expire at the bank on their own)` : ""}.`);
-    return 0;
-  }
-  console.error(`Unknown command: ${command}`);
-  return 1;
+  // `delete` is the one command of USER_TAKES left
+  const r = await removeUser(s, record.id, "komentorivi");
+  console.log(`Deleted ${username} and all their data.`);
+  if (r.revoked || r.failed) console.log(`Bank connections ended: ${r.revoked}${r.failed ? `, ${r.failed} failed (they expire at the bank on their own)` : ""}.`);
+  return 0;
 }
