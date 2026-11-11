@@ -252,14 +252,15 @@ describe("Holdings", () => {
   describe("Luottokortit", () => {
     const withCards = (cards: Answer["cards"], cardsCents: number | null = null) => html(answer({ cards, cardsCents }));
 
-    it("gives every card its face at the left of its unit, hidden from a screen reader and the tab order, and no meter, bar or sentence of its own", () => {
+    it("gives every card its flat row at the top of its unit, with the name as its one link, and no meter, bar or sentence of its own", () => {
       const two = withCards([card({ bank: "ESIMERKKIPANKKI", mask: "•••• 4321", name: "Esimerkkikortti Gold" }), card({ id: "k2", name: "Toinen kortti" })]);
       const units = two.split('<li class="holding-unit holding-unit-faced">').slice(1);
       expect(units).toHaveLength(2);
       for (const unit of units) {
-        expect(unit.startsWith('<a class="card-face-link" href="#/transactions?accountId=k'), "the face comes first, before the name").toBe(true);
-        expect(unit).toMatch(/^<a [^>]*tabindex="-1" aria-hidden="true"/);
-        expect(unit.match(/class="card-face /g)).toHaveLength(1);
+        expect(unit.startsWith('<div class="card-face">'), "the row comes first").toBe(true);
+        expect(unit.match(/class="card-face"/g)).toHaveLength(1);
+        expect(unit.match(/<a[ >]/g), "the name is the unit's one link").toHaveLength(1);
+        expect(unit).not.toContain("aria-hidden");
       }
       for (const gone of ["card-meter", "<button", "<img"]) expect(two, gone).not.toContain(gone);
       // the number is on the face of the card that has one, and the face of the other has none
@@ -270,27 +271,28 @@ describe("Holdings", () => {
       for (const gone of ["card-face", "card-chip", "<svg", "<img", "holding-unit-body", "credit-arc"]) expect(rest, gone).not.toContain(gone);
     });
 
-    it("leaves the name, its lines and the figures of a card as the block drew them before the face: the same markup, the arc between them", () => {
+    it("shows the name once, in the row, without the bank's type; the head holds the lines, then the arc and the figures", () => {
       const markup = withCards([card({ name: "Esimerkkipankki Gold (credit)", bank: "Esimerkkipankki", mask: "•••• 4321", usedCents: 120_000, freeCents: 180_000, balanceAt: "2026-10-09", part: { from: 1, to: 2, of: 2 } })]);
       const figureRow = (label: string, cents: number) => `<div class="st-row"><dt class="st-name holding-label">${label}</dt><dd class="st-num">${money(cents)}</dd></div>`;
       const head =
-        '<div class="st-row holding-unit-head"><span class="st-name holding-name" title="Esimerkkipankki Gold"><a href="#/transactions?accountId=k1">Esimerkkipankki Gold</a></span>' +
+        '<div class="st-row holding-unit-head">' +
         `<span class="st-sub">${partText({ from: 1, to: 2, of: 2 }, "debt")}</span><span class="st-sub">Saldo päivältä 9.10.</span></div>`;
       const rows = `<dl class="st-rows">${figureRow("Käytetty luotto", 120_000)}${figureRow("Luottoraja", 300_000)}${figureRow("Luottoa jäljellä", 180_000)}</dl>`;
       expect(markup).toContain(`<div class="holding-unit-body">${head}<svg class="credit-arc"`);
       expect(markup).toContain(`</svg>${rows}</div></li>`);
-      // all the unit's text is in the body: what stands before it is the face, which a screen reader leaves out
       const open = '<li class="holding-unit holding-unit-faced">';
       const face = markup.slice(markup.indexOf(open) + open.length, markup.indexOf('<div class="holding-unit-body">'));
-      expect(face).toMatch(/^<a class="card-face-link" [^>]*aria-hidden="true"[^>]*><div class="card-face card-face-gold">.*<\/a>$/);
-      expect(face).not.toMatch(/<(button|input|select)[ >]/);
-      expect(face.match(/<a[ >]/g)).toHaveLength(1);
+      expect(face).toMatch(/^<div class="card-face">.*<a href="#\/transactions\?accountId=k1">Esimerkkipankki Gold<\/a>.*•••• 4321.*<\/div>$/);
+      expect(face).not.toContain("(credit)");
+      expect(markup).not.toContain("(credit)");
+      expect(markup.match(/Esimerkkipankki Gold/g), "the name is told once").toHaveLength(2); // the link's text and its title
+      expect(face).not.toMatch(/<(button|input|select|svg)[ >]/);
     });
 
     it("is the card's name as a link, then the arc of what is used and its three rows, as a loan is name and rows", () => {
       const markup = withCards([card({ usedCents: 120_000, freeCents: 180_000 })]);
       expect(text(markup)).toContain("Esimerkkikortti 40 % Käytetty luotto 1 200,00 € Luottoraja 3 000,00 € Luottoa jäljellä 1 800,00 €");
-      expect(markup).toContain('<div class="holding-unit-body"><div class="st-row holding-unit-head">');
+      expect(markup).toContain('<div class="holding-unit-body"><svg class="credit-arc"');
       expect(markup).toContain('<a href="#/transactions?accountId=k1">Esimerkkikortti</a>');
       // a loan has the same unit, without the face
       expect(html(answer({ loans: [loan()], loansCents: 12_000_000 }))).toContain('<li class="holding-unit"><div class="st-row holding-unit-head">');
@@ -355,14 +357,12 @@ describe("Holdings", () => {
       expect(text(withCards([card()]))).not.toContain("Saldo päivältä");
     });
 
-    it("carries the last four digits of two cards that share a name, and of no other, in the text beside the face", () => {
-      const spoken = (markup: string) => markup.split("<li ").slice(1).map((li) => li.slice(li.indexOf('<div class="holding-unit-body">'))).join("");
+    it("tells two cards that share a name apart by the last four digits in their rows", () => {
+      const spoken = (markup: string) => markup;
       const twin = (id: string, mask: string, name = "Esimerkkikortti") => card({ id, name, mask });
       const two = withCards([twin("a", "•••• 1234"), twin("b", "•••• 5678"), twin("c", "•••• 9999", "Toinen kortti")]);
-      expect(text(spoken(two))).toContain("Esimerkkikortti ·· 1234");
-      expect(text(spoken(two))).toContain("Esimerkkikortti ·· 5678");
-      expect(spoken(two)).not.toContain("9999");
-      expect(spoken(withCards([twin("a", "•••• 1234")]))).not.toContain("1234");
+      expect(text(spoken(two))).toContain("Esimerkkikortti •••• 1234");
+      expect(text(spoken(two))).toContain("Esimerkkikortti •••• 5678");
       // the faces show the number of every card that has one
       expect(two.match(/<span class="card-face-mask">/g)).toHaveLength(3);
     });

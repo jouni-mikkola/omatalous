@@ -66,15 +66,17 @@ function Total({ label, cents, note, door }: { label: ReactNode; cents: number |
 
 /**
  * A card or a loan: its name with the lines under it, and its figures as rows set in a little. `note` follows the figures.
- * `face` is a picture at the left of all of that, for the eye alone, and `arc` stands under the name beside it.
+ * `face` is a flat row above all of that and stands for the name (the head then holds only the lines), and `arc` stands under the name beside it.
  */
 function Unit({ name, href, mask, lines, note, face, arc, children }: { name: string; href: string; mask?: string | undefined; lines: (string | null | undefined)[]; note?: ReactNode; face?: ReactNode; arc?: ReactNode; children: ReactNode }) {
   const rows = (
     <>
-      <div className="st-row holding-unit-head">
-        <Name name={name} href={href} mask={mask} />
-        {lines.map((line, i) => line && <span key={i} className="st-sub">{line}</span>)}
-      </div>
+      {(!face || lines.some(Boolean)) && (
+        <div className="st-row holding-unit-head">
+          {!face && <Name name={name} href={href} mask={mask} />}
+          {lines.map((line, i) => line && <span key={i} className="st-sub">{line}</span>)}
+        </div>
+      )}
       {arc}
       <dl className="st-rows">{children}</dl>
       {note}
@@ -167,7 +169,7 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
               href={href}
               mask={masks.get(c.id)}
               lines={[partText(c.part, "debt"), sinceLine(c.balanceAt, meta.today)]}
-              face={<CardFace card={c} bank={cardBankOf(c.name, c.bank, meta.bank?.banks ?? [])} href={href} />}
+              face={<CardFace card={{ name: cardName(c.name), mask: c.mask }} bank={cardBankOf(c.name, c.bank, meta.bank?.banks ?? [])} href={href} />}
               arc={<CreditArc usedCents={used} limitCents={limit} />}
             >
               <FigureRow label={t("holdings.used")} bad={over !== null}>
