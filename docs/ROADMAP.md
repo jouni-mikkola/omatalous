@@ -284,6 +284,13 @@ Result: The plan gains 8 to 12 steps where the server's handling of sessions, li
 - locks: none
 - after: none
 
+### N36 One member's fault spares
+Result: When one household member's bank fetch fails, the others still get their rows that hour, and a fetch where every account failed
+- why: apps/server/src/connectors/sync.ts:114 tryLock and the run record sit before the try in fetchForUser, and syncEveryone (:492) has no per-member catch, so one member's database error stops the scheduled fetch for everyone; :256 marks a connection synced when every account failed, so the next connect fetch is not fresh for the backfill (N35 #221 notes)
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: One member's fault spares the rest. When one household member's bank fetch fails, the others still get their rows that hour, and a fetch where every account failed is not counted as done.
+- locks: none
+- after: none
+
 ### N34 Plan the look and style steps
 Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a place where a page looks different from what the style guide says
 - why: No plan step has read docs/UI_STYLE.md (204 lines) against apps/web/src/styles (30+ css files) and the four views of docs/design/README.md as they stand after T69-T77; the web steps so far came from the design and from keyboard and screen reader checks. 11 of 14 slots are free and 0 steps are free.
