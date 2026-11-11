@@ -14,13 +14,15 @@ import { useState } from "react";
 import { api, query } from "../api.ts";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
 import { billItems } from "../components/bills/items.ts";
+import { BeforePayday } from "../components/bills/BeforePayday.tsx";
 import { BillForm } from "../components/bills/BillForm.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { useApi } from "../hooks.ts";
 import { t } from "../text.ts";
-import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
+import { periodRange } from "../period.ts";
+import type { DashboardData, Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
 import "../styles/table.css";
 import "../styles/bills.css";
 import "../styles/statement.css";
@@ -29,6 +31,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
   // the bills typed in are the `upcoming` report's list
   const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "upcoming" })}`);
+  // the same request as Yhteenveto's: its payments before the payday are the rows of the first section
+  const hasData = meta.accounts.length > 0 || (scope === "household" && meta.sharedAccounts.length > 0);
+  const dashboard = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...periodRange("month", meta.today), scope })}` : null, true);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -117,6 +122,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
           </p>
         )}
       </section>
+      {dashboard.data && <BeforePayday data={dashboard.data} />}
       {markError && <Notice tone="error">{markError}</Notice>}
       {items.length > 0 ? (
         <div className="span-12">
