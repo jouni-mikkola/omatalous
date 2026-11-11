@@ -366,6 +366,13 @@ Result: A credit card in Lisää > Tilit ja saldot is a plain framed row in the 
 - after: P9
 - files: apps/web/src/styles/holdings.css, apps/web/src/pages/reports/holdings/CardFace.tsx, apps/web/test/card-face.test.ts
 
+### N42 Plan the income and change steps
+Result: The plan gains 4 to 8 steps where the income, change and spending habit figures differ from the money flows guide, each with file and line
+- why: N32 (#219) left unread in packages/core/src/analysis: expected.ts, change*.ts, dashboard.ts, income*.ts, behaviour/, usual.ts, ahead-moves.ts, and the apps/server and apps/web readers of them, against docs/MONEY_FLOWS.md
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the income and change steps. The plan gains 4 to 8 steps where the income, change and spending habit figures differ from the money flows guide, each with file and line and its tests, or says the area is done.
+- locks: none
+- after: none
+
 ### V5 Saldot month labels clear
 Result: The month names under the balance chart of Saldot no longer run into each other on a phone or a tablet.
 - why: seen on 11 Nov with the demo household: at 390 px the labels marras, tammi 2026 and maalis of Saldot's chart overlap by 9 px each, and at 700 px tammi 2026 and helmi by 2 px (the boxes of the SVG texts measured in the running app). `labelsWithRoom` in `apps/web/src/charts/draw.ts:46` counts 6,5 px a letter (`LABEL_CHAR_W`, line 38) and the 13 px face takes more.
