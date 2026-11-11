@@ -7,7 +7,7 @@ import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { type Column, Table } from "../../components/table/Table.tsx";
 import { IconButton } from "../../components/ui/IconButton.tsx";
 import { Why } from "../../components/Why.tsx";
-import { dateRange, money, signedMoney } from "../../format.ts";
+import { dateRange, money, monthLong, signedMoney } from "../../format.ts";
 import { navigate, useApi, useHashRoute } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
@@ -32,6 +32,13 @@ function Bar({ row, scale }: { row: GapRow; scale: number }) {
       <span className="km-tick" ref={css({ "inset-inline-start": share(row.expectedCents) })} />
     </span>
   );
+}
+
+/** The heading of a month, "Lokakuu 2026", and the days read when they are not the whole month (the running month to today), else null. */
+function monthHeading(month: string, days: { from: string; to: string }): { title: string; days: string | null } {
+  const name = monthLong(month);
+  const whole = days.from === `${month}-01` && days.to === monthEnd(month);
+  return { title: name.charAt(0).toUpperCase() + name.slice(1), days: whole ? null : dateRange(days.from, days.to) };
 }
 
 /** The address's month (`?month=2026-10`) when it names one before the running month, else null: the running month has no parameter. */
@@ -81,6 +88,7 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
   if (!data || !Object.hasOwn(data, past ? "spendingChange" : "thisMonth")) return <div className="stack" aria-busy="true"><span className="sk sk-title" aria-hidden="true" /><span className="sk sk-line" aria-hidden="true" /></div>;
   const r: Shown = past ? earlier(data, past) : { ...data.thisMonth, days: { from: `${data.thisMonth.month}-01`, to: meta.today } };
   const days = r.days;
+  const heading = monthHeading(r.month, days);
   const step = (n: number) => {
     const to = addMonths(past ?? meta.today.slice(0, 7), n);
     navigate("reports", { month: to < meta.today.slice(0, 7) ? to : undefined }, true);
@@ -146,7 +154,10 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
         <IconButton label={t("range.prev_month")} onClick={() => step(-1)}>
           ‹
         </IconButton>
-        <h2 className="km-title">{dateRange(days.from, days.to)}</h2>
+        <div className="km-name">
+          <h2 className="km-title">{heading.title}</h2>
+          {heading.days && <p className="km-days">{heading.days}</p>}
+        </div>
         <IconButton label={t("range.next_month")} disabled={!past} onClick={() => step(1)}>
           ›
         </IconButton>
@@ -168,7 +179,7 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
       {income !== undefined && (
         <p className="km-income">
           {t("rep.income")} {money(income, false)}
-          {usualIncome !== undefined && `, ${t("inc.usual_month").toLowerCase()} ${money(usualIncome, false)}`}
+          {usualIncome !== undefined && `, ${t("rpt.tm_usual_income")} ${money(usualIncome, false)}`}
         </p>
       )}
     </div>

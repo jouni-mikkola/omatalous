@@ -103,3 +103,19 @@ describe("Kuukausi rest row", () => {
     expect(document.querySelector("[aria-expanded]")).toBeNull();
   });
 });
+
+describe("Kuukausi heading and income line", () => {
+  it("names the running month with its year, and the days read under it", async () => {
+    await open({ ...running(false), income: { months: [{ month: "2026-11", totalCents: 2_300 }], stability: { medianCents: 395_000 } } }, "#/reports");
+    expect((await screen.findByRole("heading", { level: 2 })).textContent).toBe("Marraskuu 2026");
+    expect(document.querySelector(".km-days")?.textContent).toBe("1.–11.11.");
+    // Kuukausi says yleensä (docs/UI_STYLE.md), also of income
+    expect(document.querySelector(".km-income")?.textContent?.replace(/\s/g, " ")).toBe("Tulot 23 €, yleensä kuussa 3 950 €");
+  });
+
+  it("names an ended month alone: it is read whole", async () => {
+    await open(view(false), "#/reports?month=2026-10");
+    expect((await screen.findByRole("heading", { level: 2 })).textContent).toBe("Lokakuu 2026");
+    expect(document.querySelector(".km-days")).toBeNull();
+  });
+});

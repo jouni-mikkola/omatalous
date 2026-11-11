@@ -54,6 +54,7 @@ export const FI_REPORTS_3 = {
   "rpt.tm_f_estimate": "Kuun lopun arvio",
   "rpt.tm_history": "Vertailu yleiseen tasoon näkyy, kun takana on {months}.",
   "rpt.tm_needs_months": "tavallinen näkyy, kun takana on {count} kuukautta",
+  "rpt.tm_usual_income": "yleensä kuussa",
   "rpt.tm_sums_caption": "Menot luokittain",
   "rpt.first_now": "Tässä näet, paljonko voit vielä käyttää ennen palkkapäivää.",
   "rpt.first_month": "Tässä näet, mihin rahat menivät tässä kuussa tavalliseen verrattuna.",

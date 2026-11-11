@@ -6,6 +6,7 @@ import { cents, overflow, plain, watch } from "./helpers.ts";
 // A category's sum opens the rows it is made of, and they add up to it. The demo household of the administrator
 // (e2e/run.mjs made it) is read and nothing is changed.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
+const MONTHS = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
 
 for (const width of [1280, 390]) {
   test(`Kuukausi is a tab at ${width} px: a category opens rows that add up to its sum`, async ({ browser }) => {
@@ -79,8 +80,10 @@ for (const width of [1280, 390]) {
 
     await view.getByRole("button", { name: "Edellinen kuukausi", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#/reports\\?month=${month}$`));
-    // the whole month, its first day to its last
-    await expect(view.locator(".km-title")).toHaveText(new RegExp(`^1\\.[–-]${last}\\.${Number(month.slice(5, 7))}\\.`), { timeout: 15_000 });
+    // the whole month: its name and year, and no line of days under it
+    const title = `${MONTHS[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
+    await expect(view.locator(".km-title")).toHaveText(title, { timeout: 15_000 });
+    await expect(view.locator(".km-days")).toHaveCount(0);
     const report = await (await context.request.get(`/api/reports?from=${month}-01&to=${month}-${last}&reports=spendingChange`)).json();
     type Row = { category: string | null; label: string; nowCents: number; baseCents: number; changeCents: number };
     const change = (report.spendingChange.views as { view: string; change: { nowCents: number; baseCents: number; changeCents: number; categories: Row[] } }[]).find((v) => v.view === "expected")?.change;
@@ -122,7 +125,7 @@ for (const width of [1280, 390]) {
 
     // the address alone opens the same month
     await page.reload();
-    await expect(view.locator(".km-title")).toHaveText(new RegExp(`^1\\.[–-]${last}\\.${Number(month.slice(5, 7))}\\.`), { timeout: 15_000 });
+    await expect(view.locator(".km-title")).toHaveText(title, { timeout: 15_000 });
 
     // forward again: today's answer, no month in the address
     await forward.click();

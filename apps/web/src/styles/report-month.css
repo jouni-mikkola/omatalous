@@ -2,12 +2,16 @@
 @layer pages {
 .km-head { display: flex; align-items: center; gap: var(--sp-8); }
 .km-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--w-strong); color: var(--text); }
+/* the days read of a running month, under its name */
+.km-days { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
 .km-total { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 .km-note, .km-income { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; max-inline-size: 72ch; }
 .km-usual { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-16); }
 .km-bar { position: relative; display: block; flex: 1 1 auto; max-inline-size: calc(6 * var(--sp-40)); block-size: var(--sp-8); background: var(--well); }
 .km-fill { display: block; block-size: 100%; background: var(--accent); }
 .km-tick { position: absolute; inset-block: calc(-1 * var(--sp-4)); inline-size: calc(2 * var(--hairline)); background: var(--text); }
+/* a row as a block has no room for the bar: its tick alone read as a stray mark beside Yleensä */
+.rt-wrap[data-block] .km-bar { display: none; }
 .km-rest { all: unset; cursor: pointer; text-decoration: underline; }
 .km-rest:focus-visible { outline: calc(2 * var(--hairline)) solid var(--accent); }
 .km-child { padding-inline-start: var(--sp-16); }
