@@ -396,6 +396,14 @@ Result: Read the recurring-bill, import pipeline, refund and shared-cost settlem
 - locks: none
 - after: none
 
+### J1 Month-end pay keeps month end
+Result: A pay that comes twice a month, the 15th and the last day, is expected on the last day of every month ahead, also after a February.
+- why: `detectRecurring` over pays on 2024-10-15, 10-31, 11-15, 11-30, 12-13, 12-31, 2025-01-15, 01-31, 02-14, 02-28 gives a semimonthly series whose `projectDates` runs 2025-03-28, 04-28, 05-28 (the last charge's day 28, kept for ever) where the pay comes on 03-31, 04-30, 05-31; its next date is 03-14, a day off the 15th, because the charge before the last was moved by a weekend.
+- done when: a new `packages/core/test/recurring-semimonthly-project.test.ts` that fails without the change runs `detectRecurring` on those ten pays with today 2025-03-05 and gets the second anchor of `projectDates(series, "2025-05-31")` on 03-31, 04-30 and 05-31, the first anchor on the 14th or 15th; a series with pays on the 1st and the 15th still projects the 1st and the 15th; `bun test packages/core/test/recurring-semimonthly-project.test.ts packages/core/test/recurring.test.ts` passes with the existing tests unchanged; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: recurring-projection
+- after: none
+- files: packages/core/src/recurring.ts, packages/core/src/recurring-cadence.ts, packages/core/test/recurring-semimonthly-project.test.ts
+
 ### Z5 Copied values reach by keys
 Result: A value to paste into Enable Banking can be copied from the keyboard and its hint reads in the member's language.
 - why: `apps/web/src/pages/settings/CopyValue.tsx` copies on a click of a `<code>` with `title="Kopioi"` (Finnish in English, and a hover only); the element is not a tab stop and says nothing when it copied. `set.cv.copy` and `set.cv.copied` already exist.
