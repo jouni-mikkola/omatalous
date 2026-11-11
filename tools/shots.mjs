@@ -19,9 +19,21 @@ const WIDTHS = [1280, 1000, 700, 390];
 const MAX_PART = 100_000_000;
 /** The second member `--member` makes: five letters or more in the username, a display name as a household would have. */
 const SECOND = { username: "eero-esimerkki", displayName: "Eero" };
+/**
+ * The pages `--all` stands for: every page of the app, Raportit with each question of `QUESTIONS` (packages/core/src/reports/index.ts)
+ * and with `q=kiinteat`, a page the app still serves outside that list, and each target of `SETTINGS_TARGETS` (apps/web/src/routes.ts).
+ * Written out here, since this tool runs without the app's sources loaded; tools/shots-a.test.ts holds it against the two lists.
+ */
+const TARGETS = ["banks", "household", "members", "security", "data", "server"];
+const ALL_ROUTES = [
+  "overview", "bills", "transactions", "transactions?view=merchants", "review",
+  ...["kuukausi", "menot", "tulot", "velat", "saldot", "yhteiset", "kiinteat"].map((q) => `reports?q=${q}`),
+  ...TARGETS.map((id) => `settings/${id}`),
+];
 
 export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the built app, one per route and width
   <route>          a page id with an optional query: overview, "reports?q=tulot". Several routes share one app start and one login
+  --all            every page: each question of Raportit and each target of Asetukset (settings/security) too, beside the routes named
   --widths a,b     pixel widths (default ${WIDTHS.join(",")})
   --demo           the demo household: 14 months of made-up rows on its own accounts (--demo-years: 26, both sides of a year comparison)
   --fake-bank      links the fake bank (e2e/fake-bank/): a checking and a savings account, a joint account of MEIKALAINEN MATTI;KORHONEN ELISA,
@@ -73,6 +85,7 @@ export function parseArgs(argv) {
       return v;
     };
     if (a === "--help" || a === "-h") o.help = true;
+    else if (a === "--all") o.routes.push(...ALL_ROUTES.filter((r) => !o.routes.includes(r)));
     else if (a === "--demo") o.demo = true;
     else if (a === "--demo-years") o.demoYears = true;
     else if (a === "--fake-bank") o.fakeBank = true;
@@ -104,7 +117,9 @@ export function parseArgs(argv) {
     } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (pnpm shots --help lists them)`);
     else {
       const route = a.replace(/^#?\/?/, "");
-      if (!/^[a-z][a-z-]*(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`a route is a page id with an optional query, like overview or reports?q=tulot (got: ${route})`);
+      // the one `/` a route may have names a target of Asetukset: the app sends an unknown one to the first target
+      const page = route.split("?")[0] ?? "";
+      if (!/^[a-z][a-z-]*(\/[a-z-]+)?(\?[\w=&%.-]*)?$/.test(route) || (page.includes("/") && !TARGETS.some((id) => page === `settings/${id}`))) throw new Error(`a route is a page id with an optional query, like overview, reports?q=tulot or settings/security (got: ${route})`);
       if (!o.routes.includes(route)) o.routes.push(route);
     }
   }
@@ -116,7 +131,7 @@ export function parseArgs(argv) {
 
 /** The file of one picture: the route, the label of `--name` when there is one, and the width. */
 export function shotName(/** @type {string} */ route, /** @type {string | null} */ name, /** @type {number} */ width) {
-  return `${[route.replace(/[?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
+  return `${[route.replace(/[/?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
 }
 
 /** The file of a `--only` picture: like the whole page's, with the slug of the selector or heading between the label and the width. */
