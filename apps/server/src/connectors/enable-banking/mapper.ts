@@ -140,7 +140,7 @@ export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransact
     .join(" ");
   const cleanDescription = cleanBankText(description, DESCRIPTION_MAX);
   return {
-    externalId: t.entry_reference || t.transaction_id || null,
+    externalId: (t.entry_reference?.trim() ? t.entry_reference : t.transaction_id?.trim() ? t.transaction_id : null),
     bookingDate,
     valueDate: bankDate(t.value_date, timeZone),
     amountCents: out ? -cents : cents,
@@ -245,7 +245,7 @@ export function cardMask(a: EbAccount): string | null {
 /** The credit limit in cents, when the bank gives a positive one in euros. */
 export function creditLimitCents(a: EbAccount): number | null {
   const limit = a.credit_limit;
-  if (!limit || (limit.currency && limit.currency !== "EUR")) return null;
+  if (!limit || (limit.currency && limit.currency.trim().toUpperCase() !== "EUR")) return null;
   const cents = amountToCents(limit.amount);
   return cents !== null && cents > 0 ? cents : null;
 }
@@ -279,9 +279,10 @@ export function balanceReading(b: EbBalance): BalanceReading | null {
 /** Prefers booked/closing balance types, falls back to whatever the bank gives. */
 export function pickBalance(balances: EbBalance[]): EbBalance | null {
   const order = ["CLBD", "ITBD", "XPCD", "CLAV", "ITAV", "OPBD"];
-  return [...balances].sort((a, b) => rank(a.balance_type) - rank(b.balance_type))[0] ?? null;
-  function rank(t: string) {
-    const i = order.indexOf(t);
+  const readable = balances.filter((b) => balanceReading(b) !== null);
+  return readable.sort((a, b) => rank(a.balance_type) - rank(b.balance_type))[0] ?? null;
+  function rank(t: string | undefined) {
+    const i = order.indexOf(t?.trim().toUpperCase() ?? "");
     return i === -1 ? order.length : i;
   }
 }
