@@ -371,6 +371,13 @@ Result: Plan the next round for apps/web pages: overview, transactions and categ
 - locks: none
 - after: none
 
+### N48 Plan the next round
+Result: Plan the next round for apps/server API, storage and scheduled jobs: read the code, the design docs and today's merged work, then add 6 to 8
+- why: the owner (11 Nov, 18 h): omatalous ran out of work (1 of 14 workers busy); plan enough independent work to keep 10+ workers busy for several hours
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the next round for apps/server API, storage and scheduled jobs: read the code, the design docs and today's merged work, then add 6 to 8 small steps that each touch only that area, depend on no unmerged step, and finish in under an hour; done when the roadmap has them
+- locks: none
+- after: none
+
 ### N47 Plan the next round
 Result: Plan the next round for apps/server import and bank-link code: read the code, the design docs and today's merged work, then add 6 to 8 small
 - why: the owner (11 Nov, 18 h): omatalous ran out of work (1 of 14 workers busy); plan enough independent work to keep 10+ workers busy for several hours
