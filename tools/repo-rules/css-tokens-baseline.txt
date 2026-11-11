@@ -4,7 +4,6 @@ apps/web/src/styles/auth.css  px=11
 apps/web/src/styles/bank-picker.css  px=10
 apps/web/src/styles/banks.css  px=16
 apps/web/src/styles/base.css  px=92
-apps/web/src/styles/basis.css  px=11
 apps/web/src/styles/bills.css  px=9
 apps/web/src/styles/calendar-heat.css  px=3
 apps/web/src/styles/card-statement.css  px=8
