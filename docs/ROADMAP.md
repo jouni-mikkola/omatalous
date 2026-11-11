@@ -343,6 +343,13 @@ Result: A bill that rose is marked in the accent with its gap written out, and r
 - after: V2
 - files: apps/web/src/styles/table.css, apps/web/src/components/table/Cells.tsx, apps/web/test/scale-css.test.ts
 
+### N44 Plan the rest of income
+Result: Read the files N42 left unread and add 4 to 8 steps with free ids (check git log), each fixing a figure that differs from the money flows
+- why: N42's handoff (PR #256) left income-events.ts, change-split.ts, change-text.ts, behaviour/split.ts, behaviour/credit-stack.ts and the server and web readers of income unread, and named three guide/comment gaps with no step: Odotetut tulot leaves unknown income out, joinedSmall skips late non-card accounts, expected.ts:343 adds the mean day for a missing 31st
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the rest of income and change. Read the files N42 left unread and add 4 to 8 steps with free ids (check git log), each fixing a figure that differs from the money flows guide, plus one step that mends the guide and comments for the three gaps N42 named.
+- locks: none
+- after: none
+
 ### N40 Plan the last bank link steps
 Result: The plan gains 4 to 8 steps that fix real faults found in the bank files no plan step has read yet, each with its file and line on main
 - why: N35 (#221) left unread: enable-banking banks.ts, credentials.ts, jwt.ts, types.ts, mapper.ts past line 140, providers/cloudflare api.ts and reconcile.ts, connectors types.ts, registry.ts, fold-accounts.ts; the bank area gave 5 steps, so it is not done
