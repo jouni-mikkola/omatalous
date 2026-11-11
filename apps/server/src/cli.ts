@@ -18,7 +18,7 @@
  *   docker compose exec banking node dist/node.js service-token create|list|revoke   (read-only keys for scripts and agents, see cli-service-token.ts)
  */
 import { readFileSync } from "node:fs";
-import { option } from "./cli-args.ts";
+import { option, readWords, type Takes } from "./cli-args.ts";
 import { runOpsCli } from "./cli-ops.ts";
 import { runServiceTokenCli } from "./cli-service-token.ts";
 import { isAppSecret } from "./entry/app-secret.ts";
@@ -39,8 +39,17 @@ export interface CliContext {
   readStdin?: () => Promise<string>;
 }
 
+/** The words each `user` command takes after its name. The flags of `create` may stand before the username. */
+const USER_TAKES = new Map<string, Takes>([
+  ["list", {}],
+  ["create", { plain: 1, flags: ["--admin"], values: ["--name"], mayEnd: ["--name"] }],
+  ["reset-password", { plain: 1 }],
+  ["remove-factor", { plain: 1 }],
+  ["delete", { plain: 1 }],
+]);
+
 export async function runCli(s: Services, args: string[], ctx: CliContext = {}): Promise<number> {
-  const [group, command, username] = args;
+  const [group, command, word] = args;
   if (group === "version") {
     console.log(`${s.build.version} (${s.build.id})`);
     return 0;
@@ -57,6 +66,11 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (group === "sessions" && command === "revoke-all") {
+    const { stray } = readWords(args.slice(2), {});
+    if (stray) {
+      console.error(stray);
+      return 1;
+    }
     const n = await s.users.deleteAllSessions();
     await recordEvent(s, { kind: "session_revoked", detail: "kaikki (komentorivi)" });
     console.log(`Signed out ${n} sessions. Everyone has to sign in again.`);
@@ -65,7 +79,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
   if (group === "address" && command === "set") {
     try {
       // same parser as the browser field, so the command cannot store anything the settings page would refuse
-      const next = parseBaseUrl(username);
+      const next = parseBaseUrl(word);
       // install.sh restarts the app only when the output has " is now ", so keep that wording
       if ((await s.instance.load(true)).appBaseUrl === next) {
         console.log(`App address is already ${next}.`);
@@ -92,7 +106,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     // The candidate is a file, never an argument or output: the command prints one fixed sentence and no part of the secret.
     let candidate: string;
     try {
-      candidate = readFileSync(username ?? "", "utf8").trim();
+      candidate = readFileSync(word ?? "", "utf8").trim();
     } catch {
       console.error("The secret file cannot be read. Give its path: secret check <file>");
       return 1;
@@ -114,6 +128,13 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
   }
   if (group !== "user" || !command) {
     console.log(`Usage: version | setup-code | user create <username> [--admin] [--name \"Name\"] | user reset-password <username> | user remove-factor <username> | user list | user delete <username> | sessions revoke-all | restore <file> | migrate-check <database file> | cloudflare up|down --name <copy> --hostname <host> | secret rotate | secret check <file> | address set <url> | ops poll|report|state | service-token create|list|revoke`);
+    return 1;
+  }
+  // a command this map does not know is refused as unknown at the end, as before
+  const takes = USER_TAKES.get(command);
+  const { plain: [username], stray } = takes ? readWords(args.slice(2), takes) : { plain: args.slice(2), stray: undefined };
+  if (stray) {
+    console.error(stray);
     return 1;
   }
   if (command === "list") {
