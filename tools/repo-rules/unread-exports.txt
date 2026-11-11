@@ -99,7 +99,6 @@ apps/server/src/services/health.ts  Health
 apps/server/src/services/industry.ts  askRegister
 apps/server/src/services/industry.ts  lookupIndustries
 apps/server/src/services/ingest.ts  sameParty
-apps/server/src/services/instance.ts  parseFeatureOverrides
 apps/server/src/services/instance.ts  parseSettingsUpdate
 apps/server/src/services/ops-danger.ts  Danger
 apps/server/src/services/ops-danger.ts  Refuse

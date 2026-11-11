@@ -90,7 +90,6 @@ export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";
 export { taxYearCsv } from "./sheet-csv.ts";
-export * from "./features.ts";
 export * from "./optimise/index.ts";
 export * from "./optimise/outcome.ts";
 export * from "./loan-intake/index.ts";

@@ -8,12 +8,8 @@
  * again when it is read back. Nothing entered here is written to the
  * filesystem, put in a shell command or executed: the values are a URL
  * origin, an IANA time-zone name, small integers and a flag.
- *
- * The same row holds the admin's feature flag overrides (`features`, ids of the extensions' flags, on or off).
  */
 import project from "../../../../project.json";
-import type { FeatureId, FeatureOverrides, FeatureState } from "@banking/core";
-import { EXTENSIONS, type ExtensionFlags } from "../extensions.ts";
 import type { InstanceSettings } from "../platform/config.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
 import { UserError } from "../platform/errors.ts";
@@ -55,29 +51,6 @@ export function parseSettingsUpdate(input: unknown, current: InstanceSettings): 
   };
 }
 
-/** A partial map of flag ids to on or off: an id that is no flag of an extension is refused, and so is any other value. */
-export function parseFeatureOverrides(input: unknown): FeatureOverrides {
-  const ids = featureIds();
-  const o = strictObject(input, ids);
-  const out: Record<string, boolean> = {};
-  for (const id of ids) if (o[id] !== undefined) out[id] = parseBoolean(o[id]);
-  return out;
-}
-
-/** The flags of the build's extensions (extensions.ts); core has none. */
-const featureIds = (): string[] => EXTENSIONS.map((e) => e.id);
-
-/** The stored overrides. A flag that no longer exists or holds another type is dropped: an old row must not stop a start. */
-function storedOverrides(raw: unknown): FeatureOverrides {
-  const out: Record<string, boolean> = {};
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return out;
-  for (const id of featureIds()) {
-    const v = (raw as Record<string, unknown>)[id];
-    if (typeof v === "boolean") out[id] = v;
-  }
-  return out;
-}
-
 /** Defaults come from the environment, which is trusted, but are checked the same way. */
 function sanitizeDefaults(d: InstanceSettings): InstanceSettings {
   const safe = <T>(parse: () => T, fallback: T): T => {
@@ -102,7 +75,6 @@ function sanitizeDefaults(d: InstanceSettings): InstanceSettings {
 export class InstanceStore {
   private readonly defaults: InstanceSettings;
   private state: InstanceState;
-  private overrides: FeatureOverrides = {};
   private loaded = false;
   /** The numeric limits in their layers (services/limits.ts); loaded with the rest of the instance row. */
   readonly limits: LimitStore;
@@ -139,6 +111,7 @@ export class InstanceStore {
     }
     let values: InstanceSettings;
     try {
+      // `features`: the flag choices a row from before the flags went still holds, dropped so an old row does not fail the check
       const { setupDone: _done, redirectMode: _mode, features: _features, ...rest } = stored;
       values = parseSettingsUpdate(rest, this.defaults);
     } catch {
@@ -151,7 +124,6 @@ export class InstanceStore {
     const legacy = !!raw && stored !== null && typeof stored === "object" && !Array.isArray(stored) && stored.industryLookup === undefined && values.industryLookup;
     if (legacy) values = { ...values, industryLookup: false };
     this.state = { ...values, setupDone: stored.setupDone === true, redirectMode: stored.redirectMode === "relay" || stored.redirectMode === "paste" ? stored.redirectMode : null };
-    this.overrides = storedOverrides(stored?.features);
     this.loaded = true;
     if (legacy) {
       await this.write(this.state);
@@ -177,30 +149,8 @@ export class InstanceStore {
     return this.write({ ...(await this.load(true)), redirectMode: mode });
   }
 
-  /** Every flag with the admin's choice where there is one, else its default. */
-  features(): FeatureState & Readonly<Record<keyof ExtensionFlags, boolean>> {
-    // keyed by string: in a build with no extension keyof ExtensionFlags is never, which nothing can be written under
-    const extra: Record<string, boolean> = {};
-    for (const e of EXTENSIONS) extra[e.id] = (this.overrides as Record<string, boolean | undefined>)[e.id] ?? e.feature.default;
-    return extra as FeatureState & Readonly<Record<keyof ExtensionFlags, boolean>>;
-  }
-
-  enabled(id: FeatureId | keyof ExtensionFlags): boolean {
-    return this.features()[id];
-  }
-
-  /** Switches the named flags and leaves the others as they are. */
-  async setFeatures(input: unknown): Promise<FeatureState> {
-    const patch = parseFeatureOverrides(input);
-    const current = await this.load(true);
-    // memory follows the database: a failed write leaves the flags as they were
-    await this.write(current, { ...this.overrides, ...patch });
-    return this.features();
-  }
-
-  private async write(next: InstanceState, overrides = this.overrides): Promise<InstanceState> {
-    await this.settings.set(KEY, JSON.stringify(Object.keys(overrides).length ? { ...next, features: overrides } : next));
-    this.overrides = overrides;
+  private async write(next: InstanceState): Promise<InstanceState> {
+    await this.settings.set(KEY, JSON.stringify(next));
     this.state = next;
     this.loaded = true;
     return next;

@@ -23,7 +23,6 @@ import { pruneEvents } from "./security.ts";
 import { isSyncHour } from "./instance.ts";
 import { remoteAccessState } from "./remote-access.ts";
 import { revertUnconfirmed } from "./remote-access-trial.ts";
-import { EXTENSIONS } from "../extensions.ts";
 
 export interface TickResult {
   /** Path of the copy written by this tick, once a day. */
@@ -76,14 +75,6 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     await finishLeftovers(s);
   } catch (err) {
     console.error("finishing leftover work failed:", err);
-  }
-  for (const e of EXTENSIONS) {
-    if (!e.hourly || !s.instance.enabled(e.id)) continue;
-    try {
-      await e.hourly(s);
-    } catch (err) {
-      console.error(`hourly work of ${e.id} failed:`, (err as Error).name);
-    }
   }
   try {
     // takes back a remote access nobody got in through, ends a change nobody was looking at and finishes a removal

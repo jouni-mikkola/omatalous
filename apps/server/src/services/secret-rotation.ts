@@ -1,11 +1,10 @@
 /**
  * Re-seals every bank key, the Cloudflare API token (remote-access.ts) and every second-factor secret
- * (second-factor.ts) and the values the build's extensions keep (extensions.ts) with a new app secret. All sealed values are
+ * (second-factor.ts) with a new app secret. All sealed values are
  * opened with the old secret first; if any fails nothing is written. The new values are written in one transaction.
  */
 import { SecretBox } from "../security/secretbox.ts";
 import { AAD, ACTIVE, PENDING } from "../connectors/enable-banking/app-setup.ts";
-import { EXTENSIONS, type ExtensionSealed } from "../extensions.ts";
 import type { Services } from "./context.ts";
 import { AAD as OFFSITE_AAD, KEY as OFFSITE_KEY } from "./offsite.ts";
 import { AAD as NOTICES_AAD, KEY as NOTICES_KEY } from "./outside-notices.ts";
@@ -19,7 +18,6 @@ export interface ResealResult {
 type Sealed =
   | { kind: "user"; userId: string; sealed: string }
   | { kind: "factor"; id: string; userId: string; sealed: string }
-  | { kind: "extension"; id: string; value: ExtensionSealed; sealed: string }
   | { kind: "instance"; key: string; aad: string; json: Record<string, unknown>; sealed: string };
 
 async function collect(s: Services): Promise<Sealed[]> {
@@ -34,7 +32,6 @@ async function collect(s: Services): Promise<Sealed[]> {
   }
   // last, so the Cloudflare token stays what the first check tries (triedAgainstToken)
   for (const f of await s.factors.allSealed()) out.push({ kind: "factor", ...f });
-  for (const e of EXTENSIONS) for (const v of (await e.sealed?.(s.db)) ?? []) out.push({ kind: "extension", id: e.id, value: v, sealed: v.sealed });
   return out;
 }
 
@@ -42,7 +39,6 @@ async function collect(s: Services): Promise<Sealed[]> {
 function contextOf(item: Sealed): string {
   if (item.kind === "user") return item.userId;
   if (item.kind === "factor") return `factor:${item.userId}`;
-  if (item.kind === "extension") return item.value.context;
   return item.aad;
 }
 
@@ -58,13 +54,13 @@ export const triedAgainstToken = async (s: Services): Promise<boolean> => isToke
 export const tokenStops = (how: string) => `The Cloudflare API token saved in Asetukset > Palvelin > Etäkäyttö ${how}. Remove it there and run the rotation again. Nothing was changed.`;
 
 /**
- * True when the first sealed value of each kind (bank key, second factor, each shared setting, each extension) opens
+ * True when the first sealed value of each kind (bank key, second factor, each shared setting) opens
  * with this secret (nothing sealed: true). One value alone would pass a database that holds values of two secrets.
  */
 export async function databaseOpensWith(s: Services, secret: string): Promise<boolean> {
   const heads = new Map<string, Sealed>();
   for (const item of await collect(s)) {
-    const group = item.kind === "instance" ? `instance:${item.key}` : item.kind === "extension" ? `extension:${item.id}` : item.kind;
+    const group = item.kind === "instance" ? `instance:${item.key}` : item.kind;
     if (!heads.has(group)) heads.set(group, item);
   }
   const box = await SecretBox.fromSecret(secret);
@@ -91,13 +87,11 @@ export async function resealAll(s: Services, oldSecret: string, newSecret: strin
       plain = await oldBox.open(item.sealed, context);
     } catch {
       if (isToken(item)) throw new Error(tokenStops("cannot be opened with the current secret"));
-      const what = { instance: "shared app", factor: "second-factor", extension: `${item.kind === "extension" ? item.id : ""} sign-in`, user: "user" }[item.kind];
+      const what = { instance: "shared app", factor: "second-factor", user: "user" }[item.kind];
       throw new Error(`A ${what} key cannot be opened with the current secret. Nothing was changed.`);
     }
     const sealed = await newBox.seal(plain, context);
-    if (item.kind === "extension") {
-      statements.push(item.value.reseal(sealed));
-    } else if (item.kind === "factor") {
+    if (item.kind === "factor") {
       statements.push({ sql: "UPDATE user_factor SET secret = ? WHERE id = ?", params: [sealed, item.id] });
     } else if (item.kind === "user") {
       statements.push({ sql: "UPDATE bank_credentials SET private_key_enc = ?, updated_at = ? WHERE user_id = ?", params: [sealed, now, item.userId] });

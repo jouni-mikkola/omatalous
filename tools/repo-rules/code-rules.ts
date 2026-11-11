@@ -310,7 +310,6 @@ describe("repo rules: request bodies and marks", () => {
     const DELEGATES = new Map<string, string>([
       ["apps/server/src/routes/admin.ts s.instance.save", "services/instance.ts checks every field against FIELDS"],
       ["apps/server/src/routes/admin.ts s.instance.limits.save", "services/limits.ts checks the fields against the schema of platform/limits.ts"],
-      ["apps/server/src/routes/admin.ts s.instance.setFeatures", "services/instance.ts checks the flags against the extensions' ids"],
       ["apps/server/src/routes/admin.ts activateBankApp", "app-setup.ts checks appId and privateKeyPem"],
       ["apps/server/src/routes/admin.ts checkAppId", "app-setup.ts checks appId and privateKeyPem"],
       ["apps/server/src/routes/ops.ts requestOp", "services/ops-validate.ts checks the action against the allowlist"],

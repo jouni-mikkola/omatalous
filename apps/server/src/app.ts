@@ -12,7 +12,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
-import { csrfGuard, gated, requireAdmin, requireUser, sessionMiddleware } from "./auth/middleware.ts";
+import { csrfGuard, requireAdmin, requireUser, sessionMiddleware } from "./auth/middleware.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { bankCallbackRoute, bankRoutes } from "./routes/bank.ts";
@@ -42,7 +42,6 @@ import { refusalIn } from "./platform/refusals-en.ts";
 import { codedFor, errorBody, languageOf, HttpUserError, NotFound, sentenceFor, TooManyAttempts, UpstreamError, UserError } from "./platform/errors.ts";
 import { cfAccess } from "./security/cf-access.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
-import { EXTENSIONS } from "./extensions.ts";
 import { checkHealth } from "./services/health.ts";
 import { confirmAccess, watchTrial } from "./services/remote-access-trial.ts";
 
@@ -149,9 +148,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", cardFileRoutes(s));
   app.route("/api", bankFileRoutes(s));
   app.route("/api/optimise", optimiseRoutes(s));
-  // its own prefix: a guard mounted at /api/* would gate every route registered after it
-  // a plain string path: in a build with no extension the id's type is never, and so would a template of it be
-  for (const e of EXTENSIONS) app.route("/api/" + e.id, gated(s, e.id, e.routes(s)));
   app.route("/api", merchantRoutes(s));
   app.route("/api", bankRoutes(s));
   app.route(BANK_LOGO_PATH, bankLogoRoutes(s));

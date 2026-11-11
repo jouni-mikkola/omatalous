@@ -30,8 +30,6 @@ export function adminRoutes(s: Services) {
 
   const state = async () => ({
     settings: s.instance.current,
-    // every flag with its resolved state, for the switches in Asetukset > Palvelin
-    features: s.instance.features(),
     bankApp: await bankAppStatus(s),
     secret: { available: !!s.config.appSecret },
   });
@@ -85,12 +83,6 @@ export function adminRoutes(s: Services) {
   app.delete("/service-tokens/:id", async (c) => {
     if (!(await revokeServiceToken(s, c.req.param("id"), c.get("user").username, requestInfo(c, s)))) throw new UserError("Palvelutunnusta ei löydy.");
     return c.json({ ok: true });
-  });
-
-  /** Feature flags: a partial map of ids of the extensions' flags to on or off. */
-  app.put("/features", async (c) => {
-    await s.instance.setFeatures(await body(c));
-    return c.json(await state());
   });
 
   /** Plain-http installs: use the project's return page (relay) or paste the address after the bank login (paste). */

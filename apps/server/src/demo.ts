@@ -6,8 +6,6 @@ import { accountKey } from "./db/household-repo.ts";
 import { reprocess } from "./services/enrich.ts";
 import { stableId } from "./platform/ids.ts";
 import { ingestTransactions } from "./services/ingest.ts";
-import { EXTENSIONS } from "./extensions.ts";
-import type { Services } from "./services/context.ts";
 
 /**
  * What the bank would have sent for the account: for a checking account the booked balance at the end of every day
@@ -63,9 +61,4 @@ export async function loadDemoData(repo: FinanceRepo, settings: SettingsRepo, to
   }
   await reprocess(repo, settings);
   return { accounts: accounts.length, transactions };
-}
-
-/** The demo rows of the build's extensions (extensions.ts), each while its flag is on; the shared build has none. */
-export async function loadExtensionDemos(s: Services, userId: string, today: string): Promise<void> {
-  for (const e of EXTENSIONS) if (e.demo && s.instance.enabled(e.id)) await e.demo(s, userId, today);
 }

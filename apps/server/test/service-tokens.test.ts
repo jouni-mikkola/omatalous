@@ -1,9 +1,6 @@
 /** Service tokens (services/service-tokens.ts): read-only, a member's rights, an allowlist of routes, hashed, ending, counted. */
-import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { runCli } from "../src/cli.ts";
-import { EXTENSIONS } from "../src/extensions.ts";
-import type { AppEnv } from "../src/services/context.ts";
 import { createServiceToken, serviceMayRead } from "../src/services/service-tokens.ts";
 import { NOW, setupApp } from "./helpers.ts";
 
@@ -34,7 +31,7 @@ describe("service tokens", () => {
     // a GET that writes (it freezes the closed months) is shut to tokens
     expect((await agent.call("GET", "/api/settlement", undefined, bearer(token))).status).toBe(403);
     expect((await agent.call("POST", "/api/demo", undefined, bearer(token))).status).toBe(403);
-    expect((await agent.call("PUT", "/api/admin/features", {}, bearer(token))).status).toBe(403);
+    expect((await agent.call("PUT", "/api/admin/instance", {}, bearer(token))).status).toBe(403);
     expect((await agent.call("POST", "/api/auth/logout", undefined, bearer(token))).status).toBe(403);
   });
 
@@ -164,24 +161,5 @@ describe("service tokens", () => {
     expect(serviceMayRead("GET", "/api/security/notices")).toBe(false);
     expect(serviceMayRead("GET", "/api/meta/../admin/instance")).toBe(false);
     expect(serviceMayRead("GET", "/api/data/export")).toBe(false);
-  });
-
-  it("reads an extension's GETs only when it says they only read", () => {
-    // not a declared flag, as in extension-demo.test.ts
-    const reads = { id: "koe" as never, feature: { label: "Esimerkki", stage: "dev", default: false }, routes: () => new Hono<AppEnv>() } as const;
-    try {
-      EXTENSIONS.push(reads);
-      expect(serviceMayRead("GET", "/api/koe/search")).toBe(false);
-      EXTENSIONS.splice(0, EXTENSIONS.length, { ...reads, tokenReads: true });
-      expect(serviceMayRead("GET", "/api/koe")).toBe(true);
-      expect(serviceMayRead("GET", "/api/koe/search")).toBe(true);
-      expect(serviceMayRead("HEAD", "/api/koe/a/b")).toBe(true);
-      expect(serviceMayRead("POST", "/api/koe/fetch")).toBe(false);
-      expect(serviceMayRead("GET", "/api/koetus")).toBe(false);
-      expect(serviceMayRead("GET", "/api/koe/../admin/instance")).toBe(false);
-      expect(serviceMayRead("GET", "/api/koe//x")).toBe(false);
-    } finally {
-      EXTENSIONS.splice(0);
-    }
   });
 });

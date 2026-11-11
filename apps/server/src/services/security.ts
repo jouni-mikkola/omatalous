@@ -10,7 +10,6 @@ import { waitingCopy } from "../db/startup-gate.ts";
 import type { Services } from "./context.ts";
 import { type HealthProbes, healthNotices, markHealthSeen } from "./db-health.ts";
 import { INDUSTRY_NOTICE_KEY } from "./instance.ts";
-import { EXTENSIONS } from "../extensions.ts";
 
 export const EVENT_KINDS = [
   "login_ok",
@@ -77,7 +76,7 @@ export const EVENT_DAYS = 90;
 const DETAIL_MAX = 200;
 
 export function validKind(kind: string): boolean {
-  return (EVENT_KINDS as readonly string[]).includes(kind) || OPS_KIND.test(kind) || EXTENSIONS.some((e) => e.securityEvents?.includes(kind));
+  return (EVENT_KINDS as readonly string[]).includes(kind) || OPS_KIND.test(kind);
 }
 
 export interface EventInput {

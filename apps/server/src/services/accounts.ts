@@ -12,7 +12,6 @@ import { todayIn } from "../platform/config.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
-import { EXTENSIONS } from "../extensions.ts";
 
 /**
  * How a consent stands, in one word the table, Tietojen laatu and the notices all read:
@@ -127,6 +126,5 @@ export async function unshareAccount(s: Services, ownerId: string, accountId: st
 export async function removeDemoData(s: Services, userId: string): Promise<void> {
   const repo = s.finance(userId);
   await repo.deleteProviderData("demo");
-  for (const e of EXTENSIONS) await e.removeDemo?.(s, userId);
   await reprocess(repo, s.settings);
 }

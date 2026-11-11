@@ -2,13 +2,11 @@
  * Service tokens: read access for a script or a coding agent without a password and without a session
  * (docs/ADVANCED.md#service-tokens). A token is `omt_` and 32 random bytes in base64url, shown once when it is made; the
  * database keeps its SHA-256. It is sent as `Authorization: Bearer omt_…` and reads as the user it was made for, with a
- * member's rights whatever that user's role, and only through the GET routes READABLE names and those of an extension
- * that says its GETs only read (`tokenReads` in extensions.ts). It is made, listed and removed on the command line
+ * member's rights whatever that user's role, and only through the GET routes READABLE names. It is made, listed and removed on the command line
  * (cli-service-token.ts), which needs the host; an admin also lists and removes them in Asetukset. Every token ends: at most MAX_DAYS after it was made.
  */
 import type { User } from "../db/rows.ts";
 import type { ServiceTokenInfo } from "../db/service-token-repo.ts";
-import { EXTENSIONS } from "../extensions.ts";
 import { UserError } from "../platform/errors.ts";
 import { randomBytes, sha256, toBase64Url } from "../security/encoding.ts";
 import type { Services } from "./context.ts";
@@ -39,23 +37,9 @@ const READABLE: readonly RegExp[] = [
   /^\/api\/bank\/logos\/[^/]+$/,
 ];
 
-/** A path below an extension's prefix: plain segments, none of them a dot segment, no query. */
-const EXTENSION_REST = /^(\/[^/?]+)*$/;
-
-/** Whether the path is /api/<id> or below it, for an extension whose GETs all only read. */
-function extensionReads(path: string): boolean {
-  return EXTENSIONS.some((e) => {
-    if (e.tokenReads !== true) return false;
-    const prefix = `/api/${e.id}`;
-    if (path !== prefix && !path.startsWith(`${prefix}/`)) return false;
-    const rest = path.slice(prefix.length);
-    return EXTENSION_REST.test(rest) && !rest.split("/").some((seg) => seg === "." || seg === "..");
-  });
-}
-
-/** Whether a token may make this request: a read of a route READABLE names, or of an extension that says it only reads. */
+/** Whether a token may make this request: a read of a route READABLE names. */
 export function serviceMayRead(method: string, path: string): boolean {
-  return (method === "GET" || method === "HEAD") && (READABLE.some((r) => r.test(path)) || extensionReads(path));
+  return (method === "GET" || method === "HEAD") && READABLE.some((r) => r.test(path));
 }
 
 function parseDays(days: string | undefined): number {

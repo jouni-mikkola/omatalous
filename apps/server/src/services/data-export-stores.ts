@@ -8,7 +8,6 @@
 
 import type { SqlValue } from "../db/types.ts";
 import type { Services } from "./context.ts";
-import { EXTENSIONS } from "../extensions.ts";
 
 export const EXPORT_FORMAT = "omatalous-export";
 export const EXPORT_VERSION = 1;
@@ -42,7 +41,7 @@ interface StoreRead {
   order: string;
 }
 
-export interface ExportStore {
+interface ExportStore {
   /** The array's name in the file. */
   key: string;
   table: string;
@@ -145,12 +144,11 @@ const STORES: readonly ExportStore[] = [
   { key: "contractTerms", table: "contract_terms", rows: mine, order: "user_id, series_key" },
 ];
 
-/** STORES and the stores of the build's extensions (extensions.ts), after them. */
-export const exportStores = (): readonly ExportStore[] => [...STORES, ...EXTENSIONS.flatMap((e) => e.stores?.map((st) => st.export) ?? [])];
+/** The stores of the file, in its order. */
+export const exportStores = (): readonly ExportStore[] => STORES;
 
 /** Tables the file does not hold, each with the reason. */
-/** LEFT_OUT and the tables the build's extensions leave out (extensions.ts). */
-export const leftOut = (): Readonly<Record<string, string>> => Object.assign({}, LEFT_OUT, ...EXTENSIONS.map((e) => e.leftOut ?? {}));
+export const leftOut = (): Readonly<Record<string, string>> => LEFT_OUT;
 
 const LEFT_OUT: Readonly<Record<string, string>> = {
   _migrations: "the schema's own bookkeeping; a new database makes its own",

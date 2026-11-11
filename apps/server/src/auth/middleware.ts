@@ -1,12 +1,10 @@
-import type { FeatureId } from "@banking/core";
-import { type Context, Hono, type MiddlewareHandler, type Next } from "hono";
+import type { Context, MiddlewareHandler, Next } from "hono";
 import { codedFor } from "../platform/errors.ts";
 import { addressKey } from "../security/rate-limit.ts";
 import { recordEvent } from "../services/security.ts";
 import { resolveServiceToken, serviceMayRead } from "../services/service-tokens.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { resolveSession } from "./session.ts";
-import type { ExtensionFlags } from "../extensions.ts";
 
 /**
  * Attaches the signed-in user (if any) to the request. Never blocks, except a request that names a service token: that
@@ -59,22 +57,6 @@ export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (c.get("user")?.role !== "admin") return c.json({ ...codedFor(c, "app.admin_only"), code: "forbidden" }, 403);
   await next();
 };
-
-/** 404 while the module's feature flag is off, with the words of an unknown path so its existence is not shown. */
-function requireFeature(s: Services, id: FeatureId | keyof ExtensionFlags): MiddlewareHandler<AppEnv> {
-  return async (c, next) => {
-    if (!s.instance.enabled(id)) return c.json(codedFor(c, "app.not_found"), 404);
-    await next();
-  };
-}
-
-/**
- * A module's routes behind its feature flag, to mount at the module's own prefix. In Hono a handler registered before
- * `use()` runs without that middleware, so the guard is the first thing of a sub-app the routes join afterwards.
- */
-export function gated(s: Services, id: FeatureId | keyof ExtensionFlags, routes: Hono<AppEnv>): Hono<AppEnv> {
-  return new Hono<AppEnv>().use("*", requireFeature(s, id)).route("/", routes);
-}
 
 /**
  * CSRF protection for state-changing API calls. Browsers only add a custom

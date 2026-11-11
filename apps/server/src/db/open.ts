@@ -6,7 +6,6 @@ import { assertRoomForCopy, copiesNewestFirst, liveDatabaseProblem, NoRoomError,
 import { applyMigrations, MigrationError, type Migration, type MigrationOptions, pendingMigrations } from "./migrate.ts";
 import { fsyncDir, fsyncFile } from "../platform/durable.ts";
 import { type OpenOptions, openNodeSqlite } from "./node-sqlite.ts";
-import { EXTENSIONS } from "../extensions.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DAILY_BACKUP = /^auto-\d{4}-\d{2}-\d{2}\.db$/;
@@ -30,9 +29,9 @@ export function findMigrationsDir(): string {
   return dir;
 }
 
-/** The shared migrations and those of the build's extensions (extensions.ts). */
+/** The migrations of the build. */
 export function buildMigrations(dir: string): Migration[] {
-  return [...readMigrations(dir), ...EXTENSIONS.flatMap((e) => (e.migrationsDir ? readMigrations(e.migrationsDir) : []))];
+  return readMigrations(dir);
 }
 
 function readMigrations(dir: string): Migration[] {
