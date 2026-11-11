@@ -74,4 +74,19 @@ describe("the type scale and the spacing step in every stylesheet", () => {
     const found = sheets().flatMap(([f, css]) => offStep(css).map((v) => `${f}: ${v}`));
     expect(found).toEqual([]);
   });
+
+  it("sets the bare h3 and p of Asetukset to the body size and the spacing tokens", () => {
+    const css = readFileSync(new URL("../src/styles/settings.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    // the scope is the markup of Settings.tsx: a .stack whose direct child is the .tabs nav
+    const page = readFileSync(new URL("../src/pages/Settings.tsx", import.meta.url), "utf8");
+    expect(page).toMatch(/<div className="stack">\s*<nav className="tabs"/);
+    for (const tag of ["h3", "p"]) {
+      const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((m) => m[1]!.trim() === `:where(.stack:has(> .tabs)) ${tag}:not([class])`);
+      expect(rule, tag).toBeDefined();
+      expect(rule![2], tag).toMatch(/font-size:\s*var\(--fs-body\)/);
+      const margin = /margin:\s*([^;]+)/.exec(rule![2]!)?.[1]?.trim().split(/\s+/) ?? [];
+      expect(margin.length, tag).toBeGreaterThan(0);
+      for (const v of margin) expect(v === "0" || /^var\(--sp-\d+\)$/.test(v), `${tag} margin ${v}`).toBe(true);
+    }
+  });
 });
