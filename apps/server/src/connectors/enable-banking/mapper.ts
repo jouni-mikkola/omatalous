@@ -110,6 +110,23 @@ export function refusalOf(t: EbTransaction, timeZone?: string): RefusalReason | 
   return !status ? "status" : signed === null ? "amount" : !bookingDate ? "date" : null;
 }
 
+const DESCRIPTION_MAX = 2000;
+const COUNTERPARTY_MAX = 500;
+
+const UNWANTED = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+
+/**
+ * Bank text as stored. Text with no control, zero-width or line-separator character and within `max` is only trimmed,
+ * as before, so its signature does not move. Otherwise those characters become a space, blank runs one, cut at `max`
+ * characters (whole characters, never half of one).
+ */
+function cleanBankText(text: string, max: number): string {
+  const plain = text.trim();
+  if (!UNWANTED.test(plain) && plain.length <= max) return plain;
+  const spaced = plain.replace(new RegExp(UNWANTED.source, "gu"), " ").replace(/\s+/g, " ").trim();
+  return [...spaced].slice(0, max).join("").trim();
+}
+
 export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransaction | null {
   const { status, bookingDate, signed } = essentials(t, timeZone);
   if (!status || !bookingDate || signed === null) return null;
@@ -120,8 +137,8 @@ export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransact
   const partyAccount = out ? t.creditor_account : t.debtor_account;
   const description = [...(t.remittance_information ?? []), t.note]
     .filter((x): x is string => !!x?.trim())
-    .join(" ")
-    .trim();
+    .join(" ");
+  const cleanDescription = cleanBankText(description, DESCRIPTION_MAX);
   return {
     externalId: t.entry_reference || t.transaction_id || null,
     bookingDate,
@@ -129,9 +146,9 @@ export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransact
     amountCents: out ? -cents : cents,
     currency: t.transaction_amount.currency,
     status,
-    counterparty: party?.name?.trim() || null,
+    counterparty: cleanBankText(party?.name ?? "", COUNTERPARTY_MAX) || null,
     counterpartyIban: partyIban(partyAccount),
-    description: description || t.bank_transaction_code?.description || null,
+    description: cleanDescription || t.bank_transaction_code?.description || null,
     reference: t.reference_number ?? null,
     mcc: t.merchant_category_code ?? null,
     bankTxnCode: bankTxnCode(t.bank_transaction_code),

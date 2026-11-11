@@ -32,6 +32,51 @@ describe("the bank's own transaction code", () => {
   });
 });
 
+describe("bank text is stored clean", () => {
+  const row = (over: object) => ({
+    entry_reference: "r",
+    transaction_amount: { currency: "EUR", amount: "1.00" },
+    credit_debit_indicator: "DBIT" as const,
+    status: "BOOK" as const,
+    booking_date: "2026-09-30",
+    ...over,
+  });
+
+  it("replaces control, zero-width and line-separator characters with a space and joins blank runs", () => {
+    const t = mapTransaction(row({ remittance_information: ["a\u0007b\u200Bc"], note: "d    e", creditor: { name: "X\u0000\u200B Y" } }));
+    expect(t?.description).toBe("a b c d e");
+    expect(t?.counterparty).toBe("X Y");
+    const c = mapTransaction(row({ credit_debit_indicator: "CRDT", debtor: { name: "P\tQ\u0007R" } }));
+    expect(c?.counterparty).toBe("P Q R");
+  });
+
+  it("replaces a line or paragraph separator with a space", () => {
+    const t = mapTransaction(row({ remittance_information: ["a\u2028b\u2029c"], creditor: { name: "X\u2028Y" } }));
+    expect(t?.description).toBe("a b c");
+    expect(t?.counterparty).toBe("X Y");
+  });
+
+  it("leaves a message within the limits as it was, blanks and all", () => {
+    const t = mapTransaction(row({ remittance_information: ["a  b\u00A0c"], note: "d", creditor: { name: "X  Y" } }));
+    expect(t?.description).toBe("a  b\u00A0c d");
+    expect(t?.counterparty).toBe("X  Y");
+  });
+
+  it("cuts a description at 2000 and a counterparty at 500", () => {
+    const t = mapTransaction(row({ remittance_information: ["a".repeat(2500)], creditor: { name: "b".repeat(900) } }));
+    expect(t?.description).toHaveLength(2000);
+    expect(t?.counterparty).toHaveLength(500);
+    const e = mapTransaction(row({ remittance_information: ["😀".repeat(2500)] }));
+    expect([...e!.description!]).toHaveLength(2000);
+  });
+
+  it("maps an ordinary message to the same text as before", () => {
+    const t = mapTransaction(row({ remittance_information: ["Korttiosto", "K-MARKET ÄÖ"], note: "viesti", creditor: { name: "K-MARKET" } }));
+    expect(t?.description).toBe("Korttiosto K-MARKET ÄÖ viesti");
+    expect(t?.counterparty).toBe("K-MARKET");
+  });
+});
+
 describe("Enable Banking mapping", () => {
   it("maps a card purchase", () => {
     const t = mapTransaction({
