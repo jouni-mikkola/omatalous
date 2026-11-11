@@ -188,6 +188,7 @@ export class FinanceRepo {
   // ── sync runs (finance/sync-runs.ts) ─────────────────────
   startSyncRun(trigger: string) { return this.syncRuns.startSyncRun(trigger); }
   finishSyncRun(id: number, r: Pick<SyncRun, "status" | "fetched" | "inserted" | "message">) { return this.syncRuns.finishSyncRun(id, r); }
+  noteSyncRunFetched(id: number, fetched: number) { return this.syncRuns.noteSyncRunFetched(id, fetched); }
   failInterruptedSyncRuns() { return this.syncRuns.failInterruptedSyncRuns(); }
   pruneSyncRuns(keep?: number) { return this.syncRuns.pruneSyncRuns(keep); }
   listSyncRuns(limit?: number) { return this.syncRuns.listSyncRuns(limit); }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Account, Connection } from "./types.ts";
+import type { Account, Connection, SyncRun } from "./types.ts";
 
 /**
  * True while an active consent has no answer yet: an account not fetched (and with no stopping problem), or no account
@@ -12,6 +12,14 @@ export function waitsForFirstFetch(connections: readonly Pick<Connection, "id" |
       const own = accounts.filter((a) => a.connectionId === c.id);
       return own.length === 0 || own.some((a) => !a.lastSyncedAt && !a.problem);
     });
+}
+
+/**
+ * The rows the running fetch has brought so far, or null when no fetch runs. The server writes the count to the run while
+ * it works (once for each account), so each look at the meta reads a later one.
+ */
+export function rowsSoFar(lastSync: Pick<SyncRun, "status" | "fetched"> | null | undefined): number | null {
+  return lastSync?.status === "running" ? lastSync.fetched : null;
 }
 
 /** While `waiting`, calls `reload` every 5 seconds for a minute, then every 30 seconds; the caller owns what it reloads. */

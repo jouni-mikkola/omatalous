@@ -79,6 +79,8 @@ const USER_STARTED = new Set(["manual", "connect", "open"]);
 
 /** What one run adds up, across connectors. */
 interface Tally {
+  /** The run's own record: the count of rows so far is written there while the fetch runs (`countRows`). */
+  runId: number;
   failures: number;
   attempts: number;
   /** Rows written, or a balance that moved: only then do categories and the cached analyses need work. */
@@ -115,7 +117,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string, userHe
   const repo = s.finance(userId);
   const runId = await repo.startSyncRun(trigger);
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
-  const tally: Tally = { failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, accountsChanged: false, problems: {}, problemsChanged: false, refused: {}, refusedChanged: false, rateLimited: false };
+  const tally: Tally = { runId, failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, accountsChanged: false, problems: {}, problemsChanged: false, refused: {}, refusedChanged: false, rateLimited: false };
 
   try {
     tally.problems = await readFetchProblems(s, userId);
@@ -181,6 +183,17 @@ interface Pull {
   notedFor: Map<string, string>;
   /** The accounts whose bank got the member's headers. */
   attendedIds: Set<string>;
+}
+
+/**
+ * Adds the rows of one answer to the run's count and writes the count to the run's record, so a page that asks while the
+ * fetch runs reads how many rows have come so far (the first fetch of a new bank says it). The count moves once for each
+ * account and once for each window of older days.
+ */
+async function countRows(repo: FinanceRepo, summary: SyncSummary, tally: Tally, r: { fetched: number; inserted: number }): Promise<void> {
+  summary.fetched += r.fetched;
+  summary.inserted += r.inserted;
+  if (r.fetched) await keepRecord("rows so far", () => repo.noteSyncRunFetched(tally.runId, summary.fetched));
 }
 
 /** A key the source refuses fails every account with the same words: once is enough. */
@@ -288,8 +301,7 @@ async function pullAccount(pull: Pull, account: StoredAccount, fresh: boolean): 
     tally.refused[account.id] = refused;
     tally.refusedChanged = true;
   }
-  summary.fetched += r.fetched;
-  summary.inserted += r.inserted;
+  await countRows(repo, summary, tally, r);
   tally.rowsChanged += r.changed;
   // rows in another currency are kept in the bank's own figure; only a new or changed one moves the data version
   tally.rowsChanged += await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString());
@@ -425,8 +437,7 @@ async function backfill(s: Services, repo: FinanceRepo, connector: Connector, pu
           ) as RefusedRows;
           tally.refusedChanged = true;
         }
-        summary.fetched += r.fetched;
-        summary.inserted += r.inserted;
+        await countRows(repo, summary, tally, r);
         tally.rowsChanged += r.changed + (await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString()));
         // a refused window may have been answered from a later day, and the days before that one the bank will not give
         const from = puller.asked?.(target)?.dateFrom ?? dateFrom;

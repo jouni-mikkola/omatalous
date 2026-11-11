@@ -136,7 +136,7 @@ export async function linkFakeBank(page: Page, options: { dollars?: boolean; own
  * server's event loop, on a loaded machine longer than the 5 s keep-alive of an idle socket; when it lets go, Node closes
  * that socket before it reads the ask already sent on it (ECONNRESET). A failed ask is a "not yet" and the poll asks again.
  */
-export async function metaWhileSyncing(context: BrowserContext): Promise<{ lastSync?: { finishedAt?: string }; accounts: { balanceCents: number | null }[] } | null> {
+export async function metaWhileSyncing(context: BrowserContext): Promise<{ lastSync?: { finishedAt?: string; status?: string; fetched?: number }; accounts: { balanceCents: number | null }[] } | null> {
   try {
     const answer = await context.request.get("/api/meta");
     return answer.ok() ? await answer.json() : null;

@@ -25,6 +25,11 @@ export class SyncRunsRepo {
     ]);
   }
 
+  /** The rows a running fetch has brought so far, for a page that asks while it runs. A run that has ended keeps its own count. */
+  async noteSyncRunFetched(id: number, fetched: number): Promise<void> {
+    await this.ctx.db.run("UPDATE sync_runs SET fetched = ? WHERE id = ? AND user_id = ? AND status = 'running'", [fetched, id, this.ctx.userId]);
+  }
+
   /** Runs a killed process left as "running" end as failed; the header must not show their start as a success. */
   async failInterruptedSyncRuns(): Promise<number> {
     const r = await this.ctx.db.run(

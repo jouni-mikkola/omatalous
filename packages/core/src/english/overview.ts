@@ -64,6 +64,8 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.waiting_many": "{count} accounts are waiting to be fetched",
   "home.first_fetch": "The first fetch is under way",
   "home.first_fetch_text": "The bank is connected. The figures become exact once the transactions have been fetched. The page updates itself.",
+  "home.fetching_rows": "Fetching transactions…",
+  "home.fetched_so_far": "{count} fetched",
   "home.how_month_goes": "Month",
   "home.daily": "{month} by day",
   "home.col_day": "Day",

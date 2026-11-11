@@ -37,6 +37,8 @@ const authorizations = new Map();
 let sessions = 0;
 /** How POST /auth answers: "ok", "refuse-redirect" (REDIRECT_URI_NOT_ALLOWED) or "fail". PUT /fake/auth-answer changes it. */
 let authAnswer = "ok";
+/** While set, only the account in `answered` (the first one asked) gets its rows; the others wait for `promise` (PUT /fake/hold-rows). */
+let held = null;
 /** When set, a session ends in this many days whatever the app asked for (PUT /fake/valid-days): a consent that is about to end. */
 let validDays = null;
 /** The one account OP's consent brings: a second bank for the specs that renew more than one consent. */
@@ -94,6 +96,19 @@ async function handle(req, res) {
     return send(res, 204);
   }
 
+  // a fetch that is still running: the rows of the first account asked are answered, the other accounts' rows wait
+  if (route === "PUT /fake/hold-rows") {
+    const { hold } = await readJson(req);
+    if (hold && !held) held = { answered: null, waiting: 0, ...Promise.withResolvers() };
+    if (!hold && held) {
+      held.resolve();
+      held = null;
+    }
+    return send(res, 204);
+  }
+  // how many asks for rows wait: above 0 the fetch has got past its first account, so its count stands still
+  if (route === "GET /fake/hold-rows") return send(res, 200, { waiting: held?.waiting ?? 0 });
+
   if (!/^Bearer \S+$/.test(req.headers.authorization ?? "")) return send(res, 401, { error: "UNAUTHORIZED" });
   if (route === "GET /application") return send(res, 200, { active: true });
   if (route === "GET /aspsps") {
@@ -125,6 +140,13 @@ async function handle(req, res) {
     balanceCalls++;
     const amount = { currency: "EUR", amount: (balances[uid] / 100).toFixed(2) };
     return send(res, 200, { balances: [{ name: "Kirjattu saldo", balance_amount: amount, balance_type: "CLBD", reference_date: today }] });
+  }
+  if (held) {
+    held.answered ??= uid;
+    if (held.answered !== uid) {
+      held.waiting++;
+      await held.promise;
+    }
   }
   const rows = transactions[uid].filter((t) => (t.booking_date ?? t.transaction_date) >= (url.searchParams.get("date_from") ?? ""));
   const from = Number(url.searchParams.get("continuation_key")) || 0;

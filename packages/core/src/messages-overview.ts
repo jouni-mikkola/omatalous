@@ -66,6 +66,8 @@ export const FI_OVERVIEW = {
   "home.waiting_many": "{count} tiliä odottaa hakua",
   "home.first_fetch": "Ensimmäinen haku on kesken",
   "home.first_fetch_text": "Pankki on yhdistetty. Luvut tarkentuvat, kun olemme hakeneet tapahtumat. Sivu päivittyy itsestään.",
+  "home.fetching_rows": "Haetaan tapahtumia…",
+  "home.fetched_so_far": "{count} haettu",
   "home.how_month_goes": "Kuukausi",
   "home.daily": "{month} päivittäin",
   "home.col_day": "Päivä",
