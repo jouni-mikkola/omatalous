@@ -44,6 +44,13 @@ Result: The repo checks run on a clean clone with no agent slot, core count or q
 - after: none
 - files: tools/slots.sh, tools/cores.sh, tools/wait-quiet.sh, tools/commit.sh, tools/lib/cores.mjs, tools/lib/owner.sh, tools/check.sh, e2e/run.mjs
 
+### N8 Plan the work after the redesign
+Result: A planning step reads docs/design/README.md and docs/audit/simplify.md, adds 8-12 steps for any design or audit move not yet on the roadmap
+- why: 6 steps free for 10 slots: the rest wait on 20 PRs in review, and T69-T77 all hold the nav lock so the views run one at a time; no step plans past T97
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the work after the redesign. A planning step reads docs/design/README.md and docs/audit/simplify.md, adds 8-12 steps for any design or audit move not yet on the roadmap or on main, and splits view steps that share the nav lock so two views can be built at once; each step 50-150 lines a user sees or relies on, tests with the code.
+- locks: none
+- after: none
+
 ### N1 Main's tests pass again
 Result: Every pull request's test job is green on what main already holds, so finished work can land; the six tests failing on main pass with no
 - why: every PR's js job fails on the same 6 tests that main already fails (repo rule 34 wants '## Coming releases' in docs/ROADMAP.md; apps/server/test/extensions.test.ts; remote-access-recheck.test.ts; 3 in remote-access-safety.test.ts), so PR #12 and #13 cannot land
