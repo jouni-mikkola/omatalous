@@ -15,7 +15,7 @@ export const FI_SET_SPLIT = {
   "set.split.cancel_the_proposal": "Peruuta ehdotus",
   "set.split.split_of_account_name": "Tilin {name} jako",
   "set.split.split": "Jako",
-  "set.split.no_split_has_been_agreed": "Jakoa ei ole sovittu. Jaamme menot tilin käyttäjien osuuksien mukaan.",
+  "set.split.no_split_has_been_agreed": "Jakoa ei ole sovittu. Jaamme menot yllä valitulla tavalla.",
   "set.split.earlier_splits": "Aiemmat jaot",
   "set.split.change_the_split": "Muuta jakoa",
   "set.split.choose_at_least_one_user": "Valitse vähintään yksi käyttäjä.",

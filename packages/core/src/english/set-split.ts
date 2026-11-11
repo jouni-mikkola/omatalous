@@ -13,7 +13,7 @@ export const EN_SET_SPLIT: Record<keyof typeof FI_SET_SPLIT, string> = {
   "set.split.cancel_the_proposal": "Cancel the proposal",
   "set.split.split_of_account_name": "Split of account {name}",
   "set.split.split": "Split",
-  "set.split.no_split_has_been_agreed": "No split has been agreed. Costs are shared by the account users' shares.",
+  "set.split.no_split_has_been_agreed": "No split has been agreed. Costs are shared the way chosen above.",
   "set.split.earlier_splits": "Earlier splits",
   "set.split.change_the_split": "Change the split",
   "set.split.choose_at_least_one_user": "Choose at least one user.",
