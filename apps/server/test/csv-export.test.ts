@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { csv } from "../src/routes/shared.ts";
+import { seedCsv } from "./csv-seed.ts";
 import { setupApp } from "./helpers.ts";
 
 describe("csv()", () => {
@@ -216,5 +217,59 @@ describe("the rows file in the member's language", () => {
     const changed = (col: number) => en.slice(1).filter((row, i) => row[4] !== "S7 file" && row[col] === fi[i + 1]![col]).map((row) => row[col]);
     expect([...new Set(changed(5))]).toEqual([]);
     expect([...new Set(changed(6))]).toEqual([]);
+  });
+});
+
+describe("the report files hold every month of the range", () => {
+  const seed = async () => {
+    const app = await setupApp();
+    await seedCsv(app.s, app.admin, {
+      content: ["Kirjauspäivä;Määrä;Nimi;Otsikko", "2023/05/10;-77,00;Ruokakauppa;Ostos", "2026/09/10;-1,00;Ruokakauppa;Ostos"].join("\n"),
+      accountName: "Käyttötili",
+      accountType: "checking",
+    });
+    return app;
+  };
+  const table = (body: string) => body.replace(/^﻿/, "").split(/\r?\n/).filter(Boolean).map((line) => line.split(";"));
+  const num = (s: string) => Number(s.replace(",", "."));
+  const MONTHS = 41;
+
+  it("writes a column for each of the 41 months of the month table, and the cells add up to the totals", async () => {
+    const { admin } = await seed();
+    for (const lang of ["fi", "en"]) {
+      await admin.call("PUT", "/api/language", { language: lang });
+      const rows = table((await admin.call("GET", "/api/export/report.csv?report=pivot&from=2023-01-01&to=2026-09-30")).body);
+      const head = rows[0]!;
+      const months = head.filter((c) => /^\d{4}-\d{2}$/.test(c));
+      expect(months).toHaveLength(MONTHS);
+      expect(months[0]).toBe("2023-05");
+      expect(months.at(-1)).toBe("2026-09");
+      for (const row of rows.slice(1)) {
+        const cells = row.slice(2, 2 + MONTHS).map(num);
+        const total = num(row[2 + MONTHS]!);
+        expect(cells.reduce((s, v) => s + v, 0)).toBeCloseTo(total, 2);
+      }
+      expect(num(rows.at(-1)![2 + MONTHS]!)).toBeCloseTo(78, 2);
+      expect(num(rows.at(-1)![2]!)).toBeCloseTo(77, 2);
+    }
+  });
+
+  it("writes a cash flow row for each of the 41 months with 77 in May 2023, in both languages", async () => {
+    const { admin } = await seed();
+    for (const lang of ["fi", "en"]) {
+      await admin.call("PUT", "/api/language", { language: lang });
+      const rows = table((await admin.call("GET", "/api/export/report.csv?report=cashflow&from=2023-01-01&to=2026-09-30")).body);
+      expect(rows).toHaveLength(MONTHS + 1);
+      expect(rows[1]![0]).toBe("2023-05");
+      expect(num(rows[1]![2]!)).toBeCloseTo(77, 2);
+      expect(rows.at(-1)![0]).toBe("2026-09");
+    }
+  });
+
+  it("keeps 24 months or fewer as they were", async () => {
+    const { admin } = await seed();
+    const rows = table((await admin.call("GET", "/api/export/report.csv?report=cashflow&from=2024-10-01&to=2026-09-30")).body);
+    expect(rows).toHaveLength(25);
+    expect(rows[1]![0]).toBe("2024-10");
   });
 });

@@ -153,8 +153,8 @@ interface Acc {
 }
 
 /** Category × month spending matrix (at most 24 months), largest categories first. */
-export function pivotReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): PivotReport {
-  const months = rangeMonthIndexes(range, 24, ctx);
+export function pivotReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE, maxMonths = 24): PivotReport {
+  const months = rangeMonthIndexes(range, maxMonths, ctx);
   const first = months[0]!;
   const rows = new Map<string, { category: string; values: number[]; total: number; theme: string; accounts: Set<string> }>();
   const spent = spendRows(ctx, toDayRange(range));

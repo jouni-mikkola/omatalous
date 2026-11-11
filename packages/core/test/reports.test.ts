@@ -14,6 +14,8 @@ import { debtInterestNext12Months, loanBalanceOn, loanInterestNext12Months, loan
 import type { Account, ExpectedCadence, Loan, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 import { dataset, monthlyOn } from "./report-dataset.ts";
+import { cashflowReport } from "../src/reports/cashflow.ts";
+import { pivotReport } from "../src/reports/pivot.ts";
 
 // test helpers put every transaction on account "acc-1"
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -456,5 +458,26 @@ describe("loans: the Lainat report and net worth", () => {
     expect(named.balances.debt).toEqual({ day: today, cents: 12000000 + 80000, savedCents: 12000000 });
     expect(named.balances.accountsLessDebt.at(-1)).toBe(120000 - 12000000);
     expect(debtInterestNext12Months([home], today).cents).toBe(named.loans.interest.cents);
+  });
+});
+
+describe("a report over more than 24 months", () => {
+  const txs = [tx({ bookingDate: "2023-05-10", amountCents: -7700, category: "groceries" }), tx({ bookingDate: "2026-09-10", amountCents: -100, category: "groceries" })];
+  const ctx = createContext(txs, [checking], today);
+  const range = { from: "2023-01-01", to: "2026-09-30" };
+
+  it("shows the last 24 months for the page, and every month when asked", () => {
+    const page = pivotReport(ctx, range);
+    expect(page.months).toHaveLength(24);
+    expect(page.totalCents).toBe(7800);
+    const all = pivotReport(ctx, range, undefined, Infinity);
+    expect(all.months).toHaveLength(41);
+    expect(all.months[0]).toBe("2023-05");
+    for (const r of all.rows) expect(r.values.reduce((s, v) => s + v, 0)).toBe(r.totalCents);
+    expect(all.monthTotals.reduce((s, v) => s + v, 0)).toBe(all.totalCents);
+    expect(cashflowReport(ctx, range).rows).toHaveLength(24);
+    const flow = cashflowReport(ctx, range, [], Infinity).rows;
+    expect(flow).toHaveLength(41);
+    expect(flow[0]).toMatchObject({ month: "2023-05", consumptionCents: 7700 });
   });
 });

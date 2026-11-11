@@ -86,8 +86,8 @@ function rateCompareOf(ctx: AnalysisContext, rows: readonly CashflowRow[]): Rate
 }
 
 /** Money in vs. where it went (consumption, debt, savings), month by month. */
-export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = []): CashflowReport {
-  const months = rangeMonthIndexes(range, 24, ctx);
+export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], maxMonths = 24): CashflowReport {
+  const months = rangeMonthIndexes(range, maxMonths, ctx);
   // a range longer than the shown months: the rows are the last 24, the totals still cover the whole range
   const all = inDays(ctx, toDayRange(range));
   // a month's days within the range: the select of the month's income

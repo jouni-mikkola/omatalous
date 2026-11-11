@@ -132,11 +132,11 @@ export function dataRoutes(s: Services) {
     if (kind === "cashflow") {
       const rows = [
         [...words.cashflow],
-        ...cashflowReport(ctx, range, balances).rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.leftCents)]),
+        ...cashflowReport(ctx, range, balances, Infinity).rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.leftCents)]),
       ];
       return csvResponse(c, `${words.fileNames.cashflow}${range.from}_${range.to}.csv`, csv(rows));
     }
-    const p = pivotReport(ctx, range, lang);
+    const p = pivotReport(ctx, range, lang, Infinity);
     const rows = [
       [...words.pivotStart, ...p.months, ...words.pivotEnd],
       ...p.rows.map((r) => [r.label, r.group, ...r.values.map(cents), cents(r.totalCents), centsOrEmpty(r.averageCents)]),
