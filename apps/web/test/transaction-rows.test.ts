@@ -126,3 +126,19 @@ describe("the part of a joint account's row", () => {
     }
   });
 });
+
+describe("the counts of the toolbar's chips", () => {
+  const chips = (whole: boolean) => {
+    const items = [row({ id: "p", status: "pending" }), row({ id: "m", categorySource: "user" }), row({ id: "b" })];
+    const html = renderToStaticMarkup(createElement(TxTable, { items, whole, total: 796, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+    return [...html.matchAll(/class="rtb-chip"[^>]*>(.*?)<\/button>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
+  };
+
+  it("on a page of a longer list: Kaikki is the server's count, and a chip, whose rows can be on another page, has no number", () => {
+    expect(chips(false)).toEqual(["Kaikki 796", "Käsin luokitellut", "Varaukset"]);
+  });
+
+  it("on a whole list: the rows the table has", () => {
+    expect(chips(true)).toEqual(["Kaikki 3", "Käsin luokitellut 1", "Varaukset 1"]);
+  });
+});

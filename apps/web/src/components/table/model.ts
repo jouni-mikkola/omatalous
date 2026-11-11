@@ -64,7 +64,8 @@ export function matchesQuery(texts: readonly string[], words: readonly string[])
   return words.every((w) => hay.includes(w));
 }
 
-export type ChipCount = { key: string; label: string; count: number };
+/** `count` is null when the table has only a page of the list and cannot know it. */
+export type ChipCount = { key: string; label: string; count: number | null };
 
 /** One group of a grouped table: the value that names it and its rows in the sort's order. */
 export type Section<R> = { key: string; title: string; rows: R[] };

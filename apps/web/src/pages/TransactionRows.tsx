@@ -237,7 +237,7 @@ function DaySums({ sum }: { sum: DaySum | undefined }) {
  * server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
  * server sends them. The toolbar's grouping puts the same rows under their payee instead. An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
+export function TxTable({ items, whole = true, total, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; /** The rows the filter has in all, the server's count: "Kaikki" of a page of a longer list says it. */ total?: number; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
   const days = byDay(items);
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
@@ -296,6 +296,7 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
       rowsSearched
       searchLabel={searchLabel}
       toolbarExtra={filters}
+      listTotal={whole ? undefined : total}
       view={view}
       onView={onView}
     />

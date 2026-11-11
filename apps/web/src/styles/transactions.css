@@ -3,6 +3,8 @@
 @layer pages {
 .tx-page { gap: var(--sp-8); }
 .tx-card { padding-top: var(--sp-4); }
+/* the page's heading, as a report page's (.q-title) */
+.tx-title { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
 .view-tabs { align-self: flex-start; }
 
 /* ── the filter chips in the table's toolbar: a chip per filter the server applies ───────── */

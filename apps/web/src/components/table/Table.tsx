@@ -86,6 +86,7 @@ export function Table<R>({
   searchLabel,
   rowsSearched = false,
   toolbarExtra,
+  listTotal,
   view: viewProp,
   onView,
 }: TableProps<R>) {
@@ -308,8 +309,8 @@ export function Table<R>({
           searchable={searchable}
           query={view.query}
           onQuery={(q) => change({ ...view, query: q })}
-          chips={shown.chips}
-          all={shown.all}
+          chips={listTotal === undefined ? shown.chips : shown.chips.map((c) => ({ ...c, count: null }))}
+          all={listTotal ?? shown.all}
           chip={view.chip}
           onChip={(chip) => change({ ...view, chip })}
           groups={groupable}

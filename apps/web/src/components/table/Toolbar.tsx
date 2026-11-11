@@ -92,7 +92,8 @@ export function Toolbar(p: ToolbarProps) {
             </ToggleButton>
             {p.chips.map((c) => (
               <ToggleButton key={c.key} id={c.key} className="rtb-chip">
-                {c.label} <b>{c.count}</b>
+                {c.label}
+                {c.count !== null && <> <b>{c.count}</b></>}
               </ToggleButton>
             ))}
           </ToggleButtonGroup>

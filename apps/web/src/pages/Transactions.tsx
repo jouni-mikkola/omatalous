@@ -329,6 +329,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
 
   return (
     <div className="stack tx-page">
+      {/* Tapahtumat is no tab, so nothing else on the screen says which page this is */}
+      <h2 className="tx-title">{t("nav.transactions")}</h2>
       {ownTransfer && (
         <ConfirmDialog
           title={t("tx.own_ask")}
@@ -406,7 +408,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             )}
           </div>
           <div>
-            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
+            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} total={data.total} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {(!data || (!ready && data.items.length > 0)) && !error && <RowsSkeleton />}
             {data && !data.items.length && (

@@ -87,6 +87,8 @@ export type TableProps<R> = {
   searchLabel?: string;
   /** The page has already searched the rows for `view.query` (the server did): the box is shown and the table does not filter by it again. */
   rowsSearched?: boolean;
+  /** The rows are one page of a longer list of this many (the server's count): "Kaikki" counts the list, and a chip, whose rows can be on another page, shows no count. */
+  listTotal?: number;
   /** The page's own controls in the toolbar, after the chips (filters the server applies). */
   toolbarExtra?: ReactNode;
   /**
