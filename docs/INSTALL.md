@@ -83,15 +83,16 @@ To look around first, press *Lataa esimerkkitiedot* on the empty start page. The
 ## 4. Connect a bank
 
 The app walks you through registering a free Enable Banking app, once for the whole household. It takes about 15
-minutes and gives the values to paste. Later you find the same steps under *Asetukset > Tekniset asetukset > Palvelin*.
-Then *Asetukset > Pankkiyhteydet > Yhdistä pankki* opens a list of the banks your Enable Banking app offers: Nordea,
-OP, Danske Bank, S-Pankki, the savings banks, Aktia and the other Finnish banks and card issuers that
+minutes and gives the values to paste. Later you find the same steps under
+*Asetukset > Pankit ja tilit > Pankkisovellus*. Then *Asetukset > Pankit ja tilit > Pankkiyhteydet > Yhdistä pankki*
+opens a list of the banks your Enable Banking app offers: Nordea, OP, Danske Bank, S-Pankki, the savings banks,
+Aktia and the other Finnish banks and card issuers that
 [ENABLE_BANKING.md](ENABLE_BANKING.md) lists, each with its logo where Enable Banking has one. The first fetch brings
 up to two years of history. Each connection has a button *Yhdistä uudelleen* that renews it, also before it ends, and
 *Muistutus kalenteriin* downloads a calendar event for seven days before it ends. The guide says why Nordea is linked twice, how the other
 banks differ and what the error messages mean.
 
-After that Omatalous fetches at 6.15 and 18.15. Change the hours under *Asetukset > Tekniset asetukset > Palvelin*.
+After that Omatalous fetches at 6.15 and 18.15. Change the hours under *Asetukset > Palvelin ja ylläpito > Palvelin*.
 
 A bank connection is the main way transactions come in. A statement file read in the browser (*Asetukset > Pankit ja
 tilit*) fills an account the bank does not give. The server-side import of Nordea CSV files was removed in 0.9.0. An account
@@ -100,19 +101,19 @@ those rows move into the bank's account.
 
 ## 5. Add the household
 
-Optional. Add the others under *Asetukset > Talouden jäsenet*. Each gets a temporary password and picks their own at
-the first login. Members do not register anything at Enable Banking. They press *Yhdistä pankki* and log in with
-their own Nordea ID. A member can share an account with the others, read-only, with *Jaa tili* in the account's edit form under *Asetukset > Pankit ja tilit*.
+Optional. Add the others under *Asetukset > Jäsenet > Talouden jäsenet*. Each gets a temporary password and picks
+their own at the first login. Members do not register anything at Enable Banking. They press *Yhdistä pankki* and log in
+with their own Nordea ID. A member can share an account with the others, read-only, with *Jaa tili* in the account's edit form under *Asetukset > Pankit ja tilit*.
 
 ## 6. Add your loans
 
 Optional. A bank connection shows a card or a loan account, but not a loan at a lender that is not connected. Under
-*Asetukset > Lainat* you can tell Omatalous about those. Paste a screenshot or the text of a loan (Ctrl+V, or paste on
-the phone), drop or pick a picture or a PDF, or type the figures. A bank's loan page, the positive credit register's
-listing and a SECCI form all work, and one screenshot of the register brings every lender at once. The app reads the
-lender, what is left to pay (*Lainaa jäljellä*), the rate, the payment (*Maksuerä*) and the last due date (*Viimeinen
-eräpäivä*) into a form for each loan. A picture, a PDF and a text are read in the browser and sent nowhere. The first
-picture takes a moment, because the reader is fetched from the app itself, about 11 MB once.
+*Asetukset > Talous > Lainat* you can tell Omatalous about those. Paste a screenshot or the text of a loan (Ctrl+V, or
+paste on the phone), drop or pick a picture or a PDF, or type the figures. A bank's loan page, the positive credit
+register's listing and a SECCI form all work, and one screenshot of the register brings every lender at once. The app
+reads the lender, what is left to pay (*Lainaa jäljellä*), the rate, the payment (*Maksuerä*) and the last due date
+(*Viimeinen eräpäivä*) into a form for each loan. A picture, a PDF and a text are read in the browser and sent nowhere.
+The first picture takes a moment, because the reader is fetched from the app itself, about 11 MB once.
 
 Each figure shows the line it was read from and a mark: *Varma*, *Tarkista* or *Ei löytynyt*. Everything read from a
 picture is *Tarkista*, and *Tallenna* waits until you have ticked each of those as right or corrected it. Nothing is
@@ -128,12 +129,12 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
 
 ## After the install
 
-- Updates show up under *Asetukset > Tekniset asetukset > Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered about
+- Updates show up under *Asetukset > Palvelin ja ylläpito > Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered about
   two days after it comes out. The switch *Tarjoa uudet versiot heti* on the same page offers it at once. Without the
   maintenance helper there is no switch, and `TALOUS_PRERELEASE=yes` in `.env` does the same, see
   [Updates in detail](ADVANCED.md#updates-in-detail).
 - The app keeps a database copy from each of the last seven days on the machine. Now and then press *Lataa uusin* under
-  *Asetukset > Tekniset asetukset > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
+  *Asetukset > Palvelin ja ylläpito > Ylläpito* and keep the file somewhere else. It holds your transactions unencrypted. Automatic backups to
   a NAS and restoring are in [ADVANCED.md](ADVANCED.md#backups). *Palauta* on a row of *Varmuuskopiot* in the same
   place brings that copy back, and at every start the app checks its database and restores a damaged one from the
   newest intact copy.
@@ -145,7 +146,7 @@ and the payments a month. *Saldot* shows the connected accounts less the saved l
 - Lost the address? Run `./scripts/install.sh` again in the `omatalous` folder. It keeps the settings and data and
   prints the address.
 - To use the app away from home, a VPN is the safest. A Cloudflare Tunnel with a login in front can be set up in the
-  browser, under *Asetukset > Tekniset asetukset > Palvelin > Etäkäyttö*, or with the installer. Make the Cloudflare API token with the
+  browser, under *Asetukset > Palvelin ja ylläpito > Palvelin > Etäkäyttö*, or with the installer. Make the Cloudflare API token with the
   permissions [ADVANCED.md](ADVANCED.md#cloudflare-tunnel) lists, turn on Zero Trust in the Cloudflare dashboard (the
   Free plan is enough), and expect to open the new address within 15 minutes of turning it on, or the app goes back to
   the home address by itself.
