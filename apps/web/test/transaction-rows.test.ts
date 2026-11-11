@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { setLanguage } from "../src/format.ts";
 import { type DaySum, type ListedRow, ownerLink, TxTable } from "../src/pages/TransactionRows.tsx";
 
 const row = (over: Partial<ListedRow> = {}): ListedRow =>
@@ -25,6 +26,26 @@ describe("the link of a row whose payer is not told", () => {
       expect(ownerLink(t)).toBeNull();
       expect(phone(t)).not.toContain("Muuta:");
       expect(wide(t)).not.toContain("Valitse, kenen osuus");
+    }
+  });
+});
+
+describe("a row with no payee", () => {
+  it("names the payee in the reader's language, in the row and in what an opened row says", () => {
+    const unnamed = row({ merchant: "Tuntematon", own: true });
+    try {
+      for (const html of [list(unnamed), list(unnamed, true)]) expect(html).toContain('<span class="tx-name">Tuntematon</span>');
+      setLanguage("en");
+      for (const html of [list(unnamed), list(unnamed, true)]) {
+        expect(html).toContain('<span class="tx-name">Unknown</span>');
+        // the link to the payee's rows still asks for the stored name; nothing the reader sees or hears has it
+        expect(html.replaceAll("merchant=Tuntematon", "")).not.toContain("Tuntematon");
+      }
+      expect(list(unnamed, true)).toContain('aria-label="Change: Unknown"');
+      // a payee with a name of its own stays as the bank wrote it
+      expect(list(row())).toContain('<span class="tx-name">ESIMERKKI OY</span>');
+    } finally {
+      setLanguage("fi");
     }
   });
 });

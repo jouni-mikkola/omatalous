@@ -1,4 +1,4 @@
-import { fold, isCardBill } from "@banking/core";
+import { fold, isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
 import { type ReactNode, useSyncExternalStore } from "react";
 import { dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
@@ -128,13 +128,16 @@ function Part({ t }: { t: ListedRow }) {
   return <>{whole && <span className="tx-part">{whole}</span>}{ownerLink(t) && <span className="tx-part">{msg("row.no_split")}</span>}</>;
 }
 
+/** The payee's name as the reader sees it: a row with no payee is stored under one fixed word, shown in the reader's language. */
+const nameOf = (t: Pick<ListedRow, "merchant">): string => (t.merchant === UNKNOWN_MERCHANT ? msg("tx.unknown_merchant") : t.merchant);
+
 /** The payee's name and the quiet tags; the bank's own text is the line under them. */
 function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
   const text = bankText(t);
   return (
     <span className="tx-who">
       <span className="tx-line">
-        <span className="tx-name">{t.merchant}</span>
+        <span className="tx-name">{nameOf(t)}</span>
         <Tags t={t} explained={explained} />
       </span>
       {text && (
@@ -163,14 +166,14 @@ function Detail({ t, categories, pending, onCategory, onStatement, note, scope, 
       <div className="tx-detail-acts">
         {!t.own && <SharedCategory categories={categories} value={t.category} manual={t.categorySource === "user"} />}
         <RowMenu
-          label={msg("row.actions", { name: t.merchant })}
+          label={msg("row.actions", { name: nameOf(t) })}
           panel={
             t.own
               ? {
                   key: "category",
                   label: msg("row.category", { category: categoryLabel }),
-                  ariaLabel: msg("row.category_now", { name: t.merchant, category: categoryLabel }),
-                  title: msg("row.category_of", { name: t.merchant }),
+                  ariaLabel: msg("row.category_now", { name: nameOf(t), category: categoryLabel }),
+                  title: msg("row.category_of", { name: nameOf(t) }),
                   render: (close) => (
                     <CategoryMenu
                       categories={categories}
@@ -187,7 +190,7 @@ function Detail({ t, categories, pending, onCategory, onStatement, note, scope, 
           }
           toggles={t.own && onRemember ? [{ key: "remember", label: msg("row.remember"), checked: remember ?? true, onChange: onRemember }] : []}
           items={[
-            { key: "all", label: msg("row.all_of", { name: t.merchant }), href: `#/transactions?merchant=${encodeURIComponent(t.merchant)}` },
+            { key: "all", label: msg("row.all_of", { name: nameOf(t) }), href: `#/transactions?merchant=${encodeURIComponent(t.merchant)}` },
             ...(cardBill(t) && t.own && onStatement ? [{ key: "statement", label: msg("row.itemise"), onAction: () => onStatement(t) }] : []),
             ...(owner ? [{ key: "owner", label: msg("row.whose"), href: owner }] : []),
           ]}
@@ -230,7 +233,7 @@ export function TxTable({ items, severalAccounts, today, daySums, rowProps, scop
   const days = byDay(items);
   const maxOf = new Map(days.flatMap((d) => d.items.map((t) => [t.id, dayMax(d.items)] as const)));
   const columns: Column<ListedRow>[] = [
-    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
+    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
     // a chip is for a mark some row has: "Varaukset 0" filters to nothing
     { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
@@ -282,7 +285,7 @@ export function TxTable({ items, severalAccounts, today, daySums, rowProps, scop
       open={open}
       onOpen={onOpen}
       drill={(t) => <Detail {...rowProps(t)} scope={scope} />}
-      drillLabel={(r) => msg("row.open_months", { name: r.merchant })}
+      drillLabel={(r) => msg("row.open_months", { name: nameOf(r) })}
       csv
       rowsSearched
       searchLabel={searchLabel}

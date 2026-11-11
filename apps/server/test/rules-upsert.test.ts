@@ -29,6 +29,41 @@ describe("POST /api/rules is an upsert on field and pattern", () => {
     expect(await rows()).toEqual(["restaurants"]);
   });
 
+  it("refuses a bad rule in the member's language, with the code beside the sentence", async () => {
+    const { admin } = await setupApp();
+    const refusals = async () => [
+      (await post(admin, "Esimerkki Bensa", "groceries", "nothing")).body,
+      (await post(admin, "Esimerkki Bensa", "no_such_category")).body,
+      (await post(admin, "/bensa/", "groceries", "merchant")).body,
+      (await post(admin, "|", "groceries", "merchant")).body,
+      (await admin.call("PUT", "/api/merchants/category", { merchant: "Esimerkki Bensa", category: "no_such_category" })).body,
+      (await admin.call("PATCH", "/api/transactions/none", { category: "no_such_category" })).body,
+    ];
+    const codes = ["rule.invalid", "rule.invalid", "rule.no_slashes", "rule.need_word", "rule.unknown_category", "rule.unknown_category"];
+    const fi = await refusals();
+    expect(fi.map((b) => b.messageCode)).toEqual(codes);
+    expect(fi.map((b) => b.error)).toEqual([
+      "Virheellinen sääntö.",
+      "Virheellinen sääntö.",
+      "Kirjoita pelkkä sana tai kauppiaan nimi ilman vinoviivoja.",
+      "Kirjoita sana tai kauppiaan nimi.",
+      "Tuntematon kategoria.",
+      "Tuntematon kategoria.",
+    ]);
+    await admin.call("PUT", "/api/language", { language: "en" });
+    const en = await refusals();
+    expect(en.map((b) => b.messageCode)).toEqual(codes);
+    expect(en.map((b) => b.error)).toEqual([
+      "Invalid rule.",
+      "Invalid rule.",
+      "Write just a word or a merchant's name, without slashes.",
+      "Write a word or a merchant's name.",
+      "Unknown category.",
+      "Unknown category.",
+    ]);
+    expect((await admin.call("GET", "/api/rules")).body.rules).toHaveLength(0);
+  });
+
   it("another user's rule with the same pattern is theirs alone", async () => {
     const { admin, member } = await setupApp();
     const ville = await member("ville");

@@ -255,7 +255,7 @@ export function financeRoutes(s: Services) {
     // required: null takes the category set by hand away, a missing field is a mistake and changes nothing
     if (input.category === undefined) throw new UserError("Valitse kategoria.");
     const category = input.category;
-    if (category !== null && (typeof category !== "string" || !isKnownCategory(category))) throw new UserError("Tuntematon kategoria.");
+    if (category !== null && (typeof category !== "string" || !isKnownCategory(category))) throw UserError.of("rule.unknown_category");
     return c.json(await setTransactionCategory(s, c.get("user").id, c.req.param("id"), category, parseOptionalBoolean(input.createRule)));
   });
 
@@ -273,10 +273,13 @@ export function financeRoutes(s: Services) {
     const pattern = typeof input.pattern === "string" ? input.pattern.trim() : "";
     const field = input.field as RuleField;
     if (!RULE_FIELDS.includes(field) || !pattern || pattern.length > 200 || typeof input.category !== "string" || !isKnownCategory(input.category)) {
-      throw new UserError("Virheellinen sääntö.");
+      throw UserError.of("rule.invalid");
     }
+    // patternProblem gives the Finnish sentence; the code carries it to a reader of either language.
+    // A pattern with no word ("*") always gets the need-a-word sentence, so the other one is the slash refusal,
+    // however either sentence is worded.
     const problem = patternProblem(pattern);
-    if (problem) throw new UserError(problem);
+    if (problem) throw UserError.of(problem === patternProblem("*") ? "rule.need_word" : "rule.no_slashes");
     return c.json({ changed: await addRule(s, c.get("user").id, { field, pattern, category: input.category }) });
   });
 

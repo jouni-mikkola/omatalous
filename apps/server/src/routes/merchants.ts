@@ -94,7 +94,7 @@ export function merchantRoutes(s: Services) {
   app.put("/merchants/category", async (c) => {
     const input = strictObject(await body(c), ["merchant", "category"] as const);
     const merchant = parseMerchantName(input.merchant);
-    if (typeof input.category !== "string" || !isKnownCategory(input.category)) throw new UserError("Tuntematon kategoria.");
+    if (typeof input.category !== "string" || !isKnownCategory(input.category)) throw UserError.of("rule.unknown_category");
     return c.json({ changed: await setMerchantCategory(s, c.get("user").id, merchant, input.category) });
   });
 

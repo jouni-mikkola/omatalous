@@ -34,7 +34,7 @@ function parseExpectedBill(raw: unknown, today: string): Omit<ExpectedBill, "id"
   if (typeof cadence !== "string" || !CADENCES.includes(cadence as ExpectedCadence)) throw new UserError("Tuntematon toistuvuus.");
   const category = input.category ?? null;
   if (category !== null) {
-    if (typeof category !== "string" || !isKnownCategory(category)) throw new UserError("Tuntematon kategoria.");
+    if (typeof category !== "string" || !isKnownCategory(category)) throw UserError.of("rule.unknown_category");
     const kind = getCategory(category).kind;
     if (kind !== "expense" && kind !== "debt") throw new UserError("Valitse meno- tai velkakategoria.");
   }
