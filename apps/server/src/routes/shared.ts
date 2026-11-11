@@ -47,11 +47,11 @@ export function optionalString(value: unknown, max = 200): string | undefined {
   return value;
 }
 
-/** Non-negative integer from a query string, or undefined. */
+/** Non-negative safe integer from a query string, or undefined. A larger number would reach SQLite as a float. */
 export function queryInt(value: string | undefined): number | undefined {
   if (value === undefined || value === "") return undefined;
   const n = Number(value);
-  if (!Number.isInteger(n) || n < 0) throw UserError.of("check.number");
+  if (!Number.isSafeInteger(n) || n < 0) throw UserError.of("check.number");
   return n;
 }
 

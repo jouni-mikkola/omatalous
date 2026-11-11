@@ -115,6 +115,48 @@ describe("transaction search", () => {
   });
 });
 
+describe("transaction paging", () => {
+  const content = file(
+    `2026/09/20;-12,00;${OWN};;;XYZZY TUNTEMATON;;EUR`,
+    `2026/09/10;-55,50;${OWN};;;QWERTY PUOTI;;EUR`,
+    `2026/09/02;-30,00;${OWN};;;XYZZY TUNTEMATON;;EUR`,
+  );
+
+  it.each(["offset=1e300", "offset=9007199254740993", "limit=1e300"])("%s is a 400, not a database error", async (query) => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const r = await admin.call("GET", `/api/transactions?${query}`);
+    expect(r).toMatchObject({ status: 400, body: { messageCode: "check.number" } });
+  });
+
+  it("an offset inside the range still pages", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const ids = async (query: string): Promise<string[]> => {
+      const r = await admin.call("GET", `/api/transactions?${query}`);
+      expect(r.status).toBe(200);
+      return (r.body.items as Tx[]).map((t) => t.id);
+    };
+    const all = await ids("limit=50");
+    expect(all).toHaveLength(3);
+    expect(await ids("limit=50&offset=1")).toEqual(all.slice(1));
+    expect(await ids("limit=1&offset=2")).toEqual(all.slice(2));
+    expect(await ids("limit=50&offset=9007199254740991")).toEqual([]);
+  });
+
+  it("the largest offset is an empty page in the household view too, where each side is cut at limit + offset", async () => {
+    const { admin, s, member } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const eero = await member("eero");
+    const accountId = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
+    await admin.call("PUT", `/api/accounts/${accountId}/shares/${eero.id}`);
+    const page = (query: string) => eero.call("GET", `/api/transactions?scope=household&${query}`);
+    expect((await page("limit=50")).body.items).toHaveLength(3);
+    expect((await page("limit=50&offset=1")).body.items).toHaveLength(2);
+    expect(await page("limit=50&offset=9007199254740991")).toMatchObject({ status: 200, body: { items: [] } });
+  });
+});
+
 describe("all of this merchant", () => {
   const content = file(
     `2026/09/20;-25,00;${OWN};;MATTI MEIKÄLÄINEN;;;EUR`,
