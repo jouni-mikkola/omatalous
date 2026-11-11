@@ -357,6 +357,13 @@ Result: The plan gains 4 to 8 steps that fix real faults found in the bank files
 - locks: none
 - after: none
 
+### N46 Plan the next round for apps/web
+Result: Plan the next round for apps/web pages: budgets, forecasts, loans and settings: read the code, the design docs and today's merged work, then
+- why: the owner (11 Nov, 18 h): omatalous ran out of work (1 of 14 workers busy); plan enough independent work to keep 10+ workers busy for several hours
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the next round for apps/web pages: budgets, forecasts, loans and settings: read the code, the design docs and today's merged work, then add 6 to 8 small steps that each touch only that area, depend on no unmerged step, and finish in under an hour; done when the roadmap has them
+- locks: none
+- after: none
+
 ### N45 Plan the next round for apps/web
 Result: Plan the next round for apps/web pages: overview, transactions and categories: read the code, the design docs and today's merged work, then
 - why: the owner (11 Nov, 18 h): omatalous ran out of work (1 of 14 workers busy); plan enough independent work to keep 10+ workers busy for several hours
