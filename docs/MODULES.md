@@ -179,11 +179,11 @@ interface WebModuleHost {
 
 `host.modules` holds `react`, `react/jsx-runtime`, `react-dom`, `@banking/core`, and the web's own files by their path
 under `apps/web/src` without the extension: `api`, `hooks`, `format`, `routes`, `types`, `css`, `design/tokens`,
-`charts/Axes`, `charts/CalendarHeat`, `charts/PriceLine`, `charts/Tooltip`, `charts/draw`, `charts/kit/Readout`,
-`charts/kit/marks`, `charts/scale`, `components/BasisSheet`, `components/ErrorCard`, `components/Figure`,
+`charts/Axes`, `charts/CalendarHeat`, `charts/draw`, `charts/kit/Readout`,
+`charts/kit/marks`, `charts/scale`, `components/ErrorCard`, `components/Figure`,
 `components/Loading`, `components/More`, `components/Section`, `components/Why`, `components/table/Cells`,
 `components/table/KeyValue`, `components/table/Table`, `components/table/selection`, `components/ui/Button`,
-`components/ui/Chip`, `components/ui/Notice`. A shared stylesheet the module needs is copied into its `web.css`;
+`components/ui/Notice` (`apps/web/src/module-host.ts`). A shared stylesheet the module needs is copied into its `web.css`;
 stylesheets hold no state.
 
 ### Loading in the browser

@@ -60,6 +60,8 @@ const PAGE_FIELDS = {
   review: {},
   more: {},
   settings: SETTINGS,
+  /** A module's own page: its parameters are its own. */
+  extension: {},
 } as const satisfies Record<string, Record<string, Field>>;
 
 export type PageId = keyof typeof PAGE_FIELDS;

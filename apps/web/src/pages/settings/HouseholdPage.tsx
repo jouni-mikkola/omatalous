@@ -1,8 +1,9 @@
 /**
  * Asetukset > Kotitalous: the household's loans and category rules, for an admin its members, and the member's own
  * sign-in: the password, the second factor, the passkeys and the signed-in devices (the service tokens are rows of
- * Omat istunnot).
+ * Omat istunnot). An add-on module's card comes after the rules (extensions.ts).
  */
+import { WEB_EXTENSIONS } from "../../extensions.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { CardStack } from "./CardStack.tsx";
 import { Loans } from "./Loans.tsx";
@@ -23,6 +24,7 @@ export function HouseholdPage({ meta, params, anchor, onChange }: SettingsPagePr
     <CardStack shown={shown}>
       <Loans meta={meta} onLoaded={partLoaded} />
       <Rules meta={meta} />
+      {WEB_EXTENSIONS.map((e) => e.settingsCard && <e.settingsCard key={e.id} />)}
       {isAdmin && <Members me={meta.user} meta={meta} onChange={onChange} onLoaded={partLoaded} />}
       <Password openPassword={anchor === SETTINGS_ANCHOR.password} />
       <SecondFactor />

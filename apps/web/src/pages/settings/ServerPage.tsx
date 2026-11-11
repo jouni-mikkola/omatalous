@@ -1,4 +1,5 @@
-/** Asetukset > Palvelin (admin): the status line, the server, remote access, the maintenance and the security log. */
+/** Asetukset > Palvelin (admin): the status line, the server, remote access, the maintenance, the add-on and the security log. */
+import { AddOn } from "./AddOn.tsx";
 import { CardStack } from "./CardStack.tsx";
 import { Maintenance, useOpsState } from "./Maintenance.tsx";
 import { useRemoteAccessPoll } from "./RemoteAccess.tsx";
@@ -19,6 +20,7 @@ export function ServerPage({ params, anchor, onChange }: SettingsPageProps) {
       <ServerStatusLine ops={ops.data} remote={remote} />
       <ServerSettings remote={remote} onChange={onChange} onLoaded={partLoaded} />
       <Maintenance ops={ops} />
+      <AddOn />
       <SecurityLog onLoaded={partLoaded} />
     </CardStack>
   );

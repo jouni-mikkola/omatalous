@@ -14,6 +14,7 @@ import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
 import { MORE, NAV, REVIEW, ROWS, SETTINGS } from "./nav.ts";
+import { extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
@@ -73,7 +74,9 @@ export function Shell() {
   const anchor = location.hash || undefined;
   const requested = location.pathname.split("/")[1] ?? "";
   const meta = useApi<Meta>("/api/meta", true);
-  const pages = [...NAV, ROWS, SETTINGS];
+  // the pages of an add-on module live in the user menu beside Tapahtumat; the four tabs stay the household's questions
+  const extensions = extensionPages();
+  const pages: { id: string; label: string }[] = [...NAV, ROWS, ...extensions.map((e) => ({ id: e.id, label: e.page!.label })), SETTINGS];
   // an unknown or old link opens the overview instead of an empty page
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
@@ -356,6 +359,11 @@ export function Shell() {
               <PageLink id={ROWS.id} current={page === ROWS.id}>
                 {ROWS.label}
               </PageLink>
+              {extensions.map((e) => (
+                <PageLink key={e.id} id={e.id} current={page === e.id}>
+                  {e.page!.label}
+                </PageLink>
+              ))}
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}
               </PageLink>

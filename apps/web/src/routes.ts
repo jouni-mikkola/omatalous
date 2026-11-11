@@ -1,3 +1,4 @@
+import { WEB_EXTENSIONS } from "./extensions.ts";
 import { pageOfPeriod } from "./period.ts";
 import { t } from "./text.ts";
 
@@ -25,6 +26,7 @@ export const SETTINGS_ANCHOR = {
   statement: "tiliote",
   server: "palvelin",
   maintenance: "yllapito",
+  addOn: "lisaosa",
 } as const;
 
 /**
@@ -47,7 +49,7 @@ export function settingsTargets(role: "admin" | "member"): readonly (typeof SETT
   return SETTINGS_TARGETS.filter((t) => role === "admin" || !("admin" in t));
 }
 
-/** The target a card is on, by its anchor. */
+/** The target a card is on, by its anchor. The cards of the build's extensions are on Talous. */
 const CARD_TARGET: Record<string, SettingsTarget> = {
   pankkiyhteydet: "banks",
   [SETTINGS_ANCHOR.bankApp]: "banks",
@@ -67,6 +69,7 @@ const CARD_TARGET: Record<string, SettingsTarget> = {
   [SETTINGS_ANCHOR.server]: "server",
   etakaytto: "server",
   [SETTINGS_ANCHOR.maintenance]: "server",
+  [SETTINGS_ANCHOR.addOn]: "server",
 };
 
 /** Where the three targets that were folded into the others live now: an address that names one opens the target that has its cards. */
@@ -93,6 +96,7 @@ export function settingsCardHash(anchor: string, params?: URLSearchParams): stri
 
 function targetOfCard(anchor: string | undefined): SettingsTarget | undefined {
   if (!anchor) return undefined;
+  if (WEB_EXTENSIONS.some((e) => e.settingsAnchor === anchor)) return "household";
   return CARD_TARGET[anchor] ?? (anchor.startsWith(ACCOUNT_ROW_PREFIX) ? "banks" : undefined);
 }
 
