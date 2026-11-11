@@ -55,6 +55,12 @@ export const monthTick = (n: number): string => (lang === "en" ? MONTHS_EN[n - 1
 /** 123456 → "1 234,56 €" (in English "€1,234.56"): core's `formatEur`, the one euro formatter. */
 export const money = (cents: number, decimals = true): string => formatEur(cents, decimals, lang);
 
+/** A sum in an answer, in whole euros: 442413 → "4 424 €". An answer in cents is fake precision. */
+export const answerMoney = (cents: number): string => money(cents, false);
+
+/** A sum in a row, to the cent: 442413 → "4 424,13 €". A row is exact. */
+export const rowMoney = (cents: number): string => money(cents);
+
 /** A forecast figure, rounded by core's `roundForecast`. */
 export const roundedMoney = (cents: number): string => money(roundForecast(cents), false);
 

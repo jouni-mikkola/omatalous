@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clockTime, date, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { answerMoney, clockTime, date, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
 import { addedOn } from "../src/pages/settings/Members.tsx";
 import { factLine } from "../src/pages/settings/SecondFactor.tsx";
 
@@ -81,6 +81,21 @@ describe("roundedShares: shares of one whole printed side by side", () => {
       });
       expect(roundedShares(parts, whole, decimals)).toEqual(out);
     }
+  });
+});
+
+describe("the two forms of a sum", () => {
+  afterEach(() => setLanguage("fi"));
+
+  it("writes 4 424,13 in whole euros in an answer and to the cent in a row", () => {
+    expect(answerMoney(442_413).replace(/[\u00a0\u202f]/g, " ")).toBe("4 424 €");
+    expect(rowMoney(442_413).replace(/[\u00a0\u202f]/g, " ")).toBe("4 424,13 €");
+  });
+
+  it("keeps the two forms in English", () => {
+    setLanguage("en");
+    expect(answerMoney(442_413)).toBe("€4,424");
+    expect(rowMoney(442_413)).toBe("€4,424.13");
   });
 });
 
