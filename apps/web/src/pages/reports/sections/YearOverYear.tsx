@@ -18,6 +18,14 @@ import { rich, t } from "../../../text.ts";
 const SHOWN = 12;
 const MOVERS = 5;
 
+/**
+ * The category the sentence names: the largest rise of at least 100 € among every category of the table, fixed costs
+ * too, as the total they add up to has them. The slope leaves fixed costs out only to keep its scale.
+ */
+export function largestRise<C extends { changeCents: number }>(categories: readonly C[]): C | undefined {
+  return categories.filter((c) => c.changeCents >= 100_00).sort((a, b) => b.changeCents - a.changeCents)[0];
+}
+
 function YearOverYear({ ctx }: SectionProps) {
   // the page's answer is the year its period ends in; another year is picked here and asked for by itself
   const own = ctx.data.yearOverYear;
@@ -65,8 +73,7 @@ function YearOverYear({ ctx }: SectionProps) {
   const shown = r.categories.filter((c) => !fixed.has(c.category)).slice(0, SHOWN);
   const movers = new Set([...shown].filter((c) => Math.abs(c.changeCents) >= 100_00).sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents)).slice(0, MOVERS).map((c) => c.category));
   const items: SlopeItem[] = shown.map((c) => ({ key: c.category, label: ctx.label(c.category), from: c.previousCents, to: c.currentCents, change: c.changeCents, strong: movers.has(c.category), tone: c.changeCents > 0 ? "bad" : c.changeCents < 0 ? "good" : "flat" }));
-  // the largest riser among the movers, ranked by the server's change
-  const rose = shown.filter((c) => movers.has(c.category) && c.changeCents > 0).sort((a, b) => (a.changeCents < b.changeCents ? 1 : a.changeCents > b.changeCents ? -1 : 0))[0];
+  const rose = largestRise(r.categories);
   return (
     <ReportPanel id={section.id} title={section.title} datum={`${t("rpt.yoy_datum", { amount: money(r.ytdCents, false) })}, ${past ? r.year : t("period.year")}`} actions={picker}>
       <QuestionChart
