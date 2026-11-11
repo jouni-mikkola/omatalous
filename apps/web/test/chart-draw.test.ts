@@ -3,7 +3,7 @@
  * and which labels give way to the day a last value belongs to.
  */
 import { describe, expect, it } from "vitest";
-import { crisp, dashOf, keyStyle, labelPrinted, labelsWithRoom, LABEL_Y, TICK, TICK_L } from "../src/charts/draw.ts";
+import { crisp, dashOf, keyStyle, labelPrinted, labelsWithRoom, LABEL_GAP, LABEL_Y, TICK, TICK_L } from "../src/charts/draw.ts";
 import { splitYear } from "../src/charts/Axes.tsx";
 import { barTicks, niceTicks, roundedTop, valueAxis, wholeTicks } from "../src/charts/scale.ts";
 
@@ -109,6 +109,22 @@ describe("the labels of a category axis by room in pixels", () => {
       shown.slice(1).forEach((i, k) => {
         const j = shown[k]!;
         expect((i - j) * pitch).toBeGreaterThanOrEqual((months[i]!.length + months[j]!.length) * 3.25);
+      });
+    }
+  });
+
+  // widths in px of the SVG texts in the running app (getBoundingClientRect, 13 px face), not derived from the constant
+  const measured: Record<string, number> = { marras: 41, joulu: 28, "tammi 2026": 72, helmi: 32, maalis: 38 };
+  const texts = Object.keys(measured);
+
+  it("keeps LABEL_GAP between labels at their measured width", () => {
+    for (const pitch of [23.4, 31, 46.8]) {
+      const shown = [...labelsWithRoom(texts, pitch, new Set())].sort((a, b) => a - b);
+      expect(shown.length).toBeGreaterThan(0);
+      shown.slice(1).forEach((i, k) => {
+        const j = shown[k]!;
+        const free = (i - j) * pitch - (measured[texts[i]!]! + measured[texts[j]!]!) / 2;
+        expect(free).toBeGreaterThanOrEqual(LABEL_GAP);
       });
     }
   });

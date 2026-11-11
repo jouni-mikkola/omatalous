@@ -3,7 +3,7 @@ import type { BalanceReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { dayMonth, money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
-import { crisp } from "../draw.ts";
+import { crisp, labelsWithRoom } from "../draw.ts";
 import { decimate } from "../kit/decimate.ts";
 import { LANE_H } from "../kit/Annotations.tsx";
 import { placeMarkers } from "../kit/annotate.ts";
@@ -50,7 +50,8 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const last = days.findLastIndex((v) => v !== null);
   const first = days.findIndex((v) => v !== null);
   const starts = monthStarts(r.daily.from, iso(days.length - 1));
-  const every = f.innerW / Math.max(starts.length, 1) < 44 ? 2 : 1;
+  const startTexts = starts.map((s) => monthLabel(s.slice(0, 7), s.slice(5, 7) === "01"));
+  const printedStarts = labelsWithRoom(startTexts, f.innerW / Math.max(starts.length, 1), new Set());
   const inDays = (day: string) => indexOf(day) >= 0 && indexOf(day) < days.length && days[indexOf(day)] !== null;
   const events = r.events.filter((e) => inDays(e.day));
   // a tick only where the line steps down by the purchase (critic round 2); the rest are told in the readout
@@ -80,9 +81,9 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
             <g role="img" aria-label={t("rpt.bl_aria")}>
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
             {starts.map((s, k) =>
-              k % every === 0 ? (
+              printedStarts.has(k) ? (
                 <text key={s} x={x(Math.min(days.length - 1, indexOf(s) + 14))} y={f.innerH + 16} textAnchor="middle">
-                  {monthLabel(s.slice(0, 7), s.slice(5, 7) === "01")}
+                  {startTexts[k]}
                 </text>
               ) : null,
             )}
