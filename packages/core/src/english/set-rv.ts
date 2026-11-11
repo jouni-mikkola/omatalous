@@ -17,4 +17,5 @@ export const EN_SET_RV: Record<keyof typeof FI_SET_RV, string> = {
   "set.rv.connect_bank": "Connect a bank",
   "set.rv.hide_rows": "Hide transactions: {name}",
   "set.rv.show_rows": "Show transactions: {name}",
+  "set.rv.place": "Question {position} / {of}",
 };

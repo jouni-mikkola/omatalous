@@ -19,4 +19,5 @@ export const FI_SET_RV = {
   "set.rv.connect_bank": "Yhdistä pankki",
   "set.rv.hide_rows": "Piilota tapahtumat: {name}",
   "set.rv.show_rows": "Näytä tapahtumat: {name}",
+  "set.rv.place": "Kysymys {position} / {of}",
 } as const;

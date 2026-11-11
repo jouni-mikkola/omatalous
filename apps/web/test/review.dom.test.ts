@@ -2,9 +2,13 @@
  * Tarkistettavat on the real server: one question at a time, an answer goes to the route of its source and the next
  * question comes, a skipped one waits.
  */
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { openApp, startServer } from "./dom-kit.ts";
+import { Review } from "../src/pages/Review.tsx";
+import type { ReviewItem } from "../src/pages/review-items.ts";
+import type { Meta } from "../src/types.ts";
+import { openApp, startServer, stubApi } from "./dom-kit.ts";
 
 const T = { timeout: 15000 };
 const question = () => (document.getElementById("review-q") ? document.querySelector(".review-item")!.textContent : null);
@@ -43,4 +47,19 @@ describe("Tarkistettavat", () => {
     }
     await screen.findByText("Ohitit loput", {}, T);
   }, 90000);
+
+  it("says in the question's heading where the sitting is: a queue of three reads 2 / 3 after one answer", async () => {
+    const seen = stubApi({ "PUT /api/marks": {} });
+    const items: ReviewItem[] = ["a", "b", "c"].map((id) => ({ id, kind: "mortgage", cents: 0 }));
+    const meta = { accounts: [{}], sharedAccounts: [], bank: { banks: [] } } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    const heading = () => screen.getByRole("heading", { level: 2 });
+    expect(heading().textContent).toContain("Kysymys 1 / 3");
+    fireEvent.click(screen.getByRole("button", { name: "Ei asuntolainaa" }));
+    await waitFor(() => expect(heading().textContent).toContain("Kysymys 2 / 3"), T);
+    expect(seen).toHaveLength(1);
+    // once per question: the place is in the heading the focus moves to, and nowhere else in the card
+    expect(document.activeElement).toBe(heading());
+    expect(document.querySelector(".review-item")!.textContent!.match(/2 \/ 3/g)).toHaveLength(1);
+  });
 });

@@ -88,6 +88,8 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
           <ItemCard
             key={view.item.id}
             item={view.item}
+            position={view.position}
+            of={view.of}
             meta={meta}
             heading={heading}
             busy={busy !== null}
@@ -127,6 +129,9 @@ function End({ title, text, heading, action = { href: "#/overview", label: t("se
 
 interface CardProps {
   item: ReviewItem;
+  /** The item's place in the sitting and how far the sitting goes. */
+  position: number;
+  of: number;
   meta: Meta;
   heading: React.RefObject<HTMLHeadingElement | null>;
   busy: boolean;
@@ -136,7 +141,7 @@ interface CardProps {
   onSkip: () => void;
 }
 
-function ItemCard({ item, meta, heading, busy, waiting, problem, onAnswer, onSkip }: CardProps) {
+function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, onAnswer, onSkip }: CardProps) {
   const figure = figureOf(item);
   const name = nameOf(item);
   const [all, setAll] = useState(false);
@@ -190,6 +195,8 @@ function ItemCard({ item, meta, heading, busy, waiting, problem, onAnswer, onSki
       {all && (item.rowCount ?? 0) > own.length && <p className="review-note">{t("set.rv.newest_of", { shown: own.length, total: item.rowCount ?? 0 })}</p>}
 
       <h2 id="review-q" className="review-q" ref={heading} tabIndex={-1}>
+        {/* in the heading, so the focus that moves here says the place once, with the question */}
+        <span className="review-place">{t("set.rv.place", { position, of })} </span>
         {questionOf(item)}
       </h2>
       <Choices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />
