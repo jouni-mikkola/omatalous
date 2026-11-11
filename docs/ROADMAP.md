@@ -545,6 +545,22 @@ Result: ADR 0001 says that plans and audits live in Lineclear and in `docs/`, as
 - after: none
 - files: docs/adr/0001-record-decisions.md
 
+### T98 Web extension frame goes
+Result: The web app has no extension page, view or row parts, so its menu, routes and rows read no empty list.
+- why: audit move 1, the web half: `extensions.ts`, `ExtensionPage.tsx`, `views/ExtensionView.tsx` and `components/ExtensionRowParts.tsx` serve a list that is always empty, and seven other web files read them.
+- done when: `git ls-files apps/web/src | grep -i extension` lists nothing and `git grep -il extension apps/web/src` names no file; the web tests pass with no test of another feature removed; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: nav, routes
+- after: none
+- files: apps/web/src/extensions.ts, apps/web/src/ExtensionPage.tsx, apps/web/src/views/ExtensionView.tsx, apps/web/src/components/ExtensionRowParts.tsx, apps/web/src, apps/web/test
+
+### T99 Server extension frame goes
+Result: The server and core carry no extension list or feature flag, so no hook loops over nothing.
+- why: audit move 1, the server and core half: `EXTENSIONS` is `[]` and `FeatureId` is `never`, yet about 20 server files import them and 260 lines of tests guard them.
+- done when: `git grep -n "EXTENSIONS\|FeatureId" -- apps packages` is empty and `git ls-files apps/server/src/extensions.ts packages/core/src/features.ts apps/server/test/extensions.test.ts apps/server/test/extension-demo.test.ts apps/server/test/features.test.ts` lists nothing; a data folder that holds flag overrides from an older version still starts (a test); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: extensions-server
+- after: T98
+- files: apps/server/src/extensions.ts, packages/core/src/features.ts, apps/server/src, apps/server/test
+
 ## Open from before
 
 ### T96 Promote reads every file
