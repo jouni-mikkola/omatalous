@@ -170,6 +170,30 @@ Result: Plan parallel steps for docs/ and the in-app help (what a household user
 - locks: none
 - after: none
 
+### C1 Pay day moved past month end
+Result: An income paid on the next banking day after a closed last day of the month is expected on that day, also when it falls in the next month.
+- why: `payDayOf` and `nextPayDate` in `pay-day.ts` look for a pay date only in its own month and the month before it, so a day 31 moved forward to the 1st or 2nd is missed: nine such pay dates read as day 31 moved back with 6 hits of 9, and after 1 June 2025 the next pay date reads 30 June, not 2 June.
+- done when: a new `packages/core/test/pay-day.test.ts` that fails without the change gets `{ day: 31, rule: "next", hits: 9, of: 9 }` from `payDayOf` for 2025-03-31, 04-30, 06-02, 06-30, 07-31, 09-01, 09-30, 10-31 and 12-01, gets 2025-06-02 from `nextPayDate("2025-06-01", { day: 31, rule: "next" })`, and still gets 2025-10-31 for a day 1 moved back after 2025-10-30 (`bun test packages/core/test/pay-day.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: pay-day
+- after: none
+- files: packages/core/src/pay-day.ts, packages/core/test/pay-day.test.ts
+
+### C2 No repeated common password
+Result: A password that is one word said twice with a digit at the end, such as passwordpassword1, is refused like the word said twice alone.
+- why: `checkPassword` tests for a repeated block on the whole password only, so one digit or sign after the repeats lets it through: passwordpassword1 is allowed at level 3 of 4.
+- done when: a test in `packages/core/test/password-strength.test.ts` that fails without the change gets the issue `pw.repeated` for passwordpassword1 and kissakissakissa12!, while a password of four different words with a digit at the end is still allowed and the file's other tests pass unchanged (`bun test packages/core/test/password-strength.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: password-strength
+- after: none
+- files: packages/core/src/password-strength.ts, packages/core/test/password-strength.test.ts
+
+### C3 A small MobilePay share fits
+Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a friend's share of it.
+- why: `isShareOf` in `mobilepay.ts` lets a share be a euro off whatever its size, so 2,00 passes as a tenth of 30,00 and one cent as a tenth of 10,00: small money in is taken off the nearest purchase's category and never counted as income.
+- done when: a test in `packages/core/test/mobilepay.test.ts` that fails without the change gives no match to 2,00 against a purchase of 30,00 and to 0,01 against 10,00, a match to 3,00 and 2,90 against 30,00, the share is held to one euro and to a fifth of the purchase's exact share, whichever is less, and the file's other tests pass unchanged (`bun test packages/core/test/mobilepay.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: mobilepay
+- after: none
+- files: packages/core/src/mobilepay.ts, packages/core/test/mobilepay.test.ts
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
