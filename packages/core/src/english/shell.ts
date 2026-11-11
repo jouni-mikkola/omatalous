@@ -15,6 +15,7 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   "shell.main_menu": "Main menu",
   "shell.scope": "View",
   "shell.scope_own": "Mine",
+  "shell.today": "Today {date}",
   "shell.scope_household": "Household",
   "shell.user_menu": "User menu",
   "shell.role_admin": "administrator",

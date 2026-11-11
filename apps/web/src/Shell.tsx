@@ -443,7 +443,8 @@ export function Shell() {
           <AboutFoot version={m.version.app} />
           {hasHousehold && <span>{effectiveScope === "own" ? t("shell.scope_own") : t("shell.scope_household")}</span>}
           {foot && <span aria-live="polite">{foot}</span>}
-          <span>{date(m.today)}</span>
+          {/* the day the figures run to (the install's time zone); a bare date read as the build's or the rows' */}
+          <span>{t("shell.today", { date: date(m.today) })}</span>
         </footer>
       </div>
       </PageAddressContext.Provider>

@@ -27,4 +27,10 @@ describe("Shell: a page carries its tab's name", () => {
     const link = await screen.findByRole("link", { name: "Tapahtumat", hidden: true });
     expect(link.getAttribute("href")).toContain("/transactions");
   }, 60000);
+
+  it("says what the date at the foot of the page is", async () => {
+    await startServer();
+    await openApp("#/overview");
+    await waitFor(() => expect(document.querySelector(".sheet-foot")?.textContent).toMatch(/Tänään \d{1,2}\.\d{1,2}\./));
+  }, 60000);
 });
