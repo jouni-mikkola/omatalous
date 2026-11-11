@@ -422,17 +422,18 @@ Yhteenveto opens with the card *Varat ja velat*. Then come the blocks *Luokittel
 *Asuminen*, *Tulot ja menot* and last *Ilmoitukset*. The figures of *Varat ja velat* and of the running month's spending are core's.
 The page shows them as given.
 
-**Luokittelemattomat** is `buildQuestions` (`analysis/questions.ts`): of the 365 days up to the period's end it tells how
-much of the money is classified, and the questions that would mend it most. Classified is money that is not spending
-the default left in Muut menot (by what the purchase cost in the end), not income the default left in Muut tulot, and not a
-card bill (purchases the app cannot see); a transfer is no money, and a refund lowers the spending it took back. The share is
-`1 - unknown / (spending + income)` and the page rounds it down to a whole percent. The block is drawn when something is
-asked or under 95 % is classified. A question has one of four kinds:
+**Luokittelemattomat** is `buildQuestions` (`analysis/questions.ts`): it tells how much of the spending is known over the twelve complete months up to the period's end (`knownSpending` in
+`data-quality.ts`), and the questions of the last 365 days that would mend it most. Known is spending that is not left in
+Muut menot by the default (by what the purchase cost in the end), leaving out card bills (purchases the app cannot see);
+income is not part of the share, a transfer is no money, and a refund lowers the spending it took back. The share is
+`1 - Muut menot / spending` and the page rounds it down to a whole percent. The block is drawn when something is
+asked or under 95 % is classified. A question has one of five kinds:
 
 - `payee_out`: a payee whose spending is in Muut menot by the default (a payment service such as Trustly is asked per
   service). A category for it moves every row of the payee out of the unknown; *Ohita* keeps its money among the unknown and ends the question.
 - `payee_in`: a payee whose money the default left in Muut tulot; a category, or *Ohita*, as above.
 - `loan`: a monthly payment that looks like a loan the app cannot place. A kind saves it as a loan (Asetukset > Lainat). *Ei ole laina* ends the question.
+- `plan`: an instalment plan of a payment service whose end the household has not said; it is answered with the payments left, the last month or *En tiedä*.
 - `payer`: only when the inputs carry payer roles. A payer that is steady (about the same sum in three months or more) or
   reaches `ASK_LIMIT`, with no role yet; it takes the place of the payee questions about the same money. A role
   (`PAYER_ROLES`; MobilePay money with no sender is asked only as cost share, sale or gift) rewrites every row of the payer, the past ones too.
@@ -714,22 +715,6 @@ fetch records: `asked_from`, `first_row_day`, `source`), which the analysis cont
   usual (with the months of their usual level) sum every account, so they are told only when none is left out.
   The year comparison says how many months it rests on, that accounts were left out, or why there is no comparison.
 
-## Coverage notices
-
-`coverageNotices` (`analysis/notices.ts`) is the one definition of what a period's figures leave out; the question
-pages of Raportit read its notices from the answer (`Conclusion.notices`) and sum nothing in the browser. A notice is
-one short line under the verdict with its amount, never a question.
-
-- **Card purchases not seen.** The card bills of the period that count as spending (`missingCardPurchases`): their sum
-  and the cause (the card's rows begin later, the issuer is not connected, a bill pairs with no purchase).
-- **Other currencies.** The rows of the period in a currency other than the euro (`foreign_rows`): per currency their
-  count and total in the bank's own figure, never added to euros or to each other.
-- **Days before the history.** The days of the period before the first day any account is known from
-  (`historyStart`, from the *Coverage by day* rule), when that is more than 3 days after the period began.
-- **Which pages.** Each page tells the notices about the rows its figure is made of (`NOTICES` in
-  `reports/conclusions/shared.ts`): card purchases for spending, this month and fixed costs, the other two for every
-  page except the balances, which tell only rows in another currency. The period is the page's own, cut at today.
-
 ## Loans
 
 The bank connection shows payment accounts only, so a loan is typed in, pasted or read from a picture, and the household
@@ -996,11 +981,3 @@ Known limits of the joint account:
   part in the others', so the own views add up to more than the loan.
 - Two members with one display name are one line in the income report's split in Koko talous.
 
-## Longer forecast
-
-**Seuraavat 12 kuukautta** (`analysis/long-forecast.ts`) is the one report that forecasts past the running month. The figure of a month is its
-net saving, `earnedIncome` less `spendingThrough` (`analysis/usual.ts`), so it adds no definition of its own. The model
-draws from the household's last complete months (at most 24, at least `MIN_COMPARE_MONTHS`), widens the spread for a small
-sample, and shows the 5th to 95th percentile of 1000 seeded paths. The seed is fixed, so a reload gives the same range. Net
-worth starts from the holdings of the first page and moves by the simulated saving, the part of the running month that is left included, and gets back the principal of the saved loans (their payments less interest, no more than they owe), which the spending counts as spent.
-The backtest in `apps/server/test/forecast-backtest.test.ts` holds the range to at least 80 % of months.
