@@ -971,6 +971,36 @@ Result: The app no longer ships about 150 sentences, in each language, of a page
 - after: none
 - files: packages/core/src/messages-optimise-web.ts, packages/core/src/english/optimise-web.ts, packages/core/test/messages.test.ts
 
+## Money flows
+
+Found by reading `packages/core/src/returns.ts`, `contract.ts`, `mobilepay.ts`, `analysis/alerts.ts`, `analysis/money-in.ts`
+and `analysis/fees.ts` against [MONEY_FLOWS.md](MONEY_FLOWS.md) on 11 November (N29). M1 stays in the alerts. M2 and M3
+both change `returns.ts` and `analysis/money-in.ts`, so M3 waits for M2.
+
+### M1 Alerts count what came back
+Result: A bill, a reminder fee or a bank fee that was paid back no longer raises an alert or adds to an alert's sum on Yhteenveto.
+- why: MONEY_FLOWS.md, *Money that comes back*: "A purchase that was paid back leaves the lists of merchants, habits and double charges by the amount that came back." On main (11 Nov, N29) only the same-day double charge reads it (`packages/core/src/analysis/alerts.ts:134`). The monthly bill paid twice within a week (line 161) never reads `refunded`, so a second payment the biller sent back still shows *Sama veloitus kahdesti*. The late fee total (line 185) adds `-t.amountCents` and the bank fee sum (line 411) adds `t.spend`, so a fee that was returned stays whole in *Myöhästymiskuluja* and in *Pankkikuluja … vuodessa*, and can carry the yearly sum over its 100 € gate alone.
+- done when: new cases of `packages/core/test/alerts.test.ts` that fail without the change show: a monthly bill paid twice within a week whose second payment came back whole gives no `double_charge`, and the same pair with no refund still gives one; a reminder fee paid back whole is in no `late_fee` alert, and one paid back in part counts at what is left; a bank fee paid back counts at what is left in the `fees` alert, so a year of fees over 100 € of which enough came back to be under it gives no alert; each sum reads `netSpend` or `refunded` of the row and no new pairing is made; the alerts of a history with no refund are unchanged (the golden files pass unchanged); `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: alerts-refunds
+- after: none
+- files: packages/core/src/analysis/alerts.ts, packages/core/src/analysis/fees.ts, packages/core/test/alerts.test.ts
+
+### M2 A refund above its purchase
+Result: A refund larger than what its shop was paid is income again and no longer takes a spending category far below zero.
+- why: MONEY_FLOWS.md, *Money that comes back*: "A payment is cancelled once, and never by more than it cost" and "A refund after 120 days and one larger than the purchase stay income". On main (11 Nov, N29) `pairByPayee` asks that the money fits what is left of the payments only of a row with no refund word (`packages/core/src/returns.ts:260`). `matchReturns` on a purchase of 20 € at Kauppa Oy and money in of 500 € from it nine days later with the text HYVITYS answers `r → p`: the row gets the purchase's category and the *palautus* badge, and `lateRefundOf` (`packages/core/src/analysis/money-in.ts:161`) takes the whole 500 € off that category, "however small" the payment. The same row without the word stays income.
+- done when: new cases of `packages/core/test/returns.test.ts` and `packages/core/test/money-in.test.ts` that fail without the change show: money in with a refund word that is larger than what is left of the payee's payments of the 120 days before it is paired with no payment by `matchReturns`, and `moneyIn` answers null for it, so it is income (*Hyvitykset*); the same row at or under what is left is paired as today; a row whose category the user set by hand lowers that category as today; a contract's closing refund is not touched; the cases of the two test files that hold a paired refund larger than its payment are changed to the document's rule and the PR names each; golden files are written again with `pnpm findings --golden` when a row moved and the PR says which; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: refund-size
+- after: none
+- files: packages/core/src/returns.ts, packages/core/src/analysis/money-in.ts, packages/core/test/returns.test.ts, packages/core/test/money-in.test.ts
+
+### M3 Closing refunds stay in cost
+Result: When a lease or a loan that ended pays money back twice, the two together no longer take more off the category than the contract cost.
+- why: MONEY_FLOWS.md, *Money that comes back*, the row *A contract ends with a refund*: the refund "is no more than the contract cost altogether". On main (11 Nov, N29) `pairClosedContracts` asks `closedContract` about each row of money in alone (`packages/core/src/returns.ts:231` to 236) and keeps no count of what earlier rows took. `matchReturns` on six monthly payments of 100 € to Liisinki Oy (600 € in all) and two rows of money in of 450 € each, two days apart after the last payment, answers `r1 → c5` and `r2 → c5`: 900 € comes back on a contract of 600 €, both rows show as *palautus*, and `lateRefundOf` (`analysis/money-in.ts:161`) takes the second one off the category whole. `contractOf` already counts down what is left (`packages/core/src/contract.ts:138`, `room`), so the contract's own panel and the sums disagree.
+- done when: new cases of `packages/core/test/returns.test.ts` and `packages/core/test/money-in.test.ts` that fail without the change show: of two closing refunds that together are more than the contract cost, the first in date and id order is paired and the second is not and is income; two that together fit the cost are both paired as today; the sum `moneyIn` takes off the contract's category is never above what its payments cost; the answer does not depend on the order of the input rows; `packages/core/test/contract.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: closing-refund
+- after: M2
+- files: packages/core/src/returns.ts, packages/core/src/analysis/money-in.ts, packages/core/test/returns.test.ts, packages/core/test/money-in.test.ts
+
 ## The server: robustness
 
 Found by reading `apps/server/` on 11 November (N15). Each step stays in that folder and waits for no other step.
