@@ -365,7 +365,7 @@ export function BankAppSetup({
                   className="bank-app-id"
                 />
                 {mode === "upload" && (
-                  <input ref={fileInput} type="file" accept=".pem,.key" onChange={(e) => void readKey(e.target.files?.[0])} aria-label={t("set.app.private_key_pem")} aria-invalid={fileError ? true : undefined} />
+                  <input ref={fileInput} type="file" accept=".pem,.key" onChange={(e) => void readKey(e.target.files?.[0])} aria-label={t("set.app.private_key_pem")} aria-invalid={fileError ? true : undefined} aria-describedby={fileError ? "err-keyfile" : undefined} />
                 )}
                 <Button variant={calm ? undefined : "primary"} type="submit" disabled={busy !== null || (mode === "generate" && !app.pendingSince)} aria-busy={busy === "activate" || undefined}>
                   {busy === "activate" ? t("set.app.saving") : t("set.app.save_and_test")}
@@ -380,7 +380,11 @@ export function BankAppSetup({
                     {idError}
                   </span>
                 )}
-                {fileError && <span className="field-error">{fileError}</span>}
+                {fileError && (
+                  <span className="field-error" id="err-keyfile" role="alert">
+                    {fileError}
+                  </span>
+                )}
               </form>
               {check.result && <Notice tone={check.result.verified ? "good" : "warning"}>{check.result.message}</Notice>}
               {mode === "upload" && <div className="small muted">{t("set.app.delete_the_pem_file_from")}</div>}
