@@ -129,6 +129,41 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
   const accountOf = new Map(ctx.accounts.map((a) => [a.id, a]));
   // the bank's own text may carry the type of a card in brackets: a payee is printed without it
   const accountName = (id: string): string => cardName(accountOf.get(id)?.name ?? id);
+  const followed = followLeft(ctx, counted, accountOf);
+  const unapplied = claimUnknown(ctx, followed);
+
+  const moves: Move[] = [];
+  // a monthly series takes three payments to be one (`fitCadence`): under three nothing is guessed
+  const regular = detectRecurring(followed.others, ctx.today).filter((s) => s.cadence === "monthly");
+  for (const c of expectedCharges(regular, from, until)) moves.push({ date: c.date, name: accountName(c.merchant), amountCents: c.amountCents, source: "transfer" });
+
+  const asItGoes = new Set<string>();
+  const settling: Settling[] = [];
+  for (const [cardId, unsorted] of followed.bills) {
+    if (unsorted.length < MIN_PAYMENTS) continue;
+    const paid = [...unsorted].sort((a, b) => a.out.day - b.out.day);
+    if (!hasStatement(ctx, paid)) {
+      asItGoes.add(cardId);
+      continue;
+    }
+    const card = { id: cardId, name: accountName(cardId), balance: balances.find((b) => b.id === cardId), unappliedCents: unapplied.get(cardId) ?? 0 };
+    cardBills(ctx, card, paid, from, until, { moves, settling });
+  }
+  return { moves, asItGoes, settling };
+}
+
+/** The transfers that left the counted accounts, by where they went. */
+interface Followed {
+  /** Per connected card, the payments that reached it. */
+  bills: Map<string, PaidBill[]>;
+  /** The payments to an account the window does not count, one series for each. */
+  others: SeriesInput[];
+  /** The payments whose other end is not known. */
+  unknown: AnalysisTx[];
+}
+
+/** Follows every booked transfer out of a counted account to the account it went to. */
+function followLeft(ctx: AnalysisContext, counted: ReadonlySet<string>, accountOf: ReadonlyMap<string, AnalysisContext["accounts"][number]>): Followed {
   const byIban = new Map(ctx.accounts.flatMap((a) => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id] as const] : [])));
   const moved = ctx.txs.filter((t) => t.isTransfer && t.status === "booked");
   // the legs that came in, by the bank's sum: a leg on a joint account is cut to the viewer's part in a member's own view
@@ -166,6 +201,14 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
     // one series for each receiving account
     else others.push({ ...out, merchant: to, category: "other", isTransfer: false });
   }
+  return { bills, others, unknown };
+}
+
+/**
+ * Gives every payment whose other end is not known to the card it paid, or to `others` under its own text. Returns,
+ * per card, what its balance may not hold yet.
+ */
+function claimUnknown(ctx: AnalysisContext, { bills, others, unknown }: Followed): Map<string, number> {
   // A payment whose other leg the card does not show yet, or shows pending, went to the payee a card's paired bills
   // went to (`payeeKey`): it is that card's bill, already paid, so it is not expected again.
   const channel = new Map<string, string>();
@@ -183,46 +226,41 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
     bills.get(cardId)!.push({ out, cardDay: out.day, legId: null });
     if (ctx.todayDay - out.day <= PAIR_WINDOW_DAYS) unapplied.set(cardId, (unapplied.get(cardId) ?? 0) - out.amountCents);
   }
+  return unapplied;
+}
 
-  const moves: Move[] = [];
-  // a monthly series takes three payments to be one (`fitCadence`): under three nothing is guessed
-  const regular = detectRecurring(others, ctx.today).filter((s) => s.cadence === "monthly");
-  for (const c of expectedCharges(regular, from, until)) moves.push({ date: c.date, name: accountName(c.merchant), amountCents: c.amountCents, source: "transfer" });
+/** A card whose payments follow a statement: its balance when it is in view, and what was paid to it that the balance may not hold yet. */
+interface BilledCard {
+  id: string;
+  name: string;
+  balance: BalanceInput | undefined;
+  unappliedCents: number;
+}
 
-  const asItGoes = new Set<string>();
-  const settling: Settling[] = [];
-  for (const [cardId, unsorted] of bills) {
-    if (unsorted.length < MIN_PAYMENTS) continue;
-    const paid = [...unsorted].sort((a, b) => a.out.day - b.out.day);
-    if (!hasStatement(ctx, paid)) {
-      asItGoes.add(cardId);
-      continue;
-    }
-    const last = paid.at(-1)!;
-    const lastCents = -last.out.amountCents;
-    const day = Math.round(median(paid.slice(-MIN_PAYMENTS).map((b) => Number(b.out.bookingDate.slice(8, 10)))));
-    // the card's own bills, not a month's spending: the middle bill is the usual one, a dear month does not move it
-    const usual = Math.round(median(paid.slice(-USUAL_MONTHS).map((b) => -b.out.amountCents)));
-    const card = balances.find((b) => b.id === cardId);
-    const debt = card ? creditAccountLoan(card, ctx.today) : null;
-    const used = debt ? creditUse(debt, ctx.today).usedCents : null;
-    // never more than the card owes: a payment its balance may not hold yet is taken off
-    const owed = used === null ? null : Math.max(0, used - (unapplied.get(cardId) ?? 0));
-    // what the card held at the end of the day the bill before the last reached it: under zero is owed
-    const heldThen = card ? (balanceWalk(ctx, card)?.at(paid.at(-2)!.cardDay) ?? null) : null;
-    const paidWhole = heldThen !== null && -heldThen <= lastCents;
-    let first = true;
-    for (let month = monthOf(last.out.bookingDate); ; month = addMonths(month, 1)) {
-      const date = dateIn(month, day);
-      const sinceLast = daysBetween(last.out.bookingDate, date);
-      if (date > until || sinceLast > STALE_DAYS) break;
-      if (sinceLast < MIN_BILL_GAP_DAYS || daysBetween(date, from) > LATE_DAYS) continue;
-      const basis = first && owed !== null && paidWhole && date >= from ? "balance" : "usual";
-      if (basis === "balance") settling.push({ cardId, date: date < from ? from : date });
-      first = false;
-      const amountCents = basis === "balance" ? owed! : owed === null ? usual : Math.min(usual, owed);
-      if (amountCents > 0) moves.push({ date: date < from ? from : date, name: cardName(accountOf.get(cardId)!.name), amountCents, source: "card", basis });
-    }
+/** Adds the bills of one card expected from `from` to `until`, its payments in the order of their days, to `into`. */
+function cardBills(ctx: AnalysisContext, card: BilledCard, paid: readonly PaidBill[], from: IsoDate, until: IsoDate, into: Pick<Moves, "moves" | "settling">): void {
+  const last = paid.at(-1)!;
+  const lastCents = -last.out.amountCents;
+  const day = Math.round(median(paid.slice(-MIN_PAYMENTS).map((b) => Number(b.out.bookingDate.slice(8, 10)))));
+  // the card's own bills, not a month's spending: the middle bill is the usual one, a dear month does not move it
+  const usual = Math.round(median(paid.slice(-USUAL_MONTHS).map((b) => -b.out.amountCents)));
+  const debt = card.balance ? creditAccountLoan(card.balance, ctx.today) : null;
+  const used = debt ? creditUse(debt, ctx.today).usedCents : null;
+  // never more than the card owes: a payment its balance may not hold yet is taken off
+  const owed = used === null ? null : Math.max(0, used - card.unappliedCents);
+  // what the card held at the end of the day the bill before the last reached it: under zero is owed
+  const heldThen = card.balance ? (balanceWalk(ctx, card.balance)?.at(paid.at(-2)!.cardDay) ?? null) : null;
+  const paidWhole = heldThen !== null && -heldThen <= lastCents;
+  let first = true;
+  for (let month = monthOf(last.out.bookingDate); ; month = addMonths(month, 1)) {
+    const date = dateIn(month, day);
+    const sinceLast = daysBetween(last.out.bookingDate, date);
+    if (date > until || sinceLast > STALE_DAYS) break;
+    if (sinceLast < MIN_BILL_GAP_DAYS || daysBetween(date, from) > LATE_DAYS) continue;
+    const basis = first && owed !== null && paidWhole && date >= from ? "balance" : "usual";
+    if (basis === "balance") into.settling.push({ cardId: card.id, date: date < from ? from : date });
+    first = false;
+    const amountCents = basis === "balance" ? owed! : owed === null ? usual : Math.min(usual, owed);
+    if (amountCents > 0) into.moves.push({ date: date < from ? from : date, name: card.name, amountCents, source: "card", basis });
   }
-  return { moves, asItGoes, settling };
 }

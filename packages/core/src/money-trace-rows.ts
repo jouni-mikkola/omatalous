@@ -153,7 +153,6 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
   const ibanOf = new Map(who.accounts.map((a) => [a.id, normalizeIban(a.iban)]));
   const self = ibanOf.get(joined.accountId) ?? null;
   const others = who.others.filter((t) => t.status !== "pending" && t.accountId !== joined.accountId && (self === null || ibanOf.get(t.accountId) !== self));
-  const otherById = new Map(others.map((t) => [t.id, t]));
   const ownIbans = new Set([...ibanOf.values()].filter((x): x is string => !!x));
   // only booked rows are paired, matched and counted for the first payment; a pending row is read by IBAN and name alone
   const readable = joined.rows.filter((r) => !r.unmatched);
@@ -161,7 +160,49 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
 
   // movements between own accounts: the leg on another account of every row that has one
   const mine = booked.map((r) => ({ ...r.tx, id: UNSEEN + r.key, accountId: joined.accountId }));
-  const { pairs } = pairTransfers([...mine, ...others], who.accounts);
+  const book: Book = { who, ibanOf, self, ownIbans };
+  const read = readRows(book, readable, ownLegs(mine, others, who.accounts), poolLegFinder(book, others));
+  const paid = paidByPayee(booked);
+
+  // a refund returns the purchase it is paired with; the rows read above are not offered again
+  const returns = matchReturns(
+    mine,
+    ownIbans,
+    new Set(booked.filter((r) => read.classified.has(r.key)).map((r) => UNSEEN + r.key)),
+  );
+  return joined.rows.map((r) => rowOf(r, read, paid, returns));
+}
+
+/** The payers and the IBANs the rows of one pool are read against. */
+interface Book {
+  who: Payers;
+  /** Account to its IBAN (normalised). */
+  ibanOf: ReadonlyMap<string, string | null>;
+  /** The IBAN of the pool that is read. */
+  self: string | null;
+  /** Every IBAN of the household. */
+  ownIbans: ReadonlySet<string>;
+}
+
+type Source = TraceRow["from"];
+
+/** What the payers say of the rows, by key: of money in where it came from, of money out where it went and the card it paid. */
+interface Read {
+  classified: Map<string, { from?: Source; group?: Owner }>;
+  outs: Map<string, TraceRow["to"]>;
+  cardKeys: Map<string, string>;
+}
+
+/** Per payee, the first day the pool paid it and every row that paid it. */
+interface Paid {
+  firstPaid: Map<string, number>;
+  paidTo: Map<string, { key: string; day: number }[]>;
+}
+
+/** The leg on another account of every row of the pool that has one, by the row's key. */
+function ownLegs(mine: readonly Transaction[], others: readonly Transaction[], accounts: readonly Account[]): Map<string, Transaction> {
+  const otherById = new Map(others.map((t) => [t.id, t]));
+  const { pairs } = pairTransfers([...mine, ...others], accounts);
   const legOf = new Map<string, Transaction>();
   for (const [outId, inId] of pairs) {
     if (outId.startsWith(UNSEEN)) {
@@ -172,16 +213,26 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
       if (leg) legOf.set(inId.slice(1), leg);
     }
   }
-  const cardOf = (leg: Transaction | undefined) => (leg ? who.cards?.byAccount.get(leg.accountId) : undefined);
-  const aloneOf = (tx: Transaction, leg: Transaction | undefined): Owner | undefined => {
-    const byIban = who.alone.get(normalizeIban(tx.counterpartyIban) ?? "");
-    if (byIban !== undefined || !leg) return byIban;
-    const byLeg = who.alone.get(ibanOf.get(leg.accountId) ?? "");
-    const card = cardOf(leg);
-    const holder = card && who.cards ? cardHolderOf(card, dayNumber(tx.bookingDate), who.cards.members, who.cards.agreements) : undefined;
-    return byLeg ?? (holder?.kind === "one" ? holder.owner : undefined);
-  };
+  return legOf;
+}
 
+const cardOf = ({ who }: Book, leg: Transaction | undefined) => (leg ? who.cards?.byAccount.get(leg.accountId) : undefined);
+
+/** The one person whose account the row names by IBAN, or whose account or card its other leg is on. */
+function aloneOf(book: Book, tx: Transaction, leg: Transaction | undefined): Owner | undefined {
+  const { who, ibanOf } = book;
+  const byIban = who.alone.get(normalizeIban(tx.counterpartyIban) ?? "");
+  if (byIban !== undefined || !leg) return byIban;
+  const byLeg = who.alone.get(ibanOf.get(leg.accountId) ?? "");
+  const card = cardOf(book, leg);
+  const holder = card && who.cards ? cardHolderOf(card, dayNumber(tx.bookingDate), who.cards.members, who.cards.agreements) : undefined;
+  return byLeg ?? (holder?.kind === "one" ? holder.owner : undefined);
+}
+
+type PoolLeg = (tx: Transaction, dir: 1 | -1) => Transaction | undefined;
+
+/** Finds the leg of a row on another pool, each leg once: `dir` 1 looks from money out to the money in, -1 back from money in. */
+function poolLegFinder({ who, ibanOf, self }: Book, others: readonly Transaction[]): PoolLeg {
   // the legs on another pool: the same cents, the money out on the same day or up to TRACE_PAIR_DAYS before the money in, and
   // evidence that the two rows are one movement: one names the other's pool by IBAN, or neither has an IBAN and both may be a transfer
   const onPool = (t: Transaction): boolean => {
@@ -215,7 +266,11 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     }
     return undefined;
   };
+  return poolLeg;
+}
 
+/** The money the pool paid out, by payee. */
+function paidByPayee(booked: readonly JoinedRow[]): Paid {
   // the first money out of every payee: money back is a payee the pool has paid before
   const firstPaid = new Map<string, number>();
   const paidTo = new Map<string, { key: string; day: number }[]>();
@@ -229,28 +284,44 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
     else paidTo.set(name, [{ key: r.key, day }]);
   }
 
-  type Source = TraceRow["from"];
+  return { firstPaid, paidTo };
+}
+
+/** Money in from another pool: the parts its leg took there when that pool is traced, under the pool's IBAN. */
+function fromPool({ who, ibanOf }: Book, pooled: Transaction | undefined, other: string | undefined): { from?: Source; group: Owner } {
+  const iban = (pooled ? ibanOf.get(pooled.accountId) : null) ?? other ?? "";
+  const parts = pooled ? who.legParts?.(pooled) : undefined;
+  const from = parts ? { parts: parts.filter((p) => p.cents > 0).map((p): SourcePart => ({ owner: isUserOwner(p.owner) || p.owner.startsWith("g:") ? p.owner : `g:iban:${iban}`, kind: "pool", cents: p.cents })) } : undefined;
+  return { ...(from ? { from } : {}), group: `g:iban:${iban}` };
+}
+
+/** Where money in came from, in the order `readRows` names; `pooled` looks for its leg on another pool. */
+function cameFrom(book: Book, hint: { owner: Owner | undefined; poolIban: string | undefined; named: Owner | undefined }, pooled: () => Transaction | undefined): { from?: Source; group?: Owner } | undefined {
+  if (hint.owner !== undefined) return { from: { owner: hint.owner, kind: "own" } };
+  if (hint.poolIban !== undefined) return fromPool(book, pooled(), hint.poolIban);
+  if (hint.named !== undefined) return { from: { owner: hint.named, kind: "payment" } };
+  const leg = pooled();
+  return leg ? fromPool(book, leg, undefined) : undefined;
+}
+
+/** Reads every row that has a match from the payers. */
+function readRows(book: Book, readable: readonly JoinedRow[], legOf: ReadonlyMap<string, Transaction>, poolLeg: PoolLeg): Read {
+  const { who, self, ownIbans } = book;
   const classified = new Map<string, { from?: Source; group?: Owner }>();
   const outs = new Map<string, TraceRow["to"]>();
   const cardKeys = new Map<string, string>();
   // the order: an account one person uses alone, an IBAN that is another pool's (whatever name the row carries), a
   // user's name (read only where the IBAN is no account of the household), and last the other leg on another pool
-  const fromPool = (pooled: Transaction | undefined, other: string | undefined): { from?: Source; group: Owner } => {
-    const iban = (pooled ? ibanOf.get(pooled.accountId) : null) ?? other ?? "";
-    const parts = pooled ? who.legParts?.(pooled) : undefined;
-    const from = parts ? { parts: parts.filter((p) => p.cents > 0).map((p): SourcePart => ({ owner: isUserOwner(p.owner) || p.owner.startsWith("g:") ? p.owner : `g:iban:${iban}`, kind: "pool", cents: p.cents })) } : undefined;
-    return { ...(from ? { from } : {}), group: `g:iban:${iban}` };
-  };
   for (const r of readable) {
     const tx = r.tx;
     const isBooked = tx.status !== "pending";
     const leg = isBooked ? legOf.get(r.key) : undefined;
     const rowIban = normalizeIban(tx.counterpartyIban);
-    const owner = aloneOf(tx, leg);
+    const owner = aloneOf(book, tx, leg);
     const poolIban = rowIban && rowIban !== self && who.pools.has(rowIban) ? rowIban : undefined;
     const named = rowIban && ownIbans.has(rowIban) ? undefined : userNamed(tx.counterparty, who.names);
     if (tx.amountCents < 0) {
-      const card = cardOf(leg);
+      const card = cardOf(book, leg);
       if (card) cardKeys.set(r.key, card.key);
       if (owner !== undefined) outs.set(r.key, { owner });
       else if (poolIban !== undefined) outs.set(r.key, "pool");
@@ -259,52 +330,46 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
       continue;
     }
     if (tx.amountCents === 0) continue;
-    if (owner !== undefined) classified.set(r.key, { from: { owner, kind: "own" } });
-    else if (poolIban !== undefined) classified.set(r.key, fromPool(isBooked ? poolLeg(tx, -1) : undefined, poolIban));
-    else if (named !== undefined) classified.set(r.key, { from: { owner: named, kind: "payment" } });
-    else {
-      const pooled = isBooked ? poolLeg(tx, -1) : undefined;
-      if (pooled) classified.set(r.key, fromPool(pooled, undefined));
-    }
+    const seen = cameFrom(book, { owner, poolIban, named }, () => (isBooked ? poolLeg(tx, -1) : undefined));
+    if (seen) classified.set(r.key, seen);
   }
+  return { classified, outs, cardKeys };
+}
 
-  // a refund returns the purchase it is paired with; the rows read above are not offered again
-  const returns = matchReturns(
-    mine,
-    ownIbans,
-    new Set(booked.filter((r) => classified.has(r.key)).map((r) => UNSEEN + r.key)),
-  );
+/** The row as the trace takes it, from what was read of it. */
+function rowOf(r: JoinedRow, { classified, outs, cardKeys }: Read, paid: Paid, returns: ReadonlyMap<string, string>): TraceRow {
+  const tx = r.tx;
+  const day = dayNumber(tx.bookingDate);
+  const base = { key: r.key, ids: r.ids, day, cents: tx.amountCents, ...(tx.status === "pending" ? { pending: true as const } : {}) };
+  if (r.unmatched) return { ...base, unmatched: true };
+  if (tx.amountCents < 0) {
+    const to = outs.get(r.key);
+    const cardKey = cardKeys.get(r.key);
+    return { ...base, ...(to ? { to } : {}), ...(cardKey !== undefined ? { cardKey } : {}) };
+  }
+  const seen = classified.get(r.key);
+  const group = seen?.group ?? groupOf(tx);
+  if (seen?.from) return { ...base, from: seen.from, group };
+  if (seen) return { ...base, group };
+  const purchase = returns.get(UNSEEN + r.key);
+  if (purchase !== undefined) return { ...base, from: { refundOf: purchase.slice(1) }, group };
+  const name = fold((tx.counterparty ?? "").trim());
+  if (name && tx.status !== "pending" && (paid.firstPaid.get(name) ?? Infinity) <= day) return { ...base, from: backOf(paid.paidTo.get(name) ?? [], day, outs), group };
+  return { ...base, group };
+}
 
-  return joined.rows.map((r): TraceRow => {
-    const tx = r.tx;
-    const day = dayNumber(tx.bookingDate);
-    const base = { key: r.key, ids: r.ids, day, cents: tx.amountCents, ...(tx.status === "pending" ? { pending: true as const } : {}) };
-    if (r.unmatched) return { ...base, unmatched: true };
-    if (tx.amountCents < 0) {
-      const to = outs.get(r.key);
-      const cardKey = cardKeys.get(r.key);
-      return { ...base, ...(to ? { to } : {}), ...(cardKey !== undefined ? { cardKey } : {}) };
-    }
-    const seen = classified.get(r.key);
-    const group = seen?.group ?? groupOf(tx);
-    if (seen?.from) return { ...base, from: seen.from, group };
-    if (seen) return { ...base, group };
-    const purchase = returns.get(UNSEEN + r.key);
-    if (purchase !== undefined) return { ...base, from: { refundOf: purchase.slice(1) }, group };
-    const name = fold((tx.counterparty ?? "").trim());
-    if (name && tx.status !== "pending" && (firstPaid.get(name) ?? Infinity) <= day) {
-      // a payee the pool paid only in rows for one and the same person gives back what the latest of them took; rows for
-      // different persons cannot say whose the money is, and it stays back by the mix
-      const before = (paidTo.get(name) ?? []).filter((p) => p.day <= day);
-      const latest = before.reduce<{ key: string; day: number } | undefined>((a, p) => (!a || p.day > a.day || (p.day === a.day && cmp(p.key, a.key) > 0) ? p : a), undefined);
-      const forOne = (p: { key: string }) => {
-        const to = outs.get(p.key);
-        const first = outs.get(before[0]!.key);
-        return typeof to === "object" && typeof first === "object" && to.owner === first.owner;
-      };
-      if (latest && before.every(forOne)) return { ...base, from: { refundOf: latest.key }, group };
-      return { ...base, from: "back", group };
-    }
-    return { ...base, group };
-  });
+/**
+ * Money back from a payee the pool has paid: a payee the pool paid only in rows for one and the same person gives back
+ * what the latest of them took; rows for different persons cannot say whose the money is, and it stays back by the mix.
+ */
+function backOf(paidTo: readonly { key: string; day: number }[], day: number, outs: Read["outs"]): Source {
+  const before = paidTo.filter((p) => p.day <= day);
+  const latest = before.reduce<{ key: string; day: number } | undefined>((a, p) => (!a || p.day > a.day || (p.day === a.day && cmp(p.key, a.key) > 0) ? p : a), undefined);
+  const forOne = (p: { key: string }) => {
+    const to = outs.get(p.key);
+    const first = outs.get(before[0]!.key);
+    return typeof to === "object" && typeof first === "object" && to.owner === first.owner;
+  };
+  if (latest && before.every(forOne)) return { refundOf: latest.key };
+  return "back";
 }
