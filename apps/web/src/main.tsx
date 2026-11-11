@@ -15,6 +15,7 @@ import { queryClient } from "./query-client.ts";
 // last layer (utilities): a mark rule has to win over the page rule it sits beside
 import "./styles/marks.css";
 import "./styles/motion.css";
+import "./styles/forced-colors.css";
 
 // the device's language is known before the first paint; English is awaited so that no text shows in Finnish first
 void ensureEnglish(language())

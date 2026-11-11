@@ -1,0 +1,17 @@
+/* High contrast (Windows' contrast themes, forced-colors: active): the browser paints every background and text in the
+   theme's colours and drops each box-shadow, and the pressed key of a .segmented and the chosen tab of .tabs were told
+   by those two alone. Here the choice is drawn with what stays: a border or an outline in a system colour.
+   - the pressed key is filled with Highlight and ringed with it; the ring is inside the key, so no key moves
+   - the chosen tab has a Highlight line under it; the others have the same line in Canvas, so no word moves
+   - the focus is a CanvasText ring, outside a key and inside a tab (the row of tabs clips what is outside it) */
+
+@layer utilities {
+@media (forced-colors: active) {
+  .segmented button[aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; outline: 2px solid Highlight; outline-offset: -2px; }
+  .segmented button:focus-visible { outline: 2px solid CanvasText; outline-offset: 2px; }
+
+  .tabs button, .tabs a { border-bottom: 2px solid Canvas; }
+  .tabs button[aria-selected="true"], .tabs a[aria-current="page"] { border-bottom-color: Highlight; }
+  .tabs button:focus-visible, .tabs a:focus-visible { outline: 2px solid CanvasText; outline-offset: -2px; }
+}
+}
