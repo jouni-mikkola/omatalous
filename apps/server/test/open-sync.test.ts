@@ -395,6 +395,36 @@ describe("inside what the bank allows", () => {
     errors.mockRestore();
   });
 
+  it("lets one member's database fault spare the others in the scheduled fetch", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { s, adminId, age, balanceCalls } = await setup();
+    await age(adminId);
+    vi.spyOn(s.users, "usersWithActiveConnections").mockResolvedValue(["u-broken", adminId]);
+    const tryLock = s.settings.tryLock.bind(s.settings);
+    vi.spyOn(s.settings, "tryLock").mockImplementation((key, ttl) => (key === "sync_lock:u-broken" ? Promise.reject(new Error("database is locked")) : tryLock(key, ttl)));
+    const before = balanceCalls();
+    const results = await syncEveryone(s, "schedule");
+    expect(results["u-broken"]?.status).toBe("failed");
+    expect(results[adminId]?.status).toBe("ok");
+    expect(balanceCalls()).toBe(before + 2);
+    vi.restoreAllMocks();
+    errors.mockRestore();
+  });
+
+  it("does not count a fetch where every account failed as done", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { s, adminId, bank, age } = await setup();
+    await age(adminId);
+    await s.db.run("UPDATE connections SET last_synced_at = NULL WHERE user_id = ?", [adminId]);
+    for (const uid of ["u-chk", "u-card"]) bank.answers[`GET /accounts/${uid}/balances`] = { status: 500, body: { error: "boom" } };
+    const result = await syncEveryone(s, "schedule");
+    expect(result[adminId]?.status).toBe("failed");
+    const conns = await s.finance(adminId).listConnections();
+    expect(conns.length).toBeGreaterThan(0);
+    expect(conns.every((c) => c.lastSyncedAt === null)).toBe(true);
+    errors.mockRestore();
+  });
+
   it("counts a bare HTTP 429 as the rate limit, and other errors not", () => {
     expect(new EnableBankingError(429, "{}", "/x").rateLimited).toBe(true);
     expect(new EnableBankingError(500, '{"error":"ASPSP_RATE_LIMIT_EXCEEDED"}', "/x").rateLimited).toBe(true);

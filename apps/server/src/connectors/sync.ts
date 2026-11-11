@@ -115,7 +115,13 @@ async function fetchForUser(s: Services, userId: string, trigger: string, userHe
     return { status: "skipped", fetched: 0, inserted: 0, messages: ["Haku on jo käynnissä."] };
   }
   const repo = s.finance(userId);
-  const runId = await repo.startSyncRun(trigger);
+  let runId: Awaited<ReturnType<typeof repo.startSyncRun>>;
+  try {
+    runId = await repo.startSyncRun(trigger);
+  } catch (err) {
+    await s.settings.delete(lockKey);
+    throw err;
+  }
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
   const tally: Tally = { runId, failures: 0, attempts: 0, rowsChanged: 0, balanceChanged: false, accountsChanged: false, problems: {}, problemsChanged: false, refused: {}, refusedChanged: false, rateLimited: false };
 
@@ -239,6 +245,8 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
     // A background fetch never does, since a bank limits the calls a day; a consent it pulled first has had its chance.
     const fresh = trigger === "connect" && conn.lastSyncedAt === null;
     let skipped = 0;
+    const attemptsBefore = tally.attempts;
+    const failuresBefore = tally.failures;
     const own = accounts.filter((a) => a.connectionId === conn.id && a.externalId);
     for (const account of own) {
       if (atLimit.has(accountKey(account))) {
@@ -253,7 +261,9 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
       }
     }
     // a consent whose accounts were all left out has not been fetched: its first fetch is still to come
-    if (skipped < own.length || !own.length) await repo.markConnectionSynced(conn.id, s.now().toISOString());
+    // and so has one where every account that was tried failed
+    const allFailed = tally.attempts > attemptsBefore && tally.failures - failuresBefore >= tally.attempts - attemptsBefore;
+    if ((skipped < own.length || !own.length) && !allFailed) await repo.markConnectionSynced(conn.id, s.now().toISOString());
   }
 }
 
@@ -492,6 +502,14 @@ async function readDetails(repo: FinanceRepo, puller: Puller, account: StoredAcc
 export async function syncEveryone(s: Services, trigger: string): Promise<Record<string, SyncSummary>> {
   await s.instance.load();
   const results: Record<string, SyncSummary> = {};
-  for (const userId of await s.users.usersWithActiveConnections()) results[userId] = await syncUser(s, userId, trigger);
+  for (const userId of await s.users.usersWithActiveConnections()) {
+    // one member's fault (a database error before the fetch even starts) does not stop the others
+    try {
+      results[userId] = await syncUser(s, userId, trigger);
+    } catch (err) {
+      console.error(`sync ${userId}:`, err);
+      results[userId] = { status: "failed", fetched: 0, inserted: 0, messages: ["Haku epäonnistui. Pyydä ylläpitäjää katsomaan palvelimen lokia."] };
+    }
+  }
   return results;
 }
