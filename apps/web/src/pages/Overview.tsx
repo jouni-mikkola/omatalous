@@ -6,6 +6,7 @@ import { FirstRun } from "./FirstRun.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { ServerNotices } from "../components/Notices.tsx";
 import { Button } from "../components/ui/Button.tsx";
+import { Notice } from "../components/ui/Notice.tsx";
 import { useApi } from "../hooks.ts";
 import { periodRange } from "../period.ts";
 import type { DashboardData, Meta, Scope } from "../types.ts";
@@ -60,6 +61,12 @@ export function Overview({
   return (
     <div className={`page-grid front${now.loading ? " loading" : ""}`}>
       <ServerNotices />
+      {now.error && (
+        <Notice tone="error">
+          {now.error}{" "}
+          <Button onClick={now.reload}>{t("load.retry")}</Button>
+        </Notice>
+      )}
       <FirstFetch meta={meta} onReload={onReload} />
       {nyt ? (
         <Nyt data={{ ...data, nyt }} />

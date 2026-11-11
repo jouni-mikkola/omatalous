@@ -2,7 +2,7 @@
  * A reload that fails leaves the answer before it on the page (design section 4, error): the view still reads the
  * first answer, and one line says what failed, from when the shown answer is and how to ask again.
  */
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { openApp, startServer } from "./dom-kit.ts";
 import { dateTime } from "../src/format.ts";
@@ -66,7 +66,8 @@ describe("a view whose second load fails", () => {
 
     // what to do: the button asks again, and a load that succeeds takes the line away
     down = false;
-    fireEvent.click(screen.getByRole("button", { name: "Yritä uudelleen" }));
+    // Overview's own notice has a retry button too (overview-reload.dom.test.ts): this one is the shell's line
+    fireEvent.click(within(document.querySelector<HTMLElement>(".stale-answer")!).getByRole("button", { name: "Yritä uudelleen" }));
     await waitFor(() => expect(document.querySelector(".stale-answer")).toBeNull(), T);
     expect(document.querySelector(".home-answer")?.textContent).toBe(first);
   }, 60000);
