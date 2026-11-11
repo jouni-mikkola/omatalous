@@ -306,6 +306,13 @@ Result: On a phone the period switch, the app switch and the links of the page's
 - after: none
 - files: apps/web/src/styles/base.css, apps/web/test/base-css.test.ts
 
+### N38 Bank pages already read are kept
+Result: When the bank fails on a later page of a long history, the rows already read are stored and the next fetch goes on from there.
+- why: apps/server/src/connectors/enable-banking/client.ts:228-248: a failed page of a transactions answer throws away the pages already read, so a long history fetch starts over and may never finish (N35 #221 notes)
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees.
+- locks: none
+- after: none
+
 ### V2 The row arrow is 44 px
 Result: In Tulossa and the rows list the arrow that opens a row is 44 px on a phone.
 - why: seen on 11 Nov with the demo household: `.rt-drill` is 32 by 32 px at 390 px with touch on every row of Tulossa and Tapahtumat (`apps/web/src/styles/table.css:80`, margins at `:80` and `:131`). The design (section 3) wants 44 px for a touch target.
