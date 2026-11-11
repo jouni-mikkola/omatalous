@@ -227,7 +227,7 @@ or when you want a copy to test with.
 
 | | People see |
 |---|---|
-| A member in your Omatalous (*Asetukset > Talouden jäsenet*) | their own accounts, and the accounts others share with them |
+| A member in your Omatalous (*Asetukset > Jäsenet > Talouden jäsenet*) | their own accounts, and the accounts others share with them |
 | A second copy | only their own copy, with its own users, data, backups and updates |
 
 Make the copy with a name of small letters, digits, `-` and `_`:
@@ -317,7 +317,7 @@ With several copies, run `--schedule` in each copy's folder and give each its ow
 
 ### Backup to another machine
 
-Asetukset > Palvelin > *Varmuuskopio toiselle koneelle* sends an encrypted copy of the database and the app secret to
+Asetukset > Palvelin ja ylläpito > *Varmuuskopio toiselle koneelle* sends an encrypted copy of the database and the app secret to
 another machine every day. The first page and the end of `install.sh` suggest it. Nothing is sent until you enter a
 machine, and the copy is encrypted on the host with age before it leaves.
 
@@ -866,4 +866,4 @@ An admin reads them with `GET /api/admin/limits` and changes them with `PUT /api
 object of keys (`loginUser`, `requestKb`, ...) and `null` to give a value back to the layers below. A change holds from
 the next request with no restart, and each change is a security event (`limits_changed`) with the old and new value. A window already running keeps the end it had; the new length applies to the next one.
 The `.env` keys reach the app only if `docker-compose.yml` passes them on, so in Docker use the admin API.
-The history depth is kept in the instance settings of *Asetukset > Palvelin* and follows the same minimum and maximum.
+The history depth is kept in the instance settings of *Asetukset > Palvelin ja ylläpito > Palvelin* and follows the same minimum and maximum.
