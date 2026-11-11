@@ -193,9 +193,6 @@ export const isEarnedIncome = (t: Pick<AnalysisTx, "flows"> & IncomeRow, role: P
 /** The payer a series is grouped by: the cleaned merchant name, folded. */
 export const payerKey = (t: Pick<AnalysisTx, "merchant">) => fold(t.merchant);
 
-/** A row with a holiday word this close to the usual pay is the regular pay with its text. */
-const NEAR_USUAL = 0.15;
-
 /**
  * The pay period of a payment. A payer that pays near a month boundary (the last banking day, the 1st moved to the
  * Friday before) is shifted by ten days, so a payment on 30.9. and one on 1.11. belong to October and November.
@@ -259,9 +256,7 @@ function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): v
   for (const list of byPeriod.values()) {
     if (list.length === 1) {
       const t = list[0]!;
-      const type = out.get(t.id)!;
-      // "PALKKA JA LOMAPALKKA" as the only payment of the month, near the usual: the regular pay
-      if (type !== "salary" && Math.abs(t.amountCents - usual) <= usual * NEAR_USUAL) out.set(t.id, "salary");
+      // a lone payment with a holiday or bonus text keeps its type: `settleLonePay` splits it at the level before it
       if (out.get(t.id) === "salary") mains.push(t);
       continue;
     }

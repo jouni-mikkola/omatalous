@@ -156,17 +156,21 @@ function settleLonePay(
   periodMonth: Map<string, string>,
 ): { regularPart: Map<string, number>; retyped: boolean } {
   const regularPart = new Map<string, number>();
-  const known = new Map(series.filter((s) => s.type === "salary" && s.periods.length >= 3).map((s) => [s.key, s]));
+  const known = new Map(series.filter((s) => s.type === "salary" && s.periods.length >= 1).map((s) => [s.key, s]));
   let retyped = false;
   for (const [key, payerRows] of payersOf(rows)) {
     const s = known.get(`salary|${key}`);
     if (!s) continue;
-    for (const [month, list] of byPayPeriod(payerRows)) {
+    const byPeriod = byPayPeriod(payerRows);
+    // a payer of two payments a month is not read this way
+    if (median([...byPeriod.values()].map((l) => l.length)) >= 2) continue;
+    for (const [month, list] of byPeriod) {
       const t = list[0]!;
       const type = types.get(t.id)!;
       if (list.length !== 1 || (type !== "holiday_pay" && type !== "other_pay")) continue;
       const before = s.periods.filter((p) => p.date < t.bookingDate);
-      const level = payLevel(before.length >= 3 ? before : s.periods);
+      if (before.length < 3) continue;
+      const level = payLevel(before);
       periodMonth.set(t.id, month);
       if (t.amountCents <= level) {
         types.set(t.id, "salary");

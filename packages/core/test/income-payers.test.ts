@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { payDate } from "../src/analysis/income.ts";
 import { incomeInsights } from "../src/analysis/income-changes.ts";
+import { incomeBase, payPieces } from "../src/analysis/income-series.ts";
 import { addMonths } from "../src/dates.ts";
 import { incomeReport } from "../src/reports/income.ts";
 import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
@@ -80,6 +81,47 @@ describe("a regular payer's only payment of a pay period", () => {
     expect(report.earnedCents).toBe(12 * LEVEL);
     expect(report.changes).toEqual([]);
     for (const m of report.months) expect(m.byGroup, m.month).toMatchObject({ salary: LEVEL, extra_pay: 0 });
+  });
+});
+
+describe("extra pay is only the excess over the level before it", () => {
+  const TODAY = "2026-10-20";
+  const build = (index: number, patch: Partial<Transaction>, n = 14) => {
+    const rows = pay("ESIMERKKI OY", "2025-09", n, LEVEL).map((t, i) => (i === index ? { ...t, ...patch } : t));
+    return { rows: [...rows, ...spend("2025-09-01", TODAY)], target: rows[index]! };
+  };
+  const piecesOf = (rows: Transaction[], id: string) => {
+    const b = incomeBase(createContext(rows, ACCOUNTS, TODAY), TODAY);
+    return payPieces(b, b.rows.find((t) => t.id === id)!);
+  };
+
+  it("splits a holiday payment 13 % above the level into the level and the rest", () => {
+    const { rows, target } = build(9, { description: "PALKKA JA LOMARAHA", amountCents: 340_000 });
+    expect(piecesOf(rows, target.id)).toEqual([{ type: "salary", cents: LEVEL }, { type: "holiday_pay", cents: 40_000 }]);
+  });
+
+  it("keeps a holiday payment at the level whole as salary", () => {
+    const { rows, target } = build(9, { description: "PALKKA JA LOMARAHA" });
+    expect(piecesOf(rows, target.id)).toEqual([{ type: "salary", cents: LEVEL }]);
+  });
+
+  it("gives no level and no split with under three pay periods before the payment", () => {
+    const { rows, target } = build(2, { description: "LOMARAHA", amountCents: 450_000 });
+    const pieces = piecesOf(rows, target.id);
+    expect(pieces).toHaveLength(1);
+    expect(pieces[0]!.cents).toBe(450_000);
+  });
+
+  it("reads the level from the periods before the payment only", () => {
+    const rows = pay("ESIMERKKI OY", "2025-09", 14, (i) => (i < 8 ? LEVEL : 500_000)).map((t, i) => (i === 7 ? { ...t, description: "LOMARAHA", amountCents: 340_000 } : t));
+    expect(piecesOf([...rows, ...spend("2025-09-01", TODAY)], rows[7]!.id)).toEqual([{ type: "salary", cents: LEVEL }, { type: "holiday_pay", cents: 40_000 }]);
+  });
+
+  it("does not read a payer of two payments a month this way", () => {
+    const rows = [...pay("ESIMERKKI OY", "2025-09", 14, 150_000, 1), ...pay("ESIMERKKI OY", "2025-09", 14, 150_000, 15)];
+    const target = { ...rows[20]!, description: "LOMARAHA", amountCents: 400_000 };
+    rows[20] = target;
+    expect(piecesOf([...rows, ...spend("2025-09-01", TODAY)], target.id)).toHaveLength(1);
   });
 });
 
