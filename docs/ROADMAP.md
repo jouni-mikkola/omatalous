@@ -119,6 +119,13 @@ Result: Drop the quotes around WORKFLOW.md's check line and avoid ': ' inside it
 - locks: none
 - after: none
 
+### N5 Main's checks pass again
+Result: The three failures on main are fixed at their cause, main's CI is green and the waiting pull requests can land.
+- why: main CI red since 7f79369 (T63): spend-readers.test.ts misses a reader; T81 broke tools/test/check.test.sh 'GIVE more at once'; T67 tokens test and tools tests leave temp folders (budget-, report-, rerun-, tokens-test-). Every open PR inherits these fails (#30 #49 #50), nothing can land
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees.
+- locks: none
+- after: none
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
