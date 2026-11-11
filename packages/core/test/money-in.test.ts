@@ -213,6 +213,21 @@ describe("a refund", () => {
       const ctx = contextOf([...rents, back]);
       expect(answer(ctx, back)).toEqual([[rents[13]!.id, 95_000], [rents[12]!.id, 55_000]]);
     });
+
+    it("two closing refunds that together pass the contract's cost: the first nets it, the second is income", () => {
+      const pays = Array.from({ length: 6 }, (_, m) => paid(addDays("2025-06-05", 30 * m), 100, "Liisinki Oy", "housing"));
+      const day = addDays("2025-06-05", 150 + 2);
+      const r1 = got(day, 450, "Liisinki Oy", "housing", PAIRED);
+      const r2 = got(day, 450, "Liisinki Oy", "housing", PAIRED);
+      const [first, second] = r1.id < r2.id ? [r1, r2] : [r2, r1];
+      for (const rows of [[...pays, r1, r2], [r2, r1, ...[...pays].reverse()]]) {
+        const ctx = contextOf(rows);
+        const taken = [first, second].map((t) => (answer(ctx, t) ?? []).reduce((sum, [, c]) => sum + c, 0));
+        expect(taken).toEqual([45_000, 0]);
+        expect(taken[0]! + taken[1]!).toBeLessThanOrEqual(60_000);
+        expect(answer(ctx, second)).toBeNull();
+      }
+    });
   });
 
   it("is never made of a payee without a name", () => {

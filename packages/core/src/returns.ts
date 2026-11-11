@@ -155,8 +155,8 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
   const matches = new Map<string, string>();
   pairWalletShares(list, incoming, matches);
   pairSameParty(purchases, incoming, matches);
-  pairClosedContracts(contracts, incoming, today, matches);
-  pairByPayee(purchases, contracts, incoming, firstIncome, matches);
+  const overCost = pairClosedContracts(contracts, incoming, today, matches);
+  pairByPayee(purchases, contracts, incoming.filter((i) => !overCost.has(i.t.id)), firstIncome, matches);
   pairBillShares(list, incoming, matches);
   return matches;
 }
@@ -227,14 +227,26 @@ function contractsOf(rows: readonly ReturnInput[], ownIbans: ReadonlySet<string>
   return contracts;
 }
 
-/** The refund that closes a contract takes back what the contract cost, not one payment: it is paired with the last. */
-function pairClosedContracts(contracts: ReadonlyMap<string, ReturnInput[]>, incoming: readonly Incoming[], today: IsoDate, matches: Map<string, string>): void {
-  for (const inc of incoming) {
+/** The refund that closes a contract takes back what the contract cost, not one payment: it is paired with the last. Together the refunds are no more than the cost: the first in date and id order is paired, one that would pass the cost is income. */
+function pairClosedContracts(contracts: ReadonlyMap<string, ReturnInput[]>, incoming: readonly Incoming[], today: IsoDate, matches: Map<string, string>): Set<string> {
+  const over = new Set<string>();
+  const taken = new Map<string, number>();
+  for (const inc of [...incoming].sort((a, b) => orderOf(a.t).localeCompare(orderOf(b.t)))) {
     const group = contracts.get(partyKey(inc.t));
     if (inc.wallet || inc.person || matches.has(inc.t.id) || !group || group.length < 3) continue;
     const closed = closedContract(group, inc.t, today);
-    if (closed) matches.set(inc.t.id, closed[closed.length - 1]!.id);
+    if (!closed) continue;
+    const key = closed[closed.length - 1]!.id;
+    const cost = closed.reduce((sum, t) => sum - t.amountCents, 0);
+    const used = taken.get(key) ?? 0;
+    if (used + inc.t.amountCents > cost) {
+      over.add(inc.t.id);
+      continue;
+    }
+    taken.set(key, used + inc.t.amountCents);
+    matches.set(inc.t.id, key);
   }
+  return over;
 }
 
 /**

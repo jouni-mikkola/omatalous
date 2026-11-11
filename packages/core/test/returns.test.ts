@@ -99,6 +99,38 @@ describe("matchReturns", () => {
     });
   });
 
+  describe("closing refunds stay in the contract's cost", () => {
+    const pay = (m: number) => bought(`c${m}`, addDays("2025-01-05", 30 * m), 100, { merchant: "Liisinki Oy", counterparty: "LIISINKI OY", category: "housing", categorySource: "rule" });
+    const payments = Array.from({ length: 6 }, (_, m) => pay(m));
+    const last = addDays("2025-01-05", 150);
+    const refund = (id: string, euros: number) => back(id, addDays(last, 2), euros, { merchant: "Liisinki Oy", counterparty: "LIISINKI OY" });
+    const match = (rows: Transaction[]) => [...matchReturns(rows, new Set(), new Set(), "2026-09-30")];
+
+    it("pairs the first of two refunds that together pass the cost; the second is income", () => {
+      expect(match([...payments, refund("r1", 450), refund("r2", 450)])).toEqual([["r1", "c5"]]);
+    });
+
+    it("a small second refund that would pass the cost is income too, not paired by the payee's room", () => {
+      expect(match([...payments, refund("r1", 450), { ...refund("r2", 200), description: "HYVITYS" }])).toEqual([["r1", "c5"]]);
+    });
+
+    it("counts each contract of a payee alone: a refund of the later one is not cut by the earlier one's", () => {
+      const run = (from: string, tag: string) => Array.from({ length: 6 }, (_, m) => bought(`${tag}${m}`, addDays(from, 30 * m), 100, { merchant: "Liisinki Oy", counterparty: "LIISINKI OY", category: "housing", categorySource: "rule" }));
+      const ref = (id: string, from: string) => back(id, addDays(from, 152), 450, { merchant: "Liisinki Oy", counterparty: "LIISINKI OY" });
+      const rows = [...run("2024-01-05", "a"), ref("ra", "2024-01-05"), ...run("2025-06-05", "b"), ref("rb", "2025-06-05")];
+      expect(match(rows)).toEqual([["ra", "a5"], ["rb", "b5"]]);
+    });
+
+    it("pairs both when together they fit the cost", () => {
+      expect(match([...payments, refund("r1", 300), refund("r2", 300)])).toEqual([["r1", "c5"], ["r2", "c5"]]);
+    });
+
+    it("does not depend on the order of the input", () => {
+      const rows = [...payments, refund("r1", 450), refund("r2", 450)];
+      expect(match([...rows].reverse())).toEqual(match(rows));
+    });
+  });
+
   it("gives the same answer whatever the order of the input", () => {
     const rows = [bought("a", "2026-09-01", 50), bought("b", "2026-09-01", 50), back("r1", "2026-09-10", 50), back("r2", "2026-09-10", 50)];
     expect([...matchReturns(rows)]).toEqual([...matchReturns([...rows].reverse())]);
