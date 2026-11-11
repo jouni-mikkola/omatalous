@@ -36,7 +36,10 @@ export function parseForeignAmount(text: unknown, indicator: unknown): MinorAmou
   return { minor: negative ? -abs : abs, scale: decimals.length };
 }
 
-/** One currency's rows of an account: how many, and their sum when every row has the same scale (else null). */
+/**
+ * One currency's rows of an account: how many, and their sum at the most decimals any of its rows has (12.10 and 12
+ * give 24.10 at two). The sum is null only when it does not fit a safe integer.
+ */
 export interface ForeignTotal {
   currency: string;
   count: number;
@@ -47,19 +50,27 @@ export interface ForeignTotal {
 
 /** Per currency the count and the signed total. Never added across currencies; currencies in code order. */
 export function foreignTotals(rows: readonly { currency: string; amountMinor: number; scale: number }[]): ForeignTotal[] {
-  const by = new Map<string, { count: number; sum: number; scales: Set<number> }>();
+  const by = new Map<string, { amountMinor: number; scale: number }[]>();
   for (const r of rows) {
-    const t = by.get(r.currency) ?? { count: 0, sum: 0, scales: new Set<number>() };
-    t.count++;
-    t.sum += r.amountMinor;
-    t.scales.add(r.scale);
-    by.set(r.currency, t);
+    const list = by.get(r.currency) ?? [];
+    list.push(r);
+    by.set(r.currency, list);
   }
   return [...by.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([currency, t]) => {
-      const one = t.scales.size === 1;
-      return { currency, count: t.count, totalMinor: one ? t.sum : null, scale: one ? [...t.scales][0]! : null };
+    .map(([currency, list]) => {
+      // Every row is raised to the most decimals of the currency's rows, in whole numbers (no float), then added.
+      // A step that leaves the safe integers (too large, or a row that is not a whole number) gives no total; nothing throws.
+      let scale = 0;
+      for (const r of list) if (r.scale > scale) scale = r.scale;
+      let sum = 0;
+      let fits = true;
+      for (const r of list) {
+        const raised = r.amountMinor * 10 ** (scale - r.scale);
+        sum += raised;
+        if (!Number.isSafeInteger(raised) || !Number.isSafeInteger(sum)) fits = false;
+      }
+      return { currency, count: list.length, totalMinor: fits ? sum : null, scale: fits ? scale : null };
     });
 }
 

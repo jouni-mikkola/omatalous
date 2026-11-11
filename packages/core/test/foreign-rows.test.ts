@@ -58,12 +58,57 @@ describe("foreignTotals", () => {
     ]);
   });
 
-  it("gives no total for a currency whose rows differ in scale, and the count stays", () => {
+  it("adds rows that differ in decimals at the most decimals: 12.10 and 12 give 24.10", () => {
+    const rows = ["12.10", "12"].map((text) => {
+      const a = parseForeignAmount(text, "CRDT")!;
+      return { currency: "USD", amountMinor: a.minor, scale: a.scale };
+    });
+    const totals = foreignTotals(rows);
+    expect(totals).toEqual([{ currency: "USD", count: 2, totalMinor: 2410, scale: 2 }]);
+    expect(formatForeignAmount(totals[0]!.totalMinor!, totals[0]!.scale!, false, "en")).toBe("24.10");
+  });
+
+  it("keeps the total when a sum came as a number and lost its last zero (12.10 as 12.1)", () => {
+    const a = parseForeignAmount(12.1, "DBIT")!;
     const rows = [
-      { currency: "USD", amountMinor: 1000, scale: 2 },
+      { currency: "USD", amountMinor: a.minor, scale: a.scale },
+      { currency: "USD", amountMinor: -500, scale: 2 },
       { currency: "USD", amountMinor: 5, scale: 3 },
     ];
+    expect(foreignTotals(rows)).toEqual([{ currency: "USD", count: 3, totalMinor: -17095, scale: 3 }]);
+  });
+
+  it("never adds one currency's total to another's, also when the decimals differ", () => {
+    const rows = [
+      { currency: "USD", amountMinor: 1210, scale: 2 },
+      { currency: "JPY", amountMinor: 500, scale: 0 },
+      { currency: "USD", amountMinor: 12, scale: 0 },
+      { currency: "JPY", amountMinor: 15, scale: 1 },
+    ];
+    expect(foreignTotals(rows)).toEqual([
+      { currency: "JPY", count: 2, totalMinor: 5015, scale: 1 },
+      { currency: "USD", count: 2, totalMinor: 2410, scale: 2 },
+    ]);
+  });
+
+  it("gives no total, and keeps the count, when the sum does not fit a whole number", () => {
+    const rows = [
+      { currency: "USD", amountMinor: Number.MAX_SAFE_INTEGER, scale: 0 },
+      { currency: "USD", amountMinor: 1, scale: 3 },
+    ];
     expect(foreignTotals(rows)).toEqual([{ currency: "USD", count: 2, totalMinor: null, scale: null }]);
+  });
+
+  it("gives no total, and does not throw, for a row that is not a whole number", () => {
+    for (const bad of [{ amountMinor: 12.5, scale: 2 }, { amountMinor: Number.NaN, scale: 2 }, { amountMinor: 5, scale: 1.5 }, { amountMinor: 5, scale: Number.NaN }]) {
+      const rows = [{ currency: "USD", amountMinor: 1000, scale: 2 }, { currency: "USD", ...bad }];
+      expect(foreignTotals(rows)).toEqual([{ currency: "USD", count: 2, totalMinor: null, scale: null }]);
+    }
+  });
+
+  it("adds a very large number of rows of one currency", () => {
+    const rows = Array.from({ length: 300_000 }, (_, i) => ({ currency: "USD", amountMinor: 1, scale: i % 2 ? 2 : 0 }));
+    expect(foreignTotals(rows)).toEqual([{ currency: "USD", count: 300_000, totalMinor: 15_150_000, scale: 2 }]);
   });
 });
 
