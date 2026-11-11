@@ -25,7 +25,7 @@ import { type Insight, type InsightArgs, q } from "./types.ts";
 const TERM_CATEGORIES = new Set(["kids", "education", "fitness", "entertainment"]);
 
 /** Whether a charge of `cents` pays for months ahead of a usual charge of `usualCents`. The follow-up reads it too. */
-export const paysAhead = (cents: number, usualCents: number) => cents > PREPAID_FACTOR * usualCents;
+const paysAhead = (cents: number, usualCents: number) => cents > PREPAID_FACTOR * usualCents;
 
 /** Contracts that can be paid for a year at once: subscriptions, phone and insurance. */
 const PREPAID_CATEGORIES: ReadonlySet<string> = new Set([...PLAN_CATEGORIES, "insurance"]);
@@ -62,7 +62,7 @@ function accountDays(ctx: AnalysisContext, end: string): { lastBooking: Map<stri
 }
 
 /** The payee that took over a stopped payment, and the day of its first charge in the category. */
-export interface Replacement {
+interface Replacement {
   merchant: string;
   firstDate: string;
 }
@@ -73,7 +73,7 @@ export interface Replacement {
  * no series yet). A single small purchase from a new shop in the category is no switch. Optimoi's follow-up reads the
  * payee from here, so the insight and the follow-up never disagree on a switch.
  */
-export function replacementOf(ctx: AnalysisContext, s: RecurringSeries, end: string): Replacement | null {
+function replacementOf(ctx: AnalysisContext, s: RecurringSeries, end: string): Replacement | null {
   const near = (day: string) => Math.abs(daysBetween(s.lastDate, day)) <= REFINANCE_DAYS;
   const series = ctx.recurring.find((o) => o.category === s.category && o.merchant !== s.merchant && o.firstDate <= end && near(o.firstDate));
   if (series) return { merchant: series.merchant, firstDate: series.firstDate };

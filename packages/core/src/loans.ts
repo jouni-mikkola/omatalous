@@ -25,7 +25,15 @@ import { partCents } from "./account-use.ts";
 import { addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, type Payment, payments, planOf } from "./loan-plan.ts";
-import type { Account, IsoDate, Loan, UserInputs } from "./types.ts";
+import type { Account, IsoDate, Loan, LoanReference, UserInputs } from "./types.ts";
+
+/** The Finnish name of each reference rate: the one list every page reads. */
+export const LOAN_REFERENCE_LABEL: Record<LoanReference, string> = {
+  euribor_12: "12 kuukauden Euribor",
+  euribor_6: "6 kuukauden Euribor",
+  euribor_3: "3 kuukauden Euribor",
+  fixed: "Kiinteä korko",
+};
 import { loanKindOfName } from "./wording-loan-pages.ts";
 
 export { endOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };

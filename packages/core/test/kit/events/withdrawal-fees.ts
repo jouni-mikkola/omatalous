@@ -1,7 +1,6 @@
 /**
  * Three cash withdrawals of 100 € on the Gold card in the summer, each with its 3 € withdrawal fee on the card bill.
- * 0.8.0 review (Optimoi card interest and bank fees): a withdrawal fee is no purchase interest ("counts purchase
- * interest only, never withdrawal fees or late interest" in optimise/money.test.ts).
+ * 0.8.0 review (Optimoi card interest and bank fees): a withdrawal fee is no purchase interest.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

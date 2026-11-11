@@ -23,7 +23,7 @@ const isLongSubscription = (s: RecurringSeries) => isSubscription(s) && (s.caden
  * or Käytössä within a year) left out. No gate:
  * the insight below adds its own and Optimoi its own.
  */
-export function renewalItems(
+function renewalItems(
   ctx: AnalysisContext,
   inputs: UserInputs,
   days: number,

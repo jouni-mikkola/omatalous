@@ -7,20 +7,16 @@
 import { describe, expect, it } from "vitest";
 import { goldenHouseholds } from "../../../tools/findings/golden.ts";
 import { applyUse } from "../src/account-use.ts";
-import { type AnalysisContext, type AnalysisTx, createContext, inDays, netSpend } from "../src/analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, createContext, inDays } from "../src/analysis/context.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
-import { formatEur } from "../src/analysis/format.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { CATEGORIES } from "../src/categories.ts";
 import { addMonths, daysInMonth, monthOf } from "../src/dates.ts";
-import { areaInputOf, buildOptimise } from "../src/optimise/index.ts";
 import { fuelPurchases, themeOf, THEMES } from "../src/themes.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
-import { enrich, FRAME, householdInput, joinHousehold } from "./optimise/household-kit.ts";
-import * as carPart from "./optimise/parts/car.ts";
-import { rowsOf } from "./optimise/parts/tax.ts";
+import { enrich } from "./kit/household.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const TODAY = "2026-11-10";
@@ -306,23 +302,4 @@ describe("the themes add up to Menot", () => {
     },
     60_000,
   );
-});
-
-describe("the car's cost in Säästövinkit", () => {
-  it("has the lines and the sums of the theme Auto: one classifier for both", () => {
-    const parts = [carPart.hit(FRAME), { txs: rowsOf("lease", carPart.lease(FRAME)) }, { txs: rowsOf("dealer", carPart.dealer(FRAME)) }, { txs: rowsOf("loan", carPart.carLoan(FRAME)) }];
-    const input = householdInput(joinHousehold(parts));
-    const window = new Set(areaInputOf(input).months);
-    const byLine = new Map<string, number>();
-    for (const t of input.ctx.txs) {
-      const at = themeOf(input.ctx, t, HAS_CAR);
-      if (at.theme === "car" && window.has(monthOf(t.bookingDate))) byLine.set(at.line, (byLine.get(at.line) ?? 0) + netSpend(t));
-    }
-    const summary = buildOptimise(input).areas.find((a) => a.id === "car")!.summary!;
-    const lines = THEMES.find((t) => t.id === "car")!.lines.filter((l) => byLine.get(l.id));
-    expect(lines.map((l) => l.id)).toEqual(["fuel", "parking", "service", "inspection", "insurance", "tax", "finance", "lease", "purchase"]);
-    // the summary prints the total and the distance too, and says of the car bought that it is not in the total
-    const printed = summary.lines.filter((l) => !/^(Yhteensä|Ajokilometrit|Kilometriä kohden)/.test(l.label));
-    expect(printed.map((l) => [l.label.replace(/,.*/, ""), l.value])).toEqual(lines.map((l) => [l.heading, formatEur(byLine.get(l.id)!, false)]));
-  });
 });

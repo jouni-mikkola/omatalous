@@ -7,7 +7,7 @@ describe("the status line of Asetukset > Palvelin > Lisäosa", () => {
     expect(addOnLine({ state: "none" })).toBe("Ei yhdistetty.");
     expect(addOnLine({ state: "connected", id: "example", version: "1.2.0", label: "Esimerkki" })).toBe("Yhdistetty: Esimerkki, versio 1.2.0.");
     expect(addOnLine({ state: "connected", id: "example", version: "1.2.0" })).toBe("Yhdistetty, versio 1.2.0.");
-    expect(addOnLine({ state: "pending", id: "example", version: "1.3.0" })).toMatch(/^Versio 1\.3\.0 on ladattu\./);
+    expect(addOnLine({ state: "pending", id: "example", version: "1.3.0" })).toMatch(/^Lataus onnistui: versio 1\.3\.0\./);
     expect(addOnLine({ state: "waiting" })).toBe("Odottaa versiota, joka sopii tähän sovelluksen versioon.");
     expect(addOnLine({ state: "refused", reason: "signature does not verify" })).toBe("Hylätty: allekirjoitus ei täsmää.");
     expect(addOnLine({ state: "refused", reason: "the code does not open the releases" })).toBe("Hylätty: koodi ei avaa julkaisuja.");

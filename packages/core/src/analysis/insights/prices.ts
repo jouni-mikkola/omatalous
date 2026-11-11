@@ -22,7 +22,6 @@ import { isMunicipality } from "../../wording.ts";
 
 /** Phone and broadband beside the subscription set: contracts whose plan, tier and line count the household picks. */
 export const PLAN_CATEGORIES: ReadonlySet<string> = new Set([...SUBSCRIPTION_CATEGORIES, "telecom"]);
-export { MAX_HOUSING_STEP_TENTHS };
 /** Fees of these categories that a city or municipality charges follow the family's income and care hours. */
 const INCOME_LINKED: ReadonlySet<string> = new Set(["kids", "education"]);
 
@@ -34,14 +33,14 @@ function textOf(ctx: AnalysisContext, s: Pick<RecurringSeries, "merchant" | "tra
 }
 
 /** A price change as a share of the old price, in tenths of a percent: 1 050 € → 1 290 € is 229. */
-export const stepTenths = (p: Pick<PriceChange, "fromCents" | "toCents">) => Math.round(((p.toCents - p.fromCents) / p.fromCents) * 1000);
+const stepTenths = (p: Pick<PriceChange, "fromCents" | "toCents">) => Math.round(((p.toCents - p.fromCents) / p.fromCents) * 1000);
 
 /**
  * Why a series' new amount is no price rise, or null when it may be one: a plan, tier or line change of a phone or a
  * subscription, a move or a new rent contract, or a municipal day-care or school fee, which follows income and care
  * hours. The price insight and Optimoi's subscription area read this one rule, so neither tells these steps as a rise.
  */
-export function notAPrice(ctx: AnalysisContext, s: Pick<RecurringSeries, "category" | "merchant" | "priceChange" | "transactionIds">): "plan" | "home" | "municipal" | null {
+function notAPrice(ctx: AnalysisContext, s: Pick<RecurringSeries, "category" | "merchant" | "priceChange" | "transactionIds">): "plan" | "home" | "municipal" | null {
   const p = s.priceChange;
   if (!p) return null;
   if (INCOME_LINKED.has(s.category) && isMunicipality(fold(s.merchant))) return "municipal";
@@ -67,7 +66,7 @@ export interface PriceRiseItem {
  * Every rise of 1 € and 5 % in the `days` up to `end`, one item per series and no total gate, largest first. The
  * insight below adds its gate; Optimoi reads the same list, so both pages name the same rises.
  */
-export function priceRiseItems(ctx: AnalysisContext, end: IsoDate, days = 365): PriceRiseItem[] {
+function priceRiseItems(ctx: AnalysisContext, end: IsoDate, days = 365): PriceRiseItem[] {
   const since = addDays(end, -days);
   return recurringAt(ctx, end)
     .filter((s) => s.active && s.kind === "subscription" && isSpending(s) && s.priceChange && s.priceChange.date > since && s.priceChange.date <= end)

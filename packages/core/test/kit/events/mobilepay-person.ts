@@ -1,8 +1,7 @@
 /**
  * Since June the household pays a babysitter 35 € by MobilePay every Friday, and splits restaurant bills with a
  * friend. 0.8.0 review (Optimoi food, habits and household deduction): MobilePay to a person is no restaurant, no
- * habit to cut and no work the deduction covers ("leaves MobilePay to a friend out of food" in
- * optimise/everyday.test.ts, "never counts a MobilePay payment to a person" in optimise/duties.test.ts).
+ * habit to cut and no work the deduction covers.
  */
 import { addDays, weekdayOf } from "../../../src/dates.ts";
 import { type LifeEvent, rows } from "../frame.ts";

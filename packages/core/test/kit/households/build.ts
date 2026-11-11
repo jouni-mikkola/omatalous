@@ -28,7 +28,7 @@ export function setupOf(seed = BANK_SEED): Setup {
 export const payDay = (f: Frame, month: string, day: number) => banking(f.on(month, day), addDays);
 
 export function bankHousehold(name: string, accounts: readonly Account[], balances: readonly BalanceInput[], txs: Transaction[]): Household {
-  return { name, today: BANK_TODAY, txs: byDateAndId(txs), accounts, balances, rules: [], inputs: NO_INPUTS, values: {}, industry: new Map() };
+  return { name, today: BANK_TODAY, txs: byDateAndId(txs), accounts, balances, rules: [], inputs: NO_INPUTS, industry: new Map() };
 }
 
 export const balanceOf = (a: Account, balanceCents: number | null, extra: Partial<BalanceInput> = {}): BalanceInput => ({

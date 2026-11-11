@@ -7,7 +7,6 @@ import { generateDemoData } from "../../apps/server/src/demo-data.ts";
 import { stableId } from "../../apps/server/src/platform/ids.ts";
 import { type AnalysisContext, createContext } from "../../packages/core/src/analysis/context.ts";
 import { fold, normalizeMerchant } from "../../packages/core/src/merchant.ts";
-import type { InputValues } from "../../packages/core/src/optimise/types.ts";
 import { enrichTransactions } from "../../packages/core/src/pipeline.ts";
 import { type Account, type BalanceInput, type CategoryRule, type IsoDate, NO_INPUTS, type Transaction, type UserInputs } from "../../packages/core/src/types.ts";
 import { randomHistory } from "../../packages/core/test/gen.ts";
@@ -23,7 +22,6 @@ export interface Household {
   balances: readonly BalanceInput[];
   rules: readonly CategoryRule[];
   inputs: UserInputs;
-  values: InputValues;
   /** Merchant name to TOL code from the register lookups. */
   industry: ReadonlyMap<string, string>;
 }
@@ -66,7 +64,7 @@ export function demoHousehold(today: IsoDate = DEMO_TODAY): Household {
       });
     }
   }
-  return { name: "demo", today, txs: byDateAndId(txs), accounts, balances, rules: [], inputs: NO_INPUTS, values: {}, industry: new Map() };
+  return { name: "demo", today, txs: byDateAndId(txs), accounts, balances, rules: [], inputs: NO_INPUTS, industry: new Map() };
 }
 
 /** The plain seed whose bank says pay only in its own transaction code (`HistoryOptions.coded`), so the golden files cover the codes. */
@@ -76,7 +74,7 @@ const CODED_SEED = 4;
 export function seededHousehold(seed: number, settled: boolean): Household {
   const { txs, accounts, rules } = settled ? randomHistory(seed, 1500, { months: 30, settled: true }) : randomHistory(seed, 600, { coded: seed === CODED_SEED });
   const balances = accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, balanceCents: a.type === "loan" ? null : 150000, ownerName: null, balanceAt: SEED_TODAY }));
-  return { name: `${settled ? "settled" : "plain"}:${seed}`, today: SEED_TODAY, txs, accounts, balances, rules, inputs: NO_INPUTS, values: {}, industry: new Map() };
+  return { name: `${settled ? "settled" : "plain"}:${seed}`, today: SEED_TODAY, txs, accounts, balances, rules, inputs: NO_INPUTS, industry: new Map() };
 }
 
 /** The order the server reads rows in: date, then id. */

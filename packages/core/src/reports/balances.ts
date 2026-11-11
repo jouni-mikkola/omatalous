@@ -100,7 +100,7 @@ export interface BalanceReport {
  * first day it was reached. A move between the accounts cancels out. Null when an account is not known on `fromDay`:
  * the walk cannot tell what it held before its first row.
  */
-export function lowestDayBalance(walks: readonly BalanceWalk[], fromDay: number, toDay: number): { cents: number; day: number } | null {
+function lowestDayBalance(walks: readonly BalanceWalk[], fromDay: number, toDay: number): { cents: number; day: number } | null {
   if (!walks.length || fromDay > toDay || walks.some((w) => w.firstDay > fromDay)) return null;
   const total = (day: number) => walks.reduce((s, w) => s + w.at(day)!, 0);
   // the sum changes only on a day some account has a row, so those days and the first day are all there is to look at

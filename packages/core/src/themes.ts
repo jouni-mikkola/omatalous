@@ -20,12 +20,12 @@ import { mccKind } from "./industry.ts";
 import { fold } from "./merchant.ts";
 import { isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isVehicleTaxText } from "./wording.ts";
 
-export type CarLine = "fuel" | "charging" | "parking" | "service" | "inspection" | "insurance" | "tax" | "finance" | "lease" | "other" | "purchase";
+type CarLine = "fuel" | "charging" | "parking" | "service" | "inspection" | "insurance" | "tax" | "finance" | "lease" | "other" | "purchase";
 
 const textOf = (t: AnalysisTx) => fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
 
 /** What a car row was for, or null for a row that is not about the car. A row counts on one line only. */
-export function carLineOf(t: AnalysisTx): CarLine | null {
+function carLineOf(t: AnalysisTx): CarLine | null {
   const text = textOf(t);
   const mcc = mccKind(t.mcc);
   if (isLeaseText(text) || t.category === "leasing") return "lease";

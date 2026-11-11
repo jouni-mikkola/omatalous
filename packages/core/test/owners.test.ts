@@ -1,8 +1,6 @@
 /**
  * One owner per figure (ADR 0004): the usual income, the usual spending and the gate have one definition each, so every
- * view that names them shows the same number. A series' cost per year has its guard in optimise/outcome.test.ts and
- * repo rule 17. The debt total has one list (`householdDebts`) behind the Lainat report, net worth and the loan area
- * of Säästövinkit, and a loan's figures are those of loans.ts.
+ * view that names them shows the same number. The debt total has one list (`householdDebts`) behind the Lainat report and net worth, and a loan's figures are those of loans.ts.
  */
 import { describe, expect, it } from "vitest";
 import { spendingChange } from "../src/analysis/change.ts";
@@ -17,19 +15,11 @@ import { gateFor } from "../src/analysis/usual.ts";
 import { GATE_FLOOR_CENTS } from "../src/thresholds.ts";
 import { CATEGORIES } from "../src/categories.ts";
 import { addDays, addMonths } from "../src/dates.ts";
-import { householdDebts } from "../src/household-debts.ts";
-import { loanBalanceOn, loanInterestNext12Months, loanPayoffDate, loanRateScenario } from "../src/loans.ts";
-import { loans as loanArea } from "../src/optimise/areas/loans.ts";
-import { eur, pct } from "../src/optimise/common.ts";
-import { areaInputOf } from "../src/optimise/index.ts";
-import { situationOf } from "../src/optimise/situation.ts";
+import { loanInterestNext12Months, loanPayoffDate, loanRateScenario } from "../src/loans.ts";
 import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
-import { buildReports } from "../src/reports/index.ts";
 import { type Account, type Loan, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
-import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./optimise/household-kit.ts";
-import * as loansPart from "./optimise/parts/loans.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";
@@ -75,8 +65,6 @@ describe("usual income has one owner", () => {
     // the bar keeps every income row
     expect(bridge.totals.incomeCents).toBe(320000);
 
-    const fact = situationOf(ctx, [], [], NO_INPUTS).find((f) => f.id === "fixed_share")!;
-    expect(fact.value).toBe(buffer.fixedShare);
     // the commitments insight's share of today is the same share, under the words of the same label
     expect(fixedShareOn(ctx, today, NO_INPUTS)).toEqual({ fixedMonthlyCents: buffer.fixedMonthlyCents, incomeMonthlyCents: 300000, fixedShare: buffer.fixedShare, fixedShareLabel: buffer.fixedShareLabel });
     expect(buffer.fixedShareLabel).toBe("Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta");
@@ -90,9 +78,6 @@ describe("the shares of the usual income name their months", () => {
     const buffer = bufferReport(c, [], NO_INPUTS);
     expect(buffer.fixedShare).not.toBeNull();
     expect(buffer.fixedShareLabel).toBe("Kiinteät menot tavallisista tuloista, viimeiset 4 kuukautta");
-    const facts = situationOf(c, [], [], NO_INPUTS);
-    expect(facts.find((f) => f.id === "fixed_share")!.label).toBe(buffer.fixedShareLabel);
-    expect(facts.find((f) => f.id === "debt_share")!.label).toBe("Velanhoito tavallisista tuloista, viimeiset 4 kuukautta");
   });
 });
 
@@ -142,85 +127,6 @@ describe("the gate has one owner", () => {
 
 const loan = (p: Partial<Loan> & Pick<Loan, "id" | "kind" | "balanceCents">): Loan => ({
   name: p.id, lender: null, grantedCents: null, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: null, ...p,
-});
-
-/** A part on the base as the server hands it over. `joinHousehold` joins marks and bills only, so the part's loans are put back. */
-const withLoans = (part: PartHousehold) => {
-  const h = joinHousehold([part]);
-  return { h, input: householdInput({ ...h, inputs: { ...h.inputs, loans: part.inputs?.loans ?? [] } }) };
-};
-
-describe("the debt total has one owner", () => {
-  // The loans part's household with its mortgage saved 200 days ago, so the balance today is the plan's and not the
-  // stated one, the card a connected account, and a connected loan account that owes an amount with cents.
-  const part = loansPart.savedMortgage(FRAME, { balanceDate: addDays(FRAME.today, -200) });
-  const carLoan = { id: "h-car-loan", name: "Autolaina", type: "loan" as const, balanceCents: -812345, ownerName: null, balanceAt: null };
-  const { h, input } = withLoans({ ...part, balances: [...part.balances!, carLoan] });
-  const mortgage = input.inputs!.loans![0]!;
-  const reports = buildReports({ ctx: input.ctx, range: { from: "2026-01-01", to: FRAME.today }, balances: input.balances, inputs: input.inputs });
-  const area = loanArea.assess(areaInputOf(input));
-  const calc = (kind: string, label: string) => area.findings.find((f) => f.kind === kind)?.calc.find((c) => c.label === label)?.value;
-
-  it("the Lainat report, the accounts less the debts and the loan area of Säästövinkit tell one number", () => {
-    const owed = loanBalanceOn(mortgage, FRAME.today).cents!;
-    // a view that read the stated balance would be whole euros off, which the euro text of the area shows too
-    expect(mortgage.balanceCents - owed).toBeGreaterThan(100000);
-    const debts = householdDebts(input.balances, input.inputs!, FRAME.today);
-    expect(debts.total.cents).toBe(owed + 120000 + 812345);
-    expect(reports.loans.total.cents).toBe(debts.total.cents);
-    expect(reports.balances.debt).toEqual({ day: FRAME.today, cents: debts.total.cents, savedCents: owed });
-    expect(reports.balances.accountsLessDebt.at(-1)).toBe(reports.balances.total.at(-1)! - owed);
-    expect(area.summary?.lines[0]).toEqual({ label: "Velkaa yhteensä", value: eur(debts.total.cents) });
-    expect(reports.loans.interest).toEqual(debts.interest);
-    // the card and the loan account have no rate: both views read the one count of the loans left out for it
-    expect(reports.loans.withoutRate).toBe(2);
-    expect(area.summary?.lines[1]).toEqual({ label: "Korot 12 kuukaudessa (ilman 2 lainaa, joiden korkoa ei tiedetä)", value: eur(debts.interest.cents) });
-    // the loan account may be the saved mortgage: both stay in the sums, and both pages say so
-    expect(reports.loans.maybeTwice).toEqual([{ loans: [{ id: mortgage.id, name: mortgage.name }], accounts: [{ id: carLoan.id, name: "Autolaina" }] }]);
-    expect(area.summary?.lines[2]).toEqual({ label: "Sama velka voi olla summassa kahdesti", value: "katso Raportit > Lainat" });
-  });
-
-  it("a loan whose balance is dated after today is not left out for its rate, and an overdraft is not twice in the debt total", () => {
-    const later = loan({ id: "later", kind: "consumer", balanceCents: 500000, rateBp: 500, balanceDate: addDays(FRAME.today, 20) });
-    const bare = loan({ id: "bare", kind: "consumer", balanceCents: 100000 });
-    const line = loan({ id: "line", kind: "credit_line", balanceCents: 50000, rateBp: 900 });
-    const overdrawn = { id: "h-overdrawn", name: "Toinen tili", type: "checking" as const, balanceCents: -50000, ownerName: null, balanceAt: null };
-    // without the connected card, which would stand beside the credit line
-    const balances = [...part.balances!.filter((b) => b.type !== "credit_card"), overdrawn];
-    const more = withLoans({ ...part, balances, inputs: { ...part.inputs!, loans: [...part.inputs!.loans!, later, bare, line] } }).input;
-    const lines = loanArea.assess(areaInputOf(more)).summary!.lines;
-    // one loan has no rate, and the one dated after today has
-    expect(lines[1]!.label).toBe("Korot 12 kuukaudessa (ilman yhtä lainaa, jonka korkoa ei tiedetä)");
-    // the overdraft beside the credit line is twice in the accounts less the debts, which this summary does not tell
-    expect(buildReports({ ctx: more.ctx, range: { from: "2026-01-01", to: FRAME.today }, balances: more.balances, inputs: more.inputs }).loans.overdraftTwice).toHaveLength(1);
-    expect(lines).toHaveLength(2);
-  });
-
-  it("a saved mortgage answers for the loan rate: nothing is asked, and the balance and the rate are the saved loan's", () => {
-    expect(h.values.loan_rate).toBeUndefined();
-    expect(area.checks.map((c) => `${c.id} ${c.status}`)).toEqual(["loans:margin finding", "loans:prepay finding", "loans:card_interest finding"]);
-    const row = reports.loans.loans.find((l) => l.id === mortgage.id)!;
-    expect(calc("margin", "Lainan saldo")).toBe(eur(row.balance.cents!));
-    expect(calc("margin", "Oma marginaali")).toBe(pct(mortgage.marginBp! / 10_000));
-    expect(calc("prepay", "Lainan saldo")).toBe(eur(row.balance.cents!));
-    // the saved rate, not a range of Euribor months
-    expect(calc("prepay", "Lainan korko")).toBe(pct(mortgage.rateBp! / 10_000));
-    expect(calc("prepay", "Marginaali")).toBeUndefined();
-    expect(area.findings.find((f) => f.kind === "prepay")).toMatchObject({ weaknesses: [], facts: [] });
-  });
-
-  it("without a margin the saved mortgage leaves the question, and without saved loans the area is as it was", () => {
-    const bare = withLoans(loansPart.savedMortgage(FRAME, { marginBp: null, reference: null })).input;
-    expect(loanArea.assess(areaInputOf(bare)).checks.slice(0, 2)).toMatchObject([{ status: "needs_input", input: "loan_rate" }, { status: "needs_input", input: "loan_rate" }]);
-    // no loan account beside the saved mortgage: nothing can be there twice, and the summary has its two lines
-    expect(loanArea.assess(areaInputOf(bare)).summary?.lines).toHaveLength(2);
-    // a saved fixed rate needs no margin: it is neither compared nor prepaid, and nothing is asked
-    const fixed = withLoans(loansPart.savedMortgage(FRAME, { marginBp: null, reference: "fixed" })).input;
-    expect(loanArea.assess(areaInputOf(fixed)).checks.slice(0, 2).map((c) => `${c.id} ${c.status}`)).toEqual(["loans:margin clear", "loans:prepay clear"]);
-    const plain = loanArea.assess(areaInputOf(householdInput(joinHousehold([loansPart.hit(FRAME)]))));
-    expect(plain.summary).toBeUndefined();
-    expect(plain.findings.find((f) => f.kind === "prepay")?.weaknesses.map((w) => w.id)).toEqual(["estimate"]);
-  });
 });
 
 describe("a move in the reference rate reads the loan's own plan", () => {

@@ -1,7 +1,7 @@
 /**
  * The household moves 600 € to savings at the end of September; the checking leg names the savings account, the
  * savings leg two days later reads KORKO and names no account. 0.8.0 review (Optimoi savings): the savings leg of an
- * own move is no interest ("never takes the savings leg of a move for interest" in optimise/money.test.ts).
+ * own move is no interest.
  */
 import { IBAN, type LifeEvent, rows } from "../frame.ts";
 

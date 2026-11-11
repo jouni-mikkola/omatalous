@@ -19,7 +19,6 @@ import { explainNow } from "../src/explain/now.ts";
 import { FIGURES } from "../src/figures.ts";
 import { DIRECTION_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
 import { buildHoldings } from "../src/holdings.ts";
-import { situationOf } from "../src/optimise/situation.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
@@ -160,11 +159,10 @@ const ANSWERS: Record<FigureKey, Answers> = {
   },
   buffer: (h) => {
     const ctx = contextOf(h);
-    const fact = situationOf(ctx, [], h.balances, h.inputs).find((f) => f.label === FIGURES.buffer.name);
     const direction = buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction;
     // the Yhteenveto row shows the two sums the months divide, so the sum beside the months is the divisor
     const quotient = direction.bufferNetCents === null || !direction.bufferSpendCents ? null : direction.bufferNetCents / direction.bufferSpendCents;
-    return { report: bufferReport(ctx, h.balances, h.inputs).bufferMonths, situation: fact?.value ?? null, home: direction.bufferMonths, quotient };
+    return { report: bufferReport(ctx, h.balances, h.inputs).bufferMonths, home: direction.bufferMonths, quotient };
   },
   balanceChange: (h) => {
     const ctx = contextOf(h);

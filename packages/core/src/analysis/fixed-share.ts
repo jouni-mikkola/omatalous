@@ -21,7 +21,7 @@ const MIN_FIXED_CENTS = 20000;
  * "odotetuista tuloista, viimeiset 4 kuukautta": the expected income of `month` (`expectedIncome`) with the number of
  * complete months it is the mean of, 3 to 6. Without an expected income there is no window to name.
  */
-export function expectedIncomeSpan(ctx: AnalysisContext, month: string, lang: Language = DEFAULT_LANGUAGE): string {
+function expectedIncomeSpan(ctx: AnalysisContext, month: string, lang: Language = DEFAULT_LANGUAGE): string {
   const n = completeMonthsBefore(ctx, month).length;
   return n < MIN_COMPARE_MONTHS ? messageIn(lang, "rep.span_plain") : messageIn(lang, "rep.span_months", { count: n });
 }

@@ -1925,7 +1925,7 @@ Result: The server has no `/api/optimise` route, service or repo, and a merchant
 - files: apps/server/src/app.ts, apps/server/src/routes/optimise.ts, apps/server/src/services/optimise.ts, apps/server/src/db/finance/optimise.ts, apps/server/src/db/finance-repo.ts, apps/server/src/services/upgrade.ts, apps/server/test/optimise.isolated.test.ts, apps/server/test/contract.qa.test.ts, apps/server/test/review.test.ts, apps/server/test/service-tokens.test.ts, e2e/vs1.spec.ts
 
 ### XTA2 Live types leave optimise
-Result: Core code outside `optimise/` imports nothing from it: `CalcLine` is in `types.ts`, the CPI series in `analysis/`, `LOAN_REFERENCE_LABEL` in `loans.ts`.
+Result: Core code outside `optimise/` imports nothing from it: `CalcLine` is in `types.ts`, the CPI series in `analysis/`, loan labels in `loans.ts`
 - why: finding 2. Prices, insights, income series and the web's loan labels read from the folder that is to be deleted.
 - done when: `git grep -n "optimise/" -- packages/core/src ':!packages/core/src/optimise' ':!packages/core/src/index.ts' ':!packages/core/src/features'` is empty; `pnpm test packages/core` passes.
 - locks: none
@@ -1941,7 +1941,7 @@ Result: The features folder, `pnpm gen` and their rules, globs and fixtures are 
 - files: packages/core/src/features, packages/core/test/feature-contract.test.ts, packages/core/test/fixtures/features, tools/gen/registry.mjs, package.json, vitest.config.ts, tools/repo-rules/boundaries.ts, tools/repo-rules/parity.ts, tools/test/registry-union.test.sh, .gitattributes, docs/ARCHITECTURE.md
 
 ### XTA4 Core optimise engine goes
-Result: `packages/core/src/optimise` and its tests are gone, and the findings tool and noise test no longer run the `optimise` and `outcome` sources.
+Result: `packages/core/src/optimise` and its tests are gone; the findings tool and noise test no longer run the `optimise` and `outcome` sources.
 - why: findings 2 and 4. T55 merged as partial, and the dead engine costs about 30 s of test time.
 - done when: `git ls-files packages/core/src/optimise packages/core/test/optimise packages/core/test/golden/optimise.txt packages/core/test/golden/outcome.txt` lists nothing; `git grep -n "optimise/" -- packages tools/findings tools/where.mjs` is empty; `pnpm knip` reports 0; `pnpm test packages/core/test/kit/noise.test.ts packages/core/test/golden.test.ts` passes and the noise file's time in the vitest report is under 40 s (46.6 s on 11 Nov).
 - locks: none
@@ -1972,7 +1972,7 @@ Result: `pnpm check`, vitest and the page tests run without `slots.sh`, `cores.s
 - after: XTA3
 - files: tools/slots.sh, tools/cores.sh, tools/lib/cores.mjs, tools/lib/owner.sh, tools/cores.test.ts, tools/test/cores.test.sh, tools/test/slots.test.sh, tools/test/cut-env.sh, tools/check.sh, tools/check/cut-shared.sh, tools/check/weights.sh, tools/e2e-run.test.ts, vitest.config.ts, e2e/run.mjs, docs/adr/0003-fast-feedback.md
 
-### XTA8 Settlement transfers move to core
+### XTA8 Settlement transfers to core
 Result: Core `settlement.ts` computes who pays whom, and the Tasaus section only shows it.
 - why: finding 8. A money figure is defined only in the browser, against ADR 0004.
 - done when: `git grep -n "transfersOf" -- apps/web/src` shows only an import from `@banking/core`; the seven `transfersOf` cases of `apps/web/test/settlement-text.test.ts` now run in `packages/core/test/settlement.test.ts` and pass; `pnpm test apps/web/test/settlement-text.test.ts packages/core/test/settlement.test.ts` passes.
@@ -1991,7 +1991,7 @@ Result: CLAUDE.md and docs/ describe the tree as it is, with no Optimoi, extensi
 ## Review 11 Nov: UI, a critical review (XTU)
 
 ### XTU1 Tulossa starts with payday
-Result: Tulossa opens with "Ennen palkkapäivää 25.11." and the bills, card bills included, that make up Nyt's "laskut ennen palkkapäivää" figure, with that sum and the payday's income.
+Result: Tulossa opens with "Ennen palkkapäivää 25.11." and the bills behind Nyt's "laskut ennen palkkapäivää" figure, with their sum and the income.
 - why: finding 1. Nyt takes 1 900,54 € of bills off its answer (`ahead.rows` of `/api/dashboard`: the card bill 1 822,28 €, Helen, Elisa), but `pages/Bills.tsx` lists only recurring series (`billItems`). The card bill is not there, rows before 25.11. add to about 190 €, and no income row exists although the empty state promises "laskuja ja tuloja".
 - done when: a DOM test in the new `apps/web/test/bills-before-payday.dom.test.ts`, which fails without the change, renders `Bills` with a dashboard answer whose `ahead.rows` hold a card bill and two bills. It finds a section with id `ennen-palkkapaivaa` that lists those three rows (date, name, sum) and their sum equal to `nyt.left.billsCents`, plus one row for the payday income from `ahead.payday`. With `nyt.left.known === false` the section is not drawn (the near miss). The series list under it is unchanged (`apps/web/test/bills.test.ts` passes). The section reads the same dashboard request that `Overview` makes (no new endpoint). Existing catalogue keys are used where they fit ("Maksut ennen palkkapäivää", "Palkkapäivä"). At 390 px the section's rows are blocks with no sideways scroll. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
@@ -1999,7 +1999,7 @@ Result: Tulossa opens with "Ennen palkkapäivää 25.11." and the bills, card bi
 - files: apps/web/src/pages/Bills.tsx, apps/web/src/components/bills/BeforePayday.tsx, apps/web/src/styles/bills.css, apps/web/test/bills-before-payday.dom.test.ts
 
 ### XTU2 Nyt figures open their basis
-Result: On Nyt the bills figure opens Tulossa at the payday period, "Käytetty" opens this month's rows, and the balance opens Lisää > Tilit ja saldot.
+Result: On Nyt the bills figure opens Tulossa at the payday period, "Käytetty" opens this month's rows, the balance opens Lisää > Tilit ja saldot.
 - why: finding 2. `components/home/Nyt.tsx` renders every figure as plain text. The `#/overview` snapshot has no link in `main`, and design 1.1 says "the sum opens the balance and the bills behind it; the pace line opens this month's rows".
 - done when: a DOM test in the new `apps/web/test/nyt-links.dom.test.ts`, which fails without the change, renders `Nyt` with a known answer. It finds a link on the bills sum to `#/bills#ennen-palkkapaivaa`, a link on the spent sum to `#/transactions?from=<month>-01&to=<from>`, and a link on the balance to `#/reports?q=saldot`. With `left.known === false` only the spent link is drawn (the near miss). The texts of the lines do not change (same catalogue keys). Links are underlined as `Button variant="link"` elsewhere. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
@@ -2007,7 +2007,7 @@ Result: On Nyt the bills figure opens Tulossa at the payday period, "Käytetty" 
 - files: apps/web/src/components/home/Nyt.tsx, apps/web/test/nyt-links.dom.test.ts
 
 ### XTU3 The rest of Kuukausi opens
-Result: The "Muut luokat" row of Kuukausi opens and lists each category it holds with its sum, and each sum opens its rows, in the running month and in an earlier one.
+Result: The "Muut luokat" row of Kuukausi opens and lists each category it holds with its sum, and each sum opens its rows, this month or earlier.
 - why: finding 3. On 11.11. "Muut luokat" is 1 562,52 € of 2 027 €, and in October "Muut (12)" is 1 881,45 € of 3 850 €. The rest row has no drill (`apps/web/src/pages/reports/Month.tsx`, the `spent` column renders plain `money` when `category === null`), so rent and most of the month cannot be seen.
 - done when: a DOM test in the new `apps/web/test/month-rest.dom.test.ts`, which fails without the change, renders `Month` for the running month and for `?month=2026-10`. It finds the rest row as a toggle (`aria-expanded`). Opened, it lists the month's spending categories that are not rows above it, from the `categories` report (add `categories` to the running month's request), each with its sum and a `Why` door with `figure="spend.category"`. The listed sums plus the shown rows add up to the month's `spentCents`. A month whose list has no rest row draws no toggle (the near miss). The rest row is labelled "Muut luokat" in both views. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
@@ -2015,7 +2015,7 @@ Result: The "Muut luokat" row of Kuukausi opens and lists each category it holds
 - files: apps/web/src/pages/reports/Month.tsx, apps/web/src/styles/report-month.css, apps/web/test/month-rest.dom.test.ts
 
 ### XTU4 The largest purchase is real
-Result: The pace chart names the month's largest one-off purchase with its sum, for example "Suurin kertaosto Hesburger 80,68 €", never a small coffee because the shop is a regular one.
+Result: The pace chart names the month's largest one-off purchase with its sum, e.g. "Suurin kertaosto Hesburger 80,68 €", never a regular coffee.
 - why: finding 4. `largestOneOff` (`packages/core/src/analysis/forecast.ts:137-143`) skips every row of every recurring series, and in the demo that includes Prisma, Hesburger, K-Market and Alko. `/api/dashboard` gives `pace.largest = {day: 11, name: "Robert's Coffee", cents: 910}` while Hesburger 80,68 € on 8.11. is larger. The label (`chart.largest`) has no sum.
 - done when: a new `packages/core/test/forecast-largest.test.ts`, which fails without the change, builds a month where a grocery shop is a recurring series with an 80 € row and a pending 9 € coffee, and gets the 80 € row as `largest`. A row of a fixed-cost series (`isFixedCost` of `commitments.ts`: rent, a subscription) is still skipped (the near miss). The Finnish and English `chart.largest` take `{sum}`, and `PaceChart.tsx` passes `money(largest.cents)`. `pnpm findings --golden` is run if golden files change. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
@@ -2023,7 +2023,7 @@ Result: The pace chart names the month's largest one-off purchase with its sum, 
 - files: packages/core/src/analysis/forecast.ts, packages/core/src/messages-overview.ts, packages/core/src/english/overview.ts, apps/web/src/charts/PaceChart.tsx, packages/core/test/forecast-largest.test.ts
 
 ### XTU5 Pace chart labels fit a phone
-Result: At 390 px the chart's day-axis event labels stay inside the chart and do not overlap, and the month-end range is labelled as the estimate it is.
+Result: At 390 px the chart's day-axis event labels stay inside the chart without overlap, and the month-end range is labelled as an estimate.
 - why: finding 6. At 390 px "Suurin yksittäinen osto Robert's Coffe" runs past the right edge and overlaps "Palkka 25." (`/tmp/XTU/overview-390.png`). At 1440 px "Tavallinen" and the blue "≈ 3 114–3 336 €" stack at the chart end (`PaceChart.tsx:152-155`), so the estimate reads as the usual.
 - done when: a DOM test in the new `apps/web/test/pace-labels.dom.test.ts`, which fails without the change, renders `PaceChart` at a width of 366 px with a largest purchase on day 11 and a payday on day 25. Every event label's text box lies inside the chart width, and the two labels do not overlap (they stack on two lines or the later one is anchored to its end). The wide chart's end range starts with the word of the key ("Arvio"), and the usual line keeps "Tavallinen". `e2e/chart-table.spec.ts` passes. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
@@ -2039,7 +2039,7 @@ Result: When Nyt cannot be reloaded, the member sees one line with the time of t
 - files: apps/web/src/pages/Overview.tsx, apps/web/test/overview-reload.dom.test.ts
 
 ### XTU7 Pages carry their tab's name
-Result: Nyt and Tulossa have their tab's name in the window title and heading, Lisää marks no tab and is titled Lisää, and the user menu has a Tapahtumat link.
+Result: Nyt and Tulossa have their tab's name in window title and heading, Lisää marks no tab and is titled Lisää, the user menu links Tapahtumat.
 - why: finding 7 and finding 2. `nav.ts:24,27` give the titles "Yhteenveto" and "Laskut" to the tabs Nyt and Tulossa. `#/reports?q=saldot` is titled "Kuukausi · Omatalous" with the Kuukausi tab current (`Shell.tsx`, `current={page === e.id}`). No menu or tab leads to Tapahtumat (`Shell.tsx:340-352`).
 - done when: a DOM test in the new `apps/web/test/shell-names.dom.test.ts`, which fails without the change, renders the shell at `#/overview`, `#/bills` and `#/reports?q=saldot` and finds `document.title` "Nyt · Omatalous", "Tulossa · Omatalous" and "Lisää · Omatalous". At `#/reports?q=saldot` no tab has `aria-current`, while `#/reports` keeps it on Kuukausi (the near miss). The user menu has a link to `#/transactions` labelled with `nav.transactions`. The `title` getters and their now unused keys `nav.overview`/`nav.bills` are removed if nothing else reads them (`apps/web/src/components/NextDays.tsx:77` reads `nav.bills`: switch it to `nav.coming`). `e2e/stale-answer.spec.ts:43` and `e2e/offline.spec.ts:77` expect the new heading names. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
@@ -2089,7 +2089,7 @@ Result: A Nordea netbank CSV export, dated like 2026/09/03, reads into rows inst
 - files: packages/core/src/bank-csv.ts, packages/core/test/bank-csv.test.ts
 
 ### XTF2 CSV text names the other party
-Result: A bank CSV's rows carry the shop or payer name, never an account number or the household's own name, and a row with an empty text cell still imports.
+Result: A bank CSV's rows carry the shop or payer name, never an account number or the household's own name, and an empty text cell still imports.
 - why: `guessBankCsvLayout` (`bank-csv.ts:136`) takes the first `saaja|maksaja` column. For Nordea's header that is `Maksaja`, which holds an IBAN. For a header with `Maksaja` before `Saajan nimi`, every payment out is named after the household. A row whose chosen cell is empty goes to `unread` and its money is lost.
 - done when: tests in `packages/core/test/bank-csv.test.ts` that fail without the change show three things. First, for the Nordea header above the guess picks a column whose cells are names (`Nimi` or `Otsikko`), not an IBAN column. Second, `readBankCsvRows` names a row by the next text column when the chosen cell is empty or only an account number. Third, for a header `…;Maksaja;Saajan nimi;…` a row of money out is named by `Saajan nimi` and a row of money in by `Maksaja` (`pnpm test packages/core/test/bank-csv.test.ts`).
 - locks: none
@@ -2097,7 +2097,7 @@ Result: A bank CSV's rows carry the shop or payer name, never an account number 
 - files: packages/core/src/bank-csv.ts, packages/core/test/bank-csv.test.ts
 
 ### XTF3 A file fills a connected account
-Result: A bank file can be saved into the household's own bank-connected account, and its rows that the bank already gave are skipped, so no day is counted twice.
+Result: A bank file can be saved into the household's own bank-connected account, and rows the bank already gave are skipped: no day counts twice.
 - why: `saveStatementRows` (`apps/server/src/services/card-file.ts:65-82`) writes only to a new `bankfile` account with no IBAN, and `fold-accounts.ts:19` never folds one. Posting September's demo rows as a file raised September's spending from 342 814 to 455 640 cents with no warning.
 - done when: tests in `apps/server/test/bank-file.test.ts` that fail without the change show four things. First, rows saved with `accountId` of the user's own `enablebanking` checking account are stored there as source `bankfile`. Rows the bank already holds (same day, sum and party) count as `skipped`, and the older rows count as `inserted`. Second, a sync after that skips the file's rows (`ingestTransactions` "others"). Third, a card, a loan or another member's account is still refused with `card_file.bad_account`. Fourth, saving to a new account rows of which at least half (and three or more) already sit on one bank-connected account is refused with a message that names that account (`pnpm test apps/server/test/bank-file.test.ts`).
 - locks: none
@@ -2105,14 +2105,14 @@ Result: A bank file can be saved into the household's own bank-connected account
 - files: apps/server/src/services/card-file.ts, apps/server/test/bank-file.test.ts, packages/core/src/messages-card-file.ts, packages/core/src/english/card-file.ts
 
 ### XTF4 File pages say why a save failed
-Result: Asetukset > Pankit ja tilit offers the household's own connected accounts for a bank file, leaves out rows dated after today and shows the server's own reason when a save is refused.
+Result: Asetukset > Pankit ja tilit offers the household's connected accounts for a bank file, skips rows after today, shows a refusal's reason.
 - why: `BankFile.tsx` lists only `bankfile` accounts, and its `save()` turns every error into `card_file.err_save` ("Yritä uudelleen"). `CardFile.tsx:42` does the same. A file with one future-dated row is refused whole (`card-file.ts:62`) and the user is told to retry.
 - done when: `e2e/bank-file.spec.ts` has three new cases. A connected demo account is offered and saving into it reports skipped rows. A file with a row dated tomorrow saves the other rows and names one row left out. A refused save shows the server's sentence (for example `card_file.bad_account`), not `card_file.err_save`. `e2e/card-file.spec.ts` checks the same message rule. Screens at 1440 and 390 px in the PR.
 - locks: none
 - after: XTF3
 - files: apps/web/src/pages/settings/BankFile.tsx, apps/web/src/pages/settings/CardFile.tsx, e2e/bank-file.spec.ts, e2e/card-file.spec.ts, packages/core/src/messages-card-file.ts, packages/core/src/english/card-file.ts
 
-### XTF5 Typed bills in the month estimate
+### XTF5 Typed bills in the estimate
 Result: Kuukausi lists a bill the household typed in for this month and adds it to what is still coming, so the month's estimate includes it.
 - why: `thisMonthReport` (`packages/core/src/reports/this-month.ts:104-170`) reads `ctx.recurring` only. A typed 600 € bill due 2026-11-20 was in `ahead.upcoming` but not in `thisMonth.bills`, `billsCents` (19 000) or the estimate (120 399 instead of 180 399).
 - done when: a test in `packages/core/test/reports-this-month.test.ts` that fails without the change shows three things. A typed bill due later this month and unpaid is in `bills` and raises `stillComingCents` and `estimate` by its sum. The same bill paid already, or carried by a series of its name, changes nothing (it reads `expectedBillRows`). The rows of `categories` still add up to the gap (`pnpm test packages/core/test/reports-this-month.test.ts`).

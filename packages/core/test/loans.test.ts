@@ -13,8 +13,7 @@ import {
   loansOf,
   MAX_LOAN_PAYMENTS,
 } from "../src/loans.ts";
-import { INPUT_DEFS } from "../src/optimise/inputs.ts";
-import { isRevolving, LOAN_KINDS, LOAN_REFERENCES, type Loan, NO_INPUTS } from "../src/types.ts";
+import { isRevolving, LOAN_KINDS, type Loan, NO_INPUTS } from "../src/types.ts";
 
 /** A loan with nothing but a balance: each test adds the fields its figure needs. */
 const loan = (over: Partial<Loan> = {}): Loan => ({
@@ -429,12 +428,11 @@ describe("the debt of a household", () => {
 });
 
 describe("loans in the user's inputs", () => {
-  it("are none unless given, and name the reference rates the loan_rate input offers", () => {
+  it("are none unless given", () => {
     expect(loansOf(NO_INPUTS)).toEqual([]);
     expect(loansOf({ marks: [], expectedBills: [] })).toEqual([]);
     const l = loan();
     expect(loansOf({ ...NO_INPUTS, loans: [l] })).toEqual([l]);
-    expect([...LOAN_REFERENCES]).toEqual(INPUT_DEFS.loan_rate.choices!.map((c) => c.id));
   });
 });
 

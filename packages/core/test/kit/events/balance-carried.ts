@@ -26,7 +26,5 @@ export const balanceCarried: LifeEvent = {
   allows: [
     // the 209 € of interest, charged in six of the last twelve months
     /^insights card-interest$/,
-    // the interest of the months when checking held enough to pay the card's debt
-    /^optimise loans:card_interest$/,
   ],
 };

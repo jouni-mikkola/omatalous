@@ -7,15 +7,9 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { accountsCoverage, comparableWith, monthSpan, sameAccounts } from "../src/analysis/coverage.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { expensiveMonthItems, expensiveMonths, seasonMonths } from "../src/analysis/insights/seasons.ts";
-import type { InsightArgs } from "../src/analysis/insights/types.ts";
-import { seasons } from "../src/optimise/areas/seasons.ts";
-import { areaInputOf } from "../src/optimise/index.ts";
 import { buildReports, yearComparisonNote } from "../src/reports/index.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series } from "./helpers.ts";
-import { FRAME, householdInput, joinHousehold } from "./optimise/household-kit.ts";
-import * as S from "./optimise/parts/seasons.ts";
 
 const today = "2026-10-09";
 const account = (id: string): Account => ({ id, name: id, iban: null, currency: "EUR", type: "checking" });
@@ -257,42 +251,5 @@ describe("the period against the one before", () => {
     const june = dashboard(rows, "2026-06-01", "2026-06-30");
     expect(june).toMatchObject({ comparable: true, leftOutAccounts: true });
     expect(june.previousTotals.expenseCents).toBe(dashboard(spend("a", "2024-01-01"), "2026-06-01", "2026-06-30").previousTotals.expenseCents);
-  });
-});
-
-describe("Kalliit kuukaudet and the finding beside it say the same about the history", () => {
-  const input = (extra: Transaction[], accountsOf: Account[] = []) => householdInput(joinHousehold([S.hit(FRAME), { txs: extra, accounts: accountsOf }], FRAME));
-  const args = (i: ReturnType<typeof input>) => ({ ctx: i.ctx, end: i.ctx.today, gateMonthlyCents: 1000, lang: "fi" }) as InsightArgs;
-  const answer = (i: ReturnType<typeof input>) => {
-    const r = seasons.assess(areaInputOf(i));
-    return { status: r.checks[0]!.status, findings: r.findings.length, months: seasonMonths(i.ctx, i.ctx.today).length, insight: expensiveMonths(args(i)).length, items: expensiveMonthItems(args(i)).length };
-  };
-  const extra = account("acc-new");
-  const rowsOf = (start: string) => series(start, 3, 1000, -500, { accountId: "acc-new", category: "groceries", merchant: "K-Market" }).filter((t) => t.bookingDate <= FRAME.today);
-
-  it("with the same accounts in both years the history is enough for both", () => {
-    const a = answer(input([]));
-    expect(a.status).toBe("clear");
-    expect(a.months).toBeGreaterThan(0);
-    expect(a.findings).toBe(1);
-    expect(a.insight).toBe(1);
-  });
-
-  it("an account that began inside the two years leaves no month to judge: both say the history is too short", () => {
-    const a = answer(input(rowsOf("2025-06-10"), [extra]));
-    expect(a).toEqual({ status: "no_data", findings: 0, months: 0, insight: 0, items: 0 });
-  });
-
-  it("an account connected eight months ago leaves no run of twelve complete months: the check says the history is too short", () => {
-    const i = input(rowsOf("2026-02-10"), [extra]);
-    // the month it joined is not complete, and the months before it are not reached from the recent ones
-    expect(seasonMonths(i.ctx, i.ctx.today)).toEqual([]);
-    expect(answer(i)).toMatchObject({ status: "no_data", findings: 0, insight: 0 });
-  });
-
-  it("near miss: an account that began before the usual level of both years changes nothing", () => {
-    const a = answer(input(rowsOf("2024-10-01"), [extra]));
-    expect(a.status).toBe("clear");
-    expect(a.findings).toBe(1);
   });
 });

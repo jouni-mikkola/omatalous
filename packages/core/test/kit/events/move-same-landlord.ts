@@ -2,8 +2,7 @@
  * The household moves in June to a bigger flat of the same landlord: a new contract at 1 290 € instead of 1 050 € and
  * a rented van. SATO carries the deposit over to the new contract, so no deposit row shows (a deposit paid beside the
  * rent hid the false price rise in the first version of this event). 0.8.0 review (Optimoi housing): one step of
- * over 10 % at the same landlord is a move, never a rent rise to compare with the index ("leaves out one step over
- * 10 %" in optimise/home.test.ts).
+ * over 10 % at the same landlord is a move, never a rent rise to compare with the index.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

@@ -32,7 +32,7 @@ function noise(ctx: InsightArgs["ctx"], month: string): number {
   return monthlyNoise(completeMonthsBefore(ctx, month, NOISE_MONTHS).map((m) => struckSpend(ctx, m)));
 }
 
-export interface Season {
+interface Season {
   /** The month of the last year, `2025-12`; the year before is the same month 12 earlier. */
   month: string;
   /** The mean excess over the years, cents. */
@@ -48,7 +48,7 @@ export interface Season {
  * same accounts' rows (`accountsCoverage`), and so did the months of the usual level of both years. Empty while the
  * history is too short; the Optimoi check and the insight both read it, so they give one answer.
  */
-export function seasonMonths(ctx: InsightArgs["ctx"], end: string): string[] {
+function seasonMonths(ctx: InsightArgs["ctx"], end: string): string[] {
   const recent = lastCompleteMonths(ctx, end, 12);
   if (recent.length < 12) return [];
   const same = (earlier: string, month: string) => sameAccounts(ctx, monthSpan(earlier), monthSpan(month));
@@ -64,7 +64,7 @@ export function seasonMonths(ctx: InsightArgs["ctx"], end: string): string[] {
  * Calendar months of the last 12 complete months that were 20 % over usual, clear of the noise, in each of the last
  * two years. The insight sums them; Optimoi takes each month for itself.
  */
-export function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<InsightArgs, "ctx" | "end" | "gateMonthlyCents">): Season[] {
+function expensiveMonthItems({ ctx, end, gateMonthlyCents }: Pick<InsightArgs, "ctx" | "end" | "gateMonthlyCents">): Season[] {
   const seasons: Season[] = [];
   for (const month of seasonMonths(ctx, end)) {
     const years = Array.from({ length: YEARS }, (_, k) => addMonths(month, -12 * k));

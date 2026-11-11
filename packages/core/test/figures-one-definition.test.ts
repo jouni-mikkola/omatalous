@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { savingsRateOf } from "../src/analysis/bridge.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { completeMonthsBefore } from "../src/analysis/usual.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { addMonths } from "../src/dates.ts";
-import { yearWindow } from "../src/optimise/common.ts";
-import { situationOf } from "../src/optimise/situation.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
-import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
+import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { view } from "./insight-view.ts";
 
@@ -45,7 +44,7 @@ describe("the savings rate has one helper", () => {
   });
 
   it("takes a twelve-month window as one pool, and money taken out of savings lowers it", () => {
-    const window = yearWindow(ctx, "2026-09-30").months;
+    const window = completeMonthsBefore(ctx, "2026-10", 12);
     expect(window).toHaveLength(12);
     expect(savingsRateOf(ctx, window)).toMatchObject({ label: "Säästöaste, viimeiset 12 kuukautta" });
     expect(savingsRateOf(ctx, window).rate).toBeCloseTo(0.1, 10);
@@ -70,19 +69,6 @@ describe("the savings rate has one helper", () => {
     ]);
   });
 
-  it("Tilanne names the window of the rate and of the debt share", () => {
-    const window = yearWindow(ctx, "2026-09-30").months;
-    const facts = situationOf(ctx, window, [], NO_INPUTS);
-    const rate = facts.find((f) => f.id === "savings_rate")!;
-    expect(rate.label).toBe("Säästöaste, viimeiset 12 kuukautta");
-    expect(rate.value).toBeCloseTo(0.1, 10);
-    expect(facts.find((f) => f.id === "debt_share")!.label).toBe("Velanhoito tavallisista tuloista, viimeiset 6 kuukautta");
-    // two complete months are too few to judge, and a partial month is not one of them
-    const few = situationOf(ctx, ["2026-08", "2026-09"], [], NO_INPUTS).find((f) => f.id === "savings_rate")!;
-    expect(few).toMatchObject({ value: null, label: "Säästöaste, viimeiset 2 kuukautta" });
-    const partial = situationOf(ctxOf(base, "2026-08-15"), ["2026-08", "2026-09", "2026-10"], [], NO_INPUTS).find((f) => f.id === "savings_rate")!;
-    expect(partial.value).toBeNull();
-  });
 });
 
 describe("credit drawn is the net of the window and never below zero", () => {

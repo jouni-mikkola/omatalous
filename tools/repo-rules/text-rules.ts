@@ -207,7 +207,7 @@ describe("repo rules: text", () => {
       found.push({ file, line, why: `${form.name} (${form.fix}): ${text.replace(/\u0000/g, "…").replace(/\s+/g, " ").trim().slice(0, 80)}` });
     };
     let strings = 0;
-    for (const file of sourceFiles("apps/web/src/", "packages/core/src/analysis/", "packages/core/src/reports/", "packages/core/src/optimise/", "apps/server/src/")) {
+    for (const file of sourceFiles("apps/web/src/", "packages/core/src/analysis/", "packages/core/src/reports/", "apps/server/src/")) {
       for (const lit of literals(file)) {
         strings++;
         check(file, lit.line, lit.text);

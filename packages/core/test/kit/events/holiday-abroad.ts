@@ -1,8 +1,7 @@
 /**
  * Two weeks in Spain in July: flights and a hotel booked in March, then groceries, restaurants and a car abroad on the
  * Gold card. 0.7.0 and 0.8.0 reviews (spending change, Optimoi habits and seasons): a holiday is one dear month, no
- * habit that grew and no season to plan for unless it repeats ("prices July by the extra interest after it in both
- * years" in optimise/everyday.test.ts needs two years).
+ * habit that grew and no season to plan for unless it repeats.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

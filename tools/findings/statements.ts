@@ -1,6 +1,6 @@
 /**
  * Every statement the product makes about money, as stable text: what Säästövinkit says as Muut havainnot (insights,
- * alerts), Optimoi's findings and their follow-up, Mikä muuttui (income) and the spending change sentences. One block
+ * alerts), Mikä muuttui (income) and the spending change sentences. One block
  * per statement with its number and its calc, so a reviewer reads a change in what the product says as a text diff.
  * Last, the rows the product holds apart as large (`large`), what goes where by theme over the last twelve complete
  * months (`themes`) and the behaviour signals of BA1 (`behaviour`: credit stacking, the payday effect, split bill
@@ -17,15 +17,10 @@ import { insightText } from "../../packages/core/src/explain/insights.ts";
 import { creditStack } from "../../packages/core/src/behaviour/credit-stack.ts";
 import { paydayEffect } from "../../packages/core/src/behaviour/payday.ts";
 import { splitCandidates } from "../../packages/core/src/behaviour/split.ts";
-import { addMonths, monthOf } from "../../packages/core/src/dates.ts";
-import { allFindings, buildOptimise } from "../../packages/core/src/optimise/index.ts";
-import { outcomeOf } from "../../packages/core/src/optimise/outcome.ts";
-import { baselineOf } from "../../packages/core/src/optimise/state.ts";
-import type { Finding, FindingState } from "../../packages/core/src/optimise/types.ts";
 import { spendingChangeReport } from "../../packages/core/src/reports/spending-change.ts";
 import { contextOf, type Household } from "./households.ts";
 
-export const SOURCE_IDS = ["insights", "alerts", "optimise", "income", "change", "outcome", "large", "themes", "behaviour"] as const;
+export const SOURCE_IDS = ["insights", "alerts", "income", "change", "large", "themes", "behaviour"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 export interface Statement {
@@ -58,16 +53,10 @@ export function monthToDate(today: string): DateRange {
   return { from: `${today.slice(0, 7)}-01`, to: today };
 }
 
-/** The day the follow-up pretends each finding was marked done: the first day of the fourth month before today's. */
-export function doneOn(today: string): string {
-  return `${addMonths(monthOf(today), -4)}-01`;
-}
-
 interface Run {
   h: Household;
   ctx: AnalysisContext;
   range: DateRange;
-  findings: () => Finding[];
 }
 
 type Maker = (r: Run) => Omit<Statement, "source" | "household">[];
@@ -88,16 +77,6 @@ const MAKERS: Record<SourceId, Maker> = {
     }),
   alerts: ({ h, ctx, range }) =>
     buildAlerts(ctx, range, h.inputs).map((a) => ({ id: a.id, kind: a.kind, title: a.title, figure: "", calc: [a.detail, `tone ${a.tone}`], rows: null, loud: true })),
-  optimise: ({ findings }) =>
-    findings().map((f) => ({
-      id: f.id,
-      kind: `${f.area}:${f.kind}`,
-      title: f.title,
-      figure: f.euros ? `${eur(f.euros.lowCents)} / ${eur(f.euros.midCents)} / ${eur(f.euros.highCents)} a year` : `decide by ${f.decideBy}`,
-      calc: [`certainty ${f.certainty.level}: ${f.certainty.reason}`, ...f.calc.map((c) => `${c.label}: ${c.value}${c.struck ? " (struck)" : ""}`), `action ${f.action}`],
-      rows: f.rows.length,
-      loud: true,
-    })),
   income: ({ ctx, range }) => {
     const end = range.to < ctx.today ? range.to : ctx.today;
     return incomeChanges(incomeBase(ctx, end), end === ctx.today).map((c) => ({
@@ -120,24 +99,6 @@ const MAKERS: Record<SourceId, Maker> = {
       rows: null,
       loud: !quiet,
     })),
-  outcome: ({ ctx, findings }) => {
-    const on = doneOn(ctx.today);
-    return findings()
-      .filter((f) => f.measure.kind !== "none")
-      .map((f) => {
-        const state: FindingState = { findingId: f.id, status: "done", reason: null, until: null, effectiveDate: on, midCents: f.euros?.midCents ?? null, baseline: baselineOf(ctx, f, on), decidedAt: `${on}T12:00:00Z` };
-        const o = outcomeOf(ctx, state, f);
-        return {
-          id: `outcome:${f.id}`,
-          kind: o.verdict,
-          title: o.reason,
-          figure: o.monthlyCents === null ? "" : `${eur(o.monthlyCents)} a month`,
-          calc: [`verdict ${o.verdict}, done on ${on}`, ...(o.replacement ? [o.replacement.text] : [])],
-          rows: null,
-          loud: o.verdict !== "odottaa" && o.verdict !== "epäselvä",
-        };
-      });
-  },
   large: ({ ctx }) => {
     const purchases = largePurchases(ctx);
     const income = largeIncome(ctx);
@@ -214,12 +175,10 @@ const MAKERS: Record<SourceId, Maker> = {
 /** Every statement of the given sources about one household, sorted by source and id. */
 export function statements(h: Household, sources: readonly SourceId[] = SOURCE_IDS): Statement[] {
   const ctx = contextOf(h);
-  let found: Finding[] | null = null;
   const run: Run = {
     h,
     ctx,
     range: monthToDate(h.today),
-    findings: () => (found ??= allFindings(buildOptimise({ ctx, balances: h.balances, inputs: h.inputs, values: h.values, industry: h.industry }))),
   };
   return SOURCE_IDS.filter((s) => sources.includes(s)).flatMap((source) =>
     MAKERS[source](run)

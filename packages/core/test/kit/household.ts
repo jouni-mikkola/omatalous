@@ -7,7 +7,8 @@
  * month before is paid from checking on the 10th. Nothing in it changes: every change is a life event (events/*.ts).
  */
 import { addDays, daysInMonth, monthOf } from "../../src/dates.ts";
-import { NO_INPUTS, type Transaction } from "../../src/types.ts";
+import { enrichTransactions } from "../../src/pipeline.ts";
+import { type Account, type CategoryRule, NO_INPUTS, type Transaction } from "../../src/types.ts";
 import { byDateAndId, type Household } from "../../../../tools/findings/households.ts";
 import { ACCOUNTS, banking, frameOf, IBAN, rows } from "./frame.ts";
 import { noise, type NoiseModel } from "./noise.ts";
@@ -109,7 +110,12 @@ export function householdOf(name: string, today: string, txs: Transaction[]): Ho
     ],
     rules: [],
     inputs: NO_INPUTS,
-    values: {},
     industry: new Map(),
   };
+}
+
+/** Every row after enrichment, as the server stores them: `enrichTransactions` returns only the rows it changed. */
+export function enrich(txs: readonly Transaction[], accounts: readonly Account[], rules: readonly CategoryRule[] = [], industry: ReadonlyMap<string, string> = new Map()): Transaction[] {
+  const changed = new Map(enrichTransactions(txs, accounts, rules, industry).map((t) => [t.id, t]));
+  return txs.map((t) => changed.get(t.id) ?? t);
 }

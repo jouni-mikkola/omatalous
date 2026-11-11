@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { planOf } from "../src/analysis/change-plan.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../src/analysis/usual.ts";
-import { accountsBefore } from "../src/optimise/common.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series } from "./helpers.ts";
 
@@ -79,18 +78,5 @@ describe("the plan of a spending change", () => {
 
   it("gives accounts that start on one day the usual base of six months", () => {
     expect(planOf(together(), "expected", "2026-10")?.base).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
-  });
-});
-
-describe("accountsBefore", () => {
-  it("leaves out the account connected inside the window", () => {
-    expect([...accountsBefore(later(), "2026-01-01")]).toEqual(["acc-1"]);
-    expect([...accountsBefore(later(), "2026-08-10")].sort()).toEqual(["acc-1", "acc-2"]);
-    expect([...accountsBefore(later(), "2026-08-01")]).toEqual(["acc-1"]);
-  });
-
-  it("keeps every account that starts on one day", () => {
-    expect([...accountsBefore(together(), "2025-12-01")].sort()).toEqual(["acc-1", "acc-2"]);
-    expect([...accountsBefore(together(), "2025-11-01")]).toEqual([]);
   });
 });

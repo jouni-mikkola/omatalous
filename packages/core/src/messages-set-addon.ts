@@ -17,7 +17,7 @@ export const FI_SET_ADDON = {
   "set.addon.state_none": "Ei yhdistetty.",
   "set.addon.state_connected": "Yhdistetty, versio {version}.",
   "set.addon.state_connected_named": "Yhdistetty: {label}, versio {version}.",
-  "set.addon.state_pending": "Versio {version} on ladattu. Se otetaan käyttöön, kun palvelin käynnistyy seuraavan kerran.",
+  "set.addon.state_pending": "Lataus onnistui: versio {version}. Palvelin ottaa sen käyttöön seuraavassa käynnistyksessä.",
   "set.addon.state_waiting": "Odottaa versiota, joka sopii tähän sovelluksen versioon.",
   "set.addon.state_checking": "Tarkistetaan…",
   "set.addon.state_refused": "Hylätty: {why}.",

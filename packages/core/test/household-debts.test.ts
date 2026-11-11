@@ -5,18 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { addDays, addMonthsToDate } from "../src/dates.ts";
 import { householdDebts } from "../src/household-debts.ts";
 import { creditAccountLoan, loanBalanceOn, loanInterestNext12Months, loanLastDueDate, loanPayoffDate } from "../src/loans.ts";
-import { loans as loanArea } from "../src/optimise/areas/loans.ts";
-import { eur } from "../src/optimise/common.ts";
-import { areaInputOf } from "../src/optimise/index.ts";
 import { buildReports } from "../src/reports/index.ts";
-const SAME_DEBT_TWICE = "Sama velka voi olla summassa kahdesti";
 import type { Account, BalanceInput, Loan } from "../src/types.ts";
 import { tx } from "./helpers.ts";
-import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./optimise/household-kit.ts";
-import * as loansPart from "./optimise/parts/loans.ts";
 
 const today = "2026-10-09";
 const loan = (p: Partial<Loan> & Pick<Loan, "id" | "balanceCents">): Loan => ({
@@ -295,75 +288,5 @@ describe("the Lainat report and Saldot with a link", () => {
     // linked: the same four months, where the account tells nothing yet, and in October the account alone
     expect(linked.accountsLessDebt).toEqual([-14_800_000, -14_755_000, -14_709_865, -14_664_595, 200_000 - 14_912_345]);
     expect(linked.debt).toEqual({ day: today, cents: 14_912_345, savedCents: 0 });
-  });
-});
-
-/** A part on the base as the server hands it over. `joinHousehold` joins marks and bills only, so the part's loans are put back. */
-const withLoans = (part: PartHousehold) => {
-  const h = joinHousehold([part]);
-  return householdInput({ ...h, inputs: { ...h.inputs, loans: part.inputs?.loans ?? [] } });
-};
-
-describe("the three readers of the debt total with a link", () => {
-  // The loans part's household: a mortgage saved 200 days ago, so what it counts as today is the plan's and not the
-  // stated balance, a connected card, and the loan account the bank shows for the same mortgage.
-  const part = loansPart.savedMortgage(FRAME, { balanceDate: addDays(FRAME.today, -200) });
-  const mortgageAccount = { id: "h-mortgage-account", name: "Asuntolaina", type: "loan" as const, balanceCents: -14_612_345, ownerName: null, balanceAt: null };
-  const readers = (accountId: string | null) => {
-    const mortgage: Loan = { ...part.inputs!.loans![0]!, accountId };
-    const input = withLoans({ ...part, balances: [...part.balances!, mortgageAccount], inputs: { ...part.inputs!, loans: [mortgage] } });
-    const reports = buildReports({ ctx: input.ctx, range: { from: "2026-01-01", to: FRAME.today }, balances: input.balances, inputs: input.inputs });
-    const area = loanArea.assess(areaInputOf(input));
-    const calc = (kind: string, label: string) => area.findings.find((f) => f.kind === kind)?.calc.find((c) => c.label === label)?.value;
-    return { mortgage, reports, area, calc, debts: householdDebts(input.balances, input.inputs!, FRAME.today) };
-  };
-  const plain = readers(null);
-  const linked = readers(mortgageAccount.id);
-  /** What the saved mortgage counts as today when nothing links it. */
-  const typed = loanBalanceOn(plain.mortgage, FRAME.today).cents!;
-
-  it("the total falls by exactly the saved loan's typed balance in the Lainat report, in Saldot and in Säästövinkit", () => {
-    expect(typed).toBeGreaterThan(14_000_000);
-    expect(plain.debts.total.cents).toBe(typed + 120_000 + 14_612_345);
-    expect(linked.debts.total.cents).toBe(120_000 + 14_612_345);
-    // Lainat
-    expect(plain.reports.loans.total.cents).toBe(plain.debts.total.cents);
-    expect(linked.reports.loans.total.cents).toBe(plain.reports.loans.total.cents - typed);
-    // Saldot: the debt total, and the accounts less the debts rise by what was taken twice
-    expect(linked.reports.balances.debt).toEqual({ day: FRAME.today, cents: plain.reports.balances.debt.cents - typed, savedCents: 0 });
-    expect(linked.reports.balances.total).toEqual(plain.reports.balances.total);
-    expect(linked.reports.balances.accountsLessDebt.at(-1)).toBe(plain.reports.balances.accountsLessDebt.at(-1)! + typed);
-    expect(linked.reports.balances.accountsLessDebt.at(-1)).toBe(linked.reports.balances.total.at(-1));
-    // Säästövinkit
-    expect(plain.area.summary?.lines[0]).toEqual({ label: "Velkaa yhteensä", value: eur(plain.debts.total.cents) });
-    expect(linked.area.summary?.lines[0]).toEqual({ label: "Velkaa yhteensä", value: eur(plain.debts.total.cents - typed) });
-    // the warning of the pair is gone from both pages
-    expect(plain.reports.loans.maybeTwice).toHaveLength(1);
-    expect(plain.area.summary?.lines.map((l) => l.label)).toContain(SAME_DEBT_TWICE);
-    expect(linked.reports.loans.maybeTwice).toEqual([]);
-    expect(linked.area.summary?.lines.map((l) => l.label)).not.toContain(SAME_DEBT_TWICE);
-  });
-
-  it("the interest is one figure in the report and the area, counted with the saved rate on the bank's balance", () => {
-    // the mortgage's sixth due date is the latest one behind today: the bank's balance is dated there
-    const due = addMonthsToDate(plain.mortgage.balanceDate, 6);
-    expect([due <= FRAME.today, addMonthsToDate(plain.mortgage.balanceDate, 7) > FRAME.today]).toEqual([true, true]);
-    const restated = loanInterestNext12Months({ ...plain.mortgage, balanceCents: 14_612_345, balanceDate: due }, FRAME.today);
-    expect(restated.cents).toBeGreaterThan(0);
-    expect(linked.debts.interest.cents).toBe(restated.cents);
-    expect(linked.reports.loans.interest).toEqual(linked.debts.interest);
-    expect(linked.reports.loans.interestKnown).toBe(true);
-    // the card has no rate and is said to be left out; the linked mortgage is not
-    expect(linked.reports.loans.withoutRate).toBe(1);
-    expect(linked.area.summary?.lines[1]).toEqual({ label: "Korot 12 kuukaudessa (ilman yhtä lainaa, jonka korkoa ei tiedetä)", value: eur(restated.cents!) });
-  });
-
-  it("the mortgage findings of Säästövinkit read the same debt: the bank's balance, the saved margin and rate", () => {
-    expect(plain.calc("margin", "Lainan saldo")).toBe(eur(typed));
-    expect(linked.calc("margin", "Lainan saldo")).toBe(eur(14_612_345));
-    expect(linked.calc("prepay", "Lainan saldo")).toBe(eur(14_612_345));
-    expect(linked.calc("margin", "Oma marginaali")).toBe(plain.calc("margin", "Oma marginaali"));
-    expect(linked.calc("prepay", "Lainan korko")).toBe(plain.calc("prepay", "Lainan korko"));
-    expect(linked.area.checks.map((c) => `${c.id} ${c.status}`)).toEqual(plain.area.checks.map((c) => `${c.id} ${c.status}`));
   });
 });

@@ -3,8 +3,6 @@ import { createContext } from "../src/analysis/context.ts";
 import { CATEGORY_COICOP, priceSplit } from "../src/analysis/prices.ts";
 import { CATEGORIES } from "../src/categories.ts";
 import { addMonths } from "../src/dates.ts";
-import { CPI_CLASS_NAMES, CPI_FACTS } from "../src/optimise/facts/cpi.ts";
-import { factFrom } from "../src/optimise/index.ts";
 import { categoryReport } from "../src/reports/categories.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
@@ -12,7 +10,6 @@ import { series, tx } from "./helpers.ts";
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-19";
 
-const factOn = (id: string, on: string) => factFrom(CPI_FACTS, id, on);
 const monthsFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => addMonths(first, i));
 
 /** Salary and rent to keep the household steady, groceries at `level` cents a month from 2025-07, the months in `high` dearer. */
@@ -67,12 +64,10 @@ describe("price split", () => {
     expect(p.priceCents + p.quantityCents).toBe(200);
   });
 
-  it("maps only expense categories, each to a bundled series of 36 months", () => {
+  it("maps only expense categories", () => {
     for (const [category, coicop] of Object.entries(CATEGORY_COICOP)) {
       expect(CATEGORIES.find((c) => c.id === category)?.kind, category).toBe("expense");
-      expect(CPI_CLASS_NAMES.has(coicop), coicop).toBe(true);
-      expect(CPI_FACTS.filter((f) => f.id.startsWith(`cpi_index:${coicop}:`)).map((f) => f.period)).toEqual(monthsFrom("2023-10", 36));
+      expect(coicop, category).toMatch(/^\d/);
     }
-    expect(factOn("cpi_index:01:2026-09", today)).toMatchObject({ value: 102.19, label: "Kuluttajahintaindeksi syyskuussa 2026, Elintarvikkeet ja alkoholittomat juomat" });
   });
 });

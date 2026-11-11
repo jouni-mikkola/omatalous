@@ -1,7 +1,7 @@
 /**
  * If moves the home insurance from 142,30 € a quarter to 47,43 € a month in April: the same premium a year. 0.8.0
  * review (Optimoi follow-up and insurance): a quarterly charge that became a monthly one of the same total is no
- * saving and no rise ("a quarterly charge that became a monthly one" in optimise/outcome.test.ts).
+ * saving and no rise.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

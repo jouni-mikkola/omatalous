@@ -1,7 +1,7 @@
 /**
  * A dentist's bill of 89 € was forgotten and went to collection: one payment to Intrum in August holds the bill and
  * 35,50 € of collection costs. 0.8.0 review (Optimoi bank and the late fee alert): only the fee is a fee, never the
- * bill inside the same payment ("LASKU 4471 JA PERINTAKULU" in optimise/contracts.test.ts).
+ * bill inside the same payment.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

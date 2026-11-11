@@ -6,7 +6,6 @@
 import { homeKindOf, isHeatWaterOrWaste } from "./payees.ts";
 import { alternation, COMPANY_FORMS, type FormUse } from "./wordlists.ts";
 
-export { isHeatWaterOrWaste };
 
 /**
  * The texts that mark a MobilePay, Pivo or Vipps payment, as a regex alternation. Callers add what they need around
@@ -188,11 +187,11 @@ export const ELECTRICITY_NETWORK_WORDS = alternation("ELECTRICITY_NETWORK_WORDS"
 const ELECTRICITY_SELLER = new RegExp(`${ELECTRICITY_SELLER_WORDS}|SAHKO`);
 const NETWORK_COMPANY = new RegExp(`SAHKOVERKKO|VERKKO|VERKOT|SIIRTO|${ELECTRICITY_NETWORK_WORDS}`);
 /** A folded payee name that sells electricity: a seller or the word for electricity. */
-export const isElectricitySeller = (name: string) => ELECTRICITY_SELLER.test(name);
+const isElectricitySeller = (name: string) => ELECTRICITY_SELLER.test(name);
 /** A folded payee name that bills the network only. Read before the sellers, so "Helen Sähköverkko" is a network. */
-export const isNetworkCompany = (name: string) => NETWORK_COMPANY.test(name);
+const isNetworkCompany = (name: string) => NETWORK_COMPANY.test(name);
 /** A cooperative distributes and sells to its members on one bill. */
-export const isElectricityCooperative = (name: string) => /SAHKOOSUUSKUNTA/.test(name);
+const isElectricityCooperative = (name: string) => /SAHKOOSUUSKUNTA/.test(name);
 
 /** A card in a fee's folded text. */
 export const isCardText = (folded: string) => /KORTTI|CARD|DEBIT|CREDIT|GOLD|PLATINUM/.test(folded);
@@ -228,10 +227,8 @@ export const isSalaryCode = bankTxnCodes("RCDT-SALA", "RCDT-XBSA", "RRCT-SALA", 
  */
 export const isOwnTransferCode = bankTxnCodes("ICCN-COAT", "RCCN-COAT");
 
-/** Day care, as a regex alternation: the kids rule of categorize.ts and `isDaycareText` read it. */
+/** Day care, as a regex alternation: the kids rule of categorize.ts reads it. */
 export const DAYCARE_WORDS = alternation("DAYCARE_WORDS");
-const DAYCARE = new RegExp(`(?<![A-Z])(?:${DAYCARE_WORDS})(?![A-Z])`);
-export const isDaycareText = (folded: string) => DAYCARE.test(folded);
 
 const MUNICIPALITY = /(?<![A-Z])(?:KAUPUNKI|KUNTA|STAD|KOMMUN)(?![A-Z])/;
 /** A city or municipality as the payee, in a name or text folded with `fold`. */
@@ -329,7 +326,6 @@ const CAR_FINANCIER_WORDS = alternation("CAR_FINANCIER_WORDS");
 
 // what a car row was for: street parking is the apps the permit comparison counts; finance is a financier or a loan that names the car
 const PARKING_WORDS = words(String.raw`EASYPARK|PARKMAN|MOOVY|AIMO|AIMO PARK|APCOA|EUROPARK|Q-PARK|P-HUB|SCANDINAVIAN PARKING|PYSAKOINTI|PARKKI[A-Z]*`);
-const STREET_PARKING_WORDS = words(String.raw`EASYPARK|PARKMAN|MOOVY|AIMO|AIMO PARK`);
 const CHARGING_WORDS = words(String.raw`K-LATAUS|VIRTA|PLUGIT|RECHARGE|IONITY|SUPERCHARGER|[A-Z]*LATAUS`);
 const INSPECTION_WORDS = words(String.raw`[A-Z-]*KATSASTUS[A-Z]*`);
 const SERVICE_WORDS = words(String.raw`RENGAS[A-Z]*|RENKAAT|AUTOHUOLTO|AUTOKORJAAMO|KORJAAMO|AUTOMAALAAMO|AUTOPALVELU|MEKONOMEN|EUROMASTER|VIANOR`);
@@ -338,7 +334,6 @@ const CAR_INSURANCE_WORDS = words(String.raw`LIIKENNEVAKUUTUS|AUTOVAKUUTUS|AJONE
 const VEHICLE_TAX_WORDS = words(String.raw`AJONEUVOVERO|TRAFICOM`);
 const CAR_FINANCE_WORDS = words(String.raw`AUTO|AUTON|AUTOLAINA|AUTORAHOITUS|AUTO-OSAMAKSU|AUTOSOPIMUS|SANTANDER|${CAR_FINANCIER_WORDS}`);
 export const isParkingText = (folded: string) => PARKING_WORDS.test(folded);
-export const isStreetParkingText = (folded: string) => STREET_PARKING_WORDS.test(folded);
 export const isChargingText = (folded: string) => CHARGING_WORDS.test(folded);
 export const isInspectionText = (folded: string) => INSPECTION_WORDS.test(folded);
 export const isCarServiceText = (folded: string) => SERVICE_WORDS.test(folded);

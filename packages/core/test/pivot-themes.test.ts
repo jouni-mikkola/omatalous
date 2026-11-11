@@ -17,7 +17,7 @@ import { tx } from "./helpers.ts";
 type PivotReport = ReturnType<typeof pivotReport>;
 import { carLoan } from "./kit/events/car-loan.ts";
 import { EVENTS, kitHousehold } from "./kit/index.ts";
-import { enrich } from "./optimise/household-kit.ts";
+import { enrich } from "./kit/household.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 /** The 10th of November: October 2026 is the last complete month and November is running. */

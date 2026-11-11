@@ -1,7 +1,6 @@
 /**
  * The child gets a phone in May: a second line on the family's Elisa bill, 19,90 € to 39,80 €. 0.8.0 review
- * (Optimoi subscriptions): a step that doubles a phone bill is a new line, no price rise (the "sub-line" near miss in
- * optimise/parts/subscriptions.ts).
+ * (Optimoi subscriptions): a step that doubles a phone bill is a new line, no price rise.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

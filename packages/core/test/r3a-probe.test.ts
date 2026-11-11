@@ -12,11 +12,8 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import * as bridgeApi from "../src/analysis/bridge.ts";
 import * as flowsApi from "../src/analysis/flows.ts";
-import { debtShareOf } from "../src/analysis/insights/borrowing.ts";
-import { completeMonthsBefore } from "../src/analysis/usual.ts";
-import { situationOf } from "../src/optimise/situation.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
-import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
+import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { view } from "./insight-view.ts";
 
@@ -112,34 +109,6 @@ describe("savings rate in the cash flow rows", () => {
     const cut = cashflowReport(ctx, { from: "2026-05-15", to: "2026-07-31" });
     expect(cut.rows.find((r) => r.month === "2026-05")!.savingsRate).toBeNull();
     expect(cut.rows.find((r) => r.month === "2026-06")!.savingsRate).toBeCloseTo(SIXTH, 10);
-  });
-});
-
-describe("savings rate and debt share in Tilanne", () => {
-  const months = completeMonthsBefore(ctx, "2026-10", 12);
-  const facts = situationOf(ctx, months, [], NO_INPUTS);
-  const fact = (id: string) => facts.find((f) => f.id === id)!;
-
-  it("names its window and tells the helper's rate", () => {
-    expect(months).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
-    expect(fact("savings_rate").label).toBe("Säästöaste, viimeiset 6 kuukautta");
-    expect(fact("savings_rate").value).toBeCloseTo(rateOf(months)!, 10);
-  });
-
-  it("leaves a partial month out of the rate and of the count in its label", () => {
-    const withMarch = situationOf(ctx, ["2026-03", ...months], [], NO_INPUTS).find((f) => f.id === "savings_rate")!;
-    expect(withMarch.label).toBe("Säästöaste, viimeiset 6 kuukautta");
-    expect(withMarch.value).toBeCloseTo(SIXTH, 10);
-  });
-
-  it("tells the debt share of the overview's debt finding, with its window", () => {
-    expect(fact("debt_share").label).toBe("Velanhoito tavallisista tuloista, viimeiset 6 kuukautta");
-    const share = debtShareOf(ctx, today, NO_INPUTS)!;
-    expect(fact("debt_share").value).toBeCloseTo(share.debtCents / share.incomeCents, 10);
-    const finding = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }).insights.map(view).find((i) => i.id === "debt");
-    expect(finding).toBeDefined();
-    const pct = Number(/(\d+)\s%/.exec(finding!.title.replace(/\s/g, " "))![1]);
-    expect(fact("debt_share").text.replace(/\s/g, " ")).toBe(`${pct} %`);
   });
 });
 

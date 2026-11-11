@@ -50,12 +50,6 @@ const RULES: Rule[] = [
     deny: new RegExp(`^${CORE}/reports/(?!shared\\.ts$)`),
   },
   {
-    id: "optimise-areas-are-independent",
-    why: "an Optimoi area reads optimise/common.ts, facts, types, inputs and analysis exports; what two areas share goes in optimise/common.ts",
-    from: new RegExp(`^${CORE}/optimise/areas/`),
-    deny: new RegExp(`^${CORE}/optimise/(?!common\\.ts$|facts/|types\\.ts$|inputs\\.ts$)`),
-  },
-  {
     id: "db-is-below-services",
     why: "db/ holds all SQL and sits at the bottom of the server; it must not reach up",
     from: new RegExp(`^${SERVER}/db/`),

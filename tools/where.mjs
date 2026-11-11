@@ -4,7 +4,7 @@
  * it (also through a barrel such as packages/core/src/index.ts) and which test files mention it. Reads the tracked
  * TypeScript and shell files, uses the TypeScript parser that is already a dev dependency and changes nothing.
  *   pnpm where buildOptimise      a name: Class.member works too, and a shell function (act_update)
- *   pnpm where optimise/index.ts  a file: header comment, exports, importers, tests
+ *   pnpm where analysis/context.ts a file: header comment, exports, importers, tests
  *   pnpm where "Menojen muutos"   text that is no name: the string literals that hold it
  * A name that is defined in several places lists every place.
  */

@@ -7,7 +7,6 @@
  *   commitments                                    fixed costs, subscriptions and expected bills
  *   analysis/*                                     money flows, context, dashboard, alerts, insights
  *   reports/*                                      report registry (one file per report)
- *   optimise/*                                     Optimoi: decisions with a price or a deadline, one file per area
  */
 export * from "./types.ts";
 export * from "./account-use.ts";
@@ -93,8 +92,6 @@ export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";
 export { taxYearCsv } from "./sheet-csv.ts";
-export * from "./optimise/index.ts";
-export * from "./optimise/outcome.ts";
 export * from "./card-holder.ts";
 export * from "./money-trace.ts";
 export * from "./money-trace-answers.ts";

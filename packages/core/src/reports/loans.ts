@@ -28,8 +28,7 @@ import {
 } from "../loans.ts";
 import type { AccountType, BalanceInput, IsoDate, Loan, Part, UserInputs } from "../types.ts";
 
-// where the loan area of Säästövinkit and the reports' index read them, as before they moved
-export { type MaybeTwice, maybeTwice };
+export type { MaybeTwice };
 
 /** The reference rate moves the scenario lines tell, in hundredths of a percent: one percentage point down and up. */
 const RATE_SHIFTS_BP = [-100, 100] as const;
@@ -38,7 +37,7 @@ const RATE_SHIFTS_BP = [-100, 100] as const;
  * How many loans an interest total leaves out for their rate: they owe and no rate was told. A loan whose balance is
  * dated after the day is left out too, for its balance, and is not one of these.
  */
-export const loansWithoutRate = (interest: DebtFigure): number => interest.unknown.filter((u) => !u.counted && u.unknown === "rate").length;
+const loansWithoutRate = (interest: DebtFigure): number => interest.unknown.filter((u) => !u.counted && u.unknown === "rate").length;
 
 /** One debt and its figures on the report's day. */
 export interface LoanRow {

@@ -17,16 +17,13 @@ const CHUNK = 10;
 
 /**
  * The detectors that set one window against another: price rises, stops, new subscriptions, year and season
- * comparisons, spending and habit changes, income changes, the change sentences, Optimoi's rises and habits, and a
- * follow-up's verdict. Not the ones about a level or an event (a renewal, instalments, a double charge, a fee).
+ * comparisons, spending and habit changes, income changes, and the change sentences. Not the ones about a level or an event (a renewal, instalments, a double charge, a fee).
  */
 const TWO_WINDOW: readonly RegExp[] = [
   /^insights (price|price-rises|stopped|new|seasons|spending-[a-z_]+|commitments-share|income|subscriptions-added)$/,
   /^alerts (spike|habit)$/,
-  /^optimise [a-z]+:(rise|eating_out|delivery|repeat|month)$/,
   /^income (?!windfall)[a-z_]+$/,
   /^change (usual|season|year)$/,
-  /^outcome [a-zä]+$/,
 ];
 
 /** A source and its kind: an insight's id up to the first colon (`spending-groceries`, `spending-growth`), an alert's kind. */
