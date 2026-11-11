@@ -78,6 +78,8 @@ jobs:
       - name: Lint and shell suites
         # the maintenance helper scenarios run four at a time
         run: bash tools/check.sh ${{ steps.scope.outputs.args }} lint sh
+      # No flake-or-real rerun here: `tools/check.sh --rerun` needs the Node of .npmrc (tools/check/pinned-node.sh) and
+      # this job installs none, so a red run of it prints the logs of its failed suites and stops at that.
       - name: Logs of the failed suites
         if: ${{ failure() }}
         run: |
@@ -112,7 +114,21 @@ jobs:
         run: tools/ci/light-scope.sh >>"$GITHUB_OUTPUT"
       # types and tests side by side, each reporting on its own: a type error still shows the failing tests
       - name: Types and tests
+        id: check
         run: bash tools/check.sh ${{ steps.scope.outputs.args }} types tests
+      # A red check keeps its folder (check.* under the temp folder). Every failure in it runs once more, alone, and
+      # prints FLAKE (passes alone), REAL (fails alone) or NOT RUN, as `pnpm check --rerun` does on a developer's
+      # machine. The job is red already and stays red whatever the lines say: they are for the one who reads the run.
+      # The failures run one after the other, each with four minutes at most (tools/check/rerun.mjs). Five minutes keep
+      # the step inside the job's ten: past them it ends as failed, where a job out of time would end as cancelled, and
+      # the failures it did not reach get no line and the run no `check: rerun:` summary.
+      - name: Flake or real
+        if: ${{ failure() && steps.check.conclusion == 'failure' }}
+        timeout-minutes: 5
+        run: |
+          dir=$(ls -dt "${TMPDIR:-/tmp}"/check.*/ 2>/dev/null | head -n 1)
+          [[ -n $dir ]] || { echo "check: rerun: the red run kept no folder"; exit 0; }
+          bash tools/check.sh --rerun "${dir%/}" || echo "check: rerun ended with $? (1 a REAL, 2 no failure found, 3 a NOT RUN)"
 
   ci-ok:
     # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (the private repo).

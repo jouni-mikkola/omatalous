@@ -675,3 +675,43 @@ describe("the workflow the board watches on main", () => {
     expect(ci).toMatch(/^ {2}workflow_dispatch:$/m);
   });
 });
+
+// ── a red run of the js job says flake or real ───────────────────────────────────────────────────────────────────
+describe("a red run of ci.yml says flake or real", () => {
+  type CiStep = Step & { id?: string; "timeout-minutes"?: string; "continue-on-error"?: string };
+  type CiJob = { "timeout-minutes"?: string; steps: CiStep[] };
+  const text = readText(".github/workflows/ci.yml");
+  const jobs = (parseYaml(text) as unknown as { jobs: Record<string, CiJob> }).jobs;
+  const js = jobs.js?.steps ?? [];
+  const at = js.findIndex((s) => s.name === "Flake or real");
+  const rerun = js[at];
+
+  it("the js job reruns the failures of a red Types and tests step, on the folder the run kept", () => {
+    const check = js[at - 1];
+    expect(check?.name).toBe("Types and tests"); // the rerun comes right after the step it reads
+    expect(check?.id).toBe("check");
+    // only a red check starts it: a failed install or scope has no folder to read
+    expect(rerun?.if).toBe("${{ failure() && steps.check.conclusion == 'failure' }}");
+    expect(rerun?.run).toMatch(/dir=\$\(ls -dt "\$\{TMPDIR:-\/tmp\}"\/check\.\*\/ /); // the newest check.* folder
+    expect(rerun?.run).toMatch(/bash tools\/check\.sh --rerun "\$\{dir%\/\}"/);
+  });
+
+  it("the job stays red and inside its time limit whatever the rerun says", () => {
+    expect(text).not.toMatch(/continue-on-error/); // a green rerun never turns the red check green
+    const limit = Number(jobs.js?.["timeout-minutes"]);
+    const step = Number(rerun?.["timeout-minutes"]);
+    expect(step).toBeGreaterThan(0);
+    expect(step).toBeLessThan(limit); // the step ends as failed before the job would end as cancelled
+  });
+
+  it("the shell job has no Node, so it gets no rerun, says so and keeps the logs of its failed suites", () => {
+    const shell = jobs.shell?.steps ?? [];
+    expect(shell.some((s) => /setup-node|pnpm/.test(textOf(s)))).toBe(false);
+    expect(shell.some((s) => /--rerun/.test(s.run ?? ""))).toBe(false);
+    const logs = shell.find((s) => s.name === "Logs of the failed suites");
+    expect(logs?.if).toBe("${{ failure() }}");
+    expect(logs?.run).toMatch(/sh-\*\.rc/);
+    const comment = text.slice(text.indexOf("Lint and shell suites"), text.indexOf("- name: Logs of the failed suites"));
+    expect(comment).toMatch(/# No flake-or-real rerun here: .*--rerun.* needs the Node of \.npmrc \(tools\/check\/pinned-node\.sh\)/);
+  });
+});
