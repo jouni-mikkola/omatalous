@@ -48,7 +48,7 @@ test("390 px: a failed second load of Nyt keeps the first answer, with its time 
   await expect(line).toContainText(SENTENCE);
   await expect(line, "the time of the answer that stays").toContainText(`Tulokset ajalta ${shown(t0, timezone)}.`);
   await expect(line, "not the time of the failure").not.toContainText(shown(later, timezone));
-  await expect(page.getByText("Tietojen haku epäonnistui."), "the answer is not replaced by the failure").toHaveCount(0);
+  await expect(page.getByText("Emme saaneet tietoja haettua. Yritä uudelleen."), "the answer is not replaced by the failure").toHaveCount(0);
   expect(await answer.innerText(), "the first answer stays").toBe(first);
   const box = (await line.boundingBox())!;
   expect(box.x + box.width, "the line ends on the screen").toBeLessThanOrEqual(390);

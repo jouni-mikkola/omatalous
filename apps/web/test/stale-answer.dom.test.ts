@@ -56,7 +56,7 @@ describe("a view whose second load fails", () => {
     expect(line.textContent, "the time of the answer that stays").toContain(`Tulokset ajalta ${dateTime(t0.toISOString())}.`);
     expect(line.textContent, "not the time of the failure").not.toContain(dateTime(later.toISOString()));
     expect(document.querySelector(".home-answer")?.textContent, "the first answer stays").toBe(first);
-    expect(screen.queryByText("Tietojen haku epäonnistui."), "the answer is not replaced by the failure").toBeNull();
+    expect(screen.queryByText("Emme saaneet tietoja haettua. Yritä uudelleen."), "the answer is not replaced by the failure").toBeNull();
 
     // while the shell says the server cannot be reached and gives the time of the kept figures, that is the one line
     act(() => markKept("/api/dashboard", t0.toISOString()));

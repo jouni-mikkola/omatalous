@@ -100,7 +100,7 @@ test("Testaa paluuosoite: one line for a working address, for one the applicatio
 
   await setAnswer("fail");
   await test.click();
-  await expect(page.getByText("Testi epäonnistui.")).toBeVisible();
+  await expect(page.getByText("Emme saaneet testiä tehtyä. Yritä uudelleen.")).toBeVisible();
   await expect(refused).toBeHidden();
   expect(seen.problems.filter((p) => !/50[02]|422/.test(p))).toEqual([]);
   await context.close();

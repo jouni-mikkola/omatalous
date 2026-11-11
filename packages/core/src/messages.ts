@@ -18,7 +18,7 @@ const FI = {
   "app.bad_request": "Virheellinen pyyntö. Lataa sivu uudelleen.",
   "app.unreachable": "Palvelimeen ei saada yhteyttä. Yritä hetken kuluttua uudelleen.",
   "app.server_status": "Palvelin ei vastannut oikein. Yritä hetken kuluttua uudelleen.",
-  "app.request_failed": "Pyyntöä ei voitu tehdä. Yritä uudelleen.",
+  "app.request_failed": "Emme saaneet pyyntöä tehtyä. Yritä uudelleen.",
   "app.admin_only": "Vain ylläpitäjälle.",
   // sign-in
   "auth.bad_login": "Väärä käyttäjätunnus tai salasana.",

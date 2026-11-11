@@ -26,6 +26,16 @@ describe("message catalogue", () => {
     expect(message("rep.month_spent", { spent: "120 €", day: 9 })).toBe("Olet käyttänyt rahaa 120 € kuun 9. päivään mennessä.");
   });
 
+  it("says who failed and what to do next, not a passive or a bare failure", () => {
+    const codes = ["card_file.err_save", "app.request_failed", "set.brt.the_test_failed", "load.failed"] as const;
+    for (const code of codes) {
+      const fi = message(code);
+      expect(fi, code).not.toMatch(/ei voitu|epäonnistui/i);
+      expect(fi, code).toMatch(/^Emme .+\. Yritä uudelleen\.$/);
+      expect(messageIn("en", code), code).toMatch(/^We .+\. Try again\.$/);
+    }
+  });
+
   it("fills the holes of a code", () => {
     expect(message("auth.too_many", { minutes: 3 })).toBe("Liian monta yritystä. Yritä uudelleen 3 minuutin päästä.");
     expect(message("auth.bad_login")).toBe("Väärä käyttäjätunnus tai salasana.");

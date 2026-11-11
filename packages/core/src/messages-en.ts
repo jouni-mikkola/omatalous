@@ -80,7 +80,7 @@ const EN: Record<BaseCodes, string> = {
   "app.bad_request": "Invalid request. Reload the page.",
   "app.unreachable": "Cannot reach the server. Try again in a moment.",
   "app.server_status": "The server did not answer correctly. Try again in a moment.",
-  "app.request_failed": "The request failed. Try again.",
+  "app.request_failed": "We could not make the request. Try again.",
   "app.admin_only": "For the administrator only.",
   // sign-in
   "auth.bad_login": "Wrong username or password.",

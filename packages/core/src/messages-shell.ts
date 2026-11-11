@@ -46,7 +46,7 @@ export const FI_SHELL = {
   // loading and failing
   "load.loading": "Ladataan…",
   "load.slow": "Lataus kestää tavallista kauemmin. Odota tai lataa sivu uudelleen.",
-  "load.failed": "Tietojen haku epäonnistui.",
+  "load.failed": "Emme saaneet tietoja haettua. Yritä uudelleen.",
   "load.retry": "Yritä uudelleen",
   "more.show_n": "Näytä {count} lisää",
   "more.show_less": "Näytä vähemmän",

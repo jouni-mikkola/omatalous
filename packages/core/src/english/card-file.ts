@@ -11,7 +11,7 @@ export const EN_CARD_FILE: Record<keyof typeof FI_CARD_FILE, string> = {
   "card_file.err_many": "The file has too many rows: {max} at most at a time.",
   "card_file.err_pdf": "We do not read a PDF. Bring the statement in as a CSV or text file.",
   "card_file.err_big": "The file is too large.",
-  "card_file.err_save": "The rows could not be saved. Try again.",
+  "card_file.err_save": "We could not save the rows. Try again.",
   "card_file.found": "Found {rows} rows for {from}–{to}.",
   "card_file.unread": "{count} lines could not be read.",
   "card_file.card": "Card",

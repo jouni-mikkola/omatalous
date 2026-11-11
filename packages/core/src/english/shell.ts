@@ -41,7 +41,7 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   // loading and failing
   "load.loading": "Loading…",
   "load.slow": "Loading is taking longer than usual. Wait or reload the page.",
-  "load.failed": "Fetching the data failed.",
+  "load.failed": "We could not fetch the data. Try again.",
   "load.retry": "Try again",
   "more.show_n": "Show {count} more",
   "more.show_less": "Show less",

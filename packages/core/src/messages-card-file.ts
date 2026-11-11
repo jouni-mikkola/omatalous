@@ -14,7 +14,7 @@ export const FI_CARD_FILE = {
   "card_file.err_many": "Tiedostossa on liikaa rivejä: enintään {max} kerralla.",
   "card_file.err_pdf": "Emme lue PDF-tiedostoa. Tuo tiliote CSV- tai tekstitiedostona.",
   "card_file.err_big": "Tiedosto on liian suuri.",
-  "card_file.err_save": "Rivejä ei voitu tallentaa. Yritä uudelleen.",
+  "card_file.err_save": "Emme saaneet rivejä tallennettua. Yritä uudelleen.",
   "card_file.found": "Löytyi {rows} riviä ajalta {from}–{to}.",
   "card_file.unread": "{count} riviä jäi lukematta.",
   "card_file.card": "Kortti",
