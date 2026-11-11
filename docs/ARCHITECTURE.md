@@ -155,22 +155,6 @@ flowchart LR
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
   the range. The keys of the registry are the list; the repo rules check that each report is shown by a section of the page.
-- Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
-  file per area in `areas/` returns findings (title, action, a euro range, calc lines, evidence
-  rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months
-  only (under three only deadlines, under six no euros), the 120 € gate, certainty from weaknesses (`common.ts`), the
-  user's states (`state.ts`), every finding of an area (the page opens three) and a headline that skips overlapping findings. An outside figure
-  comes only from a dated row in `optimise/facts/`; an expired row hides its comparison. A typed input (`inputs.ts`)
-  goes stale and then counts as missing. The price rise, renewal, fixed-cost share and debt share detectors are
-  exported from the insights, so Säästövinkit and the overview tell the same numbers. Inputs and decisions are the user's
-  own, read per request like marks, and saving one never bumps a data version.
-  The follow-up (`outcome.ts`) judges a done decision from complete months after it: medians before and after for
-  spending, cost per month at its cadence for a contract, CPI for a season. It proposes a switch the data shows and
-  never marks one done itself. The first own-scope visit of a month stores a snapshot (`snapshot.ts`) of each finding's
-  id, area, mid, certainty and status; the page lists what changed since the last one and draws found against
-  confirmed euros a year once two snapshots exist. The flag `optimise` ships on (preview); an admin switches it off in
-  Asetukset > Palvelin ja ylläpito > Palvelin. `test/optimise/household.ts` joins every area's hit into one household: every area with a
-  finding kind must hit on it, every near miss must stay quiet and the headline must be the overlap-free sum.
 - Merchants (`routes/merchants.ts`): `GET /api/merchants` lists the user's merchants with their category,
   row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
   for one merchant name and `DELETE /api/merchants/rule` removes it, after which the other rules and the
@@ -224,7 +208,7 @@ floor (`-- migrate: compat <version>`, stored in `_migrations.compat`) that this
 is taken before anything changes. After a version
 change the derived data (merchant names, categories, transfers) is computed again for every member. The names are
 renamed once, at the first start of a build (`services/upgrade.ts`). What the household attached to an old name (a rule,
-a mark, a loan's series, an Optimoi decision) follows it when every row of that name gets one new name that no other old
+a mark, a loan's series, a decision) follows it when every row of that name gets one new name that no other old
 name gets. When old names merge, a rule is written onto their rows as the household's own choice and the marks stay on
 the old names ([MONEY_FLOWS.md](MONEY_FLOWS.md#merchant-names)).
 `scripts/update.sh` adds a backup, a health check and a rollback around this. Releases are signed images from

@@ -143,7 +143,7 @@ interface ModuleHost {
 }
 ```
 
-`ServerExtension` is `apps/server/src/extensions.ts`: `id`, `label`, `routes(s)` (mounted at `/api/<id>` behind the
+`ServerExtension` is the type in the server's extension file: `id`, `label`, `routes(s)` (mounted at `/api/<id>` behind the
 signed-in user), `tokenReads?`, `stores?`, `leftOut?`, `sealed?`, `securityEvents?`, `demo?`, `removeDemo?`, `cli?`,
 `cliUsage?`, `hourly?`, `rowFields?`, `rowParts?`. The host sets `migrationsDir` from the manifest; an entry's own value
 is ignored. A registered extension is on: the code is the switch, and there is no flag of its own to turn off.
@@ -155,7 +155,7 @@ is ignored. A registered extension is on: the code is the switch, and there is n
   `platform/errors`, `platform/inflight`, `platform/outbound`, `platform/validate`, `routes/shared`,
   `security/encoding`, `security/rate-limit`, `services/analysis`, `services/data-import-stores`, `services/security`
 
-Type-only imports (`db/rows`, `db/types`, `services/context`, `services/data-export-stores`, `services/users`,
+Type-only imports (`db/rows`, `db/types`, `services/context`, `db/data-export-stores`, `services/users`,
 `extensions`) need nothing at run time. The bundle carries no copy of these modules: its build maps each import that
 resolves to one of them to the host's object (an esbuild plugin that emits
 `module.exports = globalThis[Symbol.for("omatalous.host")].modules["<specifier>"]`). Node built-ins stay imports. A new
@@ -174,7 +174,7 @@ interface WebModuleHost {
 }
 ```
 
-`WebExtension` is `apps/web/src/extensions.ts`: `id`, `settingsCard?`, `settingsAnchor?`, `page?` (`label`,
+`WebExtension` is the type in the web app's extension file: `id`, `settingsCard?`, `settingsAnchor?`, `page?` (`label`,
 `component`), `securityLabels?`, `rowPart?`, `rowMark?`.
 
 `host.modules` holds `react`, `react/jsx-runtime`, `react-dom`, `@banking/core`, and the web's own files by their path

@@ -25,8 +25,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - `packages/core`: pure domain logic, no I/O. Rules: `categorize.ts` (with `categorize-people.ts`,
   `categorize-bank-rows.ts`), the bank dialect in `wording.ts` (word lists, ADR 0008), `industry.ts` (trade register
   matching). One definition per figure (ADR 0004): `analysis/usual.ts`, `commitments.ts`, `analysis/fees.ts`, in prose in `docs/MONEY_FLOWS.md`.
-  `loans.ts` (ADR 0012), `reports/index.ts` (the registry), `analysis/insights/` (one source per file), `optimise/`
-  (the Optimoi page), `features.ts` (flags).
+  `loans.ts` (ADR 0012), `reports/index.ts` (the registry), `analysis/insights/` (one source per file).
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin), `services/*` (use cases), `db/*-repo.ts` and
   `db/finance/` (all SQL), `connectors/` (`registry.ts`, `sync.ts`, `enable-banking/`), `platform/`, `entry/node.ts`,
   `services/review.ts` (`GET /api/review`: every question the app cannot settle itself, in one queue; each answer keeps
@@ -63,8 +62,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   account, so a service that moves to another account is a new series, `alert:<id>`, `loan-proposal:<key>`, or
   `merchant:<name>` from before 0.8.7), expected bills (`expected_bills`, `/api/expected-bills`) and loans (`loans`,
   `db/finance/loans.ts`, `/api/loans`, whose values `routes/loans.ts` bounds because core trusts them) are read per
-  request (`requestInputs`) and are not part of the cached context. So are the Optimoi inputs, decisions and snapshots
-  (`optimise_*`, `db/finance/optimise.ts`, `/api/optimise`); saving them never reprocesses.
+  request (`requestInputs`) and are not part of the cached context.
 - `category_source = 'user'` is never overwritten by automation. Likewise `accounts.custom_name` (the user's name for an
   account) is written only by `PATCH /accounts/:id` and by an import of the user's own export into an account it creates; `accounts.name` is the bank's and every link rewrites it.
   `StoredAccount.name` is the display name (the user's, else the bank's); matching reads the bank's (`bankName`).
@@ -165,17 +163,12 @@ detector, never an entry in `lists.json` to let it pass. A new word to refuse is
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
   `apps/web/src/pages/reports/sections/` that names the reports it reads, listed by the question page that shows it
   (`pages/reports/pages/<Page>.tsx`) + invariant test in `packages/core/test/reports.test.ts`. A question page has its
-  `Conclusion` in `reports/conclusions/<page>.ts` (its basis rows add up to its figure) and its styles in
-  `styles/report-<page>.css`. Each report and section starts with a `Decision:` comment naming what the household
+  styles in `styles/report-<page>.css`. Each report and section starts with a `Decision:` comment naming what the household
   decides with it (repo rule 11). A view with no decision is not built.
-- New module behind a flag: an extension (`apps/server/src/extensions.ts`) whose routes are mounted behind its flag.
+- New module behind a flag: a server extension whose routes are mounted behind its flag.
   Core has no flag. A finished module loses its flag, and no setting switches a page off.
 - New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`. A payee or
   payment word list goes in `packages/core/src/wordlists.json` (repo rule 21), read through `wordlists.ts` and shared with `categorize.ts` through one constant of `wording.ts`.
-- New Optimoi finding: in its area file, with a hit and near misses in `packages/core/test/optimise/parts/`, quiet on the
-  random households (`quiet.test.ts`). An outside figure is a row in `optimise/facts/` only after its primary source
-  was opened (`verifiedAt`); it expires and then hides its comparison. Findings never rank providers or advise a
-  product, and every number in a title is a calc line.
 - New connector: a folder in `apps/server/src/connectors/` listed in its `registry.ts` (recipe in
   `docs/DEVELOPMENT.md`). A `Connector` (`connectors/types.ts`) is an `id`, an optional `sync` and an optional
   `revokeAll`, and the id is stored and never renamed. The app reads no files on the server and has no import format. The one exception is a statement, a card's or a bank's CSV export or camt.053 file, read in the browser, of which only the rows go to the install (`connectors/card-file/`, `connectors/bank-file/`, ADR 0025).

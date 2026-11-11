@@ -306,8 +306,8 @@ The merchant name groups rows: rules, marks, the trade register's answers and ev
 A name that is not a shop's, a person's name or the name of a way to pay, is never sent to the trade register.
 
 The names are worked out again at the first start after an update that changes the cleaning, for every member
-(`followingNames` in `services/upgrade.ts`). A rule, a mark, a loan's series, an answer *Ei ole laina* and an Optimoi
-decision follow an old name when every row of it gets one new name that no other old name gets. When old names merge,
+(`followingNames` in `services/upgrade.ts`). A rule, a mark, a loan's series and an answer *Ei ole laina*
+follow an old name when every row of it gets one new name that no other old name gets. When old names merge,
 a rule on one of them would reach the rows of the others, so it is not renamed. Its category is written on the rows of
 its old name as the household's own choice and the rule is deleted. Rows set by hand and rows stored as transfers are
 left alone. An income category reaches money in only, a debt category money out only, and any other category both. A
@@ -602,7 +602,7 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   split into the part prices explain, the base spending at the change of the consumer price index of the category's
   COICOP class (the mean index of each period's months), and the rest, what the household bought more. The two add up
   to the rise to the cent. *Nousseet menot* splits the month's rise against the base months, *Kategoriat* the change
-  from the previous period. The index is bundled from Statistics Finland's table 15b5 (`optimise/facts/cpi.ts`) and expires like the other CPI facts; a category
+  from the previous period. The index is bundled from Statistics Finland's table 15b5 (`analysis/cpi.ts`) and expires like the other CPI facts; a category
   with no class in `CATEGORY_COICOP`, spending that fell, or a month with no valid index row gives no split.
 - *Kiinteät ja muuttuvat* has one column of fixed costs, the charges of subscriptions and bills with
   their loan instalments, and shows debt service outside them apart. The columns add up to the
@@ -711,7 +711,7 @@ fetch records: `asked_from`, `first_row_day`, `source`), which the analysis cont
   quarterly bill stays in. An account one period lacks is left out of both sides. The year comparison sums the shared
   accounts month by month; the summary's changes and the category report's changes (`comparedCents`) do the same over
   the period. When the accounts left out carry over a tenth of the later period's spending, no change is told. The
-  dashboard's side-by-side figures, the drift check, the Optimoi year comparisons and the months that cost more than
+  dashboard's side-by-side figures, the drift check, the year comparisons and the months that cost more than
   usual (with the months of their usual level) sum every account, so they are told only when none is left out.
   The year comparison says how many months it rests on, that accounts were left out, or why there is no comparison.
 

@@ -2,7 +2,7 @@
 
 Asetukset > Tiedot > "Vie kaikki tiedot" (every signed-in user, `POST /api/data/export`) downloads one JSON file with
 your own data and what is shared with you. The import reads the same file, so this page is the contract between them.
-The code is `apps/server/src/services/data-export-stores.ts` (the stores) and `data-export.ts`.
+The code is `apps/server/src/db/data-export-stores.ts` (the stores) and `data-export.ts`.
 
 ## Shape
 

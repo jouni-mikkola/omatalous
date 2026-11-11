@@ -151,7 +151,7 @@ a change meets:
   Moving to a newer image is `RUNNERS` in `tools/repo-rules/runners.ts` and the `runs-on` lines together, then a dry run
   of the release workflow.
 - Rule 24: an export of `packages/core/src` or `apps/server/src` has a reader in another source file (core, the server,
-  the web app or `tools/findings`), or stands on `tools/repo-rules/unread-exports.txt`, a list that only shrinks: a line
+  the web app or `tools/findings`), or stands on a list in `tools/repo-rules` that only shrinks: a line
   goes when its export goes. A test is no reader, and neither is a line that only passes the name on (`export … from`,
   `export *`). Names are matched by spelling, so the rule can miss an unread export but never refuses one that is read.
 - Rule 25: no shell file and no workflow pipes into `grep -q` (any `q` flag group, `--quiet`, `--silent`), also inside a
@@ -168,7 +168,7 @@ a change meets:
   the name of the pattern and one line on how to write it instead. Write the sentence again in plain Finnish, as a person
   would say it to a friend. Do not add the string to a list to make the rule pass: a pattern that catches a good
   sentence gets a near miss in `tools/repo-rules/finnish.test.ts` first.
-- Rule 35: the words the glossary of [UI_STYLE.md](UI_STYLE.md) removed (*Optimoi*, *Yli jäi*, *Tileillä* as the name of a
+- Rule 35: the words the glossary of [UI_STYLE.md](UI_STYLE.md) removed (*optimoi*, *Yli jäi*, *Tileillä* as the name of a
   figure, *linkitä*) stay out of the texts `pnpm strings` lists, except between double quotes. A word is added in
   `tools/repo-rules/glossary.ts` with a case in `glossary.test.ts`.
 
@@ -202,28 +202,10 @@ No migration is needed. After the next update every member's history is categori
    sections, and the page's own styles go in `styles/report-<page>.css`. `registry.ts` reads only those files.
 5. A test in `packages/core/test/reports.test.ts` that checks its totals against the other reports.
 
-### New question page of Raportit
-
-Raportit is six question pages (seven for a household with a joint account), one frame (`pages/reports/Frame.tsx`) and
-one `Conclusion` per page (`packages/core/src/reports/conclusion.ts`). A page task edits its own files only.
-
-1. `packages/core/src/reports/conclusions/<page>.ts` builds the `Conclusion` from the reports that `input.read(...)` gives
-   it. It has the question, one figure with its comparison and an explanation. It also has the recommended insight, the
-   four comparisons and the basis. `compareFigure` in `conclusions/shared.ts` works out every comparison. The basis rows
-   add up to the figure to the cent.
-2. Name the question in `QUESTIONS` (`reports/conclusions/kinds.ts`) and read the conclusion in `conclusion.ts`.
-3. `apps/web/src/pages/reports/pages/<Page>.tsx` exports `page` with the question id, its short name and its sections.
-   The frame draws the question, the verdict and the comparison switch around them. It also draws the recommendation
-   and Peruste.
-4. A test in `packages/core/test/reports.test.ts` checks that every page has a conclusion and that its basis adds up.
-   Add a line to `e2e/reports-frame.spec.ts` if the page needs one of its own.
-
-The question, the comparison and the period are in the address (`#/reports?q=menot&compare=previous&period=12m`).
-
 ### Module behind a feature flag
 
 A module that ships finished has no flag: Säästövinkit had one and lost it. The shared build has no flag today, and a
-module that needs one is added as an extension (`apps/server/src/extensions.ts`, `apps/web/src/extensions.ts`).
+module that needs one is added as an extension (the extension files of the server and the web app).
 
 1. The extension declares its flag: the id, a Finnish label, the stage and whether it starts on.
 2. The module's routes in their own `Hono` app, mounted at `/api/<id>` behind the flag. While the flag is off they

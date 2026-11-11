@@ -26,7 +26,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | Getting new data from the bank | *Hae nyt* (the action), *päivitetty* (the state), *Päivitykset* (the log) | *Haettu*, *Päivitykset* |
 | The queue of questions the app cannot answer | *Tarkistettavat* (the name), *kysymys* (one item) | *tarkistus*, *tarkistettu* |
 | The app's own check of its work | *tarkistaa* ("Tarkistimme 21 asiaa") | *Tarkistettu* |
-| A suggestion that saves money | *Säästövinkki* | *Optimoi*, *optimointi* |
+| A suggestion that saves money | *Säästövinkki* | *optimoi*, *optimointi* |
 | The user's rule that sorts into a category | *Sääntö*; *Kauppiaat ja säännöt* | *Muistisääntö*, *Hakusääntö* |
 | A person without a login | *jäsen ilman kirjautumista* | *Jäsen ilman tunnusta* (short form: *ilman kirjautumista*) |
 | All accounts of the household | *Koko talous* | *Kaikki tilit* |
@@ -53,7 +53,7 @@ Finnish: *Lisää tilit Enable Bankingissa (API applications > Omatalous > Link 
 
 A glossary row is changed together with the text that breaks it. Rules 12 and 28 of the repo rules keep some older
 words out (*tilitapahtuma*, *löydös*, *kulut* for spending), and rule 35 keeps out the four named in the table:
-*Optimoi*, *Yli jäi*, *Tileillä* as the name of a figure and *linkitä*. It also refuses the passive *Näin katetaan*, *katetaan*,
+*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure and *linkitä*. It also refuses the passive *Näin katetaan*, *katetaan*,
 a text that begins with *Luetaan*, *Testataan*, *Tarkistetaan* or *Lasketaan*, and a question heading that begins with
 *Mihin*, *Miten*, *Mistä*, *Mitkä*, *Milloin*, *Kuinka*, *Paljonko*, *Kestääkö* and the like. The last two are not yet
 enforced for the files of the parts still to come (`pending` in `tools/repo-rules/glossary.ts`).
