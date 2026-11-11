@@ -8,6 +8,7 @@ import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
 import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
+import { periodOf } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
 import "../styles/transactions.css";
@@ -117,8 +118,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     // a shared account stays in the address after switching back to the own view
     accountId: accounts.some((a) => a.id === params.get("accountId")) ? params.get("accountId")! : "",
     merchant: params.get("merchant") ?? "",
-    from: params.get("from") ?? "",
-    to: params.get("to") ?? "",
+    ...periodOf(params),
   };
   // the grouping is in the address beside the filters, and a change of filter keeps it
   const group = params.get("group") === GROUP_MERCHANT ? GROUP_MERCHANT : "";

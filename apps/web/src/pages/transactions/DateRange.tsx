@@ -3,7 +3,7 @@
  * whose look and order of day and month follow the browser and not the page). A period is two dates, both included;
  * an empty one is the whole history.
  */
-import { addDays } from "@banking/core";
+import { addDays, isRealDay } from "@banking/core";
 import { useState } from "react";
 import { date, dateRange, mondayFirstWeekdays, monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -12,6 +12,15 @@ import { IconButton } from "../../components/ui/IconButton.tsx";
 export interface Period {
   from: string;
   to: string;
+}
+
+const realDay = (s: string | null): string => (s !== null && isRealDay(s) ? s : "");
+
+/** The period of the address: a day that is not a real one is dropped, and two days in the wrong order are swapped. */
+export function periodOf(params: URLSearchParams): Period {
+  const from = realDay(params.get("from"));
+  const to = realDay(params.get("to"));
+  return from && to && from > to ? { from: to, to: from } : { from, to };
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
