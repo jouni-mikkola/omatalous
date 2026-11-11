@@ -14,6 +14,10 @@ const HASHED = "/assets/";
  * Accept-Encoding` is on every text file, also when the client gets the plain one, so a cache keeps the versions
  * apart. Fonts and pictures are sent as they are. The page itself must be revalidated, so a browser picks up a new
  * version right after an upgrade.
+ *
+ * An address with no file gets the page only when the app could route it itself. Under /assets/, or with a file ending
+ * in its last part, it is a file an old version asks for and the answer is 404, `no-store`: the page as a script
+ * would break that tab, and with a year of `immutable` a cache would keep it.
  */
 export function staticFiles(app: Hono<any>, root: string): void {
   app.use("/*", async (c, next) => {
@@ -24,5 +28,24 @@ export function staticFiles(app: Hono<any>, root: string): void {
     if (COMPRESSIBLE_CONTENT_TYPE_REGEX.test(type) && !/accept-encoding/i.test(c.res.headers.get("Vary") ?? "")) c.header("Vary", "Accept-Encoding", { append: true });
   });
   app.use("/*", serveStatic({ root, precompressed: true }));
-  app.get("*", serveStatic({ root, precompressed: true, path: "index.html" }));
+  app.get(
+    "*",
+    async (c, next) => {
+      if (!namesFile(c.req.path)) return next();
+      c.header("Cache-Control", "no-store");
+      return c.text("Not Found", 404);
+    },
+    serveStatic({ root, precompressed: true, path: "index.html" }),
+  );
+}
+
+/** Whether the path asks for a file: under /assets/, a file ending in its last part, or not decodable at all. */
+function namesFile(path: string): boolean {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(path);
+  } catch {
+    return true;
+  }
+  return decoded.startsWith(HASHED) || /\.[^./\\]+$/.test(decoded);
 }
