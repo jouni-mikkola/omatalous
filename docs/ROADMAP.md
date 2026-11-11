@@ -350,7 +350,7 @@ Result: The plan gains 4 to 8 steps that fix real faults found in the bank files
 - locks: none
 - after: none
 
-### N41 Bank figures read as sent
+### B7 Bank figures read as sent
 Result: The balance the app shows is the bank's best readable one, a card limit is found whatever its case, and a blank row id is not an id.
 - why: read on main (11 Nov, N40) with `bun` against `mapper.ts`. `pickBalance` (line 280) compares `balance_type` untrimmed and case-sensitive while `balanceReading` (line 273) trims it: `[clbd 1.00, OPBD 2.00]` picks OPBD and `[" CLBD" 1, OPBD 2.00]` picks OPBD, so the opening balance is shown, not the closing one. It also picks a CLBD whose amount is `x`; `balance` in `connector.ts` (line 134) then drops it in `balanceReading` and the first reading left is the next in the bank's order, not in the order of `pickBalance`: `[CLBD x, OPBD 2.00, ITBD 3.00]` shows OPBD where ITBD is the better one. `creditLimitCents` (line 248) compares the limit's currency with `"EUR"` as sent, so `eur` (which `balanceReading` upper-cases at line 275) hides a card's limit. `mapTransaction` (line 143) takes `entry_reference` as the row's id when it is truthy, so `"  "` is an id: every row of a bank that sends spaces gets the same identity in `foreign-split.ts` (line 44) and the core's ids.
 - done when: in the new `apps/server/test/eb-mapper-reading.test.ts`, which fails without the change, `pickBalance` gives CLBD for `[clbd, OPBD]` and `[" CLBD", OPBD]`, gives ITBD for `[CLBD with amount x, OPBD, ITBD]`, and still gives null for none; `creditLimitCents` gives the cents of a limit in `eur`; `mapTransaction` gives the `transaction_id` as `externalId` when `entry_reference` is blank and null when both are blank; the tests of `apps/server/test/mapper.test.ts` pass unchanged (`bun test apps/server/test/eb-mapper-reading.test.ts apps/server/test/mapper.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
@@ -358,7 +358,7 @@ Result: The balance the app shows is the bank's best readable one, a card limit 
 - after: none
 - files: apps/server/src/connectors/enable-banking/mapper.ts, apps/server/test/eb-mapper-reading.test.ts
 
-### N42 A locked own key is told
+### B8 A locked own key is told
 Result: When a member's own bank key cannot be opened, the page says so and what to do, not a bare error.
 - why: `resolveCredentials` in `credentials.ts` (line 23) calls `box.open` without a catch. `open` in `security/secretbox.ts` (line 43) throws the bare `OperationError` of WebCrypto when the key was sealed under another `app_secret` (a restored copy on a new machine, N33's cut file) and `Error("Unknown secret format")` for a bad value. Neither is a `UserError`, so `clientFor` (line 59), `open` of the sync (`connector.ts` line 90), the link (`link.ts` lines 23, 78, 137) and `revokeAllConnections` (`connector.ts` line 190) show "haku epäonnistui." or a 500 with no hint, while the line above it (line 22) already has Finnish words for the box being missing.
 - done when: in the new `apps/server/test/eb-credentials-open.test.ts`, which fails without the change, `resolveCredentials` with an own key sealed under another secret and with a value of no known format throws a `UserError` that says the own key cannot be opened and to save it again in Asetukset > Pankit ja tilit (and logs the kind of error only, never the sealed value); a key that opens still resolves as before and the household's key is still used when there is no own key; `bun test apps/server/test/eb-credentials-open.test.ts`; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
@@ -366,12 +366,12 @@ Result: When a member's own bank key cannot be opened, the page says so and what
 - after: none
 - files: apps/server/src/connectors/enable-banking/credentials.ts, apps/server/test/eb-credentials-open.test.ts
 
-### N43 A key change keeps consents
+### B9 A key change keeps consents
 Result: A member cannot swap or remove their own bank app while its consents are active, so none is left the app cannot end.
 - why: `saveCredentials` (`credentials.ts` line 35) and `removeCredentials` (line 54) change the member's app with no look at their connections. A bank consent belongs to the Enable Banking application that made it; after a different Application ID or the household's app takes over, `removeConnection` (`connector.ts` lines 167-176) gets a refusal, treats a rejected application as "still revoke locally" and sets the connection `revoked`, so the consent stays alive at the bank for up to 180 days while the list says it is gone, and every fetch is refused as the app's key (`app_rejected`) though the consents are fine. docs/ENABLE_BANKING.md (line 292) says *Poista oma avain* only "returns the member to the household's app". Read on main (11 Nov, N40); the bank's answer to a session of another application was not tried.
 - done when: in the new `apps/server/test/eb-key-change.test.ts`, which fails without the change, `removeCredentials` and `saveCredentials` with another Application ID throw a `UserError` that names the active connections and says to remove them first, while `saveCredentials` with the same Application ID (a new key for the same app), `removeCredentials` with no active connection and a connection that is `revoked` or `expired` still pass, and the refusal is recorded as no `bank_key_removed` event; docs/ENABLE_BANKING.md says it in the section A member's own app; `bun test apps/server/test/eb-key-change.test.ts`; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: eb-credentials
-- after: N42
+- after: B8
 - files: apps/server/src/connectors/enable-banking/credentials.ts, docs/ENABLE_BANKING.md, apps/server/test/eb-key-change.test.ts
 
 ### V3 Asetukset text on the scale

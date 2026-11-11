@@ -91,7 +91,11 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
   const due = isSyncHour(settings, hour) || (skippedHour !== null && isSyncHour(settings, skippedHour));
   // when clocks go back an hour repeats; the slot keeps it to one fetch (PSD2 allows four a day)
   if (due && (await s.settings.claim("sync_slot", `${today} ${hour}`))) {
-    synced = await syncEveryone(s, "schedule");
+    try {
+      synced = await syncEveryone(s, "schedule");
+    } catch (err) {
+      console.error("scheduled fetch failed:", err);
+    }
   }
 
   let lookup: LookupResult | null = null;
