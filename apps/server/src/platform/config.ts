@@ -95,9 +95,16 @@ function bankApiUrl(value: string | undefined): string | undefined {
   return url.origin;
 }
 
-function int(value: string | undefined, fallback: number): number {
-  const n = Number.parseInt(value ?? "", 10);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
+/** The port to listen on: a whole number from 1 to 65535, otherwise a warning and 8080. */
+export function listenPort(env: { PORT?: string }): number {
+  const text = env.PORT;
+  if (text === undefined || text === "") return 8080;
+  if (/^\d+$/.test(text)) {
+    const n = Number(text);
+    if (n >= 1 && n <= 65535) return n;
+  }
+  console.warn(`PORT is not a whole number from 1 to 65535 and is not used. Port 8080 is used.`);
+  return 8080;
 }
 
 /**
@@ -180,7 +187,7 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
   return {
     defaults: {
       // without an address the app is opened on this machine, at the port it listens on
-      appBaseUrl: (env.APP_BASE_URL || `http://localhost:${int(env.PORT, 8080)}`).replace(/\/+$/, ""),
+      appBaseUrl: (env.APP_BASE_URL || `http://localhost:${listenPort(env)}`).replace(/\/+$/, ""),
       timezone: env.TZ || "Europe/Helsinki",
       syncHours: hours(env.SYNC_HOURS, [6, 18]),
       historyDays: limits.historyDays!,

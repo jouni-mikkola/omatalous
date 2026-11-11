@@ -15,7 +15,7 @@ import { Cron } from "croner";
 import { createApp } from "../app.ts";
 import { runCli } from "../cli.ts";
 import { runCloudflareCli } from "../cli-cloudflare.ts";
-import { loadConfig } from "../platform/config.ts";
+import { listenPort, loadConfig } from "../platform/config.ts";
 import { MigrationError } from "../db/migrate.ts";
 import { runMigrateCheck } from "../db/migrate-check.ts";
 import { optimizeDatabase } from "../db/pragmas.ts";
@@ -212,7 +212,7 @@ async function tick(): Promise<void> {
 await recoverAfterCrash(s, new Date()).catch((err) => console.error("recovery at start failed:", err));
 await optimizeDatabase(s.db);
 
-const port = Number(env.PORT ?? 8080);
+const port = listenPort(env);
 // serve takes a callback that returns nothing, so the async work runs here and a failure is logged, not left unhandled
 const announce = async (info: AddressInfo) => {
   const settings = await s.instance.load(true);
