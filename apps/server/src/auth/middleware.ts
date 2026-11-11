@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import type { Context, MiddlewareHandler, Next } from "hono";
 import { codedFor } from "../platform/errors.ts";
 import { addressKey } from "../security/rate-limit.ts";
@@ -31,7 +32,8 @@ async function serviceRequest(c: Context<AppEnv>, s: Services, token: string, ne
   const ip = clientIp(c, s);
   const key = addressKey(ip);
   const now = s.now().getTime();
-  if (s.serviceTokenLimiter.check(key, now) > 0) return c.json({ ...codedFor(c, "auth.token_too_many"), code: "rate_limited" }, 429);
+  const wait = s.serviceTokenLimiter.check(key, now);
+  if (wait > 0) return c.json({ ...codedFor(c, "auth.token_too_many"), code: "rate_limited" }, 429, { "Retry-After": String(Math.max(1, Math.ceil(wait))) });
   const found = await resolveServiceToken(s, token, { ip, userAgent: c.req.header("user-agent") ?? null });
   if (!found) {
     if (s.serviceTokenLimiter.consume(key, now).wait === 0 && s.serviceTokenLimiter.check(key, now) > 0) {
@@ -90,6 +92,19 @@ function originAllowed(origin: string, requestUrl: string, hostHeader: string | 
   return (o.protocol === "https:" || o.protocol === "http:") && o.host === host;
 }
 
+/** The IPv4 or IPv6 address in a header value, without a port or brackets; undefined for anything else. */
+function addressOf(raw: string | undefined): string | undefined {
+  let v = raw?.trim();
+  if (!v || v.length > 60) return undefined;
+  const bracketed = /^\[([^\]]+)\](?::\d{1,5})?$/.exec(v);
+  if (bracketed) v = bracketed[1];
+  else {
+    const withPort = /^(\d{1,3}(?:\.\d{1,3}){3}):\d{1,5}$/.exec(v);
+    if (withPort) v = withPort[1];
+  }
+  return v && isIP(v) !== 0 ? v : undefined;
+}
+
 /**
  * Client address, as security events record it. The limiters count it by
  * addressKey (security/rate-limit.ts), an IPv6 client by its /64. Proxy
@@ -100,9 +115,9 @@ function originAllowed(origin: string, requestUrl: string, hostHeader: string | 
  */
 export function clientIp(c: Context, s: Services): string {
   if (s.config.trustProxy) {
-    const cf = c.req.header("cf-connecting-ip")?.trim();
+    const cf = addressOf(c.req.header("cf-connecting-ip"));
     if (cf) return cf;
-    const forwarded = c.req.header("x-forwarded-for")?.split(",").pop()?.trim();
+    const forwarded = addressOf(c.req.header("x-forwarded-for")?.split(",").pop());
     if (forwarded) return forwarded;
   }
   // @hono/node-server passes the Node request as c.env.incoming
