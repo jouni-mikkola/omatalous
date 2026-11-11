@@ -357,6 +357,54 @@ Result: The plan gains 4 to 8 steps that fix real faults found in the bank files
 - locks: none
 - after: none
 
+### Z1 Bill form flags the bad field
+Result: A bill typed in with a missing name, a bad sum or no day shows which field is wrong and puts the cursor in it.
+- why: `apps/web/src/components/bills/BillForm.tsx` answers a bad entry with one line under the form; the field is not marked (`aria-invalid`) and keeps no focus, so a screen reader and a phone user get no pointer to it. The form has no test.
+- done when: a submit with a missing name, a sum that is not a number or under 1 cent, or no day sets `aria-invalid` on that field only, moves the focus to the first such field and keeps the line under the form; typing in the field clears its mark; a correct entry still posts the same body to `/api/expected-bills`; `apps/web/test/bill-form.dom.test.ts` holds the three bad entries, the focus and the good post; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bills
+- after: none
+- files: apps/web/src/components/bills/BillForm.tsx, apps/web/test/bill-form.dom.test.ts
+
+### Z2 Loan form help reads English
+Result: In English the loan form's help lines, warning and buttons read in English, not Finnish.
+- why: `apps/web/src/components/loans/LoanEditor.tsx` holds about a dozen Finnish sentences as literals (`LINK_HELP`, `LINKED_BALANCE_HELP`, `REVIEW_HELP`, the repayment notes, "Maksuerä on pienempi kuin korko", "Tyhjennä maksuerä", "Näytä kaikki kentät", "Sama velka pankin tilillä"); `messages-set-loans.ts` is the catalogue of that page and the rest of the page uses it. The payment line (row 32) also writes the typed text with " €" and not `money()`.
+- done when: each sentence is a code in `packages/core/src/messages-set-loans.ts` and its English twin `packages/core/src/english/set-loans.ts` with the same holes, and the editor asks `t()`; the payment line uses the language's money form; a DOM test in `apps/web/test/loan-editor.dom.test.ts` renders the editor in English with a payment under the interest and finds the warning and the button in English and no Finnish word of the list above; in Finnish the texts are the same as today; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: loans-texts
+- after: none
+- files: apps/web/src/components/loans/LoanEditor.tsx, packages/core/src/messages-set-loans.ts, packages/core/src/english/set-loans.ts, apps/web/test/loan-editor.dom.test.ts
+
+### Z3 Loan labels read English
+Result: In English the loan form's field names, its error lines and the question about a proposed loan read in English.
+- why: `apps/web/src/components/loans/labels.ts` (field names such as "Lainaa jäljellä", "Koron tarkistuspäivä"), `form.ts` (`MONEY_ERROR`, `RATE_ERROR`, "Valitse laji.", "Valitse päivä.", "Anna, paljonko lainaa on jäljellä.") and `proposal-words.ts` ("Onko tämä lainan maksu?") are Finnish literals; the page around them is in the catalogue.
+- done when: each is a code in `packages/core/src/messages-set-loans.ts` and `packages/core/src/english/set-loans.ts` and read by `t()` when shown (not when the module loads, since the language can change); `apps/web/test/loan-form.test.ts` holds that `readForm` of an empty form gives the errors in English after `setLanguage("en")` and in Finnish after `setLanguage("fi")`, with the same Finnish text as today; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: loans-texts
+- after: none
+- files: apps/web/src/components/loans/labels.ts, apps/web/src/components/loans/form.ts, apps/web/src/components/loans/proposal-words.ts, packages/core/src/messages-set-loans.ts, packages/core/src/english/set-loans.ts, apps/web/test/loan-form.test.ts
+
+### Z4 The setup page reads English
+Result: In English the setup page's status words and help (time zone, "ei vielä", "määritetty", the title) read in English.
+- why: `apps/web/src/pages/Wizard.tsx` has some fourteen Finnish literals ("Käyttöönotto", "Aikavyöhyke", "ei vielä", "ei käytössä", "määritetty", the bank and Enable Banking help lines) next to codes in the catalogue; a household that chose English at first sign-in reads Finnish there.
+- done when: each is a code in a new `packages/core/src/messages-set-wizard.ts` and `packages/core/src/english/set-wizard.ts`, joined into the catalogue the way `messages-set-loans.ts` is, and the page asks `t()`; a DOM test in `apps/web/test/wizard-english.dom.test.ts` renders the page in English and finds none of the listed words; Finnish text is the same as today; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: wizard-texts
+- after: none
+- files: apps/web/src/pages/Wizard.tsx, packages/core/src/messages-set-wizard.ts, packages/core/src/english/set-wizard.ts, packages/core/src/messages.ts, apps/web/test/wizard-english.dom.test.ts
+
+### Z5 Copied values reach by keys
+Result: A value to paste into Enable Banking can be copied from the keyboard and its hint reads in the member's language.
+- why: `apps/web/src/pages/settings/CopyValue.tsx` copies on a click of a `<code>` with `title="Kopioi"` (Finnish in English, and a hover only); the element is not a tab stop and says nothing when it copied. `set.cv.copy` and `set.cv.copied` already exist.
+- done when: `CopyValue` and `Copyable` give the value `role="button"`, `tabIndex` 0 and Enter and Space as a click, a `title` from `t("set.cv.copy")`, and `Copyable` shows `t("set.cv.copied")` as its title for the two seconds after a copy; a DOM test in `apps/web/test/copy-value.dom.test.ts` holds the key press, the English title, and that a failed `copyText` shows no "copied"; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: copy-value
+- after: none
+- files: apps/web/src/pages/settings/CopyValue.tsx, apps/web/test/copy-value.dom.test.ts
+
+### Z6 Balance hint follows language
+Result: The opening-balance box of an account shows its example in the member's number form, 1 234,56 in Finnish and 1,234.56 in English.
+- why: `apps/web/src/pages/settings/Accounts.tsx` (row 351) writes `placeholder="1 234,56"` as a literal; the English form of a number is different, and `eurosText` in `apps/web/src/format.ts` already writes the language's form.
+- done when: the placeholder is `eurosText(123456)` (or the form `format.ts` offers for an example sum) and so changes with `setLanguage`; the placeholder of the name box on row 334 stays; a test in `apps/web/test/accounts-view.test.ts` or a new `apps/web/test/account-balance-hint.dom.test.ts` finds the Finnish and the English example; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: accounts-settings
+- after: none
+- files: apps/web/src/pages/settings/Accounts.tsx, apps/web/test/account-balance-hint.dom.test.ts
+
 ### N46 Plan the next round for apps/web
 Result: Plan the next round for apps/web pages: budgets, forecasts, loans and settings: read the code, the design docs and today's merged work, then
 - why: the owner (11 Nov, 18 h): omatalous ran out of work (1 of 14 workers busy); plan enough independent work to keep 10+ workers busy for several hours
