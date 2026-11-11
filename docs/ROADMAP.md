@@ -364,6 +364,13 @@ Result: Plan the next round for apps/web pages: overview, transactions and categ
 - locks: none
 - after: none
 
+### N47 Plan the next round
+Result: Plan the next round for apps/server import and bank-link code: read the code, the design docs and today's merged work, then add 6 to 8 small
+- why: the owner (11 Nov, 18 h): omatalous ran out of work (1 of 14 workers busy); plan enough independent work to keep 10+ workers busy for several hours
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the next round for apps/server import and bank-link code: read the code, the design docs and today's merged work, then add 6 to 8 small steps that each touch only that area, depend on no unmerged step, and finish in under an hour; done when the roadmap has them
+- locks: none
+- after: none
+
 ### B7 Bank figures read as sent
 Result: The balance the app shows is the bank's best readable one, a card limit is found whatever its case, and a blank row id is not an id.
 - why: read on main (11 Nov, N40) with `bun` against `mapper.ts`. `pickBalance` (line 280) compares `balance_type` untrimmed and case-sensitive while `balanceReading` (line 273) trims it: `[clbd 1.00, OPBD 2.00]` picks OPBD and `[" CLBD" 1, OPBD 2.00]` picks OPBD, so the opening balance is shown, not the closing one. It also picks a CLBD whose amount is `x`; `balance` in `connector.ts` (line 134) then drops it in `balanceReading` and the first reading left is the next in the bank's order, not in the order of `pickBalance`: `[CLBD x, OPBD 2.00, ITBD 3.00]` shows OPBD where ITBD is the better one. `creditLimitCents` (line 248) compares the limit's currency with `"EUR"` as sent, so `eur` (which `balanceReading` upper-cases at line 275) hides a card's limit. `mapTransaction` (line 143) takes `entry_reference` as the row's id when it is truthy, so `"  "` is an id: every row of a bank that sends spaces gets the same identity in `foreign-split.ts` (line 44) and the core's ids.
