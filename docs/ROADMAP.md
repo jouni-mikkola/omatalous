@@ -400,6 +400,42 @@ Result: Each view loads, fails, takes long names and five years of rows and fits
 - after: T76
 - files: e2e, apps/web/src/pages, apps/web/src/styles
 
+### E1 The tax sheet prints alone
+Result: The print of the tax-year sheet is held by a test: the paper shows the sheet and nothing else, and the page comes back.
+- why: `components/SheetActions.tsx` and the `@media print` rules of `styles/sheets.css` are the app's only print flow, and no spec in `e2e/` presses Tulosta or reads the page as print.
+- done when: a new `e2e/print-sheet.spec.ts` opens `#/reports?q=tulot#verovuosi` on the demo household with `window.print` replaced by a stub, presses the print button and sees `printing-sheet` on the root; with `page.emulateMedia({ media: "print" })` the sheet's table is visible and the header, the navigation and another card are not; after `afterprint` the class is gone and the header shows again (`pnpm e2e print-sheet`); a fault the spec finds is fixed in the two files named below and nowhere else; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: e2e-print, sheet-print
+- after: none
+- files: e2e/print-sheet.spec.ts, apps/web/src/components/SheetActions.tsx, apps/web/src/styles/sheets.css
+
+### E2 Sign-in keeps the address
+Result: A link to a page opened without a session lands on that page after the sign-in, and a test holds it.
+- why: `App.tsx` shows the sign-in form in place of the page and leaves the address alone, but every spec that signs in starts from `/`: a link from a notice or a bookmark that lost its page would pass the suite.
+- done when: a new `e2e/sign-in-address.spec.ts` opens `#/bills`, `#/reports?q=menot&period=6m` and `#/settings/security` in a context with no session, signs in with the form each time and sees the page's title and the same address with its parameters; a member who must change the password first (`mustChangePassword`) lands on `#/overview` after the change, as `App.tsx` says, and the spec holds that too; there is no console problem but the 401 of the first read (`pnpm e2e sign-in-address`); a fault the spec finds is fixed in `apps/web/src/App.tsx` and nowhere else; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: e2e-sign-in
+- after: none
+- files: e2e/sign-in-address.spec.ts, apps/web/src/App.tsx
+
+### E3 English fits a phone
+Result: A test holds that no page scrolls sideways at 390 px when the member reads the app in English.
+- why: `no-sideways.spec.ts` and `settings-sideways.spec.ts` measure the pages in Finnish only, and `english-scan.spec.ts` reads the words and no width; the English texts differ in length on every button and head.
+- done when: a new `e2e/english-phone.spec.ts` makes a member who links the fake bank and chooses English (as `english-scan.spec.ts` does), opens overview, bills, transactions, transactions?view=merchants, the seven question addresses of Raportit that `english-scan.spec.ts` walks (kuukausi, menot, tulot, kiinteat, velat, saldot, yhteiset), review and the member's four targets of Asetukset at 390 px, and `overflow` of `e2e/helpers.ts` is 0 or less on each; the member is removed at the end (`pnpm e2e english-phone`); a page that is too wide is fixed in its stylesheet under `apps/web/src/styles` and nowhere else; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: e2e-english-phone, styles
+- after: none
+- files: e2e/english-phone.spec.ts, apps/web/src/styles
+
+### E4 Shots of every page at once
+Result: `pnpm shots --all` takes a picture of every page, so a visual check of a change covers the whole app with one command.
+- why: `tools/shots.mjs` takes only the routes typed on the command line, so `tools/visual-check.sh` compares the pages someone remembered; the pictures of `docs/audit/shots/` were taken by hand, page by page.
+- done when:
+  - `--all` stands for overview, bills, transactions, transactions?view=merchants, review, reports with each question of `QUESTIONS` and with `q=kiinteat` (a page the app still serves outside that list), and `settings/<id>` for each target of `SETTINGS_TARGETS`, beside routes typed with it and with no route named twice; `--help` lists it in one line, within its limit of 26.
+  - A route may name a target of Asetukset: `settings/security` is taken (today the route pattern refuses any `/`), opens that target, and its picture is `settings-security-<width>.png`: `shotName` writes the `/` as `-`. A route with any other `/` is still refused.
+  - Tests in `tools/shots-a.test.ts` that fail without the change hold each of these: the list of `--all` read from the options has every question and every target, `settings/security` parses and `settings/../x` does not, and no file name has a `/` (`bun test tools/shots-a.test.ts`). `pnpm shots --all --demo --widths 390` writes one picture per page and exits 0.
+  - `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: shots
+- after: none
+- files: tools/shots.mjs, tools/shots-a.test.ts
+
 ## The design: after the views
 
 ### T105 Nyt's sum opens its parts
