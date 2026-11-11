@@ -62,7 +62,8 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
 
   const set = (patch: Partial<BankCsvLayout>) => {
     setKnown(false);
-    setLayout((l) => ({ ...l, ...patch }));
+    // a text column the household picks replaces the guessed fallbacks
+    setLayout((l) => ({ ...l, ...patch, ...("text" in patch ? { more: undefined, textIn: undefined } : {}) }));
   };
 
   const save = async () => {

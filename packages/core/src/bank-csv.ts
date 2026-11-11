@@ -21,6 +21,10 @@ export interface BankCsvLayout {
   /** Both given when the bank splits the sum: a debit is money out (any sign in the file), a credit money in. */
   debit: number | null;
   credit: number | null;
+  /** Other text columns, tried in order when `text` is empty or only an account number. */
+  more?: number[];
+  /** When `text` names the payee, the column that names the payer: used for money in. */
+  textIn?: number | null;
 }
 
 interface BankCsvRow {
@@ -119,7 +123,8 @@ const WORDS = {
   text: /(saaja|maksaja|saaja\/maksaja|kauppa|vastapuoli|nimi|selite|otsikko|kuvaus|viesti|payee|counterparty|merchant|description|details|reference)/,
 };
 /** A payee or payer names the row better than a message does. */
-const TEXT_ORDER = [/saaja|maksaja|kauppa|vastapuoli|payee|counterparty|merchant/, /selite|otsikko|kuvaus|description|details|nimi/, /viesti|reference/];
+// A bare "Maksaja" or "Maksunsaaja" may hold an IBAN (Nordea), so a party column that says it is a name comes first and a bare one last.
+const TEXT_ORDER = [/(saaja|maksaja).*nimi|nimi.*(saaja|maksaja)|kauppa|vastapuoli|payee|counterparty|merchant/, /selite|otsikko|kuvaus|description|details|nimi/, /saaja|maksaja/, /viesti|reference/];
 
 function firstWhere(header: readonly string[], test: (h: string) => boolean, not: readonly (number | null)[] = []): number | null {
   const i = header.findIndex((h, n) => !not.includes(n) && test(norm(h)));
@@ -139,7 +144,22 @@ export function guessBankCsvLayout(table: Pick<BankCsvTable, "delimiter" | "head
   let text: number | null = null;
   for (const rank of TEXT_ORDER) text ??= firstWhere(header, (h) => rank.test(h) && WORDS.text.test(h), used);
   text ??= firstWhere(header, (h) => WORDS.text.test(h), used);
-  return text === null ? null : { delimiter, date, text, amount, debit, credit };
+  if (text === null) return null;
+  const layout: BankCsvLayout = { delimiter, date, text, amount, debit, credit };
+  const taken = [...used, text];
+  const more: number[] = [];
+  for (const rank of TEXT_ORDER) {
+    header.forEach((h, n) => {
+      if (!taken.includes(n) && !more.includes(n) && rank.test(norm(h)) && WORDS.text.test(norm(h))) more.push(n);
+    });
+  }
+  if (more.length) layout.more = more;
+  // the text names the payee: money in is named by the payer column instead
+  if (/saaja/.test(norm(header[text]!)) && !/maksaja/.test(norm(header[text]!))) {
+    const payer = firstWhere(header, (h) => /maksaja/.test(h) && !/saaja/.test(h.replace("maksaja", "")), taken);
+    if (payer !== null) layout.textIn = payer;
+  }
+  return layout;
 }
 
 /** True when the layout points at columns the table has and gives a sum one way only. */
@@ -147,7 +167,7 @@ export function isBankCsvLayout(layout: BankCsvLayout, columns: number): boolean
   const ok = (n: number | null): boolean => n === null || (Number.isInteger(n) && n >= 0 && n < columns);
   const single = layout.amount !== null;
   const split = layout.debit !== null && layout.credit !== null;
-  return DELIMITERS.includes(layout.delimiter) && ok(layout.date) && ok(layout.text) && ok(layout.amount) && ok(layout.debit) && ok(layout.credit) && single !== split;
+  return DELIMITERS.includes(layout.delimiter) && ok(layout.date) && ok(layout.text) && ok(layout.amount) && ok(layout.debit) && ok(layout.credit) && ok(layout.textIn ?? null) && (layout.more ?? []).every((n) => ok(n)) && single !== split;
 }
 
 /** "03.09.2026", "3/9/2026" (day first), "2026-09-03" or "2026/09/03", with a time after it allowed. */
@@ -195,6 +215,20 @@ function rowCents(cells: readonly string[], layout: BankCsvLayout): number | nul
   return null;
 }
 
+/** Only an account number: an IBAN, or digits with spaces and dashes. */
+const isAccount = (t: string): boolean => /^[A-Z]{2}\d{2}[A-Z0-9 ]{8,30}$/.test(t) && /\d{6}/.test(t.replace(/ /g, "")) || /^[\d\s-]{6,}$/.test(t);
+
+/** The text of a row: the column for its direction, then the chosen one, then the others; the first that is a name. */
+function rowText(cells: readonly string[], layout: BankCsvLayout, cents: number | null): string {
+  const order = [cents !== null && cents > 0 ? layout.textIn : null, layout.text, ...(layout.more ?? [])];
+  for (const n of order) {
+    if (n === null || n === undefined) continue;
+    const t = cleanStatementText(cells[n] ?? "");
+    if (t && !isAccount(t)) return t;
+  }
+  return "";
+}
+
 /** The rows of a table under a layout. A line that does not read is told in `unread`, never dropped. */
 export function readBankCsvRows(table: Pick<BankCsvTable, "delimiter" | "body">, layout: BankCsvLayout): BankCsvRead | { error: BankCsvError } {
   const rows: BankCsvRow[] = [];
@@ -202,7 +236,7 @@ export function readBankCsvRows(table: Pick<BankCsvTable, "delimiter" | "body">,
   for (const cells of table.body) {
     const d = day(cells[layout.date] ?? "");
     const cents = rowCents(cells, layout);
-    const text = cleanStatementText(cells[layout.text] ?? "");
+    const text = rowText(cells, layout, cents);
     if (d && cents && text && Math.abs(cents) <= CARD_FILE_MAX_CENTS) rows.push({ day: d, cents, text });
     else unread.push(cells.join(table.delimiter));
   }

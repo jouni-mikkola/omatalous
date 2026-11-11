@@ -102,6 +102,29 @@ describe("readBankCsv", () => {
     expect(readBankCsv("Date,Description,Amount\nnot a day,x,1.00")).toEqual({ ok: false, error: "no_rows" });
   });
 
+  it("guesses a name column, not the IBAN column, for a Nordea header", () => {
+    const table = parseBankCsv("Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta\n03.09.2026;-1,00;FI2112345600000785;FI4550009420111122;Kauppa;x;;EUR")!;
+    expect([4, 5]).toContain(guessBankCsvLayout(table)!.text);
+  });
+
+  it("names a row by the next text column when the chosen cell is empty or only an account number", () => {
+    const text = ["Pvm;Summa;Nimi;Otsikko", "03.09.2026;-1,00;;Kahvi", "04.09.2026;-2,00;FI2112345600000785;Leipä", "05.09.2026;-3,00;Kauppa;Muu"].join("\n");
+    const r = readBankCsv(text) as { rows: { text: string }[]; unread: string[] };
+    expect(r.rows.map((x) => x.text)).toEqual(["Kahvi", "Leipä", "Kauppa"]);
+    expect(r.unread).toEqual([]);
+  });
+
+  it("names money out by Saajan nimi and money in by Maksaja", () => {
+    const text = ["Pvm;Summa;Maksaja;Saajan nimi", "03.09.2026;-5,00;Koti Oy;PRISMA", "04.09.2026;100,00;ACME OY;Koti Oy"].join("\n");
+    const r = readBankCsv(text) as { rows: { text: string }[] };
+    expect(r.rows.map((x) => x.text)).toEqual(["PRISMA", "ACME OY"]);
+  });
+
+  it("keeps a name that starts like an IBAN", () => {
+    const r = readBankCsv(["Pvm;Summa;Nimi;Otsikko", "03.09.2026;-1,00;AB12 KAUPPA OY;x"].join("\n")) as { rows: { text: string }[] };
+    expect(r.rows.map((x) => x.text)).toEqual(["AB12 KAUPPA OY"]);
+  });
+
   it("keys a layout by the header, whatever its case and spacing", () => {
     expect(bankCsvKey(["Date ", "Description"])).toBe(bankCsvKey(["date", " description"]));
   });
