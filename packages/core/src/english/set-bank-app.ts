@@ -65,4 +65,5 @@ export const EN_SET_BANK_APP: Record<keyof typeof FI_SET_BANK_APP, string> = {
   "set.app.paste_id_and_key": "Paste the Application ID and choose the key file. It is saved by itself when the test passes.",
   "set.app.trust_certificate": "If the address is a https name of your home network, the device that signs in must trust your home network's certificate, or the browser will not open the return page.",
   "set.app.add_relay": "Add <code>{url}</code> to the Redirect URLs of the Enable Banking application, then turn on the return page.",
+  "set.app.step_todo": "not done yet",
 };
