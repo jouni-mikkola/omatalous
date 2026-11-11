@@ -67,5 +67,4 @@ export const FI_SET_BANK_APP = {
   "set.app.paste_id_and_key": "Liitä sovelluksen tunnus (Application ID) ja valitse avaintiedosto. Se tallentuu itsestään, kun testi onnistuu.",
   "set.app.trust_certificate": "Jos osoite on kotiverkon oma https-nimi, laitteesi pitää luottaa kotiverkon varmenteeseen. Muuten selain ei avaa paluusivua.",
   "set.app.add_relay": "Lisää <code>{url}</code> Enable Bankingin sovelluksen Redirect URLs -kohtaan ja ota sitten paluusivu käyttöön.",
-  "set.app.step_todo": "ei vielä tehty",
 } as const;

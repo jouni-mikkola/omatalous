@@ -72,8 +72,8 @@
 .eb-label { color: var(--muted); }
 /* what the app has seen of a bank (KeyValue) */
 .checklist { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-body); color: var(--muted); }
-/* a tick or an open circle, not a box: nothing here can be pressed */
-.checklist li::before { content: "○" / ""; display: inline-block; width: 1em; margin-right: 4px; text-align: center; }
+/* a tick or a dash, not a box: nothing here can be pressed */
+.checklist li::before { content: "–" / ""; display: inline-block; width: 1em; margin-right: 4px; text-align: center; }
 .checklist li.done { color: var(--text); }
 .checklist li.done::before { content: "✓" / ""; color: var(--good); font-weight: var(--w-strong); }
 .bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 8px 12px; }
