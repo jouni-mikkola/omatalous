@@ -4,8 +4,9 @@ import { parseSeriesId } from "../packages/core/src/recurring.ts";
 import { cents, watch } from "./helpers.ts";
 
 // Tulossa (docs/design/README.md 1.3) on the demo household of the administrator that e2e/run.mjs made: a bill the
-// history cannot know is added by hand, is a row of the one list and is in the payments Nyt takes off the balance; and
-// a row of the list opens the bill's earlier payments with their sum.
+// history cannot know is added by hand, is a row of the one list and is in the payments Nyt takes off the balance;
+// a row of the list opens the bill's earlier payments with their sum; and a found bill that is no recurring bill is
+// marked away and leaves the list.
 // The demo's dates follow the day the spec runs, so the due day is read from the window the API gives.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -76,6 +77,42 @@ test("a row of Tulossa opens the bill's earlier amounts, and their sum is the su
     expect(opened, "product rows of the demo household opened").toBeGreaterThan(0);
     expect(seen.problems).toEqual([]);
   } finally {
+    await context.close();
+  }
+});
+
+test("a found bill that is no recurring bill is marked away on Tulossa and is no longer a row of the list", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  // a bill of the demo household that is the only series of its payee: the last one, the history test opens the first
+  const { series } = (await (await context.request.get("/api/recurring")).json()) as { series: (Series & { typicalAmountCents: number })[] };
+  const bill = series.filter((s) => s.kind === "bill" && s.active && parseSeriesId(s.id)?.direction === "out" && parseSeriesId(s.id)?.product === null && series.filter((o) => o.merchant === s.merchant).length === 1).at(-1);
+  expect(bill, "a bill in the demo household").toBeTruthy();
+  const name = bill!.merchant;
+  try {
+    await page.goto("/#/bills");
+    const row = page.locator("#laskut-taulukko tbody tr").filter({ has: page.getByRole("button", { name: `Tiedot: ${name}`, exact: true }) });
+    await expect(row).toHaveCount(1);
+    await row.getByRole("button", { name: `Tiedot: ${name}`, exact: true }).click();
+    await page.locator(".sub-drill").getByRole("button", { name: `Poista lasku ${name}`, exact: true }).click();
+    const ask = page.getByRole("dialog", { name: `Poista lasku ${name}?` });
+    await ask.getByRole("button", { name: "Poista lasku", exact: true }).click();
+    await expect(ask).toHaveCount(0);
+
+    // the row is gone, and the list read again does not bring it back
+    await expect(row).toHaveCount(0);
+    await expect(page.locator("#laskut-taulukko tbody tr").first()).toBeVisible();
+    await page.reload();
+    await expect(page.locator("#laskut-taulukko tbody tr").first()).toBeVisible();
+    await expect(row).toHaveCount(0);
+    const after = (await (await context.request.get("/api/recurring")).json()) as { series: Series[] };
+    expect(after.series.some((s) => s.id === bill!.id)).toBe(false);
+    expect(seen.problems).toEqual([]);
+  } finally {
+    // the demo household is shared with the other specs of the worker: the mark goes
+    const { marks } = (await (await context.request.get("/api/recurring")).json()) as { marks: { subject: string }[] };
+    for (const m of marks.filter((m) => m.subject.startsWith("not-recurring:"))) await context.request.put("/api/marks", { headers: FETCH, data: { subject: m.subject, mark: null } });
     await context.close();
   }
 });

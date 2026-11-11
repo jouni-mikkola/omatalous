@@ -5,7 +5,8 @@
  * kit with no search, chips or sorting: the rows come in the order of the next payment. What has ended waits in a folded
  * group of its own under it. One column holds the amount and, only when it differs, the month's share of it. A row opens in
  * place: how often it comes, a year of it and its earlier payments with their sum (DrillRows), and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
- * removal of a bill typed in. The head's figure is core's fixed costs a month and opens its rows; the table adds nothing.
+ * removal of a bill typed in. A bill the app found that is no recurring bill is removed the same way: the mark
+ * `wrongBillSubject` takes it out of the list and of every sum of what is coming. The head's figure is core's fixed costs a month and opens its rows; the table adds nothing.
  * Whether a service is still used is asked in Tarkistettavat, never here.
  */
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
@@ -24,7 +25,7 @@ import { Notice } from "../ui/Notice.tsx";
 import { Why } from "../Why.tsx";
 import { cadenceLabel } from "./BillForm.tsx";
 import { DrillRows } from "../table/DrillRows.tsx";
-import { type Item, kindLabel, type TypedBill } from "./items.ts";
+import { type Item, kindLabel, type TypedBill, wrongBillSubject } from "./items.ts";
 
 /** What one subscription row can do next to the mark it already has. */
 export interface MarkControls {
@@ -71,9 +72,13 @@ export function BillsTable({
   const [open, setOpen] = useState<string | null>(null);
   const [foldOpen, setFoldOpen] = useState(false);
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
+  /** A found bill asked about: the row and the name the question says. */
+  const [wrong, setWrong] = useState<{ key: string; series: Series; name: string } | null>(null);
+  /** The rows marked away since the list was read: the next read leaves them out itself. */
+  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   if (!items.length) return null;
-  const live = items.filter((i) => !i.ended);
+  const live = items.filter((i) => !i.ended && !gone.has(i.key));
   const ended = items.filter((i) => i.ended);
   const nameOf = (i: Item) => (i.series ? seriesName(i.series.id) ?? i.name : i.name);
   const onCard = (i: Item) => !!i.series && cards.has(parseSeriesId(i.series.id)?.accountId ?? "");
@@ -83,6 +88,19 @@ export function BillsTable({
     setError(null);
     try {
       await api(`/api/expected-bills/${encodeURIComponent(id)}`, { method: "DELETE" });
+      onRemoved();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const markWrong = async ({ key, series }: { key: string; series: Series }) => {
+    setWrong(null);
+    setError(null);
+    try {
+      await api("/api/marks", { method: "PUT", body: { subject: wrongBillSubject(series), mark: "dismissed" } });
+      setGone((before) => new Set(before).add(key));
+      setOpen(null);
       onRemoved();
     } catch (e) {
       setError((e as Error).message);
@@ -165,7 +183,7 @@ export function BillsTable({
       rowClassName={(i) => (i.ended || i.stopped ? "sub-stopped" : undefined)}
       open={open}
       onOpen={setOpen}
-      drill={(i) => <Drill i={i} name={nameOf(i)} controls={controls} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} />}
+      drill={(i) => <Drill i={i} name={nameOf(i)} controls={controls} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ key: i.key, series, name: nameOf(i) })} />}
       drillLabel={(i) => t("bills.details", { name: nameOf(i) })}
     />
   );
@@ -202,6 +220,11 @@ export function BillsTable({
           <p>{t("bills.remove_note")}</p>
         </ConfirmDialog>
       )}
+      {wrong && (
+        <ConfirmDialog title={t("bills.remove_ask", { name: wrong.name })} confirmLabel={t("bills.remove")} onConfirm={() => void markWrong(wrong)} onCancel={() => setWrong(null)}>
+          <p>{t("bills.remove_note")}</p>
+        </ConfirmDialog>
+      )}
     </div>
   );
 }
@@ -214,7 +237,7 @@ const HISTORY_ROWS = 100;
  * and the one action. The history is the payee's rows on the bill's account, which are the series' own only when the
  * payee has one product there: a series that is one product among several (`product` of its id) shows none.
  */
-function Drill({ i, name, controls, scope, onRemove }: { i: Item; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void }) {
+function Drill({ i, name, controls, scope, onRemove, onWrong }: { i: Item; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
   const s = i.series;
   if (i.typed) {
     const b = i.typed;
@@ -276,6 +299,14 @@ function Drill({ i, name, controls, scope, onRemove }: { i: Item; name: string; 
         </div>
       ))}
       {(i.kind === "subscription" || i.stopped) && <MarkAction s={s} name={name} controls={controls} />}
+      {(i.kind === "bill" || i.kind === "contract") && !i.twins?.length && (
+        // a bill or a contract the rows gave and the household says is none: out of the list and of the sums of what is coming
+        <div className="sub-actions">
+          <Button aria-label={t("bills.remove_named", { name })} onClick={() => onWrong(s)}>
+            {t("bills.remove")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

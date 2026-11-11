@@ -9,6 +9,7 @@ import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { requestInputs, type Scope, scopeWithReasons } from "./analysis.ts";
 import { industryMap } from "./enrich.ts";
+import { withoutWrongBills } from "./wrong-bills.ts";
 
 /** The figures the page opens a "Miksi?" for. */
 const EXPLAINED = [
@@ -117,7 +118,10 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
     s.today(),
   );
   // a figure of Laskut leaves out what the viewer marked as cancelled and the plans that are over, as the page does
-  const cancelled = req.figure.startsWith("bills.") ? cancelledSubjects((await requestInputs(s, userId, accounts)).inputs, ctx.today) : undefined;
+  // and what they marked as no recurring bill
+  const marked = req.figure.startsWith("bills.") ? (await requestInputs(s, userId, accounts)).inputs : undefined;
+  const cancelled = marked && cancelledSubjects(marked, ctx.today);
+  if (marked) ctx = withoutWrongBills(ctx, marked.marks);
   const answer = explain(req.figure, ctx, { view: req.scope, range: req.range, accountIds: req.accountIds, category: req.category, cancelled, why, rowId: req.rowId, use, viewerId: userId });
   if (answer.check.kind === "sum" && answer.check.diffCents !== 0) console.warn(`explain: ${req.figure} differs`);
   // a part names the users of the account, which the page has; every other line is a row of the view
@@ -135,7 +139,7 @@ async function explainToday(s: Services, userId: string, req: ExplainRequest): P
   if (req.accountIds || req.category || req.rowId) throw new UserError("Tuntematon raportti.");
   const { ctx, accounts } = await s.analysis.get(s, userId, req.scope);
   const { balances, inputs } = await requestInputs(s, userId, accounts);
-  const { explanation, names } = explainNow(req.figure as "holdings.accounts" | "ahead.free" | "ahead.pay", ctx, balances, inputs);
+  const { explanation, names } = explainNow(req.figure as "holdings.accounts" | "ahead.free" | "ahead.pay", withoutWrongBills(ctx, inputs.marks), balances, inputs);
   const ids = new Set(explanation.lines.map((l) => l.id));
   const rows = ctx.txs.filter((t) => ids.has(t.id)).map((t): NamedRow => ({ id: t.id, merchant: t.merchant, category: t.category }));
   return { ...explanation, rows: [...names, ...rows] };

@@ -1,5 +1,5 @@
 // Decision: which bills, contracts and subscriptions the household has, in one list where each stands once
-import { addMonthsToDate, isCancelled, isContract, isEndedContract, isSavingsPlan, isSubscription, type UserMark } from "@banking/core";
+import { addMonthsToDate, isCancelled, isContract, isEndedContract, isSavingsPlan, isSubscription, seriesMarkSubject, type UserMark } from "@banking/core";
 import { t } from "../../text.ts";
 import type { Recurring as Series, ReportsData } from "../../types.ts";
 
@@ -9,6 +9,13 @@ export type TypedBill = ReportsData["upcoming"]["manual"][number];
 export type Kind = "bill" | "subscription" | "contract" | "saving" | "ended" | "typed";
 
 export const kindLabel = (kind: Kind): string => t(`bills.kind_${kind}`);
+
+/**
+ * The subject of the mark (`dismissed`) that says a found bill is no recurring bill: `not-recurring:` and the key a mark
+ * on the series carries. The server leaves the series out of what is coming while the mark stands (its
+ * services/wrong-bills.ts).
+ */
+export const wrongBillSubject = (s: Pick<Series, "id" | "kind" | "typicalAmountCents">): string => `not-recurring:${seriesMarkSubject(s).slice("series:".length)}`;
 
 export interface Item {
   key: string;

@@ -18,6 +18,7 @@ import { extensionRowFields } from "../extensions.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
 import { runningSettlement } from "../services/settlement.ts";
 import { addRule, deleteRule, parseCategoryUndo, publicTx, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
+import { withoutWrongBills } from "../services/wrong-bills.ts";
 import { body, optionalString, parseRange, parseReportIds, queryInt } from "./shared.ts";
 
 const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "counterparty", "any"];
@@ -142,8 +143,10 @@ export function financeRoutes(s: Services) {
   });
 
   app.get("/dashboard", async (c) => {
-    const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
+    const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
+    // a bill the member marked as no recurring bill is in no list and no sum of what is coming
+    const ctx = withoutWrongBills(all, inputs.marks);
     const userId = c.get("user").id;
     const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, await proposalsFor(s, userId), c.get("user").language);
     // the same answer as Asetukset > Tilit, in three words; an account that is not reconciled (a loan) has none to give
@@ -160,15 +163,17 @@ export function financeRoutes(s: Services) {
     const userId = c.get("user").id;
     const { ctx, accounts } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, userId, accounts);
-    const ahead = cashAhead(ctx, balances, inputs);
+    const ahead = cashAhead(withoutWrongBills(ctx, inputs.marks), balances, inputs);
     // Laskut's groups of the bills ahead come with their sums: the page adds up nothing
     const groups = upcomingGroups(ahead);
     return c.json({ ahead: { ...ahead, groups, elsewhereCents: upcomingElsewhereCents(ahead.upcoming) } });
   });
 
   app.get("/reports", async (c) => {
-    const { ctx, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
+    const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
+    // a bill the member marked as no recurring bill is in no list and no sum of what is coming
+    const ctx = withoutWrongBills(all, inputs.marks);
     return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs, lang: c.get("user").language }, parseReportIds(c.req.query("reports"))));
   });
 
@@ -186,7 +191,8 @@ export function financeRoutes(s: Services) {
     const userId = c.get("user").id;
     const { ctx } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
     // the household view shows the viewer's own marks, as the dashboard does
-    return c.json({ series: ctx.recurring.map(({ transactionIds: _ids, ...rest }) => rest), marks: await repoOf(userId).listMarks() });
+    const marks = await repoOf(userId).listMarks();
+    return c.json({ series: withoutWrongBills(ctx, marks).recurring.map(({ transactionIds: _ids, ...rest }) => rest), marks });
   });
 
   // ── transactions ─────────────────────────────────────
