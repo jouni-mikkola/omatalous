@@ -1,4 +1,3 @@
-apps/web/src/components/loans/read-source.ts  tsColor=1
 apps/web/src/styles/ahead.css  px=24
 apps/web/src/styles/auth.css  px=11
 apps/web/src/styles/bank-picker.css  px=10
@@ -14,7 +13,7 @@ apps/web/src/styles/foreign-rows.css  px=8
 apps/web/src/styles/holdings.css  px=29 color=1
 apps/web/src/styles/housing.css  px=5
 apps/web/src/styles/income.css  px=17
-apps/web/src/styles/loans.css  px=33
+apps/web/src/styles/loans.css  px=20
 apps/web/src/styles/marks.css  px=9
 apps/web/src/styles/notices.css  px=9
 apps/web/src/styles/ops.css  px=13

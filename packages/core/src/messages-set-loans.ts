@@ -5,6 +5,8 @@
  */
 export const FI_SET_LOANS = {
   "set.loans.edit_loan": "Muokkaa lainaa",
+  "set.loans.add_loan": "Lisää laina",
+  "set.loans.new_loan": "Uusi laina",
   "set.loans.cancel": "Peruuta",
   "set.loans.the_loan_can_no_longer": "Lainaa ei enää löydy.",
   "set.loans.loan_removed": "Laina poistettu.",

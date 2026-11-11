@@ -26,14 +26,13 @@ with the code.
   balances), and a seventh about shared accounts when two members share one. Among the sections are income against
   spending month by month, fixed and variable costs, and, once there are 15 months of rows, a comparison
   with the same months a year earlier. Most tables of more than ten rows download as CSV.
-- A bank's CSV export, a camt.053 statement or a card statement (CSV, text or PDF) is read in the browser, and only
+- A bank's CSV export, a camt.053 statement or a card statement (CSV or text) is read in the browser, and only
   its rows go to the install. It fills an account the bank does not give through PSD2.
 - The app finds subscriptions and bills that repeat, and warns about double charges and late fees. Säästövinkit
   (saving tips) shows where the household could spend less, with the calculation behind each figure.
 - A joint account is split between its users by who paid into it, equally or by percentages, and each member sees
   their own part.
-- A loan at a lender that is not connected is read from a screenshot, a PDF or pasted text. The reading runs in the
-  browser.
+- A loan at a lender that is not connected is typed into a short form.
 - Tarkistettavat (to check) collects every question the app cannot settle itself, such as which kind of loan a
   repeating payment is, and asks them one at a time.
 - The database is copied every day. If the database is damaged, the app starts from the newest intact copy. With the
@@ -173,8 +172,6 @@ Omatalous stands on these projects and services.
 | [React](https://react.dev) | the page | MIT |
 | [Vite](https://vite.dev) | building the page | MIT |
 | [Node.js](https://nodejs.org) and its built-in [SQLite](https://sqlite.org) | running the server and the database | MIT, SQLite is in the public domain |
-| [pdf.js](https://mozilla.github.io/pdf.js/) | reading a loan statement from a PDF | Apache-2.0 |
-| [Tesseract](https://github.com/tesseract-ocr/tesseract) through [tesseract.js](https://github.com/naptha/tesseract.js), with its Finnish and English data | reading a loan statement from a picture | Apache-2.0 |
 | [IBM Plex Sans](https://github.com/IBM/plex) | the font | OFL-1.1 |
 
 The notices of every package in the build are in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
@@ -187,10 +184,7 @@ Mikkola" and a link to https://github.com/jouni-mikkola/omatalous in the footer 
 Versions before 0.66.0 stay under the MIT licence, and 0.66.0 under the Omatalous Personal Use License 1.0.
 
 The Nordea logo in `apps/web/public/banks/` is Nordea's trademark, and the licence does not cover it. The other banks'
-logos are fetched from Enable Banking while the app runs and are not in this repository. The built app and the Docker
-image also carry works under other licences, among them Apache-2.0 ones (pdf.js, Tesseract and its language data) for
-the loan reader. The notices of all packages in the build are in `THIRD_PARTY_NOTICES`, also in the image. The
-reader's licence texts are in `/THIRD-PARTY-LICENSES.txt`, which the app serves. That file covers the reader's parts
-only: React and the IBM Plex fonts are not in it.
+logos are fetched from Enable Banking while the app runs and are not in this repository. The notices of all packages in the build are in
+`THIRD_PARTY_NOTICES`, also in the image.
 
 If Omatalous is useful to you, you can [buy me a coffee](https://buymeacoffee.com/jouni.mikkola).

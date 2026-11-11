@@ -25,9 +25,9 @@ test("what the README says about Lisää, English and statement files holds on t
     await page.goto("/#/reports?q=saldot");
     await expect(page.getByRole("button", { name: /csv/i }).first()).toBeVisible();
 
-    // the statement files: one place on Pankit ja tilit takes CSV, camt.053 and PDF, read in the browser
+    // the statement files: one place on Pankit ja tilit takes CSV and camt.053, read in the browser
     await page.goto("/#/settings");
-    await expect(page.locator('input[data-kind="statement-file"]')).toHaveAttribute("accept", /\.csv.*\.xml.*\.pdf/);
+    await expect(page.locator('input[data-kind="statement-file"]')).toHaveAttribute("accept", /\.csv.*\.xml/);
 
     // the English interface
     await page.locator(".user-menu summary").click();

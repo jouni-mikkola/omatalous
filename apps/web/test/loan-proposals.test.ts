@@ -63,7 +63,7 @@ describe("the form of a proposal beside the household's loan accounts", () => {
 describe("the form of a proposal", () => {
   it("holds the lender, the guessed kind, the payment, a one-month interval and the series key", () => {
     const form = formOfProposal(proposal, TODAY);
-    expect(form).toMatchObject({ id: null, seriesKey: KEY, name: "", kind: "consumer", source: null, confirmed: [], paymentKind: null });
+    expect(form).toMatchObject({ id: null, seriesKey: KEY, name: "", kind: "consumer" });
     expect(form.values).toMatchObject({ lender: "Esimerkkirahoitus Oy", paymentCents: "250,00", intervalMonths: "1", balanceDate: TODAY });
   });
 

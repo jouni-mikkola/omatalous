@@ -2,7 +2,7 @@ import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanKind 
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
 import { money } from "../../format.ts";
 import type { Account } from "../../types.ts";
-import { checksLeft, defaultName, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "./form.ts";
+import { defaultName, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, readForm, setKind, setValue, shownFields } from "./form.ts";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
@@ -10,7 +10,7 @@ const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grant
 
 /**
  * What the select "Sama velka pankin tilillä" offers from: the household's accounts and its saved loans (an account
- * another loan holds is not offered). The loans card provides it to every form it holds, so the intake and the
+ * another loan holds is not offered). The loans card provides it to every form it holds, so the new loan and the
  * proposals need no props for it. Without a provider the select is not shown.
  */
 export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: readonly Loan[] }>({ accounts: [], loans: [] });
@@ -22,11 +22,9 @@ const REVIEW_HELP = "Päivä, jona pankki seuraavan kerran tarkistaa viitekoron.
 
 /** What the payment figure is, by the way the loan is paid back. */
 function paymentHelp(form: LoanForm): string | null {
-  const read = form.source?.payment;
-  if (form.paymentKind === "amortisation" && form.values.paymentCents === "" && read) return `Tekstissä oli pelkkä lyhennys (${read} €). Kirjoita koko maksuerä tai jätä kenttä tyhjäksi.`;
   if (form.values.repayment === "equal_principal") return "Pelkkä lyhennys. Korko tulee sen lisäksi.";
   if (form.values.repayment === "annuity" || form.values.repayment === "fixed_instalment") return "Koko erä, korko mukana.";
-  return form.paymentKind === "amortisation" ? "Tekstissä oli pelkkä lyhennys." : null;
+  return null;
 }
 
 /** What a proposal's form filled from the bank's rows, in one line. */
@@ -37,9 +35,8 @@ function prefilledLine(form: LoanForm): string {
 }
 
 /**
- * The form of one loan: a draft read from a text or a picture, a loan typed in, or a saved loan. A draft shows under
- * each field the line it was read from and how sure the reading is, and a field to check must be ticked or changed
- * before the loan can be saved. Nothing is sent before Tallenna.
+ * The form of one loan: a loan typed in, a proposal from the bank's rows, or a saved loan. Nothing is sent before
+ * Tallenna.
  */
 export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel }: {
   initial: LoanForm;
@@ -62,8 +59,6 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
   const [all, setAll] = useState(false);
   const compact = ask !== undefined && !all;
   const shown = shownFields(form).filter((key) => !compact || ask.includes(key));
-  const left = checksLeft(form);
-  const warnings = warningsOf(form);
   const interest = interestOverPayment(form);
   const links = useContext(LoanLinks);
   const choices = linkChoices(links.accounts, links.loans, form.id);
@@ -79,14 +74,10 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
     setErrors(found);
     // an error on a field that is not shown opens the rest of the form
     if (compact && (interest !== null || Object.keys(found).some((key) => key !== "kind" && !shown.includes(key as LoanFieldKey)))) setAll(true);
-    const stop = Object.keys(found)[0] ?? left[0] ?? (interest !== null ? "paymentCents" : null);
+    const stop = Object.keys(found)[0] ?? (interest !== null ? "paymentCents" : null);
     if (!body || stop) {
       setProblem(
-        Object.keys(found).length > 0
-          ? "Korjaa merkityt kentät."
-          : left.length > 0
-            ? `Tarkista vielä: ${left.map((key) => FIELD_LABEL[key]).join(", ")}. Merkitse kenttä oikeaksi tai korjaa se.`
-            : "Maksuerä on pienempi kuin korko. Korjaa luvut tai tyhjennä maksuerä.",
+        Object.keys(found).length > 0 ? "Korjaa merkityt kentät." : "Maksuerä on pienempi kuin korko. Korjaa luvut tai tyhjennä maksuerä.",
       );
       if (stop) document.getElementById(idOf(stop))?.focus();
       return;
@@ -159,48 +150,19 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
       </div>
       )}
 
-      {warnings.length > 0 && (
-        <Notice tone="warning">
-          <ul className="loan-warnings">
-            {warnings.map((w) => (
-              <li key={w.id}>{w.text}</li>
-            ))}
-          </ul>
-        </Notice>
-      )}
-
       <div className="loan-fields">
         {shown.map((key) => {
-          const mark = markOf(form, key);
-          const confirmed = form.confirmed.includes(key);
-          const line = form.source?.lines[key];
-          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceDate" && mark === "missing" ? "Tekstissä ei ollut päivää, joten kentässä on tämä päivä." : key === "balanceCents" && linked ? LINKED_BALANCE_HELP : key === "rateReviewDate" ? REVIEW_HELP : null;
-          const described = [mark && idOf(`${key}-mark`), line && idOf(`${key}-line`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
+          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceCents" && linked ? LINKED_BALANCE_HELP : key === "rateReviewDate" ? REVIEW_HELP : null;
+          const described = [help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
-            <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
+            <div key={key} className="loan-field">
               <div className="loan-field-head">
                 <label className="field-label" htmlFor={idOf(key)}>
                   {FIELD_LABEL[key]}
                   {UNIT[key] ? ` (${UNIT[key]})` : ""}
                 </label>
-                {mark && (
-                  <span id={idOf(`${key}-mark`)} className={`badge ${mark === "sure" || (mark === "check" && confirmed) ? "good" : mark === "check" ? "warn" : ""}`}>
-                    {mark === "sure" ? "Varma" : mark === "missing" ? "Ei löytynyt" : confirmed ? "Tarkistettu" : "Tarkista"}
-                  </span>
-                )}
               </div>
               {input(key, described)}
-              {line && (
-                <span id={idOf(`${key}-line`)} className="loan-source">
-                  Tekstissä: {line}
-                </span>
-              )}
-              {mark === "check" && (
-                <label className="loan-confirm">
-                  <input type="checkbox" checked={confirmed} onChange={(e) => setForm(toggleConfirmed(form, key, e.target.checked))} aria-label={`${FIELD_LABEL[key]} on oikein`} />
-                  Oikein
-                </label>
-              )}
               {help && (
                 <span id={idOf(`${key}-help`)} className="field-help">
                   {help}
@@ -265,7 +227,6 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
             Näytä kaikki kentät
           </Button>
         )}
-        {left.length > 0 && <span className="small muted">Tarkistettavia kenttiä: {left.length}</span>}
       </div>
     </form>
   );

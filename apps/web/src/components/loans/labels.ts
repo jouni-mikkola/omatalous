@@ -1,6 +1,6 @@
 /** The Finnish names of a loan's fields and choices, shared by the list and the form of Asetukset > Lainat. */
 import { LOAN_REFERENCE_LABEL, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
-import type { Loan, LoanDraftKey, LoanKind } from "@banking/core";
+import type { Loan, LoanKind } from "@banking/core";
 import { t } from "../../text.ts";
 
 /** An object of labels whose text follows the member's language: each read asks the catalogue. */
@@ -34,8 +34,8 @@ export const REPAYMENT_LABEL: Record<NonNullable<Loan["repayment"]>, string> = l
   bullet: () => t("rpt.ln_rep_bullet"),
 });
 
-/** A field of the loan form: the ones a text can hold, and the review day of the rate, which only the household tells. */
-export type LoanFieldKey = LoanDraftKey | "rateReviewDate";
+/** A field of the loan form. Name and kind stand above them. */
+export type LoanFieldKey = "lender" | "balanceCents" | "balanceDate" | "grantedCents" | "limitCents" | "rateBp" | "reference" | "marginBp" | "rateReviewDate" | "repayment" | "intervalMonths" | "paymentCents" | "endDate";
 
 export const FIELD_LABEL: Record<LoanFieldKey, string> = {
   lender: "Lainanantaja",

@@ -8,10 +8,6 @@
       "path": "apps/web/src/pages/Auth.tsx",
       "lines": 100
     },
-    "LoanIntake.tsx": {
-      "path": "apps/web/src/pages/settings/LoanIntake.tsx",
-      "lines": 94.1
-    },
     "pages": {
       "path": "apps/web/src/pages/",
       "lines": 59.7

@@ -3,6 +3,8 @@ import type { FI_SET_LOANS } from "../messages-set-loans.ts";
 
 export const EN_SET_LOANS: Record<keyof typeof FI_SET_LOANS, string> = {
   "set.loans.edit_loan": "Edit loan",
+  "set.loans.add_loan": "Add a loan",
+  "set.loans.new_loan": "New loan",
   "set.loans.cancel": "Cancel",
   "set.loans.the_loan_can_no_longer": "The loan can no longer be found.",
   "set.loans.loan_removed": "Loan removed.",

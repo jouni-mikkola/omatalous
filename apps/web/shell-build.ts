@@ -6,8 +6,8 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-/** The address of every file of the built app that the worker keeps, sorted. The picture reader's files (`ocrDir`, several MB, needed only while a loan picture is read), the licence list and the worker itself stay out, and so do the old `.woff` fonts (a browser with a worker reads `.woff2`) and the `.br` and `.gz` copies the server sends in place of a file. */
-export function shellFiles(outDir: string, ocrDir: string): string[] {
+/** The address of every file of the built app that the worker keeps, sorted. The worker itself stays out, and so do the old `.woff` fonts (a browser with a worker reads `.woff2`) and the `.br` and `.gz` copies the server sends in place of a file. */
+export function shellFiles(outDir: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -17,7 +17,7 @@ export function shellFiles(outDir: string, ocrDir: string): string[] {
     }
   };
   walk(outDir);
-  return found.filter((f) => f !== "/sw.js" && f !== "/THIRD-PARTY-LICENSES.txt" && !f.startsWith(`/${ocrDir}/`) && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
+  return found.filter((f) => f !== "/sw.js" && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
 }
 
 /** The worker's source with `__SHELL__` replaced: `{ name: "shell-<hash of the files' names and bytes>", files }`. A changed file is a changed worker, which a browser installs and the old one's cache goes. */

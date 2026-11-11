@@ -32,7 +32,6 @@ import { FI_SET_MEMBERS } from "./messages-set-members.ts";
 import { FI_SET_IMPORT } from "./messages-set-import.ts";
 import { FI_SET_ACCOUNTS } from "./messages-set-accounts.ts";
 import { FI_SET_FACTOR } from "./messages-set-factor.ts";
-import { FI_SET_LOAN_INTAKE } from "./messages-set-loan-intake.ts";
 import { FI_SET_SPLIT } from "./messages-set-split.ts";
 import { FI_SET_BANK_KEY } from "./messages-set-bank-key.ts";
 import { FI_SET_LOANS } from "./messages-set-loans.ts";
@@ -72,6 +71,6 @@ import { FI_TABLES } from "./messages-tables.ts";
 import { FI_TRANSACTIONS } from "./messages-transactions.ts";
 import { installLate } from "./messages.ts";
 
-export const FI_LATE = { ...FI_OVERVIEW, ...FI_BILLS, ...FI_TRANSACTIONS, ...FI_TABLES, ...FI_OFFSITE, ...FI_FORECAST, ...FI_SHEETS, ...FI_REPORTS_1, ...FI_REPORTS_2, ...FI_REPORTS_3, ...FI_REPORTS_4, ...FI_REPORTS_5, ...FI_CALC, ...FI_INSIGHTS, ...FI_ALERTS, ...FI_OPTIMISE, ...FI_OPTIMISE_A, ...FI_OPTIMISE_B, ...FI_OPTIMISE_WEB, ...FI_INCOME, ...FI_PRICES, ...FI_CARD_FILE, ...FI_SET_BANK_APP, ...FI_SET_SECURITY, ...FI_SET_CONNECTIONS, ...FI_SET_MEMBERS, ...FI_SET_IMPORT, ...FI_SET_ACCOUNTS, ...FI_SET_FACTOR, ...FI_SET_LOAN_INTAKE, ...FI_SET_SPLIT, ...FI_SET_BANK_KEY, ...FI_SET_LOANS, ...FI_SET_RA_MODEL, ...FI_SET_RECONCILE, ...FI_SET_SYNC, ...FI_SET_TRIAL, ...FI_SET_ASK, ...FI_SET_REMOTE, ...FI_SET_RFORM, ...FI_SET_GUIDE, ...FI_SET_RSTATUS, ...FI_SET_RTOKEN, ...FI_SET_USE_TS, ...FI_SET_ACUSE, ...FI_SET_NOTICES, ...FI_SET_IFORM, ...FI_SET_STATUS, ...FI_SET_OPS, ...FI_SET_ASH, ...FI_SET_BANKS, ...FI_SET_BAPP, ...FI_SET_BRT, ...FI_SET_CV, ...FI_SET_DPAGE, ...FI_SET_DX, ...FI_SET_FR, ...FI_SET_MT, ...FI_SET_REC, ...FI_SET_RR, ...FI_SET_SV, ...FI_SET_TABS, ...FI_SET_RI, ...FI_SET_RV, ...FI_SET_RC, ...FI_BANK_FILE } as const;
+export const FI_LATE = { ...FI_OVERVIEW, ...FI_BILLS, ...FI_TRANSACTIONS, ...FI_TABLES, ...FI_OFFSITE, ...FI_FORECAST, ...FI_SHEETS, ...FI_REPORTS_1, ...FI_REPORTS_2, ...FI_REPORTS_3, ...FI_REPORTS_4, ...FI_REPORTS_5, ...FI_CALC, ...FI_INSIGHTS, ...FI_ALERTS, ...FI_OPTIMISE, ...FI_OPTIMISE_A, ...FI_OPTIMISE_B, ...FI_OPTIMISE_WEB, ...FI_INCOME, ...FI_PRICES, ...FI_CARD_FILE, ...FI_SET_BANK_APP, ...FI_SET_SECURITY, ...FI_SET_CONNECTIONS, ...FI_SET_MEMBERS, ...FI_SET_IMPORT, ...FI_SET_ACCOUNTS, ...FI_SET_FACTOR, ...FI_SET_SPLIT, ...FI_SET_BANK_KEY, ...FI_SET_LOANS, ...FI_SET_RA_MODEL, ...FI_SET_RECONCILE, ...FI_SET_SYNC, ...FI_SET_TRIAL, ...FI_SET_ASK, ...FI_SET_REMOTE, ...FI_SET_RFORM, ...FI_SET_GUIDE, ...FI_SET_RSTATUS, ...FI_SET_RTOKEN, ...FI_SET_USE_TS, ...FI_SET_ACUSE, ...FI_SET_NOTICES, ...FI_SET_IFORM, ...FI_SET_STATUS, ...FI_SET_OPS, ...FI_SET_ASH, ...FI_SET_BANKS, ...FI_SET_BAPP, ...FI_SET_BRT, ...FI_SET_CV, ...FI_SET_DPAGE, ...FI_SET_DX, ...FI_SET_FR, ...FI_SET_MT, ...FI_SET_REC, ...FI_SET_RR, ...FI_SET_SV, ...FI_SET_TABS, ...FI_SET_RI, ...FI_SET_RV, ...FI_SET_RC, ...FI_BANK_FILE } as const;
 
 installLate(FI_LATE);

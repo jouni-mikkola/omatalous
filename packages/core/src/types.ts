@@ -248,7 +248,7 @@ export const MAX_LOAN_INTERVAL_MONTHS = 12;
  * is the amortisation and the interest comes on top. bullet: all of it on the last due date.
  */
 export const LOAN_REPAYMENTS = ["annuity", "equal_principal", "fixed_instalment", "bullet"] as const;
-export type LoanRepayment = (typeof LOAN_REPAYMENTS)[number];
+type LoanRepayment = (typeof LOAN_REPAYMENTS)[number];
 
 /** The rate a loan follows (Optimoi's loan rate input). Here, not in optimise/types.ts, so the base types import nothing back. */
 export type LoanReference = "euribor_12" | "euribor_6" | "euribor_3" | "fixed";

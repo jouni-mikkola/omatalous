@@ -1,22 +1,9 @@
-/* Asetukset > Lainat: the saved loans, the box a picture or text of a loan goes into, and the form that confirms what was read. */
+/* Asetukset > Lainat: the saved loans and the form of a loan. */
 
 @layer pages {
 .loans-wait { visibility: hidden; }
 
-/* the box: a dashed edge says "drop here", as file boxes do */
-.loan-box { display: flex; flex-direction: column; gap: 8px; border: 1px dashed var(--axis); border-radius: var(--radius-m); background: var(--surface); padding: 12px; }
-.loan-box.over { border-color: var(--accent); background: var(--info-bg); }
-.loan-box textarea { min-height: 96px; resize: vertical; font-family: inherit; font-size: var(--fs-body); }
-.loan-box .form-row { margin: 2px 0; }
-.loan-box p { margin: 0; }
-/* the status line is mounted all the time (a screen reader hears what is put into it) and takes room only when it says something */
-.loan-readline { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
-.loan-readline.busy { margin: 12px 0 0; }
-.loan-readline progress { flex: none; width: 140px; accent-color: var(--accent); }
-.loan-intake > .notice { margin: 12px 0 0; }
-.loan-tip { margin: 12px 0 0; max-width: 62ch; }
-
-/* one read loan: a form of its own inside the card */
+/* the form of a new loan, inside the card */
 .loan-draft { border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface); padding: var(--sp-16); margin-top: 12px; }
 .loan-draft h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: 0 0 12px; }
 
@@ -29,14 +16,6 @@
 /* the select of the linked account has a measure of its own: its value is short and the choices are one line each */
 .loan-form select { max-width: 24rem; }
 .loan-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.loan-field-head .badge { margin-left: 0; }
-/* a field the reading was not sure of, until the household ticks or changes it */
-.loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); }
-.loan-source { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
-.loan-confirm { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-body); align-self: flex-start; cursor: pointer; }
-.loan-confirm input { margin: 0; accent-color: var(--fill); }
-.loan-warnings { margin: 0; padding-left: 16px; }
-.loan-warnings li + li { margin-top: 4px; }
 .loan-interest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 
 /* editing a saved loan: the same form in a dialog, wide enough for two columns */

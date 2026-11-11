@@ -18,21 +18,19 @@ describe("the files the service worker keeps", () => {
     const out = built({
       "index.html": "<html>",
       "sw.js": "old",
-      "THIRD-PARTY-LICENSES.txt": "x",
       "manifest.webmanifest": "{}",
       "assets/index-1.js": "a",
       "assets/font-1.woff2": "f",
       "assets/font-1.woff": "f",
-      "assets/ocr-abcd1234/worker.min.js": "w",
       "icons/icon-192.png": "p",
     });
-    expect(shellFiles(out, "assets/ocr-abcd1234")).toEqual(["/assets/font-1.woff2", "/assets/index-1.js", "/icons/icon-192.png", "/index.html", "/manifest.webmanifest"]);
+    expect(shellFiles(out)).toEqual(["/assets/font-1.woff2", "/assets/index-1.js", "/icons/icon-192.png", "/index.html", "/manifest.webmanifest"]);
   });
 
   it("names the cache by the content: a changed file is a new worker", () => {
     const name = (body: string) => {
       const out = built({ "index.html": body, "assets/a.js": "a" });
-      return /"name":"(shell-[0-9a-f]{12})"/.exec(shellWorkerSource("const SHELL = __SHELL__;", out, shellFiles(out, "assets/ocr-x")))?.[1];
+      return /"name":"(shell-[0-9a-f]{12})"/.exec(shellWorkerSource("const SHELL = __SHELL__;", out, shellFiles(out)))?.[1];
     };
     expect(name("one")).toMatch(/^shell-[0-9a-f]{12}$/);
     expect(name("one")).toBe(name("one"));

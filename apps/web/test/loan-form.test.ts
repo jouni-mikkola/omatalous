@@ -1,85 +1,22 @@
-import { type Loan, parseLoanText } from "@banking/core";
+import type { Loan } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { checksLeft, defaultName, emptyForm, formOfDraft, formOfLoan, interestOverPayment, linkChoices, markOf, readForm, setKind, setValue, shownFields, toggleConfirmed, warningsOf } from "../src/components/loans/form.ts";
-import { pdfLines } from "../src/components/loans/pdf-lines.ts";
-import { tidyPictureText } from "../src/components/loans/picture-text.ts";
+import { defaultName, emptyForm, formOfLoan, interestOverPayment, linkChoices, readForm, setKind, setValue, shownFields } from "../src/components/loans/form.ts";
 import type { Account } from "../src/types.ts";
 
 const TODAY = "2026-10-12";
 
-// A made-up loan in the shape of the credit register's listing.
-const LISTING = [
-  "Esimerkkipankki Oyj",
-  "Myönnetty määrä: 150 000,00 €",
-  "Luoton saldo: 120 000,00 € (30.9.2026)",
-  "Kokonaiskorko: 3,39 %",
-  "Viitekorko: 12 kk Euribor 2,74 %",
-  "Marginaali: 0,65 %",
-  "Lyhennystapa: Annuiteetti",
-  "Lyhennysväli: 1 kk",
-  "Kuukausierä: 689,20 €",
-  "Viimeinen eräpäivä: 31.10.2046",
-].join("\n");
+// A made-up loan as the household types it into the form.
+const TYPED = { lender: "Esimerkkipankki Oyj", grantedCents: "150 000,00", balanceCents: "120 000,00", balanceDate: "2026-09-30", rateBp: "3,39", reference: "euribor_12", marginBp: "0,65", repayment: "annuity", intervalMonths: "1", paymentCents: "689,20", endDate: "2046-10-31" } as const;
 
-const draftOf = (text: string, source: "text" | "ocr" = "text") => {
-  const [draft] = parseLoanText(text, { asOf: TODAY, source });
-  return formOfDraft(draft!, TODAY);
+const typedForm = () => {
+  let form = emptyForm(TODAY);
+  for (const [key, text] of Object.entries(TYPED)) form = setValue(form, key as keyof typeof TYPED, text);
+  return form;
 };
-
-describe("a draft as a form", () => {
-  it("holds each value as the household writes it, with its source line and mark", () => {
-    const form = draftOf(LISTING);
-    expect(form.values).toEqual({
-      lender: "Esimerkkipankki Oyj",
-      grantedCents: "150 000,00",
-      balanceCents: "120 000,00",
-      balanceDate: "2026-09-30",
-      rateBp: "3,39",
-      reference: "euribor_12",
-      marginBp: "0,65",
-      rateReviewDate: "",
-      repayment: "annuity",
-      intervalMonths: "1",
-      paymentCents: "689,20",
-      endDate: "2046-10-31",
-      limitCents: "",
-    });
-    // no text gives the review day of the rate, so a read loan has none to check
-    expect(markOf(form, "rateReviewDate")).toBeNull();
-    expect(markOf(form, "balanceCents")).toBe("sure");
-    expect(markOf(form, "lender")).toBe("check");
-    expect(markOf(form, "limitCents")).toBe("missing");
-    expect(form.source?.lines.rateBp).toBe("Kokonaiskorko: 3,39 %");
-    expect(form.kind).toBe("");
-  });
-
-  it("uses the instance's day when the text gives no balance date, and says it was not found", () => {
-    const form = draftOf("Luoton saldo: 8 000,00 €\nKokonaiskorko: 5,5 %");
-    expect(form.values.balanceDate).toBe(TODAY);
-    expect(markOf(form, "balanceDate")).toBe("missing");
-  });
-
-  it("a field to check blocks until it is confirmed or changed, and a hidden one never blocks", () => {
-    let form = setKind(draftOf(LISTING), "mortgage");
-    expect(checksLeft(form)).toEqual(["lender", "balanceDate"]);
-    form = toggleConfirmed(form, "lender", true);
-    expect(checksLeft(form)).toEqual(["balanceDate"]);
-    expect(markOf(form, "lender")).toBe("check");
-    form = setValue(form, "balanceDate", "2026-10-01");
-    expect(checksLeft(form)).toEqual([]);
-    form = toggleConfirmed(form, "lender", false);
-    expect(checksLeft(form)).toEqual(["lender"]);
-
-    // text read from a picture: every field found is to check
-    const ocr = setKind(draftOf(LISTING, "ocr"), "card");
-    expect(shownFields(ocr)).toEqual(["lender", "balanceCents", "balanceDate", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate"]);
-    expect(checksLeft(ocr)).toEqual(["lender", "balanceCents", "balanceDate", "rateBp", "reference", "marginBp"]);
-  });
-});
 
 describe("a form as the loan the server takes", () => {
   it("sends every field of a loan and no other, with the kind's name when the loan has none", () => {
-    const form = setKind(draftOf(LISTING), "mortgage");
+    const form = setKind(typedForm(), "mortgage");
     expect(readForm(form)).toEqual({
       errors: {},
       body: {
@@ -133,7 +70,7 @@ describe("a form as the loan the server takes", () => {
   });
 
   it("a card or a credit line has a limit and no repayment plan; other loans have no limit", () => {
-    let form = setKind(draftOf(LISTING), "credit_line");
+    let form = setKind(typedForm(), "credit_line");
     form = setValue(form, "limitCents", "5 000");
     expect(shownFields(form)).not.toContain("repayment");
     expect(readForm(form).body).toMatchObject({ repayment: null, intervalMonths: null, paymentCents: null, endDate: null, grantedCents: null, limitCents: 500_000 });
@@ -143,7 +80,7 @@ describe("a form as the loan the server takes", () => {
   });
 
   it("a loan paid back at once has no payment", () => {
-    const form = setValue(setKind(draftOf(LISTING), "other"), "repayment", "bullet");
+    const form = setValue(setKind(typedForm(), "other"), "repayment", "bullet");
     expect(shownFields(form)).not.toContain("paymentCents");
     expect(readForm(form).body).toMatchObject({ repayment: "bullet", paymentCents: null, intervalMonths: 1 });
   });
@@ -154,8 +91,6 @@ describe("a form as the loan the server takes", () => {
       repayment: "equal_principal", intervalMonths: 3, paymentCents: 150_000, endDate: null, limitCents: null, seriesKey: "debt:made-up",
     };
     const form = formOfLoan(loan);
-    expect(form.source).toBeNull();
-    expect(checksLeft(form)).toEqual([]);
     const { id, ...body } = loan;
     expect(form.id).toBe(id);
     // a loan with no review day goes back with null: PUT replaces every field
@@ -225,79 +160,6 @@ describe("the payment and the way of paying back", () => {
     expect(interestOverPayment(setValue(form, "repayment", "equal_principal"))).toBeNull();
     expect(interestOverPayment(setValue(form, "intervalMonths", "3"))).toBe(127_500);
   });
-
-  it("a whole payment under Tasalyhennys stays to check with a warning, and fits again under another way", () => {
-    let form = setKind(draftOf(LISTING), "mortgage");
-    form = toggleConfirmed(toggleConfirmed(form, "lender", true), "balanceDate", true);
-    expect(markOf(form, "paymentCents")).toBe("sure");
-    form = setValue(form, "repayment", "equal_principal");
-    expect(form.values.paymentCents).toBe("689,20");
-    expect(markOf(form, "paymentCents")).toBe("check");
-    expect(checksLeft(form)).toEqual(["paymentCents"]);
-    expect(warningsOf(form).map((w) => w.id)).toContain("payment_whole");
-    const back = setValue(form, "repayment", "fixed_instalment");
-    expect(markOf(back, "paymentCents")).toBe("sure");
-    expect(warningsOf(back).map((w) => w.id)).not.toContain("payment_whole");
-    // a figure the household typed is its own: no warning about the text's
-    const typed = setValue(form, "paymentCents", "500");
-    expect(warningsOf(typed).map((w) => w.id)).not.toContain("payment_whole");
-    expect(checksLeft(typed)).toEqual([]);
-  });
-
-  it("an amortisation alone is emptied under a way whose payment holds the interest, and comes back under Tasalyhennys", () => {
-    const text = ["Luoton saldo: 90 000,00 €", "Kokonaiskorko: 4,00 %", "Lyhennystapa: Tasalyhennys", "Lyhennysväli: 1 kk", "Lyhennys: 500,00 €"].join("\n");
-    let form = setKind(draftOf(text), "mortgage");
-    expect(form.paymentKind).toBe("amortisation");
-    expect(form.values.paymentCents).toBe("500,00");
-    form = setValue(form, "repayment", "annuity");
-    expect(form.values.paymentCents).toBe("");
-    expect(markOf(form, "paymentCents")).toBe("missing");
-    expect(readForm(form).body?.paymentCents).toBeNull();
-    form = setValue(form, "repayment", "equal_principal");
-    expect(form.values.paymentCents).toBe("500,00");
-  });
-
-  it("an amortisation alone read for an annuity is left empty from the start, and the form says what the text gave", () => {
-    const text = ["Pääomaa maksamatta 90 000,00", "Lyhennystyyppi Annuiteetti", "Lyhennys 301,77"].join("\n");
-    let form = draftOf(text);
-    expect(form.paymentKind).toBe("amortisation");
-    expect(form.values.paymentCents).toBe("");
-    expect(form.source?.payment).toBe("301,77");
-    expect(markOf(form, "paymentCents")).toBe("missing");
-    // under Tasalyhennys the read amortisation is the payment
-    form = setValue(form, "repayment", "equal_principal");
-    expect(form.values.paymentCents).toBe("301,77");
-    // the kind the text names is the form's, and none is left unchosen
-    expect(draftOf(["Asuntolaina", text].join("\n")).kind).toBe("mortgage");
-    expect(draftOf(text).kind).toBe("");
-  });
-});
-
-describe("the text layer of a PDF as lines", () => {
-  const item = (str: string, x: number, y: number, width = str.length * 5) => ({ str, transform: [10, 0, 0, 10, x, y], width, height: 10 });
-
-  it("puts what stands on one row on one line, left to right, a tab between columns", () => {
-    const items = [item("120 000,00 €", 300, 700), item("Luoton saldo", 40, 700.4), item("Kokonaiskorko", 40, 684), item("3,39", 300, 684), item(" %", 320, 684, 10), item("Esimerkkipankki Oyj", 40, 730)];
-    expect(pdfLines(items)).toEqual(["Esimerkkipankki Oyj", "Luoton saldo\t120 000,00 €", "Kokonaiskorko\t3,39 %"]);
-  });
-
-  it("joins the pieces of a word and keeps a space between words", () => {
-    const items = [item("Viimeinen", 40, 500, 45), item("eräpäivä", 88, 500, 40), item("31.10.", 300, 500, 30), item("2046", 330, 500, 20), item("", 0, 0, 0)];
-    expect(pdfLines(items)).toEqual(["Viimeinen eräpäivä\t31.10.2046"]);
-  });
-});
-
-describe("the text of a picture", () => {
-  it("joins a capital the reader split from its word, so the label is found", () => {
-    const read = ["Kokonaiskorko: 7,90 %", "L yhennystapa: T asalyhennys", "Lyhennysväli: 1 kk"].join("\n");
-    expect(tidyPictureText(read).split("\n")).toEqual(["Kokonaiskorko: 7,90 %", "Lyhennystapa: Tasalyhennys", "Lyhennysväli: 1 kk"]);
-    const [draft] = parseLoanText(tidyPictureText(["Mallirahoitus Oy", "Luoton saldo: 8 450,00 €", "L yhennystapa: Annuiteetti"].join("\n")), { asOf: TODAY, source: "ocr" });
-    expect(draft?.repayment?.value).toBe("annuity");
-  });
-
-  it("leaves words of one letter and short words alone", () => {
-    for (const text of ["A loan of 5 000 €", "I have a loan", "Luokka L tai M", "Laina 1 P 2026", "OP Koti"]) expect(tidyPictureText(text)).toBe(text);
-  });
 });
 
 describe("the link of a loan to a card or loan account", () => {
@@ -337,10 +199,8 @@ describe("the link of a loan to a card or loan account", () => {
     expect("accountId" in readForm({ ...form, accountId: "" }).body!).toBe(false);
   });
 
-  it("a typed form and a draft start with no link, and the link is a choice of its own that needs no check", () => {
+  it("a typed form starts with no link", () => {
     expect(emptyForm(TODAY).accountId).toBe("");
-    expect(draftOf(LISTING).accountId).toBe("");
-    const form = setKind(draftOf(LISTING), "mortgage");
-    expect(checksLeft({ ...form, accountId: "home" })).toEqual(checksLeft(form));
+    expect(typedForm().accountId).toBe("");
   });
 });

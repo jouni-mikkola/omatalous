@@ -38,6 +38,6 @@ describe("third-party notices", () => {
   it("is up to date in the repository and names every runtime package of the apps", () => {
     const file = readFileSync(join(REPO, "THIRD_PARTY_NOTICES"), "utf8");
     expect(file).toBe(render(collect()));
-    for (const name of ["hono", "react", "croner", "tesseract.js", "pdfjs-dist"]) expect(file).toContain(`\n${name} `);
+    for (const name of ["hono", "react", "croner"]) expect(file).toContain(`\n${name} `);
   });
 });

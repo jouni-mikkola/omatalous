@@ -92,7 +92,6 @@ export * from "./reports/index.ts";
 export { taxYearCsv } from "./sheet-csv.ts";
 export * from "./optimise/index.ts";
 export * from "./optimise/outcome.ts";
-export * from "./loan-intake/index.ts";
 export * from "./card-holder.ts";
 export * from "./money-trace.ts";
 export * from "./money-trace-answers.ts";

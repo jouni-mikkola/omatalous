@@ -2,8 +2,6 @@
 // Decision: a household whose bank gives rows only as a file picks the file once and is not asked what kind it is (ADR 0025)
 import { readCardFile } from "@banking/core";
 import { type ChangeEvent, useRef, useState } from "react";
-import { isPdf } from "../../components/loans/paste.ts";
-import { readPdf } from "../../components/loans/read-source.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import type { Meta } from "../../types.ts";
@@ -12,7 +10,7 @@ import { t } from "../../text.ts";
 import { BankRows } from "./BankFile.tsx";
 import { CardRows } from "./CardFile.tsx";
 
-/** A statement is a few kilobytes of text, a PDF of it a few hundred. */
+/** A statement is a few kilobytes of text. */
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
 /** A text file in the encoding a Finnish bank may give it: UTF-8, else Windows-1252. */
@@ -46,16 +44,10 @@ export function StatementFile({ meta, onChange }: { meta: Meta; onChange: () => 
     if (file.size > MAX_FILE_BYTES) return setProblem("big");
     setReading(true);
     try {
-      const bytes = await file.arrayBuffer();
-      let text: string;
-      let kind: "card" | "bank";
-      try {
-        const pdf = isPdf(file);
-        text = pdf ? await readPdf(bytes, new AbortController().signal) : decode(bytes);
-        kind = pdf ? "card" : kindOf(text);
-      } catch {
-        return setProblem("pdf");
-      }
+      // a PDF is not read (design D8): the bank gives the same statement as text
+      if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) return setProblem("pdf");
+      const text = decode(await file.arrayBuffer());
+      const kind = kindOf(text);
       setPicked((p) => ({ n: (p?.n ?? 0) + 1, kind, text }));
     } finally {
       setReading(false);
@@ -71,7 +63,7 @@ export function StatementFile({ meta, onChange }: { meta: Meta; onChange: () => 
         </div>
       </div>
       <div className="stack">
-        <input ref={input} type="file" accept=".csv,.tsv,.txt,.xml,.pdf,text/*,application/xml,application/pdf" onChange={pick} hidden data-kind="statement-file" />
+        <input ref={input} type="file" accept=".csv,.tsv,.txt,.xml,text/*,application/xml" onChange={pick} hidden data-kind="statement-file" />
         <div className="form-row">
           <Button onClick={() => input.current?.click()} busy={reading}>
             {reading ? t("card_file.reading") : t("card_file.pick")}

@@ -162,8 +162,6 @@ packages/core/src/commitments.ts  MERCHANT_MONTHS
 packages/core/src/commitments.ts  MerchantMonthly
 packages/core/src/household-debts.ts  DebtAccount
 packages/core/src/household-debts.ts  DebtSource
-packages/core/src/loan-intake/checks.ts  CheckInputs
-packages/core/src/loan-intake/values.ts  repairDigits
 packages/core/src/loans.ts  CreditUse
 packages/core/src/loan-plan.ts  MAX_LOAN_PAYMENTS
 packages/core/src/optimise/areas/electricity.ts  BillKind
@@ -228,8 +226,6 @@ packages/core/src/reports/upcoming.ts  UpcomingReport
 packages/core/src/reports/year-over-year.ts  YearOverYearReport
 packages/core/src/returns.ts  PAYBACK_WINDOW_DAYS
 packages/core/src/transfers.ts  TransferOptions
-packages/core/src/wording-loan-pages.ts  LOAN_LABELS
-packages/core/src/wording-loan-pages.ts  LOAN_LABELS_UNSURE
 packages/core/src/wording.ts  CAR_FINANCIER_WORDS
 packages/core/src/wording.ts  REFUND_WORDS
 packages/core/src/wording.ts  isCreditText

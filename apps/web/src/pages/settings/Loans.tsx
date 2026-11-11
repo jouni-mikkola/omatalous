@@ -3,14 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Table } from "../../components/table/Table.tsx";
-import { formOfLoan, LOAN_LINK_PARAM, linkChoices } from "../../components/loans/form.ts";
+import { emptyForm, formOfLoan, LOAN_LINK_PARAM, linkChoices } from "../../components/loans/form.ts";
 import { KIND_LABEL } from "../../components/loans/labels.ts";
 import { LoanEditor, LoanLinks } from "../../components/loans/LoanEditor.tsx";
 import { date, money, percent } from "../../format.ts";
 import { useApi, useHashRoute } from "../../hooks.ts";
 import { hashOf, SETTINGS_ANCHOR } from "../../routes.ts";
 import type { Meta } from "../../types.ts";
-import { LoanIntake } from "./LoanIntake.tsx";
 import "../../styles/loans.css";
 import { Button } from "../../components/ui/Button.tsx";
 import { useModal } from "../../components/useModal.ts";
@@ -44,7 +43,7 @@ function EditDialog({ loan, account, today, onSaved, onCancel }: { loan: Loan; a
 /**
  * Decision: the household keeps its loans here, since the bank connection shows accounts and cards only. The list is
  * what was saved (what is owed and on which day, the rate, the payment, the last due date), each row with edit and
- * remove; under it is the box a new loan is pasted into. A member sees and changes only their own loans.
+ * remove; under it Lisää laina opens the form of a new loan. A member sees and changes only their own loans.
  */
 export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void }) {
   const list = useApi<{ loans: Loan[] }>("/api/loans");
@@ -54,6 +53,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
     if (loaded) onLoaded?.();
   }, [loaded, onLoaded]);
   const [editing, setEditing] = useState<{ loan: Loan; account: string } | null>(null);
+  const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Loan | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "good" | "warning"; text: string } | null>(null);
@@ -169,7 +169,26 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
         <Empty className={list.data ? undefined : "loans-wait"}>{t("set.loans.no_loans")}</Empty>
       )}
 
-      <LoanIntake today={meta.today} onSaved={(name) => done(`${name} tallennettu.`)} />
+      {adding ? (
+        <section className="loan-draft" aria-labelledby="loan-new-title">
+          <h3 id="loan-new-title">{t("set.loans.new_loan")}</h3>
+          <LoanEditor
+            initial={emptyForm(meta.today)}
+            today={meta.today}
+            cancelLabel={t("set.loans.cancel")}
+            onSave={async (body) => {
+              await loanCalls.add(body);
+              setAdding(false);
+              done(`${body.name} tallennettu.`);
+            }}
+            onCancel={() => setAdding(false)}
+          />
+        </section>
+      ) : (
+        <div className="form-row">
+          <Button onClick={() => setAdding(true)}>{t("set.loans.add_loan")}</Button>
+        </div>
+      )}
 
       {editing && (
         <EditDialog
