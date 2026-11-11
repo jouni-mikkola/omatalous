@@ -1,4 +1,4 @@
-/* The first page's holdings: accounts, credit cards and loans (components/holdings/). */
+/* The holdings of the balances report: accounts, credit cards and loans (pages/reports/holdings/). */
 
 @layer pages {
 /* The groups, ruled as the columns of a block (statement.css .st-cols): to the card's edges, a rule between them. Two stand

@@ -200,7 +200,7 @@ flowchart LR
   together (`accountsCents`, `cardsCents`, `loansCents`), and the cards' use and the loans' balance add up to the debt
   total (`debtCents`).
   `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer (`buildHoldings`), and
-  `components/holdings/Holdings.tsx` shows it as given. The card *Menot* shows `DashboardData.pace` from `monthPace` in
+  `pages/reports/holdings/Holdings.tsx` shows it as given. The card *Menot* shows `DashboardData.pace` from `monthPace` in
   `analysis/forecast.ts`: the month's spending so far and the month before's on the same day, both sums of rows with
   nothing estimated (`SpendingCard` in `pages/Overview.tsx`, the chart in `charts/PaceChart.tsx`). The block *Erääntyvät maksut* gets
   `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words the line under its heading, its three figures, its warning and the rows of its two

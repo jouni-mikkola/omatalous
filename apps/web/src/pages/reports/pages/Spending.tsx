@@ -2,7 +2,6 @@
 import "../../../styles/report-spending.css";
 import type { ReportPage } from "../types.ts";
 import { section as Borrowed } from "../sections/Borrowed.tsx";
-import { section as CategoryGoals } from "../sections/CategoryGoals.tsx";
 import { section as Drift } from "../sections/Drift.tsx";
 import { section as Food } from "../sections/Food.tsx";
 import { section as Pivot } from "../sections/Pivot.tsx";
@@ -16,5 +15,5 @@ export const page: ReportPage = {
     return t("rpt.page_spending");
   },
   fold: true,
-  sections: [SpendingTable, Borrowed, CategoryGoals, Drift, Food, Pivot, YearOverYear],
+  sections: [SpendingTable, Borrowed, Drift, Food, Pivot, YearOverYear],
 };

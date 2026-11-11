@@ -596,7 +596,6 @@
   "payDays": []
  },
  "goal": null,
- "categoryGoals": [],
  "ahead": {
   "from": "2026-10-15",
   "to": "2026-10-22",

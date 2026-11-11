@@ -17,7 +17,6 @@ import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { buildHome, type Home } from "../home.ts";
-import { type CategoryGoalPace, categoryGoalPaces } from "./category-goals.ts";
 import { type SpendingGoal, spendingGoal } from "./spending-goal.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { buildQuestions, type Questions, withoutRowIds } from "./questions.ts";
@@ -68,8 +67,6 @@ export interface DashboardData {
   pace: MonthPace;
   /** The user's monthly spending goal against `pace`; null when none is set. */
   goal: SpendingGoal | null;
-  /** The goals per category against the same month's spending so far; empty when none is set. */
-  categoryGoals: CategoryGoalPace[];
   /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the three figures. null when the selected period does not include today. */
   ahead: AheadData | null;
   /** What the first page says in its five blocks; the page only draws it. */
@@ -172,7 +169,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     themes: themesReport(ctx),
     pace,
     goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
-    categoryGoals: categoryGoalPaces(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to, inputs.categoryGoals ?? {}),
     ahead: basis?.ahead ?? null,
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,

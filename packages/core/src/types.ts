@@ -321,8 +321,6 @@ export interface UserInputs {
   payers?: PayerInput;
   /** The monthly spending goal in cents (`spending-goal.ts`). Left out or null, the user has set none. */
   spendingGoalCents?: number | null;
-  /** The monthly goal per category in cents, by category id (`category-goals.ts`). Left out, none is set. */
-  categoryGoals?: Readonly<Record<string, number>>;
   /** The published consumer price index the admin let the server fetch (`reports/price-change.ts`). Left out or null, there is none. */
   priceIndex?: PriceIndex | null;
 }

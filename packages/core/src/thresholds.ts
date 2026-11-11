@@ -21,8 +21,6 @@ export const THRESHOLDS = {
   usualMonths: threshold(6, "months", "A judgement (ADR 0005): six months follow a change in the household's living within half a year, and the median of six stays put while two months are odd. It is the one period of every usual level, income included (ADR 0020)."),
   priceChangeMonths: threshold(12, "months", "A year: the household's own price change is read over the span the published index states as its annual change, so the two compare like for like."),
   minCompareMonths: threshold(3, "months", "A judgement: under three values the median is one value or the mean of two, so no month is odd against it."),
-  minCategoryGoalCents: threshold(100, "cents", "A euro: a goal under it is a slip of the decimal point (the same bound as the one monthly goal)."),
-  maxCategoryGoalCents: threshold(100_000_000, "cents", "A million euros a month: a typo stays visible and the sums stay exact (the same bound as the one monthly goal)."),
   gateShare: threshold(0.02, "share", "A judgement (H-insights, section 1): a cause under 2 % of its base a month is noise beside the base."),
   gateFloorCents: threshold(1000, "cents", "A judgement: under 10 € a month is too little to act on, however small the base."),
   incomeGateFloorCents: threshold(3000, "cents", "A judgement: the income findings use a floor of 30 €, three times the floor of the spending findings."),
@@ -108,8 +106,6 @@ export const THRESHOLDS = {
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
 export const PRICE_CHANGE_MONTHS = THRESHOLDS.priceChangeMonths.value;
 export const MIN_COMPARE_MONTHS = THRESHOLDS.minCompareMonths.value;
-export const MIN_CATEGORY_GOAL_CENTS = THRESHOLDS.minCategoryGoalCents.value;
-export const MAX_CATEGORY_GOAL_CENTS = THRESHOLDS.maxCategoryGoalCents.value;
 export const GATE_SHARE = THRESHOLDS.gateShare.value;
 export const GATE_FLOOR_CENTS = THRESHOLDS.gateFloorCents.value;
 export const INCOME_GATE_FLOOR_CENTS = THRESHOLDS.incomeGateFloorCents.value;

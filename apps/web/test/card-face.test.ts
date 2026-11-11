@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CardFace } from "../src/components/holdings/CardFace.tsx";
+import { CardFace } from "../src/pages/reports/holdings/CardFace.tsx";
 
 type Props = Parameters<typeof CardFace>[0];
 const face = (card: Partial<Props["card"]> = {}, bank: Props["bank"] = null) =>

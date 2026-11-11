@@ -11,22 +11,22 @@
  */
 import type { ReactNode } from "react";
 import { cardName, daysBetween } from "@banking/core";
-import { query } from "../../api.ts";
-import { date, localDay, money, moneyIn } from "../../format.ts";
-import { figureName, t, tn } from "../../text.ts";
-import { partText, typedByText } from "../../part.ts";
-import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../routes.ts";
-import type { DashboardData, Meta, ReconcileState, Scope } from "../../types.ts";
-import { AccountMark, cardBankOf } from "../BankLogo.tsx";
-import { Figure } from "../Figure.tsx";
-import { Why } from "../Why.tsx";
+import { query } from "../../../api.ts";
+import { date, localDay, money, moneyIn } from "../../../format.ts";
+import { figureName, t, tn } from "../../../text.ts";
+import { partText, typedByText } from "../../../part.ts";
+import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
+import type { DashboardData, Meta, ReconcileState, Scope } from "../../../types.ts";
+import { AccountMark, cardBankOf } from "../../../components/BankLogo.tsx";
+import { Figure } from "../../../components/Figure.tsx";
+import { Why } from "../../../components/Why.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
 import { cardMasks, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
-import "../../styles/statement.css";
-import "../../styles/holdings.css";
-import { css } from "../../css.ts";
+import "../../../styles/statement.css";
+import "../../../styles/holdings.css";
+import { css } from "../../../css.ts";
 
 type Answer = DashboardData["holdings"];
 

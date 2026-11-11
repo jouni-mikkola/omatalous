@@ -1,10 +1,8 @@
 import { query } from "../api.ts";
-import { Direction } from "../components/home/Direction.tsx";
 import { MonthPace } from "../components/home/MonthPace.tsx";
 import { Answer } from "../components/home/Answer.tsx";
 import { Notable } from "../components/home/Notable.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
-import { Reliability } from "../components/home/Reliability.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { monthLine, updatedText } from "../components/home/texts.ts";
 import { EmptyStart } from "../components/EmptyStart.tsx";
@@ -14,16 +12,15 @@ import { Button } from "../components/ui/Button.tsx";
 import { useApi } from "../hooks.ts";
 import { periodRange } from "../period.ts";
 import type { DashboardData, Meta, Scope } from "../types.ts";
-import { BALANCES_ID, THIS_MONTH_ID } from "./reports/sections/ids.ts";
+import { THIS_MONTH_ID } from "./reports/sections/ids.ts";
 import "../styles/home.css";
 import { t } from "../text.ts";
 
 /**
- * Yhteenveto answers one question: do the money last to the next payday, and how much is left. Four blocks in one
+ * Yhteenveto answers one question: do the money last to the next payday, and how much is left. Three blocks in one
  * order: the answer with its sum row (Answer), how the month goes against the expected one (MonthPace, with the way to
- * the days and categories the difference comes from), the findings worth acting on, each with its euros a year
- * (Notable), and what the household has and owes with the direction of the spending (Direction). Every figure is a field
- * of `home` or `holdings` in the dashboard answer; nothing is added up here. The page always tells today and the running
+ * the days and categories the difference comes from), and the findings worth acting on, each with its euros a year
+ * (Notable). Every figure is a field of `home` in the dashboard answer; nothing is added up here. The page always tells today and the running
  * month: the questions it does not settle by itself are on Tarkistettavat.
  */
 export function Overview({
@@ -78,10 +75,8 @@ export function Overview({
           <p className="home-detail">{t("home.no_payments_shown")}</p>
         </section>
       )}
-      <Reliability home={home} dataNotice={data.dataNotice} connectNotice={data.connectNotice} />
       <MonthPace data={data} reportHref={`#/reports#${THIS_MONTH_ID}`} />
       <Notable insights={home.notable} />
-      <Direction holdings={data.holdings} direction={home.direction} balancesHref={`#/reports#${BALANCES_ID}`} />
     </div>
   );
 }

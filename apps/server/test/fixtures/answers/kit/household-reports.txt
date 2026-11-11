@@ -4140,55 +4140,6 @@
    }
   }
  },
- "categoryGoals": {
-  "month": "2026-10",
-  "complete": false,
-  "rows": [
-   {
-    "category": "groceries",
-    "label": "Ruokakauppa",
-    "goalCents": null,
-    "proposedCents": 74500,
-    "spentCents": 38829,
-    "deltaCents": null,
-    "count": 8
-   },
-   {
-    "category": "restaurants",
-    "label": "Ravintolat ja kahvilat",
-    "goalCents": null,
-    "proposedCents": 12600,
-    "spentCents": 2808,
-    "deltaCents": null,
-    "count": 4
-   },
-   {
-    "category": "transport",
-    "label": "Joukkoliikenne ja taksit",
-    "goalCents": null,
-    "proposedCents": null,
-    "spentCents": 0,
-    "deltaCents": null,
-    "count": 0
-   },
-   {
-    "category": "car",
-    "label": "Auto, polttoaine ja pysäköinti",
-    "goalCents": null,
-    "proposedCents": 13900,
-    "spentCents": 15478,
-    "deltaCents": null,
-    "count": 2
-   }
-  ],
-  "total": null,
-  "missing": [
-   "Ruokakauppa",
-   "Ravintolat ja kahvilat",
-   "Joukkoliikenne ja taksit",
-   "Auto, polttoaine ja pysäköinti"
-  ]
- },
  "longForecast": {
   "basisMonths": 24,
   "netWorthNowCents": 1894423,

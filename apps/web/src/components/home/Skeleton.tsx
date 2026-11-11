@@ -21,11 +21,6 @@ export function HomeSkeleton() {
         <span className="sk-bar sk-line" />
         <span className="sk-bar sk-line" />
       </section>
-      <section className="card home-direction" aria-hidden="true">
-        <span className="sk-bar sk-head" />
-        <span className="sk-bar sk-line" />
-        <span className="sk-bar sk-line" />
-      </section>
       <span className="sr-only">{t("load.loading")}</span>
     </div>
   );

@@ -132,15 +132,11 @@ test("Huomioitavaa holds three findings at most, each with its euros a year and 
   await context.close();
 });
 
-test("Varat ja velat is one list of the server's holdings, and the old blocks are gone", async ({ browser }) => {
+test("the page ends at the findings: Varat ja velat and the old blocks are gone", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
-  const holdings = (await (await context.request.get("/api/dashboard?scope=own")).json()).holdings;
-  const block = page.locator(".home-direction");
-  await expect(block.getByRole("heading", { name: "Varat ja velat" })).toBeVisible();
-  if (holdings.netCents !== null) expect(cents(await block.locator(".home-row-lead dd").innerText())).toBe(Math.round(holdings.netCents / 100) * 100);
-  for (const gone of ["Menot tässä kuussa", "Tulot ja menot", "Asuminen", "Luottokortit", "Miksi kuu poikkeaa"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
-  await expect(page.locator(".wf, .holding-groups")).toHaveCount(0);
+  for (const gone of ["Varat ja velat", "Menot tässä kuussa", "Tulot ja menot", "Asuminen", "Luottokortit", "Miksi kuu poikkeaa"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
+  await expect(page.locator(".home-direction, .home-reliability, .wf, .holding-groups")).toHaveCount(0);
   await context.close();
 });
 

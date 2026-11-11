@@ -2,19 +2,9 @@
 import { formatEur } from "../../analysis/format.ts";
 import { expectedSpending } from "../../analysis/expected.ts";
 import { monthOf } from "../../dates.ts";
-import type { Language } from "../../locale.ts";
 import { messageIn } from "../../messages.ts";
 import type { Conclusion, ConclusionInput } from "../conclusion.ts";
 import { compareFigure, conclusionOf, earlierNames, expectedNeeds, largestParts, noBudget, spanOf, spendingComparisons } from "./shared.ts";
-
-/** The goal categories' spending against their goals in words. */
-const goalsText = (deltaCents: number, complete: boolean, lang: Language): string => {
-  const amount = formatEur(Math.abs(deltaCents), false, lang);
-  if (deltaCents > 0) return messageIn(lang, "rep.goals_over", { amount });
-  if (deltaCents === 0) return messageIn(lang, "rep.goals_exact");
-  // a running month has spent only part of its goal: the gap is what is left, not a saving
-  return complete ? messageIn(lang, "rep.goals_under", { amount }) : messageIn(lang, "rep.goals_left", { amount });
-};
 
 /** Where the period's money went: the spending of the categories report, its categories as the parts, set beside the period before and a year ago. */
 export function spendingConclusion(input: ConclusionInput): Conclusion {
@@ -29,13 +19,10 @@ export function spendingConclusion(input: ConclusionInput): Conclusion {
   const month = monthOf(span.from);
   const oneMonth = monthOf(span.to) === month;
   const expected = oneMonth ? expectedSpending(ctx, month, Number(span.to.slice(8, 10))) : null;
-  // the goals are for categories: `cents` and `deltaCents` are over the goal categories alone, not the figure of the page, and the text says so
-  const goals = read("categoryGoals");
-  const budget = goals.total && { ...compareFigure("budget", messageIn(lang, "rep.goals"), goals.total.goalCents, goals.total.deltaCents, lang), text: goalsText(goals.total.deltaCents, goals.complete, lang) };
-  const compare = { ...compared.compare, expected: expected === null ? null : compareFigure("expected", messageIn(lang, "rep.expected"), expected, total - expected, lang), budget };
+  const compare = { ...compared.compare, expected: expected === null ? null : compareFigure("expected", messageIn(lang, "rep.expected"), expected, total - expected, lang), budget: null };
   const gaps = {
     ...compared.gaps,
-    ...(budget ? {} : { budget: goals.month === null ? messageIn(lang, "rep.goals_month") : noBudget(lang) }),
+    budget: noBudget(lang),
     ...(expected === null ? { expected: oneMonth ? expectedNeeds(lang) : messageIn(lang, "rep.expected_one_month") } : {}),
   };
   const top = rows[0];

@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { Holdings } from "../src/components/holdings/Holdings.tsx";
+import { Holdings } from "../src/pages/reports/holdings/Holdings.tsx";
 import { money } from "../src/format.ts";
 import { partText } from "../src/part.ts";
 import type { DashboardData, Meta } from "../src/types.ts";

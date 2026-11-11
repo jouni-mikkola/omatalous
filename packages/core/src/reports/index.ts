@@ -18,7 +18,6 @@ import { type ConclusionsReport, conclusionsReport, type ReportReads } from "./c
 import { categoryReport } from "./categories.ts";
 import { dataQualityReport } from "../analysis/data-quality.ts";
 import { foodReport } from "../analysis/food.ts";
-import { categoryGoalsReport } from "./category-goals.ts";
 import { driftReport } from "./drift.ts";
 import { fixedCostsReport } from "./fixed-costs.ts";
 import { fixedVariableReport } from "./fixed-variable.ts";
@@ -67,7 +66,6 @@ export const REPORTS = {
   loans: ({ ctx, balances, inputs }: ReportInput) => loansReport(ctx, balances, inputs),
   housing: ({ ctx, balances, inputs }: ReportInput) => buildHousing(ctx, balances, inputs),
   food: ({ ctx, lang }: ReportInput) => foodReport(ctx, lang),
-  categoryGoals: ({ ctx, range, inputs, lang }: ReportInput) => categoryGoalsReport(ctx, range, inputs, lang),
   longForecast: ({ ctx, balances, inputs }: ReportInput) => longForecastReport(ctx, balances, inputs),
   taxYear: ({ ctx, range, balances, lang }: ReportInput) => taxYearReport(ctx, range, incomeReport(ctx, taxYearDays(ctx, range), balances, lang)),
   priceChange: ({ ctx, inputs }: ReportInput) => priceChangeReport(ctx, inputs),
@@ -102,7 +100,6 @@ export type { MoneyBridge } from "../analysis/money-bridge.ts";
 export type { CategoryReport, GroupStat } from "./categories.ts";
 export type { DataQualityReport, QualitySignal } from "../analysis/data-quality.ts";
 export { type FiledWithoutAsking, filedWithoutAsking } from "../analysis/filed.ts";
-export type { CategoryGoalRow, CategoryGoalsReport } from "./category-goals.ts";
 export type { DriftItem, DriftReport } from "./drift.ts";
 export type { FixedVariableReport, FixedVariableRow } from "./fixed-variable.ts";
 export type { IncomeMember, IncomeMonth, IncomePayDay, IncomePayerRow, IncomeReport, IncomeStability, IncomeTypeRow } from "./income.ts";

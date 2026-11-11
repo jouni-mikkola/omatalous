@@ -126,8 +126,8 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the page opens on the answer, then the month's pace, the findings and the assets and debts, in that order
-          const order = [".home-answer", ".home-pace", ".home-notable", ".home-direction"];
+          // the page opens on the answer, then the month's pace and the findings, in that order
+          const order = [".home-answer", ".home-pace", ".home-notable"];
           // the document order is the reading order of a phone and a screen reader; a wide screen sets the pace beside the findings, so only the answer is checked to stand on top
           const names = await page.evaluate((selectors) => {
             const found = selectors.map((s) => document.querySelector(s)!);

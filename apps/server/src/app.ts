@@ -23,7 +23,6 @@ import { financeRoutes } from "./routes/finance.ts";
 import { loanRoutes } from "./routes/loans.ts";
 import { bankFileRoutes } from "./routes/bank-file.ts";
 import { cardFileRoutes } from "./routes/card-file.ts";
-import { categoryGoalRoutes } from "./routes/category-goals.ts";
 import { languageRoutes } from "./routes/language.ts";
 import { spendingGoalRoutes } from "./routes/spending-goal.ts";
 import { statementRoutes } from "./routes/statements.ts";
@@ -146,7 +145,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", loanRoutes(s));
   app.route("/api", languageRoutes(s));
   app.route("/api", spendingGoalRoutes(s));
-  app.route("/api", categoryGoalRoutes(s));
   app.route("/api", statementRoutes(s));
   app.route("/api", cardFileRoutes(s));
   app.route("/api", bankFileRoutes(s));

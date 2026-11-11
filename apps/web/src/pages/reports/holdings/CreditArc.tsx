@@ -5,9 +5,9 @@
  * full and in the colour of what is wrong. The words for a screen reader are the two figures with their labels.
  */
 import { useId } from "react";
-import { money, percent } from "../../format.ts";
-import { css } from "../../css.ts";
-import { t } from "../../text.ts";
+import { money, percent } from "../../../format.ts";
+import { css } from "../../../css.ts";
+import { t } from "../../../text.ts";
 
 /** The arc of a circle of radius 30 that three quarters of it make. */
 const THREE_QUARTERS = 141.37;

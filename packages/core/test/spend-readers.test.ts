@@ -27,7 +27,6 @@ const USES_SPEND_ROWS = [
   "analysis/dashboard.ts",
   "analysis/expected.ts",
   "analysis/filed.ts",
-  "analysis/category-goals.ts",
   "analysis/food.ts",
   "analysis/questions.ts",
   // the rows its callers (categories.ts) give it, from spendRows

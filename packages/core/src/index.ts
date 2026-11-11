@@ -84,7 +84,7 @@ export { type PriceRiseItem, priceRiseItems } from "./analysis/insights/prices.t
 export { isLongSubscription, renewalItems } from "./analysis/insights/renewals.ts";
 export * from "./analysis/dashboard.ts";
 export * from "./analysis/spending-goal.ts";
-export { type CategoryGoalPace, GOAL_CATEGORIES, isGoalCategory } from "./analysis/category-goals.ts";
+export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
 export type { CategoryPart, RowParts } from "./analysis/row-parts.ts";
 export { type AheadGroup, cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead.ts";
 export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";

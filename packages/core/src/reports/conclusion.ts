@@ -15,7 +15,6 @@ import type { BalanceInput, UserInputs } from "../types.ts";
 import type { BalanceReport } from "./balances.ts";
 import type { BufferReport } from "./buffer.ts";
 import type { CashflowReport } from "./cashflow.ts";
-import type { CategoryGoalsReport } from "./category-goals.ts";
 import type { CategoryReport } from "./categories.ts";
 import { balancesConclusion } from "./conclusions/saldot.ts";
 import { debtConclusion } from "./conclusions/velat.ts";
@@ -87,7 +86,6 @@ export interface ReportReads {
   cashflow: CashflowReport;
   categories: CategoryReport;
   spendingTable: SpendingTableReport;
-  categoryGoals: CategoryGoalsReport;
   balances: BalanceReport;
   loans: LoansReport;
   buffer: BufferReport;

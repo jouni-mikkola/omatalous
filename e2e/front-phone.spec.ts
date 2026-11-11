@@ -36,8 +36,8 @@ for (const width of [320, 360, 390]) {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
     const page = await open(context);
     const seen = watch(page);
-    // four blocks in one column: each starts on the left edge of the page and none is beside another
-    const blocks = page.locator(".home-answer, .home-pace, .home-notable, .home-direction");
+    // three blocks in one column: each starts on the left edge of the page and none is beside another
+    const blocks = page.locator(".home-answer, .home-pace, .home-notable");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;

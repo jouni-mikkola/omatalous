@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CreditArc } from "../src/components/holdings/CreditArc.tsx";
+import { CreditArc } from "../src/pages/reports/holdings/CreditArc.tsx";
 import { money, percent } from "../src/format.ts";
 
 const arc = (usedCents: number | null, limitCents: number | null) => renderToStaticMarkup(createElement(CreditArc, { usedCents, limitCents }));

@@ -481,7 +481,7 @@ describe("the figures after a round trip", () => {
     await importFile(b.admin, await exportOf(a.admin));
     expect(await all(b)).toBe(want);
     const still: string[] = [];
-    for (const table of ["user_marks", "expected_bills", "loans", "spending_goal", "category_goal", "optimise_inputs", "optimise_states"]) {
+    for (const table of ["user_marks", "expected_bills", "loans", "spending_goal", "optimise_inputs", "optimise_states"]) {
       const rows = await b.db.all(`SELECT * FROM ${table} WHERE user_id = ?`, [b.adminId]);
       await b.db.run(`DELETE FROM ${table} WHERE user_id = ?`, [b.adminId]);
       await b.s.settings.bumpUserDataVersion(b.adminId);

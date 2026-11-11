@@ -6,8 +6,8 @@
  * keyboard and a screen reader, so the picture itself is left out of both. The name, the number and the figures are the
  * text beside it.
  */
-import type { DashboardData } from "../../types.ts";
-import { BankLogo } from "../BankLogo.tsx";
+import type { DashboardData } from "../../../types.ts";
+import { BankLogo } from "../../../components/BankLogo.tsx";
 import { cardTone, type CardTone } from "./holding-rows.ts";
 
 type Card = DashboardData["holdings"]["cards"][number];

@@ -25,9 +25,4 @@
 .pace-key .pace-key-goal { background: transparent; border-top: 1px dashed var(--text); }
 .pace-key .pace-key-prev { background: transparent; border-top: 1px dotted var(--series-avg); }
 .pace-key .pace-key-est { block-size: var(--bar-h); border: 1px dashed var(--estimate-edge); background: var(--estimate-fill); }
-/* the goal's sentence and buttons under the chart */
-.pace-goal { margin: var(--sp-12) 0 0; }
-.pace-goal-answer { margin: 0; flex: 1 1 20ch; color: var(--text-2); }
-.pace-category-goals { margin: var(--sp-8) 0 0; padding: 0; list-style: none; color: var(--text-2); }
-.pace-category-goals [data-over] { color: var(--text); font-weight: var(--w-strong); }
 }

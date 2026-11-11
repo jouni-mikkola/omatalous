@@ -2,10 +2,6 @@
 import { PaceChart } from "../../charts/PaceChart.tsx";
 import type { DashboardData } from "../../types.ts";
 import { Button } from "../ui/Button.tsx";
-import { ChartWithTable } from "../table/selection.tsx";
-import { CategoryGoals } from "./CategoryGoals.tsx";
-import { SpendingGoalLine } from "./SpendingGoal.tsx";
-import { PaceTable } from "./PaceTable.tsx";
 import { monthTitle, paceGapText, paceHeadline, paceRangeText } from "./texts.ts";
 import { t } from "../../text.ts";
 
@@ -17,8 +13,8 @@ export function paceRange(pace: DashboardData["pace"]): { from: string; to: stri
 
 /**
  * Kuukausi: the heading says the difference from the expected month and what it is set against, the line
- * under it where the spending stands in the expected range. The chart and its table are the month's days
- * (`PaceChart`); the one monthly goal, when set, is a line on the chart and a sentence under it (`SpendingGoalLine`). The days and
+ * under it where the spending stands in the expected range. The chart is the month's days (`PaceChart`); the one
+ * monthly goal, when set, is a line on it. The days and
  * categories the difference comes from are in Raportit, one link away (`reportHref`).
  */
 export function MonthPace({ data, reportHref }: { data: DashboardData; reportHref: string }) {
@@ -38,9 +34,7 @@ export function MonthPace({ data, reportHref }: { data: DashboardData; reportHre
       ) : (
         gap && <p className="home-detail">{gap}</p>
       )}
-      <ChartWithTable chart={<PaceChart pace={pace} goal={goal?.cents ?? null} payday={payday} names={names} />} table={<PaceTable pace={pace} goal={goal?.cents ?? null} names={names} />} />
-      <SpendingGoalLine goal={goal} />
-      <CategoryGoals goals={data.categoryGoals} />
+      <PaceChart pace={pace} goal={goal?.cents ?? null} payday={payday} names={names} />
       <Button variant="link" href={reportHref}>
         {t("home.month_report")}
       </Button>

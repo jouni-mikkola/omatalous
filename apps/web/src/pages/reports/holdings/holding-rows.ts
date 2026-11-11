@@ -4,8 +4,8 @@
  * here: every total is core's.
  */
 import { cardName } from "@banking/core";
-import { t } from "../../text.ts";
-import type { DashboardData } from "../../types.ts";
+import { t } from "../../../text.ts";
+import type { DashboardData } from "../../../types.ts";
 
 type Answer = DashboardData["holdings"];
 

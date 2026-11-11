@@ -33,7 +33,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   its source's own route).
 - `apps/web`: React + Vite, custom SVG charts, Finnish UI. `api.ts`, `nav.ts` (a gated entry names its flag),
   `pages/reports/registry.ts`, `pages/Review.tsx` (Tarkistettavat: the one page that asks, one item at a time, its
-  count in the header; no other page shows a question card), `components/holdings/`, `styles/` (`tokens.css` and `base.css` first, then one file per
+  count in the header; no other page shows a question card), `pages/reports/holdings/`, `styles/` (`tokens.css` and `base.css` first, then one file per
   page area, imported by its page).
 - `scripts/`: what runs on the host (`install.sh`, `update.sh`, `ops-helper.sh` the helper of Asetukset > Ylläpito)
   and `lib/`. `update.sh` exit 3 = the migration check failed and nothing changed. `tools/`: what only developers and CI

@@ -255,8 +255,6 @@ describe("data versions", () => {
     "POST /api/views/open",
     "PUT /api/spending-goal",
     "DELETE /api/spending-goal",
-    "PUT /api/category-goals",
-    "DELETE /api/category-goals",
     "POST /api/expected-bills",
     "DELETE /api/expected-bills/:id",
     "POST /api/loans",
@@ -330,8 +328,6 @@ describe("data versions", () => {
     await step("POST /api/views/open", () => admin.call("POST", "/api/views/open", { views: ["report:ennuste"] }), false);
     await step("PUT /api/spending-goal", () => admin.call("PUT", "/api/spending-goal", { monthlyCents: 250_000 }), false);
     await step("DELETE /api/spending-goal", () => admin.call("DELETE", "/api/spending-goal"), false);
-    await step("PUT /api/category-goals", () => admin.call("PUT", "/api/category-goals", { category: "groceries", monthlyCents: 60_000 }), false);
-    await step("DELETE /api/category-goals", () => admin.call("DELETE", "/api/category-goals", { category: "groceries" }), false);
     const bill = await step("POST /api/expected-bills", () => admin.call("POST", "/api/expected-bills", { name: "Vesi", amountCents: 5000, dueDate: "2026-11-20", cadence: "once" }), false);
     await step("DELETE /api/expected-bills/:id", () => admin.call("DELETE", `/api/expected-bills/${bill.body.bill.id}`), false);
     const loan = await step("POST /api/loans", () => admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" }), false);

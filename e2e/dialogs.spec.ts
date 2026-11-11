@@ -77,24 +77,3 @@ test("the password form of a maintenance act hands the focus back", async ({ bro
   expect(seen.problems).toEqual([]);
   await context.close();
 });
-
-test("the question about the spending goal hands the focus back", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/settings/household");
-  const form = page.getByRole("form", { name: "Kuukauden menotavoite" });
-  await expect(form).toBeVisible({ timeout: 15_000 });
-  await form.getByRole("textbox").fill("2 000");
-  await form.getByRole("button", { name: "Tallenna" }).click();
-  const remove = form.getByRole("button", { name: "Poista tavoite" });
-  try {
-    await returns(page, remove, "Peruuta");
-    expect(seen.problems).toEqual([]);
-  } finally {
-    // the household is left as the specs after this one expect it
-    await remove.click();
-    await page.getByRole("dialog").getByRole("button", { name: "Poista tavoite" }).click();
-    await context.close();
-  }
-});

@@ -16,7 +16,6 @@ import { StatementRepo } from "./finance/statements.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
-import { CategoryGoalRepo } from "./finance/category-goals.ts";
 import { SpendingGoalRepo } from "./finance/spending-goal.ts";
 import { LoansRepo } from "./finance/loans.ts";
 import { MarksRepo } from "./finance/marks.ts";
@@ -54,7 +53,6 @@ export class FinanceRepo {
   private readonly syncRuns: SyncRunsRepo;
   private readonly expectedBills: ExpectedBillsRepo;
   private readonly spendingGoals: SpendingGoalRepo;
-  private readonly categoryGoalRepo: CategoryGoalRepo;
   private readonly loans: LoansRepo;
   private readonly optimise: OptimiseRepo;
 
@@ -77,7 +75,6 @@ export class FinanceRepo {
     this.syncRuns = new SyncRunsRepo(ctx);
     this.expectedBills = new ExpectedBillsRepo(ctx);
     this.spendingGoals = new SpendingGoalRepo(ctx);
-    this.categoryGoalRepo = new CategoryGoalRepo(ctx);
     this.loans = new LoansRepo(ctx);
     this.optimise = new OptimiseRepo(ctx);
   }
@@ -208,10 +205,6 @@ export class FinanceRepo {
   setSpendingGoal(cents: number, at: string) { return this.spendingGoals.setSpendingGoal(cents, at); }
   clearSpendingGoal() { return this.spendingGoals.clearSpendingGoal(); }
 
-  // ── category goals (finance/category-goals.ts) ───────────
-  categoryGoals() { return this.categoryGoalRepo.categoryGoals(); }
-  setCategoryGoal(category: string, cents: number, at: string) { return this.categoryGoalRepo.setCategoryGoal(category, cents, at); }
-  clearCategoryGoal(category: string) { return this.categoryGoalRepo.clearCategoryGoal(category); }
 
   // ── loans (finance/loans.ts) ─────────────────────────────
   listLoans() { return this.loans.listLoans(); }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardName } from "@banking/core";
-import { cardMasks, cardsOwe, cardTone, maskedNames } from "../src/components/holdings/holding-rows.ts";
+import { cardMasks, cardsOwe, cardTone, maskedNames } from "../src/pages/reports/holdings/holding-rows.ts";
 
 const account = (id: string, name = id, mask: string | null = null) => ({ id, name, mask });
 
