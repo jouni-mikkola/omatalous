@@ -8,7 +8,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { date, money } from "../../format.ts";
 import type { Meta } from "../../types.ts";
-import { t } from "../../text.ts";
+import { t, tn } from "../../text.ts";
 
 type Problem = "table" | "camt" | "currency" | "accounts" | "balance" | "entry" | "mismatch" | "empty" | "many" | "save";
 
@@ -184,7 +184,7 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
         {found && (
           <>
             <p>{t("card_file.found", { rows: found.rows.length, from: date(found.periodFrom), to: date(found.periodTo) })}</p>
-            {found.unread.length > 0 && <Notice tone="warning">{t("card_file.unread", { count: found.unread.length })}</Notice>}
+            {found.unread.length > 0 && <Notice tone="warning">{tn(found.unread.length, "card_file.unread_one", "card_file.unread")}</Notice>}
             <Table
               caption={t("card_file.caption")}
               rows={found.rows.map((r, i) => ({ ...r, i }))}

@@ -8,7 +8,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { date, money } from "../../format.ts";
 import type { Meta } from "../../types.ts";
-import { t } from "../../text.ts";
+import { t, tn } from "../../text.ts";
 
 type Problem = "empty" | "many" | "save";
 
@@ -64,7 +64,7 @@ export function CardRows({ text, meta, onChange }: { text: string; meta: Meta; o
         {read && (
           <>
             <p>{t("card_file.found", { rows: read.rows.length, from: date(read.periodFrom!), to: date(read.periodTo!) })}</p>
-            {read.unread.length > 0 && <Notice tone="warning">{t("card_file.unread", { count: read.unread.length })}</Notice>}
+            {read.unread.length > 0 && <Notice tone="warning">{tn(read.unread.length, "card_file.unread_one", "card_file.unread")}</Notice>}
             <Table
               caption={t("card_file.caption")}
               rows={read.rows.map((r, i) => ({ ...r, i }))}

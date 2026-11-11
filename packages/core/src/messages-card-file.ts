@@ -16,6 +16,7 @@ export const FI_CARD_FILE = {
   "card_file.err_big": "Tiedosto on liian suuri.",
   "card_file.err_save": "Emme saaneet rivejä tallennettua. Yritä uudelleen.",
   "card_file.found": "Löytyi {rows} riviä ajalta {from}–{to}.",
+  "card_file.unread_one": "{count} rivi jäi lukematta.",
   "card_file.unread": "{count} riviä jäi lukematta.",
   "card_file.card": "Kortti",
   "card_file.card_new": "Uusi kortti",

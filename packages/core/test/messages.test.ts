@@ -43,6 +43,11 @@ describe("message catalogue", () => {
     expect(messageIn("en", "auth.bad_login")).toBe("Wrong username or password.");
   });
 
+  it("says one unread statement row in the singular", () => {
+    expect(message("card_file.unread_one", { count: "1" })).toBe("1 rivi jäi lukematta.");
+    expect(messageIn("en", "card_file.unread_one", { count: "1" })).toBe("1 line could not be read.");
+  });
+
   it("formats a code from the wire in the reader's language and ignores one it does not know", () => {
     expect(messageFromWire("check.history_days", { min: 30, max: 730 })).toBe("Historian pituus on 30–730 päivää.");
     expect(messageFromWire("check.history_days", { min: 30, max: 730 }, "en")).toBe("The history is 30–730 days long.");
