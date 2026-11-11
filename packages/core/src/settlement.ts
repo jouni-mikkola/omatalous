@@ -207,3 +207,33 @@ export function settlement(month: string, pool: SettlementPool, agreements: read
   }
   return compute(month, pool, agreements, members, cards, incomes, asOf, frozen, late, false);
 }
+
+export interface Transfer {
+  from: string;
+  to: string;
+  cents: number;
+}
+
+/**
+ * Who pays whom to settle the month: the ones who paid under their share pay the ones who paid over, the largest
+ * debtor to the largest creditor first. The transfers add up to the smaller of the sum of the credits and the sum of the debts; the two
+ * differ by what is unknown (core: `sum(over) = unknownOwed - unknownPaid`), and the page names that difference.
+ */
+export function transfersOf(members: readonly { owner: string; over: number }[]): Transfer[] {
+  const debtors = members.filter((m) => m.over < 0).map((m) => ({ owner: m.owner, left: -m.over })).sort((a, b) => b.left - a.left || (a.owner < b.owner ? -1 : 1));
+  const creditors = members.filter((m) => m.over > 0).map((m) => ({ owner: m.owner, left: m.over })).sort((a, b) => b.left - a.left || (a.owner < b.owner ? -1 : 1));
+  const out: Transfer[] = [];
+  let d = 0;
+  let c = 0;
+  while (d < debtors.length && c < creditors.length) {
+    const from = debtors[d]!;
+    const to = creditors[c]!;
+    const cents = Math.min(from.left, to.left);
+    if (cents > 0) out.push({ from: from.owner, to: to.owner, cents });
+    from.left -= cents;
+    to.left -= cents;
+    if (from.left === 0) d++;
+    if (to.left === 0) c++;
+  }
+  return out;
+}
