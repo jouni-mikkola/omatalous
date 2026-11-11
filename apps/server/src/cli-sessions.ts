@@ -31,7 +31,7 @@ export async function runSessionsCli(s: Services, args: string[]): Promise<numbe
     await s.users.deleteExpiredSessions(s.now());
     for (const u of await s.users.list()) {
       // the device and the time only: the id of a session is the hash of its cookie and stays out of the output
-      for (const x of await s.users.listSessions(u.id, undefined)) console.log(`${u.username.padEnd(20)} ${deviceLabel(x.userAgent).padEnd(20)} ${x.lastSeenAt}`);
+      for (const x of await s.users.listSessions(u.id, undefined, s.now())) console.log(`${u.username.padEnd(20)} ${deviceLabel(x.userAgent).padEnd(20)} ${x.lastSeenAt}`);
     }
     return 0;
   }
@@ -51,7 +51,7 @@ export async function runSessionsCli(s: Services, args: string[]): Promise<numbe
     console.error(`User ${username} not found.`);
     return 1;
   }
-  const n = (await s.users.listSessions(record.id, undefined)).length;
+  const n = (await s.users.listSessions(record.id, undefined, s.now())).length;
   await s.users.deleteSessionsOf(record.id);
   await recordEvent(s, { kind: "session_revoked", userId: record.id, detail: "kaikki (komentorivi). Kirjaudu uudelleen käyttäjätunnuksella ja salasanalla." });
   console.log(`Signed out ${n} sessions of ${username}. They sign in again with their username and password.`);
