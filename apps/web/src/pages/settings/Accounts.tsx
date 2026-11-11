@@ -5,7 +5,7 @@
  * from the bank. Tietojen laatu sits under the table.
  */
 import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { type Column, Table } from "../../components/table/Table.tsx";
 import { useApi } from "../../hooks.ts";
@@ -32,6 +32,18 @@ type Message = { tone: "good" | "warning"; text: string };
 
 export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void }) {
   const [editing, setEditing] = useState<string | null>(null);
+  // the account whose form just closed: its Muokkaa takes the focus back, which otherwise falls to the page's start
+  const back = useRef<string | null>(null);
+  const table = useRef<HTMLDivElement>(null);
+  const close = (id: string) => {
+    back.current = id;
+    setEditing(null);
+  };
+  useEffect(() => {
+    if (editing !== null || back.current === null) return;
+    table.current?.querySelector<HTMLElement>(`[data-edit="${CSS.escape(back.current)}"]`)?.focus();
+    back.current = null;
+  }, [editing]);
   const [removing, setRemoving] = useState<Account | null>(null);
   // the passing "Tallennettu." under a select: which select of which account
   const [saved, setSaved] = useState<{ what: "type" | "use"; id: string } | null>(null);
@@ -150,7 +162,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
   };
   const editOf = (a: Account) =>
     editing !== a.id && (
-      <Button variant="link" onClick={() => setEditing(a.id)} aria-label={t("set.acc.edit_account_name", { name: a.name })}>
+      <Button variant="link" data-edit={a.id} onClick={() => setEditing(a.id)} aria-label={t("set.acc.edit_account_name", { name: a.name })}>
         {t("set.acc.edit")}
       </Button>
     );
@@ -161,7 +173,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
   ];
 
   return (
-    <div className="card" id="tilit">
+    <div className="card" id="tilit" ref={table}>
       <div className="card-head">
         <div>
           <h2>{t("set.acc.accounts")}</h2>
@@ -214,10 +226,10 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                       busy={busy !== null}
                       removing={busy === a.id}
                       canRemove={removable(a)}
-                      onCancel={() => setEditing(null)}
+                      onCancel={() => close(a.id)}
                       onSaved={() => {
-                        setEditing(null);
-                        setMessage({ tone: "good", text: "Tallennettu." });
+                        close(a.id);
+                        setMessage({ tone: "good", text: t("set.acc.saved") });
                         onChange();
                       }}
                       onRemove={() => setRemoving(a)}
@@ -331,7 +343,8 @@ function AccountForm({
     <form className="account-form" onSubmit={save}>
       <label>
         <span className="field-label">{t("set.acc.account_name")}</span>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={account.bankName} />
+        {/* the form opens in place of the Muokkaa that was pressed, so the focus moves into it */}
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={account.bankName} autoFocus />
         <span className="field-help">{t("set.acc.name_empty", { name: account.bankName })}</span>
       </label>
       <label>
