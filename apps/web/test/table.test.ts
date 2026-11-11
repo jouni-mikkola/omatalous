@@ -63,8 +63,10 @@ describe("a delta chip", () => {
         meaning: "spend",
       }),
     );
-    expect(html).toContain("rt-delta-bad");
+    expect(html).toContain("rt-delta-rise");
+    expect(html).not.toContain("rt-delta-bad");
     expect(html).toContain("↑");
+    expect(html).toContain("+12 €");
     expect(renderToStaticMarkup(createElement(DeltaChip, { delta: 0, text: "±0 €", meaning: "spend" }))).toContain("→");
   });
 });

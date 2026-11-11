@@ -42,8 +42,10 @@ export function SparkCell({ values, usual, label, scale, width = 72, height = 22
 export function DeltaChip({ delta, text, meaning, flat = 0 }: { delta: number; text: string; meaning: Meaning; flat?: number }) {
   const tone = deltaTone(delta, meaning, flat);
   const arrow = Math.abs(delta) <= flat ? "→" : delta > 0 ? "↑" : "↓";
+  // spending over usual is the accent, not red: red is for a problem (a fall of income or savings stays bad)
+  const look = tone === "bad" && meaning === "spend" ? "rise" : tone;
   return (
-    <span className={`tc-delta rt-delta-${tone}`}>
+    <span className={`tc-delta rt-delta-${look}`}>
       <span className="rt-delta-arrow" aria-hidden="true">{arrow}</span>
       {text}
     </span>

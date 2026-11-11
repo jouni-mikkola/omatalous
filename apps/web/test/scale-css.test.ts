@@ -101,3 +101,13 @@ describe("the row arrow of the tables", () => {
     expect(body).toMatch(/\.rt-wrap\[data-block\] \.rt-drill\s*\{[^}]*margin:\s*-12px -16px -12px 0/);
   });
 });
+
+describe("a price rise", () => {
+  it("is not coloured with the bad tokens", () => {
+    const css = readFileSync(new URL("../src/styles/table.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const rules = [...css.matchAll(/([^{}]*\.rt-delta-rise[^{}]*)\{([^{}]*)\}/g)];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const m of rules) expect(m[2]).not.toMatch(/--bad(-bg)?\b/);
+    expect(rules.map((m) => m[2]).join(" ")).toContain("--accent");
+  });
+});

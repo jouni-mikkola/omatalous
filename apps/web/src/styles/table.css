@@ -100,6 +100,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-delta-arrow { font-size: var(--fs-label); }
 .rt-delta-bad { background: var(--bad-bg); }
 .rt-delta-bad .rt-delta-arrow { color: var(--bad); }
+.rt-delta-rise { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.rt-delta-rise .rt-delta-arrow { color: var(--accent-ink); }
 .rt-delta-good { background: var(--good-bg); }
 .rt-delta-good .rt-delta-arrow { color: var(--good); }
 .rt-delta-flat { color: var(--muted); background: var(--surface-2); }
