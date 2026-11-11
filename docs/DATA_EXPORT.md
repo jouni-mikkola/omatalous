@@ -529,7 +529,10 @@ with no gap and no repeat. Keys of the file that are not arrays (`exportedAt`, `
   125 000 transactions): the dry run takes about 0.6 s and the commit about 6 s, the event loop stalls up to 0.9 s at
   the commit (the batch and one processing), and the staged rows take about 80 MiB of heap.
 - An array holds at most: transactions 500 000, parts 1 500 000, accounts and users 1000, loans 500, expectedBills 100,
-  householdMembers 200, rules 2000, 50 000 for the others (the exact figures are `max` in `data-import-stores.ts`).
+  householdMembers 200, rules 2000, account balances 500 000 (one per account, day and type, with no end),
+  50 000 for the others (the exact figures are `max` in `data-import-stores.ts`). The 64 MiB above binds first for balances with every
+  column: a row is 140 to 170 bytes, so such a file holds about 400 000 to 480 000 of them; 500 000 rows (the dry run
+  takes about 1.1 s, the commit about 2.4 s) fit only as short rows.
 - A row has at most 200 keys; every value is checked against the type, length and list of its column (the tables above).
   Money is whole cents within a hundred billion euros, a day must exist on the calendar, a text holds no control character,
   except the bank's own text of a transaction (`description`, `counterparty`, `reference`, `merchant`): it is kept as it

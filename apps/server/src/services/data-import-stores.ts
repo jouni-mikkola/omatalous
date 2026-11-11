@@ -99,6 +99,8 @@ export interface ImportStore {
 }
 
 const MAX_ROWS = 50_000;
+/** A balance is kept per account, day and type with no end, so a long history is many rows. */
+const MAX_BALANCE_ROWS = 500_000;
 /** The rule fields of core, every one of them (the type stops a field being left out or made up). */
 const RULE_FIELDS = Object.keys({ merchant: 1, merchant_exact: 1, description: 1, counterparty: 1, any: 1 } satisfies Record<RuleField, 1>);
 
@@ -178,7 +180,7 @@ const IMPORT_STORES: readonly ImportStore[] = [
     key: "accountBalances",
     table: "account_balances",
     cols: { account_key: id, day, type: word, reference_date: maybe(day), cents, fetched_at: at, source: word },
-    max: MAX_ROWS,
+    max: MAX_BALANCE_ROWS,
     pk: ["account_key", "day", "type"],
     accountKey: "account_key",
   },

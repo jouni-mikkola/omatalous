@@ -323,6 +323,53 @@ describe("a hostile file is refused and changes nothing", () => {
     expect(huge.body.error).toMatch(/liian suuri/);
   });
 
+  // one balance per account, day and type: n rows, kept short (no reference day): the session holds 64 MiB of text, which a row with every column fills at about 480 000 rows
+  const balanceRows = (key: string, n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      account_key: key,
+      day: new Date(Date.UTC(1990, 0, 1) + (i % 20_000) * 86_400_000).toISOString().slice(0, 10),
+      type: `t${Math.floor(i / 20_000)}`,
+      cents: i,
+      fetched_at: AT,
+      source: "c",
+    }));
+
+  it("a file of 50 001 balance days is taken whole", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const key = file.accountBalances[0].account_key;
+    const before = (await b.db.all("SELECT 1 FROM account_balances")).length;
+    await importFile(b.admin, { ...file, accountBalances: balanceRows(key, 50_001) });
+    expect(await b.db.all("SELECT 1 FROM account_balances")).toHaveLength(before + 50_001);
+  }, 120_000);
+
+  it("500 000 balance rows pass the dry run, within the session's 64 MiB", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const up = await upload(b.admin, { ...file, accountBalances: balanceRows(file.accountBalances[0].account_key, 500_000) });
+    expect(up.refused).toBeNull();
+    const dry = await check(b.admin, up.id!);
+    expect(dry.status, JSON.stringify(dry.body)).toBe(200);
+    const before = (await b.db.all("SELECT 1 FROM account_balances")).length;
+    const done = await commit(b.admin, up.id!);
+    expect(done.status, JSON.stringify(done.body)).toBe(200);
+    expect(await b.db.all("SELECT 1 FROM account_balances")).toHaveLength(before + 500_000);
+  }, 300_000);
+
+  it("the other stores keep their 50 000 rows: 50 001 valued assets are refused", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const assets = Array.from({ length: 50_001 }, (_, i) => ({ id: `v${i}`, kind: "fund", name: "n", day: "2026-09-30", cents: 1 }));
+    await refusedWith(b, b.admin, { ...file, valuedAssets: assets }, /Tiedoston kohdassa valuedAssets on liikaa rivejä/);
+  }, 120_000);
+
+  it("one balance row past 500 000 is refused with the sentence of the other caps", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const key = file.accountBalances[0].account_key;
+    await refusedWith(b, b.admin, { ...file, accountBalances: balanceRows(key, 500_001) }, /Tiedoston kohdassa accountBalances on liikaa rivejä/);
+  }, 300_000);
+
   it("a reference to nothing, or to another user's row here", async () => {
     const { a, b, kb } = await pair();
     const file = await exportOf(a.admin);
