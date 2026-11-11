@@ -25,6 +25,14 @@ named here moves out of this section when it ships.
 
 
 
+
+### N14 Plan parallel steps
+Result: Plan parallel steps for apps/web/ pages and components (usability, look, accessibility): read the code, the design docs and best practice
+- why: the owner (11 Nov): more Fable 5.2 workers in parallel now, no bottlenecks; each step in its own area so they never conflict
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan parallel steps for apps/web/ pages and components (usability, look, accessibility): read the code, the design docs and best practice, then add up to 6 small steps that each touch only that area, depend on no unmerged step unless needed, and finish in under an hour; done when the roadmap has them
+- locks: none
+- after: none
+
 ### N11 Plan the next steps for code
 Result: Plan the next steps for code health and speed of the checks: add up to 5 small independent steps, each in its own folder, that cut check
 - why: the owner wants every Fable 5.2 hour of today used on finished work, in parallel without conflicts (11 Nov)
