@@ -254,7 +254,10 @@ export class EnableBankingClient {
   }
 
   async balances(accountUid: string, userHeaders?: Readonly<Record<string, string>>): Promise<EbBalance[]> {
-    return (await this.request<{ balances: EbBalance[] }>("GET", `/accounts/${encodeURIComponent(accountUid)}/balances`, undefined, userHeaders)).balances;
+    const path = `/accounts/${encodeURIComponent(accountUid)}/balances`;
+    const { balances } = await this.request<{ balances?: unknown }>("GET", path, undefined, userHeaders);
+    if (!Array.isArray(balances)) throw new EnableBankingError(502, "", path);
+    return balances as EbBalance[];
   }
 
   private keep(id: string, entry: KeptPage): void {
@@ -280,7 +283,9 @@ export class EnableBankingClient {
       if (continuationKey) params.set("continuation_key", continuationKey);
       let r: EbTransactionsPage;
       try {
-        r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`, undefined, userHeaders);
+        const path = `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`;
+        r = await this.request<EbTransactionsPage>("GET", path, undefined, userHeaders);
+        if (r.transactions !== undefined && !Array.isArray(r.transactions)) throw new EnableBankingError(502, "", path);
       } catch (err) {
         if (continuationKey) this.keep(resumeId, { out, next: continuationKey, page, refused: seen, at: Date.now() });
         throw err;
