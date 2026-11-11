@@ -64,6 +64,8 @@ entry of the same name. Limits: 200 entries, 10 MB a file, 50 MB in all, 25 MB c
 ```
 
 - `id`: `^[a-z][a-z0-9-]{1,30}$`. Its route prefix (`/api/<id>`), its page id (`#/<id>`) and its folder. Never renamed.
+  An id the app uses itself (a first segment of a shared `/api` route, a shared page or CLI command, `RESERVED_IDS` in
+  `modules/bundle.ts`) is refused, as it would shadow the shared one.
 - `version`: equal to the `<version>` of the asset name.
 - `host`: the versions of this app it was built against. Comparators `>=`, `>`, `<=`, `<`, `=`, `^`, `~` or a bare
   version, separated by spaces (all must hold), alternatives joined by `||`. The running version is compared without

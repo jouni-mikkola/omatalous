@@ -40,6 +40,22 @@ export interface CheckedBundle {
 }
 
 const ID = /^[a-z][a-z0-9-]{1,30}$/;
+/**
+ * Ids the app uses itself. The module's routes are mounted at /api/<id>, its page at #/<id> and its CLI commands under
+ * <id>, so one of these would shadow a shared route, page or command, and with `tokenReads` open every shared GET under
+ * that prefix to a service token. modules.test.ts holds this list equal to or above what the app mounts.
+ */
+export const RESERVED_IDS: ReadonlySet<string> = new Set([
+  // first segments of the shared /api routes, and /modules of the web files
+  "accounts", "admin", "ahead", "auth", "bank", "bank-file", "card-file", "connections", "dashboard", "data", "demo",
+  "expected-bills", "explain", "export", "foreign-rows", "health", "household-members", "import", "language", "loans",
+  "marks", "merchants", "meta", "modules", "ops", "payer-roles", "recurring", "reports", "review", "rules", "security",
+  "settlement", "statements", "sync", "transactions", "users",
+  // shared pages
+  "overview", "bills", "settings",
+  // shared CLI commands
+  "address", "help", "secret", "service-token", "sessions", "setup-code", "user", "version",
+]);
 const MIGRATION = /^migrations\/(9[0-8]\d\d)_[a-z0-9_]{1,60}\.sql$/;
 const ASSET = /^assets\/[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}\.(mjs|css|svg|png|woff2)$/;
 const KEYS = new Set(["id", "version", "host", "server", "web", "css", "migrations"]);
@@ -91,6 +107,7 @@ function parseManifest(raw: Buffer | undefined): Manifest {
   const o = m as Record<string, unknown>;
   for (const k of Object.keys(o)) if (!KEYS.has(k)) throw new BundleRefused("manifest has an unknown key");
   if (typeof o.id !== "string" || !ID.test(o.id)) throw new BundleRefused("manifest id is not valid");
+  if (RESERVED_IDS.has(o.id)) throw new BundleRefused("manifest id is one the app uses itself");
   if (typeof o.version !== "string" || !parseVersion(o.version)) throw new BundleRefused("manifest version is not valid");
   if (typeof o.host !== "string" || !parseRange(o.host)) throw new BundleRefused("manifest host range is not valid");
   if (o.server !== "server.mjs" || o.web !== "web.mjs") throw new BundleRefused("manifest names other entry files");

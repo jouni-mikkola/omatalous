@@ -9,7 +9,9 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { EXTENSIONS } from "../src/extensions.ts";
-import { BundleRefused, checkBundle, NotForThisVersion } from "../src/modules/bundle.ts";
+import { NAV, ROWS, SETTINGS } from "../../web/src/nav.ts";
+import { HELP_WORDS } from "../src/cli-usage.ts";
+import { BundleRefused, checkBundle, NotForThisVersion, RESERVED_IDS } from "../src/modules/bundle.ts";
 import { moduleCodeText, parseModuleCode } from "../src/modules/code.ts";
 import { loadInstalledModule, type StartState } from "../src/modules/load.ts";
 import { satisfies } from "../src/modules/semver.ts";
@@ -118,6 +120,7 @@ function handTar(entries: { name: string; data?: string; type?: string; link?: s
   parts.push(Buffer.alloc(1024));
   return gzipSync(Buffer.concat(parts));
 }
+const ID = /^[a-z][a-z0-9-]{1,30}$/;
 const BASE = [
   { name: "manifest.json", data: manifest({ css: undefined, migrations: undefined }) },
   { name: "server.mjs", data: SERVER("example") },
@@ -233,6 +236,26 @@ describe("a bundle", () => {
     }
     const ok = await checkBundle(...withMigration(`-- migrate: compat ${major}.${minor}.${patch}\n${table}`, "floor-ok"), opts());
     expect(ok.files.has("migrations/9001_example.sql")).toBe(true);
+  });
+
+  it("is refused for an id the app uses itself, which would shadow a shared route and open it to a service token", async () => {
+    for (const id of ["admin", "export", "security", "settings", "setup-code"]) {
+      const entries = [{ name: "manifest.json", data: manifest({ id, css: undefined, migrations: undefined }) }, BASE[1]!, BASE[2]!];
+      const err = await checkBundle(...pair(handTar(entries), `reserved-${id}`), opts()).then(() => null, (e: unknown) => e);
+      expect(err, id).toBeInstanceOf(BundleRefused);
+      expect((err as Error).message, id).toMatch(/uses itself/);
+    }
+  });
+
+  it("reserves every first segment of a shared /api route, every shared page id and every shared CLI command", async () => {
+    const { app } = await setupApp();
+    const api = new Set(app.routes.map((r) => /^\/api\/([a-z][a-z0-9-]*)(\/|$)/.exec(r.path)?.[1]).filter((s) => s !== undefined));
+    expect(api.size).toBeGreaterThan(20);
+    const pages = [...NAV, ROWS, SETTINGS].map((p) => p.id);
+    const cli = [...readFileSync(new URL("../src/cli.ts", import.meta.url), "utf8").matchAll(/group === "([a-z-]+)"/g)].map((m) => m[1]!);
+    expect(cli.length).toBeGreaterThan(5);
+    const words = HELP_WORDS.filter((w) => ID.test(w));
+    for (const id of [...api, ...pages, ...cli, ...words, "modules"]) expect(RESERVED_IDS.has(id), id).toBe(true);
   });
 });
 
