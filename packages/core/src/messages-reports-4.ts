@@ -27,7 +27,7 @@ export const FI_REPORTS_4 = {
   "rpt.bal_lowest": "Alimmillaan saldo oli {date}, <b>{amount}</b>.",
   "rpt.bal_biggest": "Suurin kertaosto oli {label} {day}, {amount}.",
   "rpt.bal_today": " (tänään)",
-  "rpt.bal_total_est": "Yhteensä, arvio",
+  "rpt.bal_total_est": "Saldo kuun lopussa, arvio",
   "rpt.bal_month_change": "Tilien muutos edellisestä",
   "rpt.bal_by_month": "Saldot kuukausittain",
   "rpt.bal_datum": "Tilien ja korttien saldo {date} {amount}",

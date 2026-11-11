@@ -2,6 +2,8 @@ import type { QuestionId } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import "@banking/core/late";
 import { askedNote, questionOf } from "../src/pages/reports/More.tsx";
+import { moreLabel } from "../src/pages/reports/Frame.tsx";
+import { reportPage } from "../src/pages/reports/registry.ts";
 
 describe("the question Raportit opens", () => {
   const all: QuestionId[] = ["kuukausi", "menot", "tulot"];
@@ -32,5 +34,15 @@ describe("the line above a report opened in place of the asked one", () => {
     expect(askedNote("tulot", "tulot")).toBeUndefined();
     expect(askedNote(null, "menot")).toBeUndefined();
     expect(askedNote("kiinteat", "menot")).toBeUndefined();
+  });
+});
+
+describe("the heading of a report of one section", () => {
+  // Lisää said Tilit ja saldot and Verovuosi while the page that opened said Saldot and Tulot.
+  it("is the name Lisää gives it", () => {
+    for (const q of ["saldot", "tulot"] as const) {
+      expect(reportPage(q).sections).toHaveLength(1);
+      expect(reportPage(q).title).toBe(moreLabel(q));
+    }
   });
 });

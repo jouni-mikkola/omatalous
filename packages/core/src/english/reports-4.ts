@@ -24,7 +24,7 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.bal_lowest": "Your lowest balance was on {date}, <b>{amount}</b>.",
   "rpt.bal_biggest": "The biggest one-off purchase was {label} on {day}, {amount}.",
   "rpt.bal_today": " (today)",
-  "rpt.bal_total_est": "Total (estimate)",
+  "rpt.bal_total_est": "Balance at month end (estimate)",
   "rpt.bal_month_change": "Change from previous month",
   "rpt.bal_by_month": "Balances by month",
   "rpt.bal_datum": "Balance of accounts and cards {date} {amount}",
