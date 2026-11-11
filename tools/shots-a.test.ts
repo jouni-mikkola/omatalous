@@ -5,8 +5,6 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { answerTable, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, NO_TYPES, ROOT } from "./shots-kit.ts";
-import { QUESTIONS } from "../packages/core/src/reports/index.ts";
-import { SETTINGS_TARGETS } from "../apps/web/src/routes.ts";
 
 describe("pnpm shots arguments", () => {
   it("takes a route, widths and --demo, and without more asks for the four widths of a phone to a desktop", () => {
@@ -38,24 +36,9 @@ describe("pnpm shots arguments", () => {
     expect(parseArgs(["--help", "--member"]).help).toBe(true);
   });
 
-  it("takes --all for every page, each question of Raportit and each target of Asetukset, beside the routes named and none twice", () => {
-    const pages = ["overview", "bills", "transactions", "transactions?view=merchants", "review"];
-    const all = [...pages, ...[...QUESTIONS, "kiinteat"].map((q) => `reports?q=${q}`), ...SETTINGS_TARGETS.map((t) => `settings/${t.id}`)];
-    expect(parseArgs(["--all"]).routes).toEqual(all);
-    const mixed = parseArgs(["bills", "optimise", "--all", "settings/security", "loans"]).routes;
-    expect(mixed).toEqual(["bills", "optimise", ...all.filter((r) => r !== "bills"), "loans"]);
-    expect(new Set(mixed).size).toBe(mixed.length);
-  });
-
-  it("takes a target of Asetukset as a route and refuses any other /", () => {
-    expect(parseArgs(["settings/security", "#/settings/banks?add=1"]).routes).toEqual(["settings/security", "settings/banks?add=1"]);
-    for (const route of ["settings/../x", "settings/", "settings/zzz", "settings/security/x", "reports/tulot", "overview?a=/b"]) expect(() => parseArgs([route]), route).toThrow(/page id/);
-  });
-
   it("lists every option in --help, which needs no route", () => {
     expect(parseArgs(["--help"]).help).toBe(true);
-    expect(USAGE.split("\n").filter((line) => line.includes("--all"))).toHaveLength(1);
-    for (const option of ["--all", "--widths", "--demo", "--demo-years", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only"]) expect(USAGE).toContain(option);
+    for (const option of ["--widths", "--demo", "--demo-years", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only"]) expect(USAGE).toContain(option);
     expect(USAGE.split("\n").length).toBeLessThanOrEqual(26);
   });
 
@@ -104,13 +87,6 @@ describe("pnpm shots file names", () => {
     expect(shotName("reports?q=tulot", null, 1280)).toBe("reports-q-tulot-1280.png");
     expect(shotName("overview", "joint", 390)).toBe("overview-joint-390.png");
     expect(shotName("reports?q=tulot", "bank", 700)).toBe("reports-q-tulot-bank-700.png");
-    expect(shotName("settings/security", null, 390)).toBe("settings-security-390.png");
-  });
-
-  it("has no / in a file name and a file of its own for every page of --all", () => {
-    const names = parseArgs(["--all", "settings/banks?add=1"]).routes.map((route) => shotName(route, null, 390));
-    for (const name of names) expect(name).not.toContain("/");
-    expect(new Set(names).size).toBe(names.length);
   });
 
   it("gives two routes, two widths and two states each a file of their own", () => {
