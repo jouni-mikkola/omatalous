@@ -456,7 +456,7 @@ describe("the figures after a round trip", () => {
     expect((await (who as Setup["admin"]).call("PUT", "/api/marks", { subject, mark: "in_use" })).status).toBe(200);
   }
 
-  const paths = ["/api/dashboard", "/api/ahead", "/api/reports", "/api/optimise"];
+  const paths = ["/api/dashboard", "/api/ahead", "/api/reports"];
 
   it("the whole dashboard answer, and the answers beside it, are equal to the cent before and after", async () => {
     const { a, ka, b, kb } = await pair();
@@ -482,7 +482,8 @@ describe("the figures after a round trip", () => {
     expect(await all(b)).toBe(want);
     const still: string[] = [];
     // spending_goal is no input any longer: the row travels in the copy and no answer reads it
-    for (const table of ["user_marks", "expected_bills", "loans", "optimise_inputs", "optimise_states"]) {
+    // the Optimoi inputs and decisions are in no answer since the page of tips left the API: "a file read back" compares their rows
+    for (const table of ["user_marks", "expected_bills", "loans"]) {
       const rows = await b.db.all(`SELECT * FROM ${table} WHERE user_id = ?`, [b.adminId]);
       await b.db.run(`DELETE FROM ${table} WHERE user_id = ?`, [b.adminId]);
       await b.s.settings.bumpUserDataVersion(b.adminId);

@@ -324,7 +324,6 @@ describe("the own view of a joint account", () => {
     expect(used.ctx.txs.every((t) => t.wholeCents === undefined)).toBe(true);
     expect(used.accounts.map((a) => [a.id, a.part])).toEqual(own.accounts.map((a) => [a.id, undefined]));
     expect((await requestInputs(s, aino.id, used.accounts)).balances.find((b) => b.id === "joint")).toMatchObject({ balanceCents: 100001, joint: true });
-    expect((await aino.call("GET", "/api/optimise")).status).toBe(200);
   });
 });
 
@@ -346,8 +345,6 @@ describe("access and use are two matters", () => {
       `/api/merchants/summary?merchant=${encodeURIComponent(SHOP)}`,
       `/api/merchants/summary?merchant=${encodeURIComponent(SHOP)}&scope=household`,
       "/api/merchants/uncategorised",
-      "/api/optimise",
-      "/api/optimise?scope=household",
       "/api/loans/proposals",
       `/api/export/transactions.csv?${YEAR}`,
       `/api/export/transactions.csv?${YEAR}&scope=household`,

@@ -8,8 +8,8 @@ import { fakeBank, linkFakeBank, makeMember, removeMember, waitForSync, watch } 
 // compared with the category its data expects, and neither member sees a row or an account of the other.
 const FIRST = "e2e-talous-yksi";
 const SECOND = "e2e-talous-kaksi";
-/** The answers that carry the household's figures: the dashboard, the day ahead, the reports and Optimoi. */
-const FIGURES = ["/api/dashboard", "/api/ahead", "/api/reports", "/api/optimise"];
+/** The answers that carry the household's figures: the dashboard, the day ahead and the reports. */
+const FIGURES = ["/api/dashboard", "/api/ahead", "/api/reports"];
 
 type Expected = { account: string; date: string; cents: number; text: string; merchant: string; category: string };
 type Pending = { account: string; date: string; cents: number; text: string; merchant: string };

@@ -8,7 +8,7 @@ import { setupApp } from "./helpers.ts";
 import { loadKit } from "./kit-load.ts";
 
 /**
- * Three whole answers, stored: `GET /api/dashboard`, `GET /api/reports` (every report) and `GET /api/optimise`, for the
+ * Two whole answers, stored: `GET /api/dashboard` and `GET /api/reports` (every report), for the
  * demo history and for the test kit's steady household, each in the own view and in the household view, each on its
  * own fixed day (the demo on the day of the server tests, the kit on `KIT_TODAY`). The answer of the app in the own
  * view is compared with a file byte for byte, so a figure that moves anywhere, in any module, shows as a changed line
@@ -19,8 +19,7 @@ import { loadKit } from "./kit-load.ts";
  * server's order.
  *
  * Both households have one user, so the household view is the own view and has no file of its own: the test asserts
- * the two scopes equal, byte for byte. The one field that differs is `followUp.line` of optimise, which the household view
- * leaves empty: that is asserted, and the rest of the answer is compared with the own view.
+ * the two scopes equal, byte for byte.
  *
  * To renew the files after a change that is meant to move a figure, run
  *   ANSWERS_RENEW=1 pnpm test apps/server/test/answers-golden.test.ts
@@ -106,7 +105,7 @@ async function answersOf(h: Loaded): Promise<Map<string, string>> {
     await h.load(app);
     const answers = new Map<string, string>();
     for (const scope of SCOPES) {
-      for (const [name, path] of [["dashboard", "/api/dashboard"], ["reports", "/api/reports"], ["optimise", "/api/optimise"]] as const) {
+      for (const [name, path] of [["dashboard", "/api/dashboard"], ["reports", "/api/reports"]] as const) {
         const res = await app.app.request(`http://localhost:8080${path}?scope=${scope}`, { headers: { "X-Requested-With": "fetch", Cookie: app.admin.cookie } });
         expect(res.status, `${h.name} ${scope} ${name}`).toBe(200);
         answers.set(`${scope}-${name}`, await res.text());
@@ -119,20 +118,14 @@ async function answersOf(h: Loaded): Promise<Map<string, string>> {
   }
 }
 
-describe("the three whole answers on fixed days", () => {
+describe("the two whole answers on fixed days", () => {
   for (const h of HOUSEHOLDS) {
-    it(`${h.name}: dashboard, every report and optimise are the stored answers in both views`, async () => {
+    it(`${h.name}: dashboard and every report are the stored answers in both views`, async () => {
       const answers = await answersOf(h);
       const written: string[] = [];
       for (const [key, text] of answers) {
         if (key.startsWith("household-")) {
-          const own = answers.get(key.replace("household-", "own-"))!;
-          if (key.endsWith("optimise")) {
-            const household = JSON.parse(text);
-            expect(household.followUp.line, `${h.name}/${key} followUp.line`).toEqual([]);
-            household.followUp.line = JSON.parse(own).followUp.line;
-            expect(JSON.stringify(household), `${h.name}/${key}`).toBe(own);
-          } else expect(text, `${h.name}/${key}`).toBe(own);
+          expect(text, `${h.name}/${key}`).toBe(answers.get(key.replace("household-", "own-"))!);
           continue;
         }
         const file = join(FIXTURES, h.name, `${key}.txt`);

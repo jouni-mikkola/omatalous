@@ -35,13 +35,10 @@ describe("service tokens", () => {
     expect((await agent.call("POST", "/api/auth/logout", undefined, bearer(token))).status).toBe(403);
   });
 
-  it("opens the Optimoi page without storing its monthly snapshot, which the signed-in page does", async () => {
-    const { s, db, client, admin } = await setupApp();
+  it("refuses the savings tips, which no route serves any more", async () => {
+    const { s, client } = await setupApp();
     const { token } = await createServiceToken(s, { username: "aino", name: "agent" });
-    expect((await client().call("GET", "/api/optimise", undefined, bearer(token))).status).toBe(200);
-    expect(await db.all("SELECT 1 FROM optimise_snapshots")).toHaveLength(0);
-    expect((await admin.call("GET", "/api/optimise")).status).toBe(200);
-    expect(await db.all("SELECT 1 FROM optimise_snapshots")).toHaveLength(1);
+    for (const path of ["/api/optimise", "/api/optimise/evidence"]) expect((await client().call("GET", path, undefined, bearer(token))).status, path).toBe(403);
   });
 
   it("is answered by the token alone: an admin's cookie beside it gives no more", async () => {

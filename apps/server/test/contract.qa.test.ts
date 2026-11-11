@@ -259,7 +259,6 @@ describe("data versions", () => {
     "DELETE /api/loans/:id",
     "PUT /api/optimise/inputs/:key",
     "DELETE /api/optimise/inputs/:key",
-    "PUT /api/optimise/findings/:id",
     // the settlement is worked out for each request from the trace and the stored agreements; settlement.test.ts checks that saving one moves no version
     "PUT /api/settlement/agreements/:accountId",
     "DELETE /api/settlement/agreements/:accountId/:validFrom",

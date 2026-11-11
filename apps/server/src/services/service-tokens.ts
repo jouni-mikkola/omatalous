@@ -33,7 +33,6 @@ const READABLE: readonly RegExp[] = [
   /^\/api\/(meta|foreign-rows|dashboard|ahead|reports|explain|recurring|transactions|rules|payer-roles|review|review\/count|household-members|expected-bills|statements|merchants|merchants\/summary|merchants\/uncategorised|sync\/runs)$/,
   /^\/api\/accounts\/[^/]+\/use\/suggestion$/,
   /^\/api\/loans(\/proposals)?$/,
-  /^\/api\/optimise(\/evidence)?$/,
   /^\/api\/bank\/logos\/[^/]+$/,
 ];
 
