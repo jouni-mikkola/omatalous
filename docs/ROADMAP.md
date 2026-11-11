@@ -292,6 +292,13 @@ Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a 
 - after: none
 - files: packages/core/src/mobilepay.ts, packages/core/test/mobilepay.test.ts
 
+### N35 Plan the bank link steps
+Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a case where fetching from a bank or a public source goes wrong
+- why: No plan step has read docs/ENABLE_BANKING.md (358 lines) against apps/server/src/connectors (enable-banking, sync.ts, open-sync.ts, link-state.ts, bank-limit.ts, fetch-problems.ts, refused-rows.ts) and apps/server/src/providers (prh, statfin, cloudflare); N20 read the import code only and S3 covered one outage. 0 steps are free.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the bank link steps. The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a case where fetching from a bank or a public source goes wrong for the user (an expired consent, a bank limit, a half fetch, a slow or failing source), reproduced on main with file and line, with its tests in the same step, its own lock and no file an open step edits; what was read is listed when fewer are found.
+- locks: none
+- after: none
+
 ### C4 A bank row without text reads
 Result: A bank statement file is read also when one of its rows has only a reference number or the bank's own code for a text.
 - why: `entryText` in `bank-camt.ts` reads the other party's name, the free message (`RmtInf/Ustrd`) and `AddtlNtryInf` only. An entry that carries just a structured reference (`RmtInf/Strd/CdtrRefInf/Ref`) or just the bank's code (`BkTxCd/Prtry/Cd`, as a service fee does) has no text, and `readBankCamt` then answers `{ error: "unreadable" }` for the whole file: one such row keeps every row of the statement out (seen on 11 Nov with a one entry statement of each kind).
