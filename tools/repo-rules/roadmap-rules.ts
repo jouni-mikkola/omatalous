@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, readText } from "./lib.ts";
-import { shippedAsComing, staleReview } from "./roadmap.ts";
+import { shippedAsComing, staleReview, unreadableFrontMatter } from "./roadmap.ts";
 
 describe("repo rules: roadmap", () => {
   it("rule 34: docs/ROADMAP.md lists no released version as coming", () => {
@@ -26,13 +26,9 @@ describe("repo rules: roadmap", () => {
   it("rule 47: WORKFLOW.md's check line is a bare command: no quotes around it, no colon and space in it", () => {
     // The board runs the text after "check:" as it stands, so a quoted line is a command sh cannot find (exit 127);
     // a colon and a space, or a space and a hash, inside it would break the YAML of the front matter.
-    const lines = readText("WORKFLOW.md").split("\n");
-    const at = lines.findIndex((l) => l.startsWith("check:"));
-    expect(at, "WORKFLOW.md has a check line").toBeGreaterThan(-1);
-    const command = lines[at]!.slice("check:".length).trim();
-    const found: Finding[] = [];
-    if (/^['"|>&*![{%@`]/.test(command)) found.push({ file: "WORKFLOW.md", line: at + 1, why: "the check line starts with a quote or another YAML mark" });
-    if (/: | #/.test(command)) found.push({ file: "WORKFLOW.md", line: at + 1, why: "the check line has a colon and a space, or a space and a hash, in it" });
+    const text = readText("WORKFLOW.md");
+    expect(text, "WORKFLOW.md has a check line in its front matter").toMatch(/^---\n(?:(?!---\n).*\n)*?check:/);
+    const found: Finding[] = unreadableFrontMatter(text).map((f) => ({ file: "WORKFLOW.md", ...f }));
     expectNoFindings("WORKFLOW.md check line", found, 'write the command bare after "check:" and match a test name by a pattern without a colon (-t "repo rules. roadmap")');
   });
 });
