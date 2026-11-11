@@ -156,3 +156,21 @@ export function yearComparisonNote(r: Pick<YearOverYearReport, "comparable" | "c
   const months = r.comparableMonths === 1 ? messageIn(lang, "rep.yoy_compared_one") : messageIn(lang, "rep.yoy_compared_many", { count: r.comparableMonths });
   return r.leftOutAccounts ? `${months} ${messageIn(lang, "rep.yoy_left_out")}` : months;
 }
+
+/**
+ * The years a year comparison can be picked for, newest first: each has the year before it in the data, so the
+ * first year of the history is not one of them. Empty without rows.
+ */
+export function comparisonYears(dataFrom: string | null, today: string): number[] {
+  if (dataFrom === null) return [];
+  const first = Number(dataFrom.slice(0, 4)) + 1;
+  const years: number[] = [];
+  for (let y = Number(today.slice(0, 4)); y >= first; y--) years.push(y);
+  return years;
+}
+
+/** The range `yearOverYearReport` is given for a picked year: the whole of an earlier year, the running year up to today. */
+export function comparisonYearRange(year: number, today: string): DateRange {
+  const to = `${year}-12-31`;
+  return { from: `${year}-01-01`, to: to < today ? to : today };
+}

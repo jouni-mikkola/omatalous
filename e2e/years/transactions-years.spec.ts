@@ -64,3 +64,48 @@ test(`five years of rows: the list shows its first rows in under a second at ${C
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+test("five years of rows: Vuosivertailu picks an earlier year and shows that year's sums against the year before", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: state, viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const seen = watch(page);
+  const { today } = await (await page.request.get("/api/meta")).json();
+  const year = Number(today.slice(0, 4)) - 2;
+  // what the server says of the picked year, whole: the card has to show these sums
+  const answer = await (await page.request.get(`/api/reports?from=${year}-01-01&to=${year}-12-31&scope=household&reports=yearOverYear`)).json();
+  const r = answer.yearOverYear as { year: number; comparable: boolean; ytdCents: number; categories: { category: string; currentCents: number; previousCents: number }[] };
+  expect(r).toMatchObject({ year, comparable: true });
+  const euros = (cents: number) => String(Math.round(cents / 100));
+  const digits = (text: string) => text.replace(/[^0-9,]/g, "");
+
+  await page.goto("/#/reports?q=menot&scope=household");
+  // the page folds its sections: the card is opened by its heading
+  const card = page.locator("details#vuodet");
+  await expect(card).toBeVisible({ timeout: 20_000 });
+  await card.locator("summary").click();
+  await expect(card).toHaveAttribute("open", "");
+  const picker = card.getByRole("combobox", { name: "Vuosi" });
+  // the year before the first of the history has nothing to compare with, so the first year is not offered
+  const offered = await picker.locator("option").allInnerTexts();
+  expect(offered).toContain(String(year));
+  expect(offered.length).toBeGreaterThanOrEqual(4);
+  await picker.selectOption(String(year));
+
+  // the answer under the question names the picked year and its spending
+  const said = card.locator(".qc-a");
+  await expect(said).toContainText(String(year));
+  await expect.poll(async () => digits(await said.locator("strong").first().innerText()), { timeout: 10_000 }).toBe(euros(r.ytdCents));
+  // the table has the two years as its columns and the picked year's sums in its rows
+  const table = card.locator("table.rt");
+  // the card opens with its table under the chart
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  await expect(table.locator("thead")).toContainText(String(year - 1));
+  await expect(table.locator("thead")).toContainText(String(year));
+  await expect(table.locator("tbody tr").first()).toBeVisible({ timeout: 10_000 });
+  const cells = (await table.locator("tbody tr").first().locator("td").allInnerTexts()).map(digits);
+  const top = r.categories[0]!;
+  expect(cells).toContain(euros(top.previousCents));
+  expect(cells).toContain(euros(top.currentCents));
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});

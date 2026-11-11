@@ -77,7 +77,7 @@ export type { GapRow, ThisMonthReport } from "./this-month.ts";
 export type { UpcomingBill, UpcomingReport } from "./upcoming.ts";
 export type { TaxRow, TaxYearReport } from "./tax-year.ts";
 export type { YearOverYearReport } from "./year-over-year.ts";
-export { yearComparisonNote } from "./year-over-year.ts";
+export { comparisonYearRange, comparisonYears, yearComparisonNote } from "./year-over-year.ts";
 
 /** The questions of Raportit, in the order of the list. The id is in the address (`?q=menot`). */
 export const QUESTIONS = ["kuukausi", "menot", "tulot", "velat", "saldot", "yhteiset"] as const;
