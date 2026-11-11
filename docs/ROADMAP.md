@@ -854,6 +854,9 @@ Result: The server and core carry no extension list or feature flag, so no hook 
 ## The server: robustness
 
 Found by reading `apps/server/` on 11 November (N15). Each step stays in that folder and waits for no other step.
+S6 to S11 were found by asking the running app on 11 November (N23): each `why` names the request and the answer main
+gave. S7 and S8 share two files, so S8 waits for S7. S9 puts the check of a name in one place, so S10 and S11 wait for
+S9. S2 (an unknown CSV report is refused) is on main and is gone from this list.
 
 ### S1 A huge offset is a 400
 Result: A list asked with an absurd page number answers "bad number" instead of "something went wrong".
@@ -862,14 +865,6 @@ Result: A list asked with an absurd page number answers "bad number" instead of 
 - locks: query-numbers
 - after: none
 - files: apps/server/src/routes/shared.ts, apps/server/test/transactions.test.ts
-
-### S2 Unknown CSV report is refused
-Result: A report download with a mistyped name says so instead of handing out a different report.
-- why: `GET /api/export/report.csv` in `routes/data.ts` reads `?report=`, and every value other than `categories` and `cashflow` silently answers the month table under its file name, so a wrong link looks like it worked.
-- done when: `report` is one of `pivot`, `categories` and `cashflow`, with `pivot` when it is absent; any other value answers 400 with the code `check.report` and no file, in new cases of `apps/server/test/csv-export.test.ts`; the three known reports answer the same bytes as before; `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: csv-export
-- after: none
-- files: apps/server/src/routes/data.ts, apps/server/test/csv-export.test.ts
 
 ### S3 A bank outage is a 502
 Result: When Enable Banking cannot be reached, the app says the bank did not answer instead of "something went wrong".
@@ -894,6 +889,54 @@ Result: The server keeps an idle connection open longer than the tunnel in front
 - locks: server-entry
 - after: none
 - files: apps/server/src/entry/server-timeouts.ts, apps/server/src/entry/node.ts, apps/server/test/server-timeouts.test.ts
+
+### S6 A wrong agreement day is a 400
+Result: An agreement saved or removed with a day that is no date answers "invalid day" instead of "something went wrong".
+- why: `parseDay` in `services/settlement.ts` reads ``new Date(`${value}T00:00:00Z`).toISOString()`` for any text of the form 0000-00-00, and that throws a RangeError for a month over 12 or a day over 31. On main (11 Nov, N23) `PUT /api/settlement/agreements/pool-a` with `validFrom: "2026-13-45"` and `DELETE /api/settlement/agreements/pool-a/2026-13-45` each answer 500 with `app.error`, while `2026-02-30` answers 400.
+- done when: `parseDay` refuses every text that is no calendar date with its "Virheellinen päivä." and never throws anything else; in new cases of `apps/server/test/settlement.test.ts` the PUT and the DELETE answer 400 for `2026-13-45`, `2026-00-10` and `2026-02-30`, and a real day still saves and removes as before; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: settlement-agreements
+- after: none
+- files: apps/server/src/services/settlement.ts, apps/server/test/settlement.test.ts
+
+### S7 The rows file in English
+Result: A member who uses the app in English downloads the transactions as a file with English headings, categories and words.
+- why: `GET /api/export/transactions.csv` in `routes/data.ts` writes its heading row, the category and group of a row (`getCategory`), the words "varaus" and "kirjattu", the source words (`SOURCE_WORDS`), the transfer mark and the file name `tapahtumat_` as Finnish literals whatever the member's language. On main (11 Nov, N23) a member with the language `en` got `Päivä;Tili;Kauppias;...` and `Ruokakauppa;Ruoka;-30;kirjattu;tiedosto`.
+- done when: the new `apps/server/src/platform/csv-words.ts` holds the words of the rows file in both languages (the heading row, the two states, the source words, the transfer mark, the start of the file name), as `platform/refusals-en.ts` holds the English of the refusals, and `routes/data.ts` has none of them as a literal; the category and the group of a row come from `categoriesIn` of `services/category-names.ts`; with the language `en` every cell of the heading row and those words, names and the file name are English, in new cases of `apps/server/test/csv-export.test.ts`; with `fi` the file is the same bytes as before; no file of `packages/core` changes; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: csv-export
+- after: none
+- files: apps/server/src/platform/csv-words.ts, apps/server/src/routes/data.ts, apps/server/test/csv-export.test.ts
+
+### S8 The report files in English
+Result: A member who uses the app in English downloads the month table, the categories and the cash flow as files with English headings and names.
+- why: `GET /api/export/report.csv` in `routes/data.ts` calls `buildReports({ ctx, range, balances, inputs })` and `pivotReport(ctx, range)` with no language, though both take one (`routes/finance.ts` passes `lang`), and writes the three heading rows, the row "Yhteensä" and the file names `kuukausitaulukko_`, `kategoriat_` and `kassavirta_` as Finnish literals; `cashflowReport(ctx, range, balances)` gives only numbers, so its file needs the headings alone. On main (11 Nov, N23) a member with the language `en` got `Kategoria;Ryhmä;2026-09;2026-10;Yhteensä €;Keskiarvo €`, `Ruoka;Ruokakauppa;42;...` and `Kuukausi;Tulot €;Kulutus €;...`.
+- done when: `buildReports` and `pivotReport` get the member's language; the three heading rows, the sum row and the starts of the three file names are in `apps/server/src/platform/csv-words.ts` in both languages and `routes/data.ts` has none of them as a literal; with the language `en` each of the three files has English headings, category and group names, sum row and file name, in new cases of `apps/server/test/csv-export.test.ts`; with `fi` each is the same bytes as before; no file of `packages/core` changes; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: csv-export
+- after: S7
+- files: apps/server/src/platform/csv-words.ts, apps/server/src/routes/data.ts, apps/server/test/csv-export.test.ts
+
+### S9 An account's name can be read
+Result: An account cannot be given a name nobody can see or one that breaks its row, and a name that is too long is refused instead of cut.
+- why: `updateAccount` in `services/accounts.ts` trims the name and cuts it at 80 characters, and checks nothing else. On main (11 Nov, N23) `PATCH /api/accounts/:id` saved the name `a\u0000b​\nc` as it came, and a name of 150 letters came back as its first 80 with a 200. A loan's name refuses both, with a pattern (`CONTROL`) that only `routes/loans.ts` can read.
+- done when: `platform/validate.ts` exports the pattern of the characters a name may not hold (control characters and the ones nobody sees, today `CONTROL` of `routes/loans.ts`) and a check of a name that takes the text and the longest length and throws `UserError.of("check.field_bad")`, a code both languages already have; `routes/loans.ts` reads the pattern from there and keeps its own sentences, so the pattern is written once; an account's name with such a character, or over 80 characters after the trim, answers 400 with `check.field_bad` and changes nothing; a name of only such characters is refused, not saved as blank; an empty name still takes the own name away; new cases of `apps/server/test/accounts.test.ts` hold each and `apps/server/test/loans.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: account-edit, loan-route
+- after: none
+- files: apps/server/src/platform/validate.ts, apps/server/src/routes/loans.ts, apps/server/src/services/accounts.ts, apps/server/test/accounts.test.ts
+
+### S10 A bill's name can be read
+Result: A bill the member types in cannot have a name nobody can see, so every row of the bills has a name.
+- why: `parseExpectedBill` in `routes/expected-bills.ts` refuses only the ASCII control characters in a name (`/[\x00-\x1f\x7f]/`). On main (11 Nov, N23) `POST /api/expected-bills` saved a bill whose name is one zero-width space (`​`) and one whose name holds a right-to-left override (`‮`).
+- done when: `parseExpectedBill` tests the name with the pattern S9 exports from `platform/validate.ts`, in place of its own, and keeps its own sentence; a name of a zero-width space, one with a right-to-left override and one with a line separator each answer 400 and add no row, and a name with ä, an emoji or a dash is still saved, in new cases of `apps/server/test/expected-bills.test.ts`; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bill-name
+- after: S9
+- files: apps/server/src/routes/expected-bills.ts, apps/server/test/expected-bills.test.ts
+
+### S11 A member's name can be read
+Result: A household member cannot be given a display name nobody can see, so every list of members shows a name on each row.
+- why: `createUser` and `createFirstAdmin` in `services/users.ts` trim the display name and check nothing else, and `updateUser` hands it to `s.users.update` as `routes/users.ts` trimmed it. On main (11 Nov, N23) `POST /api/users` saved the display name `​` (a zero-width space), `PATCH /api/users/:id` saved `a\u0000\nb`, and `GET /api/meta` served both to every member in `members`.
+- done when: the three functions pass the display name through the check of a name S9 exports from `platform/validate.ts`, so a name with a control character or a character nobody sees answers 400 with `check.field_bad` for a new member, the first admin and a changed name, and nothing is saved; a name of only such characters is refused, not replaced by the user name in silence; an empty name still becomes the user name; the new `apps/server/test/user-names.test.ts` holds each; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: user-names
+- after: S9
+- files: apps/server/src/services/users.ts, apps/server/test/user-names.test.ts
 
 ## Docs and help
 
