@@ -15,12 +15,14 @@ import {
   redirect,
 
 } from "@tanstack/react-router";
+import { ApiError } from "./api.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 
 import { type Route, redirectRoute, SETTINGS_TARGETS, type SettingsTarget } from "./routes.ts";
 import { parseSearch, searchOf, stringifySearch } from "./search.ts";
 import { Shell } from "./Shell.tsx";
+import { t } from "./text.ts";
 
 import type { User } from "./types.ts";
 
@@ -132,8 +134,9 @@ export const router = createRouter({
   defaultPendingMs: 0,
   defaultPendingMinMs: 0,
   defaultPendingComponent: () => <Loading />,
-  // a page's chunk that cannot be fetched (offline, or replaced by an upgrade) asks for a reload
-  defaultErrorComponent: ({ error }) => <ErrorCard message={error instanceof Error ? error.message : String(error)} onRetry={() => window.location.reload()} />,
+  // a page's chunk that cannot be fetched (offline, or replaced by an upgrade) asks for a reload. The text of an exception is
+  // not shown (docs/UI_STYLE.md): only the server's own sentence (an ApiError) is, anything else reads as the catalogue's
+  defaultErrorComponent: ({ error }) => <ErrorCard message={error instanceof ApiError ? error.message : t("app.request_failed")} onRetry={() => window.location.reload()} />,
   defaultNotFoundComponent: () => <Navigate to="/overview" replace />,
   scrollRestoration: false,
 });
