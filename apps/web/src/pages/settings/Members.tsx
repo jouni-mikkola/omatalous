@@ -13,6 +13,7 @@ import { useApi } from "../../hooks.ts";
 import type { InstanceState, Meta, User } from "../../types.ts";
 import { addressToSave } from "../Wizard.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { useInPlaceForm } from "../../components/ui/in-place-form.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { rich, t } from "../../text.ts";
 /** What a new member needs to log in: the address, the username, the temporary password and that it must change. */
@@ -86,7 +87,7 @@ export function Members({ me, meta, onChange, onLoaded }: { me: User; meta: Meta
   // "ilman kirjautumista": only a name is asked
   const [noLogin, setNoLogin] = useState(false);
   // the form opens by its button: a list of one member does not sit under a form it has no use for
-  const [adding, setAdding] = useState(false);
+  const { open: adding, setOpen: setAdding, region } = useInPlaceForm();
   const [removingNameless, setRemovingNameless] = useState<Nameless | null>(null);
   const holders = holdersOf(meta);
   const namelessList = people.data?.members ?? [];
@@ -144,14 +145,14 @@ export function Members({ me, meta, onChange, onLoaded }: { me: User; meta: Meta
   ];
 
   return (
-    <div className="card">
+    <div className="card" {...region}>
       <div className="card-head">
         <div>
           <h2>{t("set.mem.household_members")}</h2>
         </div>
       </div>
       {secret && <SecretBox key={`${secret.who}:${secret.password}`} who={secret.who} password={secret.password} address={address} />}
-      {!adding && <Button onClick={() => setAdding(true)}>{t("set.mem.add_member")}</Button>}
+      {!adding && <Button data-opener onClick={() => setAdding(true)}>{t("set.mem.add_member")}</Button>}
       {adding && <form className="form-row form-fields" onSubmit={add} noValidate>
         {!noLogin && (
           <label className="field">

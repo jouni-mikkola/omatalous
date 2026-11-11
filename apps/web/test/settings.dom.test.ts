@@ -125,3 +125,48 @@ describe("Lainat", () => {
     await waitFor(() => expect(document.querySelector("dialog.loan-dialog")).toBeNull(), T);
   }, 60000);
 });
+
+describe("Forms that open in place", () => {
+  const focusIsIn = (selector: string) => expect(document.activeElement?.closest(selector), `focus on ${document.activeElement?.tagName}`).not.toBeNull();
+
+  it("moves the focus into the form on open and back to its button on Peruuta or Escape", async () => {
+    await startServer();
+    await openApp("#/settings/household", "Asetukset");
+    for (const [open, form] of [["Vaihda salasana", "form"], ["Lisää jäsen", "form.form-fields"], ["Lisää laina", "form.loan-form"]] as const) {
+      fireEvent.click(await screen.findByRole("button", { name: open }, T));
+      await waitFor(() => focusIsIn(form), T);
+      expect(document.activeElement!.matches("input, select, textarea")).toBe(true);
+      // Peruuta closes and the focus is on the button that opened the form, not on the start of the page
+      fireEvent.click(within(document.activeElement!.closest("form")!).getByRole("button", { name: "Peruuta" }));
+      await waitFor(() => expect(document.activeElement?.textContent).toBe(open), T);
+      // Escape closes an untouched form the same way
+      fireEvent.click(screen.getByRole("button", { name: open }));
+      await waitFor(() => focusIsIn(form), T);
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      await waitFor(() => expect(document.activeElement?.textContent).toBe(open), T);
+    }
+  }, 60000);
+
+  it("keeps a form open on Escape once a field has changed", async () => {
+    await startServer();
+    await openApp("#/settings/household", "Asetukset");
+    fireEvent.click(await screen.findByRole("button", { name: "Lisää jäsen" }, T));
+    const name = await screen.findByLabelText(/Käyttäjätunnus/, {}, T);
+    fireEvent.change(name, { target: { value: "pekka" } });
+    fireEvent.keyDown(name, { key: "Escape" });
+    expect(screen.getByLabelText(/Käyttäjätunnus/)).toHaveProperty("value", "pekka");
+  }, 60000);
+
+  it("leaves the form open on an Escape that belongs to a dialog of the same card", async () => {
+    const server = await startServer();
+    await server.admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" });
+    await openApp("#/settings/household", "Asetukset");
+    fireEvent.click(await screen.findByRole("button", { name: "Lisää laina" }, T));
+    await waitFor(() => focusIsIn("form.loan-form"), T);
+    fireEvent.click((await screen.findAllByRole("button", { name: /^Muokkaa lainaa / }, T))[0]!);
+    const dialog = await screen.findByRole("dialog", { hidden: true });
+    fireEvent.keyDown(within(dialog).getAllByRole("textbox", { hidden: true })[0]!, { key: "Escape" });
+    // the Escape is the dialog's: the new loan's form under it stays as it was
+    expect(document.querySelector("section.loan-draft form.loan-form")).not.toBeNull();
+  }, 60000);
+});

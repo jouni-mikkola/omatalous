@@ -13,6 +13,7 @@ import { PasswordForm } from "../Auth.tsx";
 import { useReportLoaded } from "./use-settings-page.ts";
 import { WEB_EXTENSIONS } from "../../extensions.ts";
 import { Button } from "../../components/ui/Button.tsx";
+import { useInPlaceForm } from "../../components/ui/in-place-form.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
 import { labelTable, t } from "../../text.ts";
@@ -110,7 +111,7 @@ const kindLabel = (kind: string) =>
 
 /** The card Salasana: a button that opens the three fields. The address `#salasana` opens them at once. */
 export function Password({ openPassword }: { openPassword: boolean }) {
-  const [open, setOpen] = useState(openPassword);
+  const { open, setOpen, region } = useInPlaceForm(openPassword);
   const [changed, setChanged] = useState(false);
   // a link to the form while the page is open: the card is already there, so the address alone opens it
   const [seenOpen, setSeenOpen] = useState(openPassword);
@@ -120,13 +121,13 @@ export function Password({ openPassword }: { openPassword: boolean }) {
   }
 
   return (
-    <div className="card half" id={SETTINGS_ANCHOR.password}>
+    <div className="card half" id={SETTINGS_ANCHOR.password} {...region}>
       <div className="card-head">
         <div>
           <h2>{t("set.sec.password")}</h2>
         </div>
         {!open && !changed && (
-          <Button onClick={() => setOpen(true)}>
+          <Button data-opener onClick={() => setOpen(true)}>
             {t("set.sec.change_password")}
           </Button>
         )}

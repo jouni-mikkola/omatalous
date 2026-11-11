@@ -12,6 +12,7 @@ import { hashOf, SETTINGS_ANCHOR } from "../../routes.ts";
 import type { Meta } from "../../types.ts";
 import "../../styles/loans.css";
 import { Button } from "../../components/ui/Button.tsx";
+import { useInPlaceForm } from "../../components/ui/in-place-form.ts";
 import { useModal } from "../../components/useModal.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
@@ -53,7 +54,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
     if (loaded) onLoaded?.();
   }, [loaded, onLoaded]);
   const [editing, setEditing] = useState<{ loan: Loan; account: string } | null>(null);
-  const [adding, setAdding] = useState(false);
+  const { open: adding, setOpen: setAdding, region } = useInPlaceForm();
   const [removing, setRemoving] = useState<Loan | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "good" | "warning"; text: string } | null>(null);
@@ -98,7 +99,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   };
 
   const card = (
-    <div className="card" id={SETTINGS_ANCHOR.loans}>
+    <div className="card" id={SETTINGS_ANCHOR.loans} {...region}>
       <div className="card-head">
         <div>
           <h2>{t("set.loans.loans")}</h2>
@@ -186,7 +187,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
         </section>
       ) : (
         <div className="form-row">
-          <Button onClick={() => setAdding(true)}>{t("set.loans.add_loan")}</Button>
+          <Button data-opener onClick={() => setAdding(true)}>{t("set.loans.add_loan")}</Button>
         </div>
       )}
 
