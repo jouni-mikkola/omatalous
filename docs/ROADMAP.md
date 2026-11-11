@@ -1914,6 +1914,220 @@ Result: A merchant code like 5812abc or 7995x is no longer read as restaurants o
 - T6 Stack review: repeat the interface stack comparison with new measurements (charts and components by 25 April 2027,
   the runtime by 25 October 2027), and add a dated row to the decision record with sizes measured on the same build.
 
+## Review 11 Nov: architecture as a whole (XTA)
+
+### XTA1 Optimise routes and repo go
+Result: The server has no `/api/optimise` route, service or repo, and a merchant rename no longer rewrites tip decisions.
+- why: finding 3. Two routes no page calls, 10 repo methods and two upgrade calls keep data that nothing reads.
+- done when: `git ls-files apps/server/src/routes/optimise.ts apps/server/src/services/optimise.ts apps/server/src/db/finance/optimise.ts` lists nothing; `git grep -n "/api/optimise\|OptimiseRepo\|MerchantStates" -- apps e2e` is empty; `pnpm test apps/server/test/data-roundtrip.test.ts apps/server/test/data-export.test.ts apps/server/test/upgrade-names.test.ts` passes with those test files unchanged (the three tables and their backup stores stay).
+- locks: none
+- after: none
+- files: apps/server/src/app.ts, apps/server/src/routes/optimise.ts, apps/server/src/services/optimise.ts, apps/server/src/db/finance/optimise.ts, apps/server/src/db/finance-repo.ts, apps/server/src/services/upgrade.ts, apps/server/test/optimise.isolated.test.ts, apps/server/test/contract.qa.test.ts, apps/server/test/review.test.ts, apps/server/test/service-tokens.test.ts, e2e/vs1.spec.ts
+
+### XTA2 Live types leave optimise
+Result: Core code outside `optimise/` imports nothing from it: `CalcLine` is in `types.ts`, the CPI series in `analysis/`, `LOAN_REFERENCE_LABEL` in `loans.ts`.
+- why: finding 2. Prices, insights, income series and the web's loan labels read from the folder that is to be deleted.
+- done when: `git grep -n "optimise/" -- packages/core/src ':!packages/core/src/optimise' ':!packages/core/src/index.ts' ':!packages/core/src/features'` is empty; `pnpm test packages/core` passes.
+- locks: none
+- after: none
+- files: packages/core/src/types.ts, packages/core/src/optimise/types.ts, packages/core/src/analysis/income-series.ts, packages/core/src/analysis/insights/shared.ts, packages/core/src/analysis/insights/types.ts, packages/core/src/messages-calc.ts, packages/core/src/analysis/prices.ts, packages/core/src/analysis/cpi.ts, packages/core/src/optimise/facts/cpi.ts, packages/core/src/optimise/facts/index.ts, packages/core/src/optimise/inputs.ts, packages/core/src/optimise/facts/loans.ts, packages/core/src/loans.ts
+
+### XTA3 Module scaffold goes for good
+Result: The features folder, `pnpm gen` and their rules, globs and fixtures are gone, finishing T78.
+- why: finding 6. 15ec484 merged T78 as partial.
+- done when: `git ls-files packages/core/src/features tools/gen packages/core/test/fixtures/features packages/core/test/feature-contract.test.ts` lists nothing; `git grep -n "registry\.gen\|tools/gen\|src/features" -- . ':!docs/ROADMAP.md' ':!docs/audit'` is empty; `pnpm test tools/repo-rules` passes.
+- locks: none
+- after: none
+- files: packages/core/src/features, packages/core/test/feature-contract.test.ts, packages/core/test/fixtures/features, tools/gen/registry.mjs, package.json, vitest.config.ts, tools/repo-rules/boundaries.ts, tools/repo-rules/parity.ts, tools/test/registry-union.test.sh, .gitattributes, docs/ARCHITECTURE.md
+
+### XTA4 Core optimise engine goes
+Result: `packages/core/src/optimise` and its tests are gone, and the findings tool and noise test no longer run the `optimise` and `outcome` sources.
+- why: findings 2 and 4. T55 merged as partial, and the dead engine costs about 30 s of test time.
+- done when: `git ls-files packages/core/src/optimise packages/core/test/optimise packages/core/test/golden/optimise.txt packages/core/test/golden/outcome.txt` lists nothing; `git grep -n "optimise/" -- packages tools/findings tools/where.mjs` is empty; `pnpm knip` reports 0; `pnpm test packages/core/test/kit/noise.test.ts packages/core/test/golden.test.ts` passes and the noise file's time in the vitest report is under 40 s (46.6 s on 11 Nov).
+- locks: none
+- after: XTA1, XTA2, XTA3
+- files: packages/core/src/optimise, packages/core/test/optimise, packages/core/src/index.ts, packages/core/src/industry-codes.ts, tools/findings/statements.ts, tools/where.mjs, packages/core/test/golden/optimise.txt, packages/core/test/golden/outcome.txt, packages/core/test/golden.test.ts, packages/core/test/kit/noise.test.ts, packages/core/test/kit/known.ts, packages/core/test/behaviour-accuracy/detectors.ts
+
+### XTA5 Knip checks unused files
+Result: `pnpm knip` also reports unused files, and the 9 dead web files plus `MerchantFilters` are gone with no ignore line for FilterChips.
+- why: finding 5. Twelve unused files and a dead component pass today's knip.
+- done when: `knip.json` `include` has `"files"`; `pnpm knip` reports 0; `git ls-files apps/web/src/charts/forms/IncomeUse.tsx apps/web/src/charts/Tooltip.tsx apps/web/src/components/housing apps/web/src/components/subject-name.ts apps/web/src/components/target-href.ts apps/web/src/pages/reports/rate-words.ts apps/web/src/styles/housing.css apps/web/test/housing.test.ts` lists nothing; `git grep -n "FilterChips" knip.json` is empty; `pnpm --filter @banking/web typecheck` passes.
+- locks: none
+- after: XTA3
+- files: knip.json, apps/web/src/charts/forms/IncomeUse.tsx, apps/web/src/charts/Tooltip.tsx, apps/web/src/components/housing/Housing.tsx, apps/web/src/components/housing/housing.ts, apps/web/src/styles/housing.css, apps/web/test/housing.test.ts, apps/web/src/components/subject-name.ts, apps/web/src/components/target-href.ts, apps/web/src/pages/reports/rate-words.ts, apps/web/src/pages/transactions/FilterChips.tsx
+
+### XTA6 Tip texts leave core
+Result: Of the 330 `opt.*` texts, only the two that `analysis/bridge.ts` reads remain, in Finnish and English.
+- why: finding 2. Dead tip texts ship in the web bundle and inflate `pnpm strings`.
+- done when: `git grep -ho '"opt\.[a-z_0-9]*":' -- packages/core/src | sort -u` prints only `"opt.sit_saving_many":` and `"opt.sit_saving_one":`; `pnpm build` passes and `grep -l opt.sub_rise_title apps/web/dist/assets/*.js` prints nothing; `pnpm test tools/repo-rules` passes.
+- locks: none
+- after: XTA4, XTA5
+- files: packages/core/src/messages-optimise.ts, packages/core/src/messages-optimise-a.ts, packages/core/src/messages-optimise-b.ts, packages/core/src/english/optimise.ts, packages/core/src/english/optimise-a.ts, packages/core/src/english/optimise-b.ts, packages/core/src/messages-en.ts, packages/core/src/messages-late.ts
+
+### XTA7 Core and slot leases go
+Result: `pnpm check`, vitest and the page tests run without `slots.sh`, `cores.sh`, `lib/cores.mjs` or `lib/owner.sh`, finishing T80.
+- why: finding 7. d3ae650 merged T80 as partial.
+- done when: `git ls-files tools/slots.sh tools/cores.sh tools/lib/cores.mjs tools/lib/owner.sh tools/cores.test.ts tools/test/cores.test.sh tools/test/slots.test.sh` lists nothing; `git grep -n "slots\.sh\|cores\.sh\|lib/cores\|owner\.sh" -- . ':!docs/ROADMAP.md' ':!docs/audit' ':!changelog.d'` is empty; `bash tools/check.sh tests` passes on a clean clone.
+- locks: none
+- after: XTA3
+- files: tools/slots.sh, tools/cores.sh, tools/lib/cores.mjs, tools/lib/owner.sh, tools/cores.test.ts, tools/test/cores.test.sh, tools/test/slots.test.sh, tools/test/cut-env.sh, tools/check.sh, tools/check/cut-shared.sh, tools/check/weights.sh, tools/e2e-run.test.ts, vitest.config.ts, e2e/run.mjs, docs/adr/0003-fast-feedback.md
+
+### XTA8 Settlement transfers move to core
+Result: Core `settlement.ts` computes who pays whom, and the Tasaus section only shows it.
+- why: finding 8. A money figure is defined only in the browser, against ADR 0004.
+- done when: `git grep -n "transfersOf" -- apps/web/src` shows only an import from `@banking/core`; the seven `transfersOf` cases of `apps/web/test/settlement-text.test.ts` now run in `packages/core/test/settlement.test.ts` and pass; `pnpm test apps/web/test/settlement-text.test.ts packages/core/test/settlement.test.ts` passes.
+- locks: none
+- after: none
+- files: packages/core/src/settlement.ts, packages/core/test/settlement.test.ts, apps/web/src/pages/reports/sections/settlement-text.ts, apps/web/src/pages/reports/sections/Settlement.tsx, apps/web/test/settlement-text.test.ts
+
+### XTA9 Docs name only real files
+Result: CLAUDE.md and docs/ describe the tree as it is, with no Optimoi, extensions, features or conclusions recipes.
+- why: finding 1. The first file every contributor reads sends them to modules that are gone.
+- done when: `git grep -n "extensions\.ts\|features\.ts\|reports/conclusion\|conclusions/\|unread-exports\|services/data-export-stores\|Optimoi\|optimise/" -- CLAUDE.md docs ':!docs/ROADMAP.md' ':!docs/audit' ':!docs/adr' ':!docs/design'` is empty; `pnpm test tools/repo-rules` passes.
+- locks: none
+- after: XTA3, XTA4
+- files: CLAUDE.md, docs/DEVELOPMENT.md, docs/ARCHITECTURE.md, docs/DATA_EXPORT.md
+
+## Review 11 Nov: UI, a critical review (XTU)
+
+### XTU1 Tulossa starts with payday
+Result: Tulossa opens with "Ennen palkkapäivää 25.11." and the bills, card bills included, that make up Nyt's "laskut ennen palkkapäivää" figure, with that sum and the payday's income.
+- why: finding 1. Nyt takes 1 900,54 € of bills off its answer (`ahead.rows` of `/api/dashboard`: the card bill 1 822,28 €, Helen, Elisa), but `pages/Bills.tsx` lists only recurring series (`billItems`). The card bill is not there, rows before 25.11. add to about 190 €, and no income row exists although the empty state promises "laskuja ja tuloja".
+- done when: a DOM test in the new `apps/web/test/bills-before-payday.dom.test.ts`, which fails without the change, renders `Bills` with a dashboard answer whose `ahead.rows` hold a card bill and two bills. It finds a section with id `ennen-palkkapaivaa` that lists those three rows (date, name, sum) and their sum equal to `nyt.left.billsCents`, plus one row for the payday income from `ahead.payday`. With `nyt.left.known === false` the section is not drawn (the near miss). The series list under it is unchanged (`apps/web/test/bills.test.ts` passes). The section reads the same dashboard request that `Overview` makes (no new endpoint). Existing catalogue keys are used where they fit ("Maksut ennen palkkapäivää", "Palkkapäivä"). At 390 px the section's rows are blocks with no sideways scroll. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/pages/Bills.tsx, apps/web/src/components/bills/BeforePayday.tsx, apps/web/src/styles/bills.css, apps/web/test/bills-before-payday.dom.test.ts
+
+### XTU2 Nyt figures open their basis
+Result: On Nyt the bills figure opens Tulossa at the payday period, "Käytetty" opens this month's rows, and the balance opens Lisää > Tilit ja saldot.
+- why: finding 2. `components/home/Nyt.tsx` renders every figure as plain text. The `#/overview` snapshot has no link in `main`, and design 1.1 says "the sum opens the balance and the bills behind it; the pace line opens this month's rows".
+- done when: a DOM test in the new `apps/web/test/nyt-links.dom.test.ts`, which fails without the change, renders `Nyt` with a known answer. It finds a link on the bills sum to `#/bills#ennen-palkkapaivaa`, a link on the spent sum to `#/transactions?from=<month>-01&to=<from>`, and a link on the balance to `#/reports?q=saldot`. With `left.known === false` only the spent link is drawn (the near miss). The texts of the lines do not change (same catalogue keys). Links are underlined as `Button variant="link"` elsewhere. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: XTU1
+- files: apps/web/src/components/home/Nyt.tsx, apps/web/test/nyt-links.dom.test.ts
+
+### XTU3 The rest of Kuukausi opens
+Result: The "Muut luokat" row of Kuukausi opens and lists each category it holds with its sum, and each sum opens its rows, in the running month and in an earlier one.
+- why: finding 3. On 11.11. "Muut luokat" is 1 562,52 € of 2 027 €, and in October "Muut (12)" is 1 881,45 € of 3 850 €. The rest row has no drill (`apps/web/src/pages/reports/Month.tsx`, the `spent` column renders plain `money` when `category === null`), so rent and most of the month cannot be seen.
+- done when: a DOM test in the new `apps/web/test/month-rest.dom.test.ts`, which fails without the change, renders `Month` for the running month and for `?month=2026-10`. It finds the rest row as a toggle (`aria-expanded`). Opened, it lists the month's spending categories that are not rows above it, from the `categories` report (add `categories` to the running month's request), each with its sum and a `Why` door with `figure="spend.category"`. The listed sums plus the shown rows add up to the month's `spentCents`. A month whose list has no rest row draws no toggle (the near miss). The rest row is labelled "Muut luokat" in both views. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/pages/reports/Month.tsx, apps/web/src/styles/report-month.css, apps/web/test/month-rest.dom.test.ts
+
+### XTU4 The largest purchase is real
+Result: The pace chart names the month's largest one-off purchase with its sum, for example "Suurin kertaosto Hesburger 80,68 €", never a small coffee because the shop is a regular one.
+- why: finding 4. `largestOneOff` (`packages/core/src/analysis/forecast.ts:137-143`) skips every row of every recurring series, and in the demo that includes Prisma, Hesburger, K-Market and Alko. `/api/dashboard` gives `pace.largest = {day: 11, name: "Robert's Coffee", cents: 910}` while Hesburger 80,68 € on 8.11. is larger. The label (`chart.largest`) has no sum.
+- done when: a new `packages/core/test/forecast-largest.test.ts`, which fails without the change, builds a month where a grocery shop is a recurring series with an 80 € row and a pending 9 € coffee, and gets the 80 € row as `largest`. A row of a fixed-cost series (`isFixedCost` of `commitments.ts`: rent, a subscription) is still skipped (the near miss). The Finnish and English `chart.largest` take `{sum}`, and `PaceChart.tsx` passes `money(largest.cents)`. `pnpm findings --golden` is run if golden files change. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: packages/core/src/analysis/forecast.ts, packages/core/src/messages-overview.ts, packages/core/src/english/overview.ts, apps/web/src/charts/PaceChart.tsx, packages/core/test/forecast-largest.test.ts
+
+### XTU5 Pace chart labels fit a phone
+Result: At 390 px the chart's day-axis event labels stay inside the chart and do not overlap, and the month-end range is labelled as the estimate it is.
+- why: finding 6. At 390 px "Suurin yksittäinen osto Robert's Coffe" runs past the right edge and overlaps "Palkka 25." (`/tmp/XTU/overview-390.png`). At 1440 px "Tavallinen" and the blue "≈ 3 114–3 336 €" stack at the chart end (`PaceChart.tsx:152-155`), so the estimate reads as the usual.
+- done when: a DOM test in the new `apps/web/test/pace-labels.dom.test.ts`, which fails without the change, renders `PaceChart` at a width of 366 px with a largest purchase on day 11 and a payday on day 25. Every event label's text box lies inside the chart width, and the two labels do not overlap (they stack on two lines or the later one is anchored to its end). The wide chart's end range starts with the word of the key ("Arvio"), and the usual line keeps "Tavallinen". `e2e/chart-table.spec.ts` passes. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: XTU4
+- files: apps/web/src/charts/PaceChart.tsx, apps/web/src/styles/pace-chart.css, apps/web/test/pace-labels.dom.test.ts
+
+### XTU6 One stale line on Nyt
+Result: When Nyt cannot be reloaded, the member sees one line with the time of the figures and one retry button, as on every other page.
+- why: finding 5. With `/api/dashboard` failing after a first load (`/tmp/XTU/err-overview.png`), the shell's `StaleAnswer` line and R1's own `Notice` (`apps/web/src/pages/Overview.tsx:63-68`) both show, with two "Yritä uudelleen" buttons. `StaleAnswer` already covers every page (`components/StaleAnswer.tsx`, `useFault` in `hooks.ts`).
+- done when: the `Notice` block R1 added to `Overview.tsx` is removed. `apps/web/test/overview-reload.dom.test.ts` is rewritten so that it fails on the R1 code: it renders `Overview` next to `StaleAnswer`, makes the reload fail, and finds exactly one element with the `load.retry` text and the answer's figures unchanged. The first-load `ErrorCard` stays as it is (the near miss). `e2e/stale-answer.spec.ts` passes. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/pages/Overview.tsx, apps/web/test/overview-reload.dom.test.ts
+
+### XTU7 Pages carry their tab's name
+Result: Nyt and Tulossa have their tab's name in the window title and heading, Lisää marks no tab and is titled Lisää, and the user menu has a Tapahtumat link.
+- why: finding 7 and finding 2. `nav.ts:24,27` give the titles "Yhteenveto" and "Laskut" to the tabs Nyt and Tulossa. `#/reports?q=saldot` is titled "Kuukausi · Omatalous" with the Kuukausi tab current (`Shell.tsx`, `current={page === e.id}`). No menu or tab leads to Tapahtumat (`Shell.tsx:340-352`).
+- done when: a DOM test in the new `apps/web/test/shell-names.dom.test.ts`, which fails without the change, renders the shell at `#/overview`, `#/bills` and `#/reports?q=saldot` and finds `document.title` "Nyt · Omatalous", "Tulossa · Omatalous" and "Lisää · Omatalous". At `#/reports?q=saldot` no tab has `aria-current`, while `#/reports` keeps it on Kuukausi (the near miss). The user menu has a link to `#/transactions` labelled with `nav.transactions`. The `title` getters and their now unused keys `nav.overview`/`nav.bills` are removed if nothing else reads them (`apps/web/src/components/NextDays.tsx:77` reads `nav.bills`: switch it to `nav.coming`). `e2e/stale-answer.spec.ts:43` and `e2e/offline.spec.ts:77` expect the new heading names. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/nav.ts, apps/web/src/Shell.tsx, apps/web/src/components/NextDays.tsx, packages/core/src/messages-shell.ts, packages/core/src/english/shell.ts, e2e/stale-answer.spec.ts, e2e/offline.spec.ts, apps/web/test/shell-names.dom.test.ts
+
+### XTU8 Price index setting removed
+Result: Asetukset > Palvelin no longer offers a consumer price index that nothing shows, and the server no longer fetches it.
+- why: finding 8. The checkbox (`apps/web/src/pages/settings/InstanceForms.tsx:154`) promises a comparison "sivulla Kiinteät menot", a page that is gone. No core code reads `inputs.priceIndex`. With the box ticked, `services/price-index.ts` fetches statfin.stat.fi for nothing.
+- done when: the checkbox, its two catalogue keys (Finnish and English), `priceIndex` in the web and core types, the instance setting, the fetch in `schedule.ts` and `analysis.ts`, `services/price-index.ts`, `providers/statfin/client.ts` and their tests are deleted. An old instance row that still holds the flag is read without error (a case in `apps/server/test/instance.test.ts`). The docs no longer name statfin. `grep -rn "priceIndex\|statfin" apps packages docs --include=*.ts --include=*.tsx --include=*.md` prints nothing outside ROADMAP.md. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/pages/settings/InstanceForms.tsx, apps/web/src/types.ts, apps/web/test/wizard-english.dom.test.ts, packages/core/src/messages-set-iform.ts, packages/core/src/english/set-iform.ts, packages/core/src/types.ts, apps/server/src/services/price-index.ts, apps/server/src/services/instance.ts, apps/server/src/services/schedule.ts, apps/server/src/services/analysis.ts, apps/server/src/platform/config.ts, apps/server/src/routes/admin.ts, apps/server/src/providers/statfin/client.ts, apps/server/test/price-index.test.ts, apps/server/test/instance.test.ts, apps/server/test/schedule-sync-fault.test.ts, docs/SECURITY.md, docs/ARCHITECTURE.md
+
+### XTU9 Bank app steps tell state
+Result: The four steps of the bank app read as to do or done, on the screen and to a screen reader.
+- why: finding 9. `apps/web/src/pages/settings/BankAppSetup.tsx:231-237` lists "Salausavain luotu" and the others as finished facts before they are done. Only a grey "–" against a green "✓" tells them apart, and both are hidden from assistive tech (`styles/settings.css:76-78`, `content: … / ""`).
+- done when: a DOM test in the new `apps/web/test/bank-app-checklist.dom.test.ts`, which fails without the change, renders the setup with no key and finds each undone item with a visually hidden "ei vielä tehty" (an existing key if one fits, else one new key with its English). Done items carry "valmis". The undone mark is an open circle, not a dash. A configured app shows all four done (the near miss). The contrast test (`apps/web/test/contrast.test.ts`) passes. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/pages/settings/BankAppSetup.tsx, apps/web/src/styles/settings.css, packages/core/src/messages-set-bank-app.ts, packages/core/src/english/set-bank-app.ts, apps/web/test/bank-app-checklist.dom.test.ts
+
+### XTU10 Phone tab count and footer fit
+Result: At 390 px the Tarkistettavat count sits fully on the screen without covering its word, and the footer's items share one line height.
+- why: finding 10. The count is `position: absolute; right: 0` on the last tab (`apps/web/src/styles/shell.css:89`), and its right edge measured 390 at a 390 px viewport, over the end of "Tarkistettavat". Footer links get `min-height: var(--tap-min)` (`base.css:283`) and the spans do not, so "1.0.0", "AGPL-3.0" and the date sit above the links on every page (`/tmp/XTU/reports-390-bottom.png`).
+- done when: a new case in `e2e/table-views.spec.ts` or a new `e2e/phone-shell.spec.ts`, with the demo at 390x844 on `#/overview`, finds the `.nav-count` box inside the viewport with at least 2 px to spare and not overlapping the tab's text box. All direct children of `.sheet-foot` on one row share the same vertical centre within 1 px. At 1440 px nothing moves (the near miss, the same check of the header count). `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: none
+- files: apps/web/src/styles/shell.css, apps/web/src/styles/marks.css, e2e/phone-shell.spec.ts
+
+### XTU11 Unknown payday says when
+Result: When the payday is not yet known, Nyt says how many pays it has found and how many it needs before it can answer.
+- why: finding 11. A member with one imported pay reads only "Emme tiedä palkkapäivääsi, joten emme voi laskea, paljonko päivässä jää." (`/tmp/XTU/young-overview-390.png`, `messages-overview.ts:13`). Core waits for three pays (`MIN_PAYS`, `packages/core/src/analysis/pay-estimate.ts:39`), and there is no setting for the payday, so the line is a dead end with no time.
+- done when: `MIN_PAYS` is exported and the `no-payday` answer of `nytAnswer` carries the count of pays found. The Finnish and English `home.gap_no_payday` add a sentence with both numbers, "Löysimme 1 palkan, tarvitsemme 3." in the form `docs/UI_STYLE.md` gives for plurals. A case in `packages/core/test/nyt.test.ts`, which fails without the change, gives `found: 1` for a month with one pay and `found: 0` with none. The `late` and `no-balance` reasons are unchanged (the near miss). `apps/web/src/components/home/texts.ts` and `Nyt.tsx` pass the numbers. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: none
+- after: XTU2, XTU4
+- files: packages/core/src/analysis/pay-estimate.ts, packages/core/src/analysis/nyt.ts, packages/core/src/messages-overview.ts, packages/core/src/english/overview.ts, apps/web/src/components/home/Nyt.tsx, apps/web/src/components/home/texts.ts, packages/core/test/nyt.test.ts
+
+## Review 11 Nov: functionality (XTF)
+
+### XTF1 Nordea CSV dates read
+Result: A Nordea netbank CSV export, dated like 2026/09/03, reads into rows instead of "no rows".
+- why: `day()` in `packages/core/src/bank-csv.ts:161` reads only `YYYY-MM-DD` and day-first dates, so Nordea's `2026/09/03` rows all go to `unread` and the file gives `no_rows` (run on the header `Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta`).
+- done when: a test in `packages/core/test/bank-csv.test.ts` that fails without the change reads a made-up file with that header and rows `2026/09/03;-12,50;…` and `2026/09/04;2500,00;…` into rows of 2026-09-03 −1250 cents and 2026-09-04 250000 cents. `2026/02/30` stays unread, and the existing day-first and ISO cases still pass (`pnpm test packages/core/test/bank-csv.test.ts`).
+- locks: none
+- after: none
+- files: packages/core/src/bank-csv.ts, packages/core/test/bank-csv.test.ts
+
+### XTF2 CSV text names the other party
+Result: A bank CSV's rows carry the shop or payer name, never an account number or the household's own name, and a row with an empty text cell still imports.
+- why: `guessBankCsvLayout` (`bank-csv.ts:136`) takes the first `saaja|maksaja` column. For Nordea's header that is `Maksaja`, which holds an IBAN. For a header with `Maksaja` before `Saajan nimi`, every payment out is named after the household. A row whose chosen cell is empty goes to `unread` and its money is lost.
+- done when: tests in `packages/core/test/bank-csv.test.ts` that fail without the change show three things. First, for the Nordea header above the guess picks a column whose cells are names (`Nimi` or `Otsikko`), not an IBAN column. Second, `readBankCsvRows` names a row by the next text column when the chosen cell is empty or only an account number. Third, for a header `…;Maksaja;Saajan nimi;…` a row of money out is named by `Saajan nimi` and a row of money in by `Maksaja` (`pnpm test packages/core/test/bank-csv.test.ts`).
+- locks: none
+- after: XTF1
+- files: packages/core/src/bank-csv.ts, packages/core/test/bank-csv.test.ts
+
+### XTF3 A file fills a connected account
+Result: A bank file can be saved into the household's own bank-connected account, and its rows that the bank already gave are skipped, so no day is counted twice.
+- why: `saveStatementRows` (`apps/server/src/services/card-file.ts:65-82`) writes only to a new `bankfile` account with no IBAN, and `fold-accounts.ts:19` never folds one. Posting September's demo rows as a file raised September's spending from 342 814 to 455 640 cents with no warning.
+- done when: tests in `apps/server/test/bank-file.test.ts` that fail without the change show four things. First, rows saved with `accountId` of the user's own `enablebanking` checking account are stored there as source `bankfile`. Rows the bank already holds (same day, sum and party) count as `skipped`, and the older rows count as `inserted`. Second, a sync after that skips the file's rows (`ingestTransactions` "others"). Third, a card, a loan or another member's account is still refused with `card_file.bad_account`. Fourth, saving to a new account rows of which at least half (and three or more) already sit on one bank-connected account is refused with a message that names that account (`pnpm test apps/server/test/bank-file.test.ts`).
+- locks: none
+- after: none
+- files: apps/server/src/services/card-file.ts, apps/server/test/bank-file.test.ts, packages/core/src/messages-card-file.ts, packages/core/src/english/card-file.ts
+
+### XTF4 File pages say why a save failed
+Result: Asetukset > Pankit ja tilit offers the household's own connected accounts for a bank file, leaves out rows dated after today and shows the server's own reason when a save is refused.
+- why: `BankFile.tsx` lists only `bankfile` accounts, and its `save()` turns every error into `card_file.err_save` ("Yritä uudelleen"). `CardFile.tsx:42` does the same. A file with one future-dated row is refused whole (`card-file.ts:62`) and the user is told to retry.
+- done when: `e2e/bank-file.spec.ts` has three new cases. A connected demo account is offered and saving into it reports skipped rows. A file with a row dated tomorrow saves the other rows and names one row left out. A refused save shows the server's sentence (for example `card_file.bad_account`), not `card_file.err_save`. `e2e/card-file.spec.ts` checks the same message rule. Screens at 1440 and 390 px in the PR.
+- locks: none
+- after: XTF3
+- files: apps/web/src/pages/settings/BankFile.tsx, apps/web/src/pages/settings/CardFile.tsx, e2e/bank-file.spec.ts, e2e/card-file.spec.ts, packages/core/src/messages-card-file.ts, packages/core/src/english/card-file.ts
+
+### XTF5 Typed bills in the month estimate
+Result: Kuukausi lists a bill the household typed in for this month and adds it to what is still coming, so the month's estimate includes it.
+- why: `thisMonthReport` (`packages/core/src/reports/this-month.ts:104-170`) reads `ctx.recurring` only. A typed 600 € bill due 2026-11-20 was in `ahead.upcoming` but not in `thisMonth.bills`, `billsCents` (19 000) or the estimate (120 399 instead of 180 399).
+- done when: a test in `packages/core/test/reports-this-month.test.ts` that fails without the change shows three things. A typed bill due later this month and unpaid is in `bills` and raises `stillComingCents` and `estimate` by its sum. The same bill paid already, or carried by a series of its name, changes nothing (it reads `expectedBillRows`). The rows of `categories` still add up to the gap (`pnpm test packages/core/test/reports-this-month.test.ts`).
+- locks: none
+- after: none
+- files: packages/core/src/reports/this-month.ts, packages/core/test/reports-this-month.test.ts
+
+### XTF6 A year's file in one go
+Result: A bank CSV or camt.053 file of a year (up to 5 000 rows) is read and saved in one pick, sent in parts of whole days.
+- why: `CARD_FILE_MAX_ROWS = 1000` (`packages/core/src/card-file.ts:15`) refuses a household account's year (about 1 500 rows) in `readBankCsvRows` and `readBankCamt`. A camt file cannot be cut by hand, because its balances must add up. The route's limit per request can stay. Each part must hold whole days, because the occurrence counter of `ingest.ts` numbers identical rows within one request.
+- done when: tests in `packages/core/test/bank-csv.test.ts` and `bank-camt.test.ts` read a 2 500-row file. A new core helper splits rows into parts of at most 1 000 rows, never splitting a day, and a test shows two identical rows of one day stay in one part. `e2e/bank-file.spec.ts` saves a 2 500-row file and the transactions count is 2 500 (`pnpm test packages/core/test/bank-csv.test.ts packages/core/test/bank-camt.test.ts`).
+- locks: none
+- after: XTF2, XTF4
+- files: packages/core/src/card-file.ts, packages/core/src/bank-csv.ts, packages/core/src/bank-camt.ts, packages/core/test/bank-csv.test.ts, packages/core/test/bank-camt.test.ts, apps/web/src/pages/settings/BankFile.tsx, e2e/bank-file.spec.ts
+
 ## Not planned
 
 - Payments from the app, credit scoring, investment advice, telemetry.
