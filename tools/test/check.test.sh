@@ -241,6 +241,25 @@ t_jobs_take_the_cores_of_the_tests_when_they_are_done() {
   unset CHECK_LOG CHECK_NAP
 }
 
+# An xargs that is slow to start (a loaded runner) handles USR1 late: sh_run sends none before it does. The fake waits
+# for a signal and says so; one that came early would have ended it. (A shell runs its trap once for signals that come
+# close together, so the fake cannot count them.)
+t_jobs_wait_for_xargs_before_they_ask_for_more() {
+  world
+  local d=$W/sr
+  mkdir -p "$d"
+  printf '%s\n' '#!/bin/bash' 'n=0; sleep 0.4' "trap 'n=\$((n + 1))' USR1" 'for ((i = 0; i < 100 && n < 1; i++)); do sleep 0.05; done' 'echo "$n" >"$CHECK_LOG/got"' >"$W/bin/xargs"
+  chmod +x "$W/bin/xargs"
+  : >"$d/done-tests"
+  (
+    export CHECK_LOG=$d CHECK_NAP=0.05 PATH="$W/bin:$PATH"
+    # shellcheck source=../check/weights.sh
+    . "$SRC/tools/check/weights.sh"
+    sh_run 1 1 "$W/self.sh" "1 suite scenario" # one signal: a second could run the trap again before the fake writes
+  )
+  check "run: a slow xargs gets USR1 once it handles it, not before" test "$(cat "$d/got" 2>/dev/null)" = 1
+}
+
 # The cut lock: a world in a repository of its own, so that its lock file is W/.git/cut.lock. The suite blocks on a
 # fifo while it runs, so the test reads the lock from inside a running check. Nothing waits on the clock.
 lock_world() {

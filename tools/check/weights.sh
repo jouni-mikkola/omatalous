@@ -47,17 +47,34 @@ sh_order() {
   mapfile -t ORDERED < <(for line in "$@"; do printf '%s\t%s\n' "${cost[$line]:-999999999}" "$line"; done | LC_ALL=C sort -s -t $'\t' -k1,1nr | cut -f2)
 }
 
+# usr1_in FIELD PID: whether USR1 (signal 10) is in the mask FIELD of the process (/proc/PID/status). SigCgt: it handles
+# the signal; ShdPnd: one was sent and it has not taken it yet.
+usr1_in() {
+  local k v
+  while read -r k v; do
+    [[ $k == "$1:" ]] || continue
+    (((16#$v >> 9) & 1))
+    return
+  done 2>/dev/null <"/proc/$2/status"
+  return 1
+}
+
 sh_run() {
-  local give=$1 jobs=$2 self=$3 xp raised=0 i c
+  local give=$1 jobs=$2 self=$3 xp raised=0 i w c
   shift 3
   printf '%s\n' "$@" >"$CHECK_LOG/sh-list"
   ( trap - INT QUIT EXIT; exec xargs -P "$jobs" -L1 -a "$CHECK_LOG/sh-list" bash "$self" __job </dev/null ) &
   xp=$!
   while kill -0 "$xp" 2>/dev/null; do
-    # not before the subshell has become xargs: a USR1 that finds the shell ends it
-    if ((give > 0 && !raised)) && [[ -e $CHECK_LOG/done-tests ]] && read -r c <"/proc/$xp/comm" 2>/dev/null && [[ $c == xargs ]]; then
+    # not before the subshell has become xargs and xargs handles USR1: one that finds the shell, or an xargs that has only
+    # just started, ends it. Both are asked: a shell with an EXIT trap catches USR1 too, to end by it.
+    if ((give > 0 && !raised)) && [[ -e $CHECK_LOG/done-tests ]] && read -r c <"/proc/$xp/comm" 2>/dev/null && [[ $c == xargs ]] && usr1_in SigCgt "$xp"; then
       raised=1
-      for ((i = 0; i < give; i++)); do kill -USR1 "$xp" 2>/dev/null; sleep 0.1; done # apart: signals sent at once count as one
+      # one at a time: signals sent before the first is taken count as one, however long a busy machine keeps xargs waiting
+      for ((i = 0; i < give; i++)); do
+        kill -USR1 "$xp" 2>/dev/null
+        for ((w = 0; w < 500; w++)); do usr1_in ShdPnd "$xp" || break; sleep 0.01; done
+      done
     fi
     sleep "${CHECK_NAP:-0.5}"
   done
