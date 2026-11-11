@@ -1828,6 +1828,48 @@ Result: A mistyped `PORT` is told at start and the server and the address it pri
 - after: none
 - files: apps/server/src/platform/config.ts, apps/server/src/entry/node.ts, apps/server/test/listen-port.test.ts
 
+## The bank link and the import: next round
+
+### Q1 A bank row imports back
+Result: A fetched bank row with an odd currency, merchant code or account number can be exported and imported again.
+- why: `mapTransaction` stores `transaction_amount.currency` as sent (`apps/server/src/connectors/enable-banking/mapper.ts`, the `currency:` line) and the counterparty IBAN as `account.iban` as sent (`partyIban`), and `mcc` as sent; the import takes a currency only as three capital letters, an IBAN column of at most 40 characters with no control character and a merchant code of at most 10 (`apps/server/src/services/data-import-stores.ts`, the `transactions` store, `currency` at `:66`): a row with `eur`, an IBAN of 50 characters or an `mcc` with a control character is stored and then refused at import (X5 cleaned the text fields and left these).
+- done when: a row's currency is mapped trimmed and in upper case; the counterparty IBAN is mapped with blanks taken out and in upper case, and is null when what remains fails `validIban` (the check digits the mapper already holds an "other" identification to; reuse it, and give the made-up IBANs of the existing mapper tests valid check digits); `mcc` is mapped only when it is four digits, else null; a row that is already in this form is mapped to the same bytes as today (the near miss), so a stored row and the same row fetched again keep one signature; tests in `apps/server/test/mapper.test.ts` that fail without the change hold each of these; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-text
+- after: none
+- files: apps/server/src/connectors/enable-banking/mapper.ts, apps/server/test/mapper.test.ts
+
+### Q2 A bank account imports back
+Result: A bank account whose name or holder has a control character can be exported and imported again.
+- why: `accountName`, `accountHolder`, `bankAccountFields` (product, usage, status) and `nameOf` trim and cut the bank's text but do not remove control characters or zero-width ones (`apps/server/src/connectors/enable-banking/mapper.ts`); the import refuses a control character in `name`, `holder`, `bank_product` and `psu_status` (`text(...)` in the `accounts` store of `apps/server/src/services/data-import-stores.ts`), so one such account makes the household's own file unreadable to the app.
+- done when: the name, holder, product, usage and status of an account are mapped with a control, zero-width or line-separator character as a space and blank runs as one, before the cut to their lengths (the rule `cleanBankText` has for rows); text without such a character is mapped to the same bytes as today (the near miss); tests in `apps/server/test/eb-mapper-reading.test.ts` that fail without the change hold the name, the holder and the product; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-text
+- after: none
+- files: apps/server/src/connectors/enable-banking/mapper.ts, apps/server/test/eb-mapper-reading.test.ts
+
+### Q3 A bank answer needs its list
+Result: A bank answer that has no list of balances or rows is told as a failed call, not as a crash inside the fetch.
+- why: `balances()` returns `.balances` of the answer as it is, so an answer `{}` gives `undefined` and `pickBalance` then fails with a TypeError; `transactions()` reads `r.transactions ?? []`, so a page whose `transactions` is a text or an object is walked as if it were rows (`apps/server/src/connectors/enable-banking/client.ts`); `listAspsps` already treats a missing list as a failure (`EnableBankingError(502)`).
+- done when: `balances()` throws `EnableBankingError(502, "", "<path>")` when the answer's `balances` is not an array; `transactions()` does so when a page's `transactions` is present and not an array, and takes a page without the key as an empty page, as today; the pages already read are kept for the next try as for any failed page (`eb-client-pages-kept.test.ts` holds that); a new `apps/server/test/eb-client-lists.test.ts` holds each case and fails without the change; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: eb-client
+- after: none
+- files: apps/server/src/connectors/enable-banking/client.ts, apps/server/test/eb-client-lists.test.ts
+
+### Q4 A session answer needs its ids
+Result: A bank answer to the link that lacks the session or the account list is told as a failed link, not as a crash that leaves a consent open.
+- why: `createSession` reads `session.accounts.map(...)` and `session.session_id` with no check (`apps/server/src/connectors/enable-banking/client.ts`): an answer without `accounts` throws a TypeError before the consent is withdrawn, and one without `session_id` makes `deleteSession(undefined)` call `/sessions/undefined`; `startAuthorization` returns `authorization_id` unchecked.
+- done when: `createSession` throws `EnableBankingError(502, "", "/sessions")` when `session_id` is not a non-empty text or `accounts` is not an array, and when the answer has a `session_id` it withdraws that consent first, as it does for an account fault; `startAuthorization` throws the same kind of error when `authorization_id` is not a non-empty text; the code is not marked spent when no session was made (`codeWasSpent`); a new `apps/server/test/eb-client-session.test.ts` holds each case and fails without the change; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: eb-client
+- after: none
+- files: apps/server/src/connectors/enable-banking/client.ts, apps/server/test/eb-client-session.test.ts
+
+### Q5 A broken link state expires
+Result: A bank return that finds an unreadable stored state says the link expired, and can be started again.
+- why: `consumeLinkState` runs `JSON.parse(raw)` on the stored value with no guard (`apps/server/src/connectors/link-state.ts`); a value that is not JSON (a half write, a hand edit of the settings) throws a SyntaxError, the state is already taken, and the user sees a fault and not the "Yhdistäminen vanheni" sentence that `AuthStateExpired` gives.
+- done when: `consumeLinkState` throws `AuthStateExpired` for a stored value that is not JSON, not an object, or without a text `userId` and a number `createdAt`; the state is taken and cannot be used again; a good state, one of another user and an old one behave as today; a new `apps/server/test/link-state.test.ts` holds each and fails without the change; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: link-state
+- after: none
+- files: apps/server/src/connectors/link-state.ts, apps/server/test/link-state.test.ts
+
 ## Later
 
 - T6 Stack review: repeat the interface stack comparison with new measurements (charts and components by 25 April 2027,
