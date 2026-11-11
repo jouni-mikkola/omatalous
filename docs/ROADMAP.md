@@ -352,6 +352,22 @@ Result: ADR 0001 says that plans and audits live in Lineclear and in `docs/`, as
 
 ## Open from before
 
+### T96 Promote reads every file
+Result: The Promote workflow passes on main, so v1.0.0 can be promoted to Latest.
+- why: the sparse checkout in `.github/workflows/promote.yml` lacks `tools/lib/project.sh` and `project.json`, which `tools/ci/promote-release.sh` sources, so every Promote run since 9 November fails at line 21.
+- done when: the sparse checkout lists every file `tools/ci/promote-release.sh` reads, and `bash -n tools/ci/promote-release.sh` plus a local run of the script from a sparse checkout with the same paths reach past line 21.
+- locks: none
+- after: none
+- files: .github/workflows/promote.yml
+
+### T97 Main CI shell job green
+Result: The shell job of ci.yml passes on main again, with no check removed or skipped, so the release gate can trust main.
+- why: the shell job is red on main since 1 November (build-ca RUN_TESTS and four repo key checks), and `ci-ok` fails with it.
+- done when: the commands of the shell job in `.github/workflows/ci.yml` pass locally on the branch, and the PR's shell job passes; no check is weakened.
+- locks: none
+- after: none
+- files: .github/workflows/ci.yml, tools/ci
+
 ### T54 English without the last Finnish
 Result: In English the app shows no Finnish: the unknown merchant and the server's error messages read in English.
 - why: In English the placeholder merchant "Tuntematon" and the server's error messages ("Virheellinen sääntö.", "Tuntematon kategoria.", the pattern problems of a rule) are Finnish.
