@@ -2,9 +2,10 @@
  * Proposed loans, asked in Tarkistettavat: the form a proposal makes and the words it uses. The page and the buttons
  * are driven by e2e/loan-proposals.spec.ts.
  */
+import "@banking/core/late";
 import { describe, expect, it } from "vitest";
 import { emptyForm, formOfProposal, readForm, setValue } from "../src/components/loans/form.ts";
-import { editorHelp, HELP_BALANCE_AND_RATE, HELP_RATE, PROPOSAL_QUESTION } from "../src/components/loans/proposal-words.ts";
+import { editorHelp, helpBalanceAndRate, helpRate, proposalQuestion } from "../src/components/loans/proposal-words.ts";
 import { eurosText } from "../src/format.ts";
 import type { Account, LoanProposalRow } from "../src/types.ts";
 import type { Loan } from "@banking/core";
@@ -33,9 +34,9 @@ describe("the form of a proposal beside the household's loan accounts", () => {
   });
 
   it("asks only for what the form leaves empty: the rate when the balance is told, else the balance and the rate", () => {
-    expect(editorHelp(formOfProposal(proposal, TODAY, [account("home", "loan", -1_000)], []))).toBe(HELP_RATE);
-    expect(editorHelp(formOfProposal(proposal, TODAY, [account("home", "loan", null)], []))).toBe(HELP_BALANCE_AND_RATE);
-    expect(editorHelp(formOfProposal(proposal, TODAY))).toBe(HELP_BALANCE_AND_RATE);
+    expect(editorHelp(formOfProposal(proposal, TODAY, [account("home", "loan", -1_000)], []))).toBe(helpRate());
+    expect(editorHelp(formOfProposal(proposal, TODAY, [account("home", "loan", null)], []))).toBe(helpBalanceAndRate());
+    expect(editorHelp(formOfProposal(proposal, TODAY))).toBe(helpBalanceAndRate());
   });
 
   it("with none, or with the only one held by a saved loan, is as it was", () => {
@@ -114,7 +115,7 @@ describe("the form of a proposal", () => {
 describe("the words", () => {
   // built from code points: the repo rule that keeps em dashes out of text files reads the characters in a regex too
   const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
-  const texts = [PROPOSAL_QUESTION, HELP_RATE, HELP_BALANCE_AND_RATE];
+  const texts = [proposalQuestion(), helpRate(), helpBalanceAndRate()];
 
   it("are plain: no dash for a pause, no exclamation mark, no 'ei X vaan Y'", () => {
     for (const text of texts) {
@@ -125,6 +126,6 @@ describe("the words", () => {
   });
 
   it("ask the question a neighbour would", () => {
-    expect(PROPOSAL_QUESTION).toBe("Onko tämä lainan maksu?");
+    expect(proposalQuestion()).toBe("Onko tämä lainan maksu?");
   });
 });

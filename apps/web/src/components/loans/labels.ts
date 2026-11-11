@@ -37,21 +37,21 @@ export const REPAYMENT_LABEL: Record<NonNullable<Loan["repayment"]>, string> = l
 /** A field of the loan form. Name and kind stand above them. */
 export type LoanFieldKey = "lender" | "balanceCents" | "balanceDate" | "grantedCents" | "limitCents" | "rateBp" | "reference" | "marginBp" | "rateReviewDate" | "repayment" | "intervalMonths" | "paymentCents" | "endDate";
 
-export const FIELD_LABEL: Record<LoanFieldKey, string> = {
-  lender: "Lainanantaja",
-  balanceCents: "Lainaa jäljellä",
-  balanceDate: "Saldon päivä",
-  grantedCents: "Myönnetty määrä",
-  limitCents: "Luottoraja",
-  rateBp: "Kokonaiskorko",
-  reference: "Viitekorko",
-  marginBp: "Marginaali",
-  rateReviewDate: "Koron tarkistuspäivä",
-  repayment: "Lyhennystapa",
-  intervalMonths: "Lyhennysväli",
-  paymentCents: "Maksuerä",
-  endDate: "Viimeinen eräpäivä",
-};
+export const FIELD_LABEL: Record<LoanFieldKey, string> = labels({
+  lender: () => t("set.loans.f_lender"),
+  balanceCents: () => t("set.loans.f_balance"),
+  balanceDate: () => t("set.loans.f_balance_date"),
+  grantedCents: () => t("set.loans.f_granted"),
+  limitCents: () => t("set.loans.f_limit"),
+  rateBp: () => t("set.loans.f_rate"),
+  reference: () => t("set.loans.f_reference"),
+  marginBp: () => t("set.loans.f_margin"),
+  rateReviewDate: () => t("set.loans.f_review"),
+  repayment: () => t("set.loans.f_repayment"),
+  intervalMonths: () => t("set.loans.f_interval"),
+  paymentCents: () => t("set.loans.f_payment"),
+  endDate: () => t("set.loans.f_end"),
+});
 
 /** "kuukauden välein" for the common intervals, a plain count for the rest. */
 export function intervalLabel(months: number): string {

@@ -4,6 +4,7 @@
  */
 import { balanceDayOf, DEBT_ACCOUNT_TYPES, isRevolving, type Loan, type LoanKind, loanPeriodInterest } from "@banking/core";
 import { ACCOUNT_TYPE_LABEL, eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
+import { t } from "../../text.ts";
 import type { Account, LoanProposalRow } from "../../types.ts";
 import { KIND_LABEL, type LoanFieldKey } from "./labels.ts";
 
@@ -121,9 +122,6 @@ export function defaultName(kind: LoanKind, lender: string): string {
   return (who ? `${KIND_LABEL[kind]}, ${who}` : KIND_LABEL[kind]).slice(0, 80);
 }
 
-const MONEY_ERROR = "Anna summa euroina, esimerkiksi 12 500,00.";
-const RATE_ERROR = "Anna korko prosentteina, esimerkiksi 3,25.";
-
 /**
  * The loan the form holds, as the server takes it: every field, hidden ones as null. An empty input is null, and so is
  * a zero where the server takes none. The server checks the ranges and answers in Finnish, so only what cannot be read
@@ -136,21 +134,21 @@ export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormE
   const cents = (key: (typeof MONEY_KEYS)[number]): number | null => {
     if (text(key) === "") return null;
     const value = parseEuros(text(key));
-    if (value === null || value < 0) errors[key] = MONEY_ERROR;
+    if (value === null || value < 0) errors[key] = t("set.loans.loan_money_error");
     return value;
   };
   const rate = (key: (typeof RATE_KEYS)[number]): number | null => {
     if (text(key) === "") return null;
     const value = parseRate(text(key));
-    if (value === null) errors[key] = RATE_ERROR;
+    if (value === null) errors[key] = t("set.loans.loan_rate_error");
     return value;
   };
   const positive = (value: number | null) => (value === 0 ? null : value);
 
-  if (form.kind === "") errors.kind = "Valitse laji.";
-  if (text("balanceCents") === "") errors.balanceCents = "Anna, paljonko lainaa on jäljellä.";
+  if (form.kind === "") errors.kind = t("set.loans.loan_pick_kind");
+  if (text("balanceCents") === "") errors.balanceCents = t("set.loans.loan_need_balance");
   const balanceCents = cents("balanceCents");
-  if (text("balanceDate") === "") errors.balanceDate = "Valitse päivä.";
+  if (text("balanceDate") === "") errors.balanceDate = t("set.loans.loan_pick_date");
   const months = text("intervalMonths");
   const body = {
     name: form.name.trim() || (form.kind === "" ? "" : defaultName(form.kind, text("lender"))),

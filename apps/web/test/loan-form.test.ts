@@ -1,5 +1,8 @@
 import type { Loan } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import "@banking/core/english";
+import "@banking/core/late";
+import { setLanguage } from "../src/format.ts";
 import { defaultName, emptyForm, formOfLoan, interestOverPayment, linkChoices, readForm, setKind, setValue, shownFields } from "../src/components/loans/form.ts";
 import type { Account } from "../src/types.ts";
 
@@ -67,6 +70,17 @@ describe("a form as the loan the server takes", () => {
       rateBp: "Anna korko prosentteina, esimerkiksi 3,25.",
       balanceDate: "Valitse päivä.",
     });
+  });
+
+  it("names the errors of an empty form in the language chosen", () => {
+    try {
+      setLanguage("en");
+      expect(readForm(emptyForm(TODAY)).errors).toEqual({ kind: "Choose a kind.", balanceCents: "Enter how much of the loan is left." });
+      setLanguage("fi");
+      expect(readForm(emptyForm(TODAY)).errors).toEqual({ kind: "Valitse laji.", balanceCents: "Anna, paljonko lainaa on jäljellä." });
+    } finally {
+      setLanguage("fi");
+    }
   });
 
   it("a card or a credit line has a limit and no repayment plan; other loans have no limit", () => {
