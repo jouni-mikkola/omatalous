@@ -234,6 +234,13 @@ Result: The remote access settings and the high contrast look work as before, an
 - locks: none
 - after: none
 
+### N29 Plan the money flow steps
+Result: The plan gains 10 to 14 steps where the sums, transfers, refunds and recurring payments the app shows differ from what the money flows
+- why: At 14:26Z no step is free for 14 slots and no plan step runs; 16 steps left, all taken or chained. docs/MONEY_FLOWS.md (900 lines) was never a plan source: packages/core/src/analysis and behaviour were not read against it.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the money flow steps. The plan gains 10 to 14 steps where the sums, transfers, refunds and recurring payments the app shows differ from what the money flows document promises. Each step: a fault or gap reproduced on main with its file and line, 50 to 150 lines of product code a user sees or relies on, its tests in the same step, its own lock named by no other step and no step behind another unless it must be, and not a result that main or an open step (A1, A2, D6, L1-L4, T76, T77, T82-T84, T105, T111, Y2, Y3) already holds. No step that is only tests, and no done-when that says under N lines. When fewer real steps are found than asked, add those found and list the files read.
+- locks: none
+- after: none
+
 ### C2 No repeated common password
 Result: A password that is one word said twice with a digit at the end, such as passwordpassword1, is refused like the word said twice alone.
 - why: `checkPassword` tests for a repeated block on the whole password only, so one digit or sign after the repeats lets it through: passwordpassword1 is allowed at level 3 of 4.
