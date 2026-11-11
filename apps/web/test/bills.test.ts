@@ -1,32 +1,10 @@
-import { cancelledSubjects, countingMark, marksBySubject, NO_INPUTS, seriesMarkSubject, upcomingGroups, type UserMark } from "@banking/core";
+import { cancelledSubjects, countingMark, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { BillsTable, MarkAction } from "../src/components/bills/BillsTable.tsx";
 import { billItems } from "../src/components/bills/items.ts";
-import { Timeline } from "../src/components/bills/Timeline.tsx";
-import type { DashboardData, Recurring } from "../src/types.ts";
-import { steady } from "./pay-fixture.ts";
-
-type Ahead = NonNullable<DashboardData["ahead"]>;
-type Row = Ahead["rows"][number];
-
-const sum = (rows: Row[], source: Row["source"]) => rows.filter((r) => r.source === source).reduce((total, r) => total + Math.abs(r.cents ?? 0), 0);
-const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Palkka", category: "salary", cents: 395_000, source: "income", pay: steady(395_000), ...over });
-/** A 30-day answer as the dashboard gives it: a pay day, two bills of the history and one the household typed in. */
-const ahead = (rows: Row[] = [row({}), row({ date: "2026-10-12", name: "Sähkö", category: "utilities", cents: -8_900, source: "recurring" }), row({ date: "2026-10-20", name: "Netflix", category: "subscriptions", cents: -1_599, source: "recurring" }), row({ date: "2026-11-03", name: "Ajoneuvovero", category: null, cents: -31_250, source: "expected" })]): Ahead => ({
-  from: "2026-10-11",
-  to: "2026-11-10",
-  days: 30,
-  reason: "none",
-  payday: null,
-  rows,
-  upcoming: rows.filter((r) => r.cents! < 0),
-  everydayPerDayCents: 0,
-  totals: { recurringCents: sum(rows, "recurring"), typedCents: sum(rows, "expected"), cardCents: 0, transferCents: 0, dueCents: sum(rows, "recurring") + sum(rows, "expected"), leavingCents: sum(rows, "recurring") + sum(rows, "expected"), incomeCents: sum(rows, "income") },
-  balance: null,
-  missing: "balance",
-});
+import type { Recurring } from "../src/types.ts";
 
 const label = (id: string) => ({ utilities: "Sähkö ja vesi", subscriptions: "Tilaukset" })[id] ?? id;
 /** The markup with the spaces of the money format made plain, so a test reads "417 €". */
@@ -115,22 +93,6 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const old = action(storage, [mark("merchant:Apple", "cancelled")]);
     expect(old).toContain("Koskee kaikkia kauppiaan tilauksia.");
     expect(old).toContain('aria-label="Kumoa: Apple"');
-  });
-});
-
-describe("Laskut: the 30 days", () => {
-  it("opens the form behind Lisää lasku and not before, and says so when nothing is coming", () => {
-    const out = flat(renderToStaticMarkup(createElement(Timeline, { ahead: null, today: "2026-10-11", onAdded: () => {} })));
-    expect(out).toContain("Tulevat maksut");
-    expect(out).toContain("Lisää lasku");
-    expect(out).toContain("Ei laskuja seuraavan 30 päivän aikana.");
-  });
-
-  it("shows the 30 days' sum as the server gives it, and the sum of Erääntyvät maksut as Yhteenveto has it", () => {
-    const a = ahead();
-    const out = flat(renderToStaticMarkup(createElement(Timeline, { ahead: { ...a, groups: upcomingGroups(a), elsewhereCents: 0 }, today: "2026-10-11", onAdded: () => {} })));
-    expect(out).toContain("417");
-    expect(out).toContain("Erääntyvät maksut");
   });
 });
 

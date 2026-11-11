@@ -4,11 +4,11 @@
  * Laskut' one table: every bill, contract, subscription, saving plan and every bill typed in, each once, in the table
  * kit with no search, chips or sorting: the rows come in the order of the next payment. What has ended waits in a folded
  * group of its own under it. One column holds the amount and, only when it differs, the month's share of it. A row opens in
- * place: its prices, its contract, and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
+ * place: how often it comes and a year of it, and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
  * removal of a bill typed in. The head's figure is core's fixed costs a month and opens its rows; the table adds nothing.
  * Whether a service is still used is asked in Tarkistettavat, never here.
  */
-import { addMonthsToDate, type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
+import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, date, dayHeading, money, monthYear, seriesName } from "../../format.ts";
@@ -22,10 +22,8 @@ import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import { Why } from "../Why.tsx";
-import { ContractPanel } from "./ContractPanel.tsx";
 import { cadenceLabel } from "./BillForm.tsx";
 import { type Item, kindLabel, type TypedBill } from "./items.ts";
-import { MoveLine, priceMoved, StepLine } from "./PriceSteps.tsx";
 
 /** What one subscription row can do next to the mark it already has. */
 export interface MarkControls {
@@ -166,7 +164,7 @@ export function BillsTable({
       rowClassName={(i) => (i.ended || i.stopped ? "sub-stopped" : undefined)}
       open={open}
       onOpen={setOpen}
-      drill={(i) => <Drill i={i} name={nameOf(i)} today={today} controls={controls} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} />}
+      drill={(i) => <Drill i={i} name={nameOf(i)} controls={controls} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} />}
       drillLabel={(i) => t("bills.details", { name: nameOf(i) })}
     />
   );
@@ -207,8 +205,8 @@ export function BillsTable({
   );
 }
 
-/** The row opened: every price it had, a year of it, its contract, and the one action. */
-function Drill({ i, name, today, controls, onRemove }: { i: Item; name: string; today: string; controls: MarkControls; onRemove: (b: TypedBill) => void }) {
+/** The row opened: how often it comes, a year of it, its last day, and the one action. */
+function Drill({ i, name, controls, onRemove }: { i: Item; name: string; controls: MarkControls; onRemove: (b: TypedBill) => void }) {
   const s = i.series;
   if (i.typed) {
     const b = i.typed;
@@ -234,17 +232,8 @@ function Drill({ i, name, today, controls, onRemove }: { i: Item; name: string; 
     );
   }
   if (!s) return null;
-  const c = s.contract;
   return (
     <div className="sub-drill">
-      {priceMoved(s) ? (
-        <div className="sub-steps">
-          <StepLine name={s.merchant} steps={s.priceSteps!} today={today} />
-          <MoveLine step={s.priceSteps!.at(-1)!} calculated={s.active && s.priceSteps!.at(-1)!.date >= addMonthsToDate(today, -12)} />
-        </div>
-      ) : (
-        <p className="sub-line">{t("bills.same_price", { month: monthYear(s.firstDate) })}</p>
-      )}
       <dl className="sub-facts">
         <div>
           <dt>{t("bills.frequency")}</dt>
@@ -267,7 +256,6 @@ function Drill({ i, name, today, controls, onRemove }: { i: Item; name: string; 
           </Button>
         </div>
       ))}
-      {c && <ContractPanel contract={c} endedByUser={i.ended && !c.ended} />}
       {(i.kind === "subscription" || i.stopped) && <MarkAction s={s} name={name} controls={controls} />}
     </div>
   );

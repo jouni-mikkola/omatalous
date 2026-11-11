@@ -619,7 +619,7 @@ test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sid
   await context.close();
 });
 
-test("an expected bill is added on the timeline of Laskut, shows in its one table, is still there after a reload and can be removed", async ({ browser }) => {
+test("an expected bill is added at the head of Tulossa, shows in its one table, is still there after a reload and can be removed", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -661,7 +661,6 @@ test("an expected bill is added on the timeline of Laskut, shows in its one tabl
   await remove(page).click();
   await page.getByRole("dialog", { name: "Poista lasku E2E-ajoneuvovero?" }).getByRole("button", { name: "Poista lasku" }).click();
   await expect(open(page)).toHaveCount(0);
-  // the timeline is fetched again too
   await expect(page.locator("#tulossa").getByText("E2E-ajoneuvovero")).toHaveCount(0);
   await page.reload();
   await expect(page.locator("#tulossa").getByRole("button", { name: "Lisää lasku" })).toBeVisible();

@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, plain, watch } from "./helpers.ts";
 
-// The demo's Adobe rise (62,99 € to 74,99 €, 144 € a year) is worked out on one page, Kiinteät menot > Hinnanmuutokset. Yhteenveto,
-// Säästövinkit and Laskut name the rise in one line that links there. Runs on the demo household that e2e/run.mjs makes.
+// The demo's Adobe rise (62,99 € to 74,99 €, 144 € a year) is worked out on one page, Kiinteät menot > Hinnanmuutokset. Yhteenveto
+// and Säästövinkit name the rise in one line that links there; the opened row of Tulossa has no price steps. Runs on the demo household that e2e/run.mjs makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FORMULA = "(74,99 € − 62,99 €) × 12";
 const HERE = "#/reports?q=kiinteat#kiinteat-hinnat";
@@ -41,12 +41,11 @@ for (const width of [390, 1440]) {
     expect(await tip.locator(".calc-line").innerText(), "prices in the tip's calculation").not.toContain("62,99");
     await shot("optimise");
 
-    // Laskut: the opened row of Adobe names the rise and links
+    // Tulossa: the opened row of Adobe has no price steps and no calculation
     await page.goto("/#/bills");
     await page.getByRole("button", { name: /^Tiedot: Adobe/ }).click();
-    const move = page.locator(".ps-move").first();
-    await expect(move).toContainText("144");
-    await expect(move.getByRole("link", { name: "Laskelma" })).toHaveAttribute("href", HERE);
+    await expect(page.locator(".sub-drill")).toBeVisible();
+    await expect(page.locator(".ps-move, .ps-plot")).toHaveCount(0);
     if (hasCalc(await read())) withCalc.push("bills");
     await shot("bills");
 

@@ -1,9 +1,9 @@
 /**
- * Decision: what is coming in the next 30 days and how much, and which bill, contract or subscription to drop.
+ * Decision: what is coming, and which bill, contract or subscription to drop.
  *
- * Laskut answers one question once: "Tulevat maksut". The 30 days come first as one timeline with its
- * sums, then the one table of the household's bills, contracts and subscriptions, with no search or sorting. A
- * payment is a dot on the timeline and a row of the table, never a list of its own. Every figure comes from one definition in core
+ * Tulossa (docs/design/README.md 1.3) is one list: the household's bills, contracts and subscriptions in the order of
+ * their next day, with no timeline, no sum lines, no search and no sorting. A bill the history cannot know yet is added
+ * by hand behind "Lisää lasku" and is a row of the same list. Every figure comes from one definition in core
  * (`fixedMonthlyCents`, `isSubscription`, `isContract`, `isSavingsPlan`) and opens its rows where the
  * app works it out; a subscription marked as cancelled is out of every total. A mark is on one series
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
@@ -14,8 +14,9 @@ import { useState } from "react";
 import { api, query } from "../api.ts";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
 import { billItems } from "../components/bills/items.ts";
-import { type Ahead, Timeline } from "../components/bills/Timeline.tsx";
+import { BillForm } from "../components/bills/BillForm.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
+import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { useApi } from "../hooks.ts";
 import { t } from "../text.ts";
@@ -28,12 +29,13 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
   // the bills typed in are the `upcoming` report's list
   const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "upcoming" })}`);
-  const ahead = useApi<{ ahead: Ahead | null }>(`/api/ahead${query({ scope })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
-  const failed = [recurring, reports, ahead].find((r) => r.error && !r.data);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
+  const failed = [recurring, reports].find((r) => r.error && !r.data);
   if (failed) {
     return (
       <ErrorCard
@@ -41,32 +43,29 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
         onRetry={() => {
           recurring.reload();
           reports.reload();
-          ahead.reload();
         }}
       />
     );
   }
-  if (!recurring.data || !reports.data || !ahead.data) return <BillsLoading />;
+  if (!recurring.data || !reports.data) return <BillsLoading />;
 
   const { series } = recurring.data;
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
   const markList = saved ?? recurring.data.marks;
   const marks = marksBySubject(markList);
   const cancelled = cancelledSubjects({ ...NO_INPUTS, marks: markList });
-  // a typed-in bill or a mark changes what the 30 days and the table hold
-  const refresh = () => {
-    reports.reload();
-    ahead.reload();
+  // a typed-in bill changes what the list holds
+  const refresh = () => reports.reload();
+  // the line that says a bill was added goes with the bill
+  const removed = () => {
+    setAdded(null);
+    refresh();
   };
   const save = (subject: string, mark: MarkKind | null) => {
     setBusy(true);
     setMarkError(null);
     api<{ marks: UserMark[] }>("/api/marks", { method: "PUT", body: { subject, mark } })
-      .then((res) => {
-        setSaved(res.marks);
-        // a subscription marked as cancelled leaves the 30 days
-        ahead.reload();
-      })
+      .then((res) => setSaved(res.marks))
       .catch((e: Error) => setMarkError(e.message))
       .finally(() => setBusy(false));
   };
@@ -83,14 +82,45 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const items = billItems({ series, typed: reports.data.upcoming.manual, cancelled, marks, today: meta.today });
 
   return (
-    <div className={`page-grid ${recurring.loading || reports.loading || ahead.loading ? "loading" : ""}`}>
-      <div className="span-12">
-        <Timeline ahead={ahead.data.ahead} today={meta.today} onAdded={refresh} />
-      </div>
+    <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
+      <section className="card span-12" id="tulossa" aria-labelledby="coming-h">
+        <div className="card-head tb">
+          <div className="card-name">
+            <h2 id="coming-h">{t("bills.coming")}</h2>
+          </div>
+          <div className="card-tool">
+            <Button
+              onClick={() => {
+                setAdding(true);
+                setAdded(null);
+              }}
+            >
+              {t("bills.form.add")}
+            </Button>
+            {/* the dialog is in the head, so the card under it stays where it was */}
+            {adding && (
+              <BillForm
+                today={meta.today}
+                onCancel={() => setAdding(false)}
+                onAdded={(name) => {
+                  setAdding(false);
+                  setAdded(name);
+                  refresh();
+                }}
+              />
+            )}
+          </div>
+        </div>
+        {added && (
+          <p className="small muted" role="status">
+            {t("bills.added", { name: added })}
+          </p>
+        )}
+      </section>
       {markError && <Notice tone="error">{markError}</Notice>}
       {items.length > 0 ? (
         <div className="span-12">
-          <BillsTable items={items} fixedCents={fixedMonthlyCents(series, cancelled)} controls={controls} label={label} cards={cards} today={meta.today} range={nowRange} scope={scope} onRemoved={refresh} />
+          <BillsTable items={items} fixedCents={fixedMonthlyCents(series, cancelled)} controls={controls} label={label} cards={cards} today={meta.today} range={nowRange} scope={scope} onRemoved={removed} />
         </div>
       ) : (
         <div className="card span-12 bills-first">
