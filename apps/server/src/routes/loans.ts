@@ -10,7 +10,7 @@ import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFE
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
-import { isIsoDate, strictObject } from "../platform/validate.ts";
+import { isIsoDate, strictObject, UNSEEN } from "../platform/validate.ts";
 import { proposalsFor } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
@@ -65,8 +65,6 @@ const NOT_LINKABLE = "Lainan voi liittää vain omaan luottokortti- tai lainatil
 /** Every request reads them all, so a runaway list stays out. */
 const MAX_LOANS = 50;
 
-/** Control characters, and the ones nobody sees: a name of zero-width spaces would show as a blank row. */
-const CONTROL = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 const absent = (value: unknown): value is null | undefined => value === null || value === undefined;
 /** A field the source did not give is null, also when the body leaves it out. */
 const orNull = <T>(value: unknown, parse: (given: unknown) => T): T | null => (absent(value) ? null : parse(value));
@@ -95,19 +93,19 @@ function date(value: unknown, from: string, to: string, message: string): string
 
 function parseName(value: unknown): string {
   const name = typeof value === "string" ? value.trim() : "";
-  if (!name || name.length > MAX_NAME || CONTROL.test(name)) throw new UserError(`Anna lainalle nimi, 1–${MAX_NAME} merkkiä.`);
+  if (!name || name.length > MAX_NAME || UNSEEN.test(name)) throw new UserError(`Anna lainalle nimi, 1–${MAX_NAME} merkkiä.`);
   return name;
 }
 
 /** A blank lender is none. */
 function parseLender(value: unknown): string | null {
   const lender = typeof value === "string" ? value.trim() : null;
-  if (lender === null || lender.length > MAX_NAME || CONTROL.test(lender)) throw new UserError(`Lainanantajan nimi voi olla enintään ${MAX_NAME} merkkiä.`);
+  if (lender === null || lender.length > MAX_NAME || UNSEEN.test(lender)) throw new UserError(`Lainanantajan nimi voi olla enintään ${MAX_NAME} merkkiä.`);
   return lender || null;
 }
 
 function parseSeriesKey(value: unknown): string {
-  if (typeof value !== "string" || !value || value.length > MAX_SERIES_KEY || CONTROL.test(value)) throw new UserError("Virheellinen maksusarja.");
+  if (typeof value !== "string" || !value || value.length > MAX_SERIES_KEY || UNSEEN.test(value)) throw new UserError("Virheellinen maksusarja.");
   return value;
 }
 

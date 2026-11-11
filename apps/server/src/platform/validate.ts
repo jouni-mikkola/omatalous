@@ -93,6 +93,20 @@ export function parseIsoDate(value: unknown, code: "check.date" | "check.date_ra
   return value;
 }
 
+/** Control characters, and the ones nobody sees: a name of zero-width spaces would show as a blank row. */
+export const UNSEEN = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+
+/**
+ * A name a person typed, trimmed: none of the UNSEEN characters anywhere in it and at most `max` characters after the
+ * trim, or a 400. The text is checked before the trim, so a name of line breaks alone is refused and not read as empty.
+ * An empty name passes: the caller decides what it means.
+ */
+export function parseNameText(text: string, max: number): string {
+  const name = text.trim();
+  if (UNSEEN.test(text) || name.length > max) throw UserError.of("check.field_bad");
+  return name;
+}
+
 /** A loan as a figure names it: a saved loan's UUID, or `account:` and the id of a connected account (at most 200 characters, no space or comma). */
 const LOAN_REF = /^(?:[0-9a-f-]{36}|account:[^\s,]{1,200})$/;
 

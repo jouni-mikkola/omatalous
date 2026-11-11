@@ -176,6 +176,26 @@ describe("account name", () => {
     expect((await account()).customName).toBeNull();
   });
 
+  it("refuses a name with a character nobody sees, or one over 80 characters, and changes nothing", async () => {
+    const { admin, s } = await setupApp();
+    const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;
+    const account = async () => (await admin.call("GET", "/api/meta")).body.accounts.find((a: { id: string }) => a.id === accountId);
+    await admin.call("PATCH", `/api/accounts/${accountId}`, { name: "Oma" });
+    const before = await account();
+
+    // a control character, a zero-width space and a line break inside; then names of only such characters
+    for (const name of ["a\u0000b\u200b\nc", "a\u200bb", "a\nb", "a\u2028b", "\u200b", "\u200b\u200b ", "\n", "\u0000", "\ufeff", "x".repeat(81), "x".repeat(150)]) {
+      const r = await admin.call("PATCH", `/api/accounts/${accountId}`, { name, type: "savings", balanceCents: 5 });
+      expect(r, JSON.stringify(name)).toMatchObject({ status: 400, body: { messageCode: "check.field_bad" } });
+      expect(await account(), JSON.stringify(name)).toEqual(before);
+    }
+
+    // the length is counted after the trim
+    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { name: `  ${"x".repeat(80)}  ` })).body).toMatchObject({ customName: "x".repeat(80) });
+    // an empty name still takes the own name away
+    expect((await admin.call("PATCH", `/api/accounts/${accountId}`, { name: "" })).body).toMatchObject({ name: "Käyttötili", customName: null });
+  });
+
   it("is only the owner's to change", async () => {
     const { admin, s, member } = await setupApp();
     const { accountId } = (await seedCsv(s, admin, { content: checkingCsv, accountName: "Käyttötili" })).body;

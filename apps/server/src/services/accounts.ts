@@ -10,6 +10,7 @@ import type { RefusedRows } from "../connectors/types.ts";
 import type { Connection, StoredAccount } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
+import { parseNameText } from "../platform/validate.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
 
@@ -80,16 +81,19 @@ export interface AccountEdit {
   balanceCents?: number;
 }
 
+const MAX_NAME = 80;
+
 export async function updateAccount(s: Services, userId: string, id: string, edit: AccountEdit) {
   const repo = s.finance(userId);
   const account = await repo.getAccount(id);
   if (!account) throw new NotFound("Tiliä ei löydy.");
+  // before anything is written: a name nobody can read changes nothing
+  const name = edit.name === undefined ? undefined : parseNameText(edit.name, MAX_NAME);
   // a bank-linked account gets its balance from the bank at every sync
   if (edit.balanceCents !== undefined && account.provider !== "csv") throw new UserError("Saldon voi asettaa vain tuodulle tilille.");
   const renamed = edit.name !== undefined || edit.type !== undefined;
   if (renamed) {
     // the user's name is stored apart from the bank's: a link rewrites the bank's, never this one
-    const name = edit.name?.trim().slice(0, 80);
     await repo.updateAccount(id, { customName: name === undefined ? undefined : name && name !== account.bankName ? name : null, type: edit.type });
   }
   if (edit.balanceCents !== undefined) await repo.setAccountBalance(id, edit.balanceCents, s.now().toISOString());
