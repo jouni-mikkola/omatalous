@@ -4,7 +4,7 @@
  * an empty one is the whole history.
  */
 import { addDays, isRealDay } from "@banking/core";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { date, dateRange, mondayFirstWeekdays, monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
 import { Button } from "../../components/ui/Button.tsx";
@@ -69,6 +69,28 @@ export function DateRange({ value, today, onCommit }: { value: Period; today: st
     if (!draft.from || draft.to || d < draft.from) setDraft({ from: d, to: "" });
     else setDraft({ from: draft.from, to: d });
   };
+  const [cursor, setCursor] = useState("");
+  const gridRef = useRef<HTMLDivElement>(null);
+  const refocus = useRef(false);
+  const cells = monthGrid(month);
+  const weeks = Array.from({ length: Math.ceil(cells.length / 7) }, (_, r) => Array.from({ length: 7 }, (_, i) => cells[r * 7 + i] ?? null));
+  const inMonth = (d: string) => d.slice(0, 7) === month && d <= today;
+  const stop = [cursor, draft.to, draft.from, today].find((d) => d && inMonth(d)) ?? `${month}-01`;
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    gridRef.current?.querySelector<HTMLButtonElement>(`[data-day="${cursor}"]`)?.focus();
+  }, [cursor, month]);
+  const onKey = (e: React.KeyboardEvent, d: string) => {
+    const by = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: 7, ArrowUp: -7 }[e.key];
+    if (!by) return;
+    e.preventDefault();
+    const next = addDays(d, by);
+    if (next > today) return;
+    refocus.current = true;
+    setCursor(next);
+    setMonth(next.slice(0, 7));
+  };
   const inRange = (d: string) => !!draft.from && d >= draft.from && d <= (draft.to || draft.from);
   return (
     <div className="tx-range">
@@ -94,29 +116,42 @@ export function DateRange({ value, today, onCommit }: { value: Period; today: st
             ›
           </IconButton>
         </div>
-        <div className="tx-cal-grid" role="grid" aria-label={monthLong(month)}>
-          {mondayFirstWeekdays().map((w) => (
-            <span key={w} className="tx-cal-wd" aria-hidden="true">
-              {w}
-            </span>
+        <div className="tx-cal-grid" role="grid" aria-label={monthLong(month)} ref={gridRef}>
+          <div className="tx-cal-row" role="row">
+            {mondayFirstWeekdays().map((w) => (
+              <span key={w} className="tx-cal-wd" role="columnheader">
+                {w}
+              </span>
+            ))}
+          </div>
+          {weeks.map((week, r) => (
+            <div key={r} className="tx-cal-row" role="row">
+              {week.map((d, i) =>
+                d ? (
+                  <div key={d} role="gridcell" className="tx-cal-cell">
+                    <button
+                      type="button"
+                      data-day={d}
+                      tabIndex={d === stop ? 0 : -1}
+                      className={`tx-cal-day${inRange(d) ? " in" : ""}${d === draft.from || d === draft.to ? " end" : ""}${d === today ? " today" : ""}`}
+                      disabled={d > today}
+                      aria-pressed={inRange(d)}
+                      aria-label={date(d)}
+                      onClick={() => {
+                        setCursor(d);
+                        pick(d);
+                      }}
+                      onKeyDown={(e) => onKey(e, d)}
+                    >
+                      {Number(d.slice(8, 10))}
+                    </button>
+                  </div>
+                ) : (
+                  <div key={`e${i}`} role="gridcell" className="tx-cal-cell" />
+                ),
+              )}
+            </div>
           ))}
-          {monthGrid(month).map((d, i) =>
-            d ? (
-              <button
-                key={d}
-                type="button"
-                className={`tx-cal-day${inRange(d) ? " in" : ""}${d === draft.from || d === draft.to ? " end" : ""}${d === today ? " today" : ""}`}
-                disabled={d > today}
-                aria-pressed={inRange(d)}
-                aria-label={date(d)}
-                onClick={() => pick(d)}
-              >
-                {Number(d.slice(8, 10))}
-              </button>
-            ) : (
-              <span key={`e${i}`} />
-            ),
-          )}
         </div>
         <div className="tx-cal-foot">
           <span className="tx-cal-pick">{draft.from ? periodLabel({ from: draft.from, to: draft.to || draft.from }, today) : t("range.pick_first")}</span>

@@ -198,7 +198,9 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-range-presets button:focus-visible, .tx-cal-day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .tx-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-8); }
 .tx-cal-month { font-size: var(--fs-body); font-weight: var(--w-strong); }
-.tx-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--sp-4) 0; }
+.tx-cal-grid { display: grid; gap: var(--sp-4) 0; }
+.tx-cal-row { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.tx-cal-cell { display: grid; }
 .tx-cal-wd { padding: var(--sp-4) 0; font-size: var(--fs-label); text-align: center; color: var(--text-2); }
 .tx-cal-day { all: unset; box-sizing: border-box; height: var(--control-h); text-align: center; font-size: var(--fs-body); line-height: var(--control-h); font-variant-numeric: tabular-nums; cursor: pointer; }
 .tx-cal-day:hover:not(:disabled) { background: var(--row-hover); border-radius: var(--radius-s); }
