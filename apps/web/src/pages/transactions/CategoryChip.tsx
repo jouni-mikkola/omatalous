@@ -1,5 +1,5 @@
 /**
- * The category of a row as a chip in its group's colour with its own icon. Changing it is the picker, a list of our own
+ * The category of a row as text on a chip in its group's colour. Changing it is the picker, a list of our own
  * with a search (no native select: a page of rows would carry thousands of options, and the system list shows no icons):
  * the row's menu and the category filter open the same one.
  */
@@ -78,11 +78,10 @@ export function CategoryMenu({ categories, value, onPick, note }: { categories: 
   );
 }
 
-/** The chip's face: the category's icon and name, and the quiet dot when the household set it. */
-function Face({ category, label, manual }: { category: Category | undefined; label: string; manual?: boolean }) {
+/** The chip's face: the category's name as text, no icon, and the quiet dot when the household set it. */
+function Face({ label, manual }: { label: string; manual?: boolean }) {
   return (
     <>
-      <CategoryIcon category={category} />
       <span className="tx-chip-label">{label}</span>
       {/* the household set it: a quiet dot, the word for readers and the pointer */}
       {manual && (
@@ -99,7 +98,7 @@ export function CategoryLabel({ categories, value, manual }: { categories: (Cate
   const c = categories.find((x) => x.id === value);
   return (
     <span className="tx-chip" data-slot={slotOf(c)}>
-      <Face category={c} label={c?.label ?? value} manual={manual} />
+      <Face label={c?.label ?? value} manual={manual} />
     </span>
   );
 }
@@ -109,7 +108,7 @@ export function SharedCategory({ categories, value, manual }: { categories: (Cat
   const c = categories.find((x) => x.id === value);
   return (
     <span className="tx-chip" data-slot={slotOf(c)} title={t("tx.shared_cat")}>
-      <Face category={c} label={c?.label ?? value} manual={manual} />
+      <Face label={c?.label ?? value} manual={manual} />
     </span>
   );
 }

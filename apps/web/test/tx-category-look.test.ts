@@ -2,6 +2,7 @@ import { CATEGORIES } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { CategoryLabel, SharedCategory } from "../src/pages/transactions/CategoryChip.tsx";
 import { CATEGORY_ICON, CategoryIcon, slotOf } from "../src/pages/transactions/category-look.tsx";
 
 describe("the category look of Tapahtumat", () => {
@@ -19,5 +20,14 @@ describe("the category look of Tapahtumat", () => {
     expect(html).toContain(CATEGORY_ICON.groceries);
     expect(slotOf({ group: "Asuminen" })).toBe(1);
     expect(slotOf({ group: "Tulot" })).toBe("rest");
+  });
+
+  it("tells a row's category as text with no icon, on an own account and on a shared one", () => {
+    const groceries = CATEGORIES.find((c) => c.id === "groceries")!;
+    for (const Label of [CategoryLabel, SharedCategory]) {
+      const html = renderToStaticMarkup(createElement(Label, { categories: [...CATEGORIES], value: groceries.id, manual: true }));
+      expect(html, Label.name).toContain(groceries.label);
+      expect(html, Label.name).not.toContain("<svg");
+    }
   });
 });
