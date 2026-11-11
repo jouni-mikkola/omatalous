@@ -3,7 +3,7 @@
  * next and what it is worth over a year (`effectPerYear`, a calc line). Every source below has its own file, gate and
  * history rule; this file ranks them: a recurring pattern before a single row, then the larger effect first, and a
  * single row only when it is worth `SINGLE_MIN_YEARLY_CENTS` and is among the largest rows of its month. Säästövinkit shows them as Muut havainnot
- * (optimise/others.ts); with that page switched off the overview shows the first three and the Havainnot report all
+ * (the optimise others page); with that page switched off the overview shows the first three and the Havainnot report all
  * of them. What the alerts say (alerts.ts) and what the spending change says (change.ts) is not repeated.
  */
 import { DEFAULT_LANGUAGE, type Language } from "../../locale.ts";
@@ -124,7 +124,7 @@ export function rankInsights(input: InsightInput): Insight[] {
 /**
  * What the insights of a period are judged on outside the dashboard: its rows, their totals and the overview's alerts,
  * so a list and the overview's first three agree and nothing an alert says repeats. The Havainnot report and
- * Säästövinkit (optimise/others.ts) read this.
+ * Säästövinkit (the optimise others page) read this.
  */
 export function insightInputOf(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): InsightInput {
   const current = inDays(ctx, toDayRange(range));

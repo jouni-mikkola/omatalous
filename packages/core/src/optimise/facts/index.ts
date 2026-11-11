@@ -4,7 +4,8 @@
  * was read from its source page on `verifiedAt`; a figure nobody opened at its source is left out.
  */
 import { DEFAULT_LANGUAGE, type Language } from "../../locale.ts";
-import type { IsoDate } from "../../types.ts";
+import { factFrom } from "../../analysis/cpi.ts";
+import type { Fact, IsoDate } from "../../types.ts";
 import { BANK_FACTS } from "./bank.ts";
 import { ELECTRICITY_FACTS } from "./electricity.ts";
 import { GENERAL_FACTS } from "./general.ts";
@@ -14,38 +15,7 @@ import { LOANS_FACTS } from "./loans.ts";
 import { SAVINGS_FACTS } from "./savings.ts";
 import { TAX_FACTS } from "./tax.ts";
 
-/**
- * The expiry class of a row: rates, CPI and energy prices age in 6 months from `asOf`; price lists, surveys and
- * sample offers in 12; a law at its `validTo`, else 12 months after it was verified.
- */
-type FactKind = "rate" | "cpi" | "energy" | "price_list" | "survey" | "sample" | "law";
-
-type FactStatus = "valid" | "proposed" | "repealed";
-
-export interface Fact {
-  /** Several rows may share an id with different validity (a fee before and after a change). */
-  id: string;
-  /** Finnish, as a calc line shows it. */
-  label: string;
-  /** English, set on every row an area shows in a calc line (not on the CPI classes, which none does). */
-  labelEn?: string;
-  value: number;
-  /** "%", "c/kWh", "snt" (money facts are in cents), "€/kk" in a value cell only. */
-  unit: string;
-  kind: FactKind;
-  status: FactStatus;
-  validFrom: IsoDate;
-  validTo?: IsoDate;
-  /** The month a statistic measures (CPI of 2026-08); `asOf` is then the release the series was read from. */
-  period?: string;
-  /** The date the figure describes. */
-  asOf: IsoDate;
-  /** The day the row stops being used; the rule it follows is `factExpiry` in the facts test, which checks every row. */
-  expires: IsoDate;
-  source: { title: string; url: string };
-  /** The day a worker opened `source.url` and read the figure there. */
-  verifiedAt: IsoDate;
-}
+export type { Fact } from "../../types.ts";
 
 /** The label of `f` in `lang`. */
 export const factLabel = (f: Pick<Fact, "label" | "labelEn">, lang: Language = DEFAULT_LANGUAGE): string => (lang === "en" ? (f.labelEn ?? f.label) : f.label);
@@ -66,10 +36,7 @@ export const FACTS: readonly Fact[] = [
 
 const latest = (rows: Fact[]) => rows.sort((a, b) => b.validFrom.localeCompare(a.validFrom))[0] ?? null;
 
-/** The valid row of `id` on `today` from `rows`; null when none is valid, in force and unexpired. */
-export function factFrom(rows: readonly Fact[], id: string, today: IsoDate): Fact | null {
-  return latest(rows.filter((f) => f.id === id && f.status === "valid" && f.validFrom <= today && (!f.validTo || today <= f.validTo) && today <= f.expires));
-}
+export { factFrom };
 
 /** A proposed row of `id` that has not expired: shown only as a calc line ("Jos eduskunta hyväksyy esityksen: 520 €"), never in euros. */
 export function proposedFrom(rows: readonly Fact[], id: string, today: IsoDate): Fact | null {

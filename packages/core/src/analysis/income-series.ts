@@ -5,8 +5,7 @@
 import { addMonths, monthOf } from "../dates.ts";
 import { median } from "../stats.ts";
 import { INCOME_GATE_FLOOR_CENTS } from "../thresholds.ts";
-import type { IsoDate } from "../types.ts";
-import type { CalcLine } from "../optimise/types.ts";
+import type { CalcLine, IsoDate } from "../types.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { formatEur, formatFiDayMonth, monthNameIn } from "./format.ts";
 import { messageIn } from "../messages.ts";

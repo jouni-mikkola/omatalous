@@ -1,6 +1,5 @@
 import type { Language } from "../../locale.ts";
-import type { CalcLine } from "../../optimise/types.ts";
-import type { IsoDate, UserInputs } from "../../types.ts";
+import type { CalcLine, IsoDate, UserInputs } from "../../types.ts";
 import type { Alert } from "../alerts.ts";
 import type { AnalysisContext, AnalysisTx } from "../context.ts";
 import type { CategoryTotal } from "../dashboard.ts";

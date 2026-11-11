@@ -10,9 +10,8 @@ import { expectedIncome, expectedSpending } from "../expected.ts";
 import { completeMonthsBefore, gateFor } from "../usual.ts";
 import { GATE_FLOOR_CENTS, SINGLE_TOP_ROWS } from "../../thresholds.ts";
 import { isLenderName } from "../../wording.ts";
-import type { IsoDate, UserInputs } from "../../types.ts";
+import type { CalcLine, IsoDate, UserInputs } from "../../types.ts";
 import { coveringMark, inUseQuietsQuestion, type MarkedSeries, marksBySubject } from "../subscription-alerts.ts";
-import type { CalcLine } from "../../optimise/types.ts";
 import { type Action, type Comparison, type EffectLine, type Insight, type InsightEvidence, type InsightFact, q } from "./types.ts";
 
 const COUNT_WORDS = { fi: ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"], en: ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"] };

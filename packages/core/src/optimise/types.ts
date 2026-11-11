@@ -7,7 +7,7 @@ import type { Language } from "../locale.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import type { QualitySignal } from "../analysis/data-quality.ts";
 import type { Insight } from "../analysis/insights/types.ts";
-import type { BalanceInput, IsoDate, LoanReference, UserInputs } from "../types.ts";
+import type { BalanceInput, CalcLine, IsoDate, LoanReference, UserInputs } from "../types.ts";
 
 export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electricity", "housing", "insurance", "food", "habits", "seasons", "tax", "kids", "car"] as const;
 export type AreaId = (typeof AREA_IDS)[number];
@@ -19,14 +19,7 @@ interface EuroRange {
   highCents: number;
 }
 
-/** One row of the Laskelma table. Every number of a finding's title is in one of these (rule 5). */
-export interface CalcLine {
-  label: string;
-  /** Formatted for the page: "1 234 €", "3,5 c/kWh", "12.3.2026". */
-  value: string;
-  /** A one-off taken out of the level, shown struck through. */
-  struck?: boolean;
-}
+export type { CalcLine } from "../types.ts";
 
 export type CertaintyLevel = "korkea" | "keskitaso" | "matala";
 

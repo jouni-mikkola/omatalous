@@ -250,7 +250,7 @@ export const MAX_LOAN_INTERVAL_MONTHS = 12;
 export const LOAN_REPAYMENTS = ["annuity", "equal_principal", "fixed_instalment", "bullet"] as const;
 type LoanRepayment = (typeof LOAN_REPAYMENTS)[number];
 
-/** The rate a loan follows (Optimoi's loan rate input). Here, not in optimise/types.ts, so the base types import nothing back. */
+/** The rate a loan follows (Optimoi's loan rate input). Here, not in the optimise folder, so the base types import nothing back. */
 export type LoanReference = "euribor_12" | "euribor_6" | "euribor_3" | "fixed";
 
 /** The reference rates a loan can name: the ids the Optimoi `loan_rate` input offers. */
@@ -324,3 +324,45 @@ export interface UserInputs {
 }
 
 export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [], loans: [] };
+
+/** One row of the Laskelma table. Every number of a finding's title is in one of these (rule 5). */
+export interface CalcLine {
+  label: string;
+  /** Formatted for the page: "1 234 €", "3,5 c/kWh", "12.3.2026". */
+  value: string;
+  /** A one-off taken out of the level, shown struck through. */
+  struck?: boolean;
+}
+
+/**
+ * The expiry class of a row: rates, CPI and energy prices age in 6 months from `asOf`; price lists, surveys and
+ * sample offers in 12; a law at its `validTo`, else 12 months after it was verified.
+ */
+export type FactKind = "rate" | "cpi" | "energy" | "price_list" | "survey" | "sample" | "law";
+
+export type FactStatus = "valid" | "proposed" | "repealed";
+
+export interface Fact {
+  /** Several rows may share an id with different validity (a fee before and after a change). */
+  id: string;
+  /** Finnish, as a calc line shows it. */
+  label: string;
+  /** English, set on every row an area shows in a calc line (not on the CPI classes, which none does). */
+  labelEn?: string;
+  value: number;
+  /** "%", "c/kWh", "snt" (money facts are in cents), "€/kk" in a value cell only. */
+  unit: string;
+  kind: FactKind;
+  status: FactStatus;
+  validFrom: IsoDate;
+  validTo?: IsoDate;
+  /** The month a statistic measures (CPI of 2026-08); `asOf` is then the release the series was read from. */
+  period?: string;
+  /** The date the figure describes. */
+  asOf: IsoDate;
+  /** The day the row stops being used; the rule it follows is `factExpiry` in the facts test, which checks every row. */
+  expires: IsoDate;
+  source: { title: string; url: string };
+  /** The day a worker opened `source.url` and read the figure there. */
+  verifiedAt: IsoDate;
+}

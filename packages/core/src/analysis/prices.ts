@@ -1,11 +1,10 @@
 /**
  * How much of a rise in spending prices explain: the owner of the price split (ADR 0004). The other part is what the
  * household bought more. Prices are the consumer price index of the COICOP class the money was spent on, bundled as
- * dated facts (`optimise/facts/cpi.ts`), so a period whose months have no valid index row tells nothing.
+ * dated facts (`cpi.ts`), so a period whose months have no valid index row tells nothing.
  */
-import { CPI_CLASS_NAMES, CPI_FACTS, CPI_SOURCE } from "../optimise/facts/cpi.ts";
-import { type Fact, factFrom } from "../optimise/facts/index.ts";
-import type { IsoDate } from "../types.ts";
+import { CPI_CLASS_NAMES, CPI_FACTS, CPI_SOURCE, factFrom } from "./cpi.ts";
+import type { Fact, IsoDate } from "../types.ts";
 
 /**
  * The COICOP 2018 class whose prices a category's spending follows. A category that mixes classes with prices of their
