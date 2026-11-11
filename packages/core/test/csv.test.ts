@@ -14,4 +14,11 @@ describe("csv", () => {
     expect(csv([["=1+1", "+1", "-2", "@x"]])).toContain("'=1+1;'+1;'-2;'@x");
     expect(csv([[-2]])).toContain("-2");
   });
+
+  it("writes no NaN, Infinity or exponent", () => {
+    expect(csvBody([[NaN, Infinity, -Infinity]])).toBe(";;\r\n");
+    expect(csvBody([[1e21]])).toBe("1000000000000000000000\r\n");
+    expect(csvBody([[0.0000001]])).toBe("0,0000001\r\n");
+    expect(csvBody([[1.5, 0, -0, "abc"]])).toBe("1,5;0;0;abc\r\n");
+  });
 });
