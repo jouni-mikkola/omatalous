@@ -237,15 +237,19 @@ export function DataImport() {
               [t("set.imp.total"), counts(plan.total, false)],
             ]}
           />
+          {/* the import adds rows and never changes one, so with nothing to add Tuo would do nothing */}
+          {plan.total.add === 0 && <p role="status">{t("set.imp.nothing_new")}</p>}
           <div className="data-import-actions">
-            <Button
-              variant="primary"
-              disabled={busy}
-              aria-busy={busy}
-              onClick={() => void commit()}
-            >
-              {t("set.imp.import_2")}
-            </Button>
+            {plan.total.add > 0 && (
+              <Button
+                variant="primary"
+                disabled={busy}
+                aria-busy={busy}
+                onClick={() => void commit()}
+              >
+                {t("set.imp.import_2")}
+              </Button>
+            )}
             <Button
               
               disabled={busy}

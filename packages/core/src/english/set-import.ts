@@ -42,6 +42,7 @@ export const EN_SET_IMPORT: Record<keyof typeof FI_SET_IMPORT, string> = {
   "set.imp.total": "Total",
   "set.imp.import_2": "Import",
   "set.imp.cancel": "Cancel",
+  "set.imp.nothing_new": "The file has nothing new.",
   "set.imp.exported_on": "exported {date}",
   "set.imp.file_line": "Omatalous data file, {when}",
   "set.imp.file_version": ", version {version}",

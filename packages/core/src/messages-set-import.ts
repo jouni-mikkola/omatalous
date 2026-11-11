@@ -44,6 +44,7 @@ export const FI_SET_IMPORT = {
   "set.imp.total": "Yhteensä",
   "set.imp.import_2": "Tuo",
   "set.imp.cancel": "Peruuta",
+  "set.imp.nothing_new": "Tiedostossa ei ole mitään uutta.",
   "set.imp.exported_on": "viety {date}",
   "set.imp.file_line": "Omatalouden tietotiedosto, {when}",
   "set.imp.file_version": ", versio {version}",
