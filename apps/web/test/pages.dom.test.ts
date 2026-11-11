@@ -48,6 +48,10 @@ describe("Tapahtumat", () => {
     const server = await startServer();
     await openApp("#/settings/household#saannot", "Asetukset");
     await screen.findByRole("textbox", { name: "Hakusana" }, T);
+    // each field shows its name above it, and no loose word stands between two fields
+    const form = document.querySelector(".rule-form")!;
+    expect([...form.querySelectorAll("label.field")].map((l) => l.firstChild?.textContent)).toEqual(["Kenttä", "Hakusana", "Kategoria"]);
+    expect(form.textContent).not.toContain("kategoriaan");
     fireEvent.change(screen.getByRole("textbox", { name: "Hakusana" }), { target: { value: "Testikauppa" } });
     fireEvent.click(screen.getByRole("button", { name: "Lisää" }));
     await screen.findByRole("button", { name: "Poista sääntö: Testikauppa" }, T);

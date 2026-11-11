@@ -56,7 +56,7 @@ describe("the page that did not come", () => {
 
   it("lets the category select and the rule field read whole", () => {
     expect(css("transactions.css")).toMatch(/\.tx-chip \{[^}]*max-width: 15rem;/);
-    expect(css("categories.css")).toMatch(/\.rule-form input\[type="text"\] \{ flex: 1 1 18rem; max-width: 24rem; min-width: 0; \}/);
+    expect(css("categories.css")).toMatch(/\.rule-form \.rule-pattern \{ flex: 1 1 18rem; max-width: 24rem; min-width: 0; \}/);
   });
 
   it("gives its heads flush, and the merchant's cells four to a row", () => {

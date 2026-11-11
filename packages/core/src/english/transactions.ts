@@ -197,7 +197,6 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "rule.field": "Field",
   "rule.pattern": "Search word",
   "rule.pattern_example": "for example Lidl",
-  "rule.to_category": "to category",
   "rule.add": "Add",
   "rule.own": "Your rules",
   "rule.category": "Category",

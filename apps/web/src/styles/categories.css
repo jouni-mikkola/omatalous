@@ -7,11 +7,11 @@
 .m-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .m-name a { overflow-wrap: anywhere; }
 /* Säännöt: the search word takes the room left, so its placeholder reads whole */
-.rule-form input[type="text"] { flex: 1 1 18rem; max-width: 24rem; min-width: 0; }
+.rule-form .rule-pattern { flex: 1 1 18rem; max-width: 24rem; min-width: 0; }
 /* a phone: the fields of the rule stand in one column on one measure, the key under them */
 @media (max-width: 600px) {
   .rule-form { display: grid; grid-template-columns: minmax(0, 1fr); }
-  .rule-form input[type="text"] { max-width: none; }
+  .rule-form .rule-pattern { max-width: none; }
   .rule-form select, .rule-form .select-lite { width: 100%; max-width: none; }
   .rule-form .btn { justify-self: start; }
 }

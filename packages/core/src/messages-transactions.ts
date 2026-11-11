@@ -199,7 +199,6 @@ export const FI_TRANSACTIONS = {
   "rule.field": "Kenttä",
   "rule.pattern": "Hakusana",
   "rule.pattern_example": "esimerkiksi Lidl",
-  "rule.to_category": "kategoriaan",
   "rule.add": "Lisää",
   "rule.own": "Omat säännöt",
   "rule.category": "Kategoria",

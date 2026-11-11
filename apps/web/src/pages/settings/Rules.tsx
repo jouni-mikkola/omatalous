@@ -63,17 +63,27 @@ export function Rules({ meta }: { meta: Meta }) {
             <h2>{t("rule.heading")}</h2>
           </div>
         </div>
-        <form className="form-row rule-form" onSubmit={add}>
-          <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])} aria-label={t("rule.field")}>
-            {Object.entries(FIELD_LABEL).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-          <input type="text" placeholder={t("rule.pattern_example")} value={pattern} onChange={(e) => setPattern(e.target.value)} aria-label={t("rule.pattern")} required />
-          <span className="muted">{t("rule.to_category")}</span>
-          <CategorySelect categories={meta.categories} value={category} onChange={setCategory} />
+        {/* each field has its name above it, as the other forms of the household: a loose "kategoriaan" between two fields
+            stood alone on a line on a phone */}
+        <form className="form-row form-fields rule-form" onSubmit={add}>
+          <label className="field">
+            {t("rule.field")}
+            <select value={field} onChange={(e) => setField(e.target.value as CategoryRule["field"])}>
+              {Object.entries(FIELD_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field rule-pattern">
+            {t("rule.pattern")}
+            <input type="text" placeholder={t("rule.pattern_example")} value={pattern} onChange={(e) => setPattern(e.target.value)} required />
+          </label>
+          <label className="field">
+            {t("rule.category")}
+            <CategorySelect categories={meta.categories} value={category} onChange={setCategory} ariaLabel={t("rule.category")} />
+          </label>
           <Button variant="primary" type="submit" busy={busy}>
             {t("rule.add")}
           </Button>

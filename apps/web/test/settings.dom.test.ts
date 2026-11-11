@@ -16,7 +16,8 @@ describe("Jäsenet", () => {
     expect(screen.queryByLabelText(/Käyttäjätunnus/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Lisää jäsen" }));
     // a visible label per field and the username's rule up front
-    for (const label of ["Käyttäjätunnus", "Nimi", "Rooli"]) expect(document.querySelector(`label.field`)!.parentElement!.textContent).toContain(label);
+    // (the member's form, not the first labelled form of the page: Säännöt above it has labels too)
+    for (const label of ["Käyttäjätunnus", "Nimi", "Rooli"]) expect(screen.getByLabelText(/Käyttäjätunnus/).closest("form")!.textContent).toContain(label);
     expect(document.body.textContent).toContain("3–32 merkkiä: kirjaimia, numeroita ja merkit . _ -");
     fireEvent.change(screen.getByLabelText(/Käyttäjätunnus/), { target: { value: "Ei Sallittu" } });
     fireEvent.click(screen.getByRole("button", { name: "Lisää jäsen" }));
