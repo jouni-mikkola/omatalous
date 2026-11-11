@@ -8,7 +8,8 @@
  *   categoriser pairs a shop's refund (`REFUND_WINDOW_DAYS`), and the row is not larger than what is left of those
  *   payments. It lowers the category of the payments, in the month it arrives.
  * - A refund the categoriser made of the payee's latest earlier payment, by its word or as money from a payee the household
- *   only pays: it lowers that payment's category in its month, whatever the days and the sum.
+ *   only pays: it lowers that payment's category in its month. The categoriser makes it only of money that is no more
+ *   than what is left of the payee's payments of the window (`pairedReturns`); a larger one is income.
  * - A contract's closing refund (contract.ts): the payee's contract ended with its last payment within 60 days before the
  *   row, and the row is no more than the contract cost. It lowers the category of the contract's payments, the latest
  *   first, whatever the 120 days: a lease gives back more than one rent.
@@ -154,8 +155,9 @@ function refundOf(t: Row, paid: readonly Payment[]): Refund | null {
 
 /**
  * A refund the categorisation made of the payee's latest earlier payment (a refund word, or money in from a payee only
- * paid to) that no window or sum holds: it takes back that payment, however old and however small. `pairedPayment` comes
- * only when it is one of the payee's payments the row may take back.
+ * paid to) that the view's own payments do not hold: it takes back that payment. `pairedPayment` comes only when it is
+ * one of the payee's payments the row may take back, and `pairedReturns` pairs no row larger than what is left of the
+ * payee's payments of the window: such a row is income.
  */
 function lateRefundOf(t: Row, pairedPayment: Payment | undefined): Refund | null {
   return t.categorySource === "match" && pairedPayment ? [[pairedPayment.t.id, t.amountCents]] : null;

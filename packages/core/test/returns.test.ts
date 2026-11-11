@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createContext, netPurchase } from "../src/analysis/context.ts";
+import { addDays } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { matchReturns, pairedReturns } from "../src/returns.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -49,6 +50,53 @@ describe("matchReturns", () => {
         tx({ id: "r", bookingDate: new Date(Date.UTC(2026, 0, 1 + days)).toISOString().slice(0, 10), amountCents: 5000, merchant: "Elisa Virtanen", category: "p2p_in", categorySource: "rule" }),
       ]).size;
     expect([person(90), person(91)]).toEqual([1, 0]);
+  });
+
+  describe("money in with a refund word", () => {
+    // the shop has paid the household before, so only the word makes the money a refund
+    const word = (id: string, date: string, euros: number) => back(id, date, euros, { description: "HYVITYS" });
+
+    it("larger than what is left of the payee's payments is paired with no payment: it is income, as the same row without the word", () => {
+      const p = bought("p", "2026-09-03", 20);
+      expect(matchReturns([p, word("r", "2026-09-12", 500)]).size).toBe(0);
+      expect(matchReturns([earlierIncome, p, word("r", "2026-09-12", 500)]).size).toBe(0);
+      expect(matchReturns([earlierIncome, p, back("r", "2026-09-12", 500)]).size).toBe(0);
+      // the pipeline leaves it income: no category of a purchase, no pair
+      const final = enrichTransactions([p, word("r", "2026-09-12", 500)], [checking], []);
+      expect(final.find((t) => t.id === "r")?.categorySource).not.toBe("match");
+    });
+
+    it("at or under what is left is paired as before: with the latest payment when no one payment holds it", () => {
+      const purchases = [earlierIncome, bought("a", "2026-09-01", 20), bought("b", "2026-09-05", 15)];
+      expect([...matchReturns([...purchases, word("r", "2026-09-12", 30)])]).toEqual([["r", "b"]]);
+      expect([...matchReturns([...purchases, word("r", "2026-09-12", 35)])]).toEqual([["r", "b"]]);
+      expect(matchReturns([...purchases, word("r", "2026-09-12", 35.01)]).size).toBe(0);
+      // the same sums without the word are income: the shop has paid the household before
+      expect(matchReturns([...purchases, back("r", "2026-09-12", 30)]).size).toBe(0);
+    });
+
+    it("counts only the payments of the 120 days before it", () => {
+      const rows = [earlierIncome, bought("old", "2026-01-10", 400), bought("a", "2026-09-01", 20), bought("b", "2026-09-05", 15)];
+      expect(matchReturns([...rows, word("r", "2026-09-12", 36)]).size).toBe(0);
+      expect(matchReturns([...rows, word("r", "2026-09-12", 35)]).get("r")).toBe("b");
+    });
+
+    it("cancels the payments once: a second refund has only what the first left", () => {
+      const purchases = [earlierIncome, bought("a", "2026-09-01", 20), bought("b", "2026-09-03", 20), bought("c", "2026-09-05", 15)];
+      // 30,00 took the 15,00 and 15,00 of the later 20,00: 25,00 is left, and no one payment holds 22,00
+      expect([...matchReturns([...purchases, word("r1", "2026-09-12", 30), word("r2", "2026-09-14", 22)])]).toEqual([["r1", "c"], ["r2", "c"]]);
+      expect([...matchReturns([...purchases, word("r1", "2026-09-12", 30), word("r2", "2026-09-14", 26)])]).toEqual([["r1", "c"]]);
+      // a refund that one payment holds takes its part first: 30,00 is then more than the 25,00 left of 20,00 and 15,00
+      const two = [earlierIncome, bought("a", "2026-09-01", 20), bought("b", "2026-09-05", 15)];
+      expect([...matchReturns([...two, word("r1", "2026-09-12", 30), word("r2", "2026-09-14", 10)]).keys()]).toEqual(["r2"]);
+    });
+
+    it("a contract's closing refund is not touched: more than one rent comes back, paired with the last", () => {
+      const rent = (m: number) => bought(`l${String(m).padStart(2, "0")}`, addDays("2025-01-05", 30 * m), 950, { category: "housing", categorySource: "rule" });
+      const rents = Array.from({ length: 14 }, (_, m) => rent(m));
+      const closing = word("r", addDays("2025-01-05", 30 * 13 + 40), 1500);
+      expect([...matchReturns([...rents, closing], new Set(), new Set(), "2026-09-30")]).toEqual([["r", "l13"]]);
+    });
   });
 
   it("gives the same answer whatever the order of the input", () => {

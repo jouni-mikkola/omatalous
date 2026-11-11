@@ -127,7 +127,7 @@ interface Incoming {
   share: boolean;
   /** MobilePay money that names no sender: matched by `matchMobilePayShares` only. */
   wallet?: true;
-  /** A refund by its word ("text"), or one the categorisation matched before ("paired"): it lowers its merchant's latest earlier purchase, whatever the window and what is left of it. */
+  /** A refund by its word ("text"), or one the categorisation matched before ("paired"): it lowers its merchant's latest earlier purchase of the window when no one purchase holds it and the payee's payments together do. */
   refund?: "text" | "paired";
 }
 
@@ -239,8 +239,9 @@ function pairClosedContracts(contracts: ReadonlyMap<string, ReturnInput[]>, inco
 
 /**
  * A refund no single purchase holds (more than is left of any one, the window kept) is still the merchant's: it takes the
- * latest earlier purchase. By its word, or, from a payee the household only pays and has had no money in from before
- * (`firstIncome`, given when the rows are not yet categorised), by that alone when it is no more than is left of the payments and the payee is no contract. Else the money in is income.
+ * latest earlier purchase, when it is no more than is left of the payee's payments of the window. By its word, or, from a payee
+ * the household only pays and has had no money in from before (`firstIncome`, given when the rows are not yet categorised), by
+ * that alone when the payee is no contract. Else the money in is income: a refund larger than what is left stays income.
  */
 function pairByPayee(purchases: ReadonlyMap<string, Purchase[]>, contracts: ReadonlyMap<string, ReturnInput[]>, incoming: readonly Incoming[], firstIncome: ReadonlyMap<string, string> | undefined, matches: Map<string, string>): void {
   const seen = new Set<string>();
@@ -251,17 +252,27 @@ function pairByPayee(purchases: ReadonlyMap<string, Purchase[]>, contracts: Read
     const evidence = inc.refund !== undefined || (firstIncome !== undefined && !seen.has(key) && !(first !== undefined && first < orderOf(inc.t)));
     let best: Purchase | undefined;
     let room = 0;
+    const inWindow: Purchase[] = [];
     for (const p of evidence ? (purchases.get(key) ?? []) : []) {
       if (p.day > inc.day || inc.day - p.day > REFUND_WINDOW_DAYS || p.t.category === "p2p") continue;
+      inWindow.push(p);
       room += p.left;
       if (!best || better(p, best, inc.t.amountCents)) best = p;
     }
-    // by the payee alone the money in must also fit what is left of the payments: a bank's bonus or a deposit is no refund of a fee
-    if (inc.refund === undefined && room < inc.t.amountCents) best = undefined;
+    // the money in must fit what is left of the payments, with a refund word too: a payment is never cancelled by more than it cost,
+    // and a bank's bonus or a deposit is no refund of a fee
+    if (room < inc.t.amountCents) best = undefined;
     // a contract's own rules (closedContract) decide money from its payee: late, larger than its cost or while it runs is no refund
     if (best && inc.refund === undefined && runsContract(contracts.get(key) ?? [], inc.t)) best = undefined;
     if (best) {
-      best.left = Math.max(0, best.left - inc.t.amountCents);
+      // takes off what is left of `best`, then of the others, the latest first, so the same payment is not cancelled twice
+      let rest = inc.t.amountCents;
+      const others = inWindow.filter((p) => p !== best).sort((a, b) => b.day - a.day || (a.t.id < b.t.id ? -1 : 1));
+      for (const p of [best, ...others]) {
+        const part = Math.min(rest, p.left);
+        p.left -= part;
+        rest -= part;
+      }
       matches.set(inc.t.id, best.t.id);
     } else if (firstIncome) seen.add(key);
   }

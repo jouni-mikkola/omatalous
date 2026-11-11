@@ -173,6 +173,48 @@ describe("a refund", () => {
     expect(typeOf(alone, back)).toBe("refunds");
   });
 
+  describe("that the categoriser paired by its word (HYVITYS)", () => {
+    const PAIRED = { categorySource: "match", description: "HYVITYS" } as const;
+    /** What `moneyIn` answers for `back` on the context's rows, the row read as money in on its category again (the context made income of a null). */
+    const answer = (ctx: AnalysisContext, back: Transaction) =>
+      moneyIn(ctx.txs.map((t) => (t.id === back.id ? { ...t, spend: -t.amountCents } : { ...t })), new Set(), undefined, TODAY).get(back.id);
+
+    it("larger than what is left of the payee's payments is income (Hyvitykset): 500,00 does not come off a purchase of 20,00", () => {
+      const bought = paid("2026-10-02", 20, CLOTHES, "shopping");
+      const back = got("2026-10-11", 500, CLOTHES, "shopping", PAIRED);
+      const ctx = contextOf([bought, back, groceries]);
+      expect(answer(ctx, back)).toBeNull();
+      expect(monthOn(ctx)).toMatchObject({ spent: 22_000, listed: 22_000, income: 50_000, rows: { groceries: 20_000, shopping: 2_000 } });
+      expect(typeOf(ctx, back)).toBe("refunds");
+      expect(ctx.txs.find((t) => t.id === bought.id)!.refunded).toBe(0);
+    });
+
+    it("at or under what is left lowers the category of the payments as before, and a cent more is income", () => {
+      const of = (euros: number) => {
+        const back = got("2026-10-11", euros, CLOTHES, "shopping", PAIRED);
+        const ctx = contextOf([paid("2026-10-01", 30, CLOTHES, "shopping"), paid("2026-10-03", 45, CLOTHES, "shopping"), back]);
+        return { spent: monthOn(ctx).spent, income: monthOn(ctx).income, type: typeOf(ctx, back) };
+      };
+      expect(of(60)).toEqual({ spent: 1_500, income: 0, type: undefined });
+      expect(of(75)).toEqual({ spent: 0, income: 0, type: undefined });
+      expect(of(75.01)).toEqual({ spent: 7_500, income: 7_501, type: "refunds" });
+    });
+
+    it("the same 500,00 on a category the user set by hand lowers that category as before", () => {
+      const back = got("2026-10-11", 500, CLOTHES, "shopping", { categorySource: "user", description: "HYVITYS" });
+      const ctx = contextOf([paid("2026-10-02", 20, CLOTHES, "shopping"), back, groceries]);
+      expect(answer(ctx, back)).toEqual([]);
+      expect(monthOn(ctx)).toMatchObject({ spent: 22_000 - 50_000, income: 0, rows: { groceries: 20_000, shopping: 2_000 - 50_000 } });
+    });
+
+    it("a contract's closing refund is not touched: it takes back more than one rent", () => {
+      const rents = Array.from({ length: 14 }, (_, m) => paid(addDays("2025-06-05", 30 * m), 950, "Vuokranantaja Oy", "housing"));
+      const back = got(addDays("2025-06-05", 30 * 13 + 40), 1500, "Vuokranantaja Oy", "housing", PAIRED);
+      const ctx = contextOf([...rents, back]);
+      expect(answer(ctx, back)).toEqual([[rents[13]!.id, 95_000], [rents[12]!.id, 55_000]]);
+    });
+  });
+
   it("is never made of a payee without a name", () => {
     const ctx = contextOf([paid("2026-10-01", 50, "Tuntematon", "other"), got("2026-10-11", 50, "Tuntematon", "other")]);
     expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 5_000 });

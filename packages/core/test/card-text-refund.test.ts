@@ -97,8 +97,11 @@ const back = (id: string, date: string, euros: number, extra: Partial<Transactio
 describe("a refund no single purchase holds", () => {
   const word = { description: "USD HYVITYS IRL DUBLIN", category: "reimbursements", categorySource: "rule" } as const;
 
-  it("by its word takes the latest earlier purchase, whatever its size, inside the window", () => {
-    expect(matchReturns([bought("p", "2026-09-10", 20), back("r", "2026-10-12", 25, word)]).get("r")).toBe("p");
+  it("by its word takes the latest earlier purchase inside the window, up to what is left of the payments", () => {
+    const earlier = bought("p0", "2026-09-01", 15);
+    expect(matchReturns([earlier, bought("p", "2026-09-10", 20), back("r", "2026-10-12", 25, word)]).get("r")).toBe("p");
+    // more than the purchase cost: never cancelled by more than it cost, so the money is income
+    expect(matchReturns([bought("p", "2026-09-10", 20), back("r", "2026-10-12", 25, word)]).size).toBe(0);
     expect(matchReturns([back("r", "2026-10-12", 25, word)]).size).toBe(0);
   });
 
@@ -146,12 +149,16 @@ describe("a refund lowers its merchant's category and Tulot", () => {
     const rows = [
       tx(shop("2026-09-20", -10, "USD IRL DUBLIN EXAMPLECO")),
       tx(shop("2026-10-05", -10, "EXAMPLECO")),
-      tx({ ...shop("2026-10-12", 25, "USD HYVITYS IRL DUBLIN EXAMPLECO"), category: "income" }),
+      tx({ ...shop("2026-10-12", 15, "USD HYVITYS IRL DUBLIN EXAMPLECO"), category: "income" }),
       salary(),
     ];
     const month = october(rows);
     expect(month.income).toBe(300000);
-    expect(month.rows.other).toBe(-1500);
+    expect(month.rows.other).toBe(-500);
+    // 25,00 is more than the 20,00 paid: it is income, and the category keeps its purchase
+    const large = october([...rows.slice(0, 2), tx({ ...shop("2026-10-12", 25, "USD HYVITYS IRL DUBLIN EXAMPLECO"), category: "income" }), salary()]);
+    expect(large.income).toBe(302500);
+    expect(large.rows.other).toBe(1000);
   });
 
   it("does the same for money from a payee only paid to, with no word", () => {
