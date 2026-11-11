@@ -22,6 +22,11 @@ export const KEY = "instance_module";
 export const AAD = "instance:module";
 /** What the last check found: `{ state, id?, version?, reason?, appVersion, at }`. Holds no part of the code. */
 const STATUS_KEY = "module_status";
+/**
+ * `{ [id]: version }`: the highest version of each module this install has installed. An older signed release stays
+ * valid forever, so the floor outlives the removal of the code and its folder: a new code cannot bring an old bundle back.
+ */
+const FLOOR_KEY = "module_floor";
 const DAY_MS = 86_400_000;
 
 type Checked = { state: "installed" | "waiting" | "refused"; id?: string; version?: string; reason?: string; appVersion: string; at: string };
@@ -63,6 +68,25 @@ async function openCode(s: Services): Promise<ModuleCode | null> {
 }
 
 const startState = (s: Services): StartState => s.modules?.start ?? { state: "none" };
+
+async function readFloor(s: Services): Promise<Record<string, string>> {
+  const raw = await s.settings.get(FLOOR_KEY);
+  try {
+    const j = raw ? (JSON.parse(raw) as unknown) : null;
+    if (!j || typeof j !== "object" || Array.isArray(j)) return {};
+    return Object.fromEntries(Object.entries(j).filter((e): e is [string, string] => typeof e[1] === "string" && parseVersion(e[1]) !== null));
+  } catch {
+    return {};
+  }
+}
+
+/** Raises the floor of `id` to `version`, never lowers it. */
+async function raiseFloor(s: Services, id: string, version: string): Promise<void> {
+  const floor = await readFloor(s);
+  const now = floor[id];
+  if (now && compareVersions(parseVersion(version)!, parseVersion(now)!) <= 0) return;
+  await s.settings.set(FLOOR_KEY, JSON.stringify({ ...floor, [id]: version }));
+}
 
 /** The status line's facts. No code: nothing at all, whatever is on disk. */
 export async function moduleView(s: Services): Promise<ModuleView> {
@@ -106,6 +130,10 @@ async function runCheck(s: Services, userId: string | null): Promise<void> {
   const fetchImpl = s.fetch ?? fetch;
   let reason = "no release carries a module";
   let waiting = false;
+  // an install from before the floor existed brings its version in
+  const installedBefore = readActive(root);
+  if (installedBefore) await raiseFloor(s, installedBefore.id, installedBefore.version);
+  const floor = await readFloor(s);
   try {
     const candidates = await listCandidates(fetchImpl, code);
     for (const c of candidates) {
@@ -119,11 +147,17 @@ async function runCheck(s: Services, userId: string | null): Promise<void> {
       try {
         const { packed, signature } = await download(fetchImpl, code, c);
         const checked = await checkBundle(packed, signature, { signersFile: s.modules?.signersFile ?? null, appVersion, version: c.version });
+        const lowest = floor[checked.manifest.id];
+        if (lowest && startState(s).state !== "waiting" && compareVersions(parseVersion(checked.manifest.version)!, parseVersion(lowest)!) < 0) {
+          reason = "the release is older than a version this install has had";
+          continue;
+        }
         if (active && active.id === checked.manifest.id && active.version === checked.manifest.version) {
           await write({ state: "installed", ...active });
           return;
         }
         const installed = await install(root, checked, packed, signature);
+        await raiseFloor(s, installed.id, installed.version);
         await write({ state: "installed", ...installed });
         await recordEvent(s, { kind: "module_installed", userId, detail: `${installed.id} ${installed.version}` });
         return;
@@ -164,7 +198,10 @@ export async function setModuleCode(s: Services, user: User, o: { code?: unknown
   return moduleView(s);
 }
 
-/** Removes the code and the module's files, for the admin's password. Its tables stay; the running process keeps it until a restart. */
+/**
+ * Removes the code and the module's files, for the admin's password. Its tables and the version floor stay; the running
+ * process keeps it until a restart.
+ */
 export async function removeModuleCode(s: Services, user: User, o: { password?: unknown }, req: Req): Promise<ModuleView> {
   await checkPassword(s, user, typeof o.password === "string" ? o.password : "", req, "lisäosan poisto");
   await s.settings.delete(KEY);

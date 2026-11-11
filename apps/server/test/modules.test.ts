@@ -377,6 +377,27 @@ describe("the code in Asetukset, then a start", () => {
     expect(readActive(root)).toEqual({ id: "example", version: "1.2.0" });
   });
 
+  it("keeps the highest installed version as a floor when the code and the folder are removed, so a new code cannot bring an older release back", async () => {
+    const root = join(work, "data-6", "modules");
+    const bundles: Record<string, { packed: Buffer; signature: Buffer }> = { "1.3.0": realBundle("floor-newer", { version: "1.3.0" }), "1.2.0": realBundle("floor-older") };
+    const app = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.3.0" });
+    expect((await app.admin.call("DELETE", "/api/modules/code", { password: PASSWORD })).body).toEqual({ state: "none" });
+    expect(existsSync(root)).toBe(false);
+
+    // the release list lost 1.3.0: the code entered again finds only the older one and takes nothing
+    delete bundles["1.3.0"];
+    const again = await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(again.body).toEqual({ state: "refused", reason: "the release is older than a version this install has had" });
+    expect(readActive(root)).toBeNull();
+
+    // the same version again is no downgrade
+    bundles["1.3.0"] = realBundle("floor-same", { version: "1.3.0" });
+    await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.3.0" });
+  });
+
   it("is refused when the release service signs with another key, with the reason and not the code", async () => {
     const root = join(work, "data-4", "modules");
     const b = realBundle("foreign");

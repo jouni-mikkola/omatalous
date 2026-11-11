@@ -101,6 +101,9 @@ never in the code, the bundle, the environment or the database.
    passes is installed. A bundle that fails any step is refused and none of it is written outside a temporary folder
    or run. A release older than the installed module is skipped, unless the installed one waits for another app
    version: an old signature stays valid, so a release list without the newer ones does not bring an old bundle back.
+   The highest version installed of each id is kept in the database (settings key `module_floor`), and a release
+   below it is refused with the same exception. Removing the code keeps that floor, so a new code does not bring an
+   old bundle back either.
 2. **Install**: the verified tar and its signature go to `<DATA_DIR>/modules/<id>/<version>/`, and
    `<DATA_DIR>/modules/active.json` names `{ "id", "version" }`. Older versions of the same id are deleted. The app
    restarts through the maintenance helper when one is linked; otherwise the status says that the module starts at the
@@ -110,7 +113,8 @@ never in the code, the bundle, the environment or the database.
    `<DATA_DIR>/modules/<id>/<version>/files/`, imports `server.mjs` and calls its `register(host)`. Then the database
    opens with the module's migrations beside the shared ones. Any failure leaves the module out: the app starts without
    it and the status says why in one line.
-4. **Remove** (`DELETE /api/modules/code`): deletes the sealed code and `<DATA_DIR>/modules/`. The module's tables stay.
+4. **Remove** (`DELETE /api/modules/code`): deletes the sealed code and `<DATA_DIR>/modules/`. The module's tables and
+   its version floor stay.
    Its migrations are additive with a compat floor (`-- migrate: compat X.Y.Z`), so the app opens that database
    without them. The running process keeps the module until the next restart.
 
