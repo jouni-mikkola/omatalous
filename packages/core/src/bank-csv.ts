@@ -161,7 +161,7 @@ function day(text: string): IsoDate | null {
   return isRealDay(out) ? out : null;
 }
 
-/** "-1 234,56", "1,234.56", "+23.40", "23,40-" or "12 EUR" to cents; null for anything else. A lone separator is the decimal one unless three digits follow it. */
+/** "-1 234,56", "1,234.56", "+23.40", "23,40-" or "12 EUR" to cents; null for anything else. A lone comma or dot is the decimal one; with three digits after it ("12,345") it could be either, so it does not read. */
 function sum(text: string): number | null {
   const m = /^([+-]?)\s*([\d\s\u00a0\u202f.,]*\d)\s*([+-]?)\s*(?:EUR|€)?$/i.exec(text.trim());
   if (!m) return null;
@@ -170,6 +170,8 @@ function sum(text: string): number | null {
   const tail = at < 0 ? "" : body.slice(at + 1);
   const bothKinds = body.includes(".") && body.includes(",");
   const decimal = at >= 0 && (bothKinds || ((tail.length === 1 || tail.length === 2) && body.split(body[at]!).length === 2));
+  // a thousand times apart, and a CSV has no closing balance to tell which: the line goes to unread
+  if (!decimal && tail.length === 3 && body.split(/[.,]/).length === 2) return null;
   const whole = decimal ? body.slice(0, at) : body;
   // groups of three, one kind of separator: "1.2.3" or "1,23.456" is a typo, not a sum
   if (whole && !/^(\d+|\d{1,3}([ .,])\d{3}(\2\d{3})*)$/.test(whole)) return null;
@@ -183,8 +185,11 @@ export const cleanStatementText = (text: string): string => text.replace(/[\p{Cc
 function rowCents(cells: readonly string[], layout: BankCsvLayout): number | null {
   if (layout.amount !== null) return sum(cells[layout.amount] ?? "");
   // one of the two holds the sum, the other is empty or zero; a debit is out whatever sign the bank gives it
-  const out = sum(cells[layout.debit!] ?? "");
-  const into = sum(cells[layout.credit!] ?? "");
+  const [debit, credit] = [cells[layout.debit!] ?? "", cells[layout.credit!] ?? ""];
+  const out = sum(debit);
+  const into = sum(credit);
+  // digits that are no sum make the line unread; a placeholder such as "-" or "n/a" counts as empty
+  if ((out === null && /\d/.test(debit)) || (into === null && /\d/.test(credit))) return null;
   if (out && !into) return -Math.abs(out);
   if (into && !out) return Math.abs(into);
   return null;

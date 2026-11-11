@@ -52,6 +52,22 @@ describe("readBankCsv", () => {
     expect((r as { unread: string[] }).unread).toHaveLength(2);
   });
 
+  it("sends a sum with a lone comma or dot before three digits to unread, never a thousand times too large", () => {
+    const r = readBankCsv(["Päivä;Summa;Saaja", "03.09.2026;-23,40;A", "04.09.2026;-12,345;B", "05.09.2026;1.234,56;C", "06.09.2026;1 234,56;D", "07.09.2026;12.345;E", "08.09.2026;1 234.567;F"].join("\n"));
+    expect((r as { rows: unknown[] }).rows).toEqual([
+      { day: "2026-09-03", cents: -2340, text: "A" },
+      { day: "2026-09-05", cents: 123456, text: "C" },
+      { day: "2026-09-06", cents: 123456, text: "D" },
+    ]);
+    expect((r as { unread: string[] }).unread).toEqual(["04.09.2026;-12,345;B", "07.09.2026;12.345;E", "08.09.2026;1 234.567;F"]);
+  });
+
+  it("reads a split line whose unused cell holds a placeholder, and refuses one whose other cell holds digits that are no sum", () => {
+    const r = readBankCsv(["Date,Description,Debit,Credit", "2026-09-03,A,41.20,-", "2026-09-04,B,n/a,2500.00", "2026-09-05,C,41.20,12.345", "2026-09-06,D,1.2.3,5.00"].join("\n"));
+    expect((r as { rows: { cents: number }[] }).rows.map((x) => x.cents)).toEqual([-4120, 250000]);
+    expect((r as { unread: string[] }).unread).toEqual(["2026-09-05,C,41.20,12.345", "2026-09-06,D,1.2.3,5.00"]);
+  });
+
   it("gives the same rows for the same file twice, and names a line it cannot read", () => {
     expect(readBankCsv(BANK_A)).toEqual(readBankCsv(BANK_A));
     const r = readBankCsv(`${BANK_A}\n31.02.2026;x;5,00;BAD DAY;;`);
