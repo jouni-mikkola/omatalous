@@ -9,7 +9,7 @@ This page has what the setup does not show.
 
 ## Choosing a bank
 
-*Asetukset > Pankkiyhteydet > Yhdistä pankki* opens the bank picker. It lists the banks by name, with the logo where there is
+*Asetukset > Pankit ja tilit > Pankkiyhteydet > Yhdistä pankki* opens the bank picker. It lists the banks by name, with the logo where there is
 one and the name on a plain plate where there is none. Nordea's logo comes with the app. The server fetches the others
 from Enable Banking's website and serves them from its own address. The bank you connected last is first.
 With more than eight banks there is a search field.
@@ -35,7 +35,7 @@ link. You always log in on your bank's own page, and Omatalous can only read tra
   a restricted app may read. Enable Banking lets you use your own accounts with an app you registered yourself, without
   a contract, and only in restricted mode: the API returns the linked accounts and strips every other account from the
   answer.
-- The connection in Omatalous (*Asetukset > Pankkiyhteydet > Yhdistä pankki*) is the consent that Omatalous fetches
+- The connection in Omatalous (*Asetukset > Pankit ja tilit > Pankkiyhteydet > Yhdistä pankki*) is the consent that Omatalous fetches
   with. You give it with your bank's login. It lasts 180 days or the bank's own maximum when that is shorter, and you
   renew it before it ends.
 
@@ -85,7 +85,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
 
 - Use a phone or computer on your home Wi-Fi. After the bank login the browser shows a page on `github.io` for a
   moment and comes back to Omatalous. If the browser stays on that page, or the bank ends on an error page, copy the
-  whole address from the address bar and paste it under *Asetukset > Pankkiyhteydet*, in the line *Viimeistele yhteys
+  whole address from the address bar and paste it under *Asetukset > Pankit ja tilit > Pankkiyhteydet*, in the line *Viimeistele yhteys
   osoitteella*. Then press *Viimeistele*. An install that still ends on the bank's error page has that line as *Liitä
   pankin viimeisen sivun osoite*.
 - The first fetch brings up to two years of history in the background, as much as the bank gives (a card often gives less, see [How far back a card goes](#how-far-back-a-card-goes)). Omatalous reads no
@@ -93,19 +93,19 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   its statement file under *Asetukset > Pankit ja tilit > Korttien tiliotteet*; the file is read in your browser. The same goes for an account's CSV export under *Pankin CSV-tiedosto*, where you match the columns once, or its camt.053 statement, whose closing balance is checked against the rows. An account that an earlier version took in from a CSV file stays with
   its rows. When you link the same account (the same IBAN) at the bank, its rows move into the bank's account and are
   not counted twice.
-- Check under *Asetukset > Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
+- Check under *Asetukset > Pankit ja tilit > Tilit* that each credit card has the type *Luottokortti*. Then paying the card bill from your current
   account counts as a transfer, because the purchases are already counted on the card. The type also puts the card
   under *Luottokortit* in the *Varat ja velat* card on the first page, with its last four digits and, when the bank gives a limit, how much of it is used.
 - Omatalous reads these fields of each account. The bank's `product` (Käyttötili, ASP-tili, Nordea Gold) becomes the account's name, and
   `name`, which holds the holders ("A;B"), a line under it. `cash_account_type` gives the type; Nordea sends `CACC` for every
   account, so a product with a savings word (säästö, ASP, tuotto, sijoitus) reads as *Säästötili*. With no code the product and
   description decide, never the holders' names, and an account with an IBAN and no word for its kind is a current account.
-  Every new consent works the type out again, unless you changed it under *Asetukset > Tilit*, which no consent undoes.
+  Every new consent works the type out again, unless you changed it under *Asetukset > Pankit ja tilit > Tilit*, which no consent undoes.
   The code and the product show under the account's name there, so a wrong guess can be seen. A card's masked number
   (`CPAN`) shows as its last four digits and `credit_limit` as its limit. You can give any account a name of your own
-  under *Asetukset > Tilit*: a new consent never replaces it. An account linked before these fields were read asks the bank for
+  under *Asetukset > Pankit ja tilit > Tilit*: a new consent never replaces it. An account linked before these fields were read asks the bank for
   them once at the next fetch; a refusal is tried again at the one after.
-- *Asetukset > Pankkiyhteydet* says when each consent ends ("voimassa 14.1.2027 asti"; with fewer than 30 days left it adds ", vielä 12 päivää"). Omatalous reminds
+- *Asetukset > Pankit ja tilit > Pankkiyhteydet* says when each consent ends ("voimassa 14.1.2027 asti"; with fewer than 30 days left it adds ", vielä 12 päivää"). Omatalous reminds
   you 14 days before.
 - Renew a consent with *Yhdistä uudelleen* on its row. The button is there before the consent ends too, so you can renew
   on a quiet day. It starts the same bank at once, with no picker. Only a bank the picker no longer offers, or an
@@ -221,7 +221,7 @@ The backfill is a safeguard for a bank that gives more later, or after a new con
 older than 2026-09-10 for the card above, so the backfill brings older purchases only if a later answer does. Nothing
 here promises a number of days: that depends on the bank and the consent.
 
-- Older purchases may need a new consent: *Yhdistä uudelleen* on *Asetukset > Pankkiyhteydet*. Its first fetch asks for
+- Older purchases may need a new consent: *Yhdistä uudelleen* on *Asetukset > Pankit ja tilit > Pankkiyhteydet*. Its first fetch asks for
   the longest history and then for the days before the first row, back to the history limit.
 - If every window right after a new consent comes back empty, the bank gave no older rows of the card then, and the
   months before the first row stay missing from the card's purchases.
@@ -263,7 +263,7 @@ instance, not a rule of the banks; the backfill above asks for more where a bank
 | "Enable Banking ei vielä päästä sovellusta pankkeihin" | The app is still *Inactive*, or no account is linked. Press *Activate by linking accounts* in the Control Panel, choose your bank, then press *Testaa yhteys* under *Asetukset > Pankit ja tilit > Pankkisovellus*. |
 | "Enable Banking ei hyväksy paluuosoitetta" | The address the message names is missing from your app's Redirect URLs. Add it in the Control Panel. |
 | An account or a card is missing | It is not under *Linked accounts*. Link it with *Link accounts*, then connect again with *Yhdistä pankki*. |
-| "N tiliä ei ole lisätty Enable Bankingissa" ("Yksi tili ei ole lisätty Enable Bankingissa" for one) with a list under *Pankkiyhteydet*, "&lt;account&gt;: tiliä ei ole lisätty Enable Bankingissa", also on the account's row under *Asetukset > Tilit* | The app is restricted and reads only the accounts under *Linked accounts*. The list names each such account by the bank's name for it and its last four digits. Open *API applications*, your app, *Link accounts*, and link those accounts or cards. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
+| "N tiliä ei ole lisätty Enable Bankingissa" ("Yksi tili ei ole lisätty Enable Bankingissa" for one) with a list under *Pankkiyhteydet*, "&lt;account&gt;: tiliä ei ole lisätty Enable Bankingissa", also on the account's row under *Asetukset > Pankit ja tilit > Tilit* | The app is restricted and reads only the accounts under *Linked accounts*. The list names each such account by the bank's name for it and its last four digits. Open *API applications*, your app, *Link accounts*, and link those accounts or cards. Then press *Hae nyt*. The other accounts are fetched meanwhile. |
 | "&lt;account&gt; ei tullut mukaan uuteen yhteyteen" | The new connection did not bring that account, so it stays on the old one and is not fetched. Link it under *Link accounts* in the Control Panel, then press *Yhdistä uudelleen*. |
 | "Pankki ei antanut tilejä" | The connection finished with no accounts, because none was linked at Enable Banking. Link them in the Control Panel and connect again. |
 | "Pankki keskeytti yhdistämisen", or "Enable Banking hylkäsi yhdistämisen" | The app's request log in the Control Panel has the reason. The server log has a line `bank link refused` with the status and code. |
@@ -344,7 +344,7 @@ not opened):
   data access, drops the duty to keep a fallback interface, and sets quarterly availability statistics and a test
   facility. That is the banks' and Enable Banking's work; the app meets the interface only through Enable Banking's API.
 - Permission dashboards. The PSR proposal makes each bank show the household the access permissions it has granted. The
-  consent list of *Asetukset > Pankkiyhteydet* stays the app's own view of its consents.
+  consent list of *Asetukset > Pankit ja tilit > Pankkiyhteydet* stays the app's own view of its consents.
 - FiDA. The proposal opens customer data beyond payment accounts (savings, loans, insurance and similar) to
   permission-based sharing, with data sharing schemes and permission dashboards. It reaches the app only if Enable
   Banking offers that data. Application is 24 months after entry into force in the proposal (18 for some articles).
