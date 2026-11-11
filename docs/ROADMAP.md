@@ -389,6 +389,13 @@ Result: In English the setup page's status words and help (time zone, "ei vielä
 - after: none
 - files: apps/web/src/pages/Wizard.tsx, packages/core/src/messages-set-wizard.ts, packages/core/src/english/set-wizard.ts, packages/core/src/messages.ts, apps/web/test/wizard-english.dom.test.ts
 
+### N50 Plan fixes for bills and shared
+Result: Read the recurring-bill, import pipeline, refund and shared-cost settlement code, reproduce each real fault on main by running the function
+- why: N49 #288 left unread packages/core/src/recurring*.ts, pipeline.ts, returns.ts, settlement*.ts and apps/server/src/services/settlement.ts; 0 free steps for 14 slots
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan fixes for bills and shared costs. Read the recurring-bill, import pipeline, refund and shared-cost settlement code, reproduce each real fault on main by running the function, and add one roadmap step per fault (own files and lock, under an hour each, no reused id); if fewer than 3 real faults exist, say so and add no filler.
+- locks: none
+- after: none
+
 ### Z5 Copied values reach by keys
 Result: A value to paste into Enable Banking can be copied from the keyboard and its hint reads in the member's language.
 - why: `apps/web/src/pages/settings/CopyValue.tsx` copies on a click of a `<code>` with `title="Kopioi"` (Finnish in English, and a hover only); the element is not a tab stop and says nothing when it copied. `set.cv.copy` and `set.cv.copied` already exist.
