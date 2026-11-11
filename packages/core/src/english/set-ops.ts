@@ -10,6 +10,7 @@ export const EN_SET_OPS: Record<keyof typeof FI_SET_OPS, string> = {
   "ops.helper_doc": "Guide",
   "ops.version": "Version",
   "ops.check_updates": "Check for updates",
+  "ops.needs_helper": "Needs the maintenance helper.",
   "ops.changes": "Changes",
   "ops.update": "Update",
   "ops.prerelease": "Offer new versions at once",

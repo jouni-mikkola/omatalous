@@ -3,13 +3,15 @@ import { S } from "./ops-strings.ts";
 import { LastResult } from "./LastResult.tsx";
 import type { OpsRequestView, OpsSnapshot } from "./types.ts";
 import { Button } from "../ui/Button.tsx";
-export function UpdatePanel({ version, build, state, last, disabled, prerelease, onCheck, onUpdate, onRollback }: {
+export function UpdatePanel({ version, build, state, last, disabled, needsHelper = false, prerelease, onCheck, onUpdate, onRollback }: {
   version: string;
   build: string;
   state: OpsSnapshot;
   /** How the check, the update and the rollback last ended. */
   last?: Record<string, OpsRequestView>;
   disabled: boolean;
+  /** The buttons are off because the helper is not in use: the button says so itself, as the notice is in another card. */
+  needsHelper?: boolean;
   /** The switch for new versions and where it stands. Null: no switch (an older helper, a source install). */
   prerelease: { on: boolean; onChange: (on: boolean) => void } | null;
   onCheck: () => void;
@@ -33,9 +35,16 @@ export function UpdatePanel({ version, build, state, last, disabled, prerelease,
           </div>
           {state.channel && <div className="card-sub">{S.channel(state.channel)}</div>}
         </div>
-        <Button disabled={disabled} onClick={onCheck}>
-          {S.checkUpdates}
-        </Button>
+        <div className="form-row settings-flush">
+          {needsHelper && (
+            <span className="muted small" id="update-needs-helper">
+              {S.needsHelper}
+            </span>
+          )}
+          <Button disabled={disabled} onClick={onCheck} aria-describedby={needsHelper ? "update-needs-helper" : undefined}>
+            {S.checkUpdates}
+          </Button>
+        </div>
       </div>
       {state.update_available ? (
         <>

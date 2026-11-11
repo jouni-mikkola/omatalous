@@ -12,6 +12,7 @@ export const FI_SET_OPS = {
   "ops.helper_doc": "Ohje",
   "ops.version": "Versio",
   "ops.check_updates": "Tarkista päivitykset",
+  "ops.needs_helper": "Vaatii ylläpitoapurin.",
   "ops.changes": "Muutokset",
   "ops.update": "Päivitä",
   "ops.prerelease": "Tarjoa uudet versiot heti",

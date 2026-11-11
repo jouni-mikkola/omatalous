@@ -159,6 +159,7 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
             state={data.state}
             last={data.last}
             disabled={blocked}
+            needsHelper={helperOff}
             prerelease={showsPrerelease(data.helper, data.state) ? { on: prereleaseOn(data.state, latest), onChange: (on) => void quick(prereleaseAction(on)) } : null}
             onCheck={() => void quick("check-update")}
             onUpdate={() => setDialog("update")}

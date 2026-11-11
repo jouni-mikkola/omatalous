@@ -36,6 +36,9 @@ export const S = {
   get checkUpdates() {
     return t("ops.check_updates");
   },
+  get needsHelper() {
+    return t("ops.needs_helper");
+  },
   upToDate: (time: string) => t("ops.up_to_date", { time }),
   /** The host's update channel as the helper reports it; switched only on the server (scripts/use-private.sh). */
   channel: (c: "source" | "release" | "private") => t(c === "private" ? "ops.channel_private" : c === "source" ? "ops.channel_source" : "ops.channel_public"),

@@ -114,7 +114,8 @@
 .field-hint { font-size: var(--fs-label); color: var(--muted); }
 
 .field-inline { max-width: 100%; min-width: 0; }
-.field-inline select { min-width: 0; max-width: 60vw; }
+/* the log filter's longest option made it half the card wide; a long name is cut in the closed select only */
+.field-inline select { min-width: 0; max-width: min(60vw, 18rem); }
 
 /* Tilin jakaminen: in the edit form of an account, one check box for each other member */
 .share-list { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 24px; margin: 0; padding: 0; border: 0; }
