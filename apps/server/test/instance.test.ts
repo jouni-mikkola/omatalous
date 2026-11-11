@@ -112,6 +112,21 @@ describe("setup wizard: instance settings", () => {
     const r = await admin.call("GET", "/api/admin/instance");
     expect(r.body.settings.appBaseUrl).toBe("http://localhost:8080");
   });
+
+  it("starts on a row that holds the flag overrides of an older version, keeps its settings and drops the overrides at the next save", async () => {
+    const { admin, s } = await setupApp();
+    await s.settings.set("instance_settings", JSON.stringify({ timezone: "UTC", industryLookup: false, setupDone: true, features: { optimise: true, koe: false, old: "yes" } }));
+    await s.instance.load(true);
+    const r = await admin.call("GET", "/api/admin/instance");
+    expect(r.status).toBe(200);
+    expect(r.body.settings).toMatchObject({ timezone: "UTC", setupDone: true });
+    expect(r.body.features).toBeUndefined();
+    expect((await admin.call("GET", "/api/meta")).status).toBe(200);
+    expect((await admin.call("PUT", "/api/admin/instance", { historyDays: 90 })).status).toBe(200);
+    const row = JSON.parse((await s.settings.get("instance_settings"))!);
+    expect(row).toMatchObject({ timezone: "UTC", historyDays: 90, setupDone: true });
+    expect(row.features).toBeUndefined();
+  });
 });
 
 describe("setup wizard: shared Enable Banking app", () => {
