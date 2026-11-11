@@ -1870,6 +1870,30 @@ Result: A bank return that finds an unreadable stored state says the link expire
 - after: none
 - files: apps/server/src/connectors/link-state.ts, apps/server/test/link-state.test.ts
 
+### F2 Old dates get the right weekday
+Result: A date before 29 December 1969 gets its true weekday, so every day has the weekday the calendar gives it.
+- why: `weekdayOf("1969-12-28")` is -1 on main (a Sunday is 6) because `(dayNumber(s) + 3) % 7` in `dates.ts` is negative for a negative day number.
+- done when: a new `packages/core/test/dates.test.ts` that fails without the change gets 6 from `weekdayOf("1969-12-28")`, 0 from `weekdayOf("1969-12-29")` and 3 from `weekdayOf("1970-01-01")`, and for every day from 1960-01-01 to 1980-12-31 the weekday `new Date(day).getUTCDay()` gives (Monday as 0); the tests that use `weekdayOf` pass unchanged (`bun test packages/core/test/dates.test.ts packages/core/test/insights-weekdays.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: dates
+- after: none
+- files: packages/core/src/dates.ts, packages/core/test/dates.test.ts
+
+### F3 A sheet holds no NaN or exponent
+Result: A number that is NaN or infinite leaves its CSV cell empty, and a tiny or huge number is written in full.
+- why: `csvBody([[NaN, Infinity, 1e21, 0.000001]])` gives "NaN;Infinity;1e+21;0,000001": a spreadsheet in Finnish locale shows the first two as text and the third as an unreadable exponent; the cell function turns every number into `String(v)` with no check.
+- done when: new cases of `packages/core/test/csv.test.ts` that fail without the change write `NaN`, `Infinity` and `-Infinity` as an empty cell, `1e21` as `1000000000000000000000` and `0.0000001` as `0,0000001`, while 1.5 stays `1,5`, 0 and -0 stay `0` and a string cell is written as now; the file's other tests pass unchanged (`bun test packages/core/test/csv.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: csv-cells
+- after: none
+- files: packages/core/src/csv.ts, packages/core/test/csv.test.ts
+
+### F4 A merchant code is only digits
+Result: A merchant code like 5812abc or 7995x is no longer read as restaurants or gambling.
+- why: `categoryForMcc` and `isGamblingMcc` use `Number.parseInt`, which stops at the first non-digit: `categoryForMcc("5812abc")` is "restaurants", `categoryForMcc("5812.9")` too, and `isGamblingMcc("7995x")` is true; a text in the code field of a bank file is then taken as evidence.
+- done when: a new `packages/core/test/mcc-code.test.ts` that fails without the change gets null from `categoryForMcc` for "5812abc", "5812.9", " " and "-5812" and false from `isGamblingMcc` for "7995x", while "5812" is read as before, "7995" is gambling and null stays null; `packages/core/test/categorize.test.ts` and `packages/core/test/gambling-words.test.ts` pass unchanged (`bun test packages/core/test/mcc-code.test.ts packages/core/test/categorize.test.ts packages/core/test/gambling-words.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: mcc-codes
+- after: none
+- files: packages/core/src/categorize-mcc.ts, packages/core/src/wording-gambling.ts, packages/core/test/mcc-code.test.ts
+
 ## Later
 
 - T6 Stack review: repeat the interface stack comparison with new measurements (charts and components by 25 April 2027,
