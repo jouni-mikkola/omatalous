@@ -23,6 +23,14 @@ named here moves out of this section when it ships.
 
 
 
+
+### N10 Plan the next steps
+Result: Plan the next steps for correctness of the numbers: read the reports, budgets and imports and add up to 6 small independent steps, each
+- why: the owner wants every Fable 5.2 hour of today used on finished work, in parallel without conflicts (11 Nov)
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the next steps for correctness of the numbers: read the reports, budgets and imports and add up to 6 small independent steps, each in its own package or folder, that each prove or fix one figure with a test; done when the roadmap has them
+- locks: none
+- after: none
+
 ### N6 Main's CI is green again
 Result: Main's CI is green again: the shell test 'run: the tests were done at the start, so GIVE more at once' passes in CI, and no test leaves
 - why: main's CI fails on every push since about 11:09 on 11 Nov, so no PR can show green checks and 18 PRs wait
