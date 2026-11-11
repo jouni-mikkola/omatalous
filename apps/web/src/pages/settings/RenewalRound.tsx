@@ -3,8 +3,6 @@
  * Two or more consents due offer the round; a begun round lists each consent as renewed or left, and the next one is one
  * press. The server keeps the round and reads what is done from the consents (core `consent-round.ts`).
  */
-import { logoForInstitution } from "../../banks.ts";
-import { BankLogo } from "../../components/BankLogo.tsx";
 import { dueText, roundLabel, roundText } from "../../consent-notices.ts";
 import type { Meta } from "../../types.ts";
 import { Button } from "../../components/ui/Button.tsx";
@@ -45,16 +43,12 @@ export function RenewalRound({ meta, disabled, busy, onStart, onNext, onClose }:
         <strong>{t("set.rr.renewing_connections")}</strong> · {roundText(round)}
       </p>
       <ul>
-        {round.consents.map((c) => {
-          const name = nameOf(c.bank);
-          const logo = logoForInstitution(name, offered);
-          return (
-            <li key={c.connection}>
-              {logo && <BankLogo src={logo} name={name} size="sm" />} {labelOf(round.consents, c)}
-              <span className={c.done ? "badge good" : "badge warn"}>{c.done ? t("set.rr.renewed") : t("set.rr.waiting")}</span>
-            </li>
-          );
-        })}
+        {round.consents.map((c) => (
+          <li key={c.connection}>
+            {labelOf(round.consents, c)}
+            <span className={c.done ? "badge good" : "badge warn"}>{c.done ? t("set.rr.renewed") : t("set.rr.waiting")}</span>
+          </li>
+        ))}
       </ul>
       <div className="form-row flush">
         {next && (

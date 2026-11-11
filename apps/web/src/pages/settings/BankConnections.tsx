@@ -11,8 +11,7 @@
 import { Table } from "../../components/table/Table.tsx";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
-import { bankIdForInstitution, logoForInstitution } from "../../banks.ts";
-import { BankLogo } from "../../components/BankLogo.tsx";
+import { bankIdForInstitution } from "../../banks.ts";
 import { BankPicker, lastUsedBank } from "../../components/BankPicker.tsx";
 import { WARN_DAYS, type RoundView } from "@banking/core";
 import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../../consent-notices.ts";
@@ -92,12 +91,6 @@ export function connectedMessage(accounts: number): { tone: "good" | "warning"; 
  */
 export function renewalBank(banks: readonly BankOption[], institution: string, canStart: boolean): string | null {
   return canStart ? bankIdForInstitution(banks, institution) : null;
-}
-
-/** The small logo beside the name a consent carries; nothing for a bank without one. */
-function InstitutionLogo({ name, banks }: { name: string; banks: readonly BankOption[] }) {
-  const src = logoForInstitution(name, banks);
-  return src ? <BankLogo src={src} name={name} size="sm" /> : null;
 }
 
 /** How many accounts the bank brought when the browser came back from it (`?connected=2` in the address), else null. */
@@ -334,10 +327,7 @@ export function BankConnections({
               rowHead: true,
               cell: (c) => (
                 <>
-                  <span className="bank-cell">
-                    <InstitutionLogo name={c.institution} banks={meta.bank.banks} />
-                    {c.institution}
-                  </span>
+                  <span className="bank-cell">{c.institution}</span>
                   {/* two consents of one bank are told apart by their accounts: the name and the IBAN or card number */}
                   <div className="conn-accounts">
                     {accountsOf(c.id).map((a) => (

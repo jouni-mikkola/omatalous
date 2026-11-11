@@ -99,6 +99,23 @@ const html = (connections: Connection[], configured?: boolean, accounts: Partial
   renderToStaticMarkup(createElement(BankConnections, { meta: meta(connections, configured, accounts, role, source), pickerOpen: false, connected, onChange: () => {}, onMessage: () => {} }));
 const renews = (out: string) => out.split("Yhdistä uudelleen").length - 1;
 
+describe("Pankkiyhteydet: a row names its bank in words", () => {
+  it("has the bank's name and no picture, for a bank that has artwork too", () => {
+    const out = html([conn("a", "active", 40)]);
+    expect(out).toContain('<span class="bank-cell">Nordea</span>');
+    expect(out).not.toContain("<img");
+  });
+
+  it("has the name and no picture in the round that renews every consent", () => {
+    const round = { consents: [{ connection: "a", bank: "nordea-fi", done: false }], finished: false };
+    const out = renderToStaticMarkup(
+      createElement(BankConnections, { meta: { ...meta([conn("a", "active", 5)]), renewal: { due: [], round } } as Meta, pickerOpen: false, onChange: () => {}, onMessage: () => {} }),
+    );
+    expect(out).toContain("<li>Nordea<span");
+    expect(out).not.toContain("<img");
+  });
+});
+
 describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
   it("is on every connection, before it ends too", () => {
     expect(renews(html([conn("a", "lapsed", null)]))).toBe(1);
