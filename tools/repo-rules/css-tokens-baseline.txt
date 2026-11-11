@@ -10,7 +10,6 @@ apps/web/src/styles/card-statement.css  px=8
 apps/web/src/styles/categories.css  px=2
 apps/web/src/styles/change.css  px=6
 apps/web/src/styles/charts.css  px=30
-apps/web/src/styles/food.css  px=1
 apps/web/src/styles/foreign-rows.css  px=8
 apps/web/src/styles/holdings.css  px=29 color=1
 apps/web/src/styles/housing.css  px=5
@@ -20,7 +19,6 @@ apps/web/src/styles/marks.css  px=9
 apps/web/src/styles/notices.css  px=9
 apps/web/src/styles/ops.css  px=13
 apps/web/src/styles/optimise.css  px=62
-apps/web/src/styles/quality.css  px=2
 apps/web/src/styles/question-chart.css  px=31
 apps/web/src/styles/questions.css  px=6
 apps/web/src/styles/reconcile.css  px=4

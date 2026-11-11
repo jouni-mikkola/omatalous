@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatEur, printedEuros, printedParts } from "../src/index.ts";
+import { formatEur, printedParts } from "../src/index.ts";
 import { rng } from "./gen.ts";
 
 const euros = (cents: number) => Number(formatEur(cents, false).replace(/[^\d-−]/g, "").replace("−", "-"));
 
 describe("parts printed beside their total", () => {
-  it("prints a euro as formatEur does, halves away from zero", () => {
-    for (const c of [0, 49, 50, 149, 150, -50, -149, -150, 123456]) expect(printedEuros(c) / 100).toBe(euros(c));
-  });
-
   it("the critic's sets: 0,60 + 0,60 + 98,60 print 1 + 1 + 98 under 100, a rise of 398 splits into parts that print 398", () => {
     expect(printedParts([60, 60, 98_60], 99_80)).toEqual([100, 100, 98_00]);
     const [price, quantity] = printedParts([93_40, 304_60], 398_00);
@@ -23,7 +19,7 @@ describe("parts printed beside their total", () => {
       const parts = Array.from({ length: n }, () => (next() < 0.1 ? null : Math.round((next() - 0.3) * 200_000)));
       const total = parts.reduce<number>((s, p) => s + (p ?? 0), 0);
       const printed = printedParts(parts, total);
-      expect(printed.reduce<number>((s, p) => s + (p ?? 0), 0)).toBe(printedEuros(total));
+      expect(printed.reduce<number>((s, p) => s + (p ?? 0), 0)).toBe(euros(total) * 100);
       printed.forEach((p, i) => {
         if (parts[i] === null) return expect(p).toBeNull();
         expect(Math.abs(p! % 100)).toBe(0);

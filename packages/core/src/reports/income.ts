@@ -33,7 +33,7 @@ export interface IncomePayerRow {
   rows: IncomeRowRef[];
 }
 
-export interface IncomeTypeRow {
+interface IncomeTypeRow {
   type: IncomeType;
   label: string;
   group: IncomeGroup;
@@ -113,7 +113,7 @@ export interface IncomeMember {
   regular: boolean;
 }
 
-export interface IncomeReport {
+interface IncomeReport {
   /** The months of the range the figures cover, up to the month in progress. */
   months: IncomeMonth[];
   completeMonths: number;

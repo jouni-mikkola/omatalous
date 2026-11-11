@@ -5,7 +5,7 @@
  */
 
 /** A whole euro as `formatEur(c, false)` prints it: the nearest, halves away from zero, in cents. */
-export const printedEuros = (cents: number): number => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100 || 0;
+const printedEuros = (cents: number): number => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100 || 0;
 
 /**
  * Each part as the cents of the whole euros it prints, rounded together so they add up to the printed total: every part

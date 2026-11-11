@@ -13,7 +13,7 @@ const CALLS: [name: string, path: string][] = [
   ["meta", "/api/meta"],
   ["dashboard month", "/api/dashboard?from=2026-10-01&to=2026-10-31&scope=household"],
   ["dashboard past month", "/api/dashboard?from=2026-09-01&to=2026-09-30&scope=household"],
-  ["reports past month", "/api/reports?from=2026-09-01&to=2026-09-30&scope=household&reports=spendingChange"],
+  ["reports past month", "/api/reports?from=2026-09-01&to=2026-09-30&scope=household&reports=thisMonth"],
   ["recurring", "/api/recurring?scope=own"],
   ["notices", "/api/security/notices"],
 ];

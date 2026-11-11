@@ -70,12 +70,10 @@ describe("old CSV rows: the route is gone, the rows are not", () => {
     ]);
   });
 
-  it("count in the dashboard and in the reports", async () => {
+  it("count in the dashboard", async () => {
     const { admin } = await oldAccount();
     const totals = (await admin.call("GET", "/api/dashboard?from=2026-09-01&to=2026-09-30")).body.totals;
     expect(totals).toMatchObject({ incomeCents: 342000, expenseCents: 4415 + 10666 });
-    const reports = (await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=cashflow")).body;
-    expect(reports.cashflow.rows.find((r: { month: string }) => r.month === "2026-09")).toMatchObject({ incomeCents: 342000, consumptionCents: 4415 + 10666 });
   });
 
   it("pair with a bank account's row as a transfer, and count as saved", async () => {

@@ -9,7 +9,7 @@ import { printedParts } from "../analysis/printed.ts";
 import { CATEGORY_COICOP, type PriceSplit, priceSplit } from "../analysis/prices.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { fromMonthIndex, monthIndex } from "../dates.ts";
-import { totalsOf } from "../analysis/flows.ts";
+import { coverOf, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, previousRange, toDayRange } from "../analysis/period.ts";
 import { type CategoryPart, categoryParts } from "../analysis/row-parts.ts";
 import { categoryLabel } from "../category-names.ts";
@@ -89,7 +89,7 @@ export interface GroupStat {
   categories: CategoryStat[];
 }
 
-export interface CategoryReport {
+interface CategoryReport {
   /** False when the history does not cover the previous period: previous numbers are 0 then. */
   comparable: boolean;
   totalCents: number;
@@ -104,6 +104,8 @@ export interface CategoryReport {
   changeCents: number | null;
   /** Income of the range, the base of `incomeShare`. */
   incomeCents: number;
+  /** Credit drawn in the range, as `coverOf` reads it from the range's flows. */
+  creditDrawnCents: number;
   groups: GroupStat[];
 }
 
@@ -165,7 +167,8 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
   // spending is a row with a minus; a share is of the categories that net above zero, so none passes 100 %
   const total = sumOf(counted, spendOf);
   const base = spendingBase(current);
-  const income = totalsOf(current.map((t) => t.flows)).incomeCents;
+  const flowTotals = totalsOf(current.map((t) => t.flows));
+  const income = flowTotals.incomeCents;
   const ofIncome = (cents: number) => (income > 0 ? cents / income : null);
   // a category spent on in the previous period only is a row too, at 0 now, so the changes add up to the total change
   const spent = new Set([...perCategory].filter(([, e]) => e.total !== 0).map(([key]) => key));
@@ -256,5 +259,5 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
   });
   const previousTotalCents = stats.reduce((s, c) => s + c.previousCents, 0);
   const comparedTotalCents = stats.reduce((s, c) => s + c.comparedCents, 0);
-  return { comparable, totalCents: total, previousTotalCents, comparedTotalCents, changeCents: comparable ? comparedTotalCents - previousTotalCents : null, incomeCents: income, groups: printedGroups };
+  return { comparable, totalCents: total, previousTotalCents, comparedTotalCents, changeCents: comparable ? comparedTotalCents - previousTotalCents : null, incomeCents: income, creditDrawnCents: coverOf(flowTotals).creditDrawnCents, groups: printedGroups };
 }

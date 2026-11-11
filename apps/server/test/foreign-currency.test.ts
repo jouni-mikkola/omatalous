@@ -40,10 +40,9 @@ describe("rows in another currency, a fetch", () => {
     expect(await f.stored()).toEqual(["2026-10-04 booked -1200 Kauppa A"]);
     // no euro figure moved: the first page and the reports are the same answers
     expect((await f.admin.call("GET", "/api/dashboard")).body).toEqual(before);
-    // the reports differ in their notices only: the dollar rows are told with their sum, and no euro figure moves
+    // no euro figure of the reports moves
     const reports = (await f.admin.call("GET", "/api/reports")).body;
     expect(unnoticed(reports)).toEqual(unnoticed(beforeReports));
-    expect(JSON.stringify(reports)).toContain("3 riviä, −30,00 ja +130,00 USD");
 
     // the same fetch again: nothing new, no row doubled
     expect((await syncUser(f.s, f.adminId, "manual")).messages).toEqual([]);

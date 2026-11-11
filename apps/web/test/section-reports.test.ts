@@ -1,8 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { QUESTIONS } from "@banking/core";
-import { REPORT_PAGES, reportsOf, reportsOfPage, REPORT_SECTIONS } from "../src/pages/reports/registry.ts";
-import type { ReportContext } from "../src/pages/reports/types.ts";
+import { REPORT_PAGES, reportsOfPage, REPORT_SECTIONS } from "../src/pages/reports/registry.ts";
 
 const DIR = new URL("../src/pages/reports/sections/", import.meta.url);
 const strings = (list: string) => [...list.matchAll(/"(\w+)"/g)].map((m) => m[1]!);
@@ -10,7 +9,7 @@ const strings = (list: string) => [...list.matchAll(/"(\w+)"/g)].map((m) => m[1]
 describe("a page asks the server for the reports of its own sections", () => {
   it("a section reads no report it does not name, so what a page asks for is all its sections read", () => {
     const files = readdirSync(DIR).filter((f) => f.endsWith(".tsx"));
-    expect(files.length).toBeGreaterThan(10);
+    expect(files.length).toBe(7);
     for (const file of files) {
       const text = readFileSync(new URL(file, DIR), "utf8");
       const named = strings(/\breports: \[([^\]]*)\]/.exec(text)?.[1] ?? "");
@@ -21,42 +20,19 @@ describe("a page asks the server for the reports of its own sections", () => {
     }
   });
 
-  it("Yhteenveto asks for the spending change only", () => {
-    expect(reportsOf("month")).toEqual(["spendingChange"]);
-    expect(reportsOf("reports")).not.toContain("spendingChange");
-  });
-
-  it("every section of Raportit is on exactly one question page, and a page asks for its conclusion and the data notes besides", () => {
+  it("every section of Raportit is on exactly one question page, and a page asks for the reports of its sections only", () => {
     const own = REPORT_SECTIONS.filter((s) => s.page === "reports").map((s) => s.id);
     const placed = REPORT_PAGES.flatMap((p) => p.sections.map((s) => s.id));
     expect([...placed].sort()).toEqual([...own].sort());
     expect(new Set(placed).size).toBe(placed.length);
-    for (const p of REPORT_PAGES) expect(reportsOfPage(p), p.id).toEqual(expect.arrayContaining(["conclusions", "dataQuality"]));
+    for (const p of REPORT_PAGES) expect(reportsOfPage(p), p.id).toEqual([...new Set(p.sections.flatMap((x) => x.reports))]);
   });
 
   it("the question pages are the list of core, one file each, and an old anchor's section is on the page its tab became", () => {
     expect(REPORT_PAGES.map((p) => p.id)).toEqual([...QUESTIONS]);
     const pageOf = (id: string) => REPORT_PAGES.find((p) => p.sections.some((s) => s.id === id))?.id;
-    expect(pageOf("kuukaudet")).toBe("menot");
-    expect(pageOf("kassavirta")).toBe("tulot");
+    expect(pageOf("vuodet")).toBe("menot");
+    expect(pageOf("verovuosi")).toBe("tulot");
     expect(pageOf("lainat")).toBe("velat");
-  });
-
-  it("Asetukset asks for the data quality notes only, and Raportit no longer shows them", () => {
-    expect(reportsOf("settings")).toEqual(["dataQuality"]);
-    expect(reportsOf("reports")).not.toContain("dataQuality");
-    expect(REPORT_SECTIONS.filter((s) => s.page === "settings").map((s) => s.title)).toEqual(["Tietojen laatu"]);
-  });
-
-  it("Tietojen laatu is a card only while the data has a note", () => {
-    const quality = REPORT_SECTIONS.find((s) => s.id === "laatu")!;
-    const ctx = (signals: unknown[], filed: unknown = null, accounts: unknown[] = []) => ({ data: { dataQuality: { signals, filed } }, meta: { accounts } }) as unknown as ReportContext;
-    expect(quality.visible?.(ctx([]))).toBe(false);
-    expect(quality.visible?.(ctx([{ id: "a" }]))).toBe(true);
-    // the share filed without asking is the first lines of the card, so spending alone draws it
-    expect(quality.visible?.(ctx([], { share: 0.9, guessShare: 0, userShare: 0, cents: 9, totalCents: 10 }))).toBe(true);
-    // rows the last fetch could not read draw it too
-    expect(quality.visible?.(ctx([], null, [{ name: "Käyttötili", refused: { status: 1 } }]))).toBe(true);
-    expect(quality.visible?.(ctx([], null, [{ name: "Käyttötili", refused: null }]))).toBe(false);
   });
 });

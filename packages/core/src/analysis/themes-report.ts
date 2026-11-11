@@ -132,7 +132,7 @@ function newestRun(months: readonly number[], covered: (month: number) => boolea
  * The cents the rounding down left go to the lines that lost most of one, the earlier first; a reader may rely on the
  * sum being `total` and on each share being within a cent of its own.
  */
-export function sharedOut(cents: readonly number[], n: number, total: number): number[] {
+function sharedOut(cents: readonly number[], n: number, total: number): number[] {
   const over = cents.map((c) => ((c % n) + n) % n);
   const out = cents.map((c, i) => (c - over[i]!) / n);
   let left = total - sum(out);

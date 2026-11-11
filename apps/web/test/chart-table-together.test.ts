@@ -14,9 +14,6 @@ describe("chart and table together", () => {
     expect(parts).not.toContain("TableToggle");
     expect(parts).toContain("<ChartWithTable");
   });
-  it("Menojen muutos keeps the one panel frame", () => {
-    expect(read("../src/pages/reports/sections/SpendingChange.tsx")).toContain("<ReportPanel ");
-  });
   it("draws the chart first and the table under it, both in sight", () => {
     const rows = [{ k: "a", n: "Ensimmäinen" }, { k: "b", n: "Toinen" }];
     const table = createElement(Table<(typeof rows)[number]>, { caption: "Rivit", rows, rowKey: (r) => r.k, columns: [{ key: "n", label: "Nimi", kind: "text", rowHead: true, cell: (r) => r.n }] });

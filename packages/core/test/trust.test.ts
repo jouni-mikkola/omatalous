@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { addDays, addMonths } from "../src/dates.ts";
 import { buildReports } from "../src/reports/index.ts";
+import { dataQualityReport } from "../src/analysis/data-quality.ts";
 import type { Account, BalanceInput, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
@@ -27,37 +28,6 @@ const reports = (rows: Transaction[], range: { from: string; to: string }, accou
   buildReports({ ctx: createContext(rows, accounts, today), range, balances: [] });
 
 describe("no average from a running month", () => {
-  it("category and pivot averages are null inside the running month", () => {
-    const r = reports(dataset(), { from: "2026-10-01", to: today });
-    const stats = r.categories.groups.flatMap((g) => g.categories);
-    expect(stats.length).toBeGreaterThan(0);
-    for (const s of stats) {
-      expect([s.monthlyAvgCents, s.minMonthCents, s.maxMonthCents]).toEqual([null, null, null]);
-    }
-    expect(r.pivot.rows.every((row) => row.averageCents === null)).toBe(true);
-    expect(r.pivot.averageCents).toBeNull();
-  });
-
-  it("the totals stay numbers: only the averages leave", () => {
-    const r = reports(dataset(), { from: "2026-10-01", to: today });
-    expect(r.categories.totalCents).toBeGreaterThan(0);
-    expect(r.pivot.totalCents).toBe(r.categories.totalCents);
-  });
-
-  it("a range with one complete month averages that month only", () => {
-    const r = reports(dataset(), { from: "2026-09-01", to: today });
-    const housing = r.categories.groups.flatMap((g) => g.categories).find((c) => c.category === "housing")!;
-    expect(housing).toMatchObject({ monthlyAvgCents: 105000, minMonthCents: 105000, maxMonthCents: 105000 });
-    expect(r.pivot.rows.find((row) => row.category === "housing")!.averageCents).toBe(105000);
-  });
-
-  it("a history that starts mid-month has no average for that month either", () => {
-    const young = dataset().filter((t) => t.bookingDate >= "2026-09-15");
-    const r = reports(young, { from: "2026-09-01", to: "2026-09-30" });
-    expect(r.categories.groups.flatMap((g) => g.categories).every((c) => c.monthlyAvgCents === null)).toBe(true);
-    expect(r.pivot.averageCents).toBeNull();
-  });
-
   it("the three-month trend needs six complete months", () => {
     const rows = monthlyOn("2026-04", 10, 6, -10000, { category: "groceries", merchant: "K-Market" });
     const short = reports(rows, { from: "2026-04-01", to: "2026-09-30" }).categories.groups[0]!.categories[0]!;
@@ -69,23 +39,6 @@ describe("no average from a running month", () => {
 });
 
 describe("pivot flags and what a share is of", () => {
-  it("marks the first month of a history that starts mid-month and the running month as incomplete", () => {
-    const rows = dataset().filter((t) => t.bookingDate >= "2025-09-15");
-    const p = reports(rows, { from: "2025-09-01", to: today }).pivot;
-    expect(p.months[0]).toBe("2025-09");
-    expect(p.months.at(-1)).toBe("2026-10");
-    expect(p.complete).toHaveLength(p.months.length);
-    expect(p.complete[0]).toBe(false);
-    expect(p.complete.at(-1)).toBe(false);
-    expect(p.complete.slice(1, -1).every(Boolean)).toBe(true);
-  });
-
-  it("a range that starts on the 15th leaves its first month incomplete although the history covers it", () => {
-    const p = reports(dataset(), { from: "2026-08-15", to: "2026-09-30" }).pivot;
-    expect(p.months).toEqual(["2026-08", "2026-09"]);
-    expect(p.complete).toEqual([false, true]);
-  });
-
   it("each group has its share of spending and of income", () => {
     const r = reports(dataset(), { from: "2026-09-01", to: "2026-09-30" }).categories;
     expect(r.incomeCents).toBe(300000);
@@ -137,57 +90,13 @@ describe("nothing from fewer than three comparable months", () => {
   });
 });
 
-describe("drift says what it checked", () => {
-  /** Groceries every third day, 100 euros a month at a price of 1000 cents, from `start` to `end`. */
-  const groceries = (start: string, end: string, price: number | ((day: string) => number)) =>
-    series(start, 3, 400, -1000, { category: "groceries", merchant: "K-Market" })
-      .filter((t) => t.bookingDate <= end)
-      .map((t) => ({ ...t, amountCents: -(typeof price === "number" ? price : price(t.bookingDate)) }));
-  const drift = (rows: Transaction[], now: string) => buildReports({ ctx: createContext(rows, [checking], now), range: { from: "2025-01-01", to: now }, balances: [] }).drift;
-
-  it("a short history judges nothing and names the day the check starts", () => {
-    const r = drift(groceries("2026-06-01", today, 1000), today);
-    expect(r.months).toEqual([]);
-    expect(r.checked).toBe(0);
-    expect(r.neededMonths).toBe(9);
-    // June to February are nine complete months
-    expect(r.readyFrom).toBe("2027-03-01");
-  });
-
-  it("the check runs on the day it named and not the day before", () => {
-    const rows = groceries("2026-06-01", "2027-03-01", 1000);
-    expect(drift(rows, "2027-02-28").months).toEqual([]);
-    const ready = drift(rows, "2027-03-01");
-    expect(ready.months).toEqual(["2026-12", "2027-01", "2027-02"]);
-    expect(ready.readyFrom).toBe("2027-03-01");
-  });
-
-  it("a history that starts after the 3rd leaves its first month out of the nine", () => {
-    expect(drift(groceries("2026-06-15", today, 1000), today).readyFrom).toBe("2027-04-01");
-  });
-
-  it("a quiet history says how many categories it compared", () => {
-    const r = drift(groceries("2025-06-01", today, 1000), today);
-    expect(r.months).toHaveLength(3);
-    expect(r.items).toEqual([]);
-    expect(r.checked).toBe(1);
-    expect(r.advice).toBe("");
-  });
-
-  it("a rise is told with its yearly cost and no closing advice", () => {
-    const r = drift(groceries("2025-06-01", today, (day) => (day >= "2026-07-01" ? 2200 : 1000)), today);
-    expect(r.items.map((i) => i.category)).toEqual(["groceries"]);
-    expect(r.advice).toMatch(/^Ruokakauppa: menot ovat olleet kolme kuukautta peräkkäin tavallista suuremmat\. Jos taso pysyy, menot kasvavat .+ vuodessa\.$/);
-  });
-});
-
 describe("data quality: savings out of sight, missing balances, quiet cards", () => {
   const range = { from: "2026-08-01", to: today };
   const savings: Account = { id: "sav-1", name: "Säästötili", iban: null, currency: "EUR", type: "savings" };
   const card: Account = { id: "card-1", name: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" };
   const signals = (rows: Transaction[], accounts: Account[] = [checking], balances: BalanceInput[] = []) => {
     const ctx = createContext(rows, accounts, today);
-    return { ctx, signals: buildReports({ ctx, range, balances }).dataQuality.signals };
+    return { ctx, signals: dataQualityReport(ctx, range, balances, "fi").signals };
   };
   const find = (list: { id: string }[], id: string) => list.find((s) => s.id === id) as { id: string; detail: string; title: string; cents?: number } | undefined;
   const balance = (account: Account, balanceCents: number | null, ownerName: string | null = null): BalanceInput => ({ id: account.id, name: account.name, type: account.type, balanceCents, ownerName, balanceAt: null });

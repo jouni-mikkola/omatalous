@@ -6,16 +6,13 @@ import { addMonths } from "../src/dates.ts";
 import { CPI_CLASS_NAMES, CPI_FACTS } from "../src/optimise/facts/cpi.ts";
 import { factFrom } from "../src/optimise/index.ts";
 import { categoryReport } from "../src/reports/categories.ts";
-import { driftReport } from "../src/reports/drift.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-19";
 
-/** The mean index of `coicop` over `months`, read from the facts as a calc line would. */
 const factOn = (id: string, on: string) => factFrom(CPI_FACTS, id, on);
-const meanIndex = (coicop: string, months: string[]) => months.reduce((s, m) => s + factOn(`cpi_index:${coicop}:${m}`, today)!.value, 0) / months.length;
 const monthsFrom = (first: string, n: number) => Array.from({ length: n }, (_, i) => addMonths(first, i));
 
 /** Salary and rent to keep the household steady, groceries at `level` cents a month from 2025-07, the months in `high` dearer. */
@@ -28,23 +25,6 @@ function household(level: number, high: Record<string, number>): Transaction[] {
 }
 
 describe("price split", () => {
-  it("a category whose spend rose by price and quantity splits into parts that add up to the change to the cent", () => {
-    const ctx = createContext(household(40000, { "2026-07": 52011, "2026-08": 53007, "2026-09": 54003 }), [checking], today);
-    const item = driftReport(ctx, { from: "2026-01-01", to: "2026-09-30" }).items.find((i) => i.category === "groceries")!;
-    const p = item.prices!;
-    expect(p.coicop).toBe("01");
-    expect(p.currentMonths).toEqual(["2026-07", "2026-08", "2026-09"]);
-    expect(p.baseMonths).toEqual(monthsFrom("2025-07", 12));
-    expect(p.changeCents).toBe(item.recentCents - item.expectedCents);
-    expect(p.priceCents + p.quantityCents).toBe(p.changeCents);
-    // groceries were dearer than in the year before: both parts are there, the household bought more too
-    expect(p.priceCents).toBe(Math.round(40000 * (meanIndex("01", p.currentMonths) / meanIndex("01", p.baseMonths) - 1)));
-    expect(p.priceCents).toBeGreaterThan(0);
-    expect(p.quantityCents).toBeGreaterThan(p.priceCents);
-    expect(p.source.url).toMatch(/^https:\/\/pxdata\.stat\.fi\//);
-    expect(p.verifiedAt).toBe("2026-10-19");
-  });
-
   it("Kategoriat splits the rise from the previous period of complete months, and is quiet over the running month", () => {
     const rows = household(40000, Object.fromEntries(monthsFrom("2026-04", 6).map((m, i) => [m, 45000 + i * 1013])));
     const ctx = createContext(rows, [checking], today);

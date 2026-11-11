@@ -44,10 +44,6 @@ packages/core/src/analysis/data-quality.ts  SHORT_HISTORY_DAYS
 packages/core/src/analysis/data-quality.ts  STALE_DAYS
 packages/core/src/analysis/data-quality.ts  UNCATEGORISED_SHARE
 packages/core/src/analysis/fixed-share.ts  MIN_FIXED_CENTS
-packages/core/src/analysis/food.ts  MIN_PURCHASES
-packages/core/src/analysis/food.ts  PAYEES
-packages/core/src/analysis/food.ts  SIDE
-packages/core/src/analysis/food.ts  USUAL_SIDE
 packages/core/src/analysis/forecast.ts  MIN_NAME_PREFIX
 packages/core/src/analysis/forecast.ts  PAID_TOLERANCE_PERCENT
 packages/core/src/analysis/income-events.ts  NEW_SOURCE_DAYS
@@ -84,13 +80,6 @@ packages/core/src/analysis/subscription-alerts.ts  CANCELLED_MAX
 packages/core/src/analysis/subscription-alerts.ts  FORGOTTEN_MAX
 packages/core/src/analysis/subscription-alerts.ts  PENDING_GRACE_DAYS
 packages/core/src/analysis/themes-report.ts  YEAR
-packages/core/src/reports/drift.ts  BASE_MONTHS
-packages/core/src/reports/drift.ts  MAX_ITEMS
-packages/core/src/reports/drift.ts  MIN_BASE_CENTS
-packages/core/src/reports/drift.ts  MIN_BASE_MONTHS
-packages/core/src/reports/drift.ts  MIN_EXTRA_CENTS
-packages/core/src/reports/drift.ts  MIN_RISE
-packages/core/src/reports/drift.ts  RECENT_MONTHS
 packages/core/src/reports/income.ts  WEEKS_PER_MONTH
 packages/core/src/reports/pivot.ts  PAYEES
 packages/core/src/reports/pivot.ts  PEAK_ROWS

@@ -12,7 +12,7 @@ import { type AnalysisContext, createContext } from "../src/analysis/context.ts"
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { largePurchases } from "../src/analysis/large.ts";
 import { coverage } from "../src/analysis/coverage.ts";
-import { sharedOut, type ThemesReport, themeWindow, themesReport } from "../src/analysis/themes-report.ts";
+import { type ThemesReport, themeWindow, themesReport } from "../src/analysis/themes-report.ts";
 import { addMonths, dateIn, monthEnd, monthIndex } from "../src/dates.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { themeOf } from "../src/themes.ts";
@@ -711,14 +711,6 @@ describe("what the report gives to others", () => {
     expect(sum([...by.values()].flatMap((m) => [...m.values()]))).toBe(report.totalCents);
     expect(sum(w.rows.filter(apart).map((t) => t.spend))).toBe(report.large.cents);
     expect(themeWindow(createContext([], [], h.today))).toBeNull();
-  });
-
-  it("sharedOut: the shares of a theme's lines are the report's cents a month, adding up to the theme's", () => {
-    for (const t of report.themes) {
-      const shares = sharedOut(t.lines.map((l) => l.yearCents!), 12, t.monthlyCents);
-      expect(shares, t.heading).toEqual(t.lines.map((l) => l.monthlyCents));
-      expect(sum(shares), t.heading).toBe(t.monthlyCents);
-    }
   });
 
   it("coverage: every account with spending in the report's window covers each of its months from the 1st", () => {

@@ -5,17 +5,17 @@
  */
 import { t } from "../../text.ts";
 import { REPORT_PERIODS } from "../../period.ts";
-import { type ConclusionsReport, QUESTIONS, type QuestionId } from "@banking/core";
+import { QUESTIONS, type QuestionId } from "@banking/core";
 import { useEffect, useRef } from "react";
 import { query } from "../../api.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { useApi } from "../../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { reportContext } from "./context.ts";
-import { Frame, openQuestions } from "./Frame.tsx";
+import { Frame } from "./Frame.tsx";
 import { Month } from "./Month.tsx";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
-import type { ReportRange } from "./types.ts";
+import type { ReportContext, ReportRange } from "./types.ts";
 import { FoldContext } from "../../components/Section.tsx";
 import { Opened } from "../../view-opens.tsx";
 import "../../styles/reports.css";
@@ -45,13 +45,15 @@ function ReportsSkeleton() {
   );
 }
 
+/** The questions that have a section to show for this answer, in the order of the list. */
+export const openQuestions = (ctx: ReportContext): QuestionId[] => REPORT_PAGES.filter((p) => visiblePageSections(ctx, p).length > 0).map((p) => p.id);
+
 /**
- * The question to open: the page that holds the anchored section, else the one `q` names when it has something to say,
+ * The question to open: the page that holds the anchored section, else the one `q` names when it has something to show,
  * else the first that follows the chosen period. The month question ignores the period, so a bare address never lands on it
  * and hides the switch the reader just used.
  */
-export function questionOf(conclusions: ConclusionsReport, asked: string | null, anchor: string | undefined): QuestionId {
-  const open = openQuestions(conclusions);
+export function questionOf(open: readonly QuestionId[], asked: string | null, anchor: string | undefined): QuestionId {
   const byAnchor = anchor ? REPORT_PAGES.find((p) => open.includes(p.id) && p.sections.some((s) => s.id === anchor))?.id : undefined;
   return byAnchor ?? open.find((id) => id === asked) ?? open.find((id) => id !== "kuukausi") ?? open[0] ?? QUESTIONS[0];
 }
@@ -85,22 +87,23 @@ function Questions({ meta, range, scope, params, anchor, onQuestion }: ReportsPr
     scrolledFor.current = anchor;
     document.getElementById(anchor)?.scrollIntoView({ block: "start" });
   }, [anchor, data]);
-  const shown = data ? questionOf(data.conclusions, params?.get("q") ?? null, anchor) : null;
+  const open = params ?? new URLSearchParams();
+  const span = REPORT_PERIODS.find((p) => p.id === open.get("period"))?.label ?? REPORT_PERIODS.find((p) => p.id === "12m")?.label;
+  const ctx = data ? { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare"), span } : null;
+  const questions = ctx ? openQuestions(ctx) : [];
+  const shown = ctx ? questionOf(questions, open.get("q"), anchor) : null;
   useEffect(() => {
     onQuestion?.(shown);
     return () => onQuestion?.(null);
   }, [shown, onQuestion]);
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
-  if (!data) return <ReportsSkeleton />;
-  const open = params ?? new URLSearchParams();
-  const span = REPORT_PERIODS.find((p) => p.id === open.get("period"))?.label ?? REPORT_PERIODS.find((p) => p.id === "12m")?.label;
-  const ctx = { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare"), span };
-  const page = reportPage(questionOf(data.conclusions, open.get("q"), anchor));
+  if (!ctx || !shown) return <ReportsSkeleton />;
+  const page = reportPage(shown);
   const sections = visiblePageSections(ctx, page);
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame ctx={ctx} page={page} conclusions={data.conclusions} params={open} note={open.get("q") === "yhteiset" && page.id !== "yhteiset" ? t("rpt.q_not_open") : undefined}>
+      <Frame page={page} pages={REPORT_PAGES.filter((p) => questions.includes(p.id))} params={open} note={open.get("q") === "yhteiset" && page.id !== "yhteiset" ? t("rpt.q_not_open") : undefined}>
         <Opened views={sections.map((s) => `report:${s.id}`)} />
         {sections.map((s) =>
           page.fold ? (

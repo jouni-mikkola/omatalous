@@ -228,7 +228,7 @@ function uncategorised(ctx: AnalysisContext, range: DateRange, dismissed: Readon
 
 // ── overlapping services ─────────────────────────────────
 
-export type ServiceType = "audiobooks" | "music" | "cloud" | "video";
+type ServiceType = "audiobooks" | "music" | "cloud" | "video";
 
 const OVERLAP_NOUN = { audiobooks: "alr.noun_audiobooks", music: "alr.noun_music", cloud: "alr.noun_cloud", video: "alr.noun_video" } as const;
 
@@ -287,7 +287,7 @@ const SERVICES: readonly { type: ServiceType; noun: string; brands: readonly [st
 ];
 
 /** Services of one type from two or more brands, dearest series first. */
-export interface OverlapGroup {
+interface OverlapGroup {
   type: ServiceType;
   /** Partitive, after a count word: "musiikkipalvelua". */
   noun: string;

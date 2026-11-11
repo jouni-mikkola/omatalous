@@ -176,15 +176,11 @@ describe("credit drawn: the net of a period, never below zero", () => {
 });
 
 describe("labels the brief names in the web files (read as text)", () => {
-  const web = (path: string) => readFileSync(new URL(`../../../apps/web/src/${path}`, import.meta.url), "utf8");
 
   it("names the report's usual income Säännölliset tulot kuussa", () => {
-    const income = web("pages/reports/sections/Income.tsx");
     // the words live in the catalogue, the page asks for them by code
     const words = [1, 2, 3, 4, 5].map((n) => readFileSync(new URL(`../src/messages-reports-${n}.ts`, import.meta.url), "utf8")).join("\n");
     expect(words).toContain('"rpt.in_why": "Säännölliset tulot kuussa"');
-    expect(income).toContain("rpt.in_why");
-    expect(income).not.toContain("Odotetut tulot kuukaudessa");
     expect(words).not.toContain("Odotetut tulot kuukaudessa");
   });
 });

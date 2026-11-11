@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { planOf } from "../src/analysis/change-plan.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../src/analysis/usual.ts";
-import { buildReports } from "../src/reports/index.ts";
 import { accountsBefore } from "../src/optimise/common.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { series } from "./helpers.ts";
@@ -93,27 +92,5 @@ describe("accountsBefore", () => {
   it("keeps every account that starts on one day", () => {
     expect([...accountsBefore(together(), "2025-12-01")].sort()).toEqual(["acc-1", "acc-2"]);
     expect([...accountsBefore(together(), "2025-11-01")]).toEqual([]);
-  });
-});
-
-describe("drift reads the accounts of its rows", () => {
-  const from = "2025-01-01";
-  const drift = (ctx: ReturnType<typeof ctxOf>) => buildReports({ ctx, range: { from, to: today }, balances: [] }).drift;
-  const long = (a: string, b: string) => ctxOf([...filler("acc-1", a), ...filler("acc-2", b)]);
-
-  it("does not compare with months before an account of the recent rows was connected", () => {
-    const r = drift(long("2025-03-01", "2026-02-10"));
-    // March to June 2026 are the only base months with both accounts in the data: fewer than six
-    expect(r.months).toEqual([]);
-    expect(r.readyFrom).toBe("2026-12-01");
-  });
-
-  it("judges a household whose accounts start on one day as before", () => {
-    const both = drift(long("2025-03-01", "2025-03-01"));
-    const alone = drift(ctxOf(filler("acc-1", "2025-03-01"), [A]));
-    expect(both.months).toEqual(["2026-07", "2026-08", "2026-09"]);
-    expect(both.months).toEqual(alone.months);
-    expect(both.readyFrom).toBe("2025-12-01");
-    expect(both.readyFrom).toBe(alone.readyFrom);
   });
 });

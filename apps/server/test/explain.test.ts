@@ -169,13 +169,13 @@ describe("GET /api/explain: each opener explains the number its page shows", () 
   it("usual.income and Tulos are the figures of the dashboard and the reports", async () => {
     const { admin } = await setupApp();
     expect((await admin.call("POST", "/api/demo")).status).toBe(200);
-    const reports = (await admin.call("GET", `/api/reports?${YEAR}&reports=income,cashflow`)).body;
+    const reports = (await admin.call("GET", `/api/reports?${YEAR}&reports=income`)).body;
     expect(reports.income.stability.medianCents).toBeGreaterThan(0);
     const income = await admin.call("GET", `/api/explain?figure=usual.income&${YEAR}`);
     expect(income.body.cents).toBe(reports.income.stability.medianCents);
     expect(income.body.method.values).toHaveLength(6);
     expect(income.body.check).toEqual({ kind: "recompute", diffCents: 0 });
-    const month = (await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=cashflow")).body.cashflow;
+    const month = (await admin.call("GET", "/api/dashboard?from=2026-09-01&to=2026-09-30")).body;
     const left = await admin.call("GET", `/api/explain?figure=yli_jai.month&from=2026-09-01&to=2026-09-30`);
     expect(left.body.cents).toBe(month.totals.leftCents);
     expect(left.body.check).toEqual({ kind: "sum", diffCents: 0 });
@@ -206,7 +206,7 @@ describe("GET /api/explain: Koko talous and a joint account", () => {
     const ask = (figure: string) => admin.call("GET", `/api/explain?figure=${figure}&${OCTOBER}&scope=household`);
     expect((await ask("usual.income")).status).toBe(200);
     const left = await admin.call("GET", `/api/explain?figure=yli_jai.month&${SEPT}&scope=household`);
-    expect(left.body.cents).toBe((await admin.call("GET", `/api/reports?${SEPT}&reports=cashflow&scope=household`)).body.cashflow.totals.leftCents);
+    expect(left.body.cents).toBe((await admin.call("GET", `/api/dashboard?${SEPT}&scope=household`)).body.totals.leftCents);
     expect(left.body.check).toEqual({ kind: "sum", diffCents: 0 });
     // the household's accounts are whole: the row of the joint account has no part to tell in this view
     const row = ((await admin.call("GET", `/api/transactions?${SEPT}&limit=500&scope=household`)).body.items as { id: string }[])[0]!;

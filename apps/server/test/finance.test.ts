@@ -33,17 +33,14 @@ describe("dashboard and reports on demo data", () => {
     const { body: r } = await admin.call("GET", "/api/reports?from=2025-10-01&to=2026-09-30");
     // every report in the registry is served, so a new report cannot be forgotten here
     expect(Object.keys(r).sort()).toEqual(Object.keys(REPORTS).sort());
-    expect(r.cashflow.rows).toHaveLength(12);
-    expect(r.categories.totalCents).toBe(r.cashflow.totals.consumptionCents + r.cashflow.totals.debtCents);
-    expect(r.pivot.totalCents).toBe(r.categories.totalCents);
+    expect(r.categories.totalCents).toBeGreaterThan(0);
     expect(r.balances.accounts).toHaveLength(3);
     expect(r.balances.accounts.every((a: { values: unknown[] }) => a.values.length === 12)).toBe(true);
 
-    // a page that shows a few sections asks for their reports only (Yhteenveto: the spending change); an unknown name is a 400
-    const month = await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=spendingChange");
-    expect(Object.keys(month.body)).toEqual(["spendingChange"]);
-    expect(month.body.spendingChange.views[0].view).toBe("expected");
-    expect((await admin.call("GET", "/api/reports?reports=spendingChange,nope")).res.status).toBe(400);
+    // a page that shows a few sections asks for their reports only (Kuukausi: this month); an unknown name is a 400
+    const month = await admin.call("GET", "/api/reports?from=2026-09-01&to=2026-09-30&reports=thisMonth");
+    expect(Object.keys(month.body)).toEqual(["thisMonth"]);
+    expect((await admin.call("GET", "/api/reports?reports=thisMonth,nope")).res.status).toBe(400);
   });
 
   it("exports CSV for spreadsheets", async () => {

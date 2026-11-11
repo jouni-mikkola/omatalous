@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import type { StatementBill } from "../src/analysis/statement-explain.ts";
-import { summaryReport } from "../src/reports/summary.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -50,14 +49,6 @@ describe("the spending total is the sum of its categories", () => {
     expect(feb.previousTotals.expenseCents).toBe(0);
   });
 
-  it("the summary's totals and its categories come from the same rows", () => {
-    const feb = summaryReport(ctx, month("2026-02"));
-    expect(feb).toMatchObject({ spendingCents: 39150, savedCents: 20000, netCents: 300_000 - 39150 });
-    expect(sum(feb.topCategories)).toBe(16150 + 15000 + 8000);
-    expect(feb.spendingCents).toBeGreaterThanOrEqual(sum(feb.topCategories));
-    expect(summaryReport(ctx, month("2026-03", "31")).spendingCents).toBe(12850);
-  });
-
   it("no euro is counted twice or lost over the months, and a bill without rows counts whole in its own month", () => {
     const whole = ctxOf([]);
     const all = { from: "2026-01-01", to: "2026-04-30" };
@@ -78,8 +69,6 @@ describe("the spending total is the sum of its categories", () => {
         const d = buildDashboard(c, { from: `${m}-01`, to: `${m}-28` });
         expect(d.totals.expenseCents, m).toBeGreaterThanOrEqual(sum(d.categories));
         expect(d.totals.expenseCents, m).toBe(sum(d.categories));
-        const s = summaryReport(c, { from: `${m}-01`, to: `${m}-28` });
-        expect(s.spendingCents, m).toBeGreaterThanOrEqual(sum(s.topCategories));
       }
     }
   });

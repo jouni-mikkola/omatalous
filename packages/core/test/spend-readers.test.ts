@@ -27,7 +27,6 @@ const USES_SPEND_ROWS = [
   "analysis/dashboard.ts",
   "analysis/expected.ts",
   "analysis/filed.ts",
-  "analysis/food.ts",
   "analysis/questions.ts",
   // the rows its callers (categories.ts) give it, from spendRows
   "analysis/row-parts.ts",
@@ -35,9 +34,7 @@ const USES_SPEND_ROWS = [
   // a category's spending to a day of the month, from spendRows
   "analysis/usual.ts",
   "reports/categories.ts",
-  "reports/spending-table.ts",
   "reports/pivot.ts",
-  "reports/summary.ts",
   "reports/tax-year.ts",
   "reports/this-month.ts",
 ];
@@ -69,7 +66,6 @@ const BILL_WHOLE = [
   "optimise/areas/housing.ts",
   "optimise/areas/insurance.ts",
   "optimise/common.ts",
-  "reports/drift.ts",
   "reports/year-over-year.ts",
 ];
 
@@ -83,8 +79,8 @@ describe("every reader of spend is classified", () => {
   });
 
   it("a total shown beside converted categories is worked out from the same rows", () => {
-    // the totals of the summary, the first page and its bridge read `spendTotals`, never the flows of `inDays` themselves
-    for (const f of ["reports/summary.ts", "analysis/dashboard.ts", "analysis/bridge.ts"]) {
+    // the totals of the first page and its bridge read `spendTotals`, never the flows of `inDays` themselves
+    for (const f of ["analysis/dashboard.ts", "analysis/bridge.ts"]) {
       const source = readFileSync(join(SRC, f), "utf8");
       expect(source, f).toMatch(/\bspendTotals\b|\bspendRows\b/);
       expect(source, f).not.toMatch(/totalsOf\(\s*(inDays|current|previous)/);
@@ -92,7 +88,7 @@ describe("every reader of spend is classified", () => {
   });
 
   it("the readers that show what a bill paid for take their rows from spendRows or loweredRows", () => {
-    for (const f of USES_SPEND_ROWS.filter((f) => f !== "analysis/context.ts" && f !== "analysis/food.ts")) {
+    for (const f of USES_SPEND_ROWS.filter((f) => f !== "analysis/context.ts")) {
       expect(readFileSync(join(SRC, f), "utf8"), f).toMatch(/\b(spendRows|loweredRows)\b/);
     }
   });

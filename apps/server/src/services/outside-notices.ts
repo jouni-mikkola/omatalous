@@ -42,7 +42,7 @@ interface Target {
   token: string | null;
 }
 
-export type NoticeKind = "consent" | "disk" | "backup" | "update";
+type NoticeKind = "consent" | "disk" | "backup" | "update";
 
 /** The words of each notice. No number, name or amount: only what happened and where to look. */
 const TEXTS: Record<Language, Record<NoticeKind, { title: string; message: string }>> = {

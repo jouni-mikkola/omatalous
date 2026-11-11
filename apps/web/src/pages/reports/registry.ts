@@ -23,9 +23,9 @@ export function visiblePageSections(ctx: ReportContext, page: ReportPage): Repor
   return [...page.sections].sort((a, b) => a.order - b.order).filter((s) => s.visible?.(ctx) ?? true);
 }
 
-/** The core reports a question page asks for: those of its sections, its conclusion and the notes about the data under it. */
+/** The core reports a question page asks for: those of its sections. */
 export function reportsOfPage(page: ReportPage): ReportId[] {
-  return [...new Set<ReportId>([...page.sections.flatMap((s) => s.reports), "conclusions", "dataQuality"])];
+  return [...new Set<ReportId>(page.sections.flatMap((s) => s.reports))];
 }
 
 // Every file in sections/ is a section. Vite reads the folder at build time, so a new report adds a file and

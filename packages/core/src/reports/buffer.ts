@@ -7,7 +7,7 @@ import { monthOf } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 
-export interface BufferReport extends FixedShare {
+interface BufferReport extends FixedShare {
   /** Spending (consumption and debt) in an expected month (`expectedSpending`), groceries included; null under three complete months. */
   expectedSpendCents: number | null;
   /** Balances of savings and checking accounts today; null when none of them has a balance. */

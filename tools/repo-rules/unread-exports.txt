@@ -61,7 +61,6 @@ apps/server/src/providers/cloudflare/api.ts  PERMISSION
 apps/server/src/providers/cloudflare/api.ts  durationSeconds
 apps/server/src/providers/cloudflare/client.ts  CLOUDFLARE_API
 apps/server/src/providers/cloudflare/client.ts  CallOptions
-apps/server/src/providers/cloudflare/client.ts  Fault
 apps/server/src/providers/cloudflare/client.ts  ResultInfo
 apps/server/src/providers/cloudflare/reconcile.ts  ExitReason
 apps/server/src/providers/cloudflare/reconcile.ts  ORIGIN
@@ -212,8 +211,6 @@ packages/core/src/pipeline.ts  IslandResult
 packages/core/src/reports/balances.ts  BalanceSeries
 packages/core/src/reports/cashflow.ts  CashflowRow
 packages/core/src/reports/categories.ts  GroupStat
-packages/core/src/reports/drift.ts  DriftReport
-packages/core/src/reports/fixed-variable.ts  FixedVariableRow
 packages/core/src/reports/income.ts  IncomeMember
 packages/core/src/reports/income.ts  IncomeMonth
 packages/core/src/reports/income.ts  IncomePayDay
@@ -224,9 +221,6 @@ packages/core/src/reports/index.ts  ReportInput
 packages/core/src/reports/pivot.ts  PivotRow
 packages/core/src/reports/spending-change.ts  ChangeViewReport
 packages/core/src/reports/spending-change.ts  SpendingChangeReport
-packages/core/src/reports/summary.ts  SummaryCategory
-packages/core/src/reports/summary.ts  SummaryChange
-packages/core/src/reports/summary.ts  SummaryReport
 packages/core/src/reports/upcoming.ts  BillMonth
 packages/core/src/reports/upcoming.ts  BillSource
 packages/core/src/reports/upcoming.ts  ManualBill

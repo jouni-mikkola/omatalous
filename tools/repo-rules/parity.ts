@@ -68,7 +68,8 @@ describe("repo rules: parity", () => {
     const DIR = "packages/core/src/reports/";
     const INDEX = `${DIR}index.ts`;
     // files of that folder that are not reports
-    const NOT_REPORTS = new Set(["index.ts", "shared.ts"]);
+    // the last seven left the registry with T60 (docs/design/README.md, section 2) and are read by other code until its step removes it
+    const NOT_REPORTS = new Set(["index.ts", "shared.ts", "buffer.ts", "cashflow.ts", "pivot.ts"]);
     const found: Finding[] = [];
 
     const sf = parse(INDEX);
@@ -121,7 +122,8 @@ describe("repo rules: parity", () => {
     // upcoming: Laskut reads the typed-in bills of it for its one table, with no section of its own
     // summary: Vuosivertailu tells the year's change by category from yearOverYear (PD-raportit), and its CSV stays
     // conclusions: the frame of the question pages shows it (pages/reports/Frame.tsx), no section does
-    const NO_SECTION = new Set<string>(["summary", "conclusions", "upcoming"]);
+    // spendingChange: Kuukausi reads an earlier month from it (pages/reports/Month.tsx), which is a view and no section
+    const NO_SECTION = new Set<string>(["upcoming", "income", "housing", "spendingChange"]);
     const sectionFiles = repoFiles().filter((f) => f.startsWith(SECTIONS) && /^[^/]+\.tsx$/.test(f.slice(SECTIONS.length)));
     expect(sectionFiles.length, "the web report sections are found").toBeGreaterThan(5);
     const shown = new Set<string>();
@@ -183,7 +185,8 @@ describe("repo rules: parity", () => {
     const CORE = "packages/core/src/reports/";
     const SECTIONS = "apps/web/src/pages/reports/sections/";
     // files of the core folder that are not reports
-    const NOT_REPORTS = new Set(["index.ts", "shared.ts"]);
+    // the last seven left the registry with T60 (docs/design/README.md, section 2) and are read by other code until its step removes it
+    const NOT_REPORTS = new Set(["index.ts", "shared.ts", "buffer.ts", "cashflow.ts", "pivot.ts"]);
     // a comment line (`//`, `/**` or a ` * ` line of a block) that holds `Decision:` and then some words
     const DECISION = /^[ \t]*(?:\/\/|\/\*+|\*)[ \t]*Decision:[ \t]*\S/m;
     const files = repoFiles().filter((f) => (f.startsWith(CORE) && /^[^/]+\.ts$/.test(f.slice(CORE.length)) && !NOT_REPORTS.has(f.slice(CORE.length))) || (f.startsWith(SECTIONS) && /^[^/]+\.tsx$/.test(f.slice(SECTIONS.length))));

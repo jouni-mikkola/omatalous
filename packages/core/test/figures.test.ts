@@ -24,7 +24,6 @@ import { balanceReport } from "../src/reports/balances.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
-import { summaryReport } from "../src/reports/summary.ts";
 
 type FigureKey = keyof typeof FIGURES;
 
@@ -43,7 +42,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       dashboard: buildDashboard(ctx, range, h.balances, h.inputs).totals.expenseCents,
       cashflow: cashflowReport(ctx, range).totals.expenseCents,
-      summary: summaryReport(ctx, range).spendingCents,
       spendTotals: spendTotals(ctx, toDayRange(range)).expenseCents,
     };
   },
@@ -67,7 +65,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       dashboard: buildDashboard(ctx, range, h.balances, h.inputs).totals.savedCents,
       cashflow: cashflowReport(ctx, range).totals.savedCents,
-      summary: summaryReport(ctx, range).savedCents,
     };
   },
   savingsRate: (h) => {

@@ -30,11 +30,4 @@ describe("a share when another category nets below zero", () => {
     expect(c.groups.filter((g) => g.totalCents > 0).reduce((s, g) => s + g.share, 0)).toBeCloseTo(1, 10);
   });
 
-  it("Tietojen laatu: the known share is of the same base", () => {
-    // the known share is of the twelve complete months up to October: the September purchase is in them, so shopping
-    // nets +100,00 and the base is 700,00 (spendingBase), of which the 600,00 in Muut menot is not known
-    const ctx = createContext(rows("other"), [checking], "2026-10-31");
-    const s = buildReports({ ctx, range: { from: "2026-10-01", to: "2026-10-31" }, balances: [] }).dataQuality.signals.find((x) => x.id === "uncategorised");
-    expect(s?.title.replace(/\s/g, " ")).toBe("14 % viimeisen 12 kuukauden menoista on luokiteltu");
-  });
 });

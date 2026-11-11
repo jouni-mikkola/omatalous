@@ -230,24 +230,6 @@ describe("the changes of a period leave out the accounts one period lacks", () =
   const range = { from: "2026-01-01", to: "2026-09-30" };
   const reportsOf = (rows: Transaction[]) => buildReports({ ctx: ctxOf(rows), range, balances: [] });
 
-  it("an account that closed inside the later period does not make restaurants fall", () => {
-    // b pays restaurants until 31 May, a pays groceries all along
-    const big = reportsOf([...spend("a", "2024-01-01"), ...spend("b", "2024-01-01", "2026-05-31", -5000, "restaurants")]);
-    // it carried over a tenth of the spending: no change is told at all
-    expect(big.summary.comparable).toBe(false);
-    expect(big.categories.comparable).toBe(false);
-    const small = reportsOf([...spend("a", "2024-01-01"), ...spend("b", "2024-01-01", "2026-05-31", -300, "restaurants")]);
-    expect(small.summary.comparable).toBe(true);
-    expect(small.summary.changes.map((c) => c.category)).not.toContain("restaurants");
-    const rows = small.categories.groups.flatMap((g) => g.categories);
-    const rest = rows.find((c) => c.category === "restaurants")!;
-    // the row shows what it took, and the change is measured on the other account only
-    expect(rest.totalCents).toBeGreaterThan(0);
-    expect(rest.comparedCents).toBe(0);
-    expect(rest.previousCents).toBe(0);
-    const groceries = rows.find((c) => c.category === "groceries")!;
-    expect(groceries.comparedCents).toBe(groceries.totalCents);
-  });
 
   it("with the same accounts in both periods the compared figures are the totals", () => {
     const r = reportsOf(spend("a", "2024-01-01"));

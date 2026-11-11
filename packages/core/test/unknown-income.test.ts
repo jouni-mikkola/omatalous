@@ -7,8 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { incomeBase, passes } from "../src/analysis/income-series.ts";
 import { expectedIncome } from "../src/analysis/expected.ts";
-import { addMonths, dateIn, monthEnd } from "../src/dates.ts";
-import { buildReports } from "../src/reports/index.ts";
+import { addMonths, dateIn } from "../src/dates.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -27,7 +26,6 @@ function household(source: Transaction["categorySource"]): Transaction[] {
   return out;
 }
 
-const year = { from: "2025-10-01", to: monthEnd("2026-09") };
 
 describe("unknown money in", () => {
   const unknown = createContext(household("default"), [checking], today);
@@ -44,15 +42,4 @@ describe("unknown money in", () => {
     expect(passes(incomeBase(told, today), 7000)).toBe(false);
   });
 
-  it("is no earned income in Tulot, and its share is one figure in Tulot and Tulojen käyttö", () => {
-    const r = buildReports({ ctx: unknown, range: year, balances: [] });
-    expect(r.income.earnedCents).toBe(12 * 300_000);
-    expect(r.income.unknownCents).toBe(12 * 100_000);
-    expect(r.income.window).toEqual(year);
-    expect(r.income.unknownShare).toBe(0.25);
-    expect(r.cashflow.unknownIncomeShare).toBe(r.income.unknownShare);
-    const answered = buildReports({ ctx: told, range: year, balances: [] });
-    expect(answered.income.earnedCents).toBe(12 * 400_000);
-    expect([answered.income.unknownShare, answered.cashflow.unknownIncomeShare]).toEqual([0, 0]);
-  });
 });

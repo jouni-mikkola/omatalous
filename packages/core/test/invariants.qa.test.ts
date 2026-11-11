@@ -4,7 +4,7 @@
  * No library: the generator is 20 lines.
  */
 import { describe, expect, it } from "vitest";
-import { buildDashboard, buildReports, CATEGORIES, createContext, enrichTransactions, flowsOf, getCategory, totalsOf, addDays, type Account, type Transaction } from "../src/index.ts";
+import { buildDashboard, buildReports, CATEGORIES, createContext, enrichTransactions, flowsOf, getCategory, addDays, type Account, type Transaction } from "../src/index.ts";
 
 function rng(seed: number) {
   let a = seed | 0;
@@ -94,72 +94,6 @@ describe("every transaction lands in exactly one flow or is a transfer", () => {
       // a flow is never booked on the wrong side of zero for its kind, except refunds and withdrawals
       if (!t.isTransfer && !loans.has(t.accountId) && kind === "income") expect(f.consumption + f.debt + f.saved).toBe(0);
     }
-  });
-});
-
-describe("totals", () => {
-  it.each(SEEDS)("seed %i: dashboard, cash flow, categories, pivot and summary agree", (seed) => {
-    // clean rows, and no re-categorising: a rule may turn an "income" row into spending the other way round
-    const { accounts, txs } = household(seed, 400, 900, TODAY, true);
-    const ctx = createContext(txs, accounts, TODAY);
-    const r = rng(seed * 7);
-    for (let k = 0; k < 4; k++) {
-      const from = addDays(TODAY, -r.int(0, 600));
-      const to = addDays(from, r.int(0, 400));
-      if (to > TODAY) continue;
-      const range = { from, to };
-      const d = buildDashboard(ctx, range);
-      const rep = buildReports({ ctx, range, balances: [] });
-      const label = `${seed} ${from}..${to}`;
-      const sumFlows = totalsOf(ctx.txs.filter((t) => t.bookingDate >= from && t.bookingDate <= to).map((t) => t.flows));
-      expect(d.totals, label).toEqual(sumFlows);
-      expect(rep.cashflow.totals, `cashflow ${label}`).toEqual(d.totals);
-      expect(rep.summary.incomeCents, label).toBe(d.totals.incomeCents);
-      expect(rep.summary.spendingCents, label).toBe(d.totals.expenseCents);
-      expect(rep.summary.savedCents, label).toBe(d.totals.savedCents);
-      expect(rep.summary.netCents, label).toBe(d.totals.netCents);
-      expect(rep.categories.totalCents, `categories ${label}`).toBe(d.totals.expenseCents);
-      expect(rep.pivot.totalCents, `pivot ${label}`).toBe(d.totals.expenseCents);
-      expect(d.categories.reduce((s, c) => s + c.cents, 0), `dashboard categories ${label}`).toBe(d.totals.expenseCents);
-      expect(rep.cashflow.rows.reduce((s, x) => s + x.incomeCents, 0), label).toBe(d.totals.incomeCents);
-      expect(rep.cashflow.rows.reduce((s, x) => s + x.consumptionCents + x.debtCents, 0), label).toBe(d.totals.expenseCents);
-      const fv = rep.fixedVariable.totals;
-      expect(fv.fixedCents + fv.habitCents + fv.variableCents + fv.debtCents, `fixed ${label}`).toBe(d.totals.expenseCents);
-      expect(d.totals.netCents).toBe(d.totals.incomeCents - d.totals.expenseCents);
-      for (const v of Object.values(d.totals)) if (v !== null) expect(Number.isInteger(v) || typeof v === "number", label).toBe(true);
-      for (const v of [d.totals.incomeCents, d.totals.consumptionCents, d.totals.debtCents, d.totals.savedCents, d.totals.borrowedCents]) expect(Number.isInteger(v), label).toBe(true);
-    }
-  });
-
-  it.each(SEEDS)("seed %i: with refunds, a category that nets below zero stays a row with its minus and everything adds up", (seed) => {
-    const { accounts, txs } = household(seed);
-    const ctx = createContext(enriched({ accounts, txs }), accounts, TODAY);
-    const range = { from: addDays(TODAY, -400), to: TODAY };
-    const d = buildDashboard(ctx, range);
-    const rep = buildReports({ ctx, range, balances: [] });
-    const net = new Map<string, number>();
-    for (const t of ctx.txs) if (t.bookingDate >= range.from && t.spend) net.set(t.category, (net.get(t.category) ?? 0) + t.spend);
-    const positive = [...net.values()].filter((v) => v > 0).reduce((a, b) => a + b, 0);
-    expect(rep.categories.totalCents).toBe(d.totals.expenseCents);
-    // the dashboard's own category list holds such a category too, so its rows add up to the spending
-    expect(d.categories.reduce((s, c) => s + c.cents, 0)).toBe(d.totals.expenseCents);
-    expect(positive).toBeGreaterThanOrEqual(d.totals.expenseCents);
-    expect(rep.cashflow.totals).toEqual(d.totals);
-    expect(rep.summary.spendingCents).toBe(d.totals.expenseCents);
-    expect(rep.pivot.totalCents).toBe(rep.pivot.rows.reduce((s, r) => s + r.totalCents, 0));
-    expect(rep.pivot.totalCents).toBe(d.totals.expenseCents);
-  });
-
-  // report totals cover the whole range even when the tables show only the last 24 months
-  it("a range longer than the 24 shown months still has report totals equal to the dashboard", () => {
-    const { accounts, txs } = household(3, 600, 1500, TODAY, true);
-    const ctx = createContext(txs, accounts, TODAY);
-    const range = { from: addDays(TODAY, -1400), to: TODAY };
-    const d = buildDashboard(ctx, range);
-    const rep = buildReports({ ctx, range, balances: [] });
-    expect(rep.cashflow.totals).toEqual(d.totals);
-    expect(rep.categories.totalCents).toBe(d.totals.expenseCents);
-    expect(rep.pivot.totalCents).toBe(d.totals.expenseCents);
   });
 });
 

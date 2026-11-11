@@ -1,5 +1,4 @@
 // Decision: whether the credit drawn in the period is a habit to stop, and what it adds to what is owed
-import { coverOf } from "@banking/core";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { inSpan } from "../parts.tsx";
 import { money } from "../../../format.ts";
@@ -7,7 +6,7 @@ import type { ReportSection, SectionProps } from "../types.ts";
 import { rich, t } from "../../../text.ts";
 
 function Borrowed({ ctx }: SectionProps) {
-  const drawn = coverOf(ctx.data.cashflow.totals).creditDrawnCents;
+  const drawn = ctx.data.categories.creditDrawnCents;
   const rows = `#/transactions?category=credit_draw&from=${ctx.range.from}&to=${ctx.range.to}`;
   return (
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, money(drawn, false))}>
@@ -24,8 +23,8 @@ export const section: ReportSection = {
   },
   order: 32,
   page: "reports",
-  reports: ["cashflow"],
+  reports: ["categories"],
   // no draw, nothing to explain
-  visible: (ctx) => !!ctx.data.cashflow && coverOf(ctx.data.cashflow.totals).creditDrawnCents > 0,
+  visible: (ctx) => !!ctx.data.categories && ctx.data.categories.creditDrawnCents > 0,
   Component: Borrowed,
 };

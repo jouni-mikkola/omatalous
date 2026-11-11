@@ -1,5 +1,5 @@
 /** CSV export and demo data for the signed-in user. */
-import { buildReports, getCategory } from "@banking/core";
+import { buildReports, cashflowReport, getCategory, pivotReport } from "@banking/core";
 import { Hono } from "hono";
 import { recordEvent } from "../services/security.ts";
 import { DEMO_MONTHS, loadDemoData, loadExtensionDemos } from "../demo.ts";
@@ -123,11 +123,11 @@ export function dataRoutes(s: Services) {
     if (kind === "cashflow") {
       const rows = [
         ["Kuukausi", "Tulot €", "Kulutus €", "Velanhoito €", "Säästöön €", "Luotonnostot €", "Erotus €", "Säästöaste %", "Tulos €"],
-        ...reports.cashflow.rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.leftCents)]),
+        ...cashflowReport(ctx, range, balances).rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.leftCents)]),
       ];
       return csvResponse(c, `kassavirta_${range.from}_${range.to}.csv`, csv(rows));
     }
-    const p = reports.pivot;
+    const p = pivotReport(ctx, range);
     const rows = [
       ["Kategoria", "Ryhmä", ...p.months, "Yhteensä €", "Keskiarvo €"],
       ...p.rows.map((r) => [r.label, r.group, ...r.values.map(cents), cents(r.totalCents), centsOrEmpty(r.averageCents)]),

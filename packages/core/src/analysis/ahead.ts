@@ -120,7 +120,7 @@ interface AheadTotals {
 }
 
 /** A group of `upcoming` as Laskut lists it, with the group's one sum. */
-export interface AheadGroup {
+interface AheadGroup {
   /**
    * "window": paid to the window's last day; "after": paid after the pay that ends the window, a bill paid from the pay
    * on its own day (`withPay`) too; "days": the 30 days, when no pay ends the window; "card": charged to a credit card,

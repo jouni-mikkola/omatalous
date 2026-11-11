@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { addMonths } from "../src/dates.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
@@ -20,25 +19,7 @@ const ctx = createContext(rows, [checking], today);
 describe("report fields of the Raportit charts", () => {
   const r = buildReports({ ctx, range: { from: "2025-11-01", to: "2026-10-09" }, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 500000, ownerName: null, balanceAt: null }] });
 
-  it("sets the newest complete month's savings rate beside the month before and a year ago", () => {
-    const c = r.cashflow.rateCompare!;
-    const last = r.cashflow.rows.findLast((x) => x.complete && x.savingsRate !== null)!;
-    expect(c.month).toBe(last.month);
-    expect(c.rate).toBe(last.savingsRate);
-    expect(c.previous.month).toBe(addMonths(last.month, -1));
-    expect(c.yearAgo.month).toBe(addMonths(last.month, -12));
-    const row = (m: string) => r.cashflow.rows.find((x) => x.month === m)?.savingsRate;
-    expect(c.previous.rate).toBe(row(c.previous.month) ?? null);
-  });
 
-  it("gives the middle half of the complete months' savings rates", () => {
-    const u = r.cashflow.usualRate!;
-    const rates = r.cashflow.rows.filter((x) => x.complete && x.savingsRate !== null).map((x) => x.savingsRate!);
-    expect(u.months).toBe(rates.length);
-    expect(u.low).toBeLessThanOrEqual(u.mid);
-    expect(u.mid).toBeLessThanOrEqual(u.high);
-    expect(rates).toContain(u.mid);
-  });
 
   it("tells each category's change like for like, and a group's as the sum of its categories", () => {
     const q = buildReports({ ctx, range: { from: "2026-07-01", to: "2026-09-30" }, balances: [] }).categories;
@@ -115,23 +96,7 @@ describe("report fields of the Raportit charts", () => {
     expect(pays).toEqual([...pays].sort());
   });
 
-  it("gives the stacked area its tops and the fixed share of each month", () => {
-    for (const row of r.fixedVariable.rows) {
-      expect(row.tops).toEqual([row.fixedCents, row.fixedCents + row.habitCents, row.fixedCents + row.habitCents + row.variableCents, row.fixedCents + row.habitCents + row.variableCents + row.debtCents]);
-      if (row.tops[3] > 0) expect(row.fixedShare).toBeCloseTo(row.fixedCents / row.tops[3]);
-      // the text under the chart reads the percent the table prints
-      expect(row.fixedPercent).toBe(row.fixedShare === null ? null : Math.round(row.fixedShare * 100));
-      if (row.tops[3] > 0 && row.fixedCents >= 0) expect(row.shares[0], row.month).toBe(row.fixedPercent);
-      // the end labels: whole percents that add up to a hundred
-      if (row.tops[3] > 0 && row.debtCents >= 0) expect(row.shares.reduce<number>((s, v) => s + v!, 0)).toBe(100);
-    }
-  });
 
-  it("gives the period's spending and its fixed share under the months", () => {
-    const t = r.fixedVariable.totals;
-    expect(t.spendingCents).toBe(r.fixedVariable.rows.reduce((sum, x) => sum + x.tops[3], 0));
-    expect(t.fixedShare).toBeCloseTo(t.fixedCents / t.spendingCents, 12);
-  });
 
   it("marks rent as fixed and groceries as not", () => {
     const stats = r.categories.groups.flatMap((g) => g.categories);

@@ -21,7 +21,6 @@ import { earnedIncome } from "../src/analysis/usual.ts";
 import { addDays, addMonths, daysInMonth, monthOf } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { REFUND_WINDOW_DAYS } from "../src/returns.ts";
-import { buildReports } from "../src/reports/index.ts";
 import type { Account, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -97,13 +96,6 @@ describe("the month of the owner's case, in made-up figures", () => {
     expect(typeOf(ctx, fromPerson)).toBe("persons");
   });
 
-  it("the reports say the same: Kategoriat, Menot kuukausittain and Tulot ja menot", () => {
-    const r = buildReports({ ctx, range: OCTOBER, balances: [] });
-    expect(r.categories.totalCents).toBe(117_300);
-    expect(r.categories.groups.flatMap((g) => g.categories).some((c) => c.category === "health")).toBe(false);
-    expect(r.pivot.totalCents).toBe(117_300);
-    expect(r.cashflow.totals).toMatchObject({ expenseCents: 117_300, incomeCents: 374_400 });
-  });
 
   it("neither is earned income: the usual income of the months is the salary alone", () => {
     expect(earnedIncome(ctx, "2026-09")).toBe(300_000);

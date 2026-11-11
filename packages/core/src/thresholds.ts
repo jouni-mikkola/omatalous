@@ -19,7 +19,6 @@ const threshold = <const V extends number>(value: V, unit: ThresholdUnit, why: s
 
 export const THRESHOLDS = {
   usualMonths: threshold(6, "months", "A judgement (ADR 0005): six months follow a change in the household's living within half a year, and the median of six stays put while two months are odd. It is the one period of every usual level, income included (ADR 0020)."),
-  priceChangeMonths: threshold(12, "months", "A year: the household's own price change is read over the span the published index states as its annual change, so the two compare like for like."),
   minCompareMonths: threshold(3, "months", "A judgement: under three values the median is one value or the mean of two, so no month is odd against it."),
   gateShare: threshold(0.02, "share", "A judgement (H-insights, section 1): a cause under 2 % of its base a month is noise beside the base."),
   gateFloorCents: threshold(1000, "cents", "A judgement: under 10 € a month is too little to act on, however small the base."),
@@ -41,13 +40,6 @@ export const THRESHOLDS = {
   rangeHigh: threshold(0.75, "share", "The upper quartile: a quarter of the base months spent more by the same day."),
   daysWeeks: threshold(26, "weeks", "Half a year reads at a glance and fits a phone in two rows of months."),
   dailyPoints: threshold(2000, "days", "The chart's budget is 2 000 points a series (ENGINE 3): the balance by day of a longer range is drawn and counted over its newest 2 000 days."),
-  // The longer forecast (analysis/long-forecast.ts)
-  forecastHistoryMonths: threshold(24, "months", "Two years: the simulation learns from at most this many complete months, so a change of living two years ago does not set the spread."),
-  forecastRuns: threshold(1000, "count", "A judgement: a thousand paths put the 5th and 95th percentile within a few per cent of their limit and take a few milliseconds."),
-  forecastLevel: threshold(0.7, "share", "Measured (apps/server/test/forecast-backtest.test.ts): the share of the months' spread that a path keeps as one level over all its months, so a sum of months is wider than independent draws would make it. 0.4 left the demo household at 5 of 7 three-month windows inside the range, 0.7 at 6 of 7."),
-  forecastTail: threshold(0.05, "share", "Measured (apps/server/test/forecast-backtest.test.ts): the range from the 5th to the 95th percentile held the real month in 8 of 9 months of the demo and of the fake bank's household, at least 80 % with every seed tried."),
-  forecastSeed: threshold(20261030, "count", "A fixed seed (the day it was set): the same rows give the same range every time the page is opened."),
-  forecastYears: threshold(5, "count", "A judgement: five years show whether the net worth is going somewhere without claiming more of the rows than the household has."),
   // The findings (analysis/insights, analysis/income-changes). A finding says what it is worth over a year, so most limits are a share, a count of months or a floor in cents.
   overviewInsights: threshold(3, "count", "H-insights section 1: the overview has room for three lines before it is a list, and the owner asked for the three things worth acting on."),
   directionMonths: threshold(12, "months", "A judgement: a year of spending holds every season once, so its mean is the household's level and not a winter's or a summer's."),
@@ -104,7 +96,6 @@ export const THRESHOLDS = {
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
-export const PRICE_CHANGE_MONTHS = THRESHOLDS.priceChangeMonths.value;
 export const MIN_COMPARE_MONTHS = THRESHOLDS.minCompareMonths.value;
 export const GATE_SHARE = THRESHOLDS.gateShare.value;
 export const GATE_FLOOR_CENTS = THRESHOLDS.gateFloorCents.value;
@@ -126,12 +117,6 @@ export const AHEAD_DAYS = THRESHOLDS.aheadDays.value;
 export const MAX_PAYDAY_DAYS = THRESHOLDS.maxPaydayDays.value;
 export const MIN_PAY_GAP_DAYS = THRESHOLDS.minPayGapDays.value;
 export const MAJOR_PAY_SHARE = THRESHOLDS.majorPayShare.value;
-export const FORECAST_HISTORY_MONTHS = THRESHOLDS.forecastHistoryMonths.value;
-export const FORECAST_LEVEL = THRESHOLDS.forecastLevel.value;
-export const FORECAST_RUNS = THRESHOLDS.forecastRuns.value;
-export const FORECAST_TAIL = THRESHOLDS.forecastTail.value;
-export const FORECAST_SEED = THRESHOLDS.forecastSeed.value;
-export const FORECAST_YEARS = THRESHOLDS.forecastYears.value;
 export const DAILY_POINTS = THRESHOLDS.dailyPoints.value;
 export const OVERVIEW_INSIGHTS = THRESHOLDS.overviewInsights.value;
 export const DIRECTION_MONTHS = THRESHOLDS.directionMonths.value;

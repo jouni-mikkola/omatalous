@@ -104,12 +104,6 @@ export function coverage(ctx: AnalysisContext): Coverage {
   };
 }
 
-/** The first day any account is known from (see `coverage`); null without a row. What a period's "days before the bank history" are counted against. */
-export function historyStart(ctx: AnalysisContext): IsoDate | null {
-  const days = [...startDays(ctx).from.values()];
-  return days.length ? days.reduce((a, b) => (b < a ? b : a)) : null;
-}
-
 /**
  * Was every one of the accounts in the data from `from` on (with the slack of `COVER_SLACK_DAYS`)? What a reader asks
  * about a figure made of the rows of some accounts, such as one payer's income or one card's subscriptions: an account
@@ -192,11 +186,6 @@ function accountSpans(ctx: AnalysisContext): AccountSpan[] {
     });
   accountSpansOf.set(ctx, spans);
   return spans;
-}
-
-/** The last row day of each account that has ended (see `accountsCoverage`): it has no data after that day. */
-export function endedAccounts(ctx: AnalysisContext): ReadonlyMap<string, number> {
-  return new Map(accountSpans(ctx).filter((a) => a.ended).map((a) => [a.id, a.last] as const));
 }
 
 /**
