@@ -1,12 +1,13 @@
 /**
  * First-run setup for the admin, shown after the first account is created
- * until it is finished or closed with "Tee myöhemmin" (remembered per user in this browser; the same setup is in Asetukset > Pankit ja tilit): the household's Enable Banking app, done.
+ * until it is finished or closed with "Do this later" (remembered per user in this browser; the same setup is in Settings > Banks and accounts; the page shows these in the household's language): the household's Enable Banking app, done.
  * Address and schedule are saved with their defaults when the wizard opens
  * (the address the admin came in through); all of it stays editable in
  * Asetukset > Palvelin.
  */
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
+import { t } from "../text.ts";
 import { useApi } from "../hooks.ts";
 import { bankLinked } from "../components/EmptyStart.tsx";
 import type { InstanceState, Meta } from "../types.ts";
@@ -18,14 +19,14 @@ import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Empty } from "../components/ui/Empty.tsx";
-const STEPS = ["Enable Banking", "Tarkistus"] as const;
+const STEP_COUNT = 2;
 const STEP_KEY = "wizard-step";
 
 /** A refresh in the middle of the wizard resumes at the same step. */
 function readStep(): number {
   try {
     const n = Number(sessionStorage.getItem(STEP_KEY));
-    return Number.isInteger(n) && n >= 0 && n < STEPS.length ? n : 0;
+    return Number.isInteger(n) && n >= 0 && n < STEP_COUNT ? n : 0;
   } catch {
     return 0;
   }
@@ -63,44 +64,44 @@ export function WizardDone({ current, linked, finishing, onBack, onFinish }: { c
   return (
     <>
       <dl className="summary">
-        <dt>Osoite</dt>
+        <dt>{t("set.wizard.address")}</dt>
         <dd>{current.settings.appBaseUrl}</dd>
-        <dt>Aikavyöhyke</dt>
+        <dt>{t("set.wizard.timezone")}</dt>
         <dd>{current.settings.timezone}</dd>
-        <dt>Automaattinen haku</dt>
+        <dt>{t("set.wizard.auto_fetch")}</dt>
         <dd>{syncHoursLabel(current.settings.syncHours)}</dd>
         <dt>Enable Banking</dt>
         <dd>
           {!current.bankApp.source ? (
-            <span className="badge warn">ei vielä</span>
+            <span className="badge warn">{t("set.wizard.not_yet")}</span>
           ) : current.bankApp.inactiveMessage ? (
-            <span className="badge warn">ei käytössä</span>
+            <span className="badge warn">{t("set.wizard.not_active")}</span>
           ) : (
-            <span className="badge good">määritetty</span>
+            <span className="badge good">{t("set.wizard.configured")}</span>
           )}
         </dd>
-        <dt>Salausavain</dt>
-        <dd>{current.secret.available ? <span className="badge good">kunnossa</span> : <span className="badge warn">puuttuu</span>}</dd>
+        <dt>{t("set.wizard.encryption_key")}</dt>
+        <dd>{current.secret.available ? <span className="badge good">{t("set.wizard.key_ok")}</span> : <span className="badge warn">{t("set.wizard.key_missing")}</span>}</dd>
       </dl>
       {current.bankApp.inactiveMessage && <Notice tone="warning">{current.bankApp.inactiveMessage}</Notice>}
       {linked ? (
-        <Notice tone="good" as="p">Valmis. Pankki on yhdistetty.</Notice>
+        <Notice tone="good" as="p">{t("set.wizard.done_linked")}</Notice>
       ) : (
         <Notice tone="warning" as="p">
-          {current.bankApp.source ? "Pankki puuttuu vielä. Yhdistä se painikkeesta Yhdistä pankki." : "Enable Banking -sovellus ja pankki puuttuvat vielä. Palaa edelliseen vaiheeseen."}
+          {current.bankApp.source ? t("set.wizard.bank_missing") : t("set.wizard.app_and_bank_missing")}
         </Notice>
       )}
       <div className="form-row wizard-nav">
         <Button onClick={onBack}>
-          Takaisin
+          {t("set.wizard.back")}
         </Button>
         <span className="spacer" />
         <Button variant={current.bankApp.source ? "secondary" : "primary"} busy={finishing} onClick={() => onFinish("overview")}>
-          Siirry sovellukseen
+          {t("set.wizard.to_app")}
         </Button>
         {current.bankApp.source && (
           <Button variant="primary" busy={finishing} onClick={() => onFinish("connect")}>
-            Yhdistä pankki
+            {t("set.wizard.connect_bank")}
           </Button>
         )}
       </div>
@@ -115,7 +116,7 @@ export function WizardDone({ current, linked, finishing, onBack, onFinish }: { c
 export function WizardSkip({ disabled, onSkip }: { disabled: boolean; onSkip: () => void }) {
   return (
     <Button variant="link" busy={disabled} onClick={onSkip}>
-      Tee myöhemmin
+      {t("set.wizard.later")}
     </Button>
   );
 }
@@ -140,7 +141,7 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
     const { appBaseUrl: _old, setupDone: _done, ...rest } = d.settings;
     api<InstanceState>("/api/admin/instance", { method: "PUT", body: { ...rest, appBaseUrl: address } })
       .then(setState)
-      .catch((err: Error) => setError(`Emme voineet tallentaa osoitetta: ${err.message} Muuta se kohdassa Asetukset > Palvelin.`))
+      .catch((err: Error) => setError(t("set.wizard.address_not_saved", { message: err.message })))
       .finally(() => setPrepared(true));
   }, [loaded.data]);
 
@@ -178,8 +179,8 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
             </span>
             Omatalous
           </div>
-          <ol className="wizard-steps" aria-label="Vaiheet">
-            {STEPS.map((label, i) => (
+          <ol className="wizard-steps" aria-label={t("set.wizard.steps")}>
+            {["Enable Banking", t("set.wizard.review")].map((label, i) => (
               <li key={label} aria-current={i === step ? "step" : undefined} className={i < step ? "done" : undefined}>
                 <span className="step-no">{i + 1}</span>
                 {label}
@@ -194,24 +195,24 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
             }}
           />
         </div>
-        <h1 className="auth-title">Käyttöönotto</h1>
+        <h1 className="auth-title">{t("set.wizard.title")}</h1>
 
         {error && <Notice tone="error">{error}</Notice>}
         {!current ? (
           loaded.error ? (
             <ErrorCard message={loaded.error} onRetry={loaded.reload} />
           ) : (
-            <Empty>Ladataan…</Empty>
+            <Empty>{t("set.wizard.loading")}</Empty>
           )
         ) : step === 0 ? (
           <>
-            <p className="small muted">Yksi sovellus riittää koko taloudelle. Omien tilien käyttö on maksutonta.</p>
+            <p className="small muted">{t("set.wizard.intro")}</p>
             <BankAppSetup state={current} onState={setState} />
-            <p className="small muted">Osoitteen ja aikataulun löydät kohdasta Asetukset &gt; Palvelin, Enable Banking -sovelluksen kohdasta Asetukset &gt; Pankit ja tilit.</p>
+            <p className="small muted">{t("set.wizard.where_settings")}</p>
             <div className="form-row wizard-nav">
               <span className="spacer" />
               <Button variant={current.bankApp.source ? "primary" : "secondary"} onClick={() => goTo(1)}>
-                Jatka
+                {t("set.wizard.continue")}
               </Button>
             </div>
           </>
