@@ -595,6 +595,92 @@ Result: A screen reader says the error when the bank key file is refused, and th
 - after: none
 - files: apps/web/src/pages/settings/BankAppSetup.tsx, apps/web/test/bank-key-error.dom.test.ts
 
+## The web: what the design asks
+
+From reading `docs/design/README.md`, `docs/audit/simplify.md` and `docs/UI_STYLE.md` against the pages on main
+(11 Nov). Each step has a lock no other step of this file names, and none waits on the four tabs: a step in an `after` here
+is merged, and is named because it edited the same file.
+
+### P1 Rows without the amount bar
+Result: A row of the rows list shows its sum as a number only, with no coloured bar under it.
+- why: design section 2 and audit section 4: the amount bar is one of the four marks that repeat the text. T58 named it in its result and merged without it: its done-when did not ask for it, and `apps/web/src/pages/TransactionRows.tsx` on main still draws `tx-bar` under every sum.
+- done when: `git grep -n "tx-bar" apps/web/src` is empty; a test in `apps/web/test/transaction-rows.test.ts` that fails without the change renders the amount cell of a row and finds the sum and no element after it but the share part; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: row-amount
+- after: T58, T109
+- files: apps/web/src/pages/TransactionRows.tsx, apps/web/src/styles/transactions.css, apps/web/test/transaction-rows.test.ts
+
+### P2 A row's category is text
+Result: The category of a row is its name as plain text, with no icon in front of it.
+- why: design section 1.5 ("category as text") and section 2 (category chip icons go). T58 named the chip icons in its result and merged with them: its done-when did not ask for it. `Face` of `apps/web/src/pages/transactions/CategoryChip.tsx` on main still draws a `CategoryIcon`, for `CategoryLabel` (the category cell of a row) and for `SharedCategory` alike.
+- done when: `Face` renders no `CategoryIcon`, so `CategoryLabel` and `SharedCategory` are both text with no `svg`; a test in `apps/web/test/tx-category-look.test.ts` that fails without the change renders each of the two labels and finds the category's name and no `svg`; the category menu still changes a row's category (its present test passes); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: category-chip
+- after: T58
+- files: apps/web/src/pages/transactions/CategoryChip.tsx, apps/web/src/styles/categories.css, apps/web/test/tx-category-look.test.ts
+
+### P3 A failed page shows no exception
+Result: When a page cannot be opened, the reader sees one sentence of what happened and what to do, never the browser's own error text.
+- why: `docs/UI_STYLE.md`, Sentences: the text of an exception is not shown. The `defaultErrorComponent` of `apps/web/src/router.tsx` gives `error.message` or `String(error)` to `ErrorCard`, so a page chunk that cannot be fetched reads in the browser's English.
+- done when: an error that is not an `ApiError` shows the present `app.request_failed` of the catalogue in the member's language with the retry button (no new key), and an `ApiError` keeps its own sentence; the new `apps/web/test/router-error.dom.test.ts` throws a `TypeError` with an English text from a route and finds the text of `app.request_failed` and not the thrown text; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: router
+- after: none
+- files: apps/web/src/router.tsx, apps/web/test/router-error.dom.test.ts
+
+### P4 Foreign rows, short dates
+Result: The rows in another currency under an account write a date of this year without the year, and follow the member's language.
+- why: `docs/UI_STYLE.md`, Dates and times: a date in the year now is `23.10.`, through the formatters of `format.ts`. `apps/web/src/pages/settings/ForeignRows.tsx` has a `dayText` of its own that always writes the year, in Finnish form.
+- done when: `ForeignRows.tsx` has no date formatter of its own and uses `date` of `apps/web/src/format.ts`; the new `apps/web/test/foreign-rows.dom.test.ts` renders a row of this year and one of last year and reads `3.10.` and `3.10.2025`, and the English form in English; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: foreign-dates
+- after: N12
+- files: apps/web/src/pages/settings/ForeignRows.tsx, apps/web/test/foreign-rows.dom.test.ts
+
+### P5 A failure says who and what next
+Result: Four failure messages speak in the app's own voice and say what the reader can do, as the style sheet asks.
+- why: `docs/UI_STYLE.md`, Tone and Sentences: the app says "Emme saaneet…", not a passive, and an error says what happened and what can be done. Two texts say what to do and are passive: `card_file.err_save` ("Rivejä ei voitu tallentaa. Yritä uudelleen.") and `app.request_failed` ("Pyyntöä ei voitu tehdä. Yritä uudelleen."). Two are sentences that name no doer and nothing to do: `set.brt.the_test_failed` ("Testi epäonnistui.") and `load.failed` ("Tietojen haku epäonnistui."). The row status `set.conn.fetch_failed` and the log label `set.sec.remote_access_change_failed` are not sentences and stay.
+- done when: each of the four is in the first person plural and ends with what to do, in Finnish and English; a new case in `packages/core/test/messages.test.ts` that fails without the change holds that none of the four contains "ei voitu" or "epäonnistui" in Finnish; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: failure-texts
+- after: none
+- files: packages/core/src/messages.ts, packages/core/src/messages-en.ts, packages/core/src/messages-card-file.ts, packages/core/src/messages-set-brt.ts, packages/core/src/messages-shell.ts, packages/core/src/english/card-file.ts, packages/core/src/english/set-brt.ts, packages/core/src/english/shell.ts, packages/core/test/messages.test.ts
+
+### P6 The queue says where you are
+Result: Tarkistettavat shows which question is open and how many there are, like "3 / 8", while the reader answers.
+- why: design section 1.4: the count of open items is in the header of the queue ("Tarkistettavat 3 / 8"). `apps/web/src/pages/Review.tsx` counts what is left only for the menu and for the end card, so a reader in the queue does not see how far it goes.
+- done when: the heading of an open question carries its place and the total of the sitting from the catalogue in both languages, and a screen reader hears it once per question; a test in `apps/web/test/review.dom.test.ts` that fails without the change gives a queue of three, answers one and reads "2 / 3"; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: review-page
+- after: T72
+- files: apps/web/src/pages/Review.tsx, apps/web/src/styles/review.css, packages/core/src/messages-set-rv.ts, packages/core/src/english/set-rv.ts, apps/web/test/review.dom.test.ts
+
+### P7 Account rows without a logo
+Result: An account in Asetukset > Pankit ja tilit is its name, number and balance, with no bank logo in the row.
+- why: design section 3, Avoid: avatars and logos in rows. Each account row of `apps/web/src/pages/settings/Accounts.tsx` starts with an `AccountMark`.
+- done when: `git grep -n "AccountMark" apps/web/src/pages/settings/Accounts.tsx` is empty and the bank's name stays as text in the row; a test in `apps/web/test/accounts-view.test.ts` that fails without the change renders an account and finds its name and no `img`; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: accounts
+- after: none
+- files: apps/web/src/pages/settings/Accounts.tsx, apps/web/src/styles/banks.css, apps/web/test/accounts-view.test.ts
+
+### P8 Connection rows without a logo
+Result: A bank connection and a consent to renew are named in text, with no bank logo in the row.
+- why: design section 3, Avoid: avatars and logos in rows. `apps/web/src/pages/settings/BankConnections.tsx` and `RenewalRound.tsx` put a `BankLogo` before the bank's name in each row; the bank picker keeps its logos, which are the choice itself.
+- done when: `git grep -n "BankLogo" apps/web/src/pages/settings/BankConnections.tsx apps/web/src/pages/settings/RenewalRound.tsx` is empty and each row still names its bank; a test in `apps/web/test/bank-connections.test.ts` that fails without the change renders a connection and finds the bank's name and no `img`; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-connections
+- after: none
+- files: apps/web/src/pages/settings/BankConnections.tsx, apps/web/src/pages/settings/RenewalRound.tsx, apps/web/test/bank-connections.test.ts
+
+### P9 Balance rows without a logo
+Result: An account in Lisää > Tilit ja saldot is its name and balance, with no bank logo in the row.
+- why: design section 3, Avoid: avatars and logos in rows. The account rows of `apps/web/src/pages/reports/holdings/Holdings.tsx` give each `Name` an `AccountMark`.
+- done when: `git grep -n "AccountMark" apps/web/src/pages/reports/holdings/Holdings.tsx` is empty and a row still opens its rows list; a test in `apps/web/test/holdings.test.ts` that fails without the change renders an account row and finds its name, its link and no `img`; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: balance-rows
+- after: T57
+- files: apps/web/src/pages/reports/holdings/Holdings.tsx, apps/web/src/styles/holdings.css, apps/web/test/holdings.test.ts
+
+### P10 A failed card save reads plainly
+Result: When saving a card statement fails for a reason the server did not name, the reader sees a plain sentence, not a programming error.
+- why: `docs/UI_STYLE.md`, Sentences: the text of an exception is not shown. `apps/web/src/components/cards/CardStatement.tsx` shows `e.message` of any error and `String(e)` of anything else, so a fault in the page itself reads as its English exception.
+- done when: an `ApiError` keeps its own sentence and any other failure shows the present `app.request_failed` of the catalogue (no new key; the same key P3 uses, read in each file, so neither step waits on the other); the new `apps/web/test/card-statement-error.dom.test.ts` makes the save throw a `TypeError` with an English text and finds the text of `app.request_failed` in a `role="alert"` and not the thrown text; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: card-statement
+- after: none
+- files: apps/web/src/components/cards/CardStatement.tsx, apps/web/test/card-statement-error.dom.test.ts
+
 ## The audit
 
 ### T103 No extension pages in the web
