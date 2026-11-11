@@ -388,6 +388,13 @@ Result: The month names under the balance chart of Saldot no longer run into eac
 - after: none
 - files: apps/web/src/charts/draw.ts, apps/web/test/chart-draw.test.ts
 
+### N43 The hourly chores fix can start
+Result: The plan's step for a failed fetch sparing the hour's other work is reworded so the board starts it, with the same result and tests.
+- why: B6's done-when says the tests 'that run `hourlyTick`' and the board's missingHere (core/missing.ts, runs? `word` rule) reads hourlyTick as a missing command, so B6 freezes at every start and retry (log 14:49Z, 14:56Z) and asks the owner
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees.
+- locks: none
+- after: none
+
 ### C3 A small MobilePay share fits
 Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a friend's share of it.
 - why: `isShareOf` in `mobilepay.ts` lets a share be a euro off whatever its size, so 2,00 passes as a tenth of 30,00 and one cent as a tenth of 10,00: small money in is taken off the nearest purchase's category and never counted as income.
