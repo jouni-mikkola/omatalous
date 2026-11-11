@@ -234,11 +234,33 @@ describe("a hostile file is refused and changes nothing", () => {
     await refusedWith(b, b.admin, file, /tietotiedosto/, { head: {} });
   });
 
+  it("the bank's text keeps 20 000 characters and a control character; one more, or a control character elsewhere, is refused", async () => {
+    const { a, b } = await pair();
+    const long = "x".repeat(19999) + "\u0007";
+    const fields = ["description", "counterparty", "reference", "merchant"];
+    // the long text is stored in the exporting database itself, so the export holds its real signature
+    await a.db.run("UPDATE transactions SET description = ?, counterparty = ?, reference = ?, merchant = ? WHERE id = 'aino-tx1'", [long, long, long, long]);
+    const full = await exportOf(a.admin);
+    const tx = full.transactions.find((t: { id: string }) => t.id === "aino-tx1")!;
+    for (const f of fields) expect(tx[f]).toBe(long);
+    const ok = await importFile(b.admin, full);
+    expect(ok.done.committed).toBe(true);
+    const row = (await b.db.all("SELECT description, counterparty, reference, merchant FROM transactions WHERE id = 'aino-tx1'"))[0] as Record<string, string>;
+    for (const f of fields) expect(row[f]).toBe(long);
+    const again = await exportOf(b.admin);
+    expect(again.transactions.find((t: { id: string }) => t.id === "aino-tx1")!.signature).toBe(tx.signature);
+    const file = await exportOf(a.admin);
+    for (const f of fields) await refusedWith(b, b.admin, { ...file, transactions: [{ ...tx, id: "other-" + f, [f]: long + "y" }] }, /transactions rivi 1 on virheellinen/);
+    await refusedWith(b, b.admin, { ...file, transactions: [{ ...tx, category: "a\u0007b" }] }, /transactions rivi 1 on virheellinen \(category\)/);
+    await refusedWith(b, b.admin, { ...file, rules: [{ ...file.rules[0], pattern: "a\u0007b" }] }, /rules rivi 1/);
+    await refusedWith(b, b.admin, { ...file, users: [{ ...file.users[0], username: "a\u0007b" }] }, /users rivi 1/);
+  });
+
   it("bad types, lengths and lists, and a control character", async () => {
     const { a, b } = await pair();
     const file = await exportOf(a.admin);
     const tx = file.transactions[0];
-    for (const bad of [{ amount_cents: "12" }, { amount_cents: 1.5 }, { amount_cents: 1e20 }, { booking_date: "2026-02-30" }, { status: "other" }, { merchant: "x".repeat(501) }, { merchant: "a\u0000b" }, { currency: "euro" }, { is_transfer: 2 }, { id: null }, { category_source: "hacked" }]) {
+    for (const bad of [{ amount_cents: "12" }, { amount_cents: 1.5 }, { amount_cents: 1e20 }, { booking_date: "2026-02-30" }, { status: "other" }, { description: "x".repeat(20001) }, { id: "a\u0000b" }, { currency: "euro" }, { is_transfer: 2 }, { id: null }, { category_source: "hacked" }]) {
       await refusedWith(b, b.admin, { ...file, transactions: [{ ...tx, ...bad }] }, /transactions rivi 1 on virheellinen/);
     }
     await refusedWith(b, b.admin, { ...file, transactions: [{ ...tx, amount_cents: undefined }] }, /amount_cents/);

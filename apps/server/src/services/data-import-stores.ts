@@ -16,11 +16,15 @@ export type Check = (v: unknown) => string | number | null;
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 
 const text =
-  (max: number, min = 1, pattern?: RegExp): Check =>
+  (max: number, min = 1, pattern?: RegExp, keepControl = false): Check =>
   (v) => {
-    if (typeof v !== "string" || v.length < min || v.length > max || CONTROL.test(v) || (pattern && !pattern.test(v))) throw new BadValue();
+    if (typeof v !== "string" || v.length < min || v.length > max || (!keepControl && CONTROL.test(v)) || (pattern && !pattern.test(v))) throw new BadValue();
     return v;
   };
+// the bank's own text is stored as it came: to 20 000 characters, control characters kept
+const bankText = () => text(20000, 0, undefined, true);
+// the signature is a JSON text of up to four such fields (a control character grows to six); the cap leaves room
+const SIGNATURE_MAX = 600000;
 const maybe =
   (check: Check): Check =>
   (v) =>
@@ -119,8 +123,8 @@ const IMPORT_STORES: readonly ImportStore[] = [
     table: "transactions",
     cols: {
       id, user_id: id, account_id: id, booking_date: day, value_date: maybe(day), amount_cents: cents, currency, status: oneOf(["booked", "pending"]),
-      counterparty: maybe(text(500, 0)), counterparty_iban: maybe(text(40, 0)), description: maybe(text(2000, 0)), reference: maybe(text(200, 0)), mcc: maybe(text(10, 0)),
-      merchant: text(500, 0), category: text(60), category_source: oneOf(CATEGORY_SOURCES), is_transfer: flag, source: word, imported_at: at,
+      counterparty: maybe(bankText()), counterparty_iban: maybe(text(40, 0)), description: maybe(bankText()), reference: maybe(bankText()), mcc: maybe(text(10, 0)),
+      merchant: bankText(), category: text(60), category_source: oneOf(CATEGORY_SOURCES), is_transfer: flag, source: word, imported_at: at,
       bank_txn_code: maybe(text(40, 0)),
     },
     extra: ["owner_username", "signature"],
@@ -275,7 +279,7 @@ export function checkRow(store: ImportStore, raw: unknown): { row: Record<string
   for (const name of store.extra ?? []) {
     const v = get(name);
     if (v !== undefined && v !== null) {
-      if (typeof v !== "string" || v.length > 2000 || CONTROL.test(v)) throw new BadValue(name);
+      if (typeof v !== "string" || v.length > (name === "signature" ? SIGNATURE_MAX : 2000) || CONTROL.test(v)) throw new BadValue(name);
       row[`@${name}`] = v;
     }
   }

@@ -529,7 +529,12 @@ with no gap and no repeat. Keys of the file that are not arrays (`exportedAt`, `
 - An array holds at most: transactions 500 000, parts 1 500 000, accounts and users 1000, loans 500, expectedBills 100,
   householdMembers 200, rules 2000, 50 000 for the others (the exact figures are `max` in `data-import-stores.ts`).
 - A row has at most 200 keys; every value is checked against the type, length and list of its column (the tables above).
-  Money is whole cents within a hundred billion euros, a day must exist on the calendar, a text holds no control character.
+  Money is whole cents within a hundred billion euros, a day must exist on the calendar, a text holds no control character,
+  except the bank's own text of a transaction (`description`, `counterparty`, `reference`, `merchant`): it is kept as it
+  is, with any control character, up to 20 000 characters, so the signature a fetch matches on stays the same; one
+  character over is refused. A control character in any other text (an `id`, a `username`, a `category`, a rule's
+  `pattern`) is still refused. The `signature` of a transaction is JSON text of those fields and may hold up to 600 000
+  characters, so a row with four texts of 20 000 characters imports.
   A loan is also checked by the same rules as the loan form (`parseLoan`).
 - Version first: another `version` or `format` is refused at the head, before any row. The first value that fails refuses
   the whole file and ends the session: "Tiedoston kohdan transactions rivi 3 on virheellinen (amount_cents). Mitään ei tuotu."
