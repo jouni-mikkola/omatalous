@@ -322,7 +322,8 @@ export type EverydayGap = "history" | "cards";
  * base months of `from`'s month (`expectedFor`) spent on the same days of their months, outside every subscription
  * and bill series (`fixedIds`), a card's bill and the one-offs the headline leaves out. It is the mean of the base
  * months, and the range is their lower and upper quartile, as the headline has it. A span may run over a month's end;
- * a day a base month does not have (the 31st) adds nothing. `keep` limits it to the rows of some accounts: the
+ * a day a base month does not have (the 31st) adds that month's mean day (its spending over its
+ * length). `keep` limits it to the rows of some accounts: the
  * payday runway asks for the ones the counted accounts pay themselves. `month` is the month whose base months it reads (`from`'s by default): a span that starts in the next month (the day after the month's last day) still reads this one's, since the next one has no complete month yet. The day-by-day rate of the first page and the
  * runway read this, so everyday spending has one definition.
  */
