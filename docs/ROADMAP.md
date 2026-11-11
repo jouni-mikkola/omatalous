@@ -620,6 +620,50 @@ Result: The server and core carry no extension list or feature flag, so no hook 
 - after: T98
 - files: apps/server/src/extensions.ts, packages/core/src/features.ts, apps/server/src, apps/server/test
 
+## The server: robustness
+
+Found by reading `apps/server/` on 11 November (N15). Each step stays in that folder and waits for no other step.
+
+### S1 A huge offset is a 400
+Result: A list asked with an absurd page number answers "bad number" instead of "something went wrong".
+- why: `queryInt` in `routes/shared.ts` takes any integer, so `GET /api/transactions?offset=1e300` passes `Math.max(f.offset ?? 0, 0)` in `db/finance/transaction-list.ts` and is bound to `OFFSET ?` as a float, which SQLite refuses with "datatype mismatch": a 500 and a stack trace in the log for bad input.
+- done when: `queryInt` refuses a number that is not a safe integer, and `GET /api/transactions` with `offset=1e300`, `offset=9007199254740993` and `limit=1e300` each answer 400 with the code `check.number`, in new cases of `apps/server/test/transactions.test.ts`; an offset inside the range still pages as before; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: query-numbers
+- after: none
+- files: apps/server/src/routes/shared.ts, apps/server/test/transactions.test.ts
+
+### S2 Unknown CSV report is refused
+Result: A report download with a mistyped name says so instead of handing out a different report.
+- why: `GET /api/export/report.csv` in `routes/data.ts` reads `?report=`, and every value other than `categories` and `cashflow` silently answers the month table under its file name, so a wrong link looks like it worked.
+- done when: `report` is one of `pivot`, `categories` and `cashflow`, with `pivot` when it is absent; any other value answers 400 with the code `check.report` and no file, in new cases of `apps/server/test/csv-export.test.ts`; the three known reports answer the same bytes as before; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: csv-export
+- after: none
+- files: apps/server/src/routes/data.ts, apps/server/test/csv-export.test.ts
+
+### S3 A bank outage is a 502
+Result: When Enable Banking cannot be reached, the app says the bank did not answer instead of "something went wrong".
+- why: `request` in `connectors/enable-banking/client.ts` does not catch a failed `fetch` (no network, a TLS fault, the timeout) and throws a plain `Error` for an answer over the size cap. Neither is an `UpstreamError`: `linkFailure` in `link.ts` passes it on unchanged and `classify` in `connector.ts` answers null for it, so the error handler of `app.ts` has only its 500 left.
+- done when: in the new `apps/server/test/eb-client-outage.test.ts`, a `fetch` that rejects, one that times out and an answer over the cap each make `request` throw an `UpstreamError` whose log message names the path and the cause code and never the answer's text; the tests of `apps/server/test/eb-*.test.ts` pass unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: eb-client
+- after: none
+- files: apps/server/src/connectors/enable-banking/client.ts, apps/server/test/eb-client-outage.test.ts
+
+### S4 A stray failure stops cleanly
+Result: A fault nobody caught stops the server the same careful way as `docker stop`, with exit code 1.
+- why: `entry/node.ts` listens for SIGINT and SIGTERM only, so an unhandled rejection or an uncaught exception ends the process at once: running writes are cut, the database is not closed and the log holds no line of the app's own.
+- done when: `shutdown` in `entry/shutdown.ts` takes the exit code (0 when none is given), and the same file exports the handler that `entry/node.ts` registers for SIGINT, SIGTERM, `uncaughtException` and `unhandledRejection`, with the `stopping` guard inside it; new cases of `apps/server/test/shutdown.test.ts` show that a fault logs one line with the error and exits 1, that a second fault or a signal during it starts no second shutdown, and that a signal alone still exits 0; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: server-entry
+- after: none
+- files: apps/server/src/entry/node.ts, apps/server/src/entry/shutdown.ts, apps/server/test/shutdown.test.ts
+
+### S5 Idle links outlive the proxy
+Result: The server keeps an idle connection open longer than the tunnel in front of it does, so the tunnel never writes to a closed one.
+- why: `serve` in `entry/node.ts` sets no timeouts, and on the Node of the `Dockerfile` (24.22) `node -e 'console.log(require("http").createServer().keepAliveTimeout)'` prints 5000. The cloudflared of `docker-compose.yml` keeps an idle connection to the app for `keepAliveTimeout`, 1m30s by default (developers.cloudflare.com/tunnel/reference/origin-parameters). The side that closes first should be the proxy; no failed request from this was seen, the step closes the gap.
+- done when: the new `apps/server/src/entry/server-timeouts.ts` exports a function that sets `keepAliveTimeout` above 90 s and `headersTimeout` above that on a server, both named constants with the reason beside them; the new `apps/server/test/server-timeouts.test.ts` runs it on `http.createServer()` and reads both values and an unchanged `requestTimeout`; `entry/node.ts` calls it on what `serve` returns (`grep -n server-timeouts apps/server/src/entry/node.ts` finds the import); `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: server-entry
+- after: none
+- files: apps/server/src/entry/server-timeouts.ts, apps/server/src/entry/node.ts, apps/server/test/server-timeouts.test.ts
+
 ## Open from before
 
 ### T96 Promote reads every file
