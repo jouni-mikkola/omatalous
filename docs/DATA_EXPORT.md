@@ -44,8 +44,10 @@ alike: their own accounts, transactions, rules, marks, answers, inputs, loans an
 members shared with them and the transactions of those accounts, the answers and balances kept under those accounts,
 and the household's own tables (`householdMembers`, `valuedAssets`, the household's `payerRoles`). An administrator's
 file holds no member's account or row that was not shared with them. `users` holds the person, the owners of the shared
-accounts and the members they share an account with; for an administrator every member, as Asetukset > Talouden
-jäsenet lists them.
+accounts, the members they share an account with, and every user the rows of the file name (`user_id`, `said_by`,
+`set_by`, `answered_by`, an owner `u:<id>` of `answers` and `parts`, the `who` and `confirmed` of an agreement), so each
+such key is a row of `users`; such a user is added as their `users` row only. For an administrator `users` holds every
+member, as Asetukset > Talouden jäsenet lists them.
 
 A row of another user (an account or a transaction of a shared account) carries `owner_username`, the owner's
 `username`, so an import can tell the rows apart; on the person's own rows it is their own `username`.

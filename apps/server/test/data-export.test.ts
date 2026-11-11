@@ -179,6 +179,58 @@ async function keepPrivately(db: Db, userId: string, tag: string, accountId: str
   await db.run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES (?, ?, 1, ?, ?)", [accountId, userId, userId, NOW]);
 }
 
+describe("the export names who it means", () => {
+  it("a user a row of the file names is in its users, with nothing else of theirs, and a stranger is not", async () => {
+    const setup = await setupApp();
+    const kaisa = await setup.member("kaisa");
+    const pekka = await setup.member("pekka");
+    const names = { answer: await setup.member("liisa"), owner: await setup.member("olavi"), split: await setup.member("sampo"), use: await setup.member("usko"), part: await setup.member("pirkko"), role: await setup.member("rauno"), agreed: await setup.member("aarne"), who: await setup.member("wiljam"), put: await setup.member("conny") };
+    const stranger = await setup.member("tapio");
+    await keepPrivately(setup.db, kaisa.id, "KAISA", "k-shared");
+    await setup.db.run("DELETE FROM account_use WHERE account_key = 'k-shared'");
+    await setup.db.run("UPDATE owner_answer SET owner = ?", [`u:${kaisa.id}`]);
+    expect(await setup.s.household.share(kaisa.id, "k-shared", pekka.id)).toBe(true);
+    expect(await setup.s.household.share(kaisa.id, "k-shared", names.answer.id)).toBe(true);
+    const db = setup.db;
+    await db.run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES ('k-shared', ?, 1, ?, ?)", [pekka.id, names.use.id, NOW]);
+    await db.run("INSERT INTO account_use (account_key, user_id, weight, said_by, said_at) VALUES ('k-shared', ?, 1, ?, ?)", [names.use.id, kaisa.id, NOW]);
+    await db.run("INSERT INTO owner_answer (account_key, kind, key, owner, said_by, said_at) VALUES ('k-shared', 'in', 'second', ?, ?, ?)", [`u:${names.owner.id}`, names.answer.id, NOW]);
+    await db.run("INSERT INTO account_split (account_key, mode, set_by, set_at) VALUES ('k-shared', 'source', ?, ?)", [names.split.id, NOW]);
+    await db.run("INSERT INTO tx_part (tx_id, owner, kind, grp, cents) VALUES ('k-shared-row', ?, 'own', '', 5)", [`u:${names.part.id}`]);
+    await db.run("INSERT INTO payer_role (scope, user_id, counterparty_key, role, answered_by, answered_at) VALUES ('household', NULL, 'ANYONE', 'sales', ?, ?)", [names.role.id, NOW]);
+    await db.run("INSERT INTO account_agreement (account_key, valid_from, kind, value, set_by, set_at) VALUES ('k-shared', '2026-01-01', 'fixed', ?, ?, ?)", [
+      JSON.stringify({ who: [`u:${names.who.id}`], confirmed: [`u:${names.put.id}`] }),
+      names.agreed.id,
+      NOW,
+    ]);
+
+    const before = await fileOf(setup, pekka);
+    const ids = new Set(before.users.map((u: { id: string }) => u.id));
+    const named = (rows: Record<string, unknown>[], cols: string[]) => rows.flatMap((r) => cols.map((c) => r[c])).filter((v): v is string => typeof v === "string");
+    const used = [
+      ...named(before.answers, ["said_by"]),
+      ...named(before.answers, ["owner"]).filter((o) => o.startsWith("u:")).map((o) => o.slice(2)),
+      ...named(before.accountSplits, ["set_by"]),
+      ...named(before.accountUse, ["user_id", "said_by"]),
+      ...named(before.parts, ["owner"]).filter((o) => o.startsWith("u:")).map((o) => o.slice(2)),
+      ...named(before.payerRoles, ["user_id", "answered_by"]),
+      ...named(before.accountAgreements, ["set_by"]),
+      ...before.accountAgreements.flatMap((a: { value: string }) => [...JSON.parse(a.value).who, ...JSON.parse(a.value).confirmed]).map((o: string) => o.slice(2)),
+    ];
+    expect(used.length).toBeGreaterThan(8);
+    for (const id of used) expect(ids.has(id), id).toBe(true);
+    for (const who of Object.values(names)) expect(ids.has(who.id)).toBe(true);
+    // the near miss: a member who shares nothing and is named nowhere
+    expect(ids.has(stranger.id)).toBe(false);
+    expect(before.users.every((u: Record<string, unknown>) => Object.keys(u).sort().join() === "created_at,display_name,id,role,username")).toBe(true);
+    // nothing but the users row is added: no account, share or transaction of a named user
+    expect(before.accounts.map((a: { id: string }) => a.id)).toEqual(["k-shared"]);
+    expect(before.accountShares).toEqual([expect.objectContaining({ user_id: pekka.id })]);
+    expect(before.accountShares).toHaveLength(1);
+    expect(before.householdMembers).toEqual((await fileOf(setup, kaisa)).householdMembers);
+  });
+});
+
 describe("the file holds what the user who asks sees, no more", () => {
   it("an administrator's file has nothing of a member's unshared account, and the member's file has all of it", async () => {
     const setup = await setupApp();

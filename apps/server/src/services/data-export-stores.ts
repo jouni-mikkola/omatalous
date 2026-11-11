@@ -24,7 +24,7 @@ export interface Viewer {
   accountKeys: readonly string[];
   /** Of those, the keys the viewer is weighted in: what a settlement says of a pool or card is for the users who weigh something in it. */
   weightedKeys: readonly string[];
-  /** The viewer, the owners of the shared accounts and the members the viewer shares an account with. */
+  /** The viewer, the owners of the shared accounts and the members the viewer shares an account with (the file's `users` also holds whom its rows name). */
   users: readonly string[];
 }
 
@@ -77,12 +77,39 @@ const agreementsOfViewer = (v: Viewer): Clause => ({
   params: [list(v.weightedKeys), `u:${v.userId}`, `u:${v.userId}`],
 });
 
+/**
+ * The users a row of the file names (`user_id`, `said_by`, `set_by`, `answered_by`, an owner `u:<id>`, the `who` and
+ * `confirmed` of an agreement), read from the rows the viewer gets of those stores: so every such key is a row of `users`.
+ */
+function namedInRows(v: Viewer): Clause {
+  const uid = (c: string) => `substr(${c}, 3)`;
+  const part = (sql: string, params: SqlValue[]) => ({ sql, params });
+  const pieces = [
+    part(`SELECT said_by FROM owner_answer WHERE ${byKey(v).sql}`, byKey(v).params),
+    part(`SELECT substr(owner, 3) FROM owner_answer WHERE owner LIKE 'u:%' AND ${byKey(v).sql}`, byKey(v).params),
+    part(`SELECT set_by FROM account_split WHERE ${byKey(v).sql}`, byKey(v).params),
+    part(`SELECT user_id FROM account_use WHERE ${byKey(v).sql}`, byKey(v).params),
+    part(`SELECT said_by FROM account_use WHERE ${byKey(v).sql}`, byKey(v).params),
+    part(`SELECT ${uid("owner")} FROM tx_part WHERE owner LIKE 'u:%' AND tx_id IN (SELECT id FROM transactions WHERE ${among("account_id")})`, [list(accountIds(v))]),
+    part(`SELECT user_id FROM payer_role WHERE (user_id IS NULL OR user_id = ?)`, [v.userId]),
+    part(`SELECT answered_by FROM payer_role WHERE (user_id IS NULL OR user_id = ?)`, [v.userId]),
+    part(`SELECT set_by FROM account_agreement WHERE ${agreementsOfViewer(v).sql}`, agreementsOfViewer(v).params),
+    ...["$.who", "$.confirmed"].map((path) =>
+      part(`SELECT ${uid("j.value")} FROM (SELECT value AS v FROM account_agreement WHERE ${agreementsOfViewer(v).sql}) a, json_each(a.v, '${path}') j WHERE j.value LIKE 'u:%'`, agreementsOfViewer(v).params),
+    ),
+  ];
+  return {
+    sql: `${among("id")} OR ${pieces.map((x) => `id IN (${x.sql})`).join(" OR ")}`,
+    params: [list(v.users), ...pieces.flatMap((x) => x.params)],
+  };
+}
+
 const STORES: readonly ExportStore[] = [
   {
     key: "users",
     table: "users",
     allow: ["id", "username", "display_name", "role", "created_at"],
-    rows: (v) => (v.admin ? { sql: "1", params: [] } : { sql: among("id"), params: [list(v.users)] }),
+    rows: (v) => (v.admin ? { sql: "1", params: [] } : namedInRows(v)),
     order: "created_at, id",
   },
   {
