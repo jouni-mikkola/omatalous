@@ -3,8 +3,11 @@ import { chmodSync, existsSync, readdirSync, writeFileSync } from "node:fs";
 import { tempDir } from "./lib/tmp-kit.ts";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { answerTable, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
+import { allRoutes, answerTable, onlySlug, partName, pictureOptions, parseArgs, shotName, stepsFunction, USAGE } from "./shots.mjs";
 import { BUILT, NO_TYPES, ROOT } from "./shots-kit.ts";
+import { QUESTIONS } from "../packages/core/src/reports/index.ts";
+import { NAV } from "../apps/web/src/nav.ts";
+import { SETTINGS_TARGETS } from "../apps/web/src/routes.ts";
 
 describe("pnpm shots arguments", () => {
   it("takes a route, widths and --demo, and without more asks for the four widths of a phone to a desktop", () => {
@@ -36,9 +39,38 @@ describe("pnpm shots arguments", () => {
     expect(parseArgs(["--help", "--member"]).help).toBe(true);
   });
 
+  it("takes --all for every page, each question of Raportit and each target of Asetukset, beside the routes named and none twice", async () => {
+    // the lists are the app's own, so a page added to one of them is expected here without a change to this test
+    const all = await allRoutes();
+    for (const entry of NAV) if (entry.id !== "reports") expect(all).toContain(entry.id);
+    for (const q of QUESTIONS) expect(all).toContain(`reports?q=${q}`);
+    for (const target of SETTINGS_TARGETS) expect(all).toContain(`settings/${target.id}`);
+    expect(all).not.toContain("reports");
+    expect(all).toHaveLength(NAV.length - 1 + QUESTIONS.length + SETTINGS_TARGETS.length);
+    expect(new Set(all).size).toBe(all.length);
+    expect(parseArgs(["--all"], all).routes).toEqual(all);
+    const mixed = parseArgs(["bills", "optimise", "--all", "bills", "loans"], all).routes;
+    expect(mixed).toEqual(["bills", "optimise", ...all.filter((r) => r !== "bills"), "loans"]);
+    // every page of --all is a route the tool takes by name too
+    expect(parseArgs(all).routes).toEqual(all);
+  });
+
+  it.skipIf(NO_TYPES)("reads the page list of --all with node itself, as pnpm shots runs", async () => {
+    // pnpm shots is plain node: the app's sources must load there too, not only under vitest
+    const r = spawnSync(process.execPath, ["-e", 'import("./tools/shots.mjs").then(async (m) => console.log(JSON.stringify(await m.allRoutes())))'], { cwd: ROOT, encoding: "utf8" });
+    expect(r.stderr).toBe("");
+    expect(JSON.parse(r.stdout)).toEqual(await allRoutes());
+  });
+
+  it("takes a target of Asetukset as a route and refuses any other /", () => {
+    expect(parseArgs(["settings/server", "#/settings/banks?add=1"]).routes).toEqual(["settings/server", "settings/banks?add=1"]);
+    for (const route of ["settings/../x", "settings/", "settings/banks/x", "reports/tulot", "overview?a=/b"]) expect(() => parseArgs([route]), route).toThrow(/page id/);
+  });
+
   it("lists every option in --help, which needs no route", () => {
     expect(parseArgs(["--help"]).help).toBe(true);
-    for (const option of ["--widths", "--demo", "--demo-years", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only"]) expect(USAGE).toContain(option);
+    expect(USAGE.split("\n").filter((line) => line.includes("--all"))).toHaveLength(1);
+    for (const option of ["--all", "--widths", "--demo", "--demo-years", "--fake-bank", "--answers", "--steps", "--scope", "--member", "--parts", "--loan", "--name", "--only"]) expect(USAGE).toContain(option);
     expect(USAGE.split("\n").length).toBeLessThanOrEqual(26);
   });
 
@@ -87,6 +119,13 @@ describe("pnpm shots file names", () => {
     expect(shotName("reports?q=tulot", null, 1280)).toBe("reports-q-tulot-1280.png");
     expect(shotName("overview", "joint", 390)).toBe("overview-joint-390.png");
     expect(shotName("reports?q=tulot", "bank", 700)).toBe("reports-q-tulot-bank-700.png");
+    expect(shotName("settings/server", null, 390)).toBe("settings-server-390.png");
+  });
+
+  it("has no / in a file name and a file of its own for every page of --all", async () => {
+    const names = (await allRoutes()).map((route) => shotName(route, null, 390));
+    for (const name of names) expect(name).not.toContain("/");
+    expect(new Set(names).size).toBe(names.length);
   });
 
   it("gives two routes, two widths and two states each a file of their own", () => {

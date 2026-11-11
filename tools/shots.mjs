@@ -22,6 +22,7 @@ const SECOND = { username: "eero-esimerkki", displayName: "Eero" };
 
 export const USAGE = `pnpm shots <route>... [options]    full-page PNGs of the built app, one per route and width
   <route>          a page id with an optional query: overview, "reports?q=tulot". Several routes share one app start and one login
+  --all            every page: each question of Raportit and each target of Asetukset (settings/banks) too, beside the routes named
   --widths a,b     pixel widths (default ${WIDTHS.join(",")})
   --demo           the demo household: 14 months of made-up rows on its own accounts (--demo-years: 26, both sides of a year comparison)
   --fake-bank      links the fake bank (e2e/fake-bank/): a checking and a savings account, a joint account of MEIKALAINEN MATTI;KORHONEN ELISA,
@@ -55,10 +56,26 @@ Pictures go to $SHOTS_DIR (default shots in $TMPDIR, else /tmp); $SHOTS_DISPLAY_
  */
 
 /**
+ * The pages `--all` stands for, read from the app's own lists so that a new page is in the next run: the pages of the
+ * navigation (`NAV`, apps/web/src/nav.ts), with Raportit once for each question of `QUESTIONS`
+ * (packages/core/src/reports/index.ts), and each target of Asetukset (`SETTINGS_TARGETS`, apps/web/src/routes.ts).
+ * Loaded only when asked for: `--help` needs no node that reads TypeScript.
+ * @returns {Promise<string[]>}
+ */
+export async function allRoutes() {
+  const [{ NAV }, { QUESTIONS }, { SETTINGS_TARGETS }] = await Promise.all([import("../apps/web/src/nav.ts"), import("../packages/core/src/reports/index.ts"), import("../apps/web/src/routes.ts")]);
+  return [
+    ...NAV.flatMap((entry) => (entry.id === "reports" ? QUESTIONS.map((q) => `reports?q=${q}`) : [entry.id])),
+    ...SETTINGS_TARGETS.map((target) => `settings/${target.id}`),
+  ];
+}
+
+/**
  * @param {string[]} argv
+ * @param {readonly string[]} [all] the pages `--all` stands for (`allRoutes`)
  * @returns {Options}
  */
-export function parseArgs(argv) {
+export function parseArgs(argv, all = []) {
   /** @type {Options} */
   const o = { help: false, routes: [], widths: WIDTHS, demo: false, demoYears: false, fakeBank: false, answers: null, steps: null, scope: null, name: null, member: false, parts: null, loan: false, only: null };
   for (let i = 0; i < argv.length; i++) {
@@ -73,6 +90,7 @@ export function parseArgs(argv) {
       return v;
     };
     if (a === "--help" || a === "-h") o.help = true;
+    else if (a === "--all") o.routes.push(...all.filter((r) => !o.routes.includes(r)));
     else if (a === "--demo") o.demo = true;
     else if (a === "--demo-years") o.demoYears = true;
     else if (a === "--fake-bank") o.fakeBank = true;
@@ -104,7 +122,8 @@ export function parseArgs(argv) {
     } else if (a.startsWith("-")) throw new Error(`unknown option ${a} (pnpm shots --help lists them)`);
     else {
       const route = a.replace(/^#?\/?/, "");
-      if (!/^[a-z][a-z-]*(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`a route is a page id with an optional query, like overview or reports?q=tulot (got: ${route})`);
+      // the one `/` a route may have names a target of Asetukset
+      if (!/^([a-z][a-z-]*|settings\/[a-z][a-z-]*)(\?[\w=&%.-]*)?$/.test(route)) throw new Error(`a route is a page id with an optional query, like overview, reports?q=tulot or settings/banks (got: ${route})`);
       if (!o.routes.includes(route)) o.routes.push(route);
     }
   }
@@ -116,7 +135,7 @@ export function parseArgs(argv) {
 
 /** The file of one picture: the route, the label of `--name` when there is one, and the width. */
 export function shotName(/** @type {string} */ route, /** @type {string | null} */ name, /** @type {number} */ width) {
-  return `${[route.replace(/[?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
+  return `${[route.replace(/[/?=&%]+/g, "-"), name].filter(Boolean).join("-")}-${width}.png`;
 }
 
 /** The file of a `--only` picture: like the whole page's, with the slug of the selector or heading between the label and the width. */
@@ -281,7 +300,8 @@ async function settle(/** @type {import("@playwright/test").Page} */ page, held 
 }
 
 async function main() {
-  const o = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const o = parseArgs(argv, argv.includes("--all") && !argv.some((a) => a === "--help" || a === "-h") ? await allRoutes() : []);
   if (o.help) return console.log(USAGE);
   // the modules first: a typo in a file name should not cost a build and a start
   const answers = o.answers ? answerTable(await load(o.answers), o.answers) : null;
