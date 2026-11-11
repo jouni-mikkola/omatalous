@@ -256,6 +256,13 @@ Result: The plan gains 10 to 14 steps for web charts, tables, search and offline
 - locks: none
 - after: none
 
+### N31 Plan the safety and storage
+Result: The plan gains 8 to 12 steps where the server's handling of sessions, limits, headers, backups and the database falls short of the security
+- why: At 14:26Z no step is free for 14 slots and no plan step runs. docs/SECURITY.md and docs/security-audit-2026-10.md (2 mentions in the roadmap) were not read against apps/server/src/security, platform, db and static-files.ts.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the safety and storage steps. The plan gains 8 to 12 steps where the server's handling of sessions, limits, headers, backups and the database falls short of the security document and the October audit. Each step: a fault or gap reproduced on main with its file and line, 50 to 150 lines of product code a user sees or relies on, its tests in the same step, its own lock named by no other step and no step behind another unless it must be, and not a result that main or an open step (A1, A2, D6, L1-L4, T76, T77, T82-T84, T105, T111, Y2, Y3) already holds. No step that is only tests, and no done-when that says under N lines. When fewer real steps are found than asked, add those found and list the files read.
+- locks: none
+- after: none
+
 ### C3 A small MobilePay share fits
 Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a friend's share of it.
 - why: `isShareOf` in `mobilepay.ts` lets a share be a euro off whatever its size, so 2,00 passes as a tenth of 30,00 and one cent as a tenth of 10,00: small money in is taken off the nearest purchase's category and never counted as income.
