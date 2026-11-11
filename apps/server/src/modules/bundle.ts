@@ -45,9 +45,12 @@ const KEYS = new Set(["id", "version", "host", "server", "web", "css", "migratio
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-/** The signers file of the build: beside the bundle in the image (/app/module_signers), release/ in the tree. */
+/**
+ * The signers file of the build: beside the bundle in the image (/app/module_signers), release/ in the tree. In the
+ * tree the code runs either bundled (apps/server/dist/node.js, `pnpm start`) or from source (src/modules/bundle.ts).
+ */
 export function findSignersFile(): string | null {
-  return [resolve(here, "../module_signers"), resolve(here, "../../../../release/module_signers")].find((p) => existsSync(p)) ?? null;
+  return [resolve(here, "../module_signers"), resolve(here, "../../../release/module_signers"), resolve(here, "../../../../release/module_signers")].find((p) => existsSync(p)) ?? null;
 }
 
 /** Runs `ssh-keygen -Y verify` over the tar. True only for a signature by a key of the signers file for the module namespace. */
