@@ -112,7 +112,15 @@ export class CloudflareClient {
 
   /** The body as JSON, or null when it is empty or not JSON (the status then decides). Reading stops at MAX_BYTES. */
   private async readJson(res: Response, what: string): Promise<unknown> {
-    const text = await readCappedText(res, MAX_BYTES);
+    let text: string | null;
+    try {
+      text = await readCappedText(res, MAX_BYTES);
+    } catch (err) {
+      // the timeout of `call` also cuts a body that has begun; say what was being done, never the body
+      const code = (err as { cause?: { code?: unknown } }).cause?.code;
+      const detail = typeof code === "string" && /^[A-Z0-9_]{2,40}$/.test(code) ? ` ${code}` : "";
+      throw new CloudflareError(`Cloudflare's answer could not be read while trying to ${what}: ${(err as Error).name}${detail}`, 0);
+    }
     if (text === null) throw new CloudflareError(`Cloudflare's answer was too large while trying to ${what}`, 200);
     try {
       return JSON.parse(text) as unknown;

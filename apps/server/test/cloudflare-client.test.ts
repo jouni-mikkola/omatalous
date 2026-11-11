@@ -73,6 +73,41 @@ describe("Cloudflare client", () => {
     await expect(client(() => new Response(long, { status: 200 })).client.call("list the zones", "GET", "/zones")).rejects.toThrow("too large");
     expect(chunks).toBeLessThan(10);
   });
+
+  it("tells an answer whose body stream errors, with the cause code and without the token or the body", async () => {
+    const broken = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"secret-body":'));
+        controller.error(Object.assign(new TypeError("terminated"), { cause: { code: "ECONNRESET" } }));
+      },
+    });
+    const err = await client(() => new Response(broken, { status: 200 })).client.call("create the tunnel", "POST", "/x").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CloudflareError);
+    expect((err as CloudflareError).status).toBe(0);
+    expect((err as Error).message).toContain("while trying to create the tunnel");
+    expect((err as Error).message).toContain("ECONNRESET");
+    expect((err as Error).message).not.toContain(TOKEN);
+    expect((err as Error).message).not.toContain("secret-body");
+  });
+
+  it("tells an answer that times out after the headers", async () => {
+    const fetchFn = (async (_input: string | URL | Request, init?: RequestInit) => {
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"secret-body":'));
+          init?.signal?.addEventListener("abort", () => controller.error(init.signal?.reason));
+        },
+      });
+      return new Response(stream, { status: 200 });
+    }) as typeof fetch;
+    const err = await new CloudflareClient(TOKEN, fetchFn, 30).call("create the tunnel", "POST", "/x").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(CloudflareError);
+    expect((err as CloudflareError).status).toBe(0);
+    expect((err as Error).message).toContain("while trying to create the tunnel");
+    expect((err as Error).message).toContain("TimeoutError");
+    expect((err as Error).message).not.toContain(TOKEN);
+    expect((err as Error).message).not.toContain("secret-body");
+  });
 });
 
 describe("Cloudflare api", () => {
