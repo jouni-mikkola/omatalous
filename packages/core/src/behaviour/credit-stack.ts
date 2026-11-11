@@ -191,7 +191,9 @@ function linksOf(found: ReadonlyMap<string, { kind: CreditKind; rows: AnalysisTx
         // a connected card's payments follow its purchases, so a large one says nothing of the draw
         if (other === key || PLANNED.has(o.kind) || other.startsWith("account:")) continue;
         const before = o.rows.filter((t) => t.day < d.day && paidTo(other, t) > 0).map((t) => paidTo(other, t));
-        const usual = before.length >= 3 ? median(before.slice(-6)) : 0;
+        // a line with under three payments before the draw has no usual instalment to go beyond
+        if (before.length < 3) continue;
+        const usual = median(before.slice(-6));
         for (const t of o.rows) {
           if (paidTo(other, t) <= 0 || t.day <= d.day || t.day > d.day + LINK_DAYS || lineOfRow.get(t.id) !== other) continue;
           const beyond = paidTo(other, t) - usual;

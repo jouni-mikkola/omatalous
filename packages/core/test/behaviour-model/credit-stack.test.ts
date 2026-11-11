@@ -86,6 +86,27 @@ describe("D5 credit stacking", () => {
       expect(creditStack(ctx).links).toEqual([]);
     });
 
+    const loan = (agos: number[], cents = -30_000) =>
+      agos.map((a) => ({ date: frame.on(frame.ago(a), 18), cents, counterparty: "SVEA BANK AB", description: "LAINAN LYHENNYS 5512" }));
+    const second = { date: frame.on(frame.ago(1), 7), cents: -150_000, counterparty: "SVEA BANK AB", description: "LAINAN LYHENNYS 5512" };
+
+    it("does not link a payment to a line with under three payments before the draw", () => {
+      const { ctx } = withRows([...loan([2]), draw, second]);
+      expect(creditStack(ctx).links).toEqual([]);
+    });
+
+    it("links a payment far above the median of three or more earlier payments", () => {
+      const { ctx, ids } = withRows([...loan([4, 3, 2]), draw, second]);
+      const c = creditStack(ctx);
+      expect(c.links.map((l) => l.drawId)).toEqual([ids[3]]);
+      expect(c.links[0]!.extraCents).toBe(120_000);
+    });
+
+    it("does not link the usual instalment paid on time", () => {
+      const { ctx } = withRows([...loan([4, 3, 2]), draw, { ...second, cents: -30_000 }]);
+      expect(creditStack(ctx).links).toEqual([]);
+    });
+
     it("does not link a payment 15 days after the draw", () => {
       const { ctx } = withRows([...card, draw, { date: frame.on(frame.ago(1), 18), cents: -190_000, counterparty: "BANK NORWEGIAN ASA", description: "LASKU 66120" }]);
       expect(creditStack(ctx).links).toEqual([]);
