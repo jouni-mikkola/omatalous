@@ -998,6 +998,44 @@ Result: A household member cannot be given a display name nobody can see, so eve
 - after: S9
 - files: apps/server/src/services/users.ts, apps/server/test/user-names.test.ts
 
+## Signing in and the command line
+
+Found by running the app and `runCli` on main on 11 November (N25): each `why` names what was sent and what main
+answered. L1 stays in files no other step here edits. L2, L3 and L4 all edit `cli.ts`, so each waits for the one
+before it.
+
+### L1 Passkey offered where it works
+Result: A passkey is offered only at the address it works at, at sign-in and in the settings, so nobody is shown a button that can only fail.
+- why: `POST /login` in `routes/auth.ts` (line 128) and `passkeyChallenge` in `services/passkeys.ts` (line 136) read only the saved app address, never the address the request came to. With the app address `https://talous.example.com` and a passkey made there, a sign-in sent to `http://192.168.1.10:8080` (Host and Origin of the home network) answered `{"needsFactor":true,"passkey":true,"codes":true}` and `POST /api/auth/passkey/options` answered 200 with `rpId` `talous.example.com`, which a browser at the home address refuses. The request passes the Origin check of `auth/middleware.ts` (line 90) because its Origin is its own Host. `passkeyStatus` and `startPasskey` (lines 38 and 72 of `services/passkeys.ts`) read the same saved address alone, so by the code (read on main, not run) the settings opened at the home address answer `usable: true` and hand out options for a new passkey that the browser there refuses as well.
+- done when: new cases of `apps/server/test/passkeys.test.ts` that fail without the change get `passkey: false` from `POST /api/auth/login` and the 400 of `passkey.none` from `POST /api/auth/passkey/options` when the request's Origin (or, without one, its Host) is not the app address, with `codes` as before and no challenge stored; the same sign-in sent to the app address still gets `passkey: true` and signs in with the passkey; behind a proxy that sends the app address as Host the passkey is offered; `GET /api/security/factor` sent to another address than the app address answers `usable: false` with the app address still in `address`, and `POST /api/security/factor/passkey/start` there answers 400 with a message that names the app address and stores no challenge, while at the app address both answer as before; the file's other tests pass unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: passkey-offer
+- after: none
+- files: apps/server/src/routes/auth.ts, apps/server/src/routes/second-factor.ts, apps/server/src/services/passkeys.ts, apps/server/test/passkeys.test.ts
+
+### L2 Stray words stop a command
+Result: A command with a mistyped flag or a word too many stops and names that word, so a slip never creates, deletes or signs out anybody.
+- why: `runCli` in `cli.ts` (line 43) reads three words and ignores the rest, `option` in `cli-args.ts` takes any next word as a value, and `runServiceTokenCli` in `cli-service-token.ts` (line 15) reads `--name` and `--days` and no other word. On main (11 Nov, N25) `user create anna --admn` printed `Created user anna.` with exit 0, so a household that meant an admin got a member; `user create --admin carl` printed `Created admin --admin.` (the user name rule of `services/users.ts`, line 66, allows it); `user create bob --name --admin` made the admin bob with the display name `--admin`; `user delete anna --help` printed `Deleted anna and all their data.`; `user delete bob carl` deleted bob; `user reset-password anna --help` gave anna a new password; `sessions revoke-all --help` signed everyone out; `service-token list extra` listed with exit 0; and `service-token create aino --name x --dayz 5`, like the same with `--days` as the last word, printed a working token valid for the default 30 days and not the 5 asked for, and a token is shown only once.
+- done when: in a new `apps/server/test/cli-words.test.ts` that fails without the change, each command of the why and `service-token create aino bob --name x` exits 1, names the word in question on stderr and leaves `user list`, the sessions and `service-token list` as they were; `user create --admin carl --name "Carl C"` and `user create carl --name "Carl C" --admin` both create the admin carl with that display name; `user create anna`, `user create anna --name` (the flag last, as `cli-args.test.ts` holds), `user delete anna`, `user reset-password anna`, `user remove-factor anna`, `sessions revoke-all`, `service-token create aino --name x` with `--days 5` before or after the name, `revoke <id>` and `revoke --all` work as before; `secret check <file>`, `address set <url>`, `ops` and `version` are not touched; one function that `cli-args.ts` gains does the check for both files, with its own cases in `apps/server/test/cli-args.test.ts`; `apps/server/test/service-tokens.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: cli-words
+- after: none
+- files: apps/server/src/cli.ts, apps/server/src/cli-args.ts, apps/server/src/cli-service-token.ts, apps/server/test/cli-words.test.ts, apps/server/test/cli-args.test.ts
+
+### L3 Help for the command line
+Result: `help` lists the commands one to a line and succeeds, and a wrong command in a group gets that group's commands.
+- why: `runCli` in `cli.ts` (lines 115 to 118) has one usage sentence of over 400 characters for everything. On main `help` and `--help` printed it on stdout with exit 1; `sessions`, `address show` and `secret` printed the same whole sentence; `user frobnicate` answered `Give a username.` and `user frobnicate ghost` answered `User ghost not found.` (lines 123 to 141), neither of which says the command does not exist.
+- done when: in a new `apps/server/test/cli-usage.test.ts` that fails without the change, `help`, `--help` and `-h` exit 0 and print every command of the header comment of `cli.ts` on stdout, one to a line; `sessions frobnicate`, `address show`, `secret` and `user frobnicate ghost` exit 1 and print on stderr only the lines of their own group, with `Unknown command` and the word for a command that does not exist; an unknown group exits 1 with the whole list on stderr; `user list`, `version`, `address set <url>` (its ` is now ` wording, which `scripts/install.sh` reads) and the `ops` and `service-token` usage lines are unchanged; the list lives in a new `apps/server/src/cli-usage.ts`; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: cli-usage
+- after: L2
+- files: apps/server/src/cli-usage.ts, apps/server/src/cli.ts, apps/server/test/cli-usage.test.ts
+
+### L4 Sign one member out at the host
+Result: On the host, `sessions list` shows who is signed in and `sessions revoke <username>` signs one member out, nobody else.
+- why: `runCli` in `cli.ts` (line 59) knows only `sessions revoke-all`. On main `sessions list` and `sessions revoke aino` printed the usage sentence with exit 1, so after a lost phone the host can only sign the whole household out or reset the member's password (`user reset-password`, which also makes them choose a new one).
+- done when: in a new `apps/server/test/cli-sessions.test.ts` that fails without the change, `sessions list` prints one line for each live session with the user name, the device as `deviceLabel` names it and when it was last seen, and never a token or its hash; `sessions revoke aino` ends every session of aino (their cookie then gets `user: null` at `/api/auth/state`), leaves another member signed in, records a `session_revoked` event that names the command line and says how to sign in again; an unknown user name exits 1 with `User <name> not found.`; `sessions revoke-all` works as before; both commands are in the usage list and the header comment of `cli.ts`, and the code lives in a new `apps/server/src/cli-sessions.ts`; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: cli-sessions
+- after: L3
+- files: apps/server/src/cli-sessions.ts, apps/server/src/cli.ts, apps/server/test/cli-sessions.test.ts
+
 ## Docs and help
 
 What a household user reads. The tabs of Asetukset are the six labels of `packages/core/src/messages-set-tabs.ts`
