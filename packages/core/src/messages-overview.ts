@@ -108,7 +108,7 @@ export const FI_OVERVIEW = {
   "home.nyt_usual_band": "tavallinen {range} tähän päivään",
   "home.nyt_parts": "Saldo {balance} − laskut ennen palkkapäivää {bills}",
   // Shared components
-  "chart.largest": "Suurin yksittäinen osto {name}",
+  "chart.largest": "Suurin yksittäinen osto {name}, {sum}",
   "chart.pay_day": "Palkka {day}.",
   "chart.aria_pace": "Kuukauden kertyvät menot{expected}{goal}",
   "chart.aria_expected": " tavalliseen kuukauteen verrattuna",

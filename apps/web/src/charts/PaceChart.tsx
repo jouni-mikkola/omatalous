@@ -79,7 +79,7 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
   const px = (i: number) => x((projection?.fromDay ?? 1) - 1 + i);
   const markers = placeMarkers(
     [
-      ...(largest ? [{ key: "largest", x: x(largest.day - 1), label: t("chart.largest", { name: largest.name }) }] : []),
+      ...(largest ? [{ key: "largest", x: x(largest.day - 1), label: t("chart.largest", { name: largest.name, sum: money(largest.cents) }) }] : []),
       ...pace.payDays.map((d) => ({ key: `pay:${d}`, x: x(d - 1), label: t("chart.pay_day", { day: d }) })),
       ...(payday && !pace.payDays.includes(payday) ? [{ key: "payday", x: x(payday - 1), label: t("chart.pay_day", { day: payday }) }] : []),
     ],

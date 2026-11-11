@@ -172,12 +172,13 @@ describe("pace: the usual month and the rest of this one", () => {
     expect(pace.expected).not.toBeNull();
   });
 
-  it("marks the pay day and the largest purchase that is in no series: not the rent, nor the monthly grocery round", () => {
+  it("marks the pay day and the largest purchase: not the rent, but the monthly grocery round counts", () => {
     const rent = (date: IsoDate) => tx({ bookingDate: date, amountCents: -90_000, merchant: "Vuokra Oy", category: "rent" });
     const tv = tx({ bookingDate: "2026-10-07", amountCents: -12_000, merchant: "Gigantti", category: "electronics" });
     const pace = paceOf([...rows, ...months.map((m) => rent(`${m}-02`)), rent("2026-10-02"), tv], "2026-10", today);
     expect(pace.payDays).toEqual([1]);
-    expect(pace.largest).toEqual({ day: 7, name: "Gigantti", cents: 12_000 });
+    // the grocery round of 150 € is larger than the 120 € television; the 900 € rent is skipped
+    expect(pace.largest).toEqual({ day: 5, name: "Prisma", cents: 15_000 });
   });
 });
 

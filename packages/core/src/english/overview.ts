@@ -105,7 +105,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.nyt_usual_band": "usually {range} by this day",
   "home.nyt_parts": "Balance {balance} − bills before payday {bills}",
   // Shared components
-  "chart.largest": "Largest single purchase {name}",
+  "chart.largest": "Largest single purchase {name}, {sum}",
   "chart.pay_day": "Pay {day}.",
   "chart.aria_pace": "The month's accumulating spending{expected}{goal}",
   "chart.aria_expected": " against the expected month",

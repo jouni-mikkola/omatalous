@@ -3,7 +3,7 @@
  * the same days, and the rest of the month as the base months spent it.
  */
 import { billCents } from "../account-use.ts";
-import { expectedDates } from "../commitments.ts";
+import { expectedDates, isFixedCost } from "../commitments.ts";
 import { addDays, addMonths, addMonthsToDate, dayNumber, daysInMonth, monthEnd, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
@@ -133,11 +133,11 @@ function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, tota
   return { expected, projection, cardGap: false };
 }
 
-/** The month's largest purchase on its days 1 to `lastDay` that belongs to no recurring series. */
+/** The month's largest purchase on its days 1 to `lastDay` that belongs to no fixed-cost series (rent, a subscription); a shop's recurring rows count. */
 function largestOneOff(ctx: AnalysisContext, month: string, lastDay: number): MonthPace["largest"] {
   if (!lastDay) return null;
   const first = dayNumber(`${month}-01`);
-  const inSeries = new Set(standingOf(ctx).recurring.flatMap((s) => s.transactionIds));
+  const inSeries = new Set(standingOf(ctx).recurring.filter(isFixedCost).flatMap((s) => s.transactionIds));
   const top = spendRows(ctx, { fromDay: first, toDay: first + lastDay - 1 }).reduce<AnalysisTx | null>((best, t) => (!inSeries.has(t.id) && t.spend > (best?.spend ?? 0) ? t : best), null);
   return top ? { day: top.day - first + 1, name: top.merchant, cents: top.spend } : null;
 }
