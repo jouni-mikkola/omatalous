@@ -450,6 +450,32 @@ Result: When a view cannot load again, its last answer stays with its time and o
 - after: none
 - files: apps/web/src/hooks.ts, apps/web/src/api.ts, apps/web/src/components, apps/web/test, e2e
 
+## The web: seen and heard
+
+### W1 High contrast keeps the choice
+Result: With Windows high contrast on, the chosen tab and the pressed choice of a switch still stand out from the others.
+- why: no stylesheet has a `forced-colors` rule; the pressed key of `.segmented` and the chosen one of `.tabs` in `apps/web/src/styles/base.css` are told by a background and a `box-shadow` alone, and forced colours remove both.
+- done when: a new stylesheet under `@media (forced-colors: active)` gives the pressed key and the chosen tab a border or outline in a system colour; a new e2e spec with `forcedColors: "active"` at 390 and 1440 px finds on Kuukausi and Asetukset that the chosen one's computed border or outline differs from its siblings' and the focus can be seen; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: forced-colors
+- after: none
+- files: apps/web/src/styles/forced-colors.css, apps/web/src/main.tsx, e2e/forced-colors.spec.ts
+
+### W3 A menu row's focus is plain
+Result: In the sort menu of a table and the account list of the rows filter, a keyboard user sees which row has the focus.
+- why: `.rtb-item[data-focused]` in `apps/web/src/styles/toolbar.css` and `.tx-acctlist li:focus-visible` in `apps/web/src/styles/transactions.css` remove the outline and show the hover ground alone (`#eef1f5` on white, about 1.1:1), under the 3:1 of WCAG 1.4.11.
+- done when: both rows show a focus mark at 3:1 or more against the surface that hover alone does not show; a new test of the two stylesheets holds it; `e2e/table-sort.spec.ts` and `e2e/a11y.spec.ts` pass; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: toolbar, transactions
+- after: none
+- files: apps/web/src/styles/toolbar.css, apps/web/src/styles/transactions.css, apps/web/test/menu-focus-css.test.ts
+
+### W4 A refused key file is read out
+Result: A screen reader says the error when the bank key file is refused, and the file field names it.
+- why: the file error of `apps/web/src/pages/settings/BankAppSetup.tsx` is a plain span outside any live region, with no `role="alert"` and no `aria-describedby` on the file input, so the error is seen and never spoken; the application id error beside it is tied to its field.
+- done when: the file error has `role="alert"` and an id that the file input names with `aria-describedby`, as the application id does; the new `apps/web/test/bank-key-error.dom.test.ts` gives the form a refused key file and finds the role and the tie; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-app
+- after: none
+- files: apps/web/src/pages/settings/BankAppSetup.tsx, apps/web/test/bank-key-error.dom.test.ts
+
 ## The audit
 
 ### T103 No extension pages in the web
