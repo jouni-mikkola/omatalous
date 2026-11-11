@@ -10,7 +10,7 @@ const context = (data: Record<string, unknown>, accounts: unknown[] = []): Repor
 const html = (s: ReportSection, ctx: ReportContext) => renderToStaticMarkup(createElement(s.Component, { ctx }));
 
 /** The sections that stay (docs/design/README.md, section 2). */
-const SECTION_IDS = ["kuukausi", "lainat", "nostettu-luotto", "saldot", "verovuosi", "vuodet", "yhteiset-menot"];
+const SECTION_IDS = ["kuukausi", "lainat", "nostettu-luotto", "osittain", "saldot", "verovuosi", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
 describe("Raportit: Nostettu luotto", () => {
@@ -40,6 +40,8 @@ describe("the page of a section", () => {
     // Yhteiset menot needs a joint account the user is weighted in, which the full answer does not have
     expect(ids("reports")).not.toContain("yhteiset-menot");
     expect(ids("reports")).toContain("nostettu-luotto");
+    // the parts of a category come only from an add-on module
+    expect(ids("reports")).not.toContain("osittain");
   });
 
   it("Yhteiset menot shows only for a user who is weighted in a joint account", () => {

@@ -2,6 +2,7 @@
 import "../../../styles/report-spending.css";
 import type { ReportPage } from "../types.ts";
 import { section as Borrowed } from "../sections/Borrowed.tsx";
+import { section as CategoryParts } from "../sections/CategoryParts.tsx";
 import { section as YearOverYear } from "../sections/YearOverYear.tsx";
 import { t } from "../../../text.ts";
 
@@ -11,5 +12,5 @@ export const page: ReportPage = {
     return t("rpt.page_spending");
   },
   fold: true,
-  sections: [Borrowed, YearOverYear],
+  sections: [Borrowed, CategoryParts, YearOverYear],
 };

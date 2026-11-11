@@ -186,6 +186,22 @@ under `apps/web/src` without the extension: `api`, `hooks`, `format`, `routes`, 
 `components/ui/Notice` (`apps/web/src/module-host.ts`). A shared stylesheet the module needs is copied into its `web.css`;
 stylesheets hold no state.
 
+### Where the host draws it
+
+| Point | Fed by | Where |
+|---|---|---|
+| `page` | the module | its own address `#/<id>`, its entry in the user menu after Tapahtumat (`Shell.tsx`) |
+| `settingsCard` | the module | Asetukset > Kotitalous, after the rules |
+| `rowMark` | `rowFields` | on the line of a row of Tapahtumat, beside its tags; it keeps the row one line high |
+| `rowPart` | `rowFields` | in the opened row of Tapahtumat, above the payee's months |
+| category parts | `rowParts` | Raportit > Menot > Menot osittain: each category the server split, its parts under its name and figure |
+
+`rowMark` and `rowPart` get the row as `/api/transactions` returns it, with the fields `rowFields` added, and draw
+nothing (return `null`) for a row they know nothing of (`components/ExtensionRowParts.tsx`). The category parts are
+the `parts` of the categories report (core `analysis/row-parts.ts`); the web draws them as the server gave them and
+adds nothing up (`pages/reports/sections/CategoryParts.tsx`). Without a module none of these points draws an element
+or makes a request, and the card of Menot osittain is not there.
+
 ### Loading in the browser
 
 When a module is loaded on the server, the page (`index.html`) carries
