@@ -125,9 +125,7 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the page is one block: the answer, then what it is a day, the month's pace and the two figures the sum opens, in that order
-          await page.locator(".home-answer-line").getByRole("button").click();
-          await expect(page.locator(".nyt-parts")).toBeVisible();
+          // the page is one block: the answer, then what it is a day, the month's pace and the two figures it is made of, in that order
           const order = [".home-answer-line", ".nyt-pace", ".nyt-parts"];
           const names = await page.evaluate((selectors) => {
             const found = selectors.map((s) => document.querySelector(s)!);

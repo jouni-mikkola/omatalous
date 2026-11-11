@@ -6,8 +6,7 @@ import { cents, overflow, plain, watch } from "./helpers.ts";
 // household of the administrator (e2e/run.mjs made it) has pay, rent and everyday spending, so the answer has a sum.
 // Core's tests hold the figures (packages/core/test/nyt.test.ts); this spec holds what a household sees of them: the
 // answer is the sum core gives, it is the only block of the page, it fits the first screen of a phone, and the page is
-// short and does not move when it has loaded. The sum opens the balance and the bills it is made of, and the pace line
-// opens this month's rows (the action of section 1.1).
+// short and does not move when it has loaded.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 /** The page's height at the two widths it is held to: the roadmap's N11. */
 const MAX_HEIGHT = { 1440: 1400, 390: 2400 } as const;
@@ -48,9 +47,7 @@ for (const width of [390, 1440] as const) {
     await expect(line).toContainText("Palkkapäivään");
     await expect(line).toContainText("jää");
     expect(cents(await line.locator(".fig").innerText()), "the answer is the sum of core, in whole euros").toBe(Math.round(left.leftCents / 100) * 100);
-    // the two figures it is made of, to the cent: the sum opens them, and balance less bills is the sum
-    await expect(page.locator(".nyt-parts")).toHaveCount(0);
-    await line.getByRole("button").click();
+    // the two figures it is made of, to the cent: balance less bills is the sum
     const [balance, bills] = sums(await page.locator(".nyt-parts").innerText());
     expect(balance).toBe(left.balanceCents);
     expect(bills).toBe(left.billsCents);
@@ -71,40 +68,6 @@ for (const width of [390, 1440] as const) {
     await context.close();
   });
 }
-
-test("the sum opens a balance and bills that give it to the cent, and the pace line opens this month's rows", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
-  const page = await open(context);
-  const seen = watch(page);
-  const nyt = await answerOf(context);
-  expect(nyt?.left.known, "the demo household has a payday and a balance").toBe(true);
-  const { left } = nyt;
-  // the sum is a button named by the whole sentence; closed, the page has no parts
-  const sum = page.getByRole("button", { name: /^Palkkapäivään .* jää .*€$/ });
-  await expect(sum).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator(".nyt-parts")).toHaveCount(0);
-  await sum.click();
-  await expect(sum).toHaveAttribute("aria-expanded", "true");
-  const parts = page.locator(".nyt-parts");
-  await expect(parts).toContainText("Saldo");
-  await expect(parts).toContainText("laskut ennen palkkapäivää");
-  const [balance, bills] = sums(await parts.innerText());
-  expect(balance, "the balance of core").toBe(left.balanceCents);
-  expect(bills, "the bills of core").toBe(left.billsCents);
-  expect(balance! - bills!, "balance less bills is the sum, to the cent").toBe(left.leftCents);
-  expect(cents(await sum.locator(".fig").innerText()), "the answer is that sum in whole euros").toBe(Math.round((balance! - bills!) / 100) * 100);
-  // a second click closes them
-  await sum.click();
-  await expect(parts).toHaveCount(0);
-  // the pace line is a link to the rows of the running month to today, the period Tapahtumat calls Tämä kuu
-  const today: string = nyt.from;
-  await page.locator(".nyt-pace").getByRole("link", { name: /^Käytetty / }).click();
-  await expect(page).toHaveURL(new RegExp(`#/transactions\\?from=${today.slice(0, 7)}-01&to=${today}$`));
-  await expect(page).toHaveTitle(/^Tapahtumat/);
-  await expect(page.locator(".tx-fchip.set")).toContainText("Tämä kuu");
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
 
 test("at 390 px the answer and what it is a day are on the first screen", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });

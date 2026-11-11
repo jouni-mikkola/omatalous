@@ -35,9 +35,7 @@ for (const width of [320, 360, 390]) {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
     const page = await open(context);
     const seen = watch(page);
-    // the lines of the one block in one column, the parts the sum opens too: none is beside another
-    await page.locator(".home-answer-line").getByRole("button").click();
-    await expect(page.locator(".nyt-parts")).toBeVisible();
+    // the lines of the one block in one column: none is beside another
     const blocks = page.locator(".home-answer-line, .nyt-per-day, .nyt-pace, .pace-chart, .nyt-parts");
     let bottom = 0;
     for (const block of await blocks.all()) {
