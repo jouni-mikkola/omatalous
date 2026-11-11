@@ -662,3 +662,14 @@ describe("workflows in the private repository", () => {
     expect(unguarded("ci.yml", ci.replace(guard, PUBLIC_ONLY))).toEqual([]); // near miss: the plain guard passes
   });
 });
+
+// ── the board's revert watch reads main's runs of the workflow named `check` ──────────────────────────────────────
+describe("the workflow the board watches on main", () => {
+  it("main's checks workflow is named check, and no other workflow is", () => {
+    const ci = readText(".github/workflows/ci.yml");
+    const files = readdirSync(resolve(ROOT, ".github/workflows")).filter((f) => f.endsWith(".yml"));
+    const named = files.filter((f) => (parseYaml(readText(`.github/workflows/${f}`)) as unknown as { name?: string }).name === "check");
+    expect(named).toEqual(["ci.yml"]); // any other name and a red main is never reverted
+    expect(ci).toMatch(/^on:\n {2}push:\n {4}branches: \["\*\*"\]$/m); // a push to main starts the run the board reads
+  });
+});
