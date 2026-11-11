@@ -284,6 +284,13 @@ Result: The plan gains 8 to 12 steps where the server's handling of sessions, li
 - locks: none
 - after: none
 
+### N34 Plan the look and style steps
+Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a place where a page looks different from what the style guide says
+- why: No plan step has read docs/UI_STYLE.md (204 lines) against apps/web/src/styles (30+ css files) and the four views of docs/design/README.md as they stand after T69-T77; the web steps so far came from the design and from keyboard and screen reader checks. 11 of 14 slots are free and 0 steps are free.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the look and style steps. The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a place where a page looks different from what the style guide says (spacing, type, colour, numbers, dark mode, phone width), named with its file and line and seen in the running app, one css file or one view per step with its own lock and its test in the same step; what was read is listed when fewer are found.
+- locks: none
+- after: none
+
 ### C3 A small MobilePay share fits
 Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a friend's share of it.
 - why: `isShareOf` in `mobilepay.ts` lets a share be a euro off whatever its size, so 2,00 passes as a tenth of 30,00 and one cent as a tenth of 10,00: small money in is taken off the nearest purchase's category and never counted as income.
