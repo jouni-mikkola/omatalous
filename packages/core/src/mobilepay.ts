@@ -9,6 +9,8 @@ import { fold } from "./merchant.ts";
 export const SHARE_DAYS = 7;
 /** A share is the purchase divided by the number of payers, within this many cents. */
 const SHARE_TOLERANCE = 100;
+/** A lone share is also within this part of the exact share (a fifth), so a small row is no share of anything. */
+const SHARE_PART = 5;
 /** The most people one purchase is split between, and the fewest. */
 const MIN_PAYERS = 2;
 const MAX_PAYERS = 10;
@@ -44,9 +46,15 @@ export function nearestPurchase(purchases: readonly Dated[], row: Dated): Dated 
   return near[0] ?? null;
 }
 
-/** Whether one share is about the purchase divided by some number of payers. */
+/**
+ * Whether one share is about the purchase divided by some number of payers: off the exact share by a euro at most and
+ * by a fifth of that share at most, whichever is less (both sides times the payers, so the cents stay whole).
+ */
 const isShareOf = (share: number, purchase: number): boolean => {
-  for (let n = MIN_PAYERS; n <= MAX_PAYERS; n++) if (Math.abs(share * n - purchase) <= SHARE_TOLERANCE * n) return true;
+  for (let n = MIN_PAYERS; n <= MAX_PAYERS; n++) {
+    const off = Math.abs(share * n - purchase);
+    if (off <= SHARE_TOLERANCE * n && off * SHARE_PART <= purchase) return true;
+  }
   return false;
 };
 

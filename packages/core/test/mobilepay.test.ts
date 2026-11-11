@@ -143,6 +143,17 @@ describe("shares that friends send back by MobilePay", () => {
     expect(at(100)).toBe(0);
   });
 
+  it("a small share fits: a euro off at most and a fifth of the exact share at most, whichever is less", () => {
+    const at = (purchase: number, euros: number) => Object.keys(matchedOf(run([dinner("p", "2026-09-03", purchase), friend("a", "2026-09-04", euros)]))).length;
+    // a tenth of 30,00 is 3,00: 2,00 is a euro off but a third of the share away, one cent is no tenth of 10,00
+    expect([at(30, 2), at(10, 0.01)]).toEqual([0, 0]);
+    expect([at(30, 3), at(30, 2.9)]).toEqual([1, 1]);
+    // the fifth is the less: 0,60 of the 3,00
+    expect([at(30, 2.4), at(30, 2.39)]).toEqual([1, 0]);
+    // the euro is the less: a quarter of 100,00 is 25,00, a fifth of it would be 5,00
+    expect([at(100, 24), at(100, 23.99), at(100, 26), at(100, 26.01)]).toEqual([1, 0, 1, 0]);
+  });
+
   it("rows that are no share alone but together come to the others' part of the purchase match", () => {
     const rows = [dinner("p", "2026-09-03", 100), friend("a", "2026-09-04", 40), friend("b", "2026-09-05", 35)];
     expect(Object.keys(matchedOf(run(rows)))).toEqual(["a", "b"]);
