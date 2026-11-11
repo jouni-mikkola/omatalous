@@ -4,7 +4,7 @@
  * Laskut' one table: every bill, contract, subscription, saving plan and every bill typed in, each once, in the table
  * kit with no search, chips or sorting: the rows come in the order of the next payment. What has ended waits in a folded
  * group of its own under it. One column holds the amount and, only when it differs, the month's share of it. A row opens in
- * place: how often it comes and a year of it, and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
+ * place: how often it comes, a year of it and its earlier payments with their sum (DrillRows), and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
  * removal of a bill typed in. The head's figure is core's fixed costs a month and opens its rows; the table adds nothing.
  * Whether a service is still used is asked in Tarkistettavat, never here.
  */
@@ -23,6 +23,7 @@ import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import { Why } from "../Why.tsx";
 import { cadenceLabel } from "./BillForm.tsx";
+import { DrillRows } from "../table/DrillRows.tsx";
 import { type Item, kindLabel, type TypedBill } from "./items.ts";
 
 /** What one subscription row can do next to the mark it already has. */
@@ -164,7 +165,7 @@ export function BillsTable({
       rowClassName={(i) => (i.ended || i.stopped ? "sub-stopped" : undefined)}
       open={open}
       onOpen={setOpen}
-      drill={(i) => <Drill i={i} name={nameOf(i)} controls={controls} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} />}
+      drill={(i) => <Drill i={i} name={nameOf(i)} controls={controls} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} />}
       drillLabel={(i) => t("bills.details", { name: nameOf(i) })}
     />
   );
@@ -205,8 +206,15 @@ export function BillsTable({
   );
 }
 
-/** The row opened: how often it comes, a year of it, its last day, and the one action. */
-function Drill({ i, name, controls, onRemove }: { i: Item; name: string; controls: MarkControls; onRemove: (b: TypedBill) => void }) {
+/** How many earlier payments an opened row lists before the link to the whole list. */
+const HISTORY_ROWS = 100;
+
+/**
+ * The row opened: how often it comes, a year of it, its last day, its history (the earlier payments and their sum),
+ * and the one action. The history is the payee's rows on the bill's account, which are the series' own only when the
+ * payee has one product there: a series that is one product among several (`product` of its id) shows none.
+ */
+function Drill({ i, name, controls, scope, onRemove }: { i: Item; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void }) {
   const s = i.series;
   if (i.typed) {
     const b = i.typed;
@@ -232,6 +240,7 @@ function Drill({ i, name, controls, onRemove }: { i: Item; name: string; control
     );
   }
   if (!s) return null;
+  const id = parseSeriesId(s.id);
   return (
     <div className="sub-drill">
       <dl className="sub-facts">
@@ -248,6 +257,16 @@ function Drill({ i, name, controls, onRemove }: { i: Item; name: string; control
           <dd>{date(s.lastDate)}</dd>
         </div>
       </dl>
+      {id && id.product === null && (
+        <DrillRows
+          filter={{ merchant: s.merchant, accountId: id.accountId || undefined, scope }}
+          name={name}
+          limit={HISTORY_ROWS}
+          payee={false}
+          sign={id.direction === "out" ? -1 : 1}
+          sumLabel={t("bills.contract.total")}
+        />
+      )}
       {i.twins?.map((b) => (
         <div key={b.id} className="sub-actions">
           <span className="muted small">{t("bills.twin")}</span>

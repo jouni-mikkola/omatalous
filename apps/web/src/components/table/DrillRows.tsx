@@ -4,10 +4,12 @@
  * The detail of an opened row: one sentence the page wrote from the server's figures ("8 tilausta, keskimäärin 31 €"),
  * then the row's newest transactions, at most ten, and "Näytä kaikki" to Tapahtumat with the same filter when there are
  * more. The rows are the server's `/api/transactions` answer for the filter the page names; nothing is added up here.
+ * A page whose rows are one payee's payments (a bill's history) asks for more rows, no payee column, payments as
+ * positive sums, and the server's sum of the rows under them.
  */
 import { useApi } from "../../hooks.ts";
 import { query } from "../../api.ts";
-import { date } from "../../format.ts";
+import { date, money } from "../../format.ts";
 import { t } from "../../text.ts";
 import { Button } from "../ui/Button.tsx";
 import { Table } from "./Table.tsx";
@@ -17,13 +19,13 @@ import type { Column } from "./columns.ts";
 export const DRILL_ROWS = 10;
 
 type Row = { id: string; bookingDate: string; merchant: string; amountCents: number; partCents?: number };
-type Answer = { total: number; items: Row[] };
+type Answer = { total: number; netCents: number; items: Row[] };
 
 /** A function, not a constant: the labels follow the language the member has by the time the table draws. */
-const columnsOf = (): Column<Row>[] => [
-  { key: "date", label: t("table.day"), kind: "date", cell: (t) => date(t.bookingDate) },
-  { key: "merchant", label: t("table.payee"), kind: "text", rowHead: true, cell: (t) => t.merchant },
-  { key: "amount", label: t("table.amount"), kind: "money", main: true, precision: "cents", cents: (t) => t.partCents ?? t.amountCents },
+const columnsOf = (payee: boolean, sign: 1 | -1): Column<Row>[] => [
+  { key: "date", label: t("table.day"), kind: "date", rowHead: !payee, cell: (t) => date(t.bookingDate) },
+  ...(payee ? [{ key: "merchant", label: t("table.payee"), kind: "text", rowHead: true, cell: (t) => t.merchant } satisfies Column<Row>] : []),
+  { key: "amount", label: t("table.amount"), kind: "money", main: true, precision: "cents", cents: (t) => sign * (t.partCents ?? t.amountCents) },
 ];
 
 export type DrillRowsProps = {
@@ -33,17 +35,31 @@ export type DrillRowsProps = {
   summary?: string;
   /** What the rows are, for the table's name for a screen reader: "Kategoria Ruoka". */
   name: string;
+  /** How many rows before the link to the whole list; `DRILL_ROWS` when not said. */
+  limit?: number;
+  /** False when every row is the same payee: the day is then the row's head. */
+  payee?: boolean;
+  /** -1 shows money out as positive sums, the way a list of bills shows a bill. */
+  sign?: 1 | -1;
+  /** The label of the server's sum of the rows, drawn under them only when every row is shown. */
+  sumLabel?: string;
 };
 
-export function DrillRows({ filter, summary, name }: DrillRowsProps) {
-  const { data, error, loading } = useApi<Answer>(`/api/transactions${query({ ...filter, limit: DRILL_ROWS })}`);
+export function DrillRows({ filter, summary, name, limit = DRILL_ROWS, payee = true, sign = 1, sumLabel }: DrillRowsProps) {
+  const { data, error, loading } = useApi<Answer>(`/api/transactions${query({ ...filter, limit })}`);
   const list = `#/transactions${query({ ...filter, scope: undefined })}`;
   return (
     <div className="rt-drillrows">
       {summary && <p className="rt-drill-sum">{summary}</p>}
       {error && <p className="muted small">{t("table.drill_error", { error: error ?? "" })}</p>}
       {loading && !data && <p className="muted small">{t("table.drill_loading")}</p>}
-      {data && data.items.length > 0 && <Table<Row> caption={t("table.drill_caption", { name })} rows={data.items} rowKey={(t) => t.id} columns={columnsOf()} toolbar={false} />}
+      {data && data.items.length > 0 && <Table<Row> caption={t("table.drill_caption", { name })} rows={data.items} rowKey={(t) => t.id} columns={columnsOf(payee, sign)} toolbar={false} />}
+      {sumLabel && data && data.items.length > 0 && data.total <= data.items.length && (
+        <dl className="rt-drill-total">
+          <dt>{sumLabel}</dt>
+          <dd>{money(sign * data.netCents)}</dd>
+        </dl>
+      )}
       {data && data.total > data.items.length && (
         <Button variant="link" href={list}>
           {t("table.drill_all", { total: data.total })}
