@@ -44,3 +44,24 @@ test("a card statement file is read in the browser and only its rows are sent", 
     await removeMember(browser, id);
   }
 });
+
+// A refused save shows the server's own sentence, not the general "try again".
+test("a refused card statement save shows the server's sentence", async ({ browser }) => {
+  const { state, id } = await makeMember(browser, "korttitiedostohylky");
+  const context = await browser.newContext({ storageState: state, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  try {
+    await page.route("**/api/card-file", async (route) => {
+      const body = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+      await route.continue({ postData: JSON.stringify({ ...body, accountId: "ei-ole-olemassa" }) });
+    });
+    await page.goto("/#/settings");
+    await page.locator('input[data-kind="statement-file"]').setInputFiles({ name: NAME, mimeType: "text/csv", buffer: Buffer.from(FILE, "utf8") });
+    await page.getByRole("button", { name: "Tallenna rivit" }).click();
+    await expect(page.getByText("Rivejä ei voi tallentaa tälle tilille.")).toBeVisible();
+    await expect(page.getByText(/Yritä uudelleen/)).toHaveCount(0);
+  } finally {
+    await context.close();
+    await removeMember(browser, id);
+  }
+});

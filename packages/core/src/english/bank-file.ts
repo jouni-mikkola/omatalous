@@ -15,6 +15,7 @@ export const EN_BANK_FILE: Record<keyof typeof FI_BANK_FILE, string> = {
   "bank_file.split": "Debit and credit are in separate columns",
   "bank_file.account": "Account",
   "bank_file.account_new": "New account",
+  "bank_file.account_connected": "{name} (bank link)",
   "bank_file.name": "Account name",
   "bank_file.err_camt": "The file is not a camt.053 statement.",
   "bank_file.err_camt_currency": "The file holds something other than euros. Only statements in euros are read.",

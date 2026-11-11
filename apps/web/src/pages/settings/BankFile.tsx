@@ -2,7 +2,7 @@
 // Decision: a household whose bank gives an account's rows only as a file matches the columns once, and the file itself never leaves the browser (ADR 0025)
 import { type BankCamtError, type BankCamtRead, type BankCsvLayout, type BankCsvTable, bankCsvKey, readBankCamt, guessBankCsvLayout, isBankCsvLayout, parseBankCsv, readBankCsvRows } from "@banking/core";
 import { useMemo, useState } from "react";
-import { api } from "../../api.ts";
+import { api, ApiError } from "../../api.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
@@ -49,7 +49,10 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
-  const accounts = meta.accounts.filter((a) => a.provider === "bankfile");
+  const [leftOut, setLeftOut] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  // the file's own accounts, and the user's bank-connected checking accounts, which the file fills in (the sync skips what the file holds)
+  const accounts = meta.accounts.filter((a) => a.provider === "bankfile" || (a.provider === "enablebanking" && a.type === "checking"));
 
   const full = layout && table && layout.date != null && layout.text != null && isBankCsvLayout(layout as BankCsvLayout, table.header.length) ? (layout as BankCsvLayout) : null;
   const read = useMemo(() => (table && full ? readBankCsvRows(table, full) : null), [table, full]);
@@ -66,23 +69,39 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
     if (!found || (!camt && (!full || !table))) return;
     setSaving(true);
     setProblem(null);
+    setRefusal(null);
+    setLeftOut(null);
+    setSaved(null);
+    // a row dated after today is left out and named; the others are saved
+    const today = new Date().toLocaleDateString("sv-SE");
+    const future = found.rows.filter((row) => row.day > today);
+    const rows = found.rows.filter((row) => row.day <= today);
+    if (!rows.length) {
+      setRefusal(t("card_file.future"));
+      setSaving(false);
+      return;
+    }
     try {
       // the rows only: no file, no header, no columns of the file around them
-      const r = await api<{ inserted: number; fetched: number }>("/api/bank-file", {
+      const r = await api<{ inserted: number; fetched: number; skipped?: number }>("/api/bank-file", {
         method: "POST",
-        body: { accountId: account || null, name: account ? null : name, last4: null, rows: found.rows },
+        body: { accountId: account || null, name: account ? null : name, last4: null, rows },
       });
       try {
         if (table && full) localStorage.setItem(STORE + bankCsvKey(table.header), JSON.stringify(full));
       } catch {
         // a browser that keeps nothing asks for the columns again
       }
-      setSaved(t("card_file.saved", { inserted: r.inserted, known: r.fetched - r.inserted }));
+      const skipped = r.skipped ?? 0;
+      setSaved(t("card_file.saved", { inserted: r.inserted, known: r.fetched - r.inserted - skipped }) + (skipped ? ` ${t("card_file.skipped", { count: skipped })}` : ""));
+      if (future[0]) setLeftOut(t(future.length === 1 ? "card_file.left_out" : "card_file.left_out_many", { count: future.length, day: date(future[0].day), text: future[0].text }));
       setTable(null);
       setCamt(null);
       onChange();
-    } catch {
-      setProblem("save");
+    } catch (e) {
+      // the server's own sentence says why; only an answer without one is "try again"
+      if (e instanceof ApiError && e.messageCode) setRefusal(e.message);
+      else setProblem("save");
     } finally {
       setSaving(false);
     }
@@ -122,7 +141,9 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
   return (
     <div className="stack">
         {shown && <Notice tone="warning">{error[shown]}</Notice>}
+        {refusal && <Notice tone="warning">{refusal}</Notice>}
         {saved && <Notice tone="good">{saved}</Notice>}
+        {leftOut && <Notice tone="warning">{leftOut}</Notice>}
         {table && (
           <>
             <h3>{t("bank_file.columns")}</h3>
@@ -171,7 +192,7 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
                   <option value="">{t("bank_file.account_new")}</option>
                   {accounts.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.name}
+                      {a.provider === "bankfile" ? a.name : t("bank_file.account_connected", { name: a.name })}
                     </option>
                   ))}
                 </select>

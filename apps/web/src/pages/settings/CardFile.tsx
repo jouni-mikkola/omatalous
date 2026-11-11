@@ -2,7 +2,7 @@
 // Decision: a household whose bank cannot give a card's rows gets them from the statement, and the file itself never leaves the browser (ADR 0025)
 import { type CardFileRead, readCardFile } from "@banking/core";
 import { useState } from "react";
-import { api } from "../../api.ts";
+import { api, ApiError } from "../../api.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
@@ -24,12 +24,14 @@ export function CardRows({ text, meta, onChange }: { text: string; meta: Meta; o
   const [name, setName] = useState(initial.read?.cardLast4 ? `${t("card_file.default_name")} ${initial.read.cardLast4}` : t("card_file.default_name"));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const cards = meta.accounts.filter((a) => a.provider === "cardfile");
 
   const save = async () => {
     if (!read) return;
     setSaving(true);
     setProblem(null);
+    setRefusal(null);
     try {
       // the rows only: no file, no layout, no text of the file around them
       const r = await api<{ inserted: number; fetched: number }>("/api/card-file", {
@@ -39,8 +41,10 @@ export function CardRows({ text, meta, onChange }: { text: string; meta: Meta; o
       setSaved(t("card_file.saved", { inserted: r.inserted, known: r.fetched - r.inserted }));
       setRead(null);
       onChange();
-    } catch {
-      setProblem("save");
+    } catch (e) {
+      // the server's own sentence says why; only an answer without one is "try again"
+      if (e instanceof ApiError && e.messageCode) setRefusal(e.message);
+      else setProblem("save");
     } finally {
       setSaving(false);
     }
@@ -55,6 +59,7 @@ export function CardRows({ text, meta, onChange }: { text: string; meta: Meta; o
   return (
     <div className="stack">
         {problem && <Notice tone="warning">{error[problem]}</Notice>}
+        {refusal && <Notice tone="warning">{refusal}</Notice>}
         {saved && <Notice tone="good">{saved}</Notice>}
         {read && (
           <>

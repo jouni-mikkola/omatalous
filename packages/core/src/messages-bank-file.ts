@@ -18,6 +18,7 @@ export const FI_BANK_FILE = {
   "bank_file.split": "Veloitus ja hyvitys ovat eri sarakkeissa",
   "bank_file.account": "Tili",
   "bank_file.account_new": "Uusi tili",
+  "bank_file.account_connected": "{name} (pankkiyhteys)",
   "bank_file.name": "Tilin nimi",
   "bank_file.err_camt": "Tiedosto ei ole camt.053-tiliote.",
   "bank_file.err_camt_currency": "Tiedostossa on muuta kuin euroja. Voimme lukea vain euromääräiset tiliotteet.",

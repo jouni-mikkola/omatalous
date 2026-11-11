@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { makeMember, removeMember } from "./helpers.ts";
+import { linkFakeBank, makeMember, removeMember, waitForSync } from "./helpers.ts";
 
 // Asetukset > Pankit ja tilit > Tiliote tiedostosta: a bank's export is read in the browser, the columns are matched once and
 // remembered, and only the rows leave it. The made-up export carries a marker no row holds, and no request may carry the marker, the header or the file name.
@@ -83,3 +83,70 @@ test("a camt.053 statement is refused with the difference when its balance is of
     await removeMember(browser, id);
   }
 });
+
+// The file pages say why a save failed: a connected account is offered and reports the rows it skipped, a row dated tomorrow is left out and named,
+// and a refusal shows the server's sentence. Screens at both widths go to the PR.
+const csv = (rows: [string, string, string][]) => ["Kirjauspäivä;Määrä EUR;Saaja/Maksaja", ...rows.map(([d, a, n]) => `${d};${a};${n}`)].join("\n");
+const fi = (iso: string) => iso.split("-").reverse().join(".");
+const money = (cents: number) => (cents / 100).toFixed(2).replace(".", ",");
+
+for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+  test(`a bank file into a connected account reports skipped rows, leaves out a future row and shows the refusal (${width} px)`, async ({ browser }) => {
+    const { state, id } = await makeMember(browser, `pankkitiedosto${width}`);
+    const context = await browser.newContext({ storageState: state, viewport: { width, height } });
+    const page = await context.newPage();
+    const pick = (file: string) => page.locator('input[data-kind="statement-file"]').setInputFiles({ name: "tilitapahtumat.csv", mimeType: "text/csv", buffer: Buffer.from(file, "utf8") });
+    const columns = async () => {
+      await page.getByLabel("Summan sarake").selectOption({ label: "Määrä EUR" });
+    };
+    try {
+      await linkFakeBank(page);
+      await waitForSync(context);
+      const meta = (await (await context.request.get("/api/meta")).json()) as { accounts: { id: string; name: string; provider: string; type: string }[] };
+      const connected = meta.accounts.find((a) => a.provider === "enablebanking" && a.type === "checking")!;
+      expect(connected).toBeTruthy();
+      const stored = ((await (await context.request.get("/api/transactions?limit=500")).json()) as { items: { accountId: string; bookingDate: string; amountCents: number; merchant: string; status: string }[] }).items;
+      const bank = stored.find((r) => r.accountId === connected.id && r.status === "booked" && r.amountCents !== 0)!;
+      expect(bank).toBeTruthy();
+      const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE");
+      const same: [string, string, string] = [fi(bank.bookingDate), money(bank.amountCents), bank.merchant];
+      const fresh: [string, string, string] = ["01.01.2020", "-12,34", "UUSI KAUPPA E2E"];
+
+      // the connected account is offered, and a row the bank already gave is reported as skipped
+      await page.goto("/#/settings");
+      await pick(csv([same, fresh]));
+      await columns();
+      await page.getByRole("combobox", { name: "Tili", exact: true }).selectOption({ value: connected.id });
+      await page.getByRole("button", { name: "Tallenna rivit" }).click();
+      await expect(page.getByText(/Ohitettu 1 riviä/)).toBeVisible();
+      await page.screenshot({ path: `test-results/bank-file-skipped-${width}.png`, fullPage: true });
+
+      // a row dated tomorrow is left out and named; the other row is saved
+      await page.goto("/#/settings");
+      await pick(csv([["02.01.2020", "-5,00", "AIKAISEMPI RIVI"], [fi(tomorrow), "-7,00", "HUOMISEN RIVI"]]));
+      await columns();
+      await page.getByRole("combobox", { name: "Tili", exact: true }).selectOption({ value: connected.id });
+      await page.getByRole("button", { name: "Tallenna rivit" }).click();
+      await expect(page.getByText(/Uusia rivejä 1,/)).toBeVisible();
+      await expect(page.getByText(/Yksi rivi jätettiin pois.*HUOMISEN RIVI/)).toBeVisible();
+      await page.screenshot({ path: `test-results/bank-file-left-out-${width}.png`, fullPage: true });
+
+      // a refused save shows the server's sentence, not "Yritä uudelleen"
+      await page.route("**/api/bank-file", async (route) => {
+        const body = JSON.parse(route.request().postData() ?? "{}") as Record<string, unknown>;
+        await route.continue({ postData: JSON.stringify({ ...body, accountId: "ei-ole-olemassa" }) });
+      });
+      await page.goto("/#/settings");
+      await pick(csv([["03.01.2020", "-9,00", "KOLMAS RIVI"]]));
+      await columns();
+      await page.getByLabel("Tilin nimi").fill("Uusi tili");
+      await page.getByRole("button", { name: "Tallenna rivit" }).click();
+      await expect(page.getByText("Rivejä ei voi tallentaa tälle tilille.")).toBeVisible();
+      await expect(page.getByText(/Yritä uudelleen/)).toHaveCount(0);
+      await page.screenshot({ path: `test-results/bank-file-refused-${width}.png`, fullPage: true });
+    } finally {
+      await context.close();
+      await removeMember(browser, id);
+    }
+  });
+}
