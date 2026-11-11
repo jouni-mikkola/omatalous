@@ -93,4 +93,26 @@ describe("the shared parts and the page stylesheets", () => {
     expect(busy?.body).not.toContain("gradient");
     expect(busy?.body).not.toContain("animation");
   });
+
+  it("makes the foot's links and the segmented keys a thumb's size on a phone", () => {
+    const css = readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8");
+    const all = rules(css);
+    const foot = all.find((r) => r.selector === ".sheet-foot a");
+    expect(foot?.body).toContain("min-height: var(--tap-min)");
+    expect(foot?.body).not.toContain("margin-block");
+    expect(all.find((r) => r.selector === ".sheet-foot:has(> a)")?.body).toContain("row-gap: 0");
+    const key = all.find((r) => r.selector.startsWith(".segmented:not(.topbar .segmented) button"));
+    expect(key?.body).toContain("min-height: var(--tap-min)");
+    const coarse: string[] = [];
+    for (let at = css.indexOf("@media (pointer: coarse) {"); at >= 0; at = css.indexOf("@media (pointer: coarse) {", at + 1)) {
+      let depth = 0;
+      let end = css.indexOf("{", at);
+      for (let i = end; i < css.length; i++) {
+        if (css[i] === "{") depth++;
+        else if (css[i] === "}" && --depth === 0) { end = i; break; }
+      }
+      coarse.push(css.slice(at, end));
+    }
+    expect(coarse.some((block) => block.includes(".segmented:not(.topbar .segmented) button {"))).toBe(true);
+  });
 });
