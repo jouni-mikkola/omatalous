@@ -6,7 +6,8 @@
   html.printing-sheet body * { visibility: hidden; }
   html.printing-sheet .print-sheet, html.printing-sheet .print-sheet * { visibility: visible; }
   html.printing-sheet .print-sheet { position: absolute; inset-block-start: 0; inset-inline-start: 0; inline-size: 100%; box-shadow: none; border: 0; }
-  html.printing-sheet .print-sheet .card-tool { display: none; }
+  /* the title block (marks.css, a later layer) gives every cell of the head `display: flex`, so the buttons leave the paper only with !important */
+  html.printing-sheet .print-sheet .card-tool { display: none !important; }
   html.printing-sheet .print-sheet .sheet-part { break-after: avoid; }
   html.printing-sheet .print-sheet tr { break-inside: avoid; }
 }
