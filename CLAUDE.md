@@ -8,7 +8,7 @@ optional read-only account sharing). Runs in Docker on Linux.
 
 ```bash
 pnpm install          # pnpm workspaces (npm 10 cannot resolve vitest 4's peers)
-pnpm check            # what a change must pass: types, vitest (repo rules too), shell lint and suites; --changed while working
+pnpm check            # what a change must pass: knip, the privacy scan, types, vitest (repo rules too), shell lint and suites; --changed while working
 pnpm test             # vitest alone
 pnpm where <name>     # definition, importers and tests of a symbol, file or text
 pnpm build            # web (Vite) + server bundle (esbuild)
@@ -43,8 +43,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   cookie, `COMPOSE_PROJECT_NAME` the volumes, `HOST_PORT`/`BIND_ADDRESS` the port (docs/ADVANCED.md).
 - `contracts/<version>/`: what older installs rely on (schema, helper CLI output), frozen when that version ships,
   checked by `apps/server/test/contracts.test.ts`.
-- `docs/` (English): INSTALL, ADVANCED, TROUBLESHOOTING, ENABLE_BANKING, MONEY_FLOWS, SECURITY, RELEASING, DEVELOPMENT,
-  ARCHITECTURE. `SECURITY.md` at the root is the reporting route.
+- `docs/` (English): one file per topic, decisions in `docs/adr/`. `SECURITY.md` at the root is the reporting route.
 
 ## Invariants (do not break)
 
@@ -111,7 +110,6 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   nothing may be.
 - `UserError` = safe 400 message, `UpstreamError` = 502 for a failing outside service; other errors become a generic 500.
 - Core stays pure (no `Date.now()`, env or I/O) so it runs on Node and in the browser (the web app imports it).
-
 - Schema changes = new `apps/server/migrations/NNNN_name.sql`; never edit an applied one (checksummed, startup
   refuses). Prefer additive changes; table rebuilds start with `-- migrate: foreign_keys=off`. Old code refuses a DB
   migrated by a newer version (`db/migrate.ts`) unless each unknown migration stored a compat floor at or below its
@@ -144,7 +142,7 @@ branch name, and refuses:
   households and stamps each picture. A screenshot of a browser session is never committed.
 
 A pull request's title and body say what changed in neutral words. They never hold a pasted log, a path or host of a
-machine, or a real row; quote an error by its message alone. A branch is named `work/<task>`.
+machine, or a real row; quote an error by its message alone.
 
 `pnpm check` runs the same scan on the branch before the push (`node tools/privacy/scan.mjs --local`), as a run on
 GitHub comes when the commits are public already. A finding names the file and line and never the value, since the log
@@ -157,7 +155,6 @@ detector, never an entry in `lists.json` to let it pass. A new word to refuse is
   no padded lists of three, no bold lead-ins, no filler words or trailing filler phrases. Docs, script output, logs and
   CLI output in English. Everything the browser shows in Finnish, including the maintenance helper's report summaries
   and the `doctor.sh --json` items. UI paths are written `Asetukset > Palvelin`.
-
 - The Finnish of the UI (glossary, tone, dates, sums, plurals): `docs/UI_STYLE.md`; rule 35 refuses the words it removed.
 - Code, identifiers and comments in English. Comments explain why.
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
