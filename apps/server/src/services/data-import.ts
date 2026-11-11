@@ -164,6 +164,7 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
   const txStore = IMPORT_BY_KEY.get("transactions")!;
   const txMap = new Map<string, string>();
   const otherTx = new Set<string>();
+  const foreignTx = new Set<string>();
   const newTx = new Set<string>();
   const candidates: { row: Row; i: number; account: string }[] = [];
   for (const [i, row] of rowsOf("transactions").entries()) {
@@ -172,6 +173,12 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
     if (owner !== me.username) {
       otherTx.add(String(row.id));
       skip("transactions", "other_user", owner);
+      continue;
+    }
+    // every sum of the app reads amount_cents as euro cents: a row in another currency is not brought
+    if (row.currency !== "EUR") {
+      foreignTx.add(String(row.id));
+      skip("transactions", "currency");
       continue;
     }
     const fa = String(row.account_id);
@@ -249,7 +256,7 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
     }
     if (NOT_STORES.has(store.key) || !rows.length) continue;
     const unresolvedTx = new Set<string>();
-    if (store.tx) for (const r of rows) if (!txMap.has(String(r[store.tx])) && !otherTx.has(String(r[store.tx]))) unresolvedTx.add(String(r[store.tx]));
+    if (store.tx) for (const r of rows) if (!txMap.has(String(r[store.tx])) && !otherTx.has(String(r[store.tx])) && !foreignTx.has(String(r[store.tx]))) unresolvedTx.add(String(r[store.tx]));
     const localTx = unresolvedTx.size ? new Set([...(await repo.present("transactions", ["user_id", "id"], [...unresolvedTx].map((t) => [me.id, t])))].map((k) => (JSON.parse(k) as string[])[1]!)) : new Set<string>();
     const staged: { row: Row; i: number; key: string }[] = [];
     for (const [i, row] of rows.entries()) {
@@ -283,6 +290,10 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
         if (m !== undefined) mapped[store.account.column] = m;
         else if (otherAcc.has(a)) theirs = otherAcc.get(a);
         else dangling(s, ses, store, i, store.account.column);
+      }
+      if (theirs === null && store.tx && foreignTx.has(String(row[store.tx]))) {
+        skip(store.key, "currency");
+        continue;
       }
       if (theirs === null && store.tx) {
         const t = String(row[store.tx]);

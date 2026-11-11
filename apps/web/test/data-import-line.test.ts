@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { fileLine } from "../src/pages/settings/DataImport.tsx";
+import { fileLine, storeLine } from "../src/pages/settings/DataImport.tsx";
 
 describe("fileLine", () => {
   it("names the export date before any count", () => {
@@ -8,5 +8,11 @@ describe("fileLine", () => {
   });
   it("says so when the file has no date", () => {
     expect(fileLine({ version: 2, appVersion: null, exportedAt: null })).toBe("Omatalouden tietotiedosto, viennin päiväystä ei ole");
+  });
+});
+
+describe("storeLine", () => {
+  it("says in Finnish that a row in another currency is not imported", () => {
+    expect(storeLine({ key: "transactions", add: 2, exists: 0, skipped: [{ reason: "currency", n: 1 }] })).toContain("muu valuutta kuin euro");
   });
 });

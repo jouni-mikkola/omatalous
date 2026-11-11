@@ -34,6 +34,7 @@ export const FI_SET_IMPORT = {
   "set.imp.another_user_s": "toisen käyttäjän",
   "set.imp.not_imported": "ei tuoda",
   "set.imp.not_imported_only_the_administrator": "ei tuoda: vain ylläpitäjä tuo talouden yhteiset tiedot",
+  "set.imp.not_imported_not_euro": "Ei tuotu: muu valuutta kuin euro",
   "set.imp.not_imported_does_not_match": "Ei tuotu: ei täsmää tai kuukausi ei ole päättynyt",
   "set.imp.the_file_is_not_an": "Tiedosto ei ole Omatalouden tietotiedosto.",
   "set.imp.no_export_date": "viennin päiväystä ei ole",

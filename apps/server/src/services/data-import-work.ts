@@ -5,8 +5,8 @@ import type { Services } from "./context.ts";
 import { refuse, type ImportHead, type Row, type Session, type User } from "./data-import-session.ts";
 import { IMPORT_BY_KEY, type ImportStore } from "./data-import-stores.ts";
 
-/** Why a row is not added: it is another user's, a kind of row this import never writes, household-wide and the user is not the admin, or a settlement row the user may not bring (`refused`). */
-export type SkipReason = "other_user" | "users" | "sharing" | "household" | "refused";
+/** Why a row is not added: it is another user's, a kind of row this import never writes, household-wide and the user is not the admin, or a settlement row the user may not bring (`refused`), or a transaction in a currency other than euro (`currency`). */
+export type SkipReason = "other_user" | "users" | "sharing" | "household" | "refused" | "currency";
 
 interface StoreCounts {
   key: string;

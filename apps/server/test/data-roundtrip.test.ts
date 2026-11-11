@@ -142,6 +142,28 @@ describe("a file read back", () => {
     expect(dry.stores.find((s: { key: string }) => s.key === "accountShares")).toBeUndefined();
   });
 
+  it("a row in another currency is skipped with the reason currency, with its parts; the euro rows, a foreign account and foreignRows are taken", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const usd = { ...file.transactions[0], id: "usd-tx", currency: "USD", amount_cents: -5000 };
+    const usdPart = { ...file.parts[0], tx_id: "usd-tx", cents: 5000 };
+    const sek = { ...file.accounts[0], currency: "SEK" };
+    const bad = { ...file, transactions: [...file.transactions, usd], parts: [...file.parts, usdPart], accounts: [sek, ...file.accounts.slice(1)] };
+    const before = await snapshot(b.db);
+    const up = await upload(b.admin, bad);
+    const dry = (await check(b.admin, up.id!)).body;
+    expect(await snapshot(b.db)).toBe(before);
+    expect(dry.stores.find((s: { key: string }) => s.key === "transactions")).toMatchObject({ add: 2, skipped: [{ reason: "currency", n: 1 }] });
+    expect(dry.stores.find((s: { key: string }) => s.key === "parts")).toMatchObject({ skipped: [{ reason: "currency", n: 1 }] });
+    expect(dry.stores.find((s: { key: string }) => s.key === "accounts")).toMatchObject({ add: 1, skipped: [] });
+    await commit(b.admin, up.id!);
+    expect(await b.db.first("SELECT COUNT(*) AS n FROM transactions WHERE currency != 'EUR'")).toEqual({ n: 0 });
+    expect(await b.db.first("SELECT COUNT(*) AS n FROM transactions")).toEqual({ n: 2 });
+    expect(await b.db.first("SELECT COUNT(*) AS n FROM tx_part WHERE tx_id = 'usd-tx'")).toEqual({ n: 0 });
+    expect(await b.db.first("SELECT currency FROM accounts")).toEqual({ currency: "SEK" });
+    expect(await b.db.first("SELECT COUNT(*) AS n FROM foreign_rows")).toEqual({ n: 1 });
+  });
+
   it("the sync's match: a row the bank gave under another id is kept as it is, and an account is matched by its identity or IBAN", async () => {
     const { a, b } = await pair();
     const file = await exportOf(a.admin);

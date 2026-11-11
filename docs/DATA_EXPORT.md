@@ -594,5 +594,5 @@ Nothing is updated or deleted: a row with a key the table has is kept as it is a
 
 `stores` lists the stores that have rows in the file, in the order of the file; a store of the file this release does
 not know is in `ignored.stores` (rows counted), a key of a known row it does not know in `ignored.keys`. `reason` is
-`other_user` (the page says "toisen käyttäjän"), `users`, `sharing`, `household` (the page says "ei tuoda") or `refused` (a settlement row the person may not bring). `otherUsers` are the other usernames the file names, with
+`other_user` (the page says "toisen käyttäjän"), `users`, `sharing`, `household` (the page says "ei tuoda"), `refused` (a settlement row the person may not bring) or `currency` (a transaction whose `currency` is not `EUR`, and every row that points at it: its `parts`, `statementBills` and `statementRows`; the page says "muu valuutta kuin euro"). Accounts in another currency and `foreignRows` are taken as before. `otherUsers` are the other usernames the file names, with
 the rows skipped for them. The commit writes one security event `ops_import` with the totals.

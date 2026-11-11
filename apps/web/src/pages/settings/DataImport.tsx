@@ -58,6 +58,7 @@ const REASONS: Record<string, string> = labelTable({
   sharing: () => t("set.imp.not_imported"),
   household: () => t("set.imp.not_imported_only_the_administrator"),
   refused: () => t("set.imp.not_imported_does_not_match"),
+  currency: () => t("set.imp.not_imported_not_euro"),
 });
 
 const notOurs = () => t("set.imp.the_file_is_not_an");
@@ -106,7 +107,7 @@ function chunks(file: Record<string, unknown>, limit: number): Chunk[] {
 const counts = (totals: Totals, done: boolean) =>
   t(done ? "set.imp.counts_done" : "set.imp.counts_plan", { add: totals.add, exists: totals.exists, skipped: totals.skipped });
 
-function storeLine(s: StorePlan): string {
+export function storeLine(s: StorePlan): string {
   const skipped = s.skipped.reduce((n, r) => n + r.n, 0);
   const why = [...new Set(s.skipped.map((r) => REASONS[r.reason] ?? r.reason))];
   return `${counts({ add: s.add, exists: s.exists, skipped }, false)}${why.length > 0 ? ` (${why.join(", ")})` : ""}`;

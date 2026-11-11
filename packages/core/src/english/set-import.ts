@@ -32,6 +32,7 @@ export const EN_SET_IMPORT: Record<keyof typeof FI_SET_IMPORT, string> = {
   "set.imp.another_user_s": "another user's",
   "set.imp.not_imported": "not imported",
   "set.imp.not_imported_only_the_administrator": "not imported: only the administrator imports the household's shared data",
+  "set.imp.not_imported_not_euro": "Not imported: currency other than euro",
   "set.imp.not_imported_does_not_match": "Not imported: does not match or the month has not ended",
   "set.imp.the_file_is_not_an": "The file is not an Omatalous data file.",
   "set.imp.no_export_date": "no export date",
