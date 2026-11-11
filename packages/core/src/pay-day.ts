@@ -92,14 +92,16 @@ export function payDayOf(dates: readonly IsoDate[]): PayDay | null {
       if (day - k >= 1) candidates.set(`${day - k}n`, { day: day - k, rule: "next" });
     }
     if (day >= 25) candidates.set("31p", { day: 31, rule: "prev" });
+    // a day at the month's end moved forward lands in the month after
+    for (let k = day; k <= 4; k++) candidates.set(`${31 + day - k}n`, { day: 31 + day - k, rule: "next" });
   }
   let best: PayDay | null = null;
   for (const c of candidates.values()) {
     let hits = 0;
     for (const d of sample) {
       const m = monthOf(d);
-      // a pay day on the 1st moved back lands in the month before
-      if (payDate(m, c) === d || payDate(monthOf(addDays(`${m}-01`, 32)), c) === d) hits++;
+      // a pay day on the 1st moved back lands in the month before, one at the month's end moved forward in the month after
+      if (payDate(m, c) === d || payDate(monthOf(addDays(`${m}-01`, 32)), c) === d || payDate(monthOf(addDays(`${m}-01`, -1)), c) === d) hits++;
     }
     const better = !best || hits > best.hits || (hits === best.hits && c.rule === "prev" && best.rule === "next") || (hits === best.hits && c.rule === best.rule && c.day < best.day);
     if (better) best = { ...c, hits, of: sample.length };
@@ -109,8 +111,9 @@ export function payDayOf(dates: readonly IsoDate[]): PayDay | null {
 
 /** The first pay date after `after`, by the pay day rule. */
 export function nextPayDate(after: IsoDate, pd: Pick<PayDay, "day" | "rule">): IsoDate {
-  let month = monthOf(after);
-  for (let i = 0; i < 3; i++) {
+  // the month before too: its pay day moved forward can land in this month
+  let month = monthOf(addDays(`${monthOf(after)}-01`, -1));
+  for (let i = 0; i < 4; i++) {
     const d = payDate(month, pd);
     if (d > after) return d;
     month = monthOf(addDays(`${month}-01`, 32));
