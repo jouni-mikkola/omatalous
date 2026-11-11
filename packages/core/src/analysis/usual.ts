@@ -9,10 +9,11 @@
  */
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { GATE_FLOOR_CENTS, GATE_SHARE, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
-import { type AnalysisContext, historyCovers } from "./context.ts";
+import { type AnalysisContext, historyCovers, spendRows } from "./context.ts";
 import { accountCovers, coverage, LEFT_OUT_SHARE } from "./coverage.ts";
 import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
 import type { IsoDate } from "../types.ts";
+import type { expectedFor } from "./expected.ts";
 import type { DayRange } from "./period.ts";
 
 /** The accounts with a row in each month (`2026-09`), found once per context. */
@@ -175,4 +176,39 @@ export function spendingThrough(ctx: AnalysisContext, month: string, day = 31): 
  */
 export function gateFor(baseCents: number, floorCents: number = GATE_FLOOR_CENTS): number {
   return Math.max(floorCents, Math.round(GATE_SHARE * baseCents));
+}
+
+/** The expected figure of a month (`expectedFor`), read here by its type alone: expected.ts imports this file. */
+type ExpectedFigure = NonNullable<ReturnType<typeof expectedFor>>;
+
+/** A category's spending on a month's days 1 to `day` beside its usual to the same day. */
+interface UsualToDay {
+  category: string;
+  /** Spent on the days 1 to `day`, in cents: the rows the month table counts (`spendRows`). */
+  cents: number;
+  /** The usual to the same day: the category's expected spending (ADR 0021), 0 for a category the base months lack. */
+  usualCents: number;
+  /** `cents − usualCents`: above zero is more than usual. */
+  gapCents: number;
+}
+
+/**
+ * Each category of `expected`'s month with what it has cost on the days 1 to `day` and its usual to the same day, the
+ * largest gap first, so the category that explains the month leads. A category is listed when it has spending or a
+ * usual. The usual is the expected figure's own (`expected.at(day).categories`), so the usuals add up to its headline.
+ */
+export function usualToDay(ctx: AnalysisContext, expected: ExpectedFigure, day: number): UsualToDay[] {
+  const at = expected.at(day);
+  const usual = new Map(at.categories.map((c) => [c.category, c.cents] as const));
+  const spent = new Map<string, number>();
+  const from = dayNumber(`${expected.month}-01`);
+  for (const t of spendRows(ctx, { fromDay: from, toDay: Math.min(from + at.day - 1, dayNumber(monthEnd(expected.month))) })) if (t.spend) spent.set(t.category, (spent.get(t.category) ?? 0) + t.spend);
+  return [...new Set([...spent.keys(), ...usual.keys()])]
+    .map((category): UsualToDay => {
+      const cents = spent.get(category) ?? 0;
+      const usualCents = usual.get(category) ?? 0;
+      return { category, cents, usualCents, gapCents: cents - usualCents };
+    })
+    .filter((c) => c.cents !== 0 || c.usualCents !== 0)
+    .sort((a, b) => b.gapCents - a.gapCents || a.category.localeCompare(b.category));
 }

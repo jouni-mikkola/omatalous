@@ -157,6 +157,7 @@ packages/core/src/analysis/insights/stopped.ts  newPayeeIn
 packages/core/src/analysis/insights/types.ts  InsightLink
 packages/core/src/analysis/one-offs.ts  OneOffPolicy
 packages/core/src/analysis/themes-report.ts  ThemeWindow
+packages/core/src/analysis/usual.ts  usualToDay
 packages/core/src/categorize.ts  CategorizeResult
 packages/core/src/categorize.ts  compilePattern
 packages/core/src/commitments.ts  MERCHANT_MONTHS
