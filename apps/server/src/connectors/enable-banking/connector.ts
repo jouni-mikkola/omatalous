@@ -3,7 +3,7 @@
  * end. The link flow is in link.ts, the application's keys in credentials.ts and app-setup.ts.
  */
 import { addDays, daysBetween, type RawTransaction } from "@banking/core";
-import { UserError } from "../../platform/errors.ts";
+import { UpstreamError, UserError } from "../../platform/errors.ts";
 import type { FinanceRepo } from "../../db/finance-repo.ts";
 import type { Services } from "../../services/context.ts";
 import type { Connector, ConnectorContext, PullWindow, Puller, RefusedRows, SyncProblem } from "../types.ts";
@@ -143,7 +143,10 @@ async function open({ s, repo, userHeaders }: ConnectorContext): Promise<Puller>
 export const NOT_LINKED_MESSAGE = "tiliä ei ole lisätty Enable Bankingissa. Ylläpitäjän pitää lisätä se kohdassa API applications > Omatalous > Link accounts.";
 
 function classify(err: unknown): SyncProblem | null {
-  if (!(err instanceof EnableBankingError)) return null;
+  if (!(err instanceof EnableBankingError)) {
+    // no answer at all (no network, the timeout, an answer over the cap): the bank is the cause, and later helps
+    return err instanceof UpstreamError ? { kind: "upstream", message: "pankki ei vastannut oikein, yritä myöhemmin uudelleen", rateLimited: false } : null;
+  }
   if (err.notLinked) return { kind: "not_linked", message: NOT_LINKED_MESSAGE };
   if (err.appRejected) {
     return { kind: "app_rejected", message: "Enable Banking hylkäsi avaimen. Ylläpitäjä voi tarkistaa sen kohdassa Asetukset > Pankit ja tilit > Testaa yhteys." };
@@ -164,7 +167,10 @@ export async function removeConnection(s: Services, repo: FinanceRepo, id: strin
   try {
     await (await clientFor(s, repo.userId)).deleteSession(id);
   } catch (err) {
-    // already gone at the bank (or no credentials any more): still revoke locally
+    // gone at the bank, a consent that ended, a rejected application or no credentials any more: still revoke locally.
+    // A bank that did not answer (no answer, 429, 5xx) leaves the consent alive, so nothing is changed.
+    const outage = err instanceof EnableBankingError ? err.status === 429 || err.status >= 500 : err instanceof UpstreamError;
+    if (outage) throw new UserError("Pankki ei vastannut, yhteyttä ei poistettu. Yritä uudelleen.");
     if (!(err instanceof EnableBankingError) && !(err instanceof UserError)) throw err;
   }
   await repo.setConnectionStatus(id, "revoked");
