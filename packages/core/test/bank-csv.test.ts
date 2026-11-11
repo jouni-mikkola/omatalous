@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { splitRowsByDay } from "../src/card-file.ts";
 import { type BankCsvLayout, bankCsvKey, guessBankCsvLayout, isBankCsvLayout, parseBankCsv, readBankCsvRows } from "../src/bank-csv.ts";
 
 /** A file's text under a layout, else under the one its header suggests: what the page does. */
@@ -127,5 +128,40 @@ describe("readBankCsv", () => {
 
   it("keys a layout by the header, whatever its case and spacing", () => {
     expect(bankCsvKey(["Date ", "Description"])).toBe(bankCsvKey(["date", " description"]));
+  });
+});
+
+describe("a year's file", () => {
+  it("reads 2 500 rows", () => {
+    const body = Array.from({ length: 2500 }, (_, i) => `${String(1 + (i % 28)).padStart(2, "0")}.${String(1 + (i % 12)).padStart(2, "0")}.2026;-${1 + (i % 50)},00;KAUPPA ${i % 7}`);
+    const r = readBankCsv(["Kirjauspäivä;Määrä EUR;Saaja/Maksaja", ...body].join("\n"));
+    expect(r.ok).toBe(true);
+    expect((r as { rows: unknown[] }).rows).toHaveLength(2500);
+  });
+});
+
+describe("splitRowsByDay", () => {
+  const day = (d: number) => `2026-01-${String(d).padStart(2, "0")}`;
+  it("keeps parts at 1 000 rows and never cuts a day", () => {
+    const rows = Array.from({ length: 2500 }, (_, i) => ({ day: day(1 + Math.floor(i / 100)), cents: -100, text: "A" }));
+    const parts = splitRowsByDay(rows);
+    expect(parts.flat()).toHaveLength(2500);
+    expect(parts.every((p) => p.length <= 1000)).toBe(true);
+    const seen = new Set<string>();
+    for (const p of parts) {
+      const days = new Set(p.map((r) => r.day));
+      for (const d of days) expect(seen.has(d)).toBe(false);
+      days.forEach((d) => seen.add(d));
+    }
+  });
+  it("keeps two identical rows of one day in one part", () => {
+    const rows = [
+      ...Array.from({ length: 999 }, (_, i) => ({ day: "2026-01-01", cents: i + 1, text: "X" })),
+      { day: "2026-01-02", cents: -500, text: "SAMA" },
+      { day: "2026-01-02", cents: -500, text: "SAMA" },
+    ];
+    const parts = splitRowsByDay(rows);
+    expect(parts).toHaveLength(2);
+    expect(parts[1]).toEqual([rows[999], rows[1000]]);
   });
 });

@@ -105,3 +105,11 @@ describe("readBankCamt", () => {
     expect(readBankCamt(quiet(period("2026-09-01T00:00:00", "2026-09-04T23:59:59")))).toMatchObject(rowDays);
   });
 });
+
+describe("a year's file", () => {
+  it("reads 2 500 rows whose balances add up", () => {
+    const entries = Array.from({ length: 2500 }, (_, i) => entry("1.00", "CRDT", `2026-${String(1 + (i % 12)).padStart(2, "0")}-${String(1 + (i % 28)).padStart(2, "0")}`, "<Cdtr><Nm>KAUPPA</Nm></Cdtr>"));
+    const r = readBankCamt(file("3500.00", entries));
+    expect((r as { rows: unknown[] }).rows).toHaveLength(2500);
+  });
+});

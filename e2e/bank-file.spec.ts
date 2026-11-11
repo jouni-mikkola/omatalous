@@ -47,6 +47,34 @@ test("a bank CSV file is read in the browser, its columns are remembered and onl
   }
 });
 
+// A year's file: 2 500 rows are saved in parts of whole days, and the count of transactions is 2 500.
+test("a 2 500-row bank file is saved in one go", async ({ browser }) => {
+  const { state, id } = await makeMember(browser, "pankkivuosi");
+  const context = await browser.newContext({ storageState: state, viewport: { width: 1280, height: 900 } });
+  const page = await context.newPage();
+  const rows = Array.from({ length: 2500 }, (_, i) => {
+    const d = new Date(Date.UTC(2020, 0, 1 + (i % 250)));
+    return `${String(d.getUTCDate()).padStart(2, "0")}.${String(d.getUTCMonth() + 1).padStart(2, "0")}.2020;-${1 + (i % 90)},00;KAUPPA ${i % 13}`;
+  });
+  const file = ["Kirjauspäivä;Määrä EUR;Saaja/Maksaja", ...rows].join("\n");
+  try {
+    await page.goto("/#/settings");
+    await page.locator('input[data-kind="statement-file"]').setInputFiles({ name: "vuosi.csv", mimeType: "text/csv", buffer: Buffer.from(file, "utf8") });
+    await page.getByLabel("Summan sarake").selectOption({ label: "Määrä EUR" });
+    await page.getByLabel("Tilin nimi").fill("Vuositili");
+    await page.getByRole("button", { name: "Tallenna rivit" }).click();
+    await expect(page.getByText(/Uusia rivejä 2500, valmiiksi tallessa olleita 0/)).toBeVisible();
+    const meta = (await (await context.request.get("/api/meta")).json()) as { accounts: { id: string; provider: string }[] };
+    const account = meta.accounts.find((a) => a.provider === "bankfile")!;
+    const listed = (await (await context.request.get(`/api/transactions?limit=1&accountId=${account.id}`)).json()) as { total: number };
+    const count = listed.total;
+    expect(count).toBe(2500);
+  } finally {
+    await context.close();
+    await removeMember(browser, id);
+  }
+});
+
 // A camt.053 statement: the same rule for the request, and a closing balance that does not match the rows is refused with the difference.
 const camt = (closing: string) =>
   `<?xml version="1.0"?><Document><BkToCstmrStmt><Stmt><Acct><Id><IBAN>FI2112345600000785</IBAN></Id></Acct>` +

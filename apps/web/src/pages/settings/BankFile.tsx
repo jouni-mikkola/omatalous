@@ -1,6 +1,6 @@
 /** Asetukset > Pankit ja tilit: the rows of a bank's CSV export or camt.053 statement the file picker found, to check and save. Only the rows are sent. */
 // Decision: a household whose bank gives an account's rows only as a file matches the columns once, and the file itself never leaves the browser (ADR 0025)
-import { type BankCamtError, type BankCamtRead, type BankCsvLayout, type BankCsvTable, bankCsvKey, readBankCamt, guessBankCsvLayout, isBankCsvLayout, parseBankCsv, readBankCsvRows } from "@banking/core";
+import { type BankCamtError, type BankCamtRead, type BankCsvLayout, type BankCsvTable, bankCsvKey, readBankCamt, guessBankCsvLayout, isBankCsvLayout, parseBankCsv, readBankCsvRows, splitRowsByDay } from "@banking/core";
 import { useMemo, useState } from "react";
 import { api, ApiError } from "../../api.ts";
 import { Table } from "../../components/table/Table.tsx";
@@ -84,10 +84,19 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
     }
     try {
       // the rows only: no file, no header, no columns of the file around them
-      const r = await api<{ inserted: number; fetched: number; skipped?: number }>("/api/bank-file", {
-        method: "POST",
-        body: { accountId: account || null, name: account ? null : name, last4: null, rows },
-      });
+      // a year is sent in parts of whole days, each within the route's limit
+      const r = { inserted: 0, fetched: 0, skipped: 0 };
+      let accountId = account || null;
+      for (const part of splitRowsByDay(rows)) {
+        const one = await api<{ inserted: number; fetched: number; skipped?: number; accountId?: string }>("/api/bank-file", {
+          method: "POST",
+          body: { accountId, name: accountId ? null : name, last4: null, rows: part },
+        });
+        r.inserted += one.inserted;
+        r.fetched += one.fetched;
+        r.skipped += one.skipped ?? 0;
+        accountId = accountId ?? one.accountId ?? null;
+      }
       try {
         if (table && full) localStorage.setItem(STORE + bankCsvKey(table.header), JSON.stringify(full));
       } catch {

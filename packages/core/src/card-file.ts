@@ -13,6 +13,28 @@ type CardFileLayout = (typeof CARD_FILE_LAYOUTS)[number];
 
 /** Rows of one file. A statement is a month of one card; more is another kind of file. */
 export const CARD_FILE_MAX_ROWS = 1000;
+/**
+ * Rows in parts of at most `max` rows, each part whole days: a day is never cut, because the server numbers identical rows of one request.
+ * A single day of more than `max` rows is one part of its own, which the server refuses.
+ */
+export function splitRowsByDay<T extends { day: string }>(rows: readonly T[], max = CARD_FILE_MAX_ROWS): T[][] {
+  const sorted = rows.map((r, i) => ({ r, i })).sort((a, b) => (a.r.day < b.r.day ? -1 : a.r.day > b.r.day ? 1 : a.i - b.i)).map((x) => x.r);
+  const parts: T[][] = [];
+  let part: T[] = [];
+  for (let i = 0; i < sorted.length; ) {
+    let end = i;
+    while (end < sorted.length && sorted[end]!.day === sorted[i]!.day) end++;
+    const day = sorted.slice(i, end);
+    if (part.length && part.length + day.length > max) {
+      parts.push(part);
+      part = [];
+    }
+    part.push(...day);
+    i = end;
+  }
+  if (part.length) parts.push(part);
+  return parts;
+}
 /** A row's sum is at most this many cents, the same bound as the typed statement rows. */
 export const CARD_FILE_MAX_CENTS = 100_000_000_00;
 

@@ -8,7 +8,7 @@
 import type { IsoDate } from "./types.ts";
 import { isRealDay } from "./analysis/statement-explain.ts";
 import { cleanStatementText } from "./bank-csv.ts";
-import { CARD_FILE_MAX_CENTS, CARD_FILE_MAX_ROWS } from "./card-file.ts";
+import { CARD_FILE_MAX_CENTS } from "./card-file.ts";
 
 interface Node {
   name: string;
@@ -161,7 +161,6 @@ export function readBankCamt(xml: string): BankCamtRead | BankCamtError {
         rows.push({ day, cents: amount.cents, text: label });
         sum += amount.cents;
       } else return { error: "unreadable" };
-      if (rows.length > CARD_FILE_MAX_ROWS) return { error: "too_many_rows" };
     }
     const expected = opening.cents + sum;
     if (expected !== closing.cents) return { error: "mismatch", opening: opening.cents, closing: closing.cents, expected, difference: closing.cents - expected };

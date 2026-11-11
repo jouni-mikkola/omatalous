@@ -7,7 +7,7 @@
  */
 import type { IsoDate } from "./types.ts";
 import { isRealDay, STATEMENT_TEXT_MAX } from "./analysis/statement-explain.ts";
-import { CARD_FILE_MAX_CENTS, CARD_FILE_MAX_ROWS } from "./card-file.ts";
+import { CARD_FILE_MAX_CENTS } from "./card-file.ts";
 
 const DELIMITERS = [";", ",", "\t"] as const;
 type Delimiter = (typeof DELIMITERS)[number];
@@ -241,7 +241,6 @@ export function readBankCsvRows(table: Pick<BankCsvTable, "delimiter" | "body">,
     else unread.push(cells.join(table.delimiter));
   }
   if (!rows.length) return { error: "no_rows" };
-  if (rows.length > CARD_FILE_MAX_ROWS) return { error: "too_many_rows" };
   const days = rows.map((r) => r.day).sort();
   return { periodFrom: days[0]!, periodTo: days[days.length - 1]!, rows, unread };
 }
