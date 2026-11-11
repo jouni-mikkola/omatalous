@@ -169,9 +169,7 @@ flowchart LR
   `features/<kind>/registry.gen.ts` is `export {}`, and `apps/web/src/features/view/` is not made. A feature is to be a folder
   `<kind>/<id>/` with `index.ts` (it exports `module`, written with `define` from `features/contract.ts`), `index.test.ts` and
   `fixture.ts`. `pnpm gen` writes the registry of each kind, one export line a module; the file is tracked and merges by
-  union (`.gitattributes`), and `pnpm check` fails when its lines differ from the folders. A module imports its own folder,
-  the contract and `features/kit/` only, and only a registry imports a module. The rules are 29 to 33 in
-  `tools/repo-rules/modules.ts`.
+  union (`.gitattributes`). A module imports its own folder, the contract and `features/kit/` only (rule 6).
 - Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
   file per area in `areas/` returns findings (title, action, a euro range, calc lines, evidence
   rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months

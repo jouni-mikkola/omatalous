@@ -1,6 +1,7 @@
 // Decision: which category explains this month, read against what each usually costs to the same day
 import type { GapRow } from "@banking/core";
 import { query } from "../../api.ts";
+import { css } from "../../css.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { type Column, Table } from "../../components/table/Table.tsx";
 import { Why } from "../../components/Why.tsx";
@@ -14,7 +15,7 @@ import "../../styles/report-month.css";
 
 /** The rows with the largest gap over the usual first, so the category that explains the month leads; the rest row is last. */
 export function byGap(rows: readonly GapRow[]): GapRow[] {
-  return [...rows].sort((a, b) => Number(a.category === null) - Number(b.category === null) || b.gapCents - a.gapCents);
+  return [...rows].sort((a, b) => Number(a.category === null) - Number(b.category === null) || Number(b.gapCents > a.gapCents) - Number(b.gapCents < a.gapCents));
 }
 
 /** The bar of a row: what was spent as its length and the usual to the same day as a tick, both on the scale of the largest figure of the list. */
@@ -22,8 +23,8 @@ function Bar({ row, scale }: { row: GapRow; scale: number }) {
   const share = (cents: number) => `${Math.round((Math.max(0, cents) / scale) * 1000) / 10}%`;
   return (
     <span className="km-bar" aria-hidden="true">
-      <span className="km-fill" style={{ inlineSize: share(row.spentCents) }} />
-      <span className="km-tick" style={{ insetInlineStart: share(row.expectedCents) }} />
+      <span className="km-fill" ref={css({ "inline-size": share(row.spentCents) })} />
+      <span className="km-tick" ref={css({ "inset-inline-start": share(row.expectedCents) })} />
     </span>
   );
 }

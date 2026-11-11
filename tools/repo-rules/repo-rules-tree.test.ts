@@ -3,7 +3,6 @@ import { warmParse } from "./warm.ts";
 import "./parity.ts";
 import "./shell-rules.ts";
 import "./runners-rules.ts";
-import "./modules.ts";
 import "./roadmap-rules.ts";
 
 warmParse();

@@ -9,7 +9,7 @@
  * (`warmParse`, warm.ts). The groups are about equal in time, so the run is no longer than its slowest group:
  *   repo-rules.test.ts         the text of the UI and the docs     text-rules, finnish, glossary-rule, dialect
  *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, exports-rule, size, timeouts-rules, figures-rules, css-tokens, limiters-rules
- *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, modules, roadmap-rules
+ *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, roadmap-rules
  * A new rule module is imported by the file of its group. Each rule is its own `it` in one of the modules, so a failure
  * names the rule, then `file:line`, then what to do.
  *
@@ -40,11 +40,6 @@
  *   rule 26  a function defined in scripts/ is named twice    shell-rules.ts
  *   rule 27  the lines that keep a secret out stay ignored    shell-rules.ts
  *   rule 28  the UI text keeps the fixes of a Finnish pass    finnish.ts
- *   rule 29  feature registries, identity, files, needs         modules.ts
- *   rule 30  only a registry imports a module                     modules.ts
- *   rule 31  a module folder and its files stay small             modules.ts
- *   rule 32  a module exports `module`; its fixture, three cases   modules.ts
- *   rule 33  no loop in `uses`; the type-import group has a ceiling modules.ts
  *   rule 34  docs/ROADMAP.md lists no released version as coming roadmap-rules.ts
  *   rule 35  the UI text keeps the glossary: removed words stay out glossary-rule.ts (words: glossary.ts)
  *   rule 36  no window.confirm, alert or prompt in the web app    code-rules.ts
