@@ -235,6 +235,13 @@ Result: A password that is one word said twice with a digit at the end, such as 
 - after: none
 - files: packages/core/src/password-strength.ts, packages/core/test/password-strength.test.ts
 
+### N27 Plan the keyboard and phone
+Result: The plan gains 10 to 14 steps for web charts, tables, search and offline use with a keyboard, a narrow screen or a screen reader.
+- why: At 14:05Z no step is free for 14 slots. N24 read the pages against the design only: apps/web/src/charts, components, search.ts, offline.ts and table-state.ts were not tried by keyboard, on a narrow screen, offline or with a screen reader.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the keyboard and phone steps. The plan gains 10 to 14 steps for web charts, tables, search and offline use with a keyboard, a narrow screen or a screen reader. Each step: a fault or gap reproduced on main with its file and line, 50 to 150 lines of product code a user sees or relies on, its tests in the same step, its own lock named by no other step, not behind T69 or the nav lock, and not a result that main or an open step (P1-P10, S6-S11, C5, T56, T76, T77, T82-T84, T105, T111) already holds. No step that is only tests, and no done-when that says under N lines.
+- locks: none
+- after: none
+
 ### C3 A small MobilePay share fits
 Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a friend's share of it.
 - why: `isShareOf` in `mobilepay.ts` lets a share be a euro off whatever its size, so 2,00 passes as a tenth of 30,00 and one cent as a tenth of 10,00: small money in is taken off the nearest purchase's category and never counted as income.
