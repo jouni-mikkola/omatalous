@@ -2,7 +2,7 @@ import { query } from "../api.ts";
 import { Nyt } from "../components/home/Nyt.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
-import { EmptyStart } from "../components/EmptyStart.tsx";
+import { FirstRun } from "./FirstRun.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { ServerNotices } from "../components/Notices.tsx";
 import { Button } from "../components/ui/Button.tsx";
@@ -51,7 +51,7 @@ export function Overview({
       </>
     );
   }
-  if (!hasData) return <EmptyStart onDemo={onEmptyAction} meta={meta} onReload={onReload} />;
+  if (!hasData) return <FirstRun view="overview" meta={meta} onDemo={onEmptyAction} onReload={onReload} />;
   if (now.error && !now.data) return <ErrorCard message={now.error} onRetry={now.reload} />;
   if (!now.data) return <HomeSkeleton />;
 

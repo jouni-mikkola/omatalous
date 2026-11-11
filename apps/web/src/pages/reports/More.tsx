@@ -60,7 +60,7 @@ export function questionOf(open: readonly QuestionId[], asked: string | null, an
 type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void };
 
 /** Kuukausi is what the tab opens: an address that names no question, period, comparison or section. The question pages stay behind their addresses. */
-const isMonth = (params: URLSearchParams | undefined, anchor: string | undefined): boolean => !anchor && !["q", "period", "compare"].some((key) => params?.has(key));
+export const isMonth = (params: URLSearchParams | undefined, anchor: string | undefined): boolean => !anchor && !["q", "period", "compare"].some((key) => params?.has(key));
 
 export function More(props: ReportsProps) {
   return isMonth(props.params, props.anchor) ? <MonthTab {...props} /> : <Questions {...props} />;
