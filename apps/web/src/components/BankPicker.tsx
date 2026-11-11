@@ -12,6 +12,7 @@ import "../styles/bank-picker.css";
 import { Button } from "./ui/Button.tsx";
 import { Notice } from "./ui/Notice.tsx";
 import { SETTINGS_ANCHOR, settingsHash } from "../routes.ts";
+import { rich, t } from "../text.ts";
 /** A list longer than this gets a search field. */
 const SEARCH_ABOVE = 8;
 
@@ -56,6 +57,7 @@ export function BankPicker({
   disabled,
   isAdmin,
   focusSignal,
+  initialQuery = "",
   onPick,
   onClose,
   children,
@@ -68,12 +70,14 @@ export function BankPicker({
   isAdmin: boolean;
   /** A new value moves the focus to the heading, so a keyboard user lands in the section that just opened. */
   focusSignal: number;
+  /** The search text the picker opens with. */
+  initialQuery?: string;
   onPick: (id: string) => void;
   onClose: () => void;
   /** What is missing before a bank can be started. */
   children?: ReactNode;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     heading.current?.focus();
@@ -82,38 +86,32 @@ export function BankPicker({
   const searchable = banks.length > SEARCH_ABOVE;
   const ordered = orderBanks(banks, lastUsed);
   const shown = searchable ? searchBanks(ordered, query) : ordered;
-  const noteFor = (id: string) => (starting === id ? "Avataan…" : lastUsed === id && banks.length > 1 ? "Viimeksi käytetty" : null);
+  const noteFor = (id: string) => (starting === id ? t("set.banks.pick_opening") : lastUsed === id && banks.length > 1 ? t("set.banks.pick_last_used") : null);
 
   return (
     <section className="bank-picker" aria-labelledby="bank-picker-title">
       <div className="bank-picker-head">
         <h3 id="bank-picker-title" ref={heading} tabIndex={-1}>
-          Valitse pankki
+          {t("set.banks.pick_title")}
         </h3>
         <Button variant="link" onClick={onClose}>
-          Sulje
+          {t("set.banks.pick_close")}
         </Button>
       </div>
       {banks.length === 0 ? (
         <Notice tone="warning">
-          {isAdmin ? (
-            <>
-              Enable Banking -sovelluksesi pankkilistalla ei ole pankkeja, joita Omatalous tukee. Tarkista sovellus kohdassa <a href={settingsHash("banks", SETTINGS_ANCHOR.bankApp)}>Enable Banking -sovellus</a>.
-            </>
-          ) : (
-            "Enable Banking -sovelluksen pankkilistalla ei ole pankkeja, joita Omatalous tukee. Ylläpitäjän pitää tarkistaa sovellus."
-          )}
+          {isAdmin ? rich("set.banks.pick_none_admin", {}, { link: <a href={settingsHash("banks", SETTINGS_ANCHOR.bankApp)}>{t("set.banks.pick_app_section")}</a> }) : t("set.banks.pick_none_member")}
         </Notice>
       ) : (
         <>
-          {searchable && <input type="search" className="bank-search" placeholder="Hae pankkia" aria-label="Hae pankkia" autoComplete="off" spellCheck={false} value={query} onChange={(e) => setQuery(e.target.value)} />}
+          {searchable && <input type="search" className="bank-search" placeholder={t("set.banks.pick_search")} aria-label={t("set.banks.pick_search")} autoComplete="off" spellCheck={false} value={query} onChange={(e) => setQuery(e.target.value)} />}
           {shown.length > 0 ? (
             <ul className="bank-grid">
               {shown.map((b) => {
                 const note = noteFor(b.id);
                 return (
                   <li key={b.id}>
-                    <button type="button" className="bank-tile" disabled={disabled} aria-busy={starting === b.id || undefined} onClick={() => onPick(b.id)} aria-label={`Yhdistä ${b.name}`}>
+                    <button type="button" className="bank-tile" disabled={disabled} aria-busy={starting === b.id || undefined} onClick={() => onPick(b.id)} aria-label={t("set.banks.pick_connect", { bank: b.name })}>
                       <BankLogo src={bankLogo(b.id, b.logo === true)} name={b.name} size="tile" />
                       {note && <span className="bank-tile-note small muted">{note}</span>}
                     </button>
@@ -123,10 +121,10 @@ export function BankPicker({
             </ul>
           ) : (
             <p className="small muted" role="status">
-              Haulla ei löydy pankkia.
+              {t("set.banks.pick_no_match")}
             </p>
           )}
-          {hasOtherBanks(banks) && <p className="small muted">Luokittelemme muiden pankkien kuin Nordean tapahtumat pankin omien koodien mukaan. Tarkista ensimmäisen kuukauden kategoriat.</p>}
+          {hasOtherBanks(banks) && <p className="small muted">{t("set.banks.pick_other_banks")}</p>}
           {children}
         </>
       )}

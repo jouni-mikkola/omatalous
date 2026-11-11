@@ -4,9 +4,11 @@
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { finnishIn } from "../../../e2e/finnish-words.ts";
 import { bankLogo, logoForInstitution } from "../src/banks.ts";
 import { BankLogo, plateShows } from "../src/components/BankLogo.tsx";
+import { setLanguage } from "../src/format.ts";
 import { BankPicker, hasOtherBanks, lastUsedBank, orderBanks, searchBanks } from "../src/components/BankPicker.tsx";
 import { renewalBank } from "../src/pages/settings/BankConnections.tsx";
 import type { BankOption } from "../src/types.ts";
@@ -193,5 +195,74 @@ describe("a bank whose logo the server serves", () => {
     expect(logoForInstitution("Danske Bank", list)).toBeNull();
     // a list without the bank's logo leaves it without
     expect(logoForInstitution("OP", [list[2]!])).toBeNull();
+  });
+});
+
+describe("the picker in English", () => {
+  beforeEach(() => setLanguage("en"));
+  afterEach(() => setLanguage(null));
+
+  /** Finnish words of the app that have no ä, ö or å and are not on the scan's list. */
+  const OWN = ["Sulje", "Avataan", "Viimeksi", "Haulla", "pankki", "Luokittelemme", "Tarkista", "sovellus"];
+  /** Every text and `aria-label` of the picker, without the banks' own names (Säästöpankki is the bank's word, not the app's). */
+  const heard = (out: string) => {
+    const labels = [...out.matchAll(/(?:aria-label|placeholder)="([^"]*)"/g)].map((m) => m[1]!);
+    let all = [out.replace(/<[^>]+>/g, " "), ...labels].join(" ");
+    for (const [, name] of [...NAMES].sort((a, b) => b[1].length - a[1].length)) all = all.replaceAll(name, " ");
+    return all;
+  };
+  const noFinnish = (out: string) => {
+    expect(finnishIn(heard(out)), "Finnish words in the picker in English").toEqual([]);
+    for (const word of OWN) expect(heard(out)).not.toContain(word);
+  };
+
+  it("tells the admin of an empty list in English, with the link to the bank app's section", () => {
+    const out = render([]);
+    noFinnish(out);
+    expect(out).toContain(">Choose a bank</h3>");
+    expect(out).toContain(">Close</button>");
+    expect(out).toContain('Check the application under <a href="#/settings/banks#pankkisovellus">Enable Banking application</a>.');
+  });
+
+  it("tells a member of an empty list in English, without a link", () => {
+    const out = render([], { isAdmin: false });
+    noFinnish(out);
+    expect(out).toContain("The admin must check the application.");
+    expect(out).not.toContain("<a ");
+  });
+
+  it("names nine banks, the one used last and the one being opened, in English", () => {
+    const out = render(banks(9), { lastUsed: "op-fi", starting: "aktia-fi", disabled: true });
+    noFinnish(out);
+    expect([...out.matchAll(/aria-label="Connect ([^"]+)"/g)].map((m) => m[1])).toEqual(["OP", "Nordea", "Danske Bank", "S-Pankki", "Säästöpankki", "Oma Säästöpankki", "POP Pankki", "Aktia", "Ålandsbanken"]);
+    expect(out).toContain('placeholder="Search for a bank" aria-label="Search for a bank"');
+    expect(out.match(/Last used/g)).toHaveLength(1);
+    expect(out.match(/Opening…/g)).toHaveLength(1);
+    expect(out).toContain("We sort the transactions of banks other than Nordea by the bank's own codes.".replace("'", "&#x27;"));
+  });
+
+  it("says in English that a search finds nothing", () => {
+    const out = render(banks(9), { initialQuery: "xyz" });
+    noFinnish(out);
+    expect(out).toContain('role="status">The search finds no bank.</p>');
+    expect(out).not.toContain("bank-tile");
+  });
+});
+
+describe("the same picker in Finnish", () => {
+  it("reads as before", () => {
+    const admin = render([]);
+    expect(admin).toContain(">Valitse pankki</h3>");
+    expect(admin).toContain(">Sulje</button>");
+    expect(admin).toContain(
+      'Enable Banking -sovelluksesi pankkilistalla ei ole pankkeja, joita Omatalous tukee. Tarkista sovellus kohdassa <a href="#/settings/banks#pankkisovellus">Enable Banking -sovellus</a>.',
+    );
+    expect(render([], { isAdmin: false })).toContain("Enable Banking -sovelluksen pankkilistalla ei ole pankkeja, joita Omatalous tukee. Ylläpitäjän pitää tarkistaa sovellus.");
+    const nine = render(banks(9), { lastUsed: "op-fi", starting: "aktia-fi", disabled: true });
+    expect(tiles(nine)).toHaveLength(9);
+    expect(nine).toContain('placeholder="Hae pankkia" aria-label="Hae pankkia"');
+    expect(nine).toContain("Viimeksi käytetty");
+    expect(nine).toContain("Avataan…");
+    expect(render(banks(9), { initialQuery: "xyz" })).toContain('role="status">Haulla ei löydy pankkia.</p>');
   });
 });
