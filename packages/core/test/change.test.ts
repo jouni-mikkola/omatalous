@@ -3,7 +3,7 @@ import { createContext } from "../src/analysis/context.ts";
 import { categoryRises, type ChangeView, type SpendingChange, spendingChange } from "../src/analysis/change.ts";
 import { spendingInsights } from "../src/analysis/insights/spending.ts";
 import { spendingChangeReport } from "../src/reports/spending-change.ts";
-import { expectedSpending } from "../src/analysis/expected.ts";
+import { expectedFor, expectedSpending } from "../src/analysis/expected.ts";
 import { completeMonthsBefore, spendingThrough } from "../src/analysis/usual.ts";
 import { addMonths, daysInMonth, monthRange } from "../src/dates.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -565,5 +565,31 @@ describe("a card bill in the base months that is no transfer", () => {
       expect(c).not.toBeNull();
       expect(c!.categories.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("one base for the usual view", () => {
+  const second: Account = { id: "acc-2", name: "Toinen tili", iban: null, currency: "EUR", type: "checking" };
+  /** A first account with a purchase a week from March; a second paying account connected on 1 June with a purchase every other day. */
+  const lateRows = (): Transaction[] => {
+    const out: Transaction[] = [];
+    for (let d = new Date("2026-03-02T00:00:00Z"); d.toISOString().slice(0, 10) <= "2026-10-15"; d = new Date(d.getTime() + 7 * 86400000)) out.push(tx({ id: `a-${out.length}`, accountId: "acc-1", bookingDate: d.toISOString().slice(0, 10), amountCents: -5_000, merchant: "Prisma", category: "groceries" }));
+    for (let d = new Date("2026-06-01T00:00:00Z"); d.toISOString().slice(0, 10) <= "2026-10-15"; d = new Date(d.getTime() + 2 * 86400000)) out.push(tx({ id: `b-${out.length}`, accountId: "acc-2", bookingDate: d.toISOString().slice(0, 10), amountCents: -4_000, merchant: "Lidl", category: "groceries" }));
+    return out.sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
+  };
+
+  it("takes the months and the figure of expectedFor from the change report's base", () => {
+    const c = createContext(lateRows(), [checking, second], "2026-10-15");
+    const report = spendingChange(c, "expected", "2026-10")!;
+    expect(report).not.toBeNull();
+    expect(report.base.months).not.toContain("2026-05");
+    expect(expectedFor(c, "2026-10")!.months).toEqual(report.base.months);
+    expect(expectedSpending(c, "2026-10", Number(report.target.to.slice(8, 10)))).toBe(report.baseCents);
+  });
+
+  it("gives the same months as before when the rows are complete", () => {
+    const c = lateCardContext("2026-01");
+    expect(expectedFor(c, "2026-10")!.months).toEqual(completeMonthsBefore(c, "2026-10"));
+    expect(expectedFor(c, "2026-10")!.months).toEqual(spendingChange(c, "expected", "2026-10")!.base.months);
   });
 });

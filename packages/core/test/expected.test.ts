@@ -129,3 +129,22 @@ describe("one expected figure on every page that reads it", () => {
     expect(pace.expected!.curve.at(-1)).toBeGreaterThanOrEqual(100_000);
   });
 });
+
+describe("the months of the expected figure with a late paying account", () => {
+  const second: Account = { id: "acc-2", name: "Toinen tili", iban: null, currency: "EUR", type: "checking" };
+  const days = (from: string, to: string, step: number, accountId: string, cents: number): Transaction[] => {
+    const out: Transaction[] = [];
+    for (let d = new Date(`${from}T00:00:00Z`); d.toISOString().slice(0, 10) <= to; d = new Date(d.getTime() + step * 86400000)) out.push(tx({ id: `${accountId}-${out.length}`, accountId, bookingDate: d.toISOString().slice(0, 10), amountCents: cents, merchant: "Prisma", category: "groceries" }));
+    return out;
+  };
+
+  it("leaves out the months before the account was connected, as the change report does", () => {
+    const rows = [...days("2026-03-02", "2026-10-15", 7, "acc-1", -5_000), ...days("2026-06-01", "2026-10-15", 2, "acc-2", -4_000)].sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
+    const c = createContext(rows, [checking, second], "2026-10-15");
+    expect(expectedFor(c, "2026-10")!.months).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
+  });
+
+  it("keeps all complete months when the rows are complete", () => {
+    expect(expectedFor(ctxOf(household()), "2026-10")!.months).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+  });
+});

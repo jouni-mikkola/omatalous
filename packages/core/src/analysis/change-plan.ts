@@ -99,6 +99,15 @@ export function rowsComplete(ctx: AnalysisContext): { from: IsoDate | null; thro
 }
 
 /**
+ * The complete months before `month` the usual view and `expectedFor` are read from: from the first day every paying
+ * account's rows reach back to (`rowsComplete`), so a month before a late account is not used. The last day is not
+ * cut: a lagging sync leaves the month before incomplete in the target, not in the figure that has no day to cut at.
+ */
+export function usualBase(full: AnalysisContext, month: string): string[] {
+  return completeMonthsBefore(full, month, USUAL_MONTHS, undefined, { from: rowsComplete(full).from, today: full.today });
+}
+
+/**
  * The periods of a view for `month`: the month itself (usual and season) or the month the last `yearMonths` (twelve by
  * default, fewer for a shorter range) end in (year).
  * null when the history cannot support the comparison: under three complete months before, no complete month a year
@@ -110,7 +119,6 @@ export function planOf(full: AnalysisContext, view: ChangeView, month: string, y
   // a month is complete for the comparison only from the day and up to the day every paying account's rows reach
   const today = through < full.today ? addDays(through, 1) : full.today;
   const complete = (m: string) => isCompleteMonth(full, m, undefined, { from, today });
-  const before = (m: string) => completeMonthsBefore(full, m, USUAL_MONTHS, undefined, { from, today });
   // the noise is read from every complete month back to the first day: an account connected in between leaves its own
   // first month out and does not cut the months before it off (a replaced card must not leave the noise empty)
   const noiseBefore = (m: string): string[] => {
@@ -122,7 +130,7 @@ export function planOf(full: AnalysisContext, view: ChangeView, month: string, y
   const running = through < monthEnd(month);
   const cap = running ? Number(through.slice(8, 10)) : 31;
   if (view === "expected") {
-    const base = before(month);
+    const base = usualBase(full, month);
     return base.length < MIN_COMPARE_MONTHS ? null : { view, target: [month], base, cap, running, mean: true, noise: noiseBefore(month) };
   }
   if (view === "season") {

@@ -21,6 +21,7 @@ import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, RANGE_HIGH, RANGE_LOW, SPARSE_SHAR
 import type { IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
+import { usualBase } from "./change-plan.ts";
 import { cardsBreakUsual, completeMonthsBefore, earnedIncome } from "./usual.ts";
 
 /** How a category's expected spending behaves: it grows day by day, falls on a date, comes in some months, or comes rarely. */
@@ -280,7 +281,7 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
   let byMonth = cache.get(ctx);
   if (!byMonth) cache.set(ctx, (byMonth = new Map()));
   if (byMonth.has(month)) return byMonth.get(month)!;
-  const months = completeMonthsBefore(ctx, month);
+  const months = usualBase(ctx, month);
   const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months), itemised: !cardsBreakUsual(ctx, month) };
   byMonth.set(month, found);
   return found;

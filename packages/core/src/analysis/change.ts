@@ -34,7 +34,7 @@ import { floorsOf, monthSeries, type SignalInput, standsOut } from "./change-sig
 import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, isMonthlyOrLonger, type Merch, MIN_BASE_ROWS, NO_DUE, netReturns, purchases, RARE, type Split, spendOf, splitMerchant, sum } from "./change-split.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { LEVEL, oneOffs } from "./one-offs.ts";
-import { type ExpectedDue, expectedFor, expectedLevel, expectedOver } from "./expected.ts";
+import { type ExpectedDue, expectedFor, expectedLevel } from "./expected.ts";
 import { cardsBreakUsual, gateFor, isCompleteMonth } from "./usual.ts";
 
 export type ChangeView = "expected" | "year" | "season";
@@ -226,8 +226,8 @@ interface Rows {
 function expectedOfPlan(ctx: AnalysisContext, plan: Plan): Rows["expected"] {
   if (!plan.mean) return null;
   const month = plan.target[0]!;
-  const shared = expectedFor(ctx, month);
-  const figure = shared && shared.months.join() === plan.base.join() ? shared : expectedOver(ctx, month, plan.base);
+  // planOf sets `mean` only with a base of at least MIN_COMPARE_MONTHS months from `usualBase`, which `expectedFor` reads too
+  const figure = expectedFor(ctx, month)!;
   const at = figure.at(plan.cap);
   // the bills that fall due in the month by the plan's last day: a yearly bill is expected in its month, not a timing
   const due = new Map(figure.due.filter((d) => d.day <= plan.cap).map((d) => [d.seriesId, d]));
