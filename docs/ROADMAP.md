@@ -249,6 +249,13 @@ Result: A password that is one word said twice with a digit at the end, such as 
 - after: none
 - files: packages/core/src/password-strength.ts, packages/core/test/password-strength.test.ts
 
+### N30 Plan the export and report steps
+Result: The plan gains 10 to 14 steps where an exported file or a report lacks or misstates what the data export document promises, or fails
+- why: At 14:26Z no step is free for 14 slots and no plan step runs. docs/DATA_EXPORT.md (476 lines) was never a plan source: the export and report code in packages/core and apps/server/src/routes and services was not read against it.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the export and report steps. The plan gains 10 to 14 steps where an exported file or a report lacks or misstates what the data export document promises, or fails on empty, large or odd data. Each step: a fault or gap reproduced on main with its file and line, 50 to 150 lines of product code a user sees or relies on, its tests in the same step, its own lock named by no other step and no step behind another unless it must be, and not a result that main or an open step (A1, A2, D6, L1-L4, T76, T77, T82-T84, T105, T111, Y2, Y3) already holds. No step that is only tests, and no done-when that says under N lines. When fewer real steps are found than asked, add those found and list the files read.
+- locks: none
+- after: none
+
 ### N27 Plan the keyboard and phone
 Result: The plan gains 10 to 14 steps for web charts, tables, search and offline use with a keyboard, a narrow screen or a screen reader.
 - why: At 14:05Z no step is free for 14 slots. N24 read the pages against the design only: apps/web/src/charts, components, search.ts, offline.ts and table-state.ts were not tried by keyboard, on a narrow screen, offline or with a screen reader.
