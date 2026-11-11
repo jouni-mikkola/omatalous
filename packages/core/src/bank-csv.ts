@@ -150,10 +150,10 @@ export function isBankCsvLayout(layout: BankCsvLayout, columns: number): boolean
   return DELIMITERS.includes(layout.delimiter) && ok(layout.date) && ok(layout.text) && ok(layout.amount) && ok(layout.debit) && ok(layout.credit) && single !== split;
 }
 
-/** "03.09.2026", "3/9/2026" (day first) or "2026-09-03", with a time after it allowed. */
+/** "03.09.2026", "3/9/2026" (day first), "2026-09-03" or "2026/09/03", with a time after it allowed. */
 function day(text: string): IsoDate | null {
   const s = text.trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/.exec(s);
+  const iso = /^(\d{4})[-/](\d{2})[-/](\d{2})(?:[T ].*)?$/.exec(s);
   const fi = /^(\d{1,2})[./](\d{1,2})[./](\d{4})(?:\s.*)?$/.exec(s);
   const [y, m, d] = iso ? [iso[1]!, iso[2]!, iso[3]!] : fi ? [fi[3]!, fi[2]!, fi[1]!] : [];
   if (!y || !m || !d) return null;

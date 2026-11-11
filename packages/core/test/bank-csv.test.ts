@@ -36,6 +36,18 @@ describe("readBankCsv", () => {
     ]);
   });
 
+  it("reads a Nordea export with year-first slash dates, and leaves an impossible day unread", () => {
+    const head = "Kirjauspäivä;Määrä;Maksaja;Maksunsaaja;Nimi;Otsikko;Viitenumero;Valuutta";
+    const r = readBankCsv([head, "2026/09/03;-12,50;A;B;Kauppa;x;;EUR", "2026/09/04;2500,00;A;B;Palkka;x;;EUR", "2026/02/30;-1,00;A;B;Virhe;x;;EUR"].join("\n"));
+    expect(r.ok).toBe(true);
+    const ok = r as unknown as { rows: { day: string; cents: number }[]; unread: unknown[] };
+    expect(ok.rows.map((x) => ({ day: x.day, cents: x.cents }))).toEqual([
+      { day: "2026-09-03", cents: -1250 },
+      { day: "2026-09-04", cents: 250000 },
+    ]);
+    expect(ok.unread).toHaveLength(1);
+  });
+
   it("reads a comma export with a debit and a credit column to the exact rows", () => {
     const r = readBankCsv(BANK_B);
     expect(r).toMatchObject({ ok: true, layout: { delimiter: ",", amount: null, debit: 2, credit: 3 }, unread: [] });
