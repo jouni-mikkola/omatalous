@@ -1,9 +1,11 @@
 // Decision: how much can we still spend before payday, and is the month's spending on its usual course
 import { PaceChart } from "../../charts/PaceChart.tsx";
+import { hashOf } from "../../routes.ts";
 import { answerMoney, dayMonth, money } from "../../format.ts";
-import { t, tn } from "../../text.ts";
+import { rich, t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
+import { Button } from "../ui/Button.tsx";
 import { euroRange, monthTitle, paceGapText } from "./texts.ts";
 
 type NytData = NonNullable<DashboardData["nyt"]>;
@@ -27,6 +29,8 @@ export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
   const { left, usualPerDayCents } = nyt;
   const usual = nyt.pace.usual;
   const payday = ahead?.payday && ahead.payday.date.startsWith(pace.month) ? Number(ahead.payday.date.slice(8, 10)) : null;
+  const none = new URLSearchParams();
+  const spentHref = hashOf({ page: "transactions", params: new URLSearchParams({ from: `${pace.month}-01`, to: nyt.from }) });
   const gap = usual ? null : paceGapText(home.paceGap);
   return (
     <section className="home-answer nyt" aria-labelledby="home-question">
@@ -47,12 +51,24 @@ export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
         </p>
       ) : null}
       <p className="home-detail nyt-pace">
-        {t("home.nyt_spent", { sum: answerMoney(nyt.pace.spentCents) })}
+        {rich("home.nyt_spent", {}, { sum: <Button variant="link" href={spentHref}>{answerMoney(nyt.pace.spentCents)}</Button> })}
         {usual && `, ${t("home.nyt_usual_band", { range: euroRange(usual.lowCents, usual.highCents) })}`}
       </p>
       {gap && <p className="home-detail">{gap}</p>}
       <PaceChart pace={pace} goal={null} payday={payday} names={{ current: monthTitle(pace.month), previous: pace.previous ? t("home.last_month") : "" }} />
-      {left.known && <p className="home-detail nyt-parts num">{t("home.nyt_parts", { balance: money(left.balanceCents), bills: money(left.billsCents) })}</p>}
+      {left.known && (
+        <p className="home-detail nyt-parts num">
+          {rich(
+            "home.nyt_parts",
+            {},
+            {
+              balance: <Button variant="link" href={hashOf({ page: "reports", params: new URLSearchParams({ q: "saldot" }) })}>{money(left.balanceCents)}</Button>,
+              bills: <Button variant="link" href={hashOf({ page: "bills", params: none, anchor: "ennen-palkkapaivaa" })}>{money(left.billsCents)}</Button>,
+            },
+          )}
+        </p>
+      )}
     </section>
   );
 }
+
