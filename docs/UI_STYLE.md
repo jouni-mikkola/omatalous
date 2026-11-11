@@ -122,8 +122,9 @@ A category change says the rule it made.
 
 - The header has the pages, Tarkistettavat and the user menu.
 - Tarkistettavat shows the count of open questions. The page shows the same number.
-- The user menu has the pages a module adds (on a phone only: a wider screen has them in the header), Asetukset, the other language (a button named in that language) and Kirjaudu ulos. The password is in Asetukset > Turvallisuus.
-- A phone has five tabs. They are Yhteenveto, Laskut, Tapahtumat, Raportit and Säästövinkit. There is no Lisää screen: Asetukset and the pages a module adds are in the user menu, and `#/more` opens Yhteenveto.
+- The user menu has the pages a module adds (on a phone only: a wider screen has them in the header), Lisää, Asetukset, the other language (a button named in that language) and Kirjaudu ulos. The password is in Asetukset > Turvallisuus.
+- The app has four tabs: Nyt, Kuukausi, Tulossa and Tarkistettavat (`docs/design/README.md`). Until the step of each lands, the bar still shows the page it replaces: Yhteenveto for Nyt, Laskut for Tulossa, and Tapahtumat and Säästövinkit, which go.
+- Lisää is in the user menu, never a tab. It lists the reports that earn a place: Vuosi, Tilit ja saldot, Lainat, Verovuosi and, only with a shared account, Yhteiset. There is no Raportit menu. Asetukset and the pages a module adds are in the user menu too, and the old `#/more` opens Yhteenveto.
 - The foot of the page tells when the rows were fetched (`Päivitetty 23.10. klo 18.15`). Only a failed fetch is above the page, in a `Notice`.
 
 ### Headings

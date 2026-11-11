@@ -36,8 +36,9 @@ for (const hash of ["/#/reports?period=12m", "/#/reports?q=nonexistent"]) {
     await page.reload();
     await expect(page.locator(".q-title")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
-    const monthOpen = ((await page.locator("#q-list a[aria-current=page]").getAttribute("href")) ?? "").includes("q=kuukausi");
-    await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(monthOpen ? 0 : 1);
+    // neither address can open the running month: a bare one skips it, and so does a `q` with nothing to say
+    await expect(page.locator("#kuukausi")).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(1);
     await context.close();
   });
 }

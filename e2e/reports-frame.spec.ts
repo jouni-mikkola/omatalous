@@ -60,15 +60,15 @@ test("the old tab address opens the page its reports moved to", async ({ browser
   await context.close();
 });
 
-test("a question in the list opens its page and keeps the period; a phone folds the list behind a button", async ({ browser }) => {
+test("a report in Lisää opens its page and keeps the period; a phone folds the list behind a button", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?period=6m");
-  const list = page.getByRole("navigation", { name: "Aiheet" });
+  const list = page.getByRole("navigation", { name: "Lisää" });
   await expect(list.getByRole("link")).toHaveCount(0);
-  await list.getByRole("button", { name: "Aiheet" }).click();
-  await list.getByRole("link", { name: /^Velat/ }).click();
+  await list.getByRole("button", { name: "Lisää" }).click();
+  await list.getByRole("link", { name: "Lainat" }).click();
   await expect(page.getByRole("heading", { name: "Velat", level: 2 })).toBeVisible();
   expect(new URL(page.url()).hash).toMatch(/q=velat/);
   expect(new URL(page.url()).hash).toContain("period=6m");
@@ -82,9 +82,9 @@ test("a household with no shared account has no Yhteiset menot question and no s
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=kuukausi");
-  const list = page.getByRole("navigation", { name: "Aiheet" });
+  const list = page.getByRole("navigation", { name: "Lisää" });
   await expect(list.getByRole("link").first()).toBeVisible();
-  await expect(list.getByRole("link", { name: /yhteiset menot/i })).toHaveCount(0);
+  await expect(list.getByRole("link", { name: /yhteiset/i })).toHaveCount(0);
   await page.goto("/#/reports?q=yhteiset");
   await expect(page.getByRole("heading", { name: "Yhteiset menot", level: 2, exact: true })).toHaveCount(0);
   expect(seen.problems).toEqual([]);

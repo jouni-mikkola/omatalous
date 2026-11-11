@@ -1,24 +1,24 @@
 /**
- * Reports page: fetches the reports of the server and shows one question page of `reports/pages/` in the frame
+ * Kuukausi and Lisää: a bare address opens the month; any other fetches the reports of the server and shows one question page of `reports/pages/` in the frame
  * (`reports/Frame.tsx`). The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
  * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
-import { t } from "../text.ts";
-import { REPORT_PERIODS } from "../period.ts";
+import { t } from "../../text.ts";
+import { REPORT_PERIODS } from "../../period.ts";
 import { type ConclusionsReport, QUESTIONS, type QuestionId } from "@banking/core";
 import { useEffect, useRef } from "react";
-import { query } from "../api.ts";
-import { ErrorCard } from "../components/ErrorCard.tsx";
-import { useApi } from "../hooks.ts";
-import type { Meta, ReportsData, Scope } from "../types.ts";
-import { reportContext } from "./reports/context.ts";
-import { Frame, openQuestions } from "./reports/Frame.tsx";
-import { Month } from "./reports/Month.tsx";
-import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./reports/registry.ts";
-import type { ReportRange } from "./reports/types.ts";
-import { FoldContext } from "../components/Section.tsx";
-import { Opened } from "../view-opens.tsx";
-import "../styles/reports.css";
+import { query } from "../../api.ts";
+import { ErrorCard } from "../../components/ErrorCard.tsx";
+import { useApi } from "../../hooks.ts";
+import type { Meta, ReportsData, Scope } from "../../types.ts";
+import { reportContext } from "./context.ts";
+import { Frame, openQuestions } from "./Frame.tsx";
+import { Month } from "./Month.tsx";
+import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
+import type { ReportRange } from "./types.ts";
+import { FoldContext } from "../../components/Section.tsx";
+import { Opened } from "../../view-opens.tsx";
+import "../../styles/reports.css";
 
 /** Loading: the question and the first panel at the size they will have, with no figures. */
 function ReportsSkeleton() {
@@ -61,7 +61,7 @@ type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URL
 /** Kuukausi is what the tab opens: an address that names no question, period, comparison or section. The question pages stay behind their addresses. */
 const isMonth = (params: URLSearchParams | undefined, anchor: string | undefined): boolean => !anchor && !["q", "period", "compare"].some((key) => params?.has(key));
 
-export function Reports(props: ReportsProps) {
+export function More(props: ReportsProps) {
   return isMonth(props.params, props.anchor) ? <MonthTab {...props} /> : <Questions {...props} />;
 }
 

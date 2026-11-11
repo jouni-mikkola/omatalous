@@ -25,5 +25,11 @@ export const NAV: readonly NavEntry[] = [
  */
 export const REVIEW: NavEntry = { id: "review", get label() { return t("nav.review"); } };
 
+/**
+ * Lisää is in the user menu, not a tab: the reports that earn a place (Vuosi, Tilit ja saldot, Lainat, Verovuosi and, with
+ * a shared account, Yhteiset). It opens on Tilit ja saldot; the list of the others is on the page.
+ */
+export const MORE = { hash: "#/reports?q=saldot", get label() { return t("rpt.more"); } };
+
 /** Asetukset is in the user menu: a page every member has, but not a question about money. */
 export const SETTINGS: NavEntry = { id: "settings", get label() { return t("nav.settings"); } };

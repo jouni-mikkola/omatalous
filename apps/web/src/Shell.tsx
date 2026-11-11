@@ -13,7 +13,7 @@ import { date, dateRange, dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
-import { NAV, REVIEW, SETTINGS } from "./nav.ts";
+import { MORE, NAV, REVIEW, SETTINGS } from "./nav.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
@@ -346,6 +346,7 @@ export function Shell() {
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
+              <a href={MORE.hash} aria-current={page === "reports" && params.has("q") ? "page" : undefined}>{MORE.label}</a>
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}
               </PageLink>

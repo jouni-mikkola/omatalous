@@ -5,6 +5,7 @@ import { SlopeChart, type SlopeItem } from "../../../charts/SlopeChart.tsx";
 import { Table } from "../../../components/table/Table.tsx";
 import { language, money, monthTick, signedMoney } from "../../../format.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
+import { YEARS_ID } from "./ids.ts";
 import { rich, t } from "../../../text.ts";
 
 /** The categories on the slope: the twelve largest of either year; the five that moved most in colour. */
@@ -57,7 +58,7 @@ function YearOverYear({ ctx }: SectionProps) {
 }
 
 export const section: ReportSection = {
-  id: "vuodet",
+  id: YEARS_ID,
   get title() {
     return t("rpt.sec_yearoveryear");
   },

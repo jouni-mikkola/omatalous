@@ -4,7 +4,7 @@ import { makeMember, removeMember } from "./helpers.ts";
 // README's *What it does* promises Raportit pages (income against spending, fixed against variable costs, the same months a year
 // earlier, CSV of long tables), an English interface and statement files. Each holds on the demo household, here with two years
 // of rows so the year comparison has both sides.
-test("what the README says about Raportit, English and statement files holds on the demo", async ({ browser }) => {
+test("what the README says about Lisää, English and statement files holds on the demo", async ({ browser }) => {
   const { state, id } = await makeMember(browser, "lupaukset");
   const context = await browser.newContext({ storageState: state, viewport: { width: 1280, height: 900 } });
   try {
@@ -12,10 +12,10 @@ test("what the README says about Raportit, English and statement files holds on 
     expect(demo.status()).toBe(200);
     const page = await context.newPage();
 
-    // six question pages on the demo; the seventh, Yhteiset, waits for an account two members share
+    // Lisää lists four reports on the demo; the fifth, Yhteiset, waits for an account two members share
     await page.goto("/#/reports?q=menot");
-    const topics = page.getByRole("navigation", { name: "Aiheet" });
-    await expect(topics.getByRole("link")).toHaveText([/^Kuukausi/, /^Rahankäyttö/, /^Tulot/, /^Kiinteät menot/, /^Velat/, /^Saldot/]);
+    const more = page.getByRole("navigation", { name: "Lisää" });
+    await expect(more.getByRole("link")).toHaveText(["Vuosi", "Tilit ja saldot", "Lainat", "Verovuosi"]);
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
     await expect(page.getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();

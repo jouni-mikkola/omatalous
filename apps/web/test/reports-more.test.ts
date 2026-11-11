@@ -1,6 +1,6 @@
 import type { ConclusionsReport } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { questionOf } from "../src/pages/Reports.tsx";
+import { questionOf } from "../src/pages/reports/More.tsx";
 
 const some = { x: 1 };
 const conclusions = (open: string[]) => Object.fromEntries(["kuukausi", "menot", "tulot", "kiinteat", "velat", "saldot", "yhteiset"].map((id) => [id, open.includes(id) ? some : null])) as unknown as ConclusionsReport;

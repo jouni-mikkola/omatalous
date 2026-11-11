@@ -7,6 +7,7 @@ import { type Column, Table } from "../../../components/table/Table.tsx";
 import { date, language } from "../../../format.ts";
 import { t } from "../../../text.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
+import { TAX_YEAR_ID } from "./ids.ts";
 
 /** The rows are checked against the return to the cent, so they print cents: whole euros here would round one row differently than the income table does, which rounds its sources together. */
 const rowColumns = (): Column<TaxRow>[] => [
@@ -60,7 +61,7 @@ function TaxYear({ ctx }: SectionProps) {
 }
 
 export const section: ReportSection = {
-  id: "verovuosi",
+  id: TAX_YEAR_ID,
   // read when drawn, so the nav follows the member's language
   get title() {
     return t("tax.title");

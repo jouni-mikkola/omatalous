@@ -13,11 +13,15 @@ const ROUTES = [
   "/#/bills",
   "/#/transactions",
   "/#/transactions?view=merchants",
-  "/#/reports?q=tulot",
-  "/#/reports?q=menot",
+  // Kuukausi, the tab
+  "/#/reports",
+  // Lisää: Vuosi, Tilit ja saldot, Lainat and Verovuosi (Yhteiset needs a shared account)
+  "/#/reports?q=menot#vuodet",
   "/#/reports?q=saldot",
-  "/#/reports?q=kiinteat",
   "/#/reports?q=velat",
+  "/#/reports?q=tulot#verovuosi",
+  // the question pages still behind their addresses
+  "/#/reports?q=kiinteat",
   "/#/reports?q=kuukausi",
   "/#/settings/banks",
   "/#/settings/household",
