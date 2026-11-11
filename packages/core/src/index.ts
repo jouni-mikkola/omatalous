@@ -13,6 +13,7 @@ export * from "./types.ts";
 export * from "./account-use.ts";
 export { holdersIn, nameOf, samePerson, userNameOf } from "./person-names.ts";
 export { isEarnedIncome } from "./analysis/income.ts";
+export { MIN_PAYS } from "./analysis/pay-estimate.ts";
 export * from "./bank-csv.ts";
 export * from "./bank-camt.ts";
 export * from "./card-file.ts";

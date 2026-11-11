@@ -12,8 +12,10 @@ import { daysBetween, monthOf } from "../dates.ts";
 import { MIN_COMPARE_MONTHS, RANGE_HIGH, RANGE_LOW } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
 import type { AheadBasis } from "./ahead.ts";
-import type { AnalysisContext } from "./context.ts";
+import { type AnalysisContext, standingOf } from "./context.ts";
 import { quantile } from "./expected.ts";
+import { INCOME_TYPES, incomeTypes, payersOf } from "./income.ts";
+import { payEvidence } from "./pay-estimate.ts";
 import { paydayOf } from "./runway.ts";
 import { cardsBreakUsual, completeMonthsBefore, spendingThrough } from "./usual.ts";
 
@@ -32,7 +34,10 @@ export interface NytAnswer {
    * no next one), "late" (the largest regular income is late) or "no-balance" (a counted checking account has no balance).
    */
   left:
-    | { known: false; reason: "no-payday" | "late" | "no-balance" }
+    | { known: false; reason: "late" }
+    | { known: false; reason: "no-balance" }
+    /** `found`: the salary pays seen so far from the payer with most of them; the estimate waits for `MIN_PAYS`. */
+    | { known: false; reason: "no-payday"; found: number }
     | {
         known: true;
         /** The pay the sum lasts to, and who pays it. */
@@ -68,9 +73,19 @@ function usualBand(ctx: AnalysisContext, month: string, day: number): UsualBand 
   return { lowCents: quantile(sorted, RANGE_LOW), highCents: quantile(sorted, RANGE_HIGH), months: months.length };
 }
 
-function leftOf({ ahead }: Pick<AheadBasis, "ahead">): NytAnswer["left"] {
+/** The regular pays an estimate would rest on (`payEvidence`), from the payer with most of them. */
+function paysFound(ctx: AnalysisContext): number {
+  const txs = standingOf(ctx).txs;
+  const types = incomeTypes(txs);
+  const counts = [...payersOf(txs).values()].map(
+    (rows) => payEvidence(rows.filter((t) => INCOME_TYPES[types.get(t.id) ?? "other_income"].regular).map((t) => ({ id: t.id, date: t.bookingDate, cents: t.amountCents })), ctx.today).length,
+  );
+  return Math.max(0, ...counts);
+}
+
+function leftOf(ctx: AnalysisContext, { ahead }: Pick<AheadBasis, "ahead">): NytAnswer["left"] {
   const payday = paydayOf(ahead);
-  if (!payday) return { known: false, reason: ahead.reason === "late" ? "late" : "no-payday" };
+  if (!payday) return ahead.reason === "late" ? { known: false, reason: "late" } : { known: false, reason: "no-payday", found: paysFound(ctx) };
   if (!ahead.balance) return { known: false, reason: "no-balance" };
   const days = daysBetween(ahead.from, payday.date);
   const balanceCents = ahead.balance.startCents;
@@ -86,7 +101,7 @@ export function nytAnswer(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead">
   const day = Number(from.slice(8, 10));
   return {
     from,
-    left: leftOf(basis),
+    left: leftOf(ctx, basis),
     usualPerDayCents: basis.ahead.everydayPerDayCents || null,
     pace: { day, spentCents: spendingThrough(ctx, month, day), usual: usualBand(ctx, month, day) },
   };

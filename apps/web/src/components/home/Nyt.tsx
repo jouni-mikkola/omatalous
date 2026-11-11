@@ -6,15 +6,15 @@ import { rich, t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 import { Button } from "../ui/Button.tsx";
-import { euroRange, monthTitle, paceGapText } from "./texts.ts";
+import { euroRange, monthTitle, noPaydayText, paceGapText } from "./texts.ts";
 
 type NytData = NonNullable<DashboardData["nyt"]>;
 
 /** Why there is no sum to say. */
-function unknownText(reason: Extract<NytData["left"], { known: false }>["reason"]): string {
-  if (reason === "late") return t("home.gap_late");
-  if (reason === "no-balance") return t("home.no_balance");
-  return t("home.gap_no_payday");
+function unknownText(left: Extract<NytData["left"], { known: false }>): string {
+  if (left.reason === "late") return t("home.gap_late");
+  if (left.reason === "no-balance") return t("home.no_balance");
+  return noPaydayText(left.found);
 }
 
 /**
@@ -40,7 +40,7 @@ export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
         </h2>
       ) : (
         <h2 id="home-question" className="home-answer-line">
-          {unknownText(left.reason)}
+          {unknownText(left)}
         </h2>
       )}
       {(left.known && left.days > 0) || usualPerDayCents !== null ? (

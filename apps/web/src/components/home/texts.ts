@@ -3,7 +3,7 @@
  * page. Nothing is added up here: every euro figure is a field the server gives, and a sentence that sets one against
  * another names the comparison (Odotettu, the month's expected level, ADR 0021).
  */
-import { joinRange, localeOf, MIN_COMPARE_MONTHS } from "@banking/core";
+import { joinRange, localeOf, MIN_COMPARE_MONTHS, MIN_PAYS } from "@banking/core";
 import { completeMonths, dayMonth, language, monthLong, money } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
@@ -36,6 +36,12 @@ export interface AnswerText {
   detail: string[];
 }
 
+/** No payday: the first sentence, and with the pays found so far, how many are needed. */
+export function noPaydayText(found?: number): string {
+  const first = t("home.gap_no_payday");
+  return found === undefined || found >= MIN_PAYS ? first : `${first} ${tn(found, "home.gap_pays_one", "home.gap_pays_many", { need: MIN_PAYS })}`;
+}
+
 /** The reason there is no everyday spending, and so no range for the payday. */
 function gapText(reason: Extract<RunwayData["leftOnPayday"], { known: false }>["reason"]): string | null {
   switch (reason) {
@@ -46,7 +52,7 @@ function gapText(reason: Extract<RunwayData["leftOnPayday"], { known: false }>["
     case "late":
       return t("home.gap_late");
     case "no-payday":
-      return t("home.gap_no_payday");
+      return noPaydayText();
     default:
       return null;
   }

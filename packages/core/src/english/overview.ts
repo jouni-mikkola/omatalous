@@ -9,6 +9,8 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.gap_cards": "Everyday spending cannot be estimated yet: card purchases are missing from earlier months.",
   "home.gap_late": "Your pay is late, so the amount left on payday cannot be worked out.",
   "home.gap_no_payday": "Your next payday is not known, so the amount left per day cannot be worked out.",
+  "home.gap_pays_one": "We found {count} pay, we need {need}.",
+  "home.gap_pays_many": "We found {count} pays, we need {need}.",
   "home.no_balance": "Your account balance is not known, so the amount left cannot be worked out.",
   "home.per_day_one": "That is {sum} a day for the {count} day left until payday.",
   "home.per_day_many": "That is {sum} a day for the {count} days left until payday.",

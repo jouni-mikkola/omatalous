@@ -97,8 +97,15 @@ describe("Nyt", () => {
   it("says why there is no sum, and no band under three complete months", () => {
     expect(run(rows, []).answer.left).toEqual({ known: false, reason: "no-balance" });
     const short = run([...rents(), ...shopping()].filter((t) => t.bookingDate >= "2026-08-01")).answer;
-    expect(short.left).toEqual({ known: false, reason: "no-payday" });
+    expect(short.left).toEqual({ known: false, reason: "no-payday", found: 0 });
     expect(short.pace.usual).toBeNull();
     expect(short.usualPerDayCents).toBeNull();
+  });
+
+  it("no payday says how many pays were found", () => {
+    const base = [...rents(), ...shopping()];
+    const one = run([...base, ...pays().slice(-1)]).answer;
+    expect(one.left).toEqual({ known: false, reason: "no-payday", found: 1 });
+    expect(run(base).answer.left).toEqual({ known: false, reason: "no-payday", found: 0 });
   });
 });

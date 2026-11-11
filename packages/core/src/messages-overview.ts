@@ -11,6 +11,8 @@ export const FI_OVERVIEW = {
   "home.gap_cards": "Emme voi arvioida arkimenojasi, koska aiempien kuukausien korttiostot puuttuvat.",
   "home.gap_late": "Palkkasi on myöhässä, joten emme voi laskea, paljonko palkkapäivänä jää.",
   "home.gap_no_payday": "Emme tiedä palkkapäivääsi, joten emme voi laskea, paljonko päivässä jää.",
+  "home.gap_pays_one": "Löysimme {count} palkan, tarvitsemme {need}.",
+  "home.gap_pays_many": "Löysimme {count} palkkaa, tarvitsemme {need}.",
   "home.no_balance": "Emme tiedä tilisi saldoa, joten emme voi laskea, paljonko jää.",
   "home.per_day_one": "Se on {sum} päivässä, kun palkkapäivään on {count} päivä.",
   "home.per_day_many": "Se on {sum} päivässä, kun palkkapäivään on {count} päivää.",

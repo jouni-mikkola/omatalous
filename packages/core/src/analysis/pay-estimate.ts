@@ -36,7 +36,7 @@ export interface PayEstimate {
 }
 
 /** Fewer pays than this are no evidence of a level: no estimate. */
-const MIN_PAYS = 3;
+export const MIN_PAYS = 3;
 /** The newest this many pays are the evidence; older ones are another time. */
 const MAX_PAYS = 12;
 /**

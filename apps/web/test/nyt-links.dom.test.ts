@@ -14,7 +14,7 @@ function data(known: boolean): DashboardData & { nyt: NytData } {
     from: "2026-11-11",
     left: known
       ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents: 189954, leftCents: 310046, perDayCents: 22146 }
-      : { known: false, reason: "no-payday" },
+      : { known: false, reason: "no-payday", found: 1 },
     usualPerDayCents: null,
     pace: { day: 11, spentCents: 123400, usual: null },
   };
