@@ -243,8 +243,8 @@ export interface Area {
 
 export type FindingStatus = "done" | "dismissed" | "snoozed";
 /** Ei koske meitä: tarvitsen tämän, olen jo kilpailuttanut, arvio on väärä, en voi vaikuttaa. */
-export const DISMISS_REASONS = ["need_it", "compared", "wrong", "cannot"] as const;
-export type DismissReason = (typeof DISMISS_REASONS)[number];
+const DISMISS_REASONS = ["need_it", "compared", "wrong", "cannot"] as const;
+type DismissReason = (typeof DISMISS_REASONS)[number];
 
 /** Monthly sums of a finding's measure before the change (`baselineOf`), oldest first. */
 export type Baseline = readonly { month: string; cents: number }[];
@@ -371,11 +371,6 @@ export interface DismissedInsight {
   subject: string;
   /** ISO timestamp of the mark. */
   markedAt: string;
-}
-
-/** An input as the server stores and returns it: its full key and what the core keeps of it. */
-export interface InputRow extends StoredInput {
-  key: string;
 }
 
 /** One move of the reference rate for one loan. */

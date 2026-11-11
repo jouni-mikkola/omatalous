@@ -43,7 +43,7 @@ import { housingCharge } from "./wording.ts";
  */
 export const MORTGAGE_QUESTION = "question:mortgage";
 
-export interface HousingLoan {
+interface HousingLoan {
   /** The saved loan's id, the one its row of `Holdings.loans` has. Null for payments in the rows with no saved loan. */
   id: string | null;
   /** What the household calls the loan. Null with no saved loan: the page has the word. */
@@ -76,7 +76,7 @@ export interface HousingLoan {
   part?: Part;
 }
 
-export interface HousingCharge {
+interface HousingCharge {
   seriesId: string;
   /** What the payment is, in the words of its own text ("Hoitovastike"). Null when they name nothing: the payee stands alone. */
   label: string | null;

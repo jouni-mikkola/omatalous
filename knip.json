@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "include": ["exports", "types"],
+  "include": ["files", "exports", "types"],
   "vitest": false,
   "workspaces": {
     ".": {
@@ -23,7 +23,6 @@
     }
   },
   "ignoreIssues": {
-    "apps/web/src/design/tokens.ts": ["exports", "types"],
-    "apps/web/src/pages/transactions/FilterChips.tsx": ["exports"]
+    "apps/web/src/design/tokens.ts": ["exports", "types"]
   }
 }

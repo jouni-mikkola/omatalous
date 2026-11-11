@@ -5,7 +5,6 @@
  * be linked and the back button undoes a filter.
  */
 import { type ReactNode, useRef, useState } from "react";
-import { navigate } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { Category } from "../../types.ts";
 import { AccountMark, type AccountLook } from "./Marks.tsx";
@@ -27,7 +26,7 @@ export interface Filters {
 }
 
 /** A filter chip: unset ("+ name") it opens its list, set (`value` not null) it names its value and has an x; a chip with no list is a toggle. */
-export function Chip({ name, value, icon, onClear, children }: { name: string; value: string | null; icon?: ReactNode; onClear: () => void; children?: (close: () => void) => ReactNode }) {
+function Chip({ name, value, icon, onClear, children }: { name: string; value: string | null; icon?: ReactNode; onClear: () => void; children?: (close: () => void) => ReactNode }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const close = () => setOpen(false);
@@ -167,50 +166,6 @@ export function FilterChips({ filters, categories, accounts, severalAccounts, lo
       {filters.merchant && <Chip name={t("fchip.merchant")} value={filters.merchant} onClear={() => set({ merchant: "" })} />}
       {any && (
         <button type="button" className="tx-fclear" onClick={clear}>
-          {t("tx.clear")}
-        </button>
-      )}
-    </div>
-  );
-}
-
-/**
- * The filters of the Kauppiaat tab, in the toolbar of its table beside the one search box: a period, a category and the
- * everyday-purchases filter that only the address sets. The same chips as the list's.
- */
-export function MerchantFilters({ filters, categories, today, set }: { filters: { category: string; from: string; to: string; habit: boolean }; categories: Category[]; today: string; set: (patch: { category?: string; from?: string; to?: string; habit?: boolean }) => void }) {
-  const period: Period = { from: filters.from, to: filters.to };
-  const picked = categories.find((c) => c.id === filters.category);
-  const any = !!(filters.category || filters.from || filters.to || filters.habit);
-  return (
-    <div className="tx-fchips" role="group" aria-label={t("fchip.filters")}>
-      <Chip name={t("fchip.period")} value={filters.from || filters.to ? periodLabel(period, today) : null} onClear={() => set({ from: "", to: "" })}>
-        {(close) => (
-          <DateRange
-            value={period}
-            today={today}
-            onCommit={(p) => {
-              close();
-              set(p);
-            }}
-          />
-        )}
-      </Chip>
-      <Chip name={t("fchip.category")} value={picked?.label ?? (filters.category || null)} icon={picked && <CategoryIcon category={picked} />} onClear={() => set({ category: "" })}>
-        {(close) => (
-          <CategoryMenu
-            categories={categories}
-            value={filters.category}
-            onPick={(id) => {
-              close();
-              set({ category: id });
-            }}
-          />
-        )}
-      </Chip>
-      {filters.habit && <Chip name={t("opt.hab_chk")} value="" onClear={() => set({ habit: false })} />}
-      {any && (
-        <button type="button" className="tx-fclear" onClick={() => navigate("transactions", { view: "merchants" })}>
           {t("tx.clear")}
         </button>
       )}
