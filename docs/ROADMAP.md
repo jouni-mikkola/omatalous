@@ -177,6 +177,13 @@ Result: A planning step reads docs/design/README.md, docs/audit/simplify.md and 
 - locks: none
 - after: none
 
+### N21 Main's full check passes again
+Result: A full check run on main is green: the four server names are no longer exported unread, and the text scan's floor follows the smaller app.
+- why: Main's full check fails on two repo rules that light-scope runs hide (run 43029509215 on d36e4c3): rule 24a names KEEP_ALIVE_TIMEOUT_MS, HEADERS_TIMEOUT_MS (apps/server/src/entry/server-timeouts.ts:12,18) and shutdown, StopEvent (apps/server/src/entry/shutdown.ts:25,47) as exports no source file reads; rule 10 (tools/repo-rules/text-rules.ts:132) wants over 300 UI texts and finds 295 after the design deletions, which will delete more. Every full-scope PR check (D2 #131) and main run goes red on them.
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees.
+- locks: none
+- after: none
+
 ### C1 Pay day moved past month end
 Result: An income paid on the next banking day after a closed last day of the month is expected on that day, also when it falls in the next month.
 - why: `payDayOf` and `nextPayDate` in `pay-day.ts` look for a pay date only in its own month and the month before it, so a day 31 moved forward to the 1st or 2nd is missed: nine such pay dates read as day 31 moved back with 6 hits of 9, and after 1 June 2025 the next pay date reads 30 June, not 2 June.
