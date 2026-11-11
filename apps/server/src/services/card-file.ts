@@ -3,7 +3,7 @@
  * text each, and the card's name or one of the household's statement cards. The rows go in through `ingestTransactions` like
  * any fetch, so the same statement sent twice stores each row once.
  */
-import { CARD_FILE_MAX_CENTS, CARD_FILE_MAX_ROWS, isRealDay, STATEMENT_TEXT_MAX, type RawTransaction } from "@banking/core";
+import { CARD_FILE_MAX_CENTS, CARD_FILE_MAX_ROWS, fold, isRealDay, normalizeMerchant, STATEMENT_TEXT_MAX, UNKNOWN_MERCHANT, type RawTransaction } from "@banking/core";
 import { bankFile } from "../connectors/bank-file/index.ts";
 import { cardFile } from "../connectors/card-file/index.ts";
 import type { Connector } from "../connectors/types.ts";
@@ -62,27 +62,60 @@ const ACCOUNT: StatementKind = { source: bankFile, type: "checking", fallbackNam
 export const saveCardFile = (s: Services, userId: string, input: CardFileInput) => saveStatementRows(s, userId, input, CARD);
 export const saveBankFile = (s: Services, userId: string, input: CardFileInput) => saveStatementRows(s, userId, input, ACCOUNT);
 
+/** A file whose rows mostly sit on one bank-connected account is that account's file: saving it to a new account would count every payment twice. */
+async function refuseIfConnected(repo: ReturnType<Services["finance"]>, rows: CardFileInput["rows"]): Promise<void> {
+  if (rows.length < 3) return;
+  const days = rows.map((r) => r.day).sort();
+  const connected = (await repo.listAccounts()).filter((a) => a.provider === "enablebanking");
+  const stored = await Promise.all(connected.map((a) => repo.transactionKeys(a.id, days[0]!, days[days.length - 1]!)));
+  // the merchants agree on their first word, or one of them says nothing
+  const agree = (a: string, b: string) => {
+    if (a === UNKNOWN_MERCHANT || b === UNKNOWN_MERCHANT) return true;
+    if (fold(a).trim() === fold(b).trim()) return true;
+    const fa = fold(a).trim().split(/\s+/)[0] ?? "";
+    return fa.length >= 3 && fa === (fold(b).trim().split(/\s+/)[0] ?? "");
+  };
+  for (const [i, account] of connected.entries()) {
+    const held = [...stored[i]!];
+    let same = 0;
+    for (const r of rows) {
+      const merchant = normalizeMerchant(r.text, null);
+      const at = held.findIndex((t) => t.bookingDate === r.day && t.amountCents === r.cents && agree(t.merchant, merchant));
+      if (at >= 0) {
+        held.splice(at, 1);
+        same++;
+      }
+    }
+    if (same >= 3 && same * 2 >= rows.length) throw UserError.of("card_file.on_account", { account: account.name });
+  }
+}
+
 /** Stores the rows on a statement account of the user's: the one named, else the one the name gives (made on first use). */
 async function saveStatementRows(s: Services, userId: string, input: CardFileInput, kind: StatementKind): Promise<CardFileResult> {
   const repo = s.finance(userId);
   if (input.rows.some((r) => r.day > s.today())) throw UserError.of("card_file.future");
   let accountId = input.accountId;
   let accountChanged = false;
+  let connected = false;
   if (accountId) {
-    // only a card made here takes rows: a bank's account is filled by its own fetch
+    // a card made here takes rows; so does the user's own connected checking account, when the file is a bank's (the sync skips what the file holds)
     const account = await repo.getAccount(accountId);
-    if (!account || account.provider !== kind.source.id) throw UserError.of("card_file.bad_account");
+    const filled = account?.provider === kind.source.id || (kind === ACCOUNT && account?.provider === "enablebanking" && account.type === "checking");
+    if (!account || !filled) throw UserError.of("card_file.bad_account");
+    connected = account.provider !== kind.source.id;
   } else {
     const name = input.name ?? (input.last4 ? `${kind.fallbackName} ${input.last4}` : kind.fallbackName);
     const identity = stableId(`${userId}|${kind.source.id}|${name}|${input.last4 ?? ""}`);
     accountId = `${kind.source.id}-${identity}`;
     if (!(await repo.getAccount(accountId))) {
+      if (kind === ACCOUNT) await refuseIfConnected(repo, input.rows);
       accountChanged = true;
       await repo.upsertAccount({ id: accountId, connectionId: null, provider: kind.source.id, externalId: null, identity, name, cardMask: input.last4 ? `**** ${input.last4}` : null, iban: null, currency: "EUR", type: kind.type });
     }
   }
   const raws: RawTransaction[] = input.rows.map((r) => ({
-    externalId: null,
+    // on a bank's account a row without a name of its own would take the id the bank's same row has, and replace it: the name keeps the file's row apart
+    externalId: connected ? `file|${r.day}|${r.cents}|${r.text}` : null,
     bookingDate: r.day,
     valueDate: null,
     amountCents: r.cents,

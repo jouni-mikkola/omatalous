@@ -28,4 +28,5 @@ export const EN_CARD_FILE: Record<keyof typeof FI_CARD_FILE, string> = {
   "card_file.too_many": "Too many rows: {max} at most at a time.",
   "card_file.future": "The file has rows dated in the future.",
   "card_file.bad_account": "Rows cannot be saved to this account.",
+  "card_file.on_account": "Most of these rows are already on the account {account}. Choose that account to save them to.",
 };

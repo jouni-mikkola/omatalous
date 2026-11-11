@@ -4,6 +4,7 @@
  */
 import { guessBankCsvLayout, parseBankCsv, readBankCamt, readBankCsvRows } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import { ingestTransactions } from "../src/services/ingest.ts";
 import { setupApp } from "./helpers.ts";
 
 // the test clock is 2026-10-09
@@ -62,5 +63,50 @@ describe("bank CSV rows", () => {
     expect((await send()).body).toMatchObject({ fetched: 2, inserted: 2 });
     expect((await send()).body).toMatchObject({ inserted: 0, changed: 0 });
     expect((await db.first<{ n: number }>("SELECT count(*) AS n FROM transactions"))?.n).toBe(2);
+  });
+
+  const raw = (bookingDate: string, amountCents: number, counterparty: string) => ({
+    externalId: null, bookingDate, valueDate: null, amountCents, currency: "EUR", status: "booked" as const, counterparty, counterpartyIban: null, description: null, reference: null, mcc: null,
+  });
+  const connect = async (app: Awaited<ReturnType<typeof setupApp>>, id: string, rows: ReturnType<typeof raw>[]) => {
+    const repo = app.s.finance(app.adminId);
+    await repo.upsertAccount({ id, connectionId: null, provider: "enablebanking", externalId: null, identity: `idn-${id}`, name: "Pankkitili", iban: null, currency: "EUR", type: "checking" });
+    await ingestTransactions(repo, id, rows, "enablebanking");
+    return repo;
+  };
+
+  it("fills a connected checking account, skipping what the bank holds, and a later sync skips the file", async () => {
+    const app = await setupApp();
+    const repo = await connect(app, "eb1", [raw("2026-09-03", -2340, "PRISMA TIKKURILA")]);
+    const r = await app.admin.call("POST", "/api/bank-file", body(BANK_A, { accountId: "eb1" }));
+    expect(r.body).toMatchObject({ accountId: "eb1", fetched: 2, inserted: 1, skipped: 1 });
+    expect((await repo.transactionKeys("eb1", "2026-09-01", "2026-09-30")).filter((t) => t.source === "bankfile")).toHaveLength(1);
+    const sync = await ingestTransactions(repo, "eb1", [raw("2026-09-03", -2340, "PRISMA TIKKURILA"), raw("2026-09-05", 250000, "ACME OY")], "enablebanking");
+    expect(sync).toMatchObject({ inserted: 0, skipped: 1 });
+  });
+
+  it("refuse a card, a loan and another member's account", async () => {
+    const app = await setupApp();
+    const eero = await app.member("eero", "Eero");
+    await app.s.finance(app.adminId).upsertAccount({ id: "loan1", connectionId: null, provider: "enablebanking", externalId: null, identity: "idn-loan", name: "Laina", iban: null, currency: "EUR", type: "loan" });
+    await app.s.finance(eero.id).upsertAccount({ id: "eero1", connectionId: null, provider: "enablebanking", externalId: null, identity: "idn-e", name: "Eero", iban: null, currency: "EUR", type: "checking" });
+    const card = await app.admin.call("POST", "/api/card-file", { name: "Visa", rows: [{ day: "2026-09-03", cents: -2340, text: "PRISMA" }] });
+    for (const accountId of [card.body.accountId, "loan1", "eero1"]) {
+      const r = await app.admin.call("POST", "/api/bank-file", body(BANK_A, { accountId }));
+      expect(r.status).toBe(400);
+      expect(r.body.messageCode).toBe("card_file.bad_account");
+    }
+  });
+
+  it("refuse a new account for rows that mostly sit on a connected account, naming it", async () => {
+    const app = await setupApp();
+    await connect(app, "eb2", [raw("2026-09-03", -2340, "A"), raw("2026-09-04", -4120, "B"), raw("2026-09-06", 250000, "C")]);
+    const csv = ["Date,Description,Debit,Credit", "2026-09-03,A,23.40,", "2026-09-04,B,41.20,", "2026-09-06,C,,2500.00", "2026-09-07,D,5.00,"].join("\n");
+    const r = await app.admin.call("POST", "/api/bank-file", body(csv));
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ messageCode: "card_file.on_account", params: { account: "Pankkitili" } });
+    // a card file is not sent to a bank account
+    const card = await app.admin.call("POST", "/api/card-file", { name: "Visa", rows: [0, 1, 2].map((i) => ({ day: ["2026-09-03", "2026-09-04", "2026-09-06"][i], cents: [-2340, -4120, 250000][i], text: "ABC"[i] })) });
+    expect(card.status).toBe(200);
   });
 });
