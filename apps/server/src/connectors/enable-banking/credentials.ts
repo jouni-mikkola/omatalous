@@ -9,7 +9,7 @@ import type { Services } from "../../services/context.ts";
 import { recordEvent } from "../../services/security.ts";
 import type { RequestInfo } from "../../services/users.ts";
 import { type ActivationResult, countKeyTest, instanceCredentials, parseAppId, testOwnKey } from "./app-setup.ts";
-import { EnableBankingClient } from "./client.ts";
+import { EnableBankingClient, type KeptPages } from "./client.ts";
 
 export interface ResolvedCredentials extends EnableBankingConfig {
   source: "user" | "instance";
@@ -56,8 +56,11 @@ export async function removeCredentials(s: Services, userId: string, req: Reques
   await recordEvent(s, { kind: "bank_key_removed", userId, ...req });
 }
 
+/** Pages kept from failed transactions answers, per user, so the next sync's client goes on from them. */
+const keptPagesByUser = new Map<string, KeptPages>();
+
 export async function clientFor(s: Services, userId: string): Promise<EnableBankingClient> {
   const creds = await resolveCredentials(s, userId);
   if (!creds) throw new UserError("Pankkiyhteydet eivät ole vielä käytössä. Pyydä ylläpitäjää ottamaan ne käyttöön kohdassa Asetukset > Pankit ja tilit.");
-  return new EnableBankingClient({ appId: creds.appId, privateKeyPem: creds.privateKeyPem, baseUrl: s.config.bank.apiUrl, fetch: s.fetch, authHosts: s.config.bank.authHosts, timeZone: s.instance.current.timezone });
+  return new EnableBankingClient({ appId: creds.appId, privateKeyPem: creds.privateKeyPem, baseUrl: s.config.bank.apiUrl, fetch: s.fetch, authHosts: s.config.bank.authHosts, timeZone: s.instance.current.timezone, keptPages: keptPagesByUser.get(userId) ?? keptPagesByUser.set(userId, new Map()).get(userId)! });
 }

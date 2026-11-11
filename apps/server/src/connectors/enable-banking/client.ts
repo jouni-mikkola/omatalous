@@ -85,7 +85,15 @@ export interface EnableBankingOptions {
   authHosts?: readonly string[];
   /** The household's time zone, for dates the bank gives with a time. */
   timeZone?: string;
+  /** Pages of failed transactions answers; give the same store to each client of one user so a later sync goes on from them. */
+  keptPages?: KeptPages;
 }
+
+export interface KeptPage { out: RawTransaction[]; next: string; page: number; refused: RefusedRows; at: number }
+export type KeptPages = Map<string, KeptPage>;
+/** Pages kept for a window nobody asks for again are dropped after this long, and no more than KEPT_MAX stay. */
+const KEPT_TTL_MS = 60 * 60_000;
+const KEPT_MAX = 8;
 
 const MAX_PAGES = 200;
 /** One request may take this long; a hung answer would hold the sync lock for 15 minutes. */
@@ -115,8 +123,11 @@ export class EnableBankingClient {
   private token: { value: string; expiresAt: number } | null = null;
   private readonly baseUrl: string;
   private readonly fetchFn: typeof fetch;
+  /** Pages already read of a transactions answer that then failed, kept so the next try goes on from there. */
+  private readonly partial: KeptPages;
 
   constructor(private readonly opts: EnableBankingOptions) {
+    this.partial = opts.keptPages ?? new Map();
     this.baseUrl = opts.baseUrl ?? "https://api.enablebanking.com";
     this.fetchFn = opts.fetch ?? ((input, init) => fetch(input, init));
   }
@@ -222,27 +233,47 @@ export class EnableBankingClient {
     return (await this.request<{ balances: EbBalance[] }>("GET", `/accounts/${encodeURIComponent(accountUid)}/balances`, undefined, userHeaders)).balances;
   }
 
+  private keep(id: string, entry: KeptPage): void {
+    for (const [k, v] of this.partial) if (Date.now() - v.at >= KEPT_TTL_MS) this.partial.delete(k);
+    while (this.partial.size >= KEPT_MAX) this.partial.delete(this.partial.keys().next().value!);
+    this.partial.set(id, entry);
+  }
+
   /** All transactions since `dateFrom` (up to `dateTo` when given), following continuation keys. A row that cannot be read is counted into `refused` by its reason. */
   async transactions(accountUid: string, dateFrom: string, strategy: "default" | "longest" = "default", userHeaders?: Readonly<Record<string, string>>, refused: RefusedRows = {}, dateTo?: string): Promise<RawTransaction[]> {
-    const out: RawTransaction[] = [];
-    let continuationKey: string | null | undefined;
-    for (let page = 0; page < MAX_PAGES; page++) {
+    const resumeId = JSON.stringify([accountUid, dateFrom, strategy, dateTo ?? null]);
+    const found = this.partial.get(resumeId);
+    this.partial.delete(resumeId);
+    const kept = found && Date.now() - found.at < KEPT_TTL_MS ? found : undefined;
+    const out: RawTransaction[] = kept?.out ?? [];
+    const seen: RefusedRows = kept?.refused ?? {};
+    let continuationKey: string | null | undefined = kept?.next;
+    for (let page = kept?.page ?? 0; page < MAX_PAGES; page++) {
       const params = new URLSearchParams({ date_from: dateFrom });
       // the longest strategy ignores the end day, so an ask that has one is a plain window
       if (dateTo && strategy === "default") params.set("date_to", dateTo);
       if (strategy !== "default") params.set("strategy", strategy);
       if (continuationKey) params.set("continuation_key", continuationKey);
-      const r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`, undefined, userHeaders);
+      let r: EbTransactionsPage;
+      try {
+        r = await this.request<EbTransactionsPage>("GET", `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`, undefined, userHeaders);
+      } catch (err) {
+        if (continuationKey) this.keep(resumeId, { out, next: continuationKey, page, refused: seen, at: Date.now() });
+        throw err;
+      }
       for (const t of r.transactions ?? []) {
         const mapped = mapTransaction(t, this.opts.timeZone);
         if (mapped) out.push(mapped);
         else {
           const reason = refusalOf(t, this.opts.timeZone)!;
-          refused[reason] = (refused[reason] ?? 0) + 1;
+          seen[reason] = (seen[reason] ?? 0) + 1;
         }
       }
       continuationKey = r.continuation_key;
-      if (!continuationKey) return out;
+      if (!continuationKey) {
+        for (const [reason, n] of Object.entries(seen)) refused[reason as keyof RefusedRows] = (refused[reason as keyof RefusedRows] ?? 0) + (n ?? 0);
+        return out;
+      }
     }
     // a short list taken for the whole answer would leave a gap that the next fetch window never covers
     throw new Error(`the bank's transactions did not end after ${MAX_PAGES} pages`);
