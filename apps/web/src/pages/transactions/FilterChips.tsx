@@ -103,7 +103,21 @@ export function FilterChips({ filters, categories, accounts, severalAccounts, lo
       {(!filters.kind || (severalAccounts && !filters.accountId)) && (
         <Chip name={t("fchip.more")} value={null} onClear={() => undefined}>
           {(close) => (
-            <ul className="tx-acctlist" role="listbox" aria-label={t("fchip.more")}>
+            <ul
+              className="tx-acctlist"
+              role="listbox"
+              aria-label={t("fchip.more")}
+              onKeyDown={(e) => {
+                const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
+                if (!keys.includes(e.key)) return;
+                const options = [...e.currentTarget.querySelectorAll<HTMLElement>("[role=option]")];
+                if (!options.length) return;
+                e.preventDefault();
+                const at = options.indexOf(document.activeElement as HTMLElement);
+                const next = e.key === "Home" ? 0 : e.key === "End" ? options.length - 1 : e.key === "ArrowDown" ? Math.min(at + 1, options.length - 1) : Math.max(at - 1, 0);
+                options[next]?.focus();
+              }}
+            >
               {!filters.kind && (
                 <li
                   role="option"
