@@ -11,7 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import { EXTENSIONS } from "../src/extensions.ts";
 import { BundleRefused, checkBundle, NotForThisVersion } from "../src/modules/bundle.ts";
 import { moduleCodeText, parseModuleCode } from "../src/modules/code.ts";
-import { loadInstalledModule } from "../src/modules/load.ts";
+import { loadInstalledModule, type StartState } from "../src/modules/load.ts";
 import { satisfies } from "../src/modules/semver.ts";
 import { readActive } from "../src/modules/store.ts";
 import { APP_VERSION } from "../src/version.ts";
@@ -330,6 +330,28 @@ describe("the code in Asetukset, then a start", () => {
     const put = await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
     expect(put.body).toEqual({ state: "waiting" });
     expect(readActive(root)).toBeNull();
+  });
+
+  it("never goes back to an older signed release while the installed one fits, and does when it waits for another app version", async () => {
+    const root = join(work, "data-5", "modules");
+    const newer = realBundle("down-newer", { version: "1.3.0" });
+    const older = realBundle("down-older");
+    const modules = (start: StartState) => ({ modules: { root, signersFile: signers, start } });
+    const first = await setupApp({}, releaseService({ "1.3.0": newer, "1.2.0": older }), modules({ state: "none" }));
+    await first.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.3.0" });
+
+    // the release list lost 1.3.0 (deleted, or a list of someone else's): the installed one stays, loaded or not yet
+    for (const start of [{ state: "none" }, { state: "connected", id: "example", version: "1.3.0", filesDir: root, css: false }] as StartState[]) {
+      const later = await setupApp({}, releaseService({ "1.2.0": older }), modules(start));
+      await later.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+      expect(readActive(root), start.state).toEqual({ id: "example", version: "1.3.0" });
+    }
+
+    // the app was rolled back and 1.3.0 is not for it: the older one that fits is taken
+    const rolledBack = await setupApp({}, releaseService({ "1.2.0": older }), modules({ state: "waiting", id: "example", version: "1.3.0" }));
+    await rolledBack.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.2.0" });
   });
 
   it("is refused when the release service signs with another key, with the reason and not the code", async () => {

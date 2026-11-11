@@ -97,7 +97,8 @@ never in the code, the bundle, the environment or the database.
    `api.github.com`, a redirect is followed only to an `https` address and without the token), verifies the
    signature, reads the manifest, checks the version and the host range, and checks every tar entry. The first that
    passes is installed. A bundle that fails any step is refused and none of it is written outside a temporary folder
-   or run.
+   or run. A release older than the installed module is skipped, unless the installed one waits for another app
+   version: an old signature stays valid, so a release list without the newer ones does not bring an old bundle back.
 2. **Install**: the verified tar and its signature go to `<DATA_DIR>/modules/<id>/<version>/`, and
    `<DATA_DIR>/modules/active.json` names `{ "id", "version" }`. Older versions of the same id are deleted. The app
    restarts through the maintenance helper when one is linked; otherwise the status says that the module starts at the

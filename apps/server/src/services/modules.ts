@@ -11,6 +11,7 @@ import { checkBundle, BundleRefused, NotForThisVersion } from "../modules/bundle
 import { type ModuleCode, moduleCodeText, parseModuleCode } from "../modules/code.ts";
 import { download, FetchFailed, listCandidates } from "../modules/fetch.ts";
 import type { StartState } from "../modules/load.ts";
+import { compareVersions, parseVersion } from "../modules/semver.ts";
 import { install, readActive, removeAll } from "../modules/store.ts";
 import type { Services } from "./context.ts";
 import { checkPassword, type Req } from "./ops.ts";
@@ -109,6 +110,12 @@ async function runCheck(s: Services, userId: string | null): Promise<void> {
     const candidates = await listCandidates(fetchImpl, code);
     for (const c of candidates) {
       const active = readActive(root);
+      // an older signed release stays valid forever, so a release list that lost its newer ones must not bring it back.
+      // Older is taken only when the installed one waits for another app version (an app rolled back)
+      if (active && startState(s).state !== "waiting" && compareVersions(parseVersion(c.version)!, parseVersion(active.version)!) < 0) {
+        reason = "the release is older than the installed module";
+        continue;
+      }
       try {
         const { packed, signature } = await download(fetchImpl, code, c);
         const checked = await checkBundle(packed, signature, { signersFile: s.modules?.signersFile ?? null, appVersion, version: c.version });
