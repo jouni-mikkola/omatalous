@@ -103,7 +103,7 @@ export function authRoutes(s: Services) {
     try {
       record = await s.users.findForLogin(username);
       // verify against a dummy hash for unknown users, so timing does not reveal valid usernames
-      ok = await verifyUniform(password, record?.passwordHash ?? null, passwordCost(s), await s.users.legacyRounds());
+      ok = await verifyUniform(password, record?.passwordHash ?? null, passwordCost(s), await s.users.costsInUse());
       // the slot is still held: the rewrite of an older hash costs one more hash
       if (record && ok) {
         const stored = await upgradePasswordHash(s, record, password, { ip, userAgent });

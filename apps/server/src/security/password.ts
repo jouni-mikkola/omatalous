@@ -26,7 +26,9 @@ const MAX_MEMORY_KIB = limitField("passwordMemoryKib").max;
 const MAX_PASSES = limitField("passwordPasses").max;
 const MAX_ITERATIONS = 10_000_000;
 
-const ARGON2 = /^argon2id\$v=19\$m=(\d{1,7}),t=(\d{1,3}),p=1\$([\w-]{1,64})\$([\w-]{1,128})$/;
+const ARGON2_PARAMS = String.raw`argon2id\$v=19\$m=(\d{1,7}),t=(\d{1,3}),p=1`;
+const ARGON2 = new RegExp(String.raw`^${ARGON2_PARAMS}\$([\w-]{1,64})\$([\w-]{1,128})$`);
+const ARGON2_HEAD = new RegExp(`^${ARGON2_PARAMS}$`);
 
 async function deriveArgon2(password: string, salt: Uint8Array<ArrayBuffer>, memoryKib: number, passes: number): Promise<Uint8Array> {
   const hash = await argon2Async({ message: utf8.encode(password.normalize("NFKC")), nonce: salt, parallelism: LANES, tagLength: TAG_BYTES, memory: memoryKib, passes });
@@ -45,7 +47,14 @@ export async function hashPassword(password: string, cost: PasswordCost): Promis
   return `argon2id$v=19$m=${cost.memoryKib},t=${cost.passes},p=${LANES}$${toBase64Url(salt)}$${toBase64Url(hash)}`;
 }
 
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+/** The two derivations, so a test can count them. */
+export interface Derivers {
+  argon2: typeof deriveArgon2;
+  pbkdf2: typeof derivePbkdf2;
+}
+const realDerivers: Derivers = { argon2: deriveArgon2, pbkdf2: derivePbkdf2 };
+
+export async function verifyPassword(password: string, stored: string, derive: Derivers = realDerivers): Promise<boolean> {
   const argon = ARGON2.exec(stored);
   if (argon) {
     const memory = Number(argon[1]);
@@ -54,7 +63,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
     const salt = decode(argon[3]!);
     const tag = decode(argon[4]!);
     if (!salt || salt.length < 8 || tag?.length !== TAG_BYTES) return false;
-    return timingSafeEqual(await deriveArgon2(password, salt, memory, passes), tag);
+    return timingSafeEqual(await derive.argon2(password, salt, memory, passes), tag);
   }
   const [scheme, iter, salt, hash] = stored.split("$");
   if (scheme !== "pbkdf2_sha256" || !iter || !salt || !hash) return false;
@@ -63,7 +72,7 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const saltBytes = decode(salt);
   const tag = decode(hash);
   if (!saltBytes || tag?.length !== TAG_BYTES) return false;
-  return timingSafeEqual(await derivePbkdf2(password, saltBytes, iterations), tag);
+  return timingSafeEqual(await derive.pbkdf2(password, saltBytes, iterations), tag);
 }
 
 /** The bytes of base64url text, or null when it is no base64url (a damaged row must be a refusal, not a 500). */
@@ -81,17 +90,53 @@ const legacyDummy = (iterations: number): string => `pbkdf2_sha256$${iterations}
 /** The rounds of a PBKDF2 hash, or null when `stored` is not one. */
 export const pbkdf2Rounds = (stored: string): number | null => (stored.startsWith("pbkdf2_sha256$") ? Number(stored.split("$")[1]) || null : null);
 
+/** The costs of the hashes stored: each Argon2id cost once, and the most rounds of any PBKDF2 hash (null when none). */
+export interface CostsInUse {
+  argon2: PasswordCost[];
+  legacyRounds: number | null;
+}
+
+/** The costs of the hashes stored: each Argon2id cost once, and the most rounds of any PBKDF2 hash (null when none). */
+export interface CostsInUse {
+  argon2: PasswordCost[];
+  legacyRounds: number | null;
+}
+
+/** The cost a stored hash, or its first part up to the cost ("argon2id$v=19$m=..,t=..,p=1", "pbkdf2_sha256$<rounds>"), was made at; null when it is neither. */
+export function hashCost(stored: string): { argon2: PasswordCost } | { pbkdf2: number } | null {
+  const argon = ARGON2_HEAD.exec(stored.split("$", 3).join("$")) ?? ARGON2.exec(stored);
+  if (argon) return { argon2: { memoryKib: Number(argon[1]), passes: Number(argon[2]) } };
+  const rounds = pbkdf2Rounds(stored);
+  return rounds === null ? null : { pbkdf2: rounds };
+}
+
 /**
- * A check that costs the same whoever the name belongs to. `stored` is null for an unknown name. `legacyRounds` is the
- * most rounds of any PBKDF2 hash still stored, or null when none is left. While there is one, each check also spends the
- * cost of the scheme it did not need, so a PBKDF2 user, an Argon2id user and an unknown name all take one PBKDF2 and one
- * Argon2id derivation and timing tells nothing. Users whose hash was made at another cost than the rest (after an admin
- * changed the setting) still stand out until their next sign-in rewrites it.
+ * A check that costs the same whoever the name belongs to. `stored` is null for an unknown name. Every check runs one
+ * derivation for each cost that any stored hash has (plus the cost now set), and one PBKDF2 round when any PBKDF2 hash
+ * is left. The real hash takes the place of the derivation of its own cost; the others run on a dummy. So a user whose
+ * hash has another cost, a PBKDF2 user and an unknown name all do the same list and timing tells nothing.
  */
-export async function verifyUniform(password: string, stored: string | null, cost: PasswordCost, legacyRounds: number | null): Promise<boolean> {
-  const used = stored ?? dummyHash(cost);
-  const ok = await verifyPassword(password, used);
-  if (legacyRounds !== null) await verifyPassword(password, pbkdf2Rounds(used) !== null ? dummyHash(cost) : legacyDummy(legacyRounds));
+export async function verifyUniform(password: string, stored: string | null, cost: PasswordCost, inUse: CostsInUse, derive: Derivers = realDerivers): Promise<boolean> {
+  const key = (c: PasswordCost): string => `${c.memoryKib}/${c.passes}`;
+  const list = new Map<string, PasswordCost>();
+  for (const c of [cost, ...inUse.argon2]) list.set(key(c), c);
+  const own = stored === null ? null : hashCost(stored);
+  const ownKey = own && "argon2" in own ? key(own.argon2) : null;
+  const isLegacy = own !== null && "pbkdf2" in own;
+  let ok = false;
+  let spent = false;
+  for (const [k, c] of list) {
+    if (stored !== null && k === ownKey) {
+      ok = await verifyPassword(password, stored, derive);
+      spent = true;
+    } else await verifyPassword(password, dummyHash(c), derive);
+  }
+  if (isLegacy && stored !== null) {
+    ok = await verifyPassword(password, stored, derive);
+    spent = true;
+  } else if (inUse.legacyRounds !== null) await verifyPassword(password, legacyDummy(inUse.legacyRounds), derive);
+  // a hash whose cost is on no list (damaged) is still checked
+  if (stored !== null && !spent) ok = await verifyPassword(password, stored, derive);
   return ok;
 }
 

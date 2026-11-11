@@ -4,6 +4,7 @@ import { type Role, type Row, toUser, type User } from "./rows.ts";
 import { bumpDataVersionStatement } from "./settings-repo.ts";
 import { SWEEP_UNHELD_KEYS } from "./household-repo.ts";
 import type { Db, SqlValue } from "./types.ts";
+import { type CostsInUse, hashCost, type PasswordCost } from "../security/password.ts";
 
 export interface SessionInfo {
   /** First 20 characters of the stored id: enough to pick one session, useless as a credential. */
@@ -71,11 +72,17 @@ export class UsersRepo {
     return r.changes > 0;
   }
 
-  /** The most rounds of any hash of the scheme before Argon2id that a user still has, or null when none is left. */
-  async legacyRounds(): Promise<number | null> {
-    const rows = await this.db.all<{ password_hash: string }>("SELECT password_hash FROM users WHERE password_hash LIKE 'pbkdf2\\_sha256$%' ESCAPE '\\'");
-    const rounds = rows.map((r) => Number(r.password_hash.split("$")[1]) || 0);
-    return rows.length === 0 ? null : Math.max(...rounds, 1);
+  /** The costs in use: each Argon2id cost once, and the most rounds of any PBKDF2 hash (null when none is left). Reads only the distinct cost parts of the hashes. */
+  async costsInUse(): Promise<CostsInUse> {
+    const rows = await this.db.all<{ head: string }>("SELECT DISTINCT substr(password_hash, 1, 13 + instr(substr(password_hash, 15), '$')) AS head FROM users");
+    const argon2: PasswordCost[] = [];
+    let legacyRounds: number | null = null;
+    for (const { head } of rows) {
+      const c = hashCost(head);
+      if (c && "argon2" in c) argon2.push(c.argon2);
+      else if (c) legacyRounds = Math.max(legacyRounds ?? 1, c.pbkdf2);
+    }
+    return { argon2, legacyRounds };
   }
 
   async setLanguage(id: string, language: Language): Promise<void> {

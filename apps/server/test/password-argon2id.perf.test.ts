@@ -23,10 +23,10 @@ describe("Argon2id timing", () => {
     for (let i = 0; i < 5; i++) {
       for (const [name, stored] of [["real", real], ["unknown", null], ["old", old]] as const) {
         let t0 = performance.now();
-        await verifyUniform("vaara-salasana-123", stored, COST, null);
+        await verifyUniform("vaara-salasana-123", stored, COST, { argon2: [COST], legacyRounds: null });
         if (name !== "old") times[name].push(performance.now() - t0);
         t0 = performance.now();
-        await verifyUniform("vaara-salasana-123", stored, COST, 600_000);
+        await verifyUniform("vaara-salasana-123", stored, COST, { argon2: [COST], legacyRounds: 600_000 });
         mixed[name].push(performance.now() - t0);
       }
     }
