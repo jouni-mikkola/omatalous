@@ -4,8 +4,9 @@
 
 @layer pages {
 .home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 4); }
-/* the words on the left and the sum on the right of one line; on a narrow screen the sum wraps under the words */
-.home-answer-line { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-4) var(--sp-16); margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
+/* the sum right after the words, the answer of the question on one line; on a narrow screen it wraps under the words.
+   Pushed to the far edge, the sum stood a page's width from its question on a wide screen */
+.home-answer-line { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: var(--sp-4) var(--sp-16); margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
 .home-answer-line .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); white-space: nowrap; }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
 .nyt .chart-table, .nyt .pace-chart { margin-top: var(--sp-12); }
