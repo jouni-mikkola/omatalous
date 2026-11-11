@@ -59,6 +59,15 @@ async function finishLeftovers(s: Services): Promise<void> {
   for (const user of await s.users.list()) await s.finance(user.id).pruneSyncRuns();
 }
 
+/** A chore that fails is logged by name only, so the rest of the tick still runs. */
+async function chore(name: string, run: () => Promise<unknown>): Promise<void> {
+  try {
+    await run();
+  } catch {
+    console.error(`hourly chore failed: ${name}`);
+  }
+}
+
 export async function hourlyTick(s: Services): Promise<TickResult> {
   keepReserve(s); // first: a write below that fails on a full disk ends the tick, and the reserve is what gives room back
   const settings = await s.instance.load(true);
@@ -69,7 +78,7 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
   await watchCopies(s, today, backup !== null); // the weekly check of the newest copy, in a tick that wrote none
   await optimizeDatabase(s.db);
   await queueOffsiteDaily(s, today); // off unless an admin gave a target and turned it on
-  await sweepOffsiteRequest(s); // the target and its key leave the volume when no request waits for them
+  await chore("sweeping the offsite request", () => sweepOffsiteRequest(s)); // the target and its key leave the volume when no request waits for them
   await deliverNotices(s); // off unless an admin turned it on; each event once
   try {
     await finishLeftovers(s);
@@ -111,14 +120,14 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     console.error("price index failed:", err);
   }
 
-  await s.users.deleteExpiredSessions(s.now());
-  await pruneEvents(s);
-  await expireStale(s); // a queued request nobody collected (no helper at all) ends as expired
+  await chore("deleting expired sessions", () => s.users.deleteExpiredSessions(s.now()));
+  await chore("pruning events", () => pruneEvents(s));
+  await chore("expiring stale requests", () => expireStale(s)); // a queued request nobody collected (no helper at all) ends as expired
   try {
     s.pruneBackups?.(s.now());
   } catch (err) {
     console.error("pruning backups failed:", err);
   }
-  await s.settings.deleteOlder(LINK_STATE_PREFIX, new Date(s.now().getTime() - STATE_TTL_MS));
+  await chore("cleaning bank link states", () => s.settings.deleteOlder(LINK_STATE_PREFIX, new Date(s.now().getTime() - STATE_TTL_MS)));
   return { backup, synced, lookup };
 }
