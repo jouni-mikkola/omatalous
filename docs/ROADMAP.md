@@ -201,6 +201,30 @@ Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a 
 - after: none
 - files: packages/core/src/mobilepay.ts, packages/core/test/mobilepay.test.ts
 
+### C4 A bank row without text reads
+Result: A bank statement file is read also when one of its rows has only a reference number or the bank's own code for a text.
+- why: `entryText` in `bank-camt.ts` reads the other party's name, the free message (`RmtInf/Ustrd`) and `AddtlNtryInf` only. An entry that carries just a structured reference (`RmtInf/Strd/CdtrRefInf/Ref`) or just the bank's code (`BkTxCd/Prtry/Cd`, as a service fee does) has no text, and `readBankCamt` then answers `{ error: "unreadable" }` for the whole file: one such row keeps every row of the statement out (seen on 11 Nov with a one entry statement of each kind).
+- done when: new cases of `packages/core/test/bank-camt.test.ts` that fail without the change read a statement whose entry has only `RmtInf/Strd/CdtrRefInf/Ref` 1234561 as a row whose text holds 1234561, and one whose entry has only `BkTxCd/Prtry/Cd` as a row with that code's text, each after the name, the message and `AddtlNtryInf` in that order; an entry with none of the five is still `unreadable`, the closing balance is still checked and the file's other tests pass unchanged (`bun test packages/core/test/bank-camt.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-camt
+- after: none
+- files: packages/core/src/bank-camt.ts, packages/core/test/bank-camt.test.ts
+
+### C5 Statement file names its period
+Result: After a bank statement file is read, the page names the period the bank wrote in it, not the days of its first and last row.
+- why: `readBankCamt` in `bank-camt.ts` never reads the statement's `FrToDt`: `periodFrom` and `periodTo` are the earliest and latest row day, so a statement of 1 to 30 September whose only row is of the 5th is shown by `BankFile.tsx` (`card_file.found`) as 5.9. to 5.9. and the household cannot tell whether the quiet days are covered.
+- done when: new cases of `packages/core/test/bank-camt.test.ts` that fail without the change get `periodFrom` 2026-09-01 and `periodTo` 2026-09-30 from a statement with `FrToDt` of `FrDtTm` 2026-09-01T00:00:00 and `ToDtTm` 2026-09-30T23:59:59 and one row on the 5th, the earliest start and latest end over several statements of one account, and the row days as now when `FrToDt` is absent, is no real day, ends before it starts or leaves a row outside it; the file's other tests pass unchanged (`bun test packages/core/test/bank-camt.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-camt
+- after: none
+- files: packages/core/src/bank-camt.ts, packages/core/test/bank-camt.test.ts
+
+### C6 Quoted cells in a card file
+Result: A card statement row whose shop name is written in quotes is read, with the name shown without the quotes.
+- why: `readOp` in `card-file.ts` splits a line at every semicolon and keeps the cells as they are. A quoted shop name with a semicolon in it (`"K-MARKET; HELSINKI"`) makes five cells, so the row lands in `unread` and its purchase is missing from the statement; a quoted name without one is read with the quote marks in its text (`"PRISMA"`), which then never matches the same shop on other rows (both seen on 11 Nov with a two row file).
+- done when: new cases of `packages/core/test/card-file.test.ts` that fail without the change read `01.09.2026;02.09.2026;"K-MARKET; HELSINKI";12,50` as a row of -1250 cents with the text `K-MARKET; HELSINKI`, read `"PRISMA"` as `PRISMA` and a doubled quote inside quotes as one quote, in the `op` layout and for a quoted cell of the tab separated `nordea` layout; a line whose quote never closes is still in `unread`, and the file's other tests pass unchanged (`bun test packages/core/test/card-file.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: card-file
+- after: none
+- files: packages/core/src/card-file.ts, packages/core/test/card-file.test.ts
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
