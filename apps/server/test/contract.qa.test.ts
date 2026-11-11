@@ -252,8 +252,6 @@ describe("data versions", () => {
   const PER_REQUEST = [
     "PUT /api/marks",
     "PUT /api/language",
-    "PUT /api/spending-goal",
-    "DELETE /api/spending-goal",
     "POST /api/expected-bills",
     "DELETE /api/expected-bills/:id",
     "POST /api/loans",
@@ -324,8 +322,6 @@ describe("data versions", () => {
     await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
 
     await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);
-    await step("PUT /api/spending-goal", () => admin.call("PUT", "/api/spending-goal", { monthlyCents: 250_000 }), false);
-    await step("DELETE /api/spending-goal", () => admin.call("DELETE", "/api/spending-goal"), false);
     const bill = await step("POST /api/expected-bills", () => admin.call("POST", "/api/expected-bills", { name: "Vesi", amountCents: 5000, dueDate: "2026-11-20", cadence: "once" }), false);
     await step("DELETE /api/expected-bills/:id", () => admin.call("DELETE", `/api/expected-bills/${bill.body.bill.id}`), false);
     const loan = await step("POST /api/loans", () => admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" }), false);

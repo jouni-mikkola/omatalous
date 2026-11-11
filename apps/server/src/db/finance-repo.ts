@@ -16,7 +16,6 @@ import { StatementRepo } from "./finance/statements.ts";
 import { ConnectionsRepo } from "./finance/connections.ts";
 import type { FinanceContext } from "./finance/context.ts";
 import { ExpectedBillsRepo } from "./finance/expected-bills.ts";
-import { SpendingGoalRepo } from "./finance/spending-goal.ts";
 import { LoansRepo } from "./finance/loans.ts";
 import { MarksRepo } from "./finance/marks.ts";
 import { PayerRolesRepo } from "./finance/payer-roles.ts";
@@ -52,7 +51,6 @@ export class FinanceRepo {
   private readonly payerRolesRepo: PayerRolesRepo;
   private readonly syncRuns: SyncRunsRepo;
   private readonly expectedBills: ExpectedBillsRepo;
-  private readonly spendingGoals: SpendingGoalRepo;
   private readonly loans: LoansRepo;
   private readonly optimise: OptimiseRepo;
 
@@ -74,7 +72,6 @@ export class FinanceRepo {
     this.payerRolesRepo = new PayerRolesRepo(ctx);
     this.syncRuns = new SyncRunsRepo(ctx);
     this.expectedBills = new ExpectedBillsRepo(ctx);
-    this.spendingGoals = new SpendingGoalRepo(ctx);
     this.loans = new LoansRepo(ctx);
     this.optimise = new OptimiseRepo(ctx);
   }
@@ -199,11 +196,6 @@ export class FinanceRepo {
   listExpectedBills() { return this.expectedBills.listExpectedBills(); }
   addExpectedBill(bill: ExpectedBill, createdAt: string) { return this.expectedBills.addExpectedBill(bill, createdAt); }
   deleteExpectedBill(id: string) { return this.expectedBills.deleteExpectedBill(id); }
-
-  // ── spending goal (finance/spending-goal.ts) ─────────────
-  spendingGoal() { return this.spendingGoals.spendingGoal(); }
-  setSpendingGoal(cents: number, at: string) { return this.spendingGoals.setSpendingGoal(cents, at); }
-  clearSpendingGoal() { return this.spendingGoals.clearSpendingGoal(); }
 
 
   // ── loans (finance/loans.ts) ─────────────────────────────

@@ -86,6 +86,27 @@ describe("the dashboard settlement of the running month", () => {
   });
 });
 
+describe("the spending goal no page can set", () => {
+  it("answers goal: null for a member with a stored goal", async () => {
+    const w = await both(OCTOBER);
+    await w.db.run("INSERT INTO spending_goal (user_id, monthly_cents, updated_at) VALUES (?, 250000, ?)", [w.aino, "2026-10-01T00:00:00.000Z"]);
+    const d = await dashboard(w, w.aino);
+    // the month has spending, so a goal that was read would draw its line
+    expect(d.pace).toBeTruthy();
+    expect(d.goal).toBeNull();
+  });
+
+  it("serves no route of the goal", async () => {
+    const { admin } = await setupApp();
+    for (const method of ["GET", "PUT", "DELETE"]) {
+      const res = await admin.call(method, "/api/spending-goal", method === "PUT" ? { monthlyCents: 250_000 } : undefined);
+      expect(res.status, method).toBe(404);
+    }
+    // near miss: a route beside it still answers
+    expect((await admin.call("GET", "/api/dashboard")).status).toBe(200);
+  });
+});
+
 describe("the dashboard on the demo household", () => {
   it("has the reconcile word of the Tilit page on each account", async () => {
     const app = await setupApp();
