@@ -173,7 +173,7 @@ For developers
 - The top of the README shows a short animation of the demo household in English, with a still picture for readers who ask for reduced motion. `pnpm readme:video` makes both (docs/DEVELOPMENT.md).
 - Routes are a TanStack Router tree in `apps/web/src/router.tsx` on the hash history, with typed search parameters per page in `search.ts`. `routes.ts` keeps the old addresses and their redirects.
 - `useApi` runs on TanStack Query. A successful write marks every cached answer old, and `/api/meta` carries `dataVersion` so a change by another session does the same.
-- `GET /api/review/count` returns `{ count }`. A service token may read it. The React Compiler runs in the web build (ADR 0023).
+- `GET /api/review/count` returns `{ count }`. A service token may read it. The React Compiler runs in the web build (ADR 0026).
 - `components/table/Table.tsx` runs its sorting through TanStack Table v9 in `model.ts`. The toolbar uses react-aria-components in `Toolbar.tsx`.
 - A page still writes the same `Column` objects. A column adds `search`, `chips`, `group` or `csv` to join the toolbar.
 - A page can keep a table's view in the address. `Table` takes `view` and `onView`, and `view.ts` has `viewToParams` and `viewFromParams`.

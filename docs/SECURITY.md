@@ -624,7 +624,7 @@ The project publishes software and is not the controller of the data in anyone's
 ## Audit
 
 The Version 1.0 audit was made on 30 October 2026 and covered the code, the host scripts, the compose file, the image
-build and the workflows, as listed in `docs/security-audit-2026-10.md`. It found no critical issue; the major and
+build and the workflows, as listed in `docs/audit/security-audit-2026-10.md`. It found no critical issue; the major and
 minor ones are fixed with tests, or have a written reason in the report. A scan of the image is not part of it. The
 next audit is due before the next major version, or after a change to sign-in, the sealed keys or the host helper.
 

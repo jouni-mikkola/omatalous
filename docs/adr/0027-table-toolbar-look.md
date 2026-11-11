@@ -1,4 +1,4 @@
-# 0023 The look of the table toolbar: pills in one row
+# 0027 The look of the table toolbar: pills in one row
 
 ## Context
 
