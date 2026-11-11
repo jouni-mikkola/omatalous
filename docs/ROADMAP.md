@@ -227,6 +227,13 @@ Result: The plan gains 10 to 14 steps, one for each move of the audit that main 
 - locks: none
 - after: none
 
+### N28 Remote access and high contrast
+Result: The remote access settings and the high contrast look work as before, and a change to the checks lands again instead of failing on these two
+- why: Main fails its full check today, hidden by light-scope runs: rule 9 on apps/web/src/pages/settings/RemoteAccess.tsx (714 lines since T75, budget 500) and rule 40 on apps/web/src/styles/forced-colors.css lines 10-13 (2px literals since W1, 0 allowed). Every PR that gets the full check fails on it (T82 #43, run 43036269209).
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Remote access and high contrast pass. The remote access settings and the high contrast look work as before, and a change to the checks lands again instead of failing on these two files.
+- locks: none
+- after: none
+
 ### C2 No repeated common password
 Result: A password that is one word said twice with a digit at the end, such as passwordpassword1, is refused like the word said twice alone.
 - why: `checkPassword` tests for a repeated block on the whole password only, so one digit or sign after the repeats lets it through: passwordpassword1 is allowed at level 3 of 4.
