@@ -203,7 +203,7 @@ export class EnableBankingClient {
     validUntil: Date;
     psuType: "personal" | "business";
   }): Promise<{ url: string; authorizationId: string }> {
-    const r = await this.request<{ url: string; authorization_id: string }>("POST", "/auth", {
+    const r = await this.request<{ url: string; authorization_id: unknown }>("POST", "/auth", {
       access: { valid_until: input.validUntil.toISOString() },
       aspsp: { name: input.aspspName, country: input.country },
       state: input.state,
@@ -211,21 +211,29 @@ export class EnableBankingClient {
       psu_type: input.psuType,
       language: "fi",
     });
-    return { url: checkAuthUrl(r.url, this.opts.authHosts), authorizationId: r.authorization_id };
+    const url = checkAuthUrl(r.url, this.opts.authHosts);
+    if (typeof r.authorization_id !== "string" || r.authorization_id === "") throw new EnableBankingError(502, "", "/auth");
+    return { url, authorizationId: r.authorization_id };
   }
 
   /** Exchanges the code from the redirect for a session with account details. */
   async createSession(code: string): Promise<EbSession & { accounts: EbAccount[] }> {
     const session = await this.request<EbSession>("POST", "/sessions", { code });
+    const sessionId: unknown = session?.session_id;
+    const hasId = typeof sessionId === "string" && sessionId !== "";
     // Some responses list only account ids; fetch the details for those.
     let accounts: EbAccount[];
     try {
+      if (!hasId) throw new EnableBankingError(502, "", "/sessions");
+      if (!Array.isArray(session.accounts)) throw new EnableBankingError(502, "", "/sessions");
       accounts = await Promise.all(
         session.accounts.map(async (a) =>
           typeof a === "string" ? { ...(await this.accountDetails(a)), uid: a } : a,
         ),
       );
     } catch (err) {
+      // no session id: no session was made, so nothing to withdraw and the code is not spent
+      if (!hasId) throw err;
       // the bank made the session but the caller never gets its id: withdraw the consent so none stays open unseen
       await this.deleteSession(session.session_id).catch((e: unknown) => {
         console.error(`withdraw consent ${session.session_id.slice(0, 8)}:`, e instanceof EnableBankingError ? e.message : "failed");
