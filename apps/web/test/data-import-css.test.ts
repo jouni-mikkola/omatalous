@@ -11,3 +11,10 @@ describe("Tiedot: the dry run of Tuo tiedot", () => {
     expect(settings.find((r) => r.selector === ".card-head > .form-row:has(> .data-import-line)")?.body).toMatch(/flex: 1 1 100%/);
   });
 });
+
+describe("Tilit: the form of an account", () => {
+  // Tilin nimi has a help line under its field. Aligned to the bottom, the row pushed the label Tyyppi below Tilin nimi.
+  it("lines its fields up by the top, so the labels share a line", () => {
+    expect(settings.find((r) => r.selector === ".account-form")?.body).toMatch(/align-items: start/);
+  });
+});

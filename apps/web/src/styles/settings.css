@@ -11,7 +11,8 @@
 /* settings: an account's own edit row */
 .edit-row td { background: var(--surface-2); }
 @media (max-width: 600px) { .account-form label { max-width: none; } }
-.account-form { max-width: 640px; display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; padding: 4px 0; }
+/* the fields line up by their labels: a help line under one field would push the labels of the others down */
+.account-form { max-width: 640px; display: flex; flex-wrap: wrap; align-items: start; gap: 8px 12px; padding: 4px 0; }
 .account-form label { display: flex; flex-direction: column; gap: 4px; flex: 1 1 180px; max-width: 260px; }
 /* settings: what an account's last fetch ran into, wrapped (a .sub in a table cuts a line short) */
 .acc-problem { color: var(--warn); font-size: var(--fs-label); margin-top: 2px; max-width: 32rem; white-space: normal; }

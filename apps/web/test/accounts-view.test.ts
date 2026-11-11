@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { accountNumber, formatIban } from "../src/format.ts";
 import { Accounts } from "../src/pages/settings/Accounts.tsx";
 import { BankConnections, fetchedText } from "../src/pages/settings/BankConnections.tsx";
+import { ExampleData } from "../src/pages/settings/ExampleData.tsx";
+import { SETTINGS_ANCHOR } from "../src/routes.ts";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
 // a stamp of this year has no year, so the clock stands in the year after the dates of the tests
@@ -163,6 +165,10 @@ describe("Tilit: what tells accounts apart", () => {
   it("says what to do, with no column heads, when there is no account", () => {
     expect(render([])).toContain("Tilit tulevat tähän, kun yhdistät pankin. Kokeile esimerkkitiedoilla.");
     expect(render([])).not.toContain("Tili Saldo");
+    // the link goes to the card that loads the data, not to the top of the page it is already on
+    const markup = renderToStaticMarkup(createElement(Accounts, { meta: metaOf([], [connection("c1")]), onChange: () => {} }));
+    expect(markup).toContain(`href="#/settings/banks#${SETTINGS_ANCHOR.exampleData}"`);
+    expect(renderToStaticMarkup(createElement(ExampleData, { meta: metaOf([], []), busy: null, run: async () => {} }))).toContain(`id="${SETTINGS_ANCHOR.exampleData}"`);
   });
 
   it("every account has Muokkaa, a bank account too", () => {

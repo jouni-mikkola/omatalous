@@ -5,6 +5,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { t } from "../../text.ts";
 import type { Meta } from "../../types.ts";
+import { SETTINGS_ANCHOR } from "../../routes.ts";
 
 export function ExampleData({ meta, busy, run }: { meta: Meta; busy: string | null; run: (key: string, fn: () => Promise<string | void>) => Promise<void> }) {
   const hasDemo = meta.accounts.some((a) => a.provider === "demo");
@@ -14,7 +15,7 @@ export function ExampleData({ meta, busy, run }: { meta: Meta; busy: string | nu
 
   return (
     <>
-      <div className="card">
+      <div className="card" id={SETTINGS_ANCHOR.exampleData}>
         <div className="card-head">
           <div>
             <h2>{t("set.dpage.example_data")}</h2>
