@@ -34,8 +34,12 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>, lang: Langu
     if (skip.has(payerKey(first)) || endDay - first.day > NEW_SOURCE_DAYS || !accountCovers(b.ctx, rows.map((t) => t.accountId), addDays(first.bookingDate, -182))) continue;
     const total = rows.reduce((s, t) => s + t.amountCents, 0);
     const months = Math.min(3, Math.max(1, Math.ceil((endDay - first.day + 1) / DAYS_PER_MONTH)));
+    // the figure rounds the months where the title (above) rounds them up, so at 70 days the title says 3 and the figure divides by 2;
+    // the months it has been paying, rounded: a payer of 900 € since last month is 900 a month, not 300
+    const paidMonths = Math.min(3, Math.max(1, Math.round((endDay - first.day + 1) / DAYS_PER_MONTH)));
+    const monthly = Math.round(total / paidMonths);
     const big = b.usualMonthlyCents !== null && total >= b.usualMonthlyCents * 0.1;
-    if ((rows.length < 2 && !big) || !passes(b, total / 3)) continue;
+    if ((rows.length < 2 && !big) || !passes(b, monthly)) continue;
     out.push({
       id: `income:new:${key}`,
       kind: "new_source",
@@ -43,8 +47,9 @@ export function newSources(b: IncomeBase, skip: ReadonlySet<string>, lang: Langu
       payer: first.merchant,
       title: messageIn(lang, `inc.new_${months as 1 | 2 | 3}`, { name: first.merchant, amount: eur(total, lang) }),
       detail: rows.length === 1 ? messageIn(lang, "inc.new_one", { date: formatFiDate(first.bookingDate, lang) }) : messageIn(lang, "inc.new_many", { n: rows.length, date: formatFiDate(first.bookingDate, lang) }),
-      monthlyCents: Math.round(total / 3),
-      yearlyCents: Math.round((total / 3) * 12),
+      monthlyCents: monthly,
+      // one payment is not a year of them: its year is what it paid, not 12 times its month
+      yearlyCents: rows.length < 2 ? total : monthly * 12,
       txIds: rows.map((t) => t.id),
     });
   }

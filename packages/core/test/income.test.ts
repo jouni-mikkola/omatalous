@@ -6,6 +6,7 @@ import { addDays, addMonths, daysInMonth } from "../src/dates.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { incomeReport } from "../src/reports/income.ts";
 import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
+import { formatFiDate } from "../src/analysis/format.ts";
 import { series, tx } from "./helpers.ts";
 
 const ACCOUNTS: Account[] = [{ id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" }];
@@ -216,6 +217,47 @@ describe("what changed", () => {
     expect(found?.title).toBe("Uusi tulo: Vinted, 340 € kolmessa kuukaudessa");
     const small = vinted.map((t) => ({ ...t, id: `${t.id}s`, amountCents: 2000 }));
     expect(changesOf([...base, ...small]).find((c) => c.kind === "new_source")).toBeUndefined();
+  });
+
+  describe("a new source counts its months", () => {
+    const base = monthly("2025-08", 15, 300000, salary("Yritys Oy"));
+    const pay = (date: string, amountCents: number): Transaction => tx({ merchant: "Vinted", category: "sales", categorySource: "rule", bookingDate: date, amountCents });
+    const newOf = (rows: Transaction[]) => changesOf([...base, ...rows]).find((c) => c.kind === "new_source");
+    const ago = (days: number) => addDays(TODAY, -days);
+
+    it("a payer of 900 € that began 20 days ago is 900 a month", () => {
+      const found = newOf([pay(ago(20), 45000), pay(ago(5), 45000)]);
+      expect(found).toMatchObject({ monthlyCents: 90000, yearlyCents: 1080000 });
+    });
+
+    it("1 800 € in all over 70 days is 900 a month", () => {
+      const found = newOf([pay(ago(70), 90000), pay(ago(35), 90000)]);
+      expect(found?.monthlyCents).toBe(90000);
+    });
+
+    it("the gate reads the monthly figure: 100 € in 20 days passes the 60 € gate, a third of it would not", () => {
+      const found = newOf([pay(ago(20), 5000), pay(ago(5), 5000)]);
+      expect(found?.monthlyCents).toBe(10000);
+    });
+
+    it("the title and detail stay as they were", () => {
+      const found = newOf([pay(ago(20), 45000), pay(ago(5), 45000)]);
+      expect(found?.title.replace(/\u00a0/g, " ")).toBe("Uusi tulo: Vinted, 900 € kuukaudessa");
+      expect(found?.detail).toBe(`2 maksua ${formatFiDate(ago(20), "fi")} alkaen.`);
+      const one = newOf([pay(ago(10), 90000)]);
+      expect(one?.detail).toBe(`Yksi maksu ${formatFiDate(ago(10), "fi")}.`);
+    });
+
+    it("85 days in is the total over 3 months", () => {
+      const found = newOf([pay(ago(85), 90000), pay(ago(50), 90000), pay(ago(15), 90000)]);
+      expect(found?.monthlyCents).toBe(90000);
+    });
+
+    it("a single big payment has no yearly figure above what it paid", () => {
+      const found = newOf([pay(ago(10), 90000)]);
+      expect(found?.yearlyCents).toBe(90000);
+      expect(found?.monthlyCents).toBe(90000);
+    });
   });
 });
 
