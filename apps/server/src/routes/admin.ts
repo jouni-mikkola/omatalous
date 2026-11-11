@@ -22,7 +22,6 @@ import { startLookup } from "../services/industry.ts";
 import { startPriceIndex } from "../services/price-index.ts";
 import { listServiceTokens, revokeServiceToken } from "../services/service-tokens.ts";
 import { remoteAccessState, removeToken, saveToken, turnOff, turnOn } from "../services/remote-access.ts";
-import { unopenedViews } from "../services/view-opens.ts";
 import { body, requestInfo } from "./shared.ts";
 
 export function adminRoutes(s: Services) {
@@ -35,9 +34,6 @@ export function adminRoutes(s: Services) {
   });
 
   app.get("/instance", async (c) => c.json(await state()));
-
-  /** The views no member opened for a quarter, with their last day (services/view-opens.ts). */
-  app.get("/unopened-views", async (c) => c.json(await unopenedViews(s)));
 
   app.put("/instance", async (c) => {
     const wasOn = s.instance.current.industryLookup;

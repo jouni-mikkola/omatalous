@@ -12,7 +12,6 @@ import { Section } from "../Section.tsx";
 import { Figure } from "../Figure.tsx";
 import type { Changed } from "./shared.tsx";
 import { Button } from "../ui/Button.tsx";
-import { insightView, Opened } from "../../view-opens.tsx";
 /** The figure in words, lower case: "maksaa 276 € vuodessa". Päätetyt says it as the card did. */
 export const insightFigure = (i: Insight) => insightReading(i, language());
 
@@ -113,7 +112,6 @@ export function Others({ others, onChanged, half = false }: { others: readonly I
   if (!others.length) return null;
   return (
     <Section id="muut-havainnot" title={t("ow.ot_title")} half={half}>
-      <Opened views={others.map((i) => insightView(i.id))} />
       <div className="tips">
         {others.map((i) => (
           <OtherCard key={i.id} insight={i} onChanged={onChanged} />

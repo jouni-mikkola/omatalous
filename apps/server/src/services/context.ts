@@ -12,7 +12,6 @@ import { IndustryRepo } from "../db/industry-repo.ts";
 import { OpsRepo } from "../db/ops-repo.ts";
 import { SecurityRepo } from "../db/security-repo.ts";
 import { ServiceTokenRepo } from "../db/service-token-repo.ts";
-import { ViewOpensRepo } from "../db/view-opens-repo.ts";
 import { SettingsRepo } from "../db/settings-repo.ts";
 import type { Db } from "../db/types.ts";
 import { UsersRepo } from "../db/users-repo.ts";
@@ -108,8 +107,6 @@ export interface Services {
   readonly security: SecurityRepo;
   /** Read-only keys for scripts and agents (services/service-tokens.ts). */
   readonly serviceTokens: ServiceTokenRepo;
-  /** The days views were opened, for the list of unopened views (services/view-opens.ts). */
-  readonly viewOpens: ViewOpensRepo;
   /** Unknown or ended service tokens per client address: 20 in 15 minutes, then 429 before any lookup. */
   readonly serviceTokenLimiter: RateLimiter;
   /** Maintenance requests for the host helper (services/ops.ts). */
@@ -180,7 +177,6 @@ export function createServices(deps: AppDeps): Services {
     hashGate: new Gate(instance.limits.get("hashSlots")),
     security: new SecurityRepo(deps.db),
     serviceTokens: new ServiceTokenRepo(deps.db),
-    viewOpens: new ViewOpensRepo(deps.db),
     serviceTokenLimiter: new RateLimiter(...shape.serviceToken),
     ops: new OpsRepo(deps.db),
     opsLimiter: new RateLimiter(...shape.ops),

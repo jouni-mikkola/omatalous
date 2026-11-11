@@ -158,7 +158,7 @@ const LEFT_OUT: Readonly<Record<string, string>> = {
   bank_credentials: "the bank application's private key",
   connections: "the bank consents and their state; a restore connects the banks again",
   user_factor: "second-factor secrets",
-  view_opens: "the days views were opened: a record of use on this install, not household data",
+  view_opens: "the days views were opened, from when the app counted them: nothing reads or writes it now",
   service_tokens: "read-only keys for scripts: a token hash opens the data, and a copy makes none",
   access_token: "hashes of access tokens",
   account_fetch: "a log of when balances were fetched",

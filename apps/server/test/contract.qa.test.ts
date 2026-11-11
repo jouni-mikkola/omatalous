@@ -252,7 +252,6 @@ describe("data versions", () => {
   const PER_REQUEST = [
     "PUT /api/marks",
     "PUT /api/language",
-    "POST /api/views/open",
     "PUT /api/spending-goal",
     "DELETE /api/spending-goal",
     "POST /api/expected-bills",
@@ -325,7 +324,6 @@ describe("data versions", () => {
     await step("DELETE /api/accounts/:id/shares/:userId", () => admin.call("DELETE", `/api/accounts/${accountId}/shares/${m.id}`), true, [adminId, m.id]);
 
     await step("PUT /api/marks", () => admin.call("PUT", "/api/marks", { subject: `merchant:${tx.merchant}`, mark: "cancelled" }), false);
-    await step("POST /api/views/open", () => admin.call("POST", "/api/views/open", { views: ["report:ennuste"] }), false);
     await step("PUT /api/spending-goal", () => admin.call("PUT", "/api/spending-goal", { monthlyCents: 250_000 }), false);
     await step("DELETE /api/spending-goal", () => admin.call("DELETE", "/api/spending-goal"), false);
     const bill = await step("POST /api/expected-bills", () => admin.call("POST", "/api/expected-bills", { name: "Vesi", amountCents: 5000, dueDate: "2026-11-20", cadence: "once" }), false);

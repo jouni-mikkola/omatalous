@@ -27,7 +27,6 @@ import { languageRoutes } from "./routes/language.ts";
 import { spendingGoalRoutes } from "./routes/spending-goal.ts";
 import { statementRoutes } from "./routes/statements.ts";
 import { marksRoutes } from "./routes/marks.ts";
-import { viewOpensRoutes } from "./routes/view-opens.ts";
 import { reviewRoutes } from "./routes/review.ts";
 import { payerRoleRoutes } from "./routes/payer-roles.ts";
 import { householdMemberRoutes, settlementRoutes } from "./routes/settlement.ts";
@@ -136,7 +135,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api/ops", opsRoutes(s));
   app.route("/api", financeRoutes(s));
   app.route("/api", marksRoutes(s));
-  app.route("/api", viewOpensRoutes(s));
   app.route("/api", payerRoleRoutes(s));
   app.route("/api", reviewRoutes(s));
   app.route("/api", settlementRoutes(s));

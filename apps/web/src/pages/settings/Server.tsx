@@ -7,7 +7,6 @@ import { GeneralForm } from "./InstanceForms.tsx";
 import { OffsiteBackup } from "./OffsiteBackup.tsx";
 import { OutsideNotices } from "./OutsideNotices.tsx";
 import { RemoteAccessBody, type RemoteAccessPoll } from "./RemoteAccess.tsx";
-import { UnopenedViews } from "./UnopenedViews.tsx";
 import { useReportLoaded } from "./use-settings-page.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { t } from "../../text.ts";
@@ -38,7 +37,6 @@ export function ServerSettings({ remote, onChange, onLoaded }: { remote: RemoteA
       {current && <OffsiteBackup />}
       {current && <RemoteAccessBody poll={remote} />}
       {current && <OutsideNotices />}
-      {current && <UnopenedViews />}
     </>
   );
 }

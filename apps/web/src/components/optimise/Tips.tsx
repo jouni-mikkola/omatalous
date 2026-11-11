@@ -18,7 +18,6 @@ import { AreaMark, CertaintySteps } from "./marks.tsx";
 import { type Changed, rangeText } from "./shared.tsx";
 import { Button } from "../ui/Button.tsx";
 import { css } from "../../css.ts";
-import { findingView, Opened } from "../../view-opens.tsx";
 const SOON_DAYS = 60;
 /** A deadline this near, or one past, wears the warn status; a later one is a quiet pin. */
 export const NEAR_DAYS = 30;
@@ -194,7 +193,6 @@ export function Tips({ areas, today, scope, onChanged, area, onArea }: { areas: 
           </Button>
         </p>
       )}
-      <Opened views={shown.map((f) => findingView(f.id))} />
       <div className="tips">
         {shown.map((f) => (
           <TipCard key={f.id} finding={f} area={label.get(f.area)} today={today} scope={scope} onChanged={onChanged} />

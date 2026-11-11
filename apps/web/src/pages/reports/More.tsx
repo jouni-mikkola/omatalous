@@ -17,7 +17,6 @@ import { Month } from "./Month.tsx";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
 import type { ReportContext, ReportRange } from "./types.ts";
 import { FoldContext } from "../../components/Section.tsx";
-import { Opened } from "../../view-opens.tsx";
 import "../../styles/reports.css";
 
 /** Loading: the question and the first panel at the size they will have, with no figures. */
@@ -104,7 +103,6 @@ function Questions({ meta, range, scope, params, anchor, onQuestion }: ReportsPr
   return (
     <div className={loading ? "loading" : undefined}>
       <Frame page={page} pages={REPORT_PAGES.filter((p) => questions.includes(p.id))} params={open} note={open.get("q") === "yhteiset" && page.id !== "yhteiset" ? t("rpt.q_not_open") : undefined}>
-        <Opened views={sections.map((s) => `report:${s.id}`)} />
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

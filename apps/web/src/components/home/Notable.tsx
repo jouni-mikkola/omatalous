@@ -3,7 +3,6 @@ import { type Insight, insightEuros, insightText, insightUnit } from "@banking/c
 import { targetHref } from "../optimise/Others.tsx";
 import { language } from "../../format.ts";
 import { t } from "../../text.ts";
-import { insightView, Opened } from "../../view-opens.tsx";
 
 /**
  * Huomioitavaa: the findings of the dashboard (Säästövinkit holds the rest), three at most, each as its fact, the
@@ -13,7 +12,6 @@ import { insightView, Opened } from "../../view-opens.tsx";
 export function Notable({ insights }: { insights: readonly Insight[] }) {
   return (
     <section className="card home-notable" aria-labelledby="home-notable-h">
-      <Opened views={insights.map((i) => insightView(i.id))} />
       <h2 id="home-notable-h">{t("home.notable")}</h2>
       {insights.length === 0 ? (
         <p className="home-detail">{t("home.notable_none")}</p>
