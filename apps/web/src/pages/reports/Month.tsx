@@ -1,4 +1,5 @@
 // Decision: which category explains this month or an earlier one, read against what each usually costs to the same day
+import { useState } from "react";
 import { addMonths, type GapRow, MIN_COMPARE_MONTHS, monthEnd, spentRows, type ThisMonthReport } from "@banking/core";
 import { query } from "../../api.ts";
 import { css } from "../../css.ts";
@@ -18,6 +19,9 @@ import "../../styles/report-month.css";
 function byGap(rows: readonly GapRow[]): GapRow[] {
   return [...rows].sort((a, b) => Number(a.category === null) - Number(b.category === null) || Number(b.gapCents > a.gapCents) - Number(b.gapCents < a.gapCents));
 }
+
+/** A row of the list; `child` marks a category listed under the rest row. */
+type TableRow = GapRow & { child?: true };
 
 /** The bar of a row: what was spent as its length and the usual to the same day as a tick, both on the scale of the largest figure of the list. */
 function Bar({ row, scale }: { row: GapRow; scale: number }) {
@@ -55,7 +59,7 @@ interface Shown {
 function earlier(data: ReportsData, month: string): Shown {
   const change = data.spendingChange.views.find((v) => v.view === "expected" && v.change.target.months.join() === month)?.change;
   if (!change) return { month, days: { from: `${month}-01`, to: monthEnd(month) }, spentCents: data.categories.totalCents, expectedCents: null, gapCents: null, gapReason: "history", categories: [] };
-  const categories = change.categories.map((c): GapRow => ({ category: c.category, day: null, label: c.label, spentCents: c.nowCents, expectedCents: c.baseCents, gapCents: c.changeCents }));
+  const categories = change.categories.map((c): GapRow => ({ category: c.category, day: null, label: c.category === null ? t("rep.other_categories") : c.label, spentCents: c.nowCents, expectedCents: c.baseCents, gapCents: c.changeCents }));
   return { month, days: { from: change.target.from, to: change.target.to }, spentCents: change.nowCents, expectedCents: change.baseCents, gapCents: change.changeCents, gapReason: null, categories };
 }
 
@@ -64,10 +68,11 @@ function earlier(data: ReportsData, month: string): Shown {
  * opens on the running month to today; the arrows step a month back and forward, and an earlier month is in the address
  * (`?month=`) and read whole. A category opens the rows its sum is made of. Income is one line under the list.
  */
-export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; scope: Scope }) {
+export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope: Scope }) {
   const past = earlierMonth(useHashRoute().params, meta.today);
-  const path = past ? query({ from: `${past}-01`, to: monthEnd(past), scope, reports: "spendingChange,categories,income" }) : query({ ...range, scope, reports: "thisMonth,income" });
+  const path = past ? query({ from: `${past}-01`, to: monthEnd(past), scope, reports: "spendingChange,categories,income" }) : query({ from: `${meta.today.slice(0, 7)}-01`, to: meta.today, scope, reports: "thisMonth,income,categories" });
   const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${path}`);
+  const [restOpen, setRestOpen] = useState(false);
   // under three months of rows there is no usual: the running month's categories are asked for with their sums alone
   const young = !past && !!data && Object.hasOwn(data, "thisMonth") && data.thisMonth.gapReason === "history";
   const sums = useApi<ReportsData>(young ? `/api/reports${query({ from: `${meta.today.slice(0, 7)}-01`, to: meta.today, scope, reports: "categories" })}` : null);
@@ -83,10 +88,30 @@ export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   const noUsual = r.gapReason === "history";
   const rows = noUsual ? spentRows((past ? data.categories : sums.data?.categories)?.groups ?? []) : byGap(r.categories);
   const scale = Math.max(1, ...rows.flatMap((x) => [x.spentCents, x.expectedCents]));
+  // the categories the rest row holds: the month's spending categories that are not a row above it
+  const hasRest = !noUsual && rows.some((x) => x.category === null);
+  const shownIds = new Set(rows.flatMap((x) => (x.category === null ? [] : [x.category])));
+  const inRest: TableRow[] = hasRest ? spentRows(data.categories?.groups ?? []).filter((x) => x.category !== null && !shownIds.has(x.category)).map((x) => ({ ...x, child: true })) : [];
+  const tableRows: TableRow[] = restOpen ? rows.flatMap((x): TableRow[] => (x.category === null ? [x, ...inRest] : [x])) : rows;
   const income = data.income.months.find((m) => m.month === r.month)?.totalCents;
   const usualIncome = data.income.stability?.medianCents;
-  const columns: Column<GapRow>[] = [
-    { key: "name", label: t("rpt.tm_cat"), kind: "text", rowHead: true, cell: (x) => x.label },
+  const columns: Column<TableRow>[] = [
+    {
+      key: "name",
+      label: t("rpt.tm_cat"),
+      kind: "text",
+      rowHead: true,
+      cell: (x) =>
+        x.category === null && hasRest ? (
+          <button type="button" className="km-rest" aria-expanded={restOpen} onClick={() => setRestOpen(!restOpen)}>
+            {x.label}
+          </button>
+        ) : x.child ? (
+          <span className="km-child">{x.label}</span>
+        ) : (
+          x.label
+        ),
+    },
     {
       key: "spent",
       label: t("rpt.tm_spent"),
@@ -105,14 +130,15 @@ export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; 
       key: "usual",
       label: t("rpt.tm_expected"),
       kind: "money",
-      cell: (x) => (
-        <span className="km-usual">
-          <Bar row={x} scale={scale} />
-          {money(x.expectedCents)}
-        </span>
-      ),
+      cell: (x) =>
+        x.child ? null : (
+          <span className="km-usual">
+            <Bar row={x} scale={scale} />
+            {money(x.expectedCents)}
+          </span>
+        ),
     },
-    { key: "gap", label: t("rpt.tm_gap"), kind: "money", cell: (x) => signedMoney(x.gapCents) },
+    { key: "gap", label: t("rpt.tm_gap"), kind: "money", cell: (x) => (x.child ? null : signedMoney(x.gapCents)) },
   ];
   return (
     <div className={loading ? "km stack loading" : "km stack"}>
@@ -137,7 +163,7 @@ export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; 
       {!noUsual && <GapReasonNote reason={r.gapReason} className="km-note" />}
       {young && sums.error && !sums.data && <ErrorCard message={sums.error} onRetry={sums.reload} />}
       {(noUsual || r.gapCents !== null) && rows.length > 0 && (
-        <Table<GapRow> caption={t(noUsual ? "rpt.tm_sums_caption" : "rpt.tm_cats_caption")} rows={rows} rowKey={(x) => `${x.category ?? ""}:${x.label}`} columns={noUsual ? columns.slice(0, 2) : columns} drillButton={false} />
+        <Table<TableRow> caption={t(noUsual ? "rpt.tm_sums_caption" : "rpt.tm_cats_caption")} rows={tableRows} rowKey={(x) => `${x.child ? "in:" : ""}${x.category ?? ""}:${x.label}`} columns={noUsual ? columns.slice(0, 2) : columns} drillButton={false} />
       )}
       {income !== undefined && (
         <p className="km-income">
