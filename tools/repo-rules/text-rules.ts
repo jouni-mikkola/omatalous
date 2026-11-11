@@ -13,7 +13,7 @@ import { type Finding, expectNoFindings, lineIn, lineOf, literals, parse, plainS
 
 describe("repo rules: text", () => {
   it("rule 4: no em dash (U+2014, also as an escape or an HTML entity) in any tracked regular text file", () => {
-    // The forms and the research folders are in em-dash-forms.mjs, which tools/commit.sh loads as well.
+    // The forms and the research folders are in em-dash-forms.mjs.
     const found: Finding[] = [];
     let scanned = 0;
     for (const file of repoFiles()) {

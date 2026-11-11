@@ -140,8 +140,8 @@ biome's cognitive complexity rule, threshold 25, with a scratch config
 - Golden answers stored twice. The `own` and `household` reports and dashboard files of the demo and the kit are
   identical, 14 305 lines in four copies (`apps/server/test/answers-golden.test.ts:73` writes both scopes).
 - Local test scheduling. `tools/check.sh` (500), `tools/check/` (1 366 lines: `scope.mjs` picks the tests a change
-  reaches, `rerun.mjs`, `stamps.sh`, `weights.sh`), `tools/slots.sh` (110), `tools/cores.sh` (81), `tools/wait-quiet.sh`
-  (139), `tools/lib/cores.mjs`, `tools/lib/owner.sh`, `tools/commit.sh` (125). These manage CPU slots and machine load for
+  reaches, `rerun.mjs`, `stamps.sh`, `weights.sh`), and the slot, core-share, quiet-machine and commit scripts under `tools/` (110, 81, 139 and
+  125 lines, with two helpers in `tools/lib/`). These manage CPU slots and machine load for
   agents running on one host. The machine-wide rules say such wait and lock scripts belong outside product repos.
   vitest has `--changed` and `--shard`; GitHub runs the full suite anyway.
 - Repo rules. `tools/repo-rules/` is 3 627 lines with 931 lines of tests, some 35 rules. Several overlap with off-the-shelf
@@ -234,8 +234,8 @@ above the first transaction, so the list starts below the first screen (`transac
   docs a user reads.
 - `CHANGELOG.md` is 2 454 lines for 76 versions; most of it describes versions no install runs any longer.
 - `tools/shots-examples/` (27 of 29 files never named).
-- CLAUDE.md and the machine rules disagree on one point: workflow and wait scripts (`tools/slots.sh`, `wait-quiet.sh`,
-  `cores.sh`, `commit.sh`) sit in the repo.
+- CLAUDE.md and the machine rules disagree on one point: workflow and wait scripts (slots, quiet machine,
+  core shares, commit) sit in the repo.
 
 ## 6. Browsers and logins
 
@@ -293,7 +293,7 @@ remove. "Owner decides" marks a move that removes something a user sees.
 | 1 | Delete the extension and flag frame (core `features.ts`, server and web `extensions.ts`, ExtensionView, ExtensionRowParts, flag overrides in instance/admin, their tests); bring it back with the first real module | about 600 | low: nothing is registered | `git grep -n "EXTENSIONS\|FeatureId"` is empty and `pnpm check` passes |
 | 2 | Delete the feature module scaffold (`core/src/features/`, `tools/gen/`, `modules.ts` rules 29 to 33, `.gitattributes` line, ARCHITECTURE paragraph) | about 570 | low | `pnpm gen` is gone, `repo-rules.test.ts` lists no rule 29 to 33, `pnpm check` passes |
 | 3 | Store one golden answer file per household when own and household agree, and assert the equality in `answers-golden.test.ts` | 14 305 fixture | low | the four `household-*.txt` are gone and the test fails if the scopes differ |
-| 4 | Move agent and machine-load scripts out of the repo (`slots.sh`, `cores.sh`, `wait-quiet.sh`, `commit.sh`, `lib/cores.mjs`, `lib/owner.sh`) to the host tooling | about 500 + tests | medium: `check.sh` and `e2e/run.mjs` call them | `git grep -n "slots.sh\|wait-quiet\|cores.sh"` is empty and `pnpm check` runs on a clean clone |
+| 4 | Move agent and machine-load scripts out of the repo (slots, core shares, quiet machine, commit and their two helpers in `tools/lib/`) to the host tooling | about 500 + tests | medium: `check.sh` and `e2e/run.mjs` call them | a `git grep` for the three script names is empty and `pnpm check` runs on a clean clone |
 | 5 | Replace `tools/check/scope.mjs` and friends with `vitest --changed` plus the shell suites by folder | about 1 300 + 800 tests | medium: slower local runs | `pnpm check --changed` runs only vitest `--changed` and the touched shell suites |
 | 6 | Replace the unread-exports rule with knip in CI (`exports.ts`, `exports-rule.ts`, `unread-exports.txt`) and add a `knip.json` | about 400 | low | `pnpm knip` is in `pnpm check`, reports 0, and the rule's files are gone |
 | 7 | Remove the 150 unused exports and 196 unused types knip lists (after move 6) | est. 300 to 600 | low | knip reports no unused export |

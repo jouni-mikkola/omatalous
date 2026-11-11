@@ -4,7 +4,6 @@
 # A suite that tests scripts/ or relay/ (the install, the update, the helper) is never listed here: a product change runs it.
 tools/test/build-ca.test.sh
 tools/test/check.test.sh
-tools/test/commit.test.sh
 tools/test/cores.test.sh
 tools/test/docker-tidy.test.sh
 tools/test/drills-lib.test.sh
@@ -21,7 +20,6 @@ tools/test/slots.test.sh
 tools/test/smoke-image.test.sh
 tools/test/verify-release-cache.test.sh
 tools/test/verify-release.test.sh
-tools/test/wait-quiet.test.sh
 tools/test/wait.test.sh
 tools/check/
 tools/release/

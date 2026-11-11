@@ -408,8 +408,7 @@ Its other half stays in the ordinary file as a check of the work. That check cou
 answer or the result. The shared setup goes in a `*-kit.ts` file beside them.
 
 `pnpm test` and `pnpm check` leave the `perf` project out. A loaded machine, or several runs at once, is no place to
-measure seconds. `pnpm test:perf [files]` waits for a quiet machine (`tools/wait-quiet.sh`, as a check does) and then
-runs them. `PERF_WAIT_MAX` is the longest wait in seconds, and 0 does not wait. A change that touches a perf test file
+measure seconds. `pnpm test:perf [files]` runs them: start it when the machine is quiet. A change that touches a perf test file
 gets it in its `pnpm check --changed`.
 
 `--sequence.shuffle` runs the files and the tests of each in a random order: `pnpm test --sequence.shuffle` is how to

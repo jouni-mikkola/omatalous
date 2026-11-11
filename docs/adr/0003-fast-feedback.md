@@ -19,7 +19,7 @@ the timeout behind `STACK_TRACE_ERROR`, so workers looked for a false finding th
 - Tests that build random households carry a 30 s timeout (repo rule 13), and a timeout is reported as a timeout with
   the command to run it alone.
 - Test files have a budget of 800 lines with a baseline that only shrinks (rule 9).
-- `tools/commit.sh`, `pnpm where` and `pnpm shots` replace the by-hand steps every task repeated.
+- `pnpm where` and `pnpm shots` replace the by-hand steps every task repeated.
 
 ## Consequences
 

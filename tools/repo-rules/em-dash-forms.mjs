@@ -1,8 +1,7 @@
 // @ts-check
 /**
  * The forms of repo rule 4 (no em dash in text we write) and the files the rule leaves out. A plain module with no
- * imports: tools/repo-rules/text-rules.ts scans every tracked file with it, and tools/commit.sh loads it to run the
- * same forms on the Markdown a commit takes, so there is one list. Every form is built from parts, so this file holds
+ * imports: tools/repo-rules/text-rules.ts scans every tracked file with it. Every form is built from parts, so this file holds
  * none of them and is scanned like every other file.
  */
 const BS = "\\";

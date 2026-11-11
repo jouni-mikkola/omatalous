@@ -344,55 +344,6 @@ t_check_inside_the_cut_does_not_wait() {
   check "lock: it ran green and did not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'waiting' '$W/out'"
 }
 
-# The wait for a quiet machine: tools/wait-quiet.sh is copied into the world and told by a load file that the machine is
-# busy or quiet; no program on the real machine takes part (the load is the only reason in these worlds).
-quiet_world() {
-  world; fake_plain
-  mkdir -p "$W/tools/lib"; cp "$SRC/tools/wait-quiet.sh" "$W/tools/"; cp "$SRC/tools/lib/owner.sh" "$W/tools/lib/"
-  echo "99.00 99.00 99.00 1/1 1" >"$W/load"
-}
-# quiet_run [VAR=value ...]: check.sh sh with the cut variables removed, a one-second call and three seconds in all. SECONDS
-# counts whole seconds, so with two in all a first call that began late in a second could be the only one.
-quiet_run() {
-  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CUT_LOCK_HELD -u CI -u CHECK_WAIT CHECK_SLOT_HELD=1 WAIT_QUIET_PATTERN="$W/never-runs-" WAIT_QUIET_LOADAVG_FILE="$W/load" WAIT_QUIET_CPUS=4 WAIT_QUIET_POLL=0.2     CHECK_WAIT_CALL=1 CHECK_WAIT_MAX=3 "$@" PATH="$W/bin:$PATH" bash tools/check.sh sh >"$W/out" 2>&1; echo $? >"$W/rc") &
-  RUNPID=$!
-}
-
-t_check_waits_for_a_quiet_machine_then_runs_anyway() {
-  quiet_world
-  quiet_run; wait "$RUNPID"
-  check "wait: a busy machine prints the reason on each call, then the check runs anyway and is green" bash -c "[[ \$(cat '$W/rc') = 0 ]] && grep -q '^busy: load 99.00' '$W/out' && grep -q 'still busy after' '$W/out' && [[ \$(grep -c '^busy:' '$W/out') -ge 2 ]] && [[ '$(ran)' = 'plain.test.sh plain,' ]]"
-}
-
-t_check_waits_until_the_machine_is_quiet() {
-  quiet_world
-  quiet_run CHECK_WAIT_MAX=60
-  local i
-  for ((i = 0; i < 150; i++)); do grep -q '^busy:' "$W/out" && break; sleep 0.1; done
-  echo "0.50 0.50 0.50 1/1 1" >"$W/load"
-  wait "$RUNPID"
-  check "wait: it runs when the load drops, without the 'running anyway' line" bash -c "[[ \$(cat '$W/rc') = 0 ]] && grep -q '^busy:' '$W/out' && ! grep -q 'running anyway' '$W/out' && [[ '$(ran)' = 'plain.test.sh plain,' ]]"
-}
-
-t_check_on_a_quiet_machine_says_nothing_about_it() {
-  quiet_world
-  echo "0.50 0.50 0.50 1/1 1" >"$W/load"
-  quiet_run; wait "$RUNPID"
-  check "wait: a quiet machine adds no line" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy\|quiet' '$W/out'"
-}
-
-t_check_wait_is_off_with_CHECK_WAIT_0_inside_a_cut_and_in_ci() {
-  quiet_world
-  quiet_run CHECK_WAIT=0; wait "$RUNPID"
-  check "wait: CHECK_WAIT=0 does not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy' '$W/out'"
-  quiet_run CUT_LOCK_HELD=1; wait "$RUNPID"
-  check "wait: inside the cut it does not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy' '$W/out'"
-  quiet_run CI=1; wait "$RUNPID"
-  check "wait: in CI it does not wait" bash -c "[[ \$(cat '$W/rc') = 0 ]] && ! grep -q 'busy' '$W/out'"
-  quiet_run CUT_LOCK_HELD=1 CHECK_WAIT=1; wait "$RUNPID"
-  check "wait: CHECK_WAIT=1 is kept inside the cut when asked for" bash -c "grep -q '^busy:' '$W/out'"
-}
-
 # A history with two scripts in two folders, each named by a suite of its own, and one beside the first that no suite names.
 scoped_world() {
   world

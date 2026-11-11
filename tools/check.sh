@@ -26,10 +26,6 @@
 # red run recorded in DIR (the folder a red run keeps, named on its last line), every failed vitest file, shell job and, from
 # the output of a red `pnpm e2e` in FILE, page spec, and prints FLAKE (passes alone), REAL (fails alone) or NOT RUN (the rerun selected no test) for each with the
 # number of kept red runs (check.* beside DIR) it failed in. Exit 1 when one is REAL (tools/check/rerun.mjs).
-# Before the steps a run waits for a quiet machine (tools/wait-quiet.sh: no vitest, playwright, tsc or check of another
-# worktree running, load under twice the CPUs) for up to CHECK_WAIT_MAX seconds (1800), then runs anyway. CHECK_WAIT=0 skips
-# it; it is 0 by default inside a release cut and in CI. An agent that must keep one command under 300 s calls
-# tools/wait-quiet.sh itself first and repeats on exit 3.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -78,21 +74,16 @@ fi
 # The steps that run node run on the node of .npmrc, the one with TypeScript support (tools/check/pinned-node.sh)
 if ((RERUN)) || [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then source "$ROOT/tools/check/pinned-node.sh"; fi
 
-# CHECK_WAIT=1 waits for a quiet machine before the heavy steps (tools/wait-quiet.sh), 0 does not. Inside a release cut
-# (CUT_LOCK_HELD) and in CI, which own the machine, the default is 0. The restarts below carry the decision; what the run
-# starts does not inherit it.
-if [[ -z ${CHECK_WAIT:-} ]]; then CHECK_WAIT=1; [[ -z ${CUT_LOCK_HELD:-}${CI:-} ]] || CHECK_WAIT=0; fi
-
 # The shared cut lock (tools/check/cut-shared.sh: the queue of cut.wait, then cut.lock shared, one limit): the run starts
 # again under it, with CUT_LOCK_HELD set. It is taken before the slot below, never after: see that script.
 if [[ -z ${CUT_LOCK_HELD:-} && -z ${CI:-} ]] && git rev-parse --git-common-dir >/dev/null 2>&1; then
-  CHECK_WAIT=$CHECK_WAIT exec bash "$ROOT/tools/check/cut-shared.sh" check -- bash "$SELF" "${ORIG[@]}"
+  exec bash "$ROOT/tools/check/cut-shared.sh" check -- bash "$SELF" "${ORIG[@]}"
 fi
 
 # wait for a free slot, so workers checking at the same time do not make each other's seeded tests time out, and for a lease
 # on a share of the cores (tools/cores.sh), which the shell jobs and vitest below divide between them
 if [[ -z ${CHECK_SLOT_HELD:-} && -z ${CI:-} && " ${steps[*]} " != " lint " ]]; then
-  CHECK_SLOT_HELD=1 CHECK_WAIT=$CHECK_WAIT exec bash "$ROOT/tools/slots.sh" --label check -- bash "$ROOT/tools/cores.sh" --label check -- bash "$SELF" "${ORIG[@]}"
+  CHECK_SLOT_HELD=1 exec bash "$ROOT/tools/slots.sh" --label check -- bash "$ROOT/tools/cores.sh" --label check -- bash "$SELF" "${ORIG[@]}"
 fi
 
 # --rerun: only the failures of an earlier red run, in the lead's slot or the workers', under the same cut lock
@@ -456,20 +447,6 @@ step_sh() {
   fi
 }
 
-# quiet_wait: one call of tools/wait-quiet.sh at a time (it prints its own "busy:" line when it gives up), repeated while the
-# machine stays busy, for CHECK_WAIT_MAX seconds (1800); then the steps run anyway. CHECK_WAIT_CALL is the seconds of one call.
-quiet_wait() {
-  local began=$SECONDS rc
-  [[ $CHECK_WAIT != 0 && -f $ROOT/tools/wait-quiet.sh ]] || return 0
-  while :; do
-    bash "$ROOT/tools/wait-quiet.sh" --max "${CHECK_WAIT_CALL:-270}"
-    rc=$?
-    ((rc == 3)) || return 0
-    if ((SECONDS - began >= ${CHECK_WAIT_MAX:-1800})); then echo "check: the machine is still busy after $((SECONDS - began)) s, running anyway"; return 0; fi
-  done
-}
-quiet_wait
-unset CHECK_WAIT
 t0=$SECONDS
 
 failed_lines=()
