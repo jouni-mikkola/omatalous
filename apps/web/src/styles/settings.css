@@ -97,6 +97,8 @@
 .renewal li .badge { margin-left: 0; }
 /* Tuo tiedot sits in the Tiedot card head; its progress, dry run and answer take whole lines under the buttons */
 .data-import-line { flex: 0 0 100%; min-width: 0; }
+/* with such a line the buttons and the lines leave the side of the heading and take the card's width under it */
+.card-head > .form-row:has(> .data-import-line) { flex: 1 1 100%; }
 .data-import-plan { margin-bottom: 8px; }
 .data-import-actions { display: flex; gap: 8px; }
 .recovery-codes { list-style: none; margin: 8px 0; padding: 0; display: grid; grid-template-columns: repeat(2, max-content); gap: 4px 24px; font-variant-numeric: tabular-nums; }
