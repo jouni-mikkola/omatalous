@@ -409,9 +409,12 @@ export function projectDates(s: Pick<RecurringSeries, "cadence" | "lastDate" | "
     }
   } else if (def.id === "semimonthly") {
     // two anchors a month: the next date's day and the last charge's day
+    // an anchor on the last day of a month (the 30th, 31st, or the end of February) stays on the month end
+    const atEnd = (d: IsoDate) => d === monthEnd(monthOf(d)) && (Number(d.slice(8, 10)) >= 29 || d.slice(5, 7) === "02");
+    const [endA, endB] = [atEnd(s.nextDate), atEnd(s.lastDate)];
     for (let k = 0; k < 1200; k++) {
-      const a = addMonthsKeepDay(s.nextDate, k);
-      const b = addMonthsKeepDay(s.lastDate, k + 1);
+      const a = endA ? monthEnd(addMonths(monthOf(s.nextDate), k)) : addMonthsKeepDay(s.nextDate, k);
+      const b = endB ? monthEnd(addMonths(monthOf(s.lastDate), k + 1)) : addMonthsKeepDay(s.lastDate, k + 1);
       if (a > until) break;
       out.push(a);
       if (b <= until) out.push(b);

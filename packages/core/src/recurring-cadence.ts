@@ -166,6 +166,14 @@ export function nextDateOf(occ: readonly Occurrence[], cadence: CadenceDef): Iso
     return day === null ? step : onDayNear(step, day);
   }
   if (cadence.id === "semimonthly" && occ.length >= 2) {
+    // after a late-month charge the next one is the early anchor, on the usual day of the early charges and not on a day a weekend moved
+    if (dayOfMonth(last) > 20) {
+      const early = occ.slice(-DAY_SAMPLE * 2).map((o) => dayOfMonth(o.date)).filter((d) => d <= 20);
+      if (early.length >= 2) {
+        const d = dateIn(addMonths(last.slice(0, 7), 1), Math.round(median(early)));
+        if (d > last) return d;
+      }
+    }
     const next = addMonthsKeepDay(occ[occ.length - 2]!.date, 1);
     return next > last ? next : addMonthsKeepDay(last, 1);
   }
