@@ -74,9 +74,9 @@ describe("pnpm where", () => {
     expect(find("LIMIT", w).defs.map((d) => d.file)).toEqual(["src/a.ts"]);
   });
 
-  it("works on this repository: scopeOf is defined in tools/check/scope.mjs and tested beside it", () => {
-    const r = find("scopeOf");
-    expect(r.defs.map((d) => d.file)).toEqual(["tools/check/scope.mjs"]);
-    expect(r.tests.map((t) => t.file)).toContain("tools/check/scope.test.ts");
+  it("works on this repository: slowTests is defined in tools/check/report.mjs and tested beside it", () => {
+    const r = find("slowTests");
+    expect(r.defs.map((d) => d.file)).toEqual(["tools/check/report.mjs"]);
+    expect(r.tests.map((t) => t.file)).toContain("tools/check/report.test.ts");
   });
 });

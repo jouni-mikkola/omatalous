@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Tests for the shell step of tools/check.sh: which suites it runs, and how a suite of `t_` scenarios is split into one
 # job per scenario. A world is a folder with a copy of check.sh and fake suites that log every scenario they run to
-# $RUNLOG. The --changed cases also copy tools/check/scope.mjs and make a git history.
+# $RUNLOG. The --changed cases make a git history.
 #
 #   tools/test/check.test.sh [name-filter]
 set -u
@@ -394,15 +394,15 @@ t_check_wait_is_off_with_CHECK_WAIT_0_inside_a_cut_and_in_ci() {
   check "wait: CHECK_WAIT=1 is kept inside the cut when asked for" bash -c "grep -q '^busy:' '$W/out'"
 }
 
-# A history with two scripts, each named by a suite of its own, and one that no suite names.
+# A history with two scripts in two folders, each named by a suite of its own, and one beside the first that no suite names.
 scoped_world() {
   world
-  cp "$SRC/tools/check/scope.mjs" "$W/tools/check/"
-  local n
+  local n d
   for n in a b; do
-    echo "echo $n" >"$W/scripts/$n.sh"
+    d=scripts; [[ $n == a ]] || d=tools
+    echo "echo $n" >"$W/$d/$n.sh"
     suite_head "$W/tools/test/$n.test.sh"
-    printf '%s\n' "bash scripts/$n.sh" "scenario $n" >>"$W/tools/test/$n.test.sh"
+    printf '%s\n' "bash $d/$n.sh" "scenario $n" >>"$W/tools/test/$n.test.sh"
     suite_tail "$W/tools/test/$n.test.sh"
   done
   echo "echo c" >"$W/scripts/c.sh"
@@ -411,28 +411,33 @@ scoped_world() {
   git -C "$W" -c user.name=t -c user.email=t@example.com -c commit.gpgsign=false commit -q -m base
 }
 
-t_changed_script_runs_its_suite() {
+t_changed_script_runs_the_suites_of_its_folder() {
   scoped_world
   echo "# edit" >>"$W/scripts/a.sh"
   run_check --changed main sh
-  check "changed: only the suite that names the script ran" test "$(ran)" = "a.test.sh a,"
-  check "changed: the scope line names the suite" grep -q 'shell suites a$' "$W/out"
-}
-
-t_changed_script_nothing_names_runs_all() {
+  check "changed: only the suite that names a file of the folder ran" test "$(ran)" = "a.test.sh a,"
+  check "changed: the scope line names the suite" grep -q 'vitest --changed, types incremental, shell suites a$' "$W/out"
   scoped_world
   echo "# edit" >>"$W/scripts/c.sh"
   run_check --changed main sh
-  check "changed: every suite ran" test "$(ran)" = "a.test.sh a,b.test.sh b,"
-  check "changed: and the scope line says why" grep -q 'scripts/c.sh is named by no suite or test' "$W/out"
+  check "changed: a script no suite names runs the suites of its folder too" test "$(ran)" = "a.test.sh a,"
 }
 
-t_changed_without_shell_skips_the_suites() {
+t_changed_suite_runs_itself() {
   scoped_world
-  echo "note" >"$W/NOTES.md"
+  echo "# edit" >>"$W/tools/test/b.test.sh"
+  run_check --changed main sh
+  check "changed: only the changed suite ran" test "$(ran)" = "b.test.sh b,"
+}
+
+t_changed_without_a_named_folder_skips_the_suites() {
+  scoped_world
+  mkdir "$W/docs"; echo "note" >"$W/docs/NOTES.md"
   run_check --changed main sh
   check "changed: nothing to run" grep -q 'nothing to run' "$W/out"
   check "changed: no suite ran" test -z "$(ran)"
+  run_check --changed nowhere sh
+  check "changed: a base that is no commit runs everything" bash -c "grep -q 'no usable base' '$W/out' && [[ '$(ran)' = 'a.test.sh a,b.test.sh b,' ]]"
 }
 
 # ── stamps ──
@@ -446,6 +451,7 @@ import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 const out = args.find((a) => a.startsWith("--outputFile=")).slice("--outputFile=".length);
 const excludes = args.flatMap((a, i) => (args[i - 1] === "--exclude" ? [a.replace(/\*\*$/, "")] : []));
+appendFileSync(`${process.env.RUNLOG}.args`, `${args.join(" ")}\n`);
 const filters = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--exclude" && args[i - 1] !== "--project");
 const all = execFileSync("git", ["ls-files", "--", "*.test.ts"], { encoding: "utf8" }).split("\n").filter(Boolean);
 const res = { numTotalTests: 0, numFailedTests: 0, numPendingTests: 0, testResults: [] };
@@ -524,23 +530,20 @@ ALL_RAN="lint sh:alpha sh:plain types vt:apps/server/test/s.test.ts vt:apps/web/
 NOLINT_RAN=${ALL_RAN#lint } # every step that reads the whole tree: all but the lint, which reads scripts and the like
 RULES_RAN="vt:tools/repo-rules/rr.test.ts "
 
-# The tools' self-tests (tooling.txt) are left out of a product change, but never a test the scope of --changed picked for it.
-t_tooling_a_test_the_scope_picked_is_not_left_out() {
+# The tools' self-tests (tooling.txt) are left out of a product change. A --changed run leaves the choice to vitest.
+t_tooling_a_changed_run_leaves_the_choice_to_vitest() {
   stamp_world
-  cp "$SRC/tools/check/scope.mjs" "$SRC/tools/check/tooling.txt" "$W/tools/check/"
-  echo '{ "name": "@banking/core", "exports": "./src/a.ts" }' >"$W/packages/core/package.json"
-  printf '%s\n' 'import { a } from "../../packages/core/src/a.ts";' pass >"$W/tools/release/r.test.ts"; echo pass >"$W/tools/release/other.test.ts"
+  cp "$SRC/tools/check/tooling.txt" "$W/tools/check/"
   wcommit tooling
   git -C "$W" branch -q base
   echo "export const a = 2;" >"$W/packages/core/src/a.ts"
   srun -- --changed base tests
-  check "tooling: the scoped run left the tools' self-tests out" grep -q "self-tests left out" "$W/out"
-  check "tooling: the test the graph picked under tools/release/ ran" grep -qx "vt:tools/release/r.test.ts" "$RUNLOG"
-  check "tooling: the other self-test there did not" bash -c "! grep -q other.test.ts '$RUNLOG'"
-  srun CI=1 -- --changed base tests; check "tooling: CI runs the self-tests of a product change" bash -c "! grep -q 'self-tests left out' '$W/out'"
-  srun CI=1 CHECK_LIGHT=1 -- --changed base tests; check "tooling: the light tier of CI leaves them out like a local run" grep -q "self-tests left out" "$W/out"
+  check "tooling: the scoped run ran vitest --changed against the base, with no test file named" grep -qx -- "--changed=base --passWithNoTests --project !perf --reporter=json --outputFile=.*" "$RUNLOG.args"
+  check "tooling: and said nothing of the self-tests" bash -c "! grep -q 'self-tests left out' '$W/out'"
   srun
-  check "tooling: a whole run leaves out the folder" bash -c "! grep -q 'vt:tools/release/' '$RUNLOG' && grep -q 'vt:packages/core' '$RUNLOG'"
+  check "tooling: a whole run leaves out the folder" bash -c "grep -q 'self-tests left out' '$W/out' && ! grep -q 'vt:tools/release/' '$RUNLOG' && grep -q 'vt:packages/core' '$RUNLOG'"
+  srun CI=1; check "tooling: CI runs the self-tests of a product change" bash -c "! grep -q 'self-tests left out' '$W/out'"
+  srun CI=1 CHECK_LIGHT=1; check "tooling: the light tier of CI leaves them out like a local run" grep -q "self-tests left out" "$W/out"
 }
 
 t_stamps_a_second_run_takes_every_step_from_stamps() {
@@ -748,7 +751,7 @@ t_stamps_fresh_reads_none_and_still_writes() {
 t_stamps_a_scoped_run_or_one_step_or_ci() {
   stamp_world
   local base; base=$(git -C "$W" rev-parse HEAD)
-  cp "$SRC/tools/check/scope.mjs" "$W/tools/check/"; echo "echo y" >"$W/scripts/x.sh"; wcommit
+  echo "echo y" >"$W/scripts/x.sh"; wcommit
   srun -- --changed "$base"
   check "stamps: a --changed run writes no stamp" bash -c "[[ \$(cat '$W/rc') = 0 ]] && [[ $(nst) = 0 ]] && grep -q 'scoped to' '$W/out'"
   srun

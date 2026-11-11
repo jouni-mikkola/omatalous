@@ -5,11 +5,11 @@
 # types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/.
 # A suite whose scenarios are t_ functions behind a `want` filter (install, backup, ops-helper, ...) runs one job per
 # scenario, the other suites one job each, CHECK_JOBS of them at a time (default the CPUs less 8, at least 4, so vitest keeps cores).
-# --changed [base] is for the loop while working: tsc runs incrementally, vitest only on the test files that import a
-# changed file (tools/check/scope.mjs; the package rule where the graph cannot say) and on the files that name a changed
-# script or read a changed file as text, and the pictures tests when the web app's look changes (tools/check/scope.mjs says which; tools/check/tests-for.sh <base> prints the list with the e2e specs), and the shell steps only when it
-# touches shell: then only the suites that name the changed script, or a script that sources it. A changed script that
-# nothing names runs everything. The base defaults to the commit that .git/worker-base holds, else origin/main. CI and
+# --changed [base] is for the loop while working: tsc runs incrementally, vitest runs with its own --changed (the test files
+# that import a changed file), and the shell steps only when the change touches shell: the lint for a changed script, and
+# the suites of the touched folders, which are the suites that name a file in the folder of a changed file (a changed
+# suite runs itself, a changed file at the root the suites that name it). The base defaults to the commit that
+# .git/worker-base holds, else origin/main. CI and
 # a plain `pnpm check` run everything, except that the self-tests of the developer and release tools
 # (tools/check/tooling.txt) run only when the change touches tools/, .github/ or scripts/ since that base: always in CI
 # (CHECK_LIGHT=1, set by the light tier of ci.yml, applies the rule there too), with CHECK_FRESH (the release gate sets
@@ -107,46 +107,48 @@ base_of() {
   echo "$b"
 }
 
-# the scope of --changed: SCOPE_TESTS stays empty when vitest runs everything, SCOPE_SUITES when every shell suite runs
-SCOPE_TESTS=() SCOPE_SUITES=()
+# the scope of --changed: SCOPE_SUITES holds the shell suites of the touched folders
+SCOPE_SUITES=()
 if ((CHANGED)); then
   base=$(base_of)
-  declare -A sc=()
-  if [[ -n $base ]]; then
-    while IFS='=' read -r k v; do sc[$k]=$v; done < <(node tools/check/scope.mjs "$base")
-  fi
-  if [[ -z $base || -n ${sc[error]:-} ]]; then
-    echo "check: --changed has no usable base (${sc[error]:-none found}; pass one: pnpm check --changed <base>), running everything"
+  if [[ -z $base ]] || ! mb=$(git merge-base HEAD "$base" 2>/dev/null); then
+    echo "check: --changed has no usable base (${base:-none found}; pass one: pnpm check --changed <base>), running everything"
     CHANGED=0
   else
+    mapfile -t files < <({ git diff --name-only --no-renames "$mb" -- && git ls-files --others --exclude-standard; } | sort -u)
+    # a changed suite is its own; any other file stands for its folder, a file at the root for itself
+    declare -A touched=()
+    lint=0
+    for f in "${files[@]}"; do
+      [[ $f != *.sh && $f != scripts/* && $f != tools/ci/* ]] || lint=1
+      if [[ $f == tools/test/*.test.sh ]]; then touched[$f]=1; elif [[ $f == */* ]]; then touched[${f%/*}/]=1; else touched[$f]=1; fi
+    done
+    for f in tools/test/*.test.sh; do
+      [[ -e $f ]] || continue
+      for d in "${!touched[@]}"; do
+        re=$(sed 's/[][\.*^$+?(){}|]/\\&/g' <<<"$d")
+        # a folder is named by a file in it, not by one of its subfolders
+        [[ $d != */ ]] || re="${re}[A-Za-z0-9_.-]+([^A-Za-z0-9_./-]|\$)"
+        if [[ $d == "$f" ]] || { [[ $d != tools/test/*.test.sh ]] && grep -qE "(^|[^A-Za-z0-9_.-])$re" "$f"; }; then SCOPE_SUITES+=("$f"); break; fi
+      done
+    done
     kept=()
     for st in "${steps[@]}"; do
-      { [[ $st == lint && ${sc[lint]} == 0 ]] || [[ $st == sh && ${sc[sh]} == 0 ]]; } || kept+=("$st")
+      { [[ $st == lint ]] && ((!lint)); } || { [[ $st == sh ]] && ((${#SCOPE_SUITES[@]} == 0)); } || kept+=("$st")
     done
-    skipped=$((${#steps[@]} - ${#kept[@]}))
-    steps=("${kept[@]}")
-    [[ ${sc[full]} == 1 ]] || read -ra SCOPE_TESTS <<<"${sc[tests]}"
-    [[ ${sc[suites]:-all} == all ]] || read -ra SCOPE_SUITES <<<"${sc[suites]}"
-    shell=""
-    if ((skipped)); then shell=", shell steps skipped"
-    elif ((${#SCOPE_SUITES[@]})); then shell=", shell suites $(for s in "${SCOPE_SUITES[@]}"; do s=${s##*/}; printf '%s ' "${s%.test.sh}"; done)"; shell=${shell% }
-    fi
-    # many files (the import graph of a core change) are told by folder, so the line stays one line
-    vt=${SCOPE_TESTS[*]:-everything}
-    if ((${#SCOPE_TESTS[@]} > 8)); then
-      vt="${#SCOPE_TESTS[@]} paths ($(printf '%s\n' "${SCOPE_TESTS[@]}" | sed -E 's#^((apps|packages)/[^/]+|tools)/.*#\1#' | sort | uniq -c | awk '{ printf "%s%s %s", (NR > 1 ? ", " : ""), $2, $1 }'))"
-    fi
-    echo "check: scoped to ${base:0:12} (${sc[files]} files): vitest $vt${sc[why]:+ (${sc[why]})}, types incremental$shell"
-    [[ -z ${sc[e2e]:-} ]] || echo "check: e2e specs this change needs (not run here; after pnpm build: pnpm e2e ${sc[e2e]})"
+    steps=(${kept[@]+"${kept[@]}"})
+    shell=", shell suites $(for s in ${SCOPE_SUITES[@]+"${SCOPE_SUITES[@]}"}; do s=${s##*/}; printf '%s ' "${s%.test.sh}"; done)"; shell=${shell% }
+    ((${#SCOPE_SUITES[@]})) || shell=", no shell suite"
+    echo "check: scoped to ${base:0:12} (${#files[@]} files): vitest --changed, types incremental$shell"
     ((${#steps[@]})) || { echo "check: nothing to run"; exit 0; }
   fi
 fi
 
 # The self-tests of the developer and release tools (tools/check/tooling.txt) run when the change touches tools/, .github/
 # or scripts/ since the base, and always in CI (except with CHECK_LIGHT=1, the light tier of ci.yml), with CHECK_FRESH (the release gate) or CHECK_TOOLING=1. Without a base
-# they run. TOOL_SUITES and TOOL_DIRS stay empty when they run.
+# they run. TOOL_SUITES and TOOL_DIRS stay empty when they run, and with --changed, which picks its own tests and suites.
 TOOL_SUITES=() TOOL_DIRS=()
-if [[ -z ${CHECK_FRESH:-} && ( -z ${CI:-} || ${CHECK_LIGHT:-} == 1 ) && ${CHECK_TOOLING:-} != 1 && -f tools/check/tooling.txt ]]; then
+if ((!CHANGED)) && [[ -z ${CHECK_FRESH:-} && ( -z ${CI:-} || ${CHECK_LIGHT:-} == 1 ) && ${CHECK_TOOLING:-} != 1 && -f tools/check/tooling.txt ]]; then
   tb=$(base_of)
   if [[ ${CHECK_TOOLING:-} == 0 ]] || { [[ -n $tb ]] && mb=$(git merge-base HEAD "$tb" 2>/dev/null) &&
     ! { git diff --name-only --no-renames "$mb" -- && git ls-files --others --exclude-standard; } | grep -E '^(tools|\.github|scripts)/' >/dev/null; }; then
@@ -158,11 +160,9 @@ if [[ -z ${CHECK_FRESH:-} && ( -z ${CI:-} || ${CHECK_LIGHT:-} == 1 ) && ${CHECK_
     echo "check: the tools' self-tests left out (${#TOOL_SUITES[@]} suites and the vitest files of ${TOOL_DIRS[*]}): $why; CHECK_TOOLING=1 runs them"
   fi
 fi
-# tooling FILE: whether FILE is a self-test left out by the rule above. A file the scope of --changed named is never one:
-# a product change can need a test under tools/release/ (the migrations' tests read apps/server/migrations/).
+# tooling FILE: whether FILE is a self-test left out by the rule above
 tooling() {
   local d
-  [[ " ${SCOPE_TESTS[*]:-} ${SCOPE_SUITES[*]:-} " != *" $1 "* ]] || return 1
   [[ " ${TOOL_SUITES[*]:-} " != *" $1 "* ]] || return 0
   for d in "${TOOL_DIRS[@]}"; do [[ $1 != "$d"* || $1 == *.sh ]] || return 0; done
   return 1
@@ -277,11 +277,10 @@ step_types() {
 # together, and when none hit that run has no filter, so it is the one a check ran before the parts existed.
 step_tests() {
   local json=$CHECK_LOG/vitest.json log=$CHECK_LOG/vitest.log rc out f id from="" nfiles=0
-  local -a args=("${SCOPE_TESTS[@]}") runfiles=() exclude=()
-  # the `perf` project (*.perf.test.ts, pnpm test:perf on a quiet machine) is left out unless the scope names a file of it
-  [[ " ${SCOPE_TESTS[*]:-} " == *.perf.test.ts* ]] || exclude+=(--project '!perf')
-  # a folder of self-tests is left out unless the scope named a file in it (vitest would exclude that file too)
-  for f in "${TOOL_DIRS[@]}"; do [[ " ${SCOPE_TESTS[*]:-}" == *" $f"* ]] || exclude+=(--exclude "$f**"); done
+  local -a args=() runfiles=() exclude=(--project '!perf')
+  # --changed: vitest picks the test files that import a file changed since the base, and none is no failure
+  ((!CHANGED)) || args=(--changed="$base" --passWithNoTests)
+  for f in "${TOOL_DIRS[@]}"; do exclude+=(--exclude "$f**"); done
   declare -A want=() hit=() P=() S=() X=() N=() T0=() T1=()
   if ((STAMP_ON)); then
     for f in "${TESTFILES[@]}"; do
@@ -311,7 +310,9 @@ step_tests() {
   # The JSON result gives test names and messages without the progress output. Line 1 of the output is the
   # summary, the rest the failures and then the slowest tests over 2 s (tools/check/report.mjs).
   out=$(node tools/check/report.mjs "$json")
-  if [[ -z $out ]]; then
+  if [[ -z $out ]] && ((CHANGED && rc == 0)); then
+    finish tests 0 "no test file imports a changed file"
+  elif [[ -z $out ]]; then
     # no result file: vitest did not start (config or import error)
     finish tests 1 "vitest did not produce a result"
     strip <"$log" | tail -n 12 | indent
