@@ -153,8 +153,15 @@ export type SittingView =
   | { state: "skipped"; left: number }
   | { state: "empty" };
 
+/**
+ * The kinds this page has a card for. The server's queue also sends kinds it has none for yet (`balance`, `consent`,
+ * `bill`, `row`, services/review.ts): such an item is left out here, since the words below have nothing to say of it.
+ */
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, input: true, mortgage: true, extension: true };
+const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
+
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
-export const openItems = (items: readonly ReviewItem[], sitting: Sitting) => items.filter((i) => !sitting.answered.includes(i.id));
+export const openItems = (items: readonly ReviewItem[], sitting: Sitting) => items.filter((i) => hasCard(i) && !sitting.answered.includes(i.id));
 
 /**
  * Where the sitting stands. An answered item is gone from the queue as soon as the page knows it, also before the queue

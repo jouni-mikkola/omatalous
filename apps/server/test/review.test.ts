@@ -257,3 +257,86 @@ describe("the review queue", () => {
     expect((await queue(w.as(w.aino))).filter((i) => i.kind === "split")).toEqual([]);
   });
 });
+
+describe("what is wrong, in the same queue", () => {
+  /** A bank account on a consent with six days left, a power bill that did not come in October, a row with no name, and balances the rows miss by 10 €. */
+  async function troubled() {
+    const t = await setupApp();
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertConnection({ id: "sess-1", provider: "enablebanking", institution: "Esimerkkipankki", country: "FI", status: "active", validUntil: "2026-10-15T12:00:00Z", createdAt: "2026-04-18T12:00:00Z", lastSyncedAt: null });
+    await repo.upsertAccount({ id: "chk", connectionId: "sess-1", provider: "enablebanking", externalId: "ext-chk", identity: "idn-chk", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+    const rows = [
+      ...MONTHS.flatMap((m) => [raw(`${m}-01`, -64.2, "ESIMERKKISÄHKÖ OY", "SÄHKÖLASKU"), raw(`${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")]),
+      { ...raw("2026-10-03", -37.5, "", ""), counterparty: null, description: null },
+    ];
+    await ingestTransactions(repo, "chk", rows, "enablebanking");
+    await reprocess(repo, t.s.settings);
+    await repo.recordHistory("chk", "2026-01-01", "default", "2026-09-01T06:00:00.000Z");
+    // the bank's balance fell 47,50 € over the days the one row of 37,50 € is in
+    await repo.recordBalances("idn-chk", "2026-10-01", "2026-10-01T06:00:00.000Z", [{ cents: 500_000, type: "CLBD", referenceDay: "2026-09-30" }]);
+    await repo.recordBalances("idn-chk", "2026-10-08", "2026-10-08T06:00:00.000Z", [{ cents: 495_250, type: "CLBD", referenceDay: "2026-10-07" }]);
+    return { t, yearCents: rows.reduce((sum, r) => sum + Math.abs(r.amountCents), 0) };
+  }
+  const wrong = async (c: Caller) => (await queue(c)).filter((i) => ["balance", "consent", "bill", "row"].includes(i.kind));
+
+  it("a balance that differs, an ending consent, a missed bill and a row with no name are one item each with its sum, beside the housing question", async () => {
+    const { t, yearCents } = await troubled();
+    const items = await wrong(t.admin);
+    expect(items.map((i) => i.kind).sort()).toEqual(["balance", "bill", "consent", "row"]);
+    const of = (kind: string) => items.find((i) => i.kind === kind)!;
+    expect(of("balance")).toMatchObject({ id: "balance:chk", cents: 1000, accountId: "chk", accountName: "Käyttötili", fromDay: "2026-10-01", toDay: "2026-10-07", bankCents: -4750, rowsCents: -3750 });
+    expect(of("consent")).toMatchObject({ id: "consent:sess-1", cents: yearCents, connection: "sess-1", institution: "Esimerkkipankki", daysLeft: 6, accounts: ["Käyttötili"] });
+    expect(of("bill")).toMatchObject({ cents: 6420, dueDate: "2026-10-01", subject: "series:out:chk:Esimerkkisähkö#6420" });
+    expect(of("row")).toMatchObject({ cents: 3750, side: "out", date: "2026-10-03", rowCount: 1 });
+    expect((of("row").rows as { cents: number }[])[0]!.cents).toBe(-3750);
+    // today's questions stay: the queue is still ordered by the money. The header's count is of the items the page
+    // has a card for, so the four kinds here are not in it and the mark can fall to zero
+    const all = await queue(t.admin);
+    expect(all.map((i) => i.cents)).toEqual([...all.map((i) => i.cents)].sort((a, b) => b - a));
+    expect((await t.admin.call("GET", "/api/review/count")).body).toEqual({ count: all.length - items.length });
+  });
+
+  it("each goes when its cause does: a category for the row, Lopetettu for the bill, a new consent, a balance that adds up", async () => {
+    const { t } = await troubled();
+    const repo = t.s.finance(t.adminId);
+    const kinds = async () => (await wrong(t.admin)).map((i) => i.kind).sort();
+    const items = await wrong(t.admin);
+    const row = items.find((i) => i.kind === "row")!;
+    expect((await t.admin.call("PATCH", `/api/transactions/${row.rowId}`, { category: "groceries" })).status).toBe(200);
+    expect(await kinds()).toEqual(["balance", "bill", "consent"]);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: items.find((i) => i.kind === "bill")!.subject, mark: "cancelled" })).status).toBe(200);
+    expect(await kinds()).toEqual(["balance", "consent"]);
+    await repo.upsertConnection({ ...(await repo.listConnections())[0]!, validUntil: "2027-04-06T12:00:00Z" });
+    expect(await kinds()).toEqual(["balance"]);
+    await repo.recordBalances("idn-chk", "2026-10-09", "2026-10-09T06:00:00.000Z", [{ cents: 494_250, type: "CLBD", referenceDay: "2026-10-08" }]);
+    await ingestTransactions(repo, "chk", [raw("2026-10-08", -10, "K-MARKET ESIMERKKI", "KORTTIOSTO")], "enablebanking");
+    expect(await kinds()).toEqual([]);
+  });
+
+  it("money in with no name is a row's item, but not when a payer's question asks of it or its payer has a role", async () => {
+    const t = await setupApp();
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+    const unnamed = (day: string, euros: number, iban: string | null) => ({ ...raw(day, euros, "", ""), counterparty: null, counterpartyIban: iban, description: null });
+    // one with nothing to know its payer by, one whose payer has an IBAN
+    await ingestTransactions(repo, "chk", [unnamed("2026-10-02", 120, null), unnamed("2026-10-03", 150, "FI2112345600000785")], "csv");
+    await reprocess(repo, t.s.settings);
+    // the IBAN's row is the payer's question alone: the same money is not asked twice
+    expect(await wrong(t.admin)).toEqual([expect.objectContaining({ kind: "row", side: "in", cents: 12000, date: "2026-10-02", rowCount: 1 })]);
+    expect(await ids(t.admin)).toContain("payer:iban:FI2112345600000785");
+    // the role answers its row: neither the payer's question nor a row's item is left of it
+    expect((await t.admin.call("PUT", "/api/payer-roles", { key: "iban:FI2112345600000785", role: "sales" })).body).toEqual({ ok: true });
+    expect((await queue(t.admin)).filter((i) => i.kind !== "mortgage").map((i) => i.kind)).toEqual(["row"]);
+  });
+
+  it("the housing question is kept, beside a missed bill", async () => {
+    const t = await setupApp();
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+    await ingestTransactions(repo, "chk", MONTHS.flatMap((m) => [raw(`${m}-03`, -310, "AS OY ESIMERKKITALO", "HOITOVASTIKE"), raw(`${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")]), "csv");
+    await reprocess(repo, t.s.settings);
+    expect(await ids(t.admin)).toContain("mortgage");
+    // October's charge is six days late, so the housing company is a missed bill beside the question
+    expect(await wrong(t.admin)).toEqual([expect.objectContaining({ kind: "bill", merchant: "As Oy Esimerkkitalo", cents: 31000, dueDate: "2026-10-03" })]);
+  });
+});

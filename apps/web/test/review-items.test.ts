@@ -23,6 +23,14 @@ describe("a sitting", () => {
     expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 2");
   });
 
+  it("leaves out an item of a kind the page has no card for", () => {
+    const unknown = (kind: string) => ({ kind, id: `${kind}:1`, cents: 900_000 }) as unknown as ReviewItem;
+    const view = sittingView([...["balance", "consent", "bill", "row"].map(unknown), payee(0)], NEW_SITTING);
+    expect(view).toMatchObject({ state: "item", position: 1, of: 1 });
+    expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
+    expect(sittingView([unknown("bill")], NEW_SITTING)).toEqual({ state: "empty" });
+  });
+
   it("ends after 25 items, answered or skipped, with the count left", () => {
     const items = queue(40);
     const answered = items.slice(0, 20).map((i) => i.id);
