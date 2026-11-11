@@ -377,15 +377,10 @@ export async function reviewQueue(s: Services, userId: string): Promise<Review> 
 }
 
 /**
- * The kinds the queue sends that Tarkistettavat has no card for yet (apps/web review-items.ts leaves them out of a
- * sitting), so nobody can answer them there. A kind leaves this list when the page gets its card.
- */
-const NO_CARD: ReadonlySet<ReviewItem["kind"]> = new Set(["balance", "consent", "bill", "row"]);
-
-/**
- * How many questions are open, which is what the header's mark and the page's title both say: the items of the queue
- * the page shows, so the mark falls to zero when the page is empty.
+ * How many items are open, which is what the tab's mark and the page's title both say: the whole queue, each kind
+ * a source sends having its card on the page, so the mark falls to zero when the page is empty. `extension` has no
+ * card there (apps/web review-items.ts `KINDS`) and no source: one that starts to send it needs the card first.
  */
 export async function reviewCount(s: Services, userId: string): Promise<{ count: number }> {
-  return { count: (await reviewQueue(s, userId)).items.filter((i) => !NO_CARD.has(i.kind)).length };
+  return { count: (await reviewQueue(s, userId)).items.length };
 }

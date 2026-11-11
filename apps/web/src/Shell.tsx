@@ -70,7 +70,7 @@ export function Shell() {
   const anchor = location.hash || undefined;
   const requested = location.pathname.split("/")[1] ?? "";
   const meta = useApi<Meta>("/api/meta", true);
-  const pages = [...NAV, REVIEW, SETTINGS];
+  const pages = [...NAV, SETTINGS];
   // an unknown or old link opens the overview instead of an empty page
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
@@ -304,8 +304,15 @@ export function Shell() {
           </div>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} className={e.tab ? undefined : "nav-wide-only"} current={page === e.id}>
+              <PageLink key={e.id} id={e.id} className={e.id === REVIEW.id ? "review-link" : e.tab ? undefined : "nav-wide-only"} current={page === e.id}>
                 {e.label}
+                {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
+                {e.id === REVIEW.id && open > 0 && (
+                  <span className="nav-count">
+                    {open}
+                    <span className="sr-only"> {openWord()}</span>
+                  </span>
+                )}
               </PageLink>
             ))}
           </nav>
@@ -319,15 +326,6 @@ export function Shell() {
               onChange={setScope}
             />
           )}
-          <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
-            {REVIEW.label}
-            {open > 0 && (
-              <span className="nav-count">
-                {open}
-                <span className="sr-only"> {openWord()}</span>
-              </span>
-            )}
-          </PageLink>
           <details className="user-menu" ref={userMenu}>
             <summary>
               <span className="sr-only">{t("shell.user_menu")} </span>
@@ -346,6 +344,12 @@ export function Shell() {
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
+              {/* a page with no tab is here on a phone, where the header has no link to it */}
+              {NAV.filter((e) => !e.tab).map((e) => (
+                <PageLink key={e.id} id={e.id} className="nav-narrow-only" current={page === e.id}>
+                  {e.label}
+                </PageLink>
+              ))}
               <a href={MORE.hash} aria-current={page === "reports" && params.has("q") ? "page" : undefined}>{MORE.label}</a>
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}

@@ -2,8 +2,8 @@ import { type Browser, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// The header and the phone's tab bar: Asetukset in the user menu, Tarkistettavat with its word, five tabs at the foot of a
-// phone (Yhteenveto, Kuukausi, Laskut, Tapahtumat, Säästövinkit); Asetukset is in the user menu.
+// The header and the phone's tab bar: five tabs at the foot of a phone (Yhteenveto, Kuukausi, Laskut, Tarkistettavat
+// with its count, Tapahtumat); Säästövinkit and Asetukset are in the user menu there.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const TAP = 44;
 
@@ -19,7 +19,7 @@ for (const width of [390, 320]) {
     const seen = watch(page);
     await page.goto("/#/overview");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
+    await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat"]);
     const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, height: r.height, right: r.right })));
     expect(boxes).toHaveLength(5);
     expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
@@ -36,13 +36,17 @@ for (const width of [390, 320]) {
   });
 }
 
-test("390 px: Säästövinkit is the fifth tab and shows when open, Asetukset is in the user menu, and #/more opens Yhteenveto", async ({ browser }) => {
+test("390 px: Tarkistettavat is the fourth tab and shows when open, Säästövinkit and Asetukset are in the user menu, and #/more opens Yhteenveto", async ({ browser }) => {
   const { context, page } = await phone(browser);
   await page.goto("/#/overview");
-  await tabs(page).getByText("Säästövinkit", { exact: true }).tap();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/optimise");
-  await expect(tabs(page).filter({ hasText: "Säästövinkit" })).toHaveAttribute("aria-current", "page");
+  await tabs(page).nth(3).tap();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/review");
+  await expect(tabs(page).filter({ hasText: "Tarkistettavat" })).toHaveAttribute("aria-current", "page");
   await expect(tabs(page).filter({ hasText: "Lisää" })).toHaveCount(0);
+  await expect(tabs(page).filter({ hasText: "Säästövinkit" })).toHaveCount(0);
+  await page.locator(".user-menu summary").tap();
+  await page.locator(".user-menu .menu").getByRole("link", { name: "Säästövinkit" }).tap();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/optimise");
   await page.locator(".user-menu summary").tap();
   await page.locator(".user-menu .menu").getByRole("link", { name: "Asetukset" }).tap();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks");
@@ -58,7 +62,7 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
+  await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat", "Säästövinkit"]);
   await expect(page.locator("header.topbar").getByRole("link", { name: "Asetukset", exact: true })).toHaveCount(0);
   await page.locator(".user-menu summary").click();
   const menu = page.locator(".user-menu .menu");
@@ -68,18 +72,18 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   await context.close();
 });
 
-test("390 px: Tarkistettavat has its word in the header and the header holds one row", async ({ browser }) => {
+test("390 px: Tarkistettavat has its word in the tab bar and the header holds one row", async ({ browser }) => {
   const { context, page } = await phone(browser);
   await page.goto("/#/overview");
-  const link = page.locator("header.topbar .review-link");
+  const link = page.locator("header.topbar .nav .review-link");
   await expect(link).toContainText("Tarkistettavat");
   expect((await link.boundingBox())!.height).toBeGreaterThanOrEqual(TAP);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
-  const centres = await page.locator("header.topbar .topbar-in > :is(.brand, .review-link, .user-menu)").evaluateAll((els) => els.map((e) => {
+  const centres = await page.locator("header.topbar .topbar-in > :is(.brand, .user-menu)").evaluateAll((els) => els.map((e) => {
     const r = e.getBoundingClientRect();
     return Math.round(r.top + r.height / 2);
   }));
-  expect(centres).toHaveLength(3);
+  expect(centres).toHaveLength(2);
   expect(Math.max(...centres) - Math.min(...centres), "the header row does not wrap").toBeLessThan(4);
   await context.close();
 });

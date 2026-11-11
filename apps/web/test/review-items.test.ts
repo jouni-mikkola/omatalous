@@ -25,10 +25,12 @@ describe("a sitting", () => {
 
   it("leaves out an item of a kind the page has no card for", () => {
     const unknown = (kind: string) => ({ kind, id: `${kind}:1`, cents: 900_000 }) as unknown as ReviewItem;
-    const view = sittingView([...["balance", "consent", "bill", "row"].map(unknown), payee(0)], NEW_SITTING);
+    const view = sittingView([...["extension", "newer"].map(unknown), payee(0)], NEW_SITTING);
     expect(view).toMatchObject({ state: "item", position: 1, of: 1 });
     expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
-    expect(sittingView([unknown("bill")], NEW_SITTING)).toEqual({ state: "empty" });
+    expect(sittingView([unknown("newer")], NEW_SITTING)).toEqual({ state: "empty" });
+    // what is wrong has its cards: each of the four kinds is an item of the sitting
+    expect(sittingView(["balance", "consent", "bill", "row"].map(unknown), NEW_SITTING)).toMatchObject({ state: "item", position: 1, of: 4 });
   });
 
   it("ends after 25 items, answered or skipped, with the count left", () => {

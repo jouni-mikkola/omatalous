@@ -12,7 +12,7 @@ import type { LoanFieldKey } from "../components/loans/labels.ts";
 import { editorHelp } from "../components/loans/proposal-words.ts";
 import { InputForm } from "../components/optimise/Inputs.tsx";
 import { useApi } from "../hooks.ts";
-import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
+import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
 import type { Category, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
 import { type Choice, groupCategories, loanKindChoices, MAX_PLAN_PAYMENTS, offeredCategories, payerChoices, planEnd, type ReviewItem } from "./review-items.ts";
@@ -64,7 +64,7 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
     case "payee_out":
     case "payee_in":
       return (
-        <CategoryChoices item={item} categories={meta.categories} busy={busy} onPick={(category) => onAnswer(() => api("/api/rules", { method: "POST", body: { field: "merchant_exact", pattern: item.merchant, category } }))} />
+        <CategoryChoices item={item} income={item.kind === "payee_in"} categories={meta.categories} busy={busy} onPick={(category) => onAnswer(() => api("/api/rules", { method: "POST", body: { field: "merchant_exact", pattern: item.merchant, category } }))} />
       );
     case "payer":
       return <Buttons choices={payerChoices(item)} busy={busy} label={named} onPick={(role) => onAnswer(() => payerCalls.say(item.key, role))} />;
@@ -93,6 +93,29 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
       return <Buttons choices={[plain(t("set.rc.in_use"), "in_use"), plain(t("set.rc.ended"), "cancelled")]} busy={busy} label={named} onPick={(value) => onAnswer(mark(item.subject, value))} />;
     case "input":
       return <InputForm inputKey={item.key} today={meta.today} scope="own" answer={onAnswer} waiting={busy} quiet />;
+    case "row":
+      return <CategoryChoices item={item} income={item.side === "in"} categories={meta.categories} busy={busy} onPick={(category) => onAnswer(() => api(`/api/transactions/${encodeURIComponent(item.rowId)}`, { method: "PATCH", body: { category } }))} />;
+    case "bill":
+      // a bill that still comes is passed with Ohita: it goes when its charge does come
+      return <Buttons choices={[plain(t("set.rc.ended"), "cancelled")]} busy={busy} label={named} onPick={(value) => onAnswer(mark(item.subject, value))} />;
+    case "consent":
+      // the bank is connected again where the connections are; the item goes when the new consent is there
+      return (
+        <div className="review-choices">
+          <Button className="review-choice" href={settingsHash("banks")}>
+            {t("set.rc.connect_the_bank_again")}
+          </Button>
+        </div>
+      );
+    case "balance":
+      // nothing here can make the rows add up: the account's own row tells the stretch, and a fetch or the bank's file brings the rows
+      return (
+        <div className="review-choices">
+          <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.accounts)}>
+            {t("set.rc.open_the_account")}
+          </Button>
+        </div>
+      );
     case "mortgage":
       // adding the loan is done on its own page; the question goes once the loan is saved
       return (
@@ -112,9 +135,9 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
  * A payee's category as buttons: the guess first, framed, with its reason below, when the server has one; then the
  * household's most used categories on its side, unmarked; then "Muu kategoria…", which opens every category in a sheet.
  */
-function CategoryChoices({ item, categories, busy, onPick }: { item: Extract<ReviewItem, { kind: "payee_out" | "payee_in" }>; categories: Category[]; busy: boolean; onPick: (category: string) => void }) {
+function CategoryChoices({ item, income, categories, busy, onPick }: { item: { picks: string[]; guess?: { category: string; reason: string } }; income: boolean; categories: Category[]; busy: boolean; onPick: (category: string) => void }) {
   const [sheet, setSheet] = useState(false);
-  const offered = offeredCategories(categories, item.kind === "payee_in");
+  const offered = offeredCategories(categories, income);
   const picks = item.picks.flatMap((id) => offered.filter((c) => c.id === id));
   const guess = picks.some((c) => c.id === item.guess?.category) ? item.guess : undefined;
   const why = guess ? guess.reason.charAt(0).toLowerCase() + guess.reason.slice(1) : "";

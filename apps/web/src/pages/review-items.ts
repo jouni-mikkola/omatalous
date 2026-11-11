@@ -118,7 +118,45 @@ export interface MortgageItem extends Base {
   kind: "mortgage";
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | InputItem | MortgageItem;
+/** An account whose rows do not add up to the bank's balances over its newest stretch: `cents` is what they differ by. It goes when the rows add up again. */
+export interface BalanceItem extends Base {
+  kind: "balance";
+  accountId: string;
+  accountName: string;
+  fromDay: string;
+  toDay: string;
+  bankCents: number;
+  rowsCents: number;
+}
+
+/** A bank consent that ended (`daysLeft` null) or ends soon: the bank is connected again in Asetukset. */
+export interface ConsentItem extends Base {
+  kind: "consent";
+  connection: string;
+  institution: string;
+  daysLeft: number | null;
+  accounts: string[];
+}
+
+/** A bill whose charge is late: it goes when the charge comes or the series is marked Lopetettu (mark `cancelled` on `subject`). */
+export interface BillItem extends Base {
+  kind: "bill";
+  seriesId: string;
+  subject: string;
+  merchant: string;
+  dueDate: string;
+}
+
+/** A row with no payee name: a category for the one row (PATCH /api/transactions/:id). */
+export interface RowItem extends Base {
+  kind: "row";
+  rowId: string;
+  side: "out" | "in";
+  date: string;
+  picks: string[];
+}
+
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | InputItem | MortgageItem | BalanceItem | ConsentItem | BillItem | RowItem;
 
 export interface ReviewAnswer {
   items: ReviewItem[];
@@ -142,10 +180,10 @@ export type SittingView =
   | { state: "empty" };
 
 /**
- * The kinds this page has a card for. The server's queue also sends kinds it has none for yet (`balance`, `consent`,
- * `bill`, `row`, services/review.ts): such an item is left out here, since the words below have nothing to say of it.
+ * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
+ * sends today, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, input: true, mortgage: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, input: true, mortgage: true, balance: true, consent: true, bill: true, row: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -186,6 +224,14 @@ export function eyebrow(item: ReviewItem): string {
       return t("set.ri.savings_tips");
     case "mortgage":
       return t("set.ri.housing");
+    case "balance":
+      return t("set.ri.balance");
+    case "consent":
+      return t("set.ri.bank_connection");
+    case "bill":
+      return t("set.ri.missed_bill");
+    case "row":
+      return item.side === "in" ? t("set.ri.unclassified_income") : t("set.ri.unclassified_expense");
   }
 }
 
@@ -210,6 +256,14 @@ export function nameOf(item: ReviewItem): string {
     }
     case "mortgage":
       return t("set.ri.home_loan");
+    case "balance":
+      return item.accountName;
+    case "consent":
+      return item.institution;
+    case "bill":
+      return item.merchant;
+    case "row":
+      return t("set.ri.row_without_name");
   }
 }
 
@@ -239,6 +293,14 @@ export function questionOf(item: ReviewItem): string {
       return INPUT_QUESTION[item.def];
     case "mortgage":
       return t("set.ri.do_you_have_a_home");
+    case "balance":
+      return t("set.ri.is_a_row_missing");
+    case "consent":
+      return item.daysLeft === null ? t("set.ri.the_connection_has_ended") : t("set.ri.the_connection_is_ending");
+    case "bill":
+      return t("set.ri.is_the_bill_still_coming");
+    case "row":
+      return item.side === "in" ? t("set.ri.what_is_this_income") : t("set.ri.which_category_does_this_payment");
   }
 }
 
@@ -267,6 +329,18 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     }
     case "mortgage":
       return { text: "", line: t("set.ri.housing_costs_show_no_loan") };
+    case "balance":
+      return { text: money(item.cents), unit: t("set.ri.difference"), line: t("set.ri.balance_changed_rows_add_up", { from: date(item.fromDay), to: date(item.toDay), bank: money(item.bankCents), rows: money(item.rowsCents) }) };
+    case "consent":
+      return {
+        text: money(item.cents),
+        unit: t("set.ri.a_year"),
+        line: item.daysLeft === null ? t("set.ri.consent_ended_accounts", { accounts: item.accounts.join(", ") }) : tn(item.daysLeft, "set.ri.consent_ends_one", "set.ri.consent_ends_many", { accounts: item.accounts.join(", ") }),
+      };
+    case "bill":
+      return { text: money(item.cents), line: t("set.ri.the_bill_was_expected_on", { date: date(item.dueDate) }) };
+    case "row":
+      return { text: money(item.cents), line: date(item.date) };
   }
 }
 

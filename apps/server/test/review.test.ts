@@ -289,11 +289,10 @@ describe("what is wrong, in the same queue", () => {
     expect(of("bill")).toMatchObject({ cents: 6420, dueDate: "2026-10-01", subject: "series:out:chk:Esimerkkisähkö#6420" });
     expect(of("row")).toMatchObject({ cents: 3750, side: "out", date: "2026-10-03", rowCount: 1 });
     expect((of("row").rows as { cents: number }[])[0]!.cents).toBe(-3750);
-    // today's questions stay: the queue is still ordered by the money. The header's count is of the items the page
-    // has a card for, so the four kinds here are not in it and the mark can fall to zero
+    // today's questions stay: the queue is still ordered by the money, and the tab's count is of all of it
     const all = await queue(t.admin);
     expect(all.map((i) => i.cents)).toEqual([...all.map((i) => i.cents)].sort((a, b) => b - a));
-    expect((await t.admin.call("GET", "/api/review/count")).body).toEqual({ count: all.length - items.length });
+    expect((await t.admin.call("GET", "/api/review/count")).body).toEqual({ count: all.length });
   });
 
   it("each goes when its cause does: a category for the row, Lopetettu for the bill, a new consent, a balance that adds up", async () => {

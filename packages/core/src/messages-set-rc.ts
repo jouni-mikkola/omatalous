@@ -7,6 +7,8 @@ export const FI_SET_RC = {
   "set.rc.suggestion": "Ehdotus",
   "set.rc.in_use": "Käytössä",
   "set.rc.ended": "Lopetettu",
+  "set.rc.connect_the_bank_again": "Yhdistä pankki uudelleen",
+  "set.rc.open_the_account": "Avaa tilin tiedot",
   "set.rc.add_a_home_loan": "Lisää asuntolaina",
   "set.rc.no_home_loan": "Ei asuntolainaa",
   "set.rc.other_category": "Muu kategoria…",

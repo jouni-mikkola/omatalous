@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { NAV, SETTINGS } from "../src/nav.ts";
+import { NAV, REVIEW, SETTINGS } from "../src/nav.ts";
 
 describe("NAV", () => {
-  it("is Yhteenveto | Kuukausi | Laskut | Tapahtumat | Säästövinkit: no entry hides behind a flag", () => {
-    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
+  it("is Yhteenveto | Kuukausi | Laskut | Tarkistettavat | Tapahtumat | Säästövinkit: no entry hides behind a flag", () => {
+    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tarkistettavat", "Tapahtumat", "Säästövinkit"]);
     expect(NAV.every((e) => !("feature" in e))).toBe(true);
   });
 
@@ -25,7 +25,8 @@ describe("NAV", () => {
 });
 
 describe("the phone's tab bar", () => {
-  it("the tab bar has the four questions and Säästövinkit: five tabs, and no Lisää", () => {
-    expect(NAV.filter((e) => e.tab).map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
+  it("the tab bar has five tabs, Tarkistettavat the fourth, and no Lisää: Säästövinkit is in the user menu", () => {
+    expect(NAV.filter((e) => e.tab).map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tarkistettavat", "Tapahtumat"]);
+    expect(NAV.filter((e) => e.tab)[3]).toBe(REVIEW);
   });
 });

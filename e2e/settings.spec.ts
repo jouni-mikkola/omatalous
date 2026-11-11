@@ -59,9 +59,9 @@ test("Asetukset is in the user menu and has six targets, each its own address", 
   const nav = page.getByRole("navigation", { name: "Päävalikko" });
   const targets = page.getByRole("navigation", { name: "Asetukset", exact: true });
 
-  // five questions in the nav, and Asetukset in the user menu instead of among them
+  // the questions in the nav, Tarkistettavat the fourth, and Asetukset in the user menu instead of among them
   await page.goto("/#/overview");
-  await expect(nav.getByRole("link")).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
+  await expect(nav.getByRole("link")).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat", "Säästövinkit"]);
   await expect(nav.getByRole("link", { name: "Asetukset" })).toHaveCount(0);
   const menu = page.locator(".user-menu");
   await menu.locator("summary").click();
