@@ -90,3 +90,14 @@ describe("the type scale and the spacing step in every stylesheet", () => {
     }
   });
 });
+
+describe("the row arrow of the tables", () => {
+  it("makes the row arrow a 44 px touch target that does not grow the row", () => {
+    const css = readFileSync(new URL("../src/styles/table.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const m = css.match(/@media \(pointer: coarse\)\s*\{([\s\S]*?)\n\}/);
+    expect(m).not.toBeNull();
+    const body = m![1]!;
+    expect(body).toMatch(/\.rt-drill\s*\{[^}]*position:\s*relative;\s*z-index:\s*1;[^}]*inline-size:\s*var\(--tap-min\)[^}]*block-size:\s*var\(--tap-min\)[^}]*margin:\s*-12px 0 -12px -16px/);
+    expect(body).toMatch(/\.rt-wrap\[data-block\] \.rt-drill\s*\{[^}]*margin:\s*-12px -16px -12px 0/);
+  });
+});

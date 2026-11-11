@@ -129,6 +129,11 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-wrap[data-block] .rt tbody tr:last-child { border-bottom: 0; }
 /* the opener stands on the table's own edge, 12 px from the screen's: its name keeps its place */
 .rt-wrap[data-block] .rt-drill { margin-inline: 0 -4px; }
+/* a touch target of 44 px; the negative margins keep the row and the name where they were */
+@media (pointer: coarse) {
+  .rt-drill { position: relative; z-index: 1; inline-size: var(--tap-min); block-size: var(--tap-min); margin: -12px 0 -12px -16px; }
+  .rt-wrap[data-block] .rt-drill { margin: -12px -16px -12px 0; }
+}
 .rt-wrap[data-block] .rt tbody tr:has(+ .rt-detail), .rt-wrap[data-block] .rt tbody tr:has(+ .rt-subrow) { border-bottom-color: transparent; }
 .rt-wrap[data-block] .rt tbody tr:last-child:has(+ tfoot) { border-bottom: 0; }
 .rt-wrap[data-block] .rt tr > :is(th[scope="row"], td:first-child) { grid-column: 1; }
