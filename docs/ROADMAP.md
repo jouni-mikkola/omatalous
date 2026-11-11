@@ -777,6 +777,44 @@ Result: In English the app shows no Finnish: the unknown merchant and the server
 - after: none
 - files: packages/core/src/english, apps/server/src/routes
 
+## The checks: fast and steady
+
+Measured on 11 November: a pull request's commit starts the `check` workflow twice, a job waits one to two minutes for
+a runner, the tests take 100 to 215 s of a run, and the shell lint burns 107 CPU seconds. The twelve latest red runs
+were real failures, none a flake. K1, K2 and K3 share `ci.yml` and so one lock; K4 stands alone.
+
+### K1 One CI run for a PR commit
+Result: A commit on a pull request starts the checks once, so the jobs of every branch wait half as long for a runner.
+- why: `on.push.branches: ["**"]` and `on.pull_request` in `.github/workflows/ci.yml` both fire for a branch with an open pull request: on 11 November every work branch had a push run and a pull_request run of the same commit, and a job waited one to two minutes for a runner.
+- done when: a push starts the workflow only on main, a pull request and a run by hand start it as before; the header comment and the `concurrency` comment of `ci.yml` and the comment of `tools/ci/light-scope.sh` on a new branch say what now starts a run; the PR names every caller of `tools/ci/wait.sh` and every other reader of a commit's checks found by `git grep -n "check-runs\|gh run"`, and none waits for a push run of a branch other than main; the test of `tools/test/release-workflow.test.ts` that pins the trigger holds the new one and still proves that a push to main starts the run the board reads; `gh run list --workflow check` shows one run for the PR's last commit; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: ci-workflow
+- after: none
+- files: .github/workflows/ci.yml, tools/ci/light-scope.sh, tools/test/release-workflow.test.ts
+
+### K2 CI tests on two runners
+Result: The tests of a pull request finish in about half the time, with every test still run once.
+- why: the step `Types and tests` took 103 to 108 s of a two minute js job on 11 November, and 129 to 215 s on changes that reach every test; one four core runner runs all of it.
+- done when: `CHECK_SHARD=<i>/<n>` makes the tests step of `tools/check.sh` pass `--shard` to vitest, with a scenario in `tools/test/check.test.sh`; the js job of `ci.yml` is a matrix of two shards, the types run in one of them, and `ci-ok` fails when either fails; with `CI=1` the test files of the runs `1/2` and `2/2` add up to those of a run with no shard, with and without `--changed`; the PR's two js jobs pass; on this machine with `CI=1 VITEST_MAX_WORKERS=4` and no `--changed`, so every test runs, the slower shard's tests step takes at most 60 % of the seconds of the run with no shard, and the three figures are in the PR; a rerun (`tools/check/rerun.mjs`) runs a failed file alone and needs no shard, so it is not changed; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: ci-workflow, check-tools
+- after: none
+- files: .github/workflows/ci.yml, tools/check.sh, tools/test/check.test.sh
+
+### K3 A red CI run says flake or real
+Result: A failed test run on GitHub says for each failure whether it passes when run again alone, so a flake is seen and not guessed.
+- why: `pnpm check --rerun` decides flake or real only on the machine that ran the check; a red run of `ci.yml` prints the failure and stops, and the board reverts the commit that turned main red. The twelve latest red runs were real, so this is for the first flake, not a known one.
+- done when: after a failed `Types and tests` step the js job of `ci.yml` runs `tools/check.sh --rerun` on the folder the red run kept and prints its FLAKE, REAL and NOT RUN lines; the shell job has no Node, which the rerun needs (`tools/check/pinned-node.sh`), so it gets no rerun and keeps printing the logs of its failed suites, and a comment there says so; the js job stays red whatever the rerun says, and the step fits the job's time limit; a test in `tools/test/release-workflow.test.ts` holds the step and its `failure()` condition; a branch with a test made to fail shows the REAL line in its run, linked in the PR, and the test is put back; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: ci-workflow
+- after: none
+- files: .github/workflows/ci.yml, tools/test/release-workflow.test.ts
+
+### K4 Shell lint burns less CPU
+Result: The shell lint of `pnpm check` takes under half the CPU of today in the same time, so checks side by side slow each other less.
+- why: `tools/ci/shell-lint.sh` starts half as many shellcheck runs as CPUs and each reads every library again: on 28 CPUs that is 14 runs and 107 CPU seconds in 9 s, where one run of all 119 files takes 14 CPU seconds.
+- done when: the number of shellcheck runs has a ceiling, chosen from `time bash tools/ci/shell-lint.sh` with 2, 4 and 8 runs on this machine (the figures are in the PR); the lint's CPU seconds are under half of today's and its seconds on the clock at most 2 more; every file and library is still checked at the same severity, and `tools/test/shell-lint.test.sh` proves the ceiling and that a finding in any group still fails the lint; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: shell-lint
+- after: none
+- files: tools/ci/shell-lint.sh, tools/test/shell-lint.test.sh
+
 ## Later
 
 - T6 Stack review: repeat the interface stack comparison with new measurements (charts and components by 25 April 2027,
