@@ -8,6 +8,7 @@ export const EN_SET_LOANS: Record<keyof typeof FI_SET_LOANS, string> = {
   "set.loans.cancel": "Cancel",
   "set.loans.the_loan_can_no_longer": "The loan can no longer be found.",
   "set.loans.loan_removed": "Loan removed.",
+  "set.loans.changes_saved": "Changes saved.",
   "set.loans.loans": "Loans",
   "set.loans.loan": "Loan",
   "set.loans.linked_to_account_name": "Linked to account {name}",

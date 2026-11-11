@@ -386,7 +386,7 @@ export function BankConnections({
                       onClick={() =>
                         run(`del-${c.id}`, async () => {
                           await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
-                          return "Yhteys poistettu.";
+                          return t("set.conn.connection_removed");
                         })
                       }
                     >

@@ -198,7 +198,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
           today={meta.today}
           onSaved={() => {
             setEditing(null);
-            done("Muutokset tallennettu.");
+            done(t("set.loans.changes_saved"));
           }}
           onCancel={() => setEditing(null)}
         />

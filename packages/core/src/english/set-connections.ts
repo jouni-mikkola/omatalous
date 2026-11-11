@@ -14,6 +14,7 @@ export const EN_SET_CONNECTIONS: Record<keyof typeof FI_SET_CONNECTIONS, string>
   "set.conn.ended": "ended",
   "set.conn.broken": "broken",
   "set.conn.removed": "removed",
+  "set.conn.connection_removed": "Connection removed.",
   "set.conn.in_use": "in use",
   "set.conn.the_bank_connection_ended": "The bank connection ended.",
   "set.conn.not_added_in_the_control": "Not added in the Control Panel",

@@ -10,6 +10,7 @@ export const FI_SET_LOANS = {
   "set.loans.cancel": "Peruuta",
   "set.loans.the_loan_can_no_longer": "Lainaa ei enää löydy.",
   "set.loans.loan_removed": "Laina poistettu.",
+  "set.loans.changes_saved": "Muutokset tallennettu.",
   "set.loans.loans": "Lainat",
   "set.loans.loan": "Laina",
   "set.loans.linked_to_account_name": "Liitetty tiliin {name}",

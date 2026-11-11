@@ -16,6 +16,7 @@ export const FI_SET_CONNECTIONS = {
   "set.conn.ended": "päättynyt",
   "set.conn.broken": "katkesi",
   "set.conn.removed": "poistettu",
+  "set.conn.connection_removed": "Yhteys poistettu.",
   "set.conn.in_use": "käytössä",
   "set.conn.the_bank_connection_ended": "Pankin yhteys päättyi.",
   "set.conn.not_added_in_the_control": "Ei lisätty Control Panelissa",
