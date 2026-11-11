@@ -1,5 +1,5 @@
 /** Asetukset > Kaksivaiheinen kirjautuminen: turn the authenticator code on and off, make new recovery codes. */
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 import { api } from "../../api.ts";
 import { copyText } from "../../clipboard.ts";
 import { date, dateTime } from "../../format.ts";
@@ -8,6 +8,7 @@ import { CopyValue } from "./CopyValue.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { t } from "../../text.ts";
+import { useAction } from "./use-action.ts";
 interface FactorState {
   enabled: boolean;
   since: string | null;
@@ -58,25 +59,6 @@ export function RecoveryCodes({
       </div>
     </div>
   );
-}
-
-/** Runs a form's action with a busy flag and the server's sentence as the error. */
-function useAction() {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const run = (fn: () => Promise<void>) => async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { error, busy, run };
 }
 
 /** Password and one code (from the app, or a recovery code), for the actions that need both. */

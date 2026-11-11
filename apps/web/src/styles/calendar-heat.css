@@ -1,26 +1,7 @@
 /* The calendar of Käynnit (charts/CalendarHeat.tsx). Its legend and notes are styled in charts.css, which the page loads
    with its charts. One hue in four steps (--heat-1..4). */
 @layer components {
-/* the calendar of days: one hue in four steps, an empty day a hairline square, the largest days ringed in text ink with
-   a numbered badge; the week strip and the weekday column share the grid's axes and fade from a tint into the series hue */
-.calendar .calendar-day { fill: var(--grid); outline: none; }
-.calendar .calendar-day.heat-1, .swatch.heat-1 { fill: var(--heat-1); background: var(--heat-1); }
-.calendar .calendar-day.heat-2, .swatch.heat-2 { fill: var(--heat-2); background: var(--heat-2); }
-.calendar .calendar-day.heat-3, .swatch.heat-3 { fill: var(--heat-3); background: var(--heat-3); }
-.calendar .calendar-day.heat-4, .swatch.heat-4 { fill: var(--heat-4); background: var(--heat-4); }
-.calendar .calendar-day.today { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 2 2; }
-.calendar .calendar-day.active, .calendar .calendar-day:focus-visible { stroke: var(--text); stroke-width: 2; stroke-dasharray: none; }
-.calendar .calendar-top rect { fill: none; stroke: var(--text); stroke-width: 1.5; pointer-events: none; }
-.calendar .calendar-top circle { fill: var(--text); stroke: var(--surface); stroke-width: 2; pointer-events: none; }
-.calendar .calendar-top text { fill: var(--surface); font-size: var(--fs-label); font-weight: var(--w-strong); pointer-events: none; }
-.calendar .calendar-month, .calendar .calendar-strip-label { fill: var(--muted); }
-.calendar .calendar-peak-label { fill: var(--text); font-weight: var(--w-strong); }
-.calendar .calendar-stop { stop-color: var(--series-1); }
-.calendar .calendar-stop-soft { stop-color: color-mix(in srgb, var(--series-1) 35%, var(--surface)); }
-.calendar .calendar-week-hit { fill: transparent; outline: none; }
-.calendar .calendar-week-bar, .calendar .calendar-mean-bar { opacity: 0.55; pointer-events: none; }
-.calendar .peak .calendar-week-bar, .calendar .peak .calendar-mean-bar, .calendar .active .calendar-week-bar, .calendar .active .calendar-mean-bar { opacity: 1; }
-.calendar .calendar-mean.peak text, .calendar .calendar-annot { fill: var(--text); font-weight: var(--w-strong); }
+/* the days, the week strip and the weekday column are painted in charts.css; here is what only the calendar adds */
 @media (prefers-reduced-motion: no-preference) {
   .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade var(--t-state) var(--ease-out) backwards; animation-delay: var(--d, 0s); }
 }

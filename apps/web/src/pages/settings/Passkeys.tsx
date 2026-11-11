@@ -1,11 +1,12 @@
 /** Asetukset > Turvallisuus: the passkeys of the signed-in member, to add and to remove. */
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
 import { api } from "../../api.ts";
 import { dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { t } from "../../text.ts";
+import { useAction } from "./use-action.ts";
 import { type CreationOptions, createPasskey, passkeysSupported } from "../../webauthn.ts";
 import { RecoveryCodes } from "./SecondFactor.tsx";
 
@@ -14,25 +15,6 @@ interface PasskeyState {
   address: string;
   enabled: boolean;
   passkeys: { id: string; label: string; createdAt: string; lastUsedAt: string | null }[];
-}
-
-/** Runs a form's action with a busy flag and the server's sentence as the error. */
-function useAction() {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const run = (fn: () => Promise<void>) => async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      await fn();
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return { error, busy, run };
 }
 
 const Password = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
