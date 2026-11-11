@@ -45,7 +45,7 @@ function ReportsSkeleton() {
 }
 
 /** The questions that have a section to show for this answer, in the order of the list. */
-export const openQuestions = (ctx: ReportContext): QuestionId[] => REPORT_PAGES.filter((p) => visiblePageSections(ctx, p).length > 0).map((p) => p.id);
+const openQuestions = (ctx: ReportContext): QuestionId[] => REPORT_PAGES.filter((p) => visiblePageSections(ctx, p).length > 0).map((p) => p.id);
 
 /**
  * The question to open: the page that holds the anchored section, else the one `q` names when it has something to show,

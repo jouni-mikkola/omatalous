@@ -3,9 +3,6 @@ import { createContext, type ReactNode, useContext } from "react";
 /** Set by a page that folds its sections: each one shuts under its name and datum, `open` says which starts open. Outside it a section is a plain card. */
 export const FoldContext = createContext<{ open: boolean } | null>(null);
 
-/** True inside a folded section: a part that folds its own body has no need to when the section already does. */
-export const useFolded = (): boolean => useContext(FoldContext) !== null;
-
 /**
  * The card around one section of a page: a region named by its heading for screen readers. Its head is a title
  * block of up to three ruled cells: the name (with an optional line under it), a datum and the actions. `datum` is

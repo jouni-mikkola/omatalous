@@ -33,7 +33,7 @@ import "../../styles/toolbar.css";
 import type { ChipCount } from "./model.ts";
 import type { Sort } from "./sort.ts";
 
-export type SortChoice = { key: string; text: string; dir: "ascending" | "descending"; phrase: string };
+type SortChoice = { key: string; text: string; dir: "ascending" | "descending"; phrase: string };
 
 export type ToolbarProps = {
   /** What the table is, for a screen reader: "Taulukon rajaus: Kaikki kategoriat". */

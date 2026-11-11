@@ -30,10 +30,10 @@ import type { HeadCell, RowGroup, TableProps } from "./types.ts";
 import { LONG_LIST_ROWS, pressSort, type TableView } from "./view.ts";
 import { css } from "../../css.ts";
 
-export type { ChipDef, Column, ColumnKind } from "./columns.ts";
-export type { TableView, ViewControl } from "./view.ts";
+export type { Column } from "./columns.ts";
+export type { TableView } from "./view.ts";
 
-export type { HeadCell, RowGroup, RowProps, TableProps, Total } from "./types.ts";
+export type { HeadCell, RowGroup, TableProps } from "./types.ts";
 
 const spanOf = (h: HeadCell) => ({
   key: h.key,
@@ -477,7 +477,7 @@ export function Table<R>({
 }
 
 /** The button that opens a row's detail under it. Its name says what opens, not "Näytä tapahtumat", which Miksi? uses. */
-export function DrillButton({ open, onToggle, label, rowKey, onKeyDown }: { open: boolean; onToggle: () => void; label: string; rowKey?: string; onKeyDown?: (e: KeyboardEvent) => void }) {
+function DrillButton({ open, onToggle, label, rowKey, onKeyDown }: { open: boolean; onToggle: () => void; label: string; rowKey?: string; onKeyDown?: (e: KeyboardEvent) => void }) {
   return (
     <button type="button" className="rt-drill" aria-expanded={open} aria-label={label} data-drill={rowKey} onClick={onToggle} onKeyDown={onKeyDown}>
       <span aria-hidden="true">›</span>

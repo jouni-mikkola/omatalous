@@ -1,26 +1,14 @@
-import { useState, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 import { useSelect } from "../../components/table/selection.tsx";
 import { crisp } from "../draw.ts";
 import { t } from "../../text.ts";
-import { DOT_PLOT_BELOW, nearestIndex, stepIndex } from "./readout.ts";
+import { nearestIndex, stepIndex } from "./readout.ts";
 import "../../styles/charts.css";
 
 /** The datum a chart reads out, and the setter its layer and its own parts (a legend, a table row) share. */
 export function useReadout(): [number | null, (i: number | null) => void] {
   const [at, setAt] = useState<number | null>(null);
   return [at, setAt];
-}
-
-const NARROW = `(max-width: ${DOT_PLOT_BELOW - 0.02}px)`;
-const watchNarrow = (notify: () => void) => {
-  const query = window.matchMedia(NARROW);
-  query.addEventListener("change", notify);
-  return () => query.removeEventListener("change", notify);
-};
-
-/** Whether the screen is under `DOT_PLOT_BELOW`: a chart with a mark per month then draws one dot a month. */
-export function useDotPlot(): boolean {
-  return useSyncExternalStore(watchNarrow, () => window.matchMedia(NARROW).matches, () => false);
 }
 
 /**

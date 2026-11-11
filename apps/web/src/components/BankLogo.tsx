@@ -64,21 +64,3 @@ export function cardBankOf(name: string, institution: string | null, banks: read
   if (logo) return logo;
   return institution && !NAMES_A_BANK.test(name) ? { bank: institution, src: null } : null;
 }
-
-/**
- * The mark at the head of an account line: the bank's logo on one plate of one size. An account with no logo, or one
- * whose logo fails to load, gets no plate, so its name starts at the line's edge. Decorative: the account's name stands beside it, and a bank's name in front of
- * it would change the name of the row.
- */
-export function AccountMark({ name, institution, banks, size = "m" }: { name: string; institution: string | null; banks: readonly BankOption[]; size?: "s" | "m" }) {
-  const logo = bankLogoOf(name, institution, banks);
-  const [failed, setFailed] = useState<string | null>(null);
-  if (!logo || failed === logo.src) return null;
-  return (
-    <span className="acc-mark" aria-hidden="true">
-      <span className={`mk-plate mk-${size} mk-wide`}>
-        <img className="mk-logo" src={logo.src} alt="" onError={() => setFailed(logo.src)} />
-      </span>
-    </span>
-  );
-}

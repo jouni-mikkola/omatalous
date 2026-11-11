@@ -47,7 +47,7 @@ export const language = (): Language => lang;
 const num0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 
 /** The month stems of core, "tammi" to "joulu". */
-export const MONTHS_SHORT = MONTH_STEMS;
+const MONTHS_SHORT = MONTH_STEMS;
 
 /** Short month name for a chart axis, 1 to 12, in the member's language. */
 export const monthTick = (n: number): string => (lang === "en" ? MONTHS_EN[n - 1]?.slice(0, 3) : MONTHS_SHORT[n - 1]) ?? "";
@@ -123,12 +123,6 @@ export const count = (n: number): string => new Intl.NumberFormat(localeOf(lang)
 
 /** A number as `toLocaleString` writes it (up to three decimals) in the member's language. */
 export const plainNumber = (n: number): string => n.toLocaleString(localeOf(lang));
-
-/** A number with at most one decimal: "2,5" in Finnish, "2.5" in English. */
-export const decimalMax1 = (n: number): string => n.toLocaleString(localeOf(lang), { maximumFractionDigits: 1 });
-
-/** A number with a fixed count of decimals in the language's separator: "3,5" in Finnish, "3.5" in English. */
-export const decimal = (n: number, digits = 1): string => n.toLocaleString(localeOf(lang), { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 /** "1 tapahtuma", "3 tapahtumaa" */
 export function plural(n: number, one: string, many: string): string {

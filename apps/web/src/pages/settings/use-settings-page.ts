@@ -54,7 +54,7 @@ export function useCardScroll(target: string | undefined, key: string, settled: 
 }
 
 /** Counts the cards that report their data loaded. A page is settled when the count reaches the number of cards it waits for. */
-export function useLoadedCount(): [number, () => void] {
+function useLoadedCount(): [number, () => void] {
   const [count, setCount] = useState(0);
   const loaded = useCallback(() => setCount((n) => n + 1), []);
   return [count, loaded];

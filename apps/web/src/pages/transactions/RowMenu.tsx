@@ -9,13 +9,13 @@ import { Button, Menu, MenuItem, MenuSection, MenuTrigger, Popover } from "react
 import { t } from "../../text.ts";
 import "../../styles/toolbar.css";
 
-export type RowAction = { key: string; label: string; ariaLabel?: string } & ({ href: string; onAction?: undefined } | { onAction: () => void; href?: undefined });
+type RowAction = { key: string; label: string; ariaLabel?: string } & ({ href: string; onAction?: undefined } | { onAction: () => void; href?: undefined });
 
 /** A choice that stays set after the menu closes: the rule for the payee's other rows. */
-export type RowToggle = { key: string; label: string; checked: boolean; onChange: (on: boolean) => void };
+type RowToggle = { key: string; label: string; checked: boolean; onChange: (on: boolean) => void };
 
 /** The item that swaps the menu for a panel of its own; `render` gets the way to close the whole menu. */
-export type RowPanel = { key: string; label: string; ariaLabel: string; title: string; render: (close: () => void) => ReactNode };
+type RowPanel = { key: string; label: string; ariaLabel: string; title: string; render: (close: () => void) => ReactNode };
 
 type Props = { label: string; items: readonly RowAction[]; toggles?: readonly RowToggle[]; panel?: RowPanel | null };
 

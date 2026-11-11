@@ -37,7 +37,7 @@ export const pageOf = (params: URLSearchParams): number => {
 };
 
 /** Rows are newest first, so the days are runs of equal booking dates. */
-export function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[] }[] {
+function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[] }[] {
   const days: { day: string; items: T[] }[] = [];
   for (const t of items) {
     const last = days[days.length - 1];
@@ -84,7 +84,7 @@ const bankText = (t: ListedRow): string | null => {
 const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
 
 /** The statement of a card bill row: its explained sum and the way to open it. */
-export interface StatementProps {
+interface StatementProps {
   explained?: number | null;
   onStatement?: (t: ListedRow) => void;
 }
@@ -219,7 +219,7 @@ export const rowChips = () => [
 ];
 
 /** A day's sums in its group row: what went out and what came in, own transfers left out; nothing for a day of transfers only. */
-export function DaySums({ sum }: { sum: DaySum | undefined }) {
+function DaySums({ sum }: { sum: DaySum | undefined }) {
   if (!sum) return null;
   return (
     <>

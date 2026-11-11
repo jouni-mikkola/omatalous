@@ -1,18 +1,10 @@
-import { monthLabel, moneyTick, percent } from "../../format.ts";
+import { monthLabel, moneyTick } from "../../format.ts";
 import { labelsWithRoom } from "../draw.ts";
 
 /** A money tick with the minus the app prints (U+2212): −1 500 €. */
 export function moneyAxis(cents: number): string {
   return cents < 0 ? `−${moneyTick(-cents)}` : moneyTick(cents);
 }
-
-/** A share tick: 0.25 → "25 %". */
-export function shareAxis(share: number): string {
-  return percent(share);
-}
-
-/** Monday first, as the Finnish calendar is. */
-export const WEEKDAYS_SHORT = ["ma", "ti", "ke", "to", "pe", "la", "su"] as const;
 
 /** 0 for Monday to 6 for Sunday, by the calendar alone. */
 export function weekday(iso: string): number {

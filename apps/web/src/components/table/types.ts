@@ -4,7 +4,7 @@ import type { Column } from "./columns.ts";
 import type { TableView } from "./view.ts";
 
 /** Attributes and handlers of a `<tr>` (hover, focus, a data attribute); `className` is the table's own. */
-export type RowProps = Omit<ComponentProps<"tr">, "className" | "children"> &
+type RowProps = Omit<ComponentProps<"tr">, "className" | "children"> &
   Record<`data-${string}`, string | undefined>;
 
 /** A cell of the upper head row of a two-row head. */
@@ -37,7 +37,7 @@ export type RowGroup<R> = {
   csv?: string;
 };
 
-export type Total = { label: string; cells: Record<string, ReactNode> };
+type Total = { label: string; cells: Record<string, ReactNode> };
 
 export type TableProps<R> = {
   caption: string;

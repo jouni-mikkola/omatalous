@@ -48,8 +48,3 @@ for (const [i, s] of REPORT_SECTIONS.entries()) {
 export function visibleSections(ctx: ReportContext, page: SectionPage): ReportSection[] {
   return REPORT_SECTIONS.filter((s) => s.page === page && (s.visible?.(ctx) ?? true));
 }
-
-/** The core reports the sections of one page read: a page other than Raportit asks the server for these only. */
-export function reportsOf(page: SectionPage): ReportId[] {
-  return [...new Set(REPORT_SECTIONS.filter((s) => s.page === page).flatMap((s) => s.reports))];
-}

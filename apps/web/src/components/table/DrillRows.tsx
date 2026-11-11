@@ -16,7 +16,7 @@ import { Table } from "./Table.tsx";
 import type { Column } from "./columns.ts";
 
 /** How many rows a drill shows before the link to the whole list. */
-export const DRILL_ROWS = 10;
+const DRILL_ROWS = 10;
 
 type Row = { id: string; bookingDate: string; merchant: string; amountCents: number; partCents?: number };
 type Answer = { total: number; netCents: number; items: Row[] };

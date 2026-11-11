@@ -50,7 +50,7 @@ const PHONE_WEEKS = 13;
  * The key of the four shades, one wording on every heat map (critic round 3): each cell against its own usual (the
  * usual spending day of a calendar, a category's own average in Menot kuukausittain; the readout and the answer name it).
  */
-export function HeatKey() {
+function HeatKey() {
   const steps = [t("cal.key_1"), t("cal.key_2"), t("cal.key_3"), t("cal.key_4")];
   return (
     <p className="use-key heat-key" aria-hidden="true">

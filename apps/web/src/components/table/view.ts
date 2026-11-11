@@ -19,9 +19,6 @@ export type TableView = {
 
 export const EMPTY_VIEW: TableView = { query: "", chip: null, group: null, sort: null };
 
-/** What the page does with a view that changed: it is the whole view, not the change. */
-export type ViewControl = { view: TableView; onView: (next: TableView) => void };
-
 const NAMES = { query: "q", chip: "chip", group: "group", sort: "sort" } as const;
 
 /** The parameters of a view: only what differs from the empty view, `sort` as `key` or `key:asc` / `key:desc`. */

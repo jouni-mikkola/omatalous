@@ -50,7 +50,7 @@ interface Nameless {
 }
 
 /** The holder names the accounts show, each once: a holder line of two names is two. */
-export function holdersOf(meta: Pick<Meta, "accounts">): string[] {
+function holdersOf(meta: Pick<Meta, "accounts">): string[] {
   const names = meta.accounts.flatMap((a) => (a.holder ?? "").split(";").map((n) => n.trim()).filter(Boolean)); // language-allow: semicolon the bank separates two holders with a semicolon
   return [...new Set(names)];
 }

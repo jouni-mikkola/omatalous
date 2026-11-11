@@ -1,5 +1,5 @@
 import { crisp } from "../draw.ts";
-import { bandRect, type PlacedMarker, referenceY } from "./annotate.ts";
+import { type PlacedMarker, referenceY } from "./annotate.ts";
 
 /** The height of one lane of event labels under the plot. */
 export const LANE_H = 14;
@@ -39,10 +39,4 @@ export function ReferenceLine({ y, innerW, innerH, label }: { y: number; innerW:
       )}
     </g>
   );
-}
-
-/** A band between two pixel heights (the usual range, a projected month end) behind the marks. */
-export function ReferenceBand({ y0, y1, innerW, innerH }: { y0: number; y1: number; innerW: number; innerH: number }) {
-  const r = bandRect(y0, y1, innerH);
-  return r ? <rect className="kit-band" x={0} y={r.y} width={innerW} height={r.h} /> : null;
 }

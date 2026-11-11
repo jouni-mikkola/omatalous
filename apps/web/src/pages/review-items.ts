@@ -20,7 +20,7 @@ interface Base {
 }
 
 /** A row of an item: the payee's display name, and the bank's own text to read beside it. */
-export interface ItemRow {
+interface ItemRow {
   id: string;
   date: string;
   cents: number;
@@ -28,7 +28,7 @@ export interface ItemRow {
   text: string;
 }
 
-export interface PayeeItem extends Base {
+interface PayeeItem extends Base {
   kind: "payee_out" | "payee_in";
   merchant: string;
   count: number;
@@ -72,7 +72,7 @@ export interface PlanItem extends Base {
   lastDate: string;
 }
 
-export interface SplitItem extends Base {
+interface SplitItem extends Base {
   kind: "split";
   accountId: string;
   accountName: string;
@@ -82,7 +82,7 @@ export interface SplitItem extends Base {
 }
 
 /** `reason` is why the series is asked about: its price rose (`price`), it began lately (`since`) or it has run long with no answer. Absent from an older server, which sent only the last. */
-export interface SubscriptionItem extends Base {
+interface SubscriptionItem extends Base {
   kind: "subscription";
   reason?: "price" | "new" | "quiet";
   price?: { fromCents: number; toCents: number; date: string };
@@ -95,12 +95,12 @@ export interface SubscriptionItem extends Base {
 }
 
 /** Whether the household has a home loan: Lisää asuntolaina opens Asetukset > Lainat, Ei asuntolainaa is the mark `question:mortgage`. */
-export interface MortgageItem extends Base {
+interface MortgageItem extends Base {
   kind: "mortgage";
 }
 
 /** An account whose rows do not add up to the bank's balances over its newest stretch: `cents` is what they differ by. It goes when the rows add up again. */
-export interface BalanceItem extends Base {
+interface BalanceItem extends Base {
   kind: "balance";
   accountId: string;
   accountName: string;
@@ -111,7 +111,7 @@ export interface BalanceItem extends Base {
 }
 
 /** A bank consent that ended (`daysLeft` null) or ends soon: the bank is connected again in Asetukset. */
-export interface ConsentItem extends Base {
+interface ConsentItem extends Base {
   kind: "consent";
   connection: string;
   institution: string;
@@ -120,7 +120,7 @@ export interface ConsentItem extends Base {
 }
 
 /** A bill whose charge is late: it goes when the charge comes or the series is marked Lopetettu (mark `cancelled` on `subject`). */
-export interface BillItem extends Base {
+interface BillItem extends Base {
   kind: "bill";
   seriesId: string;
   subject: string;
@@ -129,7 +129,7 @@ export interface BillItem extends Base {
 }
 
 /** A row with no payee name: a category for the one row (PATCH /api/transactions/:id). */
-export interface RowItem extends Base {
+interface RowItem extends Base {
   kind: "row";
   rowId: string;
   side: "out" | "in";
@@ -138,7 +138,7 @@ export interface RowItem extends Base {
 }
 
 /** The last fetch from the bank failed. The page makes it from the run `/api/meta` tells; it goes when a fetch succeeds. */
-export interface FetchItem extends Base {
+interface FetchItem extends Base {
   kind: "fetch";
   /** When the run ended (or started, when it never ended). */
   at: string;

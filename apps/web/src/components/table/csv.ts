@@ -9,7 +9,7 @@ import { t } from "../../text.ts";
 import type { Section } from "./model.ts";
 
 /** The name of the column that holds the group's name in a grouped table's file. */
-export const groupHead = (): string => t("table.csv_group");
+const groupHead = (): string => t("table.csv_group");
 
 /** The columns the file has: every column with a name, unless it says `csv: false`. */
 const inFile = <R,>(columns: readonly Column<R>[]): Column<R>[] => columns.filter((c) => c.csv !== false && !c.headHidden);

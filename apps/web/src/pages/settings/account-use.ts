@@ -29,7 +29,7 @@ const using = (use: AccountUse): AccountUser[] => use.users.filter((u) => u.weig
 export const isJoint = (use: AccountUse): boolean => using(use).length >= 2;
 
 /** Every user has the same part: what "Tasan" says. */
-export const isEqual = (use: AccountUse): boolean => use.users.length > 0 && use.users.every((u) => u.weight > 0 && u.weight === use.users[0]!.weight);
+const isEqual = (use: AccountUse): boolean => use.users.length > 0 && use.users.every((u) => u.weight > 0 && u.weight === use.users[0]!.weight);
 
 /** Whether the use names a member other than the viewer. */
 export const namesOther = (use: AccountUse, viewerId: string): boolean => using(use).some((u) => u.userId !== null && u.userId !== viewerId);
@@ -74,7 +74,7 @@ export type Split = "source" | "equal" | "percent";
 export const splitOf = (use: AccountUse): Split => (use.mode === "source" ? "source" : isEqual(use) ? "equal" : "percent");
 
 /** "70" as 700, "70,5" as 705: tenths of a percent. null for anything else (a letter, a second decimal, over 100). */
-export function parsePercent(text: string): number | null {
+function parsePercent(text: string): number | null {
   const match = /^(\d{1,3})(?:[.,](\d))?$/.exec(text.trim());
   if (!match) return null;
   const tenths = Number(match[1]) * 10 + Number(match[2] ?? 0);

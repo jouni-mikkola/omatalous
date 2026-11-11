@@ -83,9 +83,6 @@ export function settingsHash(target: SettingsTarget, anchor?: string, params: UR
   return hashOf({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) });
 }
 
-/** Where a price rise is worked out: Kiinteät menot, Hinnanmuutokset. Every other page names the rise in one line and links here. */
-export const PRICE_RISES_HASH = hashOf({ page: "reports", params: new URLSearchParams({ q: "kiinteat" }), anchor: "kiinteat-hinnat" });
-
 /** Where a bank is connected: Pankkiyhteydet opens its bank list. */
 export const CONNECT_BANK_HASH = hashOf({ page: `settings/${FIRST_TARGET}`, params: new URLSearchParams({ add: "1" }) });
 

@@ -38,7 +38,7 @@ export function useSelect(): Pick | null {
 }
 
 /** The pick the table of this scope is cut by; null when it has no scope. */
-export function useRowFilter(): Pick | null {
+function useRowFilter(): Pick | null {
   return useContext(FilterContext);
 }
 

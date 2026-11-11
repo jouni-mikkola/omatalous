@@ -16,7 +16,7 @@ export interface OpsRequestView {
 }
 
 /** `at`: seconds since the helper took the request, absent where the host did not say. */
-export interface OpsStepView {
+interface OpsStepView {
   n: number;
   m: number;
   text: string;

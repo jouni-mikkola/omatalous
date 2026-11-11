@@ -1,7 +1,7 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { Language, AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, RunningPool, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { Language, AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
-export type { AccountType, Category, CategoryRule, RecurringSeries, ReportsData };
+export type { AccountType, Category, CategoryRule, ReportsData };
 /** What `GET /api/dashboard` sends, with the verdicts and the joint pools the server adds. */
 export type DashboardData = DashboardAnswer;
 
@@ -80,7 +80,7 @@ export interface AccountQuestion {
 }
 
 /** An answer: `owner` is `u:<id>` (`u:` for the holders who are no member), `all` or `none`. */
-export interface AccountAnswer {
+interface AccountAnswer {
   kind: "in" | "opening";
   key: string;
   label: string;
@@ -195,7 +195,7 @@ export interface InstanceSettings {
   setupDone: boolean;
 }
 
-export interface BankAppStatus {
+interface BankAppStatus {
   source: "web" | "env" | null;
   appId: string | null;
   savedAt: string | null;
@@ -242,9 +242,6 @@ export interface CategoryUndo {
   category: string | null;
   rule?: { field: "merchant" | "merchant_exact"; category: string; priority: number }[];
 }
-
-/** What each joint pool's members paid above (positive) or under (negative) their share, for the running month. */
-export type SettlementAnswer = RunningPool;
 
 /** The tick beside an account's balance. */
 export type ReconcileState = ReconcileVerdict;

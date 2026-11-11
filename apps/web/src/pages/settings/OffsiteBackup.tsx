@@ -32,7 +32,7 @@ export interface OffsiteView {
 }
 
 /** The line about the last copy: what the card says whether it worked. */
-export function lastLine(v: OffsiteView): string {
+function lastLine(v: OffsiteView): string {
   if (!v.last) return t("offsite.last_none");
   return t(v.last.ok ? "offsite.last_ok" : "offsite.last_failed", { at: dateTime(v.last.at), summary: v.last.summary });
 }

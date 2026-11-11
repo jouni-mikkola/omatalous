@@ -2,7 +2,7 @@ import type { ComponentProps } from "react";
 import { cx } from "./cx.ts";
 
 /** primary: the one main action of a page or dialog. secondary: any other action in sight. link: a row's action or a move to another page. */
-export type ButtonVariant = "primary" | "secondary" | "link";
+type ButtonVariant = "primary" | "secondary" | "link";
 
 interface Own {
   variant?: ButtonVariant;

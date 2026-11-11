@@ -32,7 +32,7 @@ const shiftMonth = (month: string, by: number): string => {
 const monthEnd = (month: string) => addDays(`${shiftMonth(month, 1)}-01`, -1);
 
 /** The periods a household asks for most, as of `today`. */
-export function presets(today: string): { label: string; period: Period }[] {
+function presets(today: string): { label: string; period: Period }[] {
   const month = today.slice(0, 7);
   const year = today.slice(0, 4);
   const last = shiftMonth(month, -1);

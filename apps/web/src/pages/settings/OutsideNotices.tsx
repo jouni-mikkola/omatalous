@@ -23,7 +23,7 @@ export interface NoticesView {
 }
 
 /** The line under the form about where the messages go now. */
-export function whereLine(v: NoticesView): string {
+function whereLine(v: NoticesView): string {
   if (!v.configured) return t("set.notices.no_address_given");
   const place = t(v.kind === "ntfy" ? "set.notices.place_ntfy" : "set.notices.place_url", { host: v.host ?? "" });
   return t(v.hasToken ? "set.notices.saved_place_token" : "set.notices.saved_place", { place });

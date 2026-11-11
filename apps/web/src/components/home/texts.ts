@@ -4,7 +4,7 @@
  * another names the comparison (Odotettu, the month's expected level, ADR 0021).
  */
 import { joinRange, localeOf, MIN_COMPARE_MONTHS } from "@banking/core";
-import { clockTime, completeMonths, dayMonth, language, localDay, monthLong, money } from "../../format.ts";
+import { completeMonths, dayMonth, language, monthLong, money } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 
@@ -77,25 +77,12 @@ export const monthTitle = (month: string): string => {
   return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
-/** When the accounts were last fetched, as the line says it: "tänään 6.02" or "24.10. 18.15". null without a fetch. */
-export function updatedText(iso: string | null, today: string): string | null {
-  if (!iso) return null;
-  const day = localDay(iso);
-  return `${day === today ? t("home.today") : dayMonth(day)} ${clockTime(iso)}`;
-}
-
 /** "Lokakuu 2026 · päivä 25/31 · päivitetty tänään 6.02": the line under the heading. */
 export function monthLine(month: string, pace: PaceData | null, updated: string | null): string {
   const parts = [`${monthTitle(month)} ${month.slice(0, 4)}`];
   if (pace) parts.push(t("home.line_day", { day: pace.day, days: pace.daysInMonth }));
   if (updated) parts.push(t("home.line_updated", { updated }));
   return parts.join(" · ");
-}
-
-/** What the missing card purchases do to the figures, in one sentence; null when none are missing. */
-export function reliabilityText(reliability: HomeData["reliability"]): string | null {
-  const gap = reliability.cardGap;
-  return gap ? t("home.cards_missing", { cause: gap.cause }) : null;
 }
 
 /** The headline of the pace block: the difference, and what it is set against. */

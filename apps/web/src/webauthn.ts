@@ -25,12 +25,12 @@ export interface RequestOptions {
   userVerification?: UserVerificationRequirement;
 }
 
-export function toBytes(b64url: string): Uint8Array<ArrayBuffer> {
+function toBytes(b64url: string): Uint8Array<ArrayBuffer> {
   const b64 = b64url.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(b64url.length / 4) * 4, "=");
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
 
-export function toBase64Url(buffer: ArrayBuffer): string {
+function toBase64Url(buffer: ArrayBuffer): string {
   let text = "";
   for (const byte of new Uint8Array(buffer)) text += String.fromCharCode(byte);
   return btoa(text).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

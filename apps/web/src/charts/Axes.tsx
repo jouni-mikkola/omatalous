@@ -29,7 +29,7 @@ export function CategoryTick({ x, base, long }: { x: number; base: number; long:
 }
 
 /** Height of the second line that carries a year under its month. */
-export const YEAR_LINE = 12;
+const YEAR_LINE = 12;
 
 /** Whether a row of month labels prints the year of a January: only when every month has a label (`every` is 1). */
 export function hasYearLine(months: string[], every: number): boolean {
@@ -37,7 +37,7 @@ export function hasYearLine(months: string[], every: number): boolean {
 }
 
 /** A category label under the axis at `base`, with an optional second line (the year of a January) centred under it. */
-export function TwoLineLabel({ text, second, x, base, className }: { text: string; second: string | null; x: number; base: number; className?: string }) {
+function TwoLineLabel({ text, second, x, base, className }: { text: string; second: string | null; x: number; base: number; className?: string }) {
   return (
     <text className={className} x={x} y={base + LABEL_Y} textAnchor="middle">
       <tspan x={x}>{text}</tspan>

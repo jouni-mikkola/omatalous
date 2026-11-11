@@ -5,7 +5,7 @@
 import { QueryClient } from "@tanstack/react-query";
 
 /** How long an answer counts as fresh: a page opened again inside this time shows it at once and asks for nothing. */
-export const FRESH_MS = 60_000;
+const FRESH_MS = 60_000;
 
 /** The path whose answer carries the data version (`GET /api/meta`): it is never dropped by a version change it announces itself. */
 export const META_PATH = "/api/meta";

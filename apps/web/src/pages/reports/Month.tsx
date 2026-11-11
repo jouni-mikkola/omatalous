@@ -15,7 +15,7 @@ import type { ReportRange } from "./types.ts";
 import "../../styles/report-month.css";
 
 /** The rows with the largest gap over the usual first, so the category that explains the month leads; the rest row is last. */
-export function byGap(rows: readonly GapRow[]): GapRow[] {
+function byGap(rows: readonly GapRow[]): GapRow[] {
   return [...rows].sort((a, b) => Number(a.category === null) - Number(b.category === null) || Number(b.gapCents > a.gapCents) - Number(b.gapCents < a.gapCents));
 }
 

@@ -11,7 +11,7 @@ import { t } from "../text.ts";
  * shows the last items removes "Näytä lisää" and the press that folds the list removes "Näytä vähemmän": the focus
  * then moves to the button that is left. The count is spoken after a press, never when the list is first drawn.
  */
-export function MoreButtons({ shown, total, step, onMore, onLess }: { shown: number; total: number; step: number; onMore: () => void; onLess: () => void }) {
+function MoreButtons({ shown, total, step, onMore, onLess }: { shown: number; total: number; step: number; onMore: () => void; onLess: () => void }) {
   const moreRef = useRef<HTMLButtonElement>(null);
   const lessRef = useRef<HTMLButtonElement>(null);
   const pressed = useRef<"more" | "less" | null>(null);

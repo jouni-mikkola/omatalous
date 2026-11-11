@@ -8,7 +8,7 @@ import { QUESTIONS } from "@banking/core";
 import { DRILL_PARAM, readTableState, SORT_PARAM } from "./table-state.ts";
 
 /** A parameter's reader: the value if it is one the field takes, else undefined and the parameter is dropped. */
-export type Field<T extends string = string> = (value: string) => T | undefined;
+type Field<T extends string = string> = (value: string) => T | undefined;
 
 const text: Field = (v) => (v === "" ? undefined : v);
 const flag: Field<"1"> = (v) => (v === "1" ? "1" : undefined);
@@ -30,8 +30,8 @@ const COMMON = {
   [DRILL_PARAM]: perTable,
 } satisfies Record<string, Field>;
 
-export const TRANSACTION_VIEWS = ["merchants"] as const;
-export const TRANSACTION_KINDS = ["income"] as const;
+const TRANSACTION_VIEWS = ["merchants"] as const;
+const TRANSACTION_KINDS = ["income"] as const;
 
 /** The filters of Tapahtumat and the merchant list under it. */
 const TRANSACTIONS = {
@@ -52,7 +52,7 @@ const REPORTS = { q: oneOf(QUESTIONS) } satisfies Record<string, Field>;
 const SETTINGS = { add: flag, connected: text, error: text } satisfies Record<string, Field>;
 
 /** The fields of each page, besides the ones on every page. */
-export const PAGE_FIELDS = {
+const PAGE_FIELDS = {
   overview: {},
   bills: {},
   transactions: TRANSACTIONS,

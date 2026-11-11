@@ -16,7 +16,7 @@ import { t, tn } from "../text.ts";
 const FIRST_ROWS = 50;
 
 /** The figures the panel can open. */
-export type WhyFigureId = Exclude<FigureId, "settlement.over">;
+type WhyFigureId = Exclude<FigureId, "settlement.over">;
 
 interface WhyFigure {
   figure: WhyFigureId;

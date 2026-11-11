@@ -5,7 +5,7 @@
  */
 import { api } from "../../api.ts";
 
-export type AccessMode = "tunnel" | "lan" | "local" | "domain";
+type AccessMode = "tunnel" | "lan" | "local" | "domain";
 
 export interface RemoteAccessState {
   /** The copy's name (INSTANCE_NAME). */
