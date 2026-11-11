@@ -257,9 +257,9 @@ describe("the review queue", () => {
     expect((await queue(t.admin)).filter((i) => i.kind === "input")).toEqual([]);
     expect((await ids(t.admin)).filter((id) => id.startsWith("input:"))).toEqual([]);
     // a number typed in before is kept, and reading the queue takes none away
-    expect((await t.admin.call("PUT", "/api/optimise/inputs/electricity_contract_end?scope=own", { value: "2027-03-31" })).status).toBe(200);
+    await t.s.db.run("INSERT INTO optimise_inputs (user_id, key, value, as_of) VALUES (?, 'electricity_contract_end', '\"2027-03-31\"', '2026-10-01')", [t.adminId]);
     expect((await queue(t.admin)).filter((i) => i.kind === "input")).toEqual([]);
-    expect((await repo.listInputs()).map((i) => [i.key, i.value])).toEqual([["electricity_contract_end", "2027-03-31"]]);
+    expect(await t.s.db.first("SELECT key FROM optimise_inputs WHERE user_id = ?", [t.adminId])).toEqual({ key: "electricity_contract_end" });
   });
 
   it("a payer's role moves the member's rows as on the old card", async () => {

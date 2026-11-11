@@ -248,7 +248,7 @@ describe("data versions", () => {
   const MOVES_EVERYONE = ["DELETE /api/users/:id"];
   // Moves it only when a row changed (CLAUDE.md: a sync that changed nothing does not): sync.ts decides.
   const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync", "POST /api/sync/open", "POST /api/card-file", "POST /api/bank-file"];
-  // Read for each request (requestInputs), never cached: saving them moves no version. optimise.test.ts checks the Optimoi ones.
+  // Read for each request (requestInputs), never cached: saving them moves no version.
   const PER_REQUEST = [
     "PUT /api/marks",
     "PUT /api/language",
@@ -257,8 +257,6 @@ describe("data versions", () => {
     "POST /api/loans",
     "PUT /api/loans/:id",
     "DELETE /api/loans/:id",
-    "PUT /api/optimise/inputs/:key",
-    "DELETE /api/optimise/inputs/:key",
     // the settlement is worked out for each request from the trace and the stored agreements; settlement.test.ts checks that saving one moves no version
     "PUT /api/settlement/agreements/:accountId",
     "DELETE /api/settlement/agreements/:accountId/:validFrom",

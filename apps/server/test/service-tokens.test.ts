@@ -35,12 +35,6 @@ describe("service tokens", () => {
     expect((await agent.call("POST", "/api/auth/logout", undefined, bearer(token))).status).toBe(403);
   });
 
-  it("refuses the savings tips, which no route serves any more", async () => {
-    const { s, client } = await setupApp();
-    const { token } = await createServiceToken(s, { username: "aino", name: "agent" });
-    for (const path of ["/api/optimise", "/api/optimise/evidence"]) expect((await client().call("GET", path, undefined, bearer(token))).status, path).toBe(403);
-  });
-
   it("is answered by the token alone: an admin's cookie beside it gives no more", async () => {
     const { s, admin } = await setupApp();
     const { token } = await createServiceToken(s, { username: "aino", name: "agent" });

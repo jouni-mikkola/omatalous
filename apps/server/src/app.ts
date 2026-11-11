@@ -29,7 +29,6 @@ import { marksRoutes } from "./routes/marks.ts";
 import { reviewRoutes } from "./routes/review.ts";
 import { payerRoleRoutes } from "./routes/payer-roles.ts";
 import { householdMemberRoutes, settlementRoutes } from "./routes/settlement.ts";
-import { optimiseRoutes } from "./routes/optimise.ts";
 import { securityRoutes } from "./routes/security.ts";
 import { factorRoutes } from "./routes/second-factor.ts";
 import { opsRoutes } from "./routes/ops.ts";
@@ -143,7 +142,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", statementRoutes(s));
   app.route("/api", cardFileRoutes(s));
   app.route("/api", bankFileRoutes(s));
-  app.route("/api/optimise", optimiseRoutes(s));
   app.route("/api", merchantRoutes(s));
   app.route("/api", bankRoutes(s));
   app.route(BANK_LOGO_PATH, bankLogoRoutes(s));

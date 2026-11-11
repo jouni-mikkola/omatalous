@@ -8,7 +8,7 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { CategoryRule, ExpectedBill, FindingState, InputValue, IsoDate, Loan, MarkKind, PayerRole, Transaction } from "@banking/core";
+import type { CategoryRule, ExpectedBill, Loan, MarkKind, PayerRole, Transaction } from "@banking/core";
 import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { BalanceRecordRepo } from "./finance/balance-record.ts";
 import { ForeignRowRepo } from "./finance/foreign-rows.ts";
@@ -20,7 +20,6 @@ import { LoansRepo } from "./finance/loans.ts";
 import { MarksRepo } from "./finance/marks.ts";
 import { PayerRolesRepo } from "./finance/payer-roles.ts";
 import { type MerchantFilter, MerchantsRepo } from "./finance/merchants.ts";
-import { OptimiseRepo } from "./finance/optimise.ts";
 import type { OwnRows } from "./finance/part-sql.ts";
 import { type MerchantRule, RulesRepo } from "./finance/rules.ts";
 export type { MerchantRule };
@@ -52,7 +51,6 @@ export class FinanceRepo {
   private readonly syncRuns: SyncRunsRepo;
   private readonly expectedBills: ExpectedBillsRepo;
   private readonly loans: LoansRepo;
-  private readonly optimise: OptimiseRepo;
 
   constructor(
     db: Db,
@@ -73,7 +71,6 @@ export class FinanceRepo {
     this.syncRuns = new SyncRunsRepo(ctx);
     this.expectedBills = new ExpectedBillsRepo(ctx);
     this.loans = new LoansRepo(ctx);
-    this.optimise = new OptimiseRepo(ctx);
   }
 
   // ── accounts (finance/accounts.ts) ───────────────────────
@@ -198,22 +195,9 @@ export class FinanceRepo {
   addExpectedBill(bill: ExpectedBill, createdAt: string) { return this.expectedBills.addExpectedBill(bill, createdAt); }
   deleteExpectedBill(id: string) { return this.expectedBills.deleteExpectedBill(id); }
 
-
   // ── loans (finance/loans.ts) ─────────────────────────────
   listLoans() { return this.loans.listLoans(); }
   addLoan(loan: Loan, at: string) { return this.loans.addLoan(loan, at); }
   updateLoan(loan: Loan, at: string) { return this.loans.updateLoan(loan, at); }
   deleteLoan(id: string) { return this.loans.deleteLoan(id); }
-
-  // ── optimise (finance/optimise.ts) ───────────────────────
-  listInputs() { return this.optimise.listInputs(); }
-  setInput(key: string, value: InputValue, asOf: IsoDate) { return this.optimise.setInput(key, value, asOf); }
-  deleteInput(key: string) { return this.optimise.deleteInput(key); }
-  listStates() { return this.optimise.listStates(); }
-  setState(state: FindingState) { return this.optimise.setState(state); }
-  clearState(findingId: string) { return this.optimise.clearState(findingId); }
-  getSnapshot(month: string) { return this.optimise.getSnapshot(month); }
-  putSnapshot(month: string, data: unknown, createdAt: string) { return this.optimise.putSnapshot(month, data, createdAt); }
-  renameMerchantStates(renames: ReadonlyMap<string, string>) { return this.optimise.renameMerchantStates(renames); }
-  copyMerchantStates(groups: ReadonlyMap<string, readonly string[]>) { return this.optimise.copyMerchantStates(groups); }
 }

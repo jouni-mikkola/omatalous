@@ -153,7 +153,6 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
         const conflicts = await repo.copyMerchantRules(groups);
         const copies = new Map([...groups].flatMap(([to, from]) => from.filter((name) => name !== to).map((name) => [name, to] as const)));
         await repo.copyMerchantMarks(groups);
-        await repo.copyMerchantStates(groups);
         // The rules of other names that become one name with others are settled while the rows still carry the old names. The
         // in-memory rows get the same choice, so the categorising below starts from what is stored.
         const settled = await repo.settleMerchantRules(new Set([...[...merged].filter((name) => !copies.has(name)), ...conflicts]), new Set(copies.keys()));
@@ -174,7 +173,6 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
         // and it needs no migration, so a rollback keeps working. Rows set by hand are not touched by the reprocess.
         await repo.deleteUnknownMerchantRules();
         await repo.renameMerchantMarks(renames);
-        await repo.renameMerchantStates(renames);
         result.recategorised += (await reprocessLocked(repo, s.settings, rows)).changed;
         result.merchantsRenamed += moved.length;
       });
@@ -192,13 +190,13 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
 
 /**
  * What becomes of the household's choices on exact old names. `names` holds every stored name with the new names its
- * rows get. A rule, a mark, a loan's series or an Optimoi decision follows its name (`renames`) when every row of the
+ * rows get. A rule, a mark, or a loan's series follows its name (`renames`) when every row of the
  * name got the same new name and no other old name got it too. When two or more old names become one, what the
  * household chose for one of them would reach the rest and could not be told apart again: those names (`merged`) keep
- * their marks and states, and their rules are settled onto the rows instead. A name some rows keep stays as it is.
+ * their marks, and their rules are settled onto the rows instead. A name some rows keep stays as it is.
  * `groups` lists, for each new name that old names became, those old names and the new name too when it has rows: what
  * the household chose on them is copied to the new name when they all chose the same (`copyMerchantRules`,
- * `copyMerchantMarks`, `copyMerchantStates`), and the old keys stay.
+ * `copyMerchantMarks`), and the old keys stay.
  */
 function followingNames(names: ReadonlyMap<string, ReadonlySet<string>>): { renames: Map<string, string>; merged: Set<string>; groups: Map<string, string[]> } {
   const sources = new Map<string, number>();

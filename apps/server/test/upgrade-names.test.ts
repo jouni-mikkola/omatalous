@@ -1,4 +1,4 @@
-import { categorize, compileRules, type FindingState, normalizeMerchant, seriesMarkSubject } from "@banking/core";
+import { categorize, compileRules, normalizeMerchant, seriesMarkSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { seedCsv } from "./csv-seed.ts";
@@ -185,7 +185,6 @@ describe("one card issuer under three names: what the household chose on the old
     const rows = async () => (await repo.allTransactions()).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)).map((t) => `${t.merchant} ${t.category}/${t.categorySource}`);
     return { s, repo, rows };
   }
-  const decision = (name: string, until: string): FindingState => ({ findingId: `subscriptions:cheaper:${name}`, status: "snoozed", reason: null, until, effectiveDate: null, midCents: 5000, baseline: null, decidedAt: "2026-09-05T00:00:00.000Z" });
   const ruleList = async (repo: Awaited<ReturnType<typeof oldHousehold>>["repo"]) => (await repo.listRules()).map((r) => [r.pattern, r.category]).sort();
 
   /** Rows of made-up bills under the names the version before stored, the household's rules on names, and the run. */
@@ -205,47 +204,41 @@ describe("one card issuer under three names: what the household chose on the old
     const state = async () => (await repo.allTransactions()).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)).map((t) => `${t.merchant} ${t.category}/${t.categorySource}`);
     return { s, repo, state };
   }
-  /** Runs the upgrade and again: the second run changes no row, rule, mark or decision. */
+  /** Runs the upgrade and again: the second run changes no row, rule or mark. */
   async function upgradeTwice({ s, repo, state }: Awaited<ReturnType<typeof seeded>>, build: string) {
     expect(await runUpgradeTasks(s, `${build}+first`)).toMatchObject({ users: 1 });
-    const [rules, marks, states, rows] = [await ruleList(repo), await repo.listMarks(), await repo.listStates(), await state()];
+    const [rules, marks, rows] = [await ruleList(repo), await repo.listMarks(), await state()];
     expect(await runUpgradeTasks(s, `${build}+again`)).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
     expect(await ruleList(repo)).toEqual(rules);
     expect(await repo.listMarks()).toEqual(marks);
-    expect(await repo.listStates()).toEqual(states);
     expect(await state()).toEqual(rows);
     return rows;
   }
 
-  it("when every old name chose the same, it is the new name's rule, mark and decision, a bill that comes later is sorted by it, and the old keys stay", async () => {
+  it("when every old name chose the same, it is the new name's rule and mark, a bill that comes later is sorted by it, and the old keys stay", async () => {
     const h = await oldHousehold(TEXTS.map(([, old]) => [old, "gifts"] as const), TEXTS.map(([, old]) => [old, "cancelled"] as const));
-    for (const [, old] of TEXTS) await h.repo.setState(decision(old, "2027-01-01"));
     expect(await runUpgradeTasks(h.s, "0.60.0+issuers")).toMatchObject({ users: 1, merchantsRenamed: 6 });
     expect(await h.rows()).toEqual(Array(6).fill(`${NEW_NAME} gifts/rule`));
     expect(await ruleList(h.repo)).toEqual([[NEW_NAME, "gifts"], ...TEXTS.map(([, old]) => [old, "gifts"])].sort());
     expect((await h.repo.listMarks()).map((m) => m.subject).sort()).toEqual([`merchant:${NEW_NAME}`, ...TEXTS.map(([, old]) => `merchant:${old}`)].sort());
-    expect((await h.repo.listStates()).map((x) => x.findingId).sort()).toEqual([`subscriptions:cheaper:${NEW_NAME}`, ...TEXTS.map(([, old]) => `subscriptions:cheaper:${old}`)].sort());
     // the next bill is read as the new name and meets the rule
     const rule = (await h.repo.listRules()).find((r) => r.pattern === NEW_NAME)!;
     expect(categorize({ merchant: normalizeMerchant(null, "MORROW BANK ASA"), counterparty: null, description: null, mcc: null, amountCents: -12_000 }, compileRules([rule])).category).toBe("gifts");
 
     // a second run changes nothing
-    const [rulesBefore, marksBefore, statesBefore] = [await ruleList(h.repo), await h.repo.listMarks(), await h.repo.listStates()];
+    const [rulesBefore, marksBefore] = [await ruleList(h.repo), await h.repo.listMarks()];
     expect(await runUpgradeTasks(h.s, "0.60.0+issuers again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
     expect(await ruleList(h.repo)).toEqual(rulesBefore);
     expect(await h.repo.listMarks()).toEqual(marksBefore);
-    expect(await h.repo.listStates()).toEqual(statesBefore);
     expect(await h.rows()).toEqual(Array(6).fill(`${NEW_NAME} gifts/rule`));
   });
 
   it("a choice on one old name only is the new name's none: it covers its own rows, and the names without it keep their category", async () => {
     const { s, repo, rows } = await oldHousehold([[TEXTS[0][1], "gifts"]], [[TEXTS[1][1], "cancelled"]]);
-    await repo.setState(decision(TEXTS[2][1], "2027-01-01"));
     expect(await runUpgradeTasks(s, "0.60.0+one")).toMatchObject({ users: 1, merchantsRenamed: 6 });
     expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(4).fill(`${NEW_NAME} card_bill/rule`)]);
     expect(await ruleList(repo)).toEqual([[TEXTS[0][1], "gifts"]]);
     expect((await repo.listMarks()).map((m) => m.subject)).toEqual([`merchant:${TEXTS[1][1]}`]);
-    expect((await repo.listStates()).map((x) => x.findingId)).toEqual([`subscriptions:cheaper:${TEXTS[2][1]}`]);
     const [rulesBefore, rowsBefore] = [await ruleList(repo), await rows()];
     expect(await runUpgradeTasks(s, "0.60.0+one again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
     expect(await ruleList(repo)).toEqual(rulesBefore);
@@ -269,14 +262,11 @@ describe("one card issuer under three names: what the household chose on the old
 
   it("old names that chose differently give the new name no rule and no mark, and each keeps its rows as the household set them", async () => {
     const { s, repo, rows } = await oldHousehold([[TEXTS[0][1], "gifts"], [TEXTS[1][1], "home"]], [[TEXTS[0][1], "cancelled"], [TEXTS[1][1], "dismissed"]]);
-    await repo.setState(decision(TEXTS[0][1], "2027-01-01"));
-    await repo.setState(decision(TEXTS[1][1], "2027-02-01"));
     expect(await runUpgradeTasks(s, "0.60.0+conflict")).toMatchObject({ users: 1, merchantsRenamed: 6 });
     expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(2).fill(`${NEW_NAME} home/user`), ...Array(2).fill(`${NEW_NAME} card_bill/rule`)]);
     // the old rules stay for a rollback; the new name has none
     expect(await ruleList(repo)).toEqual([[TEXTS[0][1], "gifts"], [TEXTS[1][1], "home"]].sort());
     expect((await repo.listMarks()).map((m) => m.subject).sort()).toEqual([`merchant:${TEXTS[0][1]}`, `merchant:${TEXTS[1][1]}`].sort());
-    expect((await repo.listStates()).map((x) => x.findingId).sort()).toEqual([`subscriptions:cheaper:${TEXTS[0][1]}`, `subscriptions:cheaper:${TEXTS[1][1]}`].sort());
 
     const [rulesBefore, marksBefore, rowsBefore] = [await ruleList(repo), await repo.listMarks(), await rows()];
     expect(await runUpgradeTasks(s, "0.60.0+conflict again")).toMatchObject({ merchantsRenamed: 0, recategorised: 0 });
