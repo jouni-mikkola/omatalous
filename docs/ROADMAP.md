@@ -750,6 +750,61 @@ Result: The server keeps an idle connection open longer than the tunnel in front
 - after: none
 - files: apps/server/src/entry/server-timeouts.ts, apps/server/src/entry/node.ts, apps/server/test/server-timeouts.test.ts
 
+## Docs and help
+
+What a household user reads. The tabs of Asetukset are the six labels of `packages/core/src/messages-set-tabs.ts`
+(Pankit ja tilit, Talous, Jäsenet, Turvallisuus, Tiedot, Palvelin ja ylläpito); a card's heading follows the tab. D1 to
+D4 each add a test of their own guide, so they share no file; D6 makes the four tests one when T74 has cut the tabs to
+three. The README and its pictures wait for the redesign and are not steps yet.
+
+### D1 Install guide, real tabs
+Result: Every place in Asetukset that the install guide sends a reader to is a tab the app has, so nobody looks for Tekniset asetukset.
+- why: `docs/INSTALL.md` names *Tekniset asetukset* (lines 86, 94, 131, 136, 148), *Pankkiyhteydet* (87), *Talouden jäsenet* (103) and *Lainat* (110) as tabs of Asetukset; the app has none of them (the cards are on Palvelin ja ylläpito, Pankit ja tilit, Jäsenet and Talous), so the first hour with the app starts with a search.
+- done when: the new `tools/test/docs-tabs-install.test.ts`, which fails without the change, reads `docs/INSTALL.md` and finds that the name after each `Asetukset > ` is one of the six tab labels written in the test, also where the label wraps over a line end (line 96), and the card's heading follows the tab where the guide names a card (`bun test tools/test/docs-tabs-install.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: install-doc
+- after: none
+- files: docs/INSTALL.md, tools/test/docs-tabs-install.test.ts
+
+### D2 Troubleshooting, real tabs
+Result: Each fix in the troubleshooting tables names the tab of Asetukset where its button is.
+- why: `docs/TROUBLESHOOTING.md` sends a reader with a failed update, a full disk or an old backup to *Asetukset > Ylläpito* (lines 86, 91, 115, 117), and others to *Talouden jäsenet* (61), *Pankkiyhteydet* (68), *Lainat* (149) and *Tilit* (162); the app has no such tabs (they are cards on Palvelin ja ylläpito, Jäsenet, Pankit ja tilit and Talous).
+- done when: the new `tools/test/docs-tabs-troubleshooting.test.ts`, which fails without the change, reads `docs/TROUBLESHOOTING.md` and finds that the name after each `Asetukset > ` is one of the six tab labels written in the test, and the card's heading follows the tab where the guide names a card (`bun test tools/test/docs-tabs-troubleshooting.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: troubleshooting-doc
+- after: none
+- files: docs/TROUBLESHOOTING.md, tools/test/docs-tabs-troubleshooting.test.ts
+
+### D3 Bank guide, real tabs
+Result: The guide to connecting a bank names the tab Pankit ja tilit and its cards, as the app shows them.
+- why: `docs/ENABLE_BANKING.md` names *Asetukset > Pankkiyhteydet* (lines 12, 38, 88, 108, 224, 347) and *Asetukset > Tilit* (96, 103, 106, 266) as tabs; both are cards of the one tab Pankit ja tilit, and the same file already uses that name elsewhere, so one guide gives two addresses for one place.
+- done when: the new `tools/test/docs-tabs-bank.test.ts`, which fails without the change, reads `docs/ENABLE_BANKING.md` and finds that the name after each `Asetukset > ` is one of the six tab labels written in the test, and the card's heading follows the tab where the guide names a card (`bun test tools/test/docs-tabs-bank.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-doc
+- after: none
+- files: docs/ENABLE_BANKING.md, tools/test/docs-tabs-bank.test.ts
+
+### D4 Advanced, security: real tabs
+Result: The advanced guide and the security page name the tabs of Asetukset that the app has.
+- why: `docs/SECURITY.md` names *Tekniset asetukset* (lines 154, 296, 388, 454, 472), *Asetukset > Lainat* (67) and a tab *Palvelin* (101, 578), and `docs/ADVANCED.md` names *Asetukset > Talouden jäsenet* (230) and a tab *Palvelin* (320, 869) beside 14 uses of the real label Palvelin ja ylläpito.
+- done when: the new `tools/test/docs-tabs-advanced.test.ts`, which fails without the change, reads `docs/SECURITY.md` and `docs/ADVANCED.md` and finds that the name after each `Asetukset > ` is one of the six tab labels written in the test, whole (Palvelin ja ylläpito, not Palvelin), and the card's heading follows the tab where the guide names a card (`bun test tools/test/docs-tabs-advanced.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: advanced-doc, security-doc
+- after: none
+- files: docs/ADVANCED.md, docs/SECURITY.md, tools/test/docs-tabs-advanced.test.ts
+
+### D5 Ohjeet link in the footer
+Result: The footer of every page has a link Ohjeet (Help in English) that opens the troubleshooting guide in a new tab.
+- why: the app's only link to its guides is the one to the maintenance helper on the admin's update panel; a member who sees a notice or a wrong figure has the source link in the footer and nothing that says where the fixes are.
+- done when: a test in `apps/web/test/about.test.ts` that fails without the change sees a link with the text Ohjeet to `docs/TROUBLESHOOTING.md` of the project's repository, opened like the source link, and the text is in the catalogue in both languages (`bun test apps/web/test/about.test.ts`, `pnpm strings` runs clean); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: texts, footer
+- after: none
+- files: apps/web/src/about.ts, apps/web/src/components/AboutFoot.tsx, packages/core/src/messages-shell.ts, packages/core/src/english/shell.ts, apps/web/test/about.test.ts
+
+### D6 Guides follow the three tabs
+Result: The five guides name the three tabs Asetukset has after T74, and one test keeps them to the labels the app shows.
+- why: T74 cuts Asetukset to Pankit ja tilit, Kotitalous and Palvelin and its files hold no guide, so the labels D1 to D4 wrote (Talous, Jäsenet, Turvallisuus, Tiedot, Palvelin ja ylläpito) are false again the day it lands, and four tests each hold a copy of the old list.
+- done when: the new `tools/test/docs-tabs.test.ts`, which fails without the change, reads the tab labels from `packages/core/src/messages-set-tabs.ts` and finds that the name after each `Asetukset > ` in `docs/INSTALL.md`, `docs/TROUBLESHOOTING.md`, `docs/ENABLE_BANKING.md`, `docs/ADVANCED.md` and `docs/SECURITY.md` is one of them (`bun test tools/test/docs-tabs.test.ts`); `git ls-files 'tools/test/docs-tabs-*.test.ts'` lists nothing; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: install-doc, troubleshooting-doc, bank-doc, advanced-doc, security-doc
+- after: T74, D1, D2, D3, D4
+- files: docs/INSTALL.md, docs/TROUBLESHOOTING.md, docs/ENABLE_BANKING.md, docs/ADVANCED.md, docs/SECURITY.md, tools/test/docs-tabs.test.ts, tools/test
+
 ## Open from before
 
 ### T96 Promote reads every file
