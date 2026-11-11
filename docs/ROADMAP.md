@@ -623,6 +623,45 @@ Result: A screen reader says the error when the bank key file is refused, and th
 - after: none
 - files: apps/web/src/pages/settings/BankAppSetup.tsx, apps/web/test/bank-key-error.dom.test.ts
 
+## The web: keyboard and phone
+
+From reading `apps/web/src/charts`, `components`, `search.ts`, `offline.ts` and `table-state.ts` on main (11 Nov) for
+use by keyboard, on a narrow screen and with a screen reader. Four faults were found that a step of this size can
+mend; each step has a lock no other step of this file names, and none waits on the four tabs. The three that add texts
+also take `texts`.
+
+### Y1 A longer list keeps the focus
+Result: A press that shows more or fewer rows of a long list or of a figure's sheet keeps the focus in the list, and the count is spoken.
+- why: `MoreButtons` in `apps/web/src/components/More.tsx` (lines 15 to 24) draws "Näytä lisää" only while `shown < total` and "Näytä vähemmän" only while `shown > step`, so the press that shows the last rows and the press that folds the list each remove the button that has the focus: the focus falls to the page and Tab starts from the top. The count beside them (`20 / 57`) is a plain span in no live region, so the change is never spoken. `WhyPanel` in `apps/web/src/components/Why.tsx` (lines 358 to 362) does the same inside a modal sheet: "Näytä kaikki" is drawn only while `!all`, the press removes it, and nothing says how many rows came.
+- done when: after a press in `MoreButtons` that removes a button the focus is on the button that is left, and the count is in a polite live region that is silent until a button is pressed; after "Näytä kaikki" the focus is on the first row that came and the number of rows is spoken once; the new `apps/web/test/more-focus.dom.test.ts`, which fails without the change, presses both buttons of a list of three pages and finds the focus on a button of the list each time and the count in the live region; a test in `apps/web/test/why.dom.test.ts`, which fails without the change, presses "Näytä kaikki" and finds the focus inside the sheet's table; `apps/web/test/reports-more.test.ts` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: more-list
+- after: none
+- files: apps/web/src/components/More.tsx, apps/web/src/components/Why.tsx, apps/web/test/more-focus.dom.test.ts, apps/web/test/why.dom.test.ts
+
+### Y2 Change chart heard in English
+Result: In English a screen reader reads the year to year chart of Raportit in English.
+- why: `apps/web/src/charts/SlopeChart.tsx` writes Finnish in the code: the name of the focusable group at line 179 ("Nuolinäppäimet siirtävät viivasta toiseen, Enter näyttää rivin taulukossa."), the readout row "Muutos" at line 121, which `LiveReadout` speaks at every arrow key, the sentence under the chart at line 212 ("ei mahdu kuvaan", in one and in many) and the "ja" that joins its names at line 29. None goes through `t()`, so an English reader hears Finnish read with English sounds.
+- done when: the four texts come from the catalogue in both languages; the new `apps/web/test/slope-chart-english.dom.test.ts`, which fails without the change, draws the chart in English with one and with three lines that do not fit, moves with an arrow key and finds no Finnish word in the group's name, the live readout or the sentence under the chart, and the same chart in Finnish reads as before; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: slope-chart, texts
+- after: none
+- files: apps/web/src/charts/SlopeChart.tsx, packages/core/src/messages-tables.ts, packages/core/src/english/tables.ts, apps/web/test/slope-chart-english.dom.test.ts
+
+### Y3 Week sums by keyboard and touch
+Result: The week sums and weekday averages of the spending calendar are read with the arrow keys and stay on the screen after a tap.
+- why: in `apps/web/src/charts/CalendarHeat.tsx` the bars of the week sums (line 268) and of the weekday averages (line 290) get their readout from `hit` (lines 162 to 166), which listens to the pointer alone: `onKey` (lines 167 to 180) walks the days only, so a keyboard or screen reader user never reaches a week's sum, and of the averages the one of an empty weekday ("ei päiviä") is in the readout alone. `onPointerLeave` there clears the readout for every pointer, where the days at line 240 clear it for a mouse only, so on a phone the readout of a tapped bar goes the moment the finger lifts. The strip's label "vk" at line 279 is Finnish in the code.
+- done when: from the last row of days the down arrow goes to the week sum of that column and from the last column the right arrow goes to the average of that weekday, the arrows walk both and go back to the days, and each stop shows the readout and sends its sentence to the live region; a tap on a bar keeps its readout until the next tap or Escape, and a mouse that leaves still clears it; the group's name tells of the sums and "vk" comes from the catalogue, in both languages; the new `apps/web/test/calendar-sums.dom.test.ts`, which fails without the change, holds the keys, the touch and the mouse case; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: calendar-heat, texts
+- after: none
+- files: apps/web/src/charts/CalendarHeat.tsx, apps/web/src/charts/kit/readout.ts, packages/core/src/messages-transactions.ts, packages/core/src/english/transactions.ts, apps/web/test/calendar-sums.dom.test.ts
+
+### Y4 Bank picker heard in English
+Result: In English the whole bank picker is in English, on the screen and for a screen reader, from its heading to its notices.
+- why: `apps/web/src/components/BankPicker.tsx` has no `t()` at all and writes every text in Finnish in the code: the heading "Valitse pankki" (line 91), which takes the focus when the picker opens (line 79), "Sulje" (line 94), the two notices of an empty list (lines 101 and 104), the search field's placeholder and `aria-label` "Hae pankkia" (line 109), the name of every bank button "Yhdistä …" (line 116), the notes "Avataan…" and "Viimeksi käytetty" (line 85), "Haulla ei löydy pankkia." in a `role="status"` (line 126) and the note on other banks at line 129. In English the first thing a screen reader says on opening the picker is Finnish.
+- done when: every text of the picker named in the why comes from the catalogue in both languages, the link in the admin's notice still opens the bank app's section; tests in `apps/web/test/bank-picker.test.ts`, which fail without the change, draw the picker in English with no bank (as admin and as member), with nine banks of which one was last used and one is being opened, and with a search that finds nothing, and find no Finnish in any text or `aria-label` of the picker; the same picker in Finnish reads as before; `pnpm strings` runs clean; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-picker, texts
+- after: none
+- files: apps/web/src/components/BankPicker.tsx, packages/core/src/messages-set-banks.ts, packages/core/src/english/set-banks.ts, apps/web/test/bank-picker.test.ts
+
 ## The web: what the design asks
 
 From reading `docs/design/README.md`, `docs/audit/simplify.md` and `docs/UI_STYLE.md` against the pages on main
