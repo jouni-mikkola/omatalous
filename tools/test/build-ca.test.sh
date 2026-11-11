@@ -114,16 +114,19 @@ has "and the refusal names it" "$out" "$TMP/flat/Dockerfile has no 'FROM ... AS 
 # ── no test run in a build ──
 OLD=$TMP/old NEW=$TMP/new ODD=$TMP/odd
 mkdir -p "$OLD" "$NEW" "$ODD"
-# the three forms of the baselines: before 0.4.0, 0.4.0 to 0.8.1, and from 0.8.2 (the one under proof too)
+# the forms of the baselines: before 0.4.0 a test run in every build, later the tests only with RUN_TESTS=true
 printf '%s\n' '# ── build: install, test, bundle' 'FROM node:22-alpine AS build' 'RUN pnpm install --frozen-lockfile' 'COPY . .' 'RUN pnpm test && pnpm build' 'FROM node:22-alpine' >"$OLD/Dockerfile"
-for r in 812b219 da9d66e HEAD; do git -C "$REPO" show "$r:Dockerfile" >"$NEW/Dockerfile.$r"; done
+# The guarded form of the older baselines is written here: this repository's history starts later than the commits
+# that held it. The newest guarded form is the Dockerfile of this commit.
+printf '%s\n' 'FROM node:22-alpine AS build' 'ARG RUN_TESTS=false' 'COPY . .' 'RUN if [ "$RUN_TESTS" = true ]; then pnpm test; fi' 'RUN pnpm build' 'FROM node:22-alpine' >"$NEW/Dockerfile.guarded"
+git -C "$REPO" show HEAD:Dockerfile >"$NEW/Dockerfile.HEAD"
 printf '%s\n' 'FROM node:22 AS build' 'RUN pnpm test:server && pnpm build' 'FROM node:22' >"$ODD/Dockerfile"
 (cd "$OLD" && "$N/docker" build -t old .)
 check "no CA, a build that ran the tests: the Dockerfile on stdin, with no context ca" test "$(cat "$SEEN/args")" = "build -t old -f - ."
 check "and its test run is gone, the build kept" test "$(sed -n 5p "$SEEN/stdin")" = "RUN pnpm build"
 check "and nothing else changed" test "$(grep -vc '^RUN pnpm build$' "$SEEN/stdin")" = 5
 check "the Dockerfile in the context is left as it was" test "$(grep -c 'pnpm test' "$OLD/Dockerfile")" = 1
-for r in 812b219 da9d66e HEAD; do
+for r in guarded HEAD; do
   (cd "$NEW" && "$N/docker" build -f "Dockerfile.$r" -t new . 2>"$TMP/err")
   check "no CA, the Dockerfile of $r (tests only with RUN_TESTS=true) is docker's own" test "$(cat "$SEEN/args")" = "build -f Dockerfile.$r -t new ."
   check "and says nothing" test ! -s "$TMP/err"

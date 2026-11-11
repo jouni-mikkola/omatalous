@@ -36,15 +36,15 @@ priv_head() { git -C "$W/pseed" rev-parse HEAD; }
 # use-private.sh in the clone as a person runs it: the output in OUT, the status in RC
 up() {
   : >"$S/calls.log"
-  OUT=$(cd "$CL" && env OPS_TEST=1 OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/use-private.sh "$@" </dev/null 2>&1); RC=$?
+  OUT=$(cd "$CL" && env OPS_TEST=1 OPS_STUB_DIR="$S" HOME="$W/home" XDG_CONFIG_HOME="$W/home/.config" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/use-private.sh "$@" </dev/null 2>&1); RC=$?
 }
 by_hand() {
   : >"$S/calls.log"
-  OUT=$(cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/update.sh --yes </dev/null 2>&1); RC=$?
+  OUT=$(cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" XDG_CONFIG_HOME="$W/home/.config" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/update.sh --yes </dev/null 2>&1); RC=$?
 }
 rolled_back() {
   : >"$S/calls.log"
-  OUT=$(cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/update.sh --rollback --yes </dev/null 2>&1); RC=$?
+  OUT=$(cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" XDG_CONFIG_HOME="$W/home/.config" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/update.sh --rollback --yes </dev/null 2>&1); RC=$?
 }
 has() { [[ $OUT == *"$1"* ]]; }
 chan() { grep -E "^$1=" "$CL/ops/channel" 2>/dev/null | cut -d= -f2-; }
