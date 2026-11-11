@@ -192,6 +192,13 @@ Result: An income paid on the next banking day after a closed last day of the mo
 - after: none
 - files: packages/core/src/pay-day.ts, packages/core/test/pay-day.test.ts
 
+### N22 Shots of every page, again. pnpm
+Result: Shots of every page, again. pnpm shots --all again takes a picture of every page, each Raportit question and each Asetukset target
+- why: E4 (32fce71) turned main red and PR #139 reverts it: tools/shots-a.test.ts expected 13 routes for --all and got 16, because pages merged beside it (T74, T62, E2) changed the route list the test wrote out by hand. After the revert the option is gone, and a reverted step is not reopened.
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Shots of every page, again. pnpm shots --all again takes a picture of every page, each Raportit question and each Asetukset target, and its test reads the page list from the code so a new page does not break it.
+- locks: none
+- after: none
+
 ### C2 No repeated common password
 Result: A password that is one word said twice with a digit at the end, such as passwordpassword1, is refused like the word said twice alone.
 - why: `checkPassword` tests for a repeated block on the whole password only, so one digit or sign after the repeats lets it through: passwordpassword1 is allowed at level 3 of 4.
