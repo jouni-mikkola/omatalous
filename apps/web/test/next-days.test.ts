@@ -286,9 +286,9 @@ describe("what stands in place of the payments, and under the tables", () => {
     expect(html(ahead({}, []))).not.toContain("arvioita");
   });
 
-  it("links Laskut and Lisää lasku at the foot, whatever the window holds", () => {
+  it("links Tulossa and Lisää lasku at the foot, whatever the window holds", () => {
     for (const a of [ahead(), ahead(NONE, []), ahead({ balance: null, missing: "balance" })]) {
-      expect(html(a)).toContain('<p class="st-links"><a href="#/bills">Laskut</a><a href="#/bills">Lisää lasku</a></p>');
+      expect(html(a)).toContain('<p class="st-links"><a href="#/bills">Tulossa</a><a href="#/bills">Lisää lasku</a></p>');
     }
   });
 

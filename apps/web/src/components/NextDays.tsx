@@ -74,7 +74,7 @@ export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
           {coming.length > 0 && <Lines caption={t("ahead.incoming")} head={[t("ahead.day"), t("ahead.payer")]} lines={coming} kind="pay" active={active} onActive={setActive} door={scope ? { range: { from: ahead.from, to: ahead.payday?.date ?? ahead.to }, scope } : undefined} />}
           {varies && <p className="st-note ahead-pay-note">{varies}</p>}
           <p className="st-links">
-            <a href="#/bills">{t("nav.bills")}</a>
+            <a href="#/bills">{t("nav.coming")}</a>
             <a href="#/bills">{t("bills.form.add")}</a>
           </p>
         </div>

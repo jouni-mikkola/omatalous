@@ -41,10 +41,13 @@ const FirstRunWizard = lazy(async () => {
   return { default: (o: Parameters<typeof firstRunWizard>[0]) => firstRunWizard(o) };
 });
 
+// the router marks a link active by its path; where the address says another tab is current (Lisää on the reports path), it is not
+const NOT_CURRENT = { exact: true, includeSearch: true } as const;
+
 /** A link to a page by its id: the router loads the page's chunk when the pointer or focus comes near. */
 function PageLink({ id, current, className, children, ...rest }: { id: string; current: boolean } & Omit<ComponentProps<"a">, "href" | "id">) {
   return (
-    <Link to={`/${id}` as "/"} preload="intent" className={className} aria-current={current ? "page" : undefined} {...rest}>
+    <Link to={`/${id}` as "/"} preload="intent" className={className} aria-current={current ? "page" : undefined} activeOptions={current ? undefined : NOT_CURRENT} {...rest}>
       {children}
     </Link>
   );
@@ -84,7 +87,9 @@ export function Shell() {
     shownPage.current = page;
   }, [page, reloadReview]);
   const shown = pages.find((e) => e.id === page);
-  const pageName = shown?.title ?? shown?.label;
+  // a question page of the reports (`?q=`) is Lisää, not the Kuukausi tab
+  const more = page === "reports" && params.has("q");
+  const pageName = more ? MORE.label : shown?.label;
   // Tarkistettavat carries its count in the title and the heading, the same one the header's mark shows
   const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageName;
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
@@ -307,7 +312,7 @@ export function Shell() {
           </div>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} className={e.id === REVIEW.id ? "review-link" : undefined} current={page === e.id}>
+              <PageLink key={e.id} id={e.id} className={e.id === REVIEW.id ? "review-link" : undefined} current={page === e.id && !(e.id === "reports" && more)}>
                 {e.label}
                 {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
                 {e.id === REVIEW.id && open > 0 && (
@@ -347,7 +352,10 @@ export function Shell() {
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
-              <a href={MORE.hash} aria-current={page === "reports" && params.has("q") ? "page" : undefined}>{MORE.label}</a>
+              <a href={MORE.hash} aria-current={more ? "page" : undefined}>{MORE.label}</a>
+              <PageLink id={ROWS.id} current={page === ROWS.id}>
+                {ROWS.label}
+              </PageLink>
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}
               </PageLink>

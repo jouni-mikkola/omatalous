@@ -12,11 +12,11 @@ describe("NAV", () => {
     expect(SETTINGS).toEqual({ id: "settings", label: "Asetukset" });
   });
 
-  it("names its tabs Nyt, Kuukausi and Tulossa, the pages behind them keep their titles; the ids of the old pages, and so their addresses, stay", () => {
+  it("names its tabs Nyt, Kuukausi and Tulossa; the ids of the old pages, and so their addresses, stay", () => {
     const label = (id: string) => NAV.find((e) => e.id === id)?.label;
     expect(label("overview")).toBe("Nyt");
     expect(label("bills")).toBe("Tulossa");
-    expect(NAV.map((e) => e.title)).toEqual(["Yhteenveto", undefined, "Laskut", undefined]);
+    expect(NAV.some((e) => "title" in e)).toBe(false);
     expect(label("optimise")).toBeUndefined();
     expect(label("reports")).toBe("Kuukausi");
     expect(NAV.map((e) => e.label)).not.toContain("Toistuvat");

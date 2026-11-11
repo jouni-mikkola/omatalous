@@ -5,8 +5,6 @@ export interface NavEntry {
   id: string;
   /** A getter on the built-in entries: the text is read when it is drawn, in the language the member has by then. */
   readonly label: string;
-  /** The name of the page in its title and heading, where the page still has another name than its tab. */
-  readonly title?: string;
 }
 
 /**
@@ -21,10 +19,10 @@ export const REVIEW: NavEntry = { id: "review", get label() { return t("nav.revi
  * Asetukset is not one of them.
  */
 export const NAV: readonly NavEntry[] = [
-  { id: "overview", get label() { return t("nav.now"); }, get title() { return t("nav.overview"); } },
+  { id: "overview", get label() { return t("nav.now"); } },
   // Kuukausi: the month against its usual is what the tab opens; the question pages of the reports stay behind their addresses
   { id: "reports", get label() { return t("rpt.page_thismonth"); } },
-  { id: "bills", get label() { return t("nav.coming"); }, get title() { return t("nav.bills"); } },
+  { id: "bills", get label() { return t("nav.coming"); } },
   REVIEW,
 ];
 

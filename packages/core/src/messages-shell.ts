@@ -10,8 +10,6 @@ export const FI_SHELL = {
   // the four tabs name the question; a page keeps its own name in its title until its view lands
   "nav.now": "Nyt",
   "nav.coming": "Tulossa",
-  "nav.overview": "Yhteenveto",
-  "nav.bills": "Laskut",
   "nav.transactions": "Tapahtumat",
   "nav.reports": "Raportit",
   "nav.review": "Tarkistettavat",
