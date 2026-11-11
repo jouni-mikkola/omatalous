@@ -72,7 +72,7 @@ const MCC_RANGES: ReadonlyArray<readonly [number, number, string]> = [
 ];
 
 export function categoryForMcc(mcc: string | null): string | null {
-  const code = mcc ? Number.parseInt(mcc, 10) : Number.NaN;
+  const code = mcc && /^\d+$/.test(mcc) ? Number.parseInt(mcc, 10) : Number.NaN;
   if (!Number.isFinite(code)) return null;
   for (const [lo, hi, category] of MCC_RANGES) {
     if (code >= lo && code <= hi) return category;

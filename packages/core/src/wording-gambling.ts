@@ -52,4 +52,4 @@ export const isGamblingWord = (folded: string) => WORD.test(folded);
 export const isGamblingIntermediary = (folded: string) => INTERMEDIARY.test(folded);
 
 /** Whether a merchant code is one of gambling. */
-export const isGamblingMcc = (mcc: string | null | undefined) => !!mcc && GAMBLING_MCC.includes(Number.parseInt(mcc, 10));
+export const isGamblingMcc = (mcc: string | null | undefined) => !!mcc && /^\d+$/.test(mcc) && GAMBLING_MCC.includes(Number.parseInt(mcc, 10));
