@@ -148,7 +148,7 @@ export async function setModuleCode(s: Services, user: User, o: { code?: unknown
   await checkPassword(s, user, typeof o.password === "string" ? o.password : "", req, "lisäosan koodi");
   const code = parseModuleCode(o.code);
   const box = await s.secretBox();
-  if (!box) throw new UserError("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
+  if (!box) throw new UserError("Palvelimen salausavain puuttuu. Ylläpitäjä löytää syyn palvelimen lokista.");
   // sealed in its own form, read back through parseModuleCode
   await s.settings.set(KEY, JSON.stringify({ keyEnc: await box.seal(moduleCodeText(code), AAD) }));
   await s.settings.delete(STATUS_KEY);

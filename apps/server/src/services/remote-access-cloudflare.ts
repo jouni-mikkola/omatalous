@@ -32,7 +32,7 @@ export async function readJson<T>(s: Services, key: string): Promise<T | null> {
 /** The box that seals this copy's secrets, or the sentence an admin reads when APP_SECRET is missing. */
 export async function sealedBox(s: Services) {
   const box = await s.secretBox();
-  if (!box) throw new UserError("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
+  if (!box) throw new UserError("Palvelimen salausavain puuttuu. Ylläpitäjä löytää syyn palvelimen lokista.");
   return box;
 }
 

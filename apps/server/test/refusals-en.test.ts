@@ -58,3 +58,21 @@ describe("refusals in English", () => {
     expect(refusalIn("Jokin outo virhe.", "en")).toBe("Jokin outo virhe.");
   });
 });
+
+describe("refusals in Finnish", () => {
+  const found = [...new Set(sentences().map((s) => s.text))];
+  // the limits' labels and Cloudflare's short answers are parts of a sentence, and a filled part may end one
+  it("read as a sentence: a capital first, a stop last", () => {
+    const off = found.filter((t) => /\.\s/.test(t) || /\.$/.test(t)).filter((t) => !/^[A-ZÄÖÅ0-9"x]/.test(t) || !/[.?!)"x]$/.test(t.trim()));
+    expect(off).toEqual([]);
+  });
+  it("name no setting of the server, no code value and no long dash", () => {
+    const off = found.filter((t) => /\b[A-Z]+_[A-Z_]+\b|\b(null|undefined|NaN)\b|—/.test(t));
+    expect(off).toEqual([]);
+  });
+  it("tell the reader what to do next where nothing else can", () => {
+    expect(found).toContain("Palvelimen salausavain puuttuu. Ylläpitäjä löytää syyn palvelimen lokista.");
+    expect(found).toContain("Virheellinen pyyntö. Lataa sivu uudelleen.");
+    expect(found).not.toContain("Virheellinen pyyntö.");
+  });
+});

@@ -81,7 +81,7 @@ export function parseCategoryUndo(input: { category?: unknown; rule?: unknown })
     return (r.field === "merchant" || r.field === "merchant_exact") && typeof r.category === "string" && isKnownCategory(r.category) && Number.isInteger(r.priority) && (r.priority as number) >= 0 && (r.priority as number) <= 1000;
   };
   const rules = input.rule;
-  if (input.category === undefined || !known(input.category) || (rules !== undefined && (!Array.isArray(rules) || rules.length > 10 || !rules.every(ruleOk)))) throw new UserError("Virheellinen pyyntö.");
+  if (input.category === undefined || !known(input.category) || (rules !== undefined && (!Array.isArray(rules) || rules.length > 10 || !rules.every(ruleOk)))) throw new UserError("Virheellinen pyyntö. Lataa sivu uudelleen.");
   return { category: input.category as string | null, ...(rules !== undefined ? { rule: (rules as MerchantRule[]).map(({ field, category, priority }) => ({ field, category, priority })) } : {}) };
 }
 

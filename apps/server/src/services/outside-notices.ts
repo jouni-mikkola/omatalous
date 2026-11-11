@@ -106,7 +106,7 @@ export async function saveNotices(s: Services, o: Partial<Record<"enabled" | "ad
   let keyEnc: string | null = o.address === undefined && o.token === undefined ? row.keyEnc : null;
   if (address && (o.address !== undefined || o.token !== undefined)) {
     const box = await s.secretBox();
-    if (!box) throw new UserError("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
+    if (!box) throw new UserError("Palvelimen salausavain puuttuu. Ylläpitäjä löytää syyn palvelimen lokista.");
     keyEnc = await box.seal(JSON.stringify({ address, token } satisfies Target), AAD);
   }
   await s.settings.set(KEY, JSON.stringify({ enabled, keyEnc, language: who.language ?? row.language } satisfies Row));

@@ -259,12 +259,12 @@ describe("one definition each", () => {
     expect(setup).toMatch(/import \{ readJson, sealedBox \} from/);
     // the sentence of a missing APP_SECRET is one string in the server
     const files = ["connectors/enable-banking/app-setup.ts", "services/remote-access.ts", "services/remote-access-cloudflare.ts"];
-    expect(files.filter((f) => src(f).includes("salausavain (APP_SECRET) puuttuu"))).toEqual(["services/remote-access-cloudflare.ts"]);
+    expect(files.filter((f) => src(f).includes("salausavain puuttuu"))).toEqual(["services/remote-access-cloudflare.ts"]);
   });
 
   it("the box getter tells an admin that APP_SECRET is missing, and hands over the box when it is there", async () => {
     const none = { secretBox: async () => null } as unknown as Services;
-    await expect(sealedBox(none)).rejects.toThrow("Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.");
+    await expect(sealedBox(none)).rejects.toThrow("Palvelimen salausavain puuttuu. Ylläpitäjä löytää syyn palvelimen lokista.");
     const box = { seal: async () => "x" };
     expect(await sealedBox({ secretBox: async () => box } as unknown as Services)).toBe(box);
   });
