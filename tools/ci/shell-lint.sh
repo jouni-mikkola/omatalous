@@ -26,9 +26,13 @@ if command -v shellcheck >/dev/null 2>&1; then
     [[ $f == scripts/lib/* || $f == *lib.sh || $sourced == *[/\"\ ]"${f##*/}"[\"\ \;]* ]] && libs+=("$f")
   done
   # Every run re-reads the libraries (about a quarter of all the lines), so few runs cost far less CPU than many: half as many
-  # runs as CPUs, at least two, each with every K-th file so the big suites do not fall into one run. A red run fails the lint.
+  # runs as CPUs, at least two and at most max_runs, each with every K-th file so the big suites do not fall into one run.
+  # A red run fails the lint. The ceiling is measured on 28 CPUs with 119 files: 2 runs take 10 s and 20 CPU seconds,
+  # 4 runs 6 s and 22, 8 runs 6 s and 40, so past four runs only the CPU time grows.
+  max_runs=4
   k=$(($(nproc) / 2))
   ((k >= 2)) || k=2
+  ((k <= max_runs)) || k=$max_runs
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
   pids=()
