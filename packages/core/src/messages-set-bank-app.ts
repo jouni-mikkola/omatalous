@@ -22,6 +22,7 @@ export const FI_SET_BANK_APP = {
   "set.app.testing_the_application_id": "Testaamme tunnusta…",
   "set.app.application_id_works": "Sovelluksen tunnus toimii",
   "set.app.accounts_added_in_enable_banking": "Pankkitilisi yhdistetty Enable Bankingissa",
+  "set.app.step_open": "(ei vielä)",
   "set.app.open_control_panel": "Avaa Control Panel",
   "set.app.sign_in_to_enable_banking": "Kirjaudu Enable Bankingiin sähköpostilinkillä.",
   "set.app.open_sign_in": "Avaa kirjautuminen",

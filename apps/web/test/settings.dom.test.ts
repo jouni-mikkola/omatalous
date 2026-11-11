@@ -86,6 +86,16 @@ describe("Pankkisovellus", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Tallenna ja testaa" })[0]!);
     await waitFor(() => expect(document.body.textContent).toContain("Sovelluksen tunnus on muotoa 12345678-abcd-"), T);
   }, 60000);
+
+  it("says in words which steps of the checklist are done, as the tick and the dash have no text", async () => {
+    await startServer();
+    await openApp("#/settings/banks", "Asetukset");
+    const steps = () => within(screen.getByRole("list", { name: "Enable Banking -sovelluksen vaiheet" })).getAllByRole("listitem").map((li) => li.textContent);
+    await waitFor(() => expect(steps()).toEqual(["Salausavain luotu (ei vielä)", "Varmenne lisätty Enable Bankingiin (ei vielä)", "Sovelluksen tunnus toimii (ei vielä)", "Pankkitilisi yhdistetty Enable Bankingissa (ei vielä)"]), T);
+    fireEvent.click(await screen.findByRole("button", { name: "Näytä ohje" }, T));
+    fireEvent.click(await screen.findByRole("button", { name: "Luo avain" }, T));
+    await waitFor(() => expect(steps()[0]).toBe("Salausavain luotu (tehty)"), T);
+  }, 60000);
 });
 
 describe("Lainat", () => {

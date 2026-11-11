@@ -20,6 +20,7 @@ export const EN_SET_BANK_APP: Record<keyof typeof FI_SET_BANK_APP, string> = {
   "set.app.testing_the_application_id": "Testing the Application ID…",
   "set.app.application_id_works": "Application ID works",
   "set.app.accounts_added_in_enable_banking": "Accounts added in Enable Banking",
+  "set.app.step_open": "(not yet)",
   "set.app.open_control_panel": "Open Control Panel",
   "set.app.sign_in_to_enable_banking": "Sign in to Enable Banking with the link sent to your email.",
   "set.app.open_sign_in": "Open sign-in",

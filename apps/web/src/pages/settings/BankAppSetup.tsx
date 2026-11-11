@@ -2,7 +2,7 @@
  * The household's Enable Banking application (admin), shared by the first-run wizard and Asetukset > Pankit ja tilit:
  * the key, the values to type into Enable Banking's registration form, and the Application ID with its test.
  */
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { dateTime } from "../../format.ts";
 import type { InstanceState } from "../../types.ts";
@@ -229,12 +229,12 @@ export function BankAppSetup({
       {configured && <BankRedirectTest redirectUrl={app.redirectUrl} />}
 
       <ul className="checklist" aria-label={t("set.app.steps_of_the_enable_banking")}>
-        <li className={keyReady || configured ? "done" : undefined}>{mode === "generate" ? t("set.app.key_made") : t("set.app.key_file_chosen")}</li>
-        {mode === "generate" && <li className={downloaded || configured ? "done" : undefined}>{t("set.app.certificate_uploaded_to_enable_banking")}</li>}
-        <li className={check.result?.verified || (configured && !app.inactiveMessage && message?.ok !== false) ? "done" : undefined}>
+        <Step done={keyReady || configured}>{mode === "generate" ? t("set.app.key_made") : t("set.app.key_file_chosen")}</Step>
+        {mode === "generate" && <Step done={downloaded || configured}>{t("set.app.certificate_uploaded_to_enable_banking")}</Step>}
+        <Step done={!!check.result?.verified || (configured && !app.inactiveMessage && message?.ok !== false)}>
           {check.busy ? t("set.app.testing_the_application_id") : t("set.app.application_id_works")}
-        </li>
-        <li className={banksSeen ? "done" : undefined}>{t("set.app.accounts_added_in_enable_banking")}</li>
+        </Step>
+        <Step done={banksSeen}>{t("set.app.accounts_added_in_enable_banking")}</Step>
       </ul>
       {configured && !showSetup && !banksSeen && (
         <div className="small muted">
@@ -450,5 +450,18 @@ export function BankAppSetup({
         </ConfirmDialog>
       )}
     </div>
+  );
+}
+
+/**
+ * One line of the checklist. Each line is worded as done ("Salausavain luotu") and the tick or dash before it has no
+ * text, so a screen reader is told in words whether the step is done or still open.
+ */
+function Step({ done, children }: { done: boolean; children: ReactNode }) {
+  return (
+    <li className={done ? "done" : undefined}>
+      {children}
+      <span className="sr-only"> {t(done ? "start.done" : "set.app.step_open")}</span>
+    </li>
   );
 }

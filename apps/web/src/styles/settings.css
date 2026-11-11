@@ -76,6 +76,8 @@
 .checklist li::before { content: "–" / ""; display: inline-block; width: 1em; margin-right: 4px; text-align: center; }
 .checklist li.done { color: var(--text); }
 .checklist li.done::before { content: "✓" / ""; color: var(--good); font-weight: var(--w-strong); }
+/* a choice that opens a card (Talouden sovellus or Oma sovellus) keeps a gap to what it shows */
+.card > .segmented + * { margin-top: var(--sp-12); }
 .bank-app-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-m); padding: 8px 12px; }
 .bank-app-status code { overflow-wrap: anywhere; }
 
