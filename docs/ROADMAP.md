@@ -206,6 +206,13 @@ Result: Shots of every page, again. pnpm shots --all again takes a picture of ev
 - locks: none
 - after: none
 
+### N24 Plan the web page steps
+Result: Ten to fourteen new steps wait for free workers, each one thing docs/design/README.md, docs/audit/simplify.md or docs/UI_STYLE.md asks
+- why: No free step for 13 free slots: the last plan's handoff (PR 142) says no web page was read and docs/design/README.md and docs/audit/simplify.md only by their headings, so nothing is planned for apps/web outside the nav lock
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the web page steps. Ten to fourteen new steps wait for free workers, each one thing docs/design/README.md, docs/audit/simplify.md or docs/UI_STYLE.md asks of a web page that main lacks, 50 to 150 lines with its tests, each with its own lock outside the navigation and none waiting on the four tabs.
+- locks: none
+- after: none
+
 ### C2 No repeated common password
 Result: A password that is one word said twice with a digit at the end, such as passwordpassword1, is refused like the word said twice alone.
 - why: `checkPassword` tests for a repeated block on the whole password only, so one digit or sign after the repeats lets it through: passwordpassword1 is allowed at level 3 of 4.
