@@ -77,5 +77,5 @@ export const DAYS_PER_MONTH = 30.44;
 
 /** 0 = Monday … 6 = Sunday (1970-01-01 was a Thursday). */
 export function weekdayOf(s: IsoDate): number {
-  return (dayNumber(s) + 3) % 7;
+  return (((dayNumber(s) + 3) % 7) + 7) % 7;
 }
