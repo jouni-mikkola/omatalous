@@ -39,6 +39,22 @@ Result: Plan the next steps for correctness of the numbers: read the reports, bu
 - locks: none
 - after: none
 
+### N12 Foreign total, mixed decimals
+Result: An account's rows in another currency show their total also when the bank wrote some sums with fewer decimals than others.
+- why: `foreignTotals` gives no total when one currency's rows differ in decimals, and a sum sent as a number loses its last zero (12.10 reads as 12.1), so a USD total disappears.
+- done when: a test in `packages/core/test/foreign-rows.test.ts` that fails without the change gives rows of 12.10 and 12 in one currency the total 24.10 at two decimals, and a currency's total is never added to another's (`bun test packages/core/test/foreign-rows.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: foreign-rows
+- after: none
+- files: packages/core/src/foreign-rows.ts, packages/core/test/foreign-rows.test.ts
+
+### N13 Bank CSV sum, three decimals
+Result: A bank file's sum such as -12,345 is no longer imported as 12 345 euros when the file's other sums use the comma for cents.
+- why: `sum` in `bank-csv.ts` reads a lone comma or dot before three digits as a thousands mark, so one such cell enters a thousand times too large, and a CSV has no closing balance to catch it.
+- done when: a test in `packages/core/test/bank-csv.test.ts` that fails without the change reads a file with -23,40 and -12,345 in the sum column and gets the first as a row of -2340 cents and the second in `unread`, while 1.234,56 and 1 234,56 still read as 123456 cents (`bun test packages/core/test/bank-csv.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-csv
+- after: none
+- files: packages/core/src/bank-csv.ts, packages/core/test/bank-csv.test.ts
+
 ### N6 Main's CI is green again
 Result: Main's CI is green again: the shell test 'run: the tests were done at the start, so GIVE more at once' passes in CI, and no test leaves
 - why: main's CI fails on every push since about 11:09 on 11 Nov, so no PR can show green checks and 18 PRs wait
