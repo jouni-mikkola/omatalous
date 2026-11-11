@@ -206,6 +206,13 @@ Result: Shots of every page, again. pnpm shots --all again takes a picture of ev
 - locks: none
 - after: none
 
+### N25 Plan the login and install steps
+Result: The plan gains 10 to 14 steps for signing in, passkeys, sessions, the command line tool and the install, so free workers have work.
+- why: At 14:05Z no step is free for 14 slots and steps finish in 1 to 2 minutes. No plan step has read apps/server/src/auth, apps/server/src/security, the cli*.ts files, deploy/ or relay/.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the login and install steps. The plan gains 10 to 14 steps for signing in, passkeys, sessions, the command line tool and the install, so free workers have work. Each step: a fault or gap reproduced on main with its file and line, 50 to 150 lines of product code a user sees or relies on, its tests in the same step, its own lock named by no other step, not behind T69 or the nav lock, and not a result that main or an open step (P1-P10, S6-S11, C5, T56, T76, T77, T82-T84, T105, T111) already holds. No step that is only tests, and no done-when that says under N lines.
+- locks: none
+- after: none
+
 ### N24 Plan the web page steps
 Result: Ten to fourteen new steps wait for free workers, each one thing docs/design/README.md, docs/audit/simplify.md or docs/UI_STYLE.md asks
 - why: No free step for 13 free slots: the last plan's handoff (PR 142) says no web page was read and docs/design/README.md and docs/audit/simplify.md only by their headings, so nothing is planned for apps/web outside the nav lock
