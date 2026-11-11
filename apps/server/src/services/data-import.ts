@@ -15,45 +15,13 @@ import type { Statement } from "../db/types.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
 import { importedAgreementValue, importedMonthRefusal, weightedKeys } from "./settlement.ts";
-import { expiry, open, refuse, sessionOf, type ImportHead, type Row, type Session, type User } from "./data-import-session.ts";
+import { expiry, open, refuse, sessionOf, type Row, type Session, type User } from "./data-import-session.ts";
 
 export { addChunk, cancelImport, startImport } from "./data-import-session.ts";
 import { IMPORT_BY_KEY, NEVER_WRITTEN, importStores, type ImportStore } from "./data-import-stores.ts";
+import { dangling, ownerOf, readUsers, rowsOf as rowsIn, skip as skipIn, tally as tallyIn, usernameOf as nameIn, workOf, type ImportChecks, type ImportPlan, type SkipReason, type Work } from "./data-import-work.ts";
 
-
-/** Why a row is not added: it is another user's, a kind of row this import never writes, household-wide and the user is not the admin, or a settlement row the user may not bring (`refused`). */
-type SkipReason = "other_user" | "users" | "sharing" | "household" | "refused";
-
-interface StoreCounts {
-  key: string;
-  add: number;
-  exists: number;
-  skipped: { reason: SkipReason; n: number }[];
-}
-
-/** The answer of a dry run, and of a commit (with `committed`). */
-interface ImportPlan {
-  session: string;
-  expiresAt: string;
-  head: ImportHead;
-  stores: StoreCounts[];
-  /** The people the file names who are not the signed-in user: their rows are never written. */
-  otherUsers: { username: string; rows: number }[];
-  /** Stores of the file this import does not know (rows counted), and keys of known rows it does not know (counted). */
-  ignored: { stores: { key: string; rows: number }[]; keys: number };
-  total: { add: number; exists: number; skipped: number };
-  committed: boolean;
-}
-
-/** What the route layer lends the import: the loan form's own checks (the services do not import routes). */
-export interface ImportChecks {
-  loan(fields: Record<string, unknown>, accounts: { getAccount(id: string): Promise<{ id: string; type: string } | null> }): Promise<unknown>;
-}
-
-/** The checks of the plan that read the whole file: a reference that points nowhere refuses it. */
-function dangling(s: Services, ses: Session, store: ImportStore, i: number, column: string): never {
-  refuse(s, ses, `Tiedoston kohdan ${store.key} rivi ${i + 1} viittaa riviin (${column}), jota tiedostossa tai tässä sovelluksessa ei ole.`);
-}
+export type { ImportChecks } from "./data-import-work.ts";
 
 /** Whether a column takes null. */
 const nullable = (check: (v: unknown) => unknown) => {
@@ -94,99 +62,103 @@ async function oneKindPerAsset(repo: ImportRepo, staged: { row: Row; key: string
   }
 }
 
+/** What the accounts of the file are held against: the ids in use, and what the other users of this instance hold. */
+interface AccountsHere {
+  store: ImportStore;
+  taken: { has(id: string): boolean };
+  heldKeys: Set<string>;
+  heldIbans: Set<string>;
+}
+
+/** The account here that a row of the file is: by id, identity, then IBAN. */
+function localAccount(w: Work, row: Row, iban: string | null): OwnAccount | undefined {
+  const byId = w.localById.get(String(row.id));
+  if (byId) return byId;
+  const byIdentity = w.local.find((a) => row.identity !== null && a.identity === row.identity);
+  if (byIdentity || !iban) return byIdentity;
+  return w.local.find((a) => normalizeIban(a.iban) === iban);
+}
+
+function addAccount(w: Work, here: AccountsHere, row: Row, iban: string | null): void {
+  const fid = String(row.id);
+  const fileKey = (row.identity as string | null) ?? fid;
+  // an account another user holds and this user does not is joined by linking the bank, never by the file: no identity, so its key is its own id
+  const held = (row.identity !== null && here.heldKeys.has(String(row.identity))) || (iban !== null && here.heldIbans.has(iban));
+  const identity = held ? null : (row.identity as string | null);
+  const newId = here.taken.has(fid) || (identity === null && here.heldKeys.has(fid)) ? randomToken() : fid;
+  const added: OwnAccount = { id: newId, identity, iban: row.iban as string | null, type: String(row.type) };
+  w.local.push(added);
+  w.createdAccounts.add(newId);
+  w.localById.set(newId, added);
+  w.accMap.set(fid, newId);
+  w.keyMap.set(fileKey, added.identity ?? newId);
+  w.otherKey.delete(fileKey);
+  w.statements.push(
+    ImportRepo.insert("accounts", {
+      id: newId, user_id: w.me.id, connection_id: null, provider: row.provider === "demo" ? "demo" : "csv", external_id: null, identity: added.identity, name: row.name!, iban: added.iban,
+      currency: row.currency!, type: added.type, balance_cents: row.balance_cents!, balance_at: row.balance_at!, last_synced_at: null, created_at: row.created_at!, custom_name: row.custom_name!,
+      holder: row.holder!, card_mask: row.card_mask!, credit_limit_cents: row.credit_limit_cents!,
+      bank_type_code: row.bank_type_code!, bank_usage: row.bank_usage!, bank_product: row.bank_product!, psu_status: row.psu_status!, type_source: row.type_source!,
+    }),
+  );
+  tallyIn(w, "accounts").add++;
+}
+
+function planAccount(w: Work, here: AccountsHere, i: number, row: Row): void {
+  const fid = String(row.id);
+  const owner = ownerOf(w, here.store, i, row);
+  const fileKey = (row.identity as string | null) ?? fid;
+  if (owner !== w.me.username) {
+    w.otherAcc.set(fid, owner);
+    if (!w.keyMap.has(fileKey)) w.otherKey.set(fileKey, owner);
+    skipIn(w, "accounts", "other_user", owner);
+    return;
+  }
+  if (w.accMap.has(fid)) {
+    tallyIn(w, "accounts").exists++;
+    return;
+  }
+  const iban = normalizeIban(row.iban as string | null);
+  const found = localAccount(w, row, iban);
+  if (!found) return addAccount(w, here, row, iban);
+  w.accMap.set(fid, found.id);
+  w.keyMap.set(fileKey, found.identity ?? found.id);
+  w.otherKey.delete(fileKey);
+  tallyIn(w, "accounts").exists++;
+}
+
+/** Accounts: the user's own are matched to the ones here (id, identity, then IBAN); a new one has no bank link. */
+async function planAccounts(w: Work): Promise<void> {
+  w.local = await w.repo.accountsOf(w.me.id);
+  w.localById = new Map(w.local.map((a) => [a.id, a]));
+  w.localKeys = new Set(w.local.map((a) => a.identity ?? a.id));
+  const accountRows = rowsIn(w, "accounts");
+  const taken = await w.repo.taken("accounts", accountRows.map((r) => String(r.id)));
+  // what the other users of this instance hold: a key (id or identity) or an IBAN of theirs is never taken into this user's data
+  const othersHold = await w.repo.accountsOfOthers(w.me.id);
+  const heldKeys = new Set(othersHold.flatMap((a) => [a.id, ...(a.identity ? [a.identity] : [])]));
+  const heldIbans = new Set(othersHold.flatMap((a) => normalizeIban(a.iban) ?? []));
+  const here: AccountsHere = { store: IMPORT_BY_KEY.get("accounts")!, taken, heldKeys, heldIbans };
+  for (const [i, row] of accountRows.entries()) planAccount(w, here, i, row);
+}
+
 /**
  * What the file does to this user's data, worked out against the rows that exist now and nothing written. Every row is
  * added, kept (it exists: same key) or skipped with a reason. Run again at the commit, so the answer is of that moment.
  */
 async function buildPlan(s: Services, ses: Session, committed: boolean, checks: ImportChecks): Promise<Planned> {
-  const repo = new ImportRepo(s.db);
-  const me = ses.user;
-  const rowsOf = (key: string) => ses.rows.get(key) ?? [];
-  const statements: Statement[] = [];
-  const counts = new Map<string, StoreCounts>();
-  const others = new Map<string, number>();
-  const tally = (key: string) => counts.get(key) ?? counts.set(key, { key, add: 0, exists: 0, skipped: [] }).get(key)!;
-  const skip = (key: string, reason: SkipReason, who?: string) => {
-    const t = tally(key);
-    const r = t.skipped.find((x) => x.reason === reason);
-    if (r) r.n++;
-    else t.skipped.push({ reason, n: 1 });
-    if (who !== undefined) others.set(who, (others.get(who) ?? 0) + 1);
-  };
+  const w = workOf(s, ses);
+  const { repo, me, statements, counts, others, fileUsers } = w;
+  const rowsOf = (key: string) => rowsIn(w, key);
+  const tally = (key: string) => tallyIn(w, key);
+  const skip = (key: string, reason: SkipReason, who?: string) => skipIn(w, key, reason, who);
+  const usernameOf = (store: ImportStore, i: number, column: string, fileId: unknown) => nameIn(w, store, i, column, fileId);
   let accountKeyRows = 0;
 
-  // the people the file names; the signed-in user is the one whose username is theirs
-  const fileUsers = new Map<string, string>();
-  for (const [i, u] of rowsOf("users").entries()) {
-    if (fileUsers.has(String(u.id))) dangling(s, ses, IMPORT_BY_KEY.get("users")!, i, "id");
-    fileUsers.set(String(u.id), String(u.username));
-  }
-  const usernameOf = (store: ImportStore, i: number, column: string, fileId: unknown) => {
-    const name = fileUsers.get(String(fileId));
-    return name ?? dangling(s, ses, store, i, column);
-  };
-
-  // accounts: the user's own are matched to the ones here (id, identity, then IBAN); a new one has no bank link
-  const accountStore = IMPORT_BY_KEY.get("accounts")!;
-  const local: OwnAccount[] = await repo.accountsOf(me.id);
-  const localById = new Map(local.map((a) => [a.id, a]));
-  const localKeys = new Set(local.map((a) => a.identity ?? a.id));
-  const accMap = new Map<string, string>();
-  const createdAccounts = new Set<string>();
-  const keyMap = new Map<string, string>();
-  const otherAcc = new Map<string, string>();
-  const otherKey = new Map<string, string>();
-  const accountRows = rowsOf("accounts");
-  const takenAccounts = await repo.taken("accounts", accountRows.map((r) => String(r.id)));
-  // what the other users of this instance hold: a key (id or identity) or an IBAN of theirs is never taken into this user's data
-  const othersHold = await repo.accountsOfOthers(me.id);
-  const heldKeys = new Set(othersHold.flatMap((a) => [a.id, ...(a.identity ? [a.identity] : [])]));
-  const heldIbans = new Set(othersHold.flatMap((a) => normalizeIban(a.iban) ?? []));
-  for (const [i, row] of accountRows.entries()) {
-    const fid = String(row.id);
-    const owner = usernameOf(accountStore, i, "user_id", row.user_id);
-    if (row["@owner_username"] !== undefined && row["@owner_username"] !== owner) dangling(s, ses, accountStore, i, "owner_username");
-    const fileKey = (row.identity as string | null) ?? fid;
-    if (owner !== me.username) {
-      otherAcc.set(fid, owner);
-      if (!keyMap.has(fileKey)) otherKey.set(fileKey, owner);
-      skip("accounts", "other_user", owner);
-      continue;
-    }
-    if (accMap.has(fid)) {
-      tally("accounts").exists++;
-      continue;
-    }
-    const iban = normalizeIban(row.iban as string | null);
-    const found = localById.get(fid) ?? local.find((a) => row.identity !== null && a.identity === row.identity) ?? (iban ? local.find((a) => normalizeIban(a.iban) === iban) : undefined);
-    if (found) {
-      accMap.set(fid, found.id);
-      keyMap.set(fileKey, found.identity ?? found.id);
-      otherKey.delete(fileKey);
-      tally("accounts").exists++;
-      continue;
-    }
-    // an account another user holds and this user does not is joined by linking the bank, never by the file: no identity, so its key is its own id
-    const held = (row.identity !== null && heldKeys.has(String(row.identity))) || (iban !== null && heldIbans.has(iban));
-    const identity = held ? null : (row.identity as string | null);
-    const newId = takenAccounts.has(fid) || (identity === null && heldKeys.has(fid)) ? randomToken() : fid;
-    const added: OwnAccount = { id: newId, identity, iban: row.iban as string | null, type: String(row.type) };
-    local.push(added);
-    createdAccounts.add(newId);
-    localById.set(newId, added);
-    accMap.set(fid, newId);
-    keyMap.set(fileKey, added.identity ?? newId);
-    otherKey.delete(fileKey);
-    statements.push(
-      ImportRepo.insert("accounts", {
-        id: newId, user_id: me.id, connection_id: null, provider: row.provider === "demo" ? "demo" : "csv", external_id: null, identity: added.identity, name: row.name!, iban: added.iban,
-        currency: row.currency!, type: added.type, balance_cents: row.balance_cents!, balance_at: row.balance_at!, last_synced_at: null, created_at: row.created_at!, custom_name: row.custom_name!,
-        holder: row.holder!, card_mask: row.card_mask!, credit_limit_cents: row.credit_limit_cents!,
-        bank_type_code: row.bank_type_code!, bank_usage: row.bank_usage!, bank_product: row.bank_product!, psu_status: row.psu_status!, type_source: row.type_source!,
-      }),
-    );
-    tally("accounts").add++;
-  }
+  readUsers(w);
+  await planAccounts(w);
+  // read after the accounts are planned: that is when the work holds the user's accounts
+  const { localById, localKeys, accMap, createdAccounts, keyMap, otherAcc, otherKey } = w;
 
   // transactions: by id first, then by the bank signature a later fetch matches on (one stored row used once)
   const txStore = IMPORT_BY_KEY.get("transactions")!;
