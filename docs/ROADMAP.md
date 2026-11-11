@@ -256,6 +256,13 @@ Result: The plan gains 10 to 14 steps where an exported file or a report lacks o
 - locks: none
 - after: none
 
+### N32 Plan the forecast and loan steps
+Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a figure the app shows that differs from what the money flows document
+- why: N29 (#198) found 3 real faults but its time ran out: docs/MONEY_FLOWS.md lines 421-576, 623-838 and 863-1006 (first page, days to payday, themes, coverage, loans, joint accounts, longer forecast), all of packages/core/src/behaviour and most of packages/core/src/analysis (expected, change, ahead, coming, forecast, income, coverage, dashboard) are still unread against the document. 11 of 14 slots are free and 0 steps are free.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the forecast and loan steps. The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a figure the app shows that differs from what the money flows document promises in the parts N29 did not read, reproduced on main with file and line, with its tests in the same step, its own lock and no file an open step edits; read only those parts, and list what was read when fewer are found.
+- locks: none
+- after: none
+
 ### N27 Plan the keyboard and phone
 Result: The plan gains 10 to 14 steps for web charts, tables, search and offline use with a keyboard, a narrow screen or a screen reader.
 - why: At 14:05Z no step is free for 14 slots. N24 read the pages against the design only: apps/web/src/charts, components, search.ts, offline.ts and table-state.ts were not tried by keyboard, on a narrow screen, offline or with a screen reader.
