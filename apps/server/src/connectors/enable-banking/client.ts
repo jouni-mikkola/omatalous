@@ -118,6 +118,12 @@ export function checkAuthUrl(value: unknown, extraHosts: readonly string[] = [])
   return url;
 }
 
+/** Errors thrown after the bank used the code and made a session (which was then withdrawn): the same code cannot be tried again. */
+const spentCode = new WeakSet<object>();
+export function codeWasSpent(err: unknown): boolean {
+  return typeof err === "object" && err !== null && spentCode.has(err);
+}
+
 export class EnableBankingClient {
   private key: Promise<SigningKey> | null = null;
   private token: { value: string; expiresAt: number } | null = null;
@@ -212,11 +218,21 @@ export class EnableBankingClient {
   async createSession(code: string): Promise<EbSession & { accounts: EbAccount[] }> {
     const session = await this.request<EbSession>("POST", "/sessions", { code });
     // Some responses list only account ids; fetch the details for those.
-    const accounts = await Promise.all(
-      session.accounts.map(async (a) =>
-        typeof a === "string" ? { ...(await this.accountDetails(a)), uid: a } : a,
-      ),
-    );
+    let accounts: EbAccount[];
+    try {
+      accounts = await Promise.all(
+        session.accounts.map(async (a) =>
+          typeof a === "string" ? { ...(await this.accountDetails(a)), uid: a } : a,
+        ),
+      );
+    } catch (err) {
+      // the bank made the session but the caller never gets its id: withdraw the consent so none stays open unseen
+      await this.deleteSession(session.session_id).catch((e: unknown) => {
+        console.error(`withdraw consent ${session.session_id.slice(0, 8)}:`, e instanceof EnableBankingError ? e.message : "failed");
+      });
+      if (typeof err === "object" && err !== null) spentCode.add(err);
+      throw err;
+    }
     return { ...session, accounts };
   }
 

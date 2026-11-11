@@ -9,7 +9,7 @@ import { foldCsvAccounts } from "../fold-accounts.ts";
 import { consumeLinkState, dropLinkState, issueLinkState, LinkFailure, restoreLinkState } from "../link-state.ts";
 import { instanceAppInactive, testBankApp } from "./app-setup.ts";
 import { bankById, bankIdForAspsp, DEFAULT_BANK, findAspsp } from "./banks.ts";
-import { type EnableBankingClient, EnableBankingError } from "./client.ts";
+import { codeWasSpent, type EnableBankingClient, EnableBankingError } from "./client.ts";
 import { enableBanking } from "./connector.ts";
 import { clientFor } from "./credentials.ts";
 import { accountHolder, accountName, accountType, bankAccountFields, cardMask, creditLimitCents, earlierType } from "./mapper.ts";
@@ -110,7 +110,7 @@ async function stillInactive(s: Services, userId: string): Promise<boolean> {
 /** Codes of an authorisation code that was used already or waited too long: a new start works. */
 const STALE_CODE = /^(?:EXPIRED_AUTHORIZATION_CODE|WRONG_AUTHORIZATION_CODE|ALREADY_AUTHORIZED|WRONG_SESSION_STATUS)$/;
 
-/** A fault that may pass by itself: no answer from the bank, a timeout, a rate limit or a server error. The code was not used. */
+/** A fault that may pass by itself: no answer from the bank, a timeout, a rate limit or a server error. The code was not used (unless a session was made and withdrawn: `codeWasSpent`). */
 function mayPass(err: unknown): boolean {
   if (err instanceof EnableBankingError) return err.status >= 500 || err.status === 408 || err.status === 429;
   return err instanceof UpstreamError && err.message.includes("gave no answer");
@@ -140,21 +140,30 @@ export async function completeConnection(s: Services, repo: FinanceRepo, code: s
     session = await client.createSession(code);
   } catch (err) {
     // a fault that may pass (no answer, 408, 429, 5xx) leaves the state usable: the same address can be pasted again
-    if (mayPass(err)) {
+    // (not when the bank made a session first: its code is spent and the session was withdrawn)
+    if (mayPass(err) && !codeWasSpent(err)) {
       await restoreLinkState(s, repo.userId, state, issuedAt);
     }
     throw linkFailure(err);
   }
-  await repo.upsertConnection({
-    id: session.session_id,
-    provider: enableBanking.id,
-    institution: session.aspsp.name,
-    country: session.aspsp.country,
-    status: "active",
-    validUntil: session.access.valid_until,
-    createdAt: s.now().toISOString(),
-    lastSyncedAt: null,
-  });
+  try {
+    await repo.upsertConnection({
+      id: session.session_id,
+      provider: enableBanking.id,
+      institution: session.aspsp.name,
+      country: session.aspsp.country,
+      status: "active",
+      validUntil: session.access.valid_until,
+      createdAt: s.now().toISOString(),
+      lastSyncedAt: null,
+    });
+  } catch (err) {
+    // nothing is stored for this consent, so withdraw it at the bank rather than leave it open unseen
+    await client.deleteSession(session.session_id).catch((e: unknown) => {
+      console.error(`withdraw consent ${session.session_id.slice(0, 8)}:`, e instanceof EnableBankingError ? e.message : "failed");
+    });
+    throw err;
+  }
 
   // a relink works the type out again (unless the user chose it), and a type decides which payments are transfers
   const before = new Map((await repo.listAccounts()).map((a) => [a.id, a]));
