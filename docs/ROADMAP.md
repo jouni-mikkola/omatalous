@@ -1126,6 +1126,36 @@ Result: On the host, `sessions list` shows who is signed in and `sessions revoke
 - after: L3
 - files: apps/server/src/cli-sessions.ts, apps/server/src/cli.ts, apps/server/test/cli-sessions.test.ts
 
+## The server: safety and storage
+
+Found by reading `docs/SECURITY.md` and `docs/audit/security-audit-2026-10.md` against `apps/server/src/security`,
+`platform`, `db`, `auth`, `app.ts` and `static-files.ts` on 11 November (N31): each `why` names the file and line on
+main and what main did. The three steps share no file and wait for no other step.
+
+### G1 Daily use keeps you signed in
+Result: A member who uses the app every week stays signed in, and a session that has ended is not listed as a device.
+- why: `docs/SECURITY.md` (Login) says a session expires after 30 days without use, and the October audit records that each use extends it. `resolveSession` in `auth/session.ts` (line 91) moves only the database row's end: the cookie is written by `setSessionCookie` (line 72) at sign-in alone, with a `Max-Age` of the session's days, so the browser drops it 30 days after the sign-in however often the member came. `listSessions` in `db/users-repo.ts` (line 170) has no check of `expires_at` and the ended rows go only in the hourly tick (`services/schedule.ts`, line 110), so until then *Asetukset* lists an ended session as a signed-in device. `touchSession` (line 157) writes `new Date()` and not the server's clock. `int` in `platform/config.ts` (lines 98 and 177) takes any positive start of `SESSION_DAYS`: `30abc` is 30, and with `100000000` the end of a new session is past the last date JavaScript has (on main `new Date(Date.now() + 100000000 * 86_400_000).getTime()` printed `NaN`), so `toISOString` in `startSession` (line 32) throws and every sign-in answers 500.
+- done when: in the new `apps/server/test/session-length.test.ts`, which fails without the change, a request made more than an hour after the session's last use answers with a `Set-Cookie` of the session cookie that has the same token, `HttpOnly`, `SameSite=Lax` and a `Max-Age` of the session's days, and one made inside that hour sets no cookie; a session used every 20 days is still signed in after 70 days by that cookie's age and by the row; `GET /api/security/sessions` leaves out a session whose end has passed while its row is still there; the row's `last_seen_at` is the time of the server's clock (`s.now()`); `loadConfig` takes `SESSION_DAYS` only as a whole number from 1 to 365, and for `30abc`, `0`, `1.5` and `100000000` warns with the name of the setting and uses 30, as `validSetupCode` does for a short code; `apps/server/test/session-cookie.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: session-length
+- after: none
+- files: apps/server/src/auth/session.ts, apps/server/src/db/users-repo.ts, apps/server/src/platform/config.ts, apps/server/test/session-length.test.ts
+
+### G2 A missing file is a 404
+Result: After an update, a tab that asks for a file of the old version is told it is gone, not handed the start page to keep for a year.
+- why: `staticFiles` in `static-files.ts` ends with `app.get("*", serveStatic({ root, precompressed: true, path: "index.html" }))` (line 27), which answers every GET that matched no file with the page, and the middleware above it (line 22) gives every 200 under `/assets/` a year of `immutable`. On main (11 Nov, N31), with a folder that held only `index.html`, `GET /assets/index-OLD123.js` answered 200 with `Content-Type: text/html` and `Cache-Control: public, max-age=31536000, immutable`, and `GET /favicon.ico` answered 200 with the page as `text/html`. The build's file names carry a hash and an update removes the old ones, so a tab or a service worker of the old version that asks for its own script gets the page as that script, and the browser and the tunnel's cache may keep it a year.
+- done when: in the new `apps/server/test/static-missing.test.ts`, which fails without the change and serves a folder of its own, a GET or HEAD for a path under `/assets/` with no file answers 404 with `Cache-Control: no-store` and no page in the body, and so does a path whose last part has a file ending (`/favicon.ico`, `/sw.js`, `/old/logo.png`) with no file; a path with no ending (`/`, `/raportit`, `/asetukset/palvelin`) still answers the page with `no-cache`, a file that is there under `/assets/` still gets its year of `immutable` and `Vary: Accept-Encoding`, and a path with `..` or an encoded slash reaches no file outside the folder; `apps/server/test/static-compress.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: static-missing
+- after: none
+- files: apps/server/src/static-files.ts, apps/server/test/static-missing.test.ts
+
+### G3 Database files are owner only
+Result: The database and every copy the app makes of it can be read by the app's own user alone, as the security document says of backup files.
+- why: `docs/SECURITY.md` says "Backup files are mode 600" (Data) and lists the files beside the database as mode 600 (Copies and how long they live), and every one of them holds transactions in plain text. Only `stageCopy` in `db/restore.ts` (line 72) sets a mode. `copyDatabase` in `db/open.ts` (lines 137 to 149) writes the daily copy and every `pre-*` copy with `VACUUM INTO` and never sets one, `savePrevious` in `db/restore.ts` (lines 116 and 132 to 135) writes `pre-restore-*.db` and its `-wal` the same way, `openNodeSqlite` in `db/node-sqlite.ts` creates the database itself, and `moveAside` in `db/startup-gate.ts` (line 154) moves a damaged one to `damaged/` as it was. On main (11 Nov, N31) a database made with `node:sqlite` and its `VACUUM INTO` copy both had mode 644, also under a umask of 002. The folders are made with `mode: 0o700` (`open.ts` line 127, `restore.ts` line 111, `startup-gate.ts` line 212), which `mkdirSync` does not apply to a folder that is already there.
+- done when: `platform/durable.ts` exports one function that sets a file to mode 600 and one that makes a folder and sets it to 700 also when it exists, and the four places of the why use them; in the new `apps/server/test/copy-modes.test.ts`, which fails without the change and runs under a umask of 022, the database a start opens and its `-wal` and `-shm`, the day's copy, a `pre-*` copy, `pre-restore-*.db` from both branches of `savePrevious` (with its `-wal` from the raw one) and the three files a start moves to `damaged/` each have mode 600, a database that was 644 before the start is 600 after it, and `backups/` and `damaged/` are 700 also when they were 755 before; a file that cannot be set (not the owner's) stops no start and no copy and logs one line that names the file; the tests of `apps/server/test/backup.test.ts`, `backups.isolated.test.ts`, `copy-fsync.isolated.test.ts` and `restore-latest.test.ts` pass unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: copy-modes
+- after: none
+- files: apps/server/src/platform/durable.ts, apps/server/src/db/open.ts, apps/server/src/db/restore.ts, apps/server/src/db/node-sqlite.ts, apps/server/src/db/startup-gate.ts, apps/server/test/copy-modes.test.ts
+
 ## Docs and help
 
 What a household user reads. The tabs of Asetukset are the six labels of `packages/core/src/messages-set-tabs.ts`
