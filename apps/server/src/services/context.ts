@@ -26,6 +26,7 @@ import { AnalysisCache } from "./analysis.ts";
 import { afterReprocess, reprocessClock } from "./enrich.ts";
 import { InstanceStore, type RedirectMode, redirectModeOf, redirectUrlFor } from "./instance.ts";
 import { syncStatementState } from "./statements.ts";
+import type { ModuleRuntime } from "../modules/load.ts";
 
 /** How long a password-right sign-in waits for its second factor. */
 const HALF_SESSION_MS = 5 * 60_000;
@@ -54,6 +55,8 @@ export interface AppDeps {
   backupDir?: string;
   /** True when the secret file no longer holds the secret this process runs with (a `secret rotate` waits for its restart). Only the Node entry knows the file. */
   secretStale?: () => boolean;
+  /** Where an add-on module lives and what the start did with it (modules/load.ts). Without it the install has no module folder. */
+  modules?: ModuleRuntime;
 }
 
 export interface Services {
@@ -122,6 +125,7 @@ export interface Services {
   readonly keyTestLimiter: RateLimiter;
   readonly backupDir?: string;
   readonly fetch?: typeof fetch;
+  readonly modules?: ModuleRuntime;
   pause(ms: number): Promise<void>;
   readonly backup?: (day: string) => string;
   readonly pruneBackups?: (now: Date) => void;
@@ -184,6 +188,7 @@ export function createServices(deps: AppDeps): Services {
     keyTestLimiter: new RateLimiter(...shape.keyTest),
     backupDir: deps.backupDir,
     fetch: deps.fetch,
+    modules: deps.modules,
     pause: deps.pause ?? ((ms) => new Promise((done) => setTimeout(done, ms))),
     backup: deps.backup,
     pruneBackups: deps.pruneBackups,

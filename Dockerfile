@@ -42,7 +42,10 @@ ENV NODE_ENV=production \
     TZ=Europe/Helsinki
 # /secrets: the app secret (created by the app on first start), owner-only
 RUN mkdir /data /secrets && chown node:node /data /secrets && chmod 700 /secrets
+# ssh-keygen checks the signature of an add-on module bundle against module_signers (docs/MODULES.md)
+RUN apk add --no-cache openssh-keygen
 WORKDIR /app
+COPY release/module_signers ./module_signers
 COPY --from=build /app/apps/server/dist/node.js ./dist/node.js
 COPY --from=build /app/apps/server/migrations ./migrations
 COPY --from=build /app/apps/server/dist/private-migrations ./dist/private-migrations

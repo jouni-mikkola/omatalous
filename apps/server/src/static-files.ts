@@ -1,8 +1,10 @@
 /**
  * The built web app as static files (entry/node.ts mounts it after every API route).
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
-import type { Hono } from "hono";
+import type { Context, Hono } from "hono";
 import { COMPRESSIBLE_CONTENT_TYPE_REGEX } from "hono/utils/compress";
 
 /** Vite's /assets/* names contain a content hash: cache forever. */
@@ -19,7 +21,17 @@ const HASHED = "/assets/";
  * in its last part, it is a file an old version asks for and the answer is 404, `no-store`: the page as a script
  * would break that tab, and with a year of `immutable` a cache would keep it.
  */
-export function staticFiles(app: Hono<any>, root: string): void {
+export function staticFiles(app: Hono<any>, root: string, headTag?: string): void {
+  // with an add-on module loaded, the page carries one tag more (docs/MODULES.md); without one it is the build's file as it is
+  const page = headTag ? readFileSync(join(root, "index.html"), "utf8").replace("</head>", `${headTag}</head>`) : null;
+  const servePage = (c: Context) => {
+    c.header("Cache-Control", "no-cache");
+    return c.html(page!);
+  };
+  if (page) {
+    app.get("/", servePage);
+    app.get("/index.html", servePage);
+  }
   app.use("/*", async (c, next) => {
     await next();
     if (c.req.path.startsWith("/api/") || !c.res.ok) return;
@@ -31,7 +43,7 @@ export function staticFiles(app: Hono<any>, root: string): void {
   app.get(
     "*",
     async (c, next) => {
-      if (!namesFile(c.req.path)) return next();
+      if (!namesFile(c.req.path)) return page ? servePage(c) : next();
       c.header("Cache-Control", "no-store");
       return c.text("Not Found", 404);
     },

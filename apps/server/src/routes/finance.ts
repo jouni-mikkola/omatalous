@@ -14,6 +14,7 @@ import { reconcileOf } from "../services/reconcile.ts";
 import { renewalOf } from "../services/consent-round.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
+import { extensionRowFields } from "../extensions.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
 import { runningSettlement } from "../services/settlement.ts";
 import { addRule, deleteRule, parseCategoryUndo, publicTx, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
@@ -225,6 +226,7 @@ export function financeRoutes(s: Services) {
       items.filter((t) => t.categorySource === "industry").map((t) => t.merchant),
       shared.map((a) => a.userId),
     );
+    const extra = await extensionRowFields(s, user.id, items.filter((t) => t.userId === user.id));
     // the period the sums cover: the filter's, or from the first to the last matching row
     const span = days.length ? { from: range.from ?? days[0]!.date, to: range.to ?? days[days.length - 1]!.date } : null;
     const onPage = new Set(items.map((t) => t.bookingDate));
@@ -245,6 +247,7 @@ export function financeRoutes(s: Services) {
           own: t.userId === user.id,
           ...(share ? { partCents: share.cents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) } : part ? { partCents: partCents(t.amountCents, part) } : {}),
           ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}),
+          ...extra.get(t.id),
         };
       }),
     });

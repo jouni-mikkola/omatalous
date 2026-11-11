@@ -27,6 +27,10 @@ import { track, waitForInflight } from "../platform/inflight.ts";
 import { logLookup } from "../services/industry.ts";
 import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
 import { staticFiles } from "../static-files.ts";
+import { findSignersFile } from "../modules/bundle.ts";
+import { loadInstalledModule, type ModuleRuntime, type StartState } from "../modules/load.ts";
+import { moduleBase } from "../routes/module-files.ts";
+import { recheckModule } from "../services/modules.ts";
 import { hourlyTick } from "../services/schedule.ts";
 import { fiTime, recordEvent } from "../services/security.ts";
 import { upgradeAndLog } from "../services/upgrade.ts";
@@ -109,6 +113,18 @@ function buildInfo(): BuildInfo {
 const build = buildInfo();
 
 // server mode only: the gate may move a damaged database aside and restore a copy, which a CLI call must never do
+// the add-on module, before the database opens so its migrations run with the shared ones (docs/MODULES.md)
+const moduleRoot = join(dataDir, "modules");
+const signersFile = findSignersFile();
+const moduleStart = await loadInstalledModule({ root: moduleRoot, signersFile, appVersion: APP_VERSION }).catch((err: Error): StartState => {
+  console.error(`add-on module did not load: ${err.name}`);
+  return { state: "none" };
+});
+if (moduleStart.state === "connected") console.log(`add-on module ${moduleStart.id} ${moduleStart.version} loaded`);
+else if (moduleStart.state === "waiting") console.log(`add-on module ${moduleStart.id} ${moduleStart.version} is not for this version; running without it`);
+else if (moduleStart.state === "refused") console.log(`add-on module ${moduleStart.id} ${moduleStart.version} refused: ${moduleStart.reason}; running without it`);
+const modules: ModuleRuntime = { root: moduleRoot, signersFile, start: moduleStart };
+
 const gate = process.argv.length > 2 ? null : gateDatabase(dbPath, new Date(), env.MIGRATIONS_DIR || undefined);
 for (const line of gate?.lines ?? []) console.error(line);
 
@@ -137,7 +153,7 @@ if (applied.length) note(`migrations applied: ${applied.join(", ")}`);
 // ── CLI mode ─────────────────────────────────────────────
 if (process.argv.length > 2) {
   // the data folder too: `ops access` reads the prepared change of remote access from it (services/access-request.ts)
-  const cliServices = createServices({ db, config, build, backupDir: join(dirname(dbPath), "backups") });
+  const cliServices = createServices({ db, config, build, backupDir: join(dirname(dbPath), "backups"), modules });
   const code = await runCli(cliServices, process.argv.slice(2), {
     secretFile,
     readStdin: async () => {
@@ -155,7 +171,7 @@ if (process.argv.length > 2) {
 }
 
 // ── server mode ──────────────────────────────────────────
-const app = createApp({ db, config, build, secretStale: () => secretFileDiffers(secretFile, config.appSecret), backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
+const app = createApp({ db, config, build, modules, secretStale: () => secretFileDiffers(secretFile, config.appSecret), backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
 const s = app.services;
 
 /** What the gate did at this start: an event in the security log and a notice for every admin. */
@@ -185,7 +201,7 @@ await reportGate().catch((err) => console.error("recording what the database che
 
 const staticDir = env.STATIC_DIR ?? [resolve(here, "../public"), resolve(here, "../../web/dist")].find((p) => existsSync(p));
 if (staticDir) {
-  staticFiles(app, staticDir);
+  staticFiles(app, staticDir, moduleStart.state === "connected" ? `<meta name="omatalous-module" content="${moduleBase(moduleStart.id, moduleStart.version)}">` : undefined);
 } else {
   console.warn("web UI build not found (pnpm build), serving the API only");
 }
@@ -211,6 +227,8 @@ async function tick(): Promise<void> {
 (await import("../services/disk.ts")).startReserve(s); // the 64 MB a full disk gives back; imported here to keep this to one line
 await recoverAfterCrash(s, new Date()).catch((err) => console.error("recovery at start failed:", err));
 await optimizeDatabase(s.db);
+// a new app version, a module waiting for one, or a day gone: look for the module that fits (services/modules.ts)
+void track(recheckModule(s).catch((err: Error) => console.error(`add-on module check failed: ${err.name}`)));
 
 const port = listenPort(env);
 // serve takes a callback that returns nothing, so the async work runs here and a failure is logged, not left unhandled

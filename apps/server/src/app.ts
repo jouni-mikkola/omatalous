@@ -40,6 +40,9 @@ import { codedFor, errorBody, languageOf, HttpUserError, NotFound, sentenceFor, 
 import { cfAccess } from "./security/cf-access.ts";
 import { type AppDeps, type AppEnv, createServices, type Services } from "./services/context.ts";
 import { checkHealth } from "./services/health.ts";
+import { EXTENSIONS } from "./extensions.ts";
+import { moduleRoutes } from "./routes/modules.ts";
+import { moduleFileRoutes } from "./routes/module-files.ts";
 import { confirmAccess, watchTrial } from "./services/remote-access-trial.ts";
 
 export type { AppDeps } from "./services/context.ts";
@@ -110,6 +113,12 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.use("/api/*", sessionMiddleware(s)); // static files need no session lookup
   app.use("/api/*", csrfGuard(s));
 
+  // the add-on module's web files, for a signed-in user only (routes/module-files.ts)
+  if (s.modules?.start.state === "connected") {
+    app.use("/modules/*", sessionMiddleware(s));
+    app.route("/modules", moduleFileRoutes(s));
+  }
+
   // public
   app.get("/api/health", async (c) => {
     const health = await checkHealth(s);
@@ -142,6 +151,9 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
   app.route("/api", statementRoutes(s));
   app.route("/api", cardFileRoutes(s));
   app.route("/api", bankFileRoutes(s));
+  app.route("/api", moduleRoutes(s));
+  // the add-on module's routes at its own prefix, behind the signed-in user like every route here (docs/MODULES.md)
+  for (const e of EXTENSIONS) app.route("/api/" + e.id, e.routes(s));
   app.route("/api", merchantRoutes(s));
   app.route("/api", bankRoutes(s));
   app.route(BANK_LOGO_PATH, bankLogoRoutes(s));

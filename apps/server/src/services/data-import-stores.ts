@@ -4,6 +4,7 @@
  * columns are the ones db/data-export-stores.ts writes (a test compares them), so a column added to the export fails the
  * import's test until it is named here.
  */
+import { EXTENSIONS } from "../extensions.ts";
 import { isIsoDate } from "../platform/validate.ts";
 import { ACCOUNT_TYPES, CATEGORY_SOURCES, GOAL_CATEGORIES, type RuleField } from "@banking/core";
 
@@ -248,11 +249,11 @@ const IMPORT_STORES: readonly ImportStore[] = [
 
 export const IMPORT_BY_KEY: ReadonlyMap<string, ImportStore> = new Map(IMPORT_STORES.map((s) => [s.key, s]));
 
-/** The stores an import reads, in the file's order. */
-export const importStores = (): readonly ImportStore[] => IMPORT_STORES;
+/** IMPORT_STORES and the stores of the build's extensions (extensions.ts), after them. */
+export const importStores = (): readonly ImportStore[] => [...IMPORT_STORES, ...EXTENSIONS.flatMap((e) => e.stores?.map((st) => st.import) ?? [])];
 
-/** The store of a key of the file. */
-export const importStoreOf = (key: string): ImportStore | undefined => IMPORT_BY_KEY.get(key);
+/** The store of a key of the file, an extension's too. */
+export const importStoreOf = (key: string): ImportStore | undefined => IMPORT_BY_KEY.get(key) ?? importStores().find((st) => st.key === key);
 
 /** The stores of the file the import never writes, each with its reason (the page shows the row count as skipped). */
 export const NEVER_WRITTEN: Readonly<Record<string, "users" | "sharing">> = { users: "users", accountShares: "sharing" };

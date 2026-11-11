@@ -1,0 +1,3 @@
+# The keys an add-on module bundle must be signed by (docs/MODULES.md). One line per key:
+#   omatalous-module namespaces="omatalous-module" ssh-ed25519 AAAA...
+# with no comment after the key. With no key line an install refuses every bundle.

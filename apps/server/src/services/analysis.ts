@@ -30,6 +30,7 @@ import {
   type UserInputs,
 } from "@banking/core";
 import { isCurrencyCode, isEuro } from "../connectors/balance-sign.ts";
+import { extensionRowParts, rowPartsKey } from "../extensions.ts";
 import type { OwnRows } from "../db/finance-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
@@ -145,7 +146,7 @@ export class AnalysisCache {
     // which accounts are in view and at what part belongs to the version: a share or a use that changes it must not
     // serve the old view, and a use derived from the holders' names changes with no data version moving. So does what a
     // traced account's rows were cut with
-    const versionKey = `${version}|${[...inView.parts].map(([id, part]) => `${id}:${part.from}-${part.to}/${part.of}`).sort().join(",")}|${[...inView.traces].map(([id, f]) => `${id}:${f.signature}`).sort().join(",")}`;
+    const versionKey = `${version}|${[...inView.parts].map(([id, part]) => `${id}:${part.from}-${part.to}/${part.of}`).sort().join(",")}|${[...inView.traces].map(([id, f]) => `${id}:${f.signature}`).sort().join(",")}|${await rowPartsKey(s, userId)}`;
     if (!waited && lockedOutside(ids, held)) {
       // a reprocess of a user in view runs and the rows read now may be part of its writes. What was built just before
       // it is a whole answer when only that run moves it: the same users, no run of theirs ended since, and every
@@ -376,6 +377,11 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
   const statements = await statementsInView(s, accounts, [...txs, ...(standing ?? [])], parts);
   // the build gives the event loop back between its stages: a long history takes seconds, and every member waits on one thread
   const ctx = await createContextPausing(yieldToLoop, txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements, why);
+  // an extension tells only of the viewer's own rows, in the categories the view counts them in and at the bank's whole
+  // amounts, which its match reads; core cuts the parts to what each row counts
+  const own = new Set(accounts.filter((a) => a.userId === userId).map((a) => a.id));
+  const rowParts = await extensionRowParts(s, userId, txs.filter((t) => own.has(t.accountId)).map(uncut));
+  if (rowParts) ctx.rowParts = rowParts;
   return { ctx, accounts, shares, told };
 }
 

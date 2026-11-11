@@ -27,6 +27,7 @@ import { runSessionsCli } from "./cli-sessions.ts";
 import { runServiceTokenCli } from "./cli-service-token.ts";
 import { COMMANDS, HELP_WORDS, refuseUnknown } from "./cli-usage.ts";
 import { isAppSecret } from "./entry/app-secret.ts";
+import { EXTENSIONS } from "./extensions.ts";
 import { UserError } from "./platform/errors.ts";
 import type { Services } from "./services/context.ts";
 import { parseBaseUrl } from "./platform/validate.ts";
@@ -64,6 +65,13 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
   }
   if (group === "service-token") return runServiceTokenCli(s, args.slice(1));
   if (group === "ops") return runOpsCli(s, args.slice(1), ctx.readStdin ?? (async () => ""));
+  // a command of the add-on module under its id (docs/MODULES.md); the CLI prints its lines so the module logs nothing itself
+  const extension = EXTENSIONS.find((e) => e.id === group && e.cli);
+  if (extension) {
+    const { code, lines } = await extension.cli!(s, args.slice(1));
+    for (const line of lines) console.log(line);
+    return code;
+  }
   if (group === "setup-code") {
     const code = await issueSetupCode(s);
     if (!code) {

@@ -2,7 +2,7 @@
 import { buildReports, cashflowReport, pivotReport } from "@banking/core";
 import { Hono } from "hono";
 import { recordEvent } from "../services/security.ts";
-import { DEMO_MONTHS, loadDemoData } from "../demo.ts";
+import { DEMO_MONTHS, loadDemoData, loadExtensionDemos } from "../demo.ts";
 import { exportEverything } from "../services/data-export.ts";
 import { addChunk, cancelImport, commitImport, dryRun, type ImportChecks, startImport } from "../services/data-import.ts";
 import { UserError } from "../platform/errors.ts";
@@ -149,7 +149,9 @@ export function dataRoutes(s: Services) {
   app.post("/demo", async (c) => {
     const userId = c.get("user").id;
     const months = DEMO_MONTHS.find((m) => String(m) === c.req.query("months")) ?? DEMO_MONTHS[0];
-    return c.json(await loadDemoData(s.finance(userId), s.settings, s.today(), months));
+    const loaded = await loadDemoData(s.finance(userId), s.settings, s.today(), months);
+    await loadExtensionDemos(s, userId, s.today());
+    return c.json(loaded);
   });
 
   app.delete("/demo", async (c) => {

@@ -98,6 +98,10 @@ export const KIND_LABEL: Record<string, string> = labelTable({
   limits_changed: () => t("set.sec.limits_changed"),
   notices_changed: () => t("set.sec.notice_settings_changed"),
   offsite_changed: () => t("set.sec.offsite_backup_target_changed"),
+  module_code_set: () => t("set.sec.module_code_set"),
+  module_code_removed: () => t("set.sec.module_code_removed"),
+  module_installed: () => t("set.sec.module_installed"),
+  module_refused: () => t("set.sec.module_refused"),
 });
 
 const kindLabel = (kind: string) =>

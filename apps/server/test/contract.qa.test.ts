@@ -265,7 +265,7 @@ describe("data versions", () => {
   // consent not yet given, the export of the user's own file (it reads and writes a security event), and the round that renews consents (one settings row), and a consent ended: removing a connection only marks it revoked, its accounts and rows stay
   // (connector.ts removeConnection), and /api/meta reads the connection list for each request. Run below for the last one.
   const NO_ANALYSIS =
-    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/(export|import|import\/:id\/(chunk|check))$|^DELETE \/api\/data\/import\/:id$|^POST \/api\/connections\/start$|^(POST|DELETE) \/api\/connections\/round$|^DELETE \/api\/connections\/:id$/;
+    /^(?!DELETE \/api\/users\/:id$)(POST|PUT|PATCH|DELETE) \/api\/(auth|users|admin|ops|security)(\/|$)|^(PUT|DELETE) \/api\/bank\/credentials$|^POST \/api\/data\/(export|import|import\/:id\/(chunk|check))$|^DELETE \/api\/data\/import\/:id$|^POST \/api\/connections\/start$|^(POST|DELETE) \/api\/connections\/round$|^DELETE \/api\/connections\/:id$|^(PUT|DELETE) \/api\/modules\/code$/;
 
   it("every non-GET route is on exactly one named list", async () => {
     const { routes } = await rig();

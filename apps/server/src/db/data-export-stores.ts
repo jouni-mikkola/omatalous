@@ -7,6 +7,7 @@
  */
 
 import type { SqlValue } from "./types.ts";
+import { EXTENSIONS } from "../extensions.ts";
 /** What storeColumns needs of the services: the columns of a table. */
 type ColumnSource = { household: { tableColumns(table: string): Promise<string[]> } };
 
@@ -42,7 +43,7 @@ interface StoreRead {
   order: string;
 }
 
-interface ExportStore {
+export interface ExportStore {
   /** The array's name in the file. */
   key: string;
   table: string;
@@ -172,11 +173,11 @@ const STORES: readonly ExportStore[] = [
   { key: "contractTerms", table: "contract_terms", rows: mine, order: "user_id, series_key" },
 ];
 
-/** The stores of the file, in its order. */
-export const exportStores = (): readonly ExportStore[] => STORES;
+/** The stores of the file, in its order: STORES, then those of the add-on module (extensions.ts). */
+export const exportStores = (): readonly ExportStore[] => [...STORES, ...EXTENSIONS.flatMap((e) => e.stores?.map((st) => st.export) ?? [])];
 
-/** Tables the file does not hold, each with the reason. */
-export const leftOut = (): Readonly<Record<string, string>> => LEFT_OUT;
+/** Tables the file does not hold, each with the reason: LEFT_OUT and those the add-on module leaves out. */
+export const leftOut = (): Readonly<Record<string, string>> => Object.assign({}, LEFT_OUT, ...EXTENSIONS.map((e) => e.leftOut ?? {}));
 
 const LEFT_OUT: Readonly<Record<string, string>> = {
   _migrations: "the schema's own bookkeeping; a new database makes its own",

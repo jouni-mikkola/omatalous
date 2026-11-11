@@ -10,6 +10,7 @@ import { waitingCopy } from "../db/startup-gate.ts";
 import type { Services } from "./context.ts";
 import { type HealthProbes, healthNotices, markHealthSeen } from "./db-health.ts";
 import { INDUSTRY_NOTICE_KEY } from "./instance.ts";
+import { EXTENSIONS } from "../extensions.ts";
 
 export const EVENT_KINDS = [
   "login_ok",
@@ -66,6 +67,11 @@ export const EVENT_KINDS = [
   "notices_changed",
   // the target of the copy to another machine, its keys or its switch changed (offsite.ts)
   "offsite_changed",
+  // the code of the add-on module and what its check did (services/modules/, docs/MODULES.md)
+  "module_code_set",
+  "module_code_removed",
+  "module_installed",
+  "module_refused",
 ] as const;
 
 /** Maintenance requests and results use kinds that start with ops_. */
@@ -76,7 +82,7 @@ export const EVENT_DAYS = 90;
 const DETAIL_MAX = 200;
 
 export function validKind(kind: string): boolean {
-  return (EVENT_KINDS as readonly string[]).includes(kind) || OPS_KIND.test(kind);
+  return (EVENT_KINDS as readonly string[]).includes(kind) || OPS_KIND.test(kind) || EXTENSIONS.some((e) => e.securityEvents?.includes(kind));
 }
 
 export interface EventInput {
