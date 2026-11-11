@@ -125,7 +125,7 @@ describe("Asetukset: the target and the card every address lands on", () => {
 
   it("a card of a section that is named on its target is left alone", () => {
     for (const role of both) {
-      for (const hash of ["#/settings/banks", "#/settings/household#lainat", "#/settings/security#salasana", "#/settings/data#laatu"]) {
+      for (const hash of ["#/settings/banks", "#/settings/household#lainat", "#/settings/household#salasana"]) {
         expect(redirectRoute(parseHash(hash), role), hash).toBeNull();
       }
     }
@@ -135,6 +135,19 @@ describe("Asetukset: the target and the card every address lands on", () => {
   it("a member's address of the server target opens the first target, and drops its card", () => {
     expect(lands("#/settings/server#yllapito", "member")).toBe("#/settings/banks");
     expect(lands("#/settings/server", "member")).toBe("#/settings/banks");
+  });
+
+  it("an address of a target that was folded into another opens the target that has its cards, on the card it names", () => {
+    for (const role of both) {
+      expect(lands("#/settings/security", role)).toBe("#/settings/household");
+      expect(lands("#/settings/security#salasana", role)).toBe("#/settings/household#salasana");
+      expect(lands("#/settings/security?a=1#kirjautuminen", role)).toBe("#/settings/household?a=1#kirjautuminen");
+      expect(lands("#/settings/members", role)).toBe("#/settings/household");
+      expect(lands("#/settings/data", role)).toBe("#/settings/banks");
+    }
+    // the security log is the admin's, on Palvelin: a member gets the first target with no card to scroll to
+    expect(lands("#/settings/security#turvallisuusloki", "admin")).toBe("#/settings/server#turvallisuusloki");
+    expect(lands("#/settings/security#turvallisuusloki", "member")).toBe("#/settings/banks");
   });
 
   it("an address under settings that names no target opens the first one", () => {
@@ -147,13 +160,15 @@ describe("Asetukset: the target and the card every address lands on", () => {
 });
 
 describe("the targets of Asetukset", () => {
-  it("are six for an admin and four for a member, without the admin's", () => {
-    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"]);
-    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "household", "security", "data"]);
+  it("are three for an admin and two for a member, without the admin's", () => {
+    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Kotitalous", "Palvelin"]);
+    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "household"]);
   });
 
   it("have an address, and a card's address names its target", () => {
-    expect(settingsHash("security", "salasana")).toBe("#/settings/security#salasana");
+    expect(settingsHash("household", "salasana")).toBe("#/settings/household#salasana");
+    expect(settingsCardHash("kirjautuminen")).toBe("#/settings/household#kirjautuminen");
+    expect(settingsCardHash("turvallisuusloki")).toBe("#/settings/server#turvallisuusloki");
     expect(settingsCardHash("lainat")).toBe("#/settings/household#lainat");
     expect(settingsCardHash("etakaytto", new URLSearchParams("a=1"))).toBe("#/settings/server?a=1#etakaytto");
   });

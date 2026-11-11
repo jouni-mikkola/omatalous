@@ -1,4 +1,4 @@
-/** The run of one form in Asetukset > Turvallisuus, shared by the passkeys and the second factor. */
+/** The run of one form in Asetukset > Kotitalous, shared by the passkeys and the second factor. */
 import { type FormEvent, useState } from "react";
 
 /** Runs a form's action with a busy flag and the server's sentence as the error. */

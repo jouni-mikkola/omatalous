@@ -4,7 +4,7 @@ import { DataImport } from "./DataImport.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { t } from "../../text.ts";
-/** Asetukset > Tiedot: the user's own data and what is shared with them as one file; its format is docs/DATA_EXPORT.md. */
+/** Asetukset > Pankit ja tilit: the user's own data and what is shared with them as one file; its format is docs/DATA_EXPORT.md. */
 export function DataExport() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

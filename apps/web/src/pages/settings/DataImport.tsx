@@ -113,7 +113,7 @@ function storeLine(s: StorePlan): string {
 }
 
 /**
- * Asetukset > Tiedot > "Tuo tiedot": reads the file of "Vie kaikki tiedot", stages it on the server, shows the dry run and
+ * Asetukset > Pankit ja tilit > "Tuo tiedot": reads the file of "Vie kaikki tiedot", stages it on the server, shows the dry run and
  * commits on "Tuo". It sits in the card head beside the export button; what it prints wraps to its own lines.
  */
 export function DataImport() {

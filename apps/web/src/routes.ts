@@ -9,7 +9,7 @@ export interface Route {
   anchor?: string;
 }
 
-/** The Säännöt card of Asetukset > Talous. */
+/** The Säännöt card of Asetukset > Kotitalous. */
 export const RULES_ANCHOR = "saannot";
 
 /** The cards of Asetukset that an address can name, as anchors on the page. */
@@ -28,15 +28,12 @@ export const SETTINGS_ANCHOR = {
 } as const;
 
 /**
- * The six targets of Asetukset, in the order the reader sees them. Each is a route of its own (`#/settings/<id>`); an
+ * The three targets of Asetukset, in the order the reader sees them. Each is a route of its own (`#/settings/<id>`); an
  * `admin` target is not offered to a member and its address opens the first target instead.
  */
 export const SETTINGS_TARGETS = [
   { id: "banks", get label() { return t("set.tab.banks"); } },
   { id: "household", get label() { return t("set.tab.household"); } },
-  { id: "members", get label() { return t("set.tab.members"); }, admin: true },
-  { id: "security", get label() { return t("set.tab.security"); } },
-  { id: "data", get label() { return t("set.tab.data"); } },
   { id: "server", get label() { return t("set.tab.server"); }, admin: true },
 ] as const satisfies readonly { id: string; label: string; admin?: true }[];
 
@@ -60,17 +57,20 @@ const CARD_TARGET: Record<string, SettingsTarget> = {
   [SETTINGS_ANCHOR.loans]: "household",
   [SETTINGS_ANCHOR.goal]: "household",
   [RULES_ANCHOR]: "household",
-  "jasenet-ilman-tunnusta": "members",
+  "jasenet-ilman-tunnusta": "household",
   "tilien-jakaminen": "banks",
-  [SETTINGS_ANCHOR.password]: "security",
-  [SETTINGS_ANCHOR.login]: "security",
-  [SETTINGS_ANCHOR.securityLog]: "security",
-  palvelutunnukset: "security",
-  [SETTINGS_ANCHOR.quality]: "data",
+  [SETTINGS_ANCHOR.password]: "household",
+  [SETTINGS_ANCHOR.login]: "household",
+  [SETTINGS_ANCHOR.securityLog]: "server",
+  palvelutunnukset: "household",
+  [SETTINGS_ANCHOR.quality]: "banks",
   [SETTINGS_ANCHOR.server]: "server",
   etakaytto: "server",
   [SETTINGS_ANCHOR.maintenance]: "server",
 };
+
+/** Where the three targets that were folded into the others live now: an address that names one opens the target that has its cards. */
+const MOVED_TARGET: Record<string, SettingsTarget> = { members: "household", security: "household", data: "banks" };
 
 /** The addresses of the targets only an admin is offered. */
 const ADMIN_ONLY_PAGES: readonly string[] = SETTINGS_TARGETS.filter((t) => "admin" in t).map((t) => `settings/${t.id}`);
@@ -78,7 +78,7 @@ const ADMIN_ONLY_PAGES: readonly string[] = SETTINGS_TARGETS.filter((t) => "admi
 /** The anchor of an account's own row (part.ts `partAnchor`) opens Pankit ja tilit. */
 const ACCOUNT_ROW_PREFIX = "tili-";
 
-/** The address of a target, and of a card on it (`#/settings/security#salasana`). */
+/** The address of a target, and of a card on it (`#/settings/household#salasana`). */
 export function settingsHash(target: SettingsTarget, anchor?: string, params: URLSearchParams = new URLSearchParams()): string {
   return hashOf({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) });
 }
@@ -157,10 +157,12 @@ export function parseHash(hash: string): Route {
 /**
  * Where an address that is not a page's own opens, or null when it is. The router rewrites the address with
  * `replaceState`, so Back does not return to it. A period belongs to one page: a Raportit period on the month page, or
- * a month on Raportit, opens the page that offers it. Asetukset has six targets, each a route of its own
- * (`#/settings/security`): the bare `#/settings` (the return from a bank comes there with `connected` or `error`, and
+ * a month on Raportit, opens the page that offers it. Asetukset has three targets, each a route of its own
+ * (`#/settings/household`): the bare `#/settings` (the return from a bank comes there with `connected` or `error`, and
  * `?add=1` opens the bank list) and an address that names no target open the first target with their parameters, and
- * a member's address of the server target opens the first target.
+ * a member's address of the server target opens the first target. An address of one of the three targets that were
+ * folded into the others (`#/settings/security`, released in 1.0.0) opens the target that has its cards now, on the
+ * card it names.
  *
  * Four old addresses are still rewritten, because no released notice has named them: the merchants tab of Tapahtumat
  * (`?view=merchants`, the rules at `#saannot`), which is now the rows grouped by merchant (`?group=merchant`) and the
@@ -175,6 +177,8 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
     params.delete("section");
     return opened({ page: "settings/server", params, ...(section === "maintenance" ? { anchor: SETTINGS_ANCHOR.maintenance } : {}) }, role);
   }
+  const moved = route.page.startsWith("settings/") ? MOVED_TARGET[route.page.slice("settings/".length)] : undefined;
+  if (moved) return opened({ page: `settings/${targetOfCard(route.anchor) ?? moved}`, params: route.params, ...(route.anchor ? { anchor: route.anchor } : {}) }, role);
   // the bare address, and one under settings/ that names no target (typed by hand), open the first target
   if (route.page === "settings" || (route.page.startsWith("settings/") && !SETTINGS_TARGETS.some((t) => route.page === `settings/${t.id}`))) return { page: `settings/${FIRST_TARGET}`, params: route.params };
   if (ADMIN_ONLY_PAGES.includes(route.page) && role !== "admin") return opened(route, role);

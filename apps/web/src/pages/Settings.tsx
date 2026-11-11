@@ -6,12 +6,12 @@ import type { Meta } from "../types.ts";
 import "../styles/settings.css";
 
 /**
- * Asetukset is six targets, each a route of its own (`#/settings/<id>`, routes.ts `SETTINGS_TARGETS`): Pankit ja tilit,
- * Talous, Jäsenet, Turvallisuus, Tiedot and, for an admin, Palvelin ja ylläpito. This is the frame: the links to the
+ * Asetukset is three targets, each a route of its own (`#/settings/<id>`, routes.ts `SETTINGS_TARGETS`): Pankit ja tilit,
+ * Kotitalous and, for an admin, Palvelin. This is the frame: the links to the
  * targets that the signed-in role is offered, and the outlet where the router puts the open one. An address from before
  * the targets (`?section=`, a bare `#/settings`, an anchor such as `#lainat`) is rewritten to its target in `redirectRoute`.
- * `?add=1` opens Pankit ja tilit at the bank picker, and an address anchor scrolls to its card. On a phone the six
- * labels are wider than the screen and the row scrolls, so the open one is brought into view when the address changes.
+ * `?add=1` opens Pankit ja tilit at the bank picker, and an address anchor scrolls to its card. Should the
+ * labels be wider than a phone's screen the row scrolls, so the open one is brought into view when the address changes.
  */
 export function Settings({ meta }: { meta: Meta }) {
   const row = useRef<HTMLElement>(null);

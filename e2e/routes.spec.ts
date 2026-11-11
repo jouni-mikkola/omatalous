@@ -21,7 +21,7 @@ test("every address of the app opens its page, and an old address is rewritten t
     ["reports", /^Kuukausi/],
     ["review", /^Tarkistettavat/],
     ["settings/banks", /^Asetukset/],
-    ["settings/security", /^Asetukset/],
+    ["settings/household", /^Asetukset/],
   ] as const) {
     await page.goto(`/#/${address}`);
     await expect(page).toHaveTitle(title);

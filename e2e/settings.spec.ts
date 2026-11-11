@@ -1,12 +1,12 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { linkFakeBank, makeMember, overflow, removeMember, waitForSync, watch } from "./helpers.ts";
 
-// Asetukset: the header link, the six targets, the card every old address lands on, and the repair of a bank connection
+// Asetukset: the header link, the three targets, the card every old address lands on, and the repair of a bank connection
 // that ended. The server has the administrator and the demo household already (e2e/run.mjs makes them). A member lives in
 // the household for the length of the file.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const TARGET_LABELS = ["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"];
+const TARGET_LABELS = ["Pankit ja tilit", "Kotitalous", "Palvelin"];
 /** Cards that were removed: each is a row, a field or a line of another card now, and no address brings it back. */
 const REMOVED = ["Tietoja", "Palvelutunnukset", "Jäsenet ilman tunnusta", "Tilien jakaminen", "Palauta uusin varmuuskopio", "Kokeiltavat toiminnot"];
 /**
@@ -18,20 +18,21 @@ const INVENTORY: { heading: string; target: string; admin?: true; example?: true
   { heading: "Tilit", target: "banks" },
   { heading: "Pankkihaut", target: "banks", fetched: true },
   { heading: "Pankkisovellus", target: "banks" },
+  { heading: "Tiedot", target: "banks" },
+  { heading: "Esimerkkitiedot", target: "banks", example: true },
   { heading: "Lainat", target: "household" },
-  { heading: "Kuukauden menotavoite", target: "household" },
-  { heading: "Talouden jäsenet", target: "members", admin: true },
-  { heading: "Salasana", target: "security" },
-  { heading: "Kaksivaiheinen kirjautuminen", target: "security" },
-  { heading: "Omat istunnot", target: "security" },
-  { heading: "Turvallisuusloki", target: "security", admin: true },
-  { heading: "Tiedot", target: "data" },
-  { heading: "Esimerkkitiedot", target: "data", example: true },
+  { heading: "Talouden jäsenet", target: "household", admin: true },
+  { heading: "Salasana", target: "household" },
+  { heading: "Kaksivaiheinen kirjautuminen", target: "household" },
+  { heading: "Omat istunnot", target: "household" },
   { heading: "Palvelin", target: "server", admin: true },
   { heading: "Etäkäyttö", target: "server", admin: true },
   { heading: "Ylläpito", target: "server", admin: true },
+  { heading: "Turvallisuusloki", target: "server", admin: true },
 ];
-const TARGET_LABEL: Record<string, string> = { banks: "Pankit ja tilit", household: "Talous", members: "Jäsenet", security: "Turvallisuus", data: "Tiedot", server: "Palvelin ja ylläpito" };
+const TARGET_LABEL: Record<string, string> = { banks: "Pankit ja tilit", household: "Kotitalous", server: "Palvelin" };
+/** The three targets that were folded into the others: their addresses open the target that has their cards. */
+const FOLDED = ["members", "security", "data"];
 
 let member: { state: string; id: string };
 test.beforeAll(async ({ browser }) => {
@@ -39,22 +40,13 @@ test.beforeAll(async ({ browser }) => {
 });
 test.afterAll(async ({ browser }) => removeMember(browser, member.id));
 
-/** The household's notes about its data depend on the date; the card Tietojen laatu is drawn from one note, so the answer is given one. */
-async function withQualityNote(page: Page): Promise<void> {
-  await page.route("**/api/reports?**", async (route) => {
-    const answer = await route.fetch();
-    const json = await answer.json();
-    await route.fulfill({ response: answer, json: { ...json, dataQuality: { signals: [{ id: "stale", tone: "warning", title: "Esimerkkitilin tiedot ovat vanhoja", detail: "Esimerkkitili on haettu viimeksi viikko sitten." }] } } });
-  });
-}
-
-async function admin(browser: Browser, width = 1280, height = 800) {
+async function admin(browser: Browser, width = 1440, height = 800) {
   const context = await browser.newContext({ storageState: STATE, viewport: { width, height } });
   const page = await context.newPage();
   return { context, page, seen: watch(page), hash: () => new URL(page.url()).hash };
 }
 
-test("Asetukset is in the user menu and has six targets, each its own address", async ({ browser }) => {
+test("Asetukset is in the user menu and has three targets, each its own address", async ({ browser }) => {
   const { context, page, seen, hash } = await admin(browser);
   const nav = page.getByRole("navigation", { name: "Päävalikko" });
   const targets = page.getByRole("navigation", { name: "Asetukset", exact: true });
@@ -65,7 +57,7 @@ test("Asetukset is in the user menu and has six targets, each its own address", 
   await expect(nav.getByRole("link", { name: "Asetukset" })).toHaveCount(0);
   const menu = page.locator(".user-menu");
   await menu.locator("summary").click();
-  await expect(menu.getByRole("link")).toHaveText(["Asetukset"]);
+  await expect(menu.getByRole("link")).toHaveText(["Lisää", "Asetukset"]);
   await expect(menu.getByRole("button", { name: "Kirjaudu ulos" })).toBeVisible();
   const header = menu.getByRole("link", { name: "Asetukset", exact: true });
   await header.click();
@@ -75,7 +67,7 @@ test("Asetukset is in the user menu and has six targets, each its own address", 
   await expect(header).toHaveAttribute("aria-current", "page");
   await menu.locator("summary").click();
 
-  // the six targets in a row, the open one marked, and each opens its own address with its own cards
+  // the three targets in a row, the open one marked, and each opens its own address with its own cards
   await expect(targets.getByRole("link")).toHaveText(TARGET_LABELS);
   await expect(targets.getByRole("link", { name: "Pankit ja tilit" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
@@ -96,7 +88,7 @@ test("Asetukset is in the user menu and has six targets, each its own address", 
   }
 
   // Salasana: a card with a button, which opens the three fields and can close them
-  await page.goto("/#/settings/security");
+  await page.goto("/#/settings/household");
   const password = page.locator("#salasana");
   await expect(password.getByLabel("Nykyinen salasana")).toHaveCount(0);
   await password.getByRole("button", { name: "Vaihda salasana" }).click();
@@ -113,14 +105,14 @@ test("Asetukset is in the user menu and has six targets, each its own address", 
 
   // the address of the removed CSV import and the bank picker open Pankit ja tilit
   await page.goto("/#/settings?section=csv");
-  await expect.poll(hash).toBe("#/settings/banks");
+  await expect.poll(hash).toBe("#/settings/banks?section=csv");
   await expect(page.getByRole("heading", { name: "Pankkiyhteydet" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Tuo CSV" })).toHaveCount(0);
   await page.goto("/#/settings?add=1");
   await expect.poll(hash).toBe("#/settings/banks?add=1");
   await expect(page.getByRole("heading", { name: "Valitse pankki" })).toBeVisible();
 
-  // a phone: five tabs in one row, Asetukset still in the user menu, and no target is wider than the screen
+  // a phone: the tabs in one row, Asetukset still in the user menu, and no target is wider than the screen
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto("/#/overview");
   const tops = await nav.getByRole("link").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
@@ -154,16 +146,17 @@ test("every setting is at most two clicks from Asetukset, and a member is offere
   await context.close();
 
   // a member: no link to the admin's target, its address opens the first target, and none of the admin's cards is drawn
-  const memberContext = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 800 } });
+  const memberContext = await browser.newContext({ storageState: member.state, viewport: { width: 1440, height: 800 } });
   const memberPage = await memberContext.newPage();
   const memberSeen = watch(memberPage);
   const memberTargets = memberPage.getByRole("navigation", { name: "Asetukset", exact: true });
   await memberPage.goto("/#/settings");
-  await expect(memberTargets.getByRole("link")).toHaveText(TARGET_LABELS.filter((l) => l !== TARGET_LABEL.server && l !== TARGET_LABEL.members));
+  await expect(memberTargets.getByRole("link")).toHaveText(TARGET_LABELS.filter((l) => l !== TARGET_LABEL.server));
   await expect(memberTargets.getByRole("link", { name: TARGET_LABEL.server })).toHaveCount(0);
   for (const { heading, target, admin, example, fetched } of INVENTORY) {
     if (example || fetched) continue;
     if (admin) {
+      // the admin's card on a target the member has too is not drawn there; the admin's own target opens the first one
       await memberPage.goto(`/#/settings/${target}`);
       await expect(memberPage.getByRole("heading", { level: 2 }).first()).toBeVisible();
       await expect(memberPage.getByRole("heading", { name: heading, exact: true }), `${heading} is the admin's`).toHaveCount(0);
@@ -182,26 +175,24 @@ test("every setting is at most two clicks from Asetukset, and a member is offere
 
 test("every address of Asetukset lands on the card it names, on the target that has it, and the rewrite leaves no old entry for Back", async ({ browser }) => {
   // a short screen, so that a card low on the page is out of sight until the address brings it
-  const { context, page, seen, hash } = await admin(browser, 1280, 600);
-  await withQualityNote(page);
+  const { context, page, seen, hash } = await admin(browser, 1440, 600);
   const cases: [address: string, lands: string, card: string | null][] = [
     ["/#/settings", "#/settings/banks", null],
-    ["/#/settings?tab=talous", "#/settings/banks", null],
-    ["/#/settings#tilit", "#/settings/banks#tilit", "tilit"],
-    ["/#/settings#lainat", "#/settings/household#lainat", "lainat"],
-    ["/#/settings#salasana", "#/settings/security#salasana", "salasana"],
-    ["/#/settings?tab=talous#turvallisuusloki", "#/settings/security#turvallisuusloki", "turvallisuusloki"],
-    ["/#/settings?section=security", "#/settings/security#turvallisuusloki", "turvallisuusloki"],
-    ["/#/settings#kirjautuminen", "#/settings/security#kirjautuminen", "kirjautuminen"],
-    ["/#/settings#laatu", "#/settings/data#laatu", "laatu"],
+    ["/#/settings/banks#tilit", "#/settings/banks#tilit", "tilit"],
+    ["/#/settings/household#lainat", "#/settings/household#lainat", "lainat"],
+    ["/#/settings/household#salasana", "#/settings/household#salasana", "salasana"],
+    ["/#/settings/household#kirjautuminen", "#/settings/household#kirjautuminen", "kirjautuminen"],
+    ["/#/settings/server#palvelin", "#/settings/server#palvelin", "palvelin"],
+    ["/#/settings/server#turvallisuusloki", "#/settings/server#turvallisuusloki", "turvallisuusloki"],
     ["/#/settings?section=technical", "#/settings/server", null],
-    ["/#/settings?section=server", "#/settings/server#palvelin", "palvelin"],
     ["/#/settings?section=maintenance", "#/settings/server#yllapito", "yllapito"],
-    ["/#/settings/data#laatu", "#/settings/data#laatu", "laatu"],
-    // the removed cards: the address lands on the target that has what is left of them
-    ["/#/settings#jasenet-ilman-tunnusta", "#/settings/members#jasenet-ilman-tunnusta", null],
-    ["/#/settings#tilien-jakaminen", "#/settings/banks#tilien-jakaminen", null],
-    ["/#/settings#palvelutunnukset", "#/settings/security#palvelutunnukset", null],
+    // the three targets that were folded into the others: the address opens the target that has the card now
+    ["/#/settings/members", "#/settings/household", null],
+    ["/#/settings/security", "#/settings/household", null],
+    ["/#/settings/data", "#/settings/banks", null],
+    ["/#/settings/security#salasana", "#/settings/household#salasana", "salasana"],
+    ["/#/settings/security#kirjautuminen", "#/settings/household#kirjautuminen", "kirjautuminen"],
+    ["/#/settings/security#turvallisuusloki", "#/settings/server#turvallisuusloki", "turvallisuusloki"],
   ];
   for (const [address, lands, card] of cases) {
     await page.goto("/#/overview");
@@ -224,10 +215,10 @@ test("every address of Asetukset lands on the card it names, on the target that 
     for (const heading of REMOVED) await expect(page.getByRole("heading", { name: heading, exact: true }), `${target}: ${heading}`).toHaveCount(0);
   }
 
-  // the old security address, from Yhteenveto: Back returns there, not to the address that was rewritten
+  // an address of a folded target, from Yhteenveto: Back returns there, not to the address that was rewritten
   await page.goto("/#/overview");
-  await page.goto("/#/settings?section=security");
-  await expect.poll(hash).toBe("#/settings/security#turvallisuusloki");
+  await page.goto("/#/settings/security#turvallisuusloki");
+  await expect.poll(hash).toBe("#/settings/server#turvallisuusloki");
   await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
   await page.goBack();
   expect(page.url()).toMatch(/#\/overview$/);
@@ -236,7 +227,7 @@ test("every address of Asetukset lands on the card it names, on the target that 
 });
 
 test("a member's targets have their own cards and none of the admin's, and Hae nyt is a row of Päivitykset", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({ storageState: member.state, viewport: { width: 1440, height: 800 } });
   // without a connection there is nothing to fetch: no button, no sentence about it
   const before = await context.newPage();
   await before.goto("/#/settings");
@@ -250,7 +241,6 @@ test("a member's targets have their own cards and none of the admin's, and Hae n
   const page = await context.newPage();
   const seen = watch(page);
   const hash = () => new URL(page.url()).hash;
-  await withQualityNote(page);
   await linkFakeBank(page);
   await waitForSync(context);
   await page.goto("/#/settings");
@@ -275,97 +265,23 @@ test("a member's targets have their own cards and none of the admin's, and Hae n
     await expect(page.getByRole("heading", { name: "Pankkisovellus", exact: true }), address).toBeVisible();
     for (const admins of ["Palvelin", "Turvallisuusloki", "Ylläpito"]) await expect(page.getByRole("heading", { name: admins, exact: true }), `${address}: ${admins}`).toHaveCount(0);
   }
-  // the old security address is the member's own sessions, and a card with a note comes with the note
-  await page.goto("/#/settings?section=security");
-  await expect.poll(hash).toBe("#/settings/security#kirjautuminen");
+  // the address of the folded security target is the member's own sessions, and the admin's log is not there
+  for (const folded of FOLDED) {
+    await page.goto(`/#/settings/${folded}`);
+    await expect.poll(hash, folded).toBe(folded === "data" ? "#/settings/banks" : "#/settings/household");
+  }
+  await page.goto("/#/settings/security#kirjautuminen");
+  await expect.poll(hash).toBe("#/settings/household#kirjautuminen");
   await expect(page.getByRole("heading", { name: "Omat istunnot", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Talouden jäsenet", exact: true })).toHaveCount(0);
   await expect(page.locator("#kirjautuminen")).toBeInViewport();
-  await page.goto("/#/settings#laatu");
-  await expect.poll(hash).toBe("#/settings/data#laatu");
-  await expect(page.locator("#laatu").getByRole("heading", { name: "Tietojen laatu", exact: true })).toBeVisible();
-  await expect(page.locator("#laatu")).toContainText("Esimerkkitilin tiedot ovat vanhoja");
-  await expect(page.getByText("Ei huomautettavaa.")).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("Tietojen laatu tells the card bills by issuer, with the reason the purchases are missing, at 1280 and 390", async ({ browser }) => {
-  // made-up bills: the answer is changed on its way, core's tests hold how the rows are made
-  const rows = [
-    { issuer: "Morrow Bank", label: "Morrow Bank", cents: 60_000, count: 3, lastDate: "2026-09-05", reason: "not_connected", since: null },
-    { issuer: "Bank Norwegian", label: "Bank Norwegian ·· 1234", cents: 50_000, count: 2, lastDate: "2026-06-20", reason: "before_history", since: "2026-09-01" },
-  ];
-  for (const width of [1280, 390]) {
-    const { context, page, seen } = await admin(browser, width, 900);
-    await page.route("**/api/reports?**", async (route) => {
-      const answer = await route.fetch();
-      const signal = { id: "card_bills", tone: "warning", title: "Korttilaskuja 1 100,00 € ilman ostoja", detail: "Yhdistä kortti.", category: "card_bill", cents: 110_000, cardPurchases: rows };
-      await route.fulfill({ response: answer, json: { ...(await answer.json()), dataQuality: { signals: [signal] } } });
-    });
-    await page.goto("/#/settings/data#laatu");
-    const block = page.locator("#laatu");
-    await expect(block.locator("strong").first()).toContainText("ilman ostoja");
-    await expect(block).not.toContainText("lasketaan menoiksi");
-    const table = block.getByRole("table");
-    if (width === 1280) await expect(table.getByRole("columnheader")).toHaveText(["Kortti", "Laskut 12 kuukaudelta", "Miksi ostot puuttuvat"]);
-    // web-first: at 390 nothing above waits for the table, and a read of its rows before they draw finds none
-    const lines = table.locator("tbody tr");
-    await expect(lines).toHaveCount(2);
-    await expect(lines.nth(0)).toContainText("Morrow Bank");
-    await expect(lines.nth(0)).toContainText("Korttia ei ole yhdistetty.");
-    await expect(lines.nth(1)).toContainText("Bank Norwegian ·· 1234");
-    await expect(lines.nth(1)).toContainText("Pankki antaa ostot vasta 1.9.2026 alkaen.");
-    await expect(block.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings/banks?add=1");
-    await expect(block.getByRole("link", { name: "Näytä tapahtumat" })).toBeVisible();
-    expect(await overflow(page), `the page scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
-    expect(seen.problems).toEqual([]);
-    await context.close();
-  }
-});
-
-test("Tietojen laatu opens with the share of spending filed without asking, at 1280 and 390", async ({ browser }) => {
-  // made-up shares: the answer is changed on its way, core's tests hold how they are made
-  const cases = [
-    { filed: { share: 0.874, guessShare: 0.004, userShare: 0.06, cents: 874_00, totalCents: 1000_00 }, lines: ["Sovellus luokitteli automaattisesti 87 % viimeisen 12 kuukauden menoista, joista alle 1 % arvauksena.", "Itse luokittelit 6 %."] },
-    { filed: { share: 1, guessShare: 0, userShare: 0, cents: 500_00, totalCents: 500_00 }, lines: ["Sovellus luokitteli automaattisesti 100 % viimeisen 12 kuukauden menoista."] },
-  ];
-  for (const width of [1280, 390]) {
-    for (const c of cases) {
-      const { context, page, seen } = await admin(browser, width, 900);
-      await page.route("**/api/reports?**", async (route) => {
-        const answer = await route.fetch();
-        await route.fulfill({ response: answer, json: { ...(await answer.json()), dataQuality: { signals: [], filed: c.filed } } });
-      });
-      await page.goto("/#/settings/data#laatu");
-      const block = page.locator("#laatu");
-      await expect(block.getByRole("heading", { name: "Tietojen laatu", exact: true })).toBeVisible();
-      const lines = await block.locator(".filed-share p").evaluateAll((ps) => ps.map((p) => (p.textContent ?? "").replace(/\s+/g, " ")));
-      expect(lines).toEqual(c.lines);
-      expect(await overflow(page), `the page scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
-      expect(seen.problems).toEqual([]);
-      await context.close();
-    }
-  }
-});
-
-test("Tietojen laatu is a card only while the data has a note", async ({ browser }) => {
-  const { context, page, seen } = await admin(browser);
-  await page.route("**/api/reports?**", async (route) => {
-    const answer = await route.fetch();
-    await route.fulfill({ response: answer, json: { ...(await answer.json()), dataQuality: { signals: [] } } });
-  });
-  await page.goto("/#/settings/data");
-  await expect(page.getByRole("heading", { name: "Tiedot", exact: true })).toBeVisible();
-  await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("heading", { name: "Tietojen laatu", exact: true })).toHaveCount(0);
-  await expect(page.locator("#laatu")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
 
 test("an ended or ending bank connection has Yhdistä uudelleen on its row and in the banner, and the row starts the same bank again", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   const connection = (id: string, state: string, daysLeft: number | null) => ({
@@ -450,23 +366,28 @@ test("a target draws no empty cards while its data is on the way, only the loadi
   await context.close();
 });
 
-test("Turvallisuus shows its cards when one read fails, and after a few seconds when one never answers", async ({ browser }) => {
+test("Kotitalous shows its cards when one read fails, and after a few seconds when one never answers", async ({ browser }) => {
   const { context, page } = await admin(browser);
   // one read fails: that card says so itself and the others work
   await page.route("**/api/security/sessions", (route) => route.fulfill({ status: 500, json: { error: "Palvelin ei vastannut." } }));
-  await page.goto("/#/settings/security");
+  await page.goto("/#/settings/household");
   await expect(page.getByRole("heading", { name: "Salasana", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Talouden jäsenet", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Omat istunnot" })).toBeVisible();
   await expect(page.getByText("Palvelin ei vastannut.")).toBeVisible();
   await expect(page.getByText("Ladataan…")).toHaveCount(0);
   await page.unroute("**/api/security/sessions");
 
   // one read never answers: the cards are drawn after 4 s at the latest
-  await page.route("**/api/security/events*", () => new Promise(() => {}));
+  await page.route("**/api/security/sessions", () => new Promise(() => {}));
   await page.reload();
   await expect(page.getByRole("heading", { name: "Salasana", exact: true })).toBeVisible({ timeout: 8000 });
-  await expect(page.getByRole("heading", { name: "Omat istunnot" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Lainat", exact: true })).toBeVisible();
+
+  // the same on Palvelin, when the security log never answers
+  await page.route("**/api/security/events*", () => new Promise(() => {}));
+  await page.goto("/#/settings/server");
+  await expect(page.getByRole("heading", { name: "Ylläpito", exact: true })).toBeVisible({ timeout: 8000 });
   await context.close();
 });
 

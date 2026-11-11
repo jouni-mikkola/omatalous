@@ -35,7 +35,7 @@ test("a sign-in from a new device is the first row, leading to Asetukset, and Ku
     await expect(page.locator(".notice")).toHaveCount(0);
     const first = card.getByRole("listitem").first();
     await expect(first).toContainText(/Kirjautuminen uudelta laitteelta \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Firefox, Linux\)/);
-    await expect(first.getByRole("link")).toHaveAttribute("href", "#/settings/security#kirjautuminen");
+    await expect(first.getByRole("link")).toHaveAttribute("href", "#/settings/household#kirjautuminen");
 
     // Kuittaa reads the notice, and it stays read after a reload
     await first.getByRole("button", { name: /^Kuittaa: Kirjautuminen uudelta laitteelta/ }).click();

@@ -11,7 +11,7 @@ export const EN_PASSKEY: Record<keyof typeof FI_PASSKEY, string> = {
   "passkey.taken": "This passkey is already added.",
   "passkey.none": "This account has no passkey.",
   "passkey.unknown": "The passkey was not found.",
-  "remote.second_factor_needed": "Remote access needs a second factor from every admin. Turn on two-step sign-in or a passkey under Settings > Security. Missing: {names}. A passkey counts only for the address it was made for.",
+  "remote.second_factor_needed": "Remote access needs a second factor from every admin. Turn on two-step sign-in or a passkey under Settings > Household. Missing: {names}. A passkey counts only for the address it was made for.",
   "remote.admin_needs_factor": "The address is public, so an admin must have a second factor. Turn remote access off first, or ask the member to turn on two-step sign-in.",
   "factor.keep_while_public": "The address is public, so an admin must keep a second factor. Turn remote access off first.",
   "passkey.title": "Passkey",
