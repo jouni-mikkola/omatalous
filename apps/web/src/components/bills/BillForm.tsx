@@ -1,5 +1,5 @@
 import { addDays, type ExpectedCadence } from "@banking/core";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, parseEuros } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -25,13 +25,26 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
   const [cadence, setCadence] = useState<ExpectedCadence>("yearly");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bad, setBad] = useState<ReadonlySet<"name" | "amount" | "due">>(new Set());
+  const fields = { name: useRef<HTMLInputElement>(null), amount: useRef<HTMLInputElement>(null), due: useRef<HTMLInputElement>(null) };
+  const clear = (field: "name" | "amount" | "due") => {
+    if (bad.has(field)) setBad(new Set([...bad].filter((f) => f !== field)));
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     const amountCents = parseEuros(amount);
-    if (!name.trim()) return setError(t("bills.form.name_missing"));
-    if (amountCents === null || amountCents < 1) return setError(t("bills.form.amount_bad"));
-    if (!dueDate) return setError(t("bills.form.due_missing"));
+    const problems: { field: "name" | "amount" | "due"; text: string }[] = [];
+    if (!name.trim()) problems.push({ field: "name", text: t("bills.form.name_missing") });
+    if (amountCents === null || amountCents < 1) problems.push({ field: "amount", text: t("bills.form.amount_bad") });
+    if (!dueDate) problems.push({ field: "due", text: t("bills.form.due_missing") });
+    if (problems.length > 0 || amountCents === null) {
+      setBad(new Set(problems.map((p) => p.field)));
+      setError(problems[0]?.text ?? null);
+      if (problems[0]) fields[problems[0].field].current?.focus();
+      return;
+    }
+    setBad(new Set());
     setSaving(true);
     setError(null);
     try {
@@ -51,15 +64,15 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
       <div className="bill-fields">
         <label>
           <span className="field-label">{t("bills.form.name")}</span>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={t("bills.form.name_example")} autoFocus />
+          <input type="text" ref={fields.name} aria-invalid={bad.has("name") || undefined} value={name} onChange={(e) => { setName(e.target.value); clear("name"); }} maxLength={80} placeholder={t("bills.form.name_example")} autoFocus />
         </label>
         <label>
           <span className="field-label">{t("bills.form.amount")}</span>
-          <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={t("bills.form.amount_example")} />
+          <input type="text" inputMode="decimal" ref={fields.amount} aria-invalid={bad.has("amount") || undefined} value={amount} onChange={(e) => { setAmount(e.target.value); clear("amount"); }} placeholder={t("bills.form.amount_example")} />
         </label>
         <label>
           <span className="field-label">{t("bills.form.due")}</span>
-          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} min={addDays(today, -DAYS_BACK)} max={addDays(today, DAYS_AHEAD)} />
+          <input type="date" ref={fields.due} aria-invalid={bad.has("due") || undefined} value={dueDate} onChange={(e) => { setDueDate(e.target.value); clear("due"); }} min={addDays(today, -DAYS_BACK)} max={addDays(today, DAYS_AHEAD)} />
         </label>
         <label>
           <span className="field-label">{t("bills.form.repeats")}</span>
