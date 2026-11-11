@@ -7,7 +7,7 @@ import { CADENCE_LABEL, date, money } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
-import { type DaySum, type ListedRow, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
+import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
 import "../styles/transactions.css";
@@ -19,7 +19,7 @@ import { IconButton } from "../components/ui/IconButton.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
 import { Empty } from "../components/ui/Empty.tsx";
-import { CONNECT_BANK_HASH } from "../routes.ts";
+import { CONNECT_BANK_HASH, hashOf, withParams } from "../routes.ts";
 interface MerchantHistory {
   merchant: string;
   count: number;
@@ -123,6 +123,12 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   // the grouping is in the address beside the filters, and a change of filter keeps it
   const group = params.get("group") === GROUP_MERCHANT ? GROUP_MERCHANT : "";
   const open = (next: Partial<Filters> = {}, grouped = group) => navigate("transactions", { ...next, group: grouped });
+  // a chip and the grouping by payee are made by the table from the rows it has, so under them the list is whole: every
+  // page of the filter is fetched (up to MAX_LIST_ROWS rows) and there are no pages to turn
+  const whole = group !== "" || filters.chip !== "";
+  // the page of the list is in the address too (`?page=2`); a change of filter or grouping starts from the first again
+  const pageNo = whole ? 1 : pageOf(params);
+  const pageHref = (n: number) => hashOf({ page: "transactions", params: withParams(params, { page: n > 1 ? String(n) : undefined }) });
   const filterKey = `${scope}?${params.toString()}`;
   const phone = usePhone();
   const [remember, setRemember] = useState(true);
@@ -139,16 +145,82 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const [opened, setOpened] = useState<string | null>(null);
   // the chip narrows the rows the table has; the server does not know it
   const serverFilters = { ...filters, chip: undefined };
-  const { data, error, loading, reload } = useApi<ListAnswer>(`/api/transactions${query({ ...serverFilters, scope, limit: MAX_LIST_ROWS })}`);
+  const listPath = (offset: number) => `/api/transactions${query({ ...serverFilters, scope, limit: PAGE_ROWS, offset: offset || undefined })}`;
+  const { data, error: listError, loading, reload } = useApi<ListAnswer>(listPath((pageNo - 1) * PAGE_ROWS));
+  // the page the answer on screen is of: while the next page is on its way the rows are still the page before's
+  const answered = useRef<{ data: ListAnswer | null; page: number }>({ data: null, page: pageNo });
+  if (answered.current.data !== data) answered.current = { data, page: pageNo };
+  const shownPageNo = answered.current.page;
+  /** The pages of the filter from the row `from` on, each asked for by itself, up to MAX_LIST_ROWS rows in all. */
+  const pagesFrom = (from: number, total: number): Promise<ListAnswer[]> => {
+    const offsets: number[] = [];
+    for (let offset = from; offset < Math.min(total, MAX_LIST_ROWS); offset += PAGE_ROWS) offsets.push(offset);
+    return Promise.all(offsets.map((offset) => api<ListAnswer>(listPath(offset))));
+  };
+  /** Rows of several answers; a row that came between two questions can be on two pages. */
+  const joined = (lists: ListedRow[][]): ListedRow[] => {
+    const seen = new Set<string>();
+    return lists.flat().filter((t) => !seen.has(t.id) && seen.add(t.id));
+  };
+  /** Every row of the filter, for the file of a paged list. */
+  const allRows = async (): Promise<ListedRow[] | null> => {
+    try {
+      return joined((await pagesFrom(0, data?.total ?? 0)).map((a) => a.items));
+    } catch (err) {
+      setSaveError((err as Error).message);
+      return null;
+    }
+  };
+  // the pages after the first of a whole list, fetched page by page once the first says how many rows there are
+  const restKey = whole ? listPath(0) : null;
+  const [rest, setRest] = useState<{ key: string; items: ListedRow[]; daySums: DaySum[] } | null>(null);
+  const [restError, setRestError] = useState<string | null>(null);
+  useEffect(() => {
+    setRestError(null);
+    if (!restKey || !data || loading) return;
+    let stale = false;
+    pagesFrom(PAGE_ROWS, data.total)
+      .then((answers) => {
+        if (!stale) setRest({ key: restKey, items: answers.flatMap((a) => a.items), daySums: answers.flatMap((a) => a.daySums ?? []) });
+      })
+      .catch((err: Error) => {
+        if (!stale) setRestError(err.message);
+      });
+    return () => {
+      stale = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listPath is the address restKey is made of
+  }, [restKey, data, loading]);
+  const restOf = rest && rest.key === restKey ? rest : null;
+  /** The table has every row it will show: a page, or all the pages of a whole list. */
+  const ready = data !== null && (!whole || data.total <= PAGE_ROWS || restOf !== null);
+  const error = listError ?? restError;
+  const items = useMemo(() => {
+    if (!data) return [];
+    return restOf ? joined([data.items, restOf.items]) : data.items;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- joined reads nothing of the render
+  }, [data, restOf]);
+  const lastPage = data ? (whole ? 1 : Math.max(1, Math.ceil(data.total / PAGE_ROWS))) : null;
+  // an address past the end (rows left the filter, or a typed number) opens the last page there is
+  useEffect(() => {
+    if (!loading && lastPage !== null && pageNo > lastPage) window.location.replace(pageHref(lastPage));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pageHref reads the address of this filterKey
+  }, [loading, lastPage, pageNo, filterKey]);
+  // the next page starts at its first row, not where the link stood at the end of the last one
+  const shownPage = useRef(pageNo);
+  useEffect(() => {
+    if (shownPage.current !== pageNo) window.scrollTo(0, 0);
+    shownPage.current = pageNo;
+  }, [pageNo]);
   const statements = useApi<{ statements: SavedStatement[] }>("/api/statements");
   const [billOpen, setBillOpen] = useState<ListedRow | null>(null);
   const savedOf = (id: string) => statements.data?.statements?.find((s) => s.billId === id) ?? null;
   const transferIds = useRef(new Set<string>());
-  transferIds.current = new Set(data?.items.filter((t) => t.isTransfer).map((t) => t.id));
+  transferIds.current = new Set(items.filter((t) => t.isTransfer).map((t) => t.id));
   const merchantOf = useRef(new Map<string, string>());
-  merchantOf.current = new Map(data?.items.map((t) => [t.id, t.merchant]));
+  merchantOf.current = new Map(items.map((t) => [t.id, t.merchant]));
   const looks = useMemo(() => accountLooks(meta), [meta]);
-  const daySums = useMemo(() => new Map((data?.daySums ?? []).map((d) => [d.date, d])), [data]);
+  const daySums = useMemo(() => new Map([...(data?.daySums ?? []), ...(restOf?.daySums ?? [])].map((d) => [d.date, d])), [data, restOf]);
 
   const set = (patch: Partial<Filters>) => open({ ...filters, ...patch });
   // the search box shows what is typed at once; the address (and so the server) follows after a pause
@@ -284,7 +356,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       {error && !data ? (
         <ErrorCard message={error} onRetry={reload} />
       ) : (
-        <section className={`card tx-card ${loading ? "loading" : ""}`} aria-label={t("nav.transactions")}>
+        <section className={`card tx-card ${loading || (data && !ready && !restError) ? "loading" : ""}`} aria-label={t("nav.transactions")}>
           {error && (
             <Notice tone="error">
               {error}{" "}
@@ -329,9 +401,9 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             )}
           </div>
           <div>
-            {data && data.items.length > 0 && <TxTable items={data.items} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
+            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
-            {!data && !error && <RowsSkeleton />}
+            {(!data || (!ready && data.items.length > 0)) && !error && <RowsSkeleton />}
             {data && !data.items.length && (
               <Empty>
                 {anyFilter ? (
@@ -349,9 +421,22 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               </Empty>
             )}
           </div>
-          {data && data.total > data.items.length && (
+          {data && ready && whole && data.total > items.length && (
             <p className="small muted tx-cut">
-              {t("tx.cut", { shown: count(data.items.length), total: count(data.total) })}
+              {t("tx.cut", { shown: count(items.length), total: count(data.total) })}
+            </p>
+          )}
+          {data && !whole && data.items.length > 0 && lastPage !== null && lastPage > 1 && (
+            <p className="small muted tx-cut">
+              {count((shownPageNo - 1) * PAGE_ROWS + 1)}–{count((shownPageNo - 1) * PAGE_ROWS + data.items.length)} / {count(data.total)}
+              {shownPageNo < lastPage && (
+                <>
+                  {" "}
+                  <a href={pageHref(shownPageNo + 1)} rel="next">
+                    {t("bills.next")}
+                  </a>
+                </>
+              )}
             </p>
           )}
         </section>

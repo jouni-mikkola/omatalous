@@ -4,14 +4,16 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
-// Tapahtumat with a year of rows: the list is drawn in windows, so it opens at once, has few buttons and keeps its filter
-// over a reload. It needs the administrator and the demo household that e2e/run.mjs makes.
+// Tapahtumat with a year of rows: the list is drawn a page (100 rows) at a time, so it opens at once, has a button a row and
+// few others, and keeps its filter over a reload. It needs the administrator and the demo household that e2e/run.mjs makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 /** The slowdown of the processor the page is drawn under, and the time it has to show its first rows. */
 const CPU_SLOWDOWN = 4;
 const FIRST_ROWS_MS = 1000;
-const MAX_BUTTONS = 40;
+/** The rows of a page of the list (PAGE_ROWS in TransactionRows.tsx): each has the one button that opens it. */
+const PAGE_ROWS = 100;
+const MAX_BUTTONS = PAGE_ROWS + 10;
 const DATA_ROW = "table.tx-table tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)";
 
 async function signedIn(browser: Browser, width: number, height: number): Promise<BrowserContext> {
@@ -50,19 +52,20 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     const took = Math.min(...tries);
     expect(answer.total, "a year of example rows").toBeGreaterThan(300);
     expect(took, `rows after ${took} ms`).toBeLessThan(FIRST_ROWS_MS);
-    expect(await page.locator(DATA_ROW).count(), "only the rows near the screen are drawn").toBeLessThan(answer.total / 4);
+    expect(await page.locator(DATA_ROW).count(), "one page of rows is drawn").toBe(PAGE_ROWS);
     expect(await page.getByRole("button").count(), "buttons on the page").toBeLessThanOrEqual(MAX_BUTTONS);
 
-    // scrolling to the end draws the last rows, and the page keeps its size: the oldest day is reached
-    // the heights of the groups left out are estimates, so the bottom moves as the groups are measured: scroll until it holds
+    // the next link, page after page, reaches the oldest day
     const oldest = answer.items[answer.items.length - 1].merchant as string;
-    await expect
-      .poll(async () => {
-        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-        return page.locator(".tx-name", { hasText: oldest }).count();
-      })
-      .toBeGreaterThan(0);
-    expect(await page.locator(DATA_ROW).count(), "only the rows near the screen are drawn at the end").toBeLessThan(answer.total / 4);
+    const next = page.locator("main").getByRole("link", { name: "Seuraava", exact: true });
+    for (let n = 2; n <= Math.ceil(answer.total / PAGE_ROWS); n++) {
+      await next.click();
+      await expect(page).toHaveURL(new RegExp(`[?&]page=${n}$`));
+      await expect(page.locator(".loading")).toHaveCount(0);
+    }
+    await expect(next, "the last page has no next link").toHaveCount(0);
+    await expect(page.locator(".tx-name", { hasText: oldest }).last()).toBeVisible();
+    expect(await page.locator(DATA_ROW).count(), "the last page has the rest of the rows").toBe(answer.total - (Math.ceil(answer.total / PAGE_ROWS) - 1) * PAGE_ROWS);
     expect(seen.problems).toEqual([]);
     await context.close();
   });

@@ -4,6 +4,8 @@ import { dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
 import { Why } from "../components/Why.tsx";
 import { barShare } from "../components/table/cells.ts";
+import { saveCsv, tableCsv } from "../components/table/csv.ts";
+import { Button } from "../components/ui/Button.tsx";
 import { type Column, Table, type TableView } from "../components/table/Table.tsx";
 import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
@@ -27,6 +29,14 @@ const onPhoneChange = (notify: () => void) => {
 export function usePhone(): boolean {
   return useSyncExternalStore(onPhoneChange, () => window.matchMedia(PHONE).matches);
 }
+
+/** How many rows the list asks the server for at once: one page of it. */
+export const PAGE_ROWS = 100;
+/** The page of the list the address names (`?page=2`), from 1; anything that is no whole number above 1 is the first. */
+export const pageOf = (params: URLSearchParams): number => {
+  const n = Number(params.get("page"));
+  return Number.isSafeInteger(n) && n > 1 ? n : 1;
+};
 
 /** Rows are newest first, so the days are runs of equal booking dates. */
 export function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[] }[] {
@@ -229,14 +239,14 @@ const dayMax = (items: ListedRow[]): number => (items.length > 1 ? Math.max(0, .
  * server's), and the bars of its amounts are drawn against its largest. The rows stay newest first as the server sends
  * them. The toolbar's grouping puts the same rows under their payee instead. An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
+export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
   const days = byDay(items);
   const maxOf = new Map(days.flatMap((d) => d.items.map((t) => [t.id, dayMax(d.items)] as const)));
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
     // a chip is for a mark some row has: "Varaukset 0" filters to nothing
-    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
+    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => !whole || items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {
       key: "amount",
       label: msg("table.amount"),
@@ -259,9 +269,16 @@ export function TxTable({ items, severalAccounts, today, daySums, rowProps, scop
       },
     },
   ];
+  const caption = msg("row.transactions");
+  // the file of a paged list: every row of the filter by its day, as the table's own file of a whole list has them
+  const saveAll = async () => {
+    const rows = await allRows?.();
+    if (rows) saveCsv(caption, tableCsv(columns, rows, byDay(rows).map((d) => ({ key: d.day, title: d.day, rows: d.items }))));
+  };
   return (
+    <>
     <Table<ListedRow>
-      caption={msg("row.transactions")}
+      caption={caption}
       className="tx-table"
       rows={items}
       rowKey={(t) => t.id}
@@ -286,13 +303,21 @@ export function TxTable({ items, severalAccounts, today, daySums, rowProps, scop
       onOpen={onOpen}
       drill={(t) => <Detail {...rowProps(t)} scope={scope} />}
       drillLabel={(r) => msg("row.open_months", { name: nameOf(r) })}
-      csv
+      csv={whole}
       rowsSearched
       searchLabel={searchLabel}
       toolbarExtra={filters}
       view={view}
       onView={onView}
     />
+    {!whole && allRows && (
+      <p className="rt-csv">
+        <Button variant="link" onClick={() => void saveAll()}>
+          {msg("table.csv")}
+        </Button>
+      </p>
+    )}
+    </>
   );
 }
 
