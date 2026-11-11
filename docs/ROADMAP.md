@@ -298,6 +298,13 @@ Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a 
 - locks: none
 - after: none
 
+### N37 A half fetch is told
+Result: When some accounts fetched and one failed, the page says which account is behind instead of saying everything is up to date.
+- why: apps/server/src/connectors/open-sync.ts:75 answers fresh (Päivitetty) after a partial run, so the page hides that one account failed to fetch (N35 #221 notes)
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees.
+- locks: none
+- after: none
+
 ### V1 Phone controls are 44 px
 Result: On a phone the period switch, the app switch and the links of the page's foot have targets a thumb can hit, 44 px high.
 - why: seen on 11 Nov with the demo household at 390 px with touch: the keys of `.segmented` (3 kk, 6 kk, 12 kk, Tämä vuosi, Viime vuosi in Saldot, Velat and Menot; Talouden sovellus and Oma sovellus in Asetukset > Pankit ja tilit) are 36 px high, from `min-height: calc(var(--control-h) - 8px)` at `apps/web/src/styles/base.css:76`. The links of the foot (`.sheet-foot a`: Lähdekoodi, Ohjeet, Tue kehitystä, the author) are 24 to 28 px high on every page, from the 24 px floor and the `margin-block: -0.25rem` at `base.css:279-282`; they stand in a line of their own, not in a sentence, so the floor for links inside text does not cover them. The design (section 3) wants 44 px for a touch target.
