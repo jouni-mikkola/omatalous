@@ -125,8 +125,16 @@ function sessionDays(value: string | undefined): number {
 /** "6,18" → [6, 18]; invalid entries are ignored. */
 function hours(value: string | undefined, fallback: number[]): number[] {
   if (!value?.trim()) return fallback;
-  const list = value.split(",").map((h) => Number(h.trim()));
-  const valid = [...new Set(list.filter((h) => Number.isInteger(h) && h >= 0 && h <= 23))].sort((a, b) => a - b).slice(0, 4);
+  const list = value
+    .split(",")
+    .map((h) => h.trim())
+    .filter((h) => h !== "")
+    .map(Number);
+  const all = [...new Set(list.filter((h) => Number.isInteger(h) && h >= 0 && h <= 23))];
+  if (all.length > 4) {
+    console.warn(`SYNC_HOURS lists ${all.length} hours; at most 4 are used, the first four: ${all.slice(0, 4).join(", ")}.`);
+  }
+  const valid = all.slice(0, 4).sort((a, b) => a - b);
   return valid.length ? valid : fallback;
 }
 
