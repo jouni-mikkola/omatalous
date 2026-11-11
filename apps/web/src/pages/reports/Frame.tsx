@@ -8,7 +8,8 @@ import { TAX_YEAR_ID, YEARS_ID } from "./sections/ids.ts";
 import type { ReportPage } from "./types.ts";
 import "../../styles/reports.css";
 
-/** What Lisää lists: the reports that earn a place, each at the question page that holds it and, for a part of a page, its section. */
+/** What Lisää lists: the reports that earn a place, each at the question page that holds it and, for a part of a page, its section.
+ * Each page is here once, so the link of the page that is open is marked, also when it opens at a section. */
 const MORE_LINKS: readonly { id: string; label: () => string; q: QuestionId; anchor?: string }[] = [
   { id: "vuosi", label: () => t("rpt.more_year"), q: "menot", anchor: YEARS_ID },
   { id: "tilit", label: () => t("rpt.more_accounts"), q: "saldot" },
@@ -28,7 +29,7 @@ function MoreList({ pages, current, params }: { pages: readonly ReportPage[]; cu
       <ol id="q-list" className="q-list">
         {MORE_LINKS.filter((l) => pages.some((p) => p.id === l.q)).map((l) => (
           <li key={l.id}>
-            <a href={`#/reports${query({ q: l.q, period: params.get("period") })}${l.anchor ? `#${l.anchor}` : ""}`} aria-current={!l.anchor && l.q === current ? "page" : undefined} onClick={() => setOpen(false)}>
+            <a href={`#/reports${query({ q: l.q, period: params.get("period") })}${l.anchor ? `#${l.anchor}` : ""}`} aria-current={l.q === current ? "page" : undefined} onClick={() => setOpen(false)}>
               {l.label()}
             </a>
           </li>
