@@ -43,6 +43,9 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 .sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-4) var(--sp-24); margin-top: var(--sp-24); padding-top: var(--sp-8); border-top: 1px solid var(--axis);
   font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
 
+/* on a phone the links are 44 px high: the words beside them stand on their middle */
+@media (max-width: 640px), (pointer: coarse) { .sheet-foot { align-items: center; } }
+
 /* M7 the share track: the last 100 px of a row's rule, 1 px a percent; --from and --part come from shares() */
 .share { background-image: linear-gradient(90deg, transparent calc(var(--from) * 1px), var(--axis) 0 calc((var(--from) + var(--part)) * 1px), transparent 0);
   background-size: var(--share-w) 2px; background-position: right var(--mark-gutter, 0px) bottom 0; background-repeat: no-repeat; }
