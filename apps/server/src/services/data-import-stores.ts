@@ -1,7 +1,7 @@
 /**
  * "Tuo tiedot": what the import accepts of each store of the file (docs/DATA_EXPORT.md). Every column of a store is
  * checked against its type, length and list before anything is staged; a value that fails refuses the whole file. The
- * columns are the ones data-export-stores.ts writes (a test compares them), so a column added to the export fails the
+ * columns are the ones db/data-export-stores.ts writes (a test compares them), so a column added to the export fails the
  * import's test until it is named here.
  */
 import { isIsoDate } from "../platform/validate.ts";

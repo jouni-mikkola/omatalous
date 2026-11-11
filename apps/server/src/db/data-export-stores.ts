@@ -6,8 +6,9 @@
  * those in `omit`. test/data-export.test.ts fails for a table that is neither a store nor left out.
  */
 
-import type { SqlValue } from "../db/types.ts";
-import type { Services } from "./context.ts";
+import type { SqlValue } from "./types.ts";
+/** What storeColumns needs of the services: the columns of a table. */
+type ColumnSource = { household: { tableColumns(table: string): Promise<string[]> } };
 
 export const EXPORT_FORMAT = "omatalous-export";
 export const EXPORT_VERSION = 1;
@@ -199,7 +200,7 @@ const LEFT_OUT: Readonly<Record<string, string>> = {
 };
 
 /** The columns a store writes: the allowed ones, else every column of the table but the omitted ones. */
-export async function storeColumns(s: Services, store: ExportStore): Promise<string[]> {
+export async function storeColumns(s: ColumnSource, store: ExportStore): Promise<string[]> {
   if (store.allow) return [...store.allow];
   return (await s.household.tableColumns(store.table)).filter((n) => !store.omit?.includes(n));
 }

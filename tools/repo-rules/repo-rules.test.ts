@@ -8,7 +8,7 @@
  * files that land on one worker share its module cache, so they load the compiler and parse each source once
  * (`warmParse`, warm.ts). The groups are about equal in time, so the run is no longer than its slowest group:
  *   repo-rules.test.ts         the text of the UI and the docs     text-rules, finnish, glossary-rule, dialect
- *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, exports-rule, size, timeouts-rules, figures-rules, css-tokens, limiters-rules
+ *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, size, timeouts-rules, figures-rules, css-tokens, limiters-rules
  *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, roadmap-rules
  * A new rule module is imported by the file of its group. Each rule is its own `it` in one of the modules, so a failure
  * names the rule, then `file:line`, then what to do.
@@ -35,7 +35,6 @@
  *   rule 21  keyword lists only in the dialect files          dialect.ts
  *   rule 22  text a copy pass removed stays out of the UI      text-rules.ts
  *   rule 23  every job names a fixed runner image             runners-rules.ts
- *   rule 24  an export of core or the server has a reader     exports-rule.ts (detector: exports.ts)
  *   rule 25  no shell file or workflow pipes into grep -q     shell-rules.ts
  *   rule 26  a function defined in scripts/ is named twice    shell-rules.ts
  *   rule 27  the lines that keep a secret out stay ignored    shell-rules.ts

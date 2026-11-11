@@ -118,7 +118,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 - First run, no bank yet: each view shows its title, one line of what it will answer, and one button to Asetukset >
   Pankit ja tilit. No sample figures. The wizard is two steps: a bank, and the payday (from rows once they come).
 - First fetch: the answer slot says "Haetaan tapahtumia" with the count fetched. Under 3 months of rows Kuukausi shows
-  sums with "tavallinen tarvitsee 3 kuukautta" in place of the usual; the other views answer from the first day.
+  sums with "tavallinen näkyy, kun takana on 3 kuukautta" in place of the usual; the other views answer from the first day.
 - Loading: the answer line and the list keep their height with grey bars of the same size; no spinner on a view.
 - Error: the last answer stays with its time and one line of what failed and what to do. A failed fetch is a queue item.
 - Long names: a name is cut with an ellipsis on one line, the full name in the row's detail. A sum is never cut.

@@ -10,7 +10,7 @@ apps/web/src/styles/categories.css  px=2
 apps/web/src/styles/change.css  px=6
 apps/web/src/styles/charts.css  px=30
 apps/web/src/styles/foreign-rows.css  px=8
-apps/web/src/styles/holdings.css  px=29 color=1
+apps/web/src/styles/holdings.css  px=25
 apps/web/src/styles/housing.css  px=5
 apps/web/src/styles/income.css  px=17
 apps/web/src/styles/loans.css  px=20

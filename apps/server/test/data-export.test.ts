@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { openNodeSqlite } from "../src/db/node-sqlite.ts";
 import type { Db } from "../src/db/types.ts";
-import { EXPORT_VERSION, exportStores, leftOut, storeColumns } from "../src/services/data-export-stores.ts";
+import { EXPORT_VERSION, exportStores, leftOut, storeColumns } from "../src/db/data-export-stores.ts";
 import { SETUP_CODE, setupApp } from "./helpers.ts";
 
 const APP_SECRET = "test-secret-that-is-long-enough-0123456789";

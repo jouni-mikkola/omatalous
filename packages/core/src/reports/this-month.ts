@@ -169,3 +169,16 @@ export function thisMonthReport(ctx: AnalysisContext, inputs: UserInputs, lang: 
     estimate,
   };
 }
+
+/**
+ * The categories of a month with too little history for a usual: each with what was spent, the largest first. A category
+ * that has a row in two groups is one row here, with the sum of both.
+ */
+export function spentRows(groups: readonly { categories: readonly { category: string; label: string; totalCents: number }[] }[]): GapRow[] {
+  const sums = new Map<string, GapRow>();
+  for (const c of groups.flatMap((g) => g.categories)) {
+    const row = sums.get(c.category) ?? { category: c.category, day: null, label: c.label, spentCents: 0, expectedCents: 0, gapCents: 0 };
+    sums.set(c.category, { ...row, spentCents: row.spentCents + c.totalCents });
+  }
+  return [...sums.values()].filter((x) => x.spentCents !== 0).sort((a, b) => b.spentCents - a.spentCents);
+}

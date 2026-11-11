@@ -1,5 +1,5 @@
 // Decision: which category explains this month or an earlier one, read against what each usually costs to the same day
-import { addMonths, type GapRow, MIN_COMPARE_MONTHS, monthEnd, type ThisMonthReport } from "@banking/core";
+import { addMonths, type GapRow, MIN_COMPARE_MONTHS, monthEnd, spentRows, type ThisMonthReport } from "@banking/core";
 import { query } from "../../api.ts";
 import { css } from "../../css.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
@@ -60,19 +60,6 @@ function earlier(data: ReportsData, month: string): Shown {
 }
 
 /**
- * The categories of a month with too little history for a usual: each with what was spent, the largest first. A category
- * that has a row in two groups is one row here, with the sum of both.
- */
-export function spentRows(report: ReportsData["categories"] | undefined): GapRow[] {
-  const sums = new Map<string, GapRow>();
-  for (const c of report?.groups.flatMap((g) => g.categories) ?? []) {
-    const row = sums.get(c.category) ?? { category: c.category, day: null, label: c.label, spentCents: 0, expectedCents: 0, gapCents: 0 };
-    sums.set(c.category, { ...row, spentCents: row.spentCents + c.totalCents });
-  }
-  return [...sums.values()].filter((x) => x.spentCents !== 0).sort((a, b) => b.spentCents - a.spentCents);
-}
-
-/**
  * Kuukausi: a month's spending by category, each against its usual to the same day, the list in the order of the gap. It
  * opens on the running month to today; the arrows step a month back and forward, and an earlier month is in the address
  * (`?month=`) and read whole. A category opens the rows its sum is made of. Income is one line under the list.
@@ -94,7 +81,7 @@ export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; 
     navigate("reports", { month: to < meta.today.slice(0, 7) ? to : undefined }, true);
   };
   const noUsual = r.gapReason === "history";
-  const rows = noUsual ? spentRows(past ? data.categories : sums.data?.categories) : byGap(r.categories);
+  const rows = noUsual ? spentRows((past ? data.categories : sums.data?.categories)?.groups ?? []) : byGap(r.categories);
   const scale = Math.max(1, ...rows.flatMap((x) => [x.spentCents, x.expectedCents]));
   const income = data.income.months.find((m) => m.month === r.month)?.totalCents;
   const usualIncome = data.income.stability?.medianCents;

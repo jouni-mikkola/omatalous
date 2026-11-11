@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { CATEGORY_SOURCES, PAYER_ROLES } from "@banking/core";
 import type { Db } from "../src/db/types.ts";
 import { IMPORT_BY_KEY, IMPORT_LIMITS, importStores } from "../src/services/data-import-stores.ts";
-import { exportStores, storeColumns } from "../src/services/data-export-stores.ts";
+import { exportStores, storeColumns } from "../src/db/data-export-stores.ts";
 import { perfHousehold } from "./perf-household.ts";
 import { setupApp } from "./helpers.ts";
 import { check, commit, exportOf, HEAD_KEYS, importFile, upload, type File, type Setup, type Who } from "./data-import-kit.ts";

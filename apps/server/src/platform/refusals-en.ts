@@ -25,6 +25,9 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Ei yhteyksiä, jotka pitäisi uusia.", "No connections need renewing."],
   ["Yhteyttä ei löydy.", "The connection was not found."],
   // the data reset and restore
+  ["Pankki ei vastannut, yhteyttä ei poistettu. Yritä uudelleen.", "The bank did not answer, so the connection was not removed. Try again."],
+  ["Omaa pankkiavainta ei voi avata. Tallenna se uudelleen kohdassa Asetukset > Pankit ja tilit.", "Your own bank key cannot be opened. Save it again in Settings > Banks and accounts."],
+  ["Pankkiyhteys on käytössä ({1}), joten sovellusta ei voi {2}. Poista yhteydet ensin kohdassa Asetukset > Pankit ja tilit.", "A bank connection is in use ({1}), so the app cannot {2}. Remove the connections first in Settings > Banks and accounts."],
   ["Istunto on päättynyt. Kirjaudu sisään uudelleen.", "The session has ended. Sign in again."],
   ["Tunnuksesi ei ole enää ylläpitäjä, joten emme tyhjentäneet mitään.", "Your account is no longer an administrator, so nothing was emptied."],
   ["Tietokannasta ei saa tässä asennuksessa varmuuskopiota, joten emme tyhjentäneet mitään.", "This install cannot back up the database, so nothing was emptied."],

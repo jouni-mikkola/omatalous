@@ -48,7 +48,6 @@ packages/core/src/analysis/forecast.ts  MIN_NAME_PREFIX
 packages/core/src/analysis/forecast.ts  PAID_TOLERANCE_PERCENT
 packages/core/src/analysis/income-events.ts  NEW_SOURCE_DAYS
 packages/core/src/analysis/income-events.ts  WINDFALL_DAYS
-packages/core/src/analysis/income.ts  NEAR_USUAL
 packages/core/src/analysis/insights/borrowing.ts  MONTHS
 packages/core/src/analysis/insights/small-purchases.ts  MONTHS
 packages/core/src/analysis/large.ts  MIN_INCOME_CENTS

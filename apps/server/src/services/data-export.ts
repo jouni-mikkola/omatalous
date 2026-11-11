@@ -5,7 +5,7 @@ import { yieldToLoop } from "../platform/yield.ts";
 import { sharedInView } from "./analysis.ts";
 import type { Services } from "./context.ts";
 import { weightedKeys } from "./settlement.ts";
-import { EXPORT_FORMAT, EXPORT_VERSION, exportStores, leftOut, storeColumns, storeRead, type Viewer } from "./data-export-stores.ts";
+import { EXPORT_FORMAT, EXPORT_VERSION, exportStores, leftOut, storeColumns, storeRead, type Viewer } from "../db/data-export-stores.ts";
 
 type Row = Record<string, string | number | null>;
 

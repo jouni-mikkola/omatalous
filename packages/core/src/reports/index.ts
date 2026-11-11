@@ -74,6 +74,7 @@ export type { PivotRow } from "./pivot.ts";
 export { pivotReport } from "./pivot.ts";
 export type { ChangeViewReport, SpendingChangeReport } from "./spending-change.ts";
 export type { GapRow, ThisMonthReport } from "./this-month.ts";
+export { spentRows } from "./this-month.ts";
 export type { UpcomingBill, UpcomingReport } from "./upcoming.ts";
 export type { TaxRow, TaxYearReport } from "./tax-year.ts";
 export type { YearOverYearReport } from "./year-over-year.ts";

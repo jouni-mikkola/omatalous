@@ -2,7 +2,6 @@
 import { warmParse } from "./warm.ts";
 import "./code-rules.ts";
 import "./boundaries.ts";
-import "./exports-rule.ts";
 import "./size.ts";
 import "./timeouts-rules.ts";
 import "./figures-rules.ts";

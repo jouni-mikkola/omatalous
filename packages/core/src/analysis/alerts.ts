@@ -39,8 +39,7 @@ export interface Alert {
 const MAX_ALERTS = 6;
 
 /**
- * Cost traps in the selected period, judged at its end (range.to). Only
- * "forgotten" is about now, so it shows when the period reaches today.
+ * Cost traps in the selected period, judged at its end (range.to). Only "forgotten" is about now, so it shows when the period reaches today.
  * Order: double_charge, late_fee, cancelled, uncategorised, overlap, spike, forgotten, fees, habit.
  * `inputs` carries the user's marks: a dismissed alert is left out, a subscription marked in use or cancelled is not
  * asked about, and a charge after a subscription was marked cancelled is a warning of its own.

@@ -10,7 +10,7 @@ import type { Connection, StoredAccount } from "../db/rows.ts";
 import { UpstreamError, UserError } from "../platform/errors.ts";
 import { track } from "../platform/inflight.ts";
 import type { Services } from "../services/context.ts";
-import { connectionState, consentEnd } from "../services/accounts.ts";
+import { consentEnd } from "../services/accounts.ts";
 import { reprocess } from "../services/enrich.ts";
 import { startLookup } from "../services/industry.ts";
 import { ingestTransactions } from "../services/ingest.ts";
@@ -21,10 +21,8 @@ import { skippedNote, splitByCurrency } from "./foreign-split.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
 import { type RefusedByAccount, readRefusedRows, writeRefusedRows } from "./refused-rows.ts";
+import { endedMessage, say } from "./sync-ended.ts";
 import type { BalanceReading, Connector, PullAccount, Puller, RefusedRows, UserHeaders } from "./types.ts";
-
-/** "2026-09-30" → "30.9.2026" */
-const finnishDate = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
 
 export interface SyncSummary {
   status: "ok" | "partial" | "failed" | "skipped";
@@ -162,18 +160,6 @@ async function fetchForUser(s: Services, userId: string, trigger: string, userHe
   return summary;
 }
 
-/**
- * Why a consent ended, in the words the connections table uses: past its date it "vanhentui" on that date; closed
- * earlier by the bank or Enable Banking it "katkesi", and its date, still ahead, is not shown.
- */
-function endedMessage(conn: Connection, today: string, timezone: string): string {
-  // the same date compare as the table, so the message and the Tila column never disagree
-  const lapsed = connectionState({ status: "expired", validUntil: conn.validUntil }, today, timezone) === "lapsed";
-  return lapsed
-    ? `${conn.institution}: yhteys vanhentui ${finnishDate(consentEnd(conn.validUntil, timezone)!)}. Yhdistä uudelleen.`
-    : `${conn.institution}: yhteys katkesi. Yhdistä uudelleen.`;
-}
-
 /** What the fetches of one connector's accounts share. */
 interface Pull {
   s: Services;
@@ -200,11 +186,6 @@ async function countRows(repo: FinanceRepo, summary: SyncSummary, tally: Tally, 
   summary.fetched += r.fetched;
   summary.inserted += r.inserted;
   if (r.fetched) await keepRecord("rows so far", () => repo.noteSyncRunFetched(tally.runId, summary.fetched));
-}
-
-/** A key the source refuses fails every account with the same words: once is enough. */
-function say(summary: SyncSummary, message: string): void {
-  if (!summary.messages.includes(message)) summary.messages.push(message);
 }
 
 function setProblem(tally: Tally, accountId: string, problem: FetchProblem | null): void {

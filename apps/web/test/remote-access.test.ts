@@ -554,7 +554,7 @@ describe("the token", () => {
   it("is not read from or written to storage, the console or the address by the page", () => {
     const dir = fileURLToPath(new URL("../src/pages/settings/", import.meta.url));
     const names = readdirSync(dir).filter((f) => /^(RemoteAccess.*\.tsx|remote-access-.*\.ts)$/.test(f));
-    expect(names).toEqual(["RemoteAccess.tsx", "remote-access-api.ts", "remote-access-model.ts"]);
+    expect(names).toEqual(["RemoteAccess.tsx", "RemoteAccessStatus.tsx", "RemoteAccessToken.tsx", "remote-access-api.ts", "remote-access-model.ts"]);
     for (const name of names) {
       const source = readFileSync(`${dir}${name}`, "utf8");
       expect(source, name).not.toMatch(/localStorage|sessionStorage|indexedDB|console\.|location\.(hash|search|href)|history\.(push|replace)State/);
