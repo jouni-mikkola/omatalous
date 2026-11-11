@@ -8,6 +8,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { atOrAbove, compatFloor, MigrationError } from "../db/migrate.ts";
 import { parseVersion, parseRange, satisfies } from "./semver.ts";
 import { BundleRefused, readTarGz } from "./tar.ts";
 
@@ -107,6 +108,26 @@ function allowed(path: string, manifest: Manifest): boolean {
 }
 
 /**
+ * Each migration declares a compat floor this version meets. The module's tables stay when it is removed, refused at a
+ * start or waits for another app version, and the shared migrate refuses a database with an unknown migration that has
+ * no floor: one such file would keep the whole app from starting the first time the module is not loaded.
+ */
+function migrationsHaveFloor(files: Map<string, Buffer>, appVersion: string): void {
+  for (const [path, data] of files) {
+    if (!MIGRATION.test(path)) continue;
+    let floor: string | null;
+    try {
+      floor = compatFloor({ name: path.slice("migrations/".length), sql: data.toString("utf8") });
+    } catch (err) {
+      if (err instanceof MigrationError) throw new BundleRefused("a migration has a compat floor that is not a version");
+      throw err;
+    }
+    if (floor === null) throw new BundleRefused("a migration has no compat floor");
+    if (!atOrAbove(appVersion, floor)) throw new BundleRefused("a migration has a compat floor above this version");
+  }
+}
+
+/**
  * The checked bundle, or BundleRefused with the reason. `version` is the one the release asset was named for, and
  * `appVersion` the running app's: the manifest's host range must hold it.
  */
@@ -121,5 +142,6 @@ export async function checkBundle(packed: Buffer, signature: Buffer, opts: { sig
   if (manifest.css && !files.has("web.css")) throw new BundleRefused("bundle lacks its stylesheet");
   if (opts.version !== undefined && manifest.version !== opts.version) throw new BundleRefused("manifest version differs from the release");
   if (!satisfies(opts.appVersion, manifest.host)) throw new NotForThisVersion("built for another version of the app");
+  migrationsHaveFloor(files, opts.appVersion);
   return { manifest, files };
 }

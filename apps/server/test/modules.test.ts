@@ -213,6 +213,27 @@ describe("a bundle", () => {
     const old = realBundle("old-host", { host: "<0.0.1" });
     await expect(checkBundle(old.packed, old.signature, opts())).rejects.toBeInstanceOf(NotForThisVersion);
   });
+
+  it("is refused for a migration with no compat floor, a malformed one or one above this version, which would stop the app the first start without the module", async () => {
+    const withMigration = (sql: string, name: string) => {
+      const entries = [{ name: "manifest.json", data: manifest({ css: undefined }) }, BASE[1]!, BASE[2]!, { name: "migrations/9001_example.sql", data: sql }];
+      return pair(handTar(entries), name);
+    };
+    const table = "CREATE TABLE example_note (id INTEGER PRIMARY KEY);\n";
+    const [major, minor, patch] = APP_VERSION.split(/[.-]/).map(Number);
+    const cases: [string, string, RegExp][] = [
+      ["no floor", table, /no compat floor/],
+      ["malformed", `-- migrate: compat soon\n${table}`, /not a version/],
+      ["above", `-- migrate: compat ${major}.${minor}.${patch! + 1}\n${table}`, /above this version/],
+    ];
+    for (const [what, sql, why] of cases) {
+      const err = await checkBundle(...withMigration(sql, `floor-${what.replace(" ", "-")}`), opts()).then(() => null, (e: unknown) => e);
+      expect(err, what).toBeInstanceOf(BundleRefused);
+      expect((err as Error).message, what).toMatch(why);
+    }
+    const ok = await checkBundle(...withMigration(`-- migrate: compat ${major}.${minor}.${patch}\n${table}`, "floor-ok"), opts());
+    expect(ok.files.has("migrations/9001_example.sql")).toBe(true);
+  });
 });
 
 function pair(packed: Buffer, name: string): [Buffer, Buffer] {

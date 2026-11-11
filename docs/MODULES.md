@@ -42,7 +42,7 @@ The tar (ustar, gzip) holds exactly these paths, all relative:
 | `server.mjs` | yes | the server half, an ES module |
 | `web.mjs` | yes | the web half, an ES module |
 | `web.css` | no | its styles |
-| `migrations/NNNN_name.sql` | no | its migrations, `9001` to `9899` |
+| `migrations/NNNN_name.sql` | no | its migrations, `9001` to `9899`, each with a compat floor at or below the running version |
 | `assets/<file>` | no | further web files (`.mjs`, `.css`, `.svg`, `.png`, `.woff2`), one level |
 
 Directory entries for `migrations/` and `assets/` are allowed. Every other entry is refused: a symlink, a hard link, a
