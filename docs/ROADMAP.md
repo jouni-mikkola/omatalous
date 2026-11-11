@@ -1203,6 +1203,49 @@ Result: When a lease or a loan that ended pays money back twice, the two togethe
 - after: M2
 - files: packages/core/src/returns.ts, packages/core/src/analysis/money-in.ts, packages/core/test/returns.test.ts, packages/core/test/money-in.test.ts
 
+N42 (11 November) read `analysis/expected.ts`, `usual.ts`, `income.ts`, `income-series.ts`, `income-changes.ts`, `change.ts`,
+`change-plan.ts`, `change-signal.ts`, `dashboard.ts`, `ahead-moves.ts` (the card bill), `behaviour/payday.ts` and the spike
+alert in `alerts.ts` against *Income*, *Alerts*, *Periods, fixed costs and insights* and *The days to the payday* of
+[MONEY_FLOWS.md](MONEY_FLOWS.md), and the income report's regular months (`reports/income.ts`). M4 to M7 are the figures that differ.
+Not read: `income-events.ts`, `change-split.ts`, `change-text.ts`, `behaviour/split.ts`, `behaviour/credit-stack.ts` and the
+readers in `apps/server` and `apps/web`. Found and not planned: *Odotetut tulot* in the document (line 22) says every income row
+but people, refunds and tax refunds, while `INCOME_TYPES.unknown` (`analysis/income.ts:81`) is also left out on purpose
+(`test/unknown-income.test.ts`), so the document is for the Lead to mend; `joinedSmall` (`usual.ts`) also skips a month an
+account that is no card joined in when it carries under `LEFT_OUT_SHARE`, which the document does not say; the comment of
+`expectedEveryday` says a missing 31st adds nothing, but `expected.ts:343` adds the month's mean day.
+
+### M4 Extra pay is only the excess
+Result: A lone bonus or holiday pay is regular pay up to the payer's usual level and extra only above it, also within 15 % of it.
+- why: MONEY_FLOWS.md, *Income*, *A regular payer's only payment*: it is regular up to "the median of its last six pay periods read before the payment" and "only the part above is extra pay". On main (11 Nov, N42) `refinePay` takes the median of all of the payer's payments (`packages/core/src/analysis/income.ts:249`, and counts payments, not pay periods, at :248) and types a lone holiday or bonus payment as plain *Palkka* whole when it is within 15 % of that median either way (:264, `NEAR_USUAL`): a usual 3 000 € and a payment of 3 400 € with *LOMARAHA* in its text becomes salary whole, so `settleLonePay` never splits its 400 €. `settleLonePay` reads the periods after the payment when fewer than three come before it (`packages/core/src/analysis/income-series.ts:169`).
+- done when: new cases of `packages/core/test/income-payers.test.ts` that fail without the change show: a lone payment typed holiday pay or other pay that is above the level of the six pay periods before it is split by `payPieces` into the level as *Palkka* and the rest in its own type, also when it is under 15 % above; one at or below the level is *Palkka* whole; the level of a payment is read from the periods before it only, and a payer with under three pay periods before the payment gives no level and no split; a payer of two payments a month is not read this way; the goldens of other histories do not change, or the PR names each that does; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: lone-pay
+- after: none
+- files: packages/core/src/analysis/income.ts, packages/core/src/analysis/income-series.ts, packages/core/test/income-payers.test.ts
+
+### M5 No category causes on card gaps
+Result: When the base holds card bills not itemised, Menojen muutos and the spike alert name no category that only looks higher.
+- why: MONEY_FLOWS.md, *Odotettu*: with a card bill in a base month "the headline is true and the categories are not. The page shows the headline and leaves out the bars and the estimate". `expectedFor` sets `itemised` (`packages/core/src/analysis/expected.ts:284`) and `reports/this-month.ts:125` and `forecast.ts:111` honour it, but the usual view of the change report does not: `planOf` returns a plan with `mean: true` at `packages/core/src/analysis/change-plan.ts:126` and `expectedOfPlan` (`packages/core/src/analysis/change.ts:226` to 231) never reads `itemised` or `cardsBreakUsual`. A card connected in September whose card bills were paid in the base months gives every card category a base of 0 and `categoryRises` (`change.ts:458`) hands them to the spike alert (`alerts.ts:365`).
+- done when: new cases of `packages/core/test/change.test.ts` and `packages/core/test/alerts.test.ts` that fail without the change show: with a card bill that is no transfer in a base month, the usual view gives the headline change and no category rows or causes, `categoryRises` gives no rise and `buildAlerts` no spike; the same history with the card linked from the first base month is unchanged; the year and season views are unchanged; `test/usual-late-card.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: change-cards
+- after: none
+- files: packages/core/src/analysis/change.ts, packages/core/src/analysis/change-plan.ts, packages/core/test/change.test.ts, packages/core/test/alerts.test.ts
+
+### M6 One payday rule
+Result: A small benefit paid beside a large salary no longer counts as a payday in the payday habit insight and the balance chart.
+- why: MONEY_FLOWS.md, *The days to the payday*: "the payday is ... the regular incomes whose usual amount is at least half the largest one (`MAJOR_PAY_SHARE`)". `payDays` (`packages/core/src/behaviour/payday.ts:227` to 231) takes every regular series from 500 € (`MIN_PAY_CENTS`) and each payment from half of its own series' level, so a 600 € Kela benefit beside a 4 000 € salary adds 12 pay days a year. `paydayEffect` cycles (:89) and the markers of `reports/balances.ts:178` then follow two rhythms, while `coming.ts:78` follows one.
+- done when: new cases of `packages/core/test/insights-payday.test.ts` and `packages/core/test/balances-holdings.test.ts` that fail without the change show: with a salary of 4 000 € and a benefit of 600 € the pay days are the salary's only, a benefit of 2 100 € or more counts as `MAJOR_PAY_SHARE` says, two pays within `SAME_PAY_DAYS` are one, and a household with one small income only keeps its pay days; `MAJOR_PAY_SHARE` is the one constant behind `coming.ts` and `payDays`; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: payday-rule
+- after: none
+- files: packages/core/src/behaviour/payday.ts, packages/core/test/insights-payday.test.ts, packages/core/test/balances-holdings.test.ts
+
+### M7 One base for Odotettu
+Result: Odotettu and the base of Menojen muutos use the same months when a sync lags or an account joined late.
+- why: MONEY_FLOWS.md, *Odotettu*: one figure, "so the waterfall's bars, the change report's rows and the pace chart's line add up to it". `expectedFor` reads `completeMonthsBefore(ctx, month)` with no row bounds (`packages/core/src/analysis/expected.ts:283`), but `planOf` reads the months with the bounds of `rowsComplete` (`packages/core/src/analysis/change-plan.ts:113` and :125). When a paying account joined late or went quiet the two lists differ, and `expectedOfPlan` (`change.ts:229` to 230) quietly makes a second headline with `expectedOver`.
+- done when: new cases of `packages/core/test/expected.test.ts` and `packages/core/test/change.test.ts` that fail without the change show: with a paying account connected late, `expectedFor(ctx, m).months` equals `spendingChange(ctx, "expected", m).base.months`, and `expectedSpending` equals the change report's `baseCents` at the same day; a history with complete rows gives the same months as today; `expectedOfPlan` no longer builds a figure of its own; `test/usual-late-card.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: expected-months
+- after: M5
+- files: packages/core/src/analysis/expected.ts, packages/core/src/analysis/change.ts, packages/core/src/analysis/change-plan.ts, packages/core/test/expected.test.ts, packages/core/test/change.test.ts
+
 ## The server: robustness
 
 Found by reading `apps/server/` on 11 November (N15). Each step stays in that folder and waits for no other step.
