@@ -488,7 +488,7 @@ srun() {
   while (($#)) && [[ $1 != -- ]]; do envs+=("$1"); shift; done
   (($#)) && shift
   : >"$RUNLOG"
-  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CHECK_FRESH -u CHECK_STAMPS_DIR -u CI -u CHECK_LIGHT -u CUT_LOCK_HELD CHECK_SLOT_HELD=1 "${envs[@]}" PATH="$BIN:$PATH" bash tools/check.sh "$@") >"$W/out" 2>&1
+  (cd "$W" && env -u CHECK_LOG -u CHECK_JOBS -u CHECK_FRESH -u CHECK_STAMPS_DIR -u CI -u CHECK_LIGHT -u CHECK_SHARD -u CUT_LOCK_HELD CHECK_SLOT_HELD=1 "${envs[@]}" PATH="$BIN:$PATH" bash tools/check.sh "$@") >"$W/out" 2>&1
   echo $? >"$W/rc"
 }
 ranlog() { sed -E 's/^tsc .*/types/; s/^([a-z]+)\.test\.sh .*/sh:\1/' "$RUNLOG" | LC_ALL=C sort -u | tr '\n' ' '; }
@@ -511,6 +511,26 @@ t_tooling_a_changed_run_leaves_the_choice_to_vitest() {
   check "tooling: a whole run leaves out the folder" bash -c "grep -q 'self-tests left out' '$W/out' && ! grep -q 'vt:tools/release/' '$RUNLOG' && grep -q 'vt:packages/core' '$RUNLOG'"
   srun CI=1; check "tooling: CI runs the self-tests of a product change" bash -c "! grep -q 'self-tests left out' '$W/out'"
   srun CI=1 CHECK_LIGHT=1; check "tooling: the light tier of CI leaves them out like a local run" grep -q "self-tests left out" "$W/out"
+}
+
+# CHECK_SHARD=<i>/<n> is one part of the test files: the tests step hands it to vitest, which cuts what it would run.
+t_shard_goes_to_vitest_with_the_tests_step() {
+  stamp_world
+  git -C "$W" branch -q base
+  srun CI=1 CHECK_SHARD=1/2 -- tests
+  check "shard: the tests step passes it to vitest as --shard" grep -qx -- "--project !perf --shard=1/2 --reporter=json --outputFile=.*" "$RUNLOG.args"
+  check "shard: and its line names the part" grep -q "check: tests ok (.*, shard 1/2, " "$W/out"
+  srun CI=1 CHECK_SHARD=2/2 -- --changed base tests
+  check "shard: a scoped run passes it beside --changed" grep -qx -- "--changed=base --passWithNoTests --project !perf --shard=2/2 --reporter=json --outputFile=.*" "$RUNLOG.args"
+  rm -f "$RUNLOG.args"; srun CI=1 -- tests
+  check "shard: without it vitest gets no --shard" bash -c "! grep -q -- --shard '$RUNLOG.args'"
+  rm -f "$RUNLOG.args"; srun CI=1 CHECK_SHARD=2/2 -- types lint
+  check "shard: the other steps do not read it" bash -c "[[ \$(cat '$W/rc') = 0 ]] && [[ ! -s '$RUNLOG.args' ]] && ! grep -q shard '$W/out'"
+  local bad
+  for bad in 3/2 0/2 2 1/0 a/b; do
+    srun CI=1 CHECK_SHARD=$bad -- tests
+    check "shard: $bad is refused before anything runs" bash -c "[[ \$(cat '$W/rc') = 2 ]] && grep -q 'CHECK_SHARD is <i>/<n>' '$W/out' && [[ ! -s '$RUNLOG' ]]"
+  done
 }
 
 t_stamps_a_second_run_takes_every_step_from_stamps() {

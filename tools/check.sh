@@ -26,6 +26,9 @@
 # red run recorded in DIR (the folder a red run keeps, named on its last line), every failed vitest file, shell job and, from
 # the output of a red `pnpm e2e` in FILE, page spec, and prints FLAKE (passes alone), REAL (fails alone) or NOT RUN (the rerun selected no test) for each with the
 # number of kept red runs (check.* beside DIR) it failed in. Exit 1 when one is REAL (tools/check/rerun.mjs).
+# CHECK_SHARD=<i>/<n> runs part i of n of the test files: the tests step passes it to vitest as --shard, which cuts the
+# files it would run (with --changed too) into n parts that add up to all of them. ci.yml runs two on two runners. The
+# other steps do not read it, and neither does a rerun, which names its files.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -66,6 +69,10 @@ done
 for s in "${steps[@]}"; do
   [[ " ${ALL[*]} " == *" $s "* ]] || { echo "Unknown step: $s (steps: ${ALL[*]})" >&2; exit 2; }
 done
+if [[ -n ${CHECK_SHARD:-} ]]; then
+  [[ $CHECK_SHARD =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] && ((BASH_REMATCH[1] <= BASH_REMATCH[2])) ||
+    { echo "check: CHECK_SHARD is <i>/<n> with i from 1 to n, not $CHECK_SHARD" >&2; exit 2; }
+fi
 # lint and sh need no node, so the CI shell job runs them before any install
 if ((!RERUN)) && [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests "* ]]; then
   [[ -d node_modules ]] || { echo "check: node_modules is missing, run pnpm install first" >&2; exit 1; }
@@ -271,6 +278,8 @@ step_tests() {
   # --changed: vitest picks the test files that import a file changed since the base, and none is no failure
   ((!CHANGED)) || args=(--changed="$base" --passWithNoTests)
   for f in "${TOOL_DIRS[@]}"; do exclude+=(--exclude "$f**"); done
+  # one part of the test files (CHECK_SHARD): vitest cuts what it would run, so the parts add up to the whole run
+  [[ -z ${CHECK_SHARD:-} ]] || exclude+=(--shard="$CHECK_SHARD")
   declare -A want=() hit=() P=() S=() X=() N=() T0=() T1=()
   if ((STAMP_ON)); then
     for f in "${TESTFILES[@]}"; do
@@ -311,7 +320,7 @@ step_tests() {
     finish tests 1 "$(head -n 1 <<<"$out"), run failed"
     strip <"$log" | grep -v '^$' | tail -n 12 | indent
   else
-    finish tests "$rc" "$(head -n 1 <<<"$out")${from}"
+    finish tests "$rc" "$(head -n 1 <<<"$out")${CHECK_SHARD:+, shard $CHECK_SHARD}${from}"
     tail -n +2 <<<"$out"
     ((STAMP_ON && rc == 0)) || return 0
     # the parts that ran: a stamp for each one whose files all ran and all passed, with no test skipped (a skip that depends on

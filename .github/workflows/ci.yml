@@ -91,9 +91,19 @@ jobs:
           done
 
   js:
+    # two runners, each with one half of the test files (CHECK_SHARD in tools/check.sh); the types run beside the first
     if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    strategy:
+      # a red half does not cancel the other: both name their failing tests
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            steps: types tests
+          - shard: 2
+            steps: tests
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -115,7 +125,9 @@ jobs:
       # types and tests side by side, each reporting on its own: a type error still shows the failing tests
       - name: Types and tests
         id: check
-        run: bash tools/check.sh ${{ steps.scope.outputs.args }} types tests
+        env:
+          CHECK_SHARD: ${{ matrix.shard }}/2
+        run: bash tools/check.sh ${{ steps.scope.outputs.args }} ${{ matrix.steps }}
       # A red check keeps its folder (check.* under the temp folder). Every failure in it runs once more, alone, and
       # prints FLAKE (passes alone), REAL (fails alone) or NOT RUN, as `pnpm check --rerun` does on a developer's
       # machine. The job is red already and stays red whatever the lines say: they are for the one who reads the run.
@@ -131,7 +143,8 @@ jobs:
           bash tools/check.sh --rerun "${dir%/}" || echo "check: rerun ended with $? (1 a REAL, 2 no failure found, 3 a NOT RUN)"
 
   ci-ok:
-    # fails when any job failed, was cancelled or did not run. Skipped as a whole where the jobs are (the private repo).
+    # fails when any job failed, was cancelled or did not run: the result of js is success only when both of its halves
+    # are. Skipped as a whole where the jobs are (the private repo).
     if: ${{ always() && (github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch') }}
     needs: [shell, js]
     runs-on: ubuntu-24.04
