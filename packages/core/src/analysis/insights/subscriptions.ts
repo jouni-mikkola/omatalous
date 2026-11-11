@@ -10,7 +10,8 @@ import { getCategory } from "../../categories.ts";
 import { cancelledSubjects, isCancelled, isSubscription } from "../../commitments.ts";
 import { addDays, daysBetween } from "../../dates.ts";
 import { parseSeriesId, type RecurringSeries } from "../../recurring.ts";
-import { netPurchase, recurringAt } from "../context.ts";
+import type { IsoDate, UserInputs } from "../../types.ts";
+import { type AnalysisContext, type AnalysisTx, netPurchase, recurringAt } from "../context.ts";
 import { accountCovers } from "../coverage.ts";
 import { formatEur, formatFiDate } from "../format.ts";
 import { MOVE_GAP, NEW_SUBSCRIPTION_DAYS, SETTLE_DAYS, TRIAL_DAYS, TRIAL_MAX_CENTS, YEAR_HISTORY_DAYS } from "../../thresholds.ts";
@@ -19,18 +20,65 @@ import { messageIn } from "../../messages.ts";
 import { type Insight, type InsightArgs, q } from "./types.ts";
 
 
+const accountOf = (s: RecurringSeries) => parseSeriesId(s.id)?.accountId;
+
+/** A regular charge that began lately, with the small charge it followed when it was a trial that turned paid. */
+interface NewCharge {
+  series: RecurringSeries;
+  trial: AnalysisTx | null;
+}
+
+/**
+ * The new regular charges the household has not answered, one per series in the order of the series: a fixed amount
+ * once a month or less often whose first charge is at most `NEW_SUBSCRIPTION_DAYS` old, worth the gate a month, on an
+ * account that had rows before it, and not a service that moved from another card. The insight below and the queue of
+ * Tarkistettavat read this one list.
+ */
+export function newCharges(ctx: AnalysisContext, end: IsoDate, inputs: UserInputs): NewCharge[] {
+  // a new charge the household answered (Lopetettu or Käytössä) is known to them
+  const answered = answeredSubscriptions(inputs, ctx.today);
+  const now = recurringAt(ctx, end);
+  const isNew = (s: RecurringSeries) => {
+    const kind = getCategory(s.category).kind;
+    // a fixed amount once a month or less often: a weekly fixed sum is a habit, a new bill of varying amount is a
+    // cause in the spending change (Uudet kaupat)
+    return s.kind === "subscription" && s.active && !isLender(s.merchant) && MONTHLY_OR_LONGER.has(s.cadence ?? "") && (kind === "expense" || kind === "debt");
+  };
+  // the same merchant's series on another account that stopped at most MOVE_GAP intervals before this one began: the
+  // service moved to a new card and keeps its history, the third charge there only makes the series
+  const movedFrom = (s: RecurringSeries) => {
+    const account = accountOf(s);
+    return now.some(
+      (o) =>
+        o.merchant === s.merchant &&
+        o.kind === "subscription" &&
+        MONTHLY_OR_LONGER.has(o.cadence ?? "") &&
+        accountOf(o) !== account &&
+        o.lastDate < s.firstDate &&
+        daysBetween(o.lastDate, s.firstDate) <= s.intervalDays * MOVE_GAP,
+    );
+  };
+  const out: NewCharge[] = [];
+  for (const s of now) {
+    if (!isNew(s) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_SUBSCRIPTION_DAYS || !accountCovers(ctx, [accountOf(s) ?? ""], addDays(s.firstDate, -SETTLE_DAYS)) || movedFrom(s)) continue;
+    if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
+    const trial = ctx.txs.find(
+      (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,
+    );
+    out.push({ series: s, trial: trial ?? null });
+  }
+  return out;
+}
+
 export function subscriptionChanges({ ctx, end, inputs, lang }: InsightArgs): Insight[] {
   const price = (cents: number) => formatEur(cents, cents % 100 !== 0, lang);
   const cancelled = cancelledSubjects(inputs);
-  // a new charge the household answered (Lopetettu or Käytössä) is known to them
-  const answered = answeredSubscriptions(inputs, ctx.today);
   const now = recurringAt(ctx, end);
   const out: Insight[] = [];
   const told = new Set<string>();
 
   // a subscription on an account connected later has no year to compare with: it is left out of both counts
   const yearFrom = addDays(end, -YEAR_HISTORY_DAYS);
-  const accountOf = (s: RecurringSeries) => parseSeriesId(s.id)?.accountId;
   const hasYear = (s: RecurringSeries) => {
     const account = accountOf(s);
     return account !== undefined && accountCovers(ctx, [account], yearFrom);
@@ -70,32 +118,8 @@ export function subscriptionChanges({ ctx, end, inputs, lang }: InsightArgs): In
     }
   }
 
-  const isNew = (s: RecurringSeries) => {
-    const kind = getCategory(s.category).kind;
-    // a fixed amount once a month or less often: a weekly fixed sum is a habit, a new bill of varying amount is a
-    // cause in the spending change (Uudet kaupat)
-    return s.kind === "subscription" && s.active && !isLender(s.merchant) && MONTHLY_OR_LONGER.has(s.cadence ?? "") && (kind === "expense" || kind === "debt");
-  };
-  // the same merchant's series on another account that stopped at most MOVE_GAP intervals before this one began: the
-  // service moved to a new card and keeps its history, the third charge there only makes the series
-  const movedFrom = (s: RecurringSeries) => {
-    const account = accountOf(s);
-    return now.some(
-      (o) =>
-        o.merchant === s.merchant &&
-        o.kind === "subscription" &&
-        MONTHLY_OR_LONGER.has(o.cadence ?? "") &&
-        accountOf(o) !== account &&
-        o.lastDate < s.firstDate &&
-        daysBetween(o.lastDate, s.firstDate) <= s.intervalDays * MOVE_GAP,
-    );
-  };
-  for (const s of now) {
-    if (!isNew(s) || told.has(s.id) || settledBy(answerOf(answered, s), s.firstDate) || daysBetween(s.firstDate, end) > NEW_SUBSCRIPTION_DAYS || !accountCovers(ctx, [accountOf(s) ?? ""], addDays(s.firstDate, -SETTLE_DAYS)) || movedFrom(s)) continue;
-    if (s.monthlyCents < ITEM_GATE_MONTHLY_CENTS) continue;
-    const trial = ctx.txs.find(
-      (t) => t.merchant === s.merchant && t.bookingDate < s.firstDate && daysBetween(t.bookingDate, s.firstDate) <= TRIAL_DAYS && netPurchase(t) > 0 && netPurchase(t) <= TRIAL_MAX_CENTS,
-    );
+  for (const { series: s, trial } of newCharges(ctx, end, inputs)) {
+    if (told.has(s.id)) continue;
     out.push(
       insightOf({
         lang,

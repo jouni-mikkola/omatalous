@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { makeMember, removeMember, watch } from "./helpers.ts";
 
 // Ilmoitukset on Yhteenveto: the notices of the server (a sign-in from a new device), one line a row, read with Kuittaa.
-// Alerts and insights are not here any more: Huomioitavaa and Tarkistettavat have them.
+// Alerts and insights are not here any more: Tarkistettavat has them.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 const FIREFOX = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0";

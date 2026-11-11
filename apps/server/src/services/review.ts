@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, type InputKey, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, payeeGuesser, payerRoleOf, seriesMarkSubject, type StoredInput } from "@banking/core";
+import { addDays, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, type InputKey, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type StoredInput } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { proposalsFor, requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
@@ -93,9 +93,17 @@ interface PlanItem extends Base {
   lastDate: string;
 }
 
-/** A small subscription that has run for half a year with no mark: Käytössä or Lopetettu (mark on `subject`). */
+/**
+ * A regular charge to decide on, Käytössä or Lopetettu (mark on `subject`), one item a series whatever it has to say.
+ * `reason` is why it is asked: its price rose (`price`: the old and the new charge and the day of the change), it began
+ * lately (`since`: its first charge), or it is small and has run half a year with no mark (`quiet`). A series with more
+ * than one of these is asked once, by the first of them, and carries the figures of each.
+ */
 interface SubscriptionItem extends Base {
   kind: "subscription";
+  reason: "price" | "new" | "quiet";
+  price?: { fromCents: number; toCents: number; date: string };
+  since?: string;
   seriesId: string;
   subject: string;
   merchant: string;
@@ -276,12 +284,40 @@ const splits: Source = async (s, userId) => {
   return items;
 };
 
+// the price rises and new regular charges the overview's Huomioitavaa told (core `openPriceRises`, `newCharges`) and the
+// quiet small subscriptions, by series: one that is two of these is one item, so no finding is in the queue twice. The
+// money at stake is the year of the charge, or for a rise alone what the rise adds to a year.
 const subscriptions: Source = async (s, userId) => {
-  const { ctx } = await s.analysis.get(s, userId, "own");
-  const marks = marksBySubject(await s.finance(userId).listMarks());
-  return ctx.recurring
-    .filter((r) => r.review && !countingMark(marks, r, ctx.today))
-    .map((r) => ({ kind: "subscription", id: `subscription:${r.id}`, cents: r.yearlyCents, seriesId: r.id, subject: seriesMarkSubject(r), merchant: r.merchant, monthlyCents: r.monthlyCents, lastDate: r.lastDate, rowIds: r.transactionIds }));
+  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+  const [{ inputs }, stored] = await Promise.all([requestInputs(s, userId, accounts), s.finance(userId).listMarks()]);
+  const marks = marksBySubject(stored);
+  const found = new Map<string, { r: RecurringSeries; cents: number; price?: SubscriptionItem["price"]; since?: string; quiet?: true }>();
+  const of = (r: RecurringSeries, cents: number) => {
+    const f = found.get(r.id) ?? { r, cents: 0 };
+    f.cents = Math.max(f.cents, cents);
+    found.set(r.id, f);
+    return f;
+  };
+  for (const { series, yearlyCents } of openPriceRises(ctx, ctx.today, inputs)) {
+    const { fromCents, toCents, date } = series.priceChange!;
+    of(series, yearlyCents).price = { fromCents, toCents, date };
+  }
+  for (const { series } of newCharges(ctx, ctx.today, inputs)) of(series, series.yearlyCents).since = series.firstDate;
+  for (const r of ctx.recurring) if (r.review && !countingMark(marks, r, ctx.today)) of(r, r.yearlyCents).quiet = true;
+  return [...found.values()].map(({ r, cents, price, since }): Sourced => ({
+    kind: "subscription",
+    id: `subscription:${r.id}`,
+    cents,
+    reason: price ? "price" : since ? "new" : "quiet",
+    ...(price && { price }),
+    ...(since && { since }),
+    seriesId: r.id,
+    subject: seriesMarkSubject(r),
+    merchant: r.merchant,
+    monthlyCents: r.monthlyCents,
+    lastDate: r.lastDate,
+    rowIds: r.transactionIds,
+  }));
 };
 
 // the numbers Säästövinkit waits for: the page itself asks nothing

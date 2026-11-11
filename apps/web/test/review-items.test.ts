@@ -75,6 +75,17 @@ describe("the choices", () => {
     expect(f.line.replace(/\s/g, " ")).toBe("155,88 € vuodessa, viimeksi 8.10.");
   });
 
+  it("say that a price rose, with the old and the new charge, and that a charge is new, with its first day", () => {
+    const base = { kind: "subscription", id: "s", seriesId: "out:chk:Sali", subject: "series:out:chk:Sali", merchant: "Sali", lastDate: "2026-10-04" } as const;
+    const rise: ReviewItem = { ...base, cents: 12_000, monthlyCents: 11_000, reason: "price", price: { fromCents: 10_000, toCents: 11_000, date: "2026-07-04" } };
+    expect(eyebrow(rise)).toBe("Hinta nousi");
+    expect(figureOf(rise).line.replace(/\s/g, " ")).toBe("Ennen 100,00 €, 4.7. alkaen 110,00 €");
+    const fresh: ReviewItem = { ...base, cents: 23_880, monthlyCents: 1990, reason: "new", since: "2026-08-01" };
+    expect(eyebrow(fresh)).toBe("Uusi toistuva veloitus");
+    expect(figureOf(fresh).line.replace(/\s/g, " ")).toBe("238,80 € vuodessa, ensimmäinen veloitus 1.8.");
+    expect(eyebrow({ ...base, cents: 15_588, monthlyCents: 1299, reason: "quiet" })).toBe("Tilaus");
+  });
+
   it("count a plan's payments left from its latest payment, and take only a whole number from 1 to 120", () => {
     const plan: ReviewItem = { kind: "plan", id: "plan:k", cents: 59_880, key: "k", payee: "Klarna", paymentCents: 4990, lastDate: "2026-09-12" };
     expect([eyebrow(plan), questionOf(plan)]).toEqual(["Osamaksu", "Montako maksua on vielä jäljellä?"]);

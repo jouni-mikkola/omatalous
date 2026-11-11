@@ -36,8 +36,8 @@ for (const width of [320, 360, 390]) {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
     const page = await open(context);
     const seen = watch(page);
-    // three blocks in one column: each starts on the left edge of the page and none is beside another
-    const blocks = page.locator(".home-answer, .home-pace, .home-notable");
+    // the blocks in one column: each starts on the left edge of the page and none is beside another
+    const blocks = page.locator(".home-answer, .home-pace");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -46,7 +46,7 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-answer-line, .home-sum-row dt, .home-sum-row dd, .home-row, .home-note")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-answer-line, .home-sum-row dt, .home-sum-row dd, .home-row")), "text cut").toEqual([]);
     // the sum row's three figures are all inside the screen
     for (const cell of await page.locator(".home-sum-row > div").all()) {
       const box = (await cell.boundingBox())!;

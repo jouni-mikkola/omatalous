@@ -119,20 +119,7 @@ test("every euro figure of the answer and the month is one the server gives, and
   await context.close();
 });
 
-test("Huomioitavaa holds three findings at most, each with its euros a year and a place to go", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
-  const page = await open(context);
-  const notes = page.locator(".home-note");
-  expect(await notes.count()).toBeLessThanOrEqual(3);
-  for (const note of await notes.all()) {
-    await expect(note.locator(".home-note-effect")).toContainText("€");
-    await expect(note.locator(".home-note-effect")).toContainText("vuodessa");
-    await expect(note.locator("a")).toHaveAttribute("href", /^#\//);
-  }
-  await context.close();
-});
-
-test("the page ends at the findings: Varat ja velat and the old blocks are gone", async ({ browser }) => {
+test("the page ends at the month's pace: Varat ja velat and the old blocks are gone", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
   for (const gone of ["Varat ja velat", "Menot tässä kuussa", "Tulot ja menot", "Asuminen", "Luottokortit", "Miksi kuu poikkeaa"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);

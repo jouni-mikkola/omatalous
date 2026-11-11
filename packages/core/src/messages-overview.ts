@@ -67,8 +67,6 @@ export const FI_OVERVIEW = {
   "home.first_fetch": "Ensimmäinen haku on kesken",
   "home.first_fetch_text": "Pankki on yhdistetty. Luvut tarkentuvat, kun olemme hakeneet tapahtumat. Sivu päivittyy itsestään.",
   "home.how_month_goes": "Kuukausi",
-  "home.notable": "Huomioitavaa",
-  "home.notable_none": "Mikään ei vaadi sinulta toimia juuri nyt.",
   "home.daily": "{month} päivittäin",
   "home.col_day": "Päivä",
   "home.col_expected": "Tavallinen",

@@ -216,6 +216,38 @@ describe("the review queue", () => {
     expect(marks).toContainEqual(expect.objectContaining({ subject: sub!.subject, mark: "in_use" }));
   });
 
+  it("a price rise and a new regular charge are each one item, none twice, and the answer takes it away", async () => {
+    const t = await setupApp();
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+    await ingestTransactions(repo, "chk", [
+      ...MONTHS.map((m) => raw(`${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")),
+      // two charges that got dearer in July: a gym, and a small streaming service that is a quiet subscription too
+      ...MONTHS.map((m) => raw(`${m}-04`, m < "2026-07" ? -100 : -110, "KUNTOSALI ESIMERKKI", "KORTTIOSTO")),
+      ...MONTHS.map((m) => raw(`${m}-08`, m < "2026-07" ? -11.99 : -12.99, "MAX", "KORTTIOSTO")),
+      // a charge that began in August
+      ...["2026-08-01", "2026-09-01", "2026-10-01"].map((day) => raw(day, -19.9, "LEHTITALO ESIMERKKI", "KORTTIOSTO")),
+    ], "csv");
+    await reprocess(repo, t.s.settings);
+    const subs = async () => (await queue(t.admin)).filter((i) => i.kind === "subscription");
+    const first = await subs();
+    expect(first.map((i) => [i.merchant, i.reason]).sort()).toEqual([["Kuntosali Esimerkki", "price"], ["Lehtitalo Esimerkki", "new"], ["Max", "price"]]);
+    // one item a series, and no id twice in the whole queue
+    expect(new Set(first.map((i) => i.seriesId)).size).toBe(first.length);
+    const all = await ids(t.admin);
+    expect(new Set(all).size).toBe(all.length);
+    const of = (merchant: string) => first.find((i) => i.merchant === merchant)!;
+    // a rise alone is worth what it adds to a year, a new charge its year
+    expect(of("Kuntosali Esimerkki")).toMatchObject({ price: { fromCents: 10000, toCents: 11000, date: "2026-07-04" }, cents: 12000, monthlyCents: 11000 });
+    expect(of("Lehtitalo Esimerkki")).toMatchObject({ since: "2026-08-01", cents: 23880 });
+    expect(of("Lehtitalo Esimerkki").price).toBeUndefined();
+    expect(of("Max")).toMatchObject({ price: { fromCents: 1199, toCents: 1299 }, cents: 15588 });
+    // Käytössä or Lopetettu answers a finding as it answers a subscription
+    expect((await t.admin.call("PUT", "/api/marks", { subject: of("Kuntosali Esimerkki").subject, mark: "in_use" })).status).toBe(200);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: of("Lehtitalo Esimerkki").subject, mark: "cancelled" })).status).toBe(200);
+    expect((await subs()).map((i) => i.merchant)).toEqual(["Max"]);
+  });
+
   it("a number Säästövinkit waits for is asked here, and saving it as the page did takes the item away", async () => {
     const t = await household();
     const repo = t.s.finance(t.adminId);

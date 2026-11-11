@@ -65,8 +65,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.first_fetch": "The first fetch is under way",
   "home.first_fetch_text": "The bank is connected. The figures become exact once the transactions have been fetched. The page updates itself.",
   "home.how_month_goes": "Month",
-  "home.notable": "Worth noting",
-  "home.notable_none": "Nothing needs your attention right now.",
   "home.daily": "{month} by day",
   "home.col_day": "Day",
   "home.col_expected": "Expected",

@@ -16,11 +16,6 @@ export function HomeSkeleton() {
         <span className="sk-bar sk-head" />
         <span className="sk-bar sk-chart" />
       </section>
-      <section className="card home-notable" aria-hidden="true">
-        <span className="sk-bar sk-head" />
-        <span className="sk-bar sk-line" />
-        <span className="sk-bar sk-line" />
-      </section>
       <span className="sr-only">{t("load.loading")}</span>
     </div>
   );

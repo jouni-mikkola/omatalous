@@ -1,7 +1,6 @@
 import { query } from "../api.ts";
 import { MonthPace } from "../components/home/MonthPace.tsx";
 import { Answer } from "../components/home/Answer.tsx";
-import { Notable } from "../components/home/Notable.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { monthLine, updatedText } from "../components/home/texts.ts";
@@ -17,10 +16,9 @@ import "../styles/home.css";
 import { t } from "../text.ts";
 
 /**
- * Yhteenveto answers one question: do the money last to the next payday, and how much is left. Three blocks in one
- * order: the answer with its sum row (Answer), how the month goes against the expected one (MonthPace, with the way to
- * the days and categories the difference comes from), and the findings worth acting on, each with its euros a year
- * (Notable). Every figure is a field of `home` in the dashboard answer; nothing is added up here. The page always tells today and the running
+ * Yhteenveto answers one question: do the money last to the next payday, and how much is left. Two blocks in one
+ * order: the answer with its sum row (Answer) and how the month goes against the expected one (MonthPace, with the way to
+ * the days and categories the difference comes from). The findings to act on are items of Tarkistettavat. Every figure is a field of `home` in the dashboard answer; nothing is added up here. The page always tells today and the running
  * month: the questions it does not settle by itself are on Tarkistettavat.
  */
 export function Overview({
@@ -76,7 +74,6 @@ export function Overview({
         </section>
       )}
       <MonthPace data={data} reportHref={`#/reports#${THIS_MONTH_ID}`} />
-      <Notable insights={home.notable} />
     </div>
   );
 }

@@ -38,11 +38,10 @@
 }
 
 
-/* wide: the month's pace stands on the left, the findings on the right, the direction across the page below; the order in the source is the order a narrow screen reads */
+/* wide: the month's pace and the direction below it go across the page; the order in the source is the order a narrow screen reads */
 @media (min-width: 1040px) {
   .front { grid-auto-flow: dense; }
-  .front > .home-pace { grid-column: 1 / 8; }
-  .front > .home-notable { grid-column: 8 / -1; }
+  .front > .home-pace { grid-column: 1 / -1; }
   .front > .home-direction { grid-column: 1 / -1; }
   /* across the page the figures stand side by side, name over figure, so the block is one row high */
   .home-direction .home-rows { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--sp-24); border-bottom: 1px solid var(--grid); }
@@ -54,16 +53,6 @@
   .home-direction .home-more { grid-column: 2; grid-row: 1; margin: 0; }
 }
 .home-pace .chart-table, .home-pace .pace-chart { margin-top: var(--sp-12); }
-
-/* the findings: the text on the left, what each is worth a year on the right */
-.home-notes { margin: var(--sp-12) 0 0; padding: 0; list-style: none; }
-.home-note { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-12) 0; border-bottom: 1px solid var(--grid); }
-.home-note-text { display: grid; gap: var(--sp-4); min-width: 0; }
-.home-note-title { margin: 0; font-weight: var(--w-strong); }
-.home-note-action { margin: 0; }
-.home-note-effect { display: grid; justify-items: end; margin: 0; white-space: nowrap; }
-.home-note-effect .num { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: var(--w-strong); }
-.home-note-effect small { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 
 /* what the household has and owes: name and figure on a line */
 .home-rows { margin: var(--sp-12) 0 0; }
@@ -87,7 +76,6 @@
 .home-skeleton .sk-answer { inline-size: min(28rem, 100%); block-size: var(--lh-fig-l); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .home-pace { min-block-size: calc(var(--row-h-roomy) * 14); }
-.home-skeleton .home-notable { min-block-size: calc(var(--row-h-roomy) * 3); }
 .home-skeleton .home-direction { min-block-size: calc(var(--row-h-roomy) * 7); }
 @media (min-width: 1040px) {
   .home-skeleton .home-direction { min-block-size: calc(var(--row-h-roomy) * 3); }

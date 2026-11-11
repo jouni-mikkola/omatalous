@@ -10,7 +10,7 @@ import { addDays } from "../../dates.ts";
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "../../categories.ts";
 import { fold } from "../../merchant.ts";
 import { type PriceChange, priceChangeYearlyCents, type RecurringSeries } from "../../recurring.ts";
-import type { IsoDate } from "../../types.ts";
+import type { IsoDate, UserInputs } from "../../types.ts";
 import { isRent } from "../../wording.ts";
 import { type AnalysisContext, recurringAt } from "../context.ts";
 import { formatEur, formatFiDate } from "../format.ts";
@@ -79,14 +79,22 @@ export function priceRiseItems(ctx: AnalysisContext, end: IsoDate, days = 365): 
     .sort((a, b) => b.yearlyCents - a.yearlyCents || a.series.merchant.localeCompare(b.series.merchant));
 }
 
+/**
+ * The price rises the household has not answered, one per series and largest first: `priceRiseItems` without the steps
+ * that are no price (`notAPrice`) and the series marked Lopetettu, or Käytössä since the change. Empty when the rises
+ * together stay under the gate. The insight below and the queue of Tarkistettavat read this one list.
+ */
+export function openPriceRises(ctx: AnalysisContext, end: IsoDate, inputs: UserInputs): PriceRiseItem[] {
+  const answered = answeredSubscriptions(inputs, ctx.today);
+  // a cancelled one is being dropped, and one marked in use after the change is kept at its new price
+  const rises = priceRiseItems(ctx, end).filter((r) => !notAPrice(ctx, r.series) && !settledBy(answerOf(answered, r.series), r.series.priceChange!.date));
+  return rises.reduce((sum, r) => sum + r.yearlyCents, 0) < 12 * ITEM_GATE_MONTHLY_CENTS ? [] : rises;
+}
+
 export function priceRises({ ctx, end, inputs, lang }: InsightArgs): Insight[] {
   const since = addDays(end, -365);
-  const answered = answeredSubscriptions(inputs, ctx.today);
-  const rises = priceRiseItems(ctx, end)
-    // a cancelled one is being dropped, and one marked in use after the change is kept at its new price
-    .filter((r) => !notAPrice(ctx, r.series) && !settledBy(answerOf(answered, r.series), r.series.priceChange!.date))
-    .map((r) => ({ s: r.series, yearly: r.yearlyCents }));
-  if (!rises.length || rises.reduce((sum, r) => sum + r.yearly, 0) < 12 * ITEM_GATE_MONTHLY_CENTS) return [];
+  const rises = openPriceRises(ctx, end, inputs).map((r) => ({ s: r.series, yearly: r.yearlyCents }));
+  if (!rises.length) return [];
   const rows = rises.flatMap(({ s }) => s.transactionIds.slice(-2));
   if (rises.length === 1) {
     const { s, yearly } = rises[0]!;

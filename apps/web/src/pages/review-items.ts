@@ -83,8 +83,12 @@ export interface SplitItem extends Base {
   label: string;
 }
 
+/** `reason` is why the series is asked about: its price rose (`price`), it began lately (`since`) or it has run long with no answer. Absent from an older server, which sent only the last. */
 export interface SubscriptionItem extends Base {
   kind: "subscription";
+  reason?: "price" | "new" | "quiet";
+  price?: { fromCents: number; toCents: number; date: string };
+  since?: string;
   seriesId: string;
   subject: string;
   merchant: string;
@@ -219,7 +223,7 @@ export function eyebrow(item: ReviewItem): string {
     case "split":
       return t("set.ri.joint_account_account", { account: item.accountName });
     case "subscription":
-      return t("set.ri.subscription");
+      return item.reason === "price" && item.price ? t("set.ri.price_rose") : item.reason === "new" && item.since ? t("set.ri.new_charge") : t("set.ri.subscription");
     case "input":
       return t("set.ri.savings_tips");
     case "mortgage":
@@ -317,8 +321,16 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: t("set.ri.latest_payment_date_the_amount", { date: date(item.lastDate) }) };
     case "split":
       return { text: money(item.cents), unit: t("set.ri.in_total"), line: item.question === "opening" ? t("set.ri.the_account_already_had_money") : t("set.ri.money_has_come_into_the") };
-    case "subscription":
-      return { text: money(item.monthlyCents), unit: t("set.ri.a_month"), line: t("set.ri.amount_a_year_last_date", { amount: money(item.cents), date: date(item.lastDate) }) };
+    case "subscription": {
+      // a rise says the old and the new charge (its `cents` may be what the rise adds, so no year is told), a new charge its first day
+      const line =
+        item.reason === "price" && item.price
+          ? t("set.ri.before_amount_from_date_now", { before: money(item.price.fromCents), date: date(item.price.date), now: money(item.price.toCents) })
+          : item.reason === "new" && item.since
+            ? t("set.ri.amount_a_year_first_date", { amount: money(item.cents), date: date(item.since) })
+            : t("set.ri.amount_a_year_last_date", { amount: money(item.cents), date: date(item.lastDate) });
+      return { text: money(item.monthlyCents), unit: t("set.ri.a_month"), line };
+    }
     case "input": {
       const def = inputDefOf(item.key)?.def;
       const old = item.old && def ? t("set.ri.old_value", { value: valueText(def, item.old.value), date: date(item.old.asOf) }) : "";

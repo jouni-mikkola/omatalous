@@ -32,6 +32,8 @@ import { weekdays } from "./weekdays.ts";
 import type { Insight, InsightArgs, InsightInput, InsightSource } from "./types.ts";
 
 export type { Action, Comparison, EffectLine, Insight, InsightArgs, InsightEvidence, InsightFact, InsightInput, InsightLink, InsightSource, Quantity } from "./types.ts";
+export { openPriceRises } from "./prices.ts";
+export { newCharges } from "./subscriptions.ts";
 
 /** Each returns only what passed its own gate. To add a source, add one line here. */
 const SOURCES: readonly InsightSource[] = [
