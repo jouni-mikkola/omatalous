@@ -13,6 +13,7 @@ import { useApi } from "../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
 import { Frame, openQuestions } from "./reports/Frame.tsx";
+import { Month } from "./reports/Month.tsx";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./reports/registry.ts";
 import type { ReportRange } from "./reports/types.ts";
 import { FoldContext } from "../components/Section.tsx";
@@ -55,7 +56,25 @@ export function questionOf(conclusions: ConclusionsReport, asked: string | null,
   return byAnchor ?? open.find((id) => id === asked) ?? open.find((id) => id !== "kuukausi") ?? open[0] ?? QUESTIONS[0];
 }
 
-export function Reports({ meta, range, scope, params, anchor, onQuestion }: { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void }) {
+type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void };
+
+/** Kuukausi is what the tab opens: an address that names no question, period, comparison or section. The question pages stay behind their addresses. */
+const isMonth = (params: URLSearchParams | undefined, anchor: string | undefined): boolean => !anchor && !["q", "period", "compare"].some((key) => params?.has(key));
+
+export function Reports(props: ReportsProps) {
+  return isMonth(props.params, props.anchor) ? <MonthTab {...props} /> : <Questions {...props} />;
+}
+
+/** The month has no period of its own, so the shell is told the running month is open and shows no period switch. */
+function MonthTab({ meta, range, scope, onQuestion }: ReportsProps) {
+  useEffect(() => {
+    onQuestion?.("kuukausi");
+    return () => onQuestion?.(null);
+  }, [onQuestion]);
+  return <Month meta={meta} range={range} scope={scope} />;
+}
+
+function Questions({ meta, range, scope, params, anchor, onQuestion }: ReportsProps) {
   // every page's reports are asked for at once, so a switch of question needs no new answer
   const wanted = [...new Set(REPORT_PAGES.flatMap(reportsOfPage))];
   const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${query({ ...range, scope, reports: wanted.join(",") })}`);

@@ -37,6 +37,13 @@ function GapTable({ caption, first, rows, report }: { caption: string; first: st
   );
 }
 
+/** Why the month has no usual to stand against: too little history, or a linked card's purchases missing from the months before. Nothing when it has one. */
+export function GapReasonNote({ reason, className = "month-note" }: { reason: ThisMonthReport["gapReason"]; className?: string }) {
+  if (reason === "history") return <p className={className}>{t("rpt.tm_history", { months: completeMonths(MIN_COMPARE_MONTHS) })}</p>;
+  if (reason === "cards") return <p className={className}>{t("rpt.tm_cards")}</p>;
+  return null;
+}
+
 function ThisMonth({ ctx }: SectionProps) {
   const r = ctx.data.thisMonth;
   const { estimate } = r;
@@ -48,8 +55,7 @@ function ThisMonth({ ctx }: SectionProps) {
   return (
     <Section id={section.id} title={section.title} datum={estimate ? joinRange(roundedMoney(estimate.lowCents), roundedMoney(estimate.highCents)) : undefined}>
       {facts.length > 0 && <KeyValue items={facts} />}
-      {r.gapReason === "history" && <p className="month-note">{t("rpt.tm_history", { months: completeMonths(MIN_COMPARE_MONTHS) })}</p>}
-      {r.gapReason === "cards" && <p className="month-note">{t("rpt.tm_cards")}</p>}
+      <GapReasonNote reason={r.gapReason} />
       {estimate && (
         <p className="month-note">{t("rpt.tm_estimate_note")}</p>
       )}

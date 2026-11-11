@@ -28,7 +28,7 @@ for (const width of [390, 1440]) {
 }
 
 // the switch follows the question the page opened, not the address: no `q`, or a `q` with nothing to say, falls back to another one
-for (const hash of ["/#/reports", "/#/reports?q=nonexistent"]) {
+for (const hash of ["/#/reports?period=12m", "/#/reports?q=nonexistent"]) {
   test(`Raportit ${hash} hides the period switch only on the running month`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();

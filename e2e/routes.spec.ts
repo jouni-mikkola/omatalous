@@ -18,7 +18,7 @@ test("every address of the app opens its page, and an old address is rewritten t
     ["overview", /^Yhteenveto/],
     ["bills", /^Laskut/],
     ["transactions", /^Tapahtumat/],
-    ["reports", /^Raportit/],
+    ["reports", /^Kuukausi/],
     ["optimise", /^Säästövinkit/],
     ["review", /^Tarkistettavat/],
     ["settings/banks", /^Asetukset/],
@@ -46,7 +46,7 @@ test("every address of the app opens its page, and an old address is rewritten t
     ["categories?tab=rules", "#/transactions?view=merchants#saannot", /^Tapahtumat/],
     ["rules", "#/transactions?view=merchants#saannot", /^Tapahtumat/],
     ["settings?section=security", "#/settings/security#turvallisuusloki", /^Asetukset/],
-    ["overview?period=12m", "#/reports?period=12m", /^Raportit/],
+    ["overview?period=12m", "#/reports?period=12m", /^Kuukausi/],
   ] as const) {
     await page.goto("/#/reports");
     await page.goto(`/#/${old}`);
@@ -57,8 +57,8 @@ test("every address of the app opens its page, and an old address is rewritten t
   }
   // addresses of views that are gone open the page that holds their work now
   for (const [old, title, target] of [
-    ["reports?tab=havainnot", /^Raportit/, /^#\/reports/],
-    ["reports#havainnot", /^Raportit/, /^#\/reports/],
+    ["reports?tab=havainnot", /^Kuukausi/, /^#\/reports/],
+    ["reports#havainnot", /^Kuukausi/, /^#\/reports/],
     ["settings#palvelutunnukset", /^Asetukset/, /^#\/settings\/security/],
     ["settings#tilien-jakaminen", /^Asetukset/, /^#\/settings\/banks/],
     ["settings#jasenet-ilman-tunnusta", /^Asetukset/, /^#\/settings\/members/],

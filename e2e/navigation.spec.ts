@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // The header and the phone's tab bar: Asetukset in the user menu, Tarkistettavat with its word, five tabs at the foot of a
-// phone (Yhteenveto, Laskut, Tapahtumat, Raportit, Säästövinkit); Asetukset is in the user menu.
+// phone (Yhteenveto, Kuukausi, Laskut, Tapahtumat, Säästövinkit); Asetukset is in the user menu.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const TAP = 44;
 
@@ -19,7 +19,7 @@ for (const width of [390, 320]) {
     const seen = watch(page);
     await page.goto("/#/overview");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(tabs(page)).toHaveText(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
+    await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
     const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, height: r.height, right: r.right })));
     expect(boxes).toHaveLength(5);
     expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
@@ -58,7 +58,7 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(tabs(page)).toHaveText(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
+  await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
   await expect(page.locator("header.topbar").getByRole("link", { name: "Asetukset", exact: true })).toHaveCount(0);
   await page.locator(".user-menu summary").click();
   const menu = page.locator(".user-menu .menu");

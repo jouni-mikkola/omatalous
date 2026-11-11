@@ -303,7 +303,7 @@ test("with nothing of a home left Raportit shows no block, and the question wait
   }
   await page.reload();
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Raportit", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kuukausi", level: 1 })).toBeVisible();
   await expect(blockOf(page)).toHaveCount(0);
   const items = (await (await context.request.get("/api/review")).json()).items as { kind: string }[];
   expect(items.some((i) => i.kind === "mortgage")).toBe(true);

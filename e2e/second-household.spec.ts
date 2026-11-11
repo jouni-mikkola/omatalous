@@ -124,7 +124,7 @@ test("a second household at a second bank is synced, classified and reported, an
   expect(rowsOneNow.map((r) => `${r.id}|${r.category}`).sort()).toEqual(rowsBefore.map((r) => `${r.id}|${r.category}`).sort());
 
   // the pages draw from the second household's rows: each waits for a euro figure in its own frame (the nav is there before any data), and an empty-state text or an alert is a failure
-  for (const [address, frame] of [["overview", "main"], ["reports", ".q-frame"], ["reports?q=tulot", ".q-frame"], ["reports?q=menot", ".q-frame"], ["bills", "main"], ["transactions", "main"]] as const) {
+  for (const [address, frame] of [["overview", "main"], ["reports", ".km"], ["reports?q=tulot", ".q-frame"], ["reports?q=menot", ".q-frame"], ["bills", "main"], ["transactions", "main"]] as const) {
     await twoPage.goto(`/#/${address}`);
     await twoPage.reload();
     await expect(twoPage.locator(frame).first(), address).toContainText(/\d\s*€/);

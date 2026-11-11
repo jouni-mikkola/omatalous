@@ -14,9 +14,10 @@ export interface NavEntry {
 /** The questions the household asks of its money, in the order they are asked. Asetukset is not one of them. */
 export const NAV: readonly NavEntry[] = [
   { id: "overview", get label() { return t("nav.overview"); }, tab: true },
+  // Kuukausi: the month against its usual is what the tab opens; the question pages of the reports stay behind their addresses
+  { id: "reports", get label() { return t("rpt.page_thismonth"); }, tab: true },
   { id: "bills", get label() { return t("nav.bills"); }, tab: true },
   { id: "transactions", get label() { return t("nav.transactions"); }, tab: true },
-  { id: "reports", get label() { return t("nav.reports"); }, tab: true },
   { id: "optimise", get label() { return t("nav.optimise"); }, tab: true },
 ];
 

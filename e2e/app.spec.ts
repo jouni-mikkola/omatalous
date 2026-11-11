@@ -20,7 +20,7 @@ test.afterAll(() => app?.stop());
 
 const PAGES = [
   ["overview", "Yhteenveto"],
-  ["reports", "Raportit"],
+  ["reports", "Kuukausi"],
   ["optimise", "Säästövinkit"],
   ["transactions", "Tapahtumat"],
   ["bills", "Laskut"],
@@ -162,17 +162,17 @@ test("a period belongs to one page: Yhteenveto has no period, Raportit five, and
   await page.goto("/#/overview");
   await expect(page.getByRole("group", { name: "Kuukausi" })).toHaveCount(0);
   await expect(toolbar).toHaveCount(0);
-  await page.goto("/#/reports");
+  await page.goto("/#/reports?q=menot");
   await expect(toolbar.getByRole("button")).toHaveText(["3 kk", "6 kk", "12 kk", "Tämä vuosi", "Viime vuosi"]);
   await expect(pressed).toHaveText("12 kk");
 
   // the address is rewritten, so the old one is not in the history and the shown period is the one the address names
   const MOVED = [
-    ["overview?period=3m", "reports?period=3m", /^Raportit/, "3 kk"],
-    ["overview?period=6m", "reports?period=6m", /^Raportit/, "6 kk"],
-    ["overview?period=12m", "reports?period=12m", /^Raportit/, "12 kk"],
-    ["overview?period=year", "reports?period=year", /^Raportit/, "Tämä vuosi"],
-    ["overview?period=last-year", "reports?period=last-year", /^Raportit/, "Viime vuosi"],
+    ["overview?period=3m", "reports?period=3m", /^Kuukausi/, "3 kk"],
+    ["overview?period=6m", "reports?period=6m", /^Kuukausi/, "6 kk"],
+    ["overview?period=12m", "reports?period=12m", /^Kuukausi/, "12 kk"],
+    ["overview?period=year", "reports?period=year", /^Kuukausi/, "Tämä vuosi"],
+    ["overview?period=last-year", "reports?period=last-year", /^Kuukausi/, "Viime vuosi"],
     ["reports?period=month", "overview?period=month", /^Yhteenveto/, null],
     ["reports?period=last-month", "overview?period=last-month", /^Yhteenveto/, null],
   ] as const;

@@ -19,8 +19,8 @@ describe("extensionPages", () => {
 });
 
 describe("NAV", () => {
-  it("is Yhteenveto | Laskut | Tapahtumat | Raportit | Säästövinkit: no entry hides behind a flag", () => {
-    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
+  it("is Yhteenveto | Kuukausi | Laskut | Tapahtumat | Säästövinkit: no entry hides behind a flag", () => {
+    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
     expect(NAV.every((e) => !("feature" in e))).toBe(true);
   });
 
@@ -29,12 +29,12 @@ describe("NAV", () => {
     expect(SETTINGS).toEqual({ id: "settings", label: "Asetukset" });
   });
 
-  it("names its pages Yhteenveto, Laskut and Säästövinkit; the ids of the old pages, and so their addresses, stay", () => {
+  it("names its pages Yhteenveto, Kuukausi, Laskut and Säästövinkit; the ids of the old pages, and so their addresses, stay", () => {
     const label = (id: string) => NAV.find((e) => e.id === id)?.label;
     expect(label("overview")).toBe("Yhteenveto");
     expect(label("bills")).toBe("Laskut");
     expect(label("optimise")).toBe("Säästövinkit");
-    expect(label("reports")).toBe("Raportit");
+    expect(label("reports")).toBe("Kuukausi");
     expect(NAV.map((e) => e.label)).not.toContain("Toistuvat");
     expect(NAV.map((e) => e.label)).not.toContain("Yleiskatsaus");
     expect(NAV.map((e) => e.label)).not.toContain("Optimoi");
@@ -43,6 +43,6 @@ describe("NAV", () => {
 
 describe("the phone's tab bar", () => {
   it("the tab bar has the four questions and Säästövinkit: five tabs, and no Lisää", () => {
-    expect(NAV.filter((e) => e.tab).map((e) => e.label)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Säästövinkit"]);
+    expect(NAV.filter((e) => e.tab).map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tapahtumat", "Säästövinkit"]);
   });
 });

@@ -41,7 +41,7 @@ async function visit(context: BrowserContext, path: string, ready: string): Prom
 
 for (const [name, path, ready] of [
   ["Yhteenveto", "/#/overview", ".home-answer-line"],
-  ["Raportit", "/#/reports", ".q-frame"],
+  ["Kuukausi", "/#/reports", ".km"],
   ["Tapahtumat", "/#/transactions", ".tx-card"],
   ["Asetukset", "/#/settings", "h1, h2"],
 ] as const) {
