@@ -1,6 +1,6 @@
 // Decision: which days and weekdays the money goes on, and whether a big day was a one-off
 import { addDays, dayHeat, dayNumber, weekdayOf } from "@banking/core";
-import { type KeyboardEvent, type ReactNode, useId, useState } from "react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, useId, useState } from "react";
 import { dayHeading, dayMonth, mondayFirstWeekdays, money, monthTick } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { t } from "../text.ts";
@@ -8,7 +8,7 @@ import { useSelect } from "../components/table/selection.tsx";
 import { crisp } from "./draw.ts";
 import { Tip } from "./forms/parts.tsx";
 import { LiveReadout } from "./kit/Readout.tsx";
-import { type Cell, gridStep, readoutText } from "./kit/readout.ts";
+import { type CalendarStop, calendarStep, type Cell, readoutText } from "./kit/readout.ts";
 import "../styles/charts.css";
 import "../styles/calendar-heat.css";
 import { css, type Css } from "../css.ts";
@@ -65,14 +65,15 @@ export function HeatKey() {
   );
 }
 
-type At = { kind: "day"; cell: Cell } | { kind: "week" | "mean"; i: number } | null;
+type At = CalendarStop | null;
 
 /**
  * Days as a calendar: a column a week from Monday, a row a weekday, each day in core's shade against the usual spending
  * day (the heat tokens). Any day series draws: the days report of Raportit, the rows a filter of Tapahtumat leaves, the
  * days of another page. Three readings may share the grid's axes: the strip under it sums each column (`weeks`), the
- * column on the right averages each row (`weekdayAvgCents`), and the days in `top` are ringed and numbered. A day reads
- * out by pointer, tap and the arrow keys (`gridStep`), and the readout names the usual day the shade is set against.
+ * column on the right averages each row (`weekdayAvgCents`), and the days in `top` are ringed and numbered. A day, a
+ * week's sum and a weekday's average read out by pointer, tap and the arrow keys (`calendarStep`), and the readout of a
+ * day names the usual day the shade is set against.
  */
 export function CalendarHeat<T extends { date: string }>(props: {
   /** Every day of the span, oldest first, a day with no row at 0. */
@@ -159,11 +160,13 @@ export function CalendarHeat<T extends { date: string }>(props: {
   const meanX = LEFT + cols * pitch + 10;
   // cells come in column by column over 0.6 of the draw time; charts.css turns it off for a reader who asked for less motion
   const sweep = (col: number): Css => ({ "--d": `calc(var(--t-draw) * ${((col / Math.max(1, cols)) * 0.6).toFixed(3)})` });
+  // a tapped bar keeps its readout as a tapped day does: only a mouse that leaves clears it
   const hit = (kind: "week" | "mean", i: number) => ({
     onPointerEnter: () => setAt({ kind, i }),
     onPointerDown: () => setAt({ kind, i }),
-    onPointerLeave: () => setAt(null),
+    onPointerLeave: (e: PointerEvent<SVGRectElement>) => e.pointerType === "mouse" && setAt(null),
   });
+  const keysName = [t("cal.keys", { question }), weeks && t("cal.keys_weeks"), weekdayAvgCents && t("cal.keys_means")].filter(Boolean).join(" ");
   const onKey = (e: KeyboardEvent<SVGGElement>) => {
     // Enter picks the day under the readout for the table under the chart, as a click does
     if (e.key === "Enter" && scope && at?.kind === "day") {
@@ -174,10 +177,10 @@ export function CalendarHeat<T extends { date: string }>(props: {
       }
       return;
     }
-    const next = gridStep(e.key, at?.kind === "day" ? at.cell : null, cols, 7);
+    const next = calendarStep(e.key, at, cols, 7, { weeks: weeks?.length ?? 0, means: means.length });
     if (next === undefined) return;
     e.preventDefault();
-    setAt(next && { kind: "day", cell: next });
+    setAt(next);
   };
 
   const atDay = at?.kind === "day" ? byCell.get(`${at.cell.col},${at.cell.row}`) : undefined;
@@ -223,7 +226,7 @@ export function CalendarHeat<T extends { date: string }>(props: {
               {w}
             </text>
           ))}
-          <g className="calendar-grid" tabIndex={0} role="group" aria-label={t("cal.keys", { question })} onKeyDown={onKey} onFocus={() => at === null && days.length && setAt({ kind: "day", cell: cellOf(days[days.length - 1]!.date) })} onBlur={() => setAt(null)}>
+          <g className="calendar-grid" tabIndex={0} role="group" aria-label={keysName} onKeyDown={onKey} onFocus={() => days.length && setAt((was) => was ?? { kind: "day", cell: cellOf(days[days.length - 1]!.date) })} onBlur={() => setAt(null)}>
             {days.map((d, i) => {
               const { x, y } = place(d.date);
               return (
@@ -243,6 +246,52 @@ export function CalendarHeat<T extends { date: string }>(props: {
                 />
               );
             })}
+            {weeks && (
+              <>
+                {/* the strip: a column's sum under the column, the largest week named with its figure */}
+                <line className="axis-line" x1={LEFT} x2={LEFT + cols * pitch - GAP} y1={crisp(stripBase)} y2={crisp(stripBase)} />
+                {weeks.map((w, i) => {
+                  const h = weekH(w.cents);
+                  return (
+                    <g key={w.from} className={`calendar-week${i === peakWeek ? " peak" : ""}${at?.kind === "week" && at.i === i ? " active" : ""}`}>
+                      <rect className="calendar-week-hit" x={LEFT + i * pitch} y={gridBottom + 4} width={pitch} height={stripBase - gridBottom - 4} {...hit("week", i)} />
+                      {h > 0 && <path className="calendar-week-bar" ref={css(sweep(i))} fill={`url(#${grad}-week)`} d={`M${LEFT + i * pitch},${stripBase}v${-(h - 2)}q0,-2 2,-2h${cell - 4}q2,0 2,2v${h - 2}z`} />}
+                    </g>
+                  );
+                })}
+                {weeks[peakWeek] && weeks[peakWeek]!.cents > 0 && (
+                  <text className="calendar-annot" x={Math.min(LEFT + peakWeek * pitch + cell / 2, LEFT + cols * pitch - 40)} y={stripBase - weekH(weeks[peakWeek]!.cents) - 5} textAnchor="middle">
+                    {money(weeks[peakWeek]!.cents, false)}
+                  </text>
+                )}
+                <text x={0} y={stripBase - 2} className="calendar-strip-label">
+                  {t("cal.week_short")}
+                </text>
+              </>
+            )}
+            {weekdayAvgCents && (
+              <>
+                {means.map((c, i) => {
+                  const w = c ? Math.max(2, (c / widestMean) * MEAN_BAR) : 0;
+                  const y = TOP + i * pitch;
+                  return (
+                    <g key={i} className={`calendar-mean${i === peakDay ? " peak" : ""}${at?.kind === "mean" && at.i === i ? " active" : ""}`}>
+                      <rect className="calendar-week-hit" x={meanX} y={y} width={MEAN_W - 10} height={pitch} {...hit("mean", i)} />
+                      {w > 0 && <path className="calendar-mean-bar" fill={`url(#${grad}-mean)`} d={`M${meanX},${y + 2}H${meanX + w - 2}Q${meanX + w},${y + 2} ${meanX + w},${y + 4}V${y + cell - 4}Q${meanX + w},${y + cell - 2} ${meanX + w - 2},${y + cell - 2}H${meanX}Z`} />}
+                      {c !== null && (
+                        <text x={meanX + w + 5} y={y + cell - 3}>
+                          {money(c, false)}
+                        </text>
+                      )}
+                    </g>
+                  );
+                })}
+                <line className="axis-line" x1={crisp(meanX)} x2={crisp(meanX)} y1={TOP} y2={gridBottom - GAP} />
+                <text x={meanX} y={TOP - 6} className="calendar-month">
+                  {t("cal.mean_head")}
+                </text>
+              </>
+            )}
           </g>
           {top.map((d) => {
             const { x, y } = place(d.date);
@@ -257,52 +306,6 @@ export function CalendarHeat<T extends { date: string }>(props: {
               </g>
             );
           })}
-          {weeks && (
-            <>
-              {/* the strip: a column's sum under the column, the largest week named with its figure */}
-              <line className="axis-line" x1={LEFT} x2={LEFT + cols * pitch - GAP} y1={crisp(stripBase)} y2={crisp(stripBase)} />
-              {weeks.map((w, i) => {
-                const h = weekH(w.cents);
-                return (
-                  <g key={w.from} className={`calendar-week${i === peakWeek ? " peak" : ""}${at?.kind === "week" && at.i === i ? " active" : ""}`}>
-                    <rect className="calendar-week-hit" x={LEFT + i * pitch} y={gridBottom + 4} width={pitch} height={stripBase - gridBottom - 4} {...hit("week", i)} />
-                    {h > 0 && <path className="calendar-week-bar" ref={css(sweep(i))} fill={`url(#${grad}-week)`} d={`M${LEFT + i * pitch},${stripBase}v${-(h - 2)}q0,-2 2,-2h${cell - 4}q2,0 2,2v${h - 2}z`} />}
-                  </g>
-                );
-              })}
-              {weeks[peakWeek] && weeks[peakWeek]!.cents > 0 && (
-                <text className="calendar-annot" x={Math.min(LEFT + peakWeek * pitch + cell / 2, LEFT + cols * pitch - 40)} y={stripBase - weekH(weeks[peakWeek]!.cents) - 5} textAnchor="middle">
-                  {money(weeks[peakWeek]!.cents, false)}
-                </text>
-              )}
-              <text x={0} y={stripBase - 2} className="calendar-strip-label">
-                vk
-              </text>
-            </>
-          )}
-          {weekdayAvgCents && (
-            <>
-              {means.map((c, i) => {
-                const w = c ? Math.max(2, (c / widestMean) * MEAN_BAR) : 0;
-                const y = TOP + i * pitch;
-                return (
-                  <g key={i} className={`calendar-mean${i === peakDay ? " peak" : ""}${at?.kind === "mean" && at.i === i ? " active" : ""}`}>
-                    <rect className="calendar-week-hit" x={meanX} y={y} width={MEAN_W - 10} height={pitch} {...hit("mean", i)} />
-                    {w > 0 && <path className="calendar-mean-bar" fill={`url(#${grad}-mean)`} d={`M${meanX},${y + 2}H${meanX + w - 2}Q${meanX + w},${y + 2} ${meanX + w},${y + 4}V${y + cell - 4}Q${meanX + w},${y + cell - 2} ${meanX + w - 2},${y + cell - 2}H${meanX}Z`} />}
-                    {c !== null && (
-                      <text x={meanX + w + 5} y={y + cell - 3}>
-                        {money(c, false)}
-                      </text>
-                    )}
-                  </g>
-                );
-              })}
-              <line className="axis-line" x1={crisp(meanX)} x2={crisp(meanX)} y1={TOP} y2={gridBottom - GAP} />
-              <text x={meanX} y={TOP - 6} className="calendar-month">
-                {t("cal.mean_head")}
-              </text>
-            </>
-          )}
         </svg>
       )}
       {props.topNote && top.length > 0 && (

@@ -87,3 +87,35 @@ export function gridStep(key: string, at: Cell | null, cols: number, rows: numbe
   if (!at) return last;
   return clamp({ col: at.col + m.col, row: at.row + m.row });
 }
+
+/** A stop of a calendar's readout: a day, the sum under a column of weeks, or the mean beside a row of weekdays. */
+export type CalendarStop = { kind: "day"; cell: Cell } | { kind: "week" | "mean"; i: number };
+
+/**
+ * `gridStep` for a calendar with sums on its edges: of `weeks` sums under the columns and `means` beside the rows (0 for
+ * a reading the calendar does not draw). From the last row the down arrow goes to the sum of that column, from the last
+ * column the right arrow to the mean of that row. Left and right walk the sums and up goes back to the last row; up and
+ * down walk the means and left goes back to the last column. Home and End are the ends of the reading the readout is on.
+ */
+export function calendarStep(key: string, at: CalendarStop | null, cols: number, rows: number, sums: { weeks: number; means: number }, page = 4): CalendarStop | null | undefined {
+  if (cols <= 0 || rows <= 0) return undefined;
+  if (!at || at.kind === "day") {
+    const cell = at?.cell ?? null;
+    if (cell && key === "ArrowDown" && cell.row === rows - 1 && cell.col < sums.weeks) return { kind: "week", i: cell.col };
+    if (cell && key === "ArrowRight" && cell.col === cols - 1 && cell.row < sums.means) return { kind: "mean", i: cell.row };
+    const next = gridStep(key, cell, cols, rows, page);
+    return next && { kind: "day", cell: next };
+  }
+  if (key === "Escape") return null;
+  const week = at.kind === "week";
+  const n = week ? sums.weeks : sums.means;
+  const to = (i: number): CalendarStop => ({ kind: at.kind, i: Math.max(0, Math.min(n - 1, i)) });
+  // along the reading: left and right for the sums under the columns, up and down for the means beside the rows
+  const along: Record<string, number> = week ? { ArrowLeft: -1, ArrowRight: 1, PageUp: -page, PageDown: page } : { ArrowUp: -1, ArrowDown: 1 };
+  if (Object.hasOwn(along, key)) return to(at.i + along[key]!);
+  if (key === "Home") return to(0);
+  if (key === "End") return to(n - 1);
+  if (key === (week ? "ArrowUp" : "ArrowLeft")) return { kind: "day", cell: week ? { col: Math.min(at.i, cols - 1), row: rows - 1 } : { col: cols - 1, row: Math.min(at.i, rows - 1) } };
+  // the arrow that points off the calendar and the Page keys beside the rows are the chart's, and stay where they are
+  return key === "ArrowDown" || key === "ArrowRight" || key === "PageUp" || key === "PageDown" ? at : undefined;
+}
