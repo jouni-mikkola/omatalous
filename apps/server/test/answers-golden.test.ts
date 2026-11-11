@@ -10,12 +10,17 @@ import { loadKit } from "./kit-load.ts";
 /**
  * Three whole answers, stored: `GET /api/dashboard`, `GET /api/reports` (every report) and `GET /api/optimise`, for the
  * demo history and for the test kit's steady household, each in the own view and in the household view, each on its
- * own fixed day (the demo on the day of the server tests, the kit on `KIT_TODAY`). The answer of the app is compared
- * with a file byte for byte, so a figure that moves anywhere, in any module, shows as a changed line of one file.
+ * own fixed day (the demo on the day of the server tests, the kit on `KIT_TODAY`). The answer of the app in the own
+ * view is compared with a file byte for byte, so a figure that moves anywhere, in any module, shows as a changed line
+ * of one file.
  *
- * The files are `fixtures/answers/<household>/<scope>-<answer>.txt`: the answer exactly as the server wrote it, with a
+ * The files are `fixtures/answers/<household>/own-<answer>.txt`: the answer exactly as the server wrote it, with a
  * line break and one space of indent per level added outside the strings, so one value is one line and keys keep the
  * server's order.
+ *
+ * Both households have one user, so the household view is the own view and has no file of its own: the test asserts
+ * the two scopes equal, byte for byte. The one field that differs is `followUp.line` of optimise, which the household view
+ * leaves empty: that is asserted, and the rest of the answer is compared with the own view.
  *
  * To renew the files after a change that is meant to move a figure, run
  *   ANSWERS_RENEW=1 pnpm test apps/server/test/answers-golden.test.ts
@@ -120,6 +125,16 @@ describe("the three whole answers on fixed days", () => {
       const answers = await answersOf(h);
       const written: string[] = [];
       for (const [key, text] of answers) {
+        if (key.startsWith("household-")) {
+          const own = answers.get(key.replace("household-", "own-"))!;
+          if (key.endsWith("optimise")) {
+            const household = JSON.parse(text);
+            expect(household.followUp.line, `${h.name}/${key} followUp.line`).toEqual([]);
+            household.followUp.line = JSON.parse(own).followUp.line;
+            expect(JSON.stringify(household), `${h.name}/${key}`).toBe(own);
+          } else expect(text, `${h.name}/${key}`).toBe(own);
+          continue;
+        }
         const file = join(FIXTURES, h.name, `${key}.txt`);
         const shown = laidOut(text);
         if (key.endsWith("reports")) expect(Object.keys(JSON.parse(text)), key).toEqual(Object.keys(REPORTS));
