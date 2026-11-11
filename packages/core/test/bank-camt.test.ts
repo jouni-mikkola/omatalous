@@ -77,4 +77,31 @@ describe("readBankCamt", () => {
     expect(readBankCamt(file("3435.40", ENTRIES, '<!DOCTYPE x [<!ENTITY a "b">]>'))).toEqual({ error: "not_camt" });
     expect(readBankCamt(file("1000.00", []))).toEqual({ error: "no_rows" });
   });
+
+  // one row on the 5th: opening 1 000,00 + 2 500,00 = 3 500,00
+  const period = (from: string, to: string) => `<FrToDt><FrDtTm>${from}</FrDtTm><ToDtTm>${to}</ToDtTm></FrToDt>`;
+  const quiet = (frToDt: string) => file("3500.00", [ENTRIES[1]!]).replace("<Id>S1</Id>", `<Id>S1</Id>${frToDt}`);
+
+  it("gives the period the statement states, not only the days that have a row", () => {
+    expect(readBankCamt(quiet(period("2026-09-01T00:00:00", "2026-09-30T23:59:59")))).toMatchObject({ periodFrom: "2026-09-01", periodTo: "2026-09-30" });
+  });
+
+  it("gives the earliest start and the latest end over several statements of one account", () => {
+    const stmt = (xml: string) => /<Stmt>.*<\/Stmt>/.exec(xml)![0];
+    const first = quiet(period("2026-09-01T00:00:00", "2026-09-15T23:59:59"));
+    const second = stmt(quiet(period("2026-09-16T00:00:00", "2026-09-30T23:59:59")).replace("<Dt>2026-09-05</Dt>", "<Dt>2026-09-20</Dt>"));
+    const both = first.replace("</Stmt>", `</Stmt>${second}`);
+    expect(readBankCamt(both)).toMatchObject({ periodFrom: "2026-09-01", periodTo: "2026-09-30" });
+    // one statement of the two does not state its period: the row days
+    expect(readBankCamt(both.replace(/<FrToDt>.*?<\/FrToDt>/, ""))).toMatchObject({ periodFrom: "2026-09-05", periodTo: "2026-09-20" });
+  });
+
+  it("gives the row days when the stated period is absent, is no real day, ends before it starts or leaves a row outside it", () => {
+    const rowDays = { periodFrom: "2026-09-05", periodTo: "2026-09-05" };
+    expect(readBankCamt(quiet(""))).toMatchObject(rowDays);
+    expect(readBankCamt(quiet(period("2026-09-01T00:00:00", "2026-09-31T23:59:59")))).toMatchObject(rowDays);
+    expect(readBankCamt(quiet(period("2026-09-30T00:00:00", "2026-09-01T23:59:59")))).toMatchObject(rowDays);
+    expect(readBankCamt(quiet(period("2026-09-06T00:00:00", "2026-09-30T23:59:59")))).toMatchObject(rowDays);
+    expect(readBankCamt(quiet(period("2026-09-01T00:00:00", "2026-09-04T23:59:59")))).toMatchObject(rowDays);
+  });
 });

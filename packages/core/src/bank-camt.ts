@@ -95,10 +95,15 @@ function signed(n: Node): { cents: number; currency: string } | null {
   return { cents: ind === "DBIT" ? -abs : abs, currency };
 }
 
+/** The day a date or date-time text starts with, when it is a real day. */
+function dayOfText(value: string): IsoDate | null {
+  const s = value.slice(0, 10);
+  return isRealDay(s) ? s : null;
+}
+
 /** The day of a camt date: `<Dt>` or `<DtTm>`. */
 function dayOf(n: Node | undefined): IsoDate | null {
-  const s = (text(n, "Dt") || text(n, "DtTm")).slice(0, 10);
-  return isRealDay(s) ? s : null;
+  return dayOfText(text(n, "Dt") || text(n, "DtTm"));
 }
 
 function entryText(e: Node, credit: boolean): string {
@@ -123,7 +128,18 @@ export function readBankCamt(xml: string): BankCamtRead | BankCamtError {
 
   const rows: CamtRow[] = [];
   const unread: string[] = [];
+  // the earliest start and latest end the statements say they cover (`FrToDt`); `allStated` is false once one does not say it usably
+  let statedFrom: IsoDate = "";
+  let statedTo: IsoDate = "";
+  let allStated = true;
   for (const stmt of statements) {
+    const from = dayOfText(text(stmt, "FrToDt", "FrDtTm"));
+    const to = dayOfText(text(stmt, "FrToDt", "ToDtTm"));
+    if (!from || !to || to < from) allStated = false;
+    else {
+      if (!statedFrom || from < statedFrom) statedFrom = from;
+      if (!statedTo || to > statedTo) statedTo = to;
+    }
     const balance = (...codes: string[]) => kids(stmt, "Bal").find((b) => codes.includes(text(b, "Tp", "CdOrPrtry", "Cd")));
     const open = balance("OPBD", "PRCD");
     const close = balance("CLBD");
@@ -152,5 +168,9 @@ export function readBankCamt(xml: string): BankCamtRead | BankCamtError {
   }
   if (!rows.length) return { error: "no_rows" };
   const days = rows.map((r) => r.day).sort();
-  return { periodFrom: days[0]!, periodTo: days[days.length - 1]!, rows, unread };
+  const first = days[0]!;
+  const last = days[days.length - 1]!;
+  // the stated period is shown only when every statement states one and no row lies outside it; else the row days
+  if (allStated && statedFrom <= first && last <= statedTo) return { periodFrom: statedFrom, periodTo: statedTo, rows, unread };
+  return { periodFrom: first, periodTo: last, rows, unread };
 }
