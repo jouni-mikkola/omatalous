@@ -20,7 +20,15 @@ export async function resolveCredentials(s: Services, userId: string): Promise<R
   if (own) {
     const box = await s.secretBox();
     if (!box) throw new UserError("Pankkiavainta ei voi avata. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
-    return { appId: own.appId, privateKeyPem: await box.open(own.privateKeyEnc, userId), source: "user" };
+    let privateKeyPem: string;
+    try {
+      privateKeyPem = await box.open(own.privateKeyEnc, userId);
+    } catch (err) {
+      // The kind of error only, never the sealed value.
+      console.error("own bank key cannot be opened:", err instanceof Error ? err.name : "unknown error");
+      throw new UserError("Omaa pankkiavainta ei voi avata. Tallenna se uudelleen kohdassa Asetukset > Pankit ja tilit.");
+    }
+    return { appId: own.appId, privateKeyPem, source: "user" };
   }
   const shared = await instanceCredentials(s);
   return shared ? { appId: shared.appId, privateKeyPem: shared.privateKeyPem, source: "instance" } : null;
