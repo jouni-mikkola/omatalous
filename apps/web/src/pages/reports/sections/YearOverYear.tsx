@@ -26,6 +26,21 @@ export function largestRise<C extends { changeCents: number }>(categories: reado
   return categories.filter((c) => c.changeCents >= 100_00).sort((a, b) => b.changeCents - a.changeCents)[0];
 }
 
+type Compared = Pick<ReportsData["yearOverYear"], "year" | "current" | "comparedMonths" | "ytdCents">;
+
+/** The months the figures hold: "2026 tähän asti" when every month so far is in, else "touko–syyskuu 2026". */
+function spanOf(r: Compared, past: boolean): string {
+  const lastMonth = r.current.filter((v) => v !== null).length;
+  const whole = !past && r.comparedMonths.length === lastMonth;
+  return whole ? t("rpt.yoy_so_far", { year: r.year }) : t("rpt.yoy_span", { from: monthTick(r.comparedMonths[0]!), to: monthTick(r.comparedMonths[r.comparedMonths.length - 1]!), year: r.year });
+}
+
+/** The figure beside the title names the months it sums, as the sentence under the chart does; a whole past year is its number. */
+export function datumOf(r: Compared, past: boolean): string {
+  const months = past && r.comparedMonths.length === 12 ? String(r.year) : spanOf(r, past);
+  return `${t("rpt.yoy_datum", { amount: money(r.ytdCents, false) })}, ${months}`;
+}
+
 function YearOverYear({ ctx }: SectionProps) {
   // the page's answer is the year its period ends in; another year is picked here and asked for by itself
   const own = ctx.data.yearOverYear;
@@ -64,10 +79,7 @@ function YearOverYear({ ctx }: SectionProps) {
         <Empty>{note}</Empty>
       </ReportPanel>
     );
-  const lastMonth = r.current.filter((v) => v !== null).length;
-  // the months the figures hold: "2026 tähän asti" when every month so far is in, else "touko–syyskuu 2026"
-  const whole = !past && r.comparedMonths.length === lastMonth;
-  const span = whole ? t("rpt.yoy_so_far", { year: r.year }) : t("rpt.yoy_span", { from: monthTick(r.comparedMonths[0]!), to: monthTick(r.comparedMonths[r.comparedMonths.length - 1]!), year: r.year });
+  const span = spanOf(r, past);
   // fixed costs (rent, loan instalments) are left out as in Kategoriat: on one scale they flatten every other line
   const fixed = new Set((other && data ? data : ctx.data).categories.groups.flatMap((g) => g.categories).filter((c) => c.fixedShare >= 0.5).map((c) => c.category));
   const shown = r.categories.filter((c) => !fixed.has(c.category)).slice(0, SHOWN);
@@ -75,7 +87,7 @@ function YearOverYear({ ctx }: SectionProps) {
   const items: SlopeItem[] = shown.map((c) => ({ key: c.category, label: ctx.label(c.category), from: c.previousCents, to: c.currentCents, change: c.changeCents, strong: movers.has(c.category), tone: c.changeCents > 0 ? "bad" : c.changeCents < 0 ? "good" : "flat" }));
   const rose = largestRise(r.categories);
   return (
-    <ReportPanel id={section.id} title={section.title} datum={`${t("rpt.yoy_datum", { amount: money(r.ytdCents, false) })}, ${past ? r.year : t("period.year")}`} actions={picker}>
+    <ReportPanel id={section.id} title={section.title} datum={datumOf(r, past)} actions={picker}>
       <QuestionChart
         id="vuodet-slope"
         question={past ? t("rpt.yoy_chart", { previous: r.year - 1, year: r.year }) : t("rpt.yoy_question")}
