@@ -220,6 +220,23 @@ describe("the command", () => {
     expect(dirty.stdout).not.toContain("mail.fi");
   });
 
+  it("before a push: reads new files and the address git commits with, and a clean main has nothing to say", () => {
+    const dir = tempDir("privacy-");
+    git(dir, "init", "-q", "-b", "main");
+    writeFileSync(join(dir, "a.md"), "x\n");
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "one");
+    git(dir, "update-ref", "refs/remotes/origin/main", "HEAD");
+    git(dir, "config", "user.email", ["someone", "mail.fi"].join("@"));
+    const run = () => spawnSync(process.execPath, [SCAN, "--local"], { cwd: dir, encoding: "utf8" });
+    expect(run().status, run().stdout).toBe(0);
+    writeFileSync(join(dir, "new.md"), `call ${["040", "123", "4567"].join(" ")}\n`);
+    const r = run();
+    expect(r.status).toBe(1);
+    expect(r.stdout).toContain("new.md:1: phone");
+    expect(r.stdout).toContain("git config user.email (the next commit's) author or committer: identity");
+  });
+
   it("a base the clone does not hold reads the head's parent", () => {
     const dir = tempDir("privacy-");
     git(dir, "init", "-q", "-b", "main");

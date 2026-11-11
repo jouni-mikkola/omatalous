@@ -6,6 +6,8 @@
  * finding. A finding never prints the value it found in clear: the log of a public run is public too.
  *
  *   node tools/privacy/scan.mjs --ci                 the workflow's run, from BASE_SHA, HEAD_SHA, PR_TITLE, PR_BODY, PR_BRANCH
+ *   node tools/privacy/scan.mjs --local [BASE]       before a push: the commits since BASE (origin/main), the uncommitted
+ *                                                    changes and new files, and the address git commits with
  *   node tools/privacy/scan.mjs --diff BASE HEAD     the lines, paths, pictures, commit messages and addresses of BASE..HEAD
  *   node tools/privacy/scan.mjs --text NAME          stdin as one text (a pull request's title, body or branch name)
  *   node tools/privacy/scan.mjs --tree               every tracked file, whole
@@ -503,12 +505,44 @@ export function scanCi(env, lists) {
   return [...text("title", env.PR_TITLE), ...text("body", env.PR_BODY), ...text("branch name", env.PR_BRANCH), ...scanDiff(base, head, lists)];
 }
 
+/**
+ * The check before a push (`pnpm check`): the commits since BASE (default origin/main), the changes not committed yet,
+ * the new files git does not ignore, and the address git will commit with. A failed check on GitHub comes after the
+ * push, when the commits are public already; this one comes before.
+ * @param {string} base
+ * @param {Lists} lists
+ */
+export function scanLocal(base, lists) {
+  if (spawnSync("git", ["rev-parse", "--verify", "-q", `${base}^{commit}`]).status !== 0) return [];
+  const sets = hashSets(lists);
+  const from = git(["merge-base", base, "HEAD"]).trim();
+  const found = scanDiff(from, "HEAD", lists);
+  found.push(...scanAdded(addedLines(git(["diff", "--no-color", "--no-ext-diff", "--no-textconv", "-U0", "--no-renames", "--diff-filter=AM", "HEAD"])), "", lists, sets));
+  for (const file of git(["ls-files", "-z", "--others", "--exclude-standard"]).split("\0").filter(Boolean)) {
+    found.push(...scanPath(file));
+    let content;
+    try {
+      content = readFileSync(file);
+    } catch {
+      continue;
+    }
+    if (IMAGE.test(file)) found.push(...scanImage(file, content));
+    else if (!content.includes(0)) content.toString("utf8").split("\n").forEach((l, i, all) => found.push(...scanLine(l, `${file}:${i + 1}`, file, lists, sets, all[i + 1])));
+  }
+  // the address the work will be committed with, when there is work: a clean main (the release machine) has none to push
+  const work = from !== git(["rev-parse", "HEAD"]).trim() || git(["status", "--porcelain"]).trim() !== "";
+  const mail = spawnSync("git", ["config", "user.email"], { encoding: "utf8" }).stdout.trim();
+  if (work && mail) found.push(...scanIdentity(mail, mail, "git config user.email (the next commit's)"));
+  return found;
+}
+
 function main() {
   const [mode, ...args] = process.argv.slice(2);
   const lists = loadLists();
   /** @type {Finding[]} */
   let found;
   if (mode === "--ci") found = scanCi(process.env, lists);
+  else if (mode === "--local" && args.length <= 1) found = scanLocal(args[0] ?? "origin/main", lists);
   else if (mode === "--diff" && args.length === 2) found = scanDiff(/** @type {string} */ (args[0]), /** @type {string} */ (args[1]), lists);
   else if (mode === "--text" && args.length === 1) {
     const sets = hashSets(lists);
@@ -521,7 +555,7 @@ function main() {
     console.log(JSON.stringify(baseline(lists), null, 1));
     return 0;
   } else {
-    console.error("usage: scan.mjs --ci | --diff BASE HEAD | --text NAME | --tree | --history [REF] | --baseline");
+    console.error("usage: scan.mjs --ci | --local [BASE] | --diff BASE HEAD | --text NAME | --tree | --history [REF] | --baseline");
     return 2;
   }
   report(found);
