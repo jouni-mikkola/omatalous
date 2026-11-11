@@ -44,7 +44,9 @@ jobs:
         with:
           persist-credentials: false
           sparse-checkout: |
+            project.json
             scripts/lib/release.sh
+            tools/lib/project.sh
             tools/ci/promote-release.sh
           sparse-checkout-cone-mode: false
       - name: Promote the newest pre-release that has waited
