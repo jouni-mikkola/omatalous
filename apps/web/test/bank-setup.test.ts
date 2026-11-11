@@ -139,7 +139,7 @@ describe("Oma sovellus", () => {
       ["Privacy URL", "https://relay.example/talous/privacy/"],
       ["Terms URL", "https://relay.example/talous/terms/"],
     ] as const) {
-      expect(out).toContain(`<code class="copyable" title="Kopioi">${url}</code>`);
+      expect(out).toContain(`<code class="copyable" role="button" tabindex="0" title="Kopioi">${url}</code>`);
       expect(out).toContain(label);
     }
     expect(out).toContain(">Kopioi kaikki</button>");

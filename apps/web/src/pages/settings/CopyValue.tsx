@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type KeyboardEvent, useState } from "react";
 import { copyText } from "../../clipboard.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { t } from "../../text.ts";
@@ -14,12 +14,28 @@ function useCopy(text: string) {
   return { copied, copy };
 }
 
+/** The keys of a value that copies: a tab stop that Enter and Space press like a click. */
+function pressable(copy: () => void, title: string) {
+  return {
+    role: "button",
+    tabIndex: 0,
+    title,
+    onClick: copy,
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        copy();
+      }
+    },
+  } as const;
+}
+
 /** A value to paste into Enable Banking, with a button that copies it. When copying fails the text stays selectable. */
 export function CopyValue({ value, label }: { value: string; label: string }) {
   const { copied, copy } = useCopy(value);
   return (
     <>
-      <code className="copyable" onClick={copy} title="Kopioi">
+      <code className="copyable" {...pressable(copy, t("set.cv.copy"))}>
         {value}
       </code>{" "}
       <Button aria-label={`${copied ? t("set.cv.copied") : t("set.cv.copy")} ${label}`} onClick={copy}>
@@ -31,9 +47,9 @@ export function CopyValue({ value, label }: { value: string; label: string }) {
 
 /** A value of a list that one "Kopioi kaikki" button copies; a click on the value copies it alone, and the text stays selectable. */
 export function Copyable({ value }: { value: string }) {
-  const { copy } = useCopy(value);
+  const { copied, copy } = useCopy(value);
   return (
-    <code className="copyable" onClick={copy} title="Kopioi">
+    <code className="copyable" {...pressable(copy, copied ? t("set.cv.copied") : t("set.cv.copy"))}>
       {value}
     </code>
   );
