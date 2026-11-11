@@ -348,7 +348,7 @@ function AccountForm({
       {csv && (
         <label>
           <span className="field-label">{t("set.acc.balance_now")}</span>
-          <input type="text" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder="1 234,56" />
+          <input type="text" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} placeholder={eurosText(123456)} />
         </label>
       )}
       <AccountShares accountId={account.id} meta={meta} onChange={onChange} />

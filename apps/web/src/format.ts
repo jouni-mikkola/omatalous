@@ -95,15 +95,17 @@ export function signedMoney(cents: number): string {
  * null when the text is not an amount. Parsed as text so 0.1 + 0.2 never shows up.
  */
 export function parseEuros(text: string): number | null {
-  const s = text.replace(/[\s\u00a0\u202f€]/g, "").replace("−", "-").replace(",", ".");
+  const plain = text.replace(/[\s\u00a0\u202f€]/g, "").replace("−", "-");
+  // English writes "1,234.56": its commas group thousands; Finnish has a comma for the decimals
+  const s = lang === "en" ? plain.replace(/,/g, "") : plain.replace(",", ".");
   const m = /^(-?)(\d+)(?:\.(\d{1,2}))?$/.exec(s);
   if (!m) return null;
   const cents = Number(m[2]) * 100 + Number((m[3] ?? "").padEnd(2, "0"));
   return m[1] ? -cents : cents;
 }
 
-/** 12345678 as "123 456,78": the text of an amount input, with plain spaces. */
-export const eurosText = (cents: number): string => formatEur(cents).replace(/[\s\u00a0\u202f]*€$/, "").replace(/[\u00a0\u202f]/g, " ");
+/** 12345678 as "123 456,78" (in English "123,456.78"): the text of an amount input in the language, with plain spaces. */
+export const eurosText = (cents: number): string => formatEur(cents, true, lang).replace(/€/g, "").trim().replace(/[\u00a0\u202f]/g, " ");
 
 /** 325 as "3,25": the text of a rate input. */
 export const rateText = (bp: number): string => `${Math.floor(bp / 100)},${String(bp % 100).padStart(2, "0")}`;
