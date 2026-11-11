@@ -35,7 +35,7 @@ import { APP_VERSION } from "../version.ts";
 import { loadOrCreateAppSecret } from "./app-secret.ts";
 import { finishInterruptedRotation, rotateAppSecret, secretFileDiffers } from "./secret-rotate.ts";
 import { applyServerTimeouts } from "./server-timeouts.ts";
-import { SHUTDOWN_WAIT_MS, shutdown } from "./shutdown.ts";
+import { SHUTDOWN_WAIT_MS, STOP_FAULTS, STOP_SIGNALS, stopHandler } from "./shutdown.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const env = process.env;
@@ -240,21 +240,15 @@ const server = serve({ fetch: app.fetch, port, hostname: env.HOST ?? "0.0.0.0" }
 });
 applyServerTimeouts(server);
 
-let stopping = false;
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, () => {
-    if (stopping) return;
-    stopping = true;
-    console.log(`${signal}: stopping, running work gets ${SHUTDOWN_WAIT_MS / 1000} s`);
-    void shutdown({
-      stopScheduler: () => scheduler.stop(),
-      closeServer: (done) => void server.close(done),
-      closeConnections: () => (server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.(),
-      waitForInflight,
-      closeDb: () => db.close(),
-      exit: (code) => process.exit(code),
-      timeoutMs: SHUTDOWN_WAIT_MS,
-      log: (m) => console.log(m),
-    });
-  });
-}
+const stop = stopHandler({
+  stopScheduler: () => scheduler.stop(),
+  closeServer: (done) => void server.close(done),
+  closeConnections: () => (server as unknown as { closeAllConnections?: () => void }).closeAllConnections?.(),
+  waitForInflight,
+  closeDb: () => db.close(),
+  exit: (code) => process.exit(code),
+  timeoutMs: SHUTDOWN_WAIT_MS,
+  log: (m) => console.log(m),
+});
+for (const signal of STOP_SIGNALS) process.on(signal, () => stop(signal));
+for (const fault of STOP_FAULTS) process.on(fault, (err: unknown) => stop(fault, err));

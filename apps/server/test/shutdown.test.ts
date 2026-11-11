@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { shutdown } from "../src/entry/shutdown.ts";
+import { describe, expect, it, vi } from "vitest";
+import { shutdown, stopHandler } from "../src/entry/shutdown.ts";
 import { inflightCount, track, waitForInflight } from "../src/platform/inflight.ts";
 
 describe("stopping", () => {
@@ -33,6 +33,81 @@ describe("stopping", () => {
     const run = deps({ timeoutMs: 40, waitForInflight: () => new Promise<boolean>(() => {}) });
     await shutdown(run.d);
     expect(run.calls).toEqual(["scheduler", "server", expect.stringMatching(/^log stopping: work still running after/), "connections", "db", "exit 0"]);
+  });
+
+  /** Resolves when the run has called exit. */
+  const untilExit = (calls: string[]) => vi.waitFor(() => expect(calls.some((c) => c.startsWith("exit"))).toBe(true));
+
+  it("passes the exit code it is given", async () => {
+    const { calls, d } = deps();
+    await shutdown(d, 1);
+    expect(calls.at(-1)).toBe("exit 1");
+  });
+
+  it.each(["uncaughtException", "unhandledRejection"] as const)("logs one line with the error on %s and exits 1", async (event) => {
+    const { calls, d } = deps();
+    stopHandler(d)(event, new Error("the disk went away"));
+    await untilExit(calls);
+    const logs = calls.filter((c) => c.startsWith("log "));
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toContain(`${event}: Error: the disk went away`);
+    expect(logs[0]).not.toContain("\n");
+    expect(calls).toEqual([logs[0], "scheduler", "server", "connections", "db", "exit 1"]);
+  });
+
+  it("logs a rejection that is not an Error", async () => {
+    const { calls, d } = deps();
+    stopHandler(d)("unhandledRejection", "no such bank");
+    await untilExit(calls);
+    expect(calls[0]).toContain("unhandledRejection: no such bank");
+    expect(calls.at(-1)).toBe("exit 1");
+  });
+
+  it("starts no second shutdown on a second fault or a signal during the first", async () => {
+    const { calls, d } = deps();
+    const stop = stopHandler(d);
+    stop("uncaughtException", new Error("first"));
+    stop("unhandledRejection", new Error("second"));
+    stop("SIGTERM");
+    await untilExit(calls);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(calls.filter((c) => c === "scheduler")).toHaveLength(1);
+    expect(calls.filter((c) => c.startsWith("exit"))).toEqual(["exit 1"]);
+    // the later fault keeps its error in the log, the later signal says nothing
+    const logs = calls.filter((c) => c.startsWith("log "));
+    expect(logs).toHaveLength(2);
+    expect(logs[1]).toContain("unhandledRejection while stopping: Error: second");
+    expect(logs[1]).not.toContain("\n");
+  });
+
+  it("logs a fault during a signal stop and keeps the one shutdown", async () => {
+    const { calls, d } = deps();
+    const stop = stopHandler(d);
+    stop("SIGTERM");
+    stop("uncaughtException", new Error("late"));
+    await untilExit(calls);
+    expect(calls.filter((c) => c === "scheduler")).toHaveLength(1);
+    expect(calls).toContainEqual(expect.stringContaining("uncaughtException while stopping: Error: late"));
+    expect(calls.filter((c) => c.startsWith("exit"))).toEqual(["exit 0"]);
+  });
+
+  it("still exits 0 on a signal alone", async () => {
+    const { calls, d } = deps();
+    stopHandler(d)("SIGTERM");
+    await untilExit(calls);
+    expect(calls).toEqual(["log SIGTERM: stopping, running work gets 0.2 s", "scheduler", "server", "connections", "db", "exit 0"]);
+  });
+
+  it("exits 1 when the shutdown itself fails", async () => {
+    const { calls, d } = deps({
+      stopScheduler: () => {
+        throw new Error("scheduler is gone");
+      },
+    });
+    stopHandler(d)("SIGINT");
+    await untilExit(calls);
+    expect(calls.at(-2)).toContain("stopping failed: Error: scheduler is gone");
+    expect(calls.at(-1)).toBe("exit 1");
   });
 
   it("tracks background work for the wait", async () => {
