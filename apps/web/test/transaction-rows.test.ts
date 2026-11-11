@@ -68,6 +68,28 @@ describe("one control per closed transaction row", () => {
   });
 });
 
+describe("the amount cell of a row", () => {
+  // the amount cells of a list in the order they stand, each as the classes of the elements right inside it
+  const amountCells = (html: string): string[][] =>
+    [...html.slice(html.indexOf("<tbody"), html.indexOf("</tbody>")).matchAll(/<td\b[^>]*data-rt="main"[^>]*>(.*?)<\/td>/g)].map((m) => {
+      const inside: string[] = [];
+      let depth = 0;
+      for (const tag of m[1]!.matchAll(/<(\/?)(\w+)\b([^>]*)>/g)) {
+        if (tag[1]) depth--;
+        else if (depth++ === 0) inside.push(/class="([^"]*)"/.exec(tag[3]!)?.[1] ?? tag[2]!);
+      }
+      return inside;
+    });
+
+  it("is the sum and, on a joint row, the share part: nothing is drawn after them on a day of several rows", () => {
+    // a day of two rows of different sizes, one of them joint: the smaller one had the bar against the day's largest
+    const items = [row({ id: "big", amountCents: -60_000 }), row({ id: "small", amountCents: -15_000 }), row({ id: "joint", amountCents: -40_000, partCents: -20_000 }), row({ id: "in", amountCents: 5_000 })];
+    const html = renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+    expect(figures(html, "tx-amount")).toEqual([-60_000, -15_000, -20_000, 5_000]);
+    expect(amountCells(html)).toEqual([["tx-amount"], ["tx-amount"], ["tx-amount", "tx-part"], ["tx-amount in"]]);
+  });
+});
+
 describe("the part of a joint account's row", () => {
   it("is the row's plain figure, with its basis in the opened detail and the bank's amount under it", () => {
     for (const show of [phone, wide]) {

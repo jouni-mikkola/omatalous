@@ -3,7 +3,6 @@ import { type ReactNode, useSyncExternalStore } from "react";
 import { dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
 import { Why } from "../components/Why.tsx";
-import { barShare } from "../components/table/cells.ts";
 import { saveCsv, tableCsv } from "../components/table/csv.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { type Column, Table, type TableView } from "../components/table/Table.tsx";
@@ -14,7 +13,6 @@ import { CategoryLabel, CategoryMenu, SharedCategory } from "./transactions/Cate
 import { AccountMark, type AccountLook } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
 import { RowMenu } from "./transactions/RowMenu.tsx";
-import { css } from "../css.ts";
 // The rows of Tapahtumat: the shared table with a group for each day. A row says who, which account, which category and
 // how much, and its one control is the chevron: it opens the row, which holds the row's one menu
 // (the category and whether it becomes a rule, the payee's rows, the card bill's statement, whose share it is) and the payee's twelve months. The page, its filters and its saving are in Transactions.tsx.
@@ -231,17 +229,13 @@ export function DaySums({ sum }: { sum: DaySum | undefined }) {
   );
 }
 
-/** The day's largest listed amount, own transfers left out: the length the bars of its rows are drawn against. */
-const dayMax = (items: ListedRow[]): number => (items.length > 1 ? Math.max(0, ...items.filter((t) => !t.isTransfer).map((t) => Math.abs(shownCents(t)))) : 0);
-
 /**
  * The list: a day is a group, its row says the day, how many rows it has in the filter and what they add up to (the
- * server's), and the bars of its amounts are drawn against its largest. The rows stay newest first as the server sends
- * them. The toolbar's grouping puts the same rows under their payee instead. An opened row shows its payee's twelve months under it.
+ * server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
+ * server sends them. The toolbar's grouping puts the same rows under their payee instead. An opened row shows its payee's twelve months under it.
  */
 export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
   const days = byDay(items);
-  const maxOf = new Map(days.flatMap((d) => d.items.map((t) => [t.id, dayMax(d.items)] as const)));
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
@@ -253,20 +247,12 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
       kind: "money",
       main: true,
       csv: (t) => shownCents(t) / 100,
-      cell: (t) => {
-        const share = !t.isTransfer && maxOf.get(t.id) ? barShare(Math.abs(shownCents(t)), maxOf.get(t.id)!) : 0;
-        return (
-          <>
-            <Amount t={t} />
-            <Part t={t} />
-            {share > 0 && (
-              <span className={`tx-bar${t.amountCents > 0 ? " in" : ""}`} aria-hidden="true">
-                <span ref={css({ "inline-size": `${(share * 100).toFixed(1)}%` })} />
-              </span>
-            )}
-          </>
-        );
-      },
+      cell: (t) => (
+        <>
+          <Amount t={t} />
+          <Part t={t} />
+        </>
+      ),
     },
   ];
   const caption = msg("row.transactions");
