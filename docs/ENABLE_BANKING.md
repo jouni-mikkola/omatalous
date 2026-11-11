@@ -135,7 +135,7 @@ interface yet (checked 2026-10-12). That card does not show up under *Linked acc
   press *Hae nyt*. No new connection is needed.
 - After a link the button *Yhdistä pankki* reads *Yhdistä toinen pankki*, so a household with two banks, or
   with Nordea and one account at a time, goes on without starting over. The wizard ends on the same page.
-- *Tyhjennä kaikki tiedot* under *Asetukset > Palvelin ja ylläpito > Ylläpito* ends every bank consent at the bank. A restore of the copy it
+- *Tyhjennä kaikki tiedot* under *Asetukset > Palvelin > Ylläpito* ends every bank consent at the bank. A restore of the copy it
   made first brings the rows back and not the consents, so connect each bank again with *Yhdistä pankki*.
 - After a link the server log has one line per account: `bank link <bank id>: cash_account_type=... credit_limit=...
   balance_types=...`. It holds codes and yes or no only, no account number, name or amount. It shows what a bank sends.
@@ -147,7 +147,7 @@ whose rows began about 30 days before the link, while 72 card bills older than t
 app's window was not the cause. These are the steps of the first fetch, in `connectors/enable-banking/connector.ts`:
 
 1. The longest history (`strategy=longest`) from `HISTORY_DAYS` ago, 730 days unless the stored
-   history setting says otherwise. *Asetukset > Palvelin ja ylläpito* no longer offers it, and `HISTORY_DAYS` in `.env` seeds it on a new install.
+   history setting says otherwise. *Asetukset > Palvelin* no longer offers it, and `HISTORY_DAYS` in `.env` seeds it on a new install.
 2. If the bank answers 400 or 422, the same account from 360 days ago, then from 89 days ago. Nordea refused a card's
    first request of two years with 400 when the cards were first linked (2026-10-11), so the app takes 12 months as
    the most one card request may span. 89 days is the most a bank may give without a fresh consent, as the public API describes it.
@@ -170,7 +170,7 @@ card's rows only from about a month before the link. Public documentation does n
 (Nordea's card documentation describes what a token may read, and Enable Banking's `longest` strategy is a search
 that returns the rows from the earliest day it found), so the number is the bank's answer, not a limit this page can
 quote. Earlier versions asked for nothing more after the first fetch, and the record of the account said the longest
-history had been asked from two years back, which the card-bill signal under *Asetukset > Tiedot >
+history had been asked from two years back, which the card-bill signal under *Asetukset > Pankit ja tilit >
 Tietojen laatu* reads as "the bank gives no older rows" (`before_history`). For this card that reading is right
 for the answers the bank has given so far.
 
@@ -199,7 +199,7 @@ unattended call:
 - Only *Hae nyt* walks. Each window is a call to the bank, noted `backfill-bare` in `account_fetch` and counted with the
   other unattended calls of the account (`bank-limit.ts`). A window is made only while the account has room by the rule
   of an open without headers: fewer than four calls in the last 24 hours, and fewer than four less the sync hours made
-  by hand, which leaves the scheduled fetches of the day their share. With the default sync hours (6 and 18, chosen as *Hakuja päivässä* in *Asetukset > Palvelin ja ylläpito > Palvelin*) that is
+  by hand, which leaves the scheduled fetches of the day their share. With the default sync hours (6 and 18, chosen as *Hakuja päivässä* in *Asetukset > Palvelin > Palvelin*) that is
   one window a day for each account, after the fetch of the press itself.
 - The walk is not given up when the day is full. The days asked for are recorded, so the next *Hae nyt* goes on from
   where the last stopped, and the month's rest is noted only when the walk is over (the reach of five years, a bank's
