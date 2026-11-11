@@ -77,6 +77,77 @@ describe("report CSV without a complete month", () => {
   });
 });
 
+describe("the report files in the member's language", () => {
+  const url = (report: string) => `/api/export/report.csv?report=${report}&from=2026-01-01&to=2026-10-09`;
+  const MONTHS = "2026-01;2026-02;2026-03;2026-04;2026-05;2026-06;2026-07;2026-08;2026-09;2026-10";
+  const FI = {
+    pivot: { file: "kuukausitaulukko_", heading: `Kategoria;Ryhmä;${MONTHS};Yhteensä €;Keskiarvo €` },
+    categories: { file: "kategoriat_", heading: "Ryhmä;Kategoria;Yhteensä €;Osuus %;Ostoja;Keskiostos €;Keskimäärin kuussa €;Pienin kuukausi €;Suurin kuukausi €;Edellinen jakso €;Muutos 3 kuukaudessa %" },
+    cashflow: { file: "kassavirta_", heading: "Kuukausi;Tulot €;Kulutus €;Velanhoito €;Säästöön €;Luotonnostot €;Erotus €;Säästöaste %;Tulos €" },
+  };
+  const EN = {
+    pivot: { file: "month-table_", heading: `Category;Group;${MONTHS};Total €;Average €` },
+    categories: { file: "categories_", heading: "Group;Category;Total €;Share %;Purchases;Average purchase €;Average per month €;Lowest month €;Highest month €;Previous period €;Change in 3 months %" },
+    cashflow: { file: "cashflow_", heading: "Month;Income €;Consumption €;Debt service €;To savings €;Credit drawn €;Difference €;Savings rate %;Result €" },
+  };
+  const KINDS = ["pivot", "categories", "cashflow"] as const;
+  const lines = (body: string) => body.replace(/^﻿/, "").split("\r\n").filter(Boolean);
+  const cells = (body: string) => lines(body).map((line) => line.split(";"));
+  const fileOf = (r: { res: Response }) => r.res.headers.get("content-disposition");
+
+  it("is Finnish for a member who reads Finnish: the headings, the names, the sum row and the file names as before", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    for (const kind of KINDS) {
+      const r = await admin.call("GET", url(kind));
+      expect(fileOf(r)).toBe(`attachment; filename="${FI[kind].file}2026-01-01_2026-10-09.csv"`);
+      expect(lines(r.body)[0]).toBe(FI[kind].heading);
+    }
+    const pivot = cells((await admin.call("GET", url("pivot"))).body);
+    expect(pivot.some((row) => row[0] === "Ruokakauppa" && row[1] === "Ruoka")).toBe(true);
+    expect(pivot.at(-1)!.slice(0, 2)).toEqual(["Yhteensä", ""]);
+    const categories = cells((await admin.call("GET", url("categories"))).body);
+    expect(categories.some((row) => row[0] === "Ruoka" && row[1] === "Ruokakauppa")).toBe(true);
+  });
+
+  it("is English for a member who reads English: the headings, the names, the sum row and the file names", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    const fi = Object.fromEntries(await Promise.all(KINDS.map(async (kind) => [kind, cells((await admin.call("GET", url(kind))).body)] as const)));
+    await admin.call("PUT", "/api/language", { language: "en" });
+    const en: Record<string, string[][]> = {};
+    for (const kind of KINDS) {
+      const r = await admin.call("GET", url(kind));
+      expect(fileOf(r)).toBe(`attachment; filename="${EN[kind].file}2026-01-01_2026-10-09.csv"`);
+      expect(lines(r.body)[0]).toBe(EN[kind].heading);
+      en[kind] = cells(r.body);
+      // the same rows in the same order as the Finnish file
+      expect(en[kind]!.length).toBe(fi[kind]!.length);
+    }
+    // no heading cell is left in Finnish; a month is the same cell in both files
+    for (const kind of KINDS) for (const cell of en[kind]![0]!) expect(FI[kind].heading.split(";").filter((c) => !/^\d{4}-\d{2}$/.test(c))).not.toContain(cell);
+
+    // the month table: English names, the numbers of the Finnish file, the sum row "Total"
+    const pivot = en.pivot!;
+    expect(pivot.some((row) => row[0] === "Groceries" && row[1] === "Food")).toBe(true);
+    expect(pivot.at(-1)!.slice(0, 2)).toEqual(["Total", ""]);
+    for (const [i, row] of pivot.slice(1).entries()) expect(row.slice(2)).toEqual(fi.pivot![i + 1]!.slice(2));
+    const same = (table: string[][], before: string[][], col: number) => [...new Set(table.slice(1).filter((row, i) => row[col] !== "" && row[col] === before[i + 1]![col]).map((row) => row[col]))];
+    expect(same(pivot.slice(0, -1), fi.pivot!, 0)).toEqual([]);
+    expect(same(pivot.slice(0, -1), fi.pivot!, 1)).toEqual([]);
+
+    // the categories: every group and category of the example data has an English name, the numbers are the same
+    const categories = en.categories!;
+    expect(categories.some((row) => row[0] === "Food" && row[1] === "Groceries")).toBe(true);
+    expect(same(categories, fi.categories!, 0)).toEqual([]);
+    expect(same(categories, fi.categories!, 1)).toEqual([]);
+    for (const [i, row] of categories.slice(1).entries()) expect(row.slice(2)).toEqual(fi.categories![i + 1]!.slice(2));
+
+    // the cash flow has only numbers under its headings: they are the Finnish file's
+    expect(en.cashflow!.slice(1)).toEqual(fi.cashflow!.slice(1));
+  });
+});
+
 describe("the rows file in the member's language", () => {
   const url = "/api/export/transactions.csv?from=2026-01-01&to=2026-10-09";
   const FI_HEADING = ["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Lähde", "Siirto"];

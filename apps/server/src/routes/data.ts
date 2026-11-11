@@ -12,7 +12,7 @@ import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
 import { categoriesIn } from "../services/category-names.ts";
-import { csvWords } from "../platform/csv-words.ts";
+import { csvWords, reportWords } from "../platform/csv-words.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { body, cents, csv, csvBody, csvResponse, parseRange, requestInfo } from "./shared.ts";
 
@@ -113,10 +113,13 @@ export function dataRoutes(s: Services) {
     const range = parseRange(c, s.today());
     const { ctx, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, user.id, accounts);
-    const reports = buildReports({ ctx, range, balances, inputs });
+    // the headings, the sum row and the file names are in the member's language (`platform/csv-words.ts`); the reports name the categories and the groups in it
+    const lang = user.language;
+    const words = reportWords(lang);
+    const reports = buildReports({ ctx, range, balances, inputs, lang });
     if (kind === "categories") {
       const rows = [
-        ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Ostoja", "Keskiostos €", "Keskimäärin kuussa €", "Pienin kuukausi €", "Suurin kuukausi €", "Edellinen jakso €", "Muutos 3 kuukaudessa %"],
+        [...words.categories],
         ...reports.categories.groups.flatMap((g) =>
           g.categories.map((x) => [
             g.group, x.label, cents(x.totalCents), Math.round(x.share * 1000) / 10, x.count, cents(x.avgTxCents), centsOrEmpty(x.monthlyAvgCents),
@@ -124,22 +127,22 @@ export function dataRoutes(s: Services) {
           ]),
         ),
       ];
-      return csvResponse(c, `kategoriat_${range.from}_${range.to}.csv`, csv(rows));
+      return csvResponse(c, `${words.fileNames.categories}${range.from}_${range.to}.csv`, csv(rows));
     }
     if (kind === "cashflow") {
       const rows = [
-        ["Kuukausi", "Tulot €", "Kulutus €", "Velanhoito €", "Säästöön €", "Luotonnostot €", "Erotus €", "Säästöaste %", "Tulos €"],
+        [...words.cashflow],
         ...cashflowReport(ctx, range, balances).rows.map((r) => [r.month, cents(r.incomeCents), cents(r.consumptionCents), cents(r.debtCents), cents(r.savedCents), cents(r.borrowedCents), cents(r.netCents), r.savingsRate === null ? null : Math.round(r.savingsRate * 100), cents(r.leftCents)]),
       ];
-      return csvResponse(c, `kassavirta_${range.from}_${range.to}.csv`, csv(rows));
+      return csvResponse(c, `${words.fileNames.cashflow}${range.from}_${range.to}.csv`, csv(rows));
     }
-    const p = pivotReport(ctx, range);
+    const p = pivotReport(ctx, range, lang);
     const rows = [
-      ["Kategoria", "Ryhmä", ...p.months, "Yhteensä €", "Keskiarvo €"],
+      [...words.pivotStart, ...p.months, ...words.pivotEnd],
       ...p.rows.map((r) => [r.label, r.group, ...r.values.map(cents), cents(r.totalCents), centsOrEmpty(r.averageCents)]),
-      ["Yhteensä", "", ...p.monthTotals.map(cents), cents(p.totalCents), ""],
+      [words.sum, "", ...p.monthTotals.map(cents), cents(p.totalCents), ""],
     ];
-    return csvResponse(c, `kuukausitaulukko_${range.from}_${range.to}.csv`, csv(rows));
+    return csvResponse(c, `${words.fileNames.pivot}${range.from}_${range.to}.csv`, csv(rows));
   });
 
   // the history is one of an allowlist, never a number from the browser

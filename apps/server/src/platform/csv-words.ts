@@ -42,3 +42,45 @@ const WORDS: Record<Language, CsvWords> = {
 export function csvWords(lang: Language): CsvWords {
   return WORDS[lang];
 }
+
+/**
+ * The words of the three report files (`GET /api/export/report.csv`) in both languages: the three heading rows, the
+ * sum row of the month table and the starts of the three file names. The category and the group names are not here:
+ * the reports give them in the language they are built with. The Finnish lines are the bytes the files have always had.
+ * Decision: a member who reads English gets report files whose every heading and name is English.
+ */
+type ReportWords = {
+  /** The month table: its heading row is `pivotStart`, one cell per month, then `pivotEnd`. */
+  pivotStart: readonly string[];
+  pivotEnd: readonly string[];
+  /** The first cell of the last row of the month table, the sums of the months. */
+  sum: string;
+  /** The heading rows of the other two files, one cell per column, in the order the route writes the cells of a row. */
+  categories: readonly string[];
+  cashflow: readonly string[];
+  /** The start of each file name, before the two dates of the range. */
+  fileNames: Readonly<Record<"pivot" | "categories" | "cashflow", string>>;
+};
+
+const REPORT_WORDS: Record<Language, ReportWords> = {
+  fi: {
+    pivotStart: ["Kategoria", "Ryhmä"],
+    pivotEnd: ["Yhteensä €", "Keskiarvo €"],
+    sum: "Yhteensä",
+    categories: ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Ostoja", "Keskiostos €", "Keskimäärin kuussa €", "Pienin kuukausi €", "Suurin kuukausi €", "Edellinen jakso €", "Muutos 3 kuukaudessa %"],
+    cashflow: ["Kuukausi", "Tulot €", "Kulutus €", "Velanhoito €", "Säästöön €", "Luotonnostot €", "Erotus €", "Säästöaste %", "Tulos €"],
+    fileNames: { pivot: "kuukausitaulukko_", categories: "kategoriat_", cashflow: "kassavirta_" },
+  },
+  en: {
+    pivotStart: ["Category", "Group"],
+    pivotEnd: ["Total €", "Average €"],
+    sum: "Total",
+    categories: ["Group", "Category", "Total €", "Share %", "Purchases", "Average purchase €", "Average per month €", "Lowest month €", "Highest month €", "Previous period €", "Change in 3 months %"],
+    cashflow: ["Month", "Income €", "Consumption €", "Debt service €", "To savings €", "Credit drawn €", "Difference €", "Savings rate %", "Result €"],
+    fileNames: { pivot: "month-table_", categories: "categories_", cashflow: "cashflow_" },
+  },
+};
+
+export function reportWords(lang: Language): ReportWords {
+  return REPORT_WORDS[lang];
+}
