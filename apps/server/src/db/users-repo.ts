@@ -186,8 +186,8 @@ export class UsersRepo {
     return (await this.db.run("DELETE FROM sessions")).changes;
   }
 
-  async deleteExpiredSessions(): Promise<void> {
-    await this.db.run("DELETE FROM sessions WHERE expires_at < ?", [new Date().toISOString()]);
+  async deleteExpiredSessions(at: Date = new Date()): Promise<void> {
+    await this.db.run("DELETE FROM sessions WHERE expires_at < ?", [at.toISOString()]);
   }
 
   // ── a user's own Enable Banking application ─────────────

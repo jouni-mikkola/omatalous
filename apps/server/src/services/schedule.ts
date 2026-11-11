@@ -116,7 +116,7 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     console.error("price index failed:", err);
   }
 
-  await s.users.deleteExpiredSessions();
+  await s.users.deleteExpiredSessions(s.now());
   await pruneEvents(s);
   await expireStale(s); // a queued request nobody collected (no helper at all) ends as expired
   try {

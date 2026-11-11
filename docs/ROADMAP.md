@@ -14,6 +14,11 @@ already make. Done steps live in git history: a step's id is in its commit subje
 - Audit moves 9 (the English UI), 11 (remote access as a guide), 12 (maintenance kept to update and rollback) and the
   statement half of 25 (reading pictures) wait for the owner's decision and are not steps.
 
+## Coming releases
+
+No release after 1.0.0 has a version yet: the steps below ship in the release that follows the last of them. A release
+named here moves out of this section when it ships.
+
 ## Now
 
 
