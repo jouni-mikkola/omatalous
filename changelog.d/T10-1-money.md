@@ -1,0 +1,15 @@
+section: Money and reports
+- Kuukausi näyttää kuun menot tavalliseen kuukauteen verrattuna, ja siinä pääsee edelliseen kuukauteen.
+- Lisää (käyttäjävalikossa) kokoaa raportit Vuosi, Tilit ja saldot, Lainat, Verovuosi ja yhteisen tilin Yhteiset.
+- Vuosi-raportissa voi valita vuoden.
+- Säästövinkit-sivu poistui. Havainnot näkyvät Tarkistettavissa.
+- Laskun, jonka sovellus luuli toistuvaksi, voi merkitä vääräksi. Se poistuu tulevista laskuista ja summista.
+- Odotettuun kuukauteen lasketaan myös itse lisätyt laskut.
+- Ylimääräiseksi palkaksi lasketaan vain se osa, joka ylittää tavallisen palkan.
+- Kuun viimeisenä päivänä maksettava palkka pysyy kuun lopussa, ja siirtynyt palkkapäivä osuu oikeaan kuukauteen.
+- Kun palkkapäivä ei ole tiedossa, Nyt kertoo, milloin se selviää.
+- Sopimuksen päättymisen palautus vähentää sopimuksen kuluja. Ostoksia suurempi palautus on tuloa.
+- Uusi tulo jaetaan vain niille kuukausille, joina sitä on tullut.
+- Arkikulutus päivässä lasketaan todellisista riveistä, eikä suurin ostos ole vuokra tai tilaus.
+- Vastaukset näyttävät summat täysinä euroina ja vuoden sisäiset päivät lyhyinä.
+- Tavallista suurempi kulutus ei ole punainen. Punainen on vain ongelmille.
