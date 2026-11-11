@@ -28,7 +28,7 @@ import { logLookup } from "../services/industry.ts";
 import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
 import { staticFiles } from "../static-files.ts";
 import { findSignersFile } from "../modules/bundle.ts";
-import { loadInstalledModule, type ModuleRuntime, type StartState } from "../modules/load.ts";
+import { loadInstalledModule, type ModuleRuntime, openWithModule, type StartState } from "../modules/load.ts";
 import { moduleBase } from "../routes/module-files.ts";
 import { recheckModule } from "../services/modules.ts";
 import { hourlyTick } from "../services/schedule.ts";
@@ -129,8 +129,14 @@ const gate = process.argv.length > 2 ? null : gateDatabase(dbPath, new Date(), e
 for (const line of gate?.lines ?? []) console.error(line);
 
 let opened: Awaited<ReturnType<typeof openDatabase>>;
+/** The error of the module's migration that left it out at this start, for the security log. */
+let moduleDropped: string | null = null;
 try {
-  opened = await openDatabase(dbPath, env.MIGRATIONS_DIR || undefined);
+  const withModule = await openWithModule(moduleStart, () => openDatabase(dbPath, env.MIGRATIONS_DIR || undefined));
+  opened = withModule.opened;
+  moduleDropped = withModule.dropped;
+  modules.start = withModule.start;
+  if (withModule.start.state === "refused") console.error(`add-on module ${withModule.start.id} ${withModule.start.version} left out: ${moduleDropped}; running without it`);
 } catch (err) {
   // a clear message instead of a stack trace; the container restarts and update.sh offers a rollback
   console.error(err instanceof MigrationError ? `Could not open the database. ${err.message}` : err);
@@ -198,10 +204,14 @@ async function reportGate(): Promise<void> {
 }
 // a damaged database may refuse the read or the write: the start goes on
 await reportGate().catch((err) => console.error("recording what the database check did failed:", err));
+if (moduleDropped && modules.start.state === "refused") {
+  const { id, version } = modules.start;
+  await recordEvent(s, { kind: "module_refused", userId: null, detail: `${id} ${version}: a migration failed at start` }).catch((err) => console.error("recording the module's failed migration failed:", err));
+}
 
 const staticDir = env.STATIC_DIR ?? [resolve(here, "../public"), resolve(here, "../../web/dist")].find((p) => existsSync(p));
 if (staticDir) {
-  staticFiles(app, staticDir, moduleStart.state === "connected" ? `<meta name="omatalous-module" content="${moduleBase(moduleStart.id, moduleStart.version)}">` : undefined);
+  staticFiles(app, staticDir, modules.start.state === "connected" ? `<meta name="omatalous-module" content="${moduleBase(modules.start.id, modules.start.version)}">` : undefined);
 } else {
   console.warn("web UI build not found (pnpm build), serving the API only");
 }

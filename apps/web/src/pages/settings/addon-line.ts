@@ -9,9 +9,10 @@ export type AddOnView =
   | { state: "refused"; reason: string }
   | { state: "checking" };
 
-/** The server's reason is English for its log; the card says which of four things went wrong. */
+/** The server's reason is English for its log; the card says which of five things went wrong. */
 function whyText(reason: string): string {
   if (/signature|signer/.test(reason)) return t("set.addon.why_signature");
+  if (/migration of the module failed at start/.test(reason)) return t("set.addon.why_migration");
   if (/code does not open/.test(reason)) return t("set.addon.why_code");
   if (/release service|redirect|https|list of releases|too large$/.test(reason)) return t("set.addon.why_fetch");
   return t("set.addon.why_content");

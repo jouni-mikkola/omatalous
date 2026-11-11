@@ -25,4 +25,5 @@ export const FI_SET_ADDON = {
   "set.addon.why_fetch": "julkaisua ei saatu haettua",
   "set.addon.why_code": "koodi ei avaa julkaisuja",
   "set.addon.why_content": "paketin sisältö ei kelpaa",
+  "set.addon.why_migration": "lisäosan tietokantamuutos epäonnistui, joten palvelin käynnistyi ilman sitä",
 } as const;

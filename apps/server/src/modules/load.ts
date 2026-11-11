@@ -6,6 +6,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { MigrationError } from "../db/migrate.ts";
 import { EXTENSIONS } from "../extensions.ts";
 import { BundleRefused, checkBundle, NotForThisVersion } from "./bundle.ts";
 import { HOST_KEY, moduleHost } from "./host.ts";
@@ -23,6 +24,26 @@ export interface ModuleRuntime {
   root: string;
   signersFile: string | null;
   start: StartState;
+}
+
+/** The reason of a module left out because one of its migrations failed; the status line in Asetukset reads it. */
+export const MIGRATION_FAILED = "a migration of the module failed at start";
+
+/**
+ * Opens the database with the module's migrations, and again without the module when one of its own files fails, so a
+ * broken release does not stop the app in a restart loop. The start state then says why, and `dropped` is the error
+ * for the log. A failing shared migration stops the start as before. The next start tries the module again.
+ */
+export async function openWithModule<T>(start: StartState, open: () => Promise<T>): Promise<{ opened: T; start: StartState; dropped: string | null }> {
+  try {
+    return { opened: await open(), start, dropped: null };
+  } catch (err) {
+    const entry = start.state === "connected" ? EXTENSIONS.find((e) => e.id === start.id) : undefined;
+    const file = err instanceof MigrationError ? err.migration : undefined;
+    if (start.state !== "connected" || !entry?.migrationsDir || !file || !existsSync(join(entry.migrationsDir, file))) throw err;
+    EXTENSIONS.splice(EXTENSIONS.indexOf(entry), 1);
+    return { opened: await open(), start: { state: "refused", id: start.id, version: start.version, reason: MIGRATION_FAILED }, dropped: (err as Error).message };
+  }
 }
 
 export async function loadInstalledModule(opts: { root: string; signersFile: string | null; appVersion: string }): Promise<StartState> {

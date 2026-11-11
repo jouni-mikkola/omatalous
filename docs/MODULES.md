@@ -112,7 +112,9 @@ never in the code, the bundle, the environment or the database.
    the manifest's host range against the running version, extracts the tar afresh into
    `<DATA_DIR>/modules/<id>/<version>/files/`, imports `server.mjs` and calls its `register(host)`. Then the database
    opens with the module's migrations beside the shared ones. Any failure leaves the module out: the app starts without
-   it and the status says why in one line.
+   it and the status says why in one line. A migration of the module that fails (`openWithModule` in
+   `modules/load.ts`) leaves it out too: the database opens again without the module's files, the security log gets a
+   `module_refused` event and the next start tries the module again. A failing shared migration stops the start as before.
 4. **Remove** (`DELETE /api/modules/code`): deletes the sealed code and `<DATA_DIR>/modules/`. The module's tables and
    its version floor stay.
    Its migrations are additive with a compat floor (`-- migrate: compat X.Y.Z`), so the app opens that database

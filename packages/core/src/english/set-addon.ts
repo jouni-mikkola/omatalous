@@ -23,4 +23,5 @@ export const EN_SET_ADDON: Record<keyof typeof FI_SET_ADDON, string> = {
   "set.addon.why_fetch": "the release could not be fetched",
   "set.addon.why_code": "the code does not open the releases",
   "set.addon.why_content": "the package content is not valid",
+  "set.addon.why_migration": "the add-on's database change failed, so the server started without it",
 };

@@ -13,6 +13,7 @@ describe("the status line of Asetukset > Palvelin > Lisäosa", () => {
     expect(addOnLine({ state: "refused", reason: "the code does not open the releases" })).toBe("Hylätty: koodi ei avaa julkaisuja.");
     expect(addOnLine({ state: "refused", reason: "the release service did not answer" })).toBe("Hylätty: julkaisua ei saatu haettua.");
     expect(addOnLine({ state: "refused", reason: "tar has a file with a name that is not plain" })).toBe("Hylätty: paketin sisältö ei kelpaa.");
+    expect(addOnLine({ state: "refused", reason: "a migration of the module failed at start" })).toBe("Hylätty: lisäosan tietokantamuutos epäonnistui, joten palvelin käynnistyi ilman sitä.");
   });
 });
 

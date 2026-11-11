@@ -13,7 +13,9 @@ import { NAV, ROWS, SETTINGS } from "../../web/src/nav.ts";
 import { HELP_WORDS } from "../src/cli-usage.ts";
 import { BundleRefused, checkBundle, NotForThisVersion, RESERVED_IDS } from "../src/modules/bundle.ts";
 import { moduleCodeText, parseModuleCode } from "../src/modules/code.ts";
-import { loadInstalledModule, type StartState } from "../src/modules/load.ts";
+import { MigrationError } from "../src/db/migrate.ts";
+import { openDatabase } from "../src/db/open.ts";
+import { loadInstalledModule, MIGRATION_FAILED, openWithModule, type StartState } from "../src/modules/load.ts";
 import { satisfies } from "../src/modules/semver.ts";
 import { readActive } from "../src/modules/store.ts";
 import { APP_VERSION } from "../src/version.ts";
@@ -78,14 +80,14 @@ function sign(file: string, with_ = key): Buffer {
 }
 
 /** A bundle the way a module's release builds it: system tar in ustar form, then signed. */
-function realBundle(name: string, over: Record<string, unknown> = {}): { packed: Buffer; signature: Buffer; file: string } {
+function realBundle(name: string, over: Record<string, unknown> = {}, migration = MIGRATION): { packed: Buffer; signature: Buffer; file: string } {
   const dir = join(work, name);
   mkdirSync(join(dir, "migrations"), { recursive: true });
   writeFileSync(join(dir, "manifest.json"), manifest(over));
   writeFileSync(join(dir, "server.mjs"), SERVER("example"));
   writeFileSync(join(dir, "web.mjs"), WEB);
   writeFileSync(join(dir, "web.css"), ".example { color: inherit; }\n");
-  writeFileSync(join(dir, "migrations", "9001_example.sql"), MIGRATION);
+  writeFileSync(join(dir, "migrations", "9001_example.sql"), migration);
   const file = join(work, `${name}.tar.gz`);
   execFileSync("tar", ["--format=ustar", "--owner=0", "--group=0", "-czf", file, "-C", dir, "manifest.json", "server.mjs", "web.mjs", "web.css", "migrations"]);
   return { packed: readFileSync(file), signature: sign(file), file };
@@ -396,6 +398,38 @@ describe("the code in Asetukset, then a start", () => {
     bundles["1.3.0"] = realBundle("floor-same", { version: "1.3.0" });
     await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
     expect(readActive(root)).toEqual({ id: "example", version: "1.3.0" });
+  });
+
+  it("leaves out at start a module whose own migration fails, and the app opens its database without it", async () => {
+    const data = join(work, "data-7");
+    const root = join(data, "modules");
+    const broken = realBundle("broken-migration", {}, "-- migrate: compat 0.1.0\nCREATE TABLE example_note (id INTEGER PRIMARY KEY);\nINSERT INTO example_missing VALUES (1);\n");
+    const app = await setupApp({}, releaseService({ "1.2.0": broken }), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    const start = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(start).toMatchObject({ state: "connected", id: "example", version: "1.2.0" });
+
+    // a shared migration's failure is not the module's: the start stops as before and the module stays
+    await expect(openWithModule(start, () => Promise.reject(new MigrationError("Migration 0001_init.sql failed", "0001_init.sql")))).rejects.toThrow("0001_init.sql");
+    expect(EXTENSIONS.map((e) => e.id)).toEqual(["example"]);
+
+    const dbPath = join(data, "banking.db");
+    const r = await openWithModule(start, () => openDatabase(dbPath));
+    expect(r.start).toEqual({ state: "refused", id: "example", version: "1.2.0", reason: MIGRATION_FAILED });
+    expect(r.dropped).toContain("9001_example.sql");
+    expect(EXTENSIONS).toHaveLength(0);
+    expect(await r.opened.db.all("SELECT name FROM sqlite_master WHERE name IN ('users', 'example_note') ORDER BY name")).toEqual([{ name: "users" }]);
+    r.opened.db.close();
+
+    // the next start tries it again and leaves it out again, never a crash
+    const again = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    const next = await openWithModule(again, () => openDatabase(dbPath));
+    expect(next.start.state).toBe("refused");
+    next.opened.db.close();
+
+    // the admin sees the reason in Asetukset
+    app.s.modules!.start = r.start;
+    expect((await app.admin.call("GET", "/api/modules")).body).toEqual({ state: "refused", reason: MIGRATION_FAILED });
   });
 
   it("is refused when the release service signs with another key, with the reason and not the code", async () => {

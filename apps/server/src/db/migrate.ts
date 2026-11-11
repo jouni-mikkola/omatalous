@@ -33,7 +33,15 @@ import { createHash } from "node:crypto";
 import { APP_VERSION } from "../version.ts";
 import type { Db } from "./types.ts";
 
-export class MigrationError extends Error {}
+export class MigrationError extends Error {
+  /** The file at fault, when one is: the start leaves out an add-on module whose own file failed (modules/load.ts). */
+  readonly migration: string | undefined;
+  // no parameter property: tools/release/fixture.mjs imports this file with Node's type stripping
+  constructor(message: string, migration?: string) {
+    super(message);
+    this.migration = migration;
+  }
+}
 
 export interface Migration {
   name: string;
@@ -66,7 +74,7 @@ function leadingComments(sql: string): string {
 export function compatFloor(m: Migration): string | null {
   const value = COMPAT_HEADER.exec(leadingComments(m.sql))?.[1];
   if (value === undefined) return null;
-  if (!VERSION.test(value)) throw new MigrationError(`Migration ${m.name} has an invalid compat header "${value}" (format: -- migrate: compat 0.6.0).`);
+  if (!VERSION.test(value)) throw new MigrationError(`Migration ${m.name} has an invalid compat header "${value}" (format: -- migrate: compat 0.6.0).`, m.name);
   return value;
 }
 
@@ -154,7 +162,7 @@ export async function pendingMigrations(
       // recorded before checksums existed: trust it once and remember
       await db.run("UPDATE _migrations SET checksum = ? WHERE name = ?", [expected, r.name]);
     } else if (r.checksum !== expected) {
-      throw new MigrationError(`Applied migration ${r.name} has changed. Do not edit applied migrations, add a new one.`);
+      throw new MigrationError(`Applied migration ${r.name} has changed. Do not edit applied migrations, add a new one.`, r.name);
     }
   }
   const applied = new Set(done.map((r) => r.name));
@@ -196,7 +204,7 @@ export async function applyMigrations(db: ExecDb, pending: readonly Migration[])
         } catch {
           // SQLite already rolled back (full disk): keep the real error below
         }
-        throw new MigrationError(`Migration ${m.name} failed, the database was left unchanged: ${(err as Error).message}`);
+        throw new MigrationError(`Migration ${m.name} failed, the database was left unchanged: ${(err as Error).message}`, m.name);
       }
     } finally {
       if (fkOff) db.exec("PRAGMA foreign_keys = ON");
