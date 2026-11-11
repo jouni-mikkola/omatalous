@@ -26,14 +26,13 @@ const REGISTER: Record<string, unknown[]> = {
 };
 
 /** A fake register that records every name it was asked about. */
-function fakeRegister(opts: { fail?: boolean; answer?: (name: string) => Response | null | undefined } = {}) {
+function fakeRegister(opts: { answer?: (name: string) => Response | null | undefined } = {}) {
   const asked: string[] = [];
   const fetchMock = (async (input: string | URL | Request) => {
     const url = new URL(String(input));
     if (!url.href.startsWith(PRH_SEARCH_URL)) throw new Error(`unexpected request ${url.href}`);
     const name = url.searchParams.get("name")!;
     asked.push(name);
-    if (opts.fail) return new Response("busy", { status: 503 });
     const special = opts.answer?.(name);
     if (special !== undefined) return special;
     const companies = REGISTER[name] ?? [];
@@ -243,7 +242,8 @@ describe("industry lookup", () => {
   });
 
   it("stops after repeated register errors and does not retry the same day", async () => {
-    const { asked, fetchMock } = fakeRegister({ fail: true });
+    // an unreadable body is the name's trouble (a 5xx is an outage and is asked again, see industry-outage.test.ts)
+    const { asked, fetchMock } = fakeRegister({ answer: () => new Response("<html>", { status: 200 }) });
     const { s, repo } = await withData(fetchMock);
     expect(await lookupIndustries(s, { pauseMs: 0 })).toMatchObject({ looked: 0, categorised: 0 });
     expect(asked).toHaveLength(2);

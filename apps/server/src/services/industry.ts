@@ -121,7 +121,10 @@ export async function lookupIndustries(s: Services, opts: { limit?: number; paus
           const shorter = match.status === "none" ? shorterQuery(merchant) : null;
           if (shorter) match = matchCompany(shorter, (await askRegister(fetchFn, shorter, household)).companies, { exactOnly: true, byName: categoryByTradeWord });
         } catch (err) {
-          await s.industry.saveError(merchant, s.now());
+          // the register unreachable, a 5xx or a 429 says nothing about the name: no error row, so it is due again at the next call
+          // (told by the RegistryError text; client.ts has no status field)
+          const outage = err instanceof RegistryError && /^register (not reachable|answered (5\d\d|429)$)/.test(err.message);
+          if (!outage) await s.industry.saveError(merchant, s.now());
           // the error's own text only: a merchant name is not written to the log
           const reason = err instanceof RegistryError ? err.message : `unexpected ${(err as Error)?.name ?? "error"}`;
           if (!(err instanceof RegistryError)) console.error(`industry lookup: ${reason}`);
