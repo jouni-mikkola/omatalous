@@ -1005,6 +1005,12 @@ Found by reading `packages/core/src/returns.ts`, `contract.ts`, `mobilepay.ts`, 
 and `analysis/fees.ts` against [MONEY_FLOWS.md](MONEY_FLOWS.md) on 11 November (N29). M1 stays in the alerts. M2 and M3
 both change `returns.ts` and `analysis/money-in.ts`, so M3 waits for M2.
 
+N32 (11 November) read the rest of the document against `analysis/questions.ts`, `data-quality.ts`, `holdings.ts`, `forecast.ts`
+(`monthPace`), `ahead.ts`, `coming.ts`, `runway.ts`, `pay-estimate.ts`, `coverage.ts`, `large.ts`, `themes.ts`, `themes-report.ts`,
+`loans.ts`, `loan-plan.ts`, `household-debts.ts` and `account-use.ts` (`partCents`) and found no figure that differs from it and
+that main reproduces, so it adds no step. The sections *Coverage notices* and *Longer forecast* of the document describe code
+that T60 deleted (`analysis/notices.ts`, `analysis/long-forecast.ts`); they are for the Lead to mend, in the document.
+
 ### M1 Alerts count what came back
 Result: A bill, a reminder fee or a bank fee that was paid back no longer raises an alert or adds to an alert's sum on Yhteenveto.
 - why: MONEY_FLOWS.md, *Money that comes back*: "A purchase that was paid back leaves the lists of merchants, habits and double charges by the amount that came back." On main (11 Nov, N29) only the same-day double charge reads it (`packages/core/src/analysis/alerts.ts:134`). The monthly bill paid twice within a week (line 161) never reads `refunded`, so a second payment the biller sent back still shows *Sama veloitus kahdesti*. The late fee total (line 185) adds `-t.amountCents` and the bank fee sum (line 411) adds `t.spend`, so a fee that was returned stays whole in *Myöhästymiskuluja* and in *Pankkikuluja … vuodessa*, and can carry the yearly sum over its 100 € gate alone.
