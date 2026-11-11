@@ -112,12 +112,3 @@ export function mayBePerson(t: PayeeFields, household: ReadonlySet<string>, evid
   if ([t.merchant ?? "", payee, plain(payeeText(t))].some((name) => namesHousehold(name, household))) return true;
   return !evidenced && !namesBusiness(payee);
 }
-
-/**
- * Whether a payee name alone may be a person's: its shape (`isPersonShaped`) or a word of a name the household has. For a
- * mark beside a name where no row of the payee is at hand; a row's own answer is `mayBePerson`. A doubtful name reads as
- * a person's, so no initials of a person's name are taken for a brand's.
- */
-export function nameMayBePerson(name: string, household: ReadonlySet<string>): boolean {
-  return isPersonShaped(fold(name)) || namesHousehold(name, household);
-}

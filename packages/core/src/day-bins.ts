@@ -15,7 +15,7 @@ interface DayMoney {
 
 type BinUnit = "day" | "week" | "month";
 
-export interface MoneyBin {
+interface MoneyBin {
   /** The first day of the bin; a week starts on Monday, a month on its first. */
   start: IsoDate;
   count: number;

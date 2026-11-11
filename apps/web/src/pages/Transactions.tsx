@@ -10,7 +10,6 @@ import type { CategoryUndo, Meta, Scope } from "../types.ts";
 import { type DaySum, type ListedRow, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
-import { StripSkeleton, type Totals, TotalsStrip } from "./transactions/TotalsStrip.tsx";
 import "../styles/transactions.css";
 import { SEARCH_DELAY_MS } from "../components/FilterInputs.tsx";
 import type { TableView } from "../components/table/Table.tsx";
@@ -102,7 +101,8 @@ export function Transactions({ meta, params, scope }: { meta: Meta; params: URLS
   return <TransactionList meta={meta} params={params} scope={scope} />;
 }
 
-interface ListAnswer extends Totals {
+interface ListAnswer {
+  total: number;
   items: ListedRow[];
   daySums?: DaySum[];
 }
@@ -280,19 +280,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         />
       )}
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}
-      {!data && !error && <StripSkeleton />}
-      {data && data.total > 0 && (
-        <div className="tx-totals-wrap">
-          <TotalsStrip
-            totals={data}
-            income={filters.kind === "income"}
-            merchant={filters.merchant}
-            whole={!filters.from && !filters.to}
-            today={meta.today}
-            onPick={(p) => set(p)}
-          />
-        </div>
-      )}
 
       {error && !data ? (
         <ErrorCard message={error} onRetry={reload} />

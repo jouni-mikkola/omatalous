@@ -30,6 +30,6 @@ apps/web/src/styles/shell.css  px=36
 apps/web/src/styles/statement.css  px=11
 apps/web/src/styles/table.css  px=59
 apps/web/src/styles/themes-table.css  px=8
-apps/web/src/styles/transactions.css  px=31
+apps/web/src/styles/transactions.css  px=26
 apps/web/src/styles/why.css  px=19
 apps/web/src/styles/wizard.css  px=14 fontSize=1

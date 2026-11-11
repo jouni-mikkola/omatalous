@@ -1,4 +1,4 @@
-/* Tapahtumat: the filter bar, the totals strip, the rows with their chips and marks, the drill. Tokens only. */
+/* Tapahtumat: the filter bar, the rows with their chips, the drill. Tokens only. */
 
 @layer pages {
 .tx-page { gap: var(--sp-8); }
@@ -63,45 +63,10 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-chip-manual { flex: none; width: 6px; height: 6px; background: var(--text-2); clip-path: circle(50%); }
 .tx-fchip .tx-icon { margin-left: var(--sp-4); }
 
-/* ── the marks: VT4's payee plate and account mark, with the account's short text ─────── */
+/* ── the account's short text ─────── */
 .tx-acct { display: inline-flex; align-items: center; gap: var(--sp-4); max-width: 100%; min-width: 0; color: var(--text-2); }
 /* the digits, a short own name or the type's word: never cut, so the cell is as wide as its longest */
 .tx-acct-short { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-
-/* ── the totals strip ────────────────────────────────────────────────────────────── */
-.tx-totals-wrap { position: relative; padding: var(--sp-8) 0; border-top: 1px solid var(--border); }
-.tx-totals { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
-.tx-totals-figs { grid-column: span 7; display: flex; flex-direction: column; gap: var(--sp-12); }
-.tx-totals-lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }
-.tx-totals-count { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; }
-.tx-totals-span { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.tx-totals-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); margin: 0; }
-.tx-totals-kv > div { padding-left: var(--sp-12); border-left: 2px solid var(--grid); }
-.tx-totals-kv > div:first-child { border-left-color: var(--accent); }
-.tx-totals-kv dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.tx-totals-kv dd { margin: var(--sp-4) 0 0; }
-.tx-totals-kv .tx-in { color: var(--good); }
-.tx-totals-note { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-
-.tx-hist { grid-column: span 5; margin: 0; min-width: 0; }
-.tx-hist-title { display: block; margin-bottom: var(--sp-16); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
-.tx-hist-plot { position: relative; height: 48px; }
-.tx-hist-plot svg { display: block; width: 100%; height: 100%; overflow: visible; cursor: pointer; }
-.tx-hist-plot svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-.tx-hist-bar { fill: color-mix(in srgb, var(--accent) 72%, var(--surface)); }
-.tx-hist-bar.on { fill: var(--accent); }
-.tx-hist-base { stroke: var(--axis); stroke-width: 1; }
-.tx-hist-peak { position: absolute; top: calc(-1 * var(--sp-16)); transform: translateX(-50%); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); pointer-events: none; }
-.tx-hist-axis { display: flex; justify-content: space-between; margin-top: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.tx-hist-readout { min-height: var(--lh-label); margin: var(--sp-4) 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
-
-
-/* the strip before its answer: the same frame, the grey bars of base.css where its parts will stand */
-.tx-skel.tx-totals { padding: var(--sp-16) 0; border-top: 1px solid var(--border); }
-.tx-skel-figs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); }
-.tx-skel-figs .sk-fig { inline-size: 100%; }
-.tx-skel .tx-hist { display: flex; flex-direction: column; gap: var(--sp-16); }
-.tx-skel-plot { block-size: 48px; }
 
 /* ── the list ───────────────────────────────────────────────────────────────────── */
 
@@ -141,9 +106,9 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account, .rt-wrap[data-block] .rt.tx-table td.tx-category { display: block; grid-row: 2; padding: 0; width: auto; min-width: 0; }
 .rt-wrap[data-block] .rt.tx-table td.num { width: auto; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account { grid-column: 1; }
-/* a phone's row is two lines of about 60 px: the account is its bank's mark alone and the bank's text is left to the opened row, which says both */
+/* a phone's row is two lines of about 60 px: the account is its short text and the bank's text is left to the opened row, which says both */
 @media (max-width: 600px) {
-  .rt-wrap[data-block] .tx-acct-short, .rt-wrap[data-block] .rt .tx-text { display: none; }
+  .rt-wrap[data-block] .rt .tx-text { display: none; }
   .rt-wrap[data-block] .tx-detail-facts { display: flex; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { padding-block: var(--sp-4); row-gap: 0; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { display: flex; align-items: center; padding-block: 0; }
@@ -209,11 +174,6 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
   section.card[aria-label^="Yhteenveto:"] > .kv:has(> :nth-child(7)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* tablets: the totals strip stands over the whole width */
-@media (min-width: 601px) and (max-width: 960px) {
-  .tx-totals-figs, .tx-hist { grid-column: 1 / -1; }
-}
-
 /* ── phones (the width TransactionRows.tsx asks matchMedia for) ───────────────────── */
 @media (max-width: 600px) {
   /* the chips stay on one line that scrolls in its own box, never the page */
@@ -223,13 +183,6 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
   .tx-pop { position: fixed; top: auto; left: 0; right: 0; bottom: 0; width: auto; min-width: 0; max-height: 75vh; overflow-y: auto; border-radius: var(--radius) var(--radius) 0 0; padding: var(--sp-16) var(--sp-16) calc(var(--sp-16) + var(--tabbar-h) + env(safe-area-inset-bottom)); }
   .tx-catlist { max-height: none; }
   .tx-pop { box-shadow: var(--pop-shadow), 0 0 0 100vmax var(--backdrop); }
-
-  .tx-totals-wrap, .tx-skel.tx-totals { padding: var(--sp-16); }
-  .tx-totals { gap: var(--sp-16); }
-  .tx-totals-figs, .tx-hist { grid-column: 1 / -1; }
-  .tx-totals-kv { gap: var(--sp-8); }
-  .tx-totals-kv > div { padding-left: var(--sp-8); }
-  .tx-totals-kv .fig-m { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
 
   .tx-card { padding: var(--sp-12) var(--sp-16); }
   /* twelve month names do not fit side by side: every third and the peak keep theirs (MerchantDrill phoneMonthLabels) */

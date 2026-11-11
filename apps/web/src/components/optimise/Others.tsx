@@ -8,7 +8,6 @@ import { language } from "../../format.ts";
 import { t } from "../../text.ts";
 import { useId, useState } from "react";
 import { api, query } from "../../api.ts";
-import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import { Section } from "../Section.tsx";
 import { Figure } from "../Figure.tsx";
 import type { Changed } from "./shared.tsx";
@@ -76,7 +75,6 @@ function OtherCard({ insight: i, onChanged }: { insight: Insight; onChanged: Cha
     <article className="tip other" aria-labelledby={titleId}>
       <div className="tip-main">
         <div className="other-head">
-          {i.evidence.merchant && <MerchantAvatar name={i.evidence.merchant} size="s" />}
           <p className="tip-title" id={titleId}>
             {text.title}
           </p>

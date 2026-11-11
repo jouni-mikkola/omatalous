@@ -36,7 +36,7 @@ export * from "./consent-round.ts";
 export * from "./categorize.ts";
 export * from "./rule-key.ts";
 export * from "./industry.ts";
-export { householdWords, mayBePerson, nameMayBePerson } from "./payee-guard.ts";
+export { householdWords, mayBePerson } from "./payee-guard.ts";
 export { type GuessCandidate, payeeGuesser } from "./payee-guess.ts";
 export { companyForms } from "./wording.ts";
 export * from "./transfers.ts";

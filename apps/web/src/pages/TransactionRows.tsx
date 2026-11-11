@@ -9,7 +9,7 @@ import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
 import { CategoryLabel, CategoryMenu, SharedCategory } from "./transactions/CategoryChip.tsx";
-import { AccountMark, type AccountLook, PayeeMark } from "./transactions/Marks.tsx";
+import { AccountMark, type AccountLook } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
 import { RowMenu } from "./transactions/RowMenu.tsx";
 import { css } from "../css.ts";
@@ -74,7 +74,6 @@ const bankText = (t: ListedRow): string | null => {
 };
 
 const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
-const isPerson = (t: ListedRow): boolean => t.category === "p2p" || t.category === "p2p_in";
 
 /** The statement of a card bill row: its explained sum and the way to open it. */
 export interface StatementProps {
@@ -129,13 +128,12 @@ function Part({ t }: { t: ListedRow }) {
   return <>{whole && <span className="tx-part">{whole}</span>}{ownerLink(t) && <span className="tx-part">{msg("row.no_split")}</span>}</>;
 }
 
-/** The payee's mark and name, the quiet tags; the bank's own text is the line under them. */
+/** The payee's name and the quiet tags; the bank's own text is the line under them. */
 function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
   const text = bankText(t);
   return (
     <span className="tx-who">
       <span className="tx-line">
-        <PayeeMark name={t.merchant} person={isPerson(t)} />
         <span className="tx-name">{t.merchant}</span>
         <Tags t={t} explained={explained} />
       </span>

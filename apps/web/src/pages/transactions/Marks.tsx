@@ -1,24 +1,13 @@
 /**
- * The marks of a row of Tapahtumat: the payee's (VT4's MerchantAvatar) and the account's (VT4's AccountMark, the bank's
- * logo or the account's initials) with the short text beside it. Nothing is fetched but the bank logos the app serves.
+ * The account of a row of Tapahtumat as plain short text: no logo or disc, so the row stays one quiet line.
  */
-import { AccountMark as BankMark } from "../../components/BankLogo.tsx";
-import { MerchantAvatar } from "../../components/MerchantAvatar.tsx";
 import { t } from "../../text.ts";
-import type { Account, AccountType, BankOption, Meta } from "../../types.ts";
-
-/** The payee's mark: initials on a tinted disc, a person glyph for a payment to or from a person. */
-export function PayeeMark({ name, person }: { name: string; person?: boolean }) {
-  return <MerchantAvatar name={name} person={person} size="s" />;
-}
+import type { Account, AccountType, Meta } from "../../types.ts";
 
 export interface AccountLook {
   /** The name the household knows the account by, with its owner's name on a shared one: the title and the screen reader's text. */
   name: string;
-  bank: string;
-  /** The offered banks, for the logo (AccountMark reads the account's own name before the connection's bank). */
-  banks: readonly BankOption[];
-  /** What the row shows beside the plate, never cut: the digits, a short own name or the type's word. */
+  /** What the row shows, never cut: the digits, a short own name or the type's word. */
   short: string;
 }
 
@@ -34,19 +23,17 @@ const shortOf = (a: Pick<Account, "digits" | "customName" | "type">): string =>
 export function accountLooks(meta: Meta): Map<string, AccountLook> {
   const looks = new Map<string, AccountLook>();
   for (const a of [...meta.accounts, ...meta.sharedAccounts]) {
-    const bank = meta.connections.find((c) => c.id === a.connectionId)?.institution ?? "";
     const name = "ownerName" in a ? `${a.name} (${a.ownerName})` : a.name;
-    looks.set(a.id, { name, bank, banks: meta.bank.banks, short: shortOf(a) });
+    looks.set(a.id, { name, short: shortOf(a) });
   }
   return looks;
 }
 
-/** An account on a row: its mark and the short text. The name is the title and the screen reader's text. */
+/** An account on a row: the short text. The name is the title and the screen reader's text. */
 export function AccountMark({ look, fallback }: { look: AccountLook | undefined; fallback: string }) {
   const name = look?.name ?? fallback;
   return (
     <span className="tx-acct" title={name}>
-      <BankMark name={name} institution={look?.bank || null} banks={look?.banks ?? []} size="s" />
       <span className="sr-only">{name}</span>
       <span className="tx-acct-short" aria-hidden="true">
         {look?.short ?? "Tili"}
