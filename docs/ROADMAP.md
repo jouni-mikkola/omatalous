@@ -14,6 +14,15 @@ already make. Done steps live in git history: a step's id is in its commit subje
 - Audit moves 9 (the English UI), 11 (remote access as a guide), 12 (maintenance kept to update and rollback) and the
   statement half of 25 (reading pictures) wait for the owner's decision and are not steps.
 
+## Now
+
+### N1 Main's tests pass again
+Result: Every pull request's test job is green on what main already holds, so finished work can land; the six tests failing on main pass with no
+- why: every PR's js job fails on the same 6 tests that main already fails (repo rule 34 wants '## Coming releases' in docs/ROADMAP.md; apps/server/test/extensions.test.ts; remote-access-recheck.test.ts; 3 in remote-access-safety.test.ts), so PR #12 and #13 cannot land
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Main's tests pass again. Every pull request's test job is green on what main already holds, so finished work can land; the six tests failing on main pass with no test removed or skipped.
+- locks: none
+- after: none
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
