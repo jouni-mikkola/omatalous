@@ -16,6 +16,14 @@ already make. Done steps live in git history: a step's id is in its commit subje
 
 ## Now
 
+
+### N2 Plan: landing never waits
+Result: Move T80 'Machine-load scripts leave' to the front of the remaining roadmap order, so pull requests that pass their checks land without
+- why: The landing check waits in tools/slots.sh and tools/wait-quiet.sh behind workers' checks (CHECK_SLOTS=1, load 26 of 16), the train timed out at 02:05 and N1 PR #20, green on GitHub, could not land; T80 removes those scripts but sits after T66-T77
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan: landing never waits on workers. Move T80 'Machine-load scripts leave' to the front of the remaining roadmap order, so pull requests that pass their checks land without waiting behind the machine's other work.
+- locks: none
+- after: none
+
 ### N1 Main's tests pass again
 Result: Every pull request's test job is green on what main already holds, so finished work can land; the six tests failing on main pass with no
 - why: every PR's js job fails on the same 6 tests that main already fails (repo rule 34 wants '## Coming releases' in docs/ROADMAP.md; apps/server/test/extensions.test.ts; remote-access-recheck.test.ts; 3 in remote-access-safety.test.ts), so PR #12 and #13 cannot land
