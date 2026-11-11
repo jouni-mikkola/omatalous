@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
+import { ownerOnlyFile } from "../platform/durable.ts";
 import { UserError } from "../platform/errors.ts";
 import type { Db, SqlValue, Statement } from "./types.ts";
 
@@ -33,6 +34,8 @@ export function translateSqliteError(err: unknown): unknown {
 export function openNodeSqlite(path: string, opts: OpenOptions = {}): Db & { exec(sql: string): void; close(): void } {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path);
+  // SQLite makes the file readable by all, and gives the -wal and -shm it makes later the mode the file has then
+  if (path !== ":memory:") ownerOnlyFile(path);
   // synchronous = FULL stays: a committed write must survive a power loss. The cache, temp store and
   // memory map only make repeated scans of a large history cheaper; the journal limit stops the WAL file
   // from staying at its largest size after a big import.
@@ -46,6 +49,8 @@ export function openNodeSqlite(path: string, opts: OpenOptions = {}): Db & { exe
     `PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = ${Math.trunc(opts.busyTimeoutMs ?? 5000)}; PRAGMA secure_delete = ON;
      PRAGMA cache_size = -65536; PRAGMA temp_store = MEMORY; PRAGMA mmap_size = 268435456; PRAGMA journal_size_limit = 67108864;`,
   );
+  // the ones an earlier start left
+  if (path !== ":memory:") for (const suffix of ["-wal", "-shm"]) ownerOnlyFile(path + suffix);
   const args = (params: SqlValue[] = []) => params as SQLInputValue[];
   const guard = <T>(fn: () => T): T => {
     try {

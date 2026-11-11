@@ -1,10 +1,10 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { quickFileCheck, verifyDatabaseFile } from "./backup-check.ts";
 import { assertRoomForCopy, copiesNewestFirst, liveDatabaseProblem, NoRoomError, protectedCopies, RESET_LABEL, snapshotName, type Statfs } from "./backup-keep.ts";
 import { applyMigrations, MigrationError, type Migration, type MigrationOptions, pendingMigrations } from "./migrate.ts";
-import { fsyncDir, fsyncFile } from "../platform/durable.ts";
+import { fsyncDir, fsyncFile, ownerOnlyDir, ownerOnlyFile } from "../platform/durable.ts";
 import { type OpenOptions, openNodeSqlite } from "./node-sqlite.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -124,7 +124,7 @@ function clearStaleParts(dir: string): void {
  * copy that fails leaves it as it was.
  */
 export function copyDatabase(db: { exec(sql: string): void }, dir: string, name: string, opts: CopyOptions & { source?: string } = {}): string {
-  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  ownerOnlyDir(dir);
   const file = join(dir, name);
   const part = `${file}${PART}`;
   clearStaleParts(dir); // before the room is measured: what they held is free again
@@ -135,6 +135,7 @@ export function copyDatabase(db: { exec(sql: string): void }, dir: string, name:
   try {
     // the name is a label with a date or timestamp; quotes are doubled for SQL anyway
     db.exec(`VACUUM INTO '${part.replace(/'/g, "''")}'`);
+    ownerOnlyFile(part); // VACUUM INTO makes it readable by all
     fsyncFile(part);
     const check = verifyDatabaseFile(part);
     if (!check.ok) throw new Error(`database copy ${name} failed its check and was removed: ${check.reason}`);

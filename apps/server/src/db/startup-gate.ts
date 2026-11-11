@@ -16,10 +16,10 @@
  *   - A healthy database is never moved: only SQLite saying "damaged" counts, never a lock, a busy file or a failure
  *     to look.
  */
-import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, renameSync, rmSync, statSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fsyncDir } from "../platform/durable.ts";
+import { fsyncDir, ownerOnlyDir, ownerOnlyFile } from "../platform/durable.ts";
 import { COPY_NAME, copyKind, fileStamp } from "./backup-keep.ts";
 import { finishStagedCopy, newestIntactCopy, restoreDatabase, stageCopy } from "./restore.ts";
 
@@ -151,7 +151,9 @@ function moveAside(dbPath: string, dir: string, now: Date): string {
   for (let n = 2; ["", "-wal", "-shm"].some((suffix) => existsSync(to + suffix)); n++) to = join(dir, `${name}-${n}.db`);
   // the main file last: until it goes, a start that is cut off here finds the database where it was
   for (const suffix of ["-wal", "-shm", ""]) {
-    if (existsSync(dbPath + suffix)) renameSync(dbPath + suffix, to + suffix);
+    if (!existsSync(dbPath + suffix)) continue;
+    renameSync(dbPath + suffix, to + suffix);
+    ownerOnlyFile(to + suffix);
   }
   return to;
 }
@@ -209,7 +211,7 @@ function gate(dbPath: string, now: Date, told: { notDone?: NotDone }, migrations
     let aside: string;
     try {
       // the folder and the checked copy first: what can fail for lack of space fails before anything has moved
-      mkdirSync(dir, { recursive: true, mode: 0o700 });
+      ownerOnlyDir(dir);
       next = stageCopy(copy.file, dbPath);
       // the staged copy's name is on the disk before the database leaves: a start cut off after the move finds it
       fsyncDir(dataDir);

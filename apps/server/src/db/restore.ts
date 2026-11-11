@@ -13,10 +13,10 @@
  * copy themselves: the startup gate (startup-gate.ts) and the restore asked for in the browser. `finishStagedCopy`
  * is for the gate alone: it moves the database away before the rename, so a start can be cut off between the two.
  */
-import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, realpathSync, renameSync, rmSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, realpathSync, renameSync, rmSync } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { fsyncDir, fsyncFile } from "../platform/durable.ts";
+import { fsyncDir, fsyncFile, ownerOnlyDir, ownerOnlyFile } from "../platform/durable.ts";
 import { verifyDatabaseFile } from "./backup-check.ts";
 import { copiesNewestFirst, type CopyFile, REPLACED_LABEL, snapshotName } from "./backup-keep.ts";
 import { unknownBlockers } from "./migrate.ts";
@@ -108,7 +108,7 @@ export function finishStagedCopy(dbPath: string, migrationsDir?: string, appVers
  * Either way the copy is flushed to disk before restore goes on and replaces the database.
  */
 function savePrevious(dbPath: string, dest: string): string {
-  mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
+  ownerOnlyDir(dirname(dest));
   rmSync(dest, { force: true });
   let db: DatabaseSync | undefined;
   try {
@@ -116,6 +116,7 @@ function savePrevious(dbPath: string, dest: string): string {
     db.exec(`VACUUM INTO '${dest.replace(/'/g, "''")}'`);
     db.close();
     db = undefined;
+    ownerOnlyFile(dest);
     fsyncFile(dest);
     fsyncDir(dirname(dest));
     if (verifyDatabaseFile(dest).ok) return dest;
@@ -130,9 +131,11 @@ function savePrevious(dbPath: string, dest: string): string {
   }
   rmSync(dest, { force: true });
   copyFileSync(dbPath, dest);
+  ownerOnlyFile(dest);
   fsyncFile(dest);
   if (existsSync(`${dbPath}-wal`)) {
     copyFileSync(`${dbPath}-wal`, `${dest}-wal`);
+    ownerOnlyFile(`${dest}-wal`);
     fsyncFile(`${dest}-wal`);
   }
   fsyncDir(dirname(dest));
