@@ -229,13 +229,13 @@ const dayMax = (items: ListedRow[]): number => (items.length > 1 ? Math.max(0, .
 /**
  * The list: a day is a group, its row says the day, how many rows it has in the filter and what they add up to (the
  * server's), and the bars of its amounts are drawn against its largest. The rows stay newest first as the server sends
- * them. An opened row shows its payee's twelve months under it.
+ * them. The toolbar's grouping puts the same rows under their payee instead. An opened row shows its payee's twelve months under it.
  */
 export function TxTable({ items, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
   const days = byDay(items);
   const maxOf = new Map(days.flatMap((d) => d.items.map((t) => [t.id, dayMax(d.items)] as const)));
   const columns: Column<ListedRow>[] = [
-    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
+    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
     // a chip is for a mark some row has: "Varaukset 0" filters to nothing
     { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },

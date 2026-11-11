@@ -6,11 +6,11 @@ export interface Route {
   /** The page id in the address (`#/<id>`). */
   page: string;
   params: URLSearchParams;
-  /** The part after a second `#` (`#/transactions?view=merchants#saannot`): a spot on the page to scroll to. */
+  /** The part after a second `#` (`#/settings/household#saannot`): a spot on the page to scroll to. */
   anchor?: string;
 }
 
-/** The Säännöt card under the merchant table. */
+/** The Säännöt card of Asetukset > Talous. */
 export const RULES_ANCHOR = "saannot";
 
 /** The cards of Asetukset that an address can name, as anchors on the page. */
@@ -60,6 +60,7 @@ const CARD_TARGET: Record<string, SettingsTarget> = {
   "tilien-kayttajat": "banks",
   [SETTINGS_ANCHOR.loans]: "household",
   [SETTINGS_ANCHOR.goal]: "household",
+  [RULES_ANCHOR]: "household",
   "jasenet-ilman-tunnusta": "members",
   "tilien-jakaminen": "banks",
   [SETTINGS_ANCHOR.password]: "security",
@@ -125,6 +126,27 @@ function settingsMoved(route: Route, role: "admin" | "member"): Route {
   return opened({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) }, role);
 }
 
+/** The value of `group` in the address of Tapahtumat that puts the rows under their merchant. */
+const GROUP_MERCHANT = "merchant";
+
+/**
+ * Where an address of the merchant list or the rules lives now. The rules (`#/rules`, `?tab=rules`, the anchor of the
+ * old tab) are the Säännöt card of Asetukset; the merchant list is Tapahtumat grouped by merchant, with the filters the
+ * rows also take. `habit` was the merchant list's own and is dropped.
+ */
+function merchantsMoved(route: Route): Route {
+  const params = new URLSearchParams(route.params);
+  const rules = route.page === "rules" || params.get("tab") === "rules" || route.anchor === RULES_ANCHOR;
+  for (const gone of ["tab", "view", "habit"]) params.delete(gone);
+  if (rules) {
+    // the filters of the merchant list say nothing on Asetukset
+    for (const filter of ["q", "category", "from", "to"]) params.delete(filter);
+    return { page: `settings/${targetOfCard(RULES_ANCHOR) ?? FIRST_TARGET}`, params, anchor: RULES_ANCHOR };
+  }
+  params.set("group", GROUP_MERCHANT);
+  return { page: "transactions", params, ...(route.anchor ? { anchor: route.anchor } : {}) };
+}
+
 /** The card of Raportit that tells the loans, as the anchor of its section. */
 export const LOANS_REPORT_ANCHOR = "lainat";
 
@@ -160,8 +182,9 @@ const LEGACY_REPORT_TABS: Readonly<Record<string, string>> = { virta: "tulot", m
  * Where an old address lives now, or null when it is current. The router rewrites the address with `replaceState`,
  * so a bookmark keeps working and Back does not return to the old address. A period belongs to one page: a Raportit
  * period on the month page, or a month on Raportit, opens the page that offers it. The tabs of Raportit (`?tab=menot`) became question pages (`?q=menot`). The merchants and the rules were
- * a page of their own (`#/categories`, `?tab=rules`, `#/rules`) and are now the Kauppiaat tab of Tapahtumat, the rules
- * under its table. Toistuvat (`#/recurring`) became Laskut (`#/bills`). Lisää (`#/more`) opens Yhteenveto. Asetukset has six targets, each a route of its own
+ * a page of their own (`#/categories`, `?tab=rules`, `#/rules`) and then a tab of Tapahtumat (`?view=merchants`, the
+ * rules at `#saannot`): the merchants are now the rows of Tapahtumat grouped by merchant (`?group=merchant`) and the
+ * rules a card of Asetukset (`merchantsMoved`). Toistuvat (`#/recurring`) became Laskut (`#/bills`). Lisää (`#/more`) opens Yhteenveto. Asetukset has six targets, each a route of its own
  * (`#/settings/security`): the bare `#/settings`, `?section=` (technical, server, maintenance, security), `?tab=talous`
  * and an anchor from before the targets open the target that has the card (`settingsMoved`), and a member's address of
  * the server target opens the first target.
@@ -174,14 +197,7 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
   // the Lisää screen (phone) is gone: its two links are a tab and the user menu
   if (route.page === "more") return { page: "overview", params: route.params };
   if (route.page === "recurring") return { page: "bills", params: route.params, ...(route.anchor ? { anchor: route.anchor } : {}) };
-  if (route.page === "categories" || route.page === "rules") {
-    const params = new URLSearchParams(route.params);
-    params.delete("tab");
-    params.set("view", "merchants");
-    const rules = route.page === "rules" || route.params.get("tab") === "rules";
-    const anchor = rules ? RULES_ANCHOR : route.anchor;
-    return { page: "transactions", params, ...(anchor ? { anchor } : {}) };
-  }
+  if (route.page === "categories" || route.page === "rules" || (route.page === "transactions" && route.params.get("view") === "merchants")) return merchantsMoved(route);
   if (route.page === "reports" && route.params.has("tab")) {
     const params = new URLSearchParams(route.params);
     const q = LEGACY_REPORT_TABS[params.get("tab") ?? ""];

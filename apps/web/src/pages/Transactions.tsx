@@ -7,7 +7,6 @@ import { CADENCE_LABEL, date, money } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
-import { Merchants } from "./Merchants.tsx";
 import { type DaySum, type ListedRow, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
@@ -20,7 +19,6 @@ import { Button } from "../components/ui/Button.tsx";
 import { IconButton } from "../components/ui/IconButton.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
-import { Segmented } from "../components/ui/Segmented.tsx";
 import { Empty } from "../components/ui/Empty.tsx";
 import { CONNECT_BANK_HASH } from "../routes.ts";
 interface MerchantHistory {
@@ -93,27 +91,15 @@ function Facts({ facts }: { facts: [string, string][] }) {
 /** A count of rows with its thousands set apart, as the cut mark prints it. */
 const count = (n: number): string => n.toLocaleString(LOCALE);
 
-/**
- * Two views of the same rows: the list, and the merchants with the rules under them. The merchant list takes a period
- * (`from`, `to`) that the list shares, so a merchant's rows open for the period its figures add up.
- */
-export function Transactions({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
+/** The value of `group` in the address and the column of the table it groups the rows by. */
+const GROUP_MERCHANT = "merchant";
+const MERCHANT_COLUMN = "who";
+
+/** The rows of the household, by day or, when the toolbar's grouping says so (`?group=merchant`), by merchant. */
+export function Transactions({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
   // the table parts load while the first answer is on its way, so the rows come with their toolbar
   useEffect(() => void loadTableParts(), []);
-  const merchants = params.get("view") === "merchants";
-  const period = { from: params.get("from") ?? "", to: params.get("to") ?? "" };
-  return (
-    <div className="stack">
-      <Segmented
-        className="view-tabs"
-        label={t("tx.tabs")}
-        value={merchants ? "merchants" : "transactions"}
-        options={[{ value: "transactions", label: t("tx.tab_list") }, { value: "merchants", label: t("tx.tab_merchants") }]}
-        onChange={(v) => navigate("transactions", v === "merchants" ? { view: "merchants", ...period } : period)}
-      />
-      {merchants ? <Merchants meta={meta} params={params} scope={scope} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
-    </div>
-  );
+  return <TransactionList meta={meta} params={params} scope={scope} />;
 }
 
 interface ListAnswer extends Totals {
@@ -134,6 +120,9 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
   };
+  // the grouping is in the address beside the filters, and a change of filter keeps it
+  const group = params.get("group") === GROUP_MERCHANT ? GROUP_MERCHANT : "";
+  const open = (next: Partial<Filters> = {}, grouped = group) => navigate("transactions", { ...next, group: grouped });
   const filterKey = `${scope}?${params.toString()}`;
   const phone = usePhone();
   const [remember, setRemember] = useState(true);
@@ -161,7 +150,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const looks = useMemo(() => accountLooks(meta), [meta]);
   const daySums = useMemo(() => new Map((data?.daySums ?? []).map((d) => [d.date, d])), [data]);
 
-  const set = (patch: Partial<Filters>) => navigate("transactions", { ...filters, ...patch });
+  const set = (patch: Partial<Filters>) => open({ ...filters, ...patch });
   // the search box shows what is typed at once; the address (and so the server) follows after a pause
   const [draft, setDraft] = useState(filters.q);
   const [seenQ, setSeenQ] = useState(filters.q);
@@ -171,14 +160,15 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   }
   useEffect(() => {
     if (draft.trim() === filters.q) return;
-    const timer = window.setTimeout(() => navigate("transactions", { ...filters, q: draft.trim() }), SEARCH_DELAY_MS);
+    const timer = window.setTimeout(() => open({ ...filters, q: draft.trim() }), SEARCH_DELAY_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filters is read from the render of this filterKey
   }, [draft, filterKey]);
-  const view: TableView = { query: draft, chip: filters.chip || null, group: null, sort: null };
+  const view: TableView = { query: draft, chip: filters.chip || null, group: group ? MERCHANT_COLUMN : null, sort: null };
   const onView = (next: TableView) => {
     setDraft(next.query);
-    if ((next.chip ?? "") !== filters.chip) set({ chip: next.chip ?? "" });
+    const grouped = next.group === MERCHANT_COLUMN ? GROUP_MERCHANT : "";
+    if ((next.chip ?? "") !== filters.chip || grouped !== group) open({ ...filters, chip: next.chip ?? "" }, grouped);
   };
   const categoryLabel = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -352,7 +342,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             )}
           </div>
           <div>
-            {data && data.items.length > 0 && <TxTable items={data.items} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => navigate("transactions")} />} />}
+            {data && data.items.length > 0 && <TxTable items={data.items} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {!data && !error && <RowsSkeleton />}
             {data && !data.items.length && (
@@ -360,7 +350,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
                 {anyFilter ? (
                   <>
                     {t("tx.no_match")}{" "}
-                    <Button variant="link" onClick={() => navigate("transactions")}>
+                    <Button variant="link" onClick={() => open()}>
                       {t("tx.clear")}
                     </Button>
                   </>

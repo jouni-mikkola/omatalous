@@ -32,9 +32,21 @@ describe("Tapahtumat", () => {
     await waitFor(() => expect(first.getAttribute("aria-expanded")).toBe("false"), T);
   }, 60000);
 
-  it("lists the merchants and their rules under Kauppiaat, and adds a rule", async () => {
-    const server = await startServer();
+  it("groups the rows by merchant from the old address of the merchant list", async () => {
+    await startServer();
     await openApp("#/transactions?view=merchants", "Tapahtumat");
+    await waitFor(() => expect(window.location.hash).toBe("#/transactions?group=merchant"), T);
+    await waitFor(() => expect(drills().length).toBeGreaterThan(10), T);
+    // a group is a merchant with the count of its rows, where a day stood
+    const heads = [...document.querySelectorAll("tr.rt-group th")].map((th) => th.textContent ?? "");
+    expect(heads.length).toBeGreaterThan(1);
+    expect(new Set(heads).size).toBe(heads.length);
+    expect(heads.every((h) => !/\d{1,2}\.\d{1,2}\./.test(h))).toBe(true);
+  }, 60000);
+
+  it("lists the rules in Asetukset, and adds a rule", async () => {
+    const server = await startServer();
+    await openApp("#/rules", "Asetukset");
     await screen.findByRole("textbox", { name: "Hakusana" }, T);
     fireEvent.change(screen.getByRole("textbox", { name: "Hakusana" }), { target: { value: "Testikauppa" } });
     fireEvent.click(screen.getByRole("button", { name: "Lisää" }));

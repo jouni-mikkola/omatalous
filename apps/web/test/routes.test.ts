@@ -63,28 +63,41 @@ describe("redirectRoute", () => {
   });
 });
 
-describe("redirectRoute: Kategoriat is the Kauppiaat tab of Tapahtumat", () => {
-  it("the merchants page opens the tab, the rules page and the rules tab open it at the rules", () => {
-    expect(landing("categories")).toBe("#/transactions?view=merchants");
-    expect(landing("categories", "tab=merchants")).toBe("#/transactions?view=merchants");
-    expect(landing("categories", "tab=rules")).toBe("#/transactions?view=merchants#saannot");
-    expect(landing("rules")).toBe("#/transactions?view=merchants#saannot");
+describe("redirectRoute: the merchants are a grouping of Tapahtumat and the rules a card of Asetukset", () => {
+  it("the merchants page and the merchants tab open the rows grouped by merchant", () => {
+    expect(landing("categories")).toBe("#/transactions?group=merchant");
+    expect(landing("categories", "tab=merchants")).toBe("#/transactions?group=merchant");
+    expect(landing("transactions", "view=merchants")).toBe("#/transactions?group=merchant");
   });
 
-  it("keeps the other parameters, and the rules page wins over a tab that names the merchants", () => {
-    expect(landing("categories", "tab=rules&scope=household")).toBe("#/transactions?scope=household&view=merchants#saannot");
-    expect(landing("rules", "tab=merchants")).toBe("#/transactions?view=merchants#saannot");
+  it("the rules page, the rules tab and the rules under the old tab open the rules card", () => {
+    expect(landing("rules")).toBe("#/settings/household#saannot");
+    expect(landing("categories", "tab=rules")).toBe("#/settings/household#saannot");
+    expect(hashOf(redirectRoute(route("transactions", "view=merchants", "saannot"))!)).toBe("#/settings/household#saannot");
   });
 
-  it("settles in one step", () => {
-    for (const [page, query] of [["categories", ""], ["categories", "tab=rules"], ["rules", ""]] as const) {
-      expect(redirectRoute(redirectRoute(route(page, query))!)).toBeNull();
+  it("keeps the filters the rows take, and drops the ones only the merchant list had", () => {
+    expect(landing("transactions", "view=merchants&from=2026-09-01&to=2026-09-30&category=groceries&q=k")).toBe("#/transactions?from=2026-09-01&to=2026-09-30&category=groceries&q=k&group=merchant");
+    expect(landing("transactions", "view=merchants&habit=1")).toBe("#/transactions?group=merchant");
+    expect(landing("categories", "scope=household")).toBe("#/transactions?scope=household&group=merchant");
+  });
+
+  it("the rules keep the other parameters but not the filters, and the rules page wins over a tab that names the merchants", () => {
+    expect(landing("categories", "tab=rules&scope=household")).toBe("#/settings/household?scope=household#saannot");
+    expect(landing("rules", "tab=merchants")).toBe("#/settings/household#saannot");
+    expect(hashOf(redirectRoute(route("transactions", "view=merchants&from=2026-09-01", "saannot"))!)).toBe("#/settings/household#saannot");
+  });
+
+  it("settles in one step, for a member and an admin", () => {
+    for (const [page, query, anchor] of [["categories", ""], ["categories", "tab=rules"], ["rules", ""], ["transactions", "view=merchants"], ["transactions", "view=merchants", "saannot"]] as const) {
+      for (const role of ["member", "admin"] as const) expect(redirectRoute(redirectRoute(route(page, query, anchor), role)!, role)).toBeNull();
     }
   });
 
-  it("leaves the tab itself alone", () => {
-    expect(redirectRoute(route("transactions", "view=merchants", "saannot"))).toBeNull();
-    expect(redirectRoute(route("transactions", "view=merchants&from=2026-09-01&to=2026-09-30"))).toBeNull();
+  it("leaves the new addresses alone", () => {
+    expect(redirectRoute(route("transactions", "group=merchant"))).toBeNull();
+    expect(redirectRoute(route("settings/household", "", "saannot"))).toBeNull();
+    expect(settingsCardHash("saannot")).toBe("#/settings/household#saannot");
   });
 });
 
