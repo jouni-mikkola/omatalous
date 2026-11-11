@@ -1,12 +1,13 @@
-// Decision: which category explains this month, read against what each usually costs to the same day
-import type { GapRow } from "@banking/core";
+// Decision: which category explains this month or an earlier one, read against what each usually costs to the same day
+import { addMonths, type GapRow, monthEnd, type ThisMonthReport } from "@banking/core";
 import { query } from "../../api.ts";
 import { css } from "../../css.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { type Column, Table } from "../../components/table/Table.tsx";
+import { IconButton } from "../../components/ui/IconButton.tsx";
 import { Why } from "../../components/Why.tsx";
 import { dateRange, money, signedMoney } from "../../format.ts";
-import { useApi } from "../../hooks.ts";
+import { navigate, useApi, useHashRoute } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { GapReasonNote } from "./sections/ThisMonth.tsx";
@@ -29,16 +30,53 @@ function Bar({ row, scale }: { row: GapRow; scale: number }) {
   );
 }
 
+/** The address's month (`?month=2026-10`) when it names one before the running month, else null: the running month has no parameter. */
+function earlierMonth(params: URLSearchParams, today: string): string | null {
+  const asked = params.get("month") ?? "";
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(asked) && asked < today.slice(0, 7) ? asked : null;
+}
+
+/** What the view shows of a month: the days it reads, the total against its usual and the categories that make the gap. */
+interface Shown {
+  month: string;
+  days: { from: string; to: string };
+  spentCents: number;
+  expectedCents: number | null;
+  gapCents: number | null;
+  gapReason: ThisMonthReport["gapReason"];
+  categories: GapRow[];
+}
+
 /**
- * Kuukausi: the running month's spending to today by category, each against its usual to the same day, the list in the
- * order of the gap. A category opens the rows its sum is made of. Income is one line under the list.
+ * An earlier month whole, from the report of the change against the usual (`spendingChange`, its usual view of the month the
+ * range ends in): a category's spending, its usual level and their difference, which add up to the total's. Without enough
+ * history before the month there is only what was spent.
+ */
+function earlier(data: ReportsData, month: string): Shown {
+  const change = data.spendingChange.views.find((v) => v.view === "expected" && v.change.target.months.join() === month)?.change;
+  if (!change) return { month, days: { from: `${month}-01`, to: monthEnd(month) }, spentCents: data.categories.totalCents, expectedCents: null, gapCents: null, gapReason: "history", categories: [] };
+  const categories = change.categories.map((c): GapRow => ({ category: c.category, day: null, label: c.label, spentCents: c.nowCents, expectedCents: c.baseCents, gapCents: c.changeCents }));
+  return { month, days: { from: change.target.from, to: change.target.to }, spentCents: change.nowCents, expectedCents: change.baseCents, gapCents: change.changeCents, gapReason: null, categories };
+}
+
+/**
+ * Kuukausi: a month's spending by category, each against its usual to the same day, the list in the order of the gap. It
+ * opens on the running month to today; the arrows step a month back and forward, and an earlier month is in the address
+ * (`?month=`) and read whole. A category opens the rows its sum is made of. Income is one line under the list.
  */
 export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; scope: Scope }) {
-  const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${query({ ...range, scope, reports: "thisMonth,income" })}`);
+  const past = earlierMonth(useHashRoute().params, meta.today);
+  const path = past ? query({ from: `${past}-01`, to: monthEnd(past), scope, reports: "spendingChange,categories,income" }) : query({ ...range, scope, reports: "thisMonth,income" });
+  const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${path}`);
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
-  if (!data) return <div className="stack" aria-busy="true"><span className="sk sk-title" aria-hidden="true" /><span className="sk sk-line" aria-hidden="true" /></div>;
-  const r = data.thisMonth;
-  const days = { from: `${r.month}-01`, to: meta.today };
+  // the answer kept while the next month loads is of the other kind: it is shown again only when it has this month's reports
+  if (!data || !Object.hasOwn(data, past ? "spendingChange" : "thisMonth")) return <div className="stack" aria-busy="true"><span className="sk sk-title" aria-hidden="true" /><span className="sk sk-line" aria-hidden="true" /></div>;
+  const r: Shown = past ? earlier(data, past) : { ...data.thisMonth, days: { from: `${data.thisMonth.month}-01`, to: meta.today } };
+  const days = r.days;
+  const step = (n: number) => {
+    const to = addMonths(past ?? meta.today.slice(0, 7), n);
+    navigate("reports", { month: to < meta.today.slice(0, 7) ? to : undefined }, true);
+  };
   const rows = byGap(r.categories);
   const scale = Math.max(1, ...rows.flatMap((x) => [x.spentCents, x.expectedCents]));
   const income = data.income.months.find((m) => m.month === r.month)?.totalCents;
@@ -74,7 +112,15 @@ export function Month({ meta, range, scope }: { meta: Meta; range: ReportRange; 
   ];
   return (
     <div className={loading ? "km stack loading" : "km stack"}>
-      <h2 className="km-title">{dateRange(days.from, days.to)}</h2>
+      <div className="km-head">
+        <IconButton label={t("range.prev_month")} onClick={() => step(-1)}>
+          ‹
+        </IconButton>
+        <h2 className="km-title">{dateRange(days.from, days.to)}</h2>
+        <IconButton label={t("range.next_month")} disabled={!past} onClick={() => step(1)}>
+          ›
+        </IconButton>
+      </div>
       <p className="km-total">
         {t("rpt.tm_spent")} <strong>{money(r.spentCents, false)}</strong>
         {r.expectedCents !== null && r.gapCents !== null && (

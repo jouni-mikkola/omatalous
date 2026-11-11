@@ -1,5 +1,6 @@
-/* Kuukausi (pages/reports/Month.tsx): the total line, the bar of a category with the tick of its usual, and the income line. */
+/* Kuukausi (pages/reports/Month.tsx): the month with its two arrows, the total line, the bar of a category with the tick of its usual, and the income line. */
 @layer pages {
+.km-head { display: flex; align-items: center; gap: var(--sp-8); }
 .km-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--w-strong); color: var(--text); }
 .km-total { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 .km-note, .km-income { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; max-inline-size: 72ch; }
