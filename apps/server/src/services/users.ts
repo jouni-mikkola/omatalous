@@ -5,6 +5,7 @@ import { USER_DATA_VERSION } from "../db/settings-repo.ts";
 import { sha256, timingSafeEqual, utf8 } from "../security/encoding.ts";
 import { generatePassword, hashPassword, needsRehash, type PasswordCost, passwordRefusal, pbkdf2Rounds, verifyPassword } from "../security/password.ts";
 import { UserError } from "../platform/errors.ts";
+import { parseNameText } from "../platform/validate.ts";
 import type { Services } from "./context.ts";
 import { randomToken } from "../platform/ids.ts";
 import { revokeAllConnections } from "../connectors/registry.ts";
@@ -142,6 +143,9 @@ async function checkSetupCode(s: Services, code: string): Promise<"ok" | "wrong"
   return timingSafeEqual(given, utf8.encode(stored)) ? "ok" : "wrong";
 }
 
+/** The longest display name, as the routes cap it. */
+const MAX_DISPLAY_NAME = 80;
+
 export async function createFirstAdmin(s: Services, input: { code: string; username: string; displayName: string; password: string }): Promise<User> {
   if (!(await needsSetup(s))) throw UserError.of("auth.setup_done");
   const check = await checkSetupCode(s, input.code);
@@ -150,6 +154,7 @@ export async function createFirstAdmin(s: Services, input: { code: string; usern
   if (check === "wrong") throw UserError.of("auth.setup_code_wrong");
   const username = input.username.trim();
   if (!USERNAME.test(username)) throw UserError.of("auth.username_shape");
+  const displayName = parseNameText(input.displayName, MAX_DISPLAY_NAME) || username;
   const refusal = passwordRefusal(input.password);
   if (refusal) throw refusal;
   const id = randomToken();
@@ -157,7 +162,7 @@ export async function createFirstAdmin(s: Services, input: { code: string; usern
   const created = await s.users.createIfNoUsers({
     id,
     username,
-    displayName: input.displayName.trim() || username,
+    displayName,
     passwordHash: await hashed(s, input.password),
   });
   if (!created) throw UserError.of("auth.setup_done");
@@ -174,6 +179,7 @@ export async function createUser(
 ): Promise<{ user: User; temporaryPassword: string | null }> {
   const username = input.username.trim();
   if (!USERNAME.test(username)) throw UserError.of("auth.username_shape");
+  const displayName = parseNameText(input.displayName, MAX_DISPLAY_NAME) || username;
   if (input.role === "admin") await refuseAdminWithoutFactor(s, null);
   if (await s.users.findForLogin(username)) throw UserError.of("auth.username_taken");
   const temporary = input.password ? null : generatePassword();
@@ -184,7 +190,7 @@ export async function createUser(
   await s.users.create({
     id,
     username,
-    displayName: input.displayName.trim() || username,
+    displayName,
     passwordHash: await hashed(s, password),
     role: input.role,
     mustChangePassword: !!temporary,
@@ -306,11 +312,13 @@ export async function removeUser(s: Services, userId: string, by: string, req: R
 export async function updateUser(s: Services, actor: User, userId: string, input: { displayName?: string; role?: Role }, req: RequestInfo): Promise<void> {
   const before = await s.users.get(userId);
   if (!before) throw UserError.of("user.missing");
+  // an empty name changes nothing: the repo keeps the saved one
+  const displayName = input.displayName === undefined ? undefined : parseNameText(input.displayName, MAX_DISPLAY_NAME);
   if (input.role === "member" && before.role === "admin" && userId === actor.id && (await s.users.countAdmins()) <= 1) {
     throw UserError.of("user.last_admin_role");
   }
   if (input.role === "admin" && before.role !== "admin") await refuseAdminWithoutFactor(s, userId);
-  await s.users.update(userId, input);
+  await s.users.update(userId, { displayName, role: input.role });
   if (input.role && input.role !== before.role) {
     await recordEvent(s, { kind: "role_changed", userId, ...req, detail: `${before.role} -> ${input.role}, ylläpitäjä ${actor.username}` });
   }
