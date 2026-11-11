@@ -358,6 +358,13 @@ Result: The headings and notes of Asetukset use the four type sizes and the 4 px
 - after: none
 - files: apps/web/src/styles/settings.css, apps/web/test/scale-css.test.ts
 
+### N41 The money guide matches the app
+Result: A reader of the money flows guide sees only figures the app shows, with the known share and question kinds as the app counts them.
+- why: docs/MONEY_FLOWS.md Coverage notices and Longer forecast describe analysis/notices.ts and long-forecast.ts that T60 (6fbd30d) deleted, and its Questions share says 365 days with income while data-quality.ts:89 uses twelve months of spending only, with a fifth kind plan (N32 #219 notes)
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees.
+- locks: none
+- after: none
+
 ### V4 A card is a flat row
 Result: A credit card in Lisää > Tilit ja saldot is a plain framed row in the page's colours, with no gradient, no shadow and no text under 13 px.
 - why: seen on 11 Nov in Saldot at 390 px: the card is a drawn gold card (`apps/web/src/styles/holdings.css:90-125`, `pages/reports/holdings/CardFace.tsx`) with gradients, a chip, a shadow and words of 11,3 px and 6,8 px (`.card-face-mask`, `.card-face-tone`). Design section 3 Avoid: gradients, shadows on cards, decoration. The comment at `holdings.css:88-90` made it an object with its own colours before the design; the design is the newer decision, so the step replaces the comment with the flat row.
