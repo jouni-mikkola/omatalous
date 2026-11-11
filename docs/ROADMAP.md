@@ -879,6 +879,38 @@ Result: The server and core carry no extension list or feature flag, so no hook 
 - after: T98
 - files: apps/server/src/extensions.ts, packages/core/src/features.ts, apps/server/src, apps/server/test
 
+### A1 Savings tips leave the API
+Result: The server no longer answers with the findings of the removed Säästövinkit page, and an access token cannot read them.
+- why: audit move 10 and design D1. T55 removed the page and merged in part: no file of `apps/web/src` reads the findings, yet on main (11 Nov, N26) `apps/server/src/routes/optimise.ts:60`, `:62` and `:74` still serve `GET /api/optimise`, `GET /api/optimise/evidence` and `PUT /api/optimise/findings/:id`, and `apps/server/src/services/service-tokens.ts:36` lets a token read the first two. `PUT` and `DELETE /api/optimise/inputs/:key` (lines 67 and 72) stay: Tarkistettavat saves a number with them (`apps/web/src/components/InputForm.tsx:104`).
+- done when: the three routes answer 404, in new cases of `apps/server/test/optimise.isolated.test.ts`, and the two input routes answer as before; `optimisePage`, `optimiseEvidence` and `decide` of `services/optimise.ts` are gone unless `neededInputs` needs one, and then it is no longer exported; `READABLE` of `service-tokens.ts` names no optimise address and a case of `apps/server/test/service-tokens.test.ts` gets a refusal for `GET /api/optimise` with a token; `apps/server/test/optimise-demo.test.ts` and the two `own-optimise.txt` golden files go when nothing else reads what they hold, and `e2e/second-household.spec.ts:12` no longer lists the address; `apps/server/test/review.test.ts` passes unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: optimise-api
+- after: none
+- files: apps/server/src/routes/optimise.ts, apps/server/src/services/optimise.ts, apps/server/src/services/service-tokens.ts, apps/server/test/optimise.isolated.test.ts, apps/server/test/optimise-demo.test.ts, apps/server/test/service-tokens.test.ts, apps/server/test/fixtures/answers, e2e/second-household.spec.ts
+
+### A2 The queue asks no tip numbers
+Result: Tarkistettavat no longer asks for a number that only the removed Säästövinkit page used.
+- why: audit move 10 and design D1. The source `inputs` of `apps/server/src/services/review.ts:323` to 324 ("the numbers Säästövinkit waits for") still adds a question of the kind `input` for each number the findings engine misses, and `apps/web/src/pages/review-items.ts:101` and `apps/web/src/pages/ReviewChoices.tsx:95` draw it with `components/InputForm.tsx`. On main (11 Nov, N26) the page those numbers fed is gone (T55), so the member answers a question whose answer no view shows.
+- done when: the PR first names every reader of a stored input outside `packages/core/src/optimise` and `services/optimise.ts`, found by `git grep -n "listInputs\|StoredInput" apps packages`; when a view on main still shows a figure made from an input, that input keeps its question and the PR says which; for every other input `GET /api/review` gives no item of the kind `input`, in a new case of `apps/server/test/review.test.ts` on a household that got one before; when no input keeps its question the kind `input` leaves `review-items.ts` and `ReviewChoices.tsx`, `InputForm.tsx` goes with what only it read, and `apps/web/test/review-items.test.ts` holds the kinds that stay; a stored input is not deleted and a backup with inputs still imports (`apps/server/test/data-roundtrip.test.ts` passes unchanged); `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: review-inputs
+- after: T56, A1
+- files: apps/server/src/services/review.ts, apps/server/src/services/optimise.ts, apps/web/src/pages/review-items.ts, apps/web/src/pages/ReviewChoices.tsx, apps/web/src/components/InputForm.tsx, apps/server/test/review.test.ts, apps/web/test/review-items.test.ts
+
+### A3 No goal line nobody can set
+Result: The month chart no longer draws a spending goal that the member has no way to change or remove.
+- why: audit move 18 and design D3. T57 removed the goal card of Asetukset (`SpendingGoalCard.tsx`), and no file of `apps/web/src` calls `/api/spending-goal` any longer. On main (11 Nov, N26) `apps/server/src/services/analysis.ts:403` still reads the stored sum (`repo.spendingGoal()`) and line 426 gives it to the dashboard, so `packages/core/src/analysis/dashboard.ts:174` answers with a `goal` and the chart draws its line; `apps/server/src/routes/spending-goal.ts:25`, `:27` and `:35` still serve `GET`, `PUT` and `DELETE /api/spending-goal`, which no page calls. A member who set a goal before the update sees its line and cannot move it.
+- done when: `GET /api/dashboard` answers `goal: null` for a member with a row in the table `spending_goal`, in a new case of `apps/server/test/dashboard-cockpit.test.ts` that fails without the change; `services/analysis.ts` reads no stored goal; `GET`, `PUT` and `DELETE /api/spending-goal` answer 404, in a case of the same test, and `routes/spending-goal.ts`, `db/finance/spending-goal.ts`, their lines in `app.ts` and `db/finance-repo.ts` and `apps/server/test/spending-goal.test.ts` go; the table and the `spendingGoals` store of the backup stay, so an old backup imports (`apps/server/test/data-roundtrip.test.ts` passes unchanged) and no applied migration is edited; golden files are written again with `pnpm findings --golden` when they held a goal; no file of `apps/web` or `packages/core` changes: the field `goal` and the line of `PaceChart` stay as code that gets no goal, and the PR names them for a step after T69; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: spending-goal
+- after: none
+- files: apps/server/src/services/analysis.ts, apps/server/src/routes/spending-goal.ts, apps/server/src/db/finance/spending-goal.ts, apps/server/src/db/finance-repo.ts, apps/server/src/app.ts, apps/server/test/spending-goal.test.ts, apps/server/test/dashboard-cockpit.test.ts
+
+### A4 No texts of the tips page
+Result: The app no longer ships about 150 sentences, in each language, of a page that was removed.
+- why: audit move 10 and design D1 ("`pnpm strings` finds no Säästövinkit"). `packages/core/src/messages-optimise-web.ts` holds 156 keys that start with `ow.`, the texts of the removed page, and `packages/core/src/english/optimise-web.ts` their English. On main (11 Nov, N26) a `git grep -F` of each key in `apps/web/src`, `apps/server/src` and `packages/core/src` outside the catalogues finds seven (`ow.fa_save`, `ow.in_and`, `ow.in_saved`, `ow.in_choose`, `ow.in_margin_aria`, `ow.in_ref_aria`, `ow.cancel`), and no file builds an `ow.` key from parts.
+- done when: the two files hold only the `ow.` keys a source file reads, the same keys in both languages; a new case of `packages/core/test/messages.test.ts` that fails without the change reads the sources of `apps/web/src`, `apps/server/src` and `packages/core/src` and finds each `ow.` key of the Finnish catalogue named in one of them; `pnpm strings` runs clean and the test of the equal keys of the two languages passes; the keys of `messages-optimise.ts`, `-a` and `-b` are not touched, the findings engine still reads them; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: optimise-texts
+- after: none
+- files: packages/core/src/messages-optimise-web.ts, packages/core/src/english/optimise-web.ts, packages/core/test/messages.test.ts
+
 ## The server: robustness
 
 Found by reading `apps/server/` on 11 November (N15). Each step stays in that folder and waits for no other step.
