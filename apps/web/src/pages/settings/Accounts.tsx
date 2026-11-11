@@ -7,7 +7,6 @@
 import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
 import { type FormEvent, type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { AccountMark } from "../../components/BankLogo.tsx";
 import { type Column, Table } from "../../components/table/Table.tsx";
 import { useApi } from "../../hooks.ts";
 import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, moneyIn, parseEuros } from "../../format.ts";
@@ -50,7 +49,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
   }, [saved]);
   // the choice of users is there when some account has a choice to make; a member alone with accounts of their own has none
   const showUse = meta.accounts.some((a) => optionsOf(a, meta).length > 1);
-  const institution = (a: Account) => meta.connections.find((c) => c.id === a.connectionId)?.institution ?? null;
   const warn = (text: string) => setMessage({ tone: "warning", text });
 
   const setType = async (a: Account, type: string) => {
@@ -133,10 +131,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     const credit = limit === null ? null : t("set.acc.credit_limit", { limit: money(limit, false) }) + (used ? t("set.acc.credit_used", { used: money(used, false) }) + over : "");
     return (
       <>
-        <div className="acc-name">
-          <AccountMark name={a.name} institution={institution(a)} banks={meta.bank.banks ?? []} />
-          <span>{a.name}</span>
-        </div>
+        <div className="acc-name">{a.name}</div>
         {accountNumber(a) && <div className="sub acc-line">{accountNumber(a)}</div>}
         {a.customName && <div className="sub acc-line">{t("set.acc.bank_name", { name: a.bankName })}</div>}
         {holder && <div className="sub acc-line">{holder}</div>}

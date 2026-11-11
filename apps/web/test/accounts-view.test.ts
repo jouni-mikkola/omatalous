@@ -117,6 +117,12 @@ describe("Tilit: what tells accounts apart", () => {
     expect(out).not.toContain("yli luottorajan");
   });
 
+  it("starts a row with the account's name as text, with no logo of its bank", () => {
+    const markup = renderToStaticMarkup(createElement(Accounts, { meta: metaOf([account({ customName: "Arki", name: "Arki" })], [connection("c1")]), onChange: () => {} }));
+    expect(text(markup)).toContain("Arki Pankin nimi: Käyttötili");
+    expect(markup).not.toContain("<img");
+  });
+
   it("says in words that a card is over its limit and by how much: the bar tells it by colour and is hidden from a screen reader", () => {
     const card = (balanceCents: number) => account({ id: "a2", name: "Nordea Gold", bankName: "Nordea Gold", type: "credit_card", creditLimitCents: 300000, balanceCents });
     expect(render([card(-320000)])).toContain("Luottoraja 3 000 €, käytössä 3 200 €, yli luottorajan 200 €");
