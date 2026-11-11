@@ -87,10 +87,11 @@ export async function resolveSession(c: Context, s: Services): Promise<{ user: U
   }
   const user = await s.users.get(session.userId);
   if (!user) return null;
-  if (now.getTime() - Date.parse(session.lastSeenAt) > TOUCH_INTERVAL_MS) {
-    await s.users.touchSession(sessionId, new Date(now.getTime() + s.config.sessionDays * 86_400_000).toISOString());
-  }
-  if (current === undefined) setSessionCookie(c, s, token); // legacy cookie: move the session to the new name
+  const used = now.getTime() - Date.parse(session.lastSeenAt) > TOUCH_INTERVAL_MS;
+  if (used) await s.users.touchSession(sessionId, new Date(now.getTime() + s.config.sessionDays * 86_400_000).toISOString(), now);
+  // The cookie's age moves with the row's end, or the browser drops it SESSION_DAYS after the sign-in however often
+  // the member came. A legacy cookie moves the session to the new name.
+  if (used || current === undefined) setSessionCookie(c, s, token);
   return { user, sessionId };
 }
 

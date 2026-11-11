@@ -153,8 +153,8 @@ export class UsersRepo {
     return r ? { userId: String(r.user_id), expiresAt: String(r.expires_at), lastSeenAt: String(r.last_seen_at), createdAt: String(r.created_at) } : null;
   }
 
-  async touchSession(id: string, expiresAt: string): Promise<void> {
-    await this.db.run("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?", [new Date().toISOString(), expiresAt, id]);
+  async touchSession(id: string, expiresAt: string, at: Date): Promise<void> {
+    await this.db.run("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?", [at.toISOString(), expiresAt, id]);
   }
 
   async deleteSession(id: string): Promise<void> {
@@ -166,8 +166,13 @@ export class UsersRepo {
     await this.db.run("DELETE FROM sessions WHERE user_id = ? AND id != ?", [userId, exceptId ?? ""]);
   }
 
-  async listSessions(userId: string, currentId: string | undefined): Promise<SessionInfo[]> {
-    return (await this.db.all<Row>("SELECT id, created_at, last_seen_at, user_agent FROM sessions WHERE user_id = ? ORDER BY last_seen_at DESC", [userId])).map((r) => ({
+  /** The user's sessions that have not ended. An ended one keeps its row until the hourly tick and is no signed-in device. */
+  async listSessions(userId: string, currentId: string | undefined, at: Date): Promise<SessionInfo[]> {
+    const rows = await this.db.all<Row>("SELECT id, created_at, last_seen_at, user_agent FROM sessions WHERE user_id = ? AND expires_at >= ? ORDER BY last_seen_at DESC", [
+      userId,
+      at.toISOString(),
+    ]);
+    return rows.map((r) => ({
       id: String(r.id).slice(0, 20),
       createdAt: String(r.created_at),
       lastSeenAt: String(r.last_seen_at),

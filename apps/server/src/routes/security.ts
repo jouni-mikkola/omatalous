@@ -11,7 +11,7 @@ export function securityRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
   app.get("/sessions", async (c) => {
-    const sessions = await s.users.listSessions(c.get("user").id, c.get("sessionId"));
+    const sessions = await s.users.listSessions(c.get("user").id, c.get("sessionId"), s.now());
     return c.json({ sessions: sessions.map(({ userAgent, ...rest }) => ({ ...rest, device: deviceLabel(userAgent) })) });
   });
 
@@ -30,7 +30,7 @@ export function securityRoutes(s: Services) {
     const user = c.get("user");
     const id = c.req.param("id");
     if (!/^[A-Za-z0-9_-]{20}$/.test(id)) throw new UserError("Istuntoa ei löydy.");
-    const current = (await s.users.listSessions(user.id, c.get("sessionId"))).find((x) => x.id === id)?.current ?? false;
+    const current = (await s.users.listSessions(user.id, c.get("sessionId"), s.now())).find((x) => x.id === id)?.current ?? false;
     if (!(await s.users.deleteSessionByShortId(user.id, id))) throw new UserError("Istuntoa ei löydy.");
     await recordEvent(s, { kind: "session_revoked", userId: user.id, ...requestInfo(c, s), detail: "yksi" });
     if (current) await endSession(c, s, c.get("sessionId"));

@@ -100,6 +100,21 @@ function int(value: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
+/**
+ * The days a session lives without use: a whole number from 1 to 365. `parseInt` took `30abc` as 30, and a number of
+ * days past the last date JavaScript has made every sign-in fail. Anything else is refused at start and 30 is used.
+ */
+function sessionDays(value: string | undefined): number {
+  const text = value?.trim();
+  if (!text) return 30;
+  const n = /^\d{1,3}$/.test(text) ? Number(text) : 0;
+  if (n < 1 || n > 365) {
+    console.error("SESSION_DAYS is not a whole number from 1 to 365 and is not used. Sessions last 30 days until it is fixed.");
+    return 30;
+  }
+  return n;
+}
+
 /** "6,18" → [6, 18]; invalid entries are ignored. */
 function hours(value: string | undefined, fallback: number[]): number[] {
   if (!value?.trim()) return fallback;
@@ -174,7 +189,7 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
     },
     access: accessConfig(env),
     appSecret: validSecret((files.appSecret ?? env.APP_SECRET ?? "").trim()),
-    sessionDays: int(env.SESSION_DAYS, 30),
+    sessionDays: sessionDays(env.SESSION_DAYS),
     sessionCookie: cookieName(env.INSTANCE_NAME),
     trustProxy: env.TRUST_PROXY === "true" || env.TRUST_PROXY === "1",
     setupCode: validSetupCode(env.SETUP_CODE),
