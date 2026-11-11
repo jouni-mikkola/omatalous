@@ -1230,6 +1230,37 @@ Result: The database and every copy the app makes of it can be read by the app's
 - after: none
 - files: apps/server/src/platform/durable.ts, apps/server/src/db/open.ts, apps/server/src/db/restore.ts, apps/server/src/db/node-sqlite.ts, apps/server/src/db/startup-gate.ts, apps/server/test/copy-modes.test.ts
 
+## The server: keys and secrets
+
+Found by reading `docs/SECURITY.md` (Login, Keys and secrets, Settings entered in the browser, Remote access lines 161 to 195)
+against `security`, `platform`, `db/migrate*.ts` and `auth/middleware.ts` on 11 November (N33); each `why` names the file and
+line on main and what main did. G4 waits for G3 (both edit `durable.ts`), G5 for G1 and L1 (they edit `users-repo.ts` and
+`routes/auth.ts`); G6 shares no file.
+
+### G4 A whole app secret
+Result: After a full disk at the first start, the next start makes a good app secret, and a cut-short file is never taken for one.
+- why: `docs/SECURITY.md` says `app_secret` holds 384 random bits, is created on first start and "an existing file is never replaced". `writeNewFileDurable` in `platform/durable.ts` (lines 30 to 39) calls `writeSync` once and ignores how many bytes it wrote, and leaves the file it made when it throws. On main (11 Nov, N33), under `ulimit -f 1`, a 2 001 byte write returned with no error and the file held 1 024 bytes; under `ulimit -f 0` `loadOrCreateAppSecret` (`entry/app-secret.ts` line 36) answered "could not create the app secret" and left an empty `app_secret`, and the next start with room answered "is too short (at least 32 characters)" (line 39) for ever, until someone deletes the file by hand. A cut that stays at 32 characters or more is read as the secret on the next start, while the first run sealed the bank keys with the whole one in memory, so they no longer open.
+- done when: in the new `apps/server/test/durable-write.test.ts`, which fails without the change, `writeNewFileDurable` writes every byte (a `writeSync` stand-in that takes 10 bytes at a time still gives the whole text), removes the file it made when a write or the flush throws (a second call at the same path then works) and leaves a file that was there before untouched; `loadOrCreateAppSecret` on a path where the first write throws returns the problem, leaves no `app_secret`, and a second call creates a secret of 64 characters; an existing file is still never replaced (`bun test apps/server/test/durable-write.test.ts`).
+- locks: app-secret-write
+- after: G3
+- files: apps/server/src/platform/durable.ts, apps/server/src/entry/app-secret.ts, apps/server/test/durable-write.test.ts
+
+### G5 Unknown names stay unknown
+Result: After the admin changes the password hash cost, a sign-in with a name that does not exist still takes as long as with a real one.
+- why: `docs/SECURITY.md` (Login) says "Unknown user names take the same time to check as real ones". `verifyUniform` in `security/password.ts` (lines 91 to 96) checks a real user at the cost stored in the hash and an unknown name at the cost now set, and its comment admits that a user with another cost "stands out" until the next sign-in. `routes/auth.ts` (line 106) passes it only `legacyRounds()`. On main (11 Nov, N33), with a hash made at 19 456 KiB and 2 passes and the cost set to 32 768 KiB and 8 passes, a wrong password for the real name took 19 ms and for an unknown name 122 ms, so the names that exist can be listed by timing.
+- done when: in the new `apps/server/test/login-timing.test.ts`, which fails without the change, `verifyUniform` with a hash at the old cost and one at the new cost and an unknown name runs the same list of derivations for all three (counted through a stand-in for the derive function: each cost that any stored hash has, once, and the PBKDF2 round as now), and the wrong password for the real name and for the unknown name differ by under 25 % in time; a right password still signs in and an old hash is still rewritten at the new cost; `users-repo.ts` gains one query for the costs in use that replaces `legacyRounds` in the call (`bun test apps/server/test/login-timing.test.ts apps/server/test/auth.test.ts`).
+- locks: login-timing
+- after: G1, L1
+- files: apps/server/src/security/password.ts, apps/server/src/db/users-repo.ts, apps/server/src/routes/auth.ts, apps/server/test/login-timing.test.ts
+
+### G6 A client address is an address
+Result: A visitor behind a proxy that adds the port is counted as one visitor, and a script told to wait is told for how long.
+- why: `docs/SECURITY.md` says that behind a proxy the client address comes from `CF-Connecting-IP` or the last `X-Forwarded-For` entry, and that the login, Access and service token limits count per address. `clientIp` in `auth/middleware.ts` (lines 101 to 111) returns the header text as it is, so `1.2.3.4:55` and `1.2.3.4:56` are two keys in `addressKey` (`security/rate-limit.ts`) and each source port starts a new count of wrong service tokens; on main (11 Nov, N33) `addressKey` answered `1.2.3.4:55` for the first and `x` repeated 300 times for a made-up value, each its own bucket. `serviceRequest` answers its 429 (line 34) with no `Retry-After`, while the other 429s of the server (`app.ts` line 55, `routes/auth.ts` lines 61 and 99) send one, so a script has no time to wait for.
+- done when: in the new `apps/server/test/client-address.test.ts`, which fails without the change, `clientIp` with `TRUST_PROXY` gives `1.2.3.4` for `1.2.3.4:55`, `2001:db8::1` for `[2001:db8::1]:443`, ignores a value that is no IPv4 or IPv6 address (a name, a list, 300 characters) and takes the next source, and without `TRUST_PROXY` still ignores both headers; the 429 of a service token over its limit has a `Retry-After` of the limiter's wait in whole seconds, at least 1; 20 wrong tokens from `1.2.3.4:55` and `1.2.3.4:56` lock one address (`bun test apps/server/test/client-address.test.ts apps/server/test/service-tokens.test.ts`).
+- locks: client-address
+- after: none
+- files: apps/server/src/auth/middleware.ts, apps/server/test/client-address.test.ts
+
 ## Docs and help
 
 What a household user reads. The tabs of Asetukset are the six labels of `packages/core/src/messages-set-tabs.ts`
