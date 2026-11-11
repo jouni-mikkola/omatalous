@@ -17,6 +17,41 @@ describe("csv()", () => {
   });
 });
 
+describe("report CSV by name", () => {
+  const url = (report: string) => `/api/export/report.csv?${report}from=2026-01-01&to=2026-10-09`;
+
+  it("answers the three known reports, and the month table when none is named", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    const file = (r: { res: Response }) => r.res.headers.get("content-disposition");
+    const absent = await admin.call("GET", url(""));
+    const pivot = await admin.call("GET", url("report=pivot&"));
+    expect(absent.status).toBe(200);
+    expect(file(absent)).toBe('attachment; filename="kuukausitaulukko_2026-01-01_2026-10-09.csv"');
+    expect(file(pivot)).toBe(file(absent));
+    expect(pivot.body).toBe(absent.body);
+    expect(pivot.body.startsWith("Kategoria;Ryhmä;")).toBe(true);
+    const categories = await admin.call("GET", url("report=categories&"));
+    expect(file(categories)).toBe('attachment; filename="kategoriat_2026-01-01_2026-10-09.csv"');
+    expect(categories.body.startsWith("Ryhmä;Kategoria;")).toBe(true);
+    const cashflow = await admin.call("GET", url("report=cashflow&"));
+    expect(file(cashflow)).toBe('attachment; filename="kassavirta_2026-01-01_2026-10-09.csv"');
+    expect(cashflow.body.startsWith("Kuukausi;Tulot €;")).toBe(true);
+  });
+
+  it("refuses an unknown report with 400 and no file", async () => {
+    const { admin } = await setupApp();
+    await admin.call("POST", "/api/demo");
+    for (const report of ["report=months&", "report=&", "report=Pivot&", "report=categories%20&"]) {
+      const r = await admin.call("GET", url(report));
+      expect(r.status).toBe(400);
+      expect(r.body.messageCode).toBe("check.report");
+      expect(r.res.headers.get("content-disposition")).toBeNull();
+      expect(r.res.headers.get("content-type")).toContain("json");
+    }
+  });
+});
+
 describe("report CSV without a complete month", () => {
   const rows = (body: string) =>
     body

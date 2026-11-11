@@ -5,6 +5,7 @@ import { recordEvent } from "../services/security.ts";
 import { DEMO_MONTHS, loadDemoData } from "../demo.ts";
 import { exportEverything } from "../services/data-export.ts";
 import { addChunk, cancelImport, commitImport, dryRun, type ImportChecks, startImport } from "../services/data-import.ts";
+import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import { parseLoan } from "./loans.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
@@ -102,12 +103,14 @@ export function dataRoutes(s: Services) {
   });
 
   app.get("/export/report.csv", async (c) => {
+    // an unknown report is refused, so a wrong link never answers the month table under its name
+    const kind = c.req.query("report") ?? "pivot";
+    if (kind !== "pivot" && kind !== "categories" && kind !== "cashflow") throw UserError.of("check.report");
     const user = c.get("user");
     const range = parseRange(c, s.today());
     const { ctx, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, user.id, accounts);
     const reports = buildReports({ ctx, range, balances, inputs });
-    const kind = c.req.query("report") ?? "pivot";
     if (kind === "categories") {
       const rows = [
         ["Ryhmä", "Kategoria", "Yhteensä €", "Osuus %", "Ostoja", "Keskiostos €", "Keskimäärin kuussa €", "Pienin kuukausi €", "Suurin kuukausi €", "Edellinen jakso €", "Muutos 3 kuukaudessa %"],
