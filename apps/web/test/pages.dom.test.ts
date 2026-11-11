@@ -46,7 +46,7 @@ describe("Tapahtumat", () => {
 
   it("lists the rules in Asetukset, and adds a rule", async () => {
     const server = await startServer();
-    await openApp("#/rules", "Asetukset");
+    await openApp("#/settings/household#saannot", "Asetukset");
     await screen.findByRole("textbox", { name: "Hakusana" }, T);
     fireEvent.change(screen.getByRole("textbox", { name: "Hakusana" }), { target: { value: "Testikauppa" } });
     fireEvent.click(screen.getByRole("button", { name: "Lisää" }));

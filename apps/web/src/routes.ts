@@ -78,9 +78,6 @@ const ADMIN_ONLY_PAGES: readonly string[] = SETTINGS_TARGETS.filter((t) => "admi
 /** The anchor of an account's own row (part.ts `partAnchor`) opens Pankit ja tilit. */
 const ACCOUNT_ROW_PREFIX = "tili-";
 
-/** What the removed `?section=` values of Asetukset meant: the card to open, and for `technical` the target of the old page. */
-const SECTION_CARD: Record<string, string> = { server: SETTINGS_ANCHOR.server, maintenance: SETTINGS_ANCHOR.maintenance };
-
 /** The address of a target, and of a card on it (`#/settings/security#salasana`). */
 export function settingsHash(target: SettingsTarget, anchor?: string, params: URLSearchParams = new URLSearchParams()): string {
   return hashOf({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) });
@@ -108,34 +105,18 @@ function opened(route: Route, role: "admin" | "member"): Route {
   return { page: `settings/${FIRST_TARGET}`, params: route.params };
 }
 
-/**
- * Where the address of Asetukset from before its targets lives now. The card named by the anchor, or by the removed
- * `?section=server|maintenance|security`, decides the target; the old technical page opens the server for an admin and
- * the first target for a member. `?add=1`, `connected` and `error` (the return from a bank) are Pankit ja tilit.
- */
-function settingsMoved(route: Route, role: "admin" | "member"): Route {
-  const params = new URLSearchParams(route.params);
-  const section = params.get("section");
-  const security = section === "security";
-  const anchor = security ? (role === "admin" ? SETTINGS_ANCHOR.securityLog : SETTINGS_ANCHOR.login) : (route.anchor ?? (section ? SECTION_CARD[section] : undefined));
-  params.delete("section");
-  params.delete("tab");
-  const target = targetOfCard(anchor) ?? (section === "technical" && role === "admin" ? "server" : FIRST_TARGET);
-  return opened({ page: `settings/${target}`, params, ...(anchor ? { anchor } : {}) }, role);
-}
-
 /** The value of `group` in the address of Tapahtumat that puts the rows under their merchant. */
 const GROUP_MERCHANT = "merchant";
 
 /**
- * Where an address of the merchant list or the rules lives now. The rules (`#/rules`, `?tab=rules`, the anchor of the
- * old tab) are the Säännöt card of Asetukset; the merchant list is Tapahtumat grouped by merchant, with the filters the
- * rows also take. `habit` was the merchant list's own and is dropped.
+ * Where an address of the merchants tab of Tapahtumat (`?view=merchants`) lives now. The rules under the tab (its
+ * `#saannot` anchor) are the Säännöt card of Asetukset; the merchant list is Tapahtumat grouped by merchant, with the
+ * filters the rows also take. `habit` was the merchant list's own and is dropped.
  */
 function merchantsMoved(route: Route): Route {
   const params = new URLSearchParams(route.params);
-  const rules = route.page === "rules" || params.get("tab") === "rules" || route.anchor === RULES_ANCHOR;
-  for (const gone of ["tab", "view", "habit"]) params.delete(gone);
+  const rules = route.anchor === RULES_ANCHOR;
+  for (const gone of ["view", "habit"]) params.delete(gone);
   if (rules) {
     // the filters of the merchant list say nothing on Asetukset
     for (const filter of ["q", "category", "from", "to"]) params.delete(filter);
@@ -173,36 +154,34 @@ export function parseHash(hash: string): Route {
   return { page: path || "overview", params: new URLSearchParams(search), ...(anchor ? { anchor } : {}) };
 }
 
-/** The three tabs Raportit had (`?tab=`) and the question page that now holds most of what each showed. */
-const LEGACY_REPORT_TABS: Readonly<Record<string, string>> = { virta: "tulot", menot: "menot", varat: "saldot" };
-
 /**
- * Where an old address lives now, or null when it is current. The router rewrites the address with `replaceState`,
- * so a bookmark keeps working and Back does not return to the old address. A period belongs to one page: a Raportit
- * period on the month page, or a month on Raportit, opens the page that offers it. The tabs of Raportit (`?tab=menot`) became question pages (`?q=menot`). The merchants and the rules were
- * a page of their own (`#/categories`, `?tab=rules`, `#/rules`) and then a tab of Tapahtumat (`?view=merchants`, the
- * rules at `#saannot`): the merchants are now the rows of Tapahtumat grouped by merchant (`?group=merchant`) and the
- * rules a card of Asetukset (`merchantsMoved`). Toistuvat (`#/recurring`) became Laskut (`#/bills`). Lisää (`#/more`) opens Yhteenveto. Asetukset has six targets, each a route of its own
- * (`#/settings/security`): the bare `#/settings`, `?section=` (technical, server, maintenance, security), `?tab=talous`
- * and an anchor from before the targets open the target that has the card (`settingsMoved`), and a member's address of
- * the server target opens the first target.
+ * Where an address that is not a page's own opens, or null when it is. The router rewrites the address with
+ * `replaceState`, so Back does not return to it. A period belongs to one page: a Raportit period on the month page, or
+ * a month on Raportit, opens the page that offers it. Asetukset has six targets, each a route of its own
+ * (`#/settings/security`): the bare `#/settings` (the return from a bank comes there with `connected` or `error`, and
+ * `?add=1` opens the bank list) and an address that names no target open the first target with their parameters, and
+ * a member's address of the server target opens the first target.
+ *
+ * Four old addresses are still rewritten, because no released notice has named them: the merchants tab of Tapahtumat
+ * (`?view=merchants`, the rules at `#saannot`), which is now the rows grouped by merchant (`?group=merchant`) and the
+ * rules card of Asetukset (`merchantsMoved`); Lisää (`#/more`), which opens Yhteenveto; Toistuvat (`#/recurring`),
+ * which became Laskut (`#/bills`); and the technical page and Ylläpito of Asetukset (`?section=technical`,
+ * `?section=maintenance`), which open the server target for an admin and the first target for a member.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
-  if (route.page === "settings") return settingsMoved(route, role);
-  // an address under settings/ that names no target (typed by hand) opens the first one
-  if (route.page.startsWith("settings/") && !SETTINGS_TARGETS.some((t) => route.page === `settings/${t.id}`)) return { page: `settings/${FIRST_TARGET}`, params: route.params };
+  const section = route.page === "settings" ? route.params.get("section") : null;
+  if (section === "technical" || section === "maintenance") {
+    const params = new URLSearchParams(route.params);
+    params.delete("section");
+    return opened({ page: "settings/server", params, ...(section === "maintenance" ? { anchor: SETTINGS_ANCHOR.maintenance } : {}) }, role);
+  }
+  // the bare address, and one under settings/ that names no target (typed by hand), open the first target
+  if (route.page === "settings" || (route.page.startsWith("settings/") && !SETTINGS_TARGETS.some((t) => route.page === `settings/${t.id}`))) return { page: `settings/${FIRST_TARGET}`, params: route.params };
   if (ADMIN_ONLY_PAGES.includes(route.page) && role !== "admin") return opened(route, role);
   // the Lisää screen (phone) is gone: its two links are a tab and the user menu
   if (route.page === "more") return { page: "overview", params: route.params };
   if (route.page === "recurring") return { page: "bills", params: route.params, ...(route.anchor ? { anchor: route.anchor } : {}) };
-  if (route.page === "categories" || route.page === "rules" || (route.page === "transactions" && route.params.get("view") === "merchants")) return merchantsMoved(route);
-  if (route.page === "reports" && route.params.has("tab")) {
-    const params = new URLSearchParams(route.params);
-    const q = LEGACY_REPORT_TABS[params.get("tab") ?? ""];
-    params.delete("tab");
-    if (q && !params.has("q")) params.set("q", q);
-    return { page: "reports", params, ...(route.anchor ? { anchor: route.anchor } : {}) };
-  }
+  if (route.page === "transactions" && route.params.get("view") === "merchants") return merchantsMoved(route);
   const period = route.params.get("period");
   if (period && (route.page === "overview" || route.page === "reports")) {
     const home = pageOfPeriod(period);
