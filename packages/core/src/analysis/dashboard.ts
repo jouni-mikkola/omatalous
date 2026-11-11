@@ -16,6 +16,7 @@ import { fixedSeriesAt } from "./fixed-share.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
+import { type NytAnswer, nytAnswer } from "./nyt.ts";
 import { buildHome, type Home } from "../home.ts";
 import { type SpendingGoal, spendingGoal } from "./spending-goal.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
@@ -69,6 +70,8 @@ export interface DashboardData {
   goal: SpendingGoal | null;
   /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the three figures. null when the selected period does not include today. */
   ahead: AheadData | null;
+  /** Nyt: the sum left before the payday, the days left, the usual everyday spending of a day and the pace band (`nytAnswer`). null when `ahead` is. */
+  nyt: NytAnswer | null;
   /** What the first page says in its five blocks; the page only draws it. */
   home: Home;
   /** Cost traps and mistakes; the overview shows them before insights. */
@@ -170,6 +173,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     pace,
     goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
     ahead: basis?.ahead ?? null,
+    nyt: basis && nytAnswer(ctx, basis),
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
     connectNotice: connectNotice(ctx, ctx.today, lang),

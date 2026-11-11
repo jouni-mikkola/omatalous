@@ -720,6 +720,31 @@
   },
   "missing": null
  },
+ "nyt": {
+  "from": "2026-10-15",
+  "left": {
+   "known": true,
+   "payday": {
+    "date": "2026-10-23",
+    "name": "Acme"
+   },
+   "days": 8,
+   "balanceCents": 240000,
+   "billsCents": 5280,
+   "leftCents": 234720,
+   "perDayCents": 29340
+  },
+  "usualPerDayCents": 3982,
+  "pace": {
+   "day": 15,
+   "spentCents": 276614,
+   "usual": {
+    "lowCents": 254594,
+    "highCents": 264502,
+    "months": 6
+   }
+  }
+ },
  "alerts": [
   {
    "id": "forgotten:out:card:Spotify",

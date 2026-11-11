@@ -858,6 +858,31 @@
   },
   "missing": null
  },
+ "nyt": {
+  "from": "2026-10-09",
+  "left": {
+   "known": true,
+   "payday": {
+    "date": "2026-10-23",
+    "name": "Acme"
+   },
+   "days": 14,
+   "balanceCents": 681443,
+   "billsCents": 293197,
+   "leftCents": 388246,
+   "perDayCents": 27732
+  },
+  "usualPerDayCents": 5089,
+  "pace": {
+   "day": 9,
+   "spentCents": 202112,
+   "usual": {
+    "lowCents": 192764,
+    "highCents": 215012,
+    "months": 6
+   }
+  }
+ },
  "alerts": [
   {
    "id": "overlap:video",
