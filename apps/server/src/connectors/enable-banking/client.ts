@@ -132,14 +132,26 @@ export class EnableBankingClient {
 
   /** `userHeaders` are the Psu-* headers of a member who is present (psu.ts); they go out as given and are never logged. */
   private async request<T>(method: string, path: string, body?: unknown, userHeaders?: Readonly<Record<string, string>>): Promise<T> {
-    const res = await this.fetchFn(`${this.baseUrl}${path}`, {
-      method,
-      headers: { ...userHeaders, Authorization: await this.authHeader(), "Content-Type": "application/json", Accept: "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    const text = await readCappedText(res, MAX_BODY_BYTES);
-    if (text === null) throw new Error("Enable Banking response too large");
+    const headers = { ...userHeaders, Authorization: await this.authHeader(), "Content-Type": "application/json", Accept: "application/json" };
+    const sent = body === undefined ? undefined : JSON.stringify(body);
+    let res: Response;
+    let text: string | null;
+    try {
+      res = await this.fetchFn(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: sent,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      text = await readCappedText(res, MAX_BODY_BYTES);
+    } catch (err) {
+      // no network, a TLS fault, the timeout or an answer that broke off: an outage of the bank's side, not a fault of the app.
+      // fetch says only "TypeError"; the cause code (ENOTFOUND, ECONNREFUSED, a TLS code) tells what to fix. The error's own text stays out.
+      const code = (err as { cause?: { code?: unknown } }).cause?.code;
+      const detail = typeof code === "string" && /^[A-Z0-9_]{2,40}$/.test(code) ? ` ${code}` : "";
+      throw new UpstreamError(`Enable Banking gave no answer on ${path}: ${(err as Error).name}${detail}`, plainFault(503));
+    }
+    if (text === null) throw new UpstreamError(`Enable Banking response too large on ${path} (TOO_LARGE)`, "Emme voineet lukea pankin vastausta.");
     if (!res.ok) throw new EnableBankingError(res.status, text, path);
     if (!text) return {} as T;
     try {
