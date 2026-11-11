@@ -54,7 +54,7 @@ describe("command line: help", () => {
 describe("command line: a command that does not exist", () => {
   // the command, the word stderr names (the group when it stands alone), and the lines of its group
   const refused: [string[], string, string[]][] = [
-    [["sessions", "frobnicate"], "frobnicate", ["sessions revoke-all"]],
+    [["sessions", "frobnicate"], "frobnicate", ["sessions list", "sessions revoke <username>", "sessions revoke-all"]],
     [["address", "show"], "show", ["address set <url>"]],
     [["secret"], "secret", ["secret rotate", "secret check <file>"]],
     [["user", "frobnicate", "ghost"], "frobnicate", USER_LINES],

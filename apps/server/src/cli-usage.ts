@@ -9,6 +9,8 @@ export const COMMANDS: readonly string[] = [
   "user remove-factor <username>",
   "user list",
   "user delete <username>",
+  "sessions list",
+  "sessions revoke <username>",
   "sessions revoke-all",
   "restore <file in /data>",
   "migrate-check <database file>",

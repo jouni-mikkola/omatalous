@@ -7,6 +7,8 @@
  *   docker compose exec banking node dist/node.js user remove-factor <username>      (a lost phone and recovery codes: the second sign-in factor off, the user signed out)
  *   docker compose exec banking node dist/node.js user list
  *   docker compose exec banking node dist/node.js user delete <username>
+ *   docker compose exec banking node dist/node.js sessions list      (who is signed in: user, device, last seen; see cli-sessions.ts)
+ *   docker compose exec banking node dist/node.js sessions revoke <username>      (a lost phone: signs one member out everywhere, the password stays)
  *   docker compose exec banking node dist/node.js sessions revoke-all      (signs everyone out)
  *   docker compose run --rm --no-deps -T banking node dist/node.js restore <file in /data>   (handled in entry/node.ts, app stopped)
  *   node dist/node.js migrate-check <database file>   (handled in entry/node.ts, db/migrate-check.ts: tries the migrations on a copy)
@@ -21,6 +23,7 @@
 import { readFileSync } from "node:fs";
 import { option, readWords, type Takes } from "./cli-args.ts";
 import { runOpsCli } from "./cli-ops.ts";
+import { runSessionsCli } from "./cli-sessions.ts";
 import { runServiceTokenCli } from "./cli-service-token.ts";
 import { COMMANDS, HELP_WORDS, refuseUnknown } from "./cli-usage.ts";
 import { isAppSecret } from "./entry/app-secret.ts";
@@ -28,7 +31,6 @@ import { UserError } from "./platform/errors.ts";
 import type { Services } from "./services/context.ts";
 import { parseBaseUrl } from "./platform/validate.ts";
 import { databaseOpensWith, triedAgainstToken } from "./services/secret-rotation.ts";
-import { recordEvent } from "./services/security.ts";
 import { removeFactorOf } from "./services/second-factor.ts";
 import { createUser, issueSetupCode, removeUser, resetPassword } from "./services/users.ts";
 
@@ -71,17 +73,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     console.log(code);
     return 0;
   }
-  if (group === "sessions" && command === "revoke-all") {
-    const { stray } = readWords(args.slice(2), {});
-    if (stray) {
-      console.error(stray);
-      return 1;
-    }
-    const n = await s.users.deleteAllSessions();
-    await recordEvent(s, { kind: "session_revoked", detail: "kaikki (komentorivi)" });
-    console.log(`Signed out ${n} sessions. Everyone has to sign in again.`);
-    return 0;
-  }
+  if (group === "sessions") return runSessionsCli(s, args.slice(1));
   if (group === "address" && command === "set") {
     try {
       // same parser as the browser field, so the command cannot store anything the settings page would refuse
