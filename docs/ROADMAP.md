@@ -336,6 +336,13 @@ Result: A bill that rose is marked in the accent with its gap written out, and r
 - after: V2
 - files: apps/web/src/styles/table.css, apps/web/src/components/table/Cells.tsx, apps/web/test/scale-css.test.ts
 
+### N40 Plan the last bank link steps
+Result: The plan gains 4 to 8 steps that fix real faults found in the bank files no plan step has read yet, each with its file and line on main
+- why: N35 (#221) left unread: enable-banking banks.ts, credentials.ts, jwt.ts, types.ts, mapper.ts past line 140, providers/cloudflare api.ts and reconcile.ts, connectors types.ts, registry.ts, fold-accounts.ts; the bank area gave 5 steps, so it is not done
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the last bank link steps. The plan gains 4 to 8 steps that fix real faults found in the bank files no plan step has read yet, each with its file and line on main and its tests, or says the area is done.
+- locks: none
+- after: none
+
 ### V3 Asetukset text on the scale
 Result: The headings and notes of Asetukset use the four type sizes and the 4 px steps, so they look like the rest of the app.
 - why: seen on 11 Nov at 390 px: a bare `<h3>` (`pages/settings/OffsiteBackup.tsx:134` and `:159`, `BankFile.tsx:128`) has no rule and the browser makes it 17,55 px with 17,55 px margins in Asetukset > Palvelin; a plain `p` (`BankConnections.tsx:402`) has browser margins of 15 px in Pankit ja tilit and Kotitalous, and `div.card-sub` 2 px. The same bare `p` is all over `pages/settings` (about 100 in 20 files: `RemoteAccess.tsx` 46, `Members.tsx` 5, `BankConnections.tsx` 4, `OffsiteBackup.tsx` 4, `Maintenance.tsx` 3 and others), so the rule reaches all of them and the step says so in the PR with a 390 px shot of each tab. The design has 13, 15, 20 and 32 px and steps of 4, 8, 16, 24, 40; `apps/web/src/styles/settings.css` has a rule for `.use-head` (line 40) and none for these.
