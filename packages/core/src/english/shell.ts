@@ -23,6 +23,7 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   "shell.sign_out_failed": "Signing out failed. Try again.",
   "shell.period": "Period",
   "foot.source": "Source code",
+  "foot.guides": "Guides",
   "foot.support": "Support the development",
   // the notices
   "shell.offline_kept": "Cannot reach the server. The figures shown were fetched {time}.",

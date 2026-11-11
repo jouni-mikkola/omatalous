@@ -14,6 +14,12 @@ describe("the footer's line about the app", () => {
     expect(out).toContain("AGPL-3.0");
   });
 
+  it("links to the troubleshooting guide of the repository, opened like the source link", () => {
+    expect(render("")).toMatch(
+      /<a href="https:\/\/github\.com\/jouni-mikkola\/omatalous\/blob\/main\/docs\/TROUBLESHOOTING\.md" target="_blank" rel="noopener noreferrer">Ohjeet<\/a>/,
+    );
+  });
+
   it("has no support link while the support address is empty", () => {
     expect(render("")).not.toContain("Tue kehitystä");
   });

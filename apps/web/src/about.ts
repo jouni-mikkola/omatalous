@@ -7,6 +7,8 @@ export const ABOUT = {
   authorName: project.author,
   authorUrl: project.authorUrl,
   sourceUrl: `https://github.com/${project.owner}/${project.repo}`,
+  /** The guide to what to do when the app shows a notice or a wrong figure. */
+  guidesUrl: `https://github.com/${project.owner}/${project.repo}/blob/main/docs/TROUBLESHOOTING.md`,
   licence: "AGPL-3.0",
   /** Where to help with the development costs. Empty: the footer shows no support link. */
   supportUrl: project.supportUrl,

@@ -27,6 +27,7 @@ export const FI_SHELL = {
   "shell.sign_out_failed": "Uloskirjautuminen ei onnistunut. Yritä uudelleen.",
   "shell.period": "Aikaväli",
   "foot.source": "Lähdekoodi",
+  "foot.guides": "Ohjeet",
   "foot.support": "Tue kehitystä",
   // the notices
   "shell.offline_kept": "Ei yhteyttä palvelimeen. Näkyvät luvut ovat ajalta {time}.",
