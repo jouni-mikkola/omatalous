@@ -86,7 +86,7 @@
   .nav .nav-wide-only { display: none; }
   /* the count of Tarkistettavat sits over the corner of its tab and takes no width: five words fill 320 px */
   .nav .review-link { position: relative; }
-  .nav .review-link .nav-count { position: absolute; top: 2px; right: 2px; line-height: 16px; }
+  .nav .review-link .nav-count { position: absolute; top: var(--ring); right: var(--ring); line-height: var(--sp-16); }
   .app { padding: 0 12px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
 }
 

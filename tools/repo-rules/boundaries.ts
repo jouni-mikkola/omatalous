@@ -122,14 +122,6 @@ const RULES: Rule[] = [
     deny: /(^|\/)(test|fixtures)\//,
   },
   {
-    id: "core-module-is-closed",
-    why: "a feature module imports its own folder, features/contract.ts and features/kit/ and nothing else (the contract and the kit re-export what a module needs)",
-    from: new RegExp(`^${CORE}/features/(insight|check|section|payee|question|notice)/[^/]+/`),
-    deny: new RegExp(`^(?!${CORE}/features/(contract\\.ts$|kit/))`),
-    except: (from, to) => to.startsWith(`${from.split("/").slice(0, 6).join("/")}/`),
-    idle: true,
-  },
-  {
     id: "view-is-closed",
     why: "a view imports its own folder, features/contract.ts, charts/, components/Section.tsx, format.ts and hooks.ts; the rest of its data comes in props",
     from: /^apps\/web\/src\/features\/view\/[^/]+\//,

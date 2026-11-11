@@ -1,6 +1,6 @@
 /**
  * Rules 7, 8 and 11 of the repo rules: lists that must agree and live in different files or languages, and the
- * comment every report carries. Rule 8 reads both layouts: the `REPORTS` registry and the section modules of features/section/. Nothing links the lists at build time, so a test reads each list and compares.
+ * comment every report carries. Rule 8 reads the `REPORTS` registry. Nothing links the lists at build time, so a test reads each list and compares.
  */
 import ts from "typescript6";
 import { describe, expect, it } from "vitest";
@@ -64,7 +64,7 @@ describe("repo rules: parity", () => {
     expectNoFindings("ops action list", found, "make the three lists equal. OPS_ACTIONS is the source: add the action there, to ACTIONS and the dispatch in scripts/ops-helper.sh, and to OpsAction in apps/web/src/components/ops/types.ts.");
   });
 
-  it("rule 8: every report in packages/core/src/reports is registered in reports/index.ts and shown by a section of the web page (a section module of features/section/ is registered by its folder and shown by a view that names it in `needs`)", () => {
+  it("rule 8: every report in packages/core/src/reports is registered in reports/index.ts and shown by a section of the web page", () => {
     const DIR = "packages/core/src/reports/";
     const INDEX = `${DIR}index.ts`;
     // files of that folder that are not reports
@@ -94,16 +94,13 @@ describe("repo rules: parity", () => {
         }
       }
     });
-    // the second layout: a section module is a folder of features/section/ and is shown by a view that names it in `needs`
-    const modules = repoFiles().flatMap((f) => /^packages\/core\/src\/features\/section\/([^/]+)\/index\.ts$/.exec(f)?.[1] ?? []);
-    if (!registry && modules.length === 0) throw new Error(`${INDEX}: no REPORTS object literal found; the parity rule needs updating to where the registry moved`);
+    if (!registry) throw new Error(`${INDEX}: no REPORTS object literal found; the parity rule needs updating to where the registry moved`);
     const keys: string[] = [];
     const used = new Set<string>();
     for (const p of registry?.properties ?? []) {
       if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) keys.push(p.name.text);
       walk(p, (n) => void (ts.isIdentifier(n) && used.add(n.text)));
     }
-    keys.push(...modules);
     expect(keys.length, "the registry has its keys").toBeGreaterThan(5);
 
     const reportFiles = repoFiles().filter((f) => f.startsWith(DIR) && /^[^/]+\.ts$/.test(f.slice(DIR.length)) && !NOT_REPORTS.has(f.slice(DIR.length)));

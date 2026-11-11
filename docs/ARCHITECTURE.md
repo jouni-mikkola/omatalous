@@ -155,11 +155,6 @@ flowchart LR
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
 - Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
   the range. The keys of the registry are the list; the repo rules check that each report is shown by a section of the page.
-- Feature modules (`packages/core/src/features/`): the scaffold is there and no module exists yet; each
-  `features/<kind>/registry.gen.ts` is `export {}`, and `apps/web/src/features/view/` is not made. A feature is to be a folder
-  `<kind>/<id>/` with `index.ts` (it exports `module`, written with `define` from `features/contract.ts`), `index.test.ts` and
-  `fixture.ts`. `pnpm gen` writes the registry of each kind, one export line a module; the file is tracked and merges by
-  union (`.gitattributes`). A module imports its own folder, the contract and `features/kit/` only (rule 6).
 - Säästövinkit (`packages/core/src/optimise/`) lists the household's decisions, each with euros a year or a deadline. One
   file per area in `areas/` returns findings (title, action, a euro range, calc lines, evidence
   rows) and the checks it ran. `buildOptimise` in `index.ts` applies the rules every finding follows: complete months

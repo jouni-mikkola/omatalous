@@ -14,7 +14,6 @@ tools/test/local-proof-legs.test.sh
 tools/test/local-proof-runs.test.sh
 tools/test/local-proof.test.sh
 tools/test/promote.test.sh
-tools/test/registry-union.test.sh
 tools/test/shell-lint.test.sh
 tools/test/slots.test.sh
 tools/test/smoke-image.test.sh

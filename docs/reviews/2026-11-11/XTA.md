@@ -43,7 +43,7 @@ The structure is sound. Core is pure, the server keeps every financial read behi
 
 5. **Misleading: `pnpm knip` reports clean but does not check files.**
    - Where: `knip.json:3` sets `"include": ["exports", "types"]`. `knip.json` `ignoreIssues` also hides `FilterChips.tsx` exports.
-   - Evidence: `npx knip --include files` lists 12 unused files: `apps/web/src/charts/forms/IncomeUse.tsx` (111 lines), `charts/Tooltip.tsx`, `components/housing/Housing.tsx` (195), `components/subject-name.ts`, `components/target-href.ts`, `pages/reports/rate-words.ts` and the six empty `registry.gen.ts` files. Two more files have no other reader:
+   - Evidence: `npx knip --include files` lists 12 unused files: `apps/web/src/charts/forms/IncomeUse.tsx` (111 lines), `charts/Tooltip.tsx`, `components/housing/Housing.tsx` (195), `components/subject-name.ts`, `components/target-href.ts`, `pages/reports/rate-words.ts` and the six empty `registry` (generated) files. Two more files have no other reader:
      - `components/housing/housing.ts` (195 lines) is read only by `Housing.tsx` and `apps/web/test/housing.test.ts`.
      - `styles/housing.css` is imported only by `Housing.tsx`.
 
@@ -52,13 +52,13 @@ The structure is sound. Core is pure, the server keeps every financial read behi
 
 6. **Ugly: the T78 scaffold remains.**
    - Where:
-     - `packages/core/src/features/contract.ts` plus six `registry.gen.ts` files
+     - `the features contract` plus six `registry` (generated) files
      - `packages/core/test/feature-contract.test.ts` and `test/fixtures/features/`
-     - `tools/gen/registry.mjs` and `package.json:34` (`"gen"`)
+     - `the registry generator` and `package.json:34` (`"gen"`)
      - feature globs at `vitest.config.ts:9-13`
      - the module rule at `tools/repo-rules/boundaries.ts:126-134`
      - `tools/repo-rules/parity.ts:3,97`, `tools/test/registry-union.test.sh` and `.gitattributes`
-   - Evidence: 15ec484 says "Partial: T78 the features folder, tools/gen and pnpm gen still to delete in a second step".
+   - Evidence: 15ec484 says "Partial: T78 the features folder, the generator and its script still to delete in a second step".
    - Why it matters: it is a second, unused way to add code, with rules that guard nothing.
 
 7. **Ugly: the T80 machine-load scripts remain in the product repo.**

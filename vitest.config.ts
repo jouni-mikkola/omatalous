@@ -8,9 +8,9 @@ const share = startedByVitest() ? await holdCores("vitest") : null;
 
 // The test files of a feature module sit in its folder: features/<kind>/<id>/index.test.ts, and those of a module a build
 // adds (extensions.ts) in its own folder, which the shared tree does not have.
-const CORE = ["packages/*/test/**/*.test.ts", "packages/*/src/features/**/*.test.ts", "packages/*/src/private/**/*.test.ts"];
+const CORE = ["packages/*/test/**/*.test.ts", "packages/*/src/private/**/*.test.ts"];
 const RULES = "tools/repo-rules/repo-rules*.test.ts";
-const REST = ["apps/*/test/**/*.test.ts", "apps/*/src/features/**/*.test.ts", "apps/*/src/private/**/*.test.ts", "tools/**/*.test.ts"];
+const REST = ["apps/*/test/**/*.test.ts", "apps/*/src/private/**/*.test.ts", "tools/**/*.test.ts"];
 /** A test that compares elapsed time with a limit is a `*.perf.test.ts` and runs only in the `perf` project (docs/DEVELOPMENT.md). */
 const PERF = "**/*.perf.test.ts";
 /** A test that clicks and types in a page of the web app runs in a DOM (happy-dom) and keeps a fresh module cache, since it fills the global window. */
