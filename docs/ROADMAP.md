@@ -1288,6 +1288,57 @@ Result: Odotettu and the base of Menojen muutos use the same months when a sync 
 - after: M5
 - files: packages/core/src/analysis/expected.ts, packages/core/src/analysis/change.ts, packages/core/src/analysis/change-plan.ts, packages/core/test/expected.test.ts, packages/core/test/change.test.ts
 
+N44 (11 November) read the files N42 left unread: `analysis/income-events.ts`, `change-split.ts`, `change-text.ts`,
+`behaviour/split.ts`, `behaviour/credit-stack.ts`, and the readers of income in `apps/web` (`charts/forms/IncomeUse.tsx`,
+`pages/reports/pages/Income.tsx`) and `apps/server` (`services/analysis.ts`, `services/explain.ts`), against *Income*, *Alerts*
+and *Periods, fixed costs and insights* of [MONEY_FLOWS.md](MONEY_FLOWS.md). M8 to M11 are the figures that differ,
+read on main and not run. Nothing differs in `change-split.ts` (its buckets add up to the change: one-off, timing, the
+mean-plan `due` rule, price and volume sum to `now - base`), `change-text.ts` (`changeMonths`, `cutWords`), `behaviour/split.ts`
+(its limits match its header) or the web and server readers (they pass the report's figures on and add none). The guide
+has no text on new sources, windfalls, residual tax, split bills or credit stacking, so M8 to M11 are set against the
+code's own rule that unknown money is no earned income and against the figures' own titles. M12 mends the three
+gaps N42 named.
+
+### M8 A new income counts its months
+Result: A new source of income that has paid for one month shows that month's money as its monthly effect, not a third of it.
+- why: `newSources` (`packages/core/src/analysis/income-events.ts:36`) works out `months` (1 to 3) for the title (*Uusi tulo: X, 900 € kuukaudessa*, `inc.new_1`) but sets `monthlyCents` to `total / 3` and `yearlyCents` to `total / 3 * 12` whatever it is (:46 and :47), and the gate `passes(b, total / 3)` (:38) reads the same third. A payer of 900 € who began last month shows 300 € a month and 3 600 € a year beside a title that says 900 €; one big payment shows 4 times itself as a year. The insight (`income-changes.ts:395` to 398) and the sort of `incomeChanges` (:359) use these. Read on main (11 Nov, N44).
+- done when: new cases of `packages/core/test/income.test.ts` that fail without the change show: a payer that began 20 days ago with 900 € has `monthlyCents` 900 and `yearlyCents` 10 800; one that began 70 days ago with 1 800 € in all has 900 a month; one that began 85 days ago has the total over 3 months; a single big payment has no yearly figure above what it paid; the gate reads the same monthly figure; the title and detail are unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: new-source
+- after: none
+- files: packages/core/src/analysis/income-events.ts, packages/core/test/income.test.ts
+
+### M9 Residual tax counted whole
+Result: The residual tax insight adds up every instalment it found, also one whose word is only in the sender's name.
+- why: `residualTax` (`packages/core/src/analysis/income-events.ts:102`) reads a row's merchant, counterparty and description to take it in, but `sumOf` (:111) picks the instalments with the word *jäännösvero* from the merchant and description only. A row whose word is in the counterparty falls out of `worded`; when any other row is worded the sum leaves it out (a 600 € instalment in a total of 1 000 €), and when none is worded the `paired` rule (:113) must find it by dates alone. The title (*Jäännösveroa X kahdessa erässä*) and `yearlyCents` then understate the tax. Read on main (11 Nov, N44).
+- done when: new cases of `packages/core/test/income.test.ts` that fail without the change show: two instalments to Verohallinto of 400 € and 600 € 60 days apart, one with the word in its counterparty and one in its description, give 1 000 € in two instalments; the same with the word in the merchant of both is unchanged; two with only a reference 61 days apart still pair; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: residual-tax
+- after: M8
+- files: packages/core/src/analysis/income-events.ts, packages/core/test/income.test.ts
+
+### M10 New lines link no credit
+Result: A first or second payment to a loan after a draw is no longer told as credit paying credit just for being a payment.
+- why: `linksOf` (`packages/core/src/behaviour/credit-stack.ts:192` to 198) takes the usual instalment of a line as the median of its last six payments before the draw, and with fewer than three (:194) uses 0, so `beyond` is the whole payment (:197) and `extra` counts all of it. A draw of 500 € followed within 14 days by the second 300 € instalment of a loan that began two months ago reaches `LINK_SHARE` (0,5) and is told, though that is the loan's usual payment. The header says "payments beyond the usual instalment". Read on main (11 Nov, N44).
+- done when: new cases of `packages/core/test/behaviour-model/credit-stack.test.ts` that fail without the change show: a draw followed by a payment to a line with under three payments before the draw makes no link; the same line with three or more payments before it, the last one far above their median, still links; a line with the usual instalment paid on time makes no link; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: credit-link
+- after: none
+- files: packages/core/src/behaviour/credit-stack.ts, packages/core/test/behaviour-model/credit-stack.test.ts
+
+### M11 Untold money is no new source
+Result: Money in that nothing has told yet is not announced as good news, as a new source of income.
+- why: `INCOME_TYPES.unknown` (`packages/core/src/analysis/income.ts:81`) is money in that nothing has told yet: "no salary until the user says so", not earned (the guide's *Odotetut tulot* leaves it out, see M12). `NEVER_NEW` (`packages/core/src/analysis/income-events.ts:18`) lists `tax_refund`, `holiday_pay`, `other_pay`, `persons` and `refunds` but not `unknown`, so two rows of the bank's default *Muut tulot* from one sender within 92 days make `newSources` give *Uusi tulo: X*, which `GOOD_INCOME` (`packages/core/src/explain/insights.ts:193`) shows as a good finding. Read on main (11 Nov, N44).
+- done when: new cases of `packages/core/test/unknown-income.test.ts` that fail without the change show: two rows of type `unknown` from one sender give no `new_source` change and no insight; the same rows after the user types them (for example *Myyntitulot*) give it as today; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: unknown-new
+- after: M9
+- files: packages/core/src/analysis/income-events.ts, packages/core/test/unknown-income.test.ts
+
+### M12 Guide and comments match code
+Result: The money flows guide and two code comments say what the expected income, the late-joined account rule and the missing 31st really do.
+- why: N42 (PR #256) found three gaps and planned none. *Odotetut tulot* (MONEY_FLOWS.md line 22) says earned income is every row but money from people, refunds and tax refunds, while `INCOME_TYPES.unknown` (`packages/core/src/analysis/income.ts:81`) is also left out on purpose (`test/unknown-income.test.ts` checks it in `expectedIncome`). `joinedSmall` (`packages/core/src/analysis/usual.ts:85` to 100) keeps a month in the base when the accounts that joined in it are cards paid by bills before, and also when they carry under `LEFT_OUT_SHARE` of the spending, whatever their type; the guide's *Odotettu* says only the first. The comment of `expectedEveryday` (`packages/core/src/analysis/expected.ts:324`) says a day a base month lacks (the 31st) adds nothing, but :343 adds that month's mean day (`sumOf(perDay[i]) / length`).
+- done when: MONEY_FLOWS.md names unknown income among what *Odotetut tulot* leaves out and the share rule for accounts that joined late in *Odotettu* (`grep -n "unknown\|LEFT_OUT_SHARE" docs/MONEY_FLOWS.md` finds both); the comment of `expectedEveryday` says a missing day adds the month's mean day; no code line of `expected.ts` or `usual.ts` changes (`git diff` shows comments only), and `packages/core/test/expected.test.ts` and `packages/core/test/unknown-income.test.ts` pass unchanged; `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: guide-income
+- after: M7
+- files: docs/MONEY_FLOWS.md, packages/core/src/analysis/expected.ts, packages/core/src/analysis/usual.ts, packages/core/test/expected.test.ts, packages/core/test/unknown-income.test.ts
+
 ## The server: robustness
 
 Found by reading `apps/server/` on 11 November (N15). Each step stays in that folder and waits for no other step.
