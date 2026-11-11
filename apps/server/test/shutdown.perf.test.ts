@@ -1,16 +1,16 @@
 /** The time of stopping: a wait that never ends is cut at the bound, not later. It runs in the perf project (docs/DEVELOPMENT.md). */
 import { describe, expect, it } from "vitest";
-import { shutdown } from "../src/entry/shutdown.ts";
+import { stopHandler } from "../src/entry/shutdown.ts";
 
 describe("stopping", () => {
   it("gives up after the bounded time", async () => {
-    const deps = () => ({
+    const deps = (exit: () => void) => ({
       stopScheduler: () => {},
       closeServer: (done: () => void) => setTimeout(done, 5),
       closeConnections: () => {},
       waitForInflight: () => new Promise<boolean>(() => {}),
       closeDb: () => {},
-      exit: () => {},
+      exit,
       timeoutMs: 40,
       log: () => {},
     });
@@ -19,7 +19,7 @@ describe("stopping", () => {
     let ms = Number.POSITIVE_INFINITY;
     for (let i = 0; i < 3; i++) {
       const started = performance.now();
-      await shutdown(deps());
+      await new Promise<void>((exited) => stopHandler(deps(exited))("SIGTERM"));
       ms = Math.min(ms, performance.now() - started);
     }
     expect(ms).toBeLessThan(500);

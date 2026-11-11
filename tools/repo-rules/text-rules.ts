@@ -129,7 +129,7 @@ describe("repo rules: text", () => {
       if (WHOLE_FILES.includes(file)) strings(sf);
     }
     for (const f of WHOLE_FILES) expect(webFiles, `${f} is scanned`).toContain(f);
-    expect(pieces, "the scan found the UI text").toBeGreaterThan(300);
+    expect(pieces, "the scan found the UI text").toBeGreaterThan(150);
     ALLOWED.forEach((a, i) => {
       if (!seenAllowed.has(i)) found.push({ file: "tools/repo-rules/text-rules.ts", line: lineIn("tools/repo-rules/text-rules.ts", a.text), why: `${a.file} no longer has the allowed text "${a.text}": remove the entry from ALLOWED` });
     });

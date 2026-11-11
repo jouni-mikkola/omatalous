@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { shutdown, stopHandler } from "../src/entry/shutdown.ts";
+import { stopHandler } from "../src/entry/shutdown.ts";
 import { inflightCount, track, waitForInflight } from "../src/platform/inflight.ts";
 
 describe("stopping", () => {
-  const deps = (over: Partial<Parameters<typeof shutdown>[0]> = {}) => {
+  const deps = (over: Partial<Parameters<typeof stopHandler>[0]> = {}) => {
     const calls: string[] = [];
     return {
       calls,
@@ -21,27 +21,24 @@ describe("stopping", () => {
     };
   };
 
+  /** Resolves when the run has called exit. */
+  const untilExit = (calls: string[]) => vi.waitFor(() => expect(calls.some((c) => c.startsWith("exit"))).toBe(true));
+  const SIGNAL_LOG = expect.stringMatching(/^log SIGTERM: stopping/);
+
   it("stops the scheduler first, waits for running work and then closes the database", async () => {
     let finished = false;
     const { calls, d } = deps({ waitForInflight: async () => (await new Promise((r) => setTimeout(r, 30)), (finished = true)) });
-    await shutdown(d);
+    stopHandler(d)("SIGTERM");
+    await untilExit(calls);
     expect(finished).toBe(true);
-    expect(calls).toEqual(["scheduler", "server", "connections", "db", "exit 0"]);
+    expect(calls).toEqual([SIGNAL_LOG, "scheduler", "server", "connections", "db", "exit 0"]);
   });
 
   it("gives up after the bounded time, cuts the connections and still closes the database", async () => {
     const run = deps({ timeoutMs: 40, waitForInflight: () => new Promise<boolean>(() => {}) });
-    await shutdown(run.d);
-    expect(run.calls).toEqual(["scheduler", "server", expect.stringMatching(/^log stopping: work still running after/), "connections", "db", "exit 0"]);
-  });
-
-  /** Resolves when the run has called exit. */
-  const untilExit = (calls: string[]) => vi.waitFor(() => expect(calls.some((c) => c.startsWith("exit"))).toBe(true));
-
-  it("passes the exit code it is given", async () => {
-    const { calls, d } = deps();
-    await shutdown(d, 1);
-    expect(calls.at(-1)).toBe("exit 1");
+    stopHandler(run.d)("SIGTERM");
+    await untilExit(run.calls);
+    expect(run.calls).toEqual([SIGNAL_LOG, "scheduler", "server", expect.stringMatching(/^log stopping: work still running after/), "connections", "db", "exit 0"]);
   });
 
   it.each(["uncaughtException", "unhandledRejection"] as const)("logs one line with the error on %s and exits 1", async (event) => {

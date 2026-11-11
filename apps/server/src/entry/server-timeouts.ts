@@ -9,13 +9,13 @@
  * `keepAliveTimeout`, developers.cloudflare.com/tunnel/reference/origin-parameters).
  * Node's own default is 5 s, which closes long before the proxy does.
  */
-export const KEEP_ALIVE_TIMEOUT_MS = 95_000;
+const KEEP_ALIVE_TIMEOUT_MS = 95_000;
 
 /**
  * Above the keep-alive time: Node's default of 60 s is below it, and a header limit under the
  * keep-alive time can close a connection the server still promises to keep open.
  */
-export const HEADERS_TIMEOUT_MS = KEEP_ALIVE_TIMEOUT_MS + 5_000;
+const HEADERS_TIMEOUT_MS = KEEP_ALIVE_TIMEOUT_MS + 5_000;
 
 /** Sets both times on an HTTP/1 server; `requestTimeout` and a server without these settings (HTTP/2) are left alone. */
 export function applyServerTimeouts(server: object): void {

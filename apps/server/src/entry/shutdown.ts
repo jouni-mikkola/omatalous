@@ -22,7 +22,7 @@ export interface ShutdownDeps {
 /** Longer than a typical fetch page or import, shorter than Docker's default stop timeout of 10 s. */
 export const SHUTDOWN_WAIT_MS = 8_000;
 
-export async function shutdown(d: ShutdownDeps, code = 0): Promise<void> {
+async function shutdown(d: ShutdownDeps, code = 0): Promise<void> {
   d.stopScheduler();
   const serverClosed = new Promise<boolean>((resolve) => d.closeServer(() => resolve(true)));
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -44,7 +44,7 @@ export async function shutdown(d: ShutdownDeps, code = 0): Promise<void> {
 
 export const STOP_SIGNALS = ["SIGINT", "SIGTERM"] as const;
 export const STOP_FAULTS = ["uncaughtException", "unhandledRejection"] as const;
-export type StopEvent = (typeof STOP_SIGNALS)[number] | (typeof STOP_FAULTS)[number];
+type StopEvent = (typeof STOP_SIGNALS)[number] | (typeof STOP_FAULTS)[number];
 
 /** The most of an error the log line keeps: the message and the first frames of the stack. */
 const FAULT_LINE_MAX = 2_000;
