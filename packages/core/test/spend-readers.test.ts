@@ -32,6 +32,8 @@ const USES_SPEND_ROWS = [
   // the rows its callers (categories.ts) give it, from spendRows
   "analysis/row-parts.ts",
   "analysis/themes-report.ts",
+  // a category's spending to a day of the month, from spendRows
+  "analysis/usual.ts",
   "reports/categories.ts",
   "reports/spending-table.ts",
   "reports/pivot.ts",

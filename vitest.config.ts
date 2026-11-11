@@ -18,10 +18,11 @@ const DOM = "**/*.dom.test.ts";
 /** A test that mocks a module of the code under test, or that leans on a fresh module state, needs a worker of its own: with a shared module cache the mock misses code another file loaded first. */
 const ISOLATED = "**/*.isolated.test.ts";
 
-/** Every project: the hooks each file needs. Workers that share modules (`isolate: false`) load a kit once, so a hook is set here, not in a kit. */
-const EVERY = { setupFiles: ["tools/lib/test-setup.ts"] };
+/** Every project: the hooks each file needs. Workers that share modules (`isolate: false`) load a kit once, so a hook is set here, not in a kit.
+ * The paths start at the root with a slash: with a plain relative path vitest 5.0.5 under --changed runs a setup file for the first file of a worker only. */
+const EVERY = { setupFiles: ["/tools/lib/test-setup.ts"] };
 /** Tests that draw tables (web code): the lazy parts of a table are loaded before the first draw. */
-const TABLES = { setupFiles: ["tools/lib/test-setup.ts", "tools/lib/test-markup.ts"] };
+const TABLES = { setupFiles: ["/tools/lib/test-setup.ts", "/tools/lib/test-markup.ts"] };
 
 export default defineConfig({
   test: {

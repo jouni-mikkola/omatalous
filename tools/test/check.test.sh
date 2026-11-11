@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Tests for the shell step of tools/check.sh: which suites it runs, and how a suite of `t_` scenarios is split into one
-# job per scenario. A world is a folder with a copy of check.sh and fake suites that log every scenario they run to
-# $RUNLOG. The --changed cases make a git history.
+# job per scenario. A world is a folder with a copy of check.sh and fake suites that log every scenario they run to $RUNLOG. The --changed cases make a git history.
 #
 #   tools/test/check.test.sh [name-filter]
 set -u
@@ -424,15 +423,13 @@ t_changed_script_runs_the_suites_of_its_folder() {
 }
 
 t_changed_suite_runs_itself() {
-  scoped_world
-  echo "# edit" >>"$W/tools/test/b.test.sh"
+  scoped_world; echo "# edit" >>"$W/tools/test/b.test.sh"
   run_check --changed main sh
   check "changed: only the changed suite ran" test "$(ran)" = "b.test.sh b,"
 }
 
 t_changed_without_a_named_folder_skips_the_suites() {
-  scoped_world
-  mkdir "$W/docs"; echo "note" >"$W/docs/NOTES.md"
+  scoped_world; mkdir "$W/docs"; echo "note" >"$W/docs/NOTES.md"
   run_check --changed main sh
   check "changed: nothing to run" grep -q 'nothing to run' "$W/out"
   check "changed: no suite ran" test -z "$(ran)"

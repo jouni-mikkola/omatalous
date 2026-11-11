@@ -8,19 +8,19 @@
  * (`countedAccounts`): a charge is a row when one of them pays it. The window ends the day before the nearest payday of
  * the pays to wait for; without one it is the next 30 days.
  */
-import { getCategory } from "../categories.ts";
 import { cancelledSubjects, type ExpectedCharge, expectedCharges } from "../commitments.ts";
 import { addDays, daysBetween, monthOf } from "../dates.ts";
-import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.ts";
+import { parseSeriesId, type RecurringSeries } from "../recurring.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
 import { type Counted, countedAccounts, expectedMoves, type Settling } from "./ahead-moves.ts";
 import { balanceWalk } from "./balance-walk.ts";
-import { type AnalysisContext, type AnalysisTx, standingOf } from "./context.ts";
+import { type ComingPeriod, comingList, comingPays } from "./coming.ts";
+import { type AnalysisContext, standingOf } from "./context.ts";
 import { expectedEverydayPerDay } from "./expected.ts";
 import { expectedBillRows } from "./forecast.ts";
-import { INCOME_TYPES, type IncomeType, incomeTypes, nextPayDate, payDayOf } from "./income.ts";
+import { INCOME_TYPES, type IncomeType, incomeTypes, payDayOf } from "./income.ts";
 import { type Pay, type PayEstimate, payEstimate, payEvidence } from "./pay-estimate.ts";
-import { AHEAD_DAYS, MAJOR_PAY_SHARE, MAX_PAYDAY_DAYS, MIN_PAY_GAP_DAYS } from "../thresholds.ts";
+import { AHEAD_DAYS } from "../thresholds.ts";
 
 export interface AheadRow {
   date: IsoDate;
@@ -203,23 +203,6 @@ export function upcomingElsewhereCents(upcoming: readonly AheadRow[]): number {
   return upcoming.reduce((sum, r) => (r.outside && r.cents !== null && r.cents < 0 ? sum - r.cents : sum), 0);
 }
 
-/**
- * The coming pay days of an income series. A monthly salary comes on its pay day as `payDayOf` finds it from the days it
- * was paid on (a nominal day and how a closed day moves it), so one early payday does not move the next one and a
- * weekend or a bank holiday is not a pay day. Other cadences, and a payer with no fixed day, follow the series' own
- * dates. The month of the last pay is tried too: a pay booked late in the next month, or on the Friday before the 1st,
- * leaves that month's pay still to come. A day less than 15 days after the last pay is that pay itself, not the next one.
- */
-function payDates(s: RecurringSeries, paidOn: readonly IsoDate[], to: IsoDate): IsoDate[] {
-  const pd = s.cadence === "monthly" && s.nextDate ? payDayOf(paidOn) : null;
-  if (!pd) return projectDates(s, to);
-  const out: IsoDate[] = [];
-  for (let d = nextPayDate(s.lastDate, pd); d <= to; d = nextPayDate(d, pd)) {
-    if (daysBetween(s.lastDate, d) >= MIN_PAY_GAP_DAYS) out.push(d);
-  }
-  return out;
-}
-
 /** What a row adds to a figure: a pay with no estimate adds nothing. */
 const centsOf = (r: AheadRow): number => r.cents ?? 0;
 
@@ -268,6 +251,8 @@ export interface AheadBasis {
   checking: { id: string; name: string; cents: number; balanceAt: string | null }[];
   /** The pays the payday's estimate rests on, each with its row, oldest first; empty without a payday or an estimate. */
   pays: Pay[];
+  /** What is coming to the payday after next, by payday period (coming.ts): Tulossa's list, of the window's own pays to wait for (`comingPays`). */
+  coming: ComingPeriod[];
 }
 
 /** `cashAhead` with what its figures rest on: one run, so the basis is of the very figures the page shows. */
@@ -277,15 +262,9 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   // without a checking account in view nothing is left out
   const onCounted = (s: RecurringSeries) => !counted || counted.ids.has(parseSeriesId(s.id)?.accountId ?? "");
 
-  const incomes = ctx.recurring.filter((s) => s.kind === "income" && s.active && getCategory(s.category).kind === "income");
-  // the larger of two equal usual amounts is the first one listed
-  const top = incomes.reduce<RecurringSeries | null>((best, s) => (!best || s.typicalAmountCents > best.typicalAmountCents ? s : best), null);
-  // a late income is no row and no payday to wait for
-  const coming = incomes.filter((s) => !s.overdue);
-  const wanted = new Set(incomes.flatMap((s) => s.transactionIds));
-  const dayOf = new Map<string, IsoDate>();
-  const rowsOf = new Map<string, AnalysisTx>();
-  for (const t of standingOf(ctx).txs) if (wanted.has(t.id)) (dayOf.set(t.id, t.bookingDate), rowsOf.set(t.id, t));
+  // the incomes and the pays to wait for, as the coming list has them (coming.ts); its reach is past this window's
+  const found = comingPays(ctx);
+  const { top, rowsOf, pays, major, next } = found;
   // the estimate of a series' next pay: from its regular pays only, holiday pay and other pay left out
   let types: Map<string, IncomeType> | null = null;
   const regularOf = (s: RecurringSeries): Pay[] => {
@@ -296,18 +275,7 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     });
   };
   const payOf = (s: RecurringSeries, due: IsoDate): PayEstimate | null => payEstimate(regularOf(s), from, due);
-  const reach = addDays(from, MAX_PAYDAY_DAYS);
-  const pays = coming.map((s) => {
-    const past = s.transactionIds.map((id) => dayOf.get(id)).filter((d): d is IsoDate => !!d);
-    const expected = payDates(s, past, reach);
-    // a pay expected on a day gone by and not late yet is a row of today
-    return { s, past, expected, dates: expected.map((d) => (d < from ? from : d)) };
-  });
-
-  // the pays to wait for; of two on one day the larger comes first
-  const major = (top ? pays.filter((p) => p.s.typicalAmountCents >= top.typicalAmountCents * MAJOR_PAY_SHARE) : []).sort((a, b) => b.s.typicalAmountCents - a.s.typicalAmountCents);
-  // the nearest pay among them whose day is still to come: it ends the window, whatever else is late or behind
-  const [next] = major.flatMap((p) => p.expected.filter((d) => d >= from).slice(0, 1).map((day) => ({ s: p.s, past: p.past, day }))).sort((a, b) => a.day.localeCompare(b.day));
+  // `next`, the nearest pay among them whose day is still to come, ends the window
   // one whose day has gone by and that is not late yet: it has not come, so it ends no window
   const behind = major.find((p) => p.expected.length > 0 && p.expected[0]! < from);
 
@@ -398,8 +366,9 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   const totals: AheadTotals = { recurringCents, typedCents, cardCents, transferCents, dueCents: recurringCents + typedCents + cardCents, leavingCents: recurringCents + typedCents + cardCents + transferCents, incomeCents: sumOf(rows, "income") };
   const base = { from, to, days, reason, payday, rows, upcoming, everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals };
   const evidence: Pay[] = payday?.pay && paySeries ? payEvidence(regularOf(paySeries), from) : [];
+  const periods = comingList(ctx, inputs, found);
   // the rows are those of every counted account, so the figures need the balance of every one of them
-  if (!checking.length || checking.length < counted!.accounts.length) return { ahead: { ...base, balance: null, missing: "balance" }, direct, settling, checking, pays: evidence };
+  if (!checking.length || checking.length < counted!.accounts.length) return { ahead: { ...base, balance: null, missing: "balance" }, direct, settling, checking, pays: evidence, coming: periods };
 
   const startCents = checking.reduce((sum, b) => sum + b.cents, 0);
   const stamps = checking.map((b) => b.balanceAt).filter((x): x is string => !!x).sort();
@@ -415,5 +384,5 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     lowest = Math.min(lowest, left);
   }
   const balance: AheadBalance = { startCents, counts: counted!.counts, accounts: checking.length, balanceAt: stamps[0] ?? null, freeCents: startCents - totals.leavingCents, shortCents: Math.max(0, -lowest), shortOn };
-  return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence };
+  return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence, coming: periods };
 }

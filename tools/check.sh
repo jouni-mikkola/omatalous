@@ -9,8 +9,7 @@
 # that import a changed file), and the shell steps only when the change touches shell: the lint for a changed script, and
 # the suites of the touched folders, which are the suites that name a file in the folder of a changed file (a changed
 # suite runs itself, a changed file at the root the suites that name it). The base defaults to the commit that
-# .git/worker-base holds, else origin/main. CI and
-# a plain `pnpm check` run everything, except that the self-tests of the developer and release tools
+# .git/worker-base holds, else origin/main. CI and a plain `pnpm check` run everything, except that the self-tests of the developer and release tools
 # (tools/check/tooling.txt) run only when the change touches tools/, .github/ or scripts/ since that base: always in CI
 # (CHECK_LIGHT=1, set by the light tier of ci.yml, applies the rule there too), with CHECK_FRESH (the release gate sets
 # it) or CHECK_TOOLING=1, never with CHECK_TOOLING=0.

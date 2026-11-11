@@ -86,6 +86,7 @@ export * from "./analysis/dashboard.ts";
 export * from "./analysis/spending-goal.ts";
 export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
 export type { CategoryPart, RowParts } from "./analysis/row-parts.ts";
+export { type ComingPeriod, comingList } from "./analysis/coming.ts";
 export { type AheadGroup, cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead.ts";
 export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export * from "./analysis/change.ts";
