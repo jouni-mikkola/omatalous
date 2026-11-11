@@ -235,6 +235,14 @@ Result: An answer or a forecast reads in whole euros while a row keeps its cents
 - after: none
 - files: apps/web/src/format.ts, apps/web/test
 
+### U1 Everyday spend per day is real
+Result: The front page's usual everyday spend per day agrees with the month's own figures, so the sum left on payday can be trusted.
+- why: walked on 11 Nov with the demo household: the front page says "Arkimenoihisi kuluu viime kuukausien mukaan noin 1 € päivässä" while the same page shows 2 027 € spent in 11 days and Kuukausi shows 219,57 € of groceries alone; the "jää noin 3 000 €" on payday is built on that 1 €.
+- done when: a core test on the demo household fails without the change and passes with it: the usual everyday spend per day is the usual month's everyday spending (the rows that are not bills before payday) divided by its days, and the sentence of `home.based` shows that sum; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: core-usual, dashboard
+- after: none
+- files: packages/core/src/analysis, packages/core/test
+
 ## The design: views
 
 ### T102 The four tabs
