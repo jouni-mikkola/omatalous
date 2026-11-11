@@ -18,6 +18,9 @@ const MORE_LINKS: readonly { id: string; label: () => string; q: QuestionId; anc
   { id: "yhteiset", label: () => t("rpt.more_shared"), q: "yhteiset" },
 ];
 
+/** The name Lisää gives the report of a question page, or nothing when Lisää does not list that page. */
+export const moreLabel = (q: QuestionId): string | undefined => MORE_LINKS.find((l) => l.q === q)?.label();
+
 /** Lisää: the list of the reports whose page has something to show (Yhteiset only with a shared account), the open one marked. On a phone it folds behind "Lisää". */
 function MoreList({ pages, current, params }: { pages: readonly ReportPage[]; current: QuestionId; params: URLSearchParams }) {
   const [open, setOpen] = useState(false);

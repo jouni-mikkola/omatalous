@@ -78,6 +78,7 @@ export const FI_REPORTS_2 = {
   "rpt.cmp_budget": "Budjettiin",
   "rpt.compare": "Vertaa",
   "rpt.q_not_open": "Yhteistä tiliä ei ole, joten tässä on muut aiheet.",
+  "rpt.q_empty": "Raportissa {name} ei ole vielä mitään näytettävää, joten tässä on toinen raportti.",
   "rpt.recommendation": "Vinkki.",
   "rpt.effect": "{effect}. ",
   "rpt.missing_from_figure": "Mitä luvusta puuttuu",

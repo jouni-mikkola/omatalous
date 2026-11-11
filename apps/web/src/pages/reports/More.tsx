@@ -12,7 +12,7 @@ import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { useApi } from "../../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { reportContext } from "./context.ts";
-import { Frame } from "./Frame.tsx";
+import { Frame, moreLabel } from "./Frame.tsx";
 import { Month } from "./Month.tsx";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
 import type { ReportContext, ReportRange } from "./types.ts";
@@ -55,6 +55,17 @@ const openQuestions = (ctx: ReportContext): QuestionId[] => REPORT_PAGES.filter(
 export function questionOf(open: readonly QuestionId[], asked: string | null, anchor: string | undefined): QuestionId {
   const byAnchor = anchor ? REPORT_PAGES.find((p) => open.includes(p.id) && p.sections.some((s) => s.id === anchor))?.id : undefined;
   return byAnchor ?? open.find((id) => id === asked) ?? open.find((id) => id !== "kuukausi") ?? open[0] ?? QUESTIONS[0];
+}
+
+/**
+ * The line above a page opened in place of the one the address asked for, which has nothing to show (an old link or a bookmark).
+ * Without it the address says one report and the page shows another.
+ */
+export function askedNote(asked: string | null, shown: QuestionId): string | undefined {
+  if (!asked || asked === shown) return undefined;
+  if (asked === "yhteiset") return t("rpt.q_not_open");
+  const name = REPORT_PAGES.some((p) => p.id === asked) ? (moreLabel(asked as QuestionId) ?? reportPage(asked as QuestionId).title) : undefined;
+  return name ? t("rpt.q_empty", { name }) : undefined;
 }
 
 type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void };
@@ -102,7 +113,7 @@ function Questions({ meta, range, scope, params, anchor, onQuestion }: ReportsPr
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame page={page} pages={REPORT_PAGES.filter((p) => questions.includes(p.id))} params={open} note={open.get("q") === "yhteiset" && page.id !== "yhteiset" ? t("rpt.q_not_open") : undefined}>
+      <Frame page={page} pages={REPORT_PAGES.filter((p) => questions.includes(p.id))} params={open} note={askedNote(open.get("q"), page.id)}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

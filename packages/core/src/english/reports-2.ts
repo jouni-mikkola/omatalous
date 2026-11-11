@@ -75,6 +75,7 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.cmp_budget": "To budget",
   "rpt.compare": "Compare",
   "rpt.q_not_open": "There is no joint account, so these are the other topics.",
+  "rpt.q_empty": "{name} has nothing to show yet, so another report is open.",
   "rpt.recommendation": "Recommendation.",
   "rpt.effect": "Effect: {effect}. ",
   "rpt.missing_from_figure": "What the figure leaves out",
