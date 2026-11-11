@@ -305,6 +305,11 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     const timer = window.setTimeout(() => setChanged(null), 8000);
     return () => window.clearTimeout(timer);
   }, [phone, changed]);
+  useEffect(() => {
+    if (!phone || !undone) return;
+    const timer = window.setTimeout(() => setUndone(false), 8000);
+    return () => window.clearTimeout(timer);
+  }, [phone, undone]);
 
   const anyFilter = Object.values(filters).some(Boolean);
   const note = remember ? t("tx.note_remember") : t("tx.note_only");
