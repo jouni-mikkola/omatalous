@@ -107,9 +107,9 @@ describe("Enable Banking mapping", () => {
         status: "PDNG",
         value_date: "2026-09-25",
         debtor: { name: "ACME OY" },
-        debtor_account: { iban: "FI5512345600000123" },
+        debtor_account: { iban: "FI4712345600000123" },
       }),
-    ).toMatchObject({ amountCents: 342000, status: "pending", counterparty: "ACME OY", counterpartyIban: "FI5512345600000123", bookingDate: "2026-09-25" });
+    ).toMatchObject({ amountCents: 342000, status: "pending", counterparty: "ACME OY", counterpartyIban: "FI4712345600000123", bookingDate: "2026-09-25" });
     expect(mapTransaction({ transaction_amount: { currency: "EUR", amount: "1" }, credit_debit_indicator: "DBIT", status: "RJCT", booking_date: "2026-01-01" })).toBeNull();
   });
 
@@ -183,5 +183,30 @@ describe("the other party's account given as another identification", () => {
     expect(paid({ identification: "123456-786", scheme_name: "BBAN" })).toBeNull();
     expect(paid({ identification: "FI2112345600000786" })).toBeNull();
     expect(paid({ identification: "12345600000785", scheme_name: "CPAN" })).toBeNull();
+  });
+});
+
+describe("a row is mapped into the form the import takes", () => {
+  const row = (extra: object, currency = "EUR") =>
+    mapTransaction({ transaction_amount: { currency, amount: "1.00" }, credit_debit_indicator: "DBIT", status: "BOOK", booking_date: "2026-03-02", ...extra });
+
+  it("trims the currency and puts it in upper case", () => {
+    expect(row({}, " eur ")?.currency).toBe("EUR");
+    expect(row({}, "EUR")?.currency).toBe("EUR");
+  });
+
+  it("takes blanks out of the IBAN, upper-cases it and drops one that fails its check", () => {
+    expect(row({ creditor_account: { iban: " fi21 1234 5600 0007 85 " } })?.counterpartyIban).toBe("FI2112345600000785");
+    expect(row({ creditor_account: { iban: "FI2112345600000785" } })?.counterpartyIban).toBe("FI2112345600000785");
+    expect(row({ creditor_account: { iban: "FI2112345600000786" } })?.counterpartyIban).toBeNull();
+    expect(row({ creditor_account: { iban: "FI21" + "1".repeat(46) } })?.counterpartyIban).toBeNull();
+  });
+
+  it("maps a merchant code only when it is four digits", () => {
+    expect(row({ merchant_category_code: "5411" })?.mcc).toBe("5411");
+    expect(row({ merchant_category_code: " 5411 " })?.mcc).toBe("5411");
+    expect(row({ merchant_category_code: "54\u00071" })?.mcc).toBeNull();
+    expect(row({ merchant_category_code: "541" })?.mcc).toBeNull();
+    expect(row({})?.mcc).toBeNull();
   });
 });

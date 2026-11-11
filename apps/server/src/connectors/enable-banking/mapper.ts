@@ -85,9 +85,13 @@ function finnishIban(bban: string): string | null {
 /**
  * The IBAN of the other party's account: its `iban`, else an IBAN or a Finnish account number the bank gave as another
  * identification. A bank that names the payee that way would otherwise leave the payment to an own account unknown.
+ * An `iban` that fails its check digits gives null; the other identification is then not tried.
  */
 function partyIban(account: EbPartyAccount | null | undefined): string | null {
-  if (account?.iban) return account.iban;
+  if (account?.iban) {
+    const iban = account.iban.replace(/\s+/g, "").toUpperCase();
+    return validIban(iban) ? iban : null;
+  }
   const id = account?.other?.identification?.trim().toUpperCase();
   if (!id) return null;
   const compact = id.replace(/\s+/g, "");
@@ -138,19 +142,20 @@ export function mapTransaction(t: EbTransaction, timeZone?: string): RawTransact
   const description = [...(t.remittance_information ?? []), t.note]
     .filter((x): x is string => !!x?.trim())
     .join(" ");
+  const mcc = t.merchant_category_code?.trim() ?? "";
   const cleanDescription = cleanBankText(description, DESCRIPTION_MAX);
   return {
     externalId: (t.entry_reference?.trim() ? t.entry_reference : t.transaction_id?.trim() ? t.transaction_id : null),
     bookingDate,
     valueDate: bankDate(t.value_date, timeZone),
     amountCents: out ? -cents : cents,
-    currency: t.transaction_amount.currency,
+    currency: t.transaction_amount.currency.trim().toUpperCase(),
     status,
     counterparty: cleanBankText(party?.name ?? "", COUNTERPARTY_MAX) || null,
     counterpartyIban: partyIban(partyAccount),
     description: cleanDescription || t.bank_transaction_code?.description || null,
     reference: t.reference_number ?? null,
-    mcc: t.merchant_category_code ?? null,
+    mcc: /^\d{4}$/.test(mcc) ? mcc : null,
     bankTxnCode: bankTxnCode(t.bank_transaction_code),
     raw: t,
   };
