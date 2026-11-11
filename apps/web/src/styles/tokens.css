@@ -74,12 +74,9 @@
   --backdrop: oklch(0.222 0.03 261.3 / 0.4);
   --sp-4: 4px;
   --sp-8: 8px;
-  --sp-12: 12px;
   --sp-16: 16px;
-  --sp-20: 20px;
   --sp-24: 24px;
-  --sp-32: 32px;
-  --sp-48: 48px;
+  --sp-40: 40px;
   --pad: 24px;
   --gap: 16px;
   --container: 1240px;
@@ -88,8 +85,7 @@
   --rail-h: 48px;
   --tabbar-h: 56px;
   --control-h: 32px;
-  --row-h: 32px;
-  --row-h-roomy: 44px;
+  --row-h: 44px;
   --tick: 4px;
   --tick-l: 8px;
   --bar-h: 8px;
@@ -100,29 +96,16 @@
   --rail-w: 260px;
   --hairline: 1px;
   --font-body: "IBM Plex Sans Variable", system-ui, sans-serif;
-  --font-code: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", "Roboto Mono", monospace;
   --w-regular: 400;
   --w-strong: 600;
-  --stretch: 100;
-  --fs-label: 12px;
-  --lh-label: 16px;
-  --fs-body: 14px;
-  --lh-body: 20px;
-  --fs-h2: 16px;
-  --lh-h2: 24px;
-  --fs-fig-s: 16px;
-  --lh-fig-s: 24px;
-  --fs-fig-m: 20px;
-  --lh-fig-m: 28px;
-  --fs-fig-l: 32px;
-  --lh-fig-l: 36px;
-  --fs-display: 3.25rem;
-  --lh-display: 56px;
-  --lh-prose: 20px;
-  --fs-input: 16px;
-  --fs-dec: 0.68em;
-  --track-name: 0.08em;
-  --track-fig: -0.01em;
+  --fs-small: 13px;
+  --lh-small: 20px;
+  --fs-body: 15px;
+  --lh-body: 24px;
+  --fs-title: 20px;
+  --lh-title: 28px;
+  --fs-answer: 32px;
+  --lh-answer: 40px;
   --radius: 0;
   --radius-m: 4px;
   --radius-s: 2px;
@@ -147,7 +130,6 @@
   :root {
     --pad: 16px;
     --gap: 12px;
-    --stretch: 94;
   }
 }
 @media (min-width: 1600px) {

@@ -7,6 +7,19 @@
 html, body { margin: 0; }
 }
 
+/* The names the stylesheets read from before the look had four sizes and five steps (design/tokens.json).
+   Each is a token of the new set, so no sheet holds a value of its own. A sheet that moves to the
+   new names takes its lines out of here; the list only shrinks. */
+@layer tokens {
+html {
+  --sp-12: var(--sp-16); --sp-20: var(--sp-24); --sp-32: var(--sp-40); --sp-48: var(--sp-40); --row-h-roomy: var(--row-h);
+  --font-code: var(--font-body); --stretch: normal; --track-name: normal; --track-fig: normal;
+  --fs-label: var(--fs-small); --lh-label: var(--lh-small); --fs-h2: var(--fs-body); --lh-h2: var(--lh-body); --fs-input: var(--fs-body);
+  --fs-fig-s: var(--fs-body); --lh-fig-s: var(--lh-body); --fs-fig-m: var(--fs-title); --lh-fig-m: var(--lh-title); --lh-prose: var(--lh-body);
+  --fs-fig-l: var(--fs-answer); --lh-fig-l: var(--lh-answer); --fs-display: var(--fs-answer); --lh-display: var(--lh-answer); --fs-dec: var(--fs-small);
+}
+}
+
 @layer base {
 /* the font is a token (font-body); the width axis of the variable face narrows on a phone (stretch) */
 :root { --cell-y: calc((var(--row-h) - var(--lh-body)) / 2); /* the padding above and below a line of a row: the row stays on the step */
