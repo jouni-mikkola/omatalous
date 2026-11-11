@@ -5,9 +5,9 @@ import { useWidth } from "../hooks.ts";
 import { approxText } from "../approx.ts";
 import type { DashboardData } from "../types.ts";
 import { CategoryTick, ValueAxis } from "./Axes.tsx";
-import { crisp, labelPrinted, LABEL_Y } from "./draw.ts";
+import { crisp, labelPrinted, LABEL_CHAR_W, LABEL_Y } from "./draw.ts";
 import { wholeTicks } from "./scale.ts";
-import { placeMarkers } from "./kit/annotate.ts";
+import { placeMarkers, type Marker } from "./kit/annotate.ts";
 import { EventMarkers, LANE_H } from "./kit/Annotations.tsx";
 import { axisRoom, frame, tickTarget } from "./kit/layout.ts";
 import { areaPath, linePath } from "./kit/path.ts";
@@ -27,6 +27,8 @@ const UNMEASURED = 800;
 /** Under this width the line ends lose their labels: the key and the readout carry them. */
 const NARROW = 600;
 const RING = 3.5;
+/** The room right of the plot for a line end label of `chars` characters: the label in full, 8 px off the plot. */
+const endRoom = (chars: number) => Math.max(112, Math.ceil(chars * LABEL_CHAR_W) + 8 + 4);
 
 /** An estimate's range, the unit once ("5 200–5 900 €"), marked as an estimate the one way Why.tsx marks one. */
 const estimateRange = (lo: number, hi: number) => approxText(joinRange(money(lo, false), money(hi, false)), true);
@@ -70,24 +72,30 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
   const narrow = width < NARROW;
   const all = [...pace.current.filter((v): v is number => v !== null), ...(expected?.high ?? []), ...(expected?.low ?? []), ...(previous?.curve ?? []), ...(projection?.high ?? []), ...(goal === null ? [] : [goal])];
   const left = axisRoom(linear(all, [0, 1]).ticks.map(moneyAxis));
-  const f = frame(width, { top: 16, right: narrow ? 12 : 112, bottom: 24, left }, { minHeight: 220, tallest: 300, ratio: 0.26, extraBottom: LANE_H * 2 });
+  const endLow = projection?.low.at(-1) ?? null;
+  const endHigh = projection?.high.at(-1) ?? null;
+  const endText = endLow === null || endHigh === null ? "" : `${t("home.col_estimate")} ${estimateRange(endLow, endHigh)}`;
+  const f = frame(width, { top: 16, right: narrow ? 12 : endRoom(endText.length), bottom: 24, left }, { minHeight: 220, tallest: 300, ratio: 0.26, extraBottom: LANE_H * 2 });
   const y = linear(all, [f.innerH, 0], { target: tickTarget(f.innerH) });
   const ticks = wholeTicks(y.ticks);
   const x = (i: number) => (days <= 1 ? 0 : (i / (days - 1)) * f.innerW);
   const xs = Array.from({ length: days }, (_, i) => x(i));
   // the estimate's first point stands on today's day
   const px = (i: number) => x((projection?.fromDay ?? 1) - 1 + i);
+  const events: Marker[] = [
+    ...(largest ? [{ key: "largest", x: x(largest.day - 1), label: t("chart.largest", { name: largest.name, sum: money(largest.cents) }) }] : []),
+    ...pace.payDays.map((d) => ({ key: `pay:${d}`, x: x(d - 1), label: t("chart.pay_day", { day: d }) })),
+    ...(payday && !pace.payDays.includes(payday) ? [{ key: "payday", x: x(payday - 1), label: t("chart.pay_day", { day: payday }) }] : []),
+  ];
+  // a label's text box stays inside the chart: its centre is moved in from the edges before the lanes are laid; its rule stays on the day
   const markers = placeMarkers(
-    [
-      ...(largest ? [{ key: "largest", x: x(largest.day - 1), label: t("chart.largest", { name: largest.name, sum: money(largest.cents) }) }] : []),
-      ...pace.payDays.map((d) => ({ key: `pay:${d}`, x: x(d - 1), label: t("chart.pay_day", { day: d }) })),
-      ...(payday && !pace.payDays.includes(payday) ? [{ key: "payday", x: x(payday - 1), label: t("chart.pay_day", { day: payday }) }] : []),
-    ],
-    f.innerW,
-  );
+    events.map((m) => {
+      const lo = Math.min((m.label.length * LABEL_CHAR_W) / 2, f.width / 2);
+      return { ...m, ruleX: m.x, x: Math.max(lo, Math.min(f.width - lo, f.margin.left + m.x)) };
+    }),
+    f.width,
+  ).map((m) => ({ ...m, x: m.x - f.margin.left }));
   const now = lastDay ? pace.current[lastDay - 1]! : null;
-  const endLow = projection?.low.at(-1) ?? null;
-  const endHigh = projection?.high.at(-1) ?? null;
   const expectedEnd = expected ? y(expected.curve.at(-1)!) : null;
   // the estimate's end label clears the expected one's by a line
   const estY = endHigh === null ? 0 : expectedEnd !== null && Math.abs(y(endHigh) - expectedEnd) < 14 ? expectedEnd + 14 : y(endHigh);
@@ -151,7 +159,7 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
             )}
             {!narrow && endLow !== null && endHigh !== null && (
               <text className="pace-end pace-end-est" x={f.innerW + 8} y={estY} dy="0.32em">
-                {estimateRange(endLow, endHigh)}
+                {endText}
               </text>
             )}
           </g>

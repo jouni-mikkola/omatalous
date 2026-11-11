@@ -5,6 +5,8 @@ export interface Marker {
   key: string;
   x: number;
   label: string;
+  /** The rule's pixel when the label is moved off it to stay inside the chart; `x` when absent. */
+  ruleX?: number;
 }
 
 export interface PlacedMarker extends Marker {

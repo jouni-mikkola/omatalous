@@ -13,7 +13,7 @@ export function EventMarkers({ markers, innerH, base }: { markers: readonly Plac
     <g className="kit-events">
       {markers.map((m) => (
         <g key={m.key}>
-          <line className="kit-event-rule" x1={crisp(m.x)} x2={crisp(m.x)} y1={0} y2={innerH} />
+          <line className="kit-event-rule" x1={crisp(m.ruleX ?? m.x)} x2={crisp(m.ruleX ?? m.x)} y1={0} y2={innerH} />
           {m.lane >= 0 && (
             <text className="kit-event-label" x={m.x} y={base + LANE_H * (m.lane + 1)} textAnchor={m.anchor}>
               {m.label}
