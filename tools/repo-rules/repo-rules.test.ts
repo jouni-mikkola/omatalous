@@ -58,6 +58,7 @@
  *   rule 44  the payment rules review note is at most 6 months old   roadmap-rules.ts
  *   rule 45  no style attribute in the web app (style-src has no 'unsafe-inline')   code-rules.ts
  *   rule 46  an own class selector is styled in one stylesheet, base.css apart   css-tokens.ts (detector: css-look.ts)
+ *   rule 47  WORKFLOW.md's check line is a bare command: no quotes around it, no colon and space in it   roadmap-rules.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

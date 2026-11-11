@@ -22,4 +22,17 @@ describe("repo rules: roadmap", () => {
     const found: Finding[] = stale ? [{ file: "docs/ENABLE_BANKING.md", ...stale }] : [];
     expectNoFindings("payment rules review", found, 'review the EU payment rules (PSD3, PSR, FiDA), update "## Payment rules watch" and its "Last reviewed" date in docs/ENABLE_BANKING.md');
   });
+
+  it("rule 47: WORKFLOW.md's check line is a bare command: no quotes around it, no colon and space in it", () => {
+    // The board runs the text after "check:" as it stands, so a quoted line is a command sh cannot find (exit 127);
+    // a colon and a space, or a space and a hash, inside it would break the YAML of the front matter.
+    const lines = readText("WORKFLOW.md").split("\n");
+    const at = lines.findIndex((l) => l.startsWith("check:"));
+    expect(at, "WORKFLOW.md has a check line").toBeGreaterThan(-1);
+    const command = lines[at]!.slice("check:".length).trim();
+    const found: Finding[] = [];
+    if (/^['"|>&*![{%@`]/.test(command)) found.push({ file: "WORKFLOW.md", line: at + 1, why: "the check line starts with a quote or another YAML mark" });
+    if (/: | #/.test(command)) found.push({ file: "WORKFLOW.md", line: at + 1, why: "the check line has a colon and a space, or a space and a hash, in it" });
+    expectNoFindings("WORKFLOW.md check line", found, 'write the command bare after "check:" and match a test name by a pattern without a colon (-t "repo rules. roadmap")');
+  });
 });
