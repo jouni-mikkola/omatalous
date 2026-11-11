@@ -1,5 +1,5 @@
 /** CSV export and demo data for the signed-in user. */
-import { buildReports, cashflowReport, getCategory, pivotReport } from "@banking/core";
+import { buildReports, cashflowReport, pivotReport } from "@banking/core";
 import { Hono } from "hono";
 import { recordEvent } from "../services/security.ts";
 import { DEMO_MONTHS, loadDemoData } from "../demo.ts";
@@ -11,14 +11,13 @@ import { parseLoan } from "./loans.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
+import { categoriesIn } from "../services/category-names.ts";
+import { csvWords } from "../platform/csv-words.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { body, cents, csv, csvBody, csvResponse, parseRange, requestInfo } from "./shared.ts";
 
 /** An average the report has none of (no complete month in the range) is an empty cell, never a zero. */
 const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
-
-/** Where a row came from, in the words of the pages: the bank itself, a file the household imported, the example data. */
-const SOURCE_WORDS: Record<string, string> = { enablebanking: "pankki", csv: "tiedosto", demo: "esimerkki" };
 
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
@@ -67,6 +66,7 @@ export function dataRoutes(s: Services) {
   /**
    * Same filters and the same accounts as the transaction list, every matching row with the amount the bank booked
    * (paged so a long history is complete). The category and the transfer mark are the ones the list of the view shows.
+   * The headings, the words and the names are in the member's language (`platform/csv-words.ts`, `categoriesIn`).
    */
   app.get("/export/transactions.csv", async (c) => {
     const user = c.get("user");
@@ -76,9 +76,12 @@ export function dataRoutes(s: Services) {
     const { shared, own } = await rowsInView(s, user.id, parseScope(q.scope));
     const filter = { ...range, accountId: q.accountId, category: q.category, kind: q.kind === "income" ? ("income" as const) : undefined, merchant: q.merchant, q: q.q?.slice(0, 100), own };
     const accounts = new Map([...(await repo.listAccounts()), ...shared].map((a) => [a.id, a.name]));
-    const pieces = [
-      csv([["Päivä", "Tili", "Kauppias", "Saaja/maksaja", "Viesti", "Kategoria", "Ryhmä", "Summa €", "Tila", "Lähde", "Siirto"]]),
-    ];
+    const words = csvWords(user.language);
+    const named = categoriesIn(user.language);
+    const categories = new Map(named.map((cat) => [cat.id, cat]));
+    // a category the table does not know keeps its id as the name and has the group of the other costs, as in core
+    const otherGroup = categories.get("other")?.groupName ?? "";
+    const pieces = [csv([[...words.heading]])];
     // pages by the last row seen (no OFFSET, no count), and the loop gives way between pages so other requests are served
     const PAGE = 2000;
     for (let after: { date: string; id: string } | undefined; ; ) {
@@ -88,8 +91,8 @@ export function dataRoutes(s: Services) {
           csvBody(
             page.map((stored) => {
               const t = { ...stored, ...own.told.get(stored.id) };
-              const cat = getCategory(t.category);
-              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat.label, cat.group, cents(t.amountCents), t.status === "pending" ? "varaus" : "kirjattu", SOURCE_WORDS[t.source] ?? t.source, t.isTransfer ? "kyllä" : ""];
+              const cat = categories.get(t.category);
+              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat?.label ?? t.category, cat?.groupName ?? otherGroup, cents(t.amountCents), t.status === "pending" ? words.pending : words.booked, words.sources[t.source] ?? t.source, t.isTransfer ? words.transfer : ""];
             }),
           ),
         );
@@ -99,7 +102,7 @@ export function dataRoutes(s: Services) {
       if (page.length < PAGE) break;
       await yieldToLoop();
     }
-    return csvResponse(c, `tapahtumat_${range.from}_${range.to}.csv`, pieces.join(""));
+    return csvResponse(c, `${words.fileName}${range.from}_${range.to}.csv`, pieces.join(""));
   });
 
   app.get("/export/report.csv", async (c) => {
