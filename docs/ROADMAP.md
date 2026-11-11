@@ -1575,6 +1575,56 @@ Result: A household with years of daily balances can import its own exported fil
 - after: X4
 - files: apps/server/src/services/data-import-stores.ts, apps/server/test/data-roundtrip.test.ts, docs/DATA_EXPORT.md
 
+## The web: overview and transactions
+
+### R1 A failed reload is told
+Result: When the overview cannot be refreshed, the member sees the last answer and one line that it is old, with a retry.
+- why: read on main (11 Nov, N45). `Overview` returns the error card only for `now.error && !now.data` (`apps/web/src/pages/Overview.tsx:56`); when a reload fails and an answer is already on screen the error is dropped and the figures of the earlier fetch look current. `Transactions` shows a `Notice` with `load.retry` in the same case (`apps/web/src/pages/Transactions.tsx:358`).
+- done when: a test in the new `apps/web/test/overview-reload.dom.test.ts`, which fails without the change, renders `Overview` with an answer, makes the next `/api/dashboard` fail and finds the error `Notice` above the unchanged figures and a retry button that asks again; with no error no notice is rendered; the first-load error card is as today (the near miss); no new key of the catalogue (`load.retry` and the answer's own sentence); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: overview
+- after: none
+- files: apps/web/src/pages/Overview.tsx, apps/web/test/overview-reload.dom.test.ts
+
+### R2 The category list scrolls
+Result: A member who picks a category with the keyboard sees the option the arrows are on, however long the list.
+- why: read on main (11 Nov, N45). `CategoryMenu` (`apps/web/src/pages/transactions/CategoryChip.tsx:15`) moves `active` with ArrowDown and ArrowUp but never scrolls the option into view (`grep scrollIntoView apps/web/src/pages` finds no use there), so past the ninth or tenth option the highlight leaves the box of `.tx-catlist`; the list also starts at the first option, not at the one now set (`value`).
+- done when: a DOM test in `apps/web/test/tx-category-look.test.ts` or a new `apps/web/test/category-menu.dom.test.ts`, which fails without the change, opens `CategoryMenu` with 30 categories, presses ArrowDown 15 times and finds `scrollIntoView` called on the 16th option with `block: "nearest"`; with a `value` set, the option of that value is the active one at the start; Enter still picks the active option and the search still narrows the list (their present tests pass); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: category-menu
+- after: none
+- files: apps/web/src/pages/transactions/CategoryChip.tsx, apps/web/test/category-menu.dom.test.ts
+
+### R3 More filters by keyboard
+Result: A member using only the keyboard can pick any account or the income filter from "Lisää" in the toolbar of Tapahtumat.
+- why: read on main (11 Nov, N45). The list of the "more" chip in `FilterChips` (`apps/web/src/pages/transactions/FilterChips.tsx:106-148`) is a `listbox` of `li` options with `tabIndex={-1}` and no arrow-key handling; `Popover` focuses the first option only. With three accounts the second and third cannot be reached by Tab or the arrows.
+- done when: a DOM test in the new `apps/web/test/more-filters.dom.test.ts`, which fails without the change, opens the chip with the income filter and two accounts, presses ArrowDown and finds focus on the second option, ArrowUp back on the first, Home and End on the first and last, and Enter on a focused account sets `accountId`; the click behaviour and the options shown are as today (the near miss); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: more-filters
+- after: none
+- files: apps/web/src/pages/transactions/FilterChips.tsx, apps/web/test/more-filters.dom.test.ts
+
+### R4 The calendar is a real grid
+Result: A screen reader finds the days of the period calendar in rows of a grid, and the keyboard moves between days.
+- why: read on main (11 Nov, N45). `DateRange` (`apps/web/src/pages/transactions/DateRange.tsx:79`) gives the days container `role="grid"` but the children are the weekday `span`s and bare day buttons: a `grid` needs `row` and `gridcell` children, so the roles are invalid, and each day is its own tab stop (31 stops in a month).
+- done when: a DOM test in the new `apps/web/test/date-range.dom.test.ts`, which fails without the change, renders `DateRange` for a month and finds the weekday names in a `row` of `columnheader`s, the days in `row`s of `gridcell`s of seven, one day with `tabIndex` 0 and the others -1, and ArrowRight, ArrowLeft, ArrowDown and ArrowUp moving focus by a day and a week without passing a day after `today`; picking two days still commits them through `onCommit` (their present test passes); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: date-range
+- after: none
+- files: apps/web/src/pages/transactions/DateRange.tsx, apps/web/src/styles/transactions.css, apps/web/test/date-range.dom.test.ts
+
+### R5 A broken period is dropped
+Result: A link to Tapahtumat with a broken or reversed period opens the days that are meant, and the chip prints no date like 45.13.
+- why: read on main with `bun` (11 Nov, N45). `TransactionList` takes `from` and `to` from the address as typed (`apps/web/src/pages/Transactions.tsx:100-101`); `dateRange("2026-13-45", "2026-09-01")` prints `45.13.–1.9.` and `dateRange("2026-10-05", "2026-09-01")` prints `5.10.–1.9.`, and both go to `/api/transactions` as sent.
+- done when: a test in the new `apps/web/test/tx-address-period.test.ts`, which fails without the change, gives the filters read from `?from=2026-13-45&to=2026-09-01` with `from` empty and `to` kept, `?from=2026-10-05&to=2026-09-01` with the two days swapped, and `?from=abc` with no period; a valid period is read as sent (the near miss); the reading is one exported function of `apps/web/src/pages/transactions/DateRange.tsx` used by the page; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: tx-list
+- after: none
+- files: apps/web/src/pages/Transactions.tsx, apps/web/src/pages/transactions/DateRange.tsx, apps/web/test/tx-address-period.test.ts
+
+### R6 Undone leaves on a phone
+Result: On a phone the line that says a category change is back goes away as the line that offered the change did.
+- why: read on main (11 Nov, N45). The effect at `apps/web/src/pages/Transactions.tsx:303-307` clears `changed` after 8 seconds on a phone, but `undone` is cleared only by the close button or the next change, so "Change undone." floats over the list until the member finds the ×.
+- done when: a DOM test in the new `apps/web/test/tx-undone.dom.test.ts`, which fails without the change, undoes a change on a phone width with fake timers, finds the `tx.undone` line, advances 8000 ms and finds it gone; on a wide screen the line stays as today (the near miss); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: tx-list
+- after: none
+- files: apps/web/src/pages/Transactions.tsx, apps/web/test/tx-undone.dom.test.ts
+
 ## Open from before
 
 ### T96 Promote reads every file
