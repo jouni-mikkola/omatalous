@@ -50,6 +50,47 @@ describe("readCardFile", () => {
   });
 });
 
+describe("readCardFile, quoted cells", () => {
+  const OP_HEAD = "Ostopäivä;Kirjauspäivä;Kauppa;Summa";
+  const NORDEA_HEAD = "Päivä\tKuvaus\tMäärä";
+
+  it("reads a quoted shop with a semicolon in it as one cell of the op layout", () => {
+    const r = readCardFile(`${OP_HEAD}\n01.09.2026;02.09.2026;"K-MARKET; HELSINKI";12,50`);
+    expect(r).toMatchObject({ ok: true, layout: "op", unread: [] });
+    expect((r as { rows: unknown[] }).rows).toEqual([{ day: "2026-09-01", cents: -1250, text: "K-MARKET; HELSINKI", payment: false }]);
+  });
+
+  it("drops the quote marks and reads a doubled one as one in the op layout", () => {
+    const r = readCardFile(`${OP_HEAD}\n01.09.2026;02.09.2026;"PRISMA";12,50\n03.09.2026;04.09.2026;"BAARI ""KULMA""";8,00`);
+    expect(r).toMatchObject({ ok: true, unread: [] });
+    expect((r as { rows: { text: string }[] }).rows.map((x) => x.text)).toEqual(["PRISMA", 'BAARI "KULMA"']);
+  });
+
+  it("keeps the text after a closing quote in the cell, so the row still reads", () => {
+    const r = readCardFile(`${OP_HEAD}\n01.09.2026;02.09.2026;"BAARI" KULMA;8,00`);
+    expect(r).toMatchObject({ ok: true, unread: [] });
+    expect((r as { rows: unknown[] }).rows).toEqual([{ day: "2026-09-01", cents: -800, text: "BAARI KULMA", payment: false }]);
+  });
+
+  it("reads a quoted cell of the nordea layout", () => {
+    const r = readCardFile(`${NORDEA_HEAD}\n2026-09-01\t"PRISMA"\t-12.50\n2026-09-03\t"BAARI ""KULMA""\tYLÄ"\t-8.00`);
+    expect(r).toMatchObject({ ok: true, layout: "nordea", unread: [] });
+    expect((r as { rows: unknown[] }).rows).toEqual([
+      { day: "2026-09-01", cents: -1250, text: "PRISMA", payment: false },
+      { day: "2026-09-03", cents: -800, text: 'BAARI "KULMA" YLÄ', payment: false },
+    ]);
+  });
+
+  it("keeps a line whose quote never closes as unread", () => {
+    const open = '05.09.2026;06.09.2026;"K-MARKET; HELSINKI;12,50';
+    const r = readCardFile(`${OP}\n${open}`);
+    expect(r).toMatchObject({ ok: true, unread: [open] });
+    expect((r as { rows: unknown[] }).rows).toHaveLength(4);
+    const tabbed = '2026-09-05\t"PRISMA\t-12.50';
+    expect(readCardFile(`${NORDEA}\n${tabbed}`)).toMatchObject({ ok: true, unread: [tabbed] });
+  });
+});
+
 describe("readCardFile, rows that do not read", () => {
   it("tells a line that opens like a row but has no readable sum, and a day outside the period", () => {
     const text = ["Laskutuskausi 01.09.2026 - 30.09.2026", "03.09. PRISMA TIKKURILA 23,40", "04.09. KAUPPA 12.5 EUR", "01.10. LIIAN MYÖHÄÄN 9,00"].join("\n");

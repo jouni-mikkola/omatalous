@@ -80,6 +80,38 @@ function row(day: IsoDate, cents: number, text: string): CardFileRow | null {
 const lines = (text: string): string[] => text.replace(/^\uFEFF/, "").split(/\r?\n/);
 
 /**
+ * The cells of one line. A cell that opens with a quote mark runs to its closing mark: the separator inside it is text and a
+ * doubled mark is one mark. Text after the closing mark stays in the cell as it is, the way `parseBankCsv` reads it. Null when
+ * a quote never closes, so the line is kept as unread (the bank table reader takes such a cell to the end of the text instead).
+ */
+function cellsOf(line: string, sep: string): string[] | null {
+  const out: string[] = [];
+  let at = 0;
+  for (;;) {
+    let open = at;
+    while (line[open] === " ") open++;
+    let cell = "";
+    let from = at;
+    if (line[open] === '"') {
+      from = open + 1;
+      for (;;) {
+        const mark = line.indexOf('"', from);
+        if (mark < 0) return null;
+        cell += line.slice(from, mark);
+        from = mark + 1;
+        if (line[from] !== '"') break;
+        cell += '"';
+        from++;
+      }
+    }
+    const end = line.indexOf(sep, from);
+    out.push(cell + line.slice(from, end < 0 ? line.length : end));
+    if (end < 0) return out;
+    at = end + 1;
+  }
+}
+
+/**
  * `op`: a header row of Ostopäivä;Kirjauspäivä;Kauppa;Summa. The card is named on a line above it ("Kortti;**** 1234"). The
  * sum is the card's debt: positive is a purchase, negative a payment or a refund.
  */
@@ -89,7 +121,7 @@ function readOp(all: string[]): CardFileRead | null {
   const out: CardFileRead = { layout: "op", cardLast4: last4Of(all.slice(0, head).join("\n")), periodFrom: null, periodTo: null, rows: [], unread: [] };
   for (const raw of all.slice(head + 1)) {
     if (!raw.trim()) continue;
-    const cells = raw.split(";");
+    const cells = cellsOf(raw, ";") ?? [];
     const day = cells.length === 4 ? fiDay(cells[0]!) : null;
     const sum = cells.length === 4 ? commaSum(cells[3]!) : null;
     const made = day && sum !== null ? row(day, -sum, cells[2]!) : null;
@@ -106,7 +138,7 @@ function readNordea(all: string[]): CardFileRead | null {
   const out: CardFileRead = { layout: "nordea", cardLast4: last4Of(all.slice(0, head).join("\n")), periodFrom: null, periodTo: null, rows: [], unread: [] };
   for (const raw of all.slice(head + 1)) {
     if (!raw.trim()) continue;
-    const cells = raw.split("\t");
+    const cells = cellsOf(raw, "\t") ?? [];
     const iso = cells.length === 3 && /^\d{4}-\d{2}-\d{2}$/.test(cells[0]!.trim()) ? cells[0]!.trim() : "";
     const sum = cells.length === 3 ? dotSum(cells[2]!) : null;
     const made = isRealDay(iso) && sum !== null ? row(iso, sum, cells[1]!) : null;
