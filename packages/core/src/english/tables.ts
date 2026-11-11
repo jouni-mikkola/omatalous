@@ -40,6 +40,11 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "table.sort_asc": "smallest first",
   "table.sorted": "Sorted: {phrase}",
   "chart.pick_hint": "{label} Enter shows the mark's row in the table.",
+  "chart.slope_keys": "{label}. Arrow keys move from line to line, Enter shows the row in the table.",
+  "chart.slope_change": "Change",
+  "chart.slope_and": "{first} and {last}",
+  "chart.slope_off_single": "{names} does not fit in the chart. Its figures are in the table.",
+  "chart.slope_off_several": "{names} do not fit in the chart. Their figures are in the table.",
   // Rows
   "row.whole": "full amount {amount}",
   "row.card_bill": "Card bill: purchases not shown",

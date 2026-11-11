@@ -3,6 +3,7 @@ import { type KeyboardEvent, useId, useState } from "react";
 import { useSelect } from "../components/table/selection.tsx";
 import { money, signedMoney } from "../format.ts";
 import { useWidth } from "../hooks.ts";
+import { t } from "../text.ts";
 import { crisp } from "./draw.ts";
 import { Tip } from "./forms/parts.tsx";
 import { spreadLabels } from "./kit/annotate.ts";
@@ -25,8 +26,8 @@ export interface SlopeItem {
   tone: "bad" | "good" | "flat";
 }
 
-/** Names in a sentence: "A, B ja C". */
-const listed = (names: readonly string[]) => (names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} ja ${names[names.length - 1]}`);
+/** Names in a sentence, the last joined in the member's language: "A, B ja C". */
+const listed = (names: readonly string[]) => (names.length < 2 ? names.join("") : t("chart.slope_and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1]! }));
 
 /** A name in lines of at most `max` characters, broken at spaces, two lines at most (the second cut with "…" past that). */
 function wrapName(label: string, max: number): string[] {
@@ -118,7 +119,7 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
     rows: [
       { name: fromLabel, value: money(active.from, false) },
       { name: toLabel, value: money(active.to, false) },
-      { name: "Muutos", value: signedMoney(active.change) },
+      { name: t("chart.slope_change"), value: signedMoney(active.change) },
     ],
   };
   const pick = (i: SlopeItem | null) => i && scope?.select(i.key);
@@ -176,7 +177,7 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
                 {money(lo, false)}
               </text>
             )}
-            <g tabIndex={0} role="group" aria-label={`${label}. Nuolinäppäimet siirtävät viivasta toiseen, Enter näyttää rivin taulukossa.`} onKeyDown={onKey} onFocus={() => at === null && drawn.length && setAt(0)} onBlur={() => setAt(null)}>
+            <g tabIndex={0} role="group" aria-label={t("chart.slope_keys", { label })} onKeyDown={onKey} onFocus={() => at === null && drawn.length && setAt(0)} onBlur={() => setAt(null)}>
               {quiet.map((i) => line(i, drawn.indexOf(i)))}
               {strong.map((i) => line(i, drawn.indexOf(i)))}
             </g>
@@ -209,7 +210,7 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
       )}
       {off.length > 0 && (
         <p className="slope-off">
-          {listed(off.map((i) => i.label))} {off.length === 1 ? "ei mahdu kuvaan. Sen" : "eivät mahdu kuvaan. Niiden"} luvut ovat taulukossa.
+          {t(off.length === 1 ? "chart.slope_off_single" : "chart.slope_off_several", { names: listed(off.map((i) => i.label)) })}
         </p>
       )}
       {read && active && <Tip x={x1} left={0} width={width} title={read.title} rows={read.rows} />}

@@ -42,6 +42,11 @@ export const FI_TABLES = {
   "table.sort_asc": "pienin ensin",
   "table.sorted": "Järjestetty: {phrase}",
   "chart.pick_hint": "{label} Enter näyttää merkin rivin taulukossa.",
+  "chart.slope_keys": "{label}. Nuolinäppäimet siirtävät viivasta toiseen, Enter näyttää rivin taulukossa.",
+  "chart.slope_change": "Muutos",
+  "chart.slope_and": "{first} ja {last}",
+  "chart.slope_off_single": "{names} ei mahdu kuvaan. Sen luvut ovat taulukossa.",
+  "chart.slope_off_several": "{names} eivät mahdu kuvaan. Niiden luvut ovat taulukossa.",
   // Rows
   "row.whole": "koko summa {amount}",
   "row.card_bill": "Korttilasku: ostot eivät näy",
