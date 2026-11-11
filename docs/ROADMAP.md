@@ -24,6 +24,14 @@ Result: Move T80 'Machine-load scripts leave' to the front of the remaining road
 - locks: none
 - after: none
 
+### T80 Machine-load scripts leave
+Result: The repo checks run on a clean clone with no agent slot, core count or quiet-machine script.
+- why: audit move 4: about 500 lines of agent and machine tooling live in the product repo.
+- done when: `git grep -n "slots.sh\|wait-quiet\|cores.sh"` is empty and `git ls-files tools/commit.sh tools/lib/cores.mjs tools/lib/owner.sh` lists nothing; `pnpm check` runs on a clean clone; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: check-tools
+- after: none
+- files: tools/slots.sh, tools/cores.sh, tools/wait-quiet.sh, tools/commit.sh, tools/lib/cores.mjs, tools/lib/owner.sh, tools/check.sh, e2e/run.mjs
+
 ### N1 Main's tests pass again
 Result: Every pull request's test job is green on what main already holds, so finished work can land; the six tests failing on main pass with no
 - why: every PR's js job fails on the same 6 tests that main already fails (repo rule 34 wants '## Coming releases' in docs/ROADMAP.md; apps/server/test/extensions.test.ts; remote-access-recheck.test.ts; 3 in remote-access-safety.test.ts), so PR #12 and #13 cannot land
@@ -238,14 +246,6 @@ Result: A household whose own and household answers agree keeps one golden file,
 - locks: golden
 - after: none
 - files: apps/server/test/answers-golden.test.ts, apps/server/test
-
-### T80 Machine-load scripts leave
-Result: The repo checks run on a clean clone with no agent slot, core count or quiet-machine script.
-- why: audit move 4: about 500 lines of agent and machine tooling live in the product repo.
-- done when: `git grep -n "slots.sh\|wait-quiet\|cores.sh"` is empty and `git ls-files tools/commit.sh tools/lib/cores.mjs tools/lib/owner.sh` lists nothing; `pnpm check` runs on a clean clone; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: check-tools
-- after: none
-- files: tools/slots.sh, tools/cores.sh, tools/wait-quiet.sh, tools/commit.sh, tools/lib/cores.mjs, tools/lib/owner.sh, tools/check.sh, e2e/run.mjs
 
 ### T81 Changed checks by vitest
 Result: `pnpm check --changed` runs vitest's own changed mode and the touched shell suites, with no scope finder of its own.
