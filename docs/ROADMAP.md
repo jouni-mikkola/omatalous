@@ -51,6 +51,13 @@ Result: Every pull request's test job is green on what main already holds, so fi
 - locks: none
 - after: none
 
+### N9 Plan the next steps
+Result: Plan the next steps for the household views' usability and design: walk each view in playwright-cli and add up to 6 small independent steps
+- why: the owner wants every Fable 5.2 hour of today used on finished work (11 Nov)
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the next steps for the household views' usability and design: walk each view in playwright-cli and add up to 6 small independent steps that each fix one flaw a user meets; done when the roadmap has them
+- locks: none
+- after: none
+
 ### N3 WORKFLOW.md front matter
 Result: The check line is quoted, so the board reads its state and starts steps.
 - why: The board answers 400 on its state since 4edcd70: the check line holds a colon and a space unquoted.
