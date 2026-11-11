@@ -17,6 +17,14 @@ describe("checkPassword", () => {
     expect(checkPassword("PasswordＰａｓｓｗｏｒｄ").problem).toMatch(/toistettuna/);
     expect(checkPassword("x".repeat(257)).problem).toMatch(/pitkä/);
   });
+  it("refuses a repeated block with digits or signs after it", () => {
+    expect(checkPassword("passwordpassword1").issue?.code).toBe("pw.repeated");
+    expect(checkPassword("kissakissakissa12!").issue?.code).toBe("pw.repeated");
+    expect(checkPassword("hevonenkaivopilvikuu7").problem).toBeNull();
+    // a short repeated start with a long tail is carried by the tail
+    expect(checkPassword("aa1234567891").problem).toBeNull();
+    expect(checkPassword("hahahaha93847561023847").problem).toBeNull();
+  });
   it("lets a good one through and grades it", () => {
     const fair = checkPassword("kuusikymmentä");
     const strong = checkPassword("Hevonen-Kaivo-Pilvi-7-Kuu!");

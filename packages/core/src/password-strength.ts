@@ -9,6 +9,8 @@ import { messageFromWire, messageIn } from "./messages.ts";
 
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 256;
+/** The shortest run of repeats that is refused when digits or signs follow it: under this the tail carries the password. */
+const MIN_REPEATED_LENGTH = 8;
 
 /** Passwords that lead every leaked list, in Finnish and English, compared after lower-casing and cutting digits and signs off the end. */
 const COMMON = new Set([
@@ -30,7 +32,7 @@ function inSequence(p: string): boolean {
   return SEQUENCES.some((seq) => seq.includes(s) || [...seq].reverse().join("").includes(s));
 }
 
-/** One block said again and again ("PasswordPassword", "12341234abcd" is not: the whole password must be the repeats). */
+/** One block said again and again ("PasswordPassword", "12341234abcd" is not: the whole text must be the repeats). */
 function repeatsABlock(p: string): boolean {
   for (let size = 1; size <= p.length / 2; size++) {
     if (p.length % size === 0 && p === p.slice(0, size).repeat(p.length / size)) return true;
@@ -66,7 +68,9 @@ export function checkPassword(typed: string, lang: Language = DEFAULT_LANGUAGE):
   const bare = strip(password);
   if (COMMON.has(bare) || COMMON.has(password.toLowerCase())) return refuse("pw.common");
   if (new Set(password.toLowerCase()).size <= 3) return refuse("pw.few_chars");
-  if (repeatsABlock(password.toLowerCase())) return refuse("pw.repeated");
+  // digits and signs after the repeats do not save it ("passwordpassword1"), as long as the repeats are most of the password
+  const repeatsUnderTail = bare.length >= MIN_REPEATED_LENGTH && bare.length * 2 > password.length && repeatsABlock(bare);
+  if (repeatsABlock(password.toLowerCase()) || repeatsUnderTail) return refuse("pw.repeated");
   if (inSequence(password.replace(/\s/g, "")) || mostlyStepping(password.toLowerCase())) return refuse("pw.sequence");
   const classes = [/\p{Ll}/u, /\p{Lu}/u, /\d/, /[^\p{L}\d]/u].filter((re) => re.test(password)).length;
   const distinct = new Set(password).size;
