@@ -82,11 +82,18 @@ export async function consumeLinkState(s: Services, userId: string, state: strin
   if (state.includes(".") && !originFromRelayState(state)) throw new AuthStateExpired();
   // one statement: two callbacks with the same state cannot both get it
   const raw = await s.settings.take(key);
-  const pending = raw ? (JSON.parse(raw) as { userId: string; createdAt: number }) : null;
-  if (!pending || pending.userId !== userId || s.now().getTime() - pending.createdAt > STATE_TTL_MS) {
+  // a value that is not JSON, not an object, or lacks a text userId and a number createdAt is as good as expired
+  let pending: unknown = null;
+  try {
+    pending = raw ? JSON.parse(raw) : null;
+  } catch {
+    // stays null
+  }
+  const { userId: owner, createdAt } = (typeof pending === "object" && pending !== null ? pending : {}) as Record<string, unknown>;
+  if (typeof owner !== "string" || typeof createdAt !== "number" || owner !== userId || s.now().getTime() - createdAt > STATE_TTL_MS) {
     throw new AuthStateExpired();
   }
-  return pending.createdAt;
+  return createdAt;
 }
 
 /** The bank was not reached (or said to try later): the state goes back with its first time, so the same address works again. */
