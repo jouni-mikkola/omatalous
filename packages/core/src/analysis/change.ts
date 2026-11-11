@@ -35,7 +35,7 @@ import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, isMonth
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { LEVEL, oneOffs } from "./one-offs.ts";
 import { type ExpectedDue, expectedFor, expectedLevel, expectedOver } from "./expected.ts";
-import { gateFor, isCompleteMonth } from "./usual.ts";
+import { cardsBreakUsual, gateFor, isCompleteMonth } from "./usual.ts";
 
 export type ChangeView = "expected" | "year" | "season";
 export type BucketKind = "oneoff" | "timing" | "new" | "stopped" | "price" | "volume" | "spread" | "other";
@@ -450,7 +450,9 @@ function analyse(ctx: AnalysisContext, view: ChangeView, month: string, yearMont
   // the gate of a month against the base of a month, so a year's base is divided by its months
   const r: Rows = { ...base, gate: gateFor(plan.mean ? baseTotal : baseTotal / months) * months };
   const pieces: ChangePiece[] = [];
-  const categories = ids.map((id) => categoryChange(r, id, pieces));
+  // a card bill in the base months that is no transfer: the headline is true, the categories lack the card's purchases
+  const itemised = !plan.mean || !cardsBreakUsual(ctx, plan.target[0]!);
+  const categories = itemised ? ids.map((id) => categoryChange(r, id, pieces)) : [];
   pieces.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || (a.category ?? "").localeCompare(b.category ?? "") || a.kind.localeCompare(b.kind));
 
   const ranked = categories
@@ -474,5 +476,5 @@ function analyse(ctx: AnalysisContext, view: ChangeView, month: string, yearMont
     pieces,
   };
   // every category, also those the table folds into its row of smaller ones: a rise ranked ninth is a rise
-  return { change, rises: plan.mean ? categories.flatMap((row) => riseOf(r, row)) : [] };
+  return { change, rises: plan.mean && itemised ? categories.flatMap((row) => riseOf(r, row)) : [] };
 }

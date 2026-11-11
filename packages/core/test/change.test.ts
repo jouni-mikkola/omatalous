@@ -10,6 +10,7 @@ import type { Account, Transaction } from "../src/types.ts";
 import { rng } from "./gen.ts";
 import { tx } from "./helpers.ts";
 import { view } from "./insight-view.ts";
+import { lateCardContext } from "./late-card-household.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-11";
@@ -532,5 +533,37 @@ describe("spendingChange", () => {
         direction: -1,
       });
     });
+  });
+});
+
+describe("a card bill in the base months that is no transfer", () => {
+  const gap = lateCardContext("2026-07");
+  const linked = lateCardContext("2026-01");
+
+  it("gives the usual view the headline and no category rows, causes or rises", () => {
+    const c = spendingChange(gap, "expected", "2026-10")!;
+    expect(c).not.toBeNull();
+    expect(c.baseCents).toBeGreaterThan(0);
+    expect(c.changeCents).toBe(c.nowCents - c.baseCents);
+    expect(c.categories).toEqual([]);
+    expect(c.pieces).toEqual([]);
+    expect(categoryRises(gap, "2026-10")?.rises).toEqual([]);
+  });
+
+  it("keeps the rows when the card is linked from the first base month", () => {
+    expect(spendingChange(linked, "expected", "2026-10")!.categories.length).toBeGreaterThan(0);
+  });
+
+  it("leaves the year and season views with their rows, card bill or not", () => {
+    const rows = monthRange("2024-09", "2026-10").flatMap((m) => [
+      tx({ bookingDate: `${m}-02`, amountCents: -20000, merchant: "Prisma", category: "groceries" }),
+      tx({ bookingDate: `${m}-14`, amountCents: -40000, merchant: "Resurs Bank", category: "card_bill" }),
+    ]);
+    rows.push(tx({ bookingDate: "2026-09-05", amountCents: -30000, merchant: "Prisma", category: "groceries" }));
+    for (const v of ["year", "season"] as const) {
+      const c = spendingChange(ctxOf(rows), v, "2026-09");
+      expect(c).not.toBeNull();
+      expect(c!.categories.length).toBeGreaterThan(0);
+    }
   });
 });

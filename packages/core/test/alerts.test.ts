@@ -495,3 +495,15 @@ describe("a large payment that is still Muut menot", () => {
     expect(found([big("a", 125000, { bookingDate: "2026-09-12" })], { from: "2026-10-01", to: today })).toHaveLength(1);
   });
 });
+
+describe("spike alerts on a card gap", () => {
+  const march = { from: "2026-03-01", to: "2026-03-31" };
+  const wolt = (i: number) => tx({ merchant: "Wolt", category: "food_delivery", bookingDate: `2026-03-${String(i * 2 + 2).padStart(2, "0")}`, amountCents: -3400 });
+  const bills = ["2025-11", "2025-12", "2026-01", "2026-02"].map((m) => tx({ merchant: "Resurs Bank", category: "card_bill", bookingDate: `${m}-14`, amountCents: -40000 }));
+  const orders = Array.from({ length: 12 }, (_, i) => wolt(i));
+
+  it("none while a base month holds a card bill that is no transfer, and the spike when it holds none", () => {
+    expect(ofKind(alertsOf([...household(), ...bills, ...orders], march), "spike")).toEqual([]);
+    expect(ofKind(alertsOf([...household(), ...orders], march), "spike")).toMatchObject([{ category: "food_delivery" }]);
+  });
+});
