@@ -170,6 +170,13 @@ Result: Plan parallel steps for docs/ and the in-app help (what a household user
 - locks: none
 - after: none
 
+### N20 Plan two hours of parallel work
+Result: A planning step reads docs/design/README.md, docs/audit/simplify.md and the code, then adds 12 to 16 steps the roadmap and main do not hold
+- why: 13:24Z on 11 Nov: 6 of 14 slots are free and no step is: all 36 open steps run, wait in review, or wait behind the four tabs (T102, then T69, T75, T76, T77, T105, T111) and Knip (T83, T84); the plan steps N14 to N19 have all landed and gave only 3 steps for packages/core
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan two hours of parallel work. A planning step reads docs/design/README.md, docs/audit/simplify.md and the code, then adds 12 to 16 steps the roadmap and main do not hold yet, spread over packages/core (numbers, imports, budgets), apps/server and web pages that the four tabs lock does not hold, so every free worker has a step: each step is 50 to 150 lines of product code a user sees or relies on, in one or two files of its own area with its own lock, its tests in the same step, no step that is only tests, fixtures or CI, and after none unless truly needed.
+- locks: none
+- after: none
+
 ### C1 Pay day moved past month end
 Result: An income paid on the next banking day after a closed last day of the month is expected on that day, also when it falls in the next month.
 - why: `payDayOf` and `nextPayDate` in `pay-day.ts` look for a pay date only in its own month and the month before it, so a day 31 moved forward to the 1st or 2nd is missed: nine such pay dates read as day 31 moved back with 6 hits of 9, and after 1 June 2025 the next pay date reads 30 June, not 2 June.
