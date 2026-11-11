@@ -4,6 +4,7 @@
  * server adds them up (`foreignRowsView`); this only draws them.
  */
 import { formatForeignAmount } from "@banking/core";
+import { date } from "../../format.ts";
 import "../../styles/foreign-rows.css";
 import { t } from "../../text.ts";
 
@@ -15,9 +16,6 @@ export interface ForeignCurrency {
   scale: number | null;
   rows: { day: string; amountMinor: number; scale: number; text: string | null }[];
 }
-
-/** "2026-10-03" → "3.10.2026" */
-const dayText = (iso: string) => `${Number(iso.slice(8, 10))}.${Number(iso.slice(5, 7))}.${iso.slice(0, 4)}`;
 
 /** A currency's code, or the words for a row whose currency the bank did not name (XXX). */
 const codeText = (currency: string) => (currency === "XXX" ? t("set.fr.currency_unknown") : currency);
@@ -40,7 +38,7 @@ export function ForeignRows({ currencies }: { currencies: readonly ForeignCurren
             <ul className="acc-foreign-rows">
               {c.rows.map((r, i) => (
                 <li key={i}>
-                  <span>{dayText(r.day)}</span>
+                  <span>{date(r.day)}</span>
                   <span className="acc-foreign-text">{r.text ?? ""}</span>
                   <span className="num">{`${formatForeignAmount(r.amountMinor, r.scale, true)} ${c.currency}`}</span>
                 </li>
