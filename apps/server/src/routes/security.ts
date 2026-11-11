@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { endSession } from "../auth/session.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
-import { deviceLabel, dismissNotices, EVENT_KINDS, noticesFor, recordEvent, validKind } from "../services/security.ts";
+import { deviceLabel, dismissNotice, dismissNotices, EVENT_KINDS, NOTICE_ID, noticesFor, recordEvent, validKind } from "../services/security.ts";
 import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { body, queryInt, requestInfo } from "./shared.ts";
 
@@ -49,8 +49,17 @@ export function securityRoutes(s: Services) {
 
   app.get("/notices", async (c) => c.json({ notices: await noticesFor(s, c.get("user")) }));
 
+  /** Kuittaa kaikki: every notice of the list. */
   app.post("/notices/seen", async (c) => {
     await dismissNotices(s, c.get("user"));
+    return c.json({ ok: true });
+  });
+
+  /** The Kuittaa of one row: that notice alone. */
+  app.post("/notices/:id/seen", async (c) => {
+    const id = c.req.param("id");
+    if (!NOTICE_ID.test(id)) throw UserError.of("check.field_bad");
+    await dismissNotice(s, c.get("user"), id);
     return c.json({ ok: true });
   });
 

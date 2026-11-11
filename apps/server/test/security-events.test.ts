@@ -1,7 +1,7 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { gateEvent } from "../src/db/startup-gate.ts";
-import { dismissNotices, noticesFor, recordEvent, validKind } from "../src/services/security.ts";
+import { dismissNotice, dismissNotices, noticesFor, recordEvent, validKind } from "../src/services/security.ts";
 import { setupApp } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
@@ -130,6 +130,39 @@ describe("security events", () => {
     expect(resets).toHaveLength(1);
     await dismissNotices(s, { id: adminId, role: "admin" });
     expect((await noticesFor(s, { id: adminId, role: "admin" })).some((n) => n.kind === "password_reset_by_admin")).toBe(false);
+  });
+
+  it("dismisses one notice by its Kuittaa and leaves the others, and Kuittaa kaikki dismisses the rest", async () => {
+    const { admin, client, s, adminId } = await setupApp();
+    for (let i = 0; i < 2; i++) await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "komentorivi", notify: true });
+    await recordEvent(s, { kind: "recovery_code_used", userId: adminId, notify: true });
+    for (let i = 0; i < 2; i++) await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` });
+    const kinds = async () => ((await admin.call("GET", "/api/security/notices")).body.notices as { id: string; kind: string }[]);
+    const before = await kinds();
+    expect(before.map((n) => n.kind)).toEqual(["password_reset_by_admin", "recovery_code_used", "login_fail"]);
+    // the one line of the two resets: both events go, the other notices stay
+    expect((await admin.call("POST", `/api/security/notices/${before[0]!.id}/seen`, {})).status).toBe(200);
+    expect((await kinds()).map((n) => n.kind)).toEqual(["recovery_code_used", "login_fail"]);
+    expect((await admin.call("POST", "/api/security/notices/fails/seen", {})).status).toBe(200);
+    expect((await kinds()).map((n) => n.kind)).toEqual(["recovery_code_used"]);
+    // a notice already read, or a shape no notice has, changes nothing
+    expect((await admin.call("POST", `/api/security/notices/${before[0]!.id}/seen`, {})).status).toBe(200);
+    expect((await admin.call("POST", "/api/security/notices/..%2Fx/seen", {})).status).toBe(400);
+    expect((await kinds()).map((n) => n.kind)).toEqual(["recovery_code_used"]);
+    await admin.call("POST", "/api/security/notices/seen", {});
+    expect(await kinds()).toEqual([]);
+  });
+
+  it("never marks another user's event read", async () => {
+    const { admin, s, adminId } = await setupApp();
+    const eero = (await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" })).body.user.id as string;
+    await recordEvent(s, { kind: "recovery_code_used", userId: adminId, notify: true });
+    const [mine] = await noticesFor(s, { id: adminId, role: "admin" });
+    await recordEvent(s, { kind: "recovery_code_used", userId: eero, notify: true });
+    await s.security.markOneSeen(eero, Number(mine!.id.slice(1)), s.now().toISOString());
+    expect(await noticesFor(s, { id: adminId, role: "admin" })).toHaveLength(1);
+    await dismissNotice(s, { id: adminId, role: "admin" }, mine!.id);
+    expect(await noticesFor(s, { id: adminId, role: "admin" })).toEqual([]);
   });
 
   it("lists own sessions with device and last use, ends one, and ends all", async () => {

@@ -194,6 +194,7 @@ export const FI_OVERVIEW = {
   "notice.heading": "Ilmoitukset",
   "notice.read": "Kuittaa",
   "notice.read_title": "Kuittaa: {title}",
+  "notice.read_all": "Kuittaa kaikki",
   "notice.security": "Turvallisuus",
   "home.cn_cards_title": "Kortin ostot puuttuvat: korttilaskuja {amount} viimeiseltä 12 kuukaudelta",
   "home.cn_cards_detail": "Yhdistämättömät kortit: {issuers}.{saved}",

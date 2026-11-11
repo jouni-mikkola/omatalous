@@ -191,6 +191,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "notice.heading": "Notices",
   "notice.read": "Mark as read",
   "notice.read_title": "Mark as read: {title}",
+  "notice.read_all": "Mark all as read",
   "notice.security": "Security",
   "home.cn_cards_title": "Card purchases are missing: card bills of {amount} over the last 12 months",
   "home.cn_cards_detail": "Cards not connected: {issuers}.{saved}",

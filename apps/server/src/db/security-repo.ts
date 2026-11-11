@@ -110,6 +110,11 @@ export class SecurityRepo {
     await this.db.run("UPDATE security_events SET seen_at = ? WHERE user_id = ? AND notify = 1 AND seen_at IS NULL", [at, userId]);
   }
 
+  /** Marks one notice of the user as read; the id of another user's event changes nothing. */
+  async markOneSeen(userId: string, eventId: number, at: string): Promise<void> {
+    await this.db.run("UPDATE security_events SET seen_at = ? WHERE id = ? AND user_id = ? AND notify = 1 AND seen_at IS NULL", [at, eventId, userId]);
+  }
+
   /** Keeps the newest `maxRows` events no older than `before`. */
   async prune(before: string, maxRows: number): Promise<void> {
     await this.db.batch([

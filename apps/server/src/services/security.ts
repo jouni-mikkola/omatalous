@@ -8,7 +8,7 @@ import { LOCALE, type MessageCode } from "@banking/core";
 import type { SecurityEvent } from "../db/security-repo.ts";
 import { waitingCopy } from "../db/startup-gate.ts";
 import type { Services } from "./context.ts";
-import { type HealthProbes, healthNotices, markHealthSeen } from "./db-health.ts";
+import { type HealthProbes, healthNotices, markHealthKindSeen, markHealthSeen } from "./db-health.ts";
 import { INDUSTRY_NOTICE_KEY } from "./instance.ts";
 import { EXTENSIONS } from "../extensions.ts";
 
@@ -187,6 +187,13 @@ function damagedNotice(detail: string | null): string {
 
 /** `probes`: a made disk in tests. */
 export async function noticesFor(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<Notice[]> {
+  // two events in the same minute (two resets, say) read the same: one line says it, and dismissing it marks every event
+  const texts = new Set<string>();
+  return (await everyNotice(s, user, probes)).filter((n) => !texts.has(n.text) && texts.add(n.text));
+}
+
+/** Every notice of the user, the ones that read the same included. */
+async function everyNotice(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<Notice[]> {
   const tz = s.instance.current.timezone;
   const out: Notice[] = [];
   for (const e of await s.security.unseenNotices(user.id)) {
@@ -219,9 +226,27 @@ export async function noticesFor(s: Services, user: { id: string; role: string }
   }
   // the safety net: copies, the disk and the host helper (db-health.ts), for admins
   out.push(...(await healthNotices(s, user, probes)));
-  // two events in the same minute (two resets, say) read the same: one line says it, and dismissing marks every event
-  const texts = new Set<string>();
-  return out.filter((n) => !texts.has(n.text) && texts.add(n.text));
+  return out;
+}
+
+/** The shape of a notice id (`Notice.id`): an event's `e<number>` or a word. Anything else is refused before a lookup. */
+export const NOTICE_ID = /^(e\d{1,15}|[a-z_]{1,40})$/;
+
+/**
+ * Marks one notice as read, and with it the notices that read the same, as the list shows them as one line. An id the
+ * user no longer has (read in another tab) changes nothing.
+ */
+export async function dismissNotice(s: Services, user: { id: string; role: string }, id: string, probes?: HealthProbes): Promise<void> {
+  const all = await everyNotice(s, user, probes);
+  const text = all.find((n) => n.id === id)?.text;
+  if (text === undefined) return;
+  const now = s.now().toISOString();
+  for (const n of all.filter((m) => m.text === text)) {
+    if (/^e\d+$/.test(n.id)) await s.security.markOneSeen(user.id, Number(n.id.slice(1)), now);
+    else if (n.id === "fails") await s.settings.set(failSeenKey(user.id), now);
+    else if (n.id === "industry" && user.role === "admin") await s.settings.delete(INDUSTRY_NOTICE);
+    else await markHealthKindSeen(s, user, n.kind, probes);
+  }
 }
 
 /**

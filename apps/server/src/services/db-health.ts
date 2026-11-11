@@ -220,8 +220,18 @@ export async function healthNotices(s: Services, user: { id: string; role: strin
  * ends and begins again (or another copy fails, or the helper is seen and stops again). Each admin has their own mark.
  */
 export async function markHealthSeen(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<void> {
+  return markHealthKindsSeen(s, user, () => true, probes);
+}
+
+/** Marks one condition that holds now as read by this admin and keeps the marks of the others that still hold. */
+export async function markHealthKindSeen(s: Services, user: { id: string; role: string }, kind: string, probes?: HealthProbes): Promise<void> {
+  const seen = readJson<Record<string, string>>(await s.settings.get(seenKey(user.id))) ?? {};
+  return markHealthKindsSeen(s, user, (c) => c.kind === kind || seen[c.kind] === c.key, probes);
+}
+
+async function markHealthKindsSeen(s: Services, user: { id: string; role: string }, mark: (c: Condition) => boolean, probes?: HealthProbes): Promise<void> {
   if (user.role !== "admin") return;
-  const holds = await conditions(s, probes);
+  const holds = (await conditions(s, probes)).filter(mark);
   if (!holds.length) return s.settings.delete(seenKey(user.id));
   await s.settings.set(seenKey(user.id), JSON.stringify(Object.fromEntries(holds.map((c) => [c.kind, c.key]))));
 }

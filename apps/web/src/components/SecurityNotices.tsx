@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
 import { t } from "../text.ts";
-import { bannersOf, noticeText, type SecurityNotice } from "./notices.ts";
+import { bannersOf, dismissPath, noticeText, type SecurityNotice } from "./notices.ts";
 import { Button } from "./ui/Button.tsx";
 import { Notice } from "./ui/Notice.tsx";
 import { settingsHash } from "../routes.ts";
@@ -27,9 +27,9 @@ export function SecurityNotices() {
         ))}
         <div className="form-row pull">
           <Button
-          
             onClick={() => {
-              api("/api/security/notices/seen", { method: "POST" })
+              // the banner's Kuittaa reads the banners alone; the rows of Ilmoitukset keep their own
+              Promise.all(banners.map((n) => api(dismissPath(n.id), { method: "POST" })))
                 .then(reload)
                 .catch((e: Error) => setError(e.message));
             }}
