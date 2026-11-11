@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { rules } from "./css-kit.ts";
 
 /**
  * The selectors of base.css's top-level rules, in file order (a `@media` block counts as one rule, by its query). A
@@ -24,15 +25,6 @@ function topLevelSelectors(css: string): string[] {
       depth--;
       if (depth === 0) head = "";
     } else if (depth === 0) head += ch;
-  }
-  return out;
-}
-
-/** Every rule with a body, innermost first, as its selector and its declarations (an `@media` wrapper is not a rule). */
-function rules(css: string): { selector: string; body: string }[] {
-  const out: { selector: string; body: string }[] = [];
-  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    out.push({ selector: m[1]!.trim().replace(/\s+/g, " "), body: m[2]!.trim() });
   }
   return out;
 }

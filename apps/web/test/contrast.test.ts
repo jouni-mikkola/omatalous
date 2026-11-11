@@ -1,25 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { hex as HEX } from "../src/design/tokens.ts";
+import { linearOf, luminanceOf, ratioOf } from "./css-kit.ts";
 
 // The app has one look: a light, bank-like one (docs/DESIGN.md). The colours are measured from the generated #rrggbb list of
 // src/design/tokens.ts, which tokens.test.ts holds equal to design/tokens.json.
 type Name = keyof typeof HEX;
 
-const channel = (c: string, i: number): number => {
-  const v = parseInt(c.slice(1 + 2 * i, 3 + 2 * i), 16) / 255;
-  return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-};
 /** The three channels in linear light. */
-const linear = (name: Name): [number, number, number] => [channel(HEX[name], 0), channel(HEX[name], 1), channel(HEX[name], 2)];
-const luminance = (name: Name): number => {
-  const [r, g, b] = linear(name);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-const ratio = (a: Name, b: Name): number => {
-  const [hi = 0, lo = 0] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return (hi + 0.05) / (lo + 0.05);
-};
+const linear = (name: Name): [number, number, number] => linearOf(HEX[name]);
+const luminance = (name: Name): number => luminanceOf(HEX[name]);
+const ratio = (a: Name, b: Name): number => ratioOf(HEX[a], HEX[b]);
 const hue = (name: Name): number => {
   const [r, g, b] = [0, 1, 2].map((i) => parseInt(HEX[name].slice(1 + 2 * i, 3 + 2 * i), 16) / 255) as [number, number, number];
   const d = Math.max(r, g, b) - Math.min(r, g, b);
