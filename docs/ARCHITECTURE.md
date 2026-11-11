@@ -1,6 +1,6 @@
 # Architecture
 
-Omatalous fetches a household's Nordea transactions through PSD2, sorts them into money flows and builds an
+Omatalous fetches a household's transactions from Nordea and the other Finnish banks through PSD2, sorts them into money flows and builds an
 overview and reports from them. Each member has their own login and views; accounts can be shared.
 
 ## Decisions
@@ -69,7 +69,7 @@ The ADR lists what was rejected and why.
 
 ```mermaid
 flowchart LR
-  N[Nordea PSD2] --> EB[Enable Banking API] --> P
+  N[Banks PSD2] --> EB[Enable Banking API] --> P
   subgraph Container["Docker container"]
     P[connectors] --> I[ingest] --> DB[(SQLite)]
     DB --> E[core pipeline] --> DB
@@ -205,59 +205,24 @@ flowchart LR
   tables (the rules
   are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).
 
-## Target architecture
+## One owner for each fact
 
-This is the target and it is not built yet. Each step is a change of its own that can be reverted, and the defaults
-stay the same, so an install that updates behaves as before. The web libraries are decided in
-[ADR 0019](adr/0019-ui-stack.md). Core stays pure, secrets stay sealed and existing installs keep their names.
-
-Each of these has one owner and the others read it:
+Each of these has one owner and the others read it. What is planned next is in [ROADMAP.md](ROADMAP.md).
 
 | Source (one owner) | Read by |
 |---|---|
-| `project.json` at the repo root: owner, repository, image, signer, return page | build scripts and a generated file at build time, never at run time |
-| `packages/core/src/settings/schema.ts`: key, type, default, min, max, restart, who edits | `Settings` in the server: default, then environment, then database |
-| `packages/core/src/figures/registry.ts` and `thresholds.ts`: each figure and limit with its definition and source, and the pages that show it | the analysis, the reports and the pages that show it |
-| `packages/core/src/messages/fi.ts`: code to text | the browser words a `{ code, params }` the server returns |
-| `apps/web/design/tokens.json` in DTCG format | generates `tokens.css` and `tokens.ts`, and charts read their colours from the tokens |
+| `project.json` at the repo root: owner, repository, image, signer, return page | the release tools (`tools/lib/project.sh`), the server and the web app |
+| `apps/server/src/platform/limits.ts`: the schema of the limits with their defaults | `services/limits.ts`: the default, then the environment, then the admin's values in the database |
+| `packages/core/src/figures.ts` and `thresholds.ts`: each figure and limit with what it means and where it is computed (ADR 0020) | the analysis, the reports and the pages that show it |
+| `packages/core/src/messages.ts` and the `messages-*.ts` files beside it: code to text, Finnish first and English with the same keys | the browser words the code and parameters the server sends |
+| `apps/web/design/tokens.json` | `pnpm tokens` writes `styles/tokens.css` and `design/tokens.ts`, and charts read their colours from the tokens |
 
-The web modules and what each owns:
+The web modules and what each owns (the libraries are decided in [ADR 0019](adr/0019-ui-stack.md)):
 
-- Routes and typed search parameters: TanStack Router, one lazy chunk per page, addresses `#/page?param=x#anchor` as today.
-- Server state: TanStack Query, in place of `useApi`.
-- `components/table/Table.tsx`: the markup of ADR 0018 over headless TanStack Table, with Virtual for long lists.
-- `charts/kit` and `charts/forms`: d3 scales and shapes, one file per chart form.
+- Routes and typed search parameters: TanStack Router in `router.tsx`, one lazy chunk per page.
+- `components/table/Table.tsx`: the table of the pages.
+- `charts/kit` and `charts/forms`: scales and shapes, one file per chart form.
 - Controls: React Aria Components styled with the tokens.
-
-The interfaces between them:
-
-```ts
-Settings.get<K extends SettingKey>(key: K): SettingValue<K>
-type Message = { code: MessageCode; params: Record<string, string | number> }
-type Figure = { id; definition; source; unit; pages: string[] }
-type Threshold = { id; value; reason; source; verifiedAt }
-type Verdict = { question; answer; compare; why: string[]; action?; basis }
-```
-
-`Verdict` is the contract between a report and its page. The first page's answer is its first user.
-
-The data flows:
-
-- Settings: the schema gives the defaults, the database holds the admin's values and `Settings` gives them to the services. A change of a limit writes a `security_events` row, and it bumps `data_version` only when it changes a calculation.
-- A figure goes from `figures` to analysis, report, server answer, `Verdict` and page. Every number in a sentence is a calc line.
-
-| Step | What | Done when |
-|---|---|---|
-| 0 | The stack decided, tests stable, helper images pinned | ADR 0019 is merged and the tests run fast and without timing failures |
-| 1 | Figures and limits in one registry, tokens from one source | a figure or a colour is changed in one file |
-| 2 | Identity in `project.json` | no owner or repository name is typed anywhere else |
-| 3 | Settings schema and limits | every limit has a key, a range and an editor |
-| 4 | Message catalogue | the server sends codes and no Finnish text |
-| 5 | Password hashing | the cost is a setting and old hashes still work |
-| 6 | Bank dialect as data and a style policy without inline styles | a rule refuses an inline style |
-
-Steps 2 to 4 wait until the page rewrites are done, since the catalogue touches the same files. Step 1 comes first
-because pages read figures and tokens.
 
 ## Settings and secrets
 
