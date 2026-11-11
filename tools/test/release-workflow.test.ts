@@ -670,6 +670,8 @@ describe("the workflow the board watches on main", () => {
     const files = readdirSync(resolve(ROOT, ".github/workflows")).filter((f) => f.endsWith(".yml"));
     const named = files.filter((f) => (parseYaml(readText(`.github/workflows/${f}`)) as unknown as { name?: string }).name === "check");
     expect(named).toEqual(["ci.yml"]); // any other name and a red main is never reverted
-    expect(ci).toMatch(/^on:\n {2}push:\n {4}branches: \["\*\*"\]$/m); // a push to main starts the run the board reads
+    expect(ci).toMatch(/^on:\n {2}push:\n {4}branches: \[main\]$/m); // a push to main starts the run the board reads, and a push to no other branch starts one
+    expect(ci).toMatch(/^ {2}pull_request:$/m); // the one run of a work branch's commit
+    expect(ci).toMatch(/^ {2}workflow_dispatch:$/m);
   });
 });

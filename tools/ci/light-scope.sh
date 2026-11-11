@@ -2,9 +2,10 @@
 # tools/ci/light-scope.sh: what the light tier of ci.yml runs, as one line `args=...` for $GITHUB_OUTPUT.
 # EVENT is the workflow event, BASE_REF the branch of a pull request, BEFORE the commit a push replaced. A pull request
 # and a push are checked against what they changed (`--changed BASE`, the scope tools/check.sh and tools/check/scope.mjs
-# decide). A hand-started run and a new branch are checked against main. Only a base the clone does not hold runs
-# every lint, type check and test the tier has (never the page tests, the image or the build: those run on the release
-# machine). The clone must hold the history (fetch-depth: 0).
+# decide). A hand-started run is checked against main. Only a push to main starts a run (ci.yml), so the push of a new
+# branch starts none; a push that replaced no commit is still checked against main. Only a base the clone does not hold
+# runs every lint, type check and test the tier has (never the page tests, the image or the build: those run on the
+# release machine). The clone must hold the history (fetch-depth: 0).
 set -euo pipefail
 
 EVENT=${EVENT:-}

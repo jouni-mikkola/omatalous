@@ -16,13 +16,17 @@ name: check
 # stamps name is published, and the release run (release.yml) builds, smoke tests and signs without testing again. No
 # test is deleted: a test that left GitHub runs there.
 #
-# The public repository runs this file on every push and pull request that touches more than documents, which is free.
-# The private one pays for its minutes, so a push or pull request there skips every job, ci-ok included, and it
-# runs only by hand (workflow_dispatch). ci-ok is the one check that says whether all the jobs passed, so a job added
-# or renamed here changes nothing outside this file.
+# Three things start a run: a push to main, a pull request, and a hand (workflow_dispatch). A push to any other branch
+# starts none: the pull request of that branch checks the same commit, and a second run of it only held a runner. A
+# branch with no pull request is checked by hand. A push to main and a pull request that touch documents alone start
+# none either.
+#
+# The public repository runs this file on each of those, which is free. The private one pays for its minutes, so a push
+# to main or a pull request there skips every job, ci-ok included, and it runs only by hand. ci-ok is the one check
+# that says whether all the jobs passed, so a job added or renamed here changes nothing outside this file.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     paths-ignore:
       - "**.md"
       - docs/**
@@ -39,10 +43,12 @@ on:
 permissions:
   contents: read
 
-# A newer push to a branch or pull request makes the older run pointless, so it is cancelled. Every push to main runs
-# to the end: the run id in its group name keeps two pushes from queueing behind each other, where GitHub would drop
-# the older one. The event is in the name too: in the private repository a push to the branch starts a run that ends at once that
-# would otherwise cancel the dispatched run of the same branch.
+# A newer commit on a pull request, or a newer hand-started run of a branch, makes the older run pointless, so it is
+# cancelled. Every run on main runs to the end: the run id in its group name keeps two pushes from queueing behind each
+# other, where GitHub would drop the older one. A push starts a run on main only, so no push run of a work branch is
+# left to cancel anything. The event in the name is no longer needed: a pull request's ref (refs/pull/N/merge) and a
+# hand-started run's (refs/heads/<branch>) already differ, and main uses the run id. It stays only to keep the names
+# of the groups as they were.
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
