@@ -24,8 +24,6 @@ export interface InstanceSettings {
   historyDays: number;
   /** Look up unknown merchants' industry in the public trade register (services/industry.ts). */
   industryLookup: boolean;
-  /** Fetch the published consumer price index from Statistics Finland (services/price-index.ts). Off until an admin turns it on. */
-  priceIndex: boolean;
 }
 
 /** The app's own check of Cloudflare Access (security/cf-access.ts). */
@@ -200,7 +198,6 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
       syncHours: hours(env.SYNC_HOURS, [6, 18]),
       historyDays: limits.historyDays!,
       industryLookup: env.INDUSTRY_LOOKUP !== "false",
-      priceIndex: false,
     },
     access: accessConfig(env),
     appSecret: validSecret((files.appSecret ?? env.APP_SECRET ?? "").trim()),

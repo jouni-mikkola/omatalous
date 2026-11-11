@@ -19,7 +19,6 @@ import { noticesView, saveNotices } from "../services/outside-notices.ts";
 import { makeKeys, offsiteView, removeOffsite, runOffsiteNow, saveOffsite } from "../services/offsite.ts";
 import { recordEvent } from "../services/security.ts";
 import { startLookup } from "../services/industry.ts";
-import { startPriceIndex } from "../services/price-index.ts";
 import { listServiceTokens, revokeServiceToken } from "../services/service-tokens.ts";
 import { remoteAccessState, removeToken, saveToken, turnOff, turnOn } from "../services/remote-access.ts";
 import { body, requestInfo } from "./shared.ts";
@@ -37,11 +36,9 @@ export function adminRoutes(s: Services) {
 
   app.put("/instance", async (c) => {
     const wasOn = s.instance.current.industryLookup;
-    const indexWasOn = s.instance.current.priceIndex;
     const saved = await s.instance.save(await body(c));
     // names that waited while it was off are looked up now
     if (saved.industryLookup && !wasOn) startLookup(s);
-    if (saved.priceIndex && !indexWasOn) startPriceIndex(s);
     return c.json(await state());
   });
 

@@ -191,7 +191,6 @@ export interface InstanceSettings {
   syncHours: number[];
   historyDays: number;
   industryLookup: boolean;
-  priceIndex: boolean;
   setupDone: boolean;
 }
 

@@ -18,6 +18,4 @@ export const FI_SET_IFORM = {
   "set.iform.fetched_when_opened": "Haemme tapahtumat, kun avaat sovelluksen.",
   "set.iform.look_up_industry": "Hae tuntemattoman kauppiaan toimiala kaupparekisteristä",
   "set.iform.only_the_merchant_name": "Rekisteriin lähtee vain kauppiaan nimi.",
-  "set.iform.fetch_price_index": "Hae Tilastokeskuksen kuluttajahintaindeksi",
-  "set.iform.price_index_help": "Palvelin hakee julkisen indeksisarjan päivittäin osoitteesta statfin.stat.fi. Siitä ei lähde talouden tietoja. Vertaamme sarjalla tilausten hintoja yleiseen hintakehitykseen sivulla Kiinteät menot.",
 } as const;

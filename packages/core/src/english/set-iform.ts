@@ -16,6 +16,4 @@ export const EN_SET_IFORM: Record<keyof typeof FI_SET_IFORM, string> = {
   "set.iform.fetched_when_opened": "Transactions are fetched when you open the app.",
   "set.iform.look_up_industry": "Look up the industry of an unknown merchant in the trade register",
   "set.iform.only_the_merchant_name": "Only the merchant's name is sent to the register.",
-  "set.iform.fetch_price_index": "Fetch Statistics Finland's consumer price index",
-  "set.iform.price_index_help": "The server fetches the public index series daily from statfin.stat.fi. No financial data is sent. The series is used to compare subscription prices with general price development on the Fixed costs page.",
 };

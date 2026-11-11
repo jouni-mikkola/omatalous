@@ -95,7 +95,6 @@ names that host only, `*.host` the host and its subdomains. The run allows the m
 | `*.enablebanking.com` | server | Bank logos, fetched once per bank (https only, no redirect). |
 | `jouni-mikkola.github.io` | browser | The return page after a bank login from an http address. Static, no scripts of others. |
 | `avoindata.prh.fi` | server | Trade register lookup of business names. Can be turned off. |
-| `statfin.stat.fi` | server | The published consumer price index, for the price comparison of Kiinteät menot. The request names the public series and carries nothing of the household. Only if you turn it on. [opt-in: price-index] |
 | `api.cloudflare.com` | server | Etäkäyttö page, with the token you saved there. Only if you use it. |
 | `*.cloudflareaccess.com` | server | The keys of your Access team, for the check behind Cloudflare Access. Only if you turn it on. |
 | The machine you name | server | Backup to another machine: an encrypted copy over SFTP (OpenSSH, port you choose, host key trusted on first use) to the host and folder you enter on Asetukset > Palvelin > Varmuuskopio toiselle koneelle. Only if you turn it on; nothing leaves before you give a target. The copy is encrypted with age on the host before it is sent. [opt-in: offsite] |

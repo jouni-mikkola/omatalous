@@ -59,7 +59,6 @@ export function GeneralForm({
     syncHours: state.settings.syncHours,
     historyDays: state.settings.historyDays,
     industryLookup: state.settings.industryLookup,
-    priceIndex: state.settings.priceIndex,
   }));
   const [error, setError] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
@@ -147,14 +146,6 @@ export function GeneralForm({
         <span>
           {t("set.iform.look_up_industry")}
           <span className="field-help">{t("set.iform.only_the_merchant_name")}</span>
-        </span>
-      </label>
-
-      <label className="check">
-        <input type="checkbox" checked={form.priceIndex} onChange={(e) => setForm({ ...form, priceIndex: e.target.checked })} />
-        <span>
-          {t("set.iform.fetch_price_index")}
-          <span className="field-help">{t("set.iform.price_index_help")}</span>
         </span>
       </label>
 

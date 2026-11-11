@@ -36,7 +36,7 @@ const KEY = "instance_settings";
 /** Set when an upgrade turned the register lookup off for an existing install; admins see a one-time notice (services/security.ts). */
 export const INDUSTRY_NOTICE_KEY = "notice_industry_lookup_off";
 
-const FIELDS = ["appBaseUrl", "timezone", "syncHours", "historyDays", "industryLookup", "priceIndex"] as const;
+const FIELDS = ["appBaseUrl", "timezone", "syncHours", "historyDays", "industryLookup"] as const;
 
 /** Validates a partial update on top of the current values. */
 function parseSettingsUpdate(input: unknown, current: InstanceSettings): InstanceSettings {
@@ -47,7 +47,6 @@ function parseSettingsUpdate(input: unknown, current: InstanceSettings): Instanc
     syncHours: o.syncHours === undefined ? current.syncHours : parseSyncHours(o.syncHours),
     historyDays: o.historyDays === undefined ? current.historyDays : parseHistoryDays(o.historyDays),
     industryLookup: o.industryLookup === undefined ? current.industryLookup : parseBoolean(o.industryLookup),
-    priceIndex: o.priceIndex === undefined ? current.priceIndex : parseBoolean(o.priceIndex),
   };
 }
 
@@ -66,7 +65,6 @@ function sanitizeDefaults(d: InstanceSettings): InstanceSettings {
     syncHours: safe(() => parseSyncHours(d.syncHours), [6, 18]),
     historyDays: safe(() => parseHistoryDays(d.historyDays), limitField("historyDays").default),
     industryLookup: d.industryLookup !== false,
-    priceIndex: d.priceIndex === true,
   };
 }
 
@@ -112,7 +110,9 @@ export class InstanceStore {
     let values: InstanceSettings;
     try {
       // `features`: the flag choices a row from before the flags went still holds, dropped so an old row does not fail the check
-      const { setupDone: _done, redirectMode: _mode, features: _features, ...rest } = stored;
+      const { setupDone: _done, redirectMode: _mode, features: _features, ...old } = stored;
+      // a setting that has since gone (the removed price index flag) is dropped the same way
+      const rest = Object.fromEntries(Object.entries(old).filter(([k]) => (FIELDS as readonly string[]).includes(k)));
       values = parseSettingsUpdate(rest, this.defaults);
     } catch {
       // a row edited by hand into something invalid must not take the app down

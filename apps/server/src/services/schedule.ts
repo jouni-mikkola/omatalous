@@ -13,7 +13,6 @@ import { watchCopies } from "./db-health.ts";
 import { keepReserve } from "./disk.ts";
 import { drainLookups, type LookupResult } from "./industry.ts";
 import { expireStale } from "./ops.ts";
-import { refreshPriceIndex } from "./price-index.ts";
 import { finishPendingReprocess } from "./recovery.ts";
 import { upgradeAndLog } from "./upgrade.ts";
 import { queueOffsiteDaily } from "./offsite.ts";
@@ -112,12 +111,6 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     lookup = await drainLookups(s, { maxBatches: MAX_LOOKUP_BATCHES });
   } catch (err) {
     console.error("industry lookup failed:", err);
-  }
-
-  try {
-    await refreshPriceIndex(s);
-  } catch (err) {
-    console.error("price index failed:", err);
   }
 
   await chore("deleting expired sessions", () => s.users.deleteExpiredSessions(s.now()));

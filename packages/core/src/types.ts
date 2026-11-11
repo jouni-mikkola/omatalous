@@ -321,19 +321,6 @@ export interface UserInputs {
   payers?: PayerInput;
   /** The monthly spending goal in cents (`spending-goal.ts`). Left out or null, the user has set none. */
   spendingGoalCents?: number | null;
-  /** The published consumer price index the admin let the server fetch (`reports/price-change.ts`). Left out or null, there is none. */
-  priceIndex?: PriceIndex | null;
-}
-
-/** A published monthly index series. Points are the publisher's own, in any base: only ratios between months are read. */
-export interface PriceIndex {
-  /** Who publishes it and which table, for the page to name. */
-  source: string;
-  table: string;
-  /** The day the server read it. */
-  fetchedAt: IsoDate;
-  /** Index points by month (YYYY-MM). A month the publisher has no figure for is missing. */
-  months: Readonly<Record<string, number>>;
 }
 
 export const NO_INPUTS: UserInputs = { marks: [], expectedBills: [], loans: [] };

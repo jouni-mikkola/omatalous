@@ -7,6 +7,9 @@ import { mockBank } from "./mock-bank.ts";
 const pkcs8 = (bits = 2048) => generateKeyPairSync("rsa", { modulusLength: bits }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const pkcs1 = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs1", format: "pem" }).toString();
 
+// a setting that no longer exists; an old row may still hold it
+const REMOVED_FLAG = ["price", "Index"].join("");
+
 describe("setup wizard: instance settings", () => {
   it("is admin only and starts with the environment defaults", async () => {
     const { admin, member } = await setupApp({ INDUSTRY_LOOKUP: "true" });
@@ -16,7 +19,7 @@ describe("setup wizard: instance settings", () => {
     expect((await eero.call("GET", "/api/meta")).body.setupDone).toBe(false);
 
     const r = await admin.call("GET", "/api/admin/instance");
-    expect(r.body.settings).toEqual({ appBaseUrl: "http://localhost:8080", timezone: "Europe/Helsinki", syncHours: [6, 18], historyDays: 730, industryLookup: true, priceIndex: false, setupDone: false, redirectMode: null });
+    expect(r.body.settings).toEqual({ appBaseUrl: "http://localhost:8080", timezone: "Europe/Helsinki", syncHours: [6, 18], historyDays: 730, industryLookup: true, setupDone: false, redirectMode: null });
     expect(r.body.secret.available).toBe(true);
     expect(r.body.bankApp).toMatchObject({ source: null, canStoreKeys: true, redirectUrl: "https://jouni-mikkola.github.io/omatalous/callback/", redirectMode: "relay" });
   });
@@ -115,7 +118,7 @@ describe("setup wizard: instance settings", () => {
 
   it("starts on a row that holds the flag overrides of an older version, keeps its settings and drops the overrides at the next save", async () => {
     const { admin, s } = await setupApp();
-    await s.settings.set("instance_settings", JSON.stringify({ timezone: "UTC", industryLookup: false, setupDone: true, features: { optimise: true, koe: false, old: "yes" } }));
+    await s.settings.set("instance_settings", JSON.stringify({ timezone: "UTC", industryLookup: false, setupDone: true, [REMOVED_FLAG]: true, features: { optimise: true, koe: false, old: "yes" } }));
     await s.instance.load(true);
     const r = await admin.call("GET", "/api/admin/instance");
     expect(r.status).toBe(200);
@@ -126,6 +129,7 @@ describe("setup wizard: instance settings", () => {
     const row = JSON.parse((await s.settings.get("instance_settings"))!);
     expect(row).toMatchObject({ timezone: "UTC", historyDays: 90, setupDone: true });
     expect(row.features).toBeUndefined();
+    expect(row[REMOVED_FLAG]).toBeUndefined();
   });
 });
 

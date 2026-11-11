@@ -10,7 +10,7 @@ const FINNISH = ["Käyttöönotto", "Aikavyöhyke", "ei vielä", "ei käytössä
 
 function state(source: "web" | null, inactive: string | null, secret: boolean): InstanceState {
   return {
-    settings: { appBaseUrl: "https://home.example", timezone: "Europe/Helsinki", syncHours: [6], historyDays: 90, industryLookup: false, priceIndex: false, setupDone: false },
+    settings: { appBaseUrl: "https://home.example", timezone: "Europe/Helsinki", syncHours: [6], historyDays: 90, industryLookup: false, setupDone: false },
     bankApp: { source, inactiveMessage: inactive } as unknown as InstanceState["bankApp"],
     secret: { available: secret },
   };

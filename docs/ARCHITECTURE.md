@@ -116,16 +116,6 @@ flowchart LR
   `merchant_industry_users` records which names each user's lookups asked about. A user gets answers only
   for those names. The category is worked out from the stored TOL code at every reprocess, so a change to
   the mapping needs no new lookup. What is sent: [SECURITY.md](SECURITY.md#trade-register-lookup).
-- Price index (`services/price-index.ts`, `providers/statfin`): off until an admin sets `priceIndex` under Asetukset >
-  Palvelin. Then the hourly tick fetches, at most once a day, the consumer price index of Statistics Finland (StatFin
-  table `khi/11xs`, column `ip_0_1972`, the index with 1972 = 100, which carries every month; PxWeb API
-  `https://statfin.stat.fi/PxWeb/api/v1/en/StatFin/khi/11xs.px`, POST, json-stat2; verifiedAt 2026-10-30, limits 120 000
-  cells and 40 calls a minute). The request names the series and sends nothing of the household. The last 120 months
-  are kept in the settings key `instance_price_index`, read per request in `requestInputs` while the setting is on and
-  handed to core as `UserInputs.priceIndex`. Core `reports/price-change.ts` divides the household's own series (a fixed
-  basket of the subscription and fixed expense series that existed at the start of the window, each priced at the
-  month's end from its price steps) by the index over the same 12 months. Without a series the report says there is no
-  comparison.
 - Loans (`packages/core/src/loans.ts`, ADR 0012): the loans a user confirmed are rows of `loans`, one list per user.
   Every figure of one loan (owed on a day, interest, payoff date, next payment, credit use) comes from that file, and the
   list of the household's debts behind every debt total (`householdDebts`) from `household-debts.ts`. A loan can name the
