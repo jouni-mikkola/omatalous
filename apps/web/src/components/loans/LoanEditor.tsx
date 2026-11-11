@@ -1,6 +1,7 @@
 import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanKind } from "@banking/core";
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
-import { money } from "../../format.ts";
+import { money, parseEuros } from "../../format.ts";
+import { t } from "../../text.ts";
 import type { Account } from "../../types.ts";
 import { defaultName, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, readForm, setKind, setValue, shownFields } from "./form.ts";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
@@ -15,23 +16,29 @@ const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grant
  */
 export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: readonly Loan[] }>({ accounts: [], loans: [] });
 
-const LINK_HELP = "Kun yhdistät lainan tiliin, laskemme sen velkana vain kerran ja saldo tulee pankista.";
+const LINK_HELP = () => t("set.loans.link_help");
 /** Under the balance of a linked loan: the bank's balance counts while the bank tells one, and the typed one otherwise. */
-const LINKED_BALANCE_HELP = "Velkana on pankin saldo aina, kun pankki ilmoittaa sen. Muulloin velka on tähän kirjoittamasi saldo.";
-const REVIEW_HELP = "Päivä, jona pankki seuraavan kerran tarkistaa viitekoron. Näkyy lainasopimuksessa ja verkkopankissa.";
+const LINKED_BALANCE_HELP = () => t("set.loans.linked_balance_help");
+const REVIEW_HELP = () => t("set.loans.review_help");
 
 /** What the payment figure is, by the way the loan is paid back. */
 function paymentHelp(form: LoanForm): string | null {
-  if (form.values.repayment === "equal_principal") return "Pelkkä lyhennys. Korko tulee sen lisäksi.";
-  if (form.values.repayment === "annuity" || form.values.repayment === "fixed_instalment") return "Koko erä, korko mukana.";
+  if (form.values.repayment === "equal_principal") return t("set.loans.payment_principal_only");
+  if (form.values.repayment === "annuity" || form.values.repayment === "fixed_instalment") return t("set.loans.payment_whole");
   return null;
+}
+
+/** The typed amount in the language's money form (as typed when it is not a figure yet). */
+function moneyText(typed: string): string {
+  const cents = parseEuros(typed.trim());
+  return cents === null ? t("set.loans.typed_amount", { amount: typed }) : money(cents);
 }
 
 /** What a proposal's form filled from the bank's rows, in one line. */
 function prefilledLine(form: LoanForm): string {
-  const payment = !isCredit(form.kind) && form.values.paymentCents && `${form.values.paymentCents} € ${intervalLabel(Number(form.values.intervalMonths) || 1).toLowerCase()}`;
-  const parts = [form.values.lender, payment, form.accountId && form.values.balanceCents && `saldo ${form.values.balanceCents} € pankista`].filter(Boolean);
-  return parts.length > 0 ? `Pankin riveistä: ${parts.join(", ")}.` : "Pankin rivit eivät kerro lainasta muuta.";
+  const payment = !isCredit(form.kind) && form.values.paymentCents && `${moneyText(form.values.paymentCents)} ${intervalLabel(Number(form.values.intervalMonths) || 1).toLowerCase()}`;
+  const parts = [form.values.lender, payment, form.accountId && form.values.balanceCents && t("set.loans.prefilled_balance", { amount: moneyText(form.values.balanceCents) })].filter(Boolean);
+  return parts.length > 0 ? t("set.loans.prefilled", { parts: parts.join(", ") }) : t("set.loans.prefilled_none");
 }
 
 /**
@@ -77,7 +84,7 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
     const stop = Object.keys(found)[0] ?? (interest !== null ? "paymentCents" : null);
     if (!body || stop) {
       setProblem(
-        Object.keys(found).length > 0 ? "Korjaa merkityt kentät." : "Maksuerä on pienempi kuin korko. Korjaa luvut tai tyhjennä maksuerä.",
+        Object.keys(found).length > 0 ? t("set.loans.fix_marked") : t("set.loans.payment_below_interest"),
       );
       if (stop) document.getElementById(idOf(stop))?.focus();
       return;
@@ -97,7 +104,7 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
     const common = { id: idOf(key), value: form.values[key], "aria-describedby": describedBy, "aria-invalid": errors[key] ? true : undefined };
     const pick = (options: readonly (readonly [string, string])[]) => (
       <select {...common} onChange={(e) => change(key, e.target.value)}>
-        <option value="">Ei tiedossa</option>
+        <option value="">{t("set.loans.unknown")}</option>
         {options.map(([value, label]) => (
           <option key={value} value={value}>
             {label}
@@ -124,10 +131,10 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
       <div className="loan-fields">
         <div className="loan-field">
           <label className="field-label" htmlFor={idOf("name")}>
-            Nimi
+            {t("set.loans.name")}
           </label>
           <input id={idOf("name")} type="text" maxLength={80} autoComplete="off" value={form.name} placeholder={form.kind === "" ? "" : defaultName(form.kind, form.values.lender)} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <span className="field-help">Tyhjänä nimeksi tulee laji ja lainanantaja.</span>
+          <span className="field-help">{t("set.loans.name_help")}</span>
         </div>
         <div className="loan-field">
           <label className="field-label" htmlFor={idOf("kind")}>
@@ -152,7 +159,7 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
 
       <div className="loan-fields">
         {shown.map((key) => {
-          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceCents" && linked ? LINKED_BALANCE_HELP : key === "rateReviewDate" ? REVIEW_HELP : null;
+          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceCents" && linked ? LINKED_BALANCE_HELP() : key === "rateReviewDate" ? REVIEW_HELP() : null;
           const described = [help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
             <div key={key} className="loan-field">
@@ -181,10 +188,10 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
       {choices.length > 0 && !compact && (
         <div className="loan-field">
           <label className="field-label" htmlFor={idOf("account")}>
-            Sama velka pankin tilillä
+            {t("set.loans.same_debt")}
           </label>
           <select id={idOf("account")} value={linked} aria-describedby={idOf("account-help")} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
-            <option value="">Ei liitetty</option>
+            <option value="">{t("set.loans.not_linked")}</option>
             {choices.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.label}
@@ -192,20 +199,20 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
             ))}
           </select>
           <span id={idOf("account-help")} className="field-help">
-            {LINK_HELP}
+            {LINK_HELP()}
           </span>
         </div>
       )}
 
-      {form.values.repayment === "bullet" && shown.includes("repayment") && <p className="small muted loan-note">Kertalyhenteisen lainan maksat kerralla viimeisenä eräpäivänä, joten sillä ei ole maksuerää.</p>}
+      {form.values.repayment === "bullet" && shown.includes("repayment") && <p className="small muted loan-note">{t("set.loans.bullet_note")}</p>}
 
       {interest !== null && (
         <Notice tone="warning" className="loan-interest" role="status">
           <p>
-            Maksuerä on pienempi kuin korko ({money(interest)}). Laina ei lyhene. Tarkista luvut. Jos maksat vain korkoa, jätä maksuerä tyhjäksi.
+            {t("set.loans.interest_warning", { interest: money(interest) })}
           </p>
           <Button variant="link" onClick={() => change("paymentCents", "")}>
-            Tyhjennä maksuerä
+            {t("set.loans.clear_payment")}
           </Button>
         </Notice>
       )}
@@ -217,14 +224,14 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
       )}
       <div className="form-row">
         <Button variant="primary" type="submit" busy={busy}>
-          {busy ? "Tallennetaan…" : "Tallenna"}
+          {busy ? t("set.loans.saving") : t("ui.save")}
         </Button>
         <Button disabled={busy} onClick={onCancel}>
           {cancelLabel}
         </Button>
         {compact && (
           <Button variant="link" onClick={() => setAll(true)}>
-            Näytä kaikki kentät
+            {t("set.loans.show_all")}
           </Button>
         )}
       </div>
