@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { contextOf, demoHousehold } from "../../../tools/findings/households.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { expectedEveryday } from "../src/analysis/expected.ts";
+import { formatEur } from "../src/analysis/format.ts";
+import { messageIn } from "../src/messages.ts";
 import { gateFor } from "../src/analysis/usual.ts";
 import { addDays, dateIn, daysBetween, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { OVERVIEW_INSIGHTS } from "../src/thresholds.ts";
@@ -49,13 +53,33 @@ describe("home.runway", () => {
     expect(runway!.everydayPerDayCents).toBeGreaterThan(0);
   });
 
-  it("states the everyday spending a day as the figure the payday is worked out from: the free sum less days times it is what is left", () => {
+  it("leaves on the payday the free sum less what the counted accounts pay; with no card that is days times the everyday spending a day", () => {
     const { runway } = homeOf(rows);
     const left = runway!.leftOnPayday;
     if (!left.known) throw new Error("no runway");
     expect(runway!.takenOffPerDayCents).toBeGreaterThan(0);
+    expect(left.freeCents - left.everydayCents - left.billedCents).toBe(left.leftCents);
     // rounded to a whole cent a day, so the days off by half a cent each at most
     expect(Math.abs(left.freeCents - runway!.days! * runway!.takenOffPerDayCents - left.leftCents)).toBeLessThanOrEqual(runway!.days! / 2);
+  });
+
+  it("states the usual month's everyday spending over its days for the demo household, whose purchases go on a card", () => {
+    const h = demoHousehold("2026-11-11");
+    const ctx = contextOf(h);
+    const { runway } = buildDashboard(ctx, { from: "2026-11-01", to: "2026-11-30" }, h.balances, h.inputs).home;
+    // the usual November: what the base months spent outside their bill series, on the card as well
+    const month = expectedEveryday(ctx, "2026-11-01", "2026-11-30");
+    if (typeof month === "string") throw new Error(month);
+    const perDay = Math.round(month.cents / 30);
+    // tens of euros a day, not the euro a day that leaves the checking account itself
+    expect(perDay).toBeGreaterThan(3000);
+    expect(runway!.leftOnPayday.known).toBe(true);
+    expect(runway!.takenOffPerDayCents).toBe(perDay);
+    expect(runway!.everydayPerDayCents).toBe(perDay);
+    const sum = formatEur(runway!.takenOffPerDayCents, false, "fi");
+    expect(messageIn("fi", "home.based", { sum }).replace(/\s/g, " ")).toBe("Arkimenoihisi kuluu viime kuukausien mukaan noin 49 € päivässä");
+    // the English sentence states the same sum and names no account: the sum is of every account
+    expect(messageIn("en", "home.based", { sum: "X" })).toBe("At the pace of recent months, everyday spending takes about X a day");
   });
 
   it("says short when the payments are more than the balance, and gives no allowance", () => {

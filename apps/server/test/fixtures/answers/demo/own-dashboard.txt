@@ -1051,7 +1051,7 @@
    "allowancePerDayCents": 27732,
    "days": 14,
    "everydayPerDayCents": 5089,
-   "takenOffPerDayCents": 358,
+   "takenOffPerDayCents": 5089,
    "payday": {
     "date": "2026-10-23",
     "name": "Acme"

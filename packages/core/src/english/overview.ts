@@ -12,7 +12,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.no_balance": "Your account balance is not known, so the amount left cannot be worked out.",
   "home.per_day_one": "That is {sum} a day for the {count} day left until payday.",
   "home.per_day_many": "That is {sum} a day for the {count} days left until payday.",
-  "home.based": "At the pace of recent months, everyday spending takes about {sum} a day out of your account",
+  "home.based": "At the pace of recent months, everyday spending takes about {sum} a day",
   "home.lead_short_of": "You will run short. After the bills you are short by",
   "home.lead_short": "The bills are covered, but everyday spending will not fit in what is left. After the bills you have",
   "home.detail_short": "{based}, so you will be about {sum} short on payday.",

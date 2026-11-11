@@ -39,7 +39,7 @@ interface HomeRunway {
   days: number | null;
   /** The expected everyday spending of a day over every account (`expectedEverydayPerDay`). 0 when it cannot be said. */
   everydayPerDayCents: number;
-  /** What the runway takes off the free sum on each day to the payday: `freeCents` less `leftCents` over `days`. It is the figure the range of the payday is built from, so free sum less days times this is the middle of that range. 0 when the payday cannot be said. */
+  /** The everyday spending of a day that the sentence of `home.based` states: the usual month's everyday spending (the rows outside every bill series) over its days, on every account, a card's purchases among them (`everydayPerDayCents`). It is not what leaves the counted accounts before the payday: a card's purchases leave them with a later bill. 0 when the payday cannot be said. */
   takenOffPerDayCents: number;
   /** The pay the days run to, and who pays it. null without a regular pay to wait for. */
   payday: { date: IsoDate; name: string } | null;
@@ -120,7 +120,7 @@ function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "dir
     allowancePerDayCents: spread ? Math.round(sum.freeCents / days) : null,
     days: spread ? days : null,
     everydayPerDayCents: ahead.everydayPerDayCents,
-    takenOffPerDayCents: left.known && left.days > 0 ? Math.round((left.freeCents - left.leftCents) / left.days) : 0,
+    takenOffPerDayCents: left.known ? ahead.everydayPerDayCents : 0,
     payday,
     leftOnPayday: left,
   };
