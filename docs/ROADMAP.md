@@ -29,6 +29,13 @@ Result: Move T80 'Machine-load scripts leave' to the front of the remaining road
 - locks: none
 - after: none
 
+### N7 A broken main undoes itself
+Result: Main's checks workflow carries the name the board watches, so a commit that turns main red is reverted within 30 minutes instead of stopping
+- why: main red since 7f79369 (09:08) and never reverted: the board's revert watch looks for a workflow named check, this repo's is .github/workflows/ci.yml 'CI', so a red main waits on hand fixes
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: A broken main undoes itself. Main's checks workflow carries the name the board watches, so a commit that turns main red is reverted within 30 minutes instead of stopping all landing.
+- locks: none
+- after: none
+
 ### T80 Machine-load scripts leave
 Result: The repo checks run on a clean clone with no agent slot, core count or quiet-machine script.
 - why: audit move 4: about 500 lines of agent and machine tooling live in the product repo.
