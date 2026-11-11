@@ -1239,6 +1239,59 @@ Result: The five guides name the three tabs Asetukset has after T74, and one tes
 - after: T74, D1, D2, D3, D4
 - files: docs/INSTALL.md, docs/TROUBLESHOOTING.md, docs/ENABLE_BANKING.md, docs/ADVANCED.md, docs/SECURITY.md, tools/test/docs-tabs.test.ts, tools/test
 
+## Export and report files
+
+What `docs/DATA_EXPORT.md` promises of the JSON file and what the CSV files of Raportit say, read against the code by N30
+on 11 November. Each fault below was reproduced on main with a test written for it.
+
+### X1 Report files hold every month
+Result: The month table and the cash flow files hold every month of their range that has history, so their columns add up to their total.
+- why: `rangeMonthIndexes` (`packages/core/src/reports/shared.ts:14`) starts at the first month of the history and keeps the latest 24 months; `pivotReport` (`packages/core/src/reports/pivot.ts:157`) and `cashflowReport` (`packages/core/src/reports/cashflow.ts:90`) ask for 24 for the page, and `GET /api/export/report.csv` (`apps/server/src/routes/data.ts:135` and `:139`) writes that as the file. With 77,00 € of groceries in May 2023 and 1,00 € in September 2026, `kuukausitaulukko_2023-01-01_2026-09-30.csv` starts at 2024-10, its month cells add up to 1 and its `Yhteensä €` cell says 78; `kassavirta_2023-01-01_2026-09-30.csv` has 24 rows and no May 2023.
+- done when: for that data and range the month table file has a column for each of the 41 months from 2023-05 to 2026-09, the cells of a row add up to its `Yhteensä €` and the cells of the sum row to its total, and the cash flow file has a row for each of the 41 months with 77 in May 2023, in Finnish and in English; a range of 24 months or fewer gives the same bytes as today (the near miss); the page's own table and chart still show at most 24 months; tests in `apps/server/test/csv-export.test.ts` and `packages/core/test/reports.test.ts` that fail without the change hold each of these; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: report-months
+- after: none
+- files: apps/server/src/routes/data.ts, packages/core/src/reports/pivot.ts, packages/core/src/reports/cashflow.ts, apps/server/test/csv-export.test.ts, packages/core/test/reports.test.ts
+
+### X2 The export names who it means
+Result: Every person a member's exported file points to is in its `users`, so a reader can tell who answered and who uses an account.
+- why: `docs/DATA_EXPORT.md` ("Keys between the stores") says `user_id`, `said_by`, `set_by` and `answered_by` name a row of `users`. `viewerOf` (`apps/server/src/services/data-export.ts:42`) lists the viewer, the owners of the shared accounts and the members the viewer shares their own accounts with. When kaisa shares one account with pekka and liisa, pekka's file has `users` kaisa and pekka only, while its `answers` (`said_by`, `owner` `u:<id>`), `accountUse` (`user_id`, `said_by`) and the household's `payerRoles` (`answered_by`) carry liisa's id.
+- done when: in that household pekka's file has liisa in `users` with the five allowed fields, and every `user_id`, `said_by`, `set_by`, `answered_by` and `u:<id>` owner of the stores `answers`, `accountSplits`, `accountUse`, `parts`, `payerRoles`, `accountAgreements` and of the JSON of an agreement's `value` (`who`, `confirmed`) is an id of `users`; a member who shares no account with pekka and is named in none of his rows is still not in his file (the near miss), and nothing but the `users` row is added for liisa; an administrator's file is the same bytes as before; the section "Whose data" of `docs/DATA_EXPORT.md` says who `users` holds; tests in `apps/server/test/data-export.test.ts` that fail without the change hold each of these; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: export-users
+- after: none
+- files: apps/server/src/services/data-export.ts, apps/server/src/services/data-export-stores.ts, apps/server/test/data-export.test.ts, docs/DATA_EXPORT.md
+
+### X3 The app's own file imports back
+Result: A file the app wrote is not refused by the same app for a long bank message or an odd character in one.
+- why: the import refuses the whole file at the first value over a limit, and for the bank's text of a transaction the limits are tighter than what is stored: no control character (`apps/server/src/services/data-import-stores.ts:16`) and 2000 characters of `description` (`:122`), where the fetch stores the bank's message as it comes (`apps/server/src/connectors/enable-banking/mapper.ts:121`). A stored description of 2001 characters, or one with the character U+0007, makes the user's own export answer "Tiedoston kohdan transactions rivi 1 on virheellinen (description). Mitään ei tuotu."
+- done when: the export of a database with a transaction whose `description`, `counterparty`, `reference` or `merchant` holds 20 000 characters or a control character imports, and the row keeps the text as it is, so the signature a fetch matches on is the same; one character over 20 000 is refused with the sentence of today; a control character in any other text of the file (an `id`, a `username`, a `category`, a rule's `pattern`) is still refused (the near miss); the section "Limits" of `docs/DATA_EXPORT.md` says so; tests in `apps/server/test/data-roundtrip.test.ts` that fail without the change hold each of these; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: import-own-file
+- after: none
+- files: apps/server/src/services/data-import-stores.ts, apps/server/test/data-roundtrip.test.ts, docs/DATA_EXPORT.md
+
+### X4 A dollar row is not read as euro
+Result: An imported file's row in another currency is left out and counted with its reason, so no dollar sum is added to the euros.
+- why: a fetch keeps a row in another currency out of `transactions` (`apps/server/src/connectors/foreign-split.ts:34`), and every sum of the app reads `amount_cents` as euro cents. The import takes any three letters as the currency of a transaction (`apps/server/src/services/data-import-stores.ts:62` and `:121`): a file with one row of -5000 cents in USD is committed (`add: 1`), the row is stored with `currency` USD, the rows file prints -50 under `Summa €` and the month table adds 50 € to the groceries.
+- done when: the dry run and the commit of that file skip the row with the reason `currency` and write no transaction and no part for it, while the euro rows of the same file are added; `apps/web/src/pages/settings/DataImport.tsx` says the reason in Finnish and in English; an account in another currency and a `foreignRows` row are taken as before (the near miss); the reason is in the list of "The dry run's answer" of `docs/DATA_EXPORT.md`; tests in `apps/server/test/data-roundtrip.test.ts` and a test of the page that fail without the change hold each of these; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: import-currency
+- after: X3
+- files: apps/server/src/services/data-import-stores.ts, apps/server/src/services/data-import-work.ts, apps/web/src/pages/settings/DataImport.tsx, packages/core/src/messages-set-import.ts, packages/core/src/english/set-import.ts, apps/web/test/data-import-line.test.ts, apps/server/test/data-roundtrip.test.ts, docs/DATA_EXPORT.md
+
+### X5 A fetch stores clean bank text
+Result: A row fetched from the bank is stored without control characters and at a length every file of the app can carry.
+- why: `mapTransaction` joins the bank's `remittance_information` and `note` and stores the result with no cleaning and no length (`apps/server/src/connectors/enable-banking/mapper.ts:121`), and the counterparty likewise; the statement reader cleans its text (`cleanStatementText`, `packages/core/src/bank-csv.ts:183`). A row with U+0007 or 2001 characters in its description is stored as it came, and the import then refuses the file that holds it (X3 takes the rows stored before this step).
+- done when: a bank row whose remittance text, note, creditor or debtor name holds a control character, a zero-width character or a line separator is mapped with a space in its place and runs of blanks as one; a description over 2000 characters and a counterparty over 500 are cut there; an ordinary message within the limits is mapped to the same bytes as today, so the signature of a row stored before matches the same row fetched again (the near miss); tests in `apps/server/test/mapper.test.ts` that fail without the change hold each of these; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bank-text
+- after: none
+- files: apps/server/src/connectors/enable-banking/mapper.ts, apps/server/test/mapper.test.ts
+
+### X6 Many balance days import back
+Result: A household with years of daily balances can import its own exported file.
+- why: a balance is kept per account, day and type with no end (`apps/server/src/db/finance/balance-record.ts:33`), and the import takes at most 50 000 rows of `accountBalances` (`MAX_ROWS`, `apps/server/src/services/data-import-stores.ts:97` and `:177`): the export of a database with 50 001 balance rows answers "Tiedoston kohdassa accountBalances on liikaa rivejä. Mitään ei tuotu." and nothing of the file is taken.
+- done when: the ceiling of `accountBalances` is 500 000 rows and the file of 50 001 imports with every balance added; one row past the ceiling is refused with the sentence of today; the dry run and the commit of a file with 500 000 balance rows stay within the session's 64 MiB and their seconds are in the PR; the ceilings of the other stores are as today (the near miss); the section "Limits" of `docs/DATA_EXPORT.md` names the figure; tests in `apps/server/test/data-roundtrip.test.ts` that fail without the change hold the first, second and fourth; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: import-balances
+- after: X4
+- files: apps/server/src/services/data-import-stores.ts, apps/server/test/data-roundtrip.test.ts, docs/DATA_EXPORT.md
+
 ## Open from before
 
 ### T96 Promote reads every file
