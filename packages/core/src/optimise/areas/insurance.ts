@@ -6,7 +6,7 @@
  */
 import { localeOf, type Language } from "../../locale.ts";
 import { messageIn } from "../../messages.ts";
-import { formatEur, formatFiDate } from "../../analysis/format.ts";
+import { formatEur, formatFiDate, formatFiDateIn } from "../../analysis/format.ts";
 import { priceRiseItems } from "../../analysis/insights/prices.ts";
 import { addDays, addMonthsToDate, monthOf } from "../../dates.ts";
 import type { RecurringSeries } from "../../recurring.ts";
@@ -28,7 +28,6 @@ const pctText = (tenths: number, lang: Language) => `${pct(tenths, lang)}\u00a0%
 const pointsText = (tenths: number, lang: Language) => messageIn(lang, "opt.c_points", { n: pct(tenths, lang) });
 
 /** "15.2." in the current year, "15.2.2027" in another. */
-const shortDate = (date: IsoDate, today: IsoDate, lang: Language) => (date.slice(0, 4) === today.slice(0, 4) ? formatFiDate(date, lang).replace(lang === "en" ? /\/\d{4}$/ : /\d{4}$/, "") : formatFiDate(date, lang));
 
 /** A policy year starts at the price change: the next one a year later, or the yearly charge's own next date. */
 function renewalOf(s: RecurringSeries, lang: Language): { date: IsoDate; label: string } {
@@ -106,7 +105,7 @@ function assess(a: AreaInput): { findings: FindingDraft[]; checks: Check[] } {
       title: exact
         ? messageIn(lang, "opt.ins_renew_exact", { merchant: s.merchant, date: formatFiDate(renewal.date, lang), price: formatEur(newYearly, false, lang), quote: formatEur(quote!, false, lang) })
         : messageIn(lang, "opt.ins_renew_title", { merchant: s.merchant, date: formatFiDate(renewal.date, lang), rise: pctText(riseT, lang), cpi: pctText(cpiT, lang) }),
-      action: messageIn(lang, "opt.ins_renew_action", { date: shortDate(decideBy, today, lang) }),
+      action: messageIn(lang, "opt.ins_renew_action", { date: formatFiDateIn(decideBy, today, lang) }),
       euros: exact ? { lowCents: difference, midCents: difference, highCents: difference } : null,
       decideBy,
       weaknesses: exact ? [] : [{ id: "estimate", reason: messageIn(lang, "opt.ins_weak") }],

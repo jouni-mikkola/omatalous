@@ -2,6 +2,7 @@ import type { LoanRow, LoansReport } from "@banking/core";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { Figure } from "../src/components/Figure.tsx";
 import { percent } from "../src/format.ts";
 import { section as balances } from "../src/pages/reports/sections/Balances.tsx";
@@ -89,7 +90,7 @@ describe("Raportit: Lainat", () => {
 
   it("tells the day of a balance no plan moved forward, and a balance dated ahead, in the words of the form", () => {
     const kept = row({ balance: { cents: 124_000, unknown: "repayment" }, balanceDate: "2026-03-01" });
-    expect(html(loans, context(report([kept])))).toContain(`${doorFigure("Velkaa", "1 240,00 €")}<small>jäljellä 1.3.2026</small></dd>`);
+    expect(html(loans, context(report([kept])))).toContain(`${doorFigure("Velkaa", "1 240,00 €")}<small>jäljellä 1.3.</small></dd>`);
     const ahead = report([row()], { total: { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } });
     expect(html(loans, context(ahead))).toContain("Velan summasta puuttuu yksi laina, jonka jäljellä oleva summa on kirjattu tulevalle päivälle.");
   });

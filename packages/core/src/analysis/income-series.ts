@@ -8,7 +8,7 @@ import { INCOME_GATE_FLOOR_CENTS } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
 import type { CalcLine } from "../optimise/types.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
-import { formatEur, formatFiDate, monthNameIn } from "./format.ts";
+import { formatEur, formatFiDayMonth, monthNameIn } from "./format.ts";
 import { messageIn } from "../messages.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { byPayPeriod, INCOME_TYPES, type IncomeType, incomeTypes, isIncomeRow, type PayDay, payDayOf, payerKey, payersOf, periodOf } from "./income.ts";
@@ -218,7 +218,7 @@ export const monthFrom = (d: IsoDate, lang: Language = DEFAULT_LANGUAGE) => (lan
 export const monthIn = (d: IsoDate, lang: Language = DEFAULT_LANGUAGE) => (lang === "en" ? monthNameIn(d, lang) : MONTH_INESSIVE[Number(d.slice(5, 7)) - 1]!);
 export const eur = (cents: number, lang: Language = DEFAULT_LANGUAGE) => formatEur(Math.abs(cents), false, lang);
 /** "15.9." for a date this year or last, the full date otherwise. */
-export const shortDate = (d: IsoDate, lang: Language = DEFAULT_LANGUAGE) => formatFiDate(d, lang).replace(lang === "en" ? /\/\d{4}$/ : /\d{4}$/, "");
+export const shortDate = (d: IsoDate, lang: Language = DEFAULT_LANGUAGE) => formatFiDayMonth(d, lang);
 
 /** The name of an income type in a language (the table in `income.ts` is the Finnish one). */
 export const typeName = (type: IncomeType, lang: Language = DEFAULT_LANGUAGE): string => messageIn(lang, `income.type_${type}` as "income.shared");

@@ -1,5 +1,6 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { eyebrow, figureOf, groupCategories, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
@@ -64,14 +65,14 @@ describe("the choices", () => {
   it("ask a split with no guess", () => {
     const split: ReviewItem = { kind: "split", id: "split:a:opening:o", cents: 312_045, accountId: "a", accountName: "Yhteistili", question: "opening", key: "o", label: "2026-07-01" };
     expect(split).not.toHaveProperty("guess");
-    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili Yhteistili", "Saldo ennen 1.7.2026", "Kenen rahaa tämä oli?"]);
+    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili Yhteistili", "Saldo ennen 1.7.", "Kenen rahaa tämä oli?"]);
   });
 
   it("say a subscription's month and year", () => {
     const sub: ReviewItem = { kind: "subscription", id: "s", cents: 15_588, seriesId: "out:chk:Max", subject: "series:out:chk:Max#1299", merchant: "Max", monthlyCents: 1299, lastDate: "2026-10-08" };
     const f = figureOf(sub);
     expect([f.text.replace(/\s/g, " "), f.unit]).toEqual(["12,99 €", "kuussa"]);
-    expect(f.line.replace(/\s/g, " ")).toBe("155,88 € vuodessa, viimeksi 8.10.2026");
+    expect(f.line.replace(/\s/g, " ")).toBe("155,88 € vuodessa, viimeksi 8.10.");
   });
 
   it("count a plan's payments left from its latest payment, and take only a whole number from 1 to 120", () => {
@@ -113,7 +114,7 @@ describe("the choices", () => {
     expect(figureOf(payee).unit).toBe("vuodessa");
     expect(figureOf(loan).unit).toBe("kuussa");
     // the line counts the rows the card shows, not the calendar months the series spans
-    expect(figureOf(loan).line).toBe("10 maksua 5.1.2026 alkaen, viimeksi 5.10.2026");
+    expect(figureOf(loan).line).toBe("10 maksua 5.1. alkaen, viimeksi 5.10.");
   });
 });
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { consentNoticeText, roundLabel, consentNotices, dueText, expiresIn, leftOutText, maskedNumber, reminderDay, renewalReminder, roundText, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../src/consent-notices.ts";
 import type { Account, Connection } from "../src/types.ts";
 
@@ -71,7 +72,7 @@ describe("consentNotices", () => {
 
 describe("consentNoticeText", () => {
   it("names the bank, a passed date and never a date ahead", () => {
-    expect(consentNoticeText({ id: "b", institution: "OP", kind: "lapsed", endedOn: "2026-10-01T00:00:00Z", daysLeft: null })).toBe("OP: yhteys vanhentui 1.10.2026.");
+    expect(consentNoticeText({ id: "b", institution: "OP", kind: "lapsed", endedOn: "2026-10-01T00:00:00Z", daysLeft: null })).toBe("OP: yhteys vanhentui 1.10.");
     expect(consentNoticeText({ id: "b", institution: "Nordea", kind: "broken", endedOn: null, daysLeft: null })).toBe("Nordea: yhteys katkesi.");
     expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 0 })).toBe("Nordea: yhteys vanhenee tänään.");
     expect(consentNoticeText({ id: "a", institution: "Nordea", kind: "expiring", endedOn: null, daysLeft: 1 })).toBe("Nordea: yhteys vanhenee huomenna.");
@@ -230,6 +231,12 @@ describe("renewalReminder", () => {
     const r = renewalReminder({ ...nordea, validUntil: "2027-01-07T00:00:00Z" }, "https://talous.example.fi", stamp)!;
     expect(r.ics).toContain("DTSTART;VALUE=DATE:20261231\r\n");
     expect(r.ics).toContain("DTEND;VALUE=DATE:20270101\r\n");
+  });
+
+  it("writes the year of the day in the file also when it is the running year: the file is read outside the app", () => {
+    const r = renewalReminder({ ...nordea, validUntil: "2026-12-20T00:00:00Z" }, "https://talous.example.fi", stamp)!;
+    expect(unfolded(r.ics)).toContain("SUMMARY:Omatalous: pankkiyhteys vanhenee 20.12.2026\r\n");
+    expect(unfolded(r.ics)).toContain("DESCRIPTION:Nordea: yhteys vanhenee 20.12.2026. ");
   });
 
   it("keeps every line within 75 octets and never splits a character", () => {

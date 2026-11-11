@@ -85,7 +85,7 @@ test("the period is a named one or two days on our own calendar, never a browser
   await expect(calendar.getByRole("button", { name: "Näytä jakso" })).toBeEnabled();
   await days.nth(9).click();
   await calendar.getByRole("button", { name: "Näytä jakso" }).click();
-  await expect(page.locator(".tx-fchip.set")).toContainText(/\d{1,2}\.(\d{1,2}\.)?–\d{1,2}\.\d{1,2}\.\d{4}/);
+  await expect(page.locator(".tx-fchip.set")).toContainText(/\d{1,2}\.(\d{1,2}\.)?–\d{1,2}\.\d{1,2}\.(?:\d{4})?/);
   const url = new URLSearchParams(page.url().split("?")[1]);
   expect(url.get("to")! > url.get("from")!).toBe(true);
   await page.getByRole("button", { name: "Poista rajaus: Aikaväli" }).click();

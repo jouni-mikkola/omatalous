@@ -7,7 +7,7 @@
 import { localeOf, type Language } from "../../locale.ts";
 import { messageIn } from "../../messages.ts";
 import type { AnalysisContext, AnalysisTx } from "../../analysis/context.ts";
-import { formatEur, formatFiDate } from "../../analysis/format.ts";
+import { formatEur, formatFiDate, formatFiDateIn } from "../../analysis/format.ts";
 import { addDays, dayNumber, monthOf } from "../../dates.ts";
 import { fold } from "../../merchant.ts";
 import { cadenceMonths } from "../../recurring.ts";
@@ -218,7 +218,7 @@ function assessContract(a: AreaInput, hasBills: boolean): { finding: FindingDraf
   const decideBy = lead >= today ? lead : end;
   const stored = inputStatus(a.values, "electricity_contract_end", today);
   const typed = stored.state === "ok" ? stored.stored.asOf : today;
-  const short = decideBy.slice(0, 4) === today.slice(0, 4) ? formatFiDate(decideBy, lang).replace(lang === "en" ? /\/\d{4}$/ : /\d{4}$/, "") : formatFiDate(decideBy, lang);
+  const short = formatFiDateIn(decideBy, today, lang);
   const finding: FindingDraft = {
     id: findingId("electricity", "contract_end"),
     area: "electricity",

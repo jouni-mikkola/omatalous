@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { NextDays } from "../src/components/NextDays.tsx";
 import { type Ahead, figures, incoming, payments, payNote, paymentsCaption, shortIsEstimate, warning, windowLine } from "../src/components/next-days.ts";
 import { SETTINGS_ANCHOR } from "../src/routes.ts";
@@ -130,15 +131,15 @@ describe("the three figures", () => {
 
   it("a balance older than a day says its day under Saldo", () => {
     const notes = (balanceAt: string | null) => figures(ahead({ balance: balance({ balanceAt }) }))![0]!.notes;
-    expect(notes("2026-10-09T06:00:00Z")).toEqual(["Saldo päivältä 9.10.2026"]);
-    expect(notes("2026-10-10T20:59:00Z")).toEqual(["Saldo päivältä 10.10.2026"]);
+    expect(notes("2026-10-09T06:00:00Z")).toEqual(["Saldo päivältä 9.10."]);
+    expect(notes("2026-10-10T20:59:00Z")).toEqual(["Saldo päivältä 10.10."]);
     // 21:00 UTC is already the 11th by the household's clock, so that balance is not old
     expect(notes("2026-10-10T21:00:00Z")).toEqual([]);
     // yesterday's balance and today's are not old, and a balance with no time says nothing
     expect(notes("2026-10-11T06:00:00Z")).toEqual([]);
     expect(notes("2026-10-12T06:00:00Z")).toEqual([]);
     expect(notes(null)).toEqual([]);
-    expect(html(ahead({ balance: balance({ balanceAt: "2026-10-09T06:00:00Z" }) }))).toContain('<dd class="st-sub">Saldo päivältä 9.10.2026</dd>');
+    expect(html(ahead({ balance: balance({ balanceAt: "2026-10-09T06:00:00Z" }) }))).toContain('<dd class="st-sub">Saldo päivältä 9.10.</dd>');
   });
 
   it("without a checking balance there are no figures: a sentence, the link to the accounts, and the tables stay", () => {

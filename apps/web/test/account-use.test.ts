@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { answerCall, answerLabel, choiceOf, fieldsChanged, JOINT, offerText, openQuestions, optionsOf, ownerOf, ownersOf, peopleOf, percentFieldsOf, questionLabel, questionOf, readPercents, restText, splitOf, takeBackCall, usersFor } from "../src/pages/settings/account-use.ts";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
@@ -118,7 +119,7 @@ describe("the questions and the answers", () => {
   it("lists the questions largest first, the opening by its day", () => {
     const list = openQuestions({ questions: [q("in", "g:text:A", 20000), q("opening", "o", 55219, "2026-07-01"), q("in", "g:text:B", 90000)] });
     expect(list.map((x) => x.openCents)).toEqual([90000, 55219, 20000]);
-    expect(questionLabel(list[1]!)).toBe("Saldo ennen 1.7.2026");
+    expect(questionLabel(list[1]!)).toBe("Saldo ennen 1.7.");
     expect(questionLabel(list[0]!)).toBe("g:text:B");
     expect(openQuestions({})).toEqual([]);
   });

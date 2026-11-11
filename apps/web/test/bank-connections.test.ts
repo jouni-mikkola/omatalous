@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../src/banks.ts";
 import { waitsForFirstFetch } from "../src/first-fetch.ts";
 import { BankConnections, connectionStateText, renewalLine } from "../src/pages/settings/BankConnections.tsx";
@@ -135,7 +136,7 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     expect(out).not.toContain("Holvi");
     expect(out.match(/<table class="rt/g)).toHaveLength(1);
     // the one that still owns its accounts shows its end and the way to renew
-    expect(out).toContain("vanhentui 1.9.2026");
+    expect(out).toContain("vanhentui 1.9.");
     expect(renews(out)).toBe(1);
   });
 });
@@ -144,13 +145,13 @@ describe("Pankkiyhteydet: when the consent ends", () => {
   it("says it in words, with the date and, in the last month, the days left", () => {
     expect(html([conn("a", "active", 93, { validUntil: "2027-01-14T00:00:00Z" })])).toContain("voimassa 14.1.2027 asti");
     expect(html([conn("a", "active", 93, { validUntil: "2027-01-14T00:00:00Z" })])).not.toContain("vielä 93");
-    expect(html([conn("a", "active", 1, { validUntil: "2026-10-13T00:00:00Z" })])).toContain("voimassa 13.10.2026 asti, vielä 1 päivä");
+    expect(html([conn("a", "active", 1, { validUntil: "2026-10-13T00:00:00Z" })])).toContain("voimassa 13.10. asti, vielä 1 päivä");
     expect(html([conn("a", "active", 0, { validUntil: "2026-10-12T00:00:00Z" })])).toContain("voimassa enää tänään");
   });
 
   it("an ended consent keeps its own words, and there is no second column for the date", () => {
     const out = html([conn("a", "lapsed", null, { validUntil: "2026-09-01T00:00:00Z" }), conn("b", "broken", null)]);
-    expect(out).toContain("vanhentui 1.9.2026");
+    expect(out).toContain("vanhentui 1.9.");
     expect(out).toContain("katkesi");
     expect(out).not.toContain("voimassa");
     expect(out).not.toContain("<th>Voimassa</th>");

@@ -39,17 +39,43 @@ export function formatFiDate(iso: string, lang: Language = DEFAULT_LANGUAGE): st
   return lang === "en" ? `${Number(d)}/${Number(m)}/${y}` : `${Number(d)}.${Number(m)}.${y}`;
 }
 
+/** A day without its year: "2026-08-01" → "1.8.", in English "1/8". */
+export function formatFiDayMonth(iso: string, lang: Language = DEFAULT_LANGUAGE): string {
+  const [, m, d] = iso.slice(0, 10).split("-");
+  return lang === "en" ? `${Number(d)}/${Number(m)}` : `${Number(d)}.${Number(m)}.`;
+}
+
+/** A day with its year only when that is not the year of `today`: "1.8." in 2026 and "1.8.2026" in 2027. */
+export function formatFiDateIn(iso: string, today: string, lang: Language = DEFAULT_LANGUAGE): string {
+  return iso.slice(0, 4) === today.slice(0, 4) ? formatFiDayMonth(iso, lang) : formatFiDate(iso, lang);
+}
+
+/** A period inside one year; `year` is "" for a period that leaves its year out. */
+function rangeInYear(from: string, to: string, lang: Language, year: string): string {
+  const day = (iso: string) => (year ? formatFiDate(iso, lang) : formatFiDayMonth(iso, lang));
+  if (from === to) return day(from);
+  if (lang === "en") return `${day(from)}–${day(to)}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+  const [, m1, d1] = from.split("-").map(Number);
+  const [, m2, d2] = to.split("-").map(Number);
+  return m1 === m2 ? `${d1}.–${d2}.${m2}.${year}` : `${d1}.${m1}.–${d2}.${m2}.${year}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+}
+
 /**
  * A period of days, the year and the month written once: "10.–30.9.2026", "1.9.–23.10.2026", "1.10.2025–30.9.2026";
  * one day is that day. An en dash and no spaces (docs/UI_STYLE.md).
  */
 export function formatFiRange(from: string, to: string, lang: Language = DEFAULT_LANGUAGE): string {
-  if (lang === "en") return from === to ? formatFiDate(from, lang) : `${formatFiDate(from, lang)}–${formatFiDate(to, lang)}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
-  if (from === to) return formatFiDate(from);
-  const [y1, m1, d1] = from.split("-").map(Number);
-  const [y2, m2, d2] = to.split("-").map(Number);
-  if (y1 !== y2) return `${formatFiDate(from)}–${formatFiDate(to)}`;
-  return m1 === m2 ? `${d1}.–${d2}.${m2}.${y2}` : `${d1}.${m1}.–${d2}.${m2}.${y2}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+  if (from.slice(0, 4) !== to.slice(0, 4)) return `${formatFiDate(from, lang)}–${formatFiDate(to, lang)}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+  return rangeInYear(from, to, lang, from.slice(0, 4));
+}
+
+/**
+ * A period that leaves its year out when both days are in the year of `today`: "10.–30.9.", "1.9.–23.10." (in English
+ * "10/9–30/9"). Any other period reads as `formatFiRange` writes it, with both years when they differ.
+ */
+export function formatFiRangeIn(from: string, to: string, today: string, lang: Language = DEFAULT_LANGUAGE): string {
+  const year = today.slice(0, 4);
+  return from.slice(0, 4) === year && to.slice(0, 4) === year ? rangeInYear(from, to, lang, "") : formatFiRange(from, to, lang);
 }
 
 /** The Finnish month stems, "tammi" to "joulu": the one table of month names ("kuu" after a stem is the name, `monthName`). */

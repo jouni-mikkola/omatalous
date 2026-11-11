@@ -1,5 +1,6 @@
 import type { Housing, HousingCharge, HousingLoan } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { t } from "../src/text.ts";
 import { DASH, housingView, LOAN_COLUMNS } from "../src/components/housing/housing.ts";
 
@@ -98,7 +99,7 @@ describe("the row of a saved loan", () => {
   });
 
   it("tells the day the rate is set again only while it is ahead: a day that has come is a dash to mend, and no later day is worked out", () => {
-    expect([rowOf(saved({ reviewDate: "2026-10-13" })).cells.review, rowOf(saved({ reviewDate: "2026-10-13" })).link]).toEqual(["13.10.2026", null]);
+    expect([rowOf(saved({ reviewDate: "2026-10-13" })).cells.review, rowOf(saved({ reviewDate: "2026-10-13" })).link]).toEqual(["13.10.", null]);
     for (const reviewDate of ["2026-03-14", "2026-10-12"]) {
       const row = rowOf(saved({ reviewDate, reviewPassed: true }));
       expect([row.cells.review, row.link]).toEqual([DASH, "complete"]);

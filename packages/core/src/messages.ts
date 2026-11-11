@@ -108,8 +108,13 @@ export type MessageCode = keyof FiAll;
 type Holes<S extends string> = S extends `${string}{${infer P}}${infer R}` ? P | Holes<R> : never;
 export type MessageParams<C extends MessageCode> = [Holes<FiAll[C]>] extends [never] ? [] : [params: Record<Holes<FiAll[C]>, string | number>];
 
+// A value that ends in a full stop (a date without its year, "9.10.") takes the sentence's full stop as its own: "vanhentui 9.10."
 const fill = (template: string, values: Record<string, string | number>) =>
-  template.replace(/\{(\w+)\}/g, (hole, name: string) => (Object.hasOwn(values, name) ? String(values[name]) : hole));
+  template.replace(/\{(\w+)\}((?:<\/(?:b|em|code)>)?)(\.?)/g, (whole, name: string, close: string, stop: string) => {
+    if (!Object.hasOwn(values, name)) return whole;
+    const value = String(values[name]);
+    return `${value}${close}${value.endsWith(".") ? "" : stop}`;
+  });
 
 /** The sentence of a code in a language, with its holes filled. */
 export function messageIn<C extends MessageCode>(lang: Language, code: C, ...params: MessageParams<C>): string {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { answerMoney, clockTime, date, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { answerMoney, clockTime, date, dateRange, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
 import { addedOn } from "../src/pages/settings/Members.tsx";
 import { factLine } from "../src/pages/settings/SecondFactor.tsx";
 
@@ -113,10 +113,12 @@ describe("timestamps are read in the instance's time zone", () => {
   afterEach(() => setTimeZone("Europe/Helsinki"));
 
   it("reads a late evening in UTC as the next day in Helsinki, summer and winter time", () => {
-    expect(date("2026-10-23T22:30:00Z")).toBe("24.10.2026");
-    expect(date("2026-10-23T20:59:59Z")).toBe("23.10.2026");
-    expect(date("2026-12-31T22:30:00Z")).toBe("1.1.2027");
-    expect(date("2026-10-23T22:30:00.000+00:00")).toBe("24.10.2026");
+    expect(date("2026-10-23T22:30:00Z", "2027-06-01")).toBe("24.10.2026");
+    expect(date("2026-10-23T20:59:59Z", "2027-06-01")).toBe("23.10.2026");
+    // the year a stamp is of is the year of its day here: new year's eve in UTC is already next year
+    expect(date("2026-12-31T22:30:00Z", "2026-12-31")).toBe("1.1.2027");
+    expect(date("2026-12-31T22:30:00Z", "2027-01-01")).toBe("1.1.");
+    expect(date("2026-10-23T22:30:00.000+00:00", "2027-06-01")).toBe("24.10.2026");
     expect(localDay("2026-10-23T22:30:00Z")).toBe("2026-10-24");
     // a stamp already written with the local offset keeps its day
     expect(localDay("2026-10-24T01:30:00+03:00")).toBe("2026-10-24");
@@ -125,7 +127,7 @@ describe("timestamps are read in the instance's time zone", () => {
   it("leaves a YYYY-MM-DD date as it is, whatever the zone", () => {
     for (const zone of ["Europe/Helsinki", "UTC", "Pacific/Auckland", "America/Los_Angeles"]) {
       setTimeZone(zone);
-      expect(date("2026-10-23")).toBe("23.10.2026");
+      expect(date("2026-10-23", "2027-06-01")).toBe("23.10.2026");
       expect(localDay("2026-10-23")).toBe("2026-10-23");
     }
   });
@@ -166,13 +168,56 @@ describe("the language of sums and dates", () => {
   it("follows the member's language, and goes back to Finnish", () => {
     setLanguage("en");
     expect(money(123456)).toBe("€1,234.56");
-    expect(date("2026-10-09")).toBe("9/10/2026");
+    expect(date("2026-10-09", "2027-06-01")).toBe("9/10/2026");
     expect(dayMonth("2026-10-09")).toBe("9/10");
     expect(dayHeading("2026-10-12", "2026-10-30")).toBe("Mon 12/10");
     expect(signedMoney(5000)).toBe("+€50");
     expect(percent(0.0325, 2)).toBe("3.25%");
     setLanguage("fi");
-    expect(date("2026-10-09")).toBe("9.10.2026");
+    expect(date("2026-10-09", "2027-06-01")).toBe("9.10.2026");
     expect(dayHeading("2026-10-12", "2026-10-30")).toBe("ma 12.10.");
+  });
+});
+
+describe("the year of a date is written only when it is not the running year", () => {
+  afterEach(() => {
+    setLanguage("fi");
+    vi.useRealTimers();
+  });
+
+  it("leaves the year out of a day of the running year and writes it on a day of another year, in both languages", () => {
+    expect(date("2026-10-09", "2026-11-11")).toBe("9.10.");
+    expect(date("2025-10-09", "2026-11-11")).toBe("9.10.2025");
+    expect(date("2027-01-02", "2026-11-11")).toBe("2.1.2027");
+    expect(dayHeading("2025-10-12", "2026-10-30")).toBe("su 12.10.2025");
+    setLanguage("en");
+    expect(date("2026-10-09", "2026-11-11")).toBe("9/10");
+    expect(date("2025-10-09", "2026-11-11")).toBe("9/10/2025");
+    expect(date("2027-01-02", "2026-11-11")).toBe("2/1/2027");
+  });
+
+  it("takes the running year from the household's clock when no day is given", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-31T22:30:00Z")); // 1.1.2027 in Helsinki
+    expect(date("2027-03-05")).toBe("5.3.");
+    expect(date("2026-03-05")).toBe("5.3.2026");
+    expect(dateRange("2027-03-05", "2027-03-09")).toBe("5.–9.3.");
+    expect(dateRange("2026-03-05", "2026-03-09")).toBe("5.–9.3.2026");
+  });
+
+  it("leaves the year out of a period inside the running year, and keeps both years when they differ", () => {
+    const today = "2026-11-11";
+    expect(dateRange("2026-09-10", "2026-09-30", today)).toBe("10.–30.9.");
+    expect(dateRange("2026-09-01", "2026-10-23", today)).toBe("1.9.–23.10.");
+    expect(dateRange("2026-09-10", "2026-09-10", today)).toBe("10.9.");
+    expect(dateRange("2025-10-01", "2026-09-30", today)).toBe("1.10.2025–30.9.2026");
+    expect(dateRange("2026-12-01", "2027-01-31", today)).toBe("1.12.2026–31.1.2027");
+    // a period inside another year writes that year once, as before
+    expect(dateRange("2025-09-10", "2025-09-30", today)).toBe("10.–30.9.2025");
+    setLanguage("en");
+    expect(dateRange("2026-09-10", "2026-09-30", today)).toBe("10/9–30/9");
+    expect(dateRange("2026-09-10", "2026-09-10", today)).toBe("10/9");
+    expect(dateRange("2025-10-01", "2026-09-30", today)).toBe("1/10/2025–30/9/2026");
+    expect(dateRange("2025-09-10", "2025-09-30", today)).toBe("10/9/2025–30/9/2025");
   });
 });

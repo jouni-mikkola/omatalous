@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { Holdings } from "../src/pages/reports/holdings/Holdings.tsx";
 import { money } from "../src/format.ts";
 import { partText } from "../src/part.ts";
@@ -268,7 +269,7 @@ describe("Holdings", () => {
       const figureRow = (label: string, cents: number) => `<div class="st-row"><dt class="st-name holding-label">${label}</dt><dd class="st-num">${money(cents)}</dd></div>`;
       const head =
         '<div class="st-row holding-unit-head"><span class="st-name holding-name" title="Esimerkkipankki Gold"><a href="#/transactions?accountId=k1">Esimerkkipankki Gold</a></span>' +
-        `<span class="st-sub">${partText({ from: 1, to: 2, of: 2 }, "debt")}</span><span class="st-sub">Saldo päivältä 9.10.2026</span></div>`;
+        `<span class="st-sub">${partText({ from: 1, to: 2, of: 2 }, "debt")}</span><span class="st-sub">Saldo päivältä 9.10.</span></div>`;
       const rows = `<dl class="st-rows">${figureRow("Käytetty luotto", 120_000)}${figureRow("Luottoraja", 300_000)}${figureRow("Luottoa jäljellä", 180_000)}</dl>`;
       expect(markup).toContain(`<div class="holding-unit-body">${head}<svg class="credit-arc"`);
       expect(markup).toContain(`</svg>${rows}</div></li>`);
@@ -344,7 +345,7 @@ describe("Holdings", () => {
       const markup = withCards([card({ name: "Esimerkkikortti Gold (credit)", balanceAt: "2026-10-09", part: { from: 1, to: 2, of: 2 } })]);
       expect(markup).toContain(">Esimerkkikortti Gold</a>");
       expect(markup).not.toContain("(credit)");
-      expect(text(markup)).toContain("Esimerkkikortti Gold osuutesi 50 % Saldo päivältä 9.10.2026 0 % Käytetty luotto");
+      expect(text(markup)).toContain("Esimerkkikortti Gold osuutesi 50 % Saldo päivältä 9.10. 0 % Käytetty luotto");
       expect(text(withCards([card()]))).not.toContain("Saldo päivältä");
     });
 

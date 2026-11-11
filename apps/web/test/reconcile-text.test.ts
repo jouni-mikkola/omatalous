@@ -1,5 +1,6 @@
 import type { ReconcileResult } from "@banking/core";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { periodText, reconcileView } from "../src/pages/settings/reconcile-text.ts";
 
 type Interval = ReconcileResult["intervals"][number];
@@ -34,7 +35,7 @@ describe("the words of Täsmää pankin saldoon", () => {
     expect(v.proved).toBe(true);
     expect(v.reason).toBeNull();
     expect(v.rows).toEqual([{ from: "2026-10-01", to: "2026-10-07", days: "7 päivää", text: "täsmää", stop: false }]);
-    expect(periodText(v.rows[0]!)).toBe("1.–7.10.2026");
+    expect(periodText(v.rows[0]!)).toBe("1.–7.10.");
   });
 
   it("folds neighbours that match into one stretch and says where the walk stopped, with a signed difference", () => {

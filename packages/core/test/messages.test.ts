@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
-import { DEFAULT_LANGUAGE, formatEur, formatFiDate, formatFiRange, isLanguage, LANGUAGES, LOCALE, localeOf, type MessageCode, message, messageFromWire, messageIn } from "../src/index.ts";
+import { DEFAULT_LANGUAGE, formatEur, formatFiDate, formatFiDateIn, formatFiDayMonth, formatFiRange, formatFiRangeIn, isLanguage, LANGUAGES, LOCALE, localeOf, type MessageCode, message, messageFromWire, messageIn } from "../src/index.ts";
 
 const holesOf = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]!).sort();
 const filled = (text: string) => Object.fromEntries(holesOf(text).map((h) => [h, "x"]));
@@ -8,6 +8,24 @@ const filled = (text: string) => Object.fromEntries(holesOf(text).map((h) => [h,
 const SAME_IN_BOTH = new Set(["set.app.application_id_12345678_abcd", "set.mem.instr_app"]);
 
 describe("message catalogue", () => {
+  it("gives a value that ends in a full stop the sentence's own: a date without its year", () => {
+    expect(message("conn.lapsed_on", { bank: "OP", date: "1.10." })).toBe("OP: yhteys vanhentui 1.10.");
+    expect(message("conn.lapsed_on", { bank: "OP", date: "1.10.2025" })).toBe("OP: yhteys vanhentui 1.10.2025.");
+    expect(messageFromWire("conn.lapsed_on", { bank: "OP", date: "1.10." })).toBe("OP: yhteys vanhentui 1.10.");
+  });
+
+  // `fill` drops the full stop after a value that ends in one, so a hole whose full stop makes an ordinal ("{day}. päivä") must take a number
+  it("has a full stop inside a sentence only after a day number", () => {
+    const files = [
+      ...readdirSync(new URL("../src/", import.meta.url)).filter((f) => /^messages.*\.ts$/.test(f)),
+      ...readdirSync(new URL("../src/english/", import.meta.url)).map((f) => `english/${f}`),
+    ];
+    const ordinals = files.flatMap((f) => [...readFileSync(new URL(`../src/${f}`, import.meta.url), "utf8").matchAll(/^  "[a-z_.0-9]+": ".*?\{(\w+)\}(?:<\/(?:b|em|code)>)?\. ?[a-zåäö(]/gm)].map((m) => m[1]));
+    expect(ordinals.length).toBeGreaterThan(0);
+    expect([...new Set(ordinals)]).toEqual(["day"]);
+    expect(message("rep.month_spent", { spent: "120 €", day: 9 })).toBe("Olet käyttänyt rahaa 120 € kuun 9. päivään mennessä.");
+  });
+
   it("fills the holes of a code", () => {
     expect(message("auth.too_many", { minutes: 3 })).toBe("Liian monta yritystä. Yritä uudelleen 3 minuutin päästä.");
     expect(message("auth.bad_login")).toBe("Väärä käyttäjätunnus tai salasana.");
@@ -80,5 +98,25 @@ describe("message catalogue", () => {
     expect(formatFiRange("2026-09-10", "2026-09-30")).toBe("10.–30.9.2026");
     expect(formatFiRange("2026-09-10", "2026-09-30", "en")).toBe("10/9/2026–30/9/2026");
     expect(formatFiRange("2026-09-10", "2026-09-10", "en")).toBe("10/9/2026");
+    expect(formatFiRange("2026-09-01", "2026-10-23")).toBe("1.9.–23.10.2026");
+    expect(formatFiRange("2025-10-01", "2026-09-30")).toBe("1.10.2025–30.9.2026");
+    expect(formatFiRange("2025-10-01", "2026-09-30", "en")).toBe("1/10/2025–30/9/2026");
+    expect(formatFiRange("2026-09-10", "2026-09-10")).toBe("10.9.2026");
+  });
+
+  it("leaves the year of `today` out of a day and of a period, and keeps any other year", () => {
+    expect(formatFiDayMonth("2026-08-01")).toBe("1.8.");
+    expect(formatFiDayMonth("2026-08-01", "en")).toBe("1/8");
+    expect(formatFiDateIn("2026-08-01", "2026-11-11")).toBe("1.8.");
+    expect(formatFiDateIn("2026-08-01", "2026-11-11", "en")).toBe("1/8");
+    expect(formatFiDateIn("2025-08-01", "2026-11-11")).toBe("1.8.2025");
+    expect(formatFiDateIn("2027-08-01", "2026-11-11", "en")).toBe("1/8/2027");
+    expect(formatFiRangeIn("2026-09-10", "2026-09-30", "2026-11-11")).toBe("10.–30.9.");
+    expect(formatFiRangeIn("2026-09-01", "2026-10-23", "2026-11-11")).toBe("1.9.–23.10.");
+    expect(formatFiRangeIn("2026-09-10", "2026-09-10", "2026-11-11")).toBe("10.9.");
+    expect(formatFiRangeIn("2026-09-10", "2026-09-30", "2026-11-11", "en")).toBe("10/9–30/9");
+    expect(formatFiRangeIn("2025-09-10", "2025-09-30", "2026-11-11")).toBe("10.–30.9.2025");
+    expect(formatFiRangeIn("2025-10-01", "2026-09-30", "2026-11-11")).toBe("1.10.2025–30.9.2026");
+    expect(formatFiRangeIn("2026-12-01", "2027-01-31", "2026-11-11", "en")).toBe("1/12/2026–31/1/2027");
   });
 });

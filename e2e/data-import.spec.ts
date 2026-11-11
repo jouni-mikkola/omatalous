@@ -85,7 +85,7 @@ test("the dry run counts, Tuo commits it, and a second dry run finds everything 
   const row = (name: string) => card.locator(".data-import-plan > div", { has: page.locator("dt", { hasText: new RegExp(`^${name}$`) }) });
   await pick(card, file);
   // the file's date is the first thing the dry run says
-  await expect(card.locator(".data-import-plan > div").first()).toContainText(/Tiedosto.*Omatalouden tietotiedosto, viety \d+\.\d+\.\d{4}/);
+  await expect(card.locator(".data-import-plan > div").first()).toContainText(/Tiedosto.*Omatalouden tietotiedosto, viety \d+\.\d+\.(?:\d{4})?/);
   await expect(row("Tapahtumat")).toContainText(/lisäämme [1-9]\d*, jo olemassa 0, ohitamme 0/);
   await expect(row("Tilit")).toContainText("lisäämme");
   await expect(row("Käyttäjät")).toContainText("ei tuoda");

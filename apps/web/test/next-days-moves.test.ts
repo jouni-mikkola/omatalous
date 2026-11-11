@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
 import { NextDays } from "../src/components/NextDays.tsx";
 import { type Ahead, figures, incoming, payments } from "../src/components/next-days.ts";
 import { steady } from "./pay-fixture.ts";
@@ -137,7 +138,7 @@ describe("the line under Saldo says which accounts the balance counts", () => {
 
   it("says only the viewer's part of a joint account is counted when no account is theirs alone, and an old balance says its day after it", () => {
     expect(notes({ counts: "part" })).toEqual(["Osuutesi yhteisestä tilistä"]);
-    expect(notes({ counts: "part", balanceAt: "2026-10-09T06:00:00Z" })).toEqual(["Osuutesi yhteisestä tilistä", "Saldo päivältä 9.10.2026"]);
+    expect(notes({ counts: "part", balanceAt: "2026-10-09T06:00:00Z" })).toEqual(["Osuutesi yhteisestä tilistä", "Saldo päivältä 9.10."]);
   });
 
   it("shows the line on the page, in the row of Saldo", () => {

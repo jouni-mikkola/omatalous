@@ -1,5 +1,5 @@
 import { type RoundView, WARN_DAYS } from "@banking/core";
-import { accountNumber, date, localDay } from "./format.ts";
+import { accountNumber, date, fullDate, localDay } from "./format.ts";
 import type { Account, Connection } from "./types.ts";
 import { t, tn } from "./text.ts";
 
@@ -223,7 +223,7 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
   }
   if (!day || !c.validUntil || !/^https?:$/.test(address.protocol)) return null;
   const link = `${address.origin}/#/settings`;
-  const title = t("conn.reminder_title", { date: date(c.validUntil) });
+  const title = t("conn.reminder_title", { date: fullDate(c.validUntil) });
   const compact = (iso: string) => iso.replaceAll("-", "");
   const after = new Date(`${day}T00:00:00Z`);
   after.setUTCDate(after.getUTCDate() + 1);
@@ -239,7 +239,7 @@ export function renewalReminder(c: Pick<Connection, "id" | "institution" | "vali
     `DTSTART;VALUE=DATE:${compact(day)}`,
     `DTEND;VALUE=DATE:${compact(after.toISOString().slice(0, 10))}`,
     `SUMMARY:${icsText(title)}`,
-    `DESCRIPTION:${icsText(`${t("conn.reminder_text", { bank: c.institution, date: date(c.validUntil) })}\n${link}`)}`,
+    `DESCRIPTION:${icsText(`${t("conn.reminder_text", { bank: c.institution, date: fullDate(c.validUntil) })}\n${link}`)}`,
     `URL:${link}`,
     "TRANSP:TRANSPARENT",
     "BEGIN:VALARM",

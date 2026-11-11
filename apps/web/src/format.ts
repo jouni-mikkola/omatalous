@@ -1,4 +1,4 @@
-import { DEFAULT_LANGUAGE, LANGUAGES, formatEur, roundForecast, formatFiDate, formatFiRange, type Language, localeOf, type MessageCode, messageIn, MONTH_STEMS, monthName, roundedShares as coreRoundedShares, parseSeriesId, productCents, LOCALE } from "@banking/core";
+import { DEFAULT_LANGUAGE, LANGUAGES, formatEur, roundForecast, formatFiDate, formatFiDateIn, formatFiDayMonth, formatFiRangeIn, type Language, localeOf, type MessageCode, messageIn, MONTH_STEMS, monthName, roundedShares as coreRoundedShares, parseSeriesId, productCents, LOCALE } from "@banking/core";
 
 // The member's language, set from the signed-in user (App.tsx) like the time zone below. Sums and dates follow it;
 // the sentences around them follow the catalogue as it grows (docs/UI_STYLE.md). The language is also kept on the device
@@ -205,14 +205,29 @@ export function localDay(iso: string): string {
   return Number.isNaN(at.getTime()) ? iso.slice(0, 10) : formatter("day").format(at);
 }
 
-/** "2026-10-09" → "9.10.2026"; a timestamp gives its day in the instance's time zone: "2026-10-23T22:30:00Z" → "24.10.2026". */
-export function date(iso: string | null | undefined): string {
-  return iso ? formatFiDate(localDay(iso), lang) : "–";
+/** The household's day now, "YYYY-MM-DD": its year is the running year, which a date leaves out. */
+const dayNow = (): string => localDay(new Date().toISOString());
+
+/**
+ * A day with the year only when it is not the running year: "2026-10-09" → "9.10." in 2026 and "9.10.2026" in 2027
+ * (in English "9/10" and "9/10/2026"). A timestamp gives its day in the instance's time zone: "2026-10-23T22:30:00Z"
+ * is the 24th. `today` is the household's day.
+ */
+export function date(iso: string | null | undefined, today: string = dayNow()): string {
+  if (!iso) return "–";
+  return formatFiDateIn(localDay(iso), today, lang);
 }
 
-/** Two days as a period: "1.10.2025–30.9.2026", "10.–30.9.2026" inside one month (core's `formatFiRange`; timestamps give their day here). */
-export function dateRange(from: string, to: string): string {
-  return formatFiRange(localDay(from), localDay(to), lang);
+/** A day with its year always, for a text read outside the app and later (a calendar file): "9.10.2026". */
+export const fullDate = (iso: string): string => formatFiDate(localDay(iso), lang);
+
+/**
+ * Two days as a period (core's `formatFiRangeIn`; timestamps give their day here): "10.–30.9.2026" inside one month,
+ * "1.10.2025–30.9.2026" with both years when they differ. A period inside the running year leaves the year out:
+ * "10.–30.9.", "1.9.–23.10." (in English "10/9–30/9"). `today` is the household's day.
+ */
+export function dateRange(from: string, to: string, today: string = dayNow()): string {
+  return formatFiRangeIn(localDay(from), localDay(to), today, lang);
 }
 
 /** "2026-10-12T11:35:00Z" → "13.35" in the instance's time zone. */
@@ -228,8 +243,7 @@ export function monthYear(iso: string): string {
 
 /** "2026-10-09" → "9.10." */
 export function dayMonth(iso: string): string {
-  const [, m, d] = iso.slice(0, 10).split("-");
-  return lang === "en" ? `${Number(d)}/${Number(m)}` : `${Number(d)}.${Number(m)}.`;
+  return formatFiDayMonth(iso, lang);
 }
 
 const WEEKDAYS = { fi: ["su", "ma", "ti", "ke", "to", "pe", "la"], en: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] };
@@ -240,17 +254,16 @@ export const mondayFirstWeekdays = (): string[] => [1, 2, 3, 4, 5, 6, 0].map((i)
 export function dayHeading(iso: string, today: string): string {
   const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
   const weekday = WEEKDAYS[lang][new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${weekday} ${iso.slice(0, 4) === today.slice(0, 4) ? dayMonth(iso) : date(iso)}`;
+  return `${weekday} ${date(iso, today)}`;
 }
 
 /**
  * The day and the time of a timestamp, in the instance's time zone, with the year only when it is not this year:
  * "2026-10-23T22:30:00Z" → "24.10. klo 1.30" in 2026 and "24.10.2026 klo 1.30" in 2027. `today` is the household's day.
  */
-export function dateTime(iso: string | null | undefined, today: string = localDay(new Date().toISOString())): string {
+export function dateTime(iso: string | null | undefined, today: string = dayNow()): string {
   if (!iso) return "–";
-  const day = localDay(iso);
-  return `${day.slice(0, 4) === today.slice(0, 4) ? dayMonth(day) : date(iso)} ${lang === "en" ? "at" : "klo"} ${clockTime(iso)}`;
+  return `${date(iso, today)} ${lang === "en" ? "at" : "klo"} ${clockTime(iso)}`;
 }
 
 const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
