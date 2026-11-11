@@ -125,8 +125,8 @@ export function authRoutes(s: Services) {
     if (await s.factors.hasAny(record.id)) {
       await startHalfSession(c, s, record.id, record.passwordHash);
       // what the second step may offer: a code (authenticator app or recovery code) and a passkey the address allows
-      const rp = relyingParty(s);
-      const passkey = rp.usable && (await s.factors.passkeys(record.id)).some((p) => p.rpId === rp.id);
+      const rp = relyingParty(s, { origin: c.req.header("origin"), host: c.req.header("host") });
+      const passkey = rp.usable && rp.here && (await s.factors.passkeys(record.id)).some((p) => p.rpId === rp.id);
       return c.json({ needsFactor: true, passkey, codes: (await s.factors.hasTotp(record.id)) || (await s.factors.recoveryLeft(record.id)) > 0 });
     }
     // the only place an address is remembered: after a correct password
@@ -157,7 +157,7 @@ export function authRoutes(s: Services) {
     strictObject(await body(c), [] as const);
     const user = await readHalfSession(c, s);
     if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
-    return c.json(await passkeyChallenge(s, user));
+    return c.json(await passkeyChallenge(s, user, { origin: c.req.header("origin"), host: c.req.header("host") }));
   });
 
   /** The device's answer to those options: the other way to finish the sign-in the code step finishes. */

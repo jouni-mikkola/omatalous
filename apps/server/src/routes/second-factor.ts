@@ -9,12 +9,13 @@ import { body, optionalString, requestInfo } from "./shared.ts";
 export function factorRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
-  app.get("/", async (c) => c.json({ ...(await factorStatus(s, c.get("user").id)), ...(await passkeyStatus(s, c.get("user").id)) }));
+  app.get("/", async (c) => c.json({ ...(await factorStatus(s, c.get("user").id)), ...(await passkeyStatus(s, c.get("user").id, { origin: c.req.header("origin"), host: c.req.header("host") })) }));
 
   /** The password (and a code when a factor is on), then the options for the browser to make a passkey; nothing is stored until /passkey/finish. */
   app.post("/passkey/start", async (c) => {
     const raw = strictObject(await body(c), ["password", "code"] as const);
-    return c.json(await startPasskey(s, c.get("user"), optionalString(raw.password, 1024) ?? "", optionalString(raw.code, 64) ?? "", requestInfo(c, s)));
+    const at = { origin: c.req.header("origin"), host: c.req.header("host") };
+    return c.json(await startPasskey(s, c.get("user"), optionalString(raw.password, 1024) ?? "", optionalString(raw.code, 64) ?? "", requestInfo(c, s), at));
   });
 
   /** The browser's answer and a name for the device. The answer holds recovery codes, shown this once, when this is the first second factor. */

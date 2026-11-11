@@ -6,7 +6,14 @@ const PASSWORD = "aino-salasana-123";
 const HTTPS = { APP_BASE_URL: "https://talous.example.com" };
 const PARTY = { rpId: "talous.example.com", origin: "https://talous.example.com" };
 
+/** The headers of a browser at the app address, and of one at the home network's address of the same install. */
+const AT_APP = { Origin: "https://talous.example.com", Host: "talous.example.com" };
+const AT_HOME = { Origin: "http://192.168.1.10:8080", Host: "192.168.1.10:8080" };
+
 type App = Awaited<ReturnType<typeof setupApp>>;
+
+/** The challenge waiting in memory for the admin, if any. */
+const challengeOf = (t: App, what: "add" | "sign-in") => t.s.passkeyChallenges.get(`${what}:${t.adminId}`, t.s.now().getTime());
 
 /** The recovery codes the first passkey made: later changes of the passkeys ask for a code. */
 const codesOf = new WeakMap<App, string[]>();
@@ -91,6 +98,25 @@ describe("passkeys: adding", () => {
     const local = await setupApp();
     expect((await local.admin.call("POST", "/api/security/factor/passkey/start", { password: PASSWORD })).status).toBe(200);
   });
+
+  it("is not usable at another address than the app address, and starts nothing there", async () => {
+    const t = await setupApp(HTTPS);
+    // a browser sends no Origin with a GET of its own address: the Host tells where it is
+    const away = await t.admin.call("GET", "/api/security/factor", undefined, { Host: AT_HOME.Host });
+    expect(away.body).toMatchObject({ usable: false, address: "https://talous.example.com" });
+    const refused = await t.admin.call("POST", "/api/security/factor/passkey/start", { password: PASSWORD }, AT_HOME);
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toContain("https://talous.example.com");
+    expect(challengeOf(t, "add")).toBeUndefined();
+
+    const here = await t.admin.call("GET", "/api/security/factor", undefined, { Host: AT_APP.Host });
+    expect(here.body).toMatchObject({ usable: true, address: "https://talous.example.com" });
+    const started = await t.admin.call("POST", "/api/security/factor/passkey/start", { password: PASSWORD }, AT_APP);
+    expect(started.status).toBe(200);
+    expect(challengeOf(t, "add")).toBe(started.body.challenge);
+    const done = await t.admin.call("POST", "/api/security/factor/passkey/finish", { response: new Device().create(started.body.challenge, PARTY), label: "Puhelin" }, AT_APP);
+    expect(done.status).toBe(200);
+  });
 });
 
 describe("passkeys: sign-in", () => {
@@ -111,6 +137,41 @@ describe("passkeys: sign-in", () => {
     expect(await events(t, "passkey_used")).toEqual([{ detail: "Puhelin", user_id: t.adminId }]);
     const row = await t.db.first<{ last_step: number; last_used_at: string }>("SELECT last_step, last_used_at FROM user_factor WHERE kind = 'passkey'");
     expect(row!.last_step).toBe(1);
+  });
+
+  it("is not offered at another address than the app address: the codes are, and no challenge is made", async () => {
+    const t = await setupApp(HTTPS);
+    await addPasskey(t, new Device());
+    for (const headers of [AT_HOME, { Host: AT_HOME.Host }]) {
+      const c = t.client();
+      const login = await c.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD }, headers);
+      expect(login.body).toEqual({ needsFactor: true, passkey: false, codes: true });
+      const options = await c.call("POST", "/api/auth/passkey/options", {}, headers);
+      expect(options.status).toBe(400);
+      expect(options.body.error).toBe("Tunnuksella ei ole passkeyta.");
+      expect(challengeOf(t, "sign-in")).toBeUndefined();
+    }
+  });
+
+  it("is offered at the app address and signs in there, and behind a proxy that sends the app address as Host", async () => {
+    const t = await setupApp(HTTPS);
+    const device = new Device();
+    await addPasskey(t, device);
+    const c = t.client();
+    const login = await c.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD }, AT_APP);
+    expect(login.body).toEqual({ needsFactor: true, passkey: true, codes: true });
+    const options = await c.call("POST", "/api/auth/passkey/options", {}, AT_APP);
+    expect(options.status).toBe(200);
+    expect(options.body.rpId).toBe("talous.example.com");
+    const done = await c.call("POST", "/api/auth/passkey", { response: device.get(options.body.challenge, PARTY) }, AT_APP);
+    expect(done.status).toBe(200);
+    expect(done.body.user.username).toBe("aino");
+
+    // the proxy passes the Host of the app address on; this request carries no Origin
+    const proxied = t.client();
+    const behind = await proxied.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD }, { Host: AT_APP.Host });
+    expect(behind.body).toEqual({ needsFactor: true, passkey: true, codes: true });
+    expect((await proxied.call("POST", "/api/auth/passkey/options", {}, { Host: AT_APP.Host })).status).toBe(200);
   });
 
   it("refuses a wrong device, a wrong origin, a replayed answer and a missing half session, and records each", async () => {

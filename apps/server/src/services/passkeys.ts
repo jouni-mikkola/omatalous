@@ -1,7 +1,9 @@
 /**
  * Passkeys as a second sign-in factor (WebAuthn, through @simplewebauthn/server, ADR 0024). The relying party is the
  * address of the install (`appBaseUrl`, services/instance.ts): its host is the rp id and its origin the one expected. A
- * browser allows a passkey only on https or on localhost, so any other address is told so and nothing is started. A
+ * browser allows a passkey only on https or on localhost, so any other address is told so and nothing is started. It
+ * also allows one only on the page of the rp id, so a request that came to another address of the install (the home
+ * network's, say) is offered no passkey and starts none. A
  * passkey follows the password (the half session of auth/session.ts), is not a way in on its own, and does not ask for
  * the authenticator's own user verification. Attestation is `none`; the public key is stored as it is (db/factor-repo.ts).
  * Each challenge is made for one user, kept in memory for five minutes and used once: it is taken out before the answer
@@ -21,25 +23,47 @@ const WHAT = "passkey";
 
 type Who = { id: string; username: string };
 
-/** The rp id and origin of this install, and whether a browser will allow a passkey on it. */
-export function relyingParty(s: Services): { id: string; origin: string; usable: boolean } {
+/** The address a request came to, as its own headers tell it. */
+export type AskedAt = { origin?: string | undefined; host?: string | undefined };
+
+/**
+ * Whether the request came to the app address: its Origin when it has one, else its Host (a browser sends no Origin
+ * with a GET of its own address, and a Host has no scheme to compare). A request with neither tells nothing and counts
+ * as the app address.
+ */
+function atAppAddress(app: URL, at: AskedAt): boolean {
+  if (at.origin !== undefined) {
+    try {
+      return new URL(at.origin).origin === app.origin;
+    } catch {
+      return false;
+    }
+  }
+  return at.host === undefined || at.host.trim().toLowerCase() === app.host;
+}
+
+/**
+ * The rp id and origin of this install, whether a browser will allow a passkey on it, and (`here`) whether the request
+ * came to that address.
+ */
+export function relyingParty(s: Services, at: AskedAt = {}): { id: string; origin: string; usable: boolean; here: boolean } {
   const url = new URL(s.instance.current.appBaseUrl);
   // a browser takes a domain as the rp id, never an IP address, so only the name localhost counts as the machine itself
   const local = url.hostname === "localhost" || url.hostname.endsWith(".localhost");
-  return { id: url.hostname, origin: url.origin, usable: url.protocol === "https:" || (local && url.protocol === "http:") };
+  return { id: url.hostname, origin: url.origin, usable: url.protocol === "https:" || (local && url.protocol === "http:"), here: atAppAddress(url, at) };
 }
 
-function usableParty(s: Services) {
-  const rp = relyingParty(s);
+function usableParty(s: Services, at: AskedAt = {}) {
+  const rp = relyingParty(s, at);
   if (!rp.usable) throw UserError.of("passkey.needs_https", { address: rp.origin });
   return rp;
 }
 
-export async function passkeyStatus(s: Services, userId: string) {
-  const rp = relyingParty(s);
+export async function passkeyStatus(s: Services, userId: string, at: AskedAt = {}) {
+  const rp = relyingParty(s, at);
   const list = await s.factors.passkeys(userId);
   return {
-    usable: rp.usable,
+    usable: rp.usable && rp.here,
     address: rp.origin,
     passkeys: list.map((p) => ({ id: p.id, label: p.label, createdAt: p.createdAt, lastUsedAt: p.lastUsedAt })),
   };
@@ -69,8 +93,10 @@ async function confirmOwner(s: Services, user: Who, password: string, code: stri
 }
 
 /** Step 1 of adding: the password (and a code), then the options for `navigator.credentials.create`. */
-export async function startPasskey(s: Services, user: Who, password: string, code: string, req: RequestInfo): Promise<PublicKeyCredentialCreationOptionsJSON> {
-  const rp = usableParty(s);
+export async function startPasskey(s: Services, user: Who, password: string, code: string, req: RequestInfo, at: AskedAt = {}): Promise<PublicKeyCredentialCreationOptionsJSON> {
+  const rp = usableParty(s, at);
+  // the browser at another address refuses the rp id: say where to open the app, before the password is asked
+  if (!rp.here) throw UserError.of("passkey.failed", { address: rp.origin });
   await confirmOwner(s, user, password, code, req);
   const existing = await s.factors.passkeys(user.id);
   if (existing.length >= MAX_PASSKEYS) throw UserError.of("passkey.too_many", { max: MAX_PASSKEYS });
@@ -133,8 +159,10 @@ export async function finishPasskey(s: Services, user: Who, response: unknown, l
 }
 
 /** The options for `navigator.credentials.get` of a user who has the password right (the half session). */
-export async function passkeyChallenge(s: Services, user: Who): Promise<PublicKeyCredentialRequestOptionsJSON> {
-  const rp = usableParty(s);
+export async function passkeyChallenge(s: Services, user: Who, at: AskedAt = {}): Promise<PublicKeyCredentialRequestOptionsJSON> {
+  const rp = usableParty(s, at);
+  // none that works here: the sign-in at this address offered no passkey
+  if (!rp.here) throw UserError.of("passkey.none");
   const list = (await s.factors.passkeys(user.id)).filter((p) => p.rpId === rp.id);
   if (!list.length) throw UserError.of("passkey.none");
   const options = await generateAuthenticationOptions({
