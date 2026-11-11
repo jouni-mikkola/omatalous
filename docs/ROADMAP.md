@@ -306,6 +306,46 @@ Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a 
 - locks: none
 - after: none
 
+### B1 A bank outage is told as one
+Result: When Enable Banking does not answer, the account's row says so, and a connection stays listed while its consent lives at the bank.
+- why: `classify` in `connector.ts` (line 146) answers null for every error that is not an `EnableBankingError`, so a fetch that got no answer (no network, a timeout, an answer too large: `UpstreamError`s of `request` in `client.ts`) is shown as "haku epäonnistui." with no hint that the bank is the cause or that trying later helps. `removeConnection` (lines 162-171) swallows every `EnableBankingError`, a 503 or 429 as well as the 404 of a session already gone, and sets the connection `revoked`: the consent stays alive at the bank for up to 180 days while the list says it is removed; with no network the same press fails with the plain 500 text and changes nothing.
+- done when: in the new `apps/server/test/eb-outage-words.test.ts`, which fails without the change, `classify` of an `UpstreamError` that is no `EnableBankingError` gives kind `upstream` with the words of a bank that did not answer and not rate limited, and a failed fetch of an account puts "pankki ei vastannut oikein, yritä myöhemmin uudelleen." on its row; `removeConnection` with a `deleteSession` answering 503, 429 or no answer throws a `UserError` ("Pankki ei vastannut, yhteyttä ei poistettu. Yritä uudelleen.") and leaves the connection active, while an answer of 404, a consent code of `consentExpired`, a rejected application (401, 403) and missing credentials still set it `revoked`; the tests of `apps/server/test/bank-connections.test.ts` and `eb-*.test.ts` pass unchanged (`bun test apps/server/test/eb-outage-words.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: eb-connector
+- after: none
+- files: apps/server/src/connectors/enable-banking/connector.ts, apps/server/test/eb-outage-words.test.ts
+
+### B3 A slow Cloudflare is told
+Result: When Cloudflare starts to answer and then stalls or breaks off, remote access says Cloudflare could not be reached, not a bare error name.
+- why: `readJson` in `providers/cloudflare/client.ts` (lines 113-121) awaits `readCappedText` with no `try`: the 20 second `AbortSignal.timeout` of `call` (line 87) also cuts a body that has begun, and the stream's own `TimeoutError` or `TypeError` then leaves `call` as it is, no `CloudflareError`, no `status` 0 and no word of what was being done. `searchCompanies` in `prh/client.ts` (lines 72-77) and `fetchPriceIndex` in `statfin/client.ts` (lines 63-68) catch the same read; this client is the one that does not.
+- done when: new cases of `apps/server/test/cloudflare-client.test.ts` that fail without the change make `call` throw a `CloudflareError` of status 0 whose message names the thing being done ("while trying to create the tunnel") and the cause code, never the token or the body, for an answer whose body stream errors and for one that times out after the headers; the file's other cases pass unchanged (`bun test apps/server/test/cloudflare-client.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: cloudflare-client
+- after: none
+- files: apps/server/src/providers/cloudflare/client.ts, apps/server/test/cloudflare-client.test.ts
+
+### B4 A register outage costs no names
+Result: When the trade register does not answer, the merchants asked about stay in the queue and are tried at the next hour, not put off for a day.
+- why: `lookupIndustries` in `services/industry.ts` (lines 123-132) calls `saveError` for every failed name, and `IndustryRepo.due` (`db/industry-repo.ts` line 17, `RECHECK_DAYS.error` 1) holds an errored name back for 24 hours. A register that is down for ten minutes (`register not reachable`, a 5xx, a 429 of `searchCompanies`) therefore sends three names (`MAX_FAILURES`) to the back of the queue at every tick, and the categories those merchants would get arrive a day later each time.
+- done when: new cases of the new `apps/server/test/industry-outage.test.ts` that fail without the change show that a name whose lookup fails with an unreachable register, a 5xx or a 429 gets no `error` row and is `due` again at the next call, that a name the register answers with an unreadable body or too large still gets one, and that three such failures still stop the run; the file's other cases pass unchanged (`bun test apps/server/test/industry`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: industry-lookup
+- after: E3, T111
+- files: apps/server/src/services/industry.ts, apps/server/test/industry-outage.test.ts
+
+### B5 A failed bank return can retry
+Result: If Enable Banking is down as the bank sends the browser back, pasting the address again completes the link.
+- why: `completeConnection` in `link.ts` (lines 129-137) consumes the link state (`consumeLinkState`, `link-state.ts` lines 79-88, single use) before `createSession` is asked. A 503, a 429 or a timeout at that call is told as "Enable Banking ei vastaa juuri nyt. Yritä myöhemmin uudelleen.", but the state is gone: the address pasted a minute later gets "Yhdistäminen vanheni. Yritä uudelleen." (`AuthStateExpired`) and the whole bank login is done again for a fault that had passed.
+- done when: new cases of `apps/server/test/bank-connections.test.ts` (or a new `eb-link-retry.test.ts`) that fail without the change show that a `createSession` answering 503, 429 or no answer leaves the state usable (a second `completeConnection` with the same code and state links the bank), that a 4xx refusal and a state of another user still consume it, and that the state is still used once on success; the file's other cases pass unchanged (`bun test apps/server/test/bank-connections.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: eb-link
+- after: none
+- files: apps/server/src/connectors/enable-banking/link.ts, apps/server/src/connectors/link-state.ts, apps/server/test/eb-link-retry.test.ts
+
+### B6 A failed fetch spares the tick
+Result: When the scheduled bank fetch fails as a whole, the hour's other work (lookups, price index, cleaning up) still runs.
+- why: `hourlyTick` in `services/schedule.ts` (lines 93-95) is the one step of the tick with no `try` around it: `syncEveryone` is awaited bare, after the hour's slot is claimed. An error from it (the database is busy while the run is recorded, or the list of members cannot be read) leaves `hourlyTick` at once, so `drainLookups`, `refreshPriceIndex`, `deleteExpiredSessions`, `pruneEvents`, the pruning of backups and the cleaning of `LINK_STATE_PREFIX` (lines 97-118) wait for the next hour, while the others of the tick (lines 74-86, 99-108) are each guarded.
+- done when: a new `apps/server/test/schedule-sync-fault.test.ts`, which fails without the change, makes `syncEveryone` throw at a sync hour and finds that `hourlyTick` returns with `synced` null, the lookup and the price index ran, expired sessions and old link states were removed, and one line went to the log; the tests of `apps/server/test/backup.test.ts`, `price-index.test.ts` and `industry.test.ts` that run `hourlyTick` pass unchanged (`bun test apps/server/test/schedule-sync-fault.test.ts`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: schedule-tick
+- after: E3, T111
+- files: apps/server/src/services/schedule.ts, apps/server/test/schedule-sync-fault.test.ts
+
 ### C4 A bank row without text reads
 Result: A bank statement file is read also when one of its rows has only a reference number or the bank's own code for a text.
 - why: `entryText` in `bank-camt.ts` reads the other party's name, the free message (`RmtInf/Ustrd`) and `AddtlNtryInf` only. An entry that carries just a structured reference (`RmtInf/Strd/CdtrRefInf/Ref`) or just the bank's code (`BkTxCd/Prtry/Cd`, as a service fee does) has no text, and `readBankCamt` then answers `{ error: "unreadable" }` for the whole file: one such row keeps every row of the statement out (seen on 11 Nov with a one entry statement of each kind).
