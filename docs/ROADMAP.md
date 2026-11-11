@@ -291,6 +291,54 @@ Result: The plan gains 6 to 10 steps of 50 to 150 lines of product code, each a 
 - locks: none
 - after: none
 
+### V1 Phone controls are 44 px
+Result: On a phone the period switch, the app switch and the links of the page's foot have targets a thumb can hit, 44 px high.
+- why: seen on 11 Nov with the demo household at 390 px with touch: the keys of `.segmented` (3 kk, 6 kk, 12 kk, Tämä vuosi, Viime vuosi in Saldot, Velat and Menot; Talouden sovellus and Oma sovellus in Asetukset > Pankit ja tilit) are 36 px high, from `min-height: calc(var(--control-h) - 8px)` at `apps/web/src/styles/base.css:76`. The links of the foot (`.sheet-foot a`: Lähdekoodi, Ohjeet, Tue kehitystä, the author) are 24 to 28 px high on every page, from the 24 px floor and the `margin-block: -0.25rem` at `base.css:279-282`; they stand in a line of their own, not in a sentence, so the floor for links inside text does not cover them. The design (section 3) wants 44 px for a touch target.
+- done when: a test in `apps/web/test/base-css.test.ts` that fails without the change reads `base.css` and finds a rule that makes `.sheet-foot a` `var(--tap-min)` high on a phone with its row gap so the foot grows by no more than its links need, and finds a rule under `(pointer: coarse)` that gives `.segmented button` a height of at least `var(--tap-min)` less its container's padding and border (so the key is 44 px), leaving the header's scope switch (`.topbar .segmented`, bar of 48 px) as it is; `pnpm shots "reports?q=saldot" --demo --widths 390` with touch measures every `.segmented button` outside the header at 44 px or more and no sideways scroll; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: phone-switch
+- after: none
+- files: apps/web/src/styles/base.css, apps/web/test/base-css.test.ts
+
+### V2 The row arrow is 44 px
+Result: In Tulossa and the rows list the arrow that opens a row is 44 px on a phone.
+- why: seen on 11 Nov with the demo household: `.rt-drill` is 32 by 32 px at 390 px with touch on every row of Tulossa and Tapahtumat (`apps/web/src/styles/table.css:80`, margins at `:80` and `:131`). The design (section 3) wants 44 px for a touch target.
+- done when: a test in `apps/web/test/scale-css.test.ts` that fails without the change finds `.rt-drill` at `var(--tap-min)` under `(pointer: coarse)` with margins so the row does not grow, also in the block layout of `.rt-wrap[data-block]`; a 390 px shot of Tulossa and Tapahtumat with touch measures the arrow at 44 px and the rows at the same height as before (`pnpm shots bills transactions --demo --widths 390`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: table-look
+- after: none
+- files: apps/web/src/styles/table.css, apps/web/test/scale-css.test.ts
+
+### V7 A price rise is not red
+Result: A bill that rose is marked in the accent with its gap written out, and red is left for a problem.
+- why: seen on 11 Nov with the demo household: the chip of a price rise (Adobe ↑ 12,00 €, Netflix ↑ 2,00 € in Tulossa) is red, from `.rt-delta-bad` at `apps/web/src/styles/table.css:101-102`, chosen in `components/table/Cells.tsx:46`. Design section 3: red only for a problem; over usual is the accent with its gap written out.
+- done when: a test in `apps/web/test/scale-css.test.ts` that fails without the change finds no `--bad` or `--bad-bg` in the rule that colours a rise, and a `Cells` test renders a rise and finds its arrow, its sign and its euros; a 390 px shot of Tulossa shows the chips in the accent with their text unchanged (`pnpm shots bills --demo --widths 390`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: rise-tone
+- after: V2
+- files: apps/web/src/styles/table.css, apps/web/src/components/table/Cells.tsx, apps/web/test/scale-css.test.ts
+
+### V3 Asetukset text on the scale
+Result: The headings and notes of Asetukset use the four type sizes and the 4 px steps, so they look like the rest of the app.
+- why: seen on 11 Nov at 390 px: a bare `<h3>` (`pages/settings/OffsiteBackup.tsx:134` and `:159`, `BankFile.tsx:128`) has no rule and the browser makes it 17,55 px with 17,55 px margins in Asetukset > Palvelin; a plain `p` (`BankConnections.tsx:402`) has browser margins of 15 px in Pankit ja tilit and Kotitalous, and `div.card-sub` 2 px. The same bare `p` is all over `pages/settings` (about 100 in 20 files: `RemoteAccess.tsx` 46, `Members.tsx` 5, `BankConnections.tsx` 4, `OffsiteBackup.tsx` 4, `Maintenance.tsx` 3 and others), so the rule reaches all of them and the step says so in the PR with a 390 px shot of each tab. The design has 13, 15, 20 and 32 px and steps of 4, 8, 16, 24, 40; `apps/web/src/styles/settings.css` has a rule for `.use-head` (line 40) and none for these.
+- done when: a test in `apps/web/test/scale-css.test.ts` that fails without the change finds a `settings.css` rule for the `h3` and `p` of Asetukset with `font-size: var(--fs-body)` and margins from the spacing tokens; `pnpm shots settings/server settings/banks settings/household --demo --widths 390` with a measuring step finds no `h3` of Asetukset off 15 px and no `p` margin off the 4 px steps; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: settings-type
+- after: none
+- files: apps/web/src/styles/settings.css, apps/web/test/scale-css.test.ts
+
+### V4 A card is a flat row
+Result: A credit card in Lisää > Tilit ja saldot is a plain framed row in the page's colours, with no gradient, no shadow and no text under 13 px.
+- why: seen on 11 Nov in Saldot at 390 px: the card is a drawn gold card (`apps/web/src/styles/holdings.css:90-125`, `pages/reports/holdings/CardFace.tsx`) with gradients, a chip, a shadow and words of 11,3 px and 6,8 px (`.card-face-mask`, `.card-face-tone`). Design section 3 Avoid: gradients, shadows on cards, decoration. The comment at `holdings.css:88-90` made it an object with its own colours before the design; the design is the newer decision, so the step replaces the comment with the flat row.
+- done when: a test in `apps/web/test/card-face.test.ts` that fails without the change renders the card and finds its name, its last four digits as text and its link, and `holdings.css` holds no `gradient`, `box-shadow` or hex colour for the card (`bun test apps/web/test/card-face.test.ts`); a 390 px shot of Saldot shows no card picture; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: card-face
+- after: P9
+- files: apps/web/src/styles/holdings.css, apps/web/src/pages/reports/holdings/CardFace.tsx, apps/web/test/card-face.test.ts
+
+### V5 Saldot month labels clear
+Result: The month names under the balance chart of Saldot no longer run into each other on a phone or a tablet.
+- why: seen on 11 Nov with the demo household: at 390 px the labels marras, tammi 2026 and maalis of Saldot's chart overlap by 9 px each, and at 700 px tammi 2026 and helmi by 2 px (the boxes of the SVG texts measured in the running app). `labelsWithRoom` in `apps/web/src/charts/draw.ts:46` counts 6,5 px a letter (`LABEL_CHAR_W`, line 38) and the 13 px face takes more.
+- done when: a test in `apps/web/test/chart-draw.test.ts` that fails without the change gives `labelsWithRoom` the months marras, joulu, tammi 2026, helmi, maalis at the pitch of a 390 px chart and gets labels that stay `LABEL_GAP` apart at the real width of the letters; `pnpm shots "reports?q=saldot" --demo --widths 390,700` finds no two chart labels whose boxes touch; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: chart-labels
+- after: none
+- files: apps/web/src/charts/draw.ts, apps/web/test/chart-draw.test.ts
+
 ### C3 A small MobilePay share fits
 Result: A MobilePay payment of 2 euros no longer lowers a 30 euro purchase as a friend's share of it.
 - why: `isShareOf` in `mobilepay.ts` lets a share be a euro off whatever its size, so 2,00 passes as a tenth of 30,00 and one cent as a tenth of 10,00: small money in is taken off the nearest purchase's category and never counted as income.
