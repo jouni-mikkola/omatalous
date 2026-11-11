@@ -1,6 +1,6 @@
 /**
- * A reload of Yhteenveto that fails while an answer is on screen is told: the error Notice stands above the figures of
- * the earlier fetch, and its button asks again. With no error there is no notice; a first load that fails is the card.
+ * A reload of Yhteenveto that fails while an answer is on screen: the shell's StaleAnswer line is the one place that says
+ * so, with one retry button; the page adds no notice of its own, and the figures stay. A first load that fails is the card.
  */
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -29,12 +29,14 @@ async function mount(failFrom: "start" | "later") {
   );
   const { queryClient } = await import("../src/query-client.ts");
   const { Overview } = await import("../src/pages/Overview.tsx");
+  const { StaleAnswer } = await import("../src/components/StaleAnswer.tsx");
   queryClient.clear();
   const meta = await (await real("/api/meta")).json();
   render(
     createElement(
       QueryClientProvider,
       { client: queryClient },
+      createElement(StaleAnswer),
       createElement(Overview, { meta, scope: "own", onEmptyAction: async () => {}, onShowHousehold: () => {} }),
     ),
   );
@@ -44,19 +46,18 @@ async function mount(failFrom: "start" | "later") {
 const figures = () => document.querySelector(".home-answer")?.textContent;
 
 describe("Overview when a reload fails", () => {
-  it("tells the error above the unchanged figures, and the button asks again", async () => {
+  it("shows one retry line from the shell, and the figures stay", async () => {
     const k = await mount("later");
     await waitFor(() => expect(figures()).toBeTruthy(), T);
     const first = figures();
-    expect(screen.queryByRole("alert"), "no notice with no error").toBeNull();
+    expect(screen.queryByRole("alert"), "no alert with no error").toBeNull();
+    expect(screen.queryByRole("status"), "no notice with no error").toBeNull();
+    expect(screen.queryByText("Yritä uudelleen"), "no retry with no error").toBeNull();
 
     k.fail();
     await k.queryClient.invalidateQueries({ predicate: (q) => String(q.queryKey[0]).startsWith("/api/dashboard") });
-    const notice = await screen.findByRole("alert", {}, T);
-    expect(notice.textContent).toContain(SENTENCE);
+    await waitFor(() => expect(screen.getAllByText("Yritä uudelleen")).toHaveLength(1), T);
     expect(figures(), "the figures stay").toBe(first);
-    const answer = document.querySelector(".home-answer")!;
-    expect(notice.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING, "the notice is above the figures").toBeTruthy();
 
     const before = k.asked();
     fireEvent.click(screen.getByRole("button", { name: "Yritä uudelleen" }));
@@ -64,7 +65,7 @@ describe("Overview when a reload fails", () => {
 
     k.mend();
     fireEvent.click(await screen.findByRole("button", { name: "Yritä uudelleen" }, T));
-    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull(), T);
+    await waitFor(() => expect(screen.queryByText("Yritä uudelleen")).toBeNull(), T);
     expect(figures()).toBe(first);
   }, 60000);
 
