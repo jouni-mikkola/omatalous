@@ -38,3 +38,8 @@ export function series(
     }),
   );
 }
+
+/** The mark subject that dismisses an insight at its current figure: `alert:<id>@<yearlyCents>`, as `dismissalOf` reads it. */
+export function insightDismissSubject(i: { id: string; effectPerYear?: { cents: number } | null }): string {
+  return `alert:${i.id}@${Math.abs(i.effectPerYear?.cents ?? 0)}`;
+}

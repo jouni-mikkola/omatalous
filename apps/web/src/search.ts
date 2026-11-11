@@ -57,7 +57,6 @@ export const PAGE_FIELDS = {
   bills: {},
   transactions: TRANSACTIONS,
   reports: REPORTS,
-  optimise: {},
   review: {},
   more: {},
   settings: SETTINGS,

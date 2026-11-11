@@ -1,8 +1,8 @@
-/** Säästövinkit's input form (components/optimise/Inputs.tsx), as Tarkistettavat asks it: an empty field has nothing to save. */
+/** Säästövinkit's input form (components/InputForm.tsx), as Tarkistettavat asks it: an empty field has nothing to save. */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { InputForm } from "../src/components/optimise/Inputs.tsx";
+import { InputForm } from "../src/components/InputForm.tsx";
 
 const button = (current?: number) => {
   const html = renderToStaticMarkup(createElement(InputForm, { inputKey: "car_km", current, today: "2026-10-19", scope: "own", answer: () => undefined, waiting: false }));

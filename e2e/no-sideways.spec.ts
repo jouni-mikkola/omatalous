@@ -31,24 +31,3 @@ for (const width of [1280, 390]) {
     await browser.close();
   });
 }
-
-// A page's stylesheet stays loaded after the page is left, so a class styled in two of them changes the page it was not
-// written for (`.verdict` made every report page 1 657 px wide at 390 px after Säästövinkit). Fresh loads do not show it:
-// the pages are reached here by moving the address, in the order that did it.
-test("the report pages after Säästövinkit do not scroll sideways at 390 px", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 } });
-  const page = await context.newPage();
-  await page.goto("/#/optimise");
-  await expect(page.locator("main")).toBeVisible();
-  await page.waitForLoadState("networkidle");
-  for (const q of ["kuukausi", "menot", "tulot", "saldot", "kiinteat", "velat"]) {
-    const before = (await page.locator(".q-title").count()) > 0 ? await page.locator(".q-title").first().textContent() : null;
-    await page.evaluate((hash) => (location.hash = hash), `#/reports?q=${q}`);
-    await expect(page.locator(".verdict").first()).toBeVisible();
-    // the page left shows a verdict too: wait for the title of the new one
-    if (before !== null) await expect(page.locator(".q-title").first()).not.toHaveText(before);
-    await page.waitForLoadState("networkidle");
-    expect(await overflow(page), `reports ${q} after Säästövinkit at 390 px`).toBeLessThanOrEqual(0);
-  }
-  await context.close();
-});

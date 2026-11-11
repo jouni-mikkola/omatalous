@@ -86,7 +86,6 @@ const RULES = ["label-content-name-mismatch", "landmark-unique", "empty-table-he
 for (const width of [1440, 390]) {
   for (const [name, path, ready, queue] of [
     ["Yhteenveto", "/#/overview", ".home-answer-line", null],
-    ["Säästövinkit", "/#/optimise", ".tip-figure", null],
     ["Tarkistettavat", "/#/review", ".review-figure", [MANY]],
     ["Tapahtumat", "/#/transactions", ".rtb", null],
     ["Asetukset", "/#/settings/members", "table:has(caption:text-is(\"Talouden jäsenet\"))", null],
@@ -162,7 +161,6 @@ const ROUTES = [
   "/#/reports?q=velat",
   "/#/reports?q=kuukausi",
   "/#/reports?q=yhteiset",
-  "/#/optimise",
   "/#/review",
   "/#/settings/banks",
   "/#/settings/household",

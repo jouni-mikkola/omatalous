@@ -23,8 +23,6 @@ export const NAV: readonly NavEntry[] = [
   { id: "bills", get label() { return t("nav.bills"); }, tab: true },
   REVIEW,
   { id: "transactions", get label() { return t("nav.transactions"); }, tab: true },
-  // five tabs are what a phone's bar holds: Säästövinkit is a link in the header on a wide screen and in the user menu on a phone
-  { id: "optimise", get label() { return t("nav.optimise"); } },
 ];
 
 /**

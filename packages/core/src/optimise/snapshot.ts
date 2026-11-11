@@ -22,7 +22,7 @@ export interface Snapshot {
   entries: readonly SnapshotEntry[];
 }
 
-export type ChangeKind = "new" | "grown" | "shrunk" | "resolved";
+type ChangeKind = "new" | "grown" | "shrunk" | "resolved";
 
 /** Muutokset viime käynnin jälkeen: an active finding that appeared, grew or shrank 25 % or more, or left the data. */
 export interface FindingChange {

@@ -19,7 +19,6 @@ test("every address of the app opens its page, and an old address is rewritten t
     ["bills", /^Laskut/],
     ["transactions", /^Tapahtumat/],
     ["reports", /^Kuukausi/],
-    ["optimise", /^Säästövinkit/],
     ["review", /^Tarkistettavat/],
     ["settings/banks", /^Asetukset/],
     ["settings/security", /^Asetukset/],

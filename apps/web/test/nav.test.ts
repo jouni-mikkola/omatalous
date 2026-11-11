@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { NAV, REVIEW, SETTINGS } from "../src/nav.ts";
 
 describe("NAV", () => {
-  it("is Yhteenveto | Kuukausi | Laskut | Tarkistettavat | Tapahtumat | Säästövinkit: no entry hides behind a flag", () => {
-    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tarkistettavat", "Tapahtumat", "Säästövinkit"]);
+  it("is Yhteenveto | Kuukausi | Laskut | Tarkistettavat | Tapahtumat: no entry hides behind a flag", () => {
+    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tarkistettavat", "Tapahtumat"]);
     expect(NAV.every((e) => !("feature" in e))).toBe(true);
   });
 
@@ -12,11 +12,11 @@ describe("NAV", () => {
     expect(SETTINGS).toEqual({ id: "settings", label: "Asetukset" });
   });
 
-  it("names its pages Yhteenveto, Kuukausi, Laskut and Säästövinkit; the ids of the old pages, and so their addresses, stay", () => {
+  it("names its pages Yhteenveto, Kuukausi and Laskut; the ids of the old pages, and so their addresses, stay", () => {
     const label = (id: string) => NAV.find((e) => e.id === id)?.label;
     expect(label("overview")).toBe("Yhteenveto");
     expect(label("bills")).toBe("Laskut");
-    expect(label("optimise")).toBe("Säästövinkit");
+    expect(label("optimise")).toBeUndefined();
     expect(label("reports")).toBe("Kuukausi");
     expect(NAV.map((e) => e.label)).not.toContain("Toistuvat");
     expect(NAV.map((e) => e.label)).not.toContain("Yleiskatsaus");
@@ -25,7 +25,7 @@ describe("NAV", () => {
 });
 
 describe("the phone's tab bar", () => {
-  it("the tab bar has five tabs, Tarkistettavat the fourth, and no Lisää: Säästövinkit is in the user menu", () => {
+  it("the tab bar has five tabs, Tarkistettavat the fourth, and no Lisää", () => {
     expect(NAV.filter((e) => e.tab).map((e) => e.label)).toEqual(["Yhteenveto", "Kuukausi", "Laskut", "Tarkistettavat", "Tapahtumat"]);
     expect(NAV.filter((e) => e.tab)[3]).toBe(REVIEW);
   });

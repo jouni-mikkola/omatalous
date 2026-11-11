@@ -88,7 +88,7 @@ test("with no data in the household the example data is offered", async ({ brows
       await route.fulfill({ response, json: { ...meta, householdHasAccounts: false } });
     });
     const page = await context.newPage();
-    await page.goto("/#/optimise");
+    await page.goto("/#/reports");
     await expect(page.locator(".empty-start").getByRole("button")).toHaveText(["Tuo tiliote", "Lataa esimerkkitiedot"]);
   } finally {
     await context.close();

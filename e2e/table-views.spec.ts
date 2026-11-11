@@ -29,7 +29,6 @@ const ROUTES = [
   "/#/settings/security",
   "/#/settings/data",
   "/#/settings/server",
-  "/#/optimise",
   "/#/review",
 ];
 

@@ -1,6 +1,6 @@
 // Decision: which of the findings to act on first, and what each is worth a year
 import { type Insight, insightEuros, insightText, insightUnit } from "@banking/core";
-import { targetHref } from "../optimise/Others.tsx";
+import { targetHref } from "../target-href.ts";
 import { language } from "../../format.ts";
 import { t } from "../../text.ts";
 

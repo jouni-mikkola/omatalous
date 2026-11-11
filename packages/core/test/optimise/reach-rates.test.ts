@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../../src/analysis/context.ts";
 import { loanInterestNext12Months, loanNextPayment, loanRateScenario } from "../../src/loans.ts";
-import { type AreaView, byYearlyEffect, type Finding, headlineOf, loanRatesOf, reachOf } from "../../src/optimise/index.ts";
+import { type AreaView, type Finding, headlineOf, loanRatesOf, reachOf } from "../../src/optimise/index.ts";
 import type { BalanceInput } from "../../src/reports/balances.ts";
 import type { Loan } from "../../src/types.ts";
 import { tx } from "../helpers.ts";
@@ -106,27 +106,5 @@ describe("loanRatesOf", () => {
     const card = loan({ id: "kortti", kind: "card", balanceCents: 120000, rateBp: 1500 });
     const r = loanRatesOf(balances, inputs([fixed, paid, card]), TODAY);
     expect(r.map((l) => [l.loanId, l.reference, l.moves.length])).toEqual([["kiintea", "Kiinteä korko", 0]]);
-  });
-});
-
-describe("byYearlyEffect", () => {
-  const euros = (midCents: number) => ({ lowCents: 0, midCents, highCents: midCents * 2 });
-  const areas = [
-    area("loans", [finding({ id: "loans:a", area: "loans", euros: euros(30000) }), finding({ id: "loans:day", area: "loans", euros: null, decideBy: "2026-11-01" })]),
-    area("food", [finding({ id: "food:b", area: "food", euros: euros(90000) }), finding({ id: "food:c", area: "food", euros: euros(30000) })]),
-    area("car", [finding({ id: "car:d", area: "car", euros: euros(120000) })]),
-  ];
-
-  it("puts the tip worth most a year first, across areas, and a tip with only a day last", () => {
-    expect(byYearlyEffect(areas).map((f) => f.id)).toEqual(["car:d", "food:b", "food:c", "loans:a", "loans:day"]);
-  });
-
-  it("breaks a tie on the id, so the order is the same on every load", () => {
-    expect(byYearlyEffect([...areas].reverse()).map((f) => f.id)).toEqual(byYearlyEffect(areas).map((f) => f.id));
-  });
-
-  it("keeps a tip with a day to decide by in its place: its figure, not its day, orders it", () => {
-    const dated = [area("insurance", [finding({ id: "insurance:quote", area: "insurance", euros: euros(100000), decideBy: "2026-10-09" })]), ...areas];
-    expect(byYearlyEffect(dated).map((f) => f.id)).toEqual(["car:d", "insurance:quote", "food:b", "food:c", "loans:a", "loans:day"]);
   });
 });

@@ -81,12 +81,6 @@ const reportsRoute = createRoute({
   validateSearch: searchOf("reports"),
   component: lazyRouteComponent(() => import("./views/ReportsView.tsx"), "ReportsView"),
 });
-const optimiseRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/optimise",
-  validateSearch: searchOf("optimise"),
-  component: lazyRouteComponent(() => import("./views/OptimiseView.tsx"), "OptimiseView"),
-});
 const reviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/review",
@@ -125,7 +119,6 @@ const routeTree = rootRoute.addChildren([
   billsRoute,
   transactionsRoute,
   reportsRoute,
-  optimiseRoute,
   reviewRoute,
   settingsRoute.addChildren(settingsTargetRoutes),
 ]);

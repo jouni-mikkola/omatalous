@@ -3,11 +3,11 @@ import { join } from "node:path";
 import { overflow, plain, watch } from "./helpers.ts";
 
 // The demo's Adobe rise (62,99 € to 74,99 €, 144 € a year) is worked out on one page, Kiinteät menot > Hinnanmuutokset. Yhteenveto
-// and Säästövinkit name the rise in one line that links there; the opened row of Tulossa has no price steps. Runs on the demo household that e2e/run.mjs makes.
+// names the rise in one line that links there; the opened row of Tulossa has no price steps. Runs on the demo household that e2e/run.mjs makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FORMULA = "(74,99 € − 62,99 €) × 12";
 const HERE = "#/reports?q=kiinteat#kiinteat-hinnat";
-// the calculation is the formula, or its lines as Säästövinkit used to list them
+// the calculation is the formula, or its lines as a tip used to list them
 const hasCalc = (text: string) => text.includes(plain(FORMULA)) || (text.includes("Hinta ennen") && text.includes("Veloituksia vuodessa"));
 
 for (const width of [390, 1440]) {
@@ -27,19 +27,6 @@ for (const width of [390, 1440]) {
     await expect(page.getByRole("link", { name: "Tarkista, oletko hyväksynyt korotuksen." })).toHaveAttribute("href", HERE);
     if (hasCalc(await read())) withCalc.push("overview");
     await shot("overview");
-
-    // Säästövinkit: the tip names the rise and links; its working holds no prices
-    await page.goto("/#/optimise");
-    const tip = page.locator("article.tip").filter({ hasText: "Adobe: hinta nousi" });
-    await expect(tip).toHaveCount(1);
-    await expect(tip.getByRole("link", { name: /^Laskelma/ })).toHaveAttribute("href", HERE);
-    await tip.getByRole("button", { name: /Näytä laskelma/ }).click();
-    // the working is fetched when it opens: read it once it is there
-    await expect(tip.locator(".calc-line")).toBeVisible();
-    if (hasCalc(await read())) withCalc.push("optimise");
-    // the calculation line of the tip tells no prices either, only Kiinteät menot does (the months and rows under it are the tip's own evidence)
-    expect(await tip.locator(".calc-line").innerText(), "prices in the tip's calculation").not.toContain("62,99");
-    await shot("optimise");
 
     // Tulossa: the opened row of Adobe has no price steps and no calculation
     await page.goto("/#/bills");

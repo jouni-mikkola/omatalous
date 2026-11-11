@@ -28,7 +28,7 @@ export const VERDICTS = ["vahvistui", "todennäköinen", "epäselvä", "huonompi
 export type Verdict = (typeof VERDICTS)[number];
 
 /** What came of a done finding. */
-export interface FindingOutcome {
+interface FindingOutcome {
   verdict: Verdict;
   /** Cents a month less than before the change, negative when more; null while waiting or when nothing can be measured. */
   monthlyCents: number | null;
@@ -41,7 +41,7 @@ export interface FindingOutcome {
 }
 
 /** Before and after a done decision as the verdict measured them, for the table of Seuranta. */
-export interface OutcomeDetail {
+interface OutcomeDetail {
   /** A month before the change: the median of complete months, or a contract's cost by cadence; `months` it stands on. */
   before: { cents: number; months: number };
   /** The same after the change, over the complete months after the changeover month. */
@@ -56,7 +56,7 @@ export interface OutcomeDetail {
 export type FollowedFinding = Pick<Finding, "measure"> & Partial<Pick<Finding, "action">>;
 
 /** The data shows an active finding's change: the page asks for a confirmation and never marks it done itself. */
-export interface SwitchProposal {
+interface SwitchProposal {
   findingId: string;
   /** The first charge of the new payee: the effective date the confirmation stores. */
   date: IsoDate;

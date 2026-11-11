@@ -76,7 +76,7 @@ export * from "./analysis/subscription-alerts.ts";
 export * from "./analysis/fees.ts";
 export * from "./analysis/credit.ts";
 export * from "./analysis/insights/index.ts";
-export { insightEuros, insightReading, insightText, insightUnit } from "./explain/insights.ts";
+export { insightEuros, insightText, insightUnit } from "./explain/insights.ts";
 export { type DebtShare, debtShareOf } from "./analysis/insights/borrowing.ts";
 export { type PriceRiseItem, priceRiseItems } from "./analysis/insights/prices.ts";
 export { isLongSubscription, renewalItems } from "./analysis/insights/renewals.ts";

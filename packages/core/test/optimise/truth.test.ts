@@ -5,11 +5,11 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../../src/analysis/context.ts";
-import { answeredInsights, insightDismissSubject, insightInputOf } from "../../src/analysis/insights/index.ts";
+import { answeredInsights, insightInputOf } from "../../src/analysis/insights/index.ts";
 import { type AreaView, buildOptimise, type OptimiseData } from "../../src/optimise/index.ts";
 import type { MarkKind, UserMark } from "../../src/types.ts";
 import { randomHistory } from "../gen.ts";
-import { tx } from "../helpers.ts";
+import { insightDismissSubject, tx } from "../helpers.ts";
 import { yearly } from "../insight-view.ts";
 import { household, PARTS } from "./household.ts";
 import { enrich, FRAME, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";

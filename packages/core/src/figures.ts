@@ -61,7 +61,7 @@ export const FIGURES = {
     definition: "Saved over income, pooled over the complete months of the window, which the label names. A running or partly covered month is not part of it.",
     source: { file: "analysis/bridge.ts", fn: "savingsRateOf", field: "rate" },
     unit: "share",
-    pages: ["Yhteenveto", "Raportit", "Säästövinkit"],
+    pages: ["Yhteenveto", "Raportit"],
   },
   due: {
     name: "Erääntyvät maksut",
@@ -152,7 +152,7 @@ export const FIGURES = {
     definition: "The balance of the savings and checking accounts, less the debt on credit cards and the bills due before the next payday, in months of usual spending.",
     source: { file: "reports/buffer.ts", fn: "bufferReport", field: "bufferMonths" },
     unit: "months",
-    pages: ["Raportit", "Säästövinkit"],
+    pages: ["Raportit"],
   },
   balanceChange: {
     name: "Saldomuutos",

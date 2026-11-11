@@ -61,15 +61,7 @@ function compareInsights(a: Insight, b: Insight): number {
 const yearlyOf = (i: Pick<Insight, "effectPerYear">) => Math.abs(i.effectPerYear?.cents ?? 0);
 
 /**
- * The mark subject that dismisses an insight at its current figure: `alert:<id>@<yearlyCents>` (PUT /api/marks with
- * mark "dismissed").
- */
-export function insightDismissSubject(i: Pick<Insight, "id" | "effectPerYear">): string {
-  return `alert:${i.id}@${yearlyOf(i)}`;
-}
-
-/**
- * The dismissal that hides an insight: one of the same id at a figure within 25 % of today's, or one without a figure,
+ * The dismissal that hides an insight (a mark "dismissed" on `alert:<id>@<yearlyCents>`, its figure of that day): one of the same id at a figure within 25 % of today's, or one without a figure,
  * which hides it for good. Null when none stands.
  */
 function dismissalOf(i: Insight, marks: readonly UserMark[]): UserMark | null {

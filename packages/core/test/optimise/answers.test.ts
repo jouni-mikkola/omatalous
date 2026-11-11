@@ -4,12 +4,12 @@
  * and a subscription the household answered on Laskut (Lopetettu, or Käytössä after the news) has no finding.
  */
 import { describe, expect, it } from "vitest";
-import { answeredInsights, type Insight, insightDismissSubject, insightInputOf } from "../../src/analysis/insights/index.ts";
+import { answeredInsights, type Insight, insightInputOf } from "../../src/analysis/insights/index.ts";
 import { seriesMarkSubject } from "../../src/analysis/subscription-alerts.ts";
 import { insightText } from "../../src/explain/insights.ts";
 import { allFindings, buildOptimise, coveredBy, type FindingState, type OptimiseInput } from "../../src/optimise/index.ts";
 import type { MarkKind, UserMark } from "../../src/types.ts";
-import { tx } from "../helpers.ts";
+import { insightDismissSubject, tx } from "../helpers.ts";
 import { covering, yearly } from "../insight-view.ts";
 import { FRAME, householdInput, joinHousehold, type PartHousehold } from "./household-kit.ts";
 import * as subsPart from "./parts/subscriptions.ts";

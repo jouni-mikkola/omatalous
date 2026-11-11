@@ -1,13 +1,12 @@
 /** The numbers a household may type in: the values given and the form that stores one (Tarkistettavat asks for the missing ones). */
-import { addMonthsToDate, type InputDef, inputDefOf, type InputRow, type InputValue, type IsoDate, choiceLabel, inputLabel, inputUnit, localeOf } from "@banking/core";
+import { addMonthsToDate, type InputDef, inputDefOf, type InputValue, type IsoDate, choiceLabel, inputLabel, inputUnit, localeOf } from "@banking/core";
 import { type FormEvent, useState } from "react";
-import { api, query } from "../../api.ts";
-import { date, eurosText, language, money, parseEuros, rateText } from "../../format.ts";
-import { t } from "../../text.ts";
-import type { Scope } from "../../types.ts";
-import { Section } from "../Section.tsx";
-import { type Changed, subjectName } from "./shared.tsx";
-import { Button } from "../ui/Button.tsx";
+import { api, query } from "../api.ts";
+import { date, eurosText, language, money, parseEuros, rateText } from "../format.ts";
+import { t } from "../text.ts";
+import type { Scope } from "../types.ts";
+import { type Changed, subjectName } from "./subject-name.ts";
+import { Button } from "./ui/Button.tsx";
 const num = { format: (n: number) => new Intl.NumberFormat(localeOf(language()), { maximumFractionDigits: 2 }).format(n) };
 /** A margin is stored in hundredths of a percent: 125 is 1,25 %. */
 const percent = (bp: number) => `${num.format(bp / 100)}${language() === "en" ? "%" : " %"}`;
@@ -182,61 +181,5 @@ export function InputForm({ inputKey, current, today, scope, onSaved, onCancel, 
         </div>
       )}
     </form>
-  );
-}
-
-/** A given input: its value and day, a way to change it and to take it away. */
-function GivenRow({ row, today, scope, onChanged }: { row: InputRow; today: IsoDate; scope: Scope; onChanged: Changed }) {
-  const found = inputDefOf(row.key);
-  const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  if (!found) return null;
-  const label = labelOf(found.def, found.subject);
-  const remove = () => {
-    setBusy(true);
-    setError(null);
-    api(`/api/optimise/inputs/${encodeURIComponent(row.key)}${query({ scope })}`, { method: "DELETE" })
-      .then(() => onChanged(t("ow.in_removed")))
-      .catch((e: Error) => setError(e.message))
-      .finally(() => setBusy(false));
-  };
-  return (
-    <li className="needed">
-      <div className="needed-text">
-        <strong>{label}</strong>
-        <span>
-          {valueText(found.def, row.value)} <span className="small muted">{t("ow.in_given", { date: date(row.asOf) })}</span>
-        </span>
-        {error && <span className="field-error error" role="alert">{error}</span>}
-      </div>
-      {editing ? (
-        <InputForm inputKey={row.key} current={row.value} today={today} scope={scope} onSaved={(m) => { setEditing(false); onChanged(m); }} onCancel={() => setEditing(false)} quiet />
-      ) : (
-        <div className="form-row">
-          <Button variant="link" aria-label={t("ow.in_change_aria", { label })} onClick={() => setEditing(true)}>
-            {t("ow.in_change")}
-          </Button>
-          <Button variant="link" aria-label={t("ow.in_remove_aria", { label })} busy={busy} onClick={remove}>
-            {t("ow.in_remove")}
-          </Button>
-        </div>
-      )}
-    </li>
-  );
-}
-
-/** The values the household gave, each with a way to change or take it away. What is missing is asked in Tarkistettavat. */
-export function InputsCard({ given, today, scope, onChanged }: { given: readonly InputRow[]; today: IsoDate; scope: Scope; onChanged: Changed }) {
-  const kept = given.filter((g) => inputDefOf(g.key));
-  if (!kept.length) return null;
-  return (
-    <Section id="tiedot" title={t("ow.in_title")}>
-      <ul className="needed-list">
-        {kept.map((g) => (
-          <GivenRow key={g.key} row={g} today={today} scope={scope} onChanged={onChanged} />
-        ))}
-      </ul>
-    </Section>
   );
 }

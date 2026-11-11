@@ -120,8 +120,8 @@ describe("the choices", () => {
 describe("a number Säästövinkit waits for", () => {
   const input = (more: Partial<Extract<ReviewItem, { kind: "input" }>> = {}): ReviewItem => ({ kind: "input", id: "input:car_km", cents: 0, key: "car_km", def: "car_km", subject: null, old: null, ...more });
 
-  it("is asked as a question under Säästövinkit, by the field's own name", () => {
-    expect(eyebrow(input())).toBe("Säästövinkit");
+  it("is asked as a question under Lisätiedot, by the field's own name", () => {
+    expect(eyebrow(input())).toBe("Lisätiedot");
     expect(nameOf(input())).toBe("Ajomäärä");
     expect(questionOf(input())).toBe("Paljonko ajat vuodessa?");
     // a number has no rows behind it: the server sends none

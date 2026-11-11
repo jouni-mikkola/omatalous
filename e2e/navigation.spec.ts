@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // The header and the phone's tab bar: five tabs at the foot of a phone (Yhteenveto, Kuukausi, Laskut, Tarkistettavat
-// with its count, Tapahtumat); Säästövinkit and Asetukset are in the user menu there.
+// with its count, Tapahtumat); Asetukset is in the user menu there.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const TAP = 44;
 
@@ -36,17 +36,13 @@ for (const width of [390, 320]) {
   });
 }
 
-test("390 px: Tarkistettavat is the fourth tab and shows when open, Säästövinkit and Asetukset are in the user menu, and #/more opens Yhteenveto", async ({ browser }) => {
+test("390 px: Tarkistettavat is the fourth tab and shows when open, Asetukset is in the user menu, and #/more opens Yhteenveto", async ({ browser }) => {
   const { context, page } = await phone(browser);
   await page.goto("/#/overview");
   await tabs(page).nth(3).tap();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/review");
   await expect(tabs(page).filter({ hasText: "Tarkistettavat" })).toHaveAttribute("aria-current", "page");
   await expect(tabs(page).filter({ hasText: "Lisää" })).toHaveCount(0);
-  await expect(tabs(page).filter({ hasText: "Säästövinkit" })).toHaveCount(0);
-  await page.locator(".user-menu summary").tap();
-  await page.locator(".user-menu .menu").getByRole("link", { name: "Säästövinkit" }).tap();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/optimise");
   await page.locator(".user-menu summary").tap();
   await page.locator(".user-menu .menu").getByRole("link", { name: "Asetukset" }).tap();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks");
@@ -62,7 +58,7 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat", "Säästövinkit"]);
+  await expect(tabs(page)).toHaveText(["Yhteenveto", "Kuukausi", "Laskut", /^Tarkistettavat/, "Tapahtumat"]);
   await expect(page.locator("header.topbar").getByRole("link", { name: "Asetukset", exact: true })).toHaveCount(0);
   await page.locator(".user-menu summary").click();
   const menu = page.locator(".user-menu .menu");

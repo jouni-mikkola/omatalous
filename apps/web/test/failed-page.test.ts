@@ -59,8 +59,7 @@ describe("the page that did not come", () => {
     expect(css("categories.css")).toMatch(/\.rule-form input\[type="text"\] \{ flex: 1 1 18rem; max-width: 24rem; min-width: 0; \}/);
   });
 
-  it("gives a calculation without a chart a measure, its heads flush, and the merchant's cells four to a row", () => {
-    expect(css("optimise.css")).toMatch(/\.evidence-part:not\(:has\(\.chart\)\) \{ max-width: 36rem; \}/);
+  it("gives its heads flush, and the merchant's cells four to a row", () => {
     expect(css("transactions.css")).toMatch(/\.kv:has\(> :nth-child\(7\)\) \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \}/);
     expect(css("categories.css")).toMatch(/\.rule-form \{ display: grid; grid-template-columns: minmax\(0, 1fr\); \}/);
   });

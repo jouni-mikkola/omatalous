@@ -18,7 +18,6 @@ apps/web/src/styles/loans.css  px=33
 apps/web/src/styles/marks.css  px=9
 apps/web/src/styles/notices.css  px=9
 apps/web/src/styles/ops.css  px=13
-apps/web/src/styles/optimise.css  px=62
 apps/web/src/styles/question-chart.css  px=31
 apps/web/src/styles/questions.css  px=6
 apps/web/src/styles/reconcile.css  px=4

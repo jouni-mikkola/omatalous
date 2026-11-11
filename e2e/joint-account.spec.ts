@@ -70,11 +70,6 @@ test("the switch offers Koko talous, and no page has a notice about the joint ac
   await expect(jointNotice(page)).toHaveCount(0);
   await expect(jointRow(page)).not.toContainText("osuutesi");
 
-  // Säästövinkit counts the accounts whole in both views, and says nothing of it
-  await page.goto("/#/optimise");
-  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Säästövinkit", level: 1 })).toHaveCount(1);
-  await expect(jointNotice(page)).toHaveCount(0);
   await view.getByRole("button", { name: "Oma", exact: true }).click();
   await expect(view.getByRole("button", { name: "Oma", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(jointNotice(page)).toHaveCount(0);

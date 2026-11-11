@@ -11,7 +11,6 @@ export const FI_SHELL = {
   "nav.bills": "Laskut",
   "nav.transactions": "Tapahtumat",
   "nav.reports": "Raportit",
-  "nav.optimise": "Säästövinkit",
   "nav.review": "Tarkistettavat",
   "nav.settings": "Asetukset",
   "nav.review_open": "avoinna",

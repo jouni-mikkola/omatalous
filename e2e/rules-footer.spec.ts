@@ -6,7 +6,7 @@ import { watch } from "./helpers.ts";
 // items sit in one group instead of spread over the width. With E2E_SHOTS set each page is saved as a picture.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const SHOTS = process.env.E2E_SHOTS ?? "";
-const PAGES = ["settings/banks", "overview", "transactions", "bills", "optimise", "review", "reports?q=kuukausi", "reports?q=menot", "reports?q=kiinteat", "settings/security", "settings/server"];
+const PAGES = ["settings/banks", "overview", "transactions", "bills", "review", "reports?q=kuukausi", "reports?q=menot", "reports?q=kiinteat", "settings/security", "settings/server"];
 
 for (const width of [390, 1440]) {
   test(`${width} px: one rule above the first card and a footer in one group`, async ({ browser }) => {

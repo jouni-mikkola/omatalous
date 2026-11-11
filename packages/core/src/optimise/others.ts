@@ -5,7 +5,7 @@
  * tells each euro once: an insight over half of whose rows are paid to the payees of the findings, all of them
  * together, is theirs to tell, whether a finding shows or was decided on, so it is left out; so is one that the findings
  * tell in part when the part left over is under the gate. Payees and not row ids: an insight and a finding may pick
- * different charges of one payee. Ei koske meitä stores a dismissal mark (`insightDismissSubject`), and the insight
+ * different charges of one payee. Ei koske meitä stores a dismissal mark (`alert:<id>@<yearlyCents>`), and the insight
  * returns when its figure moves 25 %.
  */
 import { answeredInsights, type Insight, insightInputOf } from "../analysis/insights/index.ts";

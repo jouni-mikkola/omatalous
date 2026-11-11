@@ -15,7 +15,7 @@ export const AREA_IDS = ["loans", "savings", "subscriptions", "bank", "electrici
 export type AreaId = (typeof AREA_IDS)[number];
 
 /** Yearly cents, `lowCents <= midCents <= highCents`, positive. */
-export interface EuroRange {
+interface EuroRange {
   lowCents: number;
   midCents: number;
   highCents: number;
@@ -381,7 +381,7 @@ export interface InputRow extends StoredInput {
 }
 
 /** One move of the reference rate for one loan. */
-export interface RateMove {
+interface RateMove {
   shiftBp: number;
   /** The move the rate made: a fall stops at the margin, so it can be less than `shiftBp`. Null without a rate. */
   movedBp: number | null;

@@ -11,7 +11,7 @@ import { LOAN_REFERENCE_LABEL } from "./inputs.ts";
 import type { LoanRates } from "./types.ts";
 
 /** The moves the table shows, in hundredths of a percentage point: one point down, one and two up. */
-export const RATE_MOVES_BP = [-100, 100, 200] as const;
+const RATE_MOVES_BP = [-100, 100, 200] as const;
 
 const less = (a: number | null, b: number | null): number | null => (a === null || b === null ? null : a - b);
 

@@ -19,7 +19,7 @@ export const FI_SET_RI = {
   "set.ri.instalment_plan": "Osamaksu",
   "set.ri.joint_account_account": "Yhteinen tili {account}",
   "set.ri.subscription": "Tilaus",
-  "set.ri.savings_tips": "Säästövinkit",
+  "set.ri.savings_tips": "Lisätiedot",
   "set.ri.housing": "Asuminen",
   "set.ri.balance_before_date": "Saldo ennen {date}",
   "set.ri.home_loan": "Asuntolaina",

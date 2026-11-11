@@ -245,7 +245,7 @@ export function insightEuros(i: Insight, lang: Language = DEFAULT_LANGUAGE): str
 }
 
 /** The figure in words: "maksaa 276 € vuodessa". A stop that freed money reads "vapautui 276 € vuodessa". */
-export function insightReading(i: Insight, lang: Language = DEFAULT_LANGUAGE): string {
+function insightReading(i: Insight, lang: Language = DEFAULT_LANGUAGE): string {
   const euros = insightEuros(i, lang);
   if (i.fact.type === "stopped" && i.fact.freed) return messageIn(lang, "ins.read_freed", { euros });
   return messageIn(lang, READING[i.fact.type], { euros });

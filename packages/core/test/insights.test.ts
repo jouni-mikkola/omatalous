@@ -3,7 +3,7 @@ import { createContext, historyCovers, inDays } from "../src/analysis/context.ts
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { formatEur } from "../src/analysis/format.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
-import { buildInsights, insightDismissSubject, rankInsights } from "../src/analysis/insights/index.ts";
+import { buildInsights, rankInsights } from "../src/analysis/insights/index.ts";
 import { OVERVIEW_INSIGHTS } from "../src/thresholds.ts";
 import { insightOf, lastCompleteMonths } from "../src/analysis/insights/shared.ts";
 import type { Insight as InsightData } from "../src/analysis/insights/types.ts";
@@ -14,7 +14,7 @@ import { addDays, addMonths } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { type Account, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { randomHistory } from "./gen.ts";
-import { tx } from "./helpers.ts";
+import { insightDismissSubject, tx } from "./helpers.ts";
 import { type InsightView as Insight, view } from "./insight-view.ts";
 
 const today = "2026-10-09";

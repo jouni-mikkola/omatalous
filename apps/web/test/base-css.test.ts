@@ -64,7 +64,7 @@ describe("base.css", () => {
 describe("the shared parts and the page stylesheets", () => {
   const sheet = (name: string) => readFileSync(new URL(`../src/styles/${name}.css`, import.meta.url), "utf8");
   const NAMES = [
-    "base", "shell", "charts", "settings", "wizard", "banks", "bank-picker", "optimise", "ops", "remote-access",
+    "base", "shell", "charts", "settings", "wizard", "banks", "bank-picker", "ops", "remote-access",
     "transactions",
   ];
 
@@ -92,7 +92,6 @@ describe("the shared parts and the page stylesheets", () => {
       base: ['.notice[data-tone="good"]::before: 50%', ".empty-steps li::before: 50%", ".kf-due::after: 50%"],
       charts: [".swatch: 1px", ".line-key: 0", ".tooltip: 10px"],
       banks: [".bank-logo-sm: 5px"],
-      optimise: [".area-mark: 50%", ".due-pin::before: 50%", ".outcome-sign: 50%"],
     });
   });
 

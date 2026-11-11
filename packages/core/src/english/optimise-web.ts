@@ -70,7 +70,6 @@ export const EN_OPTIMISE_WEB = {
   "ow.fu_line": "Estimated and confirmed",
   "ow.fu_table": "Estimated and confirmed by month",
   "ow.fu_title": "Follow-up",
-  "ow.ld_aria": "Savings tips at a glance",
   "ow.ld_est": "Estimated saving a year",
   "ow.ld_counted": "The total has {tips}.",
   "ow.ld_counted_apart": "The total has {tips}. {apart} more counted separately.",

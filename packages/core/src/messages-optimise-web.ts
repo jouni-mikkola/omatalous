@@ -72,7 +72,6 @@ export const FI_OPTIMISE_WEB = {
   "ow.fu_line": "Arvioitu ja vahvistettu",
   "ow.fu_table": "Arvioitu ja vahvistettu kuukausittain",
   "ow.fu_title": "Seuranta",
-  "ow.ld_aria": "Säästövinkit lyhyesti",
   "ow.ld_est": "Arvioitu säästö vuodessa",
   "ow.ld_counted": "Summassa on {tips}.",
   "ow.ld_counted_apart": "Summassa on {tips}. Lisäksi {apart} on laskettu erikseen.",

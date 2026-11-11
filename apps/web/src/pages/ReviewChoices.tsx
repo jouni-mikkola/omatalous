@@ -10,7 +10,7 @@ import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
 import { formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
 import type { LoanFieldKey } from "../components/loans/labels.ts";
 import { editorHelp } from "../components/loans/proposal-words.ts";
-import { InputForm } from "../components/optimise/Inputs.tsx";
+import { InputForm } from "../components/InputForm.tsx";
 import { useApi } from "../hooks.ts";
 import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
 import type { Category, Meta } from "../types.ts";

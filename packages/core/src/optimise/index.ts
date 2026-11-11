@@ -53,7 +53,6 @@ export * from "./common.ts";
 export * from "./facts/index.ts";
 export * from "./headline.ts";
 export * from "./inputs.ts";
-export * from "./order.ts";
 export * from "./others.ts";
 export * from "./rates.ts";
 export * from "./situation.ts";
@@ -66,7 +65,7 @@ export const AREAS: readonly Area[] = [loans, savings, subscriptions, bank, elec
 /** A finding with `decideBy` this many days ahead or fewer lands in Seuraavat 60 päivää. */
 export const SOON_DAYS = 60;
 /** Rule 2: under this many complete months only deadlines... */
-export const MIN_MONTHS_ANY = 3;
+const MIN_MONTHS_ANY = 3;
 /** ...and under this many no euro figure. */
 export const MIN_MONTHS_EUROS = 6;
 

@@ -4,8 +4,8 @@
  */
 import { addMonths, fold, inputDefOf, type InputKey, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type StoredInput } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
-import { valueText } from "../components/optimise/Inputs.tsx";
-import { subjectName } from "../components/optimise/shared.tsx";
+import { valueText } from "../components/InputForm.tsx";
+import { subjectName } from "../components/subject-name.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { approxText } from "../components/Why.tsx";
 import { date, money } from "../format.ts";
