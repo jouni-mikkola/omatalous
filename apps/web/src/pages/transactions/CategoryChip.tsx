@@ -4,14 +4,16 @@
  * the row's menu and the category filter open the same one.
  */
 import { fold } from "@banking/core";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../text.ts";
 import type { Category } from "../../types.ts";
 import { CategoryIcon, slotOf } from "./category-look.tsx";
 
 export function CategoryMenu({ categories, value, onPick, note }: { categories: (Category & { groupName?: string })[]; value: string; onPick: (id: string) => void; note?: string }) {
   const [q, setQ] = useState("");
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(() => Math.max(0, categories.findIndex((c) => c.id === value)));
+  const [nav, setNav] = useState(1);
+  const seen = useRef(0);
   const shown = useMemo(() => {
     const f = fold(q.trim());
     return f ? categories.filter((c) => fold(c.label).includes(f) || fold(c.group).includes(f) || fold(c.groupName ?? "").includes(f)) : categories;
@@ -22,7 +24,17 @@ export function CategoryMenu({ categories, value, onPick, note }: { categories: 
     if (last?.group === c.group) last.items.push(c);
     else groups.push({ group: c.group, name: c.groupName ?? c.group, items: [c] });
   }
-  const move = (d: number) => setActive((i) => Math.min(Math.max(i + d, 0), shown.length - 1));
+  // keyboard moves (and the start) bring the option into the box of the list; a pointer moving over it does not
+  const activeId = shown[active]?.id;
+  useEffect(() => {
+    if (seen.current === nav || !activeId) return;
+    seen.current = nav;
+    document.getElementById(`tx-cat-${activeId}`)?.scrollIntoView({ block: "nearest" });
+  }, [nav, activeId]);
+  const move = (d: number) => {
+    setNav((n) => n + 1);
+    setActive((i) => Math.min(Math.max(i + d, 0), shown.length - 1));
+  };
   return (
     <div className="tx-catmenu">
       <input
@@ -33,6 +45,7 @@ export function CategoryMenu({ categories, value, onPick, note }: { categories: 
         aria-label={t("tx.cat_search")}
         value={q}
         onChange={(e) => {
+          setNav((n) => n + 1);
           setQ(e.target.value);
           setActive(0);
         }}
