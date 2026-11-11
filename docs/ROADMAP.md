@@ -270,6 +270,13 @@ Result: The plan gains 10 to 14 steps for web charts, tables, search and offline
 - locks: none
 - after: none
 
+### N33 Plan the keys and secrets steps
+Result: The plan gains 5 to 9 steps of 50 to 150 lines of product code, each a way the server differs from its security document in the files N31
+- why: N31 (#199) found 3 real faults but its time ran out: apps/server/src/security password.ts, totp.ts, secretbox.ts, offsite-keys.ts, private-key.ts, rsa-key.ts, x509.ts, the first 195 lines of cf-access.ts, platform validate.ts, outbound.ts, errors.ts, durable.ts, db/migrate.ts, migrate-check.ts and docs/SECURITY.md lines 161-195 and 326-399 are unread. It also left a 429 without Retry-After at auth/middleware.ts:34 as too small alone. 0 steps are free.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the keys and secrets steps. The plan gains 5 to 9 steps of 50 to 150 lines of product code, each a way the server differs from its security document in the files N31 did not read, reproduced on main with file and line, with its tests in the same step and its own lock; the missing Retry-After joins a step that touches the same file, and what was read is listed when fewer are found.
+- locks: none
+- after: none
+
 ### N31 Plan the safety and storage
 Result: The plan gains 8 to 12 steps where the server's handling of sessions, limits, headers, backups and the database falls short of the security
 - why: At 14:26Z no step is free for 14 slots and no plan step runs. docs/SECURITY.md and docs/security-audit-2026-10.md (2 mentions in the roadmap) were not read against apps/server/src/security, platform, db and static-files.ts.
