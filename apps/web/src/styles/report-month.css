@@ -1,6 +1,9 @@
 /* Kuukausi (pages/reports/Month.tsx): the month with its two arrows, the total line, the bar of a category with the tick of its usual, and the income line. */
 @layer pages {
 .km-head { display: flex; align-items: center; gap: var(--sp-8); }
+/* the arrows are the way into earlier months: buttons with an edge, a finger's size and a glyph as large as the month's name,
+   so they are not missed beside the heading */
+.km-head .btn-icon { min-inline-size: var(--tap-min); min-block-size: var(--tap-min); border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-title); line-height: 1; }
 .km-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--w-strong); color: var(--text); }
 /* the days read of a running month, under its name */
 .km-days { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
