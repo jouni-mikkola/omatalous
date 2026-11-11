@@ -166,6 +166,28 @@ function endedMessage(conn: Connection, today: string, timezone: string): string
     : `${conn.institution}: yhteys katkesi. Yhdistä uudelleen.`;
 }
 
+/** What the fetches of one connector's accounts share. */
+interface Pull {
+  s: Services;
+  repo: FinanceRepo;
+  connector: Connector;
+  puller: Puller;
+  summary: SyncSummary;
+  tally: Tally;
+  trigger: string;
+  today: string;
+  timezone: string;
+  /** The trigger each account's call is noted with (bank-limit.ts). */
+  notedFor: Map<string, string>;
+  /** The accounts whose bank got the member's headers. */
+  attendedIds: Set<string>;
+}
+
+/** A key the source refuses fails every account with the same words: once is enough. */
+function say(summary: SyncSummary, message: string): void {
+  if (!summary.messages.includes(message)) summary.messages.push(message);
+}
+
 function setProblem(tally: Tally, accountId: string, problem: FetchProblem | null): void {
   const old = tally.problems[accountId];
   if (!problem) {
@@ -189,30 +211,14 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
   await keepRecord("fetch notes", () => s.household.pruneFetchNotes(new Date(s.now().getTime() - FETCH_NOTES_KEEP_DAYS * 86_400_000).toISOString()));
   const puller = await sync.open({ s, repo, userHeaders });
   const accounts = await repo.listAccounts();
-  // an unattended run skips the accounts that have had their fetches of the day, whoever made them; the member's other accounts go on
-  // a fetch the user started that could not give the headers of an account's bank looks unattended to it: noted as such and counted
-  const notedFor = new Map<string, string>();
-  const attendedIds = new Set<string>();
-  const byTrigger = new Map<string, string[]>();
-  for (const a of accounts.filter((x) => x.externalId)) {
-    const attended = !!userHeaders && (!puller.attended || (await puller.attended({ id: a.id, externalId: a.externalId!, name: a.name }).catch(() => false)));
-    const noted = !attended && USER_STARTED.has(trigger) ? `${trigger}-bare` : trigger;
-    if (attended) attendedIds.add(a.id);
-    notedFor.set(a.id, noted);
-    byTrigger.set(noted, [...(byTrigger.get(noted) ?? []), accountKey(a)]);
-  }
-  const atLimit = new Set<string>();
-  for (const [noted, keys] of byTrigger) for (const key of await accountsAtLimit(s, keys, noted)) atLimit.add(key);
-  const say = (message: string) => {
-    // a key the source refuses fails every account with the same words: once is enough
-    if (!summary.messages.includes(message)) summary.messages.push(message);
-  };
+  const { notedFor, attendedIds, atLimit } = await noteAccounts(s, puller, accounts, trigger, userHeaders);
+  const pull: Pull = { s, repo, connector, puller, summary, tally, trigger, today, timezone, notedFor, attendedIds };
 
   for (const conn of connections) {
     const ends = consentEnd(conn.validUntil, timezone);
     if (ends !== null && ends < today) {
       await repo.setConnectionStatus(conn.id, "expired");
-      say(endedMessage(conn, today, timezone));
+      say(summary, endedMessage(conn, today, timezone));
       tally.failures++;
       continue;
     }
@@ -228,87 +234,129 @@ async function pullConnector(s: Services, repo: FinanceRepo, connector: Connecto
       }
       tally.attempts++;
       try {
-        // An account whose rows are all in another currency (kept apart, not among the euro rows) or that has none yet
-        // has no euro row, so the window follows its last completed fetch. Only an account never fetched before, or one on a consent
-        // the user just gave (`fresh`), asks for the longest history.
-        const stored = (await repo.latestBookingDate(account.id, connector.id)) ?? account.lastSyncedAt?.slice(0, 10) ?? null;
-        const latest = stored && stored > today ? today : stored;
-        const longest = latest === null || fresh;
-        const dateFrom = longest ? addDays(today, -s.instance.current.historyDays) : addDays(latest!, -OVERLAP_DAYS);
-        const target = { id: account.id, externalId: account.externalId!, name: account.name };
-        // the call counts for the account's key from here on: a refusal or a failure after it is a call as well
-        await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), notedFor.get(account.id) ?? trigger));
-        const split = splitByCurrency(await puller.transactions(target, { dateFrom, initial: longest }), accountKey(account));
-        const note = skippedNote(split.skipped, account.name);
-        if (note) summary.messages.push(note);
-        const r = await ingestTransactions(repo, account.id, split.euro, connector.id);
-        const refused: RefusedRows = { ...puller.refused?.(target), ...(r.skipped ? { twin: r.skipped } : {}) };
-        if (JSON.stringify(refused) !== JSON.stringify(tally.refused[account.id] ?? {})) {
-          tally.refused[account.id] = refused;
-          tally.refusedChanged = true;
-        }
-        summary.fetched += r.fetched;
-        summary.inserted += r.inserted;
-        tally.rowsChanged += r.changed;
-        // rows in another currency are kept in the bank's own figure; only a new or changed one moves the data version
-        tally.rowsChanged += await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString());
-        // what the bank answered for, not what was wanted: a refused window that fell back is a shorter history
-        const answered = puller.asked?.(target) ?? { dateFrom, longest };
-        await keepRecord("history", () => repo.recordHistory(account.id, answered.dateFrom, answered.longest ? "longest" : "default", s.now().toISOString()));
-        // with the headers the bank does not count the calls; without them they are counted and walk only inside the day's room
-        if (attendedIds.has(account.id) ? BACKFILL_TRIGGERS.has(trigger) : BARE_BACKFILL_TRIGGERS.has(trigger)) await backfill(s, repo, connector, puller, account, target, answered, fresh, attendedIds.has(account.id), tally, summary);
-
-        const told = await puller.balance(target);
-        await keepRecord("balances", () => repo.recordBalances(accountKey(account), today, s.now().toISOString(), recordable(told, account)));
-        // The balance is the account's own money in the account's own currency, or it is not stored: a figure in
-        // another currency would be read as euros, or as this account's. A card's debt is read from a booked balance,
-        // with the sign its reconciled balances taught (those just recorded included).
-        const card = account.type === "credit_card";
-        const shown = card ? cardBalance(told) : told[0];
-        if (shown !== undefined && balanceFitsAccount(shown, account.currency)) {
-          const cents = storedBalanceCents(account.type, shown.cents) * (card ? await cardSign(s, account) : 1);
-          const at = balanceStamp(shown, s.now(), today);
-          // the walk starts from the day the balance stands for, so a new day with the same sum is a change as well
-          if (account.balanceCents !== cents || (shown.referenceDay !== null && account.balanceAt !== at)) tally.balanceChanged = true;
-          await repo.setAccountBalance(account.id, cents, at);
-        } else if (card && shown === undefined && told.length && account.balanceCents !== null) {
-          // the card tells only available credit: a debt 0.64 read from it is wrong, and no balance is better
-          await repo.setAccountBalance(account.id, null, null);
-          tally.balanceChanged = true;
-        }
-        await repo.markAccountSynced(account.id, s.now().toISOString());
-        setProblem(tally, account.id, null);
-        await readDetails(repo, puller, account, target, tally);
+        await pullAccount(pull, account, fresh);
       } catch (err) {
-        tally.failures++;
-        const problem = sync.classify(err);
-        if (problem?.kind === "app_rejected") {
-          // the app's key or id is wrong: the consents are fine, nothing to re-authorise
-          say(problem.message);
-          continue;
-        }
-        if (problem?.kind === "consent_expired") {
-          await repo.setConnectionStatus(conn.id, "expired");
-          say(endedMessage(conn, today, timezone));
-          break;
-        }
-        if (problem?.kind === "not_linked") {
-          // a known state with its own fix, not a fault for the log
-          setProblem(tally, account.id, { kind: "not_linked", message: problem.message });
-          say(`${account.name}: ${problem.message}`);
-          continue;
-        }
-        if (problem?.kind === "upstream" && problem.rateLimited) tally.rateLimited = true;
-        // the details go to the log; the source's response text is not for the user's screen
-        console.error(`sync ${account.id}:`, err);
-        const message = `${problem ? problem.message : "haku epäonnistui"}.`;
-        setProblem(tally, account.id, { kind: "failed", message });
-        say(`${account.name}: ${message}`);
+        if (await pullFailed(pull, conn, account, err)) break;
       }
     }
     // a consent whose accounts were all left out has not been fetched: its first fetch is still to come
     if (skipped < own.length || !own.length) await repo.markConnectionSynced(conn.id, s.now().toISOString());
   }
+}
+
+/**
+ * The trigger each account's call is noted with, the accounts the member's headers go with and the keys of the accounts
+ * left out. An unattended run skips the accounts that have had their fetches of the day, whoever made them; the member's
+ * other accounts go on. A fetch the user started that could not give the headers of an account's bank looks unattended
+ * to it: noted as such and counted.
+ */
+async function noteAccounts(s: Services, puller: Puller, accounts: readonly StoredAccount[], trigger: string, userHeaders?: UserHeaders): Promise<{ notedFor: Map<string, string>; attendedIds: Set<string>; atLimit: Set<string> }> {
+  const notedFor = new Map<string, string>();
+  const attendedIds = new Set<string>();
+  const byTrigger = new Map<string, string[]>();
+  for (const a of accounts.filter((x) => x.externalId)) {
+    const attended = !!userHeaders && (!puller.attended || (await puller.attended({ id: a.id, externalId: a.externalId!, name: a.name }).catch(() => false)));
+    const noted = !attended && USER_STARTED.has(trigger) ? `${trigger}-bare` : trigger;
+    if (attended) attendedIds.add(a.id);
+    notedFor.set(a.id, noted);
+    byTrigger.set(noted, [...(byTrigger.get(noted) ?? []), accountKey(a)]);
+  }
+  const atLimit = new Set<string>();
+  for (const [noted, keys] of byTrigger) for (const key of await accountsAtLimit(s, keys, noted)) atLimit.add(key);
+  return { notedFor, attendedIds, atLimit };
+}
+
+/** One account's fetch: its rows, the older days, its balance and its details. Throws what the source answers with. */
+async function pullAccount(pull: Pull, account: StoredAccount, fresh: boolean): Promise<void> {
+  const { s, repo, connector, puller, summary, tally, trigger, today, notedFor, attendedIds } = pull;
+  // An account whose rows are all in another currency (kept apart, not among the euro rows) or that has none yet
+  // has no euro row, so the window follows its last completed fetch. Only an account never fetched before, or one on a consent
+  // the user just gave (`fresh`), asks for the longest history.
+  const stored = (await repo.latestBookingDate(account.id, connector.id)) ?? account.lastSyncedAt?.slice(0, 10) ?? null;
+  const latest = stored && stored > today ? today : stored;
+  const longest = latest === null || fresh;
+  const dateFrom = longest ? addDays(today, -s.instance.current.historyDays) : addDays(latest!, -OVERLAP_DAYS);
+  const target = { id: account.id, externalId: account.externalId!, name: account.name };
+  // the call counts for the account's key from here on: a refusal or a failure after it is a call as well
+  await keepRecord("fetch", () => repo.recordFetch(accountKey(account), s.now(), notedFor.get(account.id) ?? trigger));
+  const split = splitByCurrency(await puller.transactions(target, { dateFrom, initial: longest }), accountKey(account));
+  const note = skippedNote(split.skipped, account.name);
+  if (note) summary.messages.push(note);
+  const r = await ingestTransactions(repo, account.id, split.euro, connector.id);
+  const refused: RefusedRows = { ...puller.refused?.(target), ...(r.skipped ? { twin: r.skipped } : {}) };
+  if (JSON.stringify(refused) !== JSON.stringify(tally.refused[account.id] ?? {})) {
+    tally.refused[account.id] = refused;
+    tally.refusedChanged = true;
+  }
+  summary.fetched += r.fetched;
+  summary.inserted += r.inserted;
+  tally.rowsChanged += r.changed;
+  // rows in another currency are kept in the bank's own figure; only a new or changed one moves the data version
+  tally.rowsChanged += await repo.storeForeignRows(accountKey(account), split.foreign, s.now().toISOString());
+  // what the bank answered for, not what was wanted: a refused window that fell back is a shorter history
+  const answered = puller.asked?.(target) ?? { dateFrom, longest };
+  await keepRecord("history", () => repo.recordHistory(account.id, answered.dateFrom, answered.longest ? "longest" : "default", s.now().toISOString()));
+  // with the headers the bank does not count the calls; without them they are counted and walk only inside the day's room
+  if (attendedIds.has(account.id) ? BACKFILL_TRIGGERS.has(trigger) : BARE_BACKFILL_TRIGGERS.has(trigger)) await backfill(s, repo, connector, puller, account, target, answered, fresh, attendedIds.has(account.id), tally, summary);
+
+  await storeBalance(pull, account, target);
+  await repo.markAccountSynced(account.id, s.now().toISOString());
+  setProblem(tally, account.id, null);
+  await readDetails(repo, puller, account, target, tally);
+}
+
+/**
+ * The balance is the account's own money in the account's own currency, or it is not stored: a figure in
+ * another currency would be read as euros, or as this account's. A card's debt is read from a booked balance,
+ * with the sign its reconciled balances taught (those just recorded included).
+ */
+async function storeBalance(pull: Pull, account: StoredAccount, target: PullAccount): Promise<void> {
+  const { s, repo, puller, tally, today } = pull;
+  const told = await puller.balance(target);
+  await keepRecord("balances", () => repo.recordBalances(accountKey(account), today, s.now().toISOString(), recordable(told, account)));
+  const card = account.type === "credit_card";
+  const shown = card ? cardBalance(told) : told[0];
+  if (shown !== undefined && balanceFitsAccount(shown, account.currency)) {
+    const cents = storedBalanceCents(account.type, shown.cents) * (card ? await cardSign(s, account) : 1);
+    const at = balanceStamp(shown, s.now(), today);
+    // the walk starts from the day the balance stands for, so a new day with the same sum is a change as well
+    if (account.balanceCents !== cents || (shown.referenceDay !== null && account.balanceAt !== at)) tally.balanceChanged = true;
+    await repo.setAccountBalance(account.id, cents, at);
+  } else if (card && shown === undefined && told.length && account.balanceCents !== null) {
+    // the card tells only available credit: a debt 0.64 read from it is wrong, and no balance is better
+    await repo.setAccountBalance(account.id, null, null);
+    tally.balanceChanged = true;
+  }
+}
+
+/** What an account's failed fetch leaves behind. True when the consent ended: the rest of its accounts are not asked. */
+async function pullFailed(pull: Pull, conn: Connection, account: StoredAccount, err: unknown): Promise<boolean> {
+  const { repo, connector, summary, tally, today, timezone } = pull;
+  tally.failures++;
+  const problem = connector.sync!.classify(err);
+  if (problem?.kind === "app_rejected") {
+    // the app's key or id is wrong: the consents are fine, nothing to re-authorise
+    say(summary, problem.message);
+    return false;
+  }
+  if (problem?.kind === "consent_expired") {
+    await repo.setConnectionStatus(conn.id, "expired");
+    say(summary, endedMessage(conn, today, timezone));
+    return true;
+  }
+  if (problem?.kind === "not_linked") {
+    // a known state with its own fix, not a fault for the log
+    setProblem(tally, account.id, { kind: "not_linked", message: problem.message });
+    say(summary, `${account.name}: ${problem.message}`);
+    return false;
+  }
+  if (problem?.kind === "upstream" && problem.rateLimited) tally.rateLimited = true;
+  // the details go to the log; the source's response text is not for the user's screen
+  console.error(`sync ${account.id}:`, err);
+  const message = `${problem ? problem.message : "haku epäonnistui"}.`;
+  setProblem(tally, account.id, { kind: "failed", message });
+  say(summary, `${account.name}: ${message}`);
+  return false;
 }
 
 /** The balances of a fetch that may be recorded: named in euros and the account's own currency, signed as the account stores one. */

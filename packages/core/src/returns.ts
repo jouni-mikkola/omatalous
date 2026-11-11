@@ -144,12 +144,25 @@ export const partyKey = (t: Pick<Transaction, "accountId" | "merchant">) => `${t
 /** A named payer or payee that is not one of the user's own accounts. */
 export const isNamed = (t: Pick<Transaction, "merchant" | "counterpartyIban">, ownIbans: ReadonlySet<string>) => t.merchant !== UNKNOWN_MERCHANT && !ownIbans.has(normalizeIban(t.counterpartyIban) ?? "");
 
-/** Finds the payment each incoming row cancels. `rows` are sorted by date and id. */
 /** The day of the newest booked row: the history's own today where the caller knows no other. A pending row is no evidence of the day. `rows` are sorted. */
 const latestDay = (rows: readonly ReturnInput[]): IsoDate => rows.findLast((t) => t.status !== "pending")?.bookingDate ?? "0000-00-00";
 
+/** Finds the payment each incoming row cancels. `rows` are sorted by date and id. */
 function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIbans: ReadonlySet<string>, today: IsoDate, firstIncome?: ReadonlyMap<string, string>): Map<string, string> {
   if (!incoming.length) return new Map();
+  const { purchases, list } = purchasesOf(rows, ownIbans);
+  const contracts = contractsOf(rows, ownIbans);
+  const matches = new Map<string, string>();
+  pairWalletShares(list, incoming, matches);
+  pairSameParty(purchases, incoming, matches);
+  pairClosedContracts(contracts, incoming, today, matches);
+  pairByPayee(purchases, contracts, incoming, firstIncome, matches);
+  pairBillShares(list, incoming, matches);
+  return matches;
+}
+
+/** The payments a return may cancel: by party (see `partyKey`) and all of them, in the rows' order. */
+function purchasesOf(rows: readonly ReturnInput[], ownIbans: ReadonlySet<string>): { purchases: Map<string, Purchase[]>; list: Purchase[] } {
   const purchases = new Map<string, Purchase[]>();
   const list: Purchase[] = [];
   for (const t of rows) {
@@ -161,10 +174,11 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
     if (group) group.push(p);
     else purchases.set(key, [p]);
   }
+  return { purchases, list };
+}
 
-  const matches = new Map<string, string>();
-
-  // MobilePay shares of the household's own purchases (not bills, not people), before anything else reads the rows
+/** MobilePay shares of the household's own purchases (not bills, not people), before anything else reads the rows. */
+function pairWalletShares(list: readonly Purchase[], incoming: readonly Incoming[], matches: Map<string, string>): void {
   const wallet = incoming.filter((i) => i.wallet);
   if (wallet.length) {
     const byId = new Map(list.map((p) => [p.t.id, p]));
@@ -177,8 +191,10 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
       byId.get(purchaseId)!.left -= wallet.find((i) => i.t.id === id)!.t.amountCents;
     }
   }
+}
 
-  // refunds from the same merchant and people paying back what they were sent
+/** Refunds from the same merchant and people paying back what they were sent. */
+function pairSameParty(purchases: ReadonlyMap<string, Purchase[]>, incoming: readonly Incoming[], matches: Map<string, string>): void {
   for (const inc of incoming) {
     if (inc.wallet) continue;
     const cents = inc.t.amountCents;
@@ -197,9 +213,10 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
       matches.set(inc.t.id, best.t.id);
     }
   }
+}
 
-  // the refund that closes a contract takes back what the contract cost, not one payment: it is paired with the last.
-  // A loan's payments count as well as spending (`moneyIn` nets a loan's closing refund too)
+/** The payments of each party that may be a contract's: a loan's payments count as well as spending (`moneyIn` nets a loan's closing refund too). */
+function contractsOf(rows: readonly ReturnInput[], ownIbans: ReadonlySet<string>): Map<string, ReturnInput[]> {
   const contracts = new Map<string, ReturnInput[]>();
   for (const t of rows) {
     if (t.amountCents >= 0 || !isNamed(t, ownIbans) || NOT_A_PURCHASE.has(t.category) || !["expense", "debt"].includes(getCategory(t.category).kind)) continue;
@@ -207,16 +224,25 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
     if (group) group.push(t);
     else contracts.set(partyKey(t), [t]);
   }
+  return contracts;
+}
+
+/** The refund that closes a contract takes back what the contract cost, not one payment: it is paired with the last. */
+function pairClosedContracts(contracts: ReadonlyMap<string, ReturnInput[]>, incoming: readonly Incoming[], today: IsoDate, matches: Map<string, string>): void {
   for (const inc of incoming) {
     const group = contracts.get(partyKey(inc.t));
     if (inc.wallet || inc.person || matches.has(inc.t.id) || !group || group.length < 3) continue;
     const closed = closedContract(group, inc.t, today);
     if (closed) matches.set(inc.t.id, closed[closed.length - 1]!.id);
   }
+}
 
-  // A refund no single purchase holds (more than is left of any one, the window kept) is still the merchant's: it takes the
-  // latest earlier purchase. By its word, or, from a payee the household only pays and has had no money in from before
-  // (`firstIncome`, given when the rows are not yet categorised), by that alone when it is no more than is left of the payments and the payee is no contract. Else the money in is income.
+/**
+ * A refund no single purchase holds (more than is left of any one, the window kept) is still the merchant's: it takes the
+ * latest earlier purchase. By its word, or, from a payee the household only pays and has had no money in from before
+ * (`firstIncome`, given when the rows are not yet categorised), by that alone when it is no more than is left of the payments and the payee is no contract. Else the money in is income.
+ */
+function pairByPayee(purchases: ReadonlyMap<string, Purchase[]>, contracts: ReadonlyMap<string, ReturnInput[]>, incoming: readonly Incoming[], firstIncome: ReadonlyMap<string, string> | undefined, matches: Map<string, string>): void {
   const seen = new Set<string>();
   for (const inc of incoming) {
     if (inc.wallet || inc.person || matches.has(inc.t.id)) continue;
@@ -239,8 +265,10 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
       matches.set(inc.t.id, best.t.id);
     } else if (firstIncome) seen.add(key);
   }
+}
 
-  // friends sending their shares of a bill paid to a business
+/** Friends sending their shares of a bill paid to a business. */
+function pairBillShares(list: readonly Purchase[], incoming: readonly Incoming[], matches: Map<string, string>): void {
   const people = incoming.filter((i) => i.share && !matches.has(i.t.id));
   if (people.length) {
     for (const p of list) {
@@ -269,7 +297,6 @@ function pair(rows: readonly ReturnInput[], incoming: readonly Incoming[], ownIb
       }
     }
   }
-  return matches;
 }
 
 /** The order of the rows `sortedRows` makes: the day, then the id. */
