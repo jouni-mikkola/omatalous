@@ -7,8 +7,9 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { incomeBase, passes } from "../src/analysis/income-series.ts";
 import { expectedIncome } from "../src/analysis/expected.ts";
+import { incomeChanges, incomeInsights } from "../src/analysis/income-changes.ts";
 import { addMonths, dateIn } from "../src/dates.ts";
-import type { Account, Transaction } from "../src/types.ts";
+import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -40,6 +41,35 @@ describe("unknown money in", () => {
     // 2 % of 3 000 € is 60 €, of 4 000 € 80 €
     expect(passes(incomeBase(unknown, today), 7000)).toBe(true);
     expect(passes(incomeBase(told, today), 7000)).toBe(false);
+  });
+
+  /** Salary from 2025-10 to 2026-10 and two rows from one sender in the last 92 days. */
+  function sender(source: Transaction["categorySource"], category: string): Transaction[] {
+    const rows = household("rule").filter((t) => t.merchant !== "Matti Esimerkki");
+    return [
+      ...rows,
+      tx({ bookingDate: "2026-08-12", amountCents: 140_000, merchant: "Osto Oy", category, categorySource: source }),
+      tx({ bookingDate: "2026-09-12", amountCents: 200_000, merchant: "Osto Oy", category, categorySource: source }),
+    ];
+  }
+  const newOf = (rows: Transaction[]) => {
+    const ctx = createContext(rows, [checking], today);
+    return {
+      changes: incomeChanges(incomeBase(ctx, today), true).filter((c) => c.kind === "new_source"),
+      insights: incomeInsights(ctx, { from: "2025-10-01", to: today }, NO_INPUTS).filter((i) => i.fact.type === "income" && i.fact.change === "new_source"),
+    };
+  };
+
+  it("gives no new source and no insight for two untold rows from one sender", () => {
+    const found = newOf(sender("default", "income"));
+    expect(found.changes).toEqual([]);
+    expect(found.insights).toEqual([]);
+  });
+
+  it("gives the new source once the user has typed the same rows", () => {
+    const found = newOf(sender("rule", "sales"));
+    expect(found.changes.map((c) => c.payer)).toEqual(["Osto Oy"]);
+    expect(found.insights).toHaveLength(1);
   });
 
 });

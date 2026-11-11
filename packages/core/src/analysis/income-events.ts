@@ -15,7 +15,8 @@ import { eur, type IncomeBase, type IncomeChange, isKela, monthIn, passes, short
 import { isOtherTaxText, isResidualTaxText } from "../wording.ts";
 
 const NEW_SOURCE_DAYS = 92;
-const NEVER_NEW: ReadonlySet<IncomeType> = new Set(["tax_refund", "holiday_pay", "other_pay", "persons", "refunds"]);
+// unknown is money nothing has told yet, no source until the user types it
+const NEVER_NEW: ReadonlySet<IncomeType> = new Set(["tax_refund", "holiday_pay", "other_pay", "persons", "refunds", "unknown"]);
 
 export function newSources(b: IncomeBase, skip: ReadonlySet<string>, lang: Language = DEFAULT_LANGUAGE): IncomeChange[] {
   const byPayer = new Map<string, AnalysisTx[]>();
