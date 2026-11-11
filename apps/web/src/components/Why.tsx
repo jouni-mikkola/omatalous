@@ -246,7 +246,7 @@ const WHO: Partial<Record<WhyFigureId, "why.who_account" | "why.who_account_or_p
 };
 
 /** The lines of the answer: the day, the name and the cents, then what is said under them. */
-function LineTable({ lines, shown, who, kind }: { lines: Line[]; shown: Shown; who: string; kind: "counted" | "left" | "plain" }) {
+function LineTable({ lines, shown, who, kind, came }: { lines: Line[]; shown: Shown; who: string; kind: "counted" | "left" | "plain"; /** The first row "Näytä kaikki" brought: it can take the focus. */ came?: string }) {
   const { figure, names } = shown;
   const categoryOf = (l: Line) => {
     const tx = names.rows.get(l.id);
@@ -276,7 +276,10 @@ function LineTable({ lines, shown, who, kind }: { lines: Line[]; shown: Shown; w
       rowKey={(l) => l.id}
       columns={columns}
       className="why-rows"
-      rowProps={(l) => (kind === "left" ? { "data-why-left": l.id } : kind === "counted" ? { "data-why-row": l.id } : {})}
+      rowProps={(l) => ({
+        ...(kind === "left" ? { "data-why-left": l.id } : kind === "counted" ? { "data-why-row": l.id } : {}),
+        ...(came !== undefined && l.id === came ? { "data-why-came": "", tabIndex: -1 } : {}),
+      })}
       subRow={(l) => lineNote(l, shown, kind)}
     />
   );
@@ -324,6 +327,10 @@ function WhyPanel({ figure, title, range, scope, category, row, account, loan, o
   const shown: Shown = { figure, names, categories: figure !== "share.part" && varies(counted, names) };
   const leftShown: Shown = { ...shown, categories: figure !== "share.part" && varies(left, names) };
   const shownRows = all ? counted : counted.slice(0, FIRST_ROWS);
+  // "Näytä kaikki" removes itself: the focus goes to the first row it brought, not to the page behind the sheet
+  useEffect(() => {
+    if (all) ref.current?.querySelector<HTMLElement>("[data-why-came]")?.focus();
+  }, [all, ref]);
   const kind = splits ? "counted" : "plain";
   const check = e ? checkText(e.check) : null;
   const method = e?.method;
@@ -355,7 +362,11 @@ function WhyPanel({ figure, title, range, scope, category, row, account, loan, o
             )}
             {method?.kind !== "median" && (
               <>
-                <LineTable lines={shownRows} shown={shown} who={WHO[figure] ? t(WHO[figure]) : t("ui.payee")} kind={kind} />
+                <LineTable lines={shownRows} shown={shown} who={WHO[figure] ? t(WHO[figure]) : t("ui.payee")} kind={kind} came={all ? counted[FIRST_ROWS]?.id : undefined} />
+                {/* empty until the press, so the number of rows is spoken once */}
+                <span className="sr-only" data-why-count="" role="status" aria-live="polite">
+                  {all && counted.length > FIRST_ROWS ? t("table.shown", { count: counted.length, total: counted.length }) : ""}
+                </span>
                 {counted.length > FIRST_ROWS && !all && (
                   <Button variant="link" onClick={() => setAll(true)}>
                     {t("why.show_all")}
