@@ -213,6 +213,13 @@ Result: Ten to fourteen new steps wait for free workers, each one thing docs/des
 - locks: none
 - after: none
 
+### N26 Plan the audit's open moves
+Result: The plan gains 10 to 14 steps, one for each move of the audit that main still lacks, so the app loses parts nobody uses.
+- why: At 14:05Z no step is free for 14 slots. docs/audit/simplify.md section 7 ranks 25 moves and sections 2 and 3 name over-built parts and features; nobody has checked which of them main still lacks.
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the audit's open moves. The plan gains 10 to 14 steps, one for each move of the audit that main still lacks, so the app loses parts nobody uses. Each step: a fault or gap reproduced on main with its file and line, 50 to 150 lines of product code a user sees or relies on, its tests in the same step, its own lock named by no other step, not behind T69 or the nav lock, and not a result that main or an open step (P1-P10, S6-S11, C5, T56, T76, T77, T82-T84, T105, T111) already holds. No step that is only tests, and no done-when that says under N lines.
+- locks: none
+- after: none
+
 ### C2 No repeated common password
 Result: A password that is one word said twice with a digit at the end, such as passwordpassword1, is refused like the word said twice alone.
 - why: `checkPassword` tests for a repeated block on the whole password only, so one digit or sign after the repeats lets it through: passwordpassword1 is allowed at level 3 of 4.
