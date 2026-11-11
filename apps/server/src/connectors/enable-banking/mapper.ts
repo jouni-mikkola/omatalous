@@ -205,7 +205,13 @@ function bankCode(v: string | null | undefined): string {
 
 /** A free text of the bank's, trimmed and cut, or null. */
 function bankText(v: string | null | undefined, max: number): string | null {
-  return v?.trim().slice(0, max) || null;
+  return accountText(v, max) || null;
+}
+
+/** Account text: as before (trimmed, cut) when it has no control, zero-width or line-separator character, else cleaned as a row's. */
+function accountText(v: string | null | undefined, max: number): string {
+  const plain = (v ?? "").trim();
+  return UNWANTED.test(plain) ? cleanBankText(plain, max) : plain.slice(0, max);
 }
 
 /** What the bank says the account is, kept as sent so a wrong guess of the type can be seen (migration 0023). */
@@ -220,14 +226,14 @@ export function bankAccountFields(a: EbAccount): BankAccountFields {
 export function accountHolder(a: EbAccount): string | null {
   const names = (a.name ?? "")
     .split(";")
-    .map((n) => n.trim())
+    .map((n) => accountText(n, Infinity))
     .filter(Boolean);
-  return names.length ? names.join(", ").slice(0, 120) : null;
+  return names.length ? accountText(names.join(", "), 120) : null;
 }
 
 /** The bank's product name when it gives one, else what it gave before product names were read: the holder, then the description. */
 function nameOf(a: EbAccount): string | null {
-  return (a.product?.trim() || accountHolder(a) || a.details?.trim() || a.account_id?.iban || null)?.slice(0, 120) ?? null;
+  return accountText(a.product, 120) || accountHolder(a) || accountText(a.details, 120) || a.account_id?.iban?.slice(0, 120) || null;
 }
 
 export function accountName(a: EbAccount): string {
