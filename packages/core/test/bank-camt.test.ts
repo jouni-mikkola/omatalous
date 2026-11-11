@@ -46,6 +46,30 @@ describe("readBankCamt", () => {
     expect(r).toMatchObject({ rows: [{ day: "2026-09-07", cents: 1000, text: "viesti & muuta" }], unread: ["2026-09-08 ODOTTAA"] });
   });
 
+  it("reads an entry with only a reference or only the bank's code, each after the name, the message and the entry's own text", () => {
+    const bare = (inner: string, extra = "") =>
+      `<Ntry><Amt Ccy="EUR">5.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts>BOOK</Sts><BookgDt><Dt>2026-09-07</Dt></BookgDt>${extra}<NtryDtls><TxDtls>${inner}</TxDtls></NtryDtls></Ntry>`;
+    const rows = (...entries: string[]) => (readBankCamt(file("995.00", entries)) as { rows?: unknown[] }).rows;
+    const ref = "<RmtInf><Strd><CdtrRefInf><Ref>1234561</Ref></CdtrRefInf></Strd></RmtInf>";
+    const code = "<BkTxCd><Prtry><Cd>PALVELUMAKSU</Cd></Prtry></BkTxCd>";
+    const name = "<RltdPties><Cdtr><Nm>Kauppa</Nm></Cdtr></RltdPties>";
+    const row = (text: string) => [{ day: "2026-09-07", cents: -500, text }];
+
+    expect(rows(bare(ref))).toEqual(row("1234561"));
+    expect(rows(bare("", code))).toEqual(row("PALVELUMAKSU"));
+    expect(rows(bare(code))).toEqual(row("PALVELUMAKSU"));
+    // the order: name, message, AddtlNtryInf, reference, code
+    expect(rows(bare(ref, code))).toEqual(row("1234561"));
+    expect(rows(bare(ref, `${code}<AddtlNtryInf>Lisatieto</AddtlNtryInf>`))).toEqual(row("Lisatieto"));
+    expect(rows(bare(`<RmtInf><Ustrd>viesti</Ustrd>${ref.slice(8)}`, `${code}<AddtlNtryInf>Lisatieto</AddtlNtryInf>`))).toEqual(row("viesti"));
+    expect(rows(bare(name + `<RmtInf><Ustrd>viesti</Ustrd>${ref.slice(8)}`, `${code}<AddtlNtryInf>Lisatieto</AddtlNtryInf>`))).toEqual(row("Kauppa"));
+
+    // none of the five is still refused, and the closing balance is still checked
+    expect(readBankCamt(file("995.00", [bare("")]))).toEqual({ error: "unreadable" });
+    expect(readBankCamt(file("990.00", [bare(ref)]))).toEqual({ error: "mismatch", opening: 100000, closing: 99000, expected: 99500, difference: -500 });
+    expect(readBankCamt(file("990.00", [bare("", code)]))).toMatchObject({ error: "mismatch", difference: -500 });
+  });
+
   it("refuses what is not a camt.053 file, other currencies, no balance and a DOCTYPE", () => {
     expect(readBankCamt("Kirjauspäivä;Määrä\n1;2")).toEqual({ error: "not_camt" });
     expect(readBankCamt(file("3435.40", ENTRIES).replaceAll('Ccy="EUR"', 'Ccy="USD"'))).toEqual({ error: "currency" });

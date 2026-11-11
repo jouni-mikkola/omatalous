@@ -107,7 +107,10 @@ function entryText(e: Node, credit: boolean): string {
   // a batch entry has one sum and several transactions: all their parties are named, none is picked
   const parties = [...new Set(details.map((d) => cleanStatementText(text(d, "RltdPties", side, "Nm") || text(d, "RltdPties", side, "Pty", "Nm"))).filter(Boolean))];
   const message = details.map((d) => kids(path(d, "RmtInf"), "Ustrd").map((u) => u.text).join(" "));
-  return [parties.join(", "), message.length === 1 ? message[0] : "", text(e, "AddtlNtryInf")].find((s) => s && cleanStatementText(s)) ?? "";
+  // an entry with a reference alone, or with the bank's own code alone (a service fee), is still a row
+  const refs = [...new Set(details.flatMap((d) => kids(path(d, "RmtInf"), "Strd").map((s) => text(s, "CdtrRefInf", "Ref"))).filter(Boolean))];
+  const code = text(e, "BkTxCd", "Prtry", "Cd") || (details.length === 1 ? text(details[0], "BkTxCd", "Prtry", "Cd") : "");
+  return [parties.join(", "), message.length === 1 ? message[0] : "", text(e, "AddtlNtryInf"), refs.join(", "), code].find((s) => s && cleanStatementText(s)) ?? "";
 }
 
 /** The rows of a camt.053 text, with its closing balance checked, or the reason it is refused. */
