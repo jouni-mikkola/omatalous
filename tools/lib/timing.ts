@@ -43,7 +43,7 @@ export async function bestOf<T>(runs: number, run: () => Promise<T>, prepare: ()
 }
 
 /** What `calibrate` reads on an idle machine: a budget stretches by how much slower it runs now (slowerNow). */
-export const CALIBRATION_IDLE_MS = 80;
+const CALIBRATION_IDLE_MS = 80;
 
 /** How much slower than idle the machine runs the calibration, the faster of two readings (never under 1). */
 export function slowerNow(before: number): number {

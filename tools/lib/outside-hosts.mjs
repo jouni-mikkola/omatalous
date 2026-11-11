@@ -14,7 +14,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /** Hosts of the machine itself. The e2e runs use a fake bank on 127.0.0.1, so these are allowed by name and are not in the document. */
-export const LOCAL_HOSTS = ["127.0.0.1", "localhost", "[::1]", "::1"];
+const LOCAL_HOSTS = ["127.0.0.1", "localhost", "[::1]", "::1"];
 
 /** @param {string} text docs/SECURITY.md @param {readonly string[]} [turnedOn] the opt-in services a run turned on @returns {string[]} */
 export function listedHosts(text, turnedOn = []) {
@@ -37,7 +37,7 @@ export function isAllowed(patterns, host) {
 }
 
 /** What the recorders wrote: host -> who called it ("server" or "browser"). @param {string} dir @returns {Map<string, Set<string>>} */
-export function recordedHosts(dir) {
+function recordedHosts(dir) {
   /** @type {Map<string, Set<string>>} */
   const seen = new Map();
   for (const file of readdirSync(dir)) {
@@ -51,7 +51,7 @@ export function recordedHosts(dir) {
 }
 
 /** The opt-in services the specs of a run turned on. @param {string} dir @returns {string[]} */
-export function turnedOnServices(dir) {
+function turnedOnServices(dir) {
   const names = new Set();
   for (const file of readdirSync(dir)) {
     for (const line of readFileSync(join(dir, file), "utf8").split("\n")) {

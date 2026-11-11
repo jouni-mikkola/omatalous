@@ -4,8 +4,8 @@
   "vitest": false,
   "workspaces": {
     ".": {
-      "entry": ["tools/findings/*.ts"],
-      "project": ["tools/findings/**/*.ts"]
+      "entry": ["tools/findings/*.ts", "tools/**/*.test.ts", "tools/*.mjs", "tools/lib/{test-setup,test-markup,tmp-guard,dom-environment}.ts", "e2e/**/*.spec.ts", "e2e/*.mjs", "e2e/playwright.config.ts"],
+      "project": ["tools/findings/**/*.ts", "tools/lib/*.{ts,mjs}", "e2e/*.ts"]
     },
     "packages/core": {
       "project": ["src/**/*.ts"],

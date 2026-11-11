@@ -3,7 +3,7 @@
  * word of the app does) or is one of these: the words of the app's own texts that an English text never uses. The list is
  * for words without those letters; add a word the scan missed, with the text it came from.
  */
-export const FINNISH_WORDS = new Set(
+const FINNISH_WORDS = new Set(
   (
     "ja tai ei ovat oli olla ole sinä sinun oma omat tili tilit tilien tilin tilille lasku laskut laskun tapahtuma tapahtumat tapahtumaa tapahtumien " +
     "raportti raportit raportin kuukausi kuukauden kuukautta vuosi vuoden vuotta viikko päivä päivää " +
@@ -24,7 +24,7 @@ export const FINNISH_WORDS = new Set(
 const BANK_DATA = new Set(["säästötili", "käyttötili", "tilin"]);
 
 /** The words of a text, lower case, without the digits and the marks between them. */
-export const wordsOf = (text: string): string[] => text.toLowerCase().match(/[\p{L}]+/gu) ?? [];
+const wordsOf = (text: string): string[] => text.toLowerCase().match(/[\p{L}]+/gu) ?? [];
 
 /** The Finnish words of a text: those with ä, ö or å, and those on the list. */
 export function finnishIn(text: string): string[] {
