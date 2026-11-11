@@ -23,6 +23,7 @@ import type { IsoDate } from "../types.ts";
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { accountCovers } from "../analysis/coverage.ts";
 import { INCOME_TYPES } from "../analysis/income.ts";
+import { MAJOR_PAY_SHARE } from "../thresholds.ts";
 import { incomeBase } from "../analysis/income-series.ts";
 import { largePurchases } from "../analysis/large.ts";
 import { netPurchase } from "../analysis/context.ts";
@@ -72,7 +73,6 @@ const TOLD_CHANCE = 0.001;
 const TOLD_EXTRA_CENTS = 5000;
 /** A pay this much of the series' usual level or more is a pay day; a small top-up is not. */
 const PAY_SHARE = 0.5;
-const MIN_PAY_CENTS = 50_000;
 /** Pays of several series within this many days are one pay day. */
 const SAME_PAY_DAYS = 3;
 const MIN_CYCLE_ROWS = 8;
@@ -222,12 +222,16 @@ export function paydayEffect(ctx: AnalysisContext): PaydayEffect {
 
 /**
  * The household's pay days as day numbers, oldest first: the days pay of a regular earned income came (salary, pension,
- * a regular benefit), from 500 € and half the series' usual level. Pays of two series within three days are one.
+ * a regular benefit) of the series whose usual amount is at least `MAJOR_PAY_SHARE` of the largest one's (as `coming.ts`
+ * waits for), each pay from half the series' usual level. A household with one small income keeps its pay days.
+ * Pays of two series within three days are one.
  */
 export function payDays(ctx: AnalysisContext): number[] {
   const days: number[] = [];
-  for (const s of incomeBase(ctx, ctx.today).series) {
-    if (!INCOME_TYPES[s.type].regular || s.usualCents < MIN_PAY_CENTS) continue;
+  const regular = incomeBase(ctx, ctx.today).series.filter((s) => INCOME_TYPES[s.type].regular && s.usualCents > 0);
+  const top = Math.max(0, ...regular.map((s) => s.usualCents));
+  for (const s of regular) {
+    if (s.usualCents < top * MAJOR_PAY_SHARE) continue;
     for (const t of s.rows) if (t.amountCents >= s.usualCents * PAY_SHARE) days.push(t.day);
   }
   days.sort((a, b) => a - b);

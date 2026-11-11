@@ -4,6 +4,7 @@
  * figures: the debt total, the day walk and `loanBalanceOn`. Made-up accounts and loans only.
  */
 import { describe, expect, it } from "vitest";
+import { addDays } from "../src/dates.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { buildHousing } from "../src/housing.ts";
@@ -314,5 +315,41 @@ describe("the marks of the accounts on the first page, worked out in core", () =
   it("leaves an unknown balance out of both", () => {
     expect(marks(70_000, null, 30_000)).toEqual({ adds: true, shares: [70, null, 30] });
     expect(marks(null, null)).toEqual({ adds: false, shares: null });
+  });
+});
+
+/** Regular incomes of `months` months up to the 2026-10-18, one per `[day, cents, kind]`, with purchases between so the sync covers the days. */
+function paysHousehold(pays: Array<[number, number, "salary" | "benefit"]>) {
+  const rows: Transaction[] = [];
+  for (let m = 0; m < 10; m++) {
+    const month = `${m < 3 ? "2025" : "2026"}-${String(((m + 9) % 12) + 1).padStart(2, "0")}`;
+    for (const [day, cents, kind] of pays) {
+      rows.push(
+        kind === "salary"
+          ? tx({ bookingDate: `${month}-${String(day).padStart(2, "0")}`, amountCents: cents, merchant: "Yritys Oy", counterparty: "Yritys Oy", category: "salary", categorySource: "rule" })
+          : tx({ bookingDate: `${month}-${String(day).padStart(2, "0")}`, amountCents: cents, merchant: "Kela", counterparty: "KELA", description: "KELA YLEISTUKI", category: "benefits", categorySource: "rule" }),
+      );
+    }
+  }
+  for (let d = 0; d < 300; d += 2) rows.push(tx({ bookingDate: addDays("2025-12-20", d) > "2026-10-18" ? "2026-10-18" : addDays("2025-12-20", d), amountCents: -2500, merchant: "K-Market", category: "groceries", categorySource: "rule" }));
+  return createContext(rows, ACCOUNTS, "2026-10-18");
+}
+
+
+
+describe("pay day markers of the balance report", () => {
+  const markers = (pays: Array<[number, number, "salary" | "benefit"]>) => {
+    const ctx = paysHousehold(pays);
+    return balanceReport(ctx, { from: "2026-06-01", to: "2026-10-18" }, [], inputsOf([])).payDays.map((d) => Number(d.slice(8)));
+  };
+  it("a benefit of 600 € beside a salary of 4 000 € adds no marker", () => {
+    expect([...new Set(markers([[25, 400_000, "salary"], [10, 60_000, "benefit"]]))]).toEqual([25]);
+  });
+  it("a benefit of 2 100 € or more adds its own", () => {
+    expect([...new Set(markers([[25, 400_000, "salary"], [10, 210_000, "benefit"]]))].sort((a, b) => a - b)).toEqual([10, 25]);
+  });
+  it("two pays within three days are one marker a month, and a lone small income keeps its markers", () => {
+    expect(markers([[25, 400_000, "salary"], [27, 300_000, "benefit"]]).length).toBe(markers([[25, 400_000, "salary"]]).length);
+    expect(new Set(markers([[10, 30_000, "benefit"]]))).toEqual(new Set([10]));
   });
 });
