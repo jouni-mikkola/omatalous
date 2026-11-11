@@ -33,9 +33,9 @@
 @media (max-width: 1099px) { .user-menu summary .small { display: none; } }
 .nav { display: flex; gap: 0; }
 .nav a, .review-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 var(--sp-12); color: var(--on-ink-2); font-size: var(--fs-body); font-weight: 600; text-decoration: none; }
-/* one row up to 1299 px holds the private build's extra page beside the view switch and a long name: the links sit closer */
+/* one row up to 1299 px holds the view switch and a long name: the links sit closer */
 @media (min-width: 990px) and (max-width: 1299px) { .nav a, .review-link { padding: 0 var(--sp-8); } }
-/* and the items stand closer: at 1100 px the private build's extra page, the view switch and the review count need the 12 px less a gap */
+/* and the items stand closer: at 1100 px the view switch and the review count need the 12 px less a gap */
 @media (min-width: 1100px) and (max-width: 1299px) { .topbar-in { gap: 0 8px; } }
 .nav a:hover, .review-link:hover { background: var(--ink-2); color: var(--on-ink); }
 .nav a[aria-current="page"], .review-link[aria-current="page"] { background: none; color: var(--on-ink); box-shadow: inset 0 -3px 0 var(--on-ink); }

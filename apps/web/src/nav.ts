@@ -5,7 +5,7 @@ export interface NavEntry {
   id: string;
   /** A getter on the built-in entries: the text is read when it is drawn, in the language the member has by then. */
   readonly label: string;
-  /** The entry has a tab of its own on a phone. Without it the entry is in the user menu: what a module adds never takes a tab. */
+  /** The entry has a tab of its own on a phone. */
   tab?: true;
 }
 
