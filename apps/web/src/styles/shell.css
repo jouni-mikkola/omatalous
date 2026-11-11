@@ -84,9 +84,11 @@
   .nav a { flex: 1 1 auto; min-inline-size: var(--tap-min); height: var(--tabbar-h); justify-content: center; padding: 0 var(--sp-4); font-size: var(--fs-label); white-space: nowrap; }
   .nav a[aria-current="page"] { box-shadow: inset 0 3px 0 var(--on-ink); }
   .nav .nav-wide-only { display: none; }
-  /* the count of Tarkistettavat sits over the corner of its tab and takes no width: five words fill 320 px */
+  /* the count of Tarkistettavat sits over the corner of its tab and takes no width: five words fill 320 px. It stands clear of
+     the bar's top edge and of the screen's edge, so it reads as part of the tab and not as a mark stuck on the bar; lower, it
+     would cover the label's last letters at 320 px */
   .nav .review-link { position: relative; }
-  .nav .review-link .nav-count { position: absolute; top: var(--ring); right: var(--ring); line-height: var(--sp-16); }
+  .nav .review-link .nav-count { position: absolute; top: var(--sp-4); right: var(--sp-4); line-height: var(--sp-16); }
   .app { padding: 0 12px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
 }
 
