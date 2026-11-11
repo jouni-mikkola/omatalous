@@ -17,7 +17,7 @@ import { figureName, t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
 import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
 import type { DashboardData, Meta, ReconcileState, Scope } from "../../../types.ts";
-import { AccountMark, cardBankOf } from "../../../components/BankLogo.tsx";
+import { cardBankOf } from "../../../components/BankLogo.tsx";
 import { Figure } from "../../../components/Figure.tsx";
 import { Why } from "../../../components/Why.tsx";
 import { CardFace } from "./CardFace.tsx";
@@ -40,10 +40,9 @@ function sinceLine(balanceAt: string | null, today: string): string | null {
 }
 
 /** A name that is a link, in the colour of the row until it is pointed at; `mask` tells apart two that share a name. */
-function Name({ name, href, mask, mark }: { name: string; href: string; mask: string | undefined; mark?: ReactNode }) {
+function Name({ name, href, mask }: { name: string; href: string; mask: string | undefined }) {
   return (
     <span className="st-name holding-name" title={mask ? `${name} ·· ${mask}` : name}>
-      {mark}
       <a href={href}>{name}</a>
       {mask && <span className="muted"> ·· {mask}</span>}
     </span>
@@ -123,7 +122,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           const classes = ["st-row", "holding-account", track ? "share" : "", adds && i === known[0] ? "part-first" : "", adds && i === known[known.length - 1] ? "part-last" : ""];
           return (
             <li key={a.id} className={classes.filter(Boolean).join(" ")} ref={css({ "--from": track?.at, "--part": track?.p })}>
-              <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} mark={<AccountMark name={a.name} institution={a.bank} banks={meta.bank?.banks ?? []} />} />
+              <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
               <span className="st-num">
                 <Tick state={a.reconcile} />
                 {figure(a.balanceCents, a.foreign)}

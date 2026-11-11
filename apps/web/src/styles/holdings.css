@@ -134,7 +134,4 @@
 .holding-tick-diff::before { content: "\21"; }
 /* a datum with a word before its figure: "Netto" */
 .datum-label { margin-right: var(--sp-8); font-weight: 400; color: var(--text-2); }
-/* the account's mark before its name; under 360 px the name needs the room: the mark goes, the name stays whole */
-.holding-name .acc-mark { margin-right: var(--sp-8); vertical-align: middle; }
-@media (max-width: 359px) { .holding-name .acc-mark { display: none; } }
 }

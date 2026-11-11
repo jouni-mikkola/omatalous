@@ -21,8 +21,7 @@ const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][numb
 const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, accountsAddUp: false, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta, scope: "own" }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
-/** What a reader hears: the account marks are decorative (aria-hidden), so their initials are no text. */
-const text = (markup: string) => markup.replace(/<span class="acc-mark" aria-hidden="true">.*?<\/span><\/span><\/span>/g, "").replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
+const text = (markup: string) => markup.replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
 const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
 const links = (markup: string) => [...markup.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]);
 
@@ -109,6 +108,13 @@ describe("Holdings", () => {
       expect(markup).not.toContain("Muut tilit");
       expect(markup.match(/<li class="st-row holding-account/g)).toHaveLength(6);
       expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili 0,50 € Vanha tili 0,00 € Toinen tili −0,99 € Rahastotili 1,00 € Kuudes tili 0,01 € Tilit yhteensä 1 201,02 €");
+    });
+
+    it("names an account with its link to its rows and no logo or mark before the name, even when its bank has a logo", () => {
+      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a", "Käyttötili", 100_000), bank: "Nordea" }], accountsCents: 100_000 }), meta: { today: "2026-10-12", accounts: [], bank: { banks: [{ id: "nordea-fi", logo: true }] } } as unknown as Meta, scope: "own" }));
+      expect(markup).toContain('<span class="st-name holding-name" title="Käyttötili"><a href="#/transactions?accountId=a">Käyttötili</a></span>');
+      expect(markup).not.toContain("<img");
+      expect(markup).not.toContain("acc-mark");
     });
   });
 
