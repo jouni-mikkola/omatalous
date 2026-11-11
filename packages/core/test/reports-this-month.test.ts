@@ -96,6 +96,42 @@ describe("the report of this month", () => {
     expect(r.estimate!.lowCents).toBeGreaterThanOrEqual(r.spentCents + 48_000);
   });
 
+  describe("a typed-in bill", () => {
+    const typedBill = { id: "b1", name: "Sähkö Oy", amountCents: 60_000, dueDate: "2026-10-28", cadence: "once" as const, category: "utilities" };
+    const withBill = (rows: Transaction[]) => thisMonthReport(createContext(rows, [checking], today), { ...NO_INPUTS, expectedBills: [typedBill] });
+
+    it("due later this month and unpaid is listed and raises the still coming and the estimate by its sum", () => {
+      const base = report(household());
+      const r = withBill(household());
+      expect(r.bills.find((b) => b.merchant === "Sähkö Oy")).toMatchObject({ date: "2026-10-28", cents: 60_000, late: false });
+      expect(r.billsCents).toBe(base.billsCents + 60_000);
+      expect(r.stillComingCents).toBe(base.stillComingCents! + 60_000);
+      expect(r.estimate!.cents).toBe(base.estimate!.cents + 60_000);
+      expect(r.estimate!.lowCents).toBe(base.estimate!.lowCents + 60_000);
+      expect(r.estimate!.highCents).toBe(base.estimate!.highCents + 60_000);
+      expect(r.otherComingCents).toBe(base.otherComingCents);
+      expect(sum(r.categories)).toBe(r.gapCents);
+      expect(sum(r.days)).toBe(r.gapCents);
+    });
+
+    it("already paid, or carried by a series of its name, changes nothing", () => {
+      const paidRows = household([tx({ bookingDate: "2026-10-15", amountCents: -60_000, merchant: "Sähkö Oy", category: "utilities" })]);
+      const paid = withBill(paidRows);
+      const paidBase = report(paidRows);
+      expect(paid.bills).toEqual(paidBase.bills);
+      expect(paid.stillComingCents).toBe(paidBase.stillComingCents);
+      expect(paid.estimate).toEqual(paidBase.estimate);
+
+      const monthly = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) => tx({ bookingDate: `${m}-28`, amountCents: -60_000, merchant: "Sähkö Oy", category: "utilities" }));
+      const carriedRows = household(monthly);
+      const carried = withBill(carriedRows);
+      const carriedBase = report(carriedRows);
+      expect(carried.bills).toEqual(carriedBase.bills);
+      expect(carried.stillComingCents).toBe(carriedBase.stillComingCents);
+      expect(carried.estimate).toEqual(carriedBase.estimate);
+    });
+  });
+
   it("counts a bill due today that is not paid, so the estimate does not move with the date", () => {
     const months = ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
     const phone = months.map((m) => tx({ bookingDate: `${m}-20`, amountCents: -2_990, merchant: "Elisa", category: "subscriptions" }));

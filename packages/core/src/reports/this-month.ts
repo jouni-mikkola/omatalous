@@ -9,6 +9,7 @@ import { categoryLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import { daysInMonth, dateIn, monthEnd, monthOf } from "../dates.ts";
+import { expectedBillRows } from "../analysis/forecast.ts";
 import { projectDates } from "../recurring.ts";
 import { CONCLUSION_ROWS, RANGE_HIGH, RANGE_LOW } from "../thresholds.ts";
 import type { IsoDate, UserInputs } from "../types.ts";
@@ -116,6 +117,11 @@ export function thisMonthReport(ctx: AnalysisContext, inputs: UserInputs, lang: 
     }
     for (const d of projectDates(sr, to)) if (d >= from || month === monthOf(ctx.today)) bills.push(row(d));
   }
+  // a typed-in bill due from today to the month's end that is unpaid and carried by no series; the base months do not hold it
+  const typed: ComingBill[] = expectedBillRows(ctx, inputs.expectedBills, ctx.today, to).map((r) => ({ date: r.date, merchant: r.name, category: r.category ?? "other", cents: r.amountCents, estimate: false, late: false }));
+  const typedCents = typed.reduce((s, b) => s + b.cents, 0);
+  const recurringBills = [...bills];
+  bills.push(...typed);
   bills.sort((a, b) => Number(b.late) - Number(a.late) || a.date.localeCompare(b.date) || b.cents - a.cents);
   const billsCents = bills.reduce((s, b) => s + b.cents, 0);
   const earlierBillsCents = bills.filter((b) => b.date < from).reduce((s, b) => s + b.cents, 0);
@@ -146,13 +152,13 @@ export function thisMonthReport(ctx: AnalysisContext, inputs: UserInputs, lang: 
   // the expected figure to date holds an unpaid bill of this month (all of it, or a part when its day varies, also before its day), the spending does not:
   // per category the estimate takes up what the expected holds and the spending lacks, up to the unpaid bills of the category
   const lateByCategory = new Map<string, number>();
-  for (const b of bills) if (b.date >= `${month}-01`) lateByCategory.set(b.category, (lateByCategory.get(b.category) ?? 0) + b.cents);
+  for (const b of recurringBills) if (b.date >= `${month}-01`) lateByCategory.set(b.category, (lateByCategory.get(b.category) ?? 0) + b.cents);
   const lateCents = [...lateByCategory].reduce((s, [category, cents]) => s + Math.min(cents, Math.max(0, (expectedOf.get(category) ?? 0) - (byCategory.get(category) ?? 0))), 0);
-  const stillComingCents = whole.cents - now.cents + lateCents;
+  const stillComingCents = whole.cents - now.cents + lateCents + typedCents;
   // the range is the lower and the upper quartile of what the base months spent after this day, each month's own rest
   const rest = figure.totals(days).map((total, i) => total - figure.totals(day)[i]!).sort((a, b) => a - b);
   const mid = spentCents + stillComingCents;
-  const base = spentCents + lateCents;
+  const base = spentCents + lateCents + typedCents;
   const estimate: MonthEstimate | null = day >= days ? null : { lowCents: Math.min(mid, base + quantile(rest, RANGE_LOW)), cents: mid, highCents: Math.max(mid, base + quantile(rest, RANGE_HIGH)) };
 
   return {
