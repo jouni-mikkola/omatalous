@@ -321,6 +321,13 @@ Result: In Tulossa and the rows list the arrow that opens a row is 44 px on a ph
 - after: none
 - files: apps/web/src/styles/table.css, apps/web/test/scale-css.test.ts
 
+### N39 A failed bank link leaves
+Result: When linking a bank fails after the bank said yes, the app either keeps the link or withdraws the consent at the bank, so no hidden consent
+- why: apps/server/src/connectors/enable-banking/client.ts:201-209: createSession fails when one account detail fails after the bank made the session, leaving a consent alive at the bank that the app never stores (N35 #221 notes)
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: A failed bank link leaves nothing behind. When linking a bank fails after the bank said yes, the app either keeps the link or withdraws the consent at the bank, so no hidden consent stays open.
+- locks: none
+- after: none
+
 ### V7 A price rise is not red
 Result: A bill that rose is marked in the accent with its gap written out, and red is left for a problem.
 - why: seen on 11 Nov with the demo household: the chip of a price rise (Adobe ↑ 12,00 €, Netflix ↑ 2,00 € in Tulossa) is red, from `.rt-delta-bad` at `apps/web/src/styles/table.css:101-102`, chosen in `components/table/Cells.tsx:46`. Design section 3: red only for a problem; over usual is the accent with its gap written out.
