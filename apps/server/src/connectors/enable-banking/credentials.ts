@@ -45,6 +45,8 @@ export async function saveCredentials(s: Services, userId: string, appIdInput: u
   const box = await s.secretBox();
   if (!box) throw new UserError("Avaimia ei voi nyt tallentaa. Pyydä ylläpitäjää katsomaan palvelimen lokia.");
   const appId = parseAppId(appIdInput);
+  const current = (await s.users.getBankCredentials(userId))?.appId ?? (await instanceCredentials(s))?.appId ?? null;
+  if (current !== null && current.toLowerCase() !== appId) await refuseWhileConsentsActive(s, userId, "vaihtaa sovellusta");
   let pem: string;
   try {
     pem = await canonicalPrivateKey(privateKeyInput);
@@ -59,7 +61,20 @@ export async function saveCredentials(s: Services, userId: string, appIdInput: u
   return { ...tested, message: `Avain tallennettu. ${tested.message}` };
 }
 
+/**
+ * A bank consent belongs to the application that made it. Another application cannot end it, so a change of
+ * application while one is active would leave it alive at the bank. The member removes the connections first.
+ */
+async function refuseWhileConsentsActive(s: Services, userId: string, what: string): Promise<void> {
+  const active = (await s.finance(userId).listConnections()).filter((c) => c.status === "active" && c.provider === "enablebanking");
+  if (!active.length) return;
+  const names = active.map((c) => c.institution).join(", ");
+  throw new UserError(`Pankkiyhteys on käytössä (${names}), joten sovellusta ei voi ${what}. Poista yhteydet ensin kohdassa Asetukset > Pankit ja tilit.`);
+}
+
 export async function removeCredentials(s: Services, userId: string, req: RequestInfo): Promise<void> {
+  const own = await s.users.getBankCredentials(userId);
+  if (own && (await instanceCredentials(s))?.appId.toLowerCase() !== own.appId.toLowerCase()) await refuseWhileConsentsActive(s, userId, "poistaa omaa avainta");
   await s.users.deleteBankCredentials(userId);
   await recordEvent(s, { kind: "bank_key_removed", userId, ...req });
 }

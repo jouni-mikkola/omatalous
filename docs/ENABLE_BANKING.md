@@ -291,6 +291,11 @@ then delete the file from the downloads folder. The save tests the pair with Ena
 refuses is not saved, and the key saved before stays. Any other answer, *Inactive* included, saves the key and shows
 what the test said. The key is stored encrypted. *Poista oma avain* returns the member to the household's app.
 
+A bank consent belongs to the app that made it, and only that app can end it. While the member has an active
+connection, *Poista oma avain* and a save with another Application ID are refused, and the message names the
+connections. Remove the connections first, then change the app. A new key for the same Application ID, and a
+member whose connections are all `revoked` or `expired`, are not held back.
+
 More about Enable Banking options: [ADVANCED.md](ADVANCED.md#enable-banking-options).
 
 ## Result: private return names
