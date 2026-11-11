@@ -670,6 +670,27 @@ describe("settlement routes", () => {
     expect((await cecilia.call("DELETE", "/api/settlement/agreements/pool-c/2026-03-01")).status).toBe(200);
   });
 
+  it("answers 400 to a day that is no calendar date, when one is put and when one is removed, and still takes a real day", async () => {
+    const w = await both(SEPTEMBER, { now: "2026-09-20", said: false });
+    const [a, v] = [`u:${w.aino}`, `u:${w.ville}`] as [string, string];
+    for (const day of ["2026-13-45", "2026-00-10", "2026-02-30"]) {
+      const added = await put(w, w.aino, { validFrom: day, kind: "income", value: { who: [a, v] } });
+      expect([day, added.status], JSON.stringify(added.body)).toEqual([day, 400]);
+      expect(JSON.stringify(added.body)).toContain("Virheellinen päivä.");
+      const removed = await w.as(w.aino).call("DELETE", `/api/settlement/agreements/pool-a/${day}`);
+      expect([day, removed.status], JSON.stringify(removed.body)).toEqual([day, 400]);
+      expect(JSON.stringify(removed.body)).toContain("Virheellinen päivä.");
+    }
+    expect(await stored(w)).toEqual([]);
+    // a real day saves and removes as before
+    const saved = await put(w, w.aino, { validFrom: "2026-02-28", kind: "income", value: { who: [a, v] } });
+    expect(saved.status, JSON.stringify(saved.body)).toBe(200);
+    expect((await stored(w)).map((r) => r.valid_from)).toEqual(["2026-02-28"]);
+    const gone = await w.as(w.aino).call("DELETE", "/api/settlement/agreements/pool-a/2026-02-28");
+    expect(gone.status, JSON.stringify(gone.body)).toBe(200);
+    expect(await stored(w)).toEqual([]);
+  });
+
   it("takes a fixed row with an income remainder from an import as put by the importing user alone", async () => {
     const w = await both(SEPTEMBER);
     const [a, v] = [`u:${w.aino}`, `u:${w.ville}`] as [string, string];

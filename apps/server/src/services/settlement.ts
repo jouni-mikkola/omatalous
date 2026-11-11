@@ -5,7 +5,7 @@
  * others, the way they see an account only when it is theirs or shared with them.
  */
 import { isDeepStrictEqual } from "node:util";
-import { type AgreementRow, addMonths, type RunningPool, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, monthLast, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
+import { type AgreementRow, addMonths, type RunningPool, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, isRealDay, monthLast, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
 import type { StoredAgreement, StoredClosedMonth, StoredMember } from "../db/agreement-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
@@ -39,8 +39,7 @@ export function parseMonth(value: unknown): string {
 }
 
 function parseDay(value: unknown): string {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) !== value || value < "2000-01-01" || value > "2100-12-31")
-    throw new UserError("Virheellinen päivä.");
+  if (typeof value !== "string" || !isRealDay(value) || value < "2000-01-01" || value > "2100-12-31") throw new UserError("Virheellinen päivä.");
   return value;
 }
 
