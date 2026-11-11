@@ -192,6 +192,13 @@ Result: An income paid on the next banking day after a closed last day of the mo
 - after: none
 - files: packages/core/src/pay-day.ts, packages/core/test/pay-day.test.ts
 
+### N23 Plan the server and budget steps
+Result: Ten to fourteen new steps wait for free workers, each a fault or gap in the server or the budget code that a person using the app would
+- why: No free step for 13 free slots: the last plan gave 3 steps, all in the import code of packages/core, and its handoff (PR 142) says apps/server beyond nine named files and the budgets code (packages/core/src/thresholds.ts, analysis/) were never read
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan the server and budget steps. Ten to fourteen new steps wait for free workers, each a fault or gap in the server or the budget code that a person using the app would meet, each proven on main, 50 to 150 lines with its tests, each with its own lock and none waiting on the four tabs.
+- locks: none
+- after: none
+
 ### N22 Shots of every page, again. pnpm
 Result: Shots of every page, again. pnpm shots --all again takes a picture of every page, each Raportit question and each Asetukset target
 - why: E4 (32fce71) turned main red and PR #139 reverts it: tools/shots-a.test.ts expected 13 routes for --all and got 16, because pages merged beside it (T74, T62, E2) changed the route list the test wrote out by hand. After the revert the option is gone, and a reverted step is not reopened.
