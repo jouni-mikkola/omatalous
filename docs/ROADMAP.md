@@ -22,6 +22,14 @@ named here moves out of this section when it ships.
 ## Now
 
 
+
+### N6 Main's CI is green again
+Result: Main's CI is green again: the shell test 'run: the tests were done at the start, so GIVE more at once' passes in CI, and no test leaves
+- why: main's CI fails on every push since about 11:09 on 11 Nov, so no PR can show green checks and 18 PRs wait
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Main's CI is green again: the shell test 'run: the tests were done at the start, so GIVE more at once' passes in CI, and no test leaves a temporary entry behind for tools/lib/tmp-guard.ts (seen: tokens-test-*, budget-*, budget-first-*, report-*, rerun-*); done when two CI runs in a row on main pass both the js and shell jobs
+- locks: none
+- after: none
+
 ### N2 Plan: landing never waits
 Result: Move T80 'Machine-load scripts leave' to the front of the remaining roadmap order, so pull requests that pass their checks land without
 - why: The landing check waits in tools/slots.sh and tools/wait-quiet.sh behind workers' checks (CHECK_SLOTS=1, load 26 of 16), the train timed out at 02:05 and N1 PR #20, green on GitHub, could not land; T80 removes those scripts but sits after T66-T77
