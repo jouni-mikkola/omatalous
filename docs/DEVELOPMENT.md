@@ -142,7 +142,8 @@ a change meets:
 - The `privacy` check is not a repo rule: it reads what a change adds, its commits and its pull request. `pnpm check`
   runs it first (`node tools/privacy/scan.mjs --local`: the commits since `origin/main`, the changes not committed, the
   new files and the address git commits with), since the run on GitHub comes after the push, when the commits are public
-  already. The rules are in CLAUDE.md, "The public repository".
+  already. The run on GitHub takes `tools/privacy` from the base commit, so a change to the scanner or its lists is
+  judged by main's copy. The rules are in CLAUDE.md, "The public repository".
 - Rule 6: import boundaries and no import cycle. Nothing under `apps/*/src` or `packages/*/src` imports from a `test` or
   `fixtures` folder.
 - Rule 12: Finnish style (no te-form, no "!", banned words) in the web's texts and in the sentences the server sends.

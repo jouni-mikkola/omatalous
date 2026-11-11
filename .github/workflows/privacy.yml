@@ -9,6 +9,10 @@ name: privacy
 # the title or body runs it again. A finding names its file and line and never the value: this log is public.
 #
 # The pull request's texts reach the script through the environment, never through the shell's text.
+#
+# The scanner and its word lists come from the base commit (main), never from the change: a pull request cannot weaken
+# the check that judges it. One that changes tools/privacy is judged by main's copy too, so a fix of a detector merges
+# before the near miss it lets through.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -44,4 +48,14 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: node tools/privacy/scan.mjs --ci
+        run: |
+          judge="$RUNNER_TEMP/privacy-judge"
+          base="$BASE_SHA"
+          # a base the clone does not hold (a new branch, a forced push, a manual run): the head's parent
+          git cat-file -e "$base^{commit}" 2>/dev/null || base="$HEAD_SHA~1"
+          rm -rf "$judge"
+          git ls-tree -r --name-only "$base" -- tools/privacy | while IFS= read -r f; do
+            mkdir -p "$judge/$(dirname "$f")"
+            git show "$base:$f" > "$judge/$f"
+          done
+          node "$judge/tools/privacy/scan.mjs" --ci

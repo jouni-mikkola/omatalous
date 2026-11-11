@@ -4,7 +4,7 @@
  * so this file passes the check itself.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
@@ -258,5 +258,44 @@ describe("the workflow", () => {
     expect(yml).not.toMatch(/paths-ignore/);
     // the texts of a pull request never stand in the shell's text
     expect(yml).not.toMatch(/run:.*\$\{\{/);
+  });
+
+  it("judges a change with the scanner and lists of its base, so a change that empties the scanner still fails", () => {
+    const yml = readFileSync(join(import.meta.dirname, "../../.github/workflows/privacy.yml"), "utf8");
+    const step = /- name: Scan\n(?:.*\n)*? {8}run: \|\n((?: {10}.*\n)+)/.exec(yml);
+    expect(step, "the Scan step runs a block").not.toBeNull();
+    const script = step![1]!.replace(/^ {10}/gm, "");
+    expect(script).not.toMatch(/\$\{\{/);
+
+    const dir = tempDir("privacy-");
+    const env = { ...process.env, GIT_AUTHOR_NAME: "T", GIT_COMMITTER_NAME: "T", GIT_AUTHOR_EMAIL: "1+t@users.noreply.github.com", GIT_COMMITTER_EMAIL: "1+t@users.noreply.github.com" };
+    const git = (...args: string[]) => {
+      const r = spawnSync("git", args, { cwd: dir, encoding: "utf8", env });
+      expect(r.status, r.stderr).toBe(0);
+      return r.stdout.trim();
+    };
+    git("init", "-q", "-b", "main");
+    mkdirSync(join(dir, "tools/privacy"), { recursive: true });
+    writeFileSync(join(dir, "tools/privacy/scan.mjs"), readFileSync(SCAN));
+    writeFileSync(join(dir, "tools/privacy/lists.json"), readFileSync(join(import.meta.dirname, "lists.json")));
+    git("add", "-A");
+    git("commit", "-qm", "base");
+    const base = git("rev-parse", "HEAD");
+    // the change weakens the scanner and adds what the base's scanner refuses
+    writeFileSync(join(dir, "tools/privacy/scan.mjs"), "process.exit(0);\n");
+    writeFileSync(join(dir, "new.md"), `call ${["040", "123", "4567"].join(" ")}\n`);
+    git("add", "-A");
+    git("commit", "-qm", "change");
+    const run = (baseSha: string) =>
+      spawnSync("bash", ["--noprofile", "--norc", "-eo", "pipefail", "-c", script], {
+        cwd: dir,
+        encoding: "utf8",
+        env: { ...env, RUNNER_TEMP: tempDir("privacy-runner-"), BASE_SHA: baseSha, HEAD_SHA: git("rev-parse", "HEAD"), PR_TITLE: "Change", PR_BODY: "", PR_BRANCH: "fix/x" },
+      });
+    for (const baseSha of [base, "0".repeat(40)]) {
+      const r = run(baseSha);
+      expect(r.status, r.stdout + r.stderr).toBe(1);
+      expect(r.stdout).toContain("new.md:1: phone");
+    }
   });
 });

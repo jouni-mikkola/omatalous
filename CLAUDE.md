@@ -147,7 +147,8 @@ machine, or a real row; quote an error by its message alone.
 `pnpm check` runs the same scan on the branch before the push (`node tools/privacy/scan.mjs --local`), as a run on
 GitHub comes when the commits are public already. A finding names the file and line and never the value, since the log
 is public. Fix the line. A hit that is wrong gets a near miss in `tools/privacy/privacy.test.ts` and a fix of the
-detector, never an entry in `lists.json` to let it pass. A new word to refuse is added as its hash (`sha256` of the word in lower case) by the maintainer.
+detector, never an entry in `lists.json` to let it pass. The run on GitHub uses the scanner and lists of main, so a
+change cannot weaken the check that judges it: the fix of a detector merges before the near miss it lets through. A new word to refuse is added as its hash (`sha256` of the word in lower case) by the maintainer.
 
 ## Conventions
 
