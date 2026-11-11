@@ -163,6 +163,13 @@ Result: Plan parallel steps for e2e/ and the visual shots (coverage of every pag
 - locks: none
 - after: none
 
+### N19 Plan parallel steps for docs/
+Result: Plan parallel steps for docs/ and the in-app help (what a household user needs): read the code, the design docs and best practice, then add
+- why: the owner (11 Nov): more Fable 5.2 workers in parallel now, no bottlenecks; each step in its own area so they never conflict
+- done when: the pull request adds the planned steps to docs/ROADMAP.md and `lineclear roadmap check .` passes; when fewer real steps are found than asked, it adds those it found and lists what it checked. The request in full: Plan parallel steps for docs/ and the in-app help (what a household user needs): read the code, the design docs and best practice, then add up to 6 small steps that each touch only that area, depend on no unmerged step unless needed, and finish in under an hour; done when the roadmap has them
+- locks: none
+- after: none
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
