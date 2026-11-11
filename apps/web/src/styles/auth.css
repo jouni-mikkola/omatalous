@@ -4,7 +4,8 @@
 .auth-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
 .auth-card { width: 100%; max-width: 420px; }
 .auth-card > .brand { justify-content: flex-start; padding-bottom: 4px; margin-bottom: var(--sp-16); }
-.auth-language { margin-top: var(--sp-16); }
+/* a block of its own: .field is styled in settings.css, which the sign-in page has not loaded, and an inline label drops its margin */
+.auth-language { display: flex; margin-top: var(--sp-16); }
 .auth-title { font-size: var(--fs-fig-m); line-height: 28px; margin: 0 0 4px; font-weight: 600; letter-spacing: 0; }
 .auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: var(--sp-16); }
 .auth-form label { display: flex; flex-direction: column; gap: 4px; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
