@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { hex as HEX } from "../src/design/tokens.ts";
+import { hex as HEX, size as SIZE } from "../src/design/tokens.ts";
 import { ratioOf, rules } from "./css-kit.ts";
 
 // A menu row under the keyboard must show more than the hover ground: a mark at 3 to 1 against the popup's surface
@@ -11,6 +11,9 @@ const read = (name: string): string => readFileSync(new URL(`../src/styles/${nam
 /** The value a rule's body gives a property, or undefined. */
 const value = (body: string, property: string): string | undefined =>
   body.split(";").map((d) => d.split(":")).find((d) => d[0]!.trim() === property)?.slice(1).join(":").trim();
+
+/** A width as written, with the token `--ring` read as its px value (rule 40: a stylesheet reads the token, not 2px). */
+const px = (written: string): string => written.replace(/calc\(var\(--ring\) \* -1\)/g, `-${SIZE.ring}px`).replace(/var\(--ring\)/g, `${SIZE.ring}px`);
 
 /**
  * `--row-hover` is the accent at 6 % on the surface (tokens.css). A see-through colour is laid on its ground in the
@@ -30,13 +33,13 @@ describe("a menu row's focus", () => {
 
     it(`${row.file}: the focused row wears an accent outline of 2 px or more`, () => {
       expect(drawn.map((r) => r.selector)).toContain(row.focus);
-      const m = /^(\d+)px solid var\(--accent\)$/.exec(value(drawn[0]!.body, "outline")!);
+      const m = /^(\d+)px solid var\(--accent\)$/.exec(px(value(drawn[0]!.body, "outline")!));
       expect(m).not.toBeNull();
       expect(Number(m![1])).toBeGreaterThanOrEqual(2);
     });
 
     it(`${row.file}: the outline sits inside the row, where the popup does not clip it`, () => {
-      expect(value(drawn[0]!.body, "outline-offset")).toMatch(/^-\d+px$/);
+      expect(px(value(drawn[0]!.body, "outline-offset")!)).toMatch(/^-\d+px$/);
     });
 
     it(`${row.file}: hover alone does not show the mark: no other state of the row draws an outline`, () => {

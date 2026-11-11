@@ -90,6 +90,7 @@ export const cssNames = [
   "--avatar-s",
   "--rail-w",
   "--hairline",
+  "--ring",
   "--font-body",
   "--w-regular",
   "--w-strong",
@@ -289,6 +290,7 @@ export const size = {
   "avatar-s": 20,
   "rail-w": 260,
   hairline: 1,
+  ring: 2,
 } as const;
 
 /** Font sizes in px by step (`display` is 3.25 rem). */

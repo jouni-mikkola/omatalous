@@ -29,7 +29,7 @@
 .rtb-item { display: block; padding: var(--sp-8) var(--sp-12); border-radius: var(--radius-s); color: var(--text); font-size: var(--fs-body); cursor: pointer; outline: 0; }
 .rtb-item[data-focused], .rtb-item[data-hovered] { background: var(--control-hover); }
 /* the keyboard's row wears the accent ring inside its edge, which the pointer's row does not */
-.rtb-item[data-focus-visible] { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rtb-item[data-focus-visible] { outline: var(--ring) solid var(--accent); outline-offset: calc(var(--ring) * -1); }
 .rtb-item[data-selected] { font-weight: var(--w-strong); box-shadow: inset 1px 0 0 var(--accent); }
 
 /* a phone: the search box takes the row, and the sort choice (shown only where the head is hidden) the tools' row */
