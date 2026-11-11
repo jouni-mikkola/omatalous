@@ -1,8 +1,8 @@
-import { addDays } from "@banking/core";
+import { addDays, messageIn } from "@banking/core";
 import { Table } from "../table/Table.tsx";
 import { useState } from "react";
-import { api } from "../../api.ts";
-import { date, eurosText, money, parseEuros, plural } from "../../format.ts";
+import { api, ApiError } from "../../api.ts";
+import { date, eurosText, language, money, parseEuros, plural } from "../../format.ts";
 import { readStatement, type StatementLine } from "./read-statement.ts";
 import "../../styles/card-statement.css";
 import { Button } from "../ui/Button.tsx";
@@ -70,7 +70,9 @@ export function CardStatement({ bill, saved, onClose, onChanged }: { bill: BillF
       onChanged();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      // the text of any other exception is the page's own fault in English: it is not shown, and it is kept in the console
+      if (!(e instanceof ApiError)) console.error(e);
+      setError(e instanceof ApiError ? e.message : messageIn(language(), "app.request_failed"));
       setBusy(false);
     }
   };
