@@ -113,7 +113,7 @@ export function residualTax(b: IncomeBase, lang: Language = DEFAULT_LANGUAGE): I
   }
   const sumOf = (season: number) => {
     const rows = seasons.get(season) ?? [];
-    const worded = rows.filter((t) => isResidualTaxText(fold(`${t.merchant} ${t.description ?? ""}`)));
+    const worded = rows.filter((t) => isResidualTaxText(fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`)));
     // with only a reference: two payments to Verohallinto about two months apart
     const paired = rows.filter((t) => rows.some((o) => o !== t && Math.abs(Math.abs(o.day - t.day) - 61) <= 10));
     const used = worded.length ? worded : paired;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { incomeTypeOf, incomeTypes, isBankingDay, payDate, type PayRule, payDayOf } from "../src/analysis/income.ts";
 import { incomeBase, incomeChanges, incomeInsights } from "../src/analysis/income-changes.ts";
+import { residualTax } from "../src/analysis/income-events.ts";
 import { addDays, addMonths, daysInMonth } from "../src/dates.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { incomeReport } from "../src/reports/income.ts";
@@ -382,5 +383,31 @@ describe("income report: what the page prints", () => {
     expect(r.earnedChange).toBeCloseTo((r.earnedCents - r.previousEarnedCents!) / r.previousEarnedCents!, 10);
     expect(r.earnedChange!).toBeGreaterThan(0);
     expect(r.stability?.steady).toBe(r.stability!.spread < r.needs.steadySpread);
+  });
+});
+
+describe("residual tax counted whole", () => {
+  const TODAY = "2026-11-11";
+  const pay = (date: string, cents: number, over: Partial<Transaction>) =>
+    tx({ merchant: "Verohallinto", counterparty: "VEROHALLINTO", description: "", category: "taxes", categorySource: "rule", bookingDate: date, amountCents: -cents, ...over });
+  const found = (rows: Transaction[]) => residualTax(incomeBase(ctxOf([...rows, ...filler("2026-06-01", TODAY)], TODAY), TODAY));
+
+  it("counts a word in the counterparty and one in the description together", () => {
+    const r = found([pay("2026-09-10", 40000, { counterparty: "VEROHALLINTO JÄÄNNÖSVERO" }), pay("2026-11-09", 60000, { description: "JÄÄNNÖSVERO 2025" })]);
+    expect(r?.yearlyCents).toBe(100000);
+    expect(r?.txIds).toHaveLength(2);
+    expect(r?.title).toMatch(/^Jäännösveroa 1\s000\s€ kahdessa erässä$/);
+  });
+
+  it("is unchanged with the word in the merchant of both", () => {
+    const r = found([pay("2026-09-10", 40000, { merchant: "Jäännösvero" }), pay("2026-11-09", 60000, { merchant: "Jäännösvero" })]);
+    expect(r?.yearlyCents).toBe(100000);
+    expect(r?.txIds).toHaveLength(2);
+  });
+
+  it("still pairs two with only a reference 61 days apart", () => {
+    const r = found([pay("2026-09-09", 40000, { description: "VIITE 1234" }), pay("2026-11-09", 60000, { description: "VIITE 1234" })]);
+    expect(r?.yearlyCents).toBe(100000);
+    expect(r?.txIds).toHaveLength(2);
   });
 });
