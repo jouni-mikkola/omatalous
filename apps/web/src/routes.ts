@@ -1,4 +1,3 @@
-import { WEB_EXTENSIONS } from "./extensions.ts";
 import { pageOfPeriod } from "./period.ts";
 import { t } from "./text.ts";
 
@@ -51,7 +50,7 @@ export function settingsTargets(role: "admin" | "member"): readonly (typeof SETT
   return SETTINGS_TARGETS.filter((t) => role === "admin" || !("admin" in t));
 }
 
-/** The target a card is on, by its anchor. The cards of the build's extensions are on Talous. */
+/** The target a card is on, by its anchor. */
 const CARD_TARGET: Record<string, SettingsTarget> = {
   pankkiyhteydet: "banks",
   [SETTINGS_ANCHOR.bankApp]: "banks",
@@ -100,7 +99,6 @@ export function settingsCardHash(anchor: string, params?: URLSearchParams): stri
 
 function targetOfCard(anchor: string | undefined): SettingsTarget | undefined {
   if (!anchor) return undefined;
-  if (WEB_EXTENSIONS.some((e) => e.settingsAnchor === anchor)) return "household";
   return CARD_TARGET[anchor] ?? (anchor.startsWith(ACCOUNT_ROW_PREFIX) ? "banks" : undefined);
 }
 

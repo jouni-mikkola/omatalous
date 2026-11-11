@@ -11,7 +11,6 @@ import { useApi } from "../../hooks.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { PasswordForm } from "../Auth.tsx";
 import { useReportLoaded } from "./use-settings-page.ts";
-import { WEB_EXTENSIONS } from "../../extensions.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
@@ -102,7 +101,7 @@ export const KIND_LABEL: Record<string, string> = labelTable({
 });
 
 const kindLabel = (kind: string) =>
-  KIND_LABEL[kind] ?? WEB_EXTENSIONS.find((e) => e.securityLabels?.[kind])?.securityLabels?.[kind] ?? (kind.startsWith("ops_") ? t("set.sec.maintenance_kind", { kind: kind.slice(4).replace(/_/g, " ") }) : kind);
+  KIND_LABEL[kind] ?? (kind.startsWith("ops_") ? t("set.sec.maintenance_kind", { kind: kind.slice(4).replace(/_/g, " ") }) : kind);
 
 /** The card Salasana: a button that opens the three fields. The address `#salasana` opens them at once. */
 export function Password({ openPassword }: { openPassword: boolean }) {

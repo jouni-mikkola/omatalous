@@ -108,8 +108,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 /*
  * The list is the shared table (table.css) with a group for each day. A row is who, which account, which category and how
  * much; its one control is the chevron, which opens the category picker, the row's menu and the payee's
- * twelve months. The bar under a figure stands out of the flow, so it adds no height. What the build's extensions add under
- * a matched row is the only second line.
+ * twelve months. The bar under a figure stands out of the flow, so it adds no height.
  */
 .tx-table { table-layout: fixed; }
 .tx-table thead :is(th, td) { padding-block: var(--sp-4); }

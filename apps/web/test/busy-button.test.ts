@@ -7,7 +7,7 @@ import { ConfirmDialog } from "../src/components/ConfirmDialog.tsx";
 
 const SRC = join(import.meta.dirname, "../src");
 
-// a module a build adds (extensions.ts) checks its own folder with its own list of reasons
+// a `private` folder, which a build of its own may add, checks itself with its own list of reasons
 function sources(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (e.name === "private" ? [] : sources(join(dir, e.name))) : e.name.endsWith(".tsx") ? [join(dir, e.name)] : []));
 }

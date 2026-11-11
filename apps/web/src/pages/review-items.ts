@@ -118,19 +118,7 @@ export interface MortgageItem extends Base {
   kind: "mortgage";
 }
 
-/** An extension's item: `type` is the extension's own name for the kind of question, and its choices name their own answer routes. */
-export interface ExtensionItem extends Base {
-  kind: "extension";
-  type: string;
-  title: string;
-  question: string;
-  detail?: string;
-  date?: string;
-  guess?: string;
-  choices: { id: string; label: string; answer: { method: "PUT" | "POST"; path: string; body: unknown } }[];
-}
-
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | InputItem | MortgageItem | ExtensionItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | InputItem | MortgageItem;
 
 export interface ReviewAnswer {
   items: ReviewItem[];
@@ -157,7 +145,7 @@ export type SittingView =
  * The kinds this page has a card for. The server's queue also sends kinds it has none for yet (`balance`, `consent`,
  * `bill`, `row`, services/review.ts): such an item is left out here, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, input: true, mortgage: true, extension: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, input: true, mortgage: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -198,8 +186,6 @@ export function eyebrow(item: ReviewItem): string {
       return t("set.ri.savings_tips");
     case "mortgage":
       return t("set.ri.housing");
-    case "extension":
-      return item.title;
   }
 }
 
@@ -224,8 +210,6 @@ export function nameOf(item: ReviewItem): string {
     }
     case "mortgage":
       return t("set.ri.home_loan");
-    case "extension":
-      return item.title;
   }
 }
 
@@ -255,8 +239,6 @@ export function questionOf(item: ReviewItem): string {
       return INPUT_QUESTION[item.def];
     case "mortgage":
       return t("set.ri.do_you_have_a_home");
-    case "extension":
-      return item.question;
   }
 }
 
@@ -285,8 +267,6 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     }
     case "mortgage":
       return { text: "", line: t("set.ri.housing_costs_show_no_loan") };
-    case "extension":
-      return { text: money(item.cents), unit: t("set.ri.in_total"), line: [item.detail, item.date && date(item.date)].filter(Boolean).join(", ") };
   }
 }
 
@@ -313,11 +293,6 @@ export function loanKindChoices(item: LoanItem): Choice<LoanKind>[] {
   // a kind the plain answers lack is offered only where it is saved with the loan's form, not stored as an answer
   const kinds: LoanKind[] = !item.placed || (LOAN_KIND_ANSWERS as readonly LoanKind[]).includes(item.guess) ? [...LOAN_KIND_ANSWERS] : [item.guess, ...LOAN_KIND_ANSWERS];
   return guessFirst(kinds.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: kind === item.guess && kind !== "other" })));
-}
-
-/** An extension's choices, its guess first. */
-export function extensionChoices(item: ExtensionItem): Choice<ExtensionItem["choices"][number]>[] {
-  return guessFirst(item.choices.map((c) => ({ value: c, label: c.label, guess: c.id === item.guess })));
 }
 
 /** The line at the end of a sitting, and of an empty queue. */

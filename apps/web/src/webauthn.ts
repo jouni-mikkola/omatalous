@@ -59,7 +59,6 @@ export async function createPasskey(o: CreationOptions): Promise<unknown | null>
     rawId: toBase64Url(credential.rawId),
     type: credential.type,
     response: { clientDataJSON: toBase64Url(r.clientDataJSON), attestationObject: toBase64Url(r.attestationObject), transports: r.getTransports?.() ?? [] },
-    clientExtensionResults: credential.getClientExtensionResults(),
     authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
   };
 }
@@ -81,7 +80,6 @@ export async function getPasskey(o: RequestOptions): Promise<unknown | null> {
       signature: toBase64Url(r.signature),
       userHandle: r.userHandle ? toBase64Url(r.userHandle) : undefined,
     },
-    clientExtensionResults: credential.getClientExtensionResults(),
     authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
   };
 }

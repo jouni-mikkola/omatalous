@@ -180,7 +180,6 @@ describe("password change", () => {
       rawId: bytes(1, 2, 3),
       type: "public-key",
       response: { clientDataJSON: bytes(4), authenticatorData: bytes(5), signature: bytes(6), userHandle: null },
-      getClientExtensionResults: () => ({}),
       authenticatorAttachment: "platform",
     }));
     vi.stubGlobal("PublicKeyCredential", class {});

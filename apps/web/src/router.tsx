@@ -20,7 +20,6 @@ import { Loading } from "./components/Loading.tsx";
 
 import { type Route, redirectRoute, SETTINGS_TARGETS, type SettingsTarget } from "./routes.ts";
 import { parseSearch, searchOf, stringifySearch } from "./search.ts";
-import { ExtensionPage } from "./ExtensionPage.tsx";
 import { Shell } from "./Shell.tsx";
 
 import type { User } from "./types.ts";
@@ -119,13 +118,6 @@ const settingsTargetRoutes = SETTINGS_TARGETS.map((target) =>
     component: lazyRouteComponent(() => import("./views/SettingsTargetViews.tsx"), SETTINGS_TARGET_VIEW[target.id]),
   }),
 );
-// a module's page (`#/<id>`): the shell lets it through only while the module's flag is on
-const extensionRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/$page",
-  validateSearch: searchOf("extension"),
-  component: ExtensionPage,
-});
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -136,7 +128,6 @@ const routeTree = rootRoute.addChildren([
   optimiseRoute,
   reviewRoute,
   settingsRoute.addChildren(settingsTargetRoutes),
-  extensionRoute,
 ]);
 
 export const router = createRouter({

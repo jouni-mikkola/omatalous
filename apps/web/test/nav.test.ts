@@ -1,22 +1,5 @@
-import type { FeatureState } from "@banking/core";
 import { describe, expect, it } from "vitest";
-import { extensionPages, NAV, SETTINGS } from "../src/nav.ts";
-
-describe("extensionPages", () => {
-  const page = { label: "Esimerkki", component: () => null };
-  const added = [{ id: "example", page }, { id: "card-only" }];
-
-  it("lists an added module's page only while its flag is on, and none before the flags load", () => {
-    const on = { example: true, "card-only": true } as unknown as FeatureState;
-    expect(extensionPages(on, added).map((e) => e.id)).toEqual(["example"]);
-    expect(extensionPages({} as FeatureState, added)).toEqual([]);
-    expect(extensionPages(undefined, added)).toEqual([]);
-  });
-
-  it("the shared build adds none", () => {
-    expect(extensionPages({} as FeatureState)).toEqual([]);
-  });
-});
+import { NAV, SETTINGS } from "../src/nav.ts";
 
 describe("NAV", () => {
   it("is Yhteenveto | Kuukausi | Laskut | Tapahtumat | Säästövinkit: no entry hides behind a flag", () => {

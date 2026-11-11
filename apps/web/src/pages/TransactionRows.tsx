@@ -3,7 +3,6 @@ import { type ReactNode, useSyncExternalStore } from "react";
 import { dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
 import { Why } from "../components/Why.tsx";
-import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
 import { barShare } from "../components/table/cells.ts";
 import { type Column, Table, type TableView } from "../components/table/Table.tsx";
 import { partAnchor } from "../part.ts";
@@ -130,7 +129,7 @@ function Part({ t }: { t: ListedRow }) {
   return <>{whole && <span className="tx-part">{whole}</span>}{ownerLink(t) && <span className="tx-part">{msg("row.no_split")}</span>}</>;
 }
 
-/** The payee's mark and name, the quiet tags and what the build's extensions mark; the bank's own text is the line under them. */
+/** The payee's mark and name, the quiet tags; the bank's own text is the line under them. */
 function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
   const text = bankText(t);
   return (
@@ -139,7 +138,6 @@ function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explaine
         <PayeeMark name={t.merchant} person={isPerson(t)} />
         <span className="tx-name">{t.merchant}</span>
         <Tags t={t} explained={explained} />
-        <ExtensionRowParts row={t} mark />
       </span>
       {text && (
         <span className="sub tx-text" title={text}>
@@ -200,7 +198,6 @@ function Detail({ t, categories, pending, onCategory, onStatement, note, scope, 
           <span>{msg("row.your_share")}: <Why figure="share.part" title={msg("row.your_share")} range={{ from: t.bookingDate, to: t.bookingDate }} scope="own" row={t.id} account={t.accountId} text={text}>{text}</Why></span>
         )}
       </div>
-      <ExtensionRowParts row={t} />
       <MerchantDrill merchant={t.merchant} scope={scope} />
     </div>
   );

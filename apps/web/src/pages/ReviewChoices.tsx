@@ -15,7 +15,7 @@ import { useApi } from "../hooks.ts";
 import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 import type { Category, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
-import { type Choice, extensionChoices, groupCategories, loanKindChoices, MAX_PLAN_PAYMENTS, offeredCategories, payerChoices, planEnd, type ReviewItem } from "./review-items.ts";
+import { type Choice, groupCategories, loanKindChoices, MAX_PLAN_PAYMENTS, offeredCategories, payerChoices, planEnd, type ReviewItem } from "./review-items.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { t } from "../text.ts";
 import { useModal } from "../components/useModal.ts";
@@ -105,8 +105,6 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
           </ChoiceButton>
         </div>
       );
-    case "extension":
-      return <Buttons choices={extensionChoices(item)} busy={busy} label={named} onPick={(c) => onAnswer(() => api(c.answer.path, { method: c.answer.method, body: c.answer.body }))} />;
   }
 }
 
