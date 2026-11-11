@@ -3,7 +3,7 @@ import { addDays, type ExpectedBill, type ExpectedCadence, getCategory, isKnownC
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
-import { isIsoDate, strictObject } from "../platform/validate.ts";
+import { isIsoDate, strictObject, UNSEEN } from "../platform/validate.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { body } from "./shared.ts";
 
@@ -21,7 +21,7 @@ const MAX_BILLS = 100;
 function parseExpectedBill(raw: unknown, today: string): Omit<ExpectedBill, "id"> {
   const input = strictObject(raw, ["name", "amountCents", "dueDate", "cadence", "category"] as const);
   const name = typeof input.name === "string" ? input.name.trim() : "";
-  if (!name || name.length > MAX_NAME || /[\x00-\x1f\x7f]/.test(name)) throw new UserError(`Anna laskulle nimi, 1–${MAX_NAME} merkkiä.`);
+  if (!name || name.length > MAX_NAME || UNSEEN.test(name)) throw new UserError(`Anna laskulle nimi, 1–${MAX_NAME} merkkiä.`);
   const amount = input.amountCents;
   if (typeof amount !== "number" || !Number.isInteger(amount) || amount < 1 || amount > MAX_AMOUNT_CENTS) {
     throw new UserError("Summan pitää olla vähintään 0,01 € ja enintään 1 000 000 €.");

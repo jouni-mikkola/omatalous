@@ -66,6 +66,31 @@ describe("expected bills", () => {
     expect(await db.first("SELECT count(*) AS n FROM expected_bills")).toEqual({ n: 0 });
   });
 
+  it("refuses a name with a character nobody sees, and adds no row", async () => {
+    const { admin, db } = await setupApp();
+    const bad: [string, string][] = [
+      ["a name of one zero-width space", "\u200b"],
+      ["a name with a right-to-left override", "Vero\u202elasku"],
+      ["a name with a line separator", "Vero\u2028lasku"],
+    ];
+    for (const [what, name] of bad) {
+      const r = await admin.call("POST", "/api/expected-bills", { ...good, name });
+      expect(r.status, what).toBe(400);
+      expect(r.body.error, what).toBe("Anna laskulle nimi, 1–80 merkkiä.");
+    }
+    expect(await db.first("SELECT count(*) AS n FROM expected_bills")).toEqual({ n: 0 });
+  });
+
+  it("saves a name with ä, an emoji or a dash", async () => {
+    const { admin, db } = await setupApp();
+    for (const name of ["Sähkölasku", "Auto 🚗", "Vesi–jätevesi", "Koti-vakuutus"]) {
+      const r = await admin.call("POST", "/api/expected-bills", { ...good, name });
+      expect(r.status, name).toBe(200);
+      expect(r.body.bill.name, name).toBe(name);
+    }
+    expect(await db.first("SELECT count(*) AS n FROM expected_bills")).toEqual({ n: 4 });
+  });
+
   it("takes the first and last allowed due dates", async () => {
     const { admin } = await setupApp();
     for (const dueDate of ["2026-09-08", "2027-11-13"]) {
