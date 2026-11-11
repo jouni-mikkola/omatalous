@@ -237,13 +237,21 @@ Result: An answer or a forecast reads in whole euros while a row keeps its cents
 
 ## The design: views
 
+### T102 The four tabs
+Result: The menu shows Nyt, Kuukausi, Tulossa and Tarkistettavat with its count, each opening the page that is there today.
+- why: design section 1: T69 to T73 each edited `nav.ts` and held the nav lock, so the views were built one at a time; the menu changes once here and the views after it run side by side.
+- done when: `apps/web/src/nav.ts` holds those four tabs in that order, the fourth with the count of open items, and the rows list keeps its address with no tab; `e2e/navigation.spec.ts` at 390 and 1440 px sees the four names and opens each; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: nav
+- after: T55
+- files: apps/web/src/nav.ts, apps/web/src/Shell.tsx, packages/core/src, e2e/navigation.spec.ts
+
 ### T69 Nyt
 Result: The first view answers how much the household can still spend before payday, with the pace line under it.
 - why: design V1, question 1.1.
 - done when: the view of section 1.1 replaces Yhteenveto; an e2e spec at 390 and 1440 px reads the answer equal to the T63 sum and finds no other card; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: overview, nav
-- after: T63, T67, T68
-- files: apps/web/src/pages/Overview.tsx, apps/web/src/components/home, apps/web/src/nav.ts, apps/web/src/styles, e2e
+- locks: overview
+- after: T63, T67, T68, T102
+- files: apps/web/src/pages/Overview.tsx, apps/web/src/components/home, apps/web/src/styles, e2e
 
 ### T70 Kuukausi
 Result: A tab shows where this month's money went against each category's usual to the same day.
@@ -257,24 +265,24 @@ Result: A tab shows where this month's money went against each category's usual 
 Result: Tulossa replaces Laskut with one list of what is coming up to the payday after next.
 - why: design V3, question 1.3.
 - done when: `git ls-files apps/web/src/components/bills/Timeline.tsx apps/web/src/components/bills/PriceSteps.tsx apps/web/src/components/bills/ContractPanel.tsx` lists nothing; an e2e spec adds a missing bill and sees it in the list and in the Nyt sum; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: bills, nav
-- after: T65, T67
-- files: apps/web/src/pages/Bills.tsx, apps/web/src/components/bills, apps/web/src/nav.ts, e2e
+- locks: bills
+- after: T65, T67, T102
+- files: apps/web/src/pages/Bills.tsx, apps/web/src/components/bills, e2e
 
-### T72 Tarkistettavat as a tab
-Result: Tarkistettavat is the fourth tab, with its count, and each item can be answered there.
+### T72 Tarkistettavat answers each
+Result: Every kind of item in Tarkistettavat can be answered there, and an answered item leaves the queue and the count.
 - why: design V4, question 1.4.
-- done when: it is the fourth tab with its count; an e2e spec answers each item kind of T66 and sees the count fall to zero; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: review, nav
-- after: T66, T67
-- files: apps/web/src/pages/Review.tsx, apps/web/src/nav.ts, e2e
+- done when: an e2e spec answers each item kind of T66 in the tab and sees the count of T102 fall to zero; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: review
+- after: T66, T67, T102
+- files: apps/web/src/pages/Review.tsx, e2e
 
 ### T73 Lisää
 Result: The Raportit menu is gone and Lisää lists Vuosi, Tilit ja saldot, Lainat, Verovuosi and, when shared, Yhteiset.
 - why: design V5: the reports that earn a place, out of the tabs.
 - done when: `git ls-files apps/web/src/pages/Reports.tsx` lists nothing; `docs/UI_STYLE.md` names the four tabs and Lisää; `e2e/table-views.spec.ts` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: reports, nav
-- after: T70
+- after: T70, T102
 - files: apps/web/src/pages/Reports.tsx, apps/web/src/pages/reports, apps/web/src/nav.ts, docs/UI_STYLE.md, e2e/table-views.spec.ts
 
 ### T74 Asetukset in three tabs
@@ -296,7 +304,7 @@ Result: Etäkäyttö is set up from one form in Asetukset > Palvelin instead of 
 ### T76 First run and empty states
 Result: An install with no bank, or under three months of rows, shows each view's one line and the way to Pankit ja tilit.
 - why: design V7, section 4.
-- done when: an e2e spec on an empty install sees each view's one line and the button to Pankit ja tilit, and the wizard has two steps; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- done when: an e2e spec on an empty install sees each view's one line and the button to Pankit ja tilit, and the wizard has two steps; on two months of rows Kuukausi shows its sums with "tavallinen tarvitsee 3 kuukautta" in place of the usual; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: wizard, overview
 - after: T69, T70, T71, T72
 - files: apps/web/src/pages/Wizard.tsx, apps/web/src/pages, e2e
@@ -309,7 +317,97 @@ Result: Each view loads, fails, takes long names and five years of rows and fits
 - after: T76
 - files: e2e, apps/web/src/pages, apps/web/src/styles
 
+## The design: after the views
+
+### T105 Nyt's sum opens its parts
+Result: On Nyt the sum opens the balance and the bills it is made of, and the pace line opens this month's rows.
+- why: design 1.1, the action: T69 builds the answer and its comparison, and a figure that opens nothing cannot be checked.
+- done when: an e2e spec clicks the sum and reads a balance and bills that give the sum to the cent, then clicks the pace line and lands on the rows list with this month's filter in the address; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: overview
+- after: T69
+- files: apps/web/src/pages/Overview.tsx, apps/web/src/components/home, e2e
+
+### T106 Kuukausi steps back a month
+Result: Kuukausi has a month picker, so an earlier month reads against its usual the same way as this one.
+- why: design 1.2, the action: the view of T70 shows the running month only.
+- done when: `e2e/month.spec.ts` steps back one month, reads that whole month's sums against their usual with the month in the address, and steps forward to today's answer; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: reports
+- after: none
+- files: apps/web/src/pages/reports/Month.tsx, apps/web/src/styles/report-month.css, e2e/month.spec.ts
+
+### T107 A bill row opens its history
+Result: In Tulossa a row opens the bill's earlier amounts and dates, so a changed amount can be checked.
+- why: design 1.3, the action: T71 builds the list, and a row in it opens nothing.
+- done when: an e2e spec opens a row of Tulossa and reads the bill's earlier amounts, their sum equal to the rows behind them; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bills
+- after: T71
+- files: apps/web/src/pages/Bills.tsx, apps/web/src/components/bills, e2e
+
+### T113 A wrong bill leaves the list
+Result: A bill marked not recurring in Tulossa leaves the coming list and the Nyt sum.
+- why: design 1.3, the action: T71 adds a missing bill, and nothing removes a wrong one; no such mark exists in the server.
+- done when: a server test marks a bill not recurring and gets the coming list and the Nyt sum without it; an e2e spec marks a row away and no longer sees it; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: bills, expected-bills
+- after: T107
+- files: apps/web/src/components/bills, apps/server/src/routes, apps/server/src/services, apps/server/test, e2e
+
+### T108 Vuosi has a year picker
+Result: Vuosi shows the last 12 months against the 12 before, and a year picker opens an earlier year.
+- why: design section 4, five years of data: core's year report follows the range it is given, and the view has no way to pick a year.
+- done when: a core test on five made-up years gives each picked year against the year before it; an e2e spec picks an earlier year and reads its sums; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: reports
+- after: T73
+- files: apps/web/src/pages/reports/sections/YearOverYear.tsx, packages/core/src/reports, packages/core/test, e2e
+
+### T109 The rows list pages by 100
+Result: The rows list shows 100 rows at a time with a way to the next, so five years of rows open as fast as a month.
+- why: design section 4, five years of data: the server pages by `limit` and `offset`, and the web asks for up to 5 000 rows at once (`MAX_LIST_ROWS`).
+- done when: `git grep -n "limit: MAX_LIST_ROWS" apps/web/src/pages` is empty; `e2e/table-views.spec.ts` on 250 made-up rows sees 100, reaches the last row by the next link with the page in the address, and each day's sum equals all of that day's rows; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: transactions, table
+- after: T58
+- files: apps/web/src/pages/Transactions.tsx, apps/web/src/pages/TransactionRows.tsx, e2e/table-views.spec.ts
+
+### T110 Short dates in the year now
+Result: A date in the running year reads `9.11.` and a date in another year reads `9.11.2025`.
+- why: design section 3, Finnish formats: `date()` in `format.ts` writes the year on every date.
+- done when: a test of `apps/web/src/format.ts` formats a day of the running year without the year and a day of another year with it, in both languages, and periods keep both years when they differ; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: format
+- after: T68
+- files: apps/web/src/format.ts, packages/core/src, apps/web/test
+
+### T111 First fetch counts its rows
+Result: During the first fetch the answer slot says how many rows have come so far, so a long fetch is seen to move.
+- why: design section 4, first fetch: the line says only that rows are being fetched, and the sync gives its count only when it ends.
+- done when: a server test reads the rows fetched so far from a running sync; an e2e spec with a running first fetch reads "Haetaan tapahtumia" with that count; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: overview, sync
+- after: T69
+- files: apps/web/src/first-fetch.ts, apps/web/src/components/home/FirstFetch.tsx, apps/server/src/connectors/sync.ts, apps/server/src/services, apps/server/test, packages/core/src, e2e
+
+### T112 A fault keeps the last answer
+Result: When a view cannot load again, its last answer stays with its time and one line of what failed and what to do.
+- why: design section 4, error: the last answer already stays on a failed reload, but a view shows the fault only when it has no answer, so an old answer reads as fresh; T77 proves only the queue item.
+- done when: a web test fails the second load of a view and still reads the first answer, its time and the one line; an e2e spec does the same on Nyt at 390 px; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: api-state
+- after: none
+- files: apps/web/src/hooks.ts, apps/web/src/api.ts, apps/web/src/components, apps/web/test, e2e
+
 ## The audit
+
+### T103 No extension pages in the web
+Result: The web app has no extension pages, row parts or flag list, and every menu entry is a page that exists.
+- why: audit move 1, the web half: the extension list is empty and each hook loops over nothing.
+- done when: `git ls-files apps/web/src/extensions.ts apps/web/src/ExtensionPage.tsx apps/web/src/views/ExtensionView.tsx apps/web/src/components/ExtensionRowParts.tsx` lists nothing; `git grep -n "WEB_EXTENSIONS\|extensionPages" apps/web` is empty; `e2e/navigation.spec.ts` passes; `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: nav, extensions
+- after: none
+- files: apps/web/src/extensions.ts, apps/web/src/ExtensionPage.tsx, apps/web/src/views/ExtensionView.tsx, apps/web/src/components/ExtensionRowParts.tsx, apps/web/src/nav.ts, apps/web/src/routes.ts, apps/web/src/pages/settings, apps/web/test
+
+### T104 No flag frame in core, server
+Result: Core and the server carry no feature flags or extension hooks, and an install behaves as before.
+- why: audit move 1, the rest: `FeatureId` is `never` and the server's `EXTENSIONS` is an empty list that about 15 files read.
+- done when: `git grep -n "EXTENSIONS\|FeatureId" apps packages` is empty; `git ls-files packages/core/src/features.ts apps/server/src/extensions.ts apps/server/test/extensions.test.ts apps/server/test/extension-demo.test.ts apps/server/test/features.test.ts` lists nothing; the service token and instance tests pass (`pnpm test service-tokens instance`); `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
+- locks: extensions
+- after: T103
+- files: packages/core/src/features.ts, apps/server/src/extensions.ts, apps/server/src, apps/server/test
 
 ### T78 No module scaffold
 Result: The generator for feature modules and its repo rules are gone, so a contributor meets one way to add code.
