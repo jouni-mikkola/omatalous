@@ -1,6 +1,10 @@
 // Decision: how much can we still spend before payday, and is the month's spending on its usual course
+import { useState } from "react";
 import { PaceChart } from "../../charts/PaceChart.tsx";
 import { answerMoney, dayMonth, money } from "../../format.ts";
+import { periodRange } from "../../period.ts";
+import { hashOf } from "../../routes.ts";
+import "../../styles/why.css";
 import { t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
@@ -21,6 +25,10 @@ function unknownText(reason: Extract<NytData["left"], { known: false }>["reason"
  * the chart of the month's days, and the balance and the bills the sum is made of. Every figure is a field of `nyt` in
  * the dashboard answer (`nytAnswer` of core); nothing is added up here. The answer is in whole euros, its two parts to
  * the cent.
+ *
+ * Two figures open what they are made of (the action of section 1.1): the sum is a button that opens the balance and
+ * the bills under the chart, and the pace line is a link to the rows of the running month to today (the period
+ * Tapahtumat calls this month).
  */
 export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
   const { nyt, pace, ahead, home } = data;
@@ -28,11 +36,16 @@ export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
   const usual = nyt.pace.usual;
   const payday = ahead?.payday && ahead.payday.date.startsWith(pace.month) ? Number(ahead.payday.date.slice(8, 10)) : null;
   const gap = usual ? null : paceGapText(home.paceGap);
+  const [parts, setParts] = useState(false);
+  const rows = hashOf({ page: "transactions", params: new URLSearchParams(periodRange("month", nyt.from)) });
   return (
     <section className="home-answer nyt" aria-labelledby="home-question">
       {left.known ? (
         <h2 id="home-question" className="home-answer-line">
-          <span>{t("home.nyt_left", { date: dayMonth(left.payday.date) })}</span> <Figure text={answerMoney(left.leftCents)} size="l" />
+          <span>{t("home.nyt_left", { date: dayMonth(left.payday.date) })}</span>{" "}
+          <button type="button" className="why-fig nyt-sum" aria-labelledby="home-question" aria-expanded={parts} aria-controls={parts ? "nyt-parts" : undefined} onClick={() => setParts(!parts)}>
+            <Figure text={answerMoney(left.leftCents)} size="l" />
+          </button>
         </h2>
       ) : (
         <h2 id="home-question" className="home-answer-line">
@@ -47,12 +60,14 @@ export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
         </p>
       ) : null}
       <p className="home-detail nyt-pace">
-        {t("home.nyt_spent", { sum: answerMoney(nyt.pace.spentCents) })}
-        {usual && `, ${t("home.nyt_usual_band", { range: euroRange(usual.lowCents, usual.highCents) })}`}
+        <a className="why-fig" href={rows}>
+          {t("home.nyt_spent", { sum: answerMoney(nyt.pace.spentCents) })}
+          {usual && `, ${t("home.nyt_usual_band", { range: euroRange(usual.lowCents, usual.highCents) })}`}
+        </a>
       </p>
       {gap && <p className="home-detail">{gap}</p>}
       <PaceChart pace={pace} goal={null} payday={payday} names={{ current: monthTitle(pace.month), previous: pace.previous ? t("home.last_month") : "" }} />
-      {left.known && <p className="home-detail nyt-parts num">{t("home.nyt_parts", { balance: money(left.balanceCents), bills: money(left.billsCents) })}</p>}
+      {left.known && parts && <p id="nyt-parts" className="home-detail nyt-parts num">{t("home.nyt_parts", { balance: money(left.balanceCents), bills: money(left.billsCents) })}</p>}
     </section>
   );
 }
