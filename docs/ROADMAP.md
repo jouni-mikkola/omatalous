@@ -44,6 +44,13 @@ Result: Every pull request's test job is green on what main already holds, so fi
 - locks: none
 - after: none
 
+### N3 WORKFLOW.md front matter
+Result: The check line is quoted, so the board reads its state and starts steps.
+- why: The board answers 400 on its state since 4edcd70: the check line holds a colon and a space unquoted.
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: WORKFLOW.md front matter is valid YAML again. The check line is quoted, so the board reads its state and starts steps.
+- locks: none
+- after: none
+
 ## The design: deletions
 
 ### T55 Säästövinkit is gone
