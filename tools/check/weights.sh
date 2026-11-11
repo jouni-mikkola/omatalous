@@ -81,12 +81,10 @@ sh_run() {
   wait "$xp" 2>/dev/null
 }
 
-# jobs_split: the CPUs of this run and the shell jobs at a time. With a lease on a share of the cores (CORES_SHARE, tools/cores.sh)
-# that share is the CPUs and the jobs take half of it, else the CPUs of the machine and, over 12 of them, those less 8 (at least 4).
+# jobs_split: the CPUs of this run and the shell jobs at a time: the CPUs of the machine and, over 12 of them, those less 8 (at least 4).
 # floor: the least the vitest workers get beside the jobs.
 jobs_split() {
-  cpus=${CORES_SHARE:-$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}
-  # shellcheck disable=SC2034 # leased, floor and JOBS are read by tools/check.sh, which sources this file
-  if [[ -n ${CORES_SHARE:-} ]]; then leased=1 floor=1 JOBS=${CHECK_JOBS:-$((cpus / 2 > 1 ? cpus / 2 : 1))}
-  else leased=0 floor=2 JOBS=${CHECK_JOBS:-$((cpus > 12 ? cpus - 8 : 4))}; fi
+  cpus=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
+  # shellcheck disable=SC2034 # floor and JOBS are read by tools/check.sh, which sources this file
+  floor=2 JOBS=${CHECK_JOBS:-$((cpus > 12 ? cpus - 8 : 4))}
 }

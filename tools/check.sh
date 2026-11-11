@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034,SC2154 # cpus, leased, JOBS and floor come from jobs_split, seen goes to weights_write by name (tools/check/weights.sh)
+# shellcheck disable=SC2034,SC2154 # cpus, JOBS and floor come from jobs_split, seen goes to weights_write by name (tools/check/weights.sh)
 # The gate before handing work back: what CI runs, with the output cut to what a failure needs.
 #   tools/check.sh [--changed [base]] [types] [tests] [lint] [sh]     (pnpm check; no argument runs all four steps)
 # types = tsc in every package, tests = vitest, lint = tools/ci/shell-lint.sh, sh = the shell suites in tools/test/.
@@ -14,7 +14,7 @@
 # (CHECK_LIGHT=1, set by the light tier of ci.yml, applies the rule there too), with CHECK_FRESH (the release gate sets
 # it) or CHECK_TOOLING=1, never with CHECK_TOOLING=0.
 # The steps run side by side, their lines printed in the order above; CHECK_SERIAL=1 runs them one after the other, for
-# a small machine. CHECK_SLOTS (default 2) checks run at a time per clone and its worktrees: tools/slots.sh holds the slot.
+# a small machine.
 # Unless CUT_LOCK_HELD or CI is set, a run holds a shared lock on $(git rev-parse --git-common-dir)/cut.lock, which a
 # release holds exclusively while it cuts: the check then waits (up to CUT_LOCK_WAIT, the name the release and the page tests use too; CHECK_CUT_WAIT still works; default 1800 s) and runs later,
 # behind a cut that is already waiting (cut.wait, below).
@@ -85,12 +85,6 @@ if ((RERUN)) || [[ " ${steps[*]} " == *" types "* || " ${steps[*]} " == *" tests
 # again under it, with CUT_LOCK_HELD set. It is taken before the slot below, never after: see that script.
 if [[ -z ${CUT_LOCK_HELD:-} && -z ${CI:-} ]] && git rev-parse --git-common-dir >/dev/null 2>&1; then
   exec bash "$ROOT/tools/check/cut-shared.sh" check -- bash "$SELF" "${ORIG[@]}"
-fi
-
-# wait for a free slot, so workers checking at the same time do not make each other's seeded tests time out, and for a lease
-# on a share of the cores (tools/cores.sh), which the shell jobs and vitest below divide between them
-if [[ -z ${CHECK_SLOT_HELD:-} && -z ${CI:-} && " ${steps[*]} " != " lint " ]]; then
-  CHECK_SLOT_HELD=1 exec bash "$ROOT/tools/slots.sh" --label check -- bash "$ROOT/tools/cores.sh" --label check -- bash "$SELF" "${ORIG[@]}"
 fi
 
 # --rerun: only the failures of an earlier red run, in the lead's slot or the workers', under the same cut lock
@@ -173,13 +167,12 @@ for v in CHECK_FRESH CHECK_STAMPS_DIR VITEST_MAX_WORKERS E2E_WORKERS CI TZ; do
 done >"$CHECK_LOG/env"
 # shellcheck source=check/weights.sh
 source "$ROOT/tools/check/weights.sh"
-jobs_split # cpus, JOBS, leased and floor
+jobs_split # cpus, JOBS and floor
 # On 12 CPUs or fewer the shell jobs take 4 whatever the count, and vitest's default of a worker per CPU but one beside
 # them loads the machine about twice over: the budget tests then measure the crowd. With the shell suites beside the
-# tests, vitest gets the CPUs the jobs leave (at least 2), unless VITEST_MAX_WORKERS says otherwise. With a lease on a share
-# of the cores (CORES_SHARE) that share is the CPUs: the jobs take half, vitest the rest, whatever the count.
+# tests, vitest gets the CPUs the jobs leave (at least 2), unless VITEST_MAX_WORKERS says otherwise.
 GIVE=0 # the cores the vitest workers hold, which the shell jobs take over when the tests step ends (sh_run)
-if [[ -z ${VITEST_MAX_WORKERS:-} && ${CHECK_SERIAL:-0} != 1 && " ${steps[*]} " == *" tests "* && " ${steps[*]} " == *" sh "* ]] && ((cpus <= 12 || leased)); then
+if [[ -z ${VITEST_MAX_WORKERS:-} && ${CHECK_SERIAL:-0} != 1 && " ${steps[*]} " == *" tests "* && " ${steps[*]} " == *" sh "* ]] && ((cpus <= 12)); then
   export VITEST_MAX_WORKERS=$((cpus - JOBS > floor ? cpus - JOBS : floor))
   GIVE=$VITEST_MAX_WORKERS
 fi

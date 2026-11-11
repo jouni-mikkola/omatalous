@@ -523,7 +523,7 @@ stays. A new text or series token goes on its list in the test. There is one loo
 
 ### End-to-end tests
 
-`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default a third of the CPUs, from 3 to 8, and no more than the cores the run is leased). Each is a copy of the
+`pnpm build` first, then `pnpm e2e`. `e2e/run.mjs` starts `E2E_WORKERS` servers (default a third of the CPUs, from 3 to 8). Each is a copy of the
 build in a temp directory, on a free port, with a data directory and a fake bank of its own (see below), and the
 Playwright specs in `e2e/` run with one worker for each server. The data directories are deleted at the end.
 `E2E_WORKERS=1` runs the specs one after the other. A failed test leaves its trace as `test-results/e2e/<test>/trace.zip` (`trace: "retain-on-failure"`).

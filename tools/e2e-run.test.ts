@@ -151,7 +151,6 @@ beforeAll(() => {
   mkdirSync(join(world, "e2e"));
   copyFileSync(join(root, "e2e/run.mjs"), join(world, "e2e/run.mjs"));
   mkdirSync(join(world, "tools/lib"), { recursive: true });
-  copyFileSync(join(root, "tools/lib/cores.mjs"), join(world, "tools/lib/cores.mjs")); // run.mjs reads its share of the cores through it
   copyFileSync(join(root, "tools/lib/outside-hosts.mjs"), join(world, "tools/lib/outside-hosts.mjs")); // and checks the hosts of the run against the list of docs/SECURITY.md
   put("docs/SECURITY.md", "<!-- outside-hosts -->\n| Host | Called by | Why |\n|---|---|---|\n| `api.example.com` | server | a test |\n<!-- /outside-hosts -->\n");
   put("e2e/server.mjs", SERVER);
@@ -201,19 +200,6 @@ const stampFiles = () => (existsSync(join(stamps, "e2e")) ? readdirSync(join(sta
 const STAMP_LINE = /^key=[0-9a-f]{64} date=\S+ commit=\S+ worktree=\S+ seconds=\d+ passed=3 skipped=0\n$/;
 
 describe("pnpm e2e and its stamp", { timeout: 60_000 }, () => {
-  it("starts no more workers than the cores its lease holds, and E2E_WORKERS still decides", () => {
-    // a run inside a lease (CORES_HELD) takes the share it was handed: three servers for a share of 2 would be one too many
-    writeFileSync(`${calls}.servers`, "");
-    const free = { E2E_WORKERS: undefined, CORES_HELD: "1", CORES_SHARE: "2" };
-    expect(e2e(free, ["e2e/a.spec.ts"]).status).toBe(0);
-    const seen = readFileSync(`${calls}.servers`, "utf8").trim().split("\n").filter(Boolean).map(Number);
-    expect(seen.length).toBeGreaterThan(0);
-    expect(Math.max(...seen)).toBe(2);
-    writeFileSync(`${calls}.servers`, "");
-    e2e({ ...free, E2E_WORKERS: "3" }, ["e2e/a.spec.ts"]);
-    expect(Math.max(...readFileSync(`${calls}.servers`, "utf8").trim().split("\n").filter(Boolean).map(Number))).toBe(3);
-  });
-
   it("fails a run that called a host that is not on the list of docs/SECURITY.md, and lets a listed one and the machine pass", () => {
     const bad = e2e({ FAKE_HOST: "fonts.example.net" }, ["e2e/a.spec.ts"]);
     expect(bad.status).toBe(1);

@@ -2,7 +2,7 @@
 
 ## Verdict
 
-The structure is sound. Core is pure, the server keeps every financial read behind `FinanceRepo`, errors map cleanly in one `onError` (`apps/server/src/app.ts:52`), the hourly tick is small and catches per chore (`services/schedule.ts`), and the full vitest run (540 files, 8504 tests) is green in 126 s on 6 workers. The three biggest problems are all unfinished deletions. First, the Säästövinkit engine is still in core: about 5000 lines in `packages/core/src/optimise`, 4600 lines of tests and 330 Finnish texts. No app code calls it. It is still exported from core, still imported by analysis code, still served by two server routes, and it costs about 30 s of test time. Second, three merged steps say "Partial" and left their scaffolding behind: T78 (features/, `pnpm gen`), T80 (slots.sh, cores.sh) and T84 (two knip ignore lines, one of which hides a dead component). Third, `pnpm knip` reports clean but never checks for unused files, so 12 dead files went unnoticed, and CLAUDE.md and docs/DEVELOPMENT.md send a contributor to files that no longer exist. What is good: the boundaries are enforced by repo rules and a size budget, migrations are additive and checksummed, and CI shards tests across two runners (median run 101 s).
+The structure is sound. Core is pure, the server keeps every financial read behind `FinanceRepo`, errors map cleanly in one `onError` (`apps/server/src/app.ts:52`), the hourly tick is small and catches per chore (`services/schedule.ts`), and the full vitest run (540 files, 8504 tests) is green in 126 s on 6 workers. The three biggest problems are all unfinished deletions. First, the Säästövinkit engine is still in core: about 5000 lines in `packages/core/src/optimise`, 4600 lines of tests and 330 Finnish texts. No app code calls it. It is still exported from core, still imported by analysis code, still served by two server routes, and it costs about 30 s of test time. Second, three merged steps say "Partial" and left their scaffolding behind: T78 (features/, `pnpm gen`), T80 (the slot and core lease scripts) and T84 (two knip ignore lines, one of which hides a dead component). Third, `pnpm knip` reports clean but never checks for unused files, so 12 dead files went unnoticed, and CLAUDE.md and docs/DEVELOPMENT.md send a contributor to files that no longer exist. What is good: the boundaries are enforced by repo rules and a size budget, migrations are additive and checksummed, and CI shards tests across two runners (median run 101 s).
 
 ## Findings
 
@@ -63,10 +63,10 @@ The structure is sound. Core is pure, the server keeps every financial read behi
 
 7. **Ugly: the T80 machine-load scripts remain in the product repo.**
    - Where:
-     - `tools/slots.sh` (110 lines), `tools/cores.sh` (81) and `tools/lib/cores.mjs` (57), plus `tools/lib/owner.sh`
+     - the slot lease script (110 lines), the core lease script (81) and its Node reader (57), plus the lock owner helper
      - their callers at `tools/check.sh:93`, `vitest.config.ts:2` and `e2e/run.mjs:21,182`
      - their tests `tools/cores.test.ts`, `tools/test/cores.test.sh` and `tools/test/slots.test.sh`
-   - Evidence: d3ae650 says "Partial: T80 slots.sh, cores.sh, lib/cores.mjs and lib/owner.sh still to remove with their readers".
+   - Evidence: d3ae650 says "Partial: T80 the slot and core lease scripts, the Node reader and the owner helper still to remove with their readers".
    - Why it matters: agent-machine tooling sits in a household product, and `pnpm check` on a clean clone still goes through a slot lease and a core lease.
 
 8. **Ugly: one money rule lives in the web.**

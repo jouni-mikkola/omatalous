@@ -5,8 +5,6 @@
 # a moment first, so a check that arrives while the cut waits stands behind it. Both waits share one limit
 # (CUT_LOCK_WAIT, CHECK_CUT_WAIT still works; 1800 s). The command runs under the lock, which every child inherits, with
 # CUT_LOCK_HELD=1 set for what it starts. With CUT_LOCK_HELD or CI set, or outside a git repository, it runs at once.
-# The cut lock comes before any slot of tools/slots.sh: the release gate holds the cut while it waits for the lead's slot,
-# so a run that held a slot while it waited for the cut would wait on the gate as the gate waits on it.
 # Exit: the command's, or 1 when the cut still held the lock after the limit (with one line naming the lock file).
 set -uo pipefail
 label=${1:?usage: cut-shared.sh <label> -- <command>...}; shift

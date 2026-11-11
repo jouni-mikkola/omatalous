@@ -1,10 +1,4 @@
 import { configDefaults, defineConfig } from "vitest/config";
-import { holdCores, startedByVitest } from "./tools/lib/cores.mjs";
-
-// Workers by the cores this run may have (tools/cores.sh: a lease on a share of the machine, so several runs at once do not
-// load it to a multiple of its cores). VITEST_MAX_WORKERS, which a check or a release cut sets, wins; with no limit vitest
-// takes its own default. A tool that only reads this file (knip) takes no lease.
-const share = startedByVitest() ? await holdCores("vitest") : null;
 
 // The test files of a feature module sit in its folder: features/<kind>/<id>/index.test.ts, and those of a module a build
 // adds (extensions.ts) in its own folder, which the shared tree does not have.
@@ -26,7 +20,6 @@ const TABLES = { setupFiles: ["/tools/lib/test-setup.ts", "/tools/lib/test-marku
 
 export default defineConfig({
   test: {
-    ...(share && !process.env.VITEST_MAX_WORKERS ? { maxWorkers: share } : {}),
     // a private TMPDIR per run; the run fails when a test leaves something in it (tools/lib/tmp-guard.ts)
     globalSetup: ["tools/lib/tmp-guard.ts"],
     // a busy machine (other builds beside the gate) makes a 1 s test take 6 s: a test's own budget is its assertion, not this
