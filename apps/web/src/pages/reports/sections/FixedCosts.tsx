@@ -75,9 +75,11 @@ function FixedCosts({ ctx }: SectionProps) {
   }
   const columns: Column<Row>[] = [
     { key: "name", label: t("rpt.fc_payment"), kind: "text", rowHead: true, cell: nameOf, csv: nameOf },
-    { key: "category", label: t("rpt.sm_category"), kind: "text", phone: "hide", cell: (x) => ctx.label(x.category), csv: (x) => ctx.label(x.category) },
+    { key: "category", label: t("rpt.sm_category"), kind: "text", cell: (x) => ctx.label(x.category), csv: (x) => ctx.label(x.category) },
     { key: "month", label: t("rpt.fc_per_month"), kind: "money", main: true, precision: "cents", cents: (x) => x.monthlyCents, bar: { value: (x) => x.monthlyCents, max: Math.max(1, ...r.rows.map((x) => x.monthlyCents)) } },
-    { key: "year", label: t("rpt.fc_per_year"), kind: "money", precision: "cents", cents: (x) => x.yearlyCents },
+    // a phone's block is a name and its sum over its category (docs/design/README.md section 4); the year is twelve
+    // months and stands in the heading above the table
+    { key: "year", label: t("rpt.fc_per_year"), kind: "money", precision: "cents", phone: "hide", cents: (x) => x.yearlyCents },
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={t("rpt.fc_datum", { month: money(r.monthlyCents, false), year: money(r.yearlyCents, false) })}>
