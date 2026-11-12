@@ -29,7 +29,7 @@ function dashboard(known: boolean, quiet = false) {
       usualPerDayCents: null,
       pace: { day: 11, spentCents: 0, usual: null },
     },
-    ahead: { from: "2026-11-11", to: "2026-11-24", payday: known ? { date: "2026-11-25", name: "Työnantaja", pay: { floorCents: 290000 } } : null, rows, upcoming: outside },
+    ahead: { from: "2026-11-11", to: "2026-11-24", payday: known ? { date: "2026-11-25", name: "Työnantaja", pay: { floorCents: 290000 } } : null, rows, upcoming: outside, outside },
   };
 }
 

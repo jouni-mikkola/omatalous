@@ -23,8 +23,8 @@ export function BeforePayday({ data }: { data: DashboardData }) {
   if (!left?.known || !ahead?.payday) return null;
   const payday = ahead.payday;
   const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
-  // due before the payday from an account the balance leaves out: listed and named so, in no sum here (core finds them to the payday)
-  const outside = ahead.upcoming.filter((r) => r.outside && r.cents !== null && r.cents < 0 && r.date < left.payday.date);
+  // due before the payday from an account the balance leaves out: listed and named so, in no sum here
+  const outside = ahead.outside.filter((r) => r.cents !== null && r.cents < 0 && r.date < left.payday.date);
   const pay = payday.pay?.floorCents ?? null;
   const line = paydayLine(ahead, rows, left.payday.date);
   return (

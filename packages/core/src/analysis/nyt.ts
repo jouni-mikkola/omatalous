@@ -52,7 +52,7 @@ export interface NytAnswer {
         /** `leftCents` over `days`, in whole cents; `leftCents` itself when the payday is today. */
         perDayCents: number;
         /**
-         * What accounts the balance leaves out pay before the payday (`upcoming` rows marked `outside`): in no figure
+         * What accounts the balance leaves out pay before the payday (`ahead.outside`, which runs to the payday when it is more than 30 days off): in no figure
          * above, so the page says it beside `billsCents`, which reads 0 when only such an account pays.
          */
         elsewhereCents: number;
@@ -98,7 +98,7 @@ function leftOf(ctx: AnalysisContext, { ahead }: Pick<AheadBasis, "ahead">): Nyt
   const balanceCents = ahead.balance.startCents;
   const billsCents = ahead.totals.leavingCents;
   const leftCents = ahead.balance.freeCents;
-  const elsewhereCents = upcomingElsewhereCents(ahead.upcoming.filter((r) => r.date < payday.date));
+  const elsewhereCents = upcomingElsewhereCents(ahead.outside.filter((r) => r.date < payday.date));
   return { known: true, payday, days, balanceCents, billsCents, leftCents, perDayCents: days > 0 ? Math.round(leftCents / days) : leftCents, elsewhereCents };
 }
 

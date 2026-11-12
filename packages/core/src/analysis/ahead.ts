@@ -157,6 +157,11 @@ export interface AheadData {
    */
   upcoming: AheadRow[];
   /**
+   * What an account the balance leaves out pays (`outside`), as far as the window reaches when that is past the 30 days
+   * of `upcoming`: in no figure of the window. Yhteenveto names their sum before the payday and Laskut lists them there.
+   */
+  outside: AheadRow[];
+  /**
    * The expected everyday spending of a day in the running month, in whole cents, over every account in view, a card's
    * purchases included (`expectedEverydayPerDay`). Taken off none of these figures: the runway (`runwayOf`) takes off
    * the part the counted accounts pay before the payday. 0 under three complete months or when a linked card's
@@ -198,7 +203,7 @@ export function upcomingGroups({ upcoming, to, reason, payday }: Pick<AheadData,
   return card.length ? [...groups, group("card", card)] : groups;
 }
 
-/** What accounts the balance leaves out pay in the 30 days, or to the payday when it is further: the rows marked `outside`, in no figure of the window. */
+/** What accounts the balance leaves out pay in the 30 days: the rows marked `outside`, in no figure of the window. */
 export function upcomingElsewhereCents(upcoming: readonly AheadRow[]): number {
   return upcoming.reduce((sum, r) => (r.outside && r.cents !== null && r.cents < 0 ? sum - r.cents : sum), 0);
 }
@@ -339,13 +344,14 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   for (const b of expectedBillRows(ctx, inputs.expectedBills, from, reachPayments)) {
     all.push({ date: b.date, name: b.name, category: b.category, cents: -b.amountCents, source: "expected" });
   }
-  // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window; a card's is marked.
-  // An account's runs as far as the payments do, so a payday more than 30 days off still has all of it before it.
+  // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window; a card's is marked
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   const onCard = (s: RecurringSeries) => cards.has(parseSeriesId(s.id)?.accountId ?? "");
   const outside = ctx.recurring.filter((s) => !onCounted(s));
+  // an account's rows are found to the window's end too: a payday can be more than 30 days off
+  const outsideRows = expectedCharges(outside.filter((s) => !onCard(s)), from, reachPayments, expected).map((c): AheadRow => ({ ...chargeRow(c), outside: true }));
   const elsewhere = [
-    ...expectedCharges(outside.filter((s) => !onCard(s)), from, reachPayments, expected).map((c): AheadRow => ({ ...chargeRow(c), outside: true })),
+    ...outsideRows.filter((r) => r.date <= thirty),
     ...expectedCharges(outside.filter(onCard), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), onCard: true })),
   ];
   // the moves are found to the end of Laskut's 30 days: a card's bill is in the list like any bill, a transfer is not
@@ -365,7 +371,7 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   });
   const [recurringCents, typedCents, cardCents, transferCents] = [sumOf(rows, "recurring"), sumOf(rows, "expected"), sumOf(rows, "card"), sumOf(rows, "transfer")];
   const totals: AheadTotals = { recurringCents, typedCents, cardCents, transferCents, dueCents: recurringCents + typedCents + cardCents, leavingCents: recurringCents + typedCents + cardCents + transferCents, incomeCents: sumOf(rows, "income") };
-  const base = { from, to, days, reason, payday, rows, upcoming, everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals };
+  const base = { from, to, days, reason, payday, rows, upcoming, outside: outsideRows.sort(byDay), everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals };
   const evidence: Pay[] = payday?.pay && paySeries ? payEvidence(regularOf(paySeries), from) : [];
   const periods = comingList(ctx, inputs, found);
   // the rows are those of every counted account, so the figures need the balance of every one of them
