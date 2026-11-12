@@ -141,6 +141,27 @@ describe("the time, sum and rate a bank writes around the name", () => {
     // "KLO" with no time after it is a word of the name
     expect(name("Ravintola Klo Kuopio")).toBe("Ravintola Klo");
   });
+
+  it("keeps a course with its date or credits: a rate has three decimals or more", () => {
+    const rules = compileRules([]);
+    const of = (description: string) => categorize({ merchant: name(description), counterparty: null, description, mcc: null, amountCents: -12000 }, rules).category;
+    expect(name("KURSSI 1.10.2026")).toBe("Kurssi");
+    expect(name("Kurssi 12.10")).toBe("Kurssi");
+    expect(name("Kurssi 12.10. Kansalaisopisto")).toBe("Kurssi Kansalaisopisto");
+    expect(name("Kesäkurssi 1.10. Opisto")).toBe("Kesäkurssi Opisto");
+    // Ä and K are no edge of a word: the end of KESÄKURSSI and KESÄKLO is no rate or time
+    expect(name("KESÄKURSSI 1,0834 OPISTO")).toBe("Kesäkurssi Opisto");
+    expect(name("Kesäklo 12.30 Kahvila")).toBe("Kesäklo Kahvila");
+    for (const description of ["KURSSI 1.10.2026", "Kurssi 12.10", "KURSSI 1,5 OP"]) expect(of(description)).toBe("education");
+  });
+
+  it("lets a user's rule read the description as the bank wrote it", () => {
+    const rule = (pattern: string) => compileRules([{ field: "description", pattern, category: "housing", priority: 10 }]);
+    const of = (pattern: string, description: string) => categorize({ merchant: "Kauppa Ilo", counterparty: null, description, mcc: null, amountCents: -45000 }, rule(pattern));
+    expect(of("KURSSI 1,0834", "USD 25,00 KURSSI 1,0834 KAUPPA ILO")).toMatchObject({ category: "housing", byUser: true });
+    expect(of("KLO 14.22", "Korttiosto 12.10.2026 klo 14.22 Kauppa Ilo")).toMatchObject({ category: "housing", byUser: true });
+    expect(of("450,00 EUR", "VUOKRA 450,00 EUR KAUPPA ILO")).toMatchObject({ category: "housing", byUser: true });
+  });
 });
 
 describe("a payment service in front of the name", () => {

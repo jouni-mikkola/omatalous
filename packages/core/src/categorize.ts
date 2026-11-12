@@ -507,7 +507,12 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
   return [...user, ...people.first, ...builtin(payeeRules(fold).first), ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...DEALER_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
 }
 
-function fieldText(input: CategorizeInput, field: RuleField): string {
+/**
+ * The text a rule reads. The built-in rules read the description without the bank's figures (`dropBankFigures`); a
+ * user's rule reads it as the bank wrote it, as the user saw it when writing the rule.
+ */
+function fieldText(input: CategorizeInput, field: RuleField, byUser: boolean): string {
+  const description = (text: string) => (byUser ? fold(text) : dropBankFigures(fold(text)));
   switch (field) {
     case "merchant":
     case "merchant_exact":
@@ -515,22 +520,23 @@ function fieldText(input: CategorizeInput, field: RuleField): string {
     case "counterparty":
       return fold(input.counterparty ?? "");
     case "description":
-      return dropBankFigures(fold(input.description ?? ""));
+      return description(input.description ?? "");
     case "any":
-      return fold([input.merchant, input.counterparty, input.description && dropBankFigures(input.description.toUpperCase())].filter(Boolean).join(" | "));
+      return fold([input.merchant, input.counterparty, input.description && description(input.description)].filter(Boolean).join(" | "));
   }
 }
 
 export function categorize(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[] = []): CategorizeResult {
   const direction: Direction = input.amountCents >= 0 ? "in" : "out";
   const holders = holdersOf(accounts);
-  const texts = new Map<RuleField, string>();
+  const texts = new Map<string, string>();
   for (const rule of rules) {
     if (rule.direction && rule.direction !== direction) continue;
     // an income category never applies to money going out
     if (direction === "out" && rule.income) continue;
-    let text = texts.get(rule.field);
-    if (text === undefined) texts.set(rule.field, (text = fieldText(input, rule.field)));
+    const key = `${rule.field}:${rule.byUser === true}`;
+    let text = texts.get(key);
+    if (text === undefined) texts.set(key, (text = fieldText(input, rule.field, rule.byUser === true)));
     if (rule.test(text, input, holders, accounts)) {
       const byUser = rule.byUser ? { byUser: true } : {};
       // a lender sending money (loan payout) is borrowing, not repayment
