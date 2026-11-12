@@ -21,8 +21,12 @@ export const lateCardAccounts: Account[] = [
 const row = (id: string, accountId: string, bookingDate: string, amountCents: number, counterparty: string, description: string | null = null): Transaction =>
   tx({ id, accountId, bookingDate, amountCents, counterparty, description, merchant: normalizeMerchant(counterparty, description) });
 
-/** January 2026 to the 9th of the month of `today`; the card's own rows begin in `cardSince` (`2026-07`). `billsBefore` false leaves the bills of the months before out: the card's history is then missing with nothing to say so. */
-export function lateCardContext(cardSince = "2026-07", today = LATE_CARD_TODAY, billsBefore = true) {
+/**
+ * January 2026 to the 9th of the month of `today`; the card's own rows begin in `cardSince` (`2026-07`). `billsBefore` false
+ * leaves the bills of the months before out: the card's history is then missing with nothing to say so. The bill of
+ * `paidEarly` is paid on the 28th of the month before, which then has two.
+ */
+export function lateCardContext(cardSince = "2026-07", today = LATE_CARD_TODAY, billsBefore = true, paidEarly?: string) {
   const out: Transaction[] = [];
   for (let m = "2026-01", i = 0; m <= today.slice(0, 7); m = addMonths(m, 1), i++) {
     const own = m >= cardSince;
@@ -34,7 +38,7 @@ export function lateCardContext(cardSince = "2026-07", today = LATE_CARD_TODAY, 
     }
     if (m < today.slice(0, 7)) {
       // the bill is paid from checking; with the card's rows it pairs with the card's payment row, without them it stands alone
-      if (own || billsBefore) out.push(row(`bill-${i}`, "chk", dateIn(m, 14), -52_000, "RESURS BANK AB", "KORTTILASKU"));
+      if (own || billsBefore) out.push(row(`bill-${i}`, "chk", m === paidEarly ? dateIn(addMonths(m, -1), 28) : dateIn(m, 14), -52_000, "RESURS BANK AB", "KORTTILASKU"));
       if (own) out.push(row(`paid-${i}`, "card", dateIn(m, 14), 52_000, "SUORITUS", "SUORITUS"));
     }
   }

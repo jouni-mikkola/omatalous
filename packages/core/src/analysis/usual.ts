@@ -119,7 +119,14 @@ function joinedSmall(ctx: AnalysisContext, label: string, month: string, rows?: 
  * household total ignores a card connected later, so such a month is complete; its categories lack the card's purchases.
  */
 function cardGapIn(ctx: AnalysisContext, month: string): boolean {
-  if (paidCardBills(ctx, month)) return true;
+  return paidCardBills(ctx, month) || cardRowsMissingIn(ctx, month);
+}
+
+/**
+ * Whether `month` comes before the rows of a connected card begin, so its purchases are in no category of the month.
+ * A card with no rows counts in no month: its bills, however timed, are the categories' card bill.
+ */
+export function cardRowsMissingIn(ctx: AnalysisContext, month: string): boolean {
   const { began } = coverage(ctx);
   return ctx.accounts.some((a) => a.type === "credit_card" && Number.isFinite(began(a.id)) && !accountCovers(ctx, [a.id], `${month}-01`));
 }
