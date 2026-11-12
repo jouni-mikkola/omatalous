@@ -347,8 +347,13 @@ async function desk(/** @type {Film} */ film) {
   const totalCents = cents(plain(await total.textContent()));
   if (due.reduce((s, b) => s + b.sum, 0) !== totalCents || totalCents !== -cents(bills)) throw new Error(`Laskut: the bills before payday do not add up to ${bills}`);
   film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
-  // two bills are named; more would make the caption too long to read
-  const named = due.length <= 2 ? due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(" and ") : `its ${due.length} bills before payday`;
+  // two bills are named; more would make the caption too long to read, and one bill's sum is the figure already said
+  const one = due.length === 1 && due[0];
+  const named = one
+    ? `${one.name} on ${englishDate(one.date)}`
+    : due.length <= 2
+      ? due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(" and ")
+      : `${due.length} bills before payday`;
   await film.say(`Laskut (bills): the ${euros(totalCents)} is ${named}.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   await film.read();
