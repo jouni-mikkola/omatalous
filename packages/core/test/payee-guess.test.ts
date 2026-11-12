@@ -24,7 +24,7 @@ describe("payee guess: the household's own answers", () => {
   it("a payee of the same stem the household sorted gives its category, with the payee named", () => {
     const rank = guesser([...sorted("Happy Dog Trimmi Kallio", "pets"), ...unsorted("Happy Dog Trimmi Espoo")]);
     const { guess } = rank("Happy Dog Trimmi Espoo", "out");
-    expect(guess).toMatchObject({ category: "pets", reason: "Sama luokka kuin Happy Dog Trimmi Kallio" });
+    expect(guess).toMatchObject({ category: "pets", reason: "Sama kategoria kuin Happy Dog Trimmi Kallio" });
   });
 
   it("a merchant_exact rule counts as the household's answer", () => {

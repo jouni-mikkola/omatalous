@@ -113,7 +113,7 @@ describe("the review queue", () => {
     expect((await t.admin.call("POST", "/api/rules", { field: "merchant_exact", pattern: "Happy Dog Trimmi East", category: "pets" })).status).toBe(200);
     const items = await queue(t.admin);
     const west = items.find((i) => i.id === "payee_out:Happy Dog Trimmi West")!;
-    expect(west.guess).toEqual({ category: "pets", reason: "Sama luokka kuin Happy Dog Trimmi East" });
+    expect(west.guess).toEqual({ category: "pets", reason: "Sama kategoria kuin Happy Dog Trimmi East" });
     expect((west.picks as string[])[0]).toBe("pets");
     expect((west.picks as string[]).length).toBeLessThanOrEqual(4);
     // a phone connection is offered the phone category first, not the household's groceries

@@ -210,13 +210,13 @@ test("on a phone three items are answered with large buttons, and nothing scroll
 });
 
 test("a payee's guess comes first, framed, with its reason below; the rest are the household's most used, unmarked", async ({ browser }) => {
-  const guessed: Item = { ...shop, id: "payee_out:Happy Dog Trimmi West", merchant: "Happy Dog Trimmi West", picks: ["pets", "groceries", "restaurants", "car"], guess: { category: "pets", reason: "Sama luokka kuin Happy Dog Trimmi East" } };
+  const guessed: Item = { ...shop, id: "payee_out:Happy Dog Trimmi West", merchant: "Happy Dog Trimmi West", picks: ["pets", "groceries", "restaurants", "car"], guess: { category: "pets", reason: "Sama kategoria kuin Happy Dog Trimmi East" } };
   const { context, page, seen, stub } = await open(browser, 390, [guessed, shop]);
   const choices = card(page).locator(".review-choices .review-choice");
   await expect(choices.first()).toHaveAccessibleName("Lemmikit Ehdotus");
   await expect(choices.first()).toHaveClass(/is-guess/);
   await expect(card(page).locator(".review-choice.is-guess")).toHaveCount(1);
-  await expect(card(page).locator(".review-note")).toHaveText("Miksi ehdotamme tätä: sama luokka kuin Happy Dog Trimmi East.");
+  await expect(card(page).locator(".review-note")).toHaveText("Miksi ehdotamme tätä: sama kategoria kuin Happy Dog Trimmi East.");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-guess-390.png"), fullPage: true });
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await choices.first().click();

@@ -222,7 +222,7 @@ const front: Source = async (s, userId) => {
   });
 };
 
-/** How many quick picks a payee's question offers before "Muu luokka…". */
+/** How many quick picks a payee's question offers before "Muu kategoria…". */
 const PICKS = 4;
 
 /**

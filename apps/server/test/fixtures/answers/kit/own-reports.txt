@@ -1301,7 +1301,7 @@
    {
     "category": null,
     "day": null,
-    "label": "Muut luokat",
+    "label": "Muut kategoriat",
     "spentCents": 227174,
     "expectedCents": 227826,
     "gapCents": -652

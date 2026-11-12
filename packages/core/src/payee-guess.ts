@@ -163,7 +163,7 @@ export function payeeGuesser(evidence: GuessEvidence): (merchant: string, side: 
       const seen = siblings.get(a.category) ?? 0;
       if (seen >= MAX_SIBLINGS) continue;
       siblings.set(a.category, seen + 1);
-      add(a.category, STRONG, `Sama luokka kuin ${a.merchant}`);
+      add(a.category, STRONG, `Sama kategoria kuin ${a.merchant}`);
     }
 
     // the name against the word lists

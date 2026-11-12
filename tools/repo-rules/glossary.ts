@@ -27,6 +27,8 @@ export const REMOVED: readonly Removed[] = [
   { name: "Prosenttipiste", re: /(?<!\p{L})prosenttipist\p{L}*/iu, fix: 'write the plain range, or "prosenttiyksikkö" for a difference of percentages' },
   { name: "Valmis kuukausi", re: /(?<!\p{L})valmi(is|it|in|ik|ide)\p{L}*\s+kuukau\p{L}*/iu, fix: 'write "päättynyt kuukausi"' },
   { name: "Nettovarat", re: /(?<!\p{L})nettovara\p{L}*/iu, fix: 'write "Varat velkojen jälkeen"' },
+  // the group of a row is a kategoria everywhere; the verb luokitella (luokittele, luokiteltu, luokitus) stays
+  { name: "Luokka", re: /luok(k\p{L}*|a\p{L}*|i(?!tel|ttel|tu)\p{L}*)/iu, fix: 'write "kategoria" ("Kaikki kategoriat", "Menot kategorioittain")' },
   { name: "Jäämä", re: /(?<!\p{L})jäämä\p{L}*/iu, fix: 'write what is left: "Käteen jäi", "jäljellä"' },
   // the reports speak plainly to the reader: no statistics words (docs/UI_STYLE.md, Reports)
   { name: "Todennäköisin", re: /(?<!\p{L})todennäköi(sin|nen\s+väli|sesti\s+se\s+on)(?!\p{L})/iu, fix: 'write "Arvio" and "Se voi olla X–Y €"' },

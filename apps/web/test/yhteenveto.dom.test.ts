@@ -109,7 +109,7 @@ describe("Yhteenveto", () => {
     expect((rows[0]!.querySelector(".where-fill") as HTMLElement).style.getPropertyValue("inline-size")).toBe("80%");
     expect(rows.map((a) => a.querySelectorAll(".where-mark").length)).toEqual([1, 0]);
     expect((rows[0]!.querySelector(".where-mark") as HTMLElement).style.getPropertyValue("inset-inline-start")).toBe("100%");
-    expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("3 muuta luokkaa 71 €.");
+    expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("3 muuta kategoriaa 71 €.");
   });
 
   it("Varat ja velat leads with what is left after the debts, and the accounts and the debts open their rows", () => {
