@@ -175,7 +175,7 @@ test("each kind is asked in its own words and answered through its own route, th
 
   // only the skipped one is left
   await expect(page.getByRole("heading", { name: "Ohitit loput" })).toBeVisible();
-  await expect(page.getByText("1 kohde jäi seuraavaan kertaan.")).toBeVisible();
+  await expect(page.getByText("1 kysymys jäi seuraavaan kertaan.")).toBeVisible();
   await expect(headerCount(page)).toHaveText("1 avoinna");
   expect(await overflow(page)).toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
@@ -284,7 +284,7 @@ test("a sitting ends after 25 items with the count left", async ({ browser }) =>
   }
   await expect(page.getByRole("heading", { name: "Kävit tämän erän läpi" })).toBeVisible();
   // 12 answered, 13 skipped: 18 wait for the next sitting
-  await expect(page.getByText("18 kohdetta jäi seuraavaan kertaan.")).toBeVisible();
+  await expect(page.getByText("18 kysymystä jäi seuraavaan kertaan.")).toBeVisible();
   await expect(headerCount(page)).toHaveText("18 avoinna");
   expect(seen.problems).toEqual([]);
   await context.close();

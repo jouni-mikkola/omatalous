@@ -63,7 +63,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.payments_year_many": "{count} payments in the last year, last {last}",
   "set.ri.payments_since_one": "{count} payment since {first}, last {last}",
   "set.ri.payments_since_many": "{count} payments since {first}, last {last}",
-  "set.ri.one_left": "1 item is left. It waits for next time.",
-  "set.ri.n_left": "{left} items are left. They wait for next time.",
+  "set.ri.one_left": "1 question is left. It waits for next time.",
+  "set.ri.n_left": "{left} questions are left. They wait for next time.",
   "set.ri.old_value": "The previous value {value}, given {date}, is too old. ",
 };
