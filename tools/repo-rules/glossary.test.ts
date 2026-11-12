@@ -55,6 +55,10 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Suurin yksittäinen osto {name}, {sum}", "yksittäiset ostot"],
     ok: ["Suurin kertaosto {name}, {sum}", "yksittäinen rivi", "Kertaostot"],
   },
+  Odotettu: {
+    bad: ["{net} jaettuna odotetuilla menoilla {spend}/kk", "kun menosi ovat odotetut {monthly}", "Odotetut tulot", "Ero odotettuun"],
+    ok: ["Laskua odotettiin {date}", "ei ole odotetussa muodossa", "Odotetaan että sovellus vastaa", "{count} tili odottaa hakua"],
+  },
   Kello: {
     bad: ["ennen kello {time}", "Kokeiluaika päättyi kello 18.15.", "Kello 6.15"],
     ok: ["ennen klo {time}", "klo 6.15", "Kello on paljon", "kellonaika"],

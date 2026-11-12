@@ -37,6 +37,15 @@ export const REMOVED: readonly Removed[] = [
   { name: "Linkitä", re: /(?<!\p{L})linkit(ä|e|t|y)\p{L}*/iu, fix: 'write "yhdistä" for a bank, or "lisää" for an account in Enable Banking; the panel\'s own word may stand in quotes' },
   // the largest purchase out of the usual is a kertaosto, as the reports call it
   { name: "Yksittäinen osto", re: /(?<!\p{L})yksittäi\p{L}*\s+osto/iu, fix: 'write "kertaosto" ("Suurin kertaosto")' },
+  // what a month usually costs is tavallinen; the verb ("Laskua odotettiin", "Odotetaan") and a form the check expects
+  // ("odotetussa muodossa") stay. The figure registry and the Why text of the expected figure keep the name of ADR 0020
+  // until the owner settles it against this glossary.
+  {
+    name: "Odotettu",
+    re: /(?<!\p{L})odotet(?!aan|tiin|ussa\s+muodossa)\p{L}*/iu,
+    fix: 'write "tavallinen" ("tavallisilla menoilla", "Tavalliset tulot")',
+    pending: /(^|\/)(figures|explain\/catalogue)\.ts$/,
+  },
   // a time of day is "klo 6.15" (docs/UI_STYLE.md, Dates and times); "kello" spelled out before a time is not used
   { name: "Kello", re: /(?<!\p{L})kello\s+(\{|\d)/iu, fix: 'write "klo 6.15" or "klo {time}"' },
   // the voice of the app (docs/UI_STYLE.md, Tone): the app says what it does, and a heading is a noun

@@ -62,7 +62,7 @@ export const FI_OVERVIEW = {
   "home.buffer": "Puskuri",
   "home.spend_average": "Menot keskimäärin, 12 kk",
   "home.per_month": "/kk",
-  "home.buffer_basis": "{net} jaettuna odotetuilla menoilla {spend}/kk",
+  "home.buffer_basis": "{net} jaettuna tavallisilla menoilla {spend}/kk",
   "home.accounts_cards_loans": "Tilit, kortit ja lainat",
   "home.fetching_accounts": "haemme tilejä",
   "home.waiting_one": "{count} tili odottaa hakua",
