@@ -33,11 +33,11 @@ function dashboard(known: boolean, quiet = false) {
   };
 }
 
-async function mount(known: boolean, quiet = false) {
+async function mount(known: boolean, quiet = false, answer: object = dashboard(known, quiet)) {
   const seen = stubApi({
     "GET /api/recurring": { series: [], marks: [] },
     "GET /api/reports": { upcoming: { manual: [] } },
-    "GET /api/dashboard": dashboard(known, quiet),
+    "GET /api/dashboard": answer,
   });
   const { queryClient } = await import("../src/query-client.ts");
   queryClient.clear();
@@ -92,6 +92,24 @@ describe("Laskut: payments before the payday", () => {
     const out = [...section.querySelectorAll("[data-kind=outside]")].map((li) => flat(li.textContent));
     expect(out).toEqual(["16.11.Laina tililtä, jota saldo ei laske421,82 €"]);
     expect(section.querySelectorAll("[data-kind=income]").length).toBe(1);
+  });
+
+  // `upcoming` holds 30 days, so a payday further off left the payments of the other account after day 30 out of the list
+  it("names what another account pays up to a payday more than 30 days off", async () => {
+    const far = dashboard(true, true);
+    const later = { ...row("2026-12-14", "Laina", -42182, "recurring"), outside: true };
+    const answer = {
+      nyt: { ...far.nyt, left: { ...far.nyt.left, payday: { date: "2026-12-21", name: "Työnantaja" }, days: 40 } },
+      ahead: { ...far.ahead, to: "2026-12-20", payday: { date: "2026-12-21", name: "Työnantaja", pay: { floorCents: 290000 } }, rows: [row("2026-12-21", "Työnantaja", 300000, "income")], outside: [...far.ahead.outside, later] },
+    };
+    await mount(true, true, answer);
+    const section = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    const out = [...section.querySelectorAll("[data-kind=outside]")].map((li) => flat(li.textContent));
+    expect(out).toEqual(["16.11.Laina tililtä, jota saldo ei laske421,82 €", "14.12.Laina tililtä, jota saldo ei laske421,82 €"]);
   });
 
   it("is not drawn when Nyt has no sum", async () => {

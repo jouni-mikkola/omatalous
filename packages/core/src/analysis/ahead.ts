@@ -59,7 +59,7 @@ export interface AheadRow {
    * Laskut lists it in a group of its own, outside the sums of what the accounts pay.
    */
   onCard?: boolean;
-  /** In `upcoming` only: an account the balance leaves out pays it (not a card), so it is in no figure of the window. */
+  /** In `upcoming` and `outside` only: an account the balance leaves out pays it (not a card), so it is in no figure of the window. */
   outside?: true;
 }
 

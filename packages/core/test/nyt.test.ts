@@ -142,11 +142,15 @@ describe("Nyt", () => {
     const loan = [...MONTHS, "2026-11"].map((m) => tx({ accountId: "other", bookingDate: `${m}-14`, amountCents: -42_182, merchant: "Lainapankki", category: "loans" }));
     const november = tx({ accountId: "own", bookingDate: today, amountCents: 300_000, merchant: "Esimerkki Oy", category: "salary" });
     const ctx = createContext([...pays(), november, ...rents(), ...shopping(today), ...loan].filter((t) => t.bookingDate <= today), [own, other], today);
-    const left = nytAnswer(ctx, aheadBasis(ctx, [bal(BALANCE), { ...bal(BALANCE), id: other.id, name: other.name, type: other.type }], NO_INPUTS)).left;
+    const basis = aheadBasis(ctx, [bal(BALANCE), { ...bal(BALANCE), id: other.id, name: other.name, type: other.type }], NO_INPUTS);
+    const left = nytAnswer(ctx, basis).left;
     if (!left.known) throw new Error(`no sum: ${left.reason}`);
     expect(left.payday.date).toBe("2026-12-15");
     // the 14th of November and the 14th of December, 31 days from today
     expect(left.elsewhereCents).toBe(2 * 42_182);
+    // Laskut's 30 days keep their length: the row of day 31 is in `outside` alone
+    expect(basis.ahead.outside.map((r) => r.date)).toEqual(["2026-11-14", "2026-12-14"]);
+    expect(basis.ahead.upcoming.filter((r) => r.outside).map((r) => r.date)).toEqual(["2026-11-14"]);
   });
 
   it("no payday says how many pays were found", () => {
