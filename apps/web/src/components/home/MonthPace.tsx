@@ -16,7 +16,8 @@ type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
  * Kuukausi: one sentence that says which side of the usual the spending is on, with the usual sum and its range, then
  * the chart of the month's days and the same days as a table. The chart has one comparison: the usual band when the
  * household has one, else last month's line, so a household without a usual level still sees the month against something.
- * The spent sum opens the month's rows, and the days and categories behind the difference are one link away.
+ * Without a usual level the sentence names last month's sum to the same day too, so the words compare with what the chart
+ * draws. The spent sum opens the month's rows, and the days and categories behind the difference are one link away.
  */
 export function MonthPace({ data }: { data: Data }) {
   const { nyt, ahead, home } = data;
@@ -38,7 +39,9 @@ export function MonthPace({ data }: { data: Data }) {
               { diff: answerMoney(Math.abs(usual.diffCents)), usual: answerMoney(usual.expectedCents), range: euroRange(usual.lowCents, usual.highCents) },
               { sum: spent(usual.spentCents) },
             )
-          : rich("home.nyt_spent", {}, { sum: spent(nyt.pace.spentCents) })}
+          : pace.previous
+            ? rich("home.nyt_spent_previous", { previous: answerMoney(pace.previous.toToday) }, { sum: spent(nyt.pace.spentCents) })
+            : rich("home.nyt_spent", {}, { sum: spent(nyt.pace.spentCents) })}
       </p>
       {/* its own line: after the sum it read as one sentence with no stop */}
       {gap && <p className="home-detail home-pace-gap">{gap}</p>}

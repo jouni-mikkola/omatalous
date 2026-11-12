@@ -108,6 +108,7 @@ export const FI_OVERVIEW = {
   "home.nyt_per_day_usual": "{sum} päivässä, tavallisesti {usual}",
   "home.nyt_usual_per_day": "Tavallisesti {sum} päivässä",
   "home.nyt_spent": "Käytetty {sum}",
+  "home.nyt_spent_previous": "Käytetty {sum}, viime kuussa samaan päivään {previous}.",
   "home.nyt_usual_band": "tavallisesti {range}",
   "home.nyt_pace_within": "Käytetty {sum}, tavallisen vaihtelun sisällä. Tavallisesti {usual} ({range}).",
   "home.nyt_pace_above": "Käytetty {sum}, {diff} yli tavallisen. Tavallisesti {usual} ({range}).",
