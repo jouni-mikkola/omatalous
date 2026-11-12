@@ -146,3 +146,19 @@ describe("the counts of the toolbar's chips", () => {
     expect(chips(true, "manual")).toEqual(["Kaikki 3", "Käsin luokitellut 1", "Varaukset 1"]);
   });
 });
+
+describe("a chip that no row of the whole list has", () => {
+  // a page of a longer list offers every chip; the whole list behind the chip can then have no row with the mark
+  const html = renderToStaticMarkup(createElement(TxTable, { items: [row({ id: "b1" }), row({ id: "b2", merchant: "TOINEN OY" })], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: "pending", group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+  const chips = [...html.matchAll(/class="rtb-chip"[^>]*>(.*?)<\/button>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
+
+  it("stays chosen with its count of none, so the reader sees what the list is narrowed to and can leave it", () => {
+    expect(chips).toEqual(["Kaikki 2", "Varaukset 0"]);
+  });
+
+  it("narrows the list to no rows instead of showing every row", () => {
+    expect(html).not.toContain("ESIMERKKI OY");
+    expect(html).not.toContain("TOINEN OY");
+    expect(html).toContain("Ei yhtään riviä, joka täsmää.");
+  });
+});
