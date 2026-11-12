@@ -287,6 +287,18 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
   return found;
 }
 
+/**
+ * Why `month` has no expected figure by category and day, null when it has one. "cards": the complete months before it
+ * are there, but they lack the purchases of a card by category (`cardsBreakUsual`); the base of the figure starts at a
+ * card connected later, so a household with a long history is not told to wait for three months. "history": under
+ * `MIN_COMPARE_MONTHS` complete months. Yhteenveto's month and Raportit > Kuukausi read this one reason.
+ */
+export function usualGap(ctx: AnalysisContext, month: string): "cards" | "history" | null {
+  const figure = expectedFor(ctx, month);
+  if (figure?.itemised) return null;
+  return figure || cardsBreakUsual(ctx, month) ? "cards" : "history";
+}
+
 /** The expected spending of `month` on its days 1 to `day` (31: the whole month); null without a figure. */
 export function expectedSpending(ctx: AnalysisContext, month: string, day = 31): number | null {
   return expectedFor(ctx, month)?.at(day).cents ?? null;
@@ -329,8 +341,8 @@ export type EverydayGap = "history" | "cards";
  */
 export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
   const figure = expectedFor(ctx, month);
-  if (!figure) return "history";
-  if (!figure.itemised) return "cards";
+  // the reason Yhteenveto's month and Kuukausi give, so the runway's cannot say "history" beside their "cards"
+  if (!figure?.itemised) return usualGap(ctx, month) ?? "history";
   const struck = expectedOneOffs(ctx, [...figure.months, figure.month]);
   const perDay = figure.months.map((m) => {
     const days = new Array<number>(31).fill(0);

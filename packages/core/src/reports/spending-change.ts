@@ -2,6 +2,7 @@
 import { type BucketKind, bucketLabel, type CategoryChange, type ChangeView, type MerchantChange, namedCauses, restLabel, type SpendingChange, spendingChange } from "../analysis/change.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { changeMonths, cutWords, signed, spanLabel, upper } from "../analysis/change-text.ts";
+import { usualGap } from "../analysis/expected.ts";
 import { formatEur, monthNameIn } from "../analysis/format.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { getCategory } from "../categories.ts";
@@ -38,6 +39,8 @@ interface ChangeViewReport {
 
 export interface SpendingChangeReport {
   views: ChangeViewReport[];
+  /** Why the month has no view against its usual (`usualGap`), null when it has one or has a usual level all the same: Raportit > Kuukausi tells it. */
+  gapReason: "history" | "cards" | null;
 }
 
 const MAX_BARS = 5;
@@ -134,5 +137,6 @@ export function spendingChangeReport(ctx: AnalysisContext, range: DateRange, lan
     ["season", month, messageIn(lang, "rep.change_season_title")],
   ];
   const views = specs.flatMap(([view, m, title]) => viewOf(ctx, view, m, title, lang) ?? []);
-  return { views };
+  // null with no view too when the month has a usual level but no rows to its end yet: nothing to wait for
+  return { views, gapReason: views.some((v) => v.view === "expected") ? null : usualGap(ctx, month) };
 }

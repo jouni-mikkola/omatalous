@@ -1,7 +1,7 @@
 // Decision: whether this month is running over what it usually costs, which days and categories did it, and what the month will end at
 import { spendRows } from "../analysis/context.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
-import { expectedFor, quantile } from "../analysis/expected.ts";
+import { expectedFor, quantile, usualGap } from "../analysis/expected.ts";
 import { toDayRange } from "../analysis/period.ts";
 import { getCategory } from "../categories.ts";
 import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
@@ -57,7 +57,7 @@ export interface ThisMonthReport {
   expectedCents: number | null;
   /** `spentCents` less `expectedCents`. */
   gapCents: number | null;
-  /** The reason there is no expected figure: too little history, or a card's purchases missing. */
+  /** The reason there is no expected figure (`usualGap`): too little history, or a card's purchases missing. */
   gapReason: "history" | "cards" | null;
   /** The categories that make the gap, largest first, the rest in one row; they add up to `gapCents`. */
   categories: GapRow[];
@@ -128,7 +128,7 @@ export function thisMonthReport(ctx: AnalysisContext, inputs: UserInputs, lang: 
   const none = { month, day, daysInMonth: days, spentCents, bills, billsCents, categories: [], days: [], stillComingCents: null, otherComingCents: null, earlierBillsCents, estimate: null };
 
   const figure = expectedFor(ctx, month);
-  if (!figure || !figure.itemised) return { ...none, expectedCents: null, gapCents: null, gapReason: figure ? "cards" : "history" };
+  if (!figure || !figure.itemised) return { ...none, expectedCents: null, gapCents: null, gapReason: usualGap(ctx, month) };
 
   const now = figure.at(day);
   const whole = figure.at(days);

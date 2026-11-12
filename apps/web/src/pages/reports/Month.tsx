@@ -60,12 +60,12 @@ interface Shown {
 
 /**
  * An earlier month whole, from the report of the change against the usual (`spendingChange`, its usual view of the month the
- * range ends in): a category's spending, its usual level and their difference, which add up to the total's. Without enough
- * history before the month there is only what was spent.
+ * range ends in): a category's spending, its usual level and their difference, which add up to the total's. Without a
+ * usual there is only what was spent, and the report's reason for it when it has one.
  */
 function earlier(data: ReportsData, month: string): Shown {
   const change = data.spendingChange.views.find((v) => v.view === "expected" && v.change.target.months.join() === month)?.change;
-  if (!change) return { month, days: { from: `${month}-01`, to: monthEnd(month) }, spentCents: data.categories.totalCents, expectedCents: null, gapCents: null, gapReason: "history", categories: [] };
+  if (!change) return { month, days: { from: `${month}-01`, to: monthEnd(month) }, spentCents: data.categories.totalCents, expectedCents: null, gapCents: null, gapReason: data.spendingChange.gapReason, categories: [] };
   const categories = change.categories.map((c): GapRow => ({ category: c.category, day: null, label: c.category === null ? t("rep.other_categories") : c.label, spentCents: c.nowCents, expectedCents: c.baseCents, gapCents: c.changeCents }));
   return { month, days: { from: change.target.from, to: change.target.to }, spentCents: change.nowCents, expectedCents: change.baseCents, gapCents: change.changeCents, gapReason: null, categories };
 }
@@ -80,8 +80,8 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
   const path = past ? query({ from: `${past}-01`, to: monthEnd(past), scope, reports: "spendingChange,categories,income" }) : query({ from: `${meta.today.slice(0, 7)}-01`, to: meta.today, scope, reports: "thisMonth,income,categories" });
   const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${path}`);
   const [restOpen, setRestOpen] = useState(false);
-  // under three months of rows there is no usual: the running month's categories are asked for with their sums alone
-  const young = !past && !!data && Object.hasOwn(data, "thisMonth") && data.thisMonth.gapReason === "history";
+  // with no usual (too short a history, or a card's purchases missing before) the running month's categories are asked for with their sums alone
+  const young = !past && !!data && Object.hasOwn(data, "thisMonth") && data.thisMonth.gapReason !== null;
   const sums = useApi<ReportsData>(young ? `/api/reports${query({ from: `${meta.today.slice(0, 7)}-01`, to: meta.today, scope, reports: "categories" })}` : null);
   if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
   // the answer kept while the next month loads is of the other kind: it is shown again only when it has this month's reports
@@ -93,7 +93,8 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
     const to = addMonths(past ?? meta.today.slice(0, 7), n);
     navigate("reports", { month: to < meta.today.slice(0, 7) ? to : undefined }, true);
   };
-  const noUsual = r.gapReason === "history";
+  // no usual level: a reason, or none when the month's rows end before the month does
+  const noUsual = r.expectedCents === null;
   const rows = noUsual ? spentRows((past ? data.categories : sums.data?.categories)?.groups ?? []) : byGap(r.categories);
   const scale = Math.max(1, ...rows.flatMap((x) => [x.spentCents, x.expectedCents]));
   // the categories the rest row holds: the month's spending categories that are not a row above it
@@ -169,9 +170,9 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
             , {t("rpt.tm_expected").toLowerCase()} {money(r.expectedCents, false)} ({signedMoney(r.gapCents)})
           </>
         )}
-        {noUsual && <>, {t("rpt.tm_needs_months", { count: MIN_COMPARE_MONTHS })}</>}
+        {r.gapReason === "history" && <>, {t("rpt.tm_needs_months", { count: MIN_COMPARE_MONTHS })}</>}
       </p>
-      {!noUsual && <GapReasonNote reason={r.gapReason} className="km-note" />}
+      {r.gapReason === "cards" && <GapReasonNote reason={r.gapReason} className="km-note" />}
       {young && sums.error && !sums.data && <ErrorCard message={sums.error} onRetry={sums.reload} />}
       {(noUsual || r.gapCents !== null) && rows.length > 0 && (
         <Table<TableRow> caption={t(noUsual ? "rpt.tm_sums_caption" : "rpt.tm_cats_caption")} rows={tableRows} rowKey={(x) => `${x.child ? "in:" : ""}${x.category ?? ""}:${x.label}`} columns={noUsual ? columns.slice(0, 2) : columns} drillButton={false} />
