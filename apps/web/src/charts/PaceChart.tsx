@@ -30,6 +30,19 @@ const RING = 3.5;
 /** The room right of the plot for a line end label of `chars` characters: the label in full, 8 px off the plot. */
 const endRoom = (chars: number) => Math.max(112, Math.ceil(chars * LABEL_CHAR_W) + 8 + 4);
 
+/** Whether a line of `values` (null for no point, the point of index i at `xOf(i)`) passes through a box of the plot. */
+const crosses = (values: readonly (number | null)[], xOf: (i: number) => number, y: (v: number) => number, box: { x0: number; x1: number; y0: number; y1: number }) =>
+  values.some((v, i) => {
+    const w = values[i + 1];
+    if (v === null || w === undefined || w === null) return false;
+    const [a, b] = [xOf(i), xOf(i + 1)];
+    if (b < box.x0 || a > box.x1 || b === a) return false;
+    // the segment clipped to the box's columns, and the heights it takes there
+    const at = (px: number) => y(v) + ((y(w) - y(v)) * (px - a)) / (b - a);
+    const [ya, yb] = [at(Math.max(a, box.x0)), at(Math.min(b, box.x1))];
+    return Math.max(ya, yb) >= box.y0 && Math.min(ya, yb) <= box.y1;
+  });
+
 /** An estimate's range, the unit once ("5 200–5 900 €"), marked as an estimate the one way Why.tsx marks one. */
 export const estimateRange = (lo: number, hi: number) => approxText(joinRange(money(lo, false), money(hi, false)), true);
 
@@ -99,6 +112,32 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
   const expectedEnd = expected ? y(expected.curve.at(-1)!) : null;
   // the estimate's end label clears the expected one's by a line
   const estY = endHigh === null ? 0 : expectedEnd !== null && Math.abs(y(endHigh) - expectedEnd) < 14 ? expectedEnd + 14 : y(endHigh);
+  // today's figure, the one read first, stands over its dot, else right of it (the month after today is empty of this
+  // month's line), else under it: the first place no other line (often last month's) runs through
+  const nowText = now === null ? "" : money(now, false);
+  const nowAt = (() => {
+    const over = { x: x(lastDay - 1), y: 0, anchor: lastDay > days - 3 ? "end" : "middle" } as const;
+    if (now === null) return over;
+    const w = nowText.length * LABEL_CHAR_W;
+    const places = [
+      { ...over, y: y(now) - 10 },
+      { x: x(lastDay - 1) + 8, y: y(now) + 4, anchor: "start" as const },
+      { ...over, y: y(now) + 18 },
+    ];
+    const lines = [
+      { values: pace.current, xOf: x },
+      { values: previous?.curve.slice(0, days) ?? [], xOf: x },
+      { values: expected?.curve ?? [], xOf: x },
+      { values: projection?.low ?? [], xOf: px },
+      { values: projection?.high ?? [], xOf: px },
+    ];
+    const clear = (p: (typeof places)[number]) => {
+      const x0 = p.anchor === "end" ? p.x - w : p.anchor === "middle" ? p.x - w / 2 : p.x;
+      const box = { x0, x1: x0 + w, y0: p.y - 11, y1: p.y + 2 };
+      return box.x1 <= f.innerW + f.margin.right && box.y0 >= -f.margin.top && box.y1 <= f.innerH && lines.every((l) => !crosses(l.values, l.xOf, y, box));
+    };
+    return places.find(clear) ?? places[0]!;
+  })();
   const printed = (d: number) => labelPrinted(d, dayTicks(days).includes(d), new Set(lastDay ? [lastDay] : []));
 
   const title = (i: number) => `${i + 1}.${Number(pace.month.slice(5, 7))}.`;
@@ -147,8 +186,8 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
             {now !== null && (
               <>
                 <circle className="pace-dot" cx={crisp(x(lastDay - 1))} cy={y(now)} r={RING} />
-                <text className="pace-now-label" x={x(lastDay - 1)} y={y(now) - 10} textAnchor={lastDay > days - 3 ? "end" : "middle"}>
-                  {money(now, false)}
+                <text className="pace-now-label" x={nowAt.x} y={nowAt.y} textAnchor={nowAt.anchor}>
+                  {nowText}
                 </text>
               </>
             )}
