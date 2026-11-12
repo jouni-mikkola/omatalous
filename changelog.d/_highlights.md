@@ -1,6 +1,0 @@
-- Kiinteät menot is back on Raportit as one table, and it works on a phone.
-- An opened row on Tapahtumat shows what the bank sent and why the row has its category.
-- The figures on Yhteenveto and Raportit name the accounts and months they are counted from, and a month with no rows counts as missing data.
-- Payee names read cleaner from card texts, foreign currency rows and transfers.
-- One word for one thing across the app, times as "klo 9.05", and the balance says from which day it is known.
-- A source install can wait until GitHub's checks have passed before it updates (TALOUS_SOURCE_CHECKED=yes).
