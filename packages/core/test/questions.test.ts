@@ -71,6 +71,14 @@ describe("how much of the spending is known (knownSpending)", () => {
     expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
   });
 
+  it("names a refund spread over two payments, and the payment it took back whole, so the rows add up to the sum", () => {
+    const rows = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" })];
+    const [q] = questionsOf(rows).items as { cents: number; count: number; rowIds?: string[] }[];
+    expect([q!.cents, q!.count, q!.rowIds?.length]).toEqual([eur(20), 1, 3]);
+    const byId = new Map(rows.map((t) => [t.id, t.amountCents]));
+    expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
+  });
+
   it("reads the twelve complete months up to the period's end: the month still running is not one", () => {
     const old = unknownOut(100, "Kioski Oy", { bookingDate: "2025-09-30" });
     const edge = unknownOut(30, "Kioski Oy", { bookingDate: "2025-10-01" });
