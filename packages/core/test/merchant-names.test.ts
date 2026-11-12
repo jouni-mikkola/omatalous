@@ -115,6 +115,24 @@ describe("a card account's wording: country and city in front, the city again at
   });
 });
 
+describe("the time, sum and rate a bank writes around the name", () => {
+  it.each([
+    ["Korttiosto 12.10.2026 klo 14.22 Kukkakauppa Ilo, Kuopio", "Kukkakauppa Ilo"],
+    ["KORTTIOSTO 12.10.2026 KLO 9.05 KUKKAKAUPPA ILO", "Kukkakauppa Ilo"],
+    ["Kukkakauppa Ilo klo 14:22:05", "Kukkakauppa Ilo"],
+    ["USD 25,00 KURSSI 1,0834 EXAMPLESHOP.COM", "Exampleshop.Com"],
+    ["EXAMPLESHOP.COM 25,00 USD Kurssi 1,0834", "Exampleshop.Com"],
+    ["GBP 1 250,00 VAIHTOKURSSI 0,8611 KAUPPA ILO LTD", "Kauppa Ilo"],
+  ])("%s → %s", (raw, expected) => expect(name(raw)).toBe(expected));
+
+  it("keeps a name that holds digits and three capitals", () => {
+    // no currency code: the words are the shop's
+    expect(name("Kauppa Ilo 12,00 ABC")).toBe("Kauppa Ilo Abc");
+    // "KLO" with no time after it is a word of the name
+    expect(name("Ravintola Klo Kuopio")).toBe("Ravintola Klo");
+  });
+});
+
 describe("a payment service in front of the name", () => {
   it.each([
     ["PTL*RAUTAKAUPPA ILO", "Rautakauppa Ilo"],
