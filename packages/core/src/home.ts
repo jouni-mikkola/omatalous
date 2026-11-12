@@ -77,6 +77,8 @@ interface HomeDirection {
   averageCents: number | null;
   /** How many months the average is of. */
   months: number;
+  /** The first day of the oldest month the average reads, null without a month. A month left out (a card's first month, a month with rows missing) puts it further back than `months` months. */
+  from: IsoDate | null;
   /** The last three complete months' mean less the average; null with the average. */
   recentChangeCents: number | null;
   direction: "up" | "down" | "flat" | null;
@@ -165,14 +167,16 @@ function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], 
   const buffer = bufferReport(ctx, balances, inputs);
   const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents };
   const { months, spent, averageCents } = averageSpending(ctx, month);
+  const from = months.length > 0 ? `${months[0]}-01` : null;
   if (averageCents === null) {
-    return { averageCents: null, months: months.length, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
+    return { averageCents: null, months: months.length, from, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
   }
   const recentChangeCents = expectedLevel(spent.slice(-DIRECTION_RECENT_MONTHS))! - averageCents;
   const gate = gateFor(averageCents);
   return {
     averageCents,
     months: months.length,
+    from,
     recentChangeCents,
     direction: recentChangeCents > gate ? "up" : recentChangeCents < -gate ? "down" : "flat",
     bufferMonths: buffer.bufferMonths,

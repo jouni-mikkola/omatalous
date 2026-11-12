@@ -8,10 +8,9 @@ import { Why } from "../Why.tsx";
 import { reportHref } from "./Answer.tsx";
 import { bufferBasisText, bufferText, directionText } from "./texts.ts";
 
-/** The days of the `count` months before today's month: the months the average reads, as its basis names them. */
-function monthsBefore(today: string, count: number): { from: string; to: string } {
-  const month = today.slice(0, 7);
-  return { from: `${addMonths(month, -count)}-01`, to: monthEnd(addMonths(month, -1)) };
+/** From the oldest month the average reads to the end of last month: the period its months are taken from. */
+function averagePeriod(today: string, from: string): { from: string; to: string } {
+  return { from, to: monthEnd(addMonths(today.slice(0, 7), -1)) };
 }
 
 /**
@@ -67,11 +66,11 @@ export function Direction({ holdings, direction, today, scope }: { holdings: Das
             </dd>
           </div>
         )}
-        {direction.averageCents !== null && (
+        {direction.averageCents !== null && direction.from !== null && (
           <div className="home-row">
             <dt>{t("home.spend_average", { count: direction.months })}</dt>
             <dd className="num">
-              <Why figure="spend.average" title={t("home.spend_average", { count: direction.months })} range={monthsBefore(today, direction.months)} scope={scope} text={answerMoney(direction.averageCents)}>
+              <Why figure="spend.average" title={t("home.spend_average", { count: direction.months })} range={averagePeriod(today, direction.from)} scope={scope} text={answerMoney(direction.averageCents)}>
                 {answerMoney(direction.averageCents)}
               </Why>
               {t("home.per_month")}
