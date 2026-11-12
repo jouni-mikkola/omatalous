@@ -451,7 +451,7 @@ function analyse(ctx: AnalysisContext, view: ChangeView, month: string, yearMont
   const r: Rows = { ...base, gate: gateFor(plan.mean ? baseTotal : baseTotal / months) * months };
   const pieces: ChangePiece[] = [];
   // a card bill in the base months that is no transfer: the headline is true, the categories lack the card's purchases
-  const itemised = !plan.mean || !cardsBreakUsual(ctx, plan.target[0]!);
+  const itemised = !plan.mean || !cardsBreakUsual(ctx, plan.target[0]!, plan.base);
   const categories = itemised ? ids.map((id) => categoryChange(r, id, pieces)) : [];
   pieces.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || (a.category ?? "").localeCompare(b.category ?? "") || a.kind.localeCompare(b.kind));
 

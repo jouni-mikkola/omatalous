@@ -35,10 +35,12 @@ describe("a card that begins in the middle of the history", () => {
 describe("a card that begins in the middle of the history with no card bills before it", () => {
   const bare = lateCardContext("2026-07", "2026-10-09", false);
 
-  it("cannot be compared by category either: the months before its history hold none of its purchases", () => {
+  it("is compared by category over the card's own months: the figure reads no month before its history", () => {
     expect(completeMonthsBefore(bare, "2026-10").length).toBeGreaterThanOrEqual(3);
+    // the complete months before October lack the card's purchases, which is why a figure with too few months says "cards"
     expect(cardsBreakUsual(bare, "2026-10")).toBe(true);
-    expect(expectedFor(bare, "2026-10")!.itemised).toBe(false);
+    // the figure starts where the card's rows do (`usualBase`), and those months hold its purchases
+    expect(expectedFor(bare, "2026-10")).toMatchObject({ itemised: true, months: ["2026-07", "2026-08", "2026-09"] });
   });
 
   it("compares again once the window is inside the card's history", () => {

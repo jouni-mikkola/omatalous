@@ -282,7 +282,7 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
   if (!byMonth) cache.set(ctx, (byMonth = new Map()));
   if (byMonth.has(month)) return byMonth.get(month)!;
   const months = usualBase(ctx, month);
-  const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months), itemised: !cardsBreakUsual(ctx, month) };
+  const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months), itemised: !cardsBreakUsual(ctx, month, months) };
   byMonth.set(month, found);
   return found;
 }
