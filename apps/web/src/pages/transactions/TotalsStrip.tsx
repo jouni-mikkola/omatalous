@@ -40,12 +40,22 @@ const binName = (b: MoneyBin, unit: "day" | "week" | "month", today: string): st
 
 const unitTitle = (unit: "day" | "week" | "month"): string => t(`tx.unit_${unit}`);
 
+/**
+ * Where the peak's sum is tied to an edge of the plot instead of its bar: centred on a bar near an edge it would stick
+ * out. The share is a rule of thumb for a sum of about 70 px over a plot of a phone's width.
+ */
+export function peakEdge(peak: number, bins: number): "start" | "end" | undefined {
+  const at = (peak + 0.5) / bins;
+  return at < 0.15 ? "start" : at > 0.85 ? "end" : undefined;
+}
+
 function Histogram({ unit, bins, income, today, last, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; income: boolean; today: string; last: string; onPick: (p: Period) => void }) {
   const [at, setAt] = useState<number | null>(null);
   const value = (b: MoneyBin) => (income ? b.inCents : b.outCents);
   const max = Math.max(0, ...bins.map(value));
   const peak = bins.findIndex((b) => value(b) === max && max > 0);
   const n = bins.length;
+  const edge = peakEdge(peak, n);
   const W = 100;
   const H = 40;
   const gap = n > 60 ? 0.15 : 0.3;
@@ -58,7 +68,7 @@ function Histogram({ unit, bins, income, today, last, onPick }: { unit: "day" | 
       <figcaption className="tx-hist-title">{histTitle}</figcaption>
       <div className="tx-hist-plot">
         {peak >= 0 && (
-          <span className="tx-hist-peak" ref={css({ left: `${((peak + 0.5) / n) * 100}%` })} aria-hidden="true">
+          <span className="tx-hist-peak" data-edge={edge} ref={css({ left: edge ? undefined : `${((peak + 0.5) / n) * 100}%` })} aria-hidden="true">
             {money(max)}
           </span>
         )}

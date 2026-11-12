@@ -94,6 +94,9 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-hist-bar.on { fill: var(--accent); }
 .tx-hist-base { stroke: var(--axis); stroke-width: 1; }
 .tx-hist-peak { position: absolute; top: calc(-1 * var(--sp-16)); transform: translateX(-50%); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); pointer-events: none; }
+/* a peak on the first or the last bars: the sum stays inside the plot */
+.tx-hist-peak[data-edge="start"] { left: 0; transform: none; }
+.tx-hist-peak[data-edge="end"] { right: 0; transform: none; }
 .tx-hist-axis { display: flex; justify-content: space-between; margin-top: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .tx-hist-readout { min-height: var(--lh-label); margin: var(--sp-4) 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
 
