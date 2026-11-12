@@ -266,12 +266,14 @@ export function Sessions({ admin = false, onLoaded }: { admin?: boolean; onLoade
 }
 
 /**
- * What Lisätieto adds to the row. A failed login keeps the typed name, which says something only when no user has it;
- * of a known user it is the Käyttäjä column again. A new device's label stays, as a phone hides the Laite column.
+ * What Lisätieto adds to the row. A failed login or lockout keeps the typed name, which says something only when no user
+ * has it; of a known user it is the Käyttäjä column again. A passkey's label stays even when it is the user's name, and a
+ * new device's label stays, as a phone hides the Laite column.
  * With nothing to add the cell is empty, so a phone's row block drops the label too (`td[data-label]:empty`).
  */
-export function eventDetail(e: Pick<SecurityEvent, "detail" | "username">): ReactNode {
-  return e.detail === null || e.detail === e.username ? "" : <span className="small muted">{e.detail}</span>;
+export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username">): ReactNode {
+  const typedName = (e.kind === "login_fail" || e.kind === "lockout") && e.detail === e.username;
+  return e.detail === null || typedName ? "" : <span className="small muted">{e.detail}</span>;
 }
 
 /** The admin's list of logins, lockouts, key changes and maintenance requests of the last 90 days. */
