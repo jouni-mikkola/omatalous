@@ -16,7 +16,8 @@ import { series, tx } from "./helpers.ts";
 import { dataset, monthlyOn } from "./report-dataset.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { pivotReport } from "../src/reports/pivot.ts";
-import { lateCardContext } from "./late-card-household.ts";
+import { expectedLevel } from "../src/analysis/expected.ts";
+import { LATE_CARD_TODAY, lateCardContext } from "./late-card-household.ts";
 
 // test helpers put every transaction on account "acc-1"
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -88,6 +89,17 @@ describe("reports", () => {
     expect(s.cardGap).toBe(false);
     expect(s.categoryMonths).toBe(s.typicalMonths);
     expect(s.categories.find((c) => c.category === "card_bill")).toMatchObject({ typicalCents: 52000, lastDiffCents: 0 });
+  });
+
+  it("spending by month: a bill of a card never connected paid early moves no month out of the categories' levels", () => {
+    // September's bill on 28 August: August has two, September none, and every complete month still holds the card as a bill
+    const s = buildReports({ ctx: lateCardContext("2027-01", LATE_CARD_TODAY, true, "2026-09"), range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    expect(s.cardGap).toBe(false);
+    expect(s.categoryMonths).toBe(9);
+    const bill = s.categories.find((c) => c.category === "card_bill")!;
+    expect(bill.values.slice(7, 9)).toEqual([104_000, 0]);
+    expect(bill.typicalCents).toBe(expectedLevel(bill.values.slice(0, 9)));
+    expect(bill.lastDiffCents).toBe(-bill.typicalCents!);
   });
 
   it("spending by month: under three complete months there is no typical month", () => {

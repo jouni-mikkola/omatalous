@@ -6,7 +6,7 @@ import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { fromMonthIndex } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { expectedLevel } from "../analysis/expected.ts";
-import { cardGapIn } from "../analysis/usual.ts";
+import { cardRowsMissingIn } from "../analysis/usual.ts";
 import { SPENDING_PAYEES } from "../thresholds.ts";
 import { fullMonths, rangeMonthIndexes } from "./shared.ts";
 
@@ -55,11 +55,11 @@ export interface SpendingMonthsReport {
   /** How many months `typicalCents` is the level of. */
   typicalMonths: number;
   /**
-   * How many months the categories' levels read: the complete months that hold a card's purchases where the newest
-   * one holds them (`cardGapIn`). Under `MIN_COMPARE_MONTHS` the categories have no level.
+   * How many months the categories' levels read: the complete months that hold a connected card's rows where the
+   * newest one holds them (`cardRowsMissingIn`). Under `MIN_COMPARE_MONTHS` the categories have no level.
    */
   categoryMonths: number;
-  /** Complete months were left out of the categories' levels: their card purchases are a bill, or before a card's rows, where the newest complete month has them in their categories. */
+  /** Complete months were left out of the categories' levels: they come before a connected card's rows, which the newest complete month has in their categories. */
   cardGap: boolean;
   /** Index in `months` of the newest complete month; null without one. */
   last: number | null;
@@ -101,10 +101,11 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   }
   const completeAt = indexes.map((_, i) => i).filter((i) => complete[i]);
   const last = completeAt.length ? completeAt[completeAt.length - 1]! : null;
-  // A month whose card purchases are one bill, or are missing before a card's rows begin, has them in no category,
-  // so it lowers the level of every category the card buys in and the newest month looks dear. A category's level
-  // reads the months that hold the card as the newest one does; the month totals stay comparable (a bill is spending).
-  const gapAt = new Set(completeAt.filter((i) => cardGapIn(ctx, months[i]!)));
+  // A month before a connected card's rows begin has its purchases in no category (a bill at most), so it lowers the
+  // level of every category the card buys in and the newest month looks dear. A category's level reads the months that
+  // hold the card as the newest one does; the month totals stay comparable (a bill is spending). A bill paid early or
+  // late moves no month out: a card never connected is a bill in every month.
+  const gapAt = new Set(completeAt.filter((i) => cardRowsMissingIn(ctx, months[i]!)));
   const categoryAt = last === null ? [] : completeAt.filter((i) => gapAt.has(i) === gapAt.has(last));
   const categories = [...byCategory.entries()]
     .map(([category, { values, payees, statementCents, lowered }]) => {
