@@ -177,6 +177,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* a bar before the figure it draws: the figure keeps the right edge, the bars of a column start at one place */
 .rt-barcell { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .rt-barcell > .rt-bar-track { flex: none; width: 64px; }
+/* each figure takes the room of the column's widest (`--figure-ch` characters of tabular figures), so the bars do not move */
+.rt-barfigure { min-width: calc(var(--figure-ch, 0) * 1ch); text-align: right; font-variant-numeric: tabular-nums lining-nums; }
 .rt-wrap[data-block] .rt-barcell > .rt-bar-track { display: none; }
 
 /* a line of months in a cell: no axis, the usual level dashed (SparkCell) */

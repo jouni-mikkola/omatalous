@@ -16,7 +16,7 @@ import { Button } from "../ui/Button.tsx";
 import { BarFigure, SortHead } from "./Cells.tsx";
 import { RowFilterNotice, useRowPick } from "./selection.tsx";
 import "../../styles/table.css";
-import { type Column, FIGURE, searchFns, textOf, valueOf } from "./columns.ts";
+import { cellText, type Column, FIGURE, searchFns, textOf, valueOf } from "./columns.ts";
 import { saveCsv, tableCsv } from "./csv.ts";
 import { type Section, useShown } from "./model.ts";
 import { sortMessage, sortPhrase, sortRows } from "./sort.ts";
@@ -42,7 +42,14 @@ const spanOf = (h: HeadCell) => ({
   className: h.className,
 });
 
-const cellOf = <R,>(c: Column<R>, row: R): ReactNode => {
+/**
+ * The width of the widest figure of each bar column, in characters: every figure of the column takes that room, so the
+ * bars before them start on one line and are read on one scale.
+ */
+const figureWidths = <R,>(columns: readonly Column<R>[], rows: readonly R[]): Map<string, number> =>
+  new Map(columns.filter((c) => c.bar && (c.cell || c.cents)).map((c) => [c.key, Math.max(0, ...rows.map((r) => cellText(c, r).length))]));
+
+const cellOf = <R,>(c: Column<R>, row: R, figureCh?: number): ReactNode => {
   const plain = (): ReactNode => {
     if (c.cell) return c.cell(row);
     const v = c.cents?.(row) ?? null;
@@ -51,7 +58,7 @@ const cellOf = <R,>(c: Column<R>, row: R): ReactNode => {
   if (!c.bar) return plain();
   // the bar stands before the figure it draws, on the column's scale, and is left out where there is no room for it
   return (
-    <BarFigure value={c.bar.value(row)} max={c.bar.max} color={c.bar.color?.(row)}>
+    <BarFigure value={c.bar.value(row)} max={c.bar.max} color={c.bar.color?.(row)} figureCh={figureCh}>
       {c.cell || c.cents ? plain() : null}
     </BarFigure>
   );
@@ -129,6 +136,7 @@ export function Table<R>({
   const sortedColumn = sort ? columns.find((c) => c.key === sort.key) : undefined;
   const live = touched ? sortMessage(sortedColumn ? textOf(sortedColumn) : "", sort?.dir ?? null, sortedColumn?.kind === "text") : "";
   const summed = new Set(sums ?? []);
+  const figureCh = figureWidths(columns, rows);
   const totals = total === undefined ? [] : Array.isArray(total) ? total : [total];
   const cls = (c: Column<R>, extra?: string) =>
     [
@@ -246,13 +254,13 @@ export function Table<R>({
                     <span className="rt-lead">
                       {lead}
                       <span className="rt-lead-body">
-                        {cellOf(c, row)}
+                        {cellOf(c, row, figureCh.get(c.key))}
                         {fold}
                       </span>
                     </span>
                   ) : (
                     <>
-                      {cellOf(c, row)}
+                      {cellOf(c, row, figureCh.get(c.key))}
                       {fold}
                     </>
                   )}
@@ -276,10 +284,10 @@ export function Table<R>({
                 {lead ? (
                   <span className="rt-lead">
                     {lead}
-                    <span className="rt-lead-body">{cellOf(c, row)}</span>
+                    <span className="rt-lead-body">{cellOf(c, row, figureCh.get(c.key))}</span>
                   </span>
                 ) : (
-                  cellOf(c, row)
+                  cellOf(c, row, figureCh.get(c.key))
                 )}
               </td>
             );
