@@ -3,6 +3,166 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.1.0
+
+- Sivut ovat samat kuin versiossa 1.0.0: Yhteenveto, Laskut, Tapahtumat ja Raportit. Tarkistettavat on linkki oikeassa reunassa.
+- Sivuilla on vähemmän tekstiä. Lukua toistavat lauseet, toistuvat päivämäärät ja ilmoitusten kuittaus ovat poissa.
+- Raporteissa on Rahankäyttö kategorioittain ja kuukausittain sekä Tulot.
+- Pankin tiedostosta voi tuoda koko vuoden kerralla, myös jo yhdistetylle tilille.
+- Asetuksissa voi ottaa käyttöön allekirjoitetun lisäosan koodilla.
+
+Money and reports
+
+- A category bar on Yhteenveto opens that category's rows of the month.
+- Yhteenveto names a loan that has no balance saved and links to where it is saved.
+- A category with a purchase on an account last month lacks gets no comparison on Yhteenveto.
+- Yhteenveto: the usual range in the sentence is the band the chart under it draws, and it holds the sum Kuukausi calls usual. The sentence used a second range before and named other sums than the chart showed.
+- The sum beside the title of the year comparison names the months it covers, as the sentence under it does.
+- The year comparison names the category that rose most among all its rows, fixed costs such as a new loan included.
+- Kuukausi näyttää kuun menot tavalliseen kuukauteen verrattuna, ja siinä pääsee edelliseen kuukauteen.
+- Vuosi-raportissa voi valita vuoden.
+- Säästövinkit-sivu poistui. Havainnot näkyvät Tarkistettavissa.
+- Laskun, jonka sovellus luuli toistuvaksi, voi merkitä vääräksi. Se poistuu tulevista laskuista ja summista.
+- Odotettuun kuukauteen lasketaan myös itse lisätyt laskut.
+- Ylimääräiseksi palkaksi lasketaan vain se osa, joka ylittää tavallisen palkan.
+- Kuun viimeisenä päivänä maksettava palkka pysyy kuun lopussa, ja siirtynyt palkkapäivä osuu oikeaan kuukauteen.
+- Kun palkkapäivä ei ole tiedossa, Yhteenveto kertoo, milloin se selviää.
+- Sopimuksen päättymisen palautus vähentää sopimuksen kuluja. Ostoksia suurempi palautus on tuloa.
+- Uusi tulo jaetaan vain niille kuukausille, joina sitä on tullut.
+- Arkikulutus päivässä lasketaan todellisista riveistä, eikä suurin ostos ole vuokra tai tilaus.
+- Vastaukset näyttävät summat täysinä euroina ja vuoden sisäiset päivät lyhyinä.
+- Tavallista suurempi kulutus ei ole punainen. Punainen on vain ongelmille.
+- Tapahtumat shows 100 rows a page, with a link to the next page and the page number in the address.
+- A loan payout into a joint account is credit the users share. Tarkistettavat no longer asks whose money it was.
+- Raportit has Tulot again: the kinds of income with their sum and average month, the payers under each kind with a link to their rows, and the income of each month. The tax year stands under it.
+- Rahankäyttö lists every category with its sum, its average month and the newest month against it, and the months of the total under them. A category opens its months and largest payees, and each of them opens its rows in Tapahtumat.
+- The first page is Yhteenveto again, laid out as in 1.0.0: the sum left before payday with the row that makes it, Kuukausi with its chart and days, Huomioitavaa, Suurimmat menot and Varat ja velat.
+- Huomioitavaa lists the first open questions of Tarkistettavat with their sums, so it no longer says nothing is open while the header counts open items.
+- Payments of nothing before payday read 0,00 € with no minus sign.
+- Varat ja velat leaves the net figure out when a loan has no saved balance, and names that loan.
+
+Fetching and importing
+
+- Pankin CSV- tai camt.053-tiedostosta voi tuoda koko vuoden kerralla.
+- Kortin tai pankin tiedosto ehdottaa jo yhdistettyä tiliä, jos sen rivit ovat sillä tilillä.
+- Nordean CSV-tiedoston päivämäärät luetaan oikein, ja rivin teksti kertoo maksun toisen osapuolen.
+- Tiedostosivut kertovat, miksi tallennus epäonnistui.
+- camt.053-tiedostosta näkyy sen kattama jakso. Lainausmerkeissä olevat solut ja pienet MobilePay-osuudet luetaan oikein.
+- Dollarimääräistä riviä ei lueta euroiksi.
+- Sovelluksen oma vientitiedosto tuodaan takaisin samoina tileinä, riveinä ja saldopäivinä.
+- Pankin katkos näkyy yhtenä ilmoituksena, ja epäonnistuneen paluun pankista voi yrittää uudelleen.
+- Pankkisovellusta ei vaihdeta, kun yhteyksiä on auki, jottei vanha suostumus jää voimaan pankkiin.
+- Haku tallentaa pankin tekstit ilman näkymättömiä merkkejä.
+- During the first fetch of a new bank the front page says how many transactions have come so far.
+- Tuo tiedot of a file with nothing new says "Tiedostossa ei ole mitään uutta." and offers only Peruuta.
+
+Look
+
+- Less repeated and less open: Tulot says its answer once, Jäsenet and the loan intake have fewer controls, and Pankit has no empty card.
+- The first page says the sum a day and the usual one in one short line, and the month's spending against its usual range without "tähän päivään".
+- The choice of 3, 6 and 12 months shows its dates and no sentence after them.
+- Tilit ja saldot says the balance and its change once, in the head of the card. The line under Saldojen kehitys names only the lowest balance and the biggest purchase.
+- Asetukset: the card Tiedot has no sentence under its buttons, Tiliote tiedostosta has one line, and with no bank connected the card says Ei pankkiyhteyksiä.
+- A notice has no Kuittaa and the list no Kuittaa kaikki. A notice of a problem (copies, disk, the maintenance helper, a damaged database) stays while the problem lasts and goes when it ends.
+- A notice of an event (a sign-in from a new device, a password reset, a recovery code, a maintenance report) shows for 72 hours. The event stays in the log of Asetukset.
+- One or two failed sign-ins in a day give no notice. From the third on there is one, for that day.
+- The browser that signed in from a new device is not told of its own sign-in.
+- The notice of the trade register lookup being off stays until an admin saves the settings of Asetukset > Palvelin.
+- The foot of every page is quiet: no date, and no "Päivitetty" time after a fetch that went well. It still tells when the bank holds a fetch back or an account was left out.
+- Asetukset says less: the explaining paragraphs of passkey, the copy on another machine, remote access, the notices and the add-on code are cut or gone.
+- An account whose balance the bank's data cannot check yet shows no line about it.
+- "Lisää laina" and "Lisää jäsen" stand in the strip of their section's name.
+- The sizes of 1.0.0 are back: text at 14 px with labels at 12 px, section titles at 16 px, and the denser rows and spacing.
+- Asetukset has its six tabs of 1.0.0 again: Pankit ja tilit, Talous, Jäsenet, Turvallisuus, Tiedot and Palvelin ja ylläpito. The password, the sign-in and the security log are on Turvallisuus, the export, the import and the example data on Tiedot. An address of a card on its earlier tab opens the tab that has it now.
+- The header has the pages of 1.0.0 again: Yhteenveto, Laskut, Tapahtumat and Raportit. Tarkistettavat is the link with its count at the right, on a phone in the top row.
+- Tapahtumat has its tab back, and the user menu no longer has Lisää: every report is under Raportit.
+- Tapahtumat has its head of 1.0.0 again: the count and span of the listed rows, Rahaa ulos, Rahaa sisään and Erotus, and the days or months as bars. The count is said there only, so "Kaikki" has no number beside it.
+- A row has the payee's mark and the bank's mark again, on Tapahtumat, Laskut, Tarkistettavat and the rows behind a figure.
+- The page has no heading of its own: the tab names it.
+- Tapahtumat has its two views of 1.0.0 again: Lista and Kauppiaat. Kauppiaat lists each merchant once with its category, the number of rows, the sum, the sum per month and the last day, and a merchant's category is changed there for all of its rows.
+- The rules are under the merchants again, not on Asetukset > Talous. The address of the rules card of Asetukset opens them there.
+- The addresses of the old Kategoriat and Säännöt pages open the Kauppiaat view.
+- Tapahtumat: the sum above the highest bar stays inside the plot when the bar is the first or the last. On a phone a large sum stuck out past the edge.
+- The form of an account in Asetukset > Pankit ja tilit takes the keyboard focus when it opens and returns it to Muokkaa when it closes. Its "Tallennettu." follows the language of the page.
+- The language picker of the sign-in page no longer touches the button above it.
+- The steps of the bank app say to a screen reader which are done, and keep a gap to the choice above them.
+- The check of a file in Tuo tiedot uses the width of the card under its heading instead of half of it.
+- The English page says "Connection removed." and "Changes saved." in Asetukset instead of the Finnish words.
+- Under a joint account with no agreed split, the line says the costs are shared the way chosen above it.
+- Laina lisätään lyhyellä lomakkeella. Lainapaperin luku kuvasta tai PDF:stä poistui.
+- Etäkäytön asetukset ovat yhdellä lomakkeella.
+- Ensimmäinen käynnistys ja tyhjät sivut kertovat, mitä seuraavaksi tehdään.
+- Puhelimella painikkeet ovat vähintään 44 pikseliä, ja englanninkielinen teksti mahtuu näytölle.
+- Englanninkielinen käyttöliittymä on englanniksi loppuun asti, myös lainalomake ja käyttöönotto.
+- Suuri kontrasti säilyttää valinnat näkyvinä, ja kalenteri ja suodattimet toimivat näppäimistöllä.
+- Ohjeet-linkki on alatunnisteessa.
+- Category spending goals are gone from Raportit and the monthly goal card from Asetukset.
+- Kuukausi names its month and year ("Lokakuu 2026"), with the days read under the running month, and says "yleensä kuussa" of income too.
+- On a phone Kuukausi no longer draws a lone mark beside Yleensä.
+- On a list of several pages "Kaikki" stands for every row of the list instead of the page.
+- In the form of an account, Tilin nimi and Tyyppi stand on one line. Kokeile esimerkkitiedoilla under an empty Tilit card takes the reader to the Esimerkkitiedot card instead of doing nothing.
+- Vaihda salasana, Lisää jäsen and Lisää laina in Asetukset move the keyboard focus into their form and back to their button when it closes. Escape closes such a form while nothing in it has changed.
+- The balance check line under an account in Asetukset > Pankit ja tilit is in the regular weight, so it no longer weighs as much as the account's name.
+- In Asetukset > Palvelin, an off Tarkista päivitykset says beside it that it needs the maintenance helper, and the Näytä filter of Turvallisuusloki is no longer half the card wide.
+- The split of a joint account is one choice under the account in Asetukset > Tilit. The way pressed is the one that cuts the costs, and the shares can start from a day.
+- The arrows of Kuukausi are larger buttons with an edge, so the way into earlier months is easy to see and to tap.
+- An old link to a report that has nothing to show yet says so above the report that opens in its place.
+- The month table of Tilit ja saldot says its figure is the balance at the month's end.
+- The form of Säännöt names each field above it (Kenttä, Hakusana, Kategoria), and on a phone no loose word stands between two fields.
+- On a phone the count of Tarkistettavat stands inside its tab, clear of the bar's top edge.
+- Laskut shows the payments before the payday as dots on a line of days again, with their sum beside the name and the list under the line.
+- Raportit has its list of reports on every report page, Kuukausi first, so every report is one step from any other.
+
+Reliability
+
+- A statement view on a phone no longer scrolls the page sideways.
+- Names on a phone in Tapahtumat are no longer cut short by a wide amount column.
+- The same notice twice in a minute, such as two password resets, shows as one line.
+- Jos haku epäonnistuu, sivu näyttää viimeisimmän vastauksen ja kertoo, milloin se tarkistettiin.
+- Epäonnistunut sivu kertoo selvin sanoin, mitä tapahtui ja mitä seuraavaksi voi tehdä.
+- Päivittäinen käyttö pitää kirjautumisen voimassa.
+- Pääsyavainta tarjotaan vain, kun selain pystyy käyttämään sitä.
+- Kirjautuminen palaa sivulle, jolla olit.
+- Toistettua yleistä salasanaa ei hyväksytä.
+- Tyhjä hakutunti ei tarkoita keskiyötä.
+- An add-on whose database change fails no longer stops the app: the server starts without it and Asetukset says why.
+- Removing and entering the add-on code again no longer installs an older add-on version.
+- The add-on check never replaces the installed module with an older release while the installed one fits.
+- An add-on module whose migration has no compat floor is refused, so a later start without it still opens.
+
+Maintenance
+
+- Asetukset > Palvelin ei enää hae Tilastokeskuksen kuluttajahintaindeksiä.
+- Komentorivillä voi listata istunnot ja kirjata yhden jäsenen ulos (`sessions list`, `sessions revoke`).
+- Komentorivillä on ohje, ja ylimääräinen sana pysäyttää komennon.
+- Tietokantatiedostot ovat vain omistajan luettavissa.
+- Yksi epäonnistunut ylläpitotehtävä ei estä muita.
+- Asetukset > Palvelin no longer lists views nobody opened, and the app no longer records which views are opened.
+- An install that follows this repository can build the newest main: `TALOUS_CHANNEL=source` in `.env` is no longer refused.
+- Asetukset > Palvelin can take an add-on code that installs a signed add-on module.
+- Asetukset > Palvelin > Lisäosa takes the add-on code, shows where the add-on stands and removes it.
+
+For developers
+
+- A check queued for a slot no longer makes the checks that hold the slots wait for it.
+- The README, the install guide and the bank guide are rewritten for a household: shorter, with the steps one takes.
+- What a developer needs of the bank connection moved to docs/BANK_NOTES.md, with the payment rules watch (rule 44).
+- The README pictures are one set from the example household; `pnpm docs:shots` retakes them. `pnpm readme:video` is gone.
+- No picture of a bank's page or of a real account is in the repository, and a test refuses a new one in docs/images/.
+- `pnpm check`, `pnpm e2e` and `pnpm test:perf` no longer wait for a quiet machine: that script and the commit script left the repo.
+- The privacy check on GitHub runs the scanner and word lists of main, so a pull request cannot weaken it.
+- Missing card purchases have one function (`missingCards`) and one title everywhere. The dashboard answer no longer carries `connectNotice`, which no page read and which counted the same words another way.
+- Repo rule 48: a class a component writes is styled by a stylesheet its page loads. The classes bare today are listed and the list only shrinks.
+- docs/MODULES.md describes how an add-on module is signed, fetched and loaded.
+- A required `privacy` check refuses personal data, secrets, machine names and unstamped pictures in what a pull request adds.
+- An add-on module's mark and part show on the rows of Tapahtumat again, and the parts it tells of a category show on Raportit > Menot.
+
+Upgrade
+
+- The read marks stored by earlier versions are deleted on the first start. A notice marked as read in the last 72 hours shows again until its time ends.
+- SESSION_DAYS hyväksyy vain kokonaisluvun 1:stä 365:een. Muulla arvolla istunto kestää 30 päivää ja käynnistys kertoo syyn.
+- The image carries ssh-keygen, which checks the signature of an add-on module.
+
 ## 1.0.0
 
 - Sign-in can use a passkey or an authenticator app, and a public address needs one of them.
