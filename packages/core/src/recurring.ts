@@ -393,7 +393,8 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
   // no income to wait for. Only when they hold most of the payer's rows: a salary whose sum moves a lot falls into
   // clusters by sum, and a piece of it is no income of its own. Nor is a cluster whose rows fit one cadence with another
   // series' rows: a salary with a larger sum every third month is one salary, so the larger sums join the other
-  // cluster when together they keep its cadence, or stay out beside a product of one sum, as they did before. Two
+  // cluster when together they keep the cadence of one of the two (the odd sums come first when they are the smaller),
+  // or stay out beside a product of one sum, as they did before. Two
   // monthly benefits on other days fit twice a month together and stay two. The id names the cluster's median, which
   // drifts as the sum moves; a mark finds it again within 10 % (`samePrice`).
   if (direction === "in" && group.length >= 4) {
@@ -402,7 +403,7 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
     const oneIncome = (a: readonly SeriesInput[], b: readonly SeriesInput[]) => fitCadence(toOccurrences([...a, ...b])) !== null;
     const joins = (a: readonly SeriesInput[], b: readonly SeriesInput[]) => {
       const joint = fitCadence(toOccurrences([...a, ...b]));
-      return joint !== null && joint.cadence.id === fitCadence(toOccurrences(a))?.cadence.id;
+      return joint !== null && [a, b].some((rows) => joint.cadence.id === fitCadence(toOccurrences(rows))?.cadence.id);
     };
     const clusters: SeriesInput[][] = [];
     for (const cluster of clusterByAmount(group)) {

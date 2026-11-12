@@ -43,7 +43,7 @@ describe("two incomes of one payer", () => {
     expect(found.filter((s) => s.transactionIds.length < salary.length)).toEqual([]);
   });
 
-  it("keeps one salary one income beside the employer's refunds: a larger sum every third month, a raise", () => {
+  it("keeps one salary one income beside the employer's refunds: a larger or smaller sum every third month, a raise", () => {
     // the 25th of each month from 11.2025, overtime every third month, and six refunds of costs on other days
     const sums = [250_000, 248_000, 310_000, 255_000, 251_000, 320_000, 249_000, 252_000, 305_000, 254_000, 250_000, 315_000];
     const salary = sums.map((cents, i) => tx({ merchant: "Esimerkki Oy", category: "salary", bookingDate: `${2025 + Math.floor((10 + i) / 12)}-${String(((10 + i) % 12) + 1).padStart(2, "0")}-25`, amountCents: cents }));
@@ -66,6 +66,11 @@ describe("two incomes of one payer", () => {
     const after = detectRecurring([...raised, ...refunds], today).filter((s) => s.kind === "income");
     expect(after.map((s) => [s.cadence, s.transactionIds.length, s.nextDate])).toEqual([["monthly", 11, "2026-10-25"]]);
     expect(after[0]!.typicalAmountCents).toBeGreaterThan(300_000);
+    // a smaller sum every third month: those sums are the first cluster by sum, with a cadence of every three months,
+    // and the usual sums join them as one monthly salary
+    const lower = salary.map((t, i) => ({ ...t, amountCents: (i % 3 === 2 ? 190_000 : 250_000) + ((i * 7) % 5) * 4_000 }));
+    const low = detectRecurring([...lower, ...refunds], today).filter((s) => s.kind === "income");
+    expect(low.map((s) => [s.cadence, s.transactionIds.length, s.nextDate])).toEqual([["monthly", 11, "2026-10-25"]]);
   });
 
   it("makes no income of a shop's refunds that come a month apart", () => {
