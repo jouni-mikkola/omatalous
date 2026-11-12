@@ -12,7 +12,6 @@ const MONEY = /[a-zA-Z]Cents\s*[-+]\s*[a-zA-Z.]*Cents|reduce\(.*Cents|\+=\s*[a-z
 
 const KNOWN: Record<string, number> = {
   "components/next-days-line.ts": 1,
-  "pages/settings/account-use.ts": 1,
 };
 
 const SRC = new URL("../src/", import.meta.url).pathname;
@@ -22,8 +21,11 @@ const files = (dir: string): string[] =>
     return statSync(path).isDirectory() ? files(path) : /\.tsx?$/.test(name) ? [path] : [];
   });
 
+/** The comparator of a sort puts two figures in order: its minus makes no figure anyone reads. */
+const COMPARATOR = /\.sort\(\(a, b\) => [ab]\.[a-zA-Z.]*Cents - [ab]\.[a-zA-Z.]*Cents\)/g;
+
 function moneySums(text: string): number {
-  return text.match(MONEY)?.length ?? 0;
+  return text.replace(COMPARATOR, ".sort()").match(MONEY)?.length ?? 0;
 }
 
 describe("the web adds up no money of its own", () => {
@@ -32,6 +34,8 @@ describe("the web adds up no money of its own", () => {
     expect(moneySums("rows.reduce((s, r) => s + r.amountCents, 0)")).toBe(1);
     expect(moneySums("total += row.amountCents;")).toBe(1);
     expect(moneySums("<Figure text={money(totals.leftCents)} />")).toBe(0);
+    expect(moneySums("rows.sort((a, b) => b.changeCents - a.changeCents)[0]")).toBe(0);
+    expect(moneySums("rows.map((a) => a.incomeCents - a.spentCents)")).toBe(1);
   });
 
   it("has no sum of money beyond the list of what is left, and the list holds no file that has none", () => {

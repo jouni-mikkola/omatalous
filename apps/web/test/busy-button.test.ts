@@ -39,6 +39,7 @@ const NOT_OWN_ACTION: [string, string, string][] = [
   ["pages/ReviewChoices.tsx", "setSheet(true)", "opens the sheet of categories; a category's button there sends"],
   ["pages/Review.tsx", "onSkip", "Ohita sends nothing; it is held while an answer is on its way"],
   ["pages/Transactions.tsx", "setPaging", "disabled also at the last page, and a page fetch is not this click"],
+  ["pages/settings/AccountSplit.tsx", "setOpen(null)", "cancel is held while the save beside it runs"],
   ["pages/settings/Members.tsx", "setAsking(", "opens the dialog; the dialog's button waits"],
   ["pages/settings/Members.tsx", "setRemovingNameless(", "opens the dialog; the dialog's button waits"],
   ["pages/settings/Security.tsx", "setRevoking(", "opens the dialog; the dialog's button waits"],
