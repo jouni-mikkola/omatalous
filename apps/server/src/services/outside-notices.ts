@@ -47,16 +47,16 @@ type NoticeKind = "consent" | "disk" | "backup" | "update";
 /** The words of each notice. No number, name or amount: only what happened and where to look. */
 const TEXTS: Record<Language, Record<NoticeKind, { title: string; message: string }>> = {
   fi: {
-    consent: { title: "Pankkisuostumus päättyy pian", message: "Uusi suostumus ennen kuin pankin haku pysähtyy. Katso Asetukset > Pankit ja tilit." },
-    disk: { title: "Palvelimen levy on lähes täynnä", message: "Siivoa levy ennen kuin tallennus pysähtyy. Katso Asetukset > Palvelin ja ylläpito." },
-    backup: { title: "Varmuuskopio ei ole kunnossa", message: "Ehjää varmuuskopiota ei ole tuoreena. Ota uusi kopio kohdassa Asetukset > Palvelin ja ylläpito." },
-    update: { title: "Päivitys palautettiin", message: "Edellinen versio palautettiin, koska päivitys ei onnistunut. Katso Asetukset > Palvelin ja ylläpito." },
+    consent: { title: "Pankkisuostumus päättyy pian", message: "Uusi suostumus ennen kuin pankin haku pysähtyy. Katso Asetukset > Pankit." },
+    disk: { title: "Palvelimen levy on lähes täynnä", message: "Siivoa levy ennen kuin tallennus pysähtyy. Katso Asetukset > Ylläpito." },
+    backup: { title: "Varmuuskopio ei ole kunnossa", message: "Ehjää varmuuskopiota ei ole tuoreena. Ota uusi kopio kohdassa Asetukset > Ylläpito." },
+    update: { title: "Päivitys palautettiin", message: "Edellinen versio palautettiin, koska päivitys ei onnistunut. Katso Asetukset > Ylläpito." },
   },
   en: {
     consent: { title: "Bank consent ends soon", message: "Renew the consent before the bank sync stops. See Settings > Banks and accounts." },
-    disk: { title: "The server disk is almost full", message: "Free some space before saving stops. See Settings > Server and maintenance." },
-    backup: { title: "The backup is not in order", message: "There is no recent intact backup. Take a new one in Settings > Server and maintenance." },
-    update: { title: "The update was taken back", message: "The previous version was restored because the update failed. See Settings > Server and maintenance." },
+    disk: { title: "The server disk is almost full", message: "Free some space before saving stops. See Settings > Maintenance." },
+    backup: { title: "The backup is not in order", message: "There is no recent intact backup. Take a new one in Settings > Maintenance." },
+    update: { title: "The update was taken back", message: "The previous version was restored because the update failed. See Settings > Maintenance." },
   },
 };
 

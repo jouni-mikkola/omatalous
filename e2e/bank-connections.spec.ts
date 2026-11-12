@@ -118,7 +118,7 @@ test("the calendar file: one all-day event seven days before the end, with the a
   expect(unfolded).toContain("DTSTART;VALUE=DATE:20270107\r\n");
   expect(unfolded).toContain("DTEND;VALUE=DATE:20270108\r\n");
   expect(unfolded).toContain("SUMMARY:Omatalous: pankkiyhteys vanhenee 14.1.2027\r\n");
-  expect(unfolded).toContain("DESCRIPTION:Nordea: yhteys vanhenee 14.1.2027. Avaa Omatalous ja valitse Asetukset > Pankit ja tilit > Yhdistä uudelleen.");
+  expect(unfolded).toContain("DESCRIPTION:Nordea: yhteys vanhenee 14.1.2027. Avaa Omatalous ja valitse Asetukset > Pankkiyhteydet > Yhdistä uudelleen.");
   // the address the page was opened from, and nothing of the account
   expect(unfolded).toContain(`URL:${new URL(page.url()).origin}/#/settings\r\n`);
   expect(text).not.toMatch(/FI21|0785|Käyttötili|Testi Esimerkki/);

@@ -155,7 +155,7 @@ change cannot weaken the check that judges it: the fix of a detector merges befo
 - Writing (docs, UI text, comments, commits, script output): short and plain. No em dashes, no "not X but Y",
   no padded lists of three, no bold lead-ins, no filler words or trailing filler phrases. Docs, script output, logs and
   CLI output in English. Everything the browser shows in Finnish, including the maintenance helper's report summaries
-  and the `doctor.sh --json` items. UI paths are written `Asetukset > Palvelin ja ylläpito`, the tab as its tab row names it.
+  and the `doctor.sh --json` items. UI paths are written `Asetukset > Palvelin`.
 - The Finnish of the UI (glossary, tone, dates, sums, plurals): `docs/UI_STYLE.md`; rule 35 refuses the words it removed.
 - Code, identifiers and comments in English. Comments explain why.
 - New report: `packages/core/src/reports/<name>.ts` + register in `reports/index.ts` + a section file in
