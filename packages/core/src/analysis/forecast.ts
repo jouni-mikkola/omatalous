@@ -12,7 +12,9 @@ import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
+import { monthSpan, sameAccounts } from "./coverage.ts";
 import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
+import { cardsBreakUsual } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -21,7 +23,11 @@ export interface MonthPace {
   current: (number | null)[];
   /** The month's spending so far: the last point of `current`, 0 before the 1st. */
   currentTotal: number;
-  /** The calendar month before, of real rows. null when the history has no row in it. */
+  /**
+   * The calendar month before, of real rows. null when the history has no row in it, or when it was not on the same
+   * accounts as this month (`sameAccounts`): an account whose history begins later, such as a card linked this month,
+   * would add to one curve and not the other, so the same days would differ by what the data holds.
+   */
   previous: {
     /** "2026-09" */
     month: string;
@@ -74,9 +80,12 @@ function spendingCurve(ctx: AnalysisContext, month: string): number[] {
   return daily.map((cents) => (sum += cents));
 }
 
-/** The history has a row in the month, of any kind: a month it does not reach has nothing to be set against. */
-function hasRows(ctx: AnalysisContext, month: string): boolean {
-  return inDays(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) }).length > 0;
+/**
+ * The month before can be set against `month` day by day: the history has a row in it, of any kind (a month it does not
+ * reach has nothing to be set against), and every account with rows in either month has data for the whole of both.
+ */
+function comparesWith(ctx: AnalysisContext, before: string, month: string): boolean {
+  return inDays(ctx, { fromDay: dayNumber(`${before}-01`), toDay: dayNumber(monthEnd(before)) }).length > 0 && sameAccounts(ctx, monthSpan(before), monthSpan(month));
 }
 
 /**
@@ -88,7 +97,7 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
   const cur = spendingCurve(ctx, month);
   const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
   const before = addMonths(month, -1);
-  const curve = hasRows(ctx, before) ? spendingCurve(ctx, before) : null;
+  const curve = comparesWith(ctx, before, month) ? spendingCurve(ctx, before) : null;
   // a month shorter than today's day of the month is read to its last day
   const day = Math.min(lastDay, curve?.length ?? 0);
   return {

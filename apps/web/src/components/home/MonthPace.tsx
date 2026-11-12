@@ -17,7 +17,9 @@ type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
  * the chart of the month's days and the same days as a table. The chart has one comparison: the usual band when the
  * household has one, else last month's line, so a household without a usual level still sees the month against something.
  * Without a usual level the sentence names last month's sum to the same day too, so the words compare with what the chart
- * draws. The spent sum opens the month's rows, and the days and categories behind the difference are one link away.
+ * draws (core leaves last month out when it was on other accounts); on the last days of a month after a shorter one that
+ * sum is the whole of last month and says so. The spent sum opens the month's rows, and the days and categories behind
+ * the difference are one link away.
  */
 export function MonthPace({ data }: { data: Data }) {
   const { nyt, ahead, home } = data;
@@ -40,7 +42,7 @@ export function MonthPace({ data }: { data: Data }) {
               { sum: spent(usual.spentCents) },
             )
           : pace.previous
-            ? rich("home.nyt_spent_previous", { previous: answerMoney(pace.previous.toToday) }, { sum: spent(nyt.pace.spentCents) })
+            ? rich(pace.previous.day < nyt.pace.day ? "home.nyt_spent_previous_whole" : "home.nyt_spent_previous", { previous: answerMoney(pace.previous.toToday) }, { sum: spent(nyt.pace.spentCents) })
             : rich("home.nyt_spent", {}, { sum: spent(nyt.pace.spentCents) })}
       </p>
       {/* its own line: after the sum it read as one sentence with no stop */}

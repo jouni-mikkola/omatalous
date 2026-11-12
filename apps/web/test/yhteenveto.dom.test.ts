@@ -103,10 +103,17 @@ describe("Yhteenveto", () => {
     expect(flat(gap.container.querySelector(".home-pace-gap")?.textContent)).toBe("Emme näytä tavallista tasoa, koska aiempien kuukausien korttiostot puuttuvat.");
     gap.unmount();
     // the chart drew last month's line while the words named this month's sum alone: they name last month's to the same day
-    const previous = { month: "2026-10", curve: [], day: 11, toToday: 244649 };
-    const before = render(createElement(MonthPace, { data: data({ home: { paceGap: "cards", pace: null }, pace: { ...data().pace, previous } } as never) }));
+    const curveOf = (days: number, day: number, cents: number) => Array.from({ length: days }, (_, i) => (i < day - 1 ? 0 : cents));
+    const previous = { month: "2026-10", curve: curveOf(31, 11, 244649), day: 11, toToday: 244649 };
+    const before = render(createElement(MonthPace, { data: data({ home: { paceGap: "history", pace: null }, pace: { ...data().pace, previous } } as never) }));
     expect(flat(before.container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, viime kuussa samaan päivään 2 446 €.");
     before.unmount();
+    // the 31st after a month of 30 days: the sum is all of last month, not its 31st
+    const whole = { month: "2026-11", curve: curveOf(30, 30, 300000), day: 30, toToday: 300000 };
+    const last = data({ home: { paceGap: "history", pace: null }, pace: { ...data().pace, month: "2026-12", daysInMonth: 31, previous: whole } } as never);
+    const end = render(createElement(MonthPace, { data: { ...last, nyt: { ...last.nyt, from: "2026-12-31", pace: { ...last.nyt.pace, day: 31 } } } }));
+    expect(flat(end.container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, koko viime kuussa 3 000 €.");
+    end.unmount();
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     const { container } = render(createElement(MonthPace, { data: data({ home: { paceGap: null, pace } } as never) }));
     expect(flat(container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, 234 € yli tavallisen. Tavallisesti 1 000 € (900–1 100 €).");
