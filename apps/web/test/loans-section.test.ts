@@ -118,7 +118,7 @@ describe("Raportit: Lainat", () => {
     const twice = report([row()], { maybeTwice: [{ loans: [{ id: "home", name: "Kodin laina" }, { id: "car", name: "Autolaina" }], accounts: [{ id: "acc", name: "Asuntolaina" }] }] });
     const out = html(loans, context(twice));
     expect(out).toContain("Sama velka voi olla summassa kahdesti: tallennettu laina Kodin laina tai Autolaina ja yhdistetty tili Asuntolaina.");
-    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Lainat, niin laskemme sen vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
     expect(out.toLowerCase()).not.toContain("liitä");
     expect(html(balances, context(twice))).toContain("Sama velka voi olla summassa kahdesti: katso Lainat.");
     expect(html(balances, context(report([row()])))).not.toContain("kahdesti");
@@ -263,12 +263,12 @@ describe("Raportit: Lainat", () => {
     expect(linkable).not.toContain("Liitä Autolaina");
     expect(linkable).not.toContain("theirs");
     // a set with a loan of the viewer's own and no account to link to: the viewer removes their own, as before
-    expect(html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Lainat, niin laskemme sen vain kerran.");
+    expect(html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
     // every saved loan of the set is another member's: nothing to link though the account is the viewer's own, and the typists are named once each
     const others = { ...beside, loans: [{ id: "theirs", name: "Autolaina" }, { id: "second", name: "Remonttilaina" }, { id: "his", name: "Venelaina" }] };
     const all = [row({ id: "theirs", typedBy: "Aino" }), row({ id: "second", typedBy: "Aino" }), row({ id: "his", typedBy: "Eero" })];
     const out = html(loans, withAccounts(report(all, { maybeTwice: [others] }), [{ id: "acc" }]));
-    expect(out).toContain("Jos kyse on samasta velasta, Aino tai Eero voi poistaa tallennetun lainan kohdassa Asetukset &gt; Lainat, niin laskemme sen vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, Aino tai Eero voi poistaa tallennetun lainan kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
     expect(out).not.toContain("Liitä");
     expect(out).not.toContain("<a ");
   });
