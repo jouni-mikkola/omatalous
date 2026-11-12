@@ -15,7 +15,7 @@ type Row = Report["rows"][number];
 type Payment = Row["payments"][number];
 
 /** A series' name as Laskut says it: a product among several of its payee carries its price. */
-const nameOf = (row: Row): string => seriesName(row.id) ?? row.merchant;
+const nameOf = (row: Row): string => seriesName(row.id, row.chargeCents) ?? row.merchant;
 
 /**
  * The rows of Tapahtumat behind a line: the payee's rows on the account the series is charged to, on one day or all of

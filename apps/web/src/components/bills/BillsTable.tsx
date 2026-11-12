@@ -80,7 +80,7 @@ export function BillsTable({
   if (!items.length) return null;
   const live = items.filter((i) => !i.ended && !gone.has(i.key));
   const ended = items.filter((i) => i.ended);
-  const nameOf = (i: Item) => (i.series ? seriesName(i.series.id) ?? i.name : i.name);
+  const nameOf = (i: Item) => (i.series ? seriesName(i.series.id, i.series.typicalAmountCents) ?? i.name : i.name);
   const onCard = (i: Item) => !!i.series && cards.has(parseSeriesId(i.series.id)?.accountId ?? "");
 
   const remove = async (id: string) => {

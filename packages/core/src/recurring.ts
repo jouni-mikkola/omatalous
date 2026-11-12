@@ -125,8 +125,9 @@ export function parseSeriesId(id: string): SeriesIdParts | null {
 }
 
 /**
- * The price of a series that is one fixed-price product among several of its merchant on the account (Apple 12,99
- * beside Apple 0,99), else null. Every page that lists series adds it to the name, so the two read apart everywhere.
+ * The price in the id of a series that is one fixed-price product among several of its merchant on the account (Apple
+ * 12,99 beside Apple 0,99), else null: the median of its charges, kept so that marks stay on the series. A page names
+ * the product with the charge of today instead (web `seriesName`), which differs after a rise.
  */
 export const productCents = (id: string): number | null => {
   const product = parseSeriesId(id)?.product;

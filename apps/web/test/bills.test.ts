@@ -72,6 +72,10 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const out = cardOf([storage, music], []);
     expect(out).toContain("Apple 7,99");
     expect(out).toContain("Apple 12,99");
+    // after a rise the id keeps the product's old median: the name says the price charged now
+    const risen = cardOf([storage, { ...music, typicalAmountCents: 1499, lastAmountCents: 1499 }], []);
+    expect(risen).toContain("Apple 14,99");
+    expect(risen).not.toContain("Apple 12,99");
   });
 
   it("says Kortilla on a subscription a credit card pays", () => {
