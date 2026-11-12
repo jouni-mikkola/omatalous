@@ -5,21 +5,20 @@
  * `cashAhead`): the bills, the card's bill and the own transfers of the window. No everyday spending is taken off: the
  * view sets the sum per day left against the usual everyday spending of a day instead (`expectedEverydayPerDay`).
  *
- * The pace is the running month's spending to today against the band of `usual.ts`: the lower to the upper quartile of
- * what the complete months before (`completeMonthsBefore`) had spent by the same day (`spendingThrough`).
+ * The pace is the running month's spending to today against the band of the expected month to the same day
+ * (`expectedFor`, ADR 0021): the band the pace chart draws under the sentence and the figure Kuukausi names as usual.
  */
 import { daysBetween, monthOf } from "../dates.ts";
-import { MIN_COMPARE_MONTHS, RANGE_HIGH, RANGE_LOW } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
 import type { AheadBasis } from "./ahead.ts";
 import { type AnalysisContext, standingOf } from "./context.ts";
-import { quantile } from "./expected.ts";
+import { expectedFor } from "./expected.ts";
+import { monthPace } from "./forecast.ts";
 import { INCOME_TYPES, incomeTypes, payersOf } from "./income.ts";
 import { payEvidence } from "./pay-estimate.ts";
 import { paydayOf } from "./runway.ts";
-import { cardsBreakUsual, completeMonthsBefore, spendingThrough } from "./usual.ts";
 
-/** The usual spending on the days 1 to `day` of a month: the lower and the upper quartile of the base months. */
+/** The usual spending on the days 1 to `day` of a month: the range of the expected month at that day (`ExpectedAt`). */
 interface UsualBand {
   lowCents: number;
   highCents: number;
@@ -60,17 +59,20 @@ export interface NytAnswer {
     day: number;
     /** The running month's spending on its days 1 to `day` (`spendingThrough`). */
     spentCents: number;
-    /** null under `MIN_COMPARE_MONTHS` complete months, or when they lack the purchases of a linked card (`cardsBreakUsual`). */
+    /** null without an expected month: under `MIN_COMPARE_MONTHS` complete months, or when they lack the purchases of a linked card. */
     usual: UsualBand | null;
   };
 }
 
-/** The band of `month` to its `day`, from the complete months before it. */
+/**
+ * The band of `month` to its `day`: the one the pace chart draws (`MonthPace.expected`). A second band read straight
+ * from the base months' quartiles stood here before, and the sentence above the chart named other sums than the chart showed.
+ */
 function usualBand(ctx: AnalysisContext, month: string, day: number): UsualBand | null {
-  const months = completeMonthsBefore(ctx, month);
-  if (months.length < MIN_COMPARE_MONTHS || cardsBreakUsual(ctx, month)) return null;
-  const sorted = months.map((m) => spendingThrough(ctx, m, day)).sort((a, b) => a - b);
-  return { lowCents: quantile(sorted, RANGE_LOW), highCents: quantile(sorted, RANGE_HIGH), months: months.length };
+  const figure = expectedFor(ctx, month);
+  if (!figure || !figure.itemised) return null;
+  const at = figure.at(day);
+  return { lowCents: at.lowCents, highCents: at.highCents, months: figure.months.length };
 }
 
 /** The regular pays an estimate would rest on (`payEvidence`), from the payer with most of them. */
@@ -103,6 +105,7 @@ export function nytAnswer(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead">
     from,
     left: leftOf(ctx, basis),
     usualPerDayCents: basis.ahead.everydayPerDayCents || null,
-    pace: { day, spentCents: spendingThrough(ctx, month, day), usual: usualBand(ctx, month, day) },
+    // the rows of the pace chart and of the band (`spendRows`), so the sum is the one the chart's line ends on
+    pace: { day, spentCents: monthPace(ctx, month, from).currentTotal, usual: usualBand(ctx, month, day) },
   };
 }

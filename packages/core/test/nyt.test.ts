@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import { aheadBasis } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { quantile } from "../src/analysis/expected.ts";
+import { expectedFor } from "../src/analysis/expected.ts";
 import { nytAnswer } from "../src/analysis/nyt.ts";
 import { completeMonthsBefore, spendingThrough } from "../src/analysis/usual.ts";
 import { addDays, dateIn, monthIndex, weekdayOf } from "../src/dates.ts";
-import { RANGE_HIGH, RANGE_LOW } from "../src/thresholds.ts";
 import { type Account, type BalanceInput, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -65,21 +64,39 @@ describe("Nyt", () => {
     expect(left.perDayCents).toBe(Math.round(629_848 / 18));
   });
 
-  it("the band equals usual.ts to the same day", () => {
+  it("the band is the expected month's to the same day", () => {
     const { ctx, answer } = run(rows);
     const months = completeMonthsBefore(ctx, "2026-10");
     expect(months).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
-    const sorted = months.map((m) => spendingThrough(ctx, m, 26)).sort((a, b) => a - b);
+    const at = expectedFor(ctx, "2026-10")!.at(26);
     expect(answer.pace).toEqual({
       day: 26,
       spentCents: spendingThrough(ctx, "2026-10", 26),
-      usual: { lowCents: quantile(sorted, RANGE_LOW), highCents: quantile(sorted, RANGE_HIGH), months: 6 },
+      usual: { lowCents: at.lowCents, highCents: at.highCents, months: 6 },
     });
     // the rent and 26 days of purchases; April to September spent less a day, so the month is above its band
     expect(answer.pace.spentCents).toBe(RENT + 26 * (4000 + 137 * 7));
-    expect(sorted[0]).toBe(RENT + 26 * (4000 + 137));
     expect(answer.pace.usual!.lowCents).toBeLessThan(answer.pace.usual!.highCents);
     expect(answer.pace.spentCents).toBeGreaterThan(answer.pace.usual!.highCents);
+  });
+
+  it("the sentence names the band the chart draws and holds the sum Kuukausi calls usual", () => {
+    // two base months hold a one-off purchase: the expected month leaves it out, the raw months' quartiles do not
+    const uneven = [...pays(), ...rents(), ...shopping()].concat(
+      ["2026-05", "2026-07"].map((m, i) => tx({ accountId: "own", bookingDate: `${m}-05`, amountCents: -(150_000 + 30_000 * i), merchant: "Huonekaluliike", category: "home" })),
+    );
+    const { ctx } = run(uneven);
+    const raw = completeMonthsBefore(ctx, "2026-10").map((m) => spendingThrough(ctx, m, 26)).sort((a, b) => a - b);
+    // the old band reached up to the months with the sofa in them, far above anything the chart drew
+    const dash = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }, [bal(BALANCE)]);
+    expect(raw.at(-2)!).toBeGreaterThan(dash.pace.expected!.high[25]!);
+    expect(dash.nyt!.pace.spentCents).toBe(dash.pace.currentTotal);
+    const usual = dash.nyt!.pace.usual!;
+    const expected = dash.pace.expected!;
+    expect(usual).toEqual({ lowCents: expected.low[25], highCents: expected.high[25], months: expected.months });
+    expect(usual.lowCents).toBeLessThanOrEqual(expected.toToday);
+    expect(usual.highCents).toBeGreaterThanOrEqual(expected.toToday);
+    expect({ lowCents: usual.lowCents, highCents: usual.highCents }).toEqual({ lowCents: dash.home.pace!.lowCents, highCents: dash.home.pace!.highCents });
   });
 
   it("the usual everyday spending of a day is the first page's", () => {

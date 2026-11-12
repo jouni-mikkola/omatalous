@@ -739,8 +739,8 @@
    "day": 15,
    "spentCents": 276614,
    "usual": {
-    "lowCents": 254594,
-    "highCents": 264502,
+    "lowCents": 268833,
+    "highCents": 278471,
     "months": 6
    }
   }
