@@ -35,7 +35,10 @@
   .home-sum-row { grid-column: 8 / -1; grid-template-columns: minmax(0, 1fr); }
   .home-sum-row > div { grid-template-columns: 1fr auto; align-items: baseline; padding-inline: 0; border-inline-start: 0; }
   .home-sum-row > div + div { border-block-start: var(--hairline) solid var(--grid); }
+  .home-elsewhere { grid-column: 8 / -1; }
 }
+/* what an account outside the balance pays: a line under the sum row, the size of its labels */
+.home-elsewhere { font-size: var(--fs-label); line-height: var(--lh-label); }
 
 /* wide: the month's pace stands on the left, what to check and the categories on the right, the figures across the page below; the order in the source is the order a narrow screen reads */
 .home-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }

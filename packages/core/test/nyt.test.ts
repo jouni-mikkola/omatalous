@@ -119,6 +119,21 @@ describe("Nyt", () => {
     expect(short.usualPerDayCents).toBeNull();
   });
 
+  it("what an account outside the balance pays before the payday is said apart, in no figure of the sum", () => {
+    const other: Account = { id: "other", name: "Toinen tili", iban: "FI49 5000 9420 0287 30", currency: "EUR", type: "savings" };
+    // a loan paid on the 5th (before the payday of the 13th) and an insurance on the 20th (after it), both from the other account
+    const loan = MONTHS.map((m) => tx({ accountId: "other", bookingDate: `${m}-05`, amountCents: -42_182, merchant: "Lainapankki", category: "loans" }));
+    const insurance = MONTHS.map((m) => tx({ accountId: "other", bookingDate: `${m}-20`, amountCents: -7_999, merchant: "Vakuutusyhtiö", category: "insurance" }));
+    const ctx = createContext([...rows, ...loan, ...insurance].filter((t) => t.bookingDate <= TODAY), [own, other], TODAY);
+    const left = nytAnswer(ctx, aheadBasis(ctx, [bal(BALANCE), { ...bal(BALANCE), id: other.id, name: other.name, type: other.type }], NO_INPUTS)).left;
+    if (!left.known) throw new Error(`no sum: ${left.reason}`);
+    expect(left.elsewhereCents).toBe(42_182);
+    // the sum is the counted account's alone, as without the other account
+    expect([left.balanceCents, left.billsCents, left.leftCents]).toEqual([BALANCE, RENT, BALANCE - RENT]);
+    const plain = run(rows).answer.left;
+    expect(plain.known && plain.elsewhereCents).toBe(0);
+  });
+
   it("no payday says how many pays were found", () => {
     const base = [...rents(), ...shopping()];
     const one = run([...base, ...pays().slice(-1)]).answer;

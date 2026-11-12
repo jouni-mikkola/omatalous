@@ -870,7 +870,8 @@
    "balanceCents": 681443,
    "billsCents": 293197,
    "leftCents": 388246,
-   "perDayCents": 27732
+   "perDayCents": 27732,
+   "elsewhereCents": 0
   },
   "usualPerDayCents": 5089,
   "pace": {

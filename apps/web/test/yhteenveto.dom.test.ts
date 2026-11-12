@@ -25,11 +25,11 @@ const TOP: DashboardData["top"] = {
   totalCents: 59100,
 };
 
-function nytOf(known: boolean, billsCents = 189954): NytData {
+function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0): NytData {
   return {
     from: "2026-11-11",
     left: known
-      ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents, leftCents: 500000 - billsCents, perDayCents: Math.round((500000 - billsCents) / 14) }
+      ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents, leftCents: 500000 - billsCents, perDayCents: Math.round((500000 - billsCents) / 14), elsewhereCents }
       : { known: false, reason: "no-payday", found: 1 },
     usualPerDayCents: null,
     pace: { day: 11, spentCents: 123400, usual: null },
@@ -49,22 +49,46 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
 
 const DIRECTION = { averageCents: 320000, months: 12, recentChangeCents: 0, direction: "flat", bufferMonths: 3.8, bufferNetCents: 1230000, bufferSpendCents: 322300 } as DashboardData["home"]["direction"];
 
+/** The window the answer is read from, with the count of checking accounts its balance adds up. */
+const aheadOf = (accounts: number) => ({ from: "2026-11-11", to: "2026-11-24", balance: { accounts } }) as unknown as DashboardData["ahead"];
+
 describe("Yhteenveto", () => {
-  it("the sum row is balance, payments and what is left to the cent, and the first two open their rows", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(true) }));
+  it("the sum row is balance, payments and what is left to the cent, the first two open their rows and what is left its basis", () => {
+    const { container } = render(createElement(Answer, { nyt: nytOf(true), ahead: aheadOf(1), scope: "own" }));
     expect(flat(container.querySelector(".home-answer-line")?.textContent)).toBe("Palkkapäivään 25.11. jää 3 100 €");
     expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "−1 899,54 €", "3 100,46 €"]);
     expect([...container.querySelectorAll(".home-sum-row a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/bills#ennen-palkkapaivaa"]);
+    // what is left was a bare figure: it opens the accounts and the payments it is made of
+    const door = container.querySelector(".home-sum-left button.why-door");
+    expect(flat(door?.textContent)).toBe("3 100,46 €");
+    expect(flat(door?.getAttribute("aria-label"))).toContain("Jää 3 100,46 €");
+  });
+
+  // the label said one account while the figure added up every counted checking account
+  it("the balance names one checking account or several, as many as it adds up", () => {
+    const label = (accounts: number) => render(createElement(Answer, { nyt: nytOf(true), ahead: aheadOf(accounts), scope: "own" })).container.querySelector(".home-sum-row dt")?.textContent;
+    expect(label(1)).toBe("Käyttötilin saldo");
+    expect(label(2)).toBe("Käyttötilien saldo");
+  });
+
+  // the payments read 0,00 € while a loan left another account before the payday, and only Laskut said so
+  it("what an account outside the balance pays before the payday is a line under the sum row, opening Laskut", () => {
+    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0, 42182), ahead: aheadOf(1), scope: "own" }));
+    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
+    const line = container.querySelector(".home-elsewhere a");
+    expect(flat(line?.textContent)).toBe("Lisäksi 421,82 € tileiltä, joita saldo ei laske.");
+    expect(line?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+    expect(render(createElement(Answer, { nyt: nytOf(true, 0, 0), ahead: aheadOf(1), scope: "own" })).container.querySelector(".home-elsewhere")).toBeNull();
   });
 
   // 1.0.0 printed "−0,00 €" when nothing was due before the payday
   it("payments of nothing have no minus sign", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0) }));
+    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0), ahead: aheadOf(1), scope: "own" }));
     expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
   });
 
   it("without a known sum the answer says why and draws no sum row", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(false) }));
+    const { container } = render(createElement(Answer, { nyt: nytOf(false), ahead: null, scope: "own" }));
     expect(container.querySelector(".home-sum-row")).toBeNull();
     expect(container.querySelector(".home-answer-line")?.textContent).not.toBe("");
   });
