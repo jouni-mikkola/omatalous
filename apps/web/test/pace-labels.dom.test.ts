@@ -69,6 +69,63 @@ describe("PaceChart labels", () => {
     expect(ends.find((e) => e.includes("≈"))).toMatch(/^Arvio ≈ /);
   });
 
+  for (const width of [366, 1440]) {
+    it(`today's figure moves off last month's line where it runs over the dot at ${width} px`, () => {
+      current = width;
+      // no usual level yet: last month's line climbs past this month's just after today, as it does when its pay came early
+      const prev = Array.from({ length: DAYS }, (_, i) => 2_000 + i * 15_000 + (i >= 9 ? 60_000 : 0));
+      const now = Array.from({ length: DAYS }, (_, i) => (i < 12 ? 2_000 + i * 14_000 + (i >= 9 ? 30_000 : 0) : null));
+      const p = { ...pace, current: now, expected: null, projection: null, previous: { curve: prev } };
+      const { container } = render(createElement(PaceChart, { pace: p, goal: null, payday: null, names: { current: "Tämä kuu", previous: "Viime kuu" } }));
+      const label = container.querySelector<SVGTextElement>("text.pace-now-label")!;
+      const w = label.textContent!.length * LABEL_CHAR_W;
+      const lx = Number(label.getAttribute("x"));
+      const a = label.getAttribute("text-anchor");
+      const x0 = a === "end" ? lx - w : a === "middle" ? lx - w / 2 : lx;
+      const box = { x0, x1: x0 + w, y0: Number(label.getAttribute("y")) - 11, y1: Number(label.getAttribute("y")) + 2 };
+      // every segment of the two lines that reaches into the label's columns passes above or below it
+      for (const line of [".pace-prev", ".pace-now"]) {
+        const pts = [...container.querySelector(line)!.getAttribute("d")!.matchAll(/[ML]([\d.]+),([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])] as const);
+        for (let i = 1; i < pts.length; i++) {
+          const [[a, ya], [b, yb]] = [pts[i - 1]!, pts[i]!];
+          if (b < box.x0 || a > box.x1) continue;
+          const at = (px: number) => ya + ((yb - ya) * (px - a)) / (b - a);
+          const [y0, y1] = [at(Math.max(a, box.x0)), at(Math.min(b, box.x1))];
+          expect(Math.max(y0, y1) < box.y0 || Math.min(y0, y1) > box.y1, `${line} segment ${i} runs through the label`).toBe(true);
+        }
+      }
+    });
+  }
+
+  it("on the month's last day today's figure stays clear of the usual level's end label", () => {
+    current = 1440;
+    // last month's line ends a little over this month's, so the place over the dot is taken
+    const now = curve(10_000);
+    const p = { ...pace, current: now, projection: null, previous: { curve: curve(10_700) } };
+    const { container } = render(createElement(PaceChart, { pace: p, goal: null, payday: null, names: { current: "Tämä kuu", previous: "Viime kuu" } }));
+    const box = (el: Element, dy = 0) => {
+      const w = el.textContent!.length * LABEL_CHAR_W;
+      const x = Number(el.getAttribute("x"));
+      const a = el.getAttribute("text-anchor");
+      const x0 = a === "end" ? x - w : a === "middle" ? x - w / 2 : x;
+      const y = Number(el.getAttribute("y")) + dy;
+      return { x0, x1: x0 + w, y0: y - 11, y1: y + 2 };
+    };
+    const label = box(container.querySelector("text.pace-now-label")!);
+    const end = [...container.querySelectorAll("text.pace-end")].find((e) => e.textContent === "Tavallinen")!;
+    // dy 0.32em of a 12 px text
+    const usual = box(end, 4);
+    expect(label.x1 <= usual.x0 || usual.x1 <= label.x0 || label.y1 <= usual.y0 || usual.y1 <= label.y0).toBe(true);
+  });
+
+  it("today's figure stays over its dot when nothing runs there", () => {
+    current = 1440;
+    const c = draw();
+    const label = c.querySelector("text.pace-now-label")!;
+    expect(Number(label.getAttribute("y"))).toBeLessThan(Number(c.querySelector("circle.pace-dot")!.getAttribute("cy")));
+    expect(label.getAttribute("text-anchor")).toBe("middle");
+  });
+
   it("a five-digit estimate still fits right of the plot", () => {
     current = 1440;
     const big = { ...pace, projection: { fromDay: 12, low: pace.projection.low.map((v: number) => v * 4), high: pace.projection.high.map((v: number) => v * 4) } };
