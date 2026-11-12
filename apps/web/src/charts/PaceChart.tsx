@@ -90,14 +90,15 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
   const endLow = projection?.low.at(-1) ?? null;
   const endHigh = projection?.high.at(-1) ?? null;
   const endText = endLow === null || endHigh === null ? "" : `${t("home.col_estimate")} ${estimateRange(endLow, endHigh)}`;
-  const f = frame(width, { top: 16, right: narrow ? 12 : endRoom(endText.length), bottom: 24, left }, { minHeight: 220, tallest: 300, ratio: 0.26, extraBottom: LANE_H * 2 });
+  // the one event under the axis, and the lane it needs
+  const pay = payday ?? pace.payDays.at(-1) ?? null;
+  const f = frame(width, { top: 16, right: narrow ? 12 : endRoom(endText.length), bottom: 24, left }, { minHeight: 220, tallest: 300, ratio: 0.26, extraBottom: pay === null ? 0 : LANE_H });
   const y = linear(all, [f.innerH, 0], { target: tickTarget(f.innerH) });
   const ticks = wholeTicks(y.ticks);
   const x = (i: number) => (days <= 1 ? 0 : (i / (days - 1)) * f.innerW);
   const xs = Array.from({ length: days }, (_, i) => x(i));
   // the estimate's first point stands on today's day
   const px = (i: number) => x((projection?.fromDay ?? 1) - 1 + i);
-  const pay = payday ?? pace.payDays.at(-1) ?? null;
   const events: Marker[] = pay === null ? [] : [{ key: "pay", x: x(pay - 1), label: t("chart.pay_day", { day: pay }) }];
   // a label's text box stays inside the chart: its centre is moved in from the edges before the lanes are laid; its rule stays on the day
   const markers = placeMarkers(

@@ -37,10 +37,20 @@ describe("Kuukausi on Yhteenveto", () => {
     const usual = { curve: curve(14_000), low: curve(12_000), high: curve(16_000), months: 6, toToday: 182_000, diffCents: 13_000 };
     const keyed = render(createElement(MonthPace, { data: data({ expected: usual } as never) })).container.querySelectorAll(".pace-key li");
     expect([...keyed].map((li) => li.textContent)).toEqual(["Marraskuu", "Tavallisen kuukauden vaihtelu"]);
+    cleanup();
+    const previous = { month: "2026-10", curve: curve(13_000), day: 13, toToday: 169_000 };
+    const last = render(createElement(MonthPace, { data: data({ previous } as never, { paceGap: "history" } as never) })).container.querySelectorAll(".pace-key li");
+    expect([...last].map((li) => li.textContent)).toEqual(["Marraskuu", "Viime kuussa"]);
   });
 
   it("marks one event under the axis: the latest pay day of the month", () => {
     const { container } = render(createElement(MonthPace, { data: data() }));
+    expect([...container.querySelectorAll("text.kit-event-label")].map((e) => e.textContent)).toEqual(["Palkka 10."]);
+  });
+
+  it("marks the latest pay day when the coming one is next month", () => {
+    const ahead = { payday: { date: "2026-12-10" } };
+    const { container } = render(createElement(MonthPace, { data: { ...data(), ahead } as never }));
     expect([...container.querySelectorAll("text.kit-event-label")].map((e) => e.textContent)).toEqual(["Palkka 10."]);
   });
 
