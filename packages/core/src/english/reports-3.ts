@@ -39,6 +39,8 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.yoy_question": "Spending compared with last year",
   "rpt.yoy_answer": "Spending {span} is <b>{amount}</b>, {diff} {direction} than at the same time a year earlier.",
   "rpt.yoy_rose": "Spending grew most in {category}: {change}.",
+  "rpt.yoy_fixed_out": "The chart leaves out fixed costs. Their figures are in the table.",
+  "rpt.yoy_fixed_moved": "The chart leaves out fixed costs. Of them, these changed most: {names}. All figures are in the table.",
   "rpt.yoy_caption": "Spending by category, two years",
   "rpt.category": "Category",
   "rpt.change": "Change",
