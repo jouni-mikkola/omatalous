@@ -1,5 +1,5 @@
 import { formatEur, formatFiDate } from "../analysis/format.ts";
-import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
+import { DIRECTION_MONTHS, MIN_COMPARE_MONTHS, PERIODIC_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import type { Reason, RuleId } from "./types.ts";
 
 const SOURCES: Record<string, string> = {
@@ -47,6 +47,9 @@ export const sentenceOf = (r: Reason): string => CATALOGUE[r.rule](r);
 
 /** The months the expected month reads. */
 export const expectedRule = (): string => `Laskettu edellisistä päättyneistä kuukausista (enintään ${USUAL_MONTHS})`;
+/** The months Yhteenveto's average spending reads, and how they make it. */
+export const averageRule = (): string => `Laskettu edellisistä päättyneistä kuukausista (enintään ${DIRECTION_MONTHS})`;
+export const averageHow = (): string => "Keskiarvo kuukausien menoista";
 /** How the listed months make the figure: a category at a time, not the months' totals. */
 export const expectedHow = (): string =>
   `Odotettu on kategorioiden odotettujen menojen summa. Laskemme jokaisesta kategoriasta kuukausien keskiarvon, ${PERIODIC_MONTHS} kuukauden välein tai harvemmin tulevat laskut ovat omassa kuukaudessaan ja kertaostot jäävät pois`;

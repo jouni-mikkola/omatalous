@@ -19,6 +19,7 @@ const EXPLAINED = [
   "income.earned",
   "yli_jai.month",
   "expected.spend",
+  "spend.average",
   "usual.income",
   "share.part",
   "bills.fixed",
@@ -85,7 +86,7 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
   if (req.loanId) throw new UserError("Tuntematon raportti.");
   if (req.figure === "spend.category" && (!req.category || !isKnownCategory(req.category))) throw new UserError("Tuntematon kategoria.");
   // a usual level and a figure of Laskut are of the whole view; a part is of one row
-  if ((req.figure === "expected.spend" || req.figure === "usual.income" || req.figure.startsWith("bills.")) && req.accountIds) throw new UserError("Tuntematon raportti.");
+  if ((req.figure === "expected.spend" || req.figure === "spend.average" || req.figure === "usual.income" || req.figure.startsWith("bills.")) && req.accountIds) throw new UserError("Tuntematon raportti.");
   if (req.figure === "share.part" && !req.rowId) throw new UserError("Tuntematon raportti.");
   const why = createWhy(req.scope);
   const { ctx: scoped, accounts, shares } = await scopeWithReasons(s, userId, req.scope, why, req.figure === "share.part");

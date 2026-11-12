@@ -150,16 +150,25 @@ describe("Yhteenveto", () => {
 
   it("Varat ja velat leads with what is left after the debts, and the accounts and the debts open their rows", () => {
     const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000 } as DashboardData["holdings"];
-    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION }));
+    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
     expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Menot keskimäärin, 12 kk"]);
     expect(flat(container.querySelector(".home-row-lead dd")?.textContent)).toBe("12 400 €");
     expect([...container.querySelectorAll(".home-row dd > a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/reports?q=velat"]);
   });
 
+  // the label said 12 months whatever the count, and the figure opened nothing
+  it("the average spending names how many months it reads and opens them", () => {
+    const holdings = { accountsCents: 1300000, debtCents: 0, netCents: 1300000 } as DashboardData["holdings"];
+    const { container } = render(createElement(Direction, { holdings, direction: { ...DIRECTION, months: 7 }, today: "2026-11-11", scope: "own" }));
+    expect(container.querySelector(".home-row:last-child dt")?.textContent).toBe("Menot keskimäärin, 7 kk");
+    const door = container.querySelector(".home-row:last-child button.why-door");
+    expect(flat(door?.getAttribute("aria-label"))).toBe("Näytä tapahtumat: Menot keskimäärin, 7 kk 3 200 €");
+  });
+
   // 1.0.0 took a loan with no saved balance for no debt, so the net figure was too large
   it("a loan without a saved balance takes the net figure away and is named with the way to save it", () => {
     const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } } as DashboardData["holdings"];
-    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION }));
+    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
     expect(container.querySelector(".home-row-lead")).toBeNull();
     expect(container.querySelector(".home-rows")?.textContent).toContain("Lisäksi 1 laina, jonka saldoa ei ole tallennettu: Rahoitus Oy.");
     expect(container.querySelector(".home-row small a")?.getAttribute("href")).toBe("#/review");
