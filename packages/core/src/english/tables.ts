@@ -84,7 +84,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "row.pending_fact": "Reservation. The bank has not booked it yet, and the sum may change.",
   "row.why": "Why this category",
   "row.why_hand": "You chose it.",
-  "row.why_own_rule": "Your rule, {field}: {pattern}",
+  "row.why_own_rule": "Your rule, {field}: {pattern}.",
   "row.why_rule": "A rule of the app recognised it from the bank's text.",
   "row.why_mcc": "From the card's merchant category code {mcc}.",
   "row.why_merchant": "From the same payee's other transactions.",
@@ -93,6 +93,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "row.why_transfer": "The money moved between your own accounts, so it is neither spending nor income.",
   "row.why_payer": "You said what this payer's payments are.",
   "row.why_card_bill": "Credit card bill. The card's purchases do not show, so we count the bill as paying debt.",
+  "row.why_card_bill_itemised": "Credit card bill. The purchases typed in from the card's statement count as spending and the rest of the bill as paying debt.",
   // Shared
   "period.m3": "3 mo",
   "period.m6": "6 mo",

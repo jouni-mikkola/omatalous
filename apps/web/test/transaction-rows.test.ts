@@ -51,7 +51,7 @@ describe("a row with no payee", () => {
 });
 
 describe("an opened row", () => {
-  const facts = (t: ListedRow) => Object.fromEntries(rowFacts(t, "Yhteistili").map(([name, value]) => [name, value]));
+  const facts = (t: ListedRow, explained?: number) => Object.fromEntries(rowFacts(t, "Yhteistili", explained).map(([name, value]) => [name, value]));
 
   it("says what the bank sent, each field by its name, at every width", () => {
     const t = row({ amountCents: -12_000, counterparty: "ESIMERKKI OY", counterpartyIban: "FI21 1234 5600 0007 85", description: "Lasku 1234", reference: "1232", valueDate: "2026-10-06" });
@@ -75,12 +75,18 @@ describe("an opened row", () => {
   it("says why the row has its category", () => {
     const why = (over: Partial<ListedRow>) => facts(row({ amountCents: -1_000, ...over }))["Miksi tämä kategoria"];
     expect(why({ categorySource: "user", category: "groceries" })).toBe("Valitsit sen itse.");
-    expect(why({ categorySource: "rule", category: "restaurants", ownRule: { field: "merchant", pattern: "Kahvila" } })).toBe("Oma sääntösi, Kauppias: Kahvila");
+    expect(why({ categorySource: "rule", category: "restaurants", ownRule: { field: "merchant", pattern: "Kahvila" } })).toBe("Oma sääntösi, Kauppias: Kahvila.");
     expect(why({ categorySource: "rule", category: "groceries" })).toBe("Sovelluksen sääntö tunnisti sen pankin tekstistä.");
     expect(why({ categorySource: "mcc", category: "groceries", mcc: "5411" })).toBe("Kortin toimialakoodista 5411.");
     expect(why({ categorySource: "industry", category: "restaurants", industry: { companyName: "Esimerkki Oy", businessId: null, label: "Ravintolat" } })).toBe("Kaupparekisterin toimialasta: Esimerkki Oy, Ravintolat.");
     expect(why({ categorySource: "rule", category: "transfer", isTransfer: true })).toContain("omien tiliesi välillä");
     expect(why({ categorySource: "default", category: "other" })).toBe("Sovellus ei tunnistanut tätä.");
+    // a card bill: its purchases unseen, or typed in from its statement, when they count as spending
+    const bill = row({ categorySource: "rule", category: "card_bill", amountCents: -60_000 });
+    expect(facts(bill)["Miksi tämä kategoria"]).toContain("ostot eivät näy");
+    expect(facts(bill, 40_000)["Miksi tämä kategoria"]).toBe("Luottokortin lasku. Kortin tiliotteelta kirjatut ostot lasketaan kulutukseen ja loput laskusta velanhoitoon.");
+    // the reader's answer on the payer, also when it made the row an own transfer
+    expect(why({ categorySource: "payer", category: "transfer", isTransfer: true })).toBe(why({ categorySource: "payer", category: "p2p" }));
   });
 });
 

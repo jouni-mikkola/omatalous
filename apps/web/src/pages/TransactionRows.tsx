@@ -171,19 +171,19 @@ const RULE_FIELD = {
 } as const;
 
 /**
- * Where the row's category came from, in one sentence: the reader's own choice or rule (named), a rule of the app, the
- * card's code, the trade register, or nothing. A transfer, a card bill and a refund say what they are instead.
+ * Where the row's category came from, in one sentence: the reader's own choice, rule (named) or answer on the payer, a
+ * rule of the app, the card's code, the trade register, or nothing. A transfer, a card bill and a refund say what they
+ * are instead; a card bill whose purchases were typed in from its statement (`explained`) says how it counts then.
  */
-function whyCategory(t: ListedRow): string {
+function whyCategory(t: ListedRow, explained?: number | null): string {
   if (t.categorySource === "user") return msg("row.why_hand");
   if (t.ownRule) return msg("row.why_own_rule", { field: msg(RULE_FIELD[t.ownRule.field]), pattern: t.ownRule.pattern });
+  if (t.categorySource === "payer") return msg("row.why_payer");
   if (t.isTransfer) return msg("row.why_transfer");
-  if (cardBill(t)) return msg("row.why_card_bill");
+  if (cardBill(t)) return explained ? msg("row.why_card_bill_itemised") : msg("row.why_card_bill");
   switch (t.categorySource) {
     case "match":
       return msg("row.tag_refund_title");
-    case "payer":
-      return msg("row.why_payer");
     case "rule":
       return msg("row.why_rule");
     case "mcc":
@@ -202,7 +202,7 @@ function whyCategory(t: ListedRow): string {
 }
 
 /** What the bank sent of a row, each field by its name and whole, and why it has its category. */
-export function rowFacts(t: ListedRow, account: string): Fact[] {
+export function rowFacts(t: ListedRow, account: string, explained?: number | null): Fact[] {
   // a field the bank left out or empty is not listed
   const text = (name: string, s: string | null | undefined): Fact | null => (s?.trim() ? [name, s.trim()] : null);
   const incoming = t.amountCents > 0;
@@ -215,20 +215,20 @@ export function rowFacts(t: ListedRow, account: string): Fact[] {
     [msg("row.booked"), date(t.bookingDate)],
     t.valueDate && t.valueDate !== t.bookingDate ? [msg("row.value_date"), date(t.valueDate)] : null,
     t.status === "pending" ? [msg("row.status"), msg("row.pending_fact")] : null,
-    [msg("row.why"), whyCategory(t)],
+    [msg("row.why"), whyCategory(t, explained)],
   ];
   return facts.filter((f): f is Fact => !!f);
 }
 
 /** What the opened row holds: what the bank sent and why the category, the row's menu, and the payee's months. */
-function Detail({ t, categories, pending, onCategory, onStatement, note, scope, remember, onRemember, look, account }: RowProps & { scope: Scope }) {
+function Detail({ t, categories, pending, onCategory, onStatement, explained, note, scope, remember, onRemember, look, account }: RowProps & { scope: Scope }) {
   const owner = ownerLink(t);
   const text = signed(shownCents(t));
   const shown = pending ?? t.category;
   const categoryLabel = categories.find((c) => c.id === shown)?.label ?? shown;
   return (
     <div className="tx-detail">
-      <KeyValue className="tx-detail-facts" items={rowFacts(t, `${account}${look?.short.startsWith("••") ? ` ${look.short}` : ""}`)} />
+      <KeyValue className="tx-detail-facts" items={rowFacts(t, `${account}${look?.short.startsWith("••") ? ` ${look.short}` : ""}`, explained)} />
       <div className="tx-detail-acts">
         {!t.own && <SharedCategory categories={categories} value={t.category} manual={t.categorySource === "user"} />}
         <RowMenu
