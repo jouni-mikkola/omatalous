@@ -7,13 +7,13 @@ import { t } from "../text.ts";
 import type { Meta } from "../types.ts";
 import "../styles/report-month.css";
 
-/** The four tabs, by the page id of each. */
+/** The views that have a first-run page, by the page id of each. */
 export type FirstRunView = "overview" | "reports" | "bills" | "review";
 
 const TEXT = {
-  overview: { title: () => t("nav.now"), line: () => t("rpt.first_now") },
-  reports: { title: () => t("rpt.page_thismonth"), line: () => t("rpt.first_month") },
-  bills: { title: () => t("nav.coming"), line: () => t("rpt.first_coming") },
+  overview: { title: () => t("nav.overview"), line: () => t("rpt.first_now") },
+  reports: { title: () => t("nav.reports"), line: () => t("rpt.first_month") },
+  bills: { title: () => t("nav.bills"), line: () => t("rpt.first_coming") },
   review: { title: () => t("nav.review"), line: () => t("rpt.first_review") },
 } satisfies Record<FirstRunView, { title: () => string; line: () => string }>;
 

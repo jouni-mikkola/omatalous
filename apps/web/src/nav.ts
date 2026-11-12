@@ -8,32 +8,22 @@ export interface NavEntry {
 }
 
 /**
- * Tarkistettavat, the fourth tab: is anything wrong? Its link carries the count of open items when there are any, the
- * one place that asks what the app cannot settle itself.
- */
-export const REVIEW: NavEntry = { id: "review", get label() { return t("nav.review"); } };
-
-/**
- * The four tabs, one for each question the household asks of its money, in the order they are asked
- * (docs/design/README.md section 1): Nyt, Kuukausi, Tulossa, Tarkistettavat. Every entry is a tab, at every width.
- * Asetukset is not one of them.
+ * The pages of the header, in the order the household reads them: Yhteenveto, Laskut, Tapahtumat, Raportit. Every
+ * entry is a tab, at every width. What an add-on module adds comes after them on a wide screen and is in the user menu
+ * on a phone. Asetukset is not one of them.
  */
 export const NAV: readonly NavEntry[] = [
-  { id: "overview", get label() { return t("nav.now"); } },
-  // Kuukausi: the month against its usual is what the tab opens; the question pages of the reports stay behind their addresses
-  { id: "reports", get label() { return t("rpt.page_thismonth"); } },
-  { id: "bills", get label() { return t("nav.coming"); } },
-  REVIEW,
+  { id: "overview", get label() { return t("nav.overview"); } },
+  { id: "bills", get label() { return t("nav.bills"); } },
+  { id: "transactions", get label() { return t("nav.transactions"); } },
+  { id: "reports", get label() { return t("nav.reports"); } },
 ];
 
-/** The rows list keeps its address and has no tab: a figure opens it with its filter in the address. */
-export const ROWS: NavEntry = { id: "transactions", get label() { return t("nav.transactions"); } };
-
 /**
- * Lisää is in the user menu, not a tab: the reports that earn a place (Vuosi, Tilit ja saldot, Lainat, Verovuosi and, with
- * a shared account, Yhteiset). It opens on Tilit ja saldot; the list of the others is on the page.
+ * Tarkistettavat is a link at the right of the header, with the count of open items when there are any: the one place
+ * that asks what the app cannot settle itself, not a page about money.
  */
-export const MORE = { hash: "#/reports?q=saldot", get label() { return t("rpt.more"); } };
+export const REVIEW: NavEntry = { id: "review", get label() { return t("nav.review"); } };
 
 /** Asetukset is in the user menu: a page every member has, but not a question about money. */
 export const SETTINGS: NavEntry = { id: "settings", get label() { return t("nav.settings"); } };

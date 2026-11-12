@@ -64,7 +64,7 @@ describe("Tapahtumat", () => {
 describe("Laskut", () => {
   it("refuses a bill with no name, then adds one by hand and says so", async () => {
     const server = await startServer();
-    await openApp("#/bills", "Tulossa");
+    await openApp("#/bills", "Laskut");
     fireEvent.click(await screen.findByRole("button", { name: "Lisää lasku" }, T));
     const form = (await screen.findByRole("heading", { name: "Lisää lasku" }, T)).closest("dialog")!.querySelector("form")!;
     fireEvent.submit(form);

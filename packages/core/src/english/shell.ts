@@ -3,8 +3,8 @@ import type { FI_SHELL } from "../messages-shell.ts";
 
 export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   // the pages
-  "nav.now": "Now",
-  "nav.coming": "Coming",
+  "nav.overview": "Overview",
+  "nav.bills": "Bills",
   "nav.transactions": "Transactions",
   "nav.reports": "Reports",
   "nav.review": "To review",

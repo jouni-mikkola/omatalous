@@ -6,9 +6,9 @@ import { makeMember, removeMember, watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const VIEWS = [
-  { hash: "#/overview", title: "Nyt", line: "Tässä näet, paljonko voit vielä käyttää ennen palkkapäivää." },
-  { hash: "#/reports", title: "Kuukausi", line: "Tässä näet, mihin rahat menivät tässä kuussa tavalliseen verrattuna." },
-  { hash: "#/bills", title: "Tulossa", line: "Tässä näet, mitä laskuja ja tuloja on tulossa." },
+  { hash: "#/overview", title: "Yhteenveto", line: "Tässä näet, paljonko voit vielä käyttää ennen palkkapäivää." },
+  { hash: "#/reports", title: "Raportit", line: "Tässä näet, mihin rahat menivät tässä kuussa tavalliseen verrattuna." },
+  { hash: "#/bills", title: "Laskut", line: "Tässä näet, mitä laskuja ja tuloja on tulossa." },
   { hash: "#/review", title: "Tarkistettavat", line: "Tässä näet, onko jokin pielessä." },
 ];
 
@@ -63,7 +63,7 @@ test("with no account the administrator's button opens Pankit ja tilit", async (
   });
   const page = await context.newPage();
   await page.goto("/#/bills");
-  await expect(page.locator(".first-run").getByRole("heading", { name: "Tulossa", exact: true })).toBeVisible();
+  await expect(page.locator(".first-run").getByRole("heading", { name: "Laskut", exact: true })).toBeVisible();
   await page.locator(".empty-start").getByRole("button", { name: "Yhdistä pankki" }).click();
   await expect(page).toHaveURL(/#\/settings\/banks/);
   await context.close();

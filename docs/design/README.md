@@ -1,5 +1,10 @@
 # Design: the simple omatalous
 
+Direction, 12.11.2026 (the owner's decision): the 1.0.0 interface is the baseline. The header has the tabs Yhteenveto,
+Laskut, Tapahtumat and Raportit, the page of an add-on module after them, Tarkistettavat as a link with its count at
+the right, and Asetukset in the user menu. Where a section below says Nyt, Kuukausi, Tulossa or Lisää it describes the
+plan this decision replaced; the sections are rewritten as their pages return to the 1.0.0 shape.
+
 The app answers four questions a household asks of its money, one view each, and asks the household about what it cannot
 settle itself. Everything else is deleted or sits in one Lisää list. Read with `docs/audit/simplify.md` (what is there
 today, with screenshots in `docs/audit/shots/`) and `docs/research/peers.md` (Sure, Actual and the others). Every
@@ -11,7 +16,7 @@ one sum: what is left until payday after the bills due before it. No peer has pa
 
 ## 1. Questions and views
 
-Ranked by how often asked. Four tabs: Nyt, Kuukausi, Tulossa, Tarkistettavat. The rows list is the drill (section 1.5).
+Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. Tarkistettavat is the header's link.
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
 - Answer: one sum, "Palkkapäivään 25.11. jää 4 424 €", after the bills due before payday.
@@ -92,7 +97,7 @@ Ranked by how often asked. Four tabs: Nyt, Kuukausi, Tulossa, Tarkistettavat. Th
 ### 1.5 Rows, Lisää and Asetukset
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
   Each row is date, name, category as text and amount. Group by merchant is a toolbar choice, not a view.
-- Lisää (user menu) holds the reports that earn a place: Vuosi (12 months against the year before), Tilit ja saldot
+- Raportit holds every report: the month, and Vuosi (12 months against the year before), Tilit ja saldot
   (each account's balance and its history), Lainat, Verovuosi, and Yhteiset only with a shared account.
 - Asetukset has three tabs: Pankit ja tilit, Kotitalous (members, sharing, rules, payday), Palvelin (admin only).
 

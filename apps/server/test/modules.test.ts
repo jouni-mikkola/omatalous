@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { EXTENSIONS } from "../src/extensions.ts";
-import { NAV, ROWS, SETTINGS } from "../../web/src/nav.ts";
+import { NAV, REVIEW, SETTINGS } from "../../web/src/nav.ts";
 import { HELP_WORDS } from "../src/cli-usage.ts";
 import { BundleRefused, checkBundle, NotForThisVersion, RESERVED_IDS } from "../src/modules/bundle.ts";
 import { moduleCodeText, parseModuleCode } from "../src/modules/code.ts";
@@ -253,7 +253,7 @@ describe("a bundle", () => {
     const { app } = await setupApp();
     const api = new Set(app.routes.map((r) => /^\/api\/([a-z][a-z0-9-]*)(\/|$)/.exec(r.path)?.[1]).filter((s) => s !== undefined));
     expect(api.size).toBeGreaterThan(20);
-    const pages = [...NAV, ROWS, SETTINGS].map((p) => p.id);
+    const pages = [...NAV, REVIEW, SETTINGS].map((p) => p.id);
     const cli = [...readFileSync(new URL("../src/cli.ts", import.meta.url), "utf8").matchAll(/group === "([a-z-]+)"/g)].map((m) => m[1]!);
     expect(cli.length).toBeGreaterThan(5);
     const words = HELP_WORDS.filter((w) => ID.test(w));

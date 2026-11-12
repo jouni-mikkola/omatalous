@@ -1,35 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { NAV, REVIEW, ROWS, SETTINGS } from "../src/nav.ts";
+import { NAV, REVIEW, SETTINGS } from "../src/nav.ts";
 
 describe("NAV", () => {
-  it("is Nyt | Kuukausi | Tulossa | Tarkistettavat: no entry hides behind a flag", () => {
-    expect(NAV.map((e) => e.label)).toEqual(["Nyt", "Kuukausi", "Tulossa", "Tarkistettavat"]);
+  it("is Yhteenveto | Laskut | Tapahtumat | Raportit: no entry hides behind a flag", () => {
+    expect(NAV.map((e) => e.label)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit"]);
     expect(NAV.every((e) => !("feature" in e))).toBe(true);
   });
 
-  it("Asetukset is the link in the header, not a nav entry, and a page of its own", () => {
+  it("keeps the addresses of the pages", () => {
+    expect(NAV.map((e) => e.id)).toEqual(["overview", "bills", "transactions", "reports"]);
+  });
+
+  it("Asetukset is in the user menu, not a nav entry, and a page of its own", () => {
     expect(NAV.map((e) => e.id)).not.toContain("settings");
     expect(SETTINGS).toEqual({ id: "settings", label: "Asetukset" });
   });
 
-  it("names its tabs Nyt, Kuukausi and Tulossa; the ids of the old pages, and so their addresses, stay", () => {
-    const label = (id: string) => NAV.find((e) => e.id === id)?.label;
-    expect(label("overview")).toBe("Nyt");
-    expect(label("bills")).toBe("Tulossa");
-    expect(NAV.some((e) => "title" in e)).toBe(false);
-    expect(label("optimise")).toBeUndefined();
-    expect(label("reports")).toBe("Kuukausi");
-    expect(NAV.map((e) => e.label)).not.toContain("Toistuvat");
-    expect(NAV.map((e) => e.label)).not.toContain("Yleiskatsaus");
-    expect(NAV.map((e) => e.label)).not.toContain("Optimoi");
-  });
-});
-
-describe("the phone's tab bar", () => {
-  it("the tab bar has four tabs, Tarkistettavat the fourth, and no Lisää; the rows list keeps its address with no tab", () => {
-    expect(NAV).toHaveLength(4);
-    expect(NAV[3]).toBe(REVIEW);
-    expect(NAV.map((e) => e.id)).not.toContain(ROWS.id);
-    expect(ROWS).toEqual({ id: "transactions", label: "Tapahtumat" });
+  it("Tarkistettavat is the header's link with the count, not one of the tabs", () => {
+    expect(NAV.map((e) => e.id)).not.toContain(REVIEW.id);
+    expect(REVIEW).toEqual({ id: "review", label: "Tarkistettavat" });
   });
 });

@@ -2,30 +2,61 @@ import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { openApp, startServer } from "./dom-kit.ts";
 
-const current = () => [...document.querySelectorAll("[aria-current]")].map((e) => e.textContent);
+const tabs = () => screen.getByRole("navigation", { name: "Päävalikko" });
+const current = () => [...tabs().querySelectorAll("[aria-current]")].map((e) => e.textContent);
 
 describe("Shell: a page carries its tab's name", () => {
+  it("has the tabs Yhteenveto, Laskut, Tapahtumat and Raportit, and Tarkistettavat as a link beside them", async () => {
+    await startServer();
+    await openApp("#/overview");
+    expect([...tabs().querySelectorAll("a")].map((a) => a.textContent)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit"]);
+    const review = document.querySelector("header .review-link")!;
+    expect(review.textContent).toContain("Tarkistettavat");
+    expect(tabs().contains(review)).toBe(false);
+  }, 60000);
+
   it("titles each page with the name of its tab", async () => {
     await startServer();
     await openApp("#/overview");
-    await waitFor(() => expect(document.title).toBe("Nyt · Omatalous"));
+    await waitFor(() => expect(document.title).toBe("Yhteenveto · Omatalous"));
+    expect(current()).toEqual(["Yhteenveto"]);
     const { router } = await import("../src/router.tsx");
     await router.navigate({ href: "/bills" });
-    await waitFor(() => expect(document.title).toBe("Tulossa · Omatalous"));
+    await waitFor(() => expect(document.title).toBe("Laskut · Omatalous"));
+    await router.navigate({ href: "/transactions" });
+    await waitFor(() => expect(document.title).toBe("Tapahtumat · Omatalous"));
+    expect(current()).toEqual(["Tapahtumat"]);
     await router.navigate({ href: "/reports" });
-    await waitFor(() => expect(document.title).toBe("Kuukausi · Omatalous"));
-    expect(current()).toEqual(["Kuukausi"]);
+    await waitFor(() => expect(document.title).toBe("Raportit · Omatalous"));
+    // every report is under Raportit: its tab stays marked on a question page too
     await router.navigate({ href: "/reports?q=saldot" });
-    await waitFor(() => expect(document.title).toBe("Lisää · Omatalous"));
-    const tabs = screen.getByRole("navigation", { name: "Päävalikko" });
-    expect(tabs.querySelector("[aria-current]")).toBeNull();
+    await waitFor(() => expect(current()).toEqual(["Raportit"]));
+    expect(document.title).toBe("Raportit · Omatalous");
   }, 60000);
 
-  it("links the rows list from the user menu", async () => {
+  it("has no entry of the user menu for a page that has a tab", async () => {
     await startServer();
     await openApp("#/overview");
-    const link = await screen.findByRole("link", { name: "Tapahtumat", hidden: true });
-    expect(link.getAttribute("href")).toContain("/transactions");
+    const menu = document.querySelector(".user-menu .menu")!;
+    const names = [...menu.querySelectorAll("a")].map((a) => a.textContent);
+    expect(names).toEqual(["Asetukset"]);
+  }, 60000);
+
+  it("puts the page of an add-on module after the tabs on a wide screen and in the user menu on a phone", async () => {
+    const { WEB_EXTENSIONS } = await import("../src/extensions.ts");
+    WEB_EXTENSIONS.push({ id: "esimerkki", page: { label: "Esimerkki", component: () => null } });
+    try {
+      await startServer();
+      await openApp("#/overview");
+      const links = [...tabs().querySelectorAll("a")];
+      expect(links.map((a) => a.textContent)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Esimerkki"]);
+      expect(links.map((a) => a.classList.contains("nav-wide-only"))).toEqual([false, false, false, false, true]);
+      const menu = [...document.querySelectorAll(".user-menu .menu a")];
+      expect(menu.map((a) => a.textContent)).toEqual(["Esimerkki", "Asetukset"]);
+      expect(menu.map((a) => a.classList.contains("menu-phone-only"))).toEqual([true, false]);
+    } finally {
+      WEB_EXTENSIONS.length = 0;
+    }
   }, 60000);
 
   it("has no date and no line of the last fetch at the foot of the page", async () => {

@@ -8,7 +8,7 @@ const FETCH = { "X-Requested-With": "fetch" };
 // opened with no session, opens its own page once the form is sent, with the parameters it carried.
 const ADDRESSES = [
   ["#/bills", /^Laskut/],
-  ["#/reports?q=menot&period=6m", /^Kuukausi/],
+  ["#/reports?q=menot&period=6m", /^Raportit/],
   ["#/settings/security", /^Asetukset/],
 ] as const;
 

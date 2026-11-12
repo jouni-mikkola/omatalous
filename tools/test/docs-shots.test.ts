@@ -50,9 +50,9 @@ describe("docs:shots", () => {
     }
   });
 
-  it("every scene of the README video is a tab or the rows list, and every tab has a scene", () => {
+  it("every scene of the README video is a tab or Tarkistettavat, and every tab has a scene", () => {
     const routes = (SCENES as { route: string }[]).map((s) => s.route);
-    for (const r of routes) expect([...NAV.map((n) => n.id), "transactions"]).toContain(r);
+    for (const r of routes) expect([...NAV.map((n) => n.id), "review"]).toContain(r);
     for (const tab of NAV) expect(routes, tab.id).toContain(tab.id);
   });
 });

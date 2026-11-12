@@ -74,7 +74,7 @@ test("Yhteenveto opens with no network after one visit and says when its figures
 
   await openOffline(context, page);
   await expect(pace).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Nyt" })).toBeAttached();
+  await expect(page.getByRole("heading", { name: "Yhteenveto" })).toBeAttached();
   const notice = page.getByRole("status").filter({ hasText: "Ei yhteyttä palvelimeen" });
   await expect(notice).toContainText(/Näkyvät luvut ovat ajalta \d{1,2}\.\d{1,2}\.(?:\d{4})? klo \d{1,2}\.\d{2}\./);
   // no line about a failed fetch from the bank: nothing was asked of it

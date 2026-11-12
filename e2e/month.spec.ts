@@ -14,9 +14,9 @@ for (const width of [1280, 390]) {
     const page = await context.newPage();
     const seen = watch(page);
     await page.goto("/#/overview");
-    await page.getByRole("navigation").getByRole("link", { name: "Kuukausi", exact: true }).first().click();
+    await page.getByRole("navigation").getByRole("link", { name: "Raportit", exact: true }).first().click();
     await expect(page).toHaveURL(/#\/reports$/);
-    await expect(page).toHaveTitle(/^Kuukausi/);
+    await expect(page).toHaveTitle(/^Raportit/);
     const view = page.locator(".km");
     await expect(view.locator(".km-total")).toContainText(/Menot\s[\d\s]+€/, { timeout: 15_000 });
     // no question list, no period switch: the month has neither

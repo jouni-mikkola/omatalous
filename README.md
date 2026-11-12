@@ -17,19 +17,21 @@ The app fetches the household's transactions from the bank at 6 and 18 by defaul
 Finnish or English, in a browser on a computer or a phone. All figures above and below are from the example household that comes
 with the code.
 
-The app has four tabs, one for each question a household asks of its money.
+The app has four tabs, and a list of what it asks the household.
 
-- Nyt (now): how much is left until the next payday after the bills due before it, per day, and how this month's
+- Yhteenveto (overview): how much is left until the next payday after the bills due before it, per day, and how this month's
   spending compares with a usual month on the same day.
-- Kuukausi (month): this month's spending by category against the usual to the same day, the categories that explain
-  the difference first. Earlier months are a click back.
-- Tulossa (coming): the bills and income before the next payday, and the bills, contracts and subscriptions that
+- Laskut (bills): the bills and income before the next payday, and the bills, contracts and subscriptions that
   repeat, with their next date. A bill the app has not seen yet is added by hand.
-- Tarkistettavat (to review): every question the app cannot settle itself, such as which kind of loan a repeating
+- Tapahtumat (transactions): every row of every account with its payee, account and category, with search and filters.
+- Raportit (reports): this month's spending by category against the usual to the same day, the categories that explain
+  the difference first. Earlier months are a click back.
+
+Tarkistettavat (to review), a link with its count in the header, has every question the app cannot settle itself, such as which kind of loan a repeating
   payment is or which category an unknown payee belongs to, asked one at a time.
 
-A figure opens the transactions behind it. Lisää (more), in the user menu, has the longer views: the year, accounts
-and balances, loans, the tax year and, when two members share an account, its costs.
+A figure opens the transactions behind it. Raportit also has the longer views: the year, accounts and balances,
+loans, the tax year and, when two members share an account, its costs.
 
 - Every money movement goes into one of five flows: spending, loan payments, saving, income and borrowing. A move
   between your own accounts counts in none of them, and neither does a card bill when the card's account is connected.

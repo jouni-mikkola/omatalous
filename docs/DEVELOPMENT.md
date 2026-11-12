@@ -211,8 +211,9 @@ module that needs one is added as an extension (the extension files of the serve
 1. The extension declares its flag: the id, a Finnish label, the stage and whether it starts on.
 2. The module's routes in their own `Hono` app, mounted at `/api/<id>` behind the flag. While the flag is off they
    answer 404 like an unknown path.
-3. Its page is listed by `extensionPages` in `apps/web/src/nav.ts` only while the flag is on. `/api/meta` carries
-   the resolved flags. The entry sets no `tab`. On a phone it is in the user menu and takes no place in the tab bar.
+3. Its page is listed by `extensionPages` in `apps/web/src/extensions.ts` only while the flag is on. `/api/meta` carries
+   the resolved flags. On a wide screen it follows the tabs; on a phone it is in the user menu and takes no place in
+   the tab bar.
 
 ### New bank
 

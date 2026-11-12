@@ -13,7 +13,7 @@ import { dateRange, dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
-import { MORE, NAV, REVIEW, ROWS, SETTINGS } from "./nav.ts";
+import { NAV, REVIEW, SETTINGS } from "./nav.ts";
 import { extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
@@ -42,13 +42,10 @@ const FirstRunWizard = lazy(async () => {
   return { default: (o: Parameters<typeof firstRunWizard>[0]) => firstRunWizard(o) };
 });
 
-// the router marks a link active by its path; where the address says another tab is current (Lisää on the reports path), it is not
-const NOT_CURRENT = { exact: true, includeSearch: true } as const;
-
 /** A link to a page by its id: the router loads the page's chunk when the pointer or focus comes near. */
 function PageLink({ id, current, className, children, ...rest }: { id: string; current: boolean } & Omit<ComponentProps<"a">, "href" | "id">) {
   return (
-    <Link to={`/${id}` as "/"} preload="intent" className={className} aria-current={current ? "page" : undefined} activeOptions={current ? undefined : NOT_CURRENT} {...rest}>
+    <Link to={`/${id}` as "/"} preload="intent" className={className} aria-current={current ? "page" : undefined} {...rest}>
       {children}
     </Link>
   );
@@ -74,9 +71,9 @@ export function Shell() {
   const anchor = location.hash || undefined;
   const requested = location.pathname.split("/")[1] ?? "";
   const meta = useApi<Meta>("/api/meta", true);
-  // the pages of an add-on module live in the user menu beside Tapahtumat; the four tabs stay the household's questions
+  // the page of an add-on module follows the four tabs on a wide screen and is in the user menu on a phone
   const extensions = extensionPages();
-  const pages: { id: string; label: string }[] = [...NAV, ROWS, ...extensions.map((e) => ({ id: e.id, label: e.page!.label })), SETTINGS];
+  const pages: { id: string; label: string }[] = [...NAV, ...extensions.map((e) => ({ id: e.id, label: e.page!.label })), REVIEW, SETTINGS];
   // an unknown or old link opens the overview instead of an empty page
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
@@ -89,10 +86,7 @@ export function Shell() {
     if (shownPage.current !== page) reloadReview();
     shownPage.current = page;
   }, [page, reloadReview]);
-  const shown = pages.find((e) => e.id === page);
-  // a question page of the reports (`?q=`) is Lisää, not the Kuukausi tab
-  const more = page === "reports" && params.has("q");
-  const pageName = more ? MORE.label : shown?.label;
+  const pageName = pages.find((e) => e.id === page)?.label;
   // Tarkistettavat carries its count in the title and the heading, the same one the header's mark shows
   const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageName;
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
@@ -314,15 +308,13 @@ export function Shell() {
           </div>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} className={e.id === REVIEW.id ? "review-link" : undefined} current={page === e.id && !(e.id === "reports" && more)}>
+              <PageLink key={e.id} id={e.id} current={page === e.id}>
                 {e.label}
-                {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
-                {e.id === REVIEW.id && open > 0 && (
-                  <span className="nav-count">
-                    {open}
-                    <span className="sr-only"> {openWord()}</span>
-                  </span>
-                )}
+              </PageLink>
+            ))}
+            {extensions.map((e) => (
+              <PageLink key={e.id} id={e.id} className="nav-wide-only" current={page === e.id}>
+                {e.page!.label}
               </PageLink>
             ))}
           </nav>
@@ -336,6 +328,16 @@ export function Shell() {
               onChange={setScope}
             />
           )}
+          {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
+          <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
+            {REVIEW.label}
+            {open > 0 && (
+              <span className="nav-count">
+                {open}
+                <span className="sr-only"> {openWord()}</span>
+              </span>
+            )}
+          </PageLink>
           <details className="user-menu" ref={userMenu}>
             <summary>
               <span className="sr-only">{t("shell.user_menu")} </span>
@@ -354,12 +356,9 @@ export function Shell() {
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
-              <a href={MORE.hash} aria-current={more ? "page" : undefined}>{MORE.label}</a>
-              <PageLink id={ROWS.id} current={page === ROWS.id}>
-                {ROWS.label}
-              </PageLink>
+              {/* what a module adds has no tab on a phone; a wider screen links it from the bar */}
               {extensions.map((e) => (
-                <PageLink key={e.id} id={e.id} current={page === e.id}>
+                <PageLink key={e.id} id={e.id} className="menu-phone-only" current={page === e.id}>
                   {e.page!.label}
                 </PageLink>
               ))}

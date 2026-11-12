@@ -40,7 +40,7 @@ test("390 px: a failed second load of Nyt keeps the first answer, with its time 
   });
   await page.clock.setFixedTime(later);
   await page.goto("/#/bills");
-  await expect(page.getByRole("heading", { level: 1, name: "Tulossa" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Laskut" })).toBeVisible();
   await page.goto("/#/overview");
 
   await expect(line).toHaveCount(1, { timeout: 15_000 });

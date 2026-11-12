@@ -34,8 +34,7 @@ for (const width of [390, 1280]) {
     await context.route(/\/api\/marks$/, (r) => (r.request().method() === "PUT" ? answered(BILL.id)(r) : r.continue()));
 
     await page.goto("/#/overview");
-    const tabs = page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link");
-    const tab = tabs.nth(3);
+    const tab = page.locator("header.topbar .review-link");
     const count = tab.locator(".nav-count");
     await expect(tab).toContainText("Tarkistettavat");
     await expect(count).toHaveText("4 avoinna");
