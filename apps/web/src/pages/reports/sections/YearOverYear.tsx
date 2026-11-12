@@ -26,6 +26,21 @@ export function largestRise<C extends { changeCents: number }>(categories: reado
   return categories.filter((c) => c.changeCents >= 100_00).sort((a, b) => b.changeCents - a.changeCents)[0];
 }
 
+/**
+ * The note under the slope that says it leaves out the fixed costs and names the three of them that moved most (by
+ * 100 € or more) with their change, so a rise the sentence names (often a loan's instalments) is not looked for in the
+ * picture; null when no fixed cost has a figure in either year.
+ */
+export function fixedLeftOut<C extends { category: string; previousCents: number; currentCents: number; changeCents: number }>(categories: readonly C[], fixed: ReadonlySet<string>, label: (category: string) => string): string | null {
+  const out = categories.filter((c) => fixed.has(c.category) && (c.previousCents !== 0 || c.currentCents !== 0));
+  if (!out.length) return null;
+  const moved = out.filter((c) => Math.abs(c.changeCents) >= 100_00).sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents)).slice(0, 3);
+  // a category's name often has a "ja" of its own, so the names are parted by commas alone
+  if (!moved.length) return t("rpt.yoy_fixed_out");
+  // a label may be singular or plural ("Asuntolaina", "Kulutusluotot"), so the sentence has no verb that agrees with it
+  return t(moved.length === 1 ? "rpt.yoy_fixed_moved_one" : "rpt.yoy_fixed_moved", { names: moved.map((c) => `${label(c.category)} ${signedMoney(c.changeCents)}`).join(", ") });
+}
+
 type Compared = Pick<ReportsData["yearOverYear"], "year" | "current" | "comparedMonths" | "ytdCents">;
 
 /** The months the figures hold: "2026 tähän asti" when every month so far is in, else "touko–syyskuu 2026". */
@@ -86,6 +101,7 @@ function YearOverYear({ ctx }: SectionProps) {
   const movers = new Set([...shown].filter((c) => Math.abs(c.changeCents) >= 100_00).sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents)).slice(0, MOVERS).map((c) => c.category));
   const items: SlopeItem[] = shown.map((c) => ({ key: c.category, label: ctx.label(c.category), from: c.previousCents, to: c.currentCents, change: c.changeCents, strong: movers.has(c.category), tone: c.changeCents > 0 ? "bad" : c.changeCents < 0 ? "good" : "flat" }));
   const rose = largestRise(r.categories);
+  const leftOut = fixedLeftOut(r.categories, fixed, ctx.label);
   return (
     <ReportPanel id={section.id} title={section.title} datum={datumOf(r, past)} actions={picker}>
       <QuestionChart
@@ -113,6 +129,7 @@ function YearOverYear({ ctx }: SectionProps) {
         }
       >
         {items.length > 1 && <SlopeChart items={items} fromLabel={String(r.year - 1)} toLabel={String(r.year)} label={t("rpt.yoy_chart", { previous: r.year - 1, year: r.year })} />}
+        {items.length > 1 && leftOut && <p className="slope-off">{leftOut}</p>}
       </QuestionChart>
     </ReportPanel>
   );
