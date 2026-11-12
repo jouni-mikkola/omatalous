@@ -127,6 +127,18 @@ export class TransactionsRepo {
     return r ? toTransaction(r) : null;
   }
 
+  /** The rows of these ids, in no set order; an id of another user or of no row is left out. */
+  async transactionsByIds(ids: readonly string[]): Promise<StoredTransaction[]> {
+    const out: StoredTransaction[] = [];
+    // keeps each statement well under SQLite's bound-parameter limit
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const rows = await this.ctx.db.all<Row>(`SELECT ${TX_COLUMNS_LIGHT} FROM transactions WHERE user_id = ? AND id IN (${chunk.map(() => "?").join(",")})`, [this.ctx.userId, ...chunk]);
+      out.push(...rows.map(toTransaction));
+    }
+    return out;
+  }
+
   /** Booked transactions in a date range, for duplicate detection. */
   async transactionKeys(accountId: string, from: string, to: string): Promise<StoredParty[]> {
     return (
