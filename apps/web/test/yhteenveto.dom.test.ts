@@ -1,0 +1,126 @@
+/** Yhteenveto's blocks: the sum row that makes the answer, the month's line, the open questions, the categories and the figures, each opening its rows. */
+import { render } from "@testing-library/react";
+import { createElement } from "react";
+import { describe, expect, it } from "vitest";
+import { Answer } from "../src/components/home/Answer.tsx";
+import { Direction } from "../src/components/home/Direction.tsx";
+import { MonthPace } from "../src/components/home/MonthPace.tsx";
+import { Notable } from "../src/components/home/Notable.tsx";
+import { notableOf } from "../src/pages/Overview.tsx";
+import { Where } from "../src/components/home/Where.tsx";
+import type { ReviewItem } from "../src/pages/review-items.ts";
+import type { DashboardData } from "../src/types.ts";
+
+type NytData = NonNullable<DashboardData["nyt"]>;
+
+const flat = (s: string | null | undefined) => (s ?? "").replace(/[\u00a0\u202f]/g, " ");
+
+const TOP: DashboardData["top"] = {
+  rows: [
+    { category: "groceries", label: "Ruokakauppa", cents: 40000, barShare: 0.8, previousCents: 50000, changeCents: -10000, change: "less", previousShare: 1 },
+    { category: "car", label: "Auto", cents: 12000, barShare: 0.24, previousCents: 0, changeCents: 12000, change: "new", previousShare: 0 },
+  ],
+  otherCount: 3,
+  otherCents: 7100,
+  totalCents: 59100,
+};
+
+function nytOf(known: boolean, billsCents = 189954): NytData {
+  return {
+    from: "2026-11-11",
+    left: known
+      ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents, leftCents: 500000 - billsCents, perDayCents: Math.round((500000 - billsCents) / 14) }
+      : { known: false, reason: "no-payday", found: 1 },
+    usualPerDayCents: null,
+    pace: { day: 11, spentCents: 123400, usual: null },
+  };
+}
+
+function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData } {
+  // only the parts the blocks read; the rest of the answer is not drawn here
+  const rest = {
+    pace: { month: "2026-11", daysInMonth: 30, current: [], expected: null, projection: null, previous: null, largest: null, payDays: [] },
+    ahead: null,
+    home: { paceGap: null, pace: null },
+    top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
+  } as unknown as DashboardData;
+  return { ...rest, ...more, nyt: nytOf(true) };
+}
+
+const DIRECTION = { averageCents: 320000, months: 12, recentChangeCents: 0, direction: "flat", bufferMonths: 3.8, bufferNetCents: 1230000, bufferSpendCents: 322300 } as DashboardData["home"]["direction"];
+
+describe("Yhteenveto", () => {
+  it("the sum row is balance, payments and what is left to the cent, and the first two open their rows", () => {
+    const { container } = render(createElement(Answer, { nyt: nytOf(true) }));
+    expect(flat(container.querySelector(".home-answer-line")?.textContent)).toBe("Palkkapäivään 25.11. jää 3 100 €");
+    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "−1 899,54 €", "3 100,46 €"]);
+    expect([...container.querySelectorAll(".home-sum-row a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/bills#ennen-palkkapaivaa"]);
+  });
+
+  // 1.0.0 printed "−0,00 €" when nothing was due before the payday
+  it("payments of nothing have no minus sign", () => {
+    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0) }));
+    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
+  });
+
+  it("without a known sum the answer says why and draws no sum row", () => {
+    const { container } = render(createElement(Answer, { nyt: nytOf(false) }));
+    expect(container.querySelector(".home-sum-row")).toBeNull();
+    expect(container.querySelector(".home-answer-line")?.textContent).not.toBe("");
+  });
+
+  it("the month's line opens the month's rows and says which side of the usual it is on, with the usual sum and its range", () => {
+    const plain = render(createElement(MonthPace, { data: data() }));
+    expect([...plain.container.querySelectorAll(".home-pace-line a")].map((a) => a.getAttribute("href"))).toEqual(["#/transactions?from=2026-11-01&to=2026-11-11"]);
+    plain.unmount();
+    const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
+    const { container } = render(createElement(MonthPace, { data: data({ home: { paceGap: null, pace } } as never) }));
+    expect(flat(container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, 234 € yli tavallisen. Tavallisesti 1 000 € (900–1 100 €).");
+    // the band says what is usual: the month before is not a line of this chart
+    expect(container.querySelector(".pace-prev")).toBeNull();
+  });
+
+  // 1.0.0 said nothing needed the household while the header counted dozens of open questions
+  it("Huomioitavaa names the first open questions in the queue's order and counts them all", () => {
+    const item = (id: string, merchant: string, cents: number): ReviewItem => ({ kind: "payee_out", id, cents, merchant, count: 3, lastDate: "2026-11-01", picks: [] });
+    const items = [item("a", "Kauppa A", 90000), item("b", "Kauppa B", 50000), item("c", "Kauppa C", 30000), item("d", "Kauppa D", 1000)];
+    const { container } = render(createElement(Notable, notableOf(items)));
+    expect([...container.querySelectorAll(".home-note-title")].map((e) => e.textContent)).toEqual(["Kauppa A", "Kauppa B", "Kauppa C"]);
+    expect(flat(container.querySelector(".home-note-effect")?.textContent)).toContain("900,00 €");
+    expect([...container.querySelectorAll("a")].every((a) => a.getAttribute("href") === "#/review")).toBe(true);
+    expect(flat(container.querySelector(".home-more")?.textContent)).toBe("Kaikki 4 tarkistettavaa");
+  });
+
+  it("with no open question Huomioitavaa is not drawn", () => {
+    expect(render(createElement(Notable, notableOf([]))).container.innerHTML).toBe("");
+  });
+
+  it("a category bar opens the category's rows of the month and names its change in words", () => {
+    const { container } = render(createElement(Where, { data: data({ top: TOP }) }));
+    const rows = [...container.querySelectorAll("a.where-row")];
+    expect(rows.map((a) => a.getAttribute("href"))).toEqual(["#/transactions?category=groceries&from=2026-11-01&to=2026-11-11", "#/transactions?category=car&from=2026-11-01&to=2026-11-11"]);
+    expect(rows.map((a) => flat(a.querySelector(".where-change")?.firstChild?.textContent))).toEqual(["100 € vähemmän kuin viime kuussa", "ei viime kuussa"]);
+    // the bar is the server's share, and a category with nothing last month has no mark
+    expect((rows[0]!.querySelector(".where-fill") as HTMLElement).style.getPropertyValue("inline-size")).toBe("80%");
+    expect(rows.map((a) => a.querySelectorAll(".where-mark").length)).toEqual([1, 0]);
+    expect((rows[0]!.querySelector(".where-mark") as HTMLElement).style.getPropertyValue("inset-inline-start")).toBe("100%");
+    expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("3 muuta luokkaa 71 €.");
+  });
+
+  it("Varat ja velat leads with what is left after the debts, and the accounts and the debts open their rows", () => {
+    const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000 } as DashboardData["holdings"];
+    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION }));
+    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Menot keskimäärin, 12 kk"]);
+    expect(flat(container.querySelector(".home-row-lead dd")?.textContent)).toBe("12 400 €");
+    expect([...container.querySelectorAll(".home-row dd > a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/reports?q=velat"]);
+  });
+
+  // 1.0.0 took a loan with no saved balance for no debt, so the net figure was too large
+  it("a loan without a saved balance takes the net figure away and is named with the way to save it", () => {
+    const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } } as DashboardData["holdings"];
+    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION }));
+    expect(container.querySelector(".home-row-lead")).toBeNull();
+    expect(container.querySelector(".home-rows")?.textContent).toContain("Lisäksi 1 laina, jonka saldoa ei ole tallennettu: Rahoitus Oy.");
+    expect(container.querySelector(".home-row small a")?.getAttribute("href")).toBe("#/review");
+  });
+});

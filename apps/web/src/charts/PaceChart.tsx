@@ -31,7 +31,7 @@ const RING = 3.5;
 const endRoom = (chars: number) => Math.max(112, Math.ceil(chars * LABEL_CHAR_W) + 8 + 4);
 
 /** An estimate's range, the unit once ("5 200–5 900 €"), marked as an estimate the one way Why.tsx marks one. */
-const estimateRange = (lo: number, hi: number) => approxText(joinRange(money(lo, false), money(hi, false)), true);
+export const estimateRange = (lo: number, hi: number) => approxText(joinRange(money(lo, false), money(hi, false)), true);
 
 /** One row of the readout and the table: a day and what each line says on it. */
 export interface PaceDay {
@@ -44,7 +44,7 @@ export interface PaceDay {
 }
 
 /** The lines of `pace` on day `d` (1-based), as the readout and the table read them; nothing is worked out. */
-function paceDay(pace: Pace, d: number): PaceDay {
+export function paceDay(pace: Pace, d: number): PaceDay {
   const { projection } = pace;
   const at = projection ? d - projection.fromDay : -1;
   return {

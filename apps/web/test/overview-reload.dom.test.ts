@@ -51,7 +51,8 @@ describe("Overview when a reload fails", () => {
     await waitFor(() => expect(figures()).toBeTruthy(), T);
     const first = figures();
     expect(screen.queryByRole("alert"), "no alert with no error").toBeNull();
-    expect(screen.queryByRole("status"), "no notice with no error").toBeNull();
+    // the table of the month's days has a live region of its own for its pager, read by a screen reader alone
+    expect(screen.queryAllByRole("status").filter((e) => !e.classList.contains("sr-only")), "no notice with no error").toEqual([]);
     expect(screen.queryByText("Yritä uudelleen"), "no retry with no error").toBeNull();
 
     k.fail();

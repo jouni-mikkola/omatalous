@@ -1,5 +1,10 @@
 import { query } from "../api.ts";
-import { Nyt } from "../components/home/Nyt.tsx";
+import { Answer } from "../components/home/Answer.tsx";
+import { Direction } from "../components/home/Direction.tsx";
+import { MonthPace } from "../components/home/MonthPace.tsx";
+import { Notable, NOTABLE_SHOWN, type NotableRow } from "../components/home/Notable.tsx";
+import { eyebrow, figureOf, nameOf, NEW_SITTING, openItems, type ReviewAnswer, type ReviewItem, withFetch } from "./review-items.ts";
+import { Where } from "../components/home/Where.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { FirstRun } from "./FirstRun.tsx";
@@ -12,11 +17,22 @@ import type { DashboardData, Meta, Scope } from "../types.ts";
 import "../styles/home.css";
 import { t } from "../text.ts";
 
+/** The head of the Tarkistettavat queue as Huomioitavaa shows it: the queue's own order, names and sums, and the count the header's mark says. */
+export function notableOf(items: readonly ReviewItem[]): { rows: NotableRow[]; count: number } {
+  const open = openItems(items, NEW_SITTING);
+  const rows = open.slice(0, NOTABLE_SHOWN).map((item) => {
+    const figure = figureOf(item);
+    return { id: item.id, kind: eyebrow(item), name: nameOf(item), figure: figure.text, unit: figure.unit };
+  });
+  return { rows, count: open.length };
+}
+
 /**
- * Nyt answers how much can still be spent before payday (docs/design/README.md section 1.1), then shows the month
- * against its usual course, the largest categories and what the household has and owes, each one step from its rows
- * (`Nyt`). Every figure is a field of the dashboard answer; nothing is added up here. The page always tells today and
- * the running month.
+ * Yhteenveto (docs/design/README.md section 1.1): how much can still be spent before payday with the sum row that makes
+ * it (Answer), the month against its usual course as a chart and its days (MonthPace), beside it the first open
+ * questions (Notable) and the largest categories (Where), and under them what the household has and owes (Direction).
+ * Every figure is a field of the dashboard answer; nothing is added up here. The page always tells today and the
+ * running month.
  */
 export function Overview({
   meta,
@@ -36,6 +52,10 @@ export function Overview({
   // no request while there are no accounts: the first one after demo data or a sync is a fresh fetch
   const now = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...periodRange("month", meta.today), scope })}` : null, true);
 
+  // the queue of Tarkistettavat, read as that page reads it (a failed fetch is its first item)
+  const queue = useApi<ReviewAnswer>(hasData ? "/api/review" : null, true);
+  const notable = notableOf(queue.data ? withFetch(queue.data.items, meta.lastSync) : []);
+
   // a member who only sees accounts shared with them has nothing under "Oma"
   if (!hasData && meta.sharedAccounts.length > 0) {
     return (
@@ -53,7 +73,8 @@ export function Overview({
   }
   if (!hasData) return <FirstRun view="overview" meta={meta} onDemo={onEmptyAction} onReload={onReload} />;
   if (now.error && !now.data) return <ErrorCard message={now.error} onRetry={now.reload} />;
-  if (!now.data) return <HomeSkeleton />;
+  // the queue is waited for too, so Huomioitavaa does not push the block under it down when it lands; a queue that fails leaves the block out
+  if (!now.data || (!queue.data && !queue.error)) return <HomeSkeleton />;
 
   const data = now.data;
   const { nyt } = data;
@@ -62,9 +83,17 @@ export function Overview({
       <ServerNotices />
       <FirstFetch meta={meta} onReload={onReload} />
       {nyt ? (
-        <Nyt data={{ ...data, nyt }} />
+        <>
+          <Answer nyt={nyt} />
+          <MonthPace data={{ ...data, nyt }} />
+          <div className="home-side">
+            <Notable rows={notable.rows} count={notable.count} />
+            <Where data={{ ...data, nyt }} />
+          </div>
+          <Direction holdings={data.holdings} direction={data.home.direction} />
+        </>
       ) : (
-        <section className="home-answer nyt">
+        <section className="home-answer">
           <p className="home-detail">{t("home.no_payments_shown")}</p>
         </section>
       )}

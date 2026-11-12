@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
-// Nyt is the answer alone, with no list of findings, and Raportit has no list of findings of its own. The server has the administrator and the demo household already (e2e/run.mjs makes them).
+// Huomioitavaa on the first page is the head of the Tarkistettavat queue and asks nothing itself, and Raportit has no list of findings of its own. The server has the administrator and the demo household already (e2e/run.mjs makes them).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-test("Nyt has no Huomioitavaa, and Raportit has no Havainnot", async ({ browser }) => {
+test("Huomioitavaa opens Tarkistettavat, and Raportit has no Havainnot", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -16,12 +16,17 @@ test("Nyt has no Huomioitavaa, and Raportit has no Havainnot", async ({ browser 
     await route.fulfill({ response: answer, json: { ...json, alerts: [] } });
   });
   {
-    // Nyt shows no findings (they are asked on Tarkistettavat); Raportit has no Havainnot section of its own
+    // the rows are links to Tarkistettavat, at most three, with the count of all; no answer is given here
     await page.goto("/#/overview");
     await expect(page.locator(".home-answer-line")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Huomioitavaa", exact: true })).toHaveCount(0);
+    const notable = page.getByRole("region", { name: "Huomioitavaa", exact: true });
+    await expect(notable).toBeVisible();
+    expect(await notable.locator(".home-note").count()).toBeLessThanOrEqual(3);
+    await expect(notable.getByRole("button")).toHaveCount(0);
+    await notable.locator(".home-note").first().click();
+    await expect(page).toHaveURL(/#\/review/);
     await page.goto("/#/reports?q=tulot");
-    await expect(page.getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
+    await expect(page.locator(".q-title")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Havainnot" })).toHaveCount(0);
     expect(seen.problems).toEqual([]);
   }

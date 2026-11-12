@@ -122,8 +122,8 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
 async function paymentsOnNyt(context: BrowserContext): Promise<number> {
   const page = await context.newPage();
   await page.goto("/#/overview");
-  // "Saldo 7 198,65 € − laskut ennen palkkapäivää 2 774,52 €": the second sum of the line
-  const line = (await page.locator(".nyt-parts").innerText()).replace(/[\s\u00a0\u202f]+/g, " ");
+  // balance, payments, what is left: the second sum of the row
+  const line = (await page.locator(".home-sum-row").innerText()).replace(/[\s\u00a0\u202f]+/g, " ");
   const shown = Math.abs(cents(line.match(/\d[\d ]*(?:,\d+)?\s?€/g)![1]!));
   await page.close();
   return shown;

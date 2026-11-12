@@ -36,7 +36,7 @@ for (const width of [320, 360, 390]) {
     const page = await open(context);
     const seen = watch(page);
     // the lines of the one block in one column: none is beside another
-    const blocks = page.locator(".home-answer-line, .nyt-per-day, .nyt-pace, .pace-chart, .nyt-parts");
+    const blocks = page.locator(".home-answer-line, .home-per-day, .home-sum-row, .home-pace-line, .pace-chart");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -45,7 +45,7 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-answer-line, .nyt-per-day, .nyt-pace, .nyt-parts")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-answer-line, .home-per-day, .home-pace-line, .home-sum-row dd")), "text cut").toEqual([]);
     // the sum of the answer is inside the screen
     for (const cell of await page.locator(".home-answer-line .fig").all()) {
       const box = (await cell.boundingBox())!;

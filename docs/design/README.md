@@ -13,36 +13,41 @@ one sum: what is left until payday after the bills due before it. No peer has pa
 
 Ranked by how often asked. Four tabs: Nyt, Kuukausi, Tulossa, Tarkistettavat. The rows list is the drill (section 1.5).
 
-### 1.1 Nyt: how much can we still spend before payday?
+### 1.1 Yhteenveto: how much can we still spend before payday?
 - Answer: one sum, "Palkkapäivään 25.11. jää 4 424 €", after the bills due before payday.
 - Comparison: that sum per day left ("277 € päivässä, 16 päivää") against what everyday spending usually takes per day,
   and one line of pace: spent so far this month against the usual band to the same day (the chart of today's Kuukausi
   section, which `docs/audit/simplify.md` names as the good one).
 - Action: the sum opens the balance and the bills behind it; the pace line opens this month's rows.
-- Under the answer, three plain blocks, each one step from its rows. The answer alone left the page with nothing to
-  look at once the sum was read.
-  - The month so far: one sentence with the side of the usual the spending is on, the usual sum and its range, and
-    the pace chart of the same figures. The month before is not drawn here.
-  - Where the money has gone: the five largest categories as bars on one scale, last month's sum to the same day as a
-    mark on each bar and the difference in words. A bar opens the category's rows.
-  - What the household has and owes: the accounts' balance and the debt, each a link to its rows, and a line when a
-    loan has no balance saved.
-- Not shown: account cards, card faces, credit arcs, the insights list, the last-days table, goals, net worth.
+- Layout: the page of 1.0.0. The answer on the left with the sum row that makes it on the right (balance, payments
+  before payday, what is left, to the cent). Under it Kuukausi on the left, Huomioitavaa and Suurimmat menot on the
+  right, Varat ja velat across the page. A phone reads them in that order in one column.
+  - Kuukausi: one sentence with the side of the usual the spending is on, the usual sum and its range, the pace chart
+    of the same figures and the chart's latest days as a table. The month before is drawn only when the household
+    has no usual level yet.
+  - Huomioitavaa: the first three open questions of Tarkistettavat in the queue's order, each with its sum, and the
+    count of all. It asks nothing itself and is not drawn when nothing is open.
+  - Suurimmat menot: the five largest categories as bars on one scale, last month's sum to the same day as a mark on
+    each bar and the difference in words. A bar opens the category's rows.
+  - Varat ja velat: what is left after the debts, the accounts' balance, the debts, the buffer in months and the
+    12-month average spending, the first two parts links to their rows. A loan with no saved balance takes the net
+    figure away and is named with the way to save it.
+- Not shown: account cards, card faces, credit arcs, goals.
 ```
- Palkkapäivään 25.11. jää            4 424 €
- 277 € päivässä, tavallisesti 65 €
- Saldo 7 198,65 € − laskut ennen palkkapäivää 2 774,52 €
+ Palkkapäivään 25.11. jää   4 424 €          Käyttötilin saldo            7 198,65 €
+ 277 € päivässä, tavallisesti 65 €           Maksut ennen palkkapäivää   −2 774,52 €
+                                             Jää                          4 424,13 €
 
- Marraskuu tähän asti
- Käytetty 2 018 €, 90 € yli tavallisen. Tavallisesti 1 928 € (1 884–1 972 €).
- ▁▂▃▅▆ ─ ─
-
- Mihin rahat ovat menneet
- Ruokakauppa   ████████|██    612 €   140 € enemmän kuin viime kuussa
- Auto          ███  |        118 €   52 € vähemmän kuin viime kuussa
+ Kuukausi                                    Huomioitavaa
+ Käytetty 2 018 €, 90 € yli tavallisen.      Laina  Rahoitus Oy      289,00 € kuussa
+ ▁▂▃▅▆ ─ ─                                   Kaikki 9 tarkistettavaa
+ 12.   2 018,10 €   1 928,00 €
+                                             Suurimmat menot
+                                             Ruokakauppa                      612 €
+                                             ████████|██  140 € enemmän kuin viime kuussa
 
  Varat ja velat
- Kaikkien tilien saldo 13 006 €   Velkaa 619 €
+ Varat velkojen jälkeen   Tilien saldo   Velat   Puskuri   Menot keskimäärin, 12 kk
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?
