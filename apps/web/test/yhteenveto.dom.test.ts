@@ -48,7 +48,7 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
   return { ...rest, ...more, nyt: nytOf(true) };
 }
 
-const DIRECTION = { averageCents: 320000, months: 12, from: "2025-11-01", recentChangeCents: 0, direction: "flat", bufferMonths: 3.8, bufferNetCents: 1230000, bufferSpendCents: 322300 } as DashboardData["home"]["direction"];
+const DIRECTION = { usualCents: 322300, months: 6, recentChangeCents: 0, direction: "flat", bufferMonths: 3.8, bufferNetCents: 1230000, bufferSpendCents: 322300 } as DashboardData["home"]["direction"];
 
 /** The window the answer is read from, with the count of checking accounts its balance adds up. */
 const aheadOf = (accounts: number) => ({ from: "2026-11-11", to: "2026-11-24", balance: { accounts } }) as unknown as DashboardData["ahead"];
@@ -161,22 +161,26 @@ describe("Yhteenveto", () => {
   it("Varat ja velat leads with what is left after the debts, and the accounts and the debts open their rows", () => {
     const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000 } as DashboardData["holdings"];
     const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
-    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Menot keskimäärin, 12 kk"]);
+    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Tavalliset menot"]);
     expect(flat(container.querySelector(".home-row-lead dd")?.textContent)).toBe("12 400 €");
     expect([...container.querySelectorAll(".home-row dd > a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/reports?q=velat"]);
   });
 
-  // the label said 12 months whatever the count, and the figure opened nothing
-  it("the average spending names how many months it reads and opens them", () => {
+  // 1.2.0 showed the mean of twelve whole months, one-offs and all, beside the month: a second spending figure
+  it("the usual spending is the expected month the buffer divides by, names its months and opens them", () => {
     const holdings = { accountsCents: 1300000, debtCents: 0, netCents: 1300000 } as DashboardData["holdings"];
-    // seven months read from March: a month between was left out, so the period starts eight months back
-    stubApi({ "GET /api/explain": { figure: "spend.average", kind: "median", cents: 320000, lines: [], rows: [], check: { kind: "recompute", diffCents: 0 } } });
-    const { container } = render(createElement(Direction, { holdings, direction: { ...DIRECTION, months: 7, from: "2026-03-01" }, today: "2026-11-11", scope: "own" }));
-    expect(container.querySelector(".home-row:last-child dt")?.textContent).toBe("Menot keskimäärin, 7 kk");
-    const door = container.querySelector<HTMLButtonElement>(".home-row:last-child button.why-door");
-    expect(flat(door?.getAttribute("aria-label"))).toBe("Näytä tapahtumat: Menot keskimäärin, 7 kk 3 200 €");
+    stubApi({ "GET /api/explain": { figure: "expected.spend", kind: "median", cents: 322300, lines: [], rows: [], check: { kind: "recompute", diffCents: 0 } } });
+    const { container } = render(createElement(Direction, { holdings, direction: { ...DIRECTION, months: 5 }, today: "2026-11-11", scope: "own" }));
+    const row = container.querySelector(".home-row:last-child")!;
+    expect(row.querySelector("dt")?.textContent).toBe("Tavalliset menot");
+    expect(flat(row.querySelector("small")?.textContent)).toBe("Viime 5 kuukauden keskiarvo ilman kertaostoja. Kolmen viime kuukauden menot ovat ennallaan.");
+    // the row's figure and the buffer's divisor are one number
+    expect(flat(row.querySelector("button.why-door")?.textContent)).toBe("3 223 €");
+    expect(flat(container.textContent)).toContain("jaettuna tavallisilla menoilla 3 223 €/kk");
+    const door = row.querySelector<HTMLButtonElement>("button.why-door");
+    expect(flat(door?.getAttribute("aria-label"))).toBe("Näytä tapahtumat: Tavalliset menot 3 223 €");
     fireEvent.click(door!);
-    expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.3.–31.10.");
+    expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.–30.11.");
   });
 
   // 1.0.0 took a loan with no saved balance for no debt, so the net figure was too large
@@ -184,7 +188,16 @@ describe("Yhteenveto", () => {
     const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } } as DashboardData["holdings"];
     const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
     expect(container.querySelector(".home-row-lead")).toBeNull();
-    expect(container.querySelector(".home-rows")?.textContent).toContain("Lisäksi 1 laina, jonka saldoa ei ole tallennettu: Rahoitus Oy.");
+    // the label says the sum lacks the loan, not only the small print
+    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toContain("Velat ilman yhden lainan saldoa");
+    expect(container.querySelector(".home-rows")?.textContent).toContain("Saldo puuttuu: Rahoitus Oy.");
     expect(container.querySelector(".home-row small a")?.getAttribute("href")).toBe("#/review");
+  });
+
+  it("the debts' label counts the loans its sum lacks", () => {
+    const holdings = { accountsCents: 1300000, debtCents: 27800, netCents: 1272200, unsavedLoans: { count: 3, names: ["Laina A", "Laina B", "Laina C"], paymentCents: 60000 } } as DashboardData["holdings"];
+    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
+    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Säästö- ja käyttötilien saldo", "Velat ilman 3 lainan saldoa", "Puskuri", "Tavalliset menot"]);
+    expect(flat(container.querySelector(".home-row small")?.textContent)).toBe("Saldo puuttuu: Laina A, Laina B, Laina C. Lisää saldo");
   });
 });

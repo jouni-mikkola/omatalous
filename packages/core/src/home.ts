@@ -17,7 +17,7 @@ import type { AnalysisContext } from "./analysis/context.ts";
 import { knownSpending } from "./analysis/data-quality.ts";
 import type { MonthPace } from "./analysis/forecast.ts";
 import type { Insight } from "./analysis/insights/index.ts";
-import { expectedLevel } from "./analysis/expected.ts";
+import { expectedFor, expectedLevel } from "./analysis/expected.ts";
 import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
 import { completeMonthsBefore, gateFor, spendingThrough } from "./analysis/usual.ts";
 
@@ -73,13 +73,15 @@ interface HomePace {
 type PaceGap = "history" | "cards";
 
 interface HomeDirection {
-  /** The mean spending of up to twelve complete months. null under three of them. A card bill counts as spending, so a card's missing purchases leave the total whole. */
-  averageCents: number | null;
-  /** How many months the average is of. */
+  /**
+   * What the running month usually costs, all its days: the expected spending (`expectedSpending`, ADR 0021) that
+   * Kuukausi sets the month against and the buffer divides by, so the page has one usual spending. One-offs are left out
+   * of it. null under three complete months.
+   */
+  usualCents: number | null;
+  /** How many complete months `usualCents` is read from. */
   months: number;
-  /** The first day of the oldest month the average reads, null without a month. A month left out (a card's first month, a month with rows missing) puts it further back than `months` months. */
-  from: IsoDate | null;
-  /** The last three complete months' mean less the average; null with the average. */
+  /** The last three complete months' mean less the mean of up to twelve; null under three months. The direction is read from it, and neither mean is shown. */
   recentChangeCents: number | null;
   direction: "up" | "down" | "flat" | null;
   /** Cash on checking and savings accounts in months of expected spending. null without a balance or an expected level. */
@@ -152,31 +154,23 @@ function homePace(pace: MonthPace): HomePace | null {
 }
 
 /**
- * "Menot keskimäärin": the complete months before `month` (at most `DIRECTION_MONTHS`, oldest first), the spending of
- * each and their mean, null under `MIN_COMPARE_MONTHS` months. `spend.average` lists the same months with their rows.
+ * The month's usual spending and where the last three complete months stand against the mean of up to twelve. The
+ * mean of whole months holds every one-off of the year (a car, a loan paid off) and, before a card was connected, its
+ * bills whole, so it is no figure of its own on the page: the row shows the expected spending, and the mean only
+ * gives the direction its word.
  */
-export function averageSpending(ctx: AnalysisContext, month: string): { months: string[]; spent: number[]; averageCents: number | null } {
-  const months = completeMonthsBefore(ctx, month, DIRECTION_MONTHS);
-  const spent = months.map((m) => spendingThrough(ctx, m));
-  return { months, spent, averageCents: months.length < MIN_COMPARE_MONTHS ? null : expectedLevel(spent) };
-}
-
-/** The mean of whole months' spending and where the last three stand against it. */
 function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): HomeDirection {
   const month = monthOf(ctx.today);
   const buffer = bufferReport(ctx, balances, inputs);
   const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents };
-  const { months, spent, averageCents } = averageSpending(ctx, month);
-  const from = months.length > 0 ? `${months[0]}-01` : null;
-  if (averageCents === null) {
-    return { averageCents: null, months: months.length, from, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
-  }
+  const usual = { usualCents: buffer.expectedSpendCents, months: expectedFor(ctx, month)?.months.length ?? 0 };
+  const spent = completeMonthsBefore(ctx, month, DIRECTION_MONTHS).map((m) => spendingThrough(ctx, m));
+  const averageCents = spent.length < MIN_COMPARE_MONTHS ? null : expectedLevel(spent);
+  if (averageCents === null) return { ...usual, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
   const recentChangeCents = expectedLevel(spent.slice(-DIRECTION_RECENT_MONTHS))! - averageCents;
   const gate = gateFor(averageCents);
   return {
-    averageCents,
-    months: months.length,
-    from,
+    ...usual,
     recentChangeCents,
     direction: recentChangeCents > gate ? "up" : recentChangeCents < -gate ? "down" : "flat",
     bufferMonths: buffer.bufferMonths,

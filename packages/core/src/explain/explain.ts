@@ -9,15 +9,14 @@
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { bookedLeftSelect, bookedSpendSelect, earnedOf, earnedSelect, incomeCentsOf, incomeSelect, leftCentsOf, spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { toDayRange } from "../analysis/period.ts";
-import { expectedFor, expectedLevel, expectedSpending } from "../analysis/expected.ts";
+import { expectedFor, expectedSpending } from "../analysis/expected.ts";
 import { completeMonthsBefore, earnedIncome, spendingThrough } from "../analysis/usual.ts";
-import { addMonths, monthEnd, monthOf, monthRange } from "../dates.ts";
-import { averageSpending } from "../home.ts";
+import { monthEnd, monthOf, monthRange } from "../dates.ts";
 import { cashflowReport } from "../reports/cashflow.ts";
 import { categoryReport } from "../reports/categories.ts";
 import { incomeReport, regularIncomeMonths, usualRegularCents } from "../reports/income.ts";
 import { THRESHOLDS } from "../thresholds.ts";
-import { averageHow, averageRule, expectedHow, expectedRule, incomeRule, medianTie, tooFewMonths } from "./catalogue.ts";
+import { expectedHow, expectedRule, incomeRule, medianTie, tooFewMonths } from "./catalogue.ts";
 import { explainBills } from "./bills.ts";
 import { explainShare } from "./figures.ts";
 import type { ExplainArgs, Explanation, FigureId, Line, Reason } from "./types.ts";
@@ -120,23 +119,6 @@ function expectedSpendExplanation(ctx: AnalysisContext, args: ExplainArgs): Expl
 }
 
 /**
- * `spend.average`: Yhteenveto's "Menot keskimäärin" (`home.direction.averageCents`), the mean of the complete months
- * that end by the range's last day. Each month is listed as the sum of its rows, and the check takes the mean of the
- * listed months again; under `MIN_COMPARE_MONTHS` months the figure is null and the method says how many there were.
- */
-function spendAverageExplanation(ctx: AnalysisContext, args: ExplainArgs): Explanation {
-  if (args.accountIds) throw new Error("explain: spend.average is not a figure of some accounts");
-  const { months, averageCents: cents } = averageSpending(ctx, addMonths(monthOf(args.range.to), 1));
-  const values = months.map((label) => {
-    const explain = sumExplanation("spend.month", ctx, { ...args, range: { from: `${label}-01`, to: monthEnd(label) } }, true);
-    return { label, cents: explain.cents!, explain };
-  });
-  const again = expectedLevel(values.map((v) => v.cents));
-  const rule = cents === null ? tooFewMonths(values.length) : averageRule();
-  return { figure: "spend.average", kind: "median", cents, lines: [], method: { kind: "median", values, rule, tie: averageHow() }, check: { kind: "recompute", diffCents: recomputeDiff(cents, again) } };
-}
-
-/**
  * `usual.income`: the page's "Säännölliset tulot kuussa", the income report's own median (`stability.medianCents`),
  * over the months that report reads, each listed with the payments of its pay period. The check recomputes the median
  * from the listed months and compares it with the report's number; under three complete months the report has none.
@@ -162,8 +144,6 @@ export function explain(figure: FigureId, ctx: AnalysisContext, args: ExplainArg
       return expectedSpendExplanation(ctx, args);
     case "usual.income":
       return usualIncomeExplanation(ctx, args);
-    case "spend.average":
-      return spendAverageExplanation(ctx, args);
     case "share.part":
       return explainShare(ctx, args);
     case "bills.fixed":

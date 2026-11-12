@@ -53,7 +53,7 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
                                              ████████|██  140 € enemmän kuin viime kuussa
 
  Varat ja velat
- Varat velkojen jälkeen   Tilien saldo   Velat   Puskuri   Menot keskimäärin, 12 kk
+ Varat velkojen jälkeen   Tilien saldo   Velat   Puskuri   Tavalliset menot
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?

@@ -1267,9 +1267,8 @@
    }
   ],
   "direction": {
-   "averageCents": 324481,
-   "months": 12,
-   "from": "2025-10-01",
+   "usualCents": 340316,
+   "months": 6,
    "recentChangeCents": 36059,
    "direction": "up",
    "bufferMonths": 3.520980500476028,
