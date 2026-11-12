@@ -244,8 +244,9 @@ export function TxTable({ items, whole = true, total, allRows, severalAccounts, 
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
-    // a chip is for a mark some row has: "Varaukset 0" filters to nothing
-    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => !whole || items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
+    // a chip is for a mark some row has: "Varaukset 0" filters to nothing. The chosen one stays: a page of a longer list
+    // offers every chip, and a table without the chosen one would drop the filter and show every row under it
+    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => !whole || c.key === view.chip || items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {
       key: "amount",
       label: msg("table.amount"),
