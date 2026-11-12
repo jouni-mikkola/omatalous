@@ -7,7 +7,8 @@ import { contextOf, demoHousehold } from "../../../tools/findings/households.ts"
 import { createContext, spendTotals } from "../src/analysis/context.ts";
 import { leftOf, totalsOf } from "../src/analysis/flows.ts";
 import { toDayRange } from "../src/analysis/period.ts";
-import { expectedSpending } from "../src/analysis/expected.ts";
+import { expectedFor, expectedSpending } from "../src/analysis/expected.ts";
+import { lateCardContext } from "./late-card-household.ts";
 import { completeMonthsBefore } from "../src/analysis/usual.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
@@ -143,6 +144,18 @@ describe("explain: the usual levels", () => {
     expect(e.method!.kind === "median" && e.method!.values.map((v) => v.label)).toEqual(["2026-01", "2026-02", "2026-03"]);
     const later = explain("expected.spend", createContext(monthly([100000, 100000, 100000]), [account], "2026-03-10"), argsOf("2026-03"));
     expect(later.cents).toBeNull();
+  });
+
+  it("lists the months the figure reads: a card connected later with no bill before it starts them", () => {
+    for (const today of ["2026-10-09", "2026-09-09"]) {
+      const late = lateCardContext("2026-07", today, false);
+      const month = monthOf(today);
+      const e = explain("expected.spend", late, argsOf(month));
+      const listed = e.method?.kind === "median" ? e.method.values.map((v) => v.label) : [];
+      // October reads July to September; September has two months of the card and no figure, and says two
+      expect(listed).toEqual(expectedFor(late, month)?.months ?? ["2026-07", "2026-08"]);
+      if (e.cents === null) expect(e.method).toMatchObject({ rule: "Vertailuun tarvitsemme 3 kuukautta, tietoja on 2" });
+    }
   });
 
   it("the usual spending of the demo household is the report's number, each month with a difference of 0", () => {
