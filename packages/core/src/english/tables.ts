@@ -77,8 +77,6 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "period.m12": "12 mo",
   "period.year": "This year",
   "period.last_year": "Last year",
-  "period.genitive": "{month}",
-  "period.window": "Up to the end of {prev}; {month} is not in yet",
   "select.all_categories": "All categories",
   "select.category_now": "{label}, now {value}",
   "select.category": "Category",

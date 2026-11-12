@@ -31,7 +31,6 @@ export function DataExport() {
           <DataImport />
         </div>
       </div>
-      <p>{t("set.dx.the_file_holds_your_own")}</p>
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );

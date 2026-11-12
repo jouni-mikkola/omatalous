@@ -2,7 +2,7 @@
 import { PaceChart } from "../../charts/PaceChart.tsx";
 import { hashOf } from "../../routes.ts";
 import { answerMoney, dayMonth, money } from "../../format.ts";
-import { rich, t, tn } from "../../text.ts";
+import { rich, t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -19,7 +19,7 @@ function unknownText(left: Extract<NytData["left"], { known: false }>): string {
 
 /**
  * Nyt, the whole view (docs/design/README.md section 1.1): the sum left before the payday, that sum per day left
- * against what everyday spending usually takes a day, the month's spending against its usual band to the same day with
+ * against what everyday spending usually takes a day (one short line: the payday's date is in the heading already), the month's spending against its usual band to the same day with
  * the chart of the month's days, and the balance and the bills the sum is made of. Every figure is a field of `nyt` in
  * the dashboard answer (`nytAnswer` of core); nothing is added up here. The answer is in whole euros, its two parts to
  * the cent.
@@ -45,9 +45,11 @@ export function Nyt({ data }: { data: DashboardData & { nyt: NytData } }) {
       )}
       {(left.known && left.days > 0) || usualPerDayCents !== null ? (
         <p className="home-detail nyt-per-day">
-          {left.known && left.days > 0 && tn(left.days, "home.nyt_per_day_one", "home.nyt_per_day_many", { sum: answerMoney(left.perDayCents) })}
-          {left.known && left.days > 0 && usualPerDayCents !== null && " "}
-          {usualPerDayCents !== null && t("home.nyt_usual_per_day", { sum: answerMoney(usualPerDayCents) })}
+          {left.known && left.days > 0
+            ? usualPerDayCents !== null
+              ? t("home.nyt_per_day_usual", { sum: answerMoney(left.perDayCents), usual: answerMoney(usualPerDayCents) })
+              : t("home.nyt_per_day", { sum: answerMoney(left.perDayCents) })
+            : usualPerDayCents !== null && t("home.nyt_usual_per_day", { sum: answerMoney(usualPerDayCents) })}
         </p>
       ) : null}
       <p className="home-detail nyt-pace">

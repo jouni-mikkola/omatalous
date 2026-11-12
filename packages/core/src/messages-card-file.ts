@@ -6,9 +6,9 @@
  */
 export const FI_CARD_FILE = {
   "card_file.title": "Tiliote tiedostosta",
-  "card_file.sub": "Jos pankki ei lähetä tapahtumia, voit tuoda ne tiedostosta. Avaamme tiedoston vain tässä selaimessa emmekä tallenna sitä, vain tapahtumien rivit.",
+  "card_file.sub": "Luemme tiedoston selaimessa ja tallennamme vain tapahtumien rivit.",
   "card_file.pick": "Valitse tiedosto",
-  "card_file.formats": "Tilin CSV-vienti, camt.053-tiliote (XML) tai kortin tiliote (CSV tai teksti). Tunnistamme tiedoston itse.",
+  "card_file.formats": "Tilin CSV-vienti, camt.053-tiliote (XML) tai kortin tiliote (CSV tai teksti)",
   "card_file.reading": "Luetaan…",
   "card_file.err_empty": "Tiedostosta ei löytynyt rivejä.",
   "card_file.err_many": "Tiedostossa on liikaa rivejä: enintään {max} kerralla.",

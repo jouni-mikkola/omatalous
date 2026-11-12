@@ -3,9 +3,9 @@ import type { FI_CARD_FILE } from "../messages-card-file.ts";
 
 export const EN_CARD_FILE: Record<keyof typeof FI_CARD_FILE, string> = {
   "card_file.title": "Statement from a file",
-  "card_file.sub": "If the bank does not send the transactions, you can bring them in from a file. The file is opened only in this browser and is not stored: only the transaction rows are kept.",
+  "card_file.sub": "The file is read in the browser and only the transaction rows are stored.",
   "card_file.pick": "Choose a file",
-  "card_file.formats": "An account's CSV export, a camt.053 statement (XML) or a card statement (CSV or text). We recognise the file ourselves.",
+  "card_file.formats": "An account's CSV export, a camt.053 statement (XML) or a card statement (CSV or text)",
   "card_file.reading": "Reading…",
   "card_file.err_empty": "No rows were found in the file.",
   "card_file.err_many": "The file has too many rows: {max} at most at a time.",

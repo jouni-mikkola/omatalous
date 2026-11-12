@@ -29,21 +29,11 @@ function Balances({ ctx }: SectionProps) {
   const now = nowAt >= 0 ? days[nowAt]! : null;
   // the report's window is whole months, so the newest known day is often the last month's end, not today
   const nowDay = nowAt >= 0 ? addDays(r.daily.from, nowAt) : null;
+  // the balance of the newest day and its change are the panel's figure above: the answer says only what that leaves out
   const answer = (
     <>
-      {now !== null && (
-        <>
-          {rich("rpt.bal_was", { date: date(nowDay), amount: money(now, false) })}
-          {r.change === null ? "." : t("rpt.bal_diff", { diff: money(Math.abs(r.change.cents), false), direction: t(r.change.cents >= 0 ? "rep.more" : "rep.less"), date: date(r.change.from) })}
-        </>
-      )}
-      {r.lowest && (
-        <>
-          {" "}
-          {rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) })}
-        </>
-      )}
-      {biggest && ` ${t("rpt.bal_biggest", { label: biggest.label, day: dayMonth(biggest.day), amount: money(-biggest.cents, false) })}`}
+      {r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) })}
+      {biggest && `${r.lowest ? " " : ""}${t("rpt.bal_biggest", { label: biggest.label, day: dayMonth(biggest.day), amount: money(-biggest.cents, false) })}`}
     </>
   );
   const monthRows = r.months.map((_, i) => i);

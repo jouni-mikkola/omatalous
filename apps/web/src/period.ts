@@ -108,16 +108,3 @@ export function periodRange(period: string, today: string, opening: "month" | "l
   }
 }
 
-/**
- * The line that says where a window of whole months stops, for 3, 6 and 12 kk: the running month is left out, and
- * nothing else tells the reader so. Null for the presets that run to today or to a year's end, and once the running
- * month is in.
- */
-export function windowNote(period: string, today: string, opening: "month" | "last-month" = "last-month"): string | null {
-  if (period !== "3m" && period !== "6m" && period !== "12m") return null;
-  if (opening === "month") return null;
-  const month = today.slice(0, 7);
-  const bare = (m: string) => monthLong(m).slice(0, -5);
-  const first = t("period.genitive", { month: bare(addMonths(month, -1)) });
-  return t("period.window", { prev: `${first.charAt(0).toUpperCase()}${first.slice(1)}`, month: bare(month) });
-}

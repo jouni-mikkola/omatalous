@@ -23,7 +23,7 @@ async function page(browser: Browser, state: string) {
 async function download(p: Awaited<ReturnType<typeof page>>["page"]): Promise<{ name: string; text: string }> {
   await p.goto("/#/settings/data");
   const card = p.locator(".card", { has: p.getByRole("heading", { level: 2, name: "Tiedot", exact: true }) });
-  await expect(card.getByText("Tiedosto sisältää omat tietosi ja sinulle jaetut tiedot. Säilytä se turvallisesti.")).toBeVisible();
+  await expect(card.locator("p")).toHaveCount(0);
   const [file] = await Promise.all([p.waitForEvent("download"), card.getByRole("button", { name: "Vie kaikki tiedot" }).click()]);
   return { name: file.suggestedFilename(), text: await readFile(await file.path(), "utf8") };
 }

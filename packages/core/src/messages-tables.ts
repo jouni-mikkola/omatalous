@@ -79,8 +79,6 @@ export const FI_TABLES = {
   "period.m12": "12 kk",
   "period.year": "Tämä vuosi",
   "period.last_year": "Viime vuosi",
-  "period.genitive": "{month}n",
-  "period.window": "{prev} loppuun asti, {month} ei ole vielä mukana",
   "select.all_categories": "Kaikki kategoriat",
   "select.category_now": "{label}, nyt {value}",
   "select.category": "Kategoria",

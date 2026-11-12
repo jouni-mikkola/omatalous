@@ -6,5 +6,4 @@
 export const FI_SET_DX = {
   "set.dx.data": "Tiedot",
   "set.dx.export_all_data": "Vie kaikki tiedot",
-  "set.dx.the_file_holds_your_own": "Tiedosto sisältää omat tietosi ja sinulle jaetut tiedot. Säilytä se turvallisesti.",
 } as const;

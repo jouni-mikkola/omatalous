@@ -22,8 +22,8 @@ Ranked by how often asked. Four tabs: Nyt, Kuukausi, Tulossa, Tarkistettavat. Th
 - Not shown: account cards, card faces, credit arcs, the insights list, the last-days table, goals, net worth.
 ```
  Palkkapäivään 25.11. jää            4 424 €
- 277 € päivässä 16 päivän ajan. Tavallisesti arkeen kuluu 65 € päivässä.
- Käytetty 2 018 €  ▁▂▃▅▆ ─ ─ tavallinen 1 884–1 972 € tähän päivään
+ 277 € päivässä, tavallisesti 65 €
+ Käytetty 2 018 €  ▁▂▃▅▆ ─ ─ tavallisesti 1 884–1 972 €
  Saldo 7 198,65 € − muut laskut ennen palkkapäivää 2 774,52 €
 ```
 

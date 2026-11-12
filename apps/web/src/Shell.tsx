@@ -22,7 +22,7 @@ import { readWizardClosed, wizardDue, writeWizardClosed } from "./wizard-due.ts"
 import { type PageAddress, PageAddressContext } from "./page-address.ts";
 import { viewsParts } from "./part.ts";
 import { useOpenSync } from "./use-open-sync.ts";
-import { askedQuestion, periodFor, periodRange, shellPeriodsOf, windowNote } from "./period.ts";
+import { askedQuestion, periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { dropAnswers, forgetAnswers, META_PATH } from "./query-client.ts";
 import { t } from "./text.ts";
 import { openWord, reviewTitle, useReviewCount } from "./review-count.ts";
@@ -236,7 +236,6 @@ export function Shell() {
   const period = periodFor(page, params.get("period"), m.opening);
   const range = periodRange(period, m.today, m.opening);
   const presets = shellPeriodsOf(page, m.today, reportQuestion ?? askedQuestion(params.get("q"), anchor));
-  const note = windowNote(period, m.today, m.opening);
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
@@ -431,7 +430,6 @@ export function Shell() {
             <span className="range-label">
               {dateRange(range.from, range.to)}
             </span>
-            {note && <span className="range-label">{note}</span>}
           </div>
         )}
 

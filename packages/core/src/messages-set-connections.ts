@@ -40,7 +40,7 @@ export const FI_SET_CONNECTIONS = {
   "set.conn.actions": "Toiminnot",
   "set.conn.reconnect": "Yhdistä uudelleen",
   "set.conn.remove": "Poista",
-  "set.conn.connect_a_bank_and_the": "Yhdistä pankki, niin haemme tilit ja tapahtumat tänne.",
+  "set.conn.connect_a_bank_and_the": "Ei pankkiyhteyksiä.",
   "set.conn.paste_the_address_of_the": "Liitä pankin viimeisen sivun osoite",
   "set.conn.if_connecting_was_left_unfinished": "Jos yhdistäminen jäi kesken: liitä pankin viimeisen sivun osoite",
   "set.conn.paste_the_address_from_the": "Liitä osoite selaimen osoiteriviltä",
