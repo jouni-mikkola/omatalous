@@ -4,6 +4,7 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { monthPace } from "../src/analysis/forecast.ts";
 import type { Account, IsoDate, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+import { LATE_CARD_TODAY, lateCardContext } from "./late-card-household.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: "FI21 1234 5600 0007 85", currency: "EUR", type: "checking" };
 
@@ -61,20 +62,20 @@ describe("pace: the month against the month before", () => {
 
   it("reads a month before that is shorter than today's day to its last day", () => {
     // September has 30 days: the 31st of October meets its 30th, the 30th too, the 29th does not reach the 30th
-    const sept = [buy("2026-09-15", 3_000), buy("2026-09-30", 9_000), buy("2026-10-29", 100)];
+    const sept = [pay("2026-09-01"), buy("2026-09-15", 3_000), buy("2026-09-30", 9_000), buy("2026-10-29", 100)];
     const at = (day: IsoDate) => paceOf(sept, "2026-10", day).previous!;
     expect(at("2026-10-31")).toMatchObject({ day: 30, toToday: 12_000 });
     expect(at("2026-10-30")).toMatchObject({ day: 30, toToday: 12_000 });
     expect(at("2026-10-29")).toMatchObject({ day: 29, toToday: 3_000 });
     // February of 2027 has 28 days
-    const feb = [buy("2027-02-14", 1_000), buy("2027-02-28", 5_000)];
+    const feb = [pay("2027-02-01"), buy("2027-02-14", 1_000), buy("2027-02-28", 5_000)];
     const march = paceOf(feb, "2027-03", "2027-03-31");
     expect(march.previous).toMatchObject({ month: "2027-02", day: 28, toToday: 6_000 });
     expect(march.previous!.curve).toHaveLength(28);
   });
 
   it("takes December of the year before for a January", () => {
-    const dec = [buy("2026-12-05", 4_000), buy("2026-12-20", 9_000), buy("2027-01-04", 1_000)];
+    const dec = [pay("2026-12-01"), buy("2026-12-05", 4_000), buy("2026-12-20", 9_000), buy("2027-01-04", 1_000)];
     expect(paceOf(dec, "2027-01", "2027-01-12").previous).toMatchObject({ month: "2026-12", day: 12, toToday: 4_000 });
     expect(paceOf(dec, "2027-01", "2027-01-31").previous).toMatchObject({ month: "2026-12", day: 31, toToday: 13_000 });
   });
@@ -85,9 +86,43 @@ describe("pace: the month against the month before", () => {
     // August and October have rows, September has none: nothing to set October against
     expect(paceOf([buy("2026-08-03", 8_000), buy("2026-10-03", 4_000)], "2026-10", today).previous).toBeNull();
     // a month of pay alone is a month the history reaches: it cost nothing so far
-    const paid = paceOf([pay("2026-09-05"), buy("2026-10-03", 4_000)], "2026-10", today);
+    const paid = paceOf([pay("2026-09-01"), buy("2026-10-03", 4_000)], "2026-10", today);
     expect(paid.previous).toMatchObject({ month: "2026-09", day: 12, toToday: 0 });
     expect(paid.previous!.curve.every((v) => v === 0)).toBe(true);
+  });
+
+  // the sentence and the line of Yhteenveto set last month against this one: a curve of other accounts said what the data does not hold
+  it("leaves the month before out when it was not on the same accounts as this month", () => {
+    // the history begins on the 20th of September: its first days hold nothing because nothing was read, not because nothing was spent
+    expect(paceOf([buy("2026-09-20", 5_000), buy("2026-10-03", 4_000)], "2026-10", today).previous).toBeNull();
+    // a card linked in October: its purchases are in October's curve and September holds only what checking paid
+    const card: Account = { id: "card", name: "Kortti", iban: null, currency: "EUR", type: "credit_card" };
+    const linked = [pay("2026-09-01"), buy("2026-09-14", 52_000), pay("2026-10-01"), tx({ accountId: "card", bookingDate: "2026-10-03", amountCents: -40_000, merchant: "K-Market", category: "groceries" })];
+    expect(monthPace(createContext(linked, [checking, card], today), "2026-10", today).previous).toBeNull();
+    const late = lateCardContext("2026-10");
+    expect(monthPace(late, "2026-10", LATE_CARD_TODAY).previous).toBeNull();
+    // the card's history reaching September as well: the month before is there again
+    const both = lateCardContext("2026-07");
+    expect(monthPace(both, "2026-10", LATE_CARD_TODAY).previous).toMatchObject({ month: "2026-09", day: 9 });
+  });
+
+  // a card never linked: its bill holds a month of purchases on one day, booked on the 15th in September and the 16th in October
+  it("leaves the month before out when either month paid a card bill for purchases the rows do not hold", () => {
+    const bill = (date: IsoDate) => tx({ accountId: "acc-1", bookingDate: date, amountCents: -80_000, merchant: "Korttiyhtiö", category: "card_bill" });
+    const billed = [pay("2026-09-01"), buy("2026-09-05", 10_000), bill("2026-09-15"), buy("2026-10-05", 10_000), bill("2026-10-16")];
+    expect(paceOf(billed, "2026-10", "2026-10-15").previous).toBeNull();
+    // near miss: the same months with no card bill are set against each other
+    expect(paceOf(billed.filter((t) => t.category !== "card_bill"), "2026-10", "2026-10-15").previous).toMatchObject({ toToday: 10_000 });
+  });
+
+  // the curves are of spending: an account that only received money in the months changes neither
+  it("keeps the month before when an account that began in between only received money", () => {
+    const savings: Account = { id: "sav", name: "Säästötili", iban: null, currency: "EUR", type: "savings" };
+    const rows = [pay("2026-09-01"), buy("2026-09-05", 10_000), buy("2026-10-05", 10_000), tx({ accountId: "sav", bookingDate: "2026-10-06", amountCents: 50_000, merchant: "Kela", category: "benefits" })];
+    expect(monthPace(createContext(rows, [checking, savings], today), "2026-10", today).previous).toMatchObject({ month: "2026-09", toToday: 10_000 });
+    // near miss: the same account spending is in October's curve alone
+    const spent = [...rows, tx({ accountId: "sav", bookingDate: "2026-10-07", amountCents: -20_000, merchant: "Kauppa", category: "groceries" })];
+    expect(monthPace(createContext(spent, [checking, savings], today), "2026-10", today).previous).toBeNull();
   });
 
   it("starts on the first day of a month with that day's spending against the month before's first day", () => {
@@ -102,7 +137,7 @@ describe("pace: the month against the month before", () => {
   });
 
   it("is whole for a month that has ended and empty for one that has not begun", () => {
-    const ended = paceOf([buy("2026-08-30", 500), buy("2026-08-31", 200), ...rows], "2026-09", today);
+    const ended = paceOf([pay("2026-08-01"), buy("2026-08-30", 500), buy("2026-08-31", 200), ...rows], "2026-09", today);
     expect(ended.current.every((v) => v !== null)).toBe(true);
     expect(ended.currentTotal).toBe(16_700);
     // August has 31 days and September 30: the whole of September meets August's 30th, and August's curve goes on to the 31st

@@ -88,7 +88,7 @@ export function completeMonthsBefore(ctx: AnalysisContext, month: string, n: num
 }
 
 /** Whether `month` holds a card bill that is no transfer: purchases of a card the rows do not itemise. */
-function paidCardBills(ctx: AnalysisContext, month: string): boolean {
+export function paidCardBills(ctx: AnalysisContext, month: string): boolean {
   const from = dayNumber(`${month}-01`);
   const to = dayNumber(monthEnd(month));
   return ctx.txs.some((t) => t.category === "card_bill" && !t.isTransfer && t.day >= from && t.day <= to);

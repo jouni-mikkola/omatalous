@@ -12,7 +12,9 @@ import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
+import { accountsCoverage, monthSpan } from "./coverage.ts";
 import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
+import { paidCardBills } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -21,7 +23,12 @@ export interface MonthPace {
   current: (number | null)[];
   /** The month's spending so far: the last point of `current`, 0 before the 1st. */
   currentTotal: number;
-  /** The calendar month before, of real rows. null when the history has no row in it. */
+  /**
+   * The calendar month before, of real rows. null when it does not compare day by day (`comparesWith`): the history has
+   * no row in it, an account that spent in either month has no data for the whole of both (a card linked this month
+   * adds to one curve and not the other), or either month paid a card bill that is no transfer (a month of purchases on
+   * one day, a different day each month).
+   */
   previous: {
     /** "2026-09" */
     month: string;
@@ -74,9 +81,18 @@ function spendingCurve(ctx: AnalysisContext, month: string): number[] {
   return daily.map((cents) => (sum += cents));
 }
 
-/** The history has a row in the month, of any kind: a month it does not reach has nothing to be set against. */
-function hasRows(ctx: AnalysisContext, month: string): boolean {
-  return inDays(ctx, { fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) }).length > 0;
+/**
+ * The month before can be set against `month` day by day: the history has a row in it, of any kind (a month it does not
+ * reach has nothing to be set against), every account that spent in either month has data for the whole of both (an
+ * account that only received money changes no curve), and neither month paid a card bill that holds a card's purchases:
+ * such a bill lands on one day, in each month on a day of its own, so the same day would differ by a whole bill.
+ */
+function comparesWith(ctx: AnalysisContext, before: string, month: string): boolean {
+  const days = (m: string) => ({ fromDay: dayNumber(`${m}-01`), toDay: dayNumber(monthEnd(m)) });
+  if (!inDays(ctx, days(before)).length) return false;
+  const shared = accountsCoverage(ctx).compare(monthSpan(before), monthSpan(month))?.shared;
+  if (!shared || [...spendRows(ctx, days(before)), ...spendRows(ctx, days(month))].some((t) => t.spend && !shared.has(t.accountId))) return false;
+  return !paidCardBills(ctx, before) && !paidCardBills(ctx, month);
 }
 
 /**
@@ -88,7 +104,7 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
   const cur = spendingCurve(ctx, month);
   const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
   const before = addMonths(month, -1);
-  const curve = hasRows(ctx, before) ? spendingCurve(ctx, before) : null;
+  const curve = comparesWith(ctx, before, month) ? spendingCurve(ctx, before) : null;
   // a month shorter than today's day of the month is read to its last day
   const day = Math.min(lastDay, curve?.length ?? 0);
   return {
