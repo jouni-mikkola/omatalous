@@ -170,8 +170,8 @@ test("at 390 px the pages that say a part do not scroll sideways, in either view
   }
 });
 
-/** The three ways to cut the joint account, on Tilit of the first partner's page. */
-const splitGroup = (page: Page) => page.locator("#tilit").getByRole("group", { name: "Tilin Yhteistili osuudet" });
+/** The ways to cut the joint account, its one control on Tilit of the first partner's page. */
+const splitGroup = (page: Page) => page.locator("#tilit").getByRole("group", { name: "Tilin Yhteistili jako" }).getByRole("group", { name: "Jakotapa" });
 /** A press that saves: waits for the server's answer, so the next page does not cut the request. */
 async function press(page: Page, button: Locator, route = "/api/accounts/") {
   const done = page.waitForResponse((r) => r.request().method() !== "GET" && r.url().includes(route));

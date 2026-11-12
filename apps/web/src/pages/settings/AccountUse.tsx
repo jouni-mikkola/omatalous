@@ -1,6 +1,6 @@
 /**
  * Asetukset > Tilit: who uses each account. `UseSelect` is the choice in a row (it saves at once, as the type does), `UseParts`
- * sits in a row under it for a joint account's split, its offer and questions and for a user who cannot see the account, and `LinkQuestion` asks about
+ * sits in a row under it for a joint account's split (one control, AccountSplit.tsx), its offer and answers and for a user who cannot see the account, and `LinkQuestion` asks about
  * the joint accounts a consent just brought. What each choice sends is account-use.ts; the server keeps the use (routes/finance.ts).
  */
 import { useState } from "react";
@@ -9,32 +9,10 @@ import { accountNumber } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { partAnchor } from "../../part.ts";
 import type { Account, AccountQuestion, Meta } from "../../types.ts";
-import {
-  answerLabel,
-  type Call,
-  choiceOf,
-  fieldsChanged,
-  isJoint,
-  JOINT,
-  keyOf,
-  offerText,
-  optionsOf,
-  ownersOf,
-  peopleOf,
-  percentFieldsOf,
-  questionLabel,
-  questionOf,
-  readPercents,
-  restText,
-  type Said,
-  type Split,
-  splitOf,
-  takeBackCall,
-  usersFor,
-} from "./account-use.ts";
+import { answerLabel, type Call, choiceOf, isJoint, offerText, optionsOf, ownersOf, peopleOf, questionLabel, questionOf, type Said, takeBackCall, usersFor } from "./account-use.ts";
+import { AccountSplit } from "./AccountSplit.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
-import { Segmented } from "../../components/ui/Segmented.tsx";
 import { t } from "../../text.ts";
 type Choices = Pick<Meta, "user" | "members">;
 
@@ -94,29 +72,17 @@ interface Suggestion {
   unseen: string[];
 }
 
-/** The labels of the three buttons of a joint account, in the order they are drawn. */
-const splits = (): { split: Split; label: string }[] => [
-  { split: "source", label: t("set.acuse.by_who_has_paid_into") },
-  { split: "equal", label: t("set.acuse.equally") },
-  { split: "percent", label: t("set.acuse.by_shares") },
-];
-
 /**
- * The row under an account that is a joint account or names another member: the choice of three for a joint account (who
- * paid, equal, percents) with the offer and the questions of the money trace, and a line with the share for each named member
- * who cannot see the account. Rendered with a key that changes with the use and the shares, so it starts from what is saved.
+ * The row under an account that is a joint account or names another member: the split of a joint account (AccountSplit)
+ * with the offer and the answers of the money trace, and a line with the share for each named member who cannot see the
+ * account. Rendered with a key that changes with the use and the shares, so it starts from what is saved.
  */
 export function UseParts({ account, meta, onSaved, onChange, onError }: { account: Account; meta: Meta; onSaved: () => void; onChange: () => void; onError: (text: string) => void }) {
   const use = account.use!;
   const people = peopleOf(account, meta);
   const owners = ownersOf(account, meta);
-  const chosen = splitOf(use);
-  // the fields are open while "Osuuksien mukaan" is pressed, also when the account is cut otherwise until another button is
-  const [open, setOpen] = useState(chosen === "percent");
-  const [initial] = useState(() => percentFieldsOf(people, use));
-  const [fields, setFields] = useState(initial);
   const [error, setError] = useState<string | null>(null);
-  // what is on its way: a button of the choice, a question, an answer taken back, the fields
+  // what is on its way: the offer, an answer taken back
   const [busy, setBusy] = useState<string | null>(null);
   const { data } = useApi<Suggestion>(`${useUrl(account)}/suggestion`);
 
@@ -134,22 +100,6 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
     }
   };
   const putSource = () => api(accountUrl(account, "split"), { method: "PUT", body: { mode: "source" } });
-  const choose = (split: Split) => {
-    if (split === "percent") {
-      setOpen(true);
-      return;
-    }
-    setOpen(false);
-    if (split === chosen) return;
-    if (split === "source") void act(split, putSource);
-    else void act(split, () => putUse(account, usersFor(JOINT, account, meta)));
-  };
-  const read = readPercents(people, fields);
-  const changed = fieldsChanged(people, fields, initial);
-  const problem = "problem" in read ? read.problem : null;
-  const savePercents = () => {
-    if ("users" in read) void act("percent", () => putUse(account, read.users));
-  };
   const working = (q: Pick<AccountQuestion, "kind" | "key">) => busy === `${q.kind}:${q.key}`;
   const send = (call: Call) => void act(`${call.body.kind}:${call.body.key}`, () => api(call.path, { method: call.method, body: call.body }));
   const share = async (userId: string) => {
@@ -161,49 +111,12 @@ export function UseParts({ account, meta, onSaved, onChange, onError }: { accoun
     }
   };
 
-  const pressed: Split = open ? "percent" : chosen;
   const answers = account.answers ?? [];
   return (
     <div className="use-parts" id={partAnchor(account.id)}>
       {isJoint(use) && (
         <>
-          <Segmented
-            label={t("set.acuse.shares_of_account", { name: account.name })}
-            value={pressed}
-            options={splits().map((s) => ({ value: s.split, label: s.label, disabled: busy !== null }))}
-            busy={splits().find((s) => s.split === busy)?.split ?? null}
-            onChange={choose}
-          />
-          {pressed === "percent" && (
-            <form
-              className="use-fields"
-              onSubmit={(e) => {
-                e.preventDefault();
-                savePercents();
-              }}
-            >
-              {people.map((p, i) => {
-                const last = i === people.length - 1;
-                const key = keyOf(p.userId);
-                return (
-                  <label key={key} className="use-field">
-                    <span className="field-label">{p.label} %</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      readOnly={last}
-                      aria-invalid={(changed && problem === key) || undefined}
-                      value={last ? restText(people, fields) : (fields[key] ?? "")}
-                      onChange={(e) => setFields({ ...fields, [key]: e.target.value })}
-                    />
-                  </label>
-                );
-              })}
-              <Button variant="primary" type="submit" disabled={busy !== null || !changed || problem !== null} aria-busy={busy === "percent" || undefined}>
-                {t("set.acuse.save")}
-              </Button>
-            </form>
-          )}
+          <AccountSplit account={account} meta={meta} onSaved={onSaved} onChange={onChange} />
           {account.offer && (
             <ul className="use-list">
               <li className="use-row">

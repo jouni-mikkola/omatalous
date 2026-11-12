@@ -13,7 +13,6 @@ import { ACCOUNT_TYPE_LABEL, accountNumber, eurosText, money, moneyIn, parseEuro
 import { CONTROL_PANEL, leftOutText } from "../../consent-notices.ts";
 import type { Account, Connection, Meta } from "../../types.ts";
 import { isJoint, namesOther, optionsOf } from "./account-use.ts";
-import { AccountSplit } from "./AccountSplit.tsx";
 import { UseParts, UseSelect } from "./AccountUse.tsx";
 import { type ForeignCurrency, ForeignRows } from "./ForeignRows.tsx";
 import { Reconcile } from "./Reconcile.tsx";
@@ -212,7 +211,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                   </td>
                 </tr>
               )}
-              {a.use && isJoint(a.use) && a.use.users.some((u) => u.userId === meta.user.id && u.weight > 0) && <AccountSplit account={a} today={meta.today} />}
               {editing === a.id && (
                 <tr key={`${a.id}-edit`} className="edit-row">
                   <td colSpan={columns.length}>

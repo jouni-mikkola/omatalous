@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { messageIn } from "@banking/core";
-import { valuesOf } from "../src/pages/settings/AccountSplit.tsx";
+import { agreementOfUse, valuesOf, waysFor, wayOf } from "../src/pages/settings/AccountSplit.tsx";
 
 const name = (o: string) => (o === "a" ? "Aino" : "Ville");
 const fixed = (rest?: { kind: "equal" | "income" }) => ({ validFrom: "2026-01-01", kind: "fixed" as const, value: { cents: { a: 30000 }, ...(rest ? { rest } : {}) } }) as never;
@@ -16,13 +15,21 @@ describe("the line of a fixed agreement", () => {
   });
 });
 
-describe("the line of an account with no agreement", () => {
-  // the choice of three above it (who paid, equal, shares) cuts the costs; naming one of them reads as a contradiction under another
-  it("points to the choice above and names none of its buttons", () => {
-    for (const lang of ["fi", "en"] as const) {
-      const line = messageIn(lang, "set.split.no_split_has_been_agreed").toLowerCase();
-      expect(line).toMatch(lang === "fi" ? /yllä valitulla tavalla/ : /chosen above/);
-      for (const button of ["set.acuse.by_shares", "set.acuse.equally", "set.acuse.by_who_has_paid_into"] as const) expect(line).not.toContain(messageIn(lang, button).toLowerCase());
-    }
+describe("the ways of the one control", () => {
+  it("are the use's three, and the agreement's two to a user the account weighs, with no fixed sum on a card", () => {
+    expect(waysFor(false, false, false)).toEqual(["source", "equal", "percent"]);
+    expect(waysFor(true, false, false)).toEqual(["source", "equal", "percent", "income", "fixed"]);
+    expect(waysFor(true, true, false)).toEqual(["source", "equal", "percent", "income"]);
+  });
+  it("leave out who paid while an agreement is in force, as no agreement says it", () => {
+    expect(waysFor(true, false, true)).toEqual(["equal", "percent", "income", "fixed"]);
+  });
+  it("press a share agreement as Osuuksien mukaan and the others as themselves", () => {
+    expect(["equal", "share", "income", "fixed"].map((k) => wayOf(k as never))).toEqual(["equal", "percent", "income", "fixed"]);
+  });
+  it("say Tasan or the shares from a day as the agreement whose costs they cut", () => {
+    const users = [{ userId: "a", weight: 700 }, { userId: null, weight: 300 }, { userId: "c", weight: 0 }];
+    expect(agreementOfUse("equal", users)).toEqual({ kind: "equal", value: { who: ["u:a", "u:"] } });
+    expect(agreementOfUse("percent", users)).toEqual({ kind: "share", value: { weights: { "u:a": 700, "u:": 300 } } });
   });
 });

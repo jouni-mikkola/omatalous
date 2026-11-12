@@ -127,21 +127,21 @@ test("Raportit shows the month of the joint account: paid, share and who paid ov
 });
 
 test("a new split from a day: the closed month stays, the month after names the correction, a day with a row is refused", async ({ browser }) => {
+  // the shares with a day typed are an agreement from that day, which leaves the closed months before it be
   const { context, page, seen } = await open(browser, members[0]!, "/#/settings");
   const split = page.getByRole("group", { name: "Tilin Yhteistili jako" });
   await expect(split).toBeVisible();
   const change = async (day: string) => {
-    await split.getByRole("button", { name: "Muuta jakoa" }).click();
+    await split.getByRole("button", { name: "Osuuksien mukaan" }).click();
     const form = page.getByRole("form", { name: "Muuta tilin Yhteistili jakoa" });
-    await form.getByLabel("Jakotapa").selectOption("share");
-    await form.getByLabel(`${NAMES[0]} osuus`).fill("75");
-    await form.getByLabel(`${NAMES[1]} osuus`).fill("25");
+    await form.getByLabel(`${NAMES[0]} %`).fill("75");
+    await expect(form.getByLabel(`${NAMES[1]} %`)).toHaveValue("25");
     await form.getByLabel("Voimassa alkaen").fill(day);
     await form.getByRole("button", { name: "Tallenna" }).click();
     return form;
   };
   await change(`${LAST}-01`);
-  await expect(split).toContainText("Osuuksien mukaan");
+  await expect(split.getByRole("button", { name: "Osuuksien mukaan" })).toHaveAttribute("aria-pressed", "true");
   await expect(split).toContainText(`${NAMES[0]} 75 %`);
   await expect(split.getByRole("form")).toHaveCount(0);
   // the same day again: the server's line stands under the form
@@ -174,9 +174,8 @@ test("an income split waits for the other user: she accepts it, or he takes it b
   };
   const propose = async (day: string) => {
     const { context, page, split } = await jako(members[0]!);
-    await split.getByRole("button", { name: "Muuta jakoa" }).click();
+    await split.getByRole("button", { name: "Tulojen suhteessa" }).click();
     const form = page.getByRole("form", { name: "Muuta tilin Yhteistili jakoa" });
-    await form.getByLabel("Jakotapa").selectOption("income");
     await form.getByLabel("Voimassa alkaen").fill(day);
     await form.getByRole("button", { name: "Tallenna" }).click();
     await expect(split).toContainText(`Odottaa hyväksyntää: ${NAMES[1]}`);
@@ -187,7 +186,7 @@ test("an income split waits for the other user: she accepts it, or he takes it b
   const first = await propose(`${today}-01`);
   await expect(first.split.getByRole("button", { name: "Peruuta ehdotus" })).toBeVisible();
   await expect(first.split.getByRole("button", { name: "Hyväksy" })).toHaveCount(0);
-  await expect(first.split).toContainText("Osuuksien mukaan");
+  await expect(first.split.getByRole("button", { name: "Osuuksien mukaan" })).toHaveAttribute("aria-pressed", "true");
   await first.split.getByRole("button", { name: "Peruuta ehdotus" }).click();
   await expect(first.split).not.toContainText("Odottaa hyväksyntää");
   await first.context.close();
@@ -208,7 +207,7 @@ test("an income split waits for the other user: she accepts it, or he takes it b
   const accept = await jako(members[1]!);
   await accept.split.getByRole("button", { name: "Hyväksy" }).click();
   await expect(accept.split).not.toContainText("Odottaa hyväksyntää");
-  await expect(accept.split.locator(".use-list").first()).toContainText("Tulojen suhteessa");
+  await expect(accept.split.getByRole("group", { name: "Jakotapa" }).getByRole("button", { pressed: true })).toHaveText("Tulojen suhteessa");
   expect(accept.seen.problems).toEqual([]);
   await accept.context.close();
 });

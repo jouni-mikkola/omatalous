@@ -87,6 +87,7 @@ const account = (extra: Partial<Account>): Account => ({
 });
 const connection = (id: string): Connection => ({ id, institution: "Nordea", status: "active", state: "active", history: false, replaced: false, validUntil: "2027-03-01T00:00:00Z", createdAt: "2026-09-01T00:00:00Z", lastSyncedAt: null, daysLeft: 140, needsRenewal: false });
 const metaOf = (accounts: Account[], connections: Connection[]) => ({ user: { id: "u1", role: "member" }, members: [{ id: "u1", displayName: "Matti" }], shares: [], bank: { configured: true, banks: [], redirectMode: "own", source: "user" }, connections, accounts, renewal: { due: [], round: null } }) as unknown as Meta;
+const markupOf = (accounts: Account[]) => renderToStaticMarkup(createElement(Accounts, { meta: metaOf(accounts, [connection("c1")]), onChange: () => {} }));
 /** What a reader sees: no tags, no React text separators, one kind of space. */
 const text = (markup: string) => markup.replace(/<!-- -->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
@@ -141,9 +142,11 @@ describe("Tilit: what tells accounts apart", () => {
     const joint = render([account({ use })]);
     // who uses the account is chosen in the edit form of the row
     expect(joint).not.toContain("Käyttäjä");
-    expect(joint).toContain("Sen mukaan, kuka tilille on maksanut Tasan Osuuksien mukaan");
+    // the split's one control; its ways are drawn when the agreements are read (account-split.dom.test.ts)
+    expect(markupOf([account({ use })])).toContain('aria-label="Tilin Käyttötili jako"');
     // near miss: the same two holders but one user's part is 0, so the account is one user's and has no parts to open
-    expect(render([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("Osuuksien mukaan");
+    expect(markupOf([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("jako\"");
+    expect(markupOf([account({})])).not.toContain("jako\"");
   });
 
   it("does not say the holder twice when the bank gave no product and the name is the holder", () => {
