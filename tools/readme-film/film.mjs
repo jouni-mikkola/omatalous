@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stampPng } from "../privacy/png-stamp.mjs";
+import { pngTexts, STAMP_KEY } from "../privacy/scan.mjs";
 import { compose } from "./compose.mjs";
 import { decodeApng, decodePng, encodeApng, encodePng } from "./png.mjs";
 
@@ -44,9 +45,15 @@ function make() {
     const run = spawnSync(process.execPath, [join(ROOT, "tools/shots.mjs"), "overview", "--widths", "1000,390", "--name", "film", "--steps", fileURLToPath(new URL("./steps.mjs", import.meta.url))], {
       cwd: ROOT,
       stdio: "inherit",
-      env: { ...process.env, SHOTS_DIR: join(work, "shots"), SHOTS_DISPLAY_NAME: "Matti", FILM_DIR: work },
+      // TMPDIR: the app's data folder is made in the work folder, which goes at the end whatever shots leaves in it
+      env: { ...process.env, TMPDIR: work, SHOTS_DIR: join(work, "shots"), SHOTS_DISPLAY_NAME: "Matti", FILM_DIR: work },
     });
     if (run.status !== 0) throw new Error(`tools/shots.mjs exited with ${run.status}`);
+    // shots' own pictures of the run, stamped by shots: the frames are of the app it started
+    for (const width of [1000, 390]) {
+      const own = join(work, "shots", `overview-film-${width}.png`);
+      if (!pngTexts(readFileSync(own))[STAMP_KEY]) throw new Error(`shots left no stamped picture ${own}`);
+    }
     /** @type {Record[]} */
     const records = ["desk", "phone"].flatMap((part) => JSON.parse(readFileSync(join(work, `part-${part}.json`), "utf8")));
     const all = frames(records);
@@ -55,7 +62,9 @@ function make() {
     const poster = /** @type {import("./png.mjs").Frame} */ (all[at]);
     const seconds = all.reduce((s, f) => s + f.ms, 0) / 1000;
     if (seconds < SECONDS.least || seconds > SECONDS.most) throw new Error(`the film lasts ${seconds.toFixed(1)} s, not ${SECONDS.least} to ${SECONDS.most}`);
-    // the stamp of `pnpm shots` (tools/privacy/png-stamp.mjs): the frames are of the app shots started, with the example household
+    // the stamp of `pnpm shots` (tools/privacy/png-stamp.mjs). Shots runs without --demo and stamps its own pictures
+    // "empty"; the steps load the example data with the page's button and take each frame at that app's address only
+    // (steps.mjs, shoot), so the film shows the example household and is stamped "demo".
     const film = stampPng(encodeApng(all, poster), "demo");
     if (film.length > MAX_BYTES) throw new Error(`the film is ${Math.round(film.length / 1000)} kB, over the ${MAX_BYTES / 1000} kB cap`);
     mkdirSync(IMAGES, { recursive: true });

@@ -4,7 +4,7 @@ Omatalous is a personal finance app for a Finnish household. It runs on a Linux 
 accounts through [Enable Banking](https://enablebanking.com) and sorts every transaction into a category. It opens on
 one sum: what is left until the next payday after the bills due before it.
 
-A loop of about 40 seconds through the app with its example household, from the first transactions to the phone.
+A short loop through the app with its example household, from the first transactions to the phone.
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/images/tour-still.png">

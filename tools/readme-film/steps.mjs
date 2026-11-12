@@ -19,12 +19,19 @@ import { PHONE, SIZE } from "./compose.mjs";
 
 /** One frame while the pointer moves; about 25 frames a second. */
 const STEP_MS = 40;
-/** How long a caption stays for each word in it, and at least. */
-const READ_MS = { word: 200, least: 2400 };
-const NUMBERS = ["no", "one", "two", "three"];
+/** The pointer's glide to a target, and the three frames of its press. */
+const GLIDE_MS = 480;
+const CLICK_MS = GLIDE_MS + 160 + 80 + 80;
+
+/**
+ * How long a caption stays on the screen in all: 17 characters a second, the pace of subtitles for adults, and at least
+ * 2.6 s. The pointer's moves under it count, so the film holds a page only for the rest.
+ */
+export function readMs(/** @type {string} */ caption) {
+  return Math.max(2600, Math.round((caption.length / 17) * 1000));
+}
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const KUUT = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
 
 /** The cents of a sum as the app writes it: "−4 905,68 €", "78 €". */
 export function cents(/** @type {string} */ text) {
@@ -48,11 +55,12 @@ export function englishDate(/** @type {string} */ text) {
   return [m[1], MONTHS[Number(m[2]) - 1]?.slice(0, 3), m[3]].filter(Boolean).join(" ");
 }
 
-/** The English month of a Finnish heading such as "Marraskuu 2026". */
-export function englishMonth(/** @type {string} */ heading) {
-  const at = KUUT.indexOf(heading.trim().split(/\s+/)[0]?.toLowerCase() ?? "");
-  if (at < 0) throw new Error(`no month in "${heading}"`);
-  return /** @type {string} */ (MONTHS[at]);
+/** The days of a Finnish span "1.–12.11." in English, "1–12 Nov"; one day "1.11." is "1 Nov". */
+export function englishDays(/** @type {string} */ text) {
+  const m = /^(\d{1,2})\.(?:–(\d{1,2})\.)?(\d{1,2})\.$/.exec(text.trim());
+  const month = MONTHS[Number(m?.[3]) - 1]?.slice(0, 3);
+  if (!m || !month) throw new Error(`no days in "${text}"`);
+  return { text: `${m[1]}${m[2] ? `–${m[2]}` : ""} ${month}`, days: m[2] ? Number(m[2]) - Number(m[1]) + 1 : 1 };
 }
 
 /** Text with the page's spaces made plain. */
@@ -69,6 +77,8 @@ class Film {
     /** @type {Record[]} */
     this.records = [];
     this.caption = "";
+    /** how long the caption has been on the screen so far */
+    this.shown = 0;
     this.bar = "";
     /** @type {{ x: number, y: number } | null} */
     this.pointer = null;
@@ -83,6 +93,7 @@ class Film {
   /** The caption from now on, its bar drawn by the app's own font in a page of its own. */
   async say(/** @type {string} */ text) {
     this.caption = text;
+    this.shown = 0;
     this.bar = join(this.dir, "bars", `${createHash("sha256").update(text).digest("hex").slice(0, 16)}.png`);
     if (existsSync(this.bar)) return;
     if (!this.captionPage) {
@@ -130,30 +141,42 @@ class Film {
     const shot = join(this.dir, "shots", `${this.part}-${String(this.records.length).padStart(4, "0")}.png`);
     await this.page.screenshot({ path: shot, animations: "disabled", caret: "hide" });
     this.records.push({ shot, ms, caption: this.caption, bar: this.bar, phone: this.phone, pointer: this.pointer && { ...this.pointer }, press: null, marks: [...this.marks], ...extra });
+    this.shown += ms;
   }
 
-  /** Holds the page as it is for as long as its caption takes to read. */
-  async read(/** @type {Partial<Record>} */ extra = {}) {
-    await this.shoot(Math.max(READ_MS.least, this.caption.split(/\s+/).length * READ_MS.word), extra);
+  /**
+   * Holds the page until its caption has been on the screen as long as it takes to read (`readMs`), counting the
+   * frames already shown under it and the `then` milliseconds of the click that follows under it; at least a second.
+   */
+  async read(/** @type {Partial<Record>} */ extra = {}, then = CLICK_MS) {
+    await this.shoot(Math.max(1000, readMs(this.caption) - this.shown - then), extra);
   }
 
-  /** The pointer glides to a point, a frame at each step. */
-  async glide(/** @type {{ x: number, y: number }} */ to, ms = 480) {
+  /**
+   * The pointer glides to a point, a frame at each step. With `hover` false only the drawn pointer moves and the
+   * browser's mouse goes to the end in one move: a chart under the path would open its readout on the way.
+   */
+  async glide(/** @type {{ x: number, y: number }} */ to, ms = GLIDE_MS, hover = true) {
     const from = this.pointer ?? to;
     const n = Math.max(1, Math.round(ms / STEP_MS));
     for (let i = 1; i <= n; i++) {
       const t = i / n;
       const e = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
       this.pointer = { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e };
-      await this.page.mouse.move(this.pointer.x, this.pointer.y);
+      if (hover || i === n) await this.page.mouse.move(this.pointer.x, this.pointer.y);
       await this.shoot(STEP_MS);
     }
   }
 
-  /** Where the pointer rests while a box is read: at its lower right corner, off the text. */
+  /**
+   * Where the pointer rests while a box is read, off the text: right of the box's lower corner, or in the middle of its
+   * lower edge when the box reaches the side of the screen (a row of a list has its sum there).
+   */
   beside(/** @type {Box} */ box) {
     const limit = this.phone ? PHONE : { width: SIZE.width, height: SIZE.page };
-    return { x: Math.min(limit.width - 24, Math.round(box.x + box.width + 10)), y: Math.min(limit.height - 24, Math.round(box.y + box.height - 4)) };
+    const y = Math.min(limit.height - 24, Math.round(box.y + box.height - 4));
+    if (box.x + box.width + 10 > limit.width - 40) return { x: Math.round(box.x + box.width / 2), y };
+    return { x: Math.round(box.x + box.width + 10), y };
   }
 
   /** The middle of what a locator finds, in the page's pixels, once it is on the screen. */
@@ -167,12 +190,12 @@ class Film {
   /**
    * The pointer goes to the target and clicks it (a finger taps it on the phone). The press is drawn on the page it is
    * made on, and the next frame is the page the click opened, once it has loaded: a frame half way would show the
-   * caption of one page over another.
+   * caption of one page over another. `hover` as for `glide`.
    */
-  async click(/** @type {Locator} */ target) {
+  async click(/** @type {Locator} */ target, hover = true) {
     const at = await this.centre(target);
     if (this.phone) this.pointer = null;
-    else await this.glide(at);
+    else await this.glide(at, GLIDE_MS, hover);
     for (let age = 0; age < 3; age++) await this.shoot(age ? 80 : 160, { press: { ...at, age } });
     await this.page.mouse.click(at.x, at.y);
     await this.settle();
@@ -241,24 +264,36 @@ async function desk(/** @type {Film} */ film) {
   const load = page.getByRole("button", { name: "Lataa esimerkkitiedot" });
   await load.waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
-  await film.say("A new install is empty. Here the example data stands in for a linked bank.");
+  await film.say("A new install is empty. The example data stands in for a bank.");
   await film.read();
   await film.click(load);
   await page.getByRole("heading", { name: /^Palkkapäivään/ }).waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
-  await film.shoot(300);
+  // the first page has its figures now; the pointer leaves it for Tapahtumat without opening the chart's readout
+  await film.say("The example data is loaded.");
+  await film.shoot(400);
+  await film.click(tab(page, "Tapahtumat"), false);
 
-  // 2. the rows that came in
-  await film.click(tab(page, "Tapahtumat"));
+  // 2. the rows that came in, each with a payee and a category; one row whose payee the app read from the bank's text
   const count = plain(await page.locator(".tx-totals-count").textContent());
   const span = plain(await page.locator(".tx-totals-span").textContent());
-  const rows = /^(\d[\d ]*) tapahtumaa$/.exec(count)?.[1]?.replace(/ /g, "");
+  const rows = Number(/^(\d[\d ]*) tapahtumaa$/.exec(count)?.[1]?.replace(/ /g, ""));
   const dates = /(\d{1,2}\.\d{1,2}\.\d{4})–(\d{1,2}\.\d{1,2}\.\d{4})$/.exec(span);
   if (!rows || !dates) throw new Error(`Tapahtumat shows "${count}" and "${span}"`);
-  await film.say(`Tapahtumat: ${rows} transactions, ${englishDate(/** @type {string} */ (dates[1]))} to ${englishDate(/** @type {string} */ (dates[2]))}, each with a payee and a category.`);
-  await film.read();
-
-  // 3. one row: the bank's text, the payee and the category the app gave it
+  const unsorted = await page.evaluate(async (/** @type {number} */ total) => {
+    /** @type {{ merchant?: string | null, category?: string | null }[]} */
+    const all = [];
+    while (all.length < total) {
+      const res = await fetch(`/api/transactions?limit=500&offset=${all.length}`);
+      const page = /** @type {{ items: { merchant?: string | null, category?: string | null }[] }} */ (await res.json());
+      if (!page.items.length) break;
+      all.push(...page.items);
+    }
+    return { read: all.length, without: all.filter((t) => !t.merchant || !t.category).length };
+  }, rows);
+  if (unsorted.read !== rows || unsorted.without) throw new Error(`Tapahtumat: ${unsorted.without} of ${unsorted.read} rows lack a payee or a category`);
+  await film.say(`Tapahtumat: ${rows} transactions from ${englishDate(/** @type {string} */ (dates[1]))} to ${englishDate(/** @type {string} */ (dates[2]))}, each with a payee and a category.`);
+  await film.shoot(1200);
   const visible = page.locator("tbody tr").filter({ has: page.locator(".tx-text") });
   let picked = null;
   for (const row of await visible.all()) {
@@ -267,14 +302,16 @@ async function desk(/** @type {Film} */ film) {
     const category = plain(await row.locator(".tx-chip-label").textContent().catch(() => ""));
     const box = await row.boundingBox();
     if (!box || box.y + box.height > SIZE.page) break;
-    if (category && category !== "Omat siirrot" && text.length > name.length + 4 && !text.toUpperCase().startsWith(name.toUpperCase())) {
-      picked = { row, name, text, category };
+    // the payee is a word of the bank's text, which says more: not a payee the bank sent in a field of its own
+    const words = name.toUpperCase().split(/[^\p{L}\d]+/u).filter((w) => w.length > 2);
+    const upper = text.toUpperCase();
+    if (category && category !== "Omat siirrot" && text.length > name.length + 4 && !upper.startsWith(name.toUpperCase()) && words.some((w) => upper.includes(w))) {
+      picked = row;
       break;
     }
   }
-  if (!picked) throw new Error("no row on the first screen of Tapahtumat whose bank text differs from its payee");
-  film.marks = [await film.box(picked.row.locator(".tx-text"), picked.row.locator(".tx-name")), await film.box(picked.row.locator(".tx-chip-label"))];
-  await film.say(`The bank's text ${picked.text} becomes the payee ${picked.name}, category ${picked.category}.`);
+  if (!picked) throw new Error("no row on the first screen of Tapahtumat whose payee the app read from a longer bank text");
+  film.marks = [await film.box(picked.locator(".tx-text"), picked.locator(".tx-name")), await film.box(picked.locator(".tx-chip-label"))];
   await film.glide(film.beside(/** @type {Box} */ (film.marks[1])));
   await film.read();
   film.marks = [];
@@ -291,7 +328,7 @@ async function desk(/** @type {Film} */ film) {
   if (!payday) throw new Error("Yhteenveto names no payday");
   if (cents(balance) + cents(bills) !== cents(left)) throw new Error(`Yhteenveto: ${balance} and ${bills} do not make ${left}`);
   film.marks = [await film.box(answer.locator("dl"))];
-  await film.say(`Yhteenveto: ${euros(cents(balance))} on the current account less ${euros(-cents(bills))} of bills before payday (${englishDate(payday)}) leaves ${euros(cents(left))}.`);
+  await film.say(`Yhteenveto: balance ${euros(cents(balance))} less ${euros(-cents(bills))} of bills leaves ${euros(cents(left))} until payday, ${englishDate(payday)}.`);
   await film.glide(film.beside(await film.box(answer.locator("dd").first())));
   await film.read({ poster: true });
 
@@ -303,13 +340,14 @@ async function desk(/** @type {Film} */ film) {
   for (const row of await list.locator('.bp-row[data-kind="bill"]').all()) {
     due.push({ name: plain(await row.locator(".bp-name").textContent()), date: plain(await row.locator(".bp-date").textContent()), sum: cents(plain(await row.locator(".bp-sum").textContent())) });
   }
+  if (!due.length) throw new Error("Laskut has no bill before payday today: the film needs at least one");
   const total = list.locator('.bp-row[data-kind="total"]');
   const totalCents = cents(plain(await total.textContent()));
-  if (!due.length || due.reduce((s, b) => s + b.sum, 0) !== totalCents || totalCents !== -cents(bills)) throw new Error(`Laskut: the bills before payday do not add up to ${bills}`);
+  if (due.reduce((s, b) => s + b.sum, 0) !== totalCents || totalCents !== -cents(bills)) throw new Error(`Laskut: the bills before payday do not add up to ${bills}`);
   film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
-  // two bills are named; more would make the caption too long to read in the film's 40 seconds
-  const named = due.length <= 2 ? `, ${due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(" and ")}` : "";
-  await film.say(`Laskut: the ${euros(totalCents)} is ${NUMBERS[due.length] ?? due.length} bill${due.length === 1 ? "" : "s"} expected before payday${named}.`);
+  // two bills are named; more would make the caption too long to read
+  const named = due.length <= 2 ? due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(", ") : `its ${due.length} bills before payday`;
+  await film.say(`The ${euros(totalCents)} opens Laskut: ${named}.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   await film.read();
   film.marks = [];
@@ -321,19 +359,17 @@ async function desk(/** @type {Film} */ film) {
   const sums = plain(await page.locator("p", { hasText: /^Menot/ }).first().textContent());
   const m = /^Menot ([\d ]+ €), yleensä ([\d ]+ €)/.exec(sums);
   if (!m) throw new Error(`Raportit says "${sums}"`);
-  const range = plain(await page.getByText(/^\d{1,2}\.(?:–\d{1,2}\.)?\d{1,2}\.$/).first().textContent());
-  const d = /^(\d{1,2})\.(?:–(\d{1,2})\.)?\d{1,2}\.$/.exec(range);
-  if (!d) throw new Error(`Raportit names no days: "${range}"`);
-  const month = englishMonth(plain(await heading.textContent()));
-  const days = d[2] ? `${month} ${d[1]} to ${d[2]}` : `${month} ${d[1]}`;
-  await film.say(`Raportit: ${days} by category, ${m[1]} spent against a usual ${m[2]} for those days.`);
+  const days = englishDays(plain(await page.getByText(/^\d{1,2}\.(?:–\d{1,2}\.)?\d{1,2}\.$/).first().textContent()));
+  await film.say(`Raportit by category: ${m[1]} spent ${days.text}, against a usual ${m[2]} for ${days.days > 1 ? "those days" : "that day"}.`);
   await film.read();
 
   // 7. one figure of it and the rows behind it
   const buttons = page.getByRole("button", { name: /^Näytä tapahtumat: / });
   // the groceries when the month has them: a category every household has
   const grocery = page.getByRole("button", { name: /^Näytä tapahtumat: Ruokakauppa / });
-  const open = (await grocery.count()) ? grocery.first() : buttons.first();
+  let open = (await grocery.count()) ? grocery.first() : null;
+  for (const b of await buttons.all()) if (!open && cents(plain(await b.textContent())) !== 0) open = b;
+  if (!open) throw new Error("Raportit has no figure with rows behind it this month");
   const clicked = cents(plain(await open.textContent()));
   await film.click(open);
   const dialog = page.locator("dialog[open]");
@@ -342,12 +378,13 @@ async function desk(/** @type {Film} */ film) {
   let added = 0;
   for (const line of lines) added += cents(plain(await line.locator("td.num").textContent()));
   const shown = cents(plain(await dialog.locator("[data-why-total]").textContent()));
-  if (added !== shown || shown !== clicked) throw new Error(`Raportit: the rows add up to ${euros(added)}, the dialog shows ${euros(shown)}, the figure was ${euros(clicked)}`);
+  if (!lines.length || added !== shown || shown !== clicked) throw new Error(`Raportit: the rows add up to ${euros(added)}, the dialog shows ${euros(shown)}, the figure was ${euros(clicked)}`);
   const category = plain(await dialog.locator("h2").textContent());
   film.marks = [await film.box(dialog.locator(".why-foot"))];
-  await film.say(`The ${euros(shown)} of ${category} opens its ${lines.length} rows, which add up to the same sum.`);
+  await film.say(`${category}'s ${euros(shown)} opens its ${lines.length} row${lines.length === 1 ? "" : "s"}, which add up to it.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
-  await film.read();
+  // the phone's part follows with no click under this caption
+  await film.read({}, 0);
   film.marks = [];
 }
 
@@ -358,21 +395,24 @@ async function phone(/** @type {Film} */ film) {
   const answer = page.locator(".home-answer");
   await answer.waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
-  await film.say("On a phone the same pages fit the screen, with the tabs at the bottom.");
-  await film.read();
+  await film.say("The same pages on a phone, with the tabs at the bottom.");
+  // a finger's tap has no glide before it
+  await film.read({}, CLICK_MS - GLIDE_MS);
   await film.click(answer.locator('a[href*="ennen-palkkapaivaa"]'));
   const list = page.locator("#ennen-palkkapaivaa .bp-rows");
   await list.waitFor({ state: "visible" });
-  await film.shoot(800);
-  // the bills and their total above the tab bar at the bottom of the screen
+  await film.shoot(700);
+  // the bills and their total above the tab bar at the bottom of the screen, and the header that scrolls away gone whole
   const total = list.locator('.bp-row[data-kind="total"]');
   const bar = await page.getByRole("navigation", { name: "Päävalikko" }).boundingBox();
   const end = await total.boundingBox();
+  const head = await page.locator("header.topbar").boundingBox();
   if (!bar || !end) throw new Error("Laskut on the phone has no tab bar or no total");
-  const dy = Math.round(end.y + end.height - (bar.y - 24));
+  let dy = Math.round(end.y + end.height - (bar.y - 24));
+  if (dy > 0 && head && head.y + head.height > 0) dy = Math.max(dy, Math.ceil(head.y + head.height));
   if (dy > 0) await film.scroll(dy);
   film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
-  await film.shoot(2000);
+  await film.shoot(1800);
   film.marks = [];
 }
 
