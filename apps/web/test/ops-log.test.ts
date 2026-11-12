@@ -11,8 +11,8 @@ const events = (n: number): AuditEvent[] =>
 const html = (list: AuditEvent[]) => renderToStaticMarkup(createElement(OpsLog, { events: list }));
 
 describe("OpsLog", () => {
-  it("shows the 25 newest of 150 and the way to the rest", () => {
-    const out = html(events(150));
+  it("shows the 25 newest of 50, the most the server sends, and the way to the rest", () => {
+    const out = html(events(50));
     expect(out.match(/<tbody[\s\S]*<\/tbody>/)![0].match(/<tr/g)).toHaveLength(25);
     expect(out).toContain("update-24");
     expect(out).not.toContain("update-25<");

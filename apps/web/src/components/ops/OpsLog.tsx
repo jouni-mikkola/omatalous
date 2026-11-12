@@ -6,7 +6,7 @@ import { t } from "../../text.ts";
 import { S } from "./ops-strings.ts";
 import type { AuditEvent } from "./types.ts";
 
-/** The rows in sight before Näytä lisää: the server sends up to 150, which made the page several screens long. */
+/** The rows in sight before Näytä lisää: the server sends up to 50 (`opsAudit`), which made the page several screens long. */
 const SHOWN = 25;
 
 export function OpsLog({ events }: { events: AuditEvent[] }) {
