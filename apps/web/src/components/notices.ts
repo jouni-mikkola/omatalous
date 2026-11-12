@@ -1,6 +1,6 @@
 // Decision: which notice of the server the household reads first, and where it is mended
-import { localeOf, messageFromWire } from "@banking/core";
-import { dateTime, language, timeZone } from "../format.ts";
+import { messageFromWire } from "@banking/core";
+import { dateTime, language } from "../format.ts";
 import { t } from "../text.ts";
 import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 
@@ -35,13 +35,10 @@ export const bannersOf = (notices: readonly SecurityNotice[]): SecurityNotice[] 
 /** Notices about copies, the disk and the host helper: their text sends the admin to Asetukset > Ylläpito (the server's db-health.ts). */
 const MAINTENANCE = new Set(["copy_missing", "copy_check_failed", "disk_low", "helper_silent"]);
 
-/** The day and time of a notice's sentence, as the server's own Finnish text writes it: "24.10. 01.30", in the instance's time zone. */
-const whenOf = (at: string): string => new Intl.DateTimeFormat(localeOf(language()), { timeZone: timeZone(), day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(at));
-
 /** The sentence of a notice in the member's language; a notice with no code, or one this build does not know, keeps the server's text. */
 export function noticeText(n: SecurityNotice): string {
   if (!n.code) return n.text;
-  return messageFromWire(n.code, { ...n.params, when: n.at ? whenOf(n.at) : "" }, language()) ?? n.text;
+  return messageFromWire(n.code, { ...n.params, when: n.at ? dateTime(n.at) : "" }, language()) ?? n.text;
 }
 
 /**

@@ -319,7 +319,7 @@ describe("the blocks of each state", () => {
     const html = page(TRIAL);
     expect(html).toContain("Uusi osoite on kokeilussa.");
     expect(html).not.toContain("Etäkäyttö on käytössä.");
-    expect(html).toContain(`<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a> kerran ja kirjaudu sisään Cloudflaren kautta ennen kello ${clockTime(REVERT_AT)}.`);
+    expect(html).toContain(`<a href="https://talous.example.fi" target="_blank" rel="noopener noreferrer">https://talous.example.fi</a> kerran ja kirjaudu sisään Cloudflaren kautta ennen klo ${clockTime(REVERT_AT)}.`);
     expect(html).toContain("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.");
     // the address and the list stay on show, and so does the way back
     expect(html).toContain("<li>anna@example.fi</li>");
@@ -327,11 +327,11 @@ describe("the blocks of each state", () => {
     // the moment before the helper's report is settled has no time yet
     const unsettled = page({ ...TRIAL, access: { ...TRIAL.access, revertAt: null } });
     expect(unsettled).toContain("kirjaudu sisään Cloudflaren kautta 15 minuutin kuluessa.");
-    expect(unsettled).not.toContain("ennen kello");
+    expect(unsettled).not.toContain("ennen klo");
     // the time has passed and the helper has not taken it off yet
     const late = page(TRIAL, {}, Date.parse(REVERT_AT) + 60_000);
-    expect(late).toContain(`Kokeiluaika päättyi kello ${clockTime(REVERT_AT)}.`);
-    expect(late).not.toContain("ennen kello");
+    expect(late).toContain(`Kokeiluaika päättyi klo ${clockTime(REVERT_AT)}.`);
+    expect(late).not.toContain("ennen klo");
     expect(late).toContain("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.");
   });
 

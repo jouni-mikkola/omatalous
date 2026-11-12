@@ -14,6 +14,12 @@ import { dateTime } from "../src/format.ts";
 const AT = "2026-10-09T03:00:00.000Z";
 const auto: RestoreState = { copy: { name: "auto-2026-10-09.db", at: AT, size: 3_200_000, kind: "daily" }, pending: false };
 
+describe("the helper's state", () => {
+  it("says the time it was seen with klo", () => {
+    expect(S.helperOk("20.42")).toBe("Apuri toimii (nähty klo 20.42)");
+  });
+});
+
 describe("Palauta, the row action of Varmuuskopiot", () => {
   it("is offered for the copy the server would take, and for none while it reads, when a request waits or no copy is intact", () => {
     expect(restorable(auto)).toEqual(auto.copy);

@@ -168,7 +168,7 @@ they are the name and are small otherwise ("tapahtumat" for the transactions in 
 | A period | `1.10.2025–30.9.2026`: an en dash and no spaces | `1.10.2025 – 30.9.2026`, `1.10.2025-30.9.2026` |
 | A period in one year | `10.–30.9.2026` | the year twice |
 | A weekday | short and small (*ti 10.11.*), only when it matters | |
-| A time | `klo 6.15`, `klo 18.15`, `klo 0.15`: a full stop between hours and minutes, no zero before the hour, always *klo* | `06.15`, `6:15`, `21.52` with no *klo* |
+| A time | `klo 6.15`, `klo 18.15`, `klo 0.15`: a full stop between hours and minutes, no zero before the hour, always *klo* | `06.15`, `6:15`, `21.52` with no *klo*, *kello 6.15* (rule 35) |
 | A time span | `klo 6.15–18.15` | |
 | A time stamp | the year only when it is not this year: `23.10. klo 18.15`, `23.10.2025 klo 18.15` | |
 

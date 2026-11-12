@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { bannersOf, type SecurityNotice, securityRows } from "../src/components/notices.ts";
 
 const signIn = (over: Partial<SecurityNotice> = {}): SecurityNotice => ({ id: "e7", kind: "new_device", at: "2026-10-12T12:30:00.000Z", text: "Tunnuksellasi kirjautui joku uudelta laitteelta.", detail: "Chrome, Windows", ...over });
@@ -32,6 +32,14 @@ describe("the notices of the server", () => {
       ["i", "Toimialahaku on pois päältä.", "#/settings/server#palvelin"],
       ["m", "Levyllä on vähän tilaa.", "#/settings/server#yllapito"],
     ]);
+  });
+
+  it("write the time of a sentence as the app does: klo and no zero before the hour", () => {
+    // 22.10 UTC on 11.11. is 0.10 on 12.11. in Helsinki, the year of today
+    vi.useFakeTimers({ now: new Date("2026-11-12T10:00:00Z"), toFake: ["Date"] });
+    const [reset] = securityRows([signIn({ id: "r", kind: "password_reset_by_admin", at: "2026-11-11T22:10:00.000Z", text: "", code: "notice.reset_by_admin" })]);
+    expect(reset!.title).toBe("Ylläpitäjä nollasi salasanasi 12.11. klo 0.10. Jos et tiennyt siitä, kysy ylläpitäjältä.");
+    vi.useRealTimers();
   });
 
   it("are no line when there is none", () => {
