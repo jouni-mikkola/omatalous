@@ -198,7 +198,7 @@ export function upcomingGroups({ upcoming, to, reason, payday }: Pick<AheadData,
   return card.length ? [...groups, group("card", card)] : groups;
 }
 
-/** What accounts the balance leaves out pay in the 30 days: the rows marked `outside`, in no figure of the window. */
+/** What accounts the balance leaves out pay in the 30 days, or to the payday when it is further: the rows marked `outside`, in no figure of the window. */
 export function upcomingElsewhereCents(upcoming: readonly AheadRow[]): number {
   return upcoming.reduce((sum, r) => (r.outside && r.cents !== null && r.cents < 0 ? sum - r.cents : sum), 0);
 }
@@ -339,12 +339,13 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   for (const b of expectedBillRows(ctx, inputs.expectedBills, from, reachPayments)) {
     all.push({ date: b.date, name: b.name, category: b.category, cents: -b.amountCents, source: "expected" });
   }
-  // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window; a card's is marked
+  // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window; a card's is marked.
+  // An account's runs as far as the payments do, so a payday more than 30 days off still has all of it before it.
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   const onCard = (s: RecurringSeries) => cards.has(parseSeriesId(s.id)?.accountId ?? "");
   const outside = ctx.recurring.filter((s) => !onCounted(s));
   const elsewhere = [
-    ...expectedCharges(outside.filter((s) => !onCard(s)), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), outside: true })),
+    ...expectedCharges(outside.filter((s) => !onCard(s)), from, reachPayments, expected).map((c): AheadRow => ({ ...chargeRow(c), outside: true })),
     ...expectedCharges(outside.filter(onCard), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), onCard: true })),
   ];
   // the moves are found to the end of Laskut's 30 days: a card's bill is in the list like any bill, a transfer is not

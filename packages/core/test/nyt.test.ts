@@ -134,6 +134,21 @@ describe("Nyt", () => {
     expect(plain.known && plain.elsewhereCents).toBe(0);
   });
 
+  // the rows of an account outside the balance were found for 30 days alone, so a payday further off left some out
+  it("what an account outside the balance pays is counted to a payday more than 30 days off", () => {
+    // the pay of the 15th of November (a Sunday) came on Friday the 13th: today, the next is on Tuesday the 15th of December
+    const today = "2026-11-13";
+    const other: Account = { id: "other", name: "Toinen tili", iban: "FI49 5000 9420 0287 30", currency: "EUR", type: "savings" };
+    const loan = [...MONTHS, "2026-11"].map((m) => tx({ accountId: "other", bookingDate: `${m}-14`, amountCents: -42_182, merchant: "Lainapankki", category: "loans" }));
+    const november = tx({ accountId: "own", bookingDate: today, amountCents: 300_000, merchant: "Esimerkki Oy", category: "salary" });
+    const ctx = createContext([...pays(), november, ...rents(), ...shopping(today), ...loan].filter((t) => t.bookingDate <= today), [own, other], today);
+    const left = nytAnswer(ctx, aheadBasis(ctx, [bal(BALANCE), { ...bal(BALANCE), id: other.id, name: other.name, type: other.type }], NO_INPUTS)).left;
+    if (!left.known) throw new Error(`no sum: ${left.reason}`);
+    expect(left.payday.date).toBe("2026-12-15");
+    // the 14th of November and the 14th of December, 31 days from today
+    expect(left.elsewhereCents).toBe(2 * 42_182);
+  });
+
   it("no payday says how many pays were found", () => {
     const base = [...rents(), ...shopping()];
     const one = run([...base, ...pays().slice(-1)]).answer;
