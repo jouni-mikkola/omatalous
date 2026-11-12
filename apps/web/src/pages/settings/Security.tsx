@@ -3,7 +3,7 @@
  * for each service token, a read-only key of a script or an agent that is made on the server's command line) and
  * Turvallisuusloki (admin).
  */
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { api } from "../../api.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { dateTime } from "../../format.ts";
@@ -265,6 +265,17 @@ export function Sessions({ admin = false, onLoaded }: { admin?: boolean; onLoade
   );
 }
 
+/**
+ * What Lisätieto adds to the row. A failed login or lockout keeps the typed name, which says something only when no user
+ * has it; of a known user it is the Käyttäjä column again. A passkey's label stays even when it is the user's name, and a
+ * new device's label stays, as a phone hides the Laite column.
+ * With nothing to add the cell is empty, so a phone's row block drops the label too (`td[data-label]:empty`).
+ */
+export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username">): ReactNode {
+  const typedName = (e.kind === "login_fail" || e.kind === "lockout") && e.detail === e.username;
+  return e.detail === null || typedName ? "" : <span className="small muted">{e.detail}</span>;
+}
+
 /** The admin's list of logins, lockouts, key changes and maintenance requests of the last 90 days. */
 export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => void }) {
   const [kind, setKind] = useState("");
@@ -301,7 +312,7 @@ export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => voi
           { key: "user", label: t("set.sec.user"), kind: "text", cell: (e) => e.username ?? "" },
           { key: "device", label: t("set.sec.device"), kind: "text", phone: "hide", cell: (e) => e.device ?? "" },
           { key: "ip", label: t("set.sec.address"), kind: "text", phone: "hide", cell: (e) => <span className="small">{e.ip ?? ""}</span> },
-          { key: "detail", label: t("set.sec.details"), kind: "text", cell: (e) => <span className="small muted">{e.detail ?? ""}</span> },
+          { key: "detail", label: t("set.sec.details"), kind: "text", cell: eventDetail },
         ]}
       />
       {events.data && !events.data.events.length && <Empty>{t("set.sec.no_events")}</Empty>}
