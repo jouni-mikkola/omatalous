@@ -3,7 +3,7 @@
  * the same days, and the rest of the month as the base months spent it.
  */
 import { billCents } from "../account-use.ts";
-import { expectedDates, isFixedCost } from "../commitments.ts";
+import { expectedDates } from "../commitments.ts";
 import { addDays, addMonths, addMonthsToDate, dayNumber, daysInMonth, monthEnd, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
@@ -11,7 +11,7 @@ import { normalizeReference, PAID_EARLY_DAYS } from "../recurring-settled.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
-import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
+import { type AnalysisContext, inDays, spendRows, standingOf } from "./context.ts";
 import { accountsCoverage, monthSpan } from "./coverage.ts";
 import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
 import { paidCardBills } from "./usual.ts";
@@ -63,8 +63,6 @@ export interface MonthPace {
    * An estimate. null for a month that has ended or has not begun, and without `expected`.
    */
   projection: { fromDay: number; low: number[]; high: number[] } | null;
-  /** The month's largest purchase so far that is in no recurring series (the rent says nothing), the line's one event besides pay. null with none. */
-  largest: { day: number; name: string; cents: number } | null;
   /** The days of the month so far that brought earned income of at least a quarter of the expected month's: the pay days the line marks. */
   payDays: number[];
 }
@@ -114,7 +112,6 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
     currentTotal: lastDay ? cur[lastDay - 1]! : 0,
     previous: curve && { month: before, curve, day, toToday: day ? curve[day - 1]! : 0 },
     ...expectedPace(ctx, month, lastDay, lastDay ? cur[lastDay - 1]! : 0),
-    largest: largestOneOff(ctx, month, lastDay),
     payDays: payDaysOf(ctx, month, lastDay),
   };
 }
@@ -146,15 +143,6 @@ function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, tota
     projection.high.push(Math.max(a, b));
   }
   return { expected, projection, cardGap: false };
-}
-
-/** The month's largest purchase on its days 1 to `lastDay` that belongs to no fixed-cost series (rent, a subscription); a shop's recurring rows count. */
-function largestOneOff(ctx: AnalysisContext, month: string, lastDay: number): MonthPace["largest"] {
-  if (!lastDay) return null;
-  const first = dayNumber(`${month}-01`);
-  const inSeries = new Set(standingOf(ctx).recurring.filter(isFixedCost).flatMap((s) => s.transactionIds));
-  const top = spendRows(ctx, { fromDay: first, toDay: first + lastDay - 1 }).reduce<AnalysisTx | null>((best, t) => (!inSeries.has(t.id) && t.spend > (best?.spend ?? 0) ? t : best), null);
-  return top ? { day: top.day - first + 1, name: top.merchant, cents: top.spend } : null;
 }
 
 /** The days of the month to `lastDay` whose earned income is at least a quarter of the expected month's; none without an expected income. */

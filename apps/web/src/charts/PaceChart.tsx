@@ -44,10 +44,10 @@ const crosses = (values: readonly (number | null)[], xOf: (i: number) => number,
   });
 
 /** An estimate's range, the unit once ("5 200–5 900 €"), marked as an estimate the one way Why.tsx marks one. */
-export const estimateRange = (lo: number, hi: number) => approxText(joinRange(money(lo, false), money(hi, false)), true);
+const estimateRange = (lo: number, hi: number) => approxText(joinRange(money(lo, false), money(hi, false)), true);
 
-/** One row of the readout and the table: a day and what each line says on it. */
-export interface PaceDay {
+/** One row of the readout: a day and what each line says on it. */
+interface PaceDay {
   day: number;
   current: number | null;
   expected: number | null;
@@ -56,8 +56,8 @@ export interface PaceDay {
   projection: [number, number] | null;
 }
 
-/** The lines of `pace` on day `d` (1-based), as the readout and the table read them; nothing is worked out. */
-export function paceDay(pace: Pace, d: number): PaceDay {
+/** The lines of `pace` on day `d` (1-based), as the readout reads them; nothing is worked out. */
+function paceDay(pace: Pace, d: number): PaceDay {
   const { projection } = pace;
   const at = projection ? d - projection.fromDay : -1;
   return {
@@ -72,14 +72,16 @@ export function paceDay(pace: Pace, d: number): PaceDay {
 /**
  * The running month's cumulative spending (accent, 2.5 px) against the household's expected month: the sum of its categories as a line and
  * the middle half of the complete months as a band, last month dotted, the rest of this month as the base months spent
- * it (an estimate: a lighter dashed band), and the pay days and the largest purchase as events on the day axis. Every
- * value is a field of `pace`; `payday` is the day of the coming pay when it falls in this month.
+ * it (an estimate: a lighter dashed band), and one pay day as the one event on the day axis: the coming one when it falls
+ * in this month, else the latest. A second event crowded the axis and said nothing the household decides on. Every
+ * value is a field of `pace`; `payday` is the day of the coming pay when it falls in this month. The key is drawn only
+ * with a second series to tell apart: the one line alone is named by the heading and the figure at its end.
  */
 export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: number | null; payday: number | null; names: { current: string; previous: string } }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const width = measured || UNMEASURED;
   const [at, setAt] = useReadout();
-  const { expected, projection, previous, largest } = pace;
+  const { expected, projection, previous } = pace;
   const days = pace.daysInMonth;
   const lastDay = pace.current.reduce<number>((n, v, i) => (v === null ? n : i + 1), 0);
   const narrow = width < NARROW;
@@ -95,11 +97,8 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
   const xs = Array.from({ length: days }, (_, i) => x(i));
   // the estimate's first point stands on today's day
   const px = (i: number) => x((projection?.fromDay ?? 1) - 1 + i);
-  const events: Marker[] = [
-    ...(largest ? [{ key: "largest", x: x(largest.day - 1), label: t("chart.largest", { name: largest.name, sum: money(largest.cents) }) }] : []),
-    ...pace.payDays.map((d) => ({ key: `pay:${d}`, x: x(d - 1), label: t("chart.pay_day", { day: d }) })),
-    ...(payday && !pace.payDays.includes(payday) ? [{ key: "payday", x: x(payday - 1), label: t("chart.pay_day", { day: payday }) }] : []),
-  ];
+  const pay = payday ?? pace.payDays.at(-1) ?? null;
+  const events: Marker[] = pay === null ? [] : [{ key: "pay", x: x(pay - 1), label: t("chart.pay_day", { day: pay }) }];
   // a label's text box stays inside the chart: its centre is moved in from the edges before the lanes are laid; its rule stays on the day
   const markers = placeMarkers(
     events.map((m) => {
@@ -220,36 +219,38 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
         </div>
       )}
       <LiveReadout text={at === null ? "" : readoutText(title(at), rows(at))} />
-      <ul className="pace-key" aria-hidden="true">
-        <li>
-          <span className="pace-key-now" />
-          {names.current}
-        </li>
-        {expected && (
+      {(expected || previous || goal !== null) && (
+        <ul className="pace-key" aria-hidden="true">
           <li>
-            <span className="pace-key-usual" />
-            {t("chart.expected_range")}
+            <span className="pace-key-now" />
+            {names.current}
           </li>
-        )}
-        {previous && (
-          <li>
-            <span className="pace-key-prev" />
-            {names.previous}
-          </li>
-        )}
-        {goal !== null && (
-          <li>
-            <span className="pace-key-goal" />
-            {t("chart.spending_goal")}
-          </li>
-        )}
-        {projection && (
-          <li>
-            <span className="pace-key-est" />
-            {t("chart.estimate_end")}
-          </li>
-        )}
-      </ul>
+          {expected && (
+            <li>
+              <span className="pace-key-usual" />
+              {t("chart.expected_range")}
+            </li>
+          )}
+          {previous && (
+            <li>
+              <span className="pace-key-prev" />
+              {names.previous}
+            </li>
+          )}
+          {goal !== null && (
+            <li>
+              <span className="pace-key-goal" />
+              {t("chart.spending_goal")}
+            </li>
+          )}
+          {projection && (
+            <li>
+              <span className="pace-key-est" />
+              {t("chart.estimate_end")}
+            </li>
+          )}
+        </ul>
+      )}
     </div>
   );
 }

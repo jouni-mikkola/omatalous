@@ -73,8 +73,6 @@ export const FI_OVERVIEW = {
   "home.fetching_rows": "Haetaan tapahtumia…",
   "home.fetched_so_far": "{count} haettu",
   "home.how_month_goes": "Kuukausi",
-  "home.daily": "{month} päivittäin",
-  "home.col_day": "Päivä",
   "home.col_expected": "Tavallinen",
   "home.col_goal_left": "Tavoitteesta jäljellä",
   "home.col_estimate": "Arvio",
@@ -131,7 +129,6 @@ export const FI_OVERVIEW = {
   "home.nyt_unsaved_one": "Lisäksi {count} laina, jonka saldoa ei ole tallennettu: {names}.",
   "home.nyt_unsaved_many": "Lisäksi {count} lainaa, joiden saldoa ei ole tallennettu: {names}.",
   // Shared components
-  "chart.largest": "Suurin yksittäinen osto {name}, {sum}",
   "chart.pay_day": "Palkka {day}.",
   "chart.aria_pace": "Kuukauden kertyvät menot{expected}{goal}",
   "chart.aria_expected": " tavalliseen kuukauteen verrattuna",

@@ -28,9 +28,10 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
   is left, to the cent), with a line each for what an account outside the balance pays before payday and for the bills
   of the payday itself. Under it Kuukausi on the left, Huomioitavaa and Suurimmat menot on the
   right, Varat ja velat across the page. A phone reads them in that order in one column.
-  - Kuukausi: one sentence with the side of the usual the spending is on, the usual sum and its range, the pace chart
-    of the same figures and the chart's latest days as a table. The month before is drawn only when the household
-    has no usual level yet.
+  - Kuukausi: one sentence with the side of the usual the spending is on, the usual sum and its range, and the pace
+    chart of the same figures. The month before is drawn only when the household has no usual level yet. The chart
+    marks one pay day under its axis and has a key only with a second series. The days as a table are on the month's
+    report, one link away.
   - Huomioitavaa: the first three open questions of Tarkistettavat in the queue's order, each with its sum, and the
     count of all. It asks nothing itself and is not drawn when nothing is open.
   - Suurimmat menot: the five largest categories as bars on one scale, last month's sum to the same day as a mark on
@@ -47,7 +48,6 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
  Kuukausi                                    Huomioitavaa
  Käytetty 2 018 €, 90 € yli tavallisen.      Laina  Rahoitus Oy      289,00 € kuussa
  ▁▂▃▅▆ ─ ─                                   Kaikki 9 tarkistettavaa
- 12.   2 018,10 €   1 928,00 €
                                              Suurimmat menot
                                              Ruokakauppa                      612 €
                                              ████████|██  140 € enemmän kuin viime kuussa
