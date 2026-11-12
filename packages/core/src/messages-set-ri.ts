@@ -65,7 +65,7 @@ export const FI_SET_RI = {
   "set.ri.payments_year_many": "{count} maksua viimeisen vuoden aikana, viimeksi {last}",
   "set.ri.payments_since_one": "{count} maksu {first} alkaen, viimeksi {last}",
   "set.ri.payments_since_many": "{count} maksua {first} alkaen, viimeksi {last}",
-  "set.ri.one_left": "1 kohde jäi seuraavaan kertaan.",
-  "set.ri.n_left": "{left} kohdetta jäi seuraavaan kertaan.",
+  "set.ri.one_left": "1 kysymys jäi seuraavaan kertaan.",
+  "set.ri.n_left": "{left} kysymystä jäi seuraavaan kertaan.",
   "set.ri.old_value": "Edellinen tieto {value}, annettu {date}, on liian vanha. ",
 } as const;

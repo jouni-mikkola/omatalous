@@ -1,12 +1,16 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { eyebrow, figureOf, groupCategories, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
+import { eyebrow, figureOf, groupCategories, leftText, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
 const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
 
 describe("a sitting", () => {
+  it("names what is left by the glossary's word for an item, kysymys", () => {
+    expect([leftText(1), leftText(18)]).toEqual(["1 kysymys jäi seuraavaan kertaan.", "18 kysymystä jäi seuraavaan kertaan."]);
+  });
+
   it("shows the first open item and counts the items it will show", () => {
     const view = sittingView(queue(3), NEW_SITTING);
     expect(view).toMatchObject({ state: "item", position: 1, of: 3 });
