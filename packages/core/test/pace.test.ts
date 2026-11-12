@@ -36,7 +36,7 @@ describe("pace: the month against the month before", () => {
     expect(pace.previous!.curve[12]).toBe(15_700);
     expect(pace.previous!.curve[29]).toBe(16_700);
     // under three complete months there is no expected month and so no projection
-    expect(Object.keys(pace).sort()).toEqual(["cardGap", "current", "currentTotal", "daysInMonth", "expected", "largest", "month", "payDays", "previous", "projection"]);
+    expect(Object.keys(pace).sort()).toEqual(["cardGap", "current", "currentTotal", "daysInMonth", "expected", "month", "payDays", "previous", "projection"]);
     expect(pace.expected).toBeNull();
     expect(pace.projection).toBeNull();
   });
@@ -207,13 +207,8 @@ describe("pace: the usual month and the rest of this one", () => {
     expect(pace.expected).not.toBeNull();
   });
 
-  it("marks the pay day and the largest purchase: not the rent, but the monthly grocery round counts", () => {
-    const rent = (date: IsoDate) => tx({ bookingDate: date, amountCents: -90_000, merchant: "Vuokra Oy", category: "rent" });
-    const tv = tx({ bookingDate: "2026-10-07", amountCents: -12_000, merchant: "Gigantti", category: "electronics" });
-    const pace = paceOf([...rows, ...months.map((m) => rent(`${m}-02`)), rent("2026-10-02"), tv], "2026-10", today);
-    expect(pace.payDays).toEqual([1]);
-    // the grocery round of 150 € is larger than the 120 € television; the 900 € rent is skipped
-    expect(pace.largest).toEqual({ day: 5, name: "Prisma", cents: 15_000 });
+  it("marks the pay day", () => {
+    expect(paceOf(rows, "2026-10", today).payDays).toEqual([1]);
   });
 });
 

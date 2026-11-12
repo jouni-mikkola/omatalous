@@ -71,8 +71,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.fetching_rows": "Fetching transactions…",
   "home.fetched_so_far": "{count} fetched",
   "home.how_month_goes": "Month",
-  "home.daily": "{month} by day",
-  "home.col_day": "Day",
   "home.col_expected": "Expected",
   "home.col_goal_left": "Left of the goal",
   "home.col_estimate": "Estimate",
@@ -128,7 +126,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.nyt_unsaved_one": "And {count} loan with no balance saved: {names}.",
   "home.nyt_unsaved_many": "And {count} loans with no balance saved: {names}.",
   // Shared components
-  "chart.largest": "Largest single purchase {name}, {sum}",
   "chart.pay_day": "Pay {day}.",
   "chart.aria_pace": "The month's accumulating spending{expected}{goal}",
   "chart.aria_expected": " against the expected month",

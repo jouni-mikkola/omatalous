@@ -2021,22 +2021,6 @@ Result: The "Muut luokat" row of Kuukausi opens and lists each category it holds
 - after: none
 - files: apps/web/src/pages/reports/Month.tsx, apps/web/src/styles/report-month.css, apps/web/test/month-rest.dom.test.ts
 
-### XTU4 The largest purchase is real
-Result: The pace chart names the month's largest one-off purchase with its sum, e.g. "Suurin kertaosto Hesburger 80,68 €", never a regular coffee.
-- why: finding 4. `largestOneOff` (`packages/core/src/analysis/forecast.ts:137-143`) skips every row of every recurring series, and in the demo that includes Prisma, Hesburger, K-Market and Alko. `/api/dashboard` gives `pace.largest = {day: 11, name: "Robert's Coffee", cents: 910}` while Hesburger 80,68 € on 8.11. is larger. The label (`chart.largest`) has no sum.
-- done when: a new `packages/core/test/forecast-largest.test.ts`, which fails without the change, builds a month where a grocery shop is a recurring series with an 80 € row and a pending 9 € coffee, and gets the 80 € row as `largest`. A row of a fixed-cost series (`isFixedCost` of `commitments.ts`: rent, a subscription) is still skipped (the near miss). The Finnish and English `chart.largest` take `{sum}`, and `PaceChart.tsx` passes `money(largest.cents)`. `pnpm findings --golden` is run if golden files change. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: none
-- after: none
-- files: packages/core/src/analysis/forecast.ts, packages/core/src/messages-overview.ts, packages/core/src/english/overview.ts, apps/web/src/charts/PaceChart.tsx, packages/core/test/forecast-largest.test.ts
-
-### XTU5 Pace chart labels fit a phone
-Result: At 390 px the chart's day-axis event labels stay inside the chart without overlap, and the month-end range is labelled as an estimate.
-- why: finding 6. At 390 px "Suurin yksittäinen osto Robert's Coffe" runs past the right edge and overlaps "Palkka 25." (`/tmp/XTU/overview-390.png`). At 1440 px "Tavallinen" and the blue "≈ 3 114–3 336 €" stack at the chart end (`PaceChart.tsx:152-155`), so the estimate reads as the usual.
-- done when: a DOM test in the new `apps/web/test/pace-labels.dom.test.ts`, which fails without the change, renders `PaceChart` at a width of 366 px with a largest purchase on day 11 and a payday on day 25. Every event label's text box lies inside the chart width, and the two labels do not overlap (they stack on two lines or the later one is anchored to its end). The wide chart's end range starts with the word of the key ("Arvio"), and the usual line keeps "Tavallinen". `e2e/chart-table.spec.ts` passes. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
-- locks: none
-- after: XTU4
-- files: apps/web/src/charts/PaceChart.tsx, apps/web/src/styles/pace-chart.css, apps/web/test/pace-labels.dom.test.ts
-
 ### XTU6 One stale line on Nyt
 Result: When Nyt cannot be reloaded, the member sees one line with the time of the figures and one retry button, as on every other page.
 - why: finding 5. With `/api/dashboard` failing after a first load (`/tmp/XTU/err-overview.png`), the shell's `StaleAnswer` line and R1's own `Notice` (`apps/web/src/pages/Overview.tsx:63-68`) both show, with two "Yritä uudelleen" buttons. `StaleAnswer` already covers every page (`components/StaleAnswer.tsx`, `useFault` in `hooks.ts`).
@@ -2082,7 +2066,7 @@ Result: When the payday is not yet known, Nyt says how many pays it has found an
 - why: finding 11. A member with one imported pay reads only "Emme tiedä palkkapäivääsi, joten emme voi laskea, paljonko päivässä jää." (`/tmp/XTU/young-overview-390.png`, `messages-overview.ts:13`). Core waits for three pays (`MIN_PAYS`, `packages/core/src/analysis/pay-estimate.ts:39`), and there is no setting for the payday, so the line is a dead end with no time.
 - done when: `MIN_PAYS` is exported and the `no-payday` answer of `nytAnswer` carries the count of pays found. The Finnish and English `home.gap_no_payday` add a sentence with both numbers, "Löysimme 1 palkan, tarvitsemme 3." in the form `docs/UI_STYLE.md` gives for plurals. A case in `packages/core/test/nyt.test.ts`, which fails without the change, gives `found: 1` for a month with one pay and `found: 0` with none. The `late` and `no-balance` reasons are unchanged (the near miss). `apps/web/src/components/home/texts.ts` and `Nyt.tsx` pass the numbers. `python3 ~/.cache/lc-bench/leak-scan.py omatalous` passes and `~/.cache/lc-bench/name-scan.sh` prints nothing.
 - locks: none
-- after: XTU2, XTU4
+- after: XTU2
 - files: packages/core/src/analysis/pay-estimate.ts, packages/core/src/analysis/nyt.ts, packages/core/src/messages-overview.ts, packages/core/src/english/overview.ts, apps/web/src/components/home/Nyt.tsx, apps/web/src/components/home/texts.ts, packages/core/test/nyt.test.ts
 
 ## Review 11 Nov: functionality (XTF)

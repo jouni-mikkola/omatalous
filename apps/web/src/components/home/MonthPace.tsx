@@ -4,17 +4,16 @@ import { hashOf } from "../../routes.ts";
 import { answerMoney } from "../../format.ts";
 import { rich, t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
-import { ChartWithTable } from "../table/selection.tsx";
 import { Button } from "../ui/Button.tsx";
 import { reportHref } from "./Answer.tsx";
-import { PaceTable } from "./PaceTable.tsx";
 import { euroRange, monthTitle, paceGapText } from "./texts.ts";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 
 /**
  * Kuukausi: one sentence that says which side of the usual the spending is on, with the usual sum and its range, then
- * the chart of the month's days and the same days as a table. The chart has one comparison: the usual band when the
+ * the chart of the month's days. The days as a table are on the month's report behind the link: under the chart they
+ * repeated it and pushed the page down. The chart has one comparison: the usual band when the
  * household has one, else last month's line, so a household without a usual level still sees the month against something.
  * Without a usual level the sentence names last month's sum to the same day too, so the words compare with what the chart
  * draws (core leaves last month out when it does not compare day by day: other accounts, or a card bill); on the last days of a month after a shorter one that
@@ -47,7 +46,7 @@ export function MonthPace({ data }: { data: Data }) {
       </p>
       {/* its own line: after the sum it read as one sentence with no stop */}
       {gap && <p className="home-detail home-pace-gap">{gap}</p>}
-      <ChartWithTable chart={<PaceChart pace={pace} goal={null} payday={payday} names={names} />} table={<PaceTable pace={pace} names={names} />} />
+      <PaceChart pace={pace} goal={null} payday={payday} names={names} />
       <p className="home-more">
         <Button variant="link" href={reportHref()}>{t("home.month_report")}</Button>
       </p>

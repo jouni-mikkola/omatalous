@@ -669,11 +669,6 @@
    ]
   },
   "cardGap": false,
-  "largest": {
-   "day": 2,
-   "name": "Neste",
-   "cents": 5784
-  },
   "payDays": []
  },
  "goal": null,
