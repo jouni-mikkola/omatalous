@@ -30,8 +30,9 @@ export function spendingOutgrowsIncome({ ctx, end, gateMonthlyCents, lang }: Ins
   const twelve = lastCompleteMonths(ctx, end, 12);
   const long = twelve.length === 12 && isCompleteMonth(ctx, addMonths(twelve[0]!, -12));
   const now = long ? twelve : twelve.slice(-6);
-  if (now.length < 6 || !isCompleteMonth(ctx, addMonths(now[0]!, -12))) return [];
   const then = now.map((m) => addMonths(m, -12));
+  // every month of the year before: one whose rows are missing would read as a month at 0 €
+  if (now.length < 6 || !then.every((m) => isCompleteMonth(ctx, m))) return [];
   const a = window(ctx, now);
   const b = window(ctx, then);
   if (a.purchases <= 0 || b.purchases <= 0 || a.income <= 0 || b.income <= 0) return [];

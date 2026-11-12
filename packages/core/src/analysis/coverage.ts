@@ -121,41 +121,76 @@ export function accountCovers(ctx: AnalysisContext, accountIds: Iterable<string>
   return any;
 }
 
-const holesOf = new WeakMap<AnalysisContext, Map<number, Set<string>>>();
+/** An account in daily use: this many rows a month on average over the months it has rows in, and spending in this share of the months from its first row to its last or more. */
+const DAILY_ROWS = 8;
+const DAILY_PAID_SHARE = 0.85;
+/** The longest run of empty months read as missing rows; a longer one is an account left unused for a while. */
+const HOLE_MONTHS = 2;
 
-/**
- * The months an account's rows are missing from, by month index: a month with no row of any kind on an account that
- * has rows before and after it and spending in half of the months from its first row to its last or more. Such an
- * account pays its way every month, so an empty month is a fetch or an export that missed it, not a month without
- * spending (the themes window reads its paying accounts the same way). A card used now and then and a savings account
- * have none.
- */
-function holes(ctx: AnalysisContext): Map<number, Set<string>> {
-  let found = holesOf.get(ctx);
-  if (found) return found;
-  found = new Map();
-  const seen = new Map<string, Set<number>>();
-  const paid = new Map<string, Set<number>>();
-  for (const t of ctx.txs) {
-    (seen.get(t.accountId) ?? seen.set(t.accountId, new Set()).get(t.accountId)!).add(t.month);
-    if (t.spend > 0) (paid.get(t.accountId) ?? paid.set(t.accountId, new Set()).get(t.accountId)!).add(t.month);
-  }
-  for (const [id, months] of seen) {
-    const first = Math.min(...months);
-    const last = Math.max(...months);
-    if (last - first < 2 || (paid.get(id)?.size ?? 0) * 2 < last - first + 1) continue;
-    for (let m = first + 1; m < last; m++) if (!months.has(m)) (found.get(m) ?? found.set(m, new Set()).get(m)!).add(id);
-  }
-  holesOf.set(ctx, found);
-  return found;
+interface Holes {
+  /** The accounts each month (an index) misses the rows of. */
+  byMonth: Map<number, Set<string>>;
+  /** Those of them that carry over `LEFT_OUT_SHARE` of the household's spending over the months they have rows in. */
+  main: ReadonlySet<string>;
 }
 
-/** Are rows missing from `month` (`2026-07`) on any of the accounts, or on any account when none is named (`holes`)? */
+const holesOf = new WeakMap<AnalysisContext, Holes>();
+
+/**
+ * The months whose rows are missing on an account in daily use (`DAILY_ROWS`, `DAILY_PAID_SHARE`): a run of one or two
+ * months with no row of any kind between months with rows. Such an account has rows every month, so the bank or the
+ * file missed them. A card used now and then, a savings account and an account for a few bills have none.
+ */
+function holes(ctx: AnalysisContext): Holes {
+  const cached = holesOf.get(ctx);
+  if (cached) return cached;
+  const byMonth = new Map<number, Set<string>>();
+  const main = new Set<string>();
+  const rows = new Map<string, { months: Set<number>; paid: Set<number>; count: number; spend: number }>();
+  const spendOf = new Map<number, number>();
+  for (const t of ctx.txs) {
+    const a = rows.get(t.accountId) ?? rows.set(t.accountId, { months: new Set(), paid: new Set(), count: 0, spend: 0 }).get(t.accountId)!;
+    a.months.add(t.month);
+    a.count++;
+    if (t.spend > 0) {
+      a.paid.add(t.month);
+      a.spend += t.spend;
+      spendOf.set(t.month, (spendOf.get(t.month) ?? 0) + t.spend);
+    }
+  }
+  for (const [id, a] of rows) {
+    const first = Math.min(...a.months);
+    const last = Math.max(...a.months);
+    if (a.months.size < 3 || a.count < DAILY_ROWS * a.months.size || a.paid.size < DAILY_PAID_SHARE * (last - first + 1)) continue;
+    let found = false;
+    for (let m = first + 1; m < last; m++) {
+      if (a.months.has(m)) continue;
+      let end = m;
+      while (!a.months.has(end + 1)) end++;
+      if (end - m < HOLE_MONTHS) {
+        found = true;
+        for (let h = m; h <= end; h++) (byMonth.get(h) ?? byMonth.set(h, new Set()).get(h)!).add(id);
+      }
+      m = end;
+    }
+    let household = 0;
+    for (const m of a.months) household += spendOf.get(m) ?? 0;
+    if (found && a.spend > LEFT_OUT_SHARE * household) main.add(id);
+  }
+  const out = { byMonth, main };
+  holesOf.set(ctx, out);
+  return out;
+}
+
+/**
+ * Are rows missing from `month` (`2026-07`) on one of the accounts (`holes`)? With none named, the household's month
+ * misses rows when an account that carries over `LEFT_OUT_SHARE` of its spending does.
+ */
 export function rowsMissing(ctx: AnalysisContext, month: string, accounts?: Iterable<string>): boolean {
-  const ids = holes(ctx).get(monthIndex(month));
+  const { byMonth, main } = holes(ctx);
+  const ids = byMonth.get(monthIndex(month));
   if (!ids) return false;
-  if (!accounts) return true;
-  for (const id of accounts) if (ids.has(id)) return true;
+  for (const id of accounts ?? main) if (ids.has(id)) return true;
   return false;
 }
 

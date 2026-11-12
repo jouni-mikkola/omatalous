@@ -246,7 +246,8 @@ export function themesReport(ctx: AnalysisContext): ThemesReport | null {
   const now = sumsOf(ctx, rows, cars, large);
 
   let before: Sums["themes"] | null = null;
-  if (n === YEAR && complete.length === 2 * YEAR) {
+  // two years of consecutive months: a month skipped as missing rows (`completeMonthsBefore`) leaves no year before
+  if (n === YEAR && complete.length === 2 * YEAR && complete[2 * YEAR - 1]! - complete[0]! === 2 * YEAR - 1) {
     const earlier = complete.slice(0, YEAR);
     const earlierRows = rowsOf(ctx, earlier);
     const seenEarlier = new Set(earlierRows.map((t) => at(t.accountId, t.month)));

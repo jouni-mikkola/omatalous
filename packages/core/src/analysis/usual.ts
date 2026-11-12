@@ -40,17 +40,21 @@ type RowBounds = { from: IsoDate | null; today: IsoDate };
  * The month (`2026-09`) has ended and the accounts a reader sums were in the data from the 1st (`accountCovers`). A
  * reader of the household total passes no accounts: the accounts with a row in the month are the ones it sums, so an
  * account connected later does not make the months before it incomplete, and its own first month is. A month without
- * a row is judged by the history of all rows. A month an account that pays every month has no row in, between rows
- * before and after it, is missing data (`rowsMissing`): it is no complete month for that account, nor for the
- * household. `rows` narrows it further for a reader that knows the days its rows are complete on (`rowsComplete`):
+ * a row is judged by the history of all rows. A month whose rows are missing on an account in daily use
+ * (`rowsMissing`) is incomplete for that account, and for the household when the account carries a share of its
+ * spending. `rows` narrows it further for a reader that knows the days its rows are complete on (`rowsComplete`):
  * the month must also end before `rows.today` and start after `rows.from`.
  */
 export function isCompleteMonth(ctx: AnalysisContext, month: string, accounts?: Iterable<string>, rows?: RowBounds): boolean {
+  const ids = accounts && [...accounts];
+  return !rowsMissing(ctx, month, ids) && coveredMonth(ctx, month, ids, rows);
+}
+
+/** `isCompleteMonth` but for missing rows: the month has ended and the accounts were in the data from its 1st. */
+function coveredMonth(ctx: AnalysisContext, month: string, ids: readonly string[] | undefined, rows?: RowBounds): boolean {
   if (monthEnd(month) >= (rows?.today ?? ctx.today)) return false;
   const from = `${month}-01`;
   if (rows && !historyCovers({ dataFrom: rows.from }, from)) return false;
-  const ids = accounts && [...accounts];
-  if (rowsMissing(ctx, month, ids)) return false;
   if (ids) return accountCovers(ctx, ids, from);
   const own = accountsWithRows(ctx, month);
   return own.size ? accountCovers(ctx, own, from) : historyCovers(ctx, from);
@@ -62,20 +66,23 @@ export function isCompleteMonth(ctx: AnalysisContext, month: string, accounts?: 
  * (none when `month` itself is in the future). One month is skipped instead: the month an account joined, when that
  * is all that makes it incomplete and the joining accounts are credit cards paid by card bills in the month before, or
  * carry under `LEFT_OUT_SHARE` of the spending from that month up to `month`: a card whose purchases were in the bills
- * before does not cut the household's usual level off, a large card with no bills before and a main account do. A month
- * whose rows are missing (`rowsMissing`) is skipped too: the months before it are whole. A reader that names its accounts always stops, and only at a month those
- * accounts do not cover: a figure made of some accounts' rows (a category's or a theme's usual level and monthly mean)
- * passes the accounts its rows are on, so a card linked late stops its own categories, and the categories of the other
- * accounts keep their months.
+ * before does not cut the household's usual level off, a large card with no bills before and a main account do. A
+ * reader that names its accounts stops at a month those accounts do not cover: a figure made of some accounts' rows (a
+ * category's or a theme's usual level and monthly mean) passes the accounts its rows are on, so a card linked late
+ * stops its own categories, and the categories of the other accounts keep their months. Every reader skips one run of
+ * months whose rows are missing (`rowsMissing`) and reads the whole months before it; a second run stops it. So the
+ * months it gives may have a gap: a reader that needs a run of consecutive months checks for one.
  */
 export function completeMonthsBefore(ctx: AnalysisContext, month: string, n: number = USUAL_MONTHS, accounts?: Iterable<string>, rows?: RowBounds): string[] {
   const ids = accounts && [...accounts];
   const out: string[] = [];
+  let skipped: number | null = null;
   for (let i = monthIndex(month) - 1; out.length < n; i--) {
     const label = fromMonthIndex(i);
     if (isCompleteMonth(ctx, label, ids, rows)) out.push(label);
-    else if (monthEnd(label) < (rows?.today ?? ctx.today) && rowsMissing(ctx, label, ids)) continue;
-    else if (ids || !joinedSmall(ctx, label, month, rows)) break;
+    else if (!ids && joinedSmall(ctx, label, month, rows)) continue;
+    else if ((skipped === null || skipped === i + 1) && rowsMissing(ctx, label, ids) && coveredMonth(ctx, label, ids, rows)) skipped = i;
+    else break;
   }
   return out.reverse();
 }
