@@ -51,16 +51,12 @@ The app is *Active* after the first account. Press *Link accounts* again for eac
 in Omatalous, and link all of them before you connect in Omatalous. A connection made earlier does not bring an account
 that was linked afterwards.
 
-![Linked accounts](images/eb-5-linked.png)
-
 Where a bank's steps differ, it has a section below. Enable Banking's documentation for Finland gives no consent length
 and no account rules for the other banks.
 
 ### Nordea
 
 Nordea's page lets you pick one account at a time. Pick one and press *Jatka*.
-
-![Pick one account](images/eb-4-choose-account.png)
 
 ### Aktia
 

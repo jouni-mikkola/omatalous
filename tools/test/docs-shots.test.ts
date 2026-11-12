@@ -6,8 +6,6 @@ import { IMAGES, PICTURES } from "../docs-shots.mjs";
 import { FILES as VIDEO, MAX_BYTES as VIDEO_MAX, SCENES } from "../readme-video.mjs";
 
 const ROOT = join(import.meta.dirname, "../..");
-/** Photographs of an outside site: nobody here makes them. */
-const NOT_OURS = ["eb-4-choose-account.png", "eb-5-linked.png"];
 
 /** Every picture of docs/images/ that README.md or a docs/*.md names. `root` is where the documents are. */
 function named(root: string): string[] {
@@ -25,8 +23,10 @@ describe("docs:shots", () => {
     for (const p of PICTURES as { file: string }[]) expect(existsSync(join(IMAGES, p.file)), p.file).toBe(true);
   });
 
-  it("every picture a document names is made by the script or is on the list of two that are not ours", () => {
-    const ours = new Set([...(PICTURES as { file: string }[]).map((p) => p.file), ...NOT_OURS, ...Object.values(VIDEO)]);
+  // A photograph of a bank's page or of a real account has no place here, redacted or not: every picture is made from example data.
+  it("every picture in docs/images/ and every picture a document names is made by the scripts", () => {
+    const ours = new Set([...(PICTURES as { file: string }[]).map((p) => p.file), ...Object.values(VIDEO)]);
+    expect(readdirSync(IMAGES).filter((f) => !ours.has(f))).toEqual([]);
     expect(named(ROOT).filter((f) => !ours.has(f))).toEqual([]);
   });
 
