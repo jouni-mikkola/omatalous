@@ -226,6 +226,8 @@ export interface TransactionItem extends Transaction {
   own: boolean;
   /** The trade register entry the category came from (categorySource "industry"). */
   industry?: { companyName: string | null; businessId: string | null; label: string | null };
+  /** The viewer's own rule the category came from (categorySource "rule"); left out when a rule of the app gave it. */
+  ownRule?: Pick<CategoryRule, "field" | "pattern">;
 }
 
 export type Recurring = Omit<RecurringSeries, "transactionIds">;

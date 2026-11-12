@@ -147,7 +147,6 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 /* a phone's row is two lines of about 60 px: the account is its bank's mark alone and the bank's text is left to the opened row, which says both */
 @media (max-width: 600px) {
   .rt-wrap[data-block] .tx-acct-short, .rt-wrap[data-block] .rt .tx-text { display: none; }
-  .rt-wrap[data-block] .tx-detail-facts { display: flex; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { padding-block: var(--sp-4); row-gap: 0; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { display: flex; align-items: center; padding-block: 0; }
   .rt-wrap[data-block] .tx-table .rt-lead { align-items: center; }
@@ -165,9 +164,17 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-amount.in { color: var(--good); }
 .tx-part { display: block; margin-top: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); }
 
-/* the opened row: the category picker, the way to the payee's rows and the card bill's statement, then the payee's months */
+/* the opened row: what the bank sent and why the category, the row's menu, then the payee's months */
 .tx-detail { padding: var(--sp-4) 0 0; }
-.tx-detail-facts { display: none; margin: 0; padding: 0 0 var(--sp-8); flex-direction: column; gap: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+/* the bank's texts are read as they are, so a fact's value starts at one edge beside its name, never across the row */
+.rt-kv.tx-detail-facts { max-inline-size: 48rem; padding: 0 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); }
+.rt-kv.tx-detail-facts > div { justify-content: flex-start; padding: var(--sp-4) 0; }
+.rt-kv.tx-detail-facts dt { flex: 0 0 11rem; }
+.rt-kv.tx-detail-facts dd { flex: 1 1 auto; text-align: start; font-weight: var(--w-regular); }
+@media (max-width: 600px) {
+  .rt-kv.tx-detail-facts > div { flex-direction: column; gap: 0; }
+  .rt-kv.tx-detail-facts dt { flex: none; }
+}
 .tx-detail-acts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); padding: 0 0 var(--sp-8); }
 .tx-detail-acts .btn, .tx-detail-acts .why-door { min-height: var(--control-h); min-width: 32px; }
 .rtb-pop .tx-row-panel { min-inline-size: 18rem; max-inline-size: calc(100vw - 2 * var(--sp-8)); padding: var(--sp-4); }
