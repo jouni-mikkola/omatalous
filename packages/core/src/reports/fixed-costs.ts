@@ -1,5 +1,5 @@
 // Decision: what a month costs before any choice, and which contract, subscription or loan instalment makes it
-import { type AnalysisContext, standingOf } from "../analysis/context.ts";
+import { type AnalysisContext, standingById } from "../analysis/context.ts";
 import { fixedSeriesAt, fixedShareOn } from "../analysis/fixed-share.ts";
 import { cancelledSubjects, isFixedSpending } from "../commitments.ts";
 import { addMonthsToDate } from "../dates.ts";
@@ -63,7 +63,7 @@ export function fixedCostsReport(ctx: AnalysisContext, inputs: UserInputs = NO_I
   const running = fixedSeriesAt(ctx, ctx.today).filter((s) => isFixedSpending(s, cancelled));
   const since = addMonthsToDate(ctx.today, -FIXED_PAYMENT_MONTHS);
   // a series' rows are those of the standing context: in the cut one a row can be missing
-  const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));
+  const byId = standingById(ctx);
   const rows = running
     .map((s): FixedCostRow => {
       const payments = s.transactionIds
