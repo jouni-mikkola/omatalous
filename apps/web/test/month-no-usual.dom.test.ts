@@ -23,7 +23,7 @@ const running = (gapReason: "cards" | "history") => ({
   categories,
   income,
 });
-const earlier = (gapReason: "cards" | "history") => ({ spendingChange: { views: [], gapReason }, categories, income });
+const earlier = (gapReason: "cards" | "history" | null) => ({ spendingChange: { views: [], gapReason }, categories, income });
 
 async function open(answer: unknown, hash: string) {
   queryClient.clear();
@@ -48,6 +48,15 @@ describe("Kuukausi with no usual", () => {
       expect(screen.getByRole("table")).toBeTruthy();
       expect(screen.getByText("Auto")).toBeTruthy();
     });
+
+    if (of === earlier) {
+      it(`${name}: a usual level with no view (rows that end before the month) lists the sums and asks no wait`, async () => {
+        await open(earlier(null), hash);
+        expect(total()).not.toContain("kun takana on");
+        expect(document.querySelector(".km-note")).toBeNull();
+        expect(screen.getByText("Auto")).toBeTruthy();
+      });
+    }
 
     it(`${name}: a short history is told as that`, async () => {
       await open(of("history"), hash);

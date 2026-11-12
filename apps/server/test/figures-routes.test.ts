@@ -2,12 +2,13 @@
  * One figure, one number on every page: each figure the pages share, read through the route of every page that shows
  * it, for the demo household, the kit household and a made-up one with own transfers, savings, a loan, a card's bills,
  * refunds, friends' shares, a pending purchase and a row whose category the user set (figures-household.ts). The
- * readers are the fields the pages draw: Yhteenveto (`/api/dashboard`), Raportit (`/api/reports`: Kuukausi,
- * Rahankäyttö, Tulot, Kiinteät menot), Tapahtumat (`/api/transactions`), Laskut (`/api/recurring`, `/api/ahead`) and
- * "Miksi?" (`/api/explain`). A complete month and the running month are both read. Two figures that may differ by
+ * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: MonthPace, Where, Answer),
+ * Raportit (`/api/reports`: Kuukausi, Rahankäyttö, Tulot, Kiinteät menot), Tapahtumat (`/api/transactions`), Laskut
+ * (`/api/recurring` and the dashboard's `ahead`, as BeforePayday lists it) and "Miksi?" (`/api/explain`). A complete
+ * month and the running month are both read; Yhteenveto shows only the running one. Two figures that may differ by
  * what they count have two names; this file holds only the ones that are one figure.
  */
-import { addMonths, cancelledSubjects, fixedMonthlyCents, monthEnd } from "@banking/core";
+import { addMonths, cancelledSubjects, fixedMonthlyCents, monthEnd, NO_INPUTS } from "@banking/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import { KIT_TODAY } from "../../../packages/core/test/kit/index.ts";
 import { FIGURES_TODAY, loadFiguresHousehold } from "./figures-household.ts";
@@ -77,7 +78,8 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     let list: any;
 
     beforeAll(async () => {
-      dash = await get(`/api/dashboard?${q.month}`);
+      // Yhteenveto asks for the running month alone (pages/Overview.tsx)
+      dash = isRunning ? await get(`/api/dashboard?${q.month}`) : null;
       // Kuukausi reads `thisMonth` for the running month and `spendingChange` for an earlier one (pages/reports/Month.tsx)
       rep = await get(`/api/reports?${q.month}&reports=categories,income,thisMonth,spendingChange,spendingMonths`);
       year = await get(`/api/reports?${q.year}&reports=income,spendingMonths`);
@@ -90,10 +92,11 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     it("Menot of the month", () => {
       const at = year.spendingMonths.months.indexOf(month);
       expectOne("Menot", {
-        "Yhteenveto totals": dash.totals.expenseCents,
-        "Yhteenveto categories added up": dash.categories.reduce((s: number, c: any) => s + c.cents, 0),
-        "Yhteenveto pace": isRunning ? dash.pace.currentTotal : undefined,
-        "Yhteenveto month figure": isRunning ? dash.home.pace?.spentCents : undefined,
+        // MonthPace: the sentence's sum, from the usual comparison or, with none, from `nyt`; its chart's last point
+        "Yhteenveto Kuukausi": isRunning ? (dash.home.pace?.spentCents ?? dash.nyt.pace.spentCents) : undefined,
+        "Yhteenveto chart": isRunning ? dash.pace.currentTotal : undefined,
+        // Where: the largest categories and the rest in one sum under them
+        "Yhteenveto Suurimmat menot added up": isRunning ? dash.top.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.top.otherCents : undefined,
         "Kuukausi": isRunning ? rep.thisMonth.spentCents : kuukausi()?.nowCents,
         "Rahankäyttö Kategoriat": rep.categories.totalCents,
         "Rahankäyttö Menot kuukausittain, the month": rep.spendingMonths.totals.at(-1),
@@ -103,8 +106,7 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
 
     it("Tulot of the month", () => {
       expectOne("Tulot", {
-        "Yhteenveto totals": dash.totals.incomeCents,
-        "Tulot, the month": rep.income.months.find((m: any) => m.month === month)?.totalCents ?? 0,
+        "Kuukausi": rep.income.months.find((m: any) => m.month === month)?.totalCents ?? 0,
         "Tulot kuukausittain, 12 kk": year.income.months.find((m: any) => m.month === month)?.totalCents ?? 0,
       });
     });
@@ -115,28 +117,27 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     });
 
     it("a category's sum and its number of rows", async () => {
-      const categories = dash.categories.filter((c: any) => c.category !== null);
+      // every category Rahankäyttö's Kategoriat lists for the month
+      const categories = rep.categories.groups.flatMap((g: any) => g.categories).filter((c: any) => c.category);
       expect(categories.length).toBeGreaterThan(3);
-      const inReport = new Map<string, any>(rep.categories.groups.flatMap((g: any) => g.categories).map((c: any) => [c.category, c]));
       const at = year.spendingMonths.months.indexOf(month);
       for (const c of categories) {
         const rows = await get(`/api/transactions?${q.month}&category=${c.category}&limit=1`);
         const why = await get(`/api/explain?figure=spend.category&category=${c.category}&${q.month}`);
-        const report = inReport.get(c.category);
         const name = `${c.category} in ${month}`;
         const gap = kuukausi()?.categories.find((x: any) => x.category === c.category);
         expectOne(`${name} sum`, {
-          Yhteenveto: c.cents,
-          "Rahankäyttö Kategoriat": report?.totalCents ?? null,
-          "Menot kuukausittain, the month": rep.spendingMonths.categories.find((x: any) => x.category === c.category)?.totalCents ?? null,
-          "Menot kuukausittain, 12 kk": year.spendingMonths.categories.find((x: any) => x.category === c.category)?.values[at] ?? null,
+          "Yhteenveto Suurimmat menot": isRunning ? dash.top.rows.find((r: any) => r.category === c.category)?.cents : undefined,
+          "Rahankäyttö Kategoriat": c.totalCents,
+          // a category whose refunds cancel its purchases is 0 € in Kategoriat and no row in Menot kuukausittain: one figure
+          "Menot kuukausittain, the month": rep.spendingMonths.categories.find((x: any) => x.category === c.category)?.totalCents ?? 0,
+          "Menot kuukausittain, 12 kk": year.spendingMonths.categories.find((x: any) => x.category === c.category)?.values[at] ?? 0,
           Kuukausi: isRunning ? rep.thisMonth.categories.find((x: any) => x.category === c.category)?.spentCents : gap?.nowCents,
-          "Tapahtumat with the category chosen": -rows.netCents,
+          "Tapahtumat with the category chosen": -rows.netCents + 0,
           "Miksi?": why.cents,
         });
         expectOne(`${name} rows`, {
-          Yhteenveto: c.count,
-          "Rahankäyttö Kategoriat": report?.count ?? null,
+          "Rahankäyttö Kategoriat": c.count,
           "Tapahtumat with the category chosen": rows.total,
           "Miksi?": why.rows.length,
         });
@@ -144,24 +145,25 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     });
   });
 
-  it("Kiinteät menot: Yhteenveto, Raportit, Laskut and Miksi?", async () => {
-    const dash = await get(`/api/dashboard?${ranges(running, h.day).month}`);
+  it("Kiinteät menot: Raportit, Laskut and Miksi?", async () => {
     const fixed = await get(`/api/reports?${ranges(running, h.day).year}&reports=fixedCosts`);
     const { series, marks } = await get("/api/recurring");
     const why = await get(`/api/explain?figure=bills.fixed&${ranges(running, h.day).month}`);
     expectOne("Kiinteät menot", {
-      Yhteenveto: dash.fixedMonthlyCents,
       "Raportit > Kiinteät menot": fixed.fixedCosts.monthlyCents,
       // Laskut adds the series up with core's function, as Bills.tsx does
-      Laskut: fixedMonthlyCents(series, cancelledSubjects({ marks, expectedBills: [], loans: [] } as never, h.day)),
+      Laskut: fixedMonthlyCents(series, cancelledSubjects({ ...NO_INPUTS, marks })),
       "Miksi?": why.cents,
     });
   });
 
-  it("Erääntyvät maksut: Yhteenveto's sum row and Laskut", async () => {
+  it("Maksut ennen palkkapäivää: Yhteenveto's sum and the rows Laskut lists under it", async () => {
     const dash = await get(`/api/dashboard?${ranges(running, h.day).month}`);
-    const { ahead } = await get("/api/ahead");
-    expectOne("Erääntyvät maksut", { Yhteenveto: dash.home.runway?.sum?.paymentsCents ?? null, Laskut: ahead.totals.dueCents });
+    const left = dash.nyt?.left;
+    if (!left?.known || !dash.ahead?.payday) return;
+    // the rows of BeforePayday.tsx: the payments of `ahead.rows` before the payday, the pay itself left out
+    const rows = dash.ahead.rows.filter((r: any) => r.cents !== null && r.cents < 0 && r.source !== "income" && r.date < left.payday.date);
+    expectOne("Maksut ennen palkkapäivää", { "Yhteenveto and Laskut": left.billsCents, "Laskut, its rows added up": rows.reduce((s: number, r: any) => s - r.cents, 0) });
   });
 
   it("the reason a month has no usual: Yhteenveto and Kuukausi, the running month and the one before", async () => {
@@ -171,6 +173,8 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     const rep = await get(`/api/reports?${now}&reports=thisMonth,spendingChange`);
     const earlier = await get(`/api/reports?${before}&reports=spendingChange`);
     expectOne("no usual, running month", { Yhteenveto: dash.home.paceGap, Kuukausi: rep.thisMonth.gapReason, "Kuukausi, the change report": rep.spendingChange.gapReason });
+    // no usual figure a day may stand beside a page that says the usual is missing
+    if (dash.home.paceGap !== null) expect(dash.nyt.usualPerDayCents ?? null).toBeNull();
     if (h.name === "made-up, card connected later") {
       // nine months of history: the usual is missing for the card's purchases, not for the months
       expect(dash.home.paceGap).toBe("cards");

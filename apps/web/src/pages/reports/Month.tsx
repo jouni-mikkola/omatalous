@@ -61,11 +61,11 @@ interface Shown {
 /**
  * An earlier month whole, from the report of the change against the usual (`spendingChange`, its usual view of the month the
  * range ends in): a category's spending, its usual level and their difference, which add up to the total's. Without a
- * usual there is only what was spent, and the report's reason for it.
+ * usual there is only what was spent, and the report's reason for it when it has one.
  */
 function earlier(data: ReportsData, month: string): Shown {
   const change = data.spendingChange.views.find((v) => v.view === "expected" && v.change.target.months.join() === month)?.change;
-  if (!change) return { month, days: { from: `${month}-01`, to: monthEnd(month) }, spentCents: data.categories.totalCents, expectedCents: null, gapCents: null, gapReason: data.spendingChange.gapReason ?? "history", categories: [] };
+  if (!change) return { month, days: { from: `${month}-01`, to: monthEnd(month) }, spentCents: data.categories.totalCents, expectedCents: null, gapCents: null, gapReason: data.spendingChange.gapReason, categories: [] };
   const categories = change.categories.map((c): GapRow => ({ category: c.category, day: null, label: c.category === null ? t("rep.other_categories") : c.label, spentCents: c.nowCents, expectedCents: c.baseCents, gapCents: c.changeCents }));
   return { month, days: { from: change.target.from, to: change.target.to }, spentCents: change.nowCents, expectedCents: change.baseCents, gapCents: change.changeCents, gapReason: null, categories };
 }
@@ -93,7 +93,8 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
     const to = addMonths(past ?? meta.today.slice(0, 7), n);
     navigate("reports", { month: to < meta.today.slice(0, 7) ? to : undefined }, true);
   };
-  const noUsual = r.gapReason !== null;
+  // no usual level: a reason, or none when the month's rows end before the month does
+  const noUsual = r.expectedCents === null;
   const rows = noUsual ? spentRows((past ? data.categories : sums.data?.categories)?.groups ?? []) : byGap(r.categories);
   const scale = Math.max(1, ...rows.flatMap((x) => [x.spentCents, x.expectedCents]));
   // the categories the rest row holds: the month's spending categories that are not a row above it

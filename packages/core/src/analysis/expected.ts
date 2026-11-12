@@ -341,8 +341,8 @@ export type EverydayGap = "history" | "cards";
  */
 export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
   const figure = expectedFor(ctx, month);
-  if (!figure) return "history";
-  if (!figure.itemised) return "cards";
+  // the reason Yhteenveto's month and Kuukausi give, so the runway's cannot say "history" beside their "cards"
+  if (!figure?.itemised) return usualGap(ctx, month) ?? "history";
   const struck = expectedOneOffs(ctx, [...figure.months, figure.month]);
   const perDay = figure.months.map((m) => {
     const days = new Array<number>(31).fill(0);

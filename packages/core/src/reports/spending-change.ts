@@ -39,7 +39,7 @@ interface ChangeViewReport {
 
 export interface SpendingChangeReport {
   views: ChangeViewReport[];
-  /** Why the month has no view against its usual (`usualGap`), null when it has one: Raportit > Kuukausi tells it. */
+  /** Why the month has no view against its usual (`usualGap`), null when it has one or has a usual level all the same: Raportit > Kuukausi tells it. */
   gapReason: "history" | "cards" | null;
 }
 
@@ -137,5 +137,6 @@ export function spendingChangeReport(ctx: AnalysisContext, range: DateRange, lan
     ["season", month, messageIn(lang, "rep.change_season_title")],
   ];
   const views = specs.flatMap(([view, m, title]) => viewOf(ctx, view, m, title, lang) ?? []);
-  return { views, gapReason: views.some((v) => v.view === "expected") ? null : (usualGap(ctx, month) ?? "history") };
+  // null with no view too when the month has a usual level but no rows to its end yet: nothing to wait for
+  return { views, gapReason: views.some((v) => v.view === "expected") ? null : usualGap(ctx, month) };
 }
