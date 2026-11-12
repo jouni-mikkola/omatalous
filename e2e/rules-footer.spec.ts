@@ -46,7 +46,9 @@ for (const width of [390, 1440]) {
         const r = f.getBoundingClientRect();
         const items = [...f.children].map((c) => c.getBoundingClientRect());
         const first = items[0]!;
-        const sameRow = items.filter((i) => Math.abs(i.top - first.top) < 6);
+        // by the middle: on a phone a link is 44 px high and the words beside it stand on its middle
+        const middle = (i: DOMRect) => i.top + i.height / 2;
+        const sameRow = items.filter((i) => Math.abs(middle(i) - middle(first)) < 6);
         const gaps = sameRow.slice(1).map((i, n) => Math.round(i.left - sameRow[n]!.right));
         return { left: Math.round(first.left - r.left), widest: Math.max(0, ...gaps), end: Math.round(r.right - Math.max(...items.map((i) => i.right))) };
       });

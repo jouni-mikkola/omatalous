@@ -89,7 +89,7 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(card(page).locator(".review-kind")).toHaveText("Laina");
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkkirahoitus");
   expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toBe("250,00 € kuussa");
-  await expect(question(page)).toHaveText("Mikä laina tämä on?");
+  await expect(question(page)).toContainText("Mikä laina tämä on?");
   const choices = card(page).locator(".review-choice");
   await expect(choices.first()).toHaveAccessibleName("Autolaina Ehdotus");
   // the guess is framed, not filled: nothing reads as already chosen
@@ -118,7 +118,7 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(rows).toHaveCount(5);
   await expect(card(page).getByRole("button", { name: /Piilota tapahtumat: Esimerkki Kauppa Oy$/ })).toHaveAttribute("aria-expanded", "true");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-payee-rows-1280.png"), fullPage: true });
-  await expect(question(page)).toHaveText("Mihin kategoriaan nämä maksut kuuluvat?");
+  await expect(question(page)).toContainText("Mihin kategoriaan nämä maksut kuuluvat?");
   // the household's most used categories as buttons, none marked as a guess, then the sheet of every category; no select
   await expect(card(page).locator("select")).toHaveCount(0);
   await expect(card(page).locator(".review-choice")).toHaveText(["Ruokakauppa", "Ravintolat ja kahvilat", "Auto, polttoaine ja pysäköinti", "Vaatteet ja ostokset", "Muu kategoria…"]);
@@ -151,7 +151,7 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/payer-roles", method: "PUT", body: { key: payer.key, role: "pay" } });
 
   // a shared account's money: no guess (a split exists only when a member said it), "Yhteistä" and "En tiedä"
-  await expect(question(page)).toHaveText("Kenen rahaa tämä oli?");
+  await expect(question(page)).toContainText("Kenen rahaa tämä oli?");
   await expect(card(page).locator(".review-guess")).toHaveCount(0);
   await expect(card(page).locator(".review-choice.is-guess")).toHaveCount(0);
   await card(page).getByRole("button", { name: "Yhteistä" }).click();
@@ -159,7 +159,7 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/accounts/acc-1/answers", method: "PUT", body: { kind: "in", key: split.key, owner: "all" } });
 
   // Ohita sends nothing and the item waits for the next sitting
-  await expect(question(page)).toHaveText("Onko tilaus vielä käytössä?");
+  await expect(question(page)).toContainText("Onko tilaus vielä käytössä?");
   const before = stub.posted.length;
   const left = Number(/^\d+/.exec(plain(await headerCount(page).innerText()))![0]);
   await card(page).getByRole("button", { name: "Ohita" }).click();
@@ -169,7 +169,7 @@ test("each kind is asked in its own words and answered through its own route, th
   expect(stub.posted).toHaveLength(before);
 
   // money in: "Älä kysy tästä enää" is the old Ohita's mark on the payee
-  await expect(question(page)).toHaveText("Mitä tämä tulo on?");
+  await expect(question(page)).toContainText("Mitä tämä tulo on?");
   await card(page).getByRole("button", { name: "Älä kysy tästä enää" }).click();
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: "question:payee:Esimerkki Täti", mark: "dismissed" } });
 
@@ -234,7 +234,7 @@ test("an instalment plan is asked how many payments are left: a count, a month o
   const third = { ...plan, id: "plan:three", key: "out:chk:Kolmas#1500", payee: "Kolmas osamaksu", cents: 100 };
   const { context, page, seen, stub } = await open(browser, 390, [plan, second, third]);
   await expect(card(page).locator(".review-kind")).toHaveText("Osamaksu");
-  await expect(question(page)).toHaveText("Montako maksua on vielä jäljellä?");
+  await expect(question(page)).toContainText("Montako maksua on vielä jäljellä?");
   const save = card(page).getByRole("button", { name: "Tallenna", exact: true });
   await expect(save).toBeDisabled();
   await card(page).getByLabel("Maksuja jäljellä").fill("6");

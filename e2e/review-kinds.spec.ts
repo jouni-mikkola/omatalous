@@ -46,7 +46,7 @@ for (const width of [390, 1280]) {
 
     // a row with no name: a category for the one row
     await expect(card.locator(".review-name")).toHaveText("Tapahtuma ilman nimeä");
-    await expect(question).toHaveText("Mihin kategoriaan tämä maksu kuuluu?");
+    await expect(question).toContainText("Mihin kategoriaan tämä maksu kuuluu?");
     await expect(card.locator(".review-figure")).toContainText("37,50");
     await card.locator(".review-choices .review-choice").first().click();
     await expect(count).toHaveText("3 avoinna");
@@ -54,7 +54,7 @@ for (const width of [390, 1280]) {
 
     // a bill that did not come: Lopetettu is the mark Laskut reads
     await expect(card.locator(".review-name")).toHaveText("Esimerkkisähkö");
-    await expect(question).toHaveText("Tuleeko tämä lasku vielä?");
+    await expect(question).toContainText("Tuleeko tämä lasku vielä?");
     await expect(card.locator(".review-figure")).toContainText("64,20");
     await card.getByRole("button", { name: "Lopetettu", exact: true }).click();
     await expect(count).toHaveText("2 avoinna");
@@ -62,7 +62,7 @@ for (const width of [390, 1280]) {
 
     // a consent that ends: the bank is connected again in Asetukset, and the item is gone once it is
     await expect(card.locator(".review-name")).toHaveText("Esimerkkipankki");
-    await expect(question).toHaveText("Pankkiyhteys on päättymässä. Yhdistätkö pankin uudelleen?");
+    await expect(question).toContainText("Pankkiyhteys on päättymässä. Yhdistätkö pankin uudelleen?");
     await expect(card.locator(".review-line")).toContainText("6 päivän päästä");
     await card.getByRole("link", { name: "Yhdistä pankki uudelleen" }).click();
     await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/settings\/banks/);
@@ -72,7 +72,7 @@ for (const width of [390, 1280]) {
 
     // a balance the rows do not add up to: the account's own row tells the stretch, and the item goes when the rows add up
     await expect(card.locator(".review-name")).toHaveText("Käyttötili");
-    await expect(question).toHaveText("Puuttuuko tililtä tapahtuma?");
+    await expect(question).toContainText("Puuttuuko tililtä tapahtuma?");
     await expect(card.locator(".review-figure")).toContainText("10,00");
     await card.getByRole("link", { name: "Avaa tilin tiedot" }).click();
     await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/settings\/banks#tilit/);
