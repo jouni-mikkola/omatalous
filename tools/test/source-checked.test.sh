@@ -57,7 +57,7 @@ doc_commit() { # a commit on main that changes documents alone, which starts no 
 }
 by_hand() {
   : >"$S/calls.log"
-  OUT=$(cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" "$@" ./scripts/update.sh --yes </dev/null 2>&1); RC=$?
+  OUT=$(cd "$CL" && env OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/update.sh --yes </dev/null 2>&1); RC=$?
 }
 curls() { calls | grep '^curl ' || true; }
 untouched() { test "$(n_calls '^docker (pull|image tag|compose (up|build))')" = 0; }
