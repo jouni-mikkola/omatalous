@@ -136,8 +136,8 @@ interface BalanceItem extends Base {
 
 /**
  * A bank consent that ended or ends within core's `WARN_DAYS` (`dueConsents`): connect the bank again (POST
- * /api/connections/start). `daysLeft` is null for one that ended. `cents` is the money that moved on its accounts in a
- * year, which is what the app stops seeing.
+ * /api/connections/start). `daysLeft` is null for one that ended. `cents` is the money that moved on its accounts in the
+ * last 365 days, which is what the app stops seeing.
  */
 interface ConsentItem extends Base {
   kind: "consent";

@@ -119,12 +119,14 @@ describe("the choices", () => {
     expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("instalment");
   });
 
-  it("call a payee's or payer's sum of the last year a total, not a rate per year", () => {
+  it("call a sum of the last year's rows yhteensä: a payee's, a payer's and a consent's", () => {
     // one payment of a salary, read from a few weeks of history: "2 800 € vuodessa" would say a year's pay
     const payer: ReviewItem = { kind: "payer", id: "payer:k", cents: 280_000, key: "k", merchant: "Esimerkki Oy", count: 1, lastDate: "2026-10-15", options: ["cost_share", "sales", "gift", "pay"], proposal: null };
     const f = figureOf(payer);
     expect([f.text.replace(/\s/g, " "), f.unit, f.line]).toEqual(["2 800,00 €", "yhteensä", "1 maksu viimeisen vuoden aikana, viimeksi 15.10."]);
     expect(figureOf({ kind: "payee_in", id: "i", cents: 5_000, merchant: "Kirppis", count: 1, lastDate: "2026-10-18", picks: [] }).unit).toBe("yhteensä");
+    // a consent's figure is the money its accounts moved in the last 365 days, also for a bank connected a month ago
+    expect(figureOf({ kind: "consent", id: "c", cents: 41_000, connection: "c", institution: "Esimerkkipankki", daysLeft: 6, accounts: ["Käyttötili"] }).unit).toBe("yhteensä");
   });
 
   it("name the period of every figure", () => {
