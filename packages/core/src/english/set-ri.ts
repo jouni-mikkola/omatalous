@@ -47,7 +47,6 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.whose_money_was_this": "Whose money was this?",
   "set.ri.is_the_subscription_still_in": "Is the subscription still in use?",
   "set.ri.do_you_have_a_home": "Do you have a home loan?",
-  "set.ri.a_year": "a year",
   "set.ri.a_month": "a month",
   "set.ri.latest_payment_date_the_amount": "Latest payment {date}. The amount is counted forward from it.",
   "set.ri.in_total": "in total",

@@ -110,9 +110,9 @@ test("each kind is asked in its own words and answered through its own route, th
   // the payee's display name leads each row and the bank's raw text follows, quieter
   await expect(rows.first().locator(".review-row-name")).toHaveText("Esimerkki Kauppa Oy");
   await expect(rows.first().locator(".review-row-text")).toHaveText("KORTTIOSTO ESIMERKKI KAUPPA");
-  // every figure names its period: the payee's is the last year's
+  // the payee's figure is the sum of its rows of the last year, which the line under it names; no rate per year
   // (the button holds a hidden action after the figure, for the name a screen reader hears)
-  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toMatch(/^760,50 € vuodessa( Näytä tapahtumat: Esimerkki Kauppa Oy)?$/);
+  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toMatch(/^760,50 € yhteensä( Näytä tapahtumat: Esimerkki Kauppa Oy)?$/);
   const figure = card(page).getByRole("button", { name: /Näytä tapahtumat: Esimerkki Kauppa Oy$/ });
   await figure.click();
   await expect(rows).toHaveCount(5);
