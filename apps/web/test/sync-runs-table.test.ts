@@ -1,4 +1,4 @@
-/** Päivitykset: a column nobody filled is not drawn, and Uusia is a figure column. */
+/** Päivitykset: a column nobody filled is not drawn, Uusia is a figure column, and the ten newest runs are in sight. */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -20,5 +20,10 @@ describe("RunsTable", () => {
     expect(out).toContain("Viesti");
     expect(out.match(/<th scope="col"/g)).toHaveLength(5);
     expect(out).toContain("Esimerkkipankki vastasi hitaasti");
+  });
+  it("shows the ten newest of twenty, the rest behind Näytä lisää", () => {
+    const out = html(Array.from({ length: 20 }, (_, i) => run(20 - i, null)));
+    expect(out.match(/<tbody[\s\S]*<\/tbody>/)![0].match(/<tr/g)).toHaveLength(10);
+    expect(out).toMatch(/Näytä 10 lisää/);
   });
 });
