@@ -21,4 +21,8 @@
 
 /* Ruoka: the sentence that names the table's months and bases, and why the card bills' row has no share */
 .food-base { margin-bottom: var(--sp-8); }
+
+/* Kategoriat: the months of the total stand apart from the categories above them, and a category's two tables from each other */
+.sm-months { margin-top: var(--sp-24); }
+.sm-detail { display: grid; gap: var(--sp-16); }
 }

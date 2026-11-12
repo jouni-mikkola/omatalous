@@ -2482,5 +2482,273 @@
     }
    }
   ]
+ },
+ "spendingMonths": {
+  "months": [
+   "2026-10"
+  ],
+  "from": "2026-10-01",
+  "complete": [
+   false
+  ],
+  "totals": [
+   202112
+  ],
+  "totalCents": 202112,
+  "typicalCents": null,
+  "typicalMonths": 0,
+  "last": null,
+  "categories": [
+   {
+    "category": "housing",
+    "label": "Vuokra ja vastike",
+    "values": [
+     105000
+    ],
+    "totalCents": 105000,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Sato",
+      "cents": 105000,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "loans",
+    "label": "Kulutusluotot",
+    "values": [
+     28900
+    ],
+    "totalCents": 28900,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Nordea Rahoitus Suomi Oy",
+      "cents": 28900,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "values": [
+     15605
+    ],
+    "totalCents": 15605,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "K-Market",
+      "cents": 8244,
+      "count": 2
+     },
+     {
+      "name": "S-Market",
+      "cents": 3265,
+      "count": 1
+     },
+     {
+      "name": "Alepa",
+      "cents": 2311,
+      "count": 1
+     },
+     {
+      "name": "Lidl",
+      "cents": 1785,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "insurance",
+    "label": "Vakuutukset",
+    "values": [
+     14230
+    ],
+    "totalCents": 14230,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "If Vahinkovakuutus Oy",
+      "cents": 14230,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "food_delivery",
+    "label": "Ruoan kotiinkuljetus",
+    "values": [
+     10932
+    ],
+    "totalCents": 10932,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Wolt",
+      "cents": 10932,
+      "count": 3
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "transport",
+    "label": "Joukkoliikenne ja taksit",
+    "values": [
+     6470
+    ],
+    "totalCents": 6470,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "HSL",
+      "cents": 6470,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "fitness",
+    "label": "Liikunta",
+    "values": [
+     5900
+    ],
+    "totalCents": 5900,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Elixia",
+      "cents": 5900,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "car",
+    "label": "Auto, polttoaine ja pysäköinti",
+    "values": [
+     5784
+    ],
+    "totalCents": 5784,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Neste",
+      "cents": 5784,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "subscriptions",
+    "label": "Tilaukset ja suoratoisto",
+    "values": [
+     4198
+    ],
+    "totalCents": 4198,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "OpenAI",
+      "cents": 2300,
+      "count": 1
+     },
+     {
+      "name": "Netflix",
+      "cents": 1799,
+      "count": 1
+     },
+     {
+      "name": "Apple",
+      "cents": 99,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "alcohol",
+    "label": "Alko",
+    "values": [
+     3288
+    ],
+    "totalCents": 3288,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Alko",
+      "cents": 3288,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "restaurants",
+    "label": "Ravintolat ja kahvilat",
+    "values": [
+     1805
+    ],
+    "totalCents": 1805,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Espresso House",
+      "cents": 1201,
+      "count": 2
+     },
+     {
+      "name": "Robert's Coffee",
+      "cents": 604,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   }
+  ]
  }
 }

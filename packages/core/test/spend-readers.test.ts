@@ -35,6 +35,7 @@ const USES_SPEND_ROWS = [
   "analysis/usual.ts",
   "reports/categories.ts",
   "reports/pivot.ts",
+  "reports/spending-months.ts",
   "reports/tax-year.ts",
   "reports/this-month.ts",
 ];

@@ -17,6 +17,7 @@ import { incomeReport } from "./income.ts";
 import { loansReport } from "./loans.ts";
 import { buildHousing } from "../housing.ts";
 import { spendingChangeReport } from "./spending-change.ts";
+import { spendingMonthsReport } from "./spending-months.ts";
 import { thisMonthReport } from "./this-month.ts";
 import { upcomingReport } from "./upcoming.ts";
 import { taxYearDays, taxYearReport } from "./tax-year.ts";
@@ -44,6 +45,7 @@ export const REPORTS = {
   thisMonth: ({ ctx, inputs, lang }: ReportInput) => thisMonthReport(ctx, inputs, lang),
   // Kuukausi reads an earlier month from it (pages/reports/Month.tsx)
   spendingChange: ({ ctx, range, lang }: ReportInput) => spendingChangeReport(ctx, range, lang),
+  spendingMonths: ({ ctx, range, lang }: ReportInput) => spendingMonthsReport(ctx, range, lang),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;

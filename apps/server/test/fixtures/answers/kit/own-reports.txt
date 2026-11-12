@@ -2825,5 +2825,248 @@
     }
    }
   ]
+ },
+ "spendingMonths": {
+  "months": [
+   "2026-10"
+  ],
+  "from": "2026-10-01",
+  "complete": [
+   false
+  ],
+  "totals": [
+   276614
+  ],
+  "totalCents": 276614,
+  "typicalCents": null,
+  "typicalMonths": 0,
+  "last": null,
+  "categories": [
+   {
+    "category": "housing",
+    "label": "Vuokra ja vastike",
+    "values": [
+     105000
+    ],
+    "totalCents": 105000,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Sato",
+      "cents": 105000,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "mortgage",
+    "label": "Asuntolaina",
+    "values": [
+     61240
+    ],
+    "totalCents": 61240,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Nordea Bank Abp",
+      "cents": 61240,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "values": [
+     38829
+    ],
+    "totalCents": 38829,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "S-Market",
+      "cents": 27319,
+      "count": 6
+     },
+     {
+      "name": "Lidl",
+      "cents": 6029,
+      "count": 1
+     },
+     {
+      "name": "K-Citymarket",
+      "cents": 5481,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "kids",
+    "label": "Lapset",
+    "values": [
+     27990
+    ],
+    "totalCents": 27990,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Helsingin Kaupunki",
+      "cents": 27990,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "car",
+    "label": "Auto, polttoaine ja pysäköinti",
+    "values": [
+     15478
+    ],
+    "totalCents": 15478,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Neste",
+      "cents": 8313,
+      "count": 1
+     },
+     {
+      "name": "St1",
+      "cents": 7165,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "insurance",
+    "label": "Vakuutukset",
+    "values": [
+     14230
+    ],
+    "totalCents": 14230,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "If Vahinkovakuutus Oy",
+      "cents": 14230,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "utilities",
+    "label": "Sähkö, vesi ja lämpö",
+    "values": [
+     5077
+    ],
+    "totalCents": 5077,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Helen",
+      "cents": 5077,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "food_delivery",
+    "label": "Ruoan kotiinkuljetus",
+    "values": [
+     3164
+    ],
+    "totalCents": 3164,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Wolt",
+      "cents": 3164,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "restaurants",
+    "label": "Ravintolat ja kahvilat",
+    "values": [
+     2808
+    ],
+    "totalCents": 2808,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Espresso House",
+      "cents": 2118,
+      "count": 3
+     },
+     {
+      "name": "Robert's Coffee",
+      "cents": 690,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   },
+   {
+    "category": "subscriptions",
+    "label": "Tilaukset ja suoratoisto",
+    "values": [
+     2798
+    ],
+    "totalCents": 2798,
+    "typicalCents": null,
+    "lastDiffCents": null,
+    "payees": [
+     {
+      "name": "Netflix",
+      "cents": 1599,
+      "count": 1
+     },
+     {
+      "name": "Spotify",
+      "cents": 1199,
+      "count": 1
+     }
+    ],
+    "otherPayeesCents": 0,
+    "statementCents": 0,
+    "lowered": false
+   }
+  ]
  }
 }

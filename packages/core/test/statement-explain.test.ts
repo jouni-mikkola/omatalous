@@ -4,6 +4,7 @@ import { type AnalysisContext, createContext, loweredRows, spendRows } from "../
 import { missingCardPurchases } from "../src/analysis/card-bills.ts";
 import { periodProblem, type StatementBill } from "../src/analysis/statement-explain.ts";
 import { dayNumber, monthIndex } from "../src/dates.ts";
+import { spendingMonthsReport } from "../src/reports/spending-months.ts";
 import type { Account, AccountUse, Part, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -42,6 +43,20 @@ describe("a card statement explains one bill", () => {
     expect(spendOf(ctx)).toBe(42000);
     // the bill's note reads what is left
     expect(billsIn(ctx)).toBe(12850);
+  });
+
+  it("spending by month names what Tapahtumat cannot list: the statement's purchases in a category and a bill counted at its remainder", () => {
+    const range = { from: "2026-02-01", to: "2026-03-31" };
+    // a row in January, so the history reaches the month of the purchases
+    const first = tx({ id: "jan", accountId: "chk", bookingDate: "2026-01-05", amountCents: -1000, category: "other", merchant: "ESIMERKKI" });
+    const r = spendingMonthsReport(build([first, bill()], [statement(caseA())]), range);
+    const of = (category: string) => r.categories.find((c) => c.category === category)!;
+    expect(r.totalCents).toBe(42000);
+    expect(of("groceries")).toMatchObject({ totalCents: 6150, statementCents: 6150, lowered: false });
+    expect(of("card_bill")).toMatchObject({ totalCents: 12850, statementCents: 0, lowered: true });
+    // without a statement every sum is the bank's rows
+    const plain = spendingMonthsReport(build([first, bill()], []), range);
+    expect(plain.categories.every((c) => c.statementCents === 0 && !c.lowered)).toBe(true);
   });
 
   it("spendRows total equals the no-rows total, and without rows the bill counts whole", () => {

@@ -26,12 +26,44 @@ describe("reports", () => {
   const range = { from: "2026-01-01", to: "2026-09-30" };
   const r = buildReports({ ctx, range, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 123456, ownerName: null, balanceAt: null }] });
 
-  it("builds the nine reports that stay and the one Kuukausi reads for an earlier month, and only those a caller names", () => {
-    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "categories", "housing", "income", "loans", "spendingChange", "taxYear", "thisMonth", "upcoming", "yearOverYear"]);
+  it("builds the ten reports that stay and the one Kuukausi reads for an earlier month, and only those a caller names", () => {
+    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "categories", "housing", "income", "loans", "spendingChange", "spendingMonths", "taxYear", "thisMonth", "upcoming", "yearOverYear"]);
     expect(Object.keys(r).sort()).toEqual(Object.keys(REPORTS).sort());
     expect(Object.keys(buildReports({ ctx, range, balances: [] }, ["thisMonth", "income"])).sort()).toEqual(["income", "thisMonth"]);
     expect(isReportId("thisMonth")).toBe(true);
     expect(isReportId("cashflow")).toBe(false);
+  });
+
+  it("spending by month: the categories add up to each month, the months to the total, and a category's payees to the category", () => {
+    const s = r.spendingMonths;
+    expect(s.months).toEqual(["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(s.categories.length).toBeGreaterThan(3);
+    s.months.forEach((_, i) => expect(s.categories.reduce((sum, c) => sum + c.values[i]!, 0)).toBe(s.totals[i]));
+    expect(s.totals.reduce((a, b) => a + b, 0)).toBe(s.totalCents);
+    // the same spending as the category report of the same range
+    expect(s.totalCents).toBe(r.categories.totalCents);
+    for (const c of s.categories) {
+      expect(c.values.reduce((a, b) => a + b, 0)).toBe(c.totalCents);
+      expect(c.payees.reduce((sum, p) => sum + p.cents, 0) + c.otherPayeesCents).toBe(c.totalCents);
+      expect(c.totalCents).toBe(r.categories.groups.flatMap((g) => g.categories).find((x) => x.category === c.category)?.totalCents);
+    }
+    // the average month is the mean of the complete months, which a running month is not among, so the categories' averages add up to it
+    const whole = s.totals.filter((_, i) => s.complete[i]);
+    expect(s.typicalMonths).toBe(whole.length);
+    expect(s.typicalCents).toBe(Math.round(whole.reduce((a, b) => a + b, 0) / whole.length));
+    expect(Math.abs(s.categories.reduce((sum, c) => sum + c.typicalCents!, 0) - s.typicalCents!)).toBeLessThanOrEqual(s.categories.length);
+    const running = buildReports({ ctx, range: { from: "2026-01-01", to: "2026-10-31" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    expect(running.months.at(-1)).toBe("2026-10");
+    expect(running.complete.at(-1)).toBe(false);
+    expect(running.last).toBe(running.months.length - 2);
+    expect(running.typicalCents).toBe(s.typicalCents);
+  });
+
+  it("spending by month: under three complete months there is no typical month", () => {
+    const short = buildReports({ ctx, range: { from: "2026-08-01", to: "2026-10-31" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    expect(short.months).toEqual(["2026-08", "2026-09", "2026-10"]);
+    expect(short.typicalCents).toBeNull();
+    expect(short.categories.every((c) => c.typicalCents === null && c.lastDiffCents === null)).toBe(true);
   });
 
   it("this month is the context's month, its day within the month", () => {
