@@ -1,6 +1,6 @@
 /**
  * The catalogue of passkeys and of the second factor a public address needs: the refusals of the server, the card in
- * Asetukset > Kotitalous and the passkey step of the sign-in. Same shape as the tables of `messages.ts` (a Finnish
+ * Asetukset > Turvallisuus and the passkey step of the sign-in. Same shape as the tables of `messages.ts` (a Finnish
  * table gives the codes, the English one must have the same codes and holes) and the same test.
  * Decision: the owner who turns on a public address, or adds a passkey on a home network address, is told in plain words
  * what is missing and what to do, in the language they chose.
@@ -16,7 +16,7 @@ export const FI_PASSKEY = {
   "passkey.taken": "Tämä passkey on jo lisätty.",
   "passkey.none": "Tunnuksella ei ole passkeyta.",
   "passkey.unknown": "Passkeyta ei löydy.",
-  "remote.second_factor_needed": "Etäkäyttö vaatii ylläpitäjiltä toisen tekijän. Ota kaksivaiheinen kirjautuminen tai passkey käyttöön kohdassa Asetukset > Kotitalous. Puuttuu: {names}. Passkey kelpaa vain osoitteelle, jolle se on tehty.",
+  "remote.second_factor_needed": "Etäkäyttö vaatii ylläpitäjiltä toisen tekijän. Ota kaksivaiheinen kirjautuminen tai passkey käyttöön kohdassa Asetukset > Turvallisuus. Puuttuu: {names}. Passkey kelpaa vain osoitteelle, jolle se on tehty.",
   "remote.admin_needs_factor": "Osoite on julkinen, joten ylläpitäjällä pitää olla toinen tekijä. Ota etäkäyttö ensin pois käytöstä tai pyydä jäsentä ottamaan kaksivaiheinen kirjautuminen käyttöön.",
   "factor.keep_while_public": "Osoite on julkinen, joten ylläpitäjällä pitää olla toinen tekijä. Ota etäkäyttö ensin pois käytöstä.",
   // the card

@@ -96,7 +96,7 @@ names that host only, `*.host` the host and its subdomains. The run allows the m
 | `avoindata.prh.fi` | server | Trade register lookup of business names. Can be turned off. |
 | `api.cloudflare.com` | server | Etäkäyttö page, with the token you saved there. Only if you use it. |
 | `*.cloudflareaccess.com` | server | The keys of your Access team, for the check behind Cloudflare Access. Only if you turn it on. |
-| The machine you name | server | Backup to another machine: an encrypted copy over SFTP (OpenSSH, port you choose, host key trusted on first use) to the host and folder you enter on Asetukset > Palvelin > Varmuuskopio toiselle koneelle. Only if you turn it on; nothing leaves before you give a target. The copy is encrypted with age on the host before it is sent. [opt-in: offsite] |
+| The machine you name | server | Backup to another machine: an encrypted copy over SFTP (OpenSSH, port you choose, host key trusted on first use) to the host and folder you enter on Asetukset > Palvelin ja ylläpito > Varmuuskopio toiselle koneelle. Only if you turn it on; nothing leaves before you give a target. The copy is encrypted with age on the host before it is sent. [opt-in: offsite] |
 | `ntfy.sh` | server | Notices outside the browser, if you turn them on and enter an ntfy topic. A webhook address you enter is called instead, and is yours to choose. [opt-in: notices] |
 | `*.aktia.fi` | browser | Sign-in page of the bank, during the bank login. |
 | `*.alandsbanken.fi` | browser | Sign-in page of the bank, during the bank login. |
@@ -149,7 +149,7 @@ the earlier address in `.env`; turning remote access off puts it back.
 
 ### Remote access from the page
 
-An admin can set up the tunnel, the address and the Access rule under *Asetukset > Palvelin > Palvelin > Etäkäyttö*, on a copy whose
+An admin can set up the tunnel, the address and the Access rule under *Asetukset > Palvelin ja ylläpito > Palvelin > Etäkäyttö*, on a copy whose
 maintenance helper is current. The installer's script path does the same and stays for installs without the helper.
 
 - The page needs a Cloudflare API token (*Cloudflaren API-tunniste*) with the five permissions that
@@ -291,7 +291,7 @@ saved and remote access on, Cloudflare's side can be removed only while the toke
 
 ## Settings entered in the browser
 
-Nothing entered in the setup or under *Asetukset > Palvelin > Palvelin* can end up executed:
+Nothing entered in the setup or under *Asetukset > Palvelin ja ylläpito > Palvelin* can end up executed:
 
 - Input goes to the database only, with one exception: the address of remote access (below). The files the app writes
   are `app_secret` and that request file, and their names come from the code. The app runs no external programs; the
@@ -383,7 +383,7 @@ found gives the category. An unclear match is left alone.
   that `isLookupName` refuses, so an earlier version's answer for a name shaped like a person's does not stay. An
   answer stored for a name that holds a word of the household's names stays and is shown, but the name is never asked
   about again.
-- An admin turns it off under *Asetukset > Palvelin > Palvelin*. `INDUSTRY_LOOKUP=false` in `.env` sets the default
+- An admin turns it off under *Asetukset > Palvelin ja ylläpito > Palvelin*. `INDUSTRY_LOOKUP=false` in `.env` sets the default
   to off. A value saved in the browser takes precedence.
 
 ## Loans
@@ -424,7 +424,7 @@ found gives the category. An unclear match is left alone.
   damaged file, because a stop at start would loop. Both cases are security events (*Tietokanta palautettu
   varmuuskopiosta*, *Tietokanta vaurioitunut*) and a notice to every admin. The app never empties `/data/damaged`, and
   the files in it hold transactions in plain text.
-- *Palauta* on a row of *Varmuuskopiot* and *Tyhjennä kaikki tiedot* in *Asetukset > Palvelin* change the database itself.
+- *Palauta* on a row of *Varmuuskopiot* and *Tyhjennä kaikki tiedot* in *Asetukset > Palvelin ja ylläpito* change the database itself.
   Each asks for the admin's password again and a typed word (`PALAUTA`, `TYHJENNÄ`), and is recorded as a security event
   with the asker's name. Neither goes through the host helper. A restore writes a marker, `/data/.restore-request`, which
   holds the file name of a copy in `/data/backups` and the asker's id. The app then ends itself as `docker stop` does,
@@ -444,7 +444,7 @@ found gives the category. An unclear match is left alone.
 
 ## Updates and the maintenance helper
 
-*Asetukset > Palvelin > Ylläpito* can update, roll back, back up, restart and check the install, read the logs, free disk space and renew the helper itself. The app does not run
+*Asetukset > Palvelin ja ylläpito > Ylläpito* can update, roll back, back up, restart and check the install, read the logs, free disk space and renew the helper itself. The app does not run
 anything itself. It writes a request row, and a helper on the host (`scripts/ops-helper.sh`) takes it. Update, rollback and
 the download of a backup need the admin's password again, rollback also a typed word. Every request is recorded as a security event (`Ylläpito: ...`), and the other admins get a notice.
 Remote access is changed on its own page, with the password for every change, see
@@ -462,7 +462,7 @@ Remote access is changed on its own page, with the password for every change, se
   puts the earlier one back. To put it back by hand, copy `ops/env.prev` over `.env`, keep its mode 600, and run
   `docker compose up -d`. The maintenance route refuses `access`, so only the remote access routes, behind the
   password, can queue it. Port changes are not among the actions. The last two, `prerelease-on` and `prerelease-off`,
-  are the two positions of the switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin > Ylläpito*. They are two names so
+  are the two positions of the switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito*. They are two names so
   that no value travels from the app to the host: the helper writes `yes` or `no`, words of its own script, on the one
   line `TALOUS_PRERELEASE` of `.env`. It writes only after it checked the file, holds the installer's lock, refuses a
   source install and keeps every other byte, the mode and the owner. An administrator's session queues them without the
@@ -568,7 +568,7 @@ elsewhere keep them until you delete those. Free pages in the database file are 
 
 - Enable Banking and Nordea hold the consent and their own logs, for up to 180 days.
 - The Finnish trade register (PRH) sees the names of businesses you pay and your IP address, unless the lookup is off.
-- Statistics Finland sees your IP address once a day, if you turn on the price index under Asetukset > Palvelin > Palvelin. The
+- Statistics Finland sees your IP address once a day, if you turn on the price index under Asetukset > Palvelin ja ylläpito > Palvelin. The
   request names the public series (table 11xs) and carries no data of the household.
 - GitHub sees your IP address when the helper checks for a release once an hour (an install that follows its source
   branch runs a `git fetch` against its remote at the same hourly check, and that remote sees the address instead), and

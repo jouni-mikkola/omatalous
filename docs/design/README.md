@@ -99,7 +99,8 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
   Each row is date, name, category as text and amount. Group by merchant is a toolbar choice, not a view.
 - Raportit has the list of its reports on every report page, as in 1.0.0: Kuukausi (what the tab opens), Rahankäyttö,
   Verovuosi, Velat, Tilit ja saldot, and Yhteiset menot only with a shared account. A report with nothing to show is not listed.
-- Asetukset has three tabs: Pankit ja tilit, Kotitalous (members, sharing, rules, payday), Palvelin (admin only).
+- Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans, rules), Jäsenet (admin only), Turvallisuus,
+  Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
 
 ## 2. What goes
 
@@ -122,7 +123,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | Core reports that go | `packages/core/src/reports/index.ts` ids `pivot`, `fixedVariable`, `drift`, `spendingChange`, `spendingTable`, `food`, `buffer`, `cashflow`, `longForecast`, `priceChange`, `dataQuality`, `categoryGoals`, `conclusions`, `summary`, `fixedCosts` | 24 ids become 9: `thisMonth`, `categories`, `upcoming`, `income`, `yearOverYear`, `balances`, `loans`, `taxYear`, and `housing`, which feeds a Tarkistettavat question |
 | Unopened views counter | `pages/settings/UnopenedViews.tsx`, `services/view-opens.ts` | This rework is the deletion it waited for |
 | Remote access in 9 files | `pages/settings/RemoteAccess*.tsx`, `remote-access-*.ts` | One form |
-| Six settings tabs | `pages/settings/*Page.tsx` | Three tabs; Data and Security fold into Palvelin and Kotitalous |
+| Six settings tabs | `pages/settings/*Page.tsx` | Kept: the three tabs tried in their place were taken back on 12.11.2026 |
 | Loan read from a picture or PDF | core `loan-intake/`, `pages/settings/LoanIntake.tsx`, tesseract.js, pdfjs-dist | A loan is a short form |
 
 ## 3. Visual system
@@ -261,7 +262,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - done when: the Raportit menu is gone; Lisää lists Vuosi, Tilit ja saldot, Lainat, Verovuosi and, with a shared account, Yhteiset; `docs/UI_STYLE.md` names the four tabs and Lisää; `e2e/table-views.spec.ts` passes.
 - locks: reports, nav
 - after: V2
-### V6 Asetukset in three tabs
+### V6 Asetukset in three tabs (taken back: the six tabs of 1.0.0 stay)
 - why: six tabs and 54 files for a household that sets a bank and a payday.
 - done when: Pankit ja tilit, Kotitalous and Palvelin; remote access is one form; `e2e/settings.spec.ts` passes at 390 and 1440 px.
 - locks: settings

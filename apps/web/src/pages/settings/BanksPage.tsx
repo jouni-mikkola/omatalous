@@ -1,7 +1,6 @@
 /**
- * Asetukset > Pankit ja tilit: the bank connections and the fetch, the accounts, the fetch runs, the bank app (the
- * household's Enable Banking application for an admin, or one's own), and the data itself: its export and import, and
- * the example data.
+ * Asetukset > Pankit ja tilit: the bank connections and the fetch, the accounts, the fetch runs and the bank app (the
+ * household's Enable Banking application for an admin, or one's own).
  */
 import { api } from "../../api.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
@@ -10,8 +9,6 @@ import { BankApp } from "./BankApp.tsx";
 import { Accounts } from "./Accounts.tsx";
 import { BankConnections, connectedMessage, connectError } from "./BankConnections.tsx";
 import { CardStack } from "./CardStack.tsx";
-import { DataExport } from "./DataExport.tsx";
-import { ExampleData } from "./ExampleData.tsx";
 import type { SettingsPageProps } from "./SettingsPage.ts";
 import { StatementFile } from "./StatementFile.tsx";
 import { SyncRuns } from "./SyncRuns.tsx";
@@ -52,8 +49,6 @@ export function BanksPage({ meta, params, anchor, onChange }: SettingsPageProps)
         <Accounts meta={meta} onChange={onChange} />
         <StatementFile meta={meta} onChange={onChange} />
         <SyncRuns meta={meta} onLoaded={partLoaded} />
-        <DataExport />
-        <ExampleData meta={meta} busy={busy} run={run} />
       </CardStack>
     </div>
   );

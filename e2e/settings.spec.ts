@@ -2,11 +2,11 @@ import { type Browser, expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { linkFakeBank, makeMember, overflow, removeMember, waitForSync, watch } from "./helpers.ts";
 
-// Asetukset: the header link, the three targets, the card every old address lands on, and the repair of a bank connection
+// Asetukset: the header link, the six targets, the card every old address lands on, and the repair of a bank connection
 // that ended. The server has the administrator and the demo household already (e2e/run.mjs makes them). A member lives in
 // the household for the length of the file.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const TARGET_LABELS = ["Pankit ja tilit", "Kotitalous", "Palvelin"];
+const TARGET_LABELS = ["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"];
 /** Cards that were removed: each is a row, a field or a line of another card now, and no address brings it back. */
 const REMOVED = ["Tietoja", "Palvelutunnukset", "Jäsenet ilman tunnusta", "Tilien jakaminen", "Palauta uusin varmuuskopio", "Kokeiltavat toiminnot"];
 /**
@@ -18,21 +18,21 @@ const INVENTORY: { heading: string; target: string; admin?: true; example?: true
   { heading: "Tilit", target: "banks" },
   { heading: "Pankkihaut", target: "banks", fetched: true },
   { heading: "Pankkisovellus", target: "banks" },
-  { heading: "Tiedot", target: "banks" },
-  { heading: "Esimerkkitiedot", target: "banks", example: true },
   { heading: "Lainat", target: "household" },
-  { heading: "Talouden jäsenet", target: "household", admin: true },
-  { heading: "Salasana", target: "household" },
-  { heading: "Kaksivaiheinen kirjautuminen", target: "household" },
-  { heading: "Omat istunnot", target: "household" },
+  { heading: "Talouden jäsenet", target: "members", admin: true },
+  { heading: "Salasana", target: "security" },
+  { heading: "Kaksivaiheinen kirjautuminen", target: "security" },
+  { heading: "Omat istunnot", target: "security" },
+  { heading: "Turvallisuusloki", target: "security", admin: true },
+  { heading: "Tiedot", target: "data" },
+  { heading: "Esimerkkitiedot", target: "data", example: true },
   { heading: "Palvelin", target: "server", admin: true },
   { heading: "Etäkäyttö", target: "server", admin: true },
   { heading: "Ylläpito", target: "server", admin: true },
-  { heading: "Turvallisuusloki", target: "server", admin: true },
 ];
-const TARGET_LABEL: Record<string, string> = { banks: "Pankit ja tilit", household: "Kotitalous", server: "Palvelin" };
-/** The three targets that were folded into the others: their addresses open the target that has their cards. */
-const FOLDED = ["members", "security", "data"];
+const TARGET_LABEL: Record<string, string> = { banks: "Pankit ja tilit", household: "Talous", members: "Jäsenet", security: "Turvallisuus", data: "Tiedot", server: "Palvelin ja ylläpito" };
+/** The targets only an admin is offered. */
+const ADMIN_TARGETS = ["members", "server"];
 
 let member: { state: string; id: string };
 test.beforeAll(async ({ browser }) => {
@@ -46,7 +46,7 @@ async function admin(browser: Browser, width = 1440, height = 800) {
   return { context, page, seen: watch(page), hash: () => new URL(page.url()).hash };
 }
 
-test("Asetukset is in the user menu and has three targets, each its own address", async ({ browser }) => {
+test("Asetukset is in the user menu and has six targets, each its own address", async ({ browser }) => {
   const { context, page, seen, hash } = await admin(browser);
   const nav = page.getByRole("navigation", { name: "Päävalikko" });
   const targets = page.getByRole("navigation", { name: "Asetukset", exact: true });
@@ -67,7 +67,7 @@ test("Asetukset is in the user menu and has three targets, each its own address"
   await expect(header).toHaveAttribute("aria-current", "page");
   await menu.locator("summary").click();
 
-  // the three targets in a row, the open one marked, and each opens its own address with its own cards
+  // the six targets in a row, the open one marked, and each opens its own address with its own cards
   await expect(targets.getByRole("link")).toHaveText(TARGET_LABELS);
   await expect(targets.getByRole("link", { name: "Pankit ja tilit" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
@@ -88,7 +88,7 @@ test("Asetukset is in the user menu and has three targets, each its own address"
   }
 
   // Salasana: a card with a button, which opens the three fields and can close them
-  await page.goto("/#/settings/household");
+  await page.goto("/#/settings/security");
   const password = page.locator("#salasana");
   await expect(password.getByLabel("Nykyinen salasana")).toHaveCount(0);
   await password.getByRole("button", { name: "Vaihda salasana" }).click();
@@ -151,8 +151,8 @@ test("every setting is at most two clicks from Asetukset, and a member is offere
   const memberSeen = watch(memberPage);
   const memberTargets = memberPage.getByRole("navigation", { name: "Asetukset", exact: true });
   await memberPage.goto("/#/settings");
-  await expect(memberTargets.getByRole("link")).toHaveText(TARGET_LABELS.filter((l) => l !== TARGET_LABEL.server));
-  await expect(memberTargets.getByRole("link", { name: TARGET_LABEL.server })).toHaveCount(0);
+  await expect(memberTargets.getByRole("link")).toHaveText(TARGET_LABELS.filter((l) => !ADMIN_TARGETS.some((id) => TARGET_LABEL[id] === l)));
+  for (const id of ADMIN_TARGETS) await expect(memberTargets.getByRole("link", { name: TARGET_LABEL[id] })).toHaveCount(0);
   for (const { heading, target, admin, example, fetched } of INVENTORY) {
     if (example || fetched) continue;
     if (admin) {
@@ -166,8 +166,11 @@ test("every setting is at most two clicks from Asetukset, and a member is offere
       await expect(memberPage.getByRole("heading", { name: heading, exact: true }), `${heading} on ${target}`).toBeVisible();
     }
   }
-  await memberPage.goto("/#/settings/server");
-  await expect.poll(() => new URL(memberPage.url()).hash).toBe("#/settings/banks");
+  for (const id of ADMIN_TARGETS) {
+    await memberPage.goto("/#/overview");
+    await memberPage.goto(`/#/settings/${id}`);
+    await expect.poll(() => new URL(memberPage.url()).hash, id).toBe("#/settings/banks");
+  }
   expect(seen.problems).toEqual([]);
   expect(memberSeen.problems).toEqual([]);
   await memberContext.close();
@@ -180,19 +183,18 @@ test("every address of Asetukset lands on the card it names, on the target that 
     ["/#/settings", "#/settings/banks", null],
     ["/#/settings/banks#tilit", "#/settings/banks#tilit", "tilit"],
     ["/#/settings/household#lainat", "#/settings/household#lainat", "lainat"],
-    ["/#/settings/household#salasana", "#/settings/household#salasana", "salasana"],
-    ["/#/settings/household#kirjautuminen", "#/settings/household#kirjautuminen", "kirjautuminen"],
+    ["/#/settings/security#salasana", "#/settings/security#salasana", "salasana"],
+    ["/#/settings/security#kirjautuminen", "#/settings/security#kirjautuminen", "kirjautuminen"],
+    ["/#/settings/security#turvallisuusloki", "#/settings/security#turvallisuusloki", "turvallisuusloki"],
     ["/#/settings/server#palvelin", "#/settings/server#palvelin", "palvelin"],
-    ["/#/settings/server#turvallisuusloki", "#/settings/server#turvallisuusloki", "turvallisuusloki"],
     ["/#/settings?section=technical", "#/settings/server", null],
     ["/#/settings?section=maintenance", "#/settings/server#yllapito", "yllapito"],
-    // the three targets that were folded into the others: the address opens the target that has the card now
-    ["/#/settings/members", "#/settings/household", null],
-    ["/#/settings/security", "#/settings/household", null],
-    ["/#/settings/data", "#/settings/banks", null],
-    ["/#/settings/security#salasana", "#/settings/household#salasana", "salasana"],
-    ["/#/settings/security#kirjautuminen", "#/settings/household#kirjautuminen", "kirjautuminen"],
-    ["/#/settings/security#turvallisuusloki", "#/settings/server#turvallisuusloki", "turvallisuusloki"],
+    ["/#/settings/members", "#/settings/members", null],
+    ["/#/settings/data", "#/settings/data", null],
+    // an address from the time the cards were on three targets: it opens the target that has the card now
+    ["/#/settings/household#salasana", "#/settings/security#salasana", "salasana"],
+    ["/#/settings/household#kirjautuminen", "#/settings/security#kirjautuminen", "kirjautuminen"],
+    ["/#/settings/server#turvallisuusloki", "#/settings/security#turvallisuusloki", "turvallisuusloki"],
   ];
   for (const [address, lands, card] of cases) {
     await page.goto("/#/overview");
@@ -215,10 +217,10 @@ test("every address of Asetukset lands on the card it names, on the target that 
     for (const heading of REMOVED) await expect(page.getByRole("heading", { name: heading, exact: true }), `${target}: ${heading}`).toHaveCount(0);
   }
 
-  // an address of a folded target, from Yhteenveto: Back returns there, not to the address that was rewritten
+  // an address that names a card on another target, from Yhteenveto: Back returns there, not to the address that was rewritten
   await page.goto("/#/overview");
-  await page.goto("/#/settings/security#turvallisuusloki");
-  await expect.poll(hash).toBe("#/settings/server#turvallisuusloki");
+  await page.goto("/#/settings/server#turvallisuusloki");
+  await expect.poll(hash).toBe("#/settings/security#turvallisuusloki");
   await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
   await page.goBack();
   expect(page.url()).toMatch(/#\/overview$/);
@@ -265,13 +267,9 @@ test("a member's targets have their own cards and none of the admin's, and Hae n
     await expect(page.getByRole("heading", { name: "Pankkisovellus", exact: true }), address).toBeVisible();
     for (const admins of ["Palvelin", "Turvallisuusloki", "Ylläpito"]) await expect(page.getByRole("heading", { name: admins, exact: true }), `${address}: ${admins}`).toHaveCount(0);
   }
-  // the address of the folded security target is the member's own sessions, and the admin's log is not there
-  for (const folded of FOLDED) {
-    await page.goto(`/#/settings/${folded}`);
-    await expect.poll(hash, folded).toBe(folded === "data" ? "#/settings/banks" : "#/settings/household");
-  }
-  await page.goto("/#/settings/security#kirjautuminen");
-  await expect.poll(hash).toBe("#/settings/household#kirjautuminen");
+  // Turvallisuus is the member's own sign-in, and the admin's log is not there
+  await page.goto("/#/settings/household#kirjautuminen");
+  await expect.poll(hash).toBe("#/settings/security#kirjautuminen");
   await expect(page.getByRole("heading", { name: "Omat istunnot", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Talouden jäsenet", exact: true })).toHaveCount(0);
@@ -366,13 +364,13 @@ test("a target draws no empty cards while its data is on the way, only the loadi
   await context.close();
 });
 
-test("Kotitalous shows its cards when one read fails, and after a few seconds when one never answers", async ({ browser }) => {
+test("Turvallisuus shows its cards when one read fails, and after a few seconds when one never answers", async ({ browser }) => {
   const { context, page } = await admin(browser);
   // one read fails: that card says so itself and the others work
   await page.route("**/api/security/sessions", (route) => route.fulfill({ status: 500, json: { error: "Palvelin ei vastannut." } }));
-  await page.goto("/#/settings/household");
+  await page.goto("/#/settings/security");
   await expect(page.getByRole("heading", { name: "Salasana", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Talouden jäsenet", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Omat istunnot" })).toBeVisible();
   await expect(page.getByText("Palvelin ei vastannut.")).toBeVisible();
   await expect(page.getByText("Ladataan…")).toHaveCount(0);
@@ -382,12 +380,13 @@ test("Kotitalous shows its cards when one read fails, and after a few seconds wh
   await page.route("**/api/security/sessions", () => new Promise(() => {}));
   await page.reload();
   await expect(page.getByRole("heading", { name: "Salasana", exact: true })).toBeVisible({ timeout: 8000 });
-  await expect(page.getByRole("heading", { name: "Lainat", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kaksivaiheinen kirjautuminen", exact: true })).toBeVisible();
+  await page.unroute("**/api/security/sessions");
 
-  // the same on Palvelin, when the security log never answers
+  // the same when the security log never answers
   await page.route("**/api/security/events*", () => new Promise(() => {}));
-  await page.goto("/#/settings/server");
-  await expect(page.getByRole("heading", { name: "Ylläpito", exact: true })).toBeVisible({ timeout: 8000 });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Omat istunnot", exact: true })).toBeVisible({ timeout: 8000 });
   await context.close();
 });
 

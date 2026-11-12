@@ -168,9 +168,9 @@ describe("Tilit: what tells accounts apart", () => {
   it("says what to do, with no column heads, when there is no account", () => {
     expect(render([])).toContain("Tilit tulevat tähän, kun yhdistät pankin. Kokeile esimerkkitiedoilla.");
     expect(render([])).not.toContain("Tili Saldo");
-    // the link goes to the card that loads the data, not to the top of the page it is already on
+    // the link goes to the card that loads the data, on Tiedot
     const markup = renderToStaticMarkup(createElement(Accounts, { meta: metaOf([], [connection("c1")]), onChange: () => {} }));
-    expect(markup).toContain(`href="#/settings/banks#${SETTINGS_ANCHOR.exampleData}"`);
+    expect(markup).toContain(`href="#/settings/data#${SETTINGS_ANCHOR.exampleData}"`);
     expect(renderToStaticMarkup(createElement(ExampleData, { meta: metaOf([], []), busy: null, run: async () => {} }))).toContain(`id="${SETTINGS_ANCHOR.exampleData}"`);
   });
 

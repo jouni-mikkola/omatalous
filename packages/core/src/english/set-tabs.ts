@@ -4,6 +4,9 @@ import type { FI_SET_TABS } from "../messages-set-tabs.ts";
 export const EN_SET_TABS: Record<keyof typeof FI_SET_TABS, string> = {
   "set.tab.banks": "Banks and accounts",
   "set.tab.household": "Household",
-  "set.tab.server": "Server",
+  "set.tab.members": "Members",
+  "set.tab.security": "Security",
+  "set.tab.data": "Data",
+  "set.tab.server": "Server and maintenance",
   "set.tab.nav": "Settings",
 };

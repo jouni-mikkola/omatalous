@@ -15,7 +15,7 @@ const TABS: string[] = Object.entries(FI_SET_TABS)
 
 /**
  * The tab label that starts `rest`, whole: the longest one that is not followed by more of a word, nor by ` ja `, which
- * makes it the start of a longer name (the old tab Palvelin ja ylläpito is not the tab Palvelin).
+ * makes it the start of a longer name (the tab Palvelin ja ylläpito is not a tab named Palvelin).
  */
 function tabAt(rest: string): string | undefined {
   return TABS.filter((n) => rest.startsWith(n))
@@ -35,9 +35,9 @@ function wrong(text: string): string[] {
 }
 
 describe("docs: the guides name the tabs Asetukset has", () => {
-  it("reads the labels of the three tabs from the app's catalogue", () => {
+  it("reads the labels of the six tabs from the app's catalogue", () => {
     expect(PAGE).toBe("Asetukset");
-    expect(TABS).toHaveLength(3);
+    expect(TABS).toHaveLength(6);
   });
 
   it("tells a tab label from another name", () => {

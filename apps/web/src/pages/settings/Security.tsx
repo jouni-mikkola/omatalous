@@ -1,7 +1,7 @@
 /**
- * Asetukset > Kotitalous: Salasana (everyone), Omat istunnot (everyone: the signed-in devices, and for an admin one row
- * for each service token, a read-only key of a script or an agent that is made on the server's command line); and on
- * Asetukset > Palvelin, Turvallisuusloki (admin).
+ * Asetukset > Turvallisuus: Salasana (everyone), Omat istunnot (everyone: the signed-in devices, and for an admin one row
+ * for each service token, a read-only key of a script or an agent that is made on the server's command line) and
+ * Turvallisuusloki (admin).
  */
 import { useState } from "react";
 import { api } from "../../api.ts";

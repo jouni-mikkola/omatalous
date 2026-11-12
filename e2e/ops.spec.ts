@@ -57,9 +57,9 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
     void d.dismiss();
   });
 
-  // reachable from Asetukset > Palvelin
+  // reachable from Asetukset > Palvelin ja ylläpito
   await page.goto("/#/settings");
-  await page.getByRole("navigation", { name: "Asetukset" }).getByRole("link", { name: "Palvelin", exact: true }).click();
+  await page.getByRole("navigation", { name: "Asetukset" }).getByRole("link", { name: "Palvelin ja ylläpito", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ylläpito" }).first()).toBeVisible();
 
   // no helper yet: a clear state, the command to enable it, and no way to queue anything

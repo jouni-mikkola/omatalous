@@ -1,4 +1,4 @@
-/** Asetukset > Pankit ja tilit: the example data, to load, to load again and to remove. The page runs the action and shows what it said. */
+/** Asetukset > Tiedot: the example data, to load, to load again and to remove. The page runs the action and shows what it said. */
 import { useState } from "react";
 import { api } from "../../api.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";

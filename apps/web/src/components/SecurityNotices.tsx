@@ -19,7 +19,7 @@ export function SecurityNotices() {
       <div role="status">
         {banners.map((n) => (
           <Notice key={n.id} tone="warning">
-            {noticeText(n)} <a href={settingsHash("household")}>{t("notice.security")}</a>
+            {noticeText(n)} <a href={settingsHash("security")}>{t("notice.security")}</a>
           </Notice>
         ))}
       </div>

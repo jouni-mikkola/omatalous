@@ -132,8 +132,10 @@ describe("Forms that open in place", () => {
 
   it("moves the focus into the form on open and back to its button on Peruuta or Escape", async () => {
     await startServer();
-    await openApp("#/settings/household", "Asetukset");
-    for (const [open, form] of [["Vaihda salasana", "form"], ["Lisää jäsen", "form.form-fields"], ["Lisää laina", "form.loan-form"]] as const) {
+    await openApp("#/settings/security", "Asetukset");
+    const { router } = await import("../src/router.tsx");
+    for (const [target, open, form] of [["security", "Vaihda salasana", "form"], ["members", "Lisää jäsen", "form.form-fields"], ["household", "Lisää laina", "form.loan-form"]] as const) {
+      await router.navigate({ href: `/settings/${target}` });
       const opener = await screen.findByRole("button", { name: open }, T);
       // the button that opens a section's form stands in the strip of the section's name
       expect(opener.closest(".card-head"), `${open} in the name strip`).not.toBeNull();
@@ -153,7 +155,7 @@ describe("Forms that open in place", () => {
 
   it("keeps a form open on Escape once a field has changed", async () => {
     await startServer();
-    await openApp("#/settings/household", "Asetukset");
+    await openApp("#/settings/members", "Asetukset");
     fireEvent.click(await screen.findByRole("button", { name: "Lisää jäsen" }, T));
     const name = await screen.findByLabelText(/Käyttäjätunnus/, {}, T);
     fireEvent.change(name, { target: { value: "pekka" } });

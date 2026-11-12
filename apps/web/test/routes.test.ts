@@ -125,29 +125,36 @@ describe("Asetukset: the target and the card every address lands on", () => {
 
   it("a card of a section that is named on its target is left alone", () => {
     for (const role of both) {
-      for (const hash of ["#/settings/banks", "#/settings/household#lainat", "#/settings/household#salasana"]) {
+      for (const hash of ["#/settings/banks", "#/settings/household#lainat", "#/settings/security#salasana", "#/settings/security", "#/settings/data"]) {
         expect(redirectRoute(parseHash(hash), role), hash).toBeNull();
       }
     }
     expect(redirectRoute(parseHash("#/settings/server#palvelin"), "admin")).toBeNull();
+    expect(redirectRoute(parseHash("#/settings/members"), "admin")).toBeNull();
   });
 
-  it("a member's address of the server target opens the first target, and drops its card", () => {
+  it("a member's address of an admin's target opens the first target, and drops its card", () => {
     expect(lands("#/settings/server#yllapito", "member")).toBe("#/settings/banks");
     expect(lands("#/settings/server", "member")).toBe("#/settings/banks");
+    expect(lands("#/settings/members", "member")).toBe("#/settings/banks");
   });
 
-  it("an address of a target that was folded into another opens the target that has its cards, on the card it names", () => {
+  it("an address that names a card on another target opens the target that has the card", () => {
     for (const role of both) {
-      expect(lands("#/settings/security", role)).toBe("#/settings/household");
-      expect(lands("#/settings/security#salasana", role)).toBe("#/settings/household#salasana");
-      expect(lands("#/settings/security?a=1#kirjautuminen", role)).toBe("#/settings/household?a=1#kirjautuminen");
-      expect(lands("#/settings/members", role)).toBe("#/settings/household");
-      expect(lands("#/settings/data", role)).toBe("#/settings/banks");
+      expect(lands("#/settings/household#salasana", role)).toBe("#/settings/security#salasana");
+      expect(lands("#/settings/household?a=1#kirjautuminen", role)).toBe("#/settings/security?a=1#kirjautuminen");
+      expect(lands("#/settings/banks#esimerkkitiedot", role)).toBe("#/settings/data#esimerkkitiedot");
     }
-    // the security log is the admin's, on Palvelin: a member gets the first target with no card to scroll to
-    expect(lands("#/settings/security#turvallisuusloki", "admin")).toBe("#/settings/server#turvallisuusloki");
-    expect(lands("#/settings/security#turvallisuusloki", "member")).toBe("#/settings/banks");
+    expect(lands("#/settings/server#turvallisuusloki", "admin")).toBe("#/settings/security#turvallisuusloki");
+    // a member has Turvallisuus too, without the log: the address stays and there is no card to scroll to
+    expect(redirectRoute(parseHash("#/settings/security#turvallisuusloki"), "member")).toBeNull();
+    expect(lands("#/settings/server#salasana", "member")).toBe("#/settings/security#salasana");
+    // the address of the security log in 1.0.0
+    expect(lands("#/settings?section=security", "admin")).toBe("#/settings/security#turvallisuusloki");
+    expect(lands("#/settings?section=security&a=1", "member")).toBe("#/settings/security?a=1");
+    // a card of an admin's target: a member gets the first target with no card to scroll to
+    expect(lands("#/settings/household#jasenet-ilman-tunnusta", "admin")).toBe("#/settings/members#jasenet-ilman-tunnusta");
+    expect(lands("#/settings/household#jasenet-ilman-tunnusta", "member")).toBe("#/settings/banks");
   });
 
   it("an address under settings that names no target opens the first one", () => {
@@ -160,15 +167,16 @@ describe("Asetukset: the target and the card every address lands on", () => {
 });
 
 describe("the targets of Asetukset", () => {
-  it("are three for an admin and two for a member, without the admin's", () => {
-    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Kotitalous", "Palvelin"]);
-    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "household"]);
+  it("are the six of 1.0.0 for an admin and four for a member, without the admin's", () => {
+    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"]);
+    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "household", "security", "data"]);
   });
 
   it("have an address, and a card's address names its target", () => {
-    expect(settingsHash("household", "salasana")).toBe("#/settings/household#salasana");
-    expect(settingsCardHash("kirjautuminen")).toBe("#/settings/household#kirjautuminen");
-    expect(settingsCardHash("turvallisuusloki")).toBe("#/settings/server#turvallisuusloki");
+    expect(settingsHash("security", "salasana")).toBe("#/settings/security#salasana");
+    expect(settingsCardHash("kirjautuminen")).toBe("#/settings/security#kirjautuminen");
+    expect(settingsCardHash("turvallisuusloki")).toBe("#/settings/security#turvallisuusloki");
+    expect(settingsCardHash("esimerkkitiedot")).toBe("#/settings/data#esimerkkitiedot");
     expect(settingsCardHash("lainat")).toBe("#/settings/household#lainat");
     expect(settingsCardHash("etakaytto", new URLSearchParams("a=1"))).toBe("#/settings/server?a=1#etakaytto");
   });

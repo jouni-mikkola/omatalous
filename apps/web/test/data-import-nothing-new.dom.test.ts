@@ -13,7 +13,7 @@ describe("Tuo tiedot: a file with nothing new", () => {
     const server = await startServer();
     const exported = await server.admin.call("POST", "/api/data/export");
     expect(exported.status).toBe(200);
-    await openApp("#/settings/banks", "Asetukset");
+    await openApp("#/settings/data", "Asetukset");
     await screen.findByRole("button", { name: "Tuo tiedot" }, T);
     const input = document.querySelector<HTMLInputElement>('input[type="file"][accept^=".json"]')!;
     const text = JSON.stringify(exported.body);

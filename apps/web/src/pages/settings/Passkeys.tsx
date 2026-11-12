@@ -1,4 +1,4 @@
-/** Asetukset > Kotitalous: the passkeys of the signed-in member, to add and to remove. */
+/** Asetukset > Turvallisuus: the passkeys of the signed-in member, to add and to remove. */
 import { useState } from "react";
 import { api } from "../../api.ts";
 import { dateTime } from "../../format.ts";

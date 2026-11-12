@@ -90,7 +90,7 @@ const reviewRoute = createRoute({
   validateSearch: searchOf("review"),
   component: lazyRouteComponent(() => import("./views/ReviewView.tsx"), "ReviewView"),
 });
-// Asetukset is a frame with the three targets as children (`#/settings/household`); the bare `#/settings` is rewritten to the
+// Asetukset is a frame with the six targets as children (`#/settings/household`); the bare `#/settings` is rewritten to the
 // first target by the root route (`redirectRoute`), which also sends a member away from the admin's target
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -102,6 +102,9 @@ const settingsRoute = createRoute({
 const SETTINGS_TARGET_VIEW = {
   banks: "BanksView",
   household: "HouseholdView",
+  members: "MembersView",
+  security: "SecurityView",
+  data: "DataView",
   server: "ServerView",
 } as const satisfies Record<SettingsTarget, string>;
 const settingsTargetRoutes = SETTINGS_TARGETS.map((target) =>

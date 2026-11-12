@@ -36,7 +36,7 @@ test("a sign-in from a new device is the first row, leading to Asetukset, and ha
     await expect(page.locator(".notice")).toHaveCount(0);
     const first = card.getByRole("listitem").first();
     await expect(first).toContainText(/Kirjautuminen uudelta laitteelta \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Firefox, Linux\)/);
-    await expect(first.getByRole("link")).toHaveAttribute("href", "#/settings/household#kirjautuminen");
+    await expect(first.getByRole("link")).toHaveAttribute("href", "#/settings/security#kirjautuminen");
 
     // nothing marks it as read: the card has no button, the old route is gone, and the row is there after a reload
     await expect(card.getByRole("button")).toHaveCount(0);

@@ -5,7 +5,7 @@ const signIn = (over: Partial<SecurityNotice> = {}): SecurityNotice => ({ id: "e
 
 describe("a sign-in from a new device", () => {
   it("is one line with the time and the device, leading to the sign-in card of Asetukset", () => {
-    expect(securityRows([signIn()])).toEqual([{ id: "e7", title: "Kirjautuminen uudelta laitteelta 12.10. klo 15.30 (Chrome, Windows)", href: "#/settings/household#kirjautuminen" }]);
+    expect(securityRows([signIn()])).toEqual([{ id: "e7", title: "Kirjautuminen uudelta laitteelta 12.10. klo 15.30 (Chrome, Windows)", href: "#/settings/security#kirjautuminen" }]);
   });
 
   it("is the server's own sentence when it gave no device or no time", () => {
@@ -28,7 +28,7 @@ describe("the notices of the server", () => {
     expect(bannersOf(all).map((n) => n.id)).toEqual(["d"]);
     expect(bannersOf([signIn(), signIn({ id: "r", kind: "disk_low" })])).toEqual([]);
     expect(list.map((n) => [n.id, n.title, n.href])).toEqual([
-      ["r", "Ylläpitäjä nollasi salasanasi.", "#/settings/household#kirjautuminen"],
+      ["r", "Ylläpitäjä nollasi salasanasi.", "#/settings/security#kirjautuminen"],
       ["i", "Toimialahaku on pois päältä.", "#/settings/server#palvelin"],
       ["m", "Levyllä on vähän tilaa.", "#/settings/server#yllapito"],
     ]);

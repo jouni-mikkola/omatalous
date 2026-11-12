@@ -20,7 +20,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
-import { SETTINGS_ANCHOR, settingsHash } from "../../routes.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../../routes.ts";
 import { AccountShares } from "./AccountShares.tsx";
 import { css } from "../../css.ts";
 import { t } from "../../text.ts";
@@ -181,7 +181,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
       {message && <Notice tone={message.tone}>{message.text}</Notice>}
       {meta.accounts.length === 0 && (
         <Empty>
-          {t("set.acc.accounts_appear_here")} {!meta.householdHasAccounts && <a href={settingsHash("banks", SETTINGS_ANCHOR.exampleData)}>{t("set.acc.try_sample_data")}</a>}
+          {t("set.acc.accounts_appear_here")} {!meta.householdHasAccounts && <a href={settingsCardHash(SETTINGS_ANCHOR.exampleData)}>{t("set.acc.try_sample_data")}</a>}
         </Empty>
       )}
       {meta.accounts.length > 0 && (
