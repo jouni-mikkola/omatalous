@@ -65,6 +65,34 @@ describe("a card account's wording: country and city in front, the city again at
     expect(name("Osto FIN K-Market Kamppi")).toBe("K-Market");
   });
 
+  it("drops a town missing from the list when a chain with a hyphenated name or a payment service follows it", () => {
+    expect(name("Osto FIN Kemijarvi K-market Ilo")).toBe("K-Market");
+    expect(name("Osto FIN Kemijarvi S-market Ilo")).toBe("S-Market");
+    // a seller of other companies' software in front of the product, as a payment service is
+    expect(name("Osto ESP MADRID PADDLE.NET* KAUPPA ILO")).toBe("Kauppa Ilo");
+    // a chain's name alone after the country is the name, as before
+    expect(name("Osto FIN K-market Ilo")).toBe("K-Market");
+  });
+
+  it("keeps the first word of a name before a plain chain word or a seller's star: it can be the name's own", () => {
+    expect(name("Osto FIN Pizzeria Power")).toBe("Pizzeria Power");
+    expect(name("Osto FIN Grilli Max")).toBe("Grilli Max");
+    expect(name("Osto FIN Matti Stark")).toBe("Matti Stark");
+    expect(name("Osto FIN Pizzeria Power-Pizza")).toBe("Pizzeria Power-Pizza");
+    expect(name("Siirto kortilta FIN Kemijarvi Helen-Maria Virtanen")).toBe("Kemijarvi Helen-Maria Virtanen");
+    expect(name("Osto IRL Amazon Prime*AB12C3DE4")).toBe("Amazon Prime");
+    expect(name("Osto GBR Audible UK*AB1CD2EF3")).toBe("Audible");
+    expect(name("Osto LUX Kindle Svcs*AB1CD2")).toBe("Kindle Svcs");
+  });
+
+  it("reads the same shape after a foreign purchase's currency and sum, and after Siirto kortilta", () => {
+    expect(name("USD 25,00 Osto IRL DUBLIN 4 EXAMPLE* KAUPPA")).toBe("Example Kauppa");
+    expect(name("GBP 1 250,00 Osto GBR LONDON EXAMPLE* KAUPPA")).toBe("Example Kauppa");
+    expect(name("Siirto kortilta IRL Dublin Lompakko Ilo**1234*")).toBe("Lompakko Ilo");
+    // a sum without a currency code, or a code that is none, is no such text
+    expect(name("XYZ 12,00 Osto IRL DUBLIN EXAMPLE* KAUPPA")).not.toBe("Example Kauppa");
+  });
+
   it("cannot tell a town missing from the list from the first word of a name: it stays, and the country goes", () => {
     expect(name("Osto FIN Kemijarvi Kahvila Ilo")).toBe("Kemijarvi Kahvila Ilo");
   });

@@ -4,7 +4,7 @@
  * "K-Market") so that spending can be grouped per merchant.
  */
 import { isCarDealerName } from "./wording-car.ts";
-import { COUNTRY_CODES, dropCardEnvelope } from "./card-text.ts";
+import { COUNTRY_CODES, dropCardEnvelope, isCurrencyCode } from "./card-text.ts";
 import { PAYMENT_SERVICES } from "./payment-services.ts";
 import { companyForms, hasPayeeForm, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
 
@@ -122,14 +122,15 @@ function shopInText(text: string): string | null {
 }
 
 /**
- * A card account writes "Osto <country> <city> <name> [<city>]" ("OSTO FIN KUOPIO KUKKAKAUPPA ILO OY KUOPIO"). The
- * country and the city in front hide the shop from the processor and brand patterns, which read the start. The leading
- * word and a country code prove the shape: "OSTO XYZ …" has no such code, and a shop whose own name starts with three
- * capitals has no "OSTO" before them. The word after the country is dropped as the city only when the text proves it
- * is one (dropCardAccountPrefix); a row with no city keeps the first word of its name. Groups: the country, all that
- * follows it, its first word, the rest.
+ * A card account writes "Osto <country> <city> <name> [<city>]" ("OSTO FIN KUOPIO KUKKAKAUPPA ILO OY KUOPIO"), and the
+ * same after "Siirto kortilta" for money the card sent to a wallet or another bank. A foreign purchase has its currency
+ * and sum in front ("USD 12,00 OSTO IRL DUBLIN …"). The country and the city in front hide the shop from the processor
+ * and brand patterns, which read the start. The leading word and a country code prove the shape: "OSTO XYZ …" has no
+ * such code, and a shop whose own name starts with three capitals has no "OSTO" before them. The word after the country
+ * is dropped as the city only when the text proves it is one (dropCardAccountPrefix); a row with no city keeps the first
+ * word of its name. Groups: the currency, the country, all that follows it, its first word, the rest.
  */
-const CARD_ACCOUNT_TEXT = /^OSTO\s+([A-Z]{3})\s+((\S+)(?:\s+(\S.*))?)$/s;
+const CARD_ACCOUNT_TEXT = /^(?:([A-Z]{3})\s+\d[\d\s.,]*?\s+)?(?:OSTO|SIIRTO KORTILTA)\s+([A-Z]{3})\s+((\S+)(?:\s+(\S.*))?)$/s;
 
 const NOISE_WORDS =
   /\b(?:KORTTIOSTO|KORTTIMAKSU|OSTOPVM|OSTO|PURCHASE|CARD|VISA|DEBIT|ELECTRON|MASTERCARD|E-LASKU|E-INVOICE|TILISIIRTO|SUORAMAKSU|VERKKOMAKSU|LASKU|INVOICE)\b/g;
@@ -392,19 +393,25 @@ function dropProcessor(s: string): string {
 const cityKey = (city: string) => fold(city).replace(/AE/g, "A").replace(/OE/g, "O");
 
 /**
- * The text of a card account (CARD_ACCOUNT_TEXT) without its country, its city and the same city at the end; else `s`.
- * The first word after the country is the city when the same word ends the text, when a processor follows it (the
- * processor stands where the name begins) or when it is a town of PLACES, in its own spelling or with AE and OE for
- * Ä and Ö ("JOENSUU" holds an OE of its own). When none holds, the word may be the first of the name, so only the
- * country goes. A town followed by nothing but a company form ("TIKKURILA OYJ") is a company named for its town, kept.
+ * The text of a card account (CARD_ACCOUNT_TEXT) without its currency, country, city and the same city at the end; else
+ * `s`. The first word after the country is the city when the same word ends the text, when a processor follows it
+ * ("SUMUP *": the name begins there), when a chain of BRANDS with a hyphenated name follows it ("K-MARKET"), or when it
+ * is a town of PLACES, in its own spelling or with AE and OE for Ä and Ö ("JOENSUU" holds an OE of its own). When none holds,
+ * the word may be the first of the name, so only the country goes. A town followed by nothing but a company form
+ * ("TIKKURILA OYJ") is a company named for its town, kept.
  */
 export function dropCardAccountPrefix(s: string): string {
   const m = CARD_ACCOUNT_TEXT.exec(s);
-  if (!m || !COUNTRY_CODES.has(m[1]!) || m[4] === undefined) return s;
-  const [afterCountry, city, rest] = [m[2]!, m[3]!, m[4].trimEnd()];
+  if (!m || (m[1] !== undefined && !isCurrencyCode(m[1])) || !COUNTRY_CODES.has(m[2]!) || m[5] === undefined) return s;
+  const [afterCountry, city, rest] = [m[3]!, m[4]!, m[5].trimEnd()];
   const at = rest.lastIndexOf(" ");
   const repeated = at > 0 && cityKey(rest.slice(at + 1)) === cityKey(city);
-  if (!repeated && !isPlaceName(city) && !isPlaceName(cityKey(city)) && !PROCESSOR_PREFIX.test(rest)) return afterCountry;
+  // a chain's own hyphenated name, the whole word ("K-MARKET"), is no word of a shop's name; a plain one ("MAX",
+  // "POWER") may be, and so may a word that only begins with one ("POWER-PIZZA", the first name "HELEN-MARIA")
+  const word = fold(rest.split(" ")[0]!);
+  const chain = word.includes("-") && BRANDS.some(([pattern]) => pattern.exec(word)?.[0] === word);
+  const nameStarts = PROCESSOR_PREFIX.test(rest) || chain;
+  if (!repeated && !isPlaceName(city) && !isPlaceName(cityKey(city)) && !nameStarts) return afterCountry;
   const name = rest.slice(0, at).trim();
   const kept = repeated && !isSurnameAfterName(fold(city), name) ? name : rest;
   return COMPANY_FORMS.has(fold(kept)) ? afterCountry : kept;

@@ -15,6 +15,7 @@ export const COUNTRY_CODES = new Set(
 
 /** ISO 4217 codes a card text puts in front of a foreign purchase ("USD IRL DUBLIN EXAMPLECO"). */
 const CURRENCY_CODES = new Set("USD EUR GBP SEK NOK DKK CHF JPY CAD AUD NZD PLN CZK HUF CNY HKD SGD INR ISK RON BGN TRY ZAR BRL MXN KRW ILS AED THB".split(" "));
+export const isCurrencyCode = (tok: string): boolean => CURRENCY_CODES.has(tok);
 const COUNTRY_CODES_2 = new Set("FI SE EE DE IE NL LU GB UK US DK NO FR ES".split(" "));
 const isCountryCode = (tok: string) => COUNTRY_CODES.has(tok) || COUNTRY_CODES_2.has(tok);
 /** The cities a card text writes around a foreign merchant, word by word. */
