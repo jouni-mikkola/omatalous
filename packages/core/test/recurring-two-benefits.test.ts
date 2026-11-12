@@ -23,6 +23,17 @@ describe("two incomes of one payer", () => {
     expect(biweekly.nextDate).toBe("2026-10-12");
   });
 
+  it("makes no series of a piece of a salary whose sum moves a lot", () => {
+    // the 25th of each month from 10.2025: nine months near 2 500 € and four between 3 000 and 3 600 €, then a bonus and three small sums
+    const sums = [250_000, 300_000, 248_000, 252_000, 330_000, 251_000, 249_000, 360_000, 250_000, 253_000, 310_000, 247_000, 250_000];
+    const salary = sums.map((cents, i) => tx({ merchant: "Esimerkki Oy", category: "salary", bookingDate: `${2025 + Math.floor((9 + i) / 12)}-${String(((9 + i) % 12) + 1).padStart(2, "0")}-25`, amountCents: cents }));
+    const odd = [["2026-03-10", 150_000], ["2026-04-03", 2_300], ["2026-06-17", 4_100], ["2026-08-08", 3_200]].map(([bookingDate, amountCents]) =>
+      tx({ merchant: "Esimerkki Oy", category: "salary", bookingDate: bookingDate as string, amountCents: amountCents as number }),
+    );
+    const found = detectRecurring([...salary, ...odd], today).filter((s) => s.kind === "income");
+    expect(found.filter((s) => s.transactionIds.length < salary.length)).toEqual([]);
+  });
+
   it("leaves a payer with one income of a moving sum one series, as before", () => {
     const found = detectRecurring(benefit, today);
     expect(found).toHaveLength(1);
