@@ -67,6 +67,10 @@ describe("the month's spending is one sum", () => {
     ];
     const d = buildDashboard(createContext(many, [checking, savings], today), { from: "2026-10-01", to: today });
     expect(d.top.rows).toHaveLength(5);
+    // the page prints the name as it comes: an English reader got the Finnish one
+    const english = buildDashboard(createContext(many, [checking, savings], today), { from: "2026-10-01", to: today }, [], undefined, undefined, "en").top.rows.find((r) => r.category === "groceries")!;
+    expect(english.label).toBe("Groceries");
+    expect(d.top.rows.find((r) => r.category === "groceries")!.label).toBe("Ruokakauppa");
     expect(d.top.rows.map((r) => r.cents)).toEqual(d.categories.slice(0, 5).map((c) => c.cents));
     expect(d.top.rows.reduce((sum, r) => sum + r.cents, 0) + d.top.otherCents).toBe(d.totals.expenseCents);
     expect(d.top.totalCents).toBe(d.totals.expenseCents);

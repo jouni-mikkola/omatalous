@@ -1,4 +1,6 @@
 import { getCategory } from "../categories.ts";
+import { categoryLabel } from "../category-names.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { SAME_UNDER_CENTS } from "../thresholds.ts";
 import type { AnalysisTx } from "./context.ts";
 import { spendingBase } from "./data-quality.ts";
@@ -76,14 +78,15 @@ export interface TopCategories {
  * The `limit` largest categories with spending above zero, largest first, each with the same days of the period before.
  * The scale of the bars is the largest sum drawn, this period's or the earlier one's, so no mark falls off its bar.
  */
-export function topCategories(categories: readonly (CategoryTotal & { comparedCents: number })[], comparable: boolean, limit = 5): TopCategories {
+export function topCategories(categories: readonly (CategoryTotal & { comparedCents: number })[], comparable: boolean, lang: Language = DEFAULT_LANGUAGE, limit = 5): TopCategories {
   const top = categories.filter((c) => c.cents > 0).slice(0, limit);
   // compared: the whole of the category is on the accounts both periods have, so the bar and the mark are sums of the same accounts
   const compared = (c: (typeof top)[number]) => comparable && c.comparedCents === c.cents;
   const scale = Math.max(1, ...top.map((c) => Math.max(c.cents, compared(c) ? c.previousCents : 0)));
   const totalCents = categories.reduce((sum, c) => sum + c.cents, 0);
   const rows = top.map((c): TopCategory => {
-    const base = { category: c.category, label: c.label, cents: c.cents, barShare: c.cents / scale };
+    // the page prints this name as it is, so it comes in the reader's language
+    const base = { category: c.category, label: categoryLabel({ id: c.category, label: c.label }, lang), cents: c.cents, barShare: c.cents / scale };
     if (!compared(c)) return { ...base, previousCents: null, changeCents: null, change: null, previousShare: null };
     const changeCents = c.cents - c.previousCents;
     const change = c.previousCents <= 0 ? "new" : Math.abs(changeCents) < SAME_UNDER_CENTS ? "same" : changeCents > 0 ? "more" : "less";

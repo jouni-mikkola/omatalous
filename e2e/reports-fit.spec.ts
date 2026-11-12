@@ -4,7 +4,8 @@ import { join } from "node:path";
 // Every question of Raportit fits the window of a phone and of a desktop: the page does not scroll sideways and the
 // heading and the comparison switch stay inside the window.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const QUESTIONS = ["tulot", "menot", "saldot", "velat", "kuukausi"];
+// Velat is not here: the demo has no saved loan, so the list does not name it and its address opens another report
+const QUESTIONS = ["tulot", "menot", "saldot", "kuukausi"];
 
 for (const width of [390, 1440]) {
   for (const q of QUESTIONS) {
@@ -20,8 +21,8 @@ for (const width of [390, 1440]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth), `scrollWidth of ${q}`).toBeLessThanOrEqual(width);
       const outside = await page.evaluate((w) => [...document.querySelectorAll<HTMLElement>(".q-title, .compare, .compare button")].filter((e) => e.getBoundingClientRect().right > w + 0.5).map((e) => e.className || e.tagName), width);
       expect(outside, `outside the window in ${q}`).toEqual([]);
-      // the running month does not depend on the period and Velat has no period of its own, so those pages have no switch; the others do
-      await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(q === "kuukausi" || q === "velat" ? 0 : 1);
+      // the running month does not depend on the period, so its page has no switch; the others do
+      await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(q === "kuukausi" ? 0 : 1);
       await context.close();
     });
   }
@@ -44,9 +45,7 @@ for (const hash of ["/#/reports?period=12m", "/#/reports?q=nonexistent"]) {
 }
 
 // Tulot is repeated nowhere: at most half of the 6 015 px (1440 px) and 8 404 px (390 px) it was with a table for each month.
-// The table of income types grows with the types the demo has on the day (3 on 31.10., 4 on 1.11., which also brings its group rows),
-// so it counts at the height it had with 3 types and the guard measures the rest of the page.
-for (const [width, limit, types] of [[1440, 3008, 178], [390, 4202, 259]] as const) {
+for (const [width, limit] of [[1440, 3008], [390, 4202]] as const) {
   test(`Tulot stays under ${limit} px tall at ${width} px`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
     const page = await context.newPage();
@@ -54,8 +53,7 @@ for (const [width, limit, types] of [[1440, 3008, 178], [390, 4202, 259]] as con
     await page.reload();
     await expect(page.locator(".q-title")).toBeVisible({ timeout: 15_000 });
     await page.waitForLoadState("networkidle");
-    const rest = await page.evaluate(() => document.documentElement.scrollHeight - document.querySelector("table.income-types")!.getBoundingClientRect().height);
-    expect(rest + types).toBeLessThan(limit);
+    expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThan(limit);
     await context.close();
   });
 }

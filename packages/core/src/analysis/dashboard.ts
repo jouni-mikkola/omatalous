@@ -174,7 +174,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
     ahead: basis?.ahead ?? null,
     nyt: basis && nytAnswer(ctx, basis),
-    top: topCategories(categories, comparable),
+    top: topCategories(categories, comparable, lang),
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
     insights,

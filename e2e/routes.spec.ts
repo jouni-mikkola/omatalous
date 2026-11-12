@@ -116,7 +116,7 @@ test("the period of Raportit and the order of a table are in the address and sta
   await context.close();
 });
 
-test("Yhteenveto asks for the count of open questions and not for the queue; the mark says what the title of Tarkistettavat says", async ({ browser }) => {
+test("Yhteenveto reads the count and the queue its Huomioitavaa is the head of, no other page reads the queue; the mark says what the title of Tarkistettavat says", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const called: string[] = [];
@@ -134,20 +134,22 @@ test("Yhteenveto asks for the count of open questions and not for the queue; the
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole("region", { name: "Kuukausi", exact: true })).toBeVisible({ timeout: 15_000 });
   expect(called, "Yhteenveto reads the count").toContain("/api/review/count");
-  expect(called, "and not the queue").not.toContain("/api/review");
+  // Huomioitavaa lists the first open questions, so the first page reads the queue too
+  await expect.poll(() => called.includes("/api/review"), "and the queue").toBe(true);
+  await page.waitForLoadState("networkidle");
+  called.length = 0;
   for (const address of ["bills", "transactions", "reports", "settings"]) {
     await page.goto(`/#/${address}`);
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   }
   expect(called, "no other page reads the queue").not.toContain("/api/review");
 
-  // the queue is read when its page opens, and the page's count is the mark's
+  // the page's count is the mark's
   const mark = page.locator(".review-link .nav-count");
   if (queue.length > 0) await expect(mark).toHaveText(`${queue.length} avoinna`);
   else await expect(mark).toHaveCount(0);
   await page.getByRole("link", { name: /^Tarkistettavat/ }).click();
   await expect(page).toHaveTitle(/^Tarkistettavat/);
-  await expect.poll(() => called.includes("/api/review")).toBe(true);
   await context.close();
 });
 
@@ -161,7 +163,8 @@ test("with questions open the mark in the header and the number on Tarkistettava
   await page.goto("/#/overview");
   const mark = page.locator(".review-link .nav-count");
   await expect(mark).toHaveText("3 avoinna");
-  expect(called).toEqual(["count"]);
+  // the first page reads the count for the mark and the queue for Huomioitavaa
+  await expect.poll(() => [...new Set(called)].sort()).toEqual(["count", "queue"]);
   await page.getByRole("link", { name: /^Tarkistettavat/ }).click();
   await expect(mark).toHaveText("3 avoinna");
   // the heading and the tab title say the same number: badge, title, heading and queue are one count
