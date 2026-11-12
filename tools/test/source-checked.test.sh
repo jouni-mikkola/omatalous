@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tests for a source install that waits for GitHub's checks (TALOUS_SOURCE_CHECKED=yes, scripts/lib/release.sh): which
+# Tests for a source install that waits for GitHub's checks (TALOUS_SOURCE_CHECKED=yes, scripts/lib/source-checked.sh): which
 # commit update.sh run by hand and the helper's Päivitä button take, from the runs GitHub lists. Against the stub world of
 # tools/test/ops-world.sh with a curl that plays the list of runs from a file: nothing here touches GitHub, a real
 # container or a real registry.

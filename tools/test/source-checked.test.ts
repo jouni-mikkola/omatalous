@@ -1,5 +1,5 @@
 /**
- * A source install that waits for GitHub's checks (TALOUS_SOURCE_CHECKED, scripts/lib/release.sh) asks for the runs of two
+ * A source install that waits for GitHub's checks (TALOUS_SOURCE_CHECKED, scripts/lib/source-checked.sh) asks for the runs of two
  * workflow files and holds a copy of the paths for which `check` starts no run. An install cannot read the workflows of
  * the commit it is about to take, so the copies live in the script. This test holds them to the workflow files: a path
  * added to paths-ignore, a workflow renamed or one that no longer runs for every push to main fails here.
@@ -8,12 +8,13 @@
 import { describe, expect, it } from "vitest";
 import { readText } from "../repo-rules/lib.ts";
 
-const lib = readText("scripts/lib/release.sh");
+const LIB = "scripts/lib/source-checked.sh";
+const lib = readText(LIB);
 
 /** The value of NAME=... in the script: a plain word, or the words of a (list). */
 function shell(name: string): string[] {
   const m = new RegExp(`^${name}=(?:\\(([^)]*)\\)|(\\S+))$`, "m").exec(lib);
-  if (!m) throw new Error(`${name} is not set in scripts/lib/release.sh`);
+  if (!m) throw new Error(`${name} is not set in ${LIB}`);
   return (m[1] ?? m[2] ?? "").split(/\s+/).filter(Boolean).map((w) => w.replace(/^'(.*)'$/, "$1"));
 }
 
