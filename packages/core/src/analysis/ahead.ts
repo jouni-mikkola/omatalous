@@ -169,6 +169,13 @@ export interface AheadData {
    */
   everydayPerDayCents: number;
   totals: AheadTotals;
+  /**
+   * What the counted accounts pay on the day of the pay that ends the window, from that pay: the bills dated that day,
+   * found however far off it is, and on the payday itself the bills that follow the pay (`withPay`). In no figure of the
+   * window, so a household whose bills fall on the payday reads no payments before it; Yhteenveto says this sum apart.
+   * 0 without a pay that ends the window. Own transfers are not in it.
+   */
+  paydayCents: number;
   /** null unless every counted checking account has a balance. */
   balance: AheadBalance | null;
   /** Why the balance has no figures: "balance" when a counted checking account has no balance given. */
@@ -309,6 +316,8 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   // or the 30 days of `upcoming` reach, whichever is longer. `rows` and the counted part of `upcoming` are cut from it.
   const thirty = addDays(from, AHEAD_DAYS);
   const reachPayments = to > thirty ? to : thirty;
+  // the counted accounts' payments reach the day of the pay that ends the window too: `paydayCents` holds that day's
+  const reachPayday = next && next.day > reachPayments ? next.day : reachPayments;
   const all: AheadRow[] = [];
   const waited = new Set(major.map((p) => p.s));
   for (const { s, expected: due, dates } of pays) {
@@ -336,12 +345,12 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   for (const s of paying) {
     for (const o of s.settled ?? []) {
       if (!o.pending || (counted && !counted.ids.has(heldBy.get(o.id) ?? ""))) continue;
-      for (const c of expectedCharges([{ ...s, nextDate: o.due }], from, o.due, expected)) if (c.date <= reachPayments) all.push({ ...chargeRow(c), pending: true });
+      for (const c of expectedCharges([{ ...s, nextDate: o.due }], from, o.due, expected)) if (c.date <= reachPayday) all.push({ ...chargeRow(c), pending: true });
     }
   }
-  for (const c of expectedCharges(paying.filter((s) => !withPay(s)), from, reachPayments, expected)) all.push(chargeRow(c));
-  for (const c of expectedCharges(paying.filter(withPay), from, reachPayments, expected)) all.push(c.date === from ? { ...chargeRow(c), withPay: true } : chargeRow(c));
-  for (const b of expectedBillRows(ctx, inputs.expectedBills, from, reachPayments)) {
+  for (const c of expectedCharges(paying.filter((s) => !withPay(s)), from, reachPayday, expected)) all.push(chargeRow(c));
+  for (const c of expectedCharges(paying.filter(withPay), from, reachPayday, expected)) all.push(c.date === from ? { ...chargeRow(c), withPay: true } : chargeRow(c));
+  for (const b of expectedBillRows(ctx, inputs.expectedBills, from, reachPayday)) {
     all.push({ date: b.date, name: b.name, category: b.category, cents: -b.amountCents, source: "expected" });
   }
   // what a card or an account outside the balance pays is in Laskut's 30 days and not in the window; a card's is marked
@@ -355,11 +364,14 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     ...expectedCharges(outside.filter(onCard), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), onCard: true })),
   ];
   // the moves are found to the end of Laskut's 30 days: a card's bill is in the list like any bill, a transfer is not
-  const { moves, asItGoes, settling } = counted ? expectedMoves(ctx, counted.ids, balances, from, reachPayments) : { moves: [], asItGoes: new Set<string>(), settling: [] };
+  const { moves, asItGoes, settling } = counted ? expectedMoves(ctx, counted.ids, balances, from, reachPayday) : { moves: [], asItGoes: new Set<string>(), settling: [] };
   for (const m of moves) {
     all.push({ date: m.date, name: m.name, category: "transfer", cents: -m.amountCents, source: m.source, ...(m.basis ? { basis: m.basis } : {}) });
   }
   const upcoming = [...all.filter((r) => r.source !== "income" && r.source !== "transfer" && r.date <= thirty), ...elsewhere].sort(byDay);
+  // a payment of the day the pay lands on, paid from it: dated that day after the window, or following the pay that is due today
+  const fromPay = (r: AheadRow) => r.source !== "income" && r.source !== "transfer" && !!next && ((r.date === next.day && r.date > to) || !!r.withPay);
+  const paydayCents = all.reduce((sum, r) => (fromPay(r) ? sum + Math.abs(centsOf(r)) : sum), 0);
   const rows = all.filter((r) => r.date <= to && !r.withPay).sort(byDay);
 
   // a card the counted accounts pay as it goes has no bill row: its purchases are spent from them day by day
@@ -371,7 +383,7 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   });
   const [recurringCents, typedCents, cardCents, transferCents] = [sumOf(rows, "recurring"), sumOf(rows, "expected"), sumOf(rows, "card"), sumOf(rows, "transfer")];
   const totals: AheadTotals = { recurringCents, typedCents, cardCents, transferCents, dueCents: recurringCents + typedCents + cardCents, leavingCents: recurringCents + typedCents + cardCents + transferCents, incomeCents: sumOf(rows, "income") };
-  const base = { from, to, days, reason, payday, rows, upcoming, outside: outsideRows.sort(byDay), everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals };
+  const base = { from, to, days, reason, payday, rows, upcoming, outside: outsideRows.sort(byDay), everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals, paydayCents };
   const evidence: Pay[] = payday?.pay && paySeries ? payEvidence(regularOf(paySeries), from) : [];
   const periods = comingList(ctx, inputs, found);
   // the rows are those of every counted account, so the figures need the balance of every one of them

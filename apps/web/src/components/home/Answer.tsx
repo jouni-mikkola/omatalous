@@ -13,6 +13,8 @@ export const reportHref = (q?: string) => hashOf({ page: "reports", params: new 
 
 /** Laskut's list of the payments before the payday, where an account outside the balance has its rows too. */
 const beforePaydayHref = hashOf({ page: "bills", params: new URLSearchParams(), anchor: "ennen-palkkapaivaa" });
+/** Laskut, whose list has the bills paid from the pay after the window's. */
+const billsHref = hashOf({ page: "bills", params: new URLSearchParams() });
 
 /** Why there is no sum to say. */
 function unknownText(left: Extract<NytData["left"], { known: false }>): string {
@@ -22,12 +24,13 @@ function unknownText(left: Extract<NytData["left"], { known: false }>): string {
 }
 
 /**
- * The first block of Yhteenveto: the sum left before the payday and what it is a day on the left, the sum row that
- * makes it on the right (balance, payments before the payday, what is left, to the cent). Every figure is a field of
- * `nyt`; nothing is added up here. The balance opens the accounts, the payments open their rows on Laskut, and what is
+ * The first block of Yhteenveto, read from the top: the sum left before the payday and what it is a day, then its basis,
+ * the sum row that makes it (balance, payments before the payday, what is left, to the cent) and a line for what the
+ * sum leaves out. Every figure is a field of `nyt`; nothing is added up here. The balance opens the accounts, the payments open their rows on Laskut, and what is
  * left opens its basis (`ahead.free`): the accounts the balance adds up and each payment taken off. The balance's name
- * says whether it is one account or several (`ahead.balance.accounts`), and what an account the balance leaves out pays
- * before the payday is said under the row: the payments read 0 when only such an account pays.
+ * says whether it is one account or several (`ahead.balance.accounts`). Under the row: what an account the balance
+ * leaves out pays before the payday, and what the counted accounts pay on the payday itself, from the pay. The payments
+ * read 0 when only those pay, so each is said there.
  */
 export function Answer({ nyt, ahead, scope }: { nyt: NytData; ahead: DashboardData["ahead"]; scope: Scope }) {
   const { left, usualPerDayCents } = nyt;
@@ -86,6 +89,11 @@ export function Answer({ nyt, ahead, scope }: { nyt: NytData; ahead: DashboardDa
       {left.known && left.elsewhereCents > 0 && (
         <p className="home-detail home-elsewhere">
           <a href={beforePaydayHref}>{t("home.payments_elsewhere", { sum: money(left.elsewhereCents) })}</a>
+        </p>
+      )}
+      {left.known && left.paydayCents > 0 && (
+        <p className="home-detail home-elsewhere">
+          <a href={billsHref}>{t("home.payments_on_payday", { sum: money(left.paydayCents) })}</a>
         </p>
       )}
     </section>

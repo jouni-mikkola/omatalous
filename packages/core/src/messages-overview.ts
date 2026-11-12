@@ -50,6 +50,7 @@ export const FI_OVERVIEW = {
   "home.accounts_balance": "Käyttötilin saldo",
   "home.accounts_balance_many": "Käyttötilien saldo",
   "home.payments_elsewhere": "Lisäksi {sum} tileiltä, joita saldo ei laske.",
+  "home.payments_on_payday": "Palkkapäivänä lähtee laskuja {sum}.",
   "home.left": "Jää",
   "home.hide_payments": "Piilota maksut",
   "home.show_payments": "Näytä maksut",

@@ -48,6 +48,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.accounts_balance": "Checking account balance",
   "home.accounts_balance_many": "Checking accounts' balance",
   "home.payments_elsewhere": "Plus {sum} from accounts the balance leaves out.",
+  "home.payments_on_payday": "Bills of {sum} leave on payday.",
   "home.left": "Left",
   "home.hide_payments": "Hide payments",
   "home.show_payments": "Show payments",

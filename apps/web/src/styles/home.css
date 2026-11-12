@@ -1,10 +1,10 @@
-/* Yhteenveto: the answer with the sum row that makes it, the month's pace, what to check and where the money went, and
+/* Yhteenveto: the answer with the sum row that makes it under it, the month's pace, what to check and where the money went, and
    what the household has and owes. Sections are told apart by a heading and a hairline (the `.card` rule), so nothing
    here has a box. A block keeps its place from the first frame: the loading frame uses the same classes, so the page
    does not move when the answer lands. */
 
 @layer pages {
-.home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 3); }
+.home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 3); }
 .home-answer-main { display: grid; gap: var(--sp-8); align-content: start; }
 /* the sum right after the words, the answer of the question on one line; on a narrow screen it wraps under the words */
 .home-answer-line { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: var(--sp-4) var(--sp-16); margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
@@ -21,23 +21,16 @@
 .home-sum-row a, .home-rows dd > a { color: inherit; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: var(--sp-4); }
 .home-sum-row a:hover, .home-rows dd > a:hover { text-decoration-color: var(--text); }
 
+/* the basis under the answer: three figures on one line, as wide as they need on a wide screen */
+@media (min-width: 1040px) {
+  .home-sum-row { max-inline-size: 44rem; }
+}
 /* a phone: the three figures share the line, so the figures are smaller and the padding tighter */
 @media (max-width: 40rem) {
   .home-sum-row > div { padding-inline: var(--sp-8); }
   .home-sum-row dd { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
 }
-
-/* wide: the answer on the left, the sum that makes it on the right, one figure a line */
-@media (min-width: 1040px) {
-  /* the page's twelve columns: the sum row starts where Huomioitavaa under it does */
-  .home-answer { grid-template-columns: repeat(12, minmax(0, 1fr)); column-gap: var(--gap); align-items: start; }
-  .home-answer-main { grid-column: 1 / 8; }
-  .home-sum-row { grid-column: 8 / -1; grid-template-columns: minmax(0, 1fr); }
-  .home-sum-row > div { grid-template-columns: 1fr auto; align-items: baseline; padding-inline: 0; border-inline-start: 0; }
-  .home-sum-row > div + div { border-block-start: var(--hairline) solid var(--grid); }
-  .home-elsewhere { grid-column: 8 / -1; }
-}
-/* what an account outside the balance pays: a line under the sum row, the size of its labels */
+/* what the sum leaves out (an account outside the balance, the payday's own bills): a line under the sum row, the size of its labels */
 .home-elsewhere { font-size: var(--fs-label); line-height: var(--lh-label); }
 
 /* wide: the month's pace stands on the left, what to check and the categories on the right, the figures across the page below; the order in the source is the order a narrow screen reads */
