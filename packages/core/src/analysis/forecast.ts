@@ -14,7 +14,7 @@ import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
 import { accountsCoverage, monthSpan } from "./coverage.ts";
 import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
-import { cardsBreakUsual, paidCardBills } from "./usual.ts";
+import { paidCardBills } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
