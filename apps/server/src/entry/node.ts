@@ -120,9 +120,12 @@ const moduleStart = await loadInstalledModule({ root: moduleRoot, signersFile, a
   console.error(`add-on module did not load: ${err.name}`);
   return { state: "none" };
 });
-if (moduleStart.state === "connected") console.log(`add-on module ${moduleStart.id} ${moduleStart.version} loaded`);
-else if (moduleStart.state === "waiting") console.log(`add-on module ${moduleStart.id} ${moduleStart.version} is not for this version; running without it`);
-else if (moduleStart.state === "refused") console.log(`add-on module ${moduleStart.id} ${moduleStart.version} refused: ${moduleStart.reason}; running without it`);
+// A CLI call's stdout is the command's answer and nothing else: the maintenance helper reads `ops poll` as one exact
+// line (scripts/ops-helper.sh, poll_once). So the module's line goes to stderr there, and to the log of the server.
+const moduleLine = process.argv.length > 2 ? console.error : console.log;
+if (moduleStart.state === "connected") moduleLine(`add-on module ${moduleStart.id} ${moduleStart.version} loaded`);
+else if (moduleStart.state === "waiting") moduleLine(`add-on module ${moduleStart.id} ${moduleStart.version} is not for this version; running without it`);
+else if (moduleStart.state === "refused") moduleLine(`add-on module ${moduleStart.id} ${moduleStart.version} refused: ${moduleStart.reason}; running without it`);
 const modules: ModuleRuntime = { root: moduleRoot, signersFile, start: moduleStart };
 
 const gate = process.argv.length > 2 ? null : gateDatabase(dbPath, new Date(), env.MIGRATIONS_DIR || undefined);
