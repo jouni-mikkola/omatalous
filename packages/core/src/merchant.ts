@@ -134,7 +134,15 @@ const CARD_ACCOUNT_TEXT = /^(?:([A-Z]{3})\s+\d[\d\s.,]*?\s+)?(?:OSTO|SIIRTO KORT
 
 /** A sum with its currency's code on either side ("USD 25,00", "1 250,00 GBP"). */
 const CURRENCY_WORD = `(?:${[...CURRENCY_CODES].join("|")})`;
-const FOREIGN_SUM = new RegExp(String.raw`\b${CURRENCY_WORD} ?\d{1,3}(?:[ .]?\d{3})*,\d{2}\b|\b\d{1,3}(?:[ .]?\d{3})*,\d{2} ?${CURRENCY_WORD}\b`, "g");
+const FOREIGN_SUM = String.raw`\b${CURRENCY_WORD} ?\d{1,3}(?:[ .]?\d{3})*,\d{2}\b|\b\d{1,3}(?:[ .]?\d{3})*,\d{2} ?${CURRENCY_WORD}\b`;
+/** The time after its word ("KLO 14.22") and a foreign purchase's sum and rate ("USD 25,00 KURSSI 1,0834"). */
+const BANK_FIGURES = new RegExp(String.raw`\bKLO\.? ?\d{1,2}[.:]\d{2}(?:[.:]\d{2})?\b|\b(?:VAIHTO)?KURSSI:? ?\d+[.,]\d+\b|${FOREIGN_SUM}`, "g");
+
+/**
+ * Folded bank text without the figures a bank writes around the payee (`BANK_FIGURES`): the rate of a foreign purchase
+ * ("KURSSI 1,0834") is no course of study for the category rules.
+ */
+export const dropBankFigures = (folded: string): string => folded.replace(BANK_FIGURES, " ");
 
 const NOISE_WORDS =
   /\b(?:KORTTIOSTO|KORTTIMAKSU|OSTOPVM|OSTO|PURCHASE|CARD|VISA|DEBIT|ELECTRON|MASTERCARD|E-LASKU|E-INVOICE|TILISIIRTO|SUORAMAKSU|VERKKOMAKSU|LASKU|INVOICE)\b/g;
@@ -354,11 +362,8 @@ export function cleanDescription(raw: string): string {
   for (let i = 0; i < 2; i++) s = dropProcessor(s);
   s = s
     .replace(NOISE_WORDS, " ")
-    // the time after its word ("KLO 14.22") and a foreign purchase's sum and rate ("USD 25,00 KURSSI 1,0834"): the dots
-    // and commas in them would leave words of digits and the word itself in front of the name
-    .replace(/\bKLO\.? ?\d{1,2}[.:]\d{2}(?:[.:]\d{2})?\b/g, " ")
-    .replace(/\b(?:VAIHTO)?KURSSI:? ?\d+(?:[.,]\d+)?\b/g, " ")
-    .replace(FOREIGN_SUM, " ")
+    // the dots and commas of a time or a rate would leave words of digits and the word itself in front of the name
+    .replace(BANK_FIGURES, " ")
     // card masks with the card's first digits (4581XXXXXXXX2241, 4581 **** **** 2241), dates, times, long reference numbers
     // the lookahead and backreference take each run of X or * whole (an atomic group): a run with no digits after it
     // fails in one try instead of in every way of splitting it, which took seconds from 36 characters on

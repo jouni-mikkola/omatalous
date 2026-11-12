@@ -125,6 +125,16 @@ describe("the time, sum and rate a bank writes around the name", () => {
     ["GBP 1 250,00 VAIHTOKURSSI 0,8611 KAUPPA ILO LTD", "Kauppa Ilo"],
   ])("%s → %s", (raw, expected) => expect(name(raw)).toBe(expected));
 
+  it("leaves the rate out of the category: a purchase abroad is no course", () => {
+    const rules = compileRules([]);
+    const of = (description: string) => categorize({ merchant: name(description), counterparty: null, description, mcc: null, amountCents: -6426 }, rules).category;
+    expect(of("GBP 55,26 KURSSI 0,8611 KAHVILA ILO LONDON")).toBe(of("KAHVILA ILO LONDON"));
+    expect(of("GBP 55,26 KURSSI 0,8611 KAHVILA ILO LONDON")).not.toBe("education");
+    // a course is still one, with its number too
+    expect(of("KURSSI 2026 KEVAT")).toBe("education");
+    expect(of("KURSSIMAKSU")).toBe("education");
+  });
+
   it("keeps a name that holds digits and three capitals", () => {
     // no currency code: the words are the shop's
     expect(name("Kauppa Ilo 12,00 ABC")).toBe("Kauppa Ilo Abc");

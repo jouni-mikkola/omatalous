@@ -3,7 +3,7 @@ import { bankRowRules } from "./categorize-bank-rows.ts";
 import { categoryForMcc } from "./categorize-mcc.ts";
 import { type Holders, holdersOf, noCard, peopleRules } from "./categorize-people.ts";
 import { categoryForIndustry, type RegisterAnswer } from "./industry.ts";
-import { fold, namesUnknownMerchant } from "./merchant.ts";
+import { dropBankFigures, fold, namesUnknownMerchant } from "./merchant.ts";
 import { payeeRules } from "./payees.ts";
 import { tradeWordCategory } from "./trade-words.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
@@ -515,9 +515,9 @@ function fieldText(input: CategorizeInput, field: RuleField): string {
     case "counterparty":
       return fold(input.counterparty ?? "");
     case "description":
-      return fold(input.description ?? "");
+      return dropBankFigures(fold(input.description ?? ""));
     case "any":
-      return fold([input.merchant, input.counterparty, input.description].filter(Boolean).join(" | "));
+      return fold([input.merchant, input.counterparty, input.description && dropBankFigures(input.description.toUpperCase())].filter(Boolean).join(" | "));
   }
 }
 
