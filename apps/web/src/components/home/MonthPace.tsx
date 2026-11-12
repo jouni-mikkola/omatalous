@@ -17,7 +17,7 @@ type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
  * the chart of the month's days and the same days as a table. The chart has one comparison: the usual band when the
  * household has one, else last month's line, so a household without a usual level still sees the month against something.
  * Without a usual level the sentence names last month's sum to the same day too, so the words compare with what the chart
- * draws (core leaves last month out when it was on other accounts); on the last days of a month after a shorter one that
+ * draws (core leaves last month out when it does not compare day by day: other accounts, or a card bill); on the last days of a month after a shorter one that
  * sum is the whole of last month and says so. The spent sum opens the month's rows, and the days and categories behind
  * the difference are one link away.
  */

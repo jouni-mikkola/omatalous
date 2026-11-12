@@ -24,9 +24,10 @@ export interface MonthPace {
   /** The month's spending so far: the last point of `current`, 0 before the 1st. */
   currentTotal: number;
   /**
-   * The calendar month before, of real rows. null when the history has no row in it, or when it was not on the same
-   * accounts as this month (`sameAccounts`): an account whose history begins later, such as a card linked this month,
-   * would add to one curve and not the other, so the same days would differ by what the data holds.
+   * The calendar month before, of real rows. null when it does not compare day by day (`comparesWith`): the history has
+   * no row in it, an account that spent in either month has no data for the whole of both (a card linked this month
+   * adds to one curve and not the other), or either month paid a card bill that is no transfer (a month of purchases on
+   * one day, a different day each month).
    */
   previous: {
     /** "2026-09" */
