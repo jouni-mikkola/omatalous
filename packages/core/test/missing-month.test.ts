@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
+import { planOf } from "../src/analysis/change-plan.ts";
 import { completeMonthsBefore, isCompleteMonth } from "../src/analysis/usual.ts";
 import { categoryReport } from "../src/reports/categories.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -47,6 +48,22 @@ describe("a month with no row on an account in daily use", () => {
     const ctx = createContext(without(filler("acc-1", "2024-11-01"), "2026-02", "2026-07", "2026-08"), [A], today);
     expect(isCompleteMonth(ctx, "2026-08")).toBe(false);
     expect(completeMonthsBefore(ctx, "2026-10")).toEqual(["2026-03", "2026-04", "2026-05", "2026-06", "2026-09"]);
+  });
+});
+
+describe("a reader of consecutive months", () => {
+  it("shows no category trend over six months with one missing", () => {
+    const ctx = createContext(without(filler("acc-1", "2025-11-01"), "2026-07"), [A], today);
+    const report = categoryReport(ctx, { from: "2025-11-01", to: "2026-10-31" });
+    const groceries = report.groups.flatMap((g) => g.categories).find((c) => c.category === "groceries")!;
+    expect(groceries.trend).toBeNull();
+  });
+
+  it("compares a year only over the months after the missing one", () => {
+    const ctx = createContext(without(filler("acc-1", "2024-08-01"), "2026-03"), [A], today);
+    const plan = planOf(ctx, "year", "2026-09")!;
+    expect(plan.target).toEqual(["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
+    expect(plan.base[0]).toBe("2025-04");
   });
 });
 

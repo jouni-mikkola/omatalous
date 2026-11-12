@@ -121,9 +121,13 @@ export function accountCovers(ctx: AnalysisContext, accountIds: Iterable<string>
   return any;
 }
 
-/** An account in daily use: this many rows a month on average over the months it has rows in, and spending in this share of the months from its first row to its last or more. */
+/**
+ * An account in daily use: this many rows a month on average over the months it has rows in, spending in this share of
+ * those months or more, and rows in `DAILY_MONTHS_SHARE` of the months from its first row to its last.
+ */
 const DAILY_ROWS = 8;
 const DAILY_PAID_SHARE = 0.85;
+const DAILY_MONTHS_SHARE = 0.75;
 /** The longest run of empty months read as missing rows; a longer one is an account left unused for a while. */
 const HOLE_MONTHS = 2;
 
@@ -161,7 +165,8 @@ function holes(ctx: AnalysisContext): Holes {
   for (const [id, a] of rows) {
     const first = Math.min(...a.months);
     const last = Math.max(...a.months);
-    if (a.months.size < 3 || a.count < DAILY_ROWS * a.months.size || a.paid.size < DAILY_PAID_SHARE * (last - first + 1)) continue;
+    const daily = a.count >= DAILY_ROWS * a.months.size && a.paid.size >= DAILY_PAID_SHARE * a.months.size && a.months.size >= DAILY_MONTHS_SHARE * (last - first + 1);
+    if (a.months.size < 3 || !daily) continue;
     let found = false;
     for (let m = first + 1; m < last; m++) {
       if (a.months.has(m)) continue;
