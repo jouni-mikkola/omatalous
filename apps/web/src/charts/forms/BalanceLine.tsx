@@ -1,9 +1,9 @@
 // Decision: is the buffer growing, and what took it down when it fell
 import type { BalanceReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { dayMonth, money, monthLabel } from "../../format.ts";
+import { date, dayMonth, money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
-import { crisp, LABEL_CHAR_W, labelsWithRoom } from "../draw.ts";
+import { crisp, LABEL_CHAR_W, LABEL_GAP } from "../draw.ts";
 import { decimate } from "../kit/decimate.ts";
 import { LANE_H } from "../kit/Annotations.tsx";
 import { placeMarkers } from "../kit/annotate.ts";
@@ -70,14 +70,21 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const first = days.findIndex((v) => v !== null);
   const starts = monthStarts(r.daily.from, iso(days.length - 1));
   const startTexts = starts.map((s) => monthLabel(s.slice(0, 7), s.slice(5, 7) === "01"));
-  const printedStarts = labelsWithRoom(startTexts, f.innerW / Math.max(starts.length, 1), new Set());
+  const half = (k: number) => (startTexts[k]!.length * LABEL_CHAR_W) / 2;
   // a month's name stands under the days of it the chart has, and inside the chart: the running month has only a few
   const monthX = (k: number) => {
     const a = Math.max(0, indexOf(starts[k]!));
     const b = k + 1 < starts.length ? indexOf(starts[k + 1]!) - 1 : days.length - 1;
-    const half = (startTexts[k]!.length * LABEL_CHAR_W) / 2;
-    return Math.max(half, Math.min(f.innerW + f.margin.right - half - 1, (x(a) + x(b)) / 2));
+    return Math.max(half(k), Math.min(f.innerW + f.margin.right - half(k) - 1, (x(a) + x(b)) / 2));
   };
+  // from the newest month back, a name is printed where it clears the one after it, so a pushed-in running month
+  // (a January's name carries its year) never lands on the month before it
+  const printedStarts = new Set<number>();
+  for (let k = starts.length - 1, next = -1; k >= 0; k--) {
+    if (next >= 0 && monthX(next) - monthX(k) < half(next) + half(k) + LABEL_GAP) continue;
+    printedStarts.add(k);
+    next = k;
+  }
   const inDays = (day: string) => indexOf(day) >= 0 && indexOf(day) < days.length && days[indexOf(day)] !== null;
   const events = r.events.filter((e) => inDays(e.day));
   // a tick only where the line steps down by the purchase (critic round 2); the rest are told in the readout
@@ -111,8 +118,16 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const namedPay = pays
     .filter((d) => taken.every((b) => apart(b, payBox(d))))
     .reduce<string | undefined>((best, d) => (best === undefined || Math.abs(indexOf(d) - days.length / 2) < Math.abs(indexOf(best) - days.length / 2) ? d : best), undefined);
-  // the days before an account was known are left empty, and the empty part says from which day the line runs
-  const knownFrom = first > 0 ? t("rpt.bl_known_from", { day: dayMonth(iso(first)) }) : null;
+  // the days before an account was known are left empty, and the empty part says from which day the line runs: in its
+  // middle, else higher or lower where it touches no label of the line; the year is named when it is not the last day's
+  const knownText = first > 0 ? t("rpt.bl_known_from", { day: date(iso(first), iso(days.length - 1)) }) : null;
+  const knownAt =
+    knownText && knownText.length * LABEL_CHAR_W + 16 <= x(first)
+      ? [0.5, 0.25, 0.75].map((share) => f.innerH * share).find((ky) => {
+          const box = boxOf(x(first) / 2, ky + 4, knownText, "middle");
+          return [...taken, ...(namedPay ? [payBox(namedPay)] : [])].every((b) => apart(b, box));
+        })
+      : undefined;
   // the readout steps by day, every day one stop: the pixel of each day is its index
   const xs = days.map((_, i) => x(i));
   return (
@@ -129,9 +144,9 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
                 </text>
               ) : null,
             )}
-            {knownFrom && knownFrom.length * LABEL_CHAR_W + 16 <= x(first) && (
-              <text className="qc-end-sub bl-known-from" x={x(first) / 2} y={f.innerH / 2} dy="0.32em" textAnchor="middle">
-                {knownFrom}
+            {knownText && knownAt !== undefined && (
+              <text className="qc-end-sub bl-known-from" x={x(first) / 2} y={knownAt} dy="0.32em" textAnchor="middle">
+                {knownText}
               </text>
             )}
             {y.domain[0] === 0 && first >= 0 && <path className="qc-area" d={`${linePath(days, x, y, keep)}L${x(last).toFixed(1)},${y(0)}L${x(first).toFixed(1)},${y(0)}Z`} />}
@@ -181,6 +196,8 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
           </g>
         </svg>
       )}
+      {/* one known day draws no line: the day's balance is the panel's figure, and this says why the chart is not there */}
+      {known.length === 1 && <p className="qc-a">{t("rpt.bl_one_day")}</p>}
       {at !== null && <Tip x={x(at)} left={f.margin.left} width={f.width} title={title(at)} rows={tipRows(at)} />}
       <LiveReadout text={at === null ? "" : readoutText(title(at), tipRows(at))} />
     </div>
