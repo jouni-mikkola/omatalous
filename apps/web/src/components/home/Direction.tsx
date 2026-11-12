@@ -18,8 +18,11 @@ function averagePeriod(today: string, from: string): { from: string; to: string 
  * accounts and the debts it is made of (fields of `holdings`, each a link to its rows), the buffer in months of the
  * expected spending (cash less card debt and the payments before payday: no loan is in it, so it stands with a loan unsaved) and the average spending of the
  * complete months before this one (up to 12, named by their count) with the direction of the last three (`home.direction`). The average opens its months and their rows.
+ * It reads the flows Kuukausi reads (consumption and debt), but with a card bill whole on its booking day, over ended
+ * months and with every one-off purchase in the mean, so it stands well above a month's spending to date; its label
+ * and line say so, as it is not Kuukausi's figure.
  * With a loan nobody saved a balance for, the net figure would be too large: it is left out and the line under the
- * figures says such a loan is missing.
+ * figures says such a loan is missing, and the label of the debts says their sum is partial.
  */
 export function Direction({ holdings, direction, today, scope }: { holdings: DashboardData["holdings"]; direction: DashboardData["home"]["direction"]; today: string; scope: Scope }) {
   const unsaved = holdings.unsavedLoans?.count ?? 0;
@@ -46,7 +49,8 @@ export function Direction({ holdings, direction, today, scope }: { holdings: Das
         )}
         {(holdings.debtCents > 0 || unsaved > 0) && (
           <div className="home-row">
-            <dt>{t("home.debts")}</dt>
+            {/* with a loan nobody saved a balance for, the sum is of the others: the label says so */}
+            <dt>{unsaved > 0 ? tn(unsaved, "home.debts_partial_one", "home.debts_partial_many") : t("home.debts")}</dt>
             <dd className="num">
               <a href={reportHref("velat")}>{holdings.debtCents > 0 ? `−${answerMoney(holdings.debtCents)}` : answerMoney(0)}</a>
               {unsaved > 0 && (
@@ -74,7 +78,7 @@ export function Direction({ holdings, direction, today, scope }: { holdings: Das
                 {answerMoney(direction.averageCents)}
               </Why>
               {t("home.per_month")}
-              {note && <small>{note}</small>}
+              <small>{note ? `${t("home.spend_average_basis")} ${note}` : t("home.spend_average_basis")}</small>
             </dd>
           </div>
         )}

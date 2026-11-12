@@ -161,7 +161,7 @@ describe("Yhteenveto", () => {
   it("Varat ja velat leads with what is left after the debts, and the accounts and the debts open their rows", () => {
     const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000 } as DashboardData["holdings"];
     const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
-    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Menot keskimäärin, 12 kk"]);
+    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Menot keskimäärin, 12 päättynyttä kuukautta"]);
     expect(flat(container.querySelector(".home-row-lead dd")?.textContent)).toBe("12 400 €");
     expect([...container.querySelectorAll(".home-row dd > a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/reports?q=velat"]);
   });
@@ -172,9 +172,9 @@ describe("Yhteenveto", () => {
     // seven months read from March: a month between was left out, so the period starts eight months back
     stubApi({ "GET /api/explain": { figure: "spend.average", kind: "median", cents: 320000, lines: [], rows: [], check: { kind: "recompute", diffCents: 0 } } });
     const { container } = render(createElement(Direction, { holdings, direction: { ...DIRECTION, months: 7, from: "2026-03-01" }, today: "2026-11-11", scope: "own" }));
-    expect(container.querySelector(".home-row:last-child dt")?.textContent).toBe("Menot keskimäärin, 7 kk");
+    expect(container.querySelector(".home-row:last-child dt")?.textContent).toBe("Menot keskimäärin, 7 päättynyttä kuukautta");
     const door = container.querySelector<HTMLButtonElement>(".home-row:last-child button.why-door");
-    expect(flat(door?.getAttribute("aria-label"))).toBe("Näytä tapahtumat: Menot keskimäärin, 7 kk 3 200 €");
+    expect(flat(door?.getAttribute("aria-label"))).toBe("Näytä tapahtumat: Menot keskimäärin, 7 päättynyttä kuukautta 3 200 €");
     fireEvent.click(door!);
     expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.3.–31.10.");
   });
@@ -184,7 +184,21 @@ describe("Yhteenveto", () => {
     const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } } as DashboardData["holdings"];
     const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
     expect(container.querySelector(".home-row-lead")).toBeNull();
-    expect(container.querySelector(".home-rows")?.textContent).toContain("Lisäksi 1 laina, jonka saldoa ei ole tallennettu: Rahoitus Oy.");
+    expect(container.querySelector(".home-rows")?.textContent).toContain("Saldo puuttuu lainalta Rahoitus Oy.");
     expect(container.querySelector(".home-row small a")?.getAttribute("href")).toBe("#/review");
+    // the sum shown is of the other debts, and the label said "Velat" as if it were all of them
+    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toContain("Velat, 1 laina puuttuu");
+    const three = { ...holdings, unsavedLoans: { count: 3, names: ["A Oy", "B Oy", "C Oy"], paymentCents: 28900 } } as DashboardData["holdings"];
+    const many = render(createElement(Direction, { holdings: three, direction: DIRECTION, today: "2026-11-11", scope: "own" })).container;
+    expect([...many.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toContain("Velat, 3 lainaa puuttuu");
+  });
+
+  // the average read several times this month's spending and was taken for the same figure: it is of ended months, one-off purchases in it
+  it("the average spending says it is of ended months with the one-off purchases in it", () => {
+    const holdings = { accountsCents: 1300000, debtCents: 0, netCents: 1300000 } as DashboardData["holdings"];
+    const flatDir = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" })).container;
+    expect(flat(flatDir.querySelector(".home-row:last-child small")?.textContent)).toBe("Kertaostot mukana. Kolmen viime kuukauden menot ovat ennallaan.");
+    const up = render(createElement(Direction, { holdings, direction: { ...DIRECTION, direction: "up", recentChangeCents: 40000 }, today: "2026-11-11", scope: "own" })).container;
+    expect(flat(up.querySelector(".home-row:last-child small")?.textContent)).toMatch(/^Kertaostot mukana\. \S/);
   });
 });
