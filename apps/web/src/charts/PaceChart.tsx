@@ -113,7 +113,8 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
   // the estimate's end label clears the expected one's by a line
   const estY = endHigh === null ? 0 : expectedEnd !== null && Math.abs(y(endHigh) - expectedEnd) < 14 ? expectedEnd + 14 : y(endHigh);
   // today's figure, the one read first, stands over its dot, else right of it (the month after today is empty of this
-  // month's line), else under it: the first place no other line (often last month's) runs through
+  // month's line), else under it: the first place no other line (often last month's) runs through. Every place stays in
+  // the plot, as the end labels (Tavallinen, Arvio) take the margin right of it
   const nowText = now === null ? "" : money(now, false);
   const nowAt = (() => {
     const over = { x: x(lastDay - 1), y: 0, anchor: lastDay > days - 3 ? "end" : "middle" } as const;
@@ -130,11 +131,12 @@ export function PaceChart({ pace, goal, payday, names }: { pace: Pace; goal: num
       { values: expected?.curve ?? [], xOf: x },
       { values: projection?.low ?? [], xOf: px },
       { values: projection?.high ?? [], xOf: px },
+      { values: goal === null ? [] : [goal, goal], xOf: (i: number) => i * f.innerW },
     ];
     const clear = (p: (typeof places)[number]) => {
       const x0 = p.anchor === "end" ? p.x - w : p.anchor === "middle" ? p.x - w / 2 : p.x;
       const box = { x0, x1: x0 + w, y0: p.y - 11, y1: p.y + 2 };
-      return box.x1 <= f.innerW + f.margin.right && box.y0 >= -f.margin.top && box.y1 <= f.innerH && lines.every((l) => !crosses(l.values, l.xOf, y, box));
+      return box.x1 <= f.innerW && box.y0 >= -f.margin.top && box.y1 <= f.innerH && lines.every((l) => !crosses(l.values, l.xOf, y, box));
     };
     return places.find(clear) ?? places[0]!;
   })();

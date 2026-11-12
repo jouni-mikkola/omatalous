@@ -97,6 +97,27 @@ describe("PaceChart labels", () => {
     });
   }
 
+  it("on the month's last day today's figure stays clear of the usual level's end label", () => {
+    current = 1440;
+    // last month's line ends a little over this month's, so the place over the dot is taken
+    const now = curve(10_000);
+    const p = { ...pace, current: now, projection: null, previous: { curve: curve(10_700) } };
+    const { container } = render(createElement(PaceChart, { pace: p, goal: null, payday: null, names: { current: "Tämä kuu", previous: "Viime kuu" } }));
+    const box = (el: Element, dy = 0) => {
+      const w = el.textContent!.length * LABEL_CHAR_W;
+      const x = Number(el.getAttribute("x"));
+      const a = el.getAttribute("text-anchor");
+      const x0 = a === "end" ? x - w : a === "middle" ? x - w / 2 : x;
+      const y = Number(el.getAttribute("y")) + dy;
+      return { x0, x1: x0 + w, y0: y - 11, y1: y + 2 };
+    };
+    const label = box(container.querySelector("text.pace-now-label")!);
+    const end = [...container.querySelectorAll("text.pace-end")].find((e) => e.textContent === "Tavallinen")!;
+    // dy 0.32em of a 12 px text
+    const usual = box(end, 4);
+    expect(label.x1 <= usual.x0 || usual.x1 <= label.x0 || label.y1 <= usual.y0 || usual.y1 <= label.y0).toBe(true);
+  });
+
   it("today's figure stays over its dot when nothing runs there", () => {
     current = 1440;
     const c = draw();
