@@ -49,13 +49,22 @@ export function isFixedCost(s: Pick<RecurringSeries, "active" | "kind" | "catego
 export function fixedSplit(series: readonly FixedInput[], cancelled: ReadonlySet<string> = new Set()): { consumptionCents: number; debtCents: number; savingsCents: number } {
   const out = { consumptionCents: 0, debtCents: 0, savingsCents: 0 };
   for (const s of series) {
-    if (!isFixedCost(s) || isCancelled(cancelled, s)) continue;
-    const kind = getCategory(s.category).kind;
-    if (kind === "expense") out.consumptionCents += s.monthlyCents;
-    else if (kind === "debt") out.debtCents += s.monthlyCents;
-    else if (isSavingsPlan(s)) out.savingsCents += s.monthlyCents;
+    if (isFixedSpending(s, cancelled)) {
+      if (getCategory(s.category).kind === "expense") out.consumptionCents += s.monthlyCents;
+      else out.debtCents += s.monthlyCents;
+    } else if (isFixedCost(s) && !isCancelled(cancelled, s) && isSavingsPlan(s)) out.savingsCents += s.monthlyCents;
   }
   return out;
+}
+
+/**
+ * A series the fixed costs of a month count: a fixed cost the household has not cancelled, spending or debt service.
+ * Its `monthlyCents` are in `consumptionCents + debtCents` of `fixedSplit`, so a list of these adds up to that figure.
+ */
+export function isFixedSpending(s: FixedInput, cancelled: ReadonlySet<string>): boolean {
+  if (!isFixedCost(s) || isCancelled(cancelled, s)) return false;
+  const kind = getCategory(s.category).kind;
+  return kind === "expense" || kind === "debt";
 }
 
 /**

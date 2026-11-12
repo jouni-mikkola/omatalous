@@ -82,6 +82,19 @@ describe("Raportit: Kiinteät menot", () => {
     expect(rowsHref({ id: "out:acc-1:Apple#1299", merchant: "Apple" }, "2026-09-18")).toBe("#/transactions?merchant=Apple&accountId=acc-1&from=2026-09-18&to=2026-09-18");
   });
 
+  it("a product among several of its payee links its days only: all the payee's rows would hold the other product's too", () => {
+    show(context(REPORT));
+    // the price keeps its no-break space before the euro
+    fireEvent.click(screen.getByRole("button", { name: /^Apple 12,99\s€$/u }));
+    const paid = screen.getByRole("table", { name: /^Apple 12,99\s€: maksut 12 kuukauden ajalta$/u });
+    expect(within(paid).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["#/transactions?merchant=Apple&accountId=acc-1&from=2026-09-18&to=2026-09-18"]);
+    expect(screen.queryByRole("link", { name: "Avaa Tapahtumissa" })).toBeNull();
+  });
+
+  it("is headed by its name in 1.0.0", () => {
+    expect(section.title).toBe("Kiinteät menot");
+  });
+
   it("with no series yet it says so in one line, and without accounts it is not listed", () => {
     const none: Report = { rows: [], monthlyCents: 0, yearlyCents: 0, incomeMonthlyCents: null, fixedShare: null, fixedShareLabel: "" };
     expect(section.visible?.(context(none))).toBe(true);

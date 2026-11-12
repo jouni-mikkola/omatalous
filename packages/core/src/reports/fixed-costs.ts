@@ -1,8 +1,7 @@
 // Decision: what a month costs before any choice, and which contract, subscription or loan instalment makes it
 import { type AnalysisContext, standingOf } from "../analysis/context.ts";
 import { fixedSeriesAt, fixedShareOn } from "../analysis/fixed-share.ts";
-import { getCategory } from "../categories.ts";
-import { cancelledSubjects, isCancelled, isFixedCost } from "../commitments.ts";
+import { cancelledSubjects, isFixedSpending } from "../commitments.ts";
 import { addMonthsToDate } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import type { Cadence } from "../recurring.ts";
@@ -22,7 +21,7 @@ interface FixedCostRow {
   id: string;
   merchant: string;
   category: string;
-  /** Null for a lender's payments that have no steady day. */
+  /** How often it is charged; a lender's payments on no steady day are monthly. Null when the series tells none. */
   cadence: Cadence | null;
   /** One usual charge, positive. */
   chargeCents: number;
@@ -61,7 +60,7 @@ interface FixedCostsReport {
  */
 export function fixedCostsReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS, lang: Language = DEFAULT_LANGUAGE): FixedCostsReport {
   const cancelled = cancelledSubjects(inputs, ctx.today);
-  const running = fixedSeriesAt(ctx, ctx.today).filter((s) => isFixedCost(s) && !isCancelled(cancelled, s) && ["expense", "debt"].includes(getCategory(s.category).kind));
+  const running = fixedSeriesAt(ctx, ctx.today).filter((s) => isFixedSpending(s, cancelled));
   const since = addMonthsToDate(ctx.today, -FIXED_PAYMENT_MONTHS);
   // a series' rows are those of the standing context: in the cut one a row can be missing
   const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));

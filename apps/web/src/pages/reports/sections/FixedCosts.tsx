@@ -53,9 +53,13 @@ function Detail({ row }: { row: Row }) {
           csv={false}
         />
       )}
-      <Button variant="link" href={rowsHref(row)}>
-        {t("table.drill_open")}
-      </Button>
+      {/* Tapahtumat filters by payee and account: for one product among several of a payee it would list the others
+          too, so such a line has only its days, as Laskut has */}
+      {parseSeriesId(row.id)?.product == null && (
+        <Button variant="link" href={rowsHref(row)}>
+          {t("table.drill_open")}
+        </Button>
+      )}
     </div>
   );
 }
@@ -95,7 +99,7 @@ function FixedCosts({ ctx }: SectionProps) {
 export const section: ReportSection = {
   id: "kiinteat-menot",
   get title() {
-    return t("rpt.fc_title");
+    return t("rpt.sec_fixedcosts");
   },
   order: 50,
   page: "reports",
