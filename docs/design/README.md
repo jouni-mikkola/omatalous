@@ -98,7 +98,9 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
   Each row is date, name, category as text and amount. Group by merchant is a toolbar choice of the list.
 - Raportit has the list of its reports on every report page, as in 1.0.0: Kuukausi (what the tab opens), Rahankäyttö,
-  Tulot (the kinds of income, their payers and months, and the tax year), Velat, Tilit ja saldot, and Yhteiset menot only with a shared account. A report with nothing to show is not listed.
+  Tulot (the kinds of income, their payers and months, and the tax year), Kiinteät menot (one table of what a month costs
+  before any choice, each line opening its payments of the last twelve months), Velat, Tilit ja saldot, and Yhteiset
+  menot only with a shared account. A report with nothing to show is not listed.
 - Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans), Jäsenet (admin only), Turvallisuus,
   Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
 - Tapahtumat has the two views of 1.0.0, Lista and Kauppiaat (`?view=merchants`), and the rules are under the merchants.
@@ -120,8 +122,8 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | Rules page | `pages/Rules.tsx` | Taken back: the rules are under the merchants |
 | Laskut timeline and sums | `components/bills/Timeline.tsx`, `PriceSteps.tsx`, `ContractPanel.tsx` | Tulossa keeps the list only |
 | Raportit menu and 7 pages | `pages/Reports.tsx`, `pages/reports/pages/*`, `pages/reports/Verdict.tsx`, core `reports/conclusions/` | Kuukausi and Lisää replace them |
-| Report sections that go | `pages/reports/sections/` Pivot, FixedVariable, Drift, SpendingChange, SpendingTable, Food, Buffer, Cashflow, LongForecast, Income, FixedCosts, PriceChange, DataQuality, CategoryGoals | Folded into Kuukausi (Income is its income row), Tulossa or Tarkistettavat, or answer nothing. ThisMonth, Balances, Loans, Borrowed, Settlement, TaxYear and YearOverYear stay, in Kuukausi or Lisää |
-| Core reports that go | `packages/core/src/reports/index.ts` ids `pivot`, `fixedVariable`, `drift`, `spendingChange`, `spendingTable`, `food`, `buffer`, `cashflow`, `longForecast`, `priceChange`, `dataQuality`, `categoryGoals`, `conclusions`, `summary`, `fixedCosts` | 24 ids become 9: `thisMonth`, `categories`, `upcoming`, `income`, `yearOverYear`, `balances`, `loans`, `taxYear`, and `housing`, which feeds a Tarkistettavat question |
+| Report sections that go | `pages/reports/sections/` Pivot, FixedVariable, Drift, SpendingChange, SpendingTable, Food, Buffer, Cashflow, LongForecast, Income, FixedCosts, PriceChange, DataQuality, CategoryGoals | Folded into Kuukausi (Income is its income row), Tulossa or Tarkistettavat, or answer nothing. ThisMonth, Balances, Loans, Borrowed, Settlement, TaxYear and YearOverYear stay, in Kuukausi or Lisää. FixedCosts came back on 12.11.2026 as one table, without its price changes, overlapping services and ended payments |
+| Core reports that go | `packages/core/src/reports/index.ts` ids `pivot`, `fixedVariable`, `drift`, `spendingChange`, `spendingTable`, `food`, `buffer`, `cashflow`, `longForecast`, `priceChange`, `dataQuality`, `categoryGoals`, `conclusions`, `summary`, `fixedCosts` | 24 ids become 9: `thisMonth`, `categories`, `upcoming`, `income`, `yearOverYear`, `balances`, `loans`, `taxYear`, and `housing`, which feeds a Tarkistettavat question. `fixedCosts` came back for Raportit > Kiinteät menot |
 | Unopened views counter | `pages/settings/UnopenedViews.tsx`, `services/view-opens.ts` | This rework is the deletion it waited for |
 | Remote access in 9 files | `pages/settings/RemoteAccess*.tsx`, `remote-access-*.ts` | One form |
 | Six settings tabs | `pages/settings/*Page.tsx` | Kept: the three tabs tried in their place were taken back on 12.11.2026 |

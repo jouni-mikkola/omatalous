@@ -3069,5 +3069,635 @@
     "lowered": false
    }
   ]
+ },
+ "fixedCosts": {
+  "rows": [
+   {
+    "id": "out:chk:Sato",
+    "merchant": "Sato",
+    "category": "housing",
+    "cadence": "monthly",
+    "chargeCents": 105000,
+    "monthlyCents": 105000,
+    "yearlyCents": 1260000,
+    "lastDate": "2026-10-02",
+    "nextDate": "2026-11-02",
+    "payments": [
+     {
+      "id": "e7581465d7cc5a922286d584",
+      "date": "2026-10-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "ea2c6182ac391076719c24c0",
+      "date": "2026-09-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "014e62819f05107ca241f3d4",
+      "date": "2026-08-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "9ddd4823770f4abb83e1e513",
+      "date": "2026-07-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "881c3a888ad3cea0e916831b",
+      "date": "2026-06-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "037a085dce35fa7c747bbb42",
+      "date": "2026-05-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "a41bd2b314e7c8f604a74bf6",
+      "date": "2026-04-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "ade2f94d5706627be6227fbe",
+      "date": "2026-03-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "8a5489b41bd16910e4316736",
+      "date": "2026-02-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "d303b7e1f0f251c270664448",
+      "date": "2026-01-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "3820aae45083aeb9d1354529",
+      "date": "2025-12-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "0814f84f0b0915e794e78028",
+      "date": "2025-11-02",
+      "amountCents": 105000
+     }
+    ],
+    "paidCents": 1260000
+   },
+   {
+    "id": "out:chk:Nordea Bank Abp",
+    "merchant": "Nordea Bank Abp",
+    "category": "mortgage",
+    "cadence": "monthly",
+    "chargeCents": 61240,
+    "monthlyCents": 61240,
+    "yearlyCents": 734880,
+    "lastDate": "2026-10-05",
+    "nextDate": "2026-11-05",
+    "payments": [
+     {
+      "id": "e85a009d779d040f88a7b0a7",
+      "date": "2026-10-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "356246524140fb28dee93052",
+      "date": "2026-09-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "974c5f590fe905414e2d6f1d",
+      "date": "2026-08-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "7a755c1584c5cd2928b91688",
+      "date": "2026-07-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "19a802a01114a8526fc1399a",
+      "date": "2026-06-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "d69cc9dc061c297b0372cd9d",
+      "date": "2026-05-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "97fd5e28178b1acdb4ec52f6",
+      "date": "2026-04-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "e487c0671c76a914adfea309",
+      "date": "2026-03-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "a18463ed33a256f44d858a23",
+      "date": "2026-02-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "8e3f4d5c28a34e4af03a8207",
+      "date": "2026-01-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "9770943c874d78a8b1ad9501",
+      "date": "2025-12-05",
+      "amountCents": 61240
+     },
+     {
+      "id": "bd588aed687a1d9d3976e22c",
+      "date": "2025-11-05",
+      "amountCents": 61240
+     }
+    ],
+    "paidCents": 734880
+   },
+   {
+    "id": "out:chk:Helsingin Kaupunki",
+    "merchant": "Helsingin Kaupunki",
+    "category": "kids",
+    "cadence": "monthly",
+    "chargeCents": 27990,
+    "monthlyCents": 25658,
+    "yearlyCents": 307896,
+    "lastDate": "2026-10-08",
+    "nextDate": "2026-11-08",
+    "payments": [
+     {
+      "id": "dd173320f790628f18f91ec3",
+      "date": "2026-10-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "322f29c1f8aa3d8baf17d01b",
+      "date": "2026-09-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "276ff0761c63da3bed01b183",
+      "date": "2026-08-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "607b887c0ee71bf5a7d0e190",
+      "date": "2026-06-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "88a92adc4cdea344cf4195cb",
+      "date": "2026-05-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "6df05296153ea2da95a16fdb",
+      "date": "2026-04-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "015db90fbc68d3b31300ece3",
+      "date": "2026-03-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "d271f7922a7a167878ecd11f",
+      "date": "2026-02-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "ca377ab3df194a7eb137b9bd",
+      "date": "2026-01-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "03145273ea35a8256ba26f5b",
+      "date": "2025-12-08",
+      "amountCents": 27990
+     },
+     {
+      "id": "74a7c64f4b2a12a67bb7383c",
+      "date": "2025-11-08",
+      "amountCents": 27990
+     }
+    ],
+    "paidCents": 307890
+   },
+   {
+    "id": "out:chk:Helen",
+    "merchant": "Helen",
+    "category": "utilities",
+    "cadence": "monthly",
+    "chargeCents": 4078,
+    "monthlyCents": 7416,
+    "yearlyCents": 88992,
+    "lastDate": "2026-10-12",
+    "nextDate": "2026-11-12",
+    "payments": [
+     {
+      "id": "a1dc1b258880b9ce45d8767d",
+      "date": "2026-10-12",
+      "amountCents": 5077
+     },
+     {
+      "id": "fc7145cda7edcbbcb98723d0",
+      "date": "2026-09-12",
+      "amountCents": 4078
+     },
+     {
+      "id": "64b7b6889a0514ec03475634",
+      "date": "2026-08-12",
+      "amountCents": 4042
+     },
+     {
+      "id": "67e6e0e14bb4168c1a13691d",
+      "date": "2026-07-12",
+      "amountCents": 4861
+     },
+     {
+      "id": "e50a47958c996d9aff89986c",
+      "date": "2026-06-12",
+      "amountCents": 4487
+     },
+     {
+      "id": "a01bb794b90e84a34c29d899",
+      "date": "2026-05-12",
+      "amountCents": 4289
+     },
+     {
+      "id": "fd8448b249c78fce54c143c6",
+      "date": "2026-04-12",
+      "amountCents": 5147
+     },
+     {
+      "id": "bbf6429dd5c9e2b381bf052d",
+      "date": "2026-03-12",
+      "amountCents": 12666
+     },
+     {
+      "id": "7963d5b2937a982a9f03fcde",
+      "date": "2026-02-12",
+      "amountCents": 10994
+     },
+     {
+      "id": "3b9a706cea77df8928d64a99",
+      "date": "2026-01-12",
+      "amountCents": 10929
+     },
+     {
+      "id": "83cfbc62ca8beb59d180f664",
+      "date": "2025-12-12",
+      "amountCents": 10637
+     },
+     {
+      "id": "8069bdc160ed663ce5d1c5e3",
+      "date": "2025-11-12",
+      "amountCents": 11790
+     }
+    ],
+    "paidCents": 88997
+   },
+   {
+    "id": "out:chk:If Vahinkovakuutus Oy",
+    "merchant": "If Vahinkovakuutus Oy",
+    "category": "insurance",
+    "cadence": "quarterly",
+    "chargeCents": 14230,
+    "monthlyCents": 4743,
+    "yearlyCents": 56916,
+    "lastDate": "2026-10-05",
+    "nextDate": "2027-01-05",
+    "payments": [
+     {
+      "id": "21fb9594325aa4e58d1433e6",
+      "date": "2026-10-05",
+      "amountCents": 14230
+     },
+     {
+      "id": "a4896fdc9a93bcf34d07c9db",
+      "date": "2026-07-05",
+      "amountCents": 14230
+     },
+     {
+      "id": "a13d6b92aa0e0e8c630cdbf7",
+      "date": "2026-04-05",
+      "amountCents": 14230
+     },
+     {
+      "id": "1e6d3da2adc48eeb7b1a831a",
+      "date": "2026-01-05",
+      "amountCents": 14230
+     }
+    ],
+    "paidCents": 56920
+   },
+   {
+    "id": "out:chk:Sanoma Media Finland",
+    "merchant": "Sanoma Media Finland",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 3290,
+    "monthlyCents": 3290,
+    "yearlyCents": 39480,
+    "lastDate": "2026-09-18",
+    "nextDate": "2026-10-18",
+    "payments": [
+     {
+      "id": "96417f06db59931caadc2dbe",
+      "date": "2026-09-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "3f11a6edb9ffe62f2bd4f9fc",
+      "date": "2026-08-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "1a2a92020472237afe7dc45b",
+      "date": "2026-07-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "373e5f2d079e399fae4ff8b4",
+      "date": "2026-06-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "1426d89590f8a6cd29b2f9fe",
+      "date": "2026-05-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "82f82db84899e802f7cd941d",
+      "date": "2026-04-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "f906e1b2f08cc4bcb6e70bdb",
+      "date": "2026-03-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "3b04e9fcb0c63bfdf1a531be",
+      "date": "2026-02-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "3be1b6297b5982397614eadd",
+      "date": "2026-01-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "962162ae2d5375ce3237f8a7",
+      "date": "2025-12-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "91f180ad27a531b93c005109",
+      "date": "2025-11-18",
+      "amountCents": 3290
+     },
+     {
+      "id": "3d78a1900116179ef12a437a",
+      "date": "2025-10-18",
+      "amountCents": 3290
+     }
+    ],
+    "paidCents": 39480
+   },
+   {
+    "id": "out:chk:Elisa",
+    "merchant": "Elisa",
+    "category": "telecom",
+    "cadence": "monthly",
+    "chargeCents": 1990,
+    "monthlyCents": 1990,
+    "yearlyCents": 23880,
+    "lastDate": "2026-09-20",
+    "nextDate": "2026-10-20",
+    "payments": [
+     {
+      "id": "1775bb0b8f2e25ce09b0e4ee",
+      "date": "2026-09-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "f6558428add3281739af45a5",
+      "date": "2026-08-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "2bfb7ec8042854e841f02ece",
+      "date": "2026-07-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "2b7de860cd2f8c3e9616b4a2",
+      "date": "2026-06-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "57ffb8186b6ef63af57919b8",
+      "date": "2026-05-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "aa9387612254c6609f391dad",
+      "date": "2026-04-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "faab46920a34044d7b09c830",
+      "date": "2026-03-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "d278c477f583bc73f58161e0",
+      "date": "2026-02-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "5bde90e79016d85ff6332cf5",
+      "date": "2026-01-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "5b4596f13cf7f5052305482c",
+      "date": "2025-12-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "97f012a38715a7822e0aaa9c",
+      "date": "2025-11-20",
+      "amountCents": 1990
+     },
+     {
+      "id": "48d7bfb700ba9d092f38a917",
+      "date": "2025-10-20",
+      "amountCents": 1990
+     }
+    ],
+    "paidCents": 23880
+   },
+   {
+    "id": "out:card:Netflix",
+    "merchant": "Netflix",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 1599,
+    "monthlyCents": 1599,
+    "yearlyCents": 19188,
+    "lastDate": "2026-10-14",
+    "nextDate": "2026-11-14",
+    "payments": [
+     {
+      "id": "38c69110d0ca2054bae81d16",
+      "date": "2026-10-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "eaee2a3a0b3f537935950e54",
+      "date": "2026-09-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "cc7401782068d1f76cd6f8a2",
+      "date": "2026-08-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "c29e4bca970cad23109f1d17",
+      "date": "2026-07-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "6093e1dd1e68040b4e1879e9",
+      "date": "2026-06-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "043415492348e6de90bd2cbb",
+      "date": "2026-05-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "3a53bdade7e7a43e8a1d6644",
+      "date": "2026-04-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "673ca0e5698f109f2ea423d7",
+      "date": "2026-03-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "444489eb2c696c6b242f6530",
+      "date": "2026-02-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "fbbc13bcbcde09515f113597",
+      "date": "2026-01-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "1d5fb47bdf17eeb3165b34d6",
+      "date": "2025-12-14",
+      "amountCents": 1599
+     },
+     {
+      "id": "908ba69cff7e665903c551a7",
+      "date": "2025-11-14",
+      "amountCents": 1599
+     }
+    ],
+    "paidCents": 19188
+   },
+   {
+    "id": "out:card:Spotify",
+    "merchant": "Spotify",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 1199,
+    "monthlyCents": 1199,
+    "yearlyCents": 14388,
+    "lastDate": "2026-10-12",
+    "nextDate": "2026-11-12",
+    "payments": [
+     {
+      "id": "5e990d06366bbdb506d205d6",
+      "date": "2026-10-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "c6f4ce8c6aaa609034bcf346",
+      "date": "2026-09-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "6ca7951f719195e269dd5417",
+      "date": "2026-08-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "4f24863cfb7d19235ea06d5a",
+      "date": "2026-07-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "5780ebb9504b7e7e69cc8dc2",
+      "date": "2026-06-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "ad1202e0e095a81718019fc4",
+      "date": "2026-05-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "17bb72feab1ed9204f9faf23",
+      "date": "2026-04-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "cf759c1bde05611d276fc56a",
+      "date": "2026-03-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "a280daeaf285eed18ed0b78b",
+      "date": "2026-02-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "a3834fc4ceb95c490c722140",
+      "date": "2026-01-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "e6fe8b774f7e62093495c417",
+      "date": "2025-12-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "38946c5f4a9e9602c8e69504",
+      "date": "2025-11-12",
+      "amountCents": 1199
+     }
+    ],
+    "paidCents": 14388
+   }
+  ],
+  "monthlyCents": 212135,
+  "yearlyCents": 2545620,
+  "incomeMonthlyCents": 381333,
+  "fixedShare": 0.5562985631980447,
+  "fixedShareLabel": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta"
  }
 }

@@ -17,7 +17,7 @@ describe("the question Raportit opens", () => {
     expect(questionOf(["kuukausi"], null, undefined)).toBe("kuukausi");
   });
   it("a question that has gone falls back to the first open one", () => {
-    expect(questionOf(all, "kiinteat", undefined)).toBe("menot");
+    expect(questionOf(all, "kertaostot", undefined)).toBe("menot");
   });
 });
 
@@ -32,7 +32,7 @@ describe("the line above a report opened in place of the asked one", () => {
   it("says nothing when the asked report is open, none was asked or the name is unknown", () => {
     expect(askedNote("tulot", "tulot")).toBeUndefined();
     expect(askedNote(null, "menot")).toBeUndefined();
-    expect(askedNote("kiinteat", "menot")).toBeUndefined();
+    expect(askedNote("kertaostot", "menot")).toBeUndefined();
   });
 });
 
@@ -41,10 +41,13 @@ describe("the list of reports", () => {
   it("names Kuukausi first, also when it alone has something to show, then the open reports in the order of 1.0.0", () => {
     expect(listedPages([]).map((p) => p.title)).toEqual(["Kuukausi"]);
     expect(listedPages(["saldot", "menot", "velat", "tulot", "yhteiset"]).map((p) => p.title)).toEqual(["Kuukausi", "Rahankäyttö", "Tulot", "Velat", "Tilit ja saldot", "Yhteiset menot"]);
+    // Kiinteät menot is back where 1.0.0 listed it, after Tulot
+    expect(listedPages(["kiinteat", "saldot", "menot", "velat", "tulot"]).map((p) => p.title)).toEqual(["Kuukausi", "Rahankäyttö", "Tulot", "Kiinteät menot", "Velat", "Tilit ja saldot"]);
   });
   it("Kuukausi is the bare address the tab opens, and the others keep the period", () => {
     expect(reportHref("kuukausi", "6m")).toBe("#/reports");
     expect(reportHref("menot", "6m")).toBe("#/reports?q=menot&period=6m");
     expect(reportHref("velat", null)).toBe("#/reports?q=velat");
+    expect(reportHref("kiinteat", "6m")).toBe("#/reports?q=kiinteat&period=6m");
   });
 });

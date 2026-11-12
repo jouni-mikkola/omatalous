@@ -26,9 +26,10 @@ for (const width of [390, 1440]) {
     }
 
     await page.goto("/#/reports?q=kiinteat");
-    const fixed = page.locator("#kiinteat-menot tbody a");
+    // a line of Kiinteät menot is opened by a button named after it
+    const fixed = page.locator("#kiinteat-menot tbody .rt-drill");
     await expect(fixed.first()).toBeVisible();
-    const onFixed = (await fixed.allTextContents()).map((s) => s.replace(/\s+/g, " ").trim());
+    const onFixed = (await Promise.all((await fixed.all()).map((b) => b.getAttribute("aria-label")))).map((s) => (s ?? "").replace(/\s+/g, " ").trim());
     if (SHOTS) {
       await page.locator("#kiinteat-menot").scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(SHOTS, `series-fixed-${width}.png`) });

@@ -1,0 +1,7 @@
+/* Fixed costs of Raportit (pages/reports/pages/FixedCosts.tsx): the styles of its own section, which no other page reads. */
+@layer pages {
+/* an opened row: the facts of the charge, then its payments, then the way to Tapahtumat */
+.fc-detail { display: grid; gap: var(--sp-16); }
+/* the facts and the payments in one column, so a day and its sum are read together */
+.fc-detail .rt-kv, .fc-detail .rt { max-inline-size: 28rem; }
+}
