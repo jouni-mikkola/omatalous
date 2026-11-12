@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { setLanguage } from "../src/format.ts";
-import { type DaySum, type ListedRow, ownerLink, rowFacts, TxTable } from "../src/pages/TransactionRows.tsx";
+import { type DaySum, type ListedRow, ownerLink, type PayeeSum, rowFacts, TxTable } from "../src/pages/TransactionRows.tsx";
 
 const row = (over: Partial<ListedRow> = {}): ListedRow =>
   ({ id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other", ...over }) as ListedRow;
@@ -200,5 +200,43 @@ describe("a chip that no row of the whole list has", () => {
     expect(html).not.toContain("ESIMERKKI OY");
     expect(html).not.toContain("TOINEN OY");
     expect(html).toContain("Ei yhtään riviä, joka täsmää.");
+  });
+});
+
+describe("the list grouped by payee", () => {
+  const grouped = (items: ListedRow[], payeeSums: Map<string, PayeeSum>, chip: string | null = null) =>
+    renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), payeeSums, rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: "who", sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+  const heads = (html: string) => [...html.matchAll(/<tr class="rt-group">(.*?)<\/tr>/g)].map((m) => m[1]!);
+
+  it("says in each payee's head what all its rows come to, the server's sums", () => {
+    const items = [row({ id: "a1", amountCents: -1_000 }), row({ id: "a2", amountCents: -2_500 }), row({ id: "b1", merchant: "TOINEN OY", amountCents: 4_000 })];
+    // the server's sums are of the whole filter: a payee with rows on other pages adds up more than the rows here
+    const sums = new Map<string, PayeeSum>([
+      ["ESIMERKKI OY", { merchant: "ESIMERKKI OY", count: 3, inCents: 0, outCents: 4_500 }],
+      ["TOINEN OY", { merchant: "TOINEN OY", count: 1, inCents: 4_000, outCents: 0 }],
+    ]);
+    const [first, second] = heads(grouped(items, sums));
+    expect(figures(first!, "rt-sub")).toEqual([-4_500]);
+    expect(figures(second!, "rt-sub")).toEqual([4_000]);
+    // a payee the server gave no sums has its name and count only
+    expect(figures(heads(grouped(items, new Map()))[0]!, "rt-sub")).toEqual([]);
+  });
+
+  it("under a chip has no sums in the heads: the chip narrows the rows in the browser and the server's sums are of them all", () => {
+    const items = [row({ id: "a1", amountCents: -1_000, status: "pending" }), row({ id: "a2", amountCents: -2_500 })];
+    const sums = new Map<string, PayeeSum>([["ESIMERKKI OY", { merchant: "ESIMERKKI OY", count: 2, inCents: 0, outCents: 3_500 }]]);
+    const html = grouped(items, sums, "pending");
+    expect(heads(html)).toHaveLength(1);
+    expect(html).not.toContain("rt-sub");
+  });
+
+  it("of a long list draws the payees near the screen only, as the days are", () => {
+    // 40 payees of 10 rows each: drawn whole, 400 rows and 400 buttons
+    const items = Array.from({ length: 400 }, (_, i) => row({ id: `r${i}`, merchant: `KAUPPA ${String(Math.floor(i / 10)).padStart(2, "0")}`, amountCents: -100 - i }));
+    const html = grouped(items, new Map());
+    const drawn = (html.match(/class="rt-drill"/g) ?? []).length;
+    expect(drawn).toBeGreaterThan(0);
+    expect(drawn).toBeLessThan(50);
+    expect(html).toContain('class="rt-spacer"');
   });
 });

@@ -58,6 +58,7 @@ export function Table<R>({
   drillButton = true,
   headTop,
   groups,
+  sectionFigure,
   sums,
   className,
   rowClassName,
@@ -127,8 +128,11 @@ export function Table<R>({
   const { shown: visible, more } = useMore(only(shown.rows), groups ? Infinity : (page ?? Infinity));
   const last = visible.length - 1;
   const ordered = !shown.sections && groups ? orderGroups(groups) : [];
-  // a long table of groups draws the groups near the screen only (use-window.ts)
-  const win = useWindow(wrap, ordered.map((g) => g.key), ordered.map((g) => g.rows.length + 1), ordered.length > 0 && rows.length > WINDOW_MIN_ROWS);
+  // the reader's groups (the toolbar's grouping) or the page's
+  const pickedSections = shown.sections && (kept === null ? shown.sections : shown.sections.map((g) => ({ ...g, rows: [...only(g.rows)] })).filter((g) => g.rows.length > 0));
+  const bodies = pickedSections ?? ordered;
+  // a long table of groups, the page's or the reader's, draws the groups near the screen only (use-window.ts)
+  const win = useWindow(wrap, bodies.map((g) => g.key), bodies.map((g) => g.rows.length + 1), bodies.length > 0 && rows.length > WINDOW_MIN_ROWS);
 
   // a page that has the server search its rows always has the box; otherwise only a long list does
   const searchable = rowsSearched || (searchWanted && searchFns(columns).length > 0 && rows.length > LONG_LIST_ROWS);
@@ -148,7 +152,6 @@ export function Table<R>({
   const count = shown.rows.length;
   const note = !filtered ? undefined : count === 0 ? t("table.no_match") : `${t("table.shown", { count, total: shown.total })}${totals.length > 0 ? t("table.total_all") : ""}`;
   // the file keeps the order the table draws: the reader's groups, else the page's groups with their rows ranked by the sort
-  const pickedSections = shown.sections && (kept === null ? shown.sections : shown.sections.map((g) => ({ ...g, rows: [...only(g.rows)] })).filter((g) => g.rows.length > 0));
   const drawn: Section<R>[] | null = pickedSections ?? (groups ? ordered.map((g) => ({ key: g.key, title: typeof g.title === "string" ? g.title : (g.csv ?? ""), rows: [...order(g.rows)] })) : null);
   const download = () => saveCsv(caption, tableCsv(columns, drawn ? drawn.flatMap((g) => g.rows) : only(shown.rows), drawn && drawn.some((g) => g.title !== "") ? drawn : null));
 
@@ -352,17 +355,29 @@ export function Table<R>({
             </tr>
           </thead>
           {pickedSections ? (
-            pickedSections.map((sec) => (
-              <tbody key={sec.key}>
-                <tr className="rt-group">
-                  <th colSpan={columns.length} scope="rowgroup">
-                    {sec.title || t("table.no_value")}
-                    <span className="rt-group-count">{sec.rows.length}</span>
-                  </th>
-                </tr>
-                {sec.rows.map((row, at) => renderRow(row, at, sec.rows.length - 1, false))}
-              </tbody>
-            ))
+            <>
+              {win && <Spacer px={win.before} span={columns.length} />}
+              {pickedSections.slice(win?.from ?? 0, win?.to ?? pickedSections.length).map((sec) => {
+                const figure = sectionFigure?.(sec) ?? null;
+                return (
+                  <tbody key={sec.key} data-vkey={win ? sec.key : undefined}>
+                    <tr className="rt-group">
+                      <th colSpan={columns.length - (figure ? figure.span : 0)} scope="rowgroup">
+                        {sec.title || t("table.no_value")}
+                        <span className="rt-group-count">{sec.rows.length}</span>
+                      </th>
+                      {figure && (
+                        <td colSpan={figure.span} className={cls(columns[columns.length - 1]!)}>
+                          {figure.figure}
+                        </td>
+                      )}
+                    </tr>
+                    {sec.rows.map((row, at) => renderRow(row, at, sec.rows.length - 1, false))}
+                  </tbody>
+                );
+              })}
+              {win && <Spacer px={win.after} span={columns.length} />}
+            </>
           ) : groups ? (
             <>
               {win && <Spacer px={win.before} span={columns.length} />}

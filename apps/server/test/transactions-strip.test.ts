@@ -45,6 +45,22 @@ describe("GET /api/transactions: the strip and the day rows", () => {
     expect(filtered.histogram.bins).toHaveLength(30);
   });
 
+  it("sums each listed payee's rows of the whole filter when asked", async () => {
+    const { s, admin } = await setupApp();
+    expect((await seedCsv(s, admin, { content: csv, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
+    expect((await admin.call("GET", "/api/transactions")).body).not.toHaveProperty("merchantSums");
+    // the newest four rows: one of Lidl's three is on the page, its head still says all three
+    const page = (await admin.call("GET", "/api/transactions?limit=4&sums=merchant")).body;
+    const sums = new Map((page.merchantSums as { merchant: string }[]).map((m) => [m.merchant, m]));
+    const lidl = page.items.find((t: { merchant: string }) => t.merchant.startsWith("Lidl")).merchant as string;
+    expect(sums.get(lidl)).toEqual({ merchant: lidl, count: 3, inCents: 0, outCents: 7545 });
+    // only the payees of the rows on the page; own transfers left out is in scope-parts.test.ts
+    expect(sums.size).toBe(new Set(page.items.map((t: { merchant: string }) => t.merchant)).size);
+    // the filter holds: a period without August leaves Lidl two rows
+    const september = (await admin.call("GET", "/api/transactions?from=2026-09-01&to=2026-09-30&sums=merchant")).body;
+    expect(september.merchantSums.find((m: { merchant: string }) => m.merchant === lidl)).toMatchObject({ count: 2, outCents: 5415 });
+  });
+
   it("gives the payee's twelve months to the row drill and each account its last digits", async () => {
     const { s, admin } = await setupApp();
     const seeded = await seedCsv(s, admin, { content: csv, accountName: "Käyttötili", accountType: "checking" });

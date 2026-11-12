@@ -96,3 +96,31 @@ test("a filter and the toolbar's search stay in the address and come back after 
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+test("grouped by payee, a year of rows draws the payees near the screen only, each head with its sums", async ({ browser }) => {
+  const context = await signedIn(browser, 1440, 900);
+  const page = await context.newPage();
+  const seen = watch(page);
+  const { today } = await (await page.request.get("/api/meta")).json();
+  const year = `from=${yearBack(today)}&to=${today}`;
+  const answer = await (await page.request.get(`/api/transactions?${year}&limit=${MAX_LIST_ROWS}&sums=merchant`)).json();
+  expect(answer.total, "a year of example rows").toBeGreaterThan(300);
+  await page.goto(`/#/transactions?${year}&group=merchant`);
+  await expect(page.locator(".loading")).toHaveCount(0, { timeout: 15_000 });
+  const heads = page.locator("table.tx-table tr.rt-group");
+  await expect(heads.first()).toBeVisible();
+  // drawn whole, the year was every row with its buttons at once, and the page stood still for seconds
+  expect(await page.locator(DATA_ROW).count(), "only the payees near the screen are drawn").toBeLessThan(answer.total / 2);
+  // the first payee's head says what the server adds up for it
+  const name = (await heads.first().locator("th").evaluate((th) => th.firstChild?.textContent ?? "")).trim();
+  const sums = (answer.merchantSums as { merchant: string; inCents: number; outCents: number }[]).find((m) => m.merchant === name);
+  expect(sums, `the server's sums of ${name}`).toBeDefined();
+  const shown = (await heads.first().locator(".rt-sub").allInnerTexts()).map((t) => t.replace(/\D/g, ""));
+  expect(shown).toEqual([sums!.outCents, sums!.inCents].filter((c) => c > 0).map(String));
+  // scrolled to the end, the last payee is there and the rows drawn are still few
+  await page.keyboard.press("End");
+  await expect(page.locator(".tx-cut, .rt-csv").first()).toBeVisible();
+  expect(await page.locator(DATA_ROW).count()).toBeLessThan(answer.total / 2);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
