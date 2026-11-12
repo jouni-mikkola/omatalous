@@ -56,7 +56,7 @@ its own domain with Caddy, and steps 1 and 2 of the script below.
    refuses a token that sees no active domain.
 2. Give the address, for example `talous.example.fi`, with at most one label before the domain the token sees, and up to
    50 email addresses that may sign in. The page shows the address and every email back, and says that the home address
-   stops answering. Confirm with *Kyllä, ota käyttöön* and your password.
+   stops answering. Confirm with *Ota käyttöön* and your password.
 3. The app makes the tunnel, the DNS record and the Access rule at Cloudflare, and the helper, which looks for work once a
    minute, switches the copy over. The page shows where the change stands.
 4. From then on the home address answers 403 with the text *Pääsy estetty.* Open `https://talous.example.fi`, with
@@ -167,8 +167,7 @@ wrong: fix it, or remove both lines and run `docker compose up -d`.
 
 ### A https name for the home network
 
-Enable Banking accepts a private https name as the return address (`docs/ENABLE_BANKING.md`, Result: private return
-names). The bank sends the browser back to it with `code` and `state`; Enable Banking never opens the address itself,
+Enable Banking accepts a private https name as the return address ([Bank connection notes](BANK_NOTES.md#private-return-names)). The bank sends the browser back to it with `code` and `state`; Enable Banking never opens the address itself,
 so it can resolve only inside your home. Use a name that cannot exist on the internet: `.home.arpa` (RFC 8375) or `.lan`.
 The app stays closed to the internet, as with the VPN.
 
@@ -245,7 +244,7 @@ The copy starts on the release this clone is at, with the signed image, so it ru
 clone is not at a release (no tag `vX.Y.Z` at its head, or a release that is not on `origin/main`), the copy stays on
 the head of the branch, is built from source, and the installer prints one line that says so. It never takes a newer
 release by itself. The copy does not ask GitHub which release is out, as a new install in a clone made by hand does
-(see [Install](INSTALL.md#1-get-omatalous)): it takes the release the first copy runs. Update it later as any copy.
+(see [A clone made by hand](#a-clone-made-by-hand)): it takes the release the first copy runs. Update it later as any copy.
 
 The copy needs its own Enable Banking app, because it makes its own key. The person whose accounts it reads registers it
 as in [ENABLE_BANKING.md](ENABLE_BANKING.md).
@@ -321,7 +320,7 @@ Asetukset > Palvelin > *Varmuuskopio toiselle koneelle* sends an encrypted copy 
 another machine every day. The first page and the end of `install.sh` suggest it. Nothing is sent until you enter a
 machine, and the copy is encrypted on the host with age before it leaves.
 
-1. On the page, press *Tee avaimet* (admin password). The app makes two keys:
+1. On the page, press *Luo avaimet* (admin password). The app makes two keys:
    - an SSH key for signing in to the other machine. Its public line is shown. Add it to `~/.ssh/authorized_keys` of a
      user on the other machine (a NAS, a friend's server, a cheap VPS). The private half stays sealed in the app.
    - an age key. The app shows its secret half once, and never stores it. Save it where this machine is not: your
@@ -547,6 +546,27 @@ CLOUDFLARE_API_TOKEN=... ./scripts/cloudflare-setup.sh --yes --domain example.fi
 
 It needs `curl` and `jq` (`sudo apt install -y jq`).
 
+### A clone made by hand
+
+If you clone the repository yourself and run `./scripts/install.sh` in the clone, the installer asks GitHub once which
+release is out. A clone of `main` can sit on the tag of a release that waits out its first two days. The installer then
+says "This folder is at vX.Y.Z, which is not out yet (a release waits two days). Installing the latest release,
+vY.Z.W.", moves the folder to that release and starts again from there. When GitHub does not answer, it goes on with the
+release the folder is at and says so. A folder that already has a `.env` is never asked and never moved.
+
+The pasted install command hands `--install-docker` to the installer, which lets it install Docker with Docker's own
+script and `jq`, which the maintenance helper needs. After it adds your user to the `docker` group it carries on in the
+same run, with `sg` or, on Ubuntu 26.04.1, which has no `sg`, with `sudo`. With `qrencode` installed
+(`sudo apt install qrencode`) the setup link is also shown as a QR code.
+
+## Installed as an app
+
+Over https (a tunnel or your own domain) or at `localhost`, the browser offers to install Omatalous as an app: *Asenna*
+in the address bar of Chrome and Edge, *Lisää Koti-valikkoon* on iPhone, *Asenna sovellus* on Android. When the server
+cannot be reached, the app then opens the first page with the figures of the last visit and says when they were
+fetched. They stay on the device for one user at a time and go at logout. Over plain http on the home network a browser
+offers neither.
+
 ## Enable Banking options
 
 The redirect URL to register depends on how the app is reached. *Asetukset > Palvelin > Palvelin* always shows the right one.
@@ -560,8 +580,27 @@ The redirect URL to register depends on how the app is reached. *Asetukset > Pal
 To let Enable Banking make the key in the browser instead, choose *Generate in the browser* when you register the app and
 upload the downloaded `.pem` file under *Muut vaihtoehdot > Minulla on .pem-tiedosto*. Delete the file afterwards.
 
-A member can use an Enable Banking app of their own under *Asetukset > Pankit ja tilit > Pankkisovellus* (*Oma sovellus*), see
-[A member's own app](ENABLE_BANKING.md#a-members-own-app).
+### A member's own app
+
+A member can use an Enable Banking app of their own for their own connections.
+*Asetukset > Pankit ja tilit > Pankkisovellus* has the choice *Talouden sovellus* or *Oma sovellus*. A member of a household with no shared app has the own app only.
+The member registers it like the household's app, with their own Enable Banking account, with these differences:
+
+- Omatalous makes no key for a member. Choose *Generate in the browser* for the private key. Enable Banking then
+  downloads a `.pem` file.
+- *Oma sovellus* shows the redirect URL, the privacy URL and the terms URL, each with a copy
+  button.
+- Link the member's accounts in their app, as in [Connecting a bank](ENABLE_BANKING.md#the-steps).
+
+Save the Application ID and the `.pem` file under *Pankkisovellus* > *Oma sovellus* with *Tallenna ja testaa*,
+then delete the file from the downloads folder. The save tests the pair with Enable Banking first. A pair Enable Banking
+refuses is not saved, and the key saved before stays. Any other answer, *Inactive* included, saves the key and shows
+what the test said. The key is stored encrypted. *Poista oma avain* returns the member to the household's app.
+
+A bank consent belongs to the app that made it, and only that app can end it. While the member has an active
+connection, *Poista oma avain* and a save with another Application ID are refused, and the message names the
+connections. Remove the connections first, then change the app. A new key for the same Application ID, and a
+member whose connections are all `revoked` or `expired`, are not held back.
 
 ## The maintenance helper
 

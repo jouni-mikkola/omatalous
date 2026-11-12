@@ -36,7 +36,7 @@ const REVIEWED = /^Last reviewed: (\d{4})-(\d{2})-(\d{2})\s*$/m;
 const MONTHS = 6;
 
 /**
- * The dated review note of the payment rules watch in docs/ENABLE_BANKING.md. `today` is given by the caller (core stays
+ * The dated review note of the payment rules watch in docs/BANK_NOTES.md. `today` is given by the caller (core stays
  * pure, and so does this module: the test reads the clock). The note is stale when `today` is more than 6 calendar
  * months after the date, or when it is missing, unparsable or dated in the future.
  */

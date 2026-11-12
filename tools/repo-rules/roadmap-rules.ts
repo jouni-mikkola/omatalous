@@ -15,12 +15,12 @@ describe("repo rules: roadmap", () => {
     expectNoFindings("roadmap", found, 'move the shipped release from "## Coming releases" to "## Done" in docs/ROADMAP.md');
   });
 
-  it("rule 44: the payment rules review note in docs/ENABLE_BANKING.md is at most 6 months old", () => {
+  it("rule 44: the payment rules review note in docs/BANK_NOTES.md is at most 6 months old", () => {
     // The clock is read here, in tools; roadmap.ts takes the date as an argument.
     const today = new Date().toISOString().slice(0, 10);
-    const stale = staleReview(readText("docs/ENABLE_BANKING.md"), today);
-    const found: Finding[] = stale ? [{ file: "docs/ENABLE_BANKING.md", ...stale }] : [];
-    expectNoFindings("payment rules review", found, 'review the EU payment rules (PSD3, PSR, FiDA), update "## Payment rules watch" and its "Last reviewed" date in docs/ENABLE_BANKING.md');
+    const stale = staleReview(readText("docs/BANK_NOTES.md"), today);
+    const found: Finding[] = stale ? [{ file: "docs/BANK_NOTES.md", ...stale }] : [];
+    expectNoFindings("payment rules review", found, 'review the EU payment rules (PSD3, PSR, FiDA), update "## Payment rules watch" and its "Last reviewed" date in docs/BANK_NOTES.md');
   });
 
   it("rule 47: WORKFLOW.md's check line is a bare command: no quotes around it, no colon and space in it", () => {

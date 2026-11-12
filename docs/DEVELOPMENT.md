@@ -443,12 +443,12 @@ antialiasing passes), when its size changed or when it is missing. The diff pict
 stay in `visual/` in `$TMPDIR` (else `/tmp`). A branch that is not meant to change a page's look runs it on the pages it touches,
 for example `tools/visual-check.sh origin/main -- reports --demo --widths 1280,390`.
 
-`pnpm readme:video` remakes the animation at the top of the README (`docs/images/omatalous.png`, an APNG of five scenes of the example household in English, under 1 MB) and its still for reduced motion (`omatalous-still.png`). The scenes and captions are `SCENES` in `tools/readme-video.mjs`. Run it when a page it shows changed, and read the frames.
-
-`pnpm docs:shots` remakes the pictures of the README and the docs in `docs/images/`. They come from the example
-household and each is under 300 kB. The pages are `nyt`, `kuukausi`, `tulossa`, `tarkistettavat`, `tapahtumat` and
-`tilit` at 1440 x 900. The phone views are `nyt-puhelin` and `tarkistettavat-puhelin` at 390 x 844.
-Run it before a release when a page changed. Read the pictures. A picture a document names that nobody makes turns `pnpm test` red.
+`pnpm docs:shots` remakes the pictures of the README in `docs/images/`. They are one set: the example household, the
+Finnish page, a window of 1440 x 900 from the top of the page, and one phone picture at 390 x 844. A page shorter than
+the window ends under its last row, without the footer. The files are named
+by page id (`overview.png`, `bills.png`, `transactions.png`, `reports.png`, `review.png`, `overview-phone.png`) and each
+is under 300 kB. Run it before a release when a page changed, and read the pictures. A picture a document names that
+the script does not make turns `pnpm test` red, and so does any other file in `docs/images/`.
 
 - `--demo` loads the demo household; `--fake-bank` links the fake bank (a joint account, a card with a limit and a
   possible loan from the payments, see [the fake bank](#the-fake-bank)). With both, the household holds both.
@@ -562,7 +562,7 @@ To click through a bank connection in a dev server by hand:
    (`127.0.0.1`, `localhost` or `[::1]`), because the requests signed with the bank key go wherever it points: with any
    other address the app stops at start. `EB_API_URL` is a developer setting and no other doc names it.
 3. Save any Application ID in UUID form and any RSA private key in PEM form as your own: on *Asetukset > Pankit ja tilit* open *Pankkisovellus* and choose *Oma sovellus* (see
-   [A member's own app](ENABLE_BANKING.md#a-members-own-app)) and press *Tallenna ja testaa*. The fake bank accepts any pair.
+   [A member's own app](ADVANCED.md#a-members-own-app)) and press *Tallenna ja testaa*. The fake bank accepts any pair.
 4. Open *Asetukset > Pankkiyhteydet > Yhdistä pankki* and choose *Yhdistä Nordea*, the only bank it lists. The consent
    page is on a host that does not exist, so take the path of the address you are sent to (`/consent/<id>`) and open it
    on the fake bank's own address, `<base>/consent/<id>`. It sends the browser back to the redirect address the app gave,

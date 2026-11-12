@@ -3,6 +3,25 @@
 Omatalous fetches a household's transactions from Nordea and the other Finnish banks through PSD2, sorts them into money flows and builds an
 overview and reports from them. Each member has their own login and views; accounts can be shared.
 
+```mermaid
+flowchart LR
+  browser["Browser"] <--> app
+  subgraph machine["Your Linux machine"]
+    app["Omatalous<br/>one container: page and server"] --> db[("Database<br/>on the disk")]
+    helper["Maintenance helper"] -->|"polls for requests"| app
+  end
+  app --> eb["Enable Banking"] --> banks["Banks"]
+  helper --> gh["GitHub Releases"]
+```
+
+One container holds the page and the server, and the database is a SQLite file on the machine's disk. The helper on
+the host runs updates, backups and rollbacks, and takes updates from GitHub Releases.
+
+The code is TypeScript in three packages. `packages/core` holds the rules and the figures with no input or output of
+its own, so the same code runs on the server and in the browser. `apps/server` is a [Hono](https://hono.dev) server on
+Node.js 24 with its built-in SQLite, and `apps/web` is a React page built with Vite, with charts drawn in SVG by the app
+itself. Money is counted in whole cents.
+
 ## Decisions
 
 ### Own Linux machine with Docker, not Cloudflare Workers

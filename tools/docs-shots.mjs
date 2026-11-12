@@ -1,6 +1,8 @@
 // @ts-check
 /**
- * `pnpm docs:shots`: remakes the pictures of the README and the docs in docs/images/ from the built app, with the example household.
+ * `pnpm docs:shots`: remakes the pictures of the README in docs/images/ from the built app, with the example household. They are one
+ * set: the same household, the same window (1440 x 900, and one phone at 390 x 844) and the same crop: the top of the page, one
+ * window of it, or the whole page without its footer when the page is shorter than the window.
  * It runs `tools/shots.mjs` for each household and screen width (the demo household, or the fake bank alone), with this file as the
  * `--steps` module: the step sets the screen to the size of the picture and clips the page to it, so each picture is the viewport and
  * not the whole page. Scale 1, animations run to their end, the pointer at the corner: all of it is shots.mjs's own.
@@ -23,14 +25,12 @@ const LABEL = "docs";
  */
 /** @type {Picture[]} */
 export const PICTURES = [
-  { file: "nyt.png", household: "demo", route: "overview", width: 1440, height: 900 },
-  { file: "kuukausi.png", household: "demo", route: "reports", width: 1440, height: 900 },
-  { file: "tulossa.png", household: "demo", route: "bills", width: 1440, height: 900 },
-  { file: "tarkistettavat.png", household: "demo", route: "review", width: 1440, height: 900 },
-  { file: "tapahtumat.png", household: "demo", route: "transactions", width: 1440, height: 900 },
-  { file: "tilit.png", household: "bank", route: "settings", width: 1440, height: 900 },
-  { file: "nyt-puhelin.png", household: "demo", route: "overview", width: 390, height: 844 },
-  { file: "tarkistettavat-puhelin.png", household: "demo", route: "review", width: 390, height: 844 },
+  { file: "overview.png", household: "demo", route: "overview", width: 1440, height: 900 },
+  { file: "bills.png", household: "demo", route: "bills", width: 1440, height: 900 },
+  { file: "transactions.png", household: "demo", route: "transactions", width: 1440, height: 900 },
+  { file: "reports.png", household: "demo", route: "reports", width: 1440, height: 900 },
+  { file: "review.png", household: "demo", route: "review", width: 1440, height: 900 },
+  { file: "overview-phone.png", household: "demo", route: "overview", width: 390, height: 844 },
 ];
 /** No picture is larger than this many bytes. */
 export const MAX_BYTES = 300_000;
@@ -67,21 +67,39 @@ export default async function step(/** @type {import("@playwright/test").Page} *
       return Math.max(0, Math.round(section.getBoundingClientRect().top + window.scrollY - 64));
     });
   }
-  await page.evaluate(
+  const end = await page.evaluate(
     ({ h, y }) => {
-      // the picture is the page's own height: the body holds one box of the screen's height with the page in it, scrolled to y. The room
-      // readyForPicture makes under a bar fixed to the screen's bottom is not wanted: the bar is inside the box.
+      // the picture is the page's own height: the body holds one box of the screen's height with the page in it, scrolled to y. A bar
+      // fixed to the screen is held to the box instead, so readyForPicture finds none and makes no room under the page for it.
+      const fixed = Array.from(document.body.querySelectorAll("*")).filter((e) => getComputedStyle(e).position === "fixed");
+      for (const e of fixed) /** @type {HTMLElement} */ (e).style.position = "absolute";
       const style = document.createElement("style");
       style.textContent = "html, body { overflow: hidden !important; height: auto !important; min-height: 0 !important; } body { padding-bottom: 0 !important; }";
       document.head.append(style);
       const box = document.createElement("div");
-      box.style.cssText = `height: ${h}px; overflow: hidden; position: relative`;
+      box.style.cssText = "overflow: hidden; position: relative";
       box.append(...Array.from(document.body.childNodes));
       document.body.append(box);
+      // a page shorter than the window ends 32 px under its last row: no footer and no empty band under it
+      const footer = /** @type {HTMLElement | null} */ (box.querySelector("footer"));
+      const main = box.querySelector("main");
+      let end = h;
+      if (footer && main && y === 0) {
+        const last = Array.from(main.querySelectorAll("*")).reduce((low, e) => Math.max(low, e.getBoundingClientRect().bottom), 0);
+        const short = Math.ceil(last + window.scrollY) + 32;
+        if (short < h) {
+          footer.style.display = "none";
+          end = short;
+        }
+      }
+      box.style.height = `${end}px`;
       box.scrollTop = y;
+      return end;
     },
     { h: height, y: scroll },
   );
+  // the picture of a whole page is never shorter than the window, so the window follows the box
+  if (end < height) await page.setViewportSize({ width, height: end });
 }
 
 function main() {

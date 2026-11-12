@@ -64,8 +64,7 @@ flowchart LR
   network they are not sent.
 - Strict headers on every response: a Content-Security-Policy that allows only the app's own files,
   `frame-ancestors 'none'`, `Referrer-Policy: no-referrer`, HSTS, and `Cache-Control: no-store` on the API.
-  Its `script-src` has `'wasm-unsafe-eval'` so that the picture reader of Asetukset > Kotitalous > Lainat, a WebAssembly module
-  the app serves itself, can run in the browser; the token allows no `eval` and no inline script. Its `style-src` is `'self'` alone: the web app carries no style attribute
+  Its `script-src` is `'self'` and `'wasm-unsafe-eval'`, which allows no `eval` and no inline script. Its `style-src` is `'self'` alone: the web app carries no style attribute
   (repo rule 45), and a value computed at run time is set through the CSSOM, which the policy does not block. The policy is
   what stops injected markup from styling the page (a style attribute or a style element in HTML); rule 45 keeps the app's own code
   inside it. One known gap: on iOS Safari react-aria's scroll lock adds a style element when a menu opens, the policy blocks it, and the
@@ -389,12 +388,7 @@ found gives the category. An unclear match is left alone.
 
 ## Loans
 
-- A picture, a PDF or a text of a loan is read in the browser and never sent. Nothing leaves the page before
-  *Tallenna*, and then only the fields of the form that the household has seen and ticked. The lines the figures were
-  read from stay in the page.
-- The reader is Tesseract and pdf.js, both run as WebAssembly and JavaScript the app serves itself from `/assets`. No
-  file of it comes from a CDN, and the Content-Security-Policy would block one. Both parse files the household gives
-  them, and both are pinned to exact versions, so a security release of either needs a bump by hand.
+- A loan is a short form the household types. The app reads no picture or PDF of a loan.
 - Loans belong to the user who saved them: the list of loans and every change read the typist's own rows. A member sees
   another member's loan only as *Who sees what* says, when it is paid from an account in the member's view. A loan's
   series key is not checked against the typist's accounts when it is saved, so a member who is named a user of an
