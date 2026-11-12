@@ -253,7 +253,7 @@ test("an instalment plan is asked how many payments are left: a count, a month o
   await context.close();
 });
 
-test("at 390 the loan's kinds stand two to a row, and a first run with no bank says there is nothing to check yet", async ({ browser }) => {
+test("at 390 the loan's kinds stand two to a row, and a first run with no bank opens the first-run page", async ({ browser }) => {
   const { context, page, seen, stub } = await open(browser, 390, [loan]);
   const kinds = card(page).locator(".review-choice");
   const [a, b] = [await kinds.nth(0).boundingBox(), await kinds.nth(1).boundingBox()];
@@ -262,16 +262,16 @@ test("at 390 the loan's kinds stand two to a row, and a first run with no bank s
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-loan-390.png"), fullPage: true });
   expect(stub.posted.filter((p) => p.path === "/api/transactions")).toEqual([]);
 
-  // no account and nothing shared: no tick, and the way to connect a bank
+  // no account and nothing shared: the first-run page (views/ReviewView.tsx), with no tick and the way to connect a bank
   await page.route(/\/api\/meta$/, async (route) => {
     const response = await route.fetch();
     await route.fulfill({ response, json: { ...(await response.json()), accounts: [], sharedAccounts: [] } });
   });
   stub.items = [];
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Ei vielä tarkistettavaa" })).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".first-run").getByRole("heading", { name: "Tarkistettavat", exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".review-done-mark")).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings/banks?add=1");
+  await expect(page.locator(".empty-start").getByRole("button").first()).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

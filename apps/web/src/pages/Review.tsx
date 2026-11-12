@@ -24,7 +24,6 @@ import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Empty } from "../components/ui/Empty.tsx";
-import { CONNECT_BANK_HASH } from "../routes.ts";
 import { t } from "../text.ts";
 interface Queue {
   data: ReviewAnswer | null;
@@ -107,26 +106,15 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
       )}
       {view.state === "enough" && <End title={t("set.rv.this_batch_of_questions_is")} text={leftText(view.left)} heading={heading} />}
       {view.state === "skipped" && <End title={t("set.rv.the_rest_are_waiting")} text={leftText(view.left)} heading={heading} />}
-      {view.state === "empty" &&
-        (meta.accounts.length === 0 && meta.sharedAccounts.length === 0 ? (
-          <End
-            title={t("set.rv.nothing_to_review_yet")}
-            text={t("set.rv.questions_appear_here_once_a")}
-            heading={heading}
-            action={{ href: CONNECT_BANK_HASH, label: t("set.rv.connect_bank") }}
-            done={false}
-          />
-        ) : (
-          <End title={t("set.rv.nothing_to_ask")} text={t("set.rv.new_questions_come_when_the")} heading={heading} />
-        ))}
+      {/* a household with no account sees the first-run page instead (views/ReviewView.tsx), so an empty queue here was gone through */}
+      {view.state === "empty" && <End title={t("set.rv.nothing_to_ask")} text={t("set.rv.new_questions_come_when_the")} heading={heading} />}
     </div>
   );
 }
 
-function End({ title, text, heading, action = { href: "#/overview", label: t("set.rv.go_to_summary") }, done = true }: { title: string; text: string; heading: React.RefObject<HTMLHeadingElement | null>; action?: { href: string; label: string }; done?: boolean }) {
+function End({ title, text, heading }: { title: string; text: string; heading: React.RefObject<HTMLHeadingElement | null> }) {
   return (
-    // the tick means the queue was gone through: a first run with nothing to read has none
-    <Empty className="review-end" title={title} headingRef={heading} mark={done ? <span className="review-done-mark" aria-hidden="true" /> : undefined} action={<Button href={action.href}>{action.label}</Button>}>
+    <Empty className="review-end" title={title} headingRef={heading} mark={<span className="review-done-mark" aria-hidden="true" />} action={<Button href="#/overview">{t("set.rv.go_to_summary")}</Button>}>
       <p>{text}</p>
     </Empty>
   );

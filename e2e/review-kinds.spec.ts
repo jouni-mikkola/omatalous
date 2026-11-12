@@ -67,7 +67,9 @@ for (const width of [390, 1280]) {
     await card.getByRole("link", { name: "Yhdistä pankki uudelleen" }).click();
     await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/settings\/banks/);
     gone(CONSENT.id);
+    // the stand-in changed the queue behind the page's back, which no member can: a fresh load reads it
     await page.goto("/#/review");
+    await page.reload();
     await expect(count).toHaveText("1 avoinna");
 
     // a balance the rows do not add up to: the account's own row tells the stretch, and the item goes when the rows add up
@@ -78,6 +80,7 @@ for (const width of [390, 1280]) {
     await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/settings\/banks#tilit/);
     gone(BALANCE.id);
     await page.goto("/#/review");
+    await page.reload();
 
     // nothing is left: the tab has no count and the page says so
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tarkistettavat");
