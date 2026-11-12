@@ -317,6 +317,16 @@ describe("the charges of Asuminen", () => {
     expect(page(monthly("ESIMERKIN ASUMISOIKEUS OY", 70_000, "02", { description: "Käyttövastike" })).housing).toMatchObject({ charges: [{ label: "Käyttövastike" }], ask: false });
   });
 
+  it("does not ask a tenant whose history is too short for a series of the rent", () => {
+    const rent = monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" }).slice(-2);
+    expect(page(rent).ctx.recurring).toEqual([]);
+    expect(page(rent).housing?.ask ?? false).toBe(false);
+    // a vastike paid twice is no rent: the owner is asked
+    expect(page(monthly(company, 25_000, "02", { description: "Hoitovastike" }).slice(-2)).housing?.ask).toBe(true);
+    // nor is a rent paid three months ago and not since
+    expect(page(monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" }).slice(1, 3)).housing?.ask).toBe(true);
+  });
+
   it("a view with nothing of a home is the question alone, and null once it is answered", () => {
     expect(page([]).housing).toEqual({ loans: [], charges: [], loansMonthlyCents: 0, chargesMonthlyCents: 0, totalMonthlyCents: 0, partial: false, atPart: false, ask: true });
     expect(page([], [], [answer]).housing).toBeNull();

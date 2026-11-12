@@ -18,6 +18,8 @@
  * - A charge is an active contract (`isContract`) of the category `housing` or `utilities` that the household did not
  *   mark cancelled, named by the words of its latest payment (`housingCharge`). Two payments to one payee on one day
  *   are one charge of one series (`recurring.ts`), so they are one row here.
+ * - The question of a home loan is asked of no tenant: one that pays rent or a käyttövastike as a charge, or paid one
+ *   in the last `RENT_DAYS` days, when the history is too short for a series of it.
  * - In a member's own view the rows of a joint account hold the viewer's part, so a series' month is that part
  *   already, and a loan is cut as the holdings cut it. `atPart` says a row of the block is a part.
  *
@@ -42,6 +44,9 @@ import { housingCharge } from "./wording.ts";
  * as every mark: each member is asked once, in both views.
  */
 export const MORTGAGE_QUESTION = "question:mortgage";
+
+/** The days back a rent payment in the rows makes the household a tenant: a monthly rent is in them twice. */
+const RENT_DAYS = 62;
 
 interface HousingLoan {
   /** The saved loan's id, the one its row of `Holdings.loans` has. Null for payments in the rows with no saved loan. */
@@ -208,8 +213,12 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
   });
   const charges = billed.map((s, i): HousingCharge => ({ seriesId: s.id, label: names[i]?.label ?? null, category: s.category, payee: s.merchant, monthlyCents: s.monthlyCents, ...atPartOf(partOfSeries(s)) }));
 
-  // a tenant has no home loan to add, and one that is saved and paid off needs no question either
-  const tenant = names.some((n) => n?.kind === "rent" || n?.kind === "occupancy");
+  // a tenant has no home loan to add, and one that is saved and paid off needs no question either. A rent paid lately
+  // tells it too: a history of two months has no series of it yet
+  const renting = (kind: string | undefined) => kind === "rent" || kind === "occupancy";
+  const lately = inDays(standingOf(ctx), { fromDay: dayNumber(today) - RENT_DAYS, toDay: dayNumber(today) });
+  const rentPaid = lately.some((t) => t.amountCents < 0 && t.category === "housing" && renting(housingCharge(fold(t.merchant), fold(`${t.counterparty ?? ""} ${t.description ?? ""}`), false)?.kind));
+  const tenant = rentPaid || names.some((n) => renting(n?.kind));
   const answered = inputs.marks.some((m) => m.subject === MORTGAGE_QUESTION);
   const ask = !loans.length && !tenant && !answered && !loansOf(inputs).some((loan) => loan.kind === "mortgage");
   if (!loans.length && !charges.length && !ask) return null;
