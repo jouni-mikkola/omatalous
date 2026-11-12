@@ -404,6 +404,13 @@ Result: A pay that comes twice a month, the 15th and the last day, is expected o
 - after: none
 - files: packages/core/src/recurring.ts, packages/core/src/recurring-cadence.ts, packages/core/test/recurring-semimonthly-project.test.ts
 
+### N52 Next question takes the focus
+Result: In Tarkistettavat, after an answer the next question's heading has the focus in the same moment its text shows, so a screen reader reads
+- why: Main check 874d98c failed on apps/web/test/review.dom.test.ts:62 (focus not yet on the heading when the text shows 2 / 3); rerun passed, so the focus moves in a late effect in apps/web/src/pages/Review.tsx:52
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Next question takes the focus at once. In Tarkistettavat, after an answer the next question's heading has the focus in the same moment its text shows, so a screen reader reads the new place at once and the review test no longer fails main by chance.
+- locks: none
+- after: none
+
 ### Z5 Copied values reach by keys
 Result: A value to paste into Enable Banking can be copied from the keyboard and its hint reads in the member's language.
 - why: `apps/web/src/pages/settings/CopyValue.tsx` copies on a click of a `<code>` with `title="Kopioi"` (Finnish in English, and a hover only); the element is not a tab stop and says nothing when it copied. `set.cv.copy` and `set.cv.copied` already exist.
