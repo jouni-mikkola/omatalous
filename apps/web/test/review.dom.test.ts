@@ -62,4 +62,22 @@ describe("Tarkistettavat", () => {
     expect(document.activeElement).toBe(heading());
     expect(document.querySelector(".review-item")!.textContent!.match(/2 \/ 3/g)).toHaveLength(1);
   });
+
+  it("has the focus on the next question's heading in the same moment its text shows", async () => {
+    stubApi({ "PUT /api/marks": {} });
+    const items: ReviewItem[] = ["a", "b", "c"].map((id) => ({ id, kind: "mortgage", cents: 0 }));
+    const meta = { accounts: [{}], sharedAccounts: [], bank: { banks: [] } } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    // watch the page itself: the first change that shows 2 / 3 must already have the focus on the heading
+    let focusWhenShown: boolean | null = null;
+    const watch = new MutationObserver(() => {
+      const h = document.getElementById("review-q");
+      if (focusWhenShown === null && h?.textContent?.includes("Kysymys 2 / 3")) focusWhenShown = document.activeElement === h;
+    });
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+    fireEvent.click(screen.getByRole("button", { name: "Ei asuntolainaa" }));
+    await waitFor(() => expect(focusWhenShown).not.toBeNull(), T);
+    watch.disconnect();
+    expect(focusWhenShown).toBe(true);
+  });
 });

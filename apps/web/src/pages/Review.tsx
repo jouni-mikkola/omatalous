@@ -7,7 +7,7 @@
  * first, the choices as large buttons, Ohita for later. An answer goes through the source's own route and the next item
  * shows at once. After `SITTING` items the page says it is enough for now.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
 import { logoForInstitution } from "../banks.ts";
 import { BankLogo } from "../components/BankLogo.tsx";
@@ -37,7 +37,7 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
-  // counts the moves to the next item; the focus follows in an effect, after the new card is in the page
+  // counts the moves to the next item; the focus follows in a layout effect, in the same commit as the new card
   const [moved, setMoved] = useState(0);
   // the header's mark and the page's heading say the number the queue below does, an answer included
   // a failed fetch is an item of the queue, first in it: made here from the last run the server tells
@@ -48,7 +48,8 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   useEffect(() => {
     if (asked !== undefined) publishReviewCount(asked);
   }, [asked]);
-  useEffect(() => {
+  // a layout effect: the focus moves in the commit that puts the new heading in the page, not in a later pass
+  useLayoutEffect(() => {
     if (moved > 0) heading.current?.focus();
   }, [moved]);
 
