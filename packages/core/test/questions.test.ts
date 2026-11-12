@@ -62,6 +62,15 @@ describe("how much of the spending is known (knownSpending)", () => {
     expect(part).toMatchObject({ share: 1 - 6000 / 86000, items: [{ kind: "payee_out", merchant: "Kioski Oy", cents: 6000, count: 1 }] });
   });
 
+  it("names the refund among the rows of the payee's question, so the rows add up to its sum", () => {
+    const rows = [...base(), unknownOut(150, "Kioski Oy", { bookingDate: "2026-08-08" }), unknownOut(150, "Kioski Oy", { bookingDate: "2026-09-08" }), tx({ bookingDate: "2026-08-18", amountCents: eur(50), merchant: "Kioski Oy" })];
+    const [q] = questionsOf(rows).items as { cents: number; count: number; rowIds?: string[] }[];
+    // two payments, one of them paid back in part: the figure is what is left, and so is the sum of the rows shown
+    expect([q!.cents, q!.count, q!.rowIds?.length]).toEqual([eur(250), 2, 3]);
+    const byId = new Map(rows.map((t) => [t.id, t.amountCents]));
+    expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
+  });
+
   it("reads the twelve complete months up to the period's end: the month still running is not one", () => {
     const old = unknownOut(100, "Kioski Oy", { bookingDate: "2025-09-30" });
     const edge = unknownOut(30, "Kioski Oy", { bookingDate: "2025-10-01" });
