@@ -3,10 +3,11 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { proposalsFor, requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
+import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
@@ -199,26 +200,34 @@ type Sourced = ReviewItem & { rowIds?: readonly string[]; whole?: true };
 /** One source of questions. An extension adds its own to `SOURCES`. */
 type Source = (s: Services, userId: string) => Promise<Sourced[]>;
 
+/**
+ * Every question `buildQuestions` asks today, read by the payees' and payers' source and by the rows' one. No proposals:
+ * the loans and plans come from their own source with the placed loans too, so nothing is asked twice.
+ */
+const questionsOf = (ctx: AnalysisContext, today: string, inputs: UserInputs) => memoOn(ctx, "review:questions", [today, inputs], () => buildQuestions(ctx, { from: today, to: today }, inputs, [], Infinity).items);
+
 /** The questions of the front page's old card (payees, payers), all of them. */
 const front: Source = async (s, userId) => {
   const { ctx, accounts } = await s.analysis.get(s, userId, "own");
   const { inputs } = await requestInputs(s, userId, accounts);
   const today = s.today();
-  const picks = usedMost(ctx.txs, addDays(today, -365));
   const repo = s.finance(userId);
   const [rules, industries, user] = await Promise.all([repo.listRules(), industryMap(repo), s.users.get(userId)]);
-  const rank = payeeGuesser({ rows: ctx.txs, rules, industries, household: householdWords([user?.displayName, ...accounts.map((a) => a.holder)]) });
-  // no proposals: the loans and plans come from their own source with the placed loans too, so nothing is asked twice
-  return buildQuestions(ctx, { from: today, to: today }, inputs, [], Infinity).items.flatMap((q): Sourced[] => {
-    if (q.kind === "payer") {
-      const { offMedianCents: _off, ...rest } = q;
-      return [{ ...rest, id: `payer:${q.key}` }];
-    }
-    if (q.kind === "loan" || q.kind === "plan") return [];
-    const used = q.kind === "payee_in" ? picks.in : picks.out;
-    const guess = rank(q.merchant, q.kind === "payee_in" ? "in" : "out").guess;
-    if (!guess) return [{ ...q, id: `${q.kind}:${q.merchant}`, picks: used }];
-    return [{ ...q, id: `${q.kind}:${q.merchant}`, picks: [guess.category, ...used.filter((c) => c !== guess.category)].slice(0, PICKS), guess: { category: guess.category, reason: guess.reason } }];
+  const household = householdWords([user?.displayName, ...accounts.map((a) => a.holder)]);
+  return memoOn(ctx, "review:front", [today, inputs, rules, [...industries], [...household]], () => {
+    const picks = usedMost(ctx.txs, addDays(today, -365));
+    const rank = payeeGuesser({ rows: ctx.txs, rules, industries, household });
+    return questionsOf(ctx, today, inputs).flatMap((q): Sourced[] => {
+      if (q.kind === "payer") {
+        const { offMedianCents: _off, ...rest } = q;
+        return [{ ...rest, id: `payer:${q.key}` }];
+      }
+      if (q.kind === "loan" || q.kind === "plan") return [];
+      const used = q.kind === "payee_in" ? picks.in : picks.out;
+      const guess = rank(q.merchant, q.kind === "payee_in" ? "in" : "out").guess;
+      if (!guess) return [{ ...q, id: `${q.kind}:${q.merchant}`, picks: used }];
+      return [{ ...q, id: `${q.kind}:${q.merchant}`, picks: [guess.category, ...used.filter((c) => c !== guess.category)].slice(0, PICKS), guess: { category: guess.category, reason: guess.reason } }];
+    });
   });
 };
 
@@ -245,7 +254,7 @@ function usedMost(txs: readonly Pick<AnalysisTx, "bookingDate" | "status" | "isT
 // bank's whole charge as the payment is (a joint account counted at a part cuts them in the view)
 const loans: Source = async (s, userId) => {
   const { ctx } = await s.analysis.get(s, userId, "own");
-  const series = new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds]));
+  const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
   return (await proposalsFor(s, userId)).flatMap((p): Sourced[] => {
     const cents = 12 * p.paymentCents;
     const rowIds = series.get(p.seriesId) ?? [];
@@ -277,6 +286,10 @@ const splits: Source = async (s, userId) => {
 const subscriptions: Source = async (s, userId) => {
   const { ctx, accounts } = await s.analysis.get(s, userId, "own");
   const [{ inputs }, stored] = await Promise.all([requestInputs(s, userId, accounts), s.finance(userId).listMarks()]);
+  return memoOn(ctx, "review:subscriptions", [inputs, stored], () => subscriptionItems(ctx, inputs, stored));
+};
+
+function subscriptionItems(ctx: AnalysisContext, inputs: UserInputs, stored: UserInputs["marks"]): Sourced[] {
   const marks = marksBySubject(stored);
   const found = new Map<string, { r: RecurringSeries; cents: number; price?: SubscriptionItem["price"]; since?: string; quiet?: true }>();
   const of = (r: RecurringSeries, cents: number) => {
@@ -305,14 +318,14 @@ const subscriptions: Source = async (s, userId) => {
     lastDate: r.lastDate,
     rowIds: r.transactionIds,
   }));
-};
+}
 
 // no money rides on the answer, so the question comes last; a household with no rows yet is asked nothing
 const mortgage: Source = async (s, userId) => {
   const { ctx, accounts } = await s.analysis.get(s, userId, "own");
   if (!ctx.txs.length) return [];
   const { balances, inputs } = await requestInputs(s, userId, accounts);
-  return buildHousing(ctx, balances, inputs)?.ask ? [{ kind: "mortgage", id: "mortgage", cents: 0 }] : [];
+  return memoOn(ctx, "review:mortgage", [balances, inputs], (): Sourced[] => (buildHousing(ctx, balances, inputs)?.ask ? [{ kind: "mortgage", id: "mortgage", cents: 0 }] : []));
 };
 
 // the member's own accounts, each by its newest stretch: an older difference with a matched stretch after it is proved over.
@@ -363,17 +376,19 @@ const rows: Source = async (s, userId) => {
   const { inputs } = await requestInputs(s, userId, accounts);
   const { payers } = inputs;
   const today = s.today();
-  const asked = new Set(buildQuestions(ctx, { from: today, to: today }, inputs, [], Infinity).items.flatMap((q) => (q.kind === "payer" ? q.rowIds : [])));
-  const from = addDays(today, -364);
-  const picks = usedMost(ctx.txs, addDays(today, -365));
-  return ctx.txs.flatMap((t): Sourced[] => {
-    if (t.bookingDate < from || t.status !== "booked" || t.isTransfer || t.categorySource !== "default" || !isUnknownMerchant(t.merchant)) return [];
-    const out = t.category === "other" && t.spend > 0 ? netSpend(t) : 0;
-    const answered = t.amountCents > 0 && payers !== undefined && (asked.has(t.id) || payerRoleOf(payers.roles, t, payers.memberId) !== null);
-    const cents = out || (t.category === "income" && !answered ? t.flows.income : 0);
-    if (cents <= 0) return [];
-    const side = out ? "out" : "in";
-    return [{ kind: "row", id: `row:${t.id}`, cents, rowId: t.id, side, date: t.bookingDate, picks: picks[side], rowIds: [t.id] }];
+  return memoOn(ctx, "review:rows", [today, inputs], () => {
+    const asked = new Set(questionsOf(ctx, today, inputs).flatMap((q) => (q.kind === "payer" ? q.rowIds : [])));
+    const from = addDays(today, -364);
+    const picks = usedMost(ctx.txs, addDays(today, -365));
+    return ctx.txs.flatMap((t): Sourced[] => {
+      if (t.bookingDate < from || t.status !== "booked" || t.isTransfer || t.categorySource !== "default" || !isUnknownMerchant(t.merchant)) return [];
+      const out = t.category === "other" && t.spend > 0 ? netSpend(t) : 0;
+      const answered = t.amountCents > 0 && payers !== undefined && (asked.has(t.id) || payerRoleOf(payers.roles, t, payers.memberId) !== null);
+      const cents = out || (t.category === "income" && !answered ? t.flows.income : 0);
+      if (cents <= 0) return [];
+      const side = out ? "out" : "in";
+      return [{ kind: "row", id: `row:${t.id}`, cents, rowId: t.id, side, date: t.bookingDate, picks: picks[side], rowIds: [t.id] }];
+    });
   });
 };
 
@@ -383,7 +398,7 @@ const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgag
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {
   const lists = await Promise.all(SOURCES.map((source) => source(s, userId)));
   const { ctx } = await s.analysis.get(s, userId, "own");
-  const byId = new Map(ctx.txs.map((t) => [t.id, t]));
+  const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
   const items = lists
     .flat()
     .map(({ rowIds, whole, ...item }): ReviewItem => {

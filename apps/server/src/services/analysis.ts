@@ -38,6 +38,7 @@ import { todayIn } from "../platform/config.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
+import { memoOn } from "./context-memo.ts";
 import { historyOf } from "./coverage.ts";
 import { type HeldLocks, lockedOutside, runsEnded, whenUnlocked, writesOf } from "./enrich.ts";
 import { foreignDaysOf } from "./foreign-rows.ts";
@@ -439,7 +440,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
 export async function proposalsFor(s: Services, userId: string): Promise<LoanProposal[]> {
   const { ctx, accounts } = await s.analysis.get(s, userId, "own");
   const { inputs } = await requestInputs(s, userId, accounts);
-  return loanProposals(ctx, inputs);
+  return memoOn(ctx, "loan-proposals", inputs, () => loanProposals(ctx, inputs));
 }
 
 /**
