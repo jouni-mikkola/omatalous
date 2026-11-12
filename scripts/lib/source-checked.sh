@@ -150,4 +150,5 @@ checked_source_target() {
   target=$(head -n 1 <<<"$picked")
   [[ $target =~ ^[0-9a-f]{40}$ ]] || { fail "Lähdekoodin uusinta versiota ei löytynyt."; return 1; }
   say_log "GitHub's checks passed for ${target:0:8}."
+  return 0
 }
