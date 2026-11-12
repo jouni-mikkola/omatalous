@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { applyUse } from "../src/account-use.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { seriesMarkSubject } from "../src/analysis/subscription-alerts.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { buildHousing } from "../src/housing.ts";
 import { loanProposals } from "../src/loan-detect.ts";
@@ -329,6 +330,14 @@ describe("the charges of Asuminen", () => {
     expect(page(monthly("MOKKI ESIMERKKI OY", 60_000, "02", { description: "Mokin vuokra" }).slice(-1)).housing?.ask).toBe(true);
     expect(page([rent[0]!, { ...rent[1]!, status: "pending" }]).housing?.ask).toBe(true);
     expect(page(monthly("ESIMERKIN ASUNNOT OY", 6_000, "02", { description: "Autopaikan vuokra" }).slice(-2)).housing?.ask).toBe(true);
+  });
+
+  it("asks a household that marked its rent ended, though the rent's last rows are recent", () => {
+    const rent = monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" });
+    const { ctx, housing } = page(rent);
+    expect(housing).toMatchObject({ charges: [{ label: "Vuokra" }], ask: false });
+    const ended: UserMark = { subject: seriesMarkSubject(ctx.recurring[0]!), mark: "cancelled", markedAt: "2026-10-05T08:00:00.000Z" };
+    expect(page(rent, [], [ended]).housing).toMatchObject({ charges: [], ask: true });
   });
 
   it("a view with nothing of a home is the question alone, and null once it is answered", () => {

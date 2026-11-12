@@ -217,10 +217,12 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
   // tells it too: a history of two months has no series of it yet
   const renting = (kind: string | undefined) => kind === "rent" || kind === "occupancy";
   const lately = inDays(standingOf(ctx), { fromDay: dayNumber(today) - RENT_DAYS, toDay: dayNumber(today) });
-  // two booked payments to one payee in two months: a cottage week or a deposit paid once is no home
+  // two booked payments to one payee in two months: a cottage week or a deposit paid once is no home. A row a series
+  // holds is read through the series above, so a rent the household marked ended does not make it a tenant here
+  const inSeries = new Set(ctx.recurring.flatMap((s) => s.transactionIds));
   const rentMonths = new Map<string, Set<string>>();
   for (const t of lately) {
-    if (t.status !== "booked" || t.amountCents >= 0 || t.category !== "housing") continue;
+    if (t.status !== "booked" || t.amountCents >= 0 || t.category !== "housing" || inSeries.has(t.id)) continue;
     if (!renting(housingCharge(fold(t.merchant), fold(`${t.counterparty ?? ""} ${t.description ?? ""}`), false)?.kind)) continue;
     (rentMonths.get(t.merchant) ?? rentMonths.set(t.merchant, new Set()).get(t.merchant)!).add(t.bookingDate.slice(0, 7));
   }
