@@ -330,6 +330,11 @@ describe("the charges of Asuminen", () => {
     expect(page(monthly("MOKKI ESIMERKKI OY", 60_000, "02", { description: "Mokin vuokra" }).slice(-1)).housing?.ask).toBe(true);
     expect(page([rent[0]!, { ...rent[1]!, status: "pending" }]).housing?.ask).toBe(true);
     expect(page(monthly("ESIMERKIN ASUNNOT OY", 6_000, "02", { description: "Autopaikan vuokra" }).slice(-2)).housing?.ask).toBe(true);
+    // a cottage's deposit on the 30th and the rest on the 1st: two months, one booking
+    const cottage = { merchant: "MOKKI ESIMERKKI OY", counterparty: "MOKKI ESIMERKKI OY", category: "housing", description: "Vuokra" } as const;
+    expect(page([tx({ ...cottage, bookingDate: "2026-09-30", amountCents: -20_000 }), tx({ ...cottage, bookingDate: "2026-10-01", amountCents: -40_000 })]).housing?.ask).toBe(true);
+    // a household that pays a home loan is asked, though it pays a rent too (a child's flat)
+    expect(page([...rent, ...instalments().slice(-2)]).housing?.ask).toBe(true);
   });
 
   it("asks a household that marked its rent ended, though the rent's last rows are recent", () => {
