@@ -61,6 +61,19 @@ function coveredMonth(ctx: AnalysisContext, month: string, ids: readonly string[
 }
 
 /**
+ * `isCompleteMonth` for a reader of income: a credit card that joins in the month leaves it complete. Pay, benefits
+ * and transfers from people never come to a card, and the refunds a card had before it joined were taken off its bills,
+ * so the months before hold none of them either. Without this, the month a card was connected drops out of every
+ * income average, and a kind of income paid only that month averages nothing.
+ */
+export function isCompleteIncomeMonth(ctx: AnalysisContext, month: string): boolean {
+  if (monthEnd(month) >= ctx.today) return false;
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  const own = [...accountsWithRows(ctx, month)].filter((id) => !cards.has(id));
+  return own.length ? accountCovers(ctx, own, `${month}-01`) : historyCovers(ctx, `${month}-01`);
+}
+
+/**
  * The complete months right before `month`, at most `n`, oldest first (for the accounts a reader sums, see
  * `isCompleteMonth`). It stops at the first month that is not complete, so a history that starts later gives fewer
  * (none when `month` itself is in the future). One month is skipped instead: the month an account joined, when that

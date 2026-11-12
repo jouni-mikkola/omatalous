@@ -17,7 +17,7 @@ const rows: Transaction[] = [
   ...Array.from({ length: 24 }, (_, i) => tx({ ...pay, bookingDate: `${addMonths("2024-10", i)}-15`, amountCents: 300_000 })),
   // a bonus on 10.9. that Mikä muuttui tells
   tx({ ...pay, merchant: "Toinen Oy", counterparty: "Toinen Oy", description: "PALKKIO", bookingDate: "2026-09-10", amountCents: 619_000 }),
-  // a card that joined in mid-September: its first month is not a complete one
+  // a card that joined in mid-September: its first month is no complete month of spending, and is one of income
   ...series("2026-09-12", 3, 12, -1500, { accountId: "card-1", merchant: "Kahvila", category: "restaurants", categorySource: "rule" }),
 ];
 const ctx = createContext(rows, ACCOUNTS, TODAY);
@@ -36,6 +36,23 @@ describe("income months", () => {
     const r = incomeReport(ctx, { from: "2026-07-01", to: "2026-09-30" });
     expect(r.months.map((m) => m.month)).toEqual(["2026-07", "2026-08", "2026-09"]);
     expect(r.earnedCents).toBe(3 * 300_000 + 619_000);
+  });
+
+  it("the month a credit card joined is a complete month of income: a kind paid only then has its average", () => {
+    const r = incomeReport(ctx, { from: "2025-10-01", to: "2026-09-30" });
+    expect(r.months.find((m) => m.month === "2026-09")!.complete).toBe(true);
+    expect(r.completeMonths).toBe(12);
+    const bonus = r.types.find((ty) => ty.payers.some((p) => p.payer === "Toinen Oy"))!;
+    expect(bonus.totalCents).toBe(619_000);
+    expect(bonus.monthlyCents).toBe(Math.round(619_000 / 12));
+  });
+
+  it("the month an account that takes income joined is not complete: its pay before the day it joined is missing", () => {
+    const accounts: Account[] = [...ACCOUNTS, { id: "acc-2", name: "Toinen käyttötili", iban: null, currency: "EUR", type: "checking" }];
+    const joined = createContext([...rows, ...series("2026-09-12", 3, 12, -1500, { accountId: "acc-2", merchant: "Kioski", category: "groceries", categorySource: "rule" })], accounts, TODAY);
+    const r = incomeReport(joined, { from: "2025-10-01", to: "2026-09-30" });
+    expect(r.months.find((m) => m.month === "2026-09")!.complete).toBe(false);
+    expect(r.completeMonths).toBe(11);
   });
 
   it("this year runs to the month in progress", () => {
