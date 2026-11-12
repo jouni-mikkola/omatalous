@@ -24,8 +24,9 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
   and one line of pace: spent so far this month against the usual band to the same day (the chart of today's Kuukausi
   section, which `docs/audit/simplify.md` names as the good one).
 - Action: the sum opens the balance and the bills behind it; the pace line opens this month's rows.
-- Layout: the page of 1.0.0. The answer on the left with the sum row that makes it on the right (balance, payments
-  before payday, what is left, to the cent). Under it Kuukausi on the left, Huomioitavaa and Suurimmat menot on the
+- Layout: one block first, the answer and under it the sum row that makes it (balance, payments before payday, what
+  is left, to the cent), with a line each for what an account outside the balance pays before payday and for the bills
+  of the payday itself. Under it Kuukausi on the left, Huomioitavaa and Suurimmat menot on the
   right, Varat ja velat across the page. A phone reads them in that order in one column.
   - Kuukausi: one sentence with the side of the usual the spending is on, the usual sum and its range, the pace chart
     of the same figures and the chart's latest days as a table. The month before is drawn only when the household

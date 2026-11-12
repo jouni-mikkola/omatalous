@@ -40,6 +40,7 @@ function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {
     upcoming: rows.filter((r) => r.source === "recurring" || r.source === "expected"),
     outside: [],
     everydayPerDayCents: 3_000,
+    paydayCents: 0,
     totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: sum("card"), transferCents: sum("transfer"), dueCents, leavingCents, incomeCents: sum("income") },
     balance: balance({ freeCents: 300_000 - leavingCents }),
     missing: null,

@@ -56,6 +56,12 @@ export interface NytAnswer {
          * above, so the page says it beside `billsCents`, which reads 0 when only such an account pays.
          */
         elsewhereCents: number;
+        /**
+         * What the counted accounts pay on the payday, from the pay (`ahead.paydayCents`): in no figure above, since the
+         * window ends before it. A household whose bills fall on the payday reads `billsCents` 0 weeks ahead, so the page
+         * says this beside it.
+         */
+        paydayCents: number;
       };
   /** What everyday spending usually takes a day in the running month (`expectedEverydayPerDay`). null without a figure. */
   usualPerDayCents: number | null;
@@ -99,7 +105,7 @@ function leftOf(ctx: AnalysisContext, { ahead }: Pick<AheadBasis, "ahead">): Nyt
   const billsCents = ahead.totals.leavingCents;
   const leftCents = ahead.balance.freeCents;
   const elsewhereCents = upcomingElsewhereCents(ahead.outside.filter((r) => r.date < payday.date));
-  return { known: true, payday, days, balanceCents, billsCents, leftCents, perDayCents: days > 0 ? Math.round(leftCents / days) : leftCents, elsewhereCents };
+  return { known: true, payday, days, balanceCents, billsCents, leftCents, perDayCents: days > 0 ? Math.round(leftCents / days) : leftCents, elsewhereCents, paydayCents: ahead.paydayCents };
 }
 
 /** The sum left before the payday, the days left, the usual everyday spending of a day and the pace band. */

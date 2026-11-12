@@ -26,11 +26,11 @@ const TOP: DashboardData["top"] = {
   totalCents: 59100,
 };
 
-function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0): NytData {
+function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0, paydayCents = 0): NytData {
   return {
     from: "2026-11-11",
     left: known
-      ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents, leftCents: 500000 - billsCents, perDayCents: Math.round((500000 - billsCents) / 14), elsewhereCents }
+      ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents, leftCents: 500000 - billsCents, perDayCents: Math.round((500000 - billsCents) / 14), elsewhereCents, paydayCents }
       : { known: false, reason: "no-payday", found: 1 },
     usualPerDayCents: null,
     pace: { day: 11, spentCents: 123400, usual: null },
@@ -80,6 +80,15 @@ describe("Yhteenveto", () => {
     expect(flat(line?.textContent)).toBe("Lisäksi 421,82 € tileiltä, joita saldo ei laske.");
     expect(line?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
     expect(render(createElement(Answer, { nyt: nytOf(true, 0, 0), ahead: aheadOf(1), scope: "own" })).container.querySelector(".home-elsewhere")).toBeNull();
+  });
+
+  // the payments read 0,00 € weeks before the payday, as every bill fell on the payday itself, and nothing said why
+  it("what the counted accounts pay on the payday itself is a line under the sum row, opening Laskut", () => {
+    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0, 0, 123456), ahead: aheadOf(1), scope: "own" }));
+    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
+    const line = container.querySelector(".home-elsewhere a");
+    expect(flat(line?.textContent)).toBe("Palkkapäivänä lähtee laskuja 1 234,56 €.");
+    expect(line?.getAttribute("href")).toBe("#/bills");
   });
 
   // 1.0.0 printed "−0,00 €" when nothing was due before the payday

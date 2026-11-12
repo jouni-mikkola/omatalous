@@ -848,6 +848,7 @@
    "leavingCents": 293197,
    "incomeCents": 0
   },
+  "paydayCents": 0,
   "balance": {
    "startCents": 681443,
    "counts": "all",
@@ -872,7 +873,8 @@
    "billsCents": 293197,
    "leftCents": 388246,
    "perDayCents": 27732,
-   "elsewhereCents": 0
+   "elsewhereCents": 0,
+   "paydayCents": 0
   },
   "usualPerDayCents": 5089,
   "pace": {

@@ -33,6 +33,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
     upcoming: rows.filter((r) => r.cents! < 0),
     outside: [],
     everydayPerDayCents: 3_849,
+    paydayCents: 0,
     totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: 0, transferCents: 0, dueCents, leavingCents: dueCents, incomeCents: sum("income") },
     balance: balance({ freeCents: 200_000 - dueCents }),
     missing: null,

@@ -134,6 +134,41 @@ describe("Nyt", () => {
     expect(plain.known && plain.elsewhereCents).toBe(0);
   });
 
+  // "Maksut ennen palkkapäivää 0,00 €" four weeks ahead: every bill fell on the payday, after the window, and nothing said so
+  it("what the counted accounts pay on the payday itself is said apart, in no figure of the sum", () => {
+    const insurance = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-13`, amountCents: -7_999, merchant: "Vakuutusyhtiö", category: "insurance" }));
+    const left = run([...rows, ...insurance]).answer.left;
+    if (!left.known) throw new Error(`no sum: ${left.reason}`);
+    expect(left.payday.date).toBe(PAYDAY);
+    expect(left.paydayCents).toBe(7_999);
+    expect([left.billsCents, left.leftCents]).toEqual([RENT, BALANCE - RENT]);
+    const plain = run(rows).answer.left;
+    expect(plain.known && plain.paydayCents).toBe(0);
+  });
+
+  it("a bill of the payday is counted once on the payday itself, in the window's payments or as paid from the pay", () => {
+    const insurance = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-13`, amountCents: -7_999, merchant: "Vakuutusyhtiö", category: "insurance" }));
+    // today is the payday and the pay is not booked yet
+    const left = run([...rows, ...insurance].filter((t) => t.bookingDate < PAYDAY), undefined, PAYDAY).answer.left;
+    if (!left.known) throw new Error(`no sum: ${left.reason}`);
+    expect(left.billsCents + left.paydayCents).toBe(7_999);
+  });
+
+  it("a bill of a payday more than 30 days off is found all the same", () => {
+    // the pay of the 15th of November (a Sunday) came on Friday the 13th: today, the next is on Tuesday the 15th of December
+    const today = "2026-11-13";
+    const gym = [...MONTHS, "2026-11"].map((m) => tx({ accountId: "own", bookingDate: `${m}-15`, amountCents: -5_000, merchant: "Kuntosali", category: "hobbies" }));
+    const november = tx({ accountId: "own", bookingDate: today, amountCents: 300_000, merchant: "Esimerkki Oy", category: "salary" });
+    const ctx = createContext([...pays(), november, ...rents(), ...shopping(today), ...gym].filter((t) => t.bookingDate <= today), [own], today);
+    const basis = aheadBasis(ctx, [bal(BALANCE)], NO_INPUTS);
+    const left = nytAnswer(ctx, basis).left;
+    if (!left.known) throw new Error(`no sum: ${left.reason}`);
+    expect(left.payday.date).toBe("2026-12-15");
+    expect(left.paydayCents).toBe(5_000);
+    // Laskut's 30 days keep their length
+    expect(basis.ahead.upcoming.some((r) => r.date === "2026-12-15")).toBe(false);
+  });
+
   // the rows of an account outside the balance were found for 30 days alone, so a payday further off left some out
   it("what an account outside the balance pays is counted to a payday more than 30 days off", () => {
     // the pay of the 15th of November (a Sunday) came on Friday the 13th: today, the next is on Tuesday the 15th of December
