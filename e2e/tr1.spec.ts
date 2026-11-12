@@ -267,11 +267,11 @@ test("at 390 the loan's kinds stand two to a row, and a first run with no bank o
     const response = await route.fetch();
     await route.fulfill({ response, json: { ...(await response.json()), accounts: [], sharedAccounts: [] } });
   });
-  stub.items = [];
   await page.reload();
   await expect(page.locator(".first-run").getByRole("heading", { name: "Tarkistettavat", exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(page.locator(".review-done-mark")).toHaveCount(0);
-  await expect(page.locator(".empty-start").getByRole("button").first()).toBeVisible();
+  await page.locator(".empty-start").getByRole("button", { name: "Yhdistä pankki" }).click();
+  await expect(page).toHaveURL(/#\/settings\/banks\?add=1/);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
