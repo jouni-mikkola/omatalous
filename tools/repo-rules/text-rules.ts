@@ -180,7 +180,7 @@ describe("repo rules: text", () => {
       { re: /(?<!\p{L})(normaali\p{L}*|oma(n|an)? taso\p{L}*|oman tasonsa)/iu, name: "rejected term", fix: 'write "tavallisesti" (median of complete months) or "keskimäärin" (mean)' },
       { re: /(?<!\p{L})(kulut|kuluja|kulujen|kuluihin|kuluista)(?!\p{L})/iu, name: "rejected term", fix: 'write "menot"; kulut only in pankkikulut, luottokulut and myöhästymiskulut' },
       { re: /(?<!\p{L})tilitapahtum\p{L}*/iu, name: "rejected term", fix: 'write "tapahtuma"' },
-      { re: /(?<!\p{L})(Selvä|Peru|Uusi yhteys)(?!\p{L})/u, name: "rejected button text", fix: 'write "Kuittaa", "Peruuta" or "Yhdistä uudelleen"' },
+      { re: /(?<!\p{L})(Selvä|Peru|Uusi yhteys)(?!\p{L})/u, name: "rejected button text", fix: 'write "Peruuta" or "Yhdistä uudelleen"; a notice has no button that marks it as read' },
       { re: /(?<!\p{L})(haara|haaran|haaraa|pikakel\p{L}*|(?<![\p{L}./-])commit(ia|in|it|eja)?(?![\p{L}-])|kontti\p{L}*|kontin|docker-kuv\p{L}*)(?!\p{L})/iu, name: "Git or Docker word", fix: 'write "versio", "päivitys", "päivityslähde" or "sovellus"' },
       { re: /(?<!\p{L})(kannattaa|kannattaisi|riittävä|tarkoituksellis\p{L}*|kyseinen|kyseisen|kyseiseltä|on tärkeää)(?!\p{L})|(^|[.?]\s+)Voit\s/iu, name: "advice or verdict word", fix: "give the number and its basis, or use the imperative" },
       // a minus is U+2212; a hyphen between two digits or after a word is a separator and stays. A hyphen that starts a

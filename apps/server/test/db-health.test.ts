@@ -8,7 +8,7 @@ import { newestIntactCopy } from "../src/db/restore.ts";
 import { checkNewestCopy, COPY_CHECK_KEY, watchCopies, weekOf } from "../src/services/db-health.ts";
 import { pollOps } from "../src/services/ops.ts";
 import { hourlyTick } from "../src/services/schedule.ts";
-import { dismissNotices, noticesFor } from "../src/services/security.ts";
+import { noticesFor } from "../src/services/security.ts";
 import { NOW, setupApp, scratchDir } from "./helpers.ts";
 
 const HOUR = 3600_000;
@@ -63,7 +63,6 @@ async function household() {
       return file;
     },
     notices: async (freeMb = ROOMY, user = me) => (await noticesFor(app.s, user, { statfs: disk(freeMb) })).filter((n) => HEALTH.has(n.kind)).map((n) => n.text),
-    read: (freeMb = ROOMY, user = me) => dismissNotices(app.s, user, { statfs: disk(freeMb) }),
     lastCheck: async () => JSON.parse((await app.s.settings.get(COPY_CHECK_KEY)) ?? "null") as unknown,
   };
 }
@@ -266,78 +265,56 @@ describe("the admin's notices about the safety net", () => {
     expect(await h.notices()).toEqual([]);
   });
 
-  it("marked as read, a notice stays away while its condition lasts and comes back when the condition does", async () => {
+  it("a notice stays while its condition lasts, however long, and goes when the condition ends", async () => {
     const h = await household();
     h.copy("auto-2026-10-09.db");
 
     // the disk
     expect(await h.notices(412)).toEqual([TEXT.disk(412)]);
-    await h.read(412);
     h.later(1);
-    expect(await h.notices(300), "still low: read once is enough").toEqual([]);
+    expect(await h.notices(300), "still low: still told").toEqual([TEXT.disk(300)]);
     h.later(1);
-    expect(await h.notices(5000)).toEqual([]);
+    expect(await h.notices(5000), "room again: gone on its own").toEqual([]);
     h.later(1);
     expect(await h.notices(700)).toEqual([TEXT.disk(700)]);
-    await h.read(700);
 
     // the helper
     await pollOps(h.s, { done: [] });
     h.later(25);
     h.copy("auto-2026-10-10.db");
     expect(await h.notices()).toEqual([TEXT.helper]);
-    await h.read();
     h.later(24);
     h.copy("auto-2026-10-11.db");
-    expect(await h.notices()).toEqual([]);
+    expect(await h.notices(), "still silent a day later: still told").toEqual([TEXT.helper]);
     await pollOps(h.s, { done: [] });
-    h.later(25);
-    h.copy("auto-2026-10-12.db");
-    expect(await h.notices()).toEqual([TEXT.helper]);
-    await pollOps(h.s, { done: [] });
+    expect(await h.notices(), "heard again: gone on its own").toEqual([]);
 
     // the copies that stopped
     h.later(37);
     await pollOps(h.s, { done: [] });
     expect(await h.notices()).toEqual([TEXT.copy]);
-    await h.read();
     h.later(24);
-    expect(await h.notices()).toEqual([]);
+    await pollOps(h.s, { done: [] });
+    expect(await h.notices(), "still no copy: still told").toEqual([TEXT.copy]);
     h.copy("auto-2026-10-15.db");
-    await pollOps(h.s, { done: [] });
-    expect(await h.notices()).toEqual([]);
-    h.later(23);
-    await pollOps(h.s, { done: [] });
-    h.later(14);
-    expect(await h.notices()).toEqual([TEXT.copy]);
+    expect(await h.notices(), "a copy again: gone on its own").toEqual([]);
   });
 
-  it("a copy check read once comes back when another copy fails", async () => {
+  it("a failed copy check is told until a later check passes", async () => {
     const h = await household();
     h.copy("auto-2026-10-08.db");
     h.later(1);
     damage(h.copy("auto-2026-10-09.db"));
     await checkNewestCopy(h.s, "2026-10-14");
-    await h.read();
-    expect(await h.notices()).toEqual([]);
-    h.later(1);
-    damage(h.copy("auto-2026-10-10.db"));
+    expect(await h.notices()).toEqual([TEXT.check("auto-2026-10-09.db")]);
+    h.later(24);
+    expect(await h.notices(), "a day later: still told").toEqual([TEXT.check("auto-2026-10-09.db")]);
+    h.copy("auto-2026-10-10.db");
     await checkNewestCopy(h.s, "2026-10-21");
-    expect(await h.notices()).toEqual([TEXT.check("auto-2026-10-10.db")]);
+    expect(await h.notices(), "the next check passed: gone on its own").toEqual([]);
   });
 
-  it("the hourly tick notes that the disk had room again, though nobody read the list meanwhile", async () => {
-    const h = await household();
-    h.copy("auto-2026-10-09.db");
-    expect(await h.notices(412)).toEqual([TEXT.disk(412)]);
-    await h.read(412);
-    h.later(1);
-    await watchCopies(h.s, h.today(), true); // the real disk of the machine that runs the tests: it has room
-    h.later(1);
-    expect(await h.notices(412)).toEqual([TEXT.disk(412)]);
-  });
-
-  it("each admin marks their own, a member sees none, and the page's two routes carry them", async () => {
+  it("every admin is told, a member is not, and nothing marks one as read", async () => {
     const h = await household();
     const created = await h.admin.call("POST", "/api/users", { username: "kaisa", displayName: "Kaisa", role: "admin" });
     expect(created.status).toBe(201);
@@ -353,17 +330,9 @@ describe("the admin's notices about the safety net", () => {
     const sure = (body: { notices: { kind: string }[] }) => body.notices.map((n) => n.kind).filter((k) => k === "copy_missing" || k === "helper_silent");
     expect(sure((await h.admin.call("GET", "/api/security/notices")).body)).toEqual(["copy_missing", "helper_silent"]);
     expect((await matti.call("GET", "/api/security/notices")).body.notices.filter((n: { kind: string }) => HEALTH.has(n.kind))).toEqual([]);
-    expect((await h.admin.call("POST", "/api/security/notices/seen")).status).toBe(200);
-    expect(sure((await h.admin.call("GET", "/api/security/notices")).body)).toEqual([]);
-    await h.read(412);
-    expect(await h.notices(412)).toEqual([]);
-    expect(await h.notices(412, kaisa), "the other admin has not read hers").toEqual(all);
-    await dismissNotices(h.s, { id: matti.id, role: "member" }, { statfs: disk(412) });
-    expect(await h.s.settings.get(`notice_health_seen:${matti.id}`), "a member's reading marks nothing of these").toBeNull();
-    expect(JSON.parse((await h.s.settings.get(`notice_health_seen:${h.adminId}`))!), "what was seen: each kind with the time it began or its own").toEqual({
-      copy_missing: "2026-10-10T23:00:00.000Z",
-      disk_low: "2026-10-10T23:00:00.000Z",
-      helper_silent: "2026-10-09T10:00:00.000Z",
-    });
+    expect((await h.admin.call("POST", "/api/security/notices/seen")).status).toBe(404);
+    expect(sure((await h.admin.call("GET", "/api/security/notices")).body)).toEqual(["copy_missing", "helper_silent"]);
+    expect(await h.notices(412, kaisa), "the other admin is told the same").toEqual(all);
+    expect(await h.s.settings.get(`notice_health_seen:${h.adminId}`), "no mark of a reading is stored").toBeNull();
   });
 });

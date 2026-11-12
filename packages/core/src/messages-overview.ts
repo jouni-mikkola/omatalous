@@ -183,7 +183,6 @@ export const FI_OVERVIEW = {
   "notice.new_device": "Tunnuksellesi kirjautui joku uudelta laitteelta ({device}) {when}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.",
   "notice.factor_removed": "Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi {when}. Jos et tiennyt siitä, kysy ylläpitäjältä.",
   "notice.recovery_used": "Tunnuksellesi kirjautui joku palautuskoodilla {when}. Jos et kirjautunut itse, vaihda salasana ja tee uudet palautuskoodit.",
-  "notice.login_fail_one": "Tunnuksellasi epäonnistui yksi kirjautuminen viime vuorokauden aikana.",
   "notice.login_fail_many": "Tunnuksellasi epäonnistui {count} kirjautumista viime vuorokauden aikana.",
   "notice.industry_off": "Kauppiaiden toimialahaku kaupparekisteristä on pois päältä. Ota se käyttöön:",
   "notice.db_damaged_none": "Tietokanta on vaurioitunut, emmekä löytäneet ehjää varmuuskopiota. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.",
@@ -191,8 +190,5 @@ export const FI_OVERVIEW = {
   "notice.new_device_title": "Kirjautuminen uudelta laitteelta {when} ({device})",
   "notice.alert": "Huomio: ",
   "notice.heading": "Ilmoitukset",
-  "notice.read": "Kuittaa",
-  "notice.read_title": "Kuittaa: {title}",
-  "notice.read_all": "Kuittaa kaikki",
   "notice.security": "Turvallisuus",
 } as const;

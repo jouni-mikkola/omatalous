@@ -2,7 +2,8 @@ import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
 import { makeMember, removeMember, watch } from "./helpers.ts";
 
-// Ilmoitukset on Yhteenveto: the notices of the server (a sign-in from a new device), one line a row, read with Kuittaa.
+// Ilmoitukset on Yhteenveto: the notices of the server (a sign-in from a new device), one line a row with no button:
+// a notice goes when its cause or its time ends.
 // Alerts and insights are not here any more: Tarkistettavat has them.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -20,7 +21,7 @@ async function open(context: BrowserContext, width = 1280): Promise<Page> {
 const cardOf = (page: Page) => page.getByRole("region", { name: "Ilmoitukset" });
 
 
-test("a sign-in from a new device is the first row, leading to Asetukset, and Kuittaa takes it away for good", async ({ browser }) => {
+test("a sign-in from a new device is the first row, leading to Asetukset, and has nothing to press", async ({ browser }) => {
   const { state, id } = await makeMember(browser, "kirjaus");
   const context = await browser.newContext({ storageState: state });
   const other = await browser.newContext({ userAgent: FIREFOX });
@@ -37,13 +38,13 @@ test("a sign-in from a new device is the first row, leading to Asetukset, and Ku
     await expect(first).toContainText(/Kirjautuminen uudelta laitteelta \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Firefox, Linux\)/);
     await expect(first.getByRole("link")).toHaveAttribute("href", "#/settings/household#kirjautuminen");
 
-    // Kuittaa reads the notice, and it stays read after a reload
-    await first.getByRole("button", { name: /^Kuittaa: Kirjautuminen uudelta laitteelta/ }).click();
-    await expect(card.getByText(/Kirjautuminen uudelta laitteelta/)).toHaveCount(0);
+    // nothing marks it as read: the card has no button, the old route is gone, and the row is there after a reload
+    await expect(card.getByRole("button")).toHaveCount(0);
+    expect((await context.request.post("/api/security/notices/seen", { headers: FETCH })).status()).toBe(404);
     await page.reload();
     await expect(page.locator(".home-answer-line")).toBeVisible();
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("region", { name: "Ilmoitukset" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Ilmoitukset" }).getByRole("listitem").first()).toContainText(/Kirjautuminen uudelta laitteelta/);
     expect(seen.problems).toEqual([]);
   } finally {
     await other.close();

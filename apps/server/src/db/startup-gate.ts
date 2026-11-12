@@ -281,11 +281,12 @@ export function notDoneNotice(n: NotDone, asker: string | null): string {
 export const waitingCopy = (detail: string | null | undefined): string | null => WAITS_READ.exec(detail ?? "")?.[1] ?? null;
 
 /**
- * Whether an admin is told about the event. A database that stays damaged says so once and not again at every
- * start, so an unread notice that reads the same is enough. A restore is always told, and so is a damaged database
- * whose notice now reads differently (an intact copy waits, or no longer does).
+ * Whether the event is written for an admin. A database that stays damaged says so once and not again at every
+ * start, so an earlier event that reads the same is enough (`earlier`: the admin's newest event of the gate). A
+ * restore is always written, and so is a damaged database that now reads differently (an intact copy waits, or no
+ * longer does).
  */
-export function isNews(event: { kind: string; detail: string }, unread: readonly { kind: string; detail: string | null }[]): boolean {
+export function isNews(event: { kind: string; detail: string }, earlier: readonly { kind: string; detail: string | null }[]): boolean {
   if (event.kind !== "db_damaged") return true;
-  return !unread.some((e) => e.kind === "db_damaged" && waitingCopy(e.detail) === waitingCopy(event.detail));
+  return !earlier.some((e) => e.kind === "db_damaged" && waitingCopy(e.detail) === waitingCopy(event.detail));
 }

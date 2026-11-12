@@ -96,23 +96,20 @@ export class SecurityRepo {
     );
   }
 
-  /** Unseen notices for a user, oldest first. */
-  async unseenNotices(userId: string): Promise<SecurityEvent[]> {
+  /**
+   * The events a user is told of as notices, newer than `since`, oldest first. The column `seen_at` of the table is
+   * from the time a notice was marked as read: nothing reads or writes it now.
+   */
+  async noticeEvents(userId: string, since: string): Promise<SecurityEvent[]> {
     return (
-      await this.db.all<Row>(
-        "SELECT e.*, NULL AS username FROM security_events e WHERE e.user_id = ? AND e.notify = 1 AND e.seen_at IS NULL ORDER BY e.id",
-        [userId],
-      )
+      await this.db.all<Row>("SELECT e.*, NULL AS username FROM security_events e WHERE e.user_id = ? AND e.notify = 1 AND e.at > ? ORDER BY e.id", [userId, since])
     ).map(toEvent);
   }
 
-  async markSeen(userId: string, at: string): Promise<void> {
-    await this.db.run("UPDATE security_events SET seen_at = ? WHERE user_id = ? AND notify = 1 AND seen_at IS NULL", [at, userId]);
-  }
-
-  /** Marks one notice of the user as read; the id of another user's event changes nothing. */
-  async markOneSeen(userId: string, eventId: number, at: string): Promise<void> {
-    await this.db.run("UPDATE security_events SET seen_at = ? WHERE id = ? AND user_id = ? AND notify = 1 AND seen_at IS NULL", [at, eventId, userId]);
+  /** The newest event of the user among `kinds`, or null. */
+  async newestOf(userId: string, kinds: readonly string[]): Promise<SecurityEvent | null> {
+    const row = await this.db.first<Row>(`SELECT e.*, NULL AS username FROM security_events e WHERE e.user_id = ? AND e.kind IN (${kinds.map(() => "?").join(", ")}) ORDER BY e.id DESC LIMIT 1`, [userId, ...kinds]);
+    return row ? toEvent(row) : null;
   }
 
   /** Keeps the newest `maxRows` events no older than `before`. */

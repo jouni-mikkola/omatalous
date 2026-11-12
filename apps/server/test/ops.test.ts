@@ -241,9 +241,9 @@ describe("ops: requests", () => {
     const audit = (await admin.call("GET", "/api/ops/audit")).body.events;
     expect(audit[0]).toMatchObject({ username: "aino", action: "päivitys", outcome: "jonossa" });
     // the notice goes to the other admin, not to the one who asked
-    expect((await s.security.unseenNotices(adminId)).filter((e) => e.kind === "ops_notice")).toHaveLength(0);
+    expect((await s.security.noticeEvents(adminId, "")).filter((e) => e.kind === "ops_notice")).toHaveLength(0);
     const kaisa = (await s.users.findForLogin("kaisa"))!;
-    const notices = await s.security.unseenNotices(kaisa.id);
+    const notices = await s.security.noticeEvents(kaisa.id, "");
     expect(notices.map((e) => e.kind)).toEqual(["ops_notice"]);
     expect(notices[0]!.detail).toContain("Aino käynnisti toiminnon: päivitys");
   });
@@ -648,7 +648,7 @@ describe("ops: backup download", () => {
     const eero = await member("eero");
     expect((await eero.call("POST", "/api/ops/backups/latest", { password: "eero-uusi-salasana" })).status).toBe(403);
     const k = (await s.users.findForLogin("kaisa"))!;
-    expect((await s.security.unseenNotices(k.id)).some((e) => e.kind === "ops_notice")).toBe(true);
+    expect((await s.security.noticeEvents(k.id, "")).some((e) => e.kind === "ops_notice")).toBe(true);
   });
 
   it("allows five downloads an hour, and says so when there is no copy", async () => {

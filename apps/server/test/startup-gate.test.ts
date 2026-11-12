@@ -471,27 +471,29 @@ describe("what the admins are told", () => {
   });
 
   it("with no intact copy: that the database is damaged and where the instructions are", async () => {
-    const { s, adminId } = await setupApp();
     const event = gateEvent({ state: "damaged", lines: [], reason: "quick_check: *** in database main ***", waiting: null }, time);
     expect(event).toEqual({ kind: "db_damaged", detail: "quick_check: *** in database main ***" });
-    await recordEvent(s, { ...event, userId: adminId, notify: true });
+    // the notice is the state of the start, which the entry point hands to the app
+    const { s, adminId } = await setupApp({}, undefined, { dbDamaged: event.detail });
     expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => [n.kind, n.text])).toEqual([
       ["db_damaged", "Tietokanta on vaurioitunut, emmekä löytäneet ehjää varmuuskopiota. Palauta muualle tallennettu varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md."],
     ]);
   });
 
   it("with an intact copy that could not be put in place: that it waits, and what lets the next start restore it", async () => {
-    const { s, adminId } = await setupApp();
     const why = "ENOSPC: no space left on device, copyfile '/data/backups/auto-2026-10-11.db' -> '/data/banking.db.restore-tmp'";
     const event = gateEvent({ state: "damaged", lines: [], reason: "database disk image is malformed", waiting: { name: "auto-2026-10-11.db", why } }, time);
     expect(event).toEqual({ kind: "db_damaged", detail: `varmuuskopio auto-2026-10-11.db odottaa: ${why}` });
-    await recordEvent(s, { ...event, userId: adminId, notify: true });
     // the longest name and a long reason: the cut of the detail takes the end of the reason, never the name
     const name = `${"k".repeat(99)}.db`;
-    await recordEvent(s, { ...gateEvent({ state: "damaged", lines: [], reason: "x", waiting: { name, why: "y".repeat(200) } }, time), userId: adminId, notify: true });
+    const long = gateEvent({ state: "damaged", lines: [], reason: "x", waiting: { name, why: "y".repeat(200) } }, time);
 
     const tail = "on tallessa, mutta emme saaneet sitä käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: sovellus palauttaa varmuuskopion käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.";
-    const texts = (await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.text);
+    const texts: string[] = [];
+    for (const detail of [event.detail, long.detail]) {
+      const { s, adminId } = await setupApp({}, undefined, { dbDamaged: detail });
+      texts.push(...(await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.text));
+    }
     expect(texts).toEqual([`Tietokanta on vaurioitunut. Ehjä varmuuskopio auto-2026-10-11.db ${tail}`, `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${name} ${tail}`]);
     for (const text of texts) expect(text).not.toMatch(/eikä ehjää varmuuskopiota löytynyt/);
   });
@@ -589,7 +591,7 @@ describe("the entry point", () => {
     expect(events(h.path)).toEqual([{ user_id: "u-aino", kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta", notify: 1, seen_at: null }]);
   }, 120_000);
 
-  it("leaves an admin one unread notice of a database that stays damaged, whatever the number of starts", async () => {
+  it("writes an admin one event of a database that stays damaged, whatever the number of starts, and no timed notice", async () => {
     const h = await household();
     // damage that quick_check reports and the open lives with: the app starts on the file
     h.db.exec("CREATE INDEX filler_start ON filler (hex(substr(x, 1, 60)))");
@@ -600,7 +602,7 @@ describe("the entry point", () => {
       expect(r.code, r.err).toBe(0);
       expect(r.err).toMatch(/^database: .+banking\.db is damaged \(quick_check: .+\) and .+backups holds no intact copy/m);
     }
-    expect(events(h.path)).toEqual([{ user_id: "u-aino", kind: "db_damaged", detail: expect.stringMatching(/^quick_check: /), notify: 1, seen_at: null }]);
+    expect(events(h.path)).toEqual([{ user_id: "u-aino", kind: "db_damaged", detail: expect.stringMatching(/^quick_check: /), notify: 0, seen_at: null }]);
   }, 120_000);
 
   it("never runs the gate for a CLI call: the damaged file and the request stay", async () => {

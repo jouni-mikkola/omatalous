@@ -54,8 +54,5 @@ function lineOf(n: SecurityNotice): NoticeLine {
   return { id: n.id, title, href };
 }
 
-/** Where a Kuittaa goes: one notice by its id, or with no id the whole list (Kuittaa kaikki). */
-export const dismissPath = (id?: string): string => (id ? `/api/security/notices/${encodeURIComponent(id)}/seen` : "/api/security/notices/seen");
-
 /** The lines of the notices that are no banner, in the server's order. */
 export const securityRows = (notices: readonly SecurityNotice[]): NoticeLine[] => notices.filter((n) => !BANNER_KINDS.has(n.kind)).map(lineOf);

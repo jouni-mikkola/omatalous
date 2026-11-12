@@ -27,7 +27,6 @@ export const COPY_CHECK_KEY = "copy_check";
 const WEEK_KEY = "copy_check_week";
 /** When the conditions without a time of their own began (JSON by kind); gone while they do not hold. */
 const SINCE_KEY = "health_since";
-const seenKey = (userId: string) => `notice_health_seen:${userId}`;
 const WHERE = "Asetukset > Ylläpito";
 
 export interface CopyCheck {
@@ -127,7 +126,7 @@ type Kind = "copy_missing" | "copy_check_failed" | "disk_low" | "helper_silent";
 
 interface Condition {
   kind: Kind;
-  /** What makes this time this one: a notice marked as read stays away while the key is the same. */
+  /** What makes this time this one: the message outside the browser is sent once while the key is the same (outside-notices.ts). */
   key: string;
   text: string;
 }
@@ -161,7 +160,7 @@ type Since = { copy_missing?: string; disk_low?: string };
 
 /**
  * When each of the two conditions began, stored once and dropped when the condition ends. A disk that filled, was
- * emptied and fills again thus has a new time, and the notice an admin marked as read is shown again.
+ * emptied and fills again thus has a new time, and the message outside the browser is sent again.
  */
 async function began(s: Services, holds: { copy_missing: boolean; disk_low: boolean }): Promise<Since> {
   const raw = await s.settings.get(SINCE_KEY);
@@ -208,30 +207,11 @@ export async function conditions(s: Services, probes: HealthProbes = {}): Promis
   return out;
 }
 
-/** The notices of an admin about the safety net, without the ones marked as read. Others get none. */
+/**
+ * The notices of an admin about the safety net. Each stays while its condition holds and goes when it ends: nobody
+ * marks one as read. Others get none.
+ */
 export async function healthNotices(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<Notice[]> {
   if (user.role !== "admin") return [];
-  const seen = readJson<Record<string, string>>(await s.settings.get(seenKey(user.id))) ?? {};
-  return (await conditions(s, probes)).filter((c) => seen[c.kind] !== c.key).map((c) => ({ id: c.kind, kind: c.kind, at: null, text: c.text }));
-}
-
-/**
- * Marks what holds now as read by this admin: each kind with its key, so the notice stays away until the condition
- * ends and begins again (or another copy fails, or the helper is seen and stops again). Each admin has their own mark.
- */
-export async function markHealthSeen(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<void> {
-  return markHealthKindsSeen(s, user, () => true, probes);
-}
-
-/** Marks one condition that holds now as read by this admin and keeps the marks of the others that still hold. */
-export async function markHealthKindSeen(s: Services, user: { id: string; role: string }, kind: string, probes?: HealthProbes): Promise<void> {
-  const seen = readJson<Record<string, string>>(await s.settings.get(seenKey(user.id))) ?? {};
-  return markHealthKindsSeen(s, user, (c) => c.kind === kind || seen[c.kind] === c.key, probes);
-}
-
-async function markHealthKindsSeen(s: Services, user: { id: string; role: string }, mark: (c: Condition) => boolean, probes?: HealthProbes): Promise<void> {
-  if (user.role !== "admin") return;
-  const holds = (await conditions(s, probes)).filter(mark);
-  if (!holds.length) return s.settings.delete(seenKey(user.id));
-  await s.settings.set(seenKey(user.id), JSON.stringify(Object.fromEntries(holds.map((c) => [c.kind, c.key]))));
+  return (await conditions(s, probes)).map((c) => ({ id: c.kind, kind: c.kind, at: null, text: c.text }));
 }

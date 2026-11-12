@@ -75,6 +75,9 @@ const DATA_STEPS: readonly DataStep[] = [
   },
 ];
 
+/** The settings keys under which versions up to 1.0.0 stored which notices a user had marked as read. */
+const READ_MARK_PREFIXES = ["notice_fail_seen:", "notice_health_seen:"] as const;
+
 /** The release from which every build clears what hangs on a real account that nobody holds any more. */
 const SWEEP_FLOOR = "0.46.0";
 
@@ -112,6 +115,8 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
     // A name an earlier version sent to the trade register and this one refuses (a person's name, the name of a way to
     // pay) must not stay stored with its answer. The answers are shared, so this runs once, before any user's reprocess.
     await s.industry.keepOnly(isLookupName);
+    // a notice can no longer be marked as read, so the marks an earlier version stored are read by nothing and go
+    for (const prefix of READ_MARK_PREFIXES) for (const key of await s.settings.keysWithPrefix(prefix)) await s.settings.delete(key);
     // a build before these tables deletes accounts without knowing them: what hangs on such a key goes once per build
     if (atOrAbove(release, SWEEP_FLOOR)) result.unheldKeysSwept = await s.household.sweepUnheldKeys();
     for (const user of await s.users.list()) {

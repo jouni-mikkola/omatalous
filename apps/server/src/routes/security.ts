@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { endSession } from "../auth/session.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
-import { deviceLabel, dismissNotice, dismissNotices, EVENT_KINDS, NOTICE_ID, noticesFor, recordEvent, validKind } from "../services/security.ts";
+import { deviceLabel, EVENT_KINDS, noticesFor, recordEvent, validKind } from "../services/security.ts";
 import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { body, queryInt, requestInfo } from "./shared.ts";
 
@@ -47,21 +47,8 @@ export function securityRoutes(s: Services) {
     return c.json({ events: events.map((e) => ({ id: e.id, at: e.at, kind: e.kind, username: e.username, ip: e.ip, device: e.userAgent ? deviceLabel(e.userAgent) : null, detail: e.detail })), kinds: EVENT_KINDS });
   });
 
-  app.get("/notices", async (c) => c.json({ notices: await noticesFor(s, c.get("user")) }));
-
-  /** Kuittaa kaikki: every notice of the list. */
-  app.post("/notices/seen", async (c) => {
-    await dismissNotices(s, c.get("user"));
-    return c.json({ ok: true });
-  });
-
-  /** The Kuittaa of one row: that notice alone. */
-  app.post("/notices/:id/seen", async (c) => {
-    const id = c.req.param("id");
-    if (!NOTICE_ID.test(id)) throw UserError.of("check.field_bad");
-    await dismissNotice(s, c.get("user"), id);
-    return c.json({ ok: true });
-  });
+  /** The notices of now. None can be marked as read: each goes when its cause or its time ends (services/security.ts). */
+  app.get("/notices", async (c) => c.json({ notices: await noticesFor(s, c.get("user"), undefined, c.req.header("user-agent")) }));
 
   return app;
 }

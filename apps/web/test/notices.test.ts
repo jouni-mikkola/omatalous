@@ -1,13 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bannersOf, dismissPath, type SecurityNotice, securityRows } from "../src/components/notices.ts";
-
-describe("Kuittaa", () => {
-  it("of a row reads that notice alone, and Kuittaa kaikki the list", () => {
-    expect(dismissPath("e7")).toBe("/api/security/notices/e7/seen");
-    expect(dismissPath("disk_low")).toBe("/api/security/notices/disk_low/seen");
-    expect(dismissPath()).toBe("/api/security/notices/seen");
-  });
-});
+import { bannersOf, type SecurityNotice, securityRows } from "../src/components/notices.ts";
 
 const signIn = (over: Partial<SecurityNotice> = {}): SecurityNotice => ({ id: "e7", kind: "new_device", at: "2026-10-12T12:30:00.000Z", text: "Tunnuksellasi kirjautui joku uudelta laitteelta.", detail: "Chrome, Windows", ...over });
 

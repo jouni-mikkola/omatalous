@@ -177,7 +177,7 @@ if (process.argv.length > 2) {
 }
 
 // ── server mode ──────────────────────────────────────────
-const app = createApp({ db, config, build, modules, secretStale: () => secretFileDiffers(secretFile, config.appSecret), backupDir: join(dirname(dbPath), "backups"), backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
+const app = createApp({ db, config, build, modules, secretStale: () => secretFileDiffers(secretFile, config.appSecret), backupDir: join(dirname(dbPath), "backups"), dbDamaged: gate?.state === "damaged" ? gateEvent(gate, String).detail : undefined, backup: (day) => dailyBackup(db, dbPath, day), pruneBackups: (now) => void pruneBackupsByAge(dirname(dbPath), now, dbPath) });
 const s = app.services;
 
 /** What the gate did at this start: an event in the security log and a notice for every admin. */
@@ -198,8 +198,10 @@ async function reportGate(): Promise<void> {
   const { timezone } = await s.instance.load();
   const event = gateEvent(gate, (iso) => fiTime(iso, timezone), gate.state === "restored" ? known(gate.by)?.displayName : null);
   for (const u of admins) {
-    // a database that stays damaged: one unread notice for the admin, not one more at every start
-    if (isNews(event, await s.security.unseenNotices(u.id))) await recordEvent(s, { ...event, userId: u.id, notify: true });
+    // a database that stays damaged: one line in the admin's log, not one more at every start. Its notice is the state
+    // of this start (`dbDamaged`), so only a restore is told as an event
+    const last = await s.security.newestOf(u.id, ["db_damaged", "db_restored"]);
+    if (isNews(event, last ? [last] : [])) await recordEvent(s, { ...event, userId: u.id, notify: event.kind === "db_restored" });
   }
 }
 // a damaged database may refuse the read or the write: the start goes on

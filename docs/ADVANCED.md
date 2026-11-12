@@ -369,8 +369,8 @@ update, a rollback, a restore, a reset or a secret rotation. *Lataa uusin* gives
 - Admins see four notices on the notice list. *Uusin ehjä varmuuskopio on yli 36 tuntia vanha.* (not in the first 36
   hours of an install), *Varmuuskopio ... ei läpäissyt tarkistusta, joten emme käytä sitä enää palautukseen.*,
   *Palvelimen levyllä on enää ... Mt vapaata tilaa.* (under 1 GB free, or the reserve given up) and *Ylläpitoapurista
-  ei ole kuulunut vuorokauteen.* (24 hours after the helper was last seen). *Kuittaa* hides a notice until its
-  problem ends and comes back.
+  ei ole kuulunut vuorokauteen.* (24 hours after the helper was last seen). A notice stays while its
+  problem lasts and goes when the problem ends. Nothing marks one as read.
 
 ### Restore a backup
 

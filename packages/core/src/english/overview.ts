@@ -180,7 +180,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "notice.new_device": "Your account was signed in from a new device ({device}) {when}. If it was not you, change your password and sign all sessions out.",
   "notice.factor_removed": "An administrator removed two-step sign-in from your account {when}. If you did not know about it, ask the administrator.",
   "notice.recovery_used": "Your account was signed in with a recovery code {when}. If it was not you, change your password and make new recovery codes.",
-  "notice.login_fail_one": "One sign-in to your account failed during the last 24 hours.",
   "notice.login_fail_many": "{count} sign-ins to your account failed during the last 24 hours.",
   "notice.industry_off": "The look-up of merchants' lines of business in the trade register is off. Turn it on:",
   "notice.db_damaged_none": "The database is damaged and no intact backup was found. Put back a backup kept elsewhere on the server with ./scripts/restore.sh. The guide is in docs/ADVANCED.md.",
@@ -188,8 +187,5 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "notice.new_device_title": "Sign-in from a new device {when} ({device})",
   "notice.alert": "Note: ",
   "notice.heading": "Notices",
-  "notice.read": "Mark as read",
-  "notice.read_title": "Mark as read: {title}",
-  "notice.read_all": "Mark all as read",
   "notice.security": "Security",
 };

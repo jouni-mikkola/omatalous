@@ -1,7 +1,8 @@
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { gateEvent } from "../src/db/startup-gate.ts";
-import { dismissNotice, dismissNotices, noticesFor, recordEvent, validKind } from "../src/services/security.ts";
+import { LOGIN_FAIL_NOTICE, NOTICE_HOURS, noticesFor, recordEvent, validKind } from "../src/services/security.ts";
+import { runUpgradeTasks } from "../src/services/upgrade.ts";
 import { setupApp } from "./helpers.ts";
 import { mockBank } from "./mock-bank.ts";
 
@@ -73,13 +74,41 @@ describe("security events", () => {
     expect(events).toHaveLength(1);
   });
 
-  it("notifies once about failed logins in the last day", async () => {
-    const { admin, client } = await setupApp();
-    for (let i = 0; i < 3; i++) await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` });
-    const notices = (await admin.call("GET", "/api/security/notices")).body.notices as { text: string }[];
-    expect(notices.some((n) => n.text.startsWith("Tunnuksellasi epäonnistui 3 kirjautumista"))).toBe(true);
-    await admin.call("POST", "/api/security/notices/seen", {});
-    expect(((await admin.call("GET", "/api/security/notices")).body.notices as unknown[]).length).toBe(0);
+  it("tells of failed logins of the last day from the third on, and stops when the day has passed", async () => {
+    const { admin, client, s } = await setupApp();
+    const fails = async () => ((await admin.call("GET", "/api/security/notices")).body.notices as { kind: string; text: string }[]).filter((n) => n.kind === "login_fail");
+    // a mistyped password or two needs nothing done, so nothing is said
+    for (let i = 0; i < LOGIN_FAIL_NOTICE - 1; i++) await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` });
+    expect(await fails()).toEqual([]);
+    await client().call("POST", "/api/auth/login", { username: "aino", password: "nope-last-password" });
+    expect((await fails()).map((n) => n.text)).toEqual(["Tunnuksellasi epäonnistui 3 kirjautumista viime vuorokauden aikana."]);
+    // it goes on its own: there is nothing to press
+    const now = s.now().getTime();
+    vi.spyOn(s, "now").mockReturnValue(new Date(now + 25 * 3600_000));
+    expect(await noticesFor(s, { id: (await s.users.findForLogin("aino"))!.id, role: "admin" })).toEqual([]);
+  });
+
+  it("has no way to mark a notice as read", async () => {
+    const { admin, s, adminId } = await setupApp();
+    await recordEvent(s, { kind: "recovery_code_used", userId: adminId, notify: true });
+    const [mine] = (await admin.call("GET", "/api/security/notices")).body.notices as { id: string }[];
+    expect((await admin.call("POST", "/api/security/notices/seen", {})).status).toBe(404);
+    expect((await admin.call("POST", `/api/security/notices/${mine!.id}/seen`, {})).status).toBe(404);
+    expect(((await admin.call("GET", "/api/security/notices")).body.notices as unknown[]).length).toBe(1);
+  });
+
+  it("shows the notice of an event for NOTICE_HOURS and then no more", async () => {
+    const { s, adminId } = await setupApp();
+    const me = { id: adminId, role: "admin" };
+    const start = s.now().getTime();
+    const at = vi.spyOn(s, "now");
+    for (const kind of ["password_reset_by_admin", "factor_removed_by_admin", "recovery_code_used", "new_device", "ops_notice", "watchdog_notice", "db_restored"]) await recordEvent(s, { kind, userId: adminId, detail: "x", notify: true });
+    at.mockReturnValue(new Date(start + (NOTICE_HOURS - 1) * 3600_000));
+    expect(await noticesFor(s, me)).toHaveLength(7);
+    at.mockReturnValue(new Date(start + (NOTICE_HOURS + 1) * 3600_000));
+    expect(await noticesFor(s, me)).toEqual([]);
+    // the event itself stays in the log
+    expect(await s.security.list({ userId: adminId, kind: "recovery_code_used", limit: 5 })).toHaveLength(1);
   });
 
   it("notifies about a login from a new device, but not from a known one", async () => {
@@ -97,8 +126,12 @@ describe("security events", () => {
     expect((notices.find((n) => n.kind === "new_device") as { detail?: string }).detail).toBe("Chrome, Windows");
     expect(notices.filter((n) => n.kind !== "new_device" && "detail" in n)).toEqual([]);
     expect(notices.find((n) => n.kind === "new_device")!.text).toMatch(/ Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos\.$/);
-    await client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, FIREFOX_LINUX);
+    const fox = client();
+    await fox.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, FIREFOX_LINUX);
     expect(((await admin.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).filter((n) => n.kind === "new_device")).toHaveLength(2);
+    // the new device is not told of its own sign-in: whoever sits there knows, and has nothing to do about it
+    const own = ((await fox.call("GET", "/api/security/notices", undefined, FIREFOX_LINUX)).body.notices as { kind: string; detail?: string }[]).filter((n) => n.kind === "new_device");
+    expect(own.map((n) => n.detail)).toEqual(["Chrome, Windows"]);
   });
 
   it("tells a member when an admin reset the password", async () => {
@@ -115,54 +148,40 @@ describe("security events", () => {
     await again.call("POST", "/api/auth/first-password", { next: "eero-kolmas-salasana" });
     const notices = (await again.call("GET", "/api/security/notices")).body.notices as { kind: string; text: string }[];
     expect(notices.find((n) => n.kind === "password_reset_by_admin")?.text).toContain("Ylläpitäjä nollasi salasanasi");
-    await again.call("POST", "/api/security/notices/seen", {});
-    expect(((await again.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).some((n) => n.kind === "password_reset_by_admin")).toBe(false);
     const kinds = ((await admin.call("GET", "/api/security/events")).body.events as { kind: string }[]).map((e) => e.kind);
     expect(kinds).toContain("password_reset_by_admin");
     expect(kinds).toContain("user_created");
   });
 
-  it("shows two resets in the same minute as one notice, and dismissing it clears both", async () => {
+  it("shows two resets in the same minute as one notice", async () => {
     const { s, adminId } = await setupApp();
     vi.spyOn(s, "now").mockReturnValue(new Date("2026-11-12T01:10:00Z"));
     for (let i = 0; i < 2; i++) await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "komentorivi", notify: true });
     const resets = (await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.kind === "password_reset_by_admin");
     expect(resets).toHaveLength(1);
-    await dismissNotices(s, { id: adminId, role: "admin" });
-    expect((await noticesFor(s, { id: adminId, role: "admin" })).some((n) => n.kind === "password_reset_by_admin")).toBe(false);
   });
 
-  it("dismisses one notice by its Kuittaa and leaves the others, and Kuittaa kaikki dismisses the rest", async () => {
-    const { admin, client, s, adminId } = await setupApp();
-    for (let i = 0; i < 2; i++) await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "komentorivi", notify: true });
+  it("drops the read marks an earlier version stored, and an event marked as read then is told again within its time", async () => {
+    const { s, adminId, db } = await setupApp();
+    await s.settings.set(`notice_fail_seen:${adminId}`, "2026-01-01T00:00:00.000Z");
+    await s.settings.set(`notice_health_seen:${adminId}`, JSON.stringify({ disk_low: "2026-01-01T00:00:00.000Z" }));
+    await s.settings.set("notice_industry_lookup_off", "2026-01-01T00:00:00.000Z");
     await recordEvent(s, { kind: "recovery_code_used", userId: adminId, notify: true });
-    for (let i = 0; i < 2; i++) await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` });
-    const kinds = async () => ((await admin.call("GET", "/api/security/notices")).body.notices as { id: string; kind: string }[]);
-    const before = await kinds();
-    expect(before.map((n) => n.kind)).toEqual(["password_reset_by_admin", "recovery_code_used", "login_fail"]);
-    // the one line of the two resets: both events go, the other notices stay
-    expect((await admin.call("POST", `/api/security/notices/${before[0]!.id}/seen`, {})).status).toBe(200);
-    expect((await kinds()).map((n) => n.kind)).toEqual(["recovery_code_used", "login_fail"]);
-    expect((await admin.call("POST", "/api/security/notices/fails/seen", {})).status).toBe(200);
-    expect((await kinds()).map((n) => n.kind)).toEqual(["recovery_code_used"]);
-    // a notice already read, or a shape no notice has, changes nothing
-    expect((await admin.call("POST", `/api/security/notices/${before[0]!.id}/seen`, {})).status).toBe(200);
-    expect((await admin.call("POST", "/api/security/notices/..%2Fx/seen", {})).status).toBe(400);
-    expect((await kinds()).map((n) => n.kind)).toEqual(["recovery_code_used"]);
-    await admin.call("POST", "/api/security/notices/seen", {});
-    expect(await kinds()).toEqual([]);
+    await db.run("UPDATE security_events SET seen_at = ? WHERE kind = 'recovery_code_used'", [s.now().toISOString()]);
+    expect(await runUpgradeTasks(s, "1.0.1+test")).not.toBeNull();
+    expect(await s.settings.keysWithPrefix("notice_fail_seen:")).toEqual([]);
+    expect(await s.settings.keysWithPrefix("notice_health_seen:")).toEqual([]);
+    // the changed default is no read mark: it stays until an admin saves the settings
+    expect(await s.settings.get("notice_industry_lookup_off")).not.toBeNull();
+    expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.kind)).toEqual(["recovery_code_used", "industry_lookup_off"]);
   });
 
-  it("never marks another user's event read", async () => {
+  it("shows a user only their own events", async () => {
     const { admin, s, adminId } = await setupApp();
     const eero = (await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" })).body.user.id as string;
-    await recordEvent(s, { kind: "recovery_code_used", userId: adminId, notify: true });
-    const [mine] = await noticesFor(s, { id: adminId, role: "admin" });
     await recordEvent(s, { kind: "recovery_code_used", userId: eero, notify: true });
-    await s.security.markOneSeen(eero, Number(mine!.id.slice(1)), s.now().toISOString());
-    expect(await noticesFor(s, { id: adminId, role: "admin" })).toHaveLength(1);
-    await dismissNotice(s, { id: adminId, role: "admin" }, mine!.id);
     expect(await noticesFor(s, { id: adminId, role: "admin" })).toEqual([]);
+    expect((await noticesFor(s, { id: eero, role: "member" })).map((n) => n.kind)).toEqual(["recovery_code_used"]);
   });
 
   it("lists own sessions with device and last use, ends one, and ends all", async () => {
@@ -199,10 +218,24 @@ describe("security events", () => {
   });
 
   it("tells an admin of a damaged database in Finnish: what to do next and where, no English heading, one name for a copy", async () => {
-    const { s, adminId } = await setupApp();
     const damaged = (waiting: { name: string; why: string } | null) => gateEvent({ state: "damaged", lines: [], reason: "quick_check", waiting }, (iso) => iso);
-    for (const waiting of [null, { name: "auto-2026-10-11.db", why: "ENOSPC" }]) await recordEvent(s, { ...damaged(waiting), userId: adminId, notify: true });
-    const texts = (await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.kind === "db_damaged").map((n) => n.text);
+    const texts: string[] = [];
+    for (const waiting of [null, { name: "auto-2026-10-11.db", why: "ENOSPC" }]) {
+      // the notice is the state of the start (`dbDamaged`), told to admins while the server runs on the damaged file
+      const { s, adminId, admin } = await setupApp({}, undefined, { dbDamaged: damaged(waiting).detail });
+      const member = (await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" })).body.user.id as string;
+      expect(await noticesFor(s, { id: member, role: "member" })).toEqual([]);
+      const mine = (await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.kind === "db_damaged");
+      expect(mine.map((n) => n.id)).toEqual(["db_damaged"]);
+      texts.push(mine[0]!.text);
+      // days later it is still told: its cause has not ended
+      vi.spyOn(s, "now").mockReturnValue(new Date(s.now().getTime() + 30 * 86_400_000));
+      expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.kind)).toEqual(["db_damaged"]);
+    }
+    // a server that started on a whole database tells of none, whatever its log holds
+    const whole = await setupApp();
+    await recordEvent(whole.s, { ...damaged(null), userId: whole.adminId });
+    expect(await noticesFor(whole.s, { id: whole.adminId, role: "admin" })).toEqual([]);
     expect(texts).toHaveLength(2);
     for (const text of texts) {
       expect(text).not.toContain("Restore a backup");

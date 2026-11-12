@@ -90,9 +90,9 @@ describe("ops: the switch for new versions", () => {
     // the one slot: nothing else that changes the host fits beside it, and the refusal is in the journal too
     for (const action of ["restart", "backup", "prerelease-off"]) expect((await admin.call("POST", "/api/ops/request", { action })).status, action).toBe(409);
     expect((await admin.call("GET", "/api/ops/audit")).body.events[0]).toMatchObject({ action: "uudet versiot tarjolle kahden päivän päästä", outcome: "kielletty, toinen kesken" });
-    expect((await s.security.unseenNotices(adminId)).filter((e) => e.kind === "ops_notice")).toHaveLength(0);
+    expect((await s.security.noticeEvents(adminId, "")).filter((e) => e.kind === "ops_notice")).toHaveLength(0);
     const kaisa = (await s.users.findForLogin("kaisa"))!;
-    const notices = await s.security.unseenNotices(kaisa.id);
+    const notices = await s.security.noticeEvents(kaisa.id, "");
     expect(notices.map((e) => e.kind)).toEqual(["ops_notice"]);
     expect(notices[0]!.detail).toContain("Aino käynnisti toiminnon: uudet versiot tarjolle heti");
     // the helper gets the name and nothing with it

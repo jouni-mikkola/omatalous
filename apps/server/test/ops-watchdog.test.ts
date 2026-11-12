@@ -117,7 +117,7 @@ describe("ops state: the watchdog report", () => {
     // the whole notice: the sentence and the notice's own time, and no word about asking the admin
     for (const id of h.admins) expect(await h.notices(id, "admin")).toEqual([`${UNHEALTHY} ${TOLD_AT}.`]);
     expect(await h.notices(h.mattiId, "member")).toEqual([]);
-    expect((await h.s.security.unseenNotices(h.mattiId)).filter((e) => MAINTENANCE(e.kind))).toEqual([]);
+    expect((await h.s.security.noticeEvents(h.mattiId, "")).filter((e) => MAINTENANCE(e.kind))).toEqual([]);
     // the audit list of the maintenance page has it once, as an action and how it ended
     const audit = (await h.admin.call("GET", "/api/ops/audit")).body.events;
     expect(audit).toHaveLength(1);
@@ -161,7 +161,7 @@ describe("ops state: the watchdog report", () => {
       expect(await h.s.settings.get("ops_watchdog_at")).toBe("2026-10-09T09:55:00.000Z");
       const told = await Promise.all(h.admins.map(async (id) => (await h.notices(id, "admin")).filter((text) => text === `${SELF_TEST} ${TOLD_AT}.`).length));
       expect(told).toEqual([1, 1]);
-      const rowsOf = await Promise.all(h.admins.map(async (id) => (await h.s.security.unseenNotices(id)).filter((e) => e.detail?.startsWith(SELF_TEST)).length));
+      const rowsOf = await Promise.all(h.admins.map(async (id) => (await h.s.security.noticeEvents(id, "")).filter((e) => e.detail?.startsWith(SELF_TEST)).length));
       expect(rowsOf.sort()).toEqual([1, 2]);
     } finally {
       logged.mockRestore();

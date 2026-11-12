@@ -153,7 +153,7 @@ describe("restore-latest: the request", () => {
     await waitFor(async () => stops.n === 1);
     expect((await admin.call("GET", "/api/ops/audit")).body.events[0]).toMatchObject({ username: "aino", action: "tietokannan palautus", outcome: "pyydetty (pre-update-20261009T080000.db)" });
     const kaisa = (await s.users.findForLogin("kaisa"))!;
-    expect((await s.security.unseenNotices(kaisa.id)).map((e) => [e.kind, e.detail])).toEqual([["ops_notice", "Aino käynnisti tietokannan palautuksen varmuuskopiosta"]]);
+    expect((await s.security.noticeEvents(kaisa.id, "")).map((e) => [e.kind, e.detail])).toEqual([["ops_notice", "Aino käynnisti tietokannan palautuksen varmuuskopiosta"]]);
     expect((await admin.call("GET", URL)).body.pending).toBe(true);
   });
 

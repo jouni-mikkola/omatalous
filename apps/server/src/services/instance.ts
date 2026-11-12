@@ -135,7 +135,10 @@ export class InstanceStore {
   async save(input: unknown): Promise<InstanceState> {
     const current = await this.load(true);
     const next: InstanceState = { ...parseSettingsUpdate(input, current), setupDone: current.setupDone, redirectMode: current.redirectMode };
-    return this.write(next);
+    const saved = await this.write(next);
+    // the admin has now chosen the register lookup, on or off: the notice of the changed default has no more to ask
+    await this.settings.delete(INDUSTRY_NOTICE_KEY);
+    return saved;
   }
 
   /** Finishing the wizard fixes the return mode, so a new install does not turn into a "paste" install by finishing. */

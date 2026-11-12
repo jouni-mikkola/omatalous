@@ -53,6 +53,8 @@ export interface AppDeps {
   pruneBackups?: (now: Date) => void;
   /** Folder of the database copies (<data>/backups); an admin can download the newest. */
   backupDir?: string;
+  /** Set when this start left the server on a damaged database: the detail of its `db_damaged` event (db/startup-gate.ts). */
+  dbDamaged?: string;
   /** True when the secret file no longer holds the secret this process runs with (a `secret rotate` waits for its restart). Only the Node entry knows the file. */
   secretStale?: () => boolean;
   /** Where an add-on module lives and what the start did with it (modules/load.ts). Without it the install has no module folder. */
@@ -124,6 +126,8 @@ export interface Services {
    */
   readonly keyTestLimiter: RateLimiter;
   readonly backupDir?: string;
+  /** The detail of this start's `db_damaged` event while the server runs on a damaged database; the admins' notice is made from it. */
+  readonly dbDamaged?: string;
   readonly fetch?: typeof fetch;
   readonly modules?: ModuleRuntime;
   pause(ms: number): Promise<void>;
@@ -187,6 +191,7 @@ export function createServices(deps: AppDeps): Services {
     opsDownloadLimiter: new RateLimiter(...shape.opsDownload),
     keyTestLimiter: new RateLimiter(...shape.keyTest),
     backupDir: deps.backupDir,
+    dbDamaged: deps.dbDamaged,
     fetch: deps.fetch,
     modules: deps.modules,
     pause: deps.pause ?? ((ms) => new Promise((done) => setTimeout(done, ms))),

@@ -8,7 +8,7 @@ import { LOCALE, type MessageCode } from "@banking/core";
 import type { SecurityEvent } from "../db/security-repo.ts";
 import { waitingCopy } from "../db/startup-gate.ts";
 import type { Services } from "./context.ts";
-import { type HealthProbes, healthNotices, markHealthKindSeen, markHealthSeen } from "./db-health.ts";
+import { type HealthProbes, healthNotices } from "./db-health.ts";
 import { INDUSTRY_NOTICE_KEY } from "./instance.ts";
 import { EXTENSIONS } from "../extensions.ts";
 
@@ -91,7 +91,7 @@ export interface EventInput {
   ip?: string | null;
   userAgent?: string | null;
   detail?: string | null;
-  /** Show it once to `userId` as a notice. */
+  /** Show it to `userId` as a notice for `NOTICE_HOURS`. */
   notify?: boolean;
 }
 
@@ -150,7 +150,7 @@ export async function recordLogin(s: Services, userId: string, ip: string, userA
 // ── notices ──────────────────────────────────────────────
 
 export interface Notice {
-  /** Stable id for the dismissal; see dismissNotices. */
+  /** Stable while the notice lasts: an event's `e<number>` or the word of a condition. The list is keyed by it. */
   id: string;
   kind: string;
   at: string | null;
@@ -169,7 +169,14 @@ export interface Notice {
 export const ROLLBACK_NAME = "Edellinen versio palautettiin";
 
 const INDUSTRY_NOTICE = INDUSTRY_NOTICE_KEY;
-const failSeenKey = (userId: string) => `notice_fail_seen:${userId}`;
+
+/**
+ * How long the notice of an event is shown. Nobody marks a notice as read: one about something that happened goes
+ * after this time, and one about a state (a full disk, a damaged database) goes when the state ends.
+ */
+export const NOTICE_HOURS = 72;
+/** Failed sign-ins of the last day that make a notice. Fewer are a mistyped password, which needs nothing done. */
+export const LOGIN_FAIL_NOTICE = 3;
 
 export const fiTime = (iso: string, tz: string) =>
   new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
@@ -185,18 +192,28 @@ function damagedNotice(detail: string | null): string {
   return `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${copy} on tallessa, mutta emme saaneet sitä käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: sovellus palauttaa varmuuskopion käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.`;
 }
 
-/** `probes`: a made disk in tests. */
-export async function noticesFor(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<Notice[]> {
-  // two events in the same minute (two resets, say) read the same: one line says it, and dismissing it marks every event
+/**
+ * The notices of the user now. `userAgent` is the browser that asks: its own sign-in from a new device is not told to
+ * it, as whoever sits there knows. `probes`: a made disk in tests.
+ */
+export async function noticesFor(s: Services, user: { id: string; role: string }, probes?: HealthProbes, userAgent?: string | null): Promise<Notice[]> {
+  // two events in the same minute (two resets, say) read the same: one line says it
   const texts = new Set<string>();
-  return (await everyNotice(s, user, probes)).filter((n) => !texts.has(n.text) && texts.add(n.text));
+  return (await everyNotice(s, user, probes, userAgent)).filter((n) => !texts.has(n.text) && texts.add(n.text));
 }
 
 /** Every notice of the user, the ones that read the same included. */
-async function everyNotice(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<Notice[]> {
+async function everyNotice(s: Services, user: { id: string; role: string }, probes?: HealthProbes, userAgent?: string | null): Promise<Notice[]> {
   const tz = s.instance.current.timezone;
   const out: Notice[] = [];
-  for (const e of await s.security.unseenNotices(user.id)) {
+  // the state of this start, not an event: it is told while the server runs on the damaged file
+  if (user.role === "admin" && s.dbDamaged !== undefined) {
+    const copy = waitingCopy(s.dbDamaged);
+    out.push({ id: "db_damaged", kind: "db_damaged", at: null, text: damagedNotice(s.dbDamaged), ...(copy ? { code: "notice.db_damaged_waiting" as const, params: { copy } } : { code: "notice.db_damaged_none" as const }) });
+  }
+  const here = userAgent ? userAgent.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 200) : null;
+  for (const e of await s.security.noticeEvents(user.id, new Date(s.now().getTime() - NOTICE_HOURS * 3600_000).toISOString())) {
+    if (e.kind === "new_device" && here !== null && e.userAgent === here) continue;
     if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.reset_by_admin" });
     else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjautui joku uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, code: "notice.new_device", params: { device: e.detail ?? "tuntematon" }, detail: e.detail ?? "tuntematon" });
     else if (e.kind === "factor_removed_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.factor_removed" });
@@ -204,16 +221,10 @@ async function everyNotice(s: Services, user: { id: string; role: string }, prob
     else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
     else if (e.kind === "watchdog_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
     else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Palautimme tietokannan varmuuskopiosta"}. Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.` });
-    else if (e.kind === "db_damaged") {
-      const copy = waitingCopy(e.detail);
-      out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: damagedNotice(e.detail), ...(copy ? { code: "notice.db_damaged_waiting" as const, params: { copy } } : { code: "notice.db_damaged_none" as const }) });
-    }
   }
-  const mark = await s.settings.get(failSeenKey(user.id));
-  const since = mark && mark > new Date(s.now().getTime() - 86_400_000).toISOString() ? mark : new Date(s.now().getTime() - 86_400_000).toISOString();
-  const failed = await s.security.countSince(user.id, "login_fail", since);
-  if (failed > 0) {
-    out.push({ id: "fails", kind: "login_fail", at: null, text: `Tunnuksellasi epäonnistui ${failed === 1 ? "yksi kirjautuminen" : `${failed} kirjautumista`} viime vuorokauden aikana.`, ...(failed === 1 ? { code: "notice.login_fail_one" as const } : { code: "notice.login_fail_many" as const, params: { count: failed } }) });
+  const failed = await s.security.countSince(user.id, "login_fail", new Date(s.now().getTime() - 86_400_000).toISOString());
+  if (failed >= LOGIN_FAIL_NOTICE) {
+    out.push({ id: "fails", kind: "login_fail", at: null, text: `Tunnuksellasi epäonnistui ${failed} kirjautumista viime vuorokauden aikana.`, code: "notice.login_fail_many", params: { count: failed } });
   }
   if (user.role === "admin" && (await s.settings.get(INDUSTRY_NOTICE))) {
     out.push({
@@ -227,38 +238,6 @@ async function everyNotice(s: Services, user: { id: string; role: string }, prob
   // the safety net: copies, the disk and the host helper (db-health.ts), for admins
   out.push(...(await healthNotices(s, user, probes)));
   return out;
-}
-
-/** The shape of a notice id (`Notice.id`): an event's `e<number>` or a word. Anything else is refused before a lookup. */
-export const NOTICE_ID = /^(e\d{1,15}|[a-z_]{1,40})$/;
-
-/**
- * Marks one notice as read, and with it the notices that read the same, as the list shows them as one line. An id the
- * user no longer has (read in another tab) changes nothing.
- */
-export async function dismissNotice(s: Services, user: { id: string; role: string }, id: string, probes?: HealthProbes): Promise<void> {
-  const all = await everyNotice(s, user, probes);
-  const text = all.find((n) => n.id === id)?.text;
-  if (text === undefined) return;
-  const now = s.now().toISOString();
-  for (const n of all.filter((m) => m.text === text)) {
-    if (/^e\d+$/.test(n.id)) await s.security.markOneSeen(user.id, Number(n.id.slice(1)), now);
-    else if (n.id === "fails") await s.settings.set(failSeenKey(user.id), now);
-    else if (n.id === "industry" && user.role === "admin") await s.settings.delete(INDUSTRY_NOTICE);
-    else await markHealthKindSeen(s, user, n.kind, probes);
-  }
-}
-
-/**
- * Marks the user's notices as read. The changed default is cleared for every admin; a notice about the safety net
- * is marked for this admin alone and comes back when its condition does (db-health.ts).
- */
-export async function dismissNotices(s: Services, user: { id: string; role: string }, probes?: HealthProbes): Promise<void> {
-  const now = s.now().toISOString();
-  await s.security.markSeen(user.id, now);
-  await s.settings.set(failSeenKey(user.id), now);
-  if (user.role === "admin") await s.settings.delete(INDUSTRY_NOTICE);
-  await markHealthSeen(s, user, probes);
 }
 
 export type { SecurityEvent };

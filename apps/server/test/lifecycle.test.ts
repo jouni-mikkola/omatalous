@@ -118,7 +118,10 @@ describe("stored instance settings from before industryLookup existed", () => {
     expect(notices.find((n) => n.kind === "industry_lookup_off")?.text).toContain("toimialahaku kaupparekisteristä");
     expect((await t.admin.call("GET", "/api/admin/instance")).body.settings.industryLookup).toBe(false);
 
-    await t.admin.call("POST", "/api/security/notices/seen", {});
+    // the notice stays until an admin saves the server's settings, which is the choice it asks for: off here
+    await t.s.instance.load(true);
+    expect(((await t.admin.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).some((n) => n.kind === "industry_lookup_off")).toBe(true);
+    expect((await t.admin.call("PUT", "/api/admin/instance", { industryLookup: false })).body.settings.industryLookup).toBe(false);
     expect(((await t.admin.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).some((n) => n.kind === "industry_lookup_off")).toBe(false);
     // loading again does not bring the notice back
     await t.s.instance.load(true);
