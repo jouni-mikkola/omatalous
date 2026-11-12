@@ -394,9 +394,9 @@ const cityKey = (city: string) => fold(city).replace(/AE/g, "A").replace(/OE/g, 
 
 /**
  * The text of a card account (CARD_ACCOUNT_TEXT) without its currency, country, city and the same city at the end; else
- * `s`. The first word after the country is the city when the same word ends the text, when a processor or a seller's
- * star follows it ("SUMUP *", "EXAMPLE.NET*": the name begins there), when a chain of BRANDS follows it, or when it is a
- * town of PLACES, in its own spelling or with AE and OE for Ä and Ö ("JOENSUU" holds an OE of its own). When none holds,
+ * `s`. The first word after the country is the city when the same word ends the text, when a processor follows it
+ * ("SUMUP *": the name begins there), when a chain of BRANDS with a hyphenated name follows it ("K-MARKET"), or when it
+ * is a town of PLACES, in its own spelling or with AE and OE for Ä and Ö ("JOENSUU" holds an OE of its own). When none holds,
  * the word may be the first of the name, so only the country goes. A town followed by nothing but a company form
  * ("TIKKURILA OYJ") is a company named for its town, kept.
  */
@@ -406,7 +406,9 @@ export function dropCardAccountPrefix(s: string): string {
   const [afterCountry, city, rest] = [m[3]!, m[4]!, m[5].trimEnd()];
   const at = rest.lastIndexOf(" ");
   const repeated = at > 0 && cityKey(rest.slice(at + 1)) === cityKey(city);
-  const nameStarts = PROCESSOR_PREFIX.test(rest) || /^[^\s*]+\*/.test(rest) || BRANDS.some(([pattern]) => pattern.test(fold(rest)));
+  // a chain's own hyphenated name ("K-MARKET") is no word of a shop's name; a plain one ("MAX", "POWER") may be
+  const chain = /^\S+-\S/.test(rest) && BRANDS.some(([pattern]) => pattern.test(fold(rest)));
+  const nameStarts = PROCESSOR_PREFIX.test(rest) || chain;
   if (!repeated && !isPlaceName(city) && !isPlaceName(cityKey(city)) && !nameStarts) return afterCountry;
   const name = rest.slice(0, at).trim();
   const kept = repeated && !isSurnameAfterName(fold(city), name) ? name : rest;

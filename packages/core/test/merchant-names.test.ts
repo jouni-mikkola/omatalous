@@ -65,14 +65,22 @@ describe("a card account's wording: country and city in front, the city again at
     expect(name("Osto FIN K-Market Kamppi")).toBe("K-Market");
   });
 
-  it("drops a town missing from the list when a chain or a seller's star follows it, where the name begins", () => {
+  it("drops a town missing from the list when a chain with a hyphenated name or a payment service follows it", () => {
     expect(name("Osto FIN Kemijarvi K-market Ilo")).toBe("K-Market");
     expect(name("Osto FIN Kemijarvi S-market Ilo")).toBe("S-Market");
-    expect(name("Osto ESP MADRID EXAMPLE.NET* KAUPPA ILO")).toBe("Example.Net Kauppa Ilo");
     // a seller of other companies' software in front of the product, as a payment service is
     expect(name("Osto ESP MADRID PADDLE.NET* KAUPPA ILO")).toBe("Kauppa Ilo");
     // a chain's name alone after the country is the name, as before
     expect(name("Osto FIN K-market Ilo")).toBe("K-Market");
+  });
+
+  it("keeps the first word of a name before a plain chain word or a seller's star: it can be the name's own", () => {
+    expect(name("Osto FIN Pizzeria Power")).toBe("Pizzeria Power");
+    expect(name("Osto FIN Grilli Max")).toBe("Grilli Max");
+    expect(name("Osto FIN Matti Stark")).toBe("Matti Stark");
+    expect(name("Osto IRL Amazon Prime*AB12C3DE4")).toBe("Amazon Prime");
+    expect(name("Osto GBR Audible UK*AB1CD2EF3")).toBe("Audible");
+    expect(name("Osto LUX Kindle Svcs*AB1CD2")).toBe("Kindle Svcs");
   });
 
   it("reads the same shape after a foreign purchase's currency and sum, and after Siirto kortilta", () => {
