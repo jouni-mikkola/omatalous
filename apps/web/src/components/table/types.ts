@@ -89,6 +89,8 @@ export type TableProps<R> = {
   rowsSearched?: boolean;
   /** The rows are one page of a longer list of this many (the server's count): "Kaikki" counts the list, and a chip, whose rows can be on another page, shows no count. */
   listTotal?: number;
+  /** The page's own head says how many rows the list has: "Kaikki" shows no count, so the number is said once. */
+  allUncounted?: boolean;
   /** The page's own controls in the toolbar, after the chips (filters the server applies). */
   toolbarExtra?: ReactNode;
   /**

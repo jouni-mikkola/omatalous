@@ -7,6 +7,7 @@ import { join, relative } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { MerchantAvatar } from "../src/components/MerchantAvatar.tsx";
 import { barShare, deltaTone, sparkGeometry } from "../src/components/table/cells.ts";
 import { nextSort, sortBy, sortMessage, sortRows } from "../src/components/table/sort.ts";
 import { BarCell, DeltaChip, MarkCell, SortHead, SparkCell } from "../src/components/table/Cells.tsx";
@@ -71,12 +72,23 @@ describe("a delta chip", () => {
   });
 });
 
+describe("a payee's avatar", () => {
+  it("gives a name the same series whatever its case or accents, and two letters of its first words", () => {
+    const html = (name: string) => renderToStaticMarkup(createElement(MerchantAvatar, { name }));
+    expect(html("K-Market")).toMatch(/data-tint="[1-7]"/);
+    expect(html("K-Market")).toBe(html("K-MARKET"));
+    expect(html("K-Market")).toContain(">KM<");
+    expect(html("Lidl")).toContain(">LI<");
+    expect(html("  ")).toContain(">?<");
+  });
+});
+
 describe("a payee's mark", () => {
-  it("draws no initials or glyph when no logo is given", () => {
+  it("gives a person a glyph, never initials", () => {
     const html = renderToStaticMarkup(createElement(MarkCell, { name: "Matti Meikäläinen", person: true }));
     expect(html).not.toContain(">MM<");
-    expect(html).not.toContain("<svg");
-    expect(html).toContain("Matti Meikäläinen");
+    expect(html).not.toContain("data-tint");
+    expect(html).toContain("<svg");
   });
 });
 

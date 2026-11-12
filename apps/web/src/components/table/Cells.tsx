@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { barShare, deltaTone, type Meaning, sparkGeometry } from "./cells.ts";
 import type { SortDir } from "./sort.ts";
+import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import "../../styles/table.css";
 import { css } from "../../css.ts";
 
@@ -53,12 +54,13 @@ export function DeltaChip({ delta, text, meaning, flat = 0 }: { delta: number; t
 }
 
 /**
- * A payee's mark: the given logo (the bank's, a chain's), else none; the name beside it.
+ * A payee's mark: the given logo (the bank's, a chain's), else MerchantAvatar (a person glyph for a person's name,
+ * or two initials on a tint of their own); the name beside it.
  */
-export function MarkCell({ name, mark, children }: { name: string; mark?: ReactNode; person?: boolean; size?: "s" | "m" | "l"; children?: ReactNode }) {
+export function MarkCell({ name, mark, person, size, children }: { name: string; mark?: ReactNode; person?: boolean; size?: "s" | "m" | "l"; children?: ReactNode }) {
   return (
     <span className="tc-mark">
-      {mark}
+      {mark ?? <MerchantAvatar name={name} person={person} size={size} />}
       <span className="tc-name">{children ?? name}</span>
     </span>
   );

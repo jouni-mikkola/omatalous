@@ -6,6 +6,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import "../styles/banks.css";
 import { logoForInstitution } from "../banks.ts";
 import type { BankOption } from "../types.ts";
+import { MerchantAvatar } from "./MerchantAvatar.tsx";
 
 /**
  * What the plate shows for the picture at `src`: the name alone without a picture and after a failure, the name while
@@ -63,4 +64,25 @@ export function cardBankOf(name: string, institution: string | null, banks: read
   const logo = bankLogoOf(name, institution, banks);
   if (logo) return logo;
   return institution && !NAMES_A_BANK.test(name) ? { bank: institution, src: null } : null;
+}
+
+/**
+ * The mark at the head of an account line: the bank's logo, else the account's initials, on one plate of one size so the
+ * names below it start at one place. Decorative: the account's name stands beside it, and a bank's name in front of
+ * it would change the name of the row.
+ */
+export function AccountMark({ name, institution, banks, size = "m" }: { name: string; institution: string | null; banks: readonly BankOption[]; size?: "s" | "m" }) {
+  const logo = bankLogoOf(name, institution, banks);
+  const [failed, setFailed] = useState<string | null>(null);
+  return (
+    <span className="acc-mark" aria-hidden="true">
+      {!logo || failed === logo.src ? (
+        <MerchantAvatar name={name} person={NAMES_A_BANK.test(name) ? false : undefined} size={size} wide />
+      ) : (
+        <span className={`mk-plate mk-${size} mk-wide`}>
+          <img className="mk-logo" src={logo.src} alt="" onError={() => setFailed(logo.src)} />
+        </span>
+      )}
+    </span>
+  );
 }

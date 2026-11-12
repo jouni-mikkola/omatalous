@@ -43,7 +43,7 @@ export type ToolbarProps = {
   onQuery: (query: string) => void;
   /** The chips, without "Kaikki"; empty when no column defines one. */
   chips: ChipCount[];
-  all: number;
+  all: number | null;
   chip: string | null;
   onChip: (key: string | null) => void;
   /** The columns the rows can be grouped by; empty hides the menu. */
@@ -88,7 +88,8 @@ export function Toolbar(p: ToolbarProps) {
             }}
           >
             <ToggleButton id="" className="rtb-chip">
-              {t("table.all")} <b>{p.all}</b>
+              {t("table.all")}
+              {p.all !== null && <> <b>{p.all}</b></>}
             </ToggleButton>
             {p.chips.map((c) => (
               <ToggleButton key={c.key} id={c.key} className="rtb-chip">

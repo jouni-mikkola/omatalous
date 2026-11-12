@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { cents, overflow, watch } from "./helpers.ts";
 
 // Tapahtumat on the table kit (VT2): one-line rows at two densities, a day's row with the server's sums, sorting inside
-// a day, a row that opens on its payee's twelve months, the period picked on a calendar of our own, the empty,
-// first and loading states. The demo household of e2e/run.mjs.
+// a day, a row that opens on its payee's twelve months, the period picked on a calendar of our own, the strip's
+// histogram that narrows the list, the empty, first and loading states. The demo household of e2e/run.mjs.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(browser: Browser, path: string, width = 1280, height = 900) {
@@ -94,13 +94,20 @@ test("the period is a named one or two days on our own calendar, never a browser
   await context.close();
 });
 
-test("a filter that matches nothing can be cleared", async ({ browser }) => {
+test("Enter on the histogram narrows the list to its tallest bin, and a filter that matches nothing can be cleared", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions");
+  const hist = page.getByRole("img", { name: /^Rahaa ulos (päivittäin|viikoittain|kuukausittain), suurin / });
+  await expect(hist).toBeVisible();
+  await expect(page.locator(".tx-hist-readout")).toContainText("rahaa ulos");
+  await hist.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);
   await expect(rows(page).first()).toBeVisible();
 
   await page.goto("/#/transactions?q=eiosumiamissaan");
   await expect(page.getByText("Näillä rajauksilla ei ole tapahtumia.")).toBeVisible();
-  // the chips stay so a filter can be undone one at a time
+  // the strip waits for rows; the chips stay so a filter can be undone one at a time
+  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" })).toHaveCount(0);
   await page.getByRole("button", { name: "Tyhjennä rajaukset" }).click();
   await expect(page).toHaveURL(/#\/transactions$/);
   await expect(rows(page).first()).toBeVisible();
@@ -108,13 +115,14 @@ test("a filter that matches nothing can be cleared", async ({ browser }) => {
   await context.close();
 });
 
-test("before its answer the page stands at its final shape: grey rows", async ({ browser }) => {
+test("before its answer the page stands at its final shape: the strip's frame and grey rows", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   await page.route(/\/api\/transactions\?/, () => {
     // never answered: the page keeps loading
   });
   await page.goto("/#/transactions");
+  await expect(page.locator(".tx-skel.tx-totals")).toBeVisible();
   await expect(page.locator(".tx-skel-row")).toHaveCount(4);
   await expect(page.getByRole("status").filter({ hasText: "Ladataan" })).toBeAttached();
   await expect(page.getByText("Tapahtumia ei vielä ole")).toHaveCount(0);

@@ -17,6 +17,7 @@ import { t } from "../../text.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
 import { Figure } from "../Figure.tsx";
+import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import { DeltaChip, MarkCell } from "../table/Cells.tsx";
 import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
@@ -113,7 +114,7 @@ export function BillsTable({
       kind: "text",
       rowHead: true,
       cell: (i) => (
-        <MarkCell name={i.name}>
+        <MarkCell name={i.name} mark={<MerchantAvatar name={i.name} person={false} size="m" />}>
           <span className="sub-merchant">{nameOf(i)}</span>
           <span className="sub-category">{i.category ? label(i.category) : kindLabel(i.kind)}</span>
         </MarkCell>

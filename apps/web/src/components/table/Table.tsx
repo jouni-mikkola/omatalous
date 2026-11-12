@@ -87,6 +87,7 @@ export function Table<R>({
   rowsSearched = false,
   toolbarExtra,
   listTotal,
+  allUncounted = false,
   view: viewProp,
   onView,
 }: TableProps<R>) {
@@ -310,7 +311,7 @@ export function Table<R>({
           query={view.query}
           onQuery={(q) => change({ ...view, query: q })}
           chips={listTotal === undefined ? shown.chips : shown.chips.map((c) => ({ ...c, count: null }))}
-          all={listTotal ?? shown.all}
+          all={allUncounted ? null : (listTotal ?? shown.all)}
           chip={view.chip}
           onChip={(chip) => change({ ...view, chip })}
           groups={groupable}

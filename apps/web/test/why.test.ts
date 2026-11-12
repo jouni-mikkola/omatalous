@@ -175,7 +175,7 @@ describe("the mark of a basis row", () => {
     expect(basisPerson("spend.month", "u:2")).toBe(false);
     for (const name of ["Elisa", "Esimerkki Market", "Robert's Coffee"]) {
       const out = mark(name, basisPerson("spend.month", "t:1"));
-      expect(out).not.toContain("data-tint=");
+      expect(out).toContain("data-tint=");
       expect(out).not.toContain("<svg");
     }
   });
