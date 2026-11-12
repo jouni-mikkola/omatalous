@@ -32,7 +32,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.amount": "Amount",
   "bills.since": "From {month}",
   "bills.title": "Bills, contracts and subscriptions",
-  "bills.fixed_title": "Fixed costs per month",
+  "bills.fixed_title": "Fixed costs a month",
   "bills.per_month_short": "{amount}/mo",
   "bills.details": "Details: {name}",
   "bills.remove_ask": "Remove the bill {name}?",

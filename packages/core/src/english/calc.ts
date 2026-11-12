@@ -30,7 +30,7 @@ export const EN_CALC = {
   "calc.before_pay": "Before pay, seven days of the period",
   "calc.ratio_weekdays": "Ratio, weekdays taken into account",
   "calc.more_in_period": "More in the period",
-  "calc.pays_per_year": "Pay days a year from {date}",
+  "calc.pays_per_year": "Paydays a year from {date}",
   "calc.price_before": "Earlier price",
   "calc.price_from": "Price from {date}",
   "calc.rise_year": "{merchant}, extra a year",

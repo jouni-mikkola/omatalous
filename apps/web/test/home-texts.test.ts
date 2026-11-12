@@ -87,7 +87,7 @@ describe("the direction", () => {
     expect(bufferText(1)).toBe("1 kuukausi");
     expect(directionText({ averageCents: 300_000, months: 12, recentChangeCents: 20_000, direction: "up", bufferMonths: 4, bufferNetCents: 1_200_000, bufferSpendCents: 300_000 })).toBe("Kolmen viime kuukauden menot ovat nousussa.");
     const basis = { averageCents: 324_500, months: 12, recentChangeCents: 0, direction: "flat" as const, bufferMonths: 3.9, bufferNetCents: 1_341_400, bufferSpendCents: 340_300 };
-    expect(bufferBasisText(basis)?.replace(/\s/g, " ")).toBe("13 414 € jaettuna odotetuilla menoilla 3 403 €/kk");
+    expect(bufferBasisText(basis)?.replace(/\s/g, " ")).toBe("13 414 € jaettuna tavallisilla menoilla 3 403 €/kk");
     expect(bufferBasisText({ ...basis, bufferMonths: null, bufferNetCents: null, bufferSpendCents: null })).toBeNull();
     expect(directionText({ averageCents: null, months: 2, recentChangeCents: null, direction: null, bufferMonths: null, bufferNetCents: null, bufferSpendCents: null })).toBeNull();
   });

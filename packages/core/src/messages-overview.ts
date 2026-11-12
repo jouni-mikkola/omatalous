@@ -62,7 +62,7 @@ export const FI_OVERVIEW = {
   "home.buffer": "Puskuri",
   "home.spend_average": "Menot keskimäärin, 12 kk",
   "home.per_month": "/kk",
-  "home.buffer_basis": "{net} jaettuna odotetuilla menoilla {spend}/kk",
+  "home.buffer_basis": "{net} jaettuna tavallisilla menoilla {spend}/kk",
   "home.accounts_cards_loans": "Tilit, kortit ja lainat",
   "home.fetching_accounts": "haemme tilejä",
   "home.waiting_one": "{count} tili odottaa hakua",
@@ -124,7 +124,7 @@ export const FI_OVERVIEW = {
   "home.nyt_other_one": "{count} muu kategoria",
   "home.nyt_other_many": "{count} muuta kategoriaa",
   "home.nyt_all_categories": "Kaikki kategoriat",
-  "home.nyt_unsaved_link": "Tallenna saldo",
+  "home.nyt_unsaved_link": "Lisää saldo",
   "home.nyt_unsaved_one": "Lisäksi {count} laina, jonka saldoa ei ole tallennettu: {names}.",
   "home.nyt_unsaved_many": "Lisäksi {count} lainaa, joiden saldoa ei ole tallennettu: {names}.",
   // Shared components

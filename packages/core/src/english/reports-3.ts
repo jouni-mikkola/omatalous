@@ -72,7 +72,7 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.tm_earlier": "Overdue bills of earlier months, {amount}, are in the table total but not in the figure Still to come by month end.",
   "rpt.tm_late": " (late)",
   "rpt.payee": "Payee",
-  "rpt.fc_calc_caption": "Fixed costs per month and year",
+  "rpt.fc_calc_caption": "Fixed costs a month and a year",
   "rpt.fc_datum": "{month} a month, {year} a year",
   "rpt.fc_payment": "Payment",
   "rpt.fc_per_month": "Per month",

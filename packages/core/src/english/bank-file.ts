@@ -22,6 +22,6 @@ export const EN_BANK_FILE: Record<keyof typeof FI_BANK_FILE, string> = {
   "bank_file.err_camt_accounts": "The file has statements of several accounts. Read one account's file at a time.",
   "bank_file.err_camt_balance": "The file has no opening and closing balance, so the rows cannot be checked.",
   "bank_file.err_camt_mismatch": "The file was refused: the closing balance {closing} does not match the rows. The opening balance {opening} and the rows give {expected}, a difference of {difference}.",
-  "bank_file.default_name": "Name, e.g. Current account",
+  "bank_file.default_name": "Name, e.g. Checking account",
   "bank_file.err_camt_entry": "The file has a booked entry with no day, amount or text. The file is not taken, because rows would be left out.",
 };
