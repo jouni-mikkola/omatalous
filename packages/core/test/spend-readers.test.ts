@@ -47,6 +47,7 @@ const BILL_WHOLE = [
   "analysis/change-signal.ts",
   "analysis/change-split.ts",
   "analysis/change.ts",
+  "analysis/coverage.ts",
   "analysis/credit.ts",
   "analysis/data-quality.ts",
   "analysis/fees.ts",

@@ -10,7 +10,7 @@
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { GATE_FLOOR_CENTS, GATE_SHARE, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import { type AnalysisContext, historyCovers, spendRows } from "./context.ts";
-import { accountCovers, coverage, LEFT_OUT_SHARE } from "./coverage.ts";
+import { accountCovers, coverage, LEFT_OUT_SHARE, rowsMissing } from "./coverage.ts";
 import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
 import type { IsoDate } from "../types.ts";
 import type { expectedFor } from "./expected.ts";
@@ -40,14 +40,18 @@ type RowBounds = { from: IsoDate | null; today: IsoDate };
  * The month (`2026-09`) has ended and the accounts a reader sums were in the data from the 1st (`accountCovers`). A
  * reader of the household total passes no accounts: the accounts with a row in the month are the ones it sums, so an
  * account connected later does not make the months before it incomplete, and its own first month is. A month without
- * a row is judged by the history of all rows. `rows` narrows it further for a reader that knows the days its rows are
- * complete on (`rowsComplete`): the month must also end before `rows.today` and start after `rows.from`.
+ * a row is judged by the history of all rows. A month an account that pays every month has no row in, between rows
+ * before and after it, is missing data (`rowsMissing`): it is no complete month for that account, nor for the
+ * household. `rows` narrows it further for a reader that knows the days its rows are complete on (`rowsComplete`):
+ * the month must also end before `rows.today` and start after `rows.from`.
  */
 export function isCompleteMonth(ctx: AnalysisContext, month: string, accounts?: Iterable<string>, rows?: RowBounds): boolean {
   if (monthEnd(month) >= (rows?.today ?? ctx.today)) return false;
   const from = `${month}-01`;
   if (rows && !historyCovers({ dataFrom: rows.from }, from)) return false;
-  if (accounts) return accountCovers(ctx, accounts, from);
+  const ids = accounts && [...accounts];
+  if (rowsMissing(ctx, month, ids)) return false;
+  if (ids) return accountCovers(ctx, ids, from);
   const own = accountsWithRows(ctx, month);
   return own.size ? accountCovers(ctx, own, from) : historyCovers(ctx, from);
 }
@@ -58,7 +62,8 @@ export function isCompleteMonth(ctx: AnalysisContext, month: string, accounts?: 
  * (none when `month` itself is in the future). One month is skipped instead: the month an account joined, when that
  * is all that makes it incomplete and the joining accounts are credit cards paid by card bills in the month before, or
  * carry under `LEFT_OUT_SHARE` of the spending from that month up to `month`: a card whose purchases were in the bills
- * before does not cut the household's usual level off, a large card with no bills before and a main account do. A reader that names its accounts always stops, and only at a month those
+ * before does not cut the household's usual level off, a large card with no bills before and a main account do. A month
+ * whose rows are missing (`rowsMissing`) is skipped too: the months before it are whole. A reader that names its accounts always stops, and only at a month those
  * accounts do not cover: a figure made of some accounts' rows (a category's or a theme's usual level and monthly mean)
  * passes the accounts its rows are on, so a card linked late stops its own categories, and the categories of the other
  * accounts keep their months.
@@ -69,6 +74,7 @@ export function completeMonthsBefore(ctx: AnalysisContext, month: string, n: num
   for (let i = monthIndex(month) - 1; out.length < n; i--) {
     const label = fromMonthIndex(i);
     if (isCompleteMonth(ctx, label, ids, rows)) out.push(label);
+    else if (monthEnd(label) < (rows?.today ?? ctx.today) && rowsMissing(ctx, label, ids)) continue;
     else if (ids || !joinedSmall(ctx, label, month, rows)) break;
   }
   return out.reverse();

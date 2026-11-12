@@ -121,6 +121,44 @@ export function accountCovers(ctx: AnalysisContext, accountIds: Iterable<string>
   return any;
 }
 
+const holesOf = new WeakMap<AnalysisContext, Map<number, Set<string>>>();
+
+/**
+ * The months an account's rows are missing from, by month index: a month with no row of any kind on an account that
+ * has rows before and after it and spending in half of the months from its first row to its last or more. Such an
+ * account pays its way every month, so an empty month is a fetch or an export that missed it, not a month without
+ * spending (the themes window reads its paying accounts the same way). A card used now and then and a savings account
+ * have none.
+ */
+function holes(ctx: AnalysisContext): Map<number, Set<string>> {
+  let found = holesOf.get(ctx);
+  if (found) return found;
+  found = new Map();
+  const seen = new Map<string, Set<number>>();
+  const paid = new Map<string, Set<number>>();
+  for (const t of ctx.txs) {
+    (seen.get(t.accountId) ?? seen.set(t.accountId, new Set()).get(t.accountId)!).add(t.month);
+    if (t.spend > 0) (paid.get(t.accountId) ?? paid.set(t.accountId, new Set()).get(t.accountId)!).add(t.month);
+  }
+  for (const [id, months] of seen) {
+    const first = Math.min(...months);
+    const last = Math.max(...months);
+    if (last - first < 2 || (paid.get(id)?.size ?? 0) * 2 < last - first + 1) continue;
+    for (let m = first + 1; m < last; m++) if (!months.has(m)) (found.get(m) ?? found.set(m, new Set()).get(m)!).add(id);
+  }
+  holesOf.set(ctx, found);
+  return found;
+}
+
+/** Are rows missing from `month` (`2026-07`) on any of the accounts, or on any account when none is named (`holes`)? */
+export function rowsMissing(ctx: AnalysisContext, month: string, accounts?: Iterable<string>): boolean {
+  const ids = holes(ctx).get(monthIndex(month));
+  if (!ids) return false;
+  if (!accounts) return true;
+  for (const id of accounts) if (ids.has(id)) return true;
+  return false;
+}
+
 /** A period: its first and last day. */
 interface Span {
   from: IsoDate;
