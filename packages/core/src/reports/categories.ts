@@ -153,7 +153,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
   // trend: the last three complete months against the three before them, so six complete months or none
   const trendEnd = averaged.length ? averaged[averaged.length - 1]! : null;
   const trendSums = new Map<string, [number, number]>();
-  if (trendEnd !== null && isCompleteMonth(ctx, fromMonthIndex(trendEnd - 5))) {
+  if (trendEnd !== null && [0, 1, 2, 3, 4, 5].every((k) => isCompleteMonth(ctx, fromMonthIndex(trendEnd - k)))) {
     for (const t of ctx.txs) {
       if (!t.spend || t.month > trendEnd || t.month <= trendEnd - 6) continue;
       const key = keyOf(t);

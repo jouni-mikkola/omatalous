@@ -74,9 +74,11 @@ export function cardCosts(ctx: AnalysisContext, end: IsoDate): CardCosts {
     byMonth.set(card.accountId, ofCard.set(month, (ofCard.get(month) ?? 0) + cents));
     card.interestCents += cents;
   };
+  // the listed months only: a month skipped as missing rows (`completeMonthsBefore`) lies inside the range
+  const listed = new Set(months);
   for (const t of inDays(ctx, toDayRange({ from: `${months[0]}-01`, to: monthEnd(months[months.length - 1]!) }))) {
     const card = cards.get(t.accountId);
-    if (!card) continue;
+    if (!card || !listed.has(monthOf(t.bookingDate))) continue;
     // Interest the bank takes back is money into the card under the charge's own word, counted in the month it came.
     // So a charge counts whole: `netSpend` would take the same money off the charge a second time.
     if (t.amountCents > 0 && isPurchaseInterestText(wordingOf(t))) {

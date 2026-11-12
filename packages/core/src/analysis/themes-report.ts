@@ -114,13 +114,16 @@ function payers(rows: readonly AnalysisTx[], months: readonly number[]): string[
   return [...new Set(rows.map((t) => t.accountId))].filter((a) => months.filter((m) => paid.has(at(a, m))).length * 2 >= months.length);
 }
 
-/** The newest three or more consecutive months that pass `covered`; none when no run is that long. */
+/**
+ * The newest three or more consecutive months that pass `covered`; none when no run is that long. `months` may skip a
+ * month whose rows are missing (`completeMonthsBefore`), and a run ends there too.
+ */
 function newestRun(months: readonly number[], covered: (month: number) => boolean): readonly number[] {
   let end = months.length;
   while (end > 0) {
     while (end > 0 && !covered(months[end - 1]!)) end--;
     let start = end;
-    while (start > 0 && covered(months[start - 1]!)) start--;
+    while (start > 0 && covered(months[start - 1]!) && (start === end || months[start - 1]! === months[start]! - 1)) start--;
     if (end - start >= MIN_COMPARE_MONTHS) return months.slice(start, end);
     end = start;
   }
@@ -243,7 +246,8 @@ export function themesReport(ctx: AnalysisContext): ThemesReport | null {
   const now = sumsOf(ctx, rows, cars, large);
 
   let before: Sums["themes"] | null = null;
-  if (n === YEAR && complete.length === 2 * YEAR) {
+  // two years of consecutive months: a month skipped as missing rows (`completeMonthsBefore`) leaves no year before
+  if (n === YEAR && complete.length === 2 * YEAR && complete[2 * YEAR - 1]! - complete[0]! === 2 * YEAR - 1) {
     const earlier = complete.slice(0, YEAR);
     const earlierRows = rowsOf(ctx, earlier);
     const seenEarlier = new Set(earlierRows.map((t) => at(t.accountId, t.month)));

@@ -6,6 +6,7 @@ import { addDays, addMonths, dateIn, fromDayNumber, fromMonthIndex, monthEnd, mo
 import type { IsoDate } from "../types.ts";
 import type { ChangeView, ChangeWindow } from "./change.ts";
 import type { AnalysisContext } from "./context.ts";
+import { rowsMissing } from "./coverage.ts";
 import { completeMonthsBefore, isCompleteMonth } from "./usual.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 
@@ -140,8 +141,11 @@ export function planOf(full: AnalysisContext, view: ChangeView, month: string, y
   if (!complete(month) || !from) return null;
   let first = monthIndex(monthOf(from));
   while (!complete(fromMonthIndex(first)) && first < monthIndex(month)) first++;
-  // a month of the target pairs with the month twelve earlier, which must be complete
-  const k = Math.min(yearMonths, monthIndex(month) - 12 - first + 1);
+  // a month of the target pairs with the month twelve earlier, which must be complete; a month whose rows are missing
+  // (`rowsMissing`) ends the target there, on either side
+  let k = 0;
+  const whole = (m: string) => !rowsMissing(full, m);
+  while (k < Math.min(yearMonths, monthIndex(month) - 12 - first + 1) && whole(addMonths(month, -k)) && whole(addMonths(month, -k - 12))) k++;
   if (k < MIN_COMPARE_MONTHS) return null;
   const target = Array.from({ length: k }, (_, i) => addMonths(month, i - k + 1));
   return { view, target, base: target.map((m) => addMonths(m, -12)), cap: 31, running: false, mean: false, noise: [] };
