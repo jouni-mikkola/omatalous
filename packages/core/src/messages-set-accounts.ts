@@ -33,6 +33,6 @@ export const FI_SET_ACCOUNTS = {
   "set.acc.bank_type": "Pankin tilityyppi: {type}",
   "set.acc.name_empty": "Tyhjänä näkyy {name}.",
   "set.acc.account_name": "Tilin nimi",
-  "set.acc.accounts_appear_here": "Tilit tulevat tähän, kun yhdistät pankin.",
+  "set.acc.accounts_appear_here": "Tilit tulevat tähän, kun yhdistät pankin tai tuot tiliotteen tiedostosta.",
   "set.acc.try_sample_data": "Kokeile esimerkkitiedoilla.",
 } as const;
