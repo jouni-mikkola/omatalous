@@ -13,10 +13,10 @@ import "../styles/home.css";
 import { t } from "../text.ts";
 
 /**
- * Nyt answers one question: how much can we still spend before payday (docs/design/README.md section 1.1). One block
- * (`Nyt`): the sum left, what it is a day against the usual everyday spending, the month's pace against its usual band,
- * and the balance and bills the sum is made of. Every figure is a field of `nyt` in the dashboard answer; nothing is
- * added up here. No account cards, findings, goals or net worth: the page always tells today and the running month.
+ * Nyt answers how much can still be spent before payday (docs/design/README.md section 1.1), then shows the month
+ * against its usual course, the largest categories and what the household has and owes, each one step from its rows
+ * (`Nyt`). Every figure is a field of the dashboard answer; nothing is added up here. The page always tells today and
+ * the running month.
  */
 export function Overview({
   meta,

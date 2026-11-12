@@ -93,10 +93,12 @@ export const THRESHOLDS = {
   switchLevel: threshold(0.25, "share", "A judgement: a new payer on another account is the old one's successor only at a level within a quarter of the old level."),
   firstPageDays: threshold(120, "days", "A judgement: a change of payer stays on the first page four months after the old payer's last payment. The income report keeps twelve."),
   payGraceBankingDays: threshold(2, "days", "Banking days after the pay day before pay counts as missing: a weekend, a holiday, a slow sync."),
+  sameUnderCents: threshold(100, "cents", "The first page prints whole euros, so a category that changed by under one euro reads as the same."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
 export const MIN_COMPARE_MONTHS = THRESHOLDS.minCompareMonths.value;
+export const SAME_UNDER_CENTS = THRESHOLDS.sameUnderCents.value;
 export const GATE_SHARE = THRESHOLDS.gateShare.value;
 export const GATE_FLOOR_CENTS = THRESHOLDS.gateFloorCents.value;
 export const INCOME_GATE_FLOOR_CENTS = THRESHOLDS.incomeGateFloorCents.value;

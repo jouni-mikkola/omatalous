@@ -745,6 +745,63 @@
    }
   }
  },
+ "top": {
+  "rows": [
+   {
+    "category": "housing",
+    "label": "Vuokra ja vastike",
+    "cents": 105000,
+    "barShare": 1,
+    "previousCents": 105000,
+    "changeCents": 0,
+    "change": "same",
+    "previousShare": 1
+   },
+   {
+    "category": "mortgage",
+    "label": "Asuntolaina",
+    "cents": 61240,
+    "barShare": 0.5832380952380952,
+    "previousCents": 61240,
+    "changeCents": 0,
+    "change": "same",
+    "previousShare": 0.5832380952380952
+   },
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "cents": 38829,
+    "barShare": 0.3698,
+    "previousCents": 33652,
+    "changeCents": 5177,
+    "change": "more",
+    "previousShare": 0.3204952380952381
+   },
+   {
+    "category": "kids",
+    "label": "Lapset",
+    "cents": 27990,
+    "barShare": 0.26657142857142857,
+    "previousCents": 27990,
+    "changeCents": 0,
+    "change": "same",
+    "previousShare": 0.26657142857142857
+   },
+   {
+    "category": "car",
+    "label": "Auto, polttoaine ja pysäköinti",
+    "cents": 15478,
+    "barShare": 0.1474095238095238,
+    "previousCents": 9638,
+    "changeCents": 5840,
+    "change": "more",
+    "previousShare": 0.09179047619047619
+   }
+  ],
+  "otherCount": 5,
+  "otherCents": 28077,
+  "totalCents": 276614
+ },
  "alerts": [
   {
    "id": "forgotten:out:card:Spotify",

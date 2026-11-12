@@ -35,7 +35,7 @@ async function answerOf(context: BrowserContext) {
 }
 
 for (const width of [390, 1440] as const) {
-  test(`at ${width} px the answer is the sum left before payday that the server gives, and the page has no other card`, async ({ browser }) => {
+  test(`at ${width} px the answer is the sum left before payday that the server gives, and the blocks under it are no cards`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: width === 390 ? 844 : 900 } });
     const page = await open(context);
     const seen = watch(page);
@@ -55,10 +55,19 @@ for (const width of [390, 1440] as const) {
     // the comparison: the sum per day left, and the month's spending to today
     if (left.days > 0) expect(sums(await page.locator(".nyt-per-day").innerText())[0]).toBe(Math.round(left.perDayCents / 100) * 100);
     expect(sums(await page.locator(".nyt-pace").innerText())[0]).toBe(Math.round(nyt.pace.spentCents / 100) * 100);
-    if (nyt.pace.usual) await expect(page.locator(".nyt-pace")).toContainText("tavallinen");
-    // no other card: the answer is the one block of the page
+    if (nyt.pace.usual) await expect(page.locator(".nyt-pace")).toContainText("Tavallisesti");
+    // the bars are the server's largest categories, in its order and with its sums
+    const { top } = (await (await context.request.get("/api/dashboard?scope=own")).json()) as { top: { rows: { label: string; cents: number }[] } };
+    const bars = page.locator(".where-row");
+    await expect(bars).toHaveCount(top.rows.length);
+    for (const [i, row] of top.rows.entries()) {
+      await expect(bars.nth(i).locator(".where-name")).toHaveText(row.label);
+      expect(cents(await bars.nth(i).locator(".where-sum").innerText())).toBe(Math.round(row.cents / 100) * 100);
+    }
+    // no card: one answer, and at most three plain blocks under it
     await expect(page.locator("main .card")).toHaveCount(0);
-    await expect(page.locator("main section")).toHaveCount(1);
+    await expect(page.locator("main .home-answer")).toHaveCount(1);
+    expect(await page.locator("main .home-block").count()).toBeLessThanOrEqual(3);
     await expect(page.locator("main .page-grid.front > *")).toHaveCount(1);
     expect(await heightOf(page), `the page is ${await heightOf(page)} px high at ${width} px`).toBeLessThanOrEqual(MAX_HEIGHT[width]);
     expect(await overflow(page)).toBe(0);
@@ -79,10 +88,10 @@ test("at 390 px the answer and what it is a day are on the first screen", async 
   await context.close();
 });
 
-test("the page is the answer alone: the findings, the payment list, Varat ja velat and the old blocks are gone", async ({ browser }) => {
+test("the findings, the payment list and the old blocks are gone", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
-  for (const gone of ["Huomioitavaa", "Kuukausi", "Varat ja velat", "Menot tässä kuussa", "Tulot ja menot", "Asuminen", "Luottokortit", "Miksi kuu poikkeaa"]) await expect(page.locator("main").getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
+  for (const gone of ["Huomioitavaa", "Kuukausi", "Menot tässä kuussa", "Tulot ja menot", "Asuminen", "Luottokortit", "Miksi kuu poikkeaa"]) await expect(page.locator("main").getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Näytä maksut" })).toHaveCount(0);
   await expect(page.locator(".home-notable, .home-note, .home-sum-row, .home-direction, .home-reliability, .wf, .holding-groups")).toHaveCount(0);
   await context.close();

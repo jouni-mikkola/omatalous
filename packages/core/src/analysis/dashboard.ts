@@ -5,7 +5,7 @@ import { flagLoanPayment } from "../loan-payment.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
-import { type CategoryTotal, categoryTotals } from "./category-totals.ts";
+import { type CategoryTotal, categoryTotals, type TopCategories, topCategories } from "./category-totals.ts";
 import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, aheadBasis } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
@@ -72,6 +72,8 @@ export interface DashboardData {
   ahead: AheadData | null;
   /** Nyt: the sum left before the payday, the days left, the usual everyday spending of a day and the pace band (`nytAnswer`). null when `ahead` is. */
   nyt: NytAnswer | null;
+  /** Nyt: the largest categories of the period as bars, each against the same days of the period before (`topCategories`). */
+  top: TopCategories;
   /** What the first page says in its five blocks; the page only draws it. */
   home: Home;
   /** Cost traps and mistakes; the overview shows them before insights. */
@@ -172,6 +174,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
     ahead: basis?.ahead ?? null,
     nyt: basis && nytAnswer(ctx, basis),
+    top: topCategories(categories, comparable),
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
     insights,

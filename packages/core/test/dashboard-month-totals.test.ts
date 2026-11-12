@@ -57,6 +57,62 @@ describe("the month's spending is one sum", () => {
     expect(d.pace.current.at(-1)).toBe(d.totals.expenseCents);
   });
 
+  it("the bars of the largest categories and the rest add up to the month's spending", () => {
+    const many = [
+      ...rows,
+      ...["restaurants", "car", "health", "clothing", "hobbies"].flatMap((category, i) => [
+        buy("2026-09-04", 3_000 + 500 * i, { merchant: `Kauppa ${i}`, category }),
+        buy("2026-10-04", 2_000 + 900 * i, { merchant: `Kauppa ${i}`, category }),
+      ]),
+    ];
+    const d = buildDashboard(createContext(many, [checking, savings], today), { from: "2026-10-01", to: today });
+    expect(d.top.rows).toHaveLength(5);
+    expect(d.top.rows.map((r) => r.cents)).toEqual(d.categories.slice(0, 5).map((c) => c.cents));
+    expect(d.top.rows.reduce((sum, r) => sum + r.cents, 0) + d.top.otherCents).toBe(d.totals.expenseCents);
+    expect(d.top.totalCents).toBe(d.totals.expenseCents);
+    expect(d.top.otherCount).toBe(d.categories.length - 5);
+    // groceries: 100 + 45 less the refund of 25 by the 12th, against 120 by the 12th of September (the 80 of the 20th is later)
+    const groceries = d.top.rows.find((r) => r.category === "groceries")!;
+    expect(groceries).toMatchObject({ cents: 12_000, previousCents: 12_000, changeCents: 0 });
+    const hobbies = d.top.rows.find((r) => r.category === "hobbies")!;
+    expect(hobbies.changeCents).toBe(2_000 + 900 * 4 - (3_000 + 500 * 4));
+    // the longest bar is the largest sum drawn, and every mark is on its bar
+    expect(Math.max(...d.top.rows.map((r) => r.barShare))).toBe(1);
+    for (const r of d.top.rows) expect(r.previousShare!).toBeLessThanOrEqual(1);
+  });
+
+  it("a first month has bars and no comparison", () => {
+    const d = buildDashboard(createContext([buy("2026-10-03", 5_000)], [checking], today), { from: "2026-10-01", to: today });
+    expect(d.top.rows).toEqual([{ category: "groceries", label: d.categories[0]!.label, cents: 5_000, barShare: 1, previousCents: null, changeCents: null, change: null, previousShare: null }]);
+    expect(d.top.otherCents).toBe(0);
+  });
+
+  it("the words of a change: more, less, the same under a euro, and new", () => {
+    const d = buildDashboard(
+      createContext(
+        [buy("2026-09-03", 12_000), buy("2026-10-02", 12_050), buy("2026-09-04", 3_000, { category: "car" }), buy("2026-10-04", 5_000, { category: "car" }), buy("2026-09-05", 9_000, { category: "health" }), buy("2026-10-05", 4_000, { category: "health" }), buy("2026-10-06", 2_000, { category: "clothing" })],
+        [checking],
+        today,
+      ),
+      { from: "2026-10-01", to: today },
+    );
+    expect(Object.fromEntries(d.top.rows.map((r) => [r.category, r.change]))).toEqual({ groceries: "same", car: "more", health: "less", clothing: "new" });
+    for (const r of d.top.rows) expect(r.changeCents).toBe(r.cents - r.previousCents!);
+  });
+
+  it("a category with a row on an account the month before lacks has a bar and no comparison", () => {
+    const card: Account = { id: "acc-3", name: "Kortti", iban: null, currency: "EUR", type: "credit_card" };
+    const d = buildDashboard(
+      createContext([...rows, buy("2026-09-04", 3_000, { category: "car" }), buy("2026-10-04", 5_000, { category: "car" }), buy("2026-10-03", 7_000, { accountId: "acc-3" })], [checking, savings, card], today),
+      { from: "2026-10-01", to: today },
+    );
+    const groceries = d.top.rows.find((r) => r.category === "groceries")!;
+    // the bar holds the new account's purchase, which September cannot be set against
+    expect(groceries).toMatchObject({ cents: 19_000, previousCents: null, changeCents: null, change: null, previousShare: null });
+    // a category wholly on the accounts both months have keeps its comparison, and its bar and mark are sums of the same accounts
+    expect(d.top.rows.find((r) => r.category === "car")).toMatchObject({ cents: 5_000, previousCents: 3_000, changeCents: 2_000, change: "more" });
+  });
+
   it("a month with no row has the figure 0 and a curve that never leaves it", () => {
     const d = buildDashboard(createContext([buy("2026-08-15", 1_000)], [checking], today), { from: "2026-10-01", to: today });
     expect(d.totals.expenseCents).toBe(0);

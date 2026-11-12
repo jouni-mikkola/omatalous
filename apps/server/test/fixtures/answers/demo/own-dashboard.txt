@@ -883,6 +883,63 @@
    }
   }
  },
+ "top": {
+  "rows": [
+   {
+    "category": "housing",
+    "label": "Vuokra ja vastike",
+    "cents": 105000,
+    "barShare": 1,
+    "previousCents": 105000,
+    "changeCents": 0,
+    "change": "same",
+    "previousShare": 1
+   },
+   {
+    "category": "loans",
+    "label": "Kulutusluotot",
+    "cents": 28900,
+    "barShare": 0.2752380952380952,
+    "previousCents": 28900,
+    "changeCents": 0,
+    "change": "same",
+    "previousShare": 0.2752380952380952
+   },
+   {
+    "category": "groceries",
+    "label": "Ruokakauppa",
+    "cents": 15605,
+    "barShare": 0.14861904761904762,
+    "previousCents": 29300,
+    "changeCents": -13695,
+    "change": "less",
+    "previousShare": 0.27904761904761904
+   },
+   {
+    "category": "insurance",
+    "label": "Vakuutukset",
+    "cents": 14230,
+    "barShare": 0.13552380952380952,
+    "previousCents": 0,
+    "changeCents": 14230,
+    "change": "new",
+    "previousShare": 0
+   },
+   {
+    "category": "food_delivery",
+    "label": "Ruoan kotiinkuljetus",
+    "cents": 10932,
+    "barShare": 0.10411428571428571,
+    "previousCents": 6274,
+    "changeCents": 4658,
+    "change": "more",
+    "previousShare": 0.05975238095238095
+   }
+  ],
+  "otherCount": 6,
+  "otherCents": 27445,
+  "totalCents": 202112
+ },
  "alerts": [
   {
    "id": "overlap:video",

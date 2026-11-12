@@ -19,12 +19,30 @@ Ranked by how often asked. Four tabs: Nyt, Kuukausi, Tulossa, Tarkistettavat. Th
   and one line of pace: spent so far this month against the usual band to the same day (the chart of today's Kuukausi
   section, which `docs/audit/simplify.md` names as the good one).
 - Action: the sum opens the balance and the bills behind it; the pace line opens this month's rows.
+- Under the answer, three plain blocks, each one step from its rows. The answer alone left the page with nothing to
+  look at once the sum was read.
+  - The month so far: one sentence with the side of the usual the spending is on, the usual sum and its range, and
+    the pace chart of the same figures. The month before is not drawn here.
+  - Where the money has gone: the five largest categories as bars on one scale, last month's sum to the same day as a
+    mark on each bar and the difference in words. A bar opens the category's rows.
+  - What the household has and owes: the accounts' balance and the debt, each a link to its rows, and a line when a
+    loan has no balance saved.
 - Not shown: account cards, card faces, credit arcs, the insights list, the last-days table, goals, net worth.
 ```
  Palkkapäivään 25.11. jää            4 424 €
  277 € päivässä, tavallisesti 65 €
- Käytetty 2 018 €  ▁▂▃▅▆ ─ ─ tavallisesti 1 884–1 972 €
- Saldo 7 198,65 € − muut laskut ennen palkkapäivää 2 774,52 €
+ Saldo 7 198,65 € − laskut ennen palkkapäivää 2 774,52 €
+
+ Marraskuu tähän asti
+ Käytetty 2 018 €, 90 € yli tavallisen. Tavallisesti 1 928 € (1 884–1 972 €).
+ ▁▂▃▅▆ ─ ─
+
+ Mihin rahat ovat menneet
+ Ruokakauppa   ████████|██    612 €   140 € enemmän kuin viime kuussa
+ Auto          ███  |        118 €   52 € vähemmän kuin viime kuussa
+
+ Varat ja velat
+ Kaikkien tilien saldo 13 006 €   Velkaa 619 €
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?
