@@ -27,9 +27,9 @@
 .chart .qc-dot-then { fill: var(--series-avg); stroke: var(--surface); stroke-width: 2; }
 .chart .qc-end { fill: var(--text); font-size: var(--fs-label); font-weight: 600; }
 .chart .qc-end-sub { fill: var(--text-2); font-size: var(--fs-label); font-weight: 400; }
-.chart .qc-note { fill: var(--text); font-size: var(--fs-label); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-/* the first day a balance is known, in the empty part of the line: the grid passes behind it */
-.chart .bl-known-from { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .qc-note { fill: var(--text); font-size: var(--fs-label); font-weight: 600; }
+/* a label on the line, and the first day a balance is known in the empty part of the line: the grid passes behind them */
+.chart .qc-note, .chart .bl-known-from { paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
 .chart .qc-band { fill: var(--series-avg); fill-opacity: 0.16; }
 .chart .qc-low { fill: var(--bad); stroke: var(--surface); stroke-width: 2; }
 .chart .qc-area { fill: var(--series-1); fill-opacity: 0.1; }

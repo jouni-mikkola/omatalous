@@ -115,6 +115,16 @@ describe("BalanceLine with a balance known only lately", () => {
     });
   }
 
+  it("names no pay day whose word would run past the chart's right edge", () => {
+    for (const width of [366, 900]) {
+      // the pay lifts the balance the day before today, so its word stands well below today's label
+      const late = Array.from({ length: DAYS }, (_, i) => 150_000 - i * 400 + (i === DAYS - 2 ? 100_000 : 0));
+      const c = draw(width, { ...report, daily: { from: FROM, cents: late }, payDays: [isoDay(dayNumber(FROM) + DAYS - 2)] });
+      for (const p of [...c.querySelectorAll<SVGTextElement>("text.qc-end-sub, text.qc-note")].map(boxOf).filter((n) => n.text === "palkka")) expect(p.to, `${width} px`).toBeLessThanOrEqual(width);
+      cleanup();
+    }
+  });
+
   it("says why there is no line when one day is known", () => {
     const c = draw(366, { ...report, daily: { from: TO, cents: [120_000] }, payDays: [] });
     expect(c.querySelector("svg")).toBeNull();

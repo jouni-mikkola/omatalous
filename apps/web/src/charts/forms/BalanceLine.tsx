@@ -49,7 +49,10 @@ const short = (label: string) => {
  * lowest day (`lowest`) is a `--bad` dot on the line with its date and figure, each large purchase (`events`) whose day
  * stepped the line down by it a `--bad` tick over that step (`step`, the day before to the day) with its payee and sum
  * in a lane under the month names; one the same day's pay hid, or one beyond the lanes, is in the readout. Pay days
- * (`payDays`) are grey dots on the line, the one nearest the middle named. Today's balance is labelled at the end. A long range is drawn decimated (four points a pixel column keep every dip).
+ * (`payDays`) are grey dots on the line, the one nearest the middle whose word clears the other labels and the chart's
+ * edges named. Today's balance is labelled at the end. When the balance is known only from a later day, the empty part
+ * before it names that day; with one known day a sentence stands in for the chart. A long range is drawn decimated
+ * (four points a pixel column keep every dip).
  */
 export function BalanceLine({ r }: { r: BalanceReport }) {
   const [ref, width] = useWidth<HTMLDivElement>();
@@ -113,10 +116,12 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
     ...(pays.some((d) => indexOf(d) === i) ? [{ name: t("rpt.bl_payday"), value: "" }] : []),
     ...events.filter((e) => indexOf(e.day) === i).map((e) => ({ name: e.label, value: money(e.cents, false) })),
   ];
-  // one pay day named, the one nearest the middle whose word clears the labels of today and of the lowest day
+  // one pay day named, the one nearest the middle whose word clears the labels of today and of the lowest day and
+  // stays inside the svg
   const payBox = (d: string) => boxOf(x(indexOf(d)), y(days[indexOf(d)]!) - 8, t("rpt.bl_pay"), "middle");
+  const inside = (b: Box) => b.x0 >= -f.margin.left && b.x1 <= f.innerW + f.margin.right;
   const namedPay = pays
-    .filter((d) => taken.every((b) => apart(b, payBox(d))))
+    .filter((d) => inside(payBox(d)) && taken.every((b) => apart(b, payBox(d))))
     .reduce<string | undefined>((best, d) => (best === undefined || Math.abs(indexOf(d) - days.length / 2) < Math.abs(indexOf(best) - days.length / 2) ? d : best), undefined);
   // the days before an account was known are left empty, and the empty part says from which day the line runs: in its
   // middle, else higher or lower where it touches no label of the line; the year is named when it is not the last day's
