@@ -416,7 +416,10 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   `onCard`), so the first group's sum is the block's figure *Erääntyvät maksut*. It has no pay,
   no card bill and no transfer. A bill of a series is no row once it is paid: by the series' own row, or by a row the
   rule for a bill paid another way takes (`recurring-settled.ts`, *Bills paid another way*), except while that row is
-  pending on a counted account: then the bill is listed, marked *varaus*, as in the block.
+  pending on a counted account: then the bill is listed, marked *varaus*, as in the block. What an account outside
+  the balance pays before the payday is in no figure of the window; `ahead.outside` finds it to the payday also when
+  that is more than 30 days off. Yhteenveto names its sum in a line under the answer's sum row, and Laskut lists it
+  before the payday.
 - Insights say what changed in the period. A month is compared with its expected figure (*Odotettu*, the mean of the
   six months before) and shown only when it is outside all of them. A longer period is compared with the
   previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.

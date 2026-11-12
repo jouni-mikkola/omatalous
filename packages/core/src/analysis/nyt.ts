@@ -10,7 +10,7 @@
  */
 import { daysBetween, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
-import type { AheadBasis } from "./ahead.ts";
+import { type AheadBasis, upcomingElsewhereCents } from "./ahead.ts";
 import { type AnalysisContext, standingOf } from "./context.ts";
 import { expectedFor } from "./expected.ts";
 import { monthPace } from "./forecast.ts";
@@ -51,6 +51,11 @@ export interface NytAnswer {
         leftCents: number;
         /** `leftCents` over `days`, in whole cents; `leftCents` itself when the payday is today. */
         perDayCents: number;
+        /**
+         * What accounts the balance leaves out pay before the payday (`ahead.outside`, which runs to the payday when it is more than 30 days off): in no figure
+         * above, so the page says it beside `billsCents`, which reads 0 when only such an account pays.
+         */
+        elsewhereCents: number;
       };
   /** What everyday spending usually takes a day in the running month (`expectedEverydayPerDay`). null without a figure. */
   usualPerDayCents: number | null;
@@ -93,7 +98,8 @@ function leftOf(ctx: AnalysisContext, { ahead }: Pick<AheadBasis, "ahead">): Nyt
   const balanceCents = ahead.balance.startCents;
   const billsCents = ahead.totals.leavingCents;
   const leftCents = ahead.balance.freeCents;
-  return { known: true, payday, days, balanceCents, billsCents, leftCents, perDayCents: days > 0 ? Math.round(leftCents / days) : leftCents };
+  const elsewhereCents = upcomingElsewhereCents(ahead.outside.filter((r) => r.date < payday.date));
+  return { known: true, payday, days, balanceCents, billsCents, leftCents, perDayCents: days > 0 ? Math.round(leftCents / days) : leftCents, elsewhereCents };
 }
 
 /** The sum left before the payday, the days left, the usual everyday spending of a day and the pace band. */

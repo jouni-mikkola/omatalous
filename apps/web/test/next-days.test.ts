@@ -31,6 +31,7 @@ function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {
     payday: { date: "2026-10-23", name: "Esimerkki Oy", pay: steady(300_000) },
     rows,
     upcoming: rows.filter((r) => r.cents! < 0),
+    outside: [],
     everydayPerDayCents: 3_849,
     totals: { recurringCents: sum("recurring"), typedCents: sum("expected"), cardCents: 0, transferCents: 0, dueCents, leavingCents: dueCents, incomeCents: sum("income") },
     balance: balance({ freeCents: 200_000 - dueCents }),

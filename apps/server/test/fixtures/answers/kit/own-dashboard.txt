@@ -699,6 +699,7 @@
     "onCard": true
    }
   ],
+  "outside": [],
   "everydayPerDayCents": 3982,
   "totals": {
    "recurringCents": 5280,
@@ -732,7 +733,8 @@
    "balanceCents": 240000,
    "billsCents": 5280,
    "leftCents": 234720,
-   "perDayCents": 29340
+   "perDayCents": 29340,
+   "elsewhereCents": 0
   },
   "usualPerDayCents": 3982,
   "pace": {

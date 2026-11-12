@@ -84,7 +84,7 @@ export function Overview({
       <FirstFetch meta={meta} onReload={onReload} />
       {nyt ? (
         <>
-          <Answer nyt={nyt} />
+          <Answer nyt={nyt} ahead={data.ahead} scope={scope} />
           <MonthPace data={{ ...data, nyt }} />
           <div className="home-side">
             <Notable rows={notable.rows} count={notable.count} />

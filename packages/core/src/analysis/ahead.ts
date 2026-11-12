@@ -59,7 +59,7 @@ export interface AheadRow {
    * Laskut lists it in a group of its own, outside the sums of what the accounts pay.
    */
   onCard?: boolean;
-  /** In `upcoming` only: an account the balance leaves out pays it (not a card), so it is in no figure of the window. */
+  /** In `upcoming` and `outside` only: an account the balance leaves out pays it (not a card), so it is in no figure of the window. */
   outside?: true;
 }
 
@@ -156,6 +156,11 @@ export interface AheadData {
    * bill on its due date, as Yhteenveto lists it. No pay and no transfer.
    */
   upcoming: AheadRow[];
+  /**
+   * What an account the balance leaves out pays (`outside`), as far as the window reaches when that is past the 30 days
+   * of `upcoming`: in no figure of the window. Yhteenveto names their sum before the payday and Laskut lists them there.
+   */
+  outside: AheadRow[];
   /**
    * The expected everyday spending of a day in the running month, in whole cents, over every account in view, a card's
    * purchases included (`expectedEverydayPerDay`). Taken off none of these figures: the runway (`runwayOf`) takes off
@@ -343,8 +348,10 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   const onCard = (s: RecurringSeries) => cards.has(parseSeriesId(s.id)?.accountId ?? "");
   const outside = ctx.recurring.filter((s) => !onCounted(s));
+  // an account's rows are found to the window's end too: a payday can be more than 30 days off
+  const outsideRows = expectedCharges(outside.filter((s) => !onCard(s)), from, reachPayments, expected).map((c): AheadRow => ({ ...chargeRow(c), outside: true }));
   const elsewhere = [
-    ...expectedCharges(outside.filter((s) => !onCard(s)), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), outside: true })),
+    ...outsideRows.filter((r) => r.date <= thirty),
     ...expectedCharges(outside.filter(onCard), from, thirty, expected).map((c): AheadRow => ({ ...chargeRow(c), onCard: true })),
   ];
   // the moves are found to the end of Laskut's 30 days: a card's bill is in the list like any bill, a transfer is not
@@ -364,7 +371,7 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   });
   const [recurringCents, typedCents, cardCents, transferCents] = [sumOf(rows, "recurring"), sumOf(rows, "expected"), sumOf(rows, "card"), sumOf(rows, "transfer")];
   const totals: AheadTotals = { recurringCents, typedCents, cardCents, transferCents, dueCents: recurringCents + typedCents + cardCents, leavingCents: recurringCents + typedCents + cardCents + transferCents, incomeCents: sumOf(rows, "income") };
-  const base = { from, to, days, reason, payday, rows, upcoming, everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals };
+  const base = { from, to, days, reason, payday, rows, upcoming, outside: outsideRows.sort(byDay), everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals };
   const evidence: Pay[] = payday?.pay && paySeries ? payEvidence(regularOf(paySeries), from) : [];
   const periods = comingList(ctx, inputs, found);
   // the rows are those of every counted account, so the figures need the balance of every one of them

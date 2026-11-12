@@ -46,6 +46,8 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.col_sum": "Amount",
   "home.payments_before_payday": "Payments before payday",
   "home.accounts_balance": "Current account balance",
+  "home.accounts_balance_many": "Current accounts' balance",
+  "home.payments_elsewhere": "Plus {sum} from accounts the balance leaves out.",
   "home.left": "Left",
   "home.hide_payments": "Hide payments",
   "home.show_payments": "Show payments",
