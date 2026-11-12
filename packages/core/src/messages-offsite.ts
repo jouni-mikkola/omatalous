@@ -16,7 +16,7 @@ export const FI_OFFSITE = {
   "offsite.incomplete": "Täytä osoite, tunnus, kansio ja age-avain ennen kuin otat kopion käyttöön.",
   "offsite.saved_key_confirm": "Vahvista, että olet tallentanut salausavaimen muualle kuin tähän koneeseen.",
   "offsite.no_secret": "Palvelimen salausavain (APP_SECRET) puuttuu. Katso palvelimen loki.",
-  "offsite.not_set": "Kopion kohdetta ei ole annettu. Anna se kohdassa Asetukset > Palvelin.",
+  "offsite.not_set": "Kopion kohdetta ei ole annettu. Anna se kohdassa Asetukset > Palvelin ja ylläpito.",
   "offsite.no_folder": "Emme tunne palvelimen tietokansiota, joten emme voi aloittaa kopiota.",
   "offsite.unreadable": "Emme voi avata tallennettua kohdetta nykyisellä salausavaimella. Poista se ja anna uudelleen.",
   // the card

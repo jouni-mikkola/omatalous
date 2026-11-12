@@ -183,7 +183,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "conn.valid_left_one": "{until}, {count} day left",
   "conn.valid_left_many": "{until}, {count} days left",
   "conn.reminder_title": "Omatalous: the bank connection expires {date}",
-  "conn.reminder_text": "{bank}: the connection expires {date}. Open Omatalous and choose Settings > Bank connections > Connect again.",
+  "conn.reminder_text": "{bank}: the connection expires {date}. Open Omatalous and choose Settings > Banks and accounts > Reconnect.",
   "sync.updated": "Updated {stamp}",
   "sync.running": "Fetching transactions from the bank…",
   "sync.next": "The bank allows the next fetch {stamp}",

@@ -27,7 +27,7 @@ export const COPY_CHECK_KEY = "copy_check";
 const WEEK_KEY = "copy_check_week";
 /** When the conditions without a time of their own began (JSON by kind); gone while they do not hold. */
 const SINCE_KEY = "health_since";
-const WHERE = "Asetukset > Ylläpito";
+const WHERE = "Asetukset > Palvelin ja ylläpito";
 
 export interface CopyCheck {
   /** When the check ran (ISO). */

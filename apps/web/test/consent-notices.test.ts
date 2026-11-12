@@ -207,7 +207,7 @@ describe("renewalReminder", () => {
       "DTSTART;VALUE=DATE:20270107",
       "DTEND;VALUE=DATE:20270108",
       "SUMMARY:Omatalous: pankkiyhteys vanhenee 14.1.2027",
-      "DESCRIPTION:Nordea: yhteys vanhenee 14.1.2027. Avaa Omatalous ja valitse Asetukset > Pankkiyhteydet > Yhdistä uudelleen.\\nhttps://talous.example.fi/#/settings",
+      "DESCRIPTION:Nordea: yhteys vanhenee 14.1.2027. Avaa Omatalous ja valitse Asetukset > Pankit ja tilit > Yhdistä uudelleen.\\nhttps://talous.example.fi/#/settings",
       "URL:https://talous.example.fi/#/settings",
       "TRANSP:TRANSPARENT",
       "BEGIN:VALARM",

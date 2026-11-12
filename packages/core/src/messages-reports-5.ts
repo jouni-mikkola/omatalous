@@ -59,7 +59,7 @@ export const FI_REPORTS_5 = {
   "rpt.ln_remove_others": "{names} voi poistaa tallennetun lainan",
   "rpt.ln_remove_own": "poista tallennettu laina",
   "rpt.ln_fix_link": "Jos kyse on samasta velasta, laskemme sen vain kerran, kun liität lainan tiliin.",
-  "rpt.ln_fix_remove": "Jos kyse on samasta velasta, {remove} kohdassa Asetukset > Lainat, niin laskemme sen vain kerran.",
+  "rpt.ln_fix_remove": "Jos kyse on samasta velasta, {remove} kohdassa Asetukset > Talous > Lainat, niin laskemme sen vain kerran.",
   "rpt.ln_twice": "{same}: {sides}. {fix}",
   "rpt.ln_overdraft": "Jos tallentamasi laina näkyy myös pankin tiedoissa, se on luvussa {label} kahdesti. Silloin oikea luku on lainan verran suurempi.",
   "rpt.ln_late_one": "Velan summasta puuttuu yksi laina, jonka jäljellä oleva summa on kirjattu tulevalle päivälle.",

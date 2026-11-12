@@ -8,7 +8,7 @@
 export const FI_PRICES = {
   "prices.title": "Omat hinnat ja kuluttajahintaindeksi",
   "prices.question": "Kiinteiden hintojen nousu",
-  "prices.off": "Hintavertailua ei ole vielä käytössä. Ylläpitäjä voi ottaa sen käyttöön kohdassa Asetukset > Palvelin. Silloin palvelin hakee Tilastokeskuksen julkisen indeksisarjan eikä lähetä mitään talouden tiedoista.",
+  "prices.off": "Hintavertailua ei ole vielä käytössä. Ylläpitäjä voi ottaa sen käyttöön kohdassa Asetukset > Palvelin ja ylläpito. Silloin palvelin hakee Tilastokeskuksen julkisen indeksisarjan eikä lähetä mitään talouden tiedoista.",
   "prices.short": "Emme voi vertailla: indeksisarjasta puuttuu kuukausia {from}–{to}. Sarja päivittyy kerran päivässä.",
   "prices.no_basket": "Emme voi vertailla: sinulla ei ole kiinteähintaista tilausta, joka olisi maksanut jo kuussa {month}.",
   "prices.answer_more": "Hintasi kallistuivat yleistä hintatasoa enemmän. Kiinteiden hintojesi kori muuttui {own} kuukausista {from}–{to}, kuluttajahintaindeksi {index}. Indeksiin suhteutettuna hintasi ovat {gap} korkeammat kuin alussa.",
