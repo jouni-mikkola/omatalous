@@ -170,8 +170,8 @@ describe("the kit's rules", () => {
   const files = (dir: string): string[] => readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? files(join(dir, f)) : [join(dir, f)]));
   const all = files(src).filter((f) => /\.tsx?$/.test(f));
 
-  it("adds nothing up: no sum over row values in Table, ChartTable and the sort", () => {
-    for (const f of all.filter((x) => /components\/table\/(Table|ChartTable|sort)\./.test(x))) {
+  it("adds nothing up: no sum over row values in Table, the cells it draws, ChartTable and the sort", () => {
+    for (const f of all.filter((x) => /components\/table\/(Table|Cells|ChartTable|sort)\./.test(x))) {
       const text = readFileSync(f, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");

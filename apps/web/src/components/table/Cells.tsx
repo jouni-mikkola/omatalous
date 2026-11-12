@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { money } from "../../format.ts";
+import { cellText, type Column } from "./columns.ts";
 import { barShare, deltaTone, type Meaning, sparkGeometry } from "./cells.ts";
 import type { SortDir } from "./sort.ts";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
@@ -83,3 +85,26 @@ export function SortHead({ label, dir, numeric, className, onSort }: { label: Re
     </th>
   );
 }
+
+/**
+ * The width of the widest figure of each bar column, in characters: every figure of the column takes that room, so the
+ * bars before them start on one line and are read on one scale.
+ */
+export const figureWidths = <R,>(columns: readonly Column<R>[], rows: readonly R[]): Map<string, number> =>
+  new Map(columns.filter((c) => c.bar && (c.cell || c.cents)).map((c) => [c.key, Math.max(0, ...rows.map((r) => cellText(c, r).length))]));
+
+/** A column's cell of `row`: its node, else its cents formatted, with the column's bar before it. */
+export const cellOf = <R,>(c: Column<R>, row: R, figureCh?: number): ReactNode => {
+  const plain = (): ReactNode => {
+    if (c.cell) return c.cell(row);
+    const v = c.cents?.(row) ?? null;
+    return v === null ? "–" : money(v, c.precision === "cents");
+  };
+  if (!c.bar) return plain();
+  // the bar stands before the figure it draws, on the column's scale, and is left out where there is no room for it
+  return (
+    <BarFigure value={c.bar.value(row)} max={c.bar.max} color={c.bar.color?.(row)} figureCh={figureCh}>
+      {c.cell || c.cents ? plain() : null}
+    </BarFigure>
+  );
+};
