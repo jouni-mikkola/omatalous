@@ -378,9 +378,23 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
       products.push(buildSeries(seriesId({ ...parseSeriesId(id)!, product: p.typical }), merchant, p.category, direction, p.cOcc, p.cFit, today, own));
     }
   }
+  if (fit) {
+    const covered = sum(products.map((p) => p.transactionIds.length));
+    return products.length && covered >= 0.6 * group.length ? products : [buildSeries(id, merchant, category, direction, occ, fit, today)];
+  }
+  // Money in of one payer that fits no cadence whole can be two incomes, a monthly allowance of one sum and a benefit
+  // paid every second week whose sum moves with the days it pays for: a cluster of sums with a cadence of its own is a
+  // series too, as a salary is whose sum moves.
+  if (direction === "in" && group.length >= 4) {
+    const held = new Set(products.flatMap((p) => p.transactionIds));
+    for (const cluster of clusterByAmount(group).filter((c) => c.length >= MIN_PRODUCT_CHARGES && !c.some((t) => held.has(t.id)))) {
+      const cOcc = toOccurrences(cluster);
+      const cFit = fitCadence(cOcc);
+      if (cFit) products.push(buildSeries(seriesId({ ...parseSeriesId(id)!, product: Math.round(median(cOcc.map((o) => o.cents))) }), merchant, categoryOf(cluster), direction, cOcc, cFit, today));
+    }
+  }
   const covered = sum(products.map((p) => p.transactionIds.length));
   if (products.length && covered >= 0.6 * group.length) return products;
-  if (fit) return [buildSeries(id, merchant, category, direction, occ, fit, today)];
   if (products.length) {
     // a fixed product among everyday purchases: report both
     const inProducts = new Set(products.flatMap((p) => p.transactionIds));
