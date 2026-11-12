@@ -93,8 +93,8 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
     case "row":
       return <CategoryChoices item={item} income={item.side === "in"} categories={meta.categories} busy={busy} onPick={(category) => onAnswer(() => api(`/api/transactions/${encodeURIComponent(item.rowId)}`, { method: "PATCH", body: { category } }))} />;
     case "bill":
-      // a bill that still comes is passed with Ohita: it goes when its charge does come
-      return <Buttons choices={[plain(t("set.rc.ended"), "cancelled")]} busy={busy} label={named} onPick={(value) => onAnswer(mark(item.subject, value))} />;
+      // Tulee vielä is said of this due day alone (`comingSubject`), so it says nothing of the series; Lopetettu ends the series
+      return <Buttons choices={[plain(t("set.rc.still_coming"), "coming"), plain(t("set.rc.ended"), "ended")]} busy={busy} label={named} onPick={(value) => onAnswer(value === "coming" ? mark(item.comingSubject, "in_use") : mark(item.subject, "cancelled"))} />;
     case "consent":
       // the bank is connected again where the connections are; the item goes when the new consent is there
       return (

@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isBillSeries, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { proposalsFor, requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
@@ -11,6 +11,7 @@ import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
+import { withoutWrongBills } from "./wrong-bills.ts";
 
 type Asked = ReturnType<typeof buildQuestions>["items"][number];
 type PayeeAsked = Extract<Asked, { kind: "payee_out" | "payee_in" }>;
@@ -149,13 +150,15 @@ interface ConsentItem extends Base {
 }
 
 /**
- * A bill or subscription whose charge is late (core `isOverdue`): `dueDate` is the day it was expected and `cents` its
- * usual charge. It goes when the charge comes or the series is marked Lopetettu (mark `cancelled` on `subject`).
+ * A bill or subscription whose charge did not come (core `missedOn`): `dueDate` is the day it was expected and `cents`
+ * its usual charge. It goes when the charge comes, when the series is marked Lopetettu (mark `cancelled` on `subject`)
+ * or when Tulee vielä is said for this due day (mark `in_use` on `comingSubject`, core `billDueSubject`).
  */
 interface BillItem extends Base {
   kind: "bill";
   seriesId: string;
   subject: string;
+  comingSubject: string;
   merchant: string;
   dueDate: string;
 }
@@ -358,12 +361,25 @@ const consents: Source = async (s, userId) => {
   });
 };
 
-// the late bills of Tässä kuussa: a live series nobody marked as ended whose next charge did not come
+// the bills that did not come (core `missedOn`, which Laskut marks too), asked for as long as Laskut names them. An
+// answer takes the item away: Lopetettu (`cancelled` on the series) for good, Tulee vielä (`in_use` on core
+// `billDueSubject`) for the one due day it names, so a later charge that does not come is asked again once one has
+// come between. If none comes, the item stays away until Laskut moves the bill to Päättyneet. A series removed in
+// Laskut as no bill is never asked.
 const bills: Source = async (s, userId) => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const cancelled = cancelledSubjects((await requestInputs(s, userId, accounts)).inputs, ctx.today);
-  return ctx.recurring
-    .flatMap((r): Sourced[] => (r.overdue && r.nextDate && isBillSeries(r) && !isCancelled(cancelled, r) ? [{ kind: "bill", id: `bill:${r.id}`, cents: r.typicalAmountCents, seriesId: r.id, subject: seriesMarkSubject(r), merchant: r.merchant, dueDate: r.nextDate }] : []));
+  const { ctx: all, accounts } = await s.analysis.get(s, userId, "own");
+  const { inputs } = await requestInputs(s, userId, accounts);
+  const ctx = withoutWrongBills(all, inputs.marks);
+  const cancelled = cancelledSubjects(inputs, ctx.today);
+  const coming = new Set(inputs.marks.flatMap((m) => (m.mark === "in_use" ? [m.subject] : [])));
+  return ctx.recurring.flatMap((r): Sourced[] => {
+    const dueDate = missedOn(r, ctx.today);
+    if (!dueDate || isCancelled(cancelled, r)) return [];
+    const subject = seriesMarkSubject(r);
+    const comingSubject = billDueSubject(subject, dueDate);
+    if (coming.has(comingSubject)) return [];
+    return [{ kind: "bill", id: `bill:${r.id}`, cents: r.typicalAmountCents, seriesId: r.id, subject, comingSubject, merchant: r.merchant, dueDate }];
+  });
 };
 
 // the rows the payees' questions leave out for having no name (core `buildQuestions`), one row an item, under its

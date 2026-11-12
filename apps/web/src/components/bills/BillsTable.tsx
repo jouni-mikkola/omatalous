@@ -137,12 +137,8 @@ export function BillsTable({
           t("bills.last_on", { date: date(i.series.lastDate) })
         ) : (
           <>
-            {i.next ? dayHeading(i.next, today) : "–"}
-            {i.series?.overdue && (
-              <span className="badge warn" title={t("bills.expected_on", { date: date(i.series.nextDate) })}>
-                {t("bills.late")}
-              </span>
-            )}
+            {/* a charge that did not come is a status with the day it was due: a day heading would read as the next charge */}
+            {i.missed ? <span className="badge warn">{t("bills.missed", { date: date(i.missed, today) })}</span> : i.next ? dayHeading(i.next, today) : "–"}
             {onCard(i) && <span className="mb-tag sub-card">{t("bills.on_card")}</span>}
           </>
         ),
@@ -298,7 +294,8 @@ function Drill({ i, name, controls, scope, onRemove, onWrong }: { i: Item; name:
           </Button>
         </div>
       ))}
-      {(i.kind === "subscription" || i.stopped) && <MarkAction s={s} name={name} controls={controls} />}
+      {/* a bill that did not come is ended by the mark Tarkistettavat's answer Lopetettu sets; one that was never a bill is still removed */}
+      {(i.kind === "subscription" || i.stopped || i.missed) && <MarkAction s={s} name={name} controls={controls} />}
       {(i.kind === "bill" || i.kind === "contract") && !i.twins?.length && (
         // a bill or a contract the rows gave and the household says is none: out of the list and of the sums of what is coming
         <div className="sub-actions">

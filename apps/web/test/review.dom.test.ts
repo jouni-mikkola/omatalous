@@ -63,6 +63,21 @@ describe("Tarkistettavat", () => {
     expect(document.querySelector(".review-item")!.textContent!.match(/2 \/ 3/g)).toHaveLength(1);
   });
 
+  it("answers a bill that did not come with Tulee vielä for its due day or Lopetettu for its series", async () => {
+    const seen = stubApi({ "PUT /api/marks": {} });
+    const bill = { kind: "bill", seriesId: "out:acc-1:Esimerkkisähkö", subject: "series:out:acc-1:Esimerkkisähkö", comingSubject: "question:bill-due:2026-09-01:out:acc-1:Esimerkkisähkö", merchant: "Esimerkkisähkö", dueDate: "2026-09-01", cents: 6420 };
+    const items = [{ ...bill, id: "bill:1" }, { ...bill, id: "bill:2" }] as unknown as ReviewItem[];
+    const meta = { accounts: [{}], sharedAccounts: [], bank: { banks: [] } } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Tulee vielä", "Lopetettu"]);
+    fireEvent.click(screen.getByRole("button", { name: "Tulee vielä" }));
+    await waitFor(() => expect(seen).toHaveLength(1), T);
+    expect(seen[0]!.body).toEqual({ subject: "question:bill-due:2026-09-01:out:acc-1:Esimerkkisähkö", mark: "in_use" });
+    fireEvent.click(await screen.findByRole("button", { name: "Lopetettu" }, T));
+    await waitFor(() => expect(seen).toHaveLength(2), T);
+    expect(seen[1]!.body).toEqual({ subject: "series:out:acc-1:Esimerkkisähkö", mark: "cancelled" });
+  });
+
   it("has the focus on the next question's heading in the same moment its text shows", async () => {
     stubApi({ "PUT /api/marks": {} });
     const items: ReviewItem[] = ["a", "b", "c"].map((id) => ({ id, kind: "mortgage", cents: 0 }));

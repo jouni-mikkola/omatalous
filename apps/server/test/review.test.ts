@@ -3,7 +3,7 @@
  * answered through its own source's route, and the answer does what the old card's did: the item goes, the count drops
  * by one, and the rows or marks move as before. Made-up names and sums; the test clock is 9.10.2026.
  */
-import { notLoanMark, planSubject, type RawTransaction } from "@banking/core";
+import { billDueSubject, notLoanMark, planSubject, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
@@ -370,5 +370,38 @@ describe("what is wrong, in the same queue", () => {
     expect(await ids(t.admin)).toContain("mortgage");
     // October's charge is six days late, so the housing company is a missed bill beside the question
     expect(await wrong(t.admin)).toEqual([expect.objectContaining({ kind: "bill", merchant: "As Oy Esimerkkitalo", cents: 31000, dueDate: "2026-10-03" })]);
+  });
+
+  it("a bill that did not come is asked past the days it stays active, until answered for its due day or ended", async () => {
+    const t = await setupApp();
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+    // the last power bill on 1.8.: September's is 38 days late on 9.10., past the ten days a monthly series stays active
+    const months = MONTHS.slice(0, 8);
+    await ingestTransactions(repo, "chk", months.flatMap((m) => [raw(`${m}-01`, -64.2, "ESIMERKKISÄHKÖ OY", "SÄHKÖLASKU"), raw(`${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")]), "csv");
+    await reprocess(repo, t.s.settings);
+    const asked = (await wrong(t.admin)).filter((i) => i.kind === "bill");
+    expect(asked).toEqual([expect.objectContaining({ merchant: "Esimerkkisähkö", cents: 6420, dueDate: "2026-09-01" })]);
+    const subject = asked[0]!.subject as string;
+    const coming = asked[0]!.comingSubject as string;
+    expect(coming).toBe(billDueSubject(subject, "2026-09-01"));
+    const bills = async () => (await wrong(t.admin)).filter((i) => i.kind === "bill");
+    // Tulee vielä said of an earlier due day, or "in use" said of the series, is no answer to this charge
+    await repo.setMark(billDueSubject(subject, "2026-08-01"), "in_use", "2026-08-06T10:00:00.000Z");
+    await repo.setMark(subject, "in_use", "2026-09-20T10:00:00.000Z");
+    expect(await bills()).toHaveLength(1);
+    await repo.clearMark(subject);
+    // said of this due day, it takes the item away and leaves the series without a mark, so no other question or tip
+    // reads it as "in use"
+    expect((await t.admin.call("PUT", "/api/marks", { subject: coming, mark: "in_use" })).status).toBe(200);
+    expect(await bills()).toEqual([]);
+    expect((await repo.listMarks()).filter((m) => m.subject === subject)).toEqual([]);
+    // the answer is in_use or taken away, nothing else
+    expect((await t.admin.call("PUT", "/api/marks", { subject: coming, mark: "cancelled" })).status).toBe(400);
+    // a series removed in Laskut as no bill is never asked, whatever else was said
+    expect((await t.admin.call("PUT", "/api/marks", { subject: coming, mark: null })).status).toBe(200);
+    expect(await bills()).toHaveLength(1);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: `not-recurring:${subject.slice("series:".length)}`, mark: "dismissed" })).status).toBe(200);
+    expect(await bills()).toEqual([]);
   });
 });

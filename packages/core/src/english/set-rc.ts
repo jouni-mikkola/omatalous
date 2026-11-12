@@ -5,6 +5,7 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.suggestion": "Suggestion",
   "set.rc.in_use": "In use",
   "set.rc.ended": "Ended",
+  "set.rc.still_coming": "Still coming",
   "set.rc.connect_the_bank_again": "Connect the bank again",
   "set.rc.open_the_account": "Open the account",
   "set.rc.add_a_home_loan": "Add a home loan",
