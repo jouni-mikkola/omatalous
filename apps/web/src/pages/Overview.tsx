@@ -3,7 +3,7 @@ import { Answer } from "../components/home/Answer.tsx";
 import { Direction } from "../components/home/Direction.tsx";
 import { MonthPace } from "../components/home/MonthPace.tsx";
 import { Notable, NOTABLE_SHOWN, type NotableRow } from "../components/home/Notable.tsx";
-import { eyebrow, figureOf, nameOf, NEW_SITTING, openItems, type ReviewAnswer, type ReviewItem, withFetch } from "./review-items.ts";
+import { eyebrow, figureOf, nameOf, needsUser, NEW_SITTING, openItems, type ReviewAnswer, type ReviewItem, withFetch } from "./review-items.ts";
 import { Where } from "../components/home/Where.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
@@ -17,10 +17,10 @@ import type { DashboardData, Meta, Scope } from "../types.ts";
 import "../styles/home.css";
 import { t } from "../text.ts";
 
-/** The head of the Tarkistettavat queue as Huomioitavaa shows it: the queue's own order, names and sums, and the count the header's mark says. */
+/** The first items of the Tarkistettavat queue that need the household (`needsUser`) as Huomioitavaa shows them, in the queue's order, and the count of all the header's mark says. */
 export function notableOf(items: readonly ReviewItem[]): { rows: NotableRow[]; count: number } {
   const open = openItems(items, NEW_SITTING);
-  const rows = open.slice(0, NOTABLE_SHOWN).map((item) => {
+  const rows = open.filter(needsUser).slice(0, NOTABLE_SHOWN).map((item) => {
     const figure = figureOf(item);
     return { id: item.id, kind: eyebrow(item), name: nameOf(item), figure: figure.text, unit: figure.unit };
   });
