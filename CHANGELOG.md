@@ -3,6 +3,25 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.2.1
+
+- Yhteenveto is calmer: the answer and its basis are one block, Kuukausi is its chart alone, and Huomioitavaa lists only what needs the household.
+- Security events stay in Turvallisuusloki; the first page shows one line only for an event not seen yet.
+- Varat ja velat shows the usual month of spending, the same quantity as Kuukausi, and says when debts lack a balance.
+
+Money and reports
+
+- Yhteenveto > Varat ja velat shows *Tavalliset menot*, the same usual month as Kuukausi and the buffer.
+- Velat says in its label when loans lack a saved balance (*Velat ilman 3 lainan saldoa*).
+
+Look
+
+- Yhteenveto shows the answer and its basis as one block, and names the bills that fall on the payday itself.
+- Yhteenveto shows one line for a security event you have not seen, instead of a list that never cleared.
+- Every member can read their own events in Asetukset > Turvallisuus > Turvallisuusloki.
+- Yhteenveto: Kuukausi shows its chart without the table of days, a one-line key or a second axis mark.
+- Yhteenveto: Huomioitavaa shows only what needs you, such as a missed bill or a loan, and opens that item.
+
 ## 1.2.0
 
 - Kiinteät menot is back on Raportit as one table, and it works on a phone.
