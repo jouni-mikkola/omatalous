@@ -5,11 +5,11 @@ start, after a copy is taken.
 
 ## 1.1.0
 
-- Sivut ovat samat kuin versiossa 1.0.0: Yhteenveto, Laskut, Tapahtumat ja Raportit. Tarkistettavat on linkki oikeassa reunassa.
-- Sivuilla on vähemmän tekstiä. Lukua toistavat lauseet, toistuvat päivämäärät ja ilmoitusten kuittaus ovat poissa.
-- Raporteissa on Rahankäyttö kategorioittain ja kuukausittain sekä Tulot.
-- Pankin tiedostosta voi tuoda koko vuoden kerralla, myös jo yhdistetylle tilille.
-- Asetuksissa voi ottaa käyttöön allekirjoitetun lisäosan koodilla.
+- The pages are those of 1.0.0: Yhteenveto, Laskut, Tapahtumat and Raportit. Tarkistettavat is a link on the right.
+- The pages have less text. Sentences that repeat a figure, repeated dates and the dismissing of notices are gone.
+- Raportit has Rahankäyttö by category and by month, and Tulot.
+- A bank's file brings in a whole year at once, also to an account that is already linked.
+- Asetukset takes a code that turns on a signed add-on module.
 
 Money and reports
 
