@@ -322,6 +322,9 @@ describe("the charges of Asuminen", () => {
     const rent = monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" }).slice(-2);
     expect(page(rent).ctx.recurring).toEqual([]);
     expect(page(rent).housing?.ask ?? false).toBe(false);
+    // a rent due on the 31st that a weekend moved to the 1st: two payments of one month, a month apart
+    const moved = ["2026-09-01", "2026-09-30"].map((bookingDate) => ({ ...rent[0]!, id: `moved-${bookingDate}`, bookingDate }));
+    expect(page(moved).housing?.ask ?? false).toBe(false);
     // a vastike paid twice is no rent: the owner is asked
     expect(page(monthly(company, 25_000, "02", { description: "Hoitovastike" }).slice(-2)).housing?.ask).toBe(true);
     // nor is a rent paid three months ago and not since

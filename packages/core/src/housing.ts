@@ -19,7 +19,7 @@
  *   mark cancelled, named by the words of its latest payment (`housingCharge`). Two payments to one payee on one day
  *   are one charge of one series (`recurring.ts`), so they are one row here.
  * - The question of a home loan is asked of no tenant: one that pays rent or a käyttövastike as a charge, or paid one
- *   to one payee in two months of the last `RENT_DAYS` days, when the history is too short for a series of it and no
+ *   to one payee a month apart in the last `RENT_DAYS` days, when the history is too short for a series of it and no
  *   home loan was paid in those days.
  * - In a member's own view the rows of a joint account hold the viewer's part, so a series' month is that part
  *   already, and a loan is cut as the holdings cut it. `atPart` says a row of the block is a part.
@@ -220,21 +220,19 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
   // tells it too: a history of two months has no series of it yet
   const renting = (kind: string | undefined) => kind === "rent" || kind === "occupancy";
   const lately = inDays(standingOf(ctx), { fromDay: dayNumber(today) - RENT_DAYS, toDay: dayNumber(today) });
-  // two booked payments to one payee in two months and `RENT_GAP_DAYS` apart: a cottage week, or its deposit on the
-  // 30th and the rest on the 1st, is no home. A row a series holds is read through the series above, so a rent the
+  // two booked payments to one payee `RENT_GAP_DAYS` apart: a cottage week, or its deposit on the 30th and the rest on
+  // the 1st, is no home. Days and not calendar months, as a weekend can move a rent due on the 31st into the next month
+  // and leave two payments of one month. A row a series holds is read through the series above, so a rent the
   // household marked ended does not make it a tenant here. A household paying a home loan in the same days is asked
   // whatever rent it pays: the rent can be a child's flat
   const inSeries = new Set(ctx.recurring.flatMap((s) => s.transactionIds));
-  const rentDays = new Map<string, IsoDate[]>();
+  const rentDays = new Map<string, number[]>();
   for (const t of lately) {
     if (t.status !== "booked" || t.amountCents >= 0 || t.category !== "housing" || inSeries.has(t.id)) continue;
     if (!renting(housingCharge(fold(t.merchant), fold(`${t.counterparty ?? ""} ${t.description ?? ""}`), false)?.kind)) continue;
-    (rentDays.get(t.merchant) ?? rentDays.set(t.merchant, []).get(t.merchant)!).push(t.bookingDate);
+    (rentDays.get(t.merchant) ?? rentDays.set(t.merchant, []).get(t.merchant)!).push(dayNumber(t.bookingDate));
   }
-  const monthly = (dates: IsoDate[]) => {
-    const days = dates.map(dayNumber);
-    return new Set(dates.map((d) => d.slice(0, 7))).size >= 2 && Math.max(...days) - Math.min(...days) >= RENT_GAP_DAYS;
-  };
+  const monthly = (days: number[]) => Math.max(...days) - Math.min(...days) >= RENT_GAP_DAYS;
   const loanPaid = lately.some((t) => t.status === "booked" && t.amountCents < 0 && t.category === "mortgage");
   const rentPaid = !loanPaid && [...rentDays.values()].some(monthly);
   const tenant = rentPaid || names.some((n) => renting(n?.kind));
