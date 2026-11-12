@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { endSession } from "../auth/session.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
-import { deviceLabel, EVENT_KINDS, noticesFor, recordEvent, validKind } from "../services/security.ts";
+import { deviceLabel, EVENT_KINDS, markNoticesSeen, noticesFor, recordEvent, validKind } from "../services/security.ts";
 import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { body, queryInt, requestInfo } from "./shared.ts";
 
@@ -47,8 +47,14 @@ export function securityRoutes(s: Services) {
     return c.json({ events: events.map((e) => ({ id: e.id, at: e.at, kind: e.kind, username: e.username, ip: e.ip, device: e.userAgent ? deviceLabel(e.userAgent) : null, detail: e.detail })), kinds: EVENT_KINDS });
   });
 
-  /** The notices of now. None can be marked as read: each goes when its cause or its time ends (services/security.ts). */
+  /** The notices of now. Each goes when its cause or its time ends; a notice of an event says whether the user has seen it (services/security.ts). */
   app.get("/notices", async (c) => c.json({ notices: await noticesFor(s, c.get("user"), undefined, c.req.header("user-agent")) }));
+
+  /** The user opened the first page's line of a notice or the security log: the events so far are seen. Takes nothing. */
+  app.post("/notices/seen", async (c) => {
+    await markNoticesSeen(s, c.get("user").id);
+    return c.json({ ok: true });
+  });
 
   return app;
 }

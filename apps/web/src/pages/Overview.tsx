@@ -9,7 +9,7 @@ import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { FirstRun } from "./FirstRun.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { ServerNotices } from "../components/Notices.tsx";
+import { NoticeLine } from "../components/Notices.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { useApi } from "../hooks.ts";
 import { periodRange } from "../period.ts";
@@ -29,7 +29,7 @@ export function notableOf(items: readonly ReviewItem[]): { rows: NotableRow[]; c
 
 /**
  * Yhteenveto (docs/design/README.md section 1.1): how much can still be spent before payday with the sum row that makes
- * it (Answer), the month against its usual course as a chart and its days (MonthPace), beside it the first open
+ * it (Answer), under it one line for a notice of the server at most (NoticeLine), the month against its usual course as a chart and its days (MonthPace), beside it the first open
  * questions (Notable) and the largest categories (Where), and under them what the household has and owes (Direction).
  * Every figure is a field of the dashboard answer; nothing is added up here. The page always tells today and the
  * running month.
@@ -80,11 +80,11 @@ export function Overview({
   const { nyt } = data;
   return (
     <div className={`page-grid front${now.loading ? " loading" : ""}`}>
-      <ServerNotices />
       <FirstFetch meta={meta} onReload={onReload} />
       {nyt ? (
         <>
           <Answer nyt={nyt} ahead={data.ahead} scope={scope} />
+          <NoticeLine />
           <MonthPace data={{ ...data, nyt }} />
           <div className="home-side">
             <Notable rows={notable.rows} count={notable.count} />
@@ -93,9 +93,12 @@ export function Overview({
           <Direction holdings={data.holdings} direction={data.home.direction} today={meta.today} scope={scope} />
         </>
       ) : (
-        <section className="home-answer">
-          <p className="home-detail">{t("home.no_payments_shown")}</p>
-        </section>
+        <>
+          <section className="home-answer">
+            <p className="home-detail">{t("home.no_payments_shown")}</p>
+          </section>
+          <NoticeLine />
+        </>
       )}
     </div>
   );

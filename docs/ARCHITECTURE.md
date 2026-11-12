@@ -258,7 +258,7 @@ The copies and the checks around them, each in one place:
   copy never removes an older one of the same name.
 - The weekly check (`db/backup-check.ts`, `services/db-health.ts`): the newest copy gets a full check once a week. One
   that fails is renamed `<name>.damaged` and is no copy to restore from. The same service works out four notices for
-  admins when the notice list is read (nothing here has a table): no intact copy for 36 hours, a copy that failed, under
+  admins when the notices are read (nothing here has a table): no intact copy for 36 hours, a copy that failed, under
   1 GB free on the data disk, and a host helper silent for 24 hours.
 - The check before the database opens (`db/startup-gate.ts`, called by `entry/node.ts` for the server only, never for a
   command): a database that fails SQLite's check moves to `<data>/damaged/` and the newest intact copy takes its place

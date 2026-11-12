@@ -1,6 +1,6 @@
 /**
  * Asetukset > Turvallisuus: the member's own sign-in (the password, the second factor, the passkeys and the signed-in
- * devices; the service tokens are rows of Omat istunnot) and, for an admin, the security log.
+ * devices; the service tokens are rows of Omat istunnot) and the security log, an admin's of every member.
  */
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { CardStack } from "./CardStack.tsx";
@@ -12,8 +12,8 @@ import { useCardScroll, useCardsShown } from "./use-settings-page.ts";
 
 export function SecurityPage({ meta, params, anchor }: SettingsPageProps) {
   const isAdmin = meta.user.role === "admin";
-  // the sessions and, for an admin, the log read their own data
-  const { shown, partLoaded } = useCardsShown({ expected: isAdmin ? 2 : 1 });
+  // the sessions and the log read their own data
+  const { shown, partLoaded } = useCardsShown({ expected: 2 });
   useCardScroll(anchor, `${params.toString()}#${anchor}`, shown);
   return (
     <CardStack shown={shown}>
@@ -21,7 +21,7 @@ export function SecurityPage({ meta, params, anchor }: SettingsPageProps) {
       <SecondFactor />
       <Passkeys />
       <Sessions admin={isAdmin} onLoaded={partLoaded} />
-      {isAdmin && <SecurityLog onLoaded={partLoaded} />}
+      <SecurityLog onLoaded={partLoaded} />
     </CardStack>
   );
 }

@@ -14,13 +14,16 @@ export interface SecurityNotice {
   code?: string;
   params?: Record<string, string | number>;
   detail?: string;
+  /** On a notice of an event: whether the user has opened its line or the security log since. A notice of a state has none. */
+  seen?: boolean;
 }
 
-/** One line of the notices on Yhteenveto: its text and where it leads. */
+/** The line of a notice on Yhteenveto: its text, where it leads and whether it tells of events (opening it marks them seen). */
 export interface NoticeLine {
   id: string;
   title: string;
   href: string;
+  events: boolean;
 }
 
 /**
@@ -41,15 +44,21 @@ export function noticeText(n: SecurityNotice): string {
   return messageFromWire(n.code, { ...n.params, when: n.at ? dateTime(n.at) : "" }, language()) ?? n.text;
 }
 
-/**
- * A notice of the server is one line that leads where the banner led. A sign-in from a new device is told as a title
- * ("Kirjautuminen uudelta laitteelta 12.10. klo 15.30 (Chrome, Windows)"); every other notice is its own sentence.
- */
-function lineOf(n: SecurityNotice): NoticeLine {
-  const title = n.kind === "new_device" && n.at && n.detail ? t("notice.new_device_title", { when: dateTime(n.at), device: n.detail }) : noticeText(n);
-  const href = n.kind === "industry_lookup_off" ? settingsCardHash(SETTINGS_ANCHOR.server) : MAINTENANCE.has(n.kind) ? settingsCardHash(SETTINGS_ANCHOR.maintenance) : settingsCardHash(SETTINGS_ANCHOR.login);
-  return { id: n.id, title, href };
-}
+/** A sign-in from a new device is told as a title ("Kirjautuminen uudelta laitteelta 12.10. klo 15.30 (Chrome, Windows)"); every other notice is its own sentence. */
+const titleOf = (n: SecurityNotice): string => (n.kind === "new_device" && n.at && n.detail ? t("notice.new_device_title", { when: dateTime(n.at), device: n.detail }) : noticeText(n));
 
-/** The lines of the notices that are no banner, in the server's order. */
-export const securityRows = (notices: readonly SecurityNotice[]): NoticeLine[] => notices.filter((n) => !BANNER_KINDS.has(n.kind)).map(lineOf);
+/**
+ * The one line Yhteenveto gives the notices, or null: never a list. A notice of a state (a copy, the disk, the helper,
+ * the register lookup) needs the admin and stays until it is mended, so the first of them is the line and leads where it
+ * is mended. Else the events the user has not seen: one is told by its own title, more by their count, and both lead to
+ * Asetukset > Turvallisuus > Turvallisuusloki. Seen events and no notice at all are no line.
+ */
+export function noticeLine(notices: readonly SecurityNotice[]): NoticeLine | null {
+  const rows = notices.filter((n) => !BANNER_KINDS.has(n.kind));
+  const state = rows.find((n) => n.seen === undefined);
+  if (state) return { id: state.id, title: titleOf(state), href: settingsCardHash(state.kind === "industry_lookup_off" ? SETTINGS_ANCHOR.server : MAINTENANCE.has(state.kind) ? SETTINGS_ANCHOR.maintenance : SETTINGS_ANCHOR.securityLog), events: false };
+  const unseen = rows.filter((n) => n.seen === false);
+  if (!unseen.length) return null;
+  const href = settingsCardHash(SETTINGS_ANCHOR.securityLog);
+  return unseen.length === 1 ? { id: unseen[0]!.id, title: titleOf(unseen[0]!), href, events: true } : { id: "events", title: t("notice.new_events", { count: unseen.length }), href, events: true };
+}

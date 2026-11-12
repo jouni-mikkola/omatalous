@@ -23,7 +23,7 @@ const INVENTORY: { heading: string; target: string; admin?: true; example?: true
   { heading: "Salasana", target: "security" },
   { heading: "Kaksivaiheinen kirjautuminen", target: "security" },
   { heading: "Omat istunnot", target: "security" },
-  { heading: "Turvallisuusloki", target: "security", admin: true },
+  { heading: "Turvallisuusloki", target: "security" },
   { heading: "Tiedot", target: "data" },
   { heading: "Esimerkkitiedot", target: "data", example: true },
   { heading: "Palvelin", target: "server", admin: true },
@@ -267,11 +267,11 @@ test("a member's targets have their own cards and none of the admin's, and Hae n
     await expect(page.getByRole("heading", { name: "Pankkisovellus", exact: true }), address).toBeVisible();
     for (const admins of ["Palvelin", "Turvallisuusloki", "Ylläpito"]) await expect(page.getByRole("heading", { name: admins, exact: true }), `${address}: ${admins}`).toHaveCount(0);
   }
-  // Turvallisuus is the member's own sign-in, and the admin's log is not there
+  // Turvallisuus is the member's own sign-in and the log of their own events, where Yhteenveto's notice line leads
   await page.goto("/#/settings/household#kirjautuminen");
   await expect.poll(hash).toBe("#/settings/security#kirjautuminen");
   await expect(page.getByRole("heading", { name: "Omat istunnot", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Talouden jäsenet", exact: true })).toHaveCount(0);
   await expect(page.locator("#kirjautuminen")).toBeInViewport();
   expect(seen.problems).toEqual([]);

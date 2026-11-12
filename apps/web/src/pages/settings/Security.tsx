@@ -1,9 +1,9 @@
 /**
  * Asetukset > Turvallisuus: Salasana (everyone), Omat istunnot (everyone: the signed-in devices, and for an admin one row
  * for each service token, a read-only key of a script or an agent that is made on the server's command line) and
- * Turvallisuusloki (admin).
+ * Turvallisuusloki (everyone: an admin's of all members, a member's of their own).
  */
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { dateTime } from "../../format.ts";
@@ -18,6 +18,7 @@ import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
 import { labelTable, t } from "../../text.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
+import { markNoticesSeen } from "../../components/Notices.tsx";
 interface Session {
   id: string;
   device: string;
@@ -276,9 +277,13 @@ export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username
   return e.detail === null || typedName ? "" : <span className="small muted">{e.detail}</span>;
 }
 
-/** The admin's list of logins, lockouts, key changes and maintenance requests of the last 90 days. */
+/**
+ * The list of logins, lockouts, key changes and maintenance requests of the last 90 days: an admin's of everyone, a
+ * member's of their own. Opening it marks the notices of the events so far seen, so Yhteenveto's line of them goes.
+ */
 export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => void }) {
   const [kind, setKind] = useState("");
+  useEffect(() => void markNoticesSeen(), []);
   const events = useApi<{ events: SecurityEvent[]; kinds: string[] }>(`/api/security/events${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
   useReportLoaded(events.data !== null || events.error !== null, onLoaded, events.error !== null);
   return (

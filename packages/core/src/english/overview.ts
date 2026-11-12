@@ -207,6 +207,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "notice.db_damaged_waiting": "The database is damaged. An intact backup, {copy}, is kept, but it could not be put in use. Free some space on the disk and restart the app: the backup is put back at start. If that does not help, put the backup back on the server with ./scripts/restore.sh. The guide is in docs/ADVANCED.md.",
   "notice.new_device_title": "Sign-in from a new device {when} ({device})",
   "notice.alert": "Note: ",
-  "notice.heading": "Notices",
+  "notice.new_events": "{count} new entries in the security log",
   "notice.security": "Security",
 };
