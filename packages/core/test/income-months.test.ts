@@ -68,6 +68,15 @@ describe("income months", () => {
     expect(r.types.find((ty) => ty.type === "salary")!.monthlyCents).toBe(300_000);
   });
 
+  it("a hole on a small account in daily use leaves the month of income complete, as on main", () => {
+    // 1 € every three days on a second checking account, June 2025 missing: under a tenth of the spending, so no gate
+    const small = series("2024-10-02", 3, 240, -100, { accountId: "acc-3", merchant: "Kioski", category: "groceries", categorySource: "rule" }).filter((t) => !t.bookingDate.startsWith("2025-06"));
+    const accounts: Account[] = [...ACCOUNTS, { id: "acc-3", name: "Pieni tili", iban: null, currency: "EUR", type: "checking" }];
+    const r = incomeReport(createContext([...rows, ...small], accounts, TODAY), { from: "2025-01-01", to: "2025-12-31" });
+    expect(r.months.find((m) => m.month === "2025-06")!.complete).toBe(true);
+    expect(r.completeMonths).toBe(12);
+  });
+
   it("this year runs to the month in progress", () => {
     const r = incomeReport(ctx, { from: "2026-01-01", to: TODAY });
     expect(r.months.map((m) => m.month)).toEqual(Array.from({ length: 10 }, (_, i) => addMonths("2026-01", i)));

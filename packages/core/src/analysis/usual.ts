@@ -68,9 +68,10 @@ function coveredMonth(ctx: AnalysisContext, month: string, ids: readonly string[
  */
 export function isCompleteIncomeMonth(ctx: AnalysisContext, month: string): boolean {
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
-  // rows missing on an account income comes to leave its income out, however small its share of the spending
-  if (rowsMissing(ctx, month, ctx.accounts.filter((a) => !cards.has(a.id)).map((a) => a.id))) return false;
+  // the household's gate of missing rows, as isCompleteMonth has it, without the cards
+  if (rowsMissing(ctx, month, undefined, cards)) return false;
   const own = [...accountsWithRows(ctx, month)].filter((id) => !cards.has(id));
+  // spelled out: coveredMonth with no accounts would judge a month of card rows only by the card's first day
   return own.length ? coveredMonth(ctx, month, own) : monthEnd(month) < ctx.today && historyCovers(ctx, `${month}-01`);
 }
 
