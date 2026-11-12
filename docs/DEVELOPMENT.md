@@ -485,6 +485,7 @@ starts the app on an empty data folder and runs `tools/readme-film/steps.mjs`, w
 first page's button, clicks through the pages and writes each caption from the figures on the page. A caption whose
 figures do not add up on the page stops the run. The example data runs up to the day of the run, so the figures change
 with the day, and rows of one day can stand in another order, so a second run on the same day changes the file too.
+A day with no bill before payday, or the first of a month before any spending, stops the run: record on another day.
 `pnpm readme:film --frames <dir>` writes every frame of the film to `<dir>` to read it frame by frame. Run
 it when a page in the film changed, and read the captions it prints.
 

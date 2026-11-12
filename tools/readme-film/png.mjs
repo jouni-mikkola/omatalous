@@ -247,7 +247,7 @@ export function makePalette(pictures, size = 255, exact = 96) {
 }
 
 /** Maps colours to the index of the nearest palette entry, remembering each colour it has seen. */
-export function indexer(/** @type {number[][]} */ palette, offset = 0) {
+function indexer(/** @type {number[][]} */ palette, offset = 0) {
   const seen = new Int16Array(1 << 24).fill(-1);
   return (/** @type {Uint8Array} */ rgb) => {
     const out = new Uint8Array(rgb.length / 3);

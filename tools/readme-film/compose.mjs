@@ -34,7 +34,7 @@ function blend(img, x, y, colour, alpha) {
 }
 
 /** The outline of a box with round corners, `stroke` pixels wide, its edges smoothed. */
-export function outline(/** @type {Rgb} */ img, /** @type {Box} */ box, stroke = 3, radius = 8, colour = MARK) {
+function outline(/** @type {Rgb} */ img, /** @type {Box} */ box, stroke = 3, radius = 8, colour = MARK) {
   const pad = stroke + 2;
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
