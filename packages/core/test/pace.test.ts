@@ -106,6 +106,25 @@ describe("pace: the month against the month before", () => {
     expect(monthPace(both, "2026-10", LATE_CARD_TODAY).previous).toMatchObject({ month: "2026-09", day: 9 });
   });
 
+  // a card never linked: its bill holds a month of purchases on one day, booked on the 15th in September and the 16th in October
+  it("leaves the month before out when either month paid a card bill for purchases the rows do not hold", () => {
+    const bill = (date: IsoDate) => tx({ accountId: "acc-1", bookingDate: date, amountCents: -80_000, merchant: "Korttiyhtiö", category: "card_bill" });
+    const billed = [pay("2026-09-01"), buy("2026-09-05", 10_000), bill("2026-09-15"), buy("2026-10-05", 10_000), bill("2026-10-16")];
+    expect(paceOf(billed, "2026-10", "2026-10-15").previous).toBeNull();
+    // near miss: the same months with no card bill are set against each other
+    expect(paceOf(billed.filter((t) => t.category !== "card_bill"), "2026-10", "2026-10-15").previous).toMatchObject({ toToday: 10_000 });
+  });
+
+  // the curves are of spending: an account that only received money in the months changes neither
+  it("keeps the month before when an account that began in between only received money", () => {
+    const savings: Account = { id: "sav", name: "Säästötili", iban: null, currency: "EUR", type: "savings" };
+    const rows = [pay("2026-09-01"), buy("2026-09-05", 10_000), buy("2026-10-05", 10_000), tx({ accountId: "sav", bookingDate: "2026-10-06", amountCents: 50_000, merchant: "Kela", category: "benefits" })];
+    expect(monthPace(createContext(rows, [checking, savings], today), "2026-10", today).previous).toMatchObject({ month: "2026-09", toToday: 10_000 });
+    // near miss: the same account spending is in October's curve alone
+    const spent = [...rows, tx({ accountId: "sav", bookingDate: "2026-10-07", amountCents: -20_000, merchant: "Kauppa", category: "groceries" })];
+    expect(monthPace(createContext(spent, [checking, savings], today), "2026-10", today).previous).toBeNull();
+  });
+
   it("starts on the first day of a month with that day's spending against the month before's first day", () => {
     const oct = [buy("2026-10-01", 3_000), buy("2026-10-15", 2_000)];
     const first = paceOf([...oct, buy("2026-11-01", 1_000)], "2026-11", "2026-11-01");

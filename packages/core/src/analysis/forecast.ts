@@ -12,9 +12,9 @@ import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
-import { monthSpan, sameAccounts } from "./coverage.ts";
+import { accountsCoverage, monthSpan } from "./coverage.ts";
 import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
-import { cardsBreakUsual } from "./usual.ts";
+import { cardsBreakUsual, paidCardBills } from "./usual.ts";
 
 export interface MonthPace {
   month: string;
@@ -82,10 +82,16 @@ function spendingCurve(ctx: AnalysisContext, month: string): number[] {
 
 /**
  * The month before can be set against `month` day by day: the history has a row in it, of any kind (a month it does not
- * reach has nothing to be set against), and every account with rows in either month has data for the whole of both.
+ * reach has nothing to be set against), every account that spent in either month has data for the whole of both (an
+ * account that only received money changes no curve), and neither month paid a card bill that holds a card's purchases:
+ * such a bill lands on one day, in each month on a day of its own, so the same day would differ by a whole bill.
  */
 function comparesWith(ctx: AnalysisContext, before: string, month: string): boolean {
-  return inDays(ctx, { fromDay: dayNumber(`${before}-01`), toDay: dayNumber(monthEnd(before)) }).length > 0 && sameAccounts(ctx, monthSpan(before), monthSpan(month));
+  const days = (m: string) => ({ fromDay: dayNumber(`${m}-01`), toDay: dayNumber(monthEnd(m)) });
+  if (!inDays(ctx, days(before)).length) return false;
+  const shared = accountsCoverage(ctx).compare(monthSpan(before), monthSpan(month))?.shared;
+  if (!shared || [...spendRows(ctx, days(before)), ...spendRows(ctx, days(month))].some((t) => t.spend && !shared.has(t.accountId))) return false;
+  return !paidCardBills(ctx, before) && !paidCardBills(ctx, month);
 }
 
 /**
