@@ -73,6 +73,11 @@ describe("Yhteenveto", () => {
     const plain = render(createElement(MonthPace, { data: data() }));
     expect([...plain.container.querySelectorAll(".home-pace-line a")].map((a) => a.getAttribute("href"))).toEqual(["#/transactions?from=2026-11-01&to=2026-11-11"]);
     plain.unmount();
+    // without a usual level the sum is a line alone and the reason is the next one: they ran on as one sentence
+    const gap = render(createElement(MonthPace, { data: data({ home: { paceGap: "cards", pace: null } } as never) }));
+    expect(flat(gap.container.querySelector(".home-pace-line")?.textContent)).toMatch(/^Käytetty [\d ]+€$/);
+    expect(flat(gap.container.querySelector(".home-pace-gap")?.textContent)).toBe("Emme näytä tavallista tasoa, koska aiempien kuukausien korttiostot puuttuvat.");
+    gap.unmount();
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     const { container } = render(createElement(MonthPace, { data: data({ home: { paceGap: null, pace } } as never) }));
     expect(flat(container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, 234 € yli tavallisen. Tavallisesti 1 000 € (900–1 100 €).");

@@ -23,6 +23,8 @@ export function BeforePayday({ data }: { data: DashboardData }) {
   if (!left?.known || !ahead?.payday) return null;
   const payday = ahead.payday;
   const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
+  // due before the payday from an account the balance leaves out: listed and named so, in no sum here (core looks 30 days ahead for these)
+  const outside = ahead.upcoming.filter((r) => r.outside && r.cents !== null && r.cents < 0 && r.date < left.payday.date);
   const pay = payday.pay?.floorCents ?? null;
   const line = paydayLine(ahead, rows, left.payday.date);
   return (
@@ -60,11 +62,22 @@ export function BeforePayday({ data }: { data: DashboardData }) {
             <span className="bp-sum num">{money(Math.abs(r.cents ?? 0))}</span>
           </li>
         ))}
-        <li className="bp-row bp-total" data-kind="total">
-          <span className="bp-date" />
-          <span className="bp-name">{t("rpt.total")}</span>
-          <span className="bp-sum num">{money(left.billsCents)}</span>
-        </li>
+        {(rows.length > 0 || left.billsCents !== 0) && (
+          <li className="bp-row bp-total" data-kind="total">
+            <span className="bp-date" />
+            <span className="bp-name">{t("rpt.total")}</span>
+            <span className="bp-sum num">{money(left.billsCents)}</span>
+          </li>
+        )}
+        {outside.map((r, i) => (
+          <li key={`out-${r.date}-${r.name}-${i}`} className="bp-row bp-outside" data-kind="outside">
+            <span className="bp-date">{dayMonth(r.date)}</span>
+            <span className="bp-name">
+              {r.name} <small>{t("bills.outside_account")}</small>
+            </span>
+            <span className="bp-sum num">{money(Math.abs(r.cents ?? 0))}</span>
+          </li>
+        ))}
         <li className="bp-row bp-income" data-kind="income">
           {/* the day the line ends on: the next pay, also when the last one is behind its day */}
           <span className="bp-date">{dayMonth(left.payday.date)}</span>

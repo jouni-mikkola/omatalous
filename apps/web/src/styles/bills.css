@@ -78,6 +78,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .before-payday .bp-name { overflow-wrap: anywhere; min-width: 0; }
   .before-payday .bp-sum { text-align: end; white-space: nowrap; }
   .before-payday .bp-total { font-weight: var(--w-strong); }
+  .before-payday .bp-outside, .before-payday .bp-outside small { color: var(--text-2); }
+  .before-payday .bp-outside small { font-size: var(--fs-small); }
   /* the sum beside its name, as 1.0.0 had it over the line of days; the rows follow the line's key */
   .before-payday .bills-time-sum h3 { margin: 0; font-size: var(--fs-body); font-weight: var(--w-regular); color: var(--text-2); }
   .before-payday .bp-rows { margin-top: var(--sp-16); }

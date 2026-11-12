@@ -2,18 +2,17 @@
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
-import { date, money, monthLong } from "../../../format.ts";
+import { date, money } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
+import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["income"];
 type Row = Report["types"][number];
 type Payer = Row["payers"][number];
 type Payment = Payer["rows"][number];
 type MonthRow = Report["months"][number];
-
-const monthName = (m: MonthRow): string => (m.complete ? monthLong(m.month) : t("rpt.sm_partial", { month: monthLong(m.month) }));
 
 /** One payment in Tapahtumat: its day and the payer's name. The list there holds every row of that name on the day. */
 export const paymentHref = (payer: string, day: string): string => `#/transactions${query({ merchant: payer, from: day, to: day })}`;
@@ -69,7 +68,7 @@ function Income({ ctx }: SectionProps) {
         rows={r.months}
         rowKey={(m) => m.month}
         columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m), csv: (m) => monthName(m) },
+          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running), csv: (m) => monthName(m, ctx.running) },
           { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents, bar: { value: (m) => m.totalCents, max: Math.max(1, ...r.months.map((m) => m.totalCents)) } },
         ]}
         search={false}

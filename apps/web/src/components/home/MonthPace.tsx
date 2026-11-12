@@ -39,8 +39,9 @@ export function MonthPace({ data }: { data: Data }) {
               { sum: spent(usual.spentCents) },
             )
           : rich("home.nyt_spent", {}, { sum: spent(nyt.pace.spentCents) })}
-        {gap && <> {gap}</>}
       </p>
+      {/* its own line: after the sum it read as one sentence with no stop */}
+      {gap && <p className="home-detail home-pace-gap">{gap}</p>}
       <ChartWithTable chart={<PaceChart pace={pace} goal={null} payday={payday} names={names} />} table={<PaceTable pace={pace} names={names} />} />
       <p className="home-more">
         <Button variant="link" href={reportHref()}>{t("home.month_report")}</Button>

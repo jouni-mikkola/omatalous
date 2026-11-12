@@ -8,6 +8,7 @@ import type { ReportsData } from "../../../types.ts";
 import { inSpan } from "../parts.tsx";
 import type { ReportContext, ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
+import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["spendingMonths"];
 type Row = Report["categories"][number];
@@ -24,11 +25,10 @@ export function rowsHref(ctx: Pick<ReportContext, "range">, category: string, mo
   return `#/transactions${query({ category, merchant, from, to })}`;
 }
 
-const monthText = (m: MonthRow): string => (m.complete ? monthLong(m.month) : t("rpt.sm_partial", { month: monthLong(m.month) }));
-
 /** Under a category: its months, each a link to its rows, and the payees that got the most. Every figure is the server's. */
 function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
   const months: MonthRow[] = r.months.map((month, i) => ({ month, cents: row.values[i]!, complete: r.complete[i]! }));
+  const monthText = (m: MonthRow) => monthName(m, ctx.running);
   const monthColumns: Column<MonthRow>[] = [
     { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => (m.cents ? <a href={rowsHref(ctx, row.category, m.month, undefined, r.from)}>{monthText(m)}</a> : monthText(m)) },
     { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.cents, bar: { value: (m) => m.cents, max: Math.max(1, ...row.values) } },
@@ -93,7 +93,7 @@ function SpendingMonths({ ctx }: SectionProps) {
         rows={r.months.map((month, i) => ({ month, cents: r.totals[i]!, complete: r.complete[i]! }))}
         rowKey={(m) => m.month}
         columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: monthText },
+          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running) },
           { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents, bar: { value: (m) => m.cents, max: Math.max(1, ...r.totals) } },
         ]}
         total={usual ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents!) } } : undefined}

@@ -93,6 +93,7 @@ export const FI_BILLS = {
   "bills.legend_known": "Päivä ja summa tiedossa",
   "bills.legend_estimate": "Arvio",
   "bills.legend_payday": "Palkkapäivä",
+  "bills.outside_account": "tililtä, jota saldo ei laske",
   "bills.elsewhere": "Tileiltä, joita saldo ei laske",
   "bills.none_30": "Ei laskuja seuraavan 30 päivän aikana.",
   "bills.kind_bill": "Lasku",
