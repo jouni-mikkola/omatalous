@@ -65,6 +65,24 @@ describe("a card account's wording: country and city in front, the city again at
     expect(name("Osto FIN K-Market Kamppi")).toBe("K-Market");
   });
 
+  it("drops a town missing from the list when a chain or a seller's star follows it, where the name begins", () => {
+    expect(name("Osto FIN Kemijarvi K-market Ilo")).toBe("K-Market");
+    expect(name("Osto FIN Kemijarvi S-market Ilo")).toBe("S-Market");
+    expect(name("Osto ESP MADRID EXAMPLE.NET* KAUPPA ILO")).toBe("Example.Net Kauppa Ilo");
+    // a seller of other companies' software in front of the product, as a payment service is
+    expect(name("Osto ESP MADRID PADDLE.NET* KAUPPA ILO")).toBe("Kauppa Ilo");
+    // a chain's name alone after the country is the name, as before
+    expect(name("Osto FIN K-market Ilo")).toBe("K-Market");
+  });
+
+  it("reads the same shape after a foreign purchase's currency and sum, and after Siirto kortilta", () => {
+    expect(name("USD 25,00 Osto IRL DUBLIN 4 EXAMPLE* KAUPPA")).toBe("Example Kauppa");
+    expect(name("GBP 1 250,00 Osto GBR LONDON EXAMPLE* KAUPPA")).toBe("Example Kauppa");
+    expect(name("Siirto kortilta IRL Dublin Lompakko Ilo**1234*")).toBe("Lompakko Ilo");
+    // a sum without a currency code, or a code that is none, is no such text
+    expect(name("XYZ 12,00 Osto IRL DUBLIN EXAMPLE* KAUPPA")).not.toBe("Example Kauppa");
+  });
+
   it("cannot tell a town missing from the list from the first word of a name: it stays, and the country goes", () => {
     expect(name("Osto FIN Kemijarvi Kahvila Ilo")).toBe("Kemijarvi Kahvila Ilo");
   });

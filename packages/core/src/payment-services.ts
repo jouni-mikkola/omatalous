@@ -37,4 +37,6 @@ export const PAYMENT_SERVICES: readonly PaymentService[] = [
   { name: "MobilePay", names: ["MOBILEPAY"], alone: false },
   { name: "Checkout Finland", names: ["CHECKOUT FINLAND"], codes: ["CHECKOUT"], alone: false },
   { name: "Svea Payments", names: ["SVEA PAYMENTS"], alone: false },
+  // sells other companies' software and subscriptions in its own name: the card text is "PADDLE.NET* <product>"
+  { name: "Paddle", names: ["PADDLE.NET"] },
 ];
