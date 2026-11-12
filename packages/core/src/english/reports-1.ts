@@ -77,7 +77,7 @@ export const EN_REPORTS_1: Record<keyof typeof FI_REPORTS_1, string> = {
   "rep.balances_debts_unknown": "The balance of the saved loans is not known, so no debts are taken off.",
   "rep.balances_method": "The balance is the last one the bank told, worked back day by day through the account's transactions. Debts are saved loans that no connected account shows.",
   "rep.shared_question": "Shared spending",
-  "rep.shared_figure": "Shared costs",
+  "rep.shared_figure": "Shared spending",
   "rep.shared_explain": "{amount} went from the shared accounts. Who owes whom is under Settlement.",
   "rep.shared_no_expected": "Shared costs have no expected level.",
   "rep.shared_method": "Costs are consumption and debt service from accounts that more than one household member uses. Shares follow the weights of the account's users.",

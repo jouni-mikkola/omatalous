@@ -102,7 +102,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ho_amortisation": "Repayment",
   "rpt.ho_fixed": "Fixed",
   "rpt.ho_complete": "Complete",
-  "rpt.ho_add_loan": "Add loan",
+  "rpt.ho_add_loan": "Add a loan",
   "rpt.ho_charges": "Housing charges",
   "rpt.ho_charge": "Charge",
   "rpt.ho_payee": "Payee",

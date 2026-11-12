@@ -124,11 +124,11 @@ export const FI_OVERVIEW = {
   "home.nyt_other_one": "{count} muu kategoria",
   "home.nyt_other_many": "{count} muuta kategoriaa",
   "home.nyt_all_categories": "Kaikki kategoriat",
-  "home.nyt_unsaved_link": "Tallenna saldo",
+  "home.nyt_unsaved_link": "Lisää saldo",
   "home.nyt_unsaved_one": "Lisäksi {count} laina, jonka saldoa ei ole tallennettu: {names}.",
   "home.nyt_unsaved_many": "Lisäksi {count} lainaa, joiden saldoa ei ole tallennettu: {names}.",
   // Shared components
-  "chart.largest": "Suurin yksittäinen osto {name}, {sum}",
+  "chart.largest": "Suurin kertaosto {name}, {sum}",
   "chart.pay_day": "Palkka {day}.",
   "chart.aria_pace": "Kuukauden kertyvät menot{expected}{goal}",
   "chart.aria_expected": " tavalliseen kuukauteen verrattuna",

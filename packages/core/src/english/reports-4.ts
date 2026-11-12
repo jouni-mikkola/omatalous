@@ -75,7 +75,7 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.cf_result": "Result <b>{amount}</b>.",
   "rpt.cf_span_m1": "month",
   "rpt.cf_span_mn": "months",
-  "rpt.cf_q_rate": "Saving rate",
+  "rpt.cf_q_rate": "Savings rate",
   "rpt.cf_datum": "Result {amount}",
   "rpt.cf_q_use": "Use of income, {span}",
   "rpt.cf_q_bridge": "Change in accounts",

@@ -20,7 +20,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.savings_tips": "Details",
   "set.ri.housing": "Housing",
   "set.ri.balance_before_date": "Balance before {date}",
-  "set.ri.home_loan": "Home loan",
+  "set.ri.home_loan": "Mortgage",
   "set.ri.balance": "Account balance",
   "set.ri.bank_connection": "Bank connection",
   "set.ri.missed_bill": "A bill did not come",

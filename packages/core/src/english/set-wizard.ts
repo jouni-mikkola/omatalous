@@ -18,7 +18,7 @@ export const EN_SET_WIZARD: Record<keyof typeof FI_SET_WIZARD, string> = {
   "set.wizard.app_and_bank_missing": "The Enable Banking app and the bank are still missing. Go back to the previous step.",
   "set.wizard.back": "Back",
   "set.wizard.to_app": "Go to the app",
-  "set.wizard.connect_bank": "Connect bank",
+  "set.wizard.connect_bank": "Connect a bank",
   "set.wizard.later": "Do this later",
   "set.wizard.address_not_saved": "We could not save the address: {message} Change it in Settings > Server and maintenance.",
   "set.wizard.title": "Setup",
