@@ -157,4 +157,6 @@ export const FI_REPORTS_2 = {
   "rpt.bl_payday": "Palkkapäivä",
   "rpt.bl_pay": "palkka",
   "rpt.bl_low": "alin {day} {amount}",
+  "rpt.bl_known_from": "Saldo tiedossa {day} alkaen",
+  "rpt.bl_one_day": "Saldojen kehitys näkyy, kun saldo on tiedossa kahdelta päivältä.",
 } as const;
