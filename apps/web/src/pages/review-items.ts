@@ -304,7 +304,8 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     case "payee_out":
     case "payee_in":
     case "payer":
-      return { text: money(item.cents), unit: t("set.ri.a_year"), line: tn(item.count, "set.ri.payments_year_one", "set.ri.payments_year_many", { last: date(item.lastDate) }) };
+      // the sum of the rows of the last year, not a rate: one payment, or a few weeks of history, is no yearly figure
+      return { text: money(item.cents), unit: t("set.ri.in_total"), line: tn(item.count, "set.ri.payments_year_one", "set.ri.payments_year_many", { last: date(item.lastDate) }) };
     case "loan":
       return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
     case "plan":
