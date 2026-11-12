@@ -1,4 +1,4 @@
-/** Kuukausi: the rest row ("Muut luokat") opens to the categories it holds, in the running month and in an earlier one. */
+/** Kuukausi: the rest row ("Muut kategoriat") opens to the categories it holds, in the running month and in an earlier one. */
 import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
@@ -23,7 +23,7 @@ const running = (rest: boolean) => ({
     expectedCents: 150_000,
     gapCents: 36_252,
     gapReason: null,
-    categories: [gap("a", "Ruoka", 50_000), gap("b", "Auto", 30_000), ...(rest ? [gap(null, "Muut luokat", 106_252)] : [gap("c", "Vuokra", 90_000), gap("d", "Muu menot", 16_252)])],
+    categories: [gap("a", "Ruoka", 50_000), gap("b", "Auto", 30_000), ...(rest ? [gap(null, "Muut kategoriat", 106_252)] : [gap("c", "Vuokra", 90_000), gap("d", "Muu menot", 16_252)])],
   },
   categories: { totalCents: 186_252, groups },
   income,
@@ -69,7 +69,7 @@ describe("Kuukausi rest row", () => {
   ] as const) {
     it(`opens to its categories in ${name}`, async () => {
       const seen = await open(answer, hash);
-      const toggle = await screen.findByRole("button", { name: "Muut luokat", expanded: false });
+      const toggle = await screen.findByRole("button", { name: "Muut kategoriat", expanded: false });
       const asked = vi.mocked(fetch).mock.calls.map((c) => new URL(String(c[0]), "http://localhost"));
       const reports = asked.find((u) => u.pathname === "/api/reports")!;
       expect(reports.searchParams.get("reports")).toContain("categories");
@@ -99,7 +99,7 @@ describe("Kuukausi rest row", () => {
   it("draws no toggle when the list has no rest row", async () => {
     await open(running(false), "#/reports");
     await screen.findByText("Vuokra");
-    expect(screen.queryByRole("button", { name: "Muut luokat" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Muut kategoriat" })).toBeNull();
     expect(document.querySelector("[aria-expanded]")).toBeNull();
   });
 });

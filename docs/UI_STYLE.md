@@ -38,7 +38,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | The difference to the usual in a Kuukausi table | *Yli tai alle*, the total *Yhteensä* | *Erotus* in the reports of Kuukausi, Saldot and Velat |
 | A loan payment in the Velat report | *maksu*, *kuukausimaksu* | *erä*, *maksuerä*, *tasaerä* |
 | A month that is over | *päättynyt kuukausi* | *valmis kuukausi* |
-| The group a transaction belongs to | *kategoria* | *ryhmä*, *luokka* |
+| The group a transaction belongs to | *kategoria* (*Kaikki kategoriat*, *Menot kategorioittain*); the verb *luokitella* stays | *ryhmä*, *luokka* and its forms (*luokittain*, *menoluokka*) |
 | How sure an estimate is | *Arvio on epävarma*, *suuntaa antava*, *luotettava* | *Varmuus keskitaso*, *Peruste*, *Vaikutus* |
 | The usual level of a payer, a bill or the savings rate | *tavallisesti* | *normaali* |
 | The bills before payday without the card's bill | *Muut laskut ennen palkkapäivää* (the card's bill is *Korttivelka*) | *Maksut ennen palkkapäivää* beside a figure that holds the card |
@@ -52,8 +52,8 @@ Finnish: *Lisää tilit Enable Bankingissa (API applications > Omatalous > Link 
 *lisää*; the word *linkitä* is not used.
 
 A glossary row is changed together with the text that breaks it. Rules 12 and 28 of the repo rules keep some older
-words out (*tilitapahtuma*, *löydös*, *kulut* for spending), and rule 35 keeps out the four named in the table:
-*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure and *linkitä*. It also refuses the passive *Näin katetaan*, *katetaan*,
+words out (*tilitapahtuma*, *löydös*, *kulut* for spending), and rule 35 keeps out the words named in the table:
+*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure, *linkitä* and *luokka* for a category. It also refuses the passive *Näin katetaan*, *katetaan*,
 a text that begins with *Luetaan*, *Testataan*, *Tarkistetaan* or *Lasketaan*, and a question heading that begins with
 *Mihin*, *Miten*, *Mistä*, *Mitkä*, *Milloin*, *Kuinka*, *Paljonko*, *Kestääkö* and the like. The last two are not yet
 enforced for the files of the parts still to come (`pending` in `tools/repo-rules/glossary.ts`).

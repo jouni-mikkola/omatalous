@@ -35,6 +35,10 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Nettovarat", "Nettovarat −119 000 €"],
     ok: ["Varat velkojen jälkeen"],
   },
+  Luokka: {
+    bad: ["Luokka", "Kaikki luokat", "3 muuta luokkaa 71 €", "Menot luokittain", "Rivit luokasta Verot", "Koti-luokan rivit", "Suurin menoluokka", "Siirrä luokkaan"],
+    ok: ["Kategoria", "Luokittele rivi", "Käsin luokitellut", "Luokittelematta 450 €", "Sovellus luokitteli rivit", "Luokitus", "Tule luokse"],
+  },
   Jäämä: {
     bad: ["Jäämä", "jäämä kuussa"],
     ok: ["Ylijäämä", "Käteen jäi 120 €"],
