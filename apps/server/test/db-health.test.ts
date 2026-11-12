@@ -15,10 +15,10 @@ const HOUR = 3600_000;
 const HEALTH = new Set(["copy_missing", "copy_check_failed", "disk_low", "helper_silent"]);
 /** The four sentences, as an admin reads them. */
 const TEXT = {
-  copy: "Uusin ehjä varmuuskopio on yli 36 tuntia vanha. Ota varmuuskopio kohdassa Asetukset > Ylläpito.",
-  check: (file: string) => `Varmuuskopio ${file} ei läpäissyt tarkistusta, joten emme käytä sitä enää palautukseen. Ota uusi varmuuskopio kohdassa Asetukset > Ylläpito.`,
-  disk: (mb: number) => `Palvelimen levyllä on enää ${mb} Mt vapaata tilaa. Siivoa levy kohdassa Asetukset > Ylläpito.`,
-  helper: "Ylläpitoapurista ei ole kuulunut vuorokauteen. Käynnistä se palvelimella uudelleen: ohje on kohdassa Asetukset > Ylläpito.",
+  copy: "Uusin ehjä varmuuskopio on yli 36 tuntia vanha. Ota varmuuskopio kohdassa Asetukset > Palvelin ja ylläpito.",
+  check: (file: string) => `Varmuuskopio ${file} ei läpäissyt tarkistusta, joten emme käytä sitä enää palautukseen. Ota uusi varmuuskopio kohdassa Asetukset > Palvelin ja ylläpito.`,
+  disk: (mb: number) => `Palvelimen levyllä on enää ${mb} Mt vapaata tilaa. Siivoa levy kohdassa Asetukset > Palvelin ja ylläpito.`,
+  helper: "Ylläpitoapurista ei ole kuulunut vuorokauteen. Käynnistä se palvelimella uudelleen: ohje on kohdassa Asetukset > Palvelin ja ylläpito.",
 };
 
 /** A disk with this many megabytes free. */

@@ -309,7 +309,7 @@ describe("ops: requests", () => {
     await helperOn(s, "3");
     const r = await admin.call("POST", "/api/ops/request", { action: "access", password: PASSWORD });
     expect(r.status).toBe(400);
-    expect(r.body.error).toBe("Muuta etäkäyttöä kohdassa Asetukset > Palvelin > Etäkäyttö.");
+    expect(r.body.error).toBe("Muuta etäkäyttöä kohdassa Asetukset > Palvelin ja ylläpito > Etäkäyttö.");
     expect(await s.ops.recent(5)).toEqual([]);
     expect((await admin.call("POST", "/api/ops/request", { action: "port", password: PASSWORD })).status).toBe(400);
     expect(await s.db.first("SELECT id FROM ops_requests WHERE action = 'port'")).toBeFalsy();
