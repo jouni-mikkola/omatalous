@@ -8,7 +8,7 @@
  * files that land on one worker share its module cache, so they load the compiler and parse each source once
  * (`warmParse`, warm.ts). The groups are about equal in time, so the run is no longer than its slowest group:
  *   repo-rules.test.ts         the text of the UI and the docs     text-rules, finnish, glossary-rule, dialect
- *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, size, timeouts-rules, figures-rules, css-tokens, limiters-rules
+ *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, size, timeouts-rules, figures-rules, css-tokens, limiters-rules, sheets-rules
  *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, roadmap-rules
  * A new rule module is imported by the file of its group. Each rule is its own `it` in one of the modules, so a failure
  * names the rule, then `file:line`, then what to do.
@@ -53,6 +53,7 @@
  *   rule 45  no style attribute in the web app (style-src has no 'unsafe-inline')   code-rules.ts
  *   rule 46  an own class selector is styled in one stylesheet, base.css apart   css-tokens.ts (detector: css-look.ts)
  *   rule 47  WORKFLOW.md's check line is a bare command: no quotes around it, no colon and space in it   roadmap-rules.ts
+ *   rule 48  a class a component writes is styled by a sheet its page loads   sheets-rules.ts (detector: sheets.ts)
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

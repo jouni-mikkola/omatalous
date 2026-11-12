@@ -3,6 +3,8 @@ import { api } from "../api.ts";
 import { useApi } from "../hooks.ts";
 import { t } from "../text.ts";
 import { dismissPath, type SecurityNotice, securityRows } from "./notices.ts";
+// the rows are the statement's: its sheet comes first, so the notice's own rules of the same weight win
+import "../styles/statement.css";
 import "../styles/notices.css";
 import { Button } from "./ui/Button.tsx";
 import { Notice } from "./ui/Notice.tsx";

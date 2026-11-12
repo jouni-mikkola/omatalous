@@ -7,5 +7,6 @@ import "./timeouts-rules.ts";
 import "./figures-rules.ts";
 import "./css-tokens.ts";
 import "./limiters-rules.ts";
+import "./sheets-rules.ts";
 
 warmParse();
