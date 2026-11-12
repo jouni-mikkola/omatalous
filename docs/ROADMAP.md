@@ -389,6 +389,13 @@ Result: Read the recurring-bill, import pipeline, refund and shared-cost settlem
 - locks: none
 - after: none
 
+### N51 Login timing test stays steady
+Result: The check that a wrong password takes as long as an unknown name stops failing on a busy test machine, while it still catches a real gap
+- why: apps/server/test/login-timing.test.ts:47 failed CI twice today on timing noise (0.252 on M7 #264 at 15:58, 0.347 on XTF2 #324 at 18:04) while the derivations are equal; each red run parks a PR
+- done when: a test that fails without the change passes with it (`lineclear check`), and the pull request names that test file and what a user sees. The request in full: Login timing test stays steady. The check that a wrong password takes as long as an unknown name stops failing on a busy test machine, while it still catches a real gap such as a skipped password derivation.
+- locks: none
+- after: none
+
 ### J1 Month-end pay keeps month end
 Result: A pay that comes twice a month, the 15th and the last day, is expected on the last day of every month ahead, also after a February.
 - why: `detectRecurring` over pays on 2024-10-15, 10-31, 11-15, 11-30, 12-13, 12-31, 2025-01-15, 01-31, 02-14, 02-28 gives a semimonthly series whose `projectDates` runs 2025-03-28, 04-28, 05-28 (the last charge's day 28, kept for ever) where the pay comes on 03-31, 04-30, 05-31; its next date is 03-14, a day off the 15th, because the charge before the last was moved by a weekend.
