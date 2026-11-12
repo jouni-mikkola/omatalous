@@ -58,7 +58,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.accounts": "Balance of savings and checking accounts",
   "home.debts": "Debts",
   "home.buffer": "Buffer",
-  "home.spend_average": "Average monthly spending, 12 months",
+  "home.spend_average": "Average monthly spending, {count} months",
   "home.per_month": "/mo",
   "home.buffer_basis": "{net} divided by expected spending of {spend}/mo",
   "home.accounts_cards_loans": "Accounts, cards and loans",

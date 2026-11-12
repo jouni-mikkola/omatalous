@@ -132,7 +132,8 @@ const ANSWERS: Record<FigureKey, Answers> = {
   average: (h) => {
     const ctx = contextOf(h);
     const months = completeMonthsBefore(ctx, monthOf(h.today), DIRECTION_MONTHS);
-    return { home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.averageCents, byHand: expectedLevel(months.map((m) => spendingThrough(ctx, m))) };
+    const explained = explain("spend.average", ctx, { view: "own", range: { from: `${addMonths(monthOf(h.today), -DIRECTION_MONTHS)}-01`, to: monthEnd(addMonths(monthOf(h.today), -1)) } }).cents;
+    return { home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.averageCents, byHand: expectedLevel(months.map((m) => spendingThrough(ctx, m))), explain: explained };
   },
   fixed: (h) => {
     const ctx = contextOf(h);

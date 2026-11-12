@@ -77,6 +77,8 @@ interface HomeDirection {
   averageCents: number | null;
   /** How many months the average is of. */
   months: number;
+  /** The first day of the oldest month the average reads, null without a month. A month left out (a card's first month, a month with rows missing) puts it further back than `months` months. */
+  from: IsoDate | null;
   /** The last three complete months' mean less the average; null with the average. */
   recentChangeCents: number | null;
   direction: "up" | "down" | "flat" | null;
@@ -149,23 +151,32 @@ function homePace(pace: MonthPace): HomePace | null {
   };
 }
 
+/**
+ * "Menot keskimäärin": the complete months before `month` (at most `DIRECTION_MONTHS`, oldest first), the spending of
+ * each and their mean, null under `MIN_COMPARE_MONTHS` months. `spend.average` lists the same months with their rows.
+ */
+export function averageSpending(ctx: AnalysisContext, month: string): { months: string[]; spent: number[]; averageCents: number | null } {
+  const months = completeMonthsBefore(ctx, month, DIRECTION_MONTHS);
+  const spent = months.map((m) => spendingThrough(ctx, m));
+  return { months, spent, averageCents: months.length < MIN_COMPARE_MONTHS ? null : expectedLevel(spent) };
+}
+
 /** The mean of whole months' spending and where the last three stand against it. */
 function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): HomeDirection {
   const month = monthOf(ctx.today);
   const buffer = bufferReport(ctx, balances, inputs);
   const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents };
-  const months = completeMonthsBefore(ctx, month, DIRECTION_MONTHS);
-  if (months.length < MIN_COMPARE_MONTHS) {
-    return { averageCents: null, months: months.length, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
+  const { months, spent, averageCents } = averageSpending(ctx, month);
+  const from = months.length > 0 ? `${months[0]}-01` : null;
+  if (averageCents === null) {
+    return { averageCents: null, months: months.length, from, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
   }
-  // the months come oldest first
-  const spent = months.map((m) => spendingThrough(ctx, m));
-  const averageCents = expectedLevel(spent)!;
   const recentChangeCents = expectedLevel(spent.slice(-DIRECTION_RECENT_MONTHS))! - averageCents;
   const gate = gateFor(averageCents);
   return {
     averageCents,
     months: months.length,
+    from,
     recentChangeCents,
     direction: recentChangeCents > gate ? "up" : recentChangeCents < -gate ? "down" : "flat",
     bufferMonths: buffer.bufferMonths,

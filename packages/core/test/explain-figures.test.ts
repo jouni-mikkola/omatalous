@@ -12,7 +12,8 @@ import { completeMonthsBefore } from "../src/analysis/usual.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import type { StatementBill } from "../src/analysis/statement-explain.ts";
-import { monthEnd, monthOf, monthRange } from "../src/dates.ts";
+import { addMonths, monthEnd, monthOf, monthRange } from "../src/dates.ts";
+import { averageSpending } from "../src/home.ts";
 import { expectedHow, sentenceOf } from "../src/explain/catalogue.ts";
 import { explain } from "../src/explain/explain.ts";
 import type { Explanation, FigureId } from "../src/explain/types.ts";
@@ -158,6 +159,25 @@ describe("explain: the usual levels", () => {
       if (spend.cents !== null) figures++;
     }
     expect(figures).toBeGreaterThan(2);
+  });
+
+  it("the average spending of Yhteenveto lists its months, each a sum of its rows, and is the page's number", () => {
+    let figures = 0;
+    for (const m of months) {
+      const range = { from: `${addMonths(m, -12)}-01`, to: monthEnd(addMonths(m, -1)) };
+      const e = explain("spend.average", plain, { view: "own", range });
+      const { months: read, averageCents } = averageSpending(plain, m);
+      expect(e.cents, m).toBe(averageCents);
+      expect(e.check, m).toEqual({ kind: "recompute", diffCents: 0 });
+      if (e.method?.kind !== "median") throw new Error("not a median");
+      expect(e.method.values.map((v) => v.label)).toEqual(read);
+      for (const v of e.method.values) expect(v.explain!.check).toEqual({ kind: "sum", diffCents: 0 });
+      if (e.cents !== null) figures++;
+    }
+    expect(figures).toBeGreaterThan(2);
+    // two months say nothing, and how many there were
+    expect(explain("spend.average", ctxOf([130001, 150000]), { view: "own", range: rangeOf("2026-02") })).toMatchObject({ cents: null, method: { rule: "Vertailuun tarvitsemme 3 kuukautta, tietoja on 2" } });
+    expect(explain("spend.average", ctxOf([130001, 150000, 120000]), { view: "own", range: rangeOf("2026-03") }).cents).toBe(133334);
   });
 
   /** The page's "Säännölliset tulot kuussa": the income report's own median of the range the report is drawn for. */

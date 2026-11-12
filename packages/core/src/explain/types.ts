@@ -15,6 +15,7 @@ export type FigureId =
   | "income.earned"
   | "yli_jai.month"
   | "expected.spend"
+  | "spend.average"
   | "usual.income"
   | "share.part"
   | "settlement.over"

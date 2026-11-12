@@ -107,4 +107,11 @@ describe("near misses", () => {
     const { ctx } = analyse([...household(), ...big], [checking, gold, second]);
     expect(completeMonthsBefore(ctx, "2026-10")).toEqual([]);
   });
+
+  // the web counted `months` months back, so its period started in November and left out October 2025
+  it("Menot keskimäärin names the first month it reads, which the card's left-out month puts a month further back", () => {
+    const direction = buildDashboard(analyse(household(), [checking, gold]).ctx, { from: "2026-10-01", to: "2026-10-31" }).home.direction;
+    expect(direction.months).toBe(11);
+    expect(direction.from).toBe("2025-10-01");
+  });
 });

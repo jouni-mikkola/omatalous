@@ -90,7 +90,7 @@ export function Overview({
             <Notable rows={notable.rows} count={notable.count} />
             <Where data={{ ...data, nyt }} />
           </div>
-          <Direction holdings={data.holdings} direction={data.home.direction} />
+          <Direction holdings={data.holdings} direction={data.home.direction} today={meta.today} scope={scope} />
         </>
       ) : (
         <section className="home-answer">
