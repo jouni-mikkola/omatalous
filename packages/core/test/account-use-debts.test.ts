@@ -244,6 +244,19 @@ describe("the split per person in Tulot", () => {
   const ctx = createContext(rows, accounts, TODAY);
   const range = { from: "2025-11-01", to: TODAY };
 
+  // the list under a payer was cut to its newest 36 rows while the sum counted them all
+  it("a payer with a weekly pay lists every payment of its sum", () => {
+    const weekly = [
+      ...series("2025-11-07", 7, 50, 80_000, { accountId: "own", ...salary }),
+      ...series("2025-06-01", 2, 252, -2500, { accountId: "own", merchant: "K-Market", category: "groceries", categorySource: "rule" }),
+    ];
+    const r = incomeReport(createContext(weekly, accounts, TODAY), range, [account("own", "checking", 0)]);
+    const payer = r.types.flatMap((ty) => ty.payers).find((p) => p.payer === "ESIMERKKI OY")!;
+    expect(payer.payments).toBeGreaterThan(36);
+    expect(payer.rows.length).toBe(payer.payments);
+    expect(sum(payer.rows.map((x) => x.amountCents))).toBe(payer.totalCents);
+  });
+
   it("income on a joint account at 600 and 400 is split 60 to 40, and an account one member uses is theirs whoever linked it", () => {
     const balances = [
       account("joint", "checking", 0, { use: said, joint: true }),
@@ -259,6 +272,12 @@ describe("the split per person in Tulot", () => {
     ]);
     expect(sum(r.members!.map((m) => m.earnedCents))).toBe(r.earnedCents);
     expect(r.earnedCents).toBe(12 * (500_001 + 300_000 + 9_401));
+    // the table of Tulot: the kinds of income add up to the sum, and their average months to the average month
+    expect(sum(r.types.map((ty) => ty.totalCents))).toBe(r.totalCents);
+    expect(sum(r.types.flatMap((ty) => ty.payers.map((p) => p.totalCents)))).toBe(r.totalCents);
+    for (const p of r.types.flatMap((ty) => ty.payers)) expect(sum(p.rows.map((x) => x.amountCents)), p.payer).toBe(p.totalCents);
+    expect(r.monthlyCents).toBe(sum(r.types.map((ty) => ty.monthlyCents ?? 0)));
+    expect(r.monthlyCents).toBeGreaterThan(0);
     // a user who weighs nothing has no line
     const none = incomeReport(ctx, range, [account("joint", "checking", 0, { use: use(["u-aino", 1], ["u-eero", 0]), ownerName: "Eero" })]);
     expect(none.members).toEqual([{ label: "u-aino", earnedCents: 12 * 500_001, regular: true }]);

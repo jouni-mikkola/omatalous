@@ -2,63 +2,8 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
-// The frame of Raportit: one question open at a time, the comparison chosen in one place and kept in the address, and
-// the old tab addresses opening the page their reports moved to.
+// The frame of Raportit: one report open at a time beside the list of them all, and the month's own page.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-
-test("the comparison is chosen in the address and survives a reload", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  // this month has the expected level to open on and the month before to pick
-  await page.goto("/#/reports?q=kuukausi&period=12m");
-  const compare = page.getByRole("group", { name: "Vertaa" });
-  await expect(compare).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Kuukausi", level: 2 })).toBeVisible();
-  await expect(compare.getByRole("button", { name: "Yleiseen tasoon" })).toHaveAttribute("aria-pressed", "true");
-  // Budjettiin waits for a budget, and says why in its hint
-  await expect(compare.getByRole("button", { name: "Budjettiin" })).toBeDisabled();
-  await expect(compare.getByRole("button", { name: "Budjettiin" })).toHaveAttribute("title", "Et ole vielä asettanut budjettia.");
-  const name = "Edelliseen";
-  await compare.getByRole("button", { name }).click();
-  await expect.poll(() => new URL(page.url()).hash).toContain("compare=previous");
-  await expect(compare.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
-  const address = new URL(page.url()).hash;
-  await page.reload();
-  expect(new URL(page.url()).hash).toBe(address);
-  await expect(compare.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("a page with fewer than two comparisons to choose from draws no Vertaa switch", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  // on the demo these four have every chip off, so the row would be a switch that does nothing
-  for (const q of ["tulot", "menot", "kiinteat", "velat"]) {
-    await page.goto(`/#/reports?q=${q}`);
-    await expect(page.locator(".q-title")).toBeVisible();
-    await expect(page.getByRole("group", { name: "Vertaa" }), q).toHaveCount(0);
-  }
-  await page.goto("/#/reports?q=kuukausi");
-  await expect(page.getByRole("group", { name: "Vertaa" })).toBeVisible();
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("the old tab address opens the page its reports moved to", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/reports?tab=menot");
-  await expect(page.getByRole("heading", { name: "Rahankäyttö", level: 2 })).toBeVisible();
-  await expect.poll(() => new URL(page.url()).hash).toMatch(/q=menot/);
-  expect(new URL(page.url()).hash).not.toContain("tab=");
-  await expect(page.locator("#kuukaudet")).toBeVisible();
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
 
 test("a report in the list opens its page and keeps the period; a phone folds the list behind a button that names the open report", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });

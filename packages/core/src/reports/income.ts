@@ -117,6 +117,8 @@ interface IncomeReport {
   /** The months of the range the figures cover, up to the month in progress. */
   months: IncomeMonth[];
   completeMonths: number;
+  /** The average complete month: the types' `monthlyCents` added up, so the rows add up to it. Null without a complete month. */
+  monthlyCents: number | null;
   /** At least three complete months: the composition can be told. */
   enough: boolean;
   earnedCents: number;
@@ -304,7 +306,8 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
         usualCents: Math.round(median(rows.map((x) => x.amountCents))),
         lastDate: rows[rows.length - 1]!.date,
         nextDate: nextOf.get(`${type}|${key}`) ?? null,
-        rows: rows.slice(-36).reverse(),
+        // every row of the sum, newest first: the page lists them under the payer and they add up to it
+        rows: [...rows].reverse(),
       }))
       .sort((x, y) => y.totalCents - x.totalCents);
     return {
@@ -402,6 +405,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   return {
     months,
     completeMonths,
+    monthlyCents: completeMonths ? types.reduce((sum, t) => sum + (t.monthlyCents ?? 0), 0) : null,
     enough: completeMonths >= MIN_COMPOSITION_MONTHS,
     earnedCents,
     notEarnedCents,

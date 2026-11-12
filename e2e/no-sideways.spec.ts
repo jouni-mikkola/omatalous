@@ -21,7 +21,7 @@ for (const width of [1280, 390]) {
       expect(await overflow(page), `${id} at ${width} px`).toBeLessThanOrEqual(0);
     }
     // the questions of Raportit are pages of their own (Yhteiset needs a joint account, which the demo has not), and the month's head and the Vertaa choice sit in some of them
-    for (const q of ["kuukausi", "menot", "tulot", "saldot", "kiinteat", "velat"]) {
+    for (const q of ["kuukausi", "menot", "tulot", "saldot", "velat"]) {
       await page.goto(`/#/reports?q=${q}`);
       await expect(page.locator("main")).toBeVisible();
       await page.waitForLoadState("networkidle");

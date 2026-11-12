@@ -796,6 +796,7 @@
    }
   ],
   "completeMonths": 0,
+  "monthlyCents": null,
   "enough": false,
   "earnedCents": 0,
   "notEarnedCents": 0,

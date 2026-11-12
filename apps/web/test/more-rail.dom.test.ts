@@ -7,7 +7,7 @@ describe("Raportit: the list of reports stands on every report page and marks th
     await startServer();
     await openApp("#/reports?q=tulot#verovuosi");
     const rail = await screen.findByRole("navigation", { name: "Raportit" });
-    await waitFor(() => expect(rail.querySelector("[aria-current=page]")?.textContent).toBe("Verovuosi"));
+    await waitFor(() => expect(rail.querySelector("[aria-current=page]")?.textContent).toBe("Tulot"));
     const { router } = await import("../src/router.tsx");
     await router.navigate({ href: "/reports?q=saldot" });
     await waitFor(() => expect(rail.querySelector("[aria-current=page]")?.textContent).toBe("Tilit ja saldot"));

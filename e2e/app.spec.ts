@@ -187,7 +187,8 @@ test("a period belongs to one page: Yhteenveto has no period, Raportit five, and
   await page.goto("/#/reports?period=nonsense");
   await expect(pressed).toHaveText("12 kk");
   // a page whose figures do not depend on the period draws no switch
-  for (const q of ["velat", "kuukausi"]) {
+  // (Velat is another, and is not listed on the demo, which has no saved loan)
+  for (const q of ["kuukausi"]) {
     await page.goto(`/#/reports?q=${q}`);
     await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
     await expect(toolbar, q).toHaveCount(0);

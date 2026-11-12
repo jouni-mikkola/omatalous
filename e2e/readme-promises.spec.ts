@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { makeMember, removeMember } from "./helpers.ts";
 
-// README's *What it does* promises Raportit pages (income against spending, fixed against variable costs, the same months a year
+// README's *What it does* promises Raportit pages (spending by category, income, the same months a year
 // earlier, CSV of long tables), an English interface and statement files. Each holds on the demo household, here with two years
 // of rows so the year comparison has both sides.
 test("what the README says about Lisää, English and statement files holds on the demo", async ({ browser }) => {
@@ -15,12 +15,11 @@ test("what the README says about Lisää, English and statement files holds on t
     // the list names four reports on the demo; Velat waits for a saved loan and Yhteiset menot for an account two members share
     await page.goto("/#/reports?q=menot");
     const more = page.getByRole("navigation", { name: "Raportit" });
-    await expect(more.getByRole("link")).toHaveText(["Kuukausi", "Rahankäyttö", "Verovuosi", "Tilit ja saldot"]);
+    await expect(more.getByRole("link")).toHaveText(["Kuukausi", "Rahankäyttö", "Tulot", "Tilit ja saldot"]);
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
-    await expect(page.getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
-    await page.goto("/#/reports?q=kiinteat");
-    await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Tulolajit" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "Tulot kuukausittain" })).toBeVisible();
     // a table of more than ten rows downloads as CSV
     await page.goto("/#/reports?q=saldot");
     await expect(page.getByRole("button", { name: /csv/i }).first()).toBeVisible();
@@ -34,7 +33,7 @@ test("what the README says about Lisää, English and statement files holds on t
     await page.locator(".user-menu .menu").getByRole("button", { name: "English" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await page.goto("/#/reports?q=tulot");
-    await expect(page.getByRole("heading", { name: "Income and spending" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Income", level: 2, exact: true })).toBeVisible();
   } finally {
     await context.close();
     await removeMember(browser, id);

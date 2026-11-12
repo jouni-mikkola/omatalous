@@ -98,7 +98,7 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
   Each row is date, name, category as text and amount. Group by merchant is a toolbar choice of the list.
 - Raportit has the list of its reports on every report page, as in 1.0.0: Kuukausi (what the tab opens), Rahankäyttö,
-  Verovuosi, Velat, Tilit ja saldot, and Yhteiset menot only with a shared account. A report with nothing to show is not listed.
+  Tulot (the kinds of income, their payers and months, and the tax year), Velat, Tilit ja saldot, and Yhteiset menot only with a shared account. A report with nothing to show is not listed.
 - Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans), Jäsenet (admin only), Turvallisuus,
   Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
 - Tapahtumat has the two views of 1.0.0, Lista and Kauppiaat (`?view=merchants`), and the rules are under the merchants.

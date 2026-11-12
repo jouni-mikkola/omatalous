@@ -24,8 +24,8 @@ describe("the period switch of a report page", () => {
       expect(res.status).toBe(200);
       return Object.entries(res.body as Record<string, unknown>).filter(([k]) => !today.has(k as ReportId));
     };
-    // Tulot holds the tax year alone: it follows the year of the period, and 3 and 12 months end in the same one, so it keeps its switch unjudged
-    const yearOnly: QuestionId[] = ["tulot"];
+    // a page that follows the year of the period alone would keep its switch unjudged; none does now that Tulot lists the income of the period
+    const yearOnly: QuestionId[] = [];
     const changing: string[] = [];
     for (const id of QUESTIONS) if (JSON.stringify(await ask(id, "3m")) !== JSON.stringify(await ask(id, "12m"))) changing.push(id);
     expect(QUESTIONS.filter((id) => !PERIOD_FREE_QUESTIONS.includes(id) && !yearOnly.includes(id))).toEqual(changing);

@@ -40,7 +40,7 @@ describe("the list of reports", () => {
   // main listed five reports behind Lisää and left Kuukausi out, so the month had no way to the others and they none back
   it("names Kuukausi first, also when it alone has something to show, then the open reports in the order of 1.0.0", () => {
     expect(listedPages([]).map((p) => p.title)).toEqual(["Kuukausi"]);
-    expect(listedPages(["saldot", "menot", "velat", "tulot", "yhteiset"]).map((p) => p.title)).toEqual(["Kuukausi", "Rahankäyttö", "Verovuosi", "Velat", "Tilit ja saldot", "Yhteiset menot"]);
+    expect(listedPages(["saldot", "menot", "velat", "tulot", "yhteiset"]).map((p) => p.title)).toEqual(["Kuukausi", "Rahankäyttö", "Tulot", "Velat", "Tilit ja saldot", "Yhteiset menot"]);
   });
   it("Kuukausi is the bare address the tab opens, and the others keep the period", () => {
     expect(reportHref("kuukausi", "6m")).toBe("#/reports");

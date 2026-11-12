@@ -13,7 +13,7 @@ const PAGES: { path: string; scan: "all" | "frame" }[] = [
   { path: "transactions?view=merchants", scan: "all" },
   { path: "reports", scan: "all" },
   // every question page of Raportit; the first one is the page above
-  ...["kuukausi", "menot", "tulot", "kiinteat", "velat", "saldot", "yhteiset"].map((q) => ({ path: `reports?q=${q}`, scan: "all" as const })),
+  ...["kuukausi", "menot", "tulot", "velat", "saldot", "yhteiset"].map((q) => ({ path: `reports?q=${q}`, scan: "all" as const })),
   { path: "review", scan: "all" },
   // the tabs of Asetukset a member sees; the administrator's tabs are scanned by the test below
   ...["banks", "household", "security", "data"].map((tab) => ({ path: `settings/${tab}`, scan: "all" as const })),
