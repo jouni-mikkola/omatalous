@@ -139,11 +139,8 @@ describe("GET /api/explain: the figures that are not a sum of one range", () => 
     const few = await admin.call("GET", "/api/explain?figure=expected.spend&from=2026-07-01&to=2026-07-31");
     expect(few.body).toMatchObject({ cents: null, method: { rule: "Vertailuun tarvitsemme 3 kuukautta, tietoja on 1" } });
     expect((await admin.call("GET", `/api/explain?figure=expected.spend&${OCTOBER}&accounts=nope`)).status).toBe(400);
-    // Yhteenveto's average spending: the mean of the complete months to the range's end, each the sum of its rows
-    const average = await admin.call("GET", "/api/explain?figure=spend.average&from=2025-10-01&to=2026-09-30");
-    expect(average.body).toMatchObject({ kind: "median", cents: 25050, check: { kind: "recompute", diffCents: 0 } });
-    expect(average.body.method.values.map((v: { label: string }) => v.label)).toEqual(["2026-06", "2026-07", "2026-08", "2026-09"]);
-    expect((await admin.call("GET", "/api/explain?figure=spend.average&from=2025-10-01&to=2026-09-30&accounts=nope")).status).toBe(400);
+    // Yhteenveto's mean of twelve months is no figure of its own any more: the row opens expected.spend
+    expect((await admin.call("GET", "/api/explain?figure=spend.average&from=2025-10-01&to=2026-09-30")).status).toBe(400);
   });
 
   it("the part of a joint account's row is cut by the weights and adds up to the bank's amount; another member's row is 404", async () => {

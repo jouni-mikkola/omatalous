@@ -11,13 +11,13 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { spendTotals } from "../src/analysis/context.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
-import { expectedEverydayPerDay, expectedIncome, expectedLevel, expectedSpending } from "../src/analysis/expected.ts";
-import { completeMonthsBefore, spendingThrough } from "../src/analysis/usual.ts";
+import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
+import { completeMonthsBefore } from "../src/analysis/usual.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { explain } from "../src/explain/explain.ts";
 import { explainNow } from "../src/explain/now.ts";
 import { FIGURES } from "../src/figures.ts";
-import { DIRECTION_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
+import { USUAL_MONTHS } from "../src/thresholds.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
@@ -129,11 +129,15 @@ const ANSWERS: Record<FigureKey, Answers> = {
       pace: dash.pace.expected?.diffCents ?? null,
     };
   },
-  average: (h) => {
+  usualSpend: (h) => {
     const ctx = contextOf(h);
-    const months = completeMonthsBefore(ctx, monthOf(h.today), DIRECTION_MONTHS);
-    const explained = explain("spend.average", ctx, { view: "own", range: { from: `${addMonths(monthOf(h.today), -DIRECTION_MONTHS)}-01`, to: monthEnd(addMonths(monthOf(h.today), -1)) } }).cents;
-    return { home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.averageCents, byHand: expectedLevel(months.map((m) => spendingThrough(ctx, m))), explain: explained };
+    const month = monthOf(h.today);
+    return {
+      home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.usualCents,
+      usual: expectedSpending(ctx, month),
+      buffer: bufferReport(ctx, h.balances, h.inputs).expectedSpendCents,
+      explain: explain("expected.spend", ctx, { view: "own", range: running(h) }).cents,
+    };
   },
   fixed: (h) => {
     const ctx = contextOf(h);

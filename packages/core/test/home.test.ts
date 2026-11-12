@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { contextOf, demoHousehold } from "../../../tools/findings/households.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { expectedEveryday } from "../src/analysis/expected.ts";
+import { expectedEveryday, expectedFor, expectedSpending } from "../src/analysis/expected.ts";
 import { formatEur } from "../src/analysis/format.ts";
 import { messageIn } from "../src/messages.ts";
 import { gateFor } from "../src/analysis/usual.ts";
@@ -133,13 +133,41 @@ describe("home.pace", () => {
 });
 
 describe("home.direction, home.notable and home.reliability", () => {
-  it("tells the mean of whole months and where the last three stand against it", () => {
+  it("tells the usual month and where the last three stand against the year", () => {
     const { direction } = homeOf([...pays(), ...rents(), ...shopping("2026-03-01", 4000)]);
-    expect(direction.averageCents).not.toBeNull();
+    expect(direction.usualCents).not.toBeNull();
     expect(direction.months).toBeGreaterThanOrEqual(3);
     expect(direction.direction).toBe("flat");
     // the months differ by a day or two of the daily purchase, which the gate of the direction ignores
-    expect(Math.abs(direction.recentChangeCents!)).toBeLessThan(gateFor(direction.averageCents!));
+    expect(Math.abs(direction.recentChangeCents!)).toBeLessThan(gateFor(direction.usualCents!));
+  });
+
+  // 1.2.0 showed the plain mean of twelve months beside the month, so a car bought in June made every month look dearer
+  it("shows the usual month as Kuukausi and the buffer read it, without a one-off of the year", () => {
+    const car = tx({ accountId: own.id, bookingDate: "2026-06-10", amountCents: -1_300_000, merchant: "Autoliike Oy", category: "vehicle_purchase" });
+    const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000), car];
+    const ctx = createContext(rows, [own], TODAY);
+    const dash = buildDashboard(ctx, RANGE, [bal(200_000)], NO_INPUTS);
+    const { direction } = dash.home;
+    expect(direction.usualCents).toBe(expectedSpending(ctx, "2026-10"));
+    expect(direction.usualCents).toBe(dash.pace.expected!.curve.at(-1));
+    // the rent and a month of the daily purchase; the car would add over 2 000 € to a mean of seven months
+    expect(direction.usualCents!).toBeLessThanOrEqual(RENT + 31 * 4000);
+    expect(direction.usualCents!).toBeGreaterThanOrEqual(RENT + 30 * 4000);
+    // near miss: the same months without the car give the same usual month
+    expect(homeOf([...pays(), ...rents(), ...shopping("2026-03-01", 4000)]).direction.usualCents).toBe(direction.usualCents);
+  });
+
+  it("shows one usual month on the demo household: the row, the buffer's divisor and Kuukausi's expected month", () => {
+    const h = demoHousehold("2026-11-11");
+    const ctx = contextOf(h);
+    const dash = buildDashboard(ctx, { from: "2026-11-01", to: "2026-11-30" }, h.balances, h.inputs);
+    const { direction } = dash.home;
+    expect(direction.usualCents).not.toBeNull();
+    expect(direction.usualCents).toBe(expectedSpending(ctx, "2026-11"));
+    expect(direction.bufferSpendCents).toBe(direction.usualCents);
+    if (dash.pace.expected) expect(dash.pace.expected.curve.at(-1)).toBe(direction.usualCents);
+    expect(direction.months).toBe(expectedFor(ctx, "2026-11")!.months.length);
   });
 
   it("reads the direction up when the last months cost more than the year", () => {
@@ -151,7 +179,7 @@ describe("home.direction, home.notable and home.reliability", () => {
 
   it("tells too few months as no mean", () => {
     const { direction } = homeOf([...pays().slice(-2), ...shopping("2026-10-01", 4000)]);
-    expect(direction.averageCents).toBeNull();
+    expect(direction.usualCents).toBeNull();
     expect(direction.direction).toBeNull();
   });
 

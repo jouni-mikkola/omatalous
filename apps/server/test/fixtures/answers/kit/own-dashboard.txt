@@ -873,9 +873,8 @@
   "paceGap": null,
   "notable": [],
   "direction": {
-   "averageCents": 330888,
-   "months": 12,
-   "from": "2025-10-01",
+   "usualCents": 337160,
+   "months": 6,
    "recentChangeCents": -25100,
    "direction": "down",
    "bufferMonths": 5.603105350575395,

@@ -112,10 +112,10 @@ export const FIGURES = {
     unit: "cents",
     pages: ["Yhteenveto"],
   },
-  average: {
-    name: "Menojen keskiarvo",
-    definition: "The expected level (Odotettu) of the monthly spending over the last twelve complete months, at least three. The direction compares the last three with it.",
-    source: { file: "home.ts", fn: "homeDirection", field: "averageCents" },
+  usualSpend: {
+    name: "Tavalliset menot",
+    definition: "The row of Varat ja velat: the expected spending (Odotettu) of the running month, all its days, so Kuukausi, the buffer and the row read one figure. One-offs are left out. The direction word compares the last three complete months with the mean of up to twelve, which is shown nowhere.",
+    source: { file: "home.ts", fn: "homeDirection", field: "usualCents" },
     unit: "cents",
     pages: ["Yhteenveto"],
   },
