@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { finnishIn } from "./finnish-words.ts";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { linkFakeBank, makeMember, removeMember } from "./helpers.ts";
 
 // English beside Finnish, the Done-when: every page in English shows no Finnish text. All visible text of a page is
@@ -21,6 +21,21 @@ const PAGES: { path: string; scan: "all" | "frame" }[] = [
 
 const FETCH = { "X-Requested-With": "fetch" };
 
+/**
+ * The text of a part of the page as the scan reads it: what shows, and every aria-label and title. The bank's own text
+ * of a row (`.tx-text`, "LASKUN MAKSU") is data in the bank's language, not a text of the app, and is left out.
+ */
+async function readPart(part: Locator): Promise<string> {
+  return part.evaluate((el) => {
+    const bank = Array.from(el.querySelectorAll<HTMLElement>(".tx-text"));
+    // an inline style: the stylesheet's `display` of the class outranks the `hidden` attribute
+    for (const b of bank) b.style.setProperty("display", "none", "important");
+    const shown = (el as HTMLElement).innerText;
+    for (const b of bank) b.style.removeProperty("display");
+    return shown + " " + Array.from(el.querySelectorAll("[aria-label], [title]")).filter((e) => !e.matches(".tx-text")).map((e) => `${e.getAttribute("aria-label") ?? ""} ${e.getAttribute("title") ?? ""}`).join(" ");
+  });
+}
+
 /** Opens each page and returns the Finnish words found on it, as `path: word`. */
 async function scanPages(page: Page, pages: { path: string; scan: "all" | "frame" }[]): Promise<string[]> {
   const found: string[] = [];
@@ -35,9 +50,7 @@ async function scanPages(page: Page, pages: { path: string; scan: "all" | "frame
     const parts = scan === "all" ? [page.locator("body")] : [page.locator("header.topbar"), page.locator("footer.sheet-foot")];
     for (const part of parts) {
       // the user menu is closed: its items are read from the page text all the same; the language picker names itself in both languages on purpose
-      const text = await part.evaluate((el) => {
-        return (el as HTMLElement).innerText + " " + Array.from(el.querySelectorAll("[aria-label], [title]")).map((e) => `${e.getAttribute("aria-label") ?? ""} ${e.getAttribute("title") ?? ""}`).join(" ");
-      });
+      const text = await readPart(part);
       for (const word of finnishIn(text.replaceAll("Kieli / Language", "").replaceAll("Suomi", ""))) found.push(`${path}: ${word}`);
     }
   }
@@ -51,8 +64,9 @@ test("the scan sees Finnish: a page in Finnish fails it", async ({ browser }) =>
     const page = await member.newPage();
     await page.goto("/#/overview");
     await expect(page.locator("html")).toHaveAttribute("lang", "fi");
-    const text = await page.locator("header.topbar").innerText();
-    expect(finnishIn(text)).toContain("tarkistettavat");
+    // read the way the scan reads, so a read that returns nothing fails here
+    expect(finnishIn(await readPart(page.locator("header.topbar")))).toContain("tarkistettavat");
+    expect(finnishIn(await readPart(page.locator("body")))).toContain("tarkistettavat");
   } finally {
     await member.close();
     await removeMember(browser, id);
