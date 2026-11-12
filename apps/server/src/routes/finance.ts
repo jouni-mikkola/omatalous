@@ -204,21 +204,21 @@ export function financeRoutes(s: Services) {
     const q = c.req.query();
     const range = parseDateRange(q.from || undefined, q.to || undefined);
     const { shared, own } = await rowsInView(s, user.id, parseScope(q.scope));
-    const { total, inCents, outCents, days, items: stored } = await repoOf(user.id).listTransactions(
-      {
-        from: range.from,
-        to: range.to,
-        accountId: q.accountId,
-        category: q.category,
-        kind: q.kind === "income" ? "income" : undefined,
-        merchant: q.merchant,
-        q: q.q?.slice(0, 100),
-        limit: queryInt(q.limit),
-        offset: queryInt(q.offset),
-        own,
-      },
-      shared.map((a) => a.id),
-    );
+    const filter = {
+      from: range.from,
+      to: range.to,
+      accountId: q.accountId,
+      category: q.category,
+      kind: q.kind === "income" ? ("income" as const) : undefined,
+      merchant: q.merchant,
+      q: q.q?.slice(0, 100),
+      limit: queryInt(q.limit),
+      offset: queryInt(q.offset),
+      own,
+    };
+    const { total, inCents, outCents, days, items: stored } = await repoOf(user.id).listTransactions(filter, shared.map((a) => a.id));
+    // the list grouped by payee (`sums=merchant`): each listed payee's whole sums, as each listed day has its own
+    const merchantSums = q.sums === "merchant" ? await repoOf(user.id).merchantSums(filter, shared.map((a) => a.id), [...new Set(stored.map((t) => t.merchant))]) : undefined;
     const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
     // which company and industry an "industry" category came from, shown on hover; a shared
     // row's category came from its owner's lookups, so the owners' requests count too
@@ -241,6 +241,7 @@ export function financeRoutes(s: Services) {
       // the totals strip's histogram and each listed day's whole sums
       histogram: span ? moneyBins(days, histogramFrom(span), span.to) : null,
       daySums: days.filter((d) => onPage.has(d.date)),
+      ...(merchantSums ? { merchantSums } : {}),
       items: items.map((t) => {
         const part = own.parts.get(t.accountId);
         const share = own.shares?.get(t.id);

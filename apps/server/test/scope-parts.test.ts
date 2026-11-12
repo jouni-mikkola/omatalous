@@ -226,6 +226,18 @@ describe("the own view of a joint account", () => {
       expect(heads.length).toBeGreaterThan(0);
       for (const d of heads) expect({ inCents: d.inCents, outCents: d.outCents }, d.date).toEqual(byDay.get(d.date) ?? { inCents: 0, outCents: 0 });
       expect([heads.reduce((n, d) => n + d.inCents, 0), heads.reduce((n, d) => n + d.outCents, 0)]).toEqual([list.inCents, list.outCents]);
+      // grouped by payee, each payee's head adds up the same figures of its rows
+      const byPayee = new Map<string, { inCents: number; outCents: number }>();
+      for (const t of list.items as (Row & { merchant: string })[]) {
+        const d = byPayee.get(t.merchant) ?? { inCents: 0, outCents: 0 };
+        const shown = t.isTransfer ? 0 : (t.partCents ?? t.amountCents);
+        if (shown > 0) d.inCents += shown;
+        else d.outCents -= shown;
+        byPayee.set(t.merchant, d);
+      }
+      const payees = (await get(viewer, `/api/transactions?${SEPTEMBER}&limit=500&sums=merchant`)).merchantSums as { merchant: string; inCents: number; outCents: number }[];
+      expect(payees.map((m) => m.merchant).sort()).toEqual([...byPayee.keys()].sort());
+      for (const m of payees) expect({ inCents: m.inCents, outCents: m.outCents }, m.merchant).toEqual(byPayee.get(m.merchant));
       // the bank's amount stays on the row
       expect(list.items.find((t: { merchant: string; amountCents: number }) => t.amountCents === -73333)).toMatchObject({ accountId: "joint", partCents: partCents(-73333, part) });
     }

@@ -57,6 +57,14 @@ export interface DaySum {
   outCents: number;
 }
 
+/** What all the filter's rows of one payee add up to, the server's (`merchantSums`), asked for when the list is grouped by payee. */
+export interface PayeeSum {
+  merchant: string;
+  count: number;
+  inCents: number;
+  outCents: number;
+}
+
 /** A row as /api/transactions gives it. In the own view a row of a joint account also carries the viewer's part of the bank's amount. */
 export type ListedRow = TransactionItem & { partCents?: number };
 
@@ -277,8 +285,8 @@ export const rowChips = () => [
   { key: "pending", label: msg("row.chip_pending"), test: (t: ListedRow) => t.status === "pending" },
 ];
 
-/** A day's sums in its group row: what went out and what came in, own transfers left out; nothing for a day of transfers only. */
-function DaySums({ sum }: { sum: DaySum | undefined }) {
+/** A day's or a payee's sums in its group row: what went out and what came in, own transfers left out; nothing for transfers only. */
+function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents"> | undefined }) {
   if (!sum) return null;
   return (
     <>
@@ -291,9 +299,10 @@ function DaySums({ sum }: { sum: DaySum | undefined }) {
 /**
  * The list: a day is a group, its row says the day, how many rows it has in the filter and what they add up to (the
  * server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
- * server sends them. The toolbar's grouping puts the same rows under their payee instead. An opened row shows its payee's twelve months under it.
+ * server sends them. The toolbar's grouping puts the same rows under their payee instead, whose row says the payee's sums
+ * (the server's too). An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, whole = true, total, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; /** The rows the filter has in all, the server's count: "Kaikki" of a page of a longer list says it. */ total?: number; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
+export function TxTable({ items, whole = true, total, allRows, severalAccounts, today, daySums, payeeSums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; /** The rows the filter has in all, the server's count: "Kaikki" of a page of a longer list says it. */ total?: number; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; /** Each payee's sums for the grouping by payee; a payee with none has its count only. */ payeeSums?: Map<string, PayeeSum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
   const days = byDay(items);
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
@@ -345,6 +354,11 @@ export function TxTable({ items, whole = true, total, allRows, severalAccounts, 
           rows: d.items,
         };
       })}
+      // a chip narrows the rows in the browser, so the server's sums would be of rows the group does not show
+      sectionFigure={(sec) => {
+        const sum = view.chip ? undefined : payeeSums?.get(sec.rows[0]!.merchant);
+        return sum ? { figure: <DaySums sum={sum} />, span: 2 } : null;
+      }}
       open={open}
       onOpen={onOpen}
       drill={(t) => <Detail {...rowProps(t)} scope={scope} />}

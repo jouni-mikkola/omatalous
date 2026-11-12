@@ -8,7 +8,7 @@ import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
 import { Merchants } from "./Merchants.tsx";
-import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
+import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, type PayeeSum, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { periodOf } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
@@ -125,6 +125,8 @@ export function Transactions({ meta, params, scope, anchor }: { meta: Meta; para
 interface ListAnswer extends Totals {
   items: ListedRow[];
   daySums?: DaySum[];
+  /** Asked for with `sums=merchant`: what each listed payee's rows of the filter add up to. */
+  merchantSums?: PayeeSum[];
 }
 
 function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
@@ -164,7 +166,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const [opened, setOpened] = useState<string | null>(null);
   // the chip narrows the rows the table has; the server does not know it
   const serverFilters = { ...filters, chip: undefined };
-  const listPath = (offset: number) => `/api/transactions${query({ ...serverFilters, scope, limit: PAGE_ROWS, offset: offset || undefined })}`;
+  const listPath = (offset: number) => `/api/transactions${query({ ...serverFilters, scope, limit: PAGE_ROWS, offset: offset || undefined, sums: group ? "merchant" : undefined })}`;
   const { data, error: listError, loading, reload } = useApi<ListAnswer>(listPath((pageNo - 1) * PAGE_ROWS));
   // the page the answer on screen is of: while the next page is on its way the rows are still the page before's
   const answered = useRef<{ data: ListAnswer | null; page: number }>({ data: null, page: pageNo });
@@ -192,7 +194,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   };
   // the pages after the first of a whole list, fetched page by page once the first says how many rows there are
   const restKey = whole ? listPath(0) : null;
-  const [rest, setRest] = useState<{ key: string; items: ListedRow[]; daySums: DaySum[] } | null>(null);
+  const [rest, setRest] = useState<{ key: string; items: ListedRow[]; daySums: DaySum[]; merchantSums: PayeeSum[] } | null>(null);
   const [restError, setRestError] = useState<string | null>(null);
   useEffect(() => {
     setRestError(null);
@@ -200,7 +202,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     let stale = false;
     pagesFrom(PAGE_ROWS, data.total)
       .then((answers) => {
-        if (!stale) setRest({ key: restKey, items: answers.flatMap((a) => a.items), daySums: answers.flatMap((a) => a.daySums ?? []) });
+        if (!stale) setRest({ key: restKey, items: answers.flatMap((a) => a.items), daySums: answers.flatMap((a) => a.daySums ?? []), merchantSums: answers.flatMap((a) => a.merchantSums ?? []) });
       })
       .catch((err: Error) => {
         if (!stale) setRestError(err.message);
@@ -240,6 +242,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   merchantOf.current = new Map(items.map((t) => [t.id, t.merchant]));
   const looks = useMemo(() => accountLooks(meta), [meta]);
   const daySums = useMemo(() => new Map([...(data?.daySums ?? []), ...(restOf?.daySums ?? [])].map((d) => [d.date, d])), [data, restOf]);
+  // a payee on two pages has the same sums on both
+  const payeeSums = useMemo(() => new Map([...(data?.merchantSums ?? []), ...(restOf?.merchantSums ?? [])].map((m) => [m.merchant, m])), [data, restOf]);
 
   const set = (patch: Partial<Filters>) => open({ ...filters, ...patch });
   // the search box shows what is typed at once; the address (and so the server) follows after a pause
@@ -439,7 +443,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             )}
           </div>
           <div>
-            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} total={data.total} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
+            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} total={data.total} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} payeeSums={payeeSums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {(!data || (!ready && data.items.length > 0)) && !error && <RowsSkeleton />}
             {data && !data.items.length && (

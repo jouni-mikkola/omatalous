@@ -20,6 +20,14 @@ export interface DaySum {
   outCents: number;
 }
 
+/** What the rows of one payee add up to, as a day's sums do. */
+export interface MerchantSum {
+  merchant: string;
+  count: number;
+  inCents: number;
+  outCents: number;
+}
+
 export interface TransactionFilter {
   from?: string;
   to?: string;
@@ -155,6 +163,33 @@ export class TransactionListRepo {
     const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), MAX_LIST_ROWS), Math.max(f.offset ?? 0, 0));
     const days = [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
     return { total, inCents, outCents, days, items };
+  }
+
+  /**
+   * The filter's rows of each of `merchants` added up as a day's are (`listTransactions`): the head of a payee's group
+   * when the list is grouped by payee says what all its rows come to, the parts of joint rows and no own transfer.
+   */
+  async merchantSums(f: TransactionFilter, accountIds: readonly string[] | undefined, merchants: readonly string[]): Promise<MerchantSum[]> {
+    if (!merchants.length) return [];
+    const part = partSql(f.own?.parts ?? new Map(), "amount_cents");
+    const { moved } = toldSql(f.own);
+    const byMerchant = new Map<string, MerchantSum>();
+    for (const side of this.filterSides(f, accountIds)) {
+      const rows = await this.ctx.db.all<{ m: string; c: number; inc: number | null; outc: number | null }>(
+        `SELECT merchant AS m, COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS outc
+         FROM transactions WHERE ${side.where.join(" AND ")} AND merchant IN (${merchants.map(() => "?").join(",")}) GROUP BY merchant`,
+        [...moved.params, ...part.params, ...moved.params, ...part.params, ...side.params, ...merchants],
+      );
+      for (const r of rows) {
+        const sum = byMerchant.get(r.m) ?? { merchant: r.m, count: 0, inCents: 0, outCents: 0 };
+        sum.count += Number(r.c);
+        sum.inCents += Number(r.inc ?? 0);
+        sum.outCents += Number(r.outc ?? 0);
+        byMerchant.set(r.m, sum);
+      }
+    }
+    return [...byMerchant.values()];
   }
 
   /**

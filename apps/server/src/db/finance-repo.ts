@@ -137,6 +137,7 @@ export class FinanceRepo {
 
   // ── the transaction list and the export (finance/transaction-list.ts) ──
   listTransactions(f: TransactionFilter, accountIds?: readonly string[]) { return this.list.listTransactions(f, accountIds); }
+  merchantSums(f: TransactionFilter, accountIds: readonly string[] | undefined, merchants: readonly string[]) { return this.list.merchantSums(f, accountIds, merchants); }
   exportPage(f: TransactionFilter, accountIds: readonly string[] | undefined, limit: number, after?: { date: string; id: string }) {
     return this.list.exportPage(f, accountIds, limit, after);
   }

@@ -1,6 +1,7 @@
 /** Decision: none of its own. The props of `Table`, apart from it so that the component's file stays about the component. */
 import type { ComponentProps, ReactNode } from "react";
 import type { Column } from "./columns.ts";
+import type { Section } from "./model.ts";
 import type { TableView } from "./view.ts";
 
 /** Attributes and handlers of a `<tr>` (hover, focus, a data attribute); `className` is the table's own. */
@@ -65,6 +66,11 @@ export type TableProps<R> = {
   headTop?: { cells: HeadCell[]; covered?: string[] };
   /** The rows in bodies of their own, in this order (`rows` still holds them all, flat); the sort orders each group. */
   groups?: RowGroup<R>[];
+  /**
+   * The figure of a group the reader made with the toolbar's grouping, in the last `span` columns of its head row. It is
+   * the page's (the server's sums), never added here; null leaves the head with its name and count only.
+   */
+  sectionFigure?: (section: Section<R>) => { figure: ReactNode; span: number } | null;
   /** The columns that add up to the total: drawn as the sum bracket. */
   sums?: string[];
   /** A class of the `<table>`. */
