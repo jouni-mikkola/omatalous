@@ -93,7 +93,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "row.why_transfer": "The money moved between your own accounts, so it is neither spending nor income.",
   "row.why_payer": "You said what this payer's payments are.",
   "row.why_card_bill": "Credit card bill. The card's purchases do not show, so we count the bill as paying debt.",
-  "row.why_card_bill_itemised": "Credit card bill. The purchases typed in from the card's statement count as spending and the rest of the bill as paying debt.",
+  "row.why_card_bill_itemised": "Credit card bill. We count the purchases typed in from the card's statement as spending and the rest of the bill as paying debt.",
   // Shared
   "period.m3": "3 mo",
   "period.m6": "6 mo",

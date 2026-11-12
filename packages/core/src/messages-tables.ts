@@ -95,7 +95,7 @@ export const FI_TABLES = {
   "row.why_transfer": "Raha siirtyi omien tiliesi välillä, joten se ei ole menoa eikä tuloa.",
   "row.why_payer": "Kerroit, mitä tämän maksajan maksut ovat.",
   "row.why_card_bill": "Luottokortin lasku. Kortin ostot eivät näy, joten laskemme laskun velanhoitoon.",
-  "row.why_card_bill_itemised": "Luottokortin lasku. Kortin tiliotteelta kirjatut ostot lasketaan kulutukseen ja loput laskusta velanhoitoon.",
+  "row.why_card_bill_itemised": "Luottokortin lasku. Laskemme kortin tiliotteelta kirjatut ostot kulutukseen ja loput laskusta velanhoitoon.",
   // Shared
   "period.m3": "3 kk",
   "period.m6": "6 kk",

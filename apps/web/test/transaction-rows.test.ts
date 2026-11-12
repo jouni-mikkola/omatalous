@@ -84,7 +84,7 @@ describe("an opened row", () => {
     // a card bill: its purchases unseen, or typed in from its statement, when they count as spending
     const bill = row({ categorySource: "rule", category: "card_bill", amountCents: -60_000 });
     expect(facts(bill)["Miksi tämä kategoria"]).toContain("ostot eivät näy");
-    expect(facts(bill, 40_000)["Miksi tämä kategoria"]).toBe("Luottokortin lasku. Kortin tiliotteelta kirjatut ostot lasketaan kulutukseen ja loput laskusta velanhoitoon.");
+    expect(facts(bill, 40_000)["Miksi tämä kategoria"]).toBe("Luottokortin lasku. Laskemme kortin tiliotteelta kirjatut ostot kulutukseen ja loput laskusta velanhoitoon.");
     // the reader's answer on the payer, also when it made the row an own transfer
     expect(why({ categorySource: "payer", category: "transfer", isTransfer: true })).toBe(why({ categorySource: "payer", category: "p2p" }));
   });
