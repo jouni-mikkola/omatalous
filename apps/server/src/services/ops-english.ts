@@ -32,6 +32,8 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Version koodi ei ole päivityslähteessä. Mikään ei muuttunut.", "The code of the version is not in the update source. Nothing changed."],
   ["Yksityisen kehitysversion uusinta versiota ei löytynyt.", "The newest version of the private development branch was not found."],
   ["Lähdekoodin uusinta versiota ei löytynyt.", "The newest version of the source code was not found."],
+  ["Uusimman version tarkistukset GitHubissa eivät ole vielä menneet läpi. Mikään ei muuttunut.", "The checks of the newest version have not passed on GitHub yet. Nothing changed."],
+  ["Uusimman version tarkistuksia ei voitu kysyä GitHubista. Mikään ei muuttunut.", "GitHub could not be asked for the checks of the newest version. Nothing changed."],
   ["Uutta koodia ei ole allekirjoittanut luotettu avain. Mikään ei muuttunut.", "The new code is not signed by a trusted key. Nothing changed."],
   ["Uuden version asetukset eivät täytä turvasääntöjä ({1}). Mikään ei muuttunut.", "The settings of the new version do not meet the safety rules ({1}). Nothing changed."],
   ["Päivitetty: {1} → {2}.", "Updated: {1} → {2}."],

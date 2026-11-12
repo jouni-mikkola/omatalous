@@ -680,10 +680,10 @@ fi
 step "Writing .env"
 umask 077
 # optional settings the questions above do not cover survive a re-run (ACCESS_LAN_BIND: scripts/lib/ops-access.sh;
-# TALOUS_CHANNEL, TALOUS_PRERELEASE and TALOUS_PRIVATE_BUILD: the release channel and the build, which the block below
+# TALOUS_CHANNEL, TALOUS_PRERELEASE, TALOUS_SOURCE_CHECKED and TALOUS_PRIVATE_BUILD: the release channel and the build, which the block below
 # and update.sh read and never write)
 KEEP=()
-for key in TZ SETUP_CODE INDUSTRY_LOOKUP ACCESS_LAN_BIND TALOUS_CHANNEL TALOUS_PRERELEASE TALOUS_PRIVATE_BUILD; do
+for key in TZ SETUP_CODE INDUSTRY_LOOKUP ACCESS_LAN_BIND TALOUS_CHANNEL TALOUS_PRERELEASE TALOUS_SOURCE_CHECKED TALOUS_PRIVATE_BUILD; do
   value=$(existing "$key")
   [[ -n $value ]] && KEEP+=("$key=$value")
 done

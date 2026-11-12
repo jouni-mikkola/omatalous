@@ -789,6 +789,12 @@ minute, because the script of 0.8.x takes the newest tag.
 builds from source only when its checkout is newer than the latest release. `release` always follows the releases and
 `source` always builds the newest source on the machine. The next update uses the new value.
 
+`TALOUS_SOURCE_CHECKED=yes` beside `TALOUS_CHANNEL=source` makes a source install wait for GitHub's checks. An update
+then takes the newest commit of the branch for which the workflows `check` and `privacy` passed, and stays where it is
+while none has. A commit that changes documents alone starts no run of `check` and counts as checked when the commit
+before it does. `update.sh` and the Päivitä button both ask GitHub once per update, with no key (60 questions an hour
+for one address). When GitHub does not answer, nothing changes. The default is `no`.
+
 ## Commands
 
 | To | Run |
@@ -866,6 +872,7 @@ one, never half of one, and a line of any other key stays as it was.
 | `BIND_ADDRESS` | the address the port listens on, the home network address by default |
 | `CADDY_ADDRESS` | the address for Caddy's ports 80 and 443, needed only when two copies use their own domains |
 | `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
+| `TALOUS_SOURCE_CHECKED` | `yes` or `no` (default `no`). `yes` makes a source install take only a commit whose checks passed on GitHub (see [Updates in detail](#updates-in-detail)). It stays over a re-run and `--reconfigure`. |
 | `TALOUS_PRERELEASE` | `yes` or `no` (default `no`). `yes` also follows pre-releases in their first 48 hours (see [Updates in detail](#updates-in-detail)). The switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito* sets it. It stays over a re-run and `--reconfigure`. |
 | `TRUST_PROXY` | `true` behind Caddy or a tunnel, so the app sees each visitor's own address. The installer sets it. |
 | `CLOUDFLARE_ACCESS_EMAILS` | who Cloudflare Access lets in to this copy, comma-separated. `./scripts/install.sh --access-emails` changes it and the Access rule together. Each address is printable ASCII with one `@` and a host name that is no IP address, at most 50 in all. |
