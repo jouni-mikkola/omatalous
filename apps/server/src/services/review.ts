@@ -23,7 +23,7 @@ interface Base {
   id: string;
   cents: number;
   rows?: ItemRow[];
-  /** How many rows the item counts; `rows` holds the newest `ROWS` of them. */
+  /** How many rows the item shows in all (a payee's refunds among them); `rows` holds the newest `ROWS` of them. */
   rowCount?: number;
 }
 

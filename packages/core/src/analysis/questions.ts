@@ -33,7 +33,7 @@ interface PayeeQuestion {
   /** The window's sum for the payee, positive. */
   cents: number;
   count: number;
-  /** The rows the question counts, so Tarkistettavat can show exactly those; the dashboard's answer leaves them out. */
+  /** The rows the question counts, and a refund that took back part of one of them, so Tarkistettavat can show exactly those; the dashboard's answer leaves them out. */
   rowIds?: string[];
   lastDate: IsoDate;
   /** A payment service the rows name alone (Trustly, PayPal): no shop was found behind it, so the household is asked per service. */
@@ -211,6 +211,14 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
       add(inn, t, t.flows.income);
     }
   }
+
+  // a refund lowers the payee's sum (`netSpend`), so Tarkistettavat shows its row with the payment it took back part of:
+  // the rows add up to the figure. `returns` names a refund's first payment; a refund spread over several payments took
+  // that one back whole, so it counts in no group and such a refund is not shown, as before (where its last share fell
+  // on a counted payment, those rows miss that share).
+  const payeeOf = new Map<string, Group>();
+  for (const g of out.values()) for (const id of g.rowIds) payeeOf.set(id, g);
+  for (const [refundId, paymentId] of ctx.returns) payeeOf.get(paymentId)?.rowIds.push(refundId);
 
   // with payer roles the payer's question comes in place of the payee's: one question about the same money
   const asked = inputs.payers ? payerQuestions(ctx, rows, inputs.payers, dismissed) : { items: [], covered: new Set<string>() };

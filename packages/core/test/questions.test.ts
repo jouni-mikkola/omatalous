@@ -62,6 +62,28 @@ describe("how much of the spending is known (knownSpending)", () => {
     expect(part).toMatchObject({ share: 1 - 6000 / 86000, items: [{ kind: "payee_out", merchant: "Kioski Oy", cents: 6000, count: 1 }] });
   });
 
+  it("names the refund among the rows of the payee's question, so the rows add up to its sum", () => {
+    const rows = [...base(), unknownOut(150, "Kioski Oy", { bookingDate: "2026-08-08" }), unknownOut(150, "Kioski Oy", { bookingDate: "2026-09-08" }), tx({ bookingDate: "2026-08-18", amountCents: eur(50), merchant: "Kioski Oy" })];
+    const [q] = questionsOf(rows).items as { cents: number; count: number; rowIds?: string[] }[];
+    // two payments, one of them paid back in part: the figure is what is left, and so is the sum of the rows shown
+    expect([q!.cents, q!.count, q!.rowIds?.length]).toEqual([eur(250), 2, 3]);
+    const byId = new Map(rows.map((t) => [t.id, t.amountCents]));
+    expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
+  });
+
+  it("shows a refund spread over payments, or reaching one outside the question, with none of them: the rows it counts", () => {
+    const rowsOf = (rows: Transaction[]) => {
+      const [q] = questionsOf(rows).items as { cents: number; count: number; rowIds?: string[] }[];
+      return [q!.cents, q!.count, q!.rowIds!.map((id) => rows.find((t) => t.id === id)!.bookingDate)];
+    };
+    // a refund of 100 took the later payment back whole and 40 of the earlier: the 20 left is the earlier one's
+    const spread = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" })];
+    expect(rowsOf(spread)).toEqual([eur(20), 1, ["2026-08-01"]]);
+    // the refund took back part of a payment from before the window, which the question does not count
+    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), tx({ bookingDate: "2025-10-20", amountCents: eur(20), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
+    expect(rowsOf(early)).toEqual([eur(30), 1, ["2026-09-01"]]);
+  });
+
   it("reads the twelve complete months up to the period's end: the month still running is not one", () => {
     const old = unknownOut(100, "Kioski Oy", { bookingDate: "2025-09-30" });
     const edge = unknownOut(30, "Kioski Oy", { bookingDate: "2025-10-01" });
