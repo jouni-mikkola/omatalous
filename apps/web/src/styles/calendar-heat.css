@@ -18,7 +18,7 @@
 .chart .slope-flat .slope-line, .chart .slope-flat .slope-dot { stroke: var(--series-1); }
 .chart .slope-flat .slope-dot { fill: var(--series-1); }
 .chart .slope-quiet .slope-line { stroke-width: 1.5; }
-.chart .slope-up-text { fill: var(--bad); font-weight: var(--w-strong); }
+.chart .slope-rise-text { fill: var(--accent-ink); font-weight: var(--w-strong); }
 .chart .slope-down-text { fill: var(--good); font-weight: var(--w-strong); }
 .chart .slope-flat-text { fill: var(--text-2); }
 .chart .slope-figure { font-variant-numeric: tabular-nums lining-nums; }

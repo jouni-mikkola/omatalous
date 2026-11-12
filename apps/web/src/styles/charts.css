@@ -89,13 +89,13 @@
 .chart .slope-quiet .slope-line { stroke: var(--series-rest); stroke-opacity: 0.4; }
 .chart .slope-quiet .slope-dot { fill: var(--series-rest); }
 .chart .slope-stop-past { stop-color: var(--series-rest); }
-.chart .slope-stop-up { stop-color: var(--bad); }
+.chart .slope-stop-rise { stop-color: var(--accent); }
 .chart .slope-stop-down { stop-color: var(--good); }
-.chart .slope-up .slope-dot { fill: var(--bad); }
+.chart .slope-rise .slope-dot { fill: var(--accent); }
 .chart .slope-down .slope-dot { fill: var(--good); }
 .chart .slope .slope-dot-before { fill: var(--series-rest); }
 .chart .slope .slope-dot { stroke: var(--surface); stroke-width: 2; }
-.chart .slope-up .slope-halo { fill: color-mix(in srgb, var(--bad) 18%, transparent); }
+.chart .slope-rise .slope-halo { fill: color-mix(in srgb, var(--accent) 18%, transparent); }
 .chart .slope-down .slope-halo { fill: color-mix(in srgb, var(--good) 18%, transparent); }
 .chart .slope.active .slope-line, .chart .slope:focus-visible .slope-line { stroke-width: 3.5; stroke-opacity: 1; }
 .chart .slope-head { fill: var(--text); font-weight: var(--w-strong); }

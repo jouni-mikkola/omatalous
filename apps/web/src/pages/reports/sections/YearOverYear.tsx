@@ -99,7 +99,7 @@ function YearOverYear({ ctx }: SectionProps) {
   const fixed = new Set((other && data ? data : ctx.data).categories.groups.flatMap((g) => g.categories).filter((c) => c.fixedShare >= 0.5).map((c) => c.category));
   const shown = r.categories.filter((c) => !fixed.has(c.category)).slice(0, SHOWN);
   const movers = new Set([...shown].filter((c) => Math.abs(c.changeCents) >= 100_00).sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents)).slice(0, MOVERS).map((c) => c.category));
-  const items: SlopeItem[] = shown.map((c) => ({ key: c.category, label: ctx.label(c.category), from: c.previousCents, to: c.currentCents, change: c.changeCents, strong: movers.has(c.category), tone: c.changeCents > 0 ? "bad" : c.changeCents < 0 ? "good" : "flat" }));
+  const items: SlopeItem[] = shown.map((c) => ({ key: c.category, label: ctx.label(c.category), from: c.previousCents, to: c.currentCents, change: c.changeCents, strong: movers.has(c.category), tone: c.changeCents > 0 ? "rise" : c.changeCents < 0 ? "good" : "flat" }));
   const rose = largestRise(r.categories);
   const leftOut = fixedLeftOut(r.categories, fixed, ctx.label);
   return (

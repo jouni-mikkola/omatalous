@@ -8,7 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { SlopeChart, type SlopeItem } from "../src/charts/SlopeChart.tsx";
 import { setLanguage } from "../src/format.ts";
 
-const item = (label: string, from: number, to: number, strong: boolean): SlopeItem => ({ key: label, label, from, to, change: to - from, strong, tone: to > from ? "bad" : "good" });
+const item = (label: string, from: number, to: number, strong: boolean): SlopeItem => ({ key: label, label, from, to, change: to - from, strong, tone: to > from ? "rise" : "good" });
 /** A strong line that sets the scale, and context lines far above it: they do not fit and are named under the chart. */
 const COFFEE = item("Coffee", 4000, 5200, true);
 const far = (names: readonly string[]) => names.map((name, n) => item(name, 900_000 + n * 1000, 910_000 + n * 1000, false));

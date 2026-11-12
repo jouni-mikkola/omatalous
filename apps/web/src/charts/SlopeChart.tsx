@@ -22,8 +22,11 @@ export interface SlopeItem {
   change: number;
   /** A mover: drawn in the tone of its change and labelled at both ends; the rest are `--series-rest` context. */
   strong: boolean;
-  /** How the change reads for the household: spending up is bad. */
-  tone: "bad" | "good" | "flat";
+  /**
+   * How the change reads for the household: spending up is a rise, drawn in the accent like an over-usual figure
+   * anywhere else, since red is kept for a problem (docs/design); spending down is good.
+   */
+  tone: "rise" | "good" | "flat";
 }
 
 /** Names in a sentence, the last joined in the member's language: "A, B ja C". */
@@ -112,7 +115,7 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
   const right = spreadLabels(strong.map((i) => ({ key: i.key, y: y(i.to) })), innerH, block);
   // the largest move by its server change; ordering is no arithmetic of money
   const largest = [...strong].sort((a, b) => Math.abs(b.change) - Math.abs(a.change))[0];
-  const tone = (i: SlopeItem) => (i.tone === "bad" ? "slope-up" : i.tone === "good" ? "slope-down" : "slope-flat");
+  const tone = (i: SlopeItem) => (i.tone === "rise" ? "slope-rise" : i.tone === "good" ? "slope-down" : "slope-flat");
   const active = at === null ? null : drawn[at] ?? null;
   const read = active && {
     title: active.label,
@@ -154,10 +157,10 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
       {width > 0 && (
         <svg width={width} height={height} role="group" aria-label={label}>
           <defs>
-            {(["bad", "good"] as const).map((d) => (
+            {(["rise", "good"] as const).map((d) => (
               <linearGradient key={d} id={`${grad}-${d}`} gradientUnits="userSpaceOnUse" x1={x0} x2={x1} y1="0" y2="0">
                 <stop offset="0" className="slope-stop-past" />
-                <stop offset="0.55" className={d === "bad" ? "slope-stop-up" : "slope-stop-down"} />
+                <stop offset="0.55" className={d === "rise" ? "slope-stop-rise" : "slope-stop-down"} />
               </linearGradient>
             ))}
           </defs>
