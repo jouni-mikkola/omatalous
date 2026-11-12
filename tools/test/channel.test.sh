@@ -448,18 +448,21 @@ t_private_build_only_on_source_with_key() {
   check "private, key yes on release: nothing built, at the release, .env as it was" test "$(n_calls '^docker compose build')" = 0 -a "$(sha256sum <"$CL/.env")" = "$sum"
   check "private, key yes on release: at v0.2.0" at_tag 0.2.0
 }
-# the public repository has no source to build: a source update of a clone of it stops before anything changes
-t_source_refused_on_public_origin() {
-  local url sum
+# the public repository holds the source, so a clone of it that asks for the source channel builds the newest main
+t_source_builds_on_public_origin() {
+  local url real
   for url in https://github.com/jouni-mikkola/omatalous.git git@github.com:jouni-mikkola/omatalous; do
-    world; release 0.2.0; setenv TALOUS_CHANNEL=source TALOUS_PRIVATE_BUILD=yes; src_commit
-    git -C "$CL" remote set-url origin "$url"; sum=$(sha256sum <"$CL/.env"); by_hand
-    check "public origin ($url): the source update is refused" bash -c "[[ $RC != 0 && \$1 == *'follows the public repository'* ]]" x "$OUT"
-    check "public origin ($url): nothing built, pulled or tagged, .env as it was" test "$(n_calls '^docker (pull|image tag|compose (up|build))')" = 0 -a "$(sha256sum <"$CL/.env")" = "$sum"
+    world; release 0.2.0; setenv TALOUS_CHANNEL=source; src_commit
+    # The clone names the public repository as an install does. The world's git reads its own remote under that name
+    # when it fetches, and still tells the name as it stands (`remote get-url` would print the rewritten one).
+    real=$(git -C "$CL" remote get-url origin); git -C "$CL" remote set-url origin "$url"
+    printf '#!/usr/bin/env bash\n[[ " $* " == *" get-url "* ]] && exec %q "$@"\nexec %q -c %q "$@"\n' "$(command -v git)" "$(command -v git)" "url.$real.insteadOf=$url" >"$S/bin/git"
+    chmod +x "$S/bin/git"; by_hand
+    check "public origin ($url): the folder names the public repository" test "$(git -C "$CL" remote get-url origin)" = "$url"
+    check "public origin ($url): the source is built" test "$RC" = 0 -a "$(n_calls '^docker compose build')" -ge 1
+    check "public origin ($url): the public build, no release image pulled" test "$(built_with)" = PRIVATE_BUILD=false -a "$(n_calls '^docker pull')" = 0
+    check "public origin ($url): the folder is at the newest main" test "$(git -C "$CL" rev-parse HEAD)" = "$(git -C "$W/seed" rev-parse HEAD)"
   done
-  # another remote (the private repository, a fork) builds as before
-  world; release 0.2.0; setenv TALOUS_CHANNEL=source; src_commit; by_hand
-  check "another origin: the source is built" test "$RC" = 0 -a "$(n_calls '^docker compose build')" -ge 1
 }
 # back from the private build to the signed release (OWNER-SWITCH.md step 7): the folder at the release tag, no keys
 t_private_build_back_to_release() {

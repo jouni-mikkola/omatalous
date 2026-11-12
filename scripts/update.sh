@@ -167,9 +167,6 @@ channel_setting() { grep -E '^TALOUS_CHANNEL=' .env 2>/dev/null | tail -1 | cut 
 private_build() {
   if [[ $CHANNEL == source ]] && { on_private || [[ $(grep -E '^TALOUS_PRIVATE_BUILD=' .env 2>/dev/null | tail -1 | cut -d= -f2-) == yes ]]; }; then echo true; else echo false; fi
 }
-# The public repository is a distribution repository with no source to build (its Dockerfile fails on purpose), so a
-# source update of a clone of it is refused before anything changes.
-public_origin() { git remote get-url origin 2>/dev/null | grep -E "github\\.com[:/]${PROJECT_OWNER//./\\.}/${PROJECT_REPO//./\\.}(\\.git)?/?\$" >/dev/null; }
 # the kind of build an image is (its talous.private label; a release image and one from before the label have none)
 built_private() { if [[ $(image_label "$1" talous.private) == true ]]; then echo true; else echo false; fi; }
 # true when the running container uses the image now tagged $IMAGE:latest
@@ -377,11 +374,6 @@ main() {
   fi
 
   local target tag
-  # before the fetch: a clone of the distribution repository is never ahead of its releases, so only the setting or
-  # the helper's mode puts it on the source channel
-  if ! on_private && [[ $(channel_setting) == source || $MODE == source ]] && public_origin; then
-    die "This folder follows the public repository, which has no source to build. Delete the line TALOUS_CHANNEL=source from .env and run this again: the install then follows the signed releases. Nothing was changed."
-  fi
   pick_target
   [[ -z $RELEASE_HELD ]] || return 0
   local want_private
