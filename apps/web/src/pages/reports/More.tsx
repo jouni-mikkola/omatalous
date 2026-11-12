@@ -1,6 +1,6 @@
 /**
- * Kuukausi and Lisää: a bare address opens the month; any other fetches the reports of the server and shows one question page of `reports/pages/` in the frame
- * (`reports/Frame.tsx`). The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
+ * Raportit: a bare address opens the month; any other shows one question page of `reports/pages/`. Both stand in the frame
+ * (`reports/Frame.tsx`) beside the list of all reports, so every report is one step from any other. The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
  * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
 import { t } from "../../text.ts";
@@ -12,10 +12,10 @@ import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { useApi } from "../../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { reportContext } from "./context.ts";
-import { Frame, moreLabel } from "./Frame.tsx";
+import { Frame } from "./Frame.tsx";
 import { Month } from "./Month.tsx";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
-import type { ReportContext, ReportRange } from "./types.ts";
+import type { ReportContext, ReportPage, ReportRange } from "./types.ts";
 import { FoldContext } from "../../components/Section.tsx";
 import "../../styles/reports.css";
 
@@ -64,7 +64,7 @@ export function questionOf(open: readonly QuestionId[], asked: string | null, an
 export function askedNote(asked: string | null, shown: QuestionId): string | undefined {
   if (!asked || asked === shown) return undefined;
   if (asked === "yhteiset") return t("rpt.q_not_open");
-  const name = REPORT_PAGES.some((p) => p.id === asked) ? (moreLabel(asked as QuestionId) ?? reportPage(asked as QuestionId).title) : undefined;
+  const name = REPORT_PAGES.some((p) => p.id === asked) ? reportPage(asked as QuestionId).title : undefined;
   return name ? t("rpt.q_empty", { name }) : undefined;
 }
 
@@ -77,19 +77,31 @@ export function More(props: ReportsProps) {
   return isMonth(props.params, props.anchor) ? <MonthTab {...props} /> : <Questions {...props} />;
 }
 
+/** Every page's reports are asked for at once, so a switch of report needs no new answer; the month reads the same answer for its list. */
+const reportsPath = (range: ReportRange, scope: Scope): string => `/api/reports${query({ ...range, scope, reports: [...new Set(REPORT_PAGES.flatMap(reportsOfPage))].join(",") })}`;
+
+/** The pages the list names: Kuukausi always (the tab opens it), the others when they have something to show. */
+export const listedPages = (open: readonly QuestionId[]): ReportPage[] => REPORT_PAGES.filter((p) => p.id === "kuukausi" || open.includes(p.id));
+
 /** The month has no period of its own, so the shell is told the running month is open and shows no period switch. */
-function MonthTab({ meta, range, scope, onQuestion }: ReportsProps) {
+function MonthTab({ meta, range, scope, params, onQuestion }: ReportsProps) {
   useEffect(() => {
     onQuestion?.("kuukausi");
     return () => onQuestion?.(null);
   }, [onQuestion]);
-  return <Month meta={meta} range={range} scope={scope} />;
+  // The list names the reports that have something to show, so the month asks for the same answer the other reports
+  // read (a switch to one then needs no new answer). Until it comes the list is Kuukausi alone: nothing is named and then taken away.
+  const { data } = useApi<ReportsData>(reportsPath(range, scope));
+  const open = data ? openQuestions(reportContext(data, meta, range, scope)) : [];
+  return (
+    <Frame current="kuukausi" pages={listedPages(open)} params={params ?? new URLSearchParams()}>
+      <Month meta={meta} range={range} scope={scope} />
+    </Frame>
+  );
 }
 
 function Questions({ meta, range, scope, params, anchor, onQuestion }: ReportsProps) {
-  // every page's reports are asked for at once, so a switch of question needs no new answer
-  const wanted = [...new Set(REPORT_PAGES.flatMap(reportsOfPage))];
-  const { data, error, loading, reload } = useApi<ReportsData>(`/api/reports${query({ ...range, scope, reports: wanted.join(",") })}`);
+  const { data, error, loading, reload } = useApi<ReportsData>(reportsPath(range, scope));
   // an address names a section (#/reports?period=12m#kuukaudet from Yhteenveto): scroll to it once the sections are there
   const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
@@ -113,7 +125,7 @@ function Questions({ meta, range, scope, params, anchor, onQuestion }: ReportsPr
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame page={page} pages={REPORT_PAGES.filter((p) => questions.includes(p.id))} params={open} note={askedNote(open.get("q"), page.id)}>
+      <Frame current={page.id} title={page.title} pages={listedPages(questions)} params={open} note={askedNote(open.get("q"), page.id)}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

@@ -15,7 +15,7 @@ const ROUTES = [
   "/#/transactions?view=merchants",
   // Kuukausi, the tab
   "/#/reports",
-  // Lisää: Vuosi, Tilit ja saldot, Lainat and Verovuosi (Yhteiset needs a shared account)
+  // the list of reports: Rahankäyttö, Tilit ja saldot, Velat and Verovuosi (Yhteiset menot needs a shared account)
   "/#/reports?q=menot#vuodet",
   "/#/reports?q=saldot",
   "/#/reports?q=velat",

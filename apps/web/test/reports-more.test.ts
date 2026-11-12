@@ -1,9 +1,8 @@
 import type { QuestionId } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import "@banking/core/late";
-import { askedNote, questionOf } from "../src/pages/reports/More.tsx";
-import { moreLabel } from "../src/pages/reports/Frame.tsx";
-import { reportPage } from "../src/pages/reports/registry.ts";
+import { askedNote, listedPages, questionOf } from "../src/pages/reports/More.tsx";
+import { reportHref } from "../src/pages/reports/Frame.tsx";
 
 describe("the question Raportit opens", () => {
   const all: QuestionId[] = ["kuukausi", "menot", "tulot"];
@@ -23,9 +22,9 @@ describe("the question Raportit opens", () => {
 });
 
 describe("the line above a report opened in place of the asked one", () => {
-  it("names the asked report by its name in Lisää when it has nothing to show", () => {
-    expect(askedNote("menot", "tulot")).toBe("Raportissa Vuosi ei ole vielä mitään näytettävää, joten tässä on toinen raportti.");
-    expect(askedNote("velat", "tulot")).toContain("Lainat");
+  it("names the asked report by its name in the list when it has nothing to show", () => {
+    expect(askedNote("menot", "tulot")).toBe("Raportissa Rahankäyttö ei ole vielä mitään näytettävää, joten tässä on toinen raportti.");
+    expect(askedNote("velat", "tulot")).toContain("Velat");
   });
   it("keeps its own words for a household with no joint account", () => {
     expect(askedNote("yhteiset", "menot")).toBe("Yhteistä tiliä ei ole, joten tässä on muut aiheet.");
@@ -37,12 +36,15 @@ describe("the line above a report opened in place of the asked one", () => {
   });
 });
 
-describe("the heading of a report of one section", () => {
-  // Lisää said Tilit ja saldot and Verovuosi while the page that opened said Saldot and Tulot.
-  it("is the name Lisää gives it", () => {
-    for (const q of ["saldot", "tulot"] as const) {
-      expect(reportPage(q).sections).toHaveLength(1);
-      expect(reportPage(q).title).toBe(moreLabel(q));
-    }
+describe("the list of reports", () => {
+  // main listed five reports behind Lisää and left Kuukausi out, so the month had no way to the others and they none back
+  it("names Kuukausi first, also when it alone has something to show, then the open reports in the order of 1.0.0", () => {
+    expect(listedPages([]).map((p) => p.title)).toEqual(["Kuukausi"]);
+    expect(listedPages(["saldot", "menot", "velat", "tulot", "yhteiset"]).map((p) => p.title)).toEqual(["Kuukausi", "Rahankäyttö", "Verovuosi", "Velat", "Tilit ja saldot", "Yhteiset menot"]);
+  });
+  it("Kuukausi is the bare address the tab opens, and the others keep the period", () => {
+    expect(reportHref("kuukausi", "6m")).toBe("#/reports");
+    expect(reportHref("menot", "6m")).toBe("#/reports?q=menot&period=6m");
+    expect(reportHref("velat", null)).toBe("#/reports?q=velat");
   });
 });

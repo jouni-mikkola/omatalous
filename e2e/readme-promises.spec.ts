@@ -12,10 +12,10 @@ test("what the README says about Lisää, English and statement files holds on t
     expect(demo.status()).toBe(200);
     const page = await context.newPage();
 
-    // Lisää lists four reports on the demo; the fifth, Yhteiset, waits for an account two members share
+    // the list names four reports on the demo; Velat waits for a saved loan and Yhteiset menot for an account two members share
     await page.goto("/#/reports?q=menot");
-    const more = page.getByRole("navigation", { name: "Lisää" });
-    await expect(more.getByRole("link")).toHaveText(["Vuosi", "Tilit ja saldot", "Lainat", "Verovuosi"]);
+    const more = page.getByRole("navigation", { name: "Raportit" });
+    await expect(more.getByRole("link")).toHaveText(["Kuukausi", "Rahankäyttö", "Verovuosi", "Tilit ja saldot"]);
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
     await expect(page.getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();

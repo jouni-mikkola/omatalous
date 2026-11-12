@@ -11,6 +11,9 @@
 .q-list a:hover { background: var(--surface-2); }
 .q-list a[aria-current="page"] { border-left-color: var(--accent); background: var(--surface-2); }
 .q-list small { display: block; margin-top: var(--sp-4); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
+/* the caret says the name opens a list: without it the button reads as a second heading */
+.q-switch::after { content: ""; display: inline-block; margin-left: var(--sp-8); border: var(--sp-4) solid transparent; border-top-color: currentColor; border-bottom-width: 0; vertical-align: middle; }
+.q-switch[aria-expanded="true"]::after { transform: rotate(180deg); }
 .q-switch { justify-self: start; min-height: var(--control-h); padding: 0 var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); background: var(--surface); color: var(--text); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
 .q-page { min-width: 0; }
 .q-head { display: grid; gap: var(--sp-12); }

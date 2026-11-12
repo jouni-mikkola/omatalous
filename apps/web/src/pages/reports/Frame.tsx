@@ -1,39 +1,32 @@
-// Decision: which report of Lisää to open
+// Decision: which report to open
 import type { QuestionId } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { query } from "../../api.ts";
 import { t } from "../../text.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
-import { TAX_YEAR_ID, YEARS_ID } from "./sections/ids.ts";
 import type { ReportPage } from "./types.ts";
 import "../../styles/reports.css";
 
-/** What Lisää lists: the reports that earn a place, each at the question page that holds it and, for a part of a page, its section.
- * Each page is here once, so the link of the page that is open is marked, also when it opens at a section. */
-const MORE_LINKS: readonly { id: string; label: () => string; q: QuestionId; anchor?: string }[] = [
-  { id: "vuosi", label: () => t("rpt.more_year"), q: "menot", anchor: YEARS_ID },
-  { id: "tilit", label: () => t("rpt.more_accounts"), q: "saldot" },
-  { id: "lainat", label: () => t("rpt.more_loans"), q: "velat" },
-  { id: "verovuosi", label: () => t("rpt.more_tax"), q: "tulot", anchor: TAX_YEAR_ID },
-  { id: "yhteiset", label: () => t("rpt.more_shared"), q: "yhteiset" },
-];
+/** The address of a report: Kuukausi is what the tab opens, so it is the bare address; the others name their question and keep the period. */
+export const reportHref = (id: QuestionId, period: string | null): string => (id === "kuukausi" ? "#/reports" : `#/reports${query({ q: id, period })}`);
 
-/** The name Lisää gives the report of a question page, or nothing when Lisää does not list that page. */
-export const moreLabel = (q: QuestionId): string | undefined => MORE_LINKS.find((l) => l.q === q)?.label();
-
-/** Lisää: the list of the reports whose page has something to show (Yhteiset only with a shared account), the open one marked. On a phone it folds behind "Lisää". */
-function MoreList({ pages, current, params }: { pages: readonly ReportPage[]; current: QuestionId; params: URLSearchParams }) {
+/**
+ * The list of reports, on every report page: each page that has something to show by its name, Kuukausi first, the
+ * open one marked. On a phone it folds behind a button that says which report is open.
+ */
+function ReportList({ pages, current, params }: { pages: readonly ReportPage[]; current: QuestionId; params: URLSearchParams }) {
   const [open, setOpen] = useState(false);
+  const name = pages.find((p) => p.id === current)?.title;
   return (
-    <nav className={open ? "q-rail open" : "q-rail"} aria-label={t("rpt.more")}>
+    <nav className={open ? "q-rail open" : "q-rail"} aria-label={t("nav.reports")}>
       <button type="button" className="q-switch" aria-expanded={open} aria-controls="q-list" onClick={() => setOpen(!open)}>
-        {t("rpt.more")}
+        {name ?? t("nav.reports")}
       </button>
       <ol id="q-list" className="q-list">
-        {MORE_LINKS.filter((l) => pages.some((p) => p.id === l.q)).map((l) => (
-          <li key={l.id}>
-            <a href={`#/reports${query({ q: l.q, period: params.get("period") })}${l.anchor ? `#${l.anchor}` : ""}`} aria-current={l.q === current ? "page" : undefined} onClick={() => setOpen(false)}>
-              {l.label()}
+        {pages.map((p) => (
+          <li key={p.id}>
+            <a href={reportHref(p.id, params.get("period"))} aria-current={p.id === current ? "page" : undefined} onClick={() => setOpen(false)}>
+              {p.title}
             </a>
           </li>
         ))}
@@ -42,16 +35,21 @@ function MoreList({ pages, current, params }: { pages: readonly ReportPage[]; cu
   );
 }
 
-/** The frame of every question page: the list of Lisää, the open one as a heading and the sections the page assembled. The question is in the address, so a link keeps it. */
-export function Frame({ page, pages, params, note, children }: { page: ReportPage; pages: readonly ReportPage[]; params: URLSearchParams; note?: string; children: ReactNode }) {
+/**
+ * The frame of every report page: the list of reports and the open one beside it. A question page has its name as the
+ * heading; Kuukausi brings its own (the month and the way to the months before), so it passes no `title`.
+ */
+export function Frame({ current, title, pages, params, note, children }: { current: QuestionId; title?: string; pages: readonly ReportPage[]; params: URLSearchParams; note?: string; children: ReactNode }) {
   return (
     <div className="q-frame">
-      <MoreList pages={pages} current={page.id} params={params} />
+      <ReportList pages={pages} current={current} params={params} />
       <div className="q-page stack">
-        <header className="q-head">
-          <h2 className="q-title">{page.title}</h2>
-          {note && <Notice>{note}</Notice>}
-        </header>
+        {(title || note) && (
+          <header className="q-head">
+            {title && <h2 className="q-title">{title}</h2>}
+            {note && <Notice>{note}</Notice>}
+          </header>
+        )}
         {children}
       </div>
     </div>
