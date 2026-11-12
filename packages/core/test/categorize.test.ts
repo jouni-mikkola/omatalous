@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { categorize, compileRules, isUsablePattern, ownRuleOf, patternProblem } from "../src/categorize.ts";
+import { categorize, compileRules, isUsablePattern, patternProblem } from "../src/categorize.ts";
+import { ownRuleOf } from "../src/categorize-own-rule.ts";
 import { categoryForMcc } from "../src/categorize-mcc.ts";
 import { isUnknownMerchant, namesUnknownMerchant, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 

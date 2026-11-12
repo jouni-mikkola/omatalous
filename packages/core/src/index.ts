@@ -36,6 +36,7 @@ export * from "./reconcile.ts";
 export * from "./local-origin.ts";
 export * from "./consent-round.ts";
 export * from "./categorize.ts";
+export * from "./categorize-own-rule.ts";
 export * from "./rule-key.ts";
 export * from "./industry.ts";
 export { householdWords, nameMayBePerson } from "./payee-guard.ts";

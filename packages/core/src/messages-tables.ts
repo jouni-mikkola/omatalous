@@ -94,7 +94,7 @@ export const FI_TABLES = {
   "row.why_default": "Sovellus ei tunnistanut tätä.",
   "row.why_transfer": "Raha siirtyi omien tiliesi välillä, joten se ei ole menoa eikä tuloa.",
   "row.why_payer": "Kerroit, mitä tämän maksajan maksut ovat.",
-  "row.why_card_bill": "Luottokortin lasku. Kortin ostot eivät näy, joten lasku lasketaan velanhoitoon.",
+  "row.why_card_bill": "Luottokortin lasku. Kortin ostot eivät näy, joten laskemme laskun velanhoitoon.",
   // Shared
   "period.m3": "3 kk",
   "period.m6": "6 kk",
