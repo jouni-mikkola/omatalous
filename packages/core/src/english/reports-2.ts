@@ -154,4 +154,5 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.bl_payday": "Pay day",
   "rpt.bl_pay": "pay",
   "rpt.bl_low": "lowest {day} {amount}",
+  "rpt.bl_known_from": "Balance known from {day}",
 };

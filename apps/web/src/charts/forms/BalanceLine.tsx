@@ -3,7 +3,7 @@ import type { BalanceReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { dayMonth, money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
-import { crisp, labelsWithRoom } from "../draw.ts";
+import { crisp, LABEL_CHAR_W, labelsWithRoom } from "../draw.ts";
 import { decimate } from "../kit/decimate.ts";
 import { LANE_H } from "../kit/Annotations.tsx";
 import { placeMarkers } from "../kit/annotate.ts";
@@ -18,6 +18,25 @@ import { color } from "../../design/tokens.ts";
 import { css } from "../../css.ts";
 
 const LANES = 2;
+/** The height of a label's line, for telling whether two labels touch. */
+const LINE_H = 12;
+
+interface Box {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+/** The box of a label of `text` whose baseline is at `y`, anchored at `x` as SVG anchors it. */
+const boxOf = (x: number, y: number, text: string, anchor: "start" | "middle" | "end"): Box => {
+  const w = text.length * LABEL_CHAR_W;
+  const x0 = anchor === "end" ? x - w : anchor === "middle" ? x - w / 2 : x;
+  return { x0, x1: x0 + w, y0: y - LINE_H, y1: y };
+};
+
+/** Whether two label boxes keep 4 px of air between them. */
+const apart = (a: Box, b: Box) => a.x1 + 4 <= b.x0 || b.x1 + 4 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
 
 /** A payee short enough for a lane: its first word, cut at twelve letters. */
 const short = (label: string) => {
@@ -52,6 +71,13 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const starts = monthStarts(r.daily.from, iso(days.length - 1));
   const startTexts = starts.map((s) => monthLabel(s.slice(0, 7), s.slice(5, 7) === "01"));
   const printedStarts = labelsWithRoom(startTexts, f.innerW / Math.max(starts.length, 1), new Set());
+  // a month's name stands under the days of it the chart has, and inside the chart: the running month has only a few
+  const monthX = (k: number) => {
+    const a = Math.max(0, indexOf(starts[k]!));
+    const b = k + 1 < starts.length ? indexOf(starts[k + 1]!) - 1 : days.length - 1;
+    const half = (startTexts[k]!.length * LABEL_CHAR_W) / 2;
+    return Math.max(half, Math.min(f.innerW + f.margin.right - half - 1, (x(a) + x(b)) / 2));
+  };
   const inDays = (day: string) => indexOf(day) >= 0 && indexOf(day) < days.length && days[indexOf(day)] !== null;
   const events = r.events.filter((e) => inDays(e.day));
   // a tick only where the line steps down by the purchase (critic round 2); the rest are told in the readout
@@ -62,15 +88,31 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
     f.innerW,
     LANES,
   );
-  const low = r.lowest && indexOf(r.lowest.day) >= 0 ? r.lowest : null;
+  const low = r.lowest && indexOf(r.lowest.day) >= 0 && days[indexOf(r.lowest.day)] != null ? r.lowest : null;
+  const lowLabel = low && (() => {
+    const lx = x(indexOf(low.day));
+    const text = t("rpt.bl_low", { day: dayMonth(low.day), amount: money(low.cents, false) });
+    // under the dot, or over it when the dot sits on the axis's labels
+    const ly = y(low.cents) + 18 > f.innerH - 2 ? y(low.cents) - 10 : y(low.cents) + 18;
+    const anchor = lx > f.innerW - 90 ? "end" : lx < 90 ? "start" : "middle";
+    return { x: lx, y: ly, text, anchor } as const;
+  })();
+  const endText = last >= 0 ? money(days[last]!, false) : "";
+  // the labels already set: a pay day's word is named only where it touches neither
+  const taken = [...(last >= 0 ? [boxOf(x(last) - 8, y(days[last]!) - 10, endText, "end")] : []), ...(lowLabel ? [boxOf(lowLabel.x, lowLabel.y, lowLabel.text, lowLabel.anchor)] : [])];
   const title = (i: number) => (i === last ? t("rpt.bl_latest", { day: dayMonth(iso(i)) }) : dayMonth(iso(i)));
   const tipRows = (i: number) => [
     { name: t("rpt.bl_balance"), value: days[i] === null ? "–" : money(days[i]!, false), key: <span className="line-key" ref={css({ background: color["series-1"] })} /> },
     ...(pays.some((d) => indexOf(d) === i) ? [{ name: t("rpt.bl_payday"), value: "" }] : []),
     ...events.filter((e) => indexOf(e.day) === i).map((e) => ({ name: e.label, value: money(e.cents, false) })),
   ];
-  // one pay day named, the one nearest the middle: the ends carry today's balance and often the lowest day
-  const namedPay = pays.reduce<string | undefined>((best, d) => (best === undefined || Math.abs(indexOf(d) - days.length / 2) < Math.abs(indexOf(best) - days.length / 2) ? d : best), undefined);
+  // one pay day named, the one nearest the middle whose word clears the labels of today and of the lowest day
+  const payBox = (d: string) => boxOf(x(indexOf(d)), y(days[indexOf(d)]!) - 8, t("rpt.bl_pay"), "middle");
+  const namedPay = pays
+    .filter((d) => taken.every((b) => apart(b, payBox(d))))
+    .reduce<string | undefined>((best, d) => (best === undefined || Math.abs(indexOf(d) - days.length / 2) < Math.abs(indexOf(best) - days.length / 2) ? d : best), undefined);
+  // the days before an account was known are left empty, and the empty part says from which day the line runs
+  const knownFrom = first > 0 ? t("rpt.bl_known_from", { day: dayMonth(iso(first)) }) : null;
   // the readout steps by day, every day one stop: the pixel of each day is its index
   const xs = days.map((_, i) => x(i));
   return (
@@ -82,10 +124,15 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
             <ValueGrid y={y} innerW={f.innerW} format={moneyAxis} />
             {starts.map((s, k) =>
               printedStarts.has(k) ? (
-                <text key={s} x={x(Math.min(days.length - 1, indexOf(s) + 14))} y={f.innerH + 16} textAnchor="middle">
+                <text key={s} x={monthX(k)} y={f.innerH + 16} textAnchor="middle">
                   {startTexts[k]}
                 </text>
               ) : null,
+            )}
+            {knownFrom && knownFrom.length * LABEL_CHAR_W + 16 <= x(first) && (
+              <text className="qc-end-sub bl-known-from" x={x(first) / 2} y={f.innerH / 2} dy="0.32em" textAnchor="middle">
+                {knownFrom}
+              </text>
             )}
             {y.domain[0] === 0 && first >= 0 && <path className="qc-area" d={`${linePath(days, x, y, keep)}L${x(last).toFixed(1)},${y(0)}L${x(first).toFixed(1)},${y(0)}Z`} />}
             <path className="qc-line qc-now draw" d={linePath(days, x, y, keep)} />
@@ -112,12 +159,11 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
                 </g>
               );
             })}
-            {low && days[indexOf(low.day)] != null && (
+            {low && lowLabel && (
               <g>
-                <circle className="qc-low" cx={x(indexOf(low.day))} cy={y(low.cents)} r={5} />
-                {/* under the dot, or over it when the dot sits on the axis's labels */}
-                <text className="qc-note" x={x(indexOf(low.day))} y={y(low.cents) + 18 > f.innerH - 2 ? y(low.cents) - 10 : y(low.cents) + 18} textAnchor={x(indexOf(low.day)) > f.innerW - 90 ? "end" : x(indexOf(low.day)) < 90 ? "start" : "middle"}>
-                  {t("rpt.bl_low", { day: dayMonth(low.day), amount: money(low.cents, false) })}
+                <circle className="qc-low" cx={lowLabel.x} cy={y(low.cents)} r={5} />
+                <text className="qc-note" x={lowLabel.x} y={lowLabel.y} textAnchor={lowLabel.anchor}>
+                  {lowLabel.text}
                 </text>
               </g>
             )}
@@ -125,7 +171,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
               <g>
                 <circle className="qc-dot" cx={x(last)} cy={y(days[last]!)} r={5} />
                 <text className="qc-note" x={x(last) - 8} y={y(days[last]!) - 10} textAnchor="end">
-                  {money(days[last]!, false)}
+                  {endText}
                 </text>
               </g>
             )}
