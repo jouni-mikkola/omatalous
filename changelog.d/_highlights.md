@@ -1,0 +1,3 @@
+- Yhteenveto is calmer: the answer and its basis are one block, Kuukausi is its chart alone, and Huomioitavaa lists only what needs the household.
+- Security events stay in Turvallisuusloki; the first page shows one line only for an event not seen yet.
+- Varat ja velat shows the usual month of spending, the same quantity as Kuukausi, and says when debts lack a balance.
