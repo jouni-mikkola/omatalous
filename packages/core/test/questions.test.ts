@@ -71,28 +71,17 @@ describe("how much of the spending is known (knownSpending)", () => {
     expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
   });
 
-  it("names a refund spread over two payments, and the payment it took back whole, so the rows add up to the sum", () => {
-    const rows = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" })];
-    const [q] = questionsOf(rows).items as { cents: number; count: number; rowIds?: string[] }[];
-    expect([q!.cents, q!.count, q!.rowIds?.length]).toEqual([eur(20), 1, 3]);
-    const byId = new Map(rows.map((t) => [t.id, t.amountCents]));
-    expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
-  });
-
-  it("keeps the counted rows when a refund also took back a payment outside the question", () => {
-    const sumOf = (rows: Transaction[]) => {
-      const [q] = questionsOf(rows).items as { cents: number; rowIds?: string[] }[];
-      const byId = new Map(rows.map((t) => [t.id, t.amountCents]));
-      return [q!.cents, q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)];
+  it("shows a refund spread over payments, or reaching one outside the question, with none of them: the rows it counts", () => {
+    const rowsOf = (rows: Transaction[]) => {
+      const [q] = questionsOf(rows).items as { cents: number; count: number; rowIds?: string[] }[];
+      return [q!.cents, q!.count, q!.rowIds!.map((id) => rows.find((t) => t.id === id)!.bookingDate)];
     };
-    const back = tx({ bookingDate: "2025-10-20", amountCents: eur(100), merchant: "Kioski Oy" });
-    // the refund took back a payment from before the window and one in it
-    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-15" }), back, unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
-    expect(sumOf(early)).toEqual([eur(30), -eur(30)]);
-    // and a payment the user put in a category
-    const moved = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01", category: "groceries", categorySource: "user" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
-    const [cents, sum] = sumOf(moved);
-    expect(sum).toBe(-cents!);
+    // a refund of 100 took the later payment back whole and 40 of the earlier: the 20 left is the earlier one's
+    const spread = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" })];
+    expect(rowsOf(spread)).toEqual([eur(20), 1, ["2026-08-01"]]);
+    // the refund also took back a payment from before the window
+    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-15" }), tx({ bookingDate: "2025-10-20", amountCents: eur(100), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
+    expect(rowsOf(early)).toEqual([eur(30), 1, ["2026-09-01"]]);
   });
 
   it("reads the twelve complete months up to the period's end: the month still running is not one", () => {
