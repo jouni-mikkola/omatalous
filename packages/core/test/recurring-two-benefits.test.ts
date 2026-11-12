@@ -23,6 +23,15 @@ describe("two incomes of one payer", () => {
     expect(biweekly.nextDate).toBe("2026-10-12");
   });
 
+  it("keeps two monthly benefits on other days two, with a payment now and then beside them", () => {
+    const month = (i: number) => `2026-${String(i + 1).padStart(2, "0")}`;
+    const first = Array.from({ length: 10 }, (_, i) => tx({ ...payer, bookingDate: `${month(i)}-01`, amountCents: 41_250 + ((i * 3) % 4) * 700 }));
+    const eighteenth = Array.from({ length: 9 }, (_, i) => tx({ ...payer, bookingDate: `${month(i)}-18`, amountCents: 90_000 + ((i * 5) % 4) * 3_000 }));
+    const now = series("2026-02-11", 37, 5, (i) => 5_000 + i * 900, payer);
+    const found = detectRecurring([...first, ...eighteenth, ...now], today).filter((s) => s.kind === "income");
+    expect(found.map((s) => [s.cadence, s.transactionIds.length, s.nextDate]).sort()).toEqual([["monthly", 10, "2026-11-01"], ["monthly", 9, "2026-10-18"]].sort());
+  });
+
   it("makes no series of a piece of a salary whose sum moves a lot", () => {
     // the 25th of each month from 10.2025: nine months near 2 500 € and four between 3 000 and 3 600 €, then a bonus and three small sums
     const sums = [250_000, 300_000, 248_000, 252_000, 330_000, 251_000, 249_000, 360_000, 250_000, 253_000, 310_000, 247_000, 250_000];
