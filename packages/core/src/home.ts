@@ -175,9 +175,9 @@ function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], 
 
 /** What the page tells of how far its figures can be trusted. */
 function homeReliability(ctx: AnalysisContext): HomeReliability {
-  const { bills } = knownSpending(ctx);
-  const cause = cardGapCause(bills);
-  return { cardGap: cause ? { cents: bills.reduce((s, b) => s + b.cents, 0), cause } : null };
+  const { cards } = knownSpending(ctx);
+  const cause = cardGapCause(cards.bills);
+  return { cardGap: cause ? { cents: cards.cents, cause } : null };
 }
 
 /** What `buildHome` reads from the dashboard's own parts, so nothing is worked out twice. */

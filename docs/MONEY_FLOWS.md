@@ -183,7 +183,12 @@ card's own, or a statement's.
   a debt, savings or *Muut* category. A rule to a purchase category (*Koti*) and a category set by hand on a row stay.
 - **Data quality.** The card bills that are no transfer show in Tietojen laatu (*Korttilaskuja … ilman ostoja*) as a table by
   issuer: the bills of 12 months, and why the purchases are missing: no card of that issuer is connected, or the bank
-  gives the card's purchases only from a day on. An issuer has one name under every legal suffix and word order (Morrow
+  gives the card's purchases only from a day on.
+- **Missing card purchases.** *Kortin ostot puuttuvat* has one owner, `missingCards` in `analysis/card-bills.ts`: the
+  bills of `missingCardPurchases` over a range, for every reason, and their sum. Its one title is `missingCardsTitle`.
+  The data quality signal reads it over its range. The first page's reliability line, the questions and the known share
+  read it over the twelve complete months of `knownSpending`. `packages/core/test/missing-cards.test.ts` holds them to
+  one sum and the catalogues to one title. An issuer has one name under every legal suffix and word order (Morrow
   Bank ASA, Morrow Bank AB Filial and plain Morrow are Morrow Bank; Komplett Bank, SEB Kort, Bank Norwegian, Resurs Bank
   and Entercard likewise). The plain words *Komplett* and *Norwegian* alone stay what they are: a shop and an airline.
 - **Statement rows.** A member may type in the purchases of one bill from a card statement. The bill stays one row on

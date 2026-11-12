@@ -2,7 +2,6 @@
 import type { FI_REPORTS_2 } from "../messages-reports-2.ts";
 
 export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
-  "rep.notice_cards": "Card purchases are missing: {range} has card bills of {amount}, but {cause}.",
   "rep.notice_currency": "Rows in other currencies are left out: {parts}.",
   "rep.notice_history": "The bank's history only starts on {start}. Missing from {range}: {days}.",
   "rep.q_known": "{percent}% of the last 12 complete months' spending is categorised",

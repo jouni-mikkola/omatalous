@@ -1,4 +1,4 @@
-import { missingCardPurchases, type MissingCardPurchases } from "./card-bills.ts";
+import { type MissingCardPurchases, type MissingCards, missingCards, missingCardsTitle } from "./card-bills.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netSpend, spendRows } from "./context.ts";
 import { type FiledWithoutAsking, filedWithoutAsking } from "./filed.ts";
 import { finnishList, formatEur, formatFiDate, formatFiRange } from "./format.ts";
@@ -50,12 +50,11 @@ export function spendingBase(txs: readonly Pick<AnalysisTx, "spend" | "category"
 const isUnknownOther = (t: Pick<AnalysisTx, "category" | "categorySource">): boolean => t.category === "other" && t.categorySource !== "user";
 
 /** The spending rows of a range, the Muut menot nobody set among them and the card bills whose purchases are not itemised. */
-function spendingParts(ctx: AnalysisContext, range: DateRange): { rows: AnalysisTx[]; otherCents: number; bills: MissingCardPurchases[]; billCents: number; spendingCents: number } {
+function spendingParts(ctx: AnalysisContext, range: DateRange): { rows: AnalysisTx[]; otherCents: number; cards: MissingCards; spendingCents: number } {
   const rows = spendRows(ctx, toDayRange(range));
   const otherCents = rows.reduce((s, t) => (isUnknownOther(t) && t.spend > 0 ? s + netSpend(t) : s), 0);
-  // the card bills are the table of the card_bills signal: one sum on every page
-  const bills = missingCardPurchases(ctx, range);
-  return { rows, otherCents, bills, billCents: bills.reduce((s, m) => s + m.cents, 0), spendingCents: spendingBase(rows) };
+  // the card bills are the one figure of missing card purchases: one sum on every page
+  return { rows, otherCents, cards: missingCards(ctx, range), spendingCents: spendingBase(rows) };
 }
 
 /** The twelve complete months up to `to`: the month of `to` when `to` is its last day, else the twelve before it. */
@@ -76,22 +75,22 @@ interface KnownSpending {
   otherCents: number;
   /** What the share is of: the spending base without the card bills, whose purchases are a gap of the data and not a question. */
   spendingCents: number;
-  /** The card bills of the window whose purchases are not itemised, by issuer and kind (`missingCardPurchases`). */
-  bills: MissingCardPurchases[];
+  /** The card bills of the window whose purchases are not itemised, by issuer and kind, and their sum (`missingCards`). */
+  cards: MissingCards;
 }
 
 /**
  * "Tunnistettu X % menoista": the one measure of how much of the spending is known, over the twelve complete months up
  * to `to` (no later than today). Known is every spending row but Muut menot that nobody set; a card bill whose purchases
- * are not itemised is left out of both sides, because the household cannot answer it: its kinds (`bills`) are said in
+ * are not itemised is left out of both sides, because the household cannot answer it: its kinds (`cards`) are said in
  * sentences of their own. The questions, Tietojen laatu, Raportit and Optimoi read this one function.
  */
 export function knownSpending(ctx: AnalysisContext, to: IsoDate = ctx.today): KnownSpending {
   const window = completeYear(to < ctx.today ? to : ctx.today);
-  const { rows, otherCents, bills } = spendingParts(ctx, window);
+  const { rows, otherCents, cards } = spendingParts(ctx, window);
   const spendingCents = spendingBase(rows.filter((t) => t.category !== "card_bill"));
   const share = spendingCents > 0 ? Math.min(1, Math.max(0, 1 - otherCents / spendingCents)) : null;
-  return { share, window, otherCents, spendingCents, bills };
+  return { share, window, otherCents, spendingCents, cards };
 }
 
 /**
@@ -103,9 +102,9 @@ export function knownSpending(ctx: AnalysisContext, to: IsoDate = ctx.today): Kn
  * the user chose is known.
  */
 export function unknownSpending(ctx: AnalysisContext, range: DateRange): { otherCents: number; billCents: number; spendingCents: number; otherShare: number; share: number } {
-  const { otherCents, billCents, spendingCents } = spendingParts(ctx, range);
+  const { otherCents, cards, spendingCents } = spendingParts(ctx, range);
   const known = knownSpending(ctx, range.to);
-  return { otherCents, billCents, spendingCents, otherShare: spendingCents > 0 ? Math.min(1, otherCents / spendingCents) : 0, share: known.spendingCents > 0 ? Math.min(1, known.otherCents / known.spendingCents) : 0 };
+  return { otherCents, billCents: cards.cents, spendingCents, otherShare: spendingCents > 0 ? Math.min(1, otherCents / spendingCents) : 0, share: known.spendingCents > 0 ? Math.min(1, known.otherCents / known.spendingCents) : 0 };
 }
 
 /** Money sent to an own account or fund that is not connected, counted as saved: the sum, the largest payees and the category with most of it. */
@@ -121,34 +120,6 @@ function savedToUnconnected(inRange: readonly AnalysisTx[]): { cents: number; la
   }
   const largest = [...byPayee.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
   return { cents, largest, category: [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0]![0] };
-}
-
-export interface ConnectNotice {
-  title: string;
-  detail: string;
-  /** What is missing over the twelve complete months: the bills of cards that are not connected, else the savings sent to an account that is not. */
-  cents: number;
-}
-
-/**
- * Decision: whether to connect a card or an account now. The one row of the first page for what only a connection
- * mends: the card bills of an issuer none of whose cards is connected (`missingCardPurchases`, reason `not_connected`)
- * and savings sent to an own account that is not connected (the `own_unconnected` signal's sum), over the twelve
- * complete months of `knownSpending`. A bill before a connected card's rows begin or one that pairs with none is not
- * said here: connecting changes neither. null when nothing is missing.
- */
-export function connectNotice(ctx: AnalysisContext, to: IsoDate = ctx.today, lang: Language = DEFAULT_LANGUAGE): ConnectNotice | null {
-  const window = completeYear(to < ctx.today ? to : ctx.today);
-  const cards = missingCardPurchases(ctx, window).filter((m) => m.reason === "not_connected");
-  const cardCents = cards.reduce((s, m) => s + m.cents, 0);
-  const saved = savedToUnconnected(inDays(ctx, toDayRange(window)));
-  const savedLine = saved ? messageIn(lang, "home.cn_saved", { amount: formatEur(saved.cents, false, lang) }) : "";
-  if (cardCents > 0) {
-    const issuers = finnishList(cards.slice(0, 3).map((m) => m.issuer), lang);
-    return { title: messageIn(lang, "home.cn_cards_title", { amount: formatEur(cardCents, false, lang) }), detail: messageIn(lang, "home.cn_cards_detail", { issuers, saved: savedLine ? ` ${savedLine}` : "" }), cents: cardCents };
-  }
-  if (saved) return { title: messageIn(lang, "home.cn_own_title", { amount: formatEur(saved.cents, false, lang) }), detail: saved.largest.length ? messageIn(lang, "home.cn_own_detail", { names: finnishList(saved.largest, lang) }) : "", cents: saved.cents };
-  return null;
 }
 
 /** The measure in the page's words, its window named. */
@@ -185,7 +156,6 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
     }
   }
 
-  const { billCents: billTotal } = unknownSpending(ctx, range);
   const known = knownSpending(ctx, range.to);
   if (known.share !== null && 1 - known.share >= UNCATEGORISED_SHARE) {
     const byMerchant = new Map<string, number>();
@@ -231,16 +201,16 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
   }
 
   // the bills are of the months before a connected card's rows, or of a card that is not connected
-  const missing = missingCardPurchases(ctx, range, balances);
-  if (billTotal > 0) {
+  const missing = missingCards(ctx, range, balances);
+  if (missing.cents > 0) {
     signals.push({
       id: "card_bills",
       tone: "warning",
-      title: messageIn(lang, "rep.q_bills_title", { amount: formatEur(billTotal, false, lang) }),
-      detail: missing.some((m) => m.reason === "not_connected") ? messageIn(lang, "rep.q_bills_connect") : "",
+      title: missingCardsTitle(missing.cents, lang),
+      detail: missing.bills.some((m) => m.reason === "not_connected") ? messageIn(lang, "rep.q_bills_connect") : "",
       category: "card_bill",
-      cents: billTotal,
-      cardPurchases: missing,
+      cents: missing.cents,
+      cardPurchases: missing.bills,
     });
   }
 

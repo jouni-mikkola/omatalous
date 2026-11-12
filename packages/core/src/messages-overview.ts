@@ -28,7 +28,6 @@ export const FI_OVERVIEW = {
   "home.today": "tänään",
   "home.line_day": "päivä {day}/{days}",
   "home.line_updated": "päivitetty {updated}",
-  "home.cards_missing": "Kortin ostoja puuttuu, joten ryhmittely voi olla vajaa: {cause}.",
   "home.pace_same": "Olet käyttänyt tähän päivään suunnilleen tavallisen verran",
   "home.pace_more": "Olet käyttänyt tähän päivään {sum} enemmän kuin tavallisesti",
   "home.pace_less": "Olet käyttänyt tähän päivään {sum} vähemmän kuin tavallisesti",
@@ -196,9 +195,4 @@ export const FI_OVERVIEW = {
   "notice.read_title": "Kuittaa: {title}",
   "notice.read_all": "Kuittaa kaikki",
   "notice.security": "Turvallisuus",
-  "home.cn_cards_title": "Kortin ostot puuttuvat: korttilaskuja {amount} viimeiseltä 12 kuukaudelta",
-  "home.cn_cards_detail": "Yhdistämättömät kortit: {issuers}.{saved}",
-  "home.cn_saved": "Siirsit säästöön {amount} tilille, jota et ole yhdistänyt.",
-  "home.cn_own_title": "Siirsit vuoden aikana {amount} tilille, jota et ole yhdistänyt",
-  "home.cn_own_detail": "Suurimmat saajat: {names}.",
 } as const;

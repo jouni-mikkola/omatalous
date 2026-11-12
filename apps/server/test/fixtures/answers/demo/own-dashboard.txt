@@ -912,11 +912,6 @@
   }
  ],
  "dataNotice": null,
- "connectNotice": {
-  "title": "Siirsit vuoden aikana 1 800 € tilille, jota et ole yhdistänyt",
-  "detail": "Suurimmat saajat: Nordnet Bank Ab.",
-  "cents": 180000
- },
  "insights": [
   {
    "id": "new:out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",

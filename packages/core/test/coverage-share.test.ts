@@ -39,7 +39,7 @@ describe("one known share on every reader", () => {
     expect(known.otherCents).toBe(other);
     expect(known.spendingCents).toBe(12 * 90_000 + other);
     expect(known.share).toBe(1 - other / (12 * 90_000 + other));
-    expect(known.bills.reduce((sum, m) => sum + m.cents, 0)).toBe(12 * 25_000);
+    expect(known.cards.cents).toBe(12 * 25_000);
   });
 
   it("the questions, the signal, Raportit and Optimoi say the same figure for any range that ends in the same place", () => {

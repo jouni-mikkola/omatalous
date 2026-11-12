@@ -5,7 +5,6 @@
  * Generated entries are plain one-line rows so the coverage test can read them.
  */
 export const FI_REPORTS_2 = {
-  "rep.notice_cards": "Korttiostoja ei näy: ajalla {range} on korttilaskuja {amount}, mutta {cause}.",
   "rep.notice_currency": "Emme laske mukaan muissa valuutoissa olevia rivejä: {parts}.",
   "rep.notice_history": "Pankin historia alkaa vasta {start}: ajan {range} {days} ei näy.",
   "rep.q_known": "{percent} % viimeisen 12 kuukauden menoista on luokiteltu",

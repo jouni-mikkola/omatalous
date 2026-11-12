@@ -226,7 +226,7 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   }
   items.sort((a, b) => b.cents - a.cents || compare(a.kind, b.kind) || compare(askedName(a), askedName(b)));
 
-  return { share: known.share, window: known.window, cardBills: known.bills, items: items.slice(0, max), total: items.length };
+  return { share: known.share, window: known.window, cardBills: known.cards.bills, items: items.slice(0, max), total: items.length };
 }
 
 /** The questions as the dashboard answers them: the row ids are Tarkistettavat's, not the front page's. */

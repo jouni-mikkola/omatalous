@@ -6,7 +6,7 @@ import { buildHoldings, type Holdings } from "../holdings.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { type CategoryTotal, categoryTotals } from "./category-totals.ts";
-import { type ConnectNotice, connectNotice, dataQualityReport, type QualitySignal } from "./data-quality.ts";
+import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, aheadBasis } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
@@ -76,10 +76,8 @@ export interface DashboardData {
   home: Home;
   /** Cost traps and mistakes; the overview shows them before insights. */
   alerts: Alert[];
-  /** The first warning from the data quality report but the card bills, which `connectNotice` says, so a user who never opens Reports still sees it. */
+  /** The first warning from the data quality report but the card bills, which `home.reliability` says over the twelve complete months, so a user who never opens Reports still sees it. */
   dataNotice: QualitySignal | null;
-  /** How much of the last twelve complete months a card or account that is not connected hides, whatever the range. null when every card and account is connected. */
-  connectNotice: ConnectNotice | null;
   insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
@@ -176,7 +174,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     nyt: basis && nytAnswer(ctx, basis),
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
-    connectNotice: connectNotice(ctx, ctx.today, lang),
     insights,
     home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, proposals),

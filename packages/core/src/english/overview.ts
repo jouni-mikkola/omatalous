@@ -26,7 +26,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.today": "today",
   "home.line_day": "day {day}/{days}",
   "home.line_updated": "updated {updated}",
-  "home.cards_missing": "Card purchases are missing, so the grouping may be incomplete: {cause}.",
   "home.pace_same": "You have spent about what is usual so far",
   "home.pace_more": "You have spent {sum} more than usual so far",
   "home.pace_less": "You have spent {sum} less than usual so far",
@@ -193,9 +192,4 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "notice.read_title": "Mark as read: {title}",
   "notice.read_all": "Mark all as read",
   "notice.security": "Security",
-  "home.cn_cards_title": "Card purchases are missing: card bills of {amount} over the last 12 months",
-  "home.cn_cards_detail": "Cards not connected: {issuers}.{saved}",
-  "home.cn_saved": "You moved {amount} to savings in an account that is not connected.",
-  "home.cn_own_title": "You moved {amount} over the year to an account that is not connected",
-  "home.cn_own_detail": "Largest recipients: {names}.",
 };

@@ -757,7 +757,6 @@
   }
  ],
  "dataNotice": null,
- "connectNotice": null,
  "insights": [],
  "home": {
   "runway": {

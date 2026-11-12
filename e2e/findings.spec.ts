@@ -9,11 +9,11 @@ test("Nyt has no Huomioitavaa, and Raportit has no Havainnot", async ({ browser 
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
-  // the demo's own alerts and its row for an unconnected account (which come with the date) would take the four rows Ilmoitukset has
+  // the demo's own alerts (which come with the date) would take the four rows Ilmoitukset has
   await page.route("**/api/dashboard**", async (route) => {
     const answer = await route.fetch();
     const json = await answer.json();
-    await route.fulfill({ response: answer, json: { ...json, connectNotice: null, alerts: [] } });
+    await route.fulfill({ response: answer, json: { ...json, alerts: [] } });
   });
   {
     // Nyt shows no findings (they are asked on Tarkistettavat); Raportit has no Havainnot section of its own

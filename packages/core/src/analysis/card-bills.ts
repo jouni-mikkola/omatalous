@@ -6,7 +6,7 @@
  */
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
-import { finnishList, formatFiDate } from "./format.ts";
+import { finnishList, formatEur, formatFiDate } from "./format.ts";
 import { cardIssuerName, cardIssuerOfAccountText, cardName, fold } from "../merchant.ts";
 import type { Account, BalanceInput, IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, loweredRows } from "./context.ts";
@@ -88,6 +88,25 @@ export function missingCardPurchases(ctx: AnalysisContext, range: DateRange, bal
   }
   return rows;
 }
+
+/** Kortin ostot puuttuvat: the card bills of a range whose purchases are in no row, by issuer and reason, and their sum. */
+export interface MissingCards {
+  bills: MissingCardPurchases[];
+  cents: number;
+}
+
+/**
+ * The one figure of missing card purchases (docs/MONEY_FLOWS.md, *Card bills*): the bills of `missingCardPurchases`
+ * over a range, every reason, and their sum. The data quality signal, the first page's reliability line, the questions and the known share read it, each
+ * over its own range, and `missingCardsTitle` is its one title.
+ */
+export function missingCards(ctx: AnalysisContext, range: DateRange, balances: readonly Pick<BalanceInput, "id" | "cardMask">[] = []): MissingCards {
+  const bills = missingCardPurchases(ctx, range, balances);
+  return { bills, cents: bills.reduce((s, m) => s + m.cents, 0) };
+}
+
+/** The one title of the figure: "Kortin ostot puuttuvat: korttilaskuja 1 440 €". */
+export const missingCardsTitle = (cents: number, lang: Language = DEFAULT_LANGUAGE): string => messageIn(lang, "rep.q_bills_title", { amount: formatEur(cents, false, lang) });
 
 /**
  * What the missing purchases are, in the words of a sentence that goes on after "mutta": since when a connected card has
