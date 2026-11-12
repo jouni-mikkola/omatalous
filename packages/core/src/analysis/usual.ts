@@ -124,7 +124,7 @@ function cardGapIn(ctx: AnalysisContext, month: string): boolean {
 
 /**
  * Whether `month` comes before the rows of a connected card begin, so its purchases are in no category of the month.
- * A card that is never connected holds its bill in every month, so its months alone tell nothing of the kind.
+ * A card with no rows counts in no month: its bills, however timed, are the categories' card bill.
  */
 export function cardRowsMissingIn(ctx: AnalysisContext, month: string): boolean {
   const { began } = coverage(ctx);

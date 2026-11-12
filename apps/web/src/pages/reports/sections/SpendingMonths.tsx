@@ -62,9 +62,9 @@ function SpendingMonths({ ctx }: SectionProps) {
   const r = ctx.data.spendingMonths;
   // the categories' levels read only the months that hold a connected card's purchases as the newest one does
   // (`cardGap`), so they may have none while the month totals have theirs
-  const usual = r.categories.some((c) => c.typicalCents !== null);
+  const usual = r.cardGap ? r.categories.some((c) => c.typicalCents !== null) : r.typicalCents !== null;
   const last = r.last !== null ? r.months[r.last]! : null;
-  // read over fewer months than the totals' level, the categories' levels do not add up to it: the months below have it
+  // with a gap the categories' levels read fewer months than the totals, so they do not add up to its level, shown under the months
   const footTypical = usual && !r.cardGap && r.typicalCents !== null ? eur(r.typicalCents) : null;
   const columns: Column<Row>[] = [
     { key: "label", label: t("rpt.sm_category"), kind: "text", rowHead: true, cell: (c) => c.label, csv: (c) => c.label },
