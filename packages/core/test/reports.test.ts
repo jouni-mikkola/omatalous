@@ -26,8 +26,8 @@ describe("reports", () => {
   const range = { from: "2026-01-01", to: "2026-09-30" };
   const r = buildReports({ ctx, range, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 123456, ownerName: null, balanceAt: null }] });
 
-  it("builds the ten reports that stay and the one Kuukausi reads for an earlier month, and only those a caller names", () => {
-    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "categories", "housing", "income", "loans", "spendingChange", "spendingMonths", "taxYear", "thisMonth", "upcoming", "yearOverYear"]);
+  it("builds the eleven reports that stay and the one Kuukausi reads for an earlier month, and only those a caller names", () => {
+    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "categories", "fixedCosts", "housing", "income", "loans", "spendingChange", "spendingMonths", "taxYear", "thisMonth", "upcoming", "yearOverYear"]);
     expect(Object.keys(r).sort()).toEqual(Object.keys(REPORTS).sort());
     expect(Object.keys(buildReports({ ctx, range, balances: [] }, ["thisMonth", "income"])).sort()).toEqual(["income", "thisMonth"]);
     expect(isReportId("thisMonth")).toBe(true);

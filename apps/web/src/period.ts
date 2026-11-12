@@ -47,7 +47,7 @@ const OWN_SWITCH: readonly string[] = ["overview"];
 const MONTH_QUESTION = "kuukausi";
 
 /** The questions of Raportit whose reports answer the same for every period (`report-period.test.ts` asks each page for two), so their page draws no switch. */
-export const PERIOD_FREE_QUESTIONS: readonly string[] = [MONTH_QUESTION, "velat"];
+export const PERIOD_FREE_QUESTIONS: readonly string[] = [MONTH_QUESTION, "kiinteat", "velat"];
 
 /**
  * The question an address asks for before any answer is there: the month question when it anchors the one section of

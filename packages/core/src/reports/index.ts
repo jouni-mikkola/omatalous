@@ -13,6 +13,7 @@ import type { Language } from "../locale.ts";
 import { NO_INPUTS, type UserInputs } from "../types.ts";
 import { type BalanceInput, balanceReport } from "./balances.ts";
 import { categoryReport } from "./categories.ts";
+import { fixedCostsReport } from "./fixed-costs.ts";
 import { incomeReport } from "./income.ts";
 import { loansReport } from "./loans.ts";
 import { buildHousing } from "../housing.ts";
@@ -46,6 +47,7 @@ export const REPORTS = {
   // Kuukausi reads an earlier month from it (pages/reports/Month.tsx)
   spendingChange: ({ ctx, range, lang }: ReportInput) => spendingChangeReport(ctx, range, lang),
   spendingMonths: ({ ctx, range, lang }: ReportInput) => spendingMonthsReport(ctx, range, lang),
+  fixedCosts: ({ ctx, inputs, lang }: ReportInput) => fixedCostsReport(ctx, inputs, lang),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;
@@ -83,5 +85,5 @@ export type { TaxRow } from "./tax-year.ts";
 export { comparisonYearRange, comparisonYears, yearComparisonNote } from "./year-over-year.ts";
 
 /** The questions of Raportit, in the order of the list. The id is in the address (`?q=menot`). */
-export const QUESTIONS = ["kuukausi", "menot", "tulot", "velat", "saldot", "yhteiset"] as const;
+export const QUESTIONS = ["kuukausi", "menot", "tulot", "kiinteat", "velat", "saldot", "yhteiset"] as const;
 export type QuestionId = (typeof QUESTIONS)[number];

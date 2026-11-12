@@ -2751,5 +2751,965 @@
     "lowered": false
    }
   ]
+ },
+ "fixedCosts": {
+  "rows": [
+   {
+    "id": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+    "merchant": "Sato",
+    "category": "housing",
+    "cadence": "monthly",
+    "chargeCents": 105000,
+    "monthlyCents": 105000,
+    "yearlyCents": 1260000,
+    "lastDate": "2026-10-02",
+    "nextDate": "2026-11-02",
+    "payments": [
+     {
+      "id": "dcca8618d3d53bf55cea378e",
+      "date": "2026-10-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "1c77b4ffed854c3d5a1e1dce",
+      "date": "2026-09-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "adc72bdbe3b83ddec6c7cceb",
+      "date": "2026-08-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "6ae9bf7348104ad222ab8697",
+      "date": "2026-07-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "6455b92b049f3150452dd514",
+      "date": "2026-06-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "171ba59cabafa2cb0160b872",
+      "date": "2026-05-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "abb16050adf98b0d25652669",
+      "date": "2026-04-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "f555250c4e02e72b3750f3fe",
+      "date": "2026-03-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "26f13bc6c32fc504c8c6608d",
+      "date": "2026-02-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "24e7f6678bf798bb93d5ceb8",
+      "date": "2026-01-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "f119d4799e352d8438755ebe",
+      "date": "2025-12-02",
+      "amountCents": 105000
+     },
+     {
+      "id": "80575a51b839f5fd32c6ad3d",
+      "date": "2025-11-02",
+      "amountCents": 105000
+     }
+    ],
+    "paidCents": 1260000
+   },
+   {
+    "id": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+    "merchant": "Nordea Rahoitus Suomi Oy",
+    "category": "loans",
+    "cadence": "monthly",
+    "chargeCents": 28900,
+    "monthlyCents": 28900,
+    "yearlyCents": 346800,
+    "lastDate": "2026-10-05",
+    "nextDate": "2026-11-05",
+    "payments": [
+     {
+      "id": "22fb013cf8e92ae49eaf84aa",
+      "date": "2026-10-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "dfcfd1f8eec43a17b1371efb",
+      "date": "2026-09-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "69f815e77e882b9b7cf0c352",
+      "date": "2026-08-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "cd10aeef9bada36c5ed199ba",
+      "date": "2026-07-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "6af9fccfe396d9332dc76bfe",
+      "date": "2026-06-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "12555d2c2f68fbea6c6eebdd",
+      "date": "2026-05-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "30ed40714c96be805f679be9",
+      "date": "2026-04-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "771a6e03388c1b59e200629a",
+      "date": "2026-03-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "14def8e73af5971b49fa068a",
+      "date": "2026-02-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "6fc89f8daf1e0d998a1991ff",
+      "date": "2026-01-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "b933dc398d6ad9f179a25bf2",
+      "date": "2025-12-05",
+      "amountCents": 28900
+     },
+     {
+      "id": "c7ea5421d4367b9d9a5924d2",
+      "date": "2025-11-05",
+      "amountCents": 28900
+     }
+    ],
+    "paidCents": 346800
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+    "merchant": "Adobe",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 7499,
+    "monthlyCents": 7499,
+    "yearlyCents": 89988,
+    "lastDate": "2026-09-14",
+    "nextDate": "2026-10-14",
+    "payments": [
+     {
+      "id": "ea783325604854f97b1339eb",
+      "date": "2026-09-14",
+      "amountCents": 7499
+     },
+     {
+      "id": "cef4195f0be15129f9587537",
+      "date": "2026-08-14",
+      "amountCents": 7499
+     },
+     {
+      "id": "8cfd1e237717fa06e48d20a3",
+      "date": "2026-07-14",
+      "amountCents": 7499
+     },
+     {
+      "id": "4c275b6beab5f87a94fa8651",
+      "date": "2026-06-14",
+      "amountCents": 7499
+     },
+     {
+      "id": "8fce21607677b2a28865ea99",
+      "date": "2026-05-14",
+      "amountCents": 7499
+     },
+     {
+      "id": "69cd875949b69faaac4c9791",
+      "date": "2026-04-14",
+      "amountCents": 7499
+     },
+     {
+      "id": "1bc20c047b8dc72814187c7f",
+      "date": "2026-03-14",
+      "amountCents": 6299
+     },
+     {
+      "id": "b998799d48e41ff04c1835a9",
+      "date": "2026-02-14",
+      "amountCents": 6299
+     },
+     {
+      "id": "b76915db29043f8902974dd2",
+      "date": "2026-01-14",
+      "amountCents": 6299
+     },
+     {
+      "id": "addf94d9a9106f5a25e15dde",
+      "date": "2025-12-14",
+      "amountCents": 6299
+     },
+     {
+      "id": "ee48c96fba381570458f1c49",
+      "date": "2025-11-14",
+      "amountCents": 6299
+     },
+     {
+      "id": "966a27cd182b3a4318ffc570",
+      "date": "2025-10-14",
+      "amountCents": 6299
+     }
+    ],
+    "paidCents": 82788
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+    "merchant": "HSL",
+    "category": "transport",
+    "cadence": "monthly",
+    "chargeCents": 6470,
+    "monthlyCents": 6470,
+    "yearlyCents": 77640,
+    "lastDate": "2026-10-01",
+    "nextDate": "2026-11-01",
+    "payments": [
+     {
+      "id": "241db6d5864d0343b8db1ac3",
+      "date": "2026-10-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "6f89388f597c54647d70183e",
+      "date": "2026-09-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "66e0337537ccbc0c725407f3",
+      "date": "2026-08-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "85866381a6e40de8f0135a7a",
+      "date": "2026-07-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "712bb77fc7a6dabb539ca429",
+      "date": "2026-06-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "32d801acca7572693777d3c3",
+      "date": "2026-05-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "763ae0adf2c1a67946bd28e4",
+      "date": "2026-04-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "9b985b5d422051260e8be2c5",
+      "date": "2026-03-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "7af54e35a49d8e943e4ddb1a",
+      "date": "2026-02-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "a11d98dab2d88467b178bd7e",
+      "date": "2026-01-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "4d1d73a9f7d489a1eb096a31",
+      "date": "2025-12-01",
+      "amountCents": 6470
+     },
+     {
+      "id": "abd2761aeb147b861567c06e",
+      "date": "2025-11-01",
+      "amountCents": 6470
+     }
+    ],
+    "paidCents": 77640
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+    "merchant": "Elixia",
+    "category": "fitness",
+    "cadence": "monthly",
+    "chargeCents": 5900,
+    "monthlyCents": 5900,
+    "yearlyCents": 70800,
+    "lastDate": "2026-10-01",
+    "nextDate": "2026-11-01",
+    "payments": [
+     {
+      "id": "83e67629bf016dad5bc04b2c",
+      "date": "2026-10-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "9bd0e930ca9963ef5884e435",
+      "date": "2026-09-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "50d4363479362c169b79f13d",
+      "date": "2026-08-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "38f0e92093014a1c9609b6d3",
+      "date": "2026-07-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "8817c5a5fe2907fa4b59f7f1",
+      "date": "2026-06-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "eae73981b18302cb14154d64",
+      "date": "2026-05-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "a89e91ee1042a7c3cf1ef3e7",
+      "date": "2026-04-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "0f2cf12f90e9a304e3620a08",
+      "date": "2026-03-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "2148b599f191447840841f6f",
+      "date": "2026-02-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "6f3566ab10953b4c2950317f",
+      "date": "2026-01-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "92b08c8db03d5b3f4b26f764",
+      "date": "2025-12-01",
+      "amountCents": 5900
+     },
+     {
+      "id": "4db703f201e194c91c5d0ecf",
+      "date": "2025-11-01",
+      "amountCents": 5900
+     }
+    ],
+    "paidCents": 70800
+   },
+   {
+    "id": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+    "merchant": "Helen",
+    "category": "utilities",
+    "cadence": "monthly",
+    "chargeCents": 4621,
+    "monthlyCents": 5697,
+    "yearlyCents": 68364,
+    "lastDate": "2026-09-15",
+    "nextDate": "2026-10-15",
+    "payments": [
+     {
+      "id": "75a1d7353562204fcad84993",
+      "date": "2026-09-15",
+      "amountCents": 4489
+     },
+     {
+      "id": "f8ce90c2dcd48df66cb0b556",
+      "date": "2026-08-15",
+      "amountCents": 5224
+     },
+     {
+      "id": "9d6ebb84d0261e5f0e387347",
+      "date": "2026-07-15",
+      "amountCents": 4621
+     },
+     {
+      "id": "5a2646c17851c633f02aabf3",
+      "date": "2026-06-15",
+      "amountCents": 3465
+     },
+     {
+      "id": "b72bc9df53cfff55dc8427e7",
+      "date": "2026-05-15",
+      "amountCents": 4722
+     },
+     {
+      "id": "0462c29d2cecc0b75a1c4ddc",
+      "date": "2026-04-15",
+      "amountCents": 3980
+     },
+     {
+      "id": "c5ae553d53c774a046578f16",
+      "date": "2026-03-15",
+      "amountCents": 7207
+     },
+     {
+      "id": "a3a2b298a251e09809315c8b",
+      "date": "2026-02-15",
+      "amountCents": 7237
+     },
+     {
+      "id": "e5ae844db9aa5a0aca4d6b40",
+      "date": "2026-01-15",
+      "amountCents": 7535
+     },
+     {
+      "id": "4d7178d9d7d8644ed0918941",
+      "date": "2025-12-15",
+      "amountCents": 7743
+     },
+     {
+      "id": "97e725fcdd7d71e3077135c8",
+      "date": "2025-11-15",
+      "amountCents": 7158
+     },
+     {
+      "id": "4d06edd2e7eb61367dbd9c8d",
+      "date": "2025-10-15",
+      "amountCents": 4977
+     }
+    ],
+    "paidCents": 68358
+   },
+   {
+    "id": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy",
+    "merchant": "If Vahinkovakuutus Oy",
+    "category": "insurance",
+    "cadence": "quarterly",
+    "chargeCents": 14230,
+    "monthlyCents": 4743,
+    "yearlyCents": 56916,
+    "lastDate": "2026-10-05",
+    "nextDate": "2027-01-05",
+    "payments": [
+     {
+      "id": "aa5a62df3c44778baa538466",
+      "date": "2026-10-05",
+      "amountCents": 14230
+     },
+     {
+      "id": "25d676d635f6b655b0432ed0",
+      "date": "2026-07-05",
+      "amountCents": 14230
+     },
+     {
+      "id": "157c7ee8b6f9ac482e59f8b5",
+      "date": "2026-04-05",
+      "amountCents": 14230
+     },
+     {
+      "id": "fbeeff092980fe03c1fa5ec3",
+      "date": "2026-01-05",
+      "amountCents": 14230
+     }
+    ],
+    "paidCents": 56920
+   },
+   {
+    "id": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+    "merchant": "Elisa",
+    "category": "telecom",
+    "cadence": "monthly",
+    "chargeCents": 2990,
+    "monthlyCents": 2990,
+    "yearlyCents": 35880,
+    "lastDate": "2026-09-20",
+    "nextDate": "2026-10-20",
+    "payments": [
+     {
+      "id": "cffebc7145948e4bd5757cfd",
+      "date": "2026-09-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "33b11665842a33341936a193",
+      "date": "2026-08-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "72d6e71e0108871ef6dc6d0b",
+      "date": "2026-07-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "f11e8573bfe35d311c2375ee",
+      "date": "2026-06-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "5985e1e1fbe33a74c9a8adcf",
+      "date": "2026-05-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "f9d71799b7dc681011041e9f",
+      "date": "2026-04-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "9037deae0b5190746ef20197",
+      "date": "2026-03-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "6cfaebb7bc3eca6653a3bf19",
+      "date": "2026-02-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "01c6dea80b3c6ee4edd73b75",
+      "date": "2026-01-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "af75288a9a1d78c092c44f54",
+      "date": "2025-12-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "7a31552b10eb342d10e9ebb3",
+      "date": "2025-11-20",
+      "amountCents": 2990
+     },
+     {
+      "id": "8e6a1f641c7b59f0b268102d",
+      "date": "2025-10-20",
+      "amountCents": 2990
+     }
+    ],
+    "paidCents": 35880
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+    "merchant": "OpenAI",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 2300,
+    "monthlyCents": 2300,
+    "yearlyCents": 27600,
+    "lastDate": "2026-10-05",
+    "nextDate": "2026-11-05",
+    "payments": [
+     {
+      "id": "2c7b62f1fc6deae188347d5d",
+      "date": "2026-10-05",
+      "amountCents": 2300
+     },
+     {
+      "id": "54d7ba287b2a3cb16b38e4b4",
+      "date": "2026-09-05",
+      "amountCents": 2300
+     },
+     {
+      "id": "54f2307e23830edae0c5fcc1",
+      "date": "2026-08-05",
+      "amountCents": 2300
+     }
+    ],
+    "paidCents": 6900
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+    "merchant": "Netflix",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 1799,
+    "monthlyCents": 1799,
+    "yearlyCents": 21588,
+    "lastDate": "2026-10-07",
+    "nextDate": "2026-11-07",
+    "payments": [
+     {
+      "id": "b2f1b26f9ed0531f35347cdc",
+      "date": "2026-10-07",
+      "amountCents": 1799
+     },
+     {
+      "id": "0a967bad415875b6d011beba",
+      "date": "2026-09-07",
+      "amountCents": 1799
+     },
+     {
+      "id": "0113160398ea51c4a4743f1b",
+      "date": "2026-08-07",
+      "amountCents": 1799
+     },
+     {
+      "id": "3e260df6fb1d2191e961e744",
+      "date": "2026-07-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "d1581b50ef30653b5b540c42",
+      "date": "2026-06-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "28ee281d56badad987d4e050",
+      "date": "2026-05-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "e493cffbccf2240e26a1de3a",
+      "date": "2026-04-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "31920eb140fe7d14f5e47a0d",
+      "date": "2026-03-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "1e1d27994b5302d32a411f52",
+      "date": "2026-02-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "be22a6111d1dcbac19f4ffd7",
+      "date": "2026-01-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "93b34705e2e7b2df61deb8b5",
+      "date": "2025-12-07",
+      "amountCents": 1599
+     },
+     {
+      "id": "b64ca4d46dd59aaf46737e11",
+      "date": "2025-11-07",
+      "amountCents": 1599
+     }
+    ],
+    "paidCents": 19788
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+    "merchant": "Apple",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 1299,
+    "monthlyCents": 1299,
+    "yearlyCents": 15588,
+    "lastDate": "2026-09-18",
+    "nextDate": "2026-10-18",
+    "payments": [
+     {
+      "id": "ea5d4d5d0d1da2e73ac1016c",
+      "date": "2026-09-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "29f51c0ed89f2e2ca38d233d",
+      "date": "2026-08-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "cd3b49491143f42ede591688",
+      "date": "2026-07-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "2c004eed74c3a7ba1349ba37",
+      "date": "2026-06-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "1916130cb39fc425c67b62d9",
+      "date": "2026-05-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "608083020c19fb61a5b9f3a3",
+      "date": "2026-04-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "e9f4866db8454b8ce0084c55",
+      "date": "2026-03-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "501df8f591a79ff899f7d51d",
+      "date": "2026-02-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "fdf7158f1da4ad2a24c5e42b",
+      "date": "2026-01-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "f675e4c55033d96c8901cc0d",
+      "date": "2025-12-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "10004cb3137cb0a9262e722f",
+      "date": "2025-11-18",
+      "amountCents": 1299
+     },
+     {
+      "id": "97c25eb825544fb0f9aeab0a",
+      "date": "2025-10-18",
+      "amountCents": 1299
+     }
+    ],
+    "paidCents": 15588
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+    "merchant": "Max",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 1199,
+    "monthlyCents": 1199,
+    "yearlyCents": 14388,
+    "lastDate": "2026-09-20",
+    "nextDate": "2026-10-20",
+    "payments": [
+     {
+      "id": "9a2ead7c2c6eb2271bff8077",
+      "date": "2026-09-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "6ccbaf150f3de977c0bce980",
+      "date": "2026-08-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "21f8c9e8c3ceefd6a73524ff",
+      "date": "2026-07-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "37271f46fb0a525456472657",
+      "date": "2026-06-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "541880028df9c9730413c9ef",
+      "date": "2026-05-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "de6d2cf4c145f0976a535c41",
+      "date": "2026-04-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "d3d1c6541b6673288da7932e",
+      "date": "2026-03-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "ecebc7fe63998597bb53f5ff",
+      "date": "2026-02-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "183259a360b082e03edec549",
+      "date": "2026-01-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "b91f3319e04c823fef9e3253",
+      "date": "2025-12-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "aed86148374e4efef422271f",
+      "date": "2025-11-20",
+      "amountCents": 1199
+     },
+     {
+      "id": "b4aa68df1f53638b15f31b36",
+      "date": "2025-10-20",
+      "amountCents": 1199
+     }
+    ],
+    "paidCents": 14388
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+    "merchant": "Spotify",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 1199,
+    "monthlyCents": 1199,
+    "yearlyCents": 14388,
+    "lastDate": "2026-09-12",
+    "nextDate": "2026-10-12",
+    "payments": [
+     {
+      "id": "b500e370b4a27f8c4d18bf82",
+      "date": "2026-09-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "a7a7b1956a8ffc2a6f64d158",
+      "date": "2026-08-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "82be32a6536c236757e126c0",
+      "date": "2026-07-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "feef11b355eb404eec094cb1",
+      "date": "2026-06-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "8f581693f4d7aaae1c1d8c94",
+      "date": "2026-05-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "45562fb693bf03fe252e7a9a",
+      "date": "2026-04-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "5d0eecc3306c55cbfbba35e1",
+      "date": "2026-03-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "e10ca6bc09a4ab7a01f90030",
+      "date": "2026-02-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "b675d6095b4a36a6929ca6d7",
+      "date": "2026-01-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "5b9f3585050ad8098b3f556e",
+      "date": "2025-12-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "9bd00d3ad1225ed6444f258d",
+      "date": "2025-11-12",
+      "amountCents": 1199
+     },
+     {
+      "id": "d6ae86f4e6f5ab5e2d7f1dca",
+      "date": "2025-10-12",
+      "amountCents": 1199
+     }
+    ],
+    "paidCents": 14388
+   },
+   {
+    "id": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+    "merchant": "Apple",
+    "category": "subscriptions",
+    "cadence": "monthly",
+    "chargeCents": 99,
+    "monthlyCents": 99,
+    "yearlyCents": 1188,
+    "lastDate": "2026-10-03",
+    "nextDate": "2026-11-03",
+    "payments": [
+     {
+      "id": "4c25268e2a2f51709d9c34dc",
+      "date": "2026-10-03",
+      "amountCents": 99
+     },
+     {
+      "id": "265c08b17590ab9871232351",
+      "date": "2026-09-03",
+      "amountCents": 99
+     },
+     {
+      "id": "db108532ca2ff88268753783",
+      "date": "2026-08-03",
+      "amountCents": 99
+     },
+     {
+      "id": "056f6c747b1171835411341f",
+      "date": "2026-07-03",
+      "amountCents": 99
+     },
+     {
+      "id": "d753477ac7af0fe02dcb7cd2",
+      "date": "2026-06-03",
+      "amountCents": 99
+     },
+     {
+      "id": "e85e98e3478c1a68e4d89461",
+      "date": "2026-05-03",
+      "amountCents": 99
+     },
+     {
+      "id": "0beea87f6042c2731f30fa63",
+      "date": "2026-04-03",
+      "amountCents": 99
+     },
+     {
+      "id": "66f695a8877ab24d712d7dfa",
+      "date": "2026-03-03",
+      "amountCents": 99
+     },
+     {
+      "id": "932767df8761c19d00f6af26",
+      "date": "2026-02-03",
+      "amountCents": 99
+     },
+     {
+      "id": "b0a6915171f70023e8eb5240",
+      "date": "2026-01-03",
+      "amountCents": 99
+     },
+     {
+      "id": "17d277572a410916badb9816",
+      "date": "2025-12-03",
+      "amountCents": 99
+     },
+     {
+      "id": "4eb2bd64b1b0ee040b233569",
+      "date": "2025-11-03",
+      "amountCents": 99
+     }
+    ],
+    "paidCents": 1188
+   }
+  ],
+  "monthlyCents": 175094,
+  "yearlyCents": 2101128,
+  "incomeMonthlyCents": 395000,
+  "fixedShare": 0.4432759493670886,
+  "fixedShareLabel": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta"
  }
 }
