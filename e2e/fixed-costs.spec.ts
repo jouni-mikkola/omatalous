@@ -27,6 +27,12 @@ for (const width of [390, 1440]) {
     // the demo has no lender paid on no steady day, so the month is the one Laskut says
     const datum = plain(await block.locator(".card-datum").first().innerText());
     expect(euros(datum.split(" kuussa")[0]!), datum).toBe(billsMonth);
+    // a line reads its category at every width; a phone leaves out the year, which is twelve of its months
+    const line = block.locator("tbody > tr").first();
+    await expect(line.getByText("Vuokra ja vastike")).toBeVisible();
+    const yearCell = line.locator("td").last();
+    if (phone) await expect(yearCell).toBeHidden();
+    else await expect(yearCell).toBeVisible();
 
     const first = block.locator("tbody .rt-drill").first();
     const name = (await first.getAttribute("aria-label"))!;
