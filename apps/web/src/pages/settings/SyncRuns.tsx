@@ -18,6 +18,8 @@ export function RunsTable({ runs }: { runs: SyncRun[] }) {
       caption={t("set.sync.fetches")}
       rows={runs}
       rowKey={(r) => String(r.id)}
+      // the server sends the 20 newest; the latest few answer "did the fetch run", the rest wait behind Näytä lisää
+      page={10}
       columns={[
         { key: "started", label: t("set.sync.started"), kind: "date", rowHead: true, cell: (r) => <span className="run-when">{dateTime(r.startedAt)}</span> },
         { key: "trigger", label: t("set.sync.how"), kind: "text", cell: (r) => <span className="run-when">{r.trigger === "schedule" ? t("set.sync.scheduled") : r.trigger === "connect" ? t("set.sync.new_connection") : r.trigger === "open" || r.trigger === "open-bare" ? t("set.sync.on_opening_the_app") : t("set.sync.manual")}</span> },

@@ -6,11 +6,11 @@
 import { useEffect, useState } from "react";
 import { api, apiDownload, ApiError, saveFile } from "../../api.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
-import { Table } from "../../components/table/Table.tsx";
 import { BackupList } from "../../components/ops/BackupList.tsx";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
 import { LastResult } from "../../components/ops/LastResult.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
+import { OpsLog } from "../../components/ops/OpsLog.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
 import { prereleaseAction, prereleaseOn, S, showsPrerelease } from "../../components/ops/ops-strings.ts";
 import { ResetCard } from "../../components/ops/ResetCard.tsx";
@@ -20,11 +20,9 @@ import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types
 import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
 import { restartWait } from "../../components/ops/ops-elapsed.ts";
 import { usePolled } from "../../components/ops/use-polled.ts";
-import { dateTime } from "../../format.ts";
 import "../../styles/ops.css";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
-import { Empty } from "../../components/ui/Empty.tsx";
 import { t } from "../../text.ts";
 /** Polls every 3 s while something runs, every 60 s otherwise. A failing fetch (the app restarts) backs off. */
 export function useOpsState() {
@@ -112,26 +110,7 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
           </Button>
         </div>
       </div>
-      <div className="card">
-        <div className="card-head">
-          <h2>{S.events}</h2>
-        </div>
-        {audit.length === 0 ? (
-          <Empty>{S.noEvents}</Empty>
-        ) : (
-          <Table
-            caption={S.events}
-            rows={audit}
-            rowKey={(e) => String(e.id)}
-            columns={[
-              { key: "at", label: t("set.mt.time"), kind: "date", rowHead: true, cell: (e) => dateTime(e.at) },
-              { key: "user", label: t("set.mt.user"), kind: "text", cell: (e) => e.username ?? "" },
-              { key: "action", label: t("set.mt.action"), kind: "text", cell: (e) => e.action },
-              { key: "outcome", label: t("set.mt.result"), kind: "text", cell: (e) => <span className="small">{e.outcome}</span> },
-            ]}
-          />
-        )}
-      </div>
+      <OpsLog events={audit} />
     </>
   );
 
