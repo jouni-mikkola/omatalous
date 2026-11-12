@@ -6,7 +6,8 @@
 
 @layer components {
 .rtb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8); margin: 0 0 var(--sp-8); }
-.rtb-search { position: relative; display: inline-flex; flex: 0 1 20rem; min-inline-size: 12rem; }
+/* the search box gives way before the row wraps: the row counts it at 12rem and it takes the spare room up to 20rem */
+.rtb-search { position: relative; display: inline-flex; flex: 1 1 12rem; max-inline-size: 20rem; }
 .rtb-search input { flex: 1 1 auto; inline-size: 100%; padding-inline-end: var(--control-h); }
 .rtb-search input::-webkit-search-cancel-button { display: none; }
 .rtb-clear { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: var(--control-h); border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; }
@@ -34,7 +35,7 @@
 
 /* a phone: the search box takes the row, and the sort choice (shown only where the head is hidden) the tools' row */
 @media (max-width: 599.98px) {
-  .rtb-search { flex: 1 1 100%; }
+  .rtb-search { flex: 1 1 100%; max-inline-size: none; }
   .rtb-tools { margin-inline-start: 0; inline-size: 100%; }
 }
 }
