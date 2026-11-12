@@ -285,12 +285,12 @@ const splits: Source = async (s, userId) => {
 // money at stake is the year of the charge, or for a rise alone what the rise adds to a year.
 const subscriptions: Source = async (s, userId) => {
   const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const [{ inputs }, stored] = await Promise.all([requestInputs(s, userId, accounts), s.finance(userId).listMarks()]);
-  return memoOn(ctx, "review:subscriptions", [inputs, stored], () => subscriptionItems(ctx, inputs, stored));
+  const { inputs } = await requestInputs(s, userId, accounts);
+  return memoOn(ctx, "review:subscriptions", inputs, () => subscriptionItems(ctx, inputs));
 };
 
-function subscriptionItems(ctx: AnalysisContext, inputs: UserInputs, stored: UserInputs["marks"]): Sourced[] {
-  const marks = marksBySubject(stored);
+function subscriptionItems(ctx: AnalysisContext, inputs: UserInputs): Sourced[] {
+  const marks = marksBySubject(inputs.marks);
   const found = new Map<string, { r: RecurringSeries; cents: number; price?: SubscriptionItem["price"]; since?: string; quiet?: true }>();
   const of = (r: RecurringSeries, cents: number) => {
     const f = found.get(r.id) ?? { r, cents: 0 };

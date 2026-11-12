@@ -38,6 +38,8 @@ async function household() {
   await reprocess(repo, t.s.settings);
   return t;
 }
+/** The payee of the row the second test adds, which the queue asks about once it is there. */
+const NEW_PAYEE = "payee_out:Toinen Kauppa Xyz";
 type T = Awaited<ReturnType<typeof household>>;
 /** What the front page asks when it opens: the header's count, the queue and the dashboard. */
 const frontPage = async (t: T) => {
@@ -81,11 +83,14 @@ describe("the work behind the review queue", () => {
       nextDay.mockRestore();
     }
 
+    const before = calls.loanProposals;
     const repo = t.s.finance(t.adminId);
     await ingestTransactions(repo, "chk", [raw("2026-10-08", -61.2, "TOINEN KAUPPA XYZ", "KORTTIOSTO")], "csv");
     await reprocess(repo, t.s.settings);
     const after = await frontPage(t);
     expect(after.count).toBe(after.items.length);
-    expect(calls.loanProposals).toBeGreaterThan(2);
+    expect(after.items.map((i) => i.id)).toContain(NEW_PAYEE);
+    expect(answered.items.map((i) => i.id)).not.toContain(NEW_PAYEE);
+    expect(calls.loanProposals).toBe(before + 1);
   });
 });
