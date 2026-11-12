@@ -20,10 +20,10 @@ export const EN_SET_WIZARD: Record<keyof typeof FI_SET_WIZARD, string> = {
   "set.wizard.to_app": "Go to the app",
   "set.wizard.connect_bank": "Connect bank",
   "set.wizard.later": "Do this later",
-  "set.wizard.address_not_saved": "We could not save the address: {message} Change it in Settings > Server.",
+  "set.wizard.address_not_saved": "We could not save the address: {message} Change it in Settings > Server and maintenance.",
   "set.wizard.title": "Setup",
   "set.wizard.loading": "Loading…",
   "set.wizard.intro": "One app is enough for the whole household. Using your own accounts is free of charge.",
-  "set.wizard.where_settings": "You find the address and schedule under Settings > Server, and the Enable Banking app under Settings > Banks and accounts.",
+  "set.wizard.where_settings": "You find the address and schedule under Settings > Server and maintenance, and the Enable Banking app under Settings > Banks and accounts.",
   "set.wizard.continue": "Continue",
 };

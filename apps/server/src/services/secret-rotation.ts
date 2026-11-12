@@ -56,7 +56,7 @@ export const triedAgainstToken = async (s: Services): Promise<boolean> => isToke
  * The stop for an API token that does not open, with the way past it: the page removes the token for the admin's
  * password alone, and a new one is saved there after the rotation.
  */
-export const tokenStops = (how: string) => `The Cloudflare API token saved in Asetukset > Palvelin > Etäkäyttö ${how}. Remove it there and run the rotation again. Nothing was changed.`;
+export const tokenStops = (how: string) => `The Cloudflare API token saved in Asetukset > Palvelin ja ylläpito > Etäkäyttö ${how}. Remove it there and run the rotation again. Nothing was changed.`;
 
 /**
  * True when the first sealed value of each kind (bank key, second factor, each shared setting, each extension) opens

@@ -11,7 +11,7 @@ export const EN_OFFSITE: Record<keyof typeof FI_OFFSITE, string> = {
   "offsite.incomplete": "Fill in the address, user, folder and age key before you turn the copy on.",
   "offsite.saved_key_confirm": "Confirm that you saved the encryption key somewhere other than this machine.",
   "offsite.no_secret": "The server's encryption key (APP_SECRET) is missing. See the server log.",
-  "offsite.not_set": "The target of the copy is not set. Set it in Asetukset > Palvelin.",
+  "offsite.not_set": "The target of the copy is not set. Set it in Settings > Server and maintenance.",
   "offsite.no_folder": "The data folder of the server is not known, so the copy cannot be started.",
   "offsite.unreadable": "The saved target cannot be opened with the current encryption key. Remove it and enter it again.",
   "offsite.title": "Backup to another machine",

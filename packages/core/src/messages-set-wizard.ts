@@ -22,10 +22,10 @@ export const FI_SET_WIZARD = {
   "set.wizard.to_app": "Siirry sovellukseen",
   "set.wizard.connect_bank": "Yhdistä pankki",
   "set.wizard.later": "Tee myöhemmin",
-  "set.wizard.address_not_saved": "Emme voineet tallentaa osoitetta: {message} Muuta se kohdassa Asetukset > Palvelin.",
+  "set.wizard.address_not_saved": "Emme voineet tallentaa osoitetta: {message} Muuta se kohdassa Asetukset > Palvelin ja ylläpito.",
   "set.wizard.title": "Käyttöönotto",
   "set.wizard.loading": "Ladataan…",
   "set.wizard.intro": "Yksi sovellus riittää koko taloudelle. Omien tilien käyttö on maksutonta.",
-  "set.wizard.where_settings": "Osoitteen ja aikataulun löydät kohdasta Asetukset > Palvelin, Enable Banking -sovelluksen kohdasta Asetukset > Pankit ja tilit.",
+  "set.wizard.where_settings": "Osoitteen ja aikataulun löydät kohdasta Asetukset > Palvelin ja ylläpito, Enable Banking -sovelluksen kohdasta Asetukset > Pankit ja tilit.",
   "set.wizard.continue": "Jatka",
 } as const;

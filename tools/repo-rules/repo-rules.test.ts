@@ -40,7 +40,7 @@
  *   rule 27  the lines that keep a secret out stay ignored    shell-rules.ts
  *   rule 28  the UI text keeps the fixes of a Finnish pass    finnish.ts
  *   rule 34  docs/ROADMAP.md lists no released version as coming roadmap-rules.ts
- *   rule 35  the UI text keeps the glossary: removed words stay out glossary-rule.ts (words: glossary.ts)
+ *   rule 35  the UI text keeps the glossary: removed words stay out, a settings path names a tab   glossary-rule.ts (words: glossary.ts, paths: ui-paths.ts)
  *   rule 36  no window.confirm, alert or prompt in the web app    code-rules.ts
  *   rule 37  one name, one figure: the registry agrees with the code   figures-rules.ts (detector: figures.ts)
  *   rule 38  a limit is in thresholds.ts, not a constant of analysis/ or reports/   figures-rules.ts

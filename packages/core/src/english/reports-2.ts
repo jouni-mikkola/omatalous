@@ -20,7 +20,7 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rep.q_own_largest": "Largest recipients: {names}. ",
   "rep.q_nobal_one": "The balance of {name} is not known",
   "rep.q_nobal_many": "The balances of {count} accounts are not known: {names}",
-  "rep.q_nobal_detail": "Add the balance under Settings > Accounts to see the buffer and the next 30 days.",
+  "rep.q_nobal_detail": "Add the balance under Settings > Banks and accounts to see the buffer and the next 30 days.",
   "income.type_salary": "Salary",
   "income.type_holiday_pay": "Holiday pay",
   "income.type_other_pay": "Other pay",

@@ -23,7 +23,7 @@ export const FI_REPORTS_2 = {
   "rep.q_own_largest": "Suurimmat saajat: {names}. ",
   "rep.q_nobal_one": "Tilin {name} saldoa ei tiedetä",
   "rep.q_nobal_many": "{count} tilin saldoa ei tiedetä: {names}",
-  "rep.q_nobal_detail": "Lisää saldo kohdassa Asetukset > Tilit, niin puskuri ja seuraavat 30 päivää näkyvät.",
+  "rep.q_nobal_detail": "Lisää saldo kohdassa Asetukset > Pankit ja tilit, niin puskuri ja seuraavat 30 päivää näkyvät.",
   "income.type_salary": "Palkka",
   "income.type_holiday_pay": "Lomaraha",
   "income.type_other_pay": "Muu palkka",
