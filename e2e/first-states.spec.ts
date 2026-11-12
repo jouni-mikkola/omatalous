@@ -100,7 +100,7 @@ test("on two months of rows Kuukausi shows its sums and says the usual needs thr
     await expect(view.locator(".km-total")).toContainText(/Menot\s23\s€, tavallinen näkyy, kun takana on 3 kuukautta/, { timeout: 15_000 });
     // the categories stand with their sums alone: no usual, no gap
     await expect(view.locator("tbody tr").first()).toContainText("23,40");
-    await expect(view.getByRole("columnheader")).toHaveText(["Luokka", "Menot"]);
+    await expect(view.getByRole("columnheader")).toHaveText(["Kategoria", "Menot"]);
     await expect(view).not.toContainText("Yleensä");
   } finally {
     await context.close();

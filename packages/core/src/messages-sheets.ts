@@ -24,7 +24,7 @@ export const FI_SHEETS = {
   "tax.category": "Kategoria",
   "tax.count": "Rivejä",
   "tax.household": "Rivit, jotka voivat liittyä kotitalousvähennykseen",
-  "tax.household_note": "Mukana ovat vain kategorian Koti rivit, joiden tekstissä on kodin työhön viittaava sana, kuten siivous, remontti tai sähkötyö. Rivi ei kerro, kuuluuko työ vähennykseen tai kuka sen teki.",
+  "tax.household_note": "Mukana ovat vain Koti-kategorian rivit, joiden tekstissä on kodin työhön viittaava sana, kuten siivous, remontti tai sähkötyö. Rivi ei kerro, kuuluuko työ vähennykseen tai kuka sen teki.",
   "tax.refunds": "Veronpalautukset",
   "tax.residual": "Jäännösverot",
   "tax.residual_note": "Rivit kategoriasta Verot, joiden tekstissä on jäännösvero.",

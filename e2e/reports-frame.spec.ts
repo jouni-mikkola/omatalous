@@ -52,9 +52,9 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     await expect(card.getByText("Kuun lopun arvio")).toHaveCount(lastDay ? 0 : 1);
     if (!lastDay) await expect(card.getByText("Kuun lopun arvio")).toBeVisible();
     await expect(card.getByRole("table", { name: "Päivät, jotka selittävät eron" })).toBeVisible();
-    await expect(card.getByRole("table", { name: "Luokat, jotka selittävät eron" })).toBeVisible();
+    await expect(card.getByRole("table", { name: "Kategoriat, jotka selittävät eron" })).toBeVisible();
     // every table of the page shows its heading, not only a screen reader's name
-    for (const name of ["Päivät, jotka selittävät eron", "Luokat, jotka selittävät eron", "Laskut, joita kuun loppuun on vielä tulossa"]) {
+    for (const name of ["Päivät, jotka selittävät eron", "Kategoriat, jotka selittävät eron", "Laskut, joita kuun loppuun on vielä tulossa"]) {
       const caption = card.locator("caption.month-cap", { hasText: name });
       if (await caption.count()) await expect(caption).toBeVisible();
       else expect(name, "only the bills table may be missing").toContain("Laskut");
