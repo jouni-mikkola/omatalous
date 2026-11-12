@@ -6,6 +6,7 @@ import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { fromMonthIndex } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { expectedLevel } from "../analysis/expected.ts";
+import { cardGapIn } from "../analysis/usual.ts";
 import { SPENDING_PAYEES } from "../thresholds.ts";
 import { fullMonths, rangeMonthIndexes } from "./shared.ts";
 
@@ -22,7 +23,7 @@ interface SpendingCategory {
   values: number[];
   /** The sum of `values`. */
   totalCents: number;
-  /** The expected level of the category's complete months (`expectedLevel`, their mean); null under `MIN_COMPARE_MONTHS` of them. */
+  /** The expected level of the category over `categoryMonths` (`expectedLevel`, their mean); null under `MIN_COMPARE_MONTHS` of them. */
   typicalCents: number | null;
   /** The newest complete month less `typicalCents`; null without either. */
   lastDiffCents: number | null;
@@ -49,10 +50,17 @@ export interface SpendingMonthsReport {
   totals: number[];
   /** The sum of `totals`. */
   totalCents: number;
-  /** The expected level of the complete months' totals, which the categories' levels add up to within rounding; null under `MIN_COMPARE_MONTHS` of them. */
+  /** The expected level of the complete months' totals, which the categories' levels add up to within rounding unless `cardGap`; null under `MIN_COMPARE_MONTHS` of them. */
   typicalCents: number | null;
   /** How many months `typicalCents` is the level of. */
   typicalMonths: number;
+  /**
+   * How many months the categories' levels read: the complete months that hold a card's purchases where the newest
+   * one holds them (`cardGapIn`). Under `MIN_COMPARE_MONTHS` the categories have no level.
+   */
+  categoryMonths: number;
+  /** Complete months were left out of the categories' levels: their card purchases are a bill, or before a card's rows, where the newest complete month has them in their categories. */
+  cardGap: boolean;
   /** Index in `months` of the newest complete month; null without one. */
   last: number | null;
   /** Every category with a row in the months shown, largest first. In every month their values add up to the month's total. */
@@ -93,10 +101,15 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   }
   const completeAt = indexes.map((_, i) => i).filter((i) => complete[i]);
   const last = completeAt.length ? completeAt[completeAt.length - 1]! : null;
+  // A month whose card purchases are one bill, or are missing before a card's rows begin, has them in no category,
+  // so it lowers the level of every category the card buys in and the newest month looks dear. A category's level
+  // reads the months that hold the card as the newest one does; the month totals stay comparable (a bill is spending).
+  const gapAt = new Set(completeAt.filter((i) => cardGapIn(ctx, months[i]!)));
+  const categoryAt = last === null ? [] : completeAt.filter((i) => gapAt.has(i) === gapAt.has(last));
   const categories = [...byCategory.entries()]
     .map(([category, { values, payees, statementCents, lowered }]) => {
       const totalCents = values.reduce((s, v) => s + v, 0);
-      const typicalCents = expectedLevel(completeAt.map((i) => values[i]!));
+      const typicalCents = expectedLevel(categoryAt.map((i) => values[i]!));
       const named = [...payees.values()].sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name)).slice(0, SPENDING_PAYEES);
       return {
         category,
@@ -120,6 +133,8 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     totalCents: totals.reduce((s, v) => s + v, 0),
     typicalCents: expectedLevel(completeAt.map((i) => totals[i]!)),
     typicalMonths: completeAt.length,
+    categoryMonths: categoryAt.length,
+    cardGap: categoryAt.length < completeAt.length,
     last,
     categories,
   };

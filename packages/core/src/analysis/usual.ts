@@ -118,7 +118,7 @@ function joinedSmall(ctx: AnalysisContext, label: string, month: string, rows?: 
  * connected later and paid by bills before), or a month before the history of a connected card with rows begins. The
  * household total ignores a card connected later, so such a month is complete; its categories lack the card's purchases.
  */
-function cardGapIn(ctx: AnalysisContext, month: string): boolean {
+export function cardGapIn(ctx: AnalysisContext, month: string): boolean {
   if (paidCardBills(ctx, month)) return true;
   const { began } = coverage(ctx);
   return ctx.accounts.some((a) => a.type === "credit_card" && Number.isFinite(began(a.id)) && !accountCovers(ctx, [a.id], `${month}-01`));

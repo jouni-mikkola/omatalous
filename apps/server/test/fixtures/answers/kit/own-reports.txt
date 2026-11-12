@@ -2841,6 +2841,8 @@
   "totalCents": 276614,
   "typicalCents": null,
   "typicalMonths": 0,
+  "categoryMonths": 0,
+  "cardGap": false,
   "last": null,
   "categories": [
    {

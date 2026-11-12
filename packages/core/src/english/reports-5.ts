@@ -154,6 +154,8 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.sm_payees_of": "{name}: largest payees",
   "rpt.sm_other_payees": "Other payees",
   "rpt.sm_all_rows": "Show all rows",
+  "rpt.sm_cards_none": "The categories have no average yet: the connected card's purchases are missing from earlier months. The average of all spending is under the months.",
+  "rpt.sm_cards_some": "The categories' average is of the {count} months that hold the connected card's purchases. Earlier months lack them.",
   "rpt.sec_buffer": "Buffer",
   "rpt.sec_cashflow": "Income and spending",
   "rpt.sec_categorygoals": "Category goals",

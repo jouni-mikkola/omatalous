@@ -16,6 +16,7 @@ import { series, tx } from "./helpers.ts";
 import { dataset, monthlyOn } from "./report-dataset.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { pivotReport } from "../src/reports/pivot.ts";
+import { lateCardContext } from "./late-card-household.ts";
 
 // test helpers put every transaction on account "acc-1"
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -57,6 +58,36 @@ describe("reports", () => {
     expect(running.complete.at(-1)).toBe(false);
     expect(running.last).toBe(running.months.length - 2);
     expect(running.typicalCents).toBe(s.typicalCents);
+  });
+
+  it("spending by month: a category's average reads the months that hold the card's purchases as the newest one does", () => {
+    // the card's rows begin in July; January to June hold its purchases as one bill a month
+    const late = lateCardContext("2026-07");
+    const s = buildReports({ ctx: late, range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    const of = (category: string) => s.categories.find((c) => c.category === category)!;
+    expect(s.months[s.last!]).toBe("2026-09");
+    expect(s.cardGap).toBe(true);
+    expect(s.categoryMonths).toBe(3);
+    // groceries are 400 € a month on the card since July: no rise in September, no level of 150 € over months that had them in the bill
+    expect(of("groceries")).toMatchObject({ typicalCents: 40000, lastDiffCents: 0 });
+    // the month totals stay comparable: their level reads every complete month
+    expect(s.typicalMonths).toBeGreaterThan(s.categoryMonths);
+    expect(s.typicalCents).not.toBeNull();
+  });
+
+  it("spending by month: with the card's rows since August, two months hold it as September does: no category level yet", () => {
+    const s = buildReports({ ctx: lateCardContext("2026-08"), range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    expect(s.cardGap).toBe(true);
+    expect(s.categoryMonths).toBeLessThan(3);
+    expect(s.categories.every((c) => c.typicalCents === null && c.lastDiffCents === null)).toBe(true);
+    expect(s.typicalCents).not.toBeNull();
+  });
+
+  it("spending by month: a card that is never connected has its bill in every month, so every complete month is a category's", () => {
+    const s = buildReports({ ctx: lateCardContext("2027-01"), range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    expect(s.cardGap).toBe(false);
+    expect(s.categoryMonths).toBe(s.typicalMonths);
+    expect(s.categories.find((c) => c.category === "card_bill")).toMatchObject({ typicalCents: 52000, lastDiffCents: 0 });
   });
 
   it("spending by month: under three complete months there is no typical month", () => {
