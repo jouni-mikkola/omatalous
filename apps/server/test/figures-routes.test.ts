@@ -94,7 +94,8 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
       expectOne("Menot", {
         // MonthPace: the sentence's sum, from the usual comparison or, with none, from `nyt`; its chart's last point
         "Yhteenveto Kuukausi": isRunning ? (dash.home.pace?.spentCents ?? dash.nyt.pace.spentCents) : undefined,
-        "Yhteenveto chart": isRunning ? dash.pace.currentTotal : undefined,
+        // PaceChart: the last day it draws
+        "Yhteenveto chart": isRunning ? dash.pace.current.filter((c: number | null) => c !== null).at(-1) : undefined,
         // Where: the largest categories and the rest in one sum under them
         "Yhteenveto Suurimmat menot added up": isRunning ? dash.top.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.top.otherCents : undefined,
         "Kuukausi": isRunning ? rep.thisMonth.spentCents : kuukausi()?.nowCents,
@@ -129,7 +130,7 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
         expectOne(`${name} sum`, {
           "Yhteenveto Suurimmat menot": isRunning ? dash.top.rows.find((r: any) => r.category === c.category)?.cents : undefined,
           "Rahankäyttö Kategoriat": c.totalCents,
-          // a category whose refunds cancel its purchases is 0 € in Kategoriat and no row in Menot kuukausittain: one figure
+          // a category spent on in the previous period only is 0 € in Kategoriat and no row in Menot kuukausittain: one figure
           "Menot kuukausittain, the month": rep.spendingMonths.categories.find((x: any) => x.category === c.category)?.totalCents ?? 0,
           "Menot kuukausittain, 12 kk": year.spendingMonths.categories.find((x: any) => x.category === c.category)?.values[at] ?? 0,
           Kuukausi: isRunning ? rep.thisMonth.categories.find((x: any) => x.category === c.category)?.spentCents : gap?.nowCents,
