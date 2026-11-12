@@ -36,7 +36,9 @@ export function fixedLeftOut<C extends { category: string; previousCents: number
   if (!out.length) return null;
   const moved = out.filter((c) => Math.abs(c.changeCents) >= 100_00).sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents)).slice(0, 3);
   // a category's name often has a "ja" of its own, so the names are parted by commas alone
-  return moved.length ? t("rpt.yoy_fixed_moved", { names: moved.map((c) => `${label(c.category)} ${signedMoney(c.changeCents)}`).join(", ") }) : t("rpt.yoy_fixed_out");
+  if (!moved.length) return t("rpt.yoy_fixed_out");
+  // a label may be singular or plural ("Asuntolaina", "Kulutusluotot"), so the sentence has no verb that agrees with it
+  return t(moved.length === 1 ? "rpt.yoy_fixed_moved_one" : "rpt.yoy_fixed_moved", { names: moved.map((c) => `${label(c.category)} ${signedMoney(c.changeCents)}`).join(", ") });
 }
 
 type Compared = Pick<ReportsData["yearOverYear"], "year" | "current" | "comparedMonths" | "ytdCents">;

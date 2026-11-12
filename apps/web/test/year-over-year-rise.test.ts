@@ -44,7 +44,13 @@ describe("the note under the slope of the year comparison", () => {
   it("says the fixed costs are left out and names those that moved most with their change", () => {
     // money is written with no-break spaces
     expect(fixedLeftOut(categories, new Set(["rent", "consumer_credit", "phone", "insurance"]), label)?.replace(/[\u00a0\u202f]/g, " ")).toBe(
-      "Kiinteät menot eivät ole kuvassa. Niistä muuttuivat eniten Kulutusluotot +4 200 €, Puhelin ja netti −150 €. Kaikki luvut ovat taulukossa.",
+      "Kiinteät menot eivät ole kuvassa. Suurimmat muutokset niistä: Kulutusluotot +4 200 €, Puhelin ja netti −150 €. Kaikki luvut ovat taulukossa.",
+    );
+  });
+  it("names one that moved in words that fit a singular label too", () => {
+    const loan = [{ category: "mortgage", previousCents: 0, currentCents: 1_200_00, changeCents: 1_200_00 }];
+    expect(fixedLeftOut(loan, new Set(["mortgage"]), () => "Asuntolaina")?.replace(/[\u00a0\u202f]/g, " ")).toBe(
+      "Kiinteät menot eivät ole kuvassa. Suurin muutos niistä: Asuntolaina +1 200 €. Kaikki luvut ovat taulukossa.",
     );
   });
   it("only says they are left out when none moved by 100 €", () => {
