@@ -101,9 +101,13 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   const card = (
     <div className="card" id={SETTINGS_ANCHOR.loans} {...region}>
       <div className="card-head">
-        <div>
-          <h2>{t("set.loans.loans")}</h2>
-        </div>
+        <h2>{t("set.loans.loans")}</h2>
+        {/* the section's one action stands in its name strip, in the same place in every section */}
+        {!adding && (
+          <div className="form-row flush">
+            <Button data-opener onClick={() => setAdding(true)}>{t("set.loans.add_loan")}</Button>
+          </div>
+        )}
       </div>
       {message && (
         <Notice tone={message.tone} role="status">
@@ -170,7 +174,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
         <Empty className={list.data ? undefined : "loans-wait"}>{t("set.loans.no_loans")}</Empty>
       )}
 
-      {adding ? (
+      {adding && (
         <section className="loan-draft" aria-labelledby="loan-new-title">
           <h3 id="loan-new-title">{t("set.loans.new_loan")}</h3>
           <LoanEditor
@@ -185,10 +189,6 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
             onCancel={() => setAdding(false)}
           />
         </section>
-      ) : (
-        <div className="form-row">
-          <Button data-opener onClick={() => setAdding(true)}>{t("set.loans.add_loan")}</Button>
-        </div>
       )}
 
       {editing && (

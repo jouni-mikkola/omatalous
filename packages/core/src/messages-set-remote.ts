@@ -5,7 +5,6 @@
  */
 export const FI_SET_REMOTE = {
   "set.remote.remote_access": "Etäkäyttö",
-  "set.remote.remote_access_lets_you_reach": "Etäkäytöllä pääset sovellukseen kotiverkon ulkopuolelta.",
   "set.remote.loading": "Ladataan…",
   "set.remote.turn_remote_access_off": "Ota etäkäyttö pois käytöstä",
   "set.remote.when_remote_access_is_turned": "Kun otat etäkäytön pois käytöstä, etäosoitteella avattu selain menettää yhteyden.",

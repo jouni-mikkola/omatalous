@@ -38,7 +38,7 @@ export const EN_SET_CONNECTIONS: Record<keyof typeof FI_SET_CONNECTIONS, string>
   "set.conn.actions": "Actions",
   "set.conn.reconnect": "Reconnect",
   "set.conn.remove": "Remove",
-  "set.conn.connect_a_bank_and_the": "No bank connections.",
+  "set.conn.none": "No bank connections.",
   "set.conn.paste_the_address_of_the": "Paste the address of the bank's last page",
   "set.conn.if_connecting_was_left_unfinished": "If connecting was left unfinished: paste the address of the bank's last page",
   "set.conn.paste_the_address_from_the": "Paste the address from the browser's address bar",

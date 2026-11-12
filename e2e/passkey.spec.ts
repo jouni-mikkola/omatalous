@@ -124,7 +124,10 @@ test("on a home network address without https the card says so and offers no pas
       const page = await context.newPage();
       await page.goto("/#/settings/security");
       const card = page.locator(".card", { has: page.getByRole("heading", { name: "Passkey (pääsyavain)", exact: true }) });
-      await expect(card.getByText(/Passkey toimii vain https-osoitteessa\. Tämän asennuksen osoite on http:\/\/192\.168\.1\.10:8080/)).toBeVisible();
+      // one status line and no box: nothing can be pressed here, so no empty line of passkeys either
+      await expect(card.getByText("Vaatii https-osoitteen.")).toBeVisible();
+      await expect(card.locator(".notice")).toHaveCount(0);
+      await expect(card.getByText("Passkeyta ei ole lisätty.")).toHaveCount(0);
       await expect(card.getByRole("button", { name: "Lisää passkey" })).toHaveCount(0);
       await context.close();
     });

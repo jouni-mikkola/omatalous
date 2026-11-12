@@ -21,8 +21,7 @@ export const FI_PASSKEY = {
   "factor.keep_while_public": "Osoite on julkinen, joten ylläpitäjällä pitää olla toinen tekijä. Ota etäkäyttö ensin pois käytöstä.",
   // the card
   "passkey.title": "Passkey (pääsyavain)",
-  "passkey.intro": "Passkey on toinen tekijä salasanan rinnalla. Se on tallennettu laitteeseesi, ja laite kysyy kirjautuessa sormenjälkeä, kasvoja tai lukituksen avausta.",
-  "passkey.https_note": "Passkey toimii vain https-osoitteessa. Tämän asennuksen osoite on {address}, joten passkeyta ei voi lisätä. Kotiverkossa ilman https:ää käytä kaksivaiheista kirjautumista sovelluksella.",
+  "passkey.https_note": "Vaatii https-osoitteen.",
   "passkey.empty": "Passkeyta ei ole lisätty.",
   "passkey.add": "Lisää passkey",
   "passkey.device": "Laitteen nimi",

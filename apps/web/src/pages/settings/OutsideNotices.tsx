@@ -84,10 +84,7 @@ export function OutsideNotices() {
         <form className="setup-form" onSubmit={submit} noValidate>
           <label className="check">
             <input type="checkbox" checked={on} onChange={(e) => setEnabled(e.target.checked)} />
-            <span>
-              {t("set.notices.send_notices")}
-              <span className="field-help">{t("set.notices.when_off_nothing_is_sent")}</span>
-            </span>
+            <span>{t("set.notices.send_notices")}</span>
           </label>
           <label>
             <span className="field-label">{t("set.notices.address_or_ntfy_topic")}</span>
@@ -97,7 +94,6 @@ export function OutsideNotices() {
           <label>
             <span className="field-label">{t("set.notices.token_optional")}</span>
             <input name="notices-token" type="password" autoComplete="off" spellCheck={false} maxLength={300} value={token} onChange={(e) => setToken(e.target.value)} />
-            <span className="field-help">{t("set.notices.token_help")}</span>
           </label>
           {!view.secret.available && <Notice tone="warning">{t("set.notices.the_server_s_encryption_key")}</Notice>}
           {error && <Notice tone="error">{error}</Notice>}

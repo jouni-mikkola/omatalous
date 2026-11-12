@@ -22,6 +22,7 @@ import { LinkQuestion } from "./AccountUse.tsx";
 import { RenewalRound } from "./RenewalRound.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
+import { Empty } from "../../components/ui/Empty.tsx";
 import { SETTINGS_ANCHOR, settingsHash } from "../../routes.ts";
 import { useLookAgain, waitsForFirstFetch } from "../../first-fetch.ts";
 import { labelTable, rich, t, tn } from "../../text.ts";
@@ -399,7 +400,7 @@ export function BankConnections({
           ]}
         />
       ) : (
-        !picking && <p className="muted">{t("set.conn.connect_a_bank_and_the")}</p>
+        !picking && <Empty>{t("set.conn.none")}</Empty>
       )}
 
       {meta.bank.configured && (

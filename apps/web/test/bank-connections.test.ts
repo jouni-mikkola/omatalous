@@ -99,6 +99,14 @@ const html = (connections: Connection[], configured?: boolean, accounts: Partial
   renderToStaticMarkup(createElement(BankConnections, { meta: meta(connections, configured, accounts, role, source), pickerOpen: false, connected, onChange: () => {}, onMessage: () => {} }));
 const renews = (out: string) => out.split("Yhdistä uudelleen").length - 1;
 
+describe("Pankkiyhteydet with no connection", () => {
+  it("says so in the one empty line of the app, and does not say again what the button says", () => {
+    const out = html([]);
+    expect(out).toContain('<div class="empty">Ei pankkiyhteyksiä.</div>');
+    expect(out).not.toContain("niin haemme");
+  });
+});
+
 describe("Pankkiyhteydet: a row names its bank in words", () => {
   it("has the bank's name and no picture, for a bank that has artwork too", () => {
     const out = html([conn("a", "active", 40)]);

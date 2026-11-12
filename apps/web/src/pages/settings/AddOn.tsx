@@ -60,7 +60,6 @@ export function AddOn() {
           <label>
             <span className="field-label">{t("set.addon.code")}</span>
             <input name="addon-code" type="password" autoComplete="off" spellCheck={false} maxLength={1024} value={code} onChange={(e) => setCode(e.target.value)} />
-            <span className="field-help">{t("set.addon.code_help")}</span>
           </label>
           <label>
             <span className="field-label">{t("set.addon.password")}</span>

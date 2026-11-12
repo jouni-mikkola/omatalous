@@ -61,7 +61,6 @@ export function RemoteAccessBody({ poll, now = Date.now() }: { poll: RemoteAcces
   const idle = (s === null || (stageOf(s) === "off" && s.pending === null)) && !stopped;
   return (
     <FoldCard className="remote-access" id="etakaytto" title={t("set.remote.remote_access")} sub={s ? (stopped ? remoteSummary(s) : nextStep(s)) : undefined} folded={idle}>
-      <p>{t("set.remote.remote_access_lets_you_reach")}</p>
       {error && !s && (
         <Notice tone="warning" role="alert">
           {error}

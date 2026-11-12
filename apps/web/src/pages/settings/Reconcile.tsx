@@ -1,6 +1,7 @@
 /**
  * Asetukset > Tilit, under an account: "Täsmää pankin saldoon". A tick when the newest stretch of the bank's balances
- * is the sum of the account's rows to the cent, else the reason. Opened, the stretches that match, with the days, and
+ * is the sum of the account's rows to the cent, else the reason. A check the bank's data does not allow yet, with no
+ * stretch to show, draws nothing: the reader can do nothing about it, and the missing tick says it. Opened, the stretches that match, with the days, and
  * where the walk back from the newest day stopped. The server works it out (`reconcile`, core); this only draws it.
  */
 import type { ReconcileResult } from "@banking/core";
@@ -10,6 +11,7 @@ import { t } from "../../text.ts";
 
 export function Reconcile({ result }: { result: ReconcileResult }) {
   const view = reconcileView(result);
+  if (result.status === "unknown" && !view.rows.length) return null;
   // one flow of text: the tick before the words, or the reason after them, so it wraps as a sentence
   const line = (
     <>

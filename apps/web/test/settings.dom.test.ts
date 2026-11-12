@@ -134,7 +134,10 @@ describe("Forms that open in place", () => {
     await startServer();
     await openApp("#/settings/household", "Asetukset");
     for (const [open, form] of [["Vaihda salasana", "form"], ["Lisää jäsen", "form.form-fields"], ["Lisää laina", "form.loan-form"]] as const) {
-      fireEvent.click(await screen.findByRole("button", { name: open }, T));
+      const opener = await screen.findByRole("button", { name: open }, T);
+      // the button that opens a section's form stands in the strip of the section's name
+      expect(opener.closest(".card-head"), `${open} in the name strip`).not.toBeNull();
+      fireEvent.click(opener);
       await waitFor(() => focusIsIn(form), T);
       expect(document.activeElement!.matches("input, select, textarea")).toBe(true);
       // Peruuta closes and the focus is on the button that opened the form, not on the start of the page

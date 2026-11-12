@@ -5,7 +5,6 @@ export const EN_SET_ADDON: Record<keyof typeof FI_SET_ADDON, string> = {
   "set.addon.title": "Add-on",
   "set.addon.intro": "An add-on brings a feature that is not part of the shared code. You get the code from the add-on's maker. Only an add-on whose signature matches is installed.",
   "set.addon.code": "Enter the add-on code",
-  "set.addon.code_help": "The code is encrypted and never shown again.",
   "set.addon.password": "Your password",
   "set.addon.save": "Save code",
   "set.addon.saving": "Saving…",

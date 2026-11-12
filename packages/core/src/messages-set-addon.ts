@@ -7,7 +7,6 @@ export const FI_SET_ADDON = {
   "set.addon.title": "Lisäosa",
   "set.addon.intro": "Lisäosa tuo sovellukseen toiminnon, joka ei kuulu jaettuun koodiin. Saat koodin lisäosan tekijältä. Asennamme vain lisäosan, jonka allekirjoitus täsmää.",
   "set.addon.code": "Syötä lisäosan koodi",
-  "set.addon.code_help": "Salaamme koodin emmekä näytä sitä uudelleen.",
   "set.addon.password": "Salasanasi",
   "set.addon.save": "Tallenna koodi",
   "set.addon.saving": "Tallennetaan…",

@@ -1,6 +1,9 @@
 import type { ReconcileResult } from "@banking/core";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
+import { Reconcile } from "../src/pages/settings/Reconcile.tsx";
 import { periodText, reconcileView } from "../src/pages/settings/reconcile-text.ts";
 
 type Interval = ReconcileResult["intervals"][number];
@@ -9,6 +12,23 @@ const interval = (fromDay: string, toDay: string, over: Partial<Interval> = {}):
 });
 const result = (over: Partial<ReconcileResult>): ReconcileResult => ({
   type: "CLBD", sign: 1, status: "proved", reason: null, provedFrom: null, provedTo: null, lastMatchedTo: null, intervals: [], ...over,
+});
+
+describe("the line under an account", () => {
+  const html = (r: ReconcileResult) => renderToStaticMarkup(createElement(Reconcile, { result: r }));
+
+  it("draws nothing for a check that cannot be made yet and has no stretch to show", () => {
+    expect(html(result({ status: "unknown", type: null, reason: "too_few" }))).toBe("");
+    expect(html(result({ status: "unknown", type: null, reason: "only_available" }))).toBe("");
+  });
+
+  it("draws a match, a mismatch and a check that stopped after a stretch", () => {
+    expect(html(result({}))).toContain("Täsmää pankin saldoon");
+    expect(html(result({ status: "differs" }))).toContain("Ei täsmää pankin saldoon");
+    const stopped = html(result({ status: "unknown", reason: "type_changed", intervals: [interval("2026-10-01", "2026-10-07")] }));
+    expect(stopped).toContain("<details");
+    expect(stopped).toContain("saldon tyyppi vaihtui");
+  });
 });
 
 describe("the words of Täsmää pankin saldoon", () => {
@@ -22,7 +42,8 @@ describe("the words of Täsmää pankin saldoon", () => {
   });
 
   it("says a check that cannot be made yet is not a mismatch", () => {
-    const line = (reason: ReconcileResult["reason"]) => reconcileView(result({ status: "unknown", type: null, reason })).headline;
+    // the line is drawn only above a stretch that was checked before the check stopped
+    const line = (reason: ReconcileResult["reason"]) => reconcileView(result({ status: "unknown", type: null, reason, intervals: [interval("2026-10-01", "2026-10-07")] })).headline;
     expect(line("too_few")).toBe("Saldoa ei voi vielä tarkistaa: pankin saldotietoja on vielä liian vähän");
     expect(line("only_available")).toBe("Saldoa ei voi vielä tarkistaa: pankki kertoo vain käytettävissä olevan saldon");
     expect(line("type_changed")).toBe("Saldoa ei voi vielä tarkistaa: saldon tyyppi vaihtui");

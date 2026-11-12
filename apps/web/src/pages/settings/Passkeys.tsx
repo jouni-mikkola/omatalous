@@ -5,6 +5,7 @@ import { dateTime } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
+import { Empty } from "../../components/ui/Empty.tsx";
 import { t } from "../../text.ts";
 import { useAction } from "./use-action.ts";
 import { type CreationOptions, createPasskey, passkeysSupported } from "../../webauthn.ts";
@@ -120,12 +121,12 @@ export function Passkeys() {
           </div>
         )}
       </div>
-      <p className="muted">{t("passkey.intro")}</p>
       {state.error && <Notice tone="error">{state.error}</Notice>}
-      {s && !s.usable && <Notice tone="info">{t("passkey.https_note", { address: s.address })}</Notice>}
+      {/* nothing to press here: a status line, as "Ei käytössä." of the section above, and no box */}
+      {s && !s.usable && <Empty>{t("passkey.https_note")}</Empty>}
       {s && s.usable && !passkeysSupported() && <Notice tone="info">{t("passkey.unsupported")}</Notice>}
       {codes && <RecoveryCodes codes={codes} onDone={close} />}
-      {s && !codes && s.passkeys.length === 0 && !adding && <p className="muted">{t("passkey.empty")}</p>}
+      {s && s.usable && !codes && s.passkeys.length === 0 && !adding && <Empty>{t("passkey.empty")}</Empty>}
       {s && !codes && (
         <ul className="passkey-list">
           {s.passkeys.map((p) => (

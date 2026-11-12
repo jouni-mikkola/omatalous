@@ -3,7 +3,6 @@ import type { FI_SET_REMOTE } from "../messages-set-remote.ts";
 
 export const EN_SET_REMOTE: Record<keyof typeof FI_SET_REMOTE, string> = {
   "set.remote.remote_access": "Remote access",
-  "set.remote.remote_access_lets_you_reach": "Remote access lets you reach the app from outside the home network.",
   "set.remote.loading": "Loading…",
   "set.remote.turn_remote_access_off": "Turn remote access off",
   "set.remote.when_remote_access_is_turned": "When remote access is turned off, a browser opened with the remote address loses its connection.",

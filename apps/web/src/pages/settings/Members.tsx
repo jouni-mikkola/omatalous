@@ -147,12 +147,14 @@ export function Members({ me, meta, onChange, onLoaded }: { me: User; meta: Meta
   return (
     <div className="card" {...region}>
       <div className="card-head">
-        <div>
-          <h2>{t("set.mem.household_members")}</h2>
-        </div>
+        <h2>{t("set.mem.household_members")}</h2>
+        {!adding && (
+          <div className="form-row flush">
+            <Button data-opener onClick={() => setAdding(true)}>{t("set.mem.add_member")}</Button>
+          </div>
+        )}
       </div>
       {secret && <SecretBox key={`${secret.who}:${secret.password}`} who={secret.who} password={secret.password} address={address} />}
-      {!adding && <Button data-opener onClick={() => setAdding(true)}>{t("set.mem.add_member")}</Button>}
       {adding && <form className="form-row form-fields" onSubmit={add} noValidate>
         {!noLogin && (
           <label className="field">

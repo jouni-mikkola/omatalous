@@ -19,9 +19,7 @@ export const FI_SET_NOTICES = {
   "set.notices.saved_place_token": "Tallennettu: {place}, tunniste tallennettu.",
   "set.notices.saved_place": "Tallennettu: {place}.",
   "set.notices.send_notices": "Lähetä ilmoitukset",
-  "set.notices.when_off_nothing_is_sent": "Kun tämä on pois, mitään ei lähde.",
   "set.notices.address_or_ntfy_topic": "Osoite tai ntfy-aihe",
   "set.notices.address_help": "Webhookin https-osoite tai ntfy-aiheen nimi (palvelin ntfy.sh).",
-  "set.notices.token_optional": "Tunniste (valinnainen)",
-  "set.notices.token_help": "Lähetämme tunnisteen Bearer-otsakkeessa. Salaamme tallennetun osoitteen ja tunnisteen emmekä näytä niitä uudelleen.",
+  "set.notices.token_optional": "Bearer-tunniste (valinnainen)",
 } as const;

@@ -39,6 +39,8 @@ describe("the form for a new member", () => {
     const html = renderToStaticMarkup(createElement(Members, { me: user, meta: { accounts: [] } as never, onChange: () => {} }));
     vi.unstubAllGlobals();
     expect(html).toContain(">Lisää jäsen</button>");
+    // the section's one action stands in the strip of its name, right of the heading
+    expect(html).toMatch(/<div class="card-head"><h2[^>]*>Talouden jäsenet<\/h2><div class="form-row flush"><button[^>]*>Lisää jäsen<\/button><\/div><\/div>/);
     expect(html).not.toContain("<form");
   });
 });
