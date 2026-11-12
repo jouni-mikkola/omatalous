@@ -88,6 +88,16 @@ export function thirtyDayLine(ahead: Ahead): BillLine | null {
   return lineOf(ahead, rows, payday ?? ahead.to, payday, false);
 }
 
+/**
+ * The days from today to the payday with a dot for each of `rows`, the payments Laskut lists before the payday: the
+ * line and the list under it show the same payments, so a dot is a row and the sum is theirs. No balance steps. Null
+ * when nothing is due.
+ */
+export function paydayLine(ahead: Ahead, rows: Payment[], payday: string): BillLine | null {
+  if (rows.length === 0 || payday < ahead.from) return null;
+  return lineOf(ahead, rows, payday, payday, false);
+}
+
 /** The line over `rows` from today to `last`: the days, the dots and, where asked and known, the balance. */
 function lineOf(ahead: Ahead, rows: Payment[], last: string, payday: string | null, steps: boolean): BillLine {
   const { from, balance } = ahead;

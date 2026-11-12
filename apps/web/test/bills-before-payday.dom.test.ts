@@ -53,6 +53,18 @@ describe("Laskut: payments before the payday", () => {
       return el!;
     });
     expect(within(section).getByRole("heading").textContent).toBe("Maksut ennen palkkapäivää");
+    // it stands in the card of Tulevat maksut, with the sum beside its name
+    expect(section.closest("#tulossa")).toBeTruthy();
+    expect(flat(section.querySelector(".bills-time-sum")?.textContent)).toContain("1 900");
+    // the line of days: today to the payday, a dot to each payment of the list and none to the pay
+    expect(section.querySelectorAll(".nd-axis li").length).toBe(15);
+    expect(section.querySelectorAll(".nd-axis li.nd-pd").length).toBe(1);
+    const dots = [...section.querySelectorAll(".nd-dots [role=img]")].map((d) => d.getAttribute("aria-label") ?? "");
+    expect(dots.length).toBe(3);
+    for (const name of ["Helen", "Elisa", "Visa"]) expect(dots.some((d) => d.includes(name))).toBe(true);
+    // the group of dots is named by this block's heading
+    expect(section.querySelector(".nd-line")?.getAttribute("aria-labelledby")).toBe("before-payday-h");
+    expect(section.querySelector("#before-payday-h")).toBeTruthy();
     const bills = [...section.querySelectorAll("[data-kind=bill]")].map((li) => flat(li.textContent));
     expect(bills).toEqual(["12.11.Helen48,12 €", "15.11.Elisa29,14 €", "20.11.Visa1 822,28 €"]);
     const sums = [...section.querySelectorAll("[data-kind=bill] .bp-sum")].map((e) => Number(flat(e.textContent).replace(/[^\d,]/g, "").replace(",", ".")) * 100);

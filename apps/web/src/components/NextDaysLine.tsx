@@ -36,7 +36,7 @@ interface Item {
  * under it, and the other way round; arrows move from dot to dot. Nothing is added to the balance: a pay is a mark.
  * The table under the line says all of it in text, so the drawing is for the eyes.
  */
-export function NextDaysLine({ line, active, onActive }: { line: BillLine; active: Active; onActive: (a: Active) => void }) {
+export function NextDaysLine({ line, active, onActive, labelledBy = "ahead-h" }: { line: BillLine; active: Active; onActive: (a: Active) => void; /** The id of the heading that names the line. */ labelledBy?: string }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const width = measured || UNMEASURED;
   const { axis, bills, pays, startCents } = line;
@@ -85,7 +85,7 @@ export function NextDaysLine({ line, active, onActive }: { line: BillLine; activ
       }}
       className={lit >= 0 ? "nd-line has-on" : "nd-line"}
       role="group"
-      aria-labelledby="ahead-h"
+      aria-labelledby={labelledBy}
     >
       <div className="nd-dots" ref={css({ height: height })}>
         {items.map((item, i) => {

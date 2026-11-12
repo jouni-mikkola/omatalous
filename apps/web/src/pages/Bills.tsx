@@ -121,8 +121,8 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
+        {dashboard.data && <BeforePayday data={dashboard.data} />}
       </section>
-      {dashboard.data && <BeforePayday data={dashboard.data} />}
       {markError && <Notice tone="error">{markError}</Notice>}
       {items.length > 0 ? (
         <div className="span-12">
