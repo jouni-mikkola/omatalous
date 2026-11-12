@@ -88,7 +88,7 @@ function isContractSeries(s: Pick<RecurringSeries, "kind" | "occurrences" | "cat
 }
 
 /** No payment by the expected date plus one and a half cadences, and the expected date 20 days past or more. */
-const hasEnded = (next: IsoDate, intervalDays: number, today: IsoDate): boolean => {
+export const hasEnded = (next: IsoDate, intervalDays: number, today: IsoDate): boolean => {
   const late = daysBetween(next, today);
   return late >= ENDED_LATE_DAYS && late > ENDED_CADENCES * intervalDays;
 };

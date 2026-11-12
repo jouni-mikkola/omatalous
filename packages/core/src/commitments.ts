@@ -7,9 +7,10 @@ import type { AnalysisContext } from "./analysis/context.ts";
 import { countingMark, covers, type MarkedSeries, marksBySubject } from "./analysis/subscription-alerts.ts";
 import { completeMonthsBefore } from "./analysis/usual.ts";
 import { getCategory, SUBSCRIPTION_CATEGORIES } from "./categories.ts";
-import { addMonthsToDate, monthIndex, monthOf } from "./dates.ts";
+import { hasEnded } from "./contract.ts";
+import { addMonthsToDate, daysBetween, monthIndex, monthOf } from "./dates.ts";
 import { endedPlanSubjects } from "./plan-answer.ts";
-import { projectDates, type RecurringSeries } from "./recurring.ts";
+import { isOverdue, projectDates, type RecurringSeries } from "./recurring.ts";
 import type { ExpectedBill, IsoDate, UserInputs, UserMark } from "./types.ts";
 
 /** What a mark can find a series by. A caller may pass less than a whole series, and then only a mark on its merchant covers it. */
@@ -198,6 +199,28 @@ export function isBillSeries(s: Pick<RecurringSeries, "kind" | "category">, savi
   if (s.kind !== "subscription" && s.kind !== "bill") return false;
   const kind = getCategory(s.category).kind;
   return kind === "expense" || kind === "debt" || (savings && kind === "savings");
+}
+
+/**
+ * How many days past its due day a bill that did not come and is no longer `active` is still named so: a monthly
+ * series has ended by then (contract.ts), and a quarterly or yearly one, which ends months later, is not asked about
+ * for a whole season. While `active` it is always named, since the forecast already treats it as late then.
+ */
+const MISSED_DAYS = 45;
+
+/**
+ * The day a bill or subscription was due and did not come, or null. Late is `overdue`'s more than five days past the
+ * next date. It stays late after the series is no longer `active` (from day 11 of a monthly one), until it has ended by
+ * contract.ts's rule (`contract.ended`, else the same rule on the series' own dates) or is `MISSED_DAYS` late and no
+ * longer active. With today's `ENDED_CADENCES`, `ENDED_LATE_DAYS` and cadence tolerances that is days 6 to 45 of a
+ * monthly or quarterly series, 6 to about 50 of a yearly one (it stays active that long), 6 to 19 of a weekly one and 6
+ * to 22 of one paid twice a month (the tests hold these spans). Nothing ahead counts a missed bill: `active` and
+ * `overdue` keep their meaning.
+ */
+export function missedOn(s: Pick<RecurringSeries, "kind" | "category" | "nextDate" | "intervalDays" | "contract" | "active">, today: IsoDate): IsoDate | null {
+  if (!s.nextDate || !isBillSeries(s) || !isOverdue(true, s.nextDate, today) || (!s.active && daysBetween(s.nextDate, today) > MISSED_DAYS)) return null;
+  const ended = s.contract ? s.contract.ended : hasEnded(s.nextDate, s.intervalDays, today);
+  return ended ? null : s.nextDate;
 }
 
 /** A subscription or bill charge the forecast expects on a date. */

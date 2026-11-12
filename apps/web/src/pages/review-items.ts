@@ -119,11 +119,12 @@ interface ConsentItem extends Base {
   accounts: string[];
 }
 
-/** A bill whose charge is late: it goes when the charge comes or the series is marked Lopetettu (mark `cancelled` on `subject`). */
+/** A bill whose charge did not come: it goes when the charge comes, when the series is marked Lopetettu (mark `cancelled` on `subject`) or Tulee vielä is said for this due day (`in_use` on `comingSubject`). */
 interface BillItem extends Base {
   kind: "bill";
   seriesId: string;
   subject: string;
+  comingSubject: string;
   merchant: string;
   dueDate: string;
 }

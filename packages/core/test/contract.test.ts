@@ -3,7 +3,8 @@ import { cashAhead } from "../src/analysis/ahead.ts";
 import { categoryTotals } from "../src/analysis/category-totals.ts";
 import { createContext, spendRows } from "../src/analysis/context.ts";
 import { marksBySubject, seriesMarkSubject } from "../src/analysis/subscription-alerts.ts";
-import { expectedCharges, isContract, isEndedContract } from "../src/commitments.ts";
+import { billDueSubject, parseBillDueSubject } from "../src/bill-answer.ts";
+import { expectedCharges, isContract, isEndedContract, missedOn } from "../src/commitments.ts";
 import { addDays } from "../src/dates.ts";
 import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
 import { type Account, NO_INPUTS, type Transaction, type UserMark } from "../src/types.ts";
@@ -131,6 +132,70 @@ describe("a contract from a series", () => {
     expect(at(52)).toMatchObject({ ended: false, endedOn: null });
     expect(at(70).ended).toBe(false);
     expect(at(80)).toMatchObject({ ended: true });
+  });
+
+  it("a bill that did not come is missed from the sixth day past its due day until it has ended, also after it stops being active", () => {
+    const rows = series("2025-10-05", 30.44, 11, -3490, { merchant: "ESIMERKKI KUNTOSALI OY", counterparty: "ESIMERKKI KUNTOSALI OY", category: "fitness" });
+    const last = rows[rows.length - 1]!.bookingDate;
+    const of = (day: string) => createContext(rows, [checking], day).recurring.find((r) => r.merchant === "ESIMERKKI KUNTOSALI OY")!;
+    const due = of(last).nextDate!;
+    // `late` days past the due day
+    const at = (late: number) => {
+      const s = of(addDays(due, late));
+      return { s, missed: missedOn(s, addDays(due, late)) };
+    };
+    expect(at(0).missed).toBeNull();
+    expect(at(5).missed).toBeNull();
+    expect(at(6)).toMatchObject({ missed: due, s: { active: true, overdue: true } });
+    // no longer active, so no sum ahead counts it, but not ended either: it is still the bill that did not come
+    expect(at(20)).toMatchObject({ missed: due, s: { active: false, overdue: false } });
+    expect(at(45).missed).toBe(due);
+    expect(at(46).missed).toBeNull();
+    expect(at(47)).toMatchObject({ missed: null, s: { contract: { ended: true } } });
+    // shop visits and pay are no bill to miss, nor is money moved to savings
+    expect(missedOn({ ...at(20).s, kind: "habit" }, addDays(due, 20))).toBeNull();
+    expect(missedOn({ ...at(20).s, kind: "income", category: "salary" }, addDays(due, 20))).toBeNull();
+    expect(missedOn({ ...at(20).s, category: "investments" }, addDays(due, 20))).toBeNull();
+    // a series that is no contract ends by the same rule on its own dates
+    const plain = { ...at(20).s, contract: undefined };
+    expect(missedOn(plain, addDays(due, 20))).toBe(due);
+    expect(missedOn(plain, addDays(due, 47))).toBeNull();
+  });
+
+  it("a quarterly or yearly bill that did not come is named so for 45 days, not until it has ended months later, and a weekly one until it ends", () => {
+    const due = "2026-06-01";
+    const base = { kind: "bill" as const, category: "insurance", nextDate: due, contract: undefined, active: false };
+    for (const intervalDays of [91, 365]) {
+      const s = { ...base, intervalDays };
+      expect(missedOn(s, addDays(due, 5))).toBeNull();
+      expect(missedOn(s, addDays(due, 6))).toBe(due);
+      expect(missedOn(s, addDays(due, 45))).toBe(due);
+      // not ended yet by contract.ts (that takes 137 or 548 days), but no longer asked about
+      expect(missedOn(s, addDays(due, 46))).toBeNull();
+    }
+    // a yearly series found in the rows is still active (and the forecast calls it late) to about day 50: named until then
+    const yearly = series("2023-03-10", 365.25, 3, -24000, { merchant: "ESIMERKKIVAKUUTUS OY", counterparty: "ESIMERKKIVAKUUTUS OY", category: "insurance" });
+    const ofYear = (day: string) => createContext(yearly, [checking], day).recurring.find((r) => r.merchant === "ESIMERKKIVAKUUTUS OY")!;
+    const yearDue = ofYear(yearly[yearly.length - 1]!.bookingDate).nextDate!;
+    const lateYear = (late: number) => missedOn(ofYear(addDays(yearDue, late)), addDays(yearDue, late));
+    expect(ofYear(addDays(yearDue, 48))).toMatchObject({ active: true, overdue: true });
+    expect(lateYear(48)).toBe(yearDue);
+    expect(lateYear(60)).toBeNull();
+    // a weekly subscription ends by contract.ts's rule on day 20, before the cap
+    const weekly = { ...base, kind: "subscription" as const, category: "subscriptions", intervalDays: 7 };
+    expect(missedOn(weekly, addDays(due, 19))).toBe(due);
+    expect(missedOn(weekly, addDays(due, 20))).toBeNull();
+    // one paid twice a month until day 22
+    const twice = { ...base, intervalDays: 15 };
+    expect(missedOn(twice, addDays(due, 22))).toBe(due);
+    expect(missedOn(twice, addDays(due, 23))).toBeNull();
+  });
+
+  it("Tulee vielä is said of one due day of one series, and its subject reads back only so", () => {
+    const subject = billDueSubject("series:out:acc-1:Esimerkkisähkö#6420", "2026-09-01");
+    expect(subject).toBe("question:bill-due:2026-09-01:out:acc-1:Esimerkkisähkö#6420");
+    expect(parseBillDueSubject(subject)).toEqual({ dueDate: "2026-09-01", key: "out:acc-1:Esimerkkisähkö#6420" });
+    for (const wrong of ["question:bill-due:2026-13-01:out:acc-1:X", "question:bill-due:2026-09-01:in:acc-1:X", "question:bill-due:2026-09-01", "question:bill-due:2026-09-01out:acc-1:X", "series:out:acc-1:X"]) expect(parseBillDueSubject(wrong)).toBeNull();
   });
 
   it("a loan refinanced to a lower instalment has no first payment, and the earlier instalments are no first payment", () => {
