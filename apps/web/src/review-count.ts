@@ -2,7 +2,7 @@ import { useApi } from "./hooks.ts";
 import { queryClient } from "./query-client.ts";
 import { t } from "./text.ts";
 
-/** How many questions are open: the one number the shell reads on every page. The queue itself (`/api/review`) is read by Tarkistettavat and by Yhteenveto, whose Huomioitavaa is its first rows. */
+/** How many questions are open: the one number the shell reads on every page. The queue itself (`/api/review`) is read by Tarkistettavat and by Yhteenveto, whose Huomioitavaa shows its first items that need the household. */
 export const REVIEW_COUNT_PATH = "/api/review/count";
 
 interface Counted {
