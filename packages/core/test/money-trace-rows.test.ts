@@ -263,6 +263,20 @@ describe("traceRows", () => {
     expect(plain!.to).toBeUndefined();
   });
 
+  it("never asks whose money a loan payout into the pool was: it is the users' shared credit", () => {
+    const BANK = "FI0000000041";
+    const payout = at("1", "2025-08-03", 500000, { counterparty: "ESIMERKKIPANKKI", counterpartyIban: BANK, category: "credit_draw" });
+    const other = at("2", "2025-08-04", 50000, { counterparty: "ESIMERKKI OY" });
+    const rows = read([payout, other], who());
+    expect(questionsOf(trace(rows, 0, d("2025-08-03")), []).map((q) => [q.key, q.cents])).toEqual([["g:text:ESIMERKKI OY", 50000]]);
+    expect(rows[0]).toMatchObject({ group: `g:credit:iban:${BANK}` });
+    // the pool paid the bank before: a payout is still no money back, and the users share it at their parts
+    const instalment = at("0", "2025-08-01", -30000, { counterparty: "ESIMERKKIPANKKI", counterpartyIban: BANK });
+    const again = read([instalment, payout], who());
+    expect(again[1]!.from).toBeUndefined();
+    expect(again[1]!.group).toBe(`g:credit:iban:${BANK}`);
+  });
+
   it("asks once for two pools that pay each other: each row is unknown money of the other pool", () => {
     // pool Y paid this pool 500,00 and this pool paid Y 500,00: neither is traced before the other
     const rows = read([at("1", "2025-08-03", 50000, { counterpartyIban: POOL_Y }), at("2", "2025-08-04", -50000, { counterpartyIban: POOL_Y })], who({ others: [at("y", "2025-08-02", -50000, { counterpartyIban: POOL }, "pool-y")] }));

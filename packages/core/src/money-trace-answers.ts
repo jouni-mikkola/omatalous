@@ -9,6 +9,7 @@ import {
   ASK_LIMIT,
   compareOwners,
   type CreditFill,
+  isSharedCredit,
   isUserOwner,
   type Owner,
   type RowParts,
@@ -93,10 +94,13 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
   };
 }
 
+/** The groups a question stands for: unknown money of the asking sum nobody answered. Shared credit is never asked. */
+const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key));
+
 /** Whether a part is one a question stands for: unknown money of an unanswered group of the asking sum, or the unanswered opening once a row took it. */
 export function openOf(t: Trace, answers: readonly Answer[]): (p: SourcePart) => boolean {
   const said = new Set(answers.map((a) => a.key));
-  const asked = new Set(t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key)).map((g) => g.key));
+  const asked = new Set(askedGroups(t, said).map((g) => g.key));
   return (p) => (p.owner === "o" ? t.openingTaken && !said.has("o") : asked.has(p.owner));
 }
 
@@ -106,7 +110,7 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
   const openBy = new Map<Owner, number>();
   for (const r of t.rows) for (const p of r.parts) if (open(p)) openBy.set(p.owner, (openBy.get(p.owner) ?? 0) + p.cents);
   const said = new Set(answers.map((a) => a.key));
-  const questions: Question[] = t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key)).map((g) => ({ kind: "in", key: g.key, cents: g.cents, day: g.firstDay, openCents: openBy.get(g.key) ?? 0 }));
+  const questions: Question[] = askedGroups(t, said).map((g) => ({ kind: "in", key: g.key, cents: g.cents, day: g.firstDay, openCents: openBy.get(g.key) ?? 0 }));
   if (t.openingTaken && !said.has("o")) questions.push({ kind: "opening", key: "o", cents: t.openingCents, day: t.openingDay, openCents: openBy.get("o") ?? 0 });
   return questions.sort((a, b) => b.openCents - a.openCents || compareOwners(a.key, b.key));
 }

@@ -83,6 +83,11 @@ export interface Trace {
 export const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 /** Whether an owner is a member (`u:<id>`, `m:<id>`) or the holder with no login. */
 export const isUserOwner = (owner: Owner): boolean => owner.startsWith("u:") || owner.startsWith("m:");
+/**
+ * The group of a loan payout or other credit drawn into the pool (category `credit_draw`): credit the pool's users share,
+ * at their parts like any unknown money, and never a question of whose money it was.
+ */
+export const isSharedCredit = (owner: Owner): boolean => owner.startsWith("g:credit:");
 export const sumCents = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 
 /** The order of the parts: members by key (as code units compare), the holder nobody names, groups by key, the opening, credit. */

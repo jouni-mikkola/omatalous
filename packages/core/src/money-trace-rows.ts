@@ -348,6 +348,8 @@ function rowOf(r: JoinedRow, { classified, outs, cardKeys }: Read, paid: Paid, r
     return { ...base, ...(to ? { to } : {}), ...(cardKey !== undefined ? { cardKey } : {}) };
   }
   const seen = classified.get(r.key);
+  // a loan payout or credit drawn into the pool is the users' shared credit: no payer, no refund, no question
+  if (!seen && tx.category === "credit_draw") return { ...base, group: `g:credit:${groupOf(tx).slice(2)}` };
   const group = seen?.group ?? groupOf(tx);
   if (seen?.from) return { ...base, from: seen.from, group };
   if (seen) return { ...base, group };

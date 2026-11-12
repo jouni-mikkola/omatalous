@@ -17,6 +17,7 @@ import {
   type CreditEntry,
   type CreditFill,
   cut,
+  isSharedCredit,
   isUserOwner,
   type Lot,
   type LotKind,
@@ -33,7 +34,7 @@ import {
 } from "./money-trace-lots.ts";
 import { pairMoves } from "./money-trace-pairs.ts";
 
-export { compareOwners, isUserOwner, sumCents };
+export { compareOwners, isSharedCredit, isUserOwner, sumCents };
 export type { CreditFill, Owner, RowParts, SourcePart, Trace, TraceRow };
 
 /** Unknown money in is asked about from this sum on (100,00): below it the app does not trouble the household. */
@@ -44,7 +45,7 @@ export const ASK_LIMIT = 10000;
  */
 export const TRACE_PAIR_DAYS = 3;
 /** Changes when a rule of the trace changes: a trace kept anywhere is built again. */
-export const TRACE_VERSION = 2;
+export const TRACE_VERSION = 3;
 
 /**
  * Traces a pool. `openingCents` is the balance before the first booked row (`openingDay`: that row's day); below zero
