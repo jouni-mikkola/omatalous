@@ -20,7 +20,7 @@
 # latest, not the newest tag (TALOUS_PRERELEASE=yes in .env: the newest release, a pre-release too). A folder that is
 # already at a release above that one (a pre-release) stays there. Until a release exists, and with TALOUS_CHANNEL=source
 # in .env, the update builds the newest source on this machine as it always has. With TALOUS_SOURCE_CHECKED=yes beside
-# it, the newest source is the newest commit whose checks passed on GitHub (lib/release.sh).
+# it, the newest source is the newest commit whose checks passed on GitHub (lib/source-checked.sh).
 #
 # Before the switch (after the new image is ready, right before the old container stops):
 #   • a consistent copy of the database is written inside the data volume

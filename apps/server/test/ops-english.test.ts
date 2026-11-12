@@ -6,7 +6,8 @@ import { OPS_ACTIONS_FOR_TEST } from "./ops-english-support.ts";
 import { ACTION_LABEL_EN, opsText } from "../src/services/ops-english.ts";
 
 const root = join(import.meta.dirname, "../../..");
-const SCRIPTS = ["scripts/ops-helper.sh", ...readdirSync(join(root, "scripts/lib")).filter((f) => /^ops-.*\.sh$/.test(f)).map((f) => `scripts/lib/${f}`)];
+// source-checked.sh holds the helper's sentences of a source update that waits for GitHub's checks (checked_source_target)
+const SCRIPTS = ["scripts/ops-helper.sh", "scripts/lib/source-checked.sh", ...readdirSync(join(root, "scripts/lib")).filter((f) => /^ops-.*\.sh$/.test(f)).map((f) => `scripts/lib/${f}`)];
 
 /** A shell string with its variables and substitutions replaced by a word. */
 const filled = (s: string) => s.replace(/\$\{\w+:\+([^}]*)\}/g, "$1").replace(/\$none\b/g, NONE).replace(/\$\{[^}]*\}|\$\([^)]*\)\)?|\$[A-Za-z_][A-Za-z0-9_]*/g, "x");
