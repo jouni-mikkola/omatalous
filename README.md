@@ -4,12 +4,21 @@ Omatalous is a personal finance app for a Finnish household. It runs on a Linux 
 accounts through [Enable Banking](https://enablebanking.com) and sorts every transaction into a category. It opens on
 one sum: what is left until the next payday after the bills due before it.
 
-![Yhteenveto, the first page, with the example household: the sum left until payday and the month's spending](docs/images/overview.png)
+A short loop through the app with its example household, from the first transactions to the phone.
+
+<picture>
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/images/tour-still.png">
+  <img src="docs/images/tour.png" alt="The app with the example household: the example data is loaded, the transactions get payees and categories, Yhteenveto takes the bills before payday from the balance, Laskut lists those bills, Raportit opens a category's rows, and the same pages show on a phone" width="1000">
+</picture>
 
 ## What it looks like
 
 The pictures show the example household that comes with the app. The app is in Finnish or English, and the menu
 under your name switches between them. These pages use the Finnish names.
+
+Yhteenveto, the first page, shows the sum left until payday and the month's spending.
+
+![Yhteenveto, the first page, with the example household: the sum left until payday and the month's spending](docs/images/overview.png)
 
 Laskut lists the bills due before payday and the payments that repeat.
 
@@ -91,7 +100,8 @@ project on GitHub Pages. [Security and privacy](docs/SECURITY.md) lists what is 
 
 To work on the code, start from [Development](docs/DEVELOPMENT.md), [Architecture](docs/ARCHITECTURE.md),
 [Releasing](docs/RELEASING.md) and [CONTRIBUTING.md](CONTRIBUTING.md). To report a vulnerability, follow
-[SECURITY.md](SECURITY.md).
+[SECURITY.md](SECURITY.md). `pnpm build && pnpm readme:film` makes the film at the top of this page again from the
+example household.
 
 ## Licence
 
