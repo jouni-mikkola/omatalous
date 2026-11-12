@@ -210,6 +210,6 @@ export const FI_OVERVIEW = {
   "notice.db_damaged_waiting": "Tietokanta on vaurioitunut. Ehjä varmuuskopio {copy} on tallessa, mutta emme saaneet sitä käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: sovellus palauttaa varmuuskopion käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.",
   "notice.new_device_title": "Kirjautuminen uudelta laitteelta {when} ({device})",
   "notice.alert": "Huomio: ",
-  "notice.heading": "Ilmoitukset",
+  "notice.new_events": "Turvallisuuslokissa on {count} uutta merkintää",
   "notice.security": "Turvallisuus",
 } as const;

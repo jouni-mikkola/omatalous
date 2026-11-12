@@ -160,6 +160,12 @@ export interface Notice {
   params?: Record<string, string | number>;
   /** The device of a sign-in from a new one ("Chrome, Windows"), for the first page's row; left out on every other notice. */
   detail?: string;
+  /**
+   * On a notice of an event only (an event's own, or the failed sign-ins of the day): whether the user has opened the
+   * first page's line or the security log since it happened (`markNoticesSeen`). A notice of a state has none: it lasts
+   * while its cause does.
+   */
+  seen?: boolean;
 }
 
 /**
@@ -171,10 +177,19 @@ export const ROLLBACK_NAME = "Edellinen versio palautettiin";
 const INDUSTRY_NOTICE = INDUSTRY_NOTICE_KEY;
 
 /**
- * How long the notice of an event is shown. Nobody marks a notice as read: one about something that happened goes
- * after this time, and one about a state (a full disk, a damaged database) goes when the state ends.
+ * How long the notice of an event is shown. One about something that happened goes after this time, and is `seen` once
+ * the user has opened its line or the security log; one about a state (a full disk, a damaged database) goes when the
+ * state ends.
  */
 export const NOTICE_HOURS = 72;
+/** The settings key of the time a user last opened the line of a notice or the security log (`notices_seen:<user id>`). */
+export const NOTICES_SEEN = "notices_seen:";
+
+/** The user has read the notices of the events so far: the first page's line opened, or the security log. */
+export async function markNoticesSeen(s: Services, userId: string): Promise<void> {
+  await s.settings.set(`${NOTICES_SEEN}${userId}`, s.now().toISOString());
+}
+
 /** Failed sign-ins of the last day that make a notice. Fewer are a mistyped password, which needs nothing done. */
 export const LOGIN_FAIL_NOTICE = 3;
 
@@ -213,19 +228,25 @@ async function everyNotice(s: Services, user: { id: string; role: string }, prob
     out.push({ id: "db_damaged", kind: "db_damaged", at: null, text: damagedNotice(s.dbDamaged), ...(copy ? { code: "notice.db_damaged_waiting" as const, params: { copy } } : { code: "notice.db_damaged_none" as const }) });
   }
   const here = userAgent ? userAgent.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 200) : null;
+  const seenAt = (await s.settings.get(`${NOTICES_SEEN}${user.id}`)) ?? "";
+  const events: Notice[] = [];
   for (const e of await s.security.noticeEvents(user.id, new Date(s.now().getTime() - NOTICE_HOURS * 3600_000).toISOString())) {
     if (e.kind === "new_device" && here !== null && e.userAgent === here) continue;
-    if (e.kind === "password_reset_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.reset_by_admin" });
-    else if (e.kind === "new_device") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjautui joku uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, code: "notice.new_device", params: { device: e.detail ?? "tuntematon" }, detail: e.detail ?? "tuntematon" });
-    else if (e.kind === "factor_removed_by_admin") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.factor_removed" });
-    else if (e.kind === "recovery_code_used") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellesi kirjautui joku palautuskoodilla ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja tee uudet palautuskoodit.`, code: "notice.recovery_used" });
-    else if (e.kind === "ops_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
-    else if (e.kind === "watchdog_notice") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
-    else if (e.kind === "db_restored") out.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Palautimme tietokannan varmuuskopiosta"}. Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.` });
+    if (e.kind === "password_reset_by_admin") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.reset_by_admin" });
+    else if (e.kind === "new_device") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjautui joku uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, code: "notice.new_device", params: { device: e.detail ?? "tuntematon" }, detail: e.detail ?? "tuntematon" });
+    else if (e.kind === "factor_removed_by_admin") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.factor_removed" });
+    else if (e.kind === "recovery_code_used") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellesi kirjautui joku palautuskoodilla ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja tee uudet palautuskoodit.`, code: "notice.recovery_used" });
+    else if (e.kind === "ops_notice") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Ylläpitotoiminto"} ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.` });
+    else if (e.kind === "watchdog_notice") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? ROLLBACK_NAME} (${fiTime(e.at, tz)}).` });
+    else if (e.kind === "db_restored") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `${e.detail ?? "Palautimme tietokannan varmuuskopiosta"}. Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.` });
   }
-  const failed = await s.security.countSince(user.id, "login_fail", new Date(s.now().getTime() - 86_400_000).toISOString());
+  out.push(...events.map((n) => ({ ...n, seen: n.at! <= seenAt })));
+  const dayAgo = new Date(s.now().getTime() - 86_400_000).toISOString();
+  const failed = await s.security.countSince(user.id, "login_fail", dayAgo);
   if (failed >= LOGIN_FAIL_NOTICE) {
-    out.push({ id: "fails", kind: "login_fail", at: null, text: `Tunnuksellasi epäonnistui ${failed} kirjautumista viime vuorokauden aikana.`, code: "notice.login_fail_many", params: { count: failed } });
+    // seen until a sign-in fails after the user last looked
+    const seen = (await s.security.countSince(user.id, "login_fail", seenAt > dayAgo ? seenAt : dayAgo)) === 0;
+    out.push({ id: "fails", kind: "login_fail", at: null, text: `Tunnuksellasi epäonnistui ${failed} kirjautumista viime vuorokauden aikana.`, code: "notice.login_fail_many", params: { count: failed }, seen });
   }
   if (user.role === "admin" && (await s.settings.get(INDUSTRY_NOTICE))) {
     out.push({

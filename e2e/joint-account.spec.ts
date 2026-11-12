@@ -231,7 +231,7 @@ test("a payer nobody has named is a question: asked in Tarkistettavat with no gu
   // Tilit asks nothing: the question is in Tarkistettavat, and no notice on Yhteenveto tells it again
   await expect(tilit.getByRole("heading", { name: "Kenen rahaa?" })).toHaveCount(0);
   const overview = await open(browser, members[0]!, "/#/reports?tab=varat");
-  await expect(overview.page.locator(".notice-item", { hasText: "Kenen rahaa tilillä" })).toHaveCount(0);
+  await expect(overview.page.locator(".home-notice", { hasText: "Kenen rahaa tilillä" })).toHaveCount(0);
   const listed = await open(browser, members[0]!, "/#/transactions");
   await expect(listed.page.getByRole("link", { name: "Valitse, kenen osuus" })).toHaveCount(0);
   const unnamed = listed.page.locator("table.tx-table tbody tr", { has: listed.page.locator('.tx-part:text-is("jako kertomatta")') }).first();

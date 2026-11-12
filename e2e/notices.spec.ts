@@ -2,8 +2,8 @@ import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
 import { makeMember, removeMember, watch } from "./helpers.ts";
 
-// Ilmoitukset on Yhteenveto: the notices of the server (a sign-in from a new device), one line a row with no button:
-// a notice goes when its cause or its time ends.
+// The notices on Yhteenveto: one line at most, under the answer, for an event the user has not seen (a sign-in from a
+// new device). Opening the line or the security log marks the events seen, and the line goes.
 // Alerts and insights are not here any more: Tarkistettavat has them.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -18,10 +18,9 @@ async function open(context: BrowserContext, width = 1280): Promise<Page> {
   return page;
 }
 
-const cardOf = (page: Page) => page.getByRole("region", { name: "Ilmoitukset" });
+const lineOf = (page: Page) => page.locator(".home-notice");
 
-
-test("a sign-in from a new device is the first row, leading to Asetukset, and has nothing to press", async ({ browser }) => {
+test("a sign-in from a new device is one line under the answer, and goes once the security log is opened", async ({ browser }) => {
   const { state, id } = await makeMember(browser, "kirjaus");
   const context = await browser.newContext({ storageState: state });
   const other = await browser.newContext({ userAgent: FIREFOX });
@@ -31,20 +30,20 @@ test("a sign-in from a new device is the first row, leading to Asetukset, and ha
     expect(login.ok(), `POST /api/auth/login answered ${login.status()}`).toBe(true);
     const page = await open(context);
     const seen = watch(page);
-    const card = cardOf(page);
-    // not a banner above the page, but a row of the list
+    // not a banner above the page, nor a card with a heading: one line
     await expect(page.locator(".notice")).toHaveCount(0);
-    const first = card.getByRole("listitem").first();
-    await expect(first).toContainText(/Kirjautuminen uudelta laitteelta \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Firefox, Linux\)/);
-    await expect(first.getByRole("link")).toHaveAttribute("href", "#/settings/security#kirjautuminen");
+    await expect(page.getByRole("heading", { name: "Ilmoitukset" })).toHaveCount(0);
+    const line = lineOf(page);
+    await expect(line).toHaveCount(1);
+    await expect(line).toContainText(/Kirjautuminen uudelta laitteelta \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Firefox, Linux\)/);
+    await expect(line.getByRole("link")).toHaveAttribute("href", "#/settings/security#turvallisuusloki");
 
-    // nothing marks it as read: the card has no button, the old route is gone, and the row is there after a reload
-    await expect(card.getByRole("button")).toHaveCount(0);
-    expect((await context.request.post("/api/security/notices/seen", { headers: FETCH })).status()).toBe(404);
-    await page.reload();
+    await line.getByRole("link").click();
+    await expect(page.getByRole("heading", { name: "Turvallisuusloki" })).toBeVisible();
+    await page.goto("/#/overview?period=month");
     await expect(page.locator(".home-answer-line")).toBeVisible();
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("region", { name: "Ilmoitukset" }).getByRole("listitem").first()).toContainText(/Kirjautuminen uudelta laitteelta/);
+    await expect(lineOf(page)).toHaveCount(0);
     expect(seen.problems).toEqual([]);
   } finally {
     await other.close();

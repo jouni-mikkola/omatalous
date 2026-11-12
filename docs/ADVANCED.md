@@ -365,11 +365,12 @@ update, a rollback, a restore, a reset or a secret rotation. *Lataa uusin* gives
   200 MB database). It leaves the copies alone while any copy's file changed in the last two minutes and runs at the
   next hourly tick. A copy that fails is renamed `<name>.damaged`. It stays in `/data/backups` until you delete it by
   hand, is not restored from and is not protected.
-- Admins see four notices on the notice list. *Uusin ehjä varmuuskopio on yli 36 tuntia vanha.* (not in the first 36
+- Admins are told of four states, one line at a time under the answer on Yhteenveto. *Uusin ehjä varmuuskopio on yli 36 tuntia vanha.* (not in the first 36
   hours of an install), *Varmuuskopio ... ei läpäissyt tarkistusta, joten emme käytä sitä enää palautukseen.*,
   *Palvelimen levyllä on enää ... Mt vapaata tilaa.* (under 1 GB free, or the reserve given up) and *Ylläpitoapurista
   ei ole kuulunut vuorokauteen.* (24 hours after the helper was last seen). A notice stays while its
-  problem lasts and goes when the problem ends. Nothing marks one as read.
+  problem lasts and goes when the problem ends. Nothing marks one as read. The events of Asetukset > Turvallisuus >
+  Turvallisuusloki (a sign-in from a new device, a reset password) get the same line until the user opens it or the log.
 
 ### Restore a backup
 

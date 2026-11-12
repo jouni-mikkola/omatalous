@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 const css = (name: string) => readFileSync(new URL(`../src/styles/${name}`, import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 
-describe("Ilmoitukset", () => {
-  it("wraps the detail under 1040 px instead of cutting it", () => {
-    expect(css("notices.css")).toMatch(/@media \(max-width: 1039px\) \{\s*\.notice-item \.notice-text \{[^}]*white-space: normal;/);
+describe("the line of the notices on Yhteenveto", () => {
+  it("wraps on a narrow screen instead of cutting the text", () => {
+    expect(css("notices.css")).not.toMatch(/nowrap|text-overflow|overflow: hidden/);
   });
 });
 

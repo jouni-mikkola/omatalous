@@ -10,7 +10,7 @@ import type { Services } from "./context.ts";
 import { randomToken } from "../platform/ids.ts";
 import { revokeAllConnections } from "../connectors/registry.ts";
 import { refuseAdminWithoutFactor } from "./remote-access.ts";
-import { recordEvent } from "./security.ts";
+import { NOTICES_SEEN, recordEvent } from "./security.ts";
 import { hashBusy, tooMany } from "../platform/errors.ts";
 
 /** Address and browser of the request behind an action, for the security event. */
@@ -299,6 +299,7 @@ export async function removeUser(s: Services, userId: string, by: string, req: R
   // the instance version: every member's household view may have held this member's accounts
   await s.settings.bumpDataVersion();
   await s.settings.delete(`${USER_DATA_VERSION}${userId}`);
+  await s.settings.delete(`${NOTICES_SEEN}${userId}`);
   try {
     await s.users.compact();
   } catch (err) {

@@ -330,7 +330,8 @@ describe("the admin's notices about the safety net", () => {
     const sure = (body: { notices: { kind: string }[] }) => body.notices.map((n) => n.kind).filter((k) => k === "copy_missing" || k === "helper_silent");
     expect(sure((await h.admin.call("GET", "/api/security/notices")).body)).toEqual(["copy_missing", "helper_silent"]);
     expect((await matti.call("GET", "/api/security/notices")).body.notices.filter((n: { kind: string }) => HEALTH.has(n.kind))).toEqual([]);
-    expect((await h.admin.call("POST", "/api/security/notices/seen")).status).toBe(404);
+    // opening the notices marks events seen, never a state: these stay until their cause is mended
+    expect((await h.admin.call("POST", "/api/security/notices/seen")).status).toBe(200);
     expect(sure((await h.admin.call("GET", "/api/security/notices")).body)).toEqual(["copy_missing", "helper_silent"]);
     expect(await h.notices(412, kaisa), "the other admin is told the same").toEqual(all);
     expect(await h.s.settings.get(`notice_health_seen:${h.adminId}`), "no mark of a reading is stored").toBeNull();

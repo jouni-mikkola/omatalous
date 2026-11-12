@@ -88,13 +88,29 @@ describe("security events", () => {
     expect(await noticesFor(s, { id: (await s.users.findForLogin("aino"))!.id, role: "admin" })).toEqual([]);
   });
 
-  it("has no way to mark a notice as read", async () => {
-    const { admin, s, adminId } = await setupApp();
+  it("marks the notices of the events so far seen for the user who opened them, and a later event unseen", async () => {
+    const { admin, s, adminId, client } = await setupApp();
+    const at = vi.spyOn(s, "now");
+    const start = s.now().getTime();
+    const seenOf = async () => ((await admin.call("GET", "/api/security/notices")).body.notices as { kind: string; seen?: boolean }[]).map((n) => [n.kind, n.seen]);
     await recordEvent(s, { kind: "recovery_code_used", userId: adminId, notify: true });
-    const [mine] = (await admin.call("GET", "/api/security/notices")).body.notices as { id: string }[];
-    expect((await admin.call("POST", "/api/security/notices/seen", {})).status).toBe(404);
-    expect((await admin.call("POST", `/api/security/notices/${mine!.id}/seen`, {})).status).toBe(404);
-    expect(((await admin.call("GET", "/api/security/notices")).body.notices as unknown[]).length).toBe(1);
+    for (let i = 0; i < LOGIN_FAIL_NOTICE; i++) await client().call("POST", "/api/auth/login", { username: "aino", password: `nope-${i}-password` });
+    expect(await seenOf()).toEqual([["recovery_code_used", false], ["login_fail", false]]);
+    at.mockReturnValue(new Date(start + 60_000));
+    expect((await admin.call("POST", "/api/security/notices/seen")).status).toBe(200);
+    // the notices stay for their time, read
+    expect(await seenOf()).toEqual([["recovery_code_used", true], ["login_fail", true]]);
+    at.mockReturnValue(new Date(start + 120_000));
+    await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, notify: true });
+    await client().call("POST", "/api/auth/login", { username: "aino", password: "nope-later-password" });
+    expect(await seenOf()).toEqual([["recovery_code_used", true], ["password_reset_by_admin", false], ["login_fail", false]]);
+    // another member's mark is their own
+    const eero = (await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" })).body.user.id as string;
+    await recordEvent(s, { kind: "recovery_code_used", userId: eero, notify: true });
+    expect((await noticesFor(s, { id: eero, role: "member" })).map((n) => n.seen)).toEqual([false]);
+    // a notice of a state has no mark: it lasts while its cause does
+    expect((await admin.call("POST", "/api/security/notices/seen")).status).toBe(200);
+    expect((await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.seen === undefined)).toEqual([]);
   });
 
   it("shows the notice of an event for NOTICE_HOURS and then no more", async () => {
