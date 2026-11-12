@@ -175,8 +175,9 @@ class Film {
   beside(/** @type {Box} */ box) {
     const limit = this.phone ? PHONE : { width: SIZE.width, height: SIZE.page };
     const y = Math.min(limit.height - 24, Math.round(box.y + box.height - 4));
-    if (box.x + box.width + 10 > limit.width - 40) return { x: Math.round(box.x + box.width / 2), y };
-    return { x: Math.round(box.x + box.width + 10), y };
+    // 20 px clears the outline drawn round the box, so the pointer covers none of its text
+    if (box.x + box.width + 20 > limit.width - 40) return { x: Math.round(box.x + box.width / 2), y };
+    return { x: Math.round(box.x + box.width + 20), y };
   }
 
   /** The middle of what a locator finds, in the page's pixels, once it is on the screen. */
@@ -271,7 +272,7 @@ async function desk(/** @type {Film} */ film) {
   await film.settle();
   // the first page has its figures now; the pointer leaves it for Tapahtumat without opening the chart's readout
   await film.say("The example data is loaded.");
-  await film.shoot(400);
+  await film.read();
   await film.click(tab(page, "Tapahtumat"), false);
 
   // 2. the rows that came in, each with a payee and a category; one row whose payee the app read from the bank's text
@@ -311,7 +312,8 @@ async function desk(/** @type {Film} */ film) {
     }
   }
   if (!picked) throw new Error("no row on the first screen of Tapahtumat whose payee the app read from a longer bank text");
-  film.marks = [await film.box(picked.locator(".tx-text"), picked.locator(".tx-name")), await film.box(picked.locator(".tx-chip-label"))];
+  // the outlines are what the caption names: the payee and the category
+  film.marks = [await film.box(picked.locator(".tx-name")), await film.box(picked.locator(".tx-chip-label"))];
   await film.glide(film.beside(/** @type {Box} */ (film.marks[1])));
   await film.read();
   film.marks = [];
@@ -346,8 +348,8 @@ async function desk(/** @type {Film} */ film) {
   if (due.reduce((s, b) => s + b.sum, 0) !== totalCents || totalCents !== -cents(bills)) throw new Error(`Laskut: the bills before payday do not add up to ${bills}`);
   film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
   // two bills are named; more would make the caption too long to read
-  const named = due.length <= 2 ? due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(", ") : `its ${due.length} bills before payday`;
-  await film.say(`The ${euros(totalCents)} opens Laskut: ${named}.`);
+  const named = due.length <= 2 ? due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(" and ") : `its ${due.length} bills before payday`;
+  await film.say(`Laskut (bills): the ${euros(totalCents)} is ${named}.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   await film.read();
   film.marks = [];
@@ -367,7 +369,8 @@ async function desk(/** @type {Film} */ film) {
   const buttons = page.getByRole("button", { name: /^Näytä tapahtumat: / });
   // the groceries when the month has them: a category every household has
   const grocery = page.getByRole("button", { name: /^Näytä tapahtumat: Ruokakauppa / });
-  let open = (await grocery.count()) ? grocery.first() : null;
+  // a month with no grocery row yet shows it at 0,00 €, which has no rows to open
+  let open = (await grocery.count()) && cents(plain(await grocery.first().textContent())) !== 0 ? grocery.first() : null;
   for (const b of await buttons.all()) if (!open && cents(plain(await b.textContent())) !== 0) open = b;
   if (!open) throw new Error("Raportit has no figure with rows behind it this month");
   const clicked = cents(plain(await open.textContent()));
@@ -381,7 +384,8 @@ async function desk(/** @type {Film} */ film) {
   if (!lines.length || added !== shown || shown !== clicked) throw new Error(`Raportit: the rows add up to ${euros(added)}, the dialog shows ${euros(shown)}, the figure was ${euros(clicked)}`);
   const category = plain(await dialog.locator("h2").textContent());
   film.marks = [await film.box(dialog.locator(".why-foot"))];
-  await film.say(`${category}'s ${euros(shown)} opens its ${lines.length} row${lines.length === 1 ? "" : "s"}, which add up to it.`);
+  const rowsSay = lines.length === 1 ? "its one row is the same sum" : `its ${lines.length} rows add up to the same sum`;
+  await film.say(`${category}${category === "Ruokakauppa" ? " (groceries)" : ""}, ${euros(shown)}: ${rowsSay}.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   // the phone's part follows with no click under this caption
   await film.read({}, 0);
