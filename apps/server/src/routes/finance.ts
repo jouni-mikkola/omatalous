@@ -17,7 +17,7 @@ import type { AppEnv, Services } from "../services/context.ts";
 import { extensionRowFields } from "../extensions.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
 import { runningSettlement } from "../services/settlement.ts";
-import { addRule, deleteRule, parseCategoryUndo, publicTx, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
+import { addRule, deleteRule, ownRulesOfRows, parseCategoryUndo, publicTx, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
 import { withoutWrongBills } from "../services/wrong-bills.ts";
 import { body, optionalString, parseRange, parseReportIds, queryInt } from "./shared.ts";
 
@@ -227,6 +227,8 @@ export function financeRoutes(s: Services) {
       shared.map((a) => a.userId),
     );
     const extra = await extensionRowFields(s, user.id, items.filter((t) => t.userId === user.id));
+    // the viewer's own rule a row's category came from, which the row's detail names
+    const ownRules = await ownRulesOfRows(s, user.id, items);
     // the period the sums cover: the filter's, or from the first to the last matching row
     const span = days.length ? { from: range.from ?? days[0]!.date, to: range.to ?? days[days.length - 1]!.date } : null;
     const onPage = new Set(items.map((t) => t.bookingDate));
@@ -247,6 +249,7 @@ export function financeRoutes(s: Services) {
           own: t.userId === user.id,
           ...(share ? { partCents: share.cents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) } : part ? { partCents: partCents(t.amountCents, part) } : {}),
           ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}),
+          ...(ownRules.has(t.id) ? { ownRule: ownRules.get(t.id) } : {}),
           ...extra.get(t.id),
         };
       }),

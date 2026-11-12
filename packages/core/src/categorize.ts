@@ -521,7 +521,8 @@ function fieldText(input: CategorizeInput, field: RuleField): string {
   }
 }
 
-export function categorize(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[] = []): CategorizeResult {
+/** The first rule that takes the row and the category it gives it, or null when none does. */
+function firstRule(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[]): { rule: CompiledRule; category: string } | null {
   const direction: Direction = input.amountCents >= 0 ? "in" : "out";
   const holders = holdersOf(accounts);
   const texts = new Map<RuleField, string>();
@@ -532,12 +533,27 @@ export function categorize(input: CategorizeInput, rules: readonly CompiledRule[
     let text = texts.get(rule.field);
     if (text === undefined) texts.set(rule.field, (text = fieldText(input, rule.field)));
     if (rule.test(text, input, holders, accounts)) {
-      const byUser = rule.byUser ? { byUser: true } : {};
       // a lender sending money (loan payout) is borrowing, not repayment
-      if (direction === "in" && getCategory(rule.category).kind === "debt") return { category: "credit_draw", source: "rule", ...byUser };
-      return { category: rule.category, source: "rule", ...byUser };
+      return { rule, category: direction === "in" && getCategory(rule.category).kind === "debt" ? "credit_draw" : rule.category };
     }
   }
+  return null;
+}
+
+/**
+ * The user's own rule that gave a row its category, for the row's detail: the first of their rules (compiled from them
+ * alone, `compileRules`) that takes the row, when it gives the category the row has. The user's rules run before every
+ * built-in one, so that rule decided. null when none takes the row or the category came from a later step.
+ */
+export function ownRuleOf(input: CategorizeInput, category: string, ownRules: readonly CompiledRule[]): CompiledRule | null {
+  const hit = firstRule(input, ownRules.filter((r) => r.byUser), []);
+  return hit && hit.category === category ? hit.rule : null;
+}
+
+export function categorize(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[] = []): CategorizeResult {
+  const direction: Direction = input.amountCents >= 0 ? "in" : "out";
+  const hit = firstRule(input, rules, accounts);
+  if (hit) return { category: hit.category, source: "rule", ...(hit.rule.byUser ? { byUser: true } : {}) };
   const byMcc = categoryForMcc(input.mcc);
   if (byMcc) return { category: byMcc, source: "mcc" };
   // money in that no rule recognises (refunds are caught above by merchant rules)

@@ -45,6 +45,28 @@ describe("merchants nothing categorised", () => {
   });
 });
 
+describe("the rule a row's category came from", () => {
+  it("names the user's own rule on the rows it decided, and on no other", async () => {
+    const { admin, s, member } = await setupApp();
+    await seedCsv(s, admin, { content: file(`2026/09/10;-55,50;${OWN};;;QWERTY PUOTI;;EUR`, `2026/09/05;-44,15;${OWN};;;LIDL TIKKURILA;;EUR`), accountName: "Käyttötili" });
+    await admin.call("POST", "/api/rules", { field: "merchant", pattern: "Qwerty", category: "shopping" });
+    type Row = Tx & { ownRule?: { field: string; pattern: string } };
+    const rows = async (c: typeof admin, scope = "") => (await c.call("GET", `/api/transactions${scope}`)).body.items as Row[];
+    const mine = await rows(admin);
+    expect(mine.find((t) => t.merchant === "Qwerty Puoti")).toMatchObject({ category: "shopping", categorySource: "rule", ownRule: { field: "merchant", pattern: "Qwerty" } });
+    // a rule of the app took the grocery row: no rule of the user's is named
+    expect(mine.find((t) => t.merchant !== "Qwerty Puoti")).not.toHaveProperty("ownRule");
+
+    // a member who sees the account shared does not read the owner's rules
+    const eero = await member("eero");
+    const accountId = (await admin.call("GET", "/api/meta")).body.accounts[0].id;
+    await admin.call("PUT", `/api/accounts/${accountId}/shares/${eero.id}`);
+    const shared = await rows(eero, "?scope=household");
+    expect(shared.length).toBe(2);
+    for (const t of shared) expect(t).not.toHaveProperty("ownRule");
+  });
+});
+
 describe("transaction search", () => {
   const content = file(
     `2026/09/20;-12,00;${OWN};;KÄRKKÄINEN TMI;LASKU;;EUR`,

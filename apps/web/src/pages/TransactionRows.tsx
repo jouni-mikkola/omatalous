@@ -1,12 +1,13 @@
 import { fold, isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
 import { type ReactNode, useSyncExternalStore } from "react";
-import { dayHeading, money } from "../format.ts";
+import { date, dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
 import { Why } from "../components/Why.tsx";
 import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
 import { saveCsv, tableCsv } from "../components/table/csv.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { type Column, Table, type TableView } from "../components/table/Table.tsx";
+import { type Fact, KeyValue } from "../components/table/KeyValue.tsx";
 import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
@@ -161,20 +162,73 @@ function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explaine
   );
 }
 
-/** What the opened row holds: the category picker, the way to the payee's rows, the card bill's statement, and the payee's months. */
+const RULE_FIELD = {
+  merchant: "rule.field_merchant",
+  merchant_exact: "rule.field_merchant_exact",
+  description: "rule.field_description",
+  counterparty: "rule.field_counterparty",
+  any: "rule.field_any",
+} as const;
+
+/**
+ * Where the row's category came from, in one sentence: the reader's own choice or rule (named), a rule of the app, the
+ * card's code, the trade register, or nothing. A transfer, a card bill and a refund say what they are instead.
+ */
+function whyCategory(t: ListedRow): string {
+  if (t.categorySource === "user") return msg("row.why_hand");
+  if (t.ownRule) return msg("row.why_own_rule", { field: msg(RULE_FIELD[t.ownRule.field]), pattern: t.ownRule.pattern });
+  if (t.isTransfer) return msg("row.why_transfer");
+  if (cardBill(t)) return msg("row.why_card_bill");
+  switch (t.categorySource) {
+    case "match":
+      return msg("row.tag_refund_title");
+    case "payer":
+      return msg("row.why_payer");
+    case "rule":
+      return msg("row.why_rule");
+    case "mcc":
+      return t.mcc ? msg("row.why_mcc", { mcc: t.mcc }) : msg("row.why_rule");
+    case "merchant":
+      return msg("row.why_merchant");
+    case "industry": {
+      const company = [t.industry?.companyName, t.industry?.label].filter(Boolean).join(", ");
+      return company ? msg("row.why_industry", { company }) : msg("row.why_rule");
+    }
+    case "transfer":
+      return msg("row.why_transfer");
+    default:
+      return msg("row.why_default");
+  }
+}
+
+/** What the bank sent of a row, each field by its name and whole, and why it has its category. */
+export function rowFacts(t: ListedRow, account: string): Fact[] {
+  // a field the bank left out or empty is not listed
+  const text = (name: string, s: string | null | undefined): Fact | null => (s?.trim() ? [name, s.trim()] : null);
+  const incoming = t.amountCents > 0;
+  const facts: (Fact | null)[] = [
+    [msg("row.account"), account],
+    text(incoming ? msg("row.bank_payer") : msg("row.bank_payee"), t.counterparty),
+    text(incoming ? msg("row.payer_account") : msg("row.payee_account"), t.counterpartyIban),
+    text(msg("row.message"), t.description),
+    text(msg("row.reference"), t.reference),
+    [msg("row.booked"), date(t.bookingDate)],
+    t.valueDate && t.valueDate !== t.bookingDate ? [msg("row.value_date"), date(t.valueDate)] : null,
+    t.status === "pending" ? [msg("row.status"), msg("row.pending_fact")] : null,
+    [msg("row.why"), whyCategory(t)],
+  ];
+  return facts.filter((f): f is Fact => !!f);
+}
+
+/** What the opened row holds: what the bank sent and why the category, the row's menu, and the payee's months. */
 function Detail({ t, categories, pending, onCategory, onStatement, note, scope, remember, onRemember, look, account }: RowProps & { scope: Scope }) {
   const owner = ownerLink(t);
   const text = signed(shownCents(t));
   const shown = pending ?? t.category;
   const categoryLabel = categories.find((c) => c.id === shown)?.label ?? shown;
-  const bank = bankText(t);
   return (
     <div className="tx-detail">
-      {/* what a phone's row leaves out: the account with its digits and the bank's own text */}
-      <p className="tx-detail-facts">
-        <span>{msg("row.account")}: {account}{look?.short.startsWith("••") ? ` ${look.short}` : ""}</span>
-        {bank && <span className="sub">{bank}</span>}
-      </p>
+      <KeyValue className="tx-detail-facts" items={rowFacts(t, `${account}${look?.short.startsWith("••") ? ` ${look.short}` : ""}`)} />
       <div className="tx-detail-acts">
         {!t.own && <SharedCategory categories={categories} value={t.category} manual={t.categorySource === "user"} />}
         <RowMenu

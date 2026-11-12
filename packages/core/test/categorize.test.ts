@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categorize, compileRules, isUsablePattern, patternProblem } from "../src/categorize.ts";
+import { categorize, compileRules, isUsablePattern, ownRuleOf, patternProblem } from "../src/categorize.ts";
 import { categoryForMcc } from "../src/categorize-mcc.ts";
 import { isUnknownMerchant, namesUnknownMerchant, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 
@@ -680,5 +680,24 @@ describe("foreign brands a household pays", () => {
     expect(cat("REVOLUT BANK UAB", "TOP-UP", -5000)).toBe("transfer");
     expect(cat("WISE EUROPE SA", null, 5000)).toBe("transfer");
     expect(cat("WESTERN UNION", null, -15000)).toBe("p2p");
+  });
+});
+
+describe("the user's own rule behind a row's category", () => {
+  const own = compileRules([
+    { id: 1, field: "merchant", pattern: "Kahvila", category: "restaurants", priority: 10 },
+    { id: 2, field: "description", pattern: "vuokra", category: "housing", priority: 10 },
+  ]);
+
+  it("is the first of the user's rules that takes the row, when it gives the category the row has", () => {
+    expect(ownRuleOf(tx("KAHVILA ESIMERKKI", -450), "restaurants", own)?.id).toBe(1);
+    expect(ownRuleOf(tx("ESIMERKKI OY", -90_000, { description: "Vuokra lokakuu" }), "housing", own)?.id).toBe(2);
+  });
+
+  it("is none when no rule of the user's takes the row, or the row's category came from elsewhere", () => {
+    // a rule of the app took it: no rule of the user's matches
+    expect(ownRuleOf(tx("PRISMA ESIMERKKI", -4000), "groceries", own)).toBeNull();
+    // the user's rule matches but the row has another category, so a later step gave it
+    expect(ownRuleOf(tx("KAHVILA ESIMERKKI", -450), "transfer", own)).toBeNull();
   });
 });

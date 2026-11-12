@@ -2,7 +2,7 @@
  * Category rules and the categories set by hand. Each write here also decides how much to reprocess: a merchant's own
  * rule redoes that merchant's rows, anything broader redoes everything (both bump the user's data version).
  */
-import { type CategoryRule, isKnownCategory, isUnknownMerchant, namesUnknownMerchant, type RuleField, rulePatternKey } from "@banking/core";
+import { type CategoryRule, compileRules, isKnownCategory, isUnknownMerchant, namesUnknownMerchant, ownRuleOf, type RuleField, rulePatternKey } from "@banking/core";
 import type { FinanceRepo, MerchantRule } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
@@ -23,6 +23,25 @@ async function checkRuleRoom(repo: FinanceRepo): Promise<void> {
  */
 function replacesWordRule(rules: readonly CategoryRule[], merchant: string): boolean {
   return rules.some((r) => r.field === "merchant" && r.pattern === merchant);
+}
+
+/**
+ * The user's own rule behind each of their listed rows whose category a rule gave, by row id: what the row's detail says
+ * the category came from. Another member's row was categorised by that member's rules, so it has none here.
+ */
+export async function ownRulesOfRows(s: Services, userId: string, rows: readonly StoredTransaction[]): Promise<Map<string, Pick<CategoryRule, "field" | "pattern">>> {
+  const out = new Map<string, Pick<CategoryRule, "field" | "pattern">>();
+  const ruled = rows.filter((t) => t.userId === userId && t.categorySource === "rule");
+  if (!ruled.length) return out;
+  const rules = await s.finance(userId).listRules();
+  const own = compileRules(rules).filter((r) => r.byUser);
+  const byId = new Map(rules.map((r) => [r.id, r]));
+  for (const t of ruled) {
+    const id = ownRuleOf(t, t.category, own)?.id;
+    const rule = id === undefined ? undefined : byId.get(id);
+    if (rule) out.set(t.id, { field: rule.field, pattern: rule.pattern });
+  }
+  return out;
 }
 
 /** Raw bank payloads stay on the server. */

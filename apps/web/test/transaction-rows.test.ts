@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { setLanguage } from "../src/format.ts";
-import { type DaySum, type ListedRow, ownerLink, TxTable } from "../src/pages/TransactionRows.tsx";
+import { type DaySum, type ListedRow, ownerLink, rowFacts, TxTable } from "../src/pages/TransactionRows.tsx";
 
 const row = (over: Partial<ListedRow> = {}): ListedRow =>
   ({ id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other", ...over }) as ListedRow;
@@ -47,6 +47,40 @@ describe("a row with no payee", () => {
     } finally {
       setLanguage("fi");
     }
+  });
+});
+
+describe("an opened row", () => {
+  const facts = (t: ListedRow) => Object.fromEntries(rowFacts(t, "Yhteistili").map(([name, value]) => [name, value]));
+
+  it("says what the bank sent, each field by its name, at every width", () => {
+    const t = row({ amountCents: -12_000, counterparty: "ESIMERKKI OY", counterpartyIban: "FI21 1234 5600 0007 85", description: "Lasku 1234", reference: "1232", valueDate: "2026-10-06" });
+    expect(facts(t)).toMatchObject({ Tili: "Yhteistili", "Saaja pankin mukaan": "ESIMERKKI OY", "Saajan tili": "FI21 1234 5600 0007 85", Viesti: "Lasku 1234", Viite: "1232", "Kirjauspäivä": "5.10.", "Arvopäivä": "6.10." });
+    // money in names its payer; a field the bank left empty is not there
+    const paid = facts(row({ amountCents: 5_000, counterparty: "ESIMERKKI OY", description: " " }));
+    expect(paid["Maksaja pankin mukaan"]).toBe("ESIMERKKI OY");
+    expect(Object.keys(paid)).not.toContain("Viesti");
+    expect(Object.keys(paid)).not.toContain("Arvopäivä");
+    // the facts are drawn in the opened row, not hidden for a wide screen
+    const html = list(t, true);
+    expect(html).toContain('class="rt-kv tx-detail-facts"');
+    expect(html).toContain("<dt>Viesti</dt><dd>Lasku 1234</dd>");
+  });
+
+  it("says a reservation is not booked yet", () => {
+    expect(facts(row({ status: "pending" })).Tila).toContain("ei ole vielä kirjannut");
+    expect(Object.keys(facts(row()))).not.toContain("Tila");
+  });
+
+  it("says why the row has its category", () => {
+    const why = (over: Partial<ListedRow>) => facts(row({ amountCents: -1_000, ...over }))["Miksi tämä kategoria"];
+    expect(why({ categorySource: "user", category: "groceries" })).toBe("Valitsit sen itse.");
+    expect(why({ categorySource: "rule", category: "restaurants", ownRule: { field: "merchant", pattern: "Kahvila" } })).toBe("Oma sääntösi, Kauppias: Kahvila");
+    expect(why({ categorySource: "rule", category: "groceries" })).toBe("Sovelluksen sääntö tunnisti sen pankin tekstistä.");
+    expect(why({ categorySource: "mcc", category: "groceries", mcc: "5411" })).toBe("Kortin toimialakoodista 5411.");
+    expect(why({ categorySource: "industry", category: "restaurants", industry: { companyName: "Esimerkki Oy", businessId: null, label: "Ravintolat" } })).toBe("Kaupparekisterin toimialasta: Esimerkki Oy, Ravintolat.");
+    expect(why({ categorySource: "rule", category: "transfer", isTransfer: true })).toContain("omien tiliesi välillä");
+    expect(why({ categorySource: "default", category: "other" })).toBe("Sovellus ei tunnistanut tätä.");
   });
 });
 
