@@ -181,7 +181,7 @@ release_from_api() { # release_from_api MODE: prints the tag to follow. Fails li
 }
 # ── the source channel: only what GitHub checked ────────────────────────────
 # TALOUS_SOURCE_CHECKED=yes in .env: source_checked, checked_answer and the rest are in source-checked.sh beside this file.
-# A copy of this file alone (tools/ci/verify-release.sh runs each version's to check a signature) goes without them.
+# A copy of this file alone (the release signature check runs each version's) goes without them.
 # shellcheck source=source-checked.sh
 [[ ! -f ${BASH_SOURCE[0]%/*}/source-checked.sh ]] || . "${BASH_SOURCE[0]%/*}/source-checked.sh" || return 1
 # ── the private channel ─────────────────────────────────────────────────────

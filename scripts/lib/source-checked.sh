@@ -1,6 +1,6 @@
 # The source channel that takes only what GitHub checked. Sourced by lib/release.sh, after PROJECT_OWNER and PROJECT_REPO,
 # so it is there wherever release.sh is: update.sh, install.sh and the maintenance helper with the launcher's last good
-# copy of scripts/lib. A release.sh copied alone (tools/ci/verify-release.sh) goes without it and needs none of it.
+# copy of scripts/lib. A release.sh copied alone (the release signature check) goes without it and needs none of it.
 # checked_source_target, at the end, is the helper's: it calls fail and say_log of scripts/ops-helper.sh.
 # shellcheck shell=bash
 
