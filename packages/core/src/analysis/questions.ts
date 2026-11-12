@@ -214,7 +214,8 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
 
   // a refund lowers the payee's sum (`netSpend`), so Tarkistettavat shows its row with the payment it took back part of:
   // the rows add up to the figure. `returns` names a refund's first payment; a refund spread over several payments took
-  // that one back whole, so it counts in no group and such a refund is not shown, as before.
+  // that one back whole, so it counts in no group and such a refund is not shown, as before (where its last share fell
+  // on a counted payment, those rows miss that share).
   const payeeOf = new Map<string, Group>();
   for (const g of out.values()) for (const id of g.rowIds) payeeOf.set(id, g);
   for (const [refundId, paymentId] of ctx.returns) payeeOf.get(paymentId)?.rowIds.push(refundId);

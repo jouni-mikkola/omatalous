@@ -79,8 +79,8 @@ describe("how much of the spending is known (knownSpending)", () => {
     // a refund of 100 took the later payment back whole and 40 of the earlier: the 20 left is the earlier one's
     const spread = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" })];
     expect(rowsOf(spread)).toEqual([eur(20), 1, ["2026-08-01"]]);
-    // the refund also took back a payment from before the window
-    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-15" }), tx({ bookingDate: "2025-10-20", amountCents: eur(100), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
+    // the refund took back part of a payment from before the window, which the question does not count
+    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), tx({ bookingDate: "2025-10-20", amountCents: eur(20), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
     expect(rowsOf(early)).toEqual([eur(30), 1, ["2026-09-01"]]);
   });
 
