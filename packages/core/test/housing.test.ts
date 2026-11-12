@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { applyUse } from "../src/account-use.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { seriesMarkSubject } from "../src/analysis/subscription-alerts.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { buildHousing } from "../src/housing.ts";
 import { loanProposals } from "../src/loan-detect.ts";
@@ -315,6 +316,36 @@ describe("the charges of Asuminen", () => {
     const rent = monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" });
     expect(page(rent).housing).toMatchObject({ charges: [{ label: "Vuokra", monthlyCents: 85_000 }], ask: false });
     expect(page(monthly("ESIMERKIN ASUMISOIKEUS OY", 70_000, "02", { description: "Käyttövastike" })).housing).toMatchObject({ charges: [{ label: "Käyttövastike" }], ask: false });
+  });
+
+  it("does not ask a tenant whose history is too short for a series of the rent", () => {
+    const rent = monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" }).slice(-2);
+    expect(page(rent).ctx.recurring).toEqual([]);
+    expect(page(rent).housing?.ask ?? false).toBe(false);
+    // a rent due on the 31st that a weekend moved to the 1st: two payments of one month, a month apart
+    const moved = ["2026-09-01", "2026-09-30"].map((bookingDate) => ({ ...rent[0]!, id: `moved-${bookingDate}`, bookingDate }));
+    expect(page(moved).housing?.ask ?? false).toBe(false);
+    // a vastike paid twice is no rent: the owner is asked
+    expect(page(monthly(company, 25_000, "02", { description: "Hoitovastike" }).slice(-2)).housing?.ask).toBe(true);
+    // nor is a rent paid three months ago and not since
+    expect(page(monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" }).slice(1, 3)).housing?.ask).toBe(true);
+    // a cottage week paid once, a rent still pending and a car place are no home of a tenant
+    expect(page(monthly("MOKKI ESIMERKKI OY", 60_000, "02", { description: "Mokin vuokra" }).slice(-1)).housing?.ask).toBe(true);
+    expect(page([rent[0]!, { ...rent[1]!, status: "pending" }]).housing?.ask).toBe(true);
+    expect(page(monthly("ESIMERKIN ASUNNOT OY", 6_000, "02", { description: "Autopaikan vuokra" }).slice(-2)).housing?.ask).toBe(true);
+    // a cottage's deposit on the 30th and the rest on the 1st: two months, one booking
+    const cottage = { merchant: "MOKKI ESIMERKKI OY", counterparty: "MOKKI ESIMERKKI OY", category: "housing", description: "Vuokra" } as const;
+    expect(page([tx({ ...cottage, bookingDate: "2026-09-30", amountCents: -20_000 }), tx({ ...cottage, bookingDate: "2026-10-01", amountCents: -40_000 })]).housing?.ask).toBe(true);
+    // a household that pays a home loan is asked, though it pays a rent too (a child's flat)
+    expect(page([...rent, ...instalments().slice(-2)]).housing?.ask).toBe(true);
+  });
+
+  it("asks a household that marked its rent ended, though the rent's last rows are recent", () => {
+    const rent = monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" });
+    const { ctx, housing } = page(rent);
+    expect(housing).toMatchObject({ charges: [{ label: "Vuokra" }], ask: false });
+    const ended: UserMark = { subject: seriesMarkSubject(ctx.recurring[0]!), mark: "cancelled", markedAt: "2026-10-05T08:00:00.000Z" };
+    expect(page(rent, [], [ended]).housing).toMatchObject({ charges: [], ask: true });
   });
 
   it("a view with nothing of a home is the question alone, and null once it is answered", () => {
