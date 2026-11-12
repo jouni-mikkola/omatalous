@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { NAV } from "../../apps/web/src/nav.ts";
 import { IMAGES, PICTURES } from "../docs-shots.mjs";
+import { FILES as FILM } from "../readme-film/film.mjs";
 
 const ROOT = join(import.meta.dirname, "../..");
 
@@ -24,7 +25,7 @@ describe("docs:shots", () => {
 
   // A photograph of a bank's page or of a real account has no place here, redacted or not: every picture is made from example data.
   it("every picture in docs/images/ and every picture a document names is made by the scripts", () => {
-    const ours = new Set((PICTURES as { file: string }[]).map((p) => p.file));
+    const ours = new Set([...(PICTURES as { file: string }[]).map((p) => p.file), ...Object.values(FILM)]);
     expect(readdirSync(IMAGES).filter((f) => !ours.has(f))).toEqual([]);
     expect(named(ROOT).filter((f) => !ours.has(f))).toEqual([]);
   });

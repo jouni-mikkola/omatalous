@@ -479,6 +479,14 @@ pnpm shots overview transactions --fake-bank --member --parts 60:40 --scope hous
 pnpm shots overview --demo --answers tools/shots-examples/answers.mjs --steps tools/shots-examples/steps.mjs --name overspent
 ```
 
+`pnpm build && pnpm readme:film` remakes the film at the top of the README, `docs/images/tour.png` (an animated PNG,
+1000 x 704, 20 to 40 s, under 5 MB) and its still `tour-still.png`, which a reader who asks for less motion sees. Shots
+starts the app on an empty data folder and runs `tools/readme-film/steps.mjs`, which loads the example data with the
+first page's button, clicks through the pages and writes each caption from the figures on the page. A caption whose
+figures do not add up on the page stops the run. The example data runs up to the day of the run, so the figures change
+with the day. `pnpm readme:film --frames <dir>` writes every frame of the film to `<dir>` to read it frame by frame. Run
+it when a page in the film changed, and read the captions it prints.
+
 ### Golden files
 
 `packages/core/test/golden/` holds every statement the product makes about money (alerts, insights, Säästövinkit, the

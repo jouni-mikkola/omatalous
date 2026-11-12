@@ -30,6 +30,7 @@
     "shots": "node tools/shots.mjs",
     "shots:diff": "node tools/shots-diff.mjs",
     "docs:shots": "node tools/docs-shots.mjs",
+    "readme:film": "node tools/readme-film/film.mjs",
     "findings": "node --experimental-strip-types --disable-warning=ExperimentalWarning tools/findings/cli.ts",
     "tokens": "node --experimental-strip-types --disable-warning=ExperimentalWarning tools/tokens/build.ts",
     "typecheck": "pnpm -r typecheck && tsc -p .",
