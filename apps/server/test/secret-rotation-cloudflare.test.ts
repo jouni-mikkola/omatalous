@@ -59,7 +59,7 @@ describe("secret rotation and the Cloudflare API token", () => {
     const t = await withToken({ bankKey: true, secret: OTHER });
     const before = await t.s.settings.get(TOKEN_KEY);
     await expect(resealAll(t.s, t.secret, NEXT)).rejects.toThrow(
-      "The Cloudflare API token saved in Asetukset > Palvelin ja ylläpito > Etäkäyttö cannot be opened with the current secret. Remove it there and run the rotation again. Nothing was changed.",
+      "The Cloudflare API token saved in Asetukset > Palvelin > Etäkäyttö cannot be opened with the current secret. Remove it there and run the rotation again. Nothing was changed.",
     );
     expect(await t.s.settings.get(TOKEN_KEY)).toBe(before);
   });
@@ -71,7 +71,7 @@ describe("secret rotation and the Cloudflare API token", () => {
     const file = join(dir, "app-secret");
     writeFileSync(file, `${t.secret}\n`, { mode: 0o600 });
     await expect(rotateAppSecret(t.s, { secretFile: file, snapshot: () => "none" })).rejects.toThrow(
-      "The Cloudflare API token saved in Asetukset > Palvelin ja ylläpito > Etäkäyttö opens with neither the old nor the new secret. Remove it there and run the rotation again. Nothing was changed.",
+      "The Cloudflare API token saved in Asetukset > Palvelin > Etäkäyttö opens with neither the old nor the new secret. Remove it there and run the rotation again. Nothing was changed.",
     );
     const lines: string[] = [];
     vi.spyOn(console, "error").mockImplementation((m: string) => void lines.push(String(m)));

@@ -337,8 +337,8 @@ export async function requestOp(s: Services, user: User, raw: unknown, req: Req,
   const label = ACTION_LABEL[action];
   const refuse = refuser(s, user.id, req, label);
   const checked = proof !== undefined && proofs.has(proof) && proof.userId === user.id;
-  if (action === "offsite" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Käynnistä kopio toiselle koneelle kohdassa Asetukset > Palvelin ja ylläpito.") });
-  if (action === "access" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Muuta etäkäyttöä kohdassa Asetukset > Palvelin ja ylläpito > Etäkäyttö.") });
+  if (action === "offsite" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Käynnistä kopio toiselle koneelle kohdassa Asetukset > Palvelin.") });
+  if (action === "access" && !checked) await refuse({ why: "pyydetty ylläpidosta", error: new UserError("Muuta etäkäyttöä kohdassa Asetukset > Palvelin > Etäkäyttö.") });
   await expireStale(s);
 
   await refuse(await helperRefusal(s, action));

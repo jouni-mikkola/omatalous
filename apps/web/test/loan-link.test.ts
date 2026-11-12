@@ -77,7 +77,7 @@ describe("the Lainat report offers the link", () => {
 
   it("with no account of its own to link to, the sentence keeps the way of removing the saved loan", () => {
     const out = html(report({ loans: [{ id: "home", name: "Kodin laina" }], accounts: [{ id: "partner", name: "Puolison kortti" }] }), [], "household");
-    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset > Talous > Lainat, niin laskemme sen vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset > Lainat, niin laskemme sen vain kerran.");
     expect(out).not.toContain("linkLoan");
   });
 });

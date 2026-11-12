@@ -9,10 +9,10 @@ import { scratchDir, setupApp } from "./helpers.ts";
 
 /** The titles an admin reads, written out here so a change of wording is a change of this test. */
 const TEXTS = {
-  consent: { title: "Pankkisuostumus päättyy pian", message: "Uusi suostumus ennen kuin pankin haku pysähtyy. Katso Asetukset > Pankit ja tilit." },
-  disk: { title: "Palvelimen levy on lähes täynnä", message: "Siivoa levy ennen kuin tallennus pysähtyy. Katso Asetukset > Palvelin ja ylläpito." },
-  backup: { title: "Varmuuskopio ei ole kunnossa", message: "Ehjää varmuuskopiota ei ole tuoreena. Ota uusi kopio kohdassa Asetukset > Palvelin ja ylläpito." },
-  update: { title: "Päivitys palautettiin", message: "Edellinen versio palautettiin, koska päivitys ei onnistunut. Katso Asetukset > Palvelin ja ylläpito." },
+  consent: { title: "Pankkisuostumus päättyy pian", message: "Uusi suostumus ennen kuin pankin haku pysähtyy. Katso Asetukset > Pankit." },
+  disk: { title: "Palvelimen levy on lähes täynnä", message: "Siivoa levy ennen kuin tallennus pysähtyy. Katso Asetukset > Ylläpito." },
+  backup: { title: "Varmuuskopio ei ole kunnossa", message: "Ehjää varmuuskopiota ei ole tuoreena. Ota uusi kopio kohdassa Asetukset > Ylläpito." },
+  update: { title: "Päivitys palautettiin", message: "Edellinen versio palautettiin, koska päivitys ei onnistunut. Katso Asetukset > Ylläpito." },
 };
 const WEBHOOK = "https://hooks.example.org/in/9f8e7d6c5b4a";
 const ROOMY: Statfs = () => ({ bavail: 50_000 * 256, bsize: 4096 });

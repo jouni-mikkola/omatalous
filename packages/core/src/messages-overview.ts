@@ -186,7 +186,7 @@ export const FI_OVERVIEW = {
   "conn.valid_left_one": "{until}, vielä {count} päivä",
   "conn.valid_left_many": "{until}, vielä {count} päivää",
   "conn.reminder_title": "Omatalous: pankkiyhteys vanhenee {date}",
-  "conn.reminder_text": "{bank}: yhteys vanhenee {date}. Avaa Omatalous ja valitse Asetukset > Pankit ja tilit > Yhdistä uudelleen.",
+  "conn.reminder_text": "{bank}: yhteys vanhenee {date}. Avaa Omatalous ja valitse Asetukset > Pankkiyhteydet > Yhdistä uudelleen.",
   "sync.updated": "Päivitetty {stamp}",
   "sync.running": "Haetaan tapahtumia pankista…",
   "sync.next": "Pankki sallii seuraavan haun {stamp}",
