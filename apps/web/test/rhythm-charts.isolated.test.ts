@@ -3,6 +3,7 @@
  * any day series with a question and shades it by core's `dayHeat`; the slope takes its height from its strong lines,
  * its scale from them too, and names the context lines it leaves out.
  */
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -61,7 +62,7 @@ describe("CalendarHeat", () => {
 });
 
 describe("SlopeChart", () => {
-  const item = (key: string, from: number, to: number, strong: boolean) => ({ key, label: key, from, to, change: to - from, strong, tone: to > from ? ("bad" as const) : ("good" as const) });
+  const item = (key: string, from: number, to: number, strong: boolean) => ({ key, label: key, from, to, change: to - from, strong, tone: to > from ? ("rise" as const) : ("good" as const) });
 
   it("takes 24 px a strong line and at least 220 px, its scale from the strong lines, and names a context line that runs off it", () => {
     measured = 900;
@@ -71,6 +72,19 @@ describe("SlopeChart", () => {
     const tall = renderToStaticMarkup(createElement(SlopeChart, { items: [...many, item("Asuminen", 900_000, 910_000, false)], fromLabel: "Ennen", toLabel: "Nyt", label: "x" }));
     expect(tall).toMatch(/<svg width="900" height="342"/);
     expect(text(tall)).toContain("Asuminen ei mahdu kuvaan. Sen luvut ovat taulukossa.");
+  });
+
+  it("draws a rise of spending in the accent and keeps red, which marks a problem, out of the slope", () => {
+    measured = 900;
+    const html = renderToStaticMarkup(createElement(SlopeChart, { items: [item("Kahvi", 4000, 5200, true), item("Matkat", 60_000, 20_000, true)], fromLabel: "2025", toLabel: "2026", label: "x" }));
+    expect(html).toContain('class="slope slope-rise');
+    expect(html).toContain('class="slope-stop-rise"');
+    const rules = ["charts.css", "calendar-heat.css"]
+      .flatMap((f) => readFileSync(new URL(`../src/styles/${f}`, import.meta.url), "utf8").split("\n"))
+      .filter((l) => /\.slope-(rise|stop-rise)/.test(l));
+    expect(rules.length).toBeGreaterThanOrEqual(4);
+    for (const r of rules) expect(r).toMatch(/var\(--accent(-ink)?\)/);
+    expect(rules.join("\n")).not.toContain("--bad");
   });
 
   it("writes the server's change at the right end and reads by the keyboard", () => {
