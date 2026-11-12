@@ -28,9 +28,15 @@ describe("Shell: a page carries its tab's name", () => {
     expect(link.getAttribute("href")).toContain("/transactions");
   }, 60000);
 
-  it("says what the date at the foot of the page is", async () => {
+  it("has no date and no line of the last fetch at the foot of the page", async () => {
     await startServer();
     await openApp("#/overview");
-    await waitFor(() => expect(document.querySelector(".sheet-foot")?.textContent).toMatch(/Tänään \d{1,2}\.\d{1,2}\./));
+    await waitFor(() => expect(document.querySelector(".sheet-foot")?.textContent).toContain("Omatalous"));
+    const parts = [...(document.querySelector(".sheet-foot")?.children ?? [])].map((e) => e.textContent ?? "");
+    expect(parts.join(" ")).not.toMatch(/Tänään|Päivitetty|klo/);
+    // the version is the one figure of the foot: no part of it ends in a day ("12.11." or "12.11.2026")
+    expect(parts.filter((p) => /\d{1,2}\.\d{1,2}\.(\d{4})?$/.test(p))).toEqual([]);
+    expect(parts[0]).toContain("Omatalous");
+    expect(parts.filter((p) => /^(Oma|Koko talous)$/.test(p))).toEqual([]);
   }, 60000);
 });

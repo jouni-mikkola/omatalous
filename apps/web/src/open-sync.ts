@@ -13,16 +13,15 @@ export type OpenSync = {
 const stamp = (iso: string, now: Date): string => dateTime(iso, localDay(now.toISOString()));
 
 /**
- * What the foot of the page says about the last fetch, or null when there is nothing to say: "Päivitetty 23.10. klo 18.15",
- * that a fetch is running, or that the bank holds the next one back. A failed fetch is not here: it rises to the top
- * of the page (`failureText`).
+ * What the foot of the page says about the fetch, or null when the rows are current: that a fetch is running, that the
+ * bank holds the next one back, or that some accounts were left out. The last two are the states where the figures are
+ * older than the reader expects, so they carry the time of the last fetch. A fetch that went well says nothing, as its
+ * time is in Asetukset > Pankit ja tilit. A failed fetch is not here: it rises to the top of the page (`failureText`).
  */
 export function footText(answer: OpenSync | null, now: Date): string | null {
   if (!answer) return null;
   const { state, lastAt, nextAt } = answer;
   switch (state) {
-    case "fresh":
-      return lastAt ? t("sync.updated", { stamp: stamp(lastAt, now) }) : null;
     case "partial":
       return lastAt ? t("sync.partial", { updated: t("sync.updated", { stamp: stamp(lastAt, now) }) }) : null;
     case "running":

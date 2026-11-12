@@ -20,7 +20,6 @@ export const FI_SHELL = {
   "shell.main_menu": "Päävalikko",
   "shell.scope": "Näkymä",
   "shell.scope_own": "Oma",
-  "shell.today": "Tänään {date}",
   "shell.scope_household": "Koko talous",
   "shell.user_menu": "Käyttäjävalikko",
   "shell.role_admin": "ylläpitäjä",

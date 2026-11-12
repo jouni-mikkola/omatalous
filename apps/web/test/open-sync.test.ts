@@ -8,8 +8,12 @@ const at = (day: number, h: number, min: number) => new Date(stamped(day, h, min
 const answer = (o: Partial<OpenSync>): OpenSync => ({ state: "fresh", lastAt: null, inserted: 0, nextAt: null, ...o });
 
 describe("the foot of the page", () => {
-  it("fresh, running and limited say their sentence", () => {
-    expect(footText(answer({ state: "fresh", lastAt: at(13, 18, 42) }), NOW)).toBe("Päivitetty 13.10. klo 18.42");
+  it("a fetch that went well says nothing: no line of when the rows were updated", () => {
+    expect(footText(answer({ state: "fresh", lastAt: at(13, 18, 42) }), NOW)).toBeNull();
+    expect(footText(answer({ state: "fresh", lastAt: at(12, 18, 2), inserted: 4 }), NOW)).toBeNull();
+  });
+
+  it("running and limited say their sentence, the limit with the time of the last fetch", () => {
     expect(footText(answer({ state: "running" }), NOW)).toBe("Haetaan tapahtumia pankista…");
     expect(footText(answer({ state: "limited", lastAt: at(13, 6, 2), nextAt: at(13, 18, 0) }), NOW)).toBe(
       "Päivitetty 13.10. klo 6.02. Pankki sallii seuraavan haun 13.10. klo 18.00",
@@ -25,8 +29,8 @@ describe("the foot of the page", () => {
   });
 
   it("a time of another day has its date and a time of another year its year", () => {
-    expect(footText(answer({ state: "fresh", lastAt: at(12, 18, 2) }), NOW)).toBe("Päivitetty 12.10. klo 18.02");
-    expect(footText(answer({ state: "fresh", lastAt: "2025-12-30T18:02:00+02:00" }), NOW)).toBe("Päivitetty 30.12.2025 klo 18.02");
+    expect(footText(answer({ state: "partial", lastAt: at(12, 18, 2) }), NOW)).toBe("Päivitetty 12.10. klo 18.02. Kaikkien tilien tapahtumia ei saatu haettua");
+    expect(footText(answer({ state: "partial", lastAt: "2025-12-30T18:02:00+02:00" }), NOW)).toBe("Päivitetty 30.12.2025 klo 18.02. Kaikkien tilien tapahtumia ei saatu haettua");
   });
 
   it("a failed fetch, no bank connection and no answer leave the foot empty", () => {

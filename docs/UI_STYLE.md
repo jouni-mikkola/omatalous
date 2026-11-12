@@ -60,15 +60,34 @@ enforced for the files of the parts still to come (`pending` in `tools/repo-rule
 
 ## Style
 
+### What earns a place
+
+Numbers and labels speak. A text is on the page only when the reader decides or acts on it. These rules come before
+every other rule of this file, and a text that fails one is removed, not reworded.
+
+- A sentence that says again the number, the heading or the button beside it goes. *Palkkapäivään 25.11. jää 4 827 €*
+  needs no *Laskuihin riittää* before it and no *Sinulle jää* after it.
+- The app does not explain what it leaves out or how it works: no *Emme voi arvioida…*, *Emme näytä…*, *Tunnistamme
+  tiedoston itse*. When a figure cannot be made, its place is empty or holds one short status with a link to what mends
+  it. A wait and a failure are still said, as Tone and Sentences below tell.
+- A date the page already shows is not said again, and no line tells when the page was updated (*Päivitetty tänään*,
+  *Tänään 12.11.*). The time of a bank fetch is in Asetukset > Pankit ja tilit. A page says it only when the rows are
+  older than the reader expects: a fetch failed, was held back or left an account out.
+- A status is at most three words: *Voimassa 9.4.2027 asti*, *Ei käytössä*, *Täsmää*.
+- An empty part is one line of at most five words (*Ei lainoja*), or it is not drawn. No *juuri nyt*. A line that names
+  what the reader has not done yet and offers the act may keep *vielä*.
+- One number or one status under a section's name. The rest opens from it.
+- A help line under a field stays only when it changes what the reader types.
+
 ### Tone
 
 Write the way a Finnish bank (OP, Nordea, S-Pankki) or a good Finnish web service writes: to the reader, in the active
 voice, in plain standard Finnish. No bureaucratic language and no slang. No exclamation marks, no "Oho!", no scolding
 ("Unohdit…", "Sinun pitää…"). The te-form is never used.
 
-- Address the reader as *sinä*: *Laskusi on maksettu*, *Sinulle jää laskujen jälkeen 420 €*, *Yhdistä pankki*.
+- Address the reader as *sinä*: *Laskusi on maksettu*, *Yhdistä pankki*.
 - Say who does what. The app speaks of itself in the first person plural when it does something: *Haemme
-  tapahtumia…*, *Emme voi laskea puskuria*. Choose one form and keep it. A loading line may be the short passive
+  tapahtumia…*, *Emme saaneet tapahtumia pankista*. Choose one form and keep it. A loading line may be the short passive
   (*Ladataan…*), because that is the shortest natural form there.
 - Not *Laskut katetaan*, *Luetaan kuvaa…*, *Testataan…* or *Tapahtumat haetaan*. Not *Näin katetaan*.
 - A person who has no name in the app is *käyttäjä*, never *hän* or *he*. A sentence about the household's own money
@@ -86,7 +105,7 @@ Before and after, from the app:
 
 | Before | After |
 |---|---|
-| Laskut katetaan. Laskujen jälkeen jää 420 € | Laskuihin riittää. Laskujen jälkeen sinulle jää 420 € |
+| Laskut katetaan. Laskujen jälkeen jää 420 € | Palkkapäivään 25.11. jää 420 € |
 | Riittävätkö rahat seuraavaan palkkaan? | Rahat seuraavaan palkkaan |
 | Mihin raha menee? | Rahankäyttö |
 | Miten tämä kuukausi menee? | Kuukausi |
@@ -96,7 +115,7 @@ Before and after, from the app:
 | Budjettia ei ole vielä asetettu. | Et ole vielä asettanut budjettia. |
 | Luokittelematta 450 €. Luokittele ne… | (kept: it already speaks to the reader) |
 | Luottoa nostettiin 1 200 €. | Nostit luottoa 1 200 €. |
-| Palkka on myöhässä, joten palkkapäivän jäävää summaa ei lasketa. | Palkkasi on myöhässä, joten emme voi laskea, paljonko palkkapäivänä jää. |
+| Palkka on myöhässä, joten palkkapäivän jäävää summaa ei lasketa. | Palkkasi on myöhässä. |
 | Poistetaanko menotavoite? | Poista menotavoite? |
 | Tapahtumia ei saatu haettua pankista. | Emme saaneet tapahtumia pankista. |
 | Ensimmäinen haku on kesken. Luvut täsmentyvät, kun tapahtumat on haettu. | Ensimmäinen haku on kesken. Luvut tarkentuvat, kun olemme hakeneet tapahtumat. |
@@ -125,7 +144,7 @@ A category change says the rule it made.
 - The user menu has the pages a module adds (on a phone only: a wider screen has them in the header), Lisää, Asetukset, the other language (a button named in that language) and Kirjaudu ulos. The password is in Asetukset > Turvallisuus.
 - The app has four tabs: Nyt, Kuukausi, Tulossa and Tarkistettavat (`docs/design/README.md`). Until the step of each lands, the bar still shows the page it replaces: Yhteenveto for Nyt, Laskut for Tulossa, and Tapahtumat and Säästövinkit, which go.
 - Lisää is in the user menu, never a tab. It lists the reports that earn a place: Vuosi, Tilit ja saldot, Lainat, Verovuosi and, only with a shared account, Yhteiset. There is no Raportit menu. Asetukset and the pages a module adds are in the user menu too, and the old `#/more` opens Yhteenveto.
-- The foot of the page tells when the rows were fetched (`Päivitetty 23.10. klo 18.15`). Only a failed fetch is above the page, in a `Notice`.
+- The foot of the page is the app, its version and its links, in the muted colour. It wraps on a phone. It has no date, and a fetch that went well leaves no line in it. While a fetch runs it says so. When the bank holds the next fetch back or an account was left out, it says that with the time of the last fetch (`Päivitetty 23.10. klo 6.02. Pankki sallii seuraavan haun 23.10. klo 18.00`), in the secondary text colour. Only a failed fetch is above the page, in a `Notice`.
 
 ### Headings
 

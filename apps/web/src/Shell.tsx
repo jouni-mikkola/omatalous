@@ -9,7 +9,7 @@ import { Link, Navigate, Outlet, useNavigate, useRouterState, useSearch } from "
 import { type ComponentProps, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
-import { date, dateRange, dateTime, count } from "./format.ts";
+import { dateRange, dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
@@ -441,10 +441,7 @@ export function Shell() {
         </main>
         <footer className="sheet-foot">
           <AboutFoot version={m.version.app} />
-          {hasHousehold && <span>{effectiveScope === "own" ? t("shell.scope_own") : t("shell.scope_household")}</span>}
           {foot && <span aria-live="polite">{foot}</span>}
-          {/* the day the figures run to (the install's time zone); a bare date read as the build's or the rows' */}
-          <span>{t("shell.today", { date: date(m.today) })}</span>
         </footer>
       </div>
       </PageAddressContext.Provider>

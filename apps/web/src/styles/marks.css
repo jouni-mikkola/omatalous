@@ -39,9 +39,13 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
   --split-5: calc(var(--col-w) * 5 + 4.5 * var(--gap) - 1px);
   --split-8: calc(var(--col-w) * 8 + 7.5 * var(--gap) - 1px); }
 
-/* M4 the sheet foot: release, view, day */
-.sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-4) var(--sp-24); margin-top: var(--sp-24); padding-top: var(--sp-8); border-top: 1px solid var(--axis);
-  font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; }
+/* M4 the sheet foot: the app, its release and its links, the quietest line of the page; the sentence of a fetch that
+   is running or held back is the one part in the secondary text colour */
+.sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-4) var(--sp-24); margin-top: var(--sp-40); padding-top: var(--sp-8); border-top: 1px solid var(--border);
+  font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
+
+.sheet-foot a { color: inherit; }
+.sheet-foot [aria-live] { color: var(--text-2); }
 
 /* on a phone the links are 44 px high: the words beside them stand on their middle */
 @media (max-width: 640px), (pointer: coarse) { .sheet-foot { align-items: center; } }

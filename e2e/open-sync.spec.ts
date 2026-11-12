@@ -54,7 +54,10 @@ test("running twice and then fresh with new rows: the foot follows and the open 
   await expect(line).toContainText("Haetaan tapahtumia pankista…");
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   const first = data.n;
-  await expect(line).toContainText(/Päivitetty \d{1,2}\.\d{1,2}\. klo 18\.42/, { timeout: 15_000 });
+  // the third answer is the fresh one: a fetch that went well leaves the foot with no sentence of it
+  await expect.poll(() => asked.n, { timeout: 15_000 }).toBe(3);
+  await expect(line.locator("[aria-live]")).toHaveCount(0, { timeout: 15_000 });
+  await expect(line).not.toContainText("Päivitetty");
   await expect(page.locator(".notice", { hasText: "ei saatu haettua" })).toHaveCount(0);
   expect(asked.n).toBe(3);
   expect(first).toBeGreaterThan(0);
@@ -147,7 +150,7 @@ test("on a phone the limit sentence in the foot wraps and the page does not scro
   await context.close();
 });
 
-test("on the real route a member with a fresh link sees when the rows were fetched, a member with no connection sees none", async ({ browser }) => {
+test("on the real route the foot is quiet for a member with a fresh link and for a member with no connection", async ({ browser }) => {
   const linked = await makeMember(browser, "avaus-yhdistetty");
   const bare = await makeMember(browser, "avaus-yhdistamaton");
   try {
@@ -156,8 +159,11 @@ test("on the real route a member with a fresh link sees when the rows were fetch
     await linkFakeBank(page);
     await waitForSync(context);
     await page.goto("/#/overview");
+    const opened = page.waitForResponse((r) => r.url().endsWith("/api/sync/open"));
     await page.reload();
-    await expect(page.locator(".sheet-foot")).toContainText(/Päivitetty \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2}/, { timeout: 15_000 });
+    expect(((await (await opened).json()) as { state: string }).state).toBe("fresh");
+    await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator(".sheet-foot [aria-live]")).toHaveCount(0);
     await context.close();
 
     const other = await browser.newContext({ storageState: bare.state });
@@ -185,9 +191,12 @@ test("opening and reloading with rows fresher than the sync hours allow makes no
     const before = { calls: await balanceCalls(), runs: await runs() };
 
     await page.goto("/#/overview");
-    for (let i = 0; i < 3; i++) await page.reload();
-    // the stored figures and the age of the rows are on the page without waiting for the bank
-    await expect(page.locator(".sheet-foot")).toContainText(/Päivitetty \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2}/, { timeout: 15_000 });
+    for (let i = 0; i < 2; i++) await page.reload();
+    const opened = page.waitForResponse((r) => r.url().endsWith("/api/sync/open"));
+    await page.reload();
+    // the open answer is in and the stored figures are on the page without waiting for the bank
+    expect(((await (await opened).json()) as { state: string }).state).toBe("fresh");
+    await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     await expect(page.getByText("Haetaan tapahtumia pankista…")).toHaveCount(0);
     await page.waitForLoadState("networkidle");
     expect({ calls: await balanceCalls(), runs: await runs() }).toEqual(before);

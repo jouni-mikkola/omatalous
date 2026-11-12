@@ -87,6 +87,16 @@ describe("the shared parts and the page stylesheets", () => {
     });
   });
 
+  it("keeps the foot quieter than the page: muted words and links, and only the sentence of a fetch in the text colour", () => {
+    const all = rules(readFileSync(new URL("../src/styles/marks.css", import.meta.url), "utf8"));
+    const foot = all.find((r) => r.selector === ".sheet-foot");
+    expect(foot?.body).toContain("color: var(--muted)");
+    expect(foot?.body).toContain("border-top: 1px solid var(--border)");
+    expect(foot?.body).toContain("margin-top: var(--sp-40)");
+    expect(all.find((r) => r.selector === ".sheet-foot a")?.body).toContain("color: inherit");
+    expect(all.find((r) => r.selector === ".sheet-foot [aria-live]")?.body).toContain("color: var(--text-2)");
+  });
+
   it("shows a busy button as a still tint: no animation, no gradient, opacity is the only thing that may move", () => {
     const busy = rules(readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8")).find((r) => r.selector === '.btn[aria-busy="true"]');
     expect(busy?.body).toContain("var(--row-hover)");
