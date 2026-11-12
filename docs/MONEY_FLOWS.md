@@ -490,10 +490,12 @@ by *Menojen muutos*.
   before the 1st.
 - **The line under it** (*Syyskuussa 12.9. mennessä* and a sum) is the month before by the same day of the month
   (`previous.toToday`), or by its last day when that month is shorter than today's day of the month. It is left out
-  when the history has no row in the month before.
+  when the month before does not compare day by day (`comparesWith` in `analysis/forecast.ts`): the history has no row
+  in it, an account that spent in either month has no data for the whole of both, or either month paid a card bill
+  that is no transfer (it holds a month of a card's purchases on one day, on a different day each month).
 - **The chart** (*Menojen kertymä*) draws both months day by day, each the cumulative sum of its rows: the running month
-  to today, the month before to its last day. The month before has no line when the history does not reach it, and with
-  nothing spent yet the card says so in a line instead of a chart.
+  to today, the month before to its last day. The month before has no line in the same cases, and with nothing spent
+  yet the card says so in a line instead of a chart.
 
 ## The days to the payday
 
