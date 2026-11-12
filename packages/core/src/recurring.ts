@@ -155,6 +155,7 @@ function buildSeries(
   occ: readonly Occurrence[],
   fit: { cadence: CadenceDef; regularity: number },
   today: IsoDate,
+  others: readonly Occurrence[] = [],
 ): RecurringSeries {
   const { cadence, regularity } = fit;
   const first = occ[0]!;
@@ -170,7 +171,7 @@ function buildSeries(
     : cadence.id === "semimonthly" && !fixedAmount
       ? Math.round(sum(occ.slice(-4).map((o) => o.cents)) / Math.min(4, occ.length))
       : Math.round(median(occ.slice(-3).map((o) => o.cents)));
-  const perYear = chargesPerYear(occ, cadence);
+  const perYear = chargesPerYear(occ, cadence, others);
   const yearly = yearlyCostOf(occ, cadence, kind, typical, perYear);
   const nextDate = nextDateOf(occ, cadence);
   const active = isActiveAt(cadence, last.date, today);
@@ -355,14 +356,25 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
   const products: RecurringSeries[] = [];
   if (group.length >= 4) {
     // two similar baskets a year apart are not a product: a cluster needs three charges
-    for (const cluster of clusterByAmount(group).filter((c) => c.length >= MIN_PRODUCT_CHARGES)) {
-      const cOcc = toOccurrences(cluster);
-      const cFit = fitCadence(cOcc);
-      if (cFit && isFixedAmount(cOcc)) {
-        const typical = Math.round(median(cOcc.map((o) => o.cents)));
-        // the cluster's own rows decide its category: a bank's loan instalment is not its service fee
-        products.push(buildSeries(seriesId({ ...parseSeriesId(id)!, product: typical }), merchant, categoryOf(cluster), direction, cOcc, cFit, today));
-      }
+    const found = clusterByAmount(group)
+      .filter((c) => c.length >= MIN_PRODUCT_CHARGES)
+      .flatMap((cluster) => {
+        const cOcc = toOccurrences(cluster);
+        const cFit = fitCadence(cOcc);
+        return cFit && isFixedAmount(cOcc) ? [{ cluster, cOcc, cFit }] : [];
+      });
+    // the lender's charges no product holds: one on an instalment's due day is that month's instalment paid short or
+    // with an extra sum (`chargesPerYear`). Only a debt product reads them, as a fee may pause and a purchase in its
+    // paused month is no charge of it; each row goes to the debt product nearest its size, so it fills one month once.
+    const held = new Set(found.flatMap((p) => p.cluster.map((t) => t.id)));
+    const built = found.map((p) => ({ ...p, category: categoryOf(p.cluster), typical: Math.round(median(p.cOcc.map((o) => o.cents))) }));
+    const lenders = built.filter((p) => getCategory(p.category).kind === "debt");
+    const nearest = (cents: number) => lenders.reduce((a, b) => (Math.abs(b.typical - cents) < Math.abs(a.typical - cents) ? b : a));
+    const others = lenders.length ? toOccurrences(group.filter((t) => !held.has(t.id))) : [];
+    for (const p of built) {
+      const own = lenders.includes(p) ? others.filter((o) => nearest(o.cents) === p) : [];
+      // the cluster's own rows decide its category: a bank's loan instalment is not its service fee
+      products.push(buildSeries(seriesId({ ...parseSeriesId(id)!, product: p.typical }), merchant, p.category, direction, p.cOcc, p.cFit, today, own));
     }
   }
   const covered = sum(products.map((p) => p.transactionIds.length));

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { fixedMonthlyCents, fixedSplit, isFixedCost } from "../src/commitments.ts";
 import { detectRecurring, projectDates } from "../src/recurring.ts";
 import { series, tx } from "./helpers.ts";
-import { addDays, addMonths } from "../src/dates.ts";
+import { addDays, addMonths, monthEnd } from "../src/dates.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -258,6 +258,50 @@ describe("yearly cost and fixed costs", () => {
     expect(by("Vantaan kaupunki päivähoito")).toMatchObject({ typicalAmountCents: 31100, yearlyCents: 11 * 31100, perMonth: 11 / 12 });
     expect(by("Iltapäivätoiminta")).toMatchObject({ yearlyCents: 9 * 12000, monthlyCents: 9000 });
     expect(by("Netflix")).toMatchObject({ yearlyCents: 12 * 1599, monthlyCents: 1599 });
+  });
+
+  it("a loan instalment with one month paid short and one paid extra still costs its instalment every month", () => {
+    // the instalment rises in steps; one month the lender took less, one month more: both are charges of that month
+    const step = (m: string) => (m < "2025-11" ? 46700 : m === "2025-11" ? 57700 : m === "2025-12" ? 46700 : m === "2026-01" ? 29600 : m === "2026-02" ? 42400 : m < "2026-05" ? 43700 : m < "2026-08" ? 44700 : 46400);
+    const charges = monthly("2025-05", "2026-10", 16, 0, { merchant: "Esimerkkipankki laina", category: "loans" }).map((t) => ({ ...t, amountCents: -step(t.bookingDate.slice(0, 7)) }));
+    const found = detectRecurring(charges, "2026-11-12");
+    const loan = found.find((s) => s.typicalAmountCents === 46400)!;
+    expect(loan).toMatchObject({ cadence: "monthly", perMonth: 1, monthlyCents: 46400, yearlyCents: 12 * 46400 });
+  });
+
+  it("at month end a short sum fills the month whose due day it is nearest: 1 June is May's instalment, not June's", () => {
+    const lender = { merchant: "Esimerkkipankki laina", category: "loans" };
+    /** The instalment on each month's last day, without the months of `skip`, and a sum of 300 € on 1 June. */
+    const loan = (skip: string) => {
+      const rows = [tx({ ...lender, bookingDate: "2026-06-01", amountCents: -30000 })];
+      for (let m = "2025-05"; m <= "2026-10"; m = addMonths(m, 1)) if (m !== skip) rows.push(tx({ ...lender, bookingDate: monthEnd(m), amountCents: -46400 }));
+      return detectRecurring(rows.sort((a, b) => a.bookingDate.localeCompare(b.bookingDate)), "2026-11-12").find((s) => s.typicalAmountCents === 46400)!;
+    };
+    // May paid short the next morning: twelve instalments
+    expect(loan("2026-05")).toMatchObject({ perMonth: 1, monthlyCents: 46400 });
+    // a payment holiday in June with an extra sum the day after May's instalment: eleven
+    expect(loan("2026-06")).toMatchObject({ yearlyCents: 11 * 46400 });
+  });
+
+  // near misses: a fee that pauses keeps its pause when the payee sold something else in the paused month
+  it("a paused fee stays paused beside a purchase of the payee on its day: day care, a second product, a gym at month end", () => {
+    const found = detectRecurring(
+      [
+        ...monthly("2025-08", "2026-09", 15, -29500, { merchant: "Esimerkin kaupunki päivähoito", category: "kids" }, [7]),
+        tx({ merchant: "Esimerkin kaupunki päivähoito", category: "kids", bookingDate: "2026-07-17", amountCents: -18000 }),
+        ...monthly("2025-08", "2026-09", 14, -299, { merchant: "Apple", category: "subscriptions" }, [6, 7]),
+        ...monthly("2025-08", "2026-09", 20, -1299, { merchant: "Apple", category: "subscriptions" }),
+        tx({ merchant: "Apple", category: "subscriptions", bookingDate: "2026-06-16", amountCents: -549 }),
+        ...monthly("2025-08", "2026-09", 28, -3990, { merchant: "Kuntosali Esimerkki", category: "sports" }, [6, 7]),
+        tx({ merchant: "Kuntosali Esimerkki", category: "sports", bookingDate: "2026-06-01", amountCents: -2500 }),
+        tx({ merchant: "Kuntosali Esimerkki", category: "sports", bookingDate: "2026-07-02", amountCents: -2500 }),
+      ],
+      today,
+    );
+    expect(found.find((s) => s.typicalAmountCents === 29500)).toMatchObject({ yearlyCents: 11 * 29500 });
+    expect(found.find((s) => s.typicalAmountCents === 299)).toMatchObject({ yearlyCents: 10 * 299 });
+    expect(found.find((s) => s.typicalAmountCents === 1299)).toMatchObject({ yearlyCents: 12 * 1299 });
+    expect(found.find((s) => s.typicalAmountCents === 3990)).toMatchObject({ yearlyCents: 10 * 3990 });
   });
 
   it("an electricity bill costs a year what its winter and summer bills came to, not the summer times twelve", () => {
