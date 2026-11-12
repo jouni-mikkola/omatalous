@@ -8,15 +8,14 @@
  * table.css; a page writes cells and never a `<table>`. It adds nothing up: a total is the node the page passes, and
  * `cents` is only formatted.
  */
-import { Fragment, type KeyboardEvent, type ReactNode, useState } from "react";
-import { money } from "../../format.ts";
+import { Fragment, type KeyboardEvent, useState } from "react";
 import { t } from "../../text.ts";
 import { useMore } from "../More.tsx";
 import { Button } from "../ui/Button.tsx";
-import { BarFigure, SortHead } from "./Cells.tsx";
+import { cellOf, figureWidths, SortHead } from "./Cells.tsx";
 import { RowFilterNotice, useRowPick } from "./selection.tsx";
 import "../../styles/table.css";
-import { cellText, type Column, FIGURE, searchFns, textOf, valueOf } from "./columns.ts";
+import { type Column, FIGURE, searchFns, textOf, valueOf } from "./columns.ts";
 import { saveCsv, tableCsv } from "./csv.ts";
 import { type Section, useShown } from "./model.ts";
 import { sortMessage, sortPhrase, sortRows } from "./sort.ts";
@@ -41,28 +40,6 @@ const spanOf = (h: HeadCell) => ({
   rowSpan: h.rowSpan,
   className: h.className,
 });
-
-/**
- * The width of the widest figure of each bar column, in characters: every figure of the column takes that room, so the
- * bars before them start on one line and are read on one scale.
- */
-const figureWidths = <R,>(columns: readonly Column<R>[], rows: readonly R[]): Map<string, number> =>
-  new Map(columns.filter((c) => c.bar && (c.cell || c.cents)).map((c) => [c.key, Math.max(0, ...rows.map((r) => cellText(c, r).length))]));
-
-const cellOf = <R,>(c: Column<R>, row: R, figureCh?: number): ReactNode => {
-  const plain = (): ReactNode => {
-    if (c.cell) return c.cell(row);
-    const v = c.cents?.(row) ?? null;
-    return v === null ? "–" : money(v, c.precision === "cents");
-  };
-  if (!c.bar) return plain();
-  // the bar stands before the figure it draws, on the column's scale, and is left out where there is no room for it
-  return (
-    <BarFigure value={c.bar.value(row)} max={c.bar.max} color={c.bar.color?.(row)} figureCh={figureCh}>
-      {c.cell || c.cents ? plain() : null}
-    </BarFigure>
-  );
-};
 
 export function Table<R>({
   caption,
