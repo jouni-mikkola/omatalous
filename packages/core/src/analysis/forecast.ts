@@ -12,8 +12,7 @@ import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows, standingOf } from "./context.ts";
-import { expectedFor, expectedIncome } from "./expected.ts";
-import { cardsBreakUsual } from "./usual.ts";
+import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
 
 export interface MonthPace {
   month: string;
@@ -108,7 +107,7 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
 function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "expected" | "projection" | "cardGap"> {
   const days = daysInMonth(month);
   const figure = expectedFor(ctx, month);
-  if (!figure || !figure.itemised) return { expected: null, projection: null, cardGap: cardsBreakUsual(ctx, month) };
+  if (!figure || !figure.itemised) return { expected: null, projection: null, cardGap: usualGap(ctx, month) === "cards" };
   const curve: number[] = [];
   const low: number[] = [];
   const high: number[] = [];

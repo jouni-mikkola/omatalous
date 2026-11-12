@@ -287,6 +287,18 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
   return found;
 }
 
+/**
+ * Why `month` has no expected figure by category and day, null when it has one. "cards": the complete months before it
+ * are there, but they lack the purchases of a card by category (`cardsBreakUsual`); the base of the figure starts at a
+ * card connected later, so a household with a long history is not told to wait for three months. "history": under
+ * `MIN_COMPARE_MONTHS` complete months. Yhteenveto's month and Raportit > Kuukausi read this one reason.
+ */
+export function usualGap(ctx: AnalysisContext, month: string): "cards" | "history" | null {
+  const figure = expectedFor(ctx, month);
+  if (figure?.itemised) return null;
+  return figure || cardsBreakUsual(ctx, month) ? "cards" : "history";
+}
+
 /** The expected spending of `month` on its days 1 to `day` (31: the whole month); null without a figure. */
 export function expectedSpending(ctx: AnalysisContext, month: string, day = 31): number | null {
   return expectedFor(ctx, month)?.at(day).cents ?? null;
