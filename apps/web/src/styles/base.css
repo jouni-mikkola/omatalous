@@ -7,16 +7,10 @@
 html, body { margin: 0; }
 }
 
-/* The names the stylesheets read from before the look had four sizes and five steps (design/tokens.json).
-   Each is a token of the new set, so no sheet holds a value of its own. A sheet that moves to the
-   new names takes its lines out of here; the list only shrinks. */
+/* Names a few sheets took while the look had four sizes: each is a size of the 1.0.0 scale (design/tokens.json). */
 @layer tokens {
 html {
-  --sp-12: var(--sp-16); --sp-20: var(--sp-24); --sp-32: var(--sp-40); --sp-48: var(--sp-40); --row-h-roomy: var(--row-h);
-  --font-code: var(--font-body); --stretch: normal; --track-name: normal; --track-fig: normal;
-  --fs-label: var(--fs-small); --lh-label: var(--lh-small); --fs-h2: var(--fs-body); --lh-h2: var(--lh-body); --fs-input: var(--fs-body);
-  --fs-fig-s: var(--fs-body); --lh-fig-s: var(--lh-body); --fs-fig-m: var(--fs-title); --lh-fig-m: var(--lh-title); --lh-prose: var(--lh-body);
-  --fs-fig-l: var(--fs-answer); --lh-fig-l: var(--lh-answer); --fs-display: var(--fs-answer); --lh-display: var(--lh-answer); --fs-dec: var(--fs-small);
+  --fs-small: var(--fs-label); --lh-small: var(--lh-label); --fs-title: var(--fs-fig-m); --lh-title: var(--lh-fig-m);
 }
 }
 

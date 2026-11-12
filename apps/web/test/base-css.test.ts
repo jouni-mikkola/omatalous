@@ -92,7 +92,7 @@ describe("the shared parts and the page stylesheets", () => {
     const foot = all.find((r) => r.selector === ".sheet-foot");
     expect(foot?.body).toContain("color: var(--muted)");
     expect(foot?.body).toContain("border-top: 1px solid var(--border)");
-    expect(foot?.body).toContain("margin-top: var(--sp-40)");
+    expect(foot?.body).toContain("margin-top: var(--sp-48)");
     expect(all.find((r) => r.selector === ".sheet-foot a")?.body).toContain("color: inherit");
     expect(all.find((r) => r.selector === ".sheet-foot [aria-live]")?.body).toContain("color: var(--text-2)");
   });

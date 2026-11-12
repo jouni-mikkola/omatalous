@@ -4,7 +4,7 @@
    does not move when the answer lands. */
 
 @layer pages {
-.home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h) * 3); }
+.home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 3); }
 .home-answer-main { display: grid; gap: var(--sp-8); align-content: start; }
 /* the sum right after the words, the answer of the question on one line; on a narrow screen it wraps under the words */
 .home-answer-line { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: var(--sp-4) var(--sp-16); margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
@@ -97,9 +97,9 @@
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
 .home-skeleton .sk-answer { inline-size: min(28rem, 100%); block-size: var(--lh-fig-l); }
-.home-skeleton .sk-sum { block-size: calc(var(--row-h) * 3); }
+.home-skeleton .sk-sum { block-size: calc(var(--row-h-roomy) * 3); }
 /* each block as high as it is when loaded, so the page keeps its length */
-.home-skeleton .sk-chart { block-size: calc(var(--row-h) * 11); }
-.home-skeleton .sk-rows { block-size: calc(var(--row-h) * 9); }
-.home-skeleton .sk-figures { block-size: calc(var(--row-h) * 2); }
+.home-skeleton .sk-chart { block-size: calc(var(--row-h-roomy) * 11); }
+.home-skeleton .sk-rows { block-size: calc(var(--row-h-roomy) * 9); }
+.home-skeleton .sk-figures { block-size: calc(var(--row-h-roomy) * 2); }
 }

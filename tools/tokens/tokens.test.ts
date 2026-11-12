@@ -44,22 +44,24 @@ describe("pnpm tokens", () => {
     expect(css).toContain("color-scheme: light;");
   });
 
-  it("holds at most two shadows, and the type scale of 13, 15, 20 and 32 with one line height each", () => {
+  it("holds at most two shadows, and the type scale of 12, 14, 16, 20, 32 and one display size", () => {
     const tokens = readTokens(JSON.parse(readFileSync(join(ROOT, SOURCE), "utf8")));
     expect(tokens.filter((t) => t.type === "shadow").length).toBeLessThanOrEqual(2);
-    expect(tokens.filter((t) => t.key.startsWith("fs-")).map((t) => (t.value as { value: number }).value)).toEqual([13, 15, 20, 32]);
-    expect(tokens.filter((t) => t.key.startsWith("lh-")).length).toBe(4);
+    const sizes = tokens.filter((t) => t.key.startsWith("fs-")).map((t) => JSON.stringify(t.value));
+    expect(sizes.filter((v) => v.includes("rem")).length).toBe(1);
+    const px = tokens.filter((t) => /^fs-(label|body|h2|fig-m|fig-l)$/.test(t.key)).map((t) => (t.value as { value: number }).value);
+    expect(px).toEqual([12, 14, 16, 20, 32]);
+    expect(tokens.find((t) => t.key === "fs-display")?.value).toEqual({ value: 3.25, unit: "rem" });
   });
 });
 
 describe("the spacing scale", () => {
-  it("is the steps 4, 8, 16, 24 and 40: every sp-* token is a multiple of 4 and a stylesheet reads a step or an older name that base.css maps to one", () => {
+  it("is in steps of 4 px: every sp-* token is a multiple of 4 and no stylesheet reads a step that is not there", () => {
     const tokens = readTokens(JSON.parse(readFileSync(join(ROOT, SOURCE), "utf8")));
     const steps = tokens.filter((t) => t.key.startsWith("sp-"));
-    expect(steps.map((t) => (t.value as { value: number }).value)).toEqual([4, 8, 16, 24, 40]);
+    expect(steps.map((t) => (t.value as { value: number }).value)).toEqual([4, 8, 12, 16, 20, 24, 32, 48]);
     for (const t of steps) expect((t.value as { value: number }).value % 4, t.key).toBe(0);
-    const older = [...readFileSync(join(WEB, "styles/base.css"), "utf8").matchAll(/(--sp-\d+): var\(--sp-\d+\);/g)].map((m) => m[1]!);
-    const known = new Set([...steps.map((t) => `--${t.key}`), ...older]);
+    const known = new Set(steps.map((t) => `--${t.key}`));
     const used = sheets().flatMap(([f, css]) => [...css.matchAll(/var\((--sp-\d+)\)/g)].map((m) => [f, m[1]!] as const));
     expect(used.filter(([, name]) => !known.has(name))).toEqual([]);
   });

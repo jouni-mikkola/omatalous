@@ -35,10 +35,10 @@ export function labelPrinted(unit: number, regular: boolean, drops: ReadonlySet<
 }
 
 /**
- * Pixels a printed label takes per character, and the air kept between two labels. 7,2 is the widest measured in the 13 px
- * face (getBoundingClientRect of the SVG texts in `pnpm shots`): "tammi 2026" 72 px for 10 letters, "marras" 41 px for 6.
+ * Pixels a printed label takes per character, and the air kept between two labels. 6,7 is the widest in the 12 px face:
+ * "tammi 2026" is 67 px for 10 letters, "marras" 38 px for 6 (measured at 13 px as 72 and 41, and scaled).
  */
-export const LABEL_CHAR_W = 7.2;
+export const LABEL_CHAR_W = 6.7;
 export const LABEL_GAP = 8;
 
 /**

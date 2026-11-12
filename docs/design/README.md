@@ -127,8 +127,9 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 
 ## 3. Visual system
 
-- Type: one family; 32 px the answer, 20 px a view title, 15 px body and rows, 13 px secondary; weights 400 and 600.
-- Spacing: a 4 px base, steps 4, 8, 16, 24, 40. A row is 44 px high at least, so it is a touch target on a phone.
+- Type: the scale of 1.0.0, one family; 32 px the answer, 20 px a middle figure, 16 px a section title, 14 px body and
+  rows, 12 px labels; weights 400 and 600.
+- Spacing: a 4 px base, steps 4, 8, 12, 16, 20, 24, 32, 48. A row is 32 px high, 44 px where it is a touch target.
 - Colour: neutrals for text and lines (ink, two greys, one rule colour, white page), one accent for links, the current
   bar and the focus ring. Red only for a problem: an overdrawn sum, a missed bill, a failing bank. Over usual is not
   a problem; it is the accent with its gap written out. Tokens stay in `apps/web/design/tokens.json`.
@@ -226,7 +227,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - locks: review
 - after: D2
 ### A5 The visual tokens
-- why: the four sizes, the spacing steps, the neutrals, one accent and red for problems.
+- why: the sizes, the spacing steps, the neutrals, one accent and red for problems. (The four sizes this task chose were taken back on 12.11.2026: the scale is 1.0.0's, see section 3.)
 - done when: `design/tokens.json` holds only them, `pnpm tokens` writes them and `apps/web/test/contrast.test.ts` passes.
 - locks: tokens, styles
 - after: none

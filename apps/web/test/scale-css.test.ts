@@ -59,10 +59,13 @@ describe("the type scale and the spacing step in every stylesheet", () => {
     expect(found).toEqual([]);
   });
 
-  it("has four sizes in the scale: 13 px secondary, 15 px body and rows, 20 px a view title and 32 px the answer", () => {
+  it("has five sizes in the scale, 12, 14, 16, 20 and 32 px, and the display size of 3.25 rem for the answer number only", () => {
     const tokens = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
-    const sizes = [...tokens.matchAll(/--fs-[a-z0-9-]+:\s*(\d+)px/g)].map((m) => Number(m[1]));
-    expect(sizes).toEqual([13, 15, 20, 32]);
+    const sizes = [...new Set([...tokens.matchAll(/--fs-[a-z0-9-]+:\s*(\d+)px/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
+    expect(sizes).toEqual([12, 14, 16, 20, 32]);
+    expect(/--fs-display:\s*([^;]+);/.exec(tokens)?.[1]).toBe("3.25rem");
+    const users = sheets().flatMap(([f, css]) => (css.includes("var(--fs-display)") ? [f] : []));
+    expect(users, "the display size stands in one place, the answer number").toHaveLength(1);
   });
 
   it("uses the two weights only", () => {

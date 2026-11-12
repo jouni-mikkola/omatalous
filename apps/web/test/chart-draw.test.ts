@@ -113,8 +113,8 @@ describe("the labels of a category axis by room in pixels", () => {
     }
   });
 
-  // widths in px of the SVG texts in the running app (getBoundingClientRect, 13 px face), not derived from the constant
-  const measured: Record<string, number> = { marras: 41, joulu: 28, "tammi 2026": 72, helmi: 32, maalis: 38 };
+  // widths in px of the SVG texts in the running app (getBoundingClientRect at 13 px, scaled to the 12 px face), not derived from the constant
+  const measured: Record<string, number> = { marras: 38, joulu: 26, "tammi 2026": 67, helmi: 30, maalis: 36 };
   const texts = Object.keys(measured);
 
   it("keeps LABEL_GAP between labels at their measured width", () => {
