@@ -19,7 +19,8 @@
 # tagged <name>:latest, so docker-compose.yml keeps naming the image as before. The release is the one GitHub marks as
 # latest, not the newest tag (TALOUS_PRERELEASE=yes in .env: the newest release, a pre-release too). A folder that is
 # already at a release above that one (a pre-release) stays there. Until a release exists, and with TALOUS_CHANNEL=source
-# in .env, the update builds the newest source on this machine as it always has.
+# in .env, the update builds the newest source on this machine as it always has. With TALOUS_SOURCE_CHECKED=yes beside
+# it, the newest source is the newest commit whose checks passed on GitHub (lib/release.sh).
 #
 # Before the switch (after the new image is ready, right before the old container stops):
 #   • a consistent copy of the database is written inside the data volume
@@ -443,7 +444,7 @@ main() {
     fetch_release_image "$tag" "$target"
   else
     if [[ -n $CROSSED_FROM ]]; then git reset --keep --quiet "$target"
-    elif [[ -n $TARGET ]] || on_private; then git merge --ff-only --quiet "$target"
+    elif [[ -n $TARGET || -n ${SOURCE_PINNED:-} ]] || on_private; then git merge --ff-only --quiet "$target"
     else git pull --ff-only --quiet; fi
     ok "Source: $(git log -1 --format='%h %s')"
     docker compose pull --ignore-buildable --quiet 2>/dev/null || true # Caddy / cloudflared

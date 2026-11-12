@@ -203,6 +203,8 @@ env_check() {
   [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="COMPOSE_PROJECT_NAME is invalid"; return 1; }
   inst=$(env_get TALOUS_PRERELEASE)   # which release is followed (lib/release.sh)
   [[ -z $inst || $inst == yes || $inst == no ]] || { ENV_ERR="TALOUS_PRERELEASE is invalid"; return 1; }
+  inst=$(env_get TALOUS_SOURCE_CHECKED)   # a source install takes only what GitHub checked (lib/release.sh)
+  [[ -z $inst || $inst == yes || $inst == no ]] || { ENV_ERR="TALOUS_SOURCE_CHECKED is invalid"; return 1; }
   return 0
 }
 
@@ -393,6 +395,16 @@ act_update() {
     target=$(git rev-parse "origin/$branch^{commit}" 2>/dev/null || true)
     [[ $target =~ ^[0-9a-f]{40}$ ]] || { fail "Lähdekoodin uusinta versiota ei löytynyt."; return; }
     git merge-base --is-ancestor HEAD "$target" 2>/dev/null || { fail "Uusi versio ei jatka asennettua versiota. Mikään ei muuttunut."; return; }
+    # TALOUS_SOURCE_CHECKED=yes: only the newest commit whose checks passed on GitHub (lib/release.sh), one call
+    if source_checked; then
+      local picked rc=0
+      picked=$(checked_answer HEAD "$target" "$branch") || rc=$?
+      if ((rc == 2)); then say_log "The newest source is not taken yet: $(head -n 1 <<<"$picked") on GitHub."; fail "Uusimman version tarkistukset GitHubissa eivät ole vielä menneet läpi. Mikään ei muuttunut."; return; fi
+      if ((rc != 0)); then fail "Uusimman version tarkistuksia ei voitu kysyä GitHubista. Mikään ei muuttunut."; return; fi
+      target=$(head -n 1 <<<"$picked")
+      [[ $target =~ ^[0-9a-f]{40}$ ]] || { fail "Lähdekoodin uusinta versiota ei löytynyt."; return; }
+      say_log "GitHub's checks passed for ${target:0:8}."
+    fi
   fi
   signers_ok "$target" || { fail "Uutta koodia ei ole allekirjoittanut luotettu avain. Mikään ei muuttunut."; return; }
   compose_policy_ok "$target" || { fail "Uuden version asetukset eivät täytä turvasääntöjä (${POLICY_MSG:-?}). Mikään ei muuttunut."; return; }
