@@ -3,6 +3,83 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.2.0
+
+- Kiinteät menot is back on Raportit as one table, and it works on a phone.
+- An opened row on Tapahtumat shows what the bank sent and why the row has its category.
+- The figures on Yhteenveto and Raportit name the accounts and months they are counted from, and a month with no rows counts as missing data.
+- Payee names read cleaner from card texts, foreign currency rows and transfers.
+- One word for one thing across the app, times as "klo 9.05", and the balance says from which day it is known.
+- A source install can wait until GitHub's checks have passed before it updates (TALOUS_SOURCE_CHECKED=yes).
+
+Money and reports
+
+- Yhteenveto: the average spending of Varat ja velat names how many months it reads and opens them with their rows.
+- Yhteenveto: without a usual level, Kuukausi names last month's spending to the same day.
+- Kuukausi on Yhteenveto sets last month against this one only on the same accounts and without a card bill.
+- Yhteenveto: the balance of the answer says when it adds up several checking accounts, and what is left opens its basis.
+- Yhteenveto and Laskut name what an account outside the balance pays before the payday, also past 30 days.
+- Tarkistettavat lists a payee's refunds with its payments, so the rows add up to the sum asked about.
+- Tarkistettavat and Huomioitavaa show the last year's sum of a payee, payer or bank as yhteensä.
+- Payee names read more card account texts: a foreign purchase with its currency and sum in front, money sent from a card ("Siirto kortilta"), a town missing from the town list when a chain such as K-Market follows it, and Paddle in front of the product it sells. Existing rows get the new names at the next update, with their rules and marks.
+- Tapahtumat grouped by payee says in each payee's head what its rows of the chosen period come to, and a long list draws only the payees near the screen, so a year of rows opens without the page standing still.
+- An opened row on Tapahtumat lists what the bank sent (payee or payer, their account, message, reference, dates, a reservation's state) and says why the row has its category, naming the user's own rule when one decided.
+- On Tapahtumat a chosen chip that no row has (Käsin luokitellut, Varaukset) shows no rows instead of every row.
+- Laskut heads the date of an ended row "Viimeksi". On a phone each such row read "Seuraava Viimeksi 22.7.".
+- Laskut keeps a bill that did not come in its list with "Ei tullut" and the day it was due, for about a month and a half or until the payments say it ended. Before, a monthly bill was late for five days and then moved among the ended.
+- Tarkistettavat asks about such a bill for the same days. It takes "Lopetettu" for the series, or "Tulee vielä" for that one charge, which leaves the rest of what the app says of the series as it was.
+- Laskut and Kiinteät menot name one of several products of a payee with the price it charges now. After a rise the name kept the old price beside the new one.
+- Raportit > Rahankäyttö: a category's average and its gap to the newest month read only the months that hold a connected card's purchases in their categories. A card connected late no longer makes every category it buys in look dearer than usual; the page says how many months the categories read, or why they have no average yet.
+- Raportit > Kuukausi gives the same reason as Yhteenveto when a month has no usual level, and lists its categories.
+- Suurimmat menot of the first page names its categories in the reader's language.
+- "Muut luokat" of Raportit > Kuukausi is a control of 24 px on a phone.
+- Raportit: a month that has ended and that the accounts do not cover is "vajaa". It was "kesken", the word of the running month.
+- Laskut: with nothing to pay before the payday the block has no total row of zero, and a payment due from an account outside the balance is listed and named so.
+- Yhteenveto: the line about the missing usual level stands on its own line under the sum.
+
+Look
+
+- The search box of a table gives way before its row wraps: on Tapahtumat with a period and a category chosen, the grouping button stays on the row of the search box on a wide screen.
+- Asetukset > Pankit ja tilit says that accounts also come from a statement file.
+- Tarkistettavat asks of a new recurring charge whether the subscription is in use.
+- Tarkistettavat counts the questions left for next time as kysymys, the word the page uses.
+- Turvallisuusloki leaves Lisätieto empty when it would repeat the user, and a phone drops its label.
+- Asetukset shows the 25 newest rows of Ylläpitoloki and the 10 newest fetches, the rest behind Näytä lisää.
+- A category is called "kategoria" on every page: Yhteenveto, Raportit, the tax year rows and Tarkistettavat no longer say "luokka".
+- docs/design/GLOSSARY.md lists the term for each thing in Finnish and English, and a test holds the English texts to it.
+- English: one name per thing ("Net worth", "Payday", "Estimate", "Balance of savings and checking accounts", "Savings rate", "Mortgage", "Refunds", "Consumption" and others).
+- The link to a missing loan balance says "Lisää saldo", as the other links to a missing balance do.
+- The buffer line of Yhteenveto divides by the usual spending ("tavallisilla menoilla"); rule 35 refuses *odotettu* in the UI texts.
+- A text that sends you to a setting names the tab as the tab row says it: "Asetukset > Palvelin ja ylläpito", "Asetukset > Pankit ja tilit", "Asetukset > Talous > Lainat". The English texts do the same ("Settings > Server and maintenance").
+- A time in a notice has no zero before the hour: "12.11. klo 1.10", in English "12/11 at 1:10".
+- Asetukset > Palvelin ja ylläpito says "Apuri toimii (nähty klo 20.42)", and the remote access trial says "klo" before its time.
+- The disk check of the maintenance helper writes a size with a decimal comma in Finnish ("vapaata 5,5 Gt").
+- Tilit ja saldot: when a balance is known only lately, the chart says from which day, and the labels clear each other. With one known day a sentence stands in for the chart.
+- The bars of a report table start on one line, so a longer figure no longer moves its bar.
+- Yhteenveto: the sum spent so far moves off last month's line in the Kuukausi chart where that line runs over it.
+- Vuosivertailu: the chart says it leaves out the fixed costs and names those that changed most.
+- Vuosivertailu: a category whose spending rose is drawn in the accent colour, as over-usual spending is elsewhere. Red is kept for a problem.
+
+Reliability
+
+- Every page opens faster on a long history: the count of Tarkistettavat no longer works out every question again.
+- Tapahtumat opens faster on a long history: the list of card statements no longer reads every row.
+- With an add-on module installed, the maintenance helper reads the app's answers again, so the actions of Ylläpito run.
+
+Maintenance
+
+- A source install can wait for GitHub's checks: with `TALOUS_SOURCE_CHECKED=yes` an update takes only a commit they passed.
+
+For developers
+
+- The e2e specs of Tarkistettavat (`review-kinds`, `tr1`) read the question inside its heading, which also says the place in the queue.
+- The footer spec (`rules-footer`) finds the items of a row by their middle: on a phone the first item holds a 44 px link and stood on another top than the words beside it.
+- The scan for Finnish words on the English pages (`e2e/english-scan.spec.ts`) leaves out the bank's own text of a row, which Tapahtumat shows again and which is in the bank's language.
+
+Upgrade
+
+- New optional `.env` key `TALOUS_SOURCE_CHECKED` (`yes` or `no`, default `no`), read only with `TALOUS_CHANNEL=source`.
+
 ## 1.1.0
 
 - The pages are those of 1.0.0: Yhteenveto, Laskut, Tapahtumat and Raportit. Tarkistettavat is a link on the right.
