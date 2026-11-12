@@ -3,6 +3,7 @@
  * month the app has no rows for. See docs/MONEY_FLOWS.md, "Coverage by day".
  */
 import { addMonthsToDate, dayNumber, fromDayNumber, fromMonthIndex, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { DAILY_MONTHS_SHARE, DAILY_PAID_SHARE, DAILY_ROWS, HOLE_MONTHS } from "../thresholds.ts";
 import type { Account, IsoDate } from "../types.ts";
 import { type AnalysisContext, COVER_SLACK_DAYS } from "./context.ts";
 
@@ -121,15 +122,11 @@ export function accountCovers(ctx: AnalysisContext, accountIds: Iterable<string>
   return any;
 }
 
-/**
- * An account in daily use: this many rows a month on average over the months it has rows in, spending in this share of
- * those months or more, and rows in `DAILY_MONTHS_SHARE` of the months from its first row to its last.
+/*
+ * An account in daily use: `DAILY_ROWS` rows a month on average over the months it has rows in, spending in
+ * `DAILY_PAID_SHARE` of those months or more, and rows in `DAILY_MONTHS_SHARE` of the months from its first row to its
+ * last. `HOLE_MONTHS` is the longest run of empty months read as missing rows (thresholds.ts gives each its reason).
  */
-const DAILY_ROWS = 8;
-const DAILY_PAID_SHARE = 0.85;
-const DAILY_MONTHS_SHARE = 0.75;
-/** The longest run of empty months read as missing rows; a longer one is an account left unused for a while. */
-const HOLE_MONTHS = 2;
 
 interface Holes {
   /** The accounts each month (an index) misses the rows of. */

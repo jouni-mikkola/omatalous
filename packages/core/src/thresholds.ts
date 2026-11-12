@@ -96,6 +96,10 @@ export const THRESHOLDS = {
   payGraceBankingDays: threshold(2, "days", "Banking days after the pay day before pay counts as missing: a weekend, a holiday, a slow sync."),
   sameUnderCents: threshold(100, "cents", "The first page prints whole euros, so a category that changed by under one euro reads as the same."),
   fixedPaymentMonths: threshold(12, "months", "A year: the payments listed under a fixed cost are the year its yearly cost stands for, so a yearly bill shows once."),
+  dailyRows: threshold(8, "count", "A judgement: an account in daily use has this many rows a month on average over the months it has rows in, about two a week, so its empty month is missing rows and not a month at 0 €."),
+  dailyPaidShare: threshold(0.85, "share", "A judgement: an account in daily use spends in this share of its months or more, so a savings account that pays out now and then is not one."),
+  dailyMonthsShare: threshold(0.75, "share", "A judgement: an account in daily use has rows in this share of the months from its first row to its last, so an account used in spells is not one."),
+  holeMonths: threshold(2, "months", "A judgement: a run of one or two empty months on an account in daily use is rows the bank or an export missed. A longer one is an account left unused for a while."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -175,3 +179,7 @@ export const SWITCH_PERIODS = THRESHOLDS.switchPeriods.value;
 export const SWITCH_LEVEL = THRESHOLDS.switchLevel.value;
 export const FIRST_PAGE_DAYS = THRESHOLDS.firstPageDays.value;
 export const PAY_GRACE_BANKING_DAYS = THRESHOLDS.payGraceBankingDays.value;
+export const DAILY_ROWS = THRESHOLDS.dailyRows.value;
+export const DAILY_PAID_SHARE = THRESHOLDS.dailyPaidShare.value;
+export const DAILY_MONTHS_SHARE = THRESHOLDS.dailyMonthsShare.value;
+export const HOLE_MONTHS = THRESHOLDS.holeMonths.value;
