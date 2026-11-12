@@ -32,8 +32,10 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
     chart of the same figures. The month before is drawn only when the household has no usual level yet. The chart
     marks one pay day under its axis and has a key only with a second series. The days as a table are on the month's
     report, one link away.
-  - Huomioitavaa: the first three open questions of Tarkistettavat in the queue's order, each with its sum, and the
-    count of all. It asks nothing itself and is not drawn when nothing is open.
+  - Huomioitavaa: the first three items of Tarkistettavat that need the household (a bill that did not come, a loan
+    with nothing saved, a price that rose, a bank connection that ends), in the queue's order, each with its sum, and
+    the count of all. A question that only sorts money (a payee, a payer) is not shown here. A row opens
+    Tarkistettavat at its item. It asks nothing itself and is not drawn when no such item is open.
   - Suurimmat menot: the five largest categories as bars on one scale, last month's sum to the same day as a mark on
     each bar and the difference in words. A bar opens the category's rows.
   - Varat ja velat: what is left after the debts, the accounts' balance, the debts, the buffer in months and the

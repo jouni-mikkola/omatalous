@@ -132,13 +132,14 @@ describe("Yhteenveto", () => {
   });
 
   // 1.0.0 said nothing needed the household while the header counted dozens of open questions
-  it("Huomioitavaa names the first open questions in the queue's order and counts them all", () => {
-    const item = (id: string, merchant: string, cents: number): ReviewItem => ({ kind: "payee_out", id, cents, merchant, count: 3, lastDate: "2026-11-01", picks: [] });
-    const items = [item("a", "Kauppa A", 90000), item("b", "Kauppa B", 50000), item("c", "Kauppa C", 30000), item("d", "Kauppa D", 1000)];
+  it("Huomioitavaa names the first items that need the household in the queue's order and counts them all", () => {
+    const item = (id: string, merchant: string, cents: number): ReviewItem => ({ kind: "bill", id, cents, merchant, seriesId: id, subject: `series:${id}`, comingSubject: `coming:${id}`, dueDate: "2026-11-01" });
+    const items = [item("a", "Laskuttaja A", 90000), item("b", "Laskuttaja B", 50000), item("c", "Laskuttaja C", 30000), item("d", "Laskuttaja D", 1000)];
     const { container } = render(createElement(Notable, notableOf(items)));
-    expect([...container.querySelectorAll(".home-note-title")].map((e) => e.textContent)).toEqual(["Kauppa A", "Kauppa B", "Kauppa C"]);
+    expect([...container.querySelectorAll(".home-note-title")].map((e) => e.textContent)).toEqual(["Laskuttaja A", "Laskuttaja B", "Laskuttaja C"]);
     expect(flat(container.querySelector(".home-note-effect")?.textContent)).toContain("900,00 €");
-    expect([...container.querySelectorAll("a")].every((a) => a.getAttribute("href") === "#/review")).toBe(true);
+    expect([...container.querySelectorAll(".home-note")].map((a) => a.getAttribute("href"))).toEqual(["#/review?item=a", "#/review?item=b", "#/review?item=c"]);
+    expect(container.querySelector(".home-more a")?.getAttribute("href")).toBe("#/review");
     expect(flat(container.querySelector(".home-more")?.textContent)).toBe("Kaikki 4 tarkistettavaa");
   });
 
