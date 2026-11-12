@@ -344,6 +344,11 @@ function isBill(occ: readonly Occurrence[], fit: { cadence: CadenceDef }, catego
   return occ.length >= MIN_BILL_CHARGES && !SHOPPING_CATEGORIES.has(category);
 }
 
+/** The share of a merchant's rows its products must hold to stand for the merchant; under it the rest is everyday buying. */
+const MOST_ROWS = 0.6;
+/** The incomes a household waits for: a payer's clusters of these become series of their own (`seriesOfGroup`). */
+const PAY_CATEGORIES = new Set(["salary", "benefits"]);
+
 /** `back`: money in from the merchant on the same account; a refund after the first charge leaves two charges unproven. */
 function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", group: readonly SeriesInput[], today: IsoDate, firstPaid: IsoDate, back: readonly SeriesInput[]): RecurringSeries[] {
   const occ = toOccurrences(group);
@@ -380,25 +385,36 @@ function seriesOfGroup(id: string, merchant: string, direction: "in" | "out", gr
   }
   if (fit) {
     const covered = sum(products.map((p) => p.transactionIds.length));
-    return products.length && covered >= 0.6 * group.length ? products : [buildSeries(id, merchant, category, direction, occ, fit, today)];
+    return products.length && covered >= MOST_ROWS * group.length ? products : [buildSeries(id, merchant, category, direction, occ, fit, today)];
   }
   // Money in of one payer that fits no cadence whole can be two incomes, a monthly allowance of one sum and a benefit
   // paid every second week whose sum moves with the days it pays for: a cluster of sums with a cadence of its own is a
-  // series too, as a salary is whose sum moves. Only when they hold most of the payer's rows: a salary whose sum moves
-  // a lot falls into clusters by sum, and a piece of it is no income of its own. The id names the cluster's median,
-  // which drifts as the sum moves; a mark finds it again within 10 % (`samePrice`).
+  // series too, as a salary is whose sum moves. Only pay and benefits: a shop's refunds or a person's payments back are
+  // no income to wait for. Only when they hold most of the payer's rows: a salary whose sum moves a lot falls into
+  // clusters by sum, and a piece of it is no income of its own. Nor is a cluster whose rows fit one cadence with another
+  // series' rows: a salary with a larger sum every third month is one salary, so the larger sums join the other
+  // cluster, or stay out beside a product of one sum, as they did before. The id names the cluster's median, which
+  // drifts as the sum moves; a mark finds it again within 10 % (`samePrice`).
   if (direction === "in" && group.length >= 4) {
     const held = new Set(products.flatMap((p) => p.transactionIds));
-    const incomes: RecurringSeries[] = [];
-    for (const cluster of clusterByAmount(group).filter((c) => c.length >= MIN_PRODUCT_CHARGES && !c.some((t) => held.has(t.id)))) {
-      const cOcc = toOccurrences(cluster);
-      const cFit = fitCadence(cOcc);
-      if (cFit) incomes.push(buildSeries(seriesId({ ...parseSeriesId(id)!, product: Math.round(median(cOcc.map((o) => o.cents))) }), merchant, categoryOf(cluster), direction, cOcc, cFit, today));
+    const productRows = products.map((p) => group.filter((t) => p.transactionIds.includes(t.id)));
+    const oneIncome = (a: readonly SeriesInput[], b: readonly SeriesInput[]) => fitCadence(toOccurrences([...a, ...b])) !== null;
+    const clusters: SeriesInput[][] = [];
+    for (const cluster of clusterByAmount(group)) {
+      if (cluster.length < MIN_PRODUCT_CHARGES || cluster.some((t) => held.has(t.id)) || !PAY_CATEGORIES.has(categoryOf(cluster))) continue;
+      if (!fitCadence(toOccurrences(cluster)) || productRows.some((rows) => oneIncome(rows, cluster))) continue;
+      const at = clusters.findIndex((rows) => oneIncome(rows, cluster));
+      if (at < 0) clusters.push(cluster);
+      else clusters[at] = [...clusters[at]!, ...cluster];
     }
-    if (sum([...products, ...incomes].map((p) => p.transactionIds.length)) >= 0.6 * group.length) products.push(...incomes);
+    const incomes = clusters.map((rows) => {
+      const cOcc = toOccurrences(rows);
+      return buildSeries(seriesId({ ...parseSeriesId(id)!, product: Math.round(median(cOcc.map((o) => o.cents))) }), merchant, categoryOf(rows), direction, cOcc, fitCadence(cOcc)!, today);
+    });
+    if (sum([...products, ...incomes].map((p) => p.transactionIds.length)) >= MOST_ROWS * group.length) products.push(...incomes);
   }
   const covered = sum(products.map((p) => p.transactionIds.length));
-  if (products.length && covered >= 0.6 * group.length) return products;
+  if (products.length && covered >= MOST_ROWS * group.length) return products;
   if (products.length) {
     // a fixed product among everyday purchases: report both
     const inProducts = new Set(products.flatMap((p) => p.transactionIds));
