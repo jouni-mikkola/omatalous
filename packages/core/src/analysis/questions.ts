@@ -220,6 +220,7 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   // a refund lowers the payee's sum (`netSpend`), so Tarkistettavat shows its row, and a payment it took back whole, with
   // the payee's payments: the rows add up to the figure. `returns` names a refund's first payment, which a refund spread
   // over several payments took back whole, so such a payment leads to its payee's question too.
+  const counted = new Map([...out.values()].map((g) => [g, [...g.rowIds]]));
   const payeeOf = new Map<string, Group>();
   for (const g of out.values()) for (const id of g.rowIds) payeeOf.set(id, g);
   for (const t of nettedOut) {
@@ -229,6 +230,11 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
     payeeOf.set(t.id, g);
   }
   for (const [refundId, paymentId] of ctx.returns) payeeOf.get(paymentId)?.rowIds.push(refundId);
+  // `returns` knows only the first payment, so a refund that also took back a payment outside the group (before the window,
+  // or one the user moved to a category) would show too much: such a payee keeps the rows its sum counts
+  const grown = [...counted].filter(([g, rowIds]) => g.rowIds.length > rowIds.length);
+  const amountOf = new Map(grown.length ? ctx.txs.map((t) => [t.id, t.amountCents]) : []);
+  for (const [g, rowIds] of grown) if (g.rowIds.reduce((sum, id) => sum + (amountOf.get(id) ?? 0), 0) !== -g.cents) g.rowIds = rowIds;
 
   // with payer roles the payer's question comes in place of the payee's: one question about the same money
   const asked = inputs.payers ? payerQuestions(ctx, rows, inputs.payers, dismissed) : { items: [], covered: new Set<string>() };

@@ -79,6 +79,22 @@ describe("how much of the spending is known (knownSpending)", () => {
     expect(q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)).toBe(-q!.cents);
   });
 
+  it("keeps the counted rows when a refund also took back a payment outside the question", () => {
+    const sumOf = (rows: Transaction[]) => {
+      const [q] = questionsOf(rows).items as { cents: number; rowIds?: string[] }[];
+      const byId = new Map(rows.map((t) => [t.id, t.amountCents]));
+      return [q!.cents, q!.rowIds!.reduce((sum, id) => sum + byId.get(id)!, 0)];
+    };
+    const back = tx({ bookingDate: "2025-10-20", amountCents: eur(100), merchant: "Kioski Oy" });
+    // the refund took back a payment from before the window and one in it
+    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-15" }), back, unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
+    expect(sumOf(early)).toEqual([eur(30), -eur(30)]);
+    // and a payment the user put in a category
+    const moved = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01", category: "groceries", categorySource: "user" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
+    const [cents, sum] = sumOf(moved);
+    expect(sum).toBe(-cents!);
+  });
+
   it("reads the twelve complete months up to the period's end: the month still running is not one", () => {
     const old = unknownOut(100, "Kioski Oy", { bookingDate: "2025-09-30" });
     const edge = unknownOut(30, "Kioski Oy", { bookingDate: "2025-10-01" });
