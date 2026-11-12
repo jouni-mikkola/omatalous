@@ -79,7 +79,7 @@ export const EN_REPORTS_1: Record<keyof typeof FI_REPORTS_1, string> = {
   "rep.shared_question": "Shared spending",
   "rep.shared_figure": "Shared spending",
   "rep.shared_explain": "{amount} went from the shared accounts. Who owes whom is under Settlement.",
-  "rep.shared_no_expected": "Shared costs have no expected level.",
+  "rep.shared_no_expected": "Shared spending has no expected level.",
   "rep.shared_method": "Costs are consumption and debt service from accounts that more than one household member uses. Shares follow the weights of the account's users.",
   "rep.fixed_no_expected": "Fixed costs have no expected level. Compare with the period before.",
   "rep.fixed_question": "Fixed costs",

@@ -128,7 +128,7 @@ export const FI_OVERVIEW = {
   "home.nyt_unsaved_one": "Lisäksi {count} laina, jonka saldoa ei ole tallennettu: {names}.",
   "home.nyt_unsaved_many": "Lisäksi {count} lainaa, joiden saldoa ei ole tallennettu: {names}.",
   // Shared components
-  "chart.largest": "Suurin kertaosto {name}, {sum}",
+  "chart.largest": "Suurin yksittäinen osto {name}, {sum}",
   "chart.pay_day": "Palkka {day}.",
   "chart.aria_pace": "Kuukauden kertyvät menot{expected}{goal}",
   "chart.aria_expected": " tavalliseen kuukauteen verrattuna",

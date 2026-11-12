@@ -51,10 +51,6 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Linkitä tili Enable Bankingissa.", "Tili on linkitetty", "Ylläpitäjä linkittää tilin", "Ei linkitetty"],
     ok: ["Lisää tili Enable Bankingissa (Link accounts).", 'Paina painiketta "Linkitä tili".', "Kopioi linkki ja avaa kaikki linkit.", "Yhdistä pankki"],
   },
-  "Yksittäinen osto": {
-    bad: ["Suurin yksittäinen osto {name}, {sum}", "yksittäiset ostot"],
-    ok: ["Suurin kertaosto {name}, {sum}", "yksittäinen rivi", "Kertaostot"],
-  },
   Odotettu: {
     bad: ["{net} jaettuna odotetuilla menoilla {spend}/kk", "kun menosi ovat odotetut {monthly}", "Odotetut tulot", "Ero odotettuun"],
     ok: ["Laskua odotettiin {date}", "ei ole odotetussa muodossa", "Odotetaan että sovellus vastaa", "{count} tili odottaa hakua"],

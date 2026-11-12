@@ -14,7 +14,7 @@ export const EN_SET_WIZARD: Record<keyof typeof FI_SET_WIZARD, string> = {
   "set.wizard.key_ok": "in order",
   "set.wizard.key_missing": "missing",
   "set.wizard.done_linked": "Done. The bank is connected.",
-  "set.wizard.bank_missing": "The bank is still missing. Connect it with the Connect bank button.",
+  "set.wizard.bank_missing": "The bank is still missing. Connect it with the Connect a bank button.",
   "set.wizard.app_and_bank_missing": "The Enable Banking app and the bank are still missing. Go back to the previous step.",
   "set.wizard.back": "Back",
   "set.wizard.to_app": "Go to the app",

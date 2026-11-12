@@ -90,7 +90,7 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.se_share_of": "Share: {name}",
   "rpt.se_card_holder": "Card holder",
   "rpt.se_removed": "removed member",
-  "rpt.se_group": "Shared costs: {name}",
+  "rpt.se_group": "Shared spending: {name}",
   "rpt.se_closed": "closed {date}",
   "rpt.se_who": "Who owes whom",
   "rpt.se_even": "No debt, the month is even",

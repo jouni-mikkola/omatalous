@@ -55,7 +55,7 @@ export const FI_REPORTS_1 = {
   "rep.debt_spoken": ", josta {spoken} on jo varattu maksuihin",
   "rep.debt_no_buffer": "Emme voi laskea puskuria, koska emme tiedä tiliesi saldoa.",
   "rep.debt_cash": "Tileilläsi on {cash}{spoken}.",
-  "rep.debt_cash_months": "Tileilläsi on {cash}{spoken}. Maksujen jälkeen jää {net}, ja sillä pärjäät {months} kuukautta, kun menosi ovat tavallisesti {monthly} kuussa.",
+  "rep.debt_cash_months": "Tileilläsi on {cash}{spoken}. Maksujen jälkeen jää {net}, ja sillä pärjäät {months} kuukautta, kun menosi ovat yleensä {monthly} kuussa.",
   "rep.debt_no_expected": "Velkaa ei voi verrata yleiseen tasoon.",
   "rep.debt_no_earlier": "Emme vielä laske velan aiempaa määrää.",
   "rep.debt_question": "Velat",

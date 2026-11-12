@@ -31,7 +31,6 @@ with it. A new word for a thing already named here is not added: the term below 
 | A person without a login | *jäsen ilman kirjautumista* | *Jäsen ilman tunnusta* (short form: *ilman kirjautumista*) |
 | All accounts of the household | *Koko talous* | *Kaikki tilit* |
 | The user's own name for an account | *Tilin nimi* (also the label of the field) | *Oma nimi* |
-| A purchase out of the usual (the largest is marked on the charts) | *kertaosto* ("Suurin kertaosto") | *yksittäinen osto* |
 | A link to a balance that is missing | *Lisää saldo*, *Lisää saldot* | *Tallenna saldo* as a link |
 | What a month usually costs | *tavallinen* ("Tavallinen 2 825 € (viime 6 kuukauden keskiarvo)"), for income *tavalliset tulot*. The text names what it rests on. In Kuukausi, Saldot and Velat the word is *yleensä* ("Yleensä 2 825 €") | *odotettu*, *odotetut tulot*, *normaali*, *keskitaso* |
 | The range a figure usually moves in | *tavallisesti 2 700–3 260 €* | *vaihteluväli*, *prosenttipiste*, *5.–95. prosenttipiste* |
@@ -55,7 +54,8 @@ Finnish: *Lisää tilit Enable Bankingissa (API applications > Omatalous > Link 
 
 A glossary row is changed together with the text that breaks it. Rules 12 and 28 of the repo rules keep some older
 words out (*tilitapahtuma*, *löydös*, *kulut* for spending), and rule 35 keeps out the words named in the table:
-*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure, *linkitä*, *luokka* for a category, *yksittäinen osto* and *kello* before a time. It also refuses the passive *Näin katetaan*, *katetaan*,
+*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure, *linkitä*, *luokka* for a category, *odotettu* for what a month usually costs and *kello* before a time. The figure registry and
+the Why text of the expected figure keep ADR 0020's *Odotettu* until the owner settles it (`pending`). It also refuses the passive *Näin katetaan*, *katetaan*,
 a text that begins with *Luetaan*, *Testataan*, *Tarkistetaan* or *Lasketaan*, and a question heading that begins with
 *Mihin*, *Miten*, *Mistä*, *Mitkä*, *Milloin*, *Kuinka*, *Paljonko*, *Kestääkö* and the like. The last two are not yet
 enforced for the files of the parts still to come (`pending` in `tools/repo-rules/glossary.ts`).
