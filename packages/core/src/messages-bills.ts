@@ -28,7 +28,6 @@ export const FI_BILLS = {
   "bills.kind": "Laji",
   "bills.stopped": "Merkitty lopetetuksi",
   "bills.next": "Seuraava",
-  "bills.last_on": "Viimeksi {date}",
   "bills.missed": "Ei tullut {date}",
   "bills.on_card": "Kortilla",
   "bills.amount": "Summa",

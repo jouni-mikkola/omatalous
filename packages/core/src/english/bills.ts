@@ -26,7 +26,6 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.kind": "Type",
   "bills.stopped": "Marked as cancelled",
   "bills.next": "Next",
-  "bills.last_on": "Last {date}",
   "bills.missed": "Missed {date}",
   "bills.on_card": "On card",
   "bills.amount": "Amount",

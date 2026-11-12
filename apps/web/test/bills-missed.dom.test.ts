@@ -1,6 +1,7 @@
 /**
  * Laskut: the opened row of a bill that did not come offers the mark that ends it (the answer Lopetettu of
- * Tarkistettavat) and still the removal of a series that was never a bill.
+ * Tarkistettavat) and still the removal of a series that was never a bill; the rows of Päättyneet head their date as
+ * the last one.
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { marksBySubject } from "@banking/core";
@@ -50,5 +51,23 @@ describe("Laskut: a bill that did not come, opened", () => {
     fireEvent.click(within(row).getByRole("button", { name: /Tiedot: Sähköyhtiö/ }));
     expect(screen.getByRole("button", { name: /Merkitse lopetetuksi/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Poista lasku/ })).toBeTruthy();
+  });
+});
+
+describe("Laskut: Päättyneet", () => {
+  it("heads the date of an ended row Viimeksi, which a phone shows as its label, and the live rows Seuraava", () => {
+    stubApi({});
+    const ended = { ...power, id: "out:acc-1:Vanhayhtiö", merchant: "Vanhayhtiö", contract: { ...contract, ended: true, endedOn: "2026-09-05" } };
+    const live = { ...power, active: true, lastDate: "2026-10-05", nextDate: "2026-11-05" };
+    const items = billItems({ series: [live, ended], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    const { container } = render(createElement(BillsTable, { items, fixedCents: 0, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, range: { from: "2026-10-01", to: TODAY }, scope: "own", onRemoved: () => {} }));
+    const dateCell = (name: string) => within(screen.getByRole("row", { name: new RegExp(name) })).getAllByRole("cell").find((c) => c.classList.contains("next-col"))!;
+    expect(dateCell("Vanhayhtiö").getAttribute("data-label")).toBe("Viimeksi");
+    expect(dateCell("Vanhayhtiö").textContent).toBe("5.8.");
+    expect(dateCell("Sähköyhtiö").getAttribute("data-label")).toBe("Seuraava");
+    const heads = [...container.querySelectorAll("details.sub-ended th")].map((th) => th.textContent?.trim());
+    expect(heads).toContain("Viimeksi");
+    expect(heads).not.toContain("Seuraava");
   });
 });

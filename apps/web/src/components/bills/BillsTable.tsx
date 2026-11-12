@@ -132,16 +132,13 @@ export function BillsTable({
       label: t("bills.next"),
       kind: "date",
       className: () => "next-col",
-      cell: (i) =>
-        i.ended && i.series ? (
-          t("bills.last_on", { date: date(i.series.lastDate) })
-        ) : (
-          <>
-            {/* a charge that did not come is a status with the day it was due: a day heading would read as the next charge */}
-            {i.missed ? <span className="badge warn">{t("bills.missed", { date: date(i.missed, today) })}</span> : i.next ? dayHeading(i.next, today) : "–"}
-            {onCard(i) && <span className="mb-tag sub-card">{t("bills.on_card")}</span>}
-          </>
-        ),
+      cell: (i) => (
+        <>
+          {/* a charge that did not come is a status with the day it was due: a day heading would read as the next charge */}
+          {i.missed ? <span className="badge warn">{t("bills.missed", { date: date(i.missed, today) })}</span> : i.next ? dayHeading(i.next, today) : "–"}
+          {onCard(i) && <span className="mb-tag sub-card">{t("bills.on_card")}</span>}
+        </>
+      ),
     },
     {
       key: "price",
@@ -168,14 +165,17 @@ export function BillsTable({
       },
     },
   ];
-  const table = (caption: string, rows: Item[]) => (
+  // what has ended has no next charge: its column is the last one, under its own heading, which a phone shows as the
+  // label of each row's date. Every ended row comes from a series (items.ts); the dash only guards the type
+  const endedColumns = columns.map((c): Column<Item> => (c.key === "next" ? { ...c, label: t("bills.last"), cell: (i) => (i.series ? date(i.series.lastDate) : "–") } : c));
+  const table = (caption: string, rows: Item[], cols: Column<Item>[]) => (
     <Table<Item>
       caption={caption}
       className="sub-table"
       search={false}
       rows={rows}
       rowKey={(i) => i.key}
-      columns={columns}
+      columns={cols}
       rowClassName={(i) => (i.ended || i.stopped ? "sub-stopped" : undefined)}
       open={open}
       onOpen={setOpen}
@@ -196,7 +196,7 @@ export function BillsTable({
         </div>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
-      {live.length > 0 && table(t("bills.title"), live)}
+      {live.length > 0 && table(t("bills.title"), live, columns)}
       {ended.length > 0 && (
         // a row the household just marked as stopped lands here with its detail open: the fold opens with it
         <details className="sub-ended" open={foldOpen || ended.some((i) => i.key === open)} onToggle={(e) => {
@@ -208,7 +208,7 @@ export function BillsTable({
           <summary>
             {t("bills.ended")} <b>{ended.length}</b>
           </summary>
-          {table(t("bills.ended"), ended)}
+          {table(t("bills.ended"), ended, endedColumns)}
         </details>
       )}
       {removing && (
