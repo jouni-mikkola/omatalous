@@ -96,11 +96,12 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
 
 ### 1.5 Rows, Lisää and Asetukset
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
-  Each row is date, name, category as text and amount. Group by merchant is a toolbar choice, not a view.
+  Each row is date, name, category as text and amount. Group by merchant is a toolbar choice of the list.
 - Raportit has the list of its reports on every report page, as in 1.0.0: Kuukausi (what the tab opens), Rahankäyttö,
   Verovuosi, Velat, Tilit ja saldot, and Yhteiset menot only with a shared account. A report with nothing to show is not listed.
-- Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans, rules), Jäsenet (admin only), Turvallisuus,
+- Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans), Jäsenet (admin only), Turvallisuus,
   Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
+- Tapahtumat has the two views of 1.0.0, Lista and Kauppiaat (`?view=merchants`), and the rules are under the merchants.
 
 ## 2. What goes
 
@@ -115,8 +116,8 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | Spending and category goals | `components/home/SpendingGoal.tsx`, `CategoryGoals.tsx`, `pages/settings/SpendingGoalCard.tsx`, report `categoryGoals` | Usual is the comparison; goals show no figure today |
 | Tapahtumat tiles and weekly chart | `pages/Transactions.tsx`, `pages/transactions/` | Whole-history totals compare with nothing |
 | Row marks | `components/MerchantAvatar.tsx`, `BankLogo.tsx` in rows, category chip icons, amount bars | Four marks repeat the text |
-| Merchants view | `pages/Merchants.tsx` | Moves to the rows list as group by merchant |
-| Rules page | `pages/Rules.tsx` | Moves to Asetukset > Kotitalous |
+| Merchants view | `pages/Merchants.tsx` | Taken back: it is the Kauppiaat view of Tapahtumat, as in 1.0.0 |
+| Rules page | `pages/Rules.tsx` | Taken back: the rules are under the merchants |
 | Laskut timeline and sums | `components/bills/Timeline.tsx`, `PriceSteps.tsx`, `ContractPanel.tsx` | Tulossa keeps the list only |
 | Raportit menu and 7 pages | `pages/Reports.tsx`, `pages/reports/pages/*`, `pages/reports/Verdict.tsx`, core `reports/conclusions/` | Kuukausi and Lisää replace them |
 | Report sections that go | `pages/reports/sections/` Pivot, FixedVariable, Drift, SpendingChange, SpendingTable, Food, Buffer, Cashflow, LongForecast, Income, FixedCosts, PriceChange, DataQuality, CategoryGoals | Folded into Kuukausi (Income is its income row), Tulossa or Tarkistettavat, or answer nothing. ThisMonth, Balances, Loans, Borrowed, Settlement, TaxYear and YearOverYear stay, in Kuukausi or Lisää |
@@ -187,9 +188,9 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - done when: the tiles, the chart, `MerchantAvatar.tsx`, logos, chip icons and amount bars are gone from rows; a 390 px shot shows the first row on the first screen.
 - locks: transactions, table
 - after: none
-### D5 Fold Merchants and Rules
+### D5 Fold Merchants and Rules (taken back: Tapahtumat has Lista and Kauppiaat, the rules under the merchants)
 - why: a merchant list is a grouping of rows; rules are a setting.
-- done when: `pages/Merchants.tsx` and `pages/Rules.tsx` are gone; group by merchant works in the rows toolbar; rules sit in Asetukset > Kotitalous; legacy addresses in `routes.ts` lead there (test).
+- done when (as it was written; only the grouping in the rows toolbar stays): `pages/Merchants.tsx` and `pages/Rules.tsx` are gone; group by merchant works in the rows toolbar; rules sit in Asetukset > Kotitalous; legacy addresses in `routes.ts` lead there (test).
 - locks: transactions, settings, routes
 - after: D4
 ### D6 Delete the report sections that go

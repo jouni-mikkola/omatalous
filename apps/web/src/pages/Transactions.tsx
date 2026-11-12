@@ -7,6 +7,7 @@ import { CADENCE_LABEL, date, money } from "../format.ts";
 import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
+import { Merchants } from "./Merchants.tsx";
 import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { periodOf } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
@@ -20,6 +21,7 @@ import { Button } from "../components/ui/Button.tsx";
 import { IconButton } from "../components/ui/IconButton.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { ConfirmDialog } from "../components/ConfirmDialog.tsx";
+import { Segmented } from "../components/ui/Segmented.tsx";
 import { Empty } from "../components/ui/Empty.tsx";
 import { CONNECT_BANK_HASH, hashOf, withParams } from "../routes.ts";
 interface MerchantHistory {
@@ -96,11 +98,28 @@ const count = (n: number): string => n.toLocaleString(LOCALE);
 const GROUP_MERCHANT = "merchant";
 const MERCHANT_COLUMN = "who";
 
-/** The rows of the household, by day or, when the toolbar's grouping says so (`?group=merchant`), by merchant. */
-export function Transactions({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
+/**
+ * Two views of the same rows, as in 1.0.0: the list (by day or, when the toolbar's grouping says so, by merchant), and
+ * the merchants with the rules under them (`?view=merchants`). The merchant list takes a period (`from`, `to`) that the
+ * list shares, so a merchant's rows open for the period its figures add up.
+ */
+export function Transactions({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
   // the table parts load while the first answer is on its way, so the rows come with their toolbar
   useEffect(() => void loadTableParts(), []);
-  return <TransactionList meta={meta} params={params} scope={scope} />;
+  const merchants = params.get("view") === "merchants";
+  const period = { from: params.get("from") ?? "", to: params.get("to") ?? "" };
+  return (
+    <div className="stack">
+      <Segmented
+        className="view-tabs"
+        label={t("tx.tabs")}
+        value={merchants ? "merchants" : "transactions"}
+        options={[{ value: "transactions", label: t("tx.tab_list") }, { value: "merchants", label: t("tx.tab_merchants") }]}
+        onChange={(v) => navigate("transactions", v === "merchants" ? { view: "merchants", ...period } : period)}
+      />
+      {merchants ? <Merchants meta={meta} params={params} scope={scope} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
+    </div>
+  );
 }
 
 interface ListAnswer extends Totals {

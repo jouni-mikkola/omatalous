@@ -1,17 +1,19 @@
 import { isUsablePattern } from "@banking/core";
 import { useState } from "react";
-import { api } from "../../api.ts";
-import { CategorySelect } from "../../components/CategorySelect.tsx";
-import { PayerAnswers } from "../../components/PayerAnswers.tsx";
-import { Table } from "../../components/table/Table.tsx";
-import { useApi } from "../../hooks.ts";
-import { RULES_ANCHOR } from "../../routes.ts";
-import { labelTable, t } from "../../text.ts";
-import type { CategoryRule, Meta } from "../../types.ts";
-import { Button } from "../../components/ui/Button.tsx";
-import { Notice } from "../../components/ui/Notice.tsx";
-import { Empty } from "../../components/ui/Empty.tsx";
-import "../../styles/categories.css";
+import { api } from "../api.ts";
+import { CategorySelect } from "../components/CategorySelect.tsx";
+import { PayerAnswers } from "../components/PayerAnswers.tsx";
+import { Table } from "../components/table/Table.tsx";
+import { useApi } from "../hooks.ts";
+import { RULES_ANCHOR } from "../routes.ts";
+import { labelTable, t } from "../text.ts";
+import type { CategoryRule, Meta } from "../types.ts";
+import { Button } from "../components/ui/Button.tsx";
+import { Notice } from "../components/ui/Notice.tsx";
+import { Empty } from "../components/ui/Empty.tsx";
+import "../styles/categories.css";
+// the form's fields are the ones of Asetukset
+import "../styles/settings.css";
 const FIELD_LABEL = labelTable<CategoryRule["field"]>({
   merchant: () => t("rule.field_merchant"),
   merchant_exact: () => t("rule.field_merchant_exact"),
@@ -20,7 +22,7 @@ const FIELD_LABEL = labelTable<CategoryRule["field"]>({
   any: () => t("rule.field_any"),
 });
 
-/** Asetukset > Talous: the rules that give a row its category, and the answers about payers under them. */
+/** Tapahtumat > Kauppiaat, under the merchants: the rules that give a row its category, and the answers about payers under them. */
 export function Rules({ meta }: { meta: Meta }) {
   const { data, error: loadError, reload } = useApi<{ rules: CategoryRule[] }>("/api/rules");
   const [field, setField] = useState<CategoryRule["field"]>("merchant");

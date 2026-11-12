@@ -32,10 +32,24 @@ describe("Tapahtumat", () => {
     await waitFor(() => expect(first.getAttribute("aria-expanded")).toBe("false"), T);
   }, 60000);
 
-  it("groups the rows by merchant from the old address of the merchant list", async () => {
+  it("has the Lista and Kauppiaat views, and Kauppiaat lists each merchant once with the rules under them", async () => {
     await startServer();
     await openApp("#/transactions?view=merchants", "Tapahtumat");
-    await waitFor(() => expect(window.location.hash).toBe("#/transactions?group=merchant"), T);
+    const views = await screen.findByRole("group", { name: "Tapahtumat ja kauppiaat" }, T);
+    expect(within(views).getAllByRole("button").map((o) => `${o.textContent}:${o.getAttribute("aria-pressed")}`)).toEqual(["Lista:false", "Kauppiaat:true"]);
+    expect(window.location.hash).toBe("#/transactions?view=merchants");
+    await screen.findByRole("heading", { name: "Säännöt" }, T);
+    const names = await waitFor(() => {
+      const cells = [...document.querySelectorAll("table.merchant-table tbody th")].map((th) => th.textContent ?? "");
+      expect(cells.length).toBeGreaterThan(5);
+      return cells;
+    }, T);
+    expect(new Set(names).size).toBe(names.length);
+  }, 60000);
+
+  it("groups the rows by merchant when the address says so", async () => {
+    await startServer();
+    await openApp("#/transactions?group=merchant", "Tapahtumat");
     await waitFor(() => expect(drills().length).toBeGreaterThan(10), T);
     // a group is a merchant with the count of its rows, where a day stood
     const heads = [...document.querySelectorAll("tr.rt-group th")].map((th) => th.textContent ?? "");
@@ -44,9 +58,10 @@ describe("Tapahtumat", () => {
     expect(heads.every((h) => !/\d{1,2}\.\d{1,2}\./.test(h))).toBe(true);
   }, 60000);
 
-  it("lists the rules in Asetukset, and adds a rule", async () => {
+  it("lists the rules under the merchants, where the rules card of Asetukset leads too, and adds a rule", async () => {
     const server = await startServer();
-    await openApp("#/settings/household#saannot", "Asetukset");
+    await openApp("#/settings/household#saannot", "Tapahtumat");
+    await waitFor(() => expect(window.location.hash).toBe("#/transactions?view=merchants#saannot"), T);
     await screen.findByRole("textbox", { name: "Hakusana" }, T);
     // each field shows its name above it, and no loose word stands between two fields
     const form = document.querySelector(".rule-form")!;

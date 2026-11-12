@@ -57,35 +57,29 @@ describe("redirectRoute", () => {
   });
 });
 
-describe("redirectRoute: the merchants are a grouping of Tapahtumat and the rules a card of Asetukset", () => {
-  it("the merchants tab opens the rows grouped by merchant", () => {
-    expect(landing("transactions", "view=merchants")).toBe("#/transactions?group=merchant");
+describe("redirectRoute: the merchants are the Kauppiaat view of Tapahtumat, the rules under them", () => {
+  it("the view and the rules under it are addresses of their own", () => {
+    expect(redirectRoute(route("transactions", "view=merchants"))).toBeNull();
+    expect(redirectRoute(route("transactions", "view=merchants&from=2026-09-01&category=groceries", "saannot"))).toBeNull();
+    expect(redirectRoute(route("transactions", "group=merchant"))).toBeNull();
   });
 
-  it("the rules under the merchants tab open the rules card", () => {
-    expect(hashOf(redirectRoute(route("transactions", "view=merchants", "saannot"))!)).toBe("#/settings/household#saannot");
+  it("the pages the merchants and the rules once were open the view", () => {
+    expect(landing("categories", "")).toBe("#/transactions?view=merchants");
+    expect(landing("categories", "tab=rules")).toBe("#/transactions?view=merchants#saannot");
+    expect(landing("rules", "scope=household")).toBe("#/transactions?scope=household&view=merchants#saannot");
   });
 
-  it("keeps the filters the rows take, and drops the ones only the merchant list had", () => {
-    expect(landing("transactions", "view=merchants&from=2026-09-01&to=2026-09-30&category=groceries&q=k")).toBe("#/transactions?from=2026-09-01&to=2026-09-30&category=groceries&q=k&group=merchant");
-    expect(landing("transactions", "view=merchants&habit=1")).toBe("#/transactions?group=merchant");
-    expect(landing("transactions", "view=merchants&scope=household")).toBe("#/transactions?scope=household&group=merchant");
-  });
-
-  it("the rules keep the other parameters but not the filters", () => {
-    expect(hashOf(redirectRoute(route("transactions", "view=merchants&scope=household&from=2026-09-01", "saannot"))!)).toBe("#/settings/household?scope=household#saannot");
-  });
-
-  it("settles in one step, for a member and an admin", () => {
-    for (const [page, query, anchor] of [["transactions", "view=merchants"], ["transactions", "view=merchants", "saannot"]] as const) {
-      for (const role of ["member", "admin"] as const) expect(redirectRoute(redirectRoute(route(page, query, anchor), role)!, role)).toBeNull();
+  it("the rules card that was on Asetukset opens the rules under the merchants", () => {
+    for (const role of ["member", "admin"] as const) {
+      expect(hashOf(redirectRoute(route("settings/household", "", "saannot"), role)!)).toBe("#/transactions?view=merchants#saannot");
     }
   });
 
-  it("leaves the new addresses alone", () => {
-    expect(redirectRoute(route("transactions", "group=merchant"))).toBeNull();
-    expect(redirectRoute(route("settings/household", "", "saannot"))).toBeNull();
-    expect(settingsCardHash("saannot")).toBe("#/settings/household#saannot");
+  it("settles in one step, for a member and an admin", () => {
+    for (const [page, query, anchor] of [["categories", ""], ["rules", ""], ["settings/household", "", "saannot"]] as const) {
+      for (const role of ["member", "admin"] as const) expect(redirectRoute(redirectRoute(route(page, query, anchor), role)!, role)).toBeNull();
+    }
   });
 });
 
@@ -116,10 +110,11 @@ describe("Asetukset: the target and the card every address lands on", () => {
     expect(lands("#/settings?section=maintenance", "member")).toBe("#/settings/banks");
   });
 
-  it("the bare address names no card: an anchor on it opens the first target and is dropped", () => {
+  it("the bare address with a card opens the card's target, and an anchor that is no card is dropped", () => {
     for (const role of both) {
-      expect(lands("#/settings#turvallisuusloki", role)).toBe("#/settings/banks");
-      expect(lands("#/settings?add=1#tilit", role)).toBe("#/settings/banks?add=1");
+      expect(lands("#/settings#turvallisuusloki", role)).toBe("#/settings/security#turvallisuusloki");
+      expect(lands("#/settings?add=1#tilit", role)).toBe("#/settings/banks?add=1#tilit");
+      expect(lands("#/settings#ei-korttia", role)).toBe("#/settings/banks");
     }
   });
 
@@ -149,6 +144,9 @@ describe("Asetukset: the target and the card every address lands on", () => {
     // a member has Turvallisuus too, without the log: the address stays and there is no card to scroll to
     expect(redirectRoute(parseHash("#/settings/security#turvallisuusloki"), "member")).toBeNull();
     expect(lands("#/settings/server#salasana", "member")).toBe("#/settings/security#salasana");
+    // the bare address with a card (a link of 1.0.0) opens the card's target
+    expect(lands("#/settings#palvelutunnukset", "admin")).toBe("#/settings/security#palvelutunnukset");
+    expect(lands("#/settings#jasenet-ilman-tunnusta", "member")).toBe("#/settings/banks");
     // the address of the security log in 1.0.0
     expect(lands("#/settings?section=security", "admin")).toBe("#/settings/security#turvallisuusloki");
     expect(lands("#/settings?section=security&a=1", "member")).toBe("#/settings/security?a=1");

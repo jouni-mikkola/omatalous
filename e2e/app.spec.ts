@@ -198,7 +198,7 @@ test("a period belongs to one page: Yhteenveto has no period, Raportit five, and
   await context.close();
 });
 
-test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the rules sit under the table, a period and Arkiostot narrow it", async ({ browser }) => {
+test("Tapahtumat has Lista and Kauppiaat: old addresses open Kauppiaat, the rules sit under the table, a period narrows it", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -220,7 +220,7 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
     await page.goto(`/#/${old}`);
     await expect.poll(hash, `${old} is rewritten`).toBe(now);
     await expect(page).toHaveTitle(/^Tapahtumat/);
-    await expect(page.getByRole("heading", { name: "Kauppiaat" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Kauppiaat", exact: true })).toHaveAttribute("aria-pressed", "true");
     await page.goBack();
     expect(page.url(), `Back from ${old} skips the old address`).toMatch(/#\/reports$/);
   }
@@ -276,26 +276,10 @@ test("Kategoriat is the Kauppiaat tab of Tapahtumat: old addresses open it, the 
   ordinals.filter((r) => !r.unranked).forEach((r, i) => expect(r.mark, `row ${i + 1}`).toContain("counter(rank)"));
   for (const r of ordinals.filter((x) => x.unranked)) expect(r.mark).toBe('""');
 
-  // Arkiostot are the everyday purchases of the recurring detection
-  const series: { merchant: string; kind: string; active: boolean }[] = (await (await context.request.get("/api/recurring")).json()).series;
-  const habits = new Set(series.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant));
-  expect(habits.size, "the demo has everyday purchases").toBeGreaterThan(0);
-  await page.goto("/#/transactions?view=merchants");
-  await expect(rows.first()).toBeVisible();
-  // the page has no switch for them: only the address sets the filter, and the chip is shown while it is on
-  await expect(page.getByRole("group", { name: "Kauppiaiden rajaus" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Poista rajaus: Arkiostot" })).toHaveCount(0);
-  await page.goto("/#/transactions?view=merchants&habit=1");
-  const chip = page.getByRole("button", { name: "Poista rajaus: Arkiostot" });
-  await expect(chip).toBeVisible();
-  await expect.poll(() => rows.count()).toBeLessThan(all);
-  const shown = await rows.locator(".m-name a").allInnerTexts();
-  expect(shown.length).toBeGreaterThan(0);
-  for (const name of shown) expect(habits.has(name.trim()), `${name} is an everyday purchase`).toBe(true);
-  // its × shows every merchant again
-  await chip.click();
+  // the two views are a click apart
+  await page.goto("/#/transactions");
+  await page.getByRole("button", { name: "Kauppiaat", exact: true }).click();
   await expect.poll(hash).toBe("#/transactions?view=merchants");
-  await expect(chip).toHaveCount(0);
   await expect.poll(() => rows.count()).toBe(all);
   expect(seen.problems).toEqual([]);
   await context.close();

@@ -67,7 +67,7 @@ describe("addresses that open another page", () => {
     expect(moved(route("recurring", "", "kuukaudet"))).toEqual({ page: "bills", query: "", anchor: "kuukaudet" });
     expect(moved(route("overview", "period=12m"))).toEqual({ page: "reports", query: "period=12m", anchor: undefined });
     expect(moved(route("reports", "period=month"))).toEqual({ page: "overview", query: "period=month", anchor: undefined });
-    expect(moved(route("transactions", "view=merchants"))).toEqual({ page: "transactions", query: "group=merchant", anchor: undefined });
+    expect(moved(route("categories", ""))).toEqual({ page: "transactions", query: "view=merchants", anchor: undefined });
   });
 });
 

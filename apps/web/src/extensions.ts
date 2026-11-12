@@ -8,7 +8,7 @@ import type { TransactionItem } from "./types.ts";
 export interface WebExtension {
   /** The server extension's id: its route prefix and its page id. */
   readonly id: string;
-  /** A card of Asetukset > Talous, after the rules. */
+  /** A card of Asetukset > Talous, after the loans. */
   readonly settingsCard?: ComponentType;
   /** The anchor of that card, so an address that names it opens Talous. */
   readonly settingsAnchor?: string;

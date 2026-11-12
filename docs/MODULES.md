@@ -200,7 +200,7 @@ stylesheets hold no state.
 | Point | Fed by | Where |
 |---|---|---|
 | `page` | the module | its own address `#/<id>`, its entry after the tabs in the header, on a phone in the user menu (`Shell.tsx`) |
-| `settingsCard` | the module | Asetukset > Talous, after the rules |
+| `settingsCard` | the module | Asetukset > Talous, after the loans |
 | `rowMark` | `rowFields` | on the line of a row of Tapahtumat, beside its tags; it keeps the row one line high |
 | `rowPart` | `rowFields` | in the opened row of Tapahtumat, above the payee's months |
 | category parts | `rowParts` | Raportit > Menot > Menot osittain: each category the server split, its parts under its name and figure |
