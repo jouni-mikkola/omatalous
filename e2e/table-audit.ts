@@ -46,6 +46,14 @@ export async function auditTables(page: Page, width: number): Promise<string[]> 
         if ((x === "auto" || x === "scroll") && e.scrollWidth > e.clientWidth + 1) out.push(`${name}: scrolls sideways inside ${e.className || e.tagName}`);
       }
       if (t.closest(".table-wrap, .rt-wrap-scroll")) out.push(`${name}: sits in a scroll frame`);
+      // the bars of one column are one scale: each starts on the same line, whatever the width of the figure beside it
+      const starts = new Map<number, number[]>();
+      for (const track of Array.from(t.querySelectorAll<HTMLElement>(".rt-bar-track"))) {
+        const cell = track.closest("td, th") as HTMLTableCellElement | null;
+        if (!cell || !track.offsetWidth) continue;
+        starts.set(cell.cellIndex, [...(starts.get(cell.cellIndex) ?? []), track.getBoundingClientRect().left]);
+      }
+      for (const [col, xs] of starts) if (Math.max(...xs) - Math.min(...xs) > 0.5) out.push(`${name}: the bars of column ${col + 1} start ${Math.round(Math.max(...xs) - Math.min(...xs))} px apart`);
     }
     return out;
   }, width);

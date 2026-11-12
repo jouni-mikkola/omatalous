@@ -14,12 +14,16 @@ export function BarCell({ value, max, color }: { value: number; max: number; col
   );
 }
 
-/** A figure with its bar before it: the bar is the row's own figure on the column's scale, the figure keeps the right edge. */
-export function BarFigure({ value, max, color, children }: { value: number; max: number; color?: string; children?: ReactNode }) {
+/**
+ * A figure with its bar before it: the bar is the row's own figure on the column's scale, the figure keeps the right edge.
+ * `figureCh` is the widest figure of the column in characters: each figure takes that room, so a shorter one does not
+ * move its bar and the bars of the column start on one line.
+ */
+export function BarFigure({ value, max, color, figureCh, children }: { value: number; max: number; color?: string; figureCh?: number; children?: ReactNode }) {
   return (
     <span className="rt-barcell">
       <BarCell value={value} max={max} color={color} />
-      {children !== undefined && children !== null && <span>{children}</span>}
+      {children !== undefined && children !== null && <span className="rt-barfigure" ref={figureCh ? css({ "--figure-ch": figureCh }) : undefined}>{children}</span>}
     </span>
   );
 }

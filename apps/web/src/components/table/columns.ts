@@ -132,7 +132,7 @@ export function textFromNode(node: ReactNode): string {
 }
 
 /** What the cell of a row says as plain text: the page's cell, or the amount of a money column. */
-const cellText = <R,>(c: Column<R>, row: R): string => {
+export const cellText = <R,>(c: Column<R>, row: R): string => {
   if (c.cell) return textFromNode(c.cell(row)).replace(/\s+/g, " ").trim();
   const v = c.cents?.(row) ?? null;
   return v === null ? "" : money(v, c.precision === "cents");
