@@ -78,6 +78,8 @@ describe("a card account's wording: country and city in front, the city again at
     expect(name("Osto FIN Pizzeria Power")).toBe("Pizzeria Power");
     expect(name("Osto FIN Grilli Max")).toBe("Grilli Max");
     expect(name("Osto FIN Matti Stark")).toBe("Matti Stark");
+    expect(name("Osto FIN Pizzeria Power-Pizza")).toBe("Pizzeria Power-Pizza");
+    expect(name("Siirto kortilta FIN Kemijarvi Helen-Maria Virtanen")).toBe("Kemijarvi Helen-Maria Virtanen");
     expect(name("Osto IRL Amazon Prime*AB12C3DE4")).toBe("Amazon Prime");
     expect(name("Osto GBR Audible UK*AB1CD2EF3")).toBe("Audible");
     expect(name("Osto LUX Kindle Svcs*AB1CD2")).toBe("Kindle Svcs");

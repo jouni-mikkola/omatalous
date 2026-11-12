@@ -406,8 +406,10 @@ export function dropCardAccountPrefix(s: string): string {
   const [afterCountry, city, rest] = [m[3]!, m[4]!, m[5].trimEnd()];
   const at = rest.lastIndexOf(" ");
   const repeated = at > 0 && cityKey(rest.slice(at + 1)) === cityKey(city);
-  // a chain's own hyphenated name ("K-MARKET") is no word of a shop's name; a plain one ("MAX", "POWER") may be
-  const chain = /^\S+-\S/.test(rest) && BRANDS.some(([pattern]) => pattern.test(fold(rest)));
+  // a chain's own hyphenated name, the whole word ("K-MARKET"), is no word of a shop's name; a plain one ("MAX",
+  // "POWER") may be, and so may a word that only begins with one ("POWER-PIZZA", the first name "HELEN-MARIA")
+  const word = fold(rest.split(" ")[0]!);
+  const chain = word.includes("-") && BRANDS.some(([pattern]) => pattern.exec(word)?.[0] === word);
   const nameStarts = PROCESSOR_PREFIX.test(rest) || chain;
   if (!repeated && !isPlaceName(city) && !isPlaceName(cityKey(city)) && !nameStarts) return afterCountry;
   const name = rest.slice(0, at).trim();
