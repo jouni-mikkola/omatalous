@@ -31,6 +31,6 @@ export const EN_SET_ACCOUNTS: Record<keyof typeof FI_SET_ACCOUNTS, string> = {
   "set.acc.bank_type": "Bank's account type: {type}",
   "set.acc.name_empty": "If left empty, {name} is shown.",
   "set.acc.account_name": "Account name",
-  "set.acc.accounts_appear_here": "Accounts appear here when you connect a bank.",
+  "set.acc.accounts_appear_here": "Accounts appear here when you connect a bank or import a statement file.",
   "set.acc.try_sample_data": "Try the sample data.",
 };
