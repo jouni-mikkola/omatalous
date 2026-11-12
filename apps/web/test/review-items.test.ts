@@ -82,6 +82,8 @@ describe("the choices", () => {
     expect(figureOf(rise).line.replace(/\s/g, " ")).toBe("Ennen 100,00 €, 4.7. alkaen 110,00 €");
     const fresh: ReviewItem = { ...base, cents: 23_880, monthlyCents: 1990, reason: "new", since: "2026-08-01" };
     expect(eyebrow(fresh)).toBe("Uusi toistuva veloitus");
+    // a charge that began two months ago is asked whether it is in use; "vielä" stays for one that has run longer
+    expect([questionOf(fresh), questionOf(rise)]).toEqual(["Onko tilaus käytössä?", "Onko tilaus vielä käytössä?"]);
     expect(figureOf(fresh).line.replace(/\s/g, " ")).toBe("238,80 € vuodessa, ensimmäinen veloitus 1.8.");
     expect(eyebrow({ ...base, cents: 15_588, monthlyCents: 1299, reason: "quiet" })).toBe("Tilaus");
   });

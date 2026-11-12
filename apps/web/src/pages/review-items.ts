@@ -282,7 +282,8 @@ export function questionOf(item: ReviewItem): string {
     case "split":
       return t("set.ri.whose_money_was_this");
     case "subscription":
-      return t("set.ri.is_the_subscription_still_in");
+      // a charge that began lately has not run long enough to ask whether it is "still" used
+      return item.reason === "new" && item.since ? t("set.ri.is_the_subscription_in_use") : t("set.ri.is_the_subscription_still_in");
     case "mortgage":
       return t("set.ri.do_you_have_a_home");
     case "balance":
