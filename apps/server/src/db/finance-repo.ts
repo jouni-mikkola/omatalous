@@ -114,6 +114,7 @@ export class FinanceRepo {
   allTransactions() { return this.transactions.allTransactions(); }
   allTransactionsWithSearchText() { return this.transactions.allTransactionsWithSearchText(); }
   getTransaction(id: string) { return this.transactions.getTransaction(id); }
+  transactionsByIds(ids: readonly string[]) { return this.transactions.transactionsByIds(ids); }
   transactionKeys(accountId: string, from: string, to: string) { return this.transactions.transactionKeys(accountId, from, to); }
   latestBookingDate(accountId: string, source: string) { return this.transactions.latestBookingDate(accountId, source); }
   earliestBookingDate(accountId: string, source: string) { return this.transactions.earliestBookingDate(accountId, source); }

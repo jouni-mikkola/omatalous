@@ -145,9 +145,12 @@ export async function syncStatementState(s: Services, userId: string, held?: Hel
 /** What the page shows of the user's statements: each with whether its rows count and why not, the explained sum and what the bill leaves. */
 export async function statementsView(s: Services, userId: string): Promise<unknown[]> {
   const repo = s.finance(userId);
+  const stored = await repo.statementBills();
+  // Tapahtumat asks on every visit, and most households have no statement: no context and no row is read for none
+  if (!stored.length) return [];
   const { ctx } = await s.analysis.get(s, userId, "own");
-  const bills = new Map((await repo.allTransactions()).map((t) => [t.id, t]));
-  return (await repo.statementBills()).map((st) => {
+  const bills = new Map((await repo.transactionsByIds(stored.map((st) => st.billId))).map((t) => [t.id, t]));
+  return stored.map((st) => {
     const bill = bills.get(st.billId);
     const explained = st.rows.reduce((n, r) => n + r.cents, 0);
     const state = ctx.statements.get(st.billId);

@@ -1,5 +1,6 @@
 import { spendRows } from "@banking/core";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { TransactionsRepo } from "../src/db/finance/transactions.ts";
 import { accountKey } from "../src/db/household-repo.ts";
 import { reprocess } from "../src/services/enrich.ts";
 import { syncStatementState } from "../src/services/statements.ts";
@@ -94,6 +95,27 @@ describe("statement rows of one card bill", () => {
     // the other member's rows are not the first member's to remove
     expect((await admin.call("DELETE", "/api/statements/ebill")).status).toBe(404);
     expect((await admin.call("GET", "/api/statements")).body.statements).toEqual([]);
+  });
+
+  it("the list reads the bills it names and never the whole history; with no statement it reads no context either", async () => {
+    const { admin, eero, s, adminId } = await household();
+    const history = vi.spyOn(TransactionsRepo.prototype, "allTransactions");
+    const context = vi.spyOn(s.analysis, "get");
+    try {
+      expect((await admin.call("GET", "/api/statements")).body.statements).toEqual([]);
+      expect(context).not.toHaveBeenCalled();
+      expect((await put(admin, "bill1", period())).status).toBe(200);
+      expect((await put(eero, "ebill", period())).status).toBe(200);
+      await s.analysis.get(s, adminId, "own");
+      history.mockClear();
+      const [one, ...more] = (await admin.call("GET", "/api/statements")).body.statements;
+      expect(more).toEqual([]);
+      expect(one).toMatchObject({ billId: "bill1", billCents: 42000, explainedCents: 29150, restCents: 12850, statementVsBillCents: 0 });
+      expect(history).not.toHaveBeenCalled();
+    } finally {
+      history.mockRestore();
+      context.mockRestore();
+    }
   });
 
   it("refuses a day outside the period, a bad period, and a body that names more than a day, a sum and a text", async () => {
