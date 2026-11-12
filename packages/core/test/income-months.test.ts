@@ -55,6 +55,19 @@ describe("income months", () => {
     expect(r.completeMonths).toBe(11);
   });
 
+  it("a month whose checking rows are missing is not complete, though a card has rows in it", () => {
+    // the bank missed June 2025 on the checking account; a card with rows every month since the start does not fill it
+    const missed = [
+      ...rows.filter((t) => !(t.accountId === "acc-1" && t.bookingDate.startsWith("2025-06"))),
+      ...series("2024-10-03", 3, 240, -1500, { accountId: "card-2", merchant: "Kahvila", category: "restaurants", categorySource: "rule" }),
+    ];
+    const accounts: Account[] = [...ACCOUNTS, { id: "card-2", name: "Toinen kortti", iban: null, currency: "EUR", type: "credit_card" }];
+    const r = incomeReport(createContext(missed, accounts, TODAY), { from: "2025-01-01", to: "2025-12-31" });
+    expect(r.months.find((m) => m.month === "2025-06")!.complete).toBe(false);
+    expect(r.completeMonths).toBe(11);
+    expect(r.types.find((ty) => ty.type === "salary")!.monthlyCents).toBe(300_000);
+  });
+
   it("this year runs to the month in progress", () => {
     const r = incomeReport(ctx, { from: "2026-01-01", to: TODAY });
     expect(r.months.map((m) => m.month)).toEqual(Array.from({ length: 10 }, (_, i) => addMonths("2026-01", i)));

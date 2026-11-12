@@ -67,10 +67,11 @@ function coveredMonth(ctx: AnalysisContext, month: string, ids: readonly string[
  * income average, and a kind of income paid only that month averages nothing.
  */
 export function isCompleteIncomeMonth(ctx: AnalysisContext, month: string): boolean {
-  if (monthEnd(month) >= ctx.today) return false;
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  // rows missing on an account income comes to leave its income out, however small its share of the spending
+  if (rowsMissing(ctx, month, ctx.accounts.filter((a) => !cards.has(a.id)).map((a) => a.id))) return false;
   const own = [...accountsWithRows(ctx, month)].filter((id) => !cards.has(id));
-  return own.length ? accountCovers(ctx, own, `${month}-01`) : historyCovers(ctx, `${month}-01`);
+  return own.length ? coveredMonth(ctx, month, own) : monthEnd(month) < ctx.today && historyCovers(ctx, `${month}-01`);
 }
 
 /**
