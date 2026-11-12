@@ -325,6 +325,10 @@ describe("the charges of Asuminen", () => {
     expect(page(monthly(company, 25_000, "02", { description: "Hoitovastike" }).slice(-2)).housing?.ask).toBe(true);
     // nor is a rent paid three months ago and not since
     expect(page(monthly("ESIMERKIN ASUNNOT OY", 85_000, "02", { description: "Vuokra" }).slice(1, 3)).housing?.ask).toBe(true);
+    // a cottage week paid once, a rent still pending and a car place are no home of a tenant
+    expect(page(monthly("MOKKI ESIMERKKI OY", 60_000, "02", { description: "Mokin vuokra" }).slice(-1)).housing?.ask).toBe(true);
+    expect(page([rent[0]!, { ...rent[1]!, status: "pending" }]).housing?.ask).toBe(true);
+    expect(page(monthly("ESIMERKIN ASUNNOT OY", 6_000, "02", { description: "Autopaikan vuokra" }).slice(-2)).housing?.ask).toBe(true);
   });
 
   it("a view with nothing of a home is the question alone, and null once it is answered", () => {

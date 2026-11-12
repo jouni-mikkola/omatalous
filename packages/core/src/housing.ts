@@ -19,7 +19,7 @@
  *   mark cancelled, named by the words of its latest payment (`housingCharge`). Two payments to one payee on one day
  *   are one charge of one series (`recurring.ts`), so they are one row here.
  * - The question of a home loan is asked of no tenant: one that pays rent or a käyttövastike as a charge, or paid one
- *   in the last `RENT_DAYS` days, when the history is too short for a series of it.
+ *   to one payee in two months of the last `RENT_DAYS` days, when the history is too short for a series of it.
  * - In a member's own view the rows of a joint account hold the viewer's part, so a series' month is that part
  *   already, and a loan is cut as the holdings cut it. `atPart` says a row of the block is a part.
  *
@@ -45,7 +45,7 @@ import { housingCharge } from "./wording.ts";
  */
 export const MORTGAGE_QUESTION = "question:mortgage";
 
-/** The days back a rent payment in the rows makes the household a tenant: a monthly rent is in them twice. */
+/** The days back rent payments in the rows make the household a tenant: a monthly rent is in them twice. */
 const RENT_DAYS = 62;
 
 interface HousingLoan {
@@ -217,7 +217,14 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
   // tells it too: a history of two months has no series of it yet
   const renting = (kind: string | undefined) => kind === "rent" || kind === "occupancy";
   const lately = inDays(standingOf(ctx), { fromDay: dayNumber(today) - RENT_DAYS, toDay: dayNumber(today) });
-  const rentPaid = lately.some((t) => t.amountCents < 0 && t.category === "housing" && renting(housingCharge(fold(t.merchant), fold(`${t.counterparty ?? ""} ${t.description ?? ""}`), false)?.kind));
+  // two booked payments to one payee in two months: a cottage week or a deposit paid once is no home
+  const rentMonths = new Map<string, Set<string>>();
+  for (const t of lately) {
+    if (t.status !== "booked" || t.amountCents >= 0 || t.category !== "housing") continue;
+    if (!renting(housingCharge(fold(t.merchant), fold(`${t.counterparty ?? ""} ${t.description ?? ""}`), false)?.kind)) continue;
+    (rentMonths.get(t.merchant) ?? rentMonths.set(t.merchant, new Set()).get(t.merchant)!).add(t.bookingDate.slice(0, 7));
+  }
+  const rentPaid = [...rentMonths.values()].some((months) => months.size >= 2);
   const tenant = rentPaid || names.some((n) => renting(n?.kind));
   const answered = inputs.marks.some((m) => m.subject === MORTGAGE_QUESTION);
   const ask = !loans.length && !tenant && !answered && !loansOf(inputs).some((loan) => loan.kind === "mortgage");
