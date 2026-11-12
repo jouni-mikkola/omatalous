@@ -58,6 +58,10 @@ a text that begins with *Luetaan*, *Testataan*, *Tarkistetaan* or *Lasketaan*, a
 *Mihin*, *Miten*, *Mistä*, *Mitkä*, *Milloin*, *Kuinka*, *Paljonko*, *Kestääkö* and the like. The last two are not yet
 enforced for the files of the parts still to come (`pending` in `tools/repo-rules/glossary.ts`).
 
+A path to a setting starts with the tab as the tab row names it: *Asetukset > Palvelin ja ylläpito*, *Asetukset > Pankit
+ja tilit*, *Asetukset > Talous > Lainat*, in English *Settings > Server and maintenance*. A section may follow the tab.
+Rule 35 refuses a path whose first step is no tab (*Asetukset > Palvelin*, *Asetukset > Tilit*, `tools/repo-rules/ui-paths.ts`).
+
 ## Style
 
 ### What earns a place

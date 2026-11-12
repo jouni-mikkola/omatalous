@@ -4,7 +4,7 @@ import type { FI_PRICES } from "../messages-prices.ts";
 export const EN_PRICES: Record<keyof typeof FI_PRICES, string> = {
   "prices.title": "Your prices against the consumer price index",
   "prices.question": "Did your fixed prices rise faster than prices in general?",
-  "prices.off": "There is no comparison because the consumer price index series has not been fetched (the fetch is off, or the series has not arrived yet). An admin turns the fetch on under Settings > Server. The server then fetches the public series of Statistics Finland and sends nothing of your finances.",
+  "prices.off": "There is no comparison because the consumer price index series has not been fetched (the fetch is off, or the series has not arrived yet). An admin turns the fetch on under Settings > Server and maintenance. The server then fetches the public series of Statistics Finland and sends nothing of your finances.",
   "prices.short": "The comparison is not possible: the fetched index series lacks months in {from} to {to}. The series is refreshed once a day.",
   "prices.no_basket": "The comparison is not possible: you have no fixed-price subscription that already charged in {month}.",
   "prices.answer_more": "Your fixed-price basket changed {own} from {from} to {to}, while the consumer price index changed {index}. Your series divided by the index is {gap} higher than at the start: your prices rose faster than prices in general.",
