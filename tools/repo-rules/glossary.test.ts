@@ -51,6 +51,10 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Linkitä tili Enable Bankingissa.", "Tili on linkitetty", "Ylläpitäjä linkittää tilin", "Ei linkitetty"],
     ok: ["Lisää tili Enable Bankingissa (Link accounts).", 'Paina painiketta "Linkitä tili".', "Kopioi linkki ja avaa kaikki linkit.", "Yhdistä pankki"],
   },
+  Kello: {
+    bad: ["ennen kello {time}", "Kokeiluaika päättyi kello 18.15.", "Kello 6.15"],
+    ok: ["ennen klo {time}", "klo 6.15", "Kello on paljon", "kellonaika"],
+  },
   "Näin heading": {
     bad: ["Näin katetaan", "Näin lasketaan luku"],
     ok: ["Näin hyvin säästit", "Näitä ei katettu"],

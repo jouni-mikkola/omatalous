@@ -74,7 +74,7 @@ export const EN_SET_OPS: Record<keyof typeof FI_SET_OPS, string> = {
   "ops.reset_submit": "Clear",
   "ops.reset_banks": "Connect the banks again after you have signed in.",
   "ops.sign_in": "Sign in",
-  "ops.helper_ok": "Helper works (seen {time})",
+  "ops.helper_ok": "Helper works (seen at {time})",
   "ops.helper_slow": "The helper last answered {time}. Requests expire in the queue after 10 minutes.",
   "ops.up_to_date": "Up to date (checked {time})",
   "ops.channel_private": "Update channel: private development version",

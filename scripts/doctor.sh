@@ -52,7 +52,8 @@ span() {
   elif ((s < 172800)); then echo "$((s / 3600)) h"; else echo "$((s / 86400)) $(t d vrk)"; fi
 }
 epoch() { date -d "$1" +%s 2>/dev/null || echo 0; }
-human_kb() { awk -v k="$1" -v g="$(t GB Gt)" -v m="$(t MB Mt)" -v b="$(t kB kt)" 'BEGIN { if (k >= 1048576) printf "%.1f %s", k / 1048576, g; else if (k >= 1024) printf "%.0f %s", k / 1024, m; else printf "%d %s", k, b }'; }
+# Finnish has a decimal comma (5,5 Gt), English a point (5.5 GB)
+human_kb() { awk -v k="$1" -v g="$(t GB Gt)" -v m="$(t MB Mt)" -v b="$(t kB kt)" -v d="$(t . ,)" 'BEGIN { if (k >= 1048576) { s = sprintf("%.1f", k / 1048576); sub(/[.,]/, d, s); printf "%s %s", s, g } else if (k >= 1024) printf "%.0f %s", k / 1024, m; else printf "%d %s", k, b }'; }
 # hide what must never show: long token-like strings, JSON bodies, bearer headers; cut the line
 scrub() {
   sed -E 's/Bearer +[^ ]+/Bearer …/g; s/eyJ[A-Za-z0-9._-]{8,}/…/g; s/[A-Za-z0-9+\/_=-]{32,}/…/g; s/\{.*$/{…}/' | cut -c1-170

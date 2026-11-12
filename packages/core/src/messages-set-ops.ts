@@ -76,7 +76,7 @@ export const FI_SET_OPS = {
   "ops.reset_submit": "Tyhjennä",
   "ops.reset_banks": "Yhdistä pankit uudelleen, kun olet kirjautunut.",
   "ops.sign_in": "Kirjaudu sisään",
-  "ops.helper_ok": "Apuri toimii (nähty {time})",
+  "ops.helper_ok": "Apuri toimii (nähty klo {time})",
   "ops.helper_slow": "Apuri vastasi viimeksi {time}. Pyynnöt vanhenevat jonossa 10 minuutissa.",
   "ops.up_to_date": "Ajan tasalla (tarkistettu {time})",
   "ops.channel_private": "Päivityskanava: yksityinen kehitysversio",

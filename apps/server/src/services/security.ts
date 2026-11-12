@@ -178,8 +178,9 @@ export const NOTICE_HOURS = 72;
 /** Failed sign-ins of the last day that make a notice. Fewer are a mistyped password, which needs nothing done. */
 export const LOGIN_FAIL_NOTICE = 3;
 
+/** "24.10. klo 1.30": no zero before the hour (docs/UI_STYLE.md, Dates and times). */
 export const fiTime = (iso: string, tz: string) =>
-  new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+  new Intl.DateTimeFormat(LOCALE, { timeZone: tz, day: "numeric", month: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(iso));
 
 /**
  * A database that was found damaged at start and stayed (db/startup-gate.ts). Two cases the admin must tell apart:

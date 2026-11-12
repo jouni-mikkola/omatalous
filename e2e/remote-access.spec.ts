@@ -272,7 +272,7 @@ for (const width of [1280, 390]) {
       await confirm(page, button("Ota etäkäyttö käyttöön"), "Ota käyttöön");
       await expect(section.getByText("Muutos odottaa ylläpitoapuria.")).toBeVisible();
       await expect(section.getByText("Uusi osoite on kokeilussa.")).toBeVisible({ timeout: 15_000 });
-      await expect(section.getByText("kirjaudu sisään Cloudflaren kautta ennen kello")).toBeVisible();
+      await expect(section.getByText("kirjaudu sisään Cloudflaren kautta ennen klo")).toBeVisible();
       await expect(section.getByText("Jos kukaan ei kirjaudu sisään, suljemme osoitteen pian.")).toBeVisible();
       await expect(section.getByRole("link", { name: "https://talous.example.fi" }).first()).toBeVisible();
       await shot(section, "trial", width);
@@ -406,7 +406,7 @@ for (const width of [1280, 390]) {
       [
         "trial-overdue",
         IN_TUNNEL(["anna@example.fi"], { confirmed: false, revertAt: "2026-01-01T08:20:00.000Z" }),
-        "Kokeiluaika päättyi kello",
+        "Kokeiluaika päättyi klo",
       ],
       [
         "reverted",

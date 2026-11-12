@@ -445,13 +445,13 @@ describe("what the admins are told", () => {
     const { s, adminId, member } = await setupApp();
     const eero = await member("eero");
     const event = gateEvent({ state: "restored", lines: [], cause: "damaged", copy: { name: "auto-2026-10-10.db", at: DAY_10 } }, time);
-    expect(event).toEqual({ kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta auto-2026-10-10.db (10.10. klo 03.15)" });
+    expect(event).toEqual({ kind: "db_restored", detail: "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta auto-2026-10-10.db (10.10. klo 3.15)" });
     await recordEvent(s, { ...event, userId: adminId, notify: true });
 
     expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => [n.kind, n.text])).toEqual([
       [
         "db_restored",
-        "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta auto-2026-10-10.db (10.10. klo 03.15). Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.",
+        "Tietokanta oli vaurioitunut. Palautimme sen varmuuskopiosta auto-2026-10-10.db (10.10. klo 3.15). Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.",
       ],
     ]);
     expect(await noticesFor(s, { id: eero.id, role: "member" })).toEqual([]);
@@ -461,10 +461,10 @@ describe("what the admins are told", () => {
     const { s, adminId } = await setupApp();
     const name = `${"k".repeat(99)}.db`;
     const event = gateEvent({ state: "restored", lines: [], cause: "requested", copy: { name, at: DAY_11 } }, time);
-    expect(event.detail).toBe(`Palautimme tietokannan varmuuskopiosta ${name} (11.10. klo 03.15)`);
+    expect(event.detail).toBe(`Palautimme tietokannan varmuuskopiosta ${name} (11.10. klo 3.15)`);
     await recordEvent(s, { ...event, userId: adminId, notify: true });
     expect((await noticesFor(s, { id: adminId, role: "admin" })).map((n) => n.text)).toEqual([
-      `Palautimme tietokannan varmuuskopiosta ${name} (11.10. klo 03.15). Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.`,
+      `Palautimme tietokannan varmuuskopiosta ${name} (11.10. klo 3.15). Sen jälkeen tehdyt muutokset katosivat. Haemme pankkitapahtumat uudelleen seuraavassa haussa.`,
     ]);
     // the damaged case is the longer sentence
     expect(gateEvent({ state: "restored", lines: [], cause: "damaged", copy: { name, at: DAY_11 } }, time).detail.length).toBeLessThanOrEqual(200);
@@ -572,7 +572,7 @@ describe("the entry point", () => {
     expect(err).toMatch(/^database: .+banking\.db was damaged \(.+\)\. It was moved to .+banking-\d{8}T\d{6}\.db and backups\/auto-2026-10-11\.db/m);
     expect(readdirSync(h.damaged).filter((f) => f.endsWith(".db"))).toHaveLength(1);
     expect(events(h.path)).toEqual([
-      { user_id: "u-aino", kind: "db_restored", detail: expect.stringMatching(/^Tietokanta oli vaurioitunut\. Palautimme sen varmuuskopiosta auto-2026-10-11\.db \(11\.10\. klo \d\d\.15\)$/), notify: 1, seen_at: null },
+      { user_id: "u-aino", kind: "db_restored", detail: expect.stringMatching(/^Tietokanta oli vaurioitunut\. Palautimme sen varmuuskopiosta auto-2026-10-11\.db \(11\.10\. klo [1-9]?\d\.15\)$/), notify: 1, seen_at: null },
     ]);
   }, 120_000);
 

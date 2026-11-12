@@ -79,6 +79,21 @@ t_old_refusal_in_the_log() {
   check "the permission warning is not said twice when the paths are unsafe now" bash -c "grep -q 'Apuri ei käynnisty' '$W/doctor.json' && ! grep -q 'Apuri kieltäytyy toimimasta' '$W/doctor.json'"
 }
 
+t_disk_size_decimal() {
+  new_host; with_cron; fix_permissions
+  # 5 767 168 kB free is 5.5 GB
+  cat >"$S/bin/df" <<'EOF'
+#!/bin/sh
+echo "Filesystem 1024-blocks Used Available Capacity Mounted on"
+echo "/dev/x 20000000 14232832 5767168 73% /"
+EOF
+  chmod +x "$S/bin/df"
+  doctor_json; doctor_text
+  check "json: the free space has a decimal comma in Finnish" grep -q 'vapaata 5,5 Gt (73 % käytössä)' "$W/doctor.json"
+  check "json: no size with a decimal point" bash -c "! grep -Eq '[0-9]\.[0-9] [GMk]t' '$W/doctor.json'"
+  check "text: English keeps the point" grep -q '5.5 GB free (73 % used)' "$W/doctor.txt"
+}
+
 for t in $(declare -F | awk '{print $3}' | grep '^t_'); do
   want "$t" || continue
   echo "── ${t#t_}"

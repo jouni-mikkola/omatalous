@@ -35,6 +35,8 @@ export const REMOVED: readonly Removed[] = [
   { name: "Luvun osat", re: /(?<!\p{L})luvun\s+osat(?!\p{L})/iu, fix: 'write "Mistä luku koostuu"' },
   // a bank link is yhdistä; in Enable Banking's own panel the step is "lisää" (the panel's word, Link accounts, may be quoted)
   { name: "Linkitä", re: /(?<!\p{L})linkit(ä|e|t|y)\p{L}*/iu, fix: 'write "yhdistä" for a bank, or "lisää" for an account in Enable Banking; the panel\'s own word may stand in quotes' },
+  // a time of day is "klo 6.15" (docs/UI_STYLE.md, Dates and times); "kello" spelled out before a time is not used
+  { name: "Kello", re: /(?<!\p{L})kello\s+(\{|\d)/iu, fix: 'write "klo 6.15" or "klo {time}"' },
   // the voice of the app (docs/UI_STYLE.md, Tone): the app says what it does, and a heading is a noun
   { name: "Näin heading", re: /^\s*Näin\s+\p{L}+(aan|ään)(?!\p{L})/u, fix: 'say what the reader gets or does: "Laskuihin riittää", not "Näin katetaan"' },
   { name: "Katetaan", re: /(?<!\p{L})katetaan(?!\p{L})/iu, fix: 'write the reader as the subject: "Laskuihin riittää", "Laskusi on katettu"' },
