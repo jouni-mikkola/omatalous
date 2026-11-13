@@ -90,7 +90,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.legend_estimate": "Estimate",
   "bills.legend_payday": "Payday",
   "bills.outside_account": "from an account the balance leaves out",
-  "bills.elsewhere": "From accounts the balance does not count",
+  "bills.elsewhere": "Plus {sum} from accounts the balance does not count",
   "bills.none_30": "No bills in the next 30 days.",
   "bills.kind_bill": "Bill",
   "bills.kind_subscription": "Subscription",
