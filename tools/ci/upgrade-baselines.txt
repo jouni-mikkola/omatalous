@@ -1,0 +1,12 @@
+# The upgrade baselines of full.yml (tools/ci/local-proof.sh), the oldest first: the public releases, by commit, since a
+# rehearsal's install is a clone of the commit under proof and holds no tags. A new release adds its line.
+# v1.0.0
+2bca4201b5885ea315e05465250c1cb211f89fb9
+# v1.1.0
+dd7ffde910e61514a27ca59bd95f4d68dd363a05
+# v1.2.0
+bc027d5f86ea15bafed07a471aaa9eefe5a829c4
+# v1.2.1
+da81cb7d5003deed2fc7db2d2a8fefb60510b55b
+# v1.2.2
+3d87ee71677e2a5712b61e4bd7bac5de05eac2fc
