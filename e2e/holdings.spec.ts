@@ -4,7 +4,7 @@ import { cents, overflow, plain, watch } from "./helpers.ts";
 
 // Varat ja velat: the names of accounts, cards and loans are links, the sums of a group stand on one right edge, Tilit and
 // Lainat stand side by side from 900 px with the cards in a row under them (a household with no loan has Tilit and its
-// cards side by side), a card's face stays flat and its arc shows what is used. The demo household of the
+// cards side by side), a card is a flat row and its arc shows what is used. The demo household of the
 // administrator (e2e/run.mjs) has a checking and a savings account and a card with no limit and no last digits; the
 // loan this spec saves is removed again, so the specs after it find the household as they expect.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -64,12 +64,6 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   expect(second.name).toContain("Nordea Gold (esimerkki)");
   expect(second.id).not.toBe(first.id);
 
-  // the card's face is a link for a pointer to the same rows
-  await page.goto("/#/reports?q=saldot");
-  await holdingsOf(page).locator(".card-face-link").click();
-  await expect(page).toHaveURL(/#\/transactions\?accountId=/);
-  expect((await chosen()).id).toBe(second.id);
-
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -128,13 +122,13 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   });
   expect(weights).toEqual(["400", "600"]);
 
-  // the demo's card has a name and what is used: no limit row, no last digits, its face and no meter, and no line without words
+  // the demo's card has a name and what is used: no limit row, no last digits, its flat row and no meter, and no line without words
   const card = groupOf(page, "Luottokortit").locator(".holding-unit");
-  await expect(card.locator(".st-row")).toHaveCount(2);
+  await expect(card.locator(".st-row")).toHaveCount(1);
   await expect(card.locator(".st-row").last().locator(".st-name")).toHaveText("Käytetty luotto");
   await expect(card.locator(".card-face")).toHaveCount(1);
   await expect(card.locator(".card-meter, .sr-only, .st-sub")).toHaveCount(0);
-  // no limit, so no arc and no picture beyond the face
+  // no limit, so no arc and no picture beyond the row
   await expect(card.locator(".credit-arc, .holding-unit-body svg, .holding-unit-body img")).toHaveCount(0);
   for (const line of await holdings.locator(".st-row, .st-sub").all()) expect(plain(await line.innerText()), "a row or a line without words").not.toBe("");
   // no loan, so no hole where it would be: Tilit and the cards stand side by side, the cards running to the right edge
@@ -154,7 +148,7 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   await context.close();
 });
 
-test("every card has its face at the left of its unit, drawn by the app and hidden from a screen reader, and nothing scrolls sideways", async ({ browser }) => {
+test("every card is a flat row above its figures, with its name as the one link and its digits as text, and nothing scrolls sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -176,22 +170,18 @@ test("every card has its face at the left of its unit, drawn by the app and hidd
   const units = group.locator(".holding-unit");
   await expect(units).toHaveCount(5);
 
-  // one face for each card, in its unit, with the tone its name gives
+  // one flat row for each card, in its unit, with its last four digits as text
   await expect(group.locator(".card-face")).toHaveCount(5);
-  for (const [i, tone] of ["gold", "platinum", "black", "silver", "plain"].entries()) {
-    await expect(units.nth(i).locator(".card-face")).toHaveClass(new RegExp(`card-face-${tone}$`));
-    // the link round the face is for a pointer: out of the tab order and of a screen reader's, which have the name
-    await expect(units.nth(i).locator(".card-face-link")).toHaveAttribute("aria-hidden", "true");
-    await expect(units.nth(i).locator(".card-face-link")).toHaveAttribute("tabindex", "-1");
+  for (let i = 0; i < 5; i++) {
     await expect(units.nth(i).locator(".card-face-mask")).toHaveText(`•••• ${1000 + i}`);
   }
-  // the name is the unit's link, whole, and the digits stand on the face alone, which a screen reader leaves out
+  // the name is the one link of the row, whole, and nothing of the row is hidden from a screen reader or out of the tab order
   await expect(units.nth(1).getByRole("link", { name: "Esimerkkipankki Platinum", exact: true })).toBeVisible();
-  expect(await units.nth(1).getByText("1001").evaluate((el) => el.closest('[aria-hidden="true"]') !== null), "the digits are on the face").toBe(true);
+  await expect(units.nth(1).locator(".card-face a")).toHaveCount(1);
+  await expect(units.nth(1).locator(".card-face [aria-hidden], .card-face [tabindex]")).toHaveCount(0);
 
-  // the face is drawn: one small SVG for the chip and CSS, and the page asks for no picture for it
-  await expect(units.first().locator(".card-face svg")).toHaveCount(1);
-  await expect(units.first().locator(".card-face img")).toHaveCount(0);
+  // the row is text: no picture, no chip
+  await expect(units.first().locator(".card-face svg, .card-face img")).toHaveCount(0);
 
   // each card has the arc of what is used, named by its two figures; the card over its limit has it in the colour of what is wrong
   await expect(group.locator(".credit-arc")).toHaveCount(5);
@@ -202,16 +192,14 @@ test("every card has its face at the left of its unit, drawn by the app and hidd
   expect(await arcPaint(4), "over the limit the arc is in the colour of what is wrong").toBe(await units.nth(4).locator(".holding-bad").evaluate((el) => getComputedStyle(el).color));
   expect(await arcPaint(2), "within it the arc is not").not.toBe(await arcPaint(4));
 
-  for (const [width, face] of [[1280, 196], [1000, 196], [700, 196], [390, 148], [360, 148]] as const) {
+  for (const width of [1280, 1000, 700, 390, 360]) {
     await page.setViewportSize({ width, height: 900 });
     for (let i = 0; i < 5; i++) {
-      const [box, head, unit] = await Promise.all([units.nth(i).locator(".card-face").boundingBox(), units.nth(i).locator(".holding-unit-head").boundingBox(), units.nth(i).boundingBox()]);
-      expect(box!.width, `the face at ${width} px`).toBeCloseTo(face, 0);
-      expect(box!.height, `a real card's proportions at ${width} px`).toBeCloseTo(face / 1.586, 0);
-      expect(box!.x + box!.width, `the face is at the left of the name at ${width} px`).toBeLessThanOrEqual(head!.x + 0.5);
-      expect(Math.abs(box!.y - head!.y), "on the line the unit starts at").toBeLessThanOrEqual(12);
+      const [box, unit] = await Promise.all([units.nth(i).locator(".card-face").boundingBox(), units.nth(i).boundingBox()]);
       expect(box!.x, "inside the unit").toBeGreaterThanOrEqual(unit!.x);
-      // the face's text stays on the face
+      expect(box!.x + box!.width, "inside the unit").toBeLessThanOrEqual(unit!.x + unit!.width + 0.5);
+      expect(box!.y, "the row is the top of the unit").toBeLessThanOrEqual(unit!.y + 1);
+      // the row's text stays on the row
       const outside = await units.nth(i).locator(".card-face").evaluate((el) => {
         const edge = el.getBoundingClientRect();
         return Array.from(el.querySelectorAll("*")).filter((n) => {
@@ -304,42 +292,4 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 
   expect(seen.problems).toEqual([]);
   await context.close();
-});
-
-test("a card's face stays where it is under the pointer, and the keyboard's ring is on it", async ({ browser }) => {
-  for (const reduced of [false, true]) {
-    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, reducedMotion: reduced ? "reduce" : "no-preference" });
-    const page = await context.newPage();
-    const seen = watch(page);
-    await page.goto("/#/reports?q=saldot");
-    const holdings = holdingsOf(page);
-    const link = holdings.locator(".card-face-link").first();
-    const face = link.locator(".card-face");
-    await expect(face).toBeVisible();
-    const transform = () => face.evaluate((el) => getComputedStyle(el).transform);
-    // a face with no turn is "none" or the identity
-    const flat = (t: string) => t === "none" || t === "matrix(1, 0, 0, 1, 0, 0)";
-    const box = (await link.boundingBox())!;
-    expect(flat(await transform()), "flat before the pointer comes").toBe(true);
-    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
-    await page.mouse.move(box.x + box.width * 0.92, box.y + box.height * 0.12);
-    expect(flat(await transform()), "no lean under the pointer").toBe(true);
-    expect(await link.boundingBox(), "the face did not move").toEqual(box);
-    expect(await link.getAttribute("style") ?? "").not.toContain("--face-");
-
-    // the keyboard: the ring is on the face, the face does not lean
-    const name = holdings.locator(".holding-unit-faced").first().getByRole("link").last();
-    await name.focus();
-    await page.keyboard.press("Shift+Tab");
-    await page.keyboard.press("Tab");
-    await expect(name).toBeFocused();
-    const ring = await face.evaluate((el) => {
-      const style = getComputedStyle(el);
-      return { style: style.outlineStyle, width: style.outlineWidth, flat: style.transform === "none" || style.transform === "matrix(1, 0, 0, 1, 0, 0)" };
-    });
-    expect(ring, "the focus is shown on the face and the face stays flat").toEqual({ style: "solid", width: "2px", flat: true });
-
-    expect(seen.problems).toEqual([]);
-    await context.close();
-  }
 });

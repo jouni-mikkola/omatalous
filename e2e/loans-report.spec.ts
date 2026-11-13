@@ -204,13 +204,13 @@ test("Täydennä opens Asetukset at the card Lainat, where the loan can be chang
 test("Raportit draws the balance chart under its question, and none of the paragraphs the figures replaced", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
   await page.goto("/#/reports?q=tulot");
-  // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulot
-  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulot", exact: true })).toBeVisible();
+  // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulolajit
+  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
   await page.goto("/#/reports?q=kiinteat");
   await expect(page.locator("#kiinteat-menot").getByRole("heading", { name: "Kiinteät menot" }).first()).toBeVisible();
   await page.goto("/#/reports?q=tulot");
-  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulot", exact: true })).toBeVisible();
+  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
   // Saldot: the balance by day under its question, with no legend
   await page.goto("/#/reports?q=saldot");
   await expect(page.locator("#saldot").getByRole("heading", { name: "Saldojen kehitys" })).toBeVisible();

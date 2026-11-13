@@ -518,9 +518,10 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await expect(page.locator("#laskut-taulukko .card-datum")).toContainText("/kk");
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   await page.goto("/#/reports?q=kiinteat");
-  await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toBeVisible();
-  // the price changes of the fixed costs are a section of this report since BA-9; Laskut has none (checked above)
-  await expect(page.locator("#kiinteat-hinnat").getByRole("heading", { name: "Hinnanmuutokset" })).toBeVisible();
+  // the report holds the one fixed-costs table; the sections of fixed and variable costs and of price changes are gone (T60)
+  await expect(page.locator("#kiinteat-menot").getByRole("heading", { name: "Kiinteät menot" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toHaveCount(0);
+  await expect(page.locator("#kiinteat-hinnat")).toHaveCount(0);
 
   // Nyt sends on to Laskut
   await page.goto("/#/overview");

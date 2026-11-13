@@ -66,7 +66,8 @@ async function openQuestion(browser: Browser, state: string, width = 1280) {
 test("Tarkistettavat asks it: Onko taloudessa asuntolaina? with the link to the card Lainat of Asetukset; at 390 px nothing scrolls sideways", async ({ browser }) => {
   for (const width of [1280, 390]) {
     const { context, page, seen, card } = await openQuestion(browser, members[0]!.state, width);
-    await expect(card.getByRole("heading", { level: 2 })).toHaveText("Onko taloudessa asuntolaina?");
+    // the heading says the place first (Kysymys 1 / 1) and then the question
+    await expect(card.getByRole("heading", { level: 2 })).toHaveText(/^Kysymys \d+ \/ \d+ Onko taloudessa asuntolaina\?$/);
     await expect(card.locator(".review-kind")).toHaveText("Asuminen");
     await expect(addLink(card)).toHaveAttribute("href", "#/settings/household#lainat");
     await expect(answerButton(card)).toBeEnabled();

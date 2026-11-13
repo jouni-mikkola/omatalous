@@ -3,7 +3,7 @@ import { cents, linkFakeBank, makeMember, overflow, plain, removeMember, sayJoin
 
 // The joint account as two members see it. Both partners link the fake bank (e2e/fake-bank/), so its joint account has two
 // users, and the first says they use it 60 and 40. Then the pages say a part: the switch of the view, the account row of
-// Saldot, the rows and the sums line of Tapahtumat and the caption of Tulot. No notice under the header says it.
+// Saldot, and the rows of Tapahtumat. No notice under the header says it.
 // The members are made here and go at the end; the administrator's demo household, which the other specs read, is not touched.
 const NAMES = ["e2e-yhteinen-a", "e2e-yhteinen-b"] as const;
 const PARTS = [60, 40] as const;
@@ -53,7 +53,8 @@ const jointNotice = (page: Page) => page.locator(".notice").filter({ hasText: /o
 
 /** The holdings card of Saldot: the only card with a heading Varat ja velat on that page. */
 const holdingsOf = (page: Page) => page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varat ja velat", exact: true }) });
-const jointRow = (page: Page) => holdingsOf(page).locator(".st-row", { hasText: "Yhteistili" });
+const accountRow = (page: Page, name: string) => holdingsOf(page).locator(".st-row.holding-account", { hasText: name });
+const jointRow = (page: Page) => accountRow(page, "Yhteistili");
 /** What the page shows for the joint account: the amount in its row, in cents. */
 const jointCents = async (page: Page) => cents(await jointRow(page).locator(".st-num").innerText());
 
@@ -102,7 +103,7 @@ test("the joint account's row says the part, and the parts of the two members ad
   // the row of an account that is the member's alone says nothing of a part
   await expect(jointRow(a!.page)).toContainText(`Yhteinen tili, osuutesi ${PARTS[0]} %`);
   await expect(jointRow(b!.page)).toContainText(`Yhteinen tili, osuutesi ${PARTS[1]} %`);
-  await expect(holdingsOf(a!.page).locator(".st-row", { hasText: "Käyttötili" })).not.toContainText("osuutesi");
+  await expect(accountRow(a!.page, "Käyttötili")).not.toContainText("osuutesi");
   // Koko talous holds the account whole: no part on its row, and the same sum for both members
   for (const w of whole) await expect(jointRow(w.page)).not.toContainText("osuutesi");
   const [partA, partB, wholeA, wholeB] = [await jointCents(a!.page), await jointCents(b!.page), await jointCents(whole[0]!.page), await jointCents(whole[1]!.page)];
@@ -141,20 +142,6 @@ test("Tapahtumat shows the part as a joint account's row's figure and the bank's
   await expect(whole.page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toHaveCount(0);
   expect(whole.seen.problems).toEqual([]);
   await whole.context.close();
-});
-
-test("Tulot tells under Tulot henkilöittäin that the joint account's income is divided by the parts, in Koko talous where the members are listed", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, members[0]!, "/#/reports?period=year&q=tulot", { household: true });
-  const heading = page.getByRole("heading", { name: "Tulot henkilöittäin" });
-  await expect(heading).toBeVisible();
-  const caption = page.locator(".income-caption", { hasText: "Yhteisen tilin tulot" });
-  await expect(caption).toHaveText("Jaamme yhteisen tilin tulot jäsenten osuuksien mukaan.");
-  // the caption stands under the heading and the list of the members
-  const [h, c] = [await heading.boundingBox(), await caption.boundingBox()];
-  expect(c!.y).toBeGreaterThan(h!.y);
-  for (const name of NAMES) await expect(heading.locator("xpath=following-sibling::ul[1]")).toContainText(name);
-  expect(seen.problems).toEqual([]);
-  await context.close();
 });
 
 test("at 390 px the pages that say a part do not scroll sideways, in either view", async ({ browser }) => {
