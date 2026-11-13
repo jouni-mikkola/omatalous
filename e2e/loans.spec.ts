@@ -37,7 +37,7 @@ const lainat = (page: Page) => page.locator("#lainat");
 const said = (card: Locator, text: string) => expect(card.getByRole("status").filter({ hasText: text })).toHaveText(text);
 /** No saved loan: the list is empty. The household may have payments the bank rows show as a loan's (Tunnistettu, saldo puuttuu), so the empty line is not the only way the card says it. */
 const noSavedLoans = async (card: Locator) => {
-  await expect(card.getByText(/^Ei lainoja\.$|^Tunnistettu, saldo puuttuu$/)).toBeVisible();
+  await expect(card.getByText("Ei lainoja.").or(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" }))).toBeVisible();
   await expect(card.getByRole("table", { name: "Lainat", exact: true })).toHaveCount(0);
 };
 const field = (scope: Locator, label: string) => scope.locator(".loan-field", { has: scope.page().getByLabel(label, { exact: true }) });
