@@ -84,4 +84,4 @@ export type { TaxRow } from "./tax-year.ts";
 
 export { comparisonYearRange, comparisonYears, yearComparisonNote } from "./year-over-year.ts";
 
-export { QUESTIONS, type QuestionId } from "./question-ids.ts";
+export { QUESTIONS, type QuestionId } from "../question-ids.ts";
