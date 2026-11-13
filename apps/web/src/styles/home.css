@@ -9,7 +9,8 @@
 .home-tiles > li:first-child { border-inline-start: 0; }
 .home-tile { display: grid; align-content: start; justify-items: start; gap: var(--sp-4); padding: var(--sp-16); color: var(--text); text-decoration: none; text-align: start; inline-size: 100%; }
 /* the tile that opens its rows' panel is a button: it looks as the links beside it */
-.home-tile.why-fig, .home-tile.why-fig:hover { border-radius: 0; text-decoration: none; }
+button.home-tile { margin: 0; border: 0; border-radius: 0; background: none; font: inherit; text-decoration: none; }
+button.home-tile:hover { background: var(--surface-2); text-decoration: none; }
 .home-tiles > li:first-child .home-tile { padding-inline-start: 0; }
 .home-tile:hover { background: var(--surface-2); }
 .home-tile:hover .home-tile-label { text-decoration: underline; }
