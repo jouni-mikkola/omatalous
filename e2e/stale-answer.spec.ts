@@ -24,8 +24,8 @@ test("390 px: a failed second load of Nyt keeps the first answer, with its time 
   const { timezone } = (await (await context.request.get("/api/auth/state")).json()) as { timezone: string };
   await page.clock.setFixedTime(t0);
   await page.goto("/#/overview");
-  const answer = page.locator(".home-answer");
-  await expect(page.locator(".home-answer-line")).toBeVisible({ timeout: 15_000 });
+  const answer = page.locator(".home-tiles");
+  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
   const first = await answer.innerText();
   const line = page.locator(".stale-answer");
   await expect(line, "no line over a fresh answer").toHaveCount(0);
@@ -58,6 +58,6 @@ test("390 px: a failed second load of Nyt keeps the first answer, with its time 
   down = false;
   await line.getByRole("button", { name: "Yritä uudelleen" }).click();
   await expect(line).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator(".home-answer-line")).toBeVisible();
+  await expect(page.locator(".home-tiles")).toBeVisible();
   await context.close();
 });

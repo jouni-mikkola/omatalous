@@ -161,8 +161,8 @@ export interface Notice {
   /** The device of a sign-in from a new one ("Chrome, Windows"), for the first page's row; left out on every other notice. */
   detail?: string;
   /**
-   * On a notice of an event only (an event's own, or the failed sign-ins of the day): whether the user has opened the
-   * first page's line or the security log since it happened (`markNoticesSeen`). A notice of a state has none: it lasts
+   * On a notice of an event only (an event's own, or the failed sign-ins of the day): whether the user has opened
+   * Asetukset > Turvallisuus since it happened (`markNoticesSeen`). A notice of a state has none: it lasts
    * while its cause does.
    */
   seen?: boolean;
@@ -185,7 +185,7 @@ export const NOTICE_HOURS = 72;
 /** The settings key of the time a user last opened the line of a notice or the security log (`notices_seen:<user id>`). */
 export const NOTICES_SEEN = "notices_seen:";
 
-/** The user has read the notices of the events so far: the first page's line opened, or the security log. */
+/** The user has read the notices of the events so far: Asetukset > Turvallisuus opened. */
 export async function markNoticesSeen(s: Services, userId: string): Promise<void> {
   await s.settings.set(`${NOTICES_SEEN}${userId}`, s.now().toISOString());
 }
@@ -208,18 +208,32 @@ function damagedNotice(detail: string | null): string {
   return `Tietokanta on vaurioitunut. Ehjä varmuuskopio ${copy} on tallessa, mutta emme saaneet sitä käyttöön. Vapauta levyltä tilaa ja käynnistä sovellus uudelleen: sovellus palauttaa varmuuskopion käynnistyksessä. Jos se ei auta, palauta varmuuskopio palvelimella komennolla ./scripts/restore.sh. Ohje on tiedostossa docs/ADVANCED.md.`;
 }
 
+/** Who a notice is for: `username` tells an admin's action on their own account (`ownAction`). */
+type NoticeUser = { id: string; role: string; username?: string };
+
+/**
+ * An admin's reset or factor removal that the user did to their own account: no news to them. The command line is the
+ * admin's own tool, so what it did to the account of the only admin counts as theirs; done to a member, or to one of
+ * two admins (the run names nobody, so it may have been the other), it is told.
+ */
+function ownAction(e: SecurityEvent, user: NoticeUser, soleAdmin: () => Promise<boolean>): Promise<boolean> | boolean {
+  if (e.kind !== "password_reset_by_admin" && e.kind !== "factor_removed_by_admin") return false;
+  if (user.username !== undefined && e.detail === `ylläpitäjä ${user.username}`) return true;
+  return e.detail === "komentorivi" && user.role === "admin" && soleAdmin();
+}
+
 /**
  * The notices of the user now. `userAgent` is the browser that asks: its own sign-in from a new device is not told to
  * it, as whoever sits there knows. `probes`: a made disk in tests.
  */
-export async function noticesFor(s: Services, user: { id: string; role: string }, probes?: HealthProbes, userAgent?: string | null): Promise<Notice[]> {
+export async function noticesFor(s: Services, user: NoticeUser, probes?: HealthProbes, userAgent?: string | null): Promise<Notice[]> {
   // two events in the same minute (two resets, say) read the same: one line says it
   const texts = new Set<string>();
   return (await everyNotice(s, user, probes, userAgent)).filter((n) => !texts.has(n.text) && texts.add(n.text));
 }
 
 /** Every notice of the user, the ones that read the same included. */
-async function everyNotice(s: Services, user: { id: string; role: string }, probes?: HealthProbes, userAgent?: string | null): Promise<Notice[]> {
+async function everyNotice(s: Services, user: NoticeUser, probes?: HealthProbes, userAgent?: string | null): Promise<Notice[]> {
   const tz = s.instance.current.timezone;
   const out: Notice[] = [];
   // the state of this start, not an event: it is told while the server runs on the damaged file
@@ -230,8 +244,11 @@ async function everyNotice(s: Services, user: { id: string; role: string }, prob
   const here = userAgent ? userAgent.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 200) : null;
   const seenAt = (await s.settings.get(`${NOTICES_SEEN}${user.id}`)) ?? "";
   const events: Notice[] = [];
+  let admins: number | null = null;
+  const soleAdmin = async () => (admins ??= await s.users.countAdmins()) <= 1;
   for (const e of await s.security.noticeEvents(user.id, new Date(s.now().getTime() - NOTICE_HOURS * 3600_000).toISOString())) {
     if (e.kind === "new_device" && here !== null && e.userAgent === here) continue;
+    if (await ownAction(e, user, soleAdmin)) continue;
     if (e.kind === "password_reset_by_admin") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.reset_by_admin" });
     else if (e.kind === "new_device") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjautui joku uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, code: "notice.new_device", params: { device: e.detail ?? "tuntematon" }, detail: e.detail ?? "tuntematon" });
     else if (e.kind === "factor_removed_by_admin") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.factor_removed" });

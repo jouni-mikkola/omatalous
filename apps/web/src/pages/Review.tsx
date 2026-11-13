@@ -16,7 +16,7 @@ import { MarkCell } from "../components/table/Cells.tsx";
 import { date, money } from "../format.ts";
 import { publishReviewCount } from "../review-count.ts";
 import type { Meta } from "../types.ts";
-import { eyebrow, figureOf, isPerson, leftText, nameOf, NEW_SITTING, openItems, questionOf, type ReviewAnswer, type ReviewItem, type Sitting, sittingView, withFetch, withFirst } from "./review-items.ts";
+import { eyebrow, figureOf, isPerson, leftText, nameOf, NEW_SITTING, openItems, questionOf, type ReviewAnswer, type ReviewItem, type Sitting, sittingView, withFetch } from "./review-items.ts";
 import { ChoiceButton, Choices } from "./ReviewChoices.tsx";
 import "../styles/review.css";
 import "../styles/why.css";
@@ -31,8 +31,7 @@ interface Queue {
   reload: () => void;
 }
 
-/** `first` is the id of the item a row of Yhteenveto opened: it is asked first. */
-export function Review({ meta, queue, first = null }: { meta: Meta; queue: Queue; first?: string | null }) {
+export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   const [sitting, setSitting] = useState<Sitting>(NEW_SITTING);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -41,7 +40,7 @@ export function Review({ meta, queue, first = null }: { meta: Meta; queue: Queue
   const [moved, setMoved] = useState(0);
   // the header's mark and the page's heading say the number the queue below does, an answer included
   // a failed fetch is an item of the queue, first in it: made here from the last run the server tells
-  const items = queue.data ? withFirst(withFetch(queue.data.items, meta.lastSync), first) : null;
+  const items = queue.data ? withFetch(queue.data.items, meta.lastSync) : null;
   const left = items ? openItems(items, sitting).length : undefined;
   // the shell's count adds the failed fetch itself, so what is published is the server's kind of count
   const asked = left === undefined ? undefined : left - (items?.some((i) => i.kind === "fetch") ? 1 : 0);

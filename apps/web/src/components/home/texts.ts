@@ -3,8 +3,8 @@
  * page. Nothing is added up here: every euro figure is a field the server gives, and a sentence that sets one against
  * another names the comparison (Odotettu, the month's expected level, ADR 0021).
  */
-import { joinRange, localeOf, MIN_COMPARE_MONTHS, MIN_PAYS } from "@banking/core";
-import { completeMonths, dayMonth, language, monthLong, money } from "../../format.ts";
+import { joinRange, MIN_COMPARE_MONTHS, MIN_PAYS } from "@banking/core";
+import { completeMonths, dayMonth, monthLong, money } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 
@@ -37,7 +37,7 @@ export interface AnswerText {
 }
 
 /** No payday: the first sentence, and with the pays found so far, how many are needed. */
-export function noPaydayText(found?: number): string {
+function noPaydayText(found?: number): string {
   const first = t("home.gap_no_payday");
   return found === undefined || found >= MIN_PAYS ? first : `${first} ${tn(found, "home.gap_pays_one", "home.gap_pays_many", { need: MIN_PAYS })}`;
 }
@@ -110,23 +110,4 @@ export function paceGapText(gap: HomeData["paceGap"]): string | null {
   if (gap === "cards") return t("home.pace_gap_cards");
   if (gap === "history") return t("home.pace_gap_history", { months: completeMonths(MIN_COMPARE_MONTHS) });
   return null;
-}
-
-/** The buffer in months: "4,5 kuukautta". */
-export function bufferText(months: number): string {
-  const text = months.toLocaleString(localeOf(language()), { maximumFractionDigits: 1 });
-  return t(text === "1" ? "home.buffer_one" : "home.buffer_many", { count: text });
-}
-
-/** What the buffer months are the quotient of, so the monthly sum beside them is the one they divide by. */
-export function bufferBasisText(direction: HomeData["direction"]): string | null {
-  if (direction.bufferNetCents === null || direction.bufferSpendCents === null) return null;
-  return t("home.buffer_basis", { net: money(direction.bufferNetCents, false), spend: money(direction.bufferSpendCents, false) });
-}
-
-/** The direction of the last three months in a word. */
-export function directionText(direction: HomeData["direction"]): string | null {
-  if (direction.direction === null) return null;
-  const word = t(direction.direction === "up" ? "home.dir_up" : direction.direction === "down" ? "home.dir_down" : "home.dir_same");
-  return t("home.direction", { word });
 }

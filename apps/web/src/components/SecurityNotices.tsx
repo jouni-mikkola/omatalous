@@ -6,7 +6,7 @@ import { settingsHash } from "../routes.ts";
 import { StaleAnswer } from "./StaleAnswer.tsx";
 /**
  * The notice of the server that stays a banner on every page (`BANNER_KINDS`: a damaged database). Every other notice is a
- * row of Ilmoitukset on Yhteenveto. The banner has no button: it stays while the server runs on the damaged database.
+ * line of Asetukset > Turvallisuus (Notices.tsx). The banner has no button: it stays while the server runs on the damaged database.
  * Above it stands the line of a reload that failed (StaleAnswer), on every page too.
  */
 export function SecurityNotices() {

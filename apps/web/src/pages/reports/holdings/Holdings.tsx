@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 import { cardName, daysBetween } from "@banking/core";
 import { query } from "../../../api.ts";
 import { date, localDay, money, moneyIn } from "../../../format.ts";
-import { figureName, t, tn } from "../../../text.ts";
+import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
 import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
 import type { DashboardData, Meta, ReconcileState, Scope } from "../../../types.ts";
@@ -23,6 +23,7 @@ import { Why } from "../../../components/Why.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
+import { netLabelOf } from "../../../components/net-label.ts";
 import { cardMasks, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../../styles/statement.css";
 import "../../../styles/holdings.css";
@@ -252,11 +253,8 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
   const columns = `holding-groups holding-groups-${groups}`;
   // the debts of the block are more than the loans only when a card owes: then they have their own line at its foot
   const debts = loans.length > 0 && cardsOwe(cards);
-  // loans whose balance nobody gave (saved with none, or never saved): `netCents` holds no debt for them, so its name says so
-  const noBalance = loans.filter((l) => l.leftCents === null).length;
-  const unknown = noBalance + (unsavedLoans?.count ?? 0);
-  const known = loans.length - noBalance;
-  const netLabel = unknown === 0 ? (debtCents > 0 ? figureName("netWorth") : null) : known === 0 ? t("holdings.net_without_loans") : tn(unknown, "holdings.net_without_one", "holdings.net_without_many", { net: figureName("netWorth") });
+  // loans whose balance nobody gave: `netCents` holds no debt for them, so its name says so
+  const { label: netLabel, lacking: unknown } = netLabelOf(holdings);
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
   const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
 

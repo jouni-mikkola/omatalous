@@ -43,7 +43,7 @@ async function mount(failFrom: "start" | "later") {
   return { queryClient, fail: () => (down = true), mend: () => (down = false), asked: () => asked };
 }
 
-const figures = () => document.querySelector(".home-answer")?.textContent;
+const figures = () => document.querySelector(".home-tiles")?.textContent;
 
 describe("Overview when a reload fails", () => {
   it("shows one retry line from the shell, and the figures stay", async () => {
@@ -75,7 +75,7 @@ describe("Overview when a reload fails", () => {
     const card = await screen.findByRole("alert", {}, T);
     expect(card.textContent).toContain("Emme saaneet tietoja haettua.");
     expect(card.textContent).toContain(SENTENCE);
-    expect(document.querySelector(".home-answer"), "no figures").toBeNull();
+    expect(document.querySelector(".home-tiles"), "no figures").toBeNull();
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   }, 60000);
 });

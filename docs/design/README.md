@@ -19,43 +19,34 @@ one sum: what is left until payday after the bills due before it. No peer has pa
 Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. Tarkistettavat is the header's link.
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
-- Answer: one sum, "Palkkapäivään 25.11. jää 4 424 €", after the bills due before payday.
-- Comparison: that sum per day left ("277 € päivässä, 16 päivää") against what everyday spending usually takes per day,
-  and one line of pace: spent so far this month against the usual band to the same day (the chart of today's Kuukausi
-  section, which `docs/audit/simplify.md` names as the good one).
-- Action: the sum opens the balance and the bills behind it; the pace line opens this month's rows.
-- Layout: one block first, the answer and under it the sum row that makes it (balance, payments before payday, what
-  is left, to the cent), with a line each for what an account outside the balance pays before payday and for the bills
-  of the payday itself. Under it Kuukausi on the left, Huomioitavaa and Suurimmat menot on the
-  right, Varat ja velat across the page. A phone reads them in that order in one column.
-  - Kuukausi: one sentence with the side of the usual the spending is on, the usual sum and its range, and the pace
-    chart of the same figures. The month before is drawn only when the household has no usual level yet. The chart
-    marks one pay day under its axis and has a key only with a second series. The days as a table are on the month's
-    report, one link away.
-  - Huomioitavaa: the first three items of Tarkistettavat that need the household (a bill that did not come, a loan
-    with nothing saved, a price that rose, a bank connection that ends), in the queue's order, each with its sum, and
-    the count of all. A question that only sorts money (a payee, a payer) is not shown here. A row opens
-    Tarkistettavat at its item. It asks nothing itself and is not drawn when no such item is open.
-  - Suurimmat menot: the five largest categories as bars on one scale, last month's sum to the same day as a mark on
-    each bar and the difference in words. A bar opens the category's rows.
-  - Varat ja velat: what is left after the debts, the accounts' balance, the debts, the buffer in months and the
-    12-month average spending, the first two parts links to their rows. A loan with no saved balance takes the net
-    figure away and is named with the way to save it.
-- Not shown: account cards, card faces, credit arcs, goals.
+Direction, 11.11.2026 (the owner's): an overview on one screen at 1440 px, every figure one click from its rows.
+- Tiles: four across the page, two by two on a phone (as drawn below). Each has a label, one figure, one line that compares it and a
+  link to its rows.
+  - Käytettävissä palkkapäivään: what is left after the bills before payday (`nyt.left`), the sum a day and the payday.
+    Opens its basis in the Miksi? panel: the balances it starts from and each payment taken off them.
+  - Menot tässä kuussa: spent so far against the usual level to the same day (`home.pace`), else last month to the same
+    day. Opens its rows in the Miksi? panel, as Tapahtumat's money out takes in more than spending.
+  - Tulot tässä kuussa: the month's earned income against the usual month's (`overview.income`). Opens its rows in the
+    Miksi? panel, as Tapahtumat's income takes in refunds too.
+  - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
+    month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
+- Under the tiles Kuukausi on the left and Suurimmat menot on the right, then Varat ja velat across the page: the block
+  of Raportit > Tilit ja saldot, each name opening its rows. A phone reads them in that order in one column.
+- Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
+  header's link), explaining sentences, goals.
 ```
- Palkkapäivään 25.11. jää   4 424 €          Käyttötilin saldo            7 198,65 €
- 277 € päivässä, tavallisesti 65 €           Maksut ennen palkkapäivää   −2 774,52 €
-                                             Jää                          4 424,13 €
+ Käytettävissä palkkapäivään                 Menot tässä kuussa
+ 4 424 €                                     2 018 €
+ 277 € päivässä, palkkapäivä 25.11.          90 € yli tavallisen tähän päivään
+ Tulot tässä kuussa                          Varat velkojen jälkeen
+ 3 900 €                                     12 400 €
+ Tavallisesti 3 900 € kuussa                 345 € enemmän kuin 9.10.
 
- Kuukausi                                    Huomioitavaa
- Käytetty 2 018 €, 90 € yli tavallisen.      Laina  Rahoitus Oy      289,00 € kuussa
- ▁▂▃▅▆ ─ ─                                   Kaikki 9 tarkistettavaa
-                                             Suurimmat menot
-                                             Ruokakauppa                      612 €
+ Kuukausi                                    Suurimmat menot
+ ▁▂▃▅▆ ─ ─                                   Ruokakauppa                      612 €
                                              ████████|██  140 € enemmän kuin viime kuussa
-
  Varat ja velat
- Varat velkojen jälkeen   Tilien saldo   Velat   Puskuri   Tavalliset menot
+ Tilit            Lainat            Kortit
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?
@@ -115,9 +106,9 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | What | Code | Why, or where it moves |
 |---|---|---|
 | Säästövinkit page | `pages/Optimise.tsx`, `components/optimise/`, core `optimise/`, `routes` and `db/finance/optimise.ts` readers | Answers no question; price and new-charge findings move to Tarkistettavat |
-| Huomioitavaa on Yhteenveto | `components/home/Notable.tsx`, core `analysis/insights/` | Moves to Tarkistettavat as items, once |
+| Huomioitavaa on Yhteenveto | `components/home/Notable.tsx`, core `analysis/insights/` | Moves to Tarkistettavat as items, once. `Notable.tsx` is gone (11.11.2026) |
 | Right column of Yhteenveto | `components/holdings/` | Repeats the headline; balances move to Lisää > Tilit ja saldot |
-| Last-days table, direction, reliability | `components/home/PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx` | The pace line already answers |
+| Last-days table, direction, reliability | `components/home/PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx` | The pace line already answers. `Direction.tsx` is gone (11.11.2026) |
 | Spending and category goals | `components/home/SpendingGoal.tsx`, `CategoryGoals.tsx`, `pages/settings/SpendingGoalCard.tsx`, report `categoryGoals` | Usual is the comparison; goals show no figure today |
 | Tapahtumat tiles and weekly chart | `pages/Transactions.tsx`, `pages/transactions/` | Whole-history totals compare with nothing |
 | Row marks | `components/MerchantAvatar.tsx`, `BankLogo.tsx` in rows, category chip icons, amount bars | Four marks repeat the text |
@@ -180,12 +171,12 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - after: none
 ### D2 Move the overview insights into Tarkistettavat
 - why: one finding was shown twice with two counts; a problem belongs in the queue.
-- done when: `components/home/Notable.tsx` is gone; a `services/review.ts` test gets one item per price rise and new recurring charge, none twice.
+- done when: `components/home/Notable.tsx` is gone (done 11.11.2026); a `services/review.ts` test gets one item per price rise and new recurring charge, none twice.
 - locks: review, insights
 - after: D1
 ### D3 Delete the overview extras
 - why: the right column, last-days table, direction, reliability and goals repeat or compare with nothing.
-- done when: `components/holdings/`, `PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx`, the goal components and `categoryGoals` are gone; a shot of Nyt shows one answer and the pace line.
+- done when: `components/holdings/`, `PaceTable.tsx`, `Direction.tsx` (gone 11.11.2026), `Reliability.tsx`, the goal components and `categoryGoals` are gone; a shot of Nyt shows one answer and the pace line.
 - locks: overview, holdings
 - after: none
 ### D4 Strip Tapahtumat to the rows list

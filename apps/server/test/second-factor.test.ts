@@ -383,7 +383,7 @@ describe("second factor: enrolment asks for the password", () => {
 });
 
 describe("second factor: the command line removes it", () => {
-  it("takes the factor of the only admin, ends their sessions and tells them; the next sign-in needs the password alone", async () => {
+  it("takes the factor of the only admin and ends their sessions; the next sign-in needs the password alone", async () => {
     const t = await setupApp();
     await enrol(t.admin);
     const done = await cli(t, "user", "remove-factor", "aino");
@@ -394,7 +394,8 @@ describe("second factor: the command line removes it", () => {
     expect((await events(t, t.adminId, "factor_removed_by_admin")).map((e) => e.detail)).toEqual(["komentorivi"]);
     const again = t.client();
     expect((await again.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD })).body.user.username).toBe("aino");
-    expect((await again.call("GET", "/api/security/notices")).body.notices.some((n: { kind: string }) => n.kind === "factor_removed_by_admin")).toBe(true);
+    // the admin ran the command line: no news to them (security-events.test.ts)
+    expect((await again.call("GET", "/api/security/notices")).body.notices.some((n: { kind: string }) => n.kind === "factor_removed_by_admin")).toBe(false);
   });
 
   it("a user without a factor, or an unknown one, is refused and nobody is signed out", async () => {

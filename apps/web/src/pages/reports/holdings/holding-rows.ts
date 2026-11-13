@@ -1,7 +1,7 @@
 /**
  * The choices Holdings makes about its rows: which accounts and which cards need their number to be told apart, how a
- * card is named and which tone its picture has, and when the block has a line of its own for the debts. No sum is made
- * here: every total is core's.
+ * card is named and which tone its picture has. The name of the figure the block sums up is `components/net-label.ts`.
+ * No sum is made here: every total is core's.
  */
 import { cardName } from "@banking/core";
 import { t } from "../../../text.ts";

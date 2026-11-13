@@ -1,11 +1,11 @@
 /*
- * The one line of the notices on Yhteenveto, under the answer: a warning triangle and the text, a link to where it is
- * read or mended. It has no box and no heading, so it takes one line of the page.
+ * The notices of the server on Asetukset > Turvallisuus, a line each, and the dot on the user menu while one is news.
+ * A line has a small warning mark before it while it is news; a state's line is a link to where it is mended.
  */
 @layer components {
-.home-notice { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
-.home-notice .notice-title::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
-.home-notice .notice-text { color: var(--accent-ink); text-decoration: none; }
-.home-notice .notice-text:hover .notice-title { text-decoration: underline; }
-.notice-title { font-weight: 600; }
+.notice-list ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-8); }
+.notice-list li { font-size: var(--fs-body); line-height: var(--lh-body); }
+.notice-list li.notice-news::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.user-menu .avatar { position: relative; }
+.notice-dot { position: absolute; top: calc(-1 * var(--sp-4)); right: calc(-1 * var(--sp-4)); width: var(--tick-l); height: var(--tick-l); border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 var(--ring) var(--ink); }
 }

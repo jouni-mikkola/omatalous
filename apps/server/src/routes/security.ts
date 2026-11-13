@@ -50,7 +50,7 @@ export function securityRoutes(s: Services) {
   /** The notices of now. Each goes when its cause or its time ends; a notice of an event says whether the user has seen it (services/security.ts). */
   app.get("/notices", async (c) => c.json({ notices: await noticesFor(s, c.get("user"), undefined, c.req.header("user-agent")) }));
 
-  /** The user opened the first page's line of a notice or the security log: the events so far are seen. Takes nothing. */
+  /** The user opened Asetukset > Turvallisuus: the events so far are seen. Takes nothing. */
   app.post("/notices/seen", async (c) => {
     await markNoticesSeen(s, c.get("user").id);
     return c.json({ ok: true });

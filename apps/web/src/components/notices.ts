@@ -18,12 +18,14 @@ export interface SecurityNotice {
   seen?: boolean;
 }
 
-/** The line of a notice on Yhteenveto: its text, where it leads and whether it tells of events (opening it marks them seen). */
-export interface NoticeLine {
+/** A line of Asetukset > Turvallisuus: a notice's text, where it is mended (a state's only), and whether it is news to the user. */
+export interface NoticeRow {
   id: string;
   title: string;
-  href: string;
-  events: boolean;
+  /** Where a state is mended; an event is read in the log on the same page, so it has none. */
+  href: string | null;
+  /** An event the user has not seen: the dot on the user menu counts these. A state lasts until it is mended, so it is never news (it would hold the dot however often the page is read). */
+  news: boolean;
 }
 
 /**
@@ -48,17 +50,15 @@ export function noticeText(n: SecurityNotice): string {
 const titleOf = (n: SecurityNotice): string => (n.kind === "new_device" && n.at && n.detail ? t("notice.new_device_title", { when: dateTime(n.at), device: n.detail }) : noticeText(n));
 
 /**
- * The one line Yhteenveto gives the notices, or null: never a list. A notice of a state (a copy, the disk, the helper,
- * the register lookup) needs the admin and stays until it is mended, so the first of them is the line and leads where it
- * is mended. Else the events the user has not seen: one is told by its own title, more by their count, and both lead to
- * Asetukset > Turvallisuus > Turvallisuusloki. Seen events and no notice at all are no line.
+ * The lines Asetukset > Turvallisuus gives the notices: the states that need the admin first, each leading where it is
+ * mended, then the events of their time, seen or not. The damaged database is the shell's banner and no line.
  */
-export function noticeLine(notices: readonly SecurityNotice[]): NoticeLine | null {
+export function noticeRows(notices: readonly SecurityNotice[]): NoticeRow[] {
   const rows = notices.filter((n) => !BANNER_KINDS.has(n.kind));
-  const state = rows.find((n) => n.seen === undefined);
-  if (state) return { id: state.id, title: titleOf(state), href: settingsCardHash(state.kind === "industry_lookup_off" ? SETTINGS_ANCHOR.server : MAINTENANCE.has(state.kind) ? SETTINGS_ANCHOR.maintenance : SETTINGS_ANCHOR.securityLog), events: false };
-  const unseen = rows.filter((n) => n.seen === false);
-  if (!unseen.length) return null;
-  const href = settingsCardHash(SETTINGS_ANCHOR.securityLog);
-  return unseen.length === 1 ? { id: unseen[0]!.id, title: titleOf(unseen[0]!), href, events: true } : { id: "events", title: t("notice.new_events", { count: unseen.length }), href, events: true };
+  const states = rows.filter((n) => n.seen === undefined).map((n) => ({ id: n.id, title: titleOf(n), href: settingsCardHash(n.kind === "industry_lookup_off" ? SETTINGS_ANCHOR.server : MAINTENANCE.has(n.kind) ? SETTINGS_ANCHOR.maintenance : SETTINGS_ANCHOR.securityLog), news: false }));
+  const events = rows.filter((n) => n.seen !== undefined).map((n) => ({ id: n.id, title: titleOf(n), href: null, news: n.seen === false }));
+  return [...states, ...events];
 }
+
+/** How many lines are news: the count beside the dot on the user menu, 0 for no dot. */
+export const newsCount = (notices: readonly SecurityNotice[]): number => noticeRows(notices).filter((r) => r.news).length;

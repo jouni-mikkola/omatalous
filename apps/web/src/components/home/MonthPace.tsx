@@ -5,7 +5,7 @@ import { answerMoney } from "../../format.ts";
 import { rich, t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Button } from "../ui/Button.tsx";
-import { reportHref } from "./Answer.tsx";
+import { reportHref } from "./Tiles.tsx";
 import { euroRange, monthTitle, paceGapText } from "./texts.ts";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };

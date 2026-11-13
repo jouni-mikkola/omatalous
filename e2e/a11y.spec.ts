@@ -40,7 +40,7 @@ async function visit(context: BrowserContext, path: string, ready: string): Prom
 }
 
 for (const [name, path, ready] of [
-  ["Yhteenveto", "/#/overview", ".home-answer-line"],
+  ["Yhteenveto", "/#/overview", ".home-tiles"],
   ["Kuukausi", "/#/reports", ".km"],
   ["Tapahtumat", "/#/transactions", ".tx-card"],
   ["Asetukset", "/#/settings", "h1, h2"],
@@ -60,7 +60,7 @@ for (const [name, path, ready] of [
 const LOAN = { kind: "loan", id: "loan:a11y", cents: 120_000, key: "a11y", payee: "Pankki Oyj", paymentCents: 10_000, months: 12, firstDate: "2025-01-02", lastDate: "2025-12-02", guess: "mortgage", placed: true, rows: [], rowCount: 12 };
 for (const width of [1280, 390]) {
   for (const [name, path, ready, queue] of [
-    ["Yhteenveto", "/#/overview", ".home-answer-line", null],
+    ["Yhteenveto", "/#/overview", ".home-tiles", null],
     ["Laskut", "/#/bills", "#tulossa", null],
     ["Tapahtumat", "/#/transactions", ".tx-card", null],
     ["Tarkistettavat, a question", "/#/review", ".review-item", [LOAN]],
@@ -85,7 +85,7 @@ const MANY = { ...LOAN, rows: ROWS, rowCount: 5 };
 const RULES = ["label-content-name-mismatch", "landmark-unique", "empty-table-header"];
 for (const width of [1440, 390]) {
   for (const [name, path, ready, queue] of [
-    ["Yhteenveto", "/#/overview", ".home-answer-line", null],
+    ["Yhteenveto", "/#/overview", ".home-tiles", null],
     ["Tarkistettavat", "/#/review", ".review-figure", [MANY]],
     ["Tapahtumat", "/#/transactions", ".rtb", null],
     ["Asetukset", "/#/settings/members", "table:has(caption:text-is(\"Talouden jäsenet\"))", null],
@@ -270,7 +270,7 @@ test("every route: no control sits inside an image, and a chart's keyboard stop 
     ),
   ).toEqual([]);
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, bypassCSP: true });
-  const page = await visit(context, "/#/overview", ".home-answer-line");
+  const page = await visit(context, "/#/overview", ".home-tiles");
   const stop = page.getByRole("group", { name: /^Menot päivittäin/ });
   await expect(stop).toHaveCount(1);
   await stop.focus();

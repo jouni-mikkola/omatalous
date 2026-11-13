@@ -18,16 +18,17 @@ import { extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { SecurityNotices } from "./components/SecurityNotices.tsx";
+import { useNoticeNews } from "./components/Notices.tsx";
 import { readWizardClosed, wizardDue, writeWizardClosed } from "./wizard-due.ts";
 import { type PageAddress, PageAddressContext } from "./page-address.ts";
 import { viewsParts } from "./part.ts";
 import { useOpenSync } from "./use-open-sync.ts";
 import { askedQuestion, periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { dropAnswers, forgetAnswers, META_PATH } from "./query-client.ts";
-import { t } from "./text.ts";
+import { t, tn } from "./text.ts";
 import { openWord, reviewTitle, useReviewCount } from "./review-count.ts";
 import { paramsOf } from "./search.ts";
-import { CONNECT_BANK_HASH } from "./routes.ts";
+import { CONNECT_BANK_HASH, SETTINGS_ANCHOR, settingsCardHash } from "./routes.ts";
 import { LANGUAGE_NAME } from "./components/ui/DeviceLanguage.tsx";
 import { LANGUAGES, type Language } from "@banking/core";
 import { type ShellState, ShellContext, useSession } from "./shell-context.ts";
@@ -81,6 +82,8 @@ export function Shell() {
   const { count: asked, reload: reloadReview } = useReviewCount();
   // a failed fetch is an item of the queue the server does not count: the mark adds it, as the page does
   const open = asked + (meta.data?.lastSync?.status === "failed" ? 1 : 0);
+  // a notice of the server that is news (a state that needs the admin, an event not seen) is a dot on the user menu and a line of Turvallisuus
+  const news = useNoticeNews();
   const shownPage = useRef(page);
   useEffect(() => {
     if (shownPage.current !== page) reloadReview();
@@ -343,7 +346,9 @@ export function Shell() {
               <span className="sr-only">{t("shell.user_menu")} </span>
               <span className="avatar" aria-hidden="true">
                 {initials}
+                {news > 0 && <span className="notice-dot" />}
               </span>
+              {news > 0 && <span className="sr-only">{tn(news, "notice.news_one", "notice.news_many")} </span>}
               <span className="small" title={user.displayName}>{user.displayName}</span>
             </summary>
             {/* choosing an item closes the menu */}
@@ -362,6 +367,7 @@ export function Shell() {
                   {e.page!.label}
                 </PageLink>
               ))}
+              {news > 0 && <a href={settingsCardHash(SETTINGS_ANCHOR.notices)}>{tn(news, "notice.news_one", "notice.news_many")}</a>}
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}
               </PageLink>

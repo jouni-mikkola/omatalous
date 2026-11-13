@@ -971,6 +971,16 @@
    "paymentCents": 61240
   }
  },
+ "overview": {
+  "income": {
+   "cents": 0,
+   "usualCents": 381333
+  },
+  "net": {
+   "since": "2026-09-15",
+   "changeCents": 36540
+  }
+ },
  "questions": {
   "share": 1,
   "window": {

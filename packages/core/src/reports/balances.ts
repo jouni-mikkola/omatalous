@@ -114,6 +114,24 @@ function lowestDayBalance(walks: readonly BalanceWalk[], fromDay: number, toDay:
 }
 
 /**
+ * The accounts less the debts at the end of `day` (at most today), as `accountsLessDebt` counts a month's end: the
+ * accounts with a balance, cards and loan accounts with their sign, less the saved loans no account holds. Null when an
+ * account is not known that day or a saved loan's balance was not told yet, so a change between two days never counts
+ * an account that starts in between.
+ */
+export function accountsLessDebtOn(ctx: AnalysisContext, accounts: readonly BalanceInput[], inputs: UserInputs, day: IsoDate): number | null {
+  const walks = new Map(accounts.flatMap((a) => {
+    const walk = balanceWalk(ctx, a);
+    return walk ? [[a.id, walk] as const] : [];
+  }));
+  const n = Math.min(dayNumber(day), ctx.todayDay);
+  const total = walks.size ? totalOn([...walks.values()], n) : null;
+  if (total === null) return null;
+  const saved = debtOutsideAccountsOn(householdDebts(accounts, inputs, ctx.today), fromDayNumber(n), (id) => (walks.get(id)?.at(n) ?? null) !== null);
+  return saved.unknown.some((u) => !u.counted) ? null : total - saved.cents;
+}
+
+/**
  * Month-end balances from the day walk (`balanceWalk`) of each account with a balance, and net worth: the accounts
  * less the loans the user saved (`inputs`), which no account holds.
  */

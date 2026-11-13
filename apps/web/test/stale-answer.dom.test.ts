@@ -22,7 +22,7 @@ describe("a view whose second load fails", () => {
     await startServer();
     await openApp("#/overview");
     const answer = await waitFor(() => {
-      const el = document.querySelector(".home-answer");
+      const el = document.querySelector(".home-tiles");
       expect(el?.textContent).toBeTruthy();
       return el!;
     }, T);
@@ -55,7 +55,7 @@ describe("a view whose second load fails", () => {
     expect(line.textContent).toContain(SENTENCE);
     expect(line.textContent, "the time of the answer that stays").toContain(`Tulokset ajalta ${dateTime(t0.toISOString())}.`);
     expect(line.textContent, "not the time of the failure").not.toContain(dateTime(later.toISOString()));
-    expect(document.querySelector(".home-answer")?.textContent, "the first answer stays").toBe(first);
+    expect(document.querySelector(".home-tiles")?.textContent, "the first answer stays").toBe(first);
     expect(screen.queryByText("Emme saaneet tietoja haettua. Yritä uudelleen."), "the answer is not replaced by the failure").toBeNull();
 
     // while the shell says the server cannot be reached and gives the time of the kept figures, that is the one line
@@ -69,6 +69,6 @@ describe("a view whose second load fails", () => {
     // Overview's own notice has a retry button too (overview-reload.dom.test.ts): this one is the shell's line
     fireEvent.click(within(document.querySelector<HTMLElement>(".stale-answer")!).getByRole("button", { name: "Yritä uudelleen" }));
     await waitFor(() => expect(document.querySelector(".stale-answer")).toBeNull(), T);
-    expect(document.querySelector(".home-answer")?.textContent).toBe(first);
+    expect(document.querySelector(".home-tiles")?.textContent).toBe(first);
   }, 60000);
 });
