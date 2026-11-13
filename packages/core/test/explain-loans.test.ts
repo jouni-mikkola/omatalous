@@ -4,7 +4,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { explainLoan, isLoanFigure } from "../src/explain/loans.ts";
+import { isLoanFigure } from "../src/explain/loan-figures.ts";
+import { explainLoan } from "../src/explain/loans.ts";
 import type { LoanFigureId } from "../src/explain/types.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
