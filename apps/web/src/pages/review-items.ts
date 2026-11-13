@@ -156,33 +156,6 @@ export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem
  */
 export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | undefined): ReviewItem[] => run?.status === "failed" ? [{ kind: "fetch", id: `fetch:${run.id}`, cents: 0, at: run.finishedAt ?? run.startedAt, message: run.message }, ...items] : [...items];
 
-/**
- * Whether the item needs the household: a bill that did not come, a loan or a plan with nothing saved of it, a home loan
- * the costs lack, a price that rose or a new charge, a bank connection or a fetch that failed, rows that do not add up.
- * What is left only sorts money into its category or its payer's role (a payee, a payer, one row, a shared account's
- * money, a subscription that runs as before): it waits in Tarkistettavat and Yhteenveto does not show it.
- */
-export function needsUser(item: ReviewItem): boolean {
-  switch (item.kind) {
-    case "bill":
-    case "loan":
-    case "plan":
-    case "mortgage":
-    case "consent":
-    case "fetch":
-    case "balance":
-      return true;
-    case "subscription":
-      return (item.reason === "price" && item.price !== undefined) || (item.reason === "new" && item.since !== undefined);
-    case "payee_out":
-    case "payee_in":
-    case "payer":
-    case "row":
-    case "split":
-      return false;
-  }
-}
-
 /** The queue with the item `id` first, as the row of Yhteenveto that opened the page asks; the queue as it is when no item has that id. */
 export function withFirst(items: readonly ReviewItem[], id: string | null): ReviewItem[] {
   const first = id === null ? undefined : items.find((i) => i.id === id);

@@ -150,6 +150,21 @@ describe("security events", () => {
     expect(own.map((n) => n.detail)).toEqual(["Chrome, Windows"]);
   });
 
+  it("does not tell an admin of a reset or a factor removal they did to their own account", async () => {
+    const { admin, s, adminId, client } = await setupApp();
+    const reset = await admin.call("POST", `/api/users/${adminId}/reset-password`, {});
+    const again = client();
+    await again.call("POST", "/api/auth/login", { username: "aino", password: reset.body.temporaryPassword });
+    await again.call("POST", "/api/auth/first-password", { next: "aino-uusi-salasana-1" });
+    // the command line is the admin's own tool
+    await recordEvent(s, { kind: "factor_removed_by_admin", userId: adminId, detail: "komentorivi", notify: true });
+    expect(((await again.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).map((n) => n.kind)).toEqual([]);
+    // another admin's action is told, and the events stay in the log
+    await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "ylläpitäjä eero", notify: true });
+    expect(((await again.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).map((n) => n.kind)).toEqual(["password_reset_by_admin"]);
+    expect(await s.security.list({ userId: adminId, kind: "password_reset_by_admin", limit: 5 })).toHaveLength(2);
+  });
+
   it("tells a member when an admin reset the password", async () => {
     const { admin, client } = await setupApp();
     const created = await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" });
@@ -172,7 +187,7 @@ describe("security events", () => {
   it("shows two resets in the same minute as one notice", async () => {
     const { s, adminId } = await setupApp();
     vi.spyOn(s, "now").mockReturnValue(new Date("2026-11-12T01:10:00Z"));
-    for (let i = 0; i < 2; i++) await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "komentorivi", notify: true });
+    for (let i = 0; i < 2; i++) await recordEvent(s, { kind: "password_reset_by_admin", userId: adminId, detail: "ylläpitäjä eero", notify: true });
     const resets = (await noticesFor(s, { id: adminId, role: "admin" })).filter((n) => n.kind === "password_reset_by_admin");
     expect(resets).toHaveLength(1);
   });

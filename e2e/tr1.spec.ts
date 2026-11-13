@@ -293,7 +293,7 @@ test("a sitting ends after 25 items with the count left", async ({ browser }) =>
 test("no other page asks: Yhteenveto has no question card, and the count is the header's alone", async ({ browser }) => {
   const { context, page, seen } = await open(browser, 1280, [shop, gift]);
   await page.goto("/#/overview");
-  await expect(page.locator(".home-answer-line")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("region", { name: "Luokittelemattomat" })).toHaveCount(0);
   await expect(page.locator(".question-row")).toHaveCount(0);
   await expect(headerCount(page)).toHaveText("2 avoinna");

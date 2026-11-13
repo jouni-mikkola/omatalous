@@ -1,14 +1,10 @@
-/** Yhteenveto's blocks: the sum row that makes the answer, the month's line, the open questions, the categories and the figures, each opening its rows. */
+/** Yhteenveto's blocks: the four tiles, the month's line and the categories, each opening its rows. */
 import { fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { Answer } from "../src/components/home/Answer.tsx";
-import { Direction } from "../src/components/home/Direction.tsx";
 import { MonthPace } from "../src/components/home/MonthPace.tsx";
-import { Notable } from "../src/components/home/Notable.tsx";
-import { notableOf } from "../src/pages/Overview.tsx";
+import { Tiles } from "../src/components/home/Tiles.tsx";
 import { Where } from "../src/components/home/Where.tsx";
-import type { ReviewItem } from "../src/pages/review-items.ts";
 import type { DashboardData } from "../src/types.ts";
 import { stubApi } from "./dom-kit.ts";
 
@@ -44,63 +40,71 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
     ahead: null,
     home: { paceGap: null, pace: null },
     top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
+    holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
+    overview: { income: { cents: 412000, usualCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 } },
   } as unknown as DashboardData;
   return { ...rest, ...more, nyt: nytOf(true) };
 }
 
-const DIRECTION = { usualCents: 322300, months: 6, recentChangeCents: 0, direction: "flat", bufferMonths: 3.8, bufferNetCents: 1230000, bufferSpendCents: 322300 } as DashboardData["home"]["direction"];
-
-/** The window the answer is read from, with the count of checking accounts its balance adds up. */
-const aheadOf = (accounts: number) => ({ from: "2026-11-11", to: "2026-11-24", balance: { accounts } }) as unknown as DashboardData["ahead"];
+/** The tiles as a reader sees them: label, figure, line and where each leads. */
+function tilesIn(d: DashboardData & { nyt: NytData }) {
+  const { container } = render(createElement(Tiles, { data: d, scope: "own" }));
+  return [...container.querySelectorAll(".home-tile")].map((a) => ({
+    label: a.querySelector(".home-tile-label")?.textContent,
+    figure: flat(a.querySelector(".fig")?.textContent),
+    line: flat(a.querySelector(".home-tile-line")?.textContent) || null,
+    href: a.getAttribute("href"),
+  }));
+}
 
 describe("Yhteenveto", () => {
-  it("the sum row is balance, payments and what is left to the cent, the first two open their rows and what is left its basis", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(true), ahead: aheadOf(1), scope: "own" }));
-    expect(flat(container.querySelector(".home-answer-line")?.textContent)).toBe("Palkkapäivään 25.11. jää 3 100 €");
-    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "−1 899,54 €", "3 100,46 €"]);
-    expect([...container.querySelectorAll(".home-sum-row a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/bills#ennen-palkkapaivaa"]);
-    // what is left was a bare figure: it opens the accounts and the payments it is made of
-    const door = container.querySelector(".home-sum-left button.why-door");
-    expect(flat(door?.textContent)).toBe("3 100,46 €");
-    expect(flat(door?.getAttribute("aria-label"))).toContain("Jää 3 100,46 €");
+  it("four tiles: what is left to the payday a day, the month's spending and income against the usual, the net with its month's change, each opening its rows", () => {
+    const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
+    expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
+      { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: "#/bills#ennen-palkkapaivaa" },
+      { label: "Menot tässä kuussa", figure: "1 234 €", line: "234 € yli tavallisen tähän päivään", href: "#/transactions?from=2026-11-01&to=2026-11-11" },
+      { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Tavallisesti 3 980 € kuussa", href: null },
+      { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
+    ]);
   });
 
-  // the label said one account while the figure added up every counted checking account
-  it("the balance names one checking account or several, as many as it adds up", () => {
-    const label = (accounts: number) => render(createElement(Answer, { nyt: nytOf(true), ahead: aheadOf(accounts), scope: "own" })).container.querySelector(".home-sum-row dt")?.textContent;
-    expect(label(1)).toBe("Käyttötilin saldo");
-    expect(label(2)).toBe("Käyttötilien saldo");
+  // Tapahtumat's income takes in refunds and transfers the earned income leaves out: the tile opens the figure's own rows
+  it("the income tile opens the rows of the earned income of the month to today", async () => {
+    stubApi({ "GET /api/explain": { figure: "income.earned", kind: "sum", cents: 412000, lines: [], rows: [], check: { kind: "sum", diffCents: 0 } } });
+    const { container } = render(createElement(Tiles, { data: data(), scope: "own" }));
+    const door = container.querySelector<HTMLButtonElement>("[data-tile=income] button.why-door")!;
+    expect(flat(door.getAttribute("aria-label"))).toContain("Tulot tässä kuussa 4 120 €");
+    fireEvent.click(door);
+    expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.–11.11.");
   });
 
-  // the payments read 0,00 € while a loan left another account before the payday, and only Laskut said so
-  it("what an account outside the balance pays before the payday is a line under the sum row, opening Laskut", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0, 42182), ahead: aheadOf(1), scope: "own" }));
-    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
-    const line = container.querySelector(".home-elsewhere a");
-    expect(flat(line?.textContent)).toBe("Lisäksi 421,82 € tileiltä, joita saldo ei laske.");
-    expect(line?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
-    expect(render(createElement(Answer, { nyt: nytOf(true, 0, 0), ahead: aheadOf(1), scope: "own" })).container.querySelector(".home-elsewhere")).toBeNull();
+  it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
+    const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, usualCents: null }, net: null } } as never);
+    const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
+    expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa" });
+    expect(spent!.line).toBe("Vertailu näkyy, kun takana on kolme päättynyttä kuukautta");
+    expect(income!.line).toBe(spent!.line);
+    expect(net!.line).toBeNull();
   });
 
-  // the payments read 0,00 € weeks before the payday, as every bill fell on the payday itself, and nothing said why
-  it("what the counted accounts pay on the payday itself is a line under the sum row, opening Laskut", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0, 0, 123456), ahead: aheadOf(1), scope: "own" }));
-    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
-    const line = container.querySelector(".home-elsewhere a");
-    expect(flat(line?.textContent)).toBe("Palkkapäivänä lähtee laskuja 1 234,56 €.");
-    expect(line?.getAttribute("href")).toBe("#/bills");
+  // 1.0.0 showed the sum left as a plain figure when the bills took more than the balance
+  it("less left than the bills take is the tile's problem colour", () => {
+    const d = data();
+    const { container } = render(createElement(Tiles, { data: { ...d, nyt: nytOf(true, 600000) }, scope: "own" }));
+    expect(container.querySelector("[data-tile=left] .home-tile")?.classList.contains("home-short")).toBe(true);
+    expect(flat(container.querySelector("[data-tile=left] .fig")?.textContent)).toBe("−1 000 €");
   });
 
-  // 1.0.0 printed "−0,00 €" when nothing was due before the payday
-  it("payments of nothing have no minus sign", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(true, 0), ahead: aheadOf(1), scope: "own" }));
-    expect([...container.querySelectorAll(".home-sum-row dd")].map((e) => flat(e.textContent))).toEqual(["5 000,00 €", "0,00 €", "5 000,00 €"]);
+  // the net figure holds no debt for a loan with no saved balance: the label said nothing of it
+  it("the net tile's label names the loans its figure lacks, as Tilit ja saldot does", () => {
+    const holdings = { accounts: [], cards: [], loans: [{ leftCents: 60000 }], accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } };
+    expect(tilesIn(data({ holdings } as never))[3]!.label).toBe("Varat velkojen jälkeen (ilman 1 lainaa)");
   });
 
-  it("without a known sum the answer says why and draws no sum row", () => {
-    const { container } = render(createElement(Answer, { nyt: nytOf(false), ahead: null, scope: "own" }));
-    expect(container.querySelector(".home-sum-row")).toBeNull();
-    expect(container.querySelector(".home-answer-line")?.textContent).not.toBe("");
+  // the notice of the payday's bills stood under the answer; it is no line of the page any more
+  it("no tile tells the payday's own bills", () => {
+    const { container } = render(createElement(Tiles, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) }, scope: "own" }));
+    expect(container.textContent).not.toMatch(/Palkkapäivänä lähtee/);
   });
 
   it("the month's line opens the month's rows and says which side of the usual it is on, with the usual sum and its range", () => {
@@ -131,22 +135,6 @@ describe("Yhteenveto", () => {
     expect(container.querySelector(".pace-prev")).toBeNull();
   });
 
-  // 1.0.0 said nothing needed the household while the header counted dozens of open questions
-  it("Huomioitavaa names the first items that need the household in the queue's order and counts them all", () => {
-    const item = (id: string, merchant: string, cents: number): ReviewItem => ({ kind: "bill", id, cents, merchant, seriesId: id, subject: `series:${id}`, comingSubject: `coming:${id}`, dueDate: "2026-11-01" });
-    const items = [item("a", "Laskuttaja A", 90000), item("b", "Laskuttaja B", 50000), item("c", "Laskuttaja C", 30000), item("d", "Laskuttaja D", 1000)];
-    const { container } = render(createElement(Notable, notableOf(items)));
-    expect([...container.querySelectorAll(".home-note-title")].map((e) => e.textContent)).toEqual(["Laskuttaja A", "Laskuttaja B", "Laskuttaja C"]);
-    expect(flat(container.querySelector(".home-note-effect")?.textContent)).toContain("900,00 €");
-    expect([...container.querySelectorAll(".home-note")].map((a) => a.getAttribute("href"))).toEqual(["#/review?item=a", "#/review?item=b", "#/review?item=c"]);
-    expect(container.querySelector(".home-more a")?.getAttribute("href")).toBe("#/review");
-    expect(flat(container.querySelector(".home-more")?.textContent)).toBe("Kaikki 4 tarkistettavaa");
-  });
-
-  it("with no open question Huomioitavaa is not drawn", () => {
-    expect(render(createElement(Notable, notableOf([]))).container.innerHTML).toBe("");
-  });
-
   it("a category bar opens the category's rows of the month and names its change in words", () => {
     const { container } = render(createElement(Where, { data: data({ top: TOP }) }));
     const rows = [...container.querySelectorAll("a.where-row")];
@@ -157,48 +145,5 @@ describe("Yhteenveto", () => {
     expect(rows.map((a) => a.querySelectorAll(".where-mark").length)).toEqual([1, 0]);
     expect((rows[0]!.querySelector(".where-mark") as HTMLElement).style.getPropertyValue("inset-inline-start")).toBe("100%");
     expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("3 muuta kategoriaa 71 €.");
-  });
-
-  it("Varat ja velat leads with what is left after the debts, and the accounts and the debts open their rows", () => {
-    const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000 } as DashboardData["holdings"];
-    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
-    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Varat velkojen jälkeen", "Säästö- ja käyttötilien saldo", "Velat", "Puskuri", "Tavalliset menot"]);
-    expect(flat(container.querySelector(".home-row-lead dd")?.textContent)).toBe("12 400 €");
-    expect([...container.querySelectorAll(".home-row dd > a")].map((a) => a.getAttribute("href"))).toEqual(["#/reports?q=saldot", "#/reports?q=velat"]);
-  });
-
-  // 1.2.0 showed the mean of twelve whole months, one-offs and all, beside the month: a second spending figure
-  it("the usual spending is the expected month the buffer divides by, names its months and opens them", () => {
-    const holdings = { accountsCents: 1300000, debtCents: 0, netCents: 1300000 } as DashboardData["holdings"];
-    stubApi({ "GET /api/explain": { figure: "expected.spend", kind: "median", cents: 322300, lines: [], rows: [], check: { kind: "recompute", diffCents: 0 } } });
-    const { container } = render(createElement(Direction, { holdings, direction: { ...DIRECTION, months: 5 }, today: "2026-11-11", scope: "own" }));
-    const row = container.querySelector(".home-row:last-child")!;
-    expect(row.querySelector("dt")?.textContent).toBe("Tavalliset menot");
-    expect(flat(row.querySelector("small")?.textContent)).toBe("Viime 5 kuukauden keskiarvo ilman kertaostoja. Kolmen viime kuukauden menot ovat ennallaan.");
-    // the row's figure and the buffer's divisor are one number
-    expect(flat(row.querySelector("button.why-door")?.textContent)).toBe("3 223 €");
-    expect(flat(container.textContent)).toContain("jaettuna tavallisilla menoilla 3 223 €/kk");
-    const door = row.querySelector<HTMLButtonElement>("button.why-door");
-    expect(flat(door?.getAttribute("aria-label"))).toBe("Näytä tapahtumat: Tavalliset menot 3 223 €");
-    fireEvent.click(door!);
-    expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.–30.11.");
-  });
-
-  // 1.0.0 took a loan with no saved balance for no debt, so the net figure was too large
-  it("a loan without a saved balance takes the net figure away and is named with the way to save it", () => {
-    const holdings = { accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } } as DashboardData["holdings"];
-    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
-    expect(container.querySelector(".home-row-lead")).toBeNull();
-    // the label says the sum lacks the loan, not only the small print
-    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toContain("Velat ilman yhden lainan saldoa");
-    expect(container.querySelector(".home-rows")?.textContent).toContain("Saldo puuttuu: Rahoitus Oy.");
-    expect(container.querySelector(".home-row small a")?.getAttribute("href")).toBe("#/review");
-  });
-
-  it("the debts' label counts the loans its sum lacks", () => {
-    const holdings = { accountsCents: 1300000, debtCents: 27800, netCents: 1272200, unsavedLoans: { count: 3, names: ["Laina A", "Laina B", "Laina C"], paymentCents: 60000 } } as DashboardData["holdings"];
-    const { container } = render(createElement(Direction, { holdings, direction: DIRECTION, today: "2026-11-11", scope: "own" }));
-    expect([...container.querySelectorAll(".home-row dt")].map((e) => e.textContent)).toEqual(["Säästö- ja käyttötilien saldo", "Velat ilman 3 lainan saldoa", "Puskuri", "Tavalliset menot"]);
-    expect(flat(container.querySelector(".home-row small")?.textContent)).toBe("Saldo puuttuu: Laina A, Laina B, Laina C. Lisää saldo");
   });
 });

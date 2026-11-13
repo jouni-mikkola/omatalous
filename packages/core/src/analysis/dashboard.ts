@@ -18,6 +18,7 @@ import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type NytAnswer, nytAnswer } from "./nyt.ts";
 import { buildHome, type Home } from "../home.ts";
+import { buildOverview, type Overview } from "../overview.ts";
 import { type SpendingGoal, spendingGoal } from "./spending-goal.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { buildQuestions, type Questions, withoutRowIds } from "./questions.ts";
@@ -83,6 +84,8 @@ export interface DashboardData {
   insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
+  /** The tiles' figures no other field gives: the month's income against the usual, and the month's change of `holdings.netCents`. */
+  overview: Overview;
   /** How much of the last 365 days' money is classified, and the payees and loan payments that would mend it most. */
   questions: Questions;
 }
@@ -180,6 +183,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     insights,
     home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, proposals),
+    overview: buildOverview(ctx, balances, inputs),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),
   };
 }

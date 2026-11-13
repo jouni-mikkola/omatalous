@@ -19,43 +19,34 @@ one sum: what is left until payday after the bills due before it. No peer has pa
 Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. Tarkistettavat is the header's link.
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
-- Answer: one sum, "Palkkapäivään 25.11. jää 4 424 €", after the bills due before payday.
-- Comparison: that sum per day left ("277 € päivässä, 16 päivää") against what everyday spending usually takes per day,
-  and one line of pace: spent so far this month against the usual band to the same day (the chart of today's Kuukausi
-  section, which `docs/audit/simplify.md` names as the good one).
-- Action: the sum opens the balance and the bills behind it; the pace line opens this month's rows.
-- Layout: one block first, the answer and under it the sum row that makes it (balance, payments before payday, what
-  is left, to the cent), with a line each for what an account outside the balance pays before payday and for the bills
-  of the payday itself. Under it Kuukausi on the left, Huomioitavaa and Suurimmat menot on the
-  right, Varat ja velat across the page. A phone reads them in that order in one column.
-  - Kuukausi: one sentence with the side of the usual the spending is on, the usual sum and its range, and the pace
-    chart of the same figures. The month before is drawn only when the household has no usual level yet. The chart
-    marks one pay day under its axis and has a key only with a second series. The days as a table are on the month's
-    report, one link away.
-  - Huomioitavaa: the first three items of Tarkistettavat that need the household (a bill that did not come, a loan
-    with nothing saved, a price that rose, a bank connection that ends), in the queue's order, each with its sum, and
-    the count of all. A question that only sorts money (a payee, a payer) is not shown here. A row opens
-    Tarkistettavat at its item. It asks nothing itself and is not drawn when no such item is open.
-  - Suurimmat menot: the five largest categories as bars on one scale, last month's sum to the same day as a mark on
-    each bar and the difference in words. A bar opens the category's rows.
-  - Varat ja velat: what is left after the debts, the accounts' balance, the debts, the buffer in months and the
-    12-month average spending, the first two parts links to their rows. A loan with no saved balance takes the net
-    figure away and is named with the way to save it.
-- Not shown: account cards, card faces, credit arcs, goals.
+Direction, 11.11.2026 (the owner's): an overview on one screen at 1440 px, every figure one click from its rows.
+- Tiles: four across the page, two by two on a phone (as drawn below). Each has a label, one figure, one line that compares it and a
+  link to its rows.
+  - Käytettävissä palkkapäivään: what is left after the bills before payday (`nyt.left`), the sum a day and the payday.
+    Opens Laskut at the bills before payday.
+  - Menot tässä kuussa: spent so far against the usual level to the same day (`home.pace`), else last month to the same
+    day. Opens the month's rows.
+  - Tulot tässä kuussa: the month's earned income against the usual month's (`overview.income`). Opens its rows in the
+    Miksi? panel, as Tapahtumat's income takes in refunds too.
+  - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
+    month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
+- Under the tiles Kuukausi on the left and Suurimmat menot on the right, then Varat ja velat across the page: the block
+  of Raportit > Tilit ja saldot, each name opening its rows. A phone reads them in that order in one column.
+- Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
+  header's link), explaining sentences, goals.
 ```
- Palkkapäivään 25.11. jää   4 424 €          Käyttötilin saldo            7 198,65 €
- 277 € päivässä, tavallisesti 65 €           Maksut ennen palkkapäivää   −2 774,52 €
-                                             Jää                          4 424,13 €
+ Käytettävissä palkkapäivään                 Menot tässä kuussa
+ 4 424 €                                     2 018 €
+ 277 € päivässä, palkkapäivä 25.11.          90 € yli tavallisen tähän päivään
+ Tulot tässä kuussa                          Varat velkojen jälkeen
+ 3 900 €                                     12 400 €
+ Tavallisesti 3 900 € kuussa                 345 € enemmän kuin 9.10.
 
- Kuukausi                                    Huomioitavaa
- Käytetty 2 018 €, 90 € yli tavallisen.      Laina  Rahoitus Oy      289,00 € kuussa
- ▁▂▃▅▆ ─ ─                                   Kaikki 9 tarkistettavaa
-                                             Suurimmat menot
-                                             Ruokakauppa                      612 €
+ Kuukausi                                    Suurimmat menot
+ ▁▂▃▅▆ ─ ─                                   Ruokakauppa                      612 €
                                              ████████|██  140 € enemmän kuin viime kuussa
-
  Varat ja velat
- Varat velkojen jälkeen   Tilien saldo   Velat   Puskuri   Tavalliset menot
+ Tilit            Lainat            Kortit
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?

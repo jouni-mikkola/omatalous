@@ -116,7 +116,7 @@ test("the period of Raportit and the order of a table are in the address and sta
   await context.close();
 });
 
-test("Yhteenveto reads the count and the queue its Huomioitavaa is the head of, no other page reads the queue; the mark says what the title of Tarkistettavat says", async ({ browser }) => {
+test("every page reads the count and none but Tarkistettavat the queue; the mark says what the title of Tarkistettavat says", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const called: string[] = [];
@@ -134,10 +134,7 @@ test("Yhteenveto reads the count and the queue its Huomioitavaa is the head of, 
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole("region", { name: "Kuukausi", exact: true })).toBeVisible({ timeout: 15_000 });
   expect(called, "Yhteenveto reads the count").toContain("/api/review/count");
-  // Huomioitavaa lists the first open questions, so the first page reads the queue too
-  await expect.poll(() => called.includes("/api/review"), "and the queue").toBe(true);
   await page.waitForLoadState("networkidle");
-  called.length = 0;
   for (const address of ["bills", "transactions", "reports", "settings"]) {
     await page.goto(`/#/${address}`);
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
@@ -163,8 +160,8 @@ test("with questions open the mark in the header and the number on Tarkistettava
   await page.goto("/#/overview");
   const mark = page.locator(".review-link .nav-count");
   await expect(mark).toHaveText("3 avoinna");
-  // the first page reads the count for the mark and the queue for Huomioitavaa
-  await expect.poll(() => [...new Set(called)].sort()).toEqual(["count", "queue"]);
+  // the first page reads the count for the mark, and no question stands on it
+  await expect.poll(() => [...new Set(called)].sort()).toEqual(["count"]);
   await page.getByRole("link", { name: /^Tarkistettavat/ }).click();
   await expect(mark).toHaveText("3 avoinna");
   // the heading and the tab title say the same number: badge, title, heading and queue are one count

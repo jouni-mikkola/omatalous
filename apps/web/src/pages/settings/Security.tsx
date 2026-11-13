@@ -279,7 +279,7 @@ export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username
 
 /**
  * The list of logins, lockouts, key changes and maintenance requests of the last 90 days: an admin's of everyone, a
- * member's of their own. Opening it marks the notices of the events so far seen, so Yhteenveto's line of them goes.
+ * member's of their own. Opening it marks the notices of the events so far seen, so the dot on the user menu goes.
  */
 export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => void }) {
   const [kind, setKind] = useState("");

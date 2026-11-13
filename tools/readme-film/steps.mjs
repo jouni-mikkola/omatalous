@@ -268,7 +268,7 @@ async function desk(/** @type {Film} */ film) {
   await film.say("A new install is empty. The example data stands in for a bank.");
   await film.read();
   await film.click(load);
-  await page.getByRole("heading", { name: /^Palkkapäivään/ }).waitFor({ state: "visible", timeout: 30_000 });
+  await page.locator(".home-tiles").waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
   // the first page has its figures now; the pointer leaves it for Tapahtumat without opening the chart's readout
   await film.say("The example data is loaded.");
@@ -318,20 +318,16 @@ async function desk(/** @type {Film} */ film) {
   await film.read();
   film.marks = [];
 
-  // 4. Yhteenveto: the balance less the bills before payday
+  // 4. Yhteenveto: what is left until payday after the bills before it
   await film.click(tab(page, "Yhteenveto"));
-  const answer = page.locator(".home-answer");
+  const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible" });
-  const figure = async (/** @type {string} */ term) => plain(await answer.locator("dl > div").filter({ has: page.locator("dt", { hasText: term }) }).locator("dd").textContent());
-  const balance = await figure("Käyttötilin saldo");
-  const bills = await figure("Maksut ennen palkkapäivää");
-  const left = await figure("Jää");
-  const payday = /Palkkapäivään (\d{1,2}\.\d{1,2}\.) jää/.exec(plain(await answer.locator("h2").textContent()))?.[1];
+  const left = plain(await answer.locator(".fig").textContent());
+  const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-tile-line").textContent()))?.[1];
   if (!payday) throw new Error("Yhteenveto names no payday");
-  if (cents(balance) + cents(bills) !== cents(left)) throw new Error(`Yhteenveto: ${balance} and ${bills} do not make ${left}`);
-  film.marks = [await film.box(answer.locator("dl"))];
-  await film.say(`Yhteenveto: balance ${euros(cents(balance))} less ${euros(-cents(bills))} of bills leaves ${euros(cents(left))} until payday, ${englishDate(payday)}.`);
-  await film.glide(film.beside(await film.box(answer.locator("dd").first())));
+  film.marks = [await film.box(answer)];
+  await film.say(`Yhteenveto: ${euros(cents(left))} is left until payday, ${englishDate(payday)}, after the bills before it.`);
+  await film.glide(film.beside(await film.box(answer.locator(".fig"))));
   await film.read({ poster: true });
 
   // 5. from the figure to the bills behind it
@@ -345,7 +341,7 @@ async function desk(/** @type {Film} */ film) {
   if (!due.length) throw new Error("Laskut has no bill before payday today: the film needs at least one");
   const total = list.locator('.bp-row[data-kind="total"]');
   const totalCents = cents(plain(await total.textContent()));
-  if (due.reduce((s, b) => s + b.sum, 0) !== totalCents || totalCents !== -cents(bills)) throw new Error(`Laskut: the bills before payday do not add up to ${bills}`);
+  if (due.reduce((s, b) => s + b.sum, 0) !== totalCents) throw new Error(`Laskut: the bills before payday do not add up to ${totalCents}`);
   film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
   // two bills are named; more would make the caption too long to read, and one bill's sum is the figure already said
   const one = due.length === 1 && due[0];
@@ -401,7 +397,7 @@ async function desk(/** @type {Film} */ film) {
 async function phone(/** @type {Film} */ film) {
   const { page } = film;
   await page.setViewportSize({ width: PHONE.width, height: PHONE.height });
-  const answer = page.locator(".home-answer");
+  const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
   await film.say("The same pages on a phone, with the tabs at the bottom.");

@@ -5,7 +5,7 @@ import { answerMoney } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Button } from "../ui/Button.tsx";
-import { reportHref } from "./Answer.tsx";
+import { reportHref } from "./Tiles.tsx";
 
 type Top = DashboardData["top"]["rows"][number];
 

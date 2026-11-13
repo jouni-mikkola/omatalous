@@ -2,13 +2,13 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// Nyt on a phone, at 320, 360 and 390 px wide: the answer, its lines under each other, and the chart of the month. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
+// Yhteenveto on a phone, at 320, 360 and 390 px wide: the tiles two by two, the month's line and its chart under them. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(page.locator(".home-answer-line")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   return page;
 }
@@ -31,12 +31,12 @@ const small = (list: Locator): Promise<string[]> =>
   );
 
 for (const width of [320, 360, 390]) {
-  test(`${width} px: the lines stand under each other inside the screen, the sum fits, nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the blocks stand under each other inside the screen, the figures fit, nothing scrolls sideways`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 }, isMobile: true, hasTouch: true });
     const page = await open(context);
     const seen = watch(page);
     // the lines of the one block in one column: none is beside another
-    const blocks = page.locator(".home-answer-line, .home-per-day, .home-sum-row, .home-pace-line, .pace-chart");
+    const blocks = page.locator(".home-tiles, .home-pace-line, .pace-chart");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -45,9 +45,9 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-answer-line, .home-per-day, .home-pace-line, .home-sum-row dd")), "text cut").toEqual([]);
-    // the sum of the answer is inside the screen
-    for (const cell of await page.locator(".home-answer-line .fig").all()) {
+    expect(await cut(page.locator(".home-tile-label, .home-tile .fig, .home-tile-line, .home-pace-line")), "text cut").toEqual([]);
+    // the figure of every tile is inside the screen
+    for (const cell of await page.locator(".home-tile .fig").all()) {
       const box = (await cell.boundingBox())!;
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);

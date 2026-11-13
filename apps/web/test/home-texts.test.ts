@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 /** The page writes sums with a no-break space; the tests read them with a plain one. */
 const plain = (text: string): string => text.replace(/[\u00a0\u202f]/g, " ");
 
-import { answerText, bufferBasisText, bufferText, directionText, aboutSum, euroRange, monthLine, paceHeadline, paceRangeText, questionText, type PaceData, type RunwayData } from "../src/components/home/texts.ts";
+import { answerText, aboutSum, euroRange, monthLine, paceHeadline, paceRangeText, questionText, type PaceData, type RunwayData } from "../src/components/home/texts.ts";
 
 const pace = (over: Partial<PaceData> = {}): PaceData => ({ month: "2026-10", day: 25, daysInMonth: 31, spentCents: 282_462, expectedCents: 307_800, diffCents: -25_338, lowCents: 270_000, highCents: 326_000, position: "within", end: null, months: 3, ...over });
 const runway = (over: Partial<RunwayData> = {}): RunwayData => ({
@@ -78,17 +78,5 @@ describe("the month", () => {
   it("is the line under the heading with the month, its day and the last fetch", () => {
     expect(monthLine("2026-10", pace(), "tänään 6.02")).toBe("Lokakuu 2026 · päivä 25/31 · päivitetty tänään 6.02");
     expect(monthLine("2026-10", null, null)).toBe("Lokakuu 2026");
-  });
-});
-
-describe("the direction", () => {
-  it("tells the buffer in months and the direction with the months it compares", () => {
-    expect(bufferText(4.47)).toBe("4,5 kuukautta");
-    expect(bufferText(1)).toBe("1 kuukausi");
-    expect(directionText({ usualCents: 300_000, months: 6, recentChangeCents: 20_000, direction: "up", bufferMonths: 4, bufferNetCents: 1_200_000, bufferSpendCents: 300_000 })).toBe("Kolmen viime kuukauden menot ovat nousussa.");
-    const basis = { usualCents: 340_300, months: 6, recentChangeCents: 0, direction: "flat" as const, bufferMonths: 3.9, bufferNetCents: 1_341_400, bufferSpendCents: 340_300 };
-    expect(bufferBasisText(basis)?.replace(/\s/g, " ")).toBe("13 414 € jaettuna tavallisilla menoilla 3 403 €/kk");
-    expect(bufferBasisText({ ...basis, bufferMonths: null, bufferNetCents: null, bufferSpendCents: null })).toBeNull();
-    expect(directionText({ usualCents: null, months: 0, recentChangeCents: null, direction: null, bufferMonths: null, bufferNetCents: null, bufferSpendCents: null })).toBeNull();
   });
 });

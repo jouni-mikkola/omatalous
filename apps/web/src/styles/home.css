@@ -1,66 +1,42 @@
-/* Yhteenveto: the answer with the sum row that makes it under it, the month's pace, what to check and where the money went, and
-   what the household has and owes. Sections are told apart by a heading and a hairline (the `.card` rule), so nothing
-   here has a box. A block keeps its place from the first frame: the loading frame uses the same classes, so the page
+/* Yhteenveto: the four tiles, the month's pace with the largest categories beside it, and the accounts, cards and loans.
+   Sections are told apart by a heading and a hairline (the `.card` rule), so nothing here has a box. A block keeps its place from the first frame: the loading frame uses the same classes, so the page
    does not move when the answer lands. */
 
 @layer pages {
-.home-answer { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); padding: var(--sp-8) 0 var(--sp-16); min-block-size: calc(var(--row-h-roomy) * 3); }
-.home-answer-main { display: grid; gap: var(--sp-8); align-content: start; }
-/* the sum right after the words, the answer of the question on one line; on a narrow screen it wraps under the words */
-.home-answer-line { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: baseline; gap: var(--sp-4) var(--sp-16); margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); color: var(--text); }
-.home-answer-line .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); white-space: nowrap; }
+/* four figures across the page, two by two on a phone: a label, the figure and one line, the whole tile a link to the rows behind it */
+.home-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; border-block: var(--hairline) solid var(--border); }
+.home-tiles > li { display: grid; min-inline-size: 0; border-inline-start: var(--hairline) solid var(--border); }
+.home-tiles > li:first-child { border-inline-start: 0; }
+.home-tile { display: grid; align-content: start; justify-items: start; gap: var(--sp-4); padding: var(--sp-16); color: var(--text); text-decoration: none; text-align: start; inline-size: 100%; }
+/* the tile that opens its rows' panel is a button: it looks as the links beside it */
+.home-tile.why-fig, .home-tile.why-fig:hover { border-radius: 0; text-decoration: none; }
+.home-tiles > li:first-child .home-tile { padding-inline-start: 0; }
+.home-tile:hover { background: var(--surface-2); }
+.home-tile:hover .home-tile-label { text-decoration: underline; }
+.home-tile-label { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.home-tile .fig-l { font-weight: var(--w-strong); white-space: nowrap; }
+.home-tile-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .home-short .fig { color: var(--bad); }
+/* a phone: two by two, a rule between the rows, the figure a step smaller so a sum of six digits fits half the width */
+@media (max-width: 40rem) {
+  .home-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .home-tiles > li:nth-child(odd) { border-inline-start: 0; }
+  .home-tiles > li:nth-child(odd) .home-tile { padding-inline-start: 0; }
+  .home-tiles > li:nth-child(n + 3) { border-block-start: var(--hairline) solid var(--border); }
+  .home-tile { padding: var(--sp-8); }
+  .home-tile .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+}
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
 
-/* balance less payments is what is left: three figures on one line, ruled by hairlines */
-.home-sum-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border-block: var(--hairline) solid var(--border); }
-.home-sum-row > div { display: grid; gap: var(--sp-4); align-content: space-between; padding: var(--sp-8) var(--sp-16); border-inline-start: var(--hairline) solid var(--border); }
-.home-sum-row > div:first-child { border-inline-start: 0; padding-inline-start: 0; }
-.home-sum-row dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-sum-row dd { margin: 0; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); white-space: nowrap; }
-.home-sum-row a, .home-rows dd > a { color: inherit; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: var(--sp-4); }
-.home-sum-row a:hover, .home-rows dd > a:hover { text-decoration-color: var(--text); }
-
-/* the basis under the answer: three figures on one line, as wide as they need on a wide screen */
-@media (min-width: 1040px) {
-  .home-sum-row { max-inline-size: 44rem; }
-}
-/* a phone: the three figures share the line, so the figures are smaller and the padding tighter */
-@media (max-width: 40rem) {
-  .home-sum-row > div { padding-inline: var(--sp-8); }
-  .home-sum-row dd { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
-}
-/* what the sum leaves out (an account outside the balance, the payday's own bills): a line under the sum row, the size of its labels */
-.home-elsewhere { font-size: var(--fs-label); line-height: var(--lh-label); }
-
-/* wide: the month's pace stands on the left, what to check and the categories on the right, the figures across the page below; the order in the source is the order a narrow screen reads */
+/* wide: the month's pace stands on the left, the categories on the right, the accounts across the page below; the order in the source is the order a narrow screen reads */
 .home-side { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; }
 @media (min-width: 1040px) {
   .front > .home-pace { grid-column: 1 / 8; }
   .front > .home-side { grid-column: 8 / -1; }
-  .front > .home-direction { grid-column: 1 / -1; }
-  /* across the page the figures stand side by side, name over figure, so the block is one row high */
-  .home-direction .home-rows { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); column-gap: var(--sp-24); border-block-end: var(--hairline) solid var(--grid); }
-  .home-direction .home-row { display: grid; align-content: start; gap: var(--sp-4); border-block-end: 0; }
-  .home-direction .home-row dd { text-align: start; }
-  /* the link to the accounts stands on the heading's line */
-  .front > .home-direction { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; }
-  .home-direction .home-rows { grid-column: 1 / -1; grid-row: 2; }
-  .home-direction .home-more { grid-column: 2; grid-row: 1; margin: 0; }
 }
 .home-pace .pace-chart { margin-block-start: var(--sp-8); }
 .home-pace-line { margin-block-start: var(--sp-4); }
 .home-more { margin: var(--sp-8) 0 0; }
-
-/* what to check: what it is about on the left, its sum on the right; the whole row opens Tarkistettavat */
-.home-notes { margin: var(--sp-8) 0 0; padding: 0; list-style: none; }
-.home-note { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); color: var(--text); text-decoration: none; }
-.home-note:hover .home-note-title { text-decoration: underline; }
-.home-note-text { display: grid; min-inline-size: 0; }
-.home-note-kind { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-note-title { font-weight: var(--w-strong); overflow-wrap: anywhere; }
-.home-note-effect { white-space: nowrap; font-weight: var(--w-strong); }
-.home-note-effect small { font-weight: var(--w-regular); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 
 /* the largest categories: name and sum on a line, under them the bar on the scale the rows share and the change in words */
 .where-list { margin: var(--sp-8) 0 0; padding: 0; list-style: none; display: grid; }
@@ -77,14 +53,6 @@
 .where-change.more { color: var(--text); font-weight: var(--w-strong); }
 .where-foot { margin-block-start: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); }
 
-/* what the household has and owes: name and figure on a line */
-.home-rows { margin: var(--sp-8) 0 0; }
-.home-row { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
-.home-row dt { color: var(--text-2); }
-.home-row dd { margin: 0; text-align: end; font-weight: var(--w-strong); }
-.home-row dd small { display: block; font-weight: var(--w-regular); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-row-lead dt { color: var(--text); }
-
 /* the first fetch of a new bank */
 .first-fetch p { margin: 0; color: var(--text-2); }
 .first-fetch-list { margin: var(--sp-8) 0 0; padding: 0; list-style: none; display: grid; gap: var(--sp-4); font-size: var(--fs-body); color: var(--text); }
@@ -92,10 +60,9 @@
 /* the loading frame: the same blocks, grey bars where the text will stand */
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
-.home-skeleton .sk-answer { inline-size: min(28rem, 100%); block-size: var(--lh-fig-l); }
-.home-skeleton .sk-sum { block-size: calc(var(--row-h-roomy) * 3); }
+.home-skeleton .sk-tiles { block-size: calc(var(--row-h-roomy) * 3); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .sk-chart { block-size: calc(var(--row-h-roomy) * 11); }
 .home-skeleton .sk-rows { block-size: calc(var(--row-h-roomy) * 9); }
-.home-skeleton .sk-figures { block-size: calc(var(--row-h-roomy) * 2); }
+.home-skeleton .sk-holdings { block-size: calc(var(--row-h-roomy) * 8); }
 }

@@ -57,7 +57,7 @@ const PAGE_FIELDS = {
   bills: {},
   transactions: TRANSACTIONS,
   reports: REPORTS,
-  /** `item`: the id of the item a row of Huomioitavaa opened, asked first. */
+  /** `item`: the id of the item a link opened, asked first. */
   review: { item: text },
   more: {},
   settings: SETTINGS,

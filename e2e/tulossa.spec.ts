@@ -16,7 +16,7 @@ const CENTS = 4_321;
 interface Dashboard {
   ahead: { from: string; to: string };
   home: { runway: { sum: { paymentsCents: number; freeCents: number } } };
-  nyt: { left: { billsCents: number } };
+  nyt: { left: { billsCents: number; leftCents: number } };
 }
 const dashboardOf = async (context: BrowserContext): Promise<Dashboard> => (await context.request.get("/api/dashboard")).json();
 
@@ -118,23 +118,23 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
   }
 });
 
-/** The payments of Nyt's sum row as the page shows them. */
-async function paymentsOnNyt(context: BrowserContext): Promise<number> {
+/** What is left before payday on Yhteenveto's first tile, in whole euros as the page shows it. */
+async function leftOnNyt(context: BrowserContext): Promise<number> {
   const page = await context.newPage();
   await page.goto("/#/overview");
-  // balance, payments, what is left: the second sum of the row
-  const line = (await page.locator(".home-sum-row").innerText()).replace(/[\s\u00a0\u202f]+/g, " ");
-  const shown = Math.abs(cents(line.match(/\d[\d ]*(?:,\d+)?\s?€/g)![1]!));
+  const shown = cents(await page.locator("[data-tile=left] .fig").innerText());
   await page.close();
   return shown;
 }
+
+const whole = (c: number) => Math.round(c / 100) * 100;
 
 test("a missing bill added by hand on Tulossa is a row of the list and is in the Nyt sum", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   const before = await dashboardOf(context);
-  expect(await paymentsOnNyt(context)).toBe(before.nyt.left.billsCents);
+  expect(await leftOnNyt(context)).toBe(whole(before.nyt.left.leftCents));
   // a day of the window Nyt counts: tomorrow when the window reaches it
   const tomorrow = new Date(Date.parse(before.ahead.from) + 86_400_000).toISOString().slice(0, 10);
   const due = tomorrow <= before.ahead.to ? tomorrow : before.ahead.from;
@@ -161,7 +161,7 @@ test("a missing bill added by hand on Tulossa is a row of the list and is in the
     const after = await dashboardOf(context);
     expect(after.home.runway.sum.paymentsCents).toBe(before.home.runway.sum.paymentsCents + CENTS);
     expect(after.home.runway.sum.freeCents).toBe(before.home.runway.sum.freeCents - CENTS);
-    expect(await paymentsOnNyt(context)).toBe(after.nyt.left.billsCents);
+    expect(await leftOnNyt(context)).toBe(whole(after.nyt.left.leftCents));
     expect(after.nyt.left.billsCents).toBe(before.nyt.left.billsCents + CENTS);
     expect(seen.problems).toEqual([]);
   } finally {

@@ -82,7 +82,7 @@ test(`from an empty install to a picture in at most ${MAX_MINUTES} minutes, with
     await expect(page.getByRole("navigation").getByText("Yhteenveto").first()).toBeVisible();
     await expect(page.getByText("Ei vielä tietoja")).toHaveCount(0);
     // the front page itself, not the skeleton it shows while the dashboard answer is on its way
-    await expect(page.locator(".page-grid.front:not(.home-skeleton) .home-answer")).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator(".page-grid.front:not(.home-skeleton) .home-tiles")).toBeVisible({ timeout: 60_000 });
     await expect(page.locator(".home-skeleton")).toHaveCount(0);
     step("picture drawn");
 
