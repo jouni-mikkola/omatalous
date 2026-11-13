@@ -119,12 +119,14 @@ function targetOfCard(anchor: string | undefined): SettingsTarget | undefined {
 
 /**
  * The route as the role may open it: an admin's target is the first target for a member, and its cards are not there to
- * name. The add-on target that is not offered opens the add-on's card on Palvelin ja ylläpito for an admin.
+ * name. The add-on target that is not offered opens the add-on's card on Palvelin ja ylläpito for an admin. The
+ * add-on's card is an admin's on any target, so a member's address keeps its target and drops that anchor.
  */
 function opened(route: Route, role: "admin" | "member"): Route {
   if (route.page === ADD_ON_PAGE && !addOnTargetOffered(role)) {
     return role === "admin" ? { page: "settings/server", params: route.params, anchor: SETTINGS_ANCHOR.addOn } : { page: `settings/${FIRST_TARGET}`, params: route.params };
   }
+  if (role === "member" && route.anchor === SETTINGS_ANCHOR.addOn) return opened({ page: route.page, params: route.params }, role);
   if (role === "admin" || !ADMIN_ONLY_PAGES.includes(route.page)) return route;
   return { page: `settings/${FIRST_TARGET}`, params: route.params };
 }

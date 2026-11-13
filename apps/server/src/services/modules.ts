@@ -1,5 +1,5 @@
 /**
- * Asetukset > Palvelin > Lisäosa: the add-on code, its check and its removal (docs/MODULES.md).
+ * The Lisäosa card of Asetukset: the add-on code, its check and its removal (docs/MODULES.md).
  *
  * Decision: the owner connects or removes the household's add-on module with one code. The code is sealed under its own
  * context and never returned, logged, put in an event or exported; what the admin sees is the status line. A check

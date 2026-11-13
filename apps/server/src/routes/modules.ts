@@ -1,5 +1,5 @@
 /**
- * Asetukset > Palvelin > Lisäosa (services/modules.ts, docs/MODULES.md). Admin only. The code goes in and never comes out;
+ * The Lisäosa card of Asetukset (services/modules.ts, docs/MODULES.md). Admin only. The code goes in and never comes out;
  * every change asks for the admin's password, under the limiter of the other owner routes.
  */
 import { Hono } from "hono";

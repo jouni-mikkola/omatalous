@@ -52,6 +52,8 @@ describe("Asetukset with an add-on module that has a settings card", () => {
     WEB_EXTENSIONS.push(withCard);
     for (const role of ["admin", "member"] as const) expect(lands("#/settings/household#esimerkki", role)).toBe("#/settings/addon#esimerkki");
     expect(lands("#/settings/server#lisaosa", "admin")).toBe("#/settings/addon#lisaosa");
+    // the code card is an admin's: a member gets the tab without an anchor to a card that is not there
+    expect(lands("#/settings/server#lisaosa", "member")).toBe("#/settings/addon");
   });
 });
 

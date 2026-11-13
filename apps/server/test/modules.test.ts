@@ -329,8 +329,8 @@ describe("the code in Asetukset, then a start", () => {
       expect(text).not.toContain(REPO);
     }
 
-    // removal deletes the files; the running process keeps the module until a restart
-    const removed = await first.admin.call("DELETE", "/api/modules/code", { password: PASSWORD });
+    // removal deletes the files; the running process keeps the module until a restart, and its line says none
+    const removed = await second.admin.call("DELETE", "/api/modules/code", { password: PASSWORD });
     expect(removed.body).toEqual({ state: "none" });
     expect(existsSync(root)).toBe(false);
     expect(await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION })).toEqual({ state: "none" });
