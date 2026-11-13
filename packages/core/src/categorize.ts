@@ -529,14 +529,16 @@ function fieldText(input: CategorizeInput, field: RuleField, byUser: boolean): s
 export function categorize(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[] = []): CategorizeResult {
   const direction: Direction = input.amountCents >= 0 ? "in" : "out";
   const holders = holdersOf(accounts);
-  const texts = new Map<string, string>();
+  // a user's rule reads other text than a built-in one (`fieldText`)
+  const builtinTexts = new Map<RuleField, string>();
+  const userTexts = new Map<RuleField, string>();
   for (const rule of rules) {
     if (rule.direction && rule.direction !== direction) continue;
     // an income category never applies to money going out
     if (direction === "out" && rule.income) continue;
-    const key = `${rule.field}:${rule.byUser === true}`;
-    let text = texts.get(key);
-    if (text === undefined) texts.set(key, (text = fieldText(input, rule.field, rule.byUser === true)));
+    const texts = rule.byUser ? userTexts : builtinTexts;
+    let text = texts.get(rule.field);
+    if (text === undefined) texts.set(rule.field, (text = fieldText(input, rule.field, rule.byUser === true)));
     if (rule.test(text, input, holders, accounts)) {
       const byUser = rule.byUser ? { byUser: true } : {};
       // a lender sending money (loan payout) is borrowing, not repayment

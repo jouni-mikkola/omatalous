@@ -161,6 +161,8 @@ describe("the time, sum and rate a bank writes around the name", () => {
     expect(of("KURSSI 1,0834", "USD 25,00 KURSSI 1,0834 KAUPPA ILO")).toMatchObject({ category: "housing", byUser: true });
     expect(of("KLO 14.22", "Korttiosto 12.10.2026 klo 14.22 Kauppa Ilo")).toMatchObject({ category: "housing", byUser: true });
     expect(of("450,00 EUR", "VUOKRA 450,00 EUR KAUPPA ILO")).toMatchObject({ category: "housing", byUser: true });
+    const any = compileRules([{ field: "any", pattern: "KURSSI 1,0834", category: "housing", priority: 10 }]);
+    expect(categorize({ merchant: "Kauppa Ilo", counterparty: null, description: "USD 25,00 KURSSI 1,0834 KAUPPA ILO", mcc: null, amountCents: -2500 }, any)).toMatchObject({ category: "housing", byUser: true });
   });
 });
 
