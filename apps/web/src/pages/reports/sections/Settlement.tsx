@@ -148,12 +148,18 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
           <div className="st-row">
             <strong className="st-name">{t("rpt.se_unknown")}</strong>
           </div>
+          <div className="st-row">
+            <span className="st-name">{t("rpt.se_unknown_note")}</span>
+          </div>
           {unknown.map((u) => (
             <div key={u.label} className="st-row">
               <span className="st-name" title={u.label}>{u.label}</span>
               <span className="st-num">{money(u.cents)}</span>
             </div>
           ))}
+          <div className="st-row">
+            <a href={settingsCardHash(SETTINGS_ANCHOR.accounts)}>{t("rpt.se_tell")}</a>
+          </div>
         </div>
       )}
       {late.length > 0 && (

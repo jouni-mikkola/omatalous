@@ -49,3 +49,5 @@ Each row: the thing, the Finnish term, the English term. Only the first term in 
 | All accounts of the household | *Koko talous* | *Household* |
 | The user's name for an account | *Tilin nimi* | *Account name* |
 | The user's rule that sorts rows | *Sääntö* | *Rule* |
+| A month that has not ended | *kesken* | *in progress* |
+| A month the accounts do not cover from its start | *vajaa* | *partial* |
