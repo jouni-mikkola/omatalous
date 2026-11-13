@@ -89,6 +89,9 @@ describe("a card account's wording: country and city in front, the city again at
     expect(name("USD 25,00 Osto IRL DUBLIN 4 EXAMPLE* KAUPPA")).toBe("Example Kauppa");
     expect(name("GBP 1 250,00 Osto GBR LONDON EXAMPLE* KAUPPA")).toBe("Example Kauppa");
     expect(name("Siirto kortilta IRL Dublin Lompakko Ilo**1234*")).toBe("Lompakko Ilo");
+    // a refund names its shop as the purchase did, so the two pair up
+    expect(name("USD 25,00 Hyvitys IRL DUBLIN 4 EXAMPLE* KAUPPA")).toBe(name("USD 25,00 Osto IRL DUBLIN 4 EXAMPLE* KAUPPA"));
+    expect(name("Hyvitys FIN Kuopio Kukkakauppa Ilo Oy")).toBe("Kukkakauppa Ilo");
     // a sum without a currency code, or a code that is none, is no such text
     expect(name("XYZ 12,00 Osto IRL DUBLIN EXAMPLE* KAUPPA")).not.toBe("Example Kauppa");
   });
