@@ -24,7 +24,7 @@ function dashboard(known: boolean, quiet = false) {
   return {
     nyt: {
       left: known
-        ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents: quiet ? 0 : 189954, leftCents: quiet ? 500000 : 310046, perDayCents: 22146 }
+        ? { known: true, payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, billsCents: quiet ? 0 : 189954, leftCents: quiet ? 500000 : 310046, perDayCents: 22146, elsewhereCents: quiet ? 42182 : 0 }
         : { known: false, reason: "no-payday" },
       usualPerDayCents: null,
       pace: { day: 11, spentCents: 0, usual: null },
@@ -92,6 +92,8 @@ describe("Laskut: payments before the payday", () => {
     const out = [...section.querySelectorAll("[data-kind=outside]")].map((li) => flat(li.textContent));
     expect(out).toEqual(["16.11.Laina tililtä, jota saldo ei laske421,82 €"]);
     expect(section.querySelectorAll("[data-kind=income]").length).toBe(1);
+    // the answer's own sum of them stands under the figure, so the 0 € above is not read as no payments at all
+    expect(flat(section.querySelector(".bp-elsewhere")?.textContent)).toBe("Lisäksi 421,82 € tileiltä, joita saldo ei laske");
   });
 
   // `upcoming` holds 30 days, so a payday further off left the payments of the other account after day 30 out of the list
@@ -99,7 +101,7 @@ describe("Laskut: payments before the payday", () => {
     const far = dashboard(true, true);
     const later = { ...row("2026-12-14", "Laina", -42182, "recurring"), outside: true };
     const answer = {
-      nyt: { ...far.nyt, left: { ...far.nyt.left, payday: { date: "2026-12-21", name: "Työnantaja" }, days: 40 } },
+      nyt: { ...far.nyt, left: { ...far.nyt.left, payday: { date: "2026-12-21", name: "Työnantaja" }, days: 40, elsewhereCents: 2 * 42182 } },
       ahead: { ...far.ahead, to: "2026-12-20", payday: { date: "2026-12-21", name: "Työnantaja", pay: { floorCents: 290000 } }, rows: [row("2026-12-21", "Työnantaja", 300000, "income")], outside: [...far.ahead.outside, later] },
     };
     await mount(true, true, answer);
@@ -110,6 +112,17 @@ describe("Laskut: payments before the payday", () => {
     });
     const out = [...section.querySelectorAll("[data-kind=outside]")].map((li) => flat(li.textContent));
     expect(out).toEqual(["16.11.Laina tililtä, jota saldo ei laske421,82 €", "14.12.Laina tililtä, jota saldo ei laske421,82 €"]);
+    expect(flat(section.querySelector(".bp-elsewhere")?.textContent)).toBe("Lisäksi 843,64 € tileiltä, joita saldo ei laske");
+  });
+
+  it("has no line of payments from other accounts when there are none", async () => {
+    await mount(true);
+    const section = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(section.querySelector(".bp-elsewhere")).toBeNull();
   });
 
   it("is not drawn when Nyt has no sum", async () => {
