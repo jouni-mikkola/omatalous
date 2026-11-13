@@ -14,8 +14,11 @@ type Report = ReportsData["fixedCosts"];
 type Row = Report["rows"][number];
 type Payment = Row["payments"][number];
 
-/** A series' name as Laskut says it: a product among several of its payee carries its price. */
-const nameOf = (row: Row): string => seriesName(row.id, row.chargeCents) ?? row.merchant;
+/** A series' name as Laskut says it: a product carries its price where another series of its payee stands in the list. */
+const nameIn = (rows: readonly Row[]) => {
+  const listed = rows.map((r) => r.id);
+  return (row: Row): string => seriesName(row.id, row.chargeCents, listed) ?? row.merchant;
+};
 
 /**
  * The rows of Tapahtumat behind a line: the payee's rows on the account the series is charged to, on one day or all of
@@ -26,7 +29,7 @@ export function rowsHref(row: Pick<Row, "id" | "merchant">, day?: string): strin
 }
 
 /** Under a line: what one charge is and when, then the payments of the last twelve months as core listed them, each a link to its day. */
-function Detail({ row }: { row: Row }) {
+function Detail({ row, name }: { row: Row; name: string }) {
   const columns: Column<Payment>[] = [
     { key: "day", label: t("table.day"), kind: "text", rowHead: true, cell: (p) => <a href={rowsHref(row, p.date)}>{date(p.date)}</a> },
     { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (p) => p.amountCents },
@@ -43,7 +46,7 @@ function Detail({ row }: { row: Row }) {
       />
       {row.payments.length > 0 && (
         <Table<Payment>
-          caption={t("rpt.fc_paid", { name: nameOf(row) })}
+          caption={t("rpt.fc_paid", { name })}
           captionVisible
           rows={row.payments}
           rowKey={(p) => p.id}
@@ -73,6 +76,7 @@ function FixedCosts({ ctx }: SectionProps) {
       </ReportPanel>
     );
   }
+  const nameOf = nameIn(r.rows);
   const columns: Column<Row>[] = [
     { key: "name", label: t("rpt.fc_payment"), kind: "text", rowHead: true, cell: nameOf, csv: nameOf },
     { key: "category", label: t("rpt.sm_category"), kind: "text", cell: (x) => ctx.label(x.category), csv: (x) => ctx.label(x.category) },
@@ -89,7 +93,7 @@ function FixedCosts({ ctx }: SectionProps) {
         rows={r.rows}
         rowKey={(x) => x.id}
         columns={columns}
-        drill={(x) => <Detail row={x} />}
+        drill={(x) => <Detail row={x} name={nameOf(x)} />}
         drillLabel={nameOf}
         total={{ label: t("rpt.total"), cells: { month: money(r.monthlyCents), year: money(r.yearlyCents) } }}
         search={false}
