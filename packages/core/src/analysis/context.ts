@@ -118,6 +118,16 @@ function loanPaymentRow(t: Transaction, paying: ReturnType<typeof loanPaymentAcc
 /** The context to look up the rows of a series (and read what is ahead) in: the stable cut when there is one. */
 export const standingOf = <C extends Pick<AnalysisContext, "txs" | "standing">>(ctx: C): C | AnalysisContext => ctx.standing ?? ctx;
 
+const byIdOf = new WeakMap<readonly AnalysisTx[], ReadonlyMap<string, AnalysisTx>>();
+
+/** The rows of `standingOf(ctx)` by id, built once per row list: the loans, the fixed costs and a home's charges look up series rows on every report. */
+export function standingById(ctx: Pick<AnalysisContext, "txs" | "standing">): ReadonlyMap<string, AnalysisTx> {
+  const { txs } = standingOf(ctx);
+  let byId = byIdOf.get(txs);
+  if (!byId) byIdOf.set(txs, (byId = new Map(txs.map((t) => [t.id, t]))));
+  return byId;
+}
+
 /**
  * `standing`: the same rows cut by the part of each account instead of by who paid, given only when a pool is cut by who
  * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money

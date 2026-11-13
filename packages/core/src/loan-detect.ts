@@ -24,7 +24,7 @@
  * holds the part (one of a lender's several series): a key is the same in every view.
  */
 import { billCents } from "./account-use.ts";
-import { type AnalysisContext, type AnalysisTx, standingOf } from "./analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, standingById, standingOf } from "./analysis/context.ts";
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
 import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
@@ -204,6 +204,26 @@ function isKnownLender(payee: string, text: string): boolean {
   return isLenderName(text) || CONSUMER_LENDER.test(text) || isFinanceCompanyName(payee) || lexiconCategory({ merchant: payee, counterparty: payee, description: null })?.category === "loans";
 }
 
+const lenderRowsOf = new WeakMap<readonly AnalysisTx[], readonly { t: AnalysisTx; service: boolean }[]>();
+
+/**
+ * The rows `lenderInstalments` can read, whatever the day and the series: money out of a loan's size, not a transfer, to
+ * an instalment service or in a loan's category, in the order of `txs`. Kept per row list, since the fixed costs ask for
+ * the instalments of every month of a year and the words of a row are folded only once that way.
+ */
+function lenderRows(txs: readonly AnalysisTx[]): readonly { t: AnalysisTx; service: boolean }[] {
+  let rows = lenderRowsOf.get(txs);
+  if (!rows) {
+    rows = txs.flatMap((t) => {
+      if (t.amountCents >= 0 || t.isTransfer || -billCents(t) < MIN_LOAN_PAYMENT_CENTS) return [];
+      const service = ofService(t);
+      return service || LOAN_CATEGORIES.has(t.category) ? [{ t, service }] : [];
+    });
+    lenderRowsOf.set(txs, rows);
+  }
+  return rows;
+}
+
 /** A lender's payment run counts as monthly when most of the months it spans had one: a month may go by when the next one pays twice. */
 const LENDER_MONTH_SHARE = 0.75;
 /** A run with no payment for this many days has stopped. A due day moved to the month's end and back stays inside. */
@@ -222,15 +242,14 @@ export function lenderInstalments(ctx: Pick<AnalysisContext, "txs" | "recurring"
   const held = new Set(recurring.filter((s) => s.kind !== "habit").flatMap((s) => s.transactionIds));
   const groups = new Map<string, AnalysisTx[]>();
   const plans = new Map<string, AnalysisTx[]>();
-  for (const t of standingOf(ctx).txs) {
-    if (t.bookingDate > today || t.amountCents >= 0 || t.isTransfer || held.has(t.id) || -billCents(t) < MIN_LOAN_PAYMENT_CENTS) continue;
+  for (const { t, service } of lenderRows(standingOf(ctx).txs)) {
+    if (t.bookingDate > today || held.has(t.id)) continue;
     // an instalment service's payments are read as plans below, in any category
-    if (ofService(t)) {
+    if (service) {
       const key = seriesId({ direction: "out", accountId: t.accountId, merchant: t.merchant, product: null });
       plans.set(key, [...(plans.get(key) ?? []), t]);
       continue;
     }
-    if (!LOAN_CATEGORIES.has(t.category)) continue;
     const key = seriesId({ direction: "out", accountId: t.accountId, merchant: t.merchant, product: null });
     const group = groups.get(key);
     if (group) group.push(t);
@@ -297,7 +316,7 @@ function kindOf(category: string, text: string): { kind: LoanKind; placed: boole
  * home. Read as Asuminen reads the charges (`buildHousing`): the words of the latest payment of an active contract.
  */
 function ownsHome(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing">): boolean {
-  const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));
+  const byId = standingById(ctx);
   let charged = false;
   for (const s of ctx.recurring) {
     if (s.category !== "housing" || !isContract(s)) continue;
@@ -379,7 +398,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   const monthly = ctx.recurring.filter((s) => s.active && s.cadence === "monthly" && (s.kind === "bill" || s.kind === "subscription") && (LOAN_CATEGORIES.has(s.category) || INSTALMENT_SERVICE.test(fold(s.merchant))));
   const candidates = [...monthly, ...lenderInstalments(ctx).filter((s) => s.active)];
   if (!candidates.length) return [];
-  const byId = new Map(standingOf(ctx).txs.map((t) => [t.id, t]));
+  const byId = standingById(ctx);
   const taken = takenSeries(inputs);
   // a saved loan with a typed payment and no series linked takes one series it fits, as in Asuminen (housing.ts)
   const unlinked = loansOf(inputs).flatMap((loan) => (loan.seriesKey ? [] : [typedBill(loan, ctx.today)].filter((c): c is number => c !== null)));
