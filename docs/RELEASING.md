@@ -39,6 +39,12 @@ signature. An install with `ops/allowed_signers` does, so sign them before such 
 
 ## The smoke test and the rehearsal
 
+The upgrade rehearsals (full.yml, `tools/ci/local-proof.sh` with `tools/ci/upgrade-baselines.txt`) update an install
+of each public release to the commit under proof. An update that takes longer than this fails the rehearsal
+(`tools/ci/upgrade-run.sh`):
+
+Update budget: 600 s
+
 On each processor the smoke test (`tools/ci/smoke-image.sh IMAGE VERSION COMMIT`) proves that the image's labels match
 the version and the commit, that a new install answers `/api/health` within 120 seconds and prints its version, and that
 a database of 0.5.0 is accepted by `migrate-check`, starts, keeps its users and ends with every migration applied. The
