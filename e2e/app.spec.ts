@@ -377,15 +377,15 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   await context.close();
 });
 
-test("Menot kuukausittain is a heat table under its name, keeps the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
+test("Menot kuukausittain is a table under its name, the categories keep the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=menot");
-  await unfold(page, "kuukaudet");
-  const card = page.locator("#kuukaudet", { has: page.getByRole("heading", { name: "Menot kuukausittain" }) });
-  await expect(card.locator("table.heat-table tbody tr").first()).toBeVisible();
-  await expect(card.getByRole("link", { name: "Lataa taulukko (CSV)" })).toBeVisible();
+  await unfold(page);
+  const card = page.locator("details#kategoriat");
+  await expect(card.getByRole("table", { name: "Menot kuukausittain" }).locator("tbody tr").first()).toBeVisible();
+  await expect(card.getByRole("button", { name: "Lataa CSV" })).toBeVisible();
   expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the table fits its card at 390px").toBe(true);
   expect(seen.problems).toEqual([]);
   await context.close();

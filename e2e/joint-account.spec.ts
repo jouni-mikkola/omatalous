@@ -58,7 +58,7 @@ const jointRow = (page: Page) => holdingsOf(page).locator(".st-row", { hasText: 
 const jointCents = async (page: Page) => cents(await jointRow(page).locator(".st-num").innerText());
 
 test("the switch offers Koko talous, and no page has a notice about the joint accounts in either view: the rows say the part", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, members[0]!, "/#/reports?tab=varat");
+  const { context, page, seen } = await open(browser, members[0]!, "/#/reports?q=saldot");
   const view = page.getByRole("group", { name: "Näkymä" });
   await expect(view.getByRole("button", { name: "Oma", exact: true })).toHaveAttribute("aria-pressed", "true");
   // no notice under the header: the row of the joint account says the part itself
@@ -75,7 +75,7 @@ test("the switch offers Koko talous, and no page has a notice about the joint ac
   await expect(jointNotice(page)).toHaveCount(0);
 
   // and back on the overview the own view has its part again
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   await expect(jointRow(page)).toContainText(`osuutesi ${PARTS[0]} %`);
   await expect(jointNotice(page)).toHaveCount(0);
   expect(seen.problems).toEqual([]);
@@ -96,8 +96,8 @@ test("at 390 px the header has no fetch time, and the switch and the user menu s
 });
 
 test("the joint account's row says the part, and the parts of the two members add up to the account in Koko talous", async ({ browser }) => {
-  const own = await Promise.all(members.map((m) => open(browser, m, "/#/reports?tab=varat")));
-  const whole = await Promise.all(members.map((m) => open(browser, m, "/#/reports?tab=varat", { household: true })));
+  const own = await Promise.all(members.map((m) => open(browser, m, "/#/reports?q=saldot")));
+  const whole = await Promise.all(members.map((m) => open(browser, m, "/#/reports?q=saldot", { household: true })));
   const [a, b] = own;
   // the row of an account that is the member's alone says nothing of a part
   await expect(jointRow(a!.page)).toContainText(`Yhteinen tili, osuutesi ${PARTS[0]} %`);
@@ -183,7 +183,7 @@ test("each way to cut the joint account moves the figure of its row on Saldot, a
   const first = await open(browser, members[0]!, "/#/settings");
   const group = splitGroup(first.page);
   const tilit = first.page.locator("#tilit");
-  const own = await open(browser, members[0]!, "/#/reports?tab=varat");
+  const own = await open(browser, members[0]!, "/#/reports?q=saldot");
   const at60 = await jointCents(own.page);
   await own.context.close();
 
@@ -192,14 +192,14 @@ test("each way to cut the joint account moves the figure of its row on Saldot, a
   await tilit.getByLabel(`${NAMES[0]} %`).fill("70");
   await expect(tilit.getByLabel(`${NAMES[1]} %`)).toHaveValue("30");
   await press(first.page, tilit.getByRole("button", { name: "Tallenna", exact: true }));
-  const seventy = await open(browser, members[0]!, "/#/reports?tab=varat");
+  const seventy = await open(browser, members[0]!, "/#/reports?q=saldot");
   await expect(jointRow(seventy.page)).toContainText("osuutesi 70 %");
   expect(Math.abs((await jointCents(seventy.page)) - Math.round((at60 * 70) / 60))).toBeLessThanOrEqual(1);
   await seventy.context.close();
 
   // Tasan: half of the account
   await press(first.page, group.getByRole("button", { name: "Tasan" }));
-  const equal = await open(browser, members[0]!, "/#/reports?tab=varat");
+  const equal = await open(browser, members[0]!, "/#/reports?q=saldot");
   await expect(jointRow(equal.page)).toContainText("osuutesi 50 %");
   expect(Math.abs((await jointCents(equal.page)) - Math.round((at60 * 50) / 60))).toBeLessThanOrEqual(1);
   await equal.context.close();
@@ -207,7 +207,7 @@ test("each way to cut the joint account moves the figure of its row on Saldot, a
   // who paid: no percent is told, the row says the figure is the viewer's part
   await press(first.page, group.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" }));
   await expect(group.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" })).toHaveAttribute("aria-pressed", "true");
-  const paid = await open(browser, members[0]!, "/#/reports?tab=varat");
+  const paid = await open(browser, members[0]!, "/#/reports?q=saldot");
   await expect(jointRow(paid.page)).toContainText("Yhteinen tili, osuutesi");
   await expect(jointRow(paid.page)).not.toContainText("%");
   await paid.context.close();
@@ -230,7 +230,7 @@ test("a payer nobody has named is a question: asked in Tarkistettavat with no gu
   await press(first.page, group.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" }));
   // Tilit asks nothing: the question is in Tarkistettavat, and no notice on Yhteenveto tells it again
   await expect(tilit.getByRole("heading", { name: "Kenen rahaa?" })).toHaveCount(0);
-  const overview = await open(browser, members[0]!, "/#/reports?tab=varat");
+  const overview = await open(browser, members[0]!, "/#/reports?q=saldot");
   await expect(overview.page.locator("main")).not.toContainText("Kenen rahaa tilillä");
   const listed = await open(browser, members[0]!, "/#/transactions");
   await expect(listed.page.getByRole("link", { name: "Valitse, kenen osuus" })).toHaveCount(0);

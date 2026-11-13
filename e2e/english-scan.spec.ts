@@ -23,16 +23,17 @@ const FETCH = { "X-Requested-With": "fetch" };
 
 /**
  * The text of a part of the page as the scan reads it: what shows, and every aria-label and title. The bank's own text
- * of a row (`.tx-text`, "LASKUN MAKSU") is data in the bank's language, not a text of the app, and is left out.
+ * of a row (`.tx-text`, "LASKUN MAKSU") is data in the bank's language, not a text of the app, and is left out. So is the
+ * detail of an event of Turvallisuusloki (`[data-recorded]`, "ensimmäinen salasana"): the server wrote it in Finnish when the event happened.
  */
 async function readPart(part: Locator): Promise<string> {
   return part.evaluate((el) => {
-    const bank = Array.from(el.querySelectorAll<HTMLElement>(".tx-text"));
+    const bank = Array.from(el.querySelectorAll<HTMLElement>(".tx-text, [data-recorded]"));
     // an inline style: the stylesheet's `display` of the class outranks the `hidden` attribute
     for (const b of bank) b.style.setProperty("display", "none", "important");
     const shown = (el as HTMLElement).innerText;
     for (const b of bank) b.style.removeProperty("display");
-    return shown + " " + Array.from(el.querySelectorAll("[aria-label], [title]")).filter((e) => !e.matches(".tx-text")).map((e) => `${e.getAttribute("aria-label") ?? ""} ${e.getAttribute("title") ?? ""}`).join(" ");
+    return shown + " " + Array.from(el.querySelectorAll("[aria-label], [title]")).filter((e) => !e.matches(".tx-text, [data-recorded]")).map((e) => `${e.getAttribute("aria-label") ?? ""} ${e.getAttribute("title") ?? ""}`).join(" ");
   });
 }
 

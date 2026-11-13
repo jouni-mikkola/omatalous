@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { join } from "node:path";
-import { cents, linkFakeBank, makeMember, plain, removeMember, sayJointUse, unfold, waitForSync, watch } from "./helpers.ts";
+import { cents, linkFakeBank, makeMember, plain, removeMember, sayJointUse, waitForSync, watch } from "./helpers.ts";
 
 // The figure that opens its rows ("Näytä tapahtumat: …"): the panel lists the rows the figure adds up, they sum to the figure the page shows,
 // and its foot says "Täsmää". A row of a joint account shows the bank's whole sum beside the part it counts. The first test
@@ -35,10 +35,11 @@ test("a category of the month opens its rows, they add up to the figure and the 
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await ready(page, "/#/reports?tab=menot&period=3m");
-  await unfold(page, "kategoriat");
-  // the first figure of the report that opens its rows: its label names the figure, the panel's total is what the rows add up to
-  const opener = page.getByRole("button", { name: /^Näytä tapahtumat: / }).first();
+  // Kuukausi lists the month's categories, each sum a door to its rows (Rahankäyttö opens a category in place and has no panel)
+  await ready(page, "/#/reports");
+  await expect(page.locator(".km .km-total")).toContainText(/Menot\s[\d\s]+€/, { timeout: 15_000 });
+  // the first figure that opens its rows and has some: its label names the figure, the panel's total is what the rows add up to
+  const opener = page.getByRole("button", { name: /^Näytä tapahtumat: / }).filter({ hasNotText: /^0,00/ }).first();
   await expect(opener).toBeVisible();
   await opener.click();
   const panel = page.getByRole("dialog");
@@ -75,20 +76,20 @@ test("a category of the month opens its rows, they add up to the figure and the 
   await context.close();
 });
 
-test("Raportit: a category and the total open their rows, each adding up to its figure", async ({ browser }) => {
+test("Yhteenveto: the month's spending opens its rows, and they add up to the panel's total", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await ready(page, "/#/reports?period=12m&q=menot");
-  await unfold(page, "kategoriat");
-  const body = page.locator("#kategoriat");
-  // the category table, not the chart tables above it, whose rows open no list
-  const first = body.locator("tbody tr:not(.rt-group)", { has: page.getByRole("button", { name: /Näytä tapahtumat/ }) }).first();
-  const figure = cents(await first.locator("td.num").first().innerText());
-  await first.getByRole("button", { name: /Näytä tapahtumat/ }).click();
+  await ready(page, "/#/overview");
+  const tile = page.locator("[data-tile=spent] button.why-door");
+  await expect(tile).toHaveCount(1);
+  // the tile shows whole euros, the panel the cents of its rows
+  const figure = cents(await page.locator("[data-tile=spent] .fig").innerText());
+  await tile.click();
   const panel = page.getByRole("dialog");
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  // the figure and the rows' sum are both in cents
-  expect(await rowsSum(panel)).toBe(figure);
+  const sum = await rowsSum(panel);
+  expect(sum).toBe(cents(await panel.locator("[data-why-total]").innerText()));
+  expect(Math.round(sum / 100) * 100).toBe(figure);
   await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
   await context.close();
 });
@@ -128,16 +129,29 @@ test.describe("a joint account", () => {
         const wide = await (await context.request.get("/api/explain?figure=spend.month&from=2000-01-01&to=2099-12-31")).json();
     expect(wide.lines.some((l: { whole?: number; cents: number }) => l.whole !== undefined && l.whole !== l.cents), JSON.stringify(wide.lines.slice(0, 3))).toBe(true);
     expect(wide.check.diffCents).toBe(0);
-    await ready(page, "/#/reports?period=12m&q=menot");
-    await unfold(page, "kategoriat");
-    const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
-    const figure = cents(await total.locator("td.num").first().innerText());
-    await total.getByRole("button", { name: /Näytä tapahtumat/ }).click();
-    const panel = page.getByRole("dialog");
-    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    expect(plain(await panel.innerText())).toContain("Tapahtuman summa");
-    expect(await rowsSum(panel)).toBe(figure);
-    await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
+    // Kuukausi of the month before, whole: a category of it opens the rows of the whole month, the joint account's among them
+    const { today } = (await (await context.request.get("/api/meta")).json()) as { today: string };
+    const [y, m] = [Number(today.slice(0, 4)), Number(today.slice(5, 7))];
+    const month = m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+    await ready(page, `/#/reports?month=${month}`);
+    await expect(page.locator(".km .km-total")).toContainText(/Menot\s[\d\s]+€/, { timeout: 15_000 });
+    const doors = page.getByRole("button", { name: /^Näytä tapahtumat: / }).filter({ hasNotText: /^0,00/ });
+    const count = await doors.count();
+    expect(count).toBeGreaterThan(0);
+    // the categories that hold a row of the joint account say the bank's whole sum; every panel adds up to its door
+    let told = 0;
+    for (let i = 0; i < count; i++) {
+      const figure = cents(await doors.nth(i).innerText());
+      await doors.nth(i).click();
+      const panel = page.getByRole("dialog");
+      await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+      if (plain(await panel.innerText()).includes("Tapahtuman summa")) told++;
+      expect(await rowsSum(panel), `category ${i + 1}`).toBe(figure);
+      await expect(panel.getByRole("status").filter({ hasText: "Täsmää" })).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveCount(0);
+    }
+    expect(told, "a panel says the bank's whole sum of a joint row").toBeGreaterThan(0);
     await context.close();
   });
 
@@ -169,34 +183,19 @@ test.describe("a joint account", () => {
   });
 });
 
-/** The opened panel at both widths, for the pictures. */
-async function shoot(page: Page, name: string) {
-  if (!SHOTS) return;
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await page.screenshot({ path: join(SHOTS, `${name}-1280.png`) });
-  await page.setViewportSize({ width: 390, height: 800 });
-  await page.screenshot({ path: join(SHOTS, `${name}-390.png`) });
-  await page.setViewportSize({ width: 1280, height: 900 });
-}
-
+// The usual income had a door in the Tulot section of Raportit, which the Yhteenveto redesign took away with the rest of
+// the page's figures (a00c24945, #67); no page opens it now, so the answer is read from the API.
 test.describe("figures that are not a sum of one range", () => {
-  test("the usual income opens its months, a month opens its rows, and no Täsmää is said", async ({ browser }) => {
-    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-    const page = await context.newPage();
-    await ready(page, "/#/reports?period=12m&q=tulot");
-    const usual = page.getByRole("button", { name: "Näytä tapahtumat: Säännölliset tulot kuussa" });
-    await usual.scrollIntoViewIfNeeded();
-    const figure = cents(await usual.innerText());
-    await usual.click();
-    const panel = page.getByRole("dialog");
-    await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    const months = panel.locator("details.why-month");
-    expect(await months.count()).toBeGreaterThanOrEqual(3);
-    expect(Math.round(cents(await panel.locator("[data-why-total]").innerText()) / 100)).toBe(figure / 100);
-    await months.last().locator("summary").click();
-    await expect(months.last().locator("tr[data-why-row]").first()).toBeVisible();
-    await expect(panel.getByText("Täsmää")).toHaveCount(0);
-    await shoot(page, "median");
+  test("the usual income is a median of its months, each month's rows add up to its figure, and the check recomputes it", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE });
+    const e = await (await context.request.get("/api/explain?figure=usual.income&from=2025-12-01&to=2026-11-13")).json();
+    expect(e.kind).toBe("median");
+    expect(e.check).toEqual({ kind: "recompute", diffCents: 0 });
+    expect(e.method.values.length).toBeGreaterThanOrEqual(3);
+    for (const v of e.method.values as { label: string; cents: number; explain?: { cents: number; check: { diffCents: number } } }[]) {
+      expect(v.explain?.cents, v.label).toBe(v.cents);
+      expect(v.explain?.check.diffCents, v.label).toBe(0);
+    }
     await context.close();
   });
 });

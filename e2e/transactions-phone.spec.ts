@@ -160,7 +160,7 @@ test("390 px: every row's account is its bank's mark, whole and under nothing, a
   const first = rows.first();
   const merchant = (await first.locator(".tx-name").innerText()).trim();
   await first.getByRole("button", { name: `Avaa ${merchant}: 12 kuukautta` }).click();
-  await expect(page.locator(".tx-detail-facts").first()).toContainText(/Tili: .*•• \d{4}/);
+  await expect(page.locator(".tx-detail-facts").first()).toContainText(/Tili.*•• \d{4}/);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

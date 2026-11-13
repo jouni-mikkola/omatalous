@@ -58,14 +58,19 @@ const dayOf = (back: number) => {
 };
 const fi = (iso: string) => `${Number(iso.slice(8))}.${Number(iso.slice(5, 7))}.`;
 
+// The file goes in once: a second import of it has nothing new and offers no Tuo (#372). A spec that saves a statement
+// undoes it, so the next one finds the member's rows as the import left them.
+let imported = false;
 async function importFile(browser: Browser) {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
+  if (imported) return { context, page };
   await page.goto("/#/settings/data");
   const card = page.locator(".card", { has: page.getByRole("heading", { level: 2, name: "Tiedot", exact: true }) });
   await card.locator("input[type=file]").setInputFiles({ name: "omatalous.json", mimeType: "application/json", buffer: Buffer.from(file) });
   await card.getByRole("button", { name: "Tuo", exact: true }).click();
   await expect(card.getByRole("status")).toContainText("Tiedot tuotu");
+  imported = true;
   return { context, page };
 }
 

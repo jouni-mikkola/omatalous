@@ -1,22 +1,18 @@
-import { type Browser, type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
-import { join } from "node:path";
-import { cents, linkFakeBank, makeMember, overflow, plain, removeMember, sayJointUse, setScope, waitForSync, watch } from "./helpers.ts";
+import { type Browser, expect, type Locator, test } from "@playwright/test";
+import { linkFakeBank, makeMember, overflow, removeMember, sayJointUse, waitForSync, watch } from "./helpers.ts";
 
-// The block Asuminen of Raportit. The demo household of the administrator (e2e/run.mjs made it) pays rent and electricity, so
-// it is a tenant's; a loan saved here gives it a mortgage's row and goes at the end. The question about a home loan needs a
-// household that is no tenant: two members who link the fake bank (e2e/fake-bank/) have electricity and a joint account whose
-// payments no category calls a mortgage. They are made here and go at the end.
-const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
+// The question about a home loan, Onko taloudessa asuntolaina?, which Tarkistettavat asks. The block Asuminen of Raportit
+// that showed the rent, the electricity and the loans left with the extra report sections (6fbd30df7), so what is left
+// here is the question. It needs a household that is no tenant: two members who link the fake bank (e2e/fake-bank/)
+// have electricity and a joint account whose payments no category calls a mortgage. They are made here and go at the end.
 const FETCH = { "X-Requested-With": "fetch" };
 const NAMES = ["e2e-asuminen-a", "e2e-asuminen-b"] as const;
-const DASH = "–";
 
 interface Member {
   state: string;
   id: string;
 }
 const members: Member[] = [];
-let adminLoanId = "";
 
 test.describe.configure({ mode: "serial" });
 
@@ -36,157 +32,13 @@ test.beforeAll(async ({ browser }) => {
   await first.close();
 });
 test.afterAll(async ({ browser }) => {
-  const admin = await browser.newContext({ storageState: STATE });
-  if (adminLoanId) await admin.request.delete(`/api/loans/${adminLoanId}`, { headers: FETCH });
-  await admin.close();
   for (const member of members) await removeMember(browser, member.id);
 });
 
-async function open(browser: Browser, state: string, path: string, options: { width?: number; scope?: { id: string; choice: "own" | "household" } } = {}) {
-  const context = await browser.newContext({ storageState: state, viewport: { width: options.width ?? 1280, height: 900 } });
-  if (options.scope) await setScope(context, options.scope.id, options.scope.choice);
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto(path);
-  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  return { context, page, seen };
-}
-
-/** The block: the only region of that name on Raportit. */
-const blockOf = (page: Page) => page.getByRole("region", { name: "Asuminen", exact: true });
-/** The two tables. Below 1040 px Lainat is drawn as pairs and is no table to a reader, so both are found by their class. */
-const loansOf = (block: Locator) => block.locator(".housing-loans");
-const chargesOf = (block: Locator) => block.locator(".housing-charges");
-const loanRows = (block: Locator) => loansOf(block).locator("tbody tr");
-/** A cell of a loan's row by its column, as it reads: the value, without the label a narrow screen draws before it. */
-const cell = async (row: Locator, column: string) => plain(await row.locator(`.housing-${column}`).first().innerText());
-/** The rows of the charges as they read: the kind (with the line under it), the payee, the month in cents. */
-const chargeRows = async (block: Locator) =>
-  Promise.all((await chargesOf(block).locator("tbody tr").all()).map(async (row) => [plain(await row.locator("th").innerText()), plain(await row.locator("td").nth(0).innerText()), cents(await row.locator("td.num").innerText())] as const));
-/** The sums of the block by their labels, in cents. */
-const sumsOf = async (block: Locator): Promise<Record<string, number>> =>
-  Object.fromEntries(await Promise.all((await block.locator(".housing-sums .st-row").all()).map(async (row) => [plain(await row.locator(".st-name").innerText()), cents(await row.locator(".st-num").innerText())] as const)));
 const addLink = (block: Locator) => block.getByRole("link", { name: "Lisää asuntolaina", exact: true });
 const answerButton = (block: Locator) => block.getByRole("button", { name: "Ei asuntolainaa", exact: true });
-/** The sentences the block told before it was a statement: none of them is on the page. */
-const SENTENCES = ["Yhteisen tilin maksuista näkyy osuutesi.", "Asuntolainaa ei ole lisätty.", "Lainan tiedot puuttuvat.", "Korko ei ole tiedossa.", "Ilman lainan maksuerää"];
 
 const ANSWER = { subject: "question:mortgage", mark: "dismissed" };
-
-test("a tenant's block: the rent and the electricity as the table Asumiskulut, one total, no table of loans and no question", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, STATE, "/#/reports?q=kiinteat");
-  const block = blockOf(page);
-  await expect(block.getByRole("heading", { level: 2 })).toHaveText("Asuminen");
-  await expect(block.getByRole("table", { name: "Asumiskulut", exact: true })).toBeVisible();
-  expect(await chargesOf(block).locator("thead th").allInnerTexts()).toEqual(["Kulu", "Saaja", "Kuussa"]);
-  const rows = await chargeRows(block);
-  expect(rows.map((r) => [r[0], r[1]]), "the rent is the larger, so it comes first").toEqual([["Vuokra", "Sato"], ["Sähkö", "Helen"]]);
-  await expect(block.getByRole("link", { name: "Sato" })).toHaveAttribute("href", "#/transactions?merchant=Sato");
-  await expect(block.getByRole("link", { name: "Helen" })).toHaveAttribute("href", "#/transactions?merchant=Helen");
-
-  // only charges: the total alone, the foot of their table in one column, and it is the rows' sum
-  expect(rows[0]![2]).toBeGreaterThan(rows[1]![2]);
-  const foot = chargesOf(block).locator("tfoot tr");
-  await expect(foot.locator("th")).toHaveText("Asuminen yhteensä kuussa");
-  expect(cents(await foot.locator("td.num").innerText())).toBe(rows[0]![2] + rows[1]![2]);
-  await expect(block.locator(".housing-sums")).toHaveCount(0);
-  await expect(block.locator(".st-cols")).toHaveCount(0);
-
-  // a tenant has no loan to list and no home loan to add
-  await expect(loansOf(block)).toHaveCount(0);
-  await expect(addLink(block)).toHaveCount(0);
-  for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
-
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("a saved mortgage is a row of the table Lainat with its terms and its next payment in their columns, and the three sums add up; its name opens Lainat of Raportit", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const today = (await (await context.request.get("/api/meta")).json()).today as string;
-  const review = `${Number(today.slice(0, 4)) + 1}${today.slice(4)}`;
-  // the last due date is typed: only then is the next payment's day the plan's (a loan without one takes the day of its series)
-  const last = `${Number(today.slice(0, 4)) + 15}${today.slice(4)}`;
-  const saved = await context.request.post("/api/loans", {
-    headers: FETCH,
-    data: {
-      name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: today, rateBp: 400, reference: "euribor_12", marginBp: 60,
-      repayment: "annuity", intervalMonths: 1, paymentCents: 100_000, endDate: last, limitCents: null, seriesKey: null, rateReviewDate: review,
-    },
-  });
-  expect(saved.ok(), `POST /api/loans answered ${saved.status()}: ${await saved.text()}`).toBe(true);
-  adminLoanId = (await saved.json()).loan.id;
-  await context.close();
-
-  const { context: shown, page, seen } = await open(browser, STATE, "/#/reports?q=kiinteat");
-  const block = blockOf(page);
-  const table = block.getByRole("table", { name: "Lainat", exact: true });
-  await expect(table).toBeVisible();
-  // the heads: the loan and its terms, the three of the next payment under their group, the month last
-  expect(await table.locator("thead tr").nth(0).locator("th").allInnerTexts()).toEqual(["Laina", "Korko", "Viitekorko ja marginaali", "Koron tarkistuspäivä", "Seuraava maksuerä", "Kuussa"]);
-  expect(await table.locator("thead tr").nth(1).locator("th").allInnerTexts()).toEqual(["Eräpäivä", "Lyhennys", "Korko"]);
-  await expect(loanRows(block)).toHaveCount(1);
-  const loan = loanRows(block).first();
-  await expect(loan.locator(".housing-name a")).toHaveText("Kodin laina");
-  expect(await loan.locator(".housing-name .sub").allInnerTexts(), "the lender is the line under the name").toEqual(["Esimerkkirahoitus Oy"]);
-  const [y, m, d] = review.split("-").map(Number);
-  expect(await cell(loan, "rate")).toBe("4,00 %");
-  expect(await cell(loan, "reference")).toBe("12 kuukauden Euribor 3,40 % + 0,60 %");
-  expect(await cell(loan, "review")).toBe(`${d}.${m}.${y}`);
-  expect(await cell(loan, "due")).toMatch(/^\d{1,2}\.\d{1,2}\.$/);
-  // the two parts of the next payment are the payment of the month
-  const [amortisation, interest, month] = [cents(await cell(loan, "amortisation")), cents(await cell(loan, "interest")), cents(await cell(loan, "month"))];
-  expect([amortisation + interest, month]).toEqual([100_000, 100_000]);
-  // every term is typed: no dash in the row, and no link to add one
-  expect(plain(await loan.innerText())).not.toContain(DASH);
-  await expect(block.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
-
-  // the charges stay under the table, and the three sums are the rows' own
-  const charges = await chargeRows(block);
-  expect(charges.map((r) => r[0])).toEqual(["Vuokra", "Sähkö"]);
-  const paid = charges[0]![2] + charges[1]![2];
-  expect(await sumsOf(block)).toEqual({ "Lainojen maksuerät": month, Asumiskulut: paid, "Asuminen yhteensä kuussa": month + paid });
-  await expect(block.getByText(/Summasta puuttuu/)).toHaveCount(0);
-  for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
-
-  // the sums stand beside the charges, which end where they begin
-  const [left, right] = [(await chargesOf(block).boundingBox())!, (await block.locator(".housing-sums").boundingBox())!];
-  expect(left.x + left.width).toBeLessThan(right.x);
-
-  // the name opens the loans of Raportit
-  await block.getByRole("link", { name: "Kodin laina" }).click();
-  await expect(page).toHaveURL(/#\/reports#lainat$/);
-  await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeVisible();
-  expect(seen.problems).toEqual([]);
-  await shown.close();
-});
-
-test("the table Lainat fits the card at 1040 px, and at 390 px a loan is a block: the name and the month, the terms as label and value pairs", async ({ browser }) => {
-  // the report's column is the page's width, so the table holds from 600 px of room and becomes a block only on a phone
-  for (const width of [1040, 390]) {
-    const { context, page, seen } = await open(browser, STATE, "/#/reports?q=kiinteat", { width });
-    const block = blockOf(page);
-    await expect(block.getByRole("link", { name: "Kodin laina" })).toBeVisible();
-    expect(await overflow(page), `Raportit scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
-    const card = (await block.boundingBox())!;
-    for (const box of await block.locator("th, td, .st-row").evaluateAll((els) => els.filter((el) => el.getClientRects().length > 0).map((el) => el.getBoundingClientRect().toJSON()))) {
-      expect(box.left, `a cell stays inside the card at ${width} px`).toBeGreaterThanOrEqual(card.x);
-      expect(box.right, `a cell stays inside the card at ${width} px`).toBeLessThanOrEqual(card.x + card.width + 1);
-    }
-    const loan = loanRows(block).first();
-    const wrap = block.locator(".rt-wrap").first();
-    if (width >= 1040) {
-      // a table: the heads name the columns, so no cell draws its label
-      await expect(wrap).not.toHaveAttribute("data-block", "");
-    } else {
-      // a block: the same names as the heads, each before its value, the head itself kept for a reader
-      await expect(wrap).toHaveAttribute("data-block", "");
-      expect(await loan.locator("td[data-label]").evaluateAll((els) => els.map((el) => el.getAttribute("data-label")))).toEqual(["Korko", "Viitekorko ja marginaali", "Koron tarkistuspäivä", "Seuraava maksuerä: eräpäivä", "Seuraava maksuerä: lyhennys", "Seuraava maksuerä: korko"]);
-    }
-    expect(seen.problems).toEqual([]);
-    await context.close();
-  }
-});
 
 /**
  * Tarkistettavat with the mortgage question alone: the server still decides whether it is asked, and the other items of
@@ -211,26 +63,7 @@ async function openQuestion(browser: Browser, state: string, width = 1280) {
   return { context, page, seen, card: page.locator(".review-item") };
 }
 
-test("Raportit asks nothing: a household with a charge and no home loan sees the charge and its total in one table, and no question", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, members[0]!.state, "/#/reports?q=kiinteat");
-  const block = blockOf(page);
-  await expect(chargesOf(block)).toBeVisible();
-  // the electricity is the one charge; with no loan the total is the table's foot, under the figure it sums
-  expect((await chargeRows(block)).map((r) => r[0])).toEqual(["Sähkö"]);
-  const foot = chargesOf(block).locator("tfoot tr");
-  await expect(foot.locator("th")).toHaveText("Asuminen yhteensä kuussa");
-  expect(cents(await foot.locator("td.num").innerText())).toBe((await chargeRows(block))[0]![2]);
-  await expect(loansOf(block)).toHaveCount(0);
-  await expect(block.locator(".housing-sums")).toHaveCount(0);
-  await expect(addLink(block)).toHaveCount(0);
-  await expect(answerButton(block)).toHaveCount(0);
-  await expect(page.getByText("Asuntolaina", { exact: true })).toHaveCount(0);
-  for (const sentence of SENTENCES) await expect(block.getByText(sentence)).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("Tarkistettavat asks it instead: Onko taloudessa asuntolaina? with the link to the card Lainat of Asetukset; at 390 px nothing scrolls sideways", async ({ browser }) => {
+test("Tarkistettavat asks it: Onko taloudessa asuntolaina? with the link to the card Lainat of Asetukset; at 390 px nothing scrolls sideways", async ({ browser }) => {
   for (const width of [1280, 390]) {
     const { context, page, seen, card } = await openQuestion(browser, members[0]!.state, width);
     await expect(card.getByRole("heading", { level: 2 })).toHaveText("Onko taloudessa asuntolaina?");
@@ -270,10 +103,6 @@ test("Ei asuntolainaa stores the mark the first page stored, holds the button wh
   await page.reload();
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole("heading", { name: "Onko taloudessa asuntolaina?" })).toHaveCount(0);
-  // the charge stays on Raportit
-  await page.goto("/#/reports?q=kiinteat");
-  await expect(chargesOf(blockOf(page))).toBeVisible({ timeout: 15_000 });
-  expect((await chargeRows(blockOf(page))).map((r) => r[0])).toEqual(["Sähkö"]);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -293,80 +122,15 @@ test("the answer is the member's own: the other member is asked still, and an an
   await context.close();
 });
 
-test("with nothing of a home left Raportit shows no block, and the question waits in Tarkistettavat", async ({ browser }) => {
-  const { context, page } = await open(browser, members[1]!.state, "/#/reports?q=kiinteat");
+test("with nothing of a home left the question waits in Tarkistettavat", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: members[1]!.state });
   // the electricity is called cancelled, as the marks route takes it: nothing of a home is known
   const housing = (await (await context.request.get("/api/reports?reports=housing")).json()).housing as { charges: { seriesId: string }[] };
   for (const charge of housing.charges) {
     const marked = await context.request.put("/api/marks", { headers: FETCH, data: { subject: `series:${charge.seriesId}`, mark: "cancelled" } });
     expect(marked.ok(), `PUT /api/marks answered ${marked.status()}`).toBe(true);
   }
-  await page.reload();
-  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: "Raportit", level: 1 })).toBeVisible();
-  await expect(blockOf(page)).toHaveCount(0);
   const items = (await (await context.request.get("/api/review")).json()).items as { kind: string }[];
   expect(items.some((i) => i.kind === "mortgage")).toBe(true);
   await context.close();
-});
-
-/** A mortgage the second member saves from what the joint account's payments propose, the way Asetukset > Lainat does. */
-async function saveProposedMortgage(browser: Browser, state: string): Promise<void> {
-  const context: BrowserContext = await browser.newContext({ storageState: state });
-  const { proposals } = await (await context.request.get("/api/loans/proposals")).json();
-  expect(proposals, "the joint account's payments are proposed as one loan").toHaveLength(1);
-  const { today } = await (await context.request.get("/api/meta")).json();
-  const saved = await context.request.post("/api/loans", {
-    headers: FETCH,
-    data: {
-      name: "Asuntolaina", lender: proposals[0].payee, kind: "mortgage", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: today, rateBp: 400, reference: null,
-      marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: proposals[0].paymentCents, endDate: null, limitCents: null, seriesKey: proposals[0].key,
-    },
-  });
-  expect(saved.ok(), `POST /api/loans answered ${saved.status()}: ${await saved.text()}`).toBe(true);
-  await context.close();
-}
-
-test("a loan paid from a joint account is the member's part with the line that says so and the whole in Koko talous; its missing terms are dashes, and only the member who typed it is offered Täydennä", async ({ browser }) => {
-  await saveProposedMortgage(browser, members[1]!.state);
-  const [first, second] = members as [Member, Member];
-  const own = await open(browser, first.state, "/#/reports?q=kiinteat", { scope: { id: first.id, choice: "own" } });
-  const ownBlock = blockOf(own.page);
-  // the loan the partner saved is a row with the rate it was typed with and a dash for the terms it lacks; no question is asked
-  await expect(loanRows(ownBlock)).toHaveCount(1);
-  const mine = loanRows(ownBlock).first();
-  await expect(mine.locator(".housing-name a")).toHaveText("Asuntolaina");
-  await expect(addLink(ownBlock)).toHaveCount(0);
-  expect([await cell(mine, "rate"), await cell(mine, "reference"), await cell(mine, "review")]).toEqual(["4,00 %", DASH, DASH]);
-  expect((await mine.locator(".housing-name .sub").allInnerTexts()).map(plain), "the part is a line under the name, as on an account's row").toContain("osuutesi 60 %");
-  // the loan is its typist's to change: no link on the row, and no column for one
-  await expect(ownBlock.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
-  await expect(mine.locator(".housing-link")).toHaveCount(0);
-  const part = cents(await cell(mine, "month"));
-  const power = (await chargeRows(ownBlock))[0]![2];
-  expect(await sumsOf(ownBlock), "the sums hold the part").toEqual({ "Lainojen maksuerät": part, Asumiskulut: power, "Asuminen yhteensä kuussa": part + power });
-  for (const sentence of SENTENCES) await expect(ownBlock.getByText(sentence)).toHaveCount(0);
-  expect(own.seen.problems).toEqual([]);
-  await own.context.close();
-
-  const whole = await open(browser, first.state, "/#/reports?q=kiinteat", { scope: { id: first.id, choice: "household" } });
-  const wholeBlock = blockOf(whole.page);
-  const all = cents(await cell(loanRows(wholeBlock).first(), "month"));
-  // 60 % of what the joint account pays, and the whole of it in Koko talous, where no row is a part
-  expect(part).toBe(Math.round(all * 0.6));
-  expect(all).toBeGreaterThan(part);
-  await expect(wholeBlock.getByText(/osuutesi/)).toHaveCount(0);
-  await expect(wholeBlock.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
-  expect((await sumsOf(wholeBlock))["Asuminen yhteensä kuussa"]).toBe(all + power);
-  expect(whole.seen.problems).toEqual([]);
-  await whole.context.close();
-
-  // the member who typed the loan sees the same dashes, and the one link that mends them
-  const typist = await open(browser, second.state, "/#/reports?q=kiinteat", { scope: { id: second.id, choice: "own" } });
-  const typed = loanRows(blockOf(typist.page)).first();
-  expect([await cell(typed, "reference"), await cell(typed, "review")]).toEqual([DASH, DASH]);
-  expect((await typed.locator(".housing-name .sub").allInnerTexts()).map(plain)).toContain("osuutesi 40 %");
-  await expect(typed.locator(".housing-link").getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings/household#lainat");
-  expect(typist.seen.problems).toEqual([]);
-  await typist.context.close();
 });

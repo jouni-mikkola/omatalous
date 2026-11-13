@@ -29,7 +29,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
@@ -56,7 +56,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   expect(new URL(page.url()).hash).toBe(`#/transactions?accountId=${encodeURIComponent(first.id)}`);
 
   // a card: the same, with the card's name as the account is called
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   await holdingsOf(page).getByRole("link", { name: "Nordea Gold (esimerkki)" }).click();
   await expect(page).toHaveURL(/#\/transactions\?accountId=/);
   await expect(tili).toBeVisible();
@@ -65,7 +65,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
   expect(second.id).not.toBe(first.id);
 
   // the card's face is a link for a pointer to the same rows
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   await holdingsOf(page).locator(".card-face-link").click();
   await expect(page).toHaveURL(/#\/transactions\?accountId=/);
   expect((await chosen()).id).toBe(second.id);
@@ -77,7 +77,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
 test("the focus of a link shows whole, inside the name that is cut", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   const link = holdingsOf(page).getByRole("link", { name: "Käyttötili (esimerkki)" });
   await expect(link).toBeVisible();
   // by the keyboard, so that the browser shows the ring
@@ -101,7 +101,7 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
@@ -171,7 +171,7 @@ test("every card has its face at the left of its unit, drawn by the app and hidd
     json.balances.holdings.cardsCents = cards.reduce((sum, c) => sum + c.usedCents, 0);
     await route.fulfill({ response, json });
   });
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   const group = groupOf(page, "Luottokortit");
   const units = group.locator(".holding-unit");
   await expect(units).toHaveCount(5);
@@ -250,7 +250,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/reports?tab=varat");
+  await page.goto("/#/reports?q=saldot");
   const holdings = holdingsOf(page);
   const lainat = groupOf(page, "Lainat");
   await expect(lainat).toBeVisible();
@@ -311,7 +311,7 @@ test("a card's face stays where it is under the pointer, and the keyboard's ring
     const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, reducedMotion: reduced ? "reduce" : "no-preference" });
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/reports?tab=varat");
+    await page.goto("/#/reports?q=saldot");
     const holdings = holdingsOf(page);
     const link = holdings.locator(".card-face-link").first();
     const face = link.locator(".card-face");

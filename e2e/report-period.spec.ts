@@ -10,7 +10,7 @@ test("Raportit: a period switch keeps the open tab and a tab switch keeps the pe
   const seen = watch(page);
   await page.goto("/#/reports?q=menot");
   const toolbar = page.getByRole("toolbar", { name: "Aikaväli" });
-  const menot = page.locator("#kuukaudet");
+  const menot = page.locator("details#kategoriat");
   await expect(menot).toBeVisible();
   await toolbar.getByRole("button", { name: "6 kk" }).click();
   await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/reports\?(q=menot&period=6m|period=6m&q=menot)$/);

@@ -3,9 +3,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
-// The bridge of the demo household: the twelve months of Raportit, and the month before as Yhteenveto tells it. The demo spends
-// from day to day, so the figures differ from one day to the next and the spec reads them from the page instead of
-// naming them; a month that ran short of the pay shows the gap and its strip, and the spec follows what the page says.
+// The demo household has no bridge on Yhteenveto and none on Raportit: the bar Tulojen käyttö and its month table went
+// with the extra report sections (6fbd30df7, T60), and Tulot is the kinds of income and the tax year's rows.
 // The rows are the demo data of a member made here, so the demo household of the administrator that the other specs
 // read stays as it is. The member is removed at the end, and one a broken run left behind is removed first, so the
 // spec passes again against a server that was kept. Run alone, the spec creates the administrator itself.
@@ -17,7 +16,7 @@ const BASE = process.env.E2E_BASE_URL ?? "";
 const USERNAME = "e2e-silta";
 const FETCH = { "X-Requested-With": "fetch" };
 
-/** The server's own day (/api/meta), read once the member is signed in: the months are counted from it. */
+/** The server's own day (/api/meta), read once the member is signed in. */
 let today = "";
 /** The member made here, removed in the end. */
 let memberId = "";
@@ -64,15 +63,12 @@ async function remove(browser: Browser): Promise<void> {
   await admin.close();
 }
 
-/** Sums as a reader sees them: plain spaces and a plain minus. */
-const plain = (s: string) => s.replace(/\s+/g, " ").replace(/−/g, "-").trim();
-
 test.describe.configure({ mode: "serial" });
 
 test.beforeAll(async ({ browser }) => household(browser));
 test.afterAll(async ({ browser }) => remove(browser));
 
-test("The demo household: the bridge of Raportit tells where the pay went, and Yhteenveto carries no bridge", async ({ browser }) => {
+test("The demo household: Yhteenveto carries no bridge, and Tulot has no bar of where the income went", async ({ browser }) => {
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -81,40 +77,14 @@ test("The demo household: the bridge of Raportit tells where the pay went, and Y
   await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   await expect(page.locator(".bridge")).toHaveCount(0);
   await page.goto("/#/reports?q=tulot");
-  const cashflow = page.locator("#kassavirta");
-  await expect(cashflow.getByRole("heading", { name: /^Tulojen käyttö/ })).toBeVisible();
-
-  // where the money went, as one sentence of the period's figures (Raportit's bridge is the month table's period row):
-  // every term it names, credit drawn included, adds up to Tulos (each part is rounded alone, so within two euros)
-  const answer = plain(await cashflow.locator(".qc-a").first().innerText());
-  const euros = (sentence: string) => [...sentence.matchAll(/(-?)(\d[\d ]*) €/g)].map((m) => (m[1] ? -1 : 1) * Number(m[2]!.replace(/ /g, "")));
-  // what each sentence adds to Tulos: what came in plus, what went out minus, a refund or a return the other way
-  const adds: [RegExp, number][] = [[/^Tuloja oli/, 1], [/^Tuloja peruttiin/, -1], [/^Luottoa nostettiin/, 1], [/^Luottoa maksettiin takaisin/, -1], [/^Kulutukseen meni/, -1], [/^Kulutuksesta palautui/, 1], [/^Velanhoitoon meni/, -1], [/^Velanhoidosta palautui/, 1], [/^Säästöön meni/, -1], [/^Säästöistä otettiin/, 1]];
-  let sum = 0;
-  let stayed = 0;
-  for (const sentence of answer.split(/(?<=\.) /)) {
-    const first = euros(sentence)[0] ?? 0;
-    if (sentence.startsWith("Tulos")) stayed = first;
-    else {
-      const sign = adds.find(([re]) => re.test(sentence))?.[1];
-      if (!sign) throw new Error(`a sentence the test does not know: ${sentence}`);
-      sum += sign * first;
-    }
-  }
-  expect(answer).toMatch(/^Tuloja oli .+ Kulutukseen meni .+ Tulos .+ €\.$/);
-  // each term is its own sum rounded (the one euro rule), so the words meet Tulos within the rounding of the terms
-  expect(Math.abs(sum - stayed), answer).toBeLessThanOrEqual(2);
-
-  // each month is one row of the one table; opening it gives every flow of that month as figures
-  expect(await cashflow.locator("table.use-table thead th").allInnerTexts()).toEqual(["Kuukausi", "Tulot", "Tulojen käyttö", "Käteen jäi", "Säästöaste"]);
-  await expect(page.locator("main table.rt tbody tr", { hasText: /kuu 20\d\d/ })).toHaveCount(await cashflow.locator("table.use-table tbody tr").count());
-  await cashflow.locator("table.use-table .rt-drill").first().click();
-  expect(await cashflow.locator("table.use-table tr.rt-detail dt").allInnerTexts()).toEqual(["Kulutus", "Maksettu velanhoito", "Säästöön", "Säästöaste"]);
+  await expect(page.getByRole("region", { name: "Tulolajit" })).toBeVisible();
+  await expect(page.locator("#kassavirta")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: /^Tulojen käyttö/ })).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
 
-test("390 px: Yhteenveto and the bridge of the year fit the phone", async ({ browser }) => {
+test("390 px: Yhteenveto and Tulot fit the phone", async ({ browser }) => {
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
@@ -123,11 +93,8 @@ test("390 px: Yhteenveto and the bridge of the year fit the phone", async ({ bro
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
 
   await page.goto("/#/reports?q=tulot");
-  await expect(page.locator("#kassavirta table.use-table")).toBeVisible();
-  expect(await overflow(page), "sideways scroll with the month table").toBeLessThanOrEqual(1);
-  await page.locator("#kassavirta table.use-table .rt-drill").first().click();
-  await expect(page.locator("#kassavirta table.use-table tr.rt-detail")).toBeVisible();
-  expect(await overflow(page), "sideways scroll with the table open").toBeLessThanOrEqual(1);
+  await expect(page.getByRole("table", { name: "Tulolajit" })).toBeVisible();
+  expect(await overflow(page), "sideways scroll on Tulot").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
