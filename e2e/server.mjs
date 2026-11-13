@@ -37,6 +37,21 @@ function freePort() {
   });
 }
 
+/**
+ * Removes a run's folder while its server stops. The server deletes its database's -wal and -shm files as it closes,
+ * and a removal that meets a file going away can return with the rest of the folder left (Node 24). So it is tried
+ * again, 20 ms apart, for up to a second. Synchronous: the signal handlers exit right after it.
+ * @param {string} dir
+ */
+function removeAll(dir) {
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  for (let i = 0; i < 50 && existsSync(dir); i++) {
+    if (i > 0) Atomics.wait(pause, 0, 0, 20);
+    rmSync(dir, { recursive: true, force: true });
+  }
+  if (existsSync(dir)) console.error(`e2e: the data folder ${dir} could not be removed`);
+}
+
 /** @returns {Promise<{ base: string, dir: string, setupCode: string, fakeBank: string, log: () => string, stop: () => void }>} */
 export async function startServer() {
   // `pnpm e2e` builds a run that may stamp into a folder of its own and names it here: the tree's `dist` is not touched
@@ -58,7 +73,7 @@ export async function startServer() {
     process.off("SIGTERM", onTerm);
     server?.kill("SIGTERM");
     bank?.child.kill("SIGTERM");
-    rmSync(dir, { recursive: true, force: true });
+    removeAll(dir);
   };
   // a copy, so a build started while the suite runs cannot change the files under test
   const bundle = join(dir, "app", "node.js");
