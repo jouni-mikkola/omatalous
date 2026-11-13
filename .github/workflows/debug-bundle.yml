@@ -19,7 +19,8 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: sed -i 's/minify: true/minify: false/' apps/web/vite.config.ts
+      - run: |
+          sed -i 's/minify: true/minify: false/' apps/web/vite.config.ts
       - run: pnpm --filter @banking/web build
       - name: regions
         run: |
