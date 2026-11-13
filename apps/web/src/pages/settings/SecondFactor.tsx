@@ -22,7 +22,7 @@ function groupsOfFour(secret: string): string {
 }
 
 /** The ten recovery codes: shown once, with a button that copies them all. */
-export function RecoveryCodes({
+function RecoveryCodes({
   codes,
   onDone,
 }: {

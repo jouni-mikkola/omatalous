@@ -1,4 +1,4 @@
-/** The run of one form in Asetukset > Turvallisuus, shared by the passkeys and the second factor. */
+/** The run of one form of the second factor in Asetukset > Turvallisuus. */
 import { type FormEvent, useState } from "react";
 
 /** Runs a form's action with a busy flag and the server's sentence as the error. */

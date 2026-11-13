@@ -3,18 +3,18 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // From 1600 px a page that stacks its panels stands on the page's twelve columns (a column is 100 px at 1920) and the four
-// halves (Salasana, Kieli, Kaksivaiheinen kirjautuminen, Passkey) take six each, two to a row; under 1600 px they stay under each other.
+// halves (Salasana, Kaksivaiheinen kirjautuminen) take six each, two to a row; under 1600 px they stay under each other.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 for (const [width, side] of [[1920, true], [1600, true], [1280, false]] as const) {
-  test(`Asetukset at ${width} px: the three halves ${side ? "stand two and one, the two on one top edge" : "stand under each other"}`, async ({ browser }) => {
+  test(`Asetukset at ${width} px: the two halves ${side ? "stand side by side on one top edge" : "stand under each other"}`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
     const page = await context.newPage();
     const seen = watch(page);
     await page.goto("/#/settings/security");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     const halves = page.locator(".stack > .card.half");
-    await expect(halves).toHaveCount(3);
+    await expect(halves).toHaveCount(2);
     // a card above them can still be filling in after "Ladataan…" goes and move them down: both boxes are read in one go,
     // and the same layout twice in a row is the one the checks read
     const boxes = () => halves.evaluateAll((els) => els.map((el) => { const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }; }));
@@ -23,14 +23,11 @@ for (const [width, side] of [[1920, true], [1600, true], [1280, false]] as const
     type Box = { x: number; y: number; width: number; height: number };
     const all = JSON.parse(last) as Box[];
     if (side) {
-      const [a, b, c] = all as [Box, Box, Box];
-      expect(b.y, "the first two share a top edge").toBe(a.y);
+      const [a, b] = all as [Box, Box];
+      expect(b.y, "the two share a top edge").toBe(a.y);
       expect(b.x, "the second stands right of the first").toBeGreaterThan(a.x + a.width);
       expect(a.width, "six columns of a grid of 100 px columns and 16 px gutters").toBe(width === 1920 ? 6 * 100 + 5 * 16 : a.width);
       expect(a.width).toBe(b.width);
-      expect(c.y, "the third stands under the first two").toBeGreaterThanOrEqual(a.y + Math.max(a.height, b.height));
-      expect(c.x, "the third starts at the left edge").toBe(a.x);
-      expect(c.width).toBe(a.width);
     } else {
       for (let i = 1; i < all.length; i++) {
         expect(all[i]!.x).toBe(all[0]!.x);

@@ -97,7 +97,7 @@ describe("second factor: sign-in", () => {
     const c = t.client();
     const login = await c.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD });
     expect(login.status).toBe(200);
-    expect(login.body).toEqual({ needsFactor: true, passkey: false, codes: true });
+    expect(login.body).toEqual({ needsFactor: true });
     expect(login.res.headers.get("set-cookie")).toContain("_half=");
     expect(login.res.headers.get("set-cookie")).toContain("HttpOnly");
 
@@ -531,20 +531,29 @@ describe("second factor: the secret file against the running secret", () => {
   });
 });
 
-describe("the last factor is kept by the statement that deletes it", () => {
-  it("an authenticator secret stays when its passkey went in between, and goes while a passkey is there", async () => {
+describe("a passkey row an earlier version made", () => {
+  it("is no second factor: the sign-in asks for no code, and removing the factor deletes the row", async () => {
     const t = await setupApp();
     const at = "2026-10-01T00:00:00Z";
-    const passkey = { credentialId: "cred-1", publicKey: "key", counter: 0, transports: [], rpId: "talous.example.fi", label: "Puhelin" };
-    await t.s.factors.enable(t.adminId, "sealed", 1, [], at);
-    await t.s.factors.addPasskey(t.adminId, passkey, [], at);
-    // the passkey is taken away after the service looked at it: the authenticator is now the only factor
-    const [only] = await t.s.factors.passkeys(t.adminId);
-    expect(await t.s.factors.removePasskey(t.adminId, only!.id)).toBe(true);
-    expect(await t.s.factors.removeTotp(t.adminId, true)).toBe(false);
-    expect(await t.s.factors.hasTotp(t.adminId)).toBe(true);
-    await t.s.factors.addPasskey(t.adminId, { ...passkey, credentialId: "cred-2" }, [], at);
-    expect(await t.s.factors.removeTotp(t.adminId, true)).toBe(true);
+    await t.db.run(
+      "INSERT INTO user_factor (id, user_id, kind, secret, label, last_step, created_at, last_used_at, credential_id, transports, rp_id) VALUES ('old-passkey', ?, 'passkey', 'key', 'Puhelin', 0, ?, NULL, 'cred-1', '[]', 'talous.example.fi')",
+      [t.adminId, at],
+    );
     expect(await t.s.factors.hasTotp(t.adminId)).toBe(false);
+    const login = await t.client().call("POST", "/api/auth/login", { username: "aino", password: PASSWORD });
+    expect(login.body.needsFactor).toBeUndefined();
+    await t.s.factors.removeAll(t.adminId);
+    expect(await t.db.all("SELECT id FROM user_factor WHERE user_id = ?", [t.adminId])).toEqual([]);
+  });
+});
+
+describe("taking the authenticator app away", () => {
+  it("takes its recovery codes with it", async () => {
+    const t = await setupApp();
+    await t.s.factors.enable(t.adminId, "sealed", 1, ["hash-1", "hash-2"], "2026-10-01T00:00:00Z");
+    expect(await t.s.factors.recoveryLeft(t.adminId)).toBe(2);
+    await t.s.factors.removeTotp(t.adminId);
+    expect(await t.s.factors.hasTotp(t.adminId)).toBe(false);
+    expect(await t.s.factors.recoveryLeft(t.adminId)).toBe(0);
   });
 });

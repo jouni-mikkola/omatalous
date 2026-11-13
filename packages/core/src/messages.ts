@@ -7,7 +7,7 @@
  */
 import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
 import type { FI_LATE } from "./messages-late.ts";
-import { FI_PASSKEY } from "./messages-passkey.ts";
+import { FI_FACTOR } from "./messages-factor.ts";
 import { FI_SHELL } from "./messages-shell.ts";
 
 const FI = {
@@ -77,7 +77,7 @@ const FI = {
 } as const;
 
 
-const FI_EARLY = { ...FI, ...FI_SHELL, ...FI_PASSKEY } as const;
+const FI_EARLY = { ...FI, ...FI_SHELL, ...FI_FACTOR } as const;
 /** Every Finnish code: the early table and the late one. */
 type FiAll = typeof FI_EARLY & typeof FI_LATE;
 /** A sentence for every code. */

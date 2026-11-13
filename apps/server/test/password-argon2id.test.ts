@@ -104,7 +104,7 @@ describe("sign-in rewrites an old hash", () => {
     await t.admin.call("POST", "/api/security/factor/confirm", { password: "aino-salasana-123", code: totpCode(started.body.secret, step) });
     await setLegacy(t, t.adminId, "aino-salasana-123");
     const c = t.client();
-    expect((await c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" })).body).toEqual({ needsFactor: true, passkey: false, codes: true });
+    expect((await c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" })).body).toEqual({ needsFactor: true });
     expect(await stored(t)).toMatch(/^argon2id\$/);
     expect((await c.call("POST", "/api/auth/factor", { code: totpCode(started.body.secret, step + 1) })).status).toBe(200);
   });

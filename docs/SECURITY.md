@@ -212,13 +212,12 @@ maintenance helper is current. The installer's script path does the same and sta
   its spare, so the spare allows no extra guesses and ends no lockout. Only a correct password gets an address
   remembered. Unknown user names take the same time to check as real ones, and only a few hashes run at once.
 - Second factor: a member can turn on an authenticator app code (TOTP, RFC 6238; the seed is sealed with the user id as
-  AAD and never returned), passkeys (WebAuthn, checked with `@simplewebauthn/server`, [ADR 0024](adr/0024-webauthn-library.md)),
-  or both. A passkey is asked after the password and never replaces it; attestation is not requested and the public key
-  is all the app stores. The rp id and origin are the host and origin of the install's address, so a passkey needs an
-  https address, or the name `localhost`, and the Passkey card says so on a home network address. Recovery codes are
-  stored as hashes. Every try is counted by the limiters before it is checked. Turning on, removal, use and failure
-  of each are security events (`factor_on`, `factor_off`, `passkey_added`, `passkey_removed`, `passkey_used`, and
-  `login_fail` with the detail `passkey`).
+  AAD and never returned). Recovery codes are stored as hashes. Every try is counted by the limiters before it is
+  checked. Turning on, removal, use and failure of each are security events (`factor_on`, `factor_off`,
+  `recovery_codes_made`, `recovery_code_used` and `login_fail`). Passkeys are gone: a browser allows them only on https
+  and the app runs over http on the home network. Rows of kind `passkey` an earlier version made stay in `user_factor`,
+  nothing reads them and `removeAll` deletes them. The log still shows their old events (`passkey_added`,
+  `passkey_removed`, `passkey_used`) for their 90 days as one generic name.
 - A public address (the tunnel or the installer's own domain) needs a second factor of every admin: *Etäkäyttö* refuses
   to turn on without it, names the admins who lack one and records `remote_access_failed`. While the address is public
   an admin keeps a second factor, so the last one cannot be removed until remote access is off.

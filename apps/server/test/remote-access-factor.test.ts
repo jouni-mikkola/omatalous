@@ -3,12 +3,18 @@
  * refusal is a security event, and the last factor stays while the address is public.
  */
 import { describe, expect, it } from "vitest";
-import { Device } from "./webauthn-device.ts";
+import { stepOf, totpCode } from "../src/security/totp.ts";
 import { PASSWORD, LAN, TUNNEL, useWorlds, world } from "./remote-access-kit.ts";
 
 useWorlds();
 
-const PARTY = { rpId: "talous.example.fi", origin: "https://talous.example.fi" };
+/** Turns on the admin's authenticator app through the API and returns its recovery codes. */
+async function enrolAdmin(w: Awaited<ReturnType<typeof world>>): Promise<string[]> {
+  const started = await w.admin.call("POST", "/api/security/factor/enrol", { password: PASSWORD });
+  const confirmed = await w.admin.call("POST", "/api/security/factor/confirm", { password: PASSWORD, code: totpCode(started.body.secret, stepOf(w.now().getTime())) });
+  expect(confirmed.status).toBe(200);
+  return confirmed.body.recoveryCodes as string[];
+}
 
 describe("remote access: a second factor first", () => {
   it("refuses to turn on while an admin has none, writes nothing and records the refusal", async () => {
@@ -23,48 +29,28 @@ describe("remote access: a second factor first", () => {
     expect((await w.state()).access.on).toBe(false);
   });
 
-  it("turns on once the admin has a passkey, and keeps the last factor while public", async () => {
-    const w = await world({ APP_BASE_URL: "https://talous.example.fi" }, { withoutFactor: true });
+  it("turns on once the admin has an authenticator app, and keeps the last factor while public", async () => {
+    const w = await world({}, { withoutFactor: true });
     await w.host(LAN);
     expect((await w.saveToken()).status).toBe(200);
-    const device = new Device();
-    const started = await w.admin.call("POST", "/api/security/factor/passkey/start", { password: PASSWORD });
-    const added = await w.admin.call("POST", "/api/security/factor/passkey/finish", { response: device.create(started.body.challenge, PARTY), label: "Puhelin" });
-    expect(added.status).toBe(200);
+    const codes = await enrolAdmin(w);
 
     expect((await w.on()).status).toBe(200);
     await w.helper("ok", TUNNEL);
     w.later();
-    const id = (await w.admin.call("GET", "/api/security/factor")).body.passkeys[0].id as string;
-    const kept = await w.admin.call("POST", "/api/security/factor/passkey/remove", { password: PASSWORD, code: added.body.recoveryCodes[0], id });
+    const kept = await w.admin.call("POST", "/api/security/factor/remove", { password: PASSWORD, code: codes[0] });
     expect(kept.status).toBe(400);
     expect(kept.body.error).toContain("Osoite on julkinen");
-    expect((await w.admin.call("GET", "/api/security/factor")).body.passkeys).toHaveLength(1);
+    expect((await w.admin.call("GET", "/api/security/factor")).body.enabled).toBe(true);
   });
 
-  it("counts a passkey only for the address it was made for", async () => {
-    const w = await world({ APP_BASE_URL: "https://talous.example.com" }, { withoutFactor: true });
-    await w.host(LAN);
-    expect((await w.saveToken()).status).toBe(200);
-    const device = new Device();
-    const started = await w.admin.call("POST", "/api/security/factor/passkey/start", { password: PASSWORD });
-    const other = { rpId: "talous.example.com", origin: "https://talous.example.com" };
-    expect((await w.admin.call("POST", "/api/security/factor/passkey/finish", { response: device.create(started.body.challenge, other), label: "Puhelin" })).status).toBe(200);
-    // the passkey was made for talous.example.com, the address to publish is talous.example.fi
-    const refused = await w.on();
-    expect(refused.status).toBe(400);
-    expect(refused.body.error).toContain("toisen tekijän");
-  });
-
-  it("refuses a new admin and a promoted member without a factor while the address is public, and ends the other sessions at the first passkey", async () => {
-    const w = await world({ APP_BASE_URL: "https://talous.example.fi" }, { withoutFactor: true });
+  it("refuses a new admin and a promoted member without a factor while the address is public, and ends the other sessions at the first factor", async () => {
+    const w = await world({}, { withoutFactor: true });
     await w.host(LAN);
     expect((await w.saveToken()).status).toBe(200);
     const other = w.client();
     expect((await other.call("POST", "/api/auth/login", { username: "aino", password: PASSWORD })).status).toBe(200);
-    const device = new Device();
-    const started = await w.admin.call("POST", "/api/security/factor/passkey/start", { password: PASSWORD });
-    expect((await w.admin.call("POST", "/api/security/factor/passkey/finish", { response: device.create(started.body.challenge, PARTY), label: "Puhelin" })).status).toBe(200);
+    const codes = await enrolAdmin(w);
     expect((await other.call("GET", "/api/meta")).status).toBe(401);
 
     const member = await w.member("pekka");
@@ -79,8 +65,7 @@ describe("remote access: a second factor first", () => {
     expect(created.body.error).toContain("Osoite on julkinen");
     expect((await w.admin.call("PATCH", `/api/users/${pekka.id}`, { role: "admin" })).status).toBe(400);
     // the last factor stays while the turning on waits
-    const id = (await w.admin.call("GET", "/api/security/factor")).body.passkeys[0].id as string;
-    expect((await w.admin.call("POST", "/api/security/factor/passkey/remove", { password: PASSWORD, id })).status).toBe(400);
+    expect((await w.admin.call("POST", "/api/security/factor/remove", { password: PASSWORD, code: codes[0] })).status).toBe(400);
     void member;
   });
 });

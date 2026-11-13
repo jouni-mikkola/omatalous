@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { spawnSync } from "node:child_process";
+import { overflow } from "./helpers.ts";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -242,7 +243,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
 
   // no horizontal scroll on a phone
   await page.setViewportSize({ width: 375, height: 667 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
   // the one wrong password is the only refused request
   expect(seen.filter((p) => /status of 403/.test(p))).toHaveLength(1);
   expect(seen.filter((p) => !/status of 403/.test(p))).toEqual([]);
@@ -359,7 +360,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
 
   // on a phone: nothing runs sideways
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   // the reset card says before the click what goes, that a copy is taken first and that the banks are connected again
   await resetCard.scrollIntoViewIfNeeded();
@@ -396,7 +397,7 @@ test("restore the newest copy and empty everything: the dialogs, the bodies sent
     { password: "esimerkki-salasana-123", confirm: "TYHJENNÄ" },
     { password: "esimerkki-salasana-123", confirm: "TYHJENNÄ" },
   ]);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   // the way out is the sign-in page
   await done.getByRole("link", { name: "Kirjaudu sisään" }).click();

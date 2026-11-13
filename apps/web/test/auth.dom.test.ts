@@ -172,45 +172,6 @@ describe("password change", () => {
     submit("Peruuta");
     expect(onCancel).toHaveBeenCalled();
   });
-
-  it("offers a passkey only when the server says so, and sends the device's answer", async () => {
-    const bytes = (...n: number[]) => new Uint8Array(n).buffer;
-    const get = vi.fn(async () => ({
-      id: "AQID",
-      rawId: bytes(1, 2, 3),
-      type: "public-key",
-      response: { clientDataJSON: bytes(4), authenticatorData: bytes(5), signature: bytes(6), userHandle: null },
-      authenticatorAttachment: "platform",
-    }));
-    vi.stubGlobal("PublicKeyCredential", class {});
-    Object.defineProperty(navigator, "credentials", { value: { get }, configurable: true });
-    const seen = stubApi({
-      "POST /api/auth/login": { needsFactor: true, passkey: true, codes: true },
-      "POST /api/auth/passkey/options": { challenge: "AAEC", allowCredentials: [{ id: "AQID", type: "public-key" }] },
-      "POST /api/auth/passkey": { user },
-    });
-    const onDone = vi.fn();
-    render(h(Login, { onDone }));
-    type("Käyttäjätunnus", "maija");
-    type("Salasana", "salasana-123456");
-    submit("Kirjaudu sisään");
-    await screen.findByRole("button", { name: "Käytä passkeyta" });
-    submit("Käytä passkeyta");
-    await waitFor(() => expect(onDone).toHaveBeenCalledWith(user));
-    expect(get).toHaveBeenCalledOnce();
-    expect(seen.at(-1)).toMatchObject({ path: "/api/auth/passkey", body: { response: { id: "AQID", rawId: "AQID", response: { signature: "Bg" } } } });
-    vi.unstubAllGlobals();
-  });
-
-  it("shows no passkey button when the member has none", async () => {
-    stubApi({ "POST /api/auth/login": { needsFactor: true, passkey: false, codes: true } });
-    render(h(Login, { onDone: vi.fn() }));
-    type("Käyttäjätunnus", "maija");
-    type("Salasana", "salasana-123456");
-    submit("Kirjaudu sisään");
-    await screen.findByLabelText("Koodi sovelluksesta");
-    expect(screen.queryByRole("button", { name: "Käytä passkeyta" })).toBeNull();
-  });
 });
 
 describe("the language of the screens before a sign-in", () => {
@@ -221,7 +182,7 @@ describe("the language of the screens before a sign-in", () => {
   });
 
   it("is the one kept on the device, and the screens show no Finnish in English", async () => {
-    stubApi({ "POST /api/auth/login": { needsFactor: true, passkey: true, codes: true } });
+    stubApi({ "POST /api/auth/login": { needsFactor: true } });
     rememberLanguage("en");
     setLanguage(null);
     for (const screen_ of [h(Login, { onDone: vi.fn() }), h(Setup, { onDone: vi.fn() }), h(ChangePassword, { onDone: vi.fn() })]) {

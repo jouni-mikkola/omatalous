@@ -36,10 +36,6 @@ export const EVENT_KINDS = [
   "factor_removed_by_admin",
   "recovery_codes_made",
   "recovery_code_used",
-  // passkeys (passkeys.ts)
-  "passkey_added",
-  "passkey_removed",
-  "passkey_used",
   // Asetukset > Palvelin > Etäkäyttö (remote-access.ts)
   "remote_access_on",
   "remote_access_off",
