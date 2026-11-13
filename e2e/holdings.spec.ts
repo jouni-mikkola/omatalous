@@ -206,7 +206,9 @@ test("every card is a flat row above its figures, with its name as the one link 
         const edge = el.getBoundingClientRect();
         return Array.from(el.querySelectorAll("*")).filter((n) => {
           const r = n.getBoundingClientRect();
-          return r.width > 0 && (r.left < edge.left - 0.5 || r.right > edge.right + 0.5 || r.top < edge.top - 0.5 || r.bottom > edge.bottom + 0.5);
+          // the name's box reaches 4 px past its text on every side (the pointer's room, holdings.css): its text is what stays on the row
+          const slack = n.classList.contains("holding-name") ? parseFloat(getComputedStyle(n).paddingLeft) : 0;
+          return r.width > 0 && (r.left + slack < edge.left - 0.5 || r.right - slack > edge.right + 0.5 || r.top + slack < edge.top - 0.5 || r.bottom - slack > edge.bottom + 0.5);
         }).length;
       });
       expect(outside, `parts of a face outside it at ${width} px`).toBe(0);
