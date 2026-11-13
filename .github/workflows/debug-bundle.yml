@@ -19,12 +19,14 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @banking/web build
+      - run: node tools/bundle-budget.mjs || true
       - run: |
           sed -i 's/minify: true/minify: false/' apps/web/vite.config.ts
-      - run: pnpm --filter @banking/web build
+          pnpm --filter @banking/web exec vite build --outDir /tmp/plain --emptyOutDir
       - name: regions
         run: |
-          cd apps/web/dist/assets
+          cd /tmp/plain/assets
           for f in index-*.js preload-helper-*.js forecast-*.js; do
             echo "=== $f"
             grep -oE '^(export )?(async )?function [A-Za-z0-9_$]+' "$f" | sed -E 's/^(export )?(async )?function //' | tr '\n' ' '
