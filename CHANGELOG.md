@@ -3,6 +3,44 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.2.2
+
+- Yhteenveto is rebuilt: four tiles, twelve months of income and spending, the coming bills, accounts and categories.
+- Each tile, month and category on Yhteenveto opens what its figure is made of.
+- Payee names drop times, foreign sums and exchange rates, and a card refund has its purchase's name.
+- A credit card connected later no longer lowers the income averages or hides the usual level.
+- Raportit opens faster on a long history.
+
+Money and reports
+
+- A card refund ("Hyvitys") gets the payee name of its purchase. Existing rows get it at the next update.
+- Raportit > Tulot: the month a credit card was connected counts in the income averages.
+- A credit card connected later no longer hides the usual level of Yhteenveto and Raportit > Kuukausi.
+- Payee names leave out the time after "klo" and a foreign purchase's sum and exchange rate, so a shop has one name.
+- A purchase abroad whose text holds an exchange rate is no longer filed under Koulutus.
+
+Look
+
+- Yhteenveto opens on four tiles: left until payday, this month's spending and income, and net assets.
+- Three tiles compare with the usual level or a month ago, and every tile opens what its figure is made of.
+- Yhteenveto draws income and spending of the last twelve months, with the usual month as a line.
+- Each month of the chart opens its transactions; the running month is marked as not yet whole.
+- Tulevat laskut beside the chart lists the bills until payday with their total, and opens Laskut.
+- Tilit ja kortit groups accounts by type with totals, and gives each card its next bill.
+- Every account and card names its bank and the day of its balance, on Yhteenveto and in Raportit.
+- This month's categories stand against their usual month, the six largest and the rest as one sum.
+- Security notices are no longer on Yhteenveto: a dot on the user menu leads to Asetukset > Turvallisuus.
+- A reset or a factor removal an admin did to their own account is not told to them as news.
+
+Reliability
+
+- Raportit opens faster on a long history.
+
+Maintenance
+
+- A loaded add-on has its own tab, Asetukset > Lisäosa, with its settings and its code, version and state.
+- The Lisäosa card names the version of an add-on that runs with no code saved, and says it is not updated.
+
 ## 1.2.1
 
 - Yhteenveto is calmer: the answer and its basis are one block, Kuukausi is its chart alone, and Huomioitavaa lists only what needs the household.
