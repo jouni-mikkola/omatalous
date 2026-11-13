@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { unfold, watch } from "./helpers.ts";
+import { watch } from "./helpers.ts";
 
 // Closing a dialog by Escape or by Peruuta puts the focus back on the button that opened it. One test per kind of
 // dialog: the question (ConfirmDialog), the loan form, the panel of a figure's rows (Why) and the password form.
@@ -50,8 +50,9 @@ test("the panel of a figure's rows hands the focus back", async ({ browser }) =>
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/reports?tab=menot&period=3m");
-  await unfold(page, "kategoriat");
+  // the doors to a figure's rows are on Kuukausi: Rahankäyttö opens a category in place
+  await page.goto("/#/reports");
+  await expect(page.locator(".km .km-total")).toContainText(/Menot\s[\d\s]+€/, { timeout: 15_000 });
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   const opener = page.getByRole("button", { name: /^Näytä tapahtumat: / }).first();
   await opener.click();

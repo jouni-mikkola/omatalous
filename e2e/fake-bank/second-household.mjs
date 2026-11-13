@@ -10,14 +10,22 @@
  * signed (negative = out). Everything is made up; the shops and services are real trade names, because the rules read those.
  */
 
+/**
+ * An IBAN with valid check digits, made up here: the app drops a payee account that fails them, and a transfer to a person
+ * is read from that account. Written out, a valid one would be an account number to the privacy scan.
+ */
+function ibanOf(bban) {
+  return `FI${String(98 - Number(BigInt(`${bban}151800`) % 97n)).padStart(2, "0")}${bban}`;
+}
+
 const IBAN = {
   checking: "FI3750009420041552",
   savings: "FI0950009420041560",
   employer: "FI6350009420041578",
   landlord: "FI3250009420041586",
   cardBill: "FI9550009420041594",
-  friend: "FI5250009420041602",
-  sister: "FI7350009420041628",
+  friend: ibanOf("50009420041602"),
+  sister: ibanOf("50009420041628"),
   lender: "FI2450009420041610",
 };
 

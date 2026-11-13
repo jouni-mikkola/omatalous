@@ -1,6 +1,6 @@
 import { type Browser, expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { unfold, watch } from "./helpers.ts";
+import { watch } from "./helpers.ts";
 
 // VT5: the basis of a figure opens from the figure. Every door (Why) on Yhteenveto and Laskut opens its panel by Enter, by
 // Space and by a tap; Escape and Sulje close it and give the focus back to the figure; on a phone the panel is a sheet at the
@@ -95,12 +95,10 @@ for (const p of PAGES) {
   });
 }
 
-test("Raportit > Menot: the total's basis shows its first row below the head, not under it, and a category column only when the rows differ", async ({ browser }) => {
-  const { page, seen, close } = await open(browser, "/#/reports?period=12m&q=menot", false);
-  // Rahankäyttö folds its sections: the total sits in Kategoriat
-  await unfold(page, "kategoriat");
-  const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
-  await total.getByRole("button", { name: /Näytä tapahtumat/ }).click();
+// The month's spending is the figure of its tile on Yhteenveto; the total row of Rahankäyttö has no door since the page was rebuilt (e1296aab9, #412).
+test("Yhteenveto: the month's spending basis shows its first row below the head, not under it, and a category column only when the rows differ", async ({ browser }) => {
+  const { page, seen, close } = await open(browser, "/#/overview", false);
+  await page.locator("[data-tile=spent] button.why-door").click();
   const panel = page.getByRole("dialog");
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   const head = (await panel.locator("table.why-rows thead").first().boundingBox())!;
@@ -113,12 +111,9 @@ test("Raportit > Menot: the total's basis shows its first row below the head, no
   await close();
 });
 
-test("Raportit > Menot at 390 px: the total's basis fits the screen, each row's category under its name", async ({ browser }) => {
-  const { page, seen, close } = await open(browser, "/#/reports?period=12m&q=menot", true);
-  // Rahankäyttö folds its sections: the total sits in Kategoriat
-  await unfold(page, "kategoriat");
-  const total = page.locator("tfoot tr.rt-total", { hasText: "Yhteensä" }).first();
-  await total.getByRole("button", { name: /Näytä tapahtumat/ }).tap();
+test("Yhteenveto at 390 px: the month's spending basis fits the screen, each row's category under its name", async ({ browser }) => {
+  const { page, seen, close } = await open(browser, "/#/overview", true);
+  await page.locator("[data-tile=spent] button.why-door").tap();
   const panel = page.getByRole("dialog");
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   const right = await panel.evaluate((d) => Math.max(...Array.from(d.querySelectorAll("table"), (t) => t.getBoundingClientRect().right)));

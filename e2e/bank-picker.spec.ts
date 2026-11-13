@@ -247,23 +247,19 @@ test("served logos: a wide wordmark and a square mark fit the plate at 1366 and 
   await context.close();
 });
 
-test("a connection's row shows the logo the server serves for its bank, and none for a bank without one", async ({ browser }) => {
+// A connection's row carries the bank's name only: the logo left the rows on purpose (2853db29b, P8). The picker keeps its logos.
+test("a connection's row shows the bank's name and no logo, also for a bank the server has a logo for", async ({ browser }) => {
   const banks = offer(6).map((b) => (b.id === "op-fi" ? { ...b, logo: true } : b));
   const { context, page, seen } = await open(browser, banks, [consent("c1", "OP", "active", "2026-09-20T00:00:00Z"), consent("c2", "S-Pankki", "active", "2026-09-01T00:00:00Z")]);
+  const requested: string[] = [];
+  page.on("request", (r) => requested.push(r.url()));
   await page.route("**/api/bank/logos/*", (route) => route.fulfill({ status: 200, contentType: "image/svg+xml", body: WIDE }));
   await page.goto("/#/settings");
-  const logo = page.locator(".bank-logo-sm img");
-  await expect(logo).toHaveCount(1);
-  await expect(logo).toBeVisible();
-  await expect(logo).toHaveAttribute("src", "/api/bank/logos/op-fi");
-  await expect(logo).toHaveAttribute("alt", "OP");
-  const fit = await logo.evaluate((img) => {
-    const plate = img.parentElement!.getBoundingClientRect();
-    const box = img.getBoundingClientRect();
-    return { inside: box.left >= plate.left && box.right <= plate.right && box.top >= plate.top && box.bottom <= plate.bottom, plate: getComputedStyle(img.parentElement!).backgroundColor };
-  });
-  expect(fit).toEqual({ inside: true, plate: await platePaint(page) });
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, "bank-logos-connections.png") });
+  const table = page.getByRole("table", { name: "Pankkiyhteydet" });
+  await expect(table.getByRole("rowheader", { name: "OP", exact: true })).toBeVisible();
+  await expect(table.getByRole("rowheader", { name: "S-Pankki", exact: true })).toBeVisible();
+  await expect(table.locator("img, .bank-logo")).toHaveCount(0);
+  expect(requested.filter((url) => url.includes("/api/bank/logos/"))).toEqual([]);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

@@ -149,7 +149,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   // the card: the balance is known, and the rest is a dash instead of a zero, with one link to complete it
   const card = rows.nth(1);
   expect((await card.locator(".loan-figures > div").allInnerTexts()).map(plain)).toEqual([
-    `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.${today.slice(0, 4)}`,
+    `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.`, // a day of the running year has no year (format.ts `date`)
     "Korko –",
     "Maksu –",
     "Korot seuraavan 12 kuukauden aikana (arvio) –",
@@ -199,20 +199,18 @@ test("Täydennä opens Asetukset at the card Lainat, where the loan can be chang
   await context.close();
 });
 
-test("Raportit draws its figures as charts under their questions, and none of the paragraphs the figures replaced", async ({ browser }) => {
+// The charts of Tulot and Kiinteät menot (cash flow, saving rate, income level, share of the fixed costs) went with the
+// extra report sections (6fbd30df7, T60); the balance chart under its question stays.
+test("Raportit draws the balance chart under its question, and none of the paragraphs the figures replaced", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
   await page.goto("/#/reports?q=tulot");
-  await expect(page.locator("#kassavirta").getByRole("heading", { name: "Tulot ja menot" })).toBeVisible();
-  // each chart answers a question written as its title
-  const questions = (await page.locator("main .qc-q").allInnerTexts()).map((q) => q.trim());
-  for (const q of ["Säästöaste", "Tulotaso"]) expect(questions).toContain(q);
-  // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulot
+  // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulolajit
+  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
   await page.goto("/#/reports?q=kiinteat");
-  await expect(page.locator("main .qc-q", { hasText: "Kiinteiden menojen osuus" })).toBeVisible();
-  await expect(page.locator("#kiinteat .qc-a").first()).toContainText("Kiinteät menot ovat nyt");
+  await expect(page.locator("#kiinteat-menot").getByRole("heading", { name: "Kiinteät menot" }).first()).toBeVisible();
   await page.goto("/#/reports?q=tulot");
-  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulot", exact: true })).toBeVisible();
+  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
   // Saldot: the balance by day under its question, with no legend
   await page.goto("/#/reports?q=saldot");
   await expect(page.locator("#saldot").getByRole("heading", { name: "Saldojen kehitys" })).toBeVisible();

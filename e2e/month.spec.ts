@@ -19,8 +19,8 @@ for (const width of [1280, 390]) {
     await expect(page).toHaveTitle(/^Raportit/);
     const view = page.locator(".km");
     await expect(view.locator(".km-total")).toContainText(/Menot\s[\d\s]+€/, { timeout: 15_000 });
-    // no question list, no period switch: the month has neither
-    await expect(page.locator(".q-frame")).toHaveCount(0);
+    // the list of reports stands beside the month like beside every report page, and the month has no period switch
+    await expect(page.locator(".q-frame").getByRole("navigation", { name: "Raportit" })).toHaveCount(1);
     await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(0);
 
     // the list is in the order of the gap, the largest first (the rest row, which opens nothing, is last)

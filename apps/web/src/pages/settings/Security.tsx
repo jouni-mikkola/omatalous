@@ -270,10 +270,12 @@ export function Sessions({ admin = false, onLoaded }: { admin?: boolean; onLoade
  * has it; of a known user it is the Käyttäjä column again. A passkey's label stays even when it is the user's name, and a
  * new device's label stays, as a phone hides the Laite column.
  * With nothing to add the cell is empty, so a phone's row block drops the label too (`td[data-label]:empty`).
+ * The detail is the server's record of the event, written in Finnish when it happened; `data-recorded` marks it as data, as the
+ * bank's text of a row is, so the English scan of the browser tests leaves it out.
  */
 export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username">): ReactNode {
   const typedName = (e.kind === "login_fail" || e.kind === "lockout") && e.detail === e.username;
-  return e.detail === null || typedName ? "" : <span className="small muted">{e.detail}</span>;
+  return e.detail === null || typedName ? "" : <span className="small muted" data-recorded="">{e.detail}</span>;
 }
 
 /**

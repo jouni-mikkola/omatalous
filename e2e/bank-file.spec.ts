@@ -3,7 +3,8 @@ import { linkFakeBank, makeMember, removeMember, waitForSync } from "./helpers.t
 
 // Asetukset > Pankit ja tilit > Tiliote tiedostosta: a bank's export is read in the browser, the columns are matched once and
 // remembered, and only the rows leave it. The made-up export carries a marker no row holds, and no request may carry the marker, the header or the file name.
-const MARKER = "SALAINEN-OTSIKKO-MERKKI";
+// The marker's words must not be ones the guess takes for a text column ("otsikko" is one, and ranks above a bare "Saaja/Maksaja").
+const MARKER = "SALAINEN-MERKKI-E2E";
 const FILE = [`Kirjauspäivä;Määrä EUR;Saaja/Maksaja;${MARKER}`, "03.09.2026;-23,40;PRISMA TIKKURILA;x", "05.09.2026;2 500,00;ACME OY;x"].join("\n");
 const NAME = "tilitapahtumat-e2e-nimi.csv";
 

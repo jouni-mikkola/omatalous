@@ -377,15 +377,15 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   await context.close();
 });
 
-test("Menot kuukausittain is a heat table under its name, keeps the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
+test("Menot kuukausittain is a table under its name, the categories keep the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=menot");
-  await unfold(page, "kuukaudet");
-  const card = page.locator("#kuukaudet", { has: page.getByRole("heading", { name: "Menot kuukausittain" }) });
-  await expect(card.locator("table.heat-table tbody tr").first()).toBeVisible();
-  await expect(card.getByRole("link", { name: "Lataa taulukko (CSV)" })).toBeVisible();
+  await unfold(page);
+  const card = page.locator("details#kategoriat");
+  await expect(card.getByRole("table", { name: "Menot kuukausittain" }).locator("tbody tr").first()).toBeVisible();
+  await expect(card.getByRole("button", { name: "Lataa CSV" })).toBeVisible();
   expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the table fits its card at 390px").toBe(true);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -518,9 +518,10 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await expect(page.locator("#laskut-taulukko .card-datum")).toContainText("/kk");
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   await page.goto("/#/reports?q=kiinteat");
-  await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toBeVisible();
-  // the price changes of the fixed costs are a section of this report since BA-9; Laskut has none (checked above)
-  await expect(page.locator("#kiinteat-hinnat").getByRole("heading", { name: "Hinnanmuutokset" })).toBeVisible();
+  // the report holds the one fixed-costs table; the sections of fixed and variable costs and of price changes are gone (T60)
+  await expect(page.locator("#kiinteat-menot").getByRole("heading", { name: "Kiinteät menot" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toHaveCount(0);
+  await expect(page.locator("#kiinteat-hinnat")).toHaveCount(0);
 
   // Nyt sends on to Laskut
   await page.goto("/#/overview");
