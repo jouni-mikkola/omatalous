@@ -1,6 +1,11 @@
 section: Look
 - Yhteenveto opens on four tiles: left until payday, this month's spending and income, and net assets.
 - Each tile compares with the usual level or a month ago, and opens the rows behind its figure.
-- Yhteenveto shows the accounts, cards and loans of Raportit > Tilit ja saldot under the month.
+- Yhteenveto draws income and spending of the last twelve months, with the usual month as a line.
+- Each month of the chart opens its transactions; the running month is marked as not yet whole.
+- Tulevat laskut beside the chart lists the bills until payday with their total, and opens Laskut.
+- Tilit ja kortit groups accounts by type with totals, and gives each card its next bill.
+- Every account and card names its bank and the day of its balance, on Yhteenveto and in Raportit.
+- This month's categories stand against their usual month, the six largest and the rest as one sum.
 - Security notices are no longer on Yhteenveto: a dot on the user menu leads to Asetukset > Turvallisuus.
 - A reset or a factor removal an admin did to their own account is not told to them as news.
