@@ -3,17 +3,14 @@ name: check
 # The name stays `check`, the one main's runs and the pull requests' status lists have always shown, and no other
 # workflow takes it (tools/test/release-workflow.test.ts).
 #
-# The light tier, and the only tier on GitHub. It runs what is fast and needs a clean runner least: the shell lint, the
+# The light tier. It runs what is fast and needs a clean runner least: the shell lint, the
 # types and the tests of what a change reaches (tools/check.sh --changed, the same scope a developer runs), with the pnpm
 # store cached. A run is a few minutes, and a change of documents alone starts none. A run started by hand is the same
-# tier, checked against main; there is no heavy mode on GitHub.
+# tier, checked against main.
 #
-# The heavy checks run on the maintainer's machine, and no workflow of GitHub starts them: the whole of `pnpm check`
-# (every test and shell suite, the self-tests of the tools), the build, the browser tests (`pnpm e2e`), the image and its
-# smoke tests, the compose file, two instances side by side (tools/ci/image-checks.sh), the upgrade rehearsals and the
-# drills. A release runs them on the commit it ships and leaves a stamp that names the commit; only a commit that the
-# stamps name is published, and the release run (release.yml) builds, smoke tests and signs without testing again. No
-# test is deleted: a test that left GitHub runs there.
+# The heavy checks run beside it in full.yml: the whole of `pnpm check` (every test and shell suite, the self-tests of
+# the tools), the build, the browser tests (`pnpm e2e`), the image and its smoke tests, the container checks, the
+# upgrade rehearsals from the public releases and the drills. No check runs on a developer's machine.
 #
 # Three things start a run: a push to main, a pull request, and a hand (workflow_dispatch). A push to any other branch
 # starts none: the pull request of that branch checks the same commit, and a second run of it only held a runner. A
