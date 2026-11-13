@@ -69,7 +69,8 @@ export * from "./analysis/statement-explain.ts";
 
 export { explain } from "./explain/explain.ts";
 export { explainNow } from "./explain/now.ts";
-export { explainLoan, isLoanFigure, isOneLoan } from "./explain/loans.ts";
+export { isLoanFigure, isOneLoan } from "./explain/loan-figures.ts";
+export { explainLoan } from "./explain/loans.ts";
 export { createWhy } from "./explain/why.ts";
 export { sentenceOf } from "./explain/catalogue.ts";
 export type { Explanation, FigureId, LoanFigureId, Reason, WhyCollector } from "./explain/types.ts";
@@ -89,7 +90,8 @@ export * from "./analysis/spending-goal.ts";
 export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
 
 export { type ComingPeriod, comingList } from "./analysis/coming.ts";
-export { cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead.ts";
+export { cashAhead } from "./analysis/ahead.ts";
+export { openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead-groups.ts";
 export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";

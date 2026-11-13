@@ -4,7 +4,8 @@
  * Yhteenveto opens on is core's too.
  */
 import { describe, expect, it } from "vitest";
-import { cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "../src/analysis/ahead.ts";
+import { cashAhead } from "../src/analysis/ahead.ts";
+import { openingMonth, upcomingElsewhereCents, upcomingGroups } from "../src/analysis/ahead-groups.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { type Account, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";

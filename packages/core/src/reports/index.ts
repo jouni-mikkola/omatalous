@@ -84,6 +84,4 @@ export type { TaxRow } from "./tax-year.ts";
 
 export { comparisonYearRange, comparisonYears, yearComparisonNote } from "./year-over-year.ts";
 
-/** The questions of Raportit, in the order of the list. The id is in the address (`?q=menot`). */
-export const QUESTIONS = ["kuukausi", "menot", "tulot", "kiinteat", "velat", "saldot", "yhteiset"] as const;
-export type QuestionId = (typeof QUESTIONS)[number];
+export { QUESTIONS, type QuestionId } from "../question-ids.ts";

@@ -10,7 +10,8 @@
  */
 import { daysBetween, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
-import { type AheadBasis, upcomingElsewhereCents } from "./ahead.ts";
+import type { AheadBasis } from "./ahead.ts";
+import { upcomingElsewhereCents } from "./ahead-groups.ts";
 import { type AnalysisContext, standingOf } from "./context.ts";
 import { expectedFor } from "./expected.ts";
 import { monthPace } from "./forecast.ts";
