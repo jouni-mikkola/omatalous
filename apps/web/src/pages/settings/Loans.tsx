@@ -207,9 +207,9 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
         />
       )}
       {list.error && <Notice tone="error">{list.error}</Notice>}
-      {/* while the lists are on their way the line keeps its room, so the cards below do not move when they arrive */}
+      {/* while the list is on its way the line keeps its room, so the cards below do not move when it arrives */}
       {loans.length === 0 && proposals.length === 0 && !list.error && (
-        <Empty className={list.data && found.data ? undefined : "loans-wait"}>{t("set.loans.no_loans")}</Empty>
+        <Empty className={list.data ? undefined : "loans-wait"}>{t("set.loans.no_loans")}</Empty>
       )}
       {proposals.length > 0 && (
         <section className="loan-found" aria-labelledby="loan-found-title">
@@ -233,7 +233,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
                     <Button variant="link" onClick={() => setProposing(proposal)} aria-label={t("set.loans.add_balance_name", { name: proposal.payee })}>
                       {t("set.loans.add_balance")}
                     </Button>
-                    <Button variant="link" disabled={busy} onClick={() => void notLoan(proposal)} aria-label={t("set.loans.not_a_loan_name", { name: proposal.payee })}>
+                    <Button variant="link" busy={busy} onClick={() => void notLoan(proposal)} aria-label={t("set.loans.not_a_loan_name", { name: proposal.payee })}>
                       {t("set.rc.not_a_loan")}
                     </Button>
                   </span>

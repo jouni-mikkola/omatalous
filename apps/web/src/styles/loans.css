@@ -8,9 +8,9 @@
 .loan-draft h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: 0 0 12px; }
 
 /* the payments the bank rows show as a loan's, under the saved loans */
-.loan-found { margin-top: 16px; }
-.loan-found h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: 0 0 4px; }
-.loan-found p { margin: 0 0 8px; }
+.loan-found { margin-top: var(--sp-16); }
+.loan-found h3 { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: 0 0 var(--sp-4); }
+.loan-found p { margin: 0 0 var(--sp-8); }
 
 .loan-form { display: flex; flex-direction: column; gap: var(--sp-16); }
 .loan-form .notice, .loan-form p { margin: 0; }
