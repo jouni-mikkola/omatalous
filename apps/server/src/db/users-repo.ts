@@ -173,6 +173,11 @@ export class UsersRepo {
     await this.db.run("DELETE FROM sessions WHERE id = ?", [id]);
   }
 
+  /** Ends a session only when it is the user's own. */
+  async deleteSessionOfUser(userId: string, id: string): Promise<void> {
+    await this.db.run("DELETE FROM sessions WHERE id = ? AND user_id = ?", [id, userId]);
+  }
+
   /** Signs the user out everywhere (password change, reset, removal). */
   async deleteSessionsOf(userId: string, exceptId?: string): Promise<void> {
     await this.db.run("DELETE FROM sessions WHERE user_id = ? AND id != ?", [userId, exceptId ?? ""]);

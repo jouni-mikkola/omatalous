@@ -36,8 +36,10 @@ export async function startSession(c: Context, s: Services, userId: string): Pro
   // Sessions end by themselves after SESSION_DAYS without use. A device that signs in again replaces its old session at
   // once instead of leaving a row for each sign-in in the member's list: the one its own cookie names, and the ones of
   // the same user agent that nobody has used for a day (another device of the same kind in daily use keeps its session).
+  // The cookie is the browser's word, so its session is deleted only when it is this user's own: another member's
+  // cookie in the request must not end their session.
   const old = getCookie(c, s.config.sessionCookie);
-  if (old && old.length <= 100) await s.users.deleteSession(await sha256(old));
+  if (old && old.length <= 100) await s.users.deleteSessionOfUser(userId, await sha256(old));
   if (userAgent) await s.users.deleteIdleSessionsOfAgent(userId, userAgent, new Date(now.getTime() - SAME_DEVICE_IDLE_MS));
   await s.users.createSession(await sha256(token), userId, expires.toISOString(), userAgent, now);
   setSessionCookie(c, s, token);
