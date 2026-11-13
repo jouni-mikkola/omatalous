@@ -158,6 +158,7 @@ export const FI_REPORTS_5 = {
   "rpt.sm_other_payees": "Muut saajat",
   "rpt.sm_all_rows": "Näytä kaikki rivit",
   "rpt.sm_cards_none": "Kategorioilla ei ole vielä keskiarvoa, koska yhdistetyn kortin ostot puuttuvat aiemmilta kuukausilta. Kaikkien menojen keskiarvo on kuukausien alla.",
+  "rpt.sm_large_left": "Keskiarvot ovat ilman isoja kertaostoja, yhteensä {sum}.",
   "rpt.sm_cards_some": "Kategorioiden keskiarvo on {count} kuukaudelta, joilla yhdistetyn kortin ostot ovat mukana. Aiemmilta kuukausilta ne puuttuvat.",
   "rpt.sec_buffer": "Puskuri",
   "rpt.sec_cashflow": "Tulot ja menot",

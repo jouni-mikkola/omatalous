@@ -42,6 +42,7 @@ const report = (typical: boolean): Report => {
     totalCents: totals.reduce((a, b) => a + b, 0),
     typicalCents: 44800,
     typicalMonths: 5,
+    largeLeftOutCents: 0,
     categoryMonths: typical ? 3 : 1,
     cardGap: true,
     last: 4,
@@ -73,6 +74,14 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     const table = screen.getByRole("table", { name: "Kategoriat" });
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä"]);
     expect(plain(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelector("tfoot")!.textContent)).toContain("448 €");
+  });
+
+  it("names the large purchases the averages leave out, and only when there are some", () => {
+    show(report(true));
+    expect(plain(document.body.textContent)).not.toContain("isoja kertaostoja");
+    cleanup();
+    show({ ...report(true), largeLeftOutCents: 150000 });
+    expect(plain(document.body.textContent)).toContain("Keskiarvot ovat ilman isoja kertaostoja, yhteensä 1 500 €.");
   });
 
   it("without a card gap says nothing of cards and the footer has the average month", () => {

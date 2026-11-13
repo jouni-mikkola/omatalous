@@ -49,10 +49,12 @@ export interface Overview {
   net: { since: IsoDate; changeCents: number } | null;
   /** The months the history reaches of the last `OVERVIEW_MONTHS`, oldest first, the running month last. */
   months: OverviewMonth[];
-  /** The usual month's spending over the complete months of `months` (`typicalCents` of Menot kuukausittain); null under three of them. */
+  /** The usual month's spending over the complete months of `months` (`typicalCents` of Menot kuukausittain, without large purchases); null under three of them. */
   usualSpendCents: number | null;
   /** How many complete months `usualSpendCents` is the mean of, which the chart's key names. */
   usualMonths: number;
+  /** The large purchases of those months that `usualSpendCents` and the categories' usual leave out, in cents; 0 when none. The bars keep them. */
+  usualLargeLeftOutCents: number;
   /**
    * This month's largest `OVERVIEW_CATEGORIES` categories with spending above zero, largest first, and the rest as one
    * sum: `rows` and `otherCents` add up to `totalCents`, the running month's `spendCents`.
@@ -80,6 +82,7 @@ export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceIn
     months: spending.months.map((m, i) => ({ month: m, incomeCents: earnedIncome(ctx, m), spendCents: spending.totals[i]!, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalCents,
     usualMonths: spending.typicalMonths,
+    usualLargeLeftOutCents: spending.largeLeftOutCents,
     categories: {
       rows: top,
       otherCents: totalCents - top.reduce((sum, c) => sum + c.cents, 0),

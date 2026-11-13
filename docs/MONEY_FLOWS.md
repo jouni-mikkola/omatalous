@@ -595,6 +595,9 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   uncategorised rows for the share of *Muut menot*. *Menot kuukausittain* has the month totals and the total as sums of all
   its rows: the themes, *Loput yhteensä* and the large purchases add up to them to the cent, and so does the table of
   every category behind *Taulukko*. `packages/core/test/reports-totals.test.ts` holds the three to the cent for the seeded households.
+  The average month under it (*Tavallinen kuukausi* on Yhteenveto, *Keskimäärin kuussa* here) is the one figure that
+  leaves rows out: the large purchases (`largePurchases`) of the complete months, which a line under the table and under
+  the chart names as one sum. The bars, the totals and the categories' own sums keep them.
 - A category whose refunds were greater than its spending in the range stays in *Kategoriat* and in the table behind *Taulukko* of *Menot kuukausittain* as a
   row with its minus, last in the order (in the view by theme its theme is under *Loput yhteensä*). Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
