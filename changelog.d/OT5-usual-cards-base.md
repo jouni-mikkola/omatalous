@@ -1,3 +1,3 @@
 section: Money and reports
-- A credit card connected later with no card bills before it no longer hides the usual level of Yhteenveto and
-  Raportit > Kuukausi once its own rows cover three complete months: the usual is read from those months alone.
+- A credit card connected later no longer hides the usual level of Yhteenveto and Raportit > Kuukausi once the months
+  the usual is read from hold the card's own rows: the card note is judged by those months alone.
