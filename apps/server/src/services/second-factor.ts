@@ -22,10 +22,10 @@ const WRONG_PASSWORD = "auth.password_wrong";
 const CLAIMED = "";
 
 const sealContext = (userId: string) => `factor:${userId}`;
-export const recoveryHash = (userId: string, code: string) => sha256(`recovery:${userId}:${code}`);
+const recoveryHash = (userId: string, code: string) => sha256(`recovery:${userId}:${code}`);
 
 /** Ten codes as the user is shown them, `XXXXX-XXXXX`; 50 random bits each. */
-export function newRecoveryCodes(): string[] {
+function newRecoveryCodes(): string[] {
   return Array.from({ length: RECOVERY_COUNT }, () => {
     const chars = Array.from(randomBytes(10), (b) => RECOVERY_ALPHABET[b & 31]).join("");
     return `${chars.slice(0, 5)}-${chars.slice(5)}`;
@@ -48,7 +48,7 @@ function matchStep(secret: string, code: string, nowMs: number, lastStep: number
   return found;
 }
 
-export const normalRecovery = (code: string) => code.toUpperCase().replace(/[\s-]/g, "");
+const normalRecovery = (code: string) => code.toUpperCase().replace(/[\s-]/g, "");
 
 export async function factorStatus(s: Services, userId: string): Promise<{ enabled: boolean; since: string | null; lastUsedAt: string | null; recoveryLeft: number }> {
   const factor = await s.factors.totp(userId);
@@ -59,7 +59,7 @@ export async function factorStatus(s: Services, userId: string): Promise<{ enabl
  * Counts the try before it is made (parallel guesses cannot slip past), per address and user and per user from
  * every address, and gives it back when it succeeds. A wrong code is a `login_fail` event like a wrong password.
  */
-export async function throttled<T>(s: Services, user: { id: string; username: string }, req: RequestInfo, attempt: () => Promise<T | null>, what = "koodi"): Promise<T | null> {
+async function throttled<T>(s: Services, user: { id: string; username: string }, req: RequestInfo, attempt: () => Promise<T | null>, what = "koodi"): Promise<T | null> {
   const userKey = `${addressKey(req.ip ?? "local")}|${user.id}`;
   const refuse = async (wait: number, first: boolean): Promise<never> => {
     if (first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: what });
@@ -178,7 +178,7 @@ export async function confirmEnrol(s: Services, user: { id: string; username: st
  * An admin keeps a second factor while the address is public (remote-access.ts refuses to publish without one): the
  * last one is not taken away until the access is off.
  */
-export async function mustKeepFactor(s: Services, userId: string): Promise<boolean> {
+async function mustKeepFactor(s: Services, userId: string): Promise<boolean> {
   return (await s.users.get(userId))?.role === "admin" && (await publicAddressUp(s));
 }
 
