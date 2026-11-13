@@ -14,7 +14,7 @@ const modules: Plugin = {
     const visit = (name: string) => {
       if (seen.has(name) || !chunks.has(name)) return;
       seen.add(name);
-      for (const next of chunks.get(name).imports) visit(next);
+      for (const next of chunks.get(name).imports) visit(next.startsWith("assets/") ? next : `assets/${next}`);
     };
     roots.forEach((c) => visit(c.fileName));
     for (const name of seen) {
