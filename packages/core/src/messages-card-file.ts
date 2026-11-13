@@ -8,6 +8,8 @@ export const FI_CARD_FILE = {
   "card_file.title": "Tiliote tiedostosta",
   "card_file.sub": "Luemme tiedoston selaimessa ja tallennamme vain tapahtumien rivit.",
   "card_file.pick": "Valitse tiedosto",
+  "card_file.gap_link": "Tuo kortin tiliote",
+  "card_file.gap_note": "Tiedoston rivit tallentuvat vain kortille, jonka teit tiliotteesta, ei pankista haetulle kortille.",
   "card_file.formats": "Tilin CSV-vienti, camt.053-tiliote (XML) tai kortin tiliote (CSV tai teksti)",
   "card_file.reading": "Luetaan…",
   "card_file.err_empty": "Tiedostosta ei löytynyt rivejä.",

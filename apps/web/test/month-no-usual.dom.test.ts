@@ -44,6 +44,8 @@ describe("Kuukausi with no usual", () => {
     it(`${name}: a card's purchases missing before is told as that, with the sums of the categories`, async () => {
       await open(of("cards"), hash);
       expect(note()).toContain("kortin ostot puuttuvat");
+      // and it leads to the statement import, the one way to bring the purchases
+      expect(document.querySelector(".km-note a")?.getAttribute("href")).toContain("tiliote");
       expect(total()).not.toContain("kun takana on");
       expect(screen.getByRole("table")).toBeTruthy();
       expect(screen.getByText("Auto")).toBeTruthy();

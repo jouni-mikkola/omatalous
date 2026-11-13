@@ -72,14 +72,22 @@ export function moneyIn(cents: number, currency: string): string {
 }
 
 /**
- * A series' name on every page that lists series: a product among several of its merchant says its price (Apple 12,99 €).
+ * A series' name on every page that lists series: a product among several of its merchant says its price (Apple 12,99 €)
+ * when the list it stands in holds another series of that merchant on the account, since the price is what tells them
+ * apart; alone in its list it is the merchant's name, as the sum has a column of its own.
  * The price is the charge now (`typicalAmountCents`), not the one in the id: the id keeps the product's median for good,
  * so after a rise it would name the old price beside the new one.
+ * `listed` holds the ids of the series in the same list.
  */
-export function seriesName(id: string, chargeCents: number): string | null {
-  const merchant = parseSeriesId(id)?.merchant;
-  if (merchant === undefined) return null;
-  return productCents(id) === null ? merchant : `${merchant} ${money(chargeCents)}`;
+export function seriesName(id: string, chargeCents: number, listed: readonly string[]): string | null {
+  const own = parseSeriesId(id);
+  if (!own) return null;
+  if (productCents(id) === null) return own.merchant;
+  const sibling = listed.some((other) => {
+    const o = other === id ? null : parseSeriesId(other);
+    return o !== null && o.direction === own.direction && o.accountId === own.accountId && o.merchant === own.merchant;
+  });
+  return sibling ? `${own.merchant} ${money(chargeCents)}` : own.merchant;
 }
 
 /** Axis ticks: 150000 → "1 500 €" */

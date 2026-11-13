@@ -69,6 +69,7 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
   it("with too few such months the categories have no average column, and the page says why", () => {
     show(report(false));
     expect(plain(document.body.textContent)).toContain("Kategorioilla ei ole vielä keskiarvoa, koska yhdistetyn kortin ostot puuttuvat aiemmilta kuukausilta.");
+    expect(screen.getByRole("link", { name: "Tuo kortin tiliote" }).getAttribute("href")).toContain("tiliote");
     const table = screen.getByRole("table", { name: "Kategoriat" });
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä"]);
     expect(plain(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelector("tfoot")!.textContent)).toContain("448 €");

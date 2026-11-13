@@ -66,8 +66,8 @@ test("a row of Tulossa opens the bill's earlier amounts, and their sum is the su
     let opened = 0;
     for (const s of products) {
       const p = parseSeriesId(s.id)!;
-      // the row's name is the payee and the product's price (format.ts `seriesName`)
-      const button = page.locator("#laskut-taulukko").getByRole("button", { name: new RegExp(`^Tiedot: ${p.merchant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} \\d`) }).first();
+      // the row's name is the payee, with the product's price where another series of the payee stands in the list (format.ts `seriesName`)
+      const button = page.locator("#laskut-taulukko").getByRole("button", { name: new RegExp(`^Tiedot: ${p.merchant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( \\d|$)`) }).first();
       if ((await button.count()) === 0) continue;
       await button.click();
       await expect(page.locator(".sub-drill")).toBeVisible();

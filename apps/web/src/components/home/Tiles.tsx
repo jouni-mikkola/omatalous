@@ -5,6 +5,7 @@ import { answerMoney, completeMonths, dayMonth } from "../../format.ts";
 import { figureName, t } from "../../text.ts";
 import type { DashboardData, Scope } from "../../types.ts";
 import { netLabelOf } from "../net-label.ts";
+import { CardStatementLink } from "../CardStatementLink.tsx";
 import { Figure } from "../Figure.tsx";
 import { Why } from "../Why.tsx";
 
@@ -34,6 +35,9 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
   return t("home.tile_no_payday");
 }
 
+/** The spending tile has no comparison because a card's purchases are missing from earlier months: its line says so, and a note under the tiles says where to bring them. */
+const cardsMissing = (data: Data): boolean => !data.home.pace && !data.pace.previous && data.home.paceGap === "cards";
+
 /** The month's spending against its usual level to the same day, else last month's to the same day, else why neither is shown. */
 function spentLine(data: Data): string | null {
   const usual = data.home.pace;
@@ -46,7 +50,7 @@ function spentLine(data: Data): string | null {
   const previous = data.pace.previous;
   // a shorter month before is read to its last day: its sum is the whole month's, and the line says so
   if (previous) return t(previous.day < data.nyt.pace.day ? "home.tile_spent_previous_whole" : "home.tile_spent_previous", { sum: answerMoney(previous.toToday) });
-  if (data.home.paceGap === "cards") return t("home.tile_gap_cards");
+  if (cardsMissing(data)) return t("home.tile_gap_cards");
   if (data.home.paceGap === "history") return t("home.tile_gap_history", { months: completeMonths(MIN_COMPARE_MONTHS) });
   return null;
 }
@@ -147,6 +151,11 @@ export function Tiles({ data, scope }: { data: Data; scope: Scope }) {
           );
         })}
       </ul>
+      {cardsMissing(data) && (
+        <p className="home-tiles-note">
+          <CardStatementLink />
+        </p>
+      )}
     </section>
   );
 }

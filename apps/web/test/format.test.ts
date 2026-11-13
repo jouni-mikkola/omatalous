@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { answerMoney, clockTime, date, dateRange, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { answerMoney, clockTime, date, dateRange, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, seriesName, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { seriesId } from "@banking/core";
 import { addedOn } from "../src/pages/settings/Members.tsx";
 import { factLine } from "../src/pages/settings/SecondFactor.tsx";
 
@@ -96,6 +97,29 @@ describe("the two forms of a sum", () => {
     setLanguage("en");
     expect(answerMoney(442_413)).toBe("€4,424");
     expect(rowMoney(442_413)).toBe("€4,424.13");
+  });
+});
+
+describe("seriesName: the price joins a product's name only where its payee has another series in the list", () => {
+  const apple = seriesId({ direction: "out", accountId: "a1", merchant: "Example Store", product: 1299 });
+  const cheaper = seriesId({ direction: "out", accountId: "a1", merchant: "Example Store", product: 99 });
+  const other = seriesId({ direction: "out", accountId: "a1", merchant: "Other Shop", product: null });
+  const elsewhere = seriesId({ direction: "out", accountId: "a2", merchant: "Example Store", product: 99 });
+
+  it("names the price when a sibling product stands in the list", () => {
+    expect(seriesName(apple, 1299, [apple, cheaper, other])).toBe(`Example Store ${money(1299)}`);
+    expect(seriesName(cheaper, 99, [apple, cheaper])).toBe(`Example Store ${money(99)}`);
+  });
+
+  it("names only the payee when the product is alone in its list", () => {
+    expect(seriesName(apple, 1299, [apple, other])).toBe("Example Store");
+    // the same payee on another account is no sibling
+    expect(seriesName(apple, 1299, [apple, elsewhere])).toBe("Example Store");
+  });
+
+  it("names a series that is no product by its payee and an id that is no series by nothing", () => {
+    expect(seriesName(other, 500, [other])).toBe("Other Shop");
+    expect(seriesName("Example Store", 500, [])).toBeNull();
   });
 });
 
