@@ -186,13 +186,13 @@ function holes(ctx: AnalysisContext): Holes {
 
 /**
  * Are rows missing from `month` (`2026-07`) on one of the accounts (`holes`)? With none named, the household's month
- * misses rows when an account that carries over `LEFT_OUT_SHARE` of its spending does.
+ * misses rows when an account that carries over `LEFT_OUT_SHARE` of its spending does. `except` leaves accounts out of either.
  */
-export function rowsMissing(ctx: AnalysisContext, month: string, accounts?: Iterable<string>): boolean {
+export function rowsMissing(ctx: AnalysisContext, month: string, accounts?: Iterable<string>, except?: ReadonlySet<string>): boolean {
   const { byMonth, main } = holes(ctx);
   const ids = byMonth.get(monthIndex(month));
   if (!ids) return false;
-  for (const id of accounts ?? main) if (ids.has(id)) return true;
+  for (const id of accounts ?? main) if (ids.has(id) && !except?.has(id)) return true;
   return false;
 }
 

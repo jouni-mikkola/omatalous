@@ -7,7 +7,7 @@ import { INCOME_GROUPS, INCOME_TYPE_ORDER, INCOME_TYPES, type IncomeGroup, type 
 import { benefitName, type IncomeBase, incomeBase, type IncomeChange, incomeChanges, payDayText } from "../analysis/income-changes.ts";
 import { payPieces, typeName } from "../analysis/income-series.ts";
 import type { DateRange } from "../analysis/period.ts";
-import { isCompleteMonth } from "../analysis/usual.ts";
+import { isCompleteIncomeMonth } from "../analysis/usual.ts";
 import { addDays, addMonths, dayNumber, monthEnd, monthOf, monthRange } from "../dates.ts";
 import { belowWhole } from "../household-debts.ts";
 import { fold } from "../merchant.ts";
@@ -235,7 +235,7 @@ interface RegularMonth {
 
 /** The complete months of the window with their regular income by pay period: the months "Odotetut tulot" is the median of. */
 function regularMonthsOf({ b, usual, parts }: Window, ctx: AnalysisContext): RegularMonth[] {
-  const byMonth = new Map(usual.filter((m) => isCompleteMonth(ctx, m)).map((m) => [m, { month: m, cents: 0, rows: [] as RegularMonth["rows"] }]));
+  const byMonth = new Map(usual.filter((m) => isCompleteIncomeMonth(ctx, m)).map((m) => [m, { month: m, cents: 0, rows: [] as RegularMonth["rows"] }]));
   for (const { t, type, cents } of parts) {
     // by pay period: pay for the 1st booked on the 31st is that month's pay, so a flat salary has no gap month
     const r = byMonth.get(b.periodMonth.get(t.id) ?? monthOf(t.bookingDate));
@@ -258,7 +258,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const inWindow = new Set(labels);
   const typeOf = (id: string) => b.types.get(id)!;
 
-  const months: IncomeMonth[] = labels.map((month) => ({ month, complete: isCompleteMonth(ctx, month), totalCents: 0, byGroup: zeroGroups() }));
+  const months: IncomeMonth[] = labels.map((month) => ({ month, complete: isCompleteIncomeMonth(ctx, month), totalCents: 0, byGroup: zeroGroups() }));
   const byMonth = new Map(months.map((m) => [m.month, m]));
   // a month in progress has no counterpart yet: the comparison reads the complete months and the same ones a year before
   const prevLabels = new Set(months.filter((m) => m.complete).map((m) => addMonths(m.month, -12)));
@@ -291,7 +291,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const earnedCents = [...typeRows].filter(([type]) => INCOME_TYPES[type].earned).reduce((s, [, r]) => s + r.total, 0);
   const notEarnedCents = [...typeRows].filter(([type]) => !INCOME_TYPES[type].earned).reduce((s, [, r]) => s + r.total, 0);
   const unknownCents = typeRows.get("unknown")?.total ?? 0;
-  const previousCovered = prevLabels.size > 0 && [...prevLabels].every((m) => isCompleteMonth(ctx, m));
+  const previousCovered = prevLabels.size > 0 && [...prevLabels].every((m) => isCompleteIncomeMonth(ctx, m));
 
   const activeSeries = b.series.filter((s) => today && stillPaying(b, s));
   const nextOf = new Map(activeSeries.filter((s) => s.payDay).map((s) => [`${s.type}|${fold(s.rows[s.rows.length - 1]!.merchant)}`, nextPayDate(addDays(s.rows[s.rows.length - 1]!.bookingDate, 5), s.payDay!)]));
