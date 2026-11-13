@@ -115,6 +115,57 @@ describe("a card account's wording: country and city in front, the city again at
   });
 });
 
+describe("the time, sum and rate a bank writes around the name", () => {
+  it.each([
+    ["Korttiosto 12.10.2026 klo 14.22 Kukkakauppa Ilo, Kuopio", "Kukkakauppa Ilo"],
+    ["KORTTIOSTO 12.10.2026 KLO 9.05 KUKKAKAUPPA ILO", "Kukkakauppa Ilo"],
+    ["Kukkakauppa Ilo klo 14:22:05", "Kukkakauppa Ilo"],
+    ["USD 25,00 KURSSI 1,0834 EXAMPLESHOP.COM", "Exampleshop.Com"],
+    ["EXAMPLESHOP.COM 25,00 USD Kurssi 1,0834", "Exampleshop.Com"],
+    ["GBP 1 250,00 VAIHTOKURSSI 0,8611 KAUPPA ILO LTD", "Kauppa Ilo"],
+  ])("%s → %s", (raw, expected) => expect(name(raw)).toBe(expected));
+
+  it("leaves the rate out of the category: a purchase abroad is no course", () => {
+    const rules = compileRules([]);
+    const of = (description: string) => categorize({ merchant: name(description), counterparty: null, description, mcc: null, amountCents: -6426 }, rules).category;
+    expect(of("GBP 55,26 KURSSI 0,8611 KAHVILA ILO LONDON")).toBe(of("KAHVILA ILO LONDON"));
+    expect(of("GBP 55,26 KURSSI 0,8611 KAHVILA ILO LONDON")).not.toBe("education");
+    // a course is still one, with its number too
+    expect(of("KURSSI 2026 KEVAT")).toBe("education");
+    expect(of("KURSSIMAKSU")).toBe("education");
+  });
+
+  it("keeps a name that holds digits and three capitals", () => {
+    // no currency code: the words are the shop's
+    expect(name("Kauppa Ilo 12,00 ABC")).toBe("Kauppa Ilo Abc");
+    // "KLO" with no time after it is a word of the name
+    expect(name("Ravintola Klo Kuopio")).toBe("Ravintola Klo");
+  });
+
+  it("keeps a course with its date or credits: a rate has three decimals or more", () => {
+    const rules = compileRules([]);
+    const of = (description: string) => categorize({ merchant: name(description), counterparty: null, description, mcc: null, amountCents: -12000 }, rules).category;
+    expect(name("KURSSI 1.10.2026")).toBe("Kurssi");
+    expect(name("Kurssi 12.10")).toBe("Kurssi");
+    expect(name("Kurssi 12.10. Kansalaisopisto")).toBe("Kurssi Kansalaisopisto");
+    expect(name("Kesäkurssi 1.10. Opisto")).toBe("Kesäkurssi Opisto");
+    // Ä and K are no edge of a word: the end of KESÄKURSSI and KESÄKLO is no rate or time
+    expect(name("KESÄKURSSI 1,0834 OPISTO")).toBe("Kesäkurssi Opisto");
+    expect(name("Kesäklo 12.30 Kahvila")).toBe("Kesäklo Kahvila");
+    for (const description of ["KURSSI 1.10.2026", "Kurssi 12.10", "KURSSI 1,5 OP"]) expect(of(description)).toBe("education");
+  });
+
+  it("lets a user's rule read the description as the bank wrote it", () => {
+    const rule = (pattern: string) => compileRules([{ field: "description", pattern, category: "housing", priority: 10 }]);
+    const of = (pattern: string, description: string) => categorize({ merchant: "Kauppa Ilo", counterparty: null, description, mcc: null, amountCents: -45000 }, rule(pattern));
+    expect(of("KURSSI 1,0834", "USD 25,00 KURSSI 1,0834 KAUPPA ILO")).toMatchObject({ category: "housing", byUser: true });
+    expect(of("KLO 14.22", "Korttiosto 12.10.2026 klo 14.22 Kauppa Ilo")).toMatchObject({ category: "housing", byUser: true });
+    expect(of("450,00 EUR", "VUOKRA 450,00 EUR KAUPPA ILO")).toMatchObject({ category: "housing", byUser: true });
+    const any = compileRules([{ field: "any", pattern: "KURSSI 1,0834", category: "housing", priority: 10 }]);
+    expect(categorize({ merchant: "Kauppa Ilo", counterparty: null, description: "USD 25,00 KURSSI 1,0834 KAUPPA ILO", mcc: null, amountCents: -2500 }, any)).toMatchObject({ category: "housing", byUser: true });
+  });
+});
+
 describe("a payment service in front of the name", () => {
   it.each([
     ["PTL*RAUTAKAUPPA ILO", "Rautakauppa Ilo"],
