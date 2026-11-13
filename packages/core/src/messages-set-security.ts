@@ -22,9 +22,6 @@ export const FI_SET_SECURITY = {
   "set.sec.two_step_sign_in_turned": "Kaksivaiheinen kirjautuminen otettu käyttöön",
   "set.sec.two_step_sign_in_turned_2": "Kaksivaiheinen kirjautuminen poistettu käytöstä",
   "set.sec.administrator_removed_two_step_sign": "Ylläpitäjä poisti kaksivaiheisen kirjautumisen",
-  "set.sec.passkey_added": "Passkey lisätty",
-  "set.sec.passkey_removed": "Passkey poistettu",
-  "set.sec.sign_in_with_a_passkey": "Kirjautuminen passkeylla",
   "set.sec.new_recovery_codes_made": "Uudet palautuskoodit luotu",
   "set.sec.sign_in_with_a_recovery": "Kirjautuminen palautuskoodilla",
   "set.sec.maintenance_request": "Ylläpitopyyntö",
@@ -83,6 +80,7 @@ export const FI_SET_SECURITY = {
   "set.sec.details": "Lisätieto",
   "set.sec.no_events": "Ei merkintöjä.",
   "set.sec.maintenance_kind": "Ylläpito: {kind}",
+  "set.sec.removed_kind": "Passkey (poistettu toiminto)",
   "set.sec.service_token_name": "Palvelutunnus",
   "set.sec.revoke_title": "Poista palvelutunnus {name}?",
 } as const;

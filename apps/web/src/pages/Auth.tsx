@@ -10,7 +10,6 @@ import { PasswordHint } from "../components/ui/PasswordHint.tsx";
 import { checkPassword } from "@banking/core";
 import { language } from "../format.ts";
 import { t } from "../text.ts";
-import { getPasskey, type RequestOptions } from "../webauthn.ts";
 /** `device`: the screen is shown before a sign-in, so the device's language can be chosen on it. */
 function AuthCard({ title, intro, device = true, children }: { title: string; intro?: ReactNode; device?: boolean; children: ReactNode }) {
   return (
@@ -59,18 +58,11 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
   const [recovery, setRecovery] = useState(false);
   const [code, setCode] = useState("");
   const [expired, setExpired] = useState<string | null>(null);
-  // what the second step offers: a passkey (the address allows it and the member has one) and a code
-  const [offer, setOffer] = useState({ passkey: false, codes: true });
-  const [passkeyNote, setPasskeyNote] = useState<string | null>(null);
   const first = useSubmit(
-    () => api<{ user?: User; needsFactor?: boolean; passkey?: boolean; codes?: boolean }>("/api/auth/login", { method: "POST", body: { username, password } }),
+    () => api<{ user?: User; needsFactor?: boolean }>("/api/auth/login", { method: "POST", body: { username, password } }),
     (r) => {
       setExpired(null);
-      if (r.needsFactor) {
-        setOffer({ passkey: !!r.passkey, codes: r.codes !== false });
-        setPasskeyNote(null);
-        setStep("code");
-      }
+      if (r.needsFactor) setStep("code");
       else onDone(r.user!);
     },
   );
@@ -92,26 +84,6 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
     },
     (r) => onDone(r.user),
   );
-  // the device's prompt: options from the server, the device's answer back; a dismissed prompt is a sentence, not an error
-  const withPasskey = useSubmit(
-    async () => {
-      try {
-        const answer = await getPasskey(await api<RequestOptions>("/api/auth/passkey/options", { method: "POST", body: {} }));
-        if (!answer) return null;
-        return await api<{ user: User }>("/api/auth/passkey", { method: "POST", body: { response: answer } });
-      } catch (err) {
-        if ((err as ApiError).code === "half_expired") {
-          setExpired((err as Error).message);
-          setStep("password");
-          setPassword("");
-          setCode("");
-          setRecovery(false);
-        }
-        throw err;
-      }
-    },
-    (r) => (r ? onDone(r.user) : setPasskeyNote(t("login.passkey_cancelled"))),
-  );
   if (step === "code") {
     const cancel = () => {
       void api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
@@ -121,41 +93,29 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
       setRecovery(false);
     };
     return (
-      <AuthCard title={t("login.title")} intro={t(offer.passkey ? "login.passkey_intro" : "login.code_intro")}>
-        {offer.passkey && (
-          <div className="auth-form">
-            <Button variant="primary" busy={withPasskey.busy} onClick={withPasskey.submit}>
-              {withPasskey.busy ? t("login.passkey_waiting") : t("login.passkey")}
+      <AuthCard title={t("login.title")} intro={t("login.code_intro")}>
+        <form className="auth-form" onSubmit={second.submit}>
+          <label>
+            {recovery ? t("login.recovery_code") : t("login.app_code")}
+            {recovery ? (
+              <input key="recovery" type="text" name="code" autoComplete="off" spellCheck={false} value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={second.error ? true : undefined} required autoFocus />
+            ) : (
+              <input key="totp" type="text" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={second.error ? true : undefined} required autoFocus />
+            )}
+          </label>
+          {second.error && <Notice tone="error">{second.error}</Notice>}
+          <Button variant="primary" type="submit" busy={second.busy}>
+            {second.busy ? t("login.busy") : t("login.title")}
+          </Button>
+          <div className="form-row">
+            <Button onClick={() => { setRecovery(!recovery); setCode(""); }}>
+              {recovery ? t("login.use_app_code") : t("login.use_recovery_code")}
             </Button>
-            {withPasskey.error && <Notice tone="error">{withPasskey.error}</Notice>}
-            {passkeyNote && !withPasskey.error && <Notice tone="info">{passkeyNote}</Notice>}
-            {!offer.codes && <Button onClick={cancel}>{t("form.cancel")}</Button>}
+            <Button onClick={cancel}>
+              {t("form.cancel")}
+            </Button>
           </div>
-        )}
-        {offer.codes && (
-          <form className="auth-form" onSubmit={second.submit}>
-            <label>
-              {recovery ? t("login.recovery_code") : t("login.app_code")}
-              {recovery ? (
-                <input key="recovery" type="text" name="code" autoComplete="off" spellCheck={false} value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={second.error ? true : undefined} required autoFocus={!offer.passkey} />
-              ) : (
-                <input key="totp" type="text" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} aria-invalid={second.error ? true : undefined} required autoFocus={!offer.passkey} />
-              )}
-            </label>
-            {second.error && <Notice tone="error">{second.error}</Notice>}
-            <Button variant={offer.passkey ? "secondary" : "primary"} type="submit" busy={second.busy}>
-              {second.busy ? t("login.busy") : t("login.title")}
-            </Button>
-            <div className="form-row">
-              <Button onClick={() => { setRecovery(!recovery); setCode(""); }}>
-                {recovery ? t("login.use_app_code") : t("login.use_recovery_code")}
-              </Button>
-              <Button onClick={cancel}>
-                {t("form.cancel")}
-              </Button>
-            </div>
-          </form>
-        )}
+        </form>
       </AuthCard>
     );
   }

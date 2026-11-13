@@ -13,8 +13,6 @@ const PEM = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.expor
 const PUBLIC = new Set(["GET /api/health", "GET /api/auth/state", "POST /api/auth/setup", "POST /api/auth/login", "POST /api/auth/factor", "POST /api/auth/logout", "GET /api/connections/callback"]);
 // Answers 401 itself, so it is not public but sits above the shared login gate.
 const SELF_AUTH = new Set(["POST /api/auth/password", "POST /api/auth/first-password"]);
-// The steps after a correct password: they need the half session and answer "half_expired" without it.
-const HALF_SESSION = new Set(["POST /api/auth/passkey/options", "POST /api/auth/passkey"]);
 const ADMIN_PREFIXES = ["/api/users", "/api/admin/"];
 const CANARY = "RAW-BANK-PAYLOAD-CANARY-7f3a";
 
@@ -43,8 +41,7 @@ describe("no session", () => {
       // a wrong login is a 401 too, but not the "sign in first" one
       if (PUBLIC.has(key)) expect(res.body?.code, key).not.toBe("unauthenticated");
       else expect(res.status, key).toBe(401);
-      if (HALF_SESSION.has(key)) expect(res.body.code, key).toBe("half_expired");
-      else if (!PUBLIC.has(key) && !SELF_AUTH.has(key)) expect(res.body.code, key).toBe("unauthenticated");
+      if (!PUBLIC.has(key) && !SELF_AUTH.has(key)) expect(res.body.code, key).toBe("unauthenticated");
     }
   });
 

@@ -17,7 +17,7 @@ describe("eventDetail", () => {
     expect(cell("tuntematon-nimi", null)).toContain(">tuntematon-nimi<");
     expect(cell("Firefox, Linux", "testi")).toContain(">Firefox, Linux<");
     expect(cell("komentorivi", "testi")).toContain(">komentorivi<");
-    // a passkey's label is the user's own text, even when it reads as their name
-    expect(cell("testi", "testi", "passkey_added")).toContain(">testi<");
+    // a device label that reads as the user's name stays, as a phone hides the Laite column
+    expect(cell("testi", "testi", "new_device")).toContain(">testi<");
   });
 });

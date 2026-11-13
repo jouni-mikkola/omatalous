@@ -7,7 +7,6 @@ import { addressKey } from "../security/rate-limit.ts";
 import { coded, tooMany, tooManyBody, UserError } from "../platform/errors.ts";
 import { recordEvent, recordLogin } from "../services/security.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { passkeyChallenge, relyingParty, takePasskey } from "../services/passkeys.ts";
 import { takeCode } from "../services/second-factor.ts";
 import { changePassword, createFirstAdmin, ensureSetupCode, needsSetup, passwordCost, setFirstPassword, upgradePasswordHash } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
@@ -122,12 +121,9 @@ export function authRoutes(s: Services) {
     // given back, not cleared: a correct password must not refill a stranger's guesses at the name
     limits.name.release(name);
     // with a second factor the password is half of it: no session, no remembered address and no login record until the code
-    if (await s.factors.hasAny(record.id)) {
+    if (await s.factors.hasTotp(record.id)) {
       await startHalfSession(c, s, record.id, record.passwordHash);
-      // what the second step may offer: a code (authenticator app or recovery code) and a passkey the address allows
-      const rp = relyingParty(s, { origin: c.req.header("origin"), host: c.req.header("host") });
-      const passkey = rp.usable && rp.here && (await s.factors.passkeys(record.id)).some((p) => p.rpId === rp.id);
-      return c.json({ needsFactor: true, passkey, codes: (await s.factors.hasTotp(record.id)) || (await s.factors.recoveryLeft(record.id)) > 0 });
+      return c.json({ needsFactor: true });
     }
     // the only place an address is remembered: after a correct password
     limits.remembered.add(ipKey);
@@ -145,28 +141,6 @@ export function authRoutes(s: Services) {
     if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
     const req = requestInfo(c, s);
     if (!(await takeCode(s, user, code, req))) return c.json(coded("auth.bad_code"), 401);
-    s.loginLimiter.remembered.add(addressKey(req.ip ?? "local"));
-    await recordLogin(s, user.id, req.ip ?? "local", req.userAgent);
-    await startSession(c, s, user.id);
-    await endHalfSession(c, s);
-    return c.json({ user });
-  });
-
-  /** The options for the passkey of a sign-in, for the half session the password step set. */
-  app.post("/passkey/options", async (c) => {
-    strictObject(await body(c), [] as const);
-    const user = await readHalfSession(c, s);
-    if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
-    return c.json(await passkeyChallenge(s, user, { origin: c.req.header("origin"), host: c.req.header("host") }));
-  });
-
-  /** The device's answer to those options: the other way to finish the sign-in the code step finishes. */
-  app.post("/passkey", async (c) => {
-    const raw = strictObject(await body(c), ["response"] as const);
-    const user = await readHalfSession(c, s);
-    if (!user) return c.json({ ...coded("auth.half_expired"), code: "half_expired" }, 401);
-    const req = requestInfo(c, s);
-    if (!(await takePasskey(s, user, raw.response, req))) return c.json(coded("passkey.sign_in_failed"), 401);
     s.loginLimiter.remembered.add(addressKey(req.ip ?? "local"));
     await recordLogin(s, user.id, req.ip ?? "local", req.userAgent);
     await startSession(c, s, user.id);

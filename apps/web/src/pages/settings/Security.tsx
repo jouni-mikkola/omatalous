@@ -69,9 +69,6 @@ export const KIND_LABEL: Record<string, string> = labelTable({
   factor_on: () => t("set.sec.two_step_sign_in_turned"),
   factor_off: () => t("set.sec.two_step_sign_in_turned_2"),
   factor_removed_by_admin: () => t("set.sec.administrator_removed_two_step_sign"),
-  passkey_added: () => t("set.sec.passkey_added"),
-  passkey_removed: () => t("set.sec.passkey_removed"),
-  passkey_used: () => t("set.sec.sign_in_with_a_passkey"),
   recovery_codes_made: () => t("set.sec.new_recovery_codes_made"),
   recovery_code_used: () => t("set.sec.sign_in_with_a_recovery"),
   ops_request: () => t("set.sec.maintenance_request"),
@@ -106,8 +103,13 @@ export const KIND_LABEL: Record<string, string> = labelTable({
   module_refused: () => t("set.sec.module_refused"),
 });
 
+/** Passkeys are gone, but the log keeps 90 days of their events (passkey_added, passkey_removed, passkey_used): they read as one generic name. */
+const REMOVED_KIND = /^passkey_[a-z]+$/;
+
 const kindLabel = (kind: string) =>
-  KIND_LABEL[kind] ?? WEB_EXTENSIONS.find((e) => e.securityLabels?.[kind])?.securityLabels?.[kind] ?? (kind.startsWith("ops_") ? t("set.sec.maintenance_kind", { kind: kind.slice(4).replace(/_/g, " ") }) : kind);
+  KIND_LABEL[kind] ??
+  WEB_EXTENSIONS.find((e) => e.securityLabels?.[kind])?.securityLabels?.[kind] ??
+  (kind.startsWith("ops_") ? t("set.sec.maintenance_kind", { kind: kind.slice(4).replace(/_/g, " ") }) : REMOVED_KIND.test(kind) ? t("set.sec.removed_kind") : kind);
 
 /** The card Salasana: a button that opens the three fields. The address `#salasana` opens them at once. */
 export function Password({ openPassword }: { openPassword: boolean }) {
@@ -267,8 +269,8 @@ export function Sessions({ admin = false, onLoaded }: { admin?: boolean; onLoade
 
 /**
  * What Lisätieto adds to the row. A failed login or lockout keeps the typed name, which says something only when no user
- * has it; of a known user it is the Käyttäjä column again. A passkey's label stays even when it is the user's name, and a
- * new device's label stays, as a phone hides the Laite column.
+ * has it; of a known user it is the Käyttäjä column again. A new device's label stays, as a phone hides the
+ * Laite column.
  * With nothing to add the cell is empty, so a phone's row block drops the label too (`td[data-label]:empty`).
  */
 export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username">): ReactNode {
