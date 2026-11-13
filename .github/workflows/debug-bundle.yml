@@ -25,13 +25,10 @@ jobs:
       - name: regions
         run: |
           cd apps/web/dist/assets
-          for f in index-*.js ErrorCard-*.js text-*.js forecast-*.js Table-*.js messages-late-*.js; do
+          for f in index-*.js preload-helper-*.js forecast-*.js; do
             echo "=== $f"
-            node -e '
-              const s=require("fs").readFileSync(process.argv[1],"utf8");
-              const parts=s.split(/^\/\/#region /m);
-              const rows=parts.slice(1).map(p=>{const i=p.indexOf("\n");return [p.length,p.slice(0,i)]}).sort((a,b)=>b[0]-a[0]);
-              for(const [n,name] of rows.slice(0,40)) console.log(String(n).padStart(8),name);
-              console.log("imports:", (s.match(/^import .*$/gm)||[]).join("\n"));
-            ' "$f"
+            grep -oE '^(export )?(async )?function [A-Za-z0-9_$]+' "$f" | sed -E 's/^(export )?(async )?function //' | tr '\n' ' '
+            echo
+            grep -oE '^(var|const|let) [A-Za-z0-9_$]+' "$f" | sed -E 's/^(var|const|let) //' | tr '\n' ' '
+            echo
           done
