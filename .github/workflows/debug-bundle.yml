@@ -1,5 +1,5 @@
 name: debug-bundle
-# run 4
+# run 5
 on:
   pull_request:
     paths:
@@ -20,5 +20,5 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @banking/web exec vite build -c vite.debug.config.ts --outDir /tmp/dist --emptyOutDir 2>&1 | grep -E 'CHUNK|MOD'
+      - run: pnpm --filter @banking/web exec vite build -c vite.debug.config.ts --outDir /tmp/dist --emptyOutDir 2>&1 | grep -aE 'CHUNK|MOD'
       - run: node tools/bundle-budget.mjs /tmp/dist || true
