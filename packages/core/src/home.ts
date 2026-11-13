@@ -39,7 +39,7 @@ interface HomeRunway {
   days: number | null;
   /** The expected everyday spending of a day over every account (`expectedEverydayPerDay`). 0 when it cannot be said. */
   everydayPerDayCents: number;
-  /** The everyday spending of a day that the sentence of `home.based` states: the usual month's everyday spending (the rows outside every bill series) over its days, on every account, a card's purchases among them (`everydayPerDayCents`). It is not what leaves the counted accounts before the payday: a card's purchases leave them with a later bill. 0 when the payday cannot be said. */
+  /** The everyday spending of a day: the usual month's everyday spending (the rows outside every bill series) over its days, on every account, a card's purchases among them (`everydayPerDayCents`). It is not what leaves the counted accounts before the payday: a card's purchases leave them with a later bill. 0 when the payday cannot be said. */
   takenOffPerDayCents: number;
   /** The pay the days run to, and who pays it. null without a regular pay to wait for. */
   payday: { date: IsoDate; name: string } | null;

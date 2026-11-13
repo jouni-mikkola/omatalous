@@ -30,8 +30,21 @@ Direction, 11.11.2026 (the owner's): an overview on one screen at 1440 px, every
     Miksi? panel, as Tapahtumat's income takes in refunds too.
   - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
     month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
-- Under the tiles Kuukausi on the left and Suurimmat menot on the right, then Varat ja velat across the page: the block
-  of Raportit > Tilit ja saldot, each name opening its rows. A phone reads them in that order in one column.
+- Tulot ja menot: the last twelve months, an income bar and a spending bar a month (`overview.months`), the usual
+  month's spending as a dashed line (`overview.usualSpendCents`). The running month, and a month the accounts do not
+  cover from its 1st, are lighter with a dashed edge; the running one says "kesken" under its name. A month opens its
+  rows in Tapahtumat.
+- Tulevat laskut beside it: the bills before payday with date, payee and sum, at most six and the rest as a count, and
+  the tile's own sum of them all (`nyt.left.billsCents`); without a payday Laskut's 30 days. Opens Laskut.
+- Tilit ja kortit: the block of Raportit > Tilit ja saldot. The accounts in their types (checking, savings, other), a
+  type of two accounts or more with its total (`holdings.typeCents`), the cards with what is used, the limit and the
+  next card bill (the card's row of `ahead.upcoming`), the loans with what is left. Every row names its bank and the
+  day of its balance and opens its rows.
+- Menot kategorioittain beside it: this month's six largest categories with the rest as one sum
+  (`overview.categories`), each a bar with its usual month as a mark, a bar past its mark in the darker ink. A row
+  opens the category's rows of the month.
+- At 1440 px the months and the bills stand side by side, then the accounts and the categories. A phone reads tiles,
+  months, bills, categories, accounts in one column.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
@@ -42,11 +55,14 @@ Direction, 11.11.2026 (the owner's): an overview on one screen at 1440 px, every
  3 900 €                                     12 400 €
  Tavallisesti 3 900 € kuussa                 345 € enemmän kuin 9.10.
 
- Kuukausi                                    Suurimmat menot
- ▁▂▃▅▆ ─ ─                                   Ruokakauppa                      612 €
-                                             ████████|██  140 € enemmän kuin viime kuussa
- Varat ja velat
- Tilit            Lainat            Kortit
+ Tulot ja menot                               Tulevat laskut      Palkkapäivään 25.11.
+ ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▆ ▆░      15.11.  Sähkö                     ≈ 48 €
+ - - - - - - - - - - - - - - - - - -      20.11.  Puhelin                   ≈ 30 €
+ joulu tammi ...              marras      Yhteensä                          78 €
+                               kesken
+ Tilit ja kortit                             Menot kategorioittain
+ Käyttötilit   4 905 €   Luottokortit        Ruokakauppa     tavallisesti 667 €  317 €
+ Säästötilit   8 100 €   Seuraava lasku      ████████    |
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?

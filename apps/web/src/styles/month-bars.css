@@ -1,0 +1,21 @@
+/* Income and spending by month on Yhteenveto (charts/MonthBars.tsx): income and spending side by side in two series
+   colours, the usual month's spending a dashed line, a month that is not whole lighter with a dashed edge. */
+
+@layer components {
+.month-bars { position: relative; }
+.month-bars .mb-income { fill: var(--series-3); }
+.month-bars .mb-spend { fill: var(--series-1); }
+.month-bars .mb-partial rect { fill-opacity: 0.35; stroke-width: 1; stroke-dasharray: 3 2; }
+.month-bars .mb-partial .mb-income { stroke: var(--series-3); }
+.month-bars .mb-partial .mb-spend { stroke: var(--series-1); }
+.month-bars .mb-usual { stroke: var(--text); stroke-width: 1; stroke-dasharray: 6 3; pointer-events: none; }
+.month-bars .mb-now { fill: var(--text); font-weight: var(--w-strong); }
+.month-bars .mb-hit { cursor: pointer; }
+.month-bars a:focus-visible .mb-hit { stroke: var(--accent); stroke-width: 1.5; }
+.mb-key { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: 0 0 var(--sp-8); padding: 0; list-style: none; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.mb-key li { display: inline-flex; align-items: center; gap: var(--sp-8); }
+.mb-key span { display: inline-block; inline-size: var(--sp-12); block-size: var(--sp-12); }
+.mb-key .mb-key-income { background: var(--series-3); }
+.mb-key .mb-key-spend { background: var(--series-1); }
+.mb-key .mb-key-usual { inline-size: var(--sp-16); block-size: 0; border-block-start: var(--hairline) dashed var(--text); }
+}

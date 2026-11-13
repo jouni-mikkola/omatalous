@@ -36,7 +36,7 @@ for (const width of [320, 360, 390]) {
     const page = await open(context);
     const seen = watch(page);
     // the lines of the one block in one column: none is beside another
-    const blocks = page.locator(".home-tiles, .home-pace-line, .pace-chart");
+    const blocks = page.locator(".home-tiles, .home-months, .home-bills, .home-where, .holdings");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -45,7 +45,7 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-tile-label, .home-tile .fig, .home-tile-line, .home-pace-line")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-tile-label, .home-tile .fig, .home-tile-line, .where-name, .where-sum")), "text cut").toEqual([]);
     // the figure of every tile is inside the screen
     for (const cell of await page.locator(".home-tile .fig").all()) {
       const box = (await cell.boundingBox())!;
@@ -53,7 +53,14 @@ for (const width of [320, 360, 390]) {
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
     }
     // everything that is tapped on the page is tapped with a thumb
-    expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
+    expect(await small(page.locator("main :is(a:not(.mb-link), button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
+    // a month of the chart is a column as high as the plot and a twelfth of its width: 24 px from 390 px on, about 22 px at 360 px
+    const columns = await page.locator("a.mb-link rect").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
+    expect(columns).toHaveLength(12);
+    for (const box of columns) {
+      expect(box.height, "a month's column is as high as a thumb").toBeGreaterThanOrEqual(44);
+      if (width >= 390) expect(box.width, "a month's column is 24 px wide").toBeGreaterThanOrEqual(24);
+    }
     expect(seen.problems).toEqual([]);
     await context.close();
   });

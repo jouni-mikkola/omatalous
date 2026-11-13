@@ -41,6 +41,8 @@ export interface AheadRow {
   source: "income" | "recurring" | "expected" | "card" | "transfer";
   /** On a card's bill only: "balance" when the sum is what the card owes today, "usual" when it is the median of its paid bills. */
   basis?: "balance" | "usual";
+  /** On a card's bill only: the card's account, so the card's row of the first page names its next bill. */
+  cardId?: string;
   /**
    * In `upcoming` only, on a payment dated today whose series follows the pay that is expected today and is not booked
    * yet: it is paid from that pay, so it is no row of the window and Laskut lists it after the payday.
@@ -366,7 +368,7 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   // the moves are found to the end of Laskut's 30 days: a card's bill is in the list like any bill, a transfer is not
   const { moves, asItGoes, settling } = counted ? expectedMoves(ctx, counted.ids, balances, from, reachPayday) : { moves: [], asItGoes: new Set<string>(), settling: [] };
   for (const m of moves) {
-    all.push({ date: m.date, name: m.name, category: "transfer", cents: -m.amountCents, source: m.source, ...(m.basis ? { basis: m.basis } : {}) });
+    all.push({ date: m.date, name: m.name, category: "transfer", cents: -m.amountCents, source: m.source, ...(m.basis ? { basis: m.basis } : {}), ...(m.cardId ? { cardId: m.cardId } : {}) });
   }
   const upcoming = [...all.filter((r) => r.source !== "income" && r.source !== "transfer" && r.date <= thirty), ...elsewhere].sort(byDay);
   // a payment of the day the pay lands on, paid from it: dated that day after the window, or following the pay that is due today

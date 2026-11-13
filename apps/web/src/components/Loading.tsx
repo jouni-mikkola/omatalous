@@ -36,7 +36,7 @@ export function Loading({ shape }: { shape?: "overview" } = {}) {
           ))}
         </div>
       )}
-      {/* Yhteenveto opens on its pace chart, then the panels of rows */}
+      {/* Yhteenveto opens on its chart of twelve months, then the panels of rows */}
       {shape === "overview" && plotCard}
       <div className="card skeleton" aria-hidden="true">
         <span className="sk-bar sk-head" />

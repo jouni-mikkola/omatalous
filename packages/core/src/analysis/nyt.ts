@@ -6,7 +6,7 @@
  * view sets the sum per day left against the usual everyday spending of a day instead (`expectedEverydayPerDay`).
  *
  * The pace is the running month's spending to today against the band of the expected month to the same day
- * (`expectedFor`, ADR 0021): the band the pace chart draws under the sentence and the figure Kuukausi names as usual.
+ * (`expectedFor`, ADR 0021): the usual level the Menot tile of Yhteenveto compares with and the figure Kuukausi names as usual.
  */
 import { daysBetween, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
@@ -76,8 +76,8 @@ export interface NytAnswer {
 }
 
 /**
- * The band of `month` to its `day`: the one the pace chart draws (`MonthPace.expected`). A second band read straight
- * from the base months' quartiles stood here before, and the sentence above the chart named other sums than the chart showed.
+ * The band of `month` to its `day`, of the same base as the expected month (`expectedFor`). A second band read straight
+ * from the base months' quartiles stood here before, and a sentence named other sums than the chart beside it showed.
  */
 function usualBand(ctx: AnalysisContext, month: string, day: number): UsualBand | null {
   const figure = expectedFor(ctx, month);
@@ -117,7 +117,7 @@ export function nytAnswer(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead">
     from,
     left: leftOf(ctx, basis),
     usualPerDayCents: basis.ahead.everydayPerDayCents || null,
-    // the rows of the pace chart and of the band (`spendRows`), so the sum is the one the chart's line ends on
+    // the rows of the month's pace and of the band (`spendRows`), so the sum is the running month's bar of Yhteenveto's chart
     pace: { day, spentCents: monthPace(ctx, month, from).currentTotal, usual: usualBand(ctx, month, day) },
   };
 }

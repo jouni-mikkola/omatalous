@@ -87,6 +87,8 @@ export interface Holdings {
   })[];
   /** The known balances of `accounts` added once. Null when no account has a balance: an unknown total is never 0. */
   accountsCents: number | null;
+  /** The known balances of the accounts of each type added once, null where none is known: together they are `accountsCents`. */
+  typeCents: Record<Holdings["accounts"][number]["type"], number | null>;
   /** Two balances or more are known and add up to `accountsCents`: the rows have the bracket. */
   accountsAddUp: boolean;
   /** Each account's whole percent of `accountsCents` (null where the balance is unknown), adding up to 100; null when no balance is below zero is not so, or the total is not above zero. The track on each row. */
@@ -210,9 +212,11 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
   const unsaved = unsavedOf ? { unsavedLoans: unsavedOf } : {};
   const balancesOf = accounts.map((a) => a.balanceCents);
   const accountsCents = sumKnown(balancesOf);
+  const sumOfType = (type: Holdings["accounts"][number]["type"]) => sumKnown(accounts.filter((a) => a.type === type).map((a) => a.balanceCents));
   return {
     accounts,
     accountsCents,
+    typeCents: { checking: sumOfType("checking"), savings: sumOfType("savings"), other: sumOfType("other") },
     netCents: accountsCents === null ? null : accountsCents - debts.total.cents,
     accountsAddUp: accountsCents !== null && balancesOf.filter((c) => c !== null).length >= 2,
     accountShares: accountsCents !== null ? percentsOf(balancesOf, accountsCents) : null,

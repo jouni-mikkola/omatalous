@@ -157,7 +157,7 @@ describe("dashboard, next level", () => {
     expect(d.insights.length).toBeLessThanOrEqual(5);
     // the tiles show savings, the insights do not repeat them
     expect(d.insights.some((i) => i.id === "saved" || i.id === "savings-rate")).toBe(false);
-    // a running month has none either: the pace chart tells how it goes
+    // a running month has none either: it is not whole yet
     const running = buildDashboard(ctx, { from: "2026-10-01", to: today }).insights;
     expect(running.some((i) => i.id.startsWith("swing:") || i.id === "largest")).toBe(false);
   });

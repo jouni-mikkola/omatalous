@@ -86,4 +86,31 @@ describe("the tiles' figures", () => {
     expect(income).toEqual({ cents: earnedIncome(ctx, "2025-10"), usualCents: expectedIncome(ctx, "2025-10") });
     expect(income.usualCents).not.toBeNull();
   }, 30_000);
+
+  it("the running month's bars are the Menot and Tulot tiles' figures, and the months are twelve at most, oldest first", () => {
+    const problems: string[] = [];
+    for (let seed = 1; seed <= 8; seed++) {
+      const { ctx, balances } = household(seed);
+      const data = buildDashboard(ctx, { from: "2025-10-01", to: ON }, balances, inputsOf([]));
+      const { months, income } = data.overview;
+      const last = months.at(-1)!;
+      if (last.month !== "2025-10" || last.complete) problems.push(`${seed}: the last month is ${JSON.stringify(last)}`);
+      if (last.spendCents !== data.pace.currentTotal) problems.push(`${seed}: spent ${last.spendCents} against the tile's ${data.pace.currentTotal}`);
+      if (last.incomeCents !== income.cents) problems.push(`${seed}: income ${last.incomeCents} against the tile's ${income.cents}`);
+      if (months.length > 12 || months.some((m, i) => i > 0 && m.month <= months[i - 1]!.month)) problems.push(`${seed}: months ${months.map((m) => m.month).join(",")}`);
+    }
+    expect(problems).toEqual([]);
+  }, 30_000);
+
+  it("the categories are the six largest of the month, largest first, and with the rest add up to the month's spending", () => {
+    const problems: string[] = [];
+    for (let seed = 1; seed <= 8; seed++) {
+      const { ctx, balances } = household(seed);
+      const { categories, months } = buildDashboard(ctx, { from: "2025-10-01", to: ON }, balances, inputsOf([])).overview;
+      const { rows, otherCents, totalCents } = categories;
+      if (rows.length > 6 || rows.some((r, i) => r.cents <= 0 || (i > 0 && r.cents > rows[i - 1]!.cents))) problems.push(`${seed}: rows ${JSON.stringify(rows)}`);
+      if (rows.reduce((sum, r) => sum + r.cents, 0) + otherCents !== totalCents || totalCents !== months.at(-1)!.spendCents) problems.push(`${seed}: ${totalCents} does not add up`);
+    }
+    expect(problems).toEqual([]);
+  }, 30_000);
 });

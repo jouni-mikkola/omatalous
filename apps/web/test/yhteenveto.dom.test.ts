@@ -1,26 +1,14 @@
-/** Yhteenveto's blocks: the four tiles, the month's line and the categories, each opening its rows. */
+/** Yhteenveto's four tiles: each figure, its comparison and the panel or page it opens. */
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { MonthPace } from "../src/components/home/MonthPace.tsx";
 import { Tiles } from "../src/components/home/Tiles.tsx";
-import { Where } from "../src/components/home/Where.tsx";
 import type { DashboardData } from "../src/types.ts";
 import { stubApi } from "./dom-kit.ts";
 
 type NytData = NonNullable<DashboardData["nyt"]>;
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[\u00a0\u202f]/g, " ");
-
-const TOP: DashboardData["top"] = {
-  rows: [
-    { category: "groceries", label: "Ruokakauppa", cents: 40000, barShare: 0.8, previousCents: 50000, changeCents: -10000, change: "less", previousShare: 1 },
-    { category: "car", label: "Auto", cents: 12000, barShare: 0.24, previousCents: 0, changeCents: 12000, change: "new", previousShare: 0 },
-  ],
-  otherCount: 3,
-  otherCents: 7100,
-  totalCents: 59100,
-};
 
 function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0, paydayCents = 0): NytData {
   return {
@@ -143,45 +131,5 @@ describe("Yhteenveto", () => {
   it("no tile tells the payday's own bills", () => {
     const { container } = render(createElement(Tiles, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) }, scope: "own" }));
     expect(container.textContent).not.toMatch(/Palkkapäivänä lähtee/);
-  });
-
-  it("the month's line opens the month's rows and says which side of the usual it is on, with the usual sum and its range", () => {
-    const plain = render(createElement(MonthPace, { data: data() }));
-    expect([...plain.container.querySelectorAll(".home-pace-line a")].map((a) => a.getAttribute("href"))).toEqual(["#/transactions?from=2026-11-01&to=2026-11-11"]);
-    plain.unmount();
-    // without a usual level the sum is a line alone and the reason is the next one: they ran on as one sentence
-    const gap = render(createElement(MonthPace, { data: data({ home: { paceGap: "cards", pace: null } } as never) }));
-    expect(flat(gap.container.querySelector(".home-pace-line")?.textContent)).toMatch(/^Käytetty [\d ]+€$/);
-    expect(flat(gap.container.querySelector(".home-pace-gap")?.textContent)).toBe("Emme näytä tavallista tasoa, koska aiempien kuukausien korttiostot puuttuvat.");
-    gap.unmount();
-    // the chart drew last month's line while the words named this month's sum alone: they name last month's to the same day
-    const curveOf = (days: number, day: number, cents: number) => Array.from({ length: days }, (_, i) => (i < day - 1 ? 0 : cents));
-    const previous = { month: "2026-10", curve: curveOf(31, 11, 244649), day: 11, toToday: 244649 };
-    const before = render(createElement(MonthPace, { data: data({ home: { paceGap: "history", pace: null }, pace: { ...data().pace, previous } } as never) }));
-    expect(flat(before.container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, viime kuussa samaan päivään 2 446 €.");
-    before.unmount();
-    // the 31st after a month of 30 days: the sum is all of last month, not its 31st
-    const whole = { month: "2026-11", curve: curveOf(30, 30, 300000), day: 30, toToday: 300000 };
-    const last = data({ home: { paceGap: "history", pace: null }, pace: { ...data().pace, month: "2026-12", daysInMonth: 31, previous: whole } } as never);
-    const end = render(createElement(MonthPace, { data: { ...last, nyt: { ...last.nyt, from: "2026-12-31", pace: { ...last.nyt.pace, day: 31 } } } }));
-    expect(flat(end.container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, koko viime kuussa 3 000 €.");
-    end.unmount();
-    const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
-    const { container } = render(createElement(MonthPace, { data: data({ home: { paceGap: null, pace } } as never) }));
-    expect(flat(container.querySelector(".home-pace-line")?.textContent)).toBe("Käytetty 1 234 €, 234 € yli tavallisen. Tavallisesti 1 000 € (900–1 100 €).");
-    // the band says what is usual: the month before is not a line of this chart
-    expect(container.querySelector(".pace-prev")).toBeNull();
-  });
-
-  it("a category bar opens the category's rows of the month and names its change in words", () => {
-    const { container } = render(createElement(Where, { data: data({ top: TOP }) }));
-    const rows = [...container.querySelectorAll("a.where-row")];
-    expect(rows.map((a) => a.getAttribute("href"))).toEqual(["#/transactions?category=groceries&from=2026-11-01&to=2026-11-11", "#/transactions?category=car&from=2026-11-01&to=2026-11-11"]);
-    expect(rows.map((a) => flat(a.querySelector(".where-change")?.firstChild?.textContent))).toEqual(["100 € vähemmän kuin viime kuussa", "ei viime kuussa"]);
-    // the bar is the server's share, and a category with nothing last month has no mark
-    expect((rows[0]!.querySelector(".where-fill") as HTMLElement).style.getPropertyValue("inline-size")).toBe("80%");
-    expect(rows.map((a) => a.querySelectorAll(".where-mark").length)).toEqual([1, 0]);
-    expect((rows[0]!.querySelector(".where-mark") as HTMLElement).style.getPropertyValue("inset-inline-start")).toBe("100%");
-    expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("3 muuta kategoriaa 71 €.");
   });
 });

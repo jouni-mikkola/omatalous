@@ -32,7 +32,7 @@ const DOOR_WORDS = ["components/Why.tsx\tNäytä laskelma"];
 
 /**
  * The files that still write "≈" by hand, until their page's builder moves it onto Estimate and approxText: VC2 the charts
- * and Cashflow, VC1 the pace chart, VS1 Säästövinkit, VT3 Kategoriat and Drift. A file not on it may write none. The list
+ * and Cashflow, VS1 Säästövinkit, VT3 Kategoriat and Drift. A file not on it may write none. The list
  * only shrinks; while branches land in any order a moved file may stay on it for a while (0.69 checks that none is stale).
  */
 const HAND_APPROX = new Set<string>([]);
