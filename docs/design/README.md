@@ -8,7 +8,7 @@ plan this decision replaced; the sections are rewritten as their pages return to
 The app answers four questions a household asks of its money, one view each, and asks the household about what it cannot
 settle itself. Everything else is deleted or sits in one Lisää list. Read with `docs/audit/simplify.md` (what is there
 today, with screenshots in `docs/audit/shots/`) and `docs/research/peers.md` (Sure, Actual and the others). Every
-deletion below is for the owner to confirm when its step moves into `docs/ROADMAP.md`.
+deletion below is for the owner to confirm when its step becomes an issue.
 
 Sure opens on eight dashboard sections or an AI chat ([pages_controller.rb](https://github.com/we-promise/sure/blob/0cb32845216cf087401c37e512a8b9cdaee3eb3e/app/controllers/pages_controller.rb)),
 Actual on an envelope budget to fill each month ([docs](https://actualbudget.org/docs/budgeting/)). Omatalous opens on
@@ -177,7 +177,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 
 ## 6. Steps
 
-Ready to paste into `docs/ROADMAP.md`, where they take the next free numbers. Deletions first, then data, then views.
+Ready to open as issues, in this order. Deletions first, then data, then views.
 Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnpm check --changed` green is part of each.
 
 ### D1 Delete Säästövinkit

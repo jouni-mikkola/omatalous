@@ -62,37 +62,3 @@ export function staleReview(text: string, today: string): { line: number; why: s
   return today > limitIso ? fail(`the review of ${iso} is more than ${MONTHS} months old on ${today}; review the rules again and set the date`) : undefined;
 }
 
-/**
- * Rule 47: the front matter of WORKFLOW.md is YAML the board can read, and its check line is a bare command. The file
- * is read by line, with no YAML parser. A value written plain that holds a colon and a space, or a space and a `#`, is
- * not the string it looks like, and the board answers 400 on its state. The board runs the text after `check:` as it
- * stands, so a check value in quotes (or behind another YAML mark) is a command sh cannot find (exit 127). Another key
- * may be quoted when its quotes close at the end of the line.
- */
-export function unreadableFrontMatter(text: string): { line: number; why: string }[] {
-  const lines = text.split("\n");
-  if (lines[0]?.trimEnd() !== "---") return [];
-  const found: { line: number; why: string }[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const raw = lines[i] ?? "";
-    if (raw.trimEnd() === "---") return found;
-    // The board finds the check line with or without a space after the colon, so `check:'cmd'` is judged as well.
-    const m = /^([A-Za-z_][\w-]*):\s+(.*?)\s*$/.exec(raw) ?? /^(check):(.*?)\s*$/.exec(raw);
-    if (!m) continue;
-    const [key, value] = [m[1] ?? "", m[2] ?? ""];
-    const quote = value[0];
-    if (key === "check" && /^['"|>&*![{%@`]/.test(value)) {
-      found.push({ line: i + 1, why: "the check line starts with a quote or another YAML mark" });
-      continue;
-    }
-    if (quote === "'" || quote === '"') {
-      const inner = value.slice(1, -1);
-      const closed = value.length > 1 && value.endsWith(quote) && (quote === "'" ? !inner.replaceAll("''", "").includes("'") : !/(^|[^\\])(\\\\)*"/.test(inner));
-      if (!closed) found.push({ line: i + 1, why: `the quotes of "${key}" do not close at the end of the line` });
-      continue;
-    }
-    if (/:\s|\s#/.test(value)) found.push({ line: i + 1, why: `the value of "${key}" has a colon and a space, or a space and a hash, in it` });
-    else if (value.endsWith(":")) found.push({ line: i + 1, why: `the value of "${key}" ends in a colon` });
-  }
-  return [{ line: 1, why: "the front matter has no closing --- line" }];
-}

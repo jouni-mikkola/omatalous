@@ -663,14 +663,14 @@ describe("workflows in the private repository", () => {
   });
 });
 
-// ── the board's revert watch reads main's runs of the workflow named `check` ──────────────────────────────────────
-describe("the workflow the board watches on main", () => {
+// ── main's runs and the pull requests' status lists name the workflow `check` ─────────────────────────────────────
+describe("the checks workflow on main", () => {
   it("main's checks workflow is named check, and no other workflow is", () => {
     const ci = readText(".github/workflows/ci.yml");
     const files = readdirSync(resolve(ROOT, ".github/workflows")).filter((f) => f.endsWith(".yml"));
     const named = files.filter((f) => (parseYaml(readText(`.github/workflows/${f}`)) as unknown as { name?: string }).name === "check");
-    expect(named).toEqual(["ci.yml"]); // any other name and a red main is never reverted
-    expect(ci).toMatch(/^on:\n {2}push:\n {4}branches: \[main\]$/m); // a push to main starts the run the board reads, and a push to no other branch starts one
+    expect(named).toEqual(["ci.yml"]); // one workflow answers to the name
+    expect(ci).toMatch(/^on:\n {2}push:\n {4}branches: \[main\]$/m); // a push to main starts a run, and a push to no other branch starts one
     expect(ci).toMatch(/^ {2}pull_request:$/m); // the one run of a work branch's commit
     expect(ci).toMatch(/^ {2}workflow_dispatch:$/m);
   });

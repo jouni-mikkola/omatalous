@@ -1,8 +1,7 @@
 name: check
 
-# The name is the one the board watches: it reads main's runs of the workflow named `check`, and reverts the commit that
-# turned main red when no fix lands within 30 minutes. Under any other name a red main waits for a hand
-# (tools/test/release-workflow.test.ts).
+# The name stays `check`, the one main's runs and the pull requests' status lists have always shown, and no other
+# workflow takes it (tools/test/release-workflow.test.ts).
 #
 # The light tier, and the only tier on GitHub. It runs what is fast and needs a clean runner least: the shell lint, the
 # types and the tests of what a change reaches (tools/check.sh --changed, the same scope a developer runs), with the pnpm

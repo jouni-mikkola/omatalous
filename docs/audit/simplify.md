@@ -258,18 +258,18 @@ stays for pictures a change ships or compares.
 ### Credentials
 
 `git grep -h -o -E "process\.env\.[A-Z_0-9]+|env\.[A-Z][A-Z_0-9]+" -- apps/server/src apps/web tools e2e | sort -u`, plus
-`.env.example` and `git grep` for hardcoded passwords and keys. Lineclear holds none for this repo today (the owner's
-note). An id or key that is not a login is stored as `_USER` and `_PASSWORD` of one name, so every name fits
+`.env.example` and `git grep` for hardcoded passwords and keys. The developer machine's secret store (`agent-secrets`)
+holds the ones below. An id or key that is not a login is stored as `_USER` and `_PASSWORD` of one name, so every name fits
 `NAME_USER`, `NAME_PASSWORD`, `NAME_URL`, `NAME_TOTP`.
 
-| Proposed Lineclear name | Read at | Needed by | How the code gets it |
+| Proposed secret name | Read at | Needed by | How the code gets it |
 |---|---|---|---|
-| `OMAT_EBAPP_USER` (app id), `OMAT_EBAPP_PASSWORD` (the private key PEM) | `EB_APP_ID`, `EB_PRIVATE_KEY` / `EB_PRIVATE_KEY_FILE` in `apps/server/src/platform/config.ts:182` | a dev server that syncs a real bank (optional; the browser form wins) | `eval "$(lineclear secrets env)" && EB_APP_ID=$OMAT_EBAPP_USER EB_PRIVATE_KEY="$OMAT_EBAPP_PASSWORD" pnpm dev` |
+| `OMAT_EBAPP_USER` (app id), `OMAT_EBAPP_PASSWORD` (the private key PEM) | `EB_APP_ID`, `EB_PRIVATE_KEY` / `EB_PRIVATE_KEY_FILE` in `apps/server/src/platform/config.ts:182` | a dev server that syncs a real bank (optional; the browser form wins) | `eval "$(agent-secrets env)" && EB_APP_ID=$OMAT_EBAPP_USER EB_PRIVATE_KEY="$OMAT_EBAPP_PASSWORD" pnpm dev` |
 | `OMAT_ENABLEBANKING_USER`, `_PASSWORD`, `_TOTP`, `_URL` | none: the Enable Banking control panel login | an agent who sets up or checks the app in the portal | in a `playwright-cli` session: `playwright-cli fill <ref> "$OMAT_ENABLEBANKING_PASSWORD"` |
 | `OMAT_BANK_USER`, `_PASSWORD` | none: the bank's own login during linking | linking a real account | the bank asks for app approval: always the owner |
-| `OMAT_CLOUDFLARE_PASSWORD` (the API token) | `CLOUDFLARE_API_TOKEN`, `apps/server/src/cli-cloudflare.ts:91` | `node dist/node.js cloudflare up/down` | `eval "$(lineclear secrets env)" && CLOUDFLARE_API_TOKEN=$OMAT_CLOUDFLARE_PASSWORD node dist/node.js cloudflare up …` |
-| `OMAT_CLOUDFLARE_TUNNEL_PASSWORD` | `CLOUDFLARE_TUNNEL_TOKEN` in `.env` (`.env.example`, empty) | Compose profile `tunnel` on a real install | written into `.env` on the host only, never from Lineclear into the repo |
-| `OMAT_ADMIN_USER`, `_PASSWORD`, `_URL`, `_TOTP` | none in code: an install's admin login | an agent checking a live install in a browser | `playwright-cli` session, values from `lineclear secrets env` |
+| `OMAT_CLOUDFLARE_PASSWORD` (the API token) | `CLOUDFLARE_API_TOKEN`, `apps/server/src/cli-cloudflare.ts:91` | `node dist/node.js cloudflare up/down` | `eval "$(agent-secrets env)" && CLOUDFLARE_API_TOKEN=$OMAT_CLOUDFLARE_PASSWORD node dist/node.js cloudflare up …` |
+| `OMAT_CLOUDFLARE_TUNNEL_PASSWORD` | `CLOUDFLARE_TUNNEL_TOKEN` in `.env` (`.env.example`, empty) | Compose profile `tunnel` on a real install | written into `.env` on the host only, never from the secret store into the repo |
+| `OMAT_ADMIN_USER`, `_PASSWORD`, `_URL`, `_TOTP` | none in code: an install's admin login | an agent checking a live install in a browser | `playwright-cli` session, values from `agent-secrets env` |
 | `OMAT_SETUP_PASSWORD` (the setup code) | `SETUP_CODE`, `platform/config.ts:180` | first start of an install | `.env` of the install; tests make their own (`E2E_SETUP_CODE` is set by `e2e/playwright.config.ts:12`) |
 
 Not secrets to store: `APP_SECRET_FILE` is created by the app (`entry/app-secret.ts`), `CLOUDFLARE_ACCESS_EMAILS` is

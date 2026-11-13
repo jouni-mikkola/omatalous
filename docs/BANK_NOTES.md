@@ -77,7 +77,7 @@ Production accepts only https. The public pages say no more than "URLs whitelist
 
 Last reviewed: 2026-10-30
 
-A rule that applies to the app gets a step in [ROADMAP.md](ROADMAP.md); a rule only proposed gets a line here. The review
+A rule that applies to the app gets an issue ([ROADMAP.md](ROADMAP.md)); a rule only proposed gets a line here. The review
 is repeated at least every 6 months, and `pnpm check` fails when the date above is older (repo rule 44).
 Sources opened for this review: the European Parliament's Legislative Observatory pages of the three files, the
 Commission's texts through the Publications Office (EUR-Lex), and the EBA's page on payment services. The Council's own
