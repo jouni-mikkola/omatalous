@@ -79,6 +79,21 @@ t_old_refusal_in_the_log() {
   check "the permission warning is not said twice when the paths are unsafe now" bash -c "grep -q 'Apuri ei käynnisty' '$W/doctor.json' && ! grep -q 'Apuri kieltäytyy toimimasta' '$W/doctor.json'"
 }
 
+# `ip` in the helper's unit cannot open a netlink socket: it prints nothing and fails, which is no sign of a lost address
+t_address_check_with_a_failing_ip() {
+  new_host; with_cron; fix_permissions
+  printf 'INSTANCE_NAME=banking-app\nBIND_ADDRESS=192.0.2.10\n' >"$CL/.env"
+  printf '#!/bin/sh\nexit 2\n' >"$S/bin/ip"; chmod +x "$S/bin/ip"
+  doctor_json
+  check "json: a failing ip is no warning that the address is gone" bash -c "! grep -q 'Koneella ei ole enää osoitetta' '$W/doctor.json'"
+  printf '#!/bin/sh\necho "2: eth0    inet 192.0.2.77/24 brd 192.0.2.255 scope global eth0"\n' >"$S/bin/ip"
+  doctor_json
+  check "json: an ip that lists other addresses still warns" grep -q 'Koneella ei ole enää osoitetta 192.0.2.10' "$W/doctor.json"
+  printf '#!/bin/sh\necho "2: eth0    inet 192.0.2.10/24 brd 192.0.2.255 scope global eth0"\n' >"$S/bin/ip"
+  doctor_json
+  check "json: an ip that lists the address is a pass" grep -q 'Koneella on osoite 192.0.2.10' "$W/doctor.json"
+}
+
 t_disk_size_decimal() {
   new_host; with_cron; fix_permissions
   # 5 767 168 kB free is 5.5 GB

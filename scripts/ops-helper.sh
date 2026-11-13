@@ -409,6 +409,7 @@ act_update() {
       write_check_frag   # the answer from before the switch says "available", and nothing fetches again until the next check (within the hour)
       rm -f "$OPS/watchdog.frag"   # the report of an earlier rollback is old news once an update has gone through (watchdog_report)
       after_update_check   # lib/ops-selftest.sh: no arguments; it may call fail and change SUMMARY
+      run_doctor || true   # the page's system check names the version that ran, and the next daily one is a day away
     else
       fail "Päivitetty sovellus ei vastaa."; recover "$before" || SUMMARY="$SUMMARY Palautus epäonnistui, katso ops/RECOVERY.txt."
     fi
