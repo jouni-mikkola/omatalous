@@ -1,10 +1,10 @@
 /**
  * The choices Holdings makes about its rows: which accounts and which cards need their number to be told apart, how a
- * card is named and which tone its picture has, and when the block has a line of its own for the debts. No sum is made
- * here: every total is core's.
+ * card is named and which tone its picture has. The name of the figure the block sums up is `components/net-label.ts`.
+ * No sum is made here: every total is core's.
  */
 import { cardName } from "@banking/core";
-import { figureName, t, tn } from "../../../text.ts";
+import { t } from "../../../text.ts";
 import type { DashboardData } from "../../../types.ts";
 
 type Answer = DashboardData["holdings"];
@@ -61,16 +61,4 @@ export function cardsOwe(cards: readonly Pick<Answer["cards"][number], "usedCent
 export function reconcileTitle(state: "ok" | "diff" | "unknown"): string | null {
   if (state === "unknown") return null;
   return state === "ok" ? t("holdings.reconciles") : t("holdings.not_reconciles");
-}
-
-/**
- * The name of `netCents`, which says what it lacks: a loan with no balance (saved with none, or never saved) is a debt
- * the figure cannot hold. Null when there is no debt at all, as the figure is then the accounts' total and needs no name.
- */
-export function netLabelOf(holdings: Pick<Answer, "loans" | "debtCents" | "unsavedLoans">): { label: string | null; lacking: number } {
-  const noBalance = holdings.loans.filter((l) => l.leftCents === null).length;
-  const lacking = noBalance + (holdings.unsavedLoans?.count ?? 0);
-  const known = holdings.loans.length - noBalance;
-  if (lacking === 0) return { label: holdings.debtCents > 0 ? figureName("netWorth") : null, lacking };
-  return { label: known === 0 ? t("holdings.net_without_loans") : tn(lacking, "holdings.net_without_one", "holdings.net_without_many", { net: figureName("netWorth") }), lacking };
 }

@@ -7,5 +7,5 @@
 .notice-list li { font-size: var(--fs-body); line-height: var(--lh-body); }
 .notice-list li.notice-news::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; background: var(--warn); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .user-menu .avatar { position: relative; }
-.notice-dot { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--ink); }
+.notice-dot { position: absolute; top: calc(-1 * var(--sp-4)); right: calc(-1 * var(--sp-4)); width: var(--tick-l); height: var(--tick-l); border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 var(--ring) var(--ink); }
 }

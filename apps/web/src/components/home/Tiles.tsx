@@ -4,7 +4,7 @@ import { hashOf } from "../../routes.ts";
 import { answerMoney, completeMonths, dayMonth } from "../../format.ts";
 import { figureName, t } from "../../text.ts";
 import type { DashboardData, Scope } from "../../types.ts";
-import { netLabelOf } from "../../pages/reports/holdings/holding-rows.ts";
+import { netLabelOf } from "../net-label.ts";
 import { Figure } from "../Figure.tsx";
 import { Why } from "../Why.tsx";
 

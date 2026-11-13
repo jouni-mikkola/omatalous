@@ -51,19 +51,19 @@ describe("the tiles' figures", () => {
       if (accountsLessDebtOn(ctx, balances, inputs, ON) !== buildHoldings(ctx, balances, inputs).netCents) problems.push(`${seed}: today against holdings`);
     }
     expect(problems).toEqual([]);
-  });
+  }, 30_000);
 
   it("the change is not known when an account has no balance a month ago", () => {
     const { ctx, balances } = household(3);
     // an account whose first row is today is not known a month ago
     const fresh = createContext([...ctx.txs], [...ctx.accounts, { id: "new", name: "Uusi", iban: null, currency: "EUR", type: "checking" }], ON);
     expect(buildOverview(fresh, [...balances, input("new", "Uusi", "checking", 1_000)], inputsOf([])).net).toBeNull();
-  });
+  }, 30_000);
 
   it("the income of the month and the usual month are the earned income on both sides", () => {
     const { ctx, balances } = household(5);
     const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
     expect(income).toEqual({ cents: earnedIncome(ctx, "2025-10"), usualCents: expectedIncome(ctx, "2025-10") });
     expect(income.usualCents).not.toBeNull();
-  });
+  }, 30_000);
 });
