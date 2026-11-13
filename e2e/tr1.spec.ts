@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { overflow, plain, watch } from "./helpers.ts";
+import { overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 
 // Tarkistettavat: every question the app cannot settle itself, one at a time. The queue is a stub of /api/review that
 // follows the answers the page sends (a rule, a mark, a payer's role, an account's answer), with every payee and sum made
@@ -293,7 +293,7 @@ test("a sitting ends after 25 items with the count left", async ({ browser }) =>
 test("no other page asks: Yhteenveto has no question card, and the count is the header's alone", async ({ browser }) => {
   const { context, page, seen } = await open(browser, 1280, [shop, gift]);
   await page.goto("/#/overview");
-  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("region", { name: "Luokittelemattomat" })).toHaveCount(0);
   await expect(page.locator(".question-row")).toHaveCount(0);
   await expect(headerCount(page)).toHaveText("2 avoinna");

@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
-import { cents, overflow, plain, watch } from "./helpers.ts";
+import { cents, overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 
 // Yhteenveto opens on four tiles (docs/design/README.md section 1.1): what is left before payday, the month's spending
 // and income, and what the household has net. The demo household of the administrator (e2e/run.mjs made it) has pay,
@@ -17,7 +17,7 @@ const MAX_JUMP = 0.25;
 async function open(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   return page;
 }
@@ -119,7 +119,7 @@ test("with the answer 3 s late the page keeps its place: its height changes less
   await expect(page.locator(".home-skeleton")).toBeVisible();
   const before = await heightOf(page);
   await expect(page.locator(".home-skeleton")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator(".home-tiles")).toBeVisible();
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   const after = await heightOf(page);
   expect(Math.abs(after - before) / after, `the page was ${before} px high loading and ${after} px loaded`).toBeLessThan(MAX_JUMP);
   await context.close();

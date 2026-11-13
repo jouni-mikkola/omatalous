@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, type Locator, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
 // Yhteenveto on a phone, at 320, 360 and 390 px wide: the tiles two by two, the month's line and its chart under them. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -8,7 +8,7 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 async function open(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   return page;
 }
