@@ -147,9 +147,7 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
         <div className="st-rows" role="group" aria-label={t("rpt.se_unknown")}>
           <div className="st-row">
             <strong className="st-name">{t("rpt.se_unknown")}</strong>
-          </div>
-          <div className="st-row">
-            <span className="st-name">{t("rpt.se_unknown_note")}</span>
+            <p className="st-sub">{t("rpt.se_unknown_note")}</p>
           </div>
           {unknown.map((u) => (
             <div key={u.label} className="st-row">
