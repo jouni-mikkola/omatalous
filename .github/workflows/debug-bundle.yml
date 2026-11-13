@@ -19,25 +19,22 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @banking/web build
-      - run: node tools/bundle-budget.mjs || true
-      - run: |
-          node --input-type=module -e '
-            import { firstPageScript } from "./tools/bundle-budget.mjs";
-            for (const p of firstPageScript("apps/web/dist").parts.sort((a, b) => b.raw - a.raw)) console.log("PART", p.raw, p.gzip, p.file);
-          '
       - run: |
           sed -i 's/minify: true/minify: false/' apps/web/vite.config.ts
           pnpm --filter @banking/web exec vite build --outDir /tmp/plain --emptyOutDir
       - name: regions
         run: |
-          cd /tmp/plain/assets
-          echo "=== index imports"
-          grep -E '^import .* from "./(ErrorCard|text)-' index-*.js | cut -c1-6000
-          for f in ErrorCard-*.js text-*.js; do
-            echo "=== $f"
-            grep -oE '^(export )?(async )?function [A-Za-z0-9_$]+' "$f" | sed -E 's/^(export )?(async )?function //' | tr '\n' ' '
-            echo
-            grep -oE '^(var|const|let) [A-Za-z0-9_$]+' "$f" | sed -E 's/^(var|const|let) //' | tr '\n' ' '
-            echo
-          done
+          node --input-type=module -e '
+            import { firstPageScript, staticImports } from "./tools/bundle-budget.mjs";
+            import { readFileSync } from "node:fs";
+            const first = firstPageScript("/tmp/plain");
+            console.log("TOTAL", first.raw);
+            for (const p of first.parts.sort((a, b) => b.raw - a.raw)) {
+              const src = readFileSync("/tmp/plain/assets/" + p.file, "utf8");
+              console.log("PART", p.raw, p.file, "imports:", staticImports(src).join(" "));
+              if (p.raw < 15000) continue;
+              const regions = src.split("//#region ").slice(1).map((r) => { const nl = r.indexOf("\n"); return [r.slice(0, nl), r.length]; });
+              regions.sort((a, b) => b[1] - a[1]);
+              for (const [name, len] of regions.slice(0, 40)) console.log("   REGION", len, name);
+            }
+          '
