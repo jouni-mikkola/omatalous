@@ -1,7 +1,7 @@
 # Roadmap
 
 Omatalous is a self-hosted household finance app for Finland. The work that is planned is in the
-[GitHub issues](https://github.com/jouni-mikkola/omatalous/issues) of this repository, one issue per change, and each
+GitHub issues of this repository, one issue per change, and each
 change is a pull request whose checks run on GitHub. This file keeps what an issue does not: the releases that are
 coming, the reviews on the calendar and what is not planned.
 
