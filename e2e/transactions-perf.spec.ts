@@ -41,6 +41,9 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     const tries: number[] = [];
     for (let attempt = 0; attempt < 3; attempt++) {
       await page.goto("/#/overview");
+      // Yhteenveto fetches and draws its charts after the load event: let it finish, so the slowed processor times the list alone
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_SLOWDOWN });
       const started = Date.now();
       await page.goto(`/#/transactions?${year}`);

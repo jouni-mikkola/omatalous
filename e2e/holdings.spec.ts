@@ -91,7 +91,7 @@ test("the focus of a link shows whole, inside the name that is cut", async ({ br
   await context.close();
 });
 
-test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit and no digits is its name and one row", async ({ browser }) => {
+test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits, the day of its balance and one figure", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -122,12 +122,14 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   });
   expect(weights).toEqual(["400", "600"]);
 
-  // the demo's card has a name and what is used: no limit row, no last digits, its flat row and no meter, and no line without words
+  // the demo's card has a name, its last digits, the day of its balance and what is used: no limit row, no meter, and no line without words
   const card = groupOf(page, "Luottokortit").locator(".holding-unit");
-  await expect(card.locator(".st-row")).toHaveCount(1);
+  await expect(card.locator(".st-row")).toHaveCount(2);
   await expect(card.locator(".st-row").last().locator(".st-name")).toHaveText("Käytetty luotto");
   await expect(card.locator(".card-face")).toHaveCount(1);
-  await expect(card.locator(".card-meter, .sr-only, .st-sub")).toHaveCount(0);
+  await expect(card.locator(".card-face-mask")).toHaveText("•••• 4242");
+  await expect(card.locator(".st-sub")).toHaveText(/^Saldo päivältä \d/);
+  await expect(card.locator(".card-meter, .sr-only")).toHaveCount(0);
   // no limit, so no arc and no picture beyond the row
   await expect(card.locator(".credit-arc, .holding-unit-body svg, .holding-unit-body img")).toHaveCount(0);
   for (const line of await holdings.locator(".st-row, .st-sub").all()) expect(plain(await line.innerText()), "a row or a line without words").not.toBe("");

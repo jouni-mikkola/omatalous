@@ -16,8 +16,9 @@ const IBAN = {
   employer: "FI6350009420041578",
   landlord: "FI3250009420041586",
   cardBill: "FI9550009420041594",
-  friend: "FI5250009420041602",
-  sister: "FI7350009420041628",
+  // the two persons' accounts have valid check digits: the app drops a payee account that fails them, and a transfer to a person is read from the account
+  friend: "FI5650009420041602",
+  sister: "FI3350009420041628",
   lender: "FI2450009420041610",
 };
 
