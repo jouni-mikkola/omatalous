@@ -123,14 +123,15 @@ function shopInText(text: string): string | null {
 
 /**
  * A card account writes "Osto <country> <city> <name> [<city>]" ("OSTO FIN KUOPIO KUKKAKAUPPA ILO OY KUOPIO"), and the
- * same after "Siirto kortilta" for money the card sent to a wallet or another bank. A foreign purchase has its currency
- * and sum in front ("USD 12,00 OSTO IRL DUBLIN …"). The country and the city in front hide the shop from the processor
- * and brand patterns, which read the start. The leading word and a country code prove the shape: "OSTO XYZ …" has no
- * such code, and a shop whose own name starts with three capitals has no "OSTO" before them. The word after the country
- * is dropped as the city only when the text proves it is one (dropCardAccountPrefix); a row with no city keeps the first
- * word of its name. Groups: the currency, the country, all that follows it, its first word, the rest.
+ * same after "Hyvitys" for a refund and after "Siirto kortilta" for money the card sent to a wallet or another bank. A
+ * foreign purchase has its currency and sum in front ("USD 12,00 OSTO IRL DUBLIN …"). The country and the city in front
+ * hide the shop from the processor and brand patterns, which read the start. The leading word and a country code prove
+ * the shape: "OSTO XYZ …" has no such code, and a shop whose own name starts with three capitals has no "OSTO" before
+ * them. The word after the country is dropped as the city only when the text proves it is one (dropCardAccountPrefix); a
+ * row with no city keeps the first word of its name. Groups: the currency, the country, all that follows it, its first
+ * word, the rest.
  */
-const CARD_ACCOUNT_TEXT = /^(?:([A-Z]{3})\s+\d[\d\s.,]*?\s+)?(?:OSTO|SIIRTO KORTILTA)\s+([A-Z]{3})\s+((\S+)(?:\s+(\S.*))?)$/s;
+const CARD_ACCOUNT_TEXT = /^(?:([A-Z]{3})\s+\d[\d\s.,]*?\s+)?(?:OSTO|HYVITYS|SIIRTO KORTILTA)\s+([A-Z]{3})\s+((\S+)(?:\s+(\S.*))?)$/s;
 
 /** A sum with its currency's code on either side ("USD 25,00", "1 250,00 GBP"). */
 const CURRENCY_WORD = `(?:${[...CURRENCY_CODES].join("|")})`;
