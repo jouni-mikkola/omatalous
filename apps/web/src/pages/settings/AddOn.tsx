@@ -1,5 +1,6 @@
 /**
- * Asetukset > Palvelin > Lisäosa (admin only, docs/MODULES.md).
+ * The Lisäosa card (admin only, docs/MODULES.md): on Asetukset > Lisäosa while a module is loaded, on Palvelin ja
+ * ylläpito before (AddOnPage.tsx, ServerPage.tsx).
  * Decision: whether the household connects an add-on module, and whether it keeps it. One field takes the code; the
  * server seals it and never sends it back, so the card shows only where the add-on stands.
  */

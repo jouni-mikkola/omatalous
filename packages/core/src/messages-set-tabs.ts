@@ -10,5 +10,6 @@ export const FI_SET_TABS = {
   "set.tab.security": "Turvallisuus",
   "set.tab.data": "Tiedot",
   "set.tab.server": "Palvelin ja ylläpito",
+  "set.tab.addon": "Lisäosa",
   "set.tab.nav": "Asetukset",
 } as const;

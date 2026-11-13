@@ -8,5 +8,6 @@ export const EN_SET_TABS: Record<keyof typeof FI_SET_TABS, string> = {
   "set.tab.security": "Security",
   "set.tab.data": "Data",
   "set.tab.server": "Server and maintenance",
+  "set.tab.addon": "Add-on",
   "set.tab.nav": "Settings",
 };

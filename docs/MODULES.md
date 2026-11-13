@@ -5,7 +5,9 @@ knows nothing of what a module does. It holds the generic hooks a module plugs i
 bundle when the owner has entered a code, and the trust root that decides which bundles may run.
 
 Without a code the app has no module, loads nothing, makes no request for one and shows only the empty field in
-Asetukset > Palvelin ja ylläpito > Lisäosa.
+Asetukset > Palvelin ja ylläpito > Lisäosa. Once a module is loaded, Asetukset has a tab of its own, Lisäosa, after the
+six: the module's own card first, then the card of the code, its version and its state (admin only), which leaves
+Palvelin ja ylläpito. A member sees the tab only when the module has a card.
 
 ## The code
 
@@ -126,9 +128,14 @@ The status the admin sees (`GET /api/modules`, admin only):
 |---|---|
 | `none` | Ei yhdistetty. |
 | `connected` | Yhdistetty, versio X. |
+| `connected`, `noCode` | Käytössä, versio X. Koodia ei ole tallennettu, joten uusia versioita ei haeta. |
 | `pending` | Asennettu, käytössä uudelleenkäynnistyksen jälkeen. |
 | `waiting` | Odottaa tähän versioon sopivaa lisäosaa. |
 | `refused` | Hylätty: (one reason, never the code). |
+
+The start reads `active.json` before the database opens, so a module whose files were put in place by hand, or whose
+code the database lost (one restored from before the code), runs with no code. Its line then names the running version
+and says that no check looks for a newer one until the code is entered.
 
 Security events: `module_code_set`, `module_code_removed`, `module_installed`, `module_refused`.
 
@@ -200,7 +207,7 @@ stylesheets hold no state.
 | Point | Fed by | Where |
 |---|---|---|
 | `page` | the module | its own address `#/<id>`, its entry after the tabs in the header, on a phone in the user menu (`Shell.tsx`) |
-| `settingsCard` | the module | Asetukset > Talous, after the loans |
+| `settingsCard` | the module | Asetukset > Lisäosa (`#/settings/addon`), above the add-on's own card; an address of its `settingsAnchor` opens it there |
 | `rowMark` | `rowFields` | on the line of a row of Tapahtumat, beside its tags; it keeps the row one line high |
 | `rowPart` | `rowFields` | in the opened row of Tapahtumat, above the payee's months |
 | category parts | `rowParts` | Raportit > Menot > Menot osittain: each category the server split, its parts under its name and figure |

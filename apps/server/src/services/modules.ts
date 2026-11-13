@@ -1,5 +1,5 @@
 /**
- * Asetukset > Palvelin > Lisäosa: the add-on code, its check and its removal (docs/MODULES.md).
+ * The Lisäosa card of Asetukset: the add-on code, its check and its removal (docs/MODULES.md).
  *
  * Decision: the owner connects or removes the household's add-on module with one code. The code is sealed under its own
  * context and never returned, logged, put in an event or exported; what the admin sees is the status line. A check
@@ -33,7 +33,7 @@ type Checked = { state: "installed" | "waiting" | "refused"; id?: string; versio
 
 export type ModuleView =
   | { state: "none" }
-  | { state: "connected"; id: string; version: string; label?: string }
+  | { state: "connected"; id: string; version: string; label?: string; noCode?: true }
   | { state: "pending"; id: string; version: string }
   | { state: "waiting" }
   | { state: "refused"; reason: string }
@@ -88,14 +88,19 @@ async function raiseFloor(s: Services, id: string, version: string): Promise<voi
   await s.settings.set(FLOOR_KEY, JSON.stringify({ ...floor, [id]: version }));
 }
 
-/** The status line's facts. No code: nothing at all, whatever is on disk. */
+/**
+ * The status line's facts. No code: nothing, unless a module runs anyway. The start loads what `active.json` names
+ * before the database opens, so a module whose files were put in place by hand, or whose code the database lost (one
+ * restored from before the code), runs with no code; the line says so, as no check looks for its next release.
+ */
 export async function moduleView(s: Services): Promise<ModuleView> {
-  if (!(await hasCode(s))) return { state: "none" };
   const start = startState(s);
-  const status = await readStatus(s);
   const root = s.modules?.root;
   const active = root ? readActive(root) : null;
-  if (start.state === "connected" && active && active.id === start.id && active.version === start.version) return { state: "connected", id: start.id, version: start.version, label: start.label };
+  const running = start.state === "connected" && active && active.id === start.id && active.version === start.version ? start : null;
+  if (!(await hasCode(s))) return running ? { state: "connected", id: running.id, version: running.version, label: running.label, noCode: true } : { state: "none" };
+  const status = await readStatus(s);
+  if (running) return { state: "connected", id: running.id, version: running.version, label: running.label };
   if (active && (start.state === "none" || start.state === "connected")) return { state: "pending", ...active };
   if (start.state === "refused" && active && active.version === start.version) return { state: "refused", reason: start.reason };
   if (status?.state === "waiting" || start.state === "waiting") return { state: "waiting" };

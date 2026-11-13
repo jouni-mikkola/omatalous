@@ -1,5 +1,5 @@
 /**
- * The catalogue of Asetukset: the add-on module card (Asetukset > Palvelin > Lisäosa).
+ * The catalogue of Asetukset: the add-on module card (Asetukset > Lisäosa, or Palvelin ja ylläpito while no module is loaded).
  * Decision: the household reads the settings in its own language.
  * Same shape as the tables of `messages.ts`: the Finnish table gives the codes and the English one must have the same codes and holes.
  */
@@ -16,6 +16,8 @@ export const FI_SET_ADDON = {
   "set.addon.state_none": "Ei yhdistetty.",
   "set.addon.state_connected": "Yhdistetty, versio {version}.",
   "set.addon.state_connected_named": "Yhdistetty: {label}, versio {version}.",
+  "set.addon.state_no_code": "Käytössä, versio {version}. Koodia ei ole tallennettu, joten uusia versioita ei haeta.",
+  "set.addon.state_no_code_named": "Käytössä: {label}, versio {version}. Koodia ei ole tallennettu, joten uusia versioita ei haeta.",
   "set.addon.state_pending": "Lataus onnistui: versio {version}. Palvelin ottaa sen käyttöön seuraavassa käynnistyksessä.",
   "set.addon.state_waiting": "Odottaa versiota, joka sopii tähän sovelluksen versioon.",
   "set.addon.state_checking": "Tarkistetaan…",

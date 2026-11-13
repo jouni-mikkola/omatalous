@@ -19,7 +19,7 @@ import { ApiError } from "./api.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 
-import { type Route, redirectRoute, SETTINGS_TARGETS, type SettingsTarget } from "./routes.ts";
+import { ADD_ON_TARGET, type Route, redirectRoute, SETTINGS_TARGETS, type SettingsTarget } from "./routes.ts";
 import { parseSearch, searchOf, stringifySearch } from "./search.ts";
 import { ExtensionPage } from "./ExtensionPage.tsx";
 import { Shell } from "./Shell.tsx";
@@ -90,8 +90,9 @@ const reviewRoute = createRoute({
   validateSearch: searchOf("review"),
   component: lazyRouteComponent(() => import("./views/ReviewView.tsx"), "ReviewView"),
 });
-// Asetukset is a frame with the six targets as children (`#/settings/household`); the bare `#/settings` is rewritten to the
-// first target by the root route (`redirectRoute`), which also sends a member away from the admin's target
+// Asetukset is a frame with the six targets and the add-on target as children (`#/settings/household`); the bare
+// `#/settings` is rewritten to the first target by the root route (`redirectRoute`), which also sends a member away from
+// the admin's target, and anyone away from the add-on target while no module is loaded
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -106,8 +107,9 @@ const SETTINGS_TARGET_VIEW = {
   security: "SecurityView",
   data: "DataView",
   server: "ServerView",
+  addon: "AddOnView",
 } as const satisfies Record<SettingsTarget, string>;
-const settingsTargetRoutes = SETTINGS_TARGETS.map((target) =>
+const settingsTargetRoutes = [...SETTINGS_TARGETS, ADD_ON_TARGET].map((target) =>
   createRoute({
     getParentRoute: () => settingsRoute,
     path: `/${target.id}`,

@@ -1,9 +1,9 @@
-/** The status line of Asetukset > Palvelin > Lisäosa, from GET /api/modules (apps/server services/modules.ts). */
+/** The status line of the Lisäosa card (AddOn.tsx), from GET /api/modules (apps/server services/modules.ts). */
 import { t } from "../../text.ts";
 
 export type AddOnView =
   | { state: "none" }
-  | { state: "connected"; id: string; version: string; label?: string }
+  | { state: "connected"; id: string; version: string; label?: string; noCode?: true }
   | { state: "pending"; id: string; version: string }
   | { state: "waiting" }
   | { state: "refused"; reason: string }
@@ -23,6 +23,8 @@ export function addOnLine(v: AddOnView): string {
     case "none":
       return t("set.addon.state_none");
     case "connected":
+      // a module that runs with no code stored: no check looks for its next release until the code is entered
+      if (v.noCode) return v.label ? t("set.addon.state_no_code_named", { label: v.label, version: v.version }) : t("set.addon.state_no_code", { version: v.version });
       return v.label ? t("set.addon.state_connected_named", { label: v.label, version: v.version }) : t("set.addon.state_connected", { version: v.version });
     case "pending":
       return t("set.addon.state_pending", { version: v.version });
