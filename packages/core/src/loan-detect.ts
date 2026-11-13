@@ -33,9 +33,11 @@ import { loansOf, typedBill } from "./loans.ts";
 import { planAnswers } from "./plan-answer.ts";
 import { lexiconCategory } from "./lexicon.ts";
 import { cardIssuerName, fold } from "./merchant.ts";
-import { parseSeriesId, type RecurringSeries, seriesId } from "./recurring.ts";
+import { NOT_LOAN_SUBJECT } from "./loan-mark.ts";
+import type { RecurringSeries } from "./recurring.ts";
+import { parseSeriesId, seriesId } from "./series-id.ts";
 import { STEADY_BAND, steadyBy } from "./returns.ts";
-import type { IsoDate, LoanKind, UserInputs, UserMark } from "./types.ts";
+import type { IsoDate, LoanKind, UserInputs } from "./types.ts";
 import { hasLoanText, isFinanceCompanyName, withoutSwedishTwin } from "./wording-lenders.ts";
 import { CONSUMER_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, housingCharge, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
@@ -107,7 +109,8 @@ const MIN_LOAN_CHARGES = 3;
 /** Interest alone is the cost of a card or an overdraft, and a collector's plan is paid to someone who lent nothing. */
 const LOAN_CATEGORIES: ReadonlySet<string> = new Set(["mortgage", "loans", "student_loan"]);
 
-const NOT_LOAN_SUBJECT = "loan-proposal:";
+// loan-mark.ts holds the mark, so the web entry makes it without loading this file
+export { notLoanMark } from "./loan-mark.ts";
 
 /**
  * The series key an "Ei ole laina" mark's subject names (`loan-proposal:<key>`), or null for any other subject and for a
@@ -383,11 +386,6 @@ const amountsOf = (s: RecurringSeries, charges: Charges): number[] => [s.typical
 export function fitsPayment(paymentCents: number, s: RecurringSeries, charges: Charges): boolean {
   const own = parseSeriesId(s.id);
   return own !== null && names(seriesId({ ...own, product: paymentCents }), s, amountsOf(s, charges));
-}
-
-/** The mark that says a proposal is no loan: the series stays out of `loanProposals` until the mark is taken away. */
-export function notLoanMark(proposal: Pick<LoanProposal, "key">): Pick<UserMark, "subject" | "mark"> {
-  return { subject: NOT_LOAN_SUBJECT + proposal.key, mark: "dismissed" };
 }
 
 /**

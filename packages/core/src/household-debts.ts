@@ -9,7 +9,8 @@ import { partCents } from "./account-use.ts";
 import type { Debt } from "./debt-part.ts";
 import type { LoanProposal } from "./loan-detect.ts";
 import { creditAccountLoan, type DebtFigure, debtInterestNext12Months, debtTotalOn, loanBalanceOn, loanLastDueDate, loansOf } from "./loans.ts";
-import { parseSeriesId } from "./recurring.ts";
+import { belowWhole } from "./part-shape.ts";
+import { parseSeriesId } from "./series-id.ts";
 import { type Account, type BalanceInput, type IsoDate, isRevolving, type Loan, type Part, type UserInputs } from "./types.ts";
 
 /** The account types whose balance below zero is a debt. A checking account's overdraft stays in the accounts' total. */
@@ -33,8 +34,8 @@ interface DebtSource {
  */
 export type DebtAccount = Parameters<typeof creditAccountLoan>[0] & { balanceAt?: string | null; part?: Part; loanPayment?: boolean };
 
-/** A part below the whole: some of the account is another user's. */
-export const belowWhole = (part: Part | undefined): part is Part => part !== undefined && part.to - part.from < part.of;
+// part-shape.ts holds the question, so the web entry asks it without loading this file
+export { belowWhole } from "./part-shape.ts";
 
 /**
  * The account in view a saved loan's payments leave: the one its series key names (`Loan.seriesKey`, the id of the

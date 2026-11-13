@@ -25,8 +25,8 @@ export const isNone = (part: Part): boolean => part.to === part.from;
  * so no figure is halved by a guess and the page says the split is not told. The one place that choice is made.
  */
 const UNTOLD: Part = Object.freeze({ from: 0, to: 1, of: 1, split: "unknown" as const });
-/** Whether a part is the whole of an account whose split nobody has said. */
-export const isUntold = (part: Part | undefined): boolean => part?.split === "unknown";
+// part-shape.ts holds the question, so the web entry asks it without loading this file
+export { isUntold } from "./part-shape.ts";
 
 /** The user with no id, when the bank's line does not name them. */
 export const OTHER_HOLDER = "Muu tilinomistaja";

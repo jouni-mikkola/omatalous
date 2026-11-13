@@ -22,6 +22,11 @@ jobs:
       - run: pnpm --filter @banking/web build
       - run: node tools/bundle-budget.mjs || true
       - run: |
+          node --input-type=module -e '
+            import { firstPageScript } from "./tools/bundle-budget.mjs";
+            for (const p of firstPageScript("apps/web/dist").parts.sort((a, b) => b.raw - a.raw)) console.log("PART", p.raw, p.gzip, p.file);
+          '
+      - run: |
           sed -i 's/minify: true/minify: false/' apps/web/vite.config.ts
           pnpm --filter @banking/web exec vite build --outDir /tmp/plain --emptyOutDir
       - name: regions
