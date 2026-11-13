@@ -3,7 +3,8 @@ import { bankRowRules } from "./categorize-bank-rows.ts";
 import { categoryForMcc } from "./categorize-mcc.ts";
 import { type Holders, holdersOf, noCard, peopleRules } from "./categorize-people.ts";
 import { categoryForIndustry, type RegisterAnswer } from "./industry.ts";
-import { dropBankFigures, fold, namesUnknownMerchant } from "./merchant.ts";
+import { fieldText } from "./categorize-text.ts";
+import { fold, namesUnknownMerchant } from "./merchant.ts";
 import { payeeRules } from "./payees.ts";
 import { tradeWordCategory } from "./trade-words.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
@@ -505,25 +506,6 @@ export function compileRules(userRules: readonly CategoryRule[]): CompiledRule[]
   // a card code of a shop: the money transfer code (p2p) is none
   const people = peopleRules(namedLikeBusiness, (mcc) => (categoryForMcc(mcc) ?? "p2p") !== "p2p", namesShopOrService);
   return [...user, ...people.first, ...builtin(payeeRules(fold).first), ...builtin(PURPOSE_RULES), ...CODE_RULES, ...people.plain, ...bankRowRules(namedLikeBusiness, (mcc) => categoryForMcc(mcc) === "cash"), ...DEALER_RULES, ...builtin([...MERCHANT_RULES, ...FALLBACK_RULES])];
-}
-
-/**
- * The text a rule reads. The built-in rules read the description without the bank's figures (`dropBankFigures`); a
- * user's rule reads it as the bank wrote it, as the user saw it when writing the rule.
- */
-function fieldText(input: CategorizeInput, field: RuleField, byUser: boolean): string {
-  const description = (text: string) => (byUser ? fold(text) : dropBankFigures(fold(text)));
-  switch (field) {
-    case "merchant":
-    case "merchant_exact":
-      return fold(input.merchant);
-    case "counterparty":
-      return fold(input.counterparty ?? "");
-    case "description":
-      return description(input.description ?? "");
-    case "any":
-      return fold([input.merchant, input.counterparty, input.description && description(input.description)].filter(Boolean).join(" | "));
-  }
 }
 
 export function categorize(input: CategorizeInput, rules: readonly CompiledRule[], accounts: readonly Account[] = []): CategorizeResult {
