@@ -1,7 +1,7 @@
 import { type Browser, type BrowserContext, expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
 // The bridge of the demo household: the twelve months of Raportit, and the month before as Yhteenveto tells it. The demo spends
 // from day to day, so the figures differ from one day to the next and the spec reads them from the page instead of
@@ -78,7 +78,7 @@ test("The demo household: the bridge of Raportit tells where the pay went, and Y
   const seen = watch(page);
   // Yhteenveto answers the question of the payday: it has no bridge and no savings rate
   await page.goto("/#/overview");
-  await expect(page.locator(".home-tiles")).toBeVisible();
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   await expect(page.locator(".bridge")).toHaveCount(0);
   await page.goto("/#/reports?q=tulot");
   const cashflow = page.locator("#kassavirta");
@@ -119,7 +119,7 @@ test("390 px: Yhteenveto and the bridge of the year fit the phone", async ({ bro
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/overview");
-  await expect(page.locator(".home-tiles")).toBeVisible();
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
 
   await page.goto("/#/reports?q=tulot");

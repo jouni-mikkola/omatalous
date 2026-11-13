@@ -3,6 +3,10 @@ import { join } from "node:path";
 
 const FETCH = { "X-Requested-With": "fetch" };
 
+/** Yhteenveto's tiles once its answer has landed. The loading frame draws the same list hidden from the reader, so a wait
+ * for the bare class can pass before the answer. */
+export const OVERVIEW_TILES = ".home-tiles:not([aria-hidden])";
+
 /** Everything a visitor would call "broken": console errors, uncaught errors, failed requests and any 4xx or 5xx. */
 export function watch(page: Page): { problems: string[] } {
   const seen = { problems: [] as string[] };

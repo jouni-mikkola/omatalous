@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { join } from "node:path";
-import { overflow } from "./helpers.ts";
+import { overflow, OVERVIEW_TILES } from "./helpers.ts";
 
 // Nyt on a phone when its second load fails (design section 4, error): the first answer stays on the page, and one line
 // says what failed, from when the shown answer is and how to ask again. Runs on the demo household that e2e/run.mjs makes.
@@ -24,8 +24,8 @@ test("390 px: a failed second load of Nyt keeps the first answer, with its time 
   const { timezone } = (await (await context.request.get("/api/auth/state")).json()) as { timezone: string };
   await page.clock.setFixedTime(t0);
   await page.goto("/#/overview");
-  const answer = page.locator(".home-tiles");
-  await expect(page.locator(".home-tiles")).toBeVisible({ timeout: 15_000 });
+  const answer = page.locator(OVERVIEW_TILES);
+  await expect(answer).toBeVisible({ timeout: 15_000 });
   const first = await answer.innerText();
   const line = page.locator(".stale-answer");
   await expect(line, "no line over a fresh answer").toHaveCount(0);
@@ -58,6 +58,6 @@ test("390 px: a failed second load of Nyt keeps the first answer, with its time 
   down = false;
   await line.getByRole("button", { name: "Yritä uudelleen" }).click();
   await expect(line).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator(".home-tiles")).toBeVisible();
+  await expect(answer).toBeVisible();
   await context.close();
 });

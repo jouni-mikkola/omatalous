@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
-import { makeMember, removeMember, watch } from "./helpers.ts";
+import { makeMember, OVERVIEW_TILES, removeMember, watch } from "./helpers.ts";
 
 // The notices of the server: no page shows them but Asetukset > Turvallisuus. An event the user has not seen (a sign-in
 // from a new device) is a dot on the user menu and a line of Turvallisuus; opening Turvallisuus marks the events seen,
@@ -13,7 +13,7 @@ async function open(context: BrowserContext, width = 1280): Promise<Page> {
   const page = await context.newPage();
   await page.setViewportSize({ width, height: 900 });
   await page.goto("/#/overview?period=month");
-  await expect(page.locator(".home-tiles")).toBeVisible();
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   await page.waitForLoadState("networkidle");
   return page;
 }
@@ -47,7 +47,7 @@ test("a sign-in from a new device is a dot on the user menu and a line of Turval
     // the line that was new keeps its mark while the page is open, so the reader still sees which one it was
     await expect(list.locator("li.notice-news")).toHaveCount(1);
     await page.goto("/#/overview?period=month");
-    await expect(page.locator(".home-tiles")).toBeVisible();
+    await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expect(dotOf(page)).toHaveCount(0);
     expect(seen.problems).toEqual([]);
@@ -66,7 +66,7 @@ test("one page load of Yhteenveto asks /api/meta once", async ({ browser }) => {
     if (new URL(r.url()).pathname === "/api/meta") asked++;
   });
   await page.goto("/#/overview?period=month");
-  await expect(page.locator(".home-tiles")).toBeVisible();
+  await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   await page.waitForLoadState("networkidle");
   expect(asked).toBe(1);
   await context.close();

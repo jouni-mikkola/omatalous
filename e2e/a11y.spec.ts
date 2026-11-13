@@ -1,7 +1,7 @@
 import { type BrowserContext, expect, type Page, test } from "@playwright/test";
 import { createRequire } from "node:module";
 import { join } from "node:path";
-import { createMember, removeMember, watch } from "./helpers.ts";
+import { createMember, OVERVIEW_TILES, removeMember, watch } from "./helpers.ts";
 
 // axe-core over the four pages of the main menu: no violation of impact serious or critical.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -40,7 +40,7 @@ async function visit(context: BrowserContext, path: string, ready: string): Prom
 }
 
 for (const [name, path, ready] of [
-  ["Yhteenveto", "/#/overview", ".home-tiles"],
+  ["Yhteenveto", "/#/overview", OVERVIEW_TILES],
   ["Kuukausi", "/#/reports", ".km"],
   ["Tapahtumat", "/#/transactions", ".tx-card"],
   ["Asetukset", "/#/settings", "h1, h2"],
@@ -60,7 +60,7 @@ for (const [name, path, ready] of [
 const LOAN = { kind: "loan", id: "loan:a11y", cents: 120_000, key: "a11y", payee: "Pankki Oyj", paymentCents: 10_000, months: 12, firstDate: "2025-01-02", lastDate: "2025-12-02", guess: "mortgage", placed: true, rows: [], rowCount: 12 };
 for (const width of [1280, 390]) {
   for (const [name, path, ready, queue] of [
-    ["Yhteenveto", "/#/overview", ".home-tiles", null],
+    ["Yhteenveto", "/#/overview", OVERVIEW_TILES, null],
     ["Laskut", "/#/bills", "#tulossa", null],
     ["Tapahtumat", "/#/transactions", ".tx-card", null],
     ["Tarkistettavat, a question", "/#/review", ".review-item", [LOAN]],
@@ -85,7 +85,7 @@ const MANY = { ...LOAN, rows: ROWS, rowCount: 5 };
 const RULES = ["label-content-name-mismatch", "landmark-unique", "empty-table-header"];
 for (const width of [1440, 390]) {
   for (const [name, path, ready, queue] of [
-    ["Yhteenveto", "/#/overview", ".home-tiles", null],
+    ["Yhteenveto", "/#/overview", OVERVIEW_TILES, null],
     ["Tarkistettavat", "/#/review", ".review-figure", [MANY]],
     ["Tapahtumat", "/#/transactions", ".rtb", null],
     ["Asetukset", "/#/settings/members", "table:has(caption:text-is(\"Talouden jäsenet\"))", null],
@@ -270,7 +270,7 @@ test("every route: no control sits inside an image, and a chart's keyboard stop 
     ),
   ).toEqual([]);
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, bypassCSP: true });
-  const page = await visit(context, "/#/overview", ".home-tiles");
+  const page = await visit(context, "/#/overview", OVERVIEW_TILES);
   // Tulot ja menot: each month is a link beside the image, named by its sums, and its focus shows them
   const months = page.getByRole("link", { name: /Avaa kuukauden tapahtumat$/ });
   await expect(months).toHaveCount(12);
