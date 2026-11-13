@@ -102,8 +102,8 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
   const shownIds = new Set(rows.flatMap((x) => (x.category === null ? [] : [x.category])));
   const inRest: TableRow[] = hasRest ? spentRows(data.categories?.groups ?? []).filter((x) => x.category !== null && !shownIds.has(x.category)).map((x) => ({ ...x, child: true })) : [];
   const tableRows: TableRow[] = restOpen ? rows.flatMap((x): TableRow[] => (x.category === null ? [x, ...inRest] : [x])) : rows;
-  const income = data.income.months.find((m) => m.month === r.month)?.totalCents;
-  const usualIncome = data.income.stability?.medianCents;
+  // the earned income and its usual level, the two figures of Yhteenveto's income tile (the income report takes both from `earnedIncome` and `expectedIncome`)
+  const incomeMonth = data.income.months.find((m) => m.month === r.month);
   const columns: Column<TableRow>[] = [
     {
       key: "name",
@@ -177,10 +177,10 @@ export function Month({ meta, scope }: { meta: Meta; range?: ReportRange; scope:
       {(noUsual || r.gapCents !== null) && rows.length > 0 && (
         <Table<TableRow> caption={t(noUsual ? "rpt.tm_sums_caption" : "rpt.tm_cats_caption")} rows={tableRows} rowKey={(x) => `${x.child ? "in:" : ""}${x.category ?? ""}:${x.label}`} columns={noUsual ? columns.slice(0, 2) : columns} drillButton={false} />
       )}
-      {income !== undefined && (
+      {incomeMonth && (
         <p className="km-income">
-          {t("rep.income")} {money(income, false)}
-          {usualIncome !== undefined && `, ${t("rpt.tm_usual_income")} ${money(usualIncome, false)}`}
+          {t("rep.income")} {money(incomeMonth.earnedCents, false)}
+          {incomeMonth.usualCents !== null && `, ${t("rpt.tm_usual_income", { sum: money(incomeMonth.usualCents, false) })}`}
         </p>
       )}
     </div>
