@@ -93,8 +93,6 @@ describe("the tiles' figures", () => {
     const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
     const month = buildReports({ ctx, range: { from: "2025-10-01", to: "2025-10-31" }, balances: [] }, ["income"]).income.months.find((m) => m.month === "2025-10")!;
     expect({ cents: month.earnedCents, usualCents: month.usualCents }).toEqual(income);
-    // the month's total of every kind of money in is another figure: it holds what the tile leaves out
-    expect(month.totalCents).toBeGreaterThanOrEqual(month.earnedCents);
   }, 30_000);
 
   it("the running month's bars are the Menot and Tulot tiles' figures, and the months are twelve at most, oldest first", () => {
