@@ -37,7 +37,7 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
   // only the parts the blocks read; the rest of the answer is not drawn here
   const rest = {
     pace: { month: "2026-11", daysInMonth: 30, current: [], expected: null, projection: null, previous: null, largest: null, payDays: [] },
-    ahead: null,
+    ahead: { from: "2026-11-11", to: "2026-11-24", rows: [], upcoming: [], outside: [] },
     home: { paceGap: null, pace: null },
     top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
@@ -61,8 +61,8 @@ describe("Yhteenveto", () => {
   it("four tiles: what is left to the payday a day, the month's spending and income against the usual, the net with its month's change, each opening its rows", () => {
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
-      // with no window of payments the sum has no panel to open: the tile leads to the bills before the payday
-      { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: "#/bills#ennen-palkkapaivaa" },
+      // a known sum opens the panel of its payments, as the spending does; the income and the net open theirs in the tests below
+      { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: null },
       { label: "Menot tässä kuussa", figure: "1 234 €", line: "234 € yli tavallisen tähän päivään", href: null },
       { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Tavallisesti 3 980 € kuussa", href: null },
       { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
@@ -115,7 +115,8 @@ describe("Yhteenveto", () => {
   it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
     const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, usualCents: null }, net: null } } as never);
     const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
-    expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa" });
+    // with no sum there is no panel to open: the tile leads to Laskut, where the bills stand
+    expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa", href: "#/bills#ennen-palkkapaivaa" });
     expect(spent!.line).toBe("Vertailu näkyy, kun takana on kolme päättynyttä kuukautta");
     expect(income!.line).toBe(spent!.line);
     expect(net!.line).toBeNull();

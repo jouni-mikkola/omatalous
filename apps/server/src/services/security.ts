@@ -161,8 +161,8 @@ export interface Notice {
   /** The device of a sign-in from a new one ("Chrome, Windows"), for the first page's row; left out on every other notice. */
   detail?: string;
   /**
-   * On a notice of an event only (an event's own, or the failed sign-ins of the day): whether the user has opened the
-   * first page's line or the security log since it happened (`markNoticesSeen`). A notice of a state has none: it lasts
+   * On a notice of an event only (an event's own, or the failed sign-ins of the day): whether the user has opened
+   * Asetukset > Turvallisuus since it happened (`markNoticesSeen`). A notice of a state has none: it lasts
    * while its cause does.
    */
   seen?: boolean;
@@ -185,7 +185,7 @@ export const NOTICE_HOURS = 72;
 /** The settings key of the time a user last opened the line of a notice or the security log (`notices_seen:<user id>`). */
 export const NOTICES_SEEN = "notices_seen:";
 
-/** The user has read the notices of the events so far: the first page's line opened, or the security log. */
+/** The user has read the notices of the events so far: Asetukset > Turvallisuus opened. */
 export async function markNoticesSeen(s: Services, userId: string): Promise<void> {
   await s.settings.set(`${NOTICES_SEEN}${userId}`, s.now().toISOString());
 }
