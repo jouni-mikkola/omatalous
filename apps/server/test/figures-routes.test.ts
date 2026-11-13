@@ -35,6 +35,8 @@ const HOUSEHOLDS: readonly Loaded[] = [
   { name: "made-up", day: FIGURES_TODAY, load: (app) => loadFiguresHousehold(app) },
   // the same household with its card connected in August: the months before have the card's bills alone
   { name: "made-up, card connected later", day: FIGURES_TODAY, load: (app) => loadFiguresHousehold(app, "2026-08") },
+  // connected in May: the usual of October and of September reads months that all hold the card's purchases
+  { name: "made-up, card connected in May", day: FIGURES_TODAY, load: (app) => loadFiguresHousehold(app, "2026-05") },
 ];
 
 /** The values one figure has on the pages that show it, by reader; a reader that has no value for the household is left out. */
@@ -181,7 +183,13 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
       expect(dash.home.paceGap).toBe("cards");
       expect(earlier.spendingChange.gapReason).toBe("cards");
     }
-    if (h.name === "made-up") expect(earlier.spendingChange.gapReason).toBeNull();
+    if (h.name === "made-up" || h.name === "made-up, card connected in May") {
+      expect(dash.home.paceGap).toBeNull();
+      // the month before is set against its usual category by category, as the running month is
+      const usual = earlier.spendingChange.views.find((v: any) => v.view === "expected");
+      expect(usual?.change.categories.length).toBeGreaterThan(0);
+      expect(rep.thisMonth.categories.length).toBeGreaterThan(0);
+    }
   });
 
   it("Odotettu of the running month: Yhteenveto and Kuukausi", async () => {

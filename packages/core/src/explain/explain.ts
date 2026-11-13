@@ -9,8 +9,9 @@
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { bookedLeftSelect, bookedSpendSelect, earnedOf, earnedSelect, incomeCentsOf, incomeSelect, leftCentsOf, spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { toDayRange } from "../analysis/period.ts";
+import { usualBase } from "../analysis/change-plan.ts";
 import { expectedFor, expectedSpending } from "../analysis/expected.ts";
-import { completeMonthsBefore, earnedIncome, spendingThrough } from "../analysis/usual.ts";
+import { earnedIncome, spendingThrough } from "../analysis/usual.ts";
 import { monthEnd, monthOf, monthRange } from "../dates.ts";
 import { cashflowReport } from "../reports/cashflow.ts";
 import { categoryReport } from "../reports/categories.ts";
@@ -107,7 +108,8 @@ const recomputeDiff = (figure: number | null, again: number | null): number => (
 function expectedSpendExplanation(ctx: AnalysisContext, args: ExplainArgs): Explanation {
   if (args.accountIds) throw new Error("explain: expected.spend is not a figure of some accounts");
   const month = monthOf(args.range.from);
-  const values = completeMonthsBefore(ctx, month).map((label) => {
+  // the months the figure reads, which start where every paying account's rows do: a month before a card connected later is none of them
+  const values = usualBase(ctx, month).map((label) => {
     const explain = sumExplanation("spend.month", ctx, { ...args, range: { from: `${label}-01`, to: monthEnd(label) }, accountIds: undefined }, true);
     return { label, cents: explain.cents!, explain };
   });
