@@ -98,8 +98,6 @@ export interface Services {
   readonly factorLimiter: { readonly user: RateLimiter; readonly name: RateLimiter };
   /** A secret made for an enrolment and not yet confirmed with a code, by user id; ten minutes. */
   readonly factorEnrolments: ShortLived<string>;
-  /** The challenge of a passkey ceremony in progress, by `add:` or `sign-in:` and the user id; five minutes, used once (services/passkeys.ts). */
-  readonly passkeyChallenges: ShortLived<string>;
   /**
    * A sign-in with the password right that waits for the second factor, by the hash of its cookie token to the user and the
    * password hash it was made with (a changed or reset password ends it); five minutes (auth/session.ts).
@@ -179,7 +177,6 @@ export function createServices(deps: AppDeps): Services {
     factors: new FactorRepo(deps.db),
     factorLimiter: { user: new RateLimiter(...shape.factorUser), name: new RateLimiter(...shape.factorName) },
     factorEnrolments: new ShortLived(10 * 60_000),
-    passkeyChallenges: new ShortLived(5 * 60_000),
     halfSessions: new ShortLived(HALF_SESSION_MS),
     setupLimiter: new RateLimiter(...shape.setup),
     hashGate: new Gate(instance.limits.get("hashSlots")),

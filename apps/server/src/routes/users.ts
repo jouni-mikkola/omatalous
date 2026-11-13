@@ -12,7 +12,7 @@ const ROLES: Role[] = ["admin", "member"];
 export function userRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
-  app.get("/", async (c) => c.json({ users: await Promise.all((await s.users.list()).map(async (u) => ({ ...u, hasFactor: await s.factors.hasAny(u.id) }))) }));
+  app.get("/", async (c) => c.json({ users: await Promise.all((await s.users.list()).map(async (u) => ({ ...u, hasFactor: await s.factors.hasTotp(u.id) }))) }));
 
   /** Returns a temporary password to hand over once; it must be changed at first login. */
   app.post("/", async (c) => {

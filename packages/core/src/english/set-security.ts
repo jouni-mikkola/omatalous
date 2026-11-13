@@ -21,9 +21,6 @@ export const EN_SET_SECURITY: Record<keyof typeof FI_SET_SECURITY, string> = {
   "set.sec.two_step_sign_in_turned": "Two-step sign-in turned on",
   "set.sec.two_step_sign_in_turned_2": "Two-step sign-in turned off",
   "set.sec.administrator_removed_two_step_sign": "Administrator removed two-step sign-in",
-  "set.sec.passkey_added": "Passkey added",
-  "set.sec.passkey_removed": "Passkey removed",
-  "set.sec.sign_in_with_a_passkey": "Sign-in with a passkey",
   "set.sec.new_recovery_codes_made": "New recovery codes made",
   "set.sec.sign_in_with_a_recovery": "Sign-in with a recovery code",
   "set.sec.maintenance_request": "Maintenance request",
@@ -82,6 +79,7 @@ export const EN_SET_SECURITY: Record<keyof typeof FI_SET_SECURITY, string> = {
   "set.sec.details": "Details",
   "set.sec.no_events": "No events.",
   "set.sec.maintenance_kind": "Maintenance: {kind}",
+  "set.sec.removed_kind": "Passkey (removed feature)",
   "set.sec.service_token_name": "Service token",
   "set.sec.revoke_title": "Remove the service token {name}?",
 };

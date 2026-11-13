@@ -116,7 +116,7 @@ describe("command line: a command with only its own words works as before", () =
     const removed = await run(t, "user", "remove-factor", "anna");
     expect(removed.code).toBe(0);
     expect(removed.out).toContain("Removed the second sign-in factor");
-    expect(await t.s.factors.hasAny(anna.id)).toBe(false);
+    expect(await t.s.factors.hasTotp(anna.id)).toBe(false);
 
     const deleted = await run(t, "user", "delete", "anna");
     expect(deleted.code).toBe(0);

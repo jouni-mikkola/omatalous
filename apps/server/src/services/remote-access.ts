@@ -225,17 +225,17 @@ export async function publicAddressUp(s: Services): Promise<boolean> {
 
 /** While the address is public an admin has a second factor: no new admin, and no promotion of a member who has none. */
 export async function refuseAdminWithoutFactor(s: Services, userId: string | null): Promise<void> {
-  if (userId && (await s.factors.hasAny(userId))) return;
+  if (userId && (await s.factors.hasTotp(userId))) return;
   if (await publicAddressUp(s)) throw UserError.of("remote.admin_needs_factor");
 }
 
 /**
- * A public address is reached by anyone, so every admin must have a second factor (an authenticator app or a passkey)
+ * A public address is reached by anyone, so every admin must have a second factor (an authenticator app)
  * before it is published. The refusal names the admins who lack one and is a `remote_access_failed` event.
  */
 async function requireSecondFactor(s: Services, user: User, hostname: string, req: Req): Promise<void> {
   const missing: string[] = [];
-  for (const u of await s.users.list()) if (u.role === "admin" && !(await s.factors.hasFactorFor(u.id, hostname))) missing.push(u.username);
+  for (const u of await s.users.list()) if (u.role === "admin" && !(await s.factors.hasTotp(u.id))) missing.push(u.username);
   if (!missing.length) return;
   await recordEvent(s, { kind: "remote_access_failed", userId: user.id, ...req, detail: `${hostname}: toinen tekijä puuttuu, ${missing.join(", ")}`.slice(0, 190) });
   throw UserError.of("remote.second_factor_needed", { names: missing.join(", ") });

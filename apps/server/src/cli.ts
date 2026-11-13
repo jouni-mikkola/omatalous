@@ -170,7 +170,7 @@ export async function runCli(s: Services, args: string[], ctx: CliContext = {}):
     return 0;
   }
   if (command === "remove-factor") {
-    if (!(await s.factors.hasAny(record.id))) {
+    if (!(await s.factors.hasTotp(record.id))) {
       console.error(`${username} has no second sign-in factor.`);
       return 1;
     }
