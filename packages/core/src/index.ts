@@ -89,7 +89,8 @@ export * from "./analysis/spending-goal.ts";
 export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
 
 export { type ComingPeriod, comingList } from "./analysis/coming.ts";
-export { cashAhead, openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead.ts";
+export { cashAhead } from "./analysis/ahead.ts";
+export { openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead-groups.ts";
 export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";

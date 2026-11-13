@@ -7,21 +7,22 @@ const modules: Plugin = {
   name: "debug-modules",
   apply: "build",
   generateBundle(_, bundle) {
-    const rendered = new Map<string, { len: number; chunk: string }>();
-    for (const file of Object.values(bundle)) {
-      if (file.type !== "chunk") continue;
-      for (const [id, m] of Object.entries(file.modules)) if (m.renderedLength > 0) rendered.set(id, { len: m.renderedLength, chunk: file.fileName.replace(/^assets\//, "").replace(/-[\w-]{8}\.js$/, "") });
-    }
-    for (const file of Object.values(bundle)) {
-      if (file.type !== "chunk") continue;
-      const name = file.fileName.replace(/^assets\//, "").replace(/-[\w-]{8}\.js$/, "");
-      console.log(`CHUNK ${file.fileName} ${file.code.length} imports=${file.imports.join(",")}`);
-      if (name !== "Cells") continue;
-      for (const [id, m] of Object.entries(file.modules)) {
-        if (m.renderedLength < 1500) continue;
-        const info = this.getModuleInfo(id);
-        const by = (info?.importers ?? []).filter((i) => rendered.has(i)).map((i) => `${short(i)}[${rendered.get(i)!.chunk}]`);
-        console.log(`MOD ${m.renderedLength} ${short(id)} <- ${by.join(" ")}`);
+    const chunks = new Map<string, any>();
+    for (const file of Object.values(bundle)) if (file.type === "chunk") chunks.set(file.fileName, file);
+    const roots = [...chunks.values()].filter((c) => c.isEntry || /^assets\/(OverviewView|messages-late)-/.test(c.fileName));
+    const seen = new Set<string>();
+    const visit = (name: string) => {
+      if (seen.has(name) || !chunks.has(name)) return;
+      seen.add(name);
+      for (const next of chunks.get(name).imports) visit(next);
+    };
+    roots.forEach((c) => visit(c.fileName));
+    for (const name of seen) {
+      const c = chunks.get(name);
+      console.log(`CHUNK ${name} ${c.code.length}`);
+      for (const [id, m] of Object.entries<any>(c.modules)) {
+        if (m.renderedLength < 1200 || id.includes("node_modules")) continue;
+        console.log(`MOD ${m.renderedLength} ${short(id)} [${name.replace(/^assets\//, "").replace(/-[\w-]{8}\.js$/, "")}]`);
       }
     }
   },
