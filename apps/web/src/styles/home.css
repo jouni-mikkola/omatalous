@@ -18,6 +18,8 @@ button.home-tile:hover { background: var(--surface-2); text-decoration: none; }
 .home-tile .fig-l { font-weight: var(--w-strong); white-space: nowrap; }
 .home-tile-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .home-short .fig { color: var(--bad); }
+/* the sentence under the tiles that says where a missing card average is mended */
+.home-tiles-note { margin: var(--sp-8) 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); max-inline-size: 72ch; }
 /* a phone: two by two, a rule between the rows, the figure a step smaller so a sum of six digits fits half the width */
 @media (max-width: 40rem) {
   .home-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }

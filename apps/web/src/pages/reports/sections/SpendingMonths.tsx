@@ -1,6 +1,7 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
 import { monthEnd } from "@banking/core";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { CardStatementLink } from "../../../components/CardStatementLink.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { money, monthLong, signedMoney } from "../../../format.ts";
@@ -80,7 +81,11 @@ function SpendingMonths({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
-      {r.cardGap && r.typicalCents !== null && <p className="muted">{usual ? t("rpt.sm_cards_some", { count: r.categoryMonths }) : t("rpt.sm_cards_none")}</p>}
+      {r.cardGap && r.typicalCents !== null && (
+        <p className="muted">
+          {usual ? t("rpt.sm_cards_some", { count: r.categoryMonths }) : t("rpt.sm_cards_none")} <CardStatementLink />
+        </p>
+      )}
       <Table<Row>
         caption={section.title}
         rows={r.categories}
