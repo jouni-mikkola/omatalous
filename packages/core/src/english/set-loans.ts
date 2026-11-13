@@ -74,7 +74,6 @@ export const EN_SET_LOANS: Record<keyof typeof FI_SET_LOANS, string> = {
   "set.loans.found_help": "The bank rows show these payments as a loan's. Add what is left of the loan to count it in the figures.",
   "set.loans.found_payee": "Payee",
   "set.loans.found_payment": "Usual payment",
-  "set.loans.found_months": "Months",
   "set.loans.add_balance": "Add the balance",
   "set.loans.add_balance_name": "Add the balance: {name}",
   "set.loans.add_balance_title": "Add the balance of the loan",

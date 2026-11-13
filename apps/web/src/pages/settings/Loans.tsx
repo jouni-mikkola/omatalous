@@ -222,7 +222,6 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
             columns={[
               { key: "payee", label: t("set.loans.found_payee"), kind: "text", rowHead: true, cell: (proposal) => proposal.payee },
               { key: "payment", label: t("set.loans.found_payment"), kind: "money", main: true, cell: (proposal) => money(proposal.paymentCents) },
-              { key: "months", label: t("set.loans.found_months"), kind: "count", cell: (proposal) => proposal.months },
               {
                 key: "actions",
                 label: t("set.loans.actions"),

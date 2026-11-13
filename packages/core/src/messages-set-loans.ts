@@ -76,7 +76,6 @@ export const FI_SET_LOANS = {
   "set.loans.found_help": "Pankin rivit näyttävät näiden olevan lainan maksuja. Lisää jäljellä oleva laina, niin se tulee mukaan lukuihin.",
   "set.loans.found_payee": "Saaja",
   "set.loans.found_payment": "Tavallinen maksu",
-  "set.loans.found_months": "Kuukausia",
   "set.loans.add_balance": "Lisää saldo",
   "set.loans.add_balance_name": "Lisää saldo: {name}",
   "set.loans.add_balance_title": "Lisää lainan saldo",
