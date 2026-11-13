@@ -23,10 +23,12 @@ describe("the notices of Asetukset > Turvallisuus and the dot on the user menu",
     expect(newsCount([])).toBe(0);
   });
 
-  it("lists a state that needs the admin first with where it is mended, and leaves the damaged database to the banner", () => {
+  it("lists a state that needs the admin first with where it is mended, never as news, and leaves the damaged database to the banner", () => {
     const disk = signIn({ id: "m", kind: "disk_low", at: null, text: "Levyllä on vähän tilaa.", seen: undefined });
     const lookup = signIn({ id: "i", kind: "industry_lookup_off", at: null, text: "Toimialahaku on pois päältä.", seen: undefined });
-    expect(noticeRows([signIn(), disk]).map((r) => [r.id, r.href, r.news])).toEqual([["m", "#/settings/server#yllapito", true], ["e7", null, true]]);
+    expect(noticeRows([signIn(), disk]).map((r) => [r.id, r.href, r.news])).toEqual([["m", "#/settings/server#yllapito", false], ["e7", null, true]]);
+    // a state lasts until it is mended: as news it would hold the dot however often Turvallisuus is opened
+    expect(newsCount([disk, lookup])).toBe(0);
     expect(noticeRows([lookup])[0]!.href).toBe("#/settings/server#palvelin");
     const damaged = signIn({ id: "d", kind: "db_damaged", text: "Tietokanta on vaurioitunut.", seen: undefined });
     expect(noticeRows([damaged])).toEqual([]);

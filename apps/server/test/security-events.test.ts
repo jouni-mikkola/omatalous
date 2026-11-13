@@ -165,6 +165,14 @@ describe("security events", () => {
     expect(await s.security.list({ userId: adminId, kind: "password_reset_by_admin", limit: 5 })).toHaveLength(2);
   });
 
+  it("tells one of two admins of a factor removal from the command line, which names nobody", async () => {
+    const { admin, s, adminId } = await setupApp();
+    await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero", role: "admin" });
+    expect(await s.users.countAdmins()).toBe(2);
+    await recordEvent(s, { kind: "factor_removed_by_admin", userId: adminId, detail: "komentorivi", notify: true });
+    expect(((await admin.call("GET", "/api/security/notices")).body.notices as { kind: string }[]).map((n) => n.kind)).toEqual(["factor_removed_by_admin"]);
+  });
+
   it("tells a member when an admin reset the password", async () => {
     const { admin, client } = await setupApp();
     const created = await admin.call("POST", "/api/users", { username: "eero", displayName: "Eero" });

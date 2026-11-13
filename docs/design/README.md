@@ -23,9 +23,9 @@ Direction, 11.11.2026 (the owner's): an overview on one screen at 1440 px, every
 - Tiles: four across the page, two by two on a phone (as drawn below). Each has a label, one figure, one line that compares it and a
   link to its rows.
   - Käytettävissä palkkapäivään: what is left after the bills before payday (`nyt.left`), the sum a day and the payday.
-    Opens Laskut at the bills before payday.
+    Opens its basis in the Miksi? panel: the balances it starts from and each payment taken off them.
   - Menot tässä kuussa: spent so far against the usual level to the same day (`home.pace`), else last month to the same
-    day. Opens the month's rows.
+    day. Opens its rows in the Miksi? panel, as Tapahtumat's money out takes in more than spending.
   - Tulot tässä kuussa: the month's earned income against the usual month's (`overview.income`). Opens its rows in the
     Miksi? panel, as Tapahtumat's income takes in refunds too.
   - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
@@ -106,9 +106,9 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | What | Code | Why, or where it moves |
 |---|---|---|
 | Säästövinkit page | `pages/Optimise.tsx`, `components/optimise/`, core `optimise/`, `routes` and `db/finance/optimise.ts` readers | Answers no question; price and new-charge findings move to Tarkistettavat |
-| Huomioitavaa on Yhteenveto | `components/home/Notable.tsx`, core `analysis/insights/` | Moves to Tarkistettavat as items, once |
+| Huomioitavaa on Yhteenveto | `components/home/Notable.tsx`, core `analysis/insights/` | Moves to Tarkistettavat as items, once. `Notable.tsx` is gone (11.11.2026) |
 | Right column of Yhteenveto | `components/holdings/` | Repeats the headline; balances move to Lisää > Tilit ja saldot |
-| Last-days table, direction, reliability | `components/home/PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx` | The pace line already answers |
+| Last-days table, direction, reliability | `components/home/PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx` | The pace line already answers. `Direction.tsx` is gone (11.11.2026) |
 | Spending and category goals | `components/home/SpendingGoal.tsx`, `CategoryGoals.tsx`, `pages/settings/SpendingGoalCard.tsx`, report `categoryGoals` | Usual is the comparison; goals show no figure today |
 | Tapahtumat tiles and weekly chart | `pages/Transactions.tsx`, `pages/transactions/` | Whole-history totals compare with nothing |
 | Row marks | `components/MerchantAvatar.tsx`, `BankLogo.tsx` in rows, category chip icons, amount bars | Four marks repeat the text |
@@ -171,12 +171,12 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - after: none
 ### D2 Move the overview insights into Tarkistettavat
 - why: one finding was shown twice with two counts; a problem belongs in the queue.
-- done when: `components/home/Notable.tsx` is gone; a `services/review.ts` test gets one item per price rise and new recurring charge, none twice.
+- done when: `components/home/Notable.tsx` is gone (done 11.11.2026); a `services/review.ts` test gets one item per price rise and new recurring charge, none twice.
 - locks: review, insights
 - after: D1
 ### D3 Delete the overview extras
 - why: the right column, last-days table, direction, reliability and goals repeat or compare with nothing.
-- done when: `components/holdings/`, `PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx`, the goal components and `categoryGoals` are gone; a shot of Nyt shows one answer and the pace line.
+- done when: `components/holdings/`, `PaceTable.tsx`, `Direction.tsx` (gone 11.11.2026), `Reliability.tsx`, the goal components and `categoryGoals` are gone; a shot of Nyt shows one answer and the pace line.
 - locks: overview, holdings
 - after: none
 ### D4 Strip Tapahtumat to the rows list

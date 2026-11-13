@@ -26,6 +26,9 @@ button.home-tile:hover { background: var(--surface-2); text-decoration: none; }
   .home-tiles > li:nth-child(n + 3) { border-block-start: var(--hairline) solid var(--border); }
   .home-tile { padding: var(--sp-8); }
   .home-tile .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+  /* a line takes two lines at half the width: each keeps the room of two, so the rows and the loading frame are one height */
+  .home-tile-line, .home-skeleton .home-tile .sk-tile-line { min-block-size: calc(var(--lh-label) * 2); }
+  .home-skeleton .home-tile .sk-tile-fig { block-size: var(--lh-fig-m); }
 }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
 
@@ -61,7 +64,8 @@ button.home-tile:hover { background: var(--surface-2); text-decoration: none; }
 /* the loading frame: the same blocks, grey bars where the text will stand */
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
-.home-skeleton .sk-tiles { block-size: calc(var(--row-h-roomy) * 3); }
+.home-skeleton .home-tile .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-label); }
+.home-skeleton .home-tile .sk-tile-fig { inline-size: 80%; block-size: var(--lh-fig-l); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .sk-chart { block-size: calc(var(--row-h-roomy) * 11); }
 .home-skeleton .sk-rows { block-size: calc(var(--row-h-roomy) * 9); }

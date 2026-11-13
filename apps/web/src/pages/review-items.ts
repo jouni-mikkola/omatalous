@@ -156,12 +156,6 @@ export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem
  */
 export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | undefined): ReviewItem[] => run?.status === "failed" ? [{ kind: "fetch", id: `fetch:${run.id}`, cents: 0, at: run.finishedAt ?? run.startedAt, message: run.message }, ...items] : [...items];
 
-/** The queue with the item `id` first, as the row of Yhteenveto that opened the page asks; the queue as it is when no item has that id. */
-export function withFirst(items: readonly ReviewItem[], id: string | null): ReviewItem[] {
-  const first = id === null ? undefined : items.find((i) => i.id === id);
-  return first ? [first, ...items.filter((i) => i !== first)] : [...items];
-}
-
 export interface ReviewAnswer {
   items: ReviewItem[];
 }

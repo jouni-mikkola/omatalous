@@ -1,7 +1,7 @@
 /** Yhteenveto's blocks: the four tiles, the month's line and the categories, each opening its rows. */
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MonthPace } from "../src/components/home/MonthPace.tsx";
 import { Tiles } from "../src/components/home/Tiles.tsx";
 import { Where } from "../src/components/home/Where.tsx";
@@ -61,8 +61,9 @@ describe("Yhteenveto", () => {
   it("four tiles: what is left to the payday a day, the month's spending and income against the usual, the net with its month's change, each opening its rows", () => {
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
+      // with no window of payments the sum has no panel to open: the tile leads to the bills before the payday
       { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: "#/bills#ennen-palkkapaivaa" },
-      { label: "Menot tässä kuussa", figure: "1 234 €", line: "234 € yli tavallisen tähän päivään", href: "#/transactions?from=2026-11-01&to=2026-11-11" },
+      { label: "Menot tässä kuussa", figure: "1 234 €", line: "234 € yli tavallisen tähän päivään", href: null },
       { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Tavallisesti 3 980 € kuussa", href: null },
       { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
     ]);
@@ -78,6 +79,39 @@ describe("Yhteenveto", () => {
     expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.–11.11.");
   });
 
+  // Laskut adds up the bills, Tapahtumat's money out more than spending: neither list is the tile's figure, the panel is
+  it("the tiles of what is left and of the month's spending open the rows of their own figures", async () => {
+    const asked: string[] = [];
+    stubApi({ "GET /api/explain": { figure: "ahead.free", kind: "sum", cents: 310046, lines: [], rows: [], check: { kind: "sum", diffCents: 0 } } });
+    const fetched = vi.mocked(fetch);
+    const ahead = { from: "2026-11-11", to: "2026-11-24" };
+    const { container } = render(createElement(Tiles, { data: data({ ahead } as never), scope: "own" }));
+    for (const id of ["left", "spent"]) {
+      fireEvent.click(container.querySelector<HTMLButtonElement>(`[data-tile=${id}] button.why-door`)!);
+      await waitFor(() => expect(fetched.mock.calls.length).toBe(asked.length + 1));
+      const url = new URL(String(fetched.mock.calls.at(-1)![0]), "http://localhost");
+      asked.push(`${url.searchParams.get("figure")} ${url.searchParams.get("from")} ${url.searchParams.get("to")}`);
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    }
+    expect(asked).toEqual(["ahead.free 2026-11-11 2026-11-24", "spend.month 2026-11-01 2026-11-11"]);
+  });
+
+  it("on the payday the tile says so, not the whole sum as a day's", () => {
+    const d = data();
+    const today = { ...d.nyt, left: { ...(d.nyt.left as Extract<NytData["left"], { known: true }>), days: 0, perDayCents: 310046 } };
+    expect(tilesIn({ ...d, nyt: today })[0]!.line).toBe("Palkkapäivä tänään");
+  });
+
+  // the chart's words said it of a shorter month before; the tile said "to the same day" of the whole month
+  it("after a shorter month the spending tile names last month's sum as the whole month's", () => {
+    const curve = Array.from({ length: 30 }, () => 300000);
+    const d = data({ pace: { ...data().pace, month: "2026-12", previous: { month: "2026-11", curve, day: 30, toToday: 300000 } } } as never);
+    const end = { ...d, nyt: { ...d.nyt, from: "2026-12-31", pace: { ...d.nyt.pace, day: 31 } } };
+    expect(tilesIn(end)[1]!.line).toBe("Koko viime kuussa 3 000 €");
+    const same = { ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: 30 } } };
+    expect(tilesIn(same)[1]!.line).toBe("Viime kuussa samaan päivään 3 000 €");
+  });
+
   it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
     const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, usualCents: null }, net: null } } as never);
     const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
@@ -85,6 +119,9 @@ describe("Yhteenveto", () => {
     expect(spent!.line).toBe("Vertailu näkyy, kun takana on kolme päättynyttä kuukautta");
     expect(income!.line).toBe(spent!.line);
     expect(net!.line).toBeNull();
+    // no net at all: a balance is missing, and the tile says so
+    const none = data({ holdings: { ...data().holdings, netCents: null }, overview: { ...data().overview, net: null } } as never);
+    expect(tilesIn(none)[3]).toMatchObject({ figure: "–", line: "Saldo puuttuu" });
   });
 
   // 1.0.0 showed the sum left as a plain figure when the bills took more than the balance

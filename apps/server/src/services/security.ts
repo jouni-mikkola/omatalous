@@ -213,11 +213,13 @@ type NoticeUser = { id: string; role: string; username?: string };
 
 /**
  * An admin's reset or factor removal that the user did to their own account: no news to them. The command line is the
- * admin's own tool, so what it did to an admin's account counts as theirs; done to a member, it is told.
+ * admin's own tool, so what it did to the account of the only admin counts as theirs; done to a member, or to one of
+ * two admins (the run names nobody, so it may have been the other), it is told.
  */
-function ownAction(e: SecurityEvent, user: NoticeUser): boolean {
+function ownAction(e: SecurityEvent, user: NoticeUser, soleAdmin: () => Promise<boolean>): Promise<boolean> | boolean {
   if (e.kind !== "password_reset_by_admin" && e.kind !== "factor_removed_by_admin") return false;
-  return (user.username !== undefined && e.detail === `ylläpitäjä ${user.username}`) || (e.detail === "komentorivi" && user.role === "admin");
+  if (user.username !== undefined && e.detail === `ylläpitäjä ${user.username}`) return true;
+  return e.detail === "komentorivi" && user.role === "admin" && soleAdmin();
 }
 
 /**
@@ -242,9 +244,11 @@ async function everyNotice(s: Services, user: NoticeUser, probes?: HealthProbes,
   const here = userAgent ? userAgent.replace(/[\x00-\x1f\x7f]/g, " ").slice(0, 200) : null;
   const seenAt = (await s.settings.get(`${NOTICES_SEEN}${user.id}`)) ?? "";
   const events: Notice[] = [];
+  let admins: number | null = null;
+  const soleAdmin = async () => (admins ??= await s.users.countAdmins()) <= 1;
   for (const e of await s.security.noticeEvents(user.id, new Date(s.now().getTime() - NOTICE_HOURS * 3600_000).toISOString())) {
     if (e.kind === "new_device" && here !== null && e.userAgent === here) continue;
-    if (ownAction(e, user)) continue;
+    if (await ownAction(e, user, soleAdmin)) continue;
     if (e.kind === "password_reset_by_admin") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä nollasi salasanasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.reset_by_admin" });
     else if (e.kind === "new_device") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Tunnuksellasi kirjautui joku uudelta laitteelta (${e.detail ?? "tuntematon"}) ${fiTime(e.at, tz)}. Jos et kirjautunut itse, vaihda salasana ja kirjaa kaikki istunnot ulos.`, code: "notice.new_device", params: { device: e.detail ?? "tuntematon" }, detail: e.detail ?? "tuntematon" });
     else if (e.kind === "factor_removed_by_admin") events.push({ id: `e${e.id}`, kind: e.kind, at: e.at, text: `Ylläpitäjä poisti kaksivaiheisen kirjautumisen tunnuksestasi ${fiTime(e.at, tz)}. Jos et tiennyt siitä, kysy ylläpitäjältä.`, code: "notice.factor_removed" });

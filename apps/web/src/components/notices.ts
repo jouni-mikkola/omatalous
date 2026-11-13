@@ -24,7 +24,7 @@ export interface NoticeRow {
   title: string;
   /** Where a state is mended; an event is read in the log on the same page, so it has none. */
   href: string | null;
-  /** A state that lasts, or an event the user has not seen: the dot on the user menu counts these. */
+  /** An event the user has not seen: the dot on the user menu counts these. A state lasts until it is mended, so it is never news (it would hold the dot however often the page is read). */
   news: boolean;
 }
 
@@ -55,7 +55,7 @@ const titleOf = (n: SecurityNotice): string => (n.kind === "new_device" && n.at 
  */
 export function noticeRows(notices: readonly SecurityNotice[]): NoticeRow[] {
   const rows = notices.filter((n) => !BANNER_KINDS.has(n.kind));
-  const states = rows.filter((n) => n.seen === undefined).map((n) => ({ id: n.id, title: titleOf(n), href: settingsCardHash(n.kind === "industry_lookup_off" ? SETTINGS_ANCHOR.server : MAINTENANCE.has(n.kind) ? SETTINGS_ANCHOR.maintenance : SETTINGS_ANCHOR.securityLog), news: true }));
+  const states = rows.filter((n) => n.seen === undefined).map((n) => ({ id: n.id, title: titleOf(n), href: settingsCardHash(n.kind === "industry_lookup_off" ? SETTINGS_ANCHOR.server : MAINTENANCE.has(n.kind) ? SETTINGS_ANCHOR.maintenance : SETTINGS_ANCHOR.securityLog), news: false }));
   const events = rows.filter((n) => n.seen !== undefined).map((n) => ({ id: n.id, title: titleOf(n), href: null, news: n.seen === false }));
   return [...states, ...events];
 }

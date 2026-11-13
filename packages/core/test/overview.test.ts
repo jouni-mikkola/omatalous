@@ -9,6 +9,8 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { expectedIncome } from "../src/analysis/expected.ts";
 import { earnedIncome } from "../src/analysis/usual.ts";
 import { addMonthsToDate, dayNumber } from "../src/dates.ts";
+import { explain } from "../src/explain/explain.ts";
+import { explainNow } from "../src/explain/now.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { loanBalanceOn } from "../src/loans.ts";
 import { buildOverview } from "../src/overview.ts";
@@ -58,6 +60,24 @@ describe("the tiles' figures", () => {
     // an account whose first row is today is not known a month ago
     const fresh = createContext([...ctx.txs], [...ctx.accounts, { id: "new", name: "Uusi", iban: null, currency: "EUR", type: "checking" }], ON);
     expect(buildOverview(fresh, [...balances, input("new", "Uusi", "checking", 1_000)], inputsOf([])).net).toBeNull();
+  }, 30_000);
+
+  // the tiles of what is left and of the spending open the panel of these figures: its rows add up to the tile's own sum
+  it("the panels the tiles open hold the tiles' figures, on every seeded household", () => {
+    const problems: string[] = [];
+    let known = 0;
+    for (let seed = 1; seed <= 12; seed++) {
+      const { ctx, balances } = household(seed);
+      const d = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([]));
+      const spent = d.home.pace?.spentCents ?? d.nyt!.pace.spentCents;
+      const panel = explain("spend.month", ctx, { view: "own", range: { from: "2025-10-01", to: d.nyt!.from } }).cents;
+      if (panel !== spent) problems.push(`${seed}: spending ${panel} against ${spent}`);
+      const left = d.nyt!.left;
+      if (left.known) known++;
+      if (left.known && explainNow("ahead.free", ctx, balances, inputsOf([])).explanation.cents !== left.leftCents) problems.push(`${seed}: left`);
+    }
+    expect(problems).toEqual([]);
+    expect(known).toBeGreaterThan(0);
   }, 30_000);
 
   it("the income of the month and the usual month are the earned income on both sides", () => {

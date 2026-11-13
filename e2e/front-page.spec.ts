@@ -56,9 +56,8 @@ for (const width of [390, 1440] as const) {
     expect(await tileFigure(page, "net"), "the accounts less the debts").toBe(whole(holdings.netCents));
     if (overview.net) expect(sums(await page.locator("[data-tile=net] .home-tile-line").innerText())[0]).toBe(whole(Math.abs(overview.net.changeCents)));
     // each tile leads to its rows
-    await expect(page.locator("[data-tile=left] a")).toHaveAttribute("href", "#/bills#ennen-palkkapaivaa");
-    await expect(page.locator("[data-tile=spent] a")).toHaveAttribute("href", /^#\/transactions\?from=/);
-    await expect(page.locator("[data-tile=income] button.why-door")).toHaveCount(1);
+    // what is left, the spending and the income open their own rows in the panel, as no list adds up to them
+    for (const id of ["left", "spent", "income"]) await expect(page.locator(`[data-tile=${id}] button.why-door`)).toHaveCount(1);
     await expect(page.locator("[data-tile=net] a")).toHaveAttribute("href", "#/reports?q=saldot");
     // the bars are the server's largest categories, in its order and with its sums
     const { top } = (await (await context.request.get("/api/dashboard?scope=own")).json()) as { top: { rows: { label: string; cents: number }[] } };

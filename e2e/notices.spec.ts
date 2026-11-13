@@ -41,9 +41,11 @@ test("a sign-in from a new device is a dot on the user menu and a line of Turval
     await link.click();
     const list = page.getByRole("region", { name: "Ilmoitukset" });
     await expect(list).toContainText(/Kirjautuminen uudelta laitteelta \d{1,2}\.\d{1,2}\. klo \d{1,2}\.\d{2} \(Firefox, Linux\)/);
-    // Turvallisuus has the log under the line, and opening it marks the events seen
+    // Turvallisuus has the log under the line, and the list marks the events seen once it has them
     await expect(page.getByRole("heading", { name: "Turvallisuusloki" })).toBeVisible();
     await expect(dotOf(page)).toHaveCount(0);
+    // the line that was new keeps its mark while the page is open, so the reader still sees which one it was
+    await expect(list.locator("li.notice-news")).toHaveCount(1);
     await page.goto("/#/overview?period=month");
     await expect(page.locator(".home-tiles")).toBeVisible();
     await page.waitForLoadState("networkidle");
