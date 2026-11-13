@@ -27,7 +27,9 @@ jobs:
       - name: regions
         run: |
           cd /tmp/plain/assets
-          for f in index-*.js preload-helper-*.js forecast-*.js; do
+          echo "=== index imports"
+          grep -E '^import .* from "./(ErrorCard|text)-' index-*.js | cut -c1-6000
+          for f in ErrorCard-*.js text-*.js; do
             echo "=== $f"
             grep -oE '^(export )?(async )?function [A-Za-z0-9_$]+' "$f" | sed -E 's/^(export )?(async )?function //' | tr '\n' ' '
             echo
