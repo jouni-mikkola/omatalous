@@ -1,7 +1,10 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
- * with what is used of its limit, each loan with what is left, and a total at the foot of each group. Yhteenveto opens
- * with it, under the heading Varat ja velat. Tilit and Lainat stand side by side, the cards in a row of their own under
+ * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
+ * Yhteenveto shows it under the heading Tilit ja kortit, Raportit > Tilit ja saldot under Varat ja velat; the next bill of
+ * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
+ * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. Every
+ * row names its bank and the day of its balance. Tilit and Lainat stand side by side, the cards in a row of their own under
  * them; where a group is missing the others close up, so a household with no loan has Tilit and its cards side by
  * side and no hole. A card and a loan have one form: the name as a link, then its figures as rows; a card has its picture
  * (CardFace) and, when it has a limit, the arc of what is used (CreditArc) beside its name. Every figure is the one in
@@ -9,10 +12,10 @@
  * left out, and every account has its row, in the order core gives. The name of an account, a card or a loan is a link:
  * to the rows of the account in Tapahtumat, to the report Lainat.
  */
-import type { ReactNode } from "react";
-import { cardName, daysBetween } from "@banking/core";
+import { Fragment, type ReactNode } from "react";
+import { cardName } from "@banking/core";
 import { query } from "../../../api.ts";
-import { date, localDay, money, moneyIn } from "../../../format.ts";
+import { date, money, moneyIn } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
 import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
@@ -30,14 +33,24 @@ import "../../../styles/holdings.css";
 import { css } from "../../../css.ts";
 
 type Answer = DashboardData["holdings"];
+type Ahead = NonNullable<DashboardData["ahead"]>;
 
 /** A figure of the answer, or the dash for one the bank did not give. */
 const figure = (cents: number | null, foreign?: { currency: string; cents: number } | null): string =>
   foreign ? moneyIn(foreign.cents, foreign.currency) : cents === null ? "–" : money(cents);
 
-/** The line that dates a balance the bank gave more than a day ago; nothing for a fresh one. */
+/** The line that dates a balance: the day the bank gave it, so a figure of today and one of last week read apart. */
 function sinceLine(balanceAt: string | null, today: string): string | null {
-  return balanceAt && daysBetween(localDay(balanceAt), today) > 1 ? t("ahead.balance_on", { date: date(balanceAt) }) : null;
+  return balanceAt ? t("ahead.balance_on", { date: date(balanceAt, today) }) : null;
+}
+
+const ACCOUNT_TYPES = ["checking", "savings", "other"] as const;
+type AccountType = (typeof ACCOUNT_TYPES)[number];
+
+/** A card's next bill: the first bill of Laskut's 30 days (`ahead.upcoming`) that names the card. */
+function nextBill(ahead: Ahead | undefined, cardId: string): { cents: number; date: string } | null {
+  const row = ahead?.upcoming.find((r) => r.cardId === cardId && r.cents !== null && r.cents < 0);
+  return row ? { cents: -row.cents!, date: row.date } : null;
 }
 
 /** A name that is a link, in the colour of the row until it is pointed at; `mask` tells apart two that share a name. */
@@ -101,48 +114,69 @@ function Tick({ state }: { state: ReconcileState | undefined }) {
   );
 }
 
+/**
+ * The accounts as one list, under the headings of their types when `types` is given. One list keeps the bracket whole,
+ * from the first known balance to the last into Tilit yhteensä, and each share track starts where the row above ended. A type's heading holds its total when it has two accounts or more; for one account it would only repeat it.
+ */
+function AccountRows({ holdings, meta, types }: { holdings: Answer; meta: Meta; types: { type: AccountType; rows: Answer["accounts"] }[] | null }) {
+  const masks = maskedNames(holdings.accounts);
+  const groups = types ?? [{ type: null, rows: holdings.accounts }];
+  // the marks assert arithmetic core did: a bracket when the rows add up to the total, a track on each when each is a part of it
+  const adds = holdings.accountsAddUp;
+  const known = groups.flatMap((g) => g.rows).filter((a) => a.balanceCents !== null);
+  let at = 0;
+  return (
+    <ul className={adds ? "st-rows adds-up" : "st-rows"}>
+      {groups.map((g) => (
+        <Fragment key={g.type ?? "all"}>
+          {g.type && (
+            <li className="st-row holding-type-head">
+              <h4 className="st-cap holding-type-cap">{t(`holdings.${g.type}`)}</h4>
+              {g.rows.length > 1 && <span className="st-num">{figure(holdings.typeCents[g.type])}</span>}
+            </li>
+          )}
+          {g.rows.map((a) => {
+            const part = partText(a.part, "account", meta.accounts.find((m) => m.id === a.id)?.traced);
+            const since = sinceLine(a.balanceAt, meta.today);
+            const p = holdings.accountShares?.[holdings.accounts.indexOf(a)];
+            const track = p == null ? null : { at, p };
+            at += p ?? 0;
+            const classes = ["st-row", "holding-account", track ? "share" : "", adds && a === known[0] ? "part-first" : "", adds && a === known.at(-1) ? "part-last" : ""];
+            return (
+              <li key={a.id} className={classes.filter(Boolean).join(" ")} ref={css({ "--from": track?.at, "--part": track?.p })}>
+                <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
+                <span className="st-num">
+                  <Tick state={a.reconcile} />
+                  {figure(a.balanceCents, a.foreign)}
+                </span>
+                {a.bank && <span className="st-sub">{a.bank}</span>}
+                {a.loanPayment && <span className="st-sub">{t("holdings.loan_account")}</span>}
+                {part && <span className="st-sub">{part}</span>}
+                {since && <span className="st-sub">{since}</span>}
+              </li>
+            );
+          })}
+        </Fragment>
+      ))}
+    </ul>
+  );
+}
+
 function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
-  const { accounts, accountsCents, accountsAddUp: adds, accountShares: percents } = holdings;
-  const masks = maskedNames(accounts);
+  const { accounts, accountsCents } = holdings;
   // an account in another currency has a balance: it is shown with its currency and is in no total, so it is not missing
   const missing = accounts.filter((a) => a.balanceCents === null && !a.foreign).length;
-  // the marks assert arithmetic core did: a bracket when the rows add up to the total, a track on each when each is a part of it
-  const known = accounts.flatMap((a, i) => (a.balanceCents === null ? [] : [i]));
-  let from = 0;
-  const tracks = percents?.map((p) => {
-    const at = from;
-    from += p ?? 0;
-    return p === null ? null : { at, p };
-  });
+  const types = ACCOUNT_TYPES.map((type) => ({ type, rows: accounts.filter((a) => a.type === type) })).filter((g) => g.rows.length > 0);
   return (
     <section>
       <h3 className="st-cap">{t("holdings.accounts")}</h3>
-      <ul className={adds ? "st-rows adds-up" : "st-rows"}>
-        {accounts.map((a, i) => {
-          const part = partText(a.part, "account", meta.accounts.find((m) => m.id === a.id)?.traced);
-          const since = sinceLine(a.balanceAt, meta.today);
-          const track = tracks?.[i];
-          const classes = ["st-row", "holding-account", track ? "share" : "", adds && i === known[0] ? "part-first" : "", adds && i === known[known.length - 1] ? "part-last" : ""];
-          return (
-            <li key={a.id} className={classes.filter(Boolean).join(" ")} ref={css({ "--from": track?.at, "--part": track?.p })}>
-              <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
-              <span className="st-num">
-                <Tick state={a.reconcile} />
-                {figure(a.balanceCents, a.foreign)}
-              </span>
-              {a.loanPayment && <span className="st-sub">{t("holdings.loan_account")}</span>}
-              {part && <span className="st-sub">{part}</span>}
-              {since && <span className="st-sub">{since}</span>}
-            </li>
-          );
-        })}
-      </ul>
+      <AccountRows holdings={holdings} meta={meta} types={types.length > 1 ? types : null} />
       <Total label={t("holdings.accounts_total")} cents={accountsCents} note={missing > 0 ? tn(missing, "holdings.missing_one", "holdings.missing_many") : undefined} />
     </section>
   );
 }
 
-function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
+function Cards({ holdings, meta, ahead }: { holdings: Answer; meta: Meta; ahead: Ahead | undefined }) {
   const { cards, cardsCents } = holdings;
   const masks = cardMasks(cards);
   return (
@@ -163,6 +197,7 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
           const { usedCents: used, limitCents: limit, freeCents: free, overCents } = c;
           const over = overCents !== null && overCents > 0 ? overCents : null;
           const href = `#/transactions${query({ accountId: c.id })}`;
+          const bill = nextBill(ahead, c.id);
           return (
             <Unit
               key={c.id}
@@ -179,6 +214,7 @@ function Cards({ holdings, meta }: { holdings: Answer; meta: Meta }) {
               </FigureRow>
               {limit !== null && <FigureRow label={t("holdings.limit")}>{money(limit)}</FigureRow>}
               {limit !== null && (over !== null ? <FigureRow label={t("holdings.over")}>{money(over)}</FigureRow> : free !== null && <FigureRow label={t("holdings.free")}>{money(free)}</FigureRow>)}
+              {bill && <FigureRow label={t("holdings.next_bill")}>{t("holdings.bill_on", { sum: money(bill.cents), date: date(bill.date, meta.today) })}</FigureRow>}
             </Unit>
           );
         })}
@@ -244,7 +280,8 @@ function Loans({ holdings, door }: { holdings: Answer; door: Door }) {
   );
 }
 
-export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Meta; scope: Scope }) {
+/** `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading. */
+export function Holdings({ holdings, meta, scope, ahead, title = t("holdings.title") }: { holdings: Answer; meta: Meta; scope: Scope; ahead?: Ahead | null; title?: string }) {
   const { accounts, cards, loans, debtCents, unsavedLoans, netCents } = holdings;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
@@ -262,7 +299,7 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
     <section className="card holdings" aria-labelledby="holdings-h">
       <div className="card-head tb">
         <div className="card-name">
-          <h2 id="holdings-h">{t("holdings.title")}</h2>
+          <h2 id="holdings-h">{title}</h2>
         </div>
         {/* what the household has net, the accounts less the debts (core's netCents) */}
         {netCents !== null && (
@@ -279,7 +316,7 @@ export function Holdings({ holdings, meta, scope }: { holdings: Answer; meta: Me
       <div className={columns}>
         {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} />}
         {loans.length > 0 && <Loans holdings={holdings} door={{ scope, today: meta.today }} />}
-        {cards.length > 0 && <Cards holdings={holdings} meta={meta} />}
+        {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} />}
       </div>
       {(debts || unsaved) && (
         <dl className="st-rows holding-foot">

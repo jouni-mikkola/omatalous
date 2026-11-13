@@ -61,7 +61,7 @@ describe("the window: a connected card", () => {
 
   it("a bill of 412,00 is one row on its day, and the card's purchases are in the everyday rate but in no row", () => {
     const d = on(TODAY, [bal(own, 200_000), bal(card, -41_200)]);
-    expect(of(d, "card")).toEqual([{ date: "2026-10-20", name: "Luottokortti", category: "transfer", cents: -41_200, source: "card", basis: "balance" }]);
+    expect(of(d, "card")).toEqual([{ date: "2026-10-20", name: "Luottokortti", category: "transfer", cents: -41_200, source: "card", cardId: "card", basis: "balance" }]);
     // 20 euros a day leave the own account and the card's 10 a day are in its bill: the rate counts both, the free figure neither
     expect(d.everydayPerDayCents).toBe(3000);
     expect(d.totals).toMatchObject({ cardCents: 41_200, transferCents: 0, recurringCents: 90_000, dueCents: 131_200 });
@@ -79,7 +79,7 @@ describe("the window: a connected card", () => {
   it("a card that is not paid in full, or whose balance the bank does not give, gets its usual bill", () => {
     // 100 euros a month against a debt of 3 000: what the card owes is not the next bill
     const partly = on(TODAY, [bal(own, 200_000), bal(card, -300_000)], [10_000, 10_500, 9500, 10_000, 10_400, 9800, 10_000]);
-    expect(of(partly, "card")).toEqual([{ date: "2026-10-20", name: "Luottokortti", category: "transfer", cents: -10_000, source: "card", basis: "usual" }]);
+    expect(of(partly, "card")).toEqual([{ date: "2026-10-20", name: "Luottokortti", category: "transfer", cents: -10_000, source: "card", cardId: "card", basis: "usual" }]);
     for (const balances of [[bal(own, 200_000)], [bal(own, 200_000), bal(card, null)]]) {
       expect(of(on(TODAY, balances), "card")[0]).toMatchObject({ date: "2026-10-20", cents: -30_000, basis: "usual" });
     }
@@ -87,7 +87,7 @@ describe("the window: a connected card", () => {
 
   it("a late bill is expected today at its usual sum, a bill six days late did not come, and after two bill days the card is not expected", () => {
     const balances = [bal(own, 200_000), bal(card, -41_200)];
-    expect(of(on("2026-10-23", balances), "card")[0]).toEqual({ date: "2026-10-23", name: "Luottokortti", category: "transfer", cents: -30_000, source: "card", basis: "usual" });
+    expect(of(on("2026-10-23", balances), "card")[0]).toEqual({ date: "2026-10-23", name: "Luottokortti", category: "transfer", cents: -30_000, source: "card", cardId: "card", basis: "usual" });
     expect(of(on("2026-10-25", balances), "card").map((r) => r.date)).toEqual(["2026-10-25", "2026-11-20"]);
     expect(of(on("2026-10-26", balances), "card").map((r) => [r.date, r.basis])).toEqual([["2026-11-20", "balance"]]);
     expect(of(on("2026-11-26", balances), "card")).toEqual([]);
@@ -277,7 +277,7 @@ describe("what is free is the balance less the payments of the window", () => {
     const h = steadyHousehold(KIT_SEED, "poisson", "2026-10-27");
     const d = cashAhead(contextOf(h), h.balances, h.inputs);
     const owed = -h.balances.find((b) => b.id === "card")!.balanceCents!;
-    expect(of(d, "card")).toEqual([{ date: "2026-11-10", name: "Nordea Gold", category: "transfer", cents: -owed, source: "card", basis: "balance" }]);
+    expect(of(d, "card")).toEqual([{ date: "2026-11-10", name: "Nordea Gold", category: "transfer", cents: -owed, source: "card", cardId: "card", basis: "balance" }]);
     expect(d.totals.cardCents).toBe(owed);
     expect(d.balance!.freeCents).toBe(freeOf(d));
   });

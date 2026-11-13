@@ -125,8 +125,8 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // the tiles, then the month's pace, then what the household has and owes
-          const order = [".home-tiles", ".home-pace", ".holdings"];
+          // the tiles, the twelve months, the bills to the payday, the categories, then the accounts: the order a phone reads
+          const order = [".home-tiles", ".home-months", ".home-bills", ".home-where", ".holdings"];
           const names = await page.evaluate((selectors) => {
             const found = selectors.map((s) => document.querySelector(s)!);
             return found.map((el, i) => (i === 0 || found[i - 1]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING ? selectors[i] : `${selectors[i]} out of order`));

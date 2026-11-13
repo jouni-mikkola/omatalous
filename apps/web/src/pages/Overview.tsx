@@ -1,7 +1,8 @@
 import { query } from "../api.ts";
-import { MonthPace } from "../components/home/MonthPace.tsx";
+import { Bills } from "../components/home/Bills.tsx";
+import { Categories } from "../components/home/Categories.tsx";
+import { Months } from "../components/home/Months.tsx";
 import { Tiles } from "../components/home/Tiles.tsx";
-import { Where } from "../components/home/Where.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { FirstRun } from "./FirstRun.tsx";
@@ -16,9 +17,10 @@ import { t } from "../text.ts";
 
 /**
  * Yhteenveto: how the household's money stands and is going, on one screen. The four tiles first (Tiles: what is left
- * to the payday, the month's spending and income against the usual, what the household has net), then the month's
- * course as a chart (MonthPace) with the largest categories beside it (Where), and the accounts, cards and loans
- * (Holdings, the block of Raportit > Tilit ja saldot). No notice and no question stands here: the notices are on
+ * to the payday, the month's spending and income against the usual, what the household has net), then the last twelve
+ * months of income and spending (Months) with the bills to the payday beside it (Bills), then the accounts, cards and
+ * loans (Holdings, the block of Raportit > Tilit ja saldot) with the month's categories against their usual beside them
+ * (Categories). The source order is the order a phone reads: tiles, months, bills, categories, accounts. No notice and no question stands here: the notices are on
  * Asetukset > Turvallisuus, the questions on Tarkistettavat. Every figure is a field of the dashboard answer and a link
  * to its rows; nothing is added up here. The page always tells today and the running month.
  */
@@ -67,15 +69,14 @@ export function Overview({
       {nyt ? (
         <>
           <Tiles data={{ ...data, nyt }} scope={scope} />
-          <MonthPace data={{ ...data, nyt }} />
-          <div className="home-side">
-            <Where data={{ ...data, nyt }} />
-          </div>
+          <Months data={data} today={meta.today} />
+          <Bills data={{ ...data, nyt }} />
+          <Categories data={{ ...data, nyt }} />
         </>
       ) : (
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
-      <Holdings holdings={data.holdings} meta={meta} scope={scope} />
+      <Holdings holdings={data.holdings} meta={meta} scope={scope} ahead={data.ahead} title={t("home.accounts_title")} />
     </div>
   );
 }

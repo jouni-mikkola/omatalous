@@ -60,16 +60,22 @@ for (const width of [390, 1440] as const) {
     for (const id of ["left", "spent", "income"]) await expect(page.locator(`[data-tile=${id}] button.why-door`)).toHaveCount(1);
     await expect(page.locator("[data-tile=net] a")).toHaveAttribute("href", "#/reports?q=saldot");
     // the bars are the server's largest categories, in its order and with its sums
-    const { top } = (await (await context.request.get("/api/dashboard?scope=own")).json()) as { top: { rows: { label: string; cents: number }[] } };
+    const top = overview.categories;
     const bars = page.locator(".where-row");
     await expect(bars).toHaveCount(top.rows.length);
     for (const [i, row] of top.rows.entries()) {
       await expect(bars.nth(i).locator(".where-name")).toHaveText(row.label);
       expect(cents(await bars.nth(i).locator(".where-sum").innerText())).toBe(Math.round(row.cents / 100) * 100);
     }
-    // four tiles, and under them the month, the categories and the accounts: each once, and no notice
+    // twelve months, each opening its rows, the running one to today
+    const months = page.locator("svg a.mb-link");
+    await expect(months).toHaveCount(overview.months.length);
+    await expect(months.last()).toHaveAttribute("href", `#/transactions?from=${overview.months.at(-1)!.month}-01&to=${nyt.from}`);
+    // the bills to the payday end on the tile's own sum of them
+    expect(cents(await page.locator(".home-bills tfoot td").last().innerText())).toBe(whole(left.billsCents));
+    // four tiles, and under them the months, the bills, the categories and the accounts: each once, and no notice
     await expect(page.locator("main .home-tile")).toHaveCount(4);
-    expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Kuukausi", "Suurimmat menot", "Varat ja velat"]);
+    expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Tulot ja menot", "Tulevat laskut", "Menot kategorioittain", "Tilit ja kortit"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     expect(await heightOf(page), `the page is ${await heightOf(page)} px high at ${width} px`).toBeLessThanOrEqual(MAX_HEIGHT[width]);
     expect(await overflow(page)).toBe(0);
@@ -86,7 +92,7 @@ test("at 390 px the four tiles, two by two, and the month's line are on the firs
   const boxes = await Promise.all((await page.locator(".home-tile").all()).map(async (tile) => (await tile.boundingBox())!));
   expect(boxes[0]!.y, "two on a row").toBe(boxes[1]!.y);
   expect(boxes[2]!.y, "the second row under the first").toBeGreaterThan(boxes[0]!.y);
-  for (const selector of [".home-tiles", ".home-pace-line"]) {
+  for (const selector of [".home-tiles", ".home-months"]) {
     const box = (await page.locator(selector).first().boundingBox())!;
     expect(box.y + box.height, `${selector} ends on the first screen`).toBeLessThanOrEqual(844);
   }
@@ -96,7 +102,7 @@ test("at 390 px the four tiles, two by two, and the month's line are on the firs
 test("what belongs to Laskut and Raportit is not on the page", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
-  for (const gone of ["Tulot ja menot", "Asuminen", "Miksi kuu poikkeaa", "Huomioitavaa"]) await expect(page.locator("main").getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
+  for (const gone of ["Asuminen", "Miksi kuu poikkeaa", "Huomioitavaa"]) await expect(page.locator("main").getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Näytä maksut" })).toHaveCount(0);
   await expect(page.locator(".home-reliability, .wf")).toHaveCount(0);
   await context.close();

@@ -66,6 +66,8 @@ interface Move {
   source: "card" | "transfer";
   /** Of a card's bill: "balance" is what the card owes today, "usual" the median of its paid bills. */
   basis?: "balance" | "usual";
+  /** Of a card's bill: the card's account. */
+  cardId?: string;
 }
 
 /** A card's bill as it was paid: the leg that left a counted account, and the day it reached the card. */
@@ -261,6 +263,6 @@ function cardBills(ctx: AnalysisContext, card: BilledCard, paid: readonly PaidBi
     if (basis === "balance") into.settling.push({ cardId: card.id, date: date < from ? from : date });
     first = false;
     const amountCents = basis === "balance" ? owed! : owed === null ? usual : Math.min(usual, owed);
-    if (amountCents > 0) into.moves.push({ date: date < from ? from : date, name: card.name, amountCents, source: "card", basis });
+    if (amountCents > 0) into.moves.push({ date: date < from ? from : date, name: card.name, amountCents, source: "card", basis, cardId: card.id });
   }
 }

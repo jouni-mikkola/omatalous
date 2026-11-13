@@ -1,6 +1,6 @@
 import { t } from "../../text.ts";
 /**
- * The loading frame of Yhteenveto: the tiles, the month, the side column and the figures at their final size, with grey
+ * The loading frame of Yhteenveto: the tiles, the months, the bills, the categories, the accounts and the figures at their final size, with grey
  * bars where the text stands (the same classes as the finished blocks give them their place, home.css), so nothing moves
  * when the answer lands.
  */
@@ -19,17 +19,20 @@ export function HomeSkeleton() {
           </li>
         ))}
       </ul>
-      <section className="card home-pace" aria-hidden="true">
+      {/* the blocks in the page's own order and places: the months and the bills, then the categories and the accounts */}
+      <section className="card home-months" aria-hidden="true">
         <span className="sk-bar sk-line" />
         <span className="sk-bar sk-chart" />
       </section>
-      <div className="home-side" aria-hidden="true">
-        <section className="card">
-          <span className="sk-bar sk-line" />
-          <span className="sk-bar sk-rows" />
-        </section>
-      </div>
-      <section className="card home-holdings" aria-hidden="true">
+      <section className="card home-bills" aria-hidden="true">
+        <span className="sk-bar sk-line" />
+        <span className="sk-bar sk-bills" />
+      </section>
+      <section className="card home-where" aria-hidden="true">
+        <span className="sk-bar sk-line" />
+        <span className="sk-bar sk-rows" />
+      </section>
+      <section className="card holdings" aria-hidden="true">
         <span className="sk-bar sk-line" />
         <span className="sk-bar sk-holdings" />
       </section>

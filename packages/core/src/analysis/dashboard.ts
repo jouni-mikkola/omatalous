@@ -183,7 +183,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     insights,
     home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, proposals),
-    overview: buildOverview(ctx, balances, inputs),
+    overview: buildOverview(ctx, balances, inputs, lang),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),
   };
 }

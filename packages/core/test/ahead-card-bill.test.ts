@@ -52,7 +52,7 @@ describe("the window: a card's bill", () => {
     const today = "2026-10-20";
     // the card owes the purchases of the 11 days since the bill
     const d = run(today, [...days(today, 1000), ...statements(today, 1000)], 6000, -11_000);
-    expect(cardRowsOf(d)).toEqual([{ date: "2026-11-09", name: "Luottokortti", category: "transfer", cents: -11_000, source: "card", basis: "balance" }]);
+    expect(cardRowsOf(d)).toEqual([{ date: "2026-11-09", name: "Luottokortti", category: "transfer", cents: -11_000, source: "card", cardId: "card", basis: "balance" }]);
     expect(d.balance).toMatchObject({ shortOn: "2026-11-09", shortCents: 5000 });
     // 20 euros a day on the own account and 10 on the card
     expect(d.everydayPerDayCents).toBe(3000);
@@ -69,7 +69,7 @@ describe("the window: a card's bill", () => {
     const today = "2026-10-20";
     const pays = ninths(today).flatMap((d) => move(d, 5000));
     const debt = run(today, [...days(today, 300), ...pays], 100_000, -200_000);
-    expect(cardRowsOf(debt)).toEqual([{ date: "2026-11-09", name: "Luottokortti", category: "transfer", cents: -5000, source: "card", basis: "usual" }]);
+    expect(cardRowsOf(debt)).toEqual([{ date: "2026-11-09", name: "Luottokortti", category: "transfer", cents: -5000, source: "card", cardId: "card", basis: "usual" }]);
     const little = run(today, [...days(today, 300), ...pays], 100_000, -3000);
     expect(cardRowsOf(little).map((r) => r.cents)).toEqual([-3000]);
   });

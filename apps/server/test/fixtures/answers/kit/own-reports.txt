@@ -628,6 +628,11 @@
     }
    ],
    "accountsCents": 1957500,
+   "typeCents": {
+    "checking": 240000,
+    "savings": 1717500,
+    "other": null
+   },
    "netCents": 1894423,
    "accountsAddUp": true,
    "accountShares": [

@@ -62,6 +62,8 @@ td.share { min-width: var(--share-w); }
 .adds-up > .st-row:not(.st-total) { box-shadow: inset -1px 0 0 var(--axis); background-repeat: no-repeat; background-size: 4px 1px; }
 .adds-up > .part-first:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 0; }
 .adds-up > .part-last:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 100%; }
+/* it runs from the first part to the last: a row above or below them (a heading, a row with no figure) has none */
+.adds-up > .st-row:where(:not(tr)):has(~ .part-first), .adds-up > .part-last ~ .st-row:where(:not(tr)) { box-shadow: none; }
 
 /* M15 the ordinal: the browser counts the rows that are there; only on a table sorted by its own figure column.
    A row marked .unranked, and the opened detail of a row, is outside that ranking: it takes no number and does not count (the indent stays). */

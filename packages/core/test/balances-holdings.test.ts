@@ -179,6 +179,13 @@ describe("holdings of the balance report", () => {
     expect(report.total.at(-1)).toBe(570_000);
     // money in and money out: the overdraft is taken off, once
     expect(holdings.accountsCents).toBe(570_000);
+    // the totals of each type are the groups of the first page, and add up to the accounts' total
+    expect(holdings.typeCents).toEqual({ checking: -30_000, savings: 500_000, other: 100_000 });
+  });
+
+  it("a type whose balances are none known has no total, and the known ones of a type are added", () => {
+    const { holdings } = household([input("c1", "Käyttötili", "checking", 10_000), input("c2", "Toinen", "checking", null), input("s1", "Säästötili", "savings", null)]);
+    expect(holdings.typeCents).toEqual({ checking: 10_000, savings: null, other: null });
   });
 
   it("the accounts' total adds the known balances only: a card and a loan are not in it, an account without a balance leaves it out, and with none known it is null", () => {

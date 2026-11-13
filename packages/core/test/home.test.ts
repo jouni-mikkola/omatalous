@@ -4,7 +4,6 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { expectedEveryday, expectedFor, expectedSpending } from "../src/analysis/expected.ts";
 import { formatEur } from "../src/analysis/format.ts";
-import { messageIn } from "../src/messages.ts";
 import { gateFor } from "../src/analysis/usual.ts";
 import { addDays, dateIn, daysBetween, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { OVERVIEW_INSIGHTS } from "../src/thresholds.ts";
@@ -76,10 +75,7 @@ describe("home.runway", () => {
     expect(runway!.leftOnPayday.known).toBe(true);
     expect(runway!.takenOffPerDayCents).toBe(perDay);
     expect(runway!.everydayPerDayCents).toBe(perDay);
-    const sum = formatEur(runway!.takenOffPerDayCents, false, "fi");
-    expect(messageIn("fi", "home.based", { sum }).replace(/\s/g, " ")).toBe("Arkimenoihisi kuluu viime kuukausien mukaan noin 49 € päivässä");
-    // the English sentence states the same sum and names no account: the sum is of every account
-    expect(messageIn("en", "home.based", { sum: "X" })).toBe("At the pace of recent months, everyday spending takes about X a day");
+    expect(formatEur(runway!.takenOffPerDayCents, false, "fi").replace(/\s/g, " ")).toBe("49 €");
   });
 
   it("says short when the payments are more than the balance, and gives no allowance", () => {

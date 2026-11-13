@@ -668,7 +668,8 @@
     "category": "transfer",
     "cents": -63077,
     "source": "card",
-    "basis": "balance"
+    "basis": "balance",
+    "cardId": "card"
    },
    {
     "date": "2026-11-12",
@@ -928,6 +929,11 @@
    }
   ],
   "accountsCents": 1957500,
+  "typeCents": {
+   "checking": 240000,
+   "savings": 1717500,
+   "other": null
+  },
   "netCents": 1894423,
   "accountsAddUp": true,
   "accountShares": [
@@ -979,6 +985,126 @@
   "net": {
    "since": "2026-09-15",
    "changeCents": 36540
+  },
+  "months": [
+   {
+    "month": "2025-11",
+    "incomeCents": 352000,
+    "spendCents": 322224,
+    "complete": true
+   },
+   {
+    "month": "2025-12",
+    "incomeCents": 366300,
+    "spendCents": 340685,
+    "complete": true
+   },
+   {
+    "month": "2026-01",
+    "incomeCents": 352000,
+    "spendCents": 395826,
+    "complete": true
+   },
+   {
+    "month": "2026-02",
+    "incomeCents": 352000,
+    "spendCents": 334876,
+    "complete": true
+   },
+   {
+    "month": "2026-03",
+    "incomeCents": 352000,
+    "spendCents": 298682,
+    "complete": true
+   },
+   {
+    "month": "2026-04",
+    "incomeCents": 352000,
+    "spendCents": 407585,
+    "complete": true
+   },
+   {
+    "month": "2026-05",
+    "incomeCents": 352000,
+    "spendCents": 309550,
+    "complete": true
+   },
+   {
+    "month": "2026-06",
+    "incomeCents": 528000,
+    "spendCents": 333982,
+    "complete": true
+   },
+   {
+    "month": "2026-07",
+    "incomeCents": 352000,
+    "spendCents": 293420,
+    "complete": true
+   },
+   {
+    "month": "2026-08",
+    "incomeCents": 352000,
+    "spendCents": 330876,
+    "complete": true
+   },
+   {
+    "month": "2026-09",
+    "incomeCents": 352000,
+    "spendCents": 293067,
+    "complete": true
+   },
+   {
+    "month": "2026-10",
+    "incomeCents": 0,
+    "spendCents": 276614,
+    "complete": false
+   }
+  ],
+  "usualSpendCents": 332798,
+  "usualMonths": 11,
+  "categories": {
+   "rows": [
+    {
+     "category": "housing",
+     "label": "Vuokra ja vastike",
+     "cents": 105000,
+     "usualCents": 105000
+    },
+    {
+     "category": "mortgage",
+     "label": "Asuntolaina",
+     "cents": 61240,
+     "usualCents": 61240
+    },
+    {
+     "category": "groceries",
+     "label": "Ruokakauppa",
+     "cents": 38829,
+     "usualCents": 77022
+    },
+    {
+     "category": "kids",
+     "label": "Lapset",
+     "cents": 27990,
+     "usualCents": 25445
+    },
+    {
+     "category": "car",
+     "label": "Auto, polttoaine ja pysäköinti",
+     "cents": 15478,
+     "usualCents": 14710
+    },
+    {
+     "category": "insurance",
+     "label": "Vakuutukset",
+     "cents": 14230,
+     "usualCents": 3881
+    }
+   ],
+   "otherCents": 13847,
+   "otherCount": 4,
+   "totalCents": 276614,
+   "usualMonths": 11
   }
  },
  "questions": {

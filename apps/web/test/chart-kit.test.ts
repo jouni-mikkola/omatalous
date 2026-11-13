@@ -118,7 +118,7 @@ describe("Finnish ticks", () => {
     expect(new Set(yearly.map((m) => `${m.text}${m.year}`)).size).toBe(yearly.length);
   });
 
-  it("labels the days of a month like the pace chart", () => {
+  it("labels the days of a month: 1, 5, 10, 15, 20, 25 and the last", () => {
     expect(dayTicks(31)).toEqual([1, 5, 10, 15, 20, 25, 31]);
     expect(dayTicks(26)).toEqual([1, 5, 10, 15, 20, 26]);
   });

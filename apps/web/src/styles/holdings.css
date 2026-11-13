@@ -13,6 +13,9 @@
   .holding-groups-3 > .holding-cards { grid-column: 1 / -1; }
   .holding-groups-2 > * + * { border-top: 0; border-left: 1px solid var(--border); }
   .holding-groups-3 > :nth-child(2) { border-top: 0; border-left: 1px solid var(--border); }
+  /* a step of room on each side of the rule between them, so a figure and a name never touch it */
+  .holding-groups-2 > :first-child, .holding-groups-3 > :first-child { padding-right: var(--sp-16); }
+  .holding-groups-2 > * + *, .holding-groups-3 > :nth-child(2) { padding-left: var(--sp-16); }
 }
 @media (min-width: 1040px) {
   .holding-groups-2, .holding-groups-3 { grid-template-columns: var(--split-5) minmax(0, 1fr); }
@@ -37,6 +40,12 @@
 .holdings .holding-account .st-sub { grid-column: 1 / -1; }
 /* M7: the track lies on the row's own rule, so the box it is drawn in reaches the border */
 .holdings .holding-account.share { background-origin: border-box; }
+/* the heading of a type: a row of the list, so the bracket and the tracks run past it, with the type's total at the right
+   in the quieter ink; a step of room above every heading but the first, and no rule under it */
+.holdings .holding-type-head { justify-content: space-between; padding-bottom: 0; border-bottom: 0; color: var(--text-2); }
+.holdings .holding-type-head:not(:first-child) { padding-top: var(--sp-12); }
+.holdings .holding-type-cap { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: inherit; }
+.holdings .holding-type-head .st-num { font-size: var(--fs-label); line-height: var(--lh-label); }
 
 /* a unit: a card or a loan, its name and lines and then its figures as rows */
 .holding-units { list-style: none; margin: 0; padding: 0; }

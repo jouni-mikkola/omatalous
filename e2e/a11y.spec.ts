@@ -271,12 +271,12 @@ test("every route: no control sits inside an image, and a chart's keyboard stop 
   ).toEqual([]);
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, bypassCSP: true });
   const page = await visit(context, "/#/overview", ".home-tiles");
-  const stop = page.getByRole("group", { name: /^Menot päivittäin/ });
-  await expect(stop).toHaveCount(1);
-  await stop.focus();
-  await expect(stop).toBeFocused();
-  await page.keyboard.press("ArrowLeft");
-  await expect(page.locator("[aria-live=polite]").filter({ hasText: /^\d+\.\d+\.: / }).first()).toBeVisible();
+  // Tulot ja menot: each month is a link beside the image, named by its sums, and its focus shows them
+  const months = page.getByRole("link", { name: /Avaa kuukauden tapahtumat$/ });
+  await expect(months).toHaveCount(12);
+  await months.first().focus();
+  await expect(months.first()).toBeFocused();
+  await expect(page.locator(".month-bars .tooltip")).toBeVisible();
   await context.close();
 });
 

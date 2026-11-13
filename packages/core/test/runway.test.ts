@@ -68,7 +68,8 @@ describe("Jää palkkapäivänä", () => {
   it("a household that buys on a monthly billed card has everyday spending above 0 a day, and the first page tells it", () => {
     const { ahead, runway } = run(onCard);
     const r = known(runway);
-    expect(ahead.rows.filter((x) => x.source === "card")).toMatchObject([{ date: "2026-11-09", cents: -OWED, basis: "balance" }]);
+    // the bill names its card, so the card's row of the first page can say when its next bill is paid
+    expect(ahead.rows.filter((x) => x.source === "card")).toMatchObject([{ date: "2026-11-09", cents: -OWED, basis: "balance", cardId: card.id }]);
     expect(r.payday).toEqual({ date: PAYDAY, name: "Esimerkki Oy" });
     expect(ahead.everydayPerDayCents).toBeGreaterThan(0);
     // the same purchases on the account itself would be spent from it: the card's share is the whole of what the account pays here

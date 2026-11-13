@@ -1,7 +1,7 @@
 /**
  * Decision: does the household slow down this month to keep to the spending goal it set, and by how much a day.
- * The month's spending so far (the pace chart's `currentTotal`) set against the one monthly goal, and the month's end as
- * the usual months spent the rest of it (`MonthPace.projection`). One goal for consumption and debt payments together,
+ * The month's spending so far (`monthPace`'s `currentTotal`) set against the one monthly goal, and the month's end as
+ * the usual months spent the rest of it (its `projection`). One goal for consumption and debt payments together,
  * as the chart counts them; no goal per category.
  */
 import type { MonthPace } from "./forecast.ts";

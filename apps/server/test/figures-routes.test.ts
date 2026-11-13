@@ -2,7 +2,7 @@
  * One figure, one number on every page: each figure the pages share, read through the route of every page that shows
  * it, for the demo household, the kit household and a made-up one with own transfers, savings, a loan, a card's bills,
  * refunds, friends' shares, a pending purchase and a row whose category the user set (figures-household.ts). The
- * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: MonthPace, Where, Answer),
+ * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: Tiles, Months, Categories),
  * Raportit (`/api/reports`: Kuukausi, Rahankäyttö, Tulot, Kiinteät menot), Tapahtumat (`/api/transactions`), Laskut
  * (`/api/recurring` and the dashboard's `ahead`, as BeforePayday lists it) and "Miksi?" (`/api/explain`). A complete
  * month and the running month are both read; Yhteenveto shows only the running one. Two figures that may differ by
@@ -94,12 +94,12 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     it("Menot of the month", () => {
       const at = year.spendingMonths.months.indexOf(month);
       expectOne("Menot", {
-        // MonthPace: the sentence's sum, from the usual comparison or, with none, from `nyt`; its chart's last point
-        "Yhteenveto Kuukausi": isRunning ? (dash.home.pace?.spentCents ?? dash.nyt.pace.spentCents) : undefined,
-        // PaceChart: the last day it draws
-        "Yhteenveto chart": isRunning ? dash.pace.current.filter((c: number | null) => c !== null).at(-1) : undefined,
-        // Where: the largest categories and the rest in one sum under them
-        "Yhteenveto Suurimmat menot added up": isRunning ? dash.top.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.top.otherCents : undefined,
+        // Tiles: the Menot tile, from the usual comparison or, with none, from `nyt`
+        "Yhteenveto Menot tässä kuussa": isRunning ? (dash.home.pace?.spentCents ?? dash.nyt.pace.spentCents) : undefined,
+        // Months: the running month's spending bar
+        "Yhteenveto Tulot ja menot": isRunning ? dash.overview.months.at(-1).spendCents : undefined,
+        // Categories: the largest categories and the rest in one sum under them
+        "Yhteenveto Menot kategorioittain added up": isRunning ? dash.overview.categories.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.overview.categories.otherCents : undefined,
         "Kuukausi": isRunning ? rep.thisMonth.spentCents : kuukausi()?.nowCents,
         "Rahankäyttö Kategoriat": rep.categories.totalCents,
         "Rahankäyttö Menot kuukausittain, the month": rep.spendingMonths.totals.at(-1),
@@ -130,7 +130,7 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
         const name = `${c.category} in ${month}`;
         const gap = kuukausi()?.categories.find((x: any) => x.category === c.category);
         expectOne(`${name} sum`, {
-          "Yhteenveto Suurimmat menot": isRunning ? dash.top.rows.find((r: any) => r.category === c.category)?.cents : undefined,
+          "Yhteenveto Menot kategorioittain": isRunning ? dash.overview.categories.rows.find((r: any) => r.category === c.category)?.cents : undefined,
           "Rahankäyttö Kategoriat": c.totalCents,
           // a category spent on in the previous period only is 0 € in Kategoriat and no row in Menot kuukausittain: one figure
           "Menot kuukausittain, the month": rep.spendingMonths.categories.find((x: any) => x.category === c.category)?.totalCents ?? 0,
