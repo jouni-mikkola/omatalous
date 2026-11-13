@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import { addOnLine } from "../src/pages/settings/addon-line.ts";
 import { extensionPages, type WebExtension } from "../src/extensions.ts";
 
-describe("the status line of Asetukset > Palvelin > Lisäosa", () => {
+describe("the status line of the Lisäosa card", () => {
   it("says where the add-on stands in Finnish, and never the server's English reason", () => {
     expect(addOnLine({ state: "none" })).toBe("Ei yhdistetty.");
     expect(addOnLine({ state: "connected", id: "example", version: "1.2.0", label: "Esimerkki" })).toBe("Yhdistetty: Esimerkki, versio 1.2.0.");
     expect(addOnLine({ state: "connected", id: "example", version: "1.2.0" })).toBe("Yhdistetty, versio 1.2.0.");
+    // a module that runs with no code saved: its version, and why no newer one comes
+    expect(addOnLine({ state: "connected", id: "example", version: "1.2.0", label: "Esimerkki", noCode: true })).toBe("Käytössä: Esimerkki, versio 1.2.0. Koodia ei ole tallennettu, joten uusia versioita ei haeta.");
+    expect(addOnLine({ state: "connected", id: "example", version: "1.2.0", noCode: true })).toBe("Käytössä, versio 1.2.0. Koodia ei ole tallennettu, joten uusia versioita ei haeta.");
     expect(addOnLine({ state: "pending", id: "example", version: "1.3.0" })).toMatch(/^Lataus onnistui: versio 1\.3\.0\./);
     expect(addOnLine({ state: "waiting" })).toBe("Odottaa versiota, joka sopii tähän sovelluksen versioon.");
     expect(addOnLine({ state: "refused", reason: "signature does not verify" })).toBe("Hylätty: allekirjoitus ei täsmää.");

@@ -14,6 +14,8 @@ export const EN_SET_ADDON: Record<keyof typeof FI_SET_ADDON, string> = {
   "set.addon.state_none": "Not connected.",
   "set.addon.state_connected": "Connected, version {version}.",
   "set.addon.state_connected_named": "Connected: {label}, version {version}.",
+  "set.addon.state_no_code": "In use, version {version}. No code is saved, so newer versions are not fetched.",
+  "set.addon.state_no_code_named": "In use: {label}, version {version}. No code is saved, so newer versions are not fetched.",
   "set.addon.state_pending": "Version {version} is downloaded. It is taken into use when the server next starts.",
   "set.addon.state_waiting": "Waiting for a version that fits this version of the app.",
   "set.addon.state_checking": "Checking…",

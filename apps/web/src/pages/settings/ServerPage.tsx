@@ -1,4 +1,8 @@
-/** Asetukset > Palvelin ja ylläpito (admin): the status line, the server, remote access, the maintenance and the add-on. */
+/**
+ * Asetukset > Palvelin ja ylläpito (admin): the status line, the server, remote access, the maintenance and, while no
+ * add-on module is loaded, the add-on's code. A loaded module brings Asetukset > Lisäosa, and the code card is there.
+ */
+import { addOnTargetOffered } from "../../routes.ts";
 import { AddOn } from "./AddOn.tsx";
 import { CardStack } from "./CardStack.tsx";
 import { Maintenance, useOpsState } from "./Maintenance.tsx";
@@ -19,7 +23,7 @@ export function ServerPage({ params, anchor, onChange }: SettingsPageProps) {
       <ServerStatusLine ops={ops.data} remote={remote} />
       <ServerSettings remote={remote} onChange={onChange} onLoaded={partLoaded} />
       <Maintenance ops={ops} />
-      <AddOn />
+      {!addOnTargetOffered("admin") && <AddOn />}
     </CardStack>
   );
 }

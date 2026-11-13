@@ -311,6 +311,9 @@ describe("the code in Asetukset, then a start", () => {
     expect((await second.client().call("GET", "/modules/example/1.2.0/web.mjs")).status).toBe(404);
     expect((await second.admin.call("GET", "/modules/example/1.2.0/server.mjs")).status).toBe(404);
     expect((await second.admin.call("GET", "/modules/example/1.2.0/manifest.json")).status).toBe(404);
+    // a module that runs while this database has no code (its files put in place by hand, a database from before the
+    // code) is told as running, with no code: no check looks for its next release
+    expect((await second.admin.call("GET", "/api/modules")).body).toEqual({ state: "connected", id: "example", version: "1.2.0", label: "Esimerkki", noCode: true });
     // the code was set in another "process": this one has it in its settings too
     await second.s.settings.set("instance_module", (await first.s.settings.get("instance_module"))!);
     expect((await second.admin.call("GET", "/api/modules")).body).toEqual({ state: "connected", id: "example", version: "1.2.0", label: "Esimerkki" });

@@ -8,9 +8,9 @@ import type { TransactionItem } from "./types.ts";
 export interface WebExtension {
   /** The server extension's id: its route prefix and its page id. */
   readonly id: string;
-  /** A card of Asetukset > Talous, after the loans. */
+  /** A card of Asetukset > Lisäosa, the target a loaded module brings, above the add-on's own card (AddOnPage.tsx). */
   readonly settingsCard?: ComponentType;
-  /** The anchor of that card, so an address that names it opens Talous. */
+  /** The anchor of that card, so an address that names it opens Lisäosa. */
   readonly settingsAnchor?: string;
   /** A page of its own at `/<id>`, its nav entry after the shared ones. */
   readonly page?: { readonly label: string; readonly component: ComponentType<{ params: URLSearchParams }> };

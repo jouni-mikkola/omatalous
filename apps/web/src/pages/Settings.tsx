@@ -7,7 +7,8 @@ import "../styles/settings.css";
 
 /**
  * Asetukset is six targets, each a route of its own (`#/settings/<id>`, routes.ts `SETTINGS_TARGETS`): Pankit ja tilit,
- * Talous, Turvallisuus, Tiedot and, for an admin, Jäsenet and Palvelin ja ylläpito. This is the frame: the links to the
+ * Talous, Turvallisuus, Tiedot and, for an admin, Jäsenet and Palvelin ja ylläpito. While an add-on module is loaded,
+ * Lisäosa comes after them (`ADD_ON_TARGET`). This is the frame: the links to the
  * targets that the signed-in role is offered, and the outlet where the router puts the open one. An address from before
  * the targets (`?section=`, a bare `#/settings`, an anchor such as `#lainat`) is rewritten to its target in `redirectRoute`.
  * `?add=1` opens Pankit ja tilit at the bank picker, and an address anchor scrolls to its card. Should the

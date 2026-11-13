@@ -35,9 +35,9 @@ function wrong(text: string): string[] {
 }
 
 describe("docs: the guides name the tabs Asetukset has", () => {
-  it("reads the labels of the six tabs from the app's catalogue", () => {
+  it("reads the labels of the six tabs and the add-on's tab from the app's catalogue", () => {
     expect(PAGE).toBe("Asetukset");
-    expect(TABS).toHaveLength(6);
+    expect(TABS).toHaveLength(7);
   });
 
   it("tells a tab label from another name", () => {

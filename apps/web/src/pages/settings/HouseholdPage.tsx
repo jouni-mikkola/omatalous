@@ -1,5 +1,4 @@
-/** Asetukset > Talous: the household's loans. An add-on module's card comes after them (extensions.ts). */
-import { WEB_EXTENSIONS } from "../../extensions.ts";
+/** Asetukset > Talous: the household's loans. An add-on module's cards are on Asetukset > Lisäosa (AddOnPage.tsx). */
 import { CardStack } from "./CardStack.tsx";
 import { Loans } from "./Loans.tsx";
 import type { SettingsPageProps } from "./SettingsPage.ts";
@@ -12,7 +11,6 @@ export function HouseholdPage({ meta, params, anchor }: SettingsPageProps) {
   return (
     <CardStack shown={shown}>
       <Loans meta={meta} onLoaded={partLoaded} />
-      {WEB_EXTENSIONS.map((e) => e.settingsCard && <e.settingsCard key={e.id} />)}
     </CardStack>
   );
 }

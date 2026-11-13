@@ -43,17 +43,32 @@ export const SETTINGS_TARGETS = [
   { id: "server", get label() { return t("set.tab.server"); }, admin: true },
 ] as const satisfies readonly { id: string; label: string; admin?: true }[];
 
-export type SettingsTarget = (typeof SETTINGS_TARGETS)[number]["id"];
+/**
+ * The target of an add-on module (docs/MODULES.md), after the six: the module's own cards (extensions.ts `settingsCard`)
+ * and, for an admin, the card of the add-on's code, version and state. It is offered only while a module is loaded in
+ * the page (`addOnTargetOffered`); without one the code card is on Palvelin ja ylläpito.
+ */
+export const ADD_ON_TARGET = { id: "addon", get label() { return t("set.tab.addon"); } } as const;
+
+export type SettingsTarget = (typeof SETTINGS_TARGETS)[number]["id"] | typeof ADD_ON_TARGET.id;
 
 /** The target a member lands on, and an address of Asetukset with nothing to say where. */
 const FIRST_TARGET: SettingsTarget = "banks";
 
-/** The targets a user of this role is offered. */
-export function settingsTargets(role: "admin" | "member"): readonly (typeof SETTINGS_TARGETS)[number][] {
-  return SETTINGS_TARGETS.filter((t) => role === "admin" || !("admin" in t));
+const ADD_ON_PAGE = `settings/${ADD_ON_TARGET.id}`;
+
+/** Whether a user of this role is offered the add-on target: a module is loaded, and it has a card there for them (an admin always has the code card). */
+export function addOnTargetOffered(role: "admin" | "member"): boolean {
+  return WEB_EXTENSIONS.length > 0 && (role === "admin" || WEB_EXTENSIONS.some((e) => e.settingsCard));
 }
 
-/** The target a card is on, by its anchor. The cards of the build's extensions are on Talous. */
+/** The targets a user of this role is offered. */
+export function settingsTargets(role: "admin" | "member"): readonly { readonly id: SettingsTarget; readonly label: string }[] {
+  const shared = SETTINGS_TARGETS.filter((t) => role === "admin" || !("admin" in t));
+  return addOnTargetOffered(role) ? [...shared, ADD_ON_TARGET] : shared;
+}
+
+/** The target a card is on, by its anchor. A loaded add-on module's cards and the add-on's own card are on its target (`targetOfCard`). */
 const CARD_TARGET: Record<string, SettingsTarget> = {
   pankkiyhteydet: "banks",
   [SETTINGS_ANCHOR.bankApp]: "banks",
@@ -97,12 +112,19 @@ export function settingsCardHash(anchor: string, params?: URLSearchParams): stri
 
 function targetOfCard(anchor: string | undefined): SettingsTarget | undefined {
   if (!anchor) return undefined;
-  if (WEB_EXTENSIONS.some((e) => e.settingsAnchor === anchor)) return "household";
+  if (WEB_EXTENSIONS.some((e) => e.settingsAnchor === anchor)) return ADD_ON_TARGET.id;
+  if (anchor === SETTINGS_ANCHOR.addOn && WEB_EXTENSIONS.length > 0) return ADD_ON_TARGET.id;
   return CARD_TARGET[anchor] ?? (anchor.startsWith(ACCOUNT_ROW_PREFIX) ? "banks" : undefined);
 }
 
-/** The route as the role may open it: an admin's target is the first target for a member, and its cards are not there to name. */
+/**
+ * The route as the role may open it: an admin's target is the first target for a member, and its cards are not there to
+ * name. The add-on target that is not offered opens the add-on's card on Palvelin ja ylläpito for an admin.
+ */
 function opened(route: Route, role: "admin" | "member"): Route {
+  if (route.page === ADD_ON_PAGE && !addOnTargetOffered(role)) {
+    return role === "admin" ? { page: "settings/server", params: route.params, anchor: SETTINGS_ANCHOR.addOn } : { page: `settings/${FIRST_TARGET}`, params: route.params };
+  }
   if (role === "admin" || !ADMIN_ONLY_PAGES.includes(route.page)) return route;
   return { page: `settings/${FIRST_TARGET}`, params: route.params };
 }
@@ -155,11 +177,12 @@ export function parseHash(hash: string): Route {
 /**
  * Where an address that is not a page's own opens, or null when it is. The router rewrites the address with
  * `replaceState`, so Back does not return to it. A period belongs to one page: a Raportit period on the month page, or
- * a month on Raportit, opens the page that offers it. Asetukset has six targets, each a route of its own
- * (`#/settings/household`): the bare `#/settings` (the return from a bank comes there with `connected` or `error`, and
- * `?add=1` opens the bank list) and an address that names no target open the first target with their parameters, and
- * a member's address of an admin's target opens the first target. An address that names a card on another target
- * (`#/settings/household#salasana`, from the time the cards were on three targets) opens the target that has the card.
+ * a month on Raportit, opens the page that offers it. Asetukset has six targets and the add-on target, each a route of
+ * its own (`#/settings/household`): the bare `#/settings` (the return from a bank comes there with `connected` or
+ * `error`, and `?add=1` opens the bank list) and an address that names no target open the first target with their
+ * parameters, and a member's address of an admin's target opens the first target. An address that names a card on
+ * another target (`#/settings/household#salasana`, from the time the cards were on three targets, or
+ * `#/settings/household#<card of a module>` from before the add-on target) opens the target that has the card.
  *
  * Old addresses that are still rewritten: the merchants and the rules (`#/categories`, `#/rules`, the rules card that
  * was on Asetukset), which are the Kauppiaat view of Tapahtumat (`merchantsView`); the bare `#/settings#<card>` of
@@ -184,8 +207,10 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
   // an address that names a card on another target (a link from before the card moved) opens the card's own target
   const home = route.page === "settings" || route.page.startsWith("settings/") ? targetOfCard(route.anchor) : undefined;
   if (home && route.page !== `settings/${home}`) return opened({ page: `settings/${home}`, params: route.params, anchor: route.anchor! }, role);
+  // the add-on target while no module is loaded, or with nothing there for a member
+  if (route.page === ADD_ON_PAGE && !addOnTargetOffered(role)) return opened(route, role);
   // the bare address, and one under settings/ that names no target (typed by hand), open the first target
-  if (route.page === "settings" || (route.page.startsWith("settings/") && !SETTINGS_TARGETS.some((t) => route.page === `settings/${t.id}`))) return { page: `settings/${FIRST_TARGET}`, params: route.params };
+  if (route.page === "settings" || (route.page.startsWith("settings/") && route.page !== ADD_ON_PAGE && !SETTINGS_TARGETS.some((t) => route.page === `settings/${t.id}`))) return { page: `settings/${FIRST_TARGET}`, params: route.params };
   if (ADMIN_ONLY_PAGES.includes(route.page) && role !== "admin") return opened(route, role);
   // the Lisää screen (phone) is gone: its two links are a tab and the user menu
   if (route.page === "more") return { page: "overview", params: route.params };
