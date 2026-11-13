@@ -151,8 +151,8 @@ export function cardRowsMissingIn(ctx: AnalysisContext, month: string): boolean 
  * month in hand holds the purchases of a linked card in their categories where those months hold nothing or a bill, so
  * a comparison by category or by day says what the data does not hold. Month totals are comparable (a bill counts as
  * spending), so the expected spending and the buffer read through it. A figure passes its own months (`usualBase`, which
- * start at a card connected later when no card bill came before it): a gap before them is in no month it reads. Without them the complete months
- * before `month` are read, which tells a short base after a late card from a short history.
+ * start at a card connected later when no card bill came before it): a gap before them is in no month it reads. Without
+ * them the complete months before `month` are read, which tells a short base after a late card from a short history.
  */
 export function cardsBreakUsual(ctx: AnalysisContext, month: string, months: readonly string[] = completeMonthsBefore(ctx, month)): boolean {
   return months.length >= MIN_COMPARE_MONTHS && months.some((m) => cardGapIn(ctx, m));
