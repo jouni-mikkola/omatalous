@@ -131,13 +131,14 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     try {
       await linkFakeBank(page);
       await waitForSync(context);
-      const meta = (await (await context.request.get("/api/meta")).json()) as { accounts: { id: string; name: string; provider: string; type: string }[] };
+      const meta = (await (await context.request.get("/api/meta")).json()) as { today: string; accounts: { id: string; name: string; provider: string; type: string }[] };
       const connected = meta.accounts.find((a) => a.provider === "enablebanking" && a.type === "checking")!;
       expect(connected).toBeTruthy();
       const stored = ((await (await context.request.get("/api/transactions?limit=500")).json()) as { items: { accountId: string; bookingDate: string; amountCents: number; merchant: string; status: string }[] }).items;
       const bank = stored.find((r) => r.accountId === connected.id && r.status === "booked" && r.amountCents !== 0)!;
       expect(bank).toBeTruthy();
-      const tomorrow = new Date(Date.now() + 86_400_000).toLocaleDateString("sv-SE");
+      // the household's tomorrow: the server's day is on Helsinki time, which is a day ahead of the runner's clock for two hours each evening
+      const tomorrow = new Date(Date.parse(`${meta.today}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
       const same: [string, string, string] = [fi(bank.bookingDate), money(bank.amountCents), bank.merchant];
       const fresh: [string, string, string] = ["01.01.2020", "-12,34", "UUSI KAUPPA E2E"];
 
