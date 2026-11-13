@@ -2,8 +2,7 @@
 
 Research for OMAT-8, read on 9 November 2026. Every claim links its source. Where no source was found, the
 section says so and makes no claim. Line counts are `git ls-files` of the named commit piped to `wc -l`, tests and
-docs left out unless the line says otherwise. Written to sit beside `docs/audit/simplify.md` (OMAT-7) and the
-Lineclear research `docs/research/ai-slop.md`.
+docs left out unless the line says otherwise. Written to sit beside `docs/audit/simplify.md` (OMAT-7).
 
 Omatalous for comparison: 109 279 lines of TypeScript outside tests and 109 489 in tests (this branch, commit
 593448c), 30 migrations, 103 page files under `apps/web/src/pages`, of them 50 under `settings/`. Money is integer

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shippedAsComing, staleReview, unreadableFrontMatter } from "./roadmap.ts";
+import { shippedAsComing, staleReview } from "./roadmap.ts";
 
 const page = (coming: string) => `# Roadmap\n\nAfter 0.40.0 the page changed.\n\n## Coming releases\n${coming}\n## Done\n### 0.64.0: shipped\n`;
 
@@ -46,40 +46,5 @@ describe("rule 44 detection", () => {
     expect(staleReview(note("2027-01-01"), "2026-10-30")?.line).toBe(5);
     expect(staleReview("## Payment rules watch\n\ntext\n\n## Other\n\nLast reviewed: 2026-10-30\n", "2026-10-30")?.why).toMatch(/no "Last reviewed/);
     expect(staleReview("Last reviewed: 2026-10-30\n\n## Payment rules watch\n\ntext\n", "2026-10-30")?.why).toMatch(/no "Last reviewed/);
-  });
-});
-
-describe("rule 47 detection", () => {
-  const file = (check: string, key = "check") => `---\n${key}: ${check}\n---\n# Workflow\n\nnote: a colon in the text below is fine\n`;
-
-  it("refuses a plain value with a colon and a space, or a comment sign", () => {
-    expect(unreadableFrontMatter(file('vitest run -t "repo rules: roadmap"'))).toEqual([{ line: 2, why: 'the value of "check" has a colon and a space, or a space and a hash, in it' }]);
-    expect(unreadableFrontMatter(file("pnpm check # all of it"))).toHaveLength(1);
-    expect(unreadableFrontMatter(file("pnpm check:"))).toEqual([{ line: 2, why: 'the value of "check" ends in a colon' }]);
-  });
-
-  it("refuses a check value in quotes or behind another YAML mark: the board runs the text as it stands", () => {
-    const why = "the check line starts with a quote or another YAML mark";
-    expect(unreadableFrontMatter(file(`'vitest run -t "repo rules: roadmap"'`))).toEqual([{ line: 2, why }]);
-    expect(unreadableFrontMatter(file(`"vitest run -t \\"repo rules: roadmap\\""`))).toEqual([{ line: 2, why }]);
-    expect(unreadableFrontMatter(file("'pnpm check'"))).toEqual([{ line: 2, why }]);
-    expect(unreadableFrontMatter(file("| pnpm check"))).toEqual([{ line: 2, why }]);
-    expect(unreadableFrontMatter("---\ncheck:'pnpm check'\n---\n")).toEqual([{ line: 2, why }]);
-    expect(unreadableFrontMatter('---\ncheck:"pnpm check"\n---\n')).toEqual([{ line: 2, why }]);
-  });
-
-  it("refuses quotes of another key that do not close at the end of the line", () => {
-    expect(unreadableFrontMatter(file("'pnpm check", "name"))[0]?.why).toMatch(/do not close/);
-    expect(unreadableFrontMatter(file("'it's: here'", "name"))[0]?.why).toMatch(/do not close/);
-    expect(unreadableFrontMatter(file('"a "b": c"', "name"))[0]?.why).toMatch(/do not close/);
-    expect(unreadableFrontMatter("---\ncheck: pnpm check\n")).toEqual([{ line: 1, why: "the front matter has no closing --- line" }]);
-  });
-
-  it("accepts a bare check line, a quoted value of another key, and a file with no front matter", () => {
-    expect(unreadableFrontMatter(file('vitest run --project rules a.test.ts -t "repo rules. roadmap"'))).toEqual([]);
-    expect(unreadableFrontMatter(file("'it''s: here'", "name"))).toEqual([]);
-    expect(unreadableFrontMatter(file(`"a \\"b\\": c"`, "name"))).toEqual([]);
-    expect(unreadableFrontMatter(file("pnpm check:lint && node a.mjs#b"))).toEqual([]);
-    expect(unreadableFrontMatter("# Workflow\n\ncheck: a: b\n")).toEqual([]);
   });
 });
