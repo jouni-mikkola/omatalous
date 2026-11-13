@@ -150,6 +150,8 @@ async function open(browser: Browser, width: number, start: Json = OFF) {
 
 /** An idle card is folded; the tests read and use its body, so open it as a reader does. */
 async function unfold(section: Locator) {
+  // the card opens by itself once its answer is in, while something is on or under way: a click before that closes it again
+  await expect(section.locator(".card-sub")).toBeAttached();
   if ((await section.getAttribute("open")) === null) await section.locator("summary").first().click();
   await expect(section).toHaveAttribute("open", "");
 }

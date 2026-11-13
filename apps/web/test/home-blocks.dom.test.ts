@@ -106,6 +106,21 @@ describe("Tulevat laskut", () => {
     expect(flat(container.querySelector(".home-block-note")?.textContent)).toBe("Palkkapäivään 25.11.");
   });
 
+  it("with no bill to the payday still names what other accounts pay, with the answer's sum and a link to Laskut", () => {
+    const outside = [{ ...bill("2026-11-16", "Laina", -42182), outside: true } as Row];
+    const d = data({ ahead: { ...data().ahead, outside } }, { left: { ...left, elsewhereCents: 42182 } as NytData["left"] });
+    const { container } = render(createElement(Bills, { data: d }));
+    expect(flat(container.querySelector(".home-detail")?.textContent)).toBe("Ei laskuja ennen palkkapäivää");
+    const note = container.querySelectorAll(".home-detail")[1]!;
+    expect(flat(note.textContent)).toBe("Lisäksi 421,82 € tileiltä, joita saldo ei laske");
+    expect(note.querySelector("a")?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+  });
+
+  it("says nothing of other accounts when none pays before the payday", () => {
+    const { container } = render(createElement(Bills, { data: data() }));
+    expect(container.querySelectorAll(".home-detail")).toHaveLength(1);
+  });
+
   it("without a known payday lists Laskut's thirty days with their sum", () => {
     const upcoming = [bill("2026-11-20", "Vuokra", -80000, "expected"), bill("2026-12-01", "Sähkö", -6000)];
     const d = data({ ahead: { from: TODAY, to: "2026-12-10", reason: "none", payday: null, rows: [], upcoming, outside: [] } }, { left: { known: false, reason: "no-payday", found: 0 } as NytData["left"] });

@@ -26,26 +26,27 @@ const billsHref = (anchor: string) => hashOf({ page: "bills", params: new URLSea
  * `upcomingGroups` with its own sum: the bills to the payday when there is one but no balance to start from, the 30
  * days when there is none. Null with no window at all.
  */
-function billsOf(data: Data): { rows: Row[]; cents: number; until: string; none: string; anchor: string } | null {
+function billsOf(data: Data): { rows: Row[]; cents: number; elsewhereCents: number; until: string; none: string; anchor: string } | null {
   const { ahead, nyt } = data;
   if (!ahead) return null;
   const left = nyt.left;
   if (left.known && ahead.payday) {
     const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
-    return { rows, cents: left.billsCents, until: t("home.bills_until", { date: dayMonth(left.payday.date) }), none: t("home.bills_none"), anchor: "ennen-palkkapaivaa" };
+    return { rows, cents: left.billsCents, elsewhereCents: left.elsewhereCents, until: t("home.bills_until", { date: dayMonth(left.payday.date) }), none: t("home.bills_none"), anchor: "ennen-palkkapaivaa" };
   }
   const first = upcomingGroups(ahead)[0];
   if (!first) return null;
   const payday = first.key === "window" ? windowPayday(ahead) : null;
   const rows = first.rows.map((i) => ahead.upcoming[i]!);
-  if (payday) return { rows, cents: first.cents, until: t("home.bills_until", { date: dayMonth(payday) }), none: t("home.bills_none"), anchor: "tulossa" };
-  return { rows, cents: first.cents, until: t("home.bills_days"), none: t("home.bills_none_days"), anchor: "tulossa" };
+  if (payday) return { rows, cents: first.cents, elsewhereCents: 0, until: t("home.bills_until", { date: dayMonth(payday) }), none: t("home.bills_none"), anchor: "tulossa" };
+  return { rows, cents: first.cents, elsewhereCents: 0, until: t("home.bills_days"), none: t("home.bills_none_days"), anchor: "tulossa" };
 }
 
 /**
  * Tulevat laskut: the bills to the payday by date, the first six with their date, payee and sum, the rest as one line,
  * and the sum of them all, which is Laskut's own figure for the same list. The heading and the link open Laskut. Nothing
- * is added up here.
+ * is added up here. What falls due before the payday from accounts the balance leaves out is one line under the list,
+ * the answer's own `elsewhereCents`, so an empty list does not read as no bills at all.
  */
 export function Bills({ data }: { data: Data }) {
   const bills = billsOf(data);
@@ -78,6 +79,11 @@ export function Bills({ data }: { data: Data }) {
           search={false}
           total={{ label: more > 0 ? `${t("rpt.total")} (${tn(more, "home.bills_more_one", "home.bills_more_many")})` : t("rpt.total"), cells: { sum: money(bills.cents, false) } }}
         />
+      )}
+      {bills.elsewhereCents > 0 && (
+        <p className="home-detail">
+          <a href={billsHref(bills.anchor)}>{t("bills.elsewhere", { sum: money(bills.elsewhereCents) })}</a>
+        </p>
       )}
       <p className="home-more">
         <Button variant="link" href={billsHref(bills.anchor)}>

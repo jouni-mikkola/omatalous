@@ -54,7 +54,7 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     }
     const took = Math.min(...tries);
     expect(answer.total, "a year of example rows").toBeGreaterThan(300);
-    expect(took, `rows after ${took} ms`).toBeLessThan(FIRST_ROWS_MS);
+    expect(took, `rows after ${took} ms (tries: ${tries.join(", ")})`).toBeLessThan(FIRST_ROWS_MS);
     expect(await page.locator(DATA_ROW).count(), "one page of rows is drawn").toBe(PAGE_ROWS);
     expect(await page.getByRole("button").count(), "buttons on the page").toBeLessThanOrEqual(MAX_BUTTONS);
 
