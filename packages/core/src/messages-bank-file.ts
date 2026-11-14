@@ -12,6 +12,7 @@ export const FI_BANK_FILE = {
   "bank_file.none": "Ei valittu",
   "bank_file.col_date": "Päivän sarake",
   "bank_file.col_text": "Tekstin sarake",
+  "bank_file.col_message": "Viestin sarake",
   "bank_file.col_amount": "Summan sarake",
   "bank_file.col_debit": "Veloituksen sarake",
   "bank_file.col_credit": "Hyvityksen sarake",

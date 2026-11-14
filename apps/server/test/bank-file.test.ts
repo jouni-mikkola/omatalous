@@ -48,6 +48,36 @@ describe("bank CSV rows", () => {
     expect((await db.first<{ n: number }>("SELECT count(*) AS n FROM transactions"))?.n).toBe(2);
   });
 
+  it("store the payment message as the description, so a salary message sorts the row, and store each row once when read twice", async () => {
+    const { admin, db } = await setupApp();
+    const csv = ["Kirjauspäivä;Määrä EUR;Saaja/Maksaja;Viesti", "05.09.2026;2 500,00;ACME OY;PALKKA", "03.09.2026;-23,40;PRISMA TIKKURILA;"].join("\n");
+    const first = await admin.call("POST", "/api/bank-file", body(csv));
+    expect(first.body).toMatchObject({ fetched: 2, inserted: 2 });
+    const again = await admin.call("POST", "/api/bank-file", body(csv));
+    expect(again.body).toMatchObject({ accountId: first.body.accountId, inserted: 0, changed: 0 });
+    const rows = await db.all<{ counterparty: string; description: string | null; category: string }>("SELECT counterparty, description, category FROM transactions ORDER BY booking_date");
+    expect(rows).toEqual([
+      { counterparty: "PRISMA TIKKURILA", description: null, category: expect.any(String) },
+      { counterparty: "ACME OY", description: "PALKKA", category: "salary" },
+    ]);
+  });
+
+  it("drop a message that holds an account number, in any letter case, and keep the row", async () => {
+    const { admin, db } = await setupApp();
+    const messages = ["FI21 1234 5600 0007 85", "fi21 1234 5600 0007 85", "vuokra fi2112345600000785 syyskuu", "tilille 123456-785", "Ostos"];
+    const rows = messages.map((message, i) => ({ day: "2026-09-03", cents: -1000 - i, text: "MAKSU", message }));
+    expect((await admin.call("POST", "/api/bank-file", { name: "Tili", rows })).body).toMatchObject({ inserted: 5 });
+    const stored = await db.all<{ description: string | null }>("SELECT description FROM transactions ORDER BY amount_cents DESC");
+    expect(stored.map((r) => r.description)).toEqual([null, null, null, null, "Ostos"]);
+  });
+
+  it("refuse a message that is not text or is too long", async () => {
+    const { admin } = await setupApp();
+    const row = { day: "2026-09-03", cents: -2340, text: "PRISMA" };
+    for (const message of [5, "x".repeat(121)]) expect((await admin.call("POST", "/api/bank-file", { name: "Tili", rows: [{ ...row, message }] })).status).toBe(400);
+    expect((await admin.call("POST", "/api/bank-file", { name: "Tili", rows: [{ ...row, message: "Ostos" }] })).status).toBe(200);
+  });
+
   it("refuse a card account of the statement files, and anything but rows", async () => {
     const { admin } = await setupApp();
     const card = await admin.call("POST", "/api/card-file", { name: "Visa", rows: [{ day: "2026-09-03", cents: -2340, text: "PRISMA" }] });

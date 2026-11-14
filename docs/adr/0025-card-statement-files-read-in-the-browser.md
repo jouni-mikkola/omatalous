@@ -32,6 +32,13 @@ go to the install.
   `packages/core/test/card-file.test.ts`. A bank with the same layout works; a bank with another does not until a
   layout is added there.
 
+- A bank's CSV row may also hold the payment message (*viesti*): an optional fourth field, `message`, read from a column the
+  household matched (guessed from a header that says *viesti* or *message*). The route's `strictObject` allows that one
+  new key, as text of at most 120 characters, like the row's text. It is stored as the transaction's `description`, so a
+  message such as a salary note sorts the row. A message that is only an account number or the row's text again is left
+  out. The row id still comes from the day, the sum, the text and the description, so the same file read twice stores
+  each row once; a row stored before the message was read is a twin of the same row with it and is skipped, not doubled.
+
 ## Weighed and left
 
 - **The server reads the file.** It would need an upload route, a size and type check, a parser on the server and the

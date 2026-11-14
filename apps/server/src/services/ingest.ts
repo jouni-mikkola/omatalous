@@ -28,14 +28,21 @@ interface Party {
   merchant: string;
   counterparty: string | null;
   description: string | null;
+  /** Where the row came from: a file's message is told from a bank's description by this. */
+  source?: string;
 }
+
+/** Sources whose description is a message read from a file the user imported, not text the bank gave. */
+const FILE_SOURCES: ReadonlySet<string> = new Set(["csv", "cardfile", "bankfile"]);
 
 /**
  * Whether two rows with the same day and amount can be one payment that reached us twice, as a bank row and a
  * CSV row or as a pending row and its booked row. The texts differ between sources, so the merchant names only
  * have to agree on their first word, or one row's text has to name the other's merchant. A row without a
  * merchant says nothing and agrees with any. Two different shops that charged the same amount on the same day
- * disagree, and both are kept.
+ * disagree, and both are kept. The description of a bank's row can name its merchant. The message of a file row
+ * (FILE_SOURCES) cannot: a file row is a twin of the same counterparty's row alone, and never of a row its message
+ * names or whose message names it, whichever of the two was stored first.
  */
 function sameParty(a: Party, b: Party): boolean {
   if (a.merchant === UNKNOWN_MERCHANT || b.merchant === UNKNOWN_MERCHANT) return true;
@@ -44,7 +51,7 @@ function sameParty(a: Party, b: Party): boolean {
   if (ma === mb) return true;
   const first = (m: string) => m.split(/\s+/)[0] ?? "";
   if (first(ma).length >= 3 && first(ma) === first(mb)) return true;
-  const text = (p: Party) => fold([p.counterparty, p.description].filter(Boolean).join(" "));
+  const text = (p: Party) => fold([p.counterparty, p.source && FILE_SOURCES.has(p.source) ? null : p.description].filter(Boolean).join(" "));
   return (mb.length >= 4 && text(a).includes(mb)) || (ma.length >= 4 && text(b).includes(ma));
 }
 
@@ -86,7 +93,7 @@ export async function ingestTransactions(repo: FinanceRepo, accountId: string, r
     const occurrence = seenBase.get(base) ?? 0;
     seenBase.set(base, occurrence + 1);
     const id = stableId(`${accountId}|${r.status}|${base}|${occurrence}`);
-    entries.push({ r, id, party: { merchant: normalizeMerchant(r.counterparty, r.description), counterparty: r.counterparty, description: r.description } });
+    entries.push({ r, id, party: { merchant: normalizeMerchant(r.counterparty, r.description), counterparty: r.counterparty, description: r.description, source } });
   }
 
   // a row of only a card's currency, country and city takes the merchant of the same card's row of the same sum
