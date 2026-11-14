@@ -31,10 +31,32 @@ describe("readBankCsv", () => {
     const r = readBankCsv(BANK_A);
     expect(r).toMatchObject({ ok: true, periodFrom: "2026-09-03", periodTo: "2026-09-07", unread: [] });
     expect((r as { rows: unknown[] }).rows).toEqual([
-      { day: "2026-09-03", cents: -2340, text: "PRISMA TIKKURILA" },
-      { day: "2026-09-05", cents: 250000, text: "ACME OY" },
-      { day: "2026-09-07", cents: -123456, text: "KIINTEISTÖ OY KOTI" },
+      { day: "2026-09-03", cents: -2340, text: "PRISMA TIKKURILA", message: "Ostos" },
+      { day: "2026-09-05", cents: 250000, text: "ACME OY", message: "Palkka; syyskuu" },
+      { day: "2026-09-07", cents: -123456, text: "KIINTEISTÖ OY KOTI", message: "Vuokra" },
     ]);
+  });
+
+  it("keeps the payment message of a row beside its text, and leaves it out when it adds nothing", () => {
+    const head = "Kirjauspäivä;Määrä;Saaja/Maksaja;Viesti";
+    const r = readBankCsv([head, "03.09.2026;2500,00;ACME OY;PALKKA", "04.09.2026;-10,00;KAUPPA;kauppa", "05.09.2026;-5,00;KIOSKI;FI21 1234 5600 0007 85", "06.09.2026;-6,00;TORI;", "07.09.2026;-7,00;TORI;12345678"].join("\n"));
+    expect(r).toMatchObject({ ok: true, layout: { text: 2, message: 3 } });
+    expect((r as { rows: unknown[] }).rows).toEqual([
+      { day: "2026-09-03", cents: 250000, text: "ACME OY", message: "PALKKA" },
+      { day: "2026-09-04", cents: -1000, text: "KAUPPA" },
+      { day: "2026-09-05", cents: -500, text: "KIOSKI" },
+      { day: "2026-09-06", cents: -600, text: "TORI" },
+      { day: "2026-09-07", cents: -700, text: "TORI" },
+    ]);
+  });
+
+  it("reads no message when the only text column is the message, or the household chose none", () => {
+    const only = readBankCsv(["Päivä;Summa;Viesti", "03.09.2026;-23,40;Ostos"].join("\n"));
+    expect(only).toMatchObject({ ok: true, rows: [{ day: "2026-09-03", cents: -2340, text: "Ostos" }] });
+    expect((only as { rows: object[] }).rows[0]).not.toHaveProperty("message");
+    const none = readBankCsv(BANK_A, { ...(guessBankCsvLayout(parseBankCsv(BANK_A)!) as BankCsvLayout), message: null });
+    expect((none as { rows: object[] }).rows[0]).toEqual({ day: "2026-09-03", cents: -2340, text: "PRISMA TIKKURILA" });
+    expect(isBankCsvLayout({ ...(guessBankCsvLayout(parseBankCsv(BANK_A)!) as BankCsvLayout), message: 9 }, 6)).toBe(false);
   });
 
   it("reads a Nordea export with year-first slash dates, and leaves an impossible day unread", () => {

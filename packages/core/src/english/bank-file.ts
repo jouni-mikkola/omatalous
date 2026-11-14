@@ -9,6 +9,7 @@ export const EN_BANK_FILE: Record<keyof typeof FI_BANK_FILE, string> = {
   "bank_file.none": "Not chosen",
   "bank_file.col_date": "Day column",
   "bank_file.col_text": "Text column",
+  "bank_file.col_message": "Message column",
   "bank_file.col_amount": "Amount column",
   "bank_file.col_debit": "Debit column",
   "bank_file.col_credit": "Credit column",

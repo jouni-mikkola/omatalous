@@ -18,7 +18,11 @@ const STORE = "omatalous.bank-csv-layout:";
 function recall(table: BankCsvTable): BankCsvLayout | null {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE + bankCsvKey(table.header)) ?? "null") as BankCsvLayout | null;
-    return saved && saved.delimiter === table.delimiter && isBankCsvLayout(saved, table.header.length) ? saved : null;
+    if (!saved || saved.delimiter !== table.delimiter || !isBankCsvLayout(saved, table.header.length)) return null;
+    // a layout kept before the message column existed gets the header's own message column, unless the household's columns use it
+    const message = guessBankCsvLayout(table)?.message;
+    const used = [saved.date, saved.text, saved.amount, saved.debit, saved.credit, saved.textIn];
+    return saved.message === undefined && message != null && !used.includes(message) ? { ...saved, message } : saved;
   } catch {
     return null;
   }
@@ -133,7 +137,7 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
   };
   const shown = problem ?? (refused ? camtProblem[refused.error] : null) ?? (read && "error" in read ? (read.error === "too_many_rows" ? "many" : "empty") : null);
 
-  const column = (label: string, key: "date" | "text" | "amount" | "debit" | "credit", optional = false) => (
+  const column = (label: string, key: "date" | "text" | "amount" | "debit" | "credit" | "message", optional = false) => (
     <label>
       <span className="field-label">{label}</span>
       <select value={layout?.[key] ?? ""} onChange={(e) => set({ [key]: e.target.value === "" ? null : Number(e.target.value) })}>
@@ -160,6 +164,7 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
             <div className="form-row">
               {column(t("bank_file.col_date"), "date")}
               {column(t("bank_file.col_text"), "text")}
+              {column(t("bank_file.col_message"), "message", true)}
               {split ? (
                 <>
                   {column(t("bank_file.col_debit"), "debit")}

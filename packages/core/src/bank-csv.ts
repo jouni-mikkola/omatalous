@@ -25,12 +25,16 @@ export interface BankCsvLayout {
   more?: number[];
   /** When `text` names the payee, the column that names the payer: used for money in. */
   textIn?: number | null;
+  /** The payment message (viesti), kept beside the text as the row's description. Absent or null: the household reads none. */
+  message?: number | null;
 }
 
 interface BankCsvRow {
   day: IsoDate;
   cents: number;
   text: string;
+  /** The payment message, only when the row has one that says more than its text. */
+  message?: string;
 }
 
 export interface BankCsvTable {
@@ -154,6 +158,8 @@ export function guessBankCsvLayout(table: Pick<BankCsvTable, "delimiter" | "head
     });
   }
   if (more.length) layout.more = more;
+  const message = firstWhere(header, (h) => /viesti|message/.test(h), taken);
+  if (message !== null) layout.message = message;
   // the text names the payee: money in is named by the payer column instead
   if (/saaja/.test(norm(header[text]!)) && !/maksaja/.test(norm(header[text]!))) {
     const payer = firstWhere(header, (h) => /maksaja/.test(h) && !/saaja/.test(h.replace("maksaja", "")), taken);
@@ -167,7 +173,7 @@ export function isBankCsvLayout(layout: BankCsvLayout, columns: number): boolean
   const ok = (n: number | null): boolean => n === null || (Number.isInteger(n) && n >= 0 && n < columns);
   const single = layout.amount !== null;
   const split = layout.debit !== null && layout.credit !== null;
-  return DELIMITERS.includes(layout.delimiter) && ok(layout.date) && ok(layout.text) && ok(layout.amount) && ok(layout.debit) && ok(layout.credit) && ok(layout.textIn ?? null) && (layout.more ?? []).every((n) => ok(n)) && single !== split;
+  return DELIMITERS.includes(layout.delimiter) && ok(layout.date) && ok(layout.text) && ok(layout.amount) && ok(layout.debit) && ok(layout.credit) && ok(layout.textIn ?? null) && ok(layout.message ?? null) && (layout.more ?? []).every((n) => ok(n)) && single !== split;
 }
 
 /** "03.09.2026", "3/9/2026" (day first), "2026-09-03" or "2026/09/03", with a time after it allowed. */
@@ -229,6 +235,13 @@ function rowText(cells: readonly string[], layout: BankCsvLayout, cents: number 
   return "";
 }
 
+/** The payment message of a row: its cell, when it is not an account number and not the text over again. */
+function rowMessage(cells: readonly string[], layout: BankCsvLayout, text: string): string | undefined {
+  if (layout.message == null) return undefined;
+  const m = cleanStatementText(cells[layout.message] ?? "");
+  return m && !isAccount(m) && norm(m) !== norm(text) ? m : undefined;
+}
+
 /** The rows of a table under a layout. A line that does not read is told in `unread`, never dropped. */
 export function readBankCsvRows(table: Pick<BankCsvTable, "delimiter" | "body">, layout: BankCsvLayout): BankCsvRead | { error: BankCsvError } {
   const rows: BankCsvRow[] = [];
@@ -237,7 +250,8 @@ export function readBankCsvRows(table: Pick<BankCsvTable, "delimiter" | "body">,
     const d = day(cells[layout.date] ?? "");
     const cents = rowCents(cells, layout);
     const text = rowText(cells, layout, cents);
-    if (d && cents && text && Math.abs(cents) <= CARD_FILE_MAX_CENTS) rows.push({ day: d, cents, text });
+    const message = rowMessage(cells, layout, text);
+    if (d && cents && text && Math.abs(cents) <= CARD_FILE_MAX_CENTS) rows.push({ day: d, cents, text, ...(message ? { message } : {}) });
     else unread.push(cells.join(table.delimiter));
   }
   if (!rows.length) return { error: "no_rows" };
