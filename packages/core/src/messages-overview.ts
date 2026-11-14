@@ -73,7 +73,6 @@ export const FI_OVERVIEW = {
   "home.months_income": "Tulot",
   "home.months_spend": "Menot",
   "home.months_usual": "Tavallinen kuukausi {sum} ({months} kuukauden keskiarvo)",
-  "home.months_usual_large": "Tavallinen kuukausi on ilman isoja kertaostoja, yhteensä {sum}.",
   "home.months_running": "kesken",
   "home.months_partial": "vajaa kuukausi",
   "home.months_aria": "Tulot ja menot kuukausittain, {count} kuukautta",

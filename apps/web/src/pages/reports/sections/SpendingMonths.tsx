@@ -86,7 +86,6 @@ function SpendingMonths({ ctx }: SectionProps) {
           {usual ? t("rpt.sm_cards_some", { count: r.categoryMonths }) : t("rpt.sm_cards_none")} <CardStatementLink />
         </p>
       )}
-      {r.typicalCents !== null && r.largeLeftOutCents > 0 && <p className="muted">{t("rpt.sm_large_left", { sum: eur(r.largeLeftOutCents) })}</p>}
       <Table<Row>
         caption={section.title}
         rows={r.categories}

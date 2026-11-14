@@ -70,7 +70,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.months_income": "Income",
   "home.months_spend": "Spending",
   "home.months_usual": "Usual month {sum} (mean of {months} months)",
-  "home.months_usual_large": "The usual month leaves out large one-off purchases, {sum} in all.",
   "home.months_running": "so far",
   "home.months_partial": "part of a month",
   "home.months_aria": "Income and spending by month, {count} months",

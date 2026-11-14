@@ -1062,7 +1062,6 @@
   ],
   "usualSpendCents": 332798,
   "usualMonths": 11,
-  "usualLargeLeftOutCents": 0,
   "categories": {
    "rows": [
     {

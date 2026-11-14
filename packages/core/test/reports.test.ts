@@ -67,8 +67,6 @@ describe("reports", () => {
     const query = { range, balances: [] };
     const base = buildReports({ ctx, ...query }, ["spendingMonths"]).spendingMonths;
     const s = buildReports({ ctx: withSofa, ...query }, ["spendingMonths"]).spendingMonths;
-    expect(base.largeLeftOutCents).toBe(0);
-    expect(s.largeLeftOutCents).toBe(150000);
     // the bars and the total still hold the sofa
     expect(s.totalCents).toBe(base.totalCents + 150000);
     expect(s.totals[3]).toBe(base.totals[3]! + 150000);
@@ -78,7 +76,7 @@ describe("reports", () => {
     expect(Math.abs(s.categories.reduce((sum, c) => sum + c.typicalCents!, 0) - s.typicalCents!)).toBeLessThanOrEqual(s.categories.length);
   });
 
-  it("spending by month: a refund of a large purchase leaves the average with it, so the sum left out is the purchase net of the refund", () => {
+  it("spending by month: a refund of a large purchase leaves the average with it, so the level is what it was without both rows", () => {
     const sofa = tx({ id: "sofa", bookingDate: "2026-04-15", amountCents: -150000, category: "home", merchant: "Sohvakauppa" });
     const back = tx({ id: "sofa-back", bookingDate: "2026-04-25", amountCents: 30000, category: "home", merchant: "Sohvakauppa" });
     const withSofa = createContext([...dataset(), sofa, back], [checking], today);
@@ -86,8 +84,7 @@ describe("reports", () => {
     const query = { range, balances: [] };
     const base = buildReports({ ctx, ...query }, ["spendingMonths"]).spendingMonths;
     const s = buildReports({ ctx: withSofa, ...query }, ["spendingMonths"]).spendingMonths;
-    // the sum left out is what the sofa cost after the refund
-    expect(s.largeLeftOutCents).toBe(120000);
+    // the bars and the total hold the sofa net of the refund
     expect(s.totalCents).toBe(base.totalCents + 120000);
     // the averages are what they were without either row
     expect(s.typicalCents).toBe(base.typicalCents);

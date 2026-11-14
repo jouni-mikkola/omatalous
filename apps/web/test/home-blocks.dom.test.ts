@@ -28,7 +28,7 @@ function data(more: Record<string, unknown> = {}, nyt: Partial<NytData> = {}): D
   const rest = {
     pace: { month: "2026-11" },
     ahead: { from: TODAY, to: "2026-11-24", reason: "payday", payday: { date: "2026-11-25" }, rows: [], upcoming: [], outside: [] },
-    overview: { months: MONTHS, usualSpendCents: 214900, usualMonths: 10, usualLargeLeftOutCents: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } },
+    overview: { months: MONTHS, usualSpendCents: 214900, usualMonths: 10, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } },
     ...more,
   } as unknown as DashboardData;
   return { ...rest, nyt: { from: TODAY, left, usualPerDayCents: null, pace: { day: 11, spentCents: 0, usual: null }, ...nyt } as NytData };
@@ -60,11 +60,7 @@ describe("Tulot ja menot", () => {
     const usual = render(createElement(Months, { data: data(), today: TODAY }));
     expect(usual.container.querySelector(".mb-usual")).not.toBeNull();
     expect(flat(usual.container.querySelector(".mb-key")?.textContent)).toContain("Tavallinen kuukausi 2 149 € (10 kuukauden keskiarvo)");
-    expect(usual.container.textContent).not.toContain("isoja kertaostoja");
     usual.unmount();
-    const large = render(createElement(Months, { data: data({ overview: { months: MONTHS, usualSpendCents: 214900, usualMonths: 10, usualLargeLeftOutCents: 150000, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } } }), today: TODAY }));
-    expect(flat(large.container.textContent)).toContain("Tavallinen kuukausi on ilman isoja kertaostoja, yhteensä 1 500 €.");
-    large.unmount();
     const none = render(createElement(Months, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } } }), today: TODAY }));
     expect(none.container.querySelector(".mb-usual")).toBeNull();
     expect(flat(none.container.querySelector(".mb-key")?.textContent)).not.toContain("Tavallinen");

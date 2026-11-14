@@ -2503,7 +2503,6 @@
   ],
   "totalCents": 202112,
   "typicalCents": null,
-  "largeLeftOutCents": 0,
   "typicalMonths": 0,
   "categoryMonths": 0,
   "cardGap": false,

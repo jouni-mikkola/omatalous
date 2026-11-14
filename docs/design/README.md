@@ -31,8 +31,7 @@ Direction, 11.11.2026 (the owner's): an overview on one screen at 1440 px, every
   - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
     month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
 - Tulot ja menot: the last twelve months, an income bar and a spending bar a month (`overview.months`), the usual
-  month's spending as a dashed line (`overview.usualSpendCents`, without large purchases, which a line under the key
-  names as one sum). The running month, and a month the accounts do not
+  month's spending as a dashed line (`overview.usualSpendCents`). The running month, and a month the accounts do not
   cover from its 1st, are lighter with a dashed edge; the running one says "kesken" under its name. A month opens its
   rows in Tapahtumat.
 - Tulevat laskut beside it: the bills before payday with date, payee and sum, at most six and the rest as a count, and

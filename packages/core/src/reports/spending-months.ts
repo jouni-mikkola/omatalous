@@ -60,8 +60,6 @@ export interface SpendingMonthsReport {
    * and `totals` keep the large purchases.
    */
   typicalCents: number | null;
-  /** The sum of the large purchases of the complete months that `typicalCents` and the categories' levels leave out; 0 when there are none. */
-  largeLeftOutCents: number;
   /** How many months `typicalCents` is the level of. */
   typicalMonths: number;
   /**
@@ -150,7 +148,6 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     totals,
     totalCents: totals.reduce((s, v) => s + v, 0),
     typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
-    largeLeftOutCents: completeAt.reduce((s, i) => s + largeTotals[i]!, 0),
     typicalMonths: completeAt.length,
     categoryMonths: categoryAt.length,
     cardGap: categoryAt.length < completeAt.length,

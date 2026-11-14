@@ -48,7 +48,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
   const width = measured || UNMEASURED;
-  const { months, usualSpendCents: usual, usualMonths, usualLargeLeftOutCents: largeLeftOut } = overview;
+  const { months, usualSpendCents: usual, usualMonths } = overview;
   const values = [...months.flatMap((m) => [m.incomeCents, m.spendCents]), ...(usual === null ? [] : [usual])];
   const options = { minHeight: 180, tallest: 220, ratio: 0.3 };
   const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
@@ -88,7 +88,6 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
           </li>
         )}
       </ul>
-      {usual !== null && largeLeftOut > 0 && <p className="muted">{t("home.months_usual_large", { sum: answerMoney(largeLeftOut) })}</p>}
       <svg width={f.width} height={f.height}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={t("home.months_aria", { count: months.length })}>
