@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { splitRowsByDay } from "../src/card-file.ts";
-import { type BankCsvLayout, bankCsvKey, guessBankCsvLayout, isBankCsvLayout, parseBankCsv, readBankCsvRows } from "../src/bank-csv.ts";
+import { type BankCsvLayout, bankCsvKey, guessBankCsvLayout, isBankCsvLayout, mentionsAccount, parseBankCsv, readBankCsvRows } from "../src/bank-csv.ts";
 
 /** A file's text under a layout, else under the one its header suggests: what the page does. */
 function readBankCsv(text: string, layout?: BankCsvLayout) {
@@ -185,5 +185,12 @@ describe("splitRowsByDay", () => {
     const parts = splitRowsByDay(rows);
     expect(parts).toHaveLength(2);
     expect(parts[1]).toEqual([rows[999], rows[1000]]);
+  });
+});
+
+describe("mentionsAccount", () => {
+  it("finds an IBAN in either letter case and a Finnish account number, and leaves plain messages", () => {
+    for (const t of ["FI21 1234 5600 0007 85", "fi21 1234 5600 0007 85", "vuokra fi2112345600000785 syyskuu", "tilille 123456-785"]) expect(mentionsAccount(t)).toBe(true);
+    for (const t of ["Vuokra syyskuu", "Lasku 2026", "FI21 kuitti"]) expect(mentionsAccount(t)).toBe(false);
   });
 });

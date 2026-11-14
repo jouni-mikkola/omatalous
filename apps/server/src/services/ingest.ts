@@ -35,16 +35,17 @@ interface Party {
  * CSV row or as a pending row and its booked row. The texts differ between sources, so the merchant names only
  * have to agree on their first word, or one row's text has to name the other's merchant. A row without a
  * merchant says nothing and agrees with any. Two different shops that charged the same amount on the same day
- * disagree, and both are kept.
+ * disagree, and both are kept. With `descriptions` false only the counterparties can name a merchant: a row that
+ * carries a message (a CSV row) is a twin of the same counterparty's row alone, not of any row its message names.
  */
-function sameParty(a: Party, b: Party): boolean {
+function sameParty(a: Party, b: Party, descriptions = true): boolean {
   if (a.merchant === UNKNOWN_MERCHANT || b.merchant === UNKNOWN_MERCHANT) return true;
   const ma = fold(a.merchant).trim();
   const mb = fold(b.merchant).trim();
   if (ma === mb) return true;
   const first = (m: string) => m.split(/\s+/)[0] ?? "";
   if (first(ma).length >= 3 && first(ma) === first(mb)) return true;
-  const text = (p: Party) => fold([p.counterparty, p.description].filter(Boolean).join(" "));
+  const text = (p: Party) => fold([p.counterparty, descriptions ? p.description : null].filter(Boolean).join(" "));
   return (mb.length >= 4 && text(a).includes(mb)) || (ma.length >= 4 && text(b).includes(ma));
 }
 
@@ -158,7 +159,7 @@ export async function ingestTransactions(repo: FinanceRepo, accountId: string, r
       } else {
         const key = `${r.bookingDate}|${r.amountCents}`;
         const candidates = [...(others.get(key) ?? []), ...(r.externalId ? [] : (earlier.get(key) ?? []))];
-        const twin = closest(candidates.filter((o) => !usedOthers.has(o.id) && sameParty(o, party)), party);
+        const twin = closest(candidates.filter((o) => !usedOthers.has(o.id) && sameParty(o, party, !party.description)), party);
         if (twin) {
           usedOthers.add(twin.id);
           result.skipped++;

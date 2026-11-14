@@ -62,6 +62,15 @@ describe("bank CSV rows", () => {
     ]);
   });
 
+  it("drop a message that holds an account number, in any letter case, and keep the row", async () => {
+    const { admin, db } = await setupApp();
+    const messages = ["FI21 1234 5600 0007 85", "fi21 1234 5600 0007 85", "vuokra fi2112345600000785 syyskuu", "tilille 123456-785", "Ostos"];
+    const rows = messages.map((message, i) => ({ day: "2026-09-03", cents: -1000 - i, text: "MAKSU", message }));
+    expect((await admin.call("POST", "/api/bank-file", { name: "Tili", rows })).body).toMatchObject({ inserted: 5 });
+    const stored = await db.all<{ description: string | null }>("SELECT description FROM transactions ORDER BY amount_cents DESC");
+    expect(stored.map((r) => r.description)).toEqual([null, null, null, null, "Ostos"]);
+  });
+
   it("refuse a message that is not text or is too long", async () => {
     const { admin } = await setupApp();
     const row = { day: "2026-09-03", cents: -2340, text: "PRISMA" };

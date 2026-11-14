@@ -222,7 +222,17 @@ function rowCents(cells: readonly string[], layout: BankCsvLayout): number | nul
 }
 
 /** Only an account number: an IBAN, or digits with spaces and dashes. */
-const isAccount = (t: string): boolean => /^[A-Z]{2}\d{2}[A-Z0-9 ]{8,30}$/.test(t) && /\d{6}/.test(t.replace(/ /g, "")) || /^[\d\s-]{6,}$/.test(t);
+const isAccount = (t: string): boolean => /^[A-Z]{2}\d{2}[A-Z0-9 ]{8,30}$/i.test(t) && /\d{6}/.test(t.replace(/ /g, "")) || /^[\d\s-]{6,}$/.test(t);
+
+/**
+ * Whether a text holds an IBAN (any letter case, with or without spaces) or a Finnish account number anywhere in it.
+ * The server drops a payment message of which this is true, whatever the browser sent.
+ */
+export function mentionsAccount(t: string): boolean {
+  if (isAccount(t)) return true;
+  for (const m of t.matchAll(/\b[a-z]{2}\d{2}(?: ?[a-z0-9]){10,30}/gi)) if ((m[0].match(/\d/g) ?? []).length >= 8) return true;
+  return /\b\d{6}-\d{2,8}\b/.test(t);
+}
 
 /** The text of a row: the column for its direction, then the chosen one, then the others; the first that is a name. */
 function rowText(cells: readonly string[], layout: BankCsvLayout, cents: number | null): string {
@@ -239,7 +249,7 @@ function rowText(cells: readonly string[], layout: BankCsvLayout, cents: number 
 function rowMessage(cells: readonly string[], layout: BankCsvLayout, text: string): string | undefined {
   if (layout.message == null) return undefined;
   const m = cleanStatementText(cells[layout.message] ?? "");
-  return m && !isAccount(m) && norm(m) !== norm(text) ? m : undefined;
+  return m && !mentionsAccount(m) && norm(m) !== norm(text) ? m : undefined;
 }
 
 /** The rows of a table under a layout. A line that does not read is told in `unread`, never dropped. */

@@ -3,7 +3,7 @@
  * text each, and the card's name or one of the household's statement cards. The rows go in through `ingestTransactions` like
  * any fetch, so the same statement sent twice stores each row once.
  */
-import { CARD_FILE_MAX_CENTS, CARD_FILE_MAX_ROWS, fold, isRealDay, normalizeMerchant, STATEMENT_TEXT_MAX, UNKNOWN_MERCHANT, type RawTransaction } from "@banking/core";
+import { CARD_FILE_MAX_CENTS, CARD_FILE_MAX_ROWS, fold, isRealDay, mentionsAccount, normalizeMerchant, STATEMENT_TEXT_MAX, UNKNOWN_MERCHANT, type RawTransaction } from "@banking/core";
 import { bankFile } from "../connectors/bank-file/index.ts";
 import { cardFile } from "../connectors/card-file/index.ts";
 import type { Connector } from "../connectors/types.ts";
@@ -44,7 +44,8 @@ export function parseCardFile(body: unknown): CardFileInput {
     if (message !== undefined && message !== null && typeof message !== "string") throw UserError.of("card_file.bad_rows");
     const note = (message ?? "").replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, "").trim();
     if (Array.from(note).length > STATEMENT_TEXT_MAX) throw UserError.of("card_file.bad_rows");
-    return { day, cents, text: clean, message: note || null };
+    // an account number never rides along in a message, whatever the browser filtered
+    return { day, cents, text: clean, message: note && !mentionsAccount(note) ? note : null };
   });
   return { accountId: text(accountId, 200), name: text(name, MAX_NAME), last4: (last4 as string | null | undefined) ?? null, rows: out };
 }

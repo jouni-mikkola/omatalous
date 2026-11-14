@@ -115,6 +115,13 @@ describe("a CSV over fetched data", () => {
     expect(await rows()).toHaveLength(2);
   });
 
+  it("keeps a row whose message names another counterparty's stored payment of the same day and amount", async () => {
+    const { fetchBank, importCsv, rows } = await withAccount();
+    await fetchBank([raw("2026-10-06", -40, "ALPHA OY", { externalId: "a1" })]);
+    expect(await importCsv([raw("2026-10-06", -40, "BETA OY", { description: "ALPHA OY lasku" })])).toMatchObject({ inserted: 1, skipped: 0 });
+    expect((await rows()).sort()).toEqual(["2026-10-06 booked -4000 Alpha Oy enablebanking", "2026-10-06 booked -4000 Beta Oy csv"]);
+  });
+
   it("matches the same payment when the texts differ a little", async () => {
     const { fetchBank, importCsv } = await withAccount();
     await fetchBank([raw("2026-10-06", -54.2, "IF VAHINKOVAKUUTUS OY", { externalId: "i1", description: "Kotivakuutus 10/2026" })]);
