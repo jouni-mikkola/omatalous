@@ -241,8 +241,8 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
       }
       // a concept read by one page only is no agreement: some month has two readers at least
       expect(compared, `${concept.id}: no month is read by two pages`).toBeGreaterThan(0);
-      // one string, so a failure prints each month's figures
-      expect(mismatches.join("\n")).toBe("");
+      // the message carries each month's figures, which a long value of `toEqual` would cut short
+      expect(mismatches.length, mismatches.join(" || ")).toBe(0);
     });
   }
 });
