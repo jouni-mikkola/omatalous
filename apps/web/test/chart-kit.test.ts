@@ -56,18 +56,59 @@ describe("a domain that one outlier does not flatten", () => {
     const out = robustDomain([1200, 1500, 1100, 9000, 1800, 1300]);
     expect(out.clipped).toEqual([3]);
     expect(out.max).toBe(1800);
+    expect(out.min).toBe(1100);
   });
 
   it("clips nothing in an even series, in a short one or in one that is mostly zero", () => {
-    expect(robustDomain([1000, 1200, 1500, 2000, 2500])).toEqual({ max: 2500, clipped: [] });
-    expect(robustDomain([100, 100, 9000])).toEqual({ max: 9000, clipped: [] });
-    expect(robustDomain([0, 0, 0, 0, 500])).toEqual({ max: 500, clipped: [] });
-    expect(robustDomain([])).toEqual({ max: 0, clipped: [] });
+    expect(robustDomain([1000, 1200, 1500, 2000, 2500])).toEqual({ min: 1000, max: 2500, clipped: [] });
+    expect(robustDomain([100, 100, 9000])).toEqual({ min: 100, max: 9000, clipped: [] });
+    expect(robustDomain([0, 0, 0, 0, 500])).toEqual({ min: 0, max: 500, clipped: [] });
+    expect(robustDomain([])).toEqual({ min: 0, max: 0, clipped: [] });
   });
 
   it("reads a value by its size and a looser factor clips less", () => {
     expect(robustDomain([-9000, 1000, 1100, 1200, 1300]).clipped).toEqual([0]);
     expect(robustDomain([1200, 1500, 1100, 9000, 1800, 1300], { factor: 10 }).clipped).toEqual([]);
+  });
+
+  it("takes both ends from the unclipped signed values: a negative outlier leaves the top alone, a positive one the bottom", () => {
+    expect(robustDomain([-9000, 1000, 1100, 1200, 1300])).toEqual({ min: 1000, max: 1300, clipped: [0] });
+    expect(robustDomain([-1000, -1100, -1200, -1300, 9000])).toEqual({ min: -1300, max: -1000, clipped: [4] });
+    expect(robustDomain([-9000, -1000, 1100, 1200, 9000, -1100])).toEqual({ min: -1100, max: 1200, clipped: [0, 4] });
+    expect(robustDomain([-1000, -1100, -1200, -1300, -9000])).toEqual({ min: -1300, max: -1000, clipped: [4] });
+    expect(robustDomain([5, 5, 5, 5])).toEqual({ min: 5, max: 5, clipped: [] });
+  });
+
+  it("keeps a clipped negative or positive outlier out of the linear domain, with zero kept as the baseline", () => {
+    const negative = linear([-9000, 1000, 1100, 1200, 1300], [100, 0], { clip: 3 });
+    expect(negative.clipped).toEqual([0]);
+    expect(negative.domain[0]).toBe(0);
+    expect(negative.domain[1]).toBeLessThan(2000);
+    const positive = linear([-1000, -1100, -1200, -1300, 9000], [100, 0], { clip: 3 });
+    expect(positive.clipped).toEqual([4]);
+    expect(positive.domain[1]).toBe(0);
+    expect(positive.domain[0]).toBeGreaterThan(-2000);
+    const both = linear([-9000, -1000, 1100, 1200, 9000, -1100], [100, 0], { clip: 3 });
+    expect(both.clipped).toEqual([0, 4]);
+    expect(both.domain[0]).toBeGreaterThan(-2000);
+    expect(both.domain[0]).toBeLessThanOrEqual(-1100);
+    expect(both.domain[1]).toBeGreaterThanOrEqual(1200);
+    expect(both.domain[1]).toBeLessThan(2000);
+    const allNegative = linear([-1000, -1100, -1200, -1300, -9000], [100, 0], { clip: 3 });
+    expect(allNegative.clipped).toEqual([4]);
+    expect(allNegative.domain[1]).toBe(0);
+    expect(allNegative.domain[0]).toBeGreaterThan(-2000);
+    const equal = linear([5, 5, 5, 5], [100, 0], { clip: 3 });
+    expect(equal.clipped).toEqual([]);
+    expect(equal.domain[0]).toBe(0);
+    expect(equal.domain[1]).toBeGreaterThanOrEqual(5);
+  });
+
+  it("hugs the unclipped values without zero", () => {
+    const hugged = linear([90_000, 10_000, 10_500, 11_000, 12_000], [100, 0], { clip: 3, zero: false });
+    expect(hugged.clipped).toEqual([0]);
+    expect(hugged.domain[0]).toBeGreaterThan(5000);
+    expect(hugged.domain[1]).toBeLessThan(20_000);
   });
 
   it("sets the top of a linear scale and names the clipped indices, only when asked", () => {

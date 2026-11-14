@@ -11,7 +11,7 @@ export interface Linear {
   readonly range: readonly [number, number];
   readonly ticks: readonly number[];
   readonly step: number;
-  /** The indices of the values the axis leaves above its top (`clip`); a bar of one is cut at the frame and says so. Empty without `clip`. */
+  /** The indices of the values the axis leaves beyond its ends (`clip`); a bar of one is cut at the frame and says so. Empty without `clip`. */
   readonly clipped: readonly number[];
   invert(px: number): number;
 }
@@ -21,7 +21,7 @@ export interface LinearOptions {
   zero?: boolean;
   /** About how many tick steps the axis should have. */
   target?: number;
-  /** An outlier more than this many times the third quartile does not set the top of the axis (`robustDomain`). Off by default. */
+  /** An outlier more than this many times the third quartile does not set either end of the axis (`robustDomain`). Off by default. */
   clip?: number;
 }
 
@@ -33,7 +33,7 @@ export interface LinearOptions {
 export function linear(values: readonly number[], range: readonly [number, number], { zero = true, target = 4, clip }: LinearOptions = {}): Linear {
   const finite = values.filter(Number.isFinite);
   const robust = clip === undefined ? null : robustDomain(values, { factor: clip });
-  let lo = finite.length ? Math.min(...finite) : 0;
+  let lo = robust ? robust.min : finite.length ? Math.min(...finite) : 0;
   let hi = robust ? robust.max : finite.length ? Math.max(...finite) : 0;
   if (zero) {
     lo = Math.min(0, lo);
