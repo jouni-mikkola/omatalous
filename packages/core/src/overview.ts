@@ -49,7 +49,7 @@ export interface Overview {
   net: { since: IsoDate; changeCents: number } | null;
   /** The months the history reaches of the last `OVERVIEW_MONTHS`, oldest first, the running month last. */
   months: OverviewMonth[];
-  /** The usual month's spending over the complete months of `months` (`typicalCents` of Menot kuukausittain); null under three of them. */
+  /** The usual month's spending over the complete months of `months` (`typicalCents` of Menot kuukausittain, without large purchases); null under three of them. */
   usualSpendCents: number | null;
   /** How many complete months `usualSpendCents` is the mean of, which the chart's key names. */
   usualMonths: number;
