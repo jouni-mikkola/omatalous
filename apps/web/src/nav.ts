@@ -9,8 +9,7 @@ export interface NavEntry {
 
 /**
  * The pages of the header, in the order the household reads them: Yhteenveto, Laskut, Tapahtumat, Raportit. Every
- * entry is a tab, at every width. What an add-on module adds comes after them on a wide screen and is in the user menu
- * on a phone. Asetukset is not one of them.
+ * entry is a tab, at every width. What an add-on module adds is a tab after them, at every width. Asetukset is not one of them.
  */
 export const NAV: readonly NavEntry[] = [
   { id: "overview", get label() { return t("nav.overview"); } },

@@ -42,7 +42,15 @@ describe("Shell: a page carries its tab's name", () => {
     expect(names).toEqual(["Asetukset"]);
   }, 60000);
 
-  it("puts the page of an add-on module after the tabs on a wide screen and in the user menu on a phone", async () => {
+  it("links the logo to Yhteenveto by its name", async () => {
+    await startServer();
+    await openApp("#/bills");
+    const logo = screen.getByRole("link", { name: "Omatalous" });
+    expect(logo.closest("header")).not.toBeNull();
+    expect(logo.getAttribute("href")).toMatch(/\/overview$/);
+  }, 60000);
+
+  it("puts the page of an add-on module among the tabs at every width and not in the user menu", async () => {
     const { WEB_EXTENSIONS } = await import("../src/extensions.ts");
     WEB_EXTENSIONS.push({ id: "esimerkki", page: { label: "Esimerkki", component: () => null } });
     try {
@@ -50,10 +58,9 @@ describe("Shell: a page carries its tab's name", () => {
       await openApp("#/overview");
       const links = [...tabs().querySelectorAll("a")];
       expect(links.map((a) => a.textContent)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit", "Esimerkki"]);
-      expect(links.map((a) => a.classList.contains("nav-wide-only"))).toEqual([false, false, false, false, true]);
+      expect(links.filter((a) => a.className)).toEqual([]);
       const menu = [...document.querySelectorAll(".user-menu .menu a")];
-      expect(menu.map((a) => a.textContent)).toEqual(["Esimerkki", "Asetukset"]);
-      expect(menu.map((a) => a.classList.contains("menu-phone-only"))).toEqual([true, false]);
+      expect(menu.map((a) => a.textContent)).toEqual(["Asetukset"]);
     } finally {
       WEB_EXTENSIONS.length = 0;
     }
