@@ -42,7 +42,8 @@ export function BackupList({ app, host, disabled, restoreDisabled, canDownload, 
         <div>
           <h2>{S.backups}</h2>
           <div className="card-sub">{S.keyNote}</div>
-          <LastResult request={last} />
+          {/* `last` is only the copy taken by hand: with copies in the list, "not run yet" would say there are none */}
+          {(last || rows.length === 0) && <LastResult request={last} />}
         </div>
         <div className="form-row flush">
           <Button disabled={disabled} onClick={onBackup}>

@@ -23,7 +23,7 @@ export function BeforePayday({ data }: { data: DashboardData }) {
   if (!left?.known || !ahead?.payday) return null;
   const payday = ahead.payday;
   const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
-  // due before the payday from an account the balance leaves out: listed and named so, in no sum here
+  // due before the payday from an account the balance leaves out: listed and named so, in no sum here; the answer's own `elsewhereCents` says what they come to, under the figure
   const outside = ahead.outside.filter((r) => r.cents !== null && r.cents < 0 && r.date < left.payday.date);
   const pay = payday.pay?.floorCents ?? null;
   const line = paydayLine(ahead, rows, left.payday.date);
@@ -33,6 +33,7 @@ export function BeforePayday({ data }: { data: DashboardData }) {
         <h3 id="before-payday-h">{t("home.payments_before_payday")}</h3>
         <Figure text={money(left.billsCents, false)} size="l" />
       </div>
+      {left.elsewhereCents > 0 && <p className="bp-elsewhere">{t("bills.elsewhere", { sum: money(left.elsewhereCents) })}</p>}
       {line && <NextDaysLine line={line} active={active} onActive={setActive} labelledBy="before-payday-h" />}
       {line && (
         <p className="legend bills-time-legend">

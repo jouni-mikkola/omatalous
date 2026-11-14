@@ -32,6 +32,7 @@ export const EN_SET_MEMBERS: Record<keyof typeof FI_SET_MEMBERS, string> = {
   "set.mem.the_name_is_removed_from": "The name is removed from the members. Accounts and transactions stay as they are.",
   "set.mem.you": "you",
   "set.mem.temporary_password": "temporary password",
+  "set.mem.temporary_password_long": "temporary password for over a week",
   "set.mem.username": "Username",
   "set.mem.no_sign_in": "no sign-in",
   "set.mem.administrator_2": "administrator",

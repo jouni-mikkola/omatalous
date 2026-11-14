@@ -54,7 +54,7 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.tm_f_estimate": "Month-end estimate",
   "rpt.tm_history": "The expected level shows once you have {months} of history.",
   "rpt.tm_needs_months": "the usual needs {count} months",
-  "rpt.tm_usual_income": "usually per month",
+  "rpt.tm_usual_income": "usually {sum} a month",
   "rpt.tm_sums_caption": "Spending by category",
   "rpt.first_now": "Here you see how much you can still spend before payday.",
   "rpt.first_month": "Here you see where the money went this month compared with the usual.",

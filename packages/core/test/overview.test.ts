@@ -14,6 +14,7 @@ import { explainNow } from "../src/explain/now.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { loanBalanceOn } from "../src/loans.ts";
 import { buildOverview } from "../src/overview.ts";
+import { buildReports } from "../src/reports/index.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { accountsLessDebtOn } from "../src/reports/balances.ts";
 import type { BalanceInput, Loan, UserInputs } from "../src/types.ts";
@@ -85,6 +86,13 @@ describe("the tiles' figures", () => {
     const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
     expect(income).toEqual({ cents: earnedIncome(ctx, "2025-10"), usualCents: expectedIncome(ctx, "2025-10") });
     expect(income.usualCents).not.toBeNull();
+  }, 30_000);
+
+  it("the income line of Kuukausi reads the same two figures as the tile, for the same month", () => {
+    const { ctx, balances } = household(5);
+    const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
+    const month = buildReports({ ctx, range: { from: "2025-10-01", to: "2025-10-31" }, balances: [] }, ["income"]).income.months.find((m) => m.month === "2025-10")!;
+    expect({ cents: month.earnedCents, usualCents: month.usualCents }).toEqual(income);
   }, 30_000);
 
   it("the running month's bars are the Menot and Tulot tiles' figures, and the months are twelve at most, oldest first", () => {

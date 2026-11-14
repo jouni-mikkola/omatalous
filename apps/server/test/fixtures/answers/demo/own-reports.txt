@@ -817,6 +817,8 @@
     "month": "2026-10",
     "complete": false,
     "totalCents": 0,
+    "earnedCents": 0,
+    "usualCents": 395000,
     "byGroup": {
      "salary": 0,
      "extra_pay": 0,

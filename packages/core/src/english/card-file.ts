@@ -5,6 +5,8 @@ export const EN_CARD_FILE: Record<keyof typeof FI_CARD_FILE, string> = {
   "card_file.title": "Statement from a file",
   "card_file.sub": "The file is read in the browser and only the transaction rows are stored.",
   "card_file.pick": "Choose a file",
+  "card_file.gap_link": "Import the card statement",
+  "card_file.gap_note": "A file's rows are saved only to a card made from a statement, not to a card fetched from the bank.",
   "card_file.formats": "An account's CSV export, a camt.053 statement (XML) or a card statement (CSV or text)",
   "card_file.reading": "Reading…",
   "card_file.err_empty": "No rows were found in the file.",

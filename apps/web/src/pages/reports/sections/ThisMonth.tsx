@@ -1,6 +1,7 @@
 // Decision: whether this month is running over what it usually costs, and which days and categories to look at before it ends
 import { type GapRow, joinRange, MIN_COMPARE_MONTHS, type ThisMonthReport } from "@banking/core";
 import { approxText } from "../../../approx.ts";
+import { CardStatementLink } from "../../../components/CardStatementLink.tsx";
 import { KeyValue } from "../../../components/table/KeyValue.tsx";
 import { Section } from "../../../components/Section.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
@@ -40,7 +41,13 @@ function GapTable({ caption, first, rows, report }: { caption: string; first: st
 /** Why the month has no usual to stand against: too little history, or a linked card's purchases missing from the months before. Nothing when it has one. */
 export function GapReasonNote({ reason, className = "month-note" }: { reason: ThisMonthReport["gapReason"]; className?: string }) {
   if (reason === "history") return <p className={className}>{t("rpt.tm_history", { months: completeMonths(MIN_COMPARE_MONTHS) })}</p>;
-  if (reason === "cards") return <p className={className}>{t("rpt.tm_cards")}</p>;
+  if (reason === "cards") {
+    return (
+      <p className={className}>
+        {t("rpt.tm_cards")} <CardStatementLink />
+      </p>
+    );
+  }
   return null;
 }
 

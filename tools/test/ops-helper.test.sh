@@ -30,6 +30,10 @@ t_release_update() {
   check "release: journal written and marked reported" grep -q '"reported":true' "$CL/ops/journal/$ID.json"
   check "release: state file for rollback exists (600)" test "$(stat -c %a "$CL/backups/.last-update")" = 600
 }
+t_doctor_after_update() { # the system check shows the version that runs, not the one of the day before
+  new_world; release 0.2.0; rm -f "$CL/ops/doctor.frag"; poll update; tick
+  check "doctor: an update leaves a fresh system check for the page" bash -c "grep -q '\"doctor\":{\"at\"' '$S/reports/1.json'"
+}
 t_offer_after_update_and_rollback() { # the daily check offered the version before the update, and nothing fetches after it
   new_world; release 0.2.0; tick; poll update; tick
   check "offer: after a release update the result says no update is available" grep -q '"update_available":false' "$S/reports/1.json"
