@@ -534,6 +534,9 @@
   "monthChange": [
    null
   ],
+  "monthChangeLeftOut": [
+   0
+  ],
   "missing": [
    {
     "accountId": "loan",
