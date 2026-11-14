@@ -125,6 +125,20 @@ describe("a CSV over fetched data", () => {
     expect(stored.filter((r) => /beta.* csv$/i.test(r))).toHaveLength(1);
   });
 
+  it("keeps a later row of another counterparty that a stored row's message names, and stores re-imports once", async () => {
+    const { fetchBank, importCsv, rows } = await withAccount();
+    const beta = () => raw("2026-10-06", -40, "BETA OY", { description: "ALPHA OY lasku" });
+    await importCsv([beta()]);
+    expect(await fetchBank([raw("2026-10-06", -40, "ALPHA OY", { externalId: "a1" })])).toMatchObject({ inserted: 1, skipped: 0 });
+    const stored = await rows();
+    expect(stored).toHaveLength(2);
+    expect(stored.filter((r) => /alpha.* enablebanking$/i.test(r))).toHaveLength(1);
+    expect(stored.filter((r) => /beta.* csv$/i.test(r))).toHaveLength(1);
+    await importCsv([beta()]);
+    await fetchBank([raw("2026-10-06", -40, "ALPHA OY", { externalId: "a1" })]);
+    expect(await rows()).toHaveLength(2);
+  });
+
   it("matches the same payment when the texts differ a little", async () => {
     const { fetchBank, importCsv } = await withAccount();
     await fetchBank([raw("2026-10-06", -54.2, "IF VAHINKOVAKUUTUS OY", { externalId: "i1", description: "Kotivakuutus 10/2026" })]);

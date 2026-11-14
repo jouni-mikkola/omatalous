@@ -228,10 +228,12 @@ const isAccount = (t: string): boolean => /^[A-Z]{2}\d{2}[A-Z0-9 ]{8,30}$/i.test
  * Whether a text holds an IBAN (any letter case, with or without spaces) or a Finnish account number anywhere in it.
  * The server drops a payment message of which this is true, whatever the browser sent.
  */
-export function mentionsAccount(t: string): boolean {
+export function mentionsAccount(text: string): boolean {
+  // any run of white space, Unicode spaces and invisible format characters (no-break, zero-width) counts as one space
+  const t = text.replace(/[\s\p{Z}\p{Cf}]+/gu, " ").trim();
   if (isAccount(t)) return true;
   for (const m of t.matchAll(/\b[a-z]{2}\d{2}(?: ?[a-z0-9]){10,30}/gi)) if ((m[0].match(/\d/g) ?? []).length >= 8) return true;
-  return /\b\d{6}-\d{2,8}\b/.test(t);
+  return /\b\d{6} ?\p{Pd} ?\d{2,8}\b/u.test(t);
 }
 
 /** The text of a row: the column for its direction, then the chosen one, then the others; the first that is a name. */

@@ -35,8 +35,9 @@ interface Party {
  * CSV row or as a pending row and its booked row. The texts differ between sources, so the merchant names only
  * have to agree on their first word, or one row's text has to name the other's merchant. A row without a
  * merchant says nothing and agrees with any. Two different shops that charged the same amount on the same day
- * disagree, and both are kept. With `descriptions` false only the counterparties can name a merchant: a row that
- * carries a message (a CSV row) is a twin of the same counterparty's row alone, not of any row its message names.
+ * disagree, and both are kept. With `descriptions` false only the counterparties can name a merchant: a row with a
+ * message (a CSV row) is a twin of the same counterparty's row alone, and never of a row its message names or whose
+ * message names it, whichever of the two was stored first.
  */
 function sameParty(a: Party, b: Party, descriptions = true): boolean {
   if (a.merchant === UNKNOWN_MERCHANT || b.merchant === UNKNOWN_MERCHANT) return true;
@@ -159,7 +160,7 @@ export async function ingestTransactions(repo: FinanceRepo, accountId: string, r
       } else {
         const key = `${r.bookingDate}|${r.amountCents}`;
         const candidates = [...(others.get(key) ?? []), ...(r.externalId ? [] : (earlier.get(key) ?? []))];
-        const twin = closest(candidates.filter((o) => !usedOthers.has(o.id) && sameParty(o, party, !party.description)), party);
+        const twin = closest(candidates.filter((o) => !usedOthers.has(o.id) && sameParty(o, party, false)), party);
         if (twin) {
           usedOthers.add(twin.id);
           result.skipped++;

@@ -193,4 +193,19 @@ describe("mentionsAccount", () => {
     for (const t of ["FI21 1234 5600 0007 85", "fi21 1234 5600 0007 85", "vuokra fi2112345600000785 syyskuu", "tilille 123456-785"]) expect(mentionsAccount(t)).toBe(true);
     for (const t of ["Ostos", "Maksu 2026", "FI21 teksti"]) expect(mentionsAccount(t)).toBe(false);
   });
+
+  it("finds an IBAN or account number split by double spaces, no-break spaces or other Unicode white space", () => {
+    const fromCodes = (...codes: number[]) => String.fromCharCode(...codes);
+    // double space, no-break, thin, narrow no-break, ideographic, mixed, zero-width
+    const spaces = ["  ", fromCodes(0xa0), fromCodes(0x2009), fromCodes(0x202f), fromCodes(0x3000), ` ${fromCodes(0xa0)} `, fromCodes(0x200b)];
+    for (const s of spaces) {
+      const iban = ["FI21", "1234", "5600", "0007", "85"].join(s);
+      expect(mentionsAccount(`vuokra ${iban} syyskuu`)).toBe(true);
+      expect(mentionsAccount(`vuokra ${iban.toLowerCase()}`)).toBe(true);
+      expect(mentionsAccount(`tilille 123456${s}-${s}785`)).toBe(true);
+    }
+    const nbsp = fromCodes(0xa0);
+    for (const t of ["fi2112345600000785", "FI2112345600000785", ["maksu", "fi21", "1234", "5600", "0007", "85"].join(nbsp), "tili 123456-785 kiitos", `123456${fromCodes(0x2013)}785`]) expect(mentionsAccount(t)).toBe(true);
+    for (const t of [["Ostos", "Maksu", "2026"].join(nbsp), `FI21${nbsp}teksti`, "kortti  1234  5678"]) expect(mentionsAccount(t)).toBe(false);
+  });
 });
