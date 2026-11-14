@@ -3,6 +3,7 @@ import { t } from "../../text.ts";
 import { useWidth } from "../../hooks.ts";
 import { crisp } from "../draw.ts";
 import { LiveReadout } from "../kit/Readout.tsx";
+import { fitLabel } from "../kit/label.ts";
 import { useMarks } from "../kit/marks.ts";
 import { readoutText } from "../kit/readout.ts";
 import { linear } from "../kit/scale.ts";
@@ -39,7 +40,7 @@ export function Slope({ items, fromLabel, toLabel, format, label, height = 260, 
   const x0 = side;
   const x1 = Math.max(side + 40, width - side);
   const strong = items.filter((i) => i.strong);
-  const name = (i: SlopeItem) => (narrow && i.label.length > 12 ? `${i.label.slice(0, 11)}…` : i.label);
+  const name = (i: SlopeItem) => (narrow ? fitLabel(i.label, 12) : i.label);
   // a phone has room for a name on the left and a figure on the right; the table view has both figures of every line
   const left = spreadLabels(strong.map((i) => ({ key: i.key, y: y(i.from), text: single ? format(i.from) : narrow ? name(i) : `${name(i)} ${format(i.from)}` })), 14, innerH);
   const right = spreadLabels(strong.map((i) => ({ key: i.key, y: y(i.to), text: single || narrow ? format(i.to) : `${format(i.to)} ${name(i)}` })), 14, innerH);

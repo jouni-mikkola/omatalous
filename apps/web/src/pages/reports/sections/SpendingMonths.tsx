@@ -32,7 +32,7 @@ function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
   const monthText = (m: MonthRow) => monthName(m, ctx.running);
   const monthColumns: Column<MonthRow>[] = [
     { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => (m.cents ? <a href={rowsHref(ctx, row.category, m.month, undefined, r.from)}>{monthText(m)}</a> : monthText(m)) },
-    { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.cents, bar: { value: (m) => m.cents, max: Math.max(1, ...row.values) } },
+    { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.cents, bar: { tone: "spending", value: (m) => m.cents, max: Math.max(1, ...row.values) } },
   ];
   const payeeColumns: Column<PayeeRow>[] = [
     { key: "name", label: t("table.payee"), kind: "text", rowHead: true, cell: (p) => (p.rest ? t("rpt.sm_other_payees") : p.name ? <a href={rowsHref(ctx, row.category, undefined, p.name, r.from)}>{p.name}</a> : t("rpt.sm_no_name")) },
@@ -69,7 +69,7 @@ function SpendingMonths({ ctx }: SectionProps) {
   const footTypical = usual && !r.cardGap && r.typicalCents !== null ? eur(r.typicalCents) : null;
   const columns: Column<Row>[] = [
     { key: "label", label: t("rpt.sm_category"), kind: "text", rowHead: true, cell: (c) => c.label, csv: (c) => c.label },
-    { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
+    { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { tone: "spending", value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
     ...(usual
       ? ([
           { key: "typical", label: t("rpt.sm_typical"), kind: "money", sort: true, precision: "euros", cents: (c) => c.typicalCents },
@@ -104,7 +104,7 @@ function SpendingMonths({ ctx }: SectionProps) {
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents, bar: { value: (m) => m.cents, max: Math.max(1, ...r.totals) } },
+          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents, bar: { tone: "spending", value: (m) => m.cents, max: Math.max(1, ...r.totals) } },
         ]}
         total={r.typicalCents !== null ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents) } } : undefined}
         toolbar={false}
