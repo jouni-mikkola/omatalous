@@ -34,6 +34,7 @@ export const FI_SET_MEMBERS = {
   "set.mem.the_name_is_removed_from": "Nimi poistuu jäsenistä. Tilit ja tapahtumat pysyvät ennallaan.",
   "set.mem.you": "sinä",
   "set.mem.temporary_password": "väliaikainen salasana",
+  "set.mem.temporary_password_long": "väliaikainen salasana yli viikon",
   "set.mem.username": "Tunnus",
   "set.mem.no_sign_in": "ei kirjautumista",
   "set.mem.administrator_2": "ylläpitäjä",

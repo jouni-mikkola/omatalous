@@ -36,4 +36,28 @@ describe("per-instance session cookie", () => {
     expect(set).toMatch(/^talous_koti=;/);
     expect(set).not.toMatch(/talous_session/);
   });
+
+  it("signing in with another member's cookie leaves their session alive", async () => {
+    const t = await setupApp();
+    const b = await t.member("eero");
+    expect((await b.call("GET", "/api/auth/state")).body.user).not.toBeNull();
+    const a = t.client();
+    a.cookie = b.cookie;
+    const login = await a.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" });
+    expect(login.status).toBe(200);
+    expect(a.cookie).not.toBe(b.cookie);
+    expect((await b.call("GET", "/api/auth/state")).body.user).not.toBeNull();
+    expect((await a.call("GET", "/api/auth/state")).body.user).not.toBeNull();
+  });
+
+  it("signing in again with the user's own cookie replaces that session", async () => {
+    const t = await setupApp();
+    const before = t.admin.cookie;
+    const c = t.client();
+    c.cookie = before;
+    await c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" });
+    const old = t.client();
+    old.cookie = before;
+    expect((await old.call("GET", "/api/auth/state")).body.user).toBeNull();
+  });
 });

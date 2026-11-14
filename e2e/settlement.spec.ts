@@ -265,6 +265,40 @@ for (const width of [390, 1440]) {
   });
 }
 
+// The explanation under "Ei tiedossa" is a wrapping line, not a name cut to one line: the answer is given an unknown payer so the block shows.
+for (const width of [390, 1440]) {
+  test(`the explanation of money with no known source wraps and is shown whole at ${width} px`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: members[0]!.state, viewport: { width, height: 900 } });
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.route(/\/api\/settlement\?month=/, async (route) => {
+      const response = await route.fetch();
+      const answer = await response.json();
+      const settlement = answer.pools?.[0]?.settlement;
+      if (settlement) settlement.unknownPaidBy = [...(settlement.unknownPaidBy ?? []), { owner: "u:", cents: 12345 }];
+      await route.fulfill({ response, json: answer });
+    });
+    await page.goto("/#/reports?q=yhteiset");
+    await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    await showMonth(page, LAST);
+    const block = poolOf(page).getByRole("group", { name: "Ei tiedossa" });
+    await expect(block).toBeVisible();
+    const note = block.getByText(/^Tähän kuuluu raha, jonka lähdettä ei tiedetä/);
+    await expect(note).toBeVisible();
+    const box = await note.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { whiteSpace: style.whiteSpace, cut: el.scrollWidth > el.clientWidth, height: el.getBoundingClientRect().height, line: parseFloat(style.lineHeight) };
+    });
+    expect(box.whiteSpace).not.toBe("nowrap");
+    expect(box.cut, "the explanation is not cut at the side").toBe(false);
+    // at 390 px the sentence needs more than one line, and every line shows
+    if (width === 390) expect(box.height).toBeGreaterThan(box.line * 1.5);
+    expect(await overflow(page), `Ei tiedossa at ${width} px`).toBeLessThanOrEqual(0);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
+}
+
 // Two members who link the joint account and tell nothing of its split: Tasaus asks for the split and names the sum, and lists no member with 0,00 €.
 for (const width of [390, 1440]) {
   test(`a joint account with no split shows the question and the sum, no shares and no zero rows at ${width} px`, async ({ browser }) => {

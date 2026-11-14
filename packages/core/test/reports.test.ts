@@ -61,6 +61,36 @@ describe("reports", () => {
     expect(running.typicalCents).toBe(s.typicalCents);
   });
 
+  it("spending by month: the average month leaves a large purchase out, while the bars and totals keep it", () => {
+    const sofa = tx({ id: "sofa", bookingDate: "2026-04-15", amountCents: -150000, category: "home", merchant: "Sohvakauppa" });
+    const withSofa = createContext([...dataset(), sofa], [checking], today);
+    const query = { range, balances: [] };
+    const base = buildReports({ ctx, ...query }, ["spendingMonths"]).spendingMonths;
+    const s = buildReports({ ctx: withSofa, ...query }, ["spendingMonths"]).spendingMonths;
+    // the bars and the total still hold the sofa
+    expect(s.totalCents).toBe(base.totalCents + 150000);
+    expect(s.totals[3]).toBe(base.totals[3]! + 150000);
+    // the level and the categories' levels are what they were without it
+    expect(s.typicalCents).toBe(base.typicalCents);
+    expect(s.categories.find((c) => c.category === "home")!.typicalCents).toBe(base.categories.find((c) => c.category === "home")!.typicalCents);
+    expect(Math.abs(s.categories.reduce((sum, c) => sum + c.typicalCents!, 0) - s.typicalCents!)).toBeLessThanOrEqual(s.categories.length);
+  });
+
+  it("spending by month: a refund of a large purchase leaves the average with it, so the level is what it was without both rows", () => {
+    const sofa = tx({ id: "sofa", bookingDate: "2026-04-15", amountCents: -150000, category: "home", merchant: "Sohvakauppa" });
+    const back = tx({ id: "sofa-back", bookingDate: "2026-04-25", amountCents: 30000, category: "home", merchant: "Sohvakauppa" });
+    const withSofa = createContext([...dataset(), sofa, back], [checking], today);
+    expect(withSofa.returns.get(back.id)).toBe(sofa.id);
+    const query = { range, balances: [] };
+    const base = buildReports({ ctx, ...query }, ["spendingMonths"]).spendingMonths;
+    const s = buildReports({ ctx: withSofa, ...query }, ["spendingMonths"]).spendingMonths;
+    // the bars and the total hold the sofa net of the refund
+    expect(s.totalCents).toBe(base.totalCents + 120000);
+    // the averages are what they were without either row
+    expect(s.typicalCents).toBe(base.typicalCents);
+    expect(s.categories.find((c) => c.category === "home")!.typicalCents).toBe(base.categories.find((c) => c.category === "home")!.typicalCents);
+  });
+
   it("spending by month: a category's average reads the months that hold the card's purchases as the newest one does", () => {
     // the card's rows begin in July; January to June hold its purchases as one bill a month
     const late = lateCardContext("2026-07");

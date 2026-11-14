@@ -121,7 +121,9 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await saved.getByRole("button", { name: /Poista laina/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Poista laina", exact: true }).click();
     await expect(card.getByRole("status").filter({ hasText: "Laina poistettu." })).toBeVisible();
-    await expect(card.getByRole("heading", { name: "Mahdolliset lainat" })).toHaveCount(0);
+    // the payments are listed there too, until a balance is added or they are answered Ei ole laina
+    await expect(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toBeVisible();
+    await expect(card.getByRole("row").filter({ hasText: COMPANY }).getByRole("button", { name: `Lisää saldo: ${COMPANY}` })).toBeVisible();
     expect(await queued()).toHaveLength(1);
 
     // Ei ole laina: the item goes at once, and the mark is stored under the subject of its own
