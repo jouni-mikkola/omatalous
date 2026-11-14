@@ -539,15 +539,23 @@ describe("spendingChange", () => {
 describe("a card bill in the base months that is no transfer", () => {
   const gap = lateCardContext("2026-07");
   const linked = lateCardContext("2026-01");
+  // October has ended: the whole month is compared, which every base month holds
+  const ended = lateCardContext("2026-07", "2026-11-09");
 
-  it("gives the usual view the headline and no category rows, causes or rises", () => {
-    const c = spendingChange(gap, "expected", "2026-10")!;
+  it("gives the usual view of an ended month the headline and no category rows, causes or rises", () => {
+    const c = spendingChange(ended, "expected", "2026-10")!;
     expect(c).not.toBeNull();
+    expect(c.running).toBe(false);
     expect(c.baseCents).toBeGreaterThan(0);
     expect(c.changeCents).toBe(c.nowCents - c.baseCents);
     expect(c.categories).toEqual([]);
     expect(c.pieces).toEqual([]);
-    expect(categoryRises(gap, "2026-10")?.rises).toEqual([]);
+    expect(categoryRises(ended, "2026-10")?.rises).toEqual([]);
+  });
+
+  it("gives a running month no comparison by days: the bill months hold none of the card's purchases by today's day", () => {
+    expect(spendingChange(gap, "expected", "2026-10")).toBeNull();
+    expect(categoryRises(gap, "2026-10")).toBeNull();
   });
 
   it("keeps the rows when the card is linked from the first base month", () => {
