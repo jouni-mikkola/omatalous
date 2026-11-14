@@ -36,9 +36,8 @@ the installer prints the address of the app and a setup link. [The install guide
 
 ## Banks
 
-The app can connect Nordea, OP,
-Danske Bank, S-Pankki, the savings banks, POP Pankki, Aktia, Ålandsbanken and some card issuers. It was built and
-tested mainly with Nordea, so check the categories of another bank in the first month.
+The app can connect Nordea, OP, Danske Bank, S-Pankki, the savings banks, POP Pankki, Aktia, Ålandsbanken and some
+card issuers. It was built and tested mainly with Nordea, so check the categories of another bank in the first month.
 
 The connection reads balances and transactions and cannot make payments. A consent lasts at most 180 days, and then you
 log in at the bank again. If a bank does not give an account, you can load its statement file (CSV or camt.053) in the
