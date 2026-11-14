@@ -138,7 +138,7 @@ export const FIGURES = {
     definition: "The mean earned income of the six complete months before the month, at least three. Money from people and refunds are left out. The yardstick of the income shares of the findings.",
     source: { file: "analysis/expected.ts", fn: "expectedIncome", field: "expectedIncome" },
     unit: "cents",
-    pages: ["Yhteenveto"],
+    pages: ["Yhteenveto", "Raportit"],
   },
   regularIncome: {
     name: "Säännölliset tulot",

@@ -32,7 +32,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | All accounts of the household | *Koko talous* | *Kaikki tilit* |
 | The user's own name for an account | *Tilin nimi* (also the label of the field) | *Oma nimi* |
 | A link to a balance that is missing | *Lisää saldo*, *Lisää saldot* | *Tallenna saldo* as a link |
-| What a month usually costs | *tavallinen* ("Tavallinen 2 825 € (viime 6 kuukauden keskiarvo)"), for income *tavalliset tulot*. The text names what it rests on. In Kuukausi, Saldot and Velat the word is *yleensä* ("Yleensä 2 825 €") | *odotettu*, *odotetut tulot*, *normaali*, *keskitaso* |
+| What a month usually costs | *tavallinen* ("Tavallinen 2 825 € (viime 6 kuukauden keskiarvo)"), for income *tavalliset tulot* (the mean earned income: Yhteenveto and Kuukausi both say "tavallisesti 3 980 € kuussa"; *säännölliset tulot* is the median of the regular series and stands in Tulot alone). The text names what it rests on. In Kuukausi, Saldot and Velat the word is *yleensä* ("Yleensä 2 825 €") | *odotettu*, *odotetut tulot*, *normaali*, *keskitaso* |
 | The range a figure usually moves in | *tavallisesti 2 700–3 260 €* | *vaihteluväli*, *prosenttipiste*, *5.–95. prosenttipiste* |
 | A forecast in a report (Saldot) | the reader as subject, a rounded figure and a plain range: "Sinulle jää noin 4 800 €. Se voi olla 3 900–5 700 €." Columns *Arvio*, *Alin*, *Ylin* | *Todennäköisin*, *Todennäköinen väli*, *Säästöön kertynyt* |
 | The parts a report figure is made of | *Mistä luku koostuu* | *Luvun osat* |
@@ -43,6 +43,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | How sure an estimate is | *Arvio on epävarma*, *suuntaa antava*, *luotettava* | *Varmuus keskitaso*, *Peruste*, *Vaikutus* |
 | The usual level of a payer, a bill or the savings rate | *tavallisesti* | *normaali* |
 | The bills before payday without the card's bill | *Muut laskut ennen palkkapäivää* (the card's bill is *Korttivelka*) | *Maksut ennen palkkapäivää* beside a figure that holds the card |
+| A month that has not ended, or whose figures cover only a part of it | *kesken* (the month has not ended: "Lokakuu, kesken"), *vajaa* (it has ended but the accounts do not cover it from its start) | *tänään* as the label of a running month, *keskeneräinen* |
 | A month with all its days | *päättynyt kuukausi* | *valmis kuukausi*, *täysi kuukausi*, *kokonainen kuukausi* |
 | Confirming | the verb that names the act: *Poista*, *Tallenna*, *Peruuta* | *Kyllä*, *Ei*, *OK* |
 | Abbreviations | *kaupparekisteri* for YTJ; CSV is explained at its first use; API and PSD2 only for the administrator | |
