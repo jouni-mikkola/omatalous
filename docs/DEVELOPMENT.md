@@ -444,7 +444,7 @@ antialiasing passes), when its size changed or when it is missing. The diff pict
 stay in `visual/` in `$TMPDIR` (else `/tmp`). A branch that is not meant to change a page's look runs it on the pages it touches,
 for example `tools/visual-check.sh origin/main -- reports --demo --widths 1280,390`.
 
-`pnpm docs:shots` remakes the pictures of the README in `docs/images/`. They are one set: the example household, the
+`pnpm docs:shots` remakes the pictures of `docs/images/`. The README shows only the phone picture and the film. They are one set: the example household, the
 Finnish page, a window of 1440 x 900 from the top of the page, and one phone picture at 390 x 844. A page shorter than
 the window ends under its last row, without the footer. The files are named
 by page id (`overview.png`, `bills.png`, `transactions.png`, `reports.png`, `review.png`, `overview-phone.png`) and each

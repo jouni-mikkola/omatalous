@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { NAV } from "../../apps/web/src/nav.ts";
 import { IMAGES, PICTURES } from "../docs-shots.mjs";
 import { FILES as FILM } from "../readme-film/film.mjs";
 
@@ -38,22 +37,12 @@ describe("docs:shots", () => {
     expect(pictures.filter((p) => p.width === 1440).every((p) => p.height === 900)).toBe(true);
   });
 
-  it("the README shows every picture of the set, each with a text for a reader who cannot see it", () => {
+  // The README is short: the film at the top (readme-film.test.ts) and the phone picture. Each picture it shows has a text for a reader who cannot see it.
+  it("the README shows the phone picture with a text for a reader who cannot see it", () => {
     const readme = readFileSync(join(ROOT, "README.md"), "utf8");
-    for (const p of PICTURES as { file: string }[]) {
-      const alt = new RegExp(`!\\[([^\\]]{20,})\\]\\(docs/images/${p.file}\\)|<img src="docs/images/${p.file}" alt="[^"]{20,}"`);
-      expect(readme, p.file).toMatch(alt);
-    }
-  });
-
-  // The README shows the app a visitor installs today: a page the tabs no longer have is a stale picture.
-  it("the README names every tab and shows a picture of it at 1440 px", () => {
-    const readme = readFileSync(join(ROOT, "README.md"), "utf8");
-    const pictures = PICTURES as { file: string; route: string; width: number }[];
-    for (const tab of NAV) {
-      expect(readme, tab.label).toContain(tab.label);
-      const shown = pictures.filter((p) => p.route === tab.id && p.width === 1440).map((p) => p.file);
-      expect(shown.some((f) => readme.includes(`docs/images/${f}`)), tab.id).toBe(true);
-    }
+    const phone = (PICTURES as { file: string; width: number }[]).filter((p) => p.width !== 1440);
+    expect(phone).toHaveLength(1);
+    const alt = new RegExp(`<img src="docs/images/${phone[0]!.file}" alt="[^"]{20,}"`);
+    expect(readme).toMatch(alt);
   });
 });
