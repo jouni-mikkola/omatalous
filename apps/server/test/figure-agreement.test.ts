@@ -134,8 +134,6 @@ const PAGES: readonly Concept[] = [
     readers: {
       "Tiles Varat: holdings.netCents": (s) => s.runDash.holdings.netCents,
       "Balances (Saldot) Holdings: balances.holdings.netCents": (s) => s.window.balances.holdings.netCents,
-      // Balances draws this row for today, and only for a household that saved a loan
-      "Balances (Saldot) accounts-less-debt row: accountsLessDebt[last]": (s) => (s.window.balances.debt.savedCents > 0 ? s.window.balances.accountsLessDebt.at(-1) : undefined),
       // the datum is the newest known day of the line; the accounts added up and the cards with them are the same figure unless a saved loan with no account holds some of the debt
       "Balances (Saldot) datum: daily.cents, newest known day": (s) => (s.window.balances.debt.savedCents === 0 ? s.window.balances.daily.cents.findLast((v: number | null) => v !== null) : undefined),
     },
