@@ -35,7 +35,7 @@ import { addSplit, apportion, bucketList, dayOfMonth, type Facts, gated, isMonth
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { LEVEL, oneOffs } from "./one-offs.ts";
 import { type ExpectedDue, expectedFor, expectedLevel } from "./expected.ts";
-import { cardsBreakUsual, coveredMonths, gateFor, isCompleteMonth } from "./usual.ts";
+import { cardsBreakUsual, gateFor, isCompleteMonth, paidCardBills } from "./usual.ts";
 
 export type ChangeView = "expected" | "year" | "season";
 export type BucketKind = "oneoff" | "timing" | "new" | "stopped" | "price" | "volume" | "spread" | "other";
@@ -451,10 +451,10 @@ function analyse(ctx: AnalysisContext, view: ChangeView, month: string, yearMont
   const r: Rows = { ...base, gate: gateFor(plan.mean ? baseTotal : baseTotal / months) * months };
   const pieces: ChangePiece[] = [];
   // a card bill in the base months that is no transfer: the headline is true, the categories lack the card's purchases
-  // and a window pair that holds the card's purchases in one and a bill in the other: the same money under two categories
+  // and a pair of windows that holds a card's purchases as a bill in some months and as rows in others: the same money under two categories
   const windows = [...plan.target, ...plan.base];
-  const held = coveredMonths(ctx, windows).length;
-  const itemised = plan.mean ? !cardsBreakUsual(ctx, plan.target[0]!, plan.base) : held === 0 || held === windows.length;
+  const billed = windows.filter((m) => paidCardBills(ctx, m)).length;
+  const itemised = plan.mean ? !cardsBreakUsual(ctx, plan.target[0]!, plan.base) : billed === 0 || billed === windows.length;
   const categories = itemised ? ids.map((id) => categoryChange(r, id, pieces)) : [];
   pieces.sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || (a.category ?? "").localeCompare(b.category ?? "") || a.kind.localeCompare(b.kind));
 
