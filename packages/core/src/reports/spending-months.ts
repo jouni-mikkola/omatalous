@@ -101,7 +101,8 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     totals[i]! += t.spend;
     const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0, lowered: false };
     e.values[i]! += t.spend;
-    if (large.has(t.id)) {
+    // money back for a large purchase leaves with it (as in the themes), or the level is lowered by a refund of a sum it left out
+    if (large.has(ctx.returns.get(t.id) ?? t.id)) {
       e.largeValues[i]! += t.spend;
       largeTotals[i]! += t.spend;
     }

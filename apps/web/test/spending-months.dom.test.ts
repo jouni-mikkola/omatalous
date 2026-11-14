@@ -84,6 +84,14 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     expect(plain(document.body.textContent)).toContain("Keskiarvot ovat ilman isoja kertaostoja, yhteensä 1 500 €.");
   });
 
+  it("names the large purchases also when card history leaves the categories without an average, as the total average still leaves them out", () => {
+    show({ ...report(false), largeLeftOutCents: 150000 });
+    expect(plain(document.body.textContent)).toContain("Keskiarvot ovat ilman isoja kertaostoja, yhteensä 1 500 €.");
+    cleanup();
+    show({ ...report(false), typicalCents: null, largeLeftOutCents: 150000 });
+    expect(plain(document.body.textContent)).not.toContain("isoja kertaostoja");
+  });
+
   it("without a card gap says nothing of cards and the footer has the average month", () => {
     show({ ...report(true), cardGap: false, categoryMonths: 5, typicalCents: 40000 });
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
