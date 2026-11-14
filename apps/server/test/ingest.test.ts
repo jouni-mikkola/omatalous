@@ -139,6 +139,19 @@ describe("a CSV over fetched data", () => {
     expect(await rows()).toHaveLength(2);
   });
 
+  it("matches a CSV row to a bank row whose description names it, in either order", async () => {
+    const bank = () => raw("2026-10-06", -12, "ACME OY", { externalId: "k1", description: "KIOSKI" });
+    const file = () => raw("2026-10-06", -12, "KIOSKI", { description: "Korttiosto" });
+    const first = await withAccount();
+    await first.fetchBank([bank()]);
+    expect(await first.importCsv([file()])).toMatchObject({ inserted: 0, skipped: 1 });
+    expect(await first.rows()).toHaveLength(1);
+    const second = await withAccount();
+    await second.importCsv([file()]);
+    expect(await second.fetchBank([bank()])).toMatchObject({ inserted: 0, skipped: 1 });
+    expect(await second.rows()).toHaveLength(1);
+  });
+
   it("matches the same payment when the texts differ a little", async () => {
     const { fetchBank, importCsv } = await withAccount();
     await fetchBank([raw("2026-10-06", -54.2, "IF VAHINKOVAKUUTUS OY", { externalId: "i1", description: "Kotivakuutus 10/2026" })]);
