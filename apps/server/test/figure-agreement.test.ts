@@ -74,7 +74,7 @@ interface Snap {
   own?: { dash: Answer; reports: Answer };
 }
 
-const monthIn = (list: readonly { month: string }[] | undefined, month: string) => list?.find((m) => m.month === month);
+const monthIn = (list: Answer, month: string): Answer => list?.find((m: Answer) => m.month === month);
 
 /** Kuukausi of an earlier month: the usual view of the change report (pages/reports/Month.tsx). */
 const kuukausi = (s: Snap) => s.own?.reports.spendingChange.views.find((v: Answer) => v.view === "expected" && v.change.target.months.join() === s.month)?.change;
@@ -241,7 +241,8 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
       }
       // a concept read by one page only is no agreement: some month has two readers at least
       expect(compared, `${concept.id}: no month is read by two pages`).toBeGreaterThan(0);
-      expect(mismatches).toEqual([]);
+      // one string, so a failure prints each month's figures
+      expect(mismatches.join("\n")).toBe("");
     });
   }
 });
