@@ -42,6 +42,13 @@ describe("Palauta, the row action of Varmuuskopiot", () => {
     expect(html).not.toContain(`>${S.restoreRow}<`);
   });
 
+  it("does not say \"not run yet\" over a list that has copies, since only the copy taken by hand is that request", () => {
+    const props = { host: [], disabled: false, restoreDisabled: false, canDownload: true, onBackup: () => {}, onDownload: () => {} };
+    const withCopy = renderToStaticMarkup(createElement(BackupList, { ...props, app: [{ name: auto.copy!.name, at: AT, size: 3_200_000, kind: "daily" }] }));
+    expect(withCopy).not.toContain(S.neverRun);
+    expect(renderToStaticMarkup(createElement(BackupList, { ...props, app: [] }))).toContain(S.neverRun);
+  });
+
   it("after the request says what it waits for and gives the page back to the reader once the app answers", () => {
     const waiting = renderToStaticMarkup(createElement(RestoreStatus, { copy: auto.copy!, back: false, waited: 0, stillPending: null }));
     expect(waiting).toContain(S.restoreWaiting);

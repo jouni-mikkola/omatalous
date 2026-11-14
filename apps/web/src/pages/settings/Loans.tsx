@@ -3,13 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Table } from "../../components/table/Table.tsx";
-import { emptyForm, formOfLoan, LOAN_LINK_PARAM, linkChoices } from "../../components/loans/form.ts";
+import { emptyForm, formOfLoan, formOfProposal, LOAN_LINK_PARAM, linkChoices } from "../../components/loans/form.ts";
 import { KIND_LABEL } from "../../components/loans/labels.ts";
 import { LoanEditor, LoanLinks } from "../../components/loans/LoanEditor.tsx";
 import { date, money, percent } from "../../format.ts";
 import { useApi, useHashRoute } from "../../hooks.ts";
 import { hashOf, SETTINGS_ANCHOR } from "../../routes.ts";
-import type { Meta } from "../../types.ts";
+import type { LoanProposalRow, Meta } from "../../types.ts";
 import "../../styles/loans.css";
 import { Button } from "../../components/ui/Button.tsx";
 import { useInPlaceForm } from "../../components/ui/in-place-form.ts";
@@ -41,13 +41,36 @@ function EditDialog({ loan, account, today, onSaved, onCancel }: { loan: Loan; a
   );
 }
 
+/** A loan the bank rows show, in the form it is saved with: the rows fill the lender, the payment and the interval, the household adds the balance and the rate. */
+function ProposalDialog({ proposal, meta, loans, onSaved, onCancel }: { proposal: LoanProposalRow; meta: Meta; loans: readonly Loan[]; onSaved: (name: string) => void; onCancel: () => void }) {
+  const ref = useModal();
+  return (
+    <dialog ref={ref} className="confirm loan-dialog" aria-labelledby="loan-proposal-title" onCancel={(e) => { e.preventDefault(); onCancel(); }}>
+      <h2 id="loan-proposal-title">{t("set.loans.add_balance_title")}</h2>
+      <LoanEditor
+        initial={formOfProposal(proposal, meta.today, meta.accounts, loans)}
+        today={meta.today}
+        cancelLabel={t("set.loans.cancel")}
+        onSave={async (body) => {
+          await loanCalls.add(body);
+          onSaved(body.name);
+        }}
+        onCancel={onCancel}
+      />
+    </dialog>
+  );
+}
+
 /**
  * Decision: the household keeps its loans here, since the bank connection shows accounts and cards only. The list is
  * what was saved (what is owed and on which day, the rate, the payment, the last due date), each row with edit and
- * remove; under it Lisää laina opens the form of a new loan. A member sees and changes only their own loans.
+ * remove; under it Lisää laina opens the form of a new loan. Under the list stand the payments the bank rows show as a
+ * loan's that no saved loan holds (Tunnistettu, saldo puuttuu): Lisää saldo opens the form filled from the rows, Ei ole
+ * laina keeps the payee from being proposed again. A member sees and changes only their own loans.
  */
 export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void }) {
   const list = useApi<{ loans: Loan[] }>("/api/loans");
+  const found = useApi<{ proposals: LoanProposalRow[] }>("/api/loans/proposals");
   // the page scrolls to a card below this one only after this one has its height
   const loaded = (list.data !== null || list.error !== null);
   useEffect(() => {
@@ -56,9 +79,11 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   const [editing, setEditing] = useState<{ loan: Loan; account: string } | null>(null);
   const { open: adding, setOpen: setAdding, region } = useInPlaceForm();
   const [removing, setRemoving] = useState<Loan | null>(null);
+  const [proposing, setProposing] = useState<LoanProposalRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "good" | "warning"; text: string } | null>(null);
   const loans = list.data?.loans ?? [];
+  const proposals = found.data?.proposals ?? [];
   // the account a loan is linked to, while it is one of the household's own cards or loan accounts
   const linkedTo = (loan: Loan) => meta.accounts.find((a) => a.id === loan.accountId && DEBT_ACCOUNT_TYPES.includes(a.type));
 
@@ -83,6 +108,19 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   const done = (text: string) => {
     setMessage({ tone: "good", text });
     list.reload();
+    found.reload();
+  };
+
+  const notLoan = async (proposal: LoanProposalRow) => {
+    setBusy(true);
+    try {
+      await loanCalls.notLoan(proposal.key);
+      done(t("set.loans.marked_not_loan", { name: proposal.payee }));
+    } catch (err) {
+      setMessage({ tone: "warning", text: (err as Error).message });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const remove = async (loan: Loan) => {
@@ -170,9 +208,41 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
       )}
       {list.error && <Notice tone="error">{list.error}</Notice>}
       {/* while the list is on its way the line keeps its room, so the cards below do not move when it arrives */}
-      {loans.length === 0 && !list.error && (
+      {loans.length === 0 && proposals.length === 0 && !list.error && (
         <Empty className={list.data ? undefined : "loans-wait"}>{t("set.loans.no_loans")}</Empty>
       )}
+      {proposals.length > 0 && (
+        <section className="loan-found" aria-labelledby="loan-found-title">
+          <h3 id="loan-found-title">{t("set.loans.found_title")}</h3>
+          <p className="small muted">{t("set.loans.found_help")}</p>
+          <Table
+            caption={t("set.loans.found_title")}
+            rows={proposals}
+            rowKey={(proposal) => proposal.key}
+            columns={[
+              { key: "payee", label: t("set.loans.found_payee"), kind: "text", rowHead: true, cell: (proposal) => proposal.payee },
+              { key: "payment", label: t("set.loans.found_payment"), kind: "money", main: true, cell: (proposal) => money(proposal.paymentCents) },
+              {
+                key: "actions",
+                label: t("set.loans.actions"),
+                headHidden: true,
+                kind: "count",
+                cell: (proposal) => (
+                  <span className="row-actions">
+                    <Button variant="link" onClick={() => setProposing(proposal)} aria-label={t("set.loans.add_balance_name", { name: proposal.payee })}>
+                      {t("set.loans.add_balance")}
+                    </Button>
+                    <Button variant="link" busy={busy} onClick={() => void notLoan(proposal)} aria-label={t("set.loans.not_a_loan_name", { name: proposal.payee })}>
+                      {t("set.rc.not_a_loan")}
+                    </Button>
+                  </span>
+                ),
+              },
+            ]}
+          />
+        </section>
+      )}
+      {found.error && <Notice tone="error">{found.error}</Notice>}
 
       {adding && (
         <section className="loan-draft" aria-labelledby="loan-new-title">
@@ -202,6 +272,19 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
             done(t("set.loans.changes_saved"));
           }}
           onCancel={() => setEditing(null)}
+        />
+      )}
+      {proposing && (
+        <ProposalDialog
+          key={proposing.key}
+          proposal={proposing}
+          meta={meta}
+          loans={loans}
+          onSaved={(name) => {
+            setProposing(null);
+            done(`${name} tallennettu.`);
+          }}
+          onCancel={() => setProposing(null)}
         />
       )}
       {removing && (

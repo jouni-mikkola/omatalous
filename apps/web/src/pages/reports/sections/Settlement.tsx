@@ -147,6 +147,7 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
         <div className="st-rows" role="group" aria-label={t("rpt.se_unknown")}>
           <div className="st-row">
             <strong className="st-name">{t("rpt.se_unknown")}</strong>
+            <p className="st-sub">{t("rpt.se_unknown_note")}</p>
           </div>
           {unknown.map((u) => (
             <div key={u.label} className="st-row">
@@ -154,6 +155,9 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
               <span className="st-num">{money(u.cents)}</span>
             </div>
           ))}
+          <div className="st-row">
+            <a href={settingsCardHash(SETTINGS_ANCHOR.accounts)}>{t("rpt.se_tell")}</a>
+          </div>
         </div>
       )}
       {late.length > 0 && (

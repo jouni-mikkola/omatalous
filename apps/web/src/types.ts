@@ -14,6 +14,8 @@ export interface User {
   language: Language;
   /** Only in the member list of an admin. */
   hasFactor?: boolean;
+  /** Only in the member list of an admin: the temporary password was set over a week ago. */
+  temporaryLong?: boolean;
   createdAt: string;
 }
 
