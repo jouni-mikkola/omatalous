@@ -105,6 +105,7 @@ export const FI_REPORTS_4 = {
   "rpt.se_unknown": "Ei tiedossa",
   "rpt.se_unknown_note": "Tähän kuuluu raha, jonka lähdettä ei tiedetä, esimerkiksi tilin alkusaldo tai tunnistamaton maksaja. Kerro, miten tili jakautuu, niin laskelma tarkentuu.",
   "rpt.se_late": "Korjaus aiempaan kuukauteen: {month}",
+  "rpt.se_late_even": "Jaon korjaus aiempaan kuukauteen: {month}",
   "rpt.loading": "Ladataan…",
   "rpt.se_none": "Ei yhteisiä menoja tältä kuukaudelta.",
   "rpt.dr_price": "{before} maksaisivat nyt {amount} {direction}: hinnat {verb} {pct}.",

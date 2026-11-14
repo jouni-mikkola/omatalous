@@ -164,7 +164,7 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
         <div className="st-rows">
           {late.map((l) => (
             <div key={`${l.key}:${l.day}`} className="st-row">
-              <span className="st-name">{t("rpt.se_late", { month: monthLong(l.key) })}</span>
+              <span className="st-name">{t(Math.abs(l.cents) < 100 ? "rpt.se_late_even" : "rpt.se_late", { month: monthLong(l.key) })}</span>
               <span className="st-num">{signedMoney(l.cents)}</span>
             </div>
           ))}
