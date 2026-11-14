@@ -4,17 +4,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 /** The longest the cards of a target stay hidden behind the loading placeholder. */
 const SHOW_AFTER_MS = 4000;
 
-export type Message = { tone: "good" | "warning"; text: string };
+export type Message = { tone: "good" | "info" | "warning" | "error"; text: string };
 
 /** One action at a time: `busy` names the one running, `message` is what it said. The page reloads what it shows through `onChange`. */
 export function useRunner(onChange: () => void, initial: () => Message | null = () => null) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<Message | null>(initial);
-  const run = async (key: string, fn: () => Promise<string | void>) => {
+  const run = async (key: string, fn: () => Promise<string | Message | void>) => {
     setBusy(key);
     try {
       const text = await fn();
-      if (text) setMessage({ tone: "good", text });
+      if (text) setMessage(typeof text === "string" ? { tone: "good", text } : text);
       onChange();
     } catch (err) {
       setMessage({ tone: "warning", text: (err as Error).message });
