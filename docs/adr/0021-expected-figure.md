@@ -36,7 +36,8 @@ The method, for a month:
    since the bill counts as spending, so the headline and the end of the month are read from every base month. The days
    and the categories are read only where `covered` holds every base month (`coversCategories`): a bill puts a month's
    purchases on one day. The same rule keeps `rowsComplete` from cutting the base at a card whose earlier purchases
-   were paid as a bill.
+   were paid as a bill. A running month's change report by days waits for the same months. A card's series is put back
+   into an earlier base month only where that card's own rows exist: another card's gap leaves it as it is.
 
 Expected income is the mean of the earned income (`earnedIncome`) of the same base months.
 

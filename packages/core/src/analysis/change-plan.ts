@@ -7,7 +7,7 @@ import type { IsoDate } from "../types.ts";
 import type { ChangeView, ChangeWindow } from "./change.ts";
 import type { AnalysisContext } from "./context.ts";
 import { rowsMissing } from "./coverage.ts";
-import { completeMonthsBefore, isCompleteMonth, paidCardBills } from "./usual.ts";
+import { cardsBreakUsual, completeMonthsBefore, isCompleteMonth, paidCardBills } from "./usual.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 
 export interface Plan {
@@ -136,7 +136,11 @@ export function planOf(full: AnalysisContext, view: ChangeView, month: string, y
   const cap = running ? Number(through.slice(8, 10)) : 31;
   if (view === "expected") {
     const base = usualBase(full, month);
-    return base.length < MIN_COMPARE_MONTHS ? null : { view, target: [month], base, cap, running, mean: true, noise: noiseBefore(month) };
+    if (base.length < MIN_COMPARE_MONTHS) return null;
+    // a running month is set against the same days of the base months: a base month that holds a card as one bill has none
+    // of the card's purchases by today's day, so the by-day comparison waits like the categories and days (the whole month's total does not)
+    if (running && cardsBreakUsual(full, month, base)) return null;
+    return { view, target: [month], base, cap, running, mean: true, noise: noiseBefore(month) };
   }
   if (view === "season") {
     const base = addMonths(month, -12);

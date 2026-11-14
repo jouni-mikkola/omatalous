@@ -21,6 +21,7 @@ import { CADENCES } from "../recurring-cadence.ts";
 import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, RANGE_HIGH, RANGE_LOW, SPARSE_SHARE } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
+import { accountCovers } from "./coverage.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
 import { usualBase } from "./change-plan.ts";
 import { cardsBreakUsual, completeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
@@ -242,12 +243,13 @@ function expectedOver(ctx: AnalysisContext, month: string, months: readonly stri
 }
 
 /**
- * A card's series is not put back into a month that holds the card's purchases as a bill: the bill is already that
- * month's spending, and the charge again would count it twice.
+ * A card's series is not put back into a month before that card's own rows begin: its purchases are then in a bill,
+ * which is already that month's spending, and the charge again would count it twice. Per card: another card's gap or
+ * bill leaves this card's series as it is.
  */
 function backfillOf(ctx: AnalysisContext): (t: AnalysisTx, month: string) => boolean {
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
-  return (t, month) => !cards.has(t.accountId) || coveredMonths(ctx, [month]).length > 0;
+  return (t, month) => !cards.has(t.accountId) || accountCovers(ctx, [t.accountId], `${month}-01`);
 }
 
 const rowCache = new WeakMap<AnalysisContext, Map<string, readonly AnalysisTx[]>>();
