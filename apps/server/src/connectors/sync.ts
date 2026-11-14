@@ -21,6 +21,7 @@ import { skippedNote, splitByCurrency } from "./foreign-split.ts";
 import { type FetchProblem, type FetchProblems, readFetchProblems, writeFetchProblems } from "./fetch-problems.ts";
 import { CONNECTORS } from "./registry.ts";
 import { type RefusedByAccount, readRefusedRows, writeRefusedRows } from "./refused-rows.ts";
+import { takeSyncLock } from "./sync-lock.ts";
 import { endedMessage, say } from "./sync-ended.ts";
 import type { BalanceReading, Connector, PullAccount, Puller, RefusedRows, UserHeaders } from "./types.ts";
 
@@ -31,7 +32,6 @@ export interface SyncSummary {
   messages: string[];
 }
 
-export const LOCK_TTL_MS = 15 * 60_000;
 /** Late bookings, and pending rows that got booked, show up in rows this far before the latest stored one. */
 const OVERLAP_DAYS = 10;
 /** The notes of calls to the bank (`account_fetch`) older than this are of no use for counting a day's fetches. */
@@ -109,7 +109,8 @@ export function syncUser(s: Services, userId: string, trigger: string, userHeade
 
 async function fetchForUser(s: Services, userId: string, trigger: string, userHeaders?: UserHeaders): Promise<SyncSummary> {
   const lockKey = `sync_lock:${userId}`;
-  if (!(await s.settings.tryLock(lockKey, LOCK_TTL_MS))) {
+  const lock = await takeSyncLock(s.settings, lockKey);
+  if (!lock) {
     return { status: "skipped", fetched: 0, inserted: 0, messages: ["Haku on jo käynnissä."] };
   }
   const repo = s.finance(userId);
@@ -117,7 +118,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string, userHe
   try {
     runId = await repo.startSyncRun(trigger);
   } catch (err) {
-    await s.settings.delete(lockKey);
+    await lock.release();
     throw err;
   }
   const summary: SyncSummary = { status: "ok", fetched: 0, inserted: 0, messages: [] };
@@ -155,7 +156,7 @@ async function fetchForUser(s: Services, userId: string, trigger: string, userHe
       inserted: summary.inserted,
       message: summary.messages.join("\n") || null,
     });
-    await s.settings.delete(lockKey);
+    await lock.release();
   }
   return summary;
 }
