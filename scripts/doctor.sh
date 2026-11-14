@@ -331,10 +331,13 @@ else
 fi
 
 # ── home network address ─────────────────────────────────────────────────────
-host_addr_list() { ip -4 -o addr show 2>/dev/null | awk '{split($4, a, "/"); print a[1]}'; }
-if [[ -f .env && -n ${BIND:-} && $BIND != 127.0.0.1 && $BIND != localhost && $BIND != 0.0.0.0 && $BIND != "::" ]] && command -v ip >/dev/null; then
+# `ip` needs a netlink socket, which the helper's systemd unit does not allow (RestrictAddressFamilies): there it fails
+# with no output, and an empty list would read as "the address is gone". A failing `ip` skips the check.
+host_addr_list() { local out; out=$(ip -4 -o addr show 2>/dev/null) || return 1; awk '{split($4, a, "/"); print a[1]}' <<<"$out"; }
+if [[ -f .env && -n ${BIND:-} && $BIND != 127.0.0.1 && $BIND != localhost && $BIND != 0.0.0.0 && $BIND != "::" ]] && command -v ip >/dev/null \
+  && HOST_ADDRS=$(host_addr_list) && [[ -n $HOST_ADDRS ]]; then
   head_ "Home network address" "Kotiverkon osoite"
-  if host_addr_list | grep -xF "$BIND" >/dev/null; then
+  if grep -xF "$BIND" <<<"$HOST_ADDRS" >/dev/null; then
     ok "$(t "The machine has the address $BIND" "Koneella on osoite $BIND")"
     urlhost=${URL#*://}; urlhost=${urlhost%%/*}; urlhost=${urlhost%:*}
     if [[ -n $URL && $urlhost != "$BIND" ]]; then

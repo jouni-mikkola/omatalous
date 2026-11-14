@@ -9,10 +9,18 @@ import { body, optionalString, requestInfo } from "./shared.ts";
 
 const ROLES: Role[] = ["admin", "member"];
 
+const TEMPORARY_LONG_DAYS = 7;
+
+/** True when the member's temporary password was set over a week ago. The time is the newest of the events that set one; the log keeps 90 days, so a password with no such event is older still. */
+async function temporaryIsLong(s: Services, userId: string): Promise<boolean> {
+  const set = await s.security.newestOf(userId, ["user_created", "password_reset_by_admin"]);
+  return !set || Date.parse(set.at) < s.now().getTime() - TEMPORARY_LONG_DAYS * 86_400_000;
+}
+
 export function userRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
-  app.get("/", async (c) => c.json({ users: await Promise.all((await s.users.list()).map(async (u) => ({ ...u, hasFactor: await s.factors.hasTotp(u.id) }))) }));
+  app.get("/", async (c) => c.json({ users: await Promise.all((await s.users.list()).map(async (u) => ({ ...u, hasFactor: await s.factors.hasTotp(u.id), temporaryLong: u.mustChangePassword && (await temporaryIsLong(s, u.id)) }))) }));
 
   /** Returns a temporary password to hand over once; it must be changed at first login. */
   app.post("/", async (c) => {
