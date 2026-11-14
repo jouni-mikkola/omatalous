@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/platform/config.ts";
-import { NOW, setupApp } from "./helpers.ts";
+import { type Client, NOW, setupApp } from "./helpers.ts";
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;
@@ -105,6 +105,43 @@ describe("GET /api/security/sessions", () => {
     expect(list).toHaveLength(1);
     expect(list[0].current).toBe(true);
     expect((await t.db.first<{ c: number }>("SELECT COUNT(*) AS c FROM sessions"))!.c).toBe(2);
+  });
+});
+
+describe("a sign-in from a device that signed in before", () => {
+  const agent = { "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Firefox/130.0" };
+  const signIn = (c: Client) => c.call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, agent);
+  const count = (t: { db: Awaited<ReturnType<typeof setupApp>>["db"] }) => t.db.first<{ c: number }>("SELECT COUNT(*) AS c FROM sessions").then((r) => r!.c);
+
+  it("replaces the session its own cookie names", async () => {
+    const t = await appWithClock();
+    const browser = t.client();
+    expect((await signIn(browser)).status).toBe(200);
+    expect(await count(t)).toBe(2);
+    expect((await signIn(browser)).status).toBe(200);
+    expect(await count(t)).toBe(2);
+  });
+
+  it("replaces a session of the same user agent that was not used for a day, and keeps one in use", async () => {
+    const t = await appWithClock();
+    await signIn(t.client());
+    t.at(2 * DAY);
+    const inUse = t.client();
+    await signIn(inUse);
+    expect(await count(t)).toBe(2); // the first browser's sign-in is gone, the admin's own (no user agent) stays
+    t.at(2 * DAY + 2 * MINUTE);
+    await signIn(t.client());
+    expect(await count(t)).toBe(3); // the one two minutes old is a device in use
+    expect((await inUse.call("GET", "/api/auth/state")).body.user).not.toBeNull();
+  });
+
+  it("leaves the sessions of other user agents and of other members alone", async () => {
+    const t = await appWithClock();
+    await t.client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { "User-Agent": "Safari/17" });
+    await t.member("ville");
+    t.at(2 * DAY);
+    await signIn(t.client());
+    expect(await count(t)).toBe(4);
   });
 });
 

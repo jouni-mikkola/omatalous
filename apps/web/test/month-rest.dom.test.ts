@@ -106,11 +106,11 @@ describe("Kuukausi rest row", () => {
 
 describe("Kuukausi heading and income line", () => {
   it("names the running month with its year, and the days read under it", async () => {
-    await open({ ...running(false), income: { months: [{ month: "2026-11", totalCents: 2_300 }], stability: { medianCents: 395_000 } } }, "#/reports");
+    await open({ ...running(false), income: { months: [{ month: "2026-11", totalCents: 9_900, earnedCents: 2_300, usualCents: 398_000 }], stability: { medianCents: 395_000 } } }, "#/reports");
     expect((await screen.findByRole("heading", { level: 2 })).textContent).toBe("Marraskuu 2026");
     expect(document.querySelector(".km-days")?.textContent).toBe("1.–11.11.");
-    // Kuukausi says yleensä (docs/UI_STYLE.md), also of income
-    expect(document.querySelector(".km-income")?.textContent?.replace(/\s/g, " ")).toBe("Tulot 23 €, yleensä kuussa 3 950 €");
+    // the earned income and its usual level, as Yhteenveto's tile says them: not the sum of every kind of money in, and not the regular median
+    expect(document.querySelector(".km-income")?.textContent?.replace(/\s/g, " ")).toBe("Tulot 23 €, tavallisesti 3 980 € kuussa");
   });
 
   it("names an ended month alone: it is read whole", async () => {

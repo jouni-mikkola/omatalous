@@ -12,6 +12,8 @@ import type { Services } from "../services/context.ts";
 /** Cookie of versions before per-instance names; read once, never deleted (an older instance on this host may still use it). */
 const LEGACY_COOKIE = "talous_session";
 const TOUCH_INTERVAL_MS = 60 * 60_000;
+/** A session of the same browser name that has not been used for this long is taken as the old sign-in of the device that signs in now. */
+const SAME_DEVICE_IDLE_MS = 24 * 60 * 60_000;
 
 /**
  * Secure cookies need HTTPS; plain-http LAN use (http://192.168.x.x) must
@@ -28,8 +30,18 @@ function isHttps(c: Context, s: Services): boolean {
 
 export async function startSession(c: Context, s: Services, userId: string): Promise<void> {
   const token = toBase64Url(randomBytes(32));
-  const expires = new Date(s.now().getTime() + s.config.sessionDays * 86_400_000);
-  await s.users.createSession(await sha256(token), userId, expires.toISOString(), c.req.header("user-agent") ?? null, s.now());
+  const now = s.now();
+  const userAgent = c.req.header("user-agent") ?? null;
+  const expires = new Date(now.getTime() + s.config.sessionDays * 86_400_000);
+  // Sessions end by themselves after SESSION_DAYS without use. A device that signs in again replaces its old session at
+  // once instead of leaving a row for each sign-in in the member's list: the one its own cookie names, and the ones of
+  // the same user agent that nobody has used for a day (another device of the same kind in daily use keeps its session).
+  // The cookie is the browser's word, so its session is deleted only when it is this user's own: another member's
+  // cookie in the request must not end their session.
+  const old = getCookie(c, s.config.sessionCookie);
+  if (old && old.length <= 100) await s.users.deleteSessionOfUser(userId, await sha256(old));
+  if (userAgent) await s.users.deleteIdleSessionsOfAgent(userId, userAgent, new Date(now.getTime() - SAME_DEVICE_IDLE_MS));
+  await s.users.createSession(await sha256(token), userId, expires.toISOString(), userAgent, now);
   setSessionCookie(c, s, token);
 }
 

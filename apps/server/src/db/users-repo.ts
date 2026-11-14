@@ -155,6 +155,11 @@ export class UsersRepo {
     ]);
   }
 
+  /** Ends the user's sessions of this same user agent that were last used before `idleBefore`: the sign-ins of a device that came back without its cookie. Only sessions the user left behind, never one in use. */
+  async deleteIdleSessionsOfAgent(userId: string, userAgent: string, idleBefore: Date): Promise<void> {
+    await this.db.run("DELETE FROM sessions WHERE user_id = ? AND user_agent = ? AND last_seen_at < ?", [userId, userAgent.slice(0, 200), idleBefore.toISOString()]);
+  }
+
   async getSession(id: string): Promise<SessionRecord | null> {
     const r = await this.db.first<Row>("SELECT user_id, expires_at, last_seen_at, created_at FROM sessions WHERE id = ?", [id]);
     return r ? { userId: String(r.user_id), expiresAt: String(r.expires_at), lastSeenAt: String(r.last_seen_at), createdAt: String(r.created_at) } : null;
@@ -166,6 +171,11 @@ export class UsersRepo {
 
   async deleteSession(id: string): Promise<void> {
     await this.db.run("DELETE FROM sessions WHERE id = ?", [id]);
+  }
+
+  /** Ends a session only when it is the user's own. */
+  async deleteSessionOfUser(userId: string, id: string): Promise<void> {
+    await this.db.run("DELETE FROM sessions WHERE id = ? AND user_id = ?", [id, userId]);
   }
 
   /** Signs the user out everywhere (password change, reset, removal). */

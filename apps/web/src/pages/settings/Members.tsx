@@ -288,7 +288,7 @@ export function Members({ me, meta, onChange, onLoaded }: { me: User; meta: Meta
               <>
                 {r.name}
                 {r.user?.id === me.id && <span className="badge">{t("set.mem.you")}</span>}
-                {r.user?.mustChangePassword && <span className="badge warn">{t("set.mem.temporary_password")}</span>}
+                {r.user?.mustChangePassword && <span className="badge warn">{t(r.user.temporaryLong ? "set.mem.temporary_password_long" : "set.mem.temporary_password")}</span>}
               </>
             ),
           },
