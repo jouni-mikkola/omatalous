@@ -15,6 +15,7 @@
  */
 import { dayNumber, fromDayNumber } from "../dates.ts";
 import { fold } from "../merchant.ts";
+import { cardLegOf } from "../pairing.ts";
 import type { IsoDate } from "../types.ts";
 import { isLenderName } from "../wording.ts";
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
@@ -111,9 +112,7 @@ export function creditStack(ctx: AnalysisContext): CreditStack {
   const loanAccounts = new Set([...ctx.accounts.filter((a) => a.type === "loan").map((a) => a.id), ...ctx.paymentAccounts]);
   const accountStart = new Map<string, number>();
   const found = new Map<string, { kind: CreditKind; payee: string; rows: AnalysisTx[] }>();
-  const cardOut = new Map<number, AnalysisTx[]>();
-  for (const t of ctx.txs) if (cardAccounts.has(t.accountId) && t.amountCents < 0) cardOut.set(-t.amountCents, [...(cardOut.get(-t.amountCents) ?? []), t]);
-  const legOf = (t: AnalysisTx) => (t.isTransfer ? (cardOut.get(t.amountCents)?.find((c) => Math.abs(c.day - t.day) <= 3)?.accountId ?? null) : null);
+  const legOf = cardLegOf(ctx.txs, cardAccounts);
   for (const t of ctx.txs) {
     if (!accountStart.has(t.accountId)) accountStart.set(t.accountId, dayNumber(t.bookingDate));
     const line = lineOf(t, cardAccounts, loanAccounts, legOf);

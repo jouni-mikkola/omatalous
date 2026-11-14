@@ -7,7 +7,8 @@ import type { WhyCollector } from "./explain/types.ts";
 import { type Holders, holdersOf, isUserName } from "./categorize-people.ts";
 import { dayNumber } from "./dates.ts";
 import { cardIssuerName, fold, UNKNOWN_MERCHANT } from "./merchant.ts";
-import { BILLING_MONTH_DAYS, billsByIssuer, namesCard, normalizeIban, pairable, pairTransfers } from "./transfers.ts";
+import { mayBeTransferLeg, pairsOf, transferAllocations } from "./pairing.ts";
+import { BILLING_MONTH_DAYS, billsByIssuer, namesCard, normalizeIban } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
 import { isCardIssuerText, isPersonShaped } from "./wording.ts";
 import { isLenderShapedName } from "./wording-lenders.ts";
@@ -124,7 +125,8 @@ function cardChannels(txs: readonly Transaction[], accounts: readonly Account[],
  * names the issuer too, and that card's bills are counted from its rows.
  */
 export function settleTransfers(txs: readonly Transaction[], accounts: readonly Account[], exclude: ReadonlySet<string>, why?: WhyCollector): { transfers: Set<string>; cardBills: Set<string> } {
-  const { transfers, pairs } = pairTransfers(txs, accounts, exclude);
+  const { transfers, allocations } = transferAllocations(txs, accounts, exclude);
+  const pairs = pairsOf(allocations, txs);
   // what pairing alone decided: an own account's IBAN or a pair. What the channels and the issuer add is a card's payment.
   const own = why ? new Set(transfers) : null;
   const cardBills = new Set<string>();
@@ -139,7 +141,7 @@ export function settleTransfers(txs: readonly Transaction[], accounts: readonly 
       if (day < (began.get(t.accountId) ?? Number.POSITIVE_INFINITY)) began.set(t.accountId, day);
     }
     for (const t of txs) {
-      if (t.amountCents >= 0 || transfers.has(t.id) || exclude.has(t.id) || !pairable(t)) continue;
+      if (t.amountCents >= 0 || transfers.has(t.id) || exclude.has(t.id) || !mayBeTransferLeg(t)) continue;
       const type = typeOf.get(t.accountId);
       if (type === "credit_card" || type === "loan") continue;
       const key = payeeKey(t);

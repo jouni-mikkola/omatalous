@@ -304,6 +304,28 @@ describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
   });
 });
 
+describe("repo rules: one owner for pairing (docs/MONEY_FLOWS.md)", () => {
+  it("rule 49: two rows are paired by amount only in pairing.ts", () => {
+    const OWNER = "packages/core/src/pairing.ts";
+    // one row's amount compared with the opposite of another's: how two legs are found
+    const OPPOSITE = /(?:amountCents|cents)\s*[!=]==?\s*-|[!=]==?\s*-[\w.]*amountCents|\.get\(-[\w.]*amountCents\)/;
+    // files that compare an amount with a negated one for another reason
+    const NOT_PAIRING = new Map([["packages/core/src/reconcile.ts", "a late row against the balance difference of a statement"]]);
+    const files = sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/");
+    expect(files.length).toBeGreaterThan(100);
+    expect(OPPOSITE.test(readText(OWNER)), `${OWNER} still holds the comparison of opposite amounts`).toBe(true);
+    const found: Finding[] = [];
+    for (const file of files) {
+      if (file === OWNER || NOT_PAIRING.has(file)) continue;
+      readText(file)
+        .split("\n")
+        .forEach((text, i) => OPPOSITE.test(text) && found.push({ file, line: i + 1, why: "compares an amount with the opposite of another row's: a way of pairing that pairing.ts does not own" }));
+    }
+    for (const file of NOT_PAIRING.keys()) expect(OPPOSITE.test(readText(file)), `${file} no longer compares opposite amounts: delete its entry in NOT_PAIRING`).toBe(true);
+    expectNoFindings("one owner for pairing", found, "add the way of pairing to pairing.ts as a named variant that returns allocations, and call it from there (docs/MONEY_FLOWS.md).");
+  });
+});
+
 describe("repo rules: request bodies and marks", () => {
   it("rule 14: every request body in apps/server/src/routes is read inside strictObject() or a parse*() call, never with c.req.json() or parseBody()", () => {
     // Services that check the body they are handed with strictObject themselves. An entry no call uses any more fails.

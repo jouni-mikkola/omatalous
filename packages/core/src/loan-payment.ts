@@ -17,7 +17,8 @@ import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
 import { nameOf, holdersIn } from "./person-names.ts";
 import { sameName } from "./payer-role.ts";
-import { isBankName, normalizeIban, PAIR_WINDOW_DAYS, pairable } from "./transfers.ts";
+import { loanPaymentLeg } from "./pairing.ts";
+import { isBankName, normalizeIban } from "./transfers.ts";
 import type { Account, IsoDate, Transaction } from "./types.ts";
 import { isLenderName, isLoanText } from "./wording.ts";
 
@@ -85,7 +86,7 @@ export function loanPaymentAccounts(accounts: readonly Account[], txs: readonly 
     ids.add(account.id);
     for (const t of money) {
       legs.add(t.id);
-      const leg = legOf(t, txs, ibanOf);
+      const leg = loanPaymentLeg(t, txs, ibanOf);
       if (leg) legs.add(leg);
     }
   }
@@ -115,14 +116,4 @@ function isLoanPayee(t: Row, account: Account): boolean {
   const payee = t.counterparty ?? t.merchant ?? "";
   const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" "));
   return isLenderName(text) || isLoanText(text) || (payee !== "" && isBankName(payee, account));
-}
-
-/** The row on another account that left the money: the opposite amount within the pairing window, the named account first. */
-function legOf(t: Row, txs: readonly Row[], ibanOf: ReadonlyMap<string, string | null>): string | null {
-  const day = dayNumber(t.bookingDate);
-  const named = normalizeIban(t.counterpartyIban);
-  const found = txs
-    .filter((o) => o.accountId !== t.accountId && o.amountCents === -t.amountCents && pairable(o) && Math.abs(dayNumber(o.bookingDate) - day) <= PAIR_WINDOW_DAYS)
-    .sort((a, b) => Number(ibanOf.get(b.accountId) === named) - Number(ibanOf.get(a.accountId) === named) || Math.abs(dayNumber(a.bookingDate) - day) - Math.abs(dayNumber(b.bookingDate) - day));
-  return found[0]?.id ?? null;
 }
