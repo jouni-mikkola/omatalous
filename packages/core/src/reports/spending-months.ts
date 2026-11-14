@@ -7,6 +7,7 @@ import { fromMonthIndex } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { expectedLevel } from "../analysis/expected.ts";
 import { cardRowsMissingIn } from "../analysis/usual.ts";
+import { largePurchases } from "../analysis/large.ts";
 import { SPENDING_PAYEES } from "../thresholds.ts";
 import { fullMonths, rangeMonthIndexes } from "./shared.ts";
 
@@ -23,7 +24,10 @@ interface SpendingCategory {
   values: number[];
   /** The sum of `values`. */
   totalCents: number;
-  /** The expected level of the category over `categoryMonths` (`expectedLevel`, their mean); null under `MIN_COMPARE_MONTHS` of them. */
+  /**
+   * The expected level of the category over `categoryMonths` (`expectedLevel`, their mean) without its large purchases
+   * (`largePurchases`); null under `MIN_COMPARE_MONTHS` of them.
+   */
   typicalCents: number | null;
   /** The newest complete month less `typicalCents`; null without either. */
   lastDiffCents: number | null;
@@ -50,7 +54,11 @@ export interface SpendingMonthsReport {
   totals: number[];
   /** The sum of `totals`. */
   totalCents: number;
-  /** The expected level of the complete months' totals, which the categories' levels add up to within rounding unless `cardGap`; null under `MIN_COMPARE_MONTHS` of them. */
+  /**
+   * The expected level of the complete months' totals without their large purchases (`largePurchases`), which the
+   * categories' levels add up to within rounding unless `cardGap`; null under `MIN_COMPARE_MONTHS` of them. The bars
+   * and `totals` keep the large purchases.
+   */
   typicalCents: number | null;
   /** How many months `typicalCents` is the level of. */
   typicalMonths: number;
@@ -81,14 +89,21 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const full = new Set(fullMonths(ctx, range, indexes).map((m) => m - first));
   const complete = indexes.map((_, i) => full.has(i));
   const totals = indexes.map(() => 0);
-  const byCategory = new Map<string, { values: number[]; payees: Map<string, SpendingPayee>; statementCents: number; lowered: boolean }>();
+  const large = largePurchases(ctx);
+  const largeTotals = indexes.map(() => 0);
+  const byCategory = new Map<string, { values: number[]; largeValues: number[]; payees: Map<string, SpendingPayee>; statementCents: number; lowered: boolean }>();
   const offStatement = new Set<unknown>(ctx.explained);
   for (const t of spendRows(ctx, toDayRange(shown))) {
     if (!t.spend || t.month < first) continue;
     const i = t.month - first;
     totals[i]! += t.spend;
-    const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0, lowered: false };
+    const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0, lowered: false };
     e.values[i]! += t.spend;
+    // money back for a large purchase leaves with it (as in the themes), or the level is lowered by a refund of a sum it left out
+    if (large.has(ctx.returns.get(t.id) ?? t.id)) {
+      e.largeValues[i]! += t.spend;
+      largeTotals[i]! += t.spend;
+    }
     if (offStatement.has(t)) e.statementCents += t.spend;
     if (ctx.lowered.has(t.id)) e.lowered = true;
     // by the name Tapahtumat filters on, so a payee's link opens the rows of its sum
@@ -108,9 +123,9 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const gapAt = new Set(completeAt.filter((i) => cardRowsMissingIn(ctx, months[i]!)));
   const categoryAt = last === null ? [] : completeAt.filter((i) => gapAt.has(i) === gapAt.has(last));
   const categories = [...byCategory.entries()]
-    .map(([category, { values, payees, statementCents, lowered }]) => {
+    .map(([category, { values, largeValues, payees, statementCents, lowered }]) => {
       const totalCents = values.reduce((s, v) => s + v, 0);
-      const typicalCents = expectedLevel(categoryAt.map((i) => values[i]!));
+      const typicalCents = expectedLevel(categoryAt.map((i) => values[i]! - largeValues[i]!));
       const named = [...payees.values()].sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name)).slice(0, SPENDING_PAYEES);
       return {
         category,
@@ -132,7 +147,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     complete,
     totals,
     totalCents: totals.reduce((s, v) => s + v, 0),
-    typicalCents: expectedLevel(completeAt.map((i) => totals[i]!)),
+    typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
     typicalMonths: completeAt.length,
     categoryMonths: categoryAt.length,
     cardGap: categoryAt.length < completeAt.length,

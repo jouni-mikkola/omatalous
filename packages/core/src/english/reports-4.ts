@@ -102,6 +102,7 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.se_unknown": "Unknown",
   "rpt.se_unknown_note": "This holds money whose source is not known, such as an account's opening balance or an unrecognised payer. Tell how the account is split and the settlement becomes more exact.",
   "rpt.se_late": "Correction to an earlier month: {month}",
+  "rpt.se_late_even": "Split correction to an earlier month: {month}",
   "rpt.loading": "Loading…",
   "rpt.se_none": "No shared costs for this month.",
   "rpt.dr_price": "{before} would now cost {amount} {direction}: prices {verb} {pct}.",

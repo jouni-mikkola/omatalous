@@ -11,12 +11,17 @@ const own = servers[Number(process.env.TEST_PARALLEL_INDEX ?? 0)];
 if (!own) throw new Error(`There are ${servers.length} servers and more workers: set E2E_WORKERS for \`pnpm e2e\` instead of --workers.`);
 Object.assign(process.env, { E2E_BASE_URL: own.base, E2E_DIR: own.dir, E2E_SETUP_CODE: own.setupCode, E2E_FAKE_BANK: own.fakeBank });
 
+const TIMING_SPEC = "transactions-perf.spec.ts";
+
 export default defineConfig({
   testDir: ".",
   // the specs of one file run in order; the files are shared out among the workers, and each worker has its own server
   workers: servers.length,
   projects: [
-    { name: "app", testMatch: "*.spec.ts", testIgnore: ["private/**", "first-evening/**", "years/**"] },
+    { name: "app", testMatch: "*.spec.ts", testIgnore: ["private/**", "first-evening/**", "years/**", TIMING_SPEC] },
+    // the timing of the list of Tapahtumat under a slowed processor runs alone, after the projects above: the workers of the
+    // others share the machine's cores, and a limit of one second has no room for their load
+    { name: "timing", testMatch: TIMING_SPEC, dependencies: ["app", ...(process.env.E2E_SKIP_PRIVATE ? [] : ["private"])] },
     // the First evening check starts a server of its own and runs for minutes: a local check (`pnpm first-evening`), not part of the suite or of CI
     ...(process.env.E2E_FIRST_EVENING ? [{ name: "first-evening", testMatch: "first-evening/*.spec.ts", workers: 1 }] : []),
     // the list of Tapahtumat on five years of rows (100 000 or more) starts a server of its own and loads them: a local check (`pnpm e2e:years`), like the one above
