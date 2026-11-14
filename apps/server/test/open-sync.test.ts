@@ -411,8 +411,8 @@ describe("inside what the bank allows", () => {
     const { s, adminId, age, balanceCalls } = await setup();
     await age(adminId);
     vi.spyOn(s.users, "usersWithActiveConnections").mockResolvedValue(["u-broken", adminId]);
-    const tryLock = s.settings.tryLock.bind(s.settings);
-    vi.spyOn(s.settings, "tryLock").mockImplementation((key, ttl) => (key === "sync_lock:u-broken" ? Promise.reject(new Error("database is locked")) : tryLock(key, ttl)));
+    const tryLockAs = s.settings.tryLockAs.bind(s.settings);
+    vi.spyOn(s.settings, "tryLockAs").mockImplementation((key, ttl, owner) => (key === "sync_lock:u-broken" ? Promise.reject(new Error("database is locked")) : tryLockAs(key, ttl, owner)));
     const before = balanceCalls();
     const results = await syncEveryone(s, "schedule");
     expect(results["u-broken"]?.status).toBe("failed");

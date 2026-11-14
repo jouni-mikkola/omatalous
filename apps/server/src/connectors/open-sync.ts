@@ -7,7 +7,8 @@ import { hourIn } from "../platform/config.ts";
 import type { Services } from "../services/context.ts";
 import { accountKey } from "../db/household-repo.ts";
 import { accountsAtLimit, rateLimitedUntil } from "./bank-limit.ts";
-import { LOCK_TTL_MS, syncUser } from "./sync.ts";
+import { LOCK_TTL_MS } from "./sync-lock.ts";
+import { syncUser } from "./sync.ts";
 import type { UserHeaders } from "./types.ts";
 
 const HOUR_MS = 3600_000;

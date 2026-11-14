@@ -76,6 +76,36 @@ export class SettingsRepo {
   }
 
   /**
+   * `tryLock` for a holder that renews and releases its own lock: the value is `<time>:<owner>`, and the expiry still reads
+   * the number ahead of the colon, so a lock written by `tryLock` and one written here expire the same way.
+   */
+  async tryLockAs(key: string, ttlMs: number, owner: string): Promise<boolean> {
+    const now = Date.now();
+    const r = await this.db.run(
+      `INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+       WHERE CAST(settings.value AS INTEGER) < ?`,
+      [key, `${now}:${owner}`, new Date(now).toISOString(), now - ttlMs],
+    );
+    return r.changes > 0;
+  }
+
+  /** Moves the expiry of the lock `owner` holds; false when the lock is gone or another owner has it. */
+  async renewLock(key: string, owner: string): Promise<boolean> {
+    const now = Date.now();
+    const r = await this.db.run(
+      `UPDATE settings SET value = ?, updated_at = ? WHERE key = ? AND substr(value, instr(value, ':') + 1) = ?`,
+      [`${now}:${owner}`, new Date(now).toISOString(), key, owner],
+    );
+    return r.changes > 0;
+  }
+
+  /** Removes the lock only while `owner` holds it: a lock that expired and was taken over stays with its new holder. */
+  async releaseLock(key: string, owner: string): Promise<void> {
+    await this.db.run("DELETE FROM settings WHERE key = ? AND substr(value, instr(value, ':') + 1) = ?", [key, owner]);
+  }
+
+  /**
    * The instance-wide data version: bumped for changes that touch everyone (a member removed). A change to one
    * member's own data bumps only that member's version (`bumpUserDataVersion`), so it does not drop the others'
    * cached analyses.
