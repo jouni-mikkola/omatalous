@@ -232,12 +232,13 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
       const mismatches: string[] = [];
       let compared = 0;
       for (const s of snapsFor(concept, snaps)) {
+        // a reader is named by its place in the concept's list, so a long line of the log keeps every figure
         const told = Object.entries(concept.readers)
-          .map(([reader, read]) => [reader, read(s)] as const)
+          .map(([reader, read], at) => [`${at}:${reader.slice(0, 12)}`, read(s)] as const)
           .filter(([, value]) => value !== undefined);
         if (told.length < 2) continue;
         compared++;
-        if (told.some(([, value]) => value !== told[0]![1])) mismatches.push(`${s.month}: ${told.map(([reader, value]) => `${reader} = ${value}`).join("; ")}`);
+        if (told.some(([, value]) => value !== told[0]![1])) mismatches.push(`${s.month}: ${told.map(([reader, value]) => `${reader}=${value}`).join(" ")}`);
       }
       // a concept read by one page only is no agreement: some month has two readers at least
       expect(compared, `${concept.id}: no month is read by two pages`).toBeGreaterThan(0);
