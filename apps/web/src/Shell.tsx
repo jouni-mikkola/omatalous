@@ -72,7 +72,7 @@ export function Shell() {
   const anchor = location.hash || undefined;
   const requested = location.pathname.split("/")[1] ?? "";
   const meta = useApi<Meta>("/api/meta", true);
-  // the page of an add-on module follows the four tabs on a wide screen and is in the user menu on a phone
+  // the page of an add-on module is a tab after the four, at every width
   const extensions = extensionPages();
   const pages: { id: string; label: string }[] = [...NAV, ...extensions.map((e) => ({ id: e.id, label: e.page!.label })), REVIEW, SETTINGS];
   // an unknown or old link opens the overview instead of an empty page
@@ -301,14 +301,14 @@ export function Shell() {
       </a>
       <header className="topbar">
         <div className="topbar-in">
-          <div className="brand">
+          <PageLink id="overview" className="brand" current={page === "overview"}>
             <span className="brand-mark" aria-hidden="true">
               <i />
               <i />
               <i />
             </span>
             Omatalous
-          </div>
+          </PageLink>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
               <PageLink key={e.id} id={e.id} current={page === e.id}>
@@ -316,7 +316,7 @@ export function Shell() {
               </PageLink>
             ))}
             {extensions.map((e) => (
-              <PageLink key={e.id} id={e.id} className="nav-wide-only" current={page === e.id}>
+              <PageLink key={e.id} id={e.id} current={page === e.id}>
                 {e.page!.label}
               </PageLink>
             ))}
@@ -361,12 +361,6 @@ export function Shell() {
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
-              {/* what a module adds has no tab on a phone; a wider screen links it from the bar */}
-              {extensions.map((e) => (
-                <PageLink key={e.id} id={e.id} className="menu-phone-only" current={page === e.id}>
-                  {e.page!.label}
-                </PageLink>
-              ))}
               {news > 0 && <a href={settingsCardHash(SETTINGS_ANCHOR.notices)}>{tn(news, "notice.news_one", "notice.news_many")}</a>}
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}

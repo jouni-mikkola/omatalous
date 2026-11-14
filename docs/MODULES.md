@@ -206,7 +206,7 @@ stylesheets hold no state.
 
 | Point | Fed by | Where |
 |---|---|---|
-| `page` | the module | its own address `#/<id>`, its entry after the tabs in the header, on a phone in the user menu (`Shell.tsx`) |
+| `page` | the module | its own address `#/<id>`, its tab after the others, in the header and in the phone's tab bar (`Shell.tsx`) |
 | `settingsCard` | the module | Asetukset > Lisäosa (`#/settings/addon`), above the add-on's own card; an address of its `settingsAnchor` opens it there |
 | `rowMark` | `rowFields` | on the line of a row of Tapahtumat, beside its tags; it keeps the row one line high |
 | `rowPart` | `rowFields` | in the opened row of Tapahtumat, above the payee's months |
