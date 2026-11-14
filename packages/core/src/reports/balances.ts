@@ -84,8 +84,6 @@ export interface BalanceReport {
    * where no account has both.
    */
   monthChange: (number | null)[];
-  /** How many accounts of the rows `monthChange` of the same month leaves out because they have no value at one of the two month ends. */
-  monthChangeLeftOut: number[];
   /**
    * The accounts in view that are in no total, no line and no row above, each with what is known of it: in another
    * currency its balance in that currency (`foreign`, never added to euros), with no balance told `foreign` is null.
@@ -200,16 +198,15 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   const moved = balanceChange(all, dailyFrom, toDay);
   const withChange = series.map((s) => ({ ...s, changeCents: moved?.byAccount.get(s.accountId) ?? null }));
   const change = moved && { from: moved.from, to: moved.to, cents: moved.cents, basis: moved.basis };
-  // over the accounts with a value at both month ends: one that starts in between would count its whole balance as change, so it is left out and counted
+  // over the accounts with a value at both month ends: one that starts in between would count its whole balance as change, so it is left out
   const comparable = (m: number) => series.filter((s) => s.values[m] !== null && s.values[m - 1] !== null);
   const monthChange = total.map((t, m) => {
     if (t === null || m === 0 || total[m - 1] === null) return null;
     const same = comparable(m);
     return same.length === 0 ? null : same.reduce((sum, s) => sum + (s.values[m]! - s.values[m - 1]!), 0);
   });
-  const monthChangeLeftOut = total.map((_, m) => (m === 0 ? 0 : series.length - comparable(m).length));
   // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
   const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
   const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));
-  return { months: monthLabels(months), accounts: withChange, total, monthChange, monthChangeLeftOut, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
+  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
 }

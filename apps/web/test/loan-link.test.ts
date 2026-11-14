@@ -57,7 +57,7 @@ describe("the Lainat report offers the link", () => {
     payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, interest: { cents: null, unknown: null }, payoff: { date: null, unknown: null, never: false }, scenarios: [] };
   const report = (twice: unknown) => ({ day, saved: 1, loans: [row], total: { cents: 100_000, unknown: [] }, interest: { cents: 0, unknown: [] }, interestKnown: true, withoutRate: 0, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 }, path: { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [], left: [] }, maybeTwice: [twice], overdraftTwice: [] }) as unknown as LoansReport;
   const html = (r: LoansReport, own: string[], scope = "own") => {
-    const balances = { months: [], total: [], accountsLessDebt: [], monthChange: [], monthChangeLeftOut: [], missing: [], lowest: null, events: [], accounts: [], debt: { day, cents: 0, savedCents: 0 } };
+    const balances = { months: [], total: [], accountsLessDebt: [], monthChange: [], missing: [], lowest: null, events: [], accounts: [], debt: { day, cents: 0, savedCents: 0 } };
     const ctx = { data: { loans: r, balances }, meta: { today: day, accounts: own.map((id) => ({ id })) }, running: null, scope, exportHref: () => "" } as unknown as ReportContext;
     return renderToStaticMarkup(createElement(loans.Component, { ctx })).replace(/&amp;/g, "&").replace(/&gt;/g, ">");
   };
