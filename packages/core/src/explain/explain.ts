@@ -115,7 +115,7 @@ function expectedSpendExplanation(ctx: AnalysisContext, args: ExplainArgs): Expl
   });
   const cents = expectedSpending(ctx, month);
   const figure = expectedFor(ctx, month);
-  const again = figure && figure.itemised ? sumOf(figure.at().categories, (c) => c.cents) : cents;
+  const again = figure ? sumOf(figure.at().categories, (c) => c.cents) : cents;
   const rule = cents === null ? tooFewMonths(values.length) : expectedRule();
   return { figure: "expected.spend", kind: "median", cents, lines: [], method: { kind: "median", values, rule, tie: expectedHow() }, check: { kind: "recompute", diffCents: recomputeDiff(cents, again) } };
 }

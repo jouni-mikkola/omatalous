@@ -32,8 +32,11 @@ The method, for a month:
    expectation of April.
 6. The range is the lower and upper quartile (`RANGE_LOW`, `RANGE_HIGH`) of the base months' total by the same day,
    moved to the headline.
-7. When the base months lack the purchases of a linked card (`cardsBreakUsual`), only the headline is true: the
-   figure has no categories (`itemised: false`).
+7. A base month that holds a card's purchases only as a bill (`cardGapIn`) is left out of `covered`. Its total is whole,
+   since the bill counts as spending, so the headline and the end of the month are read from every base month. The days
+   and the categories are read only where `covered` holds every base month (`coversCategories`): a bill puts a month's
+   purchases on one day. The same rule keeps `rowsComplete` from cutting the base at a card whose earlier purchases
+   were paid as a bill.
 
 Expected income is the mean of the earned income (`earnedIncome`) of the same base months.
 

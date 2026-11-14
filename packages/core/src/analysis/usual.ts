@@ -155,7 +155,12 @@ export function cardRowsMissingIn(ctx: AnalysisContext, month: string): boolean 
  * them the complete months before `month` are read, which tells a short base after a late card from a short history.
  */
 export function cardsBreakUsual(ctx: AnalysisContext, month: string, months: readonly string[] = completeMonthsBefore(ctx, month)): boolean {
-  return months.length >= MIN_COMPARE_MONTHS && months.some((m) => cardGapIn(ctx, m));
+  return months.length >= MIN_COMPARE_MONTHS && coveredMonths(ctx, months).length < months.length;
+}
+
+/** The months of `months` whose categories hold every card's purchases: no card bill stands in for them and no linked card begins after them (`cardGapIn`). A month outside it keeps its total. */
+export function coveredMonths(ctx: AnalysisContext, months: readonly string[]): string[] {
+  return months.filter((m) => !cardGapIn(ctx, m));
 }
 
 interface MonthSums {

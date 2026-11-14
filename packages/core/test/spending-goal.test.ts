@@ -79,10 +79,14 @@ describe("spending goal: in the dashboard", () => {
 describe("spending goal: with a card that begins in the middle of the history", () => {
   const range = { from: "2026-10-01", to: "2026-10-31" };
 
-  it("makes no estimate of the month's end from months that hold the card only as bills, so it never says the goal is kept", () => {
+  it("estimates the month's end from the whole totals of months that hold the card only as bills, and draws no day of them", () => {
     const d = buildDashboard(lateCardContext("2026-07"), range, [], { ...NO_INPUTS, spendingGoalCents: 400_000 });
-    expect(d.pace).toMatchObject({ expected: null, projection: null, cardGap: true });
-    expect(d.goal).toMatchObject({ end: null, state: "open", leftCents: 400_000 - d.pace.currentTotal });
+    expect(d.pace).toMatchObject({ expected: null, cardGap: true });
+    expect(d.pace.projection).not.toBeNull();
+    expect(d.pace.projection!.low[0]).toBe(d.pace.currentTotal);
+    expect(d.goal!.end).not.toBeNull();
+    expect(d.goal!.end!.low).toBeGreaterThanOrEqual(d.pace.currentTotal);
+    expect(d.goal).toMatchObject({ leftCents: 400_000 - d.pace.currentTotal });
   });
 
   it("estimates the end from the card's own months when no card bill comes before them", () => {

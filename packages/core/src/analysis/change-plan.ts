@@ -7,7 +7,7 @@ import type { IsoDate } from "../types.ts";
 import type { ChangeView, ChangeWindow } from "./change.ts";
 import type { AnalysisContext } from "./context.ts";
 import { rowsMissing } from "./coverage.ts";
-import { completeMonthsBefore, isCompleteMonth } from "./usual.ts";
+import { completeMonthsBefore, isCompleteMonth, paidCardBills } from "./usual.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 
 export interface Plan {
@@ -70,7 +70,9 @@ const bounds = new WeakMap<AnalysisContext, { from: IsoDate | null; through: Iso
  * quiet while the household's purchases fell short of their rhythm (a sync that lags, a card that stopped syncing).
  * When the purchases kept up, they moved to another account: a card closed or replaced, no lag. `from`: the history's
  * first day, or the first row of a paying account connected later, when the household's purchases before it fall
- * short of those after it (the mirror: months before a card was connected miss its purchases).
+ * short of those after it (the mirror: months before an account was connected miss its purchases). A credit card whose
+ * purchases the months before paid as a card bill (`paidCardBills`) cuts nothing: the bill is one row and the months'
+ * totals are whole, so the comparison by total reaches back over them (`joinedSmall` is the same reading).
  */
 export function rowsComplete(ctx: AnalysisContext): { from: IsoDate | null; through: IsoDate } {
   const found = bounds.get(ctx);
@@ -80,7 +82,8 @@ export function rowsComplete(ctx: AnalysisContext): { from: IsoDate | null; thro
   const start = ctx.txs[0]?.day ?? ctx.todayDay;
   let through = ctx.today;
   let from = ctx.dataFrom;
-  for (const { days, pays } of byAccount.values()) {
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  for (const [id, { days, pays }] of byAccount) {
     if (!pays) continue;
     const last = days[days.length - 1]!;
     // silent against the household's latest row: a history that simply ends is no lag of one account
@@ -91,7 +94,8 @@ export function rowsComplete(ctx: AnalysisContext): { from: IsoDate | null; thro
     if (lags && fromDayNumber(last) < through) through = fromDayNumber(last);
     const first = days[0]!;
     const before = Math.min(HEAD_DAYS, first - start);
-    const late = first - start > HEAD_SLACK_DAYS && buysIn(buys, first - before - 1, first - 1) < KEPT_UP * (buysIn(buys, first - 1, first - 1 + HEAD_DAYS) * before) / HEAD_DAYS;
+    const billedBefore = cards.has(id) && paidCardBills(ctx, fromMonthIndex(monthIndex(monthOf(fromDayNumber(first))) - 1));
+    const late = !billedBefore && first - start > HEAD_SLACK_DAYS && buysIn(buys, first - before - 1, first - 1) < KEPT_UP * (buysIn(buys, first - 1, first - 1 + HEAD_DAYS) * before) / HEAD_DAYS;
     if (late && (from === null || fromDayNumber(first) > from)) from = fromDayNumber(first);
   }
   const out = { from, through };

@@ -175,13 +175,18 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     const dash = await get(`/api/dashboard?${now}`);
     const rep = await get(`/api/reports?${now}&reports=thisMonth,spendingChange`);
     const earlier = await get(`/api/reports?${before}&reports=spendingChange`);
-    expectOne("no usual, running month", { Yhteenveto: dash.home.paceGap, Kuukausi: rep.thisMonth.gapReason, "Kuukausi, the change report": rep.spendingChange.gapReason });
+    // a month with its total to compare has a view of the change report (its categories wait); the reason is the one of the pages that have no usual by day
+    const comparesTotal = (r: any) => r.spendingChange.views.some((v: any) => v.view === "expected");
+    expectOne("no usual, running month", { Yhteenveto: dash.home.paceGap, Kuukausi: rep.thisMonth.gapReason, ...(comparesTotal(rep) ? {} : { "Kuukausi, the change report": rep.spendingChange.gapReason }) });
     // no usual figure a day may stand beside a page that says the usual is missing
     if (dash.home.paceGap !== null) expect(dash.nyt.usualPerDayCents ?? null).toBeNull();
     if (h.name === "made-up, card connected later") {
       // nine months of history: the usual is missing for the card's purchases, not for the months
       expect(dash.home.paceGap).toBe("cards");
-      expect(earlier.spendingChange.gapReason).toBe("cards");
+      // the total of the month before is set against its usual all the same, with no category rows from months that hold the card as a bill
+      const total = earlier.spendingChange.views.find((v: any) => v.view === "expected");
+      if (total) expect(total.change.categories).toEqual([]);
+      else expect(earlier.spendingChange.gapReason).toBe("cards");
     }
     if (h.name === "made-up" || h.name === "made-up, card connected in May") {
       expect(dash.home.paceGap).toBeNull();
