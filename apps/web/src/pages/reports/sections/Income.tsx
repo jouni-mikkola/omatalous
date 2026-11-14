@@ -44,7 +44,7 @@ function Income({ ctx }: SectionProps) {
   const monthly = r.monthlyCents !== null;
   const columns: Column<Row>[] = [
     { key: "type", label: t("rpt.in_type"), kind: "text", rowHead: true, cell: (ty) => ty.label, csv: (ty) => ty.label },
-    { key: "total", label: t("rpt.total"), kind: "money", main: true, precision: "cents", cents: (ty) => ty.totalCents, bar: { value: (ty) => ty.totalCents, max: Math.max(1, ...r.types.map((ty) => ty.totalCents)) } },
+    { key: "total", label: t("rpt.total"), kind: "money", main: true, precision: "cents", cents: (ty) => ty.totalCents, bar: { tone: "income", value: (ty) => ty.totalCents, max: Math.max(1, ...r.types.map((ty) => ty.totalCents)) } },
     ...(monthly ? ([{ key: "month", label: t("rpt.sm_typical"), kind: "money", precision: "cents", cents: (ty) => ty.monthlyCents ?? 0 }] satisfies Column<Row>[]) : []),
   ];
   return (
@@ -69,7 +69,7 @@ function Income({ ctx }: SectionProps) {
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running), csv: (m) => monthName(m, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents, bar: { value: (m) => m.totalCents, max: Math.max(1, ...r.months.map((m) => m.totalCents)) } },
+          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents, bar: { tone: "income", value: (m) => m.totalCents, max: Math.max(1, ...r.months.map((m) => m.totalCents)) } },
         ]}
         search={false}
       />

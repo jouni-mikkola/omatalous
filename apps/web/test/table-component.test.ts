@@ -152,6 +152,13 @@ describe("a table of key and value", () => {
     expect(html).not.toContain("style=");
   });
 
+  it("names the role of a bar in data-tone and leaves it out when the column names none", () => {
+    const bar = (tone?: "income" | "bills"): string => render({ columns: [...columns, { key: "bar", label: "Osuus", kind: "share", bar: { tone, value: (r) => r.cents, max: 10000 } }] });
+    expect(bar("income")).toContain('data-tone="income"');
+    expect(bar("bills")).toContain('data-tone="bills"');
+    expect(bar()).not.toContain("data-tone");
+  });
+
   it("keeps its head and reads a hidden one", () => {
     expect(render()).toContain("<thead");
     const html = render({ columns: [columns[0]!, { ...columns[1]!, headHidden: true }] });

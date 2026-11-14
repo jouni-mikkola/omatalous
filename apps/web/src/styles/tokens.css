@@ -48,8 +48,12 @@
   --series-7: oklch(0.436 0.157 293.2);
   --series-rest: oklch(0.55 0.024 261.7);
   --series-avg: oklch(0.55 0.024 261.7);
-  --saved: oklch(0.511 0.122 248.1);
-  --earned: oklch(0.532 0.121 63.3);
+  --role-income: oklch(0.5 0.125 150);
+  --role-spending: oklch(0.45 0.13 254.2);
+  --role-bills: oklch(0.5 0.1 77.8);
+  --role-kept: oklch(0.38 0.06 215);
+  --role-debt: oklch(0.54 0.17 12);
+  --role-neutral: oklch(0.5 0.02 261.7);
   --rise: oklch(0.53 0.153 31.4);
   --fall: oklch(0.515 0.131 254.4);
   --heat-1: oklch(0.84 0.05 255);

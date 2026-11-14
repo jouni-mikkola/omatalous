@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { money } from "../../format.ts";
-import { cellText, type Column } from "./columns.ts";
+import { cellText, type Column, type Role } from "./columns.ts";
 import { barShare, deltaTone, type Meaning, sparkGeometry } from "./cells.ts";
 import type { SortDir } from "./sort.ts";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
@@ -8,9 +8,9 @@ import "../../styles/table.css";
 import { css } from "../../css.ts";
 
 /** An inline bar anchored at the left of its cell; the figure itself stands in its own cell, the bar is hidden from readers. */
-export function BarCell({ value, max, color }: { value: number; max: number; color?: string }) {
+export function BarCell({ value, max, color, tone }: { value: number; max: number; color?: string; tone?: Role }) {
   return (
-    <span className="rt-bar-track" aria-hidden="true">
+    <span className="rt-bar-track" data-tone={tone} aria-hidden="true">
       <span ref={css({ width: `${(barShare(value, max) * 100).toFixed(1)}%`, background: color })} />
     </span>
   );
@@ -21,10 +21,10 @@ export function BarCell({ value, max, color }: { value: number; max: number; col
  * `figureCh` is the widest figure of the column in characters: each figure takes that room, so a shorter one does not
  * move its bar and the bars of the column start on one line.
  */
-export function BarFigure({ value, max, color, figureCh, children }: { value: number; max: number; color?: string; figureCh?: number; children?: ReactNode }) {
+export function BarFigure({ value, max, color, tone, figureCh, children }: { value: number; max: number; color?: string; tone?: Role; figureCh?: number; children?: ReactNode }) {
   return (
     <span className="rt-barcell">
-      <BarCell value={value} max={max} color={color} />
+      <BarCell value={value} max={max} color={color} tone={tone} />
       {children !== undefined && children !== null && <span className="rt-barfigure" ref={figureCh ? css({ "--figure-ch": figureCh }) : undefined}>{children}</span>}
     </span>
   );
@@ -103,7 +103,7 @@ export const cellOf = <R,>(c: Column<R>, row: R, figureCh?: number): ReactNode =
   if (!c.bar) return plain();
   // the bar stands before the figure it draws, on the column's scale, and is left out where there is no room for it
   return (
-    <BarFigure value={c.bar.value(row)} max={c.bar.max} color={c.bar.color?.(row)} figureCh={figureCh}>
+    <BarFigure value={c.bar.value(row)} max={c.bar.max} color={c.bar.color?.(row)} tone={c.bar.tone} figureCh={figureCh}>
       {c.cell || c.cents ? plain() : null}
     </BarFigure>
   );
