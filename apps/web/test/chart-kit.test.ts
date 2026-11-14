@@ -14,6 +14,8 @@ import { bandRect, placeMarkers, referenceY, spreadLabels } from "../src/charts/
 import { areaPath, linePath, stepPath } from "../src/charts/kit/path.ts";
 import { markKey } from "../src/charts/kit/marks.ts";
 import { decimate } from "../src/charts/kit/decimate.ts";
+import { robustDomain } from "../src/charts/kit/domain.ts";
+import { fitLabel } from "../src/charts/kit/label.ts";
 import { LiveReadout, ReadoutLayer } from "../src/charts/kit/Readout.tsx";
 import { EventMarkers, ReferenceLine } from "../src/charts/kit/Annotations.tsx";
 import { LABEL_CHAR_W, LABEL_GAP } from "../src/charts/draw.ts";
@@ -46,6 +48,45 @@ describe("the linear scale", () => {
     const s = linear([-0.4, 0.2], [1, 0]);
     expect(s.ticks.some((t) => Object.is(t, -0))).toBe(false);
     expect(linear([-1e12, 1e12], [1, 0], { target: 50 }).ticks.length).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("a domain that one outlier does not flatten", () => {
+  it("clips a value more than the factor times the third quartile and tops the axis with the largest of the others", () => {
+    const out = robustDomain([1200, 1500, 1100, 9000, 1800, 1300]);
+    expect(out.clipped).toEqual([3]);
+    expect(out.max).toBe(1800);
+  });
+
+  it("clips nothing in an even series, in a short one or in one that is mostly zero", () => {
+    expect(robustDomain([1000, 1200, 1500, 2000, 2500])).toEqual({ max: 2500, clipped: [] });
+    expect(robustDomain([100, 100, 9000])).toEqual({ max: 9000, clipped: [] });
+    expect(robustDomain([0, 0, 0, 0, 500])).toEqual({ max: 500, clipped: [] });
+    expect(robustDomain([])).toEqual({ max: 0, clipped: [] });
+  });
+
+  it("reads a value by its size and a looser factor clips less", () => {
+    expect(robustDomain([-9000, 1000, 1100, 1200, 1300]).clipped).toEqual([0]);
+    expect(robustDomain([1200, 1500, 1100, 9000, 1800, 1300], { factor: 10 }).clipped).toEqual([]);
+  });
+
+  it("sets the top of a linear scale and names the clipped indices, only when asked", () => {
+    const values = [1200, 1500, 1100, 9000, 1800, 1300];
+    const clipped = linear(values, [100, 0], { clip: 3 });
+    expect(clipped.domain[1]).toBeLessThan(9000);
+    expect(clipped.domain[1]).toBeGreaterThanOrEqual(1800);
+    expect(clipped.clipped).toEqual([3]);
+    const plain = linear(values, [100, 0]);
+    expect(plain.domain[1]).toBeGreaterThanOrEqual(9000);
+    expect(plain.clipped).toEqual([]);
+  });
+});
+
+describe("a name at the end of a bar or a line", () => {
+  it("is cut with an ellipsis to the room it has", () => {
+    expect(fitLabel("Ruokakauppa", 12)).toBe("Ruokakauppa");
+    expect(fitLabel("Ruokakaupat ja torit", 12)).toBe("Ruokakaupat…");
+    expect(fitLabel("Ruoka", 1)).toBe("");
   });
 });
 

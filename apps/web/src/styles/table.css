@@ -95,6 +95,13 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* the parts of a cell: a bar against the column's scale, a line of months, a chip of a change, a payee's mark */
 .rt-bar-track { display: block; height: 6px; min-width: 48px; background: var(--grid); border-radius: 0 3px 3px 0; overflow: hidden; }
 .rt-bar-track > span { display: block; height: 100%; background: var(--series-1); border-radius: 0 3px 3px 0; }
+/* a bar that names its role takes the role's colour: the same in every table and chart */
+.rt-bar-track[data-tone="income"] > span { background: var(--role-income); }
+.rt-bar-track[data-tone="spending"] > span { background: var(--role-spending); }
+.rt-bar-track[data-tone="bills"] > span { background: var(--role-bills); }
+.rt-bar-track[data-tone="kept"] > span { background: var(--role-kept); }
+.rt-bar-track[data-tone="debt"] > span { background: var(--role-debt); }
+.rt-bar-track[data-tone="neutral"] > span { background: var(--role-neutral); }
 /* the change: text tokens carry the sign and the euros, the tinted ground and the arrow carry the tone */
 .tc-delta { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--fs-label); line-height: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .rt-delta-arrow { font-size: var(--fs-label); }

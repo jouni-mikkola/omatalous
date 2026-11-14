@@ -1,4 +1,5 @@
 import { niceTicks } from "../scale.ts";
+import { robustDomain } from "./domain.ts";
 
 /**
  * A linear scale: a value in data units (cents, a share, a count) to a pixel. `ticks` are the round values the axis
@@ -10,6 +11,8 @@ export interface Linear {
   readonly range: readonly [number, number];
   readonly ticks: readonly number[];
   readonly step: number;
+  /** The indices of the values the axis leaves above its top (`clip`); a bar of one is cut at the frame and says so. Empty without `clip`. */
+  readonly clipped: readonly number[];
   invert(px: number): number;
 }
 
@@ -18,6 +21,8 @@ export interface LinearOptions {
   zero?: boolean;
   /** About how many tick steps the axis should have. */
   target?: number;
+  /** An outlier more than this many times the third quartile does not set the top of the axis (`robustDomain`). Off by default. */
+  clip?: number;
 }
 
 /**
@@ -25,10 +30,11 @@ export interface LinearOptions {
  * that moves onto this scale keeps its axis. Without it the domain hugs the values (a balance that moves between 10 000
  * and 12 000 €), still on round steps. `range` is `[bottom, top]` in pixels for a vertical axis.
  */
-export function linear(values: readonly number[], range: readonly [number, number], { zero = true, target = 4 }: LinearOptions = {}): Linear {
+export function linear(values: readonly number[], range: readonly [number, number], { zero = true, target = 4, clip }: LinearOptions = {}): Linear {
   const finite = values.filter(Number.isFinite);
+  const robust = clip === undefined ? null : robustDomain(values, { factor: clip });
   let lo = finite.length ? Math.min(...finite) : 0;
-  let hi = finite.length ? Math.max(...finite) : 0;
+  let hi = robust ? robust.max : finite.length ? Math.max(...finite) : 0;
   if (zero) {
     lo = Math.min(0, lo);
     hi = Math.max(0, hi);
@@ -46,6 +52,7 @@ export function linear(values: readonly number[], range: readonly [number, numbe
     range: [r0, r1] as const,
     ticks,
     step,
+    clipped: robust ? robust.clipped : [],
     invert: (px: number) => min + ((px - r0) / (r1 - r0)) * (max - min),
   });
 }

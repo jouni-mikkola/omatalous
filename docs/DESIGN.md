@@ -33,6 +33,7 @@ What there is:
 - Lines are `--border` and `--grid`. `--accent` marks what is chosen.
 - `--good` is money in and `--bad` is money out. `--warn` is a warning.
 - `--estimate-fill` and `--estimate-edge` tint an estimate. `--ink` is the header band.
+- Role colours are `--role-income`, `--role-spending`, `--role-bills`, `--role-kept`, `--role-debt` and `--role-neutral`. A sum has the colour of its role in every chart and table (`bar.tone` of a table column). Each reads at 4.5 to 1 on the page and both surfaces.
 - Category colours are `--series-1` to `--series-7`, always in that order. The heat ladder has four steps and an ink for each.
 - The type scale is 12 px, 14 px, 16 px, 20 px and 32 px. Their tokens start with `--fs-`.
 - One display size, `--fs-display` (3.25 rem), is for the answer number of a page.
