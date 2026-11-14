@@ -7,7 +7,7 @@
 import type { WhyCollector } from "./explain/types.ts";
 import { titleCase } from "./merchant.ts";
 import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
-import { pairTransfers } from "./pairing.ts";
+import { householdAllocations, legAccountsOf } from "./pairing.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, AccountUse, AccountUser, Part, RowShare, Transaction } from "./types.ts";
 
@@ -200,48 +200,15 @@ export function applyUse<T extends Transaction>(
   if (accounts.every((a) => isWhole(partIn(a.id)))) return txs;
   const gone = (accountId: string) => isNone(partIn(accountId));
   const ownerOf = (accountId: string) => owners.get(accountId) ?? "";
-  const members = [...new Set(accounts.map((a) => ownerOf(a.id)))];
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const byIban = new Map(accounts.flatMap((a): [string, string][] => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id]] : [])));
   const accountOf = new Map(txs.map((t) => [t.id, t.accountId]));
   const settled = (t: T) => t.categorySource === "transfer";
+  // the pairing of the household is pairing.ts's; here only the account at the other end of each paired row is read
+  const household = householdAllocations(txs, accounts, ownerOf);
   /** The account of the other leg of a movement, by row id. */
-  const otherLeg = new Map<string, string>();
-  const link = (pairs: ReadonlyMap<string, string>) => {
-    for (const [out, into] of pairs) {
-      otherLeg.set(out, accountOf.get(into)!);
-      otherLeg.set(into, accountOf.get(out)!);
-    }
-  };
-  // a stored transfer does not say which account its other leg is on. The legs one member's categorisation stored
-  // pair among themselves again: none of them can take a row which that categorisation left alone.
-  for (const member of members) {
-    const legs = txs.filter((t) => settled(t) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
-    link(pairTransfers(legs, accounts.filter((a) => ownerOf(a.id) === member)).pairs);
-  }
-  // The rows of two members were never looked at together: money out of one member's account pairs with money into
-  // another member's. Two rows of one member stay unpaired, as that member's categorisation left them (a payment
-  // that came back and an equal sum on another account, say), and so does a row that returns a payment.
-  const between = new Set<string>();
-  if (members.length > 1) {
-    const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
-    for (const member of members) {
-      const found = pairTransfers(open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), accounts);
-      link(found.pairs);
-      for (const id of found.transfers) between.add(id);
-    }
-    // Money into a card is stored as a transfer whoever paid it. The leg that reached a card and has no other leg
-    // among its member's rows in the view was paid from elsewhere: by another member's account, or by a joint account
-    // that is in the view as the viewer's own copy. A payment of that sum which another member's categorisation, with
-    // no card to pair it with, left open is the card's bill. Only what the open rows left unpaired is looked at, and
-    // never two rows of one member.
-    const onCard = (t: T) => accountById.get(t.accountId)?.type === "credit_card";
-    const reached = txs.filter((t) => settled(t) && t.amountCents > 0 && onCard(t)).map((t) => ({ ...t, categorySource: "default" as const }));
-    for (const member of reached.length ? members : []) {
-      const unpaid = reached.filter((t) => !otherLeg.has(t.id) && ownerOf(t.accountId) !== member);
-      link(pairTransfers([...open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 && ownerOf(t.accountId) === member), ...unpaid], accounts).pairs);
-    }
-  }
+  const otherLeg = legAccountsOf(household.allocations, accountOf);
+  const between = household.between;
   /** The account at the other end of a movement inside the household, when the rows tell it: the paired leg's, else the one the row names by its IBAN. */
   const otherEnd = (t: T): string | undefined => {
     const paired = otherLeg.get(t.id);

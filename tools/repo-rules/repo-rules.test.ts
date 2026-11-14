@@ -53,6 +53,7 @@
  *   rule 45  no style attribute in the web app (style-src has no 'unsafe-inline')   code-rules.ts
  *   rule 46  an own class selector is styled in one stylesheet, base.css apart   css-tokens.ts (detector: css-look.ts)
  *   rule 48  a class a component writes is styled by a sheet its page loads   sheets-rules.ts (detector: sheets.ts)
+ *   rule 49  two rows are paired by amount only in pairing.ts   code-rules.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

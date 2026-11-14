@@ -15,7 +15,7 @@ import type { WhyCollector } from "./explain/types.ts";
 import { answeredWalletRows, applyPayerRoles, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
-import { pairable as canPairAsTransfer } from "./pairing.ts";
+import { mayBeTransferLeg } from "./pairing.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, CategoryRule, IsoDate, PayerInput, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
@@ -382,7 +382,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
 const INERT = "inert";
 const transferKey = (t: Transaction): string => {
   if (t.categorySource === "user") return INERT;
-  const pairs = canPairAsTransfer(t);
+  const pairs = mayBeTransferLeg(t);
   return !pairs && t.category !== "card_bill" ? INERT : `${pairs ? "leg" : ""}${t.category === "card_bill" ? "bill" : ""}`;
 };
 

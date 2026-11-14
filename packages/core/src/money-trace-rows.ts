@@ -10,7 +10,7 @@ import type { Owner, SourcePart, TraceRow } from "./money-trace.ts";
 import { isUserOwner, TRACE_PAIR_DAYS } from "./money-trace.ts";
 import { type Name, nameOf, samePerson } from "./person-names.ts";
 import { matchReturns } from "./returns.ts";
-import { type PoolLeg, pairTransfers, poolLegFinder } from "./pairing.ts";
+import { type PoolLeg, pairsOf, poolLegFinder, transferAllocations } from "./pairing.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
 
@@ -203,7 +203,8 @@ interface Paid {
 /** The leg on another account of every row of the pool that has one, by the row's key. */
 function ownLegs(mine: readonly Transaction[], others: readonly Transaction[], accounts: readonly Account[]): Map<string, Transaction> {
   const otherById = new Map(others.map((t) => [t.id, t]));
-  const { pairs } = pairTransfers([...mine, ...others], accounts);
+  const rows = [...mine, ...others];
+  const pairs = pairsOf(transferAllocations(rows, accounts).allocations, rows);
   const legOf = new Map<string, Transaction>();
   for (const [outId, inId] of pairs) {
     if (outId.startsWith(UNSEEN)) {

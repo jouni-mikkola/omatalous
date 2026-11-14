@@ -32,7 +32,7 @@ import {
   type TraceRow,
   type Undo,
 } from "./money-trace-lots.ts";
-import { pairMoves } from "./pairing.ts";
+import { moveAllocations, movesOf } from "./pairing.ts";
 
 export { compareOwners, isSharedCredit, isUserOwner, sumCents };
 export type { CreditFill, Owner, RowParts, SourcePart, Trace, TraceRow };
@@ -73,7 +73,7 @@ export function trace(rows: readonly TraceRow[], openingCents: number, openingDa
   }
   const order = main.flatMap((r) => [r, ...(bound.get(r.key) ?? [])]);
 
-  const outOf = pairMoves(order, TRACE_PAIR_DAYS);
+  const outOf = movesOf(moveAllocations(order, TRACE_PAIR_DAYS), order);
 
   // state
   const buckets = new Map<string, Bucket>();

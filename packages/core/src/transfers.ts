@@ -1,6 +1,6 @@
 import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
-import { type TransferInput, pairTransfers } from "./pairing.ts";
+import { type TransferInput, transferAllocations } from "./pairing.ts";
 import type { Account } from "./types.ts";
 import { companyForms } from "./wording.ts";
 
@@ -125,7 +125,7 @@ export function isBankName(payee: string, account: Pick<Account, "bank">): boole
  * The pairing itself is pairing.ts.
  */
 export function detectTransfers(txs: readonly TransferInput[], accounts: readonly Account[], options: TransferOptions = {}): Set<string> {
-  const { transfers } = pairTransfers(txs, accounts, options.exclude);
+  const { transfers } = transferAllocations(txs, accounts, options.exclude);
   if (options.issuerFallback !== false) for (const id of billsByIssuer(txs, accounts, transfers, { exclude: options.exclude })) transfers.add(id);
   return transfers;
 }
