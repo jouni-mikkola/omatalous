@@ -8,14 +8,13 @@
  * sealed in one value under their own context (the address is a secret too: a webhook's path, a topic's name) and are
  * never returned or logged. Each event is sent once: its key is claimed before the send and released if the send fails.
  */
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
 import { type Language, isLanguage, WARN_DAYS } from "@banking/core";
 import { UserError } from "../platform/errors.ts";
 import { parseBoolean, parseNoticeAddress, parseNoticeToken } from "../platform/validate.ts";
 import { connectionView } from "./accounts.ts";
 import type { Services } from "./context.ts";
 import { conditions, type HealthProbes } from "./db-health.ts";
+import { postPinned, publicAddress } from "./pinned-post.ts";
 import { recordEvent } from "./security.ts";
 
 /** The row: `{ enabled, keyEnc }`. `keyEnc` is the sealed `{ address, token }`. */
@@ -115,21 +114,7 @@ export async function saveNotices(s: Services, o: Partial<Record<"enabled" | "ad
   return noticesView(s);
 }
 
-/** True when a name resolves only to public addresses (a name that points inside the home network is refused). Checked just before the send, so a later change of the name's answer is not caught. */
-async function resolvesPublic(host: string): Promise<boolean> {
-  const priv = (a: string) =>
-    isIP(a) === 6
-      ? /^(::1?$|f[cd]|fe[89ab]|::ffff:|64:ff9b:|2002:)/i.test(a)
-      : /^(0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|22[4-9]\.|2[3-5]\d\.)/.test(a);
-  try {
-    const all = await lookup(host, { all: true });
-    return all.length > 0 && !all.some((x) => priv(x.address));
-  } catch {
-    return false;
-  }
-}
-
-/** One POST. Redirects are not followed and the answer is not read; only the status counts. */
+/** One POST. Redirects are not followed and the answer is not read; only the status counts. Outside a test the socket goes to the address that passed the public check, not to a second DNS answer. */
 async function post(s: Services, t: Target, kind: NoticeKind, language: Language): Promise<boolean> {
   const { title, message } = TEXTS[language][kind];
   const ntfy = !t.address.startsWith("https://");
@@ -139,9 +124,15 @@ async function post(s: Services, t: Target, kind: NoticeKind, language: Language
   if (t.token) headers.authorization = `Bearer ${t.token}`;
   try {
     // a test's own fetch has no network to look into
-    if (!s.fetch && !(await resolvesPublic(new URL(url).hostname))) return false;
-    const res = await (s.fetch ?? fetch)(url, { method: "POST", headers, body: JSON.stringify(body), redirect: "manual", signal: AbortSignal.timeout(SEND_TIMEOUT_MS) });
-    return res.status >= 200 && res.status < 300;
+    if (s.fetch) {
+      const res = await s.fetch(url, { method: "POST", headers, body: JSON.stringify(body), redirect: "manual", signal: AbortSignal.timeout(SEND_TIMEOUT_MS) });
+      return res.status >= 200 && res.status < 300;
+    }
+    const target = new URL(url);
+    const pin = await publicAddress(target.hostname);
+    if (!pin) return false;
+    const status = await postPinned(target, headers, JSON.stringify(body), pin, SEND_TIMEOUT_MS);
+    return status >= 200 && status < 300;
   } catch {
     return false;
   }
