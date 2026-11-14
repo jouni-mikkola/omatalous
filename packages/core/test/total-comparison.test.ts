@@ -2,7 +2,7 @@
  * The comparison of a month's total never locks on a card gap. A base month that holds a card's purchases only as a
  * bill still holds the whole total (the bill counts as spending), so the expected month, its band and the end of the
  * running month are there; only the days and the categories wait for months that hold the purchases. Made-up
- * households: pay, rent and ten purchases of 520 € in all a month, which are on a card, or paid by its bill.
+ * households: pay, rent, and groceries and restaurants of 520 € together, which are on a card or paid by its bill.
  */
 import { describe, expect, it } from "vitest";
 import { missingCards } from "../src/analysis/card-bills.ts";
@@ -18,38 +18,52 @@ import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const TODAY = "2026-10-09";
+const FIRST_MONTH = "2026-01";
 const checking: Account = { id: "chk", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const card: Account = { id: "card", name: "Morrow Bank Visa", bank: "Morrow Bank", iban: null, currency: "EUR", type: "credit_card" };
-/** Ten purchases a month, 520 € together, on days 3 to 21. */
-const PURCHASES = [4_000, 6_400, 4_000, 6_400, 4_000, 6_400, 4_000, 6_400, 4_000, 6_400];
+const range = { from: "2026-04-01", to: "2026-09-30" };
 
 const row = (id: string, accountId: string, bookingDate: string, amountCents: number, counterparty: string, description: string | null = null): Transaction =>
   tx({ id, accountId, bookingDate, amountCents, counterparty, description, merchant: normalizeMerchant(counterparty, description) });
 
+/** The months from January to the one of `TODAY`, with their index. */
+function eachMonth(visit: (m: string, i: number) => void) {
+  for (let m = FIRST_MONTH, i = 0; m <= TODAY.slice(0, 7); m = addMonths(m, 1), i++) visit(m, i);
+}
+
 /**
  * January to the 9th of October 2026. The card's own rows begin in `cardSince` (null: no card is connected). Every month
- * before October holds the card's bill on the checking account; `paired` false leaves the card's payment row out, so
- * the bill stays unmatched with the card's purchases.
+ * before October holds the card's bill on the checking account, which pairs with the card's payment row.
  */
-function household(cardSince: string | null, paired = true) {
+function household(cardSince: string | null) {
   const out: Transaction[] = [];
-  for (let m = "2026-01", i = 0; m <= TODAY.slice(0, 7); m = addMonths(m, 1), i++) {
-    const own = cardSince !== null && m >= cardSince;
+  eachMonth((m, i) => {
     out.push(row(`rent-${i}`, "chk", dateIn(m, 2), -90_000, "ASUNTO OY ESIMERKKI", "VUOKRA"));
     out.push(row(`pay-${i}`, "chk", dateIn(m, 1), 300_000, "ESIMERKKI OY", "PALKKA"));
+    const own = cardSince !== null && m >= cardSince;
     if (own) {
-      PURCHASES.forEach((cents, k) => {
-        const date = dateIn(m, 3 + 2 * k);
-        if (date <= TODAY) out.push(row(`buy-${i}-${k}`, "card", date, -cents, `KAUPPA ${String.fromCharCode(65 + k)} ESIMERKKI`));
-      });
+      out.push(row(`food-${i}`, "card", dateIn(m, 3), -40_000, "K-MARKET ESIMERKKI"));
+      out.push(row(`dine-${i}`, "card", dateIn(m, 8), -12_000, "RAVINTOLA ESIMERKKI"));
     }
     if (m < TODAY.slice(0, 7)) {
       out.push(row(`bill-${i}`, "chk", dateIn(m, 24), -52_000, "MORROW BANK ASA", "LASKU"));
-      if (own && paired) out.push(row(`paid-${i}`, "card", dateIn(m, 24), 52_000, "SUORITUS", "SUORITUS"));
+      if (own) out.push(row(`paid-${i}`, "card", dateIn(m, 24), 52_000, "SUORITUS", "SUORITUS"));
     }
-  }
+  });
   const accounts = cardSince === null ? [checking] : [checking, card];
   return createContext(enrichTransactions(out, accounts, []), accounts, TODAY);
+}
+
+/** The card connected from the first month with its bills left as the bank paid them: a bill that pairs with none of the card's rows. */
+function unmatchedBills() {
+  const out: Transaction[] = [];
+  eachMonth((m, i) => {
+    out.push(tx({ id: `rent-${i}`, accountId: "chk", bookingDate: dateIn(m, 2), amountCents: -90_000, merchant: "Asunto Oy Esimerkki", category: "housing" }));
+    out.push(tx({ id: `food-${i}`, accountId: "card", bookingDate: dateIn(m, 3), amountCents: -40_000, merchant: "K-Market Esimerkki", category: "groceries" }));
+    out.push(tx({ id: `dine-${i}`, accountId: "card", bookingDate: dateIn(m, 8), amountCents: -12_000, merchant: "Ravintola Esimerkki", category: "restaurants" }));
+    if (m < TODAY.slice(0, 7)) out.push(tx({ id: `bill-${i}`, accountId: "chk", bookingDate: dateIn(m, 24), amountCents: -52_000, merchant: "Morrow Bank", counterparty: "MORROW BANK ASA", category: "card_bill" }));
+  });
+  return createContext(out, [checking, card], TODAY);
 }
 
 /** What every case below shows: the month has an expected total and an estimate of its end, whatever the cards hold. */
@@ -77,15 +91,14 @@ describe("a card whose feed starts later than its bills", () => {
 
   it("compares the total and reads no day or category from the months that hold the card as a bill", () => {
     const { figure, pace } = expectTotalComparison(late);
+    expect(figure.covered).toEqual(["2026-07", "2026-08", "2026-09"]);
     expect(coversCategories(figure)).toBe(false);
     expect(usualGap(late, "2026-10")).toBe("cards");
     expect(pace).toMatchObject({ expected: null, cardGap: true });
   });
 
-  it("expects the same month as a card whose feed covers every month", () => {
-    const billed = expectedSpending(late, "2026-10")!;
-    const itemised = expectedSpending(whole, "2026-10")!;
-    expect(Math.abs(billed - itemised)).toBeLessThanOrEqual(itemised * 0.1);
+  it("expects the same month as a card whose feed covers every month: a card's series is not put back over its bills", () => {
+    expect(expectedSpending(late, "2026-10")).toBe(expectedSpending(whole, "2026-10"));
   });
 });
 
@@ -95,14 +108,15 @@ describe("a card that is not connected", () => {
     const { figure, pace } = expectTotalComparison(ctx);
     expect(figure.covered).toEqual([]);
     expect(pace).toMatchObject({ expected: null, cardGap: true });
-    expect(missingCards(ctx, { from: "2026-04-01", to: "2026-09-30" }).bills.map((b) => b.reason)).toEqual(["not_connected"]);
+    expect(expectedSpending(ctx, "2026-10")).toBe(expectedSpending(household("2026-01"), "2026-10"));
+    expect(missingCards(ctx, range).bills.map((b) => b.reason)).toEqual(["not_connected"]);
   });
 });
 
 describe("a bill that pairs with none of the connected card's rows", () => {
   it("compares the total all the same", () => {
-    const ctx = household("2026-01", false);
-    expect(missingCards(ctx, { from: "2026-04-01", to: "2026-09-30" }).bills.map((b) => b.reason)).toEqual(["unmatched"]);
+    const ctx = unmatchedBills();
+    expect(missingCards(ctx, range).bills.map((b) => b.reason)).toEqual(["unmatched"]);
     expectTotalComparison(ctx);
   });
 });

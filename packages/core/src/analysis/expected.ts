@@ -90,6 +90,8 @@ interface ExpectedInput {
   series: readonly RecurringSeries[];
   /** The rows that are one-offs: left out of the figure and listed. */
   oneOffs: ReadonlySet<string>;
+  /** Whether a series' latest charge `t` is put back into a base month before the series began; false for a month that holds the same money as a card bill. Default: yes. */
+  backfill?: (t: AnalysisTx, month: string) => boolean;
 }
 
 const dayOf = (t: Pick<AnalysisTx, "bookingDate">) => Number(t.bookingDate.slice(8, 10));
@@ -179,7 +181,7 @@ function expectedOf(input: ExpectedInput): Expected {
   // the contract holds in every base month, also before it began: the latest charge on its day, so a bill that began
   // in the middle of the base is not diluted by the months before it
   const started = new Map(monthlySeries.filter((s) => s.active).map((s) => [s.id, s.firstDate.slice(0, 7)] as const));
-  for (const [id, t] of latest) months.forEach((m, i) => m < (started.get(id) ?? "") && place(t.category, i, dayOf(t) - 1, t.spend, true));
+  for (const [id, t] of latest) months.forEach((m, i) => m < (started.get(id) ?? "") && (input.backfill?.(t, m) ?? true) && place(t.category, i, dayOf(t) - 1, t.spend, true));
   const curves = new Map([...daily].map(([category, perMonth]) => [category, perMonth.map(cumulative)]));
   const due = dueIn(series, month);
   const duePerCategory = new Map<string, number>();
@@ -236,7 +238,16 @@ const cache = new WeakMap<AnalysisContext, Map<string, Expected | null>>();
 function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[]): Expected {
   // the one-offs are judged in the window of the month and its base, as the insights and the change report judge them
   const oneOffs = expectedOneOffs(ctx, [...months, month]);
-  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m), series: ctx.recurring, oneOffs });
+  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m), series: ctx.recurring, oneOffs, backfill: backfillOf(ctx) });
+}
+
+/**
+ * A card's series is not put back into a month that holds the card's purchases as a bill: the bill is already that
+ * month's spending, and the charge again would count it twice.
+ */
+function backfillOf(ctx: AnalysisContext): (t: AnalysisTx, month: string) => boolean {
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  return (t, month) => !cards.has(t.accountId) || coveredMonths(ctx, [month]).length > 0;
 }
 
 const rowCache = new WeakMap<AnalysisContext, Map<string, readonly AnalysisTx[]>>();
@@ -265,7 +276,7 @@ export function expectedPart(ctx: AnalysisContext, month: string, months: readon
     return first !== undefined && keep(first);
   });
   const struck = oneOffs ?? expectedOneOffs(ctx, [...months, month]);
-  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m).filter(keep), series, oneOffs: struck }).at().cents;
+  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m).filter(keep), series, oneOffs: struck, backfill: backfillOf(ctx) }).at().cents;
 }
 
 /** The ids of the rows of `months` that are one-offs by the level policy (ADR 0005): what the expected figure leaves out, wherever a page reads a level over months. */
