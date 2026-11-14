@@ -26,7 +26,7 @@ const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
   withoutRate: 0, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
 });
 const balanceData = {
-  months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, -11_880_000], lowest: null, events: [], payDays: [],
+  months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], monthChangeLeftOut: [0, 0], missing: [], accountsLessDebt: [null, -11_880_000], lowest: null, events: [], payDays: [],
   daily: { from: "2026-09-30", cents: [100_000, 120_000] }, change: { from: "2026-09-30", to: "2026-10-01", cents: 20_000 }, holdings: { accounts: [], cards: [], loans: [], debtCents: 0, unsavedLoans: null, netCents: null },
   accounts: [{ accountId: "a", name: "Käyttötili", asOf: day, values: [100_000, 120_000], changeCents: 20_000 }], debt: { day, cents: 12_000_000, savedCents: 12_000_000 },
 };

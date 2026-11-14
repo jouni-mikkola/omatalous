@@ -37,6 +37,8 @@ function Balances({ ctx }: SectionProps) {
     </>
   );
   const monthRows = r.months.map((_, i) => i);
+  // a month's change is over the accounts with a balance at both its ends: the ones without are left out of it
+  const leftOut = (i: number) => (r.monthChangeLeftOut[i] ?? 0) > 0;
   const tableColumns: Column<number>[] = [
     {
       key: "month",
@@ -56,11 +58,14 @@ function Balances({ ctx }: SectionProps) {
       key: "change",
       label: t("rpt.bal_month_change"),
       kind: "money",
-      cell: (i) => (r.monthChange[i] === null || r.monthChange[i] === undefined ? "–" : signedMoney(r.monthChange[i]!)),
+      cell: (i) => (r.monthChange[i] === null || r.monthChange[i] === undefined ? "–" : `${signedMoney(r.monthChange[i]!)}${leftOut(i) ? " *" : ""}`),
     },
   ];
   const tableView = (
-    <Table caption={t("rpt.bal_by_month")} rows={monthRows} rowKey={(i) => r.months[i]!} search={false} columns={tableColumns} />
+    <>
+      <Table caption={t("rpt.bal_by_month")} rows={monthRows} rowKey={(i) => r.months[i]!} search={false} columns={tableColumns} />
+      {monthRows.some((i) => r.monthChange[i] != null && leftOut(i)) && <p className="muted small">{t("rpt.bal_change_left_out")}</p>}
+    </>
   );
   return (
     <ReportPanel

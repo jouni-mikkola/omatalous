@@ -79,11 +79,13 @@ export interface BalanceReport {
    */
   events: { day: IsoDate; label: string; cents: number; step: { beforeCents: number; afterCents: number } | null }[];
   /**
-   * The change of `total` at each month end from the month before (`total` less the previous `total`); null where either is
-   * unknown or an account has no value at either month end. The accounts' own changes (`values[i]` less `values[i - 1]`)
-   * then add up to it.
+   * The change at each month end from the month before, over the accounts that have a value at both ends (their own
+   * `values[i]` less `values[i - 1]`, added up); null for the first month, where `total` of either month is unknown, or
+   * where no account has both.
    */
   monthChange: (number | null)[];
+  /** How many accounts of the rows `monthChange` of the same month leaves out because they have no value at one of the two month ends. */
+  monthChangeLeftOut: number[];
   /**
    * The accounts in view that are in no total, no line and no row above, each with what is known of it: in another
    * currency its balance in that currency (`foreign`, never added to euros), with no balance told `foreign` is null.
@@ -198,10 +200,16 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   const moved = balanceChange(all, dailyFrom, toDay);
   const withChange = series.map((s) => ({ ...s, changeCents: moved?.byAccount.get(s.accountId) ?? null }));
   const change = moved && { from: moved.from, to: moved.to, cents: moved.cents, basis: moved.basis };
-  // only where every account has a value at both month ends: an account that starts in between would count its whole balance as change
-  const monthChange = total.map((t, m) => (t === null || m === 0 || total[m - 1] === null || series.some((s) => s.values[m] === null || s.values[m - 1] === null) ? null : t - total[m - 1]!));
+  // over the accounts with a value at both month ends: one that starts in between would count its whole balance as change, so it is left out and counted
+  const comparable = (m: number) => series.filter((s) => s.values[m] !== null && s.values[m - 1] !== null);
+  const monthChange = total.map((t, m) => {
+    if (t === null || m === 0 || total[m - 1] === null) return null;
+    const same = comparable(m);
+    return same.length === 0 ? null : same.reduce((sum, s) => sum + (s.values[m]! - s.values[m - 1]!), 0);
+  });
+  const monthChangeLeftOut = total.map((_, m) => (m === 0 ? 0 : series.length - comparable(m).length));
   // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
   const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
   const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));
-  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
+  return { months: monthLabels(months), accounts: withChange, total, monthChange, monthChangeLeftOut, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
 }
