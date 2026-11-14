@@ -124,8 +124,9 @@ flowchart LR
   `merchant.ts` works out the merchant name. `categorize.ts` holds the rules and the order they are read in;
   `categorize-people.ts` holds the rules about people (the holders of the accounts, MobilePay, the bank's own words for a
   payment between people), and `categorize-bank-rows.ts` the lenders by the shape of their name, by their own payout and
-  by the register, and the rows of the bank itself. `transfers.ts` pairs rows between own accounts and holds the
-  issuer fallback. `card-channel.ts` learns each connected card's payment channel from the pairs and decides a payment to
+  by the register, and the rows of the bank itself. `pairing.ts` is the one place that pairs the two legs of a
+  movement (between own accounts, the variants of the loan payment, the card stack, the ahead moves and the trace),
+  and `transfers.ts` detects transfers and holds the issuer fallback. `card-channel.ts` learns each connected card's payment channel from the pairs and decides a payment to
   it. The channel is worked out on every run and stored nowhere (ADR 0015). `pipeline.ts` runs them in order.
   `categorize` takes the accounts, since the holders come from them (`accounts.holder`).
 - Industry lookup (`services/industry.ts`, `providers/prh`): merchants nothing recognises, from business

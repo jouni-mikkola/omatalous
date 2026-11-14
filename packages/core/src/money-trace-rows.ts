@@ -10,7 +10,8 @@ import type { Owner, SourcePart, TraceRow } from "./money-trace.ts";
 import { isUserOwner, TRACE_PAIR_DAYS } from "./money-trace.ts";
 import { type Name, nameOf, samePerson } from "./person-names.ts";
 import { matchReturns } from "./returns.ts";
-import { normalizeIban, pairable, pairTransfers } from "./transfers.ts";
+import { type PoolLeg, pairTransfers, poolLegFinder } from "./pairing.ts";
+import { normalizeIban } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
 
 /** One row of the real account, once: its key, its id on each copy that holds it, and the copy's row it was read from. */
@@ -161,7 +162,7 @@ export function traceRows(joined: Joined, who: Payers): TraceRow[] {
   // movements between own accounts: the leg on another account of every row that has one
   const mine = booked.map((r) => ({ ...r.tx, id: UNSEEN + r.key, accountId: joined.accountId }));
   const book: Book = { who, ibanOf, self, ownIbans };
-  const read = readRows(book, readable, ownLegs(mine, others, who.accounts), poolLegFinder(book, others));
+  const read = readRows(book, readable, ownLegs(mine, others, who.accounts), poolLegFinder({ pools: who.pools, ibanOf, self }, others, legOrder, TRACE_PAIR_DAYS));
   const paid = paidByPayee(booked);
 
   // a refund returns the purchase it is paired with; the rows read above are not offered again
@@ -229,45 +230,8 @@ function aloneOf(book: Book, tx: Transaction, leg: Transaction | undefined): Own
   return byLeg ?? (holder?.kind === "one" ? holder.owner : undefined);
 }
 
-type PoolLeg = (tx: Transaction, dir: 1 | -1) => Transaction | undefined;
-
-/** Finds the leg of a row on another pool, each leg once: `dir` 1 looks from money out to the money in, -1 back from money in. */
-function poolLegFinder({ who, ibanOf, self }: Book, others: readonly Transaction[]): PoolLeg {
-  // the legs on another pool: the same cents, the money out on the same day or up to TRACE_PAIR_DAYS before the money in, and
-  // evidence that the two rows are one movement: one names the other's pool by IBAN, or neither has an IBAN and both may be a transfer
-  const onPool = (t: Transaction): boolean => {
-    const iban = ibanOf.get(t.accountId);
-    return !!iban && iban !== self && who.pools.has(iban);
-  };
-  const legIndex = new Map<number, Map<number, Transaction[]>>();
-  for (const t of [...others].sort((a, b) => dayNumber(a.bookingDate) - dayNumber(b.bookingDate) || cmp(contentOf(a), contentOf(b)) || cmp(a.id, b.id))) {
-    if (!onPool(t) || t.status === "pending") continue;
-    let days = legIndex.get(t.amountCents);
-    if (!days) legIndex.set(t.amountCents, (days = new Map()));
-    const day = dayNumber(t.bookingDate);
-    const list = days.get(day);
-    if (list) list.push(t);
-    else days.set(day, [t]);
-  }
-  const used = new Set<string>();
-  const poolLeg = (tx: Transaction, dir: 1 | -1): Transaction | undefined => {
-    const days = legIndex.get(-tx.amountCents);
-    if (!days) return undefined;
-    const day = dayNumber(tx.bookingDate);
-    const rowIban = normalizeIban(tx.counterpartyIban);
-    for (let gap = 0; gap <= TRACE_PAIR_DAYS; gap++) {
-      for (const leg of days.get(day + dir * gap) ?? []) {
-        const legIban = normalizeIban(leg.counterpartyIban);
-        if (used.has(leg.id) || (rowIban && rowIban !== ibanOf.get(leg.accountId)) || (legIban && legIban !== self)) continue;
-        if (!rowIban && !legIban && !(pairable(tx) && pairable(leg))) continue;
-        used.add(leg.id);
-        return leg;
-      }
-    }
-    return undefined;
-  };
-  return poolLeg;
-}
+/** The rows of the other pools in the order a leg is read: the day, then the content, then the id. */
+const legOrder = (a: Transaction, b: Transaction): number => dayNumber(a.bookingDate) - dayNumber(b.bookingDate) || cmp(contentOf(a), contentOf(b)) || cmp(a.id, b.id);
 
 /** The money the pool paid out, by payee. */
 function paidByPayee(booked: readonly JoinedRow[]): Paid {

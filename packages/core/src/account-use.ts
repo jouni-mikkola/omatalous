@@ -7,7 +7,8 @@
 import type { WhyCollector } from "./explain/types.ts";
 import { titleCase } from "./merchant.ts";
 import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
-import { normalizeIban, pairTransfers } from "./transfers.ts";
+import { pairTransfers } from "./pairing.ts";
+import { normalizeIban } from "./transfers.ts";
 import type { Account, AccountUse, AccountUser, Part, RowShare, Transaction } from "./types.ts";
 
 /** All of an account. */

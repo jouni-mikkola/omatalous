@@ -14,7 +14,8 @@ import { cardName } from "../merchant.ts";
 import { detectRecurring } from "../recurring.ts";
 import type { SeriesInput } from "../recurring-occurrence.ts";
 import { median } from "../stats.ts";
-import { normalizeIban, PAIR_WINDOW_DAYS } from "../transfers.ts";
+import { incomingLegFinder, PAIR_WINDOW_DAYS } from "../pairing.ts";
+import { normalizeIban } from "../transfers.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 import { balanceWalk } from "./balance-walk.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
@@ -168,26 +169,8 @@ interface Followed {
 function followLeft(ctx: AnalysisContext, counted: ReadonlySet<string>, accountOf: ReadonlyMap<string, AnalysisContext["accounts"][number]>): Followed {
   const byIban = new Map(ctx.accounts.flatMap((a) => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id] as const] : [])));
   const moved = ctx.txs.filter((t) => t.isTransfer && t.status === "booked");
-  // the legs that came in, by the bank's sum: a leg on a joint account is cut to the viewer's part in a member's own view
-  const cameIn = new Map<number, AnalysisTx[]>();
-  for (const t of moved) {
-    if (t.amountCents <= 0) continue;
-    const legs = cameIn.get(billCents(t));
-    if (legs) legs.push(t);
-    else cameIn.set(billCents(t), [t]);
-  }
-  const used = new Set<string>();
-  /** The leg that came in for a leg that left: on `to` when the leg names its account, the nearest day first. */
-  const legOf = (out: AnalysisTx, to: string | null): AnalysisTx | undefined => {
-    let best: AnalysisTx | undefined;
-    for (const t of cameIn.get(-billCents(out)) ?? []) {
-      const gap = Math.abs(t.day - out.day);
-      if (t.accountId === out.accountId || used.has(t.id) || gap > PAIR_WINDOW_DAYS || (to !== null && t.accountId !== to)) continue;
-      if (!best || gap < Math.abs(best.day - out.day)) best = t;
-    }
-    if (best) used.add(best.id);
-    return best;
-  };
+  // the leg that came in for a leg that left, by the bank's sum (pairing.ts)
+  const legOf = incomingLegFinder(moved, billCents);
 
   const left = moved.filter((t) => t.amountCents < 0 && counted.has(t.accountId)).map((out) => ({ out, named: byIban.get(normalizeIban(out.counterpartyIban) ?? "") ?? null }));
   const bills = new Map<string, PaidBill[]>();

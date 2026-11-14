@@ -43,6 +43,7 @@ export { householdWords, nameMayBePerson } from "./payee-guard.ts";
 export { type GuessCandidate, payeeGuesser } from "./payee-guess.ts";
 export { companyForms } from "./wording.ts";
 export * from "./transfers.ts";
+export * from "./pairing.ts";
 export * from "./recurring.ts";
 
 export * from "./commitments.ts";

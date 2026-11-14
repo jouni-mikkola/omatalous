@@ -15,7 +15,8 @@ import type { WhyCollector } from "./explain/types.ts";
 import { answeredWalletRows, applyPayerRoles, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
-import { normalizeIban, pairable as canPairAsTransfer } from "./transfers.ts";
+import { pairable as canPairAsTransfer } from "./pairing.ts";
+import { normalizeIban } from "./transfers.ts";
 import type { Account, CategoryRule, IsoDate, PayerInput, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
 
