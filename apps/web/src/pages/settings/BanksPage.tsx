@@ -4,7 +4,6 @@
  */
 import { api } from "../../api.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
-import { tn } from "../../text.ts";
 import { BankApp } from "./BankApp.tsx";
 import { Accounts } from "./Accounts.tsx";
 import { BankConnections, connectedMessage, connectError } from "./BankConnections.tsx";
@@ -12,6 +11,7 @@ import { CardStack } from "./CardStack.tsx";
 import type { SettingsPageProps } from "./SettingsPage.ts";
 import { StatementFile } from "./StatementFile.tsx";
 import { SyncRuns } from "./SyncRuns.tsx";
+import { type SyncAnswer, syncResult } from "./sync-result.ts";
 import { useCardScroll, useCardsShown, useRunner } from "./use-settings-page.ts";
 
 export function BanksPage({ meta, params, anchor, onChange }: SettingsPageProps) {
@@ -27,7 +27,8 @@ export function BanksPage({ meta, params, anchor, onChange }: SettingsPageProps)
 
   return (
     <div className="stack">
-      {message && <Notice tone={message.tone}>{message.text}</Notice>}
+      {/* an error is an alert by itself; the other outcomes are read out as a status */}
+      {message && <Notice tone={message.tone} {...(message.tone === "error" ? {} : { role: "status" })}>{message.text}</Notice>}
       <CardStack shown={shown}>
         <BankConnections
           meta={meta}
@@ -39,8 +40,7 @@ export function BanksPage({ meta, params, anchor, onChange }: SettingsPageProps)
             disabled: busy !== null,
             start: () =>
               void run("sync", async () => {
-                const r = await api<{ status: string; inserted: number; messages: string[] }>("/api/sync", { method: "POST" });
-                return [`${tn(r.inserted, "set.banks.one_new_transaction", "set.banks.n_new_transactions")}.`, ...r.messages].join(" ");
+                return syncResult(await api<SyncAnswer>("/api/sync", { method: "POST" }));
               }),
           }}
         />
