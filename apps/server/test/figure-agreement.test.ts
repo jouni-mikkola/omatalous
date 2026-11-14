@@ -167,6 +167,14 @@ const CONCEPTS: readonly Concept[] = [
     readers: {
       "Yhteenveto Tulot ja menot (dashed line)": (s) => s.runDash.overview.usualSpendCents,
       "Rahankäyttö Menot kuukausittain (typical)": (s) => s.window.spendingMonths.typicalCents,
+    },
+  },
+  {
+    id: "T5c",
+    name: "The usual month's spending, chart line and the first page's row",
+    months: "running",
+    readers: {
+      "Yhteenveto Tulot ja menot (dashed line)": (s) => s.runDash.overview.usualSpendCents,
       "Yhteenveto Tavalliset menot (home.direction)": (s) => s.runDash.home.direction.usualCents,
     },
   },
@@ -185,7 +193,15 @@ const CONCEPTS: readonly Concept[] = [
  * Concepts that disagree today, by the household that shows it. Each runs as `it.fails`: it passes while the pages
  * disagree and fails the day they agree, which is the day to delete the entry. The reason names the figure and the fix.
  */
-const KNOWN: Record<string, Record<string, string>> = {};
+const KNOWN: Record<string, Record<string, string>> = {
+  // The chart's dashed line is the mean of the complete months (`spendingMonthsReport` typicalCents, shared with Rahankäyttö);
+  // the row of Varat ja velat is `expectedSpending` (ADR 0021), another definition under a near name. One owner is due (ADR 0004).
+  T5c: {
+    demo: "usual month: chart line 321652, home.direction.usualCents 340316",
+    kit: "usual month: chart line 332798, home.direction.usualCents 337160",
+    "made-up": "usual month: chart line 174214, home.direction.usualCents 175070",
+  },
+};
 
 const snapsFor = (concept: Concept, snaps: readonly Snap[]) =>
   snaps.filter((s) => (concept.months === "window" ? true : concept.months === "own" ? s.own !== undefined : s.running));
