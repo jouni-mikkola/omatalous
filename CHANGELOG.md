@@ -3,6 +3,49 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.3.0
+
+- Kuukausi shows the same income as the first page, and the usual month leaves out large one-off purchases.
+- Yhteenveto and Laskut show bills that fall due from accounts the balance does not count.
+- Asetukset > Talous lists the loans found in the bank rows, and a missing card average links to the statement import.
+- Tilit ja saldot counts a month's change only for accounts with a balance at both month ends.
+- A bank's CSV file can give each row its payment message. Passkeys are removed: use the authenticator app.
+
+Money and reports
+
+- Tilit ja saldot: a month's change counts the accounts with a balance at both month ends.
+- Yhteiset menot: a split correction that nets to zero is named "Jaon korjaus aiempaan kuukauteen".
+- Yhteiset menot: the "Ei tiedossa" block explains what it holds and links to the account split.
+- Tilit ja saldot: the running month reads "kesken" like the other month tables, not "(tänään)".
+- Yhteenveto and Laskut show what falls due before the payday from accounts the balance does not count.
+- Asetukset > Talous lists the loans found in the bank rows, with Lisää saldo and Ei ole laina on each.
+- Kuukausi shows the same income as the first page: earned income, and its usual level as "tavallisesti X kuussa".
+- "Säännölliset tulot" now names only the median of regular income in Raportit > Tulot.
+- The usual month's spending, the dashed line on Yhteenveto and the averages in Menot kuukausittain, leaves out large one-off purchases, so a sofa or a car no longer lifts it. The bars and totals still hold every purchase.
+
+Fetching and importing
+
+- A bank's CSV file can give each row its payment message (viesti), which then helps sort the row.
+
+Look
+
+- Where a card average is missing, a link leads to the card statement import in Asetukset.
+- A bill's price joins its name only where the same payee has another bill in the list.
+
+Reliability
+
+- A device that signs in again replaces its old session instead of adding one to the list.
+- Asetukset > Jäsenet marks a temporary password that is over a week old.
+- The system check no longer warns about a missing address when the host cannot list its addresses.
+- An update leaves a fresh system check, so the page names the version that runs.
+- Varmuuskopiot no longer says "Ei ajettu vielä" when copies exist.
+- Passkeys are removed: a browser allows them only on https, and the app runs over http on the home network.
+- Asetukset > Turvallisuus keeps the authenticator app and its recovery codes as the second sign-in step.
+
+Upgrade
+
+- Passkeys no longer work. A member whose only second factor was a passkey signs in with the password alone until they turn on the authenticator app again.
+
 ## 1.2.2
 
 - Yhteenveto is rebuilt: four tiles, twelve months of income and spending, the coming bills, accounts and categories.
