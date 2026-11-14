@@ -1,8 +1,9 @@
 # Omatalous
 
-Omatalous is a personal finance app for a Finnish household. It runs on a machine at home, reads your bank accounts
-through [Enable Banking](https://enablebanking.com) and sorts every transaction into a category. The first page shows
-what is left until the next payday after the bills due before it.
+Your bank lists transactions. It does not tell you what your household earns, spends and has left. Omatalous does,
+in one place. It runs on a machine at home, reads your bank accounts through [Enable Banking](https://enablebanking.com)
+and sorts every transaction into a category. The first page shows what is left until the next payday after the bills
+due before it.
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/images/tour-still.png">
@@ -21,14 +22,21 @@ curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/insta
 ```
 
 The command downloads [a small script](relay/install.sh) and runs it only when its hash matches. After 5 to 10 minutes
-the installer prints the address of the app and a setup link. Open the link on a phone or computer at home and create
-the first user, who becomes the admin. To look around before you connect a bank, press *Lataa esimerkkitiedot* on the
-empty first page. [The install guide](docs/INSTALL.md) has each step.
+the installer prints the address of the app and a setup link. [The install guide](docs/INSTALL.md) has each step.
+
+## First steps
+
+1. Open the setup link on a phone or computer at home and create the first user, who becomes the admin. Bookmark the
+   address the installer printed. The whole household uses it.
+2. To look around first, press *Lataa esimerkkitiedot* on the empty first page.
+3. Connect your bank. You register a free app at Enable Banking with your email, and the setup walks you through it in
+   about 15 minutes ([Connecting a bank](docs/ENABLE_BANKING.md)).
+4. Add the other members of the household in *Asetukset*. Each has a login of their own.
+5. After the first fetch, check the categories and answer what *Tarkistettavat* asks.
 
 ## Banks
 
-You connect a bank in the app. First you register a free app at Enable Banking with your email, and the setup walks
-you through it in about 15 minutes ([Connecting a bank](docs/ENABLE_BANKING.md)). The app can connect Nordea, OP,
+The app can connect Nordea, OP,
 Danske Bank, S-Pankki, the savings banks, POP Pankki, Aktia, Ålandsbanken and some card issuers. It was built and
 tested mainly with Nordea, so check the categories of another bank in the first month.
 
