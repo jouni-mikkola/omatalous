@@ -43,6 +43,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | How sure an estimate is | *Arvio on epävarma*, *suuntaa antava*, *luotettava* | *Varmuus keskitaso*, *Peruste*, *Vaikutus* |
 | The usual level of a payer, a bill or the savings rate | *tavallisesti* | *normaali* |
 | The bills before payday without the card's bill | *Muut laskut ennen palkkapäivää* (the card's bill is *Korttivelka*) | *Maksut ennen palkkapäivää* beside a figure that holds the card |
+| A month that has not ended, or whose figures cover only a part of it | *kesken* (the month has not ended: "Lokakuu, kesken"), *vajaa* (it has ended but the accounts do not cover it from its start) | *tänään* as the label of a running month, *keskeneräinen* |
 | A month with all its days | *päättynyt kuukausi* | *valmis kuukausi*, *täysi kuukausi*, *kokonainen kuukausi* |
 | Confirming | the verb that names the act: *Poista*, *Tallenna*, *Peruuta* | *Kyllä*, *Ei*, *OK* |
 | Abbreviations | *kaupparekisteri* for YTJ; CSV is explained at its first use; API and PSD2 only for the administrator | |

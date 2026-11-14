@@ -43,7 +43,7 @@ function Balances({ ctx }: SectionProps) {
       label: t("rpt.month"),
       kind: "text",
       rowHead: true,
-      cell: (i) => (i === last && lastIsToday ? `${monthLong(r.months[i]!)}${t("rpt.bal_today")}` : monthLong(r.months[i]!)),
+      cell: (i) => (i === last && lastIsToday ? t("rpt.sm_running", { month: monthLong(r.months[i]!) }) : monthLong(r.months[i]!)),
     },
     {
       key: "total",
