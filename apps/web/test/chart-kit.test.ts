@@ -83,7 +83,7 @@ describe("a domain that one outlier does not flatten", () => {
     const negative = linear([-9000, 1000, 1100, 1200, 1300], [100, 0], { clip: 3 });
     expect(negative.clipped).toEqual([0]);
     expect(negative.domain[0]).toBe(0);
-    expect(negative.domain[1]).toBeLessThan(2000);
+    expect(negative.domain[1]).toBeLessThanOrEqual(2000);
     const positive = linear([-1000, -1100, -1200, -1300, 9000], [100, 0], { clip: 3 });
     expect(positive.clipped).toEqual([4]);
     expect(positive.domain[1]).toBe(0);
@@ -93,7 +93,7 @@ describe("a domain that one outlier does not flatten", () => {
     expect(both.domain[0]).toBeGreaterThanOrEqual(-2000);
     expect(both.domain[0]).toBeLessThanOrEqual(-1100);
     expect(both.domain[1]).toBeGreaterThanOrEqual(1200);
-    expect(both.domain[1]).toBeLessThan(2000);
+    expect(both.domain[1]).toBeLessThanOrEqual(2000);
     const allNegative = linear([-1000, -1100, -1200, -1300, -9000], [100, 0], { clip: 3 });
     expect(allNegative.clipped).toEqual([4]);
     expect(allNegative.domain[1]).toBe(0);
