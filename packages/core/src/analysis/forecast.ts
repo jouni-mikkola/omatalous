@@ -13,7 +13,7 @@ import type { ExpectedBill, IsoDate } from "../types.ts";
 import { earnedOf, earnedSelect } from "./counted.ts";
 import { type AnalysisContext, inDays, spendRows, standingOf } from "./context.ts";
 import { accountsCoverage, monthSpan } from "./coverage.ts";
-import { expectedFor, expectedIncome, usualGap } from "./expected.ts";
+import { coversCategories, expectedFor, expectedIncome, usualGap } from "./expected.ts";
 import { paidCardBills } from "./usual.ts";
 
 export interface MonthPace {
@@ -55,12 +55,14 @@ export interface MonthPace {
     /** `currentTotal` less `toToday`: above zero the month has cost more than expected so far. */
     diffCents: number;
   } | null;
-  /** The months to compare lack the purchases of a linked card (`cardsBreakUsual`): `expected` is null for that reason, not for lack of months. */
+  /** `expected` is null for a card's missing purchases in the base months (`usualGap`), not for lack of months: the days of such a month are not true, its total is, so `projection` is still there. */
   cardGap: boolean;
   /**
    * The rest of a running month as the base months spent it: on each day from today's to the last, `currentTotal` plus
    * what the lower and the upper quartile months of `expected` added after today's day; `low` and `high` start at today.
-   * An estimate. null for a month that has ended or has not begun, and without `expected`.
+   * An estimate. null for a month that has ended or has not begun, and under three complete months. Where `expected` is
+   * null for a card's missing purchases, it runs in a straight line from today's total to the whole-month band of the base
+   * months, kept at or above the total: only its last day is a figure.
    */
   projection: { fromDay: number; low: number[]; high: number[] } | null;
   /** The days of the month so far that brought earned income of at least a quarter of the expected month's: the pay days the line marks. */
@@ -120,7 +122,8 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
 function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "expected" | "projection" | "cardGap"> {
   const days = daysInMonth(month);
   const figure = expectedFor(ctx, month);
-  if (!figure || !figure.itemised) return { expected: null, projection: null, cardGap: usualGap(ctx, month) === "cards" };
+  if (!figure) return { expected: null, projection: null, cardGap: usualGap(ctx, month) === "cards" };
+  if (!coversCategories(figure)) return { expected: null, projection: wholeMonthProjection(figure, lastDay, total), cardGap: true };
   const curve: number[] = [];
   const low: number[] = [];
   const high: number[] = [];
@@ -143,6 +146,16 @@ function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, tota
     projection.high.push(Math.max(a, b));
   }
   return { expected, projection, cardGap: false };
+}
+
+/** The rest of a running month from the base months' totals alone (`MonthPace.projection`): their quartile band of the whole month, never under what the month has cost. */
+function wholeMonthProjection(figure: NonNullable<ReturnType<typeof expectedFor>>, lastDay: number, total: number): MonthPace["projection"] {
+  const days = daysInMonth(figure.month);
+  if (!lastDay || lastDay >= days) return null;
+  const whole = figure.at();
+  const steps = days - lastDay;
+  const line = (end: number) => Array.from({ length: steps + 1 }, (_, i) => total + Math.round(((Math.max(total, end) - total) * i) / steps));
+  return { fromDay: lastDay, low: line(whole.lowCents), high: line(whole.highCents) };
 }
 
 /** The days of the month to `lastDay` whose earned income is at least a quarter of the expected month's; none without an expected income. */

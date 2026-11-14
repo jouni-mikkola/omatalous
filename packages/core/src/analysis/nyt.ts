@@ -13,7 +13,7 @@ import type { IsoDate } from "../types.ts";
 import type { AheadBasis } from "./ahead.ts";
 import { upcomingElsewhereCents } from "./ahead-groups.ts";
 import { type AnalysisContext, standingOf } from "./context.ts";
-import { expectedFor } from "./expected.ts";
+import { coversCategories, expectedFor } from "./expected.ts";
 import { monthPace } from "./forecast.ts";
 import { INCOME_TYPES, incomeTypes, payersOf } from "./income.ts";
 import { payEvidence } from "./pay-estimate.ts";
@@ -82,7 +82,8 @@ export interface NytAnswer {
  */
 function usualBand(ctx: AnalysisContext, month: string, day: number): UsualBand | null {
   const figure = expectedFor(ctx, month);
-  if (!figure || !figure.itemised) return null;
+  // the band by day: a base month that holds a card as one bill puts its purchases on the bill's day
+  if (!figure || !coversCategories(figure)) return null;
   const at = figure.at(day);
   return { lowCents: at.lowCents, highCents: at.highCents, months: figure.months.length };
 }

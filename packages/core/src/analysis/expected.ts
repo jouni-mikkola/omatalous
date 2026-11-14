@@ -12,7 +12,8 @@
  * - a one-off is left out of the figure and listed (`Expected.oneOffs`), so a sofa does not raise next month's
  *   expectation. What is a one-off is the level policy of one-offs.ts (ADR 0005), the same everywhere.
  * The range is the lower to the upper quartile of the base months' total by the same day, moved to the headline.
- * A month the linked cards' purchases are missing from has no categories to expect (`itemised`), only the headline.
+ * A base month the linked cards' purchases are missing from (`covered` leaves it out) has no categories to read, only
+ * the total: its card bills count as spending, so the headline holds in every base month.
  */
 import { addDays, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import type { RecurringSeries } from "../recurring.ts";
@@ -20,9 +21,10 @@ import { CADENCES } from "../recurring-cadence.ts";
 import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, RANGE_HIGH, RANGE_LOW, SPARSE_SHARE } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
+import { accountCovers } from "./coverage.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
 import { usualBase } from "./change-plan.ts";
-import { cardsBreakUsual, completeMonthsBefore, earnedIncome } from "./usual.ts";
+import { cardsBreakUsual, completeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
 
 /** How a category's expected spending behaves: it grows day by day, falls on a date, comes in some months, or comes rarely. */
 type ExpectedKind = "daily" | "dated" | "periodic" | "sparse";
@@ -69,8 +71,8 @@ interface Expected {
   month: string;
   /** The base months, oldest first. */
   months: string[];
-  /** False when the base months lack the purchases of a linked card: only the headline is true. */
-  itemised: boolean;
+  /** The base months whose categories hold every card's purchases (`coveredMonths`). A month outside it still holds its whole total: only the headline reads it. */
+  covered: string[];
   oneOffs: ExpectedOneOff[];
   due: ExpectedDue[];
   /** The figure on the month's days 1 to `day` (31: the whole month). */
@@ -89,6 +91,8 @@ interface ExpectedInput {
   series: readonly RecurringSeries[];
   /** The rows that are one-offs: left out of the figure and listed. */
   oneOffs: ReadonlySet<string>;
+  /** Whether a series' latest charge `t` is put back into a base month before the series began; false for a month that holds the same money as a card bill. Default: yes. */
+  backfill?: (t: AnalysisTx, month: string) => boolean;
 }
 
 const dayOf = (t: Pick<AnalysisTx, "bookingDate">) => Number(t.bookingDate.slice(8, 10));
@@ -178,7 +182,7 @@ function expectedOf(input: ExpectedInput): Expected {
   // the contract holds in every base month, also before it began: the latest charge on its day, so a bill that began
   // in the middle of the base is not diluted by the months before it
   const started = new Map(monthlySeries.filter((s) => s.active).map((s) => [s.id, s.firstDate.slice(0, 7)] as const));
-  for (const [id, t] of latest) months.forEach((m, i) => m < (started.get(id) ?? "") && place(t.category, i, dayOf(t) - 1, t.spend, true));
+  for (const [id, t] of latest) months.forEach((m, i) => m < (started.get(id) ?? "") && (input.backfill?.(t, m) ?? true) && place(t.category, i, dayOf(t) - 1, t.spend, true));
   const curves = new Map([...daily].map(([category, perMonth]) => [category, perMonth.map(cumulative)]));
   const due = dueIn(series, month);
   const duePerCategory = new Map<string, number>();
@@ -226,7 +230,7 @@ function expectedOf(input: ExpectedInput): Expected {
       categories,
     };
   };
-  return { month, months: [...months], itemised: true, oneOffs, due, at, totals: totalsAt };
+  return { month, months: [...months], covered: [...months], oneOffs, due, at, totals: totalsAt };
 }
 
 const cache = new WeakMap<AnalysisContext, Map<string, Expected | null>>();
@@ -235,7 +239,17 @@ const cache = new WeakMap<AnalysisContext, Map<string, Expected | null>>();
 function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[]): Expected {
   // the one-offs are judged in the window of the month and its base, as the insights and the change report judge them
   const oneOffs = expectedOneOffs(ctx, [...months, month]);
-  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m), series: ctx.recurring, oneOffs });
+  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m), series: ctx.recurring, oneOffs, backfill: backfillOf(ctx) });
+}
+
+/**
+ * A card's series is not put back into a month before that card's own rows begin: its purchases are then in a bill,
+ * which is already that month's spending, and the charge again would count it twice. Per card: another card's gap or
+ * bill leaves this card's series as it is.
+ */
+function backfillOf(ctx: AnalysisContext): (t: AnalysisTx, month: string) => boolean {
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  return (t, month) => !cards.has(t.accountId) || accountCovers(ctx, [t.accountId], `${month}-01`);
 }
 
 const rowCache = new WeakMap<AnalysisContext, Map<string, readonly AnalysisTx[]>>();
@@ -264,7 +278,7 @@ export function expectedPart(ctx: AnalysisContext, month: string, months: readon
     return first !== undefined && keep(first);
   });
   const struck = oneOffs ?? expectedOneOffs(ctx, [...months, month]);
-  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m).filter(keep), series, oneOffs: struck }).at().cents;
+  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m).filter(keep), series, oneOffs: struck, backfill: backfillOf(ctx) }).at().cents;
 }
 
 /** The ids of the rows of `months` that are one-offs by the level policy (ADR 0005): what the expected figure leaves out, wherever a page reads a level over months. */
@@ -282,10 +296,13 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
   if (!byMonth) cache.set(ctx, (byMonth = new Map()));
   if (byMonth.has(month)) return byMonth.get(month)!;
   const months = usualBase(ctx, month);
-  const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months), itemised: !cardsBreakUsual(ctx, month, months) };
+  const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months), covered: coveredMonths(ctx, months) };
   byMonth.set(month, found);
   return found;
 }
+
+/** Whether every base month of the figure holds the cards' purchases in its categories: only then may it be read by category and by day. Its total never needs it. */
+export const coversCategories = (figure: Pick<Expected, "months" | "covered">): boolean => figure.covered.length === figure.months.length;
 
 /**
  * Why `month` has no expected figure by category and day, null when it has one. "cards": the complete months before it
@@ -295,7 +312,7 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
  */
 export function usualGap(ctx: AnalysisContext, month: string): "cards" | "history" | null {
   const figure = expectedFor(ctx, month);
-  if (figure?.itemised) return null;
+  if (figure && coversCategories(figure)) return null;
   return figure || cardsBreakUsual(ctx, month) ? "cards" : "history";
 }
 
@@ -342,7 +359,7 @@ export type EverydayGap = "history" | "cards";
 export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
   const figure = expectedFor(ctx, month);
   // the reason Yhteenveto's month and Kuukausi give, so the runway's cannot say "history" beside their "cards"
-  if (!figure?.itemised) return usualGap(ctx, month) ?? "history";
+  if (!figure || !coversCategories(figure)) return usualGap(ctx, month) ?? "history";
   const struck = expectedOneOffs(ctx, [...figure.months, figure.month]);
   const perDay = figure.months.map((m) => {
     const days = new Array<number>(31).fill(0);
