@@ -35,6 +35,11 @@ function typed(day: string): { balanceDate: string; endDate: string; end: string
 const lainat = (page: Page) => page.locator("#lainat");
 /** The message line of the card (Loans.tsx). */
 const said = (card: Locator, text: string) => expect(card.getByRole("status").filter({ hasText: text })).toHaveText(text);
+/** No saved loan: the list is empty. The household may have payments the bank rows show as a loan's (Tunnistettu, saldo puuttuu), so the empty line is not the only way the card says it. */
+const noSavedLoans = async (card: Locator) => {
+  await expect(card.getByText("Ei lainoja.").or(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" }))).toBeVisible();
+  await expect(card.getByRole("table", { name: "Lainat", exact: true })).toHaveCount(0);
+};
 const field = (scope: Locator, label: string) => scope.locator(".loan-field", { has: scope.page().getByLabel(label, { exact: true }) });
 const loanWrites = (page: Page): string[] => {
   const seen: string[] = [];
@@ -64,7 +69,7 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   const loan = typed(await today(context));
   await page.goto("/#/settings/household");
   const card = lainat(page);
-  await expect(card.getByText("Ei lainoja.")).toBeVisible();
+  await noSavedLoans(card);
   // the form is all there is: no box for a picture, a PDF or pasted text
   await expect(card.locator("textarea, input[type=file]")).toHaveCount(0);
 
@@ -155,7 +160,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   await question.getByRole("button", { name: "Poista laina" }).click();
   await said(card, "Laina poistettu.");
-  await expect(card.getByText("Ei lainoja.")).toBeVisible();
+  await noSavedLoans(card);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
