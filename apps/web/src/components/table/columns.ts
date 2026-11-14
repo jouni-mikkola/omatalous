@@ -60,13 +60,20 @@ export type Column<R> = {
   headClass?: string;
   /** Left out on a phone. */
   phone?: "hide";
-  /** A bar: the row's own figure against the column's scale, drawn before `cell` (or alone). It computes no money. */
+  /**
+   * A bar: the row's own figure against the column's scale, drawn before `cell` (or alone). It computes no money. `tone`
+   * is the role the figure plays, and the bar takes that role's colour; without it the bar is the first series colour.
+   */
   bar?: {
     value: (row: R) => number;
     max: number;
+    tone?: Role;
     color?: (row: R) => string | undefined;
   };
 };
+
+/** What a sum of money is in the household's month: the colour of its marks (`--role-*` in tokens.css), the same in every chart and table. */
+export type Role = "income" | "spending" | "bills" | "kept" | "debt" | "neutral";
 
 /** The figures of a table are right-aligned; these kinds hold figures. */
 export const FIGURE: readonly ColumnKind[] = ["money", "count", "share"];

@@ -20,8 +20,8 @@ type Path = LoansReport["path"];
 
 /** The two layers bottom up: what is owed, and the interest still to come on top of it. */
 const LAYERS = [
-  { key: "balance", get label() { return t("rpt.db_debt"); }, color: color["series-1"] },
-  { key: "interest", get label() { return t("rpt.ln_interest"); }, color: color["series-4"] },
+  { key: "balance", get label() { return t("rpt.db_debt"); }, color: color["role-debt"] },
+  { key: "interest", get label() { return t("rpt.ln_interest"); }, color: color["role-bills"] },
 ] as const;
 
 /** "marraskuussa 2041": the month of a day, in the inessive in Finnish. */

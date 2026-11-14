@@ -68,6 +68,22 @@ for (const width of [390, 1440]) {
   });
 }
 
+for (const width of [390, 1440]) {
+  test(`${width} px: the logo is a link named Omatalous that opens Yhteenveto, by keyboard too`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, ...(width < 641 ? { isMobile: true, hasTouch: true } : {}) });
+    const page = await context.newPage();
+    await page.goto("/#/bills");
+    const logo = page.locator("header.topbar").getByRole("link", { name: "Omatalous", exact: true });
+    await expect(logo).toBeVisible();
+    await logo.focus();
+    await expect(logo).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => new URL(page.url()).hash.split("?")[0]).toBe("#/overview");
+    await expect(logo).toHaveAttribute("aria-current", "page");
+    await context.close();
+  });
+}
+
 test("390 px: Tarkistettavat is a link of the top row and shows when open, Asetukset is in the user menu, and #/more opens Yhteenveto", async ({ browser }) => {
   const { context, page } = await phone(browser);
   await page.goto("/#/overview");

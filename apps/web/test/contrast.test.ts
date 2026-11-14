@@ -48,6 +48,7 @@ const TINTS: Name[] = ["warn-bg", "good-bg", "info-bg", "bad-bg"];
 const GROUNDS: Name[] = ["page", "surface", "surface-2"];
 const TEXTS: Name[] = ["text", "text-2", "muted", "accent-ink", "good", "bad", "warn"];
 const SERIES: Name[] = ["series-1", "series-2", "series-3", "series-4", "series-5", "series-6", "series-7"];
+const ROLES: Name[] = ["role-income", "role-spending", "role-bills", "role-kept", "role-debt", "role-neutral"];
 const HEAT: Name[] = ["heat-1", "heat-2", "heat-3", "heat-4"];
 
 describe("tokens.css contrast, the one look, light", () => {
@@ -76,8 +77,18 @@ describe("tokens.css contrast, the one look, light", () => {
     expect(below(3, ["control-edge", "axis", "pop-edge", "accent", "control-edge-hover"], [...GROUNDS, "control"])).toEqual([]);
   });
 
-  it("series colours, saved, earned, rise and fall show on the page and both surfaces at 3 to 1", () => {
-    expect(below(3, [...SERIES, "series-rest", "series-avg", "saved", "earned", "rise", "fall"], GROUNDS)).toEqual([]);
+  it("series colours, rise and fall show on the page and both surfaces at 3 to 1", () => {
+    expect(below(3, [...SERIES, "series-rest", "series-avg", "rise", "fall"], GROUNDS)).toEqual([]);
+  });
+
+  it("the role colours (income, spending, bills, kept, debt, neutral) read as text and as a mark on the page and both surfaces at 4.5 to 1", () => {
+    expect(below(4.5, ROLES, GROUNDS)).toEqual([]);
+  });
+
+  it("income, spending and bills stay apart for a reader with protan, deutan or tritan sight (OKLab distance 0.04)", () => {
+    const pairs: [Name, Name][] = [["role-income", "role-spending"], ["role-spending", "role-bills"], ["role-income", "role-bills"], ["role-income", "role-debt"], ["role-spending", "role-debt"]];
+    const close = pairs.flatMap(([a, b]) => (Object.keys(CVD) as (keyof typeof CVD)[]).filter((k) => apart(a, b, k) < 0.04).map((k) => `${a} and ${b} as ${k}: ${apart(a, b, k).toFixed(3)}`));
+    expect(close).toEqual([]);
   });
 
   it("the heat ladder moves darker by at least 1.3 to 1 per step from the surface, each step's ink reads on it at 7 to 1", () => {
