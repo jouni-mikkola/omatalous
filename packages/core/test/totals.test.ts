@@ -20,7 +20,8 @@ import { KIT_TODAY, kitHousehold } from "./kit/index.ts";
 /**
  * What the rows of a period did to the accounts, counted from the rows alone: the change of every balance that is not
  * a loan's (a card's balance is what is owed on it), less the transfer legs that have no other half in the period (a
- * pair cancels itself in the sum), less what moved into savings accounts, which is Säästöön.
+ * pair cancels itself in the sum), less what moved into savings accounts, which is Säästöön. A debt paid from a savings
+ * account is no change of it: the money left the pool when it was put on the savings account, and that is counted.
  */
 function stayed(ctx: AnalysisContext, from: string, to: string): number {
   const type = new Map(ctx.accounts.map((a) => [a.id, a.type]));
@@ -29,6 +30,7 @@ function stayed(ctx: AnalysisContext, from: string, to: string): number {
   let intoSavings = 0;
   for (const t of ctx.txs) {
     if (t.bookingDate < from || t.bookingDate > to) continue;
+    if (!t.isTransfer && type.get(t.accountId) === "savings" && getCategory(t.category).kind === "debt") continue;
     change.set(t.accountId, (change.get(t.accountId) ?? 0) + t.amountCents);
     // a loan account mirrors the payments made from checking
     if (type.get(t.accountId) === "loan") continue;
