@@ -100,12 +100,15 @@ export function useHashRoute(): Route {
 
 /**
  * Goes to a page with `params` as its parameters. With `keep` the open address's other parameters stay (a period
- * switch on Raportit keeps `tab`); an empty value removes its parameter. The anchor never stays.
+ * switch on Raportit keeps `tab`); an empty value removes its parameter. The anchor never stays. With `replace` the
+ * address takes the place of the open one in the history (a search being typed), so the back button skips it.
  */
-export function navigate(page: string, params: Record<string, string | undefined> = {}, keep = false): void {
+export function navigate(page: string, params: Record<string, string | undefined> = {}, keep = false, replace = false): void {
   const open = parseHash(window.location.hash);
   const base = keep && open.page === page ? open.params : new URLSearchParams();
-  window.location.hash = hashOf({ page, params: withParams(base, params) });
+  const hash = hashOf({ page, params: withParams(base, params) });
+  if (replace) window.location.replace(hash);
+  else window.location.hash = hash;
 }
 
 /** What App fetched from /api/meta, once per load: Notices and Why read it here instead of asking again. Null until the answer is there. */

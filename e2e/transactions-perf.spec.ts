@@ -74,13 +74,14 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
   });
 }
 
-test("a filter and the toolbar's search stay in the address and come back after a reload", async ({ browser }) => {
+test("a filter and the search stay in the address and come back after a reload", async ({ browser }) => {
   const context = await signedIn(browser, 1440, 900);
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions");
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
-  await page.getByRole("button", { name: "Kategoria", exact: true }).click();
+  await page.getByRole("button", { name: "Suodata", exact: true }).click();
+  await page.getByRole("button", { name: /^Kategoria/ }).click();
   await page.getByRole("option", { name: "Ruokakauppa" }).click();
   await expect(page).toHaveURL(/category=groceries/);
   await page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" }).fill("k-");

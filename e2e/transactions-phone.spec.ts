@@ -165,7 +165,7 @@ test("390 px: every row's account is its bank's mark, whole and under nothing, a
   await context.close();
 });
 
-test("390 px: a filter chip opens its list as a sheet, narrows the list, names its value and comes off with its x", async ({ browser }) => {
+test("390 px: Suodata opens its list as a sheet, narrows the list, names the limit in a chip and the chip comes off with its x", async ({ browser }) => {
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
@@ -173,13 +173,13 @@ test("390 px: a filter chip opens its list as a sheet, narrows the list, names i
   const search = page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" });
   await expect(search).toBeVisible();
   await expect(page.locator(DATA_ROW).first()).toBeInViewport();
-  // the chips stand on one line that scrolls in its own box
-  const chips = page.locator(".tx-fchips");
-  expect(await chips.evaluate((el) => getComputedStyle(el).overflowX)).toBe("auto");
+  // the period and the search come first, the rows follow high on the screen
+  expect((await page.locator(DATA_ROW).first().boundingBox())!.y, "the first row's top").toBeLessThan(560);
 
-  await page.getByRole("button", { name: "Kategoria", exact: true }).click();
-  const sheet = page.getByRole("dialog", { name: "Kategoria" });
+  await page.getByRole("button", { name: "Suodata", exact: true }).click();
+  const sheet = page.getByRole("dialog", { name: "Suodata" });
   await expect(sheet).toBeVisible();
+  await sheet.getByRole("button", { name: /^Kategoria/ }).click();
   await sheet.getByRole("option", { name: "Ruokakauppa" }).click();
   await expect(page).toHaveURL(/#\/transactions\?category=groceries$/);
   await expect(sheet).toHaveCount(0);
@@ -188,15 +188,15 @@ test("390 px: a filter chip opens its list as a sheet, narrows the list, names i
   expect(await page.locator(DATA_ROW).count()).toBeGreaterThan(0);
 
   // Escape closes a sheet and gives the focus back to its chip
-  await page.getByRole("button", { name: "Lisää", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "Lisää" })).toBeVisible();
+  await page.getByRole("button", { name: "Suodata", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Suodata" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Lisää" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Lisää", exact: true })).toBeFocused();
+  await expect(page.getByRole("dialog", { name: "Suodata" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Suodata", exact: true })).toBeFocused();
 
   await page.getByRole("button", { name: "Poista rajaus: Kategoria" }).click();
   await expect(page).toHaveURL(/#\/transactions$/);
-  await expect(page.getByRole("button", { name: "Tyhjennä" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Tyhjennä rajaukset" })).toHaveCount(0);
   await expect(search).toBeVisible();
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
@@ -257,7 +257,8 @@ test("1366 px: the page is the table under the filter chips, the download in the
   await expect(page.locator(".tx-day")).toHaveCount(0);
   // no native select on the page: the filters are chips, a row's category a chip
   await expect(page.locator(".tx-page select")).toHaveCount(0);
-  for (const name of ["Aikaväli", "Kategoria", "Lisää"]) await expect(page.getByRole("button", { name, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Aikaväli/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Suodata", exact: true })).toBeVisible();
   // the toolbar holds the search and the chips of the rows, the download is a link under the list; the category, the rule checkbox and the other actions are in the menu of an opened row
   await expect(page.locator(".rt-csv").getByRole("button", { name: "Lataa CSV" })).toBeVisible();
   const first = page.locator(DATA_ROW).filter({ has: page.locator(".tx-category") }).first();
@@ -272,8 +273,8 @@ test("1366 px: the page is the table under the filter chips, the download in the
   await context.close();
 });
 
-// The table of Tapahtumat on a screen wider than a phone: the bank's text after the payee's name only when the name does
-// not say it, and the account's mark whole in its cell. Where the columns do not fit the rows are blocks, so the heads
+// The table of Tapahtumat on a screen wider than a phone: no bank text on a closed row (the opened row has it), and the
+// account's mark whole in its cell. Where the columns do not fit the rows are blocks, so the heads
 // are checked only while it is a table.
 const LONG = "Kuukausimaksu kuvauksen kanssa, joka on aika pitkä ja jatkuu vielä pidemmälle kuin mikään sarake jaksaa näyttää, viite 1234 5678 9012";
 const ROWS = [
@@ -288,7 +289,7 @@ const ROWS = [
 ];
 
 for (const width of [1366, 1000, 700, 601]) {
-  test(`${width} px: the bank's text only where it adds to the name, the account whole in its cell, nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the bank's text only in the opened row, the account whole in its cell, nothing scrolls sideways`, async ({ browser }) => {
     const context = await signedIn(browser, width, 900);
     const page = await context.newPage();
     const seen = watch(page);
@@ -307,21 +308,15 @@ for (const width of [1366, 1000, 700, 601]) {
     if (width >= 1000) expect(block, "a table where there is room").toBe(false);
     if (!block) await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa"]);
     const rowOf = (name: string) => page.locator(DATA_ROW).filter({ has: page.locator(".tx-name", { hasText: new RegExp(`^${name}$`) }) });
-    const textOf = (name: string) => rowOf(name).locator(".tx-text");
 
-    await expect(textOf("Esimerkki Käpylä Oy")).toHaveCount(0);
-    await expect(textOf("Esimerkki Tyhjä Oy")).toHaveCount(0);
-    await expect(textOf("Esimerkki Vaasa Oy")).toHaveText("Lasku 1234");
-    await expect(textOf("Esimerkki Vaasa Oy")).toHaveAttribute("title", "Lasku 1234");
-    await expect(textOf("Esimerkki Tele Oy")).toHaveText("ESIMERKKI TELE OYJ");
-    await expect(textOf("Esimerkki Tele Oy")).toHaveAttribute("title", "ESIMERKKI TELE OYJ");
-
-    // a long text is one line cut with an ellipsis, and its title holds all of it
-    const long = textOf("Esimerkki Pitkä Oy");
-    await expect(long).toHaveAttribute("title", LONG);
-    const box = await long.evaluate((el) => ({ cut: el.scrollWidth > el.clientWidth, height: el.getBoundingClientRect().height }));
-    expect(box.cut, "the long text is cut").toBe(true);
-    expect(box.height, "on one line").toBeLessThan(20);
+    // a closed row holds the payee and the amount: what the bank wrote is not on it
+    await expect(page.locator(`${DATA_ROW} .tx-text`)).toHaveCount(0);
+    await expect(page.locator(DATA_ROW).filter({ hasText: "Lasku 1234" })).toHaveCount(0);
+    const vaasa = rowOf("Esimerkki Vaasa Oy");
+    await vaasa.getByRole("button", { name: "Avaa Esimerkki Vaasa Oy: 12 kuukautta" }).click();
+    await expect(page.locator(".tx-detail-facts").first()).toContainText("Lasku 1234");
+    await expect(page.locator(".tx-detail-facts").first()).toContainText("ESIMERKKI VAASA OY");
+    await vaasa.getByRole("button", { name: "Avaa Esimerkki Vaasa Oy: 12 kuukautta" }).click();
 
     // the account is its mark and a short text that is never cut; its whole name is the title
     const names = (await (await page.request.get("/api/meta")).json()).accounts.map((a: { name: string }) => a.name);
@@ -340,7 +335,7 @@ for (const width of [1366, 1000, 700, 601]) {
   });
 }
 
-test("1280 px: the strip's three figures stand in equal columns, the histogram beside them", async ({ browser }) => {
+test("1280 px: the bar is one line, the sums stand on one line and the histogram under them", async ({ browser }) => {
   const context = await signedIn(browser, 1280, 844);
   const page = await context.newPage();
   const seen = watch(page);
@@ -349,13 +344,14 @@ test("1280 px: the strip's three figures stand in equal columns, the histogram b
   await expect(strip.locator("dt").first()).toBeVisible();
   const cells = await strip.locator(".tx-totals-kv > div").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
   expect(cells.length).toBe(3);
-  expect(new Set(cells.map((c) => Math.round(c.width))).size, "equal columns").toBe(1);
+  const tops = cells.map((c) => Math.round(c.top));
+  expect(Math.max(...tops) - Math.min(...tops), "the three sums share a line").toBeLessThanOrEqual(1);
   expect(cells[1]!.left, "side by side").toBeGreaterThan(cells[0]!.right - 1);
   expect(cells[2]!.left, "side by side").toBeGreaterThan(cells[1]!.right - 1);
   const hist = (await strip.locator(".tx-hist").boundingBox())!;
-  expect(hist.x, "the histogram right of the figures").toBeGreaterThan(cells[2]!.right);
-  // the filter bar is one line: the search and the chips share a bottom edge
-  const bottoms = await page.locator(".rtb-search, .tx-fchip").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().bottom)));
+  expect(hist.y, "the histogram under the sums").toBeGreaterThan(cells[2]!.bottom - 1);
+  // the bar is one line: the search, the period and Suodata share a bottom edge
+  const bottoms = await page.locator(".tx-search, .tx-period, .tx-filter-btn").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().bottom)));
   expect(Math.max(...bottoms) - Math.min(...bottoms), `bottom edges ${bottoms.join(", ")}`).toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();

@@ -18,6 +18,18 @@ export async function openAll(page: Page): Promise<void> {
   throw new Error("Content details did not finish opening");
 }
 
+/** Opens the first row's drill of each table that has them, so the buttons of an opened row (a menu, a statement link) are measured too. */
+export async function openDrills(page: Page): Promise<void> {
+  const tables = page.locator("main table:has(button.rt-drill)");
+  for (let i = 0; i < (await tables.count()); i++) {
+    const button = tables.nth(i).locator('button.rt-drill[aria-expanded="false"]:visible').first();
+    if ((await button.count()) === 0) continue;
+    await button.click();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("main .loading, main .skel")).toHaveCount(0, { timeout: 15_000 });
+  }
+}
+
 interface Found {
   id: string;
   help: string;
@@ -28,7 +40,8 @@ interface Found {
  * What a thumb must hit where the pointer is a finger: every link, button, sort head and summary reaches 44 px (its own
  * box or the reach of its ::after) and is 24 px wide, a mark drawn in a chart's svg is 24 px each way, and a checkbox or
  * radio the user can see is 24 px wide and high. The targets also keep apart: no two boxes overlap, and the point at the
- * middle of a target hits that target and not its neighbour. A link inside a sentence is exempt, as WCAG 2.5.8 has it.
+ * middle of a target hits that target and not its neighbour. A link inside a sentence is exempt, as WCAG 2.5.8 has it: its
+ * parent flows text around it (a flex or grid parent makes the link a box of its own, whatever words stand beside it).
  */
 async function touchTargets(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -51,7 +64,11 @@ async function touchTargets(page: Page): Promise<string[]> {
       return false;
     };
     window.scrollTo(0, 0);
-    const sentence = (el: Element) => Array.from(el.parentElement?.childNodes ?? []).reduce((n, node) => n + (node.nodeType === 3 ? (node.textContent ?? "").trim().length : 0), 0) >= 8;
+    const sentence = (el: Element) => {
+      const parent = el.parentElement;
+      if (!parent || /flex|grid/.test(getComputedStyle(parent).display)) return false;
+      return Array.from(parent.childNodes).reduce((n, node) => n + (node.nodeType === 3 ? (node.textContent ?? "").trim().length : 0), 0) >= 8;
+    };
     for (const el of Array.from(document.querySelectorAll<HTMLElement | SVGElement>("a[href], button, summary, [role=button], input[type=checkbox], input[type=radio]"))) {
       const r = el.getBoundingClientRect();
       // a control that is not on the page (closed details, a hidden input, the skip link's 1 px) has no box
@@ -121,6 +138,7 @@ export async function auditTables(page: Page, width: number, touch = width < 600
     .filter((t) => !(t.offsetWidth || t.offsetHeight) && !t.closest("details.card:not([open])"))
     .map((t) => `${t.querySelector("caption")?.textContent?.trim() || "(no name)"}: hidden until something is opened`));
   await openAll(page);
+  if (touch) await openDrills(page);
   const wide = await overflow(page);
   if (wide > 0) problems.push(`the page is ${wide} px wider than the window`);
   const tables = await page.evaluate((w) => {
