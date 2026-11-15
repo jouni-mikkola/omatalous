@@ -91,6 +91,14 @@ export function monthInessive(month: string): string {
   return MONTHS_INESSIVE[Number(month.slice(5, 7)) - 1] ?? month;
 }
 
+const COUNT_WORDS = { fi: ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"], en: ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"] };
+
+/** "Kolme", in English "Three", or the digits from ten on. */
+export function countWord(n: number, lang: Language): string {
+  const word = COUNT_WORDS[lang][n];
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : String(n);
+}
+
 /** ["A", "B", "C"] → "A, B ja C". */
 export function finnishList(items: readonly string[], lang: Language = DEFAULT_LANGUAGE): string {
   if (items.length <= 1) return items[0] ?? "";

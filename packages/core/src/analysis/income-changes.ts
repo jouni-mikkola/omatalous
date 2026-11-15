@@ -13,7 +13,7 @@ import { addBankingDays, JOB_END_WORDS, nextPayDate, payerKey } from "./income.t
 import { newSources, residualTax, windfalls } from "./income-events.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { type MessageCode, type MessageParams, messageIn } from "../messages.ts";
-import { benefitName, eur, type IncomeBase, incomeBase, type IncomeChange, type IncomeSeries, isKela, monthFrom, monthIn, passes, payDayWhen, type Period, shortDate } from "./income-series.ts";
+import { benefitName, eur, type IncomeBase, type IncomeChange, type IncomeSeries, isKela, monthFrom, monthIn, passes, payDayWhen, type Period, shortDate } from "./income-series.ts";
 import { expectedLevel } from "./expected.ts";
 import { completeMonthsBefore } from "./usual.ts";
 import { BASE_SPREAD, BENEFIT_GRACE_DAYS, LEVEL_SPREAD, MIN_STEP_SHARE, PAY_GRACE_BANKING_DAYS, SWITCH_DAYS, SWITCH_LEVEL, SWITCH_PERIODS, VARIABLE_SPREAD } from "../thresholds.ts";

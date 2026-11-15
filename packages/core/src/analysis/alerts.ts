@@ -11,18 +11,10 @@ import { categoryRises } from "./change.ts";
 import { changeMonths, cutWords } from "./change-text.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netPurchase, netSpend, recurringAt } from "./context.ts";
 import { isBankFee, isLateFee } from "./fees.ts";
-import { finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
+import { countWord, finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
 import { shortDate } from "./income-series.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
-
-const COUNT_WORDS = { fi: ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"], en: ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"] };
-
-/** "Kolme", in English "Three", or the digits from ten on. */
-const countWord = (n: number, lang: Language) => {
-  const word = COUNT_WORDS[lang][n];
-  return word ? word.charAt(0).toUpperCase() + word.slice(1) : String(n);
-};
 
 type AlertKind = "double_charge" | "late_fee" | "cancelled" | "uncategorised" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
 
