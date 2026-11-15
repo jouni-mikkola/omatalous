@@ -249,8 +249,9 @@ export function typedBill(loan: Debt, today: IsoDate): number | null {
  * The next payment after `day`, read from the plan's own payments (`payments`): the last one is what is left with its
  * interest, and a loan that owes nothing has none. Equal principal pays its interval's interest on top of the typed
  * amortisation. A loan without a plan (a card, a credit line, a loan that lacks its interval or its rate) keeps its
- * balance: a payment typed for it is told as typed, at most what is owed with the interest that can be counted, and
- * neither its split nor its due date is known. A bullet has no payment before its last due date.
+ * balance: a payment typed for it is told as typed, at most what is owed with its interest (none where the balance
+ * is below the payment and the rate or the interval is missing), and neither its split nor its due date is known.
+ * A bullet has no payment before its last due date.
  */
 export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   const cut = partly(loan);
@@ -280,8 +281,11 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   if (loan.paymentCents === null || loan.paymentCents <= 0) return none(plan.missing);
   // the typed amortisation is known, the interest on top of it is not
   if (loan.repayment === "equal_principal") return { ...none(plan.missing), amortisationCents: Math.min(loan.paymentCents, owed) };
-  const interest = loan.rateBp !== null && intervalMonths !== null ? loanPeriodInterest(owed, loan.rateBp, intervalMonths) : 0;
-  return { ...none(plan.missing), cents: Math.min(loan.paymentCents, owed + interest) };
+  // the typed payment is the cap whatever the interest is, once the balance alone reaches it; a smaller balance is
+  // paid with an interest that is unknown here, so the payment is too
+  if (owed >= loan.paymentCents) return { ...none(plan.missing), cents: loan.paymentCents };
+  if (loan.rateBp === null || intervalMonths === null) return none(plan.missing);
+  return { ...none(plan.missing), cents: Math.min(loan.paymentCents, owed + loanPeriodInterest(owed, loan.rateBp, intervalMonths)) };
 }
 
 /** The payments of a month over a list of loans. */

@@ -5,6 +5,7 @@ import {
   creditAccountLoan,
   creditUse,
   debtInterestNext12Months,
+  debtPaymentsPerMonth,
   debtTotalOn,
   loanBalanceOn,
   loanInterestNext12Months,
@@ -474,5 +475,16 @@ describe("the due date of the next payment", () => {
     expect(loanNextPayment(loan({ rateBp: 600, repayment: "bullet", endDate: "2030-01-15" }), "2026-02-01").date).toBeNull();
     expect(loanNextPayment(loan({ paymentCents: 5_000 }), "2026-02-01")).toMatchObject({ cents: 5_000, date: null });
     expect(loanNextPayment(loan(), "2026-02-01")).toMatchObject({ cents: null, date: null });
+  });
+
+  it("is the typed payment of a loan with no plan once the balance reaches it, and unknown where the interest could change it", () => {
+    const noInterval = (over: Partial<Loan>) => loan({ repayment: "annuity", paymentCents: 20_000, ...over });
+    // the balance covers the payment: the payment is what it is, whatever the interest
+    expect(loanNextPayment(noInterval({ balanceCents: 20_000 }), "2026-02-01")).toMatchObject({ cents: 20_000, unknown: "interval" });
+    // a balance under the payment is paid with its interest: with none known the payment is not
+    expect(loanNextPayment(noInterval({ balanceCents: 15_000 }), "2026-02-01")).toMatchObject({ cents: null, unknown: "interval" });
+    expect(loanNextPayment(noInterval({ balanceCents: 15_000, rateBp: 1200 }), "2026-02-01")).toMatchObject({ cents: null, unknown: "interval" });
+    expect(loanNextPayment(loan({ balanceCents: 15_000, paymentCents: 20_000, repayment: "annuity", intervalMonths: 1 }), "2026-02-01")).toMatchObject({ cents: null, unknown: "rate" });
+    expect(debtPaymentsPerMonth([noInterval({ balanceCents: 15_000 })], "2026-02-01")).toMatchObject({ counted: 0, unknown: 1 });
   });
 });

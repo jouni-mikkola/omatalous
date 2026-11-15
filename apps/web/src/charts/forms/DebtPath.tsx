@@ -17,7 +17,7 @@ import { spreadLabels, Tip, ValueGrid } from "./parts.tsx";
 import { color } from "../../design/tokens.ts";
 import { css } from "../../css.ts";
 
-type Path = LoansReport["path"];
+type Path = NonNullable<LoansReport["path"]>;
 
 /** The two layers bottom up: what is owed, and the interest still to come on top of it. */
 const LAYERS = [

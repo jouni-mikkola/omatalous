@@ -88,11 +88,16 @@ interface HouseholdDebts {
   parts: ReadonlyMap<string, Part>;
   /** What is owed in all on the day: `debtTotalOn` of `loans`. */
   total: DebtFigure;
+  /**
+   * False when a loan is left out of `total` because its balance is dated after the day: what it owed on the day is
+   * not known, since the balance date is the day the sum was told, not the day the loan began. Such a sum has no figure.
+   */
+  totalKnown: boolean;
   /** What the debt costs over the 12 months after the day: `debtInterestNext12Months` of `loans`. */
   interest: DebtFigure;
   /**
-   * False when the interest has no figure to tell: a loan is left out for its rate and no loan that owes is counted.
-   * Such a sum reads "ei tiedossa", never zero.
+   * False when any loan is left out of the interest, for its rate or for its balance date. A sum with a part missing
+   * has no figure to tell: it reads "ei tiedossa", never the part that is known.
    */
   interestKnown: boolean;
 }
@@ -165,8 +170,8 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
   const loans = [...saved, ...connected];
   const interest = debtInterestNext12Months(loans, day);
   const out = new Set(interest.unknown.filter((u) => !u.counted).map((u) => u.loanId));
-  const interestKnown = out.size === 0 || loans.some((loan) => !out.has(loan.id) && loanBalanceOn(loan, day).cents !== 0);
-  return { day, saved, connected, sources, loans, parts, total: debtTotalOn(loans, day), interest, interestKnown };
+  const total = debtTotalOn(loans, day);
+  return { day, saved, connected, sources, loans, parts, total, totalKnown: total.unknown.every((u) => u.counted), interest, interestKnown: out.size === 0 };
 }
 
 /**
