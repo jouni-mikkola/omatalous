@@ -70,6 +70,7 @@ export function App() {
     // the address still names the page the member was on before signing in: they start at Yhteenveto
     return (
       <ChangePassword
+        username={auth.user.username}
         onDone={() => {
           navigate("overview");
           void enter({ needsSetup: false, user: { ...auth.user!, mustChangePassword: false } });

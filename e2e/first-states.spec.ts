@@ -59,7 +59,8 @@ test("with no account the administrator's button opens Pankit ja tilit", async (
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   await context.route(/\/api\/meta(\?|$)/, async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, json: { ...(await response.json()), accounts: [], sharedAccounts: [] } });
+    const meta = await response.json();
+    await route.fulfill({ response, json: { ...meta, accounts: [], sharedAccounts: [], bank: { ...meta.bank, source: "instance" } } });
   });
   const page = await context.newPage();
   await page.goto("/#/bills");

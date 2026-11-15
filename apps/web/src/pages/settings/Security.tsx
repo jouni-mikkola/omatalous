@@ -100,8 +100,8 @@ const kindLabel = (kind: string) =>
   WEB_EXTENSIONS.find((e) => e.securityLabels?.[kind])?.securityLabels?.[kind] ??
   (kind.startsWith("ops_") ? t("set.sec.maintenance_kind", { kind: kind.slice(4).replace(/_/g, " ") }) : REMOVED_KIND.test(kind) ? t("set.sec.removed_kind") : kind);
 
-/** The card Salasana: a button that opens the three fields. The address `#salasana` opens them at once. */
-export function Password({ openPassword }: { openPassword: boolean }) {
+/** The card Salasana: a button that opens the three fields (and the username the password manager needs, unseen). The address `#salasana` opens them at once. */
+export function Password({ username, openPassword }: { username: string; openPassword: boolean }) {
   const { open, setOpen, region } = useInPlaceForm(openPassword);
   const [changed, setChanged] = useState(false);
   // a link to the form while the page is open: the card is already there, so the address alone opens it
@@ -128,7 +128,7 @@ export function Password({ openPassword }: { openPassword: boolean }) {
           {t("set.sec.password_changed_other_devices_were")}
         </Notice>
       ) : (
-        open && <PasswordForm onDone={() => setChanged(true)} onCancel={() => setOpen(false)} />
+        open && <PasswordForm username={username} onDone={() => setChanged(true)} onCancel={() => setOpen(false)} />
       )}
     </div>
   );

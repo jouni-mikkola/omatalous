@@ -236,6 +236,8 @@ export function BankConnections({
     const day = c.state === "active" ? reminderDay(c.validUntil) : null;
     return day && day >= (meta.today ?? "") ? day : null;
   };
+  // one line for the whole list: the consent that ends first, with its reminder; the rows keep only their own end day
+  const next = banks.map((b) => b.lead).filter((c) => c.state === "active" && c.validUntil).sort((a, b) => a.validUntil!.localeCompare(b.validUntil!))[0];
   const saveReminder = (c: Connection) => {
     const reminder = renewalReminder(c, window.location.origin, new Date());
     if (reminder) saveFile(reminder.filename, reminder.ics, "text/calendar;charset=utf-8");
@@ -320,6 +322,21 @@ export function BankConnections({
       )}
 
       {current.length > 0 ? (
+        <>
+        {next && (
+          <p className="small next-expiry">
+            {t("set.conn.next_expires", { bank: next.institution, date: date(next.validUntil) })}
+            {reminderOf(next) && (
+              <>
+                {" "}
+                <Button variant="link" onClick={() => saveReminder(next)}>
+                  {t("set.conn.add_a_reminder_to_the")}
+                </Button>{" "}
+                <span className="muted">{date(reminderOf(next))}</span>
+              </>
+            )}
+          </p>
+        )}
         <Table
           caption={t("set.conn.bank_connections")}
           rows={banks}
@@ -384,14 +401,6 @@ export function BankConnections({
                   {stateText(c)}
                   {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">{t("set.conn.expires_soon")}</span>}
                   {consents.some((x) => renewalLine(x)) && <div>{t("set.conn.the_bank_connection_ended")}</div>}
-                  {reminderOf(c) && (
-                    <div className="small">
-                      <Button variant="link" onClick={() => saveReminder(c)}>
-                        {t("set.conn.add_a_reminder_to_the")}
-                      </Button>{" "}
-                      <span className="muted">{date(reminderOf(c))}</span>
-                    </div>
-                  )}
                 </>
               ),
             },
@@ -419,6 +428,7 @@ export function BankConnections({
             },
           ]}
         />
+        </>
       ) : (
         !picking && <Empty>{t("set.conn.none")}</Empty>
       )}

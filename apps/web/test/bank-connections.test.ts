@@ -249,6 +249,18 @@ describe("Pankkiyhteydet: one row per bank", () => {
     expect(count(out, "voimassa 14.1.2027 asti")).toBe(1);
   });
 
+  it("banks that end on different days give one line, Seuraava vanhenee, with the reminder of the first one", () => {
+    const consents = [conn("a", "active", 159, { validUntil: MAR }), conn("o", "active", 93, { validUntil: JAN, institution: "OP" })];
+    const out = html(consents, true, [account("Käyttötili", "a"), account("OP-tili", "o")]);
+    expect(rowsOf(out)).toBe(2);
+    expect(count(out, "Seuraava vanhenee: OP, 14.1.2027.")).toBe(1);
+    expect(count(out, "Lisää muistutus kalenteriin")).toBe(1);
+    expect(count(out, "voimassa 14.1.2027 asti")).toBe(1);
+    expect(count(out, "voimassa 20.3.2027 asti")).toBe(1);
+    // an ended consent has no day to come
+    expect(html([conn("a", "lapsed", null, { validUntil: "2026-09-01T00:00:00Z" })])).not.toContain("Seuraava vanhenee");
+  });
+
   it("an ended consent beside an active one of its bank says so on its account, and two banks stay two rows", () => {
     const consents = [conn("a", "active", 93, { validUntil: JAN }), conn("b", "lapsed", null, { validUntil: "2026-09-01T00:00:00Z", replaced: true }), conn("o", "active", 93, { validUntil: JAN, institution: "OP" })];
     const out = html(consents, true, [account("Käyttötili", "a"), account("Vanha tili", "b"), account("OP-tili", "o")]);
