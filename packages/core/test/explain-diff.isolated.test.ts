@@ -6,15 +6,15 @@ import { explain } from "../src/explain/explain.ts";
 
 const state = vi.hoisted(() => ({ dropped: null as number | null, drop: false }));
 
-// the report keeps the select as it is; the explanation's own call loses its first row
+// the report's figure is the totals of the flows (`spendTotals`), which read no select; the explanation's own select loses its first row
 vi.mock("../src/analysis/counted.ts", async (original) => {
   const real = await original<typeof import("../src/analysis/counted.ts")>();
   return {
     ...real,
-    spendSelect: (ctx: Parameters<typeof real.spendSelect>[0], r: Parameters<typeof real.spendSelect>[1]) => {
-      const s = real.spendSelect(ctx, r);
-      if (!state.drop || new Error().stack!.includes("categories.ts")) return s;
-      state.dropped = s.counted[0]!.spend;
+    flowSpendSelect: (ctx: Parameters<typeof real.flowSpendSelect>[0], r: Parameters<typeof real.flowSpendSelect>[1]) => {
+      const s = real.flowSpendSelect(ctx, r);
+      if (!state.drop) return s;
+      state.dropped = real.flowSpendOf(s.counted[0]!);
       return { rows: s.rows, counted: s.counted.slice(1) };
     },
   };
