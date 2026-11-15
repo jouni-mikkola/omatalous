@@ -8,7 +8,8 @@ const current = () => [...tabs().querySelectorAll("[aria-current]")].map((e) => 
 describe("Shell: a page carries its tab's name", () => {
   it("has the tabs Yhteenveto, Laskut, Tapahtumat and Raportit, and Tarkistettavat as a link beside them", async () => {
     await startServer();
-    await openApp("#/overview");
+    // the header's link shows while something is open and on its own page
+    await openApp("#/review");
     expect([...tabs().querySelectorAll("a")].map((a) => a.textContent)).toEqual(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit"]);
     const review = document.querySelector("header .review-link")!;
     expect(review.textContent).toContain("Tarkistettavat");
@@ -27,11 +28,14 @@ describe("Shell: a page carries its tab's name", () => {
     await waitFor(() => expect(document.title).toBe("Tapahtumat · Omatalous"));
     expect(current()).toEqual(["Tapahtumat"]);
     await router.navigate({ href: "/reports" });
-    await waitFor(() => expect(document.title).toBe("Raportit · Omatalous"));
-    // every report is under Raportit: its tab stays marked on a question page too
+    await waitFor(() => expect(document.title).toMatch(/^Raportit(: .+)? · Omatalous$/));
+    // every report is under Raportit: its tab stays marked on a question page too, and the title names the question
     await router.navigate({ href: "/reports?q=saldot" });
     await waitFor(() => expect(current()).toEqual(["Raportit"]));
-    expect(document.title).toBe("Raportit · Omatalous");
+    await waitFor(() => expect(document.title).toBe("Raportit: Tilit ja saldot · Omatalous"));
+    // Asetukset names its open section
+    await router.navigate({ href: "/settings/security" });
+    await waitFor(() => expect(document.title).toBe("Asetukset: Turvallisuus · Omatalous"));
   }, 60000);
 
   it("has no entry of the user menu for a page that has a tab", async () => {

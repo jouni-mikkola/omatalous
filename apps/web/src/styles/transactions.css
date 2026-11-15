@@ -11,6 +11,8 @@
 .tx-fchip.set { border-style: solid; border-color: color-mix(in srgb, var(--accent) 60%, var(--surface)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
 .tx-fchip-main { all: unset; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); font-size: var(--fs-body); line-height: var(--lh-body); cursor: pointer; white-space: nowrap; }
 .tx-fchip.set .tx-fchip-main { padding-right: var(--sp-4); }
+/* the chip's border takes 2 px of its 44: the key reaches over it, so a finger's target is the whole chip */
+@media (pointer: coarse) { .tx-fchip-main { margin-block: calc(-1 * var(--hairline)); } }
 .tx-fchip-main:focus-visible, .tx-fchip-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
 .tx-fchip-plus { font-weight: var(--w-strong); color: var(--accent-ink); }
 .tx-fchip-name { color: var(--text-2); }
@@ -152,6 +154,10 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { padding-block: var(--sp-4); row-gap: 0; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { display: flex; align-items: center; padding-block: 0; }
   .rt-wrap[data-block] .tx-table .rt-lead { align-items: center; }
+}
+/* a finger: a target is 44 px high, so a cell takes 36 px and the 4 px of padding above and below make 44; the rows are 44 px apart and no target reaches into the next. A block row is two lines and keeps its height */
+@media (pointer: coarse) {
+  .rt-wrap:not([data-block]) .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > :is(th, td) { --reach-pad: var(--sp-4); }
 }
 .rt-wrap[data-block] .rt.tx-table td.tx-category { grid-column: 2 / 4; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account::before, .rt-wrap[data-block] .rt.tx-table td.tx-category::before { content: none; }

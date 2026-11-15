@@ -55,10 +55,14 @@ export const monthTick = (n: number): string => (lang === "en" ? MONTHS_EN[n - 1
 /** 123456 → "1 234,56 €" (in English "€1,234.56"): core's `formatEur`, the one euro formatter. */
 export const money = (cents: number, decimals = true): string => formatEur(cents, decimals, lang);
 
-/** A sum in an answer, in whole euros: 442413 → "4 424 €". An answer in cents is fake precision. */
+/**
+ * The one precision rule: a sum in a tile, a headline or a sentence of an answer is in whole euros (`answerMoney`: 442413 →
+ * "4 424 €"; an answer in cents is fake precision), and a sum in a row, a table, an explain panel or a total that adds up
+ * rows on show is to the cent (`rowMoney`), so the rows add up to the total the reader sees.
+ */
 export const answerMoney = (cents: number): string => money(cents, false);
 
-/** A sum in a row, to the cent: 442413 → "4 424,13 €". A row is exact. */
+/** A sum in a row, to the cent: 442413 → "4 424,13 €". A row is exact (the rule above `answerMoney`). */
 export const rowMoney = (cents: number): string => money(cents);
 
 const plain = (cents: number): string => (cents / 100).toLocaleString(localeOf(lang), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -92,10 +96,10 @@ export function moneyTick(cents: number): string {
   return lang === "en" ? money(cents, false) : `${num0.format(cents / 100)} €`;
 }
 
-/** +12 € / −12 € / ±0 € for differences. */
+/** +12 € / −12 € / ±0 € for differences; a difference under a euro keeps its cents (+0,50 €), since whole euros would show it as nothing. */
 export function signedMoney(cents: number): string {
-  if (Math.abs(cents) < 100) return lang === "en" ? "±€0" : "±0 €";
-  return `${cents > 0 ? "+" : "−"}${money(Math.abs(cents), false)}`;
+  if (cents === 0) return lang === "en" ? "±€0" : "±0 €";
+  return `${cents > 0 ? "+" : "−"}${money(Math.abs(cents), Math.abs(cents) < 100)}`;
 }
 
 /**

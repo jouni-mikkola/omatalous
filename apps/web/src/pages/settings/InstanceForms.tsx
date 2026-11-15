@@ -134,11 +134,11 @@ export function GeneralForm({
         <select value={form.syncHours.length} onChange={(e) => setFetchCount(Number(e.target.value))}>
           {SYNC_SCHEDULES.map((_, count) => (
             <option key={count} value={count}>
-              {count === 0 ? t("set.iform.no_automatic_fetches") : count}
+              {count === 0 ? t("set.iform.fetch_on_open") : count}
             </option>
           ))}
         </select>
-        <span className="field-help">{form.syncHours.length ? t("set.iform.fetch_is_made", { when: syncHoursLabel(form.syncHours) }) : t("set.iform.fetched_when_opened")}</span>
+        {form.syncHours.length > 0 && <span className="field-help">{t("set.iform.fetch_is_made", { when: syncHoursLabel(form.syncHours) })}</span>}
       </label>
 
       <label className="check">

@@ -1,5 +1,5 @@
 // Decision: is the household spending more than it earns, month after month, and is this month on its usual course
-import { useState } from "react";
+import { useId, useState } from "react";
 import { monthEnd } from "@banking/core";
 import { answerMoney, money, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
@@ -40,13 +40,14 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
 /**
  * Income and spending of the last twelve months as a pair of bars a month (`overview.months`), on one value axis, with
  * the usual month's spending as a dashed line across them (`overview.usualSpendCents`). The running month and a month
- * the accounts do not cover from its 1st are drawn lighter with a dashed edge and say so under their name, as their
- * sums are not a month's. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
+ * the accounts do not cover from its 1st are hatched with a dashed edge and the key says so, as their sums are not a
+ * month's. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
  * out its sums. Every value is a field of the answer: nothing is added up here.
  */
 export function MonthBars({ overview, today }: { overview: Overview; today: string }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
+  const hatch = `mbh-${useId().replace(/\W/g, "")}`;
   const width = measured || UNMEASURED;
   const { months, usualSpendCents: usual, usualMonths } = overview;
   const values = [...months.flatMap((m) => [m.incomeCents, m.spendCents]), ...(usual === null ? [] : [usual])];
@@ -58,15 +59,14 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const x = band(months.length, f.innerW, 0.72);
   const bar = Math.max(1, x.width / 2 - 1);
   const running = (i: number) => i === months.length - 1 && months[i]!.month === today.slice(0, 7);
-  // the running month keeps its name; a name next to it gives way
+  // the running month and each January keep their names, so the year is always on the axis; a name next to them gives way
   const ticks = monthTicks(
     months.map((m) => m.month),
     x.step,
-    new Set(months.flatMap((_, i) => (running(i) ? [i] : []))),
+    new Set(months.flatMap((m, i) => (running(i) || m.month.endsWith("-01") ? [i] : []))),
   );
-  // the year stands under the first printed name and under each January, so a phone that prints every other month still says it
-  const first = ticks.findIndex((tick) => tick.printed);
-  const yearOf = (i: number) => (ticks[i]!.printed && (i === first || months[i]!.month.endsWith("-01")) ? months[i]!.month.slice(0, 4) : null);
+  const yearOf = (i: number) => (ticks[i]!.printed && months[i]!.month.endsWith("-01") ? months[i]!.month.slice(0, 4) : null);
+  const anyPartial = months.some((m, i) => !m.complete || running(i));
   const top = (v: number) => Math.min(y(v), y(0));
   const height = (v: number) => Math.abs(y(v) - y(0));
   const title = (m: Month) => monthLong(m.month);
@@ -87,10 +87,28 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
             {t("home.months_usual", { sum: answerMoney(usual), months: usualMonths })}
           </li>
         )}
+        {anyPartial && (
+          <li>
+            <span className="mb-key-partial" />
+            {t("home.months_key_partial")}
+          </li>
+        )}
       </ul>
       <svg width={f.width} height={f.height}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={t("home.months_aria", { count: months.length })}>
+            <defs>
+              {(
+                [
+                  ["income", "mb-hatch-income"],
+                  ["spend", "mb-hatch-spend"],
+                ] as const
+              ).map(([role, line]) => (
+                <pattern key={role} id={`${hatch}-${role}`} width={5} height={5} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <line className={line} x1={0} y1={0} x2={0} y2={5} />
+                </pattern>
+              ))}
+            </defs>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={moneyAxis} />
             {at !== null && <rect className="sel-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
@@ -98,28 +116,18 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
               const left = x.x(i);
               return (
                 <g key={m.month} className={whole ? "mb-month" : "mb-month mb-partial"}>
-                  <rect className="mb-income" x={left} y={top(m.incomeCents)} width={bar} height={height(m.incomeCents)} />
-                  <rect className="mb-spend" x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />
+                  <rect className={whole ? "mb-income" : "mb-income-part"} fill={whole ? undefined : `url(#${hatch}-income)`} x={left} y={top(m.incomeCents)} width={bar} height={height(m.incomeCents)} />
+                  <rect className={whole ? "mb-spend" : "mb-spend-part"} fill={whole ? undefined : `url(#${hatch}-spend)`} x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
-                  {running(i) ? (
-                    // the running month's name and its word end at the plot's edge, so neither is cut
-                    <text className="mb-now" x={x.step * (i + 1)} y={f.innerH + LABEL_Y} textAnchor="end">
+                  {ticks[i]!.printed && (
+                    <text x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
                       <tspan>{ticks[i]!.text}</tspan>
-                      <tspan x={x.step * (i + 1)} dy={12}>
-                        {t("home.months_running")}
-                      </tspan>
+                      {yearOf(i) && (
+                        <tspan x={x.centre(i)} dy={12}>
+                          {yearOf(i)}
+                        </tspan>
+                      )}
                     </text>
-                  ) : (
-                    ticks[i]!.printed && (
-                      <text x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
-                        <tspan>{ticks[i]!.text}</tspan>
-                        {yearOf(i) && (
-                          <tspan x={x.centre(i)} dy={12}>
-                            {yearOf(i)}
-                          </tspan>
-                        )}
-                      </text>
-                    )
                   )}
                 </g>
               );

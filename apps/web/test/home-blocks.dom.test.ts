@@ -44,22 +44,24 @@ describe("Tulot ja menot", () => {
     expect(links[11]!.getAttribute("href")).toBe("#/transactions?from=2026-11-01&to=2026-11-11");
     // the link names the month and its two sums, so a reader who cannot see the bars hears them
     expect(flat(links[11]!.getAttribute("aria-label"))).toMatch(/^Marraskuu 2026.*Tulot 4 011 €.*Menot 3 011 €.*kesken/i);
-    // the year stands under the first name and under January
+    // the year stands under January only
     const years = [...container.querySelectorAll("svg text tspan")].map((s) => s.textContent).filter((s) => /^\d{4}$/.test(s ?? ""));
-    expect(years).toEqual(["2025", "2026"]);
+    expect(years).toEqual(["2026"]);
   });
 
   it("marks the running month and one the accounts do not cover from its 1st as not whole, and no other", () => {
     const { container } = render(createElement(Months, { data: data(), today: TODAY }));
     const groups = [...container.querySelectorAll(".mb-month")];
     expect(groups.map((g) => g.classList.contains("mb-partial"))).toEqual([true, ...Array(10).fill(false), true]);
-    expect(flat(container.querySelector(".mb-now")?.textContent)).toMatch(/kesken$/);
+    // the two partial months are hatched, and the key says what the hatching means
+    expect(groups.filter((g) => g.querySelector(".mb-spend-part")?.getAttribute("fill")?.startsWith("url(#")).length).toBe(2);
+    expect(flat(container.querySelector(".mb-key")?.textContent)).toContain("Kesken tai vajaa kuukausi");
   });
 
   it("draws the usual month as a line and names it in the key, and leaves both out without one", () => {
     const usual = render(createElement(Months, { data: data(), today: TODAY }));
     expect(usual.container.querySelector(".mb-usual")).not.toBeNull();
-    expect(flat(usual.container.querySelector(".mb-key")?.textContent)).toContain("Tavallinen kuukausi 2 149 € (10 kuukauden keskiarvo)");
+    expect(flat(usual.container.querySelector(".mb-key")?.textContent)).toContain("Tavallinen kuukausi 2 149 € (10 kk)");
     usual.unmount();
     const none = render(createElement(Months, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } } }), today: TODAY }));
     expect(none.container.querySelector(".mb-usual")).toBeNull();

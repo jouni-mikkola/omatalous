@@ -336,7 +336,7 @@ export const fontSize = {
   "fig-l": 32,
   display: 52,
   input: 16,
-  dec: 0.68,
+  dec: 0.75,
 } as const;
 
 /** Durations in ms. They are 0 under `prefers-reduced-motion`. */

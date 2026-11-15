@@ -93,6 +93,21 @@ describe("the two forms of a sum", () => {
     expect(rowMoney(442_413).replace(/[\u00a0\u202f]/g, " ")).toBe("4 424,13 €");
   });
 
+  it("keeps the cents of a difference under a euro, and rounds a larger one to whole euros", () => {
+    const fin = (s: string) => s.replace(/[  ]/g, " ");
+    expect(fin(signedMoney(0))).toBe("±0 €");
+    expect(fin(signedMoney(50))).toBe("+0,50 €");
+    expect(fin(signedMoney(-50))).toBe("−0,50 €");
+    expect(fin(signedMoney(-1))).toBe("−0,01 €");
+    expect(fin(signedMoney(99))).toBe("+0,99 €");
+    expect(fin(signedMoney(100))).toBe("+1 €");
+    expect(fin(signedMoney(-149))).toBe("−1 €");
+    expect(fin(signedMoney(150))).toBe("+2 €");
+    setLanguage("en");
+    expect(signedMoney(0)).toBe("±€0");
+    expect(signedMoney(-50)).toBe("−€0.50");
+  });
+
   it("keeps the two forms in English", () => {
     setLanguage("en");
     expect(answerMoney(442_413)).toBe("€4,424");

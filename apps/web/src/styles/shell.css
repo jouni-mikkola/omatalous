@@ -63,6 +63,7 @@
 .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-pop); min-width: 200px; background: var(--surface); color: var(--text); border: 1px solid var(--pop-edge); border-radius: var(--radius); padding: 8px; box-shadow: var(--pop-shadow); display: flex; flex-direction: column; }
 .menu button, .menu a { text-align: left; border: none; background: none; padding: var(--cell-y) 8px; min-height: 36px; display: flex; align-items: center; border-radius: var(--radius-s); cursor: pointer; text-decoration: none; color: var(--text); }
 .menu button:hover, .menu a:hover { background: var(--surface-2); }
+@media (pointer: coarse) { .menu button, .menu a { min-height: var(--tap-min); } }
 .menu .muted { padding: 4px 8px 8px; font-size: var(--fs-label); }
 
 /* phones: one top row (mark, view switch, Tarkistettavat, the user) and the four pages as a tab bar at the foot */
@@ -87,6 +88,7 @@
 /* off the screen until it is focused; light on the dark band and on the page alike */
 .skip-link { position: absolute; left: -9999px; top: 8px; z-index: var(--z-skip); background: var(--on-ink); color: var(--ink); padding: 8px 12px; border-radius: var(--radius-s); text-decoration: none; box-shadow: 0 0 0 2px var(--ink); }
 .skip-link:focus { left: 8px; }
+@media (pointer: coarse) { .skip-link { display: inline-flex; align-items: center; min-height: var(--tap-min); } }
 main:focus { outline: none; }
 /* under 360 px the switch, the word, a count of three digits and the user need a tighter row: less room at the edges and between the parts */
 @media (max-width: 359px) {
