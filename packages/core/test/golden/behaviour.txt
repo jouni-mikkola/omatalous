@@ -104,8 +104,8 @@ behaviour · plain:4 · behaviour:credit (quiet)
   rows 185
 
 behaviour · plain:4 · behaviour:payday (quiet)
-  days after pay at 0.84 times the days before, chance 0.774 (estimated)
-  = -31.60 € a cycle beyond the pace before
+  days after pay at 0.79 times the days before, chance 0.806 (estimated)
+  = -42.24 € a cycle beyond the pace before
   | 7 cycles counted
   | skipped 6 as short
   rows 36
@@ -172,8 +172,8 @@ behaviour · settled:4 · behaviour:credit (quiet)
   rows 553
 
 behaviour · settled:4 · behaviour:payday (quiet)
-  days after pay at 1 times the days before, chance 0.484 (estimated)
-  = 0.15 € a cycle beyond the pace before
+  days after pay at 1 times the days before, chance 0.509 (estimated)
+  = 0.23 € a cycle beyond the pace before
   | 12 cycles counted
   rows 50
 
@@ -186,7 +186,7 @@ behaviour · settled:5 · behaviour:credit (quiet)
   rows 557
 
 behaviour · settled:5 · behaviour:payday (quiet)
-  days after pay at 1.28 times the days before, chance 0.626 (estimated)
-  = 32.39 € a cycle beyond the pace before
+  days after pay at 1.28 times the days before, chance 0.634 (estimated)
+  = 32.35 € a cycle beyond the pace before
   | 12 cycles counted
   rows 43

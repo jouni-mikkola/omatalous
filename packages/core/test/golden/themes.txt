@@ -438,9 +438,9 @@ themes · plain:4 · themes:media (quiet)
 
 themes · plain:4 · themes:other (quiet)
   Raha-asiat
-  = 383.20 € a month, no year
+  = 414.26 € a month, no year
   | Maksut henkilöille: 62.25 € a month, no year
-  | Muut menot: 320.95 € a month, no year
+  | Muut menot: 352.01 € a month, no year
 
 themes · plain:4 · themes:shopping (quiet)
   Ostokset
@@ -450,8 +450,8 @@ themes · plain:4 · themes:shopping (quiet)
 
 themes · plain:4 · themes:window (quiet)
   2025-02..2025-10, 9 months
-  = 21348.04 € spending
-  | themes 21348.04 €: 2372.01 € a month, no year
+  = 21627.60 € spending
+  | themes 21627.60 €: 2403.07 € a month, no year
   | large purchases 0.00 €
   rows 0
 
@@ -539,8 +539,8 @@ themes · settled:1 · themes:other (quiet)
 
 themes · settled:1 · themes:shopping (quiet)
   Ostokset
-  = 460.86 € a month, 5530.35 € a year, +18 %
-  | Vaatteet ja ostokset: 396.21 € a month, 4754.52 € a year, +13 %
+  = 460.86 € a month, 5530.35 € a year, +14 %
+  | Vaatteet ja ostokset: 396.21 € a month, 4754.52 € a year, +9 %
   | Koti ja elektroniikka: 64.65 € a month, 775.83 € a year, +61 %
 
 themes · settled:1 · themes:window (quiet)
@@ -676,20 +676,20 @@ themes · settled:4 · themes:media (quiet)
 
 themes · settled:4 · themes:other (quiet)
   Raha-asiat
-  = 84.21 € a month, 1010.57 € a year, -40 %
+  = 84.21 € a month, 1010.57 € a year, -43 %
   | Maksut henkilöille: 53.58 € a month, 642.93 € a year
-  | Muut menot: 30.63 € a month, 367.64 € a year, -66 %
+  | Muut menot: 30.63 € a month, 367.64 € a year, -69 %
 
 themes · settled:4 · themes:shopping (quiet)
   Ostokset
-  = 398.27 € a month, 4779.28 € a year, -17 %
-  | Vaatteet ja ostokset: 337.43 € a month, 4049.19 € a year, -19 %
+  = 408.93 € a month, 4907.12 € a year, -15 %
+  | Vaatteet ja ostokset: 348.09 € a month, 4177.03 € a year, -16 %
   | Koti ja elektroniikka: 60.84 € a month, 730.09 € a year
 
 themes · settled:4 · themes:window (quiet)
   2024-11..2025-10, 12 months
-  = 33014.78 € spending
-  | themes 33014.78 €: 2751.22 € a month, 33014.78 € a year
+  = 33142.62 € spending
+  | themes 33142.62 €: 2761.88 € a month, 33142.62 € a year
   | large purchases 0.00 €
   rows 0
 
@@ -730,13 +730,13 @@ themes · settled:5 · themes:other (quiet)
 
 themes · settled:5 · themes:shopping (quiet)
   Ostokset
-  = 393.60 € a month, 4723.19 € a year
-  | Vaatteet ja ostokset: 365.67 € a month, 4388.07 € a year
+  = 402.83 € a month, 4833.95 € a year
+  | Vaatteet ja ostokset: 374.90 € a month, 4498.83 € a year
   | Koti ja elektroniikka: 27.93 € a month, 335.12 € a year
 
 themes · settled:5 · themes:window (quiet)
   2024-11..2025-10, 12 months
-  = 30702.23 € spending
-  | themes 30702.23 €: 2558.53 € a month, 30702.23 € a year
+  = 30812.99 € spending
+  | themes 30812.99 €: 2567.76 € a month, 30812.99 € a year
   | large purchases 0.00 €
   rows 0
