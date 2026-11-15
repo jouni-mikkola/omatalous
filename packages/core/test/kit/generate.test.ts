@@ -1,7 +1,7 @@
 /**
  * The generator of households (generate.ts) is checked against itself: its labels add up, its balances prove through
  * `reconcile`, and it makes the same household for the same seed, for one member to four. The invariants of the
- * engine are judged over these households in invariants.test.ts, so a fault here would read as a fault there.
+ * engine are judged over these households in invariants.generated.test.ts, so a fault here would read as a fault there.
  */
 import { describe, expect, it } from "vitest";
 import { viewsOf } from "../../../../tools/findings/households.ts";
