@@ -142,9 +142,9 @@ export async function auditTables(page: Page, width: number, touch = width < 600
   const wide = await overflow(page);
   if (wide > 0) {
     const past = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("main *"))
-        .filter((e) => e.getBoundingClientRect().right > innerWidth + 0.5 && getComputedStyle(e).position !== "fixed")
-        .slice(0, 4)
+      Array.from(document.querySelectorAll("body *"))
+        .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.25 && getComputedStyle(e).position !== "fixed" && !e.closest("thead, svg"))
+        .slice(0, 6)
         .map((e) => `${e.tagName.toLowerCase()}${typeof e.className === "string" && e.className ? `.${e.className.trim().split(/\s+/).join(".")}` : ""} to ${Math.round(e.getBoundingClientRect().right)}`),
     );
     problems.push(`the page is ${wide} px wider than the window${past.length ? `, reached by ${past.join("; ")}` : ""}`);

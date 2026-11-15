@@ -26,26 +26,19 @@ const BAR_ID = "tx-bar";
 
 /**
  * On a phone a long list leaves the bar far above. While the bar is out of sight past the top of the screen this button
- * stands over the list (transactions.css) and takes the reader back to the bar, on its Suodata button.
+ * sticks to the foot of the screen at the end of the list's card, so it never covers what stands after the list (tx-bar.css),
+ * and takes the reader back to the bar, on its Suodata button.
  */
 export function FilterShortcut() {
   const [away, setAway] = useState(false);
-  const [atFoot, setAtFoot] = useState(false);
   useEffect(() => {
     const bar = document.getElementById(BAR_ID);
     if (!bar || !("IntersectionObserver" in window)) return;
     const watch = new IntersectionObserver(([e]) => setAway(!!e && !e.isIntersecting && e.boundingClientRect.bottom < 0));
     watch.observe(bar);
-    // at the end of the list the page's own links stand where the button would, so it gives way to them
-    const foot = document.querySelector("footer");
-    const watchFoot = new IntersectionObserver(([e]) => setAtFoot(!!e?.isIntersecting));
-    if (foot) watchFoot.observe(foot);
-    return () => {
-      watch.disconnect();
-      watchFoot.disconnect();
-    };
+    return () => watch.disconnect();
   }, []);
-  if (!away || atFoot) return null;
+  if (!away) return null;
   return (
     <button
       type="button"

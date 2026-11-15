@@ -388,7 +388,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         clear={() => open()}
         onSearch={onSearch}
       />
-      <FilterShortcut />
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}
       {!data && !error && !filters.chip && <StripSkeleton />}
       {/* a mark narrows the rows in the browser, so the server's sums would be of rows the list does not show */}
@@ -489,6 +488,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               )}
             </p>
           )}
+          <FilterShortcut />
         </section>
       )}
     </div>
