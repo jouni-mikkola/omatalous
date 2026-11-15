@@ -64,7 +64,6 @@ function months(first: string, last: string): string[] {
 
 // The generated households, by the number of their members (generatedSet in kit/generate.ts).
 const WITH_EVENTS = (n: number) => `generated:${n}:said:savings:unconnected:benefit-rule+payment-app+namesake+member-fee+refund:1`;
-const JOINT_LOAN = "generated:2:said:joint:connected:base:1";
 const CHECKING_LOAN = "generated:2:said:checking:connected:base:1";
 const FULL_MONTHS = months("2025-04", "2026-05");
 /** The month of today, which is only partly over: the joint top-ups (day 3) and the loan's legs (day 4) have happened, the 200 euro top-up of savings has not. */
@@ -78,10 +77,10 @@ const sameIn = (households: readonly string[], view: readonly string[], by: read
 const [ONE, TWO, THREE, FOUR] = [WITH_EVENTS(1), WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
 const EVENT_HOUSEHOLDS = [ONE, TWO, THREE, FOUR];
 
-/** The residual of the loan paid from savings alone, with the monthly transfer between two members (8000 cents, fee 150) in the household view, and in the first member's view. */
-const [LOAN, WITH_FEE, WITH_SENT] = [-61240, -61090, -69390] as const;
+/** The residual of the monthly transfer between two members (8000 cents, fee 150): the fee in the household view, the 8150 cents sent in the first member's view. */
+const [WITH_FEE, WITH_SENT] = [150, -8150] as const;
 /** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what savings accounts counted. */
-const bridge = (residual: number, moved: number, saved: number) => `residual ${residual}, moved ${moved}, outside the pool savings:saved ${saved}, savings:debt 61240`;
+const bridge = (residual: number, moved: number, saved: number) => `residual ${residual}, moved ${moved}, outside the pool savings:saved ${saved}`;
 /** A bridge line of a month with no savings top-up of the household's own (the month of today) or with the 200 euro one. */
 const topUps = (residual: number, moved: number, month: "full" | "last") => `residual ${residual}, moved ${moved}, outside the pool ${month === "full" ? "savings:saved 20000" : "none"}`;
 /** The joint account's top-ups from the other members' accounts that a member's view counts as income, in each month. */
@@ -89,23 +88,27 @@ const joint = (n: number, view: string, residual: number, moved: number): KnownL
   { line: topUps(residual, moved, "full"), where: views(JOINT_UNKNOWN(n), [view], FULL_MONTHS) },
   { line: topUps(residual, moved, "last"), where: views(JOINT_UNKNOWN(n), [view], LAST_MONTH) },
 ];
-const poolBalance = (start: number, pool: number) => `Käytettävissä starts from ${start}, the pool holds ${pool}`;
 const WALLET_IN = (rows: number) => `${rows} rows: person income counted as income 0, consumption -1800, debt 0`;
 
 export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
-    finding: "loan-from-savings-counted-twice",
+    finding: "member-transfer-fee-left-in-residual",
     check: "I1.bridge",
-    reason: "A loan instalment paid from a savings account counts as spending at the lender and again as the top-up of the savings account that paid it, so Tulos is 61240 cents too low in each month. In the households with two or more members the same lines carry the monthly transfer between two members: its fee of 150 cents is counted by no flow and stays in the residual of the household view, as a fee does by design, and in the first member's view the 8150 cents sent to the other member are counted as a payment to a person.",
+    reason: "The monthly transfer between two members has a fee of 150 cents. The fee is real money out of the pool, which Tulos does not count: no flow takes it, so it stays in the residual of the household view. The change that names the fee as a line of its own fixes it.",
     lines: [
-      { line: bridge(LOAN, 0, 81240), where: [...views(ONE, ["household", "m1"], FULL_MONTHS)] },
       { line: bridge(WITH_FEE, 0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_SENT, -850, 81240), where: [...views(TWO, ["m1"], FULL_MONTHS), ...views(FOUR, ["m1"], FULL_MONTHS)] },
       { line: bridge(WITH_FEE, 0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_SENT, 2525, 81240), where: views(THREE, ["m1"], FULL_MONTHS) },
       { line: bridge(WITH_FEE, 0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
-      { line: bridge(LOAN, 0, 61240), where: [...views(ONE, ["household", "m1"], LAST_MONTH)] },
       { line: bridge(WITH_FEE, 0, 61240), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
+    ],
+  },
+  {
+    finding: "member-transfer-sent-counted-as-payment",
+    check: "I1.bridge",
+    reason: "In the first member's view the monthly transfer to the other member, 8000 cents and its fee, goes out of the pool and Tulos counts it as a payment to a person, though the money only moved between the household's own accounts. The change that makes a transfer between household accounts neutral in every view fixes it.",
+    lines: [
+      { line: bridge(WITH_SENT, -850, 81240), where: [...views(TWO, ["m1"], FULL_MONTHS), ...views(FOUR, ["m1"], FULL_MONTHS)] },
+      { line: bridge(WITH_SENT, 2525, 81240), where: views(THREE, ["m1"], FULL_MONTHS) },
       { line: bridge(WITH_SENT, -850, 61240), where: [...views(TWO, ["m1"], LAST_MONTH), ...views(FOUR, ["m1"], LAST_MONTH)] },
       { line: bridge(WITH_SENT, 2525, 61240), where: views(THREE, ["m1"], LAST_MONTH) },
     ],
@@ -167,37 +170,6 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
     lines: [
       { line: "15 rows: MOBILEPAY TAIKA PIZZA is a business and counts as p2p", where: sameIn(EVENT_HOUSEHOLDS, ["household", "m1"]) },
       { line: "with the prefix MOBILEPAY TAIKA PIZZA is a person, without it TAIKA PIZZA is a payee", where: sameIn(EVENT_HOUSEHOLDS, ["household", "m1"]) },
-    ],
-  },
-  {
-    finding: "available-counts-one-checking-account",
-    check: "I1.pool-accounts",
-    reason: "Käytettävissä starts from the member's own checking account and leaves the joint account out, while the pool of Tulos holds both.",
-    lines: [
-      { line: "Käytettävissä counts chk-0, the pool is chk-0+joint", where: sameIn([TWO, THREE, FOUR, JOINT_LOAN, CHECKING_LOAN], ["m1"]) },
-      { line: "Käytettävissä counts chk-1, the pool is chk-1+joint", where: sameIn([TWO, THREE, FOUR, JOINT_LOAN, CHECKING_LOAN], ["m2"]) },
-      { line: "Käytettävissä counts chk-2, the pool is chk-2+joint", where: sameIn([THREE, FOUR], ["m3"]) },
-      { line: "Käytettävissä counts chk-3, the pool is chk-3+joint", where: views(FOUR, ["m4"]) },
-    ],
-  },
-  {
-    finding: "available-starts-below-the-pool",
-    check: "I1.pool-balance",
-    reason: "Käytettävissä starts from fewer cents than the pool holds, by the part of the joint account that it leaves out.",
-    lines: [
-      { line: poolBalance(5810255, 8210255), where: views(TWO, ["m1"]) },
-      { line: poolBalance(7618493, 9218493), where: views(TWO, ["m2"]) },
-      { line: poolBalance(5781814, 7534939), where: views(THREE, ["m1"]) },
-      { line: poolBalance(7619484, 8788234), where: views(THREE, ["m2"]) },
-      { line: poolBalance(7855333, 9608458), where: views(THREE, ["m3"]) },
-      { line: poolBalance(5810358, 7415358), where: views(FOUR, ["m1"]) },
-      { line: poolBalance(7608578, 8678578), where: views(FOUR, ["m2"]) },
-      { line: poolBalance(7857194, 9462194), where: views(FOUR, ["m3"]) },
-      { line: poolBalance(8195436, 9265436), where: views(FOUR, ["m4"]) },
-      { line: poolBalance(7146891, 8995731), where: views(JOINT_LOAN, ["m1"]) },
-      { line: poolBalance(7510136, 8742696), where: views(JOINT_LOAN, ["m2"]) },
-      { line: poolBalance(6228291, 8628291), where: views(CHECKING_LOAN, ["m1"]) },
-      { line: poolBalance(7510136, 9110136), where: views(CHECKING_LOAN, ["m2"]) },
     ],
   },
   {

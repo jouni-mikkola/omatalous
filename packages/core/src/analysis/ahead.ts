@@ -4,8 +4,8 @@
  * The days up to the next payday as the bank's rows and the household's own bills give them: pay days, subscriptions and
  * bills, the bills the household typed in, the bill of a connected card and regular transfers to other accounts, and
  * with a checking balance what is left of it after those payments. Nothing else is taken off here: the expected everyday
- * spending is told beside the figures, and the runway (`runway.ts`) takes off the part that leaves before the payday. The window follows the accounts whose balance it counts
- * (`countedAccounts`): a charge is a row when one of them pays it. The window ends the day before the nearest payday of
+ * spending is told beside the figures, and the runway (`runway.ts`) takes off the part that leaves before the payday. The window follows the accounts of the pool
+ * (`poolOf`), the same that Tulos speaks for: a charge is a row when one of them pays it. The window ends the day before the nearest payday of
  * the pays to wait for; without one it is the next 30 days.
  */
 import { cancelledSubjects, type ExpectedCharge, expectedCharges } from "../commitments.ts";
@@ -16,7 +16,7 @@ import { creditUse } from "../loans.ts";
 import { parseSeriesId, type RecurringSeries } from "../recurring.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "../types.ts";
-import { type Counted, countedAccounts, expectedMoves, type Settling } from "./ahead-moves.ts";
+import { expectedMoves, type Settling } from "./ahead-moves.ts";
 import { balanceWalk } from "./balance-walk.ts";
 import { reconcileCardPayments, type TypedCardBill } from "./card-payments.ts";
 import { type ComingPeriod, comingList, comingPays } from "./coming.ts";
@@ -24,6 +24,7 @@ import { type AnalysisContext, standingOf } from "./context.ts";
 import { expectedEverydayPerDay } from "./expected.ts";
 import { expectedBillRows } from "./forecast.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, payDayOf } from "./income.ts";
+import { cardPayers, type Pool, poolOf, poolPays } from "./pool.ts";
 import { type Pay, type PayEstimate, payEstimate, payEvidence } from "./pay-estimate.ts";
 import { AHEAD_DAYS } from "../thresholds.ts";
 
@@ -79,8 +80,8 @@ export interface AheadRow {
 interface AheadBalance {
   /** What the counted checking accounts hold today: the bank's balance walked to today (`balanceWalk`), as the first page and Saldot have it. */
   startCents: number;
-  /** Which checking accounts are counted (`Counted` in ahead-moves.ts). */
-  counts: Counted["counts"];
+  /** Whether every account of the pool is counted whole or some at the viewer's part (`Pool` in pool.ts). */
+  counts: Pool["kind"];
   /** How many checking accounts it adds up, and the oldest time one of the balances it walks from was given (ISO), null when unknown. */
   accounts: number;
   balanceAt: string | null;
@@ -88,7 +89,9 @@ interface AheadBalance {
    * What the connected cards owe that no bill of the window holds: each card's whole debt today (`creditUse`, as
    * Varat ja velat has it), less a payment its balance does not hold yet (booked after the balance day, with no leg on the card), less the card's bills in `rows`. A card the
    * counted accounts pay as it goes has no bill, so all of its debt is here. A card's debt is taken off whole, so the
-   * day its bill falls is never guessed. Only cards that owe something are listed.
+   * day its bill falls is never guessed. Only cards that owe something are listed. A card whose bills the rows show
+   * paid only from accounts outside the pool is not (`poolPays`): the pool does not owe it. That the payers are
+   * several or unproven is not yet said as an unresolved figure (the rows decide, as before).
    */
   cardDebts: { cardId: string; name: string; cents: number }[];
   /** The `cardDebts` added up. */
@@ -251,7 +254,8 @@ export interface AheadBasis {
 /** `cashAhead` with what its figures rest on: one run, so the basis is of the very figures the page shows. */
 export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): AheadBasis {
   const from = ctx.today;
-  const counted = countedAccounts(balances);
+  const pool = poolOf(balances);
+  const counted = pool.ids.size ? pool : null;
   // without a checking account in view nothing is left out
   const onCounted = (s: RecurringSeries) => !counted || counted.ids.has(parseSeriesId(s.id)?.accountId ?? "");
 
@@ -403,9 +407,10 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   // every card in view takes its whole debt off what is free. A card whose balance is not known leaves the figure unsaid, not 0
   if ([...used.values()].some((cents) => cents === null)) return { ahead: { ...base, balance: null, missing: "card" }, direct, settling, checking, pays: evidence, coming: periods };
   // a bill of the window holds part of the debt: only the rest is taken off besides it, never the debt twice
+  const payers = cardPayers(ctx);
   const cardDebts = balances.flatMap((b) => {
     const rest = reconciled.rest.get(b.id) ?? 0;
-    return rest > 0 ? [{ cardId: b.id, name: b.name, cents: rest }] : [];
+    return rest > 0 && poolPays(pool, payers, b.id) ? [{ cardId: b.id, name: b.name, cents: rest }] : [];
   });
   const cardDebtCents = cardDebts.reduce((sum, c) => sum + c.cents, 0);
   // named whether a bill of the window holds the debt or not: the household is told of the payment either way
@@ -427,6 +432,6 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     if (left < 0) shortOn ??= r.date;
     lowest = Math.min(lowest, left);
   }
-  const balance: AheadBalance = { startCents, counts: counted!.counts, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
+  const balance: AheadBalance = { startCents, counts: pool.kind, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
   return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence, coming: periods };
 }

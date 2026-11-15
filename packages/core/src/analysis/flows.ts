@@ -35,6 +35,10 @@ export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, lo
     return savingsAccountIds.has(t.accountId) ? { ...ZERO, saved: t.amountCents } : ZERO;
   }
   const kind: CategoryKind = getCategory(t.category).kind;
+  // a debt paid from a savings account leaves the pool's money outside the pool (`pool.ts`): the top-up of that account
+  // was counted as saved when the money left the pool, so the payment is not counted again. The loan views and the
+  // bills still show it from the rows.
+  if (kind === "debt" && savingsAccountIds.has(t.accountId)) return ZERO;
   switch (kind) {
     case "expense":
       return { ...ZERO, consumption: -t.amountCents };

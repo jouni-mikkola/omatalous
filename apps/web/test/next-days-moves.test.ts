@@ -133,12 +133,12 @@ describe("the line under Saldo says which accounts the balance counts", () => {
     expect(notes({ counts: "all", accounts: 3 })).toEqual(["3 käyttötiliä"]);
   });
 
-  it("says the joint account is left out when the viewer's own accounts are counted", () => {
-    expect(notes({ counts: "own" })).toEqual(["Omat käyttötilit, ilman yhteistä tiliä"]);
-    expect(notes({ counts: "own", accounts: 2 })).toEqual(["Omat käyttötilit, ilman yhteistä tiliä"]);
+  it("says the viewer's part of the joint account is counted with the checking accounts when there are several", () => {
+    expect(notes({ counts: "part", accounts: 2 })).toEqual(["Käyttötilit ja osuutesi yhteisestä tilistä"]);
+    expect(notes({ counts: "part", accounts: 3 })).toEqual(["Käyttötilit ja osuutesi yhteisestä tilistä"]);
   });
 
-  it("says only the viewer's part of a joint account is counted when no account is theirs alone, and an old balance says its day after it", () => {
+  it("says only the viewer's part of a joint account is counted when it is the one account, and an old balance says its day after it", () => {
     expect(notes({ counts: "part" })).toEqual(["Osuutesi yhteisestä tilistä"]);
     expect(notes({ counts: "part", balanceAt: "2026-10-09T06:00:00Z" })).toEqual(["Osuutesi yhteisestä tilistä", "Saldo päivältä 9.10."]);
   });

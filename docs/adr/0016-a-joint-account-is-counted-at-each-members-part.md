@@ -2,6 +2,8 @@
 
 Superseded in part by [0017](0017-a-split-is-said-never-assumed.md): holder names give no split, so a joint account nobody split counts whole, flagged.
 
+Superseded in part again for the payday window: it counts the joint account at the member's part together with the member's own checking accounts, the same pool that Tulos speaks for (`poolOf` in `analysis/pool.ts`). The line "The payday window counts the accounts the member uses alone" below no longer holds.
+
 ## Context
 
 A joint account that both partners connect is two rows of `accounts`, one for each partner's bank consent, and the bank

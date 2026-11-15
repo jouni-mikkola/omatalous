@@ -47,7 +47,9 @@ row count still includes them, and the page says the transfers are not in the su
 `totalsOf` holds the sum, and the first page and the cash flow report read `leftCents` from it. The figure is the same
 number the rows give with no flow in between: the sum of every row on an account that is not a loan, less the transfer
 rows (a pair cancels itself, so this takes away the legs with no other half in the period), less the money moved into
-savings accounts, which is *Säästöön*. A card account is in the sum, since a card purchase is spending on the day it is
+savings accounts, which is *Säästöön*. A loan paid from a savings account is counted once: as *Säästöön* when the money
+leaves the pool, and not again as debt service when the savings account pays the lender (Laskut and the loan views still
+show the payment). A card account is in the sum, since a card purchase is spending on the day it is
 made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, the seeded households and random rows.
 
 Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Tulos* and in no income figure,
@@ -521,10 +523,10 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   is more than 45 days away (`MAX_PAYDAY_DAYS`), so the window is the next 30 days (*Seuraavat 30 päivää*). *late*:
   the largest regular income is more than five days late (`OVERDUE_DAYS`); the line says since when the pay was
   expected, and the days it counts are those to the next other salary, or 30 without one.
-- **Which accounts it counts** (`countedAccounts` in `analysis/ahead-moves.ts`, `counts` on the balance, said under *Saldo*). *all*:
-  every checking account in view, which is Koko talous and an own view with no joint account. *own*: the checking
-  accounts the member uses alone, while a joint account in view is left out. *part*: no checking account is the
-  member's alone, so the joint ones, at the member's part. The line under *Saldo* says which when it is not *all*. The
+- **Which accounts it counts** (`poolOf` in `analysis/pool.ts`, the pool that Tulos counts too; `counts` on the balance, said under *Saldo*). *all*:
+  every checking account in view, each whole, which is Koko talous and an own view with no split account. *part*: the
+  member's checking accounts and a joint account at the member's part. The line under *Saldo* says which when it is not *all*. A card's
+  debt is taken off only when no payer of its bills is seen outside the pool. The
   payday is that of the whole view, whatever account the pay lands on. Everything else follows the counted accounts: a
   charge is a row when one of them pays it, other pay when one of them gets it, and the usual everyday spending is what
   they paid themselves. A bill the household typed in names no account and always counts.

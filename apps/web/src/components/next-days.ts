@@ -38,8 +38,7 @@ export function windowLine(ahead: Ahead): string {
 /** Which accounts the balance adds up, when that is not the one checking account in view. */
 const COUNTS: Record<Balance["counts"], (accounts: number) => string | null> = {
   all: (accounts) => (accounts > 1 ? t("ahead.accounts", { count: accounts }) : null),
-  own: () => t("ahead.own_accounts"),
-  part: () => t("ahead.your_share"),
+  part: (accounts) => t(accounts > 1 ? "ahead.accounts_and_share" : "ahead.your_share"),
 };
 
 interface Figure {
