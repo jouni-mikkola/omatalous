@@ -1,5 +1,5 @@
 /** Rules 37, 38, 39, 51 and 52. The detectors are in figures.ts, whose unit tests do not register the rules a second time. */
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { FIGURES } from "../../packages/core/src/figures.ts";
 import { type Finding, expectNoFindings, lineIn, parse, readText, repoFiles, sourceFiles } from "./lib.ts";
 import { figureProblems, figureWords, looseLimits, ownLevels, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
