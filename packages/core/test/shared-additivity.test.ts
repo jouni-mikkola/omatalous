@@ -1,7 +1,9 @@
 /**
  * A figure over an account several members use is a part and a whole (shared.ts). Over households of two to four
  * members, with the split of the joint account said and unknown: the members' parts of a loan's payment add up to the
- * household's, every view reads the bank's whole the same, and the unsaved loans total adds up on its part side.
+ * household's, every view reads the bank's whole the same, and the unsaved loans total adds up on its part side. Where
+ * the split is unknown a member counts the joint account whole (ADR 0017), so each member's part is the whole and the
+ * household's figure is counted once.
  */
 import { describe, expect, it } from "vitest";
 import { loanProposals } from "../src/loan-detect.ts";
@@ -43,6 +45,9 @@ describe("shared.ts", () => {
   });
 });
 
+/** How many times the members count a loan paid from the joint account: once each, whole, where no split is said. */
+const countedWhole = (spec: Spec): boolean => spec.joint === "unknown" && spec.loan === "joint";
+
 const SPECS: Spec[] = ([2, 3, 4] as const).flatMap((members) => (["said", "unknown"] as const).flatMap((joint) => (["joint", "checking"] as const).map((loan): Spec => ({ members, joint, loan, cards: "connected" }))));
 
 describe("the members of a household add up to it", () => {
@@ -59,7 +64,7 @@ describe("the members of a household add up to it", () => {
         const byMember = members.map(proposals);
         for (const p of whole) {
           const mine = byMember.flatMap((list) => list.filter((x) => x.key === p.key));
-          expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(p.monthlyCents);
+          expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(countedWhole(spec) ? p.monthlyCents * mine.length : p.monthlyCents);
           for (const x of mine) expect(x.paymentCents, `${h.name}: ${p.key}`).toBe(p.paymentCents);
         }
       }
@@ -74,7 +79,7 @@ describe("the members of a household add up to it", () => {
         const h = generateHousehold(spec, 1);
         const [household, ...members] = viewsOf(h);
         const total = (v: typeof household) => unsavedLoans(loanProposals(v!.ctx, NO_INPUTS))?.paymentCents ?? 0;
-        expect(members.reduce((sum, v) => sum + total(v), 0), h.name).toBe(total(household));
+        expect(members.reduce((sum, v) => sum + total(v), 0), h.name).toBe(countedWhole(spec) ? total(household) * members.length : total(household));
       }
     },
     LONG,
