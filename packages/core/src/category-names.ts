@@ -29,5 +29,12 @@ const GROUP_CODE: Record<string, string> = {
 /** The label of a category in a language. */
 export const categoryLabel = (c: Pick<Category, "id" | "label">, lang: Language = DEFAULT_LANGUAGE): string => messageFromWire(`category.${c.id}`, undefined, lang) ?? c.label;
 
+/**
+ * The name of a category's row in a spending list. A card bill whose purchases are not itemised is a row of spending
+ * of its own, named the same in every list; any other category keeps its name.
+ */
+export const spendingLabel = (c: Pick<Category, "id" | "label">, lang: Language = DEFAULT_LANGUAGE): string =>
+  c.id === "card_bill" ? (messageFromWire("spending.card_bill_unitemised", undefined, lang) ?? c.label) : categoryLabel(c, lang);
+
 /** The name of a group (the Finnish group is the key) in a language. */
 export const groupLabel = (group: string, lang: Language = DEFAULT_LANGUAGE): string => messageFromWire(`cgroup.${GROUP_CODE[group] ?? ""}`, undefined, lang) ?? group;

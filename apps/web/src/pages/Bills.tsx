@@ -1,9 +1,11 @@
 /**
  * Decision: what is coming, and which bill, contract or subscription to drop.
  *
- * Tulossa (docs/design/README.md 1.3) is one list: the household's bills, contracts and subscriptions in the order of
- * their next day, with no timeline, no sum lines, no search and no sorting. A bill the history cannot know yet is added
- * by hand behind "Lisää lasku" and is a row of the same list. Every figure comes from one definition in core
+ * Tulossa (docs/design/README.md 1.3) answers in the order the household asks: the next payment, what the payments
+ * before the payday take of what the accounts hold (bars of the days, then the rows by day), and under them the one
+ * table of bills, contracts and subscriptions in the order of their next day, with no search and no sorting. A bill the
+ * history cannot know yet is added by hand behind "Lisää lasku", a secondary action of the head, and is a row of the
+ * table. Every figure comes from one definition in core
  * (`isSubscription`, `isContract`, `isSavingsPlan`) and opens its rows where the
  * app works it out; the fixed costs a month are not summed here, the head links to their report; a subscription marked as cancelled is out of every total. A mark is on one series
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
@@ -16,6 +18,7 @@ import { BillsTable, type MarkControls } from "../components/bills/BillsTable.ts
 import { billItems } from "../components/bills/items.ts";
 import { BeforePayday } from "../components/bills/BeforePayday.tsx";
 import { BillForm } from "../components/bills/BillForm.tsx";
+import { NextPayment } from "../components/bills/NextPayment.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
@@ -87,11 +90,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
       <section className="card span-12" id="tulossa" aria-labelledby="coming-h">
-        <div className="card-head tb">
-          <div className="card-name">
-            <h2 id="coming-h">{t("bills.coming")}</h2>
-          </div>
-          <div className="card-tool">
+        <div className="bills-head">
+          <h2 id="coming-h">{t("bills.coming")}</h2>
+          <div className="bills-add">
             <Button
               onClick={() => {
                 setAdding(true);
@@ -119,7 +120,12 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
-        {dashboard.data && <BeforePayday data={dashboard.data} />}
+        {dashboard.data && (
+          <div className="bills-answer">
+            <NextPayment data={dashboard.data} />
+            <BeforePayday data={dashboard.data} />
+          </div>
+        )}
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}
       {items.length > 0 ? (
@@ -129,7 +135,6 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
       ) : (
         <div className="card span-12 bills-first">
           <h2>{t("bills.first_title")}</h2>
-          <p>{t("bills.first_text")}</p>
         </div>
       )}
     </div>

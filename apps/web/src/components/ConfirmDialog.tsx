@@ -10,7 +10,7 @@ import { useModal } from "./useModal.ts";
  */
 export function ConfirmDialog({ title, children, confirmLabel, busy, onConfirm, onCancel }: {
   title: string;
-  children: ReactNode;
+  children?: ReactNode;
   confirmLabel: string;
   busy?: boolean;
   onConfirm: () => void;
