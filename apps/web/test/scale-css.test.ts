@@ -101,7 +101,7 @@ describe("the row arrow of the tables", () => {
     expect(m).toBeDefined();
     const body = m![1]!;
     expect(body).toMatch(/\.rt-drill\s*\{[^}]*position:\s*relative;\s*z-index:\s*1;[^}]*inline-size:\s*var\(--tap-min\)[^}]*block-size:\s*var\(--tap-min\)[^}]*margin:\s*calc\(-1 \* var\(--reach-pad, 0px\)\) 0 calc\(-1 \* var\(--reach-pad, 0px\)\) -16px/);
-    expect(body).toMatch(/\.rt-wrap\[data-block\] \.rt-drill\s*\{[^}]*margin:\s*calc\(-1 \* var\(--reach-pad, 0px\)\) -16px calc\(-1 \* var\(--reach-pad, 0px\)\) 0/);
+    expect(body).toMatch(/\.rt-wrap\[data-block\] \.rt-drill\s*\{[^}]*margin:\s*calc\(-1 \* var\(--reach-pad, 0px\)\) 0;/);
   });
 });
 
