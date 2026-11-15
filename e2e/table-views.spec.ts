@@ -5,8 +5,9 @@ import { auditTables, openAll } from "./table-audit.ts";
 
 // Every page that has a table, at the width of a phone and of a desktop, with every chart's table under it
 // and every details open: the page does not scroll sideways, no table scrolls inside its frame, every table is shown (a
-// table that exists is on the page, not hidden behind a rule) and axe finds nothing in any table. At 390 px every link,
-// button, sort head and summary also reaches 44 px and every checkbox is 24 px (`smallTargets` in table-audit.ts).
+// table that exists is on the page, not hidden behind a rule) and axe finds nothing in any table. Where the pointer is a finger
+// (390 px, and 1024 px with touch) every link, button, sort head and summary also reaches 44 px, no two targets overlap, the
+// middle of each one hits it and every checkbox is 24 px (`touchTargets` in table-audit.ts).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const ROUTES = [
@@ -31,10 +32,11 @@ const ROUTES = [
   "/#/review",
 ];
 
-for (const width of [1440, 390]) {
-  test(`every table: ${width} px`, async ({ browser }) => {
+// a finger on a phone, on a tablet's wide screen, and a mouse on a desktop
+for (const { width, touch } of [{ width: 1440, touch: false }, { width: 1024, touch: true }, { width: 390, touch: true }]) {
+  test(`every table: ${width} px${touch && width > 600 ? " with a finger" : ""}`, async ({ browser }) => {
     test.setTimeout(240_000);
-    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, bypassCSP: true, ...(width < 600 ? { isMobile: true, hasTouch: true } : {}) });
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, bypassCSP: true, ...(touch ? { isMobile: true, hasTouch: true } : {}) });
     const page = await context.newPage();
     const problems: string[] = [];
     for (const route of ROUTES) {
@@ -43,7 +45,7 @@ for (const width of [1440, 390]) {
       await page.reload();
       await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
       await expect(page.locator(".loading")).toHaveCount(0, { timeout: 15_000 });
-      problems.push(...(await auditTables(page, width)).map((p) => `${route}: ${p}`));
+      problems.push(...(await auditTables(page, width, touch)).map((p) => `${route}: ${p}`));
       if (process.env.E2E_SHOTS) {
         const name = route.replace(/^\/#\//, "").replace(/[^a-z0-9]+/g, "-");
         await page.screenshot({ path: join(process.env.E2E_SHOTS, `${name}-${width}.png`), fullPage: true });

@@ -32,6 +32,16 @@
 @media (min-width: 1100px) { .rt thead :is(th, td) { top: var(--rail-h); } }
 .rt thead tr + tr :is(th, td) { top: calc(var(--lh-label) + 16px); }
 @media (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--lh-label) + 16px); } }
+/* a finger: a target in a cell is 44 px high and fits the cell. --reach-pad is the padding the cell gives it above and below (base.css takes that back with a negative margin); the head has 14 px, so its cells are 44 px */
+@media (pointer: coarse) {
+  .rt :is(th, td) { --reach-pad: var(--sp-12); }
+  .rt thead :is(th, td) { --reach-pad: calc((var(--tap-min) - var(--lh-label)) / 2); padding-block: var(--reach-pad); }
+  .rt thead tr + tr :is(th, td) { top: var(--tap-min); }
+  .rt tr.rt-group > *, .rt tr.rt-detail > td { --reach-pad: var(--sp-8); }
+  .rt tr.rt-subrow > td { --reach-pad: 0px; }
+  .rt-wrap[data-block] .rt tr.rt-group > td:not([data-label]), .rt-wrap[data-block] .rt tr:is(.rt-detail, .rt-subrow) > td, .rt-wrap[data-block] .rt td[data-label], .rt-wrap[data-block] .rt td:not([data-label], [data-rt], :first-child), .rt-wrap[data-block] .rt td[colspan] { --reach-pad: 0px; }
+}
+@media (pointer: coarse) and (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--tap-min)); } }
 .rt caption { padding: 0 0 8px; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); caption-side: top; }
 .rt caption.sr-only { padding: 0; }
 
