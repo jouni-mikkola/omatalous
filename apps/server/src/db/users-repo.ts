@@ -3,7 +3,7 @@ import type { Language } from "@banking/core";
 import { type Role, type Row, toUser, type User } from "./rows.ts";
 import { bumpDataVersionStatement } from "./settings-repo.ts";
 import { SWEEP_UNHELD_KEYS } from "./household-repo.ts";
-import type { Db, SqlValue } from "./types.ts";
+import type { Db, SqlValue, Statement } from "./types.ts";
 import { type CostsInUse, hashCost, type PasswordCost } from "../security/password.ts";
 
 export interface SessionInfo {
@@ -221,6 +221,11 @@ export class UsersRepo {
   /** Every user's sealed key, for re-sealing under a new app secret. */
   async allBankCredentials(): Promise<{ userId: string; privateKeyEnc: string }[]> {
     return (await this.db.all<Row>("SELECT user_id, private_key_enc FROM bank_credentials")).map((r) => ({ userId: String(r.user_id), privateKeyEnc: String(r.private_key_enc) }));
+  }
+
+  /** The write of a user's key sealed again under a new server key, as a statement of the rotation's one batch. */
+  resealBankKeyStatement(userId: string, sealed: string, at: string): Statement {
+    return { sql: "UPDATE bank_credentials SET private_key_enc = ?, updated_at = ? WHERE user_id = ?", params: [sealed, at, userId] };
   }
 
   async setBankCredentials(userId: string, appId: string, privateKeyEnc: string): Promise<void> {

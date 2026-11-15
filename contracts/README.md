@@ -5,7 +5,9 @@ version ships and describes interfaces that older code, scripts and helpers read
 
 - `schema.sql`: the schema of a fresh database of that version. A later version may add tables, columns, indexes and
   wider `CHECK` lists. It must keep every table, column, type, default and index that is listed, and a column it adds
-  must be nullable or have a default, so the older code can still write rows.
+  must be nullable or have a default, so the older code can still write rows. Two exceptions: a plain index that a wider
+  plain index starting with the same columns covers may go, and a table that no build reads or writes any more may go
+  with a `-- migrate: breaking` migration, which an older build refuses. The test lists such tables in `RETIRED_TABLES`.
 - `ops-poll.json`, `ops-report.json`, `ops-state.json`: what `node dist/node.js ops poll|report|state` prints for the
   host helper, and the payloads the helper sends. Shapes are key sets and types, not values.
 

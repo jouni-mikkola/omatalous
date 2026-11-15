@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { categorize, compileRules } from "../src/categorize.ts";
-import { isCardIssuerText, isNordeaAccount, isSavingsAccountText } from "../src/wording.ts";
+import { isCardIssuerText, isSavingsAccountText } from "../src/wording.ts";
 
 const rules = compileRules([]);
 const categoryOf = (counterparty: string, amountCents: number) => categorize({ merchant: counterparty, counterparty, description: null, mcc: null, amountCents }, rules).category;
@@ -21,20 +21,6 @@ describe("bank dialect: one list per kind of payee", () => {
 });
 
 describe("bank dialect: whose account, whose card", () => {
-  it("an IBAN says whether the account is Nordea's, whatever the connection is called", () => {
-    expect(isNordeaAccount({ iban: "FI21 1234 5600 0007 85" })).toBe(true);
-    expect(isNordeaAccount({ iban: "FI4250001510000023" })).toBe(false);
-    expect(isNordeaAccount({ iban: "FI4250001510000023", bank: "Nordea" })).toBe(false);
-  });
-
-  it("a card account has no IBAN: the connection's bank decides, and without a connection it is Nordea's as before", () => {
-    expect(isNordeaAccount({ iban: null, bank: "Nordea" })).toBe(true);
-    expect(isNordeaAccount({ iban: null, bank: "nordea bank abp" })).toBe(true);
-    for (const bank of ["Bank Norwegian", "OP", "Komplett", "Resurs", "S-Pankki", "Nordeax"]) expect(isNordeaAccount({ iban: null, bank }), bank).toBe(false);
-    expect(isNordeaAccount({ iban: null })).toBe(true);
-    expect(isNordeaAccount({ iban: null, bank: null })).toBe(true);
-  });
-
   it("the card issuers whose bills are told from loans by their amounts", () => {
     for (const name of ["BANK NORWEGIAN", "KOMPLETT BANK", "MORROW BANK ASA", "RESURS BANK AB", "NORDEA RAHOITUS SUOMI OY", "SEB KORT BANK AB"]) expect(isCardIssuerText(name), name).toBe(true);
     for (const name of ["NORWEGIAN AIR SHUTTLE", "KOMPLETT.FI", "MORROW", "MORROW COFFEE OY", "SEB KORTTI", "RESURSSI OY", "SANTANDER"]) expect(isCardIssuerText(name), name).toBe(false);

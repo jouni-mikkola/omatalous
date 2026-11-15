@@ -80,6 +80,11 @@ export class FactorRepo {
     await this.db.run("DELETE FROM user_factor WHERE user_id = ? AND kind IN ('totp', 'recovery', 'passkey')", [userId]);
   }
 
+  /** The write of a secret sealed again under a new server key, as a statement of the rotation's one batch. */
+  resealStatement(id: string, sealed: string): Statement {
+    return { sql: "UPDATE user_factor SET secret = ? WHERE id = ?", params: [sealed, id] };
+  }
+
   /** Every sealed secret, for the rotation of the server's key (services/secret-rotation.ts). */
   async allSealed(): Promise<{ id: string; userId: string; sealed: string }[]> {
     return (await this.db.all<Row>("SELECT id, user_id, secret FROM user_factor WHERE kind = 'totp'")).map((r) => ({ id: String(r.id), userId: String(r.user_id), sealed: String(r.secret) }));

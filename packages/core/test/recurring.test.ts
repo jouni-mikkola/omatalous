@@ -40,6 +40,15 @@ describe("detectRecurring", () => {
     expect(found.map((s) => s.typicalAmountCents).sort((a, b) => a - b)).toEqual([99, 1299]);
   });
 
+  it("a lender's instalment that doubles is one series at the new sum, and two parallel charges of the same two sums stay two", () => {
+    const lender = { merchant: "Esimerkkirahoitus Oy", category: "loans" };
+    const raised = detectRecurring(series("2025-06-05", 30.44, 16, (i) => (i < 8 ? -42182 : -84364), lender), today);
+    expect(raised.map((s) => [s.active, s.occurrences, s.typicalAmountCents, s.monthlyCents])).toEqual([[true, 16, 84364, 84364]]);
+    const parallel = [...series("2026-01-05", 30.44, 10, -42182, lender), ...series("2026-01-19", 30.44, 10, -84364, lender)];
+    const found = detectRecurring(parallel, today).sort((a, b) => a.typicalAmountCents - b.typicalAmountCents);
+    expect(found.map((s) => [s.active, s.typicalAmountCents, s.monthlyCents])).toEqual([[true, 42182, 42182], [true, 84364, 84364]]);
+  });
+
   it("detects a frequent irregular habit", () => {
     const gaps = [0, 3, 5, 6, 9, 14, 17, 22, 28, 31, 37, 41, 46, 52, 55, 61, 66, 70, 74, 80, 85];
     const txs = gaps.map((g, i) => tx({ bookingDate: addDaysLocal("2026-07-12", g), amountCents: -(1800 + (i % 5) * 450), merchant: "Wolt", category: "food_delivery" }));
