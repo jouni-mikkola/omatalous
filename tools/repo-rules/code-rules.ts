@@ -7,7 +7,6 @@ import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, importsOf, lineIn, lineOf, literals, MIGHT_HOLD_SQL, parse, plainString, readText, repoFiles, SQL_START, sourceFiles, specifiersOf, walk } from "./lib.ts";
 
-const SELF = "tools/repo-rules/code-rules.ts";
 const NODE_BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
 const isHostImport = (spec: string) => spec.startsWith("node:") || NODE_BUILTINS.has(spec);
 // Imports use the compiler's scanner; only possible host uses need a full tree. Unicode escapes may spell an
@@ -147,21 +146,15 @@ describe("repo rules: code", () => {
     for (const text of ["export const sum = (a: number, b: number) => a + b;", "Math.floor(2.5)", 'import type { DateRange } from "./types.ts";']) expect(mightUseHost(text), text).toBe(false);
   });
 
-  it("rule 2: SQL only in apps/server/src/db/ (allowlist: services/health.ts, services/secret-rotation.ts)", () => {
-    const ALLOWED = new Set(["apps/server/src/services/health.ts", "apps/server/src/services/secret-rotation.ts"]);
+  it("rule 2: SQL only in apps/server/src/db/", () => {
     const found: Finding[] = [];
     const files = sourceFiles("apps/server/src/").filter((f) => !IN_DB.test(f));
     expect(files.length).toBeGreaterThan(40);
-    const used = new Set<string>();
     for (const file of files) {
       // most files hold no SQL, so they are not parsed
       if (!MIGHT_HOLD_SQL.test(readText(file))) continue;
-      const here = sqlIn(file, parse(file));
-      if (here.length && ALLOWED.has(file)) used.add(file);
-      else found.push(...here);
+      found.push(...sqlIn(file, parse(file)));
     }
-    // an allowlist entry that no longer needs to be there is removed, so the list only shrinks
-    for (const file of ALLOWED) if (!used.has(file)) found.push({ file: SELF, line: lineIn(SELF, file), why: `${file} is on the SQL allowlist but has no SQL any more: remove it from ALLOWED` });
     expectNoFindings("SQL outside db/", found, "put the statement in a method of a db/*-repo.ts class (all SQL lives in apps/server/src/db/) and call that method from the service.");
   });
 

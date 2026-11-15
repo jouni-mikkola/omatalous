@@ -39,6 +39,11 @@ export class SettingsRepo {
     );
   }
 
+  /** The write of an existing setting's value as a statement of a batch (the rotation of the server's key). */
+  updateStatement(key: string, value: string, at: string): Statement {
+    return { sql: "UPDATE settings SET value = ?, updated_at = ? WHERE key = ?", params: [value, at, key] };
+  }
+
   async delete(key: string): Promise<void> {
     await this.db.run("DELETE FROM settings WHERE key = ?", [key]);
   }
