@@ -15,6 +15,12 @@ import { body, optionalString, requestInfo } from "./shared.ts";
 /** A name typed at login goes in the event log only if it has the shape of a user name: a password typed in the wrong field must not stay 90 days. */
 const shown = (typed: string) => (/^[a-z0-9._-]{3,32}$/i.test(typed.trim()) ? typed.trim() : "(ei käyttäjänimen muotoinen)");
 
+/**
+ * The answer of a sign-in names the add-on module only to the member who just signed in, and only when one is loaded:
+ * the sign-in page itself carries no mention of it, so this is how the page learns it must reload to load the module.
+ */
+const addOnAnswer = (s: Services) => (s.modules?.start.state === "connected" ? { addOn: true } : {});
+
 export function authRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
@@ -130,7 +136,7 @@ export function authRoutes(s: Services) {
     await recordLogin(s, record.id, ip, userAgent);
     await startSession(c, s, record.id);
     const { passwordHash: _hash, ...user } = record;
-    return c.json({ user });
+    return c.json({ user, ...addOnAnswer(s) });
   });
 
   /** The second half of a sign-in: a code from the app or a recovery code, sent with the cookie the password step set. */
@@ -145,7 +151,7 @@ export function authRoutes(s: Services) {
     await recordLogin(s, user.id, req.ip ?? "local", req.userAgent);
     await startSession(c, s, user.id);
     await endHalfSession(c, s);
-    return c.json({ user });
+    return c.json({ user, ...addOnAnswer(s) });
   });
 
   app.post("/logout", async (c) => {

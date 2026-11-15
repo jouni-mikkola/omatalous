@@ -64,7 +64,7 @@ export function App() {
   // the sign-in reads only the entry's texts; whoever is signed in waits for the texts of the pages too
   if (!auth || (!pagesRead && auth.user && !auth.needsSetup && !auth.user.mustChangePassword)) return <div className="app">{pagesFailed ? <Notice tone="error" className="app-error">{t("app.unreachable")}</Notice> : <Loading />}</div>;
   if (auth.needsSetup) return <Setup onDone={(user) => void enter({ needsSetup: false, user })} />;
-  if (!auth.user) return <Login onDone={(user) => (addOnAwaitsSignIn() ? location.reload() : void enter({ needsSetup: false, user }))} />;
+  if (!auth.user) return <Login onDone={(answer) => (addOnAwaitsSignIn(answer) ? location.reload() : void enter({ needsSetup: false, user: answer.user }))} />;
   if (auth.user.mustChangePassword) {
     // the address still names the page the member was on before signing in: they start at Yhteenveto
     return (

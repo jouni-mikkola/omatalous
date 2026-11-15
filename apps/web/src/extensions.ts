@@ -24,12 +24,24 @@ export interface WebExtension {
 
 export const WEB_EXTENSIONS: WebExtension[] = [];
 
+let addOnFailed = false;
+
+/** The page of a signed-in member named an add-on module and its files did not load: the shell says so once. */
+export function markAddOnFailed(failed = true): void {
+  addOnFailed = failed;
+}
+
+export function addOnLoadFailed(): boolean {
+  return addOnFailed;
+}
+
 /**
- * The page names an add-on module that did not load: its files are served to a signed-in user only, so the sign-in
- * reloads the page once to load it.
+ * The sign-in answer says an add-on module is loaded on the server and this page has none: the page was served before
+ * the sign-in and so does not name the module (its files go to a signed-in user only). The sign-in reloads the page once
+ * to load it.
  */
-export function addOnAwaitsSignIn(): boolean {
-  return WEB_EXTENSIONS.length === 0 && document.querySelector('meta[name="omatalous-module"]') !== null;
+export function addOnAwaitsSignIn(answer: { addOn?: boolean }): boolean {
+  return answer.addOn === true && WEB_EXTENSIONS.length === 0;
 }
 
 /** The extensions with a page, in the order they were added. */

@@ -19,8 +19,18 @@ describe("Login", () => {
     type("Käyttäjätunnus", "maija");
     type("Salasana", "salasana-123456");
     submit("Kirjaudu sisään");
-    await waitFor(() => expect(onDone).toHaveBeenCalledWith(user));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ user }));
     expect(seen[0]).toMatchObject({ method: "POST", path: "/api/auth/login", body: { username: "maija", password: "salasana-123456" } });
+  });
+
+  it("hands on that the server has an add-on module, from the answer of the sign-in", async () => {
+    stubApi({ "POST /api/auth/login": { user, addOn: true } });
+    const onDone = vi.fn();
+    render(h(Login, { onDone }));
+    type("Käyttäjätunnus", "maija");
+    type("Salasana", "salasana-123456");
+    submit("Kirjaudu sisään");
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ user, addOn: true }));
   });
 
   it("says why a sign-in failed and stays on the form", async () => {
@@ -46,7 +56,7 @@ describe("Login", () => {
     submit("Käytä palautuskoodia");
     type("Palautuskoodi", "abcd-efgh");
     submit("Kirjaudu sisään");
-    await waitFor(() => expect(onDone).toHaveBeenCalledWith(user));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ user }));
     expect(seen.at(-1)).toMatchObject({ path: "/api/auth/factor", body: { code: "abcd-efgh" } });
   });
 

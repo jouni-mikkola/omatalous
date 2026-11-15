@@ -31,7 +31,7 @@ import * as Table from "./components/table/Table.tsx";
 import * as selection from "./components/table/selection.tsx";
 import * as Button from "./components/ui/Button.tsx";
 import * as Notice from "./components/ui/Notice.tsx";
-import { WEB_EXTENSIONS, type WebExtension } from "./extensions.ts";
+import { markAddOnFailed, WEB_EXTENSIONS, type WebExtension } from "./extensions.ts";
 
 const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   react: React,
@@ -68,9 +68,15 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
 /** Only a base the server could have written: `/modules/<id>/<version>/`. */
 const BASE = /^\/modules\/[a-z][a-z0-9-]{1,30}\/\d+\.\d+\.\d+\/$/;
 
-/** Imports the module's web half and its stylesheet; a failure leaves the app as it is without the module. */
+/**
+ * Imports the module's web half and its stylesheet; a failure leaves the app as it is without the module and marks the
+ * load as failed, which the shell tells once. Only the page of a signed-in request names a module.
+ */
 export async function loadWebModule(base: string): Promise<void> {
-  if (!BASE.test(base)) return;
+  if (!BASE.test(base)) {
+    markAddOnFailed();
+    return;
+  }
   const id = base.split("/")[2];
   let added = 0;
   (globalThis as { __omatalous?: unknown }).__omatalous = {
@@ -92,6 +98,7 @@ export async function loadWebModule(base: string): Promise<void> {
     document.head.append(link);
   } catch (err) {
     WEB_EXTENSIONS.splice(0);
+    markAddOnFailed();
     console.error("add-on module not loaded:", err instanceof Error ? err.message : String(err));
   }
 }
