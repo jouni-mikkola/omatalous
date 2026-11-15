@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "../../api.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
 import { DoctorList } from "../../components/ops/DoctorList.tsx";
-import { LastResult } from "../../components/ops/LastResult.tsx";
 import { HelperStatus } from "../../components/ops/HelperStatus.tsx";
 import { OpsLog } from "../../components/ops/OpsLog.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
@@ -20,7 +19,6 @@ import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
 import { restartWait } from "../../components/ops/ops-elapsed.ts";
 import { usePolled } from "../../components/ops/use-polled.ts";
 import "../../styles/ops.css";
-import { Button } from "../../components/ui/Button.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { t } from "../../text.ts";
 /** Polls every 3 s while something runs, every 60 s otherwise. A failing fetch (the app restarts) backs off. */
@@ -70,29 +68,19 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
 
   const panels = data && (
     <>
-      <DoctorList doctor={data.state.doctor} stale={data.state.doctor_stale === true} last={data.last.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
       <ToolsPanel
         disabled={blocked}
         readDisabled={helperOff || pending || data.readOnlyActive}
         supported={data.helper.tools || helperOff}
         enableCommand={data.helper.enableCommand}
         last={data.last}
+        onDoctor={() => void quick("doctor")}
         onLogs={() => void quick("logs")}
         onPrune={() => void quick("prune")}
         onRenew={() => void quick("helper-renew")}
+        onRestart={() => void quick("restart")}
       />
-      <div className="card">
-        <div className="card-head">
-          <div>
-            <h2>{S.restart}</h2>
-            <div className="card-sub">{S.restartHelp}</div>
-            <LastResult request={data.last.restart} />
-          </div>
-          <Button disabled={blocked} onClick={() => void quick("restart")}>
-            {S.restart}
-          </Button>
-        </div>
-      </div>
+      <DoctorList doctor={data.state.doctor} stale={data.state.doctor_stale === true} />
       <OpsLog events={audit} />
     </>
   );
@@ -127,8 +115,10 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
             onUpdate={() => setDialog("update")}
             onRollback={() => setDialog("rollback")}
           />
+          {/* a finding the household must act on is said outside the fold; its lines are inside */}
+          {!helperOff && data.state.doctor?.items.some((i) => i.level !== "ok") && <Notice tone="warning" role="status">{S.doctorFlagged}</Notice>}
           {!helperOff && (
-            // the operator's cards (system check, logs, restart, event list) stay folded: the version, the update and the status line are the page
+            // the operator's cards (servicing list, status lines, event list) stay folded: the version, the update, the status line and any failure are the page
             <details className="ops-technical">
               <summary>{S.technical}</summary>
               <div className="stack">{panels}</div>

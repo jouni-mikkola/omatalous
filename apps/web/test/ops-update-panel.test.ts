@@ -6,7 +6,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { DoctorList } from "../src/components/ops/DoctorList.tsx";
-import type { OpsSnapshot } from "../src/components/ops/types.ts";
+import { ToolsPanel } from "../src/components/ops/ToolsPanel.tsx";
+import type { OpsRequestView, OpsSnapshot } from "../src/components/ops/types.ts";
 import { UpdatePanel } from "../src/components/ops/UpdatePanel.tsx";
 
 const panel = (state: OpsSnapshot) =>
@@ -35,7 +36,7 @@ describe("Versio: up to date only when nothing waits", () => {
 
 describe("Tila: a system check from before an update", () => {
   const doctor = { at: "2026-11-14T10:00:00Z", items: [] };
-  const list = (stale: boolean) => renderToStaticMarkup(createElement(DoctorList, { doctor, stale, last: undefined, disabled: false, onRun: () => {} }));
+  const list = (stale: boolean) => renderToStaticMarkup(createElement(DoctorList, { doctor, stale }));
 
   it("says the results are old and asks for a new run", () => {
     expect(list(true)).toContain("Tulokset ovat ajalta ennen päivitystä. Aja tarkistus uudelleen.");
@@ -43,5 +44,26 @@ describe("Tila: a system check from before an update", () => {
 
   it("says nothing of it for a current result", () => {
     expect(list(false)).not.toContain("ennen päivitystä");
+  });
+
+  it("draws nothing before the first run", () => {
+    expect(renderToStaticMarkup(createElement(DoctorList, { doctor: undefined }))).toBe("");
+  });
+});
+
+describe("Huolto: the servicing actions as one list", () => {
+  const ran: OpsRequestView = { id: "a", action: "logs", label: "Lokit", status: "ok", by: null, requestedAt: "2026-11-15T10:00:00Z", finishedAt: "2026-11-15T10:00:00Z", summary: null, output: null, steps: [] };
+  const tools = (last: Record<string, OpsRequestView>) =>
+    renderToStaticMarkup(createElement(ToolsPanel, { disabled: false, readDisabled: false, supported: true, enableCommand: "", last, onDoctor: () => {}, onLogs: () => {}, onPrune: () => {}, onRenew: () => {}, onRestart: () => {} }));
+
+  it("has the status, logs, clean-up, renewal and restart as five list items", () => {
+    expect(tools({}).match(/<li>/g)).toHaveLength(5);
+  });
+
+  it("never says that an action has not run, and tells only the one that ran", () => {
+    expect(tools({})).not.toContain("Ei ajettu");
+    const html = tools({ logs: ran });
+    expect(html).not.toContain("Ei ajettu");
+    expect(html.match(/Viimeksi/g)).toHaveLength(1);
   });
 });

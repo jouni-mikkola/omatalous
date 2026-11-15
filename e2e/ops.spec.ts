@@ -92,6 +92,9 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   // the operator's cards are folded until asked for; the version and the update stay in view
   await expect(page.getByRole("button", { name: "Käynnistä sovellus uudelleen" })).toBeHidden();
   await expect(page.getByRole("button", { name: "Tarkista päivitykset" })).toBeVisible();
+  // a finding of the status check is said outside the fold; its lines are inside
+  await expect(page.getByText("Tilassa on huomautettavaa")).toBeVisible();
+  await expect(page.locator(".ops-doctor")).toBeHidden();
   await page.getByText("Näytä tekniset tiedot").click();
   // a working helper has its controls on the page
   await expect(page.getByRole("button", { name: "Käynnistä sovellus uudelleen" })).toBeVisible();
@@ -108,11 +111,12 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   expect(await page.locator("main script, .ops-commits img, .ops-doctor img").count()).toBe(0);
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
 
-  // one status line on top; an action nobody has run says so, and the page stays short at 1440 px
+  // one status line on top; the servicing actions are one list and an action nobody has run has no line, and the page stays short at 1440 px
   const line = page.locator(".server-status-line");
   await expect(line).not.toContainText("Versio");
   await expect(line).toContainText("Levy");
-  await expect(page.getByText("Ei ajettu vielä.").first()).toBeVisible();
+  await expect(page.locator(".ops-tools li")).toHaveCount(5);
+  await expect(page.getByText("Ei ajettu vielä.")).toHaveCount(0);
   await page.setViewportSize({ width: 1440, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(4000);
   await page.setViewportSize({ width: 1280, height: 900 });
