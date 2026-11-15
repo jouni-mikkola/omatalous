@@ -1,3 +1,4 @@
+import { dayNumber, fromDayNumber } from "@banking/core";
 import { niceTicks } from "../scale.ts";
 import { robustDomain } from "./domain.ts";
 
@@ -85,19 +86,6 @@ export function points(n: number, length: number): (i: number) => number {
   return (i) => (n > 1 ? (i / (n - 1)) * length : length / 2);
 }
 
-const DAY_MS = 86_400_000;
-
-/** "2026-10-19" → days since 1970-01-01, by the calendar alone (UTC), so no time zone moves a day. */
-export function dayNumber(iso: string): number {
-  const [y, m, d] = iso.split("-").map(Number);
-  return Date.UTC(y!, (m ?? 1) - 1, d ?? 1) / DAY_MS;
-}
-
-/** The inverse of `dayNumber`. */
-export function isoDay(n: number): string {
-  return new Date(n * DAY_MS).toISOString().slice(0, 10);
-}
-
 /** A time axis over calendar days: `x(iso)` in pixels, `day(px)` the nearest day. */
 export interface TimeScale {
   x(iso: string): number;
@@ -112,7 +100,7 @@ export function time(from: string, to: string, length: number): TimeScale {
   return {
     days: span + 1,
     x: (iso) => at(dayNumber(iso) - a),
-    day: (px) => isoDay(a + Math.max(0, Math.min(span, span > 0 ? Math.round((px / length) * span) : 0))),
+    day: (px) => fromDayNumber(a + Math.max(0, Math.min(span, span > 0 ? Math.round((px / length) * span) : 0))),
   };
 }
 
