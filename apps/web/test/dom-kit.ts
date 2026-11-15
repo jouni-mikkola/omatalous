@@ -84,6 +84,8 @@ export async function openApp(hash: string, heading?: string | RegExp) {
   // the router is made once, when its module loads: it is moved by its history, as a click on a link would
   await screen.findByRole("navigation", { name: "Päävalikko" }, { timeout: 15000 });
   await router.navigate({ href: hash.replace(/^#/, "") });
-  if (heading) await screen.findByRole("heading", { name: heading, level: 1 }, { timeout: 15000 });
+  // a heading names its open tab after a colon ("Asetukset: Jäsenet"): a string matches the page's name with or without it
+  const named = typeof heading === "string" ? new RegExp(`^${heading.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(: .*)?$`) : heading;
+  if (named) await screen.findByRole("heading", { name: named, level: 1 }, { timeout: 15000 });
   return view;
 }

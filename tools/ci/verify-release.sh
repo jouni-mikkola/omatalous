@@ -10,12 +10,49 @@
 # holds linux/amd64 and linux/arm64. Exit 1 when the package needs a login, the tag is not there or an architecture is
 # missing. Needs only curl and jq, no cosign and no git history.
 set -euo pipefail
+# The token is read once into API_TOKEN and taken out of the environment, so that nothing this script starts (cosign, git, the
+# install scripts of a baseline) inherits it, and tracing is off, since a trace would print it.
+{ set +x; } 2>/dev/null
+API_TOKEN=${GITHUB_TOKEN:-${GH_TOKEN:-}}
+unset GITHUB_TOKEN GH_TOKEN
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 # shellcheck source=tools/lib/project.sh
 . tools/lib/project.sh
 # shellcheck source=tools/lib/newest-release.sh
 . tools/lib/newest-release.sh
+
+# github_api URL: the body GitHub's API answers to a GET of URL, on stdout. Exits 22 on an answer of 400 or above, as
+# curl -f does, and with curl's own code when there is no answer. The plain request of a shared runner address is
+# limited to 60 an hour and gets 403, so GITHUB_TOKEN (or GH_TOKEN) is sent when set; it goes to curl on stdin, never on
+# the command line. Without a token the request is plain, as on an install. A 403 or 429 that says the limit is reached
+# (x-ratelimit-remaining: 0 or Retry-After) is asked again, at most twice, after a wait of 5 s then 15 s
+# (Retry-After when it names under 100 s; VERIFY_RELEASE_RETRY_WAIT=0 skips the wait, for tests).
+github_api() {
+  local url=$1 token=$API_TOKEN dir code rc attempt=1 wait retry
+  local -a cfg=()
+  [[ -z $token ]] || cfg=(--config -)
+  dir=$(mktemp -d) || return 1
+  while :; do
+    rc=0
+    code=$({ [[ -z $token ]] || printf 'header = "Authorization: Bearer %s"\n' "$token"; } \
+      | curl -sS ${cfg[@]+"${cfg[@]}"} -D "$dir/head" -o "$dir/body" -w '%{http_code}' "$url") || rc=$?
+    if ((rc)); then rm -rf "$dir"; return "$rc"; fi
+    if [[ $code =~ ^(403|429)$ ]] && ((attempt < 3)) && grep -qiE '^(x-ratelimit-remaining: *0|retry-after:)' "$dir/head"; then
+      wait=$((attempt == 1 ? 5 : 15))
+      retry=$(sed -n 's/^[Rr]etry-[Aa]fter: *\([0-9]\{1,2\}\)\r\{0,1\}$/\1/p' "$dir/head" | head -1)
+      [[ -z $retry ]] || wait=$retry
+      sleep "${VERIFY_RELEASE_RETRY_WAIT:-$wait}"
+      attempt=$((attempt + 1))
+      continue
+    fi
+    break
+  done
+  if [[ $code =~ ^[0-9]+$ ]] && ((code < 400)); then cat "$dir/body"; rm -rf "$dir"; return 0; fi
+  echo "curl: (22) The requested URL returned error: $code" >&2
+  rm -rf "$dir"
+  return 22
+}
 
 if [[ ${1:-} == --pull ]]; then
   version=${2:-}
@@ -53,16 +90,16 @@ repo=$PROJECT_OWNER/$PROJECT_REPO
 # the first release of a new root (release.sh --new-root, docs/RELEASING.md) has no release before it to verify. Only
 # that run says so, and only an empty list from GitHub counts: a failed request is no answer and the check runs as ever.
 if (($# == 0)) && [[ ${VERIFY_RELEASE_FIRST:-} == 1 ]] \
-  && [[ $(curl -fsS "https://api.github.com/repos/$repo/releases?per_page=1" | jq length) == 0 ]]; then
+  && [[ $(github_api "https://api.github.com/repos/$repo/releases?per_page=1" | jq length) == 0 ]]; then
   echo "No release in $repo yet (the first release of a new root): no signature to verify."
   exit 0
 fi
 tag=${1:-}
 if [[ -z $tag ]]; then
-  tag=$(curl -fsS "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name // empty') || tag=
+  tag=$(github_api "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name // empty') || tag=
   if [[ -z $tag ]]; then
     # An empty list leaves tag empty and fails below.
-    tag=$(curl -fsS "https://api.github.com/repos/$repo/releases?per_page=1" | newest_release_tag)
+    tag=$(github_api "https://api.github.com/repos/$repo/releases?per_page=1" | newest_release_tag)
     [[ -z $tag ]] || no_latest_note "$repo" "$tag"
   fi
 fi

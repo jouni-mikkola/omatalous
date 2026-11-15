@@ -71,8 +71,7 @@ describe("Tyhjennä kaikki tiedot", () => {
 
 describe("the last result of an action", () => {
   const req = (status: OpsRequestView["status"], summary: string | null): OpsRequestView => ({ id: "a", action: "restart", label: "Uudelleenkäynnistys", status, by: null, requestedAt: AT, finishedAt: AT, summary, output: null, steps: [] });
-  it("says when it last ended and how, or that it has not run", () => {
-    expect(lastResult(undefined).text).toBe(S.neverRun);
+  it("says when it last ended and how", () => {
     expect(lastResult(req("ok", "Käynnistetty")).text).toBe(`Viimeksi ${dateTime(AT)}: Onnistui`);
     expect(lastResult(req("failed", "Levy täynnä"))).toEqual({ text: `Viimeksi ${dateTime(AT)}: Epäonnistui. Levy täynnä`, tone: "warning" });
   });

@@ -9,6 +9,8 @@ test("Yhteenveto shows no question, the header's link opens Tarkistettavat, and 
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1366, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
+  // the header shows its link only while something is open
+  await page.route(/\/api\/review\/count$/, (r) => r.fulfill({ json: { count: 2 } }));
   await page.goto("/#/overview");
   await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   await expect(page.getByRole("region", { name: "Huomioitavaa", exact: true })).toHaveCount(0);

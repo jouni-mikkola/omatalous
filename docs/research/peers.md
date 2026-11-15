@@ -187,7 +187,7 @@ bank's `entry_reference` or `transaction_id` as its id, else none
   ([ROADMAP.md](../ROADMAP.md)).
 - Bank file import: hledger needs a rules file of a few lines per bank ([tutorial][hl-csv]); omatalous has three
   readers (card file, bank CSV, camt.053) and two connectors ([ROADMAP.md](../ROADMAP.md)).
-- Settings: 50 files under `apps/web/src/pages/settings`, 8 of them for remote access alone. YNAB starts with
+- Settings: 50 files under `apps/web/src/pages/settings`. YNAB starts with
   "add your spending account and any credit card" ([getting started][ynab-start]).
 - Reconciling: YNAB and Actual have one reconcile button per account ([YNAB][ynab-reconcile],
   [Actual][actual-reconcile]); omatalous has a reconcile card plus balance checks, coverage notices and Tietojen laatu
@@ -263,9 +263,9 @@ Each: the move, its source, the gain, and done when (with the test).
     with its history. Done when: a core test reads a made-up YNAB export to the exact rows.
 12. Save the CSV column match as a short rules text, like hledger's ([hledger][hl-csv]). Gain: one match shared per
     bank. Done when: a test round-trips a match through the text and gets the same rows.
-13. Fewer settings: 50 files under `settings/`, 8 for remote access, against YNAB's start of one account and one card
-    ([YNAB][ynab-start]). Gain: a first evening with fewer choices. Done when: the remote access tab is one form and
-    `e2e/settings.spec.ts` passes at 390 and 1440 px.
+13. Fewer settings: 50 files under `settings/`, against YNAB's start of one account and one card
+    ([YNAB][ynab-start]). Gain: a first evening with fewer choices. Done when: `e2e/settings.spec.ts` passes at 390 and
+    1440 px.
 14. One stored balance per account and day with start, inflows, outflows and a computed end, as Sure's `balances`
     ([schema][sure-schema]). Gain: the balance chart and the match check read one table. Done when: a test holds end =
     start + inflows - outflows each day and equal to the bank's reported balance.

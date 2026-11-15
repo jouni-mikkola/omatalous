@@ -25,6 +25,7 @@ import { type BuildInfo, createServices } from "../services/context.ts";
 import { track, waitForInflight } from "../platform/inflight.ts";
 import { logLookup } from "../services/industry.ts";
 import { finishPendingReprocess, recoverAfterCrash } from "../services/recovery.ts";
+import { resolveSession } from "../auth/session.ts";
 import { staticFiles } from "../static-files.ts";
 import { findSignersFile } from "../modules/bundle.ts";
 import { loadInstalledModule, type ModuleRuntime, openWithModule, type StartState } from "../modules/load.ts";
@@ -174,7 +175,14 @@ if (moduleDropped && modules.start.state === "refused") {
 
 const staticDir = env.STATIC_DIR ?? [resolve(here, "../public"), resolve(here, "../../web/dist")].find((p) => existsSync(p));
 if (staticDir) {
-  staticFiles(app, staticDir, modules.start.state === "connected" ? `<meta name="omatalous-module" content="${moduleBase(modules.start.id, modules.start.version)}">` : undefined);
+  // only a signed-in request is told of the module: the sign-in page names nothing (docs/MODULES.md)
+  staticFiles(
+    app,
+    staticDir,
+    modules.start.state === "connected"
+      ? { headTag: `<meta name="omatalous-module" content="${moduleBase(modules.start.id, modules.start.version)}">`, signedIn: async (c) => (await resolveSession(c, s)) !== null }
+      : undefined,
+  );
 } else {
   console.warn("web UI build not found (pnpm build), serving the API only");
 }

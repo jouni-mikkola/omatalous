@@ -195,13 +195,6 @@ const isElectricityCooperative = (name: string) => /SAHKOOSUUSKUNTA/.test(name);
 
 /** A card in a fee's folded text. */
 export const isCardText = (folded: string) => /KORTTI|CARD|DEBIT|CREDIT|GOLD|PLATINUM/.test(folded);
-/**
- * An account of Nordea's. An IBAN says so itself: Nordea's bank codes start with 1 or 2. A card account has no IBAN,
- * and there the connection's bank decides (`bank`, the name the connection was made under). An account with neither
- * came from a file or the demo, and those are Nordea's.
- */
-export const isNordeaAccount = (a: { iban: string | null; bank?: string | null }) =>
-  a.iban !== null ? /^FI\d{2}[12]/.test(a.iban.replace(/\s/g, "")) : !a.bank || /(?<![A-Z])NORDEA(?![A-Z])/.test(a.bank.toUpperCase());
 
 // ── the bank's own transaction codes (ISO 20022 BankTransactionCode, domain PMNT) ──
 // Family and sub-family as the external code list names them (version 8.0, November 2025). A row carries its code as
@@ -268,6 +261,9 @@ export const CARD_ISSUER_BANK_WORDS = alternation("CARD_ISSUER_BANK_WORDS");
 export const CARD_BRAND_WORDS = alternation("CARD_BRAND_WORDS");
 /** Nordea's finance company lends for cars and issues the bank's cards: its name with a card word is a card bill, alone a loan. */
 export const NORDEA_FINANCE_WORDS = alternation("NORDEA_FINANCE_WORDS");
+/** A bank that lends mortgages (a text of Nordea's finance company is not one). The list is data: wordlists.json. */
+const MORTGAGE_BANK = words(String.raw`(?!${NORDEA_FINANCE_WORDS})(?:${alternation("MORTGAGE_BANK_WORDS")})`);
+export const isMortgageBankText = (folded: string) => MORTGAGE_BANK.test(folded);
 /** Nordea's cards by name. They name a card and no issuer, so `isCardIssuerText` does not read them. */
 export const NORDEA_CARD_WORDS = alternation("NORDEA_CARD_WORDS");
 export const CARD_ISSUER_WORDS = `${NORDEA_FINANCE_WORDS}|${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}|${RESURS_WORDS}`;

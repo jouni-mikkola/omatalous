@@ -1,13 +1,15 @@
 /* Income and spending by month on Yhteenveto (charts/MonthBars.tsx): income and spending side by side in the colours
-   of their roles, the usual month's spending a dashed line, a month that is not whole lighter with a dashed edge. */
+   of their roles, the usual month's spending a dashed line, a month that is not whole hatched with a dashed edge. */
 
 @layer components {
 .month-bars { position: relative; }
 .month-bars .mb-income { fill: var(--role-income); }
 .month-bars .mb-spend { fill: var(--role-spending); }
-.month-bars .mb-partial rect { fill-opacity: 0.35; stroke-width: 1; stroke-dasharray: 3 2; }
-.month-bars .mb-partial .mb-income { stroke: var(--role-income); }
-.month-bars .mb-partial .mb-spend { stroke: var(--role-spending); }
+.month-bars .mb-partial rect { stroke-width: 1; stroke-dasharray: 3 2; }
+.month-bars .mb-hatch-income { stroke: var(--role-income); stroke-width: 2; }
+.month-bars .mb-hatch-spend { stroke: var(--role-spending); stroke-width: 2; }
+.month-bars .mb-partial .mb-income-part { stroke: var(--role-income); }
+.month-bars .mb-partial .mb-spend-part { stroke: var(--role-spending); }
 .month-bars .mb-usual { stroke: var(--text); stroke-width: 1; stroke-dasharray: 6 3; pointer-events: none; }
 .month-bars .mb-now { fill: var(--text); font-weight: var(--w-strong); }
 .month-bars .mb-hit { cursor: pointer; }
@@ -17,5 +19,6 @@
 .mb-key span { display: inline-block; inline-size: var(--sp-12); block-size: var(--sp-12); }
 .mb-key .mb-key-income { background: var(--role-income); }
 .mb-key .mb-key-spend { background: var(--role-spending); }
+.mb-key .mb-key-partial { border: var(--hairline) dashed var(--text-2); background: repeating-linear-gradient(135deg, var(--text-2) 0 var(--hairline), transparent var(--hairline) var(--sp-4)); }
 .mb-key .mb-key-usual { inline-size: var(--sp-16); block-size: 0; border-block-start: var(--hairline) dashed var(--text); }
 }

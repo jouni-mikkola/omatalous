@@ -19,6 +19,8 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
   onRollback: () => void;
 }) {
   const behind = state.behind_commits ?? [];
+  // commits waiting are an offer whatever update_available says: the page never calls an install up to date that is behind
+  const offered = state.update_available === true || behind.length > 0;
   // the switch is two actions, on and off: the newer one tells how the last turn ended
   const turns = [last?.["prerelease-on"], last?.["prerelease-off"]].filter((r): r is OpsRequestView => r !== undefined);
   const switched = turns.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0];
@@ -46,7 +48,7 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
           </Button>
         </div>
       </div>
-      {state.update_available ? (
+      {offered ? (
         <>
           <p>
             <strong>{S.updateAvailable(state.latest_version)}</strong>
@@ -70,9 +72,9 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
       )}
       {/* each stands only once the action has been run: before that the head stands alone */}
       {(["check-update", "update", "rollback"] as const).map((a) => last?.[a] && <LastResult key={a} label={S.actionNames[a]} request={last[a]} />)}
-      {(state.update_available || state.can_rollback) && (
+      {(offered || state.can_rollback) && (
         <div className="form-row">
-          {state.update_available && (
+          {offered && (
             <Button variant="primary" disabled={disabled} onClick={onUpdate}>
               {S.update}
             </Button>

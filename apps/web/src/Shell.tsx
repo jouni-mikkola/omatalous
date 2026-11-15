@@ -14,7 +14,7 @@ import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
 import { NAV, REVIEW, SETTINGS } from "./nav.ts";
-import { extensionPages } from "./extensions.ts";
+import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { StaleAnswer } from "./components/StaleAnswer.tsx";
@@ -26,6 +26,7 @@ import { useOpenSync } from "./use-open-sync.ts";
 import { periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { dropAnswers, forgetAnswers, META_PATH } from "./query-client.ts";
 import { t, tn } from "./text.ts";
+import { pageTitle } from "./page-title.ts";
 import { openWord, reviewTitle, useReviewCount } from "./review-count.ts";
 import { paramsOf } from "./search.ts";
 import { CONNECT_BANK_HASH, SETTINGS_ANCHOR, settingsCardHash } from "./routes.ts";
@@ -79,7 +80,7 @@ export function Shell() {
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
   // the open questions: only their count, in the header of every page and read again when a page opens, since any page can answer one (a rule, a mark, a loan); the queue is Tarkistettavat's own
-  const { count: asked, reload: reloadReview } = useReviewCount();
+  const { count: asked, known: askedKnown, reload: reloadReview } = useReviewCount();
   // a failed fetch is an item of the queue the server does not count: the mark adds it, as the page does
   const open = asked + (meta.data?.lastSync?.status === "failed" ? 1 : 0);
   // a notice of the server that is news (a state that needs the admin, an event not seen) is a dot on the user menu and a line of Turvallisuus
@@ -91,11 +92,12 @@ export function Shell() {
   }, [page, reloadReview]);
   const pageName = pages.find((e) => e.id === page)?.label;
   // Tarkistettavat carries its count in the title and the heading, the same one the header's mark shows
-  const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageName;
-  const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
-  const [wizardClosed, setWizardClosed] = useState(() => readWizardClosed(user.id));
   // what a choice of the user menu (the language, signing out) could not do
   const [reportQuestion, setReportQuestion] = useState<string | null>(null);
+  // Raportit and Asetukset name their open tab or section, so two tabs of the browser tell apart
+  const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageTitle(pageName, page, reportQuestion, location.pathname.split("/")[2]);
+  const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
+  const [wizardClosed, setWizardClosed] = useState(() => readWizardClosed(user.id));
   const [menuError, setMenuError] = useState<string | null>(null);
   const [changingLanguage, setChangingLanguage] = useState(false);
   // the server build this page was loaded against; a different one later means an upgrade happened
@@ -332,15 +334,18 @@ export function Shell() {
             />
           )}
           {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
-          <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
-            {REVIEW.label}
-            {open > 0 && (
-              <span className="nav-count">
-                {open}
-                <span className="sr-only"> {openWord()}</span>
-              </span>
-            )}
-          </PageLink>
+          {/* the link goes only when the server has said that nothing is open: not while the count loads or when it failed; the page stays reachable by its address and shows while it is open */}
+          {(open > 0 || !askedKnown || page === REVIEW.id) && (
+            <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
+              {REVIEW.label}
+              {open > 0 && (
+                <span className="nav-count">
+                  {open}
+                  <span className="sr-only"> {openWord()}</span>
+                </span>
+              )}
+            </PageLink>
+          )}
           <details className="user-menu" ref={userMenu}>
             <summary>
               <span className="sr-only">{t("shell.user_menu")} </span>
@@ -383,6 +388,7 @@ export function Shell() {
           </Notice>
         )}
         {meta.error && <Notice tone="warning">{t("shell.offline_old")}</Notice>}
+        {addOnLoadFailed() && <Notice tone="warning">{t("shell.addon_failed")}</Notice>}
         {failure && <Notice tone="warning">{failure}</Notice>}
         {menuError && <Notice tone="warning">{menuError}</Notice>}
         <StaleAnswer />

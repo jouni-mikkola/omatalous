@@ -27,7 +27,7 @@ cp "$REPO/tools/ci/proof-parts.sh" "$R/tools/ci/" # the parts of the proof (--pa
 cat >"$R/tools/ci/play.sh" <<'PLAY_SH'
 # shellcheck shell=bash
 # what the stand-in legs share
-said() { echo "$*" >>"$PROOF_CALLS"; }
+said() { echo "$*" >>"$PROOF_CALLS"; echo "${0##*/} ${GITHUB_TOKEN:-none} ${GH_TOKEN:-none}" >>"$PROOF_CALLS.token"; } # and which token the leg holds
 # broken NAME: with the file fail-NAME in the play folder, a line for the log and exit 1
 broken() { [[ ! -e $PROOF_PLAY/fail-$1 ]] || { echo "the $1 leg broke"; exit 1; }; }
 # hold NAME [COMMAND...]: with the file hold-NAME, arm the stop first, then run COMMAND (the others may now act on this leg,
@@ -182,6 +182,7 @@ commit "$R" "the lists"
 
 stub "$BIN/docker" <<'STUB'
 #!/bin/bash
+echo "docker ${GITHUB_TOKEN:-none} ${GH_TOKEN:-none}" >>"$PROOF_CALLS.token"
 case ${1:-} in
   build) echo "docker $* cwd=$PWD" >>"$PROOF_CALLS" ;;
   image | rmi) echo "docker $*" >>"$PROOF_PLAY/images" ;; # after the drills: not among the calls of the legs

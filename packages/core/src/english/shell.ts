@@ -29,6 +29,7 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   "shell.offline_kept": "Cannot reach the server. The figures shown were fetched {time}.",
   "shell.fetch_again": "Fetch again",
   "shell.offline_old": "Cannot reach the server. The data may be old.",
+  "shell.addon_failed": "The add-on module did not load, so the app runs without it.",
   "shell.new_version": "The new version {version} is ready.",
   "shell.reload": "Reload the page",
   "shell.rows_arrived_one": "{count} new transaction",

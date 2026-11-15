@@ -9,10 +9,13 @@ interface Counted {
   count: number;
 }
 
-/** The count for the mark in the header, 0 until it is known, and a way to ask again. */
-export function useReviewCount(): { count: number; reload: () => void } {
+/**
+ * The count for the mark in the header, and a way to ask again. `known` is false until the server has answered, and while
+ * its answer has failed with none before it: the count is then 0 as a placeholder, which is not an answer that nothing is open.
+ */
+export function useReviewCount(): { count: number; known: boolean; reload: () => void } {
   const { data, reload } = useApi<Counted>(REVIEW_COUNT_PATH, true);
-  return { count: data?.count ?? 0, reload };
+  return { count: data?.count ?? 0, known: data !== null, reload };
 }
 
 /**

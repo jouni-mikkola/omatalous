@@ -4,4 +4,5 @@ import type { FI_SET_SV } from "../messages-set-sv.ts";
 export const EN_SET_SV: Record<keyof typeof FI_SET_SV, string> = {
   "set.sv.server": "Server",
   "set.sv.save": "Save",
+  "set.sv.software": "About the software",
 };

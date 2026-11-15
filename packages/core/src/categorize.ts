@@ -12,7 +12,7 @@ import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from ".
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
-import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -51,9 +51,6 @@ const w = words;
 
 /** A car maker's foreign finance arm: it lends no payout to a household, so money in from it is a refund, never a loan drawn. */
 const FOREIGN_FINANCIER = /TOYOTA FINANCIAL SERVICES/;
-
-/** Banks that lend mortgages. Nordea's finance company (Nordea Rahoitus) lends for cars and cards instead. */
-const MORTGAGE_BANK = w(String.raw`(?!${NORDEA_FINANCE_WORDS})NORDEA|OP|[A-Z]*OSUUSPANKKI|DANSKE|S-PANKKI|AKTIA|[A-Z]*SAASTOPANKKI|POP PANKKI|HANDELSBANKEN|ALANDSBANKEN`);
 
 /**
  * Built-in rules for Finnish merchants and payment texts, matched against the folded (upper-case, ä→a, ö→o) merchant +
@@ -108,7 +105,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "mortgage", re: w(HOME_LOAN_WORDS) },
   { category: "student_loan", re: w(STUDENT_LOAN_WORDS) },
   // a loan payment to a bank is the mortgage; other lenders' loans are consumer credit (loans, below)
-  { category: "mortgage", re: w(String.raw`LAINANMAKSU|LAINAN ?LYHENNYS|LAINANLYHENNYS|LAINANHOITO`), when: (text) => MORTGAGE_BANK.test(text) },
+  { category: "mortgage", re: w(String.raw`LAINANMAKSU|LAINAN ?LYHENNYS|LAINANLYHENNYS|LAINANHOITO`), when: isMortgageBankText },
   {
     category: "collection",
     re: w(String.raw`INTRUM|LOWELL|ALEKTUM|PERINTA[A-Z]*|PERINTATOIMISTO|SVEA PERINTA|VISMA COLLECTORS|RESCOMP|SERGEL|LINDORFF|GOTHIA|PRA GROUP|CREDIGO|MEDIATOR`),
