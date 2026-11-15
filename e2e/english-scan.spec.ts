@@ -66,8 +66,8 @@ test("the scan sees Finnish: a page in Finnish fails it", async ({ browser }) =>
     await page.goto("/#/overview");
     await expect(page.locator("html")).toHaveAttribute("lang", "fi");
     // read the way the scan reads, so a read that returns nothing fails here
-    expect(finnishIn(await readPart(page.locator("header.topbar")))).toContain("tarkistettavat");
-    expect(finnishIn(await readPart(page.locator("body")))).toContain("tarkistettavat");
+    expect(finnishIn(await readPart(page.locator("header.topbar")))).toContain("yhteenveto");
+    expect(finnishIn(await readPart(page.locator("body")))).toContain("yhteenveto");
   } finally {
     await member.close();
     await removeMember(browser, id);

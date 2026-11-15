@@ -2,7 +2,7 @@ import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { unnamedControls } from "./names.ts";
 
-const run = (jsx: string) => unnamedControls(ts.createSourceFile("x.tsx", `const a = ${jsx};`, ts.ScriptTarget.ES2022, false, ts.ScriptKind.TSX));
+const run = (jsx: string) => unnamedControls(ts.createSourceFile("x.tsx", `const a = ${jsx};`, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TSX));
 
 describe("rule 50 detection", () => {
   it("flags a button or link with only a mark in it", () => {
