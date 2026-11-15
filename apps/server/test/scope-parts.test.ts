@@ -652,7 +652,8 @@ describe("a household where nobody uses an account together", () => {
     expect(await app.db.all("SELECT amount_cents, category_source, is_transfer FROM transactions WHERE account_id IN ('aino-own', 'aino-savings') ORDER BY amount_cents, account_id")).toEqual([
       { amount_cents: -2500, category_source: "default", is_transfer: 0 },
       { amount_cents: 2500, category_source: "match", is_transfer: 0 },
-      { amount_cents: 2500, category_source: "default", is_transfer: 0 },
+      // money in from a person's name with no reference: the bank gives no payer account on it, so the name and the missing reference say it
+      { amount_cents: 2500, category_source: "rule", is_transfer: 0 },
     ]);
     const his = (await get(eero, "/api/meta")).accounts.find((a: { type: string }) => a.type === "checking");
     expect((await eero.call("PUT", `/api/accounts/${his.id}/shares/${adminId}`)).status).toBe(200);

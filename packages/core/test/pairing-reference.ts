@@ -369,7 +369,8 @@ export function householdLegsReference<T extends Transaction>(txs: readonly T[],
   if (members.length > 1) {
     const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
     for (const member of members) {
-      const found = pairTransfers(open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), accounts);
+      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && !otherLeg.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
+      const found = pairTransfers([...open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), ...sent], accounts);
       link(found.pairs);
       for (const id of found.transfers) between.add(id);
     }

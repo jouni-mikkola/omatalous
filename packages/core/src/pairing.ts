@@ -272,12 +272,15 @@ export function householdAllocations<T extends TransferInput>(txs: readonly T[],
   }
   // The rows of two members were never looked at together: money out of one member's account pairs with money into
   // another member's. Two rows of one member stay unpaired, as that member's categorisation left them (a payment
-  // that came back and an equal sum on another account, say), and so does a row that returns a payment.
+  // that came back and an equal sum on another account, say), and so does a row that returns a payment. A payment
+  // that named another member's account is a transfer whatever the member's own rows say, and its money in, which the
+  // bank gives no payer account on, is looked for among the rows the other member's categorisation left open.
   const between = new Set<string>();
   if (members.length > 1) {
     const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
     for (const member of members) {
-      const found = transferAllocations(open.filter((t) => !allocations.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), accounts);
+      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && !allocations.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
+      const found = transferAllocations([...open.filter((t) => !allocations.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), ...sent], accounts);
       take(found.allocations);
       for (const id of found.transfers) between.add(id);
     }
