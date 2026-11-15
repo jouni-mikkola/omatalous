@@ -34,7 +34,7 @@ export type FlowInput = Pick<Transaction, "accountId" | "amountCents" | "categor
 const isDebtFromSavings = (t: FlowInput, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string>): boolean =>
   !loanAccountIds.has(t.accountId) && !t.isTransfer && savingsAccountIds.has(t.accountId) && getCategory(t.category).kind === "debt";
 
-/** Cents a row adds to spending (`AnalysisTx.spend`): consumption + debt, and the whole payment of a debt paid from a savings account, whose flows are zero. */
+/** Cents a row adds to spending (the `spend` of an analysed row): consumption + debt, and the whole payment of a debt paid from a savings account, whose flows are zero. */
 export function spendCentsOf(t: FlowInput, flows: Flows, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string>): number {
   return isDebtFromSavings(t, savingsAccountIds, loanAccountIds) ? -t.amountCents : flows.consumption + flows.debt;
 }
