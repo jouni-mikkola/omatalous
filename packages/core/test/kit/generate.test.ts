@@ -28,7 +28,7 @@ describe("generated households", () => {
         const all = h.txs.reduce((s, t) => s + t.amountCents, 0);
         expect(flows.income + flows.consumption + flows.debt + flows.borrowed + flows.transfer + flows.mirror, h.name).toBe(all);
         const instalments = [...h.truth.entries()].filter(([, l]) => l.kind === "loan_instalment").reduce((s, [id]) => s + h.txs.find((t) => t.id === id)!.amountCents, 0);
-        expect(flows.mirror, h.name).toBe(-instalments);
+        expect(flows.mirror, h.name).toBe(0 - instalments);
       }
     },
     LONG,
