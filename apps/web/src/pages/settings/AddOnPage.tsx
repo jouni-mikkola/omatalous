@@ -3,6 +3,7 @@
  * (extensions.ts `settingsCard`) and, for an admin, the add-on's code, version and state, so that whatever the module
  * asks of the household and what keeps it running are found under one name.
  */
+import { ExtensionBoundary } from "../../components/ExtensionBoundary.tsx";
 import { WEB_EXTENSIONS } from "../../extensions.ts";
 import { AddOn } from "./AddOn.tsx";
 import { CardStack } from "./CardStack.tsx";
@@ -15,7 +16,14 @@ export function AddOnPage({ meta, params, anchor }: SettingsPageProps) {
   useCardScroll(anchor, `${params.toString()}#${anchor}`, shown);
   return (
     <CardStack shown={shown}>
-      {WEB_EXTENSIONS.map((e) => e.settingsCard && <e.settingsCard key={e.id} />)}
+      {WEB_EXTENSIONS.map(
+        (e) =>
+          e.settingsCard && (
+            <ExtensionBoundary key={e.id}>
+              <e.settingsCard />
+            </ExtensionBoundary>
+          ),
+      )}
       {meta.user.role === "admin" && <AddOn />}
     </CardStack>
   );

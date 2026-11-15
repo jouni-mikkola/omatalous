@@ -25,6 +25,7 @@ import * as Figure from "./components/Figure.tsx";
 import * as Loading from "./components/Loading.tsx";
 import * as More from "./components/More.tsx";
 import * as Section from "./components/Section.tsx";
+import * as Why from "./components/Why.tsx";
 import * as Cells from "./components/table/Cells.tsx";
 import * as KeyValue from "./components/table/KeyValue.tsx";
 import * as Table from "./components/table/Table.tsx";
@@ -33,7 +34,11 @@ import * as Button from "./components/ui/Button.tsx";
 import * as Notice from "./components/ui/Notice.tsx";
 import { markAddOnFailed, WEB_EXTENSIONS, type WebExtension } from "./extensions.ts";
 
-const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
+/**
+ * The shared files an add-on may import. Installed add-ons name these keys and exports, so none goes without a new
+ * `apiVersion` (contracts/<version>/module-host.json, checked by test/module-host-contract.test.ts).
+ */
+export const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   react: React,
   "react/jsx-runtime": jsxRuntime,
   "react-dom": ReactDom,
@@ -57,6 +62,7 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   "components/Loading": Loading,
   "components/More": More,
   "components/Section": Section,
+  "components/Why": Why,
   "components/table/Cells": Cells,
   "components/table/KeyValue": KeyValue,
   "components/table/Table": Table,
@@ -64,6 +70,9 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   "components/ui/Button": Button,
   "components/ui/Notice": Notice,
 });
+
+/** What `__omatalous.apiVersion` says. Removing a key or an export of `MODULES` needs a higher number. */
+export const HOST_API_VERSION = 1;
 
 /** Only a base the server could have written: `/modules/<id>/<version>/`. */
 const BASE = /^\/modules\/[a-z][a-z0-9-]{1,30}\/\d+\.\d+\.\d+\/$/;
@@ -80,7 +89,7 @@ export async function loadWebModule(base: string): Promise<void> {
   const id = base.split("/")[2];
   let added = 0;
   (globalThis as { __omatalous?: unknown }).__omatalous = {
-    apiVersion: 1,
+    apiVersion: HOST_API_VERSION,
     addExtension(entry: WebExtension) {
       if (added++ > 0 || entry.id !== id) throw new Error("an add-on module adds one extension, under its own id");
       WEB_EXTENSIONS.push(entry);
