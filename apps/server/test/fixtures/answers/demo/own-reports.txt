@@ -2325,6 +2325,7 @@
   ],
   "fromSavingsCents": 0,
   "typicalCents": null,
+  "typicalFlowCents": null,
   "typicalMonths": 0,
   "categoryMonths": 0,
   "cardGap": false,
