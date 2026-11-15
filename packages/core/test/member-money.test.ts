@@ -33,7 +33,7 @@ describe("memberMoney", () => {
   });
 
   it("reads one person written in two orders as one member", () => {
-    expect(found([{ counterparty: "TESTAAJA PEKKA" }, { counterparty: "Pekka Testaaja", amountCents: 1000 }], [ME, PARTNER]).map(([, cents]) => cents)).toEqual([5000, 1000]);
+    expect(found([{ counterparty: "TESTAAJA PEKKA" }, { counterparty: "Pekka Testaaja", amountCents: 1000 }], [ME, PARTNER])).toEqual([["name:PEKKA TESTAAJA", 6000, 2]]);
   });
 
   it("leaves two members of one name unresolved", () => {

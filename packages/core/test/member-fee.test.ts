@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { isBankFee } from "../src/analysis/fees.ts";
-import { MAX_TRANSFER_FEE_CENTS, splitMemberFees } from "../src/member-fee.ts";
+import { splitMemberFees } from "../src/member-fee.ts";
+import { MAX_TRANSFER_FEE_CENTS } from "../src/pairing.ts";
 import type { Account } from "../src/types.ts";
 import { ibanOf } from "./kit/generate-rows.ts";
 import { tx } from "./helpers.ts";
