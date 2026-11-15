@@ -72,7 +72,8 @@ async function touchTargets(page: Page): Promise<string[]> {
     for (const el of Array.from(document.querySelectorAll<HTMLElement | SVGElement>("a[href], button, summary, [role=button], input[type=checkbox], input[type=radio]"))) {
       const r = el.getBoundingClientRect();
       // a control that is not on the page (closed details, a hidden input, the skip link's 1 px) has no box
-      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden" || el.closest("[hidden], [inert]") || unseen(el)) continue;
+      // a control that takes no pointer (the chevron of a row that opens whole) is no target for a finger
+      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden" || getComputedStyle(el).pointerEvents === "none" || el.closest("[hidden], [inert]") || unseen(el)) continue;
       const name = (el.textContent || el.closest("label")?.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40);
       const kind = describe(el);
       let problem = "";
@@ -140,7 +141,15 @@ export async function auditTables(page: Page, width: number, touch = width < 600
   await openAll(page);
   if (touch) await openDrills(page);
   const wide = await overflow(page);
-  if (wide > 0) problems.push(`the page is ${wide} px wider than the window`);
+  if (wide > 0) {
+    const past = await page.evaluate(() =>
+      Array.from(document.querySelectorAll("main *"))
+        .filter((e) => e.getBoundingClientRect().right > innerWidth + 0.5 && getComputedStyle(e).position !== "fixed")
+        .slice(0, 4)
+        .map((e) => `${e.tagName.toLowerCase()}${typeof e.className === "string" && e.className ? `.${e.className.trim().split(/\s+/).join(".")}` : ""} to ${Math.round(e.getBoundingClientRect().right)}`),
+    );
+    problems.push(`the page is ${wide} px wider than the window${past.length ? `, reached by ${past.join("; ")}` : ""}`);
+  }
   const tables = await page.evaluate((w) => {
     const out: string[] = [];
     for (const t of Array.from(document.querySelectorAll("table"))) {
@@ -154,7 +163,7 @@ export async function auditTables(page: Page, width: number, touch = width < 600
       if (t.closest(".table-wrap, .rt-wrap-scroll")) out.push(`${name}: sits in a scroll frame`);
       // the bars of one column are one scale: each starts on the same line, whatever the width of the figure beside it
       const starts = new Map<number, number[]>();
-      for (const track of Array.from(t.querySelectorAll<HTMLElement>(".rt-bar-track"))) {
+      for (const track of Array.from(t.querySelectorAll<HTMLElement>(".rt-bar-track")).filter((b) => !b.closest("tr.rt-detail"))) {
         const cell = track.closest("td, th") as HTMLTableCellElement | null;
         if (!cell || !track.offsetWidth) continue;
         starts.set(cell.cellIndex, [...(starts.get(cell.cellIndex) ?? []), track.getBoundingClientRect().left]);

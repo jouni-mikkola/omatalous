@@ -115,7 +115,7 @@ test("Tapahtumat: the search finds a payee the list shows and the CSV has its na
   const page = await context.newPage();
   await page.goto("/#/transactions");
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  const bar = page.getByRole("group", { name: "Taulukon rajaus: Tapahtumat" });
+  const bar = page.locator(".tx-bar");
   await expect(bar).toBeVisible();
   const rows = page.locator(".tx-table tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer):not(.rt-subrow)");
   const shown = await rows.count();

@@ -30,14 +30,22 @@ const BAR_ID = "tx-bar";
  */
 export function FilterShortcut() {
   const [away, setAway] = useState(false);
+  const [atFoot, setAtFoot] = useState(false);
   useEffect(() => {
     const bar = document.getElementById(BAR_ID);
     if (!bar || !("IntersectionObserver" in window)) return;
     const watch = new IntersectionObserver(([e]) => setAway(!!e && !e.isIntersecting && e.boundingClientRect.bottom < 0));
     watch.observe(bar);
-    return () => watch.disconnect();
+    // at the end of the list the page's own links stand where the button would, so it gives way to them
+    const foot = document.querySelector("footer");
+    const watchFoot = new IntersectionObserver(([e]) => setAtFoot(!!e?.isIntersecting));
+    if (foot) watchFoot.observe(foot);
+    return () => {
+      watch.disconnect();
+      watchFoot.disconnect();
+    };
   }, []);
-  if (!away) return null;
+  if (!away || atFoot) return null;
   return (
     <button
       type="button"

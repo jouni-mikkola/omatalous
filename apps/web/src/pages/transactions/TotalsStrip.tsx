@@ -10,6 +10,7 @@ import { Figure } from "../../components/Figure.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
 import { t, tn } from "../../text.ts";
+import { usePhone } from "../TransactionRows.tsx";
 import type { Period } from "./DateRange.tsx";
 import { css } from "../../css.ts";
 
@@ -127,6 +128,24 @@ export function TotalsStrip({ totals, income, merchant, today, onPick }: { total
   }
   const inSeries = series === "in";
   const histTitle = t(inSeries ? "tx.hist_in" : "tx.hist_out", { unit: hist ? unitTitle(hist.unit) : "" });
+  const phone = usePhone();
+  const picture = hist && hist.bins.length > 1 && (
+    <figure className="tx-hist">
+      <figcaption className="tx-hist-head">
+        <span className="tx-hist-title">{histTitle}</span>
+        <Segmented<Series>
+          label={t("tx.series")}
+          value={series}
+          options={[
+            { value: "out", label: t("tx.series_out"), ariaLabel: t("tx.spending") },
+            { value: "in", label: t("tx.series_in"), ariaLabel: t("tx.income") },
+          ]}
+          onChange={setSeries}
+        />
+      </figcaption>
+      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={onPick} />
+    </figure>
+  );
   return (
     <section className="tx-totals" aria-label={t("tx.totals_label")}>
       <div className="tx-sums">
@@ -159,23 +178,13 @@ export function TotalsStrip({ totals, income, merchant, today, onPick }: { total
           {t("tx.transfers_out")}
         </p>
       </div>
-      {hist && hist.bins.length > 1 && (
-        <figure className="tx-hist">
-          <figcaption className="tx-hist-head">
-            <span className="tx-hist-title">{histTitle}</span>
-            <Segmented<Series>
-              label={t("tx.series")}
-              value={series}
-              options={[
-                { value: "out", label: t("tx.series_out"), ariaLabel: t("tx.spending") },
-                { value: "in", label: t("tx.series_in"), ariaLabel: t("tx.income") },
-              ]}
-              onChange={setSeries}
-            />
-          </figcaption>
-          <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={onPick} />
-        </figure>
-      )}
+      {/* a phone keeps the first row near the top: the picture waits behind its title until it is asked for */}
+      {picture && (phone ? (
+        <details className="tx-hist-fold">
+          <summary>{histTitle}</summary>
+          {picture}
+        </details>
+      ) : picture)}
     </section>
   );
 }
