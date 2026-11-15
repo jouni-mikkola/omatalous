@@ -63,6 +63,9 @@ describe("the review queue's money from another member", () => {
 
   it("asks nothing of a stranger who has a member's name", async () => {
     const { queue } = await householdWith([row("2026-09-04", 60, VILLE, IBAN.cecilia)]);
-    expect((await queue()).filter((i) => i.kind === "payer" && (i.id === `payer:${IBAN_KEY}` || i.id === `payer:${NAME_KEY}`))).toEqual([]);
+    const items = await queue();
+    expect(items.filter((i) => i.kind === "payer" && (i.id === `payer:${IBAN_KEY}` || i.id === `payer:${NAME_KEY}`))).toEqual([]);
+    const stranger = items.find((i) => i.id === `payer:iban:${IBAN.cecilia}`);
+    if (stranger) expect(stranger.options).toContain("own_money");
   });
 });
