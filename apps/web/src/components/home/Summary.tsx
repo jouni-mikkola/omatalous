@@ -5,7 +5,7 @@ import { answerMoney, completeMonths, dateRange, monthLong, percent } from "../.
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { percentOf } from "./shared.ts";
+import { percentBetween, percentOf } from "./shared.ts";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 type Tone = "income" | "spending" | "kept" | "debt" | "neutral";
@@ -44,7 +44,7 @@ function Bar({ gauge }: { gauge: Gauge }) {
   return (
     <span className="home-gauge" data-tone={tone} aria-hidden="true">
       <span className="home-gauge-fill" ref={css({ "inline-size": percentOf(Math.abs(cents), scaleCents) })} />
-      {band && <span className="home-band" ref={css({ "inset-inline-start": percentOf(band.lowCents, scaleCents), "inline-size": percentOf(band.highCents - band.lowCents, scaleCents) })} />}
+      {band && <span className="home-band" ref={css({ "inset-inline-start": percentOf(band.lowCents, scaleCents), "inline-size": percentBetween(band.lowCents, band.highCents, scaleCents) })} />}
       {markCents !== null && <span className="home-gauge-mark" ref={css({ "inset-inline-start": percentOf(Math.abs(markCents), scaleCents) })} />}
     </span>
   );

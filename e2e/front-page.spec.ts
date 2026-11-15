@@ -85,13 +85,14 @@ for (const width of [390, 1440] as const) {
   });
 }
 
-test("at 390 px Tulot, Menot and Tulos stand in that order under each other and Tulos is on the first screen", async ({ browser }) => {
+test("at 390 px Tulot and Menot stand side by side, Tulos under them, and Tulos is on the first screen", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
   expect(boxes).toHaveLength(3);
-  expect(boxes[1]!.y, "Menot under Tulot").toBeGreaterThan(boxes[0]!.y);
-  expect(boxes[2]!.y, "Tulos under Menot").toBeGreaterThan(boxes[1]!.y);
+  expect(boxes[1]!.y, "Menot beside Tulot").toBe(boxes[0]!.y);
+  expect(boxes[1]!.x, "Menot after Tulot").toBeGreaterThan(boxes[0]!.x);
+  expect(boxes[2]!.y, "Tulos under them").toBeGreaterThan(boxes[1]!.y);
   const result = boxes[2]!;
   expect(result.y + result.height, "Tulos ends on the first screen").toBeLessThanOrEqual(844);
   await context.close();

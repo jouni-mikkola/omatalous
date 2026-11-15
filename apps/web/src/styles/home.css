@@ -12,8 +12,8 @@
 .home-figs > li { display: grid; align-content: start; justify-items: start; gap: var(--sp-8); min-inline-size: 0; padding-inline: var(--sp-16); border-inline-start: var(--hairline) solid var(--grid); }
 .home-figs > li:first-child { padding-inline-start: 0; border-inline-start: 0; }
 .home-figs .fig-m { font-weight: var(--w-strong); }
-/* the display size is for one number: the one the page was opened for */
-.home-figs > li[data-fig="result"] .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); font-weight: var(--w-strong); }
+/* Tulos is the number the page was opened for: its display size is set with the other one in base.css */
+.home-figs > li[data-fig="result"] .fig-l { font-weight: var(--w-strong); }
 .home-fig-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .home-fig-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .home-short .fig { color: var(--bad); }
@@ -46,11 +46,11 @@
 .home-left .fig-m { font-weight: var(--w-strong); }
 a.home-left:hover .home-fig-label { text-decoration: underline; }
 
-/* a phone: the three figures one under the other, the largest at the size that fits the width at any text size */
+/* a phone: Tulot and Menot side by side while two fit (at a large text size they stand one under the other), Tulos under them across the width at the size that fits at any text size */
 @media (max-width: 40rem) {
-  .home-figs { grid-template-columns: minmax(0, 1fr); }
-  .home-figs > li { padding: var(--sp-12) 0; border-inline-start: 0; border-block-start: var(--hairline) solid var(--grid); }
-  .home-figs > li:first-child { border-block-start: 0; }
+  .home-figs { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); column-gap: var(--sp-16); row-gap: var(--sp-12); }
+  .home-figs > li { padding: 0; border-inline-start: 0; }
+  .home-figs > li[data-fig="result"] { grid-column: 1 / -1; padding-block-start: var(--sp-12); border-block-start: var(--hairline) solid var(--grid); }
   .home-figs > li[data-fig="result"] .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }
 }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
