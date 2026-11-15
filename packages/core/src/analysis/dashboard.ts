@@ -10,11 +10,10 @@ import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, aheadBasis } from "./ahead.ts";
 import { type Alert, buildAlerts } from "./alerts.ts";
 import { type Bridge, buildBridge } from "./bridge.ts";
-import { type AnalysisContext, type AnalysisTx, inDays, spendRows, spendTotals } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, spendRows, spendTotals } from "./context.ts";
 import { accountsCoverage, comparableWith } from "./coverage.ts";
 import { fixedSeriesAt } from "./fixed-share.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
-import { buildInsights, type Insight } from "./insights/index.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type NytAnswer, nytAnswer } from "./nyt.ts";
 import { buildHome, type Home } from "../home.ts";
@@ -77,11 +76,10 @@ export interface DashboardData {
   top: TopCategories;
   /** What the first page says in its five blocks; the page only draws it. */
   home: Home;
-  /** Cost traps and mistakes; the overview shows them before insights. */
+  /** Cost traps and mistakes. */
   alerts: Alert[];
   /** The first warning from the data quality report but the card bills, which `home.reliability` says over the twelve complete months, so a user who never opens Reports still sees it. */
   dataNotice: QualitySignal | null;
-  insights: Insight[];
   /** What the household has and owes today: the accounts, the cards with their limit and the loans. The same answer as `BalanceReport.holdings`. */
   holdings: Holdings;
   /** The tiles' figures no other field gives: the month's income against the usual, and the month's change of `holdings.netCents`. */
@@ -144,8 +142,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const comparable = shared !== null;
   const leftOutAccounts = accountsCoverage(ctx).compare(span, range)?.leftOut ?? false;
   const onShared = (rows: AnalysisTx[]) => (shared ? rows.filter((t) => shared.has(t.accountId)) : rows);
-  const current = inDays(ctx, toDayRange(range));
-  const previous = inDays(ctx, toDayRange(span));
   const rows = spendRows(ctx, toDayRange(range));
   const previousRows = spendRows(ctx, toDayRange(span));
   const totals = spendTotals(ctx, toDayRange(range));
@@ -158,8 +154,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const settled = running ? settledTotals(ctx, range) : null;
   const basis = running ? aheadBasis(ctx, balances, inputs) : null;
   const pace = monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to);
-
-  const insights = buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs, lang });
 
   return {
     range: { from: range.from, to: range.to, previousFrom },
@@ -182,8 +176,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     top: topCategories(categories, comparable, lang),
     alerts,
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
-    insights,
-    home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
+    home: buildHome(ctx, { basis, pace, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, scopeProposals),
     overview: buildOverview(ctx, lang),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),

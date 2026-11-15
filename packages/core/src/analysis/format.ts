@@ -4,7 +4,7 @@ const EUR = Object.fromEntries(
   LANGUAGES.map((l) => [l, [new Intl.NumberFormat(localeOf(l), { style: "currency", currency: "EUR" }), new Intl.NumberFormat(localeOf(l), { style: "currency", currency: "EUR", maximumFractionDigits: 0 })] as const]),
 ) as Record<Language, readonly [Intl.NumberFormat, Intl.NumberFormat]>;
 
-/** 123456 → "1 234,56 €" (or "1 235 €" without decimals); in English "€1,234.56". Used in insight texts. */
+/** 123456 → "1 234,56 €" (or "1 235 €" without decimals); in English "€1,234.56". */
 export function formatEur(cents: number, decimals = true, lang: Language = DEFAULT_LANGUAGE): string {
   // Intl prints "−0 €" for -0 and for a negative that rounds to zero; zero has no sign.
   const euros = cents / 100;
@@ -89,6 +89,14 @@ export const monthNameIn = (month: string, lang: Language = DEFAULT_LANGUAGE): s
 /** "2026-03" → "maaliskuussa". */
 export function monthInessive(month: string): string {
   return MONTHS_INESSIVE[Number(month.slice(5, 7)) - 1] ?? month;
+}
+
+const COUNT_WORDS = { fi: ["", "yksi", "kaksi", "kolme", "neljä", "viisi", "kuusi", "seitsemän", "kahdeksan", "yhdeksän"], en: ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"] };
+
+/** "Kolme", in English "Three", or the digits from ten on. */
+export function countWord(n: number, lang: Language): string {
+  const word = COUNT_WORDS[lang][n];
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : String(n);
 }
 
 /** ["A", "B", "C"] → "A, B ja C". */

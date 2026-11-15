@@ -109,8 +109,6 @@ td.share { min-width: var(--share-w); }
 /* the line of an account: the mark beside its name */
 .acc-name { display: flex; align-items: flex-start; gap: var(--sp-8); }
 .acc-name > :first-child { margin-top: var(--sp-4); }
-/* the card of Muut havainnot: the payee's mark before the title */
-.other-head { display: flex; align-items: center; gap: var(--sp-8); }
 .acc-mark { display: inline-flex; flex: none; }
 /* an account line wears the wide plate: a long name wraps beside it at a phone width and is not cut */
 .holding-account .st-name { overflow: visible; white-space: normal; overflow-wrap: anywhere; }

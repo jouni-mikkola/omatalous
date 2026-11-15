@@ -8,8 +8,6 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { incomeBase } from "../src/analysis/income-series.ts";
 import { INCOME_TYPES, incomeTypeOf, isEarnedIncome } from "../src/analysis/income.ts";
-import { debtShareOf } from "../src/analysis/insights/borrowing.ts";
-import { gateMonthly } from "../src/analysis/insights/shared.ts";
 import { expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
 import { gateFor } from "../src/analysis/usual.ts";
 import { GATE_FLOOR_CENTS } from "../src/thresholds.ts";
@@ -53,11 +51,10 @@ describe("usual income has one owner", () => {
     expect(expectedIncome(ctx, "2026-10")).toBe(300000);
   });
 
-  it("the buffer report, the fixed costs share, debt service, the overview and the income views read the same income", () => {
+  it("the buffer report, the fixed costs share, the overview and the income views read the same income", () => {
     const buffer = bufferReport(ctx, [], NO_INPUTS);
     const share = { incomeCents: buffer.incomeMonthlyCents! };
     expect(share.incomeCents).toBe(300000);
-    expect(debtShareOf(ctx, today, NO_INPUTS)!.incomeCents).toBe(share.incomeCents);
     expect(incomeBase(ctx, today).usualMonthlyCents).toBe(share.incomeCents);
 
     const bridge = buildDashboard(ctx, { from: "2026-10-01", to: "2026-10-31" }).bridge;
@@ -65,14 +62,14 @@ describe("usual income has one owner", () => {
     // the bar keeps every income row
     expect(bridge.totals.incomeCents).toBe(320000);
 
-    // the commitments insight's share of today is the same share, under the words of the same label
+    // the fixed costs' share of today is the same share, under the words of the same label
     expect(fixedShareOn(ctx, today, NO_INPUTS)).toEqual({ fixedMonthlyCents: buffer.fixedMonthlyCents, incomeMonthlyCents: 300000, fixedShare: buffer.fixedShare, fixedShareLabel: buffer.fixedShareLabel });
     expect(buffer.fixedShareLabel).toBe("Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta");
   });
 });
 
 describe("the shares of the usual income name their months", () => {
-  it("with four complete months the fixed costs and the debt service say four", () => {
+  it("with four complete months the fixed costs say four", () => {
     // the history starts in June: June to September are complete before October
     const c = createContext(household.filter((t) => t.bookingDate >= "2026-06-01"), [checking], today);
     const buffer = bufferReport(c, [], NO_INPUTS);
@@ -82,11 +79,10 @@ describe("the shares of the usual income name their months", () => {
 });
 
 describe("usual spending has one owner", () => {
-  it("the buffer report and the insights' gate read the same usual month", () => {
+  it("the buffer report reads the usual month", () => {
     const usual = expectedSpending(ctx, "2026-10")!;
     expect(usual).toBeGreaterThan(0);
     expect(bufferReport(ctx, [], NO_INPUTS).expectedSpendCents).toBe(usual);
-    expect(gateMonthly(ctx, today)).toBe(gateFor(usual));
   });
 
   it("Yhteenveto says one usual total per month: the change report's, a running month on its days so far", () => {
@@ -118,10 +114,10 @@ describe("the gate has one owner", () => {
     expect(gateFor(200000, 5000)).toBe(5000);
   });
 
-  it("the change sentences of a complete month pass the gate the insights use", () => {
+  it("the change sentences of a complete month pass the gate of the usual spending", () => {
     const change = spendingChange(ctx, "expected", "2026-09")!;
     expect(change.gateCents).toBeGreaterThan(GATE_FLOOR_CENTS);
-    expect(change.gateCents).toBe(gateMonthly(ctx, "2026-09-30"));
+    expect(change.gateCents).toBe(gateFor(expectedSpending(ctx, "2026-09") ?? 0));
   });
 });
 

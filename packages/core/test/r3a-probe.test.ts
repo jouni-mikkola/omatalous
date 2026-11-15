@@ -15,7 +15,6 @@ import * as flowsApi from "../src/analysis/flows.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
-import { view } from "./insight-view.ts";
 
 const today = "2026-10-16";
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -130,13 +129,6 @@ describe("credit drawn: the net of a period, never below zero", () => {
     }
   });
 
-  it("tells no credit drawn on the overview for June, and the net of July with its two draws", () => {
-    expect(buildDashboard(ctx, monthRange("2026-06")).insights.find((i) => i.id === "borrowed")).toBeUndefined();
-    const july = view(buildDashboard(ctx, monthRange("2026-07")).insights.find((i) => i.id === "borrowed")!);
-    expect(july.title.replace(/\s/g, " ")).toBe("Nostit luottoa 500 €");
-    expect(july.detail).toMatch(/^Se on \d+ % tavallisista kuukausituloista\./);
-  });
-
   it("over twelve months pools the net, never below zero", () => {
     const t = buildDashboard(ctx, { from: "2025-11-01", to: "2026-10-31" }).totals;
     expect(t.borrowedCents).toBe(30_000);
@@ -156,4 +148,4 @@ describe("labels the brief names in the web files (read as text)", () => {
 
 // Covers: savingsRateOf over complete months (partial first month, running month, 12-month window, refund, pending row).
 // Covers: overview, cash flow rows (incl. a range that cuts a month) and Tilanne read the same rate; Tilanne's two window labels and debt share.
-// Covers: credit drawn as max(0, net) in cash flow rows, coverOf and the overview finding (refund of credit, two draws, 12 months); one web label as text.
+// Covers: credit drawn as max(0, net) in cash flow rows, and coverOf (refund of credit, two draws, 12 months); one web label as text.

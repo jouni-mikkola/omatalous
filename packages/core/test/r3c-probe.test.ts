@@ -9,15 +9,10 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import * as coverageApi from "../src/analysis/coverage.ts";
-import { incomeBase, incomeChanges, incomeInsights } from "../src/analysis/income-changes.ts";
-import { commitmentsShare } from "../src/analysis/insights/commitments.ts";
-import { subscriptionChanges } from "../src/analysis/insights/subscriptions.ts";
-import type { InsightArgs } from "../src/analysis/insights/types.ts";
-import { bufferReport } from "../src/reports/buffer.ts";
+import { incomeBase, incomeChanges } from "../src/analysis/income-changes.ts";
+import { newCharges } from "../src/analysis/new-charges.ts";
 import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
-import { insightText } from "../src/explain/insights.ts";
-import { view } from "./insight-view.ts";
 
 const today = "2026-10-16";
 const A: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -44,7 +39,7 @@ const salary = (accountId: string, from: string) =>
 
 const ctxOf = (rows: Transaction[]) => createContext(rows, ACCOUNTS, today);
 const changesOf = (rows: Transaction[]) => incomeChanges(incomeBase(ctxOf(rows), today), true);
-const args = (rows: Transaction[]) => ({ ctx: ctxOf(rows), end: today, inputs: NO_INPUTS, gateMonthlyCents: 1000, lang: "fi" }) as unknown as InsightArgs;
+const chargesOf = (rows: Transaction[]) => newCharges(ctxOf(rows), today, NO_INPUTS).map((c) => c.series.merchant);
 
 describe("accountCovers", () => {
   // A from December 2025, B connected eight months later (its first row 3.8.2026)
@@ -128,20 +123,6 @@ describe("income events on an account connected later", () => {
     expect(t!.detail).toMatch(/^Viimeinen erä /);
   });
 
-  const taxInsight = (rows: Transaction[]) => incomeInsights(ctxOf(rows), { from: "2026-10-01", to: today }, NO_INPUTS).find((i) => i.id.startsWith("income:residual-tax"));
-
-  it("the insight does not set the tax against a year it cannot see: it names the last instalment instead", () => {
-    const i = taxInsight([...taxBase, ...tax("acc-2")])!;
-    expect(i.comparison).toEqual({ label: "lastInstalment", value: { unit: "date", value: "2026-10-01" } });
-    expect(insightText(i).comparison).not.toContain("ei vastaavaa");
-    expect(insightText(i).comparison).toContain("1.10.2026");
-  });
-
-  it("near miss: the insight on the old account says last year had none", () => {
-    const i = taxInsight([...taxBase, ...tax("acc-1")])!;
-    expect(i.comparison).toEqual({ label: "yearAgo", value: { unit: "cents", value: 0 } });
-    expect(insightText(i).comparison).toBe("Viime vuonna ei vastaavaa.");
-  });
 
   it("near miss: paid from the old account, last year is known to have had none", () => {
     expect(changesOf([...taxBase, ...tax("acc-1")]).find((c) => c.kind === "residual_tax")?.detail).toBe("Viime vuonna ei jäännösveroa.");
@@ -149,68 +130,21 @@ describe("income events on an account connected later", () => {
 });
 
 describe("subscriptions on a card connected this year", () => {
-  // A from June 2025 (it covers the year and 75 days the comparison needs); the card connected 1.2.2026
-  const base = [...filler("acc-1", "2025-06-01"), ...salary("acc-1", "2025-06-01"), ...monthly("2025-06-04", 17, -1199, { merchant: "Spotify", category: "subscriptions", categorySource: "rule" }), ...filler("card-1", "2026-02-01")];
-  const subs = (accountId: string) => [
-    ...monthly("2026-02-05", 9, -1599, { accountId, merchant: "Netflix", category: "subscriptions", categorySource: "rule" }),
-    ...monthly("2026-02-07", 9, -2999, { accountId, merchant: "Storytel", category: "subscriptions", categorySource: "rule" }),
-  ];
-
-  it("gives no year comparison that counts the card's subscriptions as added", () => {
-    const added = subscriptionChanges(args([...base, ...subs("card-1")])).map(view).find((i) => i.id === "subscriptions-added");
-    // either no comparison, or one that does not name the card's subscriptions as new
-    if (added) expect(added.detail).not.toMatch(/Netflix|Storytel/);
-  });
-
-  it("near miss: the same two subscriptions on the old account are added since a year ago", () => {
-    const added = subscriptionChanges(args([...base, ...subs("acc-1")])).map(view).find((i) => i.id === "subscriptions-added");
-    expect(added?.title.replace(/\s/g, " ")).toBe("Tilauksia nyt 3, uusia 2");
-  });
-
   // the start of the card's own history: its first charges there are not new
   const viaplay = monthly("2026-08-03", 3, -1299, { accountId: "card-1", merchant: "Viaplay", category: "subscriptions", categorySource: "rule" });
   const early = [...filler("acc-1", "2025-06-01"), ...salary("acc-1", "2025-06-01")];
 
   it("tells no new subscription that began in the first 45 days of the card's history", () => {
     const rows = [...early, ...filler("card-1", "2026-08-01"), ...viaplay];
-    expect(subscriptionChanges(args(rows)).filter((i) => i.id.startsWith("new:"))).toEqual([]);
+    expect(chargesOf(rows)).toEqual([]);
   });
 
   it("near miss: on a card connected two months before its first charge it is new", () => {
     const rows = [...early, ...filler("card-1", "2026-06-01"), ...viaplay];
-    expect(subscriptionChanges(args(rows)).map(view).map((i) => i.title.replace(/\s/g, " "))).toContain("Uusi toistuva maksu: Viaplay 12,99 € kuussa");
-  });
-});
-
-describe("fixed costs a year ago with a card connected later", () => {
-  // A from March 2025 with pay and rent; the card connected eight months later, 1.11.2025, pays two insurances from then on
-  const base = [
-    ...filler("acc-1", "2025-03-01"),
-    ...salary("acc-1", "2025-03-01"),
-    ...monthly("2025-03-02", 20, -90000, { merchant: "Esimerkki Asunnot Oy", category: "housing", categorySource: "rule" }),
-    ...filler("card-1", "2025-11-01"),
-  ];
-  const bills = (accountId: string) => [
-    ...monthly("2025-11-10", 12, -15000, { accountId, merchant: "Esimerkki Vakuutus", category: "insurance", categorySource: "rule" }),
-    ...monthly("2025-11-12", 12, -15000, { accountId, merchant: "Esimerkki Netti", category: "telecom", categorySource: "rule" }),
-  ];
-
-  it("does not read the card's bills as fixed costs that rose since a year ago", () => {
-    expect(commitmentsShare(args([...base, ...bills("card-1")]))).toEqual([]);
-  });
-
-  it("near miss: the same bills started on the old account are a rise", () => {
-    const rows = [...base, ...bills("acc-1")];
-    const found = commitmentsShare(args(rows)).map(view);
-    expect(found.map((i) => i.id)).toEqual(["commitments-share"]);
-    // now is the buffer report's share itself; a year ago, before the bills, the rent alone of the same pay
-    const buffer = bufferReport(ctxOf(rows), [], NO_INPUTS);
-    expect(buffer.fixedShare).toBe(120000 / 300000);
-    expect(found[0]!.title.replace(/\s/g, " ")).toBe("Kiinteät menot 40 % tavallisista tuloista");
-    expect(found[0]!.detail.replace(/\s/g, " ")).toBe("Vuosi sitten osuus oli 30 %. Katso kiinteät menot ja päätä, mistä voi luopua.");
+    expect(chargesOf(rows)).toEqual(["Viaplay"]);
   });
 });
 
 // Covers: accountCovers itself (own first day, slack, several accounts, no rows, same-bank vouching, card not vouched).
 // Covers: new source, started benefit (and no fall-through to new source), windfall and residual tax on a late account.
-// Covers: subscription year count and "new" settle days on a late card, fixed-cost share with a late card; near misses on old accounts.
+// Covers: "new" settle days of a charge on a late card; near miss on a card connected two months earlier.

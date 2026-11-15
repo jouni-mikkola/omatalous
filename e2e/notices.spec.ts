@@ -4,7 +4,7 @@ import { makeMember, OVERVIEW_TILES, removeMember, watch } from "./helpers.ts";
 
 // The notices of the server: no page shows them but Asetukset > Turvallisuus. An event the user has not seen (a sign-in
 // from a new device) is a dot on the user menu and a line of Turvallisuus; opening Turvallisuus marks the events seen,
-// and the dot goes. Alerts and insights are not here: Tarkistettavat has them.
+// and the dot goes. Alerts are not here: Tarkistettavat has them.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 const FIREFOX = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0";

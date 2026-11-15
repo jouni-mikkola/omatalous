@@ -1,6 +1,6 @@
 /**
  * Income events that are not a level: a new source, a windfall against last year (holiday pay, other pay, a tax
- * refund) and residual tax paid in instalments. H-insights candidates 3, 4 and 17.
+ * refund) and residual tax paid in instalments.
  */
 import { addDays, DAYS_PER_MONTH, dayNumber, fromDayNumber } from "../dates.ts";
 import { fold } from "../merchant.ts";

@@ -3,7 +3,7 @@ import { clearlyAbove, meansApart, MIN_T, monthlyNoise, monthT } from "../src/an
 
 describe("a change stands out from the household's own noise", () => {
   it("a step between two months is one range, so a step inside a window does not hide itself", () => {
-    // the hit of the spending growth insight: purchases 300 € higher from the seventh month of the twelve
+    // the hit of a spending growth: purchases 300 € higher from the seventh month of the twelve
     const then = Array.from({ length: 12 }, () => 33000);
     const now = Array.from({ length: 12 }, (_, i) => (i < 6 ? 33000 : 63000));
     expect(monthlyNoise(now, then)).toBeCloseTo(30000 / 22 / 1.128, 6);

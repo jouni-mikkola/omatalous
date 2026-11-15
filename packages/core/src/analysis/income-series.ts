@@ -14,7 +14,7 @@ import { byPayPeriod, INCOME_TYPES, type IncomeType, incomeTypes, isIncomeRow, t
 import { expectedIncome } from "./expected.ts";
 import { gateFor, isCompleteIncomeMonth } from "./usual.ts";
 
-export type IncomeChangeKind =
+type IncomeChangeKind =
   | "raise"
   | "cut"
   | "tax_card"
@@ -39,16 +39,16 @@ export interface IncomeChange {
   payer: string | null;
   title: string;
   detail: string;
-  /** A residual tax whose last year cannot be read (the paying account starts later): the day of its last instalment, which the insight sets in place of a year ago. */
+  /** A residual tax whose last year cannot be read (the paying account starts later): the day of its last instalment, which stands in place of a year ago. */
   unknownBefore?: IsoDate;
-  /** The monthly level before the change in cents, when the change has one: what an insight sets the new level against. */
+  /** The monthly level before the change in cents, when the change has one: what the new level is set against. */
   beforeCents?: number;
   /** What it moves a month, signed (+ = more income). A one-off counts a twelfth. Ranks the list. */
   monthlyCents: number;
   /** Over a year, positive: a level change times twelve, or the one-off amount. */
   yearlyCents: number;
   txIds: string[];
-  /** The working of the title's figure (`Insight.calc`). */
+  /** The working of the title's figure. */
   calc?: CalcLine[];
   /** A change of payer or pay that stopped: the day the old payer was last paid. The first page tells it only while that is recent. */
   lastPaid?: IsoDate;

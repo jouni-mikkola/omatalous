@@ -16,7 +16,6 @@ import { cardGapCause } from "./analysis/card-bills.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import { knownSpending } from "./analysis/data-quality.ts";
 import type { MonthPace } from "./analysis/forecast.ts";
-import type { Insight } from "./analysis/insights/index.ts";
 import { expectedFor, expectedLevel } from "./analysis/expected.ts";
 import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
 import { completeMonthsBefore, gateFor, spendingThrough } from "./analysis/usual.ts";
@@ -102,8 +101,6 @@ export interface Home {
   /** null when the month has no expected figure; `paceGap` says why. */
   pace: HomePace | null;
   paceGap: PaceGap | null;
-  /** The findings worth acting on, three at most, each with what it is worth a year (`effectPerYear` is set). */
-  notable: Insight[];
   direction: HomeDirection;
   reliability: HomeReliability;
 }
@@ -191,21 +188,17 @@ interface HomeInput {
   /** The window of the payments and the balance; null when the range does not include today. */
   basis: Pick<AheadBasis, "ahead" | "direct" | "settling"> | null;
   pace: MonthPace;
-  /** The dashboard's insights: ranked, dismissed ones left out, at most `OVERVIEW_INSIGHTS`. */
-  insights: readonly Insight[];
   balances: readonly BalanceInput[];
   inputs: UserInputs;
 }
 
-/** The first page's answer, month, findings and direction. */
-export function buildHome(ctx: AnalysisContext, { basis, pace, insights, balances, inputs }: HomeInput): Home {
+/** The first page's answer, month and direction. */
+export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs }: HomeInput): Home {
   const homePaced = homePace(pace);
   return {
     runway: basis ? homeRunway(ctx, basis) : null,
     pace: homePaced,
     paceGap: pace.expected ? null : pace.cardGap ? "cards" : "history",
-    // every finding on the page says what it is worth a year; one that cannot say it stays on the Säästövinkit page
-    notable: insights.filter((i) => i.effectPerYear !== null),
     direction: homeDirection(ctx, balances, inputs),
     reliability: homeReliability(ctx),
   };

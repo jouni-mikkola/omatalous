@@ -126,7 +126,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | What | Code | Why, or where it moves |
 |---|---|---|
 | Säästövinkit page | `pages/Optimise.tsx`, `components/optimise/`, core `optimise/`, `routes` and `db/finance/optimise.ts` readers | Answers no question; price and new-charge findings move to Tarkistettavat |
-| Huomioitavaa on Yhteenveto | `components/home/Notable.tsx`, core `analysis/insights/` | Moves to Tarkistettavat as items, once. `Notable.tsx` is gone (11.11.2026) |
+| Huomioitavaa on Yhteenveto | `components/home/Notable.tsx` | Moves to Tarkistettavat as items, once. `Notable.tsx` and the insights source are gone |
 | Right column of Yhteenveto | `components/holdings/` | Repeats the headline; balances move to Lisää > Tilit ja saldot |
 | Last-days table, direction, reliability | `components/home/PaceTable.tsx`, `Direction.tsx`, `Reliability.tsx` | The pace line already answers. `Direction.tsx` is gone (11.11.2026) |
 | Spending and category goals | `components/home/SpendingGoal.tsx`, `CategoryGoals.tsx`, `pages/settings/SpendingGoalCard.tsx`, report `categoryGoals` | Usual is the comparison; goals show no figure today |
@@ -188,10 +188,10 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - done when: `pages/Optimise.tsx`, `components/optimise/` and core `optimise/` are gone; `pnpm strings` finds no "Säästövinkit"; `e2e` nav spec sees four tabs.
 - locks: nav, optimise
 - after: none
-### D2 Move the overview insights into Tarkistettavat
+### D2 Move the overview findings into Tarkistettavat
 - why: one finding was shown twice with two counts; a problem belongs in the queue.
 - done when: `components/home/Notable.tsx` is gone (done 11.11.2026); a `services/review.ts` test gets one item per price rise and new recurring charge, none twice.
-- locks: review, insights
+- locks: review
 - after: D1
 ### D3 Delete the overview extras
 - why: the right column, last-days table, direction, reliability and goals repeat or compare with nothing.

@@ -1,6 +1,6 @@
 /**
  * Words and months of the spending change: the month names, the span of a period and which month a range is judged on.
- * Shared by the spending change report and its insights, which live on both sides of the analysis/reports line.
+ * Shared by the spending change report and the change sentences, which live on both sides of the analysis/reports line.
  */
 import { addMonths, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";

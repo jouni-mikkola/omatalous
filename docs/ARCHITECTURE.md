@@ -173,7 +173,7 @@ flowchart LR
 - Themes are the main classes above the categories. `themes.ts` gives every row of spending one theme and one
   line in it; `analysis/themes-report.ts` sums them over the last twelve complete months, and the overview's
   answer carries the report as `themes`. What the user sees: [MONEY_FLOWS.md](MONEY_FLOWS.md#themes).
-- Alerts (`analysis/alerts.ts`, shown above the insights on the overview) are cost traps found in the
+- Alerts (`analysis/alerts.ts`) are cost traps found in the
   selected period: double charges, late fees, overlapping services, spending spikes, services to review,
   bank fees and small habits. At most six are shown, one of each kind first. What the user sees:
   [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).

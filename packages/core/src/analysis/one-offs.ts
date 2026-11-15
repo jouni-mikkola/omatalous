@@ -4,9 +4,7 @@
  * Optimoi. See docs/MONEY_FLOWS.md.
  */
 import { median } from "../stats.ts";
-import { monthEnd } from "../dates.ts";
-import { type AnalysisContext, type AnalysisTx, inDays, netSpend } from "./context.ts";
-import { toDayRange } from "./period.ts";
+import { type AnalysisTx, netSpend } from "./context.ts";
 
 export interface OneOffPolicy {
   name: "level" | "pay" | "large";
@@ -142,25 +140,4 @@ function largeOneOffs(rows: readonly AnalysisTx[], p: OneOffPolicy, fixed: Reado
 export function oneOffs(rows: readonly AnalysisTx[], policy: OneOffPolicy, fixed: ReadonlySet<string> = NONE): Set<string> {
   if (policy.name === "large") return largeOneOffs(rows, policy, fixed);
   return policy.name === "pay" ? payOneOffs(rows, policy) : levelOneOffs(rows, policy, fixed);
-}
-
-const monthCache = new WeakMap<AnalysisContext, Map<number, readonly AnalysisTx[]>>();
-
-/**
- * The one-offs of `month` by the level policy, judged against the month and `usualMonths`, the complete months before
- * it (`completeMonthsBefore`, the usual window), largest first. Cached per context and month.
- */
-export function monthOneOffs(ctx: AnalysisContext, month: string, usualMonths: readonly string[]): readonly AnalysisTx[] {
-  let cache = monthCache.get(ctx);
-  if (!cache) monthCache.set(ctx, (cache = new Map()));
-  const key = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7));
-  let found = cache.get(key);
-  if (!found) {
-    // the months are read by their days, not by a scan of every row of the history for each of them
-    const rows = [...new Set([...usualMonths, month])].sort().flatMap((m) => inDays(ctx, toDayRange({ from: `${m}-01`, to: monthEnd(m) })));
-    const struck = oneOffs(rows, LEVEL, ctx.fixedIds);
-    found = rows.filter((t) => struck.has(t.id) && t.bookingDate.startsWith(month)).sort((a, b) => netSpend(b) - netSpend(a) || a.id.localeCompare(b.id));
-    cache.set(key, found);
-  }
-  return found;
 }
