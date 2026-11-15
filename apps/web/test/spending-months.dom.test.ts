@@ -98,7 +98,7 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     open("groceries");
     expect(screen.queryByRole("link", { name: "Tuo kortin tiliote" })).toBeNull();
     open("card_bill");
-    expect(plain(document.body.textContent)).toContain("Näiden laskujen ostot eivät näy luokissa.");
+    expect(plain(document.body.textContent)).toContain("Näiden laskujen ostot eivät näy kategorioissa.");
     expect(screen.getByRole("link", { name: "Tuo kortin tiliote" }).getAttribute("href")).toMatch(/^#\/settings/);
   });
 });

@@ -144,7 +144,7 @@ export const FI_REPORTS_5 = {
   "rpt.sec_categories": "Kategoriat",
   "rpt.sm_category": "Kategoria",
   "rpt.sm_card_bills": "Korttilaskut ilman erittelyä",
-  "rpt.sm_card_bills_note": "Näiden laskujen ostot eivät näy luokissa. Tuo kortin tiliote, niin ostot jakautuvat luokkiin ja lasku pienenee.",
+  "rpt.sm_card_bills_note": "Näiden laskujen ostot eivät näy kategorioissa. Tuo kortin tiliote, niin ostot jakautuvat kategorioihin ja lasku pienenee.",
   "rpt.sm_import_statement": "Tuo kortin tiliote",
   "rpt.sm_typical": "Keskimäärin kuussa",
   "rpt.sm_last": "Ero keskiarvoon, {month}",
