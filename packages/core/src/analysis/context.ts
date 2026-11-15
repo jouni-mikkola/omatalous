@@ -85,6 +85,8 @@ export interface AnalysisContext {
   explained: readonly ExplainedTx[];
   /** What the rows of each bill that is read leave of its `spend`, by the bill's id. `txs` keeps the bill whole: `loweredRows` and `spendRows` apply this. */
   lowered: ReadonlyMap<string, number>;
+  /** The bank fee of each payment that arrived short, by the payment's id (`shortFees`): the one answer, which the lists read in SQL follow too. */
+  fees: ReadonlyMap<string, number>;
   /** The loan payment accounts of the view (`loanPaymentAccounts`). */
   paymentAccounts: ReadonlySet<string>;
   /** The year's flow of each account whose rows show a loan payment account's pattern, whether or not its balance is known (`flagLoanPayment`). */
@@ -230,7 +232,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
 
   return {
-    today, todayDay: dayNumber(today), paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
+    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

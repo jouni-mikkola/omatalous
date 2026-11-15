@@ -29,12 +29,16 @@ function windowGap(a: number, b: number): number {
 /**
  * The fee-short pairs among `rows`: a payment that named a declared account of the household (`landingOf`, by IBAN) and
  * arrived a fee short is paired with the money in that landed on exactly that account, within the window, for less than
- * was paid by at most 2 % and 5 euro. The IBAN is the proof; the name on the money in is not read, but an account it
+ * was paid by at most 2 % and 5 euro. The IBAN is the proof. The name on the money in is ignored, and an account it
  * names must be the sender's. Every possible pair is ranked by the difference of the sums, then the gap of days, then
  * the ids, and the pairs are taken from the top, so the result does not depend on the order of the rows. The
- * difference is no part of the pair: it stays the sender's, as the payer's bank fee (`feeOfPairs`).
+ * difference is no part of the pair: it stays the sender's, as the payer's bank fee, which each pair returns.
+ *
+ * The taking is greedy and no maximum matching: payments of 81.50 and 80.10 euro against money in of 80.00 and 79.00 euro
+ * pair 80.10 with 80.00 (the closest sum), leave 81.50 unpaired, though 81.50 with 80.00 and 80.10 with 79.00 would pair
+ * both. A payment left over is a plain transfer to the account, as without this rule.
  */
-export function feeShortPairs<T extends TransferInput>(rows: readonly T[], landingOf: ReadonlyMap<string, string>, ibanOf: (accountId: string) => string | null, taken: ReadonlySet<string>, windowDays: number): [T, T][] {
+export function feeShortPairs<T extends TransferInput>(rows: readonly T[], landingOf: ReadonlyMap<string, string>, ibanOf: (accountId: string) => string | null, taken: ReadonlySet<string>, windowDays: number): { out: T; leg: T; fee: number }[] {
   const arrivals = new Map<string, T[]>();
   for (const leg of rows) if (leg.amountCents > 0 && !taken.has(leg.id)) (arrivals.get(leg.accountId) ?? arrivals.set(leg.accountId, []).get(leg.accountId)!).push(leg);
   const ranked: { out: T; leg: T; fee: number; gap: number }[] = [];
@@ -58,25 +62,11 @@ export function feeShortPairs<T extends TransferInput>(rows: readonly T[], landi
   const order = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   ranked.sort((a, b) => a.fee - b.fee || a.gap - b.gap || order(a.out.id, b.out.id) || order(a.leg.id, b.leg.id));
   const used = new Set<string>();
-  const pairs: [T, T][] = [];
-  for (const { out, leg } of ranked) {
+  const pairs: { out: T; leg: T; fee: number }[] = [];
+  for (const { out, leg, fee } of ranked) {
     if (used.has(out.id) || used.has(leg.id)) continue;
     used.add(out.id).add(leg.id);
-    pairs.push([out, leg]);
+    pairs.push({ out, leg, fee });
   }
   return pairs;
-}
-
-/**
- * The fee of each pair that arrived short, by the id of the payment: what was paid less what the pair counts
- * (`Allocation.cents`). Derived from the pairs on every run and stored nowhere (ADR 0015), so a pair that forms later or
- * a row that goes changes it on the next run. A payment with no pair, or with one that arrived whole, has none.
- */
-export function feeOfPairs<T extends { id: string; amountCents: number }>(rows: readonly T[], allocations: ReadonlyMap<string, readonly { cents: number }[]>): Map<string, number> {
-  const fees = new Map<string, number>();
-  for (const t of rows) {
-    const counted = allocations.get(t.id)?.reduce((s, a) => s + a.cents, 0);
-    if (t.amountCents < 0 && counted !== undefined && counted < -t.amountCents) fees.set(t.id, -t.amountCents - counted);
-  }
-  return fees;
 }

@@ -329,6 +329,17 @@ describe("a payment to the user's own name", () => {
     expect(totals).toMatchObject({ incomeCents: 0, savedCents: -50_000 });
   });
 
+  it("500 euro sent to an account outside the view and back from the same account nets to nothing saved, and is no income", () => {
+    const away = row("own", -500, USER, "siirto", PAYEE_ACCOUNT);
+    const back = { ...row("own", 500, USER, "siirto", PAYEE_ACCOUNT), bookingDate: "2026-09-20" };
+    const { final, totals } = month([away, back], HOUSEHOLD);
+    expect(final.map((t) => t.category)).toEqual(["savings", "savings"]);
+    expect(totals).toMatchObject({ savedCents: 0, incomeCents: 0, consumptionCents: 0 });
+    // an account the user's name never paid stays a possible namesake's: no savings drawn
+    const stranger = { ...row("own", 500, USER, "siirto", "FI0000000000000009"), bookingDate: "2026-09-20" };
+    expect(month([away, stranger], HOUSEHOLD).final[1]!.category).not.toBe("savings");
+  });
+
   it("is a transfer when the other account is connected and the legs pair", () => {
     const away = row("own", -500, USER, "siirto", joint.iban);
     const home = row("joint", 500, USER, "siirto");

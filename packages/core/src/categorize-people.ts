@@ -144,14 +144,15 @@ export function peopleRules(
   // not connected. It is the user's money moved, either way, unless the row names a purpose (an invoice of a sole
   // trader, rent, a refund) or is a company named after its owner. It is saved like the bank's own code for such a
   // move (`CODE_RULES`), so Tulos adds up and the data quality card sees it (`own_unconnected`); a pair found later
-  // makes it a transfer. Money in that names an account which is no account of the household may be a namesake's: the
-  // payer question asks. A bank often gives no payer account on money in.
+  // makes it a transfer. Money in that names an account which is no account of the household may be a namesake's, unless
+  // the user's own name sent money to that account (`fromOwnAccount`): then it is the money coming back. A bank often
+  // gives no payer account on money in.
   const ownName: CompiledRule = {
     category: "savings",
     income: false,
     field: "any",
     test: (_text, input, holders) => {
-      if (!noCard(input) || hasPayeeForm(payeeOf(input)) || !isUserName(input.counterparty ?? "", holders) || input.reference?.trim() || (input.amountCents > 0 && input.counterpartyIban?.trim())) return false;
+      if (!noCard(input) || hasPayeeForm(payeeOf(input)) || !isUserName(input.counterparty ?? "", holders) || input.reference?.trim() || (input.amountCents > 0 && input.counterpartyIban?.trim() && !input.fromOwnAccount)) return false;
       const message = fold(input.description ?? "");
       return !(input.amountCents > 0 && isRefundText(message)) && !namesPurpose(input, message, input.amountCents < 0);
     },

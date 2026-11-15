@@ -74,3 +74,43 @@ describe("the figures flagged additive in the registry", () => {
     LONG,
   );
 });
+
+/**
+ * The monthly transfer between two members arrives a fee short. The pair counts where both legs are in the view, so the
+ * figures of the members' views differ from the household's by exactly two things, and no other: the sender's view has
+ * only its own leg, so the fee of 1,50 € is in the household's spending and in no member's; and the receiver's view has
+ * only the money in, which names no payer account, so it counts as income there and asks its question (the member money
+ * question of Tarkistettavat, `member-money.ts`) while the household counts it as the transfer it is. The server's
+ * own view holds the other member's account when the other shares it, and the pair counts there: fee-short-list.test.ts.
+ */
+describe("the figures with a transfer between members that arrives a fee short", () => {
+  it(
+    "differ between the members and the household by the fee and the money in that counts as income, and by nothing else",
+    () => {
+      const h = generateHousehold({ members: 2, joint: "said", loan: "savings", cards: "unconnected", events: ["member-fee"] }, 1);
+      const [household, ...members] = viewsOf(h);
+      type Range = { from: string; to: string };
+      const rowsOf = (range: Range) => h.txs.filter((t) => h.truth.get(t.id)?.event === "member-fee" && t.bookingDate >= range.from && t.bookingDate <= range.to);
+      const month = lastMonth(h.today);
+      const year = { from: `${addMonths(monthOf(h.today), -11)}-01`, to: h.today };
+      const fee = (range: Range) => rowsOf(range).reduce((sum, t) => sum + (h.truth.get(t.id)!.feeCents ?? 0), 0);
+      const arrives = (range: Range) => rowsOf(range).reduce((sum, t) => sum + Math.max(t.amountCents, 0), 0);
+      expect(fee(month.range), "the generated month has a fee").toBeGreaterThan(0);
+      expect(arrives(month.range), "the generated month has money in").toBeGreaterThan(0);
+      const difference = (key: FigureKey) => {
+        const read = READERS[key]!;
+        return read(household!, h.today)! - members.reduce((sum, v) => sum + read(v, h.today)!, 0);
+      };
+      const inMonth = month.range;
+      expect(difference("spending")).toBe(fee(inMonth));
+      expect(difference("consumption")).toBe(fee(inMonth));
+      expect(difference("income")).toBe(-arrives(inMonth));
+      expect(difference("left")).toBe(-fee(inMonth) - arrives(inMonth));
+      expect(difference("periodLeft")).toBe(-fee(year) - arrives(year));
+      // what the member counts as earned is the question the app asks: no figure of saving or of the accounts moves
+      expect([0, -arrives(inMonth)]).toContain(difference("earnedIncome"));
+      for (const key of ["saved", "netWorth", "cash"] as const) expect(difference(key), key).toBe(0);
+    },
+    LONG,
+  );
+});

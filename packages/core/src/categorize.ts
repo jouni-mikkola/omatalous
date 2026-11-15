@@ -26,6 +26,8 @@ export interface CategorizeInput {
   counterpartyIban?: string | null;
   /** The row's account pays this payee about the same sum in three or more months (`steadyParties`): a payee, not a single gift. Absent: not known, taken as no. */
   steadyPayee?: boolean;
+  /** Money in whose payer account is one the user's own name sent money to: the user's own account, at a bank that is not connected. Absent: not known, taken as no. */
+  fromOwnAccount?: boolean;
   amountCents: number;
 }
 

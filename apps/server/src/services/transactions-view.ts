@@ -2,7 +2,7 @@
  * The answer of `GET /api/transactions`: the rows of the accounts in view as the bank booked them, in both views. In the
  * own view a row of a joint account carries the viewer's part beside its amount (`partCents`), and `inCents` and
  * `outCents` add up parts. A row has the category and the transfer mark the view counts it by, so the list, its sums
- * and the front page say the same of it.
+ * and the front page say the same of it. A payment that arrived short carries its fee as its part.
  */
 import { moneyBins, partCents } from "@banking/core";
 import { extensionRowFields } from "../extensions.ts";
@@ -81,10 +81,12 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     items: items.map((t) => {
       const part = own.parts.get(t.accountId);
       const share = own.shares?.get(t.id);
+      const fee = own.fees?.get(t.id);
       return {
         ...publicTx(t),
         own: t.userId === userId,
-        ...(share ? { partCents: share.cents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) } : part ? { partCents: partCents(t.amountCents, part) } : {}),
+        // a payment that arrived short is listed whole, as a transfer, and counts as its fee: the figure the row's part shows
+        ...(fee ? { partCents: -fee } : share ? { partCents: share.cents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) } : part ? { partCents: partCents(t.amountCents, part) } : {}),
         ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}),
         ...(ownRules.has(t.id) ? { ownRule: ownRules.get(t.id) } : {}),
         ...extra.get(t.id),

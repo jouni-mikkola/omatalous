@@ -85,6 +85,8 @@ interface Pairing {
   transfers: Set<string>;
   /** The pairs found by amount and day, per leg, as the parts that match a partner. */
   allocations: Map<string, Allocation[]>;
+  /** The payer's bank fee of each payment that arrived short, by the payment's id: only the pairs of `feeShortPairs` have one. */
+  fees: Map<string, number>;
 }
 
 /** The allocations of one pair of legs, each the whole amount of the leg it is on: `a`'s names `b` and the other way round. */
@@ -101,6 +103,7 @@ const wholePair = (a: string, b: string, cents: number): [Allocation, Allocation
 export function transferAllocations(txs: readonly TransferInput[], accounts: readonly Account[], exclude?: ReadonlySet<string>, household?: ReadonlySet<string>): Pairing {
   const transfers = new Set<string>();
   const allocations = new Map<string, Allocation[]>();
+  const fees = new Map<string, number>();
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const ownIbans = new Set([...accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x), ...(household ?? [])]);
   const isCard = (t: TransferInput) => accountById.get(t.accountId)?.type === "credit_card";
@@ -227,9 +230,12 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
     // A payment that names an account of the household and arrived a fee short: the IBAN is the proof, the fee stays the sender's
     const accountOfIban = new Map(accounts.flatMap((a): [string, string][] => (normalizeIban(a.iban) && a.type !== "credit_card" && !loanIds.has(a.id) ? [[normalizeIban(a.iban)!, a.id]] : [])));
     const open = candidates.filter((t) => !allocations.has(t.id));
-    for (const [out, best] of feeShortPairs(open, accountOfIban, (id) => normalizeIban(accountById.get(id)?.iban), used, PAIR_WINDOW_DAYS)) link(out, best);
+    for (const { out, leg, fee } of feeShortPairs(open, accountOfIban, (id) => normalizeIban(accountById.get(id)?.iban), used, PAIR_WINDOW_DAYS)) {
+      link(out, leg);
+      fees.set(out.id, fee);
+    }
   }
-  return { transfers, allocations };
+  return { transfers, allocations, fees };
 }
 
 /** The old shape of the pairs: the outgoing row's id and its incoming row's, in the order the pairs were found. `txs` are the rows the allocations came from. */

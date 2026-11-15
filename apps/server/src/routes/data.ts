@@ -65,7 +65,8 @@ export function dataRoutes(s: Services) {
 
   /**
    * Same filters and the same accounts as the transaction list, every matching row with the amount the bank booked
-   * (paged so a long history is complete). The category and the transfer mark are the ones the list of the view shows.
+   * (paged so a long history is complete). The category and the transfer mark are the ones the list of the view shows. A
+   * payment that arrived short has its fee as the amount, as the list counts it, so the rows of a category add up to its figure.
    * The headings, the words and the names are in the member's language (`platform/csv-words.ts`, `categoriesIn`).
    */
   app.get("/export/transactions.csv", async (c) => {
@@ -92,7 +93,7 @@ export function dataRoutes(s: Services) {
             page.map((stored) => {
               const t = { ...stored, ...own.told.get(stored.id) };
               const cat = categories.get(t.category);
-              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat?.label ?? t.category, cat?.groupName ?? otherGroup, cents(t.amountCents), t.status === "pending" ? words.pending : words.booked, words.sources[t.source] ?? t.source, t.isTransfer ? words.transfer : ""];
+              return [t.bookingDate, accounts.get(t.accountId) ?? t.accountId, t.merchant, t.counterparty, t.description, cat?.label ?? t.category, cat?.groupName ?? otherGroup, cents(own.fees?.has(t.id) ? -own.fees.get(t.id)! : t.amountCents), t.status === "pending" ? words.pending : words.booked, words.sources[t.source] ?? t.source, t.isTransfer ? words.transfer : ""];
             }),
           ),
         );

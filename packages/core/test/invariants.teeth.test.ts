@@ -52,6 +52,14 @@ describe("the invariant checks catch a household made wrong", () => {
     expect(memberLegs(h, bad).map((v) => v.check)).toEqual(["I1b.member-legs"]);
   });
 
+  it("I1b: the fee of a member transfer is allowed, and a leg that counts more than its fee is not", () => {
+    const feeLegs = (t: AnalysisTx) => (h.truth.get(t.id)?.feeCents ?? 0) > 0;
+    expect(memberLegs(h, whole())).toEqual([]);
+    expect(whole().ctx.txs.some(feeLegs)).toBe(true);
+    const bad = changed(whole(), feeLegs, (t) => ({ flows: { ...NO_FLOWS, consumption: -t.amountCents } }));
+    expect(memberLegs(h, bad).map((v) => v.check)).toEqual(["I1b.member-legs"]);
+  });
+
   it("I1c: money in from the holder's own account read as income", () => {
     expect(ownTransfers(h, whole())).toEqual([]);
     const bad = changed(whole(), (t) => labelled("own_transfer")(t) && t.amountCents > 0, () => ({ isTransfer: false, category: "income" }));

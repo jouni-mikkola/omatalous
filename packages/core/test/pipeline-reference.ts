@@ -2,6 +2,7 @@
 import { getCategory } from "../src/categories.ts";
 import { compileRules } from "../src/categorize.ts";
 import { categorizeInDirection } from "../src/categorize-direction.ts";
+import { holdersOf, isUserName } from "../src/categorize-people.ts";
 import { businessMerchants, isBusinessRow } from "../src/industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 import { applyPayerConsistency } from "../src/payer-consistency.ts";
@@ -30,9 +31,14 @@ export function enrichTransactionsReference(
   const byUserRule = new Set<string>();
   // the payees an account pays about the same sum in three or more months: the pipeline hands the rules the same yes or no
   const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
+  // the accounts the user's own name sent money to: money in from one of them is the user's own money coming back
+  const holders = holdersOf(accounts);
+  const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders)).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
   const next = txs.map((t): Transaction => {
     if (t.categorySource === "user") return { ...t, isTransfer: t.category === "transfer" };
-    const { category, source, byUser } = categorizeInDirection(t.amountCents < 0 && steady.has(partyKey(t)) ? { ...t, steadyPayee: true } : t, rules, accounts);
+    const steadyPayee = t.amountCents < 0 && steady.has(partyKey(t));
+    const fromOwnAccount = t.amountCents > 0 && sentToOwnName.has(normalizeIban(t.counterpartyIban) ?? "");
+    const { category, source, byUser } = categorizeInDirection(steadyPayee || fromOwnAccount ? { ...t, steadyPayee, fromOwnAccount } : t, rules, accounts);
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")
     return { ...t, category, categorySource: source, isTransfer: category === "transfer" };

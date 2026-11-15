@@ -81,10 +81,11 @@ describe("the bridge of the cash flow", () => {
         const byId = new Map(h.txs.map((t) => [t.id, t]));
         const seen = new Set<string>();
         for (const line of bridge.lines) {
-          // the filter is the rows of the line: their sum is the line's, and no row is in two lines
-          expect(line.rowIds.reduce((s, id) => s + byId.get(id)!.amountCents, 0), line.key).toBe(line.cents);
+          // the filter is the rows of the line: their sum is the line's, and only a payment that arrived short is in two lines: its fee in Kulutus, the rest in its own
+          const share = (id: string) => (ctx.fees.get(id) ? (line.key === "consumption" ? -ctx.fees.get(id)! : byId.get(id)!.amountCents + ctx.fees.get(id)!) : byId.get(id)!.amountCents);
+          expect(line.rowIds.reduce((s, id) => s + share(id), 0), line.key).toBe(line.cents);
           for (const id of line.rowIds) {
-            expect(seen.has(id), id).toBe(false);
+            expect(seen.has(id) && !ctx.fees.has(id), id).toBe(false);
             seen.add(id);
           }
         }
