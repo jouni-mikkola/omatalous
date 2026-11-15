@@ -203,7 +203,7 @@ describe("the home loans of Asuminen", () => {
     // the partner typed nothing: the payments are a row without terms, at his part
     const partner = view(his, []);
     expect(shown(partner.housing!)).toEqual([[null, "ESIMERKKIPANKKI", 36_496]]);
-    expect(own.housing!.totalMonthlyCents + partner.housing!.totalMonthlyCents).toBe(household.housing!.totalMonthlyCents);
+    expect(own.housing!.totalMonthlyCents! + partner.housing!.totalMonthlyCents!).toBe(household.housing!.totalMonthlyCents);
     // near miss: the payments leave an account that is the viewer's whole, so the row is whole and says no part
     expect(page(instalments(), [typed], [], [checking, { ...joint, part: mine }]).housing).toMatchObject({ totalMonthlyCents: 91_240, atPart: false });
     // each row says whose part it holds: the loan that takes the payments, the payments with no loan, and no part on a whole row
