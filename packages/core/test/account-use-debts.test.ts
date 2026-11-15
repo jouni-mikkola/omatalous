@@ -5,9 +5,12 @@
  * account whole. Made-up names and sums only.
  */
 import { describe, expect, it } from "vitest";
-import { partCents, partOf, WHOLE } from "../src/account-use.ts";
+import { applyUse, partCents, partOf, WHOLE } from "../src/account-use.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { fixedMonthlyCents } from "../src/commitments.ts";
 import { addMonths } from "../src/dates.ts";
+import { explain } from "../src/explain/explain.ts";
+import { createWhy } from "../src/explain/why.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { householdDebts, paidFrom } from "../src/household-debts.ts";
 import { loanProposals } from "../src/loan-detect.ts";
@@ -219,6 +222,33 @@ describe("a loan's payments are matched whole", () => {
     // near miss: with one of the two saved the other is still proposed, in both views
     expect(proposals(rowsOf(null), save(cut)[0]!).map((p) => p.paymentCents)).toEqual([30_000]);
     expect(proposals(rowsOf(AINO), save(cut)[1]!).map((p) => p.paymentCents)).toEqual([100_000]);
+  });
+
+  it("one loan has one monthly figure in Kiinteät, Laskut and the unsaved loans, the viewer's part in an own view and the whole in the household's", () => {
+    const enriched = enrichTransactions(monthly(8, -100_001, null), [checking], []);
+    const viewOf = (part: Part | null) => {
+      const why = createWhy("own");
+      const rows = part ? applyUse(enriched, [checking], new Map([["joint", part]]), undefined, undefined, why) : enriched;
+      const ctx = createContext(rows, [checking], TODAY);
+      const found = loanProposals(ctx, NO_INPUTS);
+      const fixed = explain("bills.fixed", ctx, { view: "own", range: { from: "2026-10-01", to: "2026-10-31" }, why });
+      return { found, fixedCents: fixedMonthlyCents(ctx.recurring), fixed, unsaved: buildHoldings(ctx, [], NO_INPUTS, found).unsavedLoans };
+    };
+    const whole = viewOf(null);
+    const hers = viewOf(AINO);
+    const his = viewOf(EERO);
+    const figures = (v: ReturnType<typeof viewOf>) => [v.found[0]!.monthlyCents, v.fixedCents, v.unsaved!.paymentCents, v.fixed.cents, v.fixed.lines[0]!.cents];
+    expect(figures(whole)).toEqual(Array(5).fill(100_001));
+    expect(figures(hers)).toEqual(Array(5).fill(partCents(100_001, AINO)));
+    expect(figures(his)).toEqual(Array(5).fill(partCents(100_001, EERO)));
+    expect(partCents(100_001, AINO) + partCents(100_001, EERO)).toBe(100_001);
+    // the bank's payment still names and matches the loan in every view
+    expect([whole, hers, his].map((v) => v.found[0]!.paymentCents)).toEqual([100_001, 100_001, 100_001]);
+    // Miksi? says the part and the account's sum on the line; the household's own view has neither
+    expect(hers.fixed.lines[0]).toMatchObject({ whole: 100_001, why: [{ rule: "part.use", from: AINO.from, to: AINO.to, of: AINO.of }] });
+    expect(whole.fixed.lines[0]).not.toHaveProperty("whole");
+    expect(whole.fixed.lines[0]!.why).toEqual([]);
+    expect(hers.fixed.check).toEqual({ kind: "sum", diffCents: 0 });
   });
 
   it("the smallest payment that is a loan's is told by the bank's amount", () => {

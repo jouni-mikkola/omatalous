@@ -29,7 +29,9 @@ accounts*) holds what each figure means.
   members who see the same accounts.
 - **A debt follows the account behind it.** A connected card or loan account has its own part. A saved loan has the
   part of the account its payments leave, which its series key tells, whoever typed it in; a view holds the loans of
-  other members paid from an account it counts (`loansInView`).
+  other members paid from an account it counts (`loansInView`). The monthly figure of a loan the app found and nobody
+  saved is the part too: Kiinteät, Laskut and the total of unsaved loans read the series' `monthlyCents`
+  (`LoanProposal.monthlyCents`), while the bank's whole payment (`paymentCents`) only matches and names the loan.
 - **The payday window counts the accounts the member uses alone**, or the joint ones at the part when there are none.
   The windows of two members do not add up to the household's, because each answers whether that member's money lasts.
 
