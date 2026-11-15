@@ -2,9 +2,13 @@
 import { carriesLabel, stackBars } from "../../charts/payment-bars.ts";
 import { css } from "../../css.ts";
 import { moneyTick } from "../../format.ts";
+import { useWidth } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { BillLine } from "../next-days-line.ts";
 import type { Active } from "../NextDaysLine.tsx";
+
+/** The room a day's label takes on the axis, in rem: a weekday over a day and a dot, so it grows with the text. */
+const LABEL_REM = 2;
 
 /**
  * The days from today to the payday as bars: a day is a bar, each payment of the day a piece of it, and the height is
@@ -16,6 +20,10 @@ export function PaymentBars({ line, active, onActive }: { line: BillLine; active
   const columns = axis.length;
   const { pieces, ticks, at } = stackBars(bills.map((b) => ({ column: b.column, cents: b.cents })));
   const paydayLast = axis[columns - 1]?.payday === true;
+  const [axisRef, axisWidth] = useWidth<HTMLOListElement>();
+  const axisColumns = css({ "grid-template-columns": `repeat(${columns}, minmax(0, 1fr))` });
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const fits = axisWidth > 0 ? Math.floor(axisWidth / rem / LABEL_REM) : columns;
   return (
     <div className={active ? "pb has-on" : "pb"} aria-hidden="true">
       {paydayLast && <p className="pb-flag">{t("rpt.bl_payday")}</p>}
@@ -58,10 +66,16 @@ export function PaymentBars({ line, active, onActive }: { line: BillLine; active
             </span>
           ))}
       </div>
-      <ol className="pb-axis" ref={css({ "grid-template-columns": `repeat(${columns}, minmax(0, 1fr))` })}>
+      <ol
+        className="pb-axis"
+        ref={(el) => {
+          axisRef.current = el;
+          axisColumns(el);
+        }}
+      >
         {axis.map((d, k) => (
           <li key={d.iso} data-payday={d.payday ? "" : undefined}>
-            {carriesLabel(columns, k) && (
+            {carriesLabel(columns, k, fits) && (
               <>
                 <span>{d.weekday}</span>
                 {d.day}.

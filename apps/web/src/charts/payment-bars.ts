@@ -47,10 +47,12 @@ export function stackBars(input: readonly PieceIn[]): Bars {
 
 /**
  * Whether the day at `column` of `columns` carries a label under its bar: every day while they fit, else every few
- * days. The last day, the payday, always does, and the day before it gives way when it would touch it.
+ * days. `fits` is how many labels the axis has room for side by side (all of them when it is not measured), so a
+ * wide text or a narrow screen takes a longer step. The last day, the payday, always carries one, and a day before it
+ * gives way when it would touch it.
  */
-export function carriesLabel(columns: number, column: number): boolean {
+export function carriesLabel(columns: number, column: number, fits: number = columns): boolean {
   if (column === columns - 1) return true;
-  const step = Math.ceil(columns / 12);
-  return column % step === 0 && columns - 1 - column >= Math.min(step, 2);
+  const step = Math.max(Math.ceil(columns / 12), Math.ceil(columns / Math.max(1, fits)));
+  return column % step === 0 && columns - 1 - column >= step;
 }

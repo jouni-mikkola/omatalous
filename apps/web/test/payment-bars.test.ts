@@ -39,6 +39,17 @@ describe("the labels under the bars", () => {
     expect(Array.from({ length: 10 }, (_, k) => carriesLabel(10, k)).filter(Boolean).length).toBeGreaterThanOrEqual(8);
   });
 
+  it("takes a longer step when the axis has room for fewer labels, and keeps its labels a step apart", () => {
+    const marked = (columns: number, fits: number) => Array.from({ length: columns }, (_, k) => k).filter((k) => carriesLabel(columns, k, fits));
+    expect(marked(10, 10)).toHaveLength(10);
+    for (const [columns, fits] of [[10, 3], [10, 5], [31, 4], [12, 2]] as const) {
+      const days = marked(columns, fits);
+      expect(days.at(-1)).toBe(columns - 1);
+      expect(days.length).toBeLessThanOrEqual(fits + 1);
+      for (let i = 1; i < days.length; i++) expect(days[i]! - days[i - 1]!).toBeGreaterThanOrEqual(Math.ceil(columns / fits));
+    }
+  });
+
   it("always labels the payday, the last day, and never two labels in a row on a long span", () => {
     for (const columns of [3, 12, 20, 31]) {
       expect(carriesLabel(columns, columns - 1)).toBe(true);

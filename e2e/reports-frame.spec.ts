@@ -47,7 +47,9 @@ test("a household with no shared account has no Yhteiset menot question and no s
   const list = page.getByRole("navigation", { name: "Raportit" });
   await expect(list.getByRole("link").first()).toBeVisible();
   await expect(list.getByRole("link", { name: /yhteiset/i })).toHaveCount(0);
-  await expect(list.getByRole("link")).toHaveCount(2);
+  // the open question is a mark, so the one link is the other question
+  await expect(list.getByRole("link")).toHaveCount(1);
+  await expect(list.locator("[aria-current]")).toHaveText("Rahankäyttö");
   await page.goto("/#/reports?q=yhteiset");
   await expect(page.getByRole("heading", { name: "Yhteiset menot", level: 2, exact: true })).toHaveCount(0);
   expect(seen.problems).toEqual([]);
