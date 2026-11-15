@@ -14,7 +14,7 @@ const ALL: QuestionId[] = ["menot", "tulot", "kiinteat", "saldot", "velat", "yht
 function draw(current: QuestionId, open: QuestionId[] = ALL, period = "6m") {
   const questions = listedQuestions(open);
   const title = questions.flatMap((q) => q.pages).find((p) => p.id === current)!.title;
-  render(createElement(Frame, { current, title, questions, params: new URLSearchParams({ period }) }, createElement("p", null, "sisältö")));
+  render(createElement(Frame, { current, title, questions, params: new URLSearchParams({ period }), children: createElement("p", null, "sisältö") }));
 }
 
 const links = (nav: HTMLElement) => within(nav).getAllByRole("link").map((a) => ({ name: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current") }));
@@ -23,27 +23,27 @@ describe("Raportit: the frame", () => {
   it("lists the three questions, each linking to its first report and keeping the period", () => {
     draw("menot");
     expect(links(screen.getByRole("navigation", { name: "Raportit" }))).toEqual([
-      { name: "Mihin raha menee?", href: "#/reports?q=menot&period=6m", current: "true" },
-      { name: "Miten rahat ja velat kehittyvät?", href: "#/reports?q=saldot&period=6m", current: null },
-      { name: "Miten yhteiset menot jakautuvat?", href: "#/reports?q=yhteiset&period=6m", current: null },
+      { name: "Rahankäyttö", href: "#/reports?q=menot&period=6m", current: "true" },
+      { name: "Rahat ja velat", href: "#/reports?q=saldot&period=6m", current: null },
+      { name: "Yhteiset menot", href: "#/reports?q=yhteiset&period=6m", current: null },
     ]);
   });
 
   it("a question that holds the open report links to that report, not to its first", () => {
     draw("kiinteat");
     const [spending] = links(screen.getByRole("navigation", { name: "Raportit" }));
-    expect(spending).toEqual({ name: "Mihin raha menee?", href: "#/reports?q=kiinteat&period=6m", current: "true" });
+    expect(spending).toEqual({ name: "Rahankäyttö", href: "#/reports?q=kiinteat&period=6m", current: "true" });
   });
 
   it("shows the reports of the open question under its name, the open one marked, each with the period", () => {
     draw("tulot");
     expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Tulot");
-    expect(links(screen.getByRole("navigation", { name: "Mihin raha menee?" }))).toEqual([
+    expect(links(screen.getByRole("navigation", { name: "Rahankäyttö" }))).toEqual([
       { name: "Rahankäyttö", href: "#/reports?q=menot&period=6m", current: null },
       { name: "Tulot", href: "#/reports?q=tulot&period=6m", current: "page" },
       { name: "Kiinteät menot", href: "#/reports?q=kiinteat&period=6m", current: null },
     ]);
-    expect(screen.queryByRole("navigation", { name: "Miten rahat ja velat kehittyvät?" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "Rahat ja velat" })).toBeNull();
   });
 
   it("a question with one report has no row of reports", () => {
@@ -55,12 +55,12 @@ describe("Raportit: the frame", () => {
   it("a question left with one open report has no row of reports, and the question that has none is not listed", () => {
     draw("saldot", ["menot", "saldot"]);
     expect(screen.getAllByRole("navigation").map((n) => n.getAttribute("aria-label"))).toEqual(["Raportit"]);
-    expect(links(screen.getByRole("navigation", { name: "Raportit" })).map((l) => l.name)).toEqual(["Mihin raha menee?", "Miten rahat ja velat kehittyvät?"]);
+    expect(links(screen.getByRole("navigation", { name: "Raportit" })).map((l) => l.name)).toEqual(["Rahankäyttö", "Rahat ja velat"]);
   });
 
   it("keeps no period in an address when none is open", () => {
     const questions = listedQuestions(["menot", "tulot"]);
-    render(createElement(Frame, { current: "menot", title: "Rahankäyttö", questions, params: new URLSearchParams() }, null));
-    expect(links(screen.getByRole("navigation", { name: "Mihin raha menee?" })).map((l) => l.href)).toEqual(["#/reports?q=menot", "#/reports?q=tulot"]);
+    render(createElement(Frame, { current: "menot", title: "Rahankäyttö", questions, params: new URLSearchParams(), children: null }));
+    expect(links(screen.getByRole("navigation", { name: "Rahankäyttö" })).map((l) => l.href)).toEqual(["#/reports?q=menot", "#/reports?q=tulot"]);
   });
 });

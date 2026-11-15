@@ -12,7 +12,7 @@ test("a question in the list opens its report and keeps the period; a phone show
   await page.goto("/#/reports?period=6m");
   const list = page.getByRole("navigation", { name: "Raportit" });
   await expect(list.getByRole("button")).toHaveCount(0);
-  await expect(list.getByRole("link", { name: "Miten rahat ja velat kehittyvät?" })).toBeVisible();
+  await expect(list.getByRole("link", { name: "Rahat ja velat" })).toBeVisible();
   for (const link of await list.getByRole("link").all()) {
     const box = (await link.boundingBox())!;
     expect(box.height, "a target of 44 px").toBeGreaterThanOrEqual(44);
@@ -21,7 +21,7 @@ test("a question in the list opens its report and keeps the period; a phone show
     expect(box.width, "a question takes the width of the page, one under another").toBeGreaterThan(300);
   }
   // the reports that refine the open question stand under its name, with targets of 44 px as well
-  const refine = page.getByRole("navigation", { name: "Mihin raha menee?" });
+  const refine = page.getByRole("navigation", { name: "Rahankäyttö" });
   expect(await refine.getByRole("link").count()).toBeGreaterThanOrEqual(2);
   for (const link of await refine.getByRole("link").all()) {
     const box = (await link.boundingBox())!;
@@ -29,9 +29,9 @@ test("a question in the list opens its report and keeps the period; a phone show
     expect(box.x + box.width, "inside the page on the right").toBeLessThanOrEqual(390);
   }
   await expect(refine.getByRole("link", { name: "Rahankäyttö" })).toHaveAttribute("aria-current", "page");
-  await list.getByRole("link", { name: "Miten rahat ja velat kehittyvät?" }).click();
+  await list.getByRole("link", { name: "Rahat ja velat" }).click();
   await expect(page.getByRole("heading", { name: "Tilit ja saldot", level: 2 })).toBeVisible();
-  await expect(list.getByRole("link", { name: "Miten rahat ja velat kehittyvät?" })).toHaveAttribute("aria-current", "true");
+  await expect(list.getByRole("link", { name: "Rahat ja velat" })).toHaveAttribute("aria-current", "true");
   expect(new URL(page.url()).hash).toMatch(/q=saldot/);
   expect(new URL(page.url()).hash).toContain("period=6m");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no sideways scroll at 390 px").toBe(true);

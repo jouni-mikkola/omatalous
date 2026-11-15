@@ -34,18 +34,18 @@ describe("the three questions of Raportit", () => {
   });
   it("lists the three questions, each with its open reports in the order they are told, whatever order they come in", () => {
     expect(titles(["yhteiset", "velat", "kiinteat", "saldot", "tulot", "menot"])).toEqual([
-      { question: "Mihin raha menee?", reports: ["Rahankäyttö", "Tulot", "Kiinteät menot"] },
-      { question: "Miten rahat ja velat kehittyvät?", reports: ["Tilit ja saldot", "Velat"] },
-      { question: "Miten yhteiset menot jakautuvat?", reports: ["Yhteiset menot"] },
+      { question: "Rahankäyttö", reports: ["Rahankäyttö", "Tulot", "Kiinteät menot"] },
+      { question: "Rahat ja velat", reports: ["Tilit ja saldot", "Velat"] },
+      { question: "Yhteiset menot", reports: ["Yhteiset menot"] },
     ]);
   });
   it("leaves out a report with nothing to show and a question left with no report", () => {
     // a household with no saved loan and no shared account
     expect(titles(["menot", "tulot", "saldot"])).toEqual([
-      { question: "Mihin raha menee?", reports: ["Rahankäyttö", "Tulot"] },
-      { question: "Miten rahat ja velat kehittyvät?", reports: ["Tilit ja saldot"] },
+      { question: "Rahankäyttö", reports: ["Rahankäyttö", "Tulot"] },
+      { question: "Rahat ja velat", reports: ["Tilit ja saldot"] },
     ]);
-    expect(titles(["velat"]).map((q) => q.question)).toEqual(["Miten rahat ja velat kehittyvät?"]);
+    expect(titles(["velat"]).map((q) => q.question)).toEqual(["Rahat ja velat"]);
   });
   it("a report's address names its question and keeps the period", () => {
     expect(reportHref("menot", "6m")).toBe("#/reports?q=menot&period=6m");
