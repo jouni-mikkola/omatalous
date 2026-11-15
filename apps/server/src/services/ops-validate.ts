@@ -262,6 +262,10 @@ export interface OpsState {
   doctor?: DoctorResult;
   /** The same items in English (doctor.sh --json-en); the page of a member who reads English gets these in `doctor` (opsState). */
   doctor_en?: DoctorResult;
+  /** The version that ran when the system check was made. The helper says it (doctor.frag) or mergeState takes the version of the post that first carried the result. */
+  doctor_version?: string;
+  /** Set when the app serves the snapshot: the stored check ran under another version than the build now running. */
+  doctor_stale?: boolean;
   /** Kept for the contract of old helpers, see normaliseState. */
   backups?: { name: string; size: number; at: string; kind: string }[];
 }
@@ -325,6 +329,7 @@ export function normaliseState(input: unknown, secrets: readonly string[] = []):
   if (doctor) out.doctor = doctor;
   const doctorEn = doctorResult(o.doctor_en, secrets);
   if (doctorEn) out.doctor_en = doctorEn;
+  if (typeof o.doctor_version === "string" && XYZ.test(o.doctor_version)) out.doctor_version = o.doctor_version;
   // Helpers up to version 5 send the list of the copies they saw. Nothing reads it, but the contract of those helpers
   // (contracts/*/ops-state.json) says every key of their snapshot is kept.
   if (Array.isArray(o.backups)) {
@@ -343,5 +348,17 @@ export function mergeState(old: OpsState, next: OpsState): OpsState {
   const merged = { ...old, ...next };
   // a new Finnish result with no English twin (an older doctor.sh) must not keep the old twin
   if (next.doctor && !next.doctor_en) delete merged.doctor_en;
+  // a check answer is one unit: the release and the commits it names belong to the check that said update_available, so
+  // an answer without them (a source check after a release one, or the other way) must not keep the earlier ones
+  if (typeof next.update_available === "boolean") {
+    if (next.latest_version === undefined) delete merged.latest_version;
+    if (next.behind_commits === undefined) delete merged.behind_commits;
+  }
+  // a doctor.sh result that is new and says no version ran under the version the helper reports with it
+  if (next.doctor && next.doctor_version === undefined && next.doctor.at !== old.doctor?.at) {
+    const ran = next.version ?? old.version;
+    if (ran === undefined) delete merged.doctor_version;
+    else merged.doctor_version = ran;
+  }
   return merged;
 }

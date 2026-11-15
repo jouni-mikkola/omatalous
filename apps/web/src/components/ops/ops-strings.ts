@@ -129,6 +129,12 @@ export const S = {
     return t("ops.run_doctor");
   },
   checkedAt: (time: string) => t("ops.checked_at", { time }),
+  get doctorStale() {
+    return t("ops.doctor_stale");
+  },
+  get technical() {
+    return t("ops.technical");
+  },
   get actionNames() {
     return { "check-update": t("ops.action_check_update"), update: t("ops.action_update"), rollback: t("ops.action_rollback") };
   },

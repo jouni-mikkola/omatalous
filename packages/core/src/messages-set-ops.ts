@@ -77,6 +77,8 @@ export const FI_SET_OPS = {
   "ops.step_no": "Vaihe {n}/{m}:",
   "ops.restarting_long": "Jos sivu ei palaa, palauta edellinen versio palvelimella: {command}",
   "ops.checked_at": "Tulokset ajalta {time}",
+  "ops.doctor_stale": "Tulokset ovat ajalta ennen päivitystä. Aja tarkistus uudelleen.",
+  "ops.technical": "Näytä tekniset tiedot",
   "ops.action_check_update": "Tarkistus",
   "ops.action_update": "Päivitys",
   "ops.action_rollback": "Edellisen version palautus",

@@ -70,7 +70,7 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
 
   const panels = data && (
     <>
-      <DoctorList doctor={data.state.doctor} last={data.last.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
+      <DoctorList doctor={data.state.doctor} stale={data.state.doctor_stale === true} last={data.last.doctor} disabled={helperOff || pending || data.readOnlyActive} onRun={() => void quick("doctor")} />
       <ToolsPanel
         disabled={blocked}
         readDisabled={helperOff || pending || data.readOnlyActive}
@@ -127,7 +127,13 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
             onUpdate={() => setDialog("update")}
             onRollback={() => setDialog("rollback")}
           />
-          {!helperOff && panels}
+          {!helperOff && (
+            // the operator's cards (system check, logs, restart, event list) stay folded: the version, the update and the status line are the page
+            <details className="ops-technical">
+              <summary>{S.technical}</summary>
+              <div className="stack">{panels}</div>
+            </details>
+          )}
           <ResetCard disabled={data.active || pending} />
         </>
       )}

@@ -3,7 +3,7 @@ import { LEVEL, S } from "./ops-strings.ts";
 import { LastResult } from "./LastResult.tsx";
 import type { OpsRequestView, OpsSnapshot } from "./types.ts";
 import { Button } from "../ui/Button.tsx";
-export function DoctorList({ doctor, last, disabled, onRun }: { doctor: OpsSnapshot["doctor"]; last: OpsRequestView | undefined; disabled: boolean; onRun: () => void }) {
+export function DoctorList({ doctor, stale = false, last, disabled, onRun }: { doctor: OpsSnapshot["doctor"]; stale?: boolean; last: OpsRequestView | undefined; disabled: boolean; onRun: () => void }) {
   return (
     <div className="card">
       <div className="card-head">
@@ -11,6 +11,7 @@ export function DoctorList({ doctor, last, disabled, onRun }: { doctor: OpsSnaps
           <h2>{S.doctor}</h2>
           <LastResult request={last} />
           {doctor && <div className="card-sub">{S.checkedAt(dateTime(doctor.at))}</div>}
+          {doctor && stale && <div className="card-sub ops-last warning">{S.doctorStale}</div>}
         </div>
         <Button disabled={disabled} onClick={onRun}>
           {S.runDoctor}
