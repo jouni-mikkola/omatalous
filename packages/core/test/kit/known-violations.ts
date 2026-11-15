@@ -74,7 +74,7 @@ const JOINT_UNKNOWN = (n: number) => `generated:${n}:unknown:checking:connected:
 const views = (household: string, view: readonly string[], by: readonly string[] = []): Where[] => view.map((v) => ({ household, view: v, months: by }));
 const sameIn = (households: readonly string[], view: readonly string[], by: readonly string[] = []): Where[] => households.flatMap((h) => views(h, view, by));
 
-const [ONE, TWO, THREE, FOUR] = [WITH_EVENTS(1), WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
+const [TWO, THREE, FOUR] = [WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
 
 /** The residual of the monthly transfer between two members (8000 cents, fee 150): the fee in the household view, the 8150 cents sent in the first member's view. */
 const [WITH_FEE, WITH_SENT] = [150, -8150] as const;
