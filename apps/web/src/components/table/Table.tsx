@@ -478,7 +478,7 @@ export function Table<R>({
   );
 }
 
-/** The button that opens a row's detail under it. Its name says what opens, not "Näytä tapahtumat", which Miksi? uses. */
+/** The button that opens a row's detail under it. Its name says what opens. */
 function DrillButton({ open, onToggle, label, rowKey, onKeyDown }: { open: boolean; onToggle: () => void; label: string; rowKey?: string; onKeyDown?: (e: KeyboardEvent) => void }) {
   return (
     <button type="button" className="rt-drill" aria-expanded={open} aria-label={label} data-drill={rowKey} onClick={onToggle} onKeyDown={onKeyDown}>

@@ -4,8 +4,6 @@ import { isKnownCategory } from "../src/categories.ts";
 import { lexiconCategory } from "../src/lexicon.ts";
 import { LEXICON } from "../src/lexicon-data.ts";
 import { industryCandidates } from "../src/industry.ts";
-import { createWhy } from "../src/explain/why.ts";
-import { sentenceOf } from "../src/explain/catalogue.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import type { Account, CategoryRule, Transaction } from "../src/types.ts";
 
@@ -294,14 +292,6 @@ describe("a trade word's row in the pipeline reads like a register guess", () =>
     const [stemRow, brandRow] = run(rows());
     expect([stemRow?.category, stemRow?.categorySource]).toEqual(["restaurants", "industry"]);
     expect([brandRow?.category, brandRow?.categorySource]).toEqual(["home", "rule"]);
-  });
-
-  it("the why of the row says the trade, not an automatic rule", () => {
-    const txs = rows();
-    const why = createWhy("own");
-    enrichTransactions(txs, accounts, [], new Map(), undefined, why);
-    expect(sentenceOf(why.of(txs[0]!.id)[0]!)).toBe("Luokiteltu kaupan toimialan mukaan");
-    expect(sentenceOf(why.of(txs[1]!.id)[0]!)).toBe("Luokiteltu automaattisesti");
   });
 
   it("is asked of the register too, so that a found entry can replace the stem's guess", () => {

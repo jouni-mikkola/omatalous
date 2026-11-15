@@ -71,13 +71,6 @@ export * from "./analysis/format.ts";
 export * from "./analysis/context.ts";
 export * from "./analysis/statement-explain.ts";
 
-export { explain } from "./explain/explain.ts";
-export { explainNow } from "./explain/now.ts";
-export { isLoanFigure, isOneLoan } from "./explain/loan-figures.ts";
-export { explainLoan } from "./explain/loans.ts";
-export { createWhy } from "./explain/why.ts";
-export { sentenceOf } from "./explain/catalogue.ts";
-export type { Explanation, FigureId, LoanFigureId, Reason, WhyCollector } from "./explain/types.ts";
 export * from "./analysis/usual.ts";
 export * from "./thresholds.ts";
 export * from "./analysis/alerts.ts";

@@ -177,7 +177,7 @@ describe("a refund", () => {
     const PAIRED = { categorySource: "match", description: "HYVITYS" } as const;
     /** What `moneyIn` answers for `back` on the context's rows, the row read as money in on its category again (the context made income of a null). */
     const answer = (ctx: AnalysisContext, back: Transaction) =>
-      moneyIn(ctx.txs.map((t) => (t.id === back.id ? { ...t, spend: -t.amountCents } : { ...t })), new Set(), undefined, TODAY).get(back.id);
+      moneyIn(ctx.txs.map((t) => (t.id === back.id ? { ...t, spend: -t.amountCents } : { ...t })), new Set(), TODAY).get(back.id);
 
     it("larger than what is left of the payee's payments is income (Hyvitykset): 500,00 does not come off a purchase of 20,00", () => {
       const bought = paid("2026-10-02", 20, CLOTHES, "shopping");
@@ -403,8 +403,8 @@ describe("a payee paid thousands of times", () => {
   };
   it("gives the answer of the old reading of the whole list, the contract and the late refunds included", () => {
     const rows = history(true);
-    const live = moneyIn(rows(), own, undefined, today);
-    expect(live).toEqual(moneyInReference(rows(), own, undefined, today));
+    const live = moneyIn(rows(), own, today);
+    expect(live).toEqual(moneyInReference(rows(), own, today));
     expect([...live.values()].filter((x) => x?.length).length).toBeGreaterThan(150);
     expect(live.get("l-back")?.length).toBeGreaterThan(1);
   }, 30_000);
@@ -420,7 +420,7 @@ describe("a payee paid thousands of times", () => {
           return t.day;
         },
       });
-      return { result: read(input, own, undefined, today), visits };
+      return { result: read(input, own, today), visits };
     };
     // pairedReturns uses bookingDate, so counting payment-day reads isolates the window work without
     // subtracting unrelated timings. The index's sort and binary search count too, even under machine load.

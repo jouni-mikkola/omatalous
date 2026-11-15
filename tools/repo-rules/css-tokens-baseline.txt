@@ -21,12 +21,11 @@ apps/web/src/styles/question-chart.css  px=31
 apps/web/src/styles/questions.css  px=6
 apps/web/src/styles/reconcile.css  px=4
 apps/web/src/styles/reports.css  px=12
-apps/web/src/styles/review.css  px=24
+apps/web/src/styles/review.css  px=23
 apps/web/src/styles/settings.css  px=68
 apps/web/src/styles/shell.css  px=36
 apps/web/src/styles/statement.css  px=11
 apps/web/src/styles/table.css  px=54
 apps/web/src/styles/themes-table.css  px=8
 apps/web/src/styles/transactions.css  px=31
-apps/web/src/styles/why.css  px=19
 apps/web/src/styles/wizard.css  px=14 fontSize=1

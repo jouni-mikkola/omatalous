@@ -51,7 +51,7 @@ Every page that compares a month reads the figure:
 - the waterfall and the pace chart
 - the spending goal and the spike alerts
 - the pivot and drift reports
-- the buffer and the explain card
+- the buffer
 - the change report
 
 In the change report a category's base is its expected figure. Its merchants keep the mean of their own months. What their bases leave of

@@ -4,7 +4,7 @@
  * `series:` (core `seriesMarkSubject`), so it holds over a new charge and a change of price as that mark does.
  *
  * The cached context keeps every series: it is shared by what does not ask the marks, and a mark moves no data
- * version. What is coming and its sums (the coming list, the Nyt sum, Laskut and their "Miksi?") read the context
+ * version. What is coming and its sums (the coming list, the Nyt sum, Laskut) read the context
  * through `withoutWrongBills`. The member's own marks count in both views, as every mark does.
  */
 import { type AnalysisContext, isCancelled, seriesOfMarkSubject, type UserMark } from "@banking/core";

@@ -57,7 +57,7 @@ export const money = (cents: number, decimals = true): string => formatEur(cents
 
 /**
  * The one precision rule: a sum in a tile, a headline or a sentence of an answer is in whole euros (`answerMoney`: 442413 →
- * "4 424 €"; an answer in cents is fake precision), and a sum in a row, a table, an explain panel or a total that adds up
+ * "4 424 €"; an answer in cents is fake precision), and a sum in a row, a table or a total that adds up
  * rows on show is to the cent (`rowMoney`), so the rows add up to the total the reader sees.
  */
 export const answerMoney = (cents: number): string => money(cents, false);

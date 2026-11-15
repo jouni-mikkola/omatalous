@@ -1,17 +1,15 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
-import { belowWhole, type LoanFigureId, cardLimitCents, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
-import { Fragment, type ReactNode } from "react";
+import { belowWhole, cardLimitCents, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
+import { Fragment } from "react";
 import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/loans/labels.ts";
 import { Figure } from "../../../components/Figure.tsx";
-import { Why } from "../../../components/Why.tsx";
 import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
 import { typedByText } from "../../../part.ts";
 import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
-import type { Scope } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 import { Notice } from "../../../components/ui/Notice.tsx";
@@ -26,31 +24,14 @@ interface LoanFigureProps {
   sub?: string | null;
   /** Labelled values the figure is made of, each a row of its own under it. */
   parts?: readonly (readonly [label: string, value: string])[];
-  /** The figure whose calculation the value opens; a word or a dash opens nothing. */
-  door?: LoanFigureId;
 }
 
-/** Where the report's figures open their calculation: the report's day, in the view the page shows. */
-interface At {
-  scope: Scope;
-  day: string;
-}
-
-/** A figure of the report as the door to its calculation: `loan` for a figure of one loan, `title` as the panel names it. */
-function door(at: At, figure: LoanFigureId, title: string, text: string, shown: ReactNode = text, loan?: string): ReactNode {
-  return (
-    <Why figure={figure} loan={loan} title={title} range={{ from: at.day, to: at.day }} scope={at.scope} text={text}>
-      {shown}
-    </Why>
-  );
-}
-
-function LoanFigure({ label, value, sub, parts, door: opens, loan, at }: LoanFigureProps & { loan: LoanRow; at: At }) {
+function LoanFigure({ label, value, sub, parts }: LoanFigureProps) {
   return (
     <div>
       <dt>{label}</dt>
       <dd className={value === null ? "unknown" : undefined}>
-        {value === null ? DASH : opens ? door(at, opens, `${loan.name}, ${label.toLowerCase()}`, value, value, loan.id) : value}
+        {value === null ? DASH : value}
         {sub && <small>{sub}</small>}
         {parts && parts.length > 0 && (
           <dl className="loan-parts">
@@ -111,7 +92,7 @@ const unlessName = (word: string, name: string) => (word.trim().toLowerCase() ==
 const SETTINGS_LOANS = settingsCardHash(SETTINGS_ANCHOR.loans);
 
 /** `limitCents`: the limit of a connected card, when it has one to tell. */
-function Loan({ l, limitCents, at }: { l: LoanRow; limitCents: number | null; at: At }) {
+function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
   // a connected card is a card: what is used and the limit, none of a loan's terms
   const card = l.accountType === "credit_card";
   const kind = l.accountType
@@ -122,14 +103,13 @@ function Loan({ l, limitCents, at }: { l: LoanRow; limitCents: number | null; at
   const about = [kind, typedByText(l.typedBy)].filter(Boolean).join(" · ");
   const moves = l.scenarios.map(scenario).filter((line): line is string => line !== null);
   const figures: LoanFigureProps[] = card
-    ? [{ label: t("rpt.ln_used"), value: l.balance.cents !== null ? money(l.balance.cents) : null, door: "loan.balance" as const }, ...(limitCents !== null ? [{ label: t("rpt.ln_limit"), value: money(limitCents) }] : [])]
+    ? [{ label: t("rpt.ln_used"), value: l.balance.cents !== null ? money(l.balance.cents) : null }, ...(limitCents !== null ? [{ label: t("rpt.ln_limit"), value: money(limitCents) }] : [])]
     : [
         // a balance no plan moved forward is the one that was told, with its day
-        { label: t("rpt.ln_debt"), value: l.balance.cents !== null ? money(l.balance.cents) : null, sub: l.balance.cents !== null && l.balance.unknown ? t("rpt.ln_left_on", { date: date(l.balanceDate) }) : null, door: "loan.balance" },
+        { label: t("rpt.ln_debt"), value: l.balance.cents !== null ? money(l.balance.cents) : null, sub: l.balance.cents !== null && l.balance.unknown ? t("rpt.ln_left_on", { date: date(l.balanceDate) }) : null },
         { label: t("rpt.ln_rate"), value: l.rateBp !== null ? percent(l.rateBp / 10_000, 2) : null, sub: l.reference ? referenceName(l.reference) : null },
-        // only a payment with a figure opens: "Kertalyhennys" and a dash are words
-        { label: t("rpt.ln_payment"), ...payment(l), ...(l.payment.cents !== null ? { door: "loan.payment" as const } : {}) },
-        { label: t("rpt.ln_interest12"), value: l.interest.cents !== null ? money(l.interest.cents, false) : null, door: "loan.interest" },
+        { label: t("rpt.ln_payment"), ...payment(l) },
+        { label: t("rpt.ln_interest12"), value: l.interest.cents !== null ? money(l.interest.cents, false) : null },
         { label: t("rpt.ln_last_due"), value: lastPayment(l) },
       ];
   if (belowWhole(l.part)) figures.push({ label: t("rpt.ln_your_share"), value: percent((l.part.to - l.part.from) / l.part.of) });
@@ -143,7 +123,7 @@ function Loan({ l, limitCents, at }: { l: LoanRow; limitCents: number | null; at
       </div>
       <dl className="loan-figures">
         {figures.map((f) => (
-          <LoanFigure key={f.label} {...f} loan={l} at={at} />
+          <LoanFigure key={f.label} {...f} />
         ))}
       </dl>
       {moves.length > 0 && <p className="loan-scenario">{moves.join(" ")}</p>}
@@ -263,11 +243,10 @@ function Loans({ ctx }: SectionProps) {
   const p = r.payments;
   // only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
   const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? DASH : p.bullets > 0 ? t("rpt.ln_no_payments") : money(0, false);
-  const at: At = { scope: ctx.scope, day: r.day };
-  const items: [label: string, value: string, sub?: string, figure?: LoanFigureId][] = [
-    [t("rpt.ln_total"), money(r.total.cents, false), undefined, "loans.total"],
-    [t("rpt.ln_interest12"), r.interestKnown ? money(r.interest.cents, false) : DASH, undefined, r.interestKnown ? "loans.interest" : undefined],
-    [t("rpt.ln_payments_month"), monthly, undefined, p.counted > 0 ? "loans.payments" : undefined],
+  const items: [label: string, value: string, sub?: string][] = [
+    [t("rpt.ln_total"), money(r.total.cents, false)],
+    [t("rpt.ln_interest12"), r.interestKnown ? money(r.interest.cents, false) : DASH],
+    [t("rpt.ln_payments_month"), monthly],
     ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false), accountsLessDebt().sub] as [string, string, string]]),
   ];
   const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
@@ -276,10 +255,10 @@ function Loans({ ctx }: SectionProps) {
   return (
     <ReportPanel id={section.id} title={section.title}>
       <div className="kv">
-        {items.map(([label, value, sub, figure]) => (
+        {items.map(([label, value, sub]) => (
           <div key={label}>
             <div className="k">{label}</div>
-            <div className="v">{figure ? door(at, figure, label, value, <Figure text={value} size="m" />) : <Figure text={value} size="m" />}</div>
+            <div className="v"><Figure text={value} size="m" /></div>
             {sub && <div className="loans-tile-sub">{sub}</div>}
           </div>
         ))}
@@ -316,7 +295,7 @@ function Loans({ ctx }: SectionProps) {
       {r.path.tops[0]! > 0 && <hr className="qc-rule" />}
       <ul className="loan-list">
         {r.loans.map((l) => (
-          <Loan key={l.id} l={l} limitCents={limitOf(l)} at={at} />
+          <Loan key={l.id} l={l} limitCents={limitOf(l)} />
         ))}
       </ul>
     </ReportPanel>

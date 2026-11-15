@@ -43,9 +43,7 @@ const withAccounts = (data: unknown, accounts: object[]): ReportContext => ({ ..
 /** The rows of Saldot: label and figure of each, in order. */
 const rowsOf = (out: string) => [...out.matchAll(/<dt class="st-name holding-label">([^<]*)<\/dt><dd class="st-num">([^<]*)<\/dd>/g)].map((m) => `${m[1]} ${m[2]}`);
 /** The figures of a loan row: label and value of each, in order. */
-const figuresOf = (out: string) => [...out.matchAll(/<div><dt>([^<]*)<\/dt><dd[^>]*>(?:<button[^>]*>)?([^<]*)/g)].map((m) => `${m[1]} ${m[2]}`);
-/** A figure of a loan that opens its calculation: the door's name says so, and names the loan and the figure. */
-const doorFigure = (label: string, value: string, name = "Kodin laina") => `<dt>${label}</dt><dd><button type="button" class="why-door why-fig" aria-haspopup="dialog" aria-label="Näytä laskelma: ${name}, ${label.toLowerCase()} ${value}">${value}</button>`;
+const figuresOf = (out: string) => [...out.matchAll(/<div><dt>([^<]*)<\/dt><dd[^>]*>([^<]*)/g)].map((m) => `${m[1]} ${m[2]}`);
 /** A connected card with 1 240 € used. */
 const card = (over: Partial<LoanRow> = {}) =>
   row({ id: "account:c1", name: "Esimerkkikortti Gold", lender: null, kind: "card", accountType: "credit_card", balance: { cents: 124_000, unknown: "repayment" }, rateBp: null, reference: null, repayment: null, payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "repayment" }, interest: { cents: null, unknown: "rate" }, payoff: { date: null, unknown: "repayment", never: false }, ...over });
@@ -71,11 +69,11 @@ describe("Raportit: Lainat", () => {
 
   it("a payment without an interval is told without one, and never with the word null", () => {
     const out = html(loans, context(report([row({ payment: { cents: 20_000, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "interval" } })])));
-    expect(out).toContain(`${doorFigure("Maksu", "200,00 €")}</dd>`);
+    expect(out).toContain(figure("Maksu", "200,00 €"));
     expect(out).not.toContain("null");
     // the interest and the amortisation of the payment are values with a label of their own, not a clause
     const parts = '<dl class="loan-parts"><div><dt>Korko</dt><dd>325,00 €</dd></div><div><dt>Lyhennys</dt><dd>675,00 €</dd></div></dl>';
-    expect(html(loans, context(report([row()])))).toContain(`1 000,00 €/kk</button>${parts}</dd>`);
+    expect(html(loans, context(report([row()])))).toContain(`1 000,00 €/kk${parts}</dd>`);
     expect(html(loans, context(report([row()])))).not.toMatch(/korkoa 325|lyhennystä/);
   });
 
@@ -90,7 +88,7 @@ describe("Raportit: Lainat", () => {
 
   it("tells the day of a balance no plan moved forward, and a balance dated ahead, in the words of the form", () => {
     const kept = row({ balance: { cents: 124_000, unknown: "repayment" }, balanceDate: "2026-03-01" });
-    expect(html(loans, context(report([kept])))).toContain(`${doorFigure("Velkaa", "1 240,00 €")}<small>jäljellä 1.3.</small></dd>`);
+    expect(html(loans, context(report([kept])))).toContain(`<dt>Velkaa</dt><dd>1 240,00 €<small>jäljellä 1.3.</small></dd>`);
     const ahead = report([row()], { total: { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } });
     expect(html(loans, context(ahead))).toContain("Velan summasta puuttuu yksi laina, jonka jäljellä oleva summa on kirjattu tulevalle päivälle.");
   });

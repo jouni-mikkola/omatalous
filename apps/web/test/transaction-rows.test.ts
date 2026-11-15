@@ -131,17 +131,16 @@ describe("the amount cell of a row", () => {
 });
 
 describe("the part of a joint account's row", () => {
-  it("is the row's plain figure, with its basis in the opened detail and the bank's amount under it", () => {
+  it("is the row's plain figure, with the part in the opened detail and the bank's amount under it", () => {
     for (const show of [phone, wide]) {
       const html = show(row({ amountCents: -60_000, partCents: -30_000 }));
       expect(figures(html, "tx-amount")).toEqual([-30_000]);
-      expect(html).not.toContain("why-door");
       expect(html).toContain('<span class="tx-part">koko summa −600,00');
-      expect(list(row({ amountCents: -60_000, partCents: -30_000 }), true)).toContain('class="why-door');
+      expect(list(row({ amountCents: -60_000, partCents: -30_000 }), true)).toContain("<span>Osuutesi: ");
     }
   });
 
-  it("near misses: a part equal to the amount is the whole row, a row the server gives no part shows the bank's amount, a part of nothing is 0 and opens nothing", () => {
+  it("near misses: a part equal to the amount is the whole row, a row the server gives no part shows the bank's amount, a part of nothing is 0", () => {
     for (const show of [phone, wide]) {
       for (const t of [row({ amountCents: 20_000, partCents: 20_000 }), row({ amountCents: 20_000 })]) {
         expect(figures(show(t), "tx-amount")).toEqual([20_000]);
@@ -149,7 +148,6 @@ describe("the part of a joint account's row", () => {
       }
       const none = show(row({ amountCents: 20_000, partCents: 0 }));
       expect(figures(none, "tx-amount")).toEqual([0]);
-      expect(none).not.toContain("why-door");
       expect(none).toContain("koko summa +200,00");
     }
   });

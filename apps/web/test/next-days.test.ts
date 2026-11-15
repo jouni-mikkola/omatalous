@@ -59,8 +59,7 @@ describe("the line under the heading, by what the window waits for", () => {
     const waited = ahead({ to: "2026-11-05", days: 24, payday: { ...behind, next: "2026-11-06" } }, []);
     expect(windowLine(waited)).toBe("Palkkapäivään asti, pe 6.11. Palkka ei ole vielä tullut. Sen piti tulla pe 9.10.");
     expect(paymentsCaption(waited)).toBe("Maksut ennen palkkapäivää");
-    // the pay the window waits for carries its sum for the door to its basis, where "≈" says what "noin" says here
-    expect(incoming(waited).map((l) => ({ ...l, sum: plain(l.sum ?? ""), payday: plain(l.payday ?? "") }))).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000, estimate: true, sum: "noin 3 000 €", payday: "3 000 €" }]);
+    expect(incoming(waited).map((l) => ({ ...l, sum: plain(l.sum ?? "") }))).toEqual([{ day: "9.10.", name: "Esimerkki Oy", note: null, merchant: "Esimerkki Oy", cents: 300_000, estimate: true, sum: "noin 3 000 €" }]);
     // the next pay is another salary's and it is today: the window is today alone, and no day gone by is named as its end
     const today = ahead({ to: "2026-10-12", days: 0, payday: { ...behind, next: "2026-10-12" } }, []);
     expect(windowLine(today)).toBe("Palkkapäivään asti, ma 12.10. Palkka ei ole vielä tullut. Sen piti tulla pe 9.10.");

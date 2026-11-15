@@ -58,9 +58,6 @@ const BILL_WHOLE = [
   "analysis/money-in.ts",
   "analysis/one-offs.ts",
   "analysis/statement-explain.ts",
-  // name the figure "expected.spend" only
-  "explain/explain.ts",
-  "explain/types.ts",
   "reports/year-over-year.ts",
 ];
 

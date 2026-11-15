@@ -19,7 +19,6 @@ import type { Meta } from "../types.ts";
 import { eyebrow, figureOf, isPerson, leftText, nameOf, NEW_SITTING, openItems, questionOf, readableText, type ReviewAnswer, type ReviewItem, type Sitting, sittingView, withFetch } from "./review-items.ts";
 import { ChoiceButton, Choices } from "./ReviewChoices.tsx";
 import "../styles/review.css";
-import "../styles/why.css";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
@@ -161,9 +160,9 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
           <span className="review-name">{name}</span>
         </MarkCell>
       </div>
-      {/* the figure opens its rows: the name is the figure as seen plus a hidden action (the name must hold the visible text) */}
+      {/* the figure shows all its rows: the name is the figure as seen plus a hidden action (the name must hold the visible text) */}
       {!figure.text ? null : own.length > NEWEST_ROWS ? (
-        <button className="why-fig review-figure" type="button" aria-expanded={all} onClick={() => setAll(!all)}>
+        <button className="review-toggle review-figure" type="button" aria-expanded={all} onClick={() => setAll(!all)}>
           {value}
           <span className="sr-only"> {all ? t("set.rv.hide_rows", { name }) : t("set.rv.show_rows", { name })}</span>
         </button>

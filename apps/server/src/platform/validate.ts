@@ -107,16 +107,6 @@ export function parseNameText(text: string, max: number): string {
   return name;
 }
 
-/** A loan as a figure names it: a saved loan's UUID, or `account:` and the id of a connected account (at most 200 characters, no space or comma). */
-const LOAN_REF = /^(?:[0-9a-f-]{36}|account:[^\s,]{1,200})$/;
-
-/** The loan of a figure of one loan, or a 400. Absent stays absent. */
-export function parseLoanRef(value: unknown): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string" || !LOAN_REF.test(value)) throw UserError.of("check.loan");
-  return value;
-}
-
 /**
  * A JSON object with only the listed keys. Unknown keys are refused rather
  * than ignored, so a typo or a probe never silently "succeeds".

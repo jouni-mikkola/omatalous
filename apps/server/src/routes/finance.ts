@@ -3,13 +3,12 @@ import { accountDigits, ACCOUNT_TYPES, type AccountType, cashAhead, type Dashboa
 import { Hono } from "hono";
 import { parseScope, proposalsFor, requestInputs, sharedInView, usesWithTraces } from "../services/analysis.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
-import { parseLoanRef, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
+import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
 import { categoriesIn, kindLabelsIn } from "../services/category-names.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
 import { memoOn } from "../services/context-memo.ts";
 import { dashboardOf } from "../services/dashboard-memo.ts";
-import { explainFigure, isExplained, MAX_ACCOUNTS } from "../services/explain.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
 import { reconcileOf, withProof } from "../services/reconcile.ts";
 import { renewalOf } from "../services/consent-round.ts";
@@ -175,16 +174,6 @@ export function financeRoutes(s: Services) {
     const only = parseReportIds(c.req.query("reports"));
     // a bill the member marked as no recurring bill is in no list and no sum of what is coming
     return c.json(memoOn(all, "reports", [range, balances, inputs, lang, only], () => buildReports({ ctx: withoutWrongBills(all, inputs.marks), range, balances, inputs, lang }, only)));
-  });
-
-  // "Miksi?": the rows of one figure and why each counts so; the figure's own access, no names in the answer
-  app.get("/explain", async (c) => {
-    const figure = c.req.query("figure") ?? "";
-    if (!isExplained(figure)) throw new UserError("Tuntematon raportti.");
-    const ids = c.req.query("accounts");
-    const accountIds = ids ? ids.split(",", MAX_ACCOUNTS + 1) : undefined;
-    if (accountIds && (accountIds.length > MAX_ACCOUNTS || accountIds.some((id) => !id))) throw new UserError("Tuntematon raportti.");
-    return c.json(await explainFigure(s, c.get("user").id, { figure, scope: parseScope(c.req.query("scope")), range: parseRange(c, s.today()), accountIds, category: c.req.query("category"), rowId: c.req.query("row"), loanId: parseLoanRef(c.req.query("loan")) }));
   });
 
   app.get("/recurring", async (c) => {
