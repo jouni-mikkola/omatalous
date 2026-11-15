@@ -47,6 +47,8 @@ write_check_frag() {
     printf '"update_available":%s,"latest_version":"%s","release_notes":%s,"checked_at":"%s"' "$avail" "$ver" "$(json_str "$REL_NOTES")" "$(now_iso)" >"$OPS/check.frag"
     say_log "Latest release: $ver, running: ${cur:-?}."
   else
+    # no latest_version here: this frag replaces the whole file, and the app drops the version of an earlier release check
+    # when an answer comes without one (mergeState), so a source answer is never judged by a release number
     ref=refs/remotes/origin/$(pol_get BRANCH)
     [[ $CHECK_MODE != private ]] || ref=$(private_ref) || ref=refs/remotes/private/none
     while IFS= read -r line; do

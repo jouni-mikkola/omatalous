@@ -58,6 +58,8 @@ t_source_remote_types() {
 }
 # inject ANCHOR_REGEX TEXT: TEXT after the first line of the seed's compose file that matches
 inject() { awk -v re="$1" -v add="$2" '{print} $0 ~ re && !d {print add; d=1}' "$W/seed/docker-compose.yml" >"$W/seed/dc.new" && mv "$W/seed/dc.new" "$W/seed/docker-compose.yml"; }
+# the compose file has a log limit of its own on banking: a case that tries another one replaces it, a second key would only make the file unreadable
+swap_logging() { awk '$0 == "    logging:" && !d {d=1; skip=1; next} skip && /^      / {next} {skip=0; print}' "$W/seed/docker-compose.yml" >"$W/seed/dc.new" && mv "$W/seed/dc.new" "$W/seed/docker-compose.yml" && inject '^  banking:$' "$1"; }
 # policy_case NAME CMD...: a fresh seed at the first commit, CMD changes it, one source update must be refused
 policy_case() {
   local name=$1; shift
@@ -85,8 +87,8 @@ t_source_compose_policy() {
   policy_case "other image" sed -i 's#image: caddy:2#image: evil/caddy:2#' "$W/seed/docker-compose.yml"
   policy_case "other service" inject '^services:$' "  extra:\n    image: caddy:2"
   policy_case "extra capability-free key (devices)" inject '^  banking:$' "    devices: [/dev/sda:/dev/sda]"
-  policy_case "a logging driver that sends the log elsewhere" inject '^  banking:$' '    logging:\n      driver: syslog\n      options:\n        syslog-address: tcp://127.0.0.1:514'
-  policy_case "a logging option beyond the size and the file count" inject '^  banking:$' '    logging:\n      driver: local\n      options:\n        max-size: 10m\n        compress: "false"'
+  policy_case "a logging driver that sends the log elsewhere" swap_logging '    logging:\n      driver: syslog\n      options:\n        syslog-address: tcp://127.0.0.1:514'
+  policy_case "a logging option beyond the size and the file count" swap_logging '    logging:\n      driver: local\n      options:\n        max-size: 10m\n        compress: "false"'
   policy_case "a compose.yaml next to it" bash -c "printf 'services: {}\n' >'$W/seed/compose.yaml'"
   policy_case "an override file" bash -c "printf 'services: {}\n' >'$W/seed/docker-compose.override.yml'"
   local i h; h=$(printf %064d 0)
@@ -98,7 +100,6 @@ t_real_compose_passes() { # as it is, and with Caddy pinned to a 2.X.Y release, 
   local i; for i in 2 2.11.7 "2.11.7@sha256:$(printf %064d 0)"; do sed -i "s#image: caddy.*#image: caddy:$i#" "$W/seed/docker-compose.yml"; src_commit
     check "source: the project's own docker-compose.yml passes the policy check with Caddy at $i" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/lib/ops-git.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep 'image: caddy:$i\$' >/dev/null && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
   done
-  inject '^  banking:$' '    logging:\n      driver: local\n      options:\n        max-size: 10m\n        max-file: "3"'; src_commit
   check "source: the local log driver with a size and a file count passes the policy check" bash -c "cd '$CL' && export PATH='$S/bin:/usr/bin:/bin' && mkdir -p ops/run && source <(sed -n '/^COMPOSE_JQ=/,/^}/p' scripts/lib/ops-git.sh) && OPS=ops && git fetch -q origin && git show origin/main:docker-compose.yml | grep 'driver: local' >/dev/null && compose_policy_ok origin/main || { echo \"\$POLICY_MSG\"; exit 1; }"
 }
 make_signers() {
