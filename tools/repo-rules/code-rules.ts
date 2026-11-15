@@ -5,6 +5,7 @@
 import { builtinModules } from "node:module";
 import ts from "typescript6";
 import { describe, expect, it } from "vitest";
+import { directCategorizeUses } from "./categorize.ts";
 import { type Finding, expectNoFindings, importsOf, lineIn, lineOf, literals, MIGHT_HOLD_SQL, parse, plainString, readText, repoFiles, SQL_START, sourceFiles, specifiersOf, walk } from "./lib.ts";
 
 const SELF = "tools/repo-rules/code-rules.ts";
@@ -321,17 +322,14 @@ describe("repo rules: one owner for pairing (docs/MONEY_FLOWS.md)", () => {
 });
 
 describe("repo rules: one way to categorize a row", () => {
-  it("rule 51: `categorize(` is called only in categorize-direction.ts, which reads a user's rule by its direction", () => {
+  it("rule 51: `categorize` is reached only in categorize-direction.ts, which reads a user's rule by its direction: no call, property access or whole namespace of core hands it on", () => {
     const OWNERS = new Set(["packages/core/src/categorize.ts", "packages/core/src/categorize-direction.ts"]);
     const files = sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/");
     expect(files.length).toBeGreaterThan(100);
     const found: Finding[] = [];
     for (const file of files) {
-      if (OWNERS.has(file) || !readText(file).includes("categorize")) continue;
-      const sf = parse(file);
-      walk(sf, (n) => {
-        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "categorize") found.push({ file, line: lineOf(sf, n), why: "calls categorize directly: a user's rule of spending would read money in" });
-      });
+      if (OWNERS.has(file) || !/categorize|@banking\/core/.test(readText(file))) continue;
+      for (const { line, why } of directCategorizeUses(parse(file))) found.push({ file, line, why: `${why}: a user's rule of spending would read money in` });
     }
     expectNoFindings("one way to categorize", found, "call categorizeInDirection (categorize-direction.ts), which every row's category goes through.");
   });

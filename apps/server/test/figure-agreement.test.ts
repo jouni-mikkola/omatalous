@@ -137,8 +137,8 @@ const PAGES: readonly Concept[] = [
     months: "running",
     readers: {
       "MonthBars dashed line: overview.usualSpendCents": (s) => s.runDash.overview.usualSpendCents,
-      // the table's typical month holds a debt paid from savings, which the first page's line leaves out, so the two agree where there is none
-      "SpendingMonths (Rahankäyttö) typical total: typicalCents": (s) => (s.window.spendingMonths.fromSavingsCents === 0 ? s.window.spendingMonths.typicalCents : undefined),
+      // the typical month on the base of the first page's Menot (a debt paid from savings left out), the level the dashed line is drawn at, so a household that pays a debt from savings is read too
+      "SpendingMonths (Rahankäyttö) typical total: typicalFlowCents": (s) => s.window.spendingMonths.typicalFlowCents,
     },
   },
 ];

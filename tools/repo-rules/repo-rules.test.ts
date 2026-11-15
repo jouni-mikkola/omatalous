@@ -55,8 +55,8 @@
  *   rule 48  a class a component writes is styled by a sheet its page loads   sheets-rules.ts (detector: sheets.ts)
  *   rule 49  two rows are paired by amount only in pairing.ts   code-rules.ts
  *   rule 50  every control of the web app has an accessible name   names-rules.ts (detector: names.ts)
- *   rule 51  a row is categorized through categorizeInDirection   code-rules.ts
- *   rule 52  a figure of the registry has its scope, additive and one function, and every figure word of MONEY_FLOWS.md is in it   figures-rules.ts
+ *   rule 51  a row is categorized through categorizeInDirection   code-rules.ts (detector: categorize.ts)
+ *   rule 52  a figure of the registry has its scope, additive and one function, and every figure word of MONEY_FLOWS.md is in it and each entry has its row there   figures-rules.ts
  *   rule 53  a part and a whole are read through one typed pair, not as paymentCents and wholeCents   figures-rules.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.

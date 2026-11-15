@@ -719,6 +719,15 @@ describe("the user's own rule behind a row's category", () => {
       expect(ownRuleOf(tx("PRISMA", 4000), "home", both)?.id).toBe(5);
     });
 
+    it("names the rule of income, not an earlier rule of spending that the built-in rules would also keep for the row", () => {
+      const bonus = compileRules([
+        { id: 6, field: "merchant", pattern: "Prisma", category: "home", priority: 5 },
+        { id: 7, field: "description", pattern: "kampanjapalkkio", category: "sales", priority: 10 },
+      ]);
+      const row = tx("PRISMA", 4000, { description: "kampanjapalkkio" });
+      expect(ownRuleOf(row, "sales", bonus)?.id).toBe(7);
+    });
+
     it("names none when the rule of spending was passed by and nothing else of the user's takes the row", () => {
       expect(ownRuleOf(tx("ESIMERKKI KLINIKKA", 5000, { description: "viesti" }), "health", both)).toBeNull();
     });
