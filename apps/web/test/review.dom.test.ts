@@ -89,8 +89,7 @@ describe("Tarkistettavat", () => {
     expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina", "Älä muistuta tästä enää"]);
     fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
     // the form is the one of the loan the item names, not another saved loan
-    expect(await screen.findByDisplayValue("Asuntolaina", {}, T)).toBeTruthy();
-    expect(screen.queryByDisplayValue("Toinen laina")).toBeNull();
+    expect((await screen.findByLabelText("Nimi", {}, T) as HTMLInputElement).value).toBe("Asuntolaina");
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-7")).toBe(true), T);
   });
