@@ -11,7 +11,7 @@ const ROW = "#laskut-taulukko table.sub-table tbody tr:not(.rt-detail):not(.rt-g
 for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale: 200 }, { width: 1440, scale: 100 }]) {
   test(`${width} px, text at ${scale} %: the dates of the rows start at one x, the days of the bars are apart and no control is within 12 px of the screen edge`, async ({ browser }) => {
     const phone = width < 600;
-    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, isMobile: phone, hasTouch: phone });
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, bypassCSP: true, isMobile: phone, hasTouch: phone });
     const page = await context.newPage();
     const seen = watch(page);
     await page.goto("/#/bills");

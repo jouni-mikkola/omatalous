@@ -20,19 +20,29 @@ function draw(current: QuestionId, open: QuestionId[] = ALL, period = "6m") {
 const links = (nav: HTMLElement) => within(nav).getAllByRole("link").map((a) => ({ name: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current") }));
 
 describe("Raportit: the frame", () => {
-  it("lists the three questions, each linking to its first report and keeping the period", () => {
+  it("lists the three questions, each linking to its first report and keeping the period; the open one with several reports is marked and links nowhere", () => {
     draw("menot");
-    expect(links(screen.getByRole("navigation", { name: "Raportit" }))).toEqual([
-      { name: "Rahankäyttö", href: "#/reports?q=menot&period=6m", current: "true" },
+    const rail = screen.getByRole("navigation", { name: "Raportit" });
+    expect(links(rail)).toEqual([
       { name: "Rahat ja velat", href: "#/reports?q=saldot&period=6m", current: null },
       { name: "Yhteiset menot", href: "#/reports?q=yhteiset&period=6m", current: null },
     ]);
+    expect(rail.querySelector("[aria-current]")?.textContent).toBe("Rahankäyttö");
+    expect(rail.querySelector("[aria-current]")?.tagName).toBe("SPAN");
   });
 
-  it("a question that holds the open report is marked and still links to its first report, the one of its name", () => {
+  it("the question that holds the open report is marked while another report of it is open, and the first report of its name is in the row under it", () => {
     draw("kiinteat");
-    const [spending] = links(screen.getByRole("navigation", { name: "Raportit" }));
-    expect(spending).toEqual({ name: "Rahankäyttö", href: "#/reports?q=menot&period=6m", current: "true" });
+    const rail = screen.getByRole("navigation", { name: "Raportit" });
+    expect(rail.querySelector("[aria-current]")?.textContent).toBe("Rahankäyttö");
+    expect(links(screen.getByRole("navigation", { name: "Rahankäyttö" }))[0]).toEqual({ name: "Rahankäyttö", href: "#/reports?q=menot&period=6m", current: null });
+  });
+
+  it("no address is linked twice on the page", () => {
+    draw("tulot");
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+    expect(hrefs.length).toBeGreaterThan(2);
+    expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
   it("shows the reports of the open question under its name, the open one marked, each with the period", () => {
