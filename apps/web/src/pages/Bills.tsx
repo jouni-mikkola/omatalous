@@ -120,8 +120,12 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
-        {dashboard.data && <NextPayment data={dashboard.data} />}
-        {dashboard.data && <BeforePayday data={dashboard.data} />}
+        {dashboard.data && (
+          <div className="bills-answer">
+            <NextPayment data={dashboard.data} />
+            <BeforePayday data={dashboard.data} />
+          </div>
+        )}
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}
       {items.length > 0 ? (
