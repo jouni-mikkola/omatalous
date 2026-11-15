@@ -1135,6 +1135,7 @@
     }
    ]
   },
+  "totalKnown": true,
   "interest": {
    "cents": 0,
    "unknown": [
@@ -1153,29 +1154,7 @@
    "unknown": 1,
    "bullets": 0
   },
-  "path": {
-   "days": [
-    "2026-10-09"
-   ],
-   "balanceCents": [
-    0
-   ],
-   "interestCents": [
-    0
-   ],
-   "tops": [
-    0
-   ],
-   "payoff": null,
-   "moves": [],
-   "left": [
-    {
-     "id": "account:demo-5fdaaadecf9ef83ca8f355d3",
-     "name": "Nordea Gold (esimerkki)",
-     "unknown": "rate"
-    }
-   ]
-  },
+  "path": null,
   "maybeTwice": [],
   "overdraftTwice": []
  },

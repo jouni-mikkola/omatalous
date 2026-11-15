@@ -1105,6 +1105,7 @@
     }
    ]
   },
+  "totalKnown": true,
   "interest": {
    "cents": 0,
    "unknown": [
@@ -1123,29 +1124,7 @@
    "unknown": 1,
    "bullets": 0
   },
-  "path": {
-   "days": [
-    "2026-10-15"
-   ],
-   "balanceCents": [
-    0
-   ],
-   "interestCents": [
-    0
-   ],
-   "tops": [
-    0
-   ],
-   "payoff": null,
-   "moves": [],
-   "left": [
-    {
-     "id": "account:card",
-     "name": "Nordea Gold",
-     "unknown": "rate"
-    }
-   ]
-  },
+  "path": null,
   "maybeTwice": [],
   "overdraftTwice": []
  },
