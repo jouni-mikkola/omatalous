@@ -73,13 +73,17 @@ describe("Suodata by keyboard", () => {
     expect(document.activeElement).toBe(options[0]);
   });
 
-  it("sets the account on Enter and on a click", () => {
+  it("sets the account on Enter", () => {
     const { set, accounts } = openFilter();
     const options = accounts.getAllByRole("option");
     options[0]!.focus();
     fireEvent.keyDown(options[0]!, { key: "Enter" });
     expect(set).toHaveBeenCalledWith({ accountId: "a1" });
-    fireEvent.click(options[1]!);
+  });
+
+  it("sets the account on a click", () => {
+    const { set, accounts } = openFilter();
+    fireEvent.click(accounts.getAllByRole("option")[1]!);
     expect(set).toHaveBeenCalledWith({ accountId: "a2" });
   });
 

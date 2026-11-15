@@ -34,6 +34,6 @@ describe("Tapahtumat totals", () => {
   });
 
   it("name the payee the list is filtered to", () => {
-    expect(render("merchant=Ruokakauppa&from=2026-09-01")).toMatch(/Ruokakauppa, /);
+    expect(render("merchant=Ruokakauppa&from=2026-09-01")).toMatch(/Ruokakauppa\. /);
   });
 });

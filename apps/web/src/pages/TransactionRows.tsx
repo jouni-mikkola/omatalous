@@ -289,6 +289,9 @@ function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents"> | undefine
  */
 export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, payeeSums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; /** Each payee's sums for the grouping by payee; a payee with none has its count only. */ payeeSums?: Map<string, PayeeSum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
   const days = byDay(items);
+  // the page's bar has no note of its own, so a mark none of the rows has says so under the empty list
+  const chosen = rowChips().find((c) => c.key === view.chip);
+  const noMatch = !!chosen && !items.some(chosen.test);
   const accountClass = severalAccounts && oneBankLogo(items.map((t) => rowProps(t).look)) ? "tx-account tx-one-bank" : "tx-account";
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
@@ -362,6 +365,7 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
       view={view}
       onView={onView}
     />
+    {noMatch && <p className="tx-no-match">{msg("table.no_match")}</p>}
     {(whole ? items.length > LONG_LIST_ROWS : !!allRows && items.length > 0) && (
       <p className="rt-csv">
         <Button variant="link" onClick={() => void saveAll()}>

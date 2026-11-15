@@ -79,6 +79,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-sums { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-16); min-width: 0; }
 .tx-totals-count { font-weight: var(--w-strong); font-variant-numeric: tabular-nums; }
 .tx-totals-span { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.tx-no-match { margin: var(--sp-8) 0 0; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .tx-totals-kv { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: 0; }
 .tx-totals-kv > div { display: flex; align-items: baseline; gap: var(--sp-4); }
 .tx-totals-kv dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
