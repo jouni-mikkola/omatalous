@@ -124,6 +124,18 @@ describe("money a user pays into the joint account", () => {
     expect(applyUse([alone], [his, joint], parts([his, WHOLE], [joint, WHOLE]))[0]).toMatchObject({ category: "p2p_in", isTransfer: false });
   });
 
+  it("a payer account that is no account of the household keeps her name a namesake's, where the account counts whole", () => {
+    const herAccount = account("hers", ELISA, { iban: "FI0000000000000007" });
+    const whole = parts([his, WHOLE], [herAccount, WHOLE], [joint, WHOLE]);
+    // her own account in the view: a transfer; no payer account at all: a transfer; another account: a namesake's money
+    expect(applyUse([deposit({ counterpartyIban: herAccount.iban })], [his, herAccount, joint], whole)[0]).toMatchObject({ category: "transfer", isTransfer: true });
+    expect(applyUse([deposit({ counterpartyIban: null })], [his, herAccount, joint], whole)[0]).toMatchObject({ category: "transfer", isTransfer: true });
+    const namesake = [deposit({ counterpartyIban: "FI0000000000000099" })];
+    const seen = applyUse(namesake, [his, herAccount, joint], whole);
+    expect(seen).toBe(namesake);
+    expect(seen[0]).toMatchObject({ category: "p2p_in", isTransfer: false });
+  });
+
   it("a row the user set stays, where the account counts whole", () => {
     const set = deposit({ category: "income", categorySource: "user" });
     expect(applyUse([set], [his, joint], parts([his, WHOLE], [joint, WHOLE]))[0]).toMatchObject({ category: "income", isTransfer: false });

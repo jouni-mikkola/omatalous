@@ -61,7 +61,7 @@ describe("a payment to a declared account of the household that arrives a fee sh
     expect(pairOf([out("o", "2025-04-01", 8150, B_IBAN), into("i", "b", "2025-04-07", 8000)], "o")).toBeUndefined();
   });
 
-  it("takes the closest amount, then the closest day, then the first row, whatever the order of the rows", () => {
+  it("takes the closest amount, then the closest day, then the lowest id, whatever the order of the rows", () => {
     const near = into("near", "b", "2025-04-04", 8100);
     const exactDay = into("far", "b", "2025-04-01", 8000);
     for (const rows of [[near, exactDay], [exactDay, near]]) expect(pairOf([out("o", "2025-04-01", 8150, B_IBAN), ...rows], "o")).toBe("near");
@@ -71,6 +71,16 @@ describe("a payment to a declared account of the household that arrives a fee sh
     expect(pairOf([out("o", "2025-04-01", 8150, B_IBAN), first, second], "o")).toBe("first");
     // the row that was not taken pairs with nothing
     expect(transferAllocations([out("o", "2025-04-01", 8150, B_IBAN), first, second], accounts).allocations.has("second")).toBe(false);
+  });
+
+  it("gives the one money in to the payment that is closest to it, whatever the order of the rows", () => {
+    // 81.50 and 80.10 both name the account and compete for one 80.00: 80.10 is the closer, so 81.50 is left alone
+    const [far, near, arrived] = [out("far", "2025-04-01", 8150, B_IBAN), out("near", "2025-04-01", 8010, B_IBAN), into("i", "b", "2025-04-02", 8000)];
+    for (const rows of [[far, near, arrived], [near, far, arrived], [arrived, far, near], [arrived, near, far]]) {
+      const { allocations } = transferAllocations(rows, accounts);
+      expect(allocations.get("near")?.[0]?.partnerId).toBe("i");
+      expect(allocations.has("far")).toBe(false);
+    }
   });
 
   it("does not take money in that an exact pair has", () => {

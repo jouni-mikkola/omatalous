@@ -21,9 +21,9 @@ export interface RowSpec {
   cents: number;
   counterparty?: string | null;
   description?: string | null;
-  /** The payee's account on money out. Money in carries none, as no bank gives the payer's account (see `ibanIn`). */
+  /** The payee's account on money out. Money in carries none unless `ibanIn` is set: a bank often gives no payer account. */
   iban?: string | null;
-  /** A bank that does send the payer's account on money in. Off by default: real rows have none. */
+  /** The bank sends the payer's account on this money in (`iban` is then the payer's). */
   ibanIn?: boolean;
   mcc?: string | null;
   account?: string;

@@ -131,7 +131,7 @@ export function peopleRules(
 
   const unreferenced = (input: CategorizeInput, holders: Holders): boolean => {
     const out = input.amountCents < 0;
-    // a row built without the field (the kit's, the demo's) says nothing. Money out without the payee's account is no credit transfer; a bank gives the payer's account on money in never
+    // a row built without the field (the kit's, the demo's) says nothing. Money out without the payee's account is no credit transfer; money in is not asked for the payer's account, which a bank often gives none of
     if (input.reference === undefined || input.reference?.trim() || (out && !input.counterpartyIban?.trim()) || !noCard(input)) return false;
     if (input.steadyPayee || isUserName(input.counterparty ?? "", holders)) return false;
     const message = fold(input.description ?? "");
@@ -142,10 +142,12 @@ export function peopleRules(
   const rule = (category: string, direction: "in" | "out", test: CompiledRule["test"]): CompiledRule => ({ category, income: false, field: "any", direction, test });
   // Money to or from the user's own name with no row on another of the user's accounts to pair with: the other account is
   // not connected. It is the user's money moved, either way, unless the row names a purpose (an invoice of a sole
-  // trader, rent, a refund) or is a company named after its owner. Money in that names an account which is no
-  // account of the household may be a namesake's: the payer question asks. The bank gives no payer account on money in.
+  // trader, rent, a refund) or is a company named after its owner. It is saved like the bank's own code for such a
+  // move (`CODE_RULES`), so Tulos adds up and the data quality card sees it (`own_unconnected`); a pair found later
+  // makes it a transfer. Money in that names an account which is no account of the household may be a namesake's: the
+  // payer question asks. A bank often gives no payer account on money in.
   const ownName: CompiledRule = {
-    category: "transfer",
+    category: "savings",
     income: false,
     field: "any",
     test: (_text, input, holders) => {

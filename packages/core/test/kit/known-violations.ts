@@ -74,8 +74,7 @@ const sameIn = (households: readonly string[], view: readonly string[], by: read
 
 const [TWO, THREE, FOUR] = [WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
 
-/** The monthly transfer between two members: 8000 cents arrive, 8150 leave, and the money in names no payer account. The fee is the difference. */
-const WITH_FEE = 150;
+/** The monthly transfer between two members: 8000 cents arrive and 8150 leave, and the money in names no payer account. */
 const ARRIVES = 8000;
 /** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what the accounts outside the pool counted. */
 const bridge = (residual: number, moved: number, outside: string) => `residual ${residual}, moved ${moved}, outside the pool ${outside}`;
@@ -85,12 +84,8 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
     finding: "member-transfer-with-fee-has-no-pair",
     check: "I1.bridge",
-    reason: "The monthly transfer between two members arrives 150 cents short of what left. Where both legs are in the view they pair by the account the payment names, and the household view counts neither as income, but the 150 cents of the fee are real money out of the pool that no flow takes: the payment is a transfer whole. In the view of the member it arrives to the sender's leg is outside the rows, the bank names no payer account on the money in, and it counts as income.",
+    reason: "The monthly transfer between two members arrives 150 cents short of what left. Where both legs are in the view they pair by the account the payment names, the pair counts what arrived and the 150 cents are the payer's bank fee, spending under Pankkikulut, so the household view closes. In the view of the member it arrives to the sender's leg is outside the rows and the bank names no payer account on the money in, so it counts as income. The app cannot prove it is a transfer, and asks (the memberMoney question of Tarkistettavat) instead of deciding.",
     lines: [
-      { line: bridge(WITH_FEE, 0, saved(101240)), where: views(TWO, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, saved(121240)), where: views(THREE, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, saved(141240)), where: views(FOUR, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, saved(61240)), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
       { line: bridge(ARRIVES, 1000, "none"), where: sameIn([TWO, FOUR], ["m2"], LAST_MONTH) },
       { line: bridge(ARRIVES, 3250, "none"), where: views(THREE, ["m2"], LAST_MONTH) },
       { line: bridge(ARRIVES, 1000, saved(20_000)), where: sameIn([TWO, FOUR], ["m2"], FULL_MONTHS) },

@@ -62,7 +62,7 @@ const found = (check: Check, h: GeneratedHousehold, v: HouseholdView, line: stri
 export function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const pool = poolOf(v.balances);
   const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)).filter((i): i is string => i !== null));
-  // A bank gives no payer account on money in, so the rows carry none. The bridge names the legs of a move by both
+  // A bank often gives no payer account on money in, so the generated rows carry none. The bridge names the legs of a move by both
   // accounts, and the label of the generator knows the other leg, so the leg's counterparty is read from it here.
   const ibanOf = new Map(h.accounts.map((a) => [a.id, a.iban]));
   const accountOf = new Map(h.txs.map((t) => [t.id, t.accountId]));
@@ -123,7 +123,9 @@ export function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[]
 
 /**
  * I1c: a row the generator labelled an own transfer is a transfer in every view, the household's and each member's:
- * never income, a refund or spending. Both legs are on one member's accounts, so each view holds the pair.
+ * never income, a refund or spending. Both legs are on one member's accounts, so a member's view holds the pair. The
+ * joint account's in-leg has no member (`member: null`) and is the other member's own view's too; each view that
+ * holds a labelled leg is judged on that leg alone.
  */
 export function ownTransfers(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const read = v.ctx.txs.filter((t) => h.truth.get(t.id)?.kind === "own_transfer" && t.amountCents !== 0 && !t.isTransfer);

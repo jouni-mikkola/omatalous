@@ -17,7 +17,7 @@
 import { getCategory } from "./categories.ts";
 import { dayNumber } from "./dates.ts";
 import { normalizeIban } from "./iban.ts";
-import { closedWeekday, feeShortPartner } from "./pairing-fee.ts";
+import { closedWeekday, feeShortPairs } from "./pairing-fee.ts";
 import { isUnplacedCardPurchase, namesHolder } from "./pairing-proof.ts";
 import type { TraceRow } from "./money-trace-lots.ts";
 import type { Account, Transaction } from "./types.ts";
@@ -226,11 +226,8 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
 
     // A payment that names an account of the household and arrived a fee short: the IBAN is the proof, the fee stays the sender's
     const accountOfIban = new Map(accounts.flatMap((a): [string, string][] => (normalizeIban(a.iban) && a.type !== "credit_card" && !loanIds.has(a.id) ? [[normalizeIban(a.iban)!, a.id]] : [])));
-    for (const out of candidates) {
-      const landing = accountOfIban.get(normalizeIban(out.counterpartyIban) ?? "");
-      const best = out.amountCents < 0 && landing !== undefined && !allocations.has(out.id) ? feeShortPartner(out, landing, candidates, used, normalizeIban(accountById.get(out.accountId)?.iban), PAIR_WINDOW_DAYS) : undefined;
-      if (best) link(out, best);
-    }
+    const open = candidates.filter((t) => !allocations.has(t.id));
+    for (const [out, best] of feeShortPairs(open, accountOfIban, (id) => normalizeIban(accountById.get(id)?.iban), used, PAIR_WINDOW_DAYS)) link(out, best);
   }
   return { transfers, allocations };
 }

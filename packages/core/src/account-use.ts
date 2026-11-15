@@ -188,7 +188,9 @@ export const billCents = (t: Pick<Transaction, "amountCents" | "wholeCents">): n
  * has it. A share of 0 drops the row. A row without one is cut by the part, on the same account too.
  *
  * Where every account counts whole, one change is left: money in from a declared holder of an account whose line lists
- * more than one holder is a transfer there too, as it is where the account is cut.
+ * more than one holder is a transfer there too, as it is where the account is cut, unless the row names a payer account
+ * that is none of the accounts given: the holder's name is then a namesake's. Only a view of one member's accounts runs
+ * this (`applyUse` is not run in the household view, where each leg of a movement is paired instead).
  */
 export function applyUse<T extends Transaction>(
   txs: readonly T[],
@@ -207,7 +209,13 @@ export function applyUse<T extends Transaction>(
   // A part of an account that is not in the view cuts nothing in it. What a holder of an account that lists several
   // pays into it is still the household's own money, whole or cut: the line of the bank declares the holder.
   if (accounts.every((a) => isWhole(partIn(a.id)))) {
-    const held = (t: T) => t.amountCents > 0 && t.categorySource !== "user" && holdersIn(accountById.get(t.accountId)?.holder).length > 1 && fromHolder(t);
+    // money in that names a payer account which is no account of the household is a namesake's, whatever the name says
+    const ibans = new Set(accounts.flatMap((a) => normalizeIban(a.iban) ?? []));
+    const strangerAccount = (t: T) => {
+      const iban = normalizeIban(t.counterpartyIban);
+      return iban !== null && !ibans.has(iban);
+    };
+    const held = (t: T) => t.amountCents > 0 && t.categorySource !== "user" && holdersIn(accountById.get(t.accountId)?.holder).length > 1 && fromHolder(t) && !strangerAccount(t);
     return txs.some(held) ? txs.map((t) => (held(t) ? transfer(t) : t)) : txs;
   }
   const gone = (accountId: string) => isNone(partIn(accountId));

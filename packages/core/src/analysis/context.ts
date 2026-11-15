@@ -12,13 +12,15 @@ import type { Account, IsoDate, Transaction } from "../types.ts";
 import { hasPayeeForm } from "../wording.ts";
 import { loanPaymentAccounts } from "../loan-payment.ts";
 import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsOf } from "./flows.ts";
+import { shortFees } from "./fee-short.ts";
 import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
 
 /**
  * A transaction with everything the reports need precomputed once. `category` is the stored one, except on a refund
- * whose payments are in another category: it counts in theirs (`moneyIn`).
+ * whose payments are in another category: it counts in theirs (`moneyIn`), and on a payment that arrived short, whose
+ * fee is in `fees` while the row stays a transfer (`shortFees`).
  */
 export interface AnalysisTx extends Transaction {
   day: number;
@@ -164,13 +166,18 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const paying = loanPaymentAccounts(accounts, transactions, today);
   yield;
   const loanIds = new Set(accounts.filter((a) => a.type === "loan" && !paying.ids.has(a.id)).map((a) => a.id));
+  // a payment that arrived short has its bank fee in the view as spending, under Pankkikulut, where both legs are in it
+  const fees = shortFees(transactions, accounts);
+  yield;
   const txs = transactions
     .map((t) => loanPaymentRow(t, paying))
     .map((t): AnalysisTx => {
-      const category = getCategory(t.category);
-      const flows = flowsOf(t, savingsIds, loanIds);
+      const fee = fees.get(t.id) ?? 0;
+      const category = getCategory(fee > 0 ? "fees" : t.category);
+      const flows = flowsOf(t, savingsIds, loanIds, fee);
       return {
         ...t,
+        ...(fee > 0 ? { category: category.id } : {}),
         day: dayNumber(t.bookingDate),
         month: monthIndex(t.bookingDate),
         weekday: weekdayOf(t.bookingDate),

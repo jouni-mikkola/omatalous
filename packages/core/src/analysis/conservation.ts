@@ -17,7 +17,8 @@ import { type Flows, leftOf } from "./flows.ts";
  *   account of the view's pool. It is never income or spending in any view, a member's top-up of a joint account
  *   included, and the rows alone decide it, never the engine's own reading. Each leg names the other's IBAN. Two legs of one day that name each other, one in and one out, are matched, and the
  *   line takes the matched amount: the smaller of the bank's two amounts, at the part the view counts of each leg. A fee
- *   or any other difference between the legs is not matched and stays in the residual. A leg whose other account is
+ *   or any other difference between the legs is not matched: where the payment arrived short and both legs are in the view,
+ *   the fee is the payer's spending in Tulos (`shortFees`), so the line and Tulos agree; any other difference stays in the residual. A leg whose other account is
  *   not in the view has nothing to match: the pool changes by all of it and so does the line. A leg whose other account
  *   is in the view but whose other leg is not there stays in the residual.
  * What is left, `residualCents`, is a cent that Tulos counted twice or not at all.
