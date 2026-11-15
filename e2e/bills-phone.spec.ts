@@ -7,8 +7,9 @@ import { overflow, watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const ROW = "#laskut-taulukko table.sub-table tbody tr:not(.rt-detail):not(.rt-group):not(.rt-spacer)";
 
-for (const width of [390, 1440]) {
-  test(`${width} px: the dates of the rows start at one x and no control is within 12 px of the screen edge`, async ({ browser }) => {
+// the phone is also read with the text at 200 %, the browser's default size doubled, which the rem tokens follow
+for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale: 200 }, { width: 1440, scale: 100 }]) {
+  test(`${width} px, text at ${scale} %: the dates of the rows start at one x, the days of the bars are apart and no control is within 12 px of the screen edge`, async ({ browser }) => {
     const phone = width < 600;
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, isMobile: phone, hasTouch: phone });
     const page = await context.newPage();
@@ -16,6 +17,28 @@ for (const width of [390, 1440]) {
     await page.goto("/#/bills");
     const rows = page.locator(ROW);
     await expect(rows.first()).toBeVisible();
+    if (scale !== 100) {
+      await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
+      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((14 * scale) / 100, 1);
+    }
+    // the day labels under the bars stand apart and inside the page, and the next payment names its day
+    await expect(page.locator(".pb-axis")).toBeAttached();
+    const labels = await page.locator(".pb-axis li").evaluateAll((els) =>
+      els.flatMap((li) => {
+        if (!li.textContent?.trim()) return [];
+        const range = document.createRange();
+        range.selectNodeContents(li);
+        const box = range.getBoundingClientRect();
+        return [{ text: li.textContent.trim(), left: box.left, right: box.right }];
+      }),
+    );
+    expect(labels.length, "day labels").toBeGreaterThan(1);
+    for (let i = 1; i < labels.length; i++) expect(labels[i]!.left, `${labels[i - 1]!.text} and ${labels[i]!.text} overlap`).toBeGreaterThanOrEqual(labels[i - 1]!.right - 0.5);
+    for (const l of labels) {
+      expect(l.left, `${l.text}: left edge`).toBeGreaterThanOrEqual(0);
+      expect(l.right, `${l.text}: right edge`).toBeLessThanOrEqual(width);
+    }
+    await expect(page.locator(".bills-next-day"), "the day of the next payment").toHaveText(/^\p{L}{2} \d{1,2}\.\d{1,2}\./u);
     if (process.env.E2E_SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(process.env.E2E_SHOTS, `bills-${width}.png`) });

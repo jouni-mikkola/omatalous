@@ -19,7 +19,7 @@ export async function openAll(page: Page): Promise<void> {
 }
 
 /** Opens the first row's drill of each table that has them, so the buttons of an opened row (a menu, a statement link) are measured too. */
-async function openDrills(page: Page): Promise<void> {
+export async function openDrills(page: Page): Promise<void> {
   const tables = page.locator("main table:has(button.rt-drill)");
   for (let i = 0; i < (await tables.count()); i++) {
     const button = tables.nth(i).locator('button.rt-drill[aria-expanded="false"]:visible').first();
@@ -41,8 +41,9 @@ interface Found {
  * box or the reach of its ::after) and is 24 px wide, a mark drawn in a chart's svg is 24 px each way, and a checkbox or
  * radio the user can see is 24 px wide and high. The targets also keep apart: no two boxes overlap, and the point at the
  * middle of a target hits that target and not its neighbour. A link inside a sentence is exempt, as WCAG 2.5.8 has it: it
- * is inline and its parent flows text around it, with words right beside the link (a flex or grid parent, or a link that
- * is a box of its own such as an inline-block or inline-flex one, is a target whatever words stand in the same cell).
+ * is inline, its parent flows text around it, a word stands against it on its own line and the parent holds four words or
+ * more (a flex or grid parent, a link that is a box of its own such as an inline-block or inline-flex one, and a
+ * label with its value are targets whatever words stand in the same cell).
  */
 async function touchTargets(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -68,9 +69,17 @@ async function touchTargets(page: Page): Promise<string[]> {
     const sentence = (el: Element) => {
       const parent = el.parentElement;
       if (!parent || getComputedStyle(el).display !== "inline" || /flex|grid/.test(getComputedStyle(parent).display)) return false;
-      const words = (node: Node | null) => (node?.nodeType === 3 ? (node.textContent ?? "").trim().length : 0);
-      // words stand against the link in its line, and the parent holds a sentence's worth of them
-      return (words(el.previousSibling) > 0 || words(el.nextSibling) > 0) && Array.from(parent.childNodes).reduce((n, node) => n + words(node), 0) >= 8;
+      const count = (node: Node | null) => (node?.nodeType === 3 ? (node.textContent ?? "").split(/\s+/).filter(Boolean).length : 0);
+      // a text node beside the link has a word on the link's own line, not only above or below it
+      const lines = Array.from(el.getClientRects());
+      const sameLine = (node: Node | null) => {
+        if (count(node) === 0) return false;
+        const range = document.createRange();
+        range.selectNodeContents(node!);
+        return Array.from(range.getClientRects()).some((w) => lines.some((l) => Math.min(w.bottom, l.bottom) - Math.max(w.top, l.top) > Math.min(w.height, l.height) / 2));
+      };
+      // words flow around the link in its line, and the parent holds four or more of them: a label and its value ("Tili: Nordea <a>") is a field, whose link is a target
+      return (sameLine(el.previousSibling) || sameLine(el.nextSibling)) && Array.from(parent.childNodes).reduce((n, node) => n + count(node), 0) >= 4;
     };
     for (const el of Array.from(document.querySelectorAll<HTMLElement | SVGElement>("a[href], button, summary, [role=button], input[type=checkbox], input[type=radio]"))) {
       const r = el.getBoundingClientRect();
