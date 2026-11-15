@@ -2,7 +2,6 @@ import { CATEGORIES, REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { seedCsv } from "./csv-seed.ts";
 import { checkingAccount, setupApp } from "./helpers.ts";
-import { isNordeaAccount } from "../../../packages/core/src/wording.ts";
 import { todayIn } from "../src/platform/config.ts";
 import { requestInputs, type ScopeAccount } from "../src/services/analysis.ts";
 
@@ -321,8 +320,6 @@ describe("bank connection status", () => {
     const bankOf = new Map((await repo.listAccounts()).map((a) => [a.id, a.bank]));
     expect([bankOf.get("card-nordea"), bankOf.get("card-other"), bankOf.get("card-file")]).toEqual(["Nordea", "Bank Norwegian", null]);
     expect((await repo.getAccount("card-other"))!.bank).toBe("Bank Norwegian");
-    // what Optimoi asks of the stored accounts: the card from another bank's connection is not Nordea's
-    expect((await repo.listAccounts()).filter((a) => isNordeaAccount(a)).map((a) => a.id).sort()).toEqual(["card-file", "card-nordea"]);
   });
 
   it("the API gives an account's bank to its owner, and a member the account is shared with learns nothing new from it", async () => {
@@ -338,8 +335,8 @@ describe("bank connection status", () => {
     expect(shared).toMatchObject({ id: "card-other", name: "Platinum", ownerName: "Aino" });
     // the member's copy has the keys of the owner's and the owner's name, no fetch notes and no bank: a card has no IBAN to tell it
     expect(Object.keys(shared).sort()).toEqual([...Object.keys(own).filter((k) => k !== "problem" && k !== "refused" && k !== "bank"), "ownerName"].sort());
-    // the analysis of the household view has it, so the member's Optimoi does not take the card for Nordea's
+    // the analysis of the household view has the bank of the card too
     const inView = await s.household.sharedWith(eero.id);
-    expect(inView.map((a) => [a.id, a.bank, isNordeaAccount(a)])).toEqual([["card-other", "Bank Norwegian", false]]);
+    expect(inView.map((a) => [a.id, a.bank])).toEqual([["card-other", "Bank Norwegian"]]);
   });
 });

@@ -135,7 +135,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | Report sections that go | `pages/reports/sections/` Pivot, FixedVariable, Drift, SpendingChange, SpendingTable, Food, Buffer, Cashflow, LongForecast, Income, FixedCosts, PriceChange, DataQuality, CategoryGoals | Folded into Kuukausi (Income is its income row), Tulossa or Tarkistettavat, or answer nothing. ThisMonth, Balances, Loans, Borrowed, Settlement, TaxYear and YearOverYear stay, in Kuukausi or Lisää. FixedCosts came back on 12.11.2026 as one table, without its price changes, overlapping services and ended payments |
 | Core reports that go | `packages/core/src/reports/index.ts` ids `pivot`, `fixedVariable`, `drift`, `spendingChange`, `spendingTable`, `food`, `buffer`, `cashflow`, `longForecast`, `priceChange`, `dataQuality`, `categoryGoals`, `conclusions`, `summary`, `fixedCosts` | 24 ids become 9: `thisMonth`, `categories`, `upcoming`, `income`, `yearOverYear`, `balances`, `loans`, `taxYear`, and `housing`, which feeds a Tarkistettavat question. `fixedCosts` came back on 12.11.2026 for Raportit > Kiinteät menot, so there are 10 |
 | Unopened views counter | `pages/settings/UnopenedViews.tsx`, `services/view-opens.ts` | This rework is the deletion it waited for |
-| Remote access in 9 files | `pages/settings/RemoteAccess*.tsx`, `remote-access-*.ts` | One form |
+| Remote access in 9 files | `pages/settings/RemoteAccess*.tsx`, `remote-access-*.ts` | Gone in 1.4.0 |
 | Six settings tabs | `pages/settings/*Page.tsx` | Kept: the three tabs tried in their place were taken back on 12.11.2026 |
 | Loan read from a picture or PDF | core `loan-intake/`, `pages/settings/LoanIntake.tsx`, tesseract.js, pdfjs-dist | A loan is a short form |
 
@@ -276,7 +276,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - after: V2
 ### V6 Asetukset in three tabs (taken back: the six tabs of 1.0.0 stay)
 - why: six tabs and 54 files for a household that sets a bank and a payday.
-- done when: Pankit ja tilit, Kotitalous and Palvelin; remote access is one form; `e2e/settings.spec.ts` passes at 390 and 1440 px.
+- done when: Pankit ja tilit, Kotitalous and Palvelin; `e2e/settings.spec.ts` passes at 390 and 1440 px.
 - locks: settings
 - after: D5, D7
 ### V7 First run and empty states
