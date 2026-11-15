@@ -74,21 +74,52 @@ const sameIn = (households: readonly string[], view: readonly string[], by: read
 
 const [TWO, THREE, FOUR] = [WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
 
-/** The residual of the monthly transfer between two members (8000 cents, fee 150): the fee, in the household view. */
+/** The monthly transfer between two members: 8000 cents arrive, 8150 leave, and the money in names no payer account. */
 const WITH_FEE = 150;
-/** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what savings accounts counted. */
-const bridge = (residual: number, moved: number, saved: number) => `residual ${residual}, moved ${moved}, outside the pool savings:saved ${saved}`;
+const ARRIVES = 8000;
+/** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what the accounts outside the pool counted. */
+const bridge = (residual: number, moved: number, outside: string) => `residual ${residual}, moved ${moved}, outside the pool ${outside}`;
+const saved = (cents: number) => `savings:saved ${cents}`;
+
+/** A member's top-up of a joint account whose holders are unnamed, in the view of each member: 45000 cents in from every other member. */
+const TOP_UP = 45_000;
+const unnamedJoint = (members: 2 | 3 | 4) => `generated:${members}:unknown:checking:connected:base:1`;
+const topUps = (members: 2 | 3 | 4): KnownLine[] => {
+  const household = unnamedJoint(members);
+  const seen = Array.from({ length: members }, (_, i) => `m${i + 1}`);
+  const cents = TOP_UP * (members - 1);
+  return [
+    { line: bridge(cents, -cents, "none"), where: views(household, seen, LAST_MONTH) },
+    { line: bridge(cents, -cents, saved(20_000)), where: views(household, seen, FULL_MONTHS) },
+  ];
+};
 
 export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
-    finding: "member-transfer-fee-left-in-residual",
+    finding: "member-transfer-with-fee-has-no-pair",
     check: "I1.bridge",
-    reason: "The monthly transfer between two members has a fee of 150 cents. The fee is real money out of the pool, which Tulos does not count: no flow takes it, so it stays in the residual of the household view. The change that names the fee as a line of its own fixes it.",
+    reason: "The monthly transfer between two members arrives 150 cents short of what left, and the bank names no payer account on the money in, so no leg pairs by amount or by account. The money in counts as income, in the household view and in the view of the member it arrives to, and the fee is real money out of the pool that no flow takes. A pairing that accepts legs of different amounts, or the change that names the fee as a line of its own, fixes it.",
     lines: [
-      { line: bridge(WITH_FEE, 0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, 61240), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
+      { line: bridge(WITH_FEE + ARRIVES, 0, saved(101240)), where: views(TWO, ["household"], FULL_MONTHS) },
+      { line: bridge(WITH_FEE + ARRIVES, 0, saved(121240)), where: views(THREE, ["household"], FULL_MONTHS) },
+      { line: bridge(WITH_FEE + ARRIVES, 0, saved(141240)), where: views(FOUR, ["household"], FULL_MONTHS) },
+      { line: bridge(WITH_FEE + ARRIVES, 0, saved(61240)), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
+      { line: bridge(ARRIVES, 1000, "none"), where: sameIn([TWO, FOUR], ["m2"], LAST_MONTH) },
+      { line: bridge(ARRIVES, 3250, "none"), where: views(THREE, ["m2"], LAST_MONTH) },
+      { line: bridge(ARRIVES, 1000, saved(20_000)), where: sameIn([TWO, FOUR], ["m2"], FULL_MONTHS) },
+      { line: bridge(ARRIVES, 3250, saved(20_000)), where: views(THREE, ["m2"], FULL_MONTHS) },
     ],
+  },
+  {
+    finding: "member-transfer-with-fee-counts-as-income",
+    check: "I1b.member-legs",
+    reason: "The money in of the same transfer has no pair, so the household view counts it as income.",
+    lines: [{ line: "15 legs (member_transfer) count as income", where: sameIn([TWO, THREE, FOUR], ["household"]) }],
+  },
+  {
+    finding: "member-top-up-of-unnamed-joint-account-counts-as-money-from-a-person",
+    check: "I1.bridge",
+    reason: "A member's top-up of a joint account whose holders the household has not named arrives with no payer account. The view of another member holds none of the top-up's other leg and the name on it is the same one a stranger can have, so the money in counts as money from a person while the rows say it moved between the household's accounts.",
+    lines: [...topUps(2), ...topUps(3), ...topUps(4)],
   },
 ];
