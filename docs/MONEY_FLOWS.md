@@ -135,7 +135,7 @@ back has rows only, every one signed and the last *Tulos*, and nothing is told a
 | Bank fees | spending ("Pankkikulut") | |
 | Pending card payment | counted, replaced by the booked row on the next fetch | your own category choice moves with it |
 | A bill paid from another account, or under a payee name typed by hand | the series' bill of that date is paid: it is no row of what is due, and the year of rare bills counts it as paid in its month. The paying row keeps its payee, category and account | the same payee and about the bill's sum, or the bill's payment reference, or the creditor's IBAN that the series' earlier rows carry; never the sum alone. See *Bills paid another way* |
-| Money between members in the *Koko talous* view | transfer | it stays in the household. In a member's own view a movement to or from an account the member has no part of is money between people, see *Joint accounts* |
+| Money between members | transfer, in every view | it stays in the household, in *Koko talous* and in a member's own view alike. A movement to or from an account no member connected is money between people, see *Joint accounts* |
 | Joint account connected by both | one copy in the *Koko talous* view, the viewer's own, whole. In a member's own view it is counted at the member's part | the copies are the same real account when the bank gives them one identity (its own hash, else the IBAN). See *Joint accounts* |
 
 ## How a row is read
@@ -920,10 +920,10 @@ view holds.
 - A view settles a bill only by the rows it holds: a bill another member paid from an account the viewer does not see
   stays due in the own view and is paid in *Koko talous*. Sums are compared as the bank booked them (`billCents`), so
   a bill the member's part of a joint account paid is settled by the bank's whole sum of the row.
-- Money a user pays into a joint account is a transfer: it pays for that user's part of what the account pays. Another
-  movement to or from an account of the household that the member has no part of is money between people (*Maksut
-  henkilöille*, *Maksut henkilöiltä*). A category set by hand is never changed, and two rows of one member that the
-  member's own categorisation left unpaired are never paired here.
+- Money a user pays into a joint account is a transfer: it pays for that user's part of what the account pays. A
+  movement between two members' accounts is a transfer in every view, and a movement to or from an account that no
+  member connected is money between people (*Maksut henkilöille*, *Maksut henkilöiltä*). A category set by hand is
+  never changed, and two rows of one member that the member's own categorisation left unpaired are never paired here.
 - A debt follows who uses the account behind it (`householdDebts`). A connected card or loan account has its own part,
   a saved loan linked to one has that account's, and a saved loan with no account has the part of the account its
   payments leave. A saved loan stays whole in the list of debts and each of its cent figures is cut once, at the end

@@ -51,7 +51,7 @@ function menotOf(d: ReturnType<typeof dashboardOf>) {
   // every other field of the overview, one added later too, is compared
   const { categories, months, ...rest } = d.overview;
   return {
-    overview: { ...rest, months: months.map((m) => ({ ...m, fromSavingsCents: 0 })), categoriesTotalCents: categories.totalCents },
+    overview: { ...rest, months: months.map((m) => ({ ...m, fromSavingsCents: 0 })), categories: { ...categories, rows: [], otherCents: 0, fromSavingsCents: 0 } },
     pace: d.pace,
     goal: d.goal,
     nytPace: d.nyt?.pace,

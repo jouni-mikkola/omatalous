@@ -9,6 +9,8 @@ const BASELINE = "tools/repo-rules/limits-baseline.txt";
 const LEVELS_BASELINE = "tools/repo-rules/levels-baseline.txt";
 const WORDS_BASELINE = "tools/repo-rules/figure-words-baseline.txt";
 const PART_WHOLE_BASELINE = "tools/repo-rules/part-whole-baseline.txt";
+/** The one file that reads the pair of a row or a loan payment and hands it on as a typed `Shared`. */
+const PART_WHOLE_OWNER = "packages/core/src/shared.ts";
 const MONEY_FLOWS = "docs/MONEY_FLOWS.md";
 /** Where a limit must come from thresholds.ts. */
 const LIMIT_DIRS = ["packages/core/src/analysis/", "packages/core/src/reports/"];
@@ -69,6 +71,7 @@ describe("repo rules: the one definition of a figure (ADR 0020)", () => {
     const baseline = readText(PART_WHOLE_BASELINE).split("\n").filter(Boolean);
     const reads: { key: string; line: number }[] = [];
     for (const file of sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/")) {
+      if (file === PART_WHOLE_OWNER) continue;
       for (const { name, line } of partWholeReads(parse(file))) reads.push({ key: `${file}  ${name}`, line });
     }
     const found: Finding[] = partWholeProblems(reads, baseline).map((p) => ({
@@ -76,6 +79,6 @@ describe("repo rules: the one definition of a figure (ADR 0020)", () => {
       line: p.line,
       why: p.why,
     }));
-    expectNoFindings("part and whole", found, "read the part of the figure and leave the whole to the code that names the loan or the row (ADR 0016). Do not raise a count in the baseline.");
+    expectNoFindings("part and whole", found, "read the part of the figure and leave the whole to the code that names the loan or the row (ADR 0016): `sharedRow`, `paymentOf` and `sumShared` of shared.ts read the pair. Do not raise a count in the baseline.");
   });
 });
