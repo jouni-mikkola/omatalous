@@ -90,6 +90,8 @@ describe("every transaction lands in exactly one flow or is a transfer", () => {
       if (loans.has(t.accountId)) expect(signed, `${t.id} loan account row`).toBe(0);
       else if (t.isTransfer) expect(signed, `${t.id} transfer`).toBe(savings.has(t.accountId) ? -t.amountCents : 0);
       else if (kind === "transfer" && t.category !== "credit_draw") expect(signed, `${t.id} neutral`).toBe(0);
+      // a debt paid from a savings account was counted when the money left the pool for it
+      else if (kind === "debt" && savings.has(t.accountId)) expect(signed, `${t.id} debt paid from savings`).toBe(0);
       else expect(signed, `${t.id} ${t.category} flows add up to the amount`).toBe(t.amountCents);
       // a flow is never booked on the wrong side of zero for its kind, except refunds and withdrawals
       if (!t.isTransfer && !loans.has(t.accountId) && kind === "income") expect(f.consumption + f.debt + f.saved).toBe(0);

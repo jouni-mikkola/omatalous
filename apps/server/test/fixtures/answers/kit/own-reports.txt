@@ -2695,7 +2695,12 @@
    276614
   ],
   "totalCents": 276614,
+  "fromSavings": [
+   0
+  ],
+  "fromSavingsCents": 0,
   "typicalCents": null,
+  "typicalFlowCents": null,
   "typicalMonths": 0,
   "categoryMonths": 0,
   "cardGap": false,

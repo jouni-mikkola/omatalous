@@ -15,11 +15,12 @@ const percentOf = (part: number, whole: number) => `${whole > 0 ? Math.round(Mat
  * Menot kategorioittain: the month's six largest categories so far (`overview.categories`), each with its sum, a bar
  * and its usual month as a mark on the bar, and the rest as one line. The bars share one scale, the largest of the sums
  * and the usual months, so a mark past the end of a bar is a category that has room left. A row opens the category's
- * rows of the month. Every sum is a field of the answer: only the lengths of the bars are worked out here.
+ * rows of the month. Every sum is a field of the answer: only the lengths of the bars are worked out here. The sums are
+ * the categories of Raportit, which hold a debt paid from savings that the Menot tile leaves out: it is its own line.
  */
 export function Categories({ data }: { data: Data }) {
   const { overview, pace, nyt } = data;
-  const { rows, otherCents, otherCount, usualMonths } = overview.categories;
+  const { rows, otherCents, otherCount, usualMonths, fromSavingsCents } = overview.categories;
   if (rows.length === 0) return null;
   const scale = Math.max(...rows.map((r) => Math.max(r.cents, r.usualCents ?? 0)));
   const marked = rows.some((r) => r.usualCents !== null);
@@ -46,6 +47,7 @@ export function Categories({ data }: { data: Data }) {
       <p className="home-detail where-foot">
         {marked && <span>{t("home.categories_mark", { months: usualMonths })} </span>}
         {otherCount > 0 && <span className="num">{tn(otherCount, "home.nyt_other_one", "home.nyt_other_many")} {answerMoney(otherCents)}. </span>}
+        {fromSavingsCents !== 0 && <span className="num">{t("home.categories_from_savings", { sum: answerMoney(fromSavingsCents) })} </span>}
         <Button variant="link" href={reportHref("menot")}>{t("home.nyt_all_categories")}</Button>
       </p>
     </section>

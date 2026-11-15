@@ -1001,72 +1001,84 @@
     "month": "2025-11",
     "incomeCents": 352000,
     "spendCents": 322224,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2025-12",
     "incomeCents": 366300,
     "spendCents": 340685,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-01",
     "incomeCents": 352000,
     "spendCents": 395826,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-02",
     "incomeCents": 352000,
     "spendCents": 334876,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-03",
     "incomeCents": 352000,
     "spendCents": 298682,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-04",
     "incomeCents": 352000,
     "spendCents": 407585,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-05",
     "incomeCents": 352000,
     "spendCents": 309550,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-06",
     "incomeCents": 528000,
     "spendCents": 333982,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-07",
     "incomeCents": 352000,
     "spendCents": 293420,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-08",
     "incomeCents": 352000,
     "spendCents": 330876,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-09",
     "incomeCents": 352000,
     "spendCents": 293067,
+    "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-10",
     "incomeCents": 0,
     "spendCents": 276614,
+    "fromSavingsCents": 0,
     "complete": false
    }
   ],
@@ -1114,6 +1126,7 @@
    "otherCents": 13847,
    "otherCount": 4,
    "totalCents": 276614,
+   "fromSavingsCents": 0,
    "usualMonths": 11
   }
  },

@@ -559,15 +559,15 @@ describe("a bill paid another way settles only by the rows the view holds", () =
     expect(await insurance(aino, "household")).toEqual([]);
   });
 
-  it("the same payment, not booked yet: paid and waiting where the balance counts the joint account, no row where it does not", async () => {
+  it("the same payment, not booked yet: paid and waiting in both views, as both balances count the joint account", async () => {
     const { aino, s } = await household();
     await book(s, aino.id, "aino-own", bill);
     await book(s, aino.id, "joint", [raw("2026-10-08", -50, INSURANCE, { status: "pending" })]);
     // Koko talous counts both accounts: the joint account's balance still holds the money until the bank books the row
     expect(await insurance(aino, "household")).toMatchObject([{ date: "2026-10-15", cents: -5000, pending: true }]);
-    // the own view's balance is her own account's alone: the joint account's payment is in no figure of it
-    expect((await get(aino, "/api/dashboard")).ahead.balance).toMatchObject({ counts: "own" });
-    expect(await insurance(aino)).toEqual([]);
+    // the own view's balance counts her part of the joint account too, so its balance holds the money until the bank books the row
+    expect((await get(aino, "/api/dashboard")).ahead.balance).toMatchObject({ counts: "part" });
+    expect(await insurance(aino)).toMatchObject([{ date: "2026-10-15", pending: true }]);
   });
 });
 

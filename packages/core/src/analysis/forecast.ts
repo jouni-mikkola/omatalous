@@ -10,10 +10,10 @@ import { projectDates, type RecurringSeries } from "../recurring.ts";
 import { normalizeReference, PAID_EARLY_DAYS } from "../recurring-settled.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { ExpectedBill, IsoDate } from "../types.ts";
-import { earnedOf, earnedSelect } from "./counted.ts";
-import { type AnalysisContext, inDays, spendRows, standingOf } from "./context.ts";
+import { earnedOf, earnedSelect, flowSpendOf, flowSpendSelect } from "./counted.ts";
+import { type AnalysisContext, inDays, standingOf } from "./context.ts";
 import { accountsCoverage, monthSpan } from "./coverage.ts";
-import { coversCategories, expectedFor, expectedIncome, usualGap } from "./expected.ts";
+import { coversCategories, expectedFlowsFor, expectedIncome, usualGap } from "./expected.ts";
 import { paidCardBills } from "./usual.ts";
 
 export interface MonthPace {
@@ -40,7 +40,7 @@ export interface MonthPace {
     toToday: number;
   } | null;
   /**
-   * The expected month, day by day: at index d − 1 the expected spending on days 1 to d (`expectedFor`, the sum of the
+   * The expected month, day by day: at index d − 1 the expected spending on days 1 to d (`expectedFlowsFor`, the sum of the
    * categories' expected figures), with the lower and the upper quartile of the base months' totals moved to it as its
    * band. null under three complete months.
    */
@@ -70,13 +70,14 @@ export interface MonthPace {
 }
 
 /**
- * A month's cumulative spending on each of its days, of the rows the month table counts (`spendRows`):
- * a card statement puts a purchase on its own day and lowers the bill, so the curve ends at the month's Menot.
+ * A month's cumulative spending on each of its days, of the rows the month table counts (`spendRows`) and Tulos adds up
+ * (`flowSpendSelect`): a card statement puts a purchase on its own day and lowers the bill, so the curve ends at the
+ * month's Menot. A debt paid from a savings account is not in it, as it is not in the tile.
  */
 function spendingCurve(ctx: AnalysisContext, month: string): number[] {
   const first = dayNumber(`${month}-01`);
   const daily = new Array<number>(daysInMonth(month)).fill(0);
-  for (const t of spendRows(ctx, { fromDay: first, toDay: dayNumber(monthEnd(month)) })) daily[t.day - first]! += t.spend;
+  for (const t of flowSpendSelect(ctx, { fromDay: first, toDay: dayNumber(monthEnd(month)) }).counted) daily[t.day - first]! += flowSpendOf(t);
   let sum = 0;
   return daily.map((cents) => (sum += cents));
 }
@@ -91,13 +92,13 @@ function comparesWith(ctx: AnalysisContext, before: string, month: string): bool
   const days = (m: string) => ({ fromDay: dayNumber(`${m}-01`), toDay: dayNumber(monthEnd(m)) });
   if (!inDays(ctx, days(before)).length) return false;
   const shared = accountsCoverage(ctx).compare(monthSpan(before), monthSpan(month))?.shared;
-  if (!shared || [...spendRows(ctx, days(before)), ...spendRows(ctx, days(month))].some((t) => t.spend && !shared.has(t.accountId))) return false;
+  if (!shared || [...flowSpendSelect(ctx, days(before)).counted, ...flowSpendSelect(ctx, days(month)).counted].some((t) => !shared.has(t.accountId))) return false;
   return !paidCardBills(ctx, before) && !paidCardBills(ctx, month);
 }
 
 /**
  * What the month has cost so far, day by day, and what the month before had cost by the same day: both are sums of
- * the rows the month table counts (`spendRows`), nothing is estimated, so the figure and the month's Menot agree.
+ * the rows the month table counts and Tulos adds up (`flowSpendSelect`), nothing is estimated, so the figure and the month's Menot agree.
  */
 export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): MonthPace {
   const days = daysInMonth(month);
@@ -121,7 +122,7 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
 /** The expected month and the projection of the rest of this one (`MonthPace.expected`, `MonthPace.projection`). */
 function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, total: number): Pick<MonthPace, "expected" | "projection" | "cardGap"> {
   const days = daysInMonth(month);
-  const figure = expectedFor(ctx, month);
+  const figure = expectedFlowsFor(ctx, month);
   if (!figure) return { expected: null, projection: null, cardGap: usualGap(ctx, month) === "cards" };
   if (!coversCategories(figure)) return { expected: null, projection: wholeMonthProjection(figure, lastDay, total), cardGap: true };
   const curve: number[] = [];
@@ -149,7 +150,7 @@ function expectedPace(ctx: AnalysisContext, month: string, lastDay: number, tota
 }
 
 /** The rest of a running month from the base months' totals alone (`MonthPace.projection`): their quartile band of the whole month, never under what the month has cost. */
-function wholeMonthProjection(figure: NonNullable<ReturnType<typeof expectedFor>>, lastDay: number, total: number): MonthPace["projection"] {
+function wholeMonthProjection(figure: NonNullable<ReturnType<typeof expectedFlowsFor>>, lastDay: number, total: number): MonthPace["projection"] {
   const days = daysInMonth(figure.month);
   if (!lastDay || lastDay >= days) return null;
   const whole = figure.at();

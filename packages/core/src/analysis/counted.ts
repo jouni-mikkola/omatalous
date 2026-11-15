@@ -11,6 +11,13 @@ import type { DayRange } from "./period.ts";
 /** Cents a row adds to spending: consumption + debt, a refund below zero (`AnalysisTx.spend`). */
 export const spendOf = (t: Pick<AnalysisTx, "spend">): number => t.spend;
 
+/**
+ * Cents a row adds to the spending of the flows (`totalsOf`: consumption + debt), the figure of the bridge and of the Menot
+ * tile. It is `spendOf` but for a debt paid from a savings account, which Tulos counts once, as saved, and so has no
+ * flow here.
+ */
+export const flowSpendOf = (t: Pick<AnalysisTx, "flows">): number => t.flows.consumption + t.flows.debt;
+
 /** Cents a row adds to income (`Flows.income`). */
 export const incomeCentsOf = (t: Pick<AnalysisTx, "flows">): number => t.flows.income;
 
@@ -43,6 +50,12 @@ export function sumOf<T>(rows: readonly T[], cents: (t: T) => number): number {
 export function spendSelect(ctx: AnalysisContext, r: DayRange): { rows: AnalysisTx[]; counted: AnalysisTx[] } {
   const rows = spendRows(ctx, r);
   return { rows, counted: spendCounted(rows) };
+}
+
+/** The one select of the spending of the flows: the rows of `spendSelect` that add to it. */
+export function flowSpendSelect(ctx: AnalysisContext, r: DayRange): { rows: AnalysisTx[]; counted: AnalysisTx[] } {
+  const rows = spendRows(ctx, r);
+  return { rows, counted: rows.filter((t) => flowSpendOf(t) !== 0) };
 }
 
 /** The one select of an income figure. */

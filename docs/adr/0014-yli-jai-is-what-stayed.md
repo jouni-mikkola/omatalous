@@ -19,6 +19,8 @@ on an account that is not a loan, less the transfer rows (a pair cancels itself,
 half), less the money moved into savings accounts. A card account is in the sum: a card purchase is spending on the day
 it is made, so leaving cards out would break the sum by every card purchase.
 
+Tulos is the change of the pool: the checking accounts of the view, a joint account at the viewer's part (`poolOf`). A loan paid from a savings account is counted once, as *Säästöön* when the money leaves the pool. The payment from the savings account to the lender is not taken off Tulos again.
+
 A period that took more than its income is told by what covered the gap. Money has no label, so `coverOf` in
 `analysis/flows.ts` applies one order: the income first, then credit drawn in the period, then money taken out of
 savings, then the accounts and the connected cards. Credit goes before savings, so a month paid with both never shows

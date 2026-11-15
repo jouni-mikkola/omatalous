@@ -1,9 +1,9 @@
 /**
  * Decision: do I have enough on the account until the pay comes, and when to move money to it.
  *
- * The accounts whose balance the payday window counts, and the two kinds of money that leave them without being
- * spending: the bill of a connected card and a regular transfer to an account the window does not count. Both are
- * read from the transfer rows of the view and are a flow nowhere else.
+ * The two kinds of money that leave the pool (`pool.ts`) without being spending: the bill of a connected card and a
+ * regular transfer to an account the window does not count. Both are read from the transfer rows of the view and are a
+ * flow nowhere else.
  */
 import { billCents } from "../account-use.ts";
 import { payeeKey } from "../card-channel.ts";
@@ -32,31 +32,6 @@ const LATE_DAYS = 5;
 const STALE_DAYS = 62;
 /** The days between two monthly bills, a bill paid early or late included. Payments closer than this pay the card as it goes. */
 const STATEMENT_GAP_DAYS = { min: 21, max: 41 } as const;
-
-/** The accounts whose balance the window counts. */
-export interface Counted {
-  /**
-   * "all": every checking account in view. "own": the checking accounts the viewer uses alone, while a joint one in
-   * view is left out. "part": no checking account is the viewer's alone, so the joint ones, which the view holds at
-   * the viewer's part.
-   */
-  counts: "own" | "part" | "all";
-  accounts: readonly BalanceInput[];
-  ids: ReadonlySet<string>;
-}
-
-/**
- * Which accounts the window follows. A member's own view names the viewer's part of each account, already applied to
- * its balance and its rows; the household view names none, and every account is whole there. Null without a checking
- * account in view: then there is no balance to follow and the window lists what the whole view expects.
- */
-export function countedAccounts(balances: readonly BalanceInput[]): Counted | null {
-  const checking = balances.filter((b) => b.type === "checking" && (!b.part || b.part.to > b.part.from));
-  if (!checking.length) return null;
-  const alone = checking.filter((b) => !b.part || (b.part.from === 0 && b.part.to === b.part.of));
-  const accounts = alone.length ? alone : checking;
-  return { counts: !alone.length ? "part" : alone.length < checking.length ? "own" : "all", accounts, ids: new Set(accounts.map((b) => b.id)) };
-}
 
 /** Money that is expected to leave the counted accounts for another account of the household. */
 interface Move {

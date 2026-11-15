@@ -40,7 +40,10 @@ const report = (typical: boolean): Report => {
     complete: [true, true, true, true, true, false],
     totals,
     totalCents: totals.reduce((a, b) => a + b, 0),
+    fromSavings: MONTHS.map(() => 0),
+    fromSavingsCents: 0,
     typicalCents: 44800,
+    typicalFlowCents: 44800,
     typicalMonths: 5,
     categoryMonths: typical ? 3 : 1,
     cardGap: true,
@@ -73,6 +76,14 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     const table = screen.getByRole("table", { name: "Kategoriat" });
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä"]);
     expect(plain(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelector("tfoot")!.textContent)).toContain("448 €");
+  });
+
+  it("names the debt paid from savings, which the first page's Menot leave out, only when there is some", () => {
+    show(report(true));
+    expect(plain(document.body.textContent)).not.toContain("Säästöistä maksettu");
+    cleanup();
+    show({ ...report(true), fromSavings: [0, 0, 0, 0, 0, 460_00], fromSavingsCents: 460_00 });
+    expect(plain(document.body.textContent)).toContain("Säästöistä maksettu 460 €. Yhteenvedon Menot-luku ei sisällä sitä.");
   });
 
   it("without a card gap says nothing of cards and the footer has the average month", () => {

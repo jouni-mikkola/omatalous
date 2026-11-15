@@ -27,6 +27,18 @@ export const incomeOf = (cents: number): Flows => ({ ...ZERO, income: cents });
 
 export type FlowInput = Pick<Transaction, "accountId" | "amountCents" | "category" | "isTransfer">;
 
+/**
+ * A debt row paid from a savings account. The money of such a payment was counted as saved when it left the pool
+ * (`pool.ts`), so its flows are zero and Tulos counts it once. It is still spending (`spendCentsOf`).
+ */
+const isDebtFromSavings = (t: FlowInput, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string>): boolean =>
+  !loanAccountIds.has(t.accountId) && !t.isTransfer && savingsAccountIds.has(t.accountId) && getCategory(t.category).kind === "debt";
+
+/** Cents a row adds to spending (the `spend` of an analysed row): consumption + debt, and the whole payment of a debt paid from a savings account, whose flows are zero. */
+export function spendCentsOf(t: FlowInput, flows: Flows, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string>): number {
+  return isDebtFromSavings(t, savingsAccountIds, loanAccountIds) ? -t.amountCents : flows.consumption + flows.debt;
+}
+
 export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string> = new Set()): Flows {
   // a loan account's own rows (repayments received, interest booked) mirror payments already counted from checking
   if (loanAccountIds.has(t.accountId)) return ZERO;
@@ -35,6 +47,7 @@ export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, lo
     return savingsAccountIds.has(t.accountId) ? { ...ZERO, saved: t.amountCents } : ZERO;
   }
   const kind: CategoryKind = getCategory(t.category).kind;
+  if (isDebtFromSavings(t, savingsAccountIds, loanAccountIds)) return ZERO;
   switch (kind) {
     case "expense":
       return { ...ZERO, consumption: -t.amountCents };

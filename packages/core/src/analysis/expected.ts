@@ -21,6 +21,7 @@ import { CADENCES } from "../recurring-cadence.ts";
 import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, RANGE_HIGH, RANGE_LOW, SPARSE_SHARE } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
+import { flowSpendOf } from "./counted.ts";
 import { accountCovers } from "./coverage.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
 import { usualBase } from "./change-plan.ts";
@@ -235,11 +236,15 @@ function expectedOf(input: ExpectedInput): Expected {
 
 const cache = new WeakMap<AnalysisContext, Map<string, Expected | null>>();
 
-/** The figure of `month` read from `months`, the rows the month table counts (`spendRows`). */
-function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[]): Expected {
+/** A row of the spending of the flows (`flowSpendOf`): every row but a debt paid from a savings account, which Tulos counts once, as saved. */
+const inFlowSpend = (t: AnalysisTx): boolean => t.spend === 0 || flowSpendOf(t) !== 0;
+
+/** The figure of `month` read from `months`, the rows the month table counts (`spendRows`), or only those `keep` accepts (and the series that start in them). */
+function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[], keep?: (t: AnalysisTx) => boolean): Expected {
   // the one-offs are judged in the window of the month and its base, as the insights and the change report judge them
   const oneOffs = expectedOneOffs(ctx, [...months, month]);
-  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m), series: ctx.recurring, oneOffs, backfill: backfillOf(ctx) });
+  const rows = keep ? (m: string) => rowsOf(ctx, m).filter(keep) : (m: string) => rowsOf(ctx, m);
+  return expectedOf({ month, months, rows, series: keep ? seriesWhere(ctx, keep) : ctx.recurring, oneOffs, backfill: backfillOf(ctx) });
 }
 
 /**
@@ -270,15 +275,18 @@ function rowsOf(ctx: AnalysisContext, month: string): readonly AnalysisTx[] {
  * when the caller has judged them once for many parts; by default they are judged in the window of the month and its base.
  */
 export function expectedPart(ctx: AnalysisContext, month: string, months: readonly string[], keep: (t: AnalysisTx) => boolean, oneOffs?: ReadonlySet<string>): number {
+  const struck = oneOffs ?? expectedOneOffs(ctx, [...months, month]);
+  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m).filter(keep), series: seriesWhere(ctx, keep), oneOffs: struck, backfill: backfillOf(ctx) }).at().cents;
+}
+
+/** The series that belong to the part `keep` accepts: a series belongs to the part its first row is in. */
+function seriesWhere(ctx: AnalysisContext, keep: (t: AnalysisTx) => boolean): RecurringSeries[] {
   let byId = idCache.get(ctx);
   if (!byId) idCache.set(ctx, (byId = new Map(ctx.txs.map((t) => [t.id, t] as const))));
-  // a series belongs to the part its first row is in
-  const series = ctx.recurring.filter((s) => {
+  return ctx.recurring.filter((s) => {
     const first = byId!.get(s.transactionIds[0] ?? "");
     return first !== undefined && keep(first);
   });
-  const struck = oneOffs ?? expectedOneOffs(ctx, [...months, month]);
-  return expectedOf({ month, months, rows: (m) => rowsOf(ctx, m).filter(keep), series, oneOffs: struck, backfill: backfillOf(ctx) }).at().cents;
 }
 
 /** The ids of the rows of `months` that are one-offs by the level policy (ADR 0005): what the expected figure leaves out, wherever a page reads a level over months. */
@@ -292,12 +300,26 @@ export function expectedOneOffs(ctx: AnalysisContext, months: readonly string[])
  * `MIN_COMPARE_MONTHS` complete months. Cached per context and month.
  */
 export function expectedFor(ctx: AnalysisContext, month: string): Expected | null {
+  return figureOf(ctx, month, month);
+}
+
+/**
+ * `expectedFor` on the spending of the flows (`flowSpendOf`), the base of everything the first page shows under Menot: the
+ * pace and its usual, the spending goal. A debt paid from a savings account is spending in the categories, so `expectedFor`
+ * holds it, and Säästöön in Tulos, so Menot leave it out: the usual of Menot is read from the rows Menot are read from.
+ */
+export function expectedFlowsFor(ctx: AnalysisContext, month: string): Expected | null {
+  return figureOf(ctx, month, `flows:${month}`, inFlowSpend);
+}
+
+/** The figure of `month`, cached per context under `key` (a base reads different rows for the same month). */
+function figureOf(ctx: AnalysisContext, month: string, key: string, keep?: (t: AnalysisTx) => boolean): Expected | null {
   let byMonth = cache.get(ctx);
   if (!byMonth) cache.set(ctx, (byMonth = new Map()));
-  if (byMonth.has(month)) return byMonth.get(month)!;
+  if (byMonth.has(key)) return byMonth.get(key)!;
   const months = usualBase(ctx, month);
-  const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months), covered: coveredMonths(ctx, months) };
-  byMonth.set(month, found);
+  const found = months.length < MIN_COMPARE_MONTHS ? null : { ...expectedOver(ctx, month, months, keep), covered: coveredMonths(ctx, months) };
+  byMonth.set(key, found);
   return found;
 }
 
