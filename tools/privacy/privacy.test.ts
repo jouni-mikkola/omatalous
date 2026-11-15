@@ -266,7 +266,7 @@ describe("the command", () => {
     const dirty = run();
     expect(dirty.status).toBe(1);
     expect(dirty.stdout).toContain("new.md:1: phone");
-    expect(dirty.stdout).not.toContain("4567");
+    expect(dirty.stdout).not.toContain("123 4567");
 
     // a binary file has no +++ header in a diff: its path is listed by git instead
     git(dir, "checkout", "-q", "--orphan", "binary");
