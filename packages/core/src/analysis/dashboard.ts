@@ -127,9 +127,11 @@ export type DashboardAnswer = Omit<DashboardData, "holdings"> & {
 /**
  * Everything the month page shows (Yhteenveto). Why a past month differed is the spending change report's usual view.
  * `balances` and `inputs` are what the cached context does not hold: the
- * account balances and the user's marks and expected bills, read per request.
+ * account balances and the user's marks and expected bills, read per request. `proposals` are the member's own and feed
+ * the questions; `scopeProposals` are those of the view asked for (a joint loan's whole payment in the household's view)
+ * and feed the total of unsaved loans.
  */
-export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBalances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs), lang: Language = DEFAULT_LANGUAGE): DashboardData {
+export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBalances: readonly BalanceInput[] = [], inputs: UserInputs = NO_INPUTS, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs), lang: Language = DEFAULT_LANGUAGE, scopeProposals: readonly LoanProposal[] = proposals): DashboardData {
   const balances = flagLoanPayment(ctx, accountBalances);
   // a running period is compared with the same days of the previous one, or the
   // salary on the 15th makes the first nine days look like a loss of income
@@ -182,7 +184,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
     insights,
     home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
-    holdings: buildHoldings(ctx, balances, inputs, proposals),
+    holdings: buildHoldings(ctx, balances, inputs, scopeProposals),
     overview: buildOverview(ctx, balances, inputs, lang),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),
   };
