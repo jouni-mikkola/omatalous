@@ -1,6 +1,8 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
 import { monthEnd } from "@banking/core";
+import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { money, monthLong, signedMoney } from "../../../format.ts";
@@ -12,7 +14,7 @@ import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["spendingMonths"];
 type Row = Report["categories"][number];
-type MonthRow = { month: string; cents: number; complete: boolean };
+type MonthRow = { month: string; cents: number; complete: boolean; savingsCents?: number };
 type PayeeRow = Row["payees"][number] & { rest?: boolean };
 
 const eur = (cents: number) => money(cents, false);
@@ -42,8 +44,6 @@ function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
   const payees: PayeeRow[] = row.otherPayeesCents > 0 ? [...row.payees, { name: "\u0000rest", cents: row.otherPayeesCents, count: 0, rest: true }] : row.payees;
   return (
     <div className="sm-detail">
-      {row.statementCents > 0 && <p className="muted">{t("rpt.sm_statement", { amount: money(row.statementCents, true) })}</p>}
-      {row.lowered && <p className="muted">{t("rpt.sm_lowered")}</p>}
       <Table<MonthRow> caption={t("rpt.sm_months_of", { name: row.label })} rows={months} rowKey={(m) => m.month} columns={monthColumns} toolbar={false} csv={false} />
       <Table<PayeeRow>
         caption={t("rpt.sm_payees_of", { name: row.label })}
@@ -80,6 +80,19 @@ function SpendingMonths({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
+      <ChartWithTable
+        chart={
+          <MonthColumns
+            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!] }))}
+            series={[{ key: "spend", label: t("home.months_spend") }]}
+            tone="spending"
+            usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
+            running={ctx.running}
+            label={t("rpt.sm_months")}
+          />
+        }
+        table={
+          <>
       <Table<Row>
         caption={section.title}
         rows={r.categories}
@@ -90,20 +103,23 @@ function SpendingMonths({ ctx }: SectionProps) {
         total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents), ...(footTypical ? { typical: footTypical } : {}) } }}
         search={false}
       />
-      {r.fromSavingsCents !== 0 && <p className="muted">{t("rpt.sm_from_savings", { amount: eur(r.fromSavingsCents) })}</p>}
       <Table<MonthRow>
         caption={t("rpt.sm_months")}
         captionVisible
         className="sm-months"
-        rows={r.months.map((month, i) => ({ month, cents: r.totals[i]!, complete: r.complete[i]! }))}
+        rows={r.months.map((month, i) => ({ month, cents: r.totals[i]!, complete: r.complete[i]!, savingsCents: r.fromSavings[i]! }))}
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents, bar: { tone: "spending", value: (m) => m.cents, max: Math.max(1, ...r.totals) } },
+          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
+          ...(r.fromSavingsCents !== 0 ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? 0 }] satisfies Column<MonthRow>[]) : []),
         ]}
         total={r.typicalCents !== null ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents) } } : undefined}
         toolbar={false}
         csv={false}
+      />
+          </>
+        }
       />
     </ReportPanel>
   );

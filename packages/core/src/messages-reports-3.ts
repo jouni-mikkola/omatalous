@@ -78,7 +78,7 @@ export const FI_REPORTS_3 = {
   "rpt.fc_ended_datum": "{amount} kuussa vapautunut",
   "rpt.fc_ended_caption": "Viime aikoina loppuneet maksut",
   "rpt.fc_last": "Viimeinen maksu",
-  "rpt.fc_share": "{label}: {share} (tulot {income} kuussa).",
+  "rpt.fc_income_base": "Tulot kuussa",
   "rpt.fc_empty": "Toistuvia maksuja ei ole vielä löytynyt.",
   "rpt.fc_paid": "{name}: maksut 12 kuukauden ajalta",
   "rpt.month": "Kuukausi",

@@ -58,7 +58,8 @@ describe("Raportit: Kiinteät menot", () => {
     expect(plain(foot.textContent)).toContain("1 063,98 €");
     expect(plain(foot.textContent)).toContain("12 767,76 €");
     expect(plain(document.body.textContent)).toContain("1 064 € kuussa, 12 768 € vuodessa");
-    expect(plain(document.body.textContent)).toContain("Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta: 35 % (tulot 3 000 € kuussa).");
+    const share = screen.getByRole("img", { name: "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta: 35 %" });
+    expect(plain(share.parentElement!.textContent)).toBe("Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta35 %Tulot kuussa3 000 €");
   });
 
   it("a line opens what one charge is and the payments behind it, each a link to its day in Tapahtumat", () => {
