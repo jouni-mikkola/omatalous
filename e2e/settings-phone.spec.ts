@@ -8,6 +8,7 @@ import { auditTables } from "./table-audit.ts";
 // default font size doubled, which is what the rem tokens follow.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["members", "security", "server"];
+const TOP = ["overview", "transactions", "bills", "reports", "review"];
 
 for (const scale of [100, 200]) {
   test(`Asetukset, 390 px with a finger and text at ${scale} %: nothing scrolls sideways and every target is 44 px`, async ({ browser }) => {
@@ -30,3 +31,21 @@ for (const scale of [100, 200]) {
     await context.close();
   });
 }
+
+test("the top pages, 390 px with a finger and text at 200 %: nothing scrolls sideways and every target is 44 px", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 }, bypassCSP: true, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  const problems: string[] = [];
+  for (const id of TOP) {
+    await page.goto(`/#/${id}`);
+    await page.reload();
+    await expect(page.locator("main")).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("main .loading, main .skel")).toHaveCount(0, { timeout: 15_000 });
+    await page.addStyleTag({ content: "html { font-size: 200%; }" });
+    problems.push(...(await auditTables(page, 390, true)).map((p) => `${id}: ${p}`));
+  }
+  expect(problems).toEqual([]);
+  await context.close();
+});
