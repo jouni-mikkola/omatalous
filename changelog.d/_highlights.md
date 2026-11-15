@@ -1,5 +1,0 @@
-- Yhteenveto opens on the month: Tulot, Menot and Tulos, each with a bar and a comparison.
-- Laskut, Tapahtumat and Raportit are redesigned around charts and filters, with no explaining text.
-- Käytettävissä and Tulos count the same accounts, and money between household members is no longer income.
-- Havainnot are removed. The figures and charts show the same changes.
-- The page follows the browser's text size, and links and buttons are larger on a phone.
