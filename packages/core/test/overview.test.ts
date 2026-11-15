@@ -28,9 +28,9 @@ const typedLoan: Loan = {
   repayment: "annuity", intervalMonths: 1, paymentCents: 30_000, endDate: null, limitCents: null, seriesKey: null,
 };
 
-function household(seed: number) {
+function household(seed: number, today = ON) {
   const { txs, accounts, rules } = randomHistory(seed, 400, { settled: true });
-  const ctx = createContext(enrichTransactions(txs, accounts, rules), accounts, ON);
+  const ctx = createContext(enrichTransactions(txs, accounts, rules), accounts, today);
   // the loan account has no rows, so the walk knows it only from today on: it has no balance here
   const balances = ACCOUNTS.map((a) => input(a.id, a.name, a.type, a.type === "credit_card" ? -45_000 : a.type === "loan" ? null : 250_000));
   return { ctx, balances };
@@ -88,8 +88,9 @@ describe("the tiles' figures", () => {
     expect(income).not.toHaveProperty("usualCents");
   }, 30_000);
 
+  // the report stops at today and the tile reads the whole month, and the seeded rows run past ON: on the month's last day they agree
   it("the income table of the income report reads the same two figures as the tile, for the same month", () => {
-    const { ctx, balances } = household(5);
+    const { ctx, balances } = household(5, "2025-10-31");
     const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
     const month = buildReports({ ctx, range: { from: "2025-10-01", to: "2025-10-31" }, balances: [] }, ["income"]).income.months.find((m) => m.month === "2025-10")!;
     expect({ cents: month.totalCents, earnedCents: month.earnedCents }).toEqual(income);
