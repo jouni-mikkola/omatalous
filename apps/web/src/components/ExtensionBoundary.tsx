@@ -6,18 +6,18 @@ import { markAddOnFailed } from "../extensions.ts";
  * says that the add-on failed, and the core page around it stays. `fallback` is what a dropped part leaves.
  */
 export class ExtensionBoundary extends Component<{ children: ReactNode; fallback?: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
+  override state = { failed: false };
 
   static getDerivedStateFromError() {
     return { failed: true };
   }
 
-  componentDidCatch(error: unknown) {
+  override componentDidCatch(error: unknown) {
     markAddOnFailed();
     console.error("add-on part not drawn:", error instanceof Error ? error.message : String(error));
   }
 
-  render() {
+  override render() {
     return this.state.failed ? (this.props.fallback ?? null) : this.props.children;
   }
 }
