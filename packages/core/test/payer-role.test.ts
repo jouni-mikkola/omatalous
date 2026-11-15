@@ -167,7 +167,7 @@ describe("a role in the run", () => {
     const rows = settled([anchor(), ...villeRows(), hand], [member("1", VILLE, "sales")]);
     expect(rows[4]!).toMatchObject({ category: "gifts", categorySource: "user" });
     const ruled = [anchor(), ...villeRows()];
-    const rule = { field: "merchant" as const, pattern: "Ville Esimerkki", category: "gifts", priority: 10 };
+    const rule = { field: "merchant" as const, pattern: "Ville Esimerkki", category: "tax_refund", priority: 10 };
     const withRoles = enrichTransactions(ruled, [checking], [rule], new Map(), { memberId: "1", roles: [member("1", VILLE, "sales")] });
     expect(withRoles).toEqual(enrichTransactions(ruled, [checking], [rule], new Map()));
     expect(withRoles.map((t) => t.categorySource)).toEqual(["rule", "rule", "rule"]);
@@ -313,8 +313,8 @@ describe("the one-merchant run", () => {
   it("gives the rows of a merchant the same answer as the full run, with roles present", () => {
     for (const role of PAYER_ROLES) {
       // a rule leaves the roles (its rows are the member's own choice), and another rule in its place changes nothing more
-      same(role, rule("hobbies"), []);
-      same(role, rule("health"), rule("hobbies"));
+      same(role, rule("tax_refund"), []);
+      same(role, rule("investment_income"), rule("tax_refund"));
       same(role, [], []);
     }
     // the roles moved the rows that the island reads back as stored: the usual sums go, the off-median one stays
@@ -323,8 +323,8 @@ describe("the one-merchant run", () => {
     expect(kept.stored[5]!.categorySource).not.toBe("payer");
     expect(kept.changed.size).toBe(0);
     // a rule on the merchant takes its rows from the role
-    const ruled = same("sales", rule("hobbies"), [])!;
-    expect([...ruled.changed.values()].map((t) => [t.id, t.category, t.categorySource])).toEqual([["v1", "hobbies", "rule"], ["v2", "hobbies", "rule"], ["v5", "hobbies", "rule"]]);
+    const ruled = same("sales", rule("tax_refund"), [])!;
+    expect([...ruled.changed.values()].map((t) => [t.id, t.category, t.categorySource])).toEqual([["v1", "tax_refund", "rule"], ["v2", "tax_refund", "rule"], ["v5", "tax_refund", "rule"]]);
   });
 });
 

@@ -1,6 +1,7 @@
 // The enrichment before the memo and the pauses: a copy kept as the oracle for the differential tests.
 import { getCategory } from "../src/categories.ts";
-import { categorize, compileRules } from "../src/categorize.ts";
+import { compileRules } from "../src/categorize.ts";
+import { categorizeInDirection } from "../src/categorize-direction.ts";
 import { businessMerchants, isBusinessRow } from "../src/industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 import { matchReturns, partyKey, steadyParties } from "../src/returns.ts";
@@ -30,7 +31,7 @@ export function enrichTransactionsReference(
   const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
   const next = txs.map((t): Transaction => {
     if (t.categorySource === "user") return { ...t, isTransfer: t.category === "transfer" };
-    const { category, source, byUser } = categorize(t.amountCents < 0 && steady.has(partyKey(t)) ? { ...t, steadyPayee: true } : t, rules, accounts);
+    const { category, source, byUser } = categorizeInDirection(t.amountCents < 0 && steady.has(partyKey(t)) ? { ...t, steadyPayee: true } : t, rules, accounts);
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")
     return { ...t, category, categorySource: source, isTransfer: category === "transfer" };

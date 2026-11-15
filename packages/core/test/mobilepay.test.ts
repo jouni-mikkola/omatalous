@@ -191,7 +191,8 @@ describe("shares that friends send back by MobilePay", () => {
     expect(Object.keys(matchedOf(run(rows)))).toEqual(["a", "b", "c"]);
     const m = matchMobilePayShares([{ id: "p1", day: 10, cents: 10000 }, { id: "p2", day: 10, cents: 10000 }], ["a", "b", "c", "d"].map((id) => ({ id, day: 11, cents: 2500 })));
     expect([...m.values()].filter((p) => p === "p1").length + [...m.values()].filter((p) => p === "p2").length).toBe(m.size);
-    expect(m.size).toBe(4);
+    // three shares of 25 make the dinner's others' part; the fourth, alone, has no group to match
+    expect(m.size).toBe(3);
   });
 
   it("a bill, cash, a card bill and a payment to a person are no shared purchase", () => {
