@@ -3,7 +3,7 @@
  * connected card's purchases as the newest one does (core `cardGap`). The page says nothing of it (the gap is not mended here), shows no
  * average where a category has none, and leaves the footer's average to the months table when the two read other months.
  */
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import "@banking/core/late";
@@ -92,5 +92,37 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     show({ ...report(true), cardGap: false, categoryMonths: 5, typicalCents: 40000 });
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
     expect(plain(screen.getByRole("table", { name: "Kategoriat" }).querySelector("tfoot")!.textContent)).toContain("400 €");
+  });
+});
+
+describe("Rahankäyttö: the chart of the months", () => {
+  it("draws a column for every month with the usual level, from the report's totals", () => {
+    const { container } = show(report(true));
+    expect(screen.getByRole("img", { name: "Menot kuukausittain" })).toBeTruthy();
+    expect(container.querySelectorAll("g.ms-month")).toHaveLength(6);
+    expect(container.querySelectorAll("line.ms-usual")).toHaveLength(1);
+    expect(plain(container.querySelector(".ms-legend")!.textContent)).toContain("Tavallinen kuukausi 448 €");
+  });
+
+  it("a picked month cuts the months table and leaves the opened category's own months whole", () => {
+    show(report(true));
+    const chart = screen.getByRole("group", { name: /Menot kuukausittain/ });
+    fireEvent.focus(chart);
+    fireEvent.keyDown(chart, { key: "Enter" });
+    expect(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelectorAll("tbody tr")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Ruokakauppa" }));
+    const own = screen.getByRole("table", { name: "Ruokakauppa kuukausittain" });
+    expect(own.querySelectorAll("tbody tr")).toHaveLength(6);
+  });
+
+  it("names the part of a category that was read off a card statement, only when there is one", () => {
+    const base = report(true);
+    show({ ...base, categories: base.categories.map((c) => (c.category === "groceries" ? { ...c, statementCents: 12000 } : c)) });
+    fireEvent.click(screen.getByRole("button", { name: "Ruokakauppa" }));
+    expect(plain(document.body.textContent)).toMatch(/Kortin erittelystä luettu\s*120 €/);
+    cleanup();
+    show(base);
+    fireEvent.click(screen.getByRole("button", { name: "Ruokakauppa" }));
+    expect(plain(document.body.textContent)).not.toContain("Kortin erittelystä luettu");
   });
 });

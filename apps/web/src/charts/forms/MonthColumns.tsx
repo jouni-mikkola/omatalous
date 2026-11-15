@@ -22,8 +22,10 @@ interface MonthColumn {
   month: string;
   /** The month has ended and the accounts cover it from its 1st; any other is drawn lighter with a dashed edge. */
   complete: boolean;
-  /** One sum per series, in the order of `series`; a column stacks them from the bottom. */
+  /** One sum per series, in the order of `series`; a column stacks them from the bottom (a negative one from zero downwards). */
   parts: readonly number[];
+  /** The month's total as the report gives it: the axis and the readout read it, nothing is added up here for them. */
+  totalCents: number;
 }
 
 /** The width the first paint draws at, before the box is measured. */
@@ -59,8 +61,7 @@ export function MonthColumns({
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
   const width = measured || UNMEASURED;
-  const stackOf = (m: MonthColumn) => m.parts.reduce((sum, v) => sum + v, 0);
-  const values = [...months.map(stackOf), ...(usual ? [usual.cents] : [])];
+  const values = [...months.map((m) => m.totalCents), ...(usual ? [usual.cents] : [])];
   const options = { minHeight: 200, tallest: 260, ratio: 0.3 };
   const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
   const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
@@ -77,7 +78,7 @@ export function MonthColumns({
   const whole = (m: MonthColumn) => m.complete && m.month !== running;
   const rows = (m: MonthColumn) => [
     ...series.map((s, k) => ({ name: s.label, value: money(m.parts[k] ?? 0, false), key: <span className={`ms-key ms-s${k}`} /> })),
-    ...(series.length > 1 ? [{ name: t("rpt.total"), value: money(stackOf(m), false) }] : []),
+    ...(series.length > 1 ? [{ name: t("rpt.total"), value: money(m.totalCents, false) }] : []),
     ...(whole(m) ? [] : [{ name: t(m.month === running ? "home.months_running" : "home.months_partial"), value: "" }]),
   ];
   const keys = months.map((m) => m.month);
@@ -105,13 +106,18 @@ export function MonthColumns({
           <g role="img" aria-label={label}>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={moneyAxis} />
             {months.map((m, i) => {
-              let floor = 0;
+              // a sum above zero stacks up from zero and one below it stacks down from zero
+              let up = 0;
+              let down = 0;
               return (
                 <g key={m.month} className={whole(m) ? "ms-month" : "ms-month ms-partial"}>
                   {m.parts.map((v, k) => {
-                    const from = floor;
-                    floor += v;
-                    return v > 0 ? <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={y(floor)} width={x.width} height={Math.max(0, y(from) - y(floor))} /> : null;
+                    if (v === 0) return null;
+                    const from = v > 0 ? up : down;
+                    const to = from + v;
+                    if (v > 0) up = to;
+                    else down = to;
+                    return <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={y(Math.max(from, to))} width={x.width} height={Math.max(0, Math.abs(y(from) - y(to)))} />;
                   })}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
                   {ticks[i]!.printed && (

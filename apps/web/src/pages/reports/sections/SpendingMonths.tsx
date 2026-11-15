@@ -2,7 +2,8 @@
 import { monthEnd } from "@banking/core";
 import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
-import { ChartWithTable } from "../../../components/table/selection.tsx";
+import { KeyValue } from "../../../components/table/KeyValue.tsx";
+import { ChartWithTable, OutsideFilter } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { money, monthLong, signedMoney } from "../../../format.ts";
@@ -44,6 +45,7 @@ function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
   const payees: PayeeRow[] = row.otherPayeesCents > 0 ? [...row.payees, { name: "\u0000rest", cents: row.otherPayeesCents, count: 0, rest: true }] : row.payees;
   return (
     <div className="sm-detail">
+      {row.statementCents !== 0 && <KeyValue items={[[t("rpt.sm_statement_part"), eur(row.statementCents)]]} />}
       <Table<MonthRow> caption={t("rpt.sm_months_of", { name: row.label })} rows={months} rowKey={(m) => m.month} columns={monthColumns} toolbar={false} csv={false} />
       <Table<PayeeRow>
         caption={t("rpt.sm_payees_of", { name: row.label })}
@@ -83,7 +85,7 @@ function SpendingMonths({ ctx }: SectionProps) {
       <ChartWithTable
         chart={
           <MonthColumns
-            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!] }))}
+            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!], totalCents: r.totals[i]! }))}
             series={[{ key: "spend", label: t("home.months_spend") }]}
             tone="spending"
             usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
@@ -98,7 +100,11 @@ function SpendingMonths({ ctx }: SectionProps) {
         rows={r.categories}
         rowKey={(c) => c.category}
         columns={columns}
-        drill={(c) => <Detail row={c} r={r} ctx={ctx} />}
+        drill={(c) => (
+          <OutsideFilter>
+            <Detail row={c} r={r} ctx={ctx} />
+          </OutsideFilter>
+        )}
         drillLabel={(c) => c.label}
         total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents), ...(footTypical ? { typical: footTypical } : {}) } }}
         search={false}

@@ -147,6 +147,7 @@ export const FI_REPORTS_5 = {
   "rpt.sm_last": "Ero keskiarvoon, {month}",
   "rpt.sm_months": "Menot kuukausittain",
   "rpt.sm_from_savings": "Säästöistä maksettu",
+  "rpt.sm_statement_part": "Kortin erittelystä luettu",
   "rpt.sm_running": "{month}, kesken",
   "rpt.sm_short": "{month}, vajaa",
   "rpt.sm_rows": "Rivejä",

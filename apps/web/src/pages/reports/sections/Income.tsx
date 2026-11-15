@@ -54,7 +54,7 @@ function Income({ ctx }: SectionProps) {
       <ChartWithTable
         chart={
           <MonthColumns
-            months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0) }))}
+            months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents }))}
             series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
             tone="income"
             usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: t("home.months_usual", { sum: money(r.monthlyCents, false), months: r.completeMonths }) }}
