@@ -1,0 +1,20 @@
+{
+  "name": "@banking/core",
+  "version": "1.3.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "sideEffects": [
+    "./src/messages-en.ts",
+    "./src/messages-late.ts"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./english": "./src/messages-en.ts",
+    "./late": "./src/messages-late.ts"
+  },
+  "scripts": {
+    "test": "vitest run --root ../.. packages/core",
+    "typecheck": "tsc -p ."
+  }
+}

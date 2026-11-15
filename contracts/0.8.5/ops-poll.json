@@ -1,0 +1,24 @@
+{
+  "contract": "ops poll",
+  "about": "stdout of `node dist/node.js ops poll --helper <version> --done <ids>`. poll_once in scripts/ops-helper.sh of every installed release matches the line with a regular expression (lineRegex is its pattern in JavaScript syntax, and the answer may be 8192 characters at most), so the keys and their order are fixed and nothing may be added. The helper passes its own version, a number (2 in 0.5.x).",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "forbidden",
+  "lineMaxLength": 8192,
+  "cases": [
+    {
+      "name": "nothing is queued",
+      "setup": "none",
+      "args": ["poll", "--helper", "2", "--done", ""],
+      "lineRegex": "^\\{\"request\":null\\}$",
+      "shape": { "request": "null" }
+    },
+    {
+      "name": "a request is queued",
+      "setup": "queued",
+      "args": ["poll", "--helper", "2", "--done", ""],
+      "lineRegex": "^\\{\"request\":\\{\"id\":\"op_[0-9a-f]{16}\",\"action\":\"[a-z-]{1,20}\",\"params\":\\{\\},\"secret\":null\\}\\}$",
+      "shape": { "request": { "id": "string", "action": "string", "params": {}, "secret": "null" } }
+    }
+  ]
+}

@@ -1,0 +1,370 @@
+# Architecture
+
+Omatalous fetches a household's transactions from Nordea and the other Finnish banks through PSD2, sorts them into money flows and builds an
+overview and reports from them. Each member has their own login and views; accounts can be shared.
+
+```mermaid
+flowchart LR
+  browser["Browser"] <--> app
+  subgraph machine["Your Linux machine"]
+    app["Omatalous<br/>one container: page and server"] --> db[("Database<br/>on the disk")]
+    helper["Maintenance helper"] -->|"polls for requests"| app
+  end
+  app --> eb["Enable Banking"] --> banks["Banks"]
+  helper --> gh["GitHub Releases"]
+```
+
+One container holds the page and the server, and the database is a SQLite file on the machine's disk. The helper on
+the host runs updates and rollbacks, and takes updates from GitHub Releases.
+
+The code is TypeScript in three packages. `packages/core` holds the rules and the figures with no input or output of
+its own, so the same code runs on the server and in the browser. `apps/server` is a [Hono](https://hono.dev) server on
+Node.js 24 with its built-in SQLite, and `apps/web` is a React page built with Vite, with charts drawn in SVG by the app
+itself. Money is counted in whole cents.
+
+## Decisions
+
+### Own Linux machine with Docker, not Cloudflare Workers
+
+| | Linux + Docker (chosen) | Cloudflare Workers |
+|---|---|---|
+| Cost | free | the free plan is not enough, Workers Paid is $5/month |
+| CPU limit | none | 10 ms per request on the free plan |
+| Bank data | on your own disk | in Cloudflare's database |
+| Upkeep | keep the VM on | none |
+
+With about 3 700 transactions (two years for a household), building the overview takes about 11 ms of CPU,
+so the free Workers plan would run out as data grows. Omatalous runs only in Docker on Linux. The Workers
+version was removed in 0.3.0.
+
+### One container for the whole household
+
+| | One container, many users (chosen) | One container per person |
+|---|---|---|
+| Upkeep | one install and update | everything twice |
+| Shared view | shared accounts and a household view | not possible |
+| Isolation | `user_id` on every row, enforced by the repository, tested | by process |
+
+Isolation does not rely on every query being written correctly. Financial data is reached only through
+`FinanceRepo`, which is bound to one user. Another member's account is reached only through
+`HouseholdRepo`, and only if the owner shared it, read-only.
+
+### Enable Banking for bank data
+
+| Option | Status |
+|---|---|
+| Enable Banking (Finnish) | chosen: free for your own accounts in restricted mode, supports Nordea FI |
+| Nordea Open Banking directly | needs a PSD2 licence |
+| GoCardless Bank Account Data | no new sign-ups |
+| Tink, Plaid, Yapily | business pricing |
+| CSV from Nordea's online bank | was the fallback and the source of older history; the import was removed in 0.9.0 |
+
+PSD2 limits: consent for at most 180 days, banks may limit automatic fetches to four a day per account,
+the bank decides how much history it gives (the first fetch asks for up to two years).
+
+### One table for lists of rows
+
+Every list of comparable rows uses `apps/web/src/components/table/Table.tsx` and `styles/table.css`.
+Pages supply cells and the server's totals; the component never adds money. It owns captions, scoped headers,
+opt-in sorting, groups, detail rows and pagination. When its container is narrow or its columns do not fit,
+each row becomes a block; series columns open as a labelled list beneath it. No table scrolls sideways.
+One subject's facts use `KeyValue` (`dl`); an empty list uses a sentence. A redundant view is deleted with its
+styles, tests and texts (see [ADR 0018](adr/0018-one-table-delete-redundant-views.md)).
+
+### The web stack
+
+The web app is React 19.3 with the React Compiler. Controls come from React Aria Components, with Finnish and
+English only.
+Routing is TanStack Router with hash history and typed search parameters.
+Data and tables use TanStack Query, Table and Virtual.
+Charts are our own kit on d3 modules.
+Styles are plain CSS with tokens from one file.
+Page changes use the browser's View Transitions.
+
+The ADR lists what was rejected and why.
+[ADR 0019](adr/0019-ui-stack.md).
+
+## Structure
+
+```mermaid
+flowchart LR
+  N[Banks PSD2] --> EB[Enable Banking API] --> P
+  subgraph Container["Docker container"]
+    P[connectors] --> I[ingest] --> DB[(SQLite)]
+    DB --> E[core pipeline] --> DB
+    DB --> C[analysis cache] --> R[reports] --> API[Hono API]
+    S[hourly tick] --> P
+    S --> L[industry lookup] --> DB
+  end
+  PRH[Trade register] --> L
+  STAT[Statistics Finland] --> PI[price index]
+  PI --> DB
+  UI[React UI] <--> API
+```
+
+- Domain logic in `@banking/core` is pure, so the server and the browser share it and tests need no mocks.
+- A place transactions come from is a connector (`apps/server/src/connectors/`, listed in `registry.ts`): an `id`, an
+  optional `sync` and an optional `revokeAll` (`connectors/types.ts`). It owns its link flow and settings and answers a
+  pull with rows and a balance. `connectors/sync.ts` is the one loop around it: the lock, the run record, the ten day
+  overlap, balances, reprocessing and the register lookup. The stored ids `enablebanking` and `csv` are connector ids,
+  `demo` marks the demo data, and none of them ever changes.
+- No route takes a file: the CSV import and its parser were removed in 0.9.0, and every request body is limited to
+  256 KB. A card statement is read in the browser (`pages/settings/CardFile.tsx`, `readCardFile` of core) and
+  `POST /api/card-file` takes only its rows, as a source of their own (connector `cardfile`, ADR 0025). A bank's CSV export or camt.053 statement is read the same way (`pages/settings/BankFile.tsx`, `readBankCsvRows` and `readBankCamt` of core, `POST /api/bank-file`, connector `bankfile`); the matched columns stay in the browser. The id `csv` and `connectors/csv-import/index.ts` stay for the accounts and rows that earlier versions
+  imported. They are counted like any others, and linking a bank folds a CSV account with the same IBAN into the bank's
+  account (`connectors/fold-accounts.ts`), so the sync skips what it already has.
+- All SQL is in `db/` (`*-repo.ts`, and `db/finance/` for the modules behind `FinanceRepo`) and goes through a small `Db`
+  interface over node:sqlite.
+- Bank data is stored as received. Categories and transfers are derived from it again whenever something
+  changes, so a new rule applies to all history at once, and a category set by hand stays.
+- A category comes from the first that applies: the user's rules, built-in rules, the card's merchant code
+  (MCC), the category most of the same merchant's other rows got, the merchant's industry from the trade
+  register. Otherwise a default.
+- The row logic of core is a few files, each with one owner (the order of the steps: [MONEY_FLOWS.md](MONEY_FLOWS.md#how-a-row-is-read)).
+  `merchant.ts` works out the merchant name. `categorize.ts` holds the rules and the order they are read in;
+  `categorize-people.ts` holds the rules about people (the holders of the accounts, MobilePay, the bank's own words for a
+  payment between people), and `categorize-bank-rows.ts` the lenders by the shape of their name, by their own payout and
+  by the register, and the rows of the bank itself. `pairing.ts` is the one place that pairs the two legs of a
+  movement (between own accounts, the variants of the loan payment, the card stack, the ahead moves and the trace).
+  Each variant has an entry that returns allocations (the parts of a leg that match a partner), with thin adapters for
+  the shapes older callers read, and repo rule 49 keeps the comparison of opposite amounts inside it.
+  `transfers.ts` detects transfers and holds the issuer fallback. `card-channel.ts` learns each connected card's payment channel from the pairs and decides a payment to
+  it. The channel is worked out on every run and stored nowhere (ADR 0015). `pipeline.ts` runs them in order.
+  `categorize` takes the accounts, since the holders come from them (`accounts.holder`).
+- Industry lookup (`services/industry.ts`, `providers/prh`): merchants nothing recognises, from business
+  rows only and never under a name that may be a person's (`isLookupName`, `mayBePerson` in `payee-guard.ts`), are
+  searched by name in the Finnish trade register. `askRegister` is the one door to it. Core `industry.ts` picks the matching
+  company. Answers are kept per merchant name in `merchant_industry`, so a name is looked up once, and
+  `merchant_industry_users` records which names each user's lookups asked about. A user gets answers only
+  for those names. The category is worked out from the stored TOL code at every reprocess, so a change to
+  the mapping needs no new lookup. What is sent: [SECURITY.md](SECURITY.md#trade-register-lookup).
+- Loans (`packages/core/src/loans.ts`, ADR 0012): the loans a user confirmed are rows of `loans`, one list per user.
+  Every figure of one loan (owed on a day, interest, payoff date, next payment, credit use) comes from that file, and the
+  list of the household's debts behind every debt total (`householdDebts`) from `household-debts.ts`. A loan can name the
+  connected card or loan account that is the same debt (`loans.account_id`, migration 0016, cleared when the account is
+  removed). The server accepts only the owner's own card or loan account, and one loan for an account. A linked pair
+  counts once, in `connected` of `householdDebts`: the bank's balance with the saved loan's rate and payments. The link
+  holds only while the account's balance is at or below zero and is not older than the balance typed for the loan
+  (`balanceDayOf`). Otherwise, and in the months of Saldot before the account's first known balance, the saved loan
+  counts as typed, still once. The loan form reads the household's accounts and loans from the context `LoanLinks`
+  (`components/loans/LoanEditor.tsx`), and `#/settings?linkLoan=<loan id>&linkAccount=<account id>#lainat` opens a
+  loan's form with that account chosen, once.
+  The page that makes them (`pages/settings/LoanIntake.tsx`) reads a pasted picture, a PDF or a text in the browser
+  (`components/loans/`, Tesseract and pdf.js served from the app's own `/assets`) and core's `loan-intake/` turns the
+  lines into a draft with a mark on each field; the server sees only what the household saves.
+  `loan-detect.ts` proposes loans from payments, and `GET /api/loans/proposals` works them out for each request.
+- Bank logos: `connectors/enable-banking/logos.ts` fetches the logo of a bank on the household's list from Enable
+  Banking's website and `routes/bank-logos.ts` serves it from the app's own address, so the browser calls no third
+  party. Nordea's is the one logo in the repository.
+- Lookups also start without waiting for the tick: `startLookup` in `services/industry.ts` works through
+  everything due in batches of 30 names in the background (`drainLookups`; a tick does at most ten
+  batches), after a fetch that brought new rows
+  and when an admin turns the lookup on. A failure is only logged.
+- One hourly tick (`services/schedule.ts`, run by croner): bank fetches in the
+  chosen hours, register lookups, removal of expired sessions and abandoned bank authorisations.
+- The app makes no backup of the household's data: the household backs up the data folder itself. The copies in
+  `<data>/backups` are the app's own safety before a change: `pre-*.db` before a migration, an update, a secret rotation
+  or a reset (`takeSnapshot` in `db/open.ts`: the five newest before a migration, 14 days for the reset's and the rotation's, and the five newest `pre-update-*` that `update.sh` prunes). Every copy counts only after the file and its folder are
+  flushed to disk (`platform/durable.ts`) and the copy has been opened and checked. What keeps the copies safe is under
+  [Keeping the data safe](#keeping-the-data-safe).
+- The analysis context is built once per user data version; a request only filters and adds up.
+- Themes are the main classes above the categories. `themes.ts` gives every row of spending one theme and one
+  line in it; `analysis/themes-report.ts` sums them over the last twelve complete months, and the overview's
+  answer carries the report as `themes`. What the user sees: [MONEY_FLOWS.md](MONEY_FLOWS.md#themes).
+- Alerts (`analysis/alerts.ts`, shown above the insights on the overview) are cost traps found in the
+  selected period: double charges, late fees, overlapping services, spending spikes, services to review,
+  bank fees and small habits. At most six are shown, one of each kind first. What the user sees:
+  [MONEY_FLOWS.md](MONEY_FLOWS.md#alerts).
+- Reports are a registry (`reports/index.ts`): one file per report, a pure function of the context and
+  the range. The keys of the registry are the list; the repo rules check that each report is shown by a section of the page.
+- Merchants (`routes/merchants.ts`): `GET /api/merchants` lists the user's merchants with their category,
+  row count, total spent and the merchant's own rule if any. `PUT /api/merchants/category` sets a rule
+  for one merchant name and `DELETE /api/merchants/rule` removes it, after which the other rules and the
+  register decide again. Both reprocess the user's data. `GET /api/merchants/uncategorised` feeds
+  *Luokittelematta*: `items` are the 50 merchants with the most money out, and `count` and `totalCents` are all of them,
+  both counted in SQL. Rule limits live in `services/rules.ts` (at most 300 per user).
+- The first page (Yhteenveto) reads and computes nothing of its own. `holdings.ts` in core answers what the household has
+  and owes: each account with its balance, each card with what is used of its limit, each loan with what is left. A
+  balance is the day walk's and a debt is `householdDebts`'. The sums it makes are the known figures of each group added
+  together (`accountsCents`, `cardsCents`, `loansCents`), and the cards' use and the loans' balance add up to the debt
+  total (`debtCents`).
+  `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer (`buildHoldings`), and
+  `pages/reports/holdings/Holdings.tsx` shows it as given. Yhteenveto's chart of twelve months (`charts/MonthBars.tsx`)
+  and its categories read `DashboardData.overview` (`packages/core/src/overview.ts`), whose bars and usual levels are
+  those of Menot kuukausittain (`spendingMonthsReport`) and whose income is the earned income. The block *Erääntyvät maksut* gets
+  `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words the line under its heading, its three figures, its warning and the rows of its two
+  tables (the rules
+  are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).
+
+## One owner for each fact
+
+Each of these has one owner and the others read it. What is planned next is in [ROADMAP.md](ROADMAP.md).
+
+| Source (one owner) | Read by |
+|---|---|
+| `project.json` at the repo root: owner, repository, image, signer, return page | the release tools (`tools/lib/project.sh`), the server and the web app |
+| `apps/server/src/platform/limits.ts`: the schema of the limits with their defaults | `services/limits.ts`: the default, then the environment, then the admin's values in the database |
+| `packages/core/src/figures.ts` and `thresholds.ts`: each figure and limit with what it means and where it is computed (ADR 0020) | the analysis, the reports and the pages that show it |
+| `packages/core/src/messages.ts` and the `messages-*.ts` files beside it: code to text, Finnish first and English with the same keys | the browser words the code and parameters the server sends |
+| `apps/web/design/tokens.json` | `pnpm tokens` writes `styles/tokens.css` and `design/tokens.ts`, and charts read their colours from the tokens |
+
+The web modules and what each owns (the libraries are decided in [ADR 0019](adr/0019-ui-stack.md)):
+
+- Routes and typed search parameters: TanStack Router in `router.tsx`, one lazy chunk per page.
+- `components/table/Table.tsx`: the table of the pages.
+- `charts/kit` and `charts/forms`: scales and shapes, one file per chart form.
+- Controls: React Aria Components styled with the tokens.
+
+## Settings and secrets
+
+Environment variables (`.env`) describe infrastructure only: how the app is reached and whether a proxy
+is in front. Everything else is set in the browser and stored in the database (`services/instance.ts`,
+`connectors/enable-banking/app-setup.ts`); the environment only gives defaults. The only file the app writes is
+`app_secret`, created on first start in its own volume.
+
+## Upgrades
+
+On start the app checks its migrations against the database. Each applied file is checksummed, a
+database from a newer version is refused unless every migration this build lacks declared a compatibility
+floor (`-- migrate: compat <version>`, stored in `_migrations.compat`) that this build meets, and a copy
+is taken before anything changes. After a version
+change the derived data (merchant names, categories, transfers) is computed again for every member. The names are
+renamed once, at the first start of a build (`services/upgrade.ts`). What the household attached to an old name (a rule,
+a mark, a loan's series, a decision) follows it when every row of that name gets one new name that no other old
+name gets. When old names merge, a rule is written onto their rows as the household's own choice and the marks stay on
+the old names ([MONEY_FLOWS.md](MONEY_FLOWS.md#merchant-names)).
+`scripts/update.sh` adds a copy of the database, a health check and a rollback around this. Releases are signed images from
+`ghcr.io` ([RELEASING.md](RELEASING.md)).
+
+`node dist/node.js migrate-check <database file>` (`db/migrate-check.ts`) tries the pending migrations on a copy of
+any database file. It opens the file read-only, copies it with `VACUUM INTO` (so a live WAL is included), applies the
+migrations to the copy, runs `integrity_check` and `foreign_key_check`, compares the row count of every table and
+prints one JSON line with the time it took. A table that loses rows or a failing check gives exit code 1. The
+original is never written. The copy goes into a dot-named folder next to the file (the compose service has only a
+16 MB tmpfs on `/tmp`, and the copy with its WAL needs about twice the database size on that disk). The folder is
+removed on every way out, also on SIGINT and SIGTERM; a run killed with SIGKILL leaves it and the next run removes
+folders older than a day. A script can run it with the new image before it stops the old version.
+
+## Keeping the data safe
+
+The copies and the checks around them, each in one place. None of them is a backup of the household's data.
+
+- Pruning (`takeSnapshot`, `db/backup-keep.ts`): the five newest pre-migration copies stay, a reset's and a secret
+  rotation's copy stays 14 days and is never counted in that rule, and nothing is deleted while the live database
+  fails its check. `scripts/lib/dbcopy.sh` follows the same rule inline, because it runs inside old and new images and
+  cannot import the file: a change to that rule is a change in both. It deletes only the kinds its caller names
+  (`pre-update-`).
+- Room: a copy starts only when its folder has twice the size of the database and its WAL free (`assertRoomForCopy`).
+  The scripts ask the same, and `update.sh` asks for three times before it switches, since the new version takes a copy
+  of its own. A copy is written under a temporary name and gets its own only when it is complete and checked, so a failed
+  copy never removes an older one of the same name.
+- The notices (`services/db-health.ts`): two, for admins, worked out when the notices are read (nothing here has a
+  table): under 1 GB free on the data disk, and a host helper silent for 24 hours.
+- The check before the database opens (`db/startup-gate.ts`, called by `entry/node.ts` for the server only, never for a
+  command): a database that fails SQLite's check is left as it is. The server answers 503 with a plain notice, logs the
+  damage and writes nothing. It never moves or deletes the file. The household puts back its own copy of the data folder.
+- The reserve (`services/disk.ts`): `<data>/.reserve` is 64 MB of zeros, given up when under 128 MB is free so that a full
+  disk still lets an admin sign in and free space, and written again once over 1 GB is free.
+- *Tyhjennä kaikki tiedot* (`services/reset.ts`): writes a checked `pre-reset-` copy first, ends every bank consent, deletes
+  every member but the admin who asked with all their data, and signs everyone out.
+
+## Maintenance from the browser
+
+<!-- language-allow: comma-density the list is the ten fixed actions, one item each -->
+*Asetukset > Palvelin ja ylläpito > Ylläpito* writes a request row. The code is in `services/ops.ts`, `db/ops-repo.ts` and migrations 0006 and 0007. A host
+helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of ten fixed actions (check-update, update,
+rollback, restart, doctor, logs, prune, helper-renew, prerelease-on, prerelease-off) and reports the result. Requests only name an allowlisted action, and the helper never
+runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
+[ADVANCED.md](ADVANCED.md#the-maintenance-helper).
+
+The helper is a set of shell files. `scripts/ops-helper.sh` is the tick: the lock, the heartbeat, one poll, one action
+and the report. It sources the rest from `scripts/lib/` after `check_permissions` has passed, so all of it is in memory
+before an update swaps the files on disk.
+
+- `ops-release.sh` asks GitHub for the latest release. `release.sh` (shared with `update.sh`) decides which release an
+  install follows, the latest or with `TALOUS_PRERELEASE=yes` the newest, and holds the signature check. The switch *Tarjoa uudet versiot heti* on the Ylläpito page has the helper write that key, in `ops-release.sh`.
+- `ops-selftest.sh` is `./scripts/ops-helper.sh --self-test`, and what an update does when the helper it brought fails
+  it: the update is taken back at once when its record is under 60 minutes old.
+- `ops-watchdog.sh` looks at the app's container every minute. For one hour after an update, an app that has been
+  restarting, unhealthy by Docker's check or silent for ten minutes in a row is rolled back with
+  `update.sh --rollback --yes`, once for that update. The report reaches the app as `watchdog` in the helper's state
+  (`services/ops-watchdog.ts`): one `ops_watchdog` event and a notice to every admin.
+- `ops-address.sh` with `host-addr.sh` follows the machine's home network address when the old one has been gone for ten
+  minutes. `ops-housekeeping.sh` removes this app's old, unused images when Docker's disk has under 3 GB free (a release image
+  loses its registry tag once the update has tagged it, so an old version is unused and goes).
+  `ops-schedule.sh` writes the timer or the cron line.
+- `scripts/ops-launcher.sh` is what that timer or cron line runs, once a minute. It lives outside the clone, in
+  `~/.local/share/omatalous/<instance>/launcher.sh`, so an update never touches it. It runs the clone's helper and
+  keeps a copy of the helper and of `scripts/lib` in `last-good/` after a good tick, only when the helper passes its
+  self-test; one that fails is tested again every tenth tick. When the clone's helper is missing, unsafe or does not
+  parse, it runs that copy, so *Päivitä* and *Palauta edellinen versio* keep working.
+- The address step, the housekeeping and the watchdog act only when `installer_lock` (`release.sh`) is free. The lock is
+  the clone's folder, which `install.sh`, `update.sh` and `reset.sh` hold for a whole run, so an update
+  that replaces `scripts/install.sh` does not end it.
+
+## Money flows
+
+Every transaction is spending, debt, savings, income or borrowing, or a neutral transfer between own
+accounts. Details and cases: [MONEY_FLOWS.md](MONEY_FLOWS.md).
+
+## Fetching
+
+A fetch reads the days since the newest booked bank row, less ten, so late bookings and pending rows that got
+booked are covered. The answer is stored only when it is complete: a failed page, or a list that does not end
+after 200 pages, fails that account's fetch, leaves its stored rows as they were and is retried by the next
+fetch from the same day. The other accounts go on.
+
+- A row with a bank id keeps its id through overlapping fetches. A row without one gets an id from its day,
+  amount and text, plus a number for each identical copy, so two identical purchases on a day stay two rows.
+- Pending rows are replaced on every fetch. A booked row that arrives with another id, text or date takes the
+  place of the pending row it replaces, and the category you set on the pending row. If the bank lists both, the
+  pending row goes. A booked row is matched only to a pending row dated on or
+  up to a week before it, so a new pending purchase is not taken for yesterday's.
+- A CSV account from an earlier version and a bank account with the same IBAN are one real account. When the bank is
+  linked, the CSV rows move into the bank's account with the ids the bank's rows get, so the sync skips what it already
+  has instead of counting every payment twice (`connectors/fold-accounts.ts`).
+- Amounts are read from the digits as integer cents. The bank's debit or credit flag gives the sign, and the
+  sign of the amount only when the flag is missing. A date with a time is converted to the household's time
+  zone; a plain date is the bank's own day.
+
+## Data model
+
+| Table | Holds |
+|---|---|
+| `users` | user name, display name, password hash (Argon2id), role, forced password change |
+| `sessions` | SHA-256 of the session token, expiry |
+| `bank_credentials` | a member's own Enable Banking app, key encrypted |
+| `connections` | bank consents per user, validity, status |
+| `accounts` | type, IBAN, `identity` (the same real account seen by two users), balance, the bank's `name`; migration 0013 adds the user's own `custom_name`, the `holder`, a card's last four digits (`card_mask`) and `credit_limit_cents` |
+| `account_shares` | which account is shared with whom (read-only) |
+| `account_use` | who of the household uses a real account and at what weights, when the household has said it: the account's key (`accounts.identity`, else its id), the user (none for the holders who are no user of the instance, together), the weight and who said it. A joint account both partners linked is one key. An account with no row has its use worked out from the bank's holder names on every read and stored nowhere. A member's own view counts a joint account at the member's part (MONEY_FLOWS.md, *Joint accounts*) |
+| `transactions` | bank fields plus `merchant`, `category`, `category_source`, `is_transfer`, `search_text` (folded text for search, migration 0003), `bank_txn_code` (the bank's own code of the row, migration 0015), raw payload |
+| `category_rules` | users' own rules, including the per-merchant rules from *Tapahtumat > Kauppiaat* |
+| `merchant_industry` | trade register answers per merchant name: business id, company, industry code and label. No user id |
+| `merchant_industry_users` | which merchant names each user's register lookups asked about |
+| `sync_runs` | fetch history per user |
+| `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
+| `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
+| `spending_goal` | the monthly spending goal of a user (Yhteenveto, Menot tässä kuussa): one amount in cents per user, bounded by `routes/spending-goal.ts`, read per request with the other inputs |
+| `category_goal` | the monthly spending goal of a user per category (groceries, restaurants, transport, car; Kategoriat): cents per user and category, bounded by `routes/category-goals.ts`, read per request with the other inputs, so saving one moves no data version |
+| `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit, and the connected card or loan account it is the same debt as (`account_id`, migration 0016, null when the account goes). Own rows only, bounded by `routes/loans.ts` |
+| `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
+| `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
+| `optimise_snapshots` | one snapshot of the findings per user and month, for the follow-up |
+| `security_events` | logins, lockouts, new devices, password changes and resets, ended sessions, added and deleted users, `ops_*` requests and results: time, user, IP, user agent. A `notify` event is shown once to its user. Kept 90 days, at most 2,000 |
+| `ops_requests` | maintenance requests from *Asetukset > Palvelin ja ylläpito > Ylläpito*: what was asked and by whom, its status and the helper's report. The newest 200 finished ones are kept |
+| `settings` | data version, locks, consent states, server settings, the household's Enable Banking app (key encrypted) |
+| `_migrations` | applied migrations with checksums and compatibility floors |
+
+Migration 0004 adds two partial indexes, for pending rows and for rows nothing categorised, and 0008 three for the
+transaction list's counts and sums and for one merchant's or one category's rows. Migration 0016 adds `loans.account_id`
+and an index on it. It only adds, with a compat floor of 0.8.0, so a rollback keeps the links. Migration 0018 adds
+`account_use`, again only a table, with a compat floor of 0.10.0. `PUT /api/accounts/:id/use` says who uses an account
+the caller linked and `DELETE` takes it back; `GET /api/meta` gives each account its `use` and the viewer's `part`. A
+member who is removed leaves their weight with the account's other holders (it is added to the row of the holders who
+are no user), so the ratio that was said stays; where they had the only row, the statement goes with them.
+
+Every user row has `user_id` with `ON DELETE CASCADE`, so deleting a user deletes their data. `ops_requests`
+belongs to the instance and keeps the id of the admin who asked.
+
+Security details: [SECURITY.md](SECURITY.md).

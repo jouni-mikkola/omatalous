@@ -1,0 +1,28 @@
+name: Audit
+
+# A known vulnerability in a dependency shows within a week: this runs `pnpm audit` every Monday and fails on a
+# critical or high one (moderate and low are listed by `pnpm audit` and do not fail it). It runs on the lockfile
+# only, so it needs no build. A run by hand is the same check. It runs on the public repository, which is free; the
+# private one pays for its minutes, so there a developer runs `pnpm audit` on the machine.
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+      - run: pnpm audit --audit-level high

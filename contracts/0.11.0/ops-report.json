@@ -1,0 +1,96 @@
+{
+  "contract": "ops report",
+  "about": "`node dist/node.js ops report --helper <version>` with the result file of the helper on stdin (store_result in scripts/ops-helper.sh). send_report looks for the text \"ok\":true or \"ok\":false in stdout. The first payload below is what the helper of 0.10.0 (version 4) sends after an `access` request that turned remote access on; every key of its state is kept by the app. Since 0.10.0 the state carries `prerelease` (yes or no: the switch for new versions as the host's .env has it, left out when the install has no .env) and `channel` (source or release), which state_json adds in scripts/ops-helper.sh and normaliseState keeps (services/ops-validate.ts); an app of 0.9.0 or older drops both like any unknown key. The third is a failed update that the helper took back after its self-test (after_update_check in scripts/lib/ops-selftest.sh), so the payload is that of the helper of the version taken back to, 0.9.0 (version 3), and has neither new key: it shows that the app still takes a state from that helper. Its state carries `watchdog` {at, from, to, reason}, which state_json adds from ops/watchdog.frag (watchdog_report in scripts/lib/ops-watchdog.sh). The app reads that key and does not keep it (parseWatchdog in services/ops-watchdog.ts: one ops_watchdog event and a notice to every admin for each `at`), so that case does not set keepsStateKeys.",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "allowed",
+  "cases": [
+    {
+      "name": "a finished request",
+      "setup": "claimed",
+      "args": [
+        "report",
+        "--helper",
+        "4"
+      ],
+      "stdin": {
+        "id": "<id>",
+        "status": "ok",
+        "exit_code": 0,
+        "summary": "Etäkäyttö on päällä. Uusi osoite: https://talous.example.org",
+        "output": "line one\nline two",
+        "state": {
+          "version": "0.10.0",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "build": "0123456",
+          "can_rollback": true,
+          "schema_changed": false,
+          "mode": "tunnel",
+          "port": 8080,
+          "prerelease": "no",
+          "channel": "release",
+          "address": "https://talous.example.org"
+        }
+      },
+      "keepsStateKeys": true,
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    },
+    {
+      "name": "a payload the app rejects",
+      "setup": "none",
+      "args": [
+        "report",
+        "--helper",
+        "4"
+      ],
+      "stdin": {
+        "id": "not-a-request-id",
+        "status": "ok"
+      },
+      "shape": {
+        "ok": "boolean",
+        "error": "string"
+      },
+      "lineRegex": "\"ok\":false"
+    },
+    {
+      "name": "a failed update taken back, with the watchdog report in its state",
+      "setup": "claimed",
+      "args": [
+        "report",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "id": "<id>",
+        "status": "failed",
+        "exit_code": 1,
+        "summary": "Edellinen versio palautettiin, koska uusi ylläpitoapuri ei toiminut (apurin tiedostossa on virhe).",
+        "output": "line one\nline two",
+        "state": {
+          "version": "0.9.0",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "build": "0123456",
+          "can_rollback": false,
+          "schema_changed": true,
+          "mode": "tunnel",
+          "port": 8080,
+          "address": "https://talous.example.org",
+          "watchdog": {
+            "at": "2026-10-09T08:00:00Z",
+            "from": "0.10.0",
+            "to": "0.9.0",
+            "reason": "self_test"
+          }
+        }
+      },
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    }
+  ]
+}

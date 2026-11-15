@@ -1,0 +1,130 @@
+name: full
+
+# The heavy tier, on GitHub. No check runs on a developer's machine any more: what ci.yml leaves out runs here.
+#
+#   check   the whole of `pnpm check`: knip, the privacy scan, the types, every test file and shell suite, and the
+#           self-tests of the tools (CI runs them always)
+#   build   `pnpm build` and the bundle budgets
+#   e2e     the browser tests (`pnpm e2e`) on the built app, one retry for a flake
+#   proof   tools/ci/local-proof.sh: the image, its smoke test, the container checks, the signature of the newest
+#           release, an upgrade rehearsal from the public releases in tools/ci/upgrade-baselines.txt, and the drills
+#
+# A push to main, a pull request and a hand start it, like ci.yml. The repository is public, so its minutes are free.
+# full-ok is the one check that says whether all the jobs passed.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - docs/**
+      - relay/**
+      - LICENSE
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - docs/**
+      - relay/**
+      - LICENSE
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm check
+        id: check
+        run: pnpm check
+      - name: Flake or real
+        if: ${{ failure() && steps.check.conclusion == 'failure' }}
+        timeout-minutes: 10
+        run: |
+          dir=$(ls -dt "${TMPDIR:-/tmp}"/check.*/ 2>/dev/null | head -n 1)
+          [[ -n $dir ]] || { echo "check: rerun: the red run kept no folder"; exit 0; }
+          bash tools/check.sh --rerun "${dir%/}" || echo "check: rerun ended with $?"
+
+  e2e:
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: Browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: pnpm e2e
+        env:
+          E2E_RETRY: '1'
+          E2E_WORKERS: '3'
+        run: pnpm e2e
+      # after the browser tests, so a budget over its limit does not hide their result
+      - name: Bundle budgets
+        if: ${{ !cancelled() }}
+        run: pnpm budgets
+      - name: Traces of the failed tests
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-traces
+          path: test-results/e2e/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  proof:
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Image, smoke test, container checks, signature, upgrade rehearsals and drills
+        run: tools/ci/local-proof.sh --jobs 2 tools/ci/upgrade-baselines.txt
+      - name: Logs of the proof
+        if: ${{ failure() }}
+        run: |
+          for f in "${TMPDIR:-/tmp}"/local-proof.*/logs/*.log; do
+            [[ -e $f ]] || continue
+            echo "::group::$f"; tail -n 200 "$f"; echo "::endgroup::"
+          done
+
+  full-ok:
+    if: ${{ always() && github.repository == 'jouni-mikkola/omatalous' }}
+    needs: [check, e2e, proof]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ needs.check.result }} ${{ needs.e2e.result }} ${{ needs.proof.result }}
+        run: |
+          echo "jobs: $RESULTS"
+          for r in $RESULTS; do [[ $r == success ]] || exit 1; done

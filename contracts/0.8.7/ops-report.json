@@ -1,0 +1,58 @@
+{
+  "contract": "ops report",
+  "about": "`node dist/node.js ops report --helper <version>` with the result file of the helper on stdin (store_result in scripts/ops-helper.sh). send_report looks for the text \"ok\":true or \"ok\":false in stdout. The payload below is what the helper of 0.8.7 (version 3) sends after an `access` request that turned remote access on; every key of its state is kept by the app.",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "allowed",
+  "cases": [
+    {
+      "name": "a finished request",
+      "setup": "claimed",
+      "args": [
+        "report",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "id": "<id>",
+        "status": "ok",
+        "exit_code": 0,
+        "summary": "Etäkäyttö on päällä. Uusi osoite: https://talous.example.org",
+        "output": "line one\nline two",
+        "state": {
+          "version": "0.8.7",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "build": "0123456",
+          "can_rollback": true,
+          "schema_changed": false,
+          "mode": "tunnel",
+          "port": 8080,
+          "address": "https://talous.example.org"
+        }
+      },
+      "keepsStateKeys": true,
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    },
+    {
+      "name": "a payload the app rejects",
+      "setup": "none",
+      "args": [
+        "report",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "id": "not-a-request-id",
+        "status": "ok"
+      },
+      "shape": {
+        "ok": "boolean",
+        "error": "string"
+      },
+      "lineRegex": "\"ok\":false"
+    }
+  ]
+}

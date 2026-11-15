@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bank dialect word lists (ADR 0008)",
+  "type": "object",
+  "required": ["alternations", "companyForms", "gamblingMcc"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "alternations": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["about", "alternatives"],
+        "additionalProperties": false,
+        "properties": {
+          "about": { "type": "string", "minLength": 1 },
+          "alternatives": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "sources": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+        }
+      }
+    },
+    "companyForms": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z]+$" },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": { "enum": ["strip", "payee"] }
+      }
+    },
+    "gamblingMcc": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "integer", "minimum": 1000, "maximum": 9999 } }
+  }
+}

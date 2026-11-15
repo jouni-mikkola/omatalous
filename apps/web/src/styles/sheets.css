@@ -1,0 +1,14 @@
+/* The tax-year sheet of Raportit: the print look. Printing hides the page but the sheet that asked (components/SheetActions.tsx marks it). */
+@layer pages {
+.sheet-part { margin-block: var(--sp-16) var(--sp-8); font-size: var(--fs-label); }
+.sheet-note { color: var(--text-2); font-size: var(--fs-label); max-inline-size: 70ch; }
+@media print {
+  html.printing-sheet body * { visibility: hidden; }
+  html.printing-sheet .print-sheet, html.printing-sheet .print-sheet * { visibility: visible; }
+  html.printing-sheet .print-sheet { position: absolute; inset-block-start: 0; inset-inline-start: 0; inline-size: 100%; box-shadow: none; border: 0; }
+  /* the title block (marks.css, a later layer) gives every cell of the head `display: flex`, so the buttons leave the paper only with !important */
+  html.printing-sheet .print-sheet .card-tool { display: none !important; }
+  html.printing-sheet .print-sheet .sheet-part { break-after: avoid; }
+  html.printing-sheet .print-sheet tr { break-inside: avoid; }
+}
+}

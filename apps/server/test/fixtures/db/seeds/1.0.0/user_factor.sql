@@ -1,0 +1,2 @@
+-- A passkey of one user, with the columns 0029 adds (credential_id, transports as a JSON list, rp_id); the key is made up.
+INSERT INTO user_factor (id,user_id,kind,secret,label,last_step,created_at,last_used_at,credential_id,transports,rp_id) VALUES ('uf-3','u-aino','passkey','bWFkZS11cC1wdWJsaWMta2V5','Avainnippu',4,'2026-10-25T08:00:00.000Z','2026-10-26T08:00:00.000Z','bWFkZS11cC1jcmVkZW50aWFs','["usb"]','talous.example.org');

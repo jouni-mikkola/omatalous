@@ -1,0 +1,3 @@
+-- The card bill t-12 (a row of the joint account a-5) with the statement u-aino kept for it, and a detached one of u-eero.
+INSERT INTO statement_bill (bill_tx_id,user_id,account_key,period_from,period_to,statement_cents,saved_at,detached_at,detached_reason) VALUES ('t-12','u-aino','idn-5','2026-09-01','2026-09-30',20000,'2026-10-20T08:00:00.000Z',NULL,NULL);
+INSERT INTO statement_bill (bill_tx_id,user_id,account_key,period_from,period_to,statement_cents,saved_at,detached_at,detached_reason) VALUES ('t-11','u-eero','idn-5','2026-09-01','2026-09-30',NULL,'2026-10-20T08:00:00.000Z','2026-10-21T08:00:00.000Z','amount changed');

@@ -1,0 +1,8 @@
+-- Three rows on the joint account a-5 (it had none), for the parts of tx_part.sql to point at: money in from a payer,
+-- money out to a shop, and money in from a payer nobody has answered for. Made-up names and sums.
+INSERT INTO transactions (id,user_id,account_id,booking_date,value_date,amount_cents,currency,status,counterparty,counterparty_iban,description,reference,mcc,merchant,category,category_source,is_transfer,source,raw,imported_at,search_text,bank_txn_code) VALUES ('t-11','u-aino','a-5','2026-10-02',NULL,100000,'EUR','booked','MATTI MEIKALAINEN',NULL,'Yhteistilille',NULL,NULL,'MATTI MEIKALAINEN','other','default',0,'enablebanking',NULL,'2026-10-09T08:00:00.000Z','MATTI MEIKALAINEN
+YHTEISTILILLE',NULL);
+INSERT INTO transactions (id,user_id,account_id,booking_date,value_date,amount_cents,currency,status,counterparty,counterparty_iban,description,reference,mcc,merchant,category,category_source,is_transfer,source,raw,imported_at,search_text,bank_txn_code) VALUES ('t-12','u-aino','a-5','2026-10-04',NULL,-20000,'EUR','booked','ESIMERKKI OY',NULL,'Lasku',NULL,NULL,'ESIMERKKI OY','other','default',0,'enablebanking',NULL,'2026-10-09T08:00:00.000Z','ESIMERKKI OY
+LASKU',NULL);
+INSERT INTO transactions (id,user_id,account_id,booking_date,value_date,amount_cents,currency,status,counterparty,counterparty_iban,description,reference,mcc,merchant,category,category_source,is_transfer,source,raw,imported_at,search_text,bank_txn_code) VALUES ('t-13','u-aino','a-5','2026-10-07',NULL,50000,'EUR','booked','TUNTEMATON MAKSAJA',NULL,'Talletus',NULL,NULL,'TUNTEMATON MAKSAJA','other','default',0,'enablebanking',NULL,'2026-10-09T08:00:00.000Z','TUNTEMATON MAKSAJA
+TALLETUS',NULL);

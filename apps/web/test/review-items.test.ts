@@ -1,0 +1,199 @@
+/** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
+import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
+import { eyebrow, figureOf, groupCategories, leftText, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
+
+const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
+const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
+
+describe("the bank's text under a row", () => {
+  it("is shown when it holds a word, and left out when it is a reference of digits and codes", () => {
+    expect(readableText("KORTTIOSTO ESIMERKKI KAUPPA")).toBe("KORTTIOSTO ESIMERKKI KAUPPA");
+    expect(readableText("Vuokra 11/2026")).toBe("Vuokra 11/2026");
+    expect(readableText("Sähkölasku")).toBe("Sähkölasku");
+    expect(readableText("10452006790977609253 20260929258873C69449")).toBeNull();
+    expect(readableText("RF18 5390 0754 7034")).toBeNull();
+    expect(readableText("")).toBeNull();
+  });
+});
+
+describe("a sitting", () => {
+  it("names what is left by the glossary's word for an item, kysymys", () => {
+    expect([leftText(1), leftText(18)]).toEqual(["1 kysymys jäi seuraavaan kertaan.", "18 kysymystä jäi seuraavaan kertaan."]);
+  });
+
+  it("shows the first open item and counts the items it will show", () => {
+    const view = sittingView(queue(3), NEW_SITTING);
+    expect(view).toMatchObject({ state: "item", position: 1, of: 3 });
+    expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
+  });
+
+  it("counts the whole queue, the number the header badge shows, not the 25 of one sitting", () => {
+    expect(sittingView(queue(40), NEW_SITTING)).toMatchObject({ state: "item", position: 1, of: 40 });
+    // an answer takes one from the open ones and none from the total
+    expect(sittingView(queue(40).slice(1), { answered: ["payee_out:Kauppa 0"], skipped: [] })).toMatchObject({ state: "item", position: 2, of: 40 });
+  });
+
+  it("takes an answered item away at once and moves past a skipped one", () => {
+    const view = sittingView(queue(3), { answered: ["payee_out:Kauppa 0"], skipped: ["payee_out:Kauppa 1"] });
+    // the answered one is no longer open; the skipped one still is
+    expect(view).toMatchObject({ state: "item", position: 3, of: 3 });
+    expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 2");
+  });
+
+  it("leaves out an item of a kind the page has no card for", () => {
+    const unknown = (kind: string) => ({ kind, id: `${kind}:1`, cents: 900_000 }) as unknown as ReviewItem;
+    const view = sittingView([...["extension", "newer"].map(unknown), payee(0)], NEW_SITTING);
+    expect(view).toMatchObject({ state: "item", position: 1, of: 1 });
+    expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
+    expect(sittingView([unknown("newer")], NEW_SITTING)).toEqual({ state: "empty" });
+    // what is wrong has its cards: each of the four kinds is an item of the sitting
+    expect(sittingView(["balance", "consent", "bill", "row"].map(unknown), NEW_SITTING)).toMatchObject({ state: "item", position: 1, of: 4 });
+  });
+
+  it("ends after 25 items, answered or skipped, with the count left", () => {
+    const items = queue(40);
+    const answered = items.slice(0, 20).map((i) => i.id);
+    const skipped = items.slice(20, 25).map((i) => i.id);
+    expect(SITTING).toBe(25);
+    expect(sittingView(items, { answered, skipped })).toEqual({ state: "enough", left: 20 });
+    expect(sittingView(items, { answered: answered.slice(1), skipped })).toMatchObject({ state: "item", position: 25, of: 40 });
+  });
+
+  it("says when only skipped items are left, and when nothing is", () => {
+    const items = queue(2);
+    expect(sittingView(items, { answered: [items[0]!.id], skipped: [items[1]!.id] })).toEqual({ state: "skipped", left: 1 });
+    expect(sittingView([], NEW_SITTING)).toEqual({ state: "empty" });
+    // the queue read again holds no answered item: the sitting's list of them changes nothing
+    expect(sittingView(items.slice(1), { answered: [items[0]!.id], skipped: [] })).toMatchObject({ state: "item", position: 2, of: 2 });
+  });
+});
+
+describe("the choices", () => {
+  it("put the app's guess first", () => {
+    const payer: ReviewItem = { kind: "payer", id: "payer:k", cents: 90_000, key: "name:X", merchant: "Esimerkki Ville", count: 3, lastDate: "2026-09-03", options: ["cost_share", "sales", "own_money", "gift", "pay"], proposal: "pay" };
+    expect(payerChoices(payer).map((c) => [c.value, c.guess])).toEqual([["pay", true], ["cost_share", false], ["sales", false], ["own_money", false], ["gift", false]]);
+    const loan: ReviewItem = { kind: "loan", id: "loan:k", cents: 300_000, key: "k", payee: "Esimerkkirahoitus", paymentCents: 25_000, months: 9, firstDate: "2026-01-05", lastDate: "2026-09-05", guess: "car", placed: false };
+    expect(loanKindChoices(loan)[0]).toMatchObject({ value: "car", guess: true });
+    // "Muu laina" is no guess worth marking
+    expect(loanKindChoices({ ...loan, guess: "other" }).some((c) => c.guess)).toBe(false);
+  });
+
+  it("ask a split with no guess", () => {
+    const split: ReviewItem = { kind: "split", id: "split:a:opening:o", cents: 312_045, accountId: "a", accountName: "Yhteistili", question: "opening", key: "o", label: "2026-07-01" };
+    expect(split).not.toHaveProperty("guess");
+    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili Yhteistili", "Saldo ennen 1.7.", "Kenen rahaa tämä oli?"]);
+  });
+
+  it("say a subscription's month and year", () => {
+    const sub: ReviewItem = { kind: "subscription", id: "s", cents: 15_588, seriesId: "out:chk:Max", subject: "series:out:chk:Max#1299", merchant: "Max", monthlyCents: 1299, lastDate: "2026-10-08" };
+    const f = figureOf(sub);
+    expect([f.text.replace(/\s/g, " "), f.unit]).toEqual(["12,99 €", "kuussa"]);
+    expect(f.line.replace(/\s/g, " ")).toBe("155,88 € vuodessa, viimeksi 8.10.");
+  });
+
+  it("say that a price rose, with the old and the new charge, and that a charge is new, with its first day", () => {
+    const base = { kind: "subscription", id: "s", seriesId: "out:chk:Sali", subject: "series:out:chk:Sali", merchant: "Sali", lastDate: "2026-10-04" } as const;
+    const rise: ReviewItem = { ...base, cents: 12_000, monthlyCents: 11_000, reason: "price", price: { fromCents: 10_000, toCents: 11_000, date: "2026-07-04" } };
+    expect(eyebrow(rise)).toBe("Hinta nousi");
+    expect(figureOf(rise).line.replace(/\s/g, " ")).toBe("Ennen 100,00 €, 4.7. alkaen 110,00 €");
+    const fresh: ReviewItem = { ...base, cents: 23_880, monthlyCents: 1990, reason: "new", since: "2026-08-01" };
+    expect(eyebrow(fresh)).toBe("Uusi toistuva veloitus");
+    // a charge that began two months ago is asked whether it is in use; "vielä" stays for one that has run longer
+    expect([questionOf(fresh), questionOf(rise)]).toEqual(["Onko tilaus käytössä?", "Onko tilaus vielä käytössä?"]);
+    expect(figureOf(fresh).line.replace(/\s/g, " ")).toBe("238,80 € vuodessa, ensimmäinen veloitus 1.8.");
+    expect(eyebrow({ ...base, cents: 15_588, monthlyCents: 1299, reason: "quiet" })).toBe("Tilaus");
+  });
+
+  it("count a plan's payments left from its latest payment, and take only a whole number from 1 to 120", () => {
+    const plan: ReviewItem = { kind: "plan", id: "plan:k", cents: 59_880, key: "k", payee: "Klarna", paymentCents: 4990, lastDate: "2026-09-12" };
+    expect([eyebrow(plan), questionOf(plan)]).toEqual(["Osamaksu", "Montako maksua on vielä jäljellä?"]);
+    expect(planEnd(plan, "1")).toBe("2026-10");
+    expect(planEnd(plan, " 6 ")).toBe("2027-03");
+    expect(planEnd(plan, "120")).toBe("2036-09");
+    for (const bad of ["", "0", "121", "2,5", "-1", "kaksi"]) expect(planEnd(plan, bad), bad).toBeNull();
+  });
+
+  it("offer a payee the categories the old picker offered, grouped, and find them by a part of the name", () => {
+    const cats = [
+      { id: "groceries", label: "Ruokakauppa", kind: "expense", group: "Ruoka" },
+      { id: "restaurants", label: "Ravintolat", kind: "expense", group: "Ruoka" },
+      { id: "other", label: "Muut menot", kind: "expense", group: "Muut" },
+      { id: "salary", label: "Palkka", kind: "income", group: "Tulot" },
+    ];
+    expect(offeredCategories(cats, false).map((c) => c.id)).toEqual(["groceries", "restaurants", "salary"]);
+    expect(offeredCategories(cats, true).map((c) => c.id)).toEqual(["salary"]);
+    expect(groupCategories(offeredCategories(cats, false), "").map(([g, l]) => [g, l.length])).toEqual([["Ruoka", 2], ["Tulot", 1]]);
+    expect(groupCategories(cats, "ravin").map(([, l]) => l.map((c) => c.id))).toEqual([["restaurants"]]);
+    // a search for a group's name finds its categories; accents and case do not matter
+    expect(groupCategories(cats, "RUOKA").flatMap(([, l]) => l.map((c) => c.id))).toEqual(["groceries", "restaurants"]);
+    expect(groupCategories(cats, "xyz")).toEqual([]);
+  });
+
+  it("ask every loan its kind, the kind the rows suggest first, and a placed loan may be the kind the plain answers lack", () => {
+    const loan = { kind: "loan", id: "loan:k", cents: 346_800, key: "k", payee: "Esimerkkirahoitus", paymentCents: 28_900, months: 14, firstDate: "2025-09-05", lastDate: "2026-10-05", guess: "instalment", placed: true } as const;
+    expect(questionOf(loan)).toBe(questionOf({ ...loan, placed: false }));
+    expect(loanKindChoices(loan).map((c) => [c.value, c.guess])[0]).toEqual(["instalment", true]);
+    // an answer stored as a mark has only the plain kinds
+    expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("instalment");
+  });
+
+  it("call a sum of the last year's rows yhteensä: a payee's, a payer's and a consent's", () => {
+    // one payment of a salary, read from a few weeks of history: "2 800 € vuodessa" would say a year's pay
+    const payer: ReviewItem = { kind: "payer", id: "payer:k", cents: 280_000, key: "k", merchant: "Esimerkki Oy", count: 1, lastDate: "2026-10-15", options: ["cost_share", "sales", "gift", "pay"], proposal: null };
+    const f = figureOf(payer);
+    expect([f.text.replace(/\s/g, " "), f.unit, f.line]).toEqual(["2 800,00 €", "yhteensä", "1 maksu viimeisen vuoden aikana, viimeksi 15.10."]);
+    expect(figureOf({ kind: "payee_in", id: "i", cents: 5_000, merchant: "Kirppis", count: 1, lastDate: "2026-10-18", picks: [] }).unit).toBe("yhteensä");
+    // a consent's figure is the money its accounts moved in the last 365 days, also for a bank connected a month ago
+    expect(figureOf({ kind: "consent", id: "c", cents: 41_000, connection: "c", institution: "Esimerkkipankki", daysLeft: 6, accounts: ["Käyttötili"] }).unit).toBe("yhteensä");
+  });
+
+  it("name the period of every figure", () => {
+    const payee: ReviewItem = { kind: "payee_out", id: "p", cents: 23_880, merchant: "Kauppa", count: 3, lastDate: "2026-09-20", picks: [] };
+    const loan: ReviewItem = { kind: "loan", id: "l", cents: 300_000, key: "k", payee: "Pankki", paymentCents: 25_000, months: 14, firstDate: "2026-01-05", lastDate: "2026-10-05", guess: "car", placed: true, rowCount: 10 };
+    expect(figureOf(payee).unit).toBe("yhteensä");
+    expect(figureOf(loan).unit).toBe("kuussa");
+    // the line counts the rows the card shows, not the calendar months the series spans
+    expect(figureOf(loan).line).toBe("10 maksua 5.1. alkaen, viimeksi 5.10.");
+  });
+});
+
+describe("the kinds the page has a card for", () => {
+  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "balance", "card_balance", "consent", "bill", "row"];
+  const of = (kind: string) => ({ kind, id: kind, cents: 0 }) as unknown as ReviewItem;
+
+  it("are the thirteen that stay: a number for the removed tips page is not one of them", () => {
+    expect(openItems(KINDS.map(of), NEW_SITTING).map((i) => i.kind)).toEqual(KINDS);
+    // an older server may still send the question: it gets no card and is not counted
+    expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
+    expect(sittingView([of("input")], NEW_SITTING)).toEqual({ state: "empty" });
+  });
+});
+
+describe("a card with no balance", () => {
+  const card = { kind: "card_balance", id: "card_balance:card", cents: 12_340, accountId: "card", accountName: "Luottokortti" } as unknown as ReviewItem;
+  it("is named by its card, in the words of the tile that waits for it", () => {
+    expect([eyebrow(card), nameOf(card), questionOf(card)]).toEqual(["Kortin saldo", "Luottokortti", "Kortin saldo puuttuu"]);
+    const f = figureOf(card);
+    expect([f.text.replace(/\s/g, " "), f.unit]).toEqual(["123,40 €", "yhteensä"]);
+    expect(f.line).toContain("Käytettävissä palkkapäivään");
+  });
+  it("in another currency says which, and that the figure counts in euros only", () => {
+    const sek = { ...card, currency: "SEK" } as ReviewItem;
+    expect([eyebrow(sek), nameOf(sek), questionOf(sek)]).toEqual(["Kortin saldo", "Luottokortti", "Kortin saldo on muussa valuutassa"]);
+    expect(figureOf(sek).line).toBe("Kortin Luottokortti saldo on valuutassa SEK. Laskemme Käytettävissä palkkapäivään -luvun vain euroista, joten emme voi näyttää sitä, kun tämä kortti on mukana.");
+  });
+});
+
+describe("a failed fetch", () => {
+  const run = (status: string) => ({ id: 7, status, startedAt: "2026-09-20T05:00:00Z", finishedAt: null, message: "Pankki ei vastannut" }) as unknown as Parameters<typeof withFetch>[1];
+  it("is the first item of the queue, with the run's message", () => {
+    const items = withFetch(queue(2), run("failed"));
+    expect(items).toHaveLength(3);
+    expect(items[0]).toMatchObject({ kind: "fetch", id: "fetch:7", at: "2026-09-20T05:00:00Z", message: "Pankki ei vastannut" });
+  });
+  it("leaves the queue as it is when the last run did not fail", () => {
+    expect(withFetch(queue(2), run("ok"))).toHaveLength(2);
+    expect(withFetch(queue(2), null)).toHaveLength(2);
+  });
+});

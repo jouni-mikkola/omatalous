@@ -1,0 +1,95 @@
+/* The Laskut page: the 30 days, the one table, the price steps and the form for a typed-in bill. */
+
+@layer pages {
+
+
+/* the form of a bill typed in is a dialog over the page */
+dialog.bill-dialog { width: min(40rem, calc(100vw - 2rem)); max-width: none; max-height: calc(100vh - 2rem); overflow-y: auto; }
+dialog.bill-dialog .bill-form p { color: var(--text-2); }
+.bill-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bill-fields label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bill-fields .field-label { color: var(--text-2); font-size: var(--fs-body); font-weight: var(--w-strong); }
+.bill-fields input, .bill-fields select { width: 100%; box-sizing: border-box; }
+@media (max-width: 700px) { .bill-fields { grid-template-columns: minmax(0, 1fr); } }
+
+
+/* the one action in a subscription's drill; a mark replaces it with a badge and an undo */
+.sub-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px; }
+.sub-actions .badge { margin-left: 0; }
+
+
+
+
+.mb-tag { padding-inline: var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.bills-first p { margin: var(--sp-8) 0 0; color: var(--text-2); }
+
+/* ── The step line of a price that moved, in the drill of the table */
+/* the line between the first price on the left and the price now on the right, each at the height of its end */
+.ps-plot { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; column-gap: var(--sp-8); }
+.ps-end { position: relative; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.ps-end span { position: absolute; transform: translateY(-50%); }
+.ps-end-first { color: var(--text-2); min-inline-size: 5.2em; }
+.ps-end-first span { inset-inline-start: 0; }
+.ps-end-now { min-inline-size: 5.2em; }
+.ps-end-now span { inset-inline-end: 0; }
+.ps-chart { display: block; inline-size: 100%; block-size: 56px; }
+.ps-chart path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+/* the date of each step under the line at its own place, never rotated */
+.ps-dates { grid-column: 2; position: relative; block-size: 16px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums; }
+.ps-dates span { position: absolute; inset-block-start: 2px; transform: translateX(-50%); white-space: nowrap; }
+.ps-dates span:first-child:not(:last-child) { transform: none; }
+.ps-dates span:last-child { transform: translateX(-100%); }
+.ps-move { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+
+/* ── Tilaukset in the table kit: the payee beside its mark, Kuussa with its bar, the price with its last move */
+.sub-table .tc-name { display: grid; min-inline-size: 0; }
+.sub-merchant { font-weight: var(--w-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-category { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.sub-chip { margin-inline-start: var(--sp-8); }
+.sub-share { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--muted); }
+/* a phone row is the name, the day and the sum: the category line and the month's shareare in the open row */
+.rt-wrap[data-block] :is(.sub-category, .sub-share) { display: none; }
+/* the day starts at one x under its label, whatever stands after it (a late badge, "Kortilla"): right-aligned, a tag moves it */
+.rt-wrap[data-block] .sub-table td.next-col { justify-content: flex-start; gap: 0; }
+.rt-wrap[data-block] .sub-table td.next-col::before { min-inline-size: 4.5rem; }
+/* what has ended: a fold under the table, its head the same small label as a group head */
+.sub-ended { border-top: 1px solid var(--border); }
+.sub-ended > summary { padding-block: var(--sp-12); cursor: pointer; color: var(--text-2); }
+.sub-ended > summary b { margin-inline-start: var(--sp-4); font-weight: 400; color: var(--muted); }
+.sub-card, .sub-kind { margin-inline-start: var(--sp-8); }
+/* the short list of what has ended fits a phone as a table: its touch target stays inside the card, where a row of blocks keeps it */
+@media (pointer: coarse) { .rt-wrap:not([data-block]) .sub-table .rt-drill { margin-inline-start: 0; } }
+.sub-stopped > * { color: var(--text-2); }
+.sub-drill { display: grid; gap: var(--sp-12); }
+.sub-steps { display: grid; gap: var(--sp-8); max-inline-size: 420px; }
+.sub-line { margin: 0; color: var(--text-2); }
+.sub-facts { display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-24); margin: 0; }
+.sub-facts dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+/* ── The 30 days: the sum, the line of dots and the sums of the groups under it */
+.bills-time-sum { display: flex; align-items: baseline; gap: var(--sp-12); margin: var(--sp-8) 0 var(--sp-12); color: var(--text-2); }
+.bills-time-rows { margin-block-start: var(--sp-12); }
+.bills-time-rows .st-name { overflow: visible; white-space: normal; }
+}
+
+@layer pages {
+  /* Maksut ennen palkkapäivää: one block per row, no sideways scroll */
+  .before-payday .bp-rows { list-style: none; margin: 0; padding: 0; }
+  .before-payday .bp-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: var(--sp-8); padding-block: var(--sp-4); }
+  .before-payday .bp-name { overflow-wrap: anywhere; min-width: 0; }
+  .before-payday .bp-sum { text-align: end; white-space: nowrap; }
+  .before-payday .bp-total { font-weight: var(--w-strong); }
+  .before-payday .bp-outside, .before-payday .bp-outside small { color: var(--text-2); }
+  .before-payday .bp-outside small { font-size: var(--fs-small); }
+  /* the second figure of the head: what other accounts pay, under the sum of the counted ones */
+  .before-payday .bp-elsewhere { margin-block-start: calc(-1 * var(--sp-8)); flex-wrap: wrap; }
+  /* the sum beside its name, as 1.0.0 had it over the line of days; the rows follow the line's key */
+  .before-payday .bills-time-sum h3 { margin: 0; font-size: var(--fs-body); font-weight: var(--w-regular); color: var(--text-2); }
+  .before-payday .bp-rows { margin-top: var(--sp-16); }
+  .before-payday .bp-row[data-active] { background: var(--control); }
+  @media (max-width: 700px) {
+    .before-payday .bp-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .before-payday .bp-date { grid-column: 1 / -1; color: var(--text-2); }
+  }
+}

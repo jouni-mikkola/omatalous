@@ -1,0 +1,162 @@
+/**
+ * A stand-in for the bank's API (Enable Banking) for the browser specs: plain Node, no dependency, on 127.0.0.1 only.
+ * It answers the paths connectors/enable-banking/client.ts calls, about the household of household.mjs, and checks that
+ * a request carries a bearer token and nothing more. Started by e2e/server.mjs, or by hand with `node e2e/fake-bank/server.mjs`
+ * (FAKE_BANK_PORT picks the port, else a free one). It prints one line of JSON: its address and the consent host.
+ */
+import { createServer } from "node:http";
+import { firstEvening } from "./first-evening.mjs";
+import { coverageHousehold } from "./coverage-household.mjs";
+import { secondHousehold } from "./second-household.mjs";
+import { household, OP_ACCOUNT, OP_BALANCE } from "./household.mjs";
+
+const PAGE_SIZE = 40;
+/** The host of the consent page the API names. It does not exist: the browser is sent to it and a spec answers for it. */
+const CONSENT_HOST = "consent.esimerkkipankki.example";
+
+const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki" }).format(new Date());
+const { accounts, transactions, balances, dollarAccount } = household(today);
+/** The same household under other ids, with a joint account no other link lists: a link that asks for it (?own=1) gets it instead. */
+const own = household(today, true);
+Object.assign(transactions, own.transactions);
+Object.assign(balances, own.balances);
+/** The household of the first-evening check, with the category each of its rows is expected to get: a link that asks for it (?evening=1) gets it. */
+const evening = firstEvening(today);
+Object.assign(transactions, evening.transactions);
+Object.assign(balances, evening.balances);
+/** The second household at the second bank (OP): a link to OP that asks for it (?second=1) gets it instead of OP's one account. */
+const second = secondHousehold(today);
+Object.assign(transactions, second.transactions);
+Object.assign(balances, second.balances);
+/** The household whose figures leave things out (a short history, an unconnected card's bills, a dollar row): a Nordea link that asks for it (?coverage=1) gets it. */
+const coverage = coverageHousehold(today);
+Object.assign(transactions, coverage.transactions);
+Object.assign(balances, coverage.balances);
+/** Authorisations that were started: the consent page sends the browser back to the redirect URL given there. */
+const authorizations = new Map();
+let sessions = 0;
+/** How POST /auth answers: "ok", "refuse-redirect" (REDIRECT_URI_NOT_ALLOWED) or "fail". PUT /fake/auth-answer changes it. */
+let authAnswer = "ok";
+/** While set, only the account in `answered` (the first one asked) gets its rows; the others wait for `promise` (PUT /fake/hold-rows). */
+let held = null;
+/** When set, a session ends in this many days whatever the app asked for (PUT /fake/valid-days): a consent that is about to end. */
+let validDays = null;
+/** The one account OP's consent brings: a second bank for the specs that renew more than one consent. */
+const opAccount = OP_ACCOUNT;
+transactions[opAccount.uid] = [];
+balances[opAccount.uid] = OP_BALANCE;
+
+let balanceCalls = 0;
+
+function send(res, status, body) {
+  if (body === undefined) return res.writeHead(status).end();
+  return res.writeHead(status, { "Content-Type": "application/json" }).end(JSON.stringify(body));
+}
+
+async function readJson(req) {
+  let text = "";
+  for await (const chunk of req) text += chunk;
+  return text ? JSON.parse(text) : {};
+}
+
+async function handle(req, res) {
+  const url = new URL(req.url ?? "/", "http://fake-bank");
+  const route = `${req.method} ${url.pathname}`;
+
+  // the consent page: the browser comes here, not the app, so there is no token to check
+  const consent = /^GET \/consent\/([\w-]+)$/.exec(route);
+  if (consent) {
+    const authorization = authorizations.get(consent[1]);
+    if (!authorization) return send(res, 404, { error: "AUTHORIZATION_NOT_FOUND" });
+    // a link that asks for it (?dollars=1) also gets the account with a row in dollars; the others never see it
+    authorization.dollars = url.searchParams.get("dollars") === "1";
+    authorization.own = url.searchParams.get("own") === "1";
+    authorization.evening = url.searchParams.get("evening") === "1";
+    authorization.second = url.searchParams.get("second") === "1";
+    authorization.coverage = url.searchParams.get("coverage") === "1";
+    const back = new URL(authorization.redirectUrl);
+    back.searchParams.set("code", `code-${consent[1]}`);
+    back.searchParams.set("state", authorization.state);
+    return res.writeHead(302, { Location: back.href }).end();
+  }
+
+  // the option for a spec that tries the redirect self-test: no token, it is the bank's side that changes
+  if (route === "PUT /fake/auth-answer") {
+    authAnswer = String((await readJson(req)).mode);
+    return send(res, 204);
+  }
+  // how many times the app asked for a balance: a spec that must show no fetch compares it before and after
+  if (route === "GET /fake/balance-calls") return send(res, 200, { calls: balanceCalls });
+  if (route === "GET /fake/evening-expected") return send(res, 200, evening.expected);
+  if (route === "GET /fake/coverage-expected") return send(res, 200, coverage.expected);
+  if (route === "GET /fake/second-expected") return send(res, 200, { expected: second.expected, pending: second.pending });
+  if (route === "PUT /fake/valid-days") {
+    const { days } = await readJson(req);
+    validDays = days === null ? null : Number(days);
+    return send(res, 204);
+  }
+
+  // a fetch that is still running: the rows of the first account asked are answered, the other accounts' rows wait
+  if (route === "PUT /fake/hold-rows") {
+    const { hold } = await readJson(req);
+    if (hold && !held) held = { answered: null, waiting: 0, ...Promise.withResolvers() };
+    if (!hold && held) {
+      held.resolve();
+      held = null;
+    }
+    return send(res, 204);
+  }
+  // how many asks for rows wait: above 0 the fetch has got past its first account, so its count stands still
+  if (route === "GET /fake/hold-rows") return send(res, 200, { waiting: held?.waiting ?? 0 });
+
+  if (!/^Bearer \S+$/.test(req.headers.authorization ?? "")) return send(res, 401, { error: "UNAUTHORIZED" });
+  if (route === "GET /application") return send(res, 200, { active: true });
+  if (route === "GET /aspsps") {
+    return send(res, 200, { aspsps: ["Nordea", "OP"].map((name) => ({ name, country: "FI", maximum_consent_validity: 180 * 86400, psu_types: ["personal"] })) });
+  }
+  if (route === "POST /auth") {
+    if (authAnswer === "refuse-redirect") return send(res, 422, { error: "REDIRECT_URI_NOT_ALLOWED", message: "Redirect URI not allowed" });
+    if (authAnswer === "fail") return send(res, 500, { error: "FAKE_BANK_FAILED" });
+    const sent = await readJson(req);
+    const id = `authorization-${authorizations.size + 1}`;
+    authorizations.set(id, { redirectUrl: sent.redirect_url, state: sent.state, validUntil: sent.access?.valid_until, bank: sent.aspsp?.name ?? "Nordea" });
+    return send(res, 200, { url: `https://${CONSENT_HOST}/consent/${id}`, authorization_id: id });
+  }
+  if (route === "POST /sessions") {
+    const { code } = await readJson(req);
+    const authorization = authorizations.get(String(code).replace(/^code-/, ""));
+    if (!authorization) return send(res, 422, { error: "WRONG_AUTHORIZATION_CODE" });
+    const validUntil = validDays === null ? authorization.validUntil : new Date(Date.now() + validDays * 86_400_000).toISOString();
+    const brought = authorization.bank === "OP" ? (authorization.second ? second.accounts : [opAccount]) : authorization.coverage ? coverage.accounts : authorization.evening ? evening.accounts : authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts;
+    return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: authorization.bank, country: "FI" }, access: { valid_until: validUntil }, accounts: brought });
+  }
+  if (req.method === "DELETE" && url.pathname.startsWith("/sessions/")) return send(res, 204);
+
+  const account = /^GET \/accounts\/([\w-]+)\/(details|balances|transactions)$/.exec(route);
+  const uid = account?.[1] ?? "";
+  if (!account || !Object.hasOwn(transactions, uid)) return send(res, 404, { error: "NOT_FOUND" });
+  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts, ...evening.accounts, ...second.accounts, ...coverage.accounts, opAccount].find((a) => a.uid === uid));
+  if (account[2] === "balances") {
+    balanceCalls++;
+    const amount = { currency: "EUR", amount: (balances[uid] / 100).toFixed(2) };
+    return send(res, 200, { balances: [{ name: "Kirjattu saldo", balance_amount: amount, balance_type: "CLBD", reference_date: today }] });
+  }
+  if (held) {
+    held.answered ??= uid;
+    if (held.answered !== uid) {
+      held.waiting++;
+      await held.promise;
+    }
+  }
+  const rows = transactions[uid].filter((t) => (t.booking_date ?? t.transaction_date) >= (url.searchParams.get("date_from") ?? ""));
+  const from = Number(url.searchParams.get("continuation_key")) || 0;
+  const next = from + PAGE_SIZE;
+  return send(res, 200, { transactions: rows.slice(from, next), continuation_key: next < rows.length ? String(next) : null });
+}
+
+const server = createServer((req, res) => {
+  handle(req, res).catch(() => send(res, 500, { error: "FAKE_BANK_FAILED" }));
+});
+server.listen(Number(process.env.FAKE_BANK_PORT) || 0, "127.0.0.1", () => {
+  console.log(JSON.stringify({ base: `http://127.0.0.1:${server.address().port}`, consentHost: CONSENT_HOST }));
+});

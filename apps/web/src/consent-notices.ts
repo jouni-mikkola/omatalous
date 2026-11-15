@@ -1,0 +1,256 @@
+import { type RoundView, WARN_DAYS } from "@banking/core";
+import { accountNumber, date, fullDate, localDay } from "./format.ts";
+import type { Account, Connection } from "./types.ts";
+import { t, tn } from "./text.ts";
+
+/** The applications page of the Enable Banking Control Panel, where Link accounts is. */
+export const CONTROL_PANEL = "https://enablebanking.com/cp/applications";
+
+interface ConsentNotice {
+  /** The connection the notice is about, or for left_out the account. */
+  id: string;
+  institution: string;
+  /**
+   * lapsed: its date passed; broken: closed before its date; expiring: ends within two weeks; left_out: an account that
+   * stayed on an ended consent while a newer consent of the bank is active.
+   */
+  kind: "lapsed" | "broken" | "expiring" | "left_out";
+  /** The date a lapsed consent ended. */
+  endedOn: string | null;
+  daysLeft: number | null;
+  /** The account a left_out notice is about. */
+  accountName?: string;
+}
+
+/**
+ * The words for an account a newer consent of its bank did not bring. Connecting again does not help until the
+ * account is linked: a restricted application leaves the others out of a session.
+ */
+export function leftOutText(accountName: string): string {
+  return t("conn.left_out", { name: accountName });
+}
+
+/**
+ * One notice per connection that has ended or ends within two weeks, ended ones first and then the soonest. A
+ * consent that ended has its own notice whatever the other consents are. A connection that owns no account is
+ * history (its accounts moved to a newer consent) and says nothing. An ended consent that a newer one of the same bank
+ * replaced names each account still on it instead: "katkesi" with "Yhdistä uudelleen" would send the user round to
+ * a reconnect that cannot move them.
+ */
+export function consentNotices(connections: readonly Connection[], accounts: readonly Pick<Account, "id" | "name" | "connectionId">[]): ConsentNotice[] {
+  const current = connections.filter((c) => !c.history);
+  const ended = current.filter((c) => c.state === "lapsed" || c.state === "broken" || (c.state === "removed" && c.replaced));
+  const notices = ended.flatMap((c): ConsentNotice[] =>
+    c.replaced
+      ? accounts
+          .filter((a) => a.connectionId === c.id)
+          .map((a) => ({ id: a.id, institution: c.institution, kind: "left_out", endedOn: null, daysLeft: null, accountName: a.name }))
+      : [{ id: c.id, institution: c.institution, kind: c.state === "lapsed" ? "lapsed" : "broken", endedOn: c.state === "lapsed" ? c.validUntil : null, daysLeft: null }],
+  );
+  const expiring = current
+    .filter((c) => c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS)
+    .sort((a, b) => a.daysLeft! - b.daysLeft!)
+    .map((c): ConsentNotice => ({ id: c.id, institution: c.institution, kind: "expiring", endedOn: null, daysLeft: c.daysLeft }));
+  return [...notices, ...expiring];
+}
+
+/** The connection stays active through its last day, so 0 means today. */
+export function expiresIn(daysLeft: number): string {
+  return daysLeft <= 0 ? t("conn.today") : daysLeft === 1 ? t("conn.tomorrow") : t("conn.in_days", { days: daysLeft });
+}
+
+/** The same words as the connections table and Tietojen laatu; a consent that broke shows no date. */
+export function consentNoticeText(n: ConsentNotice): string {
+  if (n.kind === "left_out") return leftOutText(n.accountName ?? n.institution);
+  if (n.kind === "lapsed") return n.endedOn ? t("conn.lapsed_on", { bank: n.institution, date: date(n.endedOn) }) : t("conn.lapsed", { bank: n.institution });
+  if (n.kind === "broken") return t("conn.broken", { bank: n.institution });
+  return t("conn.expires", { bank: n.institution, when: expiresIn(n.daysLeft ?? 0) });
+}
+
+// ── the round that renews every consent ───────────────────────────────────────────
+
+/** The line above the button that begins a round: the consents by name, in the order the round takes them. */
+export function dueText(names: readonly string[]): string {
+  return t("conn.due", { names: names.join(", ") });
+}
+
+/** The progress of a begun round, "1 / 2 uusittu"; the end says so. */
+export function roundText(round: Pick<RoundView, "consents" | "finished">): string {
+  return round.finished ? t("conn.round_done") : t("conn.round_progress", { done: round.consents.filter((c) => c.done).length, total: round.consents.length });
+}
+
+/**
+ * What a consent of the round is called: the bank, and when the round holds more than one consent of that bank, the
+ * accounts, with their numbers, that tell them apart (Nordea gives one account per consent).
+ */
+export function roundLabel(connection: string, bank: string, nameOfBank: string, round: readonly { connection: string; bank: string }[], accounts: readonly Pick<Account, "name" | "iban" | "cardMask" | "connectionId">[]): string {
+  if (round.filter((r) => r.bank === bank).length < 2) return nameOfBank;
+  const names = accounts.filter((a) => a.connectionId === connection).map((a) => [a.name, accountNumber(a)].filter(Boolean).join(" · "));
+  return names.length ? `${nameOfBank} (${names.join(", ")})` : nameOfBank;
+}
+
+// ── accounts the bank handed over that the app may not read ─────────────────────────
+
+interface UnlinkedAccount {
+  id: string;
+  institution: string;
+  /** The name the bank gives the account (its product name when it gives one). */
+  name: string;
+  /** "•••• 0785": only the last four digits, of an IBAN or a card. */
+  number: string;
+}
+
+/**
+ * The last four digits of an IBAN, else a card's own mask, else "". This is how the notice shows a number: the
+ * member's own page already has the whole IBAN (GET /api/meta), so this hides nothing from the page, it only keeps the
+ * notice short.
+ */
+export function maskedNumber(a: { iban: string | null; cardMask?: string | null }): string {
+  const iban = (a.iban ?? "").replace(/\s/g, "");
+  return iban.length >= 4 ? `•••• ${iban.slice(-4)}` : (a.cardMask ?? "");
+}
+
+/**
+ * The accounts of an active connection that the last fetch could not read because they are not linked in the
+ * Control Panel. An account whose consent ended has an older story (the notices above), and a fetch that works
+ * takes the account off the list by itself.
+ */
+export function unlinkedAccounts(connections: readonly Connection[], accounts: readonly Pick<Account, "id" | "bankName" | "name" | "iban" | "cardMask" | "connectionId" | "problem">[]): UnlinkedAccount[] {
+  const active = new Map(connections.filter((c) => !c.history && c.state === "active").map((c) => [c.id, c.institution]));
+  return accounts.flatMap((a) => {
+    const institution = a.connectionId ? active.get(a.connectionId) : undefined;
+    return institution !== undefined && a.problem?.kind === "not_linked" ? [{ id: a.id, institution, name: a.bankName || a.name, number: maskedNumber(a) }] : [];
+  });
+}
+
+/** The line above the list. */
+export function unlinkedTitle(count: number): string {
+  return count === 1 ? t("conn.unlinked_one") : t("conn.unlinked_many", { count });
+}
+
+/** The one step that fixes it: who takes it depends on whose Enable Banking application reads the accounts. */
+export function unlinkedStep(count: number, canFix: boolean): string {
+  const them = count === 1 ? t("conn.them_one") : t("conn.them_many");
+  const where = "API applications > Omatalous > Link accounts";
+  return t(canFix ? "conn.fix_self" : "conn.fix_admin", { them, where });
+}
+
+// ── the calendar reminder ───────────────────────────────────────────────────────────
+
+/** The reminder falls this many days before the consent ends. */
+const REMINDER_DAYS = 7;
+/** The list of connections counts the days left only when fewer than this many are left. */
+const SHOW_DAYS_LEFT = 30;
+
+/** "voimassa 14.1.2027 asti"; the days left are added from the last month on ("…, vielä 12 päivää"); the last day says so. Empty for a consent that is not active. */
+export function validityText(c: Pick<Connection, "state" | "validUntil" | "daysLeft">): string {
+  if (c.state !== "active" || !c.validUntil) return "";
+  const until = t("conn.valid_until", { date: date(c.validUntil) });
+  if (c.daysLeft === null) return until;
+  if (c.daysLeft <= 0) return t("conn.valid_today");
+  return c.daysLeft < SHOW_DAYS_LEFT ? tn(c.daysLeft, "conn.valid_left_one", "conn.valid_left_many", { until }) : until;
+}
+
+/** The day of the reminder (YYYY-MM-DD), counted from the date the page shows for the end. Null without a date. */
+export function reminderDay(validUntil: string | null): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(validUntil ? localDay(validUntil) : "");
+  if (!m) return null;
+  const day = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) - REMINDER_DAYS));
+  return Number.isNaN(day.getTime()) ? null : day.toISOString().slice(0, 10);
+}
+
+/**
+ * Text value of an iCalendar property (RFC 5545 3.3.11). CRLF, a lone CR, LF, NEL and the Unicode line and paragraph
+ * separators all become the escaped newline, and other control characters are dropped, so a bank name from outside can
+ * never end the line it sits in.
+ */
+function icsText(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/;/g, "\\;")
+    .replace(/,/g, "\\,")
+    .replace(/\r\n|[\r\n\x85\p{Zl}\p{Zp}]/gu, "\\n")
+    .replace(/[\x00-\x08\x0b-\x1f\x7f]/g, "");
+}
+
+/** Lines are cut at 75 octets, the rest continues after CRLF and a space (RFC 5545 3.1); a character is never split. */
+function foldLine(line: string): string {
+  const encoder = new TextEncoder();
+  const parts: string[] = [];
+  let current = "";
+  let size = 0;
+  for (const ch of line) {
+    const n = encoder.encode(ch).length;
+    if (size + n > (parts.length === 0 ? 75 : 74)) {
+      parts.push(current);
+      current = "";
+      size = 0;
+    }
+    current += ch;
+    size += n;
+  }
+  parts.push(current);
+  return parts.join("\r\n ");
+}
+
+/** A short code of an id, so the event of one consent keeps its identity in a calendar without the id being in the file. */
+function shortHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (const ch of s) h = Math.imul(h ^ ch.codePointAt(0)!, 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, "0");
+}
+
+interface Reminder {
+  /** YYYY-MM-DD */
+  day: string;
+  filename: string;
+  /** The .ics file. */
+  ics: string;
+}
+
+/**
+ * A calendar file with one all-day event seven days before the consent ends. It names the bank, the end date and the
+ * address of the app (`origin`, as the page was opened), and nothing of an account. Null without an end date or with
+ * an address that is not http or https. `stamp` is the time of the file (DTSTAMP).
+ */
+export function renewalReminder(c: Pick<Connection, "id" | "institution" | "validUntil">, origin: string, stamp: Date): Reminder | null {
+  const day = reminderDay(c.validUntil);
+  let address: URL;
+  try {
+    address = new URL(origin);
+  } catch {
+    return null;
+  }
+  if (!day || !c.validUntil || !/^https?:$/.test(address.protocol)) return null;
+  const link = `${address.origin}/#/settings`;
+  const title = t("conn.reminder_title", { date: fullDate(c.validUntil) });
+  const compact = (iso: string) => iso.replaceAll("-", "");
+  const after = new Date(`${day}T00:00:00Z`);
+  after.setUTCDate(after.getUTCDate() + 1);
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Omatalous//Pankkiyhteys//FI",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:renewal-${shortHash(c.id)}-${compact(localDay(c.validUntil))}@omatalous`,
+    `DTSTAMP:${stamp.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "")}`,
+    `DTSTART;VALUE=DATE:${compact(day)}`,
+    `DTEND;VALUE=DATE:${compact(after.toISOString().slice(0, 10))}`,
+    `SUMMARY:${icsText(title)}`,
+    `DESCRIPTION:${icsText(`${t("conn.reminder_text", { bank: c.institution, date: fullDate(c.validUntil) })}\n${link}`)}`,
+    `URL:${link}`,
+    "TRANSP:TRANSPARENT",
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `DESCRIPTION:${icsText(title)}`,
+    "TRIGGER;RELATED=START:PT9H",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ];
+  const slug = c.institution.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const filename = `${[t("ics.file"), slug, localDay(c.validUntil)].filter(Boolean).join("-")}.ics`;
+  return { day, filename, ics: `${lines.map(foldLine).join("\r\n")}\r\n` };
+}

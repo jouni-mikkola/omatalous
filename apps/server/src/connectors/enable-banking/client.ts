@@ -1,0 +1,310 @@
+import type { RawTransaction } from "@banking/core";
+import { UpstreamError } from "../../platform/errors.ts";
+import { addressOn, readCappedText } from "../../platform/outbound.ts";
+import { importPrivateKey, type SigningKey } from "../../security/rsa-key.ts";
+import { BANKS } from "./banks.ts";
+import { signJwt } from "./jwt.ts";
+import type { RefusedRows } from "../types.ts";
+import { mapTransaction, refusalOf } from "./mapper.ts";
+import type { EbAccount, EbApplication, EbAspsp, EbBalance, EbSession, EbTransactionsPage } from "./types.ts";
+
+/** The bank's error code (like ASPSP_ERROR) when the body has one; the rest of the body may hold account data and stays out of logs. */
+function errorCode(body: string): string {
+  try {
+    const code = (JSON.parse(body) as { error?: unknown }).error;
+    return typeof code === "string" && /^[A-Za-z_]{3,60}$/.test(code) ? code : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Codes for an account the application may not read. A restricted application (activated by linking own accounts)
+ * reads only the accounts under Linked accounts in the Control Panel. The API reference documents NO_ACCOUNTS_ADDED as
+ * "No allowed accounts added to the application"; no other code is documented for it. Add a code here only when the
+ * docs or a real response confirm it.
+ */
+const NOT_LINKED_CODES: readonly string[] = ["NO_ACCOUNTS_ADDED"];
+
+/** What a failed call means for the reader, with no status code: those stay in the log line of the error. */
+export function plainFault(status: number): string {
+  if (status === 429) return "Enable Banking rajoitti hakuja. Yritä hetken päästä uudelleen.";
+  if (status >= 500) return "Enable Banking ei vastaa juuri nyt. Yritä myöhemmin uudelleen.";
+  return "Enable Banking ei hyväksynyt pyyntöä. Yritä myöhemmin uudelleen.";
+}
+
+export class EnableBankingError extends UpstreamError {
+  readonly body!: string;
+
+  constructor(
+    readonly status: number,
+    body: string,
+    path: string,
+  ) {
+    super(`Enable Banking ${status} on ${path}${errorCode(body) ? ` ${errorCode(body)}` : ""}`, plainFault(status));
+    // not enumerable, so printing the error to the log does not print the response
+    Object.defineProperty(this, "body", { value: body, enumerable: false });
+  }
+
+  /** Enable Banking's error code, like ASPSP_ERROR: a fixed word, safe to show where the status is shown. */
+  get code(): string {
+    return errorCode(this.body);
+  }
+
+  /**
+   * The bank consent is gone and the user has to authorise again. Only the
+   * session/consent error codes count: a 401 for a wrong application key is
+   * not the user's consent expiring (see appRejected).
+   */
+  get consentExpired(): boolean {
+    return /(?:EXPIRED|CLOSED|REVOKED|INVALID|UNKNOWN)_SESSION|SESSION_(?:EXPIRED|CLOSED|REVOKED|NOT_FOUND|DOES_NOT_EXIST)|(?:EXPIRED|REVOKED)_CONSENT|CONSENT_(?:EXPIRED|REVOKED|INVALID)|ACCESS_EXPIRED/i.test(this.body);
+  }
+
+  /** The bank (or Enable Banking for it) says this application has fetched as often as the bank allows. */
+  get rateLimited(): boolean {
+    return this.status === 429 || this.code === "ASPSP_RATE_LIMIT_EXCEEDED";
+  }
+
+  /** The application may not read this account: it is not linked to a restricted application. */
+  get notLinked(): boolean {
+    return NOT_LINKED_CODES.includes(this.code);
+  }
+
+  /** The API refused the application itself (JWT, Application ID or key). */
+  get appRejected(): boolean {
+    return (this.status === 401 || this.status === 403) && !this.consentExpired && !this.notLinked;
+  }
+}
+
+export interface EnableBankingOptions {
+  appId: string;
+  privateKeyPem: string;
+  baseUrl?: string;
+  fetch?: typeof fetch;
+  /** Extra hosts (and their subdomains) the consent page may be on. */
+  authHosts?: readonly string[];
+  /** The household's time zone, for dates the bank gives with a time. */
+  timeZone?: string;
+  /** Pages of failed transactions answers; give the same store to each client of one user so a later sync goes on from them. */
+  keptPages?: KeptPages;
+}
+
+export interface KeptPage { out: RawTransaction[]; next: string; page: number; refused: RefusedRows; at: number }
+export type KeptPages = Map<string, KeptPage>;
+/** Pages kept for a window nobody asks for again are dropped after this long, and no more than KEPT_MAX stay. */
+const KEPT_TTL_MS = 60 * 60_000;
+const KEPT_MAX = 8;
+
+const MAX_PAGES = 200;
+/** One request may take this long; a hung answer would hold the sync lock for 15 minutes. */
+const REQUEST_TIMEOUT_MS = 30_000;
+/** Largest answer read (a page of transactions is well under 1 MB). */
+const MAX_BODY_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Where the browser is sent to give consent: Enable Banking's own pages, and the sign-in hosts of the banks of
+ * banks.ts. Each entry stands for the host and its subdomains, so it is a domain the bank itself holds, never a
+ * shared suffix.
+ */
+export const AUTH_HOSTS: readonly string[] = [...new Set(["enablebanking.com", ...BANKS.flatMap((b) => b.authHosts)])];
+
+/**
+ * The consent URL comes from an API answer and is followed by the browser, so it must be https on a known host
+ * (the rule of platform/outbound.ts `addressOn`). Anything else is refused here instead of being passed on.
+ */
+export function checkAuthUrl(value: unknown, extraHosts: readonly string[] = []): string {
+  const url = addressOn(value, [...AUTH_HOSTS, ...extraHosts]);
+  if (url === null) throw new EnableBankingError(502, "", "auth url");
+  return url;
+}
+
+/** Errors thrown after the bank used the code and made a session (which was then withdrawn): the same code cannot be tried again. */
+const spentCode = new WeakSet<object>();
+export function codeWasSpent(err: unknown): boolean {
+  return typeof err === "object" && err !== null && spentCode.has(err);
+}
+
+export class EnableBankingClient {
+  private key: Promise<SigningKey> | null = null;
+  private token: { value: string; expiresAt: number } | null = null;
+  private readonly baseUrl: string;
+  private readonly fetchFn: typeof fetch;
+  /** Pages already read of a transactions answer that then failed, kept so the next try goes on from there. */
+  private readonly partial: KeptPages;
+
+  constructor(private readonly opts: EnableBankingOptions) {
+    this.partial = opts.keptPages ?? new Map();
+    this.baseUrl = opts.baseUrl ?? "https://api.enablebanking.com";
+    this.fetchFn = opts.fetch ?? ((input, init) => fetch(input, init));
+  }
+
+  private async authHeader(): Promise<string> {
+    const now = Date.now();
+    if (!this.token || this.token.expiresAt - now < 5 * 60_000) {
+      this.key ??= importPrivateKey(this.opts.privateKeyPem);
+      this.token = { value: await signJwt(this.opts.appId, await this.key, now), expiresAt: now + 3600_000 };
+    }
+    return `Bearer ${this.token.value}`;
+  }
+
+  /** `userHeaders` are the Psu-* headers of a member who is present (psu.ts); they go out as given and are never logged. */
+  private async request<T>(method: string, path: string, body?: unknown, userHeaders?: Readonly<Record<string, string>>): Promise<T> {
+    const headers = { ...userHeaders, Authorization: await this.authHeader(), "Content-Type": "application/json", Accept: "application/json" };
+    const sent = body === undefined ? undefined : JSON.stringify(body);
+    let res: Response;
+    let text: string | null;
+    try {
+      res = await this.fetchFn(`${this.baseUrl}${path}`, {
+        method,
+        headers,
+        body: sent,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      text = await readCappedText(res, MAX_BODY_BYTES);
+    } catch (err) {
+      // no network, a TLS fault, the timeout or an answer that broke off: an outage of the bank's side, not a fault of the app.
+      // fetch says only "TypeError"; the cause code (ENOTFOUND, ECONNREFUSED, a TLS code) tells what to fix. The error's own text stays out.
+      const code = (err as { cause?: { code?: unknown } }).cause?.code;
+      const detail = typeof code === "string" && /^[A-Z0-9_]{2,40}$/.test(code) ? ` ${code}` : "";
+      throw new UpstreamError(`Enable Banking gave no answer on ${path}: ${(err as Error).name}${detail}`, plainFault(503));
+    }
+    if (text === null) throw new UpstreamError(`Enable Banking response too large on ${path} (TOO_LARGE)`, "Emme voineet lukea pankin vastausta.");
+    if (!res.ok) throw new EnableBankingError(res.status, text, path);
+    if (!text) return {} as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      // the parser's message quotes the start of the body, which is the bank's and does not go to a log
+      throw new UpstreamError(`Enable Banking answered ${path} with text that is not JSON`, "Emme voineet lukea pankin vastausta.");
+    }
+  }
+
+  /** The application's own details; only `active` is read. */
+  async application(): Promise<EbApplication> {
+    return this.request<EbApplication>("GET", "/application");
+  }
+
+  /**
+   * The banks the application can reach in a country. An entry without a name is left out: callers match by it. An
+   * answer without a list is a failed call, not an empty list: an empty list would offer no bank at all.
+   */
+  async listAspsps(country: string): Promise<EbAspsp[]> {
+    const { aspsps } = await this.request<{ aspsps?: unknown }>("GET", `/aspsps?country=${encodeURIComponent(country)}&service=AIS`);
+    if (!Array.isArray(aspsps)) throw new EnableBankingError(502, "", "/aspsps");
+    return aspsps.filter((a): a is EbAspsp => typeof (a as EbAspsp | null)?.name === "string");
+  }
+
+  /** Returns the bank URL the user must open to give consent. */
+  async startAuthorization(input: {
+    aspspName: string;
+    country: string;
+    redirectUrl: string;
+    state: string;
+    validUntil: Date;
+    psuType: "personal" | "business";
+  }): Promise<{ url: string; authorizationId: string }> {
+    const r = await this.request<{ url: string; authorization_id: unknown }>("POST", "/auth", {
+      access: { valid_until: input.validUntil.toISOString() },
+      aspsp: { name: input.aspspName, country: input.country },
+      state: input.state,
+      redirect_url: input.redirectUrl,
+      psu_type: input.psuType,
+      language: "fi",
+    });
+    const url = checkAuthUrl(r.url, this.opts.authHosts);
+    if (typeof r.authorization_id !== "string" || r.authorization_id === "") throw new EnableBankingError(502, "", "/auth");
+    return { url, authorizationId: r.authorization_id };
+  }
+
+  /** Exchanges the code from the redirect for a session with account details. */
+  async createSession(code: string): Promise<EbSession & { accounts: EbAccount[] }> {
+    const session = await this.request<EbSession>("POST", "/sessions", { code });
+    const sessionId: unknown = session?.session_id;
+    const hasId = typeof sessionId === "string" && sessionId !== "";
+    // Some responses list only account ids; fetch the details for those.
+    let accounts: EbAccount[];
+    try {
+      if (!hasId) throw new EnableBankingError(502, "", "/sessions");
+      if (!Array.isArray(session.accounts)) throw new EnableBankingError(502, "", "/sessions");
+      accounts = await Promise.all(
+        session.accounts.map(async (a) =>
+          typeof a === "string" ? { ...(await this.accountDetails(a)), uid: a } : a,
+        ),
+      );
+    } catch (err) {
+      // no session id: no session was made, so nothing to withdraw and the code is not spent
+      if (!hasId) throw err;
+      // the bank made the session but the caller never gets its id: withdraw the consent so none stays open unseen
+      await this.deleteSession(session.session_id).catch((e: unknown) => {
+        console.error(`withdraw consent ${session.session_id.slice(0, 8)}:`, e instanceof EnableBankingError ? e.message : "failed");
+      });
+      if (typeof err === "object" && err !== null) spentCode.add(err);
+      throw err;
+    }
+    return { ...session, accounts };
+  }
+
+  /** The account resource (holder, product, card number, limit) of one account of an open session. */
+  async accountDetails(accountUid: string): Promise<EbAccount> {
+    return this.request<EbAccount>("GET", `/accounts/${encodeURIComponent(accountUid)}/details`);
+  }
+
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.request("DELETE", `/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  async balances(accountUid: string, userHeaders?: Readonly<Record<string, string>>): Promise<EbBalance[]> {
+    const path = `/accounts/${encodeURIComponent(accountUid)}/balances`;
+    const { balances } = await this.request<{ balances?: unknown }>("GET", path, undefined, userHeaders);
+    if (!Array.isArray(balances)) throw new EnableBankingError(502, "", path);
+    return balances as EbBalance[];
+  }
+
+  private keep(id: string, entry: KeptPage): void {
+    for (const [k, v] of this.partial) if (Date.now() - v.at >= KEPT_TTL_MS) this.partial.delete(k);
+    while (this.partial.size >= KEPT_MAX) this.partial.delete(this.partial.keys().next().value!);
+    this.partial.set(id, entry);
+  }
+
+  /** All transactions since `dateFrom` (up to `dateTo` when given), following continuation keys. A row that cannot be read is counted into `refused` by its reason. */
+  async transactions(accountUid: string, dateFrom: string, strategy: "default" | "longest" = "default", userHeaders?: Readonly<Record<string, string>>, refused: RefusedRows = {}, dateTo?: string): Promise<RawTransaction[]> {
+    const resumeId = JSON.stringify([accountUid, dateFrom, strategy, dateTo ?? null]);
+    const found = this.partial.get(resumeId);
+    this.partial.delete(resumeId);
+    const kept = found && Date.now() - found.at < KEPT_TTL_MS ? found : undefined;
+    const out: RawTransaction[] = kept?.out ?? [];
+    const seen: RefusedRows = kept?.refused ?? {};
+    let continuationKey: string | null | undefined = kept?.next;
+    for (let page = kept?.page ?? 0; page < MAX_PAGES; page++) {
+      const params = new URLSearchParams({ date_from: dateFrom });
+      // the longest strategy ignores the end day, so an ask that has one is a plain window
+      if (dateTo && strategy === "default") params.set("date_to", dateTo);
+      if (strategy !== "default") params.set("strategy", strategy);
+      if (continuationKey) params.set("continuation_key", continuationKey);
+      let r: EbTransactionsPage;
+      try {
+        const path = `/accounts/${encodeURIComponent(accountUid)}/transactions?${params}`;
+        r = await this.request<EbTransactionsPage>("GET", path, undefined, userHeaders);
+        if (r.transactions !== undefined && !Array.isArray(r.transactions)) throw new EnableBankingError(502, "", path);
+      } catch (err) {
+        if (continuationKey) this.keep(resumeId, { out, next: continuationKey, page, refused: seen, at: Date.now() });
+        throw err;
+      }
+      for (const t of r.transactions ?? []) {
+        const mapped = mapTransaction(t, this.opts.timeZone);
+        if (mapped) out.push(mapped);
+        else {
+          const reason = refusalOf(t, this.opts.timeZone)!;
+          seen[reason] = (seen[reason] ?? 0) + 1;
+        }
+      }
+      continuationKey = r.continuation_key;
+      if (!continuationKey) {
+        for (const [reason, n] of Object.entries(seen)) refused[reason as keyof RefusedRows] = (refused[reason as keyof RefusedRows] ?? 0) + (n ?? 0);
+        return out;
+      }
+    }
+    // a short list taken for the whole answer would leave a gap that the next fetch window never covers
+    throw new Error(`the bank's transactions did not end after ${MAX_PAGES} pages`);
+  }
+}

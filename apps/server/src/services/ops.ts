@@ -1,0 +1,387 @@
+/**
+ * Web maintenance (Asetukset > Ylläpito). The app never runs anything. An admin's request becomes a
+ * row in ops_requests; a helper on the host polls the rows through the `ops` CLI (cli-ops.ts), runs fixed
+ * scripts and reports back. Every attempt is written to security_events with an ops_ kind.
+ */
+import type { Language } from "@banking/core";
+import { randomBytes } from "node:crypto";
+import { atOrAbove } from "../db/migrate.ts";
+import type { OpsRequest } from "../db/ops-repo.ts";
+import type { User } from "../db/rows.ts";
+import { verifyPassword } from "../security/password.ts";
+import type { Services } from "./context.ts";
+import { HttpUserError, hashBusy, TooManyAttempts, tooMany, UserError } from "../platform/errors.ts";
+import { strictObject } from "../platform/validate.ts";
+import { refuser } from "./ops-danger.ts";
+import { clearWake, touchWake } from "./ops-wake.ts";
+import { ACTION_LABEL_EN, opsText } from "./ops-english.ts";
+import {
+  busy,
+  HELPER_MIN_VERSION,
+  HELPER_SEEN_KEY,
+  helperHasTools,
+  helperKnows,
+  helperOutdated,
+  helperStatus,
+  helperWakes,
+  mergeState,
+  NEEDS_PASSWORD,
+  normaliseState,
+  OPS_ACTIONS,
+  type OpsAction,
+  type OpsState,
+  oneLine,
+  parseOpsRequest,
+  parseSteps,
+  READ_ONLY,
+  type Refusal,
+  REQUEST_EXPIRY_MS,
+  ROLLBACK_WORD,
+  RUNNING_TIMEOUT_MS,
+  LOGS_MAX_BYTES,
+  LOGS_MAX_LINES,
+  sanitiseOutput,
+  scrub,
+  validOpsId,
+  wrongWord,
+  XYZ,
+} from "./ops-validate.ts";
+import { takeWatchdog } from "./ops-watchdog.ts";
+import { recordEvent } from "./security.ts";
+
+const VERSION_KEY = "ops_helper_version";
+const STATE_KEY = "ops_state";
+
+const ACTION_LABEL: Record<OpsAction, string> = {
+  update: "päivitys",
+  rollback: "edellisen version palautus",
+  restart: "uudelleenkäynnistys",
+  doctor: "järjestelmän tarkistus",
+  "check-update": "päivitysten tarkistus",
+  logs: "lokien luku",
+  prune: "levyn siivous",
+  "helper-renew": "apurin uusinta",
+  // no colon in a name: the audit list splits an event at its first ": "
+  "prerelease-on": "uudet versiot tarjolle heti",
+  "prerelease-off": "uudet versiot tarjolle kahden päivän päästä",
+};
+
+/** These also reach the other admins as a notice. */
+const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart", "prerelease-on", "prerelease-off"];
+
+const ENABLE_COMMAND = "./scripts/install.sh --ops-helper";
+const MUTATING_PER_MINUTE_MS = 60_000;
+const PER_HOUR = 20;
+
+/** Where a call came from, for the security events. */
+export interface Req {
+  ip: string | null;
+  userAgent: string | null | undefined;
+}
+
+const secretsOf = (s: Services): string[] => (s.config.appSecret ? [s.config.appSecret] : []);
+
+// ── state ────────────────────────────────────────────────
+
+async function loadSnapshot(s: Services): Promise<OpsState> {
+  const raw = await s.settings.get(STATE_KEY);
+  if (!raw) return {};
+  try {
+    return normaliseState(JSON.parse(raw), secretsOf(s));
+  } catch {
+    return {};
+  }
+}
+
+async function touchHelper(s: Services, version: string | undefined): Promise<void> {
+  await s.settings.set(HELPER_SEEN_KEY, s.now().toISOString());
+  if (version && /^[0-9A-Za-z._-]{1,20}$/.test(version)) await s.settings.set(VERSION_KEY, version);
+}
+
+/** The one place a request is queued: the helper's wait is woken once the row has committed (an insert that lost is not). */
+async function insertQueued(s: Services, row: Parameters<Services["ops"]["insert"]>[0]): Promise<boolean> {
+  const queued = await s.ops.insert(row);
+  if (queued) touchWake(s);
+  return queued;
+}
+
+async function storeState(s: Services, input: unknown): Promise<void> {
+  await takeWatchdog(s, input);
+  const next = normaliseState(input, secretsOf(s));
+  if (!Object.keys(next).length) return;
+  await s.settings.set(STATE_KEY, JSON.stringify(mergeState(await loadSnapshot(s), next)));
+}
+
+async function helperInfo(s: Services) {
+  const seenAt = await s.settings.get(HELPER_SEEN_KEY);
+  const version = await s.settings.get(VERSION_KEY);
+  const { status, reason } = helperStatus(seenAt, s.now());
+  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), wakes: helperWakes(version), knowsPrerelease: helperKnows(version, "prerelease-on"), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
+}
+
+// ── what the page shows ──────────────────────────────────
+
+const view = (r: OpsRequest, language: Language = "fi") => ({
+  id: r.id,
+  action: r.action,
+  label: ((language === "en" ? ACTION_LABEL_EN : ACTION_LABEL) as Record<string, string>)[r.action] ?? r.action,
+  status: r.status,
+  by: r.requestedByName,
+  requestedAt: r.requestedAt,
+  startedAt: r.claimedAt,
+  finishedAt: r.finishedAt,
+  exitCode: r.exitCode,
+  summary: r.summary === null ? null : opsText(r.summary, language),
+  output: r.output,
+  steps: r.steps ? (JSON.parse(r.steps) as { text: string }[]).map((st) => ({ ...st, text: opsText(st.text, language) })) : [],
+});
+
+/**
+ * A helper that checked before an update and has not checked since still says "available" for the version that now
+ * runs. Its latest_version tells: when that is not newer than the running version there is nothing to offer.
+ * Compared only when both read as X.Y.Z; otherwise the stored answer stands.
+ */
+function withoutStaleOffer(snapshot: OpsState, running: string): OpsState {
+  const latest = snapshot.latest_version;
+  if (latest === undefined || !XYZ.test(latest) || !XYZ.test(running) || !atOrAbove(running, latest)) return snapshot;
+  return { ...snapshot, update_available: false };
+}
+
+/** The system check in the member's language; the English twin is absent for a result from an older doctor.sh, which stays Finnish. */
+function inLanguage(snapshot: OpsState, language: Language): OpsState {
+  const { doctor_en: english, ...rest } = snapshot;
+  return language === "en" && english ? { ...rest, doctor: english } : rest;
+}
+
+export async function opsState(s: Services, language: Language = "fi") {
+  await expireStale(s);
+  const [helper, snapshot, requests, last] = await Promise.all([helperInfo(s), loadSnapshot(s), s.ops.recent(8), s.ops.lastPerAction()]);
+  return {
+    version: s.build.version,
+    build: s.build.id,
+    helper,
+    state: inLanguage(withoutStaleOffer(snapshot, s.build.version), language),
+    requests: requests.map((r) => view(r, language)),
+    /** How each action last ended, by action; the steps and output stay out (the list above carries the recent ones). */
+    last: Object.fromEntries(last.map((r) => [r.action, { ...view(r, language), steps: [], output: null }])),
+    /** Something is queued or running: the page polls faster and disables the buttons. */
+    active: requests.some((r) => (r.status === "queued" || r.status === "running") && !READ_ONLY.includes(r.action as OpsAction)),
+    readOnlyActive: requests.some((r) => (r.status === "queued" || r.status === "running") && READ_ONLY.includes(r.action as OpsAction)),
+    now: s.now().toISOString(),
+  };
+}
+
+/** What a request event says while it waits for its result: the queue. */
+const WAITING = /^(jonossa|pyydetty)/;
+
+/**
+ * The audit list: who asked for what and how it ended, newest first, one row for each action. A request event
+ * ("jonossa") and the result that ended it say the same action, so the result takes the request's place. A request with
+ * no result yet, a cancelled one and a refused one stay as they are.
+ */
+export async function opsAudit(s: Services) {
+  const events = await s.security.list({ kindPrefix: "ops_", limit: 150 });
+  const ended = new Map<string, number>();
+  const rows = [];
+  for (const e of events) {
+    if (e.kind === "ops_notice") continue;
+    const [action = "", ...rest] = (e.detail ?? "").split(": ");
+    const outcome = rest.join(": ");
+    if (e.kind === "ops_result") ended.set(action, (ended.get(action) ?? 0) + 1);
+    else if (e.kind === "ops_request" && WAITING.test(outcome) && (ended.get(action) ?? 0) > 0) {
+      ended.set(action, ended.get(action)! - 1);
+      continue;
+    }
+    rows.push({ id: e.id, at: e.at, username: e.username, ip: e.ip, action, outcome: e.kind === "ops_denied" ? `kielletty, ${outcome}` : outcome });
+  }
+  return rows.slice(0, 50);
+}
+
+// ── requests from the browser ────────────────────────────
+
+/**
+ * The admin's password in front of a change to the host: one limiter key, one gate and one `ops_denied` event for
+ * maintenance requests, the reset and the add-on code.
+ */
+export async function checkPassword(s: Services, user: User, password: string, req: Req, what: string): Promise<void> {
+  const key = `ops:${user.id}`;
+  const deny = async (): Promise<never> => {
+    await recordEvent(s, { kind: "ops_denied", userId: user.id, ...req, detail: `${what}: salasana` });
+    throw new HttpUserError("Salasana ei täsmää.", 403);
+  };
+  if (!password) return deny();
+  const attempt = s.opsLimiter.consume(key);
+  if (attempt.wait) {
+    if (attempt.first) await recordEvent(s, { kind: "lockout", userId: user.id, ...req, detail: "ylläpito" });
+    throw tooMany(attempt.wait);
+  }
+  if (!s.hashGate.tryEnter()) {
+    s.opsLimiter.release(key);
+    throw hashBusy();
+  }
+  let ok = false;
+  try {
+    const record = await s.users.findForLogin(user.username);
+    ok = !!record && (await verifyPassword(password, record.passwordHash));
+  } finally {
+    s.hashGate.leave();
+  }
+  if (!ok) return deny();
+  s.opsLimiter.reset(key);
+}
+
+const newId = () => `op_${randomBytes(8).toString("hex")}`;
+
+// ── what the queue refuses ───────────────────────────────
+
+/** No helper, or one that does not know the action: asked before the password. */
+async function helperRefusal(s: Services, action: OpsAction): Promise<Refusal | null> {
+  if ((await helperInfo(s)).status === "off") return { why: "apuri ei käytössä", error: new HttpUserError("Ylläpitoapuri ei ole käytössä.", 409) };
+  // an older helper would not answer an action it does not know, and the request would sit claimed until it times out
+  if (helperKnows(await s.settings.get(VERSION_KEY), action)) return null;
+  return { why: "apuri vanhentunut", error: new HttpUserError(`Ylläpitoapurista on uudempi versio. Päivitä se palvelimella: ${ENABLE_COMMAND}`, 409) };
+}
+
+/** Another change under way, one a minute, and the hour's cap: asked after the password. */
+async function slotRefusal(s: Services, action: OpsAction): Promise<Refusal | null> {
+  const mutating = !READ_ONLY.includes(action);
+  const since = (ms: number) => new Date(s.now().getTime() - ms).toISOString();
+  if (mutating && (await s.ops.hasActiveMutating(READ_ONLY))) return busy();
+  if (mutating && (await s.ops.countSince(since(MUTATING_PER_MINUTE_MS), READ_ONLY)) > 0) return { why: "liian tiheään", error: new TooManyAttempts("Odota hetki ennen seuraavaa toimintoa.", 60) };
+  if ((await s.ops.countSince(since(3600_000))) >= PER_HOUR) return { why: "tuntiraja", error: new TooManyAttempts("Liian monta pyyntöä tunnissa. Yritä myöhemmin.", 3600) };
+  return null;
+}
+
+export async function requestOp(s: Services, user: User, raw: unknown, req: Req) {
+  const input = parseOpsRequest(raw);
+  const { action } = input;
+  const label = ACTION_LABEL[action];
+  const refuse = refuser(s, user.id, req, label);
+  await expireStale(s);
+
+  await refuse(await helperRefusal(s, action));
+  if (action === "rollback") {
+    await refuse(wrongWord(input.confirm, ROLLBACK_WORD));
+    if (!(await loadSnapshot(s)).can_rollback) await refuse({ why: "ei palautettavaa", error: new UserError("Edellistä versiota ei ole tallessa.") });
+  }
+  if (NEEDS_PASSWORD.includes(action)) await checkPassword(s, user, input.password, req, label);
+
+  await refuse(await slotRefusal(s, action));
+
+  const id = newId();
+  // the insert is the last word on the one active request: two calls at once both pass the look above
+  if (!(await insertQueued(s, { id, action, requestedBy: user.id, at: s.now().toISOString() }))) await refuse(busy());
+  await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${label}: jonossa` });
+  if (NOTIFY.includes(action)) await notifyAdmins(s, user, `${user.displayName} käynnisti toiminnon: ${label}`);
+  return view((await s.ops.get(id))!, user.language);
+}
+
+/** Every other admin sees a one-time notice (services/security.ts renders it). */
+async function notifyAdmins(s: Services, actor: User, detail: string): Promise<void> {
+  for (const u of await s.users.list()) {
+    if (u.role === "admin" && u.id !== actor.id) await recordEvent(s, { kind: "ops_notice", userId: u.id, detail, notify: true });
+  }
+}
+
+export async function cancelOp(s: Services, user: User, id: string, req: Req) {
+  if (!validOpsId(id)) throw new UserError("Pyyntöä ei löydy.");
+  const row = await s.ops.get(id);
+  if (!row) throw new UserError("Pyyntöä ei löydy.");
+  if (!(await s.ops.cancelQueued(id, s.now().toISOString()))) throw new UserError("Pyyntöä ei voi enää perua.");
+  await recordEvent(s, { kind: "ops_request", userId: user.id, ...req, detail: `${(ACTION_LABEL as Record<string, string>)[row.action] ?? row.action}: peruutettu` });
+}
+
+// ── expiry (hourly tick, ops poll and every state read) ──
+
+export async function expireStale(s: Services): Promise<void> {
+  const now = s.now();
+  for (const r of await s.ops.queuedBefore(new Date(now.getTime() - REQUEST_EXPIRY_MS).toISOString())) {
+    if (await s.ops.finish(r.id, { status: "expired", at: now.toISOString(), summary: "Apuri ei ottanut pyyntöä vastaan." })) await resultEvent(s, r, "vanhentui");
+  }
+  for (const r of await s.ops.runningBefore(new Date(now.getTime() - RUNNING_TIMEOUT_MS).toISOString())) {
+    if (await s.ops.finish(r.id, { status: "failed", at: now.toISOString(), summary: "Ei vastausta." })) await resultEvent(s, r, "epäonnistui");
+  }
+  await s.ops.prune(200);
+}
+
+async function resultEvent(s: Services, r: OpsRequest, outcome: string): Promise<void> {
+  await recordEvent(s, { kind: "ops_result", userId: r.requestedBy, detail: `${(ACTION_LABEL as Record<string, string>)[r.action] ?? r.action}: ${outcome}` });
+}
+
+// ── the helper's side (cli-ops.ts) ───────────────────────
+
+export interface PolledRequest {
+  id: string;
+  action: OpsAction;
+  params: Record<string, never>;
+  secret: null;
+}
+
+export async function pollOps(s: Services, opts: { helper?: string; done: string[]; dry?: boolean }): Promise<PolledRequest | null> {
+  // `ops poll --dry`, the helper's self-test: the database answers one read, and nothing is written, expired or handed out
+  if (opts.dry) {
+    await s.ops.oldestQueued([]);
+    return null;
+  }
+  // the wake goes first: a request queued after this line leaves its own wake, and the look below may even find it
+  clearWake(s);
+  await touchHelper(s, opts.helper);
+  await expireStale(s);
+  const done = opts.done.filter(validOpsId).slice(0, 100);
+  // a restored database brings back rows the host already handled: they must not run again
+  for (const r of await s.ops.queuedIn(done)) {
+    if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Pyyntö oli jo käsitelty." })) await resultEvent(s, r, "epäonnistui");
+  }
+  for (;;) {
+    const r = await s.ops.oldestQueued(done);
+    if (!r) return null;
+    // the table also accepts port, and a row could be written by anything with file access
+    if (!validOpsId(r.id) || !(OPS_ACTIONS as readonly string[]).includes(r.action) || r.params !== "{}") {
+      if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Virheellinen pyyntö." })) await resultEvent(s, r, "epäonnistui");
+      continue;
+    }
+    // The polling helper is older than the action: a request queued for a newer helper that was then rolled back. It
+    // would not answer, so the row ends here and the one mutating slot stays free.
+    if (!helperKnows(opts.helper, r.action as OpsAction)) {
+      if (await s.ops.finish(r.id, { status: "failed", at: s.now().toISOString(), summary: "Apuri ei tue tätä toimintoa." })) await resultEvent(s, r, "epäonnistui");
+      continue;
+    }
+    if (await s.ops.claim(r.id, s.now().toISOString())) return { id: r.id, action: r.action as OpsAction, params: {}, secret: null };
+  }
+}
+
+/** `{id, status, exit_code, summary, output, state}`. A repeated report is a no-op. */
+export async function reportOps(s: Services, payload: unknown, helper?: string): Promise<void> {
+  const o = strictObject(payload, ["id", "status", "exit_code", "summary", "output", "state"] as const);
+  if (!validOpsId(o.id)) throw new UserError("Virheellinen pyynnön tunnus.");
+  if (o.status !== "ok" && o.status !== "failed") throw new UserError("Virheellinen tila.");
+  if (o.exit_code != null && !Number.isInteger(o.exit_code)) throw new UserError("Virheellinen poistumiskoodi.");
+  if (o.summary != null && typeof o.summary !== "string") throw new UserError("Virheellinen yhteenveto.");
+  if (o.output != null && typeof o.output !== "string") throw new UserError("Virheellinen loki.");
+  await touchHelper(s, helper);
+  const row = await s.ops.get(o.id);
+  if (row) {
+    const secrets = secretsOf(s);
+    const said = (text: unknown) => (typeof text === "string" ? text : "");
+    const output = said(o.output);
+    // steps from the whole text, before the output is cut to its tail
+    const steps = parseSteps(scrub(output, secrets));
+    const done = await s.ops.finish(o.id, {
+      status: o.status,
+      at: s.now().toISOString(),
+      exitCode: (o.exit_code as number | null | undefined) ?? null,
+      summary: oneLine(said(o.summary) || (o.status === "ok" ? "Valmis." : "Epäonnistui."), 200, secrets),
+      output: sanitiseOutput(output, secrets, row.action === "logs" ? { lines: LOGS_MAX_LINES, bytes: LOGS_MAX_BYTES } : undefined),
+      steps: JSON.stringify(steps),
+    });
+    if (done) await resultEvent(s, row, o.status === "ok" ? "valmis" : "epäonnistui");
+  }
+  if (o.state !== undefined) await storeState(s, o.state);
+}
+
+/** A heartbeat with a snapshot: the object itself or `{state: {...}}`. */
+export async function stateOps(s: Services, payload: unknown, helper?: string): Promise<void> {
+  await touchHelper(s, helper);
+  const p = payload as { state?: unknown } | null;
+  await storeState(s, p && typeof p === "object" && !Array.isArray(p) && "state" in p ? p.state : payload);
+}

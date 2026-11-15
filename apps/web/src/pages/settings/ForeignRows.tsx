@@ -1,0 +1,52 @@
+/**
+ * Asetukset > Tilit, under an account that has rows in another currency: per currency the count and the total in the
+ * bank's own figure, and the newest rows behind a summary. The euro pages leave these rows out, and no euro sign stands on them. The
+ * server adds them up (`foreignRowsView`); this only draws them.
+ */
+import { formatForeignAmount } from "@banking/core";
+import { date } from "../../format.ts";
+import "../../styles/foreign-rows.css";
+import { t } from "../../text.ts";
+
+/** The answer of GET /api/foreign-rows for one account: a currency with its count, its total (null when the rows differ in decimals) and its newest rows. */
+export interface ForeignCurrency {
+  currency: string;
+  count: number;
+  totalMinor: number | null;
+  scale: number | null;
+  rows: { day: string; amountMinor: number; scale: number; text: string | null }[];
+}
+
+/** A currency's code, or the words for a row whose currency the bank did not name (XXX). */
+const codeText = (currency: string) => (currency === "XXX" ? t("set.fr.currency_unknown") : currency);
+
+export function ForeignRows({ currencies }: { currencies: readonly ForeignCurrency[] }) {
+  return (
+    <div className="acc-foreign">
+      {currencies.map((c) => (
+        <div key={c.currency} className="acc-foreign-currency">
+          <div className="acc-foreign-head">
+            <span className="acc-foreign-code">{codeText(c.currency)}</span>
+            <span>{c.count === 1 ? t("set.fr.one_transaction") : t("set.fr.n_transactions", { count: c.count })}</span>
+            <span>{t("set.fr.total")}</span>
+            <span className="num">{c.totalMinor === null || c.scale === null ? "–" : `${formatForeignAmount(c.totalMinor, c.scale, true)} ${c.currency}`}</span>
+            <span>{t("set.fr.not_in_euro_totals")}</span>
+          </div>
+          {/* closed: up to 20 rows a currency under every account would bury the account list */}
+          <details className="acc-foreign-more">
+            <summary>{c.rows.length === 1 ? t("set.fr.newest_transaction") : t("set.fr.newest_count_transactions", { count: c.rows.length })}</summary>
+            <ul className="acc-foreign-rows">
+              {c.rows.map((r, i) => (
+                <li key={i}>
+                  <span>{date(r.day)}</span>
+                  <span className="acc-foreign-text">{r.text ?? ""}</span>
+                  <span className="num">{`${formatForeignAmount(r.amountMinor, r.scale, true)} ${c.currency}`}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+      ))}
+    </div>
+  );
+}

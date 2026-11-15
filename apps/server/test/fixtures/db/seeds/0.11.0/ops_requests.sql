@@ -1,0 +1,3 @@
+-- A finished request of the switch for new versions (`prerelease-on`), the action 0.10.0 added: a database that holds one
+-- opens in every later version, and the page lists it among the earlier requests.
+INSERT INTO ops_requests (id,action,params,secret_sealed,status,requested_by,requested_at,claimed_at,finished_at,exit_code,summary,output,steps) VALUES ('o-8','prerelease-on','{}',NULL,'ok','u-aino','2026-10-11T08:00:00.000Z','2026-10-11T08:00:10.000Z','2026-10-11T08:00:25.000Z',0,'Uudet versiot tarjotaan heti.','TALOUS_PRERELEASE=yes is the setting in .env.','["Tallennetaan asetus","Tarkistetaan uusi versio"]');

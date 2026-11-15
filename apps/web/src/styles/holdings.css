@@ -1,0 +1,104 @@
+/* The holdings of the balances report: accounts, credit cards and loans (pages/reports/holdings/). */
+
+@layer pages {
+/* The groups, ruled as the columns of a block (statement.css .st-cols): to the card's edges, a rule between them. Two stand
+   side by side from 900 px, in five parts and seven, from 1040 px on the register's own split (--split-5). Of three, the first two
+   stand side by side and the cards have a row of their own under them, across the card. Below 900 px they stand under each other. */
+.holdings > .card-head { margin-bottom: 0; }
+.holding-groups { display: grid; grid-template-columns: minmax(0, 1fr); }
+.holding-groups > * { min-width: 0; padding: 16px 0; }
+.holding-groups > * + * { border-top: 1px solid var(--border); }
+@media (min-width: 900px) {
+  .holding-groups-2, .holding-groups-3 { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+  .holding-groups-3 > .holding-cards { grid-column: 1 / -1; }
+  .holding-groups-2 > * + * { border-top: 0; border-left: 1px solid var(--border); }
+  .holding-groups-3 > :nth-child(2) { border-top: 0; border-left: 1px solid var(--border); }
+  /* a step of room on each side of the rule between them, so a figure and a name never touch it */
+  .holding-groups-2 > :first-child, .holding-groups-3 > :first-child { padding-right: var(--sp-16); }
+  .holding-groups-2 > * + *, .holding-groups-3 > :nth-child(2) { padding-left: var(--sp-16); }
+}
+@media (min-width: 1040px) {
+  .holding-groups-2, .holding-groups-3 { grid-template-columns: var(--split-5) minmax(0, 1fr); }
+}
+
+/* a name is a link in the accent colour, underlined when pointed at or focused; the box has room for the focus ring, which
+   the cut edge of a name would clip */
+.holdings .holding-name { margin: -4px; padding: 4px; }
+/* in a unit's head the name fills the row, so its right margin would push it 4 px past the card: the ring has its room inside */
+.holdings .holding-unit-head .holding-name { margin-right: 0; }
+.holdings .holding-name a { text-decoration: none; }
+.holdings .holding-name a:hover, .holdings .holding-name a:focus-visible { text-decoration: underline; }
+.holdings .holding-name a:focus-visible { outline-offset: 0; box-shadow: none; }
+/* the label of a figure is told whole */
+.holdings .holding-label { overflow: visible; white-space: normal; }
+/* a card over its limit: what is used is in the colour of what is wrong */
+.holdings .holding-bad { color: var(--bad); }
+
+/* an account: its name at the left and its balance at the right edge. The row is 54 px so that a curve of 34 px fits between
+   the two later without the row growing or the balance moving; a line under the name (a part, an old balance) spans the row */
+.holdings .holding-account { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 54px; padding: 8px 0; box-sizing: border-box; }
+.holdings .holding-account .st-sub { grid-column: 1 / -1; }
+/* M7: the track lies on the row's own rule, so the box it is drawn in reaches the border */
+.holdings .holding-account.share { background-origin: border-box; }
+/* the heading of a type: a row of the list, so the bracket and the tracks run past it, with the type's total at the right
+   in the quieter ink; a step of room above every heading but the first, and no rule under it */
+.holdings .holding-type-head { justify-content: space-between; padding-bottom: 0; border-bottom: 0; color: var(--text-2); }
+.holdings .holding-type-head:not(:first-child) { padding-top: var(--sp-12); }
+.holdings .holding-type-cap { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: inherit; }
+.holdings .holding-type-head .st-num { font-size: var(--fs-label); line-height: var(--lh-label); }
+
+/* a unit: a card or a loan, its name and lines and then its figures as rows */
+.holding-units { list-style: none; margin: 0; padding: 0; }
+.holdings .holding-unit-head { padding-bottom: 0; border-bottom: 0; }
+.holding-unit .st-note { margin: 4px 0 8px; }
+
+/* Lainat: a hairline between the loans. From 700 px a loan is its name and lines at the left and its figures as rows at the
+   right, so the figure rows have a place to grow in (the last due date, the share paid) and the loan stays two rows tall;
+   below, the figures go under the name */
+.holding-loans > li { padding: 4px 0; }
+.holding-loans > li:not(:last-child) { border-bottom: 1px solid var(--bar-edge); }
+.holding-loans .holding-unit-head { padding-top: var(--cell-y); }
+@media (min-width: 700px) {
+  .holding-loans > li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); column-gap: 24px; align-items: center; }
+  .holding-loans .st-note { grid-column: 1 / -1; margin: 0 0 8px; }
+}
+
+/* Luottokortit: the head has the sum of the cards at the right; the cards stand in as many columns as are 340 px wide */
+.holding-cards-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 16px; }
+.holding-cards-head .st-cap { margin: 0; }
+.holding-inline { display: flex; gap: 16px; margin: 0; font-size: var(--fs-body); line-height: 18px; }
+.holding-inline dt { color: var(--text-2); }
+.holding-inline dd { margin: 0; }
+.holding-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 24px 40px; }
+
+/* a credit card: a flat row (bank, name, last four digits) above its name, arc and figures. No picture, no gradient, no shadow */
+.holding-unit-faced { display: block; }
+.holding-unit-faced .holding-unit-head { padding: 0; }
+.holding-unit-faced > .holding-unit-body > .st-rows { border-top: 1px solid var(--bar-edge); }
+
+/* the arc of what is used: a track of three quarters of a circle and the fill on it, the share in the middle. It is drawn from
+   the lower left, and its colours run from mint to violet along the fill */
+.credit-arc { display: block; width: 64px; height: 64px; }
+.credit-arc circle { fill: none; stroke-width: 7; stroke-linecap: round; }
+.credit-arc-track { stroke: var(--grid); }
+.credit-arc-over .credit-arc-fill { stroke: var(--bad); }
+.credit-arc text { fill: var(--text); font-size: var(--fs-body); font-weight: 600; }
+
+/* the flat row of a card: bank, name and last four digits in the page's own text size and colours */
+.card-face { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 8px 0; font-size: var(--fs-body); color: var(--text); }
+.card-face .st-name { flex: 1 1 auto; min-width: 0; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.card-face-bank { color: var(--text-2); }
+.card-face-mask { font-variant-numeric: tabular-nums; color: var(--text-2); }
+
+/* the debts of the whole block: one row under all the groups, under a hairline */
+.holdings .holding-foot { margin: 16px 0 0; padding: 0; border-top: 1px solid var(--border); }
+
+/* the tick before a balance: a mark in the text colour with a glyph (a check, or an exclamation mark) drawn here, never a colour alone */
+.holding-tick { display: inline-block; margin-right: 8px; font-size: var(--fs-label); line-height: 16px; font-weight: 600; cursor: help; }
+.holding-tick-ok { color: var(--good); }
+.holding-tick-diff { color: var(--bad); }
+.holding-tick-ok::before { content: "\2713"; }
+.holding-tick-diff::before { content: "\21"; }
+/* a datum with a word before its figure: "Netto" */
+.datum-label { margin-right: var(--sp-8); font-weight: 400; color: var(--text-2); }
+}

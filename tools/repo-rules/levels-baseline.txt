@@ -1,0 +1,11 @@
+packages/core/src/analysis/ahead-moves.ts  median
+packages/core/src/analysis/alerts.ts  median
+packages/core/src/analysis/change-signal.ts  median
+packages/core/src/analysis/income-changes.ts  median
+packages/core/src/analysis/income-series.ts  median
+packages/core/src/analysis/income.ts  median
+packages/core/src/analysis/insights/growth.ts  median
+packages/core/src/analysis/one-offs.ts  median
+packages/core/src/analysis/pay-estimate.ts  median
+packages/core/src/analysis/signal.ts  mean
+packages/core/src/reports/income.ts  median

@@ -1,0 +1,13 @@
+# large: 2 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+
+large · bank:s-pankki-single · large:2026-05-14:sp-00265 (quiet)
+  Kemi Design Oy
+  = 569.15 €
+  | category income
+  rows 1
+
+large · bank:s-pankki-single · large:2026-09-19:sp-00365 (quiet)
+  Kemi Design Oy
+  = 1178.15 €
+  | category income
+  rows 1

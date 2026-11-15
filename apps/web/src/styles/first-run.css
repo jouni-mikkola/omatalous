@@ -1,0 +1,5 @@
+/* A view before the household has an account (pages/FirstRun.tsx): its title and the one line of what it will answer. */
+@layer pages {
+.first-run-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--w-strong); color: var(--text); }
+.first-run-line { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
+}

@@ -1,0 +1,98 @@
+import { DEFAULT_LANGUAGE, LANGUAGES, type Language, localeOf } from "../locale.ts";
+
+const EUR = Object.fromEntries(
+  LANGUAGES.map((l) => [l, [new Intl.NumberFormat(localeOf(l), { style: "currency", currency: "EUR" }), new Intl.NumberFormat(localeOf(l), { style: "currency", currency: "EUR", maximumFractionDigits: 0 })] as const]),
+) as Record<Language, readonly [Intl.NumberFormat, Intl.NumberFormat]>;
+
+/** 123456 → "1 234,56 €" (or "1 235 €" without decimals); in English "€1,234.56". Used in insight texts. */
+export function formatEur(cents: number, decimals = true, lang: Language = DEFAULT_LANGUAGE): string {
+  // Intl prints "−0 €" for -0 and for a negative that rounds to zero; zero has no sign.
+  const euros = cents / 100;
+  const shown = Math.abs(euros) < (decimals ? 0.005 : 0.5) ? 0 : euros;
+  return EUR[lang][decimals ? 0 : 1].format(shown);
+}
+
+/** "2026-08-01" → "1.8.2026", in English "1/8/2026". A string split, so the runtime time zone cannot shift the day. */
+export function formatFiDate(iso: string, lang: Language = DEFAULT_LANGUAGE): string {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return lang === "en" ? `${Number(d)}/${Number(m)}/${y}` : `${Number(d)}.${Number(m)}.${y}`;
+}
+
+/** A day without its year: "2026-08-01" → "1.8.", in English "1/8". */
+export function formatFiDayMonth(iso: string, lang: Language = DEFAULT_LANGUAGE): string {
+  const [, m, d] = iso.slice(0, 10).split("-");
+  return lang === "en" ? `${Number(d)}/${Number(m)}` : `${Number(d)}.${Number(m)}.`;
+}
+
+/** A day with its year only when that is not the year of `today`: "1.8." in 2026 and "1.8.2026" in 2027. */
+export function formatFiDateIn(iso: string, today: string, lang: Language = DEFAULT_LANGUAGE): string {
+  return iso.slice(0, 4) === today.slice(0, 4) ? formatFiDayMonth(iso, lang) : formatFiDate(iso, lang);
+}
+
+/** A period inside one year; `year` is "" for a period that leaves its year out. */
+function rangeInYear(from: string, to: string, lang: Language, year: string): string {
+  const day = (iso: string) => (year ? formatFiDate(iso, lang) : formatFiDayMonth(iso, lang));
+  if (from === to) return day(from);
+  if (lang === "en") return `${day(from)}–${day(to)}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+  const [, m1, d1] = from.split("-").map(Number);
+  const [, m2, d2] = to.split("-").map(Number);
+  return m1 === m2 ? `${d1}.–${d2}.${m2}.${year}` : `${d1}.${m1}.–${d2}.${m2}.${year}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+}
+
+/**
+ * A period of days, the year and the month written once: "10.–30.9.2026", "1.9.–23.10.2026", "1.10.2025–30.9.2026";
+ * one day is that day. An en dash and no spaces (docs/UI_STYLE.md).
+ */
+export function formatFiRange(from: string, to: string, lang: Language = DEFAULT_LANGUAGE): string {
+  if (from.slice(0, 4) !== to.slice(0, 4)) return `${formatFiDate(from, lang)}–${formatFiDate(to, lang)}`; // language-allow: dash the en dash is the period sign of UI_STYLE.md
+  return rangeInYear(from, to, lang, from.slice(0, 4));
+}
+
+/**
+ * A period that leaves its year out when both days are in the year of `today`: "10.–30.9.", "1.9.–23.10." (in English
+ * "10/9–30/9"). Any other period reads as `formatFiRange` writes it, with both years when they differ.
+ */
+export function formatFiRangeIn(from: string, to: string, today: string, lang: Language = DEFAULT_LANGUAGE): string {
+  const year = today.slice(0, 4);
+  return from.slice(0, 4) === year && to.slice(0, 4) === year ? rangeInYear(from, to, lang, "") : formatFiRange(from, to, lang);
+}
+
+/** The Finnish month stems, "tammi" to "joulu": the one table of month names ("kuu" after a stem is the name, `monthName`). */
+export const MONTH_STEMS = ["tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras", "joulu"];
+
+/** "joulu" for "2025-12": the first half of "joulu- ja heinäkuu". */
+export const monthStem = (month: string): string => MONTH_STEMS[Number(month.slice(5, 7)) - 1]!;
+
+/** "joulukuu" for "2025-12". */
+export const monthName = (month: string): string => `${monthStem(month)}kuu`;
+
+const MONTHS_INESSIVE = [
+  "tammikuussa",
+  "helmikuussa",
+  "maaliskuussa",
+  "huhtikuussa",
+  "toukokuussa",
+  "kesäkuussa",
+  "heinäkuussa",
+  "elokuussa",
+  "syyskuussa",
+  "lokakuussa",
+  "marraskuussa",
+  "joulukuussa",
+];
+
+const MONTHS_EN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "joulukuu" for "2025-12", in English "December". */
+export const monthNameIn = (month: string, lang: Language = DEFAULT_LANGUAGE): string => (lang === "en" ? MONTHS_EN[Number(month.slice(5, 7)) - 1]! : monthName(month));
+
+/** "2026-03" → "maaliskuussa". */
+export function monthInessive(month: string): string {
+  return MONTHS_INESSIVE[Number(month.slice(5, 7)) - 1] ?? month;
+}
+
+/** ["A", "B", "C"] → "A, B ja C". */
+export function finnishList(items: readonly string[], lang: Language = DEFAULT_LANGUAGE): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} ${lang === "en" ? "and" : "ja"} ${items[items.length - 1]}`;
+}

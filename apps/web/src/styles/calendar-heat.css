@@ -1,0 +1,31 @@
+/* The calendar of Käynnit (charts/CalendarHeat.tsx). Its legend and notes are styled in charts.css, which the page loads
+   with its charts. One hue in four steps (--heat-1..4). */
+@layer components {
+/* the days, the week strip and the weekday column are painted in charts.css; here is what only the calendar adds */
+@media (prefers-reduced-motion: no-preference) {
+  .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade var(--t-state) var(--ease-out) backwards; animation-delay: var(--d, 0s); }
+}
+.calendar .calendar-weekday { fill: var(--muted); }
+.calendar .calendar-grid { outline: none; }
+.calendar .calendar-grid:focus-visible .calendar-day.active { stroke: var(--accent); }
+
+/* the key of the four shades, worded by what they are set against (the usual day, a row's own average) */
+.heat-key { align-items: center; }
+.heat-key .heat-key-step { display: inline-flex; align-items: center; gap: 4px; }
+.heat-key .swatch { border-radius: var(--radius-s); }
+
+/* the slope (charts/SlopeChart.tsx): its tone classes, the change beside the end figure, the note on lines left out */
+.chart .slope-flat .slope-line, .chart .slope-flat .slope-dot { stroke: var(--series-1); }
+.chart .slope-flat .slope-dot { fill: var(--series-1); }
+.chart .slope-quiet .slope-line { stroke-width: 1.5; }
+.chart .slope-rise-text { fill: var(--accent-ink); font-weight: var(--w-strong); }
+.chart .slope-down-text { fill: var(--good); font-weight: var(--w-strong); }
+.chart .slope-flat-text { fill: var(--text-2); }
+.chart .slope-figure { font-variant-numeric: tabular-nums lining-nums; }
+.slope-chart g[role="group"] { outline: none; }
+.slope-off { margin: 4px 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.calendar-cut { margin: 4px 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+/* a day with no shade is a hairline square, so it never reads as more than the first step */
+.calendar .calendar-day.heat-0 { fill: transparent; stroke: var(--grid); stroke-width: 1; }
+}
+.calendar .calendar-day.pick { cursor: pointer; }

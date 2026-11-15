@@ -1,0 +1,154 @@
+name: check
+
+# The name stays `check`, the one main's runs and the pull requests' status lists have always shown, and no other
+# workflow takes it (tools/test/release-workflow.test.ts).
+#
+# The light tier. It runs what is fast and needs a clean runner least: the shell lint, the
+# types and the tests of what a change reaches (tools/check.sh --changed, the same scope a developer runs), with the pnpm
+# store cached. A run is a few minutes, and a change of documents alone starts none. A run started by hand is the same
+# tier, checked against main.
+#
+# The heavy checks run beside it in full.yml: the whole of `pnpm check` (every test and shell suite, the self-tests of
+# the tools), the build, the browser tests (`pnpm e2e`), the image and its smoke tests, the container checks, the
+# upgrade rehearsals from the public releases and the drills. No check runs on a developer's machine.
+#
+# Three things start a run: a push to main, a pull request, and a hand (workflow_dispatch). A push to any other branch
+# starts none: the pull request of that branch checks the same commit, and a second run of it only held a runner. A
+# branch with no pull request is checked by hand. A push to main and a pull request that touch documents alone start
+# none either.
+#
+# The public repository runs this file on each of those, which is free. The private one pays for its minutes, so a push
+# to main or a pull request there skips every job, ci-ok included, and it runs only by hand. ci-ok is the one check
+# that says whether all the jobs passed, so a job added or renamed here changes nothing outside this file.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - docs/**
+      - relay/**
+      - LICENSE
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - docs/**
+      - relay/**
+      - LICENSE
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer commit on a pull request, or a newer hand-started run of a branch, makes the older run pointless, so it is
+# cancelled. Every run on main runs to the end: the run id in its group name keeps two pushes from queueing behind each
+# other, where GitHub would drop the older one. A push starts a run on main only, so no push run of a work branch is
+# left to cancel anything. The event in the name is no longer needed: a pull request's ref (refs/pull/N/merge) and a
+# hand-started run's (refs/heads/<branch>) already differ, and main uses the run id. It stays only to keep the names
+# of the groups as they were.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # the tools' self-tests follow the change here, as they do on a developer's machine (tools/check.sh)
+  CHECK_LIGHT: '1'
+
+jobs:
+  shell:
+    # no Node: the lint and the shell suites that name a changed script run first and fastest
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: What this change reaches
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: tools/ci/light-scope.sh >>"$GITHUB_OUTPUT"
+      - name: Lint and shell suites
+        # the maintenance helper scenarios run four at a time
+        run: bash tools/check.sh ${{ steps.scope.outputs.args }} lint sh
+      # No flake-or-real rerun here: `tools/check.sh --rerun` needs the Node of .npmrc (tools/check/pinned-node.sh) and
+      # this job installs none, so a red run of it prints the logs of its failed suites and stops at that.
+      - name: Logs of the failed suites
+        if: ${{ failure() }}
+        run: |
+          for rc in "${TMPDIR:-/tmp}"/check.*/sh-*.rc; do
+            [[ -e $rc ]] && [[ $(<"$rc") != 0 ]] || continue
+            echo "::group::${rc%.rc}.log"
+            cat "${rc%.rc}.log"
+            echo "::endgroup::"
+          done
+
+  js:
+    # two runners, each with one half of the test files (CHECK_SHARD in tools/check.sh); the types run beside the first
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      # a red half does not cancel the other: both name their failing tests
+      fail-fast: false
+      matrix:
+        include:
+          - shard: 1
+            steps: types tests
+          - shard: 2
+            steps: tests
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.2
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: What this change reaches
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+        run: tools/ci/light-scope.sh >>"$GITHUB_OUTPUT"
+      # types and tests side by side, each reporting on its own: a type error still shows the failing tests
+      - name: Types and tests
+        id: check
+        env:
+          CHECK_SHARD: ${{ matrix.shard }}/2
+        run: bash tools/check.sh ${{ steps.scope.outputs.args }} ${{ matrix.steps }}
+      # A red check keeps its folder (check.* under the temp folder). Every failure in it runs once more, alone, and
+      # prints FLAKE (passes alone), REAL (fails alone) or NOT RUN, as `pnpm check --rerun` does on a developer's
+      # machine. The job is red already and stays red whatever the lines say: they are for the one who reads the run.
+      # The failures run one after the other, each with four minutes at most (tools/check/rerun.mjs). Five minutes keep
+      # the step inside the job's ten: past them it ends as failed, where a job out of time would end as cancelled, and
+      # the failures it did not reach get no line and the run no `check: rerun:` summary.
+      - name: Flake or real
+        if: ${{ failure() && steps.check.conclusion == 'failure' }}
+        timeout-minutes: 5
+        run: |
+          dir=$(ls -dt "${TMPDIR:-/tmp}"/check.*/ 2>/dev/null | head -n 1)
+          [[ -n $dir ]] || { echo "check: rerun: the red run kept no folder"; exit 0; }
+          bash tools/check.sh --rerun "${dir%/}" || echo "check: rerun ended with $? (1 a REAL, 2 no failure found, 3 a NOT RUN)"
+
+  ci-ok:
+    # fails when any job failed, was cancelled or did not run: the result of js is success only when both of its halves
+    # are. Skipped as a whole where the jobs are (the private repo).
+    if: ${{ always() && (github.repository == 'jouni-mikkola/omatalous' || github.event_name == 'workflow_dispatch') }}
+    needs: [shell, js]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ needs.shell.result }} ${{ needs.js.result }}
+        run: |
+          echo "jobs: $RESULTS"
+          for r in $RESULTS; do [[ $r == success ]] || exit 1; done

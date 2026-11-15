@@ -1,0 +1,94 @@
+{
+  "contract": "ops report",
+  "about": "`node dist/node.js ops report --helper <version>` with the result file of the helper on stdin (store_result in scripts/ops-helper.sh). send_report looks for the text \"ok\":true or \"ok\":false in stdout. The first payload below is what the helper of 0.9.0 (still version 3) sends after an `access` request that turned remote access on; every key of its state is kept by the app. The third is a failed update that the helper took back after its self-test (after_update_check in scripts/lib/ops-selftest.sh): its state carries `watchdog` {at, from, to, reason}, which state_json adds from ops/watchdog.frag (watchdog_report in scripts/lib/ops-watchdog.sh). The app reads that key and does not keep it (parseWatchdog in services/ops-watchdog.ts: one ops_watchdog event and a notice to every admin for each `at`), so that case does not set keepsStateKeys.",
+  "exitCode": 0,
+  "lines": 1,
+  "extraKeys": "allowed",
+  "cases": [
+    {
+      "name": "a finished request",
+      "setup": "claimed",
+      "args": [
+        "report",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "id": "<id>",
+        "status": "ok",
+        "exit_code": 0,
+        "summary": "Etäkäyttö on päällä. Uusi osoite: https://talous.example.org",
+        "output": "line one\nline two",
+        "state": {
+          "version": "0.9.0",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "build": "0123456",
+          "can_rollback": true,
+          "schema_changed": false,
+          "mode": "tunnel",
+          "port": 8080,
+          "address": "https://talous.example.org"
+        }
+      },
+      "keepsStateKeys": true,
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    },
+    {
+      "name": "a payload the app rejects",
+      "setup": "none",
+      "args": [
+        "report",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "id": "not-a-request-id",
+        "status": "ok"
+      },
+      "shape": {
+        "ok": "boolean",
+        "error": "string"
+      },
+      "lineRegex": "\"ok\":false"
+    },
+    {
+      "name": "a failed update taken back, with the watchdog report in its state",
+      "setup": "claimed",
+      "args": [
+        "report",
+        "--helper",
+        "3"
+      ],
+      "stdin": {
+        "id": "<id>",
+        "status": "failed",
+        "exit_code": 1,
+        "summary": "Edellinen versio palautettiin, koska uusi ylläpitoapuri ei toiminut (apurin tiedostossa on virhe).",
+        "output": "line one\nline two",
+        "state": {
+          "version": "0.8.7",
+          "commit": "0123456789abcdef0123456789abcdef01234567",
+          "build": "0123456",
+          "can_rollback": false,
+          "schema_changed": true,
+          "mode": "tunnel",
+          "port": 8080,
+          "address": "https://talous.example.org",
+          "watchdog": {
+            "at": "2026-10-09T08:00:00Z",
+            "from": "0.9.0",
+            "to": "0.8.7",
+            "reason": "self_test"
+          }
+        }
+      },
+      "shape": {
+        "ok": "boolean"
+      },
+      "lineRegex": "\"ok\":true"
+    }
+  ]
+}

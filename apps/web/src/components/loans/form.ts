@@ -1,0 +1,191 @@
+/**
+ * The loan form's state and rules, apart from the page so they can be tested: a new or a saved loan as the texts the
+ * inputs hold, which fields a kind of loan has, and the loan the server takes.
+ */
+import { balanceDayOf, DEBT_ACCOUNT_TYPES, isRevolving, type Loan, type LoanKind, loanPeriodInterest } from "@banking/core";
+import { ACCOUNT_TYPE_LABEL, eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
+import { t } from "../../text.ts";
+import type { Account, LoanProposalRow } from "../../types.ts";
+import { KIND_LABEL, type LoanFieldKey } from "./labels.ts";
+
+/** The fields of a loan the form shows, in the order it shows them. Name and kind stand above them. */
+const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanFieldKey[];
+
+const MONEY_KEYS = ["balanceCents", "grantedCents", "limitCents", "paymentCents"] as const;
+const RATE_KEYS = ["rateBp", "marginBp"] as const;
+
+export interface LoanForm {
+  /** The id of a saved loan that is being edited. */
+  id: string | null;
+  /** Not shown, and sent back as it came: PUT replaces every field. */
+  seriesKey: string | null;
+  name: string;
+  kind: LoanKind | "";
+  /** What each input holds. */
+  values: Record<LoanFieldKey, string>;
+  /** The card or loan account that is this same debt (`Loan.accountId`), or "" for none. */
+  accountId: string;
+}
+
+export type LoanBody = Omit<Loan, "id">;
+export type FormErrors = Partial<Record<LoanFieldKey | "kind", string>>;
+
+const blank = (): Record<LoanFieldKey, string> => ({ lender: "", grantedCents: "", balanceCents: "", balanceDate: "", rateBp: "", reference: "", marginBp: "", rateReviewDate: "", repayment: "", intervalMonths: "", paymentCents: "", endDate: "", limitCents: "" });
+
+function textOf(key: LoanFieldKey, value: string | number | null): string {
+  if (value === null) return "";
+  if (typeof value === "string") return value;
+  if ((MONEY_KEYS as readonly string[]).includes(key)) return eurosText(value);
+  if ((RATE_KEYS as readonly string[]).includes(key)) return rateText(value);
+  return String(value);
+}
+
+/** An empty form: the household types the loan in. */
+export function emptyForm(today: string): LoanForm {
+  return { id: null, seriesKey: null, name: "", kind: "", values: { ...blank(), balanceDate: today }, accountId: "" };
+}
+
+/**
+ * A proposed loan as a form: the payee as the lender, the kind the detector guessed (changeable), the usual payment, a
+ * one-month interval and the proposal's series key, which links the saved loan to its payments. The bank rows show
+ * neither the balance nor the rate, so those stay empty for the household to type, except where one connected loan
+ * account is held by no saved loan: that account is the same debt, so it is chosen, and the balance is what the bank
+ * tells on it (as an amount owed, on the day it told it). With none, several, or one that tells no debt: as without.
+ */
+export function formOfProposal(proposal: LoanProposalRow, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = []): LoanForm {
+  const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText(proposal.paymentCents), intervalMonths: "1" };
+  const free = freeAccounts(accounts, loans, null).filter((a) => a.type === "loan");
+  const told = free.length === 1 && free[0]!.balanceCents !== null && free[0]!.balanceCents < 0 ? free[0]! : null;
+  if (told) Object.assign(values, { balanceCents: eurosText(-told.balanceCents!), balanceDate: balanceDayOf(told.balanceAt, today) });
+  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, accountId: told?.id ?? "" };
+}
+
+/** A saved loan as a form, for editing. */
+export function formOfLoan(loan: Loan): LoanForm {
+  const values = blank();
+  for (const key of FIELD_KEYS) values[key] = textOf(key, loan[key] ?? null);
+  return { id: loan.id, seriesKey: loan.seriesKey, name: loan.name, kind: loan.kind, values, accountId: loan.accountId ?? "" };
+}
+
+export const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
+
+/**
+ * The fields the chosen kind has. A card or a credit line has a limit and no repayment plan (the server refuses one);
+ * other loans have no limit. A loan paid back at once has no payment. A fixed rate has no review day. Before a kind is
+ * chosen every field shows.
+ */
+export function shownFields(form: LoanForm): LoanFieldKey[] {
+  const hidden = new Set<LoanFieldKey>();
+  if (form.values.reference === "fixed") hidden.add("rateReviewDate");
+  if (isCredit(form.kind)) for (const key of ["grantedCents", "repayment", "intervalMonths", "paymentCents", "endDate"] as const) hidden.add(key);
+  else if (form.kind !== "") hidden.add("limitCents");
+  if (form.values.repayment === "bullet") hidden.add("paymentCents");
+  return FIELD_KEYS.filter((key) => !hidden.has(key));
+}
+
+export const setKind = (form: LoanForm, kind: LoanKind | ""): LoanForm => ({ ...form, kind });
+
+/** The parameters of the address the Lainat report links to (`#/settings/household?linkLoan=…&linkAccount=…`): the editor of that loan opens with that account chosen. */
+export const LOAN_LINK_PARAM = { loan: "linkLoan", account: "linkAccount" } as const;
+
+/** A card or loan account a loan can be linked to, with the text the select shows for it. */
+interface LinkChoice {
+  id: string;
+  label: string;
+}
+
+/** The cards and loan accounts that no saved loan other than `loanId` holds. */
+const freeAccounts = (accounts: readonly Account[], loans: readonly Loan[], loanId: string | null): Account[] => {
+  const held = new Set(loans.filter((l) => l.id !== loanId).map((l) => l.accountId));
+  return accounts.filter((a) => DEBT_ACCOUNT_TYPES.includes(a.type) && !held.has(a.id));
+};
+
+/**
+ * The accounts the household can say a loan is the same debt as: its own cards and loan accounts, but not one that
+ * another saved loan holds, since an account has one loan. `loanId` is the loan being edited, null for a new one.
+ * Two accounts of one name are told apart by their kind and card number.
+ */
+export function linkChoices(accounts: readonly Account[], loans: readonly Loan[], loanId: string | null): LinkChoice[] {
+  const free = freeAccounts(accounts, loans, loanId);
+  return free.map((a) => {
+    const twin = free.some((b) => b.id !== a.id && b.name === a.name);
+    return { id: a.id, label: twin ? `${a.name} (${[ACCOUNT_TYPE_LABEL[a.type], a.cardMask].filter(Boolean).join(", ")})` : a.name };
+  });
+}
+
+/** A change the household made to one field. */
+export const setValue = (form: LoanForm, key: LoanFieldKey, text: string): LoanForm => ({ ...form, values: { ...form.values, [key]: text } });
+
+/** The name a loan gets when the household gives none: its kind and who lent. At most the 80 characters the server takes. */
+export function defaultName(kind: LoanKind, lender: string): string {
+  const who = lender.trim();
+  return (who ? `${KIND_LABEL[kind]}, ${who}` : KIND_LABEL[kind]).slice(0, 80);
+}
+
+/**
+ * The loan the form holds, as the server takes it: every field, hidden ones as null. An empty input is null, and so is
+ * a zero where the server takes none. The server checks the ranges and answers in Finnish, so only what cannot be read
+ * at all is an error here.
+ */
+export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormErrors } {
+  const errors: FormErrors = {};
+  const shown = new Set(shownFields(form));
+  const text = (key: LoanFieldKey) => (shown.has(key) ? form.values[key].trim() : "");
+  const cents = (key: (typeof MONEY_KEYS)[number]): number | null => {
+    if (text(key) === "") return null;
+    const value = parseEuros(text(key));
+    if (value === null || value < 0) errors[key] = t("set.loans.loan_money_error");
+    return value;
+  };
+  const rate = (key: (typeof RATE_KEYS)[number]): number | null => {
+    if (text(key) === "") return null;
+    const value = parseRate(text(key));
+    if (value === null) errors[key] = t("set.loans.loan_rate_error");
+    return value;
+  };
+  const positive = (value: number | null) => (value === 0 ? null : value);
+
+  if (form.kind === "") errors.kind = t("set.loans.loan_pick_kind");
+  if (text("balanceCents") === "") errors.balanceCents = t("set.loans.loan_need_balance");
+  const balanceCents = cents("balanceCents");
+  if (text("balanceDate") === "") errors.balanceDate = t("set.loans.loan_pick_date");
+  const months = text("intervalMonths");
+  const body = {
+    name: form.name.trim() || (form.kind === "" ? "" : defaultName(form.kind, text("lender"))),
+    kind: form.kind,
+    lender: text("lender") || null,
+    grantedCents: positive(cents("grantedCents")),
+    balanceCents,
+    balanceDate: text("balanceDate"),
+    rateBp: rate("rateBp"),
+    reference: text("reference") || null,
+    marginBp: rate("marginBp"),
+    // a fixed rate has no review day: the field is not shown then, so whatever was typed in it is not sent
+    rateReviewDate: text("rateReviewDate") || null,
+    repayment: text("repayment") || null,
+    intervalMonths: months === "" ? null : Number(months),
+    paymentCents: positive(cents("paymentCents")),
+    endDate: text("endDate") || null,
+    limitCents: positive(cents("limitCents")),
+    seriesKey: form.seriesKey,
+    // PUT replaces every field, so a body without the link removes the one that was there (the server reads it as null)
+    ...(form.accountId ? { accountId: form.accountId } : {}),
+  };
+  return Object.keys(errors).length > 0 ? { body: null, errors } : { body: body as LoanBody, errors };
+}
+
+/**
+ * The interest of one interval when the payment is smaller than it, else null. The server refuses such a loan (the
+ * balance would grow), with core's `loanPeriodInterest` as here, so the form tells before saving and offers the way
+ * out: an empty payment keeps the balance as it is.
+ */
+export function interestOverPayment(form: LoanForm): number | null {
+  const v = form.values;
+  if (isCredit(form.kind) || (v.repayment !== "annuity" && v.repayment !== "fixed_instalment") || v.intervalMonths === "") return null;
+  const balance = parseEuros(v.balanceCents.trim());
+  const rate = parseRate(v.rateBp.trim());
+  const payment = parseEuros(v.paymentCents.trim());
+  if (balance === null || balance < 0 || rate === null || payment === null || payment <= 0) return null;
+  const interest = loanPeriodInterest(balance, rate, Number(v.intervalMonths));
+  return payment < interest ? interest : null;
+}

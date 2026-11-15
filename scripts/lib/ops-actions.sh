@@ -1,0 +1,108 @@
+# shellcheck shell=bash
+# shellcheck disable=SC2034 # SUMMARY, KEEP_LINES, KEEP_BYTES and RC are the helper's: run_request reads them after the action
+# The helper's simple actions, for scripts/ops-helper.sh. The helper's load_libs sources this file after check_permissions has
+# passed on scripts/lib; it defines functions and nothing else. run_request picks each act_ function by its case; they set
+# SUMMARY, STATUS and RC through fail, and write to LOGF.
+#
+#   act_restart, act_doctor, act_logs, act_prune, act_helper_renew   one request each
+#   cut_short           the next tick after the helper was killed in a restart
+#   run_doctor          act_doctor and heartbeat's daily block run doctor.sh and keep its answer for the page
+#   reclaimed, image_id  the prune's helpers
+#
+# update, rollback, check-update and the pre-release switch are in the helper and in the other files of scripts/lib.
+
+act_restart() {
+  step_say "1/2 Käynnistetään sovellus uudelleen"
+  run_cap "$T_RESTART" docker compose restart banking || { RC=$?; fail "Uudelleenkäynnistys ei onnistunut." "$RC"; return; }
+  step_say "2/2 Odotetaan että sovellus vastaa"
+  if wait_healthy 45; then SUMMARY="Sovellus käynnistyi uudelleen."; else fail "Sovellus ei vastaa uudelleenkäynnistyksen jälkeen."; fi
+}
+# Runs doctor.sh --json and keeps its answer for the page, with the same items in English (doctor_en) for a member who reads
+# English; a run without them (an older doctor.sh) leaves them out. Exit 1 and 2 mean findings, not a failed run.
+run_doctor() {
+  local out en rc=0 shape='^\{"at":"[0-9TZ:.-]+","items":\[.*\]\}$'
+  out=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json 2>/dev/null | head -c 60000) || rc=$?
+  if [[ $out =~ $shape && $out != *$'\n'* ]]; then
+    en=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json-en 2>/dev/null | head -c 60000) || true
+    if [[ $en =~ $shape && $en != *$'\n'* ]]; then printf '"doctor":%s,"doctor_en":%s' "$out" "$en" >"$OPS/doctor.frag"
+    else printf '"doctor":%s' "$out" >"$OPS/doctor.frag"; fi
+    DOCTOR_PROBLEMS=$(grep -o '"level":"error"' <<<"$out" | wc -l); DOCTOR_WARNINGS=$(grep -o '"level":"warn"' <<<"$out" | wc -l)
+    return 0
+  fi
+  return 1
+}
+act_doctor() {
+  step_say "1/1 Tarkistetaan asennus"
+  if run_doctor; then
+    if ((DOCTOR_PROBLEMS > 0)); then SUMMARY="Tarkistus: $DOCTOR_PROBLEMS ongelmaa, $DOCTOR_WARNINGS varoitusta."
+    elif ((DOCTOR_WARNINGS > 0)); then SUMMARY="Tarkistus: ei ongelmia, $DOCTOR_WARNINGS varoitusta."
+    else SUMMARY="Tarkistus: kaikki kunnossa."; fi
+  else fail "Tarkistus ei onnistunut."; fi
+}
+
+# The last 100 lines of each running service of this install. Redaction happens in store_result (scrub_out) and in the app.
+act_logs() {
+  local svc shown=""
+  step_say "1/1 Luetaan palvelujen lokit"
+  KEEP_LINES=320; KEEP_BYTES=49152
+  for svc in banking caddy; do
+    [[ -n $(timeout 20 docker compose ps --status running -q "$svc" 2>/dev/null) ]] || continue
+    printf '== %s ==\n' "$svc" >>"$LOGF"
+    run_cap "$T_LOGS" docker compose logs --no-color --tail 100 "$svc" || { RC=$?; fail "Lokien luku ei onnistunut (palvelu $svc)." "$RC"; return; }
+    shown+="${shown:+, }$svc"
+  done
+  SUMMARY="Luettu: $shown."
+}
+# "Total reclaimed space: 1.2GB" from a prune's output, in Finnish units for the summary
+reclaimed() { # reclaimed TEXT
+  local v
+  v=$(sed -n 's/^Total reclaimed space: *//p' <<<"$1" | tail -1 | tr -cd '0-9.A-Za-z' | head -c 12)
+  [[ $v =~ ^[0-9.]+(B|kB|MB|GB|TB)$ ]] || v=0B
+  v=${v/./,}
+  sed -E 's/([0-9])(TB|GB|MB|kB|B)$/\1 \2/; s/ TB$/ Tt/; s/ GB$/ Gt/; s/ MB$/ Mt/; s/ kB$/ kt/; s/ B$/ t/' <<<"$v"
+}
+# Fixed commands only. docker image prune -f without -a removes images that have no tag at all, and
+# builder prune -f the build cache, so this install's :latest and :previous (which update.sh and rollback
+# need) are never candidates. They are checked before and after anyway. `act_prune own` (the housekeeping, lib/ops-housekeeping.sh)
+# takes only the untagged images that carry this app's label talous.version, and leaves the build cache and other software alone.
+image_id() { docker image inspect -f '{{.Id}}' "$1" 2>/dev/null || true; }
+# shellcheck disable=SC2120 # "own" is passed by housekeeping (lib/ops-housekeeping.sh)
+act_prune() {
+  local start imgs cache="" id_latest id_prev own=(); [[ ${1:-} == own ]] && own=(--filter label=talous.version)
+  id_latest=$(image_id "$INSTANCE:latest"); id_prev=$(image_id "$INSTANCE:previous")
+  step_say "1/2 Poistetaan vanhat versiot"
+  start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
+  run_cap "$T_PRUNE" docker image prune -f ${own[@]+"${own[@]}"} || { RC=$?; fail "Kuvien siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
+  imgs=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
+  if [[ ${1:-} != own ]]; then
+    step_say "2/2 Tyhjennetään välimuisti"
+    start=$(stat -c %s "$LOGF" 2>/dev/null || echo 0)
+    run_cap "$T_PRUNE" docker builder prune -f || { RC=$?; fail "Välimuistin siivous ei onnistunut. Syy on lokissa." "$RC"; return; }
+    cache=$(reclaimed "$(tail -c +$((start + 1)) "$LOGF")")
+  fi
+  if [[ $(image_id "$INSTANCE:latest") != "$id_latest" || $(image_id "$INSTANCE:previous") != "$id_prev" ]]; then
+    fail "Siivous poisti version, jonka piti jäädä."; return
+  fi
+  if [[ $imgs == "0 t" && ${cache:-0 t} == "0 t" ]]; then SUMMARY="Ei vapautettavaa."; else SUMMARY="Levyltä vapautui $imgs vanhoista versioista${cache:+ ja $cache välimuistista}."; fi
+}
+# The script schedule and the policy are installed again from this clone, with fixed arguments. Without
+# --ops-policy an existing policy (remote, branch, docker) is kept, so a changed remote is not adopted here.
+act_helper_renew() {
+  step_say "1/1 Asennetaan apuri uudelleen tästä kansiosta"
+  if run_cap "$T_RENEW" ./scripts/install.sh --ops-helper; then SUMMARY="Apuri asennettu uudelleen."; else RC=$?; fail "Apurin uusinta ei onnistunut. Syy on lokissa." "$RC"; fi
+}
+
+# The helper was killed in request ID, a `restart` (a power cut, a reboot, a stopped unit), and finish_unfinished has stored
+# it as failed. The containers are started again with .env as it is. No version is rolled back. The summary of what was
+# done replaces the stored one.
+cut_short() { # cut_short ID
+  local id=$1 said
+  LOGF=$OPS/run/$id.log; SUMMARY=""
+  if ! app_running; then
+    said="Apuri keskeytyi kesken uudelleenkäynnistyksen."
+    run_cap "$T_RESTART" docker compose up -d --no-build || true
+    if wait_healthy 45; then SUMMARY="$said Käynnistimme sovelluksen, ja se vastaa."; else SUMMARY="$said Käynnistimme sovelluksen, mutta se ei vastaa."; fi
+  fi
+  [[ -z $SUMMARY ]] || store_result "$id" failed 1 "$SUMMARY" "$LOGF"
+  LOGF=""
+}

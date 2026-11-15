@@ -1,0 +1,11 @@
+/* Balances of Raportit (pages/reports/pages/Balances.tsx): the styles of its own sections, which no other page reads. */
+@layer pages {
+/* Saldot: the accounts, the saved loans and what is left, as rows of the statement look; a label is told whole */
+.balance-rows { max-inline-size: 48ch; margin-bottom: var(--sp-12); }
+.balance-rows .st-name { overflow: visible; white-space: normal; }
+/* Seuraavat 12 kuukautta: the legend of the forecast chart, a line for the expected course and a swatch for the range */
+.forecast-legend { display: flex; flex-wrap: wrap; gap: var(--sp-12); font-size: var(--fs-label); margin-block: var(--sp-8); color: var(--text-2); }
+.forecast-key::before { content: ""; display: inline-block; inline-size: 1.5em; block-size: 0.5em; margin-inline-end: var(--sp-4); vertical-align: middle; }
+.forecast-key-mid::before { block-size: 0; border-top: calc(2 * var(--hairline)) solid var(--series-avg); }
+.forecast-key-range::before { background: var(--series-avg); opacity: 0.16; }
+}
