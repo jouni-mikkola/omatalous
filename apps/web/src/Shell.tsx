@@ -80,7 +80,7 @@ export function Shell() {
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
   // the open questions: only their count, in the header of every page and read again when a page opens, since any page can answer one (a rule, a mark, a loan); the queue is Tarkistettavat's own
-  const { count: asked, reload: reloadReview } = useReviewCount();
+  const { count: asked, known: askedKnown, reload: reloadReview } = useReviewCount();
   // a failed fetch is an item of the queue the server does not count: the mark adds it, as the page does
   const open = asked + (meta.data?.lastSync?.status === "failed" ? 1 : 0);
   // a notice of the server that is news (a state that needs the admin, an event not seen) is a dot on the user menu and a line of Turvallisuus
@@ -334,8 +334,8 @@ export function Shell() {
             />
           )}
           {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
-          {/* with nothing open the link is not shown, but the page stays reachable by its address and shows while it is open */}
-          {(open > 0 || page === REVIEW.id) && (
+          {/* the link goes only when the server has said that nothing is open: not while the count loads or when it failed; the page stays reachable by its address and shows while it is open */}
+          {(open > 0 || !askedKnown || page === REVIEW.id) && (
             <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
               {REVIEW.label}
               {open > 0 && (

@@ -38,6 +38,7 @@ export const FI_SET_OPS = {
   "ops.no_log": "Lokia ei ole.",
   "ops.doctor": "Tila",
   "ops.run_doctor": "Tarkista järjestelmä",
+  "ops.never_run": "Ei ajettu vielä.",
   "ops.restart": "Käynnistä sovellus uudelleen",
   "ops.restart_help": "Sovellus on hetken pois käytöstä.",
   "ops.events": "Ylläpitoloki",

@@ -6,7 +6,7 @@ const outside = { target: "_blank", rel: "noopener noreferrer" } as const;
 /**
  * The first spans of the footer of every page: the app, its version and its author (the attribution the licence keeps),
  * the licence, the source and the guides. The author's page and the link to support the development are in
- * Asetukset > Tiedot (pages/settings/AboutApp.tsx).
+ * the software information of Asetukset > Palvelin ja ylläpito (pages/settings/AboutApp.tsx).
  */
 export function AboutFoot({ version }: { version: string }) {
   return (

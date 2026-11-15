@@ -29,7 +29,7 @@ describe("the footer's line about the app", () => {
   });
 });
 
-describe("Asetukset > Tiedot: the card about the app", () => {
+describe("Asetukset > Palvelin ja ylläpito: the software information", () => {
   it("has the author's page and the link to support the development, opened like the source link", () => {
     const out = renderToStaticMarkup(createElement(AboutApp));
     expect(out).toMatch(/<a [^>]*href="https:\/\/www\.linkedin\.com\/in\/jouni-mikkola"[^>]*rel="noopener noreferrer"[^>]*>Jouni Mikkola<\/a>/);

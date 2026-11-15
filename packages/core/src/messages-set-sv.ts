@@ -6,4 +6,5 @@
 export const FI_SET_SV = {
   "set.sv.server": "Palvelin",
   "set.sv.save": "Tallenna",
+  "set.sv.software": "Ohjelmiston tiedot",
 } as const;

@@ -132,6 +132,9 @@ export const S = {
   get actionNames() {
     return { "check-update": t("ops.action_check_update"), update: t("ops.action_update"), rollback: t("ops.action_rollback") };
   },
+  get neverRun() {
+    return t("ops.never_run");
+  },
   lastAt: (time: string) => t("ops.last_at", { time }),
   lastRunning: (time: string) => t("ops.last_running", { time }),
   get restart() {

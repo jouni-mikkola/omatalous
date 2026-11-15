@@ -116,6 +116,15 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   await context.close();
 });
 
+test("390 px: Tarkistettavat leaves the header only when the count says nothing is open, not when the count fails", async ({ browser }) => {
+  const { context, page } = await phone(browser);
+  await context.route(/\/api\/review\/count$/, (r) => r.fulfill({ status: 500, json: { error: "Ei onnistunut" } }));
+  await page.goto("/#/overview");
+  await expect(page.getByRole("navigation", { name: "Päävalikko" })).toBeVisible();
+  await expect(review(page)).toHaveCount(1);
+  await context.close();
+});
+
 test("390 px: Tarkistettavat has its word in the top row and the header holds one row", async ({ browser }) => {
   const { context, page } = await phone(browser);
   // the header shows its link only while something is open

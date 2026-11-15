@@ -104,11 +104,11 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   expect(await page.locator("main script, .ops-commits img, .ops-doctor img").count()).toBe(0);
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
 
-  // one status line on top; an action nobody has run adds no line of its own, and the page stays short at 1440 px
+  // one status line on top; an action nobody has run says so, and the page stays short at 1440 px
   const line = page.locator(".server-status-line");
   await expect(line).not.toContainText("Versio");
   await expect(line).toContainText("Levy");
-  await expect(page.getByText("Ei ajettu vielä.")).toHaveCount(0);
+  await expect(page.getByText("Ei ajettu vielä.").first()).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(4000);
   await page.setViewportSize({ width: 1280, height: 900 });

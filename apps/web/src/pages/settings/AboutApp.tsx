@@ -1,4 +1,4 @@
-/** Asetukset > Tiedot: who made the app and where to support it. The links of an author and of a donation page are not in the foot of every page. */
+/** Asetukset > Palvelin ja ylläpito: the software information, who made the app and where to support it. The links of an author and of a donation page are not in the foot of every page. */
 import { ABOUT } from "../../about.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { t } from "../../text.ts";
@@ -9,7 +9,7 @@ export function AboutApp() {
   return (
     <div className="card">
       <div className="card-head">
-        <h2>{t("set.dpage.about")}</h2>
+        <h2>{t("set.sv.software")}</h2>
         <div className="form-row flush">
           <Button variant="link" href={ABOUT.authorUrl} {...outside}>
             {ABOUT.authorName}

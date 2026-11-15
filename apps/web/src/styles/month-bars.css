@@ -11,6 +11,7 @@
 .month-bars .mb-partial .mb-income-part { stroke: var(--role-income); }
 .month-bars .mb-partial .mb-spend-part { stroke: var(--role-spending); }
 .month-bars .mb-usual { stroke: var(--text); stroke-width: 1; stroke-dasharray: 6 3; pointer-events: none; }
+.month-bars .mb-now { fill: var(--text); font-weight: var(--w-strong); }
 .month-bars .mb-hit { cursor: pointer; }
 .month-bars a:focus-visible .mb-hit { stroke: var(--accent); stroke-width: 1.5; }
 .mb-key { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: 0 0 var(--sp-8); padding: 0; list-style: none; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
