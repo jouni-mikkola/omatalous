@@ -151,8 +151,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* a touch target of 44 px; the negative margins take back the padding the cell gives it, so the row and the name keep their place and the target stays in its cell */
 @media (pointer: coarse) {
   .rt-drill { position: relative; z-index: 1; inline-size: var(--tap-min); block-size: var(--tap-min); margin: calc(-1 * var(--reach-pad, 0px)) 0 calc(-1 * var(--reach-pad, 0px)) -16px; }
-  /* in a block the name has no room to give: the arrow is 44 px high and 28 px wide, as wide as the arrow was before */
-  .rt-wrap[data-block] .rt-drill { inline-size: calc(var(--tap-floor) + var(--sp-4)); margin: calc(-1 * var(--reach-pad, 0px)) 0; }
+  /* in a block the name has little room to give: the arrow is 44 px high and 32 px wide, as wide as it was before */
+  .rt-wrap[data-block] .rt-drill { inline-size: calc(var(--tap-floor) + var(--sp-8)); margin: calc(-1 * var(--reach-pad, 0px)) 0; }
 }
 .rt-wrap[data-block] .rt tbody tr:has(+ .rt-detail), .rt-wrap[data-block] .rt tbody tr:has(+ .rt-subrow) { border-bottom-color: transparent; }
 .rt-wrap[data-block] .rt tbody tr:last-child:has(+ tfoot) { border-bottom: 0; }
