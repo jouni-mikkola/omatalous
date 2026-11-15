@@ -53,11 +53,6 @@
 .nd-axis span { display: block; }
 .nd-axis .nd-pd { color: var(--good); font-weight: 600; }
 .nd-axis li.nd-pd::before { width: 0.15em; margin-left: -0.075em; height: var(--tick-l); background: var(--good); }
-/* the key under the line of Laskut: the dot as it is drawn, small, and the payday's tick */
-.bills-time-legend { margin: var(--sp-8) 0 0; }
-.nd-key { border-radius: 50%; background: var(--c); }
-.nd-key.nd-est { background: none; border: 0.15em solid var(--c); box-shadow: none; }
-.nd-key-pay { width: 0.15em; height: var(--sp-12); border-radius: 0; background: var(--good); }
 /* M8: a Saturday and a Sunday carry a band from the top of the dots to the foot of the steps (--nd-top and --nd-bottom come from the line) */
 .nd-axis li.nd-we::after { content: ""; position: absolute; left: 0; right: 0; top: calc(-1 * var(--nd-top)); bottom: calc(-1 * var(--nd-bottom)); z-index: -1; pointer-events: none;
   background: color-mix(in srgb, var(--surface-2) 45%, transparent); }

@@ -141,8 +141,8 @@ test("a missing bill added by hand on Tulossa is a row of the list and is in the
 
   try {
     await page.goto("/#/bills");
-    // the list only: no timeline, no sum lines, no price steps and no contract panel
-    await expect(page.locator(".bills-time-sum, .bills-time-rows, .nd-axis, .ps-plot")).toHaveCount(0);
+    // the list only: no bars of the days, no payments before a payday and no price steps
+    await expect(page.locator(".bp-stats, .pb-axis, .ps-plot")).toHaveCount(0);
     await page.locator("#tulossa").getByRole("button", { name: "Lisää lasku" }).click();
     const form = page.getByRole("dialog", { name: "Lisää lasku" });
     await form.getByLabel("Nimi").fill(NAME);
