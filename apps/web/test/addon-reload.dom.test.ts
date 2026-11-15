@@ -48,6 +48,23 @@ describe("reloadForAddOn", () => {
     expect(reload).toHaveBeenCalledTimes(2);
   });
 
+  it("shows no warning for a loaded module when the storage cannot forget the mark", () => {
+    const reload = vi.fn();
+    WEB_EXTENSIONS.push({ id: "example" });
+    vi.stubGlobal("sessionStorage", {
+      removeItem: () => {
+        throw new Error("no storage");
+      },
+    });
+    try {
+      expect(reloadForAddOn({ addOn: true }, reload)).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(reload).not.toHaveBeenCalled();
+    expect(addOnLoadFailed()).toBe(false);
+  });
+
   it("does not reload where the session storage cannot count", () => {
     const reload = vi.fn();
     vi.stubGlobal("sessionStorage", {

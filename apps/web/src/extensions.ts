@@ -53,11 +53,16 @@ const RELOADED = "omatalous-addon-reload";
  * started a reload.
  */
 export function reloadForAddOn(answer: { addOn?: boolean }, reload: () => void = () => location.reload()): boolean {
-  try {
-    if (!addOnAwaitsSignIn(answer)) {
+  if (!addOnAwaitsSignIn(answer)) {
+    // best effort: the module is there, so a storage that cannot forget the mark is no failure
+    try {
       if (answer.addOn === true) sessionStorage.removeItem(RELOADED);
-      return false;
+    } catch {
+      // nothing to report
     }
+    return false;
+  }
+  try {
     if (sessionStorage.getItem(RELOADED) === null) {
       sessionStorage.setItem(RELOADED, "1");
       reload();
