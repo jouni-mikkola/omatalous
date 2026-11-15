@@ -50,13 +50,18 @@ describe("reloadForAddOn", () => {
 
   it("does not reload where the session storage cannot count", () => {
     const reload = vi.fn();
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("no storage");
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => {
+        throw new Error("no storage");
+      },
     });
-    expect(reloadForAddOn({ addOn: true }, reload)).toBe(false);
+    try {
+      expect(reloadForAddOn({ addOn: true }, reload)).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
     expect(reload).not.toHaveBeenCalled();
     expect(addOnLoadFailed()).toBe(true);
-    vi.restoreAllMocks();
   });
 });
 
