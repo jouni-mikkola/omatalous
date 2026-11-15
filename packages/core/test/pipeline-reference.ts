@@ -4,6 +4,7 @@ import { compileRules } from "../src/categorize.ts";
 import { categorizeInDirection } from "../src/categorize-direction.ts";
 import { businessMerchants, isBusinessRow } from "../src/industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "../src/merchant.ts";
+import { applyPayerConsistency } from "../src/payer-consistency.ts";
 import { matchReturns, partyKey, steadyParties } from "../src/returns.ts";
 import { detectTransfers, normalizeIban } from "../src/transfers.ts";
 import type { Account, CategoryRule, Transaction } from "../src/types.ts";
@@ -75,6 +76,8 @@ export function enrichTransactionsReference(
     const kind = getCategory(purchase.category).kind;
     if (!purchase.isTransfer && (kind === "expense" || kind === "debt")) Object.assign(refund, { category: purchase.category, categorySource: "match", isTransfer: false });
   }
+
+  applyPayerConsistency(next, new Set([...byUserRule, ...returns.keys(), ...returns.values()]));
 
   return next.filter((t, i) => {
     const before = txs[i]!;

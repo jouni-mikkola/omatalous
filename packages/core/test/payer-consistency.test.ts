@@ -23,9 +23,9 @@ describe("money in from one payer", () => {
     expect(new Set(final.map((t) => t.category))).toEqual(new Set(["p2p_in"]));
   });
 
-  it("reads the payer by the words of the name, in either order", () => {
-    const rows = [from(1, "Siirto-maksu"), from(2, "Siirto-maksu"), from(3, "terveisin", { counterparty: "Aino Lehtonen" })];
-    expect(run(rows)[2]!.category).toBe("p2p_in");
+  it("reads a payer by its merchant: another merchant is another payer", () => {
+    const rows = [from(1, "Siirto-maksu"), from(2, "Siirto-maksu"), from(3, "terveisin", { merchant: "Aino L" })];
+    expect(run(rows)[2]!.category).toBe("income");
   });
 
   it("leaves a row with a reference number alone", () => {

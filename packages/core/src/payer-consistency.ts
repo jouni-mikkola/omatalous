@@ -3,18 +3,17 @@
  *
  * Decision: the household reads its income by payer. A payer whose rows split between a group of their own and
  * unrecognised income (one message says "Siirto-maksu", the next a free sentence) tells the household two stories
- * about the same person, so the unrecognised rows take the category the payer's recognised rows share.
+ * about the same person, so the unrecognised rows take the category the payer's recognised rows share. A payer is a
+ * merchant whose payee has the shape of a person's name, so the one-merchant run holds every row it reads.
  */
 import { referenceOf } from "./card-channel.ts";
 import { getCategory } from "./categories.ts";
-import { nameOf } from "./person-names.ts";
+import { fold } from "./merchant.ts";
 import type { Transaction } from "./types.ts";
+import { isPersonShaped } from "./wording.ts";
 
-/** The payer's name with its words in one order, so "MEIKALAINEN MAIJA" and "Maija Meikäläinen" are one payer. Null: no name of at least two words, which is no person. */
-function payerKey(t: Transaction): string | null {
-  const words = [...nameOf(t.counterparty ?? "")];
-  return words.length >= 2 ? words.sort().join(" ") : null;
-}
+/** The payer of a row: its merchant when the payee is named like a person, else null (a company, a shop, one word). */
+const payerOf = (t: Transaction): string | null => (t.counterparty && isPersonShaped(fold(t.counterparty)) ? t.merchant : null);
 
 /**
  * Money in that no rule recognised (`income` by default, no reference) takes the category most of the same payer's
@@ -25,7 +24,7 @@ function payerKey(t: Transaction): string | null {
 export function applyPayerConsistency(next: readonly Transaction[], locked: ReadonlySet<string>): void {
   const decided = new Map<string, Map<string, number>>();
   for (const t of next) {
-    const key = t.amountCents > 0 && t.categorySource === "rule" && !t.isTransfer && getCategory(t.category).kind === "income" ? payerKey(t) : null;
+    const key = t.amountCents > 0 && t.categorySource === "rule" && !t.isTransfer && getCategory(t.category).kind === "income" ? payerOf(t) : null;
     if (!key) continue;
     const counts = decided.get(key) ?? new Map<string, number>();
     counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
@@ -39,7 +38,7 @@ export function applyPayerConsistency(next: readonly Transaction[], locked: Read
   }
   for (const t of next) {
     if (t.amountCents <= 0 || t.categorySource !== "default" || t.category !== "income" || t.isTransfer || locked.has(t.id) || referenceOf(t) !== "") continue;
-    const key = payerKey(t);
+    const key = payerOf(t);
     const category = key ? winner.get(key) : undefined;
     if (category && category !== t.category) Object.assign(t, { category, categorySource: "merchant" });
   }

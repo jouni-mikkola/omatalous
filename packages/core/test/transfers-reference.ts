@@ -1,9 +1,11 @@
 // The pairing as it was before the windowed version: a copy kept as the oracle for the differential test.
 import { getCategory } from "../src/categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "../src/dates.ts";
+import { hasTerminalShape } from "../src/industry.ts";
 import { fold } from "../src/merchant.ts";
 import { isBankingDay } from "../src/pay-day.ts";
 import type { Account, Transaction } from "../src/types.ts";
+import { isCardCode } from "../src/wording.ts";
 
 /** Max days between the two legs of a transfer between own accounts. */
 const PAIR_WINDOW_DAYS = 5;
@@ -23,7 +25,11 @@ type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description">>;
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc" | "bankTxnCode">>;
+
+/** Money out that the bank booked as a card purchase and no rule named: never a leg of a transfer. */
+const isUnplacedCardPurchase = (t: TransferInput): boolean =>
+  t.amountCents < 0 && t.categorySource === "default" && t.category === "other" && (!!t.mcc || isCardCode(t.bankTxnCode) || hasTerminalShape({ counterparty: t.counterparty ?? null, description: t.description ?? null }));
 
 export interface TransferOptions {
   /**
@@ -108,7 +114,7 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
   if (accounts.length > 1) {
     // legs marked above can still be the partner of an unmarked leg (e.g. the card's "MAKSU, KIITOS"
     // pairs with the e-invoice that paid it); legs settled earlier never are
-    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || pairable(t)));
+    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || (pairable(t) && !isUnplacedCardPurchase(t))));
     // partners have the opposite amount, so only legs of that amount are compared
     const incoming = new Map<number, TransferInput[]>();
     for (const t of candidates) if (t.amountCents > 0) incoming.set(t.amountCents, [...(incoming.get(t.amountCents) ?? []), t]);
@@ -128,8 +134,8 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
       return true;
     };
 
-    for (const out of candidates) {
-      if (out.amountCents >= 0) continue;
+    /** The nearest unused incoming leg compatible with `out`; the first of equal distance. */
+    const partnerOf = (out: TransferInput): TransferInput | undefined => {
       const day = dayNumber(out.bookingDate);
       let best: TransferInput | undefined;
       let bestGap = Number.POSITIVE_INFINITY;
@@ -145,6 +151,23 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
           bestGap = gap;
         }
       }
+      return best;
+    };
+
+    // a leg that names an own account takes its partner before any leg without proof can
+    const proved = new Map<string, TransferInput>();
+    for (const out of candidates) {
+      const outIban = normalizeIban(out.counterpartyIban);
+      if (out.amountCents >= 0 || !outIban || !ownIbans.has(outIban)) continue;
+      const partner = partnerOf(out);
+      if (!partner) continue;
+      used.add(partner.id);
+      proved.set(out.id, partner);
+    }
+
+    for (const out of candidates) {
+      if (out.amountCents >= 0) continue;
+      const best = proved.get(out.id) ?? partnerOf(out);
       if (best) {
         used.add(best.id);
         transfers.add(out.id);

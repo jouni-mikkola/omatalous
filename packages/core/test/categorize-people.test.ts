@@ -319,8 +319,8 @@ describe("a payment to the user's own name", () => {
     expect(final[0]!.category).toBe("transfer");
   });
 
-  it("money in from the user's own name with no pair is a transfer too, with or without the payer's account", () => {
-    expect(category(USER, "siirto", 500, none)).toBe("transfer");
+  it("money in from the user's own name with no pair is a transfer too, unless it names an account outside the household", () => {
+    expect(category(USER, "siirto", 500, none)).not.toBe("transfer");
     expect(category(USER, "siirto", 500, { reference: null })).toBe("transfer");
     expect(category(USER, null, 500)).toBe("transfer");
     const { totals } = month([tx({ accountId: "own", bookingDate: "2026-09-05", ...input(USER, "siirto", 500) })], HOUSEHOLD);

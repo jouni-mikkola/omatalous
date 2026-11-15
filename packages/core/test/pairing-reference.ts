@@ -3,9 +3,11 @@
 import { getCategory } from "../src/categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "../src/dates.ts";
 import { normalizeIban } from "../src/iban.ts";
+import { hasTerminalShape } from "../src/industry.ts";
 import type { TraceRow } from "../src/money-trace-lots.ts";
 import { isBankingDay } from "../src/pay-day.ts";
 import type { Account, Transaction } from "../src/types.ts";
+import { isCardCode } from "../src/wording.ts";
 
 /**
  * Max days between the two legs of a transfer between own accounts, in either order. A weekday the banks are closed
@@ -34,7 +36,11 @@ type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description">>;
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc" | "bankTxnCode">>;
+
+/** Money out that the bank booked as a card purchase and no rule named: never a leg of a transfer. */
+const isUnplacedCardPurchase = (t: TransferInput): boolean =>
+  t.amountCents < 0 && t.categorySource === "default" && t.category === "other" && (!!t.mcc || isCardCode(t.bankTxnCode) || hasTerminalShape({ counterparty: t.counterparty ?? null, description: t.description ?? null }));
 
 /**
  * True when a transaction may be money moving between own accounts: nothing
@@ -118,7 +124,7 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
   if (accounts.length > 1) {
     // legs marked above can still be the partner of an unmarked leg (e.g. the card's "MAKSU, KIITOS"
     // pairs with the e-invoice that paid it); legs settled earlier never are
-    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || pairable(t)));
+    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || (pairable(t) && !isUnplacedCardPurchase(t))));
     // partners have the opposite amount, so only legs of that amount are compared. Per amount the legs are kept
     // per day in input order, so an outgoing leg looks at the eleven days of its window and not at every leg
     // of that amount (a fixed sum moved every week made this quadratic)
@@ -155,10 +161,9 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
       return undefined;
     };
 
-    for (const out of candidates) {
-      if (out.amountCents >= 0) continue;
+    const partnerOf = (out: TransferInput): TransferInput | undefined => {
       const days = incoming.get(-out.amountCents);
-      if (!days) continue;
+      if (!days) return undefined;
       const day = dayNumber(out.bookingDate);
       // the nearest day first; on equal distance the leg that came first in the input. Each side counts the closed
       // weekdays between the legs, which the window does not
@@ -175,6 +180,23 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
         const after = gap === 0 || gap - closedAfter > PAIR_WINDOW_DAYS ? undefined : firstOn(days, day + gap, out);
         best = (before && after ? (before.seq < after.seq ? before : after) : (before ?? after))?.t;
       }
+      return best;
+    };
+
+    // a leg that names an own account takes its partner before any leg without proof can
+    const proved = new Map<string, TransferInput>();
+    for (const out of candidates) {
+      const outIban = normalizeIban(out.counterpartyIban);
+      if (out.amountCents >= 0 || !outIban || !ownIbans.has(outIban)) continue;
+      const partner = partnerOf(out);
+      if (!partner) continue;
+      used.add(partner.id);
+      proved.set(out.id, partner);
+    }
+
+    for (const out of candidates) {
+      if (out.amountCents >= 0) continue;
+      const best = proved.get(out.id) ?? partnerOf(out);
       if (best) {
         used.add(best.id);
         transfers.add(out.id);

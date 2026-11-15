@@ -300,7 +300,6 @@ export function enrichIsland(input: IslandInput): IslandResult {
   if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
   const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
-  if (rows.some((t) => t.amountCents > 0 && t.counterparty)) return { ok: false, reason: "a payer's rows read each other outside the merchant" };
   const ownIbans = ownIbansOf(accounts, input.household);
   const holders = holdersOf(accounts);
   const run = (txs: readonly Transaction[], userRules: readonly CategoryRule[]) => {
@@ -318,7 +317,9 @@ export function enrichIsland(input: IslandInput): IslandResult {
     while (!evidence.next().done);
     applyReturns(next, staged.returns);
     // as in the full run: the member's rules and both rows of every return are the roles' to leave
-    applyPayerRoles(next, new Set([...staged.byUserRule, ...staged.returns.keys(), ...staged.returns.values()]), input.payers, typicals);
+    const locked = new Set([...staged.byUserRule, ...staged.returns.keys(), ...staged.returns.values()]);
+    applyPayerConsistency(next, locked);
+    applyPayerRoles(next, locked, input.payers, typicals);
     return next;
   };
   // Whether a ledger (an account's rows of one source) carries payee accounts is known from the island's rows as far
