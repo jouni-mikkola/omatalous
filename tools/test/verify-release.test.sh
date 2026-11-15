@@ -19,9 +19,13 @@ cat >"$TMP/bin/curl" <<'STUB_CURL'
 # the stub registry: records the URLs and answers by CURL_MODE
 url=${*: -1}
 echo "$url" >>"$CURL_LOG"
+echo "$*" >>"$CURL_LOG.args"
 out=
+head=
 while (($#)); do
   [[ $1 == -o ]] && out=$2
+  [[ $1 == -D ]] && head=$2
+  [[ $1 == --config ]] && cat >>"$CURL_LOG"
   [[ $1 == Authorization:* ]] && echo "$1" >>"$CURL_LOG"
   [[ $1 == -H && ${2:-} == Authorization:* ]] && echo "$2" >>"$CURL_LOG"
   shift
@@ -29,10 +33,18 @@ done
 case $CURL_MODE in
   down) exit 6 ;;
 esac
-# the GitHub API: the release list is $RELEASES, and there is no latest release
+# the GitHub API: the release list is $RELEASES, and there is no latest release. Modes: limited refuses twice with the
+# rate-limit header and then answers, limited-always refuses every time that way, refused is a 403 without the header.
 if [[ $url == https://api.github.com/* ]]; then
   [[ $url == *"/releases?per_page=1" ]] || exit 22
-  printf '%s' "$RELEASES"; exit 0
+  n=$(($(cat "$CURL_LOG.n" 2>/dev/null || echo 0) + 1)); echo "$n" >"$CURL_LOG.n"
+  code=200
+  case $CURL_MODE in
+    limited) ((n > 2)) || code=403 ;;
+    limited-always | refused) code=403 ;;
+  esac
+  { printf 'HTTP/2 %s\r\n' "$code"; [[ $CURL_MODE == refused || $code == 200 ]] || printf 'x-ratelimit-remaining: 0\r\n'; } >"$head"
+  printf '%s' "$RELEASES" >"$out"; printf '%s' "$code"; exit 0
 fi
 case $CURL_MODE in
   private) [[ $url == *"/token?"* ]] && exit 22 ;;
@@ -94,7 +106,10 @@ out=$(pull ok 0.9); rc=$?
 check "exit 1 on a version that is not x.y.z" test $rc -eq 1
 
 # the first release of a new root: no earlier release to verify, said only by release.sh --new-root
-first() { : >"$CURL_LOG"; CURL_MODE=$1 RELEASES=$2 PATH="$TMP/bin:$PATH" env "${@:3}" bash "$SCRIPT" 2>&1; }
+first() {
+  rm -f "$CURL_LOG.n" "$CURL_LOG.args"; : >"$CURL_LOG"
+  CURL_MODE=$1 RELEASES=$2 PATH="$TMP/bin:$PATH" env -u GITHUB_TOKEN -u GH_TOKEN VERIFY_RELEASE_RETRY_WAIT=0 "${@:3}" bash "$SCRIPT" 2>&1
+}
 out=$(first ok '[]' VERIFY_RELEASE_FIRST=1); rc=$?
 check "exit 0 on the first release of a new root" test $rc -eq 0
 [[ $out == *"No release in jouni-mikkola/omatalous yet"* ]] && pass "says there is none to verify" || fail "says there is none to verify" "$out"
@@ -104,6 +119,30 @@ out=$(first ok '[{"tag_name":"v0.1.0"}]' VERIFY_RELEASE_FIRST=1); rc=$?
 check "a repo with a release is verified on a new root too" test $rc -ne 0 -a "${out#*yet (the first}" = "$out"
 out=$(first down '[]' VERIFY_RELEASE_FIRST=1); rc=$?
 check "a failed request is no empty list" test $rc -ne 0 -a "${out#*yet (the first}" = "$out"
+
+# the token: sent when there is one, never on the command line, and the plain request stays as it was
+out=$(first ok '[]' VERIFY_RELEASE_FIRST=1 GITHUB_TOKEN=tok-abc123); rc=$?
+check "a token does not change the answer" test $rc -eq 0
+grep -q 'Authorization: Bearer tok-abc123' "$CURL_LOG" && pass "sends GITHUB_TOKEN to api.github.com" || fail "sends GITHUB_TOKEN to api.github.com"
+grep -q 'tok-abc123' "$CURL_LOG.args" && fail "keeps the token off the command line" || pass "keeps the token off the command line"
+[[ $out == *tok-abc123* ]] && fail "never prints the token" || pass "never prints the token"
+out=$(first ok '[]' VERIFY_RELEASE_FIRST=1 GH_TOKEN=tok-def456); rc=$?
+grep -q 'Authorization: Bearer tok-def456' "$CURL_LOG" && pass "sends GH_TOKEN when there is no GITHUB_TOKEN" || fail "sends GH_TOKEN when there is no GITHUB_TOKEN"
+out=$(first ok '[]' VERIFY_RELEASE_FIRST=1); rc=$?
+check "works without a token" test $rc -eq 0
+grep -q 'Authorization' "$CURL_LOG" && fail "sends no header without a token" || pass "sends no header without a token"
+
+# a refusal that says the limit is reached is asked again, twice at most (the empty list ends the run at "No release found")
+out=$(first limited '[]' VERIFY_RELEASE_FIRST=); rc=$?
+[[ $out == *"No release found"* && $out != *"returned error"* ]] && pass "two rate-limit refusals are retried" || fail "two rate-limit refusals are retried" "$out"
+[[ $(cat "$CURL_LOG.n") == 3 ]] && pass "asks three times in all" || fail "asks three times in all" "$(cat "$CURL_LOG.n")"
+out=$(first limited-always '[]' VERIFY_RELEASE_FIRST=); rc=$?
+check "a limit that stays fails" test $rc -ne 0
+[[ $(cat "$CURL_LOG.n") == 3 ]] && pass "stops after three tries" || fail "stops after three tries" "$(cat "$CURL_LOG.n")"
+[[ $out == *"returned error: 403"* ]] && pass "says the 403" || fail "says the 403" "$out"
+out=$(first refused '[]' VERIFY_RELEASE_FIRST=); rc=$?
+check "a 403 without the rate-limit header fails at once" test $rc -ne 0
+[[ $(cat "$CURL_LOG.n") == 1 ]] && pass "asks once" || fail "asks once" "$(cat "$CURL_LOG.n")"
 
 # GitHub has no latest release while the only release is a pre-release: the newest one is checked
 out=$(first ok '[{"tag_name":"v0.1.0","prerelease":true}]' VERIFY_RELEASE_FIRST=); rc=$?
