@@ -1,2 +1,2 @@
 section: For developers
-- Tests can generate households of one to four members, with every row labelled by what it really is.
+- Tests generate households of one to four members and check that the figures keep money whole.
