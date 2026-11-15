@@ -59,7 +59,6 @@
 /* the figure that shows more rows says so at rest with a dotted underline, a solid one under the pointer or the focus and while its rows are open */
 .review-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: var(--radius-s); text-decoration: underline dotted var(--hairline) var(--accent); text-underline-offset: 0.2em; }
 .review-toggle:hover, .review-toggle:focus-visible, .review-toggle[aria-expanded="true"] { text-decoration: underline solid var(--hairline) var(--accent); text-underline-offset: var(--sp-4); }
-.review-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* every category, a sheet over the page: centred on a wide screen, from the foot on a phone */
 .review-sheet { inline-size: min(560px, calc(100vw - 32px)); max-block-size: min(720px, calc(100vh - 64px)); padding: var(--pad); border: 1px solid var(--pop-edge); border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: var(--pop-shadow); }
