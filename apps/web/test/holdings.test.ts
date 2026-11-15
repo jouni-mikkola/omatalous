@@ -54,18 +54,20 @@ describe("Holdings", () => {
       expect(text(html(answer({ ...base, netCents: 100_000 })))).not.toContain("Varat velkojen jälkeen");
     });
 
-    it("is named Varat korttivelan jälkeen with a link to the loans when no loan has a balance, saved or not", () => {
-      const saved = html(answer({ ...base, netCents: 100_000, loans: [loan({ leftCents: null })] }));
-      expect(text(saved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
-      expect(links(saved)).toContain("#/settings/household#lainat");
+    it("is named Varat korttivelan jälkeen with a link to the loans when only loans nobody saved are left out", () => {
       const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 } }));
       expect(text(unsaved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
       expect(links(unsaved)).toContain("#/settings/household#lainat");
     });
 
-    it("counts the loans left out when only some have a balance", () => {
-      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan(), loan({ id: "l2", leftCents: null })], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans: { count: 1, names: [], paymentCents: 30_000 } }));
+    it("counts the loans left out when the saved ones all have a balance", () => {
+      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 } }));
       expect(text(some)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 2 lainaa) −119 000 €");
+    });
+
+    it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
+      const unknown = html(answer({ ...base, netCents: null, debtCents: null, loans: [loan({ leftCents: null })] }));
+      expect(text(unknown)).toContain("Varat ja velat Varat velkojen jälkeen –");
     });
   });
 

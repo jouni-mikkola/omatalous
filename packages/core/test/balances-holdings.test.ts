@@ -248,6 +248,10 @@ describe("holdings of the balance report", () => {
     expect(lainat.totalKnown).toBe(false);
     expect(holdings.debtCents).toBeNull();
     expect(report.debt.cents).toBeNull();
+    // the accounts less a part of the debt is no net: the head of the block is unknown too
+    expect(holdings.accountsCents).toBe(10_000);
+    expect(holdings.netCents).toBeNull();
+    expect(report.holdings.netCents).toBeNull();
   });
 
   it("the net figure is the accounts' total less the debt total, and null when no account has a balance", () => {

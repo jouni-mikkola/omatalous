@@ -143,7 +143,7 @@ export interface Holdings {
   loansCents: number | null;
   /** What the household owes in all, the one debt total of `householdDebts`: the cards' `usedCents` and the loans' `leftCents` add up to it, to the cent. 0 without debt. Null when a loan's balance is not known on the day, as Lainat tells it: the total of a part is no total. */
   debtCents: number | null;
-  /** `accountsCents` less `debtCents`: what the household has net, the head figure of Varat ja velat. Null when `accountsCents` is. */
+  /** `accountsCents` less `debtCents`: what the household has net, the head figure of Varat ja velat. Null when `accountsCents` is, and when `debtCents` is: the accounts less a part of the debt is no net. */
   netCents: number | null;
   /** The loans the rows show and nobody saved, which `debtCents` cannot hold: told beside it ("Lainoja, joiden saldo puuttuu: N (X €/kk)"). Left out with none. */
   unsavedLoans?: UnsavedLoans;
@@ -215,7 +215,7 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     accounts,
     accountsCents,
     typeCents: { checking: sumOfType("checking"), savings: sumOfType("savings"), other: sumOfType("other") },
-    netCents: accountsCents === null ? null : accountsCents - debts.total.cents,
+    netCents: accountsCents === null || !debts.totalKnown ? null : accountsCents - debts.total.cents,
     accountsAddUp: accountsCents !== null && balancesOf.filter((c) => c !== null).length >= 2,
     accountShares: accountsCents !== null ? percentsOf(balancesOf, accountsCents) : null,
     cards,

@@ -34,8 +34,12 @@ const days = (cardDaily: number): Transaction[] =>
     tx({ accountId: "card", bookingDate: d, amountCents: -cardDaily, merchant: "Kahvila", category: "restaurants" }),
   ]);
 const ninths = ["03", "04", "05", "06", "07", "08", "09", "10"].map((m) => `2026-${m}-09`);
-/** Each 9th from April pays what the card's purchases came to since the 9th before: a statement paid in full. */
-const statements = (daily: number): Transaction[] => ninths.slice(1).flatMap((d, i) => move(d, daysBetween(ninths[i]!, d) * daily));
+/** Each 9th from April pays what the card's purchases came to since the 9th before: a statement paid in full. `paid` names the sum of a 9th that is another. */
+const statements = (daily: number, paid: Record<string, number> = {}, extra = 0): Transaction[] =>
+  ninths.slice(1).flatMap((d, i) => move(d, paid[d] ?? daysBetween(ninths[i]!, d) * daily + extra));
+/** The interest the card charges, on each of the given days. */
+const interest = (days: readonly IsoDate[], cents: number): Transaction[] =>
+  days.map((bookingDate) => tx({ accountId: "card", bookingDate, amountCents: -cents, merchant: "Korko", category: "interest" }));
 /** The 9th pays 50 euros whatever the card owes: minimum payments only. */
 const minimums = (): Transaction[] => ninths.flatMap((d) => move(d, 5000));
 
@@ -66,6 +70,27 @@ describe("a card beside a rated loan in Lainat", () => {
     const r = run([...days(300), ...minimums()], -200_000);
     const cardRow = r.loans.find((l) => l.id === "account:card")!;
     expect(cardRow.interest.cents).toBeNull();
+    expect(r.interestKnown).toBe(false);
+    expect(r.path).toBeNull();
+  });
+
+  it("a card paid in full by its bills that also charges interest every month stays unknown", () => {
+    const firsts = ["04", "05", "06", "07", "08", "09", "10"].map((m) => `2026-${m}-01`);
+    const r = run([...days(1000), ...statements(1000, {}, 500), ...interest(firsts, 500)], -11_000);
+    expect(r.interestKnown).toBe(false);
+    expect(r.path).toBeNull();
+  });
+
+  it("a card paid in full before but only partly on its last bill stays unknown: the interest that follows shows it", () => {
+    // the 9th of October pays 5 euros of its 300, so the card owes the rest still, and it charges interest after the bill
+    const r = run([...days(1000), ...statements(1000, { "2026-10-09": 500 }), ...interest(["2026-10-15"], 500)], -41_000);
+    expect(r.interestKnown).toBe(false);
+    expect(r.path).toBeNull();
+  });
+
+  it("a card whose last bill was fine but one of the two before it was a small one stays unknown", () => {
+    // August's bill leaves most of the statement to carry and September's is less than what was carried into it: October then pays it all
+    const r = run([...days(1000), ...statements(1000, { "2026-08-09": 5_000, "2026-09-09": 20_000, "2026-10-09": 67_000 })], -11_000);
     expect(r.interestKnown).toBe(false);
     expect(r.path).toBeNull();
   });
