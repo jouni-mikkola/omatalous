@@ -26,6 +26,14 @@ export class MarksRepo {
     await this.ctx.db.run("DELETE FROM user_marks WHERE user_id = ? AND subject = ?", [this.ctx.userId, subject]);
   }
 
+  /** The same mark on several subjects in one transaction: all of them are written or none. */
+  async setMarks(subjects: readonly string[], mark: MarkKind, at: string): Promise<void> {
+    await writeBatch(this.ctx.db, subjects.map((subject) => ({
+      sql: "INSERT INTO user_marks (user_id, subject, mark, marked_at) VALUES (?, ?, ?, ?) ON CONFLICT (user_id, subject) DO UPDATE SET mark = excluded.mark, marked_at = excluded.marked_at",
+      params: [this.ctx.userId, subject, mark, at],
+    })));
+  }
+
   /**
    * Old names that an upgrade makes one name (`groups`: the new name, and the old names with rows, the new name itself
    * among them when it has rows). A mark is copied to the new name only when every old name carries the same one, and

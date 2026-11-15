@@ -56,6 +56,9 @@ const plain = <T,>(label: string, value: T): Choice<T> => ({ value, label, guess
 /** A user mark, as each source's own answer stores it. */
 const mark = (subject: string, value: string) => () => api("/api/marks", { method: "PUT", body: { subject, mark: value } });
 
+/** The same user mark on several subjects, written in one request. */
+const marksOn = (subjects: string[], value: string) => () => api("/api/marks", { method: "PUT", body: { subjects, mark: value } });
+
 export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
   const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
@@ -123,13 +126,13 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
         </div>
       );
     case "unresolved":
-      // the notice is set aside for the cards it names (core unresolved-answer.ts); a payer is seen once the account that pays the card is connected
+      // the notice is set aside with a mark per card it names (core unresolved-answer.ts); a payer is seen once the account that pays the card is connected
       return (
         <div className="review-choices">
           <Button className="review-choice" href={settingsHash("banks")}>
             {t("set.rc.connect_the_paying_account")}
           </Button>
-          <ChoiceButton busy={busy} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
+          <ChoiceButton busy={busy} onClick={() => onAnswer(marksOn(item.subjects, "dismissed"))}>
             <span>{t("set.rc.do_not_remind_of_this")}</span>
           </ChoiceButton>
         </div>

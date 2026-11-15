@@ -1,12 +1,14 @@
 /**
  * "Älä muistuta tästä enää" on a notice of Tarkistettavat about a card whose payer the rows do not show. The household
- * cannot mend it from the page, so the answer is a mark `dismissed` on `question:unresolved:<reason>:<set>`, named
- * by the reason and a hash of the cards the notice named when it was dismissed (their ids sorted, as a JSON
- * list). The hash keeps the subject short however many cards the notice names; the ids alone would pass the 200
- * characters a subject may have at about 7 cards.
- * The notice stays away while the cards it names are the set a dismissal of the same reason named. It comes back when
- * the set changes. The amount does not matter: a card's debt swings with every billing cycle, and a notice that
- * returned with it would return nearly every month.
+ * cannot mend it from the page, so the answer is one mark `dismissed` per card the notice names, on
+ * `question:unresolved:<reason>:<card id>`. One card per subject keeps every subject short however many cards the
+ * notice names.
+ * The notice stays away while every card it names now has a dismissal of the same reason. A card that is paid off
+ * leaves the notice and the rest stay away; a card that joins, with no dismissal of its own, brings it back. The amount
+ * does not matter: a card's debt swings with every billing cycle, and a notice that returned with it would return nearly
+ * every month.
+ * Earlier versions stored one mark for the whole set, `question:unresolved:<reason>:<id>,<id>`. Those still parse and
+ * each counts for all of its ids, and nothing writes them any more.
  */
 import type { UserMark } from "./types.ts";
 
@@ -16,34 +18,25 @@ export const UNRESOLVED_REASONS = ["card_payer_unseen"] as const;
 export type UnresolvedReason = (typeof UNRESOLVED_REASONS)[number];
 
 const UNRESOLVED = "question:unresolved:";
-const SUBJECT = /^question:unresolved:([a-z_]{1,32}):([0-9a-f]{14})$/u;
+const ID = "[^:,\\p{Cc}]{1,64}";
+const SUBJECT = new RegExp(`^question:unresolved:([a-z_]{1,32}):(${ID}(?:,${ID})*)$`, "u");
 
-/** A 53-bit hash (cyrb53) as 14 hex digits: stable across runs and the same on Node and in the browser, which core must be. */
-function hashOf(text: string): string {
-  let h1 = 0xdeadbeef;
-  let h2 = 0x41c6ce57;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text.charCodeAt(i);
-    h1 = Math.imul(h1 ^ ch, 2654435761);
-    h2 = Math.imul(h2 ^ ch, 1597334677);
-  }
-  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-  return (h2 & 0x1fffff).toString(16).padStart(6, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
-}
+/** The subjects of the dismissal of a notice about `reason` for these cards: one per card, sorted and without repeats. */
+export const unresolvedSubjects = (reason: UnresolvedReason, cardIds: readonly string[]): string[] => [...new Set(cardIds)].sort().map((id) => `${UNRESOLVED}${reason}:${id}`);
 
-/** The subject of the dismissal of a notice about `reason` for these cards: the hash of their ids, sorted and without repeats (as a JSON list, so an id with a comma in it cannot pass for two). */
-export const unresolvedSubject = (reason: UnresolvedReason, cardIds: readonly string[]): string => `${UNRESOLVED}${reason}:${hashOf(JSON.stringify([...new Set(cardIds)].sort()))}`;
-
-/** The reason a dismissal subject names, or null for any other subject and a reason no notice has. */
-export function parseUnresolvedSubject(subject: string): { reason: UnresolvedReason } | null {
+/** The reason and card ids a dismissal subject names (one id, or the several of a subject an earlier version stored), or null for any other subject and a reason no notice has. */
+export function parseUnresolvedSubject(subject: string): { reason: UnresolvedReason; cardIds: string[] } | null {
   const found = SUBJECT.exec(subject);
   const reason = UNRESOLVED_REASONS.find((r) => r === found?.[1]);
-  return found && reason ? { reason } : null;
+  return found && reason ? { reason, cardIds: found[2]!.split(",") } : null;
 }
 
-/** Whether a dismissal of the same reason stands: one set aside named exactly the cards the notice names now. */
+/** Whether dismissals of the same reason stand: every card the notice names now is named by one of them. */
 export function unresolvedDismissed(marks: readonly Pick<UserMark, "subject" | "mark">[], reason: UnresolvedReason, cardIds: readonly string[]): boolean {
-  const now = unresolvedSubject(reason, cardIds);
-  return marks.some((m) => m.mark === "dismissed" && m.subject === now);
+  const named = new Set<string>();
+  for (const m of marks) {
+    const then = m.mark === "dismissed" ? parseUnresolvedSubject(m.subject) : null;
+    if (then?.reason === reason) for (const id of then.cardIds) named.add(id);
+  }
+  return cardIds.every((id) => named.has(id));
 }
