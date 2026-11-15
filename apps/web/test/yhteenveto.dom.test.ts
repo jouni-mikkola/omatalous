@@ -76,7 +76,7 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("h2")?.textContent).toBe("Marraskuu 2026");
     expect(figuresIn(container)).toEqual([
       { id: "income", label: "Tulot", figure: "4 120 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 3 980 €"] },
-      { id: "spent", label: "Menot", figure: "1 500 €", lines: ["234 € yli tavallisen tähän päivään"] },
+      { id: "spent", label: "Menot ilman säästöistä maksettua", figure: "1 500 €", lines: ["234 € yli tavallisen tähän päivään"] },
       { id: "result", label: "Tulos", figure: "2 120 €", lines: ["Viime kuussa samaan päivään 1 900 €"] },
     ]);
   });
@@ -204,9 +204,9 @@ describe("Yhteenveto's sum left to the payday", () => {
     return container.querySelector<HTMLElement>("[data-tile=left]")!;
   };
 
-  it("is a link to Laskut with the sum a day and the payday", () => {
+  it("is no link of its own, since the bills beside it hold the one link to Laskut, with the sum a day and the payday", () => {
     const el = left(data());
-    expect(el.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+    expect(el.getAttribute("href")).toBeNull();
     expect(el.querySelector(".home-fig-label")?.textContent).toBe("Käytettävissä palkkapäivään");
     expect(flat(el.querySelector(".fig")?.textContent)).toBe("3 100 €");
     expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("221 € päivässä, palkkapäivä 25.11.");
@@ -218,11 +218,10 @@ describe("Yhteenveto's sum left to the payday", () => {
     expect(flat(left({ ...d, nyt: today }).querySelector(".home-fig-line")?.textContent)).toBe("Palkkapäivä tänään");
   });
 
-  it("without its sum says why, and still leads to Laskut", () => {
+  it("without its sum says why", () => {
     const el = left({ ...data(), nyt: nytOf(false) });
     expect(flat(el.querySelector(".fig")?.textContent)).toBe("–");
     expect(el.querySelector(".home-fig-line")?.textContent).toBe("Palkkapäivä ei vielä tiedossa");
-    expect(el.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
   });
 
   it("less left than the bills take is the problem colour", () => {

@@ -53,7 +53,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.tile_no_card_balance": "Card balance missing",
   "home.tile_no_payday": "Payday not known yet",
   "home.fig_income": "Income",
-  "home.fig_spent": "Spending",
+  "home.fig_spent": "Spending without what was paid from savings",
   "home.fig_result": "Result",
   "home.fig_previous": "Last month by the same day {sum}",
   "home.bridge_where": "Use of income",

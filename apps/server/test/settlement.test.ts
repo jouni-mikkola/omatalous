@@ -465,6 +465,23 @@ describe("settlement routes", () => {
     expect((await importAs(w0, w0.ville, { settlementClosed: [row(MONTH, own!.closed_on, own!.snapshot)] })).settlementClosed).toMatchObject({ add: 1 });
   });
 
+  it("takes a month exported before the unknown sources were netted when its sources net to what this server works out, and refuses one whose figure differs", async () => {
+    const w = await both(SEPTEMBER);
+    await get(w, w.aino);
+    const [real] = await w.db.all<{ month: string; closed_on: string; snapshot: string }>("SELECT month, closed_on, snapshot FROM settlement_closed");
+    await w.db.run("DELETE FROM settlement_closed");
+    const month = JSON.parse(real!.snapshot);
+    expect([month.unknownPaid, month.unknownPaidBy]).toEqual([0, []]);
+    const withPaid = (paidBy: { owner: string; cents: number }[]) => JSON.stringify({ ...month, unknownPaid: paidBy.reduce((s, e) => s + e.cents, 0), unknownPaidBy: paidBy });
+    // a pair that cancels, as the months closed before the netting kept it
+    const old = withPaid([{ owner: "g:text:acme", cents: 5000 }, { owner: "c", cents: -5000 }]);
+    expect((await importAs(w, w.ville, { settlementClosed: [row(MONTH, real!.closed_on, old)] })).settlementClosed).toMatchObject({ add: 1 });
+    // the near miss: a pair that leaves 50,00 is another month than the one this server works out
+    await w.db.run("DELETE FROM settlement_closed");
+    const other = withPaid([{ owner: "g:text:acme", cents: 10000 }, { owner: "c", cents: -5000 }]);
+    expect((await importAs(w, w.ville, { settlementClosed: [row(MONTH, real!.closed_on, other)] })).settlementClosed).toMatchObject({ add: 0, skipped: [{ reason: "refused", n: 1 }] });
+  });
+
   it("gives the export of agreements and months of a pool to the members weighted in it and to nobody who only sees it", async () => {
     const w = await both(SEPTEMBER);
     const [a, v] = [`u:${w.aino}`, `u:${w.ville}`] as [string, string];

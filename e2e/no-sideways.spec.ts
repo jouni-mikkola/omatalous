@@ -7,6 +7,18 @@ import { overflow } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["overview", "transactions", "bills", "reports", "review"];
 
+// A row of tabs wraps; it holds no sideways scroll that hides the last tabs on a phone.
+test("the tabs of Asetukset all fit their row at 390 px", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 } });
+  const page = await context.newPage();
+  await page.goto("/#/settings/banks");
+  await expect(page.locator("main .tabs").first()).toBeVisible();
+  const rows = await page.locator(".tabs").evaluateAll((els) => els.map((e) => e.scrollWidth - e.clientWidth));
+  expect(rows.length).toBeGreaterThan(0);
+  expect(Math.max(...rows)).toBeLessThanOrEqual(0);
+  await context.close();
+});
+
 for (const width of [1280, 390]) {
   test(`no top page scrolls sideways at ${width} px`, async ({ baseURL }) => {
     // Playwright hides scrollbars when headless; a desktop browser's vertical scrollbar takes width, and a page that

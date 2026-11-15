@@ -102,7 +102,7 @@ export const THEMES: readonly Theme[] = [
   { id: "insurance", heading: "Vakuutukset", lines: labelled("insurance") },
   { id: "taxes", heading: "Verot ja maksut", lines: labelled("taxes", "memberships", "fees") },
   { id: "loans", heading: "Lainat ja luotot", lines: labelled("loans", "student_loan", "interest", "collection") },
-  { id: "other", heading: "Raha-asiat", lines: labelled("cash", "p2p", "card_bill", "other") },
+  { id: "other", heading: "Raha-asiat", lines: labelled("cash", "p2p", "card_bill", "other", "hold") },
 ];
 
 /** A theme's heading in a language (`theme.<id>`); the Finnish heading stays the key and the fallback. */

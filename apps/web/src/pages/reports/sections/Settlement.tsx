@@ -10,7 +10,7 @@ import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
-import { isSharedCredit, settlementSums } from "@banking/core";
+import { isSharedCredit, NETTED_SOURCE, settlementSums } from "@banking/core";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
@@ -39,6 +39,7 @@ function unknownName(owner: string, labels: Record<string, string>, holder: stri
   if (owner === "u:") return holder ?? t("rpt.se_no_login");
   if (owner.startsWith("g:iban:")) return t("rpt.se_foreign");
   if (owner === "o") return t("rpt.se_opening");
+  if (owner === NETTED_SOURCE) return t("rpt.se_unknown_payer");
   if (owner === "c" || isSharedCredit(owner)) return t("rpt.se_credit");
   return labels[owner] ?? t("rpt.se_unknown_payer");
 }
@@ -86,7 +87,7 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
           ))}
           {open > 0 && (
             <div className="st-row">
-              <span className="st-name">{t("rpt.se_open")}</span>
+              <span className="st-name">{t("rpt.se_unknown")}</span>
               <span className="st-num">{money(open)}</span>
             </div>
           )}
@@ -144,7 +145,6 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
         <div className="st-rows" role="group" aria-label={t("rpt.se_unknown")}>
           <div className="st-row">
             <strong className="st-name">{t("rpt.se_unknown")}</strong>
-            <p className="st-sub">{t("rpt.se_unknown_note")}</p>
           </div>
           {unknown.map((u) => (
             <div key={u.label} className="st-row">

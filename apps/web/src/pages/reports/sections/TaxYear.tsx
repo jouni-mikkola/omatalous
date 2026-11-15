@@ -33,14 +33,12 @@ function TaxYear({ ctx }: SectionProps) {
   const say = (code: Parameters<typeof messageIn>[1], params?: Record<string, string | number>) => messageIn(language(), code, params as never);
   return (
     <ReportPanel id={section.id} title={t("tax.title")} actions={<SheetActions id={section.id} name={t("tax.csv_name")} csv={() => taxYearCsv(r, say, ctx.label)} />}>
-      <p>{t("tax.intro", { year: r.year })}</p>
       {r.partial && <p className="sheet-note">{t("tax.partial", { from: date(r.range.from), to: date(r.range.to) })}</p>}
       <Rows caption={t("tax.refunds")} rows={r.refunds.rows} />
-      <Rows caption={t("tax.interest")} rows={r.interest.rows} note={t("tax.interest_note")} />
+      <Rows caption={t("tax.interest")} rows={r.interest.rows} />
       {r.loanPayments.length > 0 && (
         <>
           <h3 className="sheet-part">{t("tax.loans")}</h3>
-          <p className="sheet-note">{t("tax.loans_note")}</p>
           <Table<(typeof r.loanPayments)[number]>
             caption={t("tax.loans")}
             rows={r.loanPayments}

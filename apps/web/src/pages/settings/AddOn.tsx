@@ -53,7 +53,6 @@ export function AddOn() {
 
   return (
     <FoldCard id={SETTINGS_ANCHOR.addOn} title={t("set.addon.title")} sub={view ? addOnLine(view) : undefined} folded={!view || view.state === "none"}>
-      <p>{t("set.addon.intro")}</p>
       {loaded.error && <Notice tone="warning">{loaded.error}</Notice>}
       {view && (
         <form className="setup-form" onSubmit={submit} noValidate>

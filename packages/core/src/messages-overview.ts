@@ -56,7 +56,7 @@ export const FI_OVERVIEW = {
   "home.tile_no_card_balance": "Kortin saldo puuttuu",
   "home.tile_no_payday": "Palkkapäivä ei vielä tiedossa",
   "home.fig_income": "Tulot",
-  "home.fig_spent": "Menot",
+  "home.fig_spent": "Menot ilman säästöistä maksettua",
   "home.fig_result": "Tulos",
   "home.fig_previous": "Viime kuussa samaan päivään {sum}",
   "home.bridge_where": "Tulojen käyttö",

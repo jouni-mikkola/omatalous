@@ -55,6 +55,25 @@ export interface Settlement {
 
 const RANK = { cost: 0, refund: 1, credit_filled: 2, answered: 3, late_change: 4, fixed: 5 } as const;
 const total = (entries: readonly { cents: number }[]): number => entries.reduce((s, e) => s + e.cents, 0);
+/** The one line that stands for unknown sources of both signs set against each other: no source is named, none is guessed. */
+export const NETTED_SOURCE: Owner = "n";
+/**
+ * The unknown sources of one side. Credit that a later deposit covered, or money an answer took from its group, is a
+ * negative entry beside a positive one, and which source the deposit refilled is not known. When every source has the
+ * sign of the total they stay as they are; when the signs are mixed, the month's figure is one line with no source.
+ * The sum is the same either way, and a netted list nets to itself.
+ */
+function netSources(entries: Entry[]): Entry[] {
+  const cents = total(entries);
+  if (entries.every((e) => Math.sign(e.cents) === Math.sign(cents))) return entries;
+  return cents === 0 ? [] : [{ owner: NETTED_SOURCE, cents }];
+}
+/** A stored month with its unknown sources netted as `settlement` nets a month it works out: the object itself when nothing changes. */
+export function nettedMonth(c: ClosedMonth): ClosedMonth {
+  const unknownPaidBy = netSources(c.unknownPaidBy);
+  const unknownOwedBy = netSources(c.unknownOwedBy);
+  return unknownPaidBy === c.unknownPaidBy && unknownOwedBy === c.unknownOwedBy ? c : { ...c, unknownPaidBy, unknownOwedBy };
+}
 /** A cost left out of the month: of a card whose holder is not known, or (`untold`) of a pool nobody has split. */
 const isUnknown = (t: { t: string; untold?: true }, untold: boolean): boolean => t.t === "unknown" && !!t.untold === untold;
 
@@ -144,8 +163,8 @@ function compute(month: string, pool: SettlementPool, agreements: readonly Agree
   const of = (list: Entry[], owner: Owner): number => list.find((e) => e.owner === owner)?.cents ?? 0;
   const owners = [...new Set([...book.users.map((u) => u.owner), ...paidAll.map((e) => e.owner), ...owedAll.map((e) => e.owner)])].filter((o) => members.has(o)).sort(compareOwners);
   const unknown = (list: Entry[]): Entry[] => list.filter((e) => !members.has(e.owner));
-  const unknownPaidBy = unknown(paidAll);
-  const unknownOwedBy = unknown(owedAll);
+  const unknownPaidBy = netSources(unknown(paidAll));
+  const unknownOwedBy = netSources(unknown(owedAll));
   const untold = (book.byMonth.get(month) ?? []).filter((r) => r.cents < 0 && !r.pending && (r.what === "all" || r.what === "one") && isUnknown(book.treatOf(r), true)).map((r) => ({ key: r.key, day: r.day, cents: -r.cents }));
   return {
     month,
@@ -168,7 +187,8 @@ function compute(month: string, pool: SettlementPool, agreements: readonly Agree
 /** A closed month as it was when it closed: the month's own output, frozen. Answers and the use are stored as the latest only, so it is never recomputed. */
 export type ClosedMonth = Settlement & { status: { open: false; closedOn: string; by: "resolved" | "time" } };
 
-const entriesOf = (s: Settlement, side: "paid" | "owed"): Entry[] => merge([...s.members.map((m) => ({ owner: m.owner, cents: m[side] })), ...(side === "paid" ? s.unknownPaidBy : s.unknownOwedBy)]);
+/** What a month's lines paid or owed by owner, members and unknown sources alike and none of them netted: two months are compared by what they are made of. */
+const entriesOf = (s: Settlement, side: "paid" | "owed"): Entry[] => merge(s.lines.flatMap((l) => l[side]));
 const negate = (entries: readonly Entry[]): Entry[] => entries.map((e) => ({ owner: e.owner, cents: -e.cents }));
 
 /**
@@ -188,7 +208,8 @@ function holderKnown(pool: SettlementPool, agreements: readonly AgreementRow[]):
  * differently today (a later answer, a member gone) lands as one `late_change` line per closed month in the first month
  * after it that has no snapshot, less what a later snapshot has taken in already. Snapshot months in order, oldest first.
  */
-export function settlement(month: string, pool: SettlementPool, agreements: readonly AgreementRow[], household: ReadonlySet<Owner>, cards: readonly CardUse[], incomes: Incomes, asOf: string, closed: readonly ClosedMonth[] = []): Settlement {
+export function settlement(month: string, pool: SettlementPool, agreements: readonly AgreementRow[], household: ReadonlySet<Owner>, cards: readonly CardUse[], incomes: Incomes, asOf: string, closedAsStored: readonly ClosedMonth[] = []): Settlement {
+  const closed = closedAsStored.map(nettedMonth);
   const members = holderKnown(pool, agreements) ? new Set([...household, "u:"]) : household;
   const snapshot = closed.find((c) => c.month === month);
   if (snapshot) return snapshot;

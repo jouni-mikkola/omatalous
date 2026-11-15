@@ -32,7 +32,7 @@ const monthRowsHref = (month: string, today: string) =>
 function monthRows(m: Month, running: boolean): { name: string; value: string }[] {
   return [
     { name: t("home.months_income"), value: money(m.incomeCents, false) },
-    { name: t("home.months_spend"), value: money(m.spendCents, false) },
+    { name: t("home.fig_spent"), value: money(m.spendCents, false) },
     ...(running ? [{ name: t("home.months_running"), value: "" }] : !m.complete ? [{ name: t("home.months_partial"), value: "" }] : []),
   ];
 }
@@ -79,7 +79,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
         </li>
         <li>
           <span className="mb-key-spend" />
-          {t("home.months_spend")}
+          {t("home.fig_spent")}
         </li>
         {usual !== null && (
           <li>

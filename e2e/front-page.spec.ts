@@ -54,9 +54,9 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "result"), "Tulos").toBe(whole(totals.leftCents));
     expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left before payday").toBe(whole(left.leftCents));
     if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-fig-line").innerText())[0]).toBe(whole(left.perDayCents));
-    // the month's figures are no list's sum, so they lead nowhere; what is left before payday leads to its list
+    // the month's figures are no list's sum, so they lead nowhere; the bills block has one link to Laskut, on its action
     await expect(page.locator(".home-figs a, .home-figs button")).toHaveCount(0);
-    await expect(page.locator("[data-tile=left]")).toHaveAttribute("href", "#/bills#ennen-palkkapaivaa");
+    await expect(page.locator(".home-bills a[href^='#/bills']")).toHaveCount(1);
     // the bars are the server's largest categories, in its order and with its sums
     const top = overview.categories;
     const bars = page.locator(".where-row");

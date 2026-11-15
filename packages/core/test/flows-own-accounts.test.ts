@@ -55,4 +55,19 @@ describe("own accounts", () => {
     expect(of("Lahja").t.isTransfer).toBe(false);
     expect(of("Lahja").flows.consumption + of("Lahja").flows.saved + of("Lahja").flows.debt).toBe(15000);
   });
+
+  it("a transfer to the own savings account that is still pending is no hold of spending, and pairs with its other leg", () => {
+    // the reserved row has no text, only the account it goes to
+    const pending = tx({ accountId: "chk", bookingDate: "2026-05-04", amountCents: -25000, status: "pending", merchant: normalizeMerchant(null, null), counterpartyIban: savings.iban });
+    const arrival = row("sav", "2026-05-04", 250, "Siirto tililtä");
+    const changed = new Map(enrichTransactions([pending, arrival], [checking, savings], []).map((t) => [t.id, t]));
+    const out = changed.get(pending.id) ?? pending;
+    const inn = changed.get(arrival.id) ?? arrival;
+    expect(out.category).not.toBe("hold");
+    expect(out.isTransfer).toBe(true);
+    expect(inn.isTransfer).toBe(true);
+    const savingsIds = new Set(["sav"]);
+    expect(flowsOf(out, savingsIds, new Set())).toEqual(neutral);
+    expect(flowsOf(inn, savingsIds, new Set())).toEqual({ ...neutral, saved: 25000 });
+  });
 });

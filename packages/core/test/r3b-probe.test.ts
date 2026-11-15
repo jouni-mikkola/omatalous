@@ -182,7 +182,7 @@ describe("the theme of cash, money to people and card bills", () => {
     const theme = THEMES.find((t) => t.lines.some((l) => l.id === "card_bill"))!;
     expect(theme.heading).toBe("Raha-asiat");
     expect(theme.lines.find((l) => l.id === "other")?.heading).toBe("Muut menot");
-    expect(theme.lines.map((l) => l.id)).toEqual(["cash", "p2p", "card_bill", "other"]);
+    expect(theme.lines.map((l) => l.id)).toEqual(["cash", "p2p", "card_bill", "other", "hold"]);
   });
 
   it("leaves the category's own label as it is, and no other theme is called Muut menot", () => {

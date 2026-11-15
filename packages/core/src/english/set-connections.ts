@@ -42,7 +42,6 @@ export const EN_SET_CONNECTIONS: Record<keyof typeof FI_SET_CONNECTIONS, string>
   "set.conn.remove_of": "Remove the connection: {accounts}",
   "set.conn.none": "No bank connections.",
   "set.conn.paste_the_address_of_the": "Paste the address of the bank's last page",
-  "set.conn.if_connecting_was_left_unfinished": "If connecting was left unfinished: paste the address of the bank's last page",
   "set.conn.paste_the_address_from_the": "Paste the address from the browser's address bar",
   "set.conn.the_address_the_bank_returned": "The address the bank returned",
   "set.conn.finish": "Finish",

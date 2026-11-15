@@ -43,7 +43,7 @@ describe("Tulot ja menot", () => {
     expect(links[10]!.getAttribute("href")).toBe("#/transactions?from=2026-10-01&to=2026-10-31");
     expect(links[11]!.getAttribute("href")).toBe("#/transactions?from=2026-11-01&to=2026-11-11");
     // the link names the month and its two sums, so a reader who cannot see the bars hears them
-    expect(flat(links[11]!.getAttribute("aria-label"))).toMatch(/^Marraskuu 2026.*Tulot 4 011 €.*Menot 3 011 €.*kesken/i);
+    expect(flat(links[11]!.getAttribute("aria-label"))).toMatch(/^Marraskuu 2026.*Tulot 4 011 €.*Menot ilman säästöistä maksettua 3 011 €.*kesken/i);
     // the year stands under January only
     const years = [...container.querySelectorAll("svg text tspan")].map((s) => s.textContent).filter((s) => /^\d{4}$/.test(s ?? ""));
     expect(years).toEqual(["2026"]);
@@ -104,12 +104,13 @@ describe("Tulevat laskut", () => {
     ]);
     // the sum is the answer's, of all seven: the page adds up nothing
     expect(totalIn(container)).toBe("Yhteensä (1 muu lasku) | 1 400 €");
-    expect(container.querySelector("h2 a")?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+    // one link to Laskut, on the action: the heading, the tile and the lines hold none
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#ennen-palkkapaivaa"]);
     expect(flat(container.querySelector(".home-block-note")?.textContent)).toBe("Palkkapäivään 25.11.");
   });
 
   // "Ei laskuja ennen palkkapäivää" stood over 421,82 € that left another account: the line names that account and its sum alone
-  it("with no bill to the payday names the account that pays and the answer's sum, with a link to Laskut", () => {
+  it("with no bill to the payday names the account that pays and the answer's sum, and the one link to Laskut", () => {
     const outside = [{ ...bill("2026-11-16", "Laina", -42182), outside: true, account: { name: "Yhteinen tili", digits: "0381" } } as Row];
     const d = data({ ahead: { ...data().ahead, outside } }, { left: { ...left, elsewhereCents: 42182 } as NytData["left"] });
     const { container } = render(createElement(Bills, { data: d }));
@@ -117,7 +118,7 @@ describe("Tulevat laskut", () => {
     expect(notes.length).toBe(1);
     expect(container.textContent).not.toContain("Ei laskuja");
     expect(flat(notes[0]!.textContent)).toBe("Tililtä Yhteinen tili ·· 0381 421,82 €");
-    expect(notes[0]!.querySelector("a")?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#ennen-palkkapaivaa"]);
   });
 
   it("two accounts that pay are both named", () => {
@@ -142,7 +143,7 @@ describe("Tulevat laskut", () => {
     expect(rowsIn(container)).toEqual(["20.11. | Vuokra | 800 €", "1.12. | Sähkö | ≈ 60 €"]);
     expect(totalIn(container)).toBe("Yhteensä | 860 €");
     expect(flat(container.querySelector(".home-block-note")?.textContent)).toBe("Seuraavat 30 päivää");
-    expect(container.querySelector("h2 a")?.getAttribute("href")).toBe("#/bills#tulossa");
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#tulossa"]);
   });
 
   it("with a payday but no balance to start from lists the bills to that payday, and says so", () => {

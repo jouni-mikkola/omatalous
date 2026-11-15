@@ -281,7 +281,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
           <div className="card-datum">
             {netLabel && (
               <span className="datum-label">
-                {unknown === 0 ? netLabel : <a href={settingsCardHash(SETTINGS_ANCHOR.loans)} title={t("holdings.add_balances")}>{netLabel}</a>}
+                {unknown === 0 || unsaved ? netLabel : <a href={settingsCardHash(SETTINGS_ANCHOR.loans)} title={t("holdings.add_balances")}>{netLabel}</a>}
               </span>
             )}
             <Figure text={money(netCents, false)} size="s" />
