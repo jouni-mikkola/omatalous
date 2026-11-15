@@ -1,5 +1,5 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
-import { categoryLabel } from "../category-names.ts";
+import { spendingLabel } from "../category-names.ts";
 import { getCategory } from "../categories.ts";
 import { flowSpendOf } from "../analysis/counted.ts";
 import { type AnalysisContext, spendRows } from "../analysis/context.ts";
@@ -143,7 +143,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
       const named = [...payees.values()].sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name)).slice(0, SPENDING_PAYEES);
       return {
         category,
-        label: categoryLabel(getCategory(category), lang),
+        label: spendingLabel(getCategory(category), lang),
         values,
         totalCents,
         typicalCents,
