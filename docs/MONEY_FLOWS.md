@@ -133,8 +133,10 @@ is never changed.
    (*People*), the rules of purpose (pay, benefits, loans, card bills, savings, fees, taxes), the bank's own code of the
    row, a person by the bank's word or by a payment with no reference, lenders by the shape of their name and the bank's
    own rows (*Lenders*), and last shops and the generic rules. The card's merchant code and the trade register come
-   after the rules (ARCHITECTURE.md, *Structure*). A rule of yours with a category of spending or debt reads money
+   after the rules (ARCHITECTURE.md, *Structure*). A rule of yours with a category of spending reads money
    going out only: money coming in from the same payee is read by the other rules, and is income when none of them knows it.
+   A refund that the other rules file under a category of spending stays in the category of your rule. A rule of debt reads
+   money in as borrowing.
 3. A payment to a card issuer is a loan or a card bill (*Card bills*).
 4. Money that comes back is matched to its payment (*Money that comes back*).
 5. Transfers: pairs of rows, a card's payment channel, the issuer fallback (*Card bills*).

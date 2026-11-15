@@ -34,6 +34,20 @@ describe("a rule of the user's reads the direction of its category", () => {
   });
 });
 
+describe("a refund from a shop the user filed under another category of spending", () => {
+  const shop = { merchant: "PRISMA ESIMERKKI", counterparty: "PRISMA ESIMERKKI", description: "OSTO" };
+
+  it("stays in the user's category, as the purchase does, and is not read as the shop's own category", () => {
+    const bought = tx({ ...shop, id: "bought", bookingDate: "2026-09-03", amountCents: -4000 });
+    const refund = tx({ ...shop, id: "refund", bookingDate: "2026-09-17", amountCents: 4000, description: "PALAUTUS" });
+    const [unruled] = run([{ ...refund, id: "alone" }]);
+    expect(unruled!.category).toBe("groceries");
+    const rows = run([bought, refund], [rule("PRISMA ESIMERKKI", "home")]);
+    expect(rows.map((t) => t.category)).toEqual(["home", "home"]);
+    expect(rows[1]!.categorySource).toBe("rule");
+  });
+});
+
 describe("a payment through the wallet reads the same with its prefix and without it", () => {
   const pay = (id: string, euros: number, merchant: string, counterparty: string) =>
     tx({ id, bookingDate: "2026-09-09", amountCents: Math.round(euros * 100), merchant, counterparty, description: "MOBILEPAY" });

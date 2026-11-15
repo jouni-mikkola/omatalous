@@ -6,7 +6,7 @@
  */
 import {
   compileRules,
-  categorize,
+  categorizeInDirection,
   fold,
   isExplainableBill,
   normalizeMerchant,
@@ -198,7 +198,7 @@ export async function statementsInView(s: Services, accounts: readonly StoredAcc
           cents: r.cents,
           text: r.text,
           // read as a purchase whatever its sign: a refund takes its shop's category in core
-          category: categorize({ merchant: normalizeMerchant(null, r.text), counterparty: null, description: r.text, mcc: null, amountCents: -Math.abs(r.cents) }, rules, accounts).category,
+          category: categorizeInDirection({ merchant: normalizeMerchant(null, r.text), counterparty: null, description: r.text, mcc: null, amountCents: -Math.abs(r.cents) }, rules, accounts).category,
         })),
       });
     }

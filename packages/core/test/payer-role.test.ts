@@ -173,6 +173,13 @@ describe("a role in the run", () => {
     expect(withRoles.map((t) => t.categorySource)).toEqual(["rule", "rule", "rule"]);
   });
 
+  it("lets the role read money in from a payer whose member rule is one of spending, which is about money out", () => {
+    const ruled = [anchor(), ...villeRows()];
+    const rule = { field: "merchant" as const, pattern: "Ville Esimerkki", category: "home", priority: 10 };
+    const changed = new Map(enrichTransactions(ruled, [checking], [rule], new Map(), { memberId: "1", roles: [member("1", VILLE, "sales")] }).map((t) => [t.id, t]));
+    expect(ruled.slice(1).map((t) => [changed.get(t.id)?.category, changed.get(t.id)?.categorySource])).toEqual(Array(3).fill(["sales", "payer"]));
+  });
+
   it("leaves a transfer leg and a card bill alone: an own account at another bank, linked, stays a transfer", () => {
     const other: Account = { id: "acc-2", name: "Toinen pankki", iban: VILLE_IBAN, currency: "EUR", type: "checking", holder };
     const out = tx({ id: "out", bookingDate: "2026-10-03", amountCents: -eur(500), merchant: "Oma tili", counterparty: "Matti Meikalainen", counterpartyIban: VILLE_IBAN });

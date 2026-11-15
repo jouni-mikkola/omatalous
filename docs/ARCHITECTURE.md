@@ -130,7 +130,9 @@ flowchart LR
   the shapes older callers read, and repo rule 49 keeps the comparison of opposite amounts inside it.
   `transfers.ts` detects transfers and holds the issuer fallback. `card-channel.ts` learns each connected card's payment channel from the pairs and decides a payment to
   it. The channel is worked out on every run and stored nowhere (ADR 0015). `pipeline.ts` runs them in order.
-  `categorize` takes the accounts, since the holders come from them (`accounts.holder`).
+  `categorize` takes the accounts, since the holders come from them (`accounts.holder`). Code outside the rule table
+  calls `categorizeInDirection` (`categorize-direction.ts`), which leaves a user's rule of spending out for money in, and
+  repo rule 51 refuses a direct call of `categorize`.
 - Industry lookup (`services/industry.ts`, `providers/prh`): merchants nothing recognises, from business
   rows only and never under a name that may be a person's (`isLookupName`, `mayBePerson` in `payee-guard.ts`), are
   searched by name in the Finnish trade register. `askRegister` is the one door to it. Core `industry.ts` picks the matching
