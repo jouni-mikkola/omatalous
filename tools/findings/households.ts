@@ -5,7 +5,7 @@
  */
 import { generateDemoData } from "../../apps/server/src/demo-data.ts";
 import { stableId } from "../../apps/server/src/platform/ids.ts";
-import { applyUse, deriveUse, partOf, saidUse, type UseMember, WHOLE } from "../../packages/core/src/account-use.ts";
+import { applyUse, deriveUse, partCents, partOf, saidUse, type UseMember, WHOLE } from "../../packages/core/src/account-use.ts";
 import { type AnalysisContext, createContext } from "../../packages/core/src/analysis/context.ts";
 import { fold, normalizeMerchant } from "../../packages/core/src/merchant.ts";
 import { userNameOf } from "../../packages/core/src/person-names.ts";
@@ -131,6 +131,13 @@ function enriched(h: Household, txs: readonly Transaction[], accounts: readonly 
 export function viewsOf(h: Household): HouseholdView[] {
   const { members = [], shared = [] } = h;
   const balanceOf = (id: string, extra: Partial<BalanceInput> = {}) => ({ ...h.balances.find((b) => b.id === id)!, ...(shared.some((s) => s.accountId === id) ? { joint: true } : {}), ...extra });
+  // The own view counts a balance and a limit at the viewer's part, once, as `requestInputs` does (apps/server/src/services/analysis.ts):
+  // a consumer of the balance never weights it again.
+  const countedAt = (id: string, part: Part, extra: Partial<BalanceInput>): BalanceInput => {
+    const b = balanceOf(id, { part, ...extra });
+    const counted = (cents: number | null | undefined) => (cents === null || cents === undefined ? cents : partCents(cents, part));
+    return { ...b, balanceCents: counted(b.balanceCents) as number | null, ...(b.creditLimitCents !== undefined ? { creditLimitCents: counted(b.creditLimitCents) } : {}) };
+  };
   if (!members.length) {
     const ctx = contextOf(h);
     return [{ view: "household", member: null, accounts: h.accounts, balances: h.balances, parts: new Map(), txs: ctx.txs, ctx }];
@@ -171,7 +178,7 @@ export function viewsOf(h: Household): HouseholdView[] {
       parts,
       owners,
     );
-    views.push({ view: "own", member: m.id, accounts: seen, balances: seen.map((a) => balanceOf(a.id, { part: parts.get(a.id)!, ...(uses.has(a.id) ? { use: uses.get(a.id)! } : {}) })), parts, txs, ctx: createContext(txs, seen, h.today) });
+    views.push({ view: "own", member: m.id, accounts: seen, balances: seen.map((a) => countedAt(a.id, parts.get(a.id)!, uses.has(a.id) ? { use: uses.get(a.id)! } : {})), parts, txs, ctx: createContext(txs, seen, h.today) });
   }
   return views;
 }

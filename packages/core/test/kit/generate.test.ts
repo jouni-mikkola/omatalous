@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { viewsOf } from "../../../../tools/findings/households.ts";
+import { partCents } from "../../src/account-use.ts";
 import { generatedSet, generateHousehold, proveAccount } from "./generate.ts";
 import { centsByFlow, type EventId, labelProblems, type Spec } from "./truth.ts";
 
@@ -80,6 +81,26 @@ describe("generated households", () => {
       LONG,
     );
   }
+
+  it("count a balance in the own view at the member's part, so the parts of a joint account add up to the bank's balance", () => {
+    for (const members of [2, 3, 4] as const) {
+      const h = generateHousehold({ members, joint: "said", cards: "connected" }, 11);
+      const views = viewsOf(h);
+      const whole = h.balances.find((b) => b.id === "joint")!.balanceCents!;
+      const parts = views.slice(1).map((v) => ({ b: v.balances.find((b) => b.id === "joint")!, part: v.parts.get("joint")! }));
+      for (const { b, part } of parts) expect(b.balanceCents, `${members} members`).toBe(partCents(whole, part));
+      expect(parts.reduce((s, p) => s + p.b.balanceCents!, 0), `${members} members`).toBe(whole);
+      // the weights are uneven, so a part is no round share of the whole
+      expect(new Set(parts.map((p) => p.b.balanceCents)).size).toBeGreaterThan(1);
+      // an account only one member holds is that member's whole balance, and the household view keeps every balance whole
+      for (const a of h.accounts.filter((x) => x.id !== "joint" && x.type !== "loan")) {
+        const owner = views.slice(1).filter((v) => v.balances.some((b) => b.id === a.id));
+        expect(owner, a.id).toHaveLength(1);
+        expect(owner[0]!.balances.find((b) => b.id === a.id)!.balanceCents, a.id).toBe(h.balances.find((b) => b.id === a.id)!.balanceCents);
+      }
+      expect(views[0]!.balances.find((b) => b.id === "joint")!.balanceCents).toBe(whole);
+    }
+  });
 
   it("make the same household for the same seed and another for another", () => {
     const spec: Spec = { members: 2, cards: "connected" };
