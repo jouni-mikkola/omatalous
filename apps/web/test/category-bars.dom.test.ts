@@ -35,6 +35,24 @@ describe("Raportit: the category bars", () => {
     expect(container.querySelector(".cb-head")!.textContent).toBe("Ero keskiarvoon, lokakuu 2026");
   });
 
+  it("sizes each bar against the largest: the top row full, a third-size row a third, a negative sum nothing", () => {
+    const { container } = render(createElement(CategoryBars, { ...props, bars: [...BARS, { key: "refunds", label: "Palautukset", cents: -5000, diffCents: null }] }));
+    const widths = [...container.querySelectorAll(".cb-row")].map((r) => ({ name: r.querySelector(".cb-name")!.textContent, width: (r.querySelector(".cb-track > span") as HTMLElement).style.getPropertyValue("width") }));
+    expect(widths).toEqual([
+      { name: "Ruokakauppa", width: "100.0%" },
+      { name: "Kuntosali", width: "33.3%" },
+      { name: "Polttoaine", width: "33.3%" },
+      { name: "Palautukset", width: "0.0%" },
+    ]);
+  });
+
+  it("a difference of 50 cents is up and reads +0,50 €, only exactly 0 is flat", () => {
+    const { container } = render(createElement(CategoryBars, { ...props, bars: [{ key: "fuel", label: "Polttoaine", cents: 20000, diffCents: 50 }, { key: "gym", label: "Kuntosali", cents: 10000, diffCents: 0 }] }));
+    const diffs = [...container.querySelectorAll(".cb-diff")];
+    expect(diffs.map((d) => d.getAttribute("data-dir"))).toEqual(["up", "flat"]);
+    expect(diffs.map((d) => plain(d.textContent))).toEqual(["+0,50 €", "±0 €"]);
+  });
+
   it("has no comparison column without a usual month", () => {
     const { container } = render(createElement(CategoryBars, { ...props, bars: BARS.map((b) => ({ ...b, diffCents: null })) }));
     expect(container.querySelector(".cb-head")).toBeNull();

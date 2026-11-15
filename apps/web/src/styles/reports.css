@@ -6,7 +6,7 @@
 .q-list { list-style: none; margin: 0; padding: 0; }
 .q-rail { display: grid; gap: var(--sp-8); align-content: start; }
 .q-rail .q-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
-.q-list a { display: flex; align-items: center; block-size: 100%; min-block-size: var(--tap-min); padding: var(--sp-8) var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); border-left: var(--tick) solid transparent; color: var(--text); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+.q-list a { display: flex; align-items: center; block-size: 100%; min-block-size: var(--tap-min); padding: var(--sp-8) var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); border-left: var(--tick) solid var(--border); color: var(--text); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
 .q-list a:hover { background: var(--surface-2); }
 .q-list a[aria-current="page"] { border-left-color: var(--accent); background: var(--surface-2); }
 .q-list small { display: block; margin-top: var(--sp-4); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
