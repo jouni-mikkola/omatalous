@@ -9,7 +9,6 @@
  */
 import { getHeapStatistics } from "node:v8";
 import {
-  type Account,
   type AccountUse,
   type AnalysisContext,
   applyUse,

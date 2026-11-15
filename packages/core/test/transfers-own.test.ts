@@ -126,6 +126,16 @@ describe("a leg that is proved takes its partner, and a purchase is no leg", () 
     expect(transfersBetweenMembers([sent, received], [checking, shared, other], ownerOf)).toEqual(new Set(["sent", "received"]));
   });
 
+  it("a stored leg that names no account of another member takes none of the money in left open", () => {
+    const other: Account = { id: "chk2", name: "Toisen tili", iban: "FI4950009420028730", currency: "EUR", type: "checking" };
+    const ownerOf = (accountId: string) => (accountId === "chk2" ? "b" : "a");
+    const drawn = tx({ id: "drawn", accountId: "chk2", bookingDate: "2026-03-03", amountCents: -45000, counterpartyIban: null, category: "transfer", categorySource: "transfer" });
+    const received = tx({ id: "received", accountId: "chk", bookingDate: "2026-03-03", amountCents: 45000, counterpartyIban: null, category: "p2p_in", categorySource: "rule" });
+    const { allocations, between } = householdAllocations([drawn, received], [checking, other], ownerOf);
+    expect(allocations.has("drawn")).toBe(false);
+    expect(between.has("received")).toBe(false);
+  });
+
   it("a payment a rule made a transfer stays a leg, whatever text it has", () => {
     const topUp = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, description: "SUMUP *OMA", category: "transfer", categorySource: "rule" });
     expect(found([topUp, into("sav", "2026-03-03", 30000)]).size).toBe(2);

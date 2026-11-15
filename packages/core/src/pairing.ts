@@ -260,6 +260,9 @@ export function householdAllocations<T extends TransferInput>(txs: readonly T[],
   const members = [...new Set(accounts.map((a) => ownerOf(a.id)))];
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const settled = (t: T) => t.categorySource === "transfer";
+  const ownerByIban = new Map(accounts.map((a) => [normalizeIban(a.iban) ?? "", ownerOf(a.id)] as const));
+  // the payment names an account of another member
+  const toOther = (t: T) => [ownerByIban.get(normalizeIban(t.counterpartyIban) ?? "-")].some((o) => o !== undefined && o !== ownerOf(t.accountId));
   const allocations = new Map<string, Allocation[]>();
   const take = (found: ReadonlyMap<string, Allocation[]>) => {
     for (const [id, parts] of found) allocations.set(id, parts);
@@ -279,7 +282,7 @@ export function householdAllocations<T extends TransferInput>(txs: readonly T[],
   if (members.length > 1) {
     const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
     for (const member of members) {
-      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && !allocations.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
+      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && toOther(t) && !allocations.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
       const found = transferAllocations([...open.filter((t) => !allocations.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), ...sent], accounts);
       take(found.allocations);
       for (const id of found.transfers) between.add(id);

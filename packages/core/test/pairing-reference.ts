@@ -354,6 +354,12 @@ export function householdLegsReference<T extends Transaction>(txs: readonly T[],
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const accountOf = new Map(txs.map((t) => [t.id, t.accountId]));
   const settled = (t: T) => t.categorySource === "transfer";
+  const ownerOfIban = new Map<string, string>();
+  for (const a of accounts) if (normalizeIban(a.iban)) ownerOfIban.set(normalizeIban(a.iban)!, ownerOf(a.id));
+  const toOther = (t: T) => {
+    const owner = ownerOfIban.get(normalizeIban(t.counterpartyIban) ?? "");
+    return owner !== undefined && owner !== ownerOf(t.accountId);
+  };
   const otherLeg = new Map<string, string>();
   const link = (pairs: ReadonlyMap<string, string>) => {
     for (const [out, into] of pairs) {
@@ -369,7 +375,7 @@ export function householdLegsReference<T extends Transaction>(txs: readonly T[],
   if (members.length > 1) {
     const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
     for (const member of members) {
-      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && !otherLeg.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
+      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && toOther(t) && !otherLeg.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
       const found = pairTransfers([...open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), ...sent], accounts);
       link(found.pairs);
       for (const id of found.transfers) between.add(id);
