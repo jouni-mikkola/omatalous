@@ -20,7 +20,6 @@ export const FI_SHEETS = {
   "tax.interest": "Lainojen ja luottojen korot",
   "tax.interest_note": "Rivit kategoriasta Korot ja luottokulut. Lainanmaksussa korko ja lyhennys ovat yhdellä rivillä. Niiden jaon näet pankin vuosiyhteenvedosta.",
   "tax.loans": "Lainojen maksut",
-  "tax.loans_note": "Maksut yhteensä, korko ja lyhennys yhdessä. Pankin rivi ei kerro, mikä osa on korkoa. Sen näet pankin vuosiyhteenvedosta.",
   "tax.category": "Kategoria",
   "tax.count": "Rivejä",
   "tax.household": "Rivit, jotka voivat liittyä kotitalousvähennykseen",

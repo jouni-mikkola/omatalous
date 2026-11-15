@@ -3,7 +3,6 @@ import type { FI_SET_ADDON } from "../messages-set-addon.ts";
 
 export const EN_SET_ADDON: Record<keyof typeof FI_SET_ADDON, string> = {
   "set.addon.title": "Add-on",
-  "set.addon.intro": "An add-on brings a feature that is not part of the shared code. You get the code from the add-on's maker. Only an add-on whose signature matches is installed.",
   "set.addon.code": "Enter the add-on code",
   "set.addon.password": "Your password",
   "set.addon.save": "Save code",

@@ -59,7 +59,6 @@ export function StatementFile({ meta, onChange }: { meta: Meta; onChange: () => 
       <div className="card-head">
         <div>
           <h2>{t("card_file.title")}</h2>
-          <div className="card-sub">{t("card_file.sub")}</div>
         </div>
       </div>
       <div className="stack">
@@ -68,7 +67,6 @@ export function StatementFile({ meta, onChange }: { meta: Meta; onChange: () => 
           <Button onClick={() => input.current?.click()} busy={reading}>
             {reading ? t("card_file.reading") : t("card_file.pick")}
           </Button>
-          <span className="field-help">{t("card_file.formats")}</span>
         </div>
         {problem && <Notice tone="warning">{problem === "big" ? t("card_file.err_big") : t("card_file.err_pdf")}</Notice>}
         {picked?.kind === "card" && <CardRows key={picked.n} text={picked.text} meta={meta} onChange={onChange} />}

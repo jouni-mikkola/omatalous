@@ -17,7 +17,6 @@ export const EN_SHEETS: Record<keyof typeof FI_SHEETS, string> = {
   "tax.interest": "Interest on loans and credit",
   "tax.interest_note": "Rows of the category Interest and credit costs. A loan payment holds interest and principal in one row, so their split shows only in the bank's annual statement.",
   "tax.loans": "Loan payments",
-  "tax.loans_note": "Payments in all, interest and principal together. The bank's row does not say which part is interest: the bank's annual statement does.",
   "tax.category": "Category",
   "tax.count": "Rows",
   "tax.household": "Rows that may be related to the household credit",

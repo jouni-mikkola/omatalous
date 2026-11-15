@@ -70,8 +70,6 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
 }
 .home-block-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-4) var(--sp-16); }
 .home-block-note { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-bills .home-block-head h2 a { color: inherit; text-decoration: none; }
-.home-bills .home-block-head h2 a:hover { text-decoration: underline; }
 .home-more { margin: var(--sp-8) 0 0; }
 
 /* the largest categories: name and sum on a line, under them the bar on the scale the rows share and the change in words */

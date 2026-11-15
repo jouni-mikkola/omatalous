@@ -56,33 +56,44 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
 /**
  * What is left to the payday (`nyt.left`) with its sum a day: the one figure of the page that is a payday period and not
  * the month, so it stands with the bills it is made of. On the payday the sum a day is the whole sum, so the line says
- * only that the payday is today. The whole of it leads to Laskut's list of the same bills.
+ * only that the payday is today. With no list of bills beside it, the whole of it leads to Laskut's list of the same
+ * bills (`linked`); with a list, that list's own link is the one way to Laskut.
  */
-function Left({ data }: { data: Data }) {
+function Left({ data, linked }: { data: Data; linked: boolean }) {
   const { left } = data.nyt;
   const line = !left.known ? leftUnknown(left) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
-  return (
-    <a className={`home-left${left.known && left.leftCents < 0 ? " home-short" : ""}`} data-tile="left" href={billsHref("ennen-palkkapaivaa")}>
+  const className = `home-left${left.known && left.leftCents < 0 ? " home-short" : ""}`;
+  const parts = (
+    <>
       {/* the spaces keep the words apart in the text a screen reader reads; the grid draws none */}
       <span className="home-fig-label">{t("home.tile_left")}</span>{" "}
       <Figure text={left.known ? answerMoney(left.leftCents) : "–"} size="m" />{" "}
       <span className="home-fig-line">{line}</span>
+    </>
+  );
+  return linked ? (
+    <a className={className} data-tile="left" href={billsHref("ennen-palkkapaivaa")}>
+      {parts}
     </a>
+  ) : (
+    <div className={className} data-tile="left">
+      {parts}
+    </div>
   );
 }
 
 /**
  * Tulevat laskut: the bills to the payday by date, the first six with their date, payee and sum, the rest as one line,
- * and the sum of them all, which is Laskut's own figure for the same list. The heading and the link open Laskut. Nothing
- * is added up here. What falls due before the payday from accounts the balance leaves out is one line under the list,
- * the account's name and the answer's own `elsewhereCents`; with such a line an empty list does not say there are no bills.
+ * and the sum of them all, which is Laskut's own figure for the same list. The one link of the block opens Laskut.
+ * Nothing is added up here. What falls due before the payday from accounts the balance leaves out is one line under the
+ * list, the account's name and the answer's own `elsewhereCents`; with such a line an empty list does not say there are no bills.
  */
 export function Bills({ data }: { data: Data }) {
   const bills = billsOf(data);
   if (!bills) {
     return (
       <section className="card home-bills" aria-label={t("home.tile_left")}>
-        <Left data={data} />
+        <Left data={data} linked />
       </section>
     );
   }
@@ -91,12 +102,10 @@ export function Bills({ data }: { data: Data }) {
   return (
     <section className="card home-bills" aria-labelledby="home-bills-h">
       <div className="home-block-head">
-        <h2 id="home-bills-h">
-          <a href={billsHref(bills.anchor)}>{t("home.bills_title")}</a>
-        </h2>
+        <h2 id="home-bills-h">{t("home.bills_title")}</h2>
         <span className="home-block-note">{bills.until}</span>
       </div>
-      <Left data={data} />
+      <Left data={data} linked={false} />
       {bills.rows.length === 0 ? (
         bills.elsewhereCents === 0 && <p className="home-detail">{bills.none}</p>
       ) : (
@@ -118,9 +127,7 @@ export function Bills({ data }: { data: Data }) {
       )}
       {bills.elsewhereCents > 0 && (
         <p className="home-detail">
-          <a href={billsHref(bills.anchor)}>
-            {bills.elsewhere} <span className="num">{money(bills.elsewhereCents)}</span>
-          </a>
+          {bills.elsewhere} <span className="num">{money(bills.elsewhereCents)}</span>
         </p>
       )}
       <p className="home-more">

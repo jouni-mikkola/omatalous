@@ -54,6 +54,7 @@ export const CATEGORIES: readonly Category[] = [
   { id: "p2p", label: "Maksut henkilöille", kind: "expense", group: "Raha-asiat" },
   { id: "card_bill", label: "Luottokortin lasku", kind: "debt", group: "Velanhoito" },
   { id: "other", label: "Muut menot", kind: "expense", group: "Muut" },
+  { id: "hold", label: "Varaus", kind: "expense", group: "Muut" },
   // ── debt service ──
   { id: "mortgage", label: "Asuntolaina", kind: "debt", group: "Velanhoito" },
   { id: "loans", label: "Kulutusluotot", kind: "debt", group: "Velanhoito" },

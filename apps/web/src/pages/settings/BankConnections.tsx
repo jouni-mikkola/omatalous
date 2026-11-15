@@ -435,7 +435,7 @@ export function BankConnections({
 
       {meta.bank.configured && (
         <details open={pasteOpen || undefined} onToggle={(e) => setPasteOpen(e.currentTarget.open)}>
-          <summary className="small muted">{mode === "paste" ? t("set.conn.paste_the_address_of_the") : t("set.conn.if_connecting_was_left_unfinished")}</summary>
+          <summary className="small muted">{t("set.conn.paste_the_address_of_the")}</summary>
           <form
             className="form-row"
             onSubmit={(e) => {

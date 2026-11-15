@@ -55,6 +55,22 @@ export interface Settlement {
 
 const RANK = { cost: 0, refund: 1, credit_filled: 2, answered: 3, late_change: 4, fixed: 5 } as const;
 const total = (entries: readonly { cents: number }[]): number => entries.reduce((s, e) => s + e.cents, 0);
+/**
+ * The unknown sources of one side set against each other. Credit that a later deposit covered, or money an answer took
+ * from its group, is a negative entry beside a positive one; the month's figure is their difference. What is left has
+ * the sign of the total, so no source reads as a negative sum paid. The sum is the same, and the lines keep their signs.
+ */
+function netSources(entries: readonly Entry[]): Entry[] {
+  const sign = total(entries) < 0 ? -1 : 1;
+  const left = entries.map((e) => ({ owner: e.owner, cents: e.cents * sign }));
+  let cancel = -total(left.filter((e) => e.cents < 0));
+  for (const e of left.filter((x) => x.cents > 0).sort((a, b) => b.cents - a.cents || compareOwners(a.owner, b.owner))) {
+    const taken = Math.min(e.cents, cancel);
+    e.cents -= taken;
+    cancel -= taken;
+  }
+  return left.filter((e) => e.cents > 0).map((e) => ({ owner: e.owner, cents: e.cents * sign }));
+}
 /** A cost left out of the month: of a card whose holder is not known, or (`untold`) of a pool nobody has split. */
 const isUnknown = (t: { t: string; untold?: true }, untold: boolean): boolean => t.t === "unknown" && !!t.untold === untold;
 
@@ -144,8 +160,8 @@ function compute(month: string, pool: SettlementPool, agreements: readonly Agree
   const of = (list: Entry[], owner: Owner): number => list.find((e) => e.owner === owner)?.cents ?? 0;
   const owners = [...new Set([...book.users.map((u) => u.owner), ...paidAll.map((e) => e.owner), ...owedAll.map((e) => e.owner)])].filter((o) => members.has(o)).sort(compareOwners);
   const unknown = (list: Entry[]): Entry[] => list.filter((e) => !members.has(e.owner));
-  const unknownPaidBy = unknown(paidAll);
-  const unknownOwedBy = unknown(owedAll);
+  const unknownPaidBy = netSources(unknown(paidAll));
+  const unknownOwedBy = netSources(unknown(owedAll));
   const untold = (book.byMonth.get(month) ?? []).filter((r) => r.cents < 0 && !r.pending && (r.what === "all" || r.what === "one") && isUnknown(book.treatOf(r), true)).map((r) => ({ key: r.key, day: r.day, cents: -r.cents }));
   return {
     month,

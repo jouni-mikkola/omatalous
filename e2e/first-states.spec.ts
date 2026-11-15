@@ -6,14 +6,14 @@ import { makeMember, removeMember, watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const VIEWS = [
-  { hash: "#/overview", title: "Yhteenveto", line: "Tässä näet, paljonko voit vielä käyttää ennen palkkapäivää." },
-  { hash: "#/reports", title: "Raportit", line: "Tässä näet, mihin rahat menevät ja mistä ne tulevat kuukausittain." },
-  { hash: "#/bills", title: "Laskut", line: "Tässä näet, mitä laskuja ja tuloja on tulossa." },
-  { hash: "#/review", title: "Tarkistettavat", line: "Tässä näet, onko jokin pielessä." },
+  { hash: "#/overview", title: "Yhteenveto" },
+  { hash: "#/reports", title: "Raportit" },
+  { hash: "#/bills", title: "Laskut" },
+  { hash: "#/review", title: "Tarkistettavat" },
 ];
 
-// A member with no account and no bank: each of the four views has its title, its one line and the button that opens Pankit ja tilit.
-test("with no account each view says in one line what it will answer and opens Pankit ja tilit", async ({ browser }) => {
+// A member with no account and no bank: each of the four views has its title and the button that opens Pankit ja tilit.
+test("with no account each view has its title and opens Pankit ja tilit", async ({ browser }) => {
   const { state, id } = await makeMember(browser, "e2e-eka-tila");
   const context = await browser.newContext({ storageState: state, viewport: { width: 1280, height: 900 } });
   try {
@@ -23,7 +23,7 @@ test("with no account each view says in one line what it will answer and opens P
       await page.goto(`/${view.hash}`);
       const first = page.locator(".first-run");
       await expect(first.getByRole("heading", { name: view.title, exact: true })).toBeVisible();
-      await expect(first.locator("p")).toHaveText([view.line]);
+      await expect(first.locator("p")).toHaveCount(0);
       // no sample figures: nothing on the page is a sum
       await expect(page.locator("main")).not.toContainText("€");
       const way = page.locator(".empty-start").getByRole("button").first();

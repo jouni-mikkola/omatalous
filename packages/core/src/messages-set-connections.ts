@@ -44,7 +44,6 @@ export const FI_SET_CONNECTIONS = {
   "set.conn.remove_of": "Poista yhteys: {accounts}",
   "set.conn.none": "Ei pankkiyhteyksiä.",
   "set.conn.paste_the_address_of_the": "Liitä pankin viimeisen sivun osoite",
-  "set.conn.if_connecting_was_left_unfinished": "Jos yhdistäminen jäi kesken: liitä pankin viimeisen sivun osoite",
   "set.conn.paste_the_address_from_the": "Liitä osoite selaimen osoiteriviltä",
   "set.conn.the_address_the_bank_returned": "Pankin palauttama osoite",
   "set.conn.finish": "Viimeistele",

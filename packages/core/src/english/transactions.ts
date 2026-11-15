@@ -129,6 +129,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "category.card_bill": "Credit card bill",
   "spending.card_bill_unitemised": "Card bills without a breakdown",
   "category.other": "Other spending",
+  "category.hold": "Hold",
   "category.mortgage": "Mortgage",
   "category.loans": "Consumer loans",
   "category.student_loan": "Student loan",

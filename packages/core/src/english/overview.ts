@@ -73,6 +73,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.months_title": "Income and spending",
   "home.months_income": "Income",
   "home.months_spend": "Spending",
+  "home.months_spend_bars": "Spending without what was paid from savings",
   "home.months_usual": "Usual month {sum} ({months} mo)",
   "home.months_key_partial": "Month not whole",
   "home.months_running": "so far",

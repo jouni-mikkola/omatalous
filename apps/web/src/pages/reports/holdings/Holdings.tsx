@@ -266,7 +266,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
   // the debts of the block are more than the loans only when a card owes: then they have their own line at its foot
   const debts = loans.length > 0 && cardsOwe(cards);
   // loans whose balance nobody gave: `netCents` holds no debt for them, so its name says so
-  const { label: netLabel, lacking: unknown } = netLabelOf(holdings);
+  const { label: netLabel } = netLabelOf(holdings);
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
   const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
 
@@ -281,7 +281,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
           <div className="card-datum">
             {netLabel && (
               <span className="datum-label">
-                {unknown === 0 ? netLabel : <a href={settingsCardHash(SETTINGS_ANCHOR.loans)} title={t("holdings.add_balances")}>{netLabel}</a>}
+                {netLabel}
               </span>
             )}
             <Figure text={money(netCents, false)} size="s" />

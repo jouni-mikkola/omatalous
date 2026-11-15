@@ -97,6 +97,10 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
       next[i] = { ...t, isTransfer: t.category === "transfer" };
       continue;
     }
+    if (isHold(t)) {
+      next[i] = { ...t, category: HOLD_CATEGORY, categorySource: "rule", isTransfer: false };
+      continue;
+    }
     const steadyPayee = (t.amountCents < 0 ? steady : steadyIn).has(partyKey(t));
     const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}\u0000${dealerCategory(t.amountCents)}`;
     let result = decided.get(key);
@@ -108,6 +112,11 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
   }
   return { next, byUserRule };
 }
+
+const HOLD_CATEGORY = "hold";
+
+/** A payment the bank has reserved and not booked carries no text, code or card class: a hold, until its booking names the payee and the row is sorted again. */
+const isHold = (t: Transaction): boolean => t.status === "pending" && t.amountCents < 0 && t.merchant === UNKNOWN_MERCHANT && !t.counterparty?.trim() && !t.description?.trim() && !t.mcc?.trim();
 
 /** Before transfer detection: a card bill pairs with the connected card's payment row. */
 function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>): void {

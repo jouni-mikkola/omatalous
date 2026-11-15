@@ -164,7 +164,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 
 ## 4. States for every view
 
-- First run, no bank yet: each view shows its title, one line of what it will answer, and one button to Asetukset >
+- First run, no bank yet: each view shows its title and one button to Asetukset >
   Pankit ja tilit. No sample figures. The wizard is two steps: a bank, and the payday (from rows once they come).
 - First fetch: the answer slot says "Haetaan tapahtumia" with the count fetched. The views answer from the first day.
 - Loading: the answer line and the list keep their height with grey bars of the same size; no spinner on a view.

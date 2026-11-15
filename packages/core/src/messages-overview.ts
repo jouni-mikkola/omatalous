@@ -76,6 +76,7 @@ export const FI_OVERVIEW = {
   "home.months_title": "Tulot ja menot",
   "home.months_income": "Tulot",
   "home.months_spend": "Menot",
+  "home.months_spend_bars": "Menot ilman säästöistä maksettua",
   "home.months_usual": "Tavallinen kuukausi {sum} ({months} kk)",
   "home.months_key_partial": "Kesken tai vajaa kuukausi",
   "home.months_running": "kesken",

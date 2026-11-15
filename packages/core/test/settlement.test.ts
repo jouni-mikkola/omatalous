@@ -283,6 +283,22 @@ describe("near misses", () => {
     expect(other.lines).toEqual([]);
   });
 
+  it("sets credit against the money an answer took from its group, so no source of the unknown block is a negative sum paid", () => {
+    // January: a deposit of unknown source that an answer later gives to its payer, and a cost the pool's money does not cover, which credit pays
+    const rows = [row("dep", "2026-09-01", 30000, { group: "g:text:acme" }), row("shop", "2026-09-10", -10000), row("rent", "2027-01-10", -50000)];
+    const late: SaidAnswer = { kind: "in", key: "g:text:acme", owner: MATTI, saidOn: "2027-01-05" };
+    const jan = identity(run("2027-01", rows, { asOf: "2027-01-15", answers: [late] }));
+    const unknownIn = (entries: readonly { owner: string; cents: number }[]) => entries.filter((e) => e.owner !== MATTI && e.owner !== MAIJA);
+    // the lines keep their signs: the answered line takes money out of the group, the cost line is paid by credit
+    const lines = jan.lines.flatMap((l) => unknownIn(l.paid));
+    expect(lines.some((e) => e.cents < 0) && lines.some((e) => e.cents > 0)).toBe(true);
+    // the month's figure is the difference: every source has its sign and none cancels another
+    const sources = jan.unknownPaidBy;
+    expect(sources.length).toBeGreaterThan(0);
+    expect(sources.every((e) => Math.sign(e.cents) === Math.sign(jan.unknownPaid))).toBe(true);
+    expect(sum(sources.map((e) => e.cents))).toBe(jan.unknownPaid);
+  });
+
   it("answers an 'all' with the pool's weights, and an 'opening' with the opening's money", () => {
     const rows = [row("dep", "2026-09-01", 30000, { group: "g:text:acme" }), row("shop", "2026-09-10", -10001)];
     const late: SaidAnswer = { kind: "in", key: "g:text:acme", owner: "all", saidOn: "2027-01-05" };

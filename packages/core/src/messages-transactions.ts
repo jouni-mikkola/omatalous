@@ -131,6 +131,7 @@ export const FI_TRANSACTIONS = {
   "category.card_bill": "Luottokortin lasku",
   "spending.card_bill_unitemised": "Korttilaskut ilman erittelyä",
   "category.other": "Muut menot",
+  "category.hold": "Varaus",
   "category.mortgage": "Asuntolaina",
   "category.loans": "Kulutusluotot",
   "category.student_loan": "Opintolaina",
