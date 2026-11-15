@@ -23,6 +23,7 @@
  * on their own, with the report's own figures, and the alert tells nothing else.
  */
 import { getCategory } from "../categories.ts";
+import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import { addMonths, monthIndex } from "../dates.ts";
@@ -330,7 +331,7 @@ function categoryChange(r: Rows, id: string, pieces: ChangePiece[]): CategoryCha
   return {
     kind: "category",
     category: id,
-    label: getCategory(id).label,
+    label: spendingLabel(getCategory(id)),
     nowCents,
     baseCents,
     changeCents: change,

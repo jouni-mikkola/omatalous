@@ -7,7 +7,7 @@ import { expectedOneOffs, expectedPart, expectedSpending } from "../analysis/exp
 import { completeMonthsBefore, gateFor } from "../analysis/usual.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import { addMonths, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
-import { categoryLabel } from "../category-names.ts";
+import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import { lineName, themeName, THEMES, themeOf } from "../themes.ts";
@@ -181,7 +181,7 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange, lang: Langua
       // the shade is set against the expected month of the row (ADR 0021): the month after its complete months, made as the first page makes it
       const base = own.slice(-USUAL_MONTHS).map((i) => fromMonthIndex(first + i));
       const usual = base.length < MIN_COMPARE_MONTHS ? null : expectedPart(ctx, addMonths(base[base.length - 1]!, 1), base, (t) => placeOf(ctx, t, cars).key === key && !!t.spend);
-      return { category, label: placeLabel(theme, category, categoryLabel(c, lang), lang), group: themeHeading(theme, lang), values, totalCents: total, averageCents, averageMonths: own.length, expectedCents: usual, heat: heatLevels(values, completeAt, usual) };
+      return { category, label: placeLabel(theme, category, spendingLabel(c, lang), lang), group: themeHeading(theme, lang), values, totalCents: total, averageCents, averageMonths: own.length, expectedCents: usual, heat: heatLevels(values, completeAt, usual) };
     })
     // a category with more refunds than spending stays, below the others with its minus: the totals are then the
     // expense of the cashflow report, and the rows add up to them
