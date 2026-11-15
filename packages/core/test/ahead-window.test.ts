@@ -126,17 +126,16 @@ describe("the window: own transfers and the accounts it counts", () => {
   const household = (r: Transaction[] = rows) => cashAhead(createContext(r, [own, joint], TODAY), [bal(own, 200_000), bal(joint, 50_000)], NO_INPUTS);
   const mine = (r: Transaction[] = rows) => cashAhead(createContext(cut(r, "joint", HALF), [own, joint], TODAY), [bal(own, 200_000, { part: WHOLE }), bal(joint, 25_000, { part: HALF })], NO_INPUTS);
 
-  it("600,00 on the 1st from the viewer's own account to the joint account is a row in the own view", () => {
+  it("600,00 on the 1st from the viewer's own account to the joint account stays in the pool: no row, and the joint account's bill is a row at the viewer's part", () => {
     const d = mine();
-    expect(of(d, "transfer")).toEqual([{ date: "2026-11-01", name: "Yhteinen tili", category: "transfer", cents: -60_000, source: "transfer" }]);
-    expect(d.totals).toMatchObject({ transferCents: 60_000, cardCents: 0, recurringCents: 90_000 });
-    expect(d.balance).toMatchObject({ counts: "own", accounts: 1, startCents: 200_000 });
-    expect(d.balance!.freeCents).toBe(200_000 - 90_000 - 60_000);
+    expect(of(d, "transfer")).toEqual([]);
+    expect(d.totals).toMatchObject({ transferCents: 0, cardCents: 0, recurringCents: 94_000 });
+    // the balance starts from the pool: the own account and the viewer's half of the joint one
+    expect(d.balance).toMatchObject({ counts: "part", accounts: 2, startCents: 225_000 });
+    expect(d.balance!.freeCents).toBe(225_000 - 90_000 - 4000);
     expect(d.balance!.freeCents).toBe(freeOf(d));
-    // the joint account's electricity bill is not paid from the counted account: Laskut has it at the viewer's part
-    expect(d.rows.map((r) => r.name)).not.toContain("Sähköyhtiö");
+    expect(d.rows.map((r) => [r.name, r.cents])).toEqual([["Sähköyhtiö", -4000], ["Vuokranantaja Oy", -90_000]]);
     expect(d.upcoming.map((r) => [r.name, r.cents])).toEqual([["Sähköyhtiö", -4000], ["Vuokranantaja Oy", -90_000]]);
-    // an account outside the balance is still an account: only a card's series is marked
     expect(d.upcoming.some((r) => r.onCard)).toBe(false);
   });
 
@@ -150,15 +149,16 @@ describe("the window: own transfers and the accounts it counts", () => {
     expect(d.rows.map((r) => r.name)).toEqual(["Sähköyhtiö", "Vuokranantaja Oy"]);
   });
 
-  it("money that comes back from the joint account is no row, and two transfers are not a habit yet", () => {
-    const back = monthly(3).flatMap((d) => move(joint, own, d, 10_000));
-    expect(of(mine([...rows, ...back]), "transfer").map((r) => r.cents)).toEqual([-60_000]);
-    const two = [...home(), ...monthly(1).slice(-2).flatMap((d) => move(own, joint, d, 60_000))];
-    expect(of(mine(two), "transfer")).toEqual([]);
-    expect(of(mine([...home(), ...monthly(1).slice(-3).flatMap((d) => move(own, joint, d, 60_000))]), "transfer")).toHaveLength(1);
+  it("money that comes back from the account the transfers go to is no row, and two transfers are not a habit yet", () => {
+    const toSavings = (r: Transaction[]) => cashAhead(createContext(r, [own, savings], TODAY), [bal(own, 200_000), bal(savings, 900_000)], NO_INPUTS);
+    const sent = (count: number) => monthly(1).slice(-count).flatMap((d) => move(own, savings, d, 60_000));
+    const back = monthly(3).flatMap((d) => move(savings, own, d, 10_000));
+    expect(of(toSavings([...home(), ...sent(8), ...back]), "transfer").map((r) => r.cents)).toEqual([-60_000]);
+    expect(of(toSavings([...home(), ...sent(2)]), "transfer")).toEqual([]);
+    expect(of(toSavings([...home(), ...sent(3)]), "transfer")).toHaveLength(1);
     // ten Fridays of 50 euros: regular, and not monthly
-    const weekly = Array.from({ length: 10 }, (_, k) => move(own, joint, addDays("2026-08-07", 7 * k), 5000)).flat();
-    expect(of(mine([...home(), ...weekly]), "transfer")).toEqual([]);
+    const weekly = Array.from({ length: 10 }, (_, k) => move(own, savings, addDays("2026-08-07", 7 * k), 5000)).flat();
+    expect(of(toSavings([...home(), ...weekly]), "transfer")).toEqual([]);
   });
 
   it("a transfer to a connected savings account is a row, and a savings plan to an account that is not connected is a row once", () => {
@@ -186,14 +186,14 @@ describe("the window: own transfers and the accounts it counts", () => {
     expect(first.balance!.freeCents).toBe(freeOf(first));
   });
 
-  it("other pay is a row only when a counted account gets it; the payday is the view's", () => {
+  it("other pay is a row when a counted account gets it, at the viewer's part; the payday is the view's", () => {
     const pay = monthly(15).map((d) => tx({ accountId: "own", bookingDate: d, amountCents: 300_000, merchant: "Työnantaja Oy", category: "salary" }));
     const benefit = monthly(12).map((d) => tx({ accountId: "joint", bookingDate: d, amountCents: 20_000, merchant: "Kela", category: "benefits" }));
     const [h, m] = [household([...rows, ...pay, ...benefit]), mine([...rows, ...pay, ...benefit])];
     expect([h.payday!.name, m.payday!.name]).toEqual(["Työnantaja Oy", "Työnantaja Oy"]);
     expect(of(h, "income").map((r) => [r.name, r.cents])).toEqual([["Kela", 20_000]]);
-    expect(of(m, "income")).toEqual([]);
-    // the benefit the joint account gets is a row of the household and in none of its figures
+    expect(of(m, "income").map((r) => [r.name, r.cents])).toEqual([["Kela", 10_000]]);
+    // the benefit is a row of the window and in none of the figures of the balance
     expect(h.balance!.freeCents).toBe(freeOf(h));
     expect(m.balance!.freeCents).toBe(freeOf(m));
   });
@@ -350,7 +350,7 @@ describe("the window and Laskut's first group: a loan's instalment, a bill and a
 
   it("the loan paid from the account the window counts and the card's bill are in both lists, and the window's due is Laskut's group", () => {
     const { household, mine } = views(instalments("own", 12));
-    for (const [d, start] of [[household, 250_000], [mine, 200_000]] as const) {
+    for (const [d, start] of [[household, 250_000], [mine, 225_000]] as const) {
       expect(d).toMatchObject({ to: "2026-10-14", reason: "payday", payday: { date: "2026-10-15" } });
       expect(d.rows.map((r) => [r.date, r.name, r.cents])).toEqual([["2026-10-11", "Sähköyhtiö", -8000], ["2026-10-12", LOAN, -25_000], ["2026-10-13", "Luottokortti", -41_200]]);
       expect(firstGroup(d).map((r) => [r.date, r.name, r.cents])).toEqual([["2026-10-11", "Sähköyhtiö", -8000], ["2026-10-12", LOAN, -25_000], ["2026-10-13", "Luottokortti", -41_200]]);
@@ -384,7 +384,7 @@ describe("the window and Laskut's first group: a loan's instalment, a bill and a
     [16, "2026-10-16", false],
   ])("an instalment on the %ith: Laskut lists it on %s, and it is in the window only when it falls before the payday: %s", (day, date, inWindow) => {
     const { household, mine } = views(instalments("own", day));
-    for (const [d, start] of [[household, 250_000], [mine, 200_000]] as const) {
+    for (const [d, start] of [[household, 250_000], [mine, 225_000]] as const) {
       expect(d.upcoming.find((r) => r.name === LOAN)).toMatchObject({ date, cents: -25_000 });
       expect(d.rows.some((r) => r.name === LOAN)).toBe(inWindow);
       expect(firstGroup(d).some((r) => r.name === LOAN)).toBe(inWindow);
@@ -392,14 +392,14 @@ describe("the window and Laskut's first group: a loan's instalment, a bill and a
     }
   });
 
-  it("the loan paid from the joint account: the household view counts it; the member's own view leaves the account out of its figures and Laskut lists it at the member's part", () => {
+  it("the loan paid from the joint account is a row of both windows, the member's at their part", () => {
     const { household, mine } = views(instalments("joint", 12));
     expect(household.rows.map((r) => r.name)).toEqual(["Sähköyhtiö", LOAN, "Luottokortti"]);
     expect(household.balance).toMatchObject({ counts: "all", startCents: 250_000, freeCents: 250_000 - 8000 - 25_000 - 41_200 });
-    expect(mine.balance).toMatchObject({ counts: "own", startCents: 200_000, freeCents: 200_000 - 8000 - 41_200 });
-    expect(mine.rows.map((r) => r.name)).toEqual(["Sähköyhtiö", "Luottokortti"]);
+    expect(mine.balance).toMatchObject({ counts: "part", accounts: 2, startCents: 225_000, freeCents: 225_000 - 8000 - 12_500 - 41_200 });
+    expect(mine.rows.map((r) => [r.name, r.cents])).toEqual([["Sähköyhtiö", -8000], [LOAN, -12_500], ["Luottokortti", -41_200]]);
     expect(firstGroup(mine).map((r) => [r.name, r.cents])).toEqual([["Sähköyhtiö", -8000], [LOAN, -12_500], ["Luottokortti", -41_200]]);
-    // the day before the payday, on it, and after it: the joint account's instalment is never a row of the member's window
-    for (const day of [14, 15, 16]) expect(views(instalments("joint", day)).mine.rows.some((r) => r.name === LOAN)).toBe(false);
+    // the day before the payday, on it, and after it: the window of the household and of the member end on the same day
+    for (const day of [14, 15, 16]) expect(views(instalments("joint", day)).mine.rows.some((r) => r.name === LOAN)).toBe(day < 15);
   });
 });
