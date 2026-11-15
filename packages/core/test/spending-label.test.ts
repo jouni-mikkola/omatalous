@@ -47,9 +47,12 @@ describe("the name of the row of card bills without a breakdown", () => {
     const pivot = pivotReport(ctx, range, lang).rows.filter((r) => r.category === "card_bill").map((r) => r.label);
     const change = spendingChangeReport(ctx, october, lang).views.flatMap((v) => v.change.categories).filter((c) => c.category === "card_bill").map((c) => c.label);
 
-    for (const labels of [top, months, categories, pivot, change]) {
-      expect(labels.length).toBeGreaterThan(0);
-      expect(only(labels)).toEqual([name]);
-    }
+    expect({ top: only(top), months: only(months), categories: only(categories), pivot: only(pivot), change: only(change) }).toEqual({
+      top: [name],
+      months: [name],
+      categories: [name],
+      pivot: [name],
+      change: [name],
+    });
   });
 });
