@@ -50,6 +50,8 @@ prerelease() { local keep; keep=$(cat "$S/release.json"); release "$1"; printf '
 world() { new_world; api_stub; }
 # the version a fresh daily check offers, as the heartbeat tells the page
 offered() { rm -f "$S/state.last" "$CL/ops/boot_id" "$CL/ops/last-check" "$CL/ops/check.frag"; : >"$S/calls.log"; tick; jq -r '.latest_version // empty' "$S/state.last" 2>/dev/null; }
+# the next daily check over the frag the last one left, which offered() clears
+recheck() { rm -f "$S/state.last" "$CL/ops/boot_id" "$CL/ops/last-check"; tick; }
 curls() { calls | grep '^curl ' || true; }
 # update.sh --yes in the clone as a person runs it, with extra VAR=value for its environment: the output in OUT, the status in RC
 by_hand() {
@@ -250,6 +252,17 @@ t_stays_on_prerelease() {
   world; release 0.2.0; src_commit; git -C "$CL" pull -q 2>/dev/null; by_hand
   check "source kept: a checkout at no release tag, ahead of the latest release, builds the source" bash -c "[[ $RC == 0 && \$1 != *'Already on'* && \$1 != *'Channel: release'* ]]" x "$OUT"
   check "source kept: the image was built here, none was pulled" test "$(n_calls '^docker compose build')" -ge 1 -a "$(n_calls '^docker pull')" = 0
+}
+# a check writes the whole frag: the release of a release answer is not carried into a source answer, nor the commits of a
+# source answer into a release one, whichever comes after the other
+t_check_frag_replaces_the_answer_before() {
+  world; release 0.2.0
+  check "frag: a release check names the release" test "$(offered)" = 0.2.0 -a "$(jq -r '.behind_commits // "none"' "$S/state.last")" = none
+  setenv TALOUS_CHANNEL=source; src_commit; recheck
+  check "frag: the source check after it carries no release" test "$(jq -r '.latest_version // "none"' "$S/state.last")" = none -a "$(grep -c latest_version "$CL/ops/check.frag")" = 0
+  check "frag: it offers the commits" test "$(jq -r .update_available "$S/state.last")" = true -a "$(jq -r '.behind_commits | length' "$S/state.last")" -ge 1
+  : >"$CL/.env"; recheck
+  check "frag: the release check after it carries no commits" test "$(jq -r .latest_version "$S/state.last")" = 0.2.0 -a "$(jq -r '.behind_commits // "none"' "$S/state.last")" = none
 }
 # "no release" from GitHub (404, or an empty list) while the folder holds release tags is no answer: it is not the source channel
 t_no_release_with_tags_is_no_answer() {
