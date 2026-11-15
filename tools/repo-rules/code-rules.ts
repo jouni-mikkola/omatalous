@@ -7,6 +7,7 @@ import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { type Finding, expectNoFindings, importsOf, lineIn, lineOf, literals, MIGHT_HOLD_SQL, parse, plainString, readText, repoFiles, SQL_START, sourceFiles, specifiersOf, walk } from "./lib.ts";
 
+const SELF = "tools/repo-rules/code-rules.ts";
 const NODE_BUILTINS = new Set(builtinModules.map((m) => m.replace(/^node:/, "")));
 const isHostImport = (spec: string) => spec.startsWith("node:") || NODE_BUILTINS.has(spec);
 // Imports use the compiler's scanner; only possible host uses need a full tree. Unicode escapes may spell an
