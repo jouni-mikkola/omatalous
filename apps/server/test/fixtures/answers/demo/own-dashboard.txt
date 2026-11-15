@@ -852,6 +852,7 @@
    "accounts": 1,
    "balanceAt": "2026-10-09",
    "cardDebts": [],
+   "unresolved": [],
    "cardDebtCents": 0,
    "freeCents": 388246,
    "shortCents": 0,
