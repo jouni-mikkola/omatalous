@@ -10,6 +10,8 @@ export const FI_SET_RC = {
   "set.rc.still_coming": "Tulee vielä",
   "set.rc.connect_the_bank_again": "Yhdistä pankki uudelleen",
   "set.rc.open_the_account": "Avaa tilin tiedot",
+  "set.rc.connect_the_paying_account": "Yhdistä tili, jolta maksat kortin",
+  "set.rc.do_not_remind_of_this": "Älä muistuta tästä enää",
   "set.rc.add_a_home_loan": "Lisää asuntolaina",
   "set.rc.no_home_loan": "Ei asuntolainaa",
   "set.rc.other_category": "Muu kategoria…",

@@ -24,7 +24,7 @@ import { type AnalysisContext, standingOf } from "./context.ts";
 import { expectedEverydayPerDay } from "./expected.ts";
 import { expectedBillRows } from "./forecast.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, payDayOf } from "./income.ts";
-import { cardPayers, type Pool, poolOf, poolPays } from "./pool.ts";
+import { cardPayments, type Pool, poolOf, poolPays, type UnresolvedCard, unresolvedCards } from "./pool.ts";
 import { type Pay, type PayEstimate, payEstimate, payEvidence } from "./pay-estimate.ts";
 import { AHEAD_DAYS } from "../thresholds.ts";
 
@@ -90,10 +90,15 @@ interface AheadBalance {
    * Varat ja velat has it), less a payment its balance does not hold yet (booked after the balance day, with no leg on the card), less the card's bills in `rows`. A card the
    * counted accounts pay as it goes has no bill, so all of its debt is here. A card's debt is taken off whole, so the
    * day its bill falls is never guessed. Only cards that owe something are listed. A card whose bills the rows show
-   * paid only from accounts outside the pool is not (`poolPays`): the pool does not owe it. That the payers are
-   * several or unproven is not yet said as an unresolved figure (the rows decide, as before).
+   * paid only from accounts outside the pool is not (`poolPays`): the pool does not owe it.
    */
   cardDebts: { cardId: string; name: string; cents: number }[];
+  /**
+   * The cards of `cardDebts` whose payer the rows do not prove to be the pool alone: no payment to the card is seen, or
+   * payments are seen from the pool and from outside it. Their debt is taken off whole all the same, so the figure
+   * does not show free money the debt may claim. There is no cap: a debt larger than the money takes `freeCents` below zero. This says which part of the debt rests on that and why. Empty when every payer is proven.
+   */
+  unresolved: UnresolvedCard[];
   /** The `cardDebts` added up. */
   cardDebtCents: number;
   /**
@@ -407,12 +412,13 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   // every card in view takes its whole debt off what is free. A card whose balance is not known leaves the figure unsaid, not 0
   if ([...used.values()].some((cents) => cents === null)) return { ahead: { ...base, balance: null, missing: "card" }, direct, settling, checking, pays: evidence, coming: periods };
   // a bill of the window holds part of the debt: only the rest is taken off besides it, never the debt twice
-  const payers = cardPayers(ctx);
+  const payments = cardPayments(ctx);
   const cardDebts = balances.flatMap((b) => {
     const rest = reconciled.rest.get(b.id) ?? 0;
-    return rest > 0 && poolPays(pool, payers, b.id) ? [{ cardId: b.id, name: b.name, cents: rest }] : [];
+    return rest > 0 && poolPays(pool, payments, b.id) ? [{ cardId: b.id, name: b.name, cents: rest }] : [];
   });
   const cardDebtCents = cardDebts.reduce((sum, c) => sum + c.cents, 0);
+  const unresolved = unresolvedCards(pool, payments, cardDebts);
   // named whether a bill of the window holds the debt or not: the household is told of the payment either way
   const unshownCards = balances.flatMap((b) => {
     const cents = unshown.get(b.id) ?? 0;
@@ -432,6 +438,6 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     if (left < 0) shortOn ??= r.date;
     lowest = Math.min(lowest, left);
   }
-  const balance: AheadBalance = { startCents, counts: pool.kind, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
+  const balance: AheadBalance = { startCents, counts: pool.kind, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, unresolved, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
   return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence, coming: periods };
 }

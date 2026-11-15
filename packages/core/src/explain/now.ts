@@ -10,7 +10,7 @@ import type { AnalysisContext } from "../analysis/context.ts";
 import { buildHoldings } from "../holdings.ts";
 import type { BalanceInput, UserInputs } from "../types.ts";
 import { payRule } from "./catalogue.ts";
-import type { Explanation, Line } from "./types.ts";
+import type { Explanation, Line, Reason } from "./types.ts";
 
 /** What names a line: the account, the payee or the bill, and its category ("" for an account). */
 interface NowName {
@@ -41,12 +41,22 @@ export function explainNow(figure: NowFigure, ctx: AnalysisContext, balances: re
     const balance = ahead.balance;
     if (!balance) return { explanation: { figure, kind: "sum", cents: null, lines: [], check: { kind: "n/a" } }, names: [] };
     // the balances it starts from, then every payment of the window and each card's debt no bill of it holds; a pay adds nothing to it
-    const start = basis.checking.map((a): Line => ({ id: `a:${a.id}`, day: ahead.from, cents: a.cents, why: [] }));
+    // an account no row proves says so: its balance is the bank's word
+    const proofOf = new Map(balances.map((b) => [b.id, b.proof]));
+    const start = basis.checking.map((a): Line => {
+      const proof = proofOf.get(a.id);
+      return { id: `a:${a.id}`, day: ahead.from, cents: a.cents, why: proof?.status === "unknown" && proof.reason ? [{ rule: "balance.unproven", reason: proof.reason }] : [] };
+    });
     const due = ahead.rows.flatMap((r, i): Line[] => (r.source === "income" || r.cents === null ? [] : [{ id: `due:${i}`, day: r.date, cents: r.cents, why: [] }]));
     // a card with a payment its balance may hold has a line even when a bill of the window holds all its debt: the line is then 0
     const unshown = new Map((balance.unshown ?? []).map((u) => [u.cardId, u]));
     const owing = [...balance.cardDebts, ...(balance.unshown ?? []).filter((u) => !balance.cardDebts.some((c) => c.cardId === u.cardId)).map((u) => ({ cardId: u.cardId, name: u.name, cents: 0 }))];
-    const cards = owing.map((c): Line => ({ id: `card:${c.cardId}`, day: ahead.from, cents: -c.cents, why: unshown.has(c.cardId) ? [{ rule: "card.unshown", cents: unshown.get(c.cardId)!.cents }] : [] }));
+    const open = new Map(balance.unresolved.map((u) => [u.cardId, u]));
+    const cards = owing.map((c): Line => {
+      const card = open.get(c.cardId);
+      const payer: Reason[] = !card ? [] : card.reason === "card_payer_unseen" ? [{ rule: "card.payer_unseen" }] : [{ rule: "card.payer_mixed", pool: card.paidFromPoolCents ?? 0, outside: card.paidFromOutsideCents ?? 0 }];
+      return { id: `card:${c.cardId}`, day: ahead.from, cents: -c.cents, why: [...(unshown.has(c.cardId) ? [{ rule: "card.unshown", cents: unshown.get(c.cardId)!.cents } as Reason] : []), ...payer] };
+    });
     const lines = [...start, ...due, ...cards];
     return {
       explanation: { figure, kind: "sum", cents: balance.freeCents, lines, check: { kind: "sum", diffCents: balance.freeCents - sumOf(lines) } },

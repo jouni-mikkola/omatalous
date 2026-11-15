@@ -37,12 +37,12 @@ export function poolOf(balances: readonly BalanceInput[]): Pool {
 }
 
 /**
- * The accounts that paid each card of the view, from the transfer rows: an account whose money left to a card, found
+ * What each account paid to each card of the view, from the transfer rows: an account whose money left to a card, found
  * the way the window follows a bill (the account the payment names by IBAN, else the account of its other leg, the
  * bank's sums at most five days apart). A card nobody is seen to pay has no entry, and neither has one paid from an
- * account the view does not hold.
+ * account the view does not hold. The sums are the payments seen, not what the card owes.
  */
-export function cardPayers(ctx: Pick<AnalysisContext, "txs" | "accounts">): Map<string, Set<string>> {
+export function cardPayments(ctx: Pick<AnalysisContext, "txs" | "accounts">): Map<string, Map<string, number>> {
   const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   const byIban = new Map<string, string | null>();
   for (const a of ctx.accounts) {
@@ -52,23 +52,62 @@ export function cardPayers(ctx: Pick<AnalysisContext, "txs" | "accounts">): Map<
   const moved = ctx.txs.filter((t) => t.isTransfer && t.status === "booked");
   const legOf = incomingLegFinder(moved, billCents);
   const out = moved.filter((t) => t.amountCents < 0 && !cards.has(t.accountId)).map((t) => ({ t, named: byIban.get(normalizeIban(t.counterpartyIban) ?? "") ?? null }));
-  const payers = new Map<string, Set<string>>();
+  const paid = new Map<string, Map<string, number>>();
   // a payment that names its account takes its other leg first, as the window does
   for (const { t, named } of [...out.filter((o) => o.named !== null), ...out.filter((o) => o.named === null)]) {
     const leg = legOf(t, named);
     const to = named ?? leg?.accountId ?? null;
-    if (to !== null && cards.has(to)) (payers.get(to) ?? payers.set(to, new Set()).get(to)!).add(t.accountId);
+    if (to === null || !cards.has(to)) continue;
+    const by = paid.get(to) ?? paid.set(to, new Map()).get(to)!;
+    by.set(t.accountId, (by.get(t.accountId) ?? 0) + Math.abs(billCents(t)));
   }
-  return payers;
+  return paid;
+}
+
+type Payments = ReadonlyMap<string, ReadonlyMap<string, number>>;
+
+/**
+ * Who pays a card, as far as the rows prove it: `pool` when every seen payer is in the pool, `outside` when every seen
+ * payer is outside it, `mixed` when both are seen and `unseen` when the rows show none.
+ */
+function cardPayerOf(pool: Pick<Pool, "ids">, payments: Payments, cardId: string): "pool" | "outside" | "mixed" | "unseen" {
+  const from = [...(payments.get(cardId)?.keys() ?? [])];
+  if (!from.length) return "unseen";
+  const inside = from.filter((id) => pool.ids.has(id)).length;
+  return inside === from.length ? "pool" : inside === 0 ? "outside" : "mixed";
 }
 
 /**
  * Whether the pool pays a card, as far as the rows show. A card with no payer seen is the pool's: its debt is taken off
- * Käytettävissä whole, so the figure is never more than it is. Only a card whose every seen payer is outside the pool
- * is not. A card paid from several accounts, or from none the rows prove, is left as it is until the figure says it is
- * unresolved and why (a later change).
+ * Käytettävissä whole, whatever the pool holds, so the figure does not show free money the debt may claim. Only a card whose every seen payer is outside the pool
+ * is not. A card the rows do not prove to the pool alone (`unseen`, `mixed`) is still taken off whole, and the figure
+ * says so as unresolved with its reason (`unresolvedCards`).
  */
-export function poolPays(pool: Pick<Pool, "ids">, payers: ReadonlyMap<string, ReadonlySet<string>>, cardId: string): boolean {
-  const from = payers.get(cardId);
-  return !from || from.size === 0 || [...from].some((id) => pool.ids.has(id));
+export function poolPays(pool: Pick<Pool, "ids">, payments: Payments, cardId: string): boolean {
+  return cardPayerOf(pool, payments, cardId) !== "outside";
+}
+
+/** A card whose debt Käytettävissä takes off whole although the rows do not prove that the pool pays it. */
+export interface UnresolvedCard {
+  /** `card_payer_unseen`: the card owes and no payment to it is seen. `card_payer_mixed`: payments are seen from the pool and from outside it. */
+  reason: "card_payer_unseen" | "card_payer_mixed";
+  cardId: string;
+  name: string;
+  /** The debt taken off Käytettävissä for this card. */
+  cents: number;
+  /** `card_payer_mixed` only: the payments seen from the pool's accounts and from the others. */
+  paidFromPoolCents?: number;
+  paidFromOutsideCents?: number;
+}
+
+/** The cards of `debts` whose payer the rows leave open, each with its reason. */
+export function unresolvedCards(pool: Pick<Pool, "ids">, payments: Payments, debts: readonly { cardId: string; name: string; cents: number }[]): UnresolvedCard[] {
+  return debts.flatMap((d): UnresolvedCard[] => {
+    const verdict = cardPayerOf(pool, payments, d.cardId);
+    if (verdict === "unseen") return [{ reason: "card_payer_unseen", cardId: d.cardId, name: d.name, cents: d.cents }];
+    if (verdict !== "mixed") return [];
+    const by = [...(payments.get(d.cardId) ?? [])];
+    const sum = (inside: boolean) => by.filter(([id]) => pool.ids.has(id) === inside).reduce((s, [, cents]) => s + cents, 0);
+    return [{ reason: "card_payer_mixed", cardId: d.cardId, name: d.name, cents: d.cents, paidFromPoolCents: sum(true), paidFromOutsideCents: sum(false) }];
+  });
 }

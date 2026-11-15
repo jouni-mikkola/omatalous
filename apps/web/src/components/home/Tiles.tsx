@@ -17,6 +17,8 @@ export interface Tile {
   /** null: the figure is not known, the line says why. */
   cents: number | null;
   line: string | null;
+  /** A second line for a part of the figure the app cannot prove, or null. */
+  note?: string | null;
   /** Where the tile leads: a page, or the rows of a figure in the Miksi? panel when no list holds the figure as it is. */
   href: string | null;
   why?: { figure: "ahead.free" | "spend.month" | "income.month"; range: { from: string; to: string } };
@@ -54,6 +56,16 @@ function spentLine(data: Data): string | null {
   return null;
 }
 
+/** What the sum left to the payday holds that the app cannot prove: the debt of a card whose payer it has not seen or sees from two sides. Null when every card is proven. */
+function unresolvedNote(data: Data): string | null {
+  const open = data.ahead?.balance?.unresolved ?? [];
+  const [first] = open;
+  if (!first) return null;
+  const sum = answerMoney(open.reduce((s, c) => s + c.cents, 0));
+  if (open.length > 1) return t("home.tile_unresolved_many", { count: open.length, sum });
+  return t(first.reason === "card_payer_unseen" ? "home.tile_unresolved_unseen" : "home.tile_unresolved_mixed", { name: first.name, sum });
+}
+
 /** The change of what the household has net since the same day a month ago; with no figure, that a balance is missing. */
 function netLine(net: DashboardData["overview"]["net"], cents: number | null): string | null {
   if (cents === null) return t("home.tile_net_missing");
@@ -83,6 +95,7 @@ function tilesOf(data: Data): Tile[] {
       href: hashOf({ page: "bills", params: new URLSearchParams(), anchor: "ennen-palkkapaivaa" }),
       // the panel lists the balances the sum starts from and each payment taken off them, which Laskut does not add up
       ...(left.known && data.ahead ? { why: { figure: "ahead.free" as const, range: { from: data.ahead.from, to: data.ahead.to } } } : {}),
+      note: left.known ? unresolvedNote(data) : null,
       short: left.known && left.leftCents < 0,
     },
     {
@@ -132,6 +145,7 @@ export function Tiles({ data, scope }: { data: Data; scope: Scope }) {
               <span className="home-tile-label">{tile.label}</span>{" "}
               <Figure text={figure} size="l" />
               {tile.line && <>{" "}<span className="home-tile-line">{tile.line}</span></>}
+              {tile.note && <>{" "}<span className="home-tile-line">{tile.note}</span></>}
             </>
           );
           const className = `home-tile${tile.short ? " home-short" : ""}`;
@@ -139,7 +153,7 @@ export function Tiles({ data, scope }: { data: Data; scope: Scope }) {
             <li key={tile.id} data-tile={tile.id}>
               {tile.why ? (
                 // the button's name holds every word it shows, the line under the figure too
-                <Why figure={tile.why.figure} title={tile.label} range={tile.why.range} scope={scope} text={tile.line ? `${figure} ${tile.line}` : figure} className={className}>
+                <Why figure={tile.why.figure} title={tile.label} range={tile.why.range} scope={scope} text={[figure, tile.line, tile.note].filter(Boolean).join(" ")} className={className}>
                   {inner}
                 </Why>
               ) : (

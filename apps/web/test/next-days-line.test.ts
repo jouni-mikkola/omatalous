@@ -30,7 +30,7 @@ function ahead(rows: Row[], over: Partial<Ahead> = {}): Ahead {
     everydayPerDayCents: 0,
     paydayCents: 0,
     totals: { recurringCents: 0, typedCents: 0, cardCents: 0, transferCents: 0, dueCents: due, leavingCents: due, incomeCents: 0 },
-    balance: { startCents: 200_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", cardDebts: [], cardDebtCents: 0, freeCents: 200_000 - due, shortCents: 0, shortOn: null },
+    balance: { startCents: 200_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", cardDebts: [], unresolved: [], cardDebtCents: 0, freeCents: 200_000 - due, shortCents: 0, shortOn: null },
     missing: null,
     ...over,
   };
@@ -208,9 +208,9 @@ describe("what is left after a payment", () => {
   });
 
   it("goes below zero when the payments pass the balance, and stops at the balance when they equal it", () => {
-    const short = ahead([TYPED], { balance: { startCents: 50_000, counts: "all", accounts: 1, balanceAt: null, cardDebts: [], cardDebtCents: 0, freeCents: -55_000, shortCents: 55_000, shortOn: "2026-10-20" } });
+    const short = ahead([TYPED], { balance: { startCents: 50_000, counts: "all", accounts: 1, balanceAt: null, cardDebts: [], unresolved: [], cardDebtCents: 0, freeCents: -55_000, shortCents: 55_000, shortOn: "2026-10-20" } });
     expect(billLine(short)!.bills[0]!.leftCents).toBe(-55_000);
-    const exact = ahead([TYPED], { balance: { startCents: 105_000, counts: "all", accounts: 1, balanceAt: null, cardDebts: [], cardDebtCents: 0, freeCents: 0, shortCents: 0, shortOn: null } });
+    const exact = ahead([TYPED], { balance: { startCents: 105_000, counts: "all", accounts: 1, balanceAt: null, cardDebts: [], unresolved: [], cardDebtCents: 0, freeCents: 0, shortCents: 0, shortOn: null } });
     expect(billLine(exact)!.bills[0]!.leftCents).toBe(0);
   });
 });

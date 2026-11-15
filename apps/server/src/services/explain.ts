@@ -9,6 +9,7 @@ import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { requestInputs, type Scope, scopeWithReasons } from "./analysis.ts";
 import { householdIbans, industryMap } from "./enrich.ts";
+import { reconcileOf, withProof } from "./reconcile.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
 /** The figures the page opens a "Miksi?" for. */
@@ -139,7 +140,9 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
 async function explainToday(s: Services, userId: string, req: ExplainRequest): Promise<Explanation & { rows: NamedRow[] }> {
   if (req.accountIds || req.category || req.rowId) throw new UserError("Tuntematon raportti.");
   const { ctx, accounts } = await s.analysis.get(s, userId, req.scope);
-  const { balances, inputs } = await requestInputs(s, userId, accounts);
+  const { balances: stated, inputs } = await requestInputs(s, userId, accounts);
+  // the lines of an account no row proves say so
+  const balances = req.figure === "ahead.free" ? withProof(stated, await reconcileOf(s, userId, accounts)) : stated;
   const { explanation, names } = explainNow(req.figure as "holdings.accounts" | "ahead.free" | "ahead.pay", withoutWrongBills(ctx, inputs.marks), balances, inputs);
   const ids = new Set(explanation.lines.map((l) => l.id));
   const rows = ctx.txs.filter((t) => ids.has(t.id)).map((t): NamedRow => ({ id: t.id, merchant: t.merchant, category: t.category }));

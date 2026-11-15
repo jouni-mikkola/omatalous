@@ -39,6 +39,9 @@ export type RuleId =
   | "transfer.channel"
   | "card.bill"
   | "card.unshown"
+  | "card.payer_unseen"
+  | "card.payer_mixed"
+  | "balance.unproven"
   | "return.shop"
   | "return.person"
   | "return.share"
@@ -62,7 +65,7 @@ export type RuleId =
 
 /**
  * One reason: the rule and its parameters. The parameters of each rule: `category.builtin` source; `transfer.pair`
- * other (the id of the other leg); `card.bill` card (an account id); `card.unshown` cents (paid to the card, not yet shown on it); `return.*` purchase (a row id); `refund.net`
+ * other (the id of the other leg); `card.bill` card (an account id); `card.unshown` cents (paid to the card, not yet shown on it); `card.payer_unseen` none; `card.payer_mixed` pool, outside (cents of the payments seen from the pool's accounts and from the others); `balance.unproven` reason (the reconcile's reason: `no_reference_day`, `only_available`, `type_changed`, `too_few`); `return.*` purchase (a row id); `refund.net`
  * purchase, months (the refund's month less the purchase's), cents; `return.wallet` purchase, day (the purchase's);
  * `share.open` none (a share answered by the user, no purchase found); `share.back` cents, count (the shares that came back to a purchase); `via.service` service (a name of the closed
  * list of payment services, never a payee); `part.use` from, to, of (a `Part`) and cents when
