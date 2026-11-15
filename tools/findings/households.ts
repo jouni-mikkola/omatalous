@@ -5,10 +5,13 @@
  */
 import { generateDemoData } from "../../apps/server/src/demo-data.ts";
 import { stableId } from "../../apps/server/src/platform/ids.ts";
+import { applyUse, deriveUse, partOf, saidUse, type UseMember, WHOLE } from "../../packages/core/src/account-use.ts";
 import { type AnalysisContext, createContext } from "../../packages/core/src/analysis/context.ts";
 import { fold, normalizeMerchant } from "../../packages/core/src/merchant.ts";
+import { userNameOf } from "../../packages/core/src/person-names.ts";
 import { enrichTransactions } from "../../packages/core/src/pipeline.ts";
-import { type Account, type BalanceInput, type CategoryRule, type IsoDate, NO_INPUTS, type Transaction, type UserInputs } from "../../packages/core/src/types.ts";
+import { detectTransfers } from "../../packages/core/src/transfers.ts";
+import { type Account, type AccountUse, type BalanceInput, type CategoryRule, type IsoDate, NO_INPUTS, type Part, type Transaction, type UserInputs } from "../../packages/core/src/types.ts";
 import { randomHistory } from "../../packages/core/test/gen.ts";
 
 /** Everything a statement source reads: what the server holds for one user on one day. */
@@ -24,6 +27,28 @@ export interface Household {
   inputs: UserInputs;
   /** Merchant name to TOL code from the register lookups. */
   industry: ReadonlyMap<string, string>;
+  /** The users of the instance and the accounts each linked. Left out: one user who holds everything (`viewsOf` then gives the one view). */
+  members?: readonly HouseholdMember[];
+  /** The accounts more than one member uses. */
+  shared?: readonly SharedAccount[];
+}
+
+export interface HouseholdMember {
+  id: string;
+  /** What the member is shown as. */
+  label: string;
+  /** The member's name as the bank writes a holder ("SURNAME FIRST"). */
+  holder: string;
+  /** The accounts only this member linked. */
+  accountIds: readonly string[];
+}
+
+export interface SharedAccount {
+  accountId: string;
+  /** The members who linked it; the first one's copy is the one the household keeps. */
+  linkedBy: readonly string[];
+  /** The weights the household said, by member id. Left out: nobody said the split, so each member counts the account whole (ADR 0017). */
+  said?: Readonly<Record<string, number>>;
 }
 
 /** The day the demo is judged on: the server tests' clock (`NOW` in apps/server/test/helpers.ts). */
@@ -75,6 +100,80 @@ export function seededHousehold(seed: number, settled: boolean): Household {
   const { txs, accounts, rules } = settled ? randomHistory(seed, 1500, { months: 30, settled: true }) : randomHistory(seed, 600, { coded: seed === CODED_SEED });
   const balances = accounts.map((a) => ({ id: a.id, name: a.name, type: a.type, balanceCents: a.type === "loan" ? null : 150000, ownerName: null, balanceAt: SEED_TODAY }));
   return { name: `${settled ? "settled" : "plain"}:${seed}`, today: SEED_TODAY, txs, accounts, balances, rules, inputs: NO_INPUTS, industry: new Map() };
+}
+
+/** One way of reading a household: the household as a whole, or one member's own view of it (what `loadScope` builds). */
+export interface HouseholdView {
+  view: "household" | "own";
+  /** The viewer's member id; null for the household view. */
+  member: string | null;
+  accounts: readonly Account[];
+  balances: readonly BalanceInput[];
+  /** The viewer's part of every account in the view; the household view counts each whole. */
+  parts: ReadonlyMap<string, Part>;
+  /** The rows the view counts, enriched and cut by the parts. */
+  txs: readonly Transaction[];
+  ctx: AnalysisContext;
+}
+
+/** The rows after enrichment: `enrichTransactions` returns only the rows it changed. */
+function enriched(h: Household, txs: readonly Transaction[], accounts: readonly Account[]): Transaction[] {
+  const changed = new Map(enrichTransactions(txs, accounts, h.rules, h.industry).map((t) => [t.id, t]));
+  return txs.map((t) => changed.get(t.id) ?? t);
+}
+
+/**
+ * The views of a household as the server builds them. Each member's rows are enriched on their own with their own
+ * accounts, as the server does for each user; the household view then marks the legs between members as transfers, and
+ * a member's own view reads the accounts the member linked or shares, cut by the member's part (`applyUse`). A
+ * household with no members is one view, the household.
+ */
+export function viewsOf(h: Household): HouseholdView[] {
+  const { members = [], shared = [] } = h;
+  const balanceOf = (id: string, extra: Partial<BalanceInput> = {}) => ({ ...h.balances.find((b) => b.id === id)!, ...(shared.some((s) => s.accountId === id) ? { joint: true } : {}), ...extra });
+  if (!members.length) {
+    const ctx = contextOf(h);
+    return [{ view: "household", member: null, accounts: h.accounts, balances: h.balances, parts: new Map(), txs: ctx.txs, ctx }];
+  }
+  const owners = new Map<string, string>();
+  for (const m of members) for (const id of m.accountIds) owners.set(id, m.id);
+  for (const s of shared) owners.set(s.accountId, s.linkedBy[0]!);
+  const rows = members.flatMap((m) =>
+    enriched(
+      h,
+      h.txs.filter((t) => owners.get(t.accountId) === m.id),
+      h.accounts.filter((a) => owners.get(a.id) === m.id),
+    ),
+  );
+  const all = byDateAndId([...rows]);
+  const paired = detectTransfers(all, h.accounts, { issuerFallback: false });
+  const household = all.map((t): Transaction => (paired.has(t.id) && !t.isTransfer && t.categorySource !== "user" ? { ...t, isTransfer: true, category: "transfer" } : t));
+  const useMembers: UseMember[] = members.map((m) => ({ id: m.id, label: m.label, name: userNameOf(h.accounts.filter((a) => m.accountIds.includes(a.id))) }));
+  const useOf = (s: SharedAccount): AccountUse => {
+    const account = h.accounts.find((a) => a.id === s.accountId)!;
+    const said = s.said ? saidUse(Object.entries(s.said).map(([userId, weight]) => ({ userId, weight })), account, s.linkedBy, useMembers) : null;
+    return said ?? deriveUse(account, s.linkedBy, useMembers);
+  };
+  const uses = new Map(shared.map((s) => [s.accountId, useOf(s)]));
+  const views: HouseholdView[] = [
+    { view: "household", member: null, accounts: h.accounts, balances: h.balances.map((b) => balanceOf(b.id)), parts: new Map(h.accounts.map((a) => [a.id, WHOLE])), txs: household, ctx: createContext(household, h.accounts, h.today) },
+  ];
+  for (const m of members) {
+    const parts = new Map<string, Part>();
+    for (const a of h.accounts) {
+      const part = uses.has(a.id) ? partOf(uses.get(a.id)!, m.id) : owners.get(a.id) === m.id ? WHOLE : undefined;
+      if (part && part.to > part.from) parts.set(a.id, part);
+    }
+    const seen = h.accounts.filter((a) => parts.has(a.id));
+    const txs = applyUse(
+      all.filter((t) => parts.has(t.accountId)),
+      seen,
+      parts,
+      owners,
+    );
+    views.push({ view: "own", member: m.id, accounts: seen, balances: seen.map((a) => balanceOf(a.id, { part: parts.get(a.id)!, ...(uses.has(a.id) ? { use: uses.get(a.id)! } : {}) })), parts, txs, ctx: createContext(txs, seen, h.today) });
+  }
+  return views;
 }
 
 /** The order the server reads rows in: date, then id. */
