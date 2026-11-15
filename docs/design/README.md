@@ -26,8 +26,9 @@ Direction, 11.11.2026: an overview on one screen at 1440 px, every figure one cl
     Opens its basis in the Miksi? panel: the balances it starts from and each payment taken off them.
   - Menot tässä kuussa: spent so far against the usual level to the same day (`home.pace`), else last month to the same
     day. Opens its rows in the Miksi? panel, as Tapahtumat's money out takes in more than spending.
-  - Tulot tässä kuussa: the month's earned income against the usual month's (`overview.income`). Opens its rows in the
-    Miksi? panel, as Tapahtumat's income takes in refunds too.
+  - Tulot tässä kuussa: the month's income, the figure of the income report's month table, with the earned part (*Ansiotulot*)
+    under it when that differs (`overview.income`). It has no usual line: *Tavalliset tulot* is the mean of the earned part only.
+    Opens its rows in the Miksi? panel, as Tapahtumat's money in takes in transfers too.
   - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
     month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
 - Tulot ja menot: the last twelve months, an income bar and a spending bar a month (`overview.months`), the usual
@@ -53,7 +54,7 @@ Direction, 11.11.2026: an overview on one screen at 1440 px, every figure one cl
  277 € päivässä, palkkapäivä 25.11.          90 € yli tavallisen tähän päivään
  Tulot tässä kuussa                          Varat velkojen jälkeen
  3 900 €                                     12 400 €
- Tavallisesti 3 900 € kuussa                 345 € enemmän kuin 9.10.
+ Ansiotulot 3 500 €                        345 € enemmän kuin 9.10.
 
  Tulot ja menot                               Tulevat laskut      Palkkapäivään 25.11.
  ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▆ ▆░      15.11.  Sähkö                     ≈ 48 €

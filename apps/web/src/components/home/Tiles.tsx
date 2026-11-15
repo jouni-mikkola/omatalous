@@ -19,7 +19,7 @@ export interface Tile {
   line: string | null;
   /** Where the tile leads: a page, or the rows of a figure in the Miksi? panel when no list holds the figure as it is. */
   href: string | null;
-  why?: { figure: "ahead.free" | "spend.month" | "income.earned"; range: { from: string; to: string } };
+  why?: { figure: "ahead.free" | "spend.month" | "income.month"; range: { from: string; to: string } };
   /** The figure is a problem (less left than the bills take). */
   short?: boolean;
 }
@@ -65,8 +65,8 @@ function netLine(net: DashboardData["overview"]["net"], cents: number | null): s
 
 /**
  * The four tiles, each a field of the dashboard answer as it is: what is left to the payday (`nyt.left`) with its sum a
- * day, the month's spending (the running month of `overview.months`, the bridge's) against the usual to the same day, the month's earned
- * income against the usual month's (`overview.income`), and what the household has net (`holdings.netCents`) with its
+ * day, the month's spending (the running month of `overview.months`, the bridge's) against the usual to the same day, the month's income
+ * with its earned part under it when that differs (`overview.income`), and what the household has net (`holdings.netCents`) with its
  * change in a month (`overview.net`).
  */
 function tilesOf(data: Data): Tile[] {
@@ -98,10 +98,11 @@ function tilesOf(data: Data): Tile[] {
       id: "income",
       label: t("home.tile_income"),
       cents: overview.income.cents,
-      line: overview.income.usualCents !== null ? t("home.tile_income_usual", { sum: answerMoney(overview.income.usualCents) }) : t("home.tile_gap_history", { months: completeMonths(MIN_COMPARE_MONTHS) }),
-      // the earned income has no list of its own (Tapahtumat's income takes in refunds too): its panel lists its rows
+      // the usual of this figure does not exist (Tavalliset tulot is the mean of the earned part), so the line shows the earned part or nothing
+      line: overview.income.earnedCents !== overview.income.cents ? t("home.tile_income_earned", { sum: answerMoney(overview.income.earnedCents) }) : null,
+      // Tapahtumat's money in takes in transfers too: the panel lists the rows of the figure itself
       href: null,
-      why: { figure: "income.earned", range: { from: `${month}-01`, to: nyt.from } },
+      why: { figure: "income.month", range: { from: `${month}-01`, to: nyt.from } },
     },
     {
       id: "net",

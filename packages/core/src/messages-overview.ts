@@ -64,7 +64,7 @@ export const FI_OVERVIEW = {
   "home.tile_spent_previous_whole": "Koko viime kuussa {sum}",
   "home.tile_gap_history": "Vertailu näkyy, kun takana on {months}",
   "home.tile_income": "Tulot tässä kuussa",
-  "home.tile_income_usual": "Tavallisesti {sum} kuussa",
+  "home.tile_income_earned": "Ansiotulot {sum}",
   "home.tile_net_more": "{sum} enemmän kuin {date}",
   "home.tile_net_less": "{sum} vähemmän kuin {date}",
   "home.tile_net_same": "Sama kuin {date}",

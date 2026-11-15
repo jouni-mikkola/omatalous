@@ -1,13 +1,12 @@
 /**
- * The tiles of Yhteenveto (`overview.ts`): the month's income against the usual month's is one quantity on both sides,
- * and the month's change of what the household has net is the rows of the month on the accounts, less what the saved
+ * The tiles of Yhteenveto (`overview.ts`): the month's income is the figure the income report gives for the month, its
+ * earned part beside it, and the month's change of what the household has net is the rows of the month on the accounts, less what the saved
  * loans no account holds moved. Made-up households only.
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { expectedIncome } from "../src/analysis/expected.ts";
-import { earnedIncome } from "../src/analysis/usual.ts";
+import { earnedIncome, monthIncome } from "../src/analysis/usual.ts";
 import { addMonthsToDate, dayNumber } from "../src/dates.ts";
 import { explain } from "../src/explain/explain.ts";
 import { explainNow } from "../src/explain/now.ts";
@@ -19,6 +18,7 @@ import { enrichTransactions } from "../src/pipeline.ts";
 import { accountsLessDebtOn } from "../src/reports/balances.ts";
 import type { BalanceInput, Loan, UserInputs } from "../src/types.ts";
 import { ACCOUNTS, randomHistory } from "./gen.ts";
+import { tx } from "./helpers.ts";
 
 const ON = "2025-10-20";
 const input = (id: string, name: string, type: BalanceInput["type"], balanceCents: number | null): BalanceInput => ({ id, name, type, balanceCents, ownerName: null, balanceAt: null });
@@ -81,19 +81,49 @@ describe("the tiles' figures", () => {
     expect(known).toBeGreaterThan(0);
   }, 30_000);
 
-  it("the income of the month and the usual month are the earned income on both sides", () => {
+  it("the income of the month is all of its income, and its earned part is the income of the earned rows", () => {
     const { ctx, balances } = household(5);
     const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
-    expect(income).toEqual({ cents: earnedIncome(ctx, "2025-10"), usualCents: expectedIncome(ctx, "2025-10") });
-    expect(income.usualCents).not.toBeNull();
+    expect(income).toEqual({ cents: monthIncome(ctx, "2025-10"), earnedCents: earnedIncome(ctx, "2025-10") });
+    expect(income).not.toHaveProperty("usualCents");
   }, 30_000);
 
-  it("the income line of Kuukausi reads the same two figures as the tile, for the same month", () => {
+  it("the income table of the income report reads the same two figures as the tile, for the same month", () => {
     const { ctx, balances } = household(5);
     const { income } = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([])).overview;
     const month = buildReports({ ctx, range: { from: "2025-10-01", to: "2025-10-31" }, balances: [] }, ["income"]).income.months.find((m) => m.month === "2025-10")!;
-    expect({ cents: month.earnedCents, usualCents: month.usualCents }).toEqual(income);
+    expect({ cents: month.totalCents, earnedCents: month.earnedCents }).toEqual(income);
   }, 30_000);
+
+  describe("a month of made-up rows", () => {
+    const pay = { merchant: "Acme Oy", counterparty: "Acme Oy", category: "salary", categorySource: "rule" as const };
+    const refund = { merchant: "Verohallinto", counterparty: "Verohallinto", category: "tax_refund", categorySource: "rule" as const };
+    const tileOf = (rows: ReturnType<typeof tx>[]) => {
+      const ctx = createContext(rows, [{ id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" }], ON);
+      const tile = buildOverview(ctx, [], inputsOf([])).income;
+      const month = buildReports({ ctx, range: { from: "2025-10-01", to: "2025-10-31" }, balances: [] }, ["income"]).income.months.find((m) => m.month === "2025-10")!;
+      return { tile, month };
+    };
+
+    it("a month with only unearned income shows that income, and no earned part", () => {
+      const { tile, month } = tileOf([tx({ ...refund, bookingDate: "2025-10-08", amountCents: 50_000 })]);
+      expect(tile).toEqual({ cents: 50_000, earnedCents: 0 });
+      expect(month.totalCents).toBe(tile.cents);
+      expect(month.earnedCents).toBe(tile.earnedCents);
+    });
+
+    it("a negative adjustment lowers the income and its earned part by what was taken back", () => {
+      const { tile, month } = tileOf([
+        tx({ ...pay, bookingDate: "2025-10-05", amountCents: 300_000 }),
+        tx({ ...pay, bookingDate: "2025-10-09", amountCents: -20_000 }),
+        tx({ ...refund, bookingDate: "2025-10-08", amountCents: 50_000 }),
+      ]);
+      expect(tile.cents).toBe(330_000);
+      expect(tile.earnedCents).toBe(280_000);
+      expect(month.totalCents).toBe(tile.cents);
+      expect(month.earnedCents).toBe(tile.earnedCents);
+    });
+  });
 
   it("the running month's bars are the Menot and Tulot tiles' figures, and the months are twelve at most, oldest first", () => {
     const problems: string[] = [];

@@ -203,7 +203,7 @@ export const FIGURES = {
     unit: "cents",
     scope: "own",
     additive: false,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Raportit"],
   },
   regularIncome: {
     name: "Säännölliset tulot",

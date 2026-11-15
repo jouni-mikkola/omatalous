@@ -8,7 +8,7 @@
  * itself: a field the page does not draw is no reader, since an agreement between figures nobody sees protects nobody.
  *
  * - Menot of a month: Tiles (Menot), MonthBars (spending bar) and Rahankäyttö (Menot kuukausittain).
- * - Ansaitut tulot of a month: Tiles (Tulot) and MonthBars (income bar).
+ * - Tulot of a month: Tiles (Tulot), MonthBars (income bar) and the month table of the Tulot report.
  * - Varat velkojen jälkeen: Tiles (Varat), Holdings under Saldot and Saldot's own figures.
  * - The usual month: MonthBars' dashed line and Rahankäyttö's typical month.
  *
@@ -112,11 +112,12 @@ const PAGES: readonly Concept[] = [
   },
   {
     id: "T2a",
-    name: "Ansaitut tulot of a month",
+    name: "Tulot of a month",
     months: "window",
     readers: {
       "Tiles Tulot: overview.income.cents": (s) => (s.running ? s.runDash.overview.income.cents : undefined),
       "MonthBars income bar: overview.months[].incomeCents": (s) => monthIn(s.runDash.overview.months, s.month)?.incomeCents,
+      "Tulot report month table: months[].totalCents": (s) => monthIn(s.window.income.months, s.month)?.totalCents,
     },
   },
   {
@@ -156,11 +157,11 @@ const API_INVARIANTS: readonly Concept[] = [
   },
   {
     id: "A2a",
-    name: "Ansaitut tulot of a month: income report and the chart's income",
+    name: "Ansiotulot of a month: income report and the line under the Tulot tile",
     months: "window",
     readers: {
       "income report months[].earnedCents": (s) => monthIn(s.window.income.months, s.month)?.earnedCents,
-      "dashboard overview.months[].incomeCents": (s) => monthIn(s.runDash.overview.months, s.month)?.incomeCents,
+      "dashboard overview.income.earnedCents": (s) => (s.running ? s.runDash.overview.income.earnedCents : undefined),
     },
   },
   {
@@ -171,15 +172,6 @@ const API_INVARIANTS: readonly Concept[] = [
       "dashboard totals.incomeCents": (s) => s.own?.dash.totals.incomeCents,
       "income report months[].totalCents": (s) => monthIn(s.window.income.months, s.month)?.totalCents,
       "cash flow Tulot": (s) => s.cash?.incomeCents,
-    },
-  },
-  {
-    id: "A2c",
-    name: "Tavalliset tulot of a month: income report and the tile's usual",
-    months: "window",
-    readers: {
-      "dashboard overview.income.usualCents": (s) => (s.running ? s.runDash.overview.income.usualCents : undefined),
-      "income report months[].usualCents": (s) => monthIn(s.window.income.months, s.month)?.usualCents,
     },
   },
   {

@@ -1,11 +1,10 @@
 /**
- * The figures of Yhteenveto that no other part of the dashboard gives: this month's income against the usual month's,
+ * The figures of Yhteenveto that no other part of the dashboard gives: this month's income and its earned part,
  * how far what the household has net moved in a month, the last twelve months of income and spending, and this month's
  * categories against their usual month. Every other part reads a figure of `nyt`, `home`, `ahead` or `holdings` as it is.
  */
 import { addMonths, addMonthsToDate, monthOf } from "./dates.ts";
-import { expectedIncome } from "./analysis/expected.ts";
-import { earnedIncome } from "./analysis/usual.ts";
+import { earnedIncome, monthIncome } from "./analysis/usual.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
 import { accountsLessDebtOn } from "./reports/balances.ts";
@@ -19,7 +18,7 @@ const OVERVIEW_CATEGORIES = 6;
 
 interface OverviewMonth {
   month: string;
-  /** Earned income (`earnedIncome`): in the running month the Tulot tile's figure. */
+  /** All income (`monthIncome`, Tulot): in the running month the Tulot tile's figure. */
   incomeCents: number;
   /**
    * Spending as the bridge counts it (`flowSpendOf`, the consumption and debt of the flows): in the running month the Menot
@@ -44,10 +43,11 @@ interface OverviewCategory {
 
 export interface Overview {
   /**
-   * The running month's earned income so far (`earnedIncome`) and the usual month's (`expectedIncome`, null under
-   * `MIN_COMPARE_MONTHS` complete months): the same quantity, so the two compare.
+   * The running month's income so far (`monthIncome`, the month's Tulot of the income report) and the earned part of it
+   * (`earnedIncome`, Ansiotulot). The tile shows the first; the second is its sub-line when it differs. There is no usual
+   * of the first: Tavalliset tulot is the mean of the second, so it stays on the income report.
    */
-  income: { cents: number; usualCents: number | null };
+  income: { cents: number; earnedCents: number };
   /**
    * The accounts less the debts today against the same day a month ago (`accountsLessDebtOn` both days): the change of
    * the Varat tile. Null when either day is not known.
@@ -85,9 +85,9 @@ export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceIn
     .slice(0, OVERVIEW_CATEGORIES)
     .map((c): OverviewCategory => ({ category: c.category, label: c.label, cents: c.values[at]!, usualCents: c.typicalCents }));
   return {
-    income: { cents: earnedIncome(ctx, month), usualCents: expectedIncome(ctx, month) },
+    income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
     net: now === null || before === null ? null : { since, changeCents: now - before },
-    months: spending.months.map((m, i) => ({ month: m, incomeCents: earnedIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i]!, complete: spending.complete[i]! })),
+    months: spending.months.map((m, i) => ({ month: m, incomeCents: monthIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i]!, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
     categories: {

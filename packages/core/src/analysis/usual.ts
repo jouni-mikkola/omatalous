@@ -11,7 +11,7 @@ import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { GATE_FLOOR_CENTS, GATE_SHARE, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import { type AnalysisContext, historyCovers, spendRows } from "./context.ts";
 import { accountCovers, coverage, LEFT_OUT_SHARE, rowsMissing } from "./coverage.ts";
-import { bookedSpendSelect, earnedOf, earnedSelect, spendOf, sumOf } from "./counted.ts";
+import { bookedSpendSelect, earnedOf, earnedSelect, incomeCentsOf, incomeSelect, spendOf, sumOf } from "./counted.ts";
 import type { IsoDate } from "../types.ts";
 import type { expectedFor } from "./expected.ts";
 import type { DayRange } from "./period.ts";
@@ -171,6 +171,7 @@ interface MonthSums {
 const ZERO: MonthSums = { through: new Array<number>(31).fill(0) };
 const sums = new WeakMap<AnalysisContext, Map<string, MonthSums>>();
 const earnedSums = new WeakMap<AnalysisContext, Map<string, number>>();
+const incomeSums = new WeakMap<AnalysisContext, Map<string, number>>();
 
 /** The days of a month. */
 const monthDays = (month: string): DayRange => ({ fromDay: dayNumber(`${month}-01`), toDay: dayNumber(monthEnd(month)) });
@@ -201,6 +202,18 @@ export function earnedIncome(ctx: AnalysisContext, month: string): number {
   let cents = cache.get(month);
   if (cents === undefined) {
     cents = sumOf(earnedSelect(ctx, monthDays(month)).counted, earnedOf);
+    cache.set(month, cents);
+  }
+  return cents;
+}
+
+/** A month's income, all of it (the figure Tulot): the rows the cash flow report and the income report's month table count. `earnedIncome` is the part of it that is earned. */
+export function monthIncome(ctx: AnalysisContext, month: string): number {
+  let cache = incomeSums.get(ctx);
+  if (!cache) incomeSums.set(ctx, (cache = new Map()));
+  let cents = cache.get(month);
+  if (cents === undefined) {
+    cents = sumOf(incomeSelect(ctx, monthDays(month)).counted, incomeCentsOf);
     cache.set(month, cents);
   }
   return cents;
