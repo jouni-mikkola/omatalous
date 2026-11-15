@@ -45,10 +45,18 @@ export function stackBars(input: readonly PieceIn[]): Bars {
   };
 }
 
+/** The room a day's label takes on the axis, in rem: a weekday over a day and a dot is about 1.1 rem wide, plus a gap. */
+const LABEL_REM = 1.4;
+
+/** How many labels an axis `widthPx` wide has room for side by side when 1 rem is `remPx` (a fraction, not rounded). */
+export function labelRoom(widthPx: number, remPx: number): number {
+  return widthPx / remPx / LABEL_REM;
+}
+
 /**
  * Whether the day at `column` of `columns` carries a label under its bar: every day while they fit, else every few
- * days. `fits` is how many labels the axis has room for side by side (all of them when it is not measured), so a
- * wide text or a narrow screen takes a longer step. The last day, the payday, always carries one, and a day before it
+ * days. `fits` is how many labels the axis has room for side by side (`labelRoom`, all of them when it is not
+ * measured), so a wide text or a narrow screen takes a longer step. The last day, the payday, always carries one, and a day before it
  * gives way when it would touch it.
  */
 export function carriesLabel(columns: number, column: number, fits: number = columns): boolean {

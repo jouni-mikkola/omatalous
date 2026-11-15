@@ -1,3 +1,4 @@
 section: Look
-- The actions of an opened row in Tapahtumat keep apart when they wrap onto a second line on a phone.
-- Each page links to an address once. Yhteenveto links to Rahankäyttö from Menot kategorioittain only, and the open question in the list of Raportit is a mark, not a link to the first report of the row under it.
+- The actions of an opened row in Tapahtumat keep apart on a second line on a touch screen.
+- Each page links to a place once: Yhteenveto and the question list of Raportit lose a repeated link.
+- The days under the bars in Laskut no longer overlap at a large text size.

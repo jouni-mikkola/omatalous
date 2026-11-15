@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { openAll, openDrills } from "./table-audit.ts";
 
 // Decision: whether a page offers one way to each place. With every details open and the first row of each table opened, no
-// page of Tapahtumat, Laskut, Raportit, Tarkistettavat or Asetukset has two links that go to the same address: a second
+// page of Yhteenveto, Tapahtumat, Laskut, Raportit, Tarkistettavat or Asetukset has two links that go to the same address: a second
 // link to a place is a second thing to read, find and tap for no new answer. The check reads the links a reader can see in
 // the page's main part, at the width of a phone and of a desktop.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");

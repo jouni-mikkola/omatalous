@@ -23,21 +23,27 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     }
     // the day labels under the bars stand apart and inside the page, and the next payment names its day
     await expect(page.locator(".pb-axis")).toBeAttached();
-    const labels = await page.locator(".pb-axis li").evaluateAll((els) =>
-      els.flatMap((li) => {
-        if (!li.textContent?.trim()) return [];
-        const range = document.createRange();
-        range.selectNodeContents(li);
-        const box = range.getBoundingClientRect();
-        return [{ text: li.textContent.trim(), left: box.left, right: box.right }];
-      }),
-    );
-    expect(labels.length, "day labels").toBeGreaterThan(1);
-    for (let i = 1; i < labels.length; i++) expect(labels[i]!.left, `${labels[i - 1]!.text} and ${labels[i]!.text} overlap`).toBeGreaterThanOrEqual(labels[i - 1]!.right - 0.5);
-    for (const l of labels) {
-      expect(l.left, `${l.text}: left edge`).toBeGreaterThanOrEqual(0);
-      expect(l.right, `${l.text}: right edge`).toBeLessThanOrEqual(width);
-    }
+    // the labels are laid out again after the text size changes, so the check waits for the settled layout
+    await expect(async () => {
+      const days = await page.locator(".pb-axis li").count();
+      const labels = await page.locator(".pb-axis li").evaluateAll((els) =>
+        els.flatMap((li) => {
+          if (!li.textContent?.trim()) return [];
+          const range = document.createRange();
+          range.selectNodeContents(li);
+          const box = range.getBoundingClientRect();
+          return [{ text: li.textContent.trim(), left: box.left, right: box.right }];
+        }),
+      );
+      expect(labels.length, "day labels").toBeGreaterThan(1);
+      // at the normal text size about a label in three days fits, a count the room of a label cannot drop under
+      if (scale === 100) expect(labels.length, `day labels of ${days} days`).toBeGreaterThanOrEqual(Math.floor(days / 3));
+      for (let i = 1; i < labels.length; i++) expect(labels[i]!.left, `${labels[i - 1]!.text} and ${labels[i]!.text} overlap`).toBeGreaterThanOrEqual(labels[i - 1]!.right - 0.5);
+      for (const l of labels) {
+        expect(l.left, `${l.text}: left edge`).toBeGreaterThanOrEqual(0);
+        expect(l.right, `${l.text}: right edge`).toBeLessThanOrEqual(width);
+      }
+    }).toPass();
     await expect(page.locator(".bills-next-day"), "the day of the next payment").toHaveText(/^\p{L}{2} \d{1,2}\.\d{1,2}\./u);
     if (process.env.E2E_SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();
