@@ -1,6 +1,6 @@
 /**
  * The household pays Helsingin Sanomat for a year in July, 329 € once, instead of 32,90 € a month. 0.8.0 review
- * (Optimoi follow-up, insights): a monthly fee that became one yearly payment is no stopped subscription and no price
+ * (Optimoi follow-up): a monthly fee that became one yearly payment is no stopped subscription and no price
  * rise.
  */
 import { type LifeEvent, rows } from "../frame.ts";

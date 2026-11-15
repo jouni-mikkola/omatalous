@@ -71,7 +71,7 @@ test("the period is a named one or two days on our own calendar, never a browser
   const { context, page, seen } = await open(browser, "/#/transactions");
   await expect(rows(page).first()).toBeVisible();
   await expect(page.locator("input[type=date]")).toHaveCount(0);
-  await page.getByRole("button", { name: "Aikaväli", exact: true }).click();
+  await page.getByRole("button", { name: /^Aikaväli/ }).click();
   const range = page.getByRole("dialog", { name: "Aikaväli" });
   await range.getByRole("button", { name: "Edellinen kuu", exact: true }).click();
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-01&to=\d{4}-\d{2}-\d{2}/);

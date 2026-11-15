@@ -1,10 +1,9 @@
 /**
  * The rows a sum figure counts and the cents each adds (ADR 0004): the one select behind a month's spending, a
- * category's spending, a month's income and a month's earned income. A report adds these rows up and `explain` lists
- * the same rows, so the figure and its explanation cannot differ. A spending figure takes its rows from `spendRows` (context.ts).
+ * category's spending, a month's income and a month's earned income. Every report adds up
+ * the same rows, so the figures cannot differ. A spending figure takes its rows from `spendRows` (context.ts).
  */
 import { type AnalysisContext, type AnalysisTx, inDays, spendRows } from "./context.ts";
-import { type Flows, leftOf } from "./flows.ts";
 import { isEarnedIncome } from "./income.ts";
 import type { DayRange } from "./period.ts";
 
@@ -24,9 +23,6 @@ export const incomeCentsOf = (t: Pick<AnalysisTx, "flows">): number => t.flows.i
 /** Cents a row adds to earned income: its income when `isEarnedIncome`, else 0. */
 export const earnedOf = (t: Parameters<typeof isEarnedIncome>[0]): number => (isEarnedIncome(t) ? t.flows.income : 0);
 
-/** Cents a row adds to Tulos (`leftOf` its flows). */
-export const leftCentsOf = (t: { flows: Flows }): number => leftOf(t.flows);
-
 /** The rows of `rows` that spending counts. */
 const spendCounted = <T extends Pick<AnalysisTx, "spend">>(rows: readonly T[]): T[] => rows.filter((t) => t.spend !== 0);
 
@@ -35,9 +31,6 @@ const incomeCounted = <T extends Pick<AnalysisTx, "flows">>(rows: readonly T[]):
 
 /** The rows of `rows` that earned income counts. */
 const earnedCounted = <T extends Parameters<typeof isEarnedIncome>[0]>(rows: readonly T[]): T[] => rows.filter((t) => earnedOf(t) !== 0);
-
-/** The rows of `rows` that Tulos counts. */
-const leftCounted = <T extends { flows: Flows }>(rows: readonly T[]): T[] => rows.filter((t) => leftOf(t.flows) !== 0);
 
 /** The sum of what `cents` says each of the counted rows adds. */
 export function sumOf<T>(rows: readonly T[], cents: (t: T) => number): number {
@@ -68,16 +61,6 @@ export function incomeSelect(ctx: AnalysisContext, r: DayRange): { rows: Analysi
 export function earnedSelect(ctx: AnalysisContext, r: DayRange): { rows: AnalysisTx[]; counted: AnalysisTx[] } {
   const rows = inDays(ctx, r);
   return { rows, counted: earnedCounted(rows) };
-}
-
-/**
- * The one select of Tulos as the cash flow report has it (`totalsOf` the booked rows of the days): the rows whose flows
- * add up to income + borrowed − expenses − saved, each bill whole. The first page's totals read the rows of `spendRows`
- * instead, which a card statement lowers.
- */
-export function bookedLeftSelect(ctx: AnalysisContext, r: DayRange): { rows: AnalysisTx[]; counted: AnalysisTx[] } {
-  const rows = inDays(ctx, r);
-  return { rows, counted: leftCounted(rows) };
 }
 
 /**

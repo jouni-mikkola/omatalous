@@ -27,7 +27,6 @@ import {
   type Part,
   partCents,
   type RowShare,
-  type WhyCollector,
   type UserInputs,
 } from "@banking/core";
 import { isCurrencyCode, isEuro } from "../connectors/balance-sign.ts";
@@ -309,11 +308,6 @@ async function accountsInView(s: Services, userId: string, requested: View): Pro
   return { view: "own", accounts, left, parts, traces: new Map([...traces].filter(([id, f]) => f.traced && accounts.some((a) => a.id === id))) };
 }
 
-/** A view built again, uncached, with the reasons its rows count as they do collected: what "Miksi?" reads. */
-export async function scopeWithReasons(s: Services, userId: string, requested: Scope, why: WhyCollector, tracedParts = false): Promise<ScopeData> {
-  return loadScope(s, userId, await accountsInView(s, userId, requested), s.today(), why, tracedParts);
-}
-
 /** A row cut to a part, as the bank booked it. */
 function uncut(t: StoredTransaction): StoredTransaction {
   if (t.wholeCents === undefined) return t;
@@ -341,7 +335,7 @@ function tracedBalance(t: SettledTrace, userId: string, part: Part, day: number,
 }
 
 /** The traced accounts of the own view: the viewer's cents of their rows and each one's balance. An account whose trace is gone counts by its part. */
-async function tracedShares(s: Services, userId: string, accounts: readonly ScopeAccount[], today: string, why?: WhyCollector): Promise<{ accounts: ScopeAccount[]; shares: Map<string, RowShare> }> {
+async function tracedShares(s: Services, userId: string, accounts: readonly ScopeAccount[], today: string): Promise<{ accounts: ScopeAccount[]; shares: Map<string, RowShare> }> {
   const shares = new Map<string, RowShare>();
   const counted = await Promise.all(
     accounts.map(async (a): Promise<ScopeAccount> => {
@@ -350,7 +344,7 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
         const { traced: _traced, ...rest } = a;
         return rest;
       }
-      const own = sharesOf(t, userId, a.part, why);
+      const own = sharesOf(t, userId, a.part);
       for (const [id, share] of own) shares.set(id, share);
       return { ...a, tracedCents: tracedBalance(t, userId, a.part, dayNumber(balanceDayOf(localDay(s, a.balanceAt), today)), own) };
     }),
@@ -358,10 +352,9 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
   return { accounts: counted, shares };
 }
 
-async function loadScope(s: Services, userId: string, inView: InView, today: string, why?: WhyCollector, tracedParts = false): Promise<ScopeData> {
+async function loadScope(s: Services, userId: string, inView: InView, today: string): Promise<ScopeData> {
   const { view, left, parts } = inView;
-  // the reasons of a traced row's parts are for the panel of that part alone: another figure's panel would print them under the row
-  const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today, tracedParts ? why : undefined) : { accounts: inView.accounts, shares: new Map<string, RowShare>() };
+  const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today) : { accounts: inView.accounts, shares: new Map<string, RowShare>() };
   const { accounts, shares } = traced;
   const theirs = accounts.filter((a) => a.userId !== userId).map((a) => a.id);
   let txs: readonly StoredTransaction[] = await s.finance(userId).allTransactions();
@@ -377,7 +370,7 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
     const owners = new Map(read.map((a) => [a.id, a.userId]));
     // what is ahead keeps the stable cut: only a view with a pool cut by who paid reads the rows cut by the parts as well
     if (shares.size) standing = applyUse(txs, read, parts, owners);
-    txs = applyUse(txs, read, parts, owners, shares, why);
+    txs = applyUse(txs, read, parts, owners, shares);
     // this is the one place that decides what a row counts as in the view: the sums read in SQL are handed the answer
     for (const { id, category, categorySource, isTransfer } of txs) {
       const was = stored.get(id)!;
@@ -393,7 +386,7 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
   // the rows of card statements read in the page: of the members whose accounts are in the view, each at the viewer's part
   const statements = await statementsInView(s, accounts, [...txs, ...(standing ?? [])], parts);
   // the build gives the event loop back between its stages: a long history takes seconds, and every member waits on one thread
-  const ctx = await createContextPausing(yieldToLoop, txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements, why);
+  const ctx = await createContextPausing(yieldToLoop, txs, accounts, today, standing, await foreignDaysOf(s, userId, accounts), await historyOf(s, accounts), statements);
   // an extension tells only of the viewer's own rows, in the categories the view counts them in and at the bank's whole
   // amounts, which its match reads; core cuts the parts to what each row counts
   const own = new Set(accounts.filter((a) => a.userId === userId).map((a) => a.id));

@@ -5,7 +5,7 @@
  *   industry                                       trade register industry code to category
  *   recurring                                      subscriptions, bills, habits, income
  *   commitments                                    fixed costs, subscriptions and expected bills
- *   analysis/*                                     money flows, context, dashboard, alerts, insights
+ *   analysis/*                                     money flows, context, dashboard, alerts
  *   reports/*                                      report registry (one file per report)
  */
 export * from "./types.ts";
@@ -71,23 +71,13 @@ export * from "./analysis/format.ts";
 export * from "./analysis/context.ts";
 export * from "./analysis/statement-explain.ts";
 
-export { explain } from "./explain/explain.ts";
-export { explainNow } from "./explain/now.ts";
-export { isLoanFigure, isOneLoan } from "./explain/loan-figures.ts";
-export { explainLoan } from "./explain/loans.ts";
-export { createWhy } from "./explain/why.ts";
-export { sentenceOf } from "./explain/catalogue.ts";
-export type { Explanation, FigureId, LoanFigureId, Reason, WhyCollector } from "./explain/types.ts";
 export * from "./analysis/usual.ts";
 export * from "./thresholds.ts";
 export * from "./analysis/alerts.ts";
 export * from "./analysis/subscription-alerts.ts";
 export * from "./analysis/fees.ts";
-export * from "./analysis/credit.ts";
-export * from "./analysis/insights/index.ts";
-
-
-
+export { openPriceRises } from "./analysis/price-rises.ts";
+export { newCharges } from "./analysis/new-charges.ts";
 
 export * from "./analysis/dashboard.ts";
 export * from "./analysis/spending-goal.ts";

@@ -2,9 +2,9 @@
  * One figure, one number on every page: each figure the pages share, read through the route of every page that shows
  * it, for the demo household, the kit household and a made-up one with own transfers, savings, a loan, a card's bills,
  * refunds, friends' shares, a pending purchase and a row whose category the user set (figures-household.ts). The
- * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: Tiles, Months, Categories),
+ * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: Summary, Months, Categories),
  * Raportit (`/api/reports`: Rahankäyttö, Tulot, Kiinteät menot), Tapahtumat (`/api/transactions`), Laskut
- * (`/api/recurring` and the dashboard's `ahead`, as BeforePayday lists it) and "Miksi?" (`/api/explain`). A complete
+ * (`/api/recurring` and the dashboard's `ahead`, as BeforePayday lists it). A complete
  * month and the running month are both read; Yhteenveto shows only the running one. Two figures that may differ by
  * what they count have two names; this file holds only the ones that are one figure.
  */
@@ -89,10 +89,10 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
 
     it("Menot of the month", () => {
       const at = year.spendingMonths.months.indexOf(month);
-      // The Menot of the first page count a debt paid from savings once, as Säästöön: the tile, the bar and the report's sum less what it holds of it
+      // The Menot of the first page count a debt paid from savings once, as Säästöön: the figure, the bar and the report's sum less what it holds of it
       expectOne("Menot", {
-        // Tiles: the Menot tile, the running month of the chart
-        "Yhteenveto Menot tässä kuussa": isRunning ? dash.overview.months.at(-1).spendCents : undefined,
+        // Summary: Menot, the running month of the chart
+        "Yhteenveto Menot": isRunning ? dash.overview.months.at(-1).spendCents : undefined,
         // Months: the running month's spending bar
         "Yhteenveto Tulot ja menot": isRunning ? dash.overview.months.at(-1).spendCents : undefined,
         "Yhteenveto categories, less Säästöistä maksettu": isRunning ? dash.overview.categories.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.overview.categories.otherCents - dash.overview.categories.fromSavingsCents : undefined,
@@ -127,7 +127,6 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
       const at = year.spendingMonths.months.indexOf(month);
       for (const c of categories) {
         const rows = await get(`/api/transactions?${q.month}&category=${c.category}&limit=1`);
-        const why = await get(`/api/explain?figure=spend.category&category=${c.category}&${q.month}`);
         const name = `${c.category} in ${month}`;
         expectOne(`${name} sum`, {
           "Yhteenveto Menot kategorioittain": isRunning ? dash.overview.categories.rows.find((r: any) => r.category === c.category)?.cents : undefined,
@@ -136,26 +135,22 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
           "Menot kuukausittain, the month": rep.spendingMonths.categories.find((x: any) => x.category === c.category)?.totalCents ?? 0,
           "Menot kuukausittain, 12 kk": year.spendingMonths.categories.find((x: any) => x.category === c.category)?.values[at] ?? 0,
           "Tapahtumat with the category chosen": -rows.netCents + 0,
-          "Miksi?": why.cents,
         });
         expectOne(`${name} rows`, {
           "Rahankäyttö Kategoriat": c.count,
           "Tapahtumat with the category chosen": rows.total,
-          "Miksi?": why.rows.length,
         });
       }
     });
   });
 
-  it("Kiinteät menot: Raportit, Laskut and Miksi?", async () => {
+  it("Kiinteät menot: Raportit and Laskut", async () => {
     const fixed = await get(`/api/reports?${ranges(running, h.day).year}&reports=fixedCosts`);
     const { series, marks } = await get("/api/recurring");
-    const why = await get(`/api/explain?figure=bills.fixed&${ranges(running, h.day).month}`);
     expectOne("Kiinteät menot", {
       "Raportit > Kiinteät menot": fixed.fixedCosts.monthlyCents,
       // Laskut adds the series up with core's function, as Bills.tsx does
       Laskut: fixedMonthlyCents(series, cancelledSubjects({ ...NO_INPUTS, marks })),
-      "Miksi?": why.cents,
     });
   });
 

@@ -165,6 +165,21 @@ describe("a payment with no leg: which card it paid, and whether the card's bala
     expect(m.unshown.get("card2") ?? 0).toBe(0);
   });
 
+  it.each([
+    ["60 days before the balance day", "2026-08-11", 0],
+    ["42 days before the balance day", "2026-08-29", 0],
+    ["41 days before the balance day", "2026-08-30", 17_000],
+  ] as const)("a payment %s is in the balance already unless it is within a statement gap", (_name, day, unshown) => {
+    const m = movesOf([...first, paidOut(day, 17_000)], "same");
+    expect(m.unshown.get("card") ?? 0).toBe(unshown);
+    expect(m.unapplied.get("card") ?? 0).toBe(0);
+  });
+
+  it("a payment older than a statement gap is left out when the card has no balance day", () => {
+    const m = movesOf([...first, paidOut("2026-08-20", 17_000)], "null");
+    expect([...m.unapplied.values(), ...m.unshown.values()]).toEqual([]);
+  });
+
   it.each(["before", "same", "after", "null"] as const)("two cards have the payee: the payment stays separate, with no card taking it (balance day %s)", (at) => {
     const m = movesOf([...first, ...other, recent], at);
     expect([...m.unapplied.values(), ...m.unshown.values()]).toEqual([]);

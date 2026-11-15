@@ -1,14 +1,16 @@
 /**
- * What the filtered rows add up to, above the list: the count, money out and in and their difference, with a small
- * histogram of the period. Decision: is this filter's money what the household expected, and which days took it.
- * Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. A tap on a bar
- * narrows the list to that day, week or month.
+ * What the filtered rows add up to, above the list: the count, money out and in and their difference in one line, with
+ * a small histogram of the period. Decision: is this filter's money what the household expected, and when did it move.
+ * Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. The histogram shows
+ * money out or in as the reader chooses, and a tap on a bar limits the period to that day, week or month.
  */
 import { addDays } from "@banking/core";
 import { useState } from "react";
 import { Figure } from "../../components/Figure.tsx";
+import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
 import { t, tn } from "../../text.ts";
+import { usePhone } from "../TransactionRows.tsx";
 import type { Period } from "./DateRange.tsx";
 import { css } from "../../css.ts";
 
@@ -49,7 +51,9 @@ export function peakEdge(peak: number, bins: number): "start" | "end" | undefine
   return at < 0.15 ? "start" : at > 0.85 ? "end" : undefined;
 }
 
-function Histogram({ unit, bins, income, today, last, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; income: boolean; today: string; last: string; onPick: (p: Period) => void }) {
+type Series = "out" | "in";
+
+function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; today: string; last: string; income: boolean; onPick: (p: Period) => void }) {
   const [at, setAt] = useState<number | null>(null);
   const value = (b: MoneyBin) => (income ? b.inCents : b.outCents);
   const max = Math.max(0, ...bins.map(value));
@@ -64,8 +68,7 @@ function Histogram({ unit, bins, income, today, last, onPick }: { unit: "day" | 
   const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(b.count, "tx.event_one", "tx.event_many") }) : "";
   const histTitle = t(income ? "tx.hist_in" : "tx.hist_out", { unit: unitTitle(unit) });
   return (
-    <figure className="tx-hist">
-      <figcaption className="tx-hist-title">{histTitle}</figcaption>
+    <>
       <div className="tx-hist-plot">
         {peak >= 0 && (
           <span className="tx-hist-peak" data-edge={edge} ref={css({ left: edge ? undefined : `${((peak + 0.5) / n) * 100}%` })} aria-hidden="true">
@@ -109,50 +112,75 @@ function Histogram({ unit, bins, income, today, last, onPick }: { unit: "day" | 
       <p className="tx-hist-readout" aria-live="polite">
         {readout}
       </p>
-    </figure>
+    </>
   );
 }
 
-/** `whole`: no period is set, so the sums are of the whole history. */
-export function TotalsStrip({ totals, income, merchant, whole, today, onPick }: { totals: Totals; income: boolean; merchant: string; whole: boolean; today: string; onPick: (p: Period) => void }) {
+/** `income`: the limit is income only, so the histogram starts on money in. The period is the bar's chip; the sums are of what it and the other limits leave. */
+export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals; income: boolean; today: string; onPick: (p: Period) => void }) {
   const span = totals.span;
-  const spanText = `${whole ? t("range.all") : ""}${whole && span ? ", " : ""}${span ? dateRange(span.from, span.to) : ""}`;
   const hist = totals.histogram;
+  const [series, setSeries] = useState<Series>(income ? "in" : "out");
+  const [seenIncome, setSeenIncome] = useState(income);
+  if (seenIncome !== income) {
+    setSeenIncome(income);
+    setSeries(income ? "in" : "out");
+  }
+  const inSeries = series === "in";
+  const histTitle = t(inSeries ? "tx.hist_in" : "tx.hist_out", { unit: hist ? unitTitle(hist.unit) : "" });
+  const phone = usePhone();
+  const picture = hist && hist.bins.length > 1 && (
+    <figure className="tx-hist">
+      <figcaption className="tx-hist-head">
+        <span className={phone ? "sr-only" : "tx-hist-title"}>{histTitle}</span>
+        <Segmented<Series>
+          label={t("tx.series")}
+          value={series}
+          options={[
+            { value: "out", label: t("tx.series_out"), ariaLabel: t("tx.spending") },
+            { value: "in", label: t("tx.series_in"), ariaLabel: t("tx.income") },
+          ]}
+          onChange={setSeries}
+        />
+      </figcaption>
+      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={onPick} />
+    </figure>
+  );
   return (
     <section className="tx-totals" aria-label={t("tx.totals_label")}>
-      <div className="tx-totals-figs">
-        <div className="tx-totals-lead">
-          <span className="tx-totals-count">{tn(totals.total, "tx.event_one", "tx.event_many")}</span>
-          <span className="tx-totals-span">
-            {merchant ? `${merchant}, ` : ""}
-            {spanText}
-          </span>
-        </div>
+      <div className="tx-sums">
+        <span className="tx-totals-count">{tn(totals.total, "tx.event_one", "tx.event_many")}</span>
+        {span && <span className="tx-totals-span">{dateRange(span.from, span.to)}</span>}
         <dl className="tx-totals-kv">
           <div>
             <dt>{t("tx.spending")}</dt>
             <dd>
-              <Figure text={money(-totals.outCents, false)} size="m" />
+              <Figure text={money(-totals.outCents, false)} size="s" />
             </dd>
           </div>
           <div>
             <dt>{t("tx.income")}</dt>
             <dd className="tx-in">
-              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="m" />
+              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="s" />
             </dd>
           </div>
           {totals.netCents !== undefined && (
             <div>
               <dt>{t("tx.difference")}</dt>
               <dd>
-                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="m" />
+                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="s" />
               </dd>
             </div>
           )}
         </dl>
-        <p className="tx-totals-note">{t("tx.transfers_out")}</p>
       </div>
-      {hist && hist.bins.length > 1 && <Histogram unit={hist.unit} bins={hist.bins} income={income} today={today} last={span?.to ?? today} onPick={onPick} />}
+      {/* a phone keeps the first row near the top: the picture waits behind its title until it is asked for */}
+      {picture && (phone ? (
+        <details className="tx-hist-fold">
+          <summary>{histTitle}</summary>
+          {picture}
+        </details>
+      ) : picture)}
     </section>
   );
 }
@@ -161,17 +189,15 @@ export function TotalsStrip({ totals, income, merchant, whole, today, onPick }: 
 export function StripSkeleton() {
   return (
     <section className="tx-totals tx-skel" aria-hidden="true">
-      <div className="tx-totals-figs">
+      <div className="tx-sums">
         <span className="sk-bar sk-label" />
         <span className="tx-skel-figs">
           {[0, 1, 2].map((i) => (
             <span key={i} className="sk-bar sk-fig" />
           ))}
         </span>
-        <span className="sk-bar sk-sub" />
       </div>
       <div className="tx-hist">
-        <span className="sk-bar sk-label" />
         <span className="sk-bar tx-skel-plot" />
       </div>
     </section>

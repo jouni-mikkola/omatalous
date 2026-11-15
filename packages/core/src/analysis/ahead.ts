@@ -242,7 +242,7 @@ export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[
   return aheadBasis(ctx, balances, inputs).ahead;
 }
 
-/** What a figure of the window rests on, for its basis (explain/now.ts): the window, the counted checking accounts' balances of today and the pays the payday's estimate counts. */
+/** What a figure of the window rests on: the window, the counted checking accounts' balances of today and the pays the payday's estimate counts. */
 export interface AheadBasis {
   ahead: AheadData;
   /** The accounts that pay their own purchases before the payday: the counted ones and the cards they pay as it goes. null without a checking account in view. A card's purchases wait for its bill. */

@@ -71,8 +71,6 @@ export function Table<R>({
   searchLabel,
   rowsSearched = false,
   toolbarExtra,
-  listTotal,
-  allUncounted = false,
   view: viewProp,
   onView,
 }: TableProps<R>) {
@@ -298,8 +296,8 @@ export function Table<R>({
           searchable={searchable}
           query={view.query}
           onQuery={(q) => change({ ...view, query: q })}
-          chips={listTotal === undefined ? shown.chips : shown.chips.map((c) => ({ ...c, count: null }))}
-          all={allUncounted ? null : (listTotal ?? shown.all)}
+          chips={shown.chips}
+          all={shown.all}
           chip={view.chip}
           onChip={(chip) => change({ ...view, chip })}
           groups={groupable}
@@ -478,7 +476,7 @@ export function Table<R>({
   );
 }
 
-/** The button that opens a row's detail under it. Its name says what opens, not "Näytä tapahtumat", which Miksi? uses. */
+/** The button that opens a row's detail under it. Its name says what opens. */
 function DrillButton({ open, onToggle, label, rowKey, onKeyDown }: { open: boolean; onToggle: () => void; label: string; rowKey?: string; onKeyDown?: (e: KeyboardEvent) => void }) {
   return (
     <button type="button" className="rt-drill" aria-expanded={open} aria-label={label} data-drill={rowKey} onClick={onToggle} onKeyDown={onKeyDown}>

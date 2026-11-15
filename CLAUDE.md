@@ -25,7 +25,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - `packages/core`: pure domain logic, no I/O. Rules: `categorize.ts` (with `categorize-people.ts`,
   `categorize-bank-rows.ts`), the bank dialect in `wording.ts` (word lists, ADR 0008), `industry.ts` (trade register
   matching). One definition per figure (ADR 0004): `analysis/usual.ts`, `commitments.ts`, `analysis/fees.ts`, in prose in `docs/MONEY_FLOWS.md`.
-  `loans.ts` (ADR 0012), `reports/index.ts` (the registry), `analysis/insights/` (one source per file).
+  `loans.ts` (ADR 0012), `reports/index.ts` (the registry).
 - `apps/server`: Hono. `app.ts` (middleware), `routes/*` (thin), `services/*` (use cases), `db/*-repo.ts` and
   `db/finance/` (all SQL), `connectors/` (`registry.ts`, `sync.ts`, `enable-banking/`), `platform/`, `entry/node.ts`,
   `services/review.ts` (`GET /api/review`: every question the app cannot settle itself, in one queue; each answer keeps

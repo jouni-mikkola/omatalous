@@ -2,12 +2,12 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { cents, overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 
-// Yhteenveto opens on four tiles (docs/design/README.md section 1.1): what is left before payday, the month's spending
-// and income, and what the household has net. The demo household of the administrator (e2e/run.mjs made it) has pay,
-// rent and everyday spending, so every tile has a figure. Core's tests hold the figures (packages/core/test/nyt.test.ts,
-// overview.test.ts); this spec holds what a household sees of them: each tile is the figure the server gives, the tiles
-// fit the first screen of a phone, the blocks under them are the ones of the page, and the page does not move when it
-// has loaded.
+// Yhteenveto opens on the month (docs/design/README.md section 1.1): Tulot, Menot and Tulos, and under them where the
+// income went. What is left before payday stands with the bills. The demo household of the administrator (e2e/run.mjs
+// made it) has pay, rent and everyday spending, so every figure is there. Core's tests hold the figures
+// (packages/core/test/nyt.test.ts, overview.test.ts); this spec holds what a household sees of them: each figure is the
+// one the server gives, the three fit the first screen of a phone, the blocks under them are the ones of the page, and
+// the page does not move when it has loaded.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 /** The page's height at the two widths it is held to: the roadmap's N11. */
 const MAX_HEIGHT = { 1440: 1500, 390: 2600 } as const;
@@ -35,30 +35,28 @@ async function answerOf(context: BrowserContext) {
   return await response.json();
 }
 
-/** A tile's figure as cents. */
-const tileFigure = async (page: Page, id: string): Promise<number> => cents(await page.locator(`[data-tile=${id}] .fig`).innerText());
+/** A figure of the month (income, spent, result) as cents. */
+const monthFigure = async (page: Page, id: string): Promise<number> => cents(await page.locator(`[data-fig=${id}] .fig`).innerText());
 
 for (const width of [390, 1440] as const) {
-  test(`at ${width} px the tiles are the figures the server gives`, async ({ browser }) => {
+  test(`at ${width} px the figures are the ones the server gives`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: width === 390 ? 844 : 900 } });
     const page = await open(context);
     const seen = watch(page);
     const dashboard = await answerOf(context);
-    const { nyt, overview, holdings, home } = dashboard;
+    const { nyt, overview, home, totals } = dashboard;
     expect(nyt?.left.known, "the demo household has a payday and a balance").toBe(true);
     const { left } = nyt;
-    // every tile in whole euros, as the server gives it
+    // every figure in whole euros, as the server gives it
     const whole = (c: number) => Math.round(c / 100) * 100;
-    expect(await tileFigure(page, "left"), "what is left before payday").toBe(whole(left.leftCents));
-    if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-tile-line").innerText())[0]).toBe(whole(left.perDayCents));
-    expect(await tileFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
-    expect(await tileFigure(page, "income"), "the month's earned income").toBe(whole(overview.income.cents));
-    expect(await tileFigure(page, "net"), "the accounts less the debts").toBe(whole(holdings.netCents));
-    if (overview.net) expect(sums(await page.locator("[data-tile=net] .home-tile-line").innerText())[0]).toBe(whole(Math.abs(overview.net.changeCents)));
-    // each tile leads to its rows
-    // what is left, the spending and the income open their own rows in the panel, as no list adds up to them
-    for (const id of ["left", "spent", "income"]) await expect(page.locator(`[data-tile=${id}] button.why-door`)).toHaveCount(1);
-    await expect(page.locator("[data-tile=net] a")).toHaveAttribute("href", "#/reports?q=saldot");
+    expect(await monthFigure(page, "income"), "the month's income").toBe(whole(overview.income.cents));
+    expect(await monthFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
+    expect(await monthFigure(page, "result"), "Tulos").toBe(whole(totals.leftCents));
+    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left before payday").toBe(whole(left.leftCents));
+    if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-fig-line").innerText())[0]).toBe(whole(left.perDayCents));
+    // the month's figures are no list's sum, so they lead nowhere; what is left before payday leads to its list
+    await expect(page.locator(".home-figs a, .home-figs button")).toHaveCount(0);
+    await expect(page.locator("[data-tile=left]")).toHaveAttribute("href", "#/bills#ennen-palkkapaivaa");
     // the bars are the server's largest categories, in its order and with its sums
     const top = overview.categories;
     const bars = page.locator(".where-row");
@@ -73,8 +71,9 @@ for (const width of [390, 1440] as const) {
     await expect(months.last()).toHaveAttribute("href", `#/transactions?from=${overview.months.at(-1)!.month}-01&to=${nyt.from}`);
     // the bills to the payday end on the tile's own sum of them
     expect(cents(await page.locator(".home-bills tfoot td").last().innerText())).toBe(whole(left.billsCents));
-    // four tiles, and under them the months, the bills, the categories and the accounts: each once, and no notice
-    await expect(page.locator("main .home-tile")).toHaveCount(4);
+    // three figures and the use of the income, and under them the months, the bills, the categories and the accounts: each once, and no notice
+    await expect(page.locator("main .home-figs > li")).toHaveCount(3);
+    await expect(page.locator("main .home-flow")).toHaveCount(1);
     expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Tulot ja menot", "Tulevat laskut", "Menot kategorioittain", "Tilit ja kortit"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     expect(await heightOf(page), `the page is ${await heightOf(page)} px high at ${width} px`).toBeLessThanOrEqual(MAX_HEIGHT[width]);
@@ -86,16 +85,29 @@ for (const width of [390, 1440] as const) {
   });
 }
 
-test("at 390 px the four tiles, two by two, and the month's line are on the first screen", async ({ browser }) => {
+test("at 390 px Tulot and Menot stand side by side, Tulos under them, and Tulos is on the first screen", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await open(context);
-  const boxes = await Promise.all((await page.locator(".home-tile").all()).map(async (tile) => (await tile.boundingBox())!));
-  expect(boxes[0]!.y, "two on a row").toBe(boxes[1]!.y);
-  expect(boxes[2]!.y, "the second row under the first").toBeGreaterThan(boxes[0]!.y);
-  for (const selector of [".home-tiles", ".home-months"]) {
-    const box = (await page.locator(selector).first().boundingBox())!;
-    expect(box.y + box.height, `${selector} ends on the first screen`).toBeLessThanOrEqual(844);
-  }
+  const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
+  expect(boxes).toHaveLength(3);
+  expect(boxes[1]!.y, "Menot beside Tulot").toBe(boxes[0]!.y);
+  expect(boxes[1]!.x, "Menot after Tulot").toBeGreaterThan(boxes[0]!.x);
+  expect(boxes[2]!.y, "Tulos under them").toBeGreaterThan(boxes[1]!.y);
+  const result = boxes[2]!;
+  expect(result.y + result.height, "Tulos ends on the first screen").toBeLessThanOrEqual(844);
+  await context.close();
+});
+
+test("at 1440 px Tulot, Menot and Tulos stand on one row with Tulos the last and the largest", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+  const page = await open(context);
+  const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
+  expect(boxes[0]!.y).toBe(boxes[1]!.y);
+  expect(boxes[1]!.y).toBe(boxes[2]!.y);
+  expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
+  expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
+  const size = (id: string) => page.locator(`[data-fig=${id}] .fig`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(await size("result"), "Tulos is the largest figure").toBeGreaterThan(await size("income"));
   await context.close();
 });
 

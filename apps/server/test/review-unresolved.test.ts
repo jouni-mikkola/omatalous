@@ -86,7 +86,7 @@ describe("the notice of cards whose payer is not seen", () => {
     expect(await notices(t)).toEqual([expect.objectContaining({ names: ["Luottokortti", "Toinen kortti"], cents: 100_000, subject: "question:unresolved:card_payer_unseen:card,card2" })]);
   });
 
-  it("is no notice for a card paid from the counted accounts and from others, which Miksi? still tells", async () => {
+  it("is no notice for a card paid from the counted accounts and from others", async () => {
     const t = await cardWithoutPayer();
     const repo = t.s.finance(t.adminId);
     await repo.upsertAccount({ id: "sav", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Säästötili", iban: "FI4950009420028731", currency: "EUR", type: "savings" });

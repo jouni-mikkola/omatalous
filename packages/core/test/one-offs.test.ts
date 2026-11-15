@@ -1,11 +1,9 @@
-/** One-offs have one owner (ADR 0005): the same sofa is struck by the insights, the change report and Optimoi. */
+/** One-offs have one owner (ADR 0005): the same sofa is struck by the change report and Optimoi. */
 import { describe, expect, it } from "vitest";
 import { spendingChange } from "../src/analysis/change.ts";
 import { createContext } from "../src/analysis/context.ts";
-import { monthRows, purchasesWithoutOneOff } from "../src/analysis/insights/shared.ts";
 import { largeIncome, largePurchases } from "../src/analysis/large.ts";
-import { LARGE, LEVEL, monthOneOffs, oneOffs, PAY } from "../src/analysis/one-offs.ts";
-import { completeMonthsBefore } from "../src/analysis/usual.ts";
+import { LARGE, LEVEL, oneOffs, PAY } from "../src/analysis/one-offs.ts";
 import { addMonths, monthRange } from "../src/dates.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -20,9 +18,7 @@ const rows = [
 const ctx = createContext(rows, [checking], "2026-10-11");
 
 describe("one-offs", () => {
-  it("the sofa in August is struck by the insights and the change report alike", () => {
-    expect(monthOneOffs(ctx, "2026-08", completeMonthsBefore(ctx, "2026-08")).map((t) => t.id)).toEqual(["sofa"]);
-    expect(monthRows(ctx, "2026-08").purchases - purchasesWithoutOneOff(ctx, "2026-08")).toBe(89000);
+  it("the sofa in August is struck by the change report", () => {
     expect(spendingChange(ctx, "expected", "2026-08")!.pieces.find((p) => p.kind === "oneoff")).toMatchObject({ category: "home", cents: 89000 });
   });
 

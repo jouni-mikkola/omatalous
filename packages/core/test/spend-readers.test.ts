@@ -47,20 +47,11 @@ const BILL_WHOLE = [
   "analysis/change-split.ts",
   "analysis/change.ts",
   "analysis/coverage.ts",
-  "analysis/credit.ts",
   "analysis/data-quality.ts",
   "analysis/fees.ts",
-  "analysis/insights/instalments.ts",
-  "analysis/insights/seasons.ts",
-  "analysis/insights/shared.ts",
-  "analysis/insights/spending.ts",
-  "analysis/insights/stopped.ts",
   "analysis/money-in.ts",
   "analysis/one-offs.ts",
   "analysis/statement-explain.ts",
-  // name the figure "expected.spend" only
-  "explain/explain.ts",
-  "explain/types.ts",
   "reports/year-over-year.ts",
 ];
 

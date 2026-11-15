@@ -1,7 +1,6 @@
 /**
- * The household pays 5 000 € off the mortgage in August beside the instalment, which stays the same. 0.7.0 review
- * (insights debt share): an early repayment is no debt service and no rise of fixed costs ("an early repayment is no
- * debt service" in insights.test.ts).
+ * The household pays 5 000 € off the mortgage in August beside the instalment, which stays the same. 0.7.0 review:
+ * an early repayment is no debt service and no rise of fixed costs.
  */
 import { IBAN, type LifeEvent, rows } from "../frame.ts";
 

@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { explain } from "../src/explain/explain.ts";
 import { buildReports } from "../src/reports/index.ts";
 import { type Account, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -91,11 +90,5 @@ describe("the Menot of the first page, with a loan paid from savings every month
     expect(left.typicalFlowCents).not.toBeNull();
     expect(held.typicalCents!).toBeGreaterThan(left.typicalCents!);
     expect(held.typicalFlowCents).toBe(left.typicalFlowCents);
-  });
-
-  it("explains the tile on the same base (Miksi?)", () => {
-    const of = (loan: boolean) => explain("spend.month", createContext(household(loan), [checking, savings], today), { view: "own", range });
-    expect(of(true).cents).toBe(of(false).cents);
-    expect(of(true).cents).toBe(withLoan.overview.months.at(-1)!.spendCents);
   });
 });

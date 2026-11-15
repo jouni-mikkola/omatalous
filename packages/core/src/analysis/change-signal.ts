@@ -76,8 +76,8 @@ function errorOf(s: SignalInput, key: string | null): number {
 const MIN_RUNNING_DAYS = 7;
 
 /**
- * A sentence tests every category of the household, about fifteen, where an insight tests one figure: each test is
- * held this many standard errors over `MIN_T` so the sentence as a whole is as rarely wrong as one insight.
+ * A sentence tests every category of the household, about fifteen, where an alert tests one figure: each test is
+ * held this many standard errors over `MIN_T` so the sentence as a whole is as rarely wrong as one alert.
  */
 const CHANGE_T = MIN_T + 1;
 

@@ -48,7 +48,7 @@ export function reprocessHousehold(settings: SettingsRepo, reach: HouseholdReach
  * The IBANs of the other members' accounts: money to or from one of them is a transfer in every member's view, though
  * the rows of the other account are not among this member's.
  */
-export async function householdIbans(settings: SettingsRepo, userId: string): Promise<ReadonlySet<string>> {
+async function householdIbans(settings: SettingsRepo, userId: string): Promise<ReadonlySet<string>> {
   return (await reaches.get(settings)?.ibansOutside(userId)) ?? new Set();
 }
 
@@ -178,7 +178,7 @@ export async function reprocessLocked(repo: FinanceRepo, settings: SettingsRepo,
   const mark = await repo.unprocessedMark();
   const [txs, accounts, rules, industries, roles, household] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles(), householdIbans(settings, repo.userId)]);
   const before = new Map(txs.map((t) => [t.id, t.category]));
-  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, undefined, clocks.get(settings)?.(), household);
+  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, clocks.get(settings)?.(), household);
   // the version moves with the last piece of the rows: the analysis is built before the run or after it (AnalysisCache)
   await writeEnrichment(repo, changed);
   await afterHooks.get(settings)?.(repo.userId, new Set([repo.userId]));

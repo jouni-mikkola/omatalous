@@ -9,9 +9,7 @@ import "../styles/statement.css";
 import { type Active, NextDaysLine } from "./NextDaysLine.tsx";
 import { billLine } from "./next-days-line.ts";
 import { PendingPayee } from "./PendingPayee.tsx";
-import type { Scope } from "../types.ts";
 import { type Column, Table } from "./table/Table.tsx";
-import { Why } from "./Why.tsx";
 import { type Ahead, figures, incoming, payNote, payments, paymentsCaption, shortIsEstimate, warning, windowLine } from "./next-days.ts";
 import { Notice } from "./ui/Notice.tsx";
 type Line = ReturnType<typeof payments>[number];
@@ -22,8 +20,7 @@ type Line = ReturnType<typeof payments>[number];
  * the payments one by one and the pay that is to arrive. A dot and its row light each other. Nothing is modelled.
  * Laskut lists the same payments for 30 days and lets a bill be added.
  */
-/** `scope` gives the pay the window waits for its door to its basis; without it the sum is printed as it is. */
-export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
+export function NextDays({ ahead }: { ahead: Ahead }) {
   const three = figures(ahead);
   const short = warning(ahead);
   const due = payments(ahead);
@@ -80,7 +77,7 @@ export function NextDays({ ahead, scope }: { ahead: Ahead; scope?: Scope }) {
           {due.some((l) => l.estimate) && <p className="st-note ahead-estimates">{t("bills.estimates")}</p>}
           {line && <NextDaysLine line={line} active={active} onActive={setActive} />}
           {due.length > 0 ? <Lines caption={paymentsCaption(ahead)} hidden head={[t("ahead.due_date"), t("ahead.payee")]} lines={due} kind="bill" active={active} onActive={setActive} /> : <p className="st-note">{t("ahead.none")}</p>}
-          {coming.length > 0 && <Lines caption={t("ahead.incoming")} head={[t("ahead.day"), t("ahead.payer")]} lines={coming} kind="pay" active={active} onActive={setActive} door={scope ? { range: { from: ahead.from, to: ahead.payday?.date ?? ahead.to }, scope } : undefined} />}
+          {coming.length > 0 && <Lines caption={t("ahead.incoming")} head={[t("ahead.day"), t("ahead.payer")]} lines={coming} kind="pay" active={active} onActive={setActive} />}
           {varies && <p className="st-note ahead-pay-note">{varies}</p>}
           <p className="st-links">
             <a href="#/bills">{t("nav.bills")}</a>
@@ -101,15 +98,13 @@ interface LinesProps {
   kind: "bill" | "pay";
   active: Active;
   onActive: (a: Active) => void;
-  /** The days and view of the pay's basis: the pay the window waits for opens it from its sum. */
-  door?: { range: { from: string; to: string }; scope: Scope };
 }
 
 /**
  * One of the two tables: the day, the name with the line under it, the sum. A caption the block's heading already says
  * is for a screen reader only. A window with no payment says so in a sentence, not a table. A row is lit when its dot is, and lights it.
  */
-function Lines({ caption, hidden = false, head, lines, kind, active, onActive, door }: LinesProps) {
+function Lines({ caption, hidden = false, head, lines, kind, active, onActive }: LinesProps) {
   const columns: Column<Line>[] = [
     {
       key: "day",
@@ -141,18 +136,7 @@ function Lines({ caption, hidden = false, head, lines, kind, active, onActive, d
       key: "sum",
       label: t("ahead.amount"),
       kind: "money",
-      cell: (l) =>
-        door && l.payday ? (
-          <Why figure="ahead.pay" title={t("ahead.pay_named", { name: l.name })} range={door.range} scope={door.scope} text={l.payday} estimate="approx">
-            {l.payday}
-          </Why>
-        ) : l.sum !== undefined ? (
-          (l.sum ?? "–")
-        ) : l.cents === null ? (
-          "–"
-        ) : (
-          money(l.cents)
-        ),
+      cell: (l) => (l.sum !== undefined ? (l.sum ?? "–") : l.cents === null ? "–" : money(l.cents)),
     },
   ];
   return (

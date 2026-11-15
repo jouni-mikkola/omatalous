@@ -7,7 +7,6 @@ import type { Bucket, BucketKind, CategoryChange } from "./change.ts";
 import type { Plan } from "./change-plan.ts";
 import type { AnalysisTx } from "./context.ts";
 import type { ExpectedDue } from "./expected.ts";
-import { MONTHLY_OR_LONGER } from "./insights/shared.ts";
 
 const MIN_PRICE_VISITS = 3;
 export const MIN_BASE_ROWS = 4;
@@ -15,6 +14,8 @@ export const MIN_BASE_ROWS = 4;
 const PRESENCE = 2 / 3;
 /** Bills that come less often than every month: in an ordinary month they are not expected. */
 export const RARE = new Set(["quarterly", "semiannual", "yearly"]);
+/** Cadences of contracts, subscriptions and loans. A fixed sum every week or two is a habit (lunch, a club). */
+const MONTHLY_OR_LONGER: ReadonlySet<string> = new Set(["monthly", "bimonthly", "quarterly", "semiannual", "yearly"]);
 /**
  * A bill or subscription that comes once a month or less often (`MONTHLY_OR_LONGER`): its change is a new one, a
  * moved amount or a payment that came early or late. A charge that comes more often is a habit of purchases, however

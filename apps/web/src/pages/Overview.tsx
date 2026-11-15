@@ -2,7 +2,7 @@ import { query } from "../api.ts";
 import { Bills } from "../components/home/Bills.tsx";
 import { Categories } from "../components/home/Categories.tsx";
 import { Months } from "../components/home/Months.tsx";
-import { Tiles } from "../components/home/Tiles.tsx";
+import { Summary } from "../components/home/Summary.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { FirstRun } from "./FirstRun.tsx";
@@ -16,11 +16,11 @@ import "../styles/home.css";
 import { t } from "../text.ts";
 
 /**
- * Yhteenveto: how the household's money stands and is going, on one screen. The four tiles first (Tiles: what is left
- * to the payday, the month's spending and income against the usual, what the household has net), then the last twelve
- * months of income and spending (Months) with the bills to the payday beside it (Bills), then the accounts, cards and
+ * Yhteenveto: how the household's money stands and is going, on one screen. The month first (Summary: Tulot, Menot and
+ * Tulos with their comparisons, and the use of the income under them), then the last twelve months of income and
+ * spending (Months) with the bills to the payday and what is left to it beside it (Bills), then the accounts, cards and
  * loans (Holdings, the block of Raportit > Tilit ja saldot) with the month's categories against their usual beside them
- * (Categories). The source order is the order a phone reads: tiles, months, bills, categories, accounts. No notice and no question stands here: the notices are on
+ * (Categories). The source order is the order a phone reads: month, months, bills, categories, accounts. No notice and no question stands here: the notices are on
  * Asetukset > Turvallisuus, the questions on Tarkistettavat. Every figure is a field of the dashboard answer and a link
  * to its rows; nothing is added up here. The page always tells today and the running month.
  */
@@ -68,7 +68,7 @@ export function Overview({
       <FirstFetch meta={meta} onReload={onReload} />
       {nyt ? (
         <>
-          <Tiles data={{ ...data, nyt }} scope={scope} />
+          <Summary data={{ ...data, nyt }} today={meta.today} />
           <Months data={data} today={meta.today} />
           <Bills data={{ ...data, nyt }} />
           <Categories data={{ ...data, nyt }} />
@@ -76,7 +76,7 @@ export function Overview({
       ) : (
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
-      <Holdings holdings={data.holdings} meta={meta} scope={scope} ahead={data.ahead} title={t("home.accounts_title")} />
+      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} title={t("home.accounts_title")} />
     </div>
   );
 }

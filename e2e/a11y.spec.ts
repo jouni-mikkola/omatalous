@@ -87,7 +87,7 @@ for (const width of [1440, 390]) {
   for (const [name, path, ready, queue] of [
     ["Yhteenveto", "/#/overview", OVERVIEW_TILES, null],
     ["Tarkistettavat", "/#/review", ".review-figure", [MANY]],
-    ["Tapahtumat", "/#/transactions", ".rtb", null],
+    ["Tapahtumat", "/#/transactions", ".tx-bar", null],
     ["Asetukset", "/#/settings/members", "table:has(caption:text-is(\"Talouden jäsenet\"))", null],
   ] as const) {
     test(`${name}, ${width} px: axe finds no mismatched name, repeated landmark or empty table header`, async ({ browser }) => {
