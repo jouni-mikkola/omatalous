@@ -4,7 +4,8 @@
  * so a finding that is listed there must keep failing and nothing else may fail.
  *
  * I1 and I1b read the rows and the pool (src/analysis/conservation.ts, pool.ts), I3 the verdicts against the labels of
- * the generator, I4 the sum of the members against the household, I5 the proof of the balances.
+ * the generator, I4 the sum of the members against the household, I5 the proof of the balances. Each check is exported
+ * so a test can hand it a household made wrong on purpose and see it fail (invariants.teeth.test.ts).
  */
 import { aheadBasis } from "../../src/analysis/ahead.ts";
 import { bridgeByMonth } from "../../src/analysis/conservation.ts";
@@ -18,16 +19,19 @@ import { WALLET_PAYER_KEY } from "../../src/payer-role.ts";
 import { NO_INPUTS } from "../../src/types.ts";
 import { type HouseholdView, viewsOf } from "../../../../tools/findings/households.ts";
 import { proveAccount } from "./generate.ts";
-import type { GeneratedHousehold } from "./truth.ts";
+import type { GeneratedHousehold, Truth } from "./truth.ts";
 
 export type Check =
   | "I1.bridge"
   | "I1.pool-accounts"
   | "I1.pool-balance"
+  | "I1.pool-cards"
   | "I1b.member-legs"
+  | "I3.labelled-flow"
   | "I3a.money-in"
   | "I3b.prefix"
   | "I3c.wallet-role"
+  | "I3d.namesake"
   | "I4.loan-parts"
   | "I5.unproven";
 
@@ -46,19 +50,22 @@ const RANGE = (h: GeneratedHousehold) => ({ from: "2026-01-01", to: h.today });
 const viewName = (v: HouseholdView) => v.member ?? "household";
 const found = (check: Check, h: GeneratedHousehold, v: HouseholdView, line: string, month: string | null = null): Violation => ({ check, household: h.name, view: viewName(v), month, line });
 
-/** I1: in each month the rows that crossed no boundary add up to the change of the pool and the cards. */
-function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+/** I1: in each month Tulos is the change of the pool, less the two named lines (the cards and the moves between daily accounts). */
+export function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const pool = poolOf(v.balances);
   const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)).filter((i): i is string => i !== null));
   // the first and the last month are partial: a leg that pairs across the edge of the history is cut there
   return bridgeByMonth(v.ctx.txs, v.accounts, pool.ids, daily)
     .slice(1, -1)
     .filter((m) => m.residualCents !== 0)
-    .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, boundary ${m.boundary.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
+    .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, cards ${m.lines.cards.cents}, moved ${m.lines.moved.cents}, outside the pool ${m.counted.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
 }
 
-/** I1 and D1: Tulos and Käytettävissä speak for one pool: the same accounts and the sum they hold. */
-function onePool(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+/**
+ * I1 and D1: Tulos and Käytettävissä speak for one pool: the same accounts, the sum they hold, and a card's debt is
+ * taken off only when the pool pays the card's bills (the labels of the card bills say from which account).
+ */
+export function onePool(h: GeneratedHousehold, v: HouseholdView, poolIds: ReadonlySet<string> = poolOf(v.balances).ids): Violation[] {
   const pool = poolOf(v.balances);
   const basis = aheadBasis(v.ctx, v.balances, NO_INPUTS);
   const out: Violation[] = [];
@@ -67,38 +74,97 @@ function onePool(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   if (counted !== whole) out.push(found("I1.pool-accounts", h, v, `Käytettävissä counts ${counted || "no account"}, the pool is ${whole}`));
   const start = basis.ahead.balance?.startCents;
   if (start !== undefined && start !== pool.cents) out.push(found("I1.pool-balance", h, v, `Käytettävissä starts from ${start}, the pool holds ${pool.cents}`));
+  const payers = billPayers(h);
+  for (const debt of basis.ahead.balance?.cardDebts ?? []) {
+    const from = [...(payers.get(debt.cardId) ?? [])].sort();
+    if (!from.some((id) => poolIds.has(id))) out.push(found("I1.pool-cards", h, v, `Käytettävissä takes off ${debt.cents} of ${debt.cardId}, whose bills are paid from ${from.join("+") || "no account"}, outside the pool`));
+  }
   return out;
 }
 
-/** I1b: a transfer the generator labelled as moved between members is neither income nor spending in the household view. */
-function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+/** The accounts that pay each card's bills, from the labels: the other leg of every card-bill row of the card. */
+function billPayers(h: GeneratedHousehold): Map<string, Set<string>> {
+  const accountOf = new Map(h.txs.map((t) => [t.id, t.accountId]));
+  const out = new Map<string, Set<string>>();
+  for (const t of h.txs) {
+    const label = h.truth.get(t.id);
+    const payer = label?.kind === "card_bill" && label.pair ? accountOf.get(label.pair) : undefined;
+    if (!payer || h.accounts.find((a) => a.id === t.accountId)?.type !== "credit_card") continue;
+    (out.get(t.accountId) ?? out.set(t.accountId, new Set()).get(t.accountId)!).add(payer);
+  }
+  return out;
+}
+
+/** I1b: in the household view a row the generator labelled a transfer or a mirror (between members, own accounts, a card's bill, a loan's own row) is neither income nor spending. */
+export function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   if (v.view !== "household") return [];
-  const bad = v.ctx.txs.filter((t) => h.truth.get(t.id)?.kind === "member_transfer" && (t.flows.income !== 0 || t.flows.consumption !== 0 || t.flows.debt !== 0));
-  return bad.length ? [found("I1b.member-legs", h, v, `${bad.length} legs between members count as ${[...new Set(bad.map((t) => t.category))].sort().join("/")}`)] : [];
+  const moved = v.ctx.txs.filter((t) => ["transfer", "mirror"].includes(h.truth.get(t.id)?.flow ?? "") && (t.flows.income !== 0 || t.flows.consumption !== 0 || t.flows.debt !== 0));
+  const kinds = [...new Set(moved.map((t) => h.truth.get(t.id)!.kind))].sort();
+  return moved.length ? [found("I1b.member-legs", h, v, `${moved.length} legs (${kinds.join("/")}) count as ${[...new Set(moved.map((t) => t.category))].sort().join("/")}`)] : [];
 }
 
 const PREFIX = "MOBILEPAY ";
 const isOutflow = (category: string): boolean => ["expense", "debt"].includes(getCategory(category).kind);
 
 /** I3a: money in does not sit in a category of money out, unless a return pair took it back or the household set it. */
-function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+export function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && !v.ctx.returns.has(t.id));
   const by = new Map<string, number>();
   for (const t of bad) by.set(`${t.counterparty} as ${t.category}`, (by.get(`${t.counterparty} as ${t.category}`) ?? 0) + 1);
   return [...by].map(([what, n]) => found("I3a.money-in", h, v, `${n} rows in, ${what}`));
 }
 
-/** I3b: a payment-app prefix does not make a business a person: the payee is a person with it exactly when it is one without it. */
-function prefix(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+/** What the engine counted of a row that the label of its flow can be judged by: the sign of each flow, in the one word that names the wrong ones. */
+function wrongFlow(label: Truth, t: HouseholdView["ctx"]["txs"][number]): string | null {
+  const f = t.flows;
+  // a refund is judged by I3a, and a transfer or a mirror by I1b; a row cut to nothing says nothing
+  if (t.amountCents === 0 || label.kind === "refund") return null;
+  if (label.flow === "income") return f.income > 0 && f.consumption === 0 && f.debt === 0 ? null : `income counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
+  if (label.flow === "consumption") return f.consumption > 0 && f.income === 0 && f.debt === 0 ? null : `consumption counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
+  if (label.flow === "debt") return f.debt > 0 && f.income === 0 && f.consumption === 0 ? null : `debt counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
+  return null;
+}
+
+/** I3: every labelled row of income, spending or debt is counted as what its label says, and only that. */
+export function labelledFlow(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+  const by = new Map<string, number>();
+  for (const t of v.ctx.txs) {
+    const label = h.truth.get(t.id);
+    const wrong = label && wrongFlow(label, t);
+    if (wrong) by.set(`${label.kind} ${wrong}`, (by.get(`${label.kind} ${wrong}`) ?? 0) + 1);
+  }
+  return [...by].sort().map(([what, n]) => found("I3.labelled-flow", h, v, `${n} rows: ${what}`));
+}
+
+/** I3d: money from a stranger with a member's name is a person's payment in: never a transfer between the household's own accounts, and counted as income. */
+export function namesake(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+  const rows = v.ctx.txs.filter((t) => h.truth.get(t.id)?.event === "namesake" && t.amountCents !== 0);
+  const bad = rows.filter((t) => t.isTransfer || t.flows.income <= 0);
+  return bad.length ? [found("I3d.namesake", h, v, `${bad.length} of ${rows.length} payments from a namesake are ${bad.every((t) => t.isTransfer) ? "a transfer" : "not income"}`)] : [];
+}
+
+/**
+ * I3b: a payment-app prefix does not make a business a person. The labels decide: a business is never a person and a
+ * person is, and the payee is a person with the prefix exactly when it is one without it.
+ */
+export function prefix(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+  const out: Violation[] = [];
+  const byLabel = new Map<string, number>();
+  for (const t of v.ctx.txs) {
+    const label = h.truth.get(t.id);
+    if (!label || t.amountCents >= 0 || !t.counterparty) continue;
+    const person = t.category === "p2p";
+    if ((label.kind === "business" && person) || (label.kind === "person" && !person)) byLabel.set(`${t.counterparty} is a ${label.kind} and counts as ${t.category}`, (byLabel.get(`${t.counterparty} is a ${label.kind} and counts as ${t.category}`) ?? 0) + 1);
+  }
+  for (const [what, n] of [...byLabel].sort()) out.push(found("I3b.prefix", h, v, `${n} rows: ${what}`));
   const people = new Map<string, Set<boolean>>();
   for (const t of v.ctx.txs) {
     if (t.amountCents >= 0 || !t.counterparty) continue;
     (people.get(t.counterparty) ?? people.set(t.counterparty, new Set()).get(t.counterparty)!).add(t.category === "p2p");
   }
-  const out: Violation[] = [];
   for (const [name, own] of people) {
     const bare = name.startsWith(PREFIX) ? people.get(name.slice(PREFIX.length)) : undefined;
-    if (bare && [...own].some((p) => !bare.has(p))) out.push(found("I3b.prefix", h, v, `${name} is ${own.has(true) ? "a person" : "a payee"}, ${name.slice(PREFIX.length)} is ${bare.has(true) ? "a person" : "a payee"}`));
+    if (bare && [...own].some((p) => !bare.has(p))) out.push(found("I3b.prefix", h, v, `with the prefix ${name} is ${own.has(true) ? "a person" : "a payee"}, without it ${name.slice(PREFIX.length)} is ${bare.has(true) ? "a person" : "a payee"}`));
   }
   return out;
 }
@@ -135,5 +201,5 @@ export function unproven(h: GeneratedHousehold, twin: GeneratedHousehold): Viola
 /** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 export function violationsOf(h: GeneratedHousehold, twin?: GeneratedHousehold): Violation[] {
   const views = viewsOf(h);
-  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...moneyIn(h, v), ...prefix(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
+  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
 }

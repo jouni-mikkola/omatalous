@@ -1,12 +1,13 @@
 /**
  * The invariants of the figures over the generated households (kit/generate.ts), each household in the household view
- * and in each member's view. A violation that kit/known-violations.ts does not list fails, and so does a listed finding
- * that no household shows any more.
+ * and in each member's view. What the checks find must equal kit/known-violations.ts exactly: household, view, month,
+ * line and the amounts and counts in it. A new violation fails, a listed one that no longer shows fails, and so does
+ * one whose amount changed.
  */
 import { describe, expect, it } from "vitest";
 import { generatedSet, generateHousehold } from "./kit/generate.ts";
 import { type Check, type Violation, violationsOf } from "./kit/invariants.ts";
-import { KNOWN_VIOLATIONS } from "./kit/known-violations.ts";
+import { foundIdentities, KNOWN_VIOLATIONS, listedIdentities } from "./kit/known-violations.ts";
 import type { GeneratedHousehold, Spec } from "./kit/truth.ts";
 
 const LONG = 60_000;
@@ -20,46 +21,42 @@ const violations = (): Violation[] => {
   const households: GeneratedHousehold[] = [...generatedSet(), generateHousehold(UNPROVEN, 1)];
   return (all = households.flatMap((h) => violationsOf(h, h.spec.reference === false ? twin : undefined)));
 };
-const describeViolation = (v: Violation) => `${v.check} ${v.household} ${v.view}${v.month ? ` ${v.month}` : ""}: ${v.line}`;
 
 describe("the invariants over the generated households", () => {
   it(
-    "fail only where a finding is listed",
+    "fail exactly where the list says, in each household, view and month, with each amount",
     () => {
-      const covered = (v: Violation) => KNOWN_VIOLATIONS.some((k) => k.check === v.check && k.covers(v));
-      expect(violations().filter((v) => !covered(v)).map(describeViolation)).toEqual([]);
+      expect(foundIdentities(violations())).toEqual(listedIdentities(KNOWN_VIOLATIONS));
     },
     LONG,
   );
 
-  it(
-    "show each listed finding in some household",
-    () => {
-      expect(KNOWN_VIOLATIONS.filter((k) => !violations().some((v) => v.check === k.check && k.covers(v))).map((k) => k.finding)).toEqual([]);
-    },
-    LONG,
-  );
-
-  it("list each finding once, with its reason", () => {
+  it("list each finding once, with its reason and at least one place", () => {
     expect(new Set(KNOWN_VIOLATIONS.map((k) => k.finding)).size).toBe(KNOWN_VIOLATIONS.length);
-    for (const k of KNOWN_VIOLATIONS) expect(k.reason.length, k.finding).toBeGreaterThan(40);
+    for (const k of KNOWN_VIOLATIONS) {
+      expect(k.reason.length, k.finding).toBeGreaterThan(40);
+      expect(k.lines.length, k.finding).toBeGreaterThan(0);
+      for (const l of k.lines) expect(l.where.length, `${k.finding}: ${l.line}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("compare as sets: a new violation, a missing one and a changed amount each make the two differ", () => {
+    const known = [{ finding: "f", check: "I1.bridge" as Check, reason: "r", lines: [{ line: "residual -100", where: [{ household: "h", view: "household", months: ["2026-01", "2026-02"] }] }] }];
+    const v = (line: string, month: string): Violation => ({ check: "I1.bridge", household: "h", view: "household", month, line });
+    const same = [v("residual -100", "2026-02"), v("residual -100", "2026-01")];
+    expect(foundIdentities(same)).toEqual(listedIdentities(known));
+    expect(foundIdentities([...same, v("residual -5", "2026-03")])).not.toEqual(listedIdentities(known));
+    expect(foundIdentities(same.slice(0, 1))).not.toEqual(listedIdentities(known));
+    expect(foundIdentities([])).not.toEqual(listedIdentities(known));
+    expect(foundIdentities(same.map((x) => ({ ...x, line: "residual -101" })))).not.toEqual(listedIdentities(known));
   });
 
   it(
     "hold the checks that already pass: the wallet role and the loan parts",
     () => {
       const held: Check[] = ["I3c.wallet-role", "I4.loan-parts"];
-      expect(violations().filter((v) => held.includes(v.check)).map(describeViolation)).toEqual([]);
+      expect(violations().filter((v) => held.includes(v.check))).toEqual([]);
       expect(KNOWN_VIOLATIONS.filter((k) => held.includes(k.check))).toEqual([]);
-    },
-    LONG,
-  );
-
-  it(
-    "show the loan paid from savings in every count of members",
-    () => {
-      const twice = violations().filter((v) => v.check === "I1.bridge" && v.line.includes("savings:debt"));
-      for (const n of [1, 2, 3, 4]) expect(twice.some((v) => v.household.startsWith(`generated:${n}:`) && v.view === "household"), `${n} members`).toBe(true);
     },
     LONG,
   );
