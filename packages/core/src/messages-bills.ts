@@ -110,7 +110,7 @@ export const FI_BILLS = {
   "ahead.pay_late": "{span} Palkka on myöhässä. Sen piti tulla {day}",
   "ahead.pay_unknown": "{span} Emme tiedä palkkapäivääsi.",
   "ahead.accounts": "{count} käyttötiliä",
-  "ahead.accounts_and_share": "Käyttötilit ja osuutesi yhteisestä tilistä",
+  "ahead.accounts_and_share": "Käyttötilit, yhteiset tilit osuutesi mukaan",
   "ahead.your_share": "Osuutesi yhteisestä tilistä",
   "ahead.balance_on": "Saldo päivältä {date}",
   "ahead.balance": "Saldo",

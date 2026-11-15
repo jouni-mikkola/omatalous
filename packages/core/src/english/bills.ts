@@ -108,7 +108,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "ahead.pay_late": "{span} The pay is late. It was due {day}",
   "ahead.pay_unknown": "{span} Payday is not known.",
   "ahead.accounts": "{count} checking accounts",
-  "ahead.accounts_and_share": "Checking accounts and your share of the joint account",
+  "ahead.accounts_and_share": "Checking accounts, joint accounts at your share",
   "ahead.your_share": "Your share of the joint account",
   "ahead.balance_on": "Balance as of {date}",
   "ahead.balance": "Balance",

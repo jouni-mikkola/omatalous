@@ -12,7 +12,7 @@ import { normalizeIban } from "../transfers.ts";
 import type { Account, IsoDate, Transaction } from "../types.ts";
 import { hasPayeeForm } from "../wording.ts";
 import { loanPaymentAccounts } from "../loan-payment.ts";
-import { type Flows, flowsOf, incomeOf, type PeriodTotals, totalsOf } from "./flows.ts";
+import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsOf } from "./flows.ts";
 import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
@@ -28,7 +28,7 @@ export interface AnalysisTx extends Transaction {
   kind: CategoryKind;
   group: string;
   flows: Flows;
-  /** consumption + debt: what category and trend charts show. */
+  /** consumption + debt: what category and trend charts show. A debt paid from a savings account is in it, though its `flows` are zero (`spendCentsOf`). */
   spend: number;
   /** Cents of this purchase that came back later: a shop refund, a person paying back, friends' shares (see `moneyIn`). */
   refunded: number;
@@ -178,7 +178,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
         kind: category.kind,
         group: category.group,
         flows,
-        spend: flows.consumption + flows.debt,
+        spend: spendCentsOf(t, flows, savingsIds, loanIds),
         refunded: 0,
       };
     })
@@ -202,7 +202,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
     if (first.category !== t.category) {
       Object.assign(t, { category: first.category, kind: first.kind, group: first.group });
       t.flows = flowsOf(t, savingsIds, loanIds);
-      t.spend = t.flows.consumption + t.flows.debt;
+      t.spend = spendCentsOf(t, t.flows, savingsIds, loanIds);
     }
     for (const [paymentId, cents] of refund) byId.get(paymentId)!.refunded += cents;
     returns.set(id, first.id);
@@ -307,8 +307,9 @@ export function spendRows(ctx: AnalysisContext, r: DayRange): AnalysisTx[] {
 
 /**
  * The totals of a range as they stand beside the categories: the same rows as `spendRows`, so the spending total is the
- * sum of its categories (more when a row has none). Income, savings and credit are cash and come out as in `inDays`;
- * spending follows the purchase day of a statement row and the booking day of what a bill leaves.
+ * sum of its categories (more when a row has none), except for a debt paid from a savings account: it is in its category
+ * (`spend`) and in no flow, since Tulos counts it once, as saved. Income, savings and credit are cash and come out as in
+ * `inDays`; spending follows the purchase day of a statement row and the booking day of what a bill leaves.
  */
 export function spendTotals(ctx: AnalysisContext, r: DayRange): PeriodTotals {
   return totalsOf(spendRows(ctx, r).map((t) => t.flows));

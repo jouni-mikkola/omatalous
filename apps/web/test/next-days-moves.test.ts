@@ -133,9 +133,9 @@ describe("the line under Saldo says which accounts the balance counts", () => {
     expect(notes({ counts: "all", accounts: 3 })).toEqual(["3 käyttötiliä"]);
   });
 
-  it("says the viewer's part of the joint account is counted with the checking accounts when there are several", () => {
-    expect(notes({ counts: "part", accounts: 2 })).toEqual(["Käyttötilit ja osuutesi yhteisestä tilistä"]);
-    expect(notes({ counts: "part", accounts: 3 })).toEqual(["Käyttötilit ja osuutesi yhteisestä tilistä"]);
+  it("says joint accounts are counted at the viewer's part, whatever mix of accounts there are, when there are several", () => {
+    expect(notes({ counts: "part", accounts: 2 })).toEqual(["Käyttötilit, yhteiset tilit osuutesi mukaan"]);
+    expect(notes({ counts: "part", accounts: 3 })).toEqual(["Käyttötilit, yhteiset tilit osuutesi mukaan"]);
   });
 
   it("says only the viewer's part of a joint account is counted when it is the one account, and an old balance says its day after it", () => {

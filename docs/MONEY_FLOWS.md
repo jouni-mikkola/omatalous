@@ -50,10 +50,16 @@ row count still includes them, and the page says the transfers are not in the su
 `totalsOf` holds the sum, and the first page and the cash flow report read `leftCents` from it. The figure is the same
 number the rows give with no flow in between: the sum of every row on an account that is not a loan, less the transfer
 rows (a pair cancels itself, so this takes away the legs with no other half in the period), less the money moved into
-savings accounts, which is *Säästöön*. A loan paid from a savings account is counted once: as *Säästöön* when the money
-leaves the pool, and not again as debt service when the savings account pays the lender (Laskut and the loan views still
-show the payment). A card account is in the sum, since a card purchase is spending on the day it is
+savings accounts, which is *Säästöön*. A card account is in the sum, since a card purchase is spending on the day it is
 made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, the seeded households and random rows.
+
+A loan paid from a savings account is counted once in Tulos: as *Säästöön* when the money leaves the pool, and not again
+as debt service when the savings account pays the lender. The row has no flows, so it is left out of the figures built
+from them: Tulos, the income, spending and difference of its identity (`totalsOf`) and the savings rate. It is still
+spending (`spend` of the row, `spendCentsOf`), so it is in the category totals, Velanhoito, the Menot tile and the month's
+curve, spending by month and year over year, the tax-year interest and loan payments and the instalment interest, and
+it is a row of Laskut and the loan views. The spending total of the identity is therefore less than the sum of the
+categories by exactly these rows.
 
 Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Tulos* and in no income figure,
 savings rate or margin (`netCents`).
