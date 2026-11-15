@@ -13,7 +13,7 @@
 .tx-search input::-webkit-search-cancel-button { display: none; }
 .tx-search-clear { position: absolute; inset-block: 0; inset-inline-end: 0; inline-size: var(--control-h); border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; }
 .tx-search-clear:hover { color: var(--text); }
-.tx-search-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-s); }
+.tx-search-clear:focus-visible { outline: var(--ring) solid var(--accent); outline-offset: calc(-1 * var(--ring)); border-radius: var(--radius-s); }
 
 /* the period is always there; "Koko historia" is no limit, so it has a solid plain edge */
 .tx-period { border-style: solid; }
@@ -32,9 +32,9 @@
 .tx-fgroup { padding: var(--sp-8) var(--sp-8) var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
 .tx-frow, .tx-fback { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: var(--sp-8); inline-size: 100%; min-height: var(--control-h); padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-body); cursor: pointer; }
 .tx-frow:hover, .tx-fback:hover { background: var(--row-hover); }
-.tx-frow:focus-visible, .tx-fback:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tx-frow:focus-visible, .tx-fback:focus-visible { outline: var(--ring) solid var(--accent); outline-offset: calc(-1 * var(--ring)); }
 .tx-frow-value { margin-inline-start: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
-.tx-frow-go { flex: none; inline-size: 10px; block-size: 10px; fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.tx-frow-go { flex: none; inline-size: 0.625rem; block-size: 0.625rem; fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .tx-fback { color: var(--text-2); }
 
 /* a long list leaves the bar far above: this button stands over the list and takes the reader back to it */

@@ -72,8 +72,7 @@ async function touchTargets(page: Page): Promise<string[]> {
     for (const el of Array.from(document.querySelectorAll<HTMLElement | SVGElement>("a[href], button, summary, [role=button], input[type=checkbox], input[type=radio]"))) {
       const r = el.getBoundingClientRect();
       // a control that is not on the page (closed details, a hidden input, the skip link's 1 px) has no box
-      // a control that takes no pointer (the chevron of a row that opens whole) is no target for a finger
-      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden" || getComputedStyle(el).pointerEvents === "none" || el.closest("[hidden], [inert]") || unseen(el)) continue;
+      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden" || el.closest("[hidden], [inert]") || unseen(el)) continue;
       const name = (el.textContent || el.closest("label")?.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40);
       const kind = describe(el);
       let problem = "";

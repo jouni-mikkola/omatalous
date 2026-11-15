@@ -132,7 +132,7 @@ export function TotalsStrip({ totals, income, merchant, today, onPick }: { total
   const picture = hist && hist.bins.length > 1 && (
     <figure className="tx-hist">
       <figcaption className="tx-hist-head">
-        <span className="tx-hist-title">{histTitle}</span>
+        <span className={phone ? "sr-only" : "tx-hist-title"}>{histTitle}</span>
         <Segmented<Series>
           label={t("tx.series")}
           value={series}

@@ -91,7 +91,6 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-hist-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-8) var(--sp-16); margin-bottom: var(--sp-16); }
 .tx-hist-title { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
 .tx-hist-fold > summary { display: flex; align-items: center; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
-.tx-hist-fold .tx-hist-title { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
 .tx-hist-fold .tx-hist-head { justify-content: flex-end; }
 .tx-hist-plot { position: relative; height: 48px; }
 .tx-hist-plot svg { display: block; width: 100%; height: 100%; overflow: visible; cursor: pointer; }
@@ -154,8 +153,8 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
   /* the whole row opens it (TransactionRows.tsx), so the chevron is a mark for the eye and the row is the target */
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { cursor: pointer; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail):active { background: var(--row-hover); }
-  /* a tap on the chevron is a tap on the row, so its 44 px never takes a tap from the row above; the keyboard and the screen reader still reach it */
-  .rt-wrap[data-block] .rt.tx-table .rt-drill { pointer-events: none; }
+  /* the row's padding is 4 px, so the chevron's 44 px is its 36 plus that, and none of it reaches into the row above */
+  .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { --reach-pad: var(--sp-4); }
 }
 /* a finger: a target is 44 px high, so a cell takes 36 px and the 4 px of padding above and below make 44; the rows are 44 px apart and no target reaches into the next. A block row is two lines and keeps its height */
 @media (pointer: coarse) {
@@ -226,7 +225,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
   .tx-catlist { max-height: none; }
   .tx-pop { box-shadow: var(--pop-shadow), 0 0 0 100vmax var(--backdrop); }
 
-  .tx-totals-wrap, .tx-skel.tx-totals { padding: var(--sp-16); }
+  .tx-totals-wrap, .tx-skel.tx-totals { padding: var(--sp-8) var(--sp-16); }
 
   .tx-card { padding: var(--sp-12) var(--sp-16); }
   /* twelve month names do not fit side by side: every third and the peak keep theirs (MerchantDrill phoneMonthLabels) */
