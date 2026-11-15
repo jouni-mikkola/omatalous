@@ -11,6 +11,8 @@
 .tx-fchip.set { border-style: solid; border-color: color-mix(in srgb, var(--accent) 60%, var(--surface)); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
 .tx-fchip-main { all: unset; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); font-size: var(--fs-body); line-height: var(--lh-body); cursor: pointer; white-space: nowrap; }
 .tx-fchip.set .tx-fchip-main { padding-right: var(--sp-4); }
+/* the chip's border takes 2 px of its 44: the key reaches over it, so a finger's target is the whole chip */
+@media (pointer: coarse) { .tx-fchip-main { margin-block: calc(-1 * var(--hairline)); } }
 .tx-fchip-main:focus-visible, .tx-fchip-x:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
 .tx-fchip-plus { font-weight: var(--w-strong); color: var(--accent-ink); }
 .tx-fchip-name { color: var(--text-2); }
