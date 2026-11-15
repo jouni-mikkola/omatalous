@@ -3,6 +3,14 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.5.1
+
+Reliability
+
+- Installed add-ons load again: the shared `components/Why` file is back, and the list of shared files is frozen.
+- A failing add-on part is dropped and the page around it stays.
+- A page that fails to draw shows the general failure text, not the request one.
+
 ## 1.5.0
 
 - Yhteenveto opens on the month: Tulot, Menot and Tulos, each with a bar and a comparison.
