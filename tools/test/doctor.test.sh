@@ -94,6 +94,20 @@ t_address_check_with_a_failing_ip() {
   check "json: an ip that lists the address is a pass" grep -q 'Koneella on osoite 192.0.2.10' "$W/doctor.json"
 }
 
+# an address that answers cannot also be gone: the list of the machine's own addresses may miss it (another network namespace)
+t_address_that_responds_is_not_gone() {
+  new_host; with_cron; fix_permissions
+  printf 'INSTANCE_NAME=banking-app\nBIND_ADDRESS=192.0.2.10\nAPP_BASE_URL=http://192.0.2.10:8080\n' >"$CL/.env"
+  printf '#!/bin/sh\necho "2: eth0    inet 192.0.2.77/24 brd 192.0.2.255 scope global eth0"\n' >"$S/bin/ip"; chmod +x "$S/bin/ip"
+  printf '#!/bin/sh\nexit 0\n' >"$S/bin/curl"; chmod +x "$S/bin/curl"
+  doctor_json
+  check "json: the address responds" grep -q 'Osoite http://192.0.2.10:8080 vastaa' "$W/doctor.json"
+  check "json: it is then no warning that the machine lost the address" bash -c "! grep -q 'Koneella ei ole enää osoitetta' '$W/doctor.json'"
+  printf '#!/bin/sh\nexit 22\n' >"$S/bin/curl"
+  doctor_json
+  check "json: an address that does not respond and is missing still warns" grep -q 'Koneella ei ole enää osoitetta 192.0.2.10' "$W/doctor.json"
+}
+
 t_disk_size_decimal() {
   new_host; with_cron; fix_permissions
   # 5 767 168 kB free is 5.5 GB
