@@ -80,8 +80,14 @@ describe("the members of a household add up to it where the split is said, and c
       for (const spec of SPECS) {
         const h = generateHousehold(spec, 1);
         const [household, ...members] = viewsOf(h);
-        const total = (v: typeof household) => unsavedLoans(loanProposals(v!.ctx, NO_INPUTS))?.paymentCents ?? 0;
-        expect(members.reduce((sum, v) => sum + total(v), 0), h.name).toBe(countedWhole(spec) ? total(household) * members.length : total(household));
+        // null is the answer of a view with no unsaved loan, and it is not a zero: a household that tells none would pass the sum empty
+        const total = (v: typeof household) => unsavedLoans(loanProposals(v!.ctx, NO_INPUTS))?.paymentCents ?? null;
+        const whole = total(household);
+        expect(whole, `${h.name}: the household`).not.toBeNull();
+        // a member who pays no unsaved loan has no part in it; the members who do are the ones that add up
+        const parts = members.map(total).filter((part) => part !== null);
+        expect(parts.length, h.name).toBeGreaterThan(0);
+        expect(parts.reduce((sum, part) => sum + part, 0), h.name).toBe(countedWhole(spec) ? whole! * members.length : whole);
       }
     },
     LONG,

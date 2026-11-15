@@ -102,13 +102,13 @@ export interface Housing {
   loans: HousingLoan[];
   /** The largest first. */
   charges: HousingCharge[];
-  /** The known months of the loans' rows, added once. */
-  loansMonthlyCents: number;
+  /** The months of the loans' rows, added once. Null when a loan tells no payment: a sum without it would pass for the whole. */
+  loansMonthlyCents: number | null;
   /** The months of the charges' rows. */
   chargesMonthlyCents: number;
-  /** The two sums above together: the known months of the rows, added once. */
-  totalMonthlyCents: number;
-  /** A loan tells no payment, so the total is without it. */
+  /** The two sums above together, null where the loans' is. */
+  totalMonthlyCents: number | null;
+  /** A loan tells no payment, so the loans' sum and the total are null. */
   partial: boolean;
   /** A row holds the viewer's part of a payment from a joint account. */
   atPart: boolean;
@@ -240,15 +240,16 @@ export function buildHousing(ctx: AnalysisContext, balances: readonly BalanceInp
   const ask = !loans.length && !tenant && !answered && !loansOf(inputs).some((loan) => loan.kind === "mortgage");
   if (!loans.length && !charges.length && !ask) return null;
 
-  const monthsOf = (rows: readonly { monthlyCents: number | null }[]) => rows.reduce((sum, row) => sum + (row.monthlyCents ?? 0), 0);
-  const [loansMonthlyCents, chargesMonthlyCents] = [monthsOf(loans), monthsOf(charges)];
+  const partial = loans.some((loan) => loan.monthlyCents === null);
+  const loansMonthlyCents = partial ? null : loans.reduce((sum, row) => sum + row.monthlyCents!, 0);
+  const chargesMonthlyCents = charges.reduce((sum, row) => sum + row.monthlyCents, 0);
   return {
     loans,
     charges,
     loansMonthlyCents,
     chargesMonthlyCents,
-    totalMonthlyCents: loansMonthlyCents + chargesMonthlyCents,
-    partial: loans.some((loan) => loan.monthlyCents === null),
+    totalMonthlyCents: loansMonthlyCents === null ? null : loansMonthlyCents + chargesMonthlyCents,
+    partial,
     atPart: [...loans, ...charges].some((row) => row.part !== undefined),
     ask,
   };
