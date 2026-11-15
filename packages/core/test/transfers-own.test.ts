@@ -1,7 +1,7 @@
 // Money between the household's own connected accounts: the savings account, a joint account the bank typed as a loan,
 // a payee named by an IBAN the mapper read from a Finnish account number, and a pair held up by Easter.
 import { describe, expect, it } from "vitest";
-import { householdAllocations, transferAllocations } from "../src/pairing.ts";
+import { householdAllocations, transferAllocations, transfersBetweenMembers } from "../src/pairing.ts";
 import { detectTransfers } from "../src/transfers.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -116,12 +116,14 @@ describe("a leg that is proved takes its partner, and a purchase is no leg", () 
 
   it("in the household view a payment to the joint account takes the money in the other member's rows left open, with no payer account", () => {
     const other: Account = { id: "chk2", name: "Toisen tili", iban: "FI4950009420028730", currency: "EUR", type: "checking" };
+    const shared: Account = { ...joint, type: "checking" };
     const ownerOf = (accountId: string) => (accountId === "chk2" ? "b" : "a");
-    const sent = tx({ id: "sent", accountId: "chk2", bookingDate: "2026-03-03", amountCents: -45000, counterpartyIban: joint.iban, category: "transfer", categorySource: "transfer" });
+    const sent = tx({ id: "sent", accountId: "chk2", bookingDate: "2026-03-03", amountCents: -45000, counterpartyIban: shared.iban, category: "transfer", categorySource: "transfer" });
     const received = tx({ id: "received", accountId: "joint", bookingDate: "2026-03-03", amountCents: 45000, counterpartyIban: null, category: "p2p_in", categorySource: "rule" });
-    const { allocations, between } = householdAllocations([sent, received], [checking, joint, other], ownerOf);
+    const { allocations, between } = householdAllocations([sent, received], [checking, shared, other], ownerOf);
     expect(allocations.get("sent")?.[0]?.partnerId).toBe("received");
     expect(between.has("received")).toBe(true);
+    expect(transfersBetweenMembers([sent, received], [checking, shared, other], ownerOf)).toEqual(new Set(["sent", "received"]));
   });
 
   it("a payment a rule made a transfer stays a leg, whatever text it has", () => {

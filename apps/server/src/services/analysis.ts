@@ -16,7 +16,6 @@ import {
   type BalanceInput,
   billCents,
   createContextPausing,
-  detectTransfers,
   balanceDayOf,
   dayNumber,
   isNone,
@@ -27,6 +26,7 @@ import {
   type Part,
   partCents,
   type RowShare,
+  transfersBetweenMembers,
   type UserInputs,
 } from "@banking/core";
 import { isCurrencyCode, isEuro } from "../connectors/balance-sign.ts";
@@ -473,10 +473,12 @@ function notAmong(own: readonly StoredAccount[]): (a: StoredAccount) => boolean 
 /**
  * Each owner's transactions are enriched on their own. Money between two members' accounts is a transfer in both
  * views by IBAN (`householdIbans`), so this pass only catches the legs that name no IBAN and are paired by amount and
- * day. In the household view both legs are internal: mark them as transfers (in memory only, nothing is written back).
+ * day, and the money in that follows a payment to another member's account, which the bank gives no payer account on.
+ * In the household view both legs are internal: mark them as transfers (in memory only, nothing is written back).
  */
-function neutraliseTransfersBetweenMembers(txs: readonly StoredTransaction[], accounts: Account[]): StoredTransaction[] {
-  // the issuer fallback would let a member's card make my unconnected card's bill disappear
-  const transfers = detectTransfers(txs, accounts, { issuerFallback: false });
+function neutraliseTransfersBetweenMembers(txs: readonly StoredTransaction[], accounts: readonly ScopeAccount[]): StoredTransaction[] {
+  // no issuer fallback: it would let a member's card make my unconnected card's bill disappear
+  const owners = new Map(accounts.map((a) => [a.id, a.userId]));
+  const transfers = transfersBetweenMembers(txs, accounts, (accountId) => owners.get(accountId) ?? "");
   return txs.map((t): StoredTransaction => (transfers.has(t.id) && !t.isTransfer ? { ...t, isTransfer: true, category: "transfer" } : t));
 }

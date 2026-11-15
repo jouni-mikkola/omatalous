@@ -299,6 +299,15 @@ export function householdAllocations<T extends TransferInput>(txs: readonly T[],
   return { allocations, between };
 }
 
+/**
+ * The rows of the household view that are money between the members' accounts: what pairing finds over all rows, and the
+ * pairs `householdAllocations` finds, which includes a payment to another member's account whose money in the bank gives
+ * no payer account on.
+ */
+export function transfersBetweenMembers<T extends TransferInput>(txs: readonly T[], accounts: readonly Account[], ownerOf: (accountId: string) => string): Set<string> {
+  return new Set([...transferAllocations(txs, accounts).transfers, ...householdAllocations(txs, accounts, ownerOf).allocations.keys()]);
+}
+
 /** How far apart in days a payment and the card's own row of the same sum may be. */
 const CARD_LEG_DAYS = 3;
 

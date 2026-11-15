@@ -11,7 +11,7 @@ import { normalizeIban } from "../../packages/core/src/iban.ts";
 import { fold, normalizeMerchant } from "../../packages/core/src/merchant.ts";
 import { userNameOf } from "../../packages/core/src/person-names.ts";
 import { enrichTransactions } from "../../packages/core/src/pipeline.ts";
-import { detectTransfers } from "../../packages/core/src/transfers.ts";
+import { transfersBetweenMembers } from "../../packages/core/src/pairing.ts";
 import { type Account, type AccountUse, type BalanceInput, type CategoryRule, type IsoDate, NO_INPUTS, type Part, type Transaction, type UserInputs } from "../../packages/core/src/types.ts";
 import { randomHistory } from "../../packages/core/test/gen.ts";
 
@@ -156,7 +156,7 @@ export function viewsOf(h: Household): HouseholdView[] {
     ),
   );
   const all = byDateAndId([...rows]);
-  const paired = detectTransfers(all, h.accounts, { issuerFallback: false });
+  const paired = transfersBetweenMembers(all, h.accounts, (accountId) => owners.get(accountId) ?? "");
   const household = all.map((t): Transaction => (paired.has(t.id) && !t.isTransfer && t.categorySource !== "user" ? { ...t, isTransfer: true, category: "transfer" } : t));
   const useMembers: UseMember[] = members.map((m) => ({ id: m.id, label: m.label, name: userNameOf(h.accounts.filter((a) => m.accountIds.includes(a.id))) }));
   const useOf = (s: SharedAccount): AccountUse => {
