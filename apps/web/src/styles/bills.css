@@ -87,31 +87,31 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* the bars: a day is a column, a payment a piece of it, the height is the euros */
 .pb { display: grid; grid-template-columns: minmax(0, 1fr) auto; margin-block-start: var(--sp-24); }
 .pb-flag { grid-column: 1 / -1; margin: 0 0 var(--sp-4); text-align: end; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--good); }
-.pb-plot { position: relative; block-size: 120px; border-block-end: 1px solid var(--axis); }
+.pb-plot { position: relative; block-size: 6.5rem; border-block-end: 1px solid var(--axis); }
 .pb-grid { position: absolute; inset-inline: 0; block-size: 0; border-block-start: 1px solid var(--border); }
 .pb-cols { position: absolute; inset: 0; display: grid; margin: 0; padding: 0; list-style: none; }
 .pb-col { display: flex; flex-direction: column-reverse; justify-content: flex-start; align-items: stretch; min-inline-size: 0; padding-inline: 12%; border-inline-start: 1px solid transparent; }
 .pb-col[data-weekend] { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
-.pb-col[data-payday] { border-inline-start-color: var(--good); border-inline-start-width: 2px; background: none; }
-.pb-piece { display: block; flex: none; min-block-size: 2px; background: var(--series-1); box-shadow: 0 -1px 0 var(--surface); }
-.pb-piece[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 2px var(--series-1); }
-.pb-piece[data-on] { outline: 2px solid var(--text); outline-offset: 1px; }
+.pb-col[data-payday] { border-inline-start-color: var(--good); border-inline-start-width: 0.15em; background: none; }
+.pb-piece { display: block; flex: none; min-block-size: 0.15em; background: var(--series-1); box-shadow: 0 -1px 0 var(--surface); }
+.pb-piece[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 0.15em var(--series-1); }
+.pb-piece[data-on] { outline: 0.15em solid var(--text); outline-offset: 1px; }
 .pb.has-on .pb-piece:not([data-on]) { opacity: 0.45; }
 .pb-scale { position: relative; inline-size: 4.5rem; margin-inline-start: var(--sp-8); }
 .pb-scale span { position: absolute; inset-inline-start: 0; transform: translateY(50%); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .pb-axis { grid-column: 1; display: grid; margin: 0; padding: 0; list-style: none; }
-.pb-axis li { min-block-size: 2.5rem; padding-block-start: var(--sp-4); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pb-axis li { min-block-size: 2rem; padding-block-start: var(--sp-4); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .pb-axis li:last-child { text-align: end; }
 .pb-axis li[data-payday] { color: var(--good); font-weight: var(--w-strong); }
 .pb-axis span { display: block; }
 .bp-legend { margin-block: var(--sp-8) 0; }
-.pb-key { inline-size: 10px; block-size: 10px; display: inline-block; flex: none; background: var(--series-1); }
-.pb-key[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 2px var(--series-1); }
-.pb-key-pay { inline-size: 2px; block-size: 12px; background: var(--good); }
+.pb-key { inline-size: 0.625rem; block-size: 0.625rem; display: inline-block; flex: none; background: var(--series-1); }
+.pb-key[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 0.15em var(--series-1); }
+.pb-key-pay { inline-size: 0.15em; block-size: var(--sp-12); background: var(--good); }
 
 /* the rows: the day on its first row, the payee, the sum */
 .before-payday .bp-rows { list-style: none; margin: var(--sp-16) 0 0; padding: 0; }
-.before-payday .bp-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: var(--sp-8); padding-block: var(--sp-8); min-block-size: var(--tap-min); align-items: baseline; }
+.before-payday .bp-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: var(--sp-8); padding-block: var(--sp-4); align-items: baseline; }
 .before-payday .bp-row[data-first] { border-block-start: 1px solid var(--border); }
 .before-payday .bp-row:first-child { border-block-start: 0; }
 .before-payday .bp-date { color: var(--text-2); font-variant-numeric: tabular-nums; }
