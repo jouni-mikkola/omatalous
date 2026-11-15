@@ -3,6 +3,38 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.4.0
+
+- Käytettävissä palkkapäivään deducts the full card debt, so the figure shows what is really left.
+- Accounts and cards are grouped by bank on the first page and in Tilit ja saldot.
+- Income, spending, bills and debt have one colour each in every chart and table bar.
+- The month's total is compared with its usual level, and its end is estimated.
+- Built-in backups, remote access through Cloudflare and notices outside the browser are removed.
+
+Money and reports
+
+- The Kuukausi report is removed. Its figures are in Yhteenveto, Rahankäyttö and Tulot, and old links to it open Yhteenveto.
+- The month's total is compared with its usual level, and its end is estimated, also when a card's earlier purchases are only bills.
+
+Look
+
+- Income, spending, bills and debt have one colour each in charts and table bars.
+
+Maintenance
+
+- The maintenance helper accepts a log size limit in the compose file, and a rollback reads the database read-only.
+- The app no longer makes backups: no daily copy, no copy to a NAS or another machine, no restore from the page. Back up the data folder yourself, see docs/ADVANCED.md.
+- A damaged database is left as it is: the app answers with a notice and writes nothing, and you put back your own copy.
+- The copies before an update, a migration, a reset or a secret rotation stay, and `./scripts/update.sh --rollback` works as before.
+- Notices outside the browser (ntfy or a webhook) are gone. The notices in the app stay, and so do the disk and helper checks.
+- Remote access through Cloudflare is gone. Reach the app on the home network, through a VPN or on your own domain with Caddy.
+
+Upgrade
+
+- Settings of the removed backups are deleted on the first start. `scripts/backup.sh`, `scripts/restore.sh`, `BACKUP_*` in `.env` and a cron line of `backup.sh --schedule` do nothing now: remove the cron line and keep your own backup of the data folder.
+- The saved notice address and token are deleted on the first start.
+- The saved Cloudflare token and the old remote access settings are deleted on the first start. Remove a leftover `cloudflared` container with `docker compose up -d --remove-orphans`.
+
 ## 1.3.0
 
 - Kuukausi shows the same income as the first page, and the usual month leaves out large one-off purchases.
