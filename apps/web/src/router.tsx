@@ -149,8 +149,9 @@ export const router = createRouter({
   defaultPendingMinMs: 0,
   defaultPendingComponent: () => <Loading />,
   // a page's chunk that cannot be fetched (offline, or replaced by an upgrade) asks for a reload. The text of an exception is
-  // not shown (docs/UI_STYLE.md): only the server's own sentence (an ApiError) is, anything else reads as the catalogue's
-  defaultErrorComponent: ({ error }) => <ErrorCard message={error instanceof ApiError ? error.message : t("app.request_failed")} onRetry={() => window.location.reload()} />,
+  // not shown (docs/UI_STYLE.md): only the server's own sentence (an ApiError) is, anything else (a render error, a chunk that
+  // is gone) reads as the catalogue's general failure
+  defaultErrorComponent: ({ error }) => <ErrorCard message={error instanceof ApiError ? error.message : t("app.error")} onRetry={() => window.location.reload()} />,
   defaultNotFoundComponent: () => <Navigate to="/overview" replace />,
   scrollRestoration: false,
 });

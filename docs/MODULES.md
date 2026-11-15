@@ -197,9 +197,10 @@ interface WebModuleHost {
 under `apps/web/src` without the extension: `api`, `hooks`, `format`, `routes`, `types`, `css`, `design/tokens`,
 `charts/Axes`, `charts/CalendarHeat`, `charts/draw`, `charts/kit/Readout`,
 `charts/kit/marks`, `charts/scale`, `components/ErrorCard`, `components/Figure`,
-`components/Loading`, `components/More`, `components/Section`, `components/table/Cells`,
+`components/Loading`, `components/More`, `components/Section`, `components/Why` (`approxText`, `BasisDoor`, `Estimate`), `components/table/Cells`,
 `components/table/KeyValue`, `components/table/Table`, `components/table/selection`, `components/ui/Button`,
-`components/ui/Notice` (`apps/web/src/module-host.ts`). A shared stylesheet the module needs is copied into its `web.css`;
+`components/ui/Notice` (`apps/web/src/module-host.ts`). The keys and export names are frozen per `apiVersion` in
+`contracts/<version>/module-host.json`: a release may add to them and removes none without a higher `apiVersion`. A shared stylesheet the module needs is copied into its `web.css`;
 stylesheets hold no state.
 
 ### Where the host draws it
