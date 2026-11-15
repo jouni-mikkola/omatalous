@@ -1,11 +1,12 @@
-import { fold, isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
-import { type ReactNode, useSyncExternalStore } from "react";
+import { isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
+import { useSyncExternalStore } from "react";
 import { date, dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
 import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
 import { saveCsv, tableCsv } from "../components/table/csv.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { type Column, Table, type TableView } from "../components/table/Table.tsx";
+import { LONG_LIST_ROWS } from "../components/table/view.ts";
 import { type Fact, KeyValue } from "../components/table/KeyValue.tsx";
 import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
@@ -80,16 +81,6 @@ const wholeOfRow = (t: ListedRow): string | null => (t.partCents === undefined |
 /** Money in wears its plus, as on the row's figure. */
 const signed = (cents: number): string => (cents > 0 ? `+${money(cents)}` : money(cents));
 
-/**
- * The bank's own text of a row (its payee and message), cut to what the payee's name does not already say: a part that
- * is the name in other letters ("ESIMERKKI OY" under "Esimerkki Oy") is left out. null when nothing is left.
- */
-const bankText = (t: ListedRow): string | null => {
-  const name = fold(t.merchant.trim());
-  const parts = [t.counterparty, t.description].map((s) => s?.trim()).filter((s): s is string => !!s && fold(s) !== name);
-  return parts.length ? parts.join(" · ") : null;
-};
-
 const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
 const isPerson = (t: ListedRow): boolean => t.category === "p2p" || t.category === "p2p_in";
 
@@ -149,9 +140,8 @@ function Part({ t }: { t: ListedRow }) {
 /** The payee's name as the reader sees it: a row with no payee is stored under one fixed word, shown in the reader's language. */
 const nameOf = (t: Pick<ListedRow, "merchant">): string => (t.merchant === UNKNOWN_MERCHANT ? msg("tx.unknown_merchant") : t.merchant);
 
-/** The payee's mark and name, the quiet tags and an add-on's mark; the bank's own text is the line under them. */
+/** The payee's mark and name, the quiet tags and an add-on's mark. What the bank wrote is in the opened row (`rowFacts`), not on every closed one. */
 function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
-  const text = bankText(t);
   return (
     <span className="tx-who">
       <span className="tx-line">
@@ -160,11 +150,6 @@ function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explaine
         <Tags t={t} explained={explained} />
         <ExtensionRowParts row={t} mark />
       </span>
-      {text && (
-        <span className="sub tx-text" title={text}>
-          {text}
-        </span>
-      )}
     </span>
   );
 }
@@ -278,7 +263,7 @@ function Detail({ t, categories, pending, onCategory, onStatement, explained, no
   );
 }
 
-/** The toolbar's chips: rows the reader or the bank has marked. The table counts them in the rows it has. */
+/** The marks the filter menu names (Käsin luokitellut, Varaukset): rows the reader or the bank has marked. The table narrows the rows it has by them. */
 export const rowChips = () => [
   { key: "manual", label: msg("row.chip_manual"), test: (t: ListedRow) => t.categorySource === "user" },
   { key: "pending", label: msg("row.chip_pending"), test: (t: ListedRow) => t.status === "pending" },
@@ -301,15 +286,17 @@ function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents"> | undefine
  * server sends them. The toolbar's grouping puts the same rows under their payee instead, whose row says the payee's sums
  * (the server's too). An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, whole = true, total, allRows, severalAccounts, today, daySums, payeeSums, rowProps, scope, open, onOpen, view, onView, filters, searchLabel }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list offers every chip (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; /** The rows the filter has in all, the server's count: "Kaikki" of a page of a longer list says it. */ total?: number; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; /** Each payee's sums for the grouping by payee; a payee with none has its count only. */ payeeSums?: Map<string, PayeeSum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void; filters: ReactNode; searchLabel: string }) {
+export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, payeeSums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; /** Each payee's sums for the grouping by payee; a payee with none has its count only. */ payeeSums?: Map<string, PayeeSum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
   const days = byDay(items);
+  // the page's bar has no note of its own, so a mark none of the rows has says so under the empty list
+  const chosen = rowChips().find((c) => c.key === view.chip);
+  const noMatch = !!chosen && !items.some(chosen.test);
   const accountClass = severalAccounts && oneBankLogo(items.map((t) => rowProps(t).look)) ? "tx-account tx-one-bank" : "tx-account";
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => accountClass, headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
-    // a chip is for a mark some row has: "Varaukset 0" filters to nothing. The chosen one stays: a page of a longer list
-    // offers every chip, and a table without the chosen one would drop the filter and show every row under it
-    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips().filter((c) => !whole || c.key === view.chip || items.some(c.test)), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
+    // the marks Suodata names narrow the rows (view.chip); one no row has filters to nothing and the list says so
+    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips(), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {
       key: "amount",
       label: msg("table.amount"),
@@ -327,7 +314,8 @@ export function TxTable({ items, whole = true, total, allRows, severalAccounts, 
   const caption = msg("row.transactions");
   // the file of a paged list: every row of the filter by its day, as the table's own file of a whole list has them
   const saveAll = async () => {
-    const rows = await allRows?.();
+    const mark = rowChips().find((c) => c.key === view.chip);
+    const rows = whole ? (mark ? items.filter(mark.test) : items) : await allRows?.();
     if (rows) saveCsv(caption, tableCsv(columns, rows, byDay(rows).map((d) => ({ key: d.day, title: d.day, rows: d.items }))));
   };
   return (
@@ -359,20 +347,25 @@ export function TxTable({ items, whole = true, total, allRows, severalAccounts, 
         const sum = view.chip ? undefined : payeeSums?.get(sec.rows[0]!.merchant);
         return sum ? { figure: <DaySums sum={sum} />, span: 2 } : null;
       }}
+      // on a phone the whole row opens it (the chevron stays as the keyboard's and the screen reader's control); a control in the row keeps its own click
+      rowProps={(t) => ({
+        onClick: (e) => {
+          if (!window.matchMedia(PHONE).matches || (e.target as HTMLElement).closest("a, button, input, select, [role=menuitem]")) return;
+          onOpen(open === t.id ? null : t.id);
+        },
+      })}
       open={open}
       onOpen={onOpen}
       drill={(t) => <Detail {...rowProps(t)} scope={scope} />}
       drillLabel={(r) => msg("row.open_months", { name: nameOf(r) })}
-      csv={whole}
+      // the page's own bar (TxBar) holds the search and the filters; the server searches, so the table does not
+      toolbar={false}
       rowsSearched
-      searchLabel={searchLabel}
-      toolbarExtra={filters}
-      listTotal={whole ? undefined : total}
-      allUncounted={!view?.chip}
       view={view}
       onView={onView}
     />
-    {!whole && allRows && (
+    {noMatch && <p className="tx-no-match">{msg("table.no_match")}</p>}
+    {(whole ? items.length > LONG_LIST_ROWS : !!allRows && items.length > 0) && (
       <p className="rt-csv">
         <Button variant="link" onClick={() => void saveAll()}>
           {msg("table.csv")}

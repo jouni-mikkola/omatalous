@@ -11,10 +11,11 @@ import { Merchants } from "./Merchants.tsx";
 import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, type PayeeSum, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { periodOf } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
-import { type Filters, FilterChips } from "./transactions/FilterChips.tsx";
+import type { Filters } from "./transactions/FilterChips.tsx";
 import { StripSkeleton, type Totals, TotalsStrip } from "./transactions/TotalsStrip.tsx";
+import { FilterShortcut, GroupChoice, TxBar } from "./transactions/TxBar.tsx";
 import "../styles/transactions.css";
-import { SEARCH_DELAY_MS } from "../components/FilterInputs.tsx";
+import "../styles/tx-bar.css";
 import type { TableView } from "../components/table/Table.tsx";
 import { loadTableParts } from "../components/table/use-markup.ts";
 import { Button } from "../components/ui/Button.tsx";
@@ -245,23 +246,19 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   // a payee on two pages has the same sums on both
   const payeeSums = useMemo(() => new Map([...(data?.merchantSums ?? []), ...(restOf?.merchantSums ?? [])].map((m) => [m.merchant, m])), [data, restOf]);
 
-  const set = (patch: Partial<Filters>) => open({ ...filters, ...patch });
-  // the search box shows what is typed at once; the address (and so the server) follows after a pause
-  const [draft, setDraft] = useState(filters.q);
-  const [seenQ, setSeenQ] = useState(filters.q);
-  if (seenQ !== filters.q) {
-    setSeenQ(filters.q);
-    setDraft(filters.q);
-  }
-  useEffect(() => {
-    if (draft.trim() === filters.q) return;
-    const timer = window.setTimeout(() => open({ ...filters, q: draft.trim() }), SEARCH_DELAY_MS);
-    return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filters is read from the render of this filterKey
-  }, [draft, filterKey]);
-  const view: TableView = { query: draft, chip: filters.chip || null, group: group ? MERCHANT_COLUMN : null, sort: null };
+  // a search being typed takes one place in the history: its first words open it, the rest of the typing replaces it
+  // (the box's pause), and leaving the box or Enter closes it, so the next search is a place of its own
+  const typing = useRef(false);
+  const set = (patch: Partial<Filters>) => {
+    typing.current = false;
+    open({ ...filters, ...patch });
+  };
+  const onSearch = (q: string, settled: boolean) => {
+    if (q !== filters.q) navigate("transactions", { ...filters, q, group }, false, typing.current);
+    typing.current = !settled;
+  };
+  const view: TableView = { query: "", chip: filters.chip || null, group: group ? MERCHANT_COLUMN : null, sort: null };
   const onView = (next: TableView) => {
-    setDraft(next.query);
     const grouped = next.group === MERCHANT_COLUMN ? GROUP_MERCHANT : "";
     if ((next.chip ?? "") !== filters.chip || grouped !== group) open({ ...filters, chip: next.chip ?? "" }, grouped);
   };
@@ -379,19 +376,24 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
           }}
         />
       )}
+      <TxBar
+        filters={filters}
+        categories={meta.categories}
+        accounts={accounts}
+        severalAccounts={accounts.length > 1}
+        looks={looks}
+        marks={rowChips().map(({ key, label }) => ({ key, label }))}
+        today={meta.today}
+        set={set}
+        clear={() => open()}
+        onSearch={onSearch}
+      />
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}
       {!data && !error && !filters.chip && <StripSkeleton />}
-      {/* a chip narrows the rows in the browser, so the server's sums would be of rows the list does not show */}
+      {/* a mark narrows the rows in the browser, so the server's sums would be of rows the list does not show */}
       {data && data.total > 0 && !filters.chip && (
         <div className="tx-totals-wrap">
-          <TotalsStrip
-            totals={data}
-            income={filters.kind === "income"}
-            merchant={filters.merchant}
-            whole={!filters.from && !filters.to}
-            today={meta.today}
-            onPick={(p) => set(p)}
-          />
+          <TotalsStrip totals={data} income={filters.kind === "income"} today={meta.today} onPick={(p) => set(p)} />
         </div>
       )}
 
@@ -442,8 +444,13 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               </Notice>
             )}
           </div>
+          {data && data.items.length > 0 && (
+            <div className="tx-view-line">
+              <GroupChoice group={group ? "merchant" : "day"} onGroup={(g) => open(filters, g === "merchant" ? GROUP_MERCHANT : "")} />
+            </div>
+          )}
           <div>
-            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} total={data.total} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} payeeSums={payeeSums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} searchLabel={t("tx.search")} filters={<FilterChips filters={filters} severalAccounts={accounts.length > 1} categories={meta.categories} accounts={accounts} looks={looks} today={meta.today} set={set} clear={() => open()} />} />}
+            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} payeeSums={payeeSums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {(!data || (!ready && data.items.length > 0)) && !error && <RowsSkeleton />}
             {data && !data.items.length && (
@@ -481,6 +488,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               )}
             </p>
           )}
+          <FilterShortcut />
         </section>
       )}
     </div>

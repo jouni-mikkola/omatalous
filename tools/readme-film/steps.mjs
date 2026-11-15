@@ -295,11 +295,17 @@ async function desk(/** @type {Film} */ film) {
   if (unsorted.read !== rows || unsorted.without) throw new Error(`Tapahtumat: ${unsorted.without} of ${unsorted.read} rows lack a payee or a category`);
   await film.say(`Tapahtumat: ${rows} transactions from ${englishDate(/** @type {string} */ (dates[1]))} to ${englishDate(/** @type {string} */ (dates[2]))}, each with a payee and a category.`);
   await film.shoot(1200);
-  const visible = page.locator("tbody tr").filter({ has: page.locator(".tx-text") });
+  // a closed row holds the payee, the category and the amount; the bank's text is in the API's rows and in the opened row
+  const bankText = await page.evaluate(async () => {
+    const res = await fetch("/api/transactions?limit=100");
+    const body = /** @type {{ items: { merchant?: string | null, description?: string | null, counterparty?: string | null }[] }} */ (await res.json());
+    return Object.fromEntries(body.items.map((t) => [t.merchant ?? "", t.description || t.counterparty || ""]));
+  });
+  const visible = page.locator("tbody tr").filter({ has: page.locator(".tx-name") });
   let picked = null;
   for (const row of await visible.all()) {
     const name = plain(await row.locator(".tx-name").textContent());
-    const text = plain(await row.locator(".tx-text").textContent());
+    const text = plain(bankText[name] ?? "");
     const category = plain(await row.locator(".tx-chip-label").textContent().catch(() => ""));
     const box = await row.boundingBox();
     if (!box || box.y + box.height > SIZE.page) break;

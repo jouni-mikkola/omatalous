@@ -8,7 +8,7 @@ const row = (over: Partial<ListedRow> = {}): ListedRow =>
   ({ id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other", ...over }) as ListedRow;
 const props = { categories: [], pending: null, onCategory: () => {}, account: "Yhteistili" };
 const list = (t: ListedRow, open = false) =>
-  renderToStaticMarkup(createElement(TxTable, { items: [t], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+  renderToStaticMarkup(createElement(TxTable, { items: [t], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
 // the list has one layout; the old phone and wide forms are both this one
 const phone = list;
 const wide = list;
@@ -27,6 +27,19 @@ describe("the link of a row whose payer is not told", () => {
       expect(phone(t)).not.toContain("Muuta:");
       expect(wide(t)).not.toContain("Valitse, kenen osuus");
     }
+  });
+});
+
+describe("what the bank wrote", () => {
+  const bank = row({ description: "VIESTI ERIKOINEN 123" });
+
+  it("is not on a closed row, which holds the payee and the amount", () => {
+    expect(list(bank)).not.toContain("VIESTI ERIKOINEN 123");
+    expect(list(bank)).toContain("ESIMERKKI OY");
+  });
+
+  it("is in the opened row", () => {
+    expect(list(bank, true)).toContain("VIESTI ERIKOINEN 123");
   });
 });
 
@@ -124,7 +137,7 @@ describe("the amount cell of a row", () => {
   it("is the sum and, on a joint row, the share part: nothing is drawn after them on a day of several rows", () => {
     // a day of two rows of different sizes, one of them joint: the smaller one had the bar against the day's largest
     const items = [row({ id: "big", amountCents: -60_000 }), row({ id: "small", amountCents: -15_000 }), row({ id: "joint", amountCents: -40_000, partCents: -20_000 }), row({ id: "in", amountCents: 5_000 })];
-    const html = renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+    const html = renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
     expect(figures(html, "tx-amount")).toEqual([-60_000, -15_000, -20_000, 5_000]);
     expect(amountCells(html)).toEqual([["tx-amount"], ["tx-amount"], ["tx-amount", "tx-part"], ["tx-amount in"]]);
   });
@@ -157,7 +170,7 @@ describe("the part of a joint account's row", () => {
     const items = [row({ id: "j", bookingDate: "2026-09-18", amountCents: -3_624, partCents: -2_174 }), row({ id: "o", accountId: "a/2", bookingDate: "2026-09-18", amountCents: -14_599 })];
     const daySums = new Map<string, DaySum>([["2026-09-18", { date: "2026-09-18", count: 2, inCents: 0, outCents: 16_773 }]]);
     const rowProps = (t: ListedRow) => ({ t, ...props });
-    const lists = [renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }))];
+    const lists = [renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }))];
     for (const html of lists) {
       expect(figures(html, "rt-sub")).toEqual([-16_773]);
       expect(figures(html, "tx-amount").reduce((a, b) => a + b, 0)).toBe(-16_773);
@@ -165,34 +178,31 @@ describe("the part of a joint account's row", () => {
   });
 });
 
-describe("the counts of the toolbar's chips", () => {
-  const chips = (whole: boolean, chip: string | null = null) => {
-    const items = [row({ id: "p", status: "pending" }), row({ id: "m", categorySource: "user" }), row({ id: "b" })];
-    const html = renderToStaticMarkup(createElement(TxTable, { items, whole, total: 796, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
-    return [...html.matchAll(/class="rtb-chip"[^>]*>(.*?)<\/button>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
+describe("the mark chosen in Suodata", () => {
+  const shown = (whole: boolean, chip: string | null = null) => {
+    const items = [row({ id: "p", merchant: "VARAUS OY", status: "pending" }), row({ id: "m", merchant: "KASIN OY", categorySource: "user" }), row({ id: "b", merchant: "PLAIN OY" })];
+    const html = renderToStaticMarkup(createElement(TxTable, { items, whole, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: null, sort: null }, onView: () => {} }));
+    return ["VARAUS OY", "KASIN OY", "PLAIN OY"].filter((name) => html.includes(name));
   };
 
-  it("on a page of a longer list: the head says the count, so Kaikki has no number, and neither has a chip, whose rows can be on another page", () => {
-    expect(chips(false)).toEqual(["Kaikki", "Käsin luokitellut", "Varaukset"]);
+  it("shows every row while no mark is chosen", () => {
+    expect(shown(true)).toEqual(["VARAUS OY", "KASIN OY", "PLAIN OY"]);
   });
 
-  it("on a whole list: the rows the table has, and Kaikki without a number while the head says it", () => {
-    expect(chips(true)).toEqual(["Kaikki", "Käsin luokitellut 1", "Varaukset 1"]);
+  it("narrows the rows the table has to the ones with the mark", () => {
+    expect(shown(true, "manual")).toEqual(["KASIN OY"]);
+    expect(shown(true, "pending")).toEqual(["VARAUS OY"]);
   });
 
-  it("under a chip the head is not there, so Kaikki says how many rows it would bring back", () => {
-    expect(chips(true, "manual")).toEqual(["Kaikki 3", "Käsin luokitellut 1", "Varaukset 1"]);
+  it("has no toolbar of its own, since the page's bar holds the choice", () => {
+    const html = renderToStaticMarkup(createElement(TxTable, { items: [row()], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
+    expect(html).not.toContain("rtb");
   });
 });
 
-describe("a chip that no row of the whole list has", () => {
-  // a page of a longer list offers every chip; the whole list behind the chip can then have no row with the mark
-  const html = renderToStaticMarkup(createElement(TxTable, { items: [row({ id: "b1" }), row({ id: "b2", merchant: "TOINEN OY" })], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: "pending", group: null, sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
-  const chips = [...html.matchAll(/class="rtb-chip"[^>]*>(.*?)<\/button>/g)].map((m) => m[1]!.replace(/<[^>]+>/g, ""));
-
-  it("stays chosen with its count of none, so the reader sees what the list is narrowed to and can leave it", () => {
-    expect(chips).toEqual(["Kaikki 2", "Varaukset 0"]);
-  });
+describe("a mark that no row of the whole list has", () => {
+  // a page of a longer list can be shown under a mark that none of its rows has
+  const html = renderToStaticMarkup(createElement(TxTable, { items: [row({ id: "b1" }), row({ id: "b2", merchant: "TOINEN OY" })], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: "pending", group: null, sort: null }, onView: () => {} }));
 
   it("narrows the list to no rows instead of showing every row", () => {
     expect(html).not.toContain("ESIMERKKI OY");
@@ -203,7 +213,7 @@ describe("a chip that no row of the whole list has", () => {
 
 describe("the list grouped by payee", () => {
   const grouped = (items: ListedRow[], payeeSums: Map<string, PayeeSum>, chip: string | null = null) =>
-    renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), payeeSums, rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: "who", sort: null }, onView: () => {}, filters: null, searchLabel: "Hae" }));
+    renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), payeeSums, rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: "who", sort: null }, onView: () => {} }));
   const heads = (html: string) => [...html.matchAll(/<tr class="rt-group">(.*?)<\/tr>/g)].map((m) => m[1]!);
 
   it("says in each payee's head what all its rows come to, the server's sums", () => {
