@@ -3,6 +3,95 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.5.0
+
+- Yhteenveto opens on the month: Tulot, Menot and Tulos, each with a bar and a comparison.
+- Laskut, Tapahtumat and Raportit are redesigned around charts and filters, with no explaining text.
+- Käytettävissä and Tulos count the same accounts, and money between household members is no longer income.
+- Havainnot are removed. The figures and charts show the same changes.
+- The page follows the browser's text size, and links and buttons are larger on a phone.
+
+Money and reports
+
+- Card bills without a breakdown are one row, named the same in every spending list.
+- Money moved between household members' accounts no longer counts as income or as a payment to a person.
+- A top-up of a joint account from another member's account no longer counts as income.
+- Tulot on Yhteenveto shows the same income for the month as Raportit > Tulot, with Ansiotulot under it when they differ. Tavalliset tulot stay on Raportit > Tulot.
+- Tavalliset tulot read the same complete months as the income report, so a credit card linked in a recent month no longer hides them.
+- Removed: the picked-out findings (Havainnot), the list of notable findings on the first page and the card cost figure. The figures and charts show the same changes.
+- Money in from another member of the household that nothing explained is asked in Tarkistettavat.
+- Käytettävissä now includes your part of the joint account, the same accounts Tulos counts.
+- A loan paid from a savings account counts once, as saving. Menot, the month's curve, the usual month's line and the spending goal on the first page leave it out, and Tulos is no longer lowered twice. Spending by category still shows it as Säästöistä maksettu.
+- A card paid only from accounts that Käytettävissä does not count no longer lowers it by its debt.
+- The rule named for a row is the one that gives the row its category, also when an earlier rule of your own would keep the row in another one.
+- A payment in with no group of payments to match stays income until the household answers.
+- A rule for a payee reads the money paid to it, so benefits from the same payee stay income.
+- A business paid through MobilePay counts as a business with or without the app's name in front.
+- A card payment older than one statement gap no longer counts as an unshown payment.
+- Cards whose paying account is not connected show in Tarkistettavat as one notice, which returns only when another such card appears.
+- Käytettävissä keeps taking a card's debt off whole when its payer is unclear, even when the debt is larger than the money.
+- The data quality list says which balance no row can check, and why.
+
+Look
+
+- The page follows the browser's text size setting.
+- Laskut opens with the next payment, then the payments before payday as daily bars and as three figures with the balance and what is left, then the rows by day.
+- Add bill is a secondary action in the heading of Laskut. Laskut links once to Raportit > Kiinteät menot instead of repeating the fixed costs.
+- Before the bank service is set up, the empty start offers its set-up instead of a bank connection.
+- The first-run list names the set-up of the bank service as its own step, shown only while it is undone.
+- The password forms carry a hidden user name field, so password managers save the right login.
+- Asetukset > Pankit ja tilit shows one line for the consent that ends first, with one calendar reminder.
+- Yhteenveto opens on the month: Tulot, Menot and Tulos in that order, Tulos the largest, each with a bar and a comparison with the same day of last month or the usual level.
+- The bars of Tulot, Menot and Tulos share one scale, and a negative Tulos fills from the other end of its bar.
+- Yhteenveto shows where the month's income went as one bar, split into spending, debt payments, savings and what is left.
+- Käytettävissä palkkapäivään moves to Tulevat laskut, next to the bills it is counted from.
+- Laskut keeps the weekend shading on a payday that falls on a weekend.
+- Reports opens with three questions: Spending, Money and debts, and Shared spending. On a phone they stand open as a list.
+- Spending and Income open with a chart of the months and the usual level. Spending then shows a bar for each category, with the newest month against the usual one.
+- Income and Fixed costs are reports under Spending. Fixed costs show their share of income as a bar.
+- Joint expenses show what each member paid beside their share as bars.
+- The balance line of Accounts and balances stops where the balance is unknown and marks a single known day with a dot.
+- Tapahtumat starts with the search and the period, and one Suodata button holds the other limits.
+- Each limit stands as a named chip with an x; Tyhjennä rajaukset takes them all off.
+- One line gives the count and the sums of the limited rows, with a histogram of money out or in under it.
+- A closed row shows the payee, the category, the account and the amount; the bank's text is in the opened row.
+- Grouping is a choice of Päivittäin or Kauppiaittain above the list.
+- Typing in the search no longer adds a step to the browser history for each pause.
+- On a phone the whole row opens it, and Suodata stays within reach while the list scrolls.
+- Links, buttons, sort headings, summaries and checkboxes are larger to hit on a phone, and the small digits of a figure are readable.
+- The tab title names the open report page and the open section of Asetukset.
+- The month chart prints short month names, the year under January and hatches a month that is not whole.
+- Tarkistettavat leaves the header once nothing is open.
+- The author and donation links moved from the page foot to the software information of Asetukset > Palvelin ja ylläpito.
+- A difference under a euro keeps its cents instead of showing as zero.
+- The app opens on plain http, also behind a proxy that says the request came over http.
+
+Reliability
+
+- Setting aside the notice about cards with no seen payer works also for many cards, and an earlier dismissal still counts.
+
+Maintenance
+
+- Container logs rotate: at most three files of 10 MB for each service.
+- The doctor no longer says the machine has lost its address when the same run finds that address responding.
+- Two redundant transaction indexes and an unused table are dropped, so a sync writes less.
+- The last update shown in Asetukset > Palvelin ja ylläpito also covers an update made by hand on the host.
+- Asetukset > Palvelin ja ylläpito no longer says "Ajan tasalla" while changes wait, and marks a system check made before an update.
+- The system check, logs and other operator cards are behind "Näytä tekniset tiedot". A finding of the check and each servicing action that failed stay in view.
+- The servicing actions are one list.
+
+For developers
+
+- The check for one way to categorize a row also finds a re-export, a call through a property and a whole namespace.
+- The touch target audit exempts a link only when it sits inline in a sentence.
+- Every figure of the registry needs its row in docs/MONEY_FLOWS.md, and additive figures are tested to add up from the members to the household.
+- Tests generate households of one to four members and check that the figures keep money whole.
+- The list of mortgage banks is data in `wordlists.json`, and a test holds it against the banks the app can connect.
+
+Upgrade
+
+- Migration 0031 drops the table view_opens and two indexes of transactions on the first start, after the usual copy. A rollback restores that copy.
+
 ## 1.4.0
 
 - Käytettävissä palkkapäivään deducts the full card debt, so the figure shows what is really left.
