@@ -116,7 +116,9 @@ export interface UpgradeResult {
  * The page's last update is read from the requests it made. An update done by hand on the host leaves none, so the
  * first start of the new build adds one, worded as the helper words its own ("Päivitetty: a → b."). It is added only
  * where an earlier build ran (`previousBuild`), and only when the newest successful update does not already end in
- * this version, which is the case after one the page made.
+ * this version, which is the case after one the page made. An update of the page that is still queued or running is
+ * not ended yet: the helper reports it after this build is healthy, and that report is the row's own result.
+ * Nothing is added then.
  */
 async function recordHandUpdate(s: Services, previousBuild: string | null, buildId: string): Promise<void> {
   if (previousBuild === null) return;
@@ -217,8 +219,10 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
       result.users++;
       await s.settings.set(`${BUILD_KEY}:${user.id}`, buildId);
     }
-    await s.settings.set(BUILD_KEY, buildId);
+    // before the build is stored: a stop between the two leaves the build unrecorded, so the next start tries again,
+    // and the check in the statement keeps that second try from adding the row twice
     await recordHandUpdate(s, previousBuild, buildId);
+    await s.settings.set(BUILD_KEY, buildId);
     result.bankCodes = result.steps.bankCodes ?? 0;
     result.loanBalances = result.steps.loanBalances ?? 0;
     return result;

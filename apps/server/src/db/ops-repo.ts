@@ -66,13 +66,15 @@ export class OpsRepo {
   /**
    * Records an update made outside the page (by hand on the host) as a finished `update` row with no requester, so that
    * the last update the page shows is the one that runs. One statement, so two processes starting together add one row:
-   * nothing is added when the newest successful update already names `summaryEnd`.
+   * nothing is added when the newest successful update already names `summaryEnd`, or while an `update` request is
+   * queued or running. The new build starts before the helper reports the page's update, which finishes its own row.
    */
   async recordUpdateOnce(r: { id: string; at: string; summary: string; summaryEnd: string }): Promise<boolean> {
     const res = await this.db.run(
       `INSERT INTO ops_requests (id, action, params, status, requested_by, requested_at, finished_at, summary)
        SELECT ?, 'update', '{}', 'ok', '', ?, ?, ?
-       WHERE NOT COALESCE((SELECT substr(summary, -length(?)) = ? FROM ops_requests WHERE action = 'update' AND status = 'ok' ORDER BY rowid DESC LIMIT 1), 0)`,
+       WHERE NOT COALESCE((SELECT substr(summary, -length(?)) = ? FROM ops_requests WHERE action = 'update' AND status = 'ok' ORDER BY rowid DESC LIMIT 1), 0)
+         AND NOT EXISTS (SELECT 1 FROM ops_requests WHERE action = 'update' AND status IN ('queued', 'running'))`,
       [r.id, r.at, r.at, r.summary, r.summaryEnd, r.summaryEnd],
     );
     return res.changes > 0;

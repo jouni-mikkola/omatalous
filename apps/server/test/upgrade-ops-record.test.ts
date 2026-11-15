@@ -37,6 +37,31 @@ describe("the last update after one made by hand", () => {
     expect(await updates(s)).toEqual([{ summary: "Päivitetty: 1.4.0 → 1.5.0.", requestedBy: adminId }]);
   });
 
+  it("writes nothing while the update of the page is claimed and not yet reported, and its report is the last update", async () => {
+    const { s, adminId } = await setupApp();
+    await runUpgradeTasks(s, "1.4.0+a");
+    expect(await s.ops.insert({ id: "op_page", action: "update", requestedBy: adminId, at: "2026-10-09T09:00:00.000Z" })).toBe(true);
+    expect(await s.ops.claim("op_page", "2026-10-09T09:00:05.000Z")).toBe(true);
+    // the new build starts while the helper still waits for it to answer
+    await runUpgradeTasks(s, "1.5.0+b");
+    expect((await s.ops.recent(20)).filter((r) => r.action === "update")).toHaveLength(1);
+    expect(await s.ops.finish("op_page", { status: "ok", at: "2026-10-09T09:05:00.000Z", summary: "Päivitetty: 1.4.0 → 1.5.0." })).toBe(true);
+    expect(await updates(s)).toEqual([{ summary: "Päivitetty: 1.4.0 → 1.5.0.", requestedBy: adminId }]);
+  });
+
+  it("adds no row when the update of the page then ends as a rollback", async () => {
+    const { s, adminId } = await setupApp();
+    await runUpgradeTasks(s, "1.4.0+a");
+    expect(await s.ops.insert({ id: "op_page", action: "update", requestedBy: adminId, at: "2026-10-09T09:00:00.000Z" })).toBe(true);
+    expect(await s.ops.claim("op_page", "2026-10-09T09:00:05.000Z")).toBe(true);
+    await runUpgradeTasks(s, "1.5.0+b");
+    expect(await s.ops.finish("op_page", { status: "failed", at: "2026-10-09T09:05:00.000Z", summary: "Päivitys epäonnistui. Edellinen versio palautettiin." })).toBe(true);
+    expect(await updates(s)).toEqual([]);
+    const rows = (await s.ops.recent(20)).filter((r) => r.action === "update");
+    expect(rows.map((r) => [r.id, r.status])).toEqual([["op_page", "failed"]]);
+    expect((await s.ops.lastPerAction()).find((r) => r.action === "update")?.summary).toBe("Päivitys epäonnistui. Edellinen versio palautettiin.");
+  });
+
   it("writes one for a later version after an earlier update", async () => {
     const { s, adminId } = await setupApp();
     await runUpgradeTasks(s, "1.4.0+a");
