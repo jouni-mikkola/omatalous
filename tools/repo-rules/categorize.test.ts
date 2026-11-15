@@ -2,7 +2,8 @@ import ts from "typescript6";
 import { describe, expect, it } from "vitest";
 import { directCategorizeUses } from "./categorize.ts";
 
-const run = (src: string) => directCategorizeUses(ts.createSourceFile("x.ts", src, ts.ScriptTarget.ES2022, true)).map((u) => u.line);
+// no parent pointers, as `parse` in lib.ts reads a file
+const run = (src: string) => directCategorizeUses(ts.createSourceFile("x.ts", src, ts.ScriptTarget.ES2022, false)).map((u) => u.line);
 
 describe("rule 51 detection", () => {
   it("finds a bare call, an import under any alias and a destructuring of the name", () => {
@@ -26,9 +27,11 @@ describe("rule 51 detection", () => {
     expect(run('import * as cat from "./categorize.ts";\nconst all = cat;')).toEqual([2]);
   });
 
-  it("accepts the whole namespace spread with categorize replaced", () => {
-    expect(run('import * as core from "@banking/core";\nconst m = { ...core, categorize: core.categorizeInDirection };')).toEqual([]);
-    expect(run('import * as core from "@banking/core";\nconst m = { categorize, ...core };')).toEqual([2]);
+  it("accepts the whole namespace only through moduleApiOf", () => {
+    expect(run('import * as core from "@banking/core";\nconst m = core.moduleApiOf(core);')).toEqual([]);
+    expect(run('import * as core from "@banking/core";\nconst m = moduleApiOf(core);')).toEqual([]);
+    expect(run('import * as core from "@banking/core";\nconst m = other(core);')).toEqual([2]);
+    expect(run('import * as core from "@banking/core";\nconst m = moduleApiOf({ ...core });')).toEqual([2]);
   });
 
   it("leaves other names, members of core and unrelated namespaces alone", () => {
