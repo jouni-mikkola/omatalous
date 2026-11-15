@@ -42,7 +42,7 @@ describe("a pending row with no text", () => {
   });
 
   it("is a hold only while it is pending: a booked row with no text stays in Muut menot", () => {
-    const [t] = sorted([row("booked", -23.5, null)]);
-    expect(t!.category).toBe("other");
+    // the run returns only the rows it changed: a booked row with no text keeps "other" and is not among them
+    expect(sorted([row("booked", -23.5, null)])).toEqual([]);
   });
 });

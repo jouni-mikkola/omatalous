@@ -201,6 +201,7 @@ export const FI_BILLS = {
   "holdings.net_without_one": "{net} (ilman {count} lainaa)",
   "holdings.net_without_many": "{net} (ilman {count} lainaa)",
   "holdings.title": "Varat ja velat",
+  "holdings.add_balances": "Lisää lainojen saldot",
   "holdings.debts_total": "Velat yhteensä",
   "holdings.no_balance": "Lainoja, joiden saldo puuttuu",
   "holdings.add_balances_short": "Lisää saldot",
