@@ -21,9 +21,6 @@ async function administrator(browser: Browser): Promise<BrowserContext> {
   return context;
 }
 
-/** "238 €/kk" or "1 238 €": the whole euros of a sum as the page prints them. */
-const euros = (text: string) => Number(/(\d[\d\s]*)\s€/.exec(text)![1]!.replace(/\s/g, ""));
-
 test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi takes one out and the other stays, and an old mark on the merchant still covers both", async ({ browser }) => {
   const admin = await administrator(browser);
   const created = await admin.request.post("/api/users", { headers: FETCH, data: { username: "merkki", displayName: "Merkki" } });
@@ -54,7 +51,11 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     const stopped = subs.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "Merkitty lopetetuksi" });
     // a stopped subscription waits in the folded Päättyneet
     const unfold = () => subs.locator("details.sub-ended").evaluate((d: HTMLDetailsElement) => (d.open = true));
-    const total = async () => euros(await subs.locator(".card-head .card-datum").innerText());
+    // the month's fixed costs are the figure of Raportit > Kiinteät menot, read in whole euros as the report prints them
+    const total = async () => {
+      const answer = (await (await context.request.get("/api/reports?reports=fixedCosts&scope=own")).json()) as { fixedCosts: { monthlyCents: number } };
+      return Math.round(answer.fixedCosts.monthlyCents / 100);
+    };
     await expect(drill("0,99")).toHaveCount(1);
     await expect(drill("12,99")).toHaveCount(1);
     const before = await total();

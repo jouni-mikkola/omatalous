@@ -21,10 +21,13 @@ import { DeltaChip, MarkCell } from "../table/Cells.tsx";
 import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
-import { reportHref } from "../home/Tiles.tsx";
+import { hashOf } from "../../routes.ts";
 import { cadenceLabel } from "./BillForm.tsx";
 import { DrillRows } from "../table/DrillRows.tsx";
 import { hasOneKind, type Item, kindLabel, type TypedBill, wrongBillSubject } from "./items.ts";
+
+/** The report of the fixed costs a month, the one place their sum is shown. */
+const FIXED_REPORT_HREF = hashOf({ page: "reports", params: new URLSearchParams({ q: "kiinteat" }) });
 
 /** What one subscription row can do next to the mark it already has. */
 export interface MarkControls {
@@ -184,7 +187,7 @@ export function BillsTable({
         </div>
         {/* the tool cell: a phone puts it under the name on its own row */}
         <div className="card-tool">
-          <Button variant="link" href={reportHref("kiinteat")}>
+          <Button variant="link" href={FIXED_REPORT_HREF}>
             {t("bills.fixed_report")}
           </Button>
         </div>

@@ -10,7 +10,7 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const PAGES = [
   { route: "/#/overview", name: "Yhteenveto", doors: false },
-  { route: "/#/bills", name: "Laskut", doors: true },
+  { route: "/#/bills", name: "Laskut", doors: false },
 ];
 
 /** The words of a link to a basis, as apps/web/test/why.test.ts refuses them. */
