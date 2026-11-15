@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { proposalsFor, requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
@@ -11,7 +11,7 @@ import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
-import { memberMoneyItems } from "./review-members.ts";
+import { memberMoneyItems, membersOf } from "./review-members.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
 type Asked = ReturnType<typeof buildQuestions>["items"][number];
@@ -232,13 +232,23 @@ const front: Source = async (s, userId) => {
   const repo = s.finance(userId);
   const [rules, industries, user] = await Promise.all([repo.listRules(), industryMap(repo), s.users.get(userId)]);
   const household = householdWords([user?.displayName, ...accounts.map((a) => a.holder)]);
-  return memoOn(ctx, "review:front", [today, inputs, rules, [...industries], [...household]], () => {
+  const members = await membersOf(s);
+  const memberArgs = members.map((m) => [m.id, m.name ? [...m.name] : null, [...m.ibans]]);
+  return memoOn(ctx, "review:front", [today, inputs, rules, [...industries], [...household], memberArgs], () => {
+    const byId = new Map(ctx.txs.map((t) => [t.id, t]));
     const picks = usedMost(ctx.txs, addDays(today, -365));
     const rank = payeeGuesser({ rows: ctx.txs, rules, industries, household });
     return questionsOf(ctx, today, inputs).flatMap((q): Sourced[] => {
       if (q.kind === "payer") {
         const { offMedianCents: _off, ...rest } = q;
-        return [{ ...rest, id: `payer:${q.key}` }];
+        // money from another member is never the viewer's own money at another bank, as the member's own question says too
+        const ofMember = q.rowIds.some((id) => {
+          const row = byId.get(id);
+          const member = row && memberOfRow(members, row, userId);
+          return !!member && member.id !== userId;
+        });
+        if (!ofMember) return [{ ...rest, id: `payer:${q.key}` }];
+        return [{ ...rest, id: `payer:${q.key}`, options: rest.options.filter((r) => r !== "own_money"), proposal: rest.proposal === "own_money" ? null : rest.proposal }];
       }
       if (q.kind === "loan" || q.kind === "plan") return [];
       const used = q.kind === "payee_in" ? picks.in : picks.out;
@@ -420,8 +430,10 @@ const rows: Source = async (s, userId) => {
   const { inputs } = await requestInputs(s, userId, accounts);
   const { payers } = inputs;
   const today = s.today();
-  return memoOn(ctx, "review:rows", [today, inputs], () => {
-    const asked = new Set(questionsOf(ctx, today, inputs).flatMap((q) => (q.kind === "payer" ? q.rowIds : [])));
+  // the rows a member's question asks of depend on the other members, so they are part of the memo's key
+  const ofMembers = (await memberMoneyItems(s, userId)).flatMap((item) => item.rowIds);
+  return memoOn(ctx, "review:rows", [today, inputs, ofMembers], () => {
+    const asked = new Set([...questionsOf(ctx, today, inputs).flatMap((q) => (q.kind === "payer" ? q.rowIds : [])), ...ofMembers]);
     const from = addDays(today, -364);
     const picks = usedMost(ctx.txs, addDays(today, -365));
     return ctx.txs.flatMap((t): Sourced[] => {

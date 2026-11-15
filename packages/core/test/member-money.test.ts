@@ -41,6 +41,14 @@ describe("memberMoney", () => {
     expect(found([{ counterparty: "Pekka Testaaja" }], [ME, PARTNER, twin])).toEqual([]);
   });
 
+  it("leaves a name alone unresolved while another member's accounts give no name", () => {
+    const nameless = member("nameless", null, ibanOf(7));
+    expect(found([{ counterparty: "Pekka Testaaja" }], [ME, PARTNER, nameless])).toEqual([]);
+    expect(found([{ counterparty: "Pekka T", counterpartyIban: PARTNERS }], [ME, PARTNER, nameless])).toEqual([[`iban:${PARTNERS}`, 5000, 1]]);
+    // the viewer's own accounts may give no name: that leaves no namesake
+    expect(found([{ counterparty: "Pekka Testaaja" }], [member("me", null, MINE), PARTNER])).toEqual([["name:PEKKA TESTAAJA", 5000, 1]]);
+  });
+
   it("takes the viewer's own name for no one else's", () => {
     const namesake = member("namesake", "Aino Esimerkki", ibanOf(8));
     expect(found([{ counterparty: "Aino Esimerkki" }], [ME, namesake])).toEqual([]);

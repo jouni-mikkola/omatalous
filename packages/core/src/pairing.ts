@@ -447,47 +447,6 @@ export function moveAllocations(order: readonly TraceRow[], days: number): Map<s
   return allocations;
 }
 
-/** The most a transfer's fee may be: a bank's price for a transfer is cents, and a larger difference is some other money. */
-export const MAX_TRANSFER_FEE_CENTS = 1000;
-
-/**
- * The two legs of a transfer between two accounts of the household where the bank took a fee from the sending account,
- * so the receiving leg is smaller by it: each names the other, and the sending leg's `cents` less its `partnerCents`
- * is the fee. A leg names the account of the other leg by IBAN, the legs are within the pairing window, and legs of the
- * same amount pair first (`transferAllocations`), so a fee is never found between two legs that match. `legs` are the
- * rows already read as a transfer, a row the user decided is left alone.
- */
-export function memberFeeAllocations(legs: readonly TransferInput[], accounts: readonly Account[]): Map<string, Allocation[]> {
-  const daily = accounts.filter((a) => a.type !== "credit_card" && a.type !== "loan");
-  const accountOfIban = new Map(daily.flatMap((a): [string, Account][] => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a]] : [])));
-  const partnerOf = (t: TransferInput) => accountOfIban.get(normalizeIban(t.counterpartyIban) ?? "");
-  const rows = legs
-    .filter((t) => t.categorySource !== "user" && partnerOf(t) !== undefined && partnerOf(t)!.id !== t.accountId)
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  const outs = rows.filter((t) => t.amountCents < 0);
-  const ins = rows.filter((t) => t.amountCents > 0);
-  const named = (out: TransferInput, into: TransferInput) =>
-    partnerOf(out)!.id === into.accountId && partnerOf(into)?.id === out.accountId && Math.abs(dayNumber(out.bookingDate) - dayNumber(into.bookingDate)) <= PAIR_WINDOW_DAYS;
-
-  const used = new Set<string>();
-  const unmatched = outs.filter((out) => {
-    const mate = ins.find((into) => !used.has(into.id) && into.amountCents === -out.amountCents && named(out, into));
-    if (mate) used.add(mate.id);
-    return !mate;
-  });
-  const found = new Map<string, Allocation[]>();
-  for (const out of unmatched) {
-    const into = ins
-      .filter((t) => !used.has(t.id) && named(out, t) && t.amountCents < -out.amountCents && -out.amountCents - t.amountCents <= MAX_TRANSFER_FEE_CENTS)
-      .sort((a, b) => b.amountCents - a.amountCents || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
-    if (!into) continue;
-    used.add(into.id);
-    found.set(out.id, [{ partnerId: into.id, cents: -out.amountCents, partnerCents: into.amountCents, link: "amount-day", tier: "decided" }]);
-    found.set(into.id, [{ partnerId: out.id, cents: into.amountCents, partnerCents: -out.amountCents, link: "amount-day", tier: "decided" }]);
-  }
-  return found;
-}
-
 /** The old shape of the moves: the in-row's key to the out-row's, whose lots the in-row makes are kept for. `order` is the rows the allocations came from. */
 export function movesOf(allocations: ReadonlyMap<string, readonly Allocation[]>, order: readonly TraceRow[]): Map<string, string> {
   const incoming = new Set(order.filter((r) => r.cents > 0).map((r) => r.key));

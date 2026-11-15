@@ -23,15 +23,16 @@ export interface HouseholdMember {
 /**
  * The one member a row's counterparty is. A row with an account number is decided by that number alone (a stranger who
  * has a member's name is a stranger); a row with a name only, by the name, and only when one member has it: two
- * members of one name cannot be told apart, so the row has no member.
+ * members of one name cannot be told apart, so the row has no member, and nor can a member with no name of their own
+ * be ruled out (`memberNamed`).
  */
-function memberOfRow(members: readonly HouseholdMember[], t: Pick<AnalysisTx, "counterparty" | "counterpartyIban">): HouseholdMember | null {
+export function memberOfRow(members: readonly HouseholdMember[], t: Pick<AnalysisTx, "counterparty" | "counterpartyIban">, viewerId: string): HouseholdMember | null {
   const iban = normalizeIban(t.counterpartyIban);
   if (iban) {
     const hits = members.filter((m) => m.ibans.has(iban));
     return hits.length === 1 ? hits[0]! : null;
   }
-  return t.counterparty?.trim() ? memberNamed(members, nameOf(t.counterparty)) : null;
+  return t.counterparty?.trim() ? memberNamed(members, nameOf(t.counterparty), viewerId) : null;
 }
 
 /** One payer whose money in from a member nothing explained. */
@@ -58,7 +59,7 @@ export function memberMoney(rows: readonly AnalysisTx[], members: readonly House
   const groups = new Map<string, { largest: AnalysisTx; cents: number; ids: string[]; last: IsoDate }>();
   for (const t of rows) {
     if (t.amountCents <= 0 || t.flows.income <= 0 || t.status !== "booked" || t.isTransfer || t.bookingDate < from || SETTLED.has(t.categorySource) || answered(t)) continue;
-    const member = memberOfRow(members, t);
+    const member = memberOfRow(members, t, viewerId);
     const key = member && member.id !== viewerId ? payerKeyOf(t) : null;
     if (!key) continue;
     const g = groups.get(key);

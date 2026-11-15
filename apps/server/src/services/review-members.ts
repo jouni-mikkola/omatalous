@@ -26,7 +26,7 @@ interface MemberMoneyItem {
 }
 
 /** The members with the name their own accounts give and the numbers of those accounts. */
-async function membersOf(s: Services): Promise<HouseholdMember[]> {
+export async function membersOf(s: Services): Promise<HouseholdMember[]> {
   const [users, accounts] = await Promise.all([s.users.list(), s.household.allAccounts()]);
   return users.map((u) => {
     const own = accounts.filter((a) => a.userId === u.id);
