@@ -19,7 +19,7 @@ export async function openAll(page: Page): Promise<void> {
 }
 
 /** Opens the first row's drill of each table that has them, so the buttons of an opened row (a menu, a statement link) are measured too. */
-export async function openDrills(page: Page): Promise<void> {
+async function openDrills(page: Page): Promise<void> {
   const tables = page.locator("main table:has(button.rt-drill)");
   for (let i = 0; i < (await tables.count()); i++) {
     const button = tables.nth(i).locator('button.rt-drill[aria-expanded="false"]:visible').first();

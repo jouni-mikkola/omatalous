@@ -20,7 +20,7 @@ import { type Filters } from "./FilterChips.tsx";
 import { Popover } from "./Popover.tsx";
 
 /** What the list is grouped by: the days (the default) or the payees. */
-export type Grouping = "day" | "merchant";
+type Grouping = "day" | "merchant";
 
 const BAR_ID = "tx-bar";
 
