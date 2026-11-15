@@ -35,6 +35,7 @@ export const FI_SET_CONNECTIONS = {
   "set.conn.bank": "Pankki",
   "set.conn.state": "Tila",
   "set.conn.expires_soon": "vanhenee pian",
+  "set.conn.next_expires": "Seuraava vanhenee: {bank}, {date}.",
   "set.conn.add_a_reminder_to_the": "Lisää muistutus kalenteriin",
   "set.conn.updated": "Päivitetty",
   "set.conn.actions": "Toiminnot",

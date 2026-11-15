@@ -96,6 +96,30 @@ test("with no data in the household the example data is offered", async ({ brows
   }
 });
 
+// The administrator's bank service is not set up: no bank connection is offered, the way on is its set-up, and the checklist
+// names that step first and never the supplier.
+test("before the bank service is set up the administrator is offered its set-up, not a connection", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: join(process.env.E2E_DIR ?? ".", "admin-state.json"), viewport: { width: 390, height: 844 } });
+  try {
+    await context.route(/\/api\/meta(\?|$)/, async (route) => {
+      const response = await route.fetch();
+      const meta = await response.json();
+      await route.fulfill({ response, json: { ...meta, accounts: [], sharedAccounts: [], connections: [], lastSync: null, householdHasAccounts: false, bank: { ...meta.bank, source: null, configured: false } } });
+    });
+    const page = await context.newPage();
+    await page.goto("/#/transactions");
+    const start = page.locator(".empty-start");
+    await expect(start.getByRole("button")).toHaveText(["Ota pankkipalvelu käyttöön", "Tuo tiliote", "Lataa esimerkkitiedot"]);
+    await expect(start.getByRole("button", { name: "Yhdistä pankki" })).toHaveCount(0);
+    await expect(start.locator("li[aria-current=step]")).toHaveText("Pankkipalvelun käyttöönotto");
+    expect(await overflow(page)).toBeLessThanOrEqual(1);
+    await start.getByRole("button", { name: "Ota pankkipalvelu käyttöön" }).click();
+    await expect(page).toHaveURL(/#\/settings\/banks/);
+  } finally {
+    await context.close();
+  }
+});
+
 // Pictures of the start card and of Pankit ja tilit, only when asked for: SHOTS_DIR=$TMPDIR/shots pnpm e2e e2e/empty-start.spec.ts
 for (const width of [1440, 390]) {
   test(`pictures of a member without a bank app at ${width} px`, async ({ browser }) => {

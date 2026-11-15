@@ -236,7 +236,10 @@ for (const width of [390, 1280]) {
     const nordea = table.getByRole("row", { name: /Nordea/ });
     await expect(nordea).toHaveCount(1);
     await expect(table.getByRole("button", { name: "Yhdistä uudelleen" })).toHaveCount(2);
-    await expect(table.getByRole("button", { name: "Lisää muistutus kalenteriin" })).toHaveCount(2);
+    // the reminder is in one line above the list, for the consent that ends first
+    await expect(table.getByRole("button", { name: "Lisää muistutus kalenteriin" })).toHaveCount(0);
+    await expect(card(page).locator(".next-expiry")).toHaveText(/^Seuraava vanhenee: (Nordea|OP), 14\.1\.2027\./);
+    await expect(card(page).getByRole("button", { name: "Lisää muistutus kalenteriin" })).toHaveCount(1);
     // the row has the first day, and the account of the consent that ends later says its own
     await expect(nordea.getByText("voimassa 14.1.2027 asti")).toHaveCount(1);
     await expect(nordea.locator(".conn-own-state")).toHaveText(["voimassa 20.3.2027 asti"]);

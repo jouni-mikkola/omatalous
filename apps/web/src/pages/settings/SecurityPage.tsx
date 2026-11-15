@@ -19,7 +19,7 @@ export function SecurityPage({ meta, params, anchor }: SettingsPageProps) {
   return (
     <CardStack shown={shown}>
       <NoticeList />
-      <Password openPassword={anchor === SETTINGS_ANCHOR.password} />
+      <Password username={meta.user.username} openPassword={anchor === SETTINGS_ANCHOR.password} />
       <SecondFactor />
       <Sessions admin={isAdmin} onLoaded={partLoaded} />
       <SecurityLog onLoaded={partLoaded} />
