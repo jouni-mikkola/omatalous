@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { categorize, compileRules } from "../src/categorize.ts";
+import { categorizeInDirection, moduleApiOf } from "../src/categorize-direction.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import type { Account, CategoryRule, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -10,6 +12,18 @@ const run = (rows: Transaction[], rules: CategoryRule[] = []) => {
   return rows.map((t) => ({ ...t, ...changed.get(t.id) }));
 };
 const rule = (pattern: string, category: string): CategoryRule => ({ id: 1, field: "merchant_exact", pattern, category, priority: 5 });
+
+describe("core as the add-on modules receive it", () => {
+  it("reads a rule of spending by its direction through categorize, and keeps every other name", () => {
+    const api = moduleApiOf({ categorize, categorizeInDirection, compileRules });
+    expect(api.categorize).toBe(categorizeInDirection);
+    expect(api.compileRules).toBe(compileRules);
+    const rules = compileRules([rule("Zxq Tmi", "health")]);
+    const row = { merchant: "Zxq Tmi", counterparty: "ZXQ TMI", description: "VIESTI", mcc: null, amountCents: 5000 };
+    expect(categorize(row, rules).category).toBe("health");
+    expect(api.categorize(row, rules).category).not.toBe("health");
+  });
+});
 
 describe("a rule of the user's reads the direction of its category", () => {
   const kela = (id: string, euros: number, description: string) =>

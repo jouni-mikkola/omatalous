@@ -28,3 +28,8 @@ export function categorizeInDirection(input: CategorizeInput, rules: readonly Co
   const rest = categorize(input, rules.filter((r) => !(r.byUser && isSpending(r.category))), accounts);
   return isSpending(rest.category) ? result : rest;
 }
+
+/** Core as the add-on modules receive it: the same names, with `categorize` reading a user's rule by its direction too. */
+export function moduleApiOf<T extends { categorizeInDirection: unknown }>(api: T): T {
+  return { ...api, categorize: api.categorizeInDirection };
+}
