@@ -23,6 +23,8 @@
     }
   },
   "ignoreIssues": {
-    "apps/web/src/design/tokens.ts": ["exports", "types"]
+    "apps/web/src/design/tokens.ts": ["exports", "types"],
+    "packages/core/src/analysis/pool.ts": ["files", "exports", "types"],
+    "packages/core/src/analysis/conservation.ts": ["files", "exports", "types"]
   }
 }

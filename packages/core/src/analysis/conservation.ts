@@ -84,15 +84,3 @@ export function bridgeByMonth(rows: readonly BridgeRow[], accounts: readonly Pic
     .sort((a, b) => a.month.localeCompare(b.month))
     .map(({ lines, ...m }) => ({ ...m, residualCents: m.leftCents - (m.gainCents - m.betweenMembersCents), boundary: [...lines.values()].sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents)) }));
 }
-
-/**
- * The rows whose other end is a checking or savings account of the household but that count as income, spending or
- * debt: money moved between members that no member earned or spent. A leg that paired is neutral and is not in the
- * list. The household answers these with the payer question.
- */
-export function unpairedMemberLegs(rows: readonly (Pick<Transaction, "id" | "counterpartyIban"> & { flows: Flows })[], householdIbans: ReadonlySet<string>): string[] {
-  return rows.filter((t) => {
-    const iban = normalizeIban(t.counterpartyIban);
-    return iban !== null && householdIbans.has(iban) && (t.flows.income !== 0 || t.flows.consumption !== 0 || t.flows.debt !== 0);
-  }).map((t) => t.id);
-}
