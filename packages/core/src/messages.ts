@@ -62,7 +62,6 @@ const FI = {
   "check.flag": "Arvon pitää olla päällä tai pois.",
   "check.date_range": "Virheellinen aikaväli.",
   "check.date": "Virheellinen päivämäärä.",
-  "check.loan": "Tuntematon laina.",
   "check.body_shape": "Pyynnön sisältö on väärän muotoinen.",
   "check.field": "Tuntematon kenttä: {name}",
   "check.field_bad": "Virheellinen kenttä.",

@@ -136,7 +136,6 @@ export const FI_BILLS = {
   "ahead.day": "Päivä",
   "ahead.payer": "Maksaja",
   "ahead.amount": "Summa",
-  "ahead.pay_named": "Palkka, {name}",
   "ahead.left": "Käytettävissä {amount}",
   "ahead.label": "{name}, {sum}, {day}",
   "ahead.label_estimate": "{name}, arvio, {sum}, {day}",

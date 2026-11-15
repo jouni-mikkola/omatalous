@@ -8,7 +8,6 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { leftOf } from "../src/analysis/flows.ts";
-import { explain } from "../src/explain/explain.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, IsoDate, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -76,7 +75,6 @@ describe("a debt paid from a savings account", () => {
     // the Menot tile and the month's bar are the bridge's spending
     expect(month.spendCents).toBe(d.totals.expenseCents);
     expect(month.spendCents).toBe(20_000);
-    expect(explain("spend.month", ctx, { view: "own", range }).cents).toBe(month.spendCents);
     // income less spending less what went to savings is Tulos
     expect(month.incomeCents).toBe(d.totals.incomeCents);
     expect(month.incomeCents - month.spendCents - d.totals.savedCents).toBe(d.totals.leftCents);

@@ -3,6 +3,7 @@ import type { LoansReport } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { approxText } from "../../approx.ts";
+import "../../styles/estimate.css";
 import { money, monthLong, monthLongIn } from "../../format.ts";
 import { t } from "../../text.ts";
 import { crisp } from "../draw.ts";

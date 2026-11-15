@@ -134,7 +134,6 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "ahead.day": "Day",
   "ahead.payer": "Payer",
   "ahead.amount": "Amount",
-  "ahead.pay_named": "Pay, {name}",
   "ahead.left": "Available {amount}",
   "ahead.label": "{name}, {sum}, {day}",
   "ahead.label_estimate": "{name}, estimate, {sum}, {day}",

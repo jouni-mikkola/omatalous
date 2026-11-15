@@ -25,7 +25,6 @@ import * as Figure from "./components/Figure.tsx";
 import * as Loading from "./components/Loading.tsx";
 import * as More from "./components/More.tsx";
 import * as Section from "./components/Section.tsx";
-import * as Why from "./components/Why.tsx";
 import * as Cells from "./components/table/Cells.tsx";
 import * as KeyValue from "./components/table/KeyValue.tsx";
 import * as Table from "./components/table/Table.tsx";
@@ -58,7 +57,6 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   "components/Loading": Loading,
   "components/More": More,
   "components/Section": Section,
-  "components/Why": Why,
   "components/table/Cells": Cells,
   "components/table/KeyValue": KeyValue,
   "components/table/Table": Table,

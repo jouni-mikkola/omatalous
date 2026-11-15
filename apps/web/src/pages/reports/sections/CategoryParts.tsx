@@ -1,6 +1,6 @@
 // Decision: which part of a category's spending to cut, when an add-on module tells the household's rows a level under their category
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
-import { Estimate } from "../../../components/Why.tsx";
+import { Estimate } from "../../../components/Estimate.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { money, plural } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";

@@ -19,16 +19,15 @@ one sum: what is left until payday after the bills due before it. No peer has pa
 Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. Tarkistettavat is the header's link.
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
-Direction, 11.11.2026: an overview on one screen at 1440 px, every figure one click from its rows.
-- Tiles: four across the page, two by two on a phone (as drawn below). Each has a label, one figure, one line that compares it and a
-  link to its rows.
+Direction, 11.11.2026: an overview on one screen at 1440 px.
+- Tiles: four across the page, two by two on a phone (as drawn below). Each has a label, one figure and one line that compares it.
+  Only the first tile has a page to open.
   - Käytettävissä palkkapäivään: what is left after the bills before payday (`nyt.left`), the sum a day and the payday.
-    Opens its basis in the Miksi? panel: the balances it starts from and each payment taken off them.
+    Opens the bills before payday in Laskut.
   - Menot tässä kuussa: spent so far against the usual level to the same day (`home.pace`), else last month to the same
-    day. Opens its rows in the Miksi? panel, as Tapahtumat's money out takes in more than spending.
+    day.
   - Tulot tässä kuussa: the month's income, the figure of the income report's month table, with the earned part (*Ansiotulot*)
     under it when that differs (`overview.income`). It has no usual line: *Tavalliset tulot* is the mean of the earned part only.
-    Opens its rows in the Miksi? panel, as Tapahtumat's money in takes in transfers too.
   - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
     month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
 - Tulot ja menot: the last twelve months, an income bar and a spending bar a month (`overview.months`), the usual

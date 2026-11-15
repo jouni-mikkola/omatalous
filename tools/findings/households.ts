@@ -119,7 +119,7 @@ export interface HouseholdView {
 
 /** The rows after enrichment: `enrichTransactions` returns only the rows it changed. */
 function enriched(h: Household, txs: readonly Transaction[], accounts: readonly Account[], household?: ReadonlySet<string>): Transaction[] {
-  const changed = new Map(enrichTransactions(txs, accounts, h.rules, h.industry, undefined, undefined, undefined, household).map((t) => [t.id, t]));
+  const changed = new Map(enrichTransactions(txs, accounts, h.rules, h.industry, undefined, undefined, household).map((t) => [t.id, t]));
   return txs.map((t) => changed.get(t.id) ?? t);
 }
 

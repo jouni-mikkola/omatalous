@@ -3,14 +3,13 @@ import { MIN_COMPARE_MONTHS } from "@banking/core";
 import { hashOf } from "../../routes.ts";
 import { answerMoney, completeMonths, dayMonth } from "../../format.ts";
 import { figureName, t } from "../../text.ts";
-import type { DashboardData, Scope } from "../../types.ts";
+import type { DashboardData } from "../../types.ts";
 import { netLabelOf } from "../net-label.ts";
 import { Figure } from "../Figure.tsx";
-import { Why } from "../Why.tsx";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 
-/** One tile: a label, one figure and one line that compares it, the whole of it a link to the rows behind the figure. */
+/** One tile: a label, one figure and one line that compares it, the whole of it a link where a page holds the figure. */
 export interface Tile {
   id: string;
   label: string;
@@ -19,9 +18,8 @@ export interface Tile {
   line: string | null;
   /** A second line for a part of the figure the app cannot prove, or null. */
   note?: string | null;
-  /** Where the tile leads: a page, or the rows of a figure in the Miksi? panel when no list holds the figure as it is. */
+  /** Where the tile leads: a page, or null where no page holds the figure as it is. */
   href: string | null;
-  why?: { figure: "ahead.free" | "spend.month" | "income.month"; range: { from: string; to: string } };
   /** The figure is a problem (less left than the bills take). */
   short?: boolean;
 }
@@ -84,7 +82,6 @@ function netLine(net: DashboardData["overview"]["net"], cents: number | null): s
 function tilesOf(data: Data): Tile[] {
   const { nyt, overview, holdings } = data;
   const { left } = nyt;
-  const month = data.pace.month;
   return [
     {
       id: "left",
@@ -93,8 +90,6 @@ function tilesOf(data: Data): Tile[] {
       // on the payday the sum a day is the whole sum, so the line says only that the payday is today
       line: !left.known ? leftUnknown(left) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) }),
       href: hashOf({ page: "bills", params: new URLSearchParams(), anchor: "ennen-palkkapaivaa" }),
-      // the panel lists the balances the sum starts from and each payment taken off them, which Laskut does not add up
-      ...(left.known && data.ahead ? { why: { figure: "ahead.free" as const, range: { from: data.ahead.from, to: data.ahead.to } } } : {}),
       note: left.known ? unresolvedNote(data) : null,
       short: left.known && left.leftCents < 0,
     },
@@ -103,9 +98,8 @@ function tilesOf(data: Data): Tile[] {
       label: t("home.tile_spent"),
       cents: overview.months.at(-1)?.spendCents ?? nyt.pace.spentCents,
       line: spentLine(data),
-      // Tapahtumat's money out takes in more than spending: the panel lists the rows of the figure itself
+      // Tapahtumat's money out takes in more than spending: no list holds the figure
       href: null,
-      why: { figure: "spend.month", range: { from: `${month}-01`, to: nyt.from } },
     },
     {
       id: "income",
@@ -113,9 +107,8 @@ function tilesOf(data: Data): Tile[] {
       cents: overview.income.cents,
       // the usual of this figure does not exist (Tavalliset tulot is the mean of the earned part), so the line shows the earned part or nothing
       line: overview.income.earnedCents !== overview.income.cents ? t("home.tile_income_earned", { sum: answerMoney(overview.income.earnedCents) }) : null,
-      // Tapahtumat's money in takes in transfers too: the panel lists the rows of the figure itself
+      // Tapahtumat's money in takes in transfers too: no list holds the figure
       href: null,
-      why: { figure: "income.month", range: { from: `${month}-01`, to: nyt.from } },
     },
     {
       id: "net",
@@ -129,7 +122,7 @@ function tilesOf(data: Data): Tile[] {
 }
 
 /** The row of tiles at the top of Yhteenveto: four on a wide screen, two by two on a phone. */
-export function Tiles({ data, scope }: { data: Data; scope: Scope }) {
+export function Tiles({ data }: { data: Data }) {
   return (
     <section aria-labelledby="home-tiles-h">
       {/* a heading the reader of a screen jumps to; the tiles say what they are, so it is not drawn */}
@@ -151,15 +144,12 @@ export function Tiles({ data, scope }: { data: Data; scope: Scope }) {
           const className = `home-tile${tile.short ? " home-short" : ""}`;
           return (
             <li key={tile.id} data-tile={tile.id}>
-              {tile.why ? (
-                // the button's name holds every word it shows, the line under the figure too
-                <Why figure={tile.why.figure} title={tile.label} range={tile.why.range} scope={scope} text={[figure, tile.line, tile.note].filter(Boolean).join(" ")} className={className}>
-                  {inner}
-                </Why>
-              ) : (
-                <a className={className} href={tile.href ?? undefined}>
+              {tile.href ? (
+                <a className={className} href={tile.href}>
                   {inner}
                 </a>
+              ) : (
+                <div className={className}>{inner}</div>
               )}
             </li>
           );

@@ -32,7 +32,7 @@ const TOUCH_MS = 60 * 60_000;
  */
 const READABLE: readonly RegExp[] = [
   /^\/api\/auth\/state$/,
-  /^\/api\/(meta|foreign-rows|dashboard|ahead|reports|explain|recurring|transactions|rules|payer-roles|review|review\/count|household-members|expected-bills|statements|merchants|merchants\/summary|merchants\/uncategorised|sync\/runs)$/,
+  /^\/api\/(meta|foreign-rows|dashboard|ahead|reports|recurring|transactions|rules|payer-roles|review|review\/count|household-members|expected-bills|statements|merchants|merchants\/summary|merchants\/uncategorised|sync\/runs)$/,
   /^\/api\/accounts\/[^/]+\/use\/suggestion$/,
   /^\/api\/loans(\/proposals)?$/,
   /^\/api\/bank\/logos\/[^/]+$/,

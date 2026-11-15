@@ -2,7 +2,6 @@ import { fold, isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
 import { type ReactNode, useSyncExternalStore } from "react";
 import { date, dayHeading, money } from "../format.ts";
 import { t as msg, tn } from "../text.ts";
-import { Why } from "../components/Why.tsx";
 import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
 import { saveCsv, tableCsv } from "../components/table/csv.ts";
 import { Button } from "../components/ui/Button.tsx";
@@ -270,7 +269,7 @@ function Detail({ t, categories, pending, onCategory, onStatement, explained, no
           ]}
         />
         {wholeOfRow(t) && shownCents(t) !== 0 && (
-          <span>{msg("row.your_share")}: <Why figure="share.part" title={msg("row.your_share")} range={{ from: t.bookingDate, to: t.bookingDate }} scope="own" row={t.id} account={t.accountId} text={text}>{text}</Why></span>
+          <span>{msg("row.your_share")}: {text}</span>
         )}
       </div>
       <ExtensionRowParts row={t} />

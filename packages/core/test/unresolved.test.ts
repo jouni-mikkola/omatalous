@@ -8,7 +8,6 @@ import { cashAhead } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { dataQualityReport } from "../src/analysis/data-quality.ts";
 import { cardPayments, poolOf, poolPays, unresolvedCards } from "../src/analysis/pool.ts";
-import { explainNow } from "../src/explain/now.ts";
 import { parseUnresolvedSubject, unresolvedDismissed, unresolvedSubject } from "../src/unresolved-answer.ts";
 import { type Account, type BalanceInput, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -67,13 +66,6 @@ describe("a card whose payer the rows do not prove", () => {
     expect(b.unresolved).toEqual([{ reason: "card_payer_unseen", cardId: "card", name: "Luottokortti", cents: 300_000 }]);
   });
 
-  it("is told by the explanation as a reason on the card's line, and an unproven balance as one on its start line", () => {
-    const ctx = createContext([groceries], accounts, TODAY);
-    const proofed = balances.map((b) => (b.id === "own" ? { ...b, proof: { status: "unknown" as const, reason: "no_reference_day" as const } } : b));
-    const lines = explainNow("ahead.free", ctx, proofed, NO_INPUTS).explanation.lines;
-    expect(lines.find((l) => l.id === "card:card")!.why).toEqual([{ rule: "card.payer_unseen" }]);
-    expect(lines.find((l) => l.id === "a:own")!.why).toEqual([{ rule: "balance.unproven", reason: "no_reference_day" }]);
-  });
 });
 
 describe("what each account paid to a card", () => {

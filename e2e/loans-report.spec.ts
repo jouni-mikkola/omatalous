@@ -165,26 +165,9 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   await context.close();
 });
 
-test("a loan figure opens its calculation, whose lines add up to the figure shown", async ({ browser }) => {
+test("the loan figures are plain text, with no button to open a calculation", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
-  const section = page.locator("#lainat");
-  const panel = page.getByRole("dialog");
-  /** Opens a door, reads the panel's lines and total, and closes it again with Escape. */
-  const calculation = async (name: RegExp) => {
-    await section.getByRole("button", { name }).click();
-    await expect(panel.locator("[data-why-total]")).toBeVisible({ timeout: 15_000 });
-    const lines = (await panel.locator("tr[data-why-row]").allInnerTexts()).map(plain);
-    const total = plain(await panel.locator("[data-why-total]").innerText());
-    await expect(panel.locator(".why-check")).toHaveText("Täsmää");
-    await page.keyboard.press("Escape");
-    await expect(panel).toHaveCount(0);
-    return { lines, total };
-  };
-  // the tiles add up the loans listed under them, so only each loan's own figures open a calculation
-  await expect(section.getByRole("button", { name: /^Näytä laskelma: Velkaa yhteensä/ })).toHaveCount(0);
-  const payment = await calculation(/^Näytä laskelma: Kodin laina, maksu /);
-  expect(payment.lines.map((l) => l.replace(/^\S+ /, ""))).toEqual(["Korko 400,00 €", "Lyhennys 600,00 €"]);
-  expect(payment.total).toBe("1 000,00 €");
+  await expect(page.locator("#lainat").getByRole("button", { name: /^Näytä laskelma/ })).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

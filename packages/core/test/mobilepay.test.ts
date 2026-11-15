@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 import { categoryTotals } from "../src/analysis/category-totals.ts";
 import { createContext, spendRows } from "../src/analysis/context.ts";
 import { buildQuestions } from "../src/analysis/questions.ts";
-import { sentenceOf } from "../src/explain/catalogue.ts";
-import { createWhy } from "../src/explain/why.ts";
 import { normalizeMerchant, serviceOf } from "../src/merchant.ts";
 import { isUnnamedMobilePay, matchMobilePayShares } from "../src/mobilepay.ts";
 import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
@@ -271,38 +269,12 @@ describe("MobilePay money answered as shares of shared purchases", () => {
     expect([final[1]!.category, incomeOf(final), spendOf(final, "restaurants")]).toEqual(["p2p_in", 3000, 10000]);
   });
 
-  it("says which purchase, or that it is a share of shared purchases", () => {
-    const why = createWhy("own");
-    const rows = [dinner("p", "2026-09-03", 100), friend("x", "2026-09-10", 30), friend("y", "2026-09-30", 5)];
-    enrichTransactions(rows, [checking], [], new Map(), share, why);
-    expect(why.of("x")).toContainEqual({ rule: "return.wallet", purchase: "p", day: "2026-09-03" });
-    expect(why.of("y")).toContainEqual({ rule: "share.open" });
-    expect(why.of("p")).toContainEqual({ rule: "share.back", cents: 3000, count: 1 });
-    expect(sentenceOf({ rule: "share.open" })).toBe("Osuus yhteisistä ostoista");
-  });
-
   it("running again changes nothing, and the full run is asked for", () => {
     const rows = [dinner("p", "2026-09-03", 100), friend("x", "2026-09-10", 30)];
     expect(enrichTransactions(run(rows, share), [checking], [], new Map(), share)).toEqual([]);
     const stored = run(rows, share);
     const result = enrichIsland({ rows: [stored[0]!], before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], payers: share });
     expect(result).toEqual({ ok: false, reason: expect.stringContaining("MobilePay shares") });
-  });
-});
-
-describe("what the panel says", () => {
-  it("a netted row says which purchase it paid a share of, the purchase what came back, a row its service", () => {
-    const why = createWhy("own");
-    const rows = [dinner("p", "2026-09-03", 100), friend("a", "2026-09-04", 25), friend("b", "2026-09-05", 25.5), tx({ id: "s", bookingDate: "2026-09-06", amountCents: -1200, merchant: "Spotify", counterparty: "PAYPAL *SPOTIFY" })];
-    enrichTransactions(rows, [checking], [], new Map(), undefined, why);
-    expect(why.of("a")).toContainEqual({ rule: "return.wallet", purchase: "p", day: "2026-09-03" });
-    expect(sentenceOf({ rule: "return.wallet", purchase: "p", day: "2026-09-03", shop: "Hesburger" })).toBe("Osuus ostoksesta Hesburger 3.9.2026");
-    expect(why.of("p")).toContainEqual({ rule: "share.back", cents: 5050, count: 2 });
-    expect(sentenceOf({ rule: "share.back", cents: 5050, count: 2 }).replace(/\s/g, " ")).toBe("Takaisin saatu 50,50 € (2 maksua)");
-    expect(sentenceOf({ rule: "share.back", cents: 2500, count: 1 }).replace(/\s/g, " ")).toBe("Takaisin saatu 25,00 € (1 maksu)");
-    expect(sentenceOf({ rule: "share.back", cents: 7500, count: 3 }).replace(/\s/g, " ")).toBe("Takaisin saatu 75,00 € (3 maksua)");
-    expect(why.of("s")).toContainEqual({ rule: "via.service", service: "PayPal" });
-    expect(sentenceOf({ rule: "via.service", service: "PayPal" })).toBe("Maksettu palvelun PayPal kautta");
   });
 });
 

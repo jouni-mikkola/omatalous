@@ -1,7 +1,7 @@
 /**
  * The figure registry (`figures.ts`, ADR 0020): every figure in it gives the same value in each answer that carries it,
- * for the demo household and the seeded ones on a fixed day. A figure with one answer is compared with the explanation
- * or the report that recomputes it. A new figure fails here until its answers are listed.
+ * for the demo household and the seeded ones on a fixed day. A figure with one answer is compared with the report
+ * that recomputes it. A new figure fails here until its answers are listed.
  */
 import { describe, expect, it } from "vitest";
 import { contextOf, demoHousehold, type Household, seededHousehold } from "../../../tools/findings/households.ts";
@@ -14,9 +14,6 @@ import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
 import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
-import { explain } from "../src/explain/explain.ts";
-import { explainLoan } from "../src/explain/loans.ts";
-import { explainNow } from "../src/explain/now.ts";
 import { FIGURES } from "../src/figures.ts";
 import { USUAL_MONTHS } from "../src/thresholds.ts";
 import type { Loan } from "../src/types.ts";
@@ -63,7 +60,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       dashboard: buildDashboard(ctx, range, h.balances, h.inputs).totals.leftCents,
       cashflow: cashflowReport(ctx, range).totals.leftCents,
-      explain: explain("yli_jai.month", ctx, { view: "own", range }).cents,
     };
   },
   saved: (h) => {
@@ -99,7 +95,7 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const basis = aheadBasis(ctx, h.balances, h.inputs).ahead;
     // free is the balance less the payments, the own transfers and the cards' debt no bill holds: the figures of the window add up to it
     const left = basis.balance ? basis.balance.startCents - basis.totals.dueCents - basis.totals.transferCents - basis.balance.cardDebtCents : null;
-    return { dashboard: dash?.balance?.freeCents ?? null, ahead: basis.balance?.freeCents ?? null, parts: left, explain: explainNow("ahead.free", ctx, h.balances, h.inputs).explanation.cents };
+    return { dashboard: dash?.balance?.freeCents ?? null, ahead: basis.balance?.freeCents ?? null, parts: left };
   },
   runway: (h) => {
     const ctx = contextOf(h);
@@ -144,7 +140,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
       home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.usualCents,
       usual: expectedSpending(ctx, month),
       buffer: bufferReport(ctx, h.balances, h.inputs).expectedSpendCents,
-      explain: explain("expected.spend", ctx, { view: "own", range: running(h) }).cents,
     };
   },
   fixed: (h) => {
@@ -152,13 +147,12 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       dashboard: buildDashboard(ctx, running(h), h.balances, h.inputs).fixedMonthlyCents,
       buffer: bufferReport(ctx, h.balances, h.inputs).fixedMonthlyCents,
-      explain: explain("bills.fixed", ctx, { view: "own", range: running(h) }).cents,
     };
   },
   expected: (h) => {
     const ctx = contextOf(h);
     const month = monthOfRange(h);
-    return { usual: expectedSpending(ctx, month), explain: explain("expected.spend", ctx, { view: "own", range: lastMonth(h) }).cents, buffer: month === monthOf(h.today) ? bufferReport(ctx, h.balances, h.inputs).expectedSpendCents : expectedSpending(ctx, month) };
+    return { usual: expectedSpending(ctx, month), buffer: month === monthOf(h.today) ? bufferReport(ctx, h.balances, h.inputs).expectedSpendCents : expectedSpending(ctx, month) };
   },
   income: (h) => {
     const ctx = contextOf(h);
@@ -171,7 +165,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
       bar: dashboard.overview.months.at(-1)?.incomeCents ?? null,
       report: incomeReport(ctx, range, h.balances).months.find((m) => m.month === monthOf(h.today))?.totalCents ?? null,
       cashflow: cashflowReport(ctx, range).totals.incomeCents,
-      explain: explain("income.month", ctx, { view: "own", range }).cents,
     };
   },
   earnedIncome: (h) => {
@@ -182,7 +175,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
       tile: buildDashboard(ctx, range, h.balances, h.inputs).overview.income.earnedCents,
       report: incomeReport(ctx, range, h.balances).months.find((m) => m.month === month)?.earnedCents ?? null,
       helper: earnedIncome(ctx, month),
-      explain: explain("income.earned", ctx, { view: "own", range }).cents,
     };
   },
   usualIncome: (h) => {
@@ -197,7 +189,7 @@ const ANSWERS: Record<FigureKey, Answers> = {
   regularIncome: (h) => {
     const ctx = contextOf(h);
     const range = running(h);
-    return { report: incomeReport(ctx, range, h.balances).stability?.medianCents ?? null, explain: explain("usual.income", ctx, { view: "own", range }).cents };
+    return { report: incomeReport(ctx, range, h.balances).stability?.medianCents ?? null };
   },
   buffer: (h) => {
     const ctx = contextOf(h);
@@ -230,13 +222,14 @@ const ANSWERS: Record<FigureKey, Answers> = {
     // the households have no typed loan, so each is read with one added: with no loan every answer is null and nothing is compared
     const inputs = { ...h.inputs, loans: [...(h.inputs.loans ?? []), typedLoan(h)] };
     // the instalments of every loan of the view added up; a loan whose payment is not counted makes the sum null, so no answer passes by leaving it out
-    const total = (cents: readonly (number | null)[]) => (cents.length === 0 || cents.some((c) => c === null) ? null : cents.reduce<number>((sum, c) => sum + c!, 0));
-    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => total(loans.map((l) => l.monthlyPaymentCents));
+    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => {
+      const cents = loans.map((l) => l.monthlyPaymentCents);
+      return cents.length === 0 || cents.some((c) => c === null) ? null : cents.reduce<number>((sum, c) => sum + c!, 0);
+    };
     const holdings = buildHoldings(ctx, h.balances, inputs);
     return {
       holdings: monthly(holdings.loans),
       dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
-      explain: total(holdings.loans.map((l) => explainLoan("loan.monthly", ctx, h.balances, inputs, l.id)?.explanation.cents ?? null)),
     };
   },
   periodLeft: (h) => {

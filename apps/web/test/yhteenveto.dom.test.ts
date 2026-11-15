@@ -1,10 +1,9 @@
-/** Yhteenveto's four tiles: each figure, its comparison and the panel or page it opens. */
-import { fireEvent, render, waitFor } from "@testing-library/react";
+/** Yhteenveto's four tiles: each figure, its comparison and the page it leads to. */
+import { render } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { Tiles } from "../src/components/home/Tiles.tsx";
 import type { DashboardData } from "../src/types.ts";
-import { stubApi } from "./dom-kit.ts";
 
 type NytData = NonNullable<DashboardData["nyt"]>;
 
@@ -37,7 +36,7 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
 
 /** The tiles as a reader sees them: label, figure, line and where each leads. */
 function tilesIn(d: DashboardData & { nyt: NytData }) {
-  const { container } = render(createElement(Tiles, { data: d, scope: "own" }));
+  const { container } = render(createElement(Tiles, { data: d }));
   return [...container.querySelectorAll(".home-tile")].map((a) => ({
     label: a.querySelector(".home-tile-label")?.textContent,
     figure: flat(a.querySelector(".fig")?.textContent),
@@ -47,11 +46,10 @@ function tilesIn(d: DashboardData & { nyt: NytData }) {
 }
 
 describe("Yhteenveto", () => {
-  it("four tiles: what is left to the payday a day, the month's spending against the usual, the month's income with its earned part, the net with its month's change, each opening its rows", () => {
+  it("four tiles: what is left to the payday a day, the month's spending against the usual, the month's income with its earned part, the net with its month's change, and where each leads", () => {
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
-      // a known sum opens the panel of its payments, as the spending does; the income and the net open theirs in the tests below
-      { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: null },
+      { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: "#/bills#ennen-palkkapaivaa" },
       { label: "Menot tässä kuussa", figure: "1 500 €", line: "234 € yli tavallisen tähän päivään", href: null },
       { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Ansiotulot 3 980 €", href: null },
       { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
@@ -65,31 +63,11 @@ describe("Yhteenveto", () => {
     expect(income(380000, 398000)).toMatchObject({ figure: "3 800 €", line: "Ansiotulot 3 980 €" });
   });
 
-  // Tapahtumat's money in takes in transfers the income leaves out: the tile opens the figure's own rows
-  it("the income tile opens the rows of the income of the month to today", async () => {
-    stubApi({ "GET /api/explain": { figure: "income.month", kind: "sum", cents: 412000, lines: [], rows: [], check: { kind: "sum", diffCents: 0 } } });
-    const { container } = render(createElement(Tiles, { data: data(), scope: "own" }));
-    const door = container.querySelector<HTMLButtonElement>("[data-tile=income] button.why-door")!;
-    expect(flat(door.getAttribute("aria-label"))).toContain("Tulot tässä kuussa 4 120 €");
-    fireEvent.click(door);
-    expect(flat(document.querySelector(".why-period")?.textContent)).toBe("1.–11.11.");
-  });
-
-  // Laskut adds up the bills, Tapahtumat's money out more than spending: neither list is the tile's figure, the panel is
-  it("the tiles of what is left and of the month's spending open the rows of their own figures", async () => {
-    const asked: string[] = [];
-    stubApi({ "GET /api/explain": { figure: "ahead.free", kind: "sum", cents: 310046, lines: [], rows: [], check: { kind: "sum", diffCents: 0 } } });
-    const fetched = vi.mocked(fetch);
-    const ahead = { from: "2026-11-11", to: "2026-11-24" };
-    const { container } = render(createElement(Tiles, { data: data({ ahead } as never), scope: "own" }));
-    for (const id of ["left", "spent"]) {
-      fireEvent.click(container.querySelector<HTMLButtonElement>(`[data-tile=${id}] button.why-door`)!);
-      await waitFor(() => expect(fetched.mock.calls.length).toBe(asked.length + 1));
-      const url = new URL(String(fetched.mock.calls.at(-1)![0]), "http://localhost");
-      asked.push(`${url.searchParams.get("figure")} ${url.searchParams.get("from")} ${url.searchParams.get("to")}`);
-      fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
-    }
-    expect(asked).toEqual(["ahead.free 2026-11-11 2026-11-24", "spend.month 2026-11-01 2026-11-11"]);
+  // Laskut adds up the bills and Tapahtumat's money in and out take in more than the month's figures: those two tiles lead nowhere
+  it("the tile of what is left leads to Laskut and the tiles of spending and income are plain", () => {
+    const { container } = render(createElement(Tiles, { data: data() }));
+    expect(container.querySelector("[data-tile=left] a")?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+    expect(container.querySelectorAll("[data-tile=spent] a, [data-tile=income] a, button").length).toBe(0);
   });
 
   it("on the payday the tile says so, not the whole sum as a day's", () => {
@@ -111,7 +89,7 @@ describe("Yhteenveto", () => {
   it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
     const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, earnedCents: 0 }, net: null, months: [] } } as never);
     const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
-    // with no sum there is no panel to open: the tile leads to Laskut, where the bills stand
+    // with no sum the tile still leads to Laskut, where the bills stand
     expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa", href: "#/bills#ennen-palkkapaivaa" });
     expect(spent!.line).toBe("Vertailu näkyy, kun takana on kolme päättynyttä kuukautta");
     expect(income!.line).toBeNull();
@@ -124,7 +102,7 @@ describe("Yhteenveto", () => {
   // 1.0.0 showed the sum left as a plain figure when the bills took more than the balance
   it("less left than the bills take is the tile's problem colour", () => {
     const d = data();
-    const { container } = render(createElement(Tiles, { data: { ...d, nyt: nytOf(true, 600000) }, scope: "own" }));
+    const { container } = render(createElement(Tiles, { data: { ...d, nyt: nytOf(true, 600000) } }));
     expect(container.querySelector("[data-tile=left] .home-tile")?.classList.contains("home-short")).toBe(true);
     expect(flat(container.querySelector("[data-tile=left] .fig")?.textContent)).toBe("−1 000 €");
   });
@@ -137,7 +115,7 @@ describe("Yhteenveto", () => {
 
   // the notice of the payday's bills stood under the answer; it is no line of the page any more
   it("no tile tells the payday's own bills", () => {
-    const { container } = render(createElement(Tiles, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) }, scope: "own" }));
+    const { container } = render(createElement(Tiles, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) } }));
     expect(container.textContent).not.toMatch(/Palkkapäivänä lähtee/);
   });
 });

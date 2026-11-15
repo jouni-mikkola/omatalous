@@ -254,7 +254,7 @@ class Film {
 /** A tab of the main navigation. */
 const tab = (/** @type {Page} */ page, /** @type {string} */ name) => page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name, exact: true });
 
-/** The computer's screen: from the empty first page to one figure of Raportit and the rows behind it. */
+/** The computer's screen: from the empty first page to Raportit. */
 async function desk(/** @type {Film} */ film) {
   const { page } = film;
   await page.setViewportSize({ width: SIZE.width, height: SIZE.page });
@@ -364,33 +364,8 @@ async function desk(/** @type {Film} */ film) {
   if (!m) throw new Error(`Raportit says "${sums}"`);
   const days = englishDays(plain(await page.getByText(/^\d{1,2}\.(?:–\d{1,2}\.)?\d{1,2}\.$/).first().textContent()));
   await film.say(`Raportit by category: ${m[1]} spent ${days.text}, against a usual ${m[2]} for ${days.days > 1 ? "those days" : "that day"}.`);
-  await film.read();
-
-  // 7. one figure of it and the rows behind it
-  const buttons = page.getByRole("button", { name: /^Näytä tapahtumat: / });
-  // the groceries when the month has them: a category every household has
-  const grocery = page.getByRole("button", { name: /^Näytä tapahtumat: Ruokakauppa / });
-  // a month with no grocery row yet shows it at 0,00 €, which has no rows to open
-  let open = (await grocery.count()) && cents(plain(await grocery.first().textContent())) !== 0 ? grocery.first() : null;
-  for (const b of await buttons.all()) if (!open && cents(plain(await b.textContent())) !== 0) open = b;
-  if (!open) throw new Error("Raportit has no figure with rows behind it this month");
-  const clicked = cents(plain(await open.textContent()));
-  await film.click(open);
-  const dialog = page.locator("dialog[open]");
-  await dialog.waitFor({ state: "visible" });
-  const lines = await dialog.locator("tbody tr").all();
-  let added = 0;
-  for (const line of lines) added += cents(plain(await line.locator("td.num").textContent()));
-  const shown = cents(plain(await dialog.locator("[data-why-total]").textContent()));
-  if (!lines.length || added !== shown || shown !== clicked) throw new Error(`Raportit: the rows add up to ${euros(added)}, the dialog shows ${euros(shown)}, the figure was ${euros(clicked)}`);
-  const category = plain(await dialog.locator("h2").textContent());
-  film.marks = [await film.box(dialog.locator(".why-foot"))];
-  const rowsSay = lines.length === 1 ? "its one row is the same sum" : `its ${lines.length} rows add up to the same sum`;
-  await film.say(`${category}${category === "Ruokakauppa" ? " (groceries)" : ""}, ${euros(shown)}: ${rowsSay}.`);
-  await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   // the phone's part follows with no click under this caption
   await film.read({}, 0);
-  film.marks = [];
 }
 
 /** The phone's screen: Yhteenveto, then a tap on the bills before payday and a scroll to their rows. */

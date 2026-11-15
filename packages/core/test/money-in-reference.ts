@@ -3,8 +3,6 @@
  * its payee. The live code must give the same answer, faster; a difference is a behaviour change to explain.
  */
 import { closedContract } from "../src/contract.ts";
-import { monthIndex } from "../src/dates.ts";
-import type { WhyCollector } from "../src/explain/types.ts";
 import type { IsoDate } from "../src/types.ts";
 import { isNamed, pairedReturns, REFUND_WINDOW_DAYS } from "../src/returns.ts";
 import type { AnalysisTx } from "../src/analysis/context.ts";
@@ -30,7 +28,7 @@ interface Payment {
  * Every row of money in that `flowsOf` reads as spending below zero, by its id: the refund it is, or null when it is
  * income. The result depends on the rows only, not on their order.
  */
-export function moneyInReference(rows: readonly Row[], ownIbans: ReadonlySet<string>, why?: WhyCollector, today?: IsoDate): Map<string, Refund | null> {
+export function moneyInReference(rows: readonly Row[], ownIbans: ReadonlySet<string>, today?: IsoDate): Map<string, Refund | null> {
   const out = new Map<string, Refund | null>();
   // the view's today; the newest row where the caller gives none
   const now = today ?? rows.reduce((day, t) => (t.bookingDate > day ? t.bookingDate : day), "0000-00-00");
@@ -62,13 +60,6 @@ export function moneyInReference(rows: readonly Row[], ownIbans: ReadonlySet<str
     if (out.has(t.id)) continue;
     const paid = t.category === TO_PERSONS || !isNamed(t, ownIbans) ? [] : (byPayee.get(t.merchant) ?? []).filter((p) => fits(t, p));
     out.set(t.id, refundOf(t, paid) ?? contractRefundOf(t, paid, now) ?? lateRefundOf(t, payments.get(paired.get(t.id) ?? ""), paid) ?? (t.categorySource === "user" || t.categorySource === "payer" ? [] : null));
-  }
-  if (why) {
-    const byId = new Map(rows.map((t) => [t.id, t]));
-    for (const [id, refund] of out) {
-      const at = monthIndex(byId.get(id)!.bookingDate.slice(0, 7));
-      for (const [paymentId, cents] of refund ?? []) why.add(id, { rule: "refund.net", purchase: paymentId, months: at - monthIndex(byId.get(paymentId)!.bookingDate.slice(0, 7)), cents });
-    }
   }
   return out;
 }

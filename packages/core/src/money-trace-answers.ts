@@ -4,7 +4,6 @@
  * unanswered. See money-trace.ts for the trace itself.
  */
 import { partCents } from "./account-use.ts";
-import type { WhyCollector } from "./explain/types.ts";
 import {
   ASK_LIMIT,
   compareOwners,
@@ -120,7 +119,7 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
  * sign. `openCents` (signed like `cents`) is their part of the parts a question stands for. A transfer is money in from
  * a person's own account, a payment by a person or another pool, and money out for one person or to a pool.
  */
-export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: SourcePart) => boolean, why?: WhyCollector): { cents: number; openCents: number; transfer: boolean } {
+export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: SourcePart) => boolean): { cents: number; openCents: number; transfer: boolean } {
   const sign = row.cents < 0 ? -1 : 1;
   let own = 0;
   let unknown = 0;
@@ -130,13 +129,6 @@ export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: Sour
     else if (!isUserOwner(p.owner)) {
       unknown += p.cents;
       if (open(p)) asked += p.cents;
-    }
-  }
-  if (why) {
-    // the parts told by whose money they were, then the unknown ones at the viewer's part: the lines sum to `cents` below
-    for (const id of row.ids) {
-      for (const p of row.parts) if (p.owner === viewer || isUserOwner(p.owner)) why.add(id, { rule: "part.source", owner: p.owner, kind: p.kind, cents: sign * p.cents, passed: !!p.passed, mine: p.owner === viewer });
-      if (unknown) why.add(id, { rule: "part.use", from: part.from, to: part.to, of: part.of, cents: partCents(sign * unknown, part) });
     }
   }
   const moved = row.what === "in" && row.parts.length > 0 && row.parts.every((p) => p.kind === "own" || p.kind === "payment" || p.kind === "pool");
