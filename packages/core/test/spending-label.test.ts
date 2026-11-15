@@ -47,8 +47,9 @@ describe("the name of the row of card bills without a breakdown", () => {
     const pivot = pivotReport(ctx, range, lang).rows.filter((r) => r.category === "card_bill").map((r) => r.label);
     const change = spendingChangeReport(ctx, october, lang).views.flatMap((v) => v.change.categories).filter((c) => c.category === "card_bill").map((c) => c.label);
 
-    // one string, so a failing run names the list that differs
+    // a short string, so a failing run names the list that differs and what it has
     const seen = { top: only(top), months: only(months), categories: only(categories), pivot: only(pivot), change: only(change) };
-    expect(JSON.stringify(seen)).toBe(JSON.stringify({ top: [name], months: [name], categories: [name], pivot: [name], change: [name] }));
+    const wrong = Object.entries(seen).filter(([, labels]) => labels.length !== 1 || labels[0] !== name);
+    expect(wrong.map(([list, labels]) => `${list}=${labels.length}:${labels[0]}`).join(" ")).toBe("");
   });
 });
