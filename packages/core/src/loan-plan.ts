@@ -52,9 +52,11 @@ export function planOf(loan: Loan): Instalments | Kept {
   const months = intervalOf(loan);
   if (months === null) return { missing: "interval" };
   if (loan.paymentCents === null || loan.paymentCents <= 0) return { missing: "payment" };
-  if (loan.repayment === "equal_principal") return { months, paymentCents: loan.paymentCents, rateBp: loan.rateBp, withInterest: false };
-  if (loan.rateBp === null) return { missing: "rate" };
-  return { months, paymentCents: loan.paymentCents, rateBp: loan.rateBp, withInterest: true };
+  const { rateBp } = loan;
+  const terms = { months, paymentCents: loan.paymentCents };
+  if (loan.repayment === "equal_principal") return { ...terms, rateBp, withInterest: false };
+  if (rateBp === null) return { missing: "rate" };
+  return { ...terms, rateBp, withInterest: true };
 }
 
 /** The due dates after the balance date, oldest first, each a whole number of intervals from its anchor. */
