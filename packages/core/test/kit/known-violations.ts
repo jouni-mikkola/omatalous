@@ -78,8 +78,10 @@ const sameIn = (households: readonly string[], view: readonly string[], by: read
 const [ONE, TWO, THREE, FOUR] = [WITH_EVENTS(1), WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
 const EVENT_HOUSEHOLDS = [ONE, TWO, THREE, FOUR];
 
+/** The residual of the loan paid from savings alone, with the monthly transfer between two members (8000 cents, fee 150) in the household view, and in the first member's view. */
+const [LOAN, WITH_FEE, WITH_SENT] = [-61240, -61090, -69390] as const;
 /** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what savings accounts counted. */
-const bridge = (moved: number, saved: number) => `residual -61240, moved ${moved}, outside the pool savings:saved ${saved}, savings:debt 61240`;
+const bridge = (residual: number, moved: number, saved: number) => `residual ${residual}, moved ${moved}, outside the pool savings:saved ${saved}, savings:debt 61240`;
 /** A bridge line of a month with no savings top-up of the household's own (the month of today) or with the 200 euro one. */
 const topUps = (residual: number, moved: number, month: "full" | "last") => `residual ${residual}, moved ${moved}, outside the pool ${month === "full" ? "savings:saved 20000" : "none"}`;
 /** The joint account's top-ups from the other members' accounts that a member's view counts as income, in each month. */
@@ -94,17 +96,29 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
     finding: "loan-from-savings-counted-twice",
     check: "I1.bridge",
-    reason: "A loan instalment paid from a savings account counts as spending at the lender and again as the top-up of the savings account that paid it, so Tulos is 61240 cents too low in each month.",
+    reason: "A loan instalment paid from a savings account counts as spending at the lender and again as the top-up of the savings account that paid it, so Tulos is 61240 cents too low in each month. In the households with two or more members the same lines carry the monthly transfer between two members: its fee of 150 cents is counted by no flow and stays in the residual of the household view (the spec leaves a fee there), and in the first member's view the 8150 cents sent to the other member are counted as a payment to a person.",
     lines: [
-      { line: bridge(0, 81240), where: [...views(ONE, ["household", "m1"], FULL_MONTHS)] },
-      { line: bridge(0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
-      { line: bridge(-9000, 81240), where: [...views(TWO, ["m1"], FULL_MONTHS), ...views(FOUR, ["m1"], FULL_MONTHS)] },
-      { line: bridge(0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
-      { line: bridge(-5625, 81240), where: views(THREE, ["m1"], FULL_MONTHS) },
-      { line: bridge(0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
-      { line: bridge(0, 61240), where: [...sameIn(EVENT_HOUSEHOLDS, ["household"], LAST_MONTH), ...views(ONE, ["m1"], LAST_MONTH)] },
-      { line: bridge(-9000, 61240), where: [...views(TWO, ["m1"], LAST_MONTH), ...views(FOUR, ["m1"], LAST_MONTH)] },
-      { line: bridge(-5625, 61240), where: views(THREE, ["m1"], LAST_MONTH) },
+      { line: bridge(LOAN, 0, 81240), where: [...views(ONE, ["household", "m1"], FULL_MONTHS)] },
+      { line: bridge(WITH_FEE, 0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
+      { line: bridge(WITH_SENT, -850, 81240), where: [...views(TWO, ["m1"], FULL_MONTHS), ...views(FOUR, ["m1"], FULL_MONTHS)] },
+      { line: bridge(WITH_FEE, 0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
+      { line: bridge(WITH_SENT, 2525, 81240), where: views(THREE, ["m1"], FULL_MONTHS) },
+      { line: bridge(WITH_FEE, 0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
+      { line: bridge(LOAN, 0, 61240), where: [...views(ONE, ["household", "m1"], LAST_MONTH)] },
+      { line: bridge(WITH_FEE, 0, 61240), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
+      { line: bridge(WITH_SENT, -850, 61240), where: [...views(TWO, ["m1"], LAST_MONTH), ...views(FOUR, ["m1"], LAST_MONTH)] },
+      { line: bridge(WITH_SENT, 2525, 61240), where: views(THREE, ["m1"], LAST_MONTH) },
+    ],
+  },
+  {
+    finding: "member-transfer-counted-as-person-income",
+    check: "I1.bridge",
+    reason: "The monthly transfer between two members arrives in the second member's view from an account the view does not hold, and Tulos counts the 8000 cents as money earned, though it only moved between the household's own accounts.",
+    lines: [
+      { line: topUps(8000, 1000, "full"), where: [...views(TWO, ["m2"], FULL_MONTHS), ...views(FOUR, ["m2"], FULL_MONTHS)] },
+      { line: topUps(8000, 1000, "last"), where: [...views(TWO, ["m2"], LAST_MONTH), ...views(FOUR, ["m2"], LAST_MONTH)] },
+      { line: topUps(8000, 3250, "full"), where: views(THREE, ["m2"], FULL_MONTHS) },
+      { line: topUps(8000, 3250, "last"), where: views(THREE, ["m2"], LAST_MONTH) },
     ],
   },
   {
@@ -154,12 +168,6 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
       { line: "15 rows: MOBILEPAY TAIKA PIZZA is a business and counts as p2p", where: sameIn(EVENT_HOUSEHOLDS, ["household", "m1"]) },
       { line: "with the prefix MOBILEPAY TAIKA PIZZA is a person, without it TAIKA PIZZA is a payee", where: sameIn(EVENT_HOUSEHOLDS, ["household", "m1"]) },
     ],
-  },
-  {
-    finding: "member-legs-as-person-payments",
-    check: "I1b.member-legs",
-    reason: "Transfers between two members that carry a payment-app wording count as payments to and from a person in the household view, though no money left the household.",
-    lines: [{ line: "30 legs (member_transfer) count as income/p2p", where: sameIn([TWO, THREE, FOUR], ["household"]) }],
   },
   {
     finding: "available-counts-one-checking-account",
