@@ -20,6 +20,7 @@ cat >"$TMP/bin/curl" <<'STUB_CURL'
 url=${*: -1}
 echo "$url" >>"$CURL_LOG"
 echo "$*" >>"$CURL_LOG.args"
+echo "${GITHUB_TOKEN:-none} ${GH_TOKEN:-none}" >>"$CURL_LOG.env" # what the environment of a program the script starts holds
 out=
 head=
 while (($#)); do
@@ -107,7 +108,7 @@ check "exit 1 on a version that is not x.y.z" test $rc -eq 1
 
 # the first release of a new root: no earlier release to verify, said only by release.sh --new-root
 first() {
-  rm -f "$CURL_LOG.n" "$CURL_LOG.args"; : >"$CURL_LOG"
+  rm -f "$CURL_LOG.n" "$CURL_LOG.args" "$CURL_LOG.env"; : >"$CURL_LOG"
   CURL_MODE=$1 RELEASES=$2 PATH="$TMP/bin:$PATH" env -u GITHUB_TOKEN -u GH_TOKEN VERIFY_RELEASE_RETRY_WAIT=0 "${@:3}" bash "$SCRIPT" 2>&1
 }
 out=$(first ok '[]' VERIFY_RELEASE_FIRST=1); rc=$?
@@ -126,6 +127,10 @@ check "a token does not change the answer" test $rc -eq 0
 grep -q 'Authorization: Bearer tok-abc123' "$CURL_LOG" && pass "sends GITHUB_TOKEN to api.github.com" || fail "sends GITHUB_TOKEN to api.github.com"
 grep -q 'tok-abc123' "$CURL_LOG.args" && fail "keeps the token off the command line" || pass "keeps the token off the command line"
 [[ $out == *tok-abc123* ]] && fail "never prints the token" || pass "never prints the token"
+[[ $(sort -u "$CURL_LOG.env") == "none none" ]] && pass "keeps the token out of the environment of the programs it starts" || fail "keeps the token out of the environment of the programs it starts" "$(cat "$CURL_LOG.env")"
+out=$(CURL_MODE=ok RELEASES='[]' PATH="$TMP/bin:$PATH" GITHUB_TOKEN=tok-trace VERIFY_RELEASE_FIRST=1 bash -x "$SCRIPT" 2>&1); rc=$?
+check "a traced run still works" test $rc -eq 0
+[[ $out == *tok-trace* ]] && fail "a trace never prints the token" || pass "a trace never prints the token"
 out=$(first ok '[]' VERIFY_RELEASE_FIRST=1 GH_TOKEN=tok-def456); rc=$?
 grep -q 'Authorization: Bearer tok-def456' "$CURL_LOG" && pass "sends GH_TOKEN when there is no GITHUB_TOKEN" || fail "sends GH_TOKEN when there is no GITHUB_TOKEN"
 out=$(first ok '[]' VERIFY_RELEASE_FIRST=1); rc=$?

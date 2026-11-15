@@ -179,6 +179,33 @@ has "no CA: a rehearsal's docker is the proof's all the same, which builds no im
 lacks "no CA: the image leg's build is docker's own" "$(calls)" "--build-context"
 git -C "$R" reset -q --hard "$BEFORE"; git -C "$R" tag -d s1 >/dev/null
 
+# ── GITHUB_TOKEN: the signature leg alone gets it (a rehearsal runs an install's own update.sh) ──
+# $CALLS.token has a line a stand-in program: its name and the values of GITHUB_TOKEN and GH_TOKEN in its environment (none: unset)
+signature_held() { grep -E '^verify-release.sh ' "$CALLS.token"; }
+others_held() { grep -vE '^verify-release.sh ' "$CALLS.token"; }
+reset; rm -f "$CALLS.token"
+out=$(GITHUB_TOKEN=tok-sig GH_TOKEN=tok-gh proof baselines.txt)
+has "the signature leg holds GITHUB_TOKEN" "$(signature_held)" "verify-release.sh tok-sig none"
+check "the rehearsals, the drills, the image and the checks ran" test "$(others_held | grep -cE '^(upgrade-run.sh|check-migrations.sh|compose-compat.sh|drills.sh|smoke-image.sh|image-checks.sh|docker) ')" -ge 10
+check "none of them holds a token, and the upgrade runs among them" test "$(others_held | grep -c tok-)" -eq 0 -a "$(others_held | grep -c '^upgrade-run.sh none none')" -ge 5
+lacks "the proof's own output has none" "$out" tok-
+reset; rm -f "$CALLS.token"
+out=$(GH_TOKEN=tok-gh proof baselines.txt)
+has "GH_TOKEN alone reaches the signature leg as GITHUB_TOKEN" "$(signature_held)" "verify-release.sh tok-gh none"
+check "and no other leg holds it" test "$(others_held | grep -c tok-)" -eq 0
+reset; rm -f "$CALLS.token"; touch "$PLAY/root"
+out=$(GITHUB_TOKEN=tok-sig proof baselines.txt)
+has "started as root: the signature leg holds the token" "$(signature_held)" "verify-release.sh tok-sig none"
+check "started as root: no other leg holds it" test "$(others_held | grep -c tok-)" -eq 0
+reset; rm -f "$CALLS.token"
+out=$(proof baselines.txt)
+has "no token: the signature leg holds none" "$(signature_held)" "verify-release.sh none none"
+reset; rm -f "$CALLS.token"
+out=$(cd "$TMP" && GITHUB_TOKEN=tok-trace TMPDIR=$TMP/work PATH=$BIN:$PATH bash -x "$R/tools/ci/local-proof.sh" baselines.txt 2>&1)
+lacks "a traced proof never prints the token" "$out" tok-trace
+has "and the traced proof still gives the signature leg its token" "$(signature_held)" "verify-release.sh tok-trace none"
+check "and no other leg of the traced proof holds it" test "$(others_held | grep -c tok-)" -eq 0
+
 echo
 echo "$PASS passed, $FAILED failed"
 [[ $FAILED -eq 0 ]]

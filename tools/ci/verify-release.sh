@@ -10,6 +10,11 @@
 # holds linux/amd64 and linux/arm64. Exit 1 when the package needs a login, the tag is not there or an architecture is
 # missing. Needs only curl and jq, no cosign and no git history.
 set -euo pipefail
+# The token is read once into API_TOKEN and taken out of the environment, so that nothing this script starts (cosign, git, the
+# install scripts of a baseline) inherits it, and tracing is off, since a trace would print it.
+{ set +x; } 2>/dev/null
+API_TOKEN=${GITHUB_TOKEN:-${GH_TOKEN:-}}
+unset GITHUB_TOKEN GH_TOKEN
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 # shellcheck source=tools/lib/project.sh
@@ -24,7 +29,7 @@ cd "$ROOT"
 # (x-ratelimit-remaining: 0 or Retry-After) is asked again, at most twice, after a wait of 5 s then 15 s
 # (Retry-After when it names under 100 s; VERIFY_RELEASE_RETRY_WAIT=0 skips the wait, for tests).
 github_api() {
-  local url=$1 token=${GITHUB_TOKEN:-${GH_TOKEN:-}} dir code rc attempt=1 wait retry
+  local url=$1 token=$API_TOKEN dir code rc attempt=1 wait retry
   local -a cfg=()
   [[ -z $token ]] || cfg=(--config -)
   dir=$(mktemp -d) || return 1
