@@ -185,7 +185,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     insights,
     home: buildHome(ctx, { basis, pace, insights, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, scopeProposals),
-    overview: buildOverview(ctx, balances, inputs, lang),
+    overview: buildOverview(ctx, lang),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),
   };
 }

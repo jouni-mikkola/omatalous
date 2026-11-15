@@ -1,6 +1,5 @@
 /**
- * The name of the accounts less the debts, shared by Yhteenveto's tile and the holdings block of Raportit, so the two
- * name one figure in one way.
+ * The name of the accounts less the debts, as the holdings block of Raportit shows it.
  */
 import { figureName, t, tn } from "../text.ts";
 import type { DashboardData } from "../types.ts";

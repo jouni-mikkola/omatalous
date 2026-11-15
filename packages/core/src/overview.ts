@@ -1,15 +1,12 @@
 /**
  * The figures of Yhteenveto that no other part of the dashboard gives: this month's income and its earned part,
- * how far what the household has net moved in a month, the last twelve months of income and spending, and this month's
- * categories against their usual month. Every other part reads a figure of `nyt`, `home`, `ahead` or `holdings` as it is.
+ * the last twelve months of income and spending, and this month's categories against their usual month. Every other part reads a figure of `nyt`, `home`, `ahead` or `holdings` as it is.
  */
-import { addMonths, addMonthsToDate, monthOf } from "./dates.ts";
+import { addMonths, monthOf } from "./dates.ts";
 import { earnedIncome, monthIncome } from "./analysis/usual.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
-import { accountsLessDebtOn } from "./reports/balances.ts";
 import { spendingMonthsReport } from "./reports/spending-months.ts";
-import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 
 /** How many months the chart of Yhteenveto draws, the running one included. */
 const OVERVIEW_MONTHS = 12;
@@ -18,11 +15,11 @@ const OVERVIEW_CATEGORIES = 6;
 
 interface OverviewMonth {
   month: string;
-  /** All income (`monthIncome`, Tulot): in the running month the Tulot tile's figure. */
+  /** All income (`monthIncome`, Tulot): in the running month Yhteenveto's Tulot. */
   incomeCents: number;
   /**
-   * Spending as the bridge counts it (`flowSpendOf`, the consumption and debt of the flows): in the running month the Menot
-   * tile's figure. Income less this, less what went to savings, is Tulos. A debt paid from a savings account is not in it
+   * Spending as the bridge counts it (`flowSpendOf`, the consumption and debt of the flows): in the running month Yhteenveto's
+   * Menot. Income less this, less what went to savings, is Tulos. A debt paid from a savings account is not in it
    * (it is Säästöön), which Raportit's Menot kuukausittain counts as spending: `fromSavingsCents` is the difference.
    */
   spendCents: number;
@@ -44,15 +41,10 @@ interface OverviewCategory {
 export interface Overview {
   /**
    * The running month's income so far (`monthIncome`, the month's Tulot of the income report) and the earned part of it
-   * (`earnedIncome`, Ansiotulot). The tile shows the first; the second is its sub-line when it differs. There is no usual
+   * (`earnedIncome`, Ansiotulot). Tulot shows the first; the second is its sub-line when it differs. There is no usual
    * of the first: Tavalliset tulot is the mean of the second, so it stays on the income report.
    */
   income: { cents: number; earnedCents: number };
-  /**
-   * The accounts less the debts today against the same day a month ago (`accountsLessDebtOn` both days): the change of
-   * the Varat tile. Null when either day is not known.
-   */
-  net: { since: IsoDate; changeCents: number } | null;
   /** The months the history reaches of the last `OVERVIEW_MONTHS`, oldest first, the running month last. */
   months: OverviewMonth[];
   /** The usual month's spending over the complete months of `months`, on the base of the bars (`typicalFlowCents` of Menot kuukausittain, without large purchases); null under three of them. */
@@ -61,18 +53,15 @@ export interface Overview {
   usualMonths: number;
   /**
    * This month's largest `OVERVIEW_CATEGORIES` categories with spending above zero, largest first, and the rest as one
-   * sum, as the categories of Raportit count them. `totalCents` is the running month's `spendCents`, the Menot tile's.
-   * The categories also hold the debt paid from a savings account, which the tile leaves out (`fromSavingsCents`):
+   * sum, as the categories of Raportit count them. `totalCents` is the running month's `spendCents`, Menot of Yhteenveto.
+   * The categories also hold the debt paid from a savings account, which Menot leaves out (`fromSavingsCents`):
    * `rows` and `otherCents` add up to `totalCents` and `fromSavingsCents` together.
    */
   categories: { rows: OverviewCategory[]; otherCents: number; otherCount: number; totalCents: number; fromSavingsCents: number; usualMonths: number };
 }
 
-export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): Overview {
+export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LANGUAGE): Overview {
   const month = monthOf(ctx.today);
-  const since = addMonthsToDate(ctx.today, -1);
-  const now = accountsLessDebtOn(ctx, balances, inputs, ctx.today);
-  const before = accountsLessDebtOn(ctx, balances, inputs, since);
   // one report, so a month's bar, the usual line and the categories are the sums Raportit shows for the same months
   const spending = spendingMonthsReport(ctx, { from: `${addMonths(month, 1 - OVERVIEW_MONTHS)}-01`, to: ctx.today }, lang);
   const at = spending.months.length - 1;
@@ -86,7 +75,6 @@ export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceIn
     .map((c): OverviewCategory => ({ category: c.category, label: c.label, cents: c.values[at]!, usualCents: c.typicalCents }));
   return {
     income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
-    net: now === null || before === null ? null : { since, changeCents: now - before },
     months: spending.months.map((m, i) => ({ month: m, incomeCents: monthIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i]!, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,

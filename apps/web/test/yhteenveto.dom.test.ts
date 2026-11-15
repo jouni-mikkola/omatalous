@@ -47,7 +47,7 @@ function data(more: Partial<DashboardData> = {}): Data {
     ahead: { from: "2026-11-11", to: "2026-11-24", rows: [], upcoming: [], outside: [] },
     home: { paceGap: null, pace: null },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
-    overview: { income: { cents: 412000, earnedCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
+    overview: { income: { cents: 412000, earnedCents: 398000 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
   } as unknown as DashboardData;
   return { ...rest, ...more, nyt: nytOf(true) };
 }
@@ -58,6 +58,9 @@ function summaryIn(d: Data) {
 }
 
 /** The three figures as a reader sees them: label, figure and the lines under it. */
+const fillOf = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-fig=${id}] .home-gauge-fill`)!;
+const markOf = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-fig=${id}] .home-gauge-mark`);
+const size = (el: HTMLElement) => el.style.getPropertyValue("inline-size");
 const figuresIn = (container: HTMLElement) =>
   [...container.querySelectorAll(".home-figs > li")].map((li) => ({
     id: li.getAttribute("data-fig"),
@@ -79,7 +82,7 @@ describe("Yhteenveto's month", () => {
   });
 
   it("the income names the earned part only when it differs from the income, and a month with only unearned income shows it", () => {
-    const income = (cents: number, earnedCents: number) => figuresIn(summaryIn(data({ overview: { income: { cents, earnedCents }, net: null, months: [] } } as never)))[0]!;
+    const income = (cents: number, earnedCents: number) => figuresIn(summaryIn(data({ overview: { income: { cents, earnedCents }, months: [] } } as never)))[0]!;
     expect(income(412000, 412000).lines).toEqual(["Viime kuussa samaan päivään 3 800 €"]);
     expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 0 €"] });
   });
@@ -115,6 +118,40 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("[data-fig=income]")?.classList.contains("home-short")).toBe(false);
   });
 
+  it("draws Tulot, Menot and Tulos on one scale, the longest sum the bars and their comparisons hold", () => {
+    const container = summaryIn(data());
+    expect(figuresIn(container).map((f) => size(fillOf(container, f.id!)))).toEqual(["100%", "36.4%", "51.5%"]);
+    // the same day of last month: Tulot 3 800 €, Tulos 1 900 €, on the scale of 4 120 €; Menot has none to draw
+    expect(figuresIn(container).map((f) => markOf(container, f.id!)?.style.getPropertyValue("inset-inline-start") ?? null)).toEqual(["92.2%", null, "46.1%"]);
+  });
+
+  it("the same sum kept and short are not the same bar: a negative Tulos fills from the far end in the problem tone", () => {
+    const kept = summaryIn(data({ totals: totalsOf(190000, 100000, 20000, 0), comparable: false } as never));
+    const short = summaryIn(data({ totals: totalsOf(100000, 150000, 20000, 0), comparable: false } as never));
+    // +700 € and −700 € are the same length; the end they fill from and the tone tell them apart
+    expect(size(fillOf(kept, "result"))).toBe("17%");
+    expect(size(fillOf(short, "result"))).toBe("17%");
+    expect(fillOf(kept, "result").hasAttribute("data-deficit")).toBe(false);
+    expect(fillOf(kept, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("income");
+    expect(fillOf(short, "result").hasAttribute("data-deficit")).toBe(true);
+    expect(fillOf(short, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("debt");
+  });
+
+  it("draws the comparison of a negative Tulos from the same end, and leaves it out when last month was on the other side of zero", () => {
+    const short = { overview: { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 170000, fromSavingsCents: 0, complete: false }] }, totals: totalsOf(100000, 150000, 20000, 0) };
+    // last month short by 500 €: both on the scale of Menot's 1 700 €
+    const both = summaryIn(data({ ...short, previousTotals: totalsOf(100000, 130000, 20000, 0) } as never));
+    expect(size(fillOf(both, "result"))).toBe("41.2%");
+    expect(markOf(both, "result")?.style.getPropertyValue("inset-inline-end")).toBe("29.4%");
+    expect(markOf(both, "result")?.style.getPropertyValue("inset-inline-start")).toBe("");
+    // last month kept 1 900 €: a mark of a surplus on a bar of a shortfall is not drawn, its line stays
+    const other = summaryIn(data({ ...short, previousTotals: totalsOf(380000, 140000, 20000, 30000) } as never));
+    expect(markOf(other, "result")).toBeNull();
+    expect(figuresIn(other)[2]!.lines).toEqual(["Viime kuussa samaan päivään 1 900 €"]);
+    // the comparison of Tulot stays
+    expect(markOf(other, "income")).not.toBeNull();
+  });
+
   it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
     const container = summaryIn(data());
     const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => ({
@@ -129,6 +166,29 @@ describe("Yhteenveto's month", () => {
       { part: "left", name: "Tulos", sum: "2 120 €" },
     ]);
     expect(container.querySelectorAll(".home-flow-bar > span").length).toBe(4);
+    expect(container.querySelector("[data-bar=sources]")).toBeNull();
+  });
+
+  const barOf = (container: HTMLElement, which: string) =>
+    [...container.querySelectorAll<HTMLElement>(`[data-bar=${which}] > span`)].map((s) => ({ part: s.getAttribute("data-part"), tone: s.getAttribute("data-tone"), share: Number.parseFloat(s.style.getPropertyValue("flex-grow")) }));
+  const rowsOf = (container: HTMLElement) => [...container.querySelectorAll(".home-flow-list > li")].map((li) => [li.getAttribute("data-part"), flat(li.querySelector(".home-flow-name")?.textContent), flat(li.querySelector(".home-flow-sum")?.textContent)]);
+
+  it("when spending is more than the income and savings covered the rest, a bar of the sources is drawn above the parts", () => {
+    // 1 500 € out of 1 000 € income: 200 € came out of savings, 300 € from the accounts
+    const container = summaryIn(data({ totals: totalsOf(100000, 150000, 0, -20000) } as never));
+    const sources = barOf(container, "sources");
+    expect(sources.map((s) => s.part)).toEqual(["income", "savings", "accounts"]);
+    expect(sources.map((s) => s.tone)).toEqual(["income", "neutral", "neutral"]);
+    expect(sources.map((s) => Math.round(s.share * 1000) / 1000)).toEqual([0.667, 0.133, 0.2]);
+    expect(barOf(container, "parts").map((s) => s.part)).toEqual(["consumption"]);
+    expect(rowsOf(container)).toEqual([["consumption", "Kulutus", "1 500 €"], ["savings", "Katettu säästöistä", "200 €"], ["accounts", "Katettu tileiltä", "300 €"]]);
+  });
+
+  it("when credit covered the gap the sources bar names the credit before the accounts", () => {
+    const container = summaryIn(data({ totals: { ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 } } as never));
+    expect(barOf(container, "sources").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
+    expect(rowsOf(container).map((r) => r[0])).toEqual(["consumption", "credit", "accounts"]);
+    expect(rowsOf(container)[1]).toEqual(["credit", "Katettu luotolla", "400 €"]);
   });
 
   it("draws no bar with no income, and the parts stand as a list alone", () => {

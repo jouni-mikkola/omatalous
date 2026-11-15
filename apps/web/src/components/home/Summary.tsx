@@ -29,7 +29,10 @@ function spentLine(data: Data): string | null {
   return null;
 }
 
-/** A figure's bar: its length against the scale it shares with its comparison, and the comparison as a mark or a band. */
+/**
+ * A figure's bar: its length against the scale all three figures share, and the comparison as a mark or a band. A figure
+ * below zero fills from the far end of the bar, so a shortfall never looks like the same sum kept.
+ */
 interface Gauge {
   cents: number;
   scaleCents: number;
@@ -41,16 +44,21 @@ interface Gauge {
 
 function Bar({ gauge }: { gauge: Gauge }) {
   const { cents, scaleCents, tone, markCents, band } = gauge;
+  const deficit = cents < 0;
   return (
     <span className="home-gauge" data-tone={tone} aria-hidden="true">
-      <span className="home-gauge-fill" ref={css({ "inline-size": percentOf(Math.abs(cents), scaleCents) })} />
+      <span className="home-gauge-fill" data-deficit={deficit || undefined} ref={css({ "inline-size": percentOf(Math.abs(cents), scaleCents) })} />
       {band && <span className="home-band" ref={css({ "inset-inline-start": percentOf(band.lowCents, scaleCents), "inline-size": percentBetween(band.lowCents, band.highCents, scaleCents) })} />}
-      {markCents !== null && <span className="home-gauge-mark" ref={css({ "inset-inline-start": percentOf(Math.abs(markCents), scaleCents) })} />}
+      {markCents !== null && <span className="home-gauge-mark" data-deficit={deficit || undefined} ref={css({ [deficit ? "inset-inline-end" : "inset-inline-start"]: percentOf(Math.abs(markCents), scaleCents) })} />}
     </span>
   );
 }
 
+/** The longest of the sums the bars draw, with their comparisons: one scale for Tulot, Menot and Tulos. */
 const scaleOf = (...cents: (number | null)[]) => Math.max(1, ...cents.map((c) => Math.abs(c ?? 0)));
+
+/** The comparison of a figure, or null when it is on the other side of zero: a mark of a shortfall on a bar of a surplus says nothing. */
+const sameSign = (cents: number, comparison: number | null) => (comparison !== null && (cents < 0) === (comparison < 0) ? comparison : null);
 
 interface Item {
   id: "income" | "spent" | "result";
@@ -76,12 +84,13 @@ function itemsOf(data: Data): Item[] {
   const previousSpent = data.pace.previous?.toToday ?? null;
   const spentMark = pace ? null : previousSpent;
   const earned = overview.income.earnedCents;
+  const scaleCents = scaleOf(incomeCents, spentCents, totals.leftCents, previousIncome, previousResult, spentMark, pace?.highCents ?? null);
   return [
     {
       id: "income",
       label: t("home.fig_income"),
       cents: incomeCents,
-      gauge: { cents: incomeCents, scaleCents: scaleOf(incomeCents, previousIncome), tone: "income", markCents: previousIncome, band: null },
+      gauge: { cents: incomeCents, scaleCents, tone: "income", markCents: previousIncome, band: null },
       line: previousLine(previousIncome),
       extra: earned !== overview.income.cents ? t("home.tile_income_earned", { sum: answerMoney(earned) }) : undefined,
     },
@@ -91,7 +100,7 @@ function itemsOf(data: Data): Item[] {
       cents: spentCents,
       gauge: {
         cents: spentCents,
-        scaleCents: scaleOf(spentCents, spentMark, pace?.highCents ?? null),
+        scaleCents,
         tone: "spending",
         markCents: spentMark,
         band: pace ? { lowCents: pace.lowCents, highCents: pace.highCents } : null,
@@ -102,14 +111,14 @@ function itemsOf(data: Data): Item[] {
       id: "result",
       label: t("home.fig_result"),
       cents: totals.leftCents,
-      gauge: { cents: totals.leftCents, scaleCents: scaleOf(totals.leftCents, previousResult), tone: totals.leftCents < 0 ? "debt" : "income", markCents: previousResult, band: null },
+      gauge: { cents: totals.leftCents, scaleCents, tone: totals.leftCents < 0 ? "debt" : "income", markCents: sameSign(totals.leftCents, previousResult), band: null },
       line: previousLine(previousResult),
     },
   ];
 }
 
 /** The tone of each part of the bar: the role colour the same part has in every chart. */
-const FLOW_TONE: Record<string, Tone> = { consumption: "spending", debt: "debt", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
+const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", debt: "debt", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
 
 function flowLabel(key: string): string {
   switch (key) {
@@ -127,18 +136,27 @@ function flowLabel(key: string): string {
 /**
  * Tulojen käyttö: the bar of where the month's income went, in the order of the flows (consumption, debt, savings, what
  * stayed), and under it each part with its sum and its share of the income. All of it is `bridgeView` of the same totals
- * as the three figures above, the one calculation of the bridge on Raportit, so the parts add up to the figures. With no
- * income, or a part below zero, the bar is not drawn and the parts stand as a list alone.
+ * as the three figures above, the one calculation of the bridge on Raportit, so the parts add up to the figures. When
+ * the spending was more than the income, a second bar above the first draws what paid for it: the income, then the credit,
+ * the savings and the accounts that covered the rest, the rows "Katettu …" of the list. With no income, or a part below
+ * zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view }: { view: BridgeView }) {
   const rows = view.figures.filter((f) => f.key !== "income" && f.cents !== 0);
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
+      {view.draws && view.sources.length > 0 && (
+        <span className="home-flow-bar" data-bar="sources" aria-hidden="true">
+          {view.sources.filter((p) => p.share > 0).map((p) => (
+            <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
+          ))}
+        </span>
+      )}
       {view.draws && (
-        <span className="home-flow-bar" aria-hidden="true">
+        <span className="home-flow-bar" data-bar="parts" aria-hidden="true">
           {view.parts.filter((p) => p.share > 0).map((p) => (
-            <span key={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
+            <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
           ))}
         </span>
       )}

@@ -26,7 +26,10 @@
 .home-summary [data-tone="debt"] { --tone: var(--role-debt); }
 .home-summary [data-tone="neutral"] { --tone: var(--role-neutral); }
 .home-gauge-fill { display: block; block-size: 100%; background: var(--tone); }
+/* a figure below zero fills from the far end, the other way from a surplus */
+.home-gauge-fill[data-deficit] { margin-inline-start: auto; }
 .home-gauge-mark { position: absolute; inset-block: calc(var(--sp-4) * -1); inline-size: calc(var(--hairline) * 2); margin-inline-start: calc(var(--hairline) * -1); background: var(--text); }
+.home-gauge-mark[data-deficit] { margin-inline: 0 calc(var(--hairline) * -1); }
 .home-band { position: absolute; inset-block: calc(var(--sp-4) * -1); background: var(--estimate-fill); border-inline: var(--hairline) solid var(--estimate-edge); }
 
 /* where the income went: one bar in the order of the flows, then each part with its share and its sum */

@@ -6,7 +6,7 @@
  * view sets the sum per day left against the usual everyday spending of a day instead (`expectedEverydayPerDay`).
  *
  * The pace is the running month's spending to today against the band of the expected month to the same day
- * (`expectedFlowsFor`, ADR 0021): the usual level the Menot tile of Yhteenveto compares with.
+ * (`expectedFlowsFor`, ADR 0021): the usual level Menot of Yhteenveto compares with.
  */
 import { daysBetween, monthOf } from "../dates.ts";
 import type { IsoDate } from "../types.ts";
