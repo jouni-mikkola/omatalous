@@ -125,7 +125,10 @@ export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
   let cents = 0;
   for (const p of payments(loan, plan)) {
     if (p.date > to) break;
-    if (p.date > day) cents += p.interestCents ?? 0;
+    if (p.date <= day) continue;
+    // a payment whose interest is unknown leaves the sum unknown, never a sum without it
+    if (p.interestCents === null) return { cents: null, unknown: "rate" };
+    cents += p.interestCents;
   }
   return { cents, unknown: null };
 }

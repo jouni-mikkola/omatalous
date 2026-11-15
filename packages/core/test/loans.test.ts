@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates.ts";
+import { type Instalments, payments, planOf } from "../src/loan-plan.ts";
 import {
   creditAccountLoan,
   creditUse,
@@ -139,6 +140,34 @@ describe("equal principal", () => {
     const bare = { ...l, rateBp: null };
     expect(loanBalanceOn(bare, "2026-07-10")).toEqual({ cents: 40_000, unknown: null });
     expect(loanPayoffDate(bare).date).toBe("2026-10-10");
+    expect(loanInterestNext12Months(bare, "2026-01-10")).toEqual({ cents: null, unknown: "rate" });
+  });
+});
+
+describe("the split of a payment into interest and repayment", () => {
+  const annuity = loan({ balanceCents: 100_000, balanceDate: "2026-01-15", rateBp: 1200, repayment: "annuity", intervalMonths: 1, paymentCents: 20_000 });
+  const unrated = { ...annuity, rateBp: null };
+
+  it("is placed only where the rate is known", () => {
+    expect(planOf(unrated)).toEqual({ missing: "rate" });
+    expect(planOf(annuity)).toMatchObject({ withInterest: true, rateBp: 1200 });
+  });
+
+  it("is never guessed for a payment that holds its interest", () => {
+    // @ts-expect-error a plan with interest and no rate would count the whole payment as repayment
+    const guess: Instalments = { months: 1, paymentCents: 20_000, rateBp: null, withInterest: true };
+    expect(guess.withInterest).toBe(true);
+  });
+
+  it("stays unknown in the next payment of an annuity with no rate: the payment is told, its parts are not", () => {
+    expect(loanNextPayment(unrated, "2026-01-20")).toMatchObject({ cents: 20_000, interestCents: null, amortisationCents: null, unknown: "rate" });
+  });
+
+  it("has no interest to add where equal principal has no rate", () => {
+    const bare = loan({ balanceCents: 120_000, balanceDate: "2026-01-10", rateBp: null, repayment: "equal_principal", intervalMonths: 3, paymentCents: 40_000 });
+    const plan = planOf(bare) as Instalments;
+    expect(plan).toMatchObject({ withInterest: false, rateBp: null });
+    expect([...payments(bare, plan)].map((p) => [p.interestCents, p.amortisationCents])).toEqual([[null, 40_000], [null, 40_000], [null, 40_000]]);
     expect(loanInterestNext12Months(bare, "2026-01-10")).toEqual({ cents: null, unknown: "rate" });
   });
 });

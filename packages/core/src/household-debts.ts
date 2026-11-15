@@ -140,7 +140,7 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
     if (!told) continue;
     const part = belowWhole(account.part) ? account.part : null;
     const holder = holders.get(account.id);
-    if (holder && !linked.has(holder) && (account.balanceCents ?? 0) <= 0) {
+    if (holder && !linked.has(holder) && account.balanceCents !== null && account.balanceCents <= 0) {
       linked.add(holder);
       const terms = part ? atPart(holder, part) : holder;
       const pair = { ...terms, limitCents: terms.limitCents ?? told.limitCents };
