@@ -83,7 +83,9 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     expect(plain(document.body.textContent)).not.toContain("Säästöistä maksettu");
     cleanup();
     show({ ...report(true), fromSavings: [0, 0, 0, 0, 0, 460_00], fromSavingsCents: 460_00 });
-    expect(plain(document.body.textContent)).toContain("Säästöistä maksettu 460 €. Yhteenvedon Menot-luku ei sisällä sitä.");
+    const months = screen.getByRole("table", { name: "Menot kuukausittain" });
+    expect(within(months).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kuukausi", "Summa", "Säästöistä maksettu"]);
+    expect(plain(Array.from(months.querySelectorAll("tbody tr")).at(-1)!.textContent)).toContain("460 €");
   });
 
   it("without a card gap says nothing of cards and the footer has the average month", () => {
