@@ -211,7 +211,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - after: none
 ### D7 Delete the unopened views counter
 - why: it was the way to find what to delete; this design decides that.
-- done when: `UnopenedViews.tsx` and `services/view-opens.ts` are gone, the table stays (no migration edit); `pnpm where view_opens` finds only the migration.
+- done when: `UnopenedViews.tsx` and `services/view-opens.ts` are gone, and migration 0031 drops the table; `pnpm where view_opens` finds only the two migrations.
 - locks: settings, view-opens
 - after: D6
 ### D8 Delete the loan picture reader
