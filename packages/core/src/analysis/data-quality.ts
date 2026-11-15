@@ -21,10 +21,8 @@ export interface QualitySignal {
   category?: string;
   /** The card bills of the `card_bills` signal by issuer: the table under its title. */
   cardPurchases?: MissingCardPurchases[];
-  /** `unproven_balance`: why the bank's balances cannot be set against the rows, as the reconcile answers it (`ReconcileResult.reason`). */
+  /** `unproven_balance`: why the bank's balances cannot be set against the rows, as the reconcile answers it (`ReconcileResult.reason`). It has no sum: the balances of cards and checking accounts differ in sign. */
   reason?: NonNullable<NonNullable<BalanceInput["proof"]>["reason"]>;
-  /** `unproven_balance`: the accounts it is about, and `cents` is their balances added up. */
-  accountIds?: string[];
 }
 
 export interface DataQualityReport {
@@ -149,7 +147,7 @@ const PROOF_REASONS = {
  * order of `PROOF_REASONS`: the figures that start from them take the bank's word as it is. Only the viewer's own
  * accounts count, as with `no_balance`.
  */
-export function unprovenOf(balances: readonly BalanceInput[]): { reason: keyof typeof PROOF_REASONS; accounts: BalanceInput[] }[] {
+function unprovenOf(balances: readonly BalanceInput[]): { reason: keyof typeof PROOF_REASONS; accounts: BalanceInput[] }[] {
   return (Object.keys(PROOF_REASONS) as (keyof typeof PROOF_REASONS)[]).flatMap((reason) => {
     const accounts = balances.filter((a) => a.ownerName === null && a.balanceCents !== null && a.proof?.status === "unknown" && a.proof.reason === reason);
     return accounts.length ? [{ reason, accounts }] : [];
@@ -164,9 +162,7 @@ function unprovenBalances(balances: readonly BalanceInput[], lang: Language): Qu
         tone: "info",
         title: accounts.length === 1 ? messageIn(lang, "rep.q_unproven_one", { name: accounts[0]!.name }) : messageIn(lang, "rep.q_unproven_many", { count: accounts.length, names: finnishList(accounts.map((a) => a.name), lang) }),
         detail: messageIn(lang, PROOF_REASONS[reason]),
-        cents: accounts.reduce((sum, a) => sum + a.balanceCents!, 0),
         reason,
-        accountIds: accounts.map((a) => a.id),
       },
     ];
   });

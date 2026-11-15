@@ -1,7 +1,8 @@
 /**
- * Tarkistettavat's notices of figures the app cannot prove (services/review-unresolved.ts): a card whose payer the
- * rows do not show, with the dashboard's tile line beside it. Ohita is a mark `dismissed` that holds until the amount
- * moves a quarter. Made-up names and sums; the test clock is 9.10.2026.
+ * Tarkistettavat's notice of cards whose payer the rows do not show (services/review-unresolved.ts), with the
+ * dashboard's tile line beside it. "Älä muistuta tästä enää" is a mark `dismissed` on the cards it names: it holds
+ * until a card joins that it did not name, whatever the debts do. A card paid from the counted accounts and from others,
+ * and a balance no row proves, are no notice. Made-up names and sums; the test clock is 9.10.2026.
  */
 import { type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
@@ -15,6 +16,7 @@ const raw = (bookingDate: string, euros: number, counterparty: string, descripti
 });
 
 type Item = { id: string; kind: string; cents: number; [field: string]: unknown };
+type Setup = Awaited<ReturnType<typeof cardWithoutPayer>>;
 
 /** A checking account with 2 500 € and a card that owes 230 €, no payment to the card in any row. */
 async function cardWithoutPayer() {
@@ -30,18 +32,35 @@ async function cardWithoutPayer() {
   return t;
 }
 
-describe("the notices of figures that are not proven", () => {
-  /** The cards' notices: the one balance of the checking account is a notice of its own (`too_few`), which another test holds. */
-  const notices = async (t: Awaited<ReturnType<typeof cardWithoutPayer>>) => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "unresolved" && String(i.reason).startsWith("card_payer"));
+const notices = async (t: Setup) => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "unresolved");
+const aheadOf = async (t: Setup) => (await t.admin.call("GET", "/api/ahead")).body.ahead;
 
+/** A second card with no payer seen, owing 100 €. */
+async function addSecondCard(t: Setup) {
+  const repo = t.s.finance(t.adminId);
+  await repo.upsertAccount({ id: "card2", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Toinen kortti", iban: "FI4950009420028731", currency: "EUR", type: "credit_card" });
+  await ingestTransactions(repo, "card2", [raw("2026-10-04", -10, "KIOSKI ESIMERKKI", "KORTTIOSTO")], "csv");
+  await repo.setAccountBalance("card2", -10_000, "2026-10-09T06:00:00.000Z");
+  await reprocess(repo, t.s.settings);
+}
+
+describe("the notice of cards whose payer is not seen", () => {
   it("names a card nobody is seen to pay by its debt, and the tile says the same debt", async () => {
     const t = await cardWithoutPayer();
-    expect(await notices(t)).toEqual([expect.objectContaining({ id: "unresolved:card_payer_unseen", reason: "card_payer_unseen", names: ["Luottokortti"], cents: 23_000, subject: "question:unresolved:card_payer_unseen@23000" })]);
-    const { ahead } = (await t.admin.call("GET", "/api/ahead")).body;
+    expect(await notices(t)).toEqual([expect.objectContaining({ id: "unresolved:card_payer_unseen", reason: "card_payer_unseen", names: ["Luottokortti"], cents: 23_000, subject: "question:unresolved:card_payer_unseen:card" })]);
+    const ahead = await aheadOf(t);
     expect(ahead.balance.unresolved).toEqual([expect.objectContaining({ reason: "card_payer_unseen", cardId: "card", cents: 23_000 })]);
-    // the debt still comes off whole, and never more than the pool holds
     expect(ahead.balance.cardDebtCents).toBe(23_000);
-    expect(ahead.balance.cardDebtCents).toBeLessThanOrEqual(ahead.balance.startCents);
+  });
+
+  it("takes a debt larger than the money off whole, and the figure goes below zero", async () => {
+    const t = await cardWithoutPayer();
+    await t.admin.call("PATCH", "/api/accounts/card", { balanceCents: -300_000 });
+    const { balance, totals } = await aheadOf(t);
+    expect(balance.cardDebtCents).toBe(300_000);
+    expect(balance.cardDebtCents).toBeGreaterThan(balance.startCents);
+    expect(balance.freeCents).toBe(balance.startCents - totals.leavingCents - balance.cardDebtCents);
+    expect(balance.freeCents).toBeLessThan(0);
   });
 
   it("goes when a payment from the pool's account is seen, and the figure has nothing unresolved", async () => {
@@ -51,35 +70,45 @@ describe("the notices of figures that are not proven", () => {
     await ingestTransactions(repo, "card", [{ ...raw("2026-10-01", 100, "Maksu", "KORTIN MAKSU"), counterpartyIban: "FI2112345600000785" }], "csv");
     await reprocess(repo, t.s.settings);
     expect(await notices(t)).toEqual([]);
-    expect((await t.admin.call("GET", "/api/ahead")).body.ahead.balance.unresolved).toEqual([]);
+    expect((await aheadOf(t)).balance.unresolved).toEqual([]);
   });
 
-  it("stays away after Ohita while the amount holds, and returns when it has moved a quarter", async () => {
+  it("stays away after the dismissal when the debt swings, and returns when a card joins that it did not name", async () => {
     const t = await cardWithoutPayer();
     const [item] = await notices(t);
     expect((await t.admin.call("PUT", "/api/marks", { subject: item!.subject, mark: "dismissed" })).status).toBe(200);
     expect(await notices(t)).toEqual([]);
-    // 230 € to 250 €: less than a quarter, the notice stays set aside
-    expect((await t.admin.call("PATCH", "/api/accounts/card", { balanceCents: -25_000 })).status).toBe(200);
+    // 230 € to 900 €: the amount is no part of the key, so the notice stays away
+    expect((await t.admin.call("PATCH", "/api/accounts/card", { balanceCents: -90_000 })).status).toBe(200);
     expect(await notices(t)).toEqual([]);
-    // 230 € to 400 €: more than a quarter, it returns with the new amount
-    expect((await t.admin.call("PATCH", "/api/accounts/card", { balanceCents: -40_000 })).status).toBe(200);
-    expect(await notices(t)).toEqual([expect.objectContaining({ cents: 40_000, subject: "question:unresolved:card_payer_unseen@40000" })]);
+    // a second card with no payer seen is a card the dismissal did not name
+    await addSecondCard(t);
+    expect(await notices(t)).toEqual([expect.objectContaining({ names: ["Luottokortti", "Toinen kortti"], cents: 100_000, subject: "question:unresolved:card_payer_unseen:card,card2" })]);
   });
 
-  it("names a balance no row can check by the figure it starts from", async () => {
+  it("is no notice for a card paid from the counted accounts and from others, which Miksi? still tells", async () => {
     const t = await cardWithoutPayer();
-    const items = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "unresolved" && i.reason === "too_few");
-    // the accounts that hold a single balance each, added up as their sizes, whatever their sign
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ id: "unresolved:too_few", names: expect.arrayContaining(["Käyttötili"]) });
-    expect(items[0]!.cents).toBe((items[0]!.names as string[]).length === 2 ? 273_000 : 250_000);
+    const repo = t.s.finance(t.adminId);
+    await repo.upsertAccount({ id: "sav", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Säästötili", iban: "FI4950009420028731", currency: "EUR", type: "savings" });
+    await repo.setAccountBalance("sav", 900_000, "2026-10-09T06:00:00.000Z");
+    await ingestTransactions(repo, "chk", [raw("2026-10-01", -100, "Luottokortti", "KORTIN MAKSU", "FI1410093000123458")], "csv");
+    await ingestTransactions(repo, "sav", [raw("2026-10-02", -70, "Luottokortti", "KORTIN MAKSU", "FI1410093000123458")], "csv");
+    await ingestTransactions(repo, "card", [{ ...raw("2026-10-01", 100, "Maksu", "KORTIN MAKSU"), counterpartyIban: "FI2112345600000785" }, { ...raw("2026-10-02", 70, "Maksu", "KORTIN MAKSU"), counterpartyIban: "FI4950009420028731" }], "csv");
+    await reprocess(repo, t.s.settings);
+    expect(await notices(t)).toEqual([]);
+    expect((await aheadOf(t)).balance.unresolved).toEqual([expect.objectContaining({ reason: "card_payer_mixed", cardId: "card" })]);
   });
 
-  it("takes no answer but Ohita", async () => {
+  it("is no notice for a balance no row can check", async () => {
+    const t = await cardWithoutPayer();
+    expect((await notices(t)).map((i) => i.reason)).toEqual(["card_payer_unseen"]);
+  });
+
+  it("takes no answer but the dismissal", async () => {
     const t = await cardWithoutPayer();
     const [item] = await notices(t);
     for (const mark of ["in_use", "cancelled"]) expect((await t.admin.call("PUT", "/api/marks", { subject: item!.subject, mark })).status, mark).toBe(400);
-    expect((await t.admin.call("PUT", "/api/marks", { subject: "question:unresolved:nothing@100", mark: "dismissed" })).status).toBe(400);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: "question:unresolved:nothing:card", mark: "dismissed" })).status).toBe(400);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: "question:unresolved:card_payer_unseen@23000", mark: "dismissed" })).status).toBe(400);
   });
 });

@@ -95,8 +95,8 @@ interface AheadBalance {
   cardDebts: { cardId: string; name: string; cents: number }[];
   /**
    * The cards of `cardDebts` whose payer the rows do not prove to be the pool alone: no payment to the card is seen, or
-   * payments are seen from the pool and from outside it. Their debt is taken off whole all the same, so the figure is
-   * never more than it is; this says which part of it rests on that and why. Empty when every payer is proven.
+   * payments are seen from the pool and from outside it. Their debt is taken off whole all the same, so the figure
+   * does not show free money the debt may claim. There is no cap: a debt larger than the money takes `freeCents` below zero. This says which part of the debt rests on that and why. Empty when every payer is proven.
    */
   unresolved: UnresolvedCard[];
   /** The `cardDebts` added up. */

@@ -19,7 +19,7 @@ const MARK_KINDS: readonly MarkKind[] = ["in_use", "cancelled", "dismissed"];
  * for a payee set aside from the list of what has no category, and `question:loan-kind:<kind>:<series key>` for what a
  * proposed loan is, `question:plan-end:<month>:<key>` or `question:plan-unknown:<key>` for where an instalment plan ends, and
  * `question:bill-due:<day>:<key>` for a bill that did not come and will still come, core bill-answer.ts, and
- * `question:unresolved:<reason>@<cents>` for a notice about a figure the app cannot prove that was set aside, core unresolved-answer.ts): 1 to 200 characters after the prefix and no control
+ * `question:unresolved:<reason>:<card ids>` for a notice about cards whose payer the rows do not show that was set aside, core unresolved-answer.ts): 1 to 200 characters after the prefix and no control
  * characters. A series key of the longest stored name is under 100: a direction, an account id of
  * at most 28 characters, a name of at most 40 (core `normalizeMerchant`) and a price.
  */

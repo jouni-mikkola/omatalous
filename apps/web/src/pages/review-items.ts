@@ -120,17 +120,14 @@ interface CardBalanceItem extends Base {
 }
 
 /**
- * A figure the app cannot prove: balances no row proves, or cards whose payer the rows do not show. `cents` is the amount
- * that rests on it, `subject` the mark that sets the notice aside at that amount. It is no question: the only answers are the mark and, for an unseen payer, the bank connections.
+ * Cards whose payer the rows do not show. `cents` is the debt that rests on it, `subject` the mark that sets the notice
+ * aside for these cards. It is no question: the answers are the bank connections and the mark.
  */
 interface UnresolvedItem extends Base {
   kind: "unresolved";
   reason: UnresolvedReason;
   names: string[];
   subject: string;
-  /** A mixed payer: what the rows show paid to the cards from the counted accounts and from outside them. */
-  paidFromPoolCents?: number;
-  paidFromOutsideCents?: number;
 }
 
 /** A bank consent that ended (`daysLeft` null) or ends soon: the bank is connected again in Asetukset. */
@@ -325,7 +322,7 @@ export function questionOf(item: ReviewItem): string {
     case "consent":
       return item.daysLeft === null ? t("set.ri.the_connection_has_ended") : t("set.ri.the_connection_is_ending");
     case "unresolved":
-      return item.reason === "card_payer_unseen" ? t("set.ri.unresolved_card_payer_unseen") : item.reason === "card_payer_mixed" ? t("set.ri.unresolved_card_payer_mixed") : t("set.ri.unresolved_balance");
+      return t("set.ri.unresolved_card_payer_unseen");
     case "bill":
       return t("set.ri.is_the_bill_still_coming");
     case "fetch":
@@ -334,14 +331,6 @@ export function questionOf(item: ReviewItem): string {
       return item.side === "in" ? t("set.ri.what_is_this_income") : t("set.ri.which_category_does_this_payment");
   }
 }
-
-/** Why a balance cannot be set against the rows, in the words the data quality report uses. */
-const PROOF_WHY = {
-  no_reference_day: "rep.q_unproven_no_reference_day",
-  only_available: "rep.q_unproven_only_available",
-  type_changed: "rep.q_unproven_type_changed",
-  too_few: "rep.q_unproven_too_few",
-} as const satisfies Partial<Record<UnresolvedReason, string>>;
 
 /** The item's figure and the line under it. */
 export function figureOf(item: ReviewItem): { text: string; unit?: string; line: string } {
@@ -380,17 +369,8 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
         unit: t("set.ri.in_total"),
         line: item.daysLeft === null ? t("set.ri.consent_ended_accounts", { accounts: item.accounts.join(", ") }) : tn(item.daysLeft, "set.ri.consent_ends_one", "set.ri.consent_ends_many", { accounts: item.accounts.join(", ") }),
       };
-    case "unresolved": {
-      const names = item.names.join(", ");
-      const sum = money(item.cents);
-      const line =
-        item.reason === "card_payer_unseen"
-          ? t("set.ri.unresolved_card_unseen_line", { sum, names })
-          : item.reason === "card_payer_mixed"
-            ? t("set.ri.unresolved_card_mixed_line", { sum, names, pool: money(item.paidFromPoolCents ?? 0), outside: money(item.paidFromOutsideCents ?? 0) })
-            : `${t("set.ri.unresolved_balance_line", { sum, names })} ${t(PROOF_WHY[item.reason])}`;
-      return { text: sum, unit: t("set.ri.in_total"), line };
-    }
+    case "unresolved":
+      return { text: money(item.cents), unit: t("set.ri.in_total"), line: t("set.ri.unresolved_card_unseen_line", { sum: money(item.cents), names: item.names.join(", ") }) };
     case "bill":
       return { text: money(item.cents), line: t("set.ri.the_bill_was_expected_on", { date: date(item.dueDate) }) };
     case "fetch":

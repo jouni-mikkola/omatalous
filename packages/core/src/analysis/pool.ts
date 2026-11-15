@@ -79,7 +79,7 @@ function cardPayerOf(pool: Pick<Pool, "ids">, payments: Payments, cardId: string
 
 /**
  * Whether the pool pays a card, as far as the rows show. A card with no payer seen is the pool's: its debt is taken off
- * Käytettävissä whole, so the figure is never more than it is. Only a card whose every seen payer is outside the pool
+ * Käytettävissä whole, whatever the pool holds, so the figure does not show free money the debt may claim. Only a card whose every seen payer is outside the pool
  * is not. A card the rows do not prove to the pool alone (`unseen`, `mixed`) is still taken off whole, and the figure
  * says so as unresolved with its reason (`unresolvedCards`).
  */

@@ -15,7 +15,7 @@ const UNPROVEN: Record<string, string> = {
   no_reference_day: "Pankki ei kerro, mille päivälle saldo kuuluu, joten emme voi tarkistaa sitä tapahtumista. Luku on pankin ilmoittama.",
   only_available: "Pankki antaa vain käytettävissä olevan saldon, joten emme voi tarkistaa sitä tapahtumista. Luku on pankin ilmoittama.",
   type_changed: "Pankki vaihtoi saldon lajia, joten emme voi verrata uutta saldoa vanhoihin. Luku on pankin ilmoittama.",
-  too_few: "Saldoja on vielä liian vähän, joten emme voi tarkistaa sitä tapahtumista. Luku on tilin saldo sellaisenaan.",
+  too_few: "Saldoja on vielä liian vähän, joten emme voi tarkistaa saldoa tapahtumista. Luku on tilin saldo sellaisenaan.",
 };
 
 const fraction = (r: Reason) => `${Number(r.to) - Number(r.from)}/${r.of}`;

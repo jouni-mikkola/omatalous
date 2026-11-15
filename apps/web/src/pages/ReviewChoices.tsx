@@ -123,14 +123,12 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
         </div>
       );
     case "unresolved":
-      // the notice is set aside for good at this amount (core unresolved-answer.ts); an unseen payer is seen once the account that pays the card is connected
+      // the notice is set aside for the cards it names (core unresolved-answer.ts); a payer is seen once the account that pays the card is connected
       return (
         <div className="review-choices">
-          {item.reason === "card_payer_unseen" && (
-            <Button className="review-choice" href={settingsHash("banks")}>
-              {t("set.rc.connect_the_paying_account")}
-            </Button>
-          )}
+          <Button className="review-choice" href={settingsHash("banks")}>
+            {t("set.rc.connect_the_paying_account")}
+          </Button>
           <ChoiceButton busy={busy} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
             <span>{t("set.rc.do_not_remind_of_this")}</span>
           </ChoiceButton>
