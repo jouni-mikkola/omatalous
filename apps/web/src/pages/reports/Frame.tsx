@@ -11,7 +11,8 @@ export const reportHref = (id: QuestionId, period: string | null): string => `#/
 
 /**
  * The three questions, on every report page: the open one marked. A question always opens on its first report, the one
- * that carries its name, so a link of one name leads to one place. It stands open at every width: a column beside the page, and a short list of targets above it on a phone.
+ * that carries its name, so a link of one name leads to one place. The open question that has several reports is no link:
+ * its first report is the first of the row under its name. It stands open at every width: a column beside the page, and a short list of targets above it on a phone.
  */
 function QuestionList({ questions, current, params }: { questions: readonly ListedQuestion[]; current: QuestionId; params: URLSearchParams }) {
   return (
@@ -21,9 +22,15 @@ function QuestionList({ questions, current, params }: { questions: readonly List
           const here = q.pages.some((p) => p.id === current);
           return (
             <li key={q.id}>
-              <a href={reportHref(q.pages[0]!.id, params.get("period"))} aria-current={here ? "true" : undefined}>
-                {q.title}
-              </a>
+              {here && q.pages.length > 1 ? (
+                <span className="q-here" aria-current="true">
+                  {q.title}
+                </span>
+              ) : (
+                <a href={reportHref(q.pages[0]!.id, params.get("period"))} aria-current={here ? "true" : undefined}>
+                  {q.title}
+                </a>
+              )}
             </li>
           );
         })}

@@ -1,10 +1,33 @@
 // Decision: on which days do the payments pile up before the payday
-import { carriesLabel, stackBars } from "../../charts/payment-bars.ts";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
+import { carriesLabel, labelRoom, stackBars } from "../../charts/payment-bars.ts";
 import { css } from "../../css.ts";
 import { moneyTick } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { BillLine } from "../next-days-line.ts";
 import type { Active } from "../NextDaysLine.tsx";
+
+/**
+ * How many day labels the axis has room for, read again whenever the axis changes size. The rem is read in the same
+ * callback, so the text size is read at the moment of the measure. Null until the axis has a width.
+ */
+function useLabelRoom(): [RefObject<HTMLOListElement | null>, number | null] {
+  const ref = useRef<HTMLOListElement>(null);
+  const [room, setRoom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = (width: number) => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      setRoom(width > 0 ? labelRoom(width, rem) : null);
+    };
+    measure(el.clientWidth);
+    const ro = new ResizeObserver(([entry]) => measure(entry!.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, room];
+}
 
 /**
  * The days from today to the payday as bars: a day is a bar, each payment of the day a piece of it, and the height is
@@ -16,6 +39,9 @@ export function PaymentBars({ line, active, onActive }: { line: BillLine; active
   const columns = axis.length;
   const { pieces, ticks, at } = stackBars(bills.map((b) => ({ column: b.column, cents: b.cents })));
   const paydayLast = axis[columns - 1]?.payday === true;
+  const [axisRef, room] = useLabelRoom();
+  const axisColumns = css({ "grid-template-columns": `repeat(${columns}, minmax(0, 1fr))` });
+  const fits = room ?? columns;
   return (
     <div className={active ? "pb has-on" : "pb"} aria-hidden="true">
       {paydayLast && <p className="pb-flag">{t("rpt.bl_payday")}</p>}
@@ -58,10 +84,16 @@ export function PaymentBars({ line, active, onActive }: { line: BillLine; active
             </span>
           ))}
       </div>
-      <ol className="pb-axis" ref={css({ "grid-template-columns": `repeat(${columns}, minmax(0, 1fr))` })}>
+      <ol
+        className="pb-axis"
+        ref={(el) => {
+          axisRef.current = el;
+          axisColumns(el);
+        }}
+      >
         {axis.map((d, k) => (
           <li key={d.iso} data-payday={d.payday ? "" : undefined}>
-            {carriesLabel(columns, k) && (
+            {carriesLabel(columns, k, fits) && (
               <>
                 <span>{d.weekday}</span>
                 {d.day}.

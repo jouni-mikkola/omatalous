@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { carriesLabel, stackBars } from "../src/charts/payment-bars.ts";
+import { carriesLabel, labelRoom, stackBars } from "../src/charts/payment-bars.ts";
 
 describe("the bars of the days", () => {
   it("a day's payments stack in the order given, and the tallest day ends at the top tick", () => {
@@ -37,6 +37,34 @@ describe("the bars of the days", () => {
 describe("the labels under the bars", () => {
   it("labels every day while they fit", () => {
     expect(Array.from({ length: 10 }, (_, k) => carriesLabel(10, k)).filter(Boolean).length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("takes a longer step when the axis has room for fewer labels, and keeps its labels a step apart", () => {
+    const marked = (columns: number, fits: number) => Array.from({ length: columns }, (_, k) => k).filter((k) => carriesLabel(columns, k, fits));
+    expect(marked(10, 10)).toHaveLength(10);
+    for (const [columns, fits] of [[10, 3], [10, 5], [31, 4], [12, 2]] as const) {
+      const days = marked(columns, fits);
+      expect(days.at(-1)).toBe(columns - 1);
+      expect(days.length).toBeLessThanOrEqual(fits + 1);
+      for (let i = 1; i < days.length; i++) expect(days[i]! - days[i - 1]!).toBeGreaterThanOrEqual(Math.ceil(columns / fits));
+    }
+  });
+
+  it("a 31-day axis about 245 px wide at 16 px to the rem gets 10 to 11 labels that do not overlap", () => {
+    const columns = 31;
+    const width = 245;
+    const rem = 16;
+    const fits = labelRoom(width, rem);
+    const days = Array.from({ length: columns }, (_, k) => k).filter((k) => carriesLabel(columns, k, fits));
+    expect(days.length).toBeGreaterThanOrEqual(10);
+    expect(days.length).toBeLessThanOrEqual(11);
+    // a label is about 1.1 rem wide, and the labels stand as far apart as their columns
+    const labelPx = 1.1 * rem;
+    for (let i = 1; i < days.length; i++) expect(((days[i]! - days[i - 1]!) * width) / columns).toBeGreaterThan(labelPx);
+  });
+
+  it("has room for fewer labels when the text is larger", () => {
+    expect(labelRoom(245, 32)).toBeCloseTo(labelRoom(245, 16) / 2, 10);
   });
 
   it("always labels the payday, the last day, and never two labels in a row on a long span", () => {

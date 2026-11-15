@@ -24,6 +24,8 @@ describe("Raportit: the questions stand on every report page and mark the open o
     const names = [...bare.querySelectorAll("a")].map((a) => a.textContent);
     expect(names).not.toContain("Kuukausi");
     expect(names).toContain("Rahat ja velat");
-    expect(bare.querySelector("a")?.getAttribute("href")).toBe("#/reports?q=menot");
+    // the open question has several reports, so it is a mark and its first report is the first link of the row under it
+    expect(bare.querySelector("a")?.getAttribute("href")).toBe("#/reports?q=saldot");
+    expect(screen.getByRole("navigation", { name: "Rahankäyttö" }).querySelector("a")?.getAttribute("href")).toBe("#/reports?q=menot");
   }, 60000);
 });

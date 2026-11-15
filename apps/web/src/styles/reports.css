@@ -6,9 +6,9 @@
 .q-list { list-style: none; margin: 0; padding: 0; }
 .q-rail { display: grid; gap: var(--sp-8); align-content: start; }
 .q-rail .q-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-4); }
-.q-list a { display: flex; align-items: center; block-size: 100%; min-block-size: var(--tap-min); padding: var(--sp-8) var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); border-left: var(--tick) solid var(--border); color: var(--text); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+.q-list :is(a, .q-here) { display: flex; align-items: center; block-size: 100%; min-block-size: var(--tap-min); padding: var(--sp-8) var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); border-left: var(--tick) solid var(--border); color: var(--text); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
 .q-list a:hover { background: var(--surface-2); }
-.q-list a[aria-current] { border-left-color: var(--accent); background: var(--surface-2); }
+.q-list :is(a, .q-here)[aria-current] { border-left-color: var(--accent); background: var(--surface-2); }
 /* the reports that refine the open question: a row of targets under its name, the open one with a bar under it as well as a ground */
 .q-refine ul { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); list-style: none; margin: 0; padding: 0; }
 .q-refine a { display: inline-flex; align-items: center; min-block-size: var(--tap-min); padding: var(--sp-4) var(--sp-12); border-block-end: var(--tick) solid transparent; border-radius: var(--radius-m); color: var(--text-2); text-decoration: none; font-weight: 600; }
@@ -40,7 +40,7 @@
 @media (min-width: 900px) {
   .q-frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); gap: var(--sp-24); }
   .q-rail .q-list { display: block; }
-  .q-list a { block-size: auto; border: 0; border-left: var(--tick) solid transparent; border-radius: 0; }
+  .q-list :is(a, .q-here) { block-size: auto; border: 0; border-left: var(--tick) solid transparent; border-radius: 0; }
 }
 /* the readouts: five across at most (a cell is a fifth of the row, 184 px at least so a sum with its share fits), two across on a phone */
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(184px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
