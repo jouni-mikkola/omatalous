@@ -716,7 +716,7 @@ describe("the user's own rule behind a row's category", () => {
     });
 
     it("names a rule of spending when a shop's refund stays in its category", () => {
-      expect(ownRuleOf(tx("PRISMA ESIMERKKI", 4000), "home", both)?.id).toBe(5);
+      expect(ownRuleOf(tx("PRISMA", 4000), "home", both)?.id).toBe(5);
     });
 
     it("names none when the rule of spending was passed by and nothing else of the user's takes the row", () => {
