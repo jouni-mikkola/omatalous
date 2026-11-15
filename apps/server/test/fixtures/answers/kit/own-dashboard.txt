@@ -990,7 +990,7 @@
  "overview": {
   "income": {
    "cents": 0,
-   "usualCents": 381333
+   "earnedCents": 0
   },
   "net": {
    "since": "2026-09-15",

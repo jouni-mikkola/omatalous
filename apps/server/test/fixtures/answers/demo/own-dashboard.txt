@@ -1384,7 +1384,7 @@
  "overview": {
   "income": {
    "cents": 0,
-   "usualCents": 395000
+   "earnedCents": 0
   },
   "net": {
    "since": "2026-09-09",
@@ -1393,21 +1393,21 @@
   "months": [
    {
     "month": "2025-11",
-    "incomeCents": 395000,
+    "incomeCents": 397889,
     "spendCents": 258543,
     "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2025-12",
-    "incomeCents": 395000,
+    "incomeCents": 396694,
     "spendCents": 295514,
     "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-01",
-    "incomeCents": 395000,
+    "incomeCents": 396604,
     "spendCents": 337560,
     "fromSavingsCents": 0,
     "complete": true
@@ -1421,21 +1421,21 @@
    },
    {
     "month": "2026-03",
-    "incomeCents": 395000,
+    "incomeCents": 396229,
     "spendCents": 295275,
     "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-04",
-    "incomeCents": 395000,
+    "incomeCents": 436250,
     "spendCents": 306054,
     "fromSavingsCents": 0,
     "complete": true
    },
    {
     "month": "2026-05",
-    "incomeCents": 395000,
+    "incomeCents": 396860,
     "spendCents": 321071,
     "fromSavingsCents": 0,
     "complete": true
@@ -1449,7 +1449,7 @@
    },
    {
     "month": "2026-07",
-    "incomeCents": 395000,
+    "incomeCents": 397891,
     "spendCents": 342516,
     "fromSavingsCents": 0,
     "complete": true
