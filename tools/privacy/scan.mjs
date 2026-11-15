@@ -491,7 +491,9 @@ export function report(found) {
 
 /**
  * The workflow's run: a pull request's commits, title, body and branch name, or what a push to main added. BASE and
- * HEAD are commits; a BASE the clone does not hold (a new branch, a forced push) is HEAD's parent.
+ * HEAD are commits; a BASE the clone does not hold (a new branch, a forced push) is HEAD's parent. A HEAD with no
+ * parent is the root of a history that starts again: it adds the whole tree, so it is read as `--history` reads a
+ * commit (lines, paths, message, address) and its pictures, which come from before the stamp, are not.
  * @param {Record<string, string | undefined>} env
  * @param {Lists} lists
  */
@@ -499,10 +501,28 @@ export function scanCi(env, lists) {
   const head = env.HEAD_SHA || "HEAD";
   const known = (/** @type {string | undefined} */ c) => Boolean(c) && !/^0+$/.test(c ?? "") && spawnSync("git", ["cat-file", "-e", `${c}^{commit}`]).status === 0;
   const base = known(env.BASE_SHA) ? /** @type {string} */ (env.BASE_SHA) : `${head}~1`;
+  const root = !known(env.BASE_SHA) && spawnSync("git", ["rev-parse", "-q", "--verify", `${head}^`]).status !== 0;
   const sets = hashSets(lists);
   const text = (/** @type {string} */ name, /** @type {string | undefined} */ value) =>
     (value ?? "").split("\n").flatMap((l, i) => scanLine(l, `the pull request's ${name}${name === "body" ? ` line ${i + 1}` : ""}`, "", lists, sets));
-  return [...text("title", env.PR_TITLE), ...text("body", env.PR_BODY), ...text("branch name", env.PR_BRANCH), ...scanDiff(base, head, lists)];
+  return [...text("title", env.PR_TITLE), ...text("body", env.PR_BODY), ...text("branch name", env.PR_BRANCH), ...(root ? scanRoot(head, lists) : scanDiff(base, head, lists))];
+}
+
+/**
+ * A root commit: what `--history` reads of it, and its paths listed by git itself, since a binary file has no `+++` header
+ * in a diff and would pass the path rules. The pictures are not read (they come from before the stamp).
+ * @param {string} head
+ * @param {Lists} lists
+ */
+function scanRoot(head, lists) {
+  const sets = hashSets(lists);
+  /** @type {Finding[]} */
+  const found = scanHistory(head, lists);
+  for (const p of git(["ls-tree", "-r", "--name-only", "-z", head]).split("\0").filter(Boolean)) {
+    found.push(...scanPath(p));
+    found.push(...scanLine(p, `${p} (its path)`, p, lists, sets));
+  }
+  return found;
 }
 
 /**
