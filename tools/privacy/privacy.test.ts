@@ -267,6 +267,15 @@ describe("the command", () => {
     expect(dirty.status).toBe(1);
     expect(dirty.stdout).toContain("new.md:1: phone");
     expect(dirty.stdout).not.toContain("4567");
+
+    // a binary file has no +++ header in a diff: its path is listed by git instead
+    git(dir, "checkout", "-q", "--orphan", "binary");
+    writeFileSync(join(dir, "data.db"), Buffer.from([0, 1, 2, 3, 0, 255]));
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "Start the history once more");
+    const binary = run();
+    expect(binary.status, binary.stdout).toBe(1);
+    expect(binary.stdout).toContain("data.db");
   });
 });
 

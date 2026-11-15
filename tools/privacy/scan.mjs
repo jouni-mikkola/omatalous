@@ -505,7 +505,24 @@ export function scanCi(env, lists) {
   const sets = hashSets(lists);
   const text = (/** @type {string} */ name, /** @type {string | undefined} */ value) =>
     (value ?? "").split("\n").flatMap((l, i) => scanLine(l, `the pull request's ${name}${name === "body" ? ` line ${i + 1}` : ""}`, "", lists, sets));
-  return [...text("title", env.PR_TITLE), ...text("body", env.PR_BODY), ...text("branch name", env.PR_BRANCH), ...(root ? scanHistory(head, lists) : scanDiff(base, head, lists))];
+  return [...text("title", env.PR_TITLE), ...text("body", env.PR_BODY), ...text("branch name", env.PR_BRANCH), ...(root ? scanRoot(head, lists) : scanDiff(base, head, lists))];
+}
+
+/**
+ * A root commit: what `--history` reads of it, and its paths listed by git itself, since a binary file has no `+++` header
+ * in a diff and would pass the path rules. The pictures are not read (they come from before the stamp).
+ * @param {string} head
+ * @param {Lists} lists
+ */
+function scanRoot(head, lists) {
+  const sets = hashSets(lists);
+  /** @type {Finding[]} */
+  const found = scanHistory(head, lists);
+  for (const p of git(["ls-tree", "-r", "--name-only", "-z", head]).split("\0").filter(Boolean)) {
+    found.push(...scanPath(p));
+    found.push(...scanLine(p, `${p} (its path)`, p, lists, sets));
+  }
+  return found;
 }
 
 /**
