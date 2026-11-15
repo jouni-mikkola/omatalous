@@ -24,6 +24,30 @@ interface Found {
   nodes: { target: unknown[] }[];
 }
 
+/**
+ * What a thumb must hit on a phone: a link-styled button reaches 44 px (its own box or the reach of its ::after), and a
+ * checkbox or radio the user can see is 24 px wide and high.
+ */
+async function smallTargets(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const out: string[] = [];
+    for (const el of Array.from(document.querySelectorAll<HTMLElement>("main .btn-link, main input[type=checkbox], main input[type=radio]"))) {
+      const r = el.getBoundingClientRect();
+      // a control that is not on the page (closed details, a hidden input) has no box
+      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden") continue;
+      const name = (el.textContent || el.closest("label")?.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40);
+      if (el instanceof HTMLInputElement) {
+        if (r.width < 23.5 || r.height < 23.5) out.push(`checkbox "${name}" is ${Math.round(r.width)} x ${Math.round(r.height)} px, under 24`);
+        continue;
+      }
+      const after = getComputedStyle(el, "::after");
+      const reach = Math.max(r.height, after.content === "none" ? 0 : parseFloat(after.height) || 0);
+      if (reach < 43.5) out.push(`link "${name}" reaches ${Math.round(reach)} px, under 44`);
+    }
+    return out;
+  });
+}
+
 /** The same visibility, overflow and accessibility checks for every table view. */
 export async function auditTables(page: Page, width: number): Promise<string[]> {
   // A shell can appear before a lazy view mounts its loading state and chart controls.
@@ -58,6 +82,7 @@ export async function auditTables(page: Page, width: number): Promise<string[]> 
     return out;
   }, width);
   problems.push(...tables);
+  if (width < 600) problems.push(...(await smallTargets(page)));
   if (!(await page.locator("table").count())) return problems;
   await page.addScriptTag({ path: AXE });
   await page.evaluate(() => document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* one that never ends */ } }));

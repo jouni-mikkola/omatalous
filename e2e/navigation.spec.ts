@@ -118,6 +118,8 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
 
 test("390 px: Tarkistettavat has its word in the top row and the header holds one row", async ({ browser }) => {
   const { context, page } = await phone(browser);
+  // the header shows its link only while something is open
+  await context.route(/\/api\/review\/count$/, (r) => r.fulfill({ json: { count: 7 } }));
   await page.goto("/#/overview");
   const link = review(page);
   await expect(link).toContainText("Tarkistettavat");
@@ -151,17 +153,20 @@ for (const width of [320, 360, 390]) {
       await expect(page.locator(".scope-toggle")).toBeVisible({ timeout: 15_000 });
       // what is drawn, not only the name a screen reader gets: the word is inside the link's box and has a size
       const link = page.locator(".review-link");
-      await expect(link).toContainText("Tarkistettavat");
-      const word = await link.evaluate((el) => {
+      // with nothing open the header has no link
+      if (!count) await expect(link).toHaveCount(0);
+      else await expect(link).toContainText("Tarkistettavat");
+      const word = count ? await link.evaluate((el) => {
         const range = document.createRange();
         range.selectNodeContents(el.firstChild!);
         const r = range.getBoundingClientRect();
         return { width: r.width, height: r.height, clip: getComputedStyle(el).clipPath };
-      });
-      expect(word.width, "the word is drawn").toBeGreaterThan(40);
-      expect(word.clip).toBe("none");
-      if (count) await expect(link.locator(".nav-count")).toBeVisible();
-      else await expect(link.locator(".nav-count")).toHaveCount(0);
+      }) : null;
+      if (word) {
+        expect(word.width, "the word is drawn").toBeGreaterThan(40);
+        expect(word.clip).toBe("none");
+        await expect(link.locator(".nav-count")).toBeVisible();
+      }
       const right = await page.locator(".user-menu .avatar").evaluate((e) => e.getBoundingClientRect().right);
       expect(right, "the avatar is inside the screen").toBeLessThanOrEqual(width);
       expect(await overflow(page)).toBeLessThanOrEqual(0);

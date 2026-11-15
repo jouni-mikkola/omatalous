@@ -5,16 +5,14 @@ const outside = { target: "_blank", rel: "noopener noreferrer" } as const;
 
 /**
  * The first spans of the footer of every page: the app, its version and its author (the attribution the licence keeps),
- * the licence, the source, the guides and, only when its address is set, the link to support the development.
+ * the licence, the source and the guides. The author's page and the link to support the development are in
+ * Asetukset > Tiedot (pages/settings/AboutApp.tsx).
  */
-export function AboutFoot({ version, supportUrl = ABOUT.supportUrl }: { version: string; supportUrl?: string }) {
+export function AboutFoot({ version }: { version: string }) {
   return (
     <>
       <span>
-        {ABOUT.appName},{" "}
-        <a href={ABOUT.authorUrl} {...outside}>
-          {ABOUT.authorName}
-        </a>
+        {ABOUT.appName}, {ABOUT.authorName}
       </span>
       <span>{version}</span>
       <span>{ABOUT.licence}</span>
@@ -24,11 +22,6 @@ export function AboutFoot({ version, supportUrl = ABOUT.supportUrl }: { version:
       <a href={ABOUT.guidesUrl} {...outside}>
         {t("foot.guides")}
       </a>
-      {supportUrl !== "" && (
-        <a href={supportUrl} {...outside}>
-          {t("foot.support")}
-        </a>
-      )}
     </>
   );
 }

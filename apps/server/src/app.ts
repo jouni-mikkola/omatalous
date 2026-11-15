@@ -13,6 +13,7 @@ import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
 import { csrfGuard, requireAdmin, requireUser, sessionMiddleware } from "./auth/middleware.ts";
+import { isHttps } from "./auth/session.ts";
 import { adminRoutes } from "./routes/admin.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { bankCallbackRoute, bankRoutes } from "./routes/bank.ts";
@@ -65,24 +66,25 @@ export function createApp(deps: AppDeps): Hono<AppEnv> & { services: Services } 
 
   // first, so it is the last to touch the answer: a served bank logo carries headers of its own (routes/bank-logos.ts)
   app.use(`${BANK_LOGO_PATH}/*`, bankLogoHeaders);
-  app.use(
-    "*",
-    secureHeaders({
-      contentSecurityPolicy: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
-        styleSrc: ["'self'"],
-        imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"],
-        frameAncestors: ["'none'"],
-        formAction: ["'self'"],
-        baseUri: ["'none'"],
-        objectSrc: ["'none'"],
-      },
-      referrerPolicy: "no-referrer",
-      strictTransportSecurity: "max-age=31536000",
-    }),
-  );
+  const headers = {
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      formAction: ["'self'"],
+      baseUri: ["'none'"],
+      objectSrc: ["'none'"],
+    },
+    referrerPolicy: "no-referrer",
+    strictTransportSecurity: "max-age=31536000",
+  };
+  const overHttps = secureHeaders(headers);
+  // a browser ignores these two on a page that is not a secure origin and says so in its console on every load
+  const overHttp = secureHeaders({ ...headers, crossOriginOpenerPolicy: false, originAgentCluster: false });
+  app.use("*", (c, next) => (isHttps(c, s) ? overHttps : overHttp)(c, next));
   app.use("/api/*", async (c, next) => {
     await next();
     c.header("Cache-Control", "no-store");

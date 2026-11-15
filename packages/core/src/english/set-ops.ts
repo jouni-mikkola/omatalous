@@ -36,7 +36,6 @@ export const EN_SET_OPS: Record<keyof typeof FI_SET_OPS, string> = {
   "ops.no_log": "There is no log.",
   "ops.doctor": "Status",
   "ops.run_doctor": "Check the system",
-  "ops.never_run": "Not run yet.",
   "ops.restart": "Restart the app",
   "ops.restart_help": "The app is unavailable for a moment.",
   "ops.events": "Maintenance log",

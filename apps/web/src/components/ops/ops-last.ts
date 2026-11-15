@@ -2,9 +2,9 @@ import { dateTime } from "../../format.ts";
 import { S } from "./ops-strings.ts";
 import type { DoctorItem, OpsRequestView, OpsSnapshot } from "./types.ts";
 
-/** The words for how an action last ended: when and the outcome, and for a failure the helper's own summary (the progress block above shows the summary of the newest request). Nothing yet: say so. */
-export function lastResult(r: OpsRequestView | undefined): { text: string; tone: "good" | "warning" | "muted" } {
-  if (!r) return { text: S.neverRun, tone: "muted" };
+/** The words for how an action last ended: when and the outcome, and for a failure the helper's own summary (the progress block above shows the summary of the newest request). An action nobody has run has no line: the button says all there is to say. */
+export function lastResult(r: OpsRequestView | undefined): { text: string; tone: "good" | "warning" | "muted" } | null {
+  if (!r) return null;
   const when = dateTime(r.finishedAt ?? r.requestedAt);
   if (r.status === "queued" || r.status === "running") return { text: S.lastRunning(dateTime(r.requestedAt)), tone: "muted" };
   const outcome = { ok: S.ok, failed: S.failed, expired: S.expired, cancelled: S.cancelled }[r.status];

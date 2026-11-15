@@ -5,7 +5,8 @@ import { auditTables, openAll } from "./table-audit.ts";
 
 // Every page that has a table, at the width of a phone and of a desktop, with every chart's table under it
 // and every details open: the page does not scroll sideways, no table scrolls inside its frame, every table is shown (a
-// table that exists is on the page, not hidden behind a rule) and axe finds nothing in any table.
+// table that exists is on the page, not hidden behind a rule) and axe finds nothing in any table. At 390 px every link-styled
+// button also reaches 44 px and every checkbox is 24 px (`smallTargets` in table-audit.ts).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const ROUTES = [

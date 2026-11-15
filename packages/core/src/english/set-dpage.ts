@@ -2,6 +2,7 @@
 import type { FI_SET_DPAGE } from "../messages-set-dpage.ts";
 
 export const EN_SET_DPAGE: Record<keyof typeof FI_SET_DPAGE, string> = {
+  "set.dpage.about": "About the app",
   "set.dpage.example_data": "Example data",
   "set.dpage.reload": "Reload",
   "set.dpage.load_example_data": "Load example data",

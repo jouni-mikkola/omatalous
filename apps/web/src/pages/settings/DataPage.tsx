@@ -1,5 +1,6 @@
-/** Asetukset > Tiedot: the data itself, its export and import, and the example data. */
+/** Asetukset > Tiedot: the data itself, its export and import, the example data, and who made the app. */
 import { Notice } from "../../components/ui/Notice.tsx";
+import { AboutApp } from "./AboutApp.tsx";
 import { CardStack } from "./CardStack.tsx";
 import { DataExport } from "./DataExport.tsx";
 import { ExampleData } from "./ExampleData.tsx";
@@ -16,6 +17,7 @@ export function DataPage({ meta, params, anchor, onChange }: SettingsPageProps) 
       <CardStack shown={shown}>
         <DataExport />
         <ExampleData meta={meta} busy={busy} run={run} />
+        <AboutApp />
       </CardStack>
     </div>
   );

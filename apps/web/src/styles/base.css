@@ -57,7 +57,8 @@ table { font-variant-numeric: tabular-nums lining-nums; }
 .btn-link:active:not(:disabled) { transform: none; box-shadow: none; }
 .btn-link:disabled, .btn-link[aria-disabled="true"] { background: none; border: 0; color: var(--muted); }
 .btn-link[data-tone="danger"] { color: var(--bad); }
-@media (pointer: coarse) { .btn-link::after { content: ""; position: absolute; inset: -12px -4px; } }
+/* the reach is 44 px high whatever the line is: centred on the text, so a link of one line and one that wraps are both a thumb's size */
+@media (pointer: coarse) { .btn-link::after { content: ""; position: absolute; inset-inline: -4px; inset-block-start: 50%; block-size: var(--tap-min); transform: translateY(-50%); } }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; box-shadow: none; }
 /* a mark with no word: the reach is the control height, 24 px at the least inside a chip */
 .btn-icon { display: inline-flex; align-items: center; justify-content: center; min-width: var(--control-h); min-height: var(--control-h); padding: 0; border: 0; border-radius: var(--radius-m); background: none; color: var(--muted); cursor: pointer; }
@@ -90,6 +91,8 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [typ
 :is(input, select, textarea):disabled, .select-lite[aria-disabled="true"] { background: var(--surface-2); border-color: var(--border); color: var(--muted); box-shadow: none; }
 ::placeholder { color: var(--muted); opacity: 1; }
 input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill); }
+/* a box a finger can hit: 24 px where the screen is a phone's, and the label around it 44 px (below) */
+@media (max-width: 640px), (pointer: coarse) { input[type="checkbox"], input[type="radio"] { inline-size: var(--tap-floor); block-size: var(--tap-floor); flex: none; } }
 @media (pointer: coarse) { input, select, textarea { font-size: var(--fs-input); } }
 .field-label { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text-2); }
 .field-help { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
@@ -270,7 +273,9 @@ dialog.confirm .form-row { justify-content: flex-end; margin: var(--sp-16) 0 0; 
 /* a target of at least 24 px where the screen is a phone's (WCAG 2.5.8), also for the link that is a flex item and the sort button of a heading; a link inside a sentence is exempt.
    A link in a cell or a name takes the height back with its margin, so the page does not grow. */
 @media (max-width: 640px), (pointer: coarse) {
-  :is(.btn-link, .rt-sort, .why-door, .why-fig, .sm-name, :is(td, th, .holding-name, .datum-label) :is(a[href], button), details > summary, label:has(> input[type="checkbox"], > input[type="radio"])) { min-height: var(--tap-floor); }
+  :is(.btn-link, .rt-sort, .why-door, .why-fig, .sm-name, :is(td, th, .holding-name, .datum-label) :is(a[href], button), details > summary) { min-height: var(--tap-floor); }
+  /* the label of a box is the target: 44 px, the text and the box centred in it */
+  label:has(> input[type="checkbox"], > input[type="radio"]) { min-height: var(--tap-min); align-items: center; }
   :is(.rt-sort, .why-door, .why-fig, .notice > .btn-link, :is(td, th, .holding-name, .datum-label) :is(a[href], button), .sheet-foot a) { display: inline-flex; align-items: center; }
   /* a key of a segmented control keeps its height: with the margin its rows overlap where the keys wrap (the split of a joint account) */
   :is(td, th, .holding-name, .datum-label) :is(a[href], button:not(.segmented button)) { margin-block: -0.2rem; }

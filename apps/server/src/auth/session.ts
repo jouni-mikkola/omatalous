@@ -18,9 +18,10 @@ const SAME_DEVICE_IDLE_MS = 24 * 60 * 60_000;
 /**
  * Secure cookies need HTTPS; plain-http LAN use (http://192.168.x.x) must
  * still work. Behind a TLS proxy that sets no headers, the
- * request is https when it was sent to the configured https address.
+ * request is https when it was sent to the configured https address. Headers a browser honours only on a secure origin
+ * (app.ts) follow the same answer.
  */
-function isHttps(c: Context, s: Services): boolean {
+export function isHttps(c: Context, s: Services): boolean {
   if (s.config.trustProxy && c.req.header("x-forwarded-proto") === "https") return true;
   const url = new URL(c.req.url);
   if (url.protocol === "https:") return true;

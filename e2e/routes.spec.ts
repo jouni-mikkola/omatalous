@@ -147,8 +147,9 @@ test("every page reads the count and none but Tarkistettavat the queue; the mark
   // the page's count is the mark's
   const mark = page.locator(".review-link .nav-count");
   if (queue.length > 0) await expect(mark).toHaveText(`${queue.length} avoinna`);
-  else await expect(mark).toHaveCount(0);
-  await page.getByRole("link", { name: /^Tarkistettavat/ }).click();
+  else await expect(page.locator(".review-link")).toHaveCount(0);
+  if (queue.length > 0) await page.getByRole("link", { name: /^Tarkistettavat/ }).click();
+  else await page.goto("/#/review");
   await expect(page).toHaveTitle(/^Tarkistettavat/);
   await context.close();
 });

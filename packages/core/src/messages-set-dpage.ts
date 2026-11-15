@@ -4,6 +4,7 @@
  * Same shape as the tables of `messages.ts`: the Finnish table gives the codes and the English one must have the same codes and holes.
  */
 export const FI_SET_DPAGE = {
+  "set.dpage.about": "Tietoja sovelluksesta",
   "set.dpage.example_data": "Esimerkkitiedot",
   "set.dpage.reload": "Lataa uudelleen",
   "set.dpage.load_example_data": "Lataa esimerkkitiedot",

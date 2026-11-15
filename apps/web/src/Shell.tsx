@@ -26,6 +26,7 @@ import { useOpenSync } from "./use-open-sync.ts";
 import { periodFor, periodRange, shellPeriodsOf } from "./period.ts";
 import { dropAnswers, forgetAnswers, META_PATH } from "./query-client.ts";
 import { t, tn } from "./text.ts";
+import { pageTitle } from "./page-title.ts";
 import { openWord, reviewTitle, useReviewCount } from "./review-count.ts";
 import { paramsOf } from "./search.ts";
 import { CONNECT_BANK_HASH, SETTINGS_ANCHOR, settingsCardHash } from "./routes.ts";
@@ -91,11 +92,12 @@ export function Shell() {
   }, [page, reloadReview]);
   const pageName = pages.find((e) => e.id === page)?.label;
   // Tarkistettavat carries its count in the title and the heading, the same one the header's mark shows
-  const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageName;
-  const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
-  const [wizardClosed, setWizardClosed] = useState(() => readWizardClosed(user.id));
   // what a choice of the user menu (the language, signing out) could not do
   const [reportQuestion, setReportQuestion] = useState<string | null>(null);
+  // Raportit and Asetukset name their open tab or section, so two tabs of the browser tell apart
+  const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageTitle(pageName, page, reportQuestion, location.pathname.split("/")[2]);
+  const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
+  const [wizardClosed, setWizardClosed] = useState(() => readWizardClosed(user.id));
   const [menuError, setMenuError] = useState<string | null>(null);
   const [changingLanguage, setChangingLanguage] = useState(false);
   // the server build this page was loaded against; a different one later means an upgrade happened
@@ -332,15 +334,18 @@ export function Shell() {
             />
           )}
           {/* Tarkistettavat carries the count of its open items, the same count the page shows */}
-          <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
-            {REVIEW.label}
-            {open > 0 && (
-              <span className="nav-count">
-                {open}
-                <span className="sr-only"> {openWord()}</span>
-              </span>
-            )}
-          </PageLink>
+          {/* with nothing open the link is not shown, but the page stays reachable by its address and shows while it is open */}
+          {(open > 0 || page === REVIEW.id) && (
+            <PageLink id={REVIEW.id} className="review-link" current={page === REVIEW.id}>
+              {REVIEW.label}
+              {open > 0 && (
+                <span className="nav-count">
+                  {open}
+                  <span className="sr-only"> {openWord()}</span>
+                </span>
+              )}
+            </PageLink>
+          )}
           <details className="user-menu" ref={userMenu}>
             <summary>
               <span className="sr-only">{t("shell.user_menu")} </span>
