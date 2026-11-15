@@ -36,7 +36,7 @@ export interface MoneyBridge {
 
 /**
  * Which line a row belongs to. Income, consumption and debt are what the money flows (`Flows`) say. Money put in a
- * savings category is `investedOut`, and a transfer, which is neutral between two connected accounts, shows as
+ * savings category is `investedOut` (money taken back from there is a transfer from outside the accounts), and a transfer, which is neutral between two connected accounts, shows as
  * `transfersOut` only for what is left when one end is outside the accounts, or the fee of a payment that arrived short. A loan account's own rows mirror payments
  * counted from the checking account (`flowsOf`), so they are a line of their own.
  */
@@ -46,7 +46,8 @@ function bridgeLineOf(t: Pick<AnalysisTx, "flows" | "isTransfer">, onLoanAccount
   // a payment that arrived short is a transfer whose fee is spending in Tulos, while the line keeps the money that moved
   if (f.consumption !== 0 && !t.isTransfer) return "consumption";
   if (f.debt !== 0) return "debt";
-  if (f.saved !== 0 && !t.isTransfer) return "investedOut";
+  // only money put aside: money taken back from savings outside the accounts is money in from outside, a transfer line
+  if (f.saved > 0 && !t.isTransfer) return "investedOut";
   if (f.borrowed !== 0) return "borrowed";
   return onLoanAccount ? "loanAccounts" : "transfersOut";
 }

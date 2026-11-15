@@ -1,3 +1,4 @@
+import { billCents } from "../account-use.ts";
 import { feeOfPairs } from "../pairing-fee.ts";
 import { transferAllocations } from "../pairing.ts";
 import type { Account, Transaction } from "../types.ts";
@@ -11,6 +12,6 @@ import type { Account, Transaction } from "../types.ts";
  */
 export function shortFees(transactions: readonly Transaction[], accounts: readonly Account[]): Map<string, number> {
   if (accounts.length < 2) return new Map();
-  const legs = transactions.filter((t) => t.isTransfer && t.status === "booked" && t.categorySource !== "user" && t.wholeCents === undefined).map((t) => ({ ...t, categorySource: "default" as const }));
+  const legs = transactions.filter((t) => t.isTransfer && t.status === "booked" && t.categorySource !== "user" && billCents(t) === t.amountCents).map((t) => ({ ...t, categorySource: "default" as const }));
   return legs.length < 2 ? new Map() : feeOfPairs(legs, transferAllocations(legs, accounts).allocations);
 }

@@ -113,10 +113,10 @@ function billPayers(h: GeneratedHousehold): Map<string, Set<string>> {
   return out;
 }
 
-/** I1b: in the household view a row the generator labelled a transfer or a mirror (between members, own accounts, a card's bill, a loan's own row) is neither income nor spending. */
+/** I1b: in the household view a row the generator labelled a transfer or a mirror (between members, own accounts, a card's bill, a loan's own row) is neither income nor spending, save the bank fee its label names (`feeCents`), which is the payer's spending exactly. */
 export function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   if (v.view !== "household") return [];
-  const moved = v.ctx.txs.filter((t) => ["transfer", "mirror"].includes(h.truth.get(t.id)?.flow ?? "") && (t.flows.income !== 0 || t.flows.consumption !== 0 || t.flows.debt !== 0));
+  const moved = v.ctx.txs.filter((t) => ["transfer", "mirror"].includes(h.truth.get(t.id)?.flow ?? "") && (t.flows.income !== 0 || t.flows.consumption !== (h.truth.get(t.id)?.feeCents ?? 0) || t.flows.debt !== 0));
   const kinds = [...new Set(moved.map((t) => h.truth.get(t.id)!.kind))].sort();
   return moved.length ? [found("I1b.member-legs", h, v, `${moved.length} legs (${kinds.join("/")}) count as ${[...new Set(moved.map((t) => t.category))].sort().join("/")}`)] : [];
 }
