@@ -3,12 +3,20 @@
  * (`reconcile`, core). Read-only, worked out on every read and never stored. The answer is for an account the viewer
  * sees, from that account row's own rows and history and the whole account's balances and rows in another currency.
  */
-import { compactReconcile, reconcile, type ReconcileBalance, type ReconcileResult } from "@banking/core";
+import { type BalanceInput, compactReconcile, reconcile, type ReconcileBalance, type ReconcileResult } from "@banking/core";
 import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import type { Services } from "./context.ts";
 
 type Seen = Pick<StoredAccount, "id" | "userId" | "identity" | "type" | "currency">;
+
+/** The balances of a view with what the bank's balances prove of each account's rows, for the figures that say which part of them is unproven. */
+export function withProof(balances: readonly BalanceInput[], reconciled: ReadonlyMap<string, ReconcileResult | null>): BalanceInput[] {
+  return balances.map((b) => {
+    const proof = reconciled.get(b.id);
+    return proof ? { ...b, proof: { status: proof.status, reason: proof.reason } } : b;
+  });
+}
 
 /**
  * Per account given, its result, or null for one that is not reconciled (a card, a loan, another currency). The caller

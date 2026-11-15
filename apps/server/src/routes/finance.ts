@@ -11,7 +11,7 @@ import { memoOn } from "../services/context-memo.ts";
 import { dashboardOf } from "../services/dashboard-memo.ts";
 import { explainFigure, isExplained, MAX_ACCOUNTS } from "../services/explain.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
-import { reconcileOf } from "../services/reconcile.ts";
+import { reconcileOf, withProof } from "../services/reconcile.ts";
 import { renewalOf } from "../services/consent-round.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
@@ -136,16 +136,17 @@ export function financeRoutes(s: Services) {
   app.get("/dashboard", async (c) => {
     const scope = parseScope(c.req.query("scope"));
     const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, scope);
-    const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
+    const userId = c.get("user").id;
+    const { balances: stated, inputs } = await requestInputs(s, userId, accounts);
+    // what the bank's balances prove of each account's rows: the figures say which part of them is unproven
+    const reconciled = await reconcileOf(s, userId, accounts);
+    const balances = withProof(stated, reconciled);
     // a bill the member marked as no recurring bill is in no list and no sum of what is coming
     const ctx = withoutWrongBills(all, inputs.marks);
-    const userId = c.get("user").id;
     // the questions read the member's own proposals, the total of unsaved loans those of the view asked for
     const own = await proposalsFor(s, userId);
     const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, own, c.get("user").language, scope === "own" ? own : await proposalsFor(s, userId, scope));
     // the same answer as Asetukset > Tilit, in three words; an account that is not reconciled (a loan) has none to give
-    const shown = new Set([...dashboard.holdings.accounts, ...dashboard.holdings.cards].map((h) => h.id));
-    const reconciled = await reconcileOf(s, userId, accounts.filter((a) => shown.has(a.id)));
     const word: Record<string, ReconcileVerdict> = { proved: "ok", differs: "diff" };
     const verdict = (id: string): ReconcileVerdict => word[reconciled.get(id)?.status ?? "unknown"] ?? "unknown";
     const answer: DashboardAnswer = { ...dashboard, holdings: { ...dashboard.holdings, accounts: dashboard.holdings.accounts.map((a) => ({ ...a, reconcile: verdict(a.id) })), cards: dashboard.holdings.cards.map((c) => ({ ...c, reconcile: verdict(c.id) })) }, settlement: await runningSettlement(s, userId) };

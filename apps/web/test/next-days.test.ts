@@ -17,7 +17,7 @@ const row = (over: Partial<Row>): Row => ({ date: "2026-10-15", name: "Sähköyh
 const BILLS = [row({}), row({ date: "2026-10-20", name: "Esimerkkivakuutus", cents: -14_230 }), row({ date: "2026-10-21", name: "Vuokra Esimerkki", cents: -105_000, source: "expected" })];
 const OTHER_PAY = row({ date: "2026-10-14", name: "Pieni Esimerkki Oy", category: "salary", cents: 80_000, source: "income", pay: steady(80_000) });
 
-const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 200_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", cardDebts: [], cardDebtCents: 0, freeCents: 76_270, shortCents: 0, shortOn: null, ...over });
+const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 200_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", cardDebts: [], unresolved: [], cardDebtCents: 0, freeCents: 76_270, shortCents: 0, shortOn: null, ...over });
 
 /** A payday window as core gives it: Monday 12.10., the pay on Friday 23.10., the window to Thursday 22.10. */
 function ahead(over: Partial<Ahead> = {}, rows: Row[] = BILLS): Ahead {

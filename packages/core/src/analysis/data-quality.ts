@@ -11,7 +11,7 @@ import type { BalanceInput, IsoDate } from "../types.ts";
 type QualityTone = "warning" | "info";
 
 export interface QualitySignal {
-  id: "short_history" | "uncategorised" | "gap" | "stale" | "card_bills" | "own_unconnected" | "no_balance";
+  id: "short_history" | "uncategorised" | "gap" | "stale" | "card_bills" | "own_unconnected" | "no_balance" | "unproven_balance";
   tone: QualityTone;
   title: string;
   detail: string;
@@ -21,6 +21,8 @@ export interface QualitySignal {
   category?: string;
   /** The card bills of the `card_bills` signal by issuer: the table under its title. */
   cardPurchases?: MissingCardPurchases[];
+  /** `unproven_balance`: why the bank's balances cannot be set against the rows, as the reconcile answers it (`ReconcileResult.reason`). It has no sum: the balances of cards and checking accounts differ in sign. */
+  reason?: NonNullable<NonNullable<BalanceInput["proof"]>["reason"]>;
 }
 
 export interface DataQualityReport {
@@ -132,6 +134,40 @@ const CARD_STALE_DAYS = 21;
 /** Only these accounts are checked for gaps: a savings account can be silent for months. */
 const ACTIVE_TYPES = new Set(["checking", "credit_card"]);
 
+/** The reasons a balance goes unproven, in the order the signals come, each with the code of what the household reads. */
+const PROOF_REASONS = {
+  no_reference_day: "rep.q_unproven_no_reference_day",
+  only_available: "rep.q_unproven_only_available",
+  type_changed: "rep.q_unproven_type_changed",
+  too_few: "rep.q_unproven_too_few",
+} as const;
+
+/**
+ * The balances the bank gave that no row proves (`BalanceInput.proof` says `unknown`), the accounts of each reason in the
+ * order of `PROOF_REASONS`: the figures that start from them take the bank's word as it is. Only the viewer's own
+ * accounts count, as with `no_balance`.
+ */
+function unprovenOf(balances: readonly BalanceInput[]): { reason: keyof typeof PROOF_REASONS; accounts: BalanceInput[] }[] {
+  return (Object.keys(PROOF_REASONS) as (keyof typeof PROOF_REASONS)[]).flatMap((reason) => {
+    const accounts = balances.filter((a) => a.ownerName === null && a.balanceCents !== null && a.proof?.status === "unknown" && a.proof.reason === reason);
+    return accounts.length ? [{ reason, accounts }] : [];
+  });
+}
+
+function unprovenBalances(balances: readonly BalanceInput[], lang: Language): QualitySignal[] {
+  return unprovenOf(balances).flatMap(({ reason, accounts }): QualitySignal[] => {
+    return [
+      {
+        id: "unproven_balance",
+        tone: "info",
+        title: accounts.length === 1 ? messageIn(lang, "rep.q_unproven_one", { name: accounts[0]!.name }) : messageIn(lang, "rep.q_unproven_many", { count: accounts.length, names: finnishList(accounts.map((a) => a.name), lang) }),
+        detail: messageIn(lang, PROOF_REASONS[reason]),
+        reason,
+      },
+    ];
+  });
+}
+
 /**
  * Where the numbers on the reports may be shaky: a short history, rows no rule
  * recognised, a hole in the fetched dates, card bills counted as spending,
@@ -237,5 +273,7 @@ export function dataQualityReport(ctx: AnalysisContext, range: DateRange, balanc
       detail: messageIn(lang, "rep.q_nobal_detail"),
     });
   }
+
+  signals.push(...unprovenBalances(balances, lang));
   return { signals, filed: filedWithoutAsking(ctx, range.to) };
 }

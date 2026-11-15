@@ -64,7 +64,6 @@ function months(first: string, last: string): string[] {
 
 // The generated households, by the number of their members (generatedSet in kit/generate.ts).
 const WITH_EVENTS = (n: number) => `generated:${n}:said:savings:unconnected:benefit-rule+payment-app+namesake+member-fee+refund:1`;
-const CHECKING_LOAN = "generated:2:said:checking:connected:base:1";
 const FULL_MONTHS = months("2025-04", "2026-05");
 /** The month of today, which is only partly over: the joint top-ups (day 3) and the loan's legs (day 4) have happened, the 200 euro top-up of savings has not. */
 const LAST_MONTH = ["2026-06"];
@@ -91,11 +90,5 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
       { line: bridge(WITH_FEE, 0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
       { line: bridge(WITH_FEE, 0, 61240), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
     ],
-  },
-  {
-    finding: "unproven-balances-go-unsaid",
-    check: "I5.unproven",
-    reason: "Seven accounts have no reference day, so nothing proves their balances, and the data quality report says nothing about it.",
-    lines: [{ line: "7 accounts have no proof (no_reference_day) and the report says nothing", where: views(CHECKING_LOAN, ["household"]) }],
   },
 ];

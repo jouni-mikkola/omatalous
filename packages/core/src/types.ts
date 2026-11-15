@@ -1,3 +1,4 @@
+import type { ReconcileResult } from "./reconcile.ts";
 
 /** ISO date, YYYY-MM-DD. */
 export type IsoDate = string;
@@ -197,6 +198,8 @@ export interface BalanceInput {
   part?: Part;
   /** The account's rows are cut by who paid them: its balance in the own view is not cut by `part`. Left out, the weights decide. */
   traced?: true;
+  /** What the bank's balances prove of the account's rows (`reconcile`): the server fills it when it has the answer. Left out, nothing is said of the proof. */
+  proof?: Pick<ReconcileResult, "status" | "reason">;
 }
 
 /** What the user said about a subscription or an alert: still in use, cancelled, or not to be shown again. */
