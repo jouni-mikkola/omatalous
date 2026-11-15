@@ -1,6 +1,6 @@
 /**
  * Raportit: one question page of `reports/pages/`, the first with something to show for a bare address. It stands in the frame
- * (`reports/Frame.tsx`) beside the list of all reports, so every report is one step from any other. The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
+ * (`reports/Frame.tsx`) beside the three questions of `question-groups.ts`, each with the reports that refine it. The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
  * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
 import { t } from "../../text.ts";
@@ -13,8 +13,9 @@ import { useApi } from "../../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { reportContext } from "./context.ts";
 import { Frame } from "./Frame.tsx";
+import { listedQuestions } from "./question-groups.ts";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
-import type { ReportContext, ReportPage, ReportRange } from "./types.ts";
+import type { ReportContext, ReportRange } from "./types.ts";
 import { FoldContext } from "../../components/Section.tsx";
 import "../../styles/reports.css";
 
@@ -60,9 +61,6 @@ type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URL
 /** Every page's reports are asked for at once, so a switch of report needs no new answer. */
 const reportsPath = (range: ReportRange, scope: Scope): string => `/api/reports${query({ ...range, scope, reports: [...new Set(REPORT_PAGES.flatMap(reportsOfPage))].join(",") })}`;
 
-/** The pages the list names: those that have something to show. */
-export const listedPages = (open: readonly QuestionId[]): ReportPage[] => REPORT_PAGES.filter((p) => open.includes(p.id));
-
 export function More({ meta, range, scope, params, anchor, onQuestion }: ReportsProps) {
   const { data, error, loading, reload } = useApi<ReportsData>(reportsPath(range, scope));
   // an address names a section (#/reports?period=12m#kuukaudet from Yhteenveto): scroll to it once the sections are there
@@ -88,7 +86,7 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} pages={listedPages(questions)} params={open}>
+      <Frame current={page.id} title={page.title} questions={listedQuestions(questions)} params={open}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

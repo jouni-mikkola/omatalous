@@ -11,7 +11,7 @@ import { axisRoom, frame, tickTarget } from "../kit/layout.ts";
 import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
 import { readoutText } from "../kit/readout.ts";
 import { linear, monthStarts, points } from "../kit/scale.ts";
-import { linePath } from "../kit/path.ts";
+import { areaPath, linePath } from "../kit/path.ts";
 import { moneyAxis } from "../kit/ticks.ts";
 import { Tip, ValueGrid } from "./parts.tsx";
 import { color } from "../../design/tokens.ts";
@@ -50,16 +50,19 @@ const short = (label: string) => {
  * stepped the line down by it a `--bad` tick over that step (`step`, the day before to the day) with its payee and sum
  * in a lane under the month names; one the same day's pay hid, or one beyond the lanes, is in the readout. Pay days
  * (`payDays`) are grey dots on the line, the one nearest the middle whose word clears the other labels and the chart's
- * edges named. Today's balance is labelled at the end. When the balance is known only from a later day, the axis starts
- * at that day (an empty part left the line a sliver of its width); with one known day a sentence stands in for the chart. A long range is drawn decimated
+ * edges named. Today's balance is labelled at the end. The axis runs from the first day the balance is known to the
+ * last (an empty part left the line a sliver of its width), and the line holds no estimate: a stretch of days that are
+ * not known breaks the line and its fill, a day known between two unknown ones is a dot, and the readout names the
+ * unknown day with a dash. With one known day a sentence stands in for the chart. A long range is drawn decimated
  * (four points a pixel column keep every dip).
  */
 export function BalanceLine({ r }: { r: BalanceReport }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
-  // the days before an account was known are no part of the axis
+  // the days before an account was known and after the last known one are no part of the axis
   const lead = Math.max(0, r.daily.cents.findIndex((v) => v !== null));
-  const days = r.daily.cents.slice(lead);
+  const end = r.daily.cents.findLastIndex((v) => v !== null);
+  const days = r.daily.cents.slice(lead, end >= 0 ? end + 1 : undefined);
   const from = dayNumber(r.daily.from) + lead;
   const iso = (i: number) => fromDayNumber(from + i);
   const known = days.filter((v): v is number => v !== null);
@@ -140,8 +143,11 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
                 </text>
               ) : null,
             )}
-            {y.domain[0] === 0 && last >= 0 && <path className="qc-area" d={`${linePath(days, x, y, keep)}L${x(last).toFixed(1)},${y(0)}L${x(0).toFixed(1)},${y(0)}Z`} />}
+            {y.domain[0] === 0 && last >= 0 && <path className="qc-area" d={areaPath(days.map((v) => (v === null ? null : 0)), days, x, y)} />}
             <path className="qc-line qc-now draw" d={linePath(days, x, y, keep)} />
+            {days.map((v, i) =>
+              v !== null && i !== last && days[i - 1] == null && days[i + 1] == null ? <circle key={i} className="qc-dot" data-lone="" cx={x(i)} cy={y(v)} r={3} /> : null,
+            )}
             {pays.map((d) => (
               <circle key={d} className="qc-dot-then" cx={x(indexOf(d))} cy={y(days[indexOf(d)]!)} r={3} />
             ))}

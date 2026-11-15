@@ -14,10 +14,11 @@ test("Raportit: a period switch keeps the open tab and a tab switch keeps the pe
   await expect(menot).toBeVisible();
   await toolbar.getByRole("button", { name: "6 kk" }).click();
   await expect.poll(() => new URL(page.url()).hash).toMatch(/^#\/reports\?(q=menot&period=6m|period=6m&q=menot)$/);
-  await expect(page.getByRole("link", { name: /^Rahankäyttö/, includeHidden: false }).first()).toHaveAttribute("aria-current", "page");
+  const refine = page.getByRole("navigation", { name: "Rahankäyttö", exact: true });
+  await expect(refine.getByRole("link", { name: "Rahankäyttö", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(menot).toBeVisible();
   await page.goto("/#/reports?period=3m");
-  await page.getByRole("link", { name: /^Rahankäyttö/ }).first().click();
+  await refine.getByRole("link", { name: "Rahankäyttö", exact: true }).click();
   await expect.poll(() => new URL(page.url()).hash).toMatch(/period=3m/);
   expect(new URL(page.url()).hash).toMatch(/q=menot/);
   await expect(toolbar.locator("[aria-pressed=true]")).toHaveText("3 kk");
