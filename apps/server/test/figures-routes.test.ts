@@ -89,12 +89,18 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
 
     it("Menot of the month", () => {
       const at = year.spendingMonths.months.indexOf(month);
+      // The Menot of the first page count a debt paid from savings once, as Säästöön: the tile, the bar and the report's sum less what it holds of it
       expectOne("Menot", {
-        // Tiles: the Menot tile, from the usual comparison or, with none, from `nyt`
-        "Yhteenveto Menot tässä kuussa": isRunning ? (dash.home.pace?.spentCents ?? dash.nyt.pace.spentCents) : undefined,
+        // Tiles: the Menot tile, the running month of the chart
+        "Yhteenveto Menot tässä kuussa": isRunning ? dash.overview.months.at(-1).spendCents : undefined,
         // Months: the running month's spending bar
         "Yhteenveto Tulot ja menot": isRunning ? dash.overview.months.at(-1).spendCents : undefined,
-        // Categories: the largest categories and the rest in one sum under them
+        "Yhteenveto categories, less Säästöistä maksettu": isRunning ? dash.overview.categories.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.overview.categories.otherCents - dash.overview.categories.fromSavingsCents : undefined,
+        "Rahankäyttö Menot kuukausittain, the month": rep.spendingMonths.totals.at(-1) - rep.spendingMonths.fromSavings.at(-1),
+        "Rahankäyttö Menot kuukausittain, 12 kk": year.spendingMonths.totals[at] - year.spendingMonths.fromSavings[at],
+      });
+      // The spending reports count it as spending, in the categories and in the months
+      expectOne("Menot of the spending reports", {
         "Yhteenveto Menot kategorioittain added up": isRunning ? dash.overview.categories.rows.reduce((s: number, r: any) => s + r.cents, 0) + dash.overview.categories.otherCents : undefined,
         "Rahankäyttö Kategoriat": rep.categories.totalCents,
         "Rahankäyttö Menot kuukausittain, the month": rep.spendingMonths.totals.at(-1),

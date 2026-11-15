@@ -29,7 +29,7 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
     home: { paceGap: null, pace: null },
     top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
-    overview: { income: { cents: 412000, usualCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 } },
+    overview: { income: { cents: 412000, usualCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 123400, fromSavingsCents: 0, complete: false }] },
   } as unknown as DashboardData;
   return { ...rest, ...more, nyt: nytOf(true) };
 }
@@ -101,7 +101,7 @@ describe("Yhteenveto", () => {
   });
 
   it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
-    const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, usualCents: null }, net: null } } as never);
+    const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, usualCents: null }, net: null, months: [] } } as never);
     const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
     // with no sum there is no panel to open: the tile leads to Laskut, where the bills stand
     expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa", href: "#/bills#ennen-palkkapaivaa" });

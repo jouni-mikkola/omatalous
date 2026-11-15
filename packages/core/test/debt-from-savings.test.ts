@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { leftOf } from "../src/analysis/flows.ts";
+import { explain } from "../src/explain/explain.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, IsoDate, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -66,5 +67,38 @@ describe("a debt paid from a savings account", () => {
     expect(r.taxYear.interest.cents).toBe(INTEREST);
     expect(r.taxYear.interest.rows).toHaveLength(1);
     expect(r.taxYear.loanPayments).toEqual([{ category: "mortgage", cents: INSTALMENT, count: 1 }]);
+  });
+
+  it("is no part of the first page's Menot, which are the bridge's spending, so its tiles add up to Tulos", () => {
+    const d = buildDashboard(ctx, range);
+    const month = d.overview.months.at(-1)!;
+    expect(month.month).toBe("2026-10");
+    // the Menot tile and the month's bar are the bridge's spending
+    expect(month.spendCents).toBe(d.totals.expenseCents);
+    expect(month.spendCents).toBe(20_000);
+    expect(explain("spend.month", ctx, { view: "own", range }).cents).toBe(month.spendCents);
+    // income less spending less what went to savings is Tulos
+    expect(month.incomeCents).toBe(d.totals.incomeCents);
+    expect(month.incomeCents - month.spendCents - d.totals.savedCents).toBe(d.totals.leftCents);
+    expect(month.incomeCents - month.spendCents).toBe(d.totals.netCents);
+    // the categories hold the debt paid from savings, so the first page names it beside them
+    const { rows: top, otherCents, totalCents, fromSavingsCents } = d.overview.categories;
+    expect(totalCents).toBe(month.spendCents);
+    expect(fromSavingsCents).toBe(INTEREST + INSTALMENT);
+    expect(top.reduce((sum, c) => sum + c.cents, 0) + otherCents).toBe(totalCents + fromSavingsCents);
+    expect(month.fromSavingsCents).toBe(fromSavingsCents);
+  });
+
+  it("is named in the spending by month, whose sum less it is the first page's Menot", () => {
+    const { spendingMonths } = buildReports({ ctx, range, balances: [] }, ["spendingMonths"]);
+    const month = buildDashboard(ctx, range).overview.months.at(-1)!;
+    expect(spendingMonths.fromSavingsCents).toBe(INTEREST + INSTALMENT);
+    expect(spendingMonths.totals.at(-1)! - spendingMonths.fromSavings.at(-1)!).toBe(month.spendCents);
+  });
+
+  it("leaves a household with none with a zero to show nothing for", () => {
+    const plain = createContext(rows.filter((t) => t.accountId !== "acc-2" || t.isTransfer), [checking, savings], today);
+    expect(buildDashboard(plain, range).overview.categories.fromSavingsCents).toBe(0);
+    expect(buildReports({ ctx: plain, range, balances: [] }, ["spendingMonths"]).spendingMonths.fromSavingsCents).toBe(0);
   });
 });

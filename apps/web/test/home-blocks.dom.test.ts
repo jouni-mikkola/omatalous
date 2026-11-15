@@ -28,7 +28,7 @@ function data(more: Record<string, unknown> = {}, nyt: Partial<NytData> = {}): D
   const rest = {
     pace: { month: "2026-11" },
     ahead: { from: TODAY, to: "2026-11-24", reason: "payday", payday: { date: "2026-11-25" }, rows: [], upcoming: [], outside: [] },
-    overview: { months: MONTHS, usualSpendCents: 214900, usualMonths: 10, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } },
+    overview: { months: MONTHS, usualSpendCents: 214900, usualMonths: 10, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 } },
     ...more,
   } as unknown as DashboardData;
   return { ...rest, nyt: { from: TODAY, left, usualPerDayCents: null, pace: { day: 11, spentCents: 0, usual: null }, ...nyt } as NytData };
@@ -63,13 +63,13 @@ describe("Tulot ja menot", () => {
     expect(usual.container.querySelector(".mb-usual")).not.toBeNull();
     expect(flat(usual.container.querySelector(".mb-key")?.textContent)).toContain("Tavallinen kuukausi 2 149 € (10 kk)");
     usual.unmount();
-    const none = render(createElement(Months, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } } }), today: TODAY }));
+    const none = render(createElement(Months, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 } } }), today: TODAY }));
     expect(none.container.querySelector(".mb-usual")).toBeNull();
     expect(flat(none.container.querySelector(".mb-key")?.textContent)).not.toContain("Tavallinen");
   });
 
   it("is nothing with no month", () => {
-    const { container } = render(createElement(Months, { data: data({ overview: { months: [], usualSpendCents: null, usualMonths: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, usualMonths: 0 } } }), today: TODAY }));
+    const { container } = render(createElement(Months, { data: data({ overview: { months: [], usualSpendCents: null, usualMonths: 0, categories: { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 } } }), today: TODAY }));
     expect(container.innerHTML).toBe("");
   });
 });
@@ -175,6 +175,7 @@ describe("Menot kategorioittain", () => {
     otherCents: 7100,
     otherCount: 3,
     totalCents: 177100,
+    fromSavingsCents: 0,
     usualMonths: 6,
   };
 
@@ -193,6 +194,12 @@ describe("Menot kategorioittain", () => {
     expect(rows.map((a) => fill(a).classList.contains("more"))).toEqual([false, true, false]);
     expect(rows.map((a) => flat(a.querySelector(".where-change")?.textContent) || null)).toEqual(["tavallisesti 1 000 €", "tavallisesti 400 €", null]);
     expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("Pystyviiva on kategorian tavallinen kuukausi (6 kuukauden keskiarvo). 3 muuta kategoriaa 71 €.");
+  });
+
+  it("names the debt paid from savings, which the categories hold and the Menot tile leaves out, only when there is some", () => {
+    const foot = (fromSavingsCents: number) => flat(render(createElement(Categories, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { ...categories, fromSavingsCents } } }) })).container.querySelector(".where-foot")?.textContent);
+    expect(foot(0)).not.toContain("Säästöistä maksettu");
+    expect(foot(46000)).toContain("Säästöistä maksettu 460 €. Menot-luku ei sisällä sitä.");
   });
 
   it("is nothing before the month has spending", () => {

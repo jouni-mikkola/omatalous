@@ -55,11 +55,15 @@ made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, t
 
 A loan paid from a savings account is counted once in Tulos: as *Säästöön* when the money leaves the pool, and not again
 as debt service when the savings account pays the lender. The row has no flows, so it is left out of the figures built
-from them: Tulos, the income, spending and difference of its identity (`totalsOf`) and the savings rate. It is still
-spending (`spend` of the row, `spendCentsOf`), so it is in the category totals, Velanhoito, the Menot tile and the month's
-curve, spending by month and year over year, the tax-year interest and loan payments and the instalment interest, and
-it is a row of Laskut and the loan views. The spending total of the identity is therefore less than the sum of the
-categories by exactly these rows.
+from them: Tulos, the income, spending and difference of its identity (`totalsOf`) and the savings rate. The first page
+reads those figures too: its Menot tile, the month's curve and the Menot of *Tulot ja menot* are the spending of the
+flows (`flowSpendOf`, `overview.months`), so income less spending is the difference and less what went to savings is
+Tulos, with no exception. The row is still spending on its own terms (`spend` of the row, `spendCentsOf`), so it is in
+the category totals, Velanhoito, spending by month and year over year, the tax-year interest and loan payments and the
+instalment interest, and it is a row of Laskut and the loan views. The spending total of the identity is therefore
+less than the sum of the categories by exactly these rows. Where a spending report's total stands beside the first
+page's Menot, it names them as *Säästöistä maksettu* (`fromSavings` of *Menot kuukausittain*, `fromSavingsCents` of the
+first page's categories) and shows the line only when the sum is not zero.
 
 Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Tulos* and in no income figure,
 savings rate or margin (`netCents`).

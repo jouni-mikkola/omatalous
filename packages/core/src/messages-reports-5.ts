@@ -148,6 +148,7 @@ export const FI_REPORTS_5 = {
   "rpt.sm_months": "Menot kuukausittain",
   "rpt.sm_statement": "Summassa on {amount} korttilaskun erittelystä luettuja ostoja. Tapahtumat ei näytä niitä omina riveinään.",
   "rpt.sm_lowered": "Korttilaskusta on tässä se osa, jota erittelyn ostot eivät selitä. Tapahtumat näyttää laskun kokonaan.",
+  "rpt.sm_from_savings": "Säästöistä maksettu {amount}. Yhteenvedon Menot-luku ei sisällä sitä.",
   "rpt.sm_running": "{month}, kesken",
   "rpt.sm_short": "{month}, vajaa",
   "rpt.sm_rows": "Rivejä",

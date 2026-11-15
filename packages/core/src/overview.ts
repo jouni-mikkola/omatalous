@@ -21,8 +21,14 @@ interface OverviewMonth {
   month: string;
   /** Earned income (`earnedIncome`): in the running month the Tulot tile's figure. */
   incomeCents: number;
-  /** Spending as Raportit's Menot kuukausittain counts it (`spendingMonthsReport`): in the running month the Menot tile's figure. */
+  /**
+   * Spending as the bridge counts it (`flowSpendOf`, the consumption and debt of the flows): in the running month the Menot
+   * tile's figure. Income less this, less what went to savings, is Tulos. A debt paid from a savings account is not in it
+   * (it is Säästöön), which Raportit's Menot kuukausittain counts as spending: `fromSavingsCents` is the difference.
+   */
   spendCents: number;
+  /** What the month's rows of Raportit's Menot kuukausittain hold beyond `spendCents`: debt paid from a savings account (`fromSavings` of `spendingMonthsReport`). */
+  fromSavingsCents: number;
   /** Ended, and the accounts were in the data from its 1st (`isCompleteMonth`). The running month never is. */
   complete: boolean;
 }
@@ -55,9 +61,11 @@ export interface Overview {
   usualMonths: number;
   /**
    * This month's largest `OVERVIEW_CATEGORIES` categories with spending above zero, largest first, and the rest as one
-   * sum: `rows` and `otherCents` add up to `totalCents`, the running month's `spendCents`.
+   * sum, as the categories of Raportit count them. `totalCents` is the running month's `spendCents`, the Menot tile's.
+   * The categories also hold the debt paid from a savings account, which the tile leaves out (`fromSavingsCents`):
+   * `rows` and `otherCents` add up to `totalCents` and `fromSavingsCents` together.
    */
-  categories: { rows: OverviewCategory[]; otherCents: number; otherCount: number; totalCents: number; usualMonths: number };
+  categories: { rows: OverviewCategory[]; otherCents: number; otherCount: number; totalCents: number; fromSavingsCents: number; usualMonths: number };
 }
 
 export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): Overview {
@@ -68,7 +76,9 @@ export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceIn
   // one report, so a month's bar, the usual line and the categories are the sums Raportit shows for the same months
   const spending = spendingMonthsReport(ctx, { from: `${addMonths(month, 1 - OVERVIEW_MONTHS)}-01`, to: ctx.today }, lang);
   const at = spending.months.length - 1;
-  const totalCents = spending.totals[at] ?? 0;
+  // the months' Menot are the bridge's spending, so a month's bars and Tulos add up; the report's sum is that and the debt paid from savings
+  const spent = spending.totals.map((cents, i) => cents - spending.fromSavings[i]!);
+  const totalCents = spent[at] ?? 0;
   const top = spending.categories
     .filter((c) => c.values[at]! > 0)
     .sort((a, b) => b.values[at]! - a.values[at]! || a.category.localeCompare(b.category))
@@ -77,14 +87,15 @@ export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceIn
   return {
     income: { cents: earnedIncome(ctx, month), usualCents: expectedIncome(ctx, month) },
     net: now === null || before === null ? null : { since, changeCents: now - before },
-    months: spending.months.map((m, i) => ({ month: m, incomeCents: earnedIncome(ctx, m), spendCents: spending.totals[i]!, complete: spending.complete[i]! })),
+    months: spending.months.map((m, i) => ({ month: m, incomeCents: earnedIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i]!, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalCents,
     usualMonths: spending.typicalMonths,
     categories: {
       rows: top,
-      otherCents: totalCents - top.reduce((sum, c) => sum + c.cents, 0),
+      otherCents: (spending.totals[at] ?? 0) - top.reduce((sum, c) => sum + c.cents, 0),
       otherCount: spending.categories.filter((c) => c.values[at] !== 0).length - top.length,
       totalCents,
+      fromSavingsCents: spending.fromSavings[at] ?? 0,
       // a category's usual reads its own months, fewer than the chart's when a card's rows are missing from some
       usualMonths: spending.categoryMonths,
     },

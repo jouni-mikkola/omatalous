@@ -90,6 +90,7 @@ export const FI_OVERVIEW = {
   "home.categories_title": "Menot kategorioittain",
   "home.categories_usual": "tavallisesti {sum}",
   "home.categories_mark": "Pystyviiva on kategorian tavallinen kuukausi ({months} kuukauden keskiarvo).",
+  "home.categories_from_savings": "Säästöistä maksettu {sum}. Menot-luku ei sisällä sitä.",
   "home.nyt_other_one": "{count} muu kategoria",
   "home.nyt_other_many": "{count} muuta kategoriaa",
   "home.nyt_all_categories": "Kaikki kategoriat",

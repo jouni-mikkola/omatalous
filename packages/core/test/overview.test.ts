@@ -70,7 +70,7 @@ describe("the tiles' figures", () => {
     for (let seed = 1; seed <= 12; seed++) {
       const { ctx, balances } = household(seed);
       const d = buildDashboard(ctx, { from: "2025-10-01", to: "2025-10-31" }, balances, inputsOf([]));
-      const spent = d.home.pace?.spentCents ?? d.nyt!.pace.spentCents;
+      const spent = d.overview.months.at(-1)!.spendCents;
       const panel = explain("spend.month", ctx, { view: "own", range: { from: "2025-10-01", to: d.nyt!.from } }).cents;
       if (panel !== spent) problems.push(`${seed}: spending ${panel} against ${spent}`);
       const left = d.nyt!.left;
@@ -103,7 +103,7 @@ describe("the tiles' figures", () => {
       const { months, income } = data.overview;
       const last = months.at(-1)!;
       if (last.month !== "2025-10" || last.complete) problems.push(`${seed}: the last month is ${JSON.stringify(last)}`);
-      if (last.spendCents !== data.pace.currentTotal) problems.push(`${seed}: spent ${last.spendCents} against the tile's ${data.pace.currentTotal}`);
+      if (last.spendCents !== data.totals.expenseCents) problems.push(`${seed}: spent ${last.spendCents} against the bridge's ${data.totals.expenseCents}`);
       if (last.incomeCents !== income.cents) problems.push(`${seed}: income ${last.incomeCents} against the tile's ${income.cents}`);
       if (months.length > 12 || months.some((m, i) => i > 0 && m.month <= months[i - 1]!.month)) problems.push(`${seed}: months ${months.map((m) => m.month).join(",")}`);
     }
@@ -117,7 +117,7 @@ describe("the tiles' figures", () => {
       const { categories, months } = buildDashboard(ctx, { from: "2025-10-01", to: ON }, balances, inputsOf([])).overview;
       const { rows, otherCents, totalCents } = categories;
       if (rows.length > 6 || rows.some((r, i) => r.cents <= 0 || (i > 0 && r.cents > rows[i - 1]!.cents))) problems.push(`${seed}: rows ${JSON.stringify(rows)}`);
-      if (rows.reduce((sum, r) => sum + r.cents, 0) + otherCents !== totalCents || totalCents !== months.at(-1)!.spendCents) problems.push(`${seed}: ${totalCents} does not add up`);
+      if (rows.reduce((sum, r) => sum + r.cents, 0) + otherCents !== totalCents + categories.fromSavingsCents || totalCents !== months.at(-1)!.spendCents) problems.push(`${seed}: ${totalCents} does not add up`);
     }
     expect(problems).toEqual([]);
   }, 30_000);

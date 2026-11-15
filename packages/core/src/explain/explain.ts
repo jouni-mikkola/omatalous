@@ -7,7 +7,8 @@
  * the collector of the same view, filled by the run that built `ctx`.
  */
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
-import { bookedLeftSelect, bookedSpendSelect, earnedOf, earnedSelect, incomeCentsOf, incomeSelect, leftCentsOf, spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
+import { bookedLeftSelect, bookedSpendSelect, earnedOf, earnedSelect, flowSpendOf, flowSpendSelect, incomeCentsOf, incomeSelect, leftCentsOf, spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
+import { spendTotals } from "../analysis/context.ts";
 import { toDayRange } from "../analysis/period.ts";
 import { usualBase } from "../analysis/change-plan.ts";
 import { expectedFor, expectedSpending } from "../analysis/expected.ts";
@@ -43,7 +44,8 @@ function sumOfFigure(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs, 
   switch (figure) {
     case "spend.month":
       if (booked) return { ...of(bookedSpendSelect(ctx, range)), cents: spendOf, sign: -1, leftOut: false };
-      return { ...of(spendSelect(ctx, range)), cents: spendOf, sign: -1, leftOut: true };
+      // the Menot of the bridge and the tile: a debt paid from savings is Säästöön, so it is no line here
+      return { ...of(flowSpendSelect(ctx, range)), cents: flowSpendOf, sign: -1, leftOut: true };
     case "spend.category":
       if (!args.category) throw new Error("explain: spend.category needs a category");
       return { ...of(spendSelect(ctx, range)), cents: spendOf, sign: -1, leftOut: true };
@@ -63,7 +65,7 @@ function reportFigure(figure: FigureId, ctx: AnalysisContext, args: ExplainArgs,
   switch (figure) {
     case "spend.month":
       if (booked) return spendingThrough(ctx, monthOf(args.range.from));
-      return categoryReport(ctx, args.range).totalCents;
+      return spendTotals(ctx, toDayRange(args.range)).expenseCents;
     case "spend.category":
       return categoryReport(ctx, args.range).groups.flatMap((g) => g.categories).find((c) => c.category === args.category)?.totalCents ?? null;
     case "income.month":

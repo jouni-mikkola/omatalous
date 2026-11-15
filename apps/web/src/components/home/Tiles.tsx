@@ -65,12 +65,12 @@ function netLine(net: DashboardData["overview"]["net"], cents: number | null): s
 
 /**
  * The four tiles, each a field of the dashboard answer as it is: what is left to the payday (`nyt.left`) with its sum a
- * day, the month's spending (`home.pace`, else `nyt.pace`) against the usual to the same day, the month's earned
+ * day, the month's spending (the running month of `overview.months`, the bridge's) against the usual to the same day, the month's earned
  * income against the usual month's (`overview.income`), and what the household has net (`holdings.netCents`) with its
  * change in a month (`overview.net`).
  */
 function tilesOf(data: Data): Tile[] {
-  const { nyt, home, overview, holdings } = data;
+  const { nyt, overview, holdings } = data;
   const { left } = nyt;
   const month = data.pace.month;
   return [
@@ -88,7 +88,7 @@ function tilesOf(data: Data): Tile[] {
     {
       id: "spent",
       label: t("home.tile_spent"),
-      cents: home.pace?.spentCents ?? nyt.pace.spentCents,
+      cents: overview.months.at(-1)?.spendCents ?? nyt.pace.spentCents,
       line: spentLine(data),
       // Tapahtumat's money out takes in more than spending: the panel lists the rows of the figure itself
       href: null,

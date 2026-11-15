@@ -90,6 +90,7 @@ function SpendingMonths({ ctx }: SectionProps) {
         total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents), ...(footTypical ? { typical: footTypical } : {}) } }}
         search={false}
       />
+      {r.fromSavingsCents !== 0 && <p className="muted">{t("rpt.sm_from_savings", { amount: eur(r.fromSavingsCents) })}</p>}
       <Table<MonthRow>
         caption={t("rpt.sm_months")}
         captionVisible

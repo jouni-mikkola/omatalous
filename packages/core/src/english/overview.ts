@@ -87,6 +87,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.categories_title": "Spending by category",
   "home.categories_usual": "usually {sum}",
   "home.categories_mark": "The line is the category's usual month (mean of {months} months).",
+  "home.categories_from_savings": "Paid from savings {sum}. The spending figure leaves it out.",
   "home.nyt_other_one": "{count} other category",
   "home.nyt_other_many": "{count} other categories",
   "home.nyt_all_categories": "All categories",

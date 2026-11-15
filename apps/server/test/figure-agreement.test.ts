@@ -98,9 +98,13 @@ const PAGES: readonly Concept[] = [
     name: "Menot of a month",
     months: "window",
     readers: {
-      "Tiles Menot: home.pace.spentCents, else nyt.pace.spentCents": (s) => (s.running ? (s.runDash.home.pace?.spentCents ?? s.runDash.nyt.pace.spentCents) : undefined),
+      "Tiles Menot: the running month of overview.months[].spendCents": (s) => (s.running ? s.runDash.overview.months.at(-1)?.spendCents : undefined),
       "MonthBars spending bar: overview.months[].spendCents": (s) => monthIn(s.runDash.overview.months, s.month)?.spendCents,
-      "SpendingMonths (Rahankäyttö) months table: totals[]": (s) => s.window.spendingMonths.totals[s.window.spendingMonths.months.indexOf(s.month)],
+      // the table's sum holds a debt paid from savings, which the first page counts once, as Säästöön; the note under the table names it
+      "SpendingMonths (Rahankäyttö) months table: totals[] less fromSavings[]": (s) => {
+        const at = s.window.spendingMonths.months.indexOf(s.month);
+        return s.window.spendingMonths.totals[at] - s.window.spendingMonths.fromSavings[at];
+      },
     },
   },
   {
