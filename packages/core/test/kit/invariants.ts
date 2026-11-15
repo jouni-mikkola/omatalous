@@ -61,7 +61,16 @@ const found = (check: Check, h: GeneratedHousehold, v: HouseholdView, line: stri
 export function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const pool = poolOf(v.balances);
   const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)).filter((i): i is string => i !== null));
-  return bridgeByMonth(v.ctx.txs, v.accounts, pool.ids, daily)
+  // A bank gives no payer account on money in, so the rows carry none. The bridge names the legs of a move by both
+  // accounts, and the label of the generator knows the other leg, so the leg's counterparty is read from it here.
+  const ibanOf = new Map(h.accounts.map((a) => [a.id, a.iban]));
+  const accountOf = new Map(h.txs.map((t) => [t.id, t.accountId]));
+  const withPayer = v.ctx.txs.map((t) => {
+    const other = t.counterpartyIban ? undefined : h.truth.get(t.id)?.pair;
+    const iban = other ? ibanOf.get(accountOf.get(other) ?? "") : null;
+    return iban ? { ...t, counterpartyIban: iban } : t;
+  });
+  return bridgeByMonth(withPayer, v.accounts, pool.ids, daily)
     .filter((m) => m.residualCents !== 0)
     .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, moved ${m.lines.moved.cents}, outside the pool ${m.counted.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
 }
