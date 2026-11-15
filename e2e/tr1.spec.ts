@@ -265,7 +265,9 @@ test("at 390 the loan's kinds stand two to a row, and a first run with no bank o
   // no account and nothing shared: the first-run page (views/ReviewView.tsx), with no tick and the way to connect a bank
   await page.route(/\/api\/meta$/, async (route) => {
     const response = await route.fetch();
-    await route.fulfill({ response, json: { ...(await response.json()), accounts: [], sharedAccounts: [] } });
+    const meta = await response.json();
+    // the bank service is set up: only then is a connection on offer
+    await route.fulfill({ response, json: { ...meta, accounts: [], sharedAccounts: [], bank: { ...meta.bank, source: "instance" } } });
   });
   await page.reload();
   await expect(page.locator(".first-run").getByRole("heading", { name: "Tarkistettavat", exact: true })).toBeVisible({ timeout: 15_000 });
