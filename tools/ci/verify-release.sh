@@ -55,7 +55,16 @@ if (($# == 0)) && [[ ${VERIFY_RELEASE_FIRST:-} == 1 ]] \
   echo "No release in $repo yet (the first release of a new root): no signature to verify."
   exit 0
 fi
-tag=${1:-$(curl -fsS "https://api.github.com/repos/$repo/releases/latest" | jq -r .tag_name)}
+tag=${1:-}
+if [[ -z $tag ]]; then
+  tag=$(curl -fsS "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name // empty') || tag=
+  if [[ -z $tag ]]; then
+    # GitHub's latest skips pre-releases and a new release is one for 48 hours, so 404 is no reason to stop: the newest
+    # release of any kind is the one to verify. An empty list leaves tag empty and fails below.
+    tag=$(curl -fsS "https://api.github.com/repos/$repo/releases?per_page=1" | jq -r '.[0].tag_name // empty')
+    [[ -z $tag ]] || echo "$repo has no latest release (only pre-releases): checking the newest, $tag."
+  fi
+fi
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "No release found in $repo ($tag)"; exit 1; }
 # an annotated tag lists its commit as ^{}, a lightweight one (made by the release workflow) only itself
 commit=$(git ls-remote "https://github.com/$repo" "refs/tags/$tag^{}" | cut -f1)

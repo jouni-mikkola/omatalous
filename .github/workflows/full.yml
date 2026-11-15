@@ -107,9 +107,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Image, smoke test, container checks, signature, upgrade rehearsals and drills
-        env:
-          # while this history has no release, the signature leg has none to verify; with one, GitHub's answer ends this
-          VERIFY_RELEASE_FIRST: "1"
         run: tools/ci/local-proof.sh --jobs 2 tools/ci/upgrade-baselines.txt
       - name: Logs of the proof
         if: ${{ failure() }}

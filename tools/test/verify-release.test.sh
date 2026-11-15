@@ -105,6 +105,14 @@ check "a repo with a release is verified on a new root too" test $rc -ne 0 -a "$
 out=$(first down '[]' VERIFY_RELEASE_FIRST=1); rc=$?
 check "a failed request is no empty list" test $rc -ne 0 -a "${out#*yet (the first}" = "$out"
 
+# GitHub has no latest release while the only release is a pre-release: the newest one is checked
+out=$(first ok '[{"tag_name":"v0.1.0","prerelease":true}]' VERIFY_RELEASE_FIRST=); rc=$?
+[[ $out == *"only pre-releases): checking the newest, v0.1.0."* ]] && pass "falls back to the newest release" || fail "falls back to the newest release" "$out"
+grep -q 'releases?per_page=1' "$CURL_LOG" && pass "asks for the release list" || fail "asks for the release list"
+out=$(first ok '[]' VERIFY_RELEASE_FIRST=); rc=$?
+check "no release at all still fails" test $rc -ne 0 -a "${out#*only pre-releases}" = "$out"
+[[ $out == *"No release found"* ]] && pass "says no release was found" || fail "says no release was found" "$out"
+
 echo
 echo "$PASS passed, $FAILED failed"
 [[ $FAILED -eq 0 ]]
