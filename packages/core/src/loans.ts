@@ -283,9 +283,10 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   if (loan.repayment === "equal_principal") return { ...none(plan.missing), amortisationCents: Math.min(loan.paymentCents, owed) };
   // the typed payment is the cap whatever the interest is, once the balance alone reaches it; a smaller balance is
   // paid with an interest that is unknown here, so the payment is too
-  if (owed >= loan.paymentCents) return { ...none(plan.missing), cents: loan.paymentCents };
+  const typed = loan.paymentCents;
+  if (owed >= typed) return { ...none(plan.missing), cents: typed };
   if (loan.rateBp === null || intervalMonths === null) return none(plan.missing);
-  return { ...none(plan.missing), cents: Math.min(loan.paymentCents, owed + loanPeriodInterest(owed, loan.rateBp, intervalMonths)) };
+  return { ...none(plan.missing), cents: Math.min(typed, owed + loanPeriodInterest(owed, loan.rateBp, intervalMonths)) };
 }
 
 /** The payments of a month over a list of loans. */
