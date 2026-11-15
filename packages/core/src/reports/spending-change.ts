@@ -6,7 +6,7 @@ import { usualGap } from "../analysis/expected.ts";
 import { formatEur, monthNameIn } from "../analysis/format.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { getCategory } from "../categories.ts";
-import { categoryLabel } from "../category-names.ts";
+import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import type { IsoDate } from "../types.ts";
@@ -107,7 +107,7 @@ function inLanguage(c: SpendingChange, lang: Language): SpendingChange {
   const merchant = (m: MerchantChange): MerchantChange => (m.kind === "smaller" ? { ...m, label: rest(m.label) } : m.kind === "spread" ? { ...m, label: bucketLabel("spread", m.changeCents, false, lang) } : m);
   const category = (r: CategoryChange): CategoryChange => ({
     ...r,
-    label: r.kind === "smaller" ? rest(r.label) : categoryLabel(getCategory(r.category!), lang),
+    label: r.kind === "smaller" ? rest(r.label) : spendingLabel(getCategory(r.category!), lang),
     merchants: r.merchants.map(merchant),
   });
   return { ...c, categories: c.categories.map(category) };

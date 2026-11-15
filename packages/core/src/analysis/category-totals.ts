@@ -1,5 +1,5 @@
 import { getCategory } from "../categories.ts";
-import { categoryLabel } from "../category-names.ts";
+import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { SAME_UNDER_CENTS } from "../thresholds.ts";
 import type { AnalysisTx } from "./context.ts";
@@ -86,7 +86,7 @@ export function topCategories(categories: readonly (CategoryTotal & { comparedCe
   const totalCents = categories.reduce((sum, c) => sum + c.cents, 0);
   const rows = top.map((c): TopCategory => {
     // the page prints this name as it is, so it comes in the reader's language
-    const base = { category: c.category, label: categoryLabel({ id: c.category, label: c.label }, lang), cents: c.cents, barShare: c.cents / scale };
+    const base = { category: c.category, label: spendingLabel({ id: c.category, label: c.label }, lang), cents: c.cents, barShare: c.cents / scale };
     if (!compared(c)) return { ...base, previousCents: null, changeCents: null, change: null, previousShare: null };
     const changeCents = c.cents - c.previousCents;
     const change = c.previousCents <= 0 ? "new" : Math.abs(changeCents) < SAME_UNDER_CENTS ? "same" : changeCents > 0 ? "more" : "less";
