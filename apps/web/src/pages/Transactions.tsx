@@ -481,9 +481,9 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               {shownPageNo < lastPage && (
                 <>
                   {" "}
-                  <a href={pageHref(shownPageNo + 1)} rel="next">
+                  <Button variant="link" href={pageHref(shownPageNo + 1)} rel="next">
                     {t("bills.next")}
-                  </a>
+                  </Button>
                 </>
               )}
             </p>

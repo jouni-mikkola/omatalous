@@ -176,6 +176,7 @@ export class FinanceRepo {
   listMarks() { return this.marks.listMarks(); }
   setMark(subject: string, mark: MarkKind, at: string) { return this.marks.setMark(subject, mark, at); }
   clearMark(subject: string) { return this.marks.clearMark(subject); }
+  setMarks(subjects: readonly string[], mark: MarkKind, at: string) { return this.marks.setMarks(subjects, mark, at); }
   renameMerchantMarks(renames: ReadonlyMap<string, string>) { return this.marks.renameMerchantMarks(renames); }
   copyMerchantMarks(groups: ReadonlyMap<string, readonly string[]>) { return this.marks.copyMerchantMarks(groups); }
 

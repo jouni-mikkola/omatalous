@@ -92,7 +92,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .pb-cols { position: absolute; inset: 0; display: grid; margin: 0; padding: 0; list-style: none; }
 .pb-col { display: flex; flex-direction: column-reverse; justify-content: flex-start; align-items: stretch; min-inline-size: 0; padding-inline: 12%; border-inline-start: 1px solid transparent; }
 .pb-col[data-weekend] { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
-.pb-col[data-payday] { border-inline-start-color: var(--good); border-inline-start-width: 0.15em; background: none; }
+.pb-col[data-payday] { border-inline-start-color: var(--good); border-inline-start-width: 0.15em; }
 .pb-piece { display: block; flex: none; min-block-size: 0.15em; background: var(--series-1); box-shadow: 0 -1px 0 var(--surface); }
 .pb-piece[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 0.15em var(--series-1); }
 .pb-piece[data-on] { outline: 0.15em solid var(--text); outline-offset: 1px; }

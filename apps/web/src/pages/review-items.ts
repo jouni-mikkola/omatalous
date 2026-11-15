@@ -120,14 +120,14 @@ interface CardBalanceItem extends Base {
 }
 
 /**
- * Cards whose payer the rows do not show. `cents` is the debt that rests on it, `subject` the mark that sets the notice
- * aside for these cards. It is no question: the answers are the bank connections and the mark.
+ * Cards whose payer the rows do not show. `cents` is the debt that rests on it, `subjects` the marks, one per card, that set
+ * the notice aside for these cards. It is no question: the answers are the bank connections and the marks.
  */
 interface UnresolvedItem extends Base {
   kind: "unresolved";
   reason: UnresolvedReason;
   names: string[];
-  subject: string;
+  subjects: string[];
 }
 
 /** A bank consent that ended (`daysLeft` null) or ends soon: the bank is connected again in Asetukset. */
