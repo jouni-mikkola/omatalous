@@ -19,7 +19,7 @@ const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][numb
   id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, source: "typed", maybeTwice: false, paidOff: false, ...over,
 });
 const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountsAddUp: false, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, debtCents: 0, ...over });
-const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta, scope: "own" }));
+const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
 const text = (markup: string) => markup.replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
 // the text without the line that dates each balance, for a test about the order of the rows and their figures
@@ -113,7 +113,7 @@ describe("Holdings", () => {
     });
 
     it("names an account with its link to its rows and no logo or mark before the name, even when its bank has a logo", () => {
-      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a", "Käyttötili", 100_000), bank: "Nordea" }], accountsCents: 100_000 }), meta: { today: "2026-10-12", accounts: [], bank: { banks: [{ id: "nordea-fi", logo: true }] } } as unknown as Meta, scope: "own" }));
+      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a", "Käyttötili", 100_000), bank: "Nordea" }], accountsCents: 100_000 }), meta: { today: "2026-10-12", accounts: [], bank: { banks: [{ id: "nordea-fi", logo: true }] } } as unknown as Meta }));
       expect(markup).toContain('<span class="st-name holding-name" title="Käyttötili"><a href="#/transactions?accountId=a">Käyttötili</a></span>');
       expect(markup).not.toContain("<img");
       expect(markup).not.toContain("acc-mark");
@@ -157,7 +157,7 @@ describe("Holdings", () => {
     });
 
     it("an account cut by who paid says osuutesi with no percent, one cut by weights says its part", () => {
-      const held = (traced: boolean) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a1", "Yhteistili", 100_000), part: { from: 1, to: 2, of: 2 } }], accountsCents: 100_000 }), meta: { ...meta, accounts: [{ id: "a1", traced }] } as unknown as Meta, scope: "own" }));
+      const held = (traced: boolean) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a1", "Yhteistili", 100_000), part: { from: 1, to: 2, of: 2 } }], accountsCents: 100_000 }), meta: { ...meta, accounts: [{ id: "a1", traced }] } as unknown as Meta }));
       expect(undated(held(true))).toContain("Yhteinen tili, osuutesi Tilit yhteensä");
       expect(text(held(true))).not.toContain("osuutesi 50");
       expect(text(held(true))).not.toContain("%");
@@ -170,9 +170,9 @@ describe("Holdings", () => {
       expect(text(markup)).toContain("Autolaina Esimerkkirahoitus Oy osuutesi 40 % Lisännyt Aino Lainaa jäljellä");
       expect(markup).toContain('<span class="st-sub">Lisännyt Aino</span>');
       expect(text(markup.slice(0, markup.indexOf("Autolaina")))).not.toContain("Lisännyt");
-      // the row is told and nothing on it changes the loan: the name leads to the report, and the only buttons open a figure's calculation
+      // the row is told and nothing on it changes the loan: the name leads to the report, whose figures open their calculations, so the block has no button
       expect(links(markup)).toEqual(["#/reports#lainat", "#/reports#lainat"]);
-      expect([...markup.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((m) => m[1]!.replace(/[\u00a0\u202f]/g, " "))).toEqual(["Näytä laskelma: Kodin laina, lainaa jäljellä 120 000,00 €", "Näytä laskelma: Kodin laina, kuukausierä 1 000,00 €", "Näytä laskelma: Autolaina, lainaa jäljellä 120 000,00 €", "Näytä laskelma: Autolaina, kuukausierä 1 000,00 €"]);
+      expect([...markup.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((m) => m[1]!.replace(/[\u00a0\u202f]/g, " "))).toEqual([]);
     });
 
     it("shows a dash for a loan that has no figure, and carries the note of a debt that may be there twice", () => {
@@ -185,7 +185,7 @@ describe("Holdings", () => {
       const total = (over: Partial<Answer>) => text(html(answer({ loans: [loan(), loan({ id: "l2", leftCents: null })], debtCents: 0, ...over })));
       // the sum is core's, so a loan without a balance changes nothing here
       expect(total({ loansCents: 12_000_000 })).toContain("Lainaa jäljellä – Kuukausierä 1 000,00 € Lainat yhteensä 120 000,00 €");
-      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num"><button [^>]*aria-label="Näytä laskelma: Lainat yhteensä [^"]*"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/button><\/dd><\/div><\/dl><\/section>/);
+      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><\/div><\/dl><\/section>/);
       expect(total({ loansCents: null })).not.toContain("yhteensä");
     });
 
@@ -302,7 +302,7 @@ describe("Holdings", () => {
     });
 
     it("shows the bank's logo on the face from the same place as Asetukset does: bundled, served by the server, else the bank's name", () => {
-      const withBanks = (bank: string, banks: unknown[]) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ bank })] }), meta: { today: "2026-10-12", accounts: [], bank: { banks } } as unknown as Meta, scope: "own" }));
+      const withBanks = (bank: string, banks: unknown[]) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ bank })] }), meta: { today: "2026-10-12", accounts: [], bank: { banks } } as unknown as Meta }));
       expect(withBanks("Nordea", [])).toContain('<img src="/banks/nordea.png" alt=""');
       expect(withBanks("OP", [{ id: "op-fi", logo: true }])).toContain('<img src="/api/bank/logos/op-fi" alt=""');
       const named = withBanks("OP", [{ id: "op-fi", logo: false }]);
@@ -312,7 +312,7 @@ describe("Holdings", () => {
 
     it("puts no logo of the connection's bank on a card whose name says another bank, as Saldot does for its accounts", () => {
       const face = (name: string, bank: string) =>
-        renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ name, bank })] }), meta: { today: "2026-10-12", accounts: [], bank: { banks: [] } } as unknown as Meta, scope: "own" }));
+        renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card({ name, bank })] }), meta: { today: "2026-10-12", accounts: [], bank: { banks: [] } } as unknown as Meta }));
       const other = face("ESIMERKKIPANKKI Luottokortti", "Nordea");
       expect(other).not.toContain("/banks/nordea.png");
       expect(other).not.toContain("card-face-bank");
@@ -432,7 +432,7 @@ describe("Holdings", () => {
 
     it("gives a card its next bill, the first of the window's bills that names it, and none to a card with no bill", () => {
       const ahead = { upcoming: [{ date: "2026-10-20", name: "Toinen kortti", category: "transfer", cents: -9_000, source: "card", cardId: "k2" }, { date: "2026-10-25", name: "Esimerkkikortti", category: "transfer", cents: -45_000, source: "card", cardId: "k1" }, { date: "2026-11-25", name: "Esimerkkikortti", category: "transfer", cents: -50_000, source: "card", cardId: "k1" }] } as unknown as NonNullable<DashboardData["ahead"]>;
-      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card(), card({ id: "k3", name: "Kolmas kortti" })] }), meta, scope: "own", ahead, title: "Tilit ja kortit" }));
+      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card(), card({ id: "k3", name: "Kolmas kortti" })] }), meta, ahead, title: "Tilit ja kortit" }));
       expect(headings(markup, "h2")).toEqual(["Tilit ja kortit"]);
       expect(undated(markup)).toContain("Luottoa jäljellä 3 000,00 € Seuraava lasku 25.10. 450,00 €");
       expect(markup.match(/Seuraava lasku/g)).toHaveLength(1);

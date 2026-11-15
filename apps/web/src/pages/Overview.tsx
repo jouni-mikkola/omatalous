@@ -76,7 +76,7 @@ export function Overview({
       ) : (
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
-      <Holdings holdings={data.holdings} meta={meta} scope={scope} ahead={data.ahead} title={t("home.accounts_title")} />
+      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} title={t("home.accounts_title")} />
     </div>
   );
 }

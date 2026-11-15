@@ -264,10 +264,11 @@ function Loans({ ctx }: SectionProps) {
   // only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
   const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? DASH : p.bullets > 0 ? t("rpt.ln_no_payments") : money(0, false);
   const at: At = { scope: ctx.scope, day: r.day };
-  const items: [label: string, value: string, sub?: string, figure?: LoanFigureId][] = [
-    [t("rpt.ln_total"), money(r.total.cents, false), undefined, "loans.total"],
-    [t("rpt.ln_interest12"), r.interestKnown ? money(r.interest.cents, false) : DASH, undefined, r.interestKnown ? "loans.interest" : undefined],
-    [t("rpt.ln_payments_month"), monthly, undefined, p.counted > 0 ? "loans.payments" : undefined],
+  // the tiles add up the loans listed under them, so they open no calculation; each loan's own figures do
+  const items: [label: string, value: string, sub?: string][] = [
+    [t("rpt.ln_total"), money(r.total.cents, false)],
+    [t("rpt.ln_interest12"), r.interestKnown ? money(r.interest.cents, false) : DASH],
+    [t("rpt.ln_payments_month"), monthly],
     ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false), accountsLessDebt().sub] as [string, string, string]]),
   ];
   const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
@@ -276,10 +277,10 @@ function Loans({ ctx }: SectionProps) {
   return (
     <ReportPanel id={section.id} title={section.title}>
       <div className="kv">
-        {items.map(([label, value, sub, figure]) => (
+        {items.map(([label, value, sub]) => (
           <div key={label}>
             <div className="k">{label}</div>
-            <div className="v">{figure ? door(at, figure, label, value, <Figure text={value} size="m" />) : <Figure text={value} size="m" />}</div>
+            <div className="v"><Figure text={value} size="m" /></div>
             {sub && <div className="loans-tile-sub">{sub}</div>}
           </div>
         ))}

@@ -95,7 +95,7 @@ function Balances({ ctx }: SectionProps) {
         <BalanceLine r={r} />
       </QuestionChart>
       <hr className="qc-rule" />
-      <Holdings holdings={r.holdings} meta={ctx.meta} scope={ctx.scope} />
+      <Holdings holdings={r.holdings} meta={ctx.meta} />
       {r.missing.length > 0 && (
         <>
           <hr className="qc-rule" />

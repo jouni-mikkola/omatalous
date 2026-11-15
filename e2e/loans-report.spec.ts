@@ -180,9 +180,8 @@ test("a loan figure opens its calculation, whose lines add up to the figure show
     await expect(panel).toHaveCount(0);
     return { lines, total };
   };
-  const total = await calculation(/^Näytä laskelma: Velkaa yhteensä /);
-  expect(total.total).toBe("121 240,00 €");
-  expect(total.lines.map((l) => l.replace(/^\S+ /, ""))).toEqual(["Kodin laina 120 000,00 €", "Kaupan kortti 1 240,00 €"]);
+  // the tiles add up the loans listed under them, so only each loan's own figures open a calculation
+  await expect(section.getByRole("button", { name: /^Näytä laskelma: Velkaa yhteensä/ })).toHaveCount(0);
   const payment = await calculation(/^Näytä laskelma: Kodin laina, maksu /);
   expect(payment.lines.map((l) => l.replace(/^\S+ /, ""))).toEqual(["Korko 400,00 €", "Lyhennys 600,00 €"]);
   expect(payment.total).toBe("1 000,00 €");
