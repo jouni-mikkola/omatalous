@@ -16,7 +16,7 @@ Money and reports
 - Card bills without a breakdown are one row, named the same in every spending list.
 - Money moved between household members' accounts no longer counts as income or as a payment to a person.
 - A top-up of a joint account from another member's account no longer counts as income.
-- The Tulot tile on the first page shows the same income for the month as Raportit > Tulot, with Ansiotulot under it when they differ. Tavalliset tulot stay on Raportit > Tulot.
+- Tulot on Yhteenveto shows the same income for the month as Raportit > Tulot, with Ansiotulot under it when they differ. Tavalliset tulot stay on Raportit > Tulot.
 - Tavalliset tulot read the same complete months as the income report, so a credit card linked in a recent month no longer hides them.
 - Removed: the picked-out findings (Havainnot), the list of notable findings on the first page and the card cost figure. The figures and charts show the same changes.
 - Money in from another member of the household that nothing explained is asked in Tarkistettavat.
