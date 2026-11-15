@@ -28,6 +28,11 @@ export interface OwnRows {
    * money to an account the viewer has no part in is money to a person. Every other row counts as it is stored.
    */
   told: ReadonlyMap<string, Pick<Transaction, "category" | "categorySource" | "isTransfer">>;
+  /**
+   * The fee of each payment that arrived short, by row id (`ctx.fees`). The row stays a transfer in `told` and is listed
+   * whole; the sums over a list count the fee of it (`listSumsSql`).
+   */
+  fees?: ReadonlyMap<string, number>;
 }
 
 interface Sql {
@@ -69,6 +74,30 @@ export function partSql(parts: ReadonlyMap<string, ViewPart>, column: string): S
       : [{ sql: ` WHEN ? THEN (CASE WHEN EXISTS (SELECT 1 FROM tx_part WHERE tx_id = id) THEN ${traced(part)} ELSE ${plain(part)} END)`, params: [part.viewer] }];
   });
   return { sql: `(CASE account_id${whens.map((w) => w.sql).join("")} ELSE ${column} END)`, params: cut.flatMap(([id], i) => [id, ...whens[i]!.params]) };
+}
+
+/**
+ * The amount and the transfer mark the sums over a list add up, one expression each: the viewer's part of the amount
+ * and the mark the view tells, except that a payment that arrived short counts as its fee and adds to the money out.
+ * With none, they are `partSql` and `toldSql`'s mark. The params of each bind in the order it
+ * stands in the statement, once for each time it is written.
+ */
+export function listSumsSql(own: OwnRows | undefined): { amount: Sql; moved: Sql } {
+  const part = partSql(own?.parts ?? new Map(), "amount_cents");
+  const { moved } = toldSql(own);
+  const fees = [...(own?.fees ?? [])].filter(([, cents]) => Number.isSafeInteger(cents) && cents > 0);
+  if (!fees.length) return { amount: part, moved };
+  const among = "id IN (SELECT value FROM json_each(?))";
+  // one list of row ids for each fee, so a long list is one param and a fee is a whole number written by the server
+  const sizes = [...new Set(fees.map(([, cents]) => cents))];
+  const ids = (cents: number) => JSON.stringify(fees.filter(([, fee]) => fee === cents).map(([id]) => id));
+  return {
+    amount: {
+      sql: `(CASE${sizes.map((cents) => ` WHEN ${among} THEN ${0 - cents}`).join("")} ELSE ${part.sql} END)`,
+      params: [...sizes.map(ids), ...part.params],
+    },
+    moved: { sql: `(CASE WHEN ${among} THEN 0 ELSE ${moved.sql} END)`, params: [JSON.stringify(fees.map(([id]) => id)), ...moved.params] },
+  };
 }
 
 /** The condition that keeps the rows of the accounts left out of the view from being read; empty when there is none. */

@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { type HouseholdMember, memberMoney } from "../src/analysis/member-money.ts";
+import { enrichTransactions } from "../src/pipeline.ts";
 import { nameOf } from "../src/person-names.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -66,6 +67,13 @@ describe("memberMoney", () => {
     ];
     expect(found(rows, [ME, PARTNER])).toEqual([]);
     expect(found([{ counterparty: "Pekka T", counterpartyIban: PARTNERS }], [ME, PARTNER], () => true)).toEqual([]);
+  });
+
+  it("asks about a payment that arrived a fee short when the sender's leg is not in the view", () => {
+    // the partner paid 81.50 and 80.00 arrived: with only the receiver's account in the view nothing proves a transfer
+    const rows = enrichTransactions([tx({ id: "in", accountId: "mine", bookingDate: "2026-03-10", amountCents: 8000, counterparty: "Pekka Testaaja", description: "Siirto" })], accounts, []);
+    const ctx = createContext(rows, accounts, "2026-03-20");
+    expect(memberMoney(ctx.txs, [ME, PARTNER], "me", FROM, () => false).map((m) => [m.key, m.cents, m.count])).toEqual([["name:PEKKA TESTAAJA", 8000, 1]]);
   });
 
   it("leaves out money going out and money from the viewer's own account", () => {

@@ -39,12 +39,17 @@ export function spendCentsOf(t: FlowInput, flows: Flows, savingsAccountIds: Read
   return isDebtFromSavings(t, savingsAccountIds, loanAccountIds) ? -t.amountCents : flows.consumption + flows.debt;
 }
 
-export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string> = new Set()): Flows {
+/**
+ * `feeCents` is what a payment that arrived short lost on the way (`shortFees`): the payer's bank fee, spending, while
+ * the rest of the movement stays neutral.
+ */
+export function flowsOf(t: FlowInput, savingsAccountIds: ReadonlySet<string>, loanAccountIds: ReadonlySet<string> = new Set(), feeCents = 0): Flows {
   // a loan account's own rows (repayments received, interest booked) mirror payments already counted from checking
   if (loanAccountIds.has(t.accountId)) return ZERO;
   if (t.isTransfer) {
     // a transfer is neutral, except that money landing on a savings account is saved
-    return savingsAccountIds.has(t.accountId) ? { ...ZERO, saved: t.amountCents } : ZERO;
+    const neutral = savingsAccountIds.has(t.accountId) ? { ...ZERO, saved: t.amountCents } : ZERO;
+    return feeCents > 0 ? { ...neutral, consumption: feeCents } : neutral;
   }
   const kind: CategoryKind = getCategory(t.category).kind;
   if (isDebtFromSavings(t, savingsAccountIds, loanAccountIds)) return ZERO;

@@ -105,11 +105,40 @@ describe("money a user pays into the joint account", () => {
     expect(linked[1]).toEqual({ ...into, amountCents: 20000, wholeCents: 40000 });
   });
 
-  it("the household view counts the account whole, and her 400 stays money from a person", () => {
-    const rows = [deposit()];
-    const seen = applyUse(rows, [his, joint], parts([his, WHOLE], [joint, WHOLE]));
-    expect(seen).toBe(rows);
-    expect(seen[0]).toMatchObject({ category: "p2p_in", isTransfer: false, amountCents: 40000 });
+  it("where the account counts whole, her 400 is a transfer too, whole: the bank's line names her a holder of it", () => {
+    const seen = applyUse([deposit()], [his, joint], parts([his, WHOLE], [joint, WHOLE]));
+    expect(seen).toMatchObject([{ category: "transfer", isTransfer: true, amountCents: 40000 }]);
+    expect(seen[0]!.wholeCents).toBeUndefined();
+    expect(totals(seen, [his, joint]).incomeCents).toBe(0);
+  });
+
+  it("a payer who is no holder of the account stays money from a person, whole or cut", () => {
+    const stranger = deposit({ counterparty: "VIERAS VEIKKO" });
+    const rows = [stranger];
+    const whole = applyUse(rows, [his, joint], parts([his, WHOLE], [joint, WHOLE]));
+    expect(whole).toBe(rows);
+    expect(whole[0]).toMatchObject({ category: "p2p_in", isTransfer: false, amountCents: 40000 });
+    expect(applyUse(rows, [his, joint], parts([his, WHOLE], [joint, HALF]))[0]).toMatchObject({ category: "p2p_in", isTransfer: false, amountCents: 20000 });
+    // a holder's money into an account that lists one holder only is nobody's top-up
+    const alone = on(his, "2026-09-01", 400, { category: "p2p_in", categorySource: "rule", counterparty: MATTI });
+    expect(applyUse([alone], [his, joint], parts([his, WHOLE], [joint, WHOLE]))[0]).toMatchObject({ category: "p2p_in", isTransfer: false });
+  });
+
+  it("a payer account that is no account of the household keeps her name a namesake's, where the account counts whole", () => {
+    const herAccount = account("hers", ELISA, { iban: "FI0000000000000007" });
+    const whole = parts([his, WHOLE], [herAccount, WHOLE], [joint, WHOLE]);
+    // her own account in the view: a transfer; no payer account at all: a transfer; another account: a namesake's money
+    expect(applyUse([deposit({ counterpartyIban: herAccount.iban })], [his, herAccount, joint], whole)[0]).toMatchObject({ category: "transfer", isTransfer: true });
+    expect(applyUse([deposit({ counterpartyIban: null })], [his, herAccount, joint], whole)[0]).toMatchObject({ category: "transfer", isTransfer: true });
+    const namesake = [deposit({ counterpartyIban: "FI0000000000000099" })];
+    const seen = applyUse(namesake, [his, herAccount, joint], whole);
+    expect(seen).toBe(namesake);
+    expect(seen[0]).toMatchObject({ category: "p2p_in", isTransfer: false });
+  });
+
+  it("a row the user set stays, where the account counts whole", () => {
+    const set = deposit({ category: "income", categorySource: "user" });
+    expect(applyUse([set], [his, joint], parts([his, WHOLE], [joint, WHOLE]))[0]).toMatchObject({ category: "income", isTransfer: false });
   });
 
   it("it comes from an account of hers that he linked and has no part in: still a transfer, and her account's rows are gone", () => {
@@ -296,8 +325,8 @@ describe("what a member's categorisation decided of its own rows stays", () => {
     const also = on(third, "2026-09-13", -200, person);
     const two = applyUse([reached, bill, also], [joint, card, third], parts([joint, HALF], [card, first]), owners);
     expect(two).toEqual([cut(reached, 10000), { ...cut(bill, -10000), category: "transfer", isTransfer: true }, also]);
-    // his 200 to an account of hers he has no part in paired with the row it landed as: still money to a person
-    const [sent, landed] = [on(his, "2026-09-13", -200, person), on(hers, "2026-09-13", 200, { category: "p2p_in", categorySource: "rule" })];
+    // his 200 to an account of hers he has no part in paired with the row it landed as, which names him: still money to a person
+    const [sent, landed] = [on(his, "2026-09-13", -200, person), on(hers, "2026-09-13", 200, { category: "p2p_in", categorySource: "rule", counterparty: "Matti Meikalainen" })];
     const gone = parts([hers, NONE], [card, first]);
     expect(applyUse([sent, landed, reached], [his, hers, card], gone, owners)).toEqual([{ ...sent, isTransfer: false }, cut(reached, 10000)]);
     // 25 out and 25 in that his own categorisation left unpaired stay so beside a card's leg

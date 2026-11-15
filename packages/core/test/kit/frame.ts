@@ -21,7 +21,10 @@ export interface RowSpec {
   cents: number;
   counterparty?: string | null;
   description?: string | null;
+  /** The payee's account on money out. Money in carries none unless `ibanIn` is set: a bank often gives no payer account. */
   iban?: string | null;
+  /** The bank sends the payer's account on this money in (`iban` is then the payer's). */
+  ibanIn?: boolean;
   mcc?: string | null;
   account?: string;
 }
@@ -89,7 +92,7 @@ export function rows(prefix: string, today: IsoDate) {
       currency: "EUR",
       status: "booked",
       counterparty: r.counterparty ?? null,
-      counterpartyIban: r.iban ?? null,
+      counterpartyIban: r.cents < 0 || r.ibanIn ? (r.iban ?? null) : null,
       description: r.description ?? null,
       mcc: r.mcc ?? null,
       merchant: normalizeMerchant(r.counterparty ?? null, r.description ?? null),

@@ -313,10 +313,66 @@ describe("a payment to the user's own name", () => {
     ["and written the other way round with a middle name", "Matti Juhani Meikäläinen", "siirto"],
     ["with the words of someone moving money to the savings", USER, "rahaa S-pankkiin"],
     ["and with no message at all", USER, null],
-  ] as const)("%s is no other person's: read as before", (_name, payee, message) => {
-    expect(category(payee, message, -500, none)).toBe("other");
-    const { final } = month([tx({ accountId: "own", bookingDate: "2026-09-05", ...input(payee, message, -500, none) })], HOUSEHOLD);
-    expect(final[0]!.category).toBe("other");
+  ] as const)("%s is no other person's: the user's own money moved to an account outside the view, saved", (_name, payee, message) => {
+    expect(category(payee, message, -500, none)).toBe("savings");
+    const { final, totals } = month([tx({ accountId: "own", bookingDate: "2026-09-05", ...input(payee, message, -500, none) })], HOUSEHOLD);
+    expect(final[0]!.category).toBe("savings");
+    // with no pair the row is in a flow, as the bank's own code is, so Tulos adds up and the data quality card sees it
+    expect(totals).toMatchObject({ savedCents: 50_000, incomeCents: 0, consumptionCents: 0 });
+  });
+
+  it("money in from the user's own name with no pair is the savings drawn too, unless it names an account outside the household", () => {
+    expect(category(USER, "siirto", 500, none)).not.toBe("savings");
+    expect(category(USER, "siirto", 500, { reference: null })).toBe("savings");
+    expect(category(USER, null, 500)).toBe("savings");
+    const { totals } = month([tx({ accountId: "own", bookingDate: "2026-09-05", ...input(USER, "siirto", 500) })], HOUSEHOLD);
+    expect(totals).toMatchObject({ incomeCents: 0, savedCents: -50_000 });
+  });
+
+  it("500 euro sent to an account outside the view and back from the same account nets to nothing saved, and is no income", () => {
+    const away = row("own", -500, USER, "siirto", PAYEE_ACCOUNT);
+    const back = { ...row("own", 500, USER, "siirto", PAYEE_ACCOUNT), bookingDate: "2026-09-20" };
+    const { final, totals } = month([away, back], HOUSEHOLD);
+    expect(final.map((t) => t.category)).toEqual(["savings", "savings"]);
+    expect(totals).toMatchObject({ savedCents: 0, incomeCents: 0, consumptionCents: 0 });
+    // an account the user's name never paid stays a possible namesake's: no savings drawn
+    const stranger = { ...row("own", 500, USER, "siirto", "FI0000000000000009"), bookingDate: "2026-09-20" };
+    expect(month([away, stranger], HOUSEHOLD).final[1]!.category).not.toBe("savings");
+  });
+
+  it("money in dated before the payment out is the user's own money coming back too", () => {
+    const away = row("own", -500, USER, "siirto", PAYEE_ACCOUNT);
+    const back = { ...row("own", 500, USER, "siirto", PAYEE_ACCOUNT), bookingDate: "2026-09-02" };
+    for (const rows of [[back, away], [away, back]]) {
+      const { final, totals } = month(rows, HOUSEHOLD);
+      expect(final.map((t) => t.category)).toEqual(rows.map(() => "savings"));
+      expect(totals).toMatchObject({ savedCents: 0, incomeCents: 0, consumptionCents: 0 });
+    }
+  });
+
+  it("a payment the own-name rule does not take puts no account in the set: a namesake the user marked as someone else, a reference, a card code", () => {
+    const back = { ...row("own", 500, USER, "siirto", PAYEE_ACCOUNT), bookingDate: "2026-09-20" };
+    const marked = { ...row("own", -500, USER, "siirto", PAYEE_ACCOUNT), category: "p2p", categorySource: "user" as const };
+    const withReference = { ...row("own", -500, USER, "siirto", PAYEE_ACCOUNT), reference: "1234" };
+    const withCardCode = { ...row("own", -500, USER, "siirto", PAYEE_ACCOUNT), mcc: "5411" };
+    for (const away of [marked, withReference, withCardCode]) {
+      expect(month([away, back], HOUSEHOLD).final[1]!.category).not.toBe("savings");
+    }
+    // the user's own answer that it is savings keeps the account in
+    expect(month([{ ...marked, category: "savings" }, back], HOUSEHOLD).final[1]!.category).toBe("savings");
+  });
+
+  it("is a transfer when the other account is connected and the legs pair", () => {
+    const away = row("own", -500, USER, "siirto", joint.iban);
+    const home = row("joint", 500, USER, "siirto");
+    const { final, totals } = month([away, home], HOUSEHOLD);
+    expect(final.map((t) => t.isTransfer)).toEqual([true, true]);
+    expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
+  });
+
+  it("a company named after the user and a card purchase stay what the rules say", () => {
+    expect(category(`TMI ${USER}`, "kiitos", 500)).not.toBe("savings");
+    expect(category(USER, "kiitos", -500, { mcc: "5411" })).not.toBe("savings");
   });
 
   it("while the user is not known, or the payee is another person, it is a payment between people", () => {

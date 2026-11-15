@@ -125,7 +125,9 @@ back has rows only, every one signed and the last *Tulos*, and nothing is told a
 | Student loan, collection, late interest | debt | |
 | Loan paid out to an account | borrowing | |
 | To your own connected savings account | transfer, counted as saved on the savings side | the legs pair up to five days apart (`PAIR_WINDOW_DAYS`); a weekday the banks are closed between them does not count. A payee the bank gives as a Finnish account number is read as its IBAN |
+| A payment that names a connected account of the household and arrives a little short | transfer for what arrived, both legs. The difference is the payer's bank fee, spending under *Pankkikulut*, where both legs are in the view; a view with one leg of it is unchanged, and the receiver's view asks about the money in (*Tarkistettavat*) | the fee is worked out on each run from the pair and stored nowhere. The money in lands on exactly the named account, within the window above, at most 2 % and at most 5 euro under the payment and never over it. The closest sum pairs, then the closest day. The name of the payer is not read (`pairing-fee.ts`) |
 | "Oma siirto" to an account that is not connected | savings | |
+| A payment to or from your own name with no matching row and no purpose in the text. Money in that names a payer account counts only when your own name sent money to that account | savings, so *Tulos* adds up and `own_unconnected` sees it; a pair found later makes it a transfer | the same reading as the bank's own code for such a move. Money in from an account your own name never paid may be a namesake's and is not counted as saved |
 | Nordnet, funds, OST, crypto, investment gold | savings | |
 | Selling investments back to the account | savings go down, not income | |
 | Dividends, deposit interest | income ("Osingot ja korot") | |

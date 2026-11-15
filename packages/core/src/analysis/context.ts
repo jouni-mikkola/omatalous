@@ -12,13 +12,15 @@ import type { Account, IsoDate, Transaction } from "../types.ts";
 import { hasPayeeForm } from "../wording.ts";
 import { loanPaymentAccounts } from "../loan-payment.ts";
 import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsOf } from "./flows.ts";
+import { shortFees } from "./fee-short.ts";
 import { moneyIn } from "./money-in.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
 
 /**
  * A transaction with everything the reports need precomputed once. `category` is the stored one, except on a refund
- * whose payments are in another category: it counts in theirs (`moneyIn`).
+ * whose payments are in another category: it counts in theirs (`moneyIn`), and on a payment that arrived short, whose
+ * fee is in `fees` while the row stays a transfer (`shortFees`).
  */
 export interface AnalysisTx extends Transaction {
   day: number;
@@ -83,6 +85,8 @@ export interface AnalysisContext {
   explained: readonly ExplainedTx[];
   /** What the rows of each bill that is read leave of its `spend`, by the bill's id. `txs` keeps the bill whole: `loweredRows` and `spendRows` apply this. */
   lowered: ReadonlyMap<string, number>;
+  /** The bank fee of each payment that arrived short, by the payment's id (`shortFees`): the one answer, which the lists read in SQL follow too. */
+  fees: ReadonlyMap<string, number>;
   /** The loan payment accounts of the view (`loanPaymentAccounts`). */
   paymentAccounts: ReadonlySet<string>;
   /** The year's flow of each account whose rows show a loan payment account's pattern, whether or not its balance is known (`flagLoanPayment`). */
@@ -164,13 +168,18 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const paying = loanPaymentAccounts(accounts, transactions, today);
   yield;
   const loanIds = new Set(accounts.filter((a) => a.type === "loan" && !paying.ids.has(a.id)).map((a) => a.id));
+  // a payment that arrived short has its bank fee in the view as spending, under Pankkikulut, where both legs are in it
+  const fees = shortFees(transactions, accounts);
+  yield;
   const txs = transactions
     .map((t) => loanPaymentRow(t, paying))
     .map((t): AnalysisTx => {
-      const category = getCategory(t.category);
-      const flows = flowsOf(t, savingsIds, loanIds);
+      const fee = fees.get(t.id) ?? 0;
+      const category = getCategory(fee > 0 ? "fees" : t.category);
+      const flows = flowsOf(t, savingsIds, loanIds, fee);
       return {
         ...t,
+        ...(fee > 0 ? { category: category.id } : {}),
         day: dayNumber(t.bookingDate),
         month: monthIndex(t.bookingDate),
         weekday: weekdayOf(t.bookingDate),
@@ -223,7 +232,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
 
   return {
-    today, todayDay: dayNumber(today), paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
+    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

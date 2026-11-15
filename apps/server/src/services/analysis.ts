@@ -9,14 +9,12 @@
  */
 import { getHeapStatistics } from "node:v8";
 import {
-  type Account,
   type AccountUse,
   type AnalysisContext,
   applyUse,
   type BalanceInput,
   billCents,
   createContextPausing,
-  detectTransfers,
   balanceDayOf,
   dayNumber,
   isNone,
@@ -27,6 +25,7 @@ import {
   type Part,
   partCents,
   type RowShare,
+  transfersBetweenMembers,
   type UserInputs,
 } from "@banking/core";
 import { isCurrencyCode, isEuro } from "../connectors/balance-sign.ts";
@@ -82,6 +81,8 @@ export interface ScopeData {
   shares: ReadonlyMap<string, RowShare>;
   /** The rows the view counts otherwise than they are stored, by row id: what the sums read in SQL follow. */
   told: OwnRows["told"];
+  /** The fee each payment that arrived short counts as spending (`ctx.fees`), by row id: the lists read in SQL count that for the payment. */
+  fees: ReadonlyMap<string, number>;
 }
 
 /** The most cached transaction rows over all entries, on a host with plenty of memory. A context costs about 0.8 KB a row, so this is roughly 200 MB. */
@@ -392,20 +393,24 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
   const own = new Set(accounts.filter((a) => a.userId === userId).map((a) => a.id));
   const rowParts = await extensionRowParts(s, userId, txs.filter((t) => own.has(t.accountId)).map(uncut));
   if (rowParts) ctx.rowParts = rowParts;
-  return { ctx, accounts, shares, told };
+  // a payment that arrived short is a transfer and spending on Pankkikulut at once: the context decided it, so the lists say the same
+  for (const t of ctx.fees.size ? ctx.txs : []) {
+    if (ctx.fees.has(t.id)) told.set(t.id, { category: t.category, categorySource: t.categorySource, isTransfer: t.isTransfer });
+  }
+  return { ctx, accounts, shares, told, fees: ctx.fees };
 }
 
 /**
  * What the lists and sums read in SQL need of a view: the other members' accounts in it, and for the own view the
  * accounts it leaves out, the parts it cuts amounts by and the rows it counts otherwise than they are stored. The same
- * accounts and the same rows as the cached context of the view: the rows come from it. A view that cuts nothing
- * counts every row as it is stored, so no context is asked for.
+ * accounts and the same rows as the cached context of the view: the rows come from it, and so do the fees of payments
+ * that arrived short, which the household view has as well.
  */
 export async function rowsInView(s: Services, userId: string, scope: Scope): Promise<{ shared: ScopeAccount[]; own: OwnRows }> {
   const { view, accounts, left } = await accountsInView(s, userId, scope);
   const parts = new Map(accounts.flatMap((a): [string, ViewPart][] => (a.part && (a.traced || !isWhole(a.part)) ? [[a.id, a.traced ? { ...a.part, viewer: `u:${userId}` } : a.part]] : [])));
-  const data = view === "own" && (left.length || parts.size) ? await s.analysis.get(s, userId, "own") : null;
-  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), parts, told: data?.told ?? new Map(), shares: data?.shares ?? new Map() } };
+  const data = await s.analysis.get(s, userId, view);
+  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), parts, told: data.told, shares: data.shares, fees: data.fees } };
 }
 
 /**
@@ -473,10 +478,12 @@ function notAmong(own: readonly StoredAccount[]): (a: StoredAccount) => boolean 
 /**
  * Each owner's transactions are enriched on their own. Money between two members' accounts is a transfer in both
  * views by IBAN (`householdIbans`), so this pass only catches the legs that name no IBAN and are paired by amount and
- * day. In the household view both legs are internal: mark them as transfers (in memory only, nothing is written back).
+ * day, and the money in that follows a payment to another member's account, which the bank gives no payer account on.
+ * In the household view both legs are internal: mark them as transfers (in memory only, nothing is written back).
  */
-function neutraliseTransfersBetweenMembers(txs: readonly StoredTransaction[], accounts: Account[]): StoredTransaction[] {
-  // the issuer fallback would let a member's card make my unconnected card's bill disappear
-  const transfers = detectTransfers(txs, accounts, { issuerFallback: false });
+function neutraliseTransfersBetweenMembers(txs: readonly StoredTransaction[], accounts: readonly ScopeAccount[]): StoredTransaction[] {
+  // no issuer fallback: it would let a member's card make my unconnected card's bill disappear
+  const owners = new Map(accounts.map((a) => [a.id, a.userId]));
+  const transfers = transfersBetweenMembers(txs, accounts, (accountId) => owners.get(accountId) ?? "");
   return txs.map((t): StoredTransaction => (transfers.has(t.id) && !t.isTransfer ? { ...t, isTransfer: true, category: "transfer" } : t));
 }

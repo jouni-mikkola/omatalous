@@ -409,10 +409,11 @@ function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: D
   if (days < FEES_MIN_DAYS) return [];
   const byMerchant = new Map<string, number>();
   for (const t of current) {
-    // a fee the bank paid back counts at what is left of it
+    // a fee the bank paid back counts at what is left of it. The fee of a transfer that arrived short is the sending account's: the payee of that row is a person of the household
     const left = netSpend(t);
     if (!isBankFee(t) || left <= 0) continue;
-    byMerchant.set(t.merchant, (byMerchant.get(t.merchant) ?? 0) + left);
+    const source = ctx.fees.has(t.id) ? (ctx.accounts.find((a) => a.id === t.accountId)?.name ?? t.accountId) : t.merchant;
+    byMerchant.set(source, (byMerchant.get(source) ?? 0) + left);
   }
   const total = [...byMerchant.values()].reduce((s, v) => s + v, 0);
   const yearly = (total * 365) / days;
