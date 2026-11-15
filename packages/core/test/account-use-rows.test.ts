@@ -105,11 +105,28 @@ describe("money a user pays into the joint account", () => {
     expect(linked[1]).toEqual({ ...into, amountCents: 20000, wholeCents: 40000 });
   });
 
-  it("the household view counts the account whole, and her 400 stays money from a person", () => {
-    const rows = [deposit()];
-    const seen = applyUse(rows, [his, joint], parts([his, WHOLE], [joint, WHOLE]));
-    expect(seen).toBe(rows);
-    expect(seen[0]).toMatchObject({ category: "p2p_in", isTransfer: false, amountCents: 40000 });
+  it("where the account counts whole, her 400 is a transfer too, whole: the bank's line names her a holder of it", () => {
+    const seen = applyUse([deposit()], [his, joint], parts([his, WHOLE], [joint, WHOLE]));
+    expect(seen).toMatchObject([{ category: "transfer", isTransfer: true, amountCents: 40000 }]);
+    expect(seen[0]!.wholeCents).toBeUndefined();
+    expect(totals(seen, [his, joint]).incomeCents).toBe(0);
+  });
+
+  it("a payer who is no holder of the account stays money from a person, whole or cut", () => {
+    const stranger = deposit({ counterparty: "VIERAS VEIKKO" });
+    const rows = [stranger];
+    const whole = applyUse(rows, [his, joint], parts([his, WHOLE], [joint, WHOLE]));
+    expect(whole).toBe(rows);
+    expect(whole[0]).toMatchObject({ category: "p2p_in", isTransfer: false, amountCents: 40000 });
+    expect(applyUse(rows, [his, joint], parts([his, WHOLE], [joint, HALF]))[0]).toMatchObject({ category: "p2p_in", isTransfer: false, amountCents: 20000 });
+    // a holder's money into an account that lists one holder only is nobody's top-up
+    const alone = on(his, "2026-09-01", 400, { category: "p2p_in", categorySource: "rule", counterparty: MATTI });
+    expect(applyUse([alone], [his, joint], parts([his, WHOLE], [joint, WHOLE]))[0]).toMatchObject({ category: "p2p_in", isTransfer: false });
+  });
+
+  it("a row the user set stays, where the account counts whole", () => {
+    const set = deposit({ category: "income", categorySource: "user" });
+    expect(applyUse([set], [his, joint], parts([his, WHOLE], [joint, WHOLE]))[0]).toMatchObject({ category: "income", isTransfer: false });
   });
 
   it("it comes from an account of hers that he linked and has no part in: still a transfer, and her account's rows are gone", () => {

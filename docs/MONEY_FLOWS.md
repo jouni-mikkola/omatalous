@@ -125,6 +125,7 @@ back has rows only, every one signed and the last *Tulos*, and nothing is told a
 | Student loan, collection, late interest | debt | |
 | Loan paid out to an account | borrowing | |
 | To your own connected savings account | transfer, counted as saved on the savings side | the legs pair up to five days apart (`PAIR_WINDOW_DAYS`); a weekday the banks are closed between them does not count. A payee the bank gives as a Finnish account number is read as its IBAN |
+| A payment that names a connected account of the household and arrives a little short | transfer, both legs; the pair counts what arrived. The difference is the bank's fee: it is in no flow, so a bridge of the pool shows it as a residual | the money in lands on exactly the named account, within the window above, at most 2 % and at most 5 euro under the payment and never over it. The closest sum pairs, then the closest day. The name of the payer is not read (`pairing-fee.ts`) |
 | "Oma siirto" to an account that is not connected | savings | |
 | Nordnet, funds, OST, crypto, investment gold | savings | |
 | Selling investments back to the account | savings go down, not income | |

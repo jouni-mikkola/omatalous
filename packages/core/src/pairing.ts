@@ -15,9 +15,9 @@
  * calls of the engine inside this file.
  */
 import { getCategory } from "./categories.ts";
-import { dayNumber, fromDayNumber, weekdayOf } from "./dates.ts";
+import { dayNumber } from "./dates.ts";
 import { normalizeIban } from "./iban.ts";
-import { isBankingDay } from "./pay-day.ts";
+import { closedWeekday, feeShortPartner } from "./pairing-fee.ts";
 import { isUnplacedCardPurchase, namesHolder } from "./pairing-proof.ts";
 import type { TraceRow } from "./money-trace-lots.ts";
 import type { Account, Transaction } from "./types.ts";
@@ -28,12 +28,6 @@ import type { Account, Transaction } from "./types.ts";
  * `TRACE_PAIR_DAYS` is a second, narrower window for another job.
  */
 export const PAIR_WINDOW_DAYS = 5;
-
-/** A weekday the banks settle nothing (Good Friday, Christmas): a leg can wait over it, so it is not counted in the window. */
-const closedWeekday = (day: number): boolean => {
-  const date = fromDayNumber(day);
-  return weekdayOf(date) < 5 && !isBankingDay(date);
-};
 
 /**
  * Everyday spending on an account the bank typed as a loan: this many purchases out make it a current account (a joint
@@ -217,17 +211,25 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
       proved.set(out.id, partner);
     }
 
+    const link = (out: TransferInput, best: TransferInput) => {
+      used.add(best.id);
+      transfers.add(out.id);
+      transfers.add(best.id);
+      const [outPart, inPart] = wholePair(out.id, best.id, best.amountCents);
+      allocations.set(out.id, [outPart]);
+      allocations.set(best.id, [inPart]);
+    };
     for (const out of candidates) {
-      if (out.amountCents >= 0) continue;
-      const best = proved.get(out.id) ?? partnerOf(out);
-      if (best) {
-        used.add(best.id);
-        transfers.add(out.id);
-        transfers.add(best.id);
-        const [outPart, inPart] = wholePair(out.id, best.id, best.amountCents);
-        allocations.set(out.id, [outPart]);
-        allocations.set(best.id, [inPart]);
-      }
+      const best = out.amountCents < 0 ? (proved.get(out.id) ?? partnerOf(out)) : undefined;
+      if (best) link(out, best);
+    }
+
+    // A payment that names an account of the household and arrived a fee short: the IBAN is the proof, the fee stays the sender's
+    const accountOfIban = new Map(accounts.flatMap((a): [string, string][] => (normalizeIban(a.iban) && a.type !== "credit_card" && !loanIds.has(a.id) ? [[normalizeIban(a.iban)!, a.id]] : [])));
+    for (const out of candidates) {
+      const landing = accountOfIban.get(normalizeIban(out.counterpartyIban) ?? "");
+      const best = out.amountCents < 0 && landing !== undefined && !allocations.has(out.id) ? feeShortPartner(out, landing, candidates, used, normalizeIban(accountById.get(out.accountId)?.iban), PAIR_WINDOW_DAYS) : undefined;
+      if (best) link(out, best);
     }
   }
   return { transfers, allocations };

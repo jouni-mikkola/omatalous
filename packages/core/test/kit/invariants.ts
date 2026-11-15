@@ -29,6 +29,7 @@ export type Check =
   | "I1.pool-balance"
   | "I1.pool-cards"
   | "I1b.member-legs"
+  | "I1c.own-transfer"
   | "I3.labelled-flow"
   | "I3a.money-in"
   | "I3b.prefix"
@@ -118,6 +119,15 @@ export function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[]
   const moved = v.ctx.txs.filter((t) => ["transfer", "mirror"].includes(h.truth.get(t.id)?.flow ?? "") && (t.flows.income !== 0 || t.flows.consumption !== 0 || t.flows.debt !== 0));
   const kinds = [...new Set(moved.map((t) => h.truth.get(t.id)!.kind))].sort();
   return moved.length ? [found("I1b.member-legs", h, v, `${moved.length} legs (${kinds.join("/")}) count as ${[...new Set(moved.map((t) => t.category))].sort().join("/")}`)] : [];
+}
+
+/**
+ * I1c: a row the generator labelled an own transfer is a transfer in every view, the household's and each member's:
+ * never income, a refund or spending. Both legs are on one member's accounts, so each view holds the pair.
+ */
+export function ownTransfers(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+  const read = v.ctx.txs.filter((t) => h.truth.get(t.id)?.kind === "own_transfer" && t.amountCents !== 0 && !t.isTransfer);
+  return read.length ? [found("I1c.own-transfer", h, v, `${read.length} legs (own_transfer) read as ${[...new Set(read.map((t) => `${t.amountCents > 0 ? "in" : "out"} ${t.category}`))].sort().join("/")}`)] : [];
 }
 
 const PREFIX = "MOBILEPAY ";
@@ -237,5 +247,5 @@ export function unproven(h: GeneratedHousehold, twin: GeneratedHousehold): Viola
 /** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 export function violationsOf(h: GeneratedHousehold, twin?: GeneratedHousehold): Violation[] {
   const views = viewsOf(h);
-  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
+  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
 }
