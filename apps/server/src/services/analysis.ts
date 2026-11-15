@@ -449,12 +449,13 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
 }
 
 /**
- * The loans to propose to the viewer: worked out from the viewer's own rows, marks and loans, whatever view a page
- * is in. The list in Asetukset > Lainat and the question on the front page both read this one, so the front page
- * names no proposal the list leaves out.
+ * The loans to propose to the viewer: by default worked out from the viewer's own rows, marks and loans, whatever view
+ * a page is in. The list in Asetukset > Lainat and the question on the front page both read this one, so the front page
+ * names no proposal the list leaves out. Only the front page's total of unsaved loans asks for the view's own scope,
+ * since its monthly figures follow the view (a joint loan's whole payment in the household's view).
  */
-export async function proposalsFor(s: Services, userId: string): Promise<LoanProposal[]> {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+export async function proposalsFor(s: Services, userId: string, scope: Scope = "own"): Promise<LoanProposal[]> {
+  const { ctx, accounts } = await s.analysis.get(s, userId, scope);
   const { inputs } = await requestInputs(s, userId, accounts);
   return memoOn(ctx, "loan-proposals", inputs, () => loanProposals(ctx, inputs));
 }

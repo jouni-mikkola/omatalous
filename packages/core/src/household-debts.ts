@@ -251,6 +251,7 @@ export interface UnsavedLoans {
   count: number;
   /** The payee of each, as the rows name it. */
   names: string[];
+  /** What the loans cost a month in this view: each loan's `monthlyCents`, the viewer's part of a joint account's payment, as Kiinteät counts it. */
   paymentCents: number;
 }
 
@@ -258,8 +259,8 @@ export interface UnsavedLoans {
  * The debts the total cannot hold: a lender paid every month whose loan was not saved has no balance, so the total
  * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole laina".
  */
-export function unsavedLoans(proposals: readonly Pick<LoanProposal, "payee" | "paymentCents">[]): UnsavedLoans | null {
+export function unsavedLoans(proposals: readonly Pick<LoanProposal, "payee" | "monthlyCents">[]): UnsavedLoans | null {
   if (!proposals.length) return null;
-  return { count: proposals.length, names: proposals.map((p) => p.payee), paymentCents: proposals.reduce((sum, p) => sum + p.paymentCents, 0) };
+  return { count: proposals.length, names: proposals.map((p) => p.payee), paymentCents: proposals.reduce((sum, p) => sum + p.monthlyCents, 0) };
 }
 
