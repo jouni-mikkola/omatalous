@@ -4,6 +4,7 @@
  * read-only and per account. Who uses an account (account_use) is kept apart
  * from that: a use never lets anybody see an account.
  */
+import { normalizeIban } from "@banking/core";
 import { accountBank, type Row, type StoredAccount, type StoredTransaction, str, TX_COLUMNS_LIGHT, toAccount, toTransaction } from "./rows.ts";
 import type { Db, SqlValue, Statement } from "./types.ts";
 
@@ -263,6 +264,22 @@ export class HouseholdRepo {
   /** Whether any other member has an account: one yes or no, nothing of what it holds. */
   async othersHaveAccounts(userId: string): Promise<boolean> {
     return (await this.db.all<Row>("SELECT 1 FROM accounts WHERE user_id <> ? LIMIT 1", [userId])).length > 0;
+  }
+
+  /**
+   * The IBANs of the accounts the other members of the instance hold, without the accounts themselves: the one fact of
+   * another member's account a member's own categorisation reads, so that money to or from it is a transfer and not a
+   * payment to or from a person (core `enrichTransactions`, `household`). A loan account is left out: a payment to it is
+   * debt service whoever holds it.
+   */
+  async ibansOutside(userId: string): Promise<Set<string>> {
+    const rows = await this.db.all<Row>("SELECT DISTINCT iban FROM accounts WHERE user_id <> ? AND iban IS NOT NULL AND type <> 'loan'", [userId]);
+    return new Set(rows.flatMap((r) => normalizeIban(str(r.iban)) ?? []));
+  }
+
+  /** The members who hold an account besides this one: those whose rows read `ibansOutside` of it. */
+  async membersBesides(userId: string): Promise<string[]> {
+    return (await this.db.all<Row>("SELECT DISTINCT user_id FROM accounts WHERE user_id <> ? ORDER BY user_id", [userId])).map((r) => String(r.user_id));
   }
 
   /** Every account of the instance, whoever linked it: the payers of a joint account are found among them by IBAN (services/money-trace.ts). */

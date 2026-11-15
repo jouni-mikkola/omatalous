@@ -98,12 +98,16 @@ const wholePair = (a: string, b: string, cents: number): [Allocation, Allocation
   { partnerId: a, cents, partnerCents: cents, link: "amount-day", tier: "decided" },
 ];
 
-/** Everything `detectTransfers` finds before the issuer fallback, with the pairs: what a pair teaches is read from them (card-channel.ts). */
-export function transferAllocations(txs: readonly TransferInput[], accounts: readonly Account[], exclude?: ReadonlySet<string>): Pairing {
+/**
+ * Everything `detectTransfers` finds before the issuer fallback, with the pairs: what a pair teaches is read from them
+ * (card-channel.ts). `household` holds the IBANs of the accounts of the household's other members, which these rows do
+ * not hold: a row that names one is money inside the household, so a transfer, though its other leg is nowhere here.
+ */
+export function transferAllocations(txs: readonly TransferInput[], accounts: readonly Account[], exclude?: ReadonlySet<string>, household?: ReadonlySet<string>): Pairing {
   const transfers = new Set<string>();
   const allocations = new Map<string, Allocation[]>();
   const accountById = new Map(accounts.map((a) => [a.id, a]));
-  const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
+  const ownIbans = new Set([...accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x), ...(household ?? [])]);
   const isCard = (t: TransferInput) => accountById.get(t.accountId)?.type === "credit_card";
   const settled = (t: TransferInput) => t.categorySource === "transfer";
   // a payment to the own mortgage account is debt service, not a transfer (see flowsOf); the type alone does not make a

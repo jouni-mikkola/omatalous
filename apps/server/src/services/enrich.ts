@@ -1,4 +1,4 @@
-import { type CategoryRule, categoryForCompany, enrichIsland, enrichTransactionsPausing, fold, type Transaction } from "@banking/core";
+import { type CategoryRule, categoryForCompany, enrichIsland, enrichTransactionsPausing, fold, normalizeIban, type Transaction } from "@banking/core";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import type { StoredTransaction } from "../db/rows.ts";
 import type { SettingsRepo } from "../db/settings-repo.ts";
@@ -25,6 +25,50 @@ const clocks = new WeakMap<SettingsRepo, () => string>();
  */
 export function reprocessClock(settings: SettingsRepo, today: () => string): void {
   clocks.set(settings, today);
+}
+
+/** What a member's categorisation reads of the household's other members: the IBANs of their accounts, and who they are. */
+export interface HouseholdReach {
+  ibansOutside(userId: string): Promise<ReadonlySet<string>>;
+  membersBesides(userId: string): Promise<string[]>;
+  finance(userId: string): FinanceRepo;
+}
+
+const reaches = new WeakMap<SettingsRepo, HouseholdReach>();
+
+/**
+ * Names how the services of `settings` reach the other members' accounts. Without it a user's rows are read alone, as in
+ * a single-member install.
+ */
+export function reprocessHousehold(settings: SettingsRepo, reach: HouseholdReach): void {
+  reaches.set(settings, reach);
+}
+
+/**
+ * The IBANs of the other members' accounts: money to or from one of them is a transfer in every member's view, though
+ * the rows of the other account are not among this member's.
+ */
+export async function householdIbans(settings: SettingsRepo, userId: string): Promise<ReadonlySet<string>> {
+  return (await reaches.get(settings)?.ibansOutside(userId)) ?? new Set();
+}
+
+/** The settings key that holds the IBANs a user's accounts had when the others last read them. */
+const OWN_IBANS = "household_ibans:";
+
+/**
+ * When a user's accounts changed their IBANs since the others last read them, the other members' rows are categorised
+ * again: a leg to the new account was a payment to a person before. Runs after the user's own run, so no two locks are
+ * held at once.
+ */
+async function spreadToHousehold(repo: FinanceRepo, settings: SettingsRepo): Promise<void> {
+  const reach = reaches.get(settings);
+  if (!reach) return;
+  const own = [...new Set((await repo.listAccounts()).flatMap((a) => normalizeIban(a.iban) ?? []))].sort().join(",");
+  const key = `${OWN_IBANS}${repo.userId}`;
+  const was = await settings.get(key);
+  if (own === (was ?? "")) return;
+  await settings.set(key, own);
+  for (const other of await reach.membersBesides(repo.userId)) await withUserLock(other, () => reprocessLocked(reach.finance(other), settings));
 }
 
 export interface ReprocessResult {
@@ -112,7 +156,9 @@ export async function whenUnlocked(userIds: readonly string[]): Promise<void> {
 }
 
 export async function reprocessDetailed(repo: FinanceRepo, settings: SettingsRepo): Promise<ReprocessResult> {
-  return withUserLock(repo.userId, () => reprocessLocked(repo, settings));
+  const result = await withUserLock(repo.userId, () => reprocessLocked(repo, settings));
+  await spreadToHousehold(repo, settings);
+  return result;
 }
 
 export async function industryMap(repo: FinanceRepo): Promise<Map<string, string>> {
@@ -129,9 +175,9 @@ export async function industryMap(repo: FinanceRepo): Promise<Map<string, string
 export async function reprocessLocked(repo: FinanceRepo, settings: SettingsRepo, rows?: StoredTransaction[]): Promise<ReprocessResult> {
   // read before the rows are: an import that lands while this runs sets a new mark, and that one stays
   const mark = await repo.unprocessedMark();
-  const [txs, accounts, rules, industries, roles] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles()]);
+  const [txs, accounts, rules, industries, roles, household] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles(), householdIbans(settings, repo.userId)]);
   const before = new Map(txs.map((t) => [t.id, t.category]));
-  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, undefined, clocks.get(settings)?.());
+  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, undefined, clocks.get(settings)?.(), household);
   // the version moves with the last piece of the rows: the analysis is built before the run or after it (AnalysisCache)
   await writeEnrichment(repo, changed);
   await afterHooks.get(settings)?.(repo.userId, new Set([repo.userId]));
@@ -174,18 +220,19 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
       const names = new Set(merchants.map((m) => fold(m)));
       merchants = (await repo.merchantNames()).filter((m) => names.has(fold(m)));
     }
-    const [rows, accounts, rules, industries, outsideMatches, roles] = await Promise.all([
+    const [rows, accounts, rules, industries, outsideMatches, roles, household] = await Promise.all([
       repo.transactionsOfMerchants(merchants),
       repo.listAccounts(),
       repo.listRules(),
       industryMap(repo),
       repo.matchedRowsOutside(merchants),
       repo.payerRoles(),
+      householdIbans(settings, repo.userId),
     ]);
     if (rows.length > ISLAND_MAX_ROWS) return reprocessLocked(repo, settings);
     // a payer's median reads rows of other merchants: their payer, sum and day, nothing more
     const payerRows = roles.length ? await repo.incomingPayerRows() : undefined;
-    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows, today: clocks.get(settings)?.() });
+    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows, today: clocks.get(settings)?.(), household });
     if (!island.ok) return reprocessLocked(repo, settings);
     await writeEnrichment(repo, island.changed);
     await afterHooks.get(settings)?.(repo.userId, new Set([repo.userId]));

@@ -7,6 +7,7 @@ import { generateDemoData } from "../../apps/server/src/demo-data.ts";
 import { stableId } from "../../apps/server/src/platform/ids.ts";
 import { applyUse, deriveUse, partCents, partOf, saidUse, type UseMember, WHOLE } from "../../packages/core/src/account-use.ts";
 import { type AnalysisContext, createContext } from "../../packages/core/src/analysis/context.ts";
+import { normalizeIban } from "../../packages/core/src/iban.ts";
 import { fold, normalizeMerchant } from "../../packages/core/src/merchant.ts";
 import { userNameOf } from "../../packages/core/src/person-names.ts";
 import { enrichTransactions } from "../../packages/core/src/pipeline.ts";
@@ -117,8 +118,8 @@ export interface HouseholdView {
 }
 
 /** The rows after enrichment: `enrichTransactions` returns only the rows it changed. */
-function enriched(h: Household, txs: readonly Transaction[], accounts: readonly Account[]): Transaction[] {
-  const changed = new Map(enrichTransactions(txs, accounts, h.rules, h.industry).map((t) => [t.id, t]));
+function enriched(h: Household, txs: readonly Transaction[], accounts: readonly Account[], household?: ReadonlySet<string>): Transaction[] {
+  const changed = new Map(enrichTransactions(txs, accounts, h.rules, h.industry, undefined, undefined, undefined, household).map((t) => [t.id, t]));
   return txs.map((t) => changed.get(t.id) ?? t);
 }
 
@@ -150,6 +151,8 @@ export function viewsOf(h: Household): HouseholdView[] {
       h,
       h.txs.filter((t) => owners.get(t.accountId) === m.id),
       h.accounts.filter((a) => owners.get(a.id) === m.id),
+      // the IBANs of the other members' accounts, as the server reads them for each user (`ibansOutside`)
+      new Set(h.accounts.filter((a) => owners.has(a.id) && owners.get(a.id) !== m.id && a.type !== "loan").flatMap((a) => normalizeIban(a.iban) ?? [])),
     ),
   );
   const all = byDateAndId([...rows]);

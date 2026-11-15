@@ -8,6 +8,7 @@ import type { WhyCollector } from "./explain/types.ts";
 import { titleCase } from "./merchant.ts";
 import { type Holder, holdersIn, type Name, nameOf, samePerson } from "./person-names.ts";
 import { householdAllocations, legAccountsOf } from "./pairing.ts";
+import { sharedRow } from "./shared.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, AccountUse, AccountUser, Part, RowShare, Transaction } from "./types.ts";
 
@@ -160,7 +161,7 @@ export function partCents(amountCents: number, part: Part): number {
 }
 
 /** The bank's amount of a row, also when the row is cut to a part: what a typed bill or a loan's payment is matched by. */
-export const billCents = (t: Pick<Transaction, "amountCents" | "wholeCents">): number => t.wholeCents ?? t.amountCents;
+export const billCents = (t: Pick<Transaction, "amountCents" | "wholeCents">): number => sharedRow(t).whole;
 
 /**
  * A member's own view of rows: what the member uses. `parts` is the viewer's part of each account by its id, and an

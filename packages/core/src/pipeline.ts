@@ -30,7 +30,9 @@ import { isCardIssuerText, isLoanText } from "./wording.ts";
  * code (MCC), the same merchant's other purchases, and last the merchant's
  * industry from the trade register (`industries`: merchant → category).
  * Money that comes back (see matchReturns) takes its payment's category. Last, the member's payer roles (`payers`)
- * move the rows of the payers they name (`applyPayerRoles`).
+ * move the rows of the payers they name (`applyPayerRoles`). `household` holds the IBANs of the accounts of the
+ * household's other members: money to or from one of them is a transfer in every view, though the rows of the
+ * other account are not among these.
  */
 export function enrichTransactions(
   txs: readonly Transaction[],
@@ -40,8 +42,9 @@ export function enrichTransactions(
   payers?: PayerInput,
   why?: WhyCollector,
   today?: IsoDate,
+  household?: ReadonlySet<string>,
 ): Transaction[] {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why, today);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why, today, household);
   let step = steps.next();
   while (!step.done) step = steps.next();
   return step.value;
@@ -60,8 +63,9 @@ export async function enrichTransactionsPausing(
   payers?: PayerInput,
   why?: WhyCollector,
   today?: IsoDate,
+  household?: ReadonlySet<string>,
 ): Promise<Transaction[]> {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why, today);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, why, today, household);
   let step = steps.next();
   while (!step.done) {
     await pause();
@@ -166,7 +170,8 @@ function applyReturns(next: readonly Transaction[], returns: ReadonlyMap<string,
   }
 }
 
-const ownIbansOf = (accounts: readonly Account[]) => new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
+/** The IBANs of the accounts and of the household's other members' (`household`): a payer or payee with one of them is not a stranger. */
+const ownIbansOf = (accounts: readonly Account[], household?: ReadonlySet<string>) => new Set([...accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x), ...(household ?? [])]);
 
 const changedRows = (next: readonly Transaction[], txs: readonly Transaction[]) =>
   next.filter((t, i) => {
@@ -182,6 +187,7 @@ function* enrichSteps(
   payers?: PayerInput,
   why?: WhyCollector,
   today?: IsoDate,
+  household?: ReadonlySet<string>,
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
@@ -189,10 +195,11 @@ function* enrichSteps(
   yield;
 
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
-  const returns = matchReturns(next, ownIbansOf(accounts), new Set([...byUserRule, ...answeredWalletRows(next, payers)]), today);
-  if (why) whyReturns(why, next, returns, ownIbansOf(accounts), byUserRule);
+  const ownIbans = ownIbansOf(accounts, household);
+  const returns = matchReturns(next, ownIbans, new Set([...byUserRule, ...answeredWalletRows(next, payers)]), today);
+  if (why) whyReturns(why, next, returns, ownIbans, byUserRule);
   yield;
-  const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]), why);
+  const { transfers, cardBills } = settleTransfers(next, accounts, new Set([...returns.keys(), ...returns.values()]), why, household);
   for (const t of next) {
     if (t.categorySource === "user") continue;
     if (transfers.has(t.id)) {
@@ -231,6 +238,8 @@ export interface IslandInput {
    * by it. Without one the run reads the newest booked row of `rows`, which for one merchant's rows is not the history's.
    */
   today?: IsoDate;
+  /** The IBANs of the accounts of the household's other members (`enrichTransactions`). */
+  household?: ReadonlySet<string>;
   /**
    * Every row of the merchants concerned (and no others), as stored after the change, in the order the full run
    * gets them: date, then id.
@@ -284,7 +293,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
   if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
   const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
-  const ownIbans = ownIbansOf(accounts);
+  const ownIbans = ownIbansOf(accounts, input.household);
   const holders = holdersOf(accounts);
   const run = (txs: readonly Transaction[], userRules: readonly CategoryRule[]) => {
     const steps = classify(txs, userRules, accounts);

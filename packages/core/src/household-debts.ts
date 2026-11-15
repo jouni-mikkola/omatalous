@@ -8,6 +8,7 @@
 import { partCents } from "./account-use.ts";
 import type { Debt } from "./debt-part.ts";
 import type { LoanProposal } from "./loan-detect.ts";
+import { paymentOf, type Side, sumShared } from "./shared.ts";
 import { creditAccountLoan, type DebtFigure, debtInterestNext12Months, debtTotalOn, loanBalanceOn, loanLastDueDate, loansOf } from "./loans.ts";
 import { belowWhole } from "./part-shape.ts";
 import { parseSeriesId } from "./series-id.ts";
@@ -257,10 +258,11 @@ export interface UnsavedLoans {
 
 /**
  * The debts the total cannot hold: a lender paid every month whose loan was not saved has no balance, so the total
- * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole laina".
+ * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole laina". The sum is
+ * of one side of the payments (`side`): the viewer's part by default, so the members' totals add up to the household's.
  */
-export function unsavedLoans(proposals: readonly Pick<LoanProposal, "payee" | "monthlyCents">[]): UnsavedLoans | null {
+export function unsavedLoans(proposals: readonly Pick<LoanProposal, "payee" | "monthlyCents" | "paymentCents">[], side: Side = "part"): UnsavedLoans | null {
   if (!proposals.length) return null;
-  return { count: proposals.length, names: proposals.map((p) => p.payee), paymentCents: proposals.reduce((sum, p) => sum + p.monthlyCents, 0) };
+  return { count: proposals.length, names: proposals.map((p) => p.payee), paymentCents: sumShared(proposals.map(paymentOf), side) };
 }
 
