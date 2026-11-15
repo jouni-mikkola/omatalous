@@ -124,34 +124,58 @@ describe("shares that friends send back by MobilePay", () => {
   });
 
   it("two purchases that both fit: the nearer in time, then the larger", () => {
-    const buys = [{ id: "big", day: 100, cents: 10000 }, { id: "small", day: 100, cents: 5000 }, { id: "later", day: 101, cents: 2500 }];
-    expect([...matchMobilePayShares(buys.slice(0, 2), [{ id: "a", day: 101, cents: 2500 }])]).toEqual([["a", "big"]]);
-    // 12,50 is a fifth of 62,50 and a quarter of 50: the purchase one day nearer wins over the larger
-    expect([...matchMobilePayShares([{ id: "far", day: 100, cents: 10000 }, { id: "near", day: 102, cents: 5000 }], [{ id: "a", day: 103, cents: 2500 }])]).toEqual([["a", "near"]]);
-    expect(matchMobilePayShares(buys.slice(2), [{ id: "a", day: 101, cents: 1250 }]).size).toBe(1);
+    const pair = (day: number, cents: number) => [{ id: "a", day, cents }, { id: "b", day, cents }];
+    // two shares of 37,50 are 75 together: the others' part of 100 (four payers) and of 150 (two payers)
+    expect([...matchMobilePayShares([{ id: "big", day: 100, cents: 15000 }, { id: "small", day: 100, cents: 10000 }], pair(101, 3750))]).toEqual([["a", "big"], ["b", "big"]]);
+    // the purchase one day nearer wins over the larger
+    expect([...matchMobilePayShares([{ id: "far", day: 100, cents: 15000 }, { id: "near", day: 102, cents: 10000 }], pair(103, 3750))]).toEqual([["a", "near"], ["b", "near"]]);
+    expect(matchMobilePayShares([{ id: "later", day: 101, cents: 2500 }], pair(102, 625)).size).toBe(2);
+  });
+
+  it("one row alone matches nothing, whatever its sum: one sum that fits a purchase is a coincidence", () => {
+    const buy = [{ id: "p", day: 100, cents: 5400 }];
+    expect(matchMobilePayShares(buy, [{ id: "a", day: 101, cents: 1800 }]).size).toBe(0);
+    // two rows in the same window that do not add up to the others' part are no group either
+    expect(matchMobilePayShares(buy, [{ id: "a", day: 101, cents: 1800 }, { id: "b", day: 102, cents: 500 }]).size).toBe(0);
+    // the same row asks for a group: with its peer it matches
+    expect(matchMobilePayShares(buy, [{ id: "a", day: 101, cents: 1800 }, { id: "b", day: 102, cents: 1800 }]).size).toBe(2);
+  });
+
+  it("a lone payment in beside a grocery purchase stays income and is asked about", () => {
+    const rows = [tx({ id: "g", bookingDate: "2026-09-03", amountCents: -5400, merchant: "Prisma", counterparty: "PRISMA", description: "KORTTIOSTO" }), friend("a", "2026-09-04", 18), friend("b", "2026-09-20", 40), friend("c", "2026-09-28", 50)];
+    const final = run(rows);
+    expect([final[1]!.category, incomeOf(final), spendOf(final, "groceries")]).toEqual(["p2p_in", 10800, 5400]);
+    const questions = buildQuestions(createContext(final, [checking], "2026-10-09"), { from: "2026-09-01", to: "2026-10-09" }, { ...NO_INPUTS, payers: { memberId: "m", roles: [] } }).items.filter((i) => i.kind === "payer");
+    expect(questions).toMatchObject([{ key: "name:MOBILEPAY", count: 3, cents: 10800, wallet: true, options: ["cost_share", "sales", "gift"], proposal: null }]);
   });
 
   it("a row 7 days after matches, one 8 days after does not, and nor does one before", () => {
-    const at = (day: string) => matchedOf(run([dinner("p", "2026-09-03", 100), friend("a", day, 25)]));
-    expect([at("2026-09-10"), at("2026-09-11"), at("2026-09-02")]).toEqual([{ a: "restaurants" }, {}, {}]);
+    const at = (day: string) => matchedOf(run([dinner("p", "2026-09-03", 100), friend("a", day, 25), friend("b", day, 25)]));
+    expect([at("2026-09-10"), at("2026-09-11"), at("2026-09-02")]).toEqual([{ a: "restaurants", b: "restaurants" }, {}, {}]);
   });
 
-  it("a sum not near any share does not match, one within a euro does", () => {
-    const at = (euros: number) => Object.keys(matchedOf(run([dinner("p", "2026-09-03", 100), friend("a", "2026-09-04", euros)]))).length;
-    expect([at(22), at(24), at(26), at(27.5), at(16.7), at(18.5)]).toEqual([0, 1, 1, 0, 1, 0]);
-    // a row that is as large as the purchase is no share
-    expect(at(100)).toBe(0);
+  it("two rows with a sum not near the others' part do not match, one within a euro for each payer does", () => {
+    const at = (euros: number) => Object.keys(matchedOf(run([dinner("p", "2026-09-03", 100), friend("a", "2026-09-04", euros), friend("b", "2026-09-04", euros)]))).length;
+    // two payers: the other one pays 50, give or take 1
+    expect([at(24), at(24.5), at(25.5), at(26), at(30)]).toEqual([0, 2, 2, 0, 0]);
+    // rows that are together as large as the purchase are no shares
+    expect(at(50)).toBe(0);
   });
 
-  it("a small share fits: a euro off at most and a fifth of the exact share at most, whichever is less", () => {
-    const at = (purchase: number, euros: number) => Object.keys(matchedOf(run([dinner("p", "2026-09-03", purchase), friend("a", "2026-09-04", euros)]))).length;
+  it("a row joins a purchase that has shares when it is a share too: a euro off at most and a fifth of the exact share at most, whichever is less", () => {
+    // two quarters of the purchase make the group; the third row is the one in question
+    const joins = (purchase: number, euros: number) => {
+      const part = eur(purchase) / 4;
+      const m = matchMobilePayShares([{ id: "p", day: 100, cents: eur(purchase) }], [{ id: "a", day: 101, cents: part }, { id: "b", day: 101, cents: part }, { id: "x", day: 101, cents: eur(euros) }]);
+      return m.has("x") ? 1 : 0;
+    };
     // a tenth of 30,00 is 3,00: 2,00 is a euro off but a third of the share away, one cent is no tenth of 10,00
-    expect([at(30, 2), at(10, 0.01)]).toEqual([0, 0]);
-    expect([at(30, 3), at(30, 2.9)]).toEqual([1, 1]);
+    expect([joins(30, 2), joins(10, 0.01)]).toEqual([0, 0]);
+    expect([joins(30, 3), joins(30, 2.9)]).toEqual([1, 1]);
     // the fifth is the less: 0,60 of the 3,00
-    expect([at(30, 2.4), at(30, 2.39)]).toEqual([1, 0]);
+    expect([joins(30, 2.4), joins(30, 2.39)]).toEqual([1, 0]);
     // the euro is the less: a quarter of 100,00 is 25,00, a fifth of it would be 5,00
-    expect([at(100, 24), at(100, 23.99), at(100, 26), at(100, 26.01)]).toEqual([1, 0, 1, 0]);
+    expect([joins(100, 24), joins(100, 23.99), joins(100, 26), joins(100, 26.01)]).toEqual([1, 0, 1, 0]);
   });
 
   it("rows that are no share alone but together come to the others' part of the purchase match", () => {
@@ -167,7 +191,8 @@ describe("shares that friends send back by MobilePay", () => {
     expect(Object.keys(matchedOf(run(rows)))).toEqual(["a", "b", "c"]);
     const m = matchMobilePayShares([{ id: "p1", day: 10, cents: 10000 }, { id: "p2", day: 10, cents: 10000 }], ["a", "b", "c", "d"].map((id) => ({ id, day: 11, cents: 2500 })));
     expect([...m.values()].filter((p) => p === "p1").length + [...m.values()].filter((p) => p === "p2").length).toBe(m.size);
-    expect(m.size).toBe(4);
+    // three shares of 25 make the dinner's others' part; the fourth, alone, has no group to match
+    expect(m.size).toBe(3);
   });
 
   it("a bill, cash, a card bill and a payment to a person are no shared purchase", () => {

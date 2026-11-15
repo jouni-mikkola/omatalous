@@ -320,6 +320,23 @@ describe("repo rules: one owner for pairing (docs/MONEY_FLOWS.md)", () => {
   });
 });
 
+describe("repo rules: one way to categorize a row", () => {
+  it("rule 51: `categorize(` is called only in categorize-direction.ts, which reads a user's rule by its direction", () => {
+    const OWNERS = new Set(["packages/core/src/categorize.ts", "packages/core/src/categorize-direction.ts"]);
+    const files = sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/");
+    expect(files.length).toBeGreaterThan(100);
+    const found: Finding[] = [];
+    for (const file of files) {
+      if (OWNERS.has(file) || !readText(file).includes("categorize")) continue;
+      const sf = parse(file);
+      walk(sf, (n) => {
+        if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "categorize") found.push({ file, line: lineOf(sf, n), why: "calls categorize directly: a user's rule of spending would read money in" });
+      });
+    }
+    expectNoFindings("one way to categorize", found, "call categorizeInDirection (categorize-direction.ts), which every row's category goes through.");
+  });
+});
+
 describe("repo rules: request bodies and marks", () => {
   it("rule 14: every request body in apps/server/src/routes is read inside strictObject() or a parse*() call, never with c.req.json() or parseBody()", () => {
     // Services that check the body they are handed with strictObject themselves. An entry no call uses any more fails.

@@ -1,7 +1,8 @@
 import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
 import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
-import { categorize, compileRules } from "./categorize.ts";
+import { type CategorizeResult, compileRules } from "./categorize.ts";
+import { categorizeInDirection } from "./categorize-direction.ts";
 import { dealerCategory } from "./wording-car.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
 import { holdersOf } from "./categorize-people.ts";
@@ -84,7 +85,7 @@ const CHUNK = 4000;
 function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule[], accounts: readonly Account[]): Generator<void, { next: Transaction[]; byUserRule: Set<string> }, void> {
   const rules = compileRules(userRules);
   const byUserRule = new Set<string>();
-  const decided = new Map<string, ReturnType<typeof categorize>>();
+  const decided = new Map<string, CategorizeResult>();
   const next: Transaction[] = new Array(txs.length);
   // payees the account pays about the same sum in three or more months: not a single gift to a person
   const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
@@ -99,7 +100,7 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
     const steadyPayee = (t.amountCents < 0 ? steady : steadyIn).has(partyKey(t));
     const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}\u0000${dealerCategory(t.amountCents)}`;
     let result = decided.get(key);
-    if (!result) decided.set(key, (result = categorize(steadyPayee ? { ...t, steadyPayee } : t, rules, accounts)));
+    if (!result) decided.set(key, (result = categorizeInDirection(steadyPayee ? { ...t, steadyPayee } : t, rules, accounts)));
     const { category, source, byUser } = result;
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")

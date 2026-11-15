@@ -43,7 +43,16 @@ export const isUserName = (name: string, holders: Holders): boolean => !!holders
 
 const MOBILEPAY_TEXT = words(`${MOBILEPAY_WORDS}|SIIRTO HENKILO(?:LLE|LTA)`);
 const SHOP_PREFIX = new RegExp(String.raw`^(?:${MOBILEPAY_SHOP_PREFIX})\s*\*\s*`);
+/** The wallet's own word in front of a payee ("MOBILEPAY KORHONEN LIISA"): it is no part of the name, which has the same shape with it and without it. */
+const WALLET_PREFIX = new RegExp(String.raw`^(?:${MOBILEPAY_WORDS})\s+`);
 const BANK_PERSON_PAYMENT = words(PERSON_PAYMENT_WORDS);
+
+/**
+ * Whether a payee names a trade by a stem of the lexicon (a pizzeria, a bakery): a business, however it is paid. Only
+ * stems count: the brands of the lexicon are often a person's first name too (Elisa, Helen), so a brand in a name
+ * does not make it a business.
+ */
+export const namesTradeStem = (name: string): boolean => lexiconCategory({ merchant: name, counterparty: name, description: null })?.source === "industry";
 /** "LASKU 12": a glued number does not make it another word. */
 const INVOICE_TEXT = words(INVOICE_WORDS, true);
 
@@ -84,12 +93,15 @@ export function peopleRules(
   // partyKind (a legal form, a business id in the text, a payee the app knows)
   const person = (name: string, text = "", surnameBank = false) => isPersonShaped(name) && !hasPayeeForm(name) && !namesBusiness(name) && !isOrganisationName(name) && !namedLikeBusiness(name) && partyKind(name, text, surnameBank) !== "company";
 
+  // the name after the wallet's prefix is judged: a trade word in it ("TAIKA PIZZA") makes it a business with the prefix as without
+  const walletPerson = (name: string) => person(name) && !namesTradeStem(name);
+
   const viaMobilePay = (input: CategorizeInput): boolean => {
     const payee = payeeOf(input);
     // booked as a card purchase, MobilePay stands in front of the payee: a person's name behind it is a person, unless the card's code names a shop
     const behind = payee.replace(SHOP_PREFIX, "");
-    if (behind !== payee) return !shopMcc(input.mcc) && person(behind);
-    return MOBILEPAY_TEXT.test(fold([input.counterparty, input.description].filter(Boolean).join(" "))) && person(payee);
+    if (behind !== payee) return !shopMcc(input.mcc) && walletPerson(behind);
+    return MOBILEPAY_TEXT.test(fold([input.counterparty, input.description].filter(Boolean).join(" "))) && walletPerson(payee.replace(WALLET_PREFIX, ""));
   };
 
   /** A transfer to or from a person: a co-holder, or a name with the bank's own word for a payment between people. */

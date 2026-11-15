@@ -1,7 +1,7 @@
 import { getCategory } from "./categories.ts";
 import { bankRowRules } from "./categorize-bank-rows.ts";
 import { categoryForMcc } from "./categorize-mcc.ts";
-import { type Holders, holdersOf, noCard, peopleRules } from "./categorize-people.ts";
+import { type Holders, holdersOf, namesTradeStem, noCard, peopleRules } from "./categorize-people.ts";
 import { categoryForIndustry, type RegisterAnswer } from "./industry.ts";
 import { fieldText } from "./categorize-text.ts";
 import { fold, namesUnknownMerchant } from "./merchant.ts";
@@ -297,9 +297,9 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
 const FALLBACK_RULES: readonly BuiltinRule[] = [
   // a travel claim comes with its number glued on (MATKALASKU123456)
   { category: "reimbursements", direction: "in", re: w(REIMBURSEMENT_WORDS, true) },
-  // a company paid or paying with MobilePay is not a person (TIKKURILAN TIIKERIT RY)
-  { category: "p2p_in", direction: "in", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLTA`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) },
-  { category: "p2p", direction: "out", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLLE`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) },
+  // a company or a trade paid or paying with MobilePay is not a person (TIKKURILAN TIIKERIT RY, TAIKA PIZZA)
+  { category: "p2p_in", direction: "in", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLTA`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) && !namesTradeStem(input.counterparty ?? "") },
+  { category: "p2p", direction: "out", re: w(`${MOBILEPAY_WORDS}|SIIRTO HENKILOLLE`), when: (_text, input) => !hasPayeeForm(fold(input.counterparty ?? "")) && !namesTradeStem(input.counterparty ?? "") },
 ];
 
 // An employer may be a shop too, so a code (lists in wording.ts) decides before a merchant's name. COAT is as the words OMA SIIRTO.

@@ -701,4 +701,26 @@ describe("the user's own rule behind a row's category", () => {
     // the user's rule matches but the row has another category, so a later step gave it
     expect(ownRuleOf(tx("KAHVILA ESIMERKKI", -450), "transfer", own)).toBeNull();
   });
+
+  describe("for money in", () => {
+    const both = compileRules([
+      { id: 3, field: "merchant", pattern: "Esimerkki Klinikka", category: "health", priority: 5 },
+      { id: 4, field: "description", pattern: "palkkio", category: "sales", priority: 10 },
+      { id: 5, field: "merchant", pattern: "Prisma", category: "home", priority: 10 },
+    ]);
+    const klinikka = (cents: number) => tx("ESIMERKKI KLINIKKA", cents, { description: "palkkio lokakuu" });
+
+    it("names the rule of income when the payee also has a rule of spending that the pipeline passes by", () => {
+      expect(ownRuleOf(klinikka(5000), "sales", both)?.id).toBe(4);
+      expect(ownRuleOf(klinikka(-5000), "health", both)?.id).toBe(3);
+    });
+
+    it("names a rule of spending when a shop's refund stays in its category", () => {
+      expect(ownRuleOf(tx("PRISMA", 4000), "home", both)?.id).toBe(5);
+    });
+
+    it("names none when the rule of spending was passed by and nothing else of the user's takes the row", () => {
+      expect(ownRuleOf(tx("ESIMERKKI KLINIKKA", 5000, { description: "viesti" }), "health", both)).toBeNull();
+    });
+  });
 });
