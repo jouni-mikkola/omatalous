@@ -2348,8 +2348,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "loans",
@@ -2368,8 +2367,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "groceries",
@@ -2403,8 +2401,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "insurance",
@@ -2423,8 +2420,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "food_delivery",
@@ -2443,8 +2439,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "transport",
@@ -2463,8 +2458,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "fitness",
@@ -2483,8 +2477,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "car",
@@ -2503,8 +2496,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "subscriptions",
@@ -2533,8 +2525,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "alcohol",
@@ -2553,8 +2544,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    },
    {
     "category": "restaurants",
@@ -2578,8 +2568,7 @@
      }
     ],
     "otherPayeesCents": 0,
-    "statementCents": 0,
-    "lowered": false
+    "statementCents": 0
    }
   ]
  },

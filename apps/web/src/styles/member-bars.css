@@ -1,0 +1,14 @@
+/* The member bars of Raportit > Yhteiset menot (charts/forms/MemberBars.tsx): per member a paid bar over a share bar,
+   one scale for the whole block, each with its name and figure at the end. */
+
+@layer components {
+.member-bars { display: grid; gap: var(--sp-16); margin-block: var(--sp-16); }
+.mbr-paid { background: var(--role-spending); }
+.mbr-share { background: var(--series-rest); }
+.mbr-member { display: grid; gap: var(--sp-4); }
+.mbr-name { font-size: var(--fs-body); font-weight: var(--w-strong); overflow-wrap: anywhere; }
+.mbr-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(9rem, auto); align-items: center; gap: var(--sp-12); }
+.mbr-track { display: block; block-size: var(--bar-h); background: var(--grid); border-radius: var(--radius-s); overflow: hidden; }
+.mbr-track > span { display: block; block-size: 100%; }
+.mbr-fig { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; text-align: end; white-space: nowrap; }
+}

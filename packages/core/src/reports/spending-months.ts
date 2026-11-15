@@ -40,8 +40,6 @@ interface SpendingCategory {
    * in the sum and not in its list. 0 without statements.
    */
   statementCents: number;
-  /** A card bill of this category counts here at what its statement rows leave of it, while Tapahtumat lists the bill whole. */
-  lowered: boolean;
 }
 
 export interface SpendingMonthsReport {
@@ -88,7 +86,7 @@ export interface SpendingMonthsReport {
 /**
  * Spending by month and by category over the months of the range. A row counts in the month of its day and in its own
  * category, so a month's column, a category's column and the rows Tapahtumat lists for that month and category are one
- * sum (but for purchases read off a card statement, which `statementCents` and `lowered` name). A month that has not
+ * sum (but for purchases read off a card statement, which `statementCents` names). A month that has not
  * ended, or that the accounts do not cover, is shown and left out of the average month.
  */
 export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): SpendingMonthsReport {
@@ -103,14 +101,14 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const large = largePurchases(ctx);
   const largeTotals = indexes.map(() => 0);
   const largeFlowTotals = indexes.map(() => 0);
-  const byCategory = new Map<string, { values: number[]; largeValues: number[]; payees: Map<string, SpendingPayee>; statementCents: number; lowered: boolean }>();
+  const byCategory = new Map<string, { values: number[]; largeValues: number[]; payees: Map<string, SpendingPayee>; statementCents: number }>();
   const offStatement = new Set<unknown>(ctx.explained);
   for (const t of spendRows(ctx, toDayRange(shown))) {
     if (!t.spend || t.month < first) continue;
     const i = t.month - first;
     totals[i]! += t.spend;
     fromSavings[i]! += t.spend - flowSpendOf(t);
-    const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0, lowered: false };
+    const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0 };
     e.values[i]! += t.spend;
     // money back for a large purchase leaves with it (as in the themes), or the level is lowered by a refund of a sum it left out
     if (large.has(ctx.returns.get(t.id) ?? t.id)) {
@@ -119,7 +117,6 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
       largeFlowTotals[i]! += flowSpendOf(t);
     }
     if (offStatement.has(t)) e.statementCents += t.spend;
-    if (ctx.lowered.has(t.id)) e.lowered = true;
     // by the name Tapahtumat filters on, so a payee's link opens the rows of its sum
     const name = t.merchant;
     const payee = e.payees.get(name) ?? { name, cents: 0, count: 0 };
@@ -137,7 +134,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const gapAt = new Set(completeAt.filter((i) => cardRowsMissingIn(ctx, months[i]!)));
   const categoryAt = last === null ? [] : completeAt.filter((i) => gapAt.has(i) === gapAt.has(last));
   const categories = [...byCategory.entries()]
-    .map(([category, { values, largeValues, payees, statementCents, lowered }]) => {
+    .map(([category, { values, largeValues, payees, statementCents }]) => {
       const totalCents = values.reduce((s, v) => s + v, 0);
       const typicalCents = expectedLevel(categoryAt.map((i) => values[i]! - largeValues[i]!));
       const named = [...payees.values()].sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name)).slice(0, SPENDING_PAYEES);
@@ -151,7 +148,6 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
         payees: named,
         otherPayeesCents: totalCents - named.reduce((s, p) => s + p.cents, 0),
         statementCents,
-        lowered,
       };
     })
     .sort((a, b) => b.totalCents - a.totalCents || a.category.localeCompare(b.category));

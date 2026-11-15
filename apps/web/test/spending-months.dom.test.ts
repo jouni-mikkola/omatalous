@@ -26,7 +26,6 @@ const category = (id: string, label: string, values: number[], typicalCents: num
   payees: [],
   otherPayeesCents: values.reduce((a, b) => a + b, 0),
   statementCents: 0,
-  lowered: false,
 });
 
 /** Card bills until June, the card's own purchases since July: the totals keep their level, the categories read July to September. */

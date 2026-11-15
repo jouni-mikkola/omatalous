@@ -2,6 +2,7 @@
 // One block per month and joint account; the route lists only accounts the user is weighted in.
 import type { Settlement, SettlementLine } from "@banking/core";
 import { useState } from "react";
+import { MemberBars } from "../../../charts/forms/MemberBars.tsx";
 import { Section } from "../../../components/Section.tsx";
 import { date, money, monthLong } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
@@ -97,6 +98,7 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
           )}
         </div>
       )}
+      {!noSplit && s.members.length > 0 && <MemberBars members={s.members.map((m) => ({ key: m.owner, name: nameOf(m.owner), paidCents: m.paid, shareCents: m.owed }))} paidLabel={t("rpt.se_paid")} shareLabel={t("rpt.se_share")} />}
       {!noSplit &&
         s.members.map((m) => {
           const line = overLine(m.over);
