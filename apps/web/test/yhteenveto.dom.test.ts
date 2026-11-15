@@ -30,7 +30,7 @@ function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData
     home: { paceGap: null, pace: null },
     top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
-    overview: { income: { cents: 412000, usualCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
+    overview: { income: { cents: 412000, earnedCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
   } as unknown as DashboardData;
   return { ...rest, ...more, nyt: nytOf(true) };
 }
@@ -47,20 +47,27 @@ function tilesIn(d: DashboardData & { nyt: NytData }) {
 }
 
 describe("Yhteenveto", () => {
-  it("four tiles: what is left to the payday a day, the month's spending and income against the usual, the net with its month's change, each opening its rows", () => {
+  it("four tiles: what is left to the payday a day, the month's spending against the usual, the month's income with its earned part, the net with its month's change, each opening its rows", () => {
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
       // a known sum opens the panel of its payments, as the spending does; the income and the net open theirs in the tests below
       { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: null },
       { label: "Menot tässä kuussa", figure: "1 500 €", line: "234 € yli tavallisen tähän päivään", href: null },
-      { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Tavallisesti 3 980 € kuussa", href: null },
+      { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Ansiotulot 3 980 €", href: null },
       { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
     ]);
   });
 
-  // Tapahtumat's income takes in refunds and transfers the earned income leaves out: the tile opens the figure's own rows
-  it("the income tile opens the rows of the earned income of the month to today", async () => {
-    stubApi({ "GET /api/explain": { figure: "income.earned", kind: "sum", cents: 412000, lines: [], rows: [], check: { kind: "sum", diffCents: 0 } } });
+  it("the income tile names the earned part only when it differs from the income, and a month with only unearned income or a negative adjustment shows it", () => {
+    const income = (cents: number, earnedCents: number) => tilesIn(data({ overview: { income: { cents, earnedCents }, net: null, months: [] } } as never))[2]!;
+    expect(income(412000, 412000).line).toBeNull();
+    expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", line: "Ansiotulot 0 €" });
+    expect(income(380000, 398000)).toMatchObject({ figure: "3 800 €", line: "Ansiotulot 3 980 €" });
+  });
+
+  // Tapahtumat's money in takes in transfers the income leaves out: the tile opens the figure's own rows
+  it("the income tile opens the rows of the income of the month to today", async () => {
+    stubApi({ "GET /api/explain": { figure: "income.month", kind: "sum", cents: 412000, lines: [], rows: [], check: { kind: "sum", diffCents: 0 } } });
     const { container } = render(createElement(Tiles, { data: data(), scope: "own" }));
     const door = container.querySelector<HTMLButtonElement>("[data-tile=income] button.why-door")!;
     expect(flat(door.getAttribute("aria-label"))).toContain("Tulot tässä kuussa 4 120 €");
@@ -102,12 +109,12 @@ describe("Yhteenveto", () => {
   });
 
   it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
-    const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, usualCents: null }, net: null, months: [] } } as never);
+    const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, earnedCents: 0 }, net: null, months: [] } } as never);
     const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
     // with no sum there is no panel to open: the tile leads to Laskut, where the bills stand
     expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa", href: "#/bills#ennen-palkkapaivaa" });
     expect(spent!.line).toBe("Vertailu näkyy, kun takana on kolme päättynyttä kuukautta");
-    expect(income!.line).toBe(spent!.line);
+    expect(income!.line).toBeNull();
     expect(net!.line).toBeNull();
     // no net at all: a balance is missing, and the tile says so
     const none = data({ holdings: { ...data().holdings, netCents: null }, overview: { ...data().overview, net: null } } as never);

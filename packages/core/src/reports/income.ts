@@ -8,7 +8,7 @@ import { benefitName, type IncomeBase, incomeBase, type IncomeChange, incomeChan
 import { payPieces, typeName } from "../analysis/income-series.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { expectedIncome } from "../analysis/expected.ts";
-import { earnedIncome, isCompleteIncomeMonth } from "../analysis/usual.ts";
+import { earnedIncome, isCompleteIncomeMonth, monthIncome } from "../analysis/usual.ts";
 import { addDays, addMonths, dayNumber, monthEnd, monthOf, monthRange } from "../dates.ts";
 import { belowWhole } from "../household-debts.ts";
 import { fold } from "../merchant.ts";
@@ -264,7 +264,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const inWindow = new Set(labels);
   const typeOf = (id: string) => b.types.get(id)!;
 
-  const months: IncomeMonth[] = labels.map((month) => ({ month, complete: isCompleteIncomeMonth(ctx, month), totalCents: 0, earnedCents: earnedIncome(ctx, month), usualCents: expectedIncome(ctx, month), byGroup: zeroGroups() }));
+  const months: IncomeMonth[] = labels.map((month) => ({ month, complete: isCompleteIncomeMonth(ctx, month), totalCents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month), usualCents: expectedIncome(ctx, month), byGroup: zeroGroups() }));
   const byMonth = new Map(months.map((m) => [m.month, m]));
   // a month in progress has no counterpart yet: the comparison reads the complete months and the same ones a year before
   const prevLabels = new Set(months.filter((m) => m.complete).map((m) => addMonths(m.month, -12)));
@@ -280,7 +280,6 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     }
     const m = byMonth.get(month);
     if (!m) continue;
-    m.totalCents += cents;
     if (m.complete && INCOME_TYPES[type].earned) earnedComplete += cents;
     m.byGroup[INCOME_TYPES[type].group] += cents;
     let row = typeRows.get(type);

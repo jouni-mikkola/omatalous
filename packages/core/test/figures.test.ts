@@ -162,9 +162,14 @@ const ANSWERS: Record<FigureKey, Answers> = {
   },
   income: (h) => {
     const ctx = contextOf(h);
-    const range = lastMonth(h);
+    // the running month: the first page's Tulot tile reads it
+    const range = running(h);
+    const dashboard = buildDashboard(ctx, range, h.balances, h.inputs);
     return {
-      dashboard: buildDashboard(ctx, range, h.balances, h.inputs).totals.incomeCents,
+      dashboard: dashboard.totals.incomeCents,
+      tile: dashboard.overview.income.cents,
+      bar: dashboard.overview.months.at(-1)?.incomeCents ?? null,
+      report: incomeReport(ctx, range, h.balances).months.find((m) => m.month === monthOf(h.today))?.totalCents ?? null,
       cashflow: cashflowReport(ctx, range).totals.incomeCents,
       explain: explain("income.month", ctx, { view: "own", range }).cents,
     };
@@ -174,7 +179,7 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const month = monthOf(h.today);
     const range = running(h);
     return {
-      tile: buildDashboard(ctx, range, h.balances, h.inputs).overview.income.cents,
+      tile: buildDashboard(ctx, range, h.balances, h.inputs).overview.income.earnedCents,
       report: incomeReport(ctx, range, h.balances).months.find((m) => m.month === month)?.earnedCents ?? null,
       helper: earnedIncome(ctx, month),
       explain: explain("income.earned", ctx, { view: "own", range }).cents,
@@ -186,7 +191,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       usual: expectedIncome(ctx, month),
       buffer: bufferReport(ctx, h.balances, h.inputs).incomeMonthlyCents,
-      tile: buildDashboard(ctx, running(h), h.balances, h.inputs).overview.income.usualCents,
       report: incomeReport(ctx, running(h), h.balances).months.find((m) => m.month === month)?.usualCents ?? null,
     };
   },

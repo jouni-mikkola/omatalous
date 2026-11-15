@@ -61,7 +61,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.tile_spent_previous_whole": "All of last month {sum}",
   "home.tile_gap_history": "The comparison shows after {months}",
   "home.tile_income": "Income this month",
-  "home.tile_income_usual": "Usually {sum} a month",
+  "home.tile_income_earned": "Earned income {sum}",
   "home.tile_net_more": "{sum} more than on {date}",
   "home.tile_net_less": "{sum} less than on {date}",
   "home.tile_net_same": "Same as on {date}",

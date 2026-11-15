@@ -12,7 +12,7 @@ import { messageIn } from "../messages.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { byPayPeriod, INCOME_TYPES, type IncomeType, incomeTypes, isIncomeRow, type PayDay, payDayOf, payerKey, payersOf, periodOf } from "./income.ts";
 import { expectedIncome } from "./expected.ts";
-import { gateFor, isCompleteMonth } from "./usual.ts";
+import { gateFor, isCompleteIncomeMonth } from "./usual.ts";
 
 export type IncomeChangeKind =
   | "raise"
@@ -117,7 +117,7 @@ export function incomeBase(ctx: AnalysisContext, end: IsoDate): IncomeBase {
     for (const t of s.rows) periodMonth.set(t.id, period(t.bookingDate));
   }
   const endMonth = monthOf(end);
-  const anchor = isCompleteMonth(ctx, endMonth) ? endMonth : addMonths(endMonth, -1);
+  const anchor = isCompleteIncomeMonth(ctx, endMonth) ? endMonth : addMonths(endMonth, -1);
   return { ctx, end, rows, types, series, lastDay, usualMonthlyCents, periodMonth, regularPart: settled.regularPart, anchor, from: `${addMonths(anchor, -11)}-01` };
 }
 
