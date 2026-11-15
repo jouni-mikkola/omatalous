@@ -50,8 +50,14 @@ export interface LoanProposal {
   /** Who is paid, as the series names it. */
   payee: string;
   accountId: string;
-  /** The usual payment, positive, as the bank charges it: whole, also where the rows are cut to a part. */
+  /** The usual payment, positive, as the bank charges it: whole, also where the rows are cut to a part. It matches and names the loan; no total reads it. */
   paymentCents: number;
+  /**
+   * What the series costs a month in this view, positive: its `monthlyCents`, the figure Kiinteät and Laskut add up. It is
+   * the viewer's part where the account is a joint one with a told split (ADR 0016) and the bank's whole payment
+   * otherwise, so the unsaved loans total and the fixed costs say one figure for one loan.
+   */
+  monthlyCents: number;
   /** Calendar months from the first payment seen to the last, both included. */
   months: number;
   firstDate: IsoDate;
@@ -450,6 +456,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
       payee: withoutSwedishTwin(s.merchant),
       accountId: parts.accountId,
       paymentCents,
+      monthlyCents: s.monthlyCents,
       months: s.monthsActive,
       firstDate: s.firstDate,
       lastDate: s.lastDate,

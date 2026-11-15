@@ -148,6 +148,15 @@ describe("migrate-check failures", () => {
     expect(report.problems.join(" ")).toMatch(/sync_runs: .* missing after/);
   });
 
+  it("a retired table goes with its rows, and no other table may", async () => {
+    const file = fromFixture("1.0.0.sql");
+    expect(rowCount(file, "view_opens")).toBeGreaterThan(0);
+    const report = await migrateCheck(file);
+    expect(report.ok, report.problems.join("; ")).toBe(true);
+    expect(report.applied).toContain("0031_drop_unused_schema.sql");
+    expect(report.tables.view_opens).toEqual({ before: rowCount(file, "view_opens"), after: 0 });
+  });
+
   it("a database that is newer than this build is a failure with the usual wording", async () => {
     const file = fromFixture("0.5.0.sql");
     const raw = new DatabaseSync(file);

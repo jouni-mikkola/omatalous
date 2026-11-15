@@ -83,11 +83,11 @@ export async function resealAll(s: Services, oldSecret: string, newSecret: strin
     if (item.kind === "extension") {
       statements.push(item.value.reseal(sealed));
     } else if (item.kind === "factor") {
-      statements.push({ sql: "UPDATE user_factor SET secret = ? WHERE id = ?", params: [sealed, item.id] });
+      statements.push(s.factors.resealStatement(item.id, sealed));
     } else if (item.kind === "user") {
-      statements.push({ sql: "UPDATE bank_credentials SET private_key_enc = ?, updated_at = ? WHERE user_id = ?", params: [sealed, now, item.userId] });
+      statements.push(s.users.resealBankKeyStatement(item.userId, sealed, now));
     } else {
-      statements.push({ sql: "UPDATE settings SET value = ?, updated_at = ? WHERE key = ?", params: [JSON.stringify({ ...item.json, keyEnc: sealed }), now, item.key] });
+      statements.push(s.settings.updateStatement(item.key, JSON.stringify({ ...item.json, keyEnc: sealed }), now));
     }
   }
   await s.db.batch(statements);

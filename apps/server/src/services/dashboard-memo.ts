@@ -12,13 +12,13 @@ const PER_CONTEXT = 6;
 
 const answers = new WeakMap<AnalysisContext, Map<string, DashboardData>>();
 
-export function dashboardOf(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[], inputs: UserInputs, proposals: readonly LoanProposal[], lang: Language = "fi"): DashboardData {
-  const key = JSON.stringify([range, balances, inputs, proposals, lang]);
+export function dashboardOf(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[], inputs: UserInputs, proposals: readonly LoanProposal[], lang: Language = "fi", scopeProposals: readonly LoanProposal[] = proposals): DashboardData {
+  const key = JSON.stringify([range, balances, inputs, proposals, lang, scopeProposals]);
   let held = answers.get(ctx);
   if (!held) answers.set(ctx, (held = new Map()));
   const hit = held.get(key);
   if (hit) return hit;
-  const built = buildDashboard(ctx, range, balances, inputs, proposals, lang);
+  const built = buildDashboard(ctx, range, balances, inputs, proposals, lang, scopeProposals);
   if (held.size >= PER_CONTEXT) held.delete(held.keys().next().value!);
   held.set(key, built);
   return built;

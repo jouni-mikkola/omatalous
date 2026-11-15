@@ -141,12 +141,15 @@ export function financeRoutes(s: Services) {
   });
 
   app.get("/dashboard", async (c) => {
-    const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
+    const scope = parseScope(c.req.query("scope"));
+    const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, scope);
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
     // a bill the member marked as no recurring bill is in no list and no sum of what is coming
     const ctx = withoutWrongBills(all, inputs.marks);
     const userId = c.get("user").id;
-    const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, await proposalsFor(s, userId), c.get("user").language);
+    // the questions read the member's own proposals, the total of unsaved loans those of the view asked for
+    const own = await proposalsFor(s, userId);
+    const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, own, c.get("user").language, scope === "own" ? own : await proposalsFor(s, userId, scope));
     // the same answer as Asetukset > Tilit, in three words; an account that is not reconciled (a loan) has none to give
     const shown = new Set([...dashboard.holdings.accounts, ...dashboard.holdings.cards].map((h) => h.id));
     const reconciled = await reconcileOf(s, userId, accounts.filter((a) => shown.has(a.id)));
