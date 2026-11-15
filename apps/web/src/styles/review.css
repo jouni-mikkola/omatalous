@@ -32,8 +32,9 @@
 
 /* the choices: large, a column on a phone, two to a row from 480 px; the guess first and filled */
 /* a wrapped grid: two to a row on a phone, three in the 640 px column, so a list of kinds or categories stays short */
-.review-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: var(--sp-8); }
-.review-choice { justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); min-height: 48px; padding: var(--sp-4) var(--sp-16); font-size: var(--fs-body); text-align: left; white-space: normal; }
+.review-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(9.375rem, 100%), 1fr)); gap: var(--sp-8); }
+/* a word longer than its choice breaks rather than push the page wide */
+.review-choice { min-width: 0; overflow-wrap: anywhere; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); min-height: 48px; padding: var(--sp-4) var(--sp-16); font-size: var(--fs-body); text-align: left; white-space: normal; }
 /* the guess is framed, never filled: a fill would read as already chosen. A choice fills only while it is pressed */
 .review-choice.is-guess { border: 2px solid var(--accent); }
 /* the badge keeps its width: where the label leaves no room it goes on a line of its own under it */

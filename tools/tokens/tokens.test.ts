@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { tempDir } from "../lib/tmp-kit.ts";
 import { build, CSS_OUT, render, SOURCE } from "./build.ts";
-import { oklchToHex, readTokens } from "./dtcg.ts";
+import { cssValue, oklchToHex, plainNumber, readTokens } from "./dtcg.ts";
 
 const ROOT = join(import.meta.dirname, "../..");
 const WEB = join(ROOT, "apps/web/src");
@@ -47,9 +47,10 @@ describe("pnpm tokens", () => {
   it("holds at most two shadows, and the type scale of 12, 14, 16, 20, 32 and one display size", () => {
     const tokens = readTokens(JSON.parse(readFileSync(join(ROOT, SOURCE), "utf8")));
     expect(tokens.filter((t) => t.type === "shadow").length).toBeLessThanOrEqual(2);
-    const sizes = tokens.filter((t) => t.key.startsWith("fs-")).map((t) => JSON.stringify(t.value));
-    expect(sizes.filter((v) => v.includes("rem")).length).toBe(1);
-    const px = tokens.filter((t) => /^fs-(label|body|h2|fig-m|fig-l)$/.test(t.key)).map((t) => (t.value as { value: number }).value);
+    // every size is in rem, so the browser's own font size scales the page; 1 rem is 16 px at the default
+    const sizes = tokens.filter((t) => t.key.startsWith("fs-") && t.type === "dimension").map((t) => JSON.stringify(t.value));
+    expect(sizes.filter((v) => !v.includes("rem"))).toEqual([]);
+    const px = tokens.filter((t) => /^fs-(label|body|h2|fig-m|fig-l)$/.test(t.key)).map((t) => plainNumber(t.value));
     expect(px).toEqual([12, 14, 16, 20, 32]);
     expect(tokens.find((t) => t.key === "fs-display")?.value).toEqual({ value: 3.25, unit: "rem" });
   });
@@ -59,8 +60,8 @@ describe("the spacing scale", () => {
   it("is in steps of 4 px: every sp-* token is a multiple of 4 and no stylesheet reads a step that is not there", () => {
     const tokens = readTokens(JSON.parse(readFileSync(join(ROOT, SOURCE), "utf8")));
     const steps = tokens.filter((t) => t.key.startsWith("sp-"));
-    expect(steps.map((t) => (t.value as { value: number }).value)).toEqual([4, 8, 12, 16, 20, 24, 32, 48]);
-    for (const t of steps) expect((t.value as { value: number }).value % 4, t.key).toBe(0);
+    expect(steps.map((t) => plainNumber(t.value))).toEqual([4, 8, 12, 16, 20, 24, 32, 48]);
+    for (const t of steps) expect(plainNumber(t.value)! % 4, t.key).toBe(0);
     const known = new Set(steps.map((t) => `--${t.key}`));
     const used = sheets().flatMap(([f, css]) => [...css.matchAll(/var\((--sp-\d+)\)/g)].map((m) => [f, m[1]!] as const));
     expect(used.filter(([, name]) => !known.has(name))).toEqual([]);
@@ -85,6 +86,15 @@ describe("the DTCG reader", () => {
       const text = String(e);
       for (const part of ['the key "a" is also color.a', "color.b: oklch(0.5 0.4 140) is outside sRGB", "color.c: the alias {color.nope} names no token", "other.d: unknown or missing $type", "other.a: a duration is"]) expect(text).toContain(part);
     }
+  });
+
+  it("writes the larger of two dimensions as max() and refuses a max of one or of a colour", () => {
+    const dim = (x: unknown) => ({ size: { $type: "dimension", a: { $value: x, $extensions: { "fi.omatalous.media": { "(pointer: coarse)": x } } } } });
+    const good = { max: [{ value: 44, unit: "px" }, { value: 2, unit: "rem" }] };
+    const [token] = readTokens(dim(good));
+    expect(cssValue(token!, good)).toBe("max(44px, 2rem)");
+    expect(() => readTokens(dim({ max: [{ value: 44, unit: "px" }] }))).toThrow(/max is a list of two or more dimensions/);
+    expect(() => readTokens(dim({ max: [{ value: 44, unit: "px" }, 3] }))).toThrow(/max is a list/);
   });
 
   it("reads a good file and lists the tokens in file order", () => {
