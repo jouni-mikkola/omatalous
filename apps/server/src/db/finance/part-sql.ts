@@ -78,8 +78,8 @@ export function partSql(parts: ReadonlyMap<string, ViewPart>, column: string): S
 
 /**
  * The amount and the transfer mark the sums over a list add up, one expression each: the viewer's part of the amount
- * and the mark the view tells, except that a payment that arrived short counts as its fee, out of the money that left,
- * and not as a transfer. With none, they are `partSql` and `toldSql`'s mark. The params of each bind in the order it
+ * and the mark the view tells, except that a payment that arrived short counts as its fee and adds to the money out.
+ * With none, they are `partSql` and `toldSql`'s mark. The params of each bind in the order it
  * stands in the statement, once for each time it is written.
  */
 export function listSumsSql(own: OwnRows | undefined): { amount: Sql; moved: Sql } {

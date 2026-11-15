@@ -107,8 +107,8 @@ describe("the figures with a transfer between members that arrives a fee short",
       expect(difference("income")).toBe(-arrives(inMonth));
       expect(difference("left")).toBe(-fee(inMonth) - arrives(inMonth));
       expect(difference("periodLeft")).toBe(-fee(year) - arrives(year));
-      // what the member counts as earned is the question the app asks: no figure of saving or of the accounts moves
-      expect([0, -arrives(inMonth)]).toContain(difference("earnedIncome"));
+      // the money in is a person's money in the receiver's view, which is no earned income, and the figures of saving and of the accounts do not move
+      expect(difference("earnedIncome")).toBe(0);
       for (const key of ["saved", "netWorth", "cash"] as const) expect(difference(key), key).toBe(0);
     },
     LONG,

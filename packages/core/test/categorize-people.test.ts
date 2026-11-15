@@ -340,6 +340,28 @@ describe("a payment to the user's own name", () => {
     expect(month([away, stranger], HOUSEHOLD).final[1]!.category).not.toBe("savings");
   });
 
+  it("money in dated before the payment out is the user's own money coming back too", () => {
+    const away = row("own", -500, USER, "siirto", PAYEE_ACCOUNT);
+    const back = { ...row("own", 500, USER, "siirto", PAYEE_ACCOUNT), bookingDate: "2026-09-02" };
+    for (const rows of [[back, away], [away, back]]) {
+      const { final, totals } = month(rows, HOUSEHOLD);
+      expect(final.map((t) => t.category)).toEqual(rows.map(() => "savings"));
+      expect(totals).toMatchObject({ savedCents: 0, incomeCents: 0, consumptionCents: 0 });
+    }
+  });
+
+  it("a payment the own-name rule does not take puts no account in the set: a namesake the user marked as someone else, a reference, a card code", () => {
+    const back = { ...row("own", 500, USER, "siirto", PAYEE_ACCOUNT), bookingDate: "2026-09-20" };
+    const marked = { ...row("own", -500, USER, "siirto", PAYEE_ACCOUNT), category: "p2p", categorySource: "user" as const };
+    const withReference = { ...row("own", -500, USER, "siirto", PAYEE_ACCOUNT), reference: "1234" };
+    const withCardCode = { ...row("own", -500, USER, "siirto", PAYEE_ACCOUNT), mcc: "5411" };
+    for (const away of [marked, withReference, withCardCode]) {
+      expect(month([away, back], HOUSEHOLD).final[1]!.category).not.toBe("savings");
+    }
+    // the user's own answer that it is savings keeps the account in
+    expect(month([{ ...marked, category: "savings" }, back], HOUSEHOLD).final[1]!.category).toBe("savings");
+  });
+
   it("is a transfer when the other account is connected and the legs pair", () => {
     const away = row("own", -500, USER, "siirto", joint.iban);
     const home = row("joint", 500, USER, "siirto");

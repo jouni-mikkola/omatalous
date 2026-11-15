@@ -1,7 +1,7 @@
 /**
  * A payment between two accounts of the household that arrived a fee short: Pankkikulut counts the fee, and the link of
- * Pankkikulut (Tapahtumat with the category, its sums and its CSV) holds rows that add up to the same figure, while
- * the payment itself is listed whole as the transfer it is.
+ * Pankkikulut (Tapahtumat with the category and its sums) holds rows that add up to the same figure, while the
+ * payment itself is listed whole as the transfer it is, and the CSV keeps the amount the bank booked.
  */
 import type { RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
@@ -40,7 +40,7 @@ async function feeFigures(client: Client) {
 }
 
 describe("a payment that arrived a fee short, in Pankkikulut", () => {
-  it("the rows of its link add up to the figure: the list, its sums and the CSV count the fee, and the payment is listed whole as a transfer", async () => {
+  it("the rows of its link add up to the figure: the list and its sums count the fee, the CSV keeps the bank's amount, and the payment is listed whole as a transfer", async () => {
     const app = await household();
     const { report, list, csvRows } = await feeFigures(app.admin);
     expect(report).toBe(150);
@@ -50,14 +50,23 @@ describe("a payment that arrived a fee short, in Pankkikulut", () => {
     expect([list.inCents, list.outCents]).toEqual([0, report]);
     expect(list.daySums).toEqual([{ date: "2026-09-10", count: 1, inCents: 0, outCents: report }]);
     expect(csvRows).toHaveLength(1);
-    expect(csvRows[0]![7]).toBe("-1,5");
-    expect(-Number(csvRows[0]![7]!.replace(",", ".")) * 100).toBe(report);
+    expect(csvRows[0]![7]).toBe("-81,5");
   });
 
   it("the month's list counts the fee and the purchase, and neither leg of the pair as money", async () => {
     const app = await household();
     const list = (await app.admin.call("GET", `/api/transactions?${SEPTEMBER}&limit=500`)).body;
     expect([list.inCents, list.outCents]).toEqual([0, 2150]);
+  });
+
+  it("the card of its payee adds up as the strip above the list does, and the payee is not named Pankkikulut", async () => {
+    const app = await household();
+    const merchant: string = (await app.admin.call("GET", `/api/transactions?${SEPTEMBER}&category=fees&limit=500`)).body.items[0].merchant;
+    const strip = (await app.admin.call("GET", `/api/transactions?${SEPTEMBER}&merchant=${encodeURIComponent(merchant)}&limit=500`)).body;
+    const { summary } = (await app.admin.call("GET", `/api/merchants/summary?merchant=${encodeURIComponent(merchant)}`)).body;
+    expect([strip.inCents, strip.outCents]).toEqual([0, 150]);
+    expect([summary.inCents, summary.outCents]).toEqual([strip.inCents, strip.outCents]);
+    expect(summary.category).toBe("transfer");
   });
 
   it("near miss: between two members, where the sender's view holds one leg only, nothing is spending under Pankkikulut and nothing is listed there", async () => {

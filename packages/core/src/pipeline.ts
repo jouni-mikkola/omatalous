@@ -5,7 +5,7 @@ import { type CategorizeResult, compileRules } from "./categorize.ts";
 import { categorizeInDirection } from "./categorize-direction.ts";
 import { dealerCategory } from "./wording-car.ts";
 import { lenderEvidence } from "./categorize-bank-rows.ts";
-import { holdersOf, isUserName } from "./categorize-people.ts";
+import { holdersOf, isUserName, noCard } from "./categorize-people.ts";
 import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, isMobilePay, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { lexiconCategory } from "./lexicon.ts";
 import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
@@ -93,7 +93,8 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
   const steadyIn = steadyParties(txs.filter((t) => t.amountCents > 0 && t.merchant !== UNKNOWN_MERCHANT));
   // the accounts the user's own name sent money to: money in from one of them is the user's own money coming back
   const holders = holdersOf(accounts);
-  const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders)).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
+  // only a payment the own-name rule itself would take: no reference, no card code, and no other category from the user
+  const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders) && !t.reference?.trim() && noCard(t) && (t.categorySource !== "user" || t.category === "savings" || t.category === "transfer")).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
   for (let i = 0; i < txs.length; i++) {
     if (i % CHUNK === CHUNK - 1) yield;
     const t = txs[i]!;

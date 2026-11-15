@@ -2,7 +2,7 @@
 import { getCategory } from "../src/categories.ts";
 import { compileRules } from "../src/categorize.ts";
 import { categorizeInDirection } from "../src/categorize-direction.ts";
-import { holdersOf, isUserName } from "../src/categorize-people.ts";
+import { holdersOf, isUserName, noCard } from "../src/categorize-people.ts";
 import { businessMerchants, isBusinessRow } from "../src/industry.ts";
 import { fold, UNKNOWN_MERCHANT } from "../src/merchant.ts";
 import { applyPayerConsistency } from "../src/payer-consistency.ts";
@@ -33,7 +33,8 @@ export function enrichTransactionsReference(
   const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
   // the accounts the user's own name sent money to: money in from one of them is the user's own money coming back
   const holders = holdersOf(accounts);
-  const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders)).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
+  // only a payment the own-name rule itself would take: no reference, no card code, and no other category from the user
+  const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders) && !t.reference?.trim() && noCard(t) && (t.categorySource !== "user" || t.category === "savings" || t.category === "transfer")).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
   const next = txs.map((t): Transaction => {
     if (t.categorySource === "user") return { ...t, isTransfer: t.category === "transfer" };
     const steadyPayee = t.amountCents < 0 && steady.has(partyKey(t));
