@@ -58,7 +58,7 @@ In the change report a category's base is its expected figure. Its merchants kee
 the category is the bucket *Kuukausien vaihtelu*, which is no cause.
 
 A page that says the figure names its base: "odotettu 2 825 € (6 kuukauden keskiarvo)". The Finnish word is *odotettu*,
-for income *odotetut tulot*.
+for income *tavalliset tulot*.
 
 Repo rule 39 keeps the method in one place. A file in `analysis/` or `reports/` calls `expectedLevel` or the figure of
 `expected.ts` and does not take its own median or mean over months. The cases that exist today and are not spending

@@ -167,7 +167,7 @@ const API_INVARIANTS: readonly Concept[] = [
   },
   {
     id: "A2c",
-    name: "Odotetut tulot of a month: income report and the tile's usual",
+    name: "Tavalliset tulot of a month: income report and the tile's usual",
     months: "window",
     readers: {
       "dashboard overview.income.usualCents": (s) => (s.running ? s.runDash.overview.income.usualCents : undefined),

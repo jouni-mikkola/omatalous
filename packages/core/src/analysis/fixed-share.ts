@@ -18,7 +18,7 @@ import { MIN_COMPARE_MONTHS } from "../thresholds.ts";
 const MIN_FIXED_CENTS = 20000;
 
 /**
- * "odotetuista tuloista, viimeiset 4 kuukautta": the expected income of `month` (`expectedIncome`) with the number of
+ * "tavallisista tuloista, viimeiset 4 kuukautta": the usual income of `month` (`expectedIncome`) with the number of
  * complete months it is the mean of, 3 to 6. Without an expected income there is no window to name.
  */
 function expectedIncomeSpan(ctx: AnalysisContext, month: string, lang: Language = DEFAULT_LANGUAGE): string {
@@ -40,7 +40,7 @@ export interface FixedShare {
   incomeMonthlyCents: number | null;
   /** Fixed costs as a share of that income; null without income or without real fixed costs. */
   fixedShare: number | null;
-  /** "Kiinteät menot odotetuista tuloista, viimeiset 4 kuukautta": Raportit and Säästövinkit > Tilanne. */
+  /** "Kiinteät menot tavallisista tuloista, viimeiset 4 kuukautta": Raportit and Säästövinkit > Tilanne. */
   fixedShareLabel: string;
 }
 
