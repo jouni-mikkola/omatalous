@@ -20,9 +20,9 @@ const today = "2026-11-10";
 const range = { from: "2026-05-01", to: "2026-10-31" };
 const october = { from: "2026-10-01", to: "2026-10-31" };
 
-/** Seven months of a salary, groceries and a card bill that grows in October. */
+/** Sixteen months (the year and the season views need a year behind them) of a salary, groceries and a card bill that grows in October. */
 const household = (): Transaction[] =>
-  monthRange("2026-04", "2026-10").flatMap((m) => [
+  monthRange("2025-06", "2026-10").flatMap((m) => [
     tx({ bookingDate: `${m}-01`, amountCents: 300_000, merchant: "Acme Oy", category: "salary" }),
     tx({ bookingDate: `${m}-03`, amountCents: -30_000, merchant: "Prisma", category: "groceries" }),
     tx({ bookingDate: `${m}-12`, amountCents: m === "2026-10" ? -140_000 : -40_000, merchant: "Esimerkkipankki Gold", category: "card_bill" }),
