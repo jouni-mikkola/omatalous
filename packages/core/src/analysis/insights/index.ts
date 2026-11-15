@@ -16,12 +16,17 @@ import { type DateRange, toDayRange } from "../period.ts";
 import { borrowing } from "./borrowing.ts";
 import { commitmentsShare } from "./commitments.ts";
 import { cardInterest } from "./credit.ts";
+import { categoryPace } from "./category-pace.ts";
+import { debtFree } from "./debt-free.ts";
 import { spendingOutgrowsIncome } from "./growth.ts";
 import { incomeChangesSource } from "./income.ts";
 import { instalments } from "./instalments.ts";
+import { paydayBills } from "./payday-bills.ts";
 import { paydaySpending } from "./payday.ts";
 import { priceRises } from "./prices.ts";
+import { rareBills } from "./rare-bills.ts";
 import { renewals } from "./renewals.ts";
+import { savingsRateWithoutPersons } from "./savings-rate.ts";
 import { smallPurchases } from "./small-purchases.ts";
 import { expensiveMonths } from "./seasons.ts";
 import { amongLargestRows, gateMonthly } from "./shared.ts";
@@ -52,6 +57,11 @@ const SOURCES: readonly InsightSource[] = [
   paydaySpending,
   smallPurchases,
   weekdays,
+  rareBills,
+  debtFree,
+  savingsRateWithoutPersons,
+  categoryPace,
+  paydayBills,
 ];
 
 /** The order of the list: a pattern before a single row, then the larger yearly effect, then the id. */
@@ -103,6 +113,7 @@ export function answeredInsights(input: InsightInput): AnsweredInsight[] {
     inputs,
     alerts: input.alerts ?? [],
     gateMonthlyCents: gateMonthly(ctx, end),
+    ahead: input.ahead ?? null,
     lang: input.lang ?? DEFAULT_LANGUAGE,
   };
   const dismissals = inputs.marks.filter((m) => m.mark === "dismissed");

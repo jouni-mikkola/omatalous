@@ -1,5 +1,6 @@
 import type { Language } from "../../locale.ts";
 import type { CalcLine, IsoDate, UserInputs } from "../../types.ts";
+import type { AheadData } from "../ahead.ts";
 import type { Alert } from "../alerts.ts";
 import type { AnalysisContext, AnalysisTx } from "../context.ts";
 import type { CategoryTotal } from "../dashboard.ts";
@@ -56,7 +57,17 @@ type ComparisonLabel =
   | "lastCharge"
   /** The last instalment of a residual tax whose last year is not in the data. */
   | "lastInstalment"
-  | "usualMonthly";
+  | "usualMonthly"
+  /** What to set aside a month for the bills that come rarely. */
+  | "reserve"
+  /** What the loans' interest comes to over the next 12 months. */
+  | "interestYear"
+  /** The savings rate with the money from people counted as income. */
+  | "savingsRateAll"
+  /** The mean of the same days of the months before. */
+  | "recentUsual"
+  /** The pay the payday brings, against the bills that fall due on it. */
+  | "payEstimate";
 
 export interface Comparison {
   label: ComparisonLabel;
@@ -79,7 +90,10 @@ type ActionLabel =
   | "seeIncome"
   | "seePayday"
   | "seeWeekday"
-  | "seeCardInterest";
+  | "seeCardInterest"
+  | "seeBills"
+  | "seeSavingsRate"
+  | "seePace";
 
 /** A page of the app, with what it needs to open at the right place. */
 type ActionTarget = { page: "transactions"; filter: InsightLink } | { page: "bills" } | { page: "reports"; anchor: string };
@@ -120,6 +134,11 @@ export type InsightFact =
   | { type: "payday"; ratio: number; cycles: number; extraCents: number }
   | { type: "small-purchases"; monthlyCents: number; perMonth: number; top: string[]; limitCents: number; up: boolean }
   | { type: "weekday"; weekday: number; cents: number; weeks: number }
+  | { type: "rare-bills"; yearlyCents: number; reserveMonthlyCents: number; bills: number; next: { merchant: string; date: IsoDate; cents: number } }
+  | { type: "debt-free"; date: IsoDate; interestCents: number; loans: number; left: number }
+  | { type: "savings-rate"; percent: number; allPercent: number; personCents: number; months: number }
+  | { type: "category-pace"; label: string; nowCents: number; usualCents: number; percent: number; day: number; months: number }
+  | { type: "payday-bills"; date: IsoDate; billsCents: number; beforeCents: number; payCents: number }
   /** `title` is the sentence of the income report (`analysis/income-changes.ts`), which the report shares. */
   | { type: "income"; change: string; title: string; monthlyCents: number };
 
@@ -168,6 +187,8 @@ export interface InsightInput {
   alerts?: readonly Alert[];
   /** The user's marks: a dismissed insight stays hidden until its number moves 25 %. */
   inputs?: UserInputs;
+  /** What is due until the next payday, as the first page has it (`aheadBasis`); null or absent when the period does not run. */
+  ahead?: AheadData | null;
   /** The language of the working lines and of the income findings' words; Finnish when absent. */
   lang?: Language;
 }
@@ -185,6 +206,7 @@ export interface InsightArgs {
   alerts: readonly Alert[];
   /** The smallest finding worth a line, per month (`gateMonthly`). */
   gateMonthlyCents: number;
+  ahead: AheadData | null;
   lang: Language;
 }
 

@@ -87,6 +87,4 @@ packages/core/src/reports/pivot.ts  STRIP_MONTHS
 packages/core/src/reports/pivot.ts  THEME_ROWS
 packages/core/src/reports/spending-change.ts  MAX_BARS
 packages/core/src/reports/upcoming.ts  HORIZON_DAYS
-packages/core/src/reports/upcoming.ts  MIN_CENTS
 packages/core/src/reports/upcoming.ts  NEXT_DATE_DAYS
-packages/core/src/reports/upcoming.ts  YEAR_MONTHS

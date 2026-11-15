@@ -159,7 +159,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const basis = running ? aheadBasis(ctx, balances, inputs) : null;
   const pace = monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to);
 
-  const insights = buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs, lang });
+  const insights = buildInsights({ ctx, range, current, previous, categories, totals, comparable, running, alerts, inputs, ahead: basis?.ahead ?? null, lang });
 
   return {
     range: { from: range.from, to: range.to, previousFrom },

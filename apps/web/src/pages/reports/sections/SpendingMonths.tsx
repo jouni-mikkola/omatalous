@@ -9,6 +9,7 @@ import { inSpan } from "../parts.tsx";
 import type { ReportContext, ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
 import { monthName } from "../month-name.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
 
 type Report = ReportsData["spendingMonths"];
 type Row = Report["categories"][number];
@@ -44,6 +45,11 @@ function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
     <div className="sm-detail">
       {row.statementCents > 0 && <p className="muted">{t("rpt.sm_statement", { amount: money(row.statementCents, true) })}</p>}
       {row.lowered && <p className="muted">{t("rpt.sm_lowered")}</p>}
+      {row.category === "card_bill" && (
+        <p className="muted">
+          {t("rpt.sm_card_bills_note")} <a href={settingsCardHash(SETTINGS_ANCHOR.statement)}>{t("rpt.sm_import_statement")}</a>
+        </p>
+      )}
       <Table<MonthRow> caption={t("rpt.sm_months_of", { name: row.label })} rows={months} rowKey={(m) => m.month} columns={monthColumns} toolbar={false} csv={false} />
       <Table<PayeeRow>
         caption={t("rpt.sm_payees_of", { name: row.label })}

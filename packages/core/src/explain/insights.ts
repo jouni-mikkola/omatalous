@@ -115,6 +115,16 @@ function factText(f: InsightFact, lang: Language): string {
       return text("ins.small_purchases", { limit: eur(f.limitCents), amount: eur(f.monthlyCents) });
     case "weekday":
       return text("ins.weekday", { weekday: text(WEEKDAY_CODES[f.weekday]!), amount: eur(f.cents) });
+    case "rare-bills":
+      return text("ins.rare_bills", { amount: eur(f.yearlyCents) });
+    case "debt-free":
+      return text("ins.debt_free", { date: date(f.date) });
+    case "savings-rate":
+      return text("ins.savings_rate", { percent: pct(f.percent) });
+    case "category-pace":
+      return text(f.percent > 0 ? "ins.category_more" : "ins.category_less", { label: f.label, percent: pct(Math.abs(f.percent)) });
+    case "payday-bills":
+      return text("ins.payday_bills", { date: date(f.date), amount: eurExact(f.billsCents) });
     case "income":
       return f.title;
   }
@@ -182,6 +192,19 @@ function comparisonText(c: Comparison, f: InsightFact, lang: Language): string {
       return f.freed
         ? text("ins.cmp_usual_stopped_freed", { monthly: eur(f.monthlyCents), payments: f.payments, date: date(f.firstDate), paid: eurExact(f.paidCents) })
         : text("ins.cmp_usual_stopped", { monthly: eur(f.monthlyCents), payments: f.payments, date: date(f.firstDate), paid: eurExact(f.paidCents), last: eurExact(f.lastCents) });
+    case "reserve":
+      return f.type === "rare-bills" ? text("ins.cmp_reserve", { reserve: value, merchant: f.next.merchant, date: date(f.next.date), price: eurExact(f.next.cents) }) : text("ins.cmp_usual", { value });
+    case "interestYear": {
+      if (f.type !== "debt-free") return text("ins.cmp_usual", { value });
+      const base = text("ins.cmp_debt_free", { interest: eur(f.interestCents), year: value });
+      return f.left > 0 ? `${base} ${text("ins.cmp_debt_left", { count: f.left })}` : base;
+    }
+    case "savingsRateAll":
+      return f.type === "savings-rate" ? text("ins.cmp_savings_rate", { all: value, persons: eur(f.personCents), months: f.months }) : text("ins.cmp_usual", { value });
+    case "recentUsual":
+      return f.type === "category-pace" ? text("ins.cmp_recent", { day: f.day, now: eur(f.nowCents), months: f.months, usual: value }) : text("ins.cmp_usual", { value });
+    case "payEstimate":
+      return f.type === "payday-bills" ? text("ins.cmp_pay", { pay: value, before: eurExact(f.beforeCents) }) : text("ins.cmp_usual", { value });
   }
 }
 

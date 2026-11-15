@@ -99,6 +99,15 @@ export const THRESHOLDS = {
   dailyPaidShare: threshold(0.85, "share", "A judgement: an account in daily use spends in this share of its months or more, so a savings account that pays out now and then is not one."),
   dailyMonthsShare: threshold(0.75, "share", "A judgement: an account in daily use has rows in this share of the months from its first row to its last, so an account used in spells is not one."),
   holeMonths: threshold(2, "months", "A judgement: a run of one or two empty months on an account in daily use is rows the bank or an export missed. A longer one is an account left unused for a while."),
+  rareBillMinCents: threshold(1000, "cents", "A judgement: a small yearly charge (a 2 € storage plan) is not worth a line among the bills that are set aside for."),
+  rareBillYearMonths: threshold(12, "months", "A year: the rare bills are counted over whole calendar months from this one, so every bill that comes once or twice a year falls in it once."),
+  recentMonths: threshold(3, "months", "A judgement: the month so far is set against the three complete months before it, a short enough run to show a change of habit and long enough that one odd month is not the level."),
+  recentShiftShare: threshold(0.3, "share", "A judgement: a category is told when its month so far differs 30 % or more from the mean of the same days of the three months before, and lies on the same side of each of them."),
+  recentCategories: threshold(3, "count", "Three categories name what moved. A longer list is a table."),
+  recentMinDay: threshold(10, "days", "A judgement: before the 10th of a month a category holds a few rows, and a single payment moves it past any share."),
+  savingsMonths: threshold(12, "months", "A year of complete months: the savings rate is pooled over them, so a bonus or a large purchase in one month does not set it."),
+  paydaysYear: threshold(12, "count", "A judgement: a pay comes each month, so the bills dated on a payday come as many times a year."),
+  minPersonShare: threshold(0.05, "share", "A judgement: money from people under 5 % of the income moves the savings rate under a point or two, so it is not worth a line."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -181,3 +190,12 @@ export const DAILY_ROWS = THRESHOLDS.dailyRows.value;
 export const DAILY_PAID_SHARE = THRESHOLDS.dailyPaidShare.value;
 export const DAILY_MONTHS_SHARE = THRESHOLDS.dailyMonthsShare.value;
 export const HOLE_MONTHS = THRESHOLDS.holeMonths.value;
+export const RARE_BILL_MIN_CENTS = THRESHOLDS.rareBillMinCents.value;
+export const RARE_BILL_YEAR_MONTHS = THRESHOLDS.rareBillYearMonths.value;
+export const RECENT_MONTHS = THRESHOLDS.recentMonths.value;
+export const RECENT_SHIFT_SHARE = THRESHOLDS.recentShiftShare.value;
+export const RECENT_CATEGORIES = THRESHOLDS.recentCategories.value;
+export const RECENT_MIN_DAY = THRESHOLDS.recentMinDay.value;
+export const SAVINGS_MONTHS = THRESHOLDS.savingsMonths.value;
+export const MIN_PERSON_SHARE = THRESHOLDS.minPersonShare.value;
+export const PAYDAYS_YEAR = THRESHOLDS.paydaysYear.value;

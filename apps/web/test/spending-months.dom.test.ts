@@ -3,7 +3,7 @@
  * connected card's purchases as the newest one does (core `cardGap`). The page says nothing of it (the gap is not mended here), shows no
  * average where a category has none, and leaves the footer's average to the months table when the two read other months.
  */
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import "@banking/core/late";
@@ -90,5 +90,15 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     show({ ...report(true), cardGap: false, categoryMonths: 5, typicalCents: 40000 });
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
     expect(plain(screen.getByRole("table", { name: "Kategoriat" }).querySelector("tfoot")!.textContent)).toContain("400 €");
+  });
+
+  it("opens the card bills row on a note and the link to the statement import, and no other row does", () => {
+    show(report(true));
+    const open = (id: string) => fireEvent.click(document.querySelector(`button.rt-drill[data-drill="${id}"]`)!);
+    open("groceries");
+    expect(screen.queryByRole("link", { name: "Tuo kortin tiliote" })).toBeNull();
+    open("card_bill");
+    expect(plain(document.body.textContent)).toContain("Näiden laskujen ostot eivät näy luokissa.");
+    expect(screen.getByRole("link", { name: "Tuo kortin tiliote" }).getAttribute("href")).toMatch(/^#\/settings/);
   });
 });
