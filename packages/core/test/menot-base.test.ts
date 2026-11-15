@@ -83,9 +83,12 @@ describe("the Menot of the first page, with a loan paid from savings every month
   });
 
   it("leaves the loan in the categories of Raportit, so the two households do differ there", () => {
-    const reportOf = (loan: boolean) => buildReports({ ctx: createContext(household(loan), [checking, savings], today), range, balances: [] }, ["spendingMonths"]).spendingMonths;
+    // the usual month is read from complete months, so the window is the whole history
+    const window = { from: `${MONTHS[0]}-01`, to: today };
+    const reportOf = (loan: boolean) => buildReports({ ctx: createContext(household(loan), [checking, savings], today), range: window, balances: [] }, ["spendingMonths"]).spendingMonths;
     const [held, left] = [reportOf(true), reportOf(false)];
     expect(held.totalCents).toBeGreaterThan(left.totalCents);
+    expect(left.typicalFlowCents).not.toBeNull();
     expect(held.typicalCents!).toBeGreaterThan(left.typicalCents!);
     expect(held.typicalFlowCents).toBe(left.typicalFlowCents);
   });
