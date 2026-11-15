@@ -53,6 +53,8 @@ jobs:
           base="$BASE_SHA"
           # a base the clone does not hold (a new branch, a forced push, a manual run): the head's parent
           git cat-file -e "$base^{commit}" 2>/dev/null || base="$HEAD_SHA~1"
+          # the root of a history that starts again has no parent: nothing earlier can judge it
+          git cat-file -e "$base^{commit}" 2>/dev/null || base="$HEAD_SHA"
           rm -rf "$judge"
           git ls-tree -r --name-only "$base" -- tools/privacy | while IFS= read -r f; do
             mkdir -p "$judge/$(dirname "$f")"

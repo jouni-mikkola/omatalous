@@ -248,6 +248,26 @@ describe("the command", () => {
     const r = spawnSync(process.execPath, [SCAN, "--ci"], { cwd: dir, encoding: "utf8", env: { ...process.env, BASE_SHA: "0".repeat(40), HEAD_SHA: "HEAD" } });
     expect(r.status, r.stdout + r.stderr).toBe(0);
   });
+
+  it("a root commit has no parent to diff: its lines, message and address are read, its pictures are not", () => {
+    const dir = tempDir("privacy-");
+    git(dir, "init", "-q", "-b", "main");
+    writeFileSync(join(dir, "a.md"), "x\n");
+    writeFileSync(join(dir, "old.png"), png());
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "Start the history");
+    const run = () => spawnSync(process.execPath, [SCAN, "--ci"], { cwd: dir, encoding: "utf8", env: { ...process.env, BASE_SHA: "0".repeat(40), HEAD_SHA: git(dir, "rev-parse", "HEAD") } });
+    const clean = run();
+    expect(clean.status, clean.stdout + clean.stderr).toBe(0);
+    git(dir, "checkout", "-q", "--orphan", "again");
+    writeFileSync(join(dir, "new.md"), `call ${["040", "123", "4567"].join(" ")}\n`);
+    git(dir, "add", "-A");
+    git(dir, "commit", "-qm", "Start the history again");
+    const dirty = run();
+    expect(dirty.status).toBe(1);
+    expect(dirty.stdout).toContain("new.md:1: phone");
+    expect(dirty.stdout).not.toContain("4567");
+  });
 });
 
 describe("the workflow", () => {
@@ -297,5 +317,14 @@ describe("the workflow", () => {
       expect(r.status, r.stdout + r.stderr).toBe(1);
       expect(r.stdout).toContain("new.md:1: phone");
     }
+
+    // the root of a history that starts again has no base and no parent: it is judged by its own scanner, and still read
+    git("checkout", "-q", "--orphan", "again");
+    writeFileSync(join(dir, "tools/privacy/scan.mjs"), readFileSync(SCAN));
+    git("add", "-A");
+    git("commit", "-qm", "root");
+    const root = run("0".repeat(40));
+    expect(root.status, root.stdout + root.stderr).toBe(1);
+    expect(root.stdout).toContain("new.md:1: phone");
   });
 });
