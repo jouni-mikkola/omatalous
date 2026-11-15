@@ -15,7 +15,8 @@ import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src
 import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { FIGURES } from "../src/figures.ts";
-import { USUAL_MONTHS } from "../src/thresholds.ts";
+import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
+import { median } from "../src/stats.ts";
 import type { Loan } from "../src/types.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
@@ -189,7 +190,13 @@ const ANSWERS: Record<FigureKey, Answers> = {
   regularIncome: (h) => {
     const ctx = contextOf(h);
     const range = running(h);
-    return { report: incomeReport(ctx, range, h.balances).stability?.medianCents ?? null };
+    // recomputed from the months it is the median of: none under the compare floor, none at or below zero
+    const cents = regularIncomeMonths(ctx, range).map((m) => m.cents);
+    const mid = cents.length < MIN_COMPARE_MONTHS ? null : median(cents);
+    return {
+      report: incomeReport(ctx, range, h.balances).stability?.medianCents ?? null,
+      months: mid !== null && mid > 0 ? Math.round(mid) : null,
+    };
   },
   buffer: (h) => {
     const ctx = contextOf(h);
