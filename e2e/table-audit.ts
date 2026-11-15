@@ -145,7 +145,7 @@ export async function auditTables(page: Page, width: number, touch = width < 600
       Array.from(document.querySelectorAll("body *"))
         .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.25 && getComputedStyle(e).position !== "fixed" && !e.closest("thead, svg"))
         .slice(0, 6)
-        .map((e) => `${e.tagName.toLowerCase()}${typeof e.className === "string" && e.className ? `.${e.className.trim().split(/\s+/).join(".")}` : ""} to ${Math.round(e.getBoundingClientRect().right)}`),
+        .map((e) => `${e.tagName.toLowerCase()}${typeof e.className === "string" && e.className ? `.${e.className.trim().split(/\s+/).join(".")}` : ""} "${(e.textContent ?? "").trim().slice(0, 24)}" in ${e.parentElement?.tagName.toLowerCase()}.${typeof e.parentElement?.className === "string" ? e.parentElement.className.trim().split(/\s+/).join(".") : ""} to ${e.getBoundingClientRect().right.toFixed(1)}`),
     );
     problems.push(`the page is ${wide} px wider than the window${past.length ? `, reached by ${past.join("; ")}` : ""}`);
   }
