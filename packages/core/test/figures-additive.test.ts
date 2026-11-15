@@ -63,7 +63,10 @@ describe("the figures flagged additive in the registry", () => {
           const whole = read(household!, h.today);
           // a figure nobody tells would pass by being empty
           expect(whole, `${h.name}: ${key} in the household`).not.toBeNull();
-          const sum = members.reduce((total, v) => total + (read(v, h.today) ?? 0), 0);
+          // a member who tells nothing is no zero: the sum would pass by leaving that part out
+          const parts = members.map((v) => read(v, h.today));
+          expect(parts.includes(null), `${h.name}: ${key} in a member's view`).toBe(false);
+          const sum = parts.reduce<number>((total, part) => total + (part ?? 0), 0);
           expect(sum, `${h.name}: ${key}, the members against the household`).toBe(whole);
         }
       }

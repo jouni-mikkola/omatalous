@@ -40,8 +40,9 @@ interface Found {
  * What a thumb must hit where the pointer is a finger: every link, button, sort head and summary reaches 44 px (its own
  * box or the reach of its ::after) and is 24 px wide, a mark drawn in a chart's svg is 24 px each way, and a checkbox or
  * radio the user can see is 24 px wide and high. The targets also keep apart: no two boxes overlap, and the point at the
- * middle of a target hits that target and not its neighbour. A link inside a sentence is exempt, as WCAG 2.5.8 has it: its
- * parent flows text around it (a flex or grid parent makes the link a box of its own, whatever words stand beside it).
+ * middle of a target hits that target and not its neighbour. A link inside a sentence is exempt, as WCAG 2.5.8 has it: it
+ * is inline and its parent flows text around it, with words right beside the link (a flex or grid parent, or a link that
+ * is a box of its own such as an inline-block or inline-flex one, is a target whatever words stand in the same cell).
  */
 async function touchTargets(page: Page): Promise<string[]> {
   return page.evaluate(() => {
@@ -66,8 +67,10 @@ async function touchTargets(page: Page): Promise<string[]> {
     window.scrollTo(0, 0);
     const sentence = (el: Element) => {
       const parent = el.parentElement;
-      if (!parent || /flex|grid/.test(getComputedStyle(parent).display)) return false;
-      return Array.from(parent.childNodes).reduce((n, node) => n + (node.nodeType === 3 ? (node.textContent ?? "").trim().length : 0), 0) >= 8;
+      if (!parent || getComputedStyle(el).display !== "inline" || /flex|grid/.test(getComputedStyle(parent).display)) return false;
+      const words = (node: Node | null) => (node?.nodeType === 3 ? (node.textContent ?? "").trim().length : 0);
+      // words stand against the link in its line, and the parent holds a sentence's worth of them
+      return (words(el.previousSibling) > 0 || words(el.nextSibling) > 0) && Array.from(parent.childNodes).reduce((n, node) => n + words(node), 0) >= 8;
     };
     for (const el of Array.from(document.querySelectorAll<HTMLElement | SVGElement>("a[href], button, summary, [role=button], input[type=checkbox], input[type=radio]"))) {
       const r = el.getBoundingClientRect();

@@ -19,7 +19,7 @@ const MARK_KINDS: readonly MarkKind[] = ["in_use", "cancelled", "dismissed"];
  * for a payee set aside from the list of what has no category, and `question:loan-kind:<kind>:<series key>` for what a
  * proposed loan is, `question:plan-end:<month>:<key>` or `question:plan-unknown:<key>` for where an instalment plan ends, and
  * `question:bill-due:<day>:<key>` for a bill that did not come and will still come, core bill-answer.ts, and
- * `question:unresolved:<reason>:<card ids>` for a notice about cards whose payer the rows do not show that was set aside, core unresolved-answer.ts): 1 to 200 characters after the prefix and no control
+ * `question:unresolved:<reason>:<card id>` for a card of a notice about cards whose payer the rows do not show that was set aside, core unresolved-answer.ts): 1 to 200 characters after the prefix and no control
  * characters. A series key of the longest stored name is under 100: a direction, an account id of
  * at most 28 characters, a name of at most 40 (core `normalizeMerchant`) and a price.
  */
@@ -27,6 +27,9 @@ const SUBJECT = /^(series|merchant|alert|loan-proposal|not-recurring|question):[
 
 /** A user marks a handful of subscriptions and dismisses a few alerts; the cap only stops a script from filling the table. */
 const MAX_MARKS = 2000;
+
+/** The subjects one request may name: a notice sets one aside per card, and a household has few cards. */
+const MAX_SUBJECTS = 200;
 
 /** A payee set aside on the first page: the merchant is 1 to 200 characters, as the other names are. */
 const PAYEE_NAME = /^[^\p{Cc}]{1,200}$/u;
@@ -47,6 +50,14 @@ function parseSubject(value: unknown): string {
   return value;
 }
 
+/** The subjects of a request: `subject`, or `subjects` for the same mark on several at once. Every one is checked as a single subject is. */
+function parseSubjects(input: Partial<Record<"subject" | "subjects", unknown>>): string[] {
+  if ((input.subject === undefined) === (input.subjects === undefined)) throw new UserError("Virheellinen kohde.");
+  if (input.subject !== undefined) return [parseSubject(input.subject)];
+  if (!Array.isArray(input.subjects) || input.subjects.length < 1 || input.subjects.length > MAX_SUBJECTS) throw new UserError("Virheellinen kohde.");
+  return [...new Set(input.subjects.map(parseSubject))];
+}
+
 /** A mark from the allowlist, or null to take the mark away. */
 function parseMark(value: unknown): MarkKind | null {
   if (value === null) return null;
@@ -60,24 +71,30 @@ export function marksRoutes(s: Services) {
   // one mark per subject; null takes it away. Marks are read for each request, so no data version is bumped.
   app.put("/marks", async (c) => {
     const repo = s.finance(c.get("user").id);
-    const input = strictObject(await body(c), ["subject", "mark"] as const);
-    const subject = parseSubject(input.subject);
+    const input = strictObject(await body(c), ["subject", "subjects", "mark"] as const);
+    const subjects = parseSubjects(input);
     const mark = parseMark(input.mark);
-    // a payee is set aside or taken back, nothing else
-    if (mark !== null && mark !== "dismissed" && subject.startsWith(QUESTION_PAYEE)) throw new UserError("Virheellinen merkintä.");
-    // a bill is marked away or taken back, nothing else
-    if (mark !== null && mark !== "dismissed" && subject.startsWith(NOT_RECURRING)) throw new UserError("Virheellinen merkintä.");
-    // a notice is set aside or taken back, nothing else
-    if (mark !== null && mark !== "dismissed" && parseUnresolvedSubject(subject) !== null) throw new UserError("Virheellinen merkintä.");
-    // what a loan is, is told or taken back, nothing else
-    if (mark !== null && mark !== "in_use" && (parseLoanKindSubject(subject) !== null || parsePlanSubject(subject) !== null || parseBillDueSubject(subject) !== null)) throw new UserError("Virheellinen merkintä.");
+    for (const subject of subjects) {
+      // a payee is set aside or taken back, nothing else
+      if (mark !== null && mark !== "dismissed" && subject.startsWith(QUESTION_PAYEE)) throw new UserError("Virheellinen merkintä.");
+      // a bill is marked away or taken back, nothing else
+      if (mark !== null && mark !== "dismissed" && subject.startsWith(NOT_RECURRING)) throw new UserError("Virheellinen merkintä.");
+      // a notice is set aside or taken back, nothing else, and the mark is written for one card: a subject of several cards is what earlier versions stored, still read and taken away but never written
+      const unresolved = parseUnresolvedSubject(subject);
+      if (mark !== null && unresolved !== null && (mark !== "dismissed" || unresolved.cardIds.length !== 1)) throw new UserError("Virheellinen merkintä.");
+      // what a loan is, is told or taken back, nothing else
+      if (mark !== null && mark !== "in_use" && (parseLoanKindSubject(subject) !== null || parsePlanSubject(subject) !== null || parseBillDueSubject(subject) !== null)) throw new UserError("Virheellinen merkintä.");
+    }
     if (mark === null) {
-      await repo.clearMark(subject);
+      // taking a mark away is one subject at a time
+      if (subjects.length !== 1) throw new UserError("Virheellinen kohde.");
+      await repo.clearMark(subjects[0]!);
     } else {
       const current = await repo.listMarks();
-      if (current.length >= MAX_MARKS && !current.some((m) => m.subject === subject)) throw new UserError("Merkintöjä on liikaa.");
-      // local to the instance: the alerts compare the day of a mark with booking dates
-      await repo.setMark(subject, mark, isoIn(s.instance.current.timezone, s.now()));
+      const stored = new Set(current.map((m) => m.subject));
+      if (current.length + subjects.filter((subject) => !stored.has(subject)).length > MAX_MARKS) throw new UserError("Merkintöjä on liikaa.");
+      // local to the instance: the alerts compare the day of a mark with booking dates. One transaction: a notice is dismissed for every card or for none
+      await repo.setMarks(subjects, mark, isoIn(s.instance.current.timezone, s.now()));
     }
     return c.json({ marks: await repo.listMarks() });
   });

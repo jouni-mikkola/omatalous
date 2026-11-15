@@ -14,6 +14,13 @@ describe("rule 51 detection", () => {
     expect(run("const { categorize: run } = core;")).toEqual([1]);
   });
 
+  it("finds a re-export of the name, under any alias and with or without a source", () => {
+    expect(run('export { categorize } from "@banking/core";')).toEqual([1]);
+    expect(run('export { categorize as run } from "@banking/core";')).toEqual([1]);
+    expect(run('import { x } from "./c.ts";\nexport { categorize as run };')).toEqual([2]);
+    expect(run('export { categorizeInDirection, compileRules } from "@banking/core";')).toEqual([]);
+  });
+
   it("finds a property or namespace access, called or only read", () => {
     expect(run("core.categorize(a, b);")).toEqual([1]);
     expect(run("const f = core.categorize;")).toEqual([1]);
