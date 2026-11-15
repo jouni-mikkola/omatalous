@@ -296,8 +296,8 @@ describe("what a member's categorisation decided of its own rows stays", () => {
     const also = on(third, "2026-09-13", -200, person);
     const two = applyUse([reached, bill, also], [joint, card, third], parts([joint, HALF], [card, first]), owners);
     expect(two).toEqual([cut(reached, 10000), { ...cut(bill, -10000), category: "transfer", isTransfer: true }, also]);
-    // his 200 to an account of hers he has no part in paired with the row it landed as: still money to a person
-    const [sent, landed] = [on(his, "2026-09-13", -200, person), on(hers, "2026-09-13", 200, { category: "p2p_in", categorySource: "rule" })];
+    // his 200 to an account of hers he has no part in paired with the row it landed as, which names him: still money to a person
+    const [sent, landed] = [on(his, "2026-09-13", -200, person), on(hers, "2026-09-13", 200, { category: "p2p_in", categorySource: "rule", counterparty: "Matti Meikalainen" })];
     const gone = parts([hers, NONE], [card, first]);
     expect(applyUse([sent, landed, reached], [his, hers, card], gone, owners)).toEqual([{ ...sent, isTransfer: false }, cut(reached, 10000)]);
     // 25 out and 25 in that his own categorisation left unpaired stay so beside a card's leg
