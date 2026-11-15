@@ -2,7 +2,7 @@
 
 ## Context
 
-The 0.9.0 audit found five one-off rules (spending insights, change, Optimoi, income, alerts), so the same sofa was a one-off
+The 0.9.0 audit found five one-off rules (insights, change, Optimoi, income, alerts), so the same sofa was a one-off
 on the overview and part of the level in Optimoi. Month ends, a month's length and net of refunds were written out in
 a dozen files. The change sentences named the household's own noise as causes on 126 to 180 of 200 steady households,
 and called a month dearer from the gap between the median of totals and the categories' medians.
