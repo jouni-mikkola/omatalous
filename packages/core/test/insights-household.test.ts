@@ -48,7 +48,7 @@ function expectShape(i: Insight, { yearly = true } = {}) {
 }
 
 describe("bills that come rarely", () => {
-  const history = [...monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), ...[2023, 2024, 2025].map((y) => tx({ bookingDate: `${y}-12-15`, amountCents: -72000, category: "insurance", merchant: "Vakuutus Oy" }))];
+  const history = [...monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), ...monthly("2023-01", 3, 45, -40000, { category: "groceries", merchant: "K-Market" }), ...[2023, 2024, 2025].map((y) => tx({ bookingDate: `${y}-12-15`, amountCents: -72000, category: "insurance", merchant: "Vakuutus Oy" }))];
 
   it("hit: a yearly bill gives a reserve a month and names the next one", () => {
     const [found] = rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 2000 }));
@@ -73,6 +73,15 @@ describe("bills that come rarely", () => {
     // 720 € a year is over twelve months of a 20 € gate (240 €) and under twelve months of an 80 € gate (960 €)
     expect(rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 2000 }))).toHaveLength(1);
     expect(rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 8000 }))).toEqual([]);
+  });
+
+  it("near miss: without a usual level of spending the gate is its floor and says nothing of the household's size", () => {
+    // a card account of mid-August has no three complete months, so the household has no usual level yet
+    const card: Account = { id: "card-2", name: "Kortti", iban: null, currency: "EUR", type: "credit_card" };
+    const cardRows = ["2026-08-20", "2026-09-20"].map((d) => tx({ bookingDate: d, amountCents: -9000, accountId: card.id, category: "groceries", merchant: "K-Market" }));
+    const replaced = [...history.filter((t) => t.category !== "groceries" || t.bookingDate < "2026-08-15"), ...cardRows];
+    expect(rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 2000 }))).toHaveLength(1);
+    expect(rareBills({ ...argsOf(replaced, "2026-10-09", { gateMonthlyCents: 2000 }), ctx: createContext(replaced, [checking, card], "2026-10-09") })).toEqual([]);
   });
 
   it("near miss: a household with only monthly bills has none", () => {

@@ -4,16 +4,20 @@
  * one a household forgets and finds in "Muut", so the insight lists them month by month and names the monthly reserve
  * that carries a year of them. The set and its sums are `analysis/rare-bills.ts`, the same as Laskut lists, so the two
  * never name different bills. Told while the period runs, since the calendar starts from today; bills that come to less
- * than twelve months of the household's gate (`gateMonthlyCents`) in all are not worth a reserve.
+ * than twelve months of the household's gate (`gateMonthlyCents`) in all are not worth a reserve. The gate is the
+ * household's scale, so with no usual level of spending (an account without three complete months) nothing is told:
+ * the gate would be its 10 € floor, and a card replaced in mid-year would call every yearly bill news.
  */
+import { monthOf } from "../../dates.ts";
+import { expectedSpending } from "../expected.ts";
 import { formatEur, monthNameIn } from "../format.ts";
 import { messageIn } from "../../messages.ts";
 import { rareOccurrences, rareSeries, rareYear } from "../rare-bills.ts";
 import { insightOf } from "./shared.ts";
 import { type Insight, type InsightArgs, q } from "./types.ts";
 
-export function rareBills({ ctx, running, inputs, gateMonthlyCents, lang }: InsightArgs): Insight[] {
-  if (!running) return [];
+export function rareBills({ ctx, end, running, inputs, gateMonthlyCents, lang }: InsightArgs): Insight[] {
+  if (!running || expectedSpending(ctx, monthOf(end)) === null) return [];
   const { occurrences } = rareOccurrences(ctx, inputs);
   const { months, yearlyCents, reserveMonthlyCents } = rareYear(occurrences, ctx.today);
   const next = occurrences.filter((o) => o.ahead).sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents || a.merchant.localeCompare(b.merchant))[0];
