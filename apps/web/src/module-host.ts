@@ -36,7 +36,7 @@ import { markAddOnFailed, WEB_EXTENSIONS, type WebExtension } from "./extensions
 
 /**
  * The shared files an add-on may import. Installed add-ons name these keys and exports, so none goes without a new
- * `apiVersion` (contracts/<version>/module-host.json, checked by test/module-host-contract.test.ts).
+ * `apiVersion` (contracts/<version>/module-host.json, checked by test/module-host-contract.dom.test.ts).
  */
 export const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   react: React,

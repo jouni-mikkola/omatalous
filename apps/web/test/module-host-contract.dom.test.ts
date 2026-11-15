@@ -3,6 +3,8 @@
  * names them. Each contracts/<version>/module-host.json freezes the keys and export names of one `apiVersion`. A later
  * host may add keys and exports, and keeps every frozen one until it announces a higher `apiVersion`.
  */
+import { render, screen } from "@testing-library/react";
+import { createElement } from "react";
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -30,8 +32,18 @@ describe("contracts: module host", () => {
     expect(frozen.map((f) => f.version)).toContain("1.5.0");
   });
 
-  it("keeps components/Why with the two names add-ons 1.1.x import", () => {
-    expect(Object.keys(MODULES["components/Why"] as object).sort()).toEqual(["Estimate", "approxText"]);
+  it("keeps components/Why with the three names add-ons 1.1.x import", () => {
+    expect(Object.keys(MODULES["components/Why"] as object).sort()).toEqual(["BasisDoor", "Estimate", "approxText"]);
+  });
+
+  it("draws the children of BasisDoor with no toggle, and its text without them", () => {
+    const { BasisDoor } = MODULES["components/Why"] as typeof import("../src/components/Why.tsx");
+    const door = { text: "12,40 €", open: false, onToggle: () => {}, controls: "panel" };
+    const { container, rerender } = render(createElement(BasisDoor, door, createElement("b", null, "Summa")));
+    expect(screen.getByText("Summa")).toBeTruthy();
+    expect(container.querySelector("button")).toBeNull();
+    rerender(createElement(BasisDoor, door));
+    expect(screen.getByText("12,40 €")).toBeTruthy();
   });
 
   for (const f of frozen) {

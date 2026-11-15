@@ -23,7 +23,7 @@
     "components/Loading": ["Loading"],
     "components/More": ["useMore"],
     "components/Section": ["FoldContext","Section"],
-    "components/Why": ["Estimate","approxText"],
+    "components/Why": ["BasisDoor","Estimate","approxText"],
     "components/table/Cells": ["BarCell","BarFigure","DeltaChip","MarkCell","SortHead","SparkCell","cellOf","figureWidths"],
     "components/table/KeyValue": ["KeyValue"],
     "components/table/Table": ["Table"],

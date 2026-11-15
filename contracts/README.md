@@ -13,7 +13,7 @@ version ships and describes interfaces that older code, scripts and helpers read
 
 - `module-host.json`: the keys and export names of the shared files an add-on module imports (`MODULES` in
   `apps/web/src/module-host.ts`), for one `apiVersion`. A later version may add keys and exports. It keeps every listed
-  one, or raises `apiVersion`. `apps/web/test/module-host-contract.test.ts` checks it. Names of React and React DOM that
+  one, or raises `apiVersion`. `apps/web/test/module-host-contract.dom.test.ts` checks it. Names of React and React DOM that
   are internal, experimental or only in some builds are not listed.
 
 `apps/server/test/contracts.test.ts` checks that the current code satisfies every folder here. A change that breaks a
