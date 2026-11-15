@@ -23,7 +23,7 @@ import { SecretBox } from "../security/secretbox.ts";
 import { ShortLived } from "../security/short-lived.ts";
 import { APP_VERSION } from "../version.ts";
 import { AnalysisCache } from "./analysis.ts";
-import { afterReprocess, reprocessClock } from "./enrich.ts";
+import { afterReprocess, reprocessClock, reprocessHousehold } from "./enrich.ts";
 import { InstanceStore, type RedirectMode, redirectModeOf, redirectUrlFor } from "./instance.ts";
 import { syncStatementState } from "./statements.ts";
 import type { ModuleRuntime } from "../modules/load.ts";
@@ -191,6 +191,11 @@ export function createServices(deps: AppDeps): Services {
   // card statements set aside or read again once the rows they depend on have changed
   afterReprocess(settings, (userId, held) => syncStatementState(services, userId, held));
   reprocessClock(settings, () => services.today());
+  reprocessHousehold(settings, {
+    ibansOutside: (userId) => services.household.ibansOutside(userId),
+    membersBesides: (userId) => services.household.membersBesides(userId),
+    finance: services.finance,
+  });
   return services;
 }
 

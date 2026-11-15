@@ -124,8 +124,8 @@ function cardChannels(txs: readonly Transaction[], accounts: readonly Account[],
  * a flexible credit repaid in varying sums is. The key and not the name: a card's own credit moved to the account
  * names the issuer too, and that card's bills are counted from its rows.
  */
-export function settleTransfers(txs: readonly Transaction[], accounts: readonly Account[], exclude: ReadonlySet<string>, why?: WhyCollector): { transfers: Set<string>; cardBills: Set<string> } {
-  const { transfers, allocations } = transferAllocations(txs, accounts, exclude);
+export function settleTransfers(txs: readonly Transaction[], accounts: readonly Account[], exclude: ReadonlySet<string>, why?: WhyCollector, household?: ReadonlySet<string>): { transfers: Set<string>; cardBills: Set<string> } {
+  const { transfers, allocations } = transferAllocations(txs, accounts, exclude, household);
   const pairs = pairsOf(allocations, txs);
   // what pairing alone decided: an own account's IBAN or a pair. What the channels and the issuer add is a card's payment.
   const own = why ? new Set(transfers) : null;

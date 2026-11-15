@@ -10,6 +10,7 @@
  */
 export * from "./types.ts";
 export * from "./account-use.ts";
+export * from "./shared.ts";
 export { holdersIn, nameOf, samePerson, userNameOf } from "./person-names.ts";
 export { isEarnedIncome } from "./analysis/income.ts";
 export { MIN_PAYS } from "./analysis/pay-estimate.ts";

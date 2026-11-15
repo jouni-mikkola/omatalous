@@ -27,6 +27,7 @@ import { billCents } from "./account-use.ts";
 import { type AnalysisContext, type AnalysisTx, standingById, standingOf } from "./analysis/context.ts";
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
+import { isCut } from "./shared.ts";
 import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
 import { addMonths, daysBetween, monthIndex, monthOf } from "./dates.ts";
 import { loansOf, typedBill } from "./loans.ts";
@@ -169,7 +170,7 @@ function names(key: string, s: RecurringSeries, amounts: readonly number[], othe
  * and the answer is the bank's amount of the charge nearest to the usual one.
  */
 function wholePayment(typicalCents: number, charges: readonly AnalysisTx[]): number {
-  if (charges.every((t) => t.wholeCents === undefined)) return typicalCents;
+  if (!charges.some(isCut)) return typicalCents;
   const off = (t: AnalysisTx) => Math.abs(-t.amountCents - typicalCents);
   return -billCents(charges.reduce((nearest, t) => (off(t) < off(nearest) ? t : nearest)));
 }
@@ -444,7 +445,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
       continue;
     }
     // one of a lender's several series has its payment in the series id, and on rows cut to a part that is the part
-    const cut = charges.some((t) => t.wholeCents !== undefined);
+    const cut = charges.some(isCut);
     const told = said(s, charges);
     const placing = kindOf(s.category, text);
     // a known lender's payment of about one sum month after month is a loan with no question: the kind stays a guess for the form

@@ -8,7 +8,7 @@ import { cancelledSubjects, createContext, createWhy, enrichTransactions, explai
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { requestInputs, type Scope, scopeWithReasons } from "./analysis.ts";
-import { industryMap } from "./enrich.ts";
+import { householdIbans, industryMap } from "./enrich.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
 /** The figures the page opens a "Miksi?" for. */
@@ -116,6 +116,7 @@ export async function explainFigure(s: Services, userId: string, req: ExplainReq
     { memberId: userId, roles: await repo.payerRoles() },
     why,
     s.today(),
+    await householdIbans(s.settings, userId),
   );
   // a figure of Laskut leaves out what the viewer marked as cancelled and the plans that are over, as the page does
   // and what they marked as no recurring bill

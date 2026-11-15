@@ -7,6 +7,7 @@ import { generatePassword, hashPassword, needsRehash, type PasswordCost, passwor
 import { UserError } from "../platform/errors.ts";
 import { parseNameText } from "../platform/validate.ts";
 import type { Services } from "./context.ts";
+import { OWN_IBANS, reprocess } from "./enrich.ts";
 import { randomToken } from "../platform/ids.ts";
 import { revokeAllConnections } from "../connectors/registry.ts";
 import { NOTICES_SEEN, recordEvent } from "./security.ts";
@@ -298,6 +299,9 @@ export async function removeUser(s: Services, userId: string, by: string, req: R
   await s.settings.bumpDataVersion();
   await s.settings.delete(`${USER_DATA_VERSION}${userId}`);
   await s.settings.delete(`${NOTICES_SEEN}${userId}`);
+  await s.settings.delete(`${OWN_IBANS}${userId}`);
+  // a leg to the removed member's account was a transfer in the others' rows: it is a payment to a person now
+  for (const other of await s.household.membersBesides(userId)) await reprocess(s.finance(other), s.settings);
   try {
     await s.users.compact();
   } catch (err) {

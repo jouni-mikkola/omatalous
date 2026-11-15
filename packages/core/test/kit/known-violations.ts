@@ -68,7 +68,6 @@ const CHECKING_LOAN = "generated:2:said:checking:connected:base:1";
 const FULL_MONTHS = months("2025-04", "2026-05");
 /** The month of today, which is only partly over: the joint top-ups (day 3) and the loan's legs (day 4) have happened, the 200 euro top-up of savings has not. */
 const LAST_MONTH = ["2026-06"];
-const JOINT_UNKNOWN = (n: number) => `generated:${n}:unknown:checking:connected:base:1`;
 
 /** The same line in the household view and in the view of the given members of one household. */
 const views = (household: string, view: readonly string[], by: readonly string[] = []): Where[] => view.map((v) => ({ household, view: v, months: by }));
@@ -76,17 +75,10 @@ const sameIn = (households: readonly string[], view: readonly string[], by: read
 
 const [TWO, THREE, FOUR] = [WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
 
-/** The residual of the monthly transfer between two members (8000 cents, fee 150): the fee in the household view, the 8150 cents sent in the first member's view. */
-const [WITH_FEE, WITH_SENT] = [150, -8150] as const;
+/** The residual of the monthly transfer between two members (8000 cents, fee 150): the fee, in the household view. */
+const WITH_FEE = 150;
 /** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what savings accounts counted. */
 const bridge = (residual: number, moved: number, saved: number) => `residual ${residual}, moved ${moved}, outside the pool savings:saved ${saved}`;
-/** A bridge line of a month with no savings top-up of the household's own (the month of today) or with the 200 euro one. */
-const topUps = (residual: number, moved: number, month: "full" | "last") => `residual ${residual}, moved ${moved}, outside the pool ${month === "full" ? "savings:saved 20000" : "none"}`;
-/** The joint account's top-ups from the other members' accounts that a member's view counts as income, in each month. */
-const joint = (n: number, view: string, residual: number, moved: number): KnownLine[] => [
-  { line: topUps(residual, moved, "full"), where: views(JOINT_UNKNOWN(n), [view], FULL_MONTHS) },
-  { line: topUps(residual, moved, "last"), where: views(JOINT_UNKNOWN(n), [view], LAST_MONTH) },
-];
 
 export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
@@ -98,43 +90,6 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
       { line: bridge(WITH_FEE, 0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
       { line: bridge(WITH_FEE, 0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
       { line: bridge(WITH_FEE, 0, 61240), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
-    ],
-  },
-  {
-    finding: "member-transfer-sent-counted-as-payment",
-    check: "I1.bridge",
-    reason: "In the first member's view the monthly transfer to the other member, 8000 cents and its fee, goes out of the pool and Tulos counts it as a payment to a person, though the money only moved between the household's own accounts. The change that makes a transfer between household accounts neutral in every view fixes it.",
-    lines: [
-      { line: bridge(WITH_SENT, -850, 81240), where: [...views(TWO, ["m1"], FULL_MONTHS), ...views(FOUR, ["m1"], FULL_MONTHS)] },
-      { line: bridge(WITH_SENT, 2525, 81240), where: views(THREE, ["m1"], FULL_MONTHS) },
-      { line: bridge(WITH_SENT, -850, 61240), where: [...views(TWO, ["m1"], LAST_MONTH), ...views(FOUR, ["m1"], LAST_MONTH)] },
-      { line: bridge(WITH_SENT, 2525, 61240), where: views(THREE, ["m1"], LAST_MONTH) },
-    ],
-  },
-  {
-    finding: "member-transfer-counted-as-person-income",
-    check: "I1.bridge",
-    reason: "The monthly transfer between two members arrives in the second member's view from an account the view does not hold, and Tulos counts the 8000 cents as money earned, though it only moved between the household's own accounts.",
-    lines: [
-      { line: topUps(8000, 1000, "full"), where: [...views(TWO, ["m2"], FULL_MONTHS), ...views(FOUR, ["m2"], FULL_MONTHS)] },
-      { line: topUps(8000, 1000, "last"), where: [...views(TWO, ["m2"], LAST_MONTH), ...views(FOUR, ["m2"], LAST_MONTH)] },
-      { line: topUps(8000, 3250, "full"), where: views(THREE, ["m2"], FULL_MONTHS) },
-      { line: topUps(8000, 3250, "last"), where: views(THREE, ["m2"], LAST_MONTH) },
-    ],
-  },
-  {
-    finding: "joint-top-up-of-another-member-counted-as-income",
-    check: "I1.bridge",
-    reason: "A joint account with an unknown split is read with the first member's accounts only, and every member's part of it is whole, so applyUse returns early (account-use.ts) before its rule that money into a shared account from a household account is a transfer. The other members' top-ups keep the first member's reading and arrive in a member's view from an account the view does not hold, though they only moved between the household's own accounts.",
-    lines: [
-      ...joint(2, "m1", 45000, -45000),
-      ...joint(3, "m1", 90000, -90000),
-      ...joint(3, "m2", 45000, -90000),
-      ...joint(3, "m3", 45000, -90000),
-      ...joint(4, "m1", 135000, -135000),
-      ...joint(4, "m2", 90000, -135000),
-      ...joint(4, "m3", 90000, -135000),
-      ...joint(4, "m4", 90000, -135000),
     ],
   },
   {
