@@ -209,14 +209,10 @@ export function BillsTable({
         </details>
       )}
       {removing && (
-        <ConfirmDialog title={t("bills.remove_ask", { name: removing.name })} confirmLabel={t("bills.remove")} onConfirm={() => void remove(removing.id)} onCancel={() => setRemoving(null)}>
-          <p>{t("bills.remove_note")}</p>
-        </ConfirmDialog>
+        <ConfirmDialog title={t("bills.remove_ask", { name: removing.name })} confirmLabel={t("bills.remove")} onConfirm={() => void remove(removing.id)} onCancel={() => setRemoving(null)} />
       )}
       {wrong && (
-        <ConfirmDialog title={t("bills.remove_ask", { name: wrong.name })} confirmLabel={t("bills.remove")} onConfirm={() => void markWrong(wrong)} onCancel={() => setWrong(null)}>
-          <p>{t("bills.remove_note")}</p>
-        </ConfirmDialog>
+        <ConfirmDialog title={t("bills.remove_ask", { name: wrong.name })} confirmLabel={t("bills.remove")} onConfirm={() => void markWrong(wrong)} onCancel={() => setWrong(null)} />
       )}
     </div>
   );
@@ -246,7 +242,6 @@ function Drill({ i, name, controls, scope, onRemove, onWrong }: { i: Item; name:
             <dd>{date(b.nextDate ?? b.dueDate)}</dd>
           </div>
         </dl>
-        {!b.counted && <p className="sub-line">{t("bills.in_transactions")}</p>}
         <div className="sub-actions">
           <Button aria-label={t("bills.remove_named", { name: b.name })} onClick={() => onRemove(b)}>
             {t("bills.remove")}
@@ -285,7 +280,6 @@ function Drill({ i, name, controls, scope, onRemove, onWrong }: { i: Item; name:
       )}
       {i.twins?.map((b) => (
         <div key={b.id} className="sub-actions">
-          <span className="muted small">{t("bills.twin")}</span>
           <Button aria-label={t("bills.remove_named", { name: b.name })} onClick={() => onRemove(b)}>
             {t("bills.remove_typed")}
           </Button>

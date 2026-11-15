@@ -21,7 +21,6 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 
 
 .mb-tag { padding-inline: var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
-.bills-first p { margin: var(--sp-8) 0 0; color: var(--text-2); }
 
 /* ── The step line of a price that moved, in the drill of the table */
 /* the line between the first price on the left and the price now on the right, each at the height of its end */
@@ -62,34 +61,75 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .sub-stopped > * { color: var(--text-2); }
 .sub-drill { display: grid; gap: var(--sp-12); }
 .sub-steps { display: grid; gap: var(--sp-8); max-inline-size: 420px; }
-.sub-line { margin: 0; color: var(--text-2); }
 .sub-facts { display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-24); margin: 0; }
 .sub-facts dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
-/* ── The 30 days: the sum, the line of dots and the sums of the groups under it */
-.bills-time-sum { display: flex; align-items: baseline; gap: var(--sp-12); margin: var(--sp-8) 0 var(--sp-12); color: var(--text-2); }
-.bills-time-rows { margin-block-start: var(--sp-12); }
-.bills-time-rows .st-name { overflow: visible; white-space: normal; }
-}
+/* ── The head: the name of the page and the one secondary action */
+.bills-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); margin: 0 0 var(--sp-16); }
+.bills-head h2 { margin: 0; min-inline-size: 0; }
 
-@layer pages {
-  /* Maksut ennen palkkapäivää: one block per row, no sideways scroll */
-  .before-payday .bp-rows { list-style: none; margin: 0; padding: 0; }
-  .before-payday .bp-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: var(--sp-8); padding-block: var(--sp-4); }
-  .before-payday .bp-name { overflow-wrap: anywhere; min-width: 0; }
-  .before-payday .bp-sum { text-align: end; white-space: nowrap; }
-  .before-payday .bp-total { font-weight: var(--w-strong); }
-  .before-payday .bp-outside, .before-payday .bp-outside small { color: var(--text-2); }
-  .before-payday .bp-outside small { font-size: var(--fs-small); }
-  /* the second figure of the head: what other accounts pay, under the sum of the counted ones */
-  .before-payday .bp-elsewhere { margin-block-start: calc(-1 * var(--sp-8)); flex-wrap: wrap; }
-  /* the sum beside its name, as 1.0.0 had it over the line of days; the rows follow the line's key */
-  .before-payday .bills-time-sum h3 { margin: 0; font-size: var(--fs-body); font-weight: var(--w-regular); color: var(--text-2); }
-  .before-payday .bp-rows { margin-top: var(--sp-16); }
-  .before-payday .bp-row[data-active] { background: var(--control); }
-  @media (max-width: 700px) {
-    .before-payday .bp-row { grid-template-columns: minmax(0, 1fr) auto; }
-    .before-payday .bp-date { grid-column: 1 / -1; color: var(--text-2); }
-  }
+/* ── Seuraavaksi: the next payment, its day and payee over its exact sum */
+.bills-next { display: grid; gap: var(--sp-4); padding-block: var(--sp-16); border-block-start: 1px solid var(--border); }
+.bills-next-label { margin: 0; font-size: var(--fs-body); font-weight: var(--w-regular); color: var(--text-2); }
+.bills-next-what { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-8); margin: 0; }
+.bills-next-day { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bills-next-name { font-weight: var(--w-strong); overflow-wrap: anywhere; }
+
+/* ── Ennen seuraavaa tuloa: three figures, the bars of the days, the rows by day */
+.before-payday { padding-block-start: var(--sp-16); border-block-start: 1px solid var(--border); }
+.bp-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); }
+.bp-stat { display: grid; align-content: start; gap: var(--sp-4); min-inline-size: 0; }
+.bp-label { margin: 0; font-size: var(--fs-body); font-weight: var(--w-regular); color: var(--text-2); }
+.bp-stat[data-short] .fig { color: var(--bad); }
+.bp-side { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); margin: var(--sp-12) 0 0; color: var(--text-2); }
+
+/* the bars: a day is a column, a payment a piece of it, the height is the euros */
+.pb { display: grid; grid-template-columns: minmax(0, 1fr) auto; margin-block-start: var(--sp-24); }
+.pb-flag { grid-column: 1 / -1; margin: 0 0 var(--sp-4); text-align: end; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--good); }
+.pb-plot { position: relative; block-size: 5.5rem; border-block-end: 1px solid var(--axis); }
+.pb-grid { position: absolute; inset-inline: 0; block-size: 0; border-block-start: 1px solid var(--border); }
+.pb-cols { position: absolute; inset: 0; display: grid; margin: 0; padding: 0; list-style: none; }
+.pb-col { display: flex; flex-direction: column-reverse; justify-content: flex-start; align-items: stretch; min-inline-size: 0; padding-inline: 12%; border-inline-start: 1px solid transparent; }
+.pb-col[data-weekend] { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
+.pb-col[data-payday] { border-inline-start-color: var(--good); border-inline-start-width: 0.15em; background: none; }
+.pb-piece { display: block; flex: none; min-block-size: 0.15em; background: var(--series-1); box-shadow: 0 -1px 0 var(--surface); }
+.pb-piece[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 0.15em var(--series-1); }
+.pb-piece[data-on] { outline: 0.15em solid var(--text); outline-offset: 1px; }
+.pb.has-on .pb-piece:not([data-on]) { opacity: 0.45; }
+.pb-scale { position: relative; inline-size: 4.5rem; margin-inline-start: var(--sp-8); }
+.pb-scale span { position: absolute; inset-inline-start: 0; transform: translateY(50%); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.pb-axis { grid-column: 1; display: grid; margin: 0; padding: 0; list-style: none; }
+.pb-axis li { min-block-size: 2rem; padding-block-start: var(--sp-4); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.pb-axis li:last-child { text-align: end; }
+.pb-axis li[data-payday] { color: var(--good); font-weight: var(--w-strong); }
+.pb-axis span { display: block; }
+.bp-legend { margin-block: var(--sp-8) 0; }
+.pb-key { inline-size: 0.625rem; block-size: 0.625rem; display: inline-block; flex: none; background: var(--series-1); }
+.pb-key[data-estimate] { background: color-mix(in srgb, var(--series-1) 22%, var(--surface)); box-shadow: inset 0 0 0 0.15em var(--series-1); }
+.pb-key-pay { inline-size: 0.15em; block-size: var(--sp-12); background: var(--good); }
+
+/* the rows: the day on its first row, the payee, the sum */
+.before-payday .bp-rows { list-style: none; margin: var(--sp-16) 0 0; padding: 0; max-inline-size: 40rem; }
+.before-payday .bp-row { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) auto; gap: var(--sp-8); padding-block: var(--sp-4); align-items: baseline; }
+.before-payday .bp-row[data-first] { border-block-start: 1px solid var(--border); }
+.before-payday .bp-row:first-child { border-block-start: 0; }
+.before-payday .bp-date { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.before-payday .bp-name { overflow-wrap: anywhere; min-inline-size: 0; }
+.before-payday .bp-sum { text-align: end; white-space: nowrap; }
+.before-payday .bp-total { font-weight: var(--w-strong); border-block-start: 1px solid var(--axis); }
+.before-payday .bp-outside, .before-payday .bp-outside small { color: var(--text-2); }
+.before-payday .bp-income { color: var(--good); font-weight: var(--w-strong); }
+.before-payday .bp-row[data-active] { background: var(--surface-2); }
+@media (min-width: 1000px) {
+  .bills-answer:has(.bills-next) { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); column-gap: var(--sp-32); }
+}
+@media (max-width: 700px) {
+  .bp-stats { grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
+  .pb-scale { inline-size: 3.5rem; }
+  .pb-col { padding-inline: 8%; }
+  .before-payday .bp-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .before-payday .bp-date { grid-column: 1 / -1; }
+  .before-payday .bp-date.sr-only { grid-column: auto; }
+}
 }

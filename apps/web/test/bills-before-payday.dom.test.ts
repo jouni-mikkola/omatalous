@@ -56,20 +56,23 @@ describe("Laskut: payments before the payday", () => {
       return el!;
     });
     expect(within(section).getByRole("heading").textContent).toBe("Maksut ennen palkkapäivää");
-    // it stands in the card of Tulevat maksut, with the sum beside its name
+    // it stands in the card of Tulevat maksut, the three figures of the answer over the bars and the rows
     expect(section.closest("#tulossa")).toBeTruthy();
-    expect(flat(section.querySelector(".bills-time-sum")?.textContent)).toContain("1 900");
-    // the line of days: today to the payday, a dot to each payment of the list and none to the pay
-    expect(section.querySelectorAll(".nd-axis li").length).toBe(15);
-    expect(section.querySelectorAll(".nd-axis li.nd-pd").length).toBe(1);
-    const dots = [...section.querySelectorAll(".nd-dots [role=img]")].map((d) => d.getAttribute("aria-label") ?? "");
-    expect(dots.length).toBe(3);
-    for (const name of ["Helen", "Elisa", "Visa"]) expect(dots.some((d) => d.includes(name))).toBe(true);
-    // the group of dots is named by this block's heading
-    expect(section.querySelector(".nd-line")?.getAttribute("aria-labelledby")).toBe("before-payday-h");
+    const stats = [...section.querySelectorAll(".bp-stat")].map((e) => flat(e.textContent));
+    expect(stats).toEqual(["Maksut ennen palkkapäivää1 900 €", "Saldo5 000 €", "Käytettävissä palkkapäivään3 100 €"]);
+    // the bars: the days from today to the payday, one piece to each payment of the list and none to the pay
+    expect(section.querySelectorAll(".pb-axis li").length).toBe(15);
+    expect(section.querySelectorAll(".pb-axis li[data-payday]").length).toBe(1);
+    expect(section.querySelectorAll(".pb-col[data-payday]").length).toBe(1);
+    expect(section.querySelectorAll(".pb-piece").length).toBe(3);
+    // every payment here is an estimate: a recurring bill and a card bill with no balance basis
+    expect(section.querySelectorAll(".pb-piece[data-estimate]").length).toBe(3);
+    // 11.-25.11.2026: the weekends 14.-15. and 21.-22.
+    expect(section.querySelectorAll(".pb-col[data-weekend]").length).toBe(4);
     expect(section.querySelector("#before-payday-h")).toBeTruthy();
     const bills = [...section.querySelectorAll("[data-kind=bill]")].map((li) => flat(li.textContent));
-    expect(bills).toEqual(["12.11.Helen48,12 €", "15.11.Elisa29,14 €", "20.11.Visa1 822,28 €"]);
+    // the bars are hidden from a screen reader, so each row says itself that its sum is an estimate
+    expect(bills).toEqual(["12.11.HelenArvio48,12 €", "15.11.ElisaArvio29,14 €", "20.11.VisaArvio1 822,28 €"]);
     const sums = [...section.querySelectorAll("[data-kind=bill] .bp-sum")].map((e) => Number(flat(e.textContent).replace(/[^\d,]/g, "").replace(",", ".")) * 100);
     expect(Math.round(sums.reduce((a, b) => a + b, 0))).toBe(189954);
     expect(flat(section.querySelector("[data-kind=total]")?.textContent)).toContain("1 899,54 €");
@@ -115,6 +118,21 @@ describe("Laskut: payments before the payday", () => {
     const out = [...section.querySelectorAll("[data-kind=outside]")].map((li) => flat(li.textContent));
     expect(out).toEqual(["16.11.Laina Yhteinen tili ·· 0381421,82 €", "14.12.Laina muulta tililtä421,82 €"]);
     expect(flat(section.querySelector(".bp-elsewhere")?.textContent)).toBe("Muilta tileiltä843,64 €");
+  });
+
+  it("opens with the next payment: its payee and its exact sum", async () => {
+    const base = dashboard(true);
+    await mount(true, false, { ...base, ahead: { ...base.ahead, upcoming: base.ahead.rows.slice(0, 3) } });
+    const next = await waitFor(() => {
+      const el = document.querySelector(".bills-next");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(within(next as HTMLElement).getByRole("heading").textContent).toBe("Seuraavaksi");
+    const text = flat(next.textContent);
+    expect(text).toContain("Helen");
+    expect(text).toContain("48,12 €");
+    expect(text).not.toContain("Elisa");
   });
 
   it("has no line of payments from other accounts when there are none", async () => {
