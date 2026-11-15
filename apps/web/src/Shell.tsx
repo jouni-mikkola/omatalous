@@ -14,7 +14,7 @@ import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
 import { NAV, REVIEW, SETTINGS } from "./nav.ts";
-import { extensionPages } from "./extensions.ts";
+import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { StaleAnswer } from "./components/StaleAnswer.tsx";
@@ -388,6 +388,7 @@ export function Shell() {
           </Notice>
         )}
         {meta.error && <Notice tone="warning">{t("shell.offline_old")}</Notice>}
+        {addOnLoadFailed() && <Notice tone="warning">{t("shell.addon_failed")}</Notice>}
         {failure && <Notice tone="warning">{failure}</Notice>}
         {menuError && <Notice tone="warning">{menuError}</Notice>}
         <StaleAnswer />

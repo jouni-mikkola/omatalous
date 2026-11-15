@@ -314,7 +314,7 @@ state_json() {
   printf '"channel":"%s"' "$(if on_private; then echo private; elif [[ $(env_get TALOUS_CHANNEL) == source ]]; then echo source; else echo release; fi)"
   # ] and [ (an IPv6 address) lead the set: a backslash does not quote them inside one
   if [[ -n $url && $url =~ ^[][A-Za-z0-9:/._-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
-  for f in check doctor; do if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi; done
+  for f in check doctor doctor-version; do if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi; done
   if [[ -s $OPS/watchdog.frag ]]; then sep; printf '"watchdog":'; cat "$OPS/watchdog.frag"; fi # watchdog_report (lib/ops-watchdog.sh)
   printf '}'
 }

@@ -33,6 +33,8 @@ t_release_update() {
 t_doctor_after_update() { # the system check shows the version that runs, not the one of the day before
   new_world; release 0.2.0; rm -f "$CL/ops/doctor.frag"; poll update; tick
   check "doctor: an update leaves a fresh system check for the page" bash -c "grep -q '\"doctor\":{\"at\"' '$S/reports/1.json'"
+  check "doctor: it names the version that ran, so the page can tell an old result" test "$(cat "$CL/ops/doctor-version.frag" 2>/dev/null)" = '"doctor_version":"0.2.0"'
+  check "doctor: and doctor.frag still ends in the items" bash -c "[[ \$(cat '$CL/ops/doctor.frag') == *']}' ]]"
 }
 t_offer_after_update_and_rollback() { # the daily check offered the version before the update, and nothing fetches after it
   new_world; release 0.2.0; tick; poll update; tick

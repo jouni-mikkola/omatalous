@@ -9,6 +9,7 @@ import "./styles/fonts.css";
 import "./styles/table.css";
 import "./styles/shell.css";
 import { App } from "./App.tsx";
+import { markAddOnFailed } from "./extensions.ts";
 import { fallBackToFinnish, language } from "./format.ts";
 import { ensureEnglish } from "./language.ts";
 import { queryClient } from "./query-client.ts";
@@ -17,9 +18,9 @@ import "./styles/marks.css";
 import "./styles/motion.css";
 import "./styles/forced-colors.css";
 
-// an add-on module the server loaded is named by the page (docs/MODULES.md); its entries are in place before the first render
+// an add-on module the server loaded is named by the page of a signed-in request only (docs/MODULES.md); its entries are in place before the first render
 const addOn = document.querySelector<HTMLMetaElement>('meta[name="omatalous-module"]')?.content;
-const withAddOn = addOn ? import("./module-host.ts").then((m) => m.loadWebModule(addOn)).catch(() => undefined) : Promise.resolve();
+const withAddOn = addOn ? import("./module-host.ts").then((m) => m.loadWebModule(addOn)).catch(() => markAddOnFailed()) : Promise.resolve();
 
 // the device's language is known before the first paint; English is awaited so that no text shows in Finnish first
 void Promise.all([ensureEnglish(language()).catch(fallBackToFinnish), withAddOn])

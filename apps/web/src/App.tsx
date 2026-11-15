@@ -15,11 +15,11 @@ import { Loading } from "./components/Loading.tsx";
 import { Notice } from "./components/ui/Notice.tsx";
 import { ChangePassword, Login, Setup } from "./pages/Auth.tsx";
 import { forgetAnswers } from "./query-client.ts";
-import { addOnAwaitsSignIn } from "./extensions.ts";
+import { reloadForAddOn } from "./extensions.ts";
 import { router } from "./router.tsx";
 import { SessionContext } from "./shell-context.ts";
 import type { User } from "./types.ts";
-type AuthState = { needsSetup: boolean; user: User | null; timezone?: string };
+type AuthState = { needsSetup: boolean; user: User | null; timezone?: string; addOn?: boolean };
 
 export function App() {
   const [auth, setAuth] = useState<AuthState | null>(null);
@@ -56,7 +56,8 @@ export function App() {
     ensureLate().then(() => setPagesRead(true), () => setPagesFailed(true));
     const ticket = figuresTicket();
     api<AuthState>("/api/auth/state")
-      .then((next) => enter(next, ticket))
+      // a page served signed out that another tab has signed in: the state answer names the module this page lacks
+      .then((next) => (next.user && reloadForAddOn(next) ? undefined : enter(next, ticket)))
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -64,7 +65,7 @@ export function App() {
   // the sign-in reads only the entry's texts; whoever is signed in waits for the texts of the pages too
   if (!auth || (!pagesRead && auth.user && !auth.needsSetup && !auth.user.mustChangePassword)) return <div className="app">{pagesFailed ? <Notice tone="error" className="app-error">{t("app.unreachable")}</Notice> : <Loading />}</div>;
   if (auth.needsSetup) return <Setup onDone={(user) => void enter({ needsSetup: false, user })} />;
-  if (!auth.user) return <Login onDone={(user) => (addOnAwaitsSignIn() ? location.reload() : void enter({ needsSetup: false, user }))} />;
+  if (!auth.user) return <Login onDone={(answer) => (reloadForAddOn(answer) ? undefined : void enter({ needsSetup: false, user: answer.user }))} />;
   if (auth.user.mustChangePassword) {
     // the address still names the page the member was on before signing in: they start at Yhteenveto
     return (

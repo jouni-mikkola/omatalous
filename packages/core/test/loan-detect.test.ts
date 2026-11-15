@@ -85,6 +85,7 @@ describe("a loan proposed from its payments", () => {
       payee: "Toyota Finance Finland",
       accountId: "chk",
       paymentCents: 25000,
+      monthlyCents: 25000,
       months: 6,
       firstDate: "2026-05-05",
       lastDate: "2026-10-05",

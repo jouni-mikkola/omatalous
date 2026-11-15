@@ -9,6 +9,8 @@
 .ops-commits li { padding: 2px 0; overflow-wrap: anywhere; }
 .ops-doctor li { padding: 8px 0; border-top: 1px solid var(--border); }
 .ops-doctor li:first-child { border-top: 0; }
+.ops-technical > summary { padding-block: var(--sp-12); }
+.ops-technical[open] > summary { margin-bottom: var(--sp-8); }
 .ops-tools { margin: 8px 0 0; padding: 0; list-style: none; }
 .ops-tools li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
 .ops-tools li:first-child { border-top: 0; }

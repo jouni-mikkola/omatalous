@@ -18,7 +18,8 @@
  * run that was killed with SIGKILL leaves its folder, and the next run removes folders older than a day.
  *
  * A table may gain rows but never lose them: a migration that deletes rows on purpose fails here, and a later
- * change has to say how many it may remove before such a migration ships.
+ * change has to say how many it may remove before such a migration ships. A table in `RETIRED_TABLES` is the one
+ * exception: a migration dropped it on purpose because nothing reads it, and its rows go with it.
  */
 import { mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -54,6 +55,9 @@ export interface MigrateCheckReport {
 }
 
 type CopyDb = ReturnType<typeof openNodeSqlite>;
+
+/** Tables a migration dropped with their rows because no code uses them: 0031_drop_unused_schema.sql. */
+const RETIRED_TABLES: ReadonlySet<string> = new Set(["view_opens"]);
 
 /** Row counts of every table except the migration history, which grows by design. */
 async function rowCounts(db: CopyDb): Promise<Record<string, number>> {
@@ -163,6 +167,7 @@ export async function migrateCheck(file: string, opts: MigrateCheckOptions = {})
     const after = await rowCounts(copy);
     for (const [table, n] of Object.entries(before)) {
       report.tables[table] = { before: n, after: after[table] ?? 0 };
+      if (after[table] === undefined && RETIRED_TABLES.has(table)) continue;
       if (after[table] === undefined) report.problems.push(`${table}: ${n} rows before, table missing after the migrations`);
       else if (after[table]! < n) report.problems.push(`${table}: ${n} rows before, ${after[table]} after`);
     }

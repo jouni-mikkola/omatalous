@@ -107,6 +107,9 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Image, smoke test, container checks, signature, upgrade rehearsals and drills
+        # the read-only token (contents: read above) lifts the 60 an hour limit of the runner's shared address on api.github.com
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: tools/ci/local-proof.sh --jobs 2 tools/ci/upgrade-baselines.txt
       - name: Logs of the proof
         if: ${{ failure() }}

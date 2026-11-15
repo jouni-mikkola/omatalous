@@ -5,22 +5,24 @@ import type { OpsRequestView } from "./types.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 interface Props {
-  /** Buttons that need the one mutating slot (prune, renew). */
+  /** Buttons that need the one mutating slot (prune, renew, restart). */
   disabled: boolean;
-  /** A read-only request is in flight: logs waits for it. */
+  /** A read-only request is in flight: the status and the logs wait for it. */
   readDisabled: boolean;
-  /** The helper knows these actions. */
+  /** The helper knows logs, prune and renew; the status and the restart every helper knows. */
   supported: boolean;
   enableCommand: string;
-  /** How each action last ended, by action name. */
+  /** How each action last ended, by action name; one that never ran has no entry and no line. */
   last: Record<string, OpsRequestView>;
+  onDoctor: () => void;
   onLogs: () => void;
   onPrune: () => void;
   onRenew: () => void;
+  onRestart: () => void;
 }
 
-/** Logs, disk clean-up and helper renewal. None of them takes input, so there is no dialog. */
-export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, last, onLogs, onPrune, onRenew }: Props) {
+/** The servicing actions as one list: status, logs, disk clean-up, helper renewal and restart. None of them takes input, so there is no dialog. */
+export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, last, onDoctor, onLogs, onPrune, onRenew, onRestart }: Props) {
   return (
     <div className="card">
       <div className="card-head">
@@ -33,6 +35,15 @@ export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, l
         </Notice>
       )}
       <ul className="ops-tools">
+        <li>
+          <div>
+            <strong>{S.doctor}</strong>
+            <LastResult request={last["doctor"]} />
+          </div>
+          <Button disabled={readDisabled} onClick={onDoctor}>
+            {S.runDoctor}
+          </Button>
+        </li>
         <li>
           <div>
             <strong>{S.logs}</strong>
@@ -61,6 +72,16 @@ export function ToolsPanel({ disabled, readDisabled, supported, enableCommand, l
           </div>
           <Button disabled={disabled || !supported} onClick={onRenew}>
             {S.renew}
+          </Button>
+        </li>
+        <li>
+          <div>
+            <strong>{S.restart}</strong>
+            <div className="small muted">{S.restartHelp}</div>
+            <LastResult request={last["restart"]} />
+          </div>
+          <Button disabled={disabled} onClick={onRestart}>
+            {S.restart}
           </Button>
         </li>
       </ul>

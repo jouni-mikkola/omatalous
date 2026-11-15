@@ -16,8 +16,7 @@
 #   image              docker build -t banking-app:ci .
 #   smoke              tools/ci/smoke-image.sh banking-app:ci unknown unknown
 #   container          tools/ci/image-checks.sh banking-app:ci: the compose-like container and first run, compose keys, two instances
-#   signature          tools/ci/verify-release.sh: the newest release verifies with the install scripts of this commit
-#                      and of every baseline
+#   signature          tools/ci/verify-release.sh: the newest release verifies with the install scripts of this commit and of every baseline (the one leg that gets GITHUB_TOKEN)
 #   upgrade from REF   check-migrations.sh, compose-compat.sh and upgrade-run.sh, once for each baseline
 #   drills             tools/ci/drills.sh in two parts: drills 3, 4, 7 and 8 (the helper) on the install with the default
 #                      names and port 8080 that lane 0 leaves up after its last rehearsal, the newest, in lane 0 after it;
@@ -98,6 +97,9 @@
 # Needs git, a running Docker, setsid and flock, and what the legs need (curl, node, jq, the network for the signature). The
 # work folder is a new one under TMPDIR (/tmp); its logs stay, the rest is removed.
 set -uo pipefail
+# Only the signature leg gets GITHUB_TOKEN (its lookups on api.github.com). It is held in a variable no child inherits and unset from the
+# environment, so that no other leg has it: the rehearsals run an install's own update.sh. Tracing is off, since a trace would print it.
+{ set +x; } 2>/dev/null; SIG_TOKEN=${GITHUB_TOKEN:-${GH_TOKEN:-}}; unset GITHUB_TOKEN GH_TOKEN
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 JOBS='' # from the flag or PROOF_JOBS, else from the CPUs once the baselines are picked
@@ -197,8 +199,7 @@ fi
 # lanes side by side: at most PROOF_MAX_LANES (default 3: the machine is shared with other users), and never more than rehearsals
 ((JOBS_FLAG || JOBS <= MAX_LANES)) || JOBS=$MAX_LANES
 ((JOBS_FLAG || JOBS <= ${#RUN_REFS[@]})) || JOBS=${#RUN_REFS[@]}
-((JOBS >= 1)) || JOBS=1
-((JOBS <= 99)) || JOBS=99
+((JOBS >= 1)) || JOBS=1; ((JOBS <= 99)) || JOBS=99
 
 for c in docker setsid flock; do command -v "$c" >/dev/null 2>&1 || refuse "$c is not installed."; done
 docker info >/dev/null 2>&1 || refuse "Docker does not answer (docker info). Start it, for example with: systemctl start docker. Then run again."
@@ -209,9 +210,8 @@ if [[ $(id -u) == 0 ]]; then
   [[ -n $DOCKER_GID ]] || refuse "This machine has no group docker, so user $PROOF_USER could not reach Docker. Run the proof as a user that can."
   [[ $DRILL_USER != "$PROOF_USER" ]] || refuse "PROOF_DRILL_USER and PROOF_USER are both $PROOF_USER: the watchdog of the drills counts the updates of every rehearsal of the same user, so the drills need another one."
 fi
-# PROOF_BUILD_CA=FILE, or AUDIT_BUILD_CA, the name the release gate's audit reads for the same CA, so one setting serves
-# the whole release: every build of every leg trusts it in its build stage (tools/ci/build-ca.sh). Every Dockerfile those
-# builds read needs that stage, so a baseline without one is refused before anything runs.
+# PROOF_BUILD_CA=FILE, or AUDIT_BUILD_CA (the name the release gate's audit reads for the same CA): every build of every leg trusts it
+# in its build stage (tools/ci/build-ca.sh). Every Dockerfile those builds read needs that stage, or the baseline is refused at once.
 PROOF_BUILD_CA=${PROOF_BUILD_CA:-${AUDIT_BUILD_CA:-}}
 if [[ -n $PROOF_BUILD_CA ]]; then
   [[ -f $PROOF_BUILD_CA && -r $PROOF_BUILD_CA ]] || refuse "PROOF_BUILD_CA names no file that can be read: $PROOF_BUILD_CA"
@@ -319,7 +319,7 @@ leg() {
   local name=$1 label=$2 t0=$SECONDS rc=0 pid dir=$SRC who=("${AS[@]}")
   shift 2
   if [[ ${LEG_AS:-} == drill ]]; then dir=$DSRC; who=("${DRILL_AS[@]}"); fi
-  (cd "$dir" && exec setsid nice -n "${PROOF_NICE:-10}" "${who[@]}" "$@") </dev/null >"$LOGS/$name.log" 2>&1 &
+  (cd "$dir" && { [[ $name != signature || -z $SIG_TOKEN ]] || export GITHUB_TOKEN=$SIG_TOKEN; } && exec setsid nice -n "${PROOF_NICE:-10}" "${who[@]}" "$@") </dev/null >"$LOGS/$name.log" 2>&1 &
   pid=$!
   echo "$pid" >"$RUNNING/$name"
   # a stop that came between the start and the line above did not see this leg

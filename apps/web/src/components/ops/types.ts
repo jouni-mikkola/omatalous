@@ -50,6 +50,8 @@ export interface OpsSnapshot {
   /** `source` and `private`: the install follows a branch, so there is no switch. The page shows the channel and cannot change it. */
   channel?: "source" | "release" | "private";
   doctor?: { at: string; items: DoctorItem[] };
+  /** The system check ran under another version than the one running now. */
+  doctor_stale?: boolean;
 }
 
 export interface HelperInfo {

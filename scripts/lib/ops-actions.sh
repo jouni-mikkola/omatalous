@@ -19,13 +19,17 @@ act_restart() {
 }
 # Runs doctor.sh --json and keeps its answer for the page, with the same items in English (doctor_en) for a member who reads
 # English; a run without them (an older doctor.sh) leaves them out. Exit 1 and 2 mean findings, not a failed run.
+# ops/doctor-version.frag names the version that ran then, so the page can tell a result from before an update. It is a
+# file of its own: watchdog_doctor_item needs doctor.frag to end in the items.
 run_doctor() {
-  local out en rc=0 shape='^\{"at":"[0-9TZ:.-]+","items":\[.*\]\}$'
+  local out en ver rc=0 shape='^\{"at":"[0-9TZ:.-]+","items":\[.*\]\}$'
+  ver=$(current_version || true)
   out=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json 2>/dev/null | head -c 60000) || rc=$?
   if [[ $out =~ $shape && $out != *$'\n'* ]]; then
     en=$(timeout -k 10 "$T_DOCTOR" ./scripts/doctor.sh --json-en 2>/dev/null | head -c 60000) || true
     if [[ $en =~ $shape && $en != *$'\n'* ]]; then printf '"doctor":%s,"doctor_en":%s' "$out" "$en" >"$OPS/doctor.frag"
     else printf '"doctor":%s' "$out" >"$OPS/doctor.frag"; fi
+    if [[ -n $ver ]]; then printf '"doctor_version":"%s"' "$ver" >"$OPS/doctor-version.frag"; else rm -f "$OPS/doctor-version.frag"; fi
     DOCTOR_PROBLEMS=$(grep -o '"level":"error"' <<<"$out" | wc -l); DOCTOR_WARNINGS=$(grep -o '"level":"warn"' <<<"$out" | wc -l)
     return 0
   fi

@@ -572,6 +572,34 @@ describe("a bill paid another way settles only by the rows the view holds", () =
 });
 
 describe("Kauppiaat and the unrecognised spending follow the view", () => {
+  it("a loan paid from a joint account of three unequal shares: the dashboard's unsaved loans are each member's part in the own view and the whole payment in the household view, and the questions are the same in both", async () => {
+    const app = await setupApp();
+    const eero: Member = await app.member("eero", "Eero");
+    const kati: Member = await app.member("kati", "Kati");
+    const aino: Member = Object.assign(app.admin, { id: app.adminId });
+    await link(app.s, aino.id, "joint", `${AINO}, ${EERO}, VIRTANEN KATI`);
+    const payments = ["2026-03-05", "2026-04-05", "2026-05-05", "2026-06-05", "2026-07-05", "2026-08-05", "2026-09-05", "2026-10-05"];
+    await book(app.s, aino.id, "joint", payments.map((day) => raw(day, -1000.01, "PEKKA VIRTANEN", { description: "LAINAN LYHENNYS" })));
+    for (const m of [eero, kati]) expect((await aino.call("PUT", `/api/accounts/joint/shares/${m.id}`)).status).toBe(200);
+    expect((await aino.call("PUT", "/api/accounts/joint/use", { users: [{ userId: aino.id, weight: 1 }, { userId: eero.id, weight: 2 }, { userId: kati.id, weight: 3 }] })).status).toBe(200);
+
+    const unsaved = async (c: Client, scope: string) => (await get(c, `/api/dashboard?${SEPTEMBER}&scope=${scope}`)).holdings.unsavedLoans;
+    const loanQuestions = async (c: Client, scope: string) => (await get(c, `/api/dashboard?${SEPTEMBER}&scope=${scope}`)).questions.items.filter((i: { kind: string }) => i.kind === "loan" || i.kind === "plan");
+    const parts = [] as number[];
+    for (const c of [aino, eero, kati]) {
+      const mine = partCents(100001, await partOfJoint(c));
+      parts.push(mine);
+      expect(await unsaved(c, "own")).toMatchObject({ count: 1, paymentCents: mine });
+      expect(await unsaved(c, "household")).toMatchObject({ count: 1, paymentCents: 100001 });
+      // the question is about the bank's payment in either view
+      expect(await loanQuestions(c, "household")).toEqual(await loanQuestions(c, "own"));
+    }
+    expect(new Set(parts).size).toBe(3);
+    expect(parts.reduce((n, p) => n + p, 0)).toBe(100001);
+    expect((await get(kati, "/api/loans/proposals")).proposals.map((p: { paymentCents: number }) => p.paymentCents)).toEqual([100001]);
+    for (const scope of ["own", "household"]) expect(await loanQuestions(kati, scope)).toMatchObject([{ kind: "loan", paymentCents: 100001, cents: 12 * 100001 }]);
+  });
+
   it("the household view is whole, also for a member nobody shares an account with", async () => {
     const { aino } = await household({ shared: false });
     const hers = await partOfJoint(aino);

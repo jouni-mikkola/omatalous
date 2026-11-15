@@ -466,6 +466,39 @@ describe("ops: the helper's CLI", () => {
     expect(await served({ update_available: false, latest_version: `${major + 1}.0.0` })).toMatchObject({ update_available: false });
   });
 
+  it("a source or private install keeps its offer of commits whatever version an earlier release check named", async () => {
+    const { admin, s } = await setupApp();
+    const served = async (snapshot: Record<string, unknown>) => {
+      await cli(s, ["state", "--helper", "2"], JSON.stringify(snapshot));
+      return (await admin.call("GET", "/api/ops/state")).body.state;
+    };
+    const commits = [{ hash: "abc1234", subject: "Fix a figure" }];
+    for (const channel of ["source", "private"]) {
+      expect(await served({ channel, update_available: true, latest_version: "0.0.1", behind_commits: commits }), channel).toMatchObject({ update_available: true, behind_commits: commits });
+    }
+    // the next source answer carries no release, so the earlier one is gone from the stored snapshot too
+    await served({ channel: "source", update_available: true, behind_commits: commits });
+    expect(JSON.parse((await s.settings.get("ops_state")) ?? "{}")).not.toHaveProperty("latest_version");
+    // a release install that is current has no commits to show
+    expect(await served({ channel: "release", update_available: true, latest_version: s.build.version, behind_commits: commits })).toMatchObject({ update_available: false });
+    expect((await served({ channel: "release", update_available: true, latest_version: s.build.version, behind_commits: commits })).behind_commits).toBeUndefined();
+  });
+
+  it("a system check from another version than the build is served as stale", async () => {
+    const { admin, s } = await setupApp();
+    const doctor = { at: "2026-11-14T10:00:00Z", items: [{ id: "v", level: "ok", title: "Versio", detail: "", hint: "" }] };
+    const served = async (snapshot: Record<string, unknown>) => {
+      await cli(s, ["state", "--helper", "2"], JSON.stringify(snapshot));
+      return (await admin.call("GET", "/api/ops/state")).body.state;
+    };
+    expect(await served({ doctor, doctor_version: "0.0.1" })).toMatchObject({ doctor_stale: true });
+    expect(await served({ doctor, doctor_version: s.build.version })).not.toHaveProperty("doctor_stale");
+    // a result with no version named is not judged
+    const bare = await setupApp();
+    await cli(bare.s, ["state", "--helper", "2"], JSON.stringify({ doctor }));
+    expect((await bare.admin.call("GET", "/api/ops/state")).body.state).not.toHaveProperty("doctor_stale");
+  });
+
   it("an older helper is not handed an action it does not know, and the row does not hold the slot", async () => {
     // queued for a version 2 helper, which was then rolled back to a version 1 one (the helper is part of the checkout)
     const { admin, s } = await setupApp();

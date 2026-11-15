@@ -21,10 +21,14 @@ const HASHED = "/assets/";
  * in its last part, it is a file an old version asks for and the answer is 404, `no-store`: the page as a script
  * would break that tab, and with a year of `immutable` a cache would keep it.
  */
-export function staticFiles(app: Hono<any>, root: string, headTag?: string): void {
-  // with an add-on module loaded, the page carries one tag more (docs/MODULES.md); without one it is the build's file as it is
-  const page = headTag ? readFileSync(join(root, "index.html"), "utf8").replace("</head>", `${headTag}</head>`) : null;
-  const servePage = (c: Context) => {
+export function staticFiles(app: Hono<any>, root: string, forSignedIn?: { headTag: string; signedIn: (c: Context) => Promise<boolean> }): void {
+  // with an add-on module loaded, the page of a signed-in request carries one tag more (docs/MODULES.md); every other
+  // request, the sign-in page included, gets the build's file as it is and so does not name the module
+  const page = forSignedIn ? readFileSync(join(root, "index.html"), "utf8").replace("</head>", `${forSignedIn.headTag}</head>`) : null;
+  // a request with no session goes on to the plain file below; the answer depends on the cookie, so a cache keeps the two apart
+  const servePage = async (c: Context, next: () => Promise<void>) => {
+    c.header("Vary", "Cookie", { append: true });
+    if (!(await forSignedIn!.signedIn(c))) return next();
     c.header("Cache-Control", "no-cache");
     return c.html(page!);
   };
@@ -43,7 +47,7 @@ export function staticFiles(app: Hono<any>, root: string, headTag?: string): voi
   app.get(
     "*",
     async (c, next) => {
-      if (!namesFile(c.req.path)) return page ? servePage(c) : next();
+      if (!namesFile(c.req.path)) return page ? servePage(c, next) : next();
       c.header("Cache-Control", "no-store");
       return c.text("Not Found", 404);
     },

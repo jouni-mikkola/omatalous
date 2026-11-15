@@ -12,7 +12,7 @@ one way was never read the other way.
 ## Decision
 
 - Word lists live in `wording.ts` behind named predicates (`isElectricitySeller`, `isNetworkCompany`, `isDaycareText`,
-  `isPurchaseInterestText`, `isCardIssuerText`, `isNordeaAccount` and so on); what a loan page prints, which only
+  `isPurchaseInterestText`, `isCardIssuerText` and so on); what a loan page prints, which only
   loan-intake/ reads, is in `wording-loan-pages.ts`, and what the rules of `categorize-bank-rows.ts` read (a lender by the
   shape of its name, a cash machine's row) is in `wording-lenders.ts`, and the names a car dealer is told by are in
   `wording-car.ts` (0.14.0). Industry (TOL) and card (MCC) codes
@@ -41,4 +41,4 @@ The JSON is imported with `with { type: "json" }`, which Node needs (the finding
 ## Consequences
 
 A new seller, lender or payment word is one line in one file, and every view reads it. More rows are recognised where
-a union grew a list. A predicate that runs for one bank says so in its name (`isNordeaAccount`).
+a union grew a list. A predicate that runs for one bank says so in its name.

@@ -253,12 +253,13 @@ fi
 
 # ── address ──────────────────────────────────────────────────────────────────
 head_ "Address" "Osoite"
+URL_RESPONDS=false
 if [[ -n $URL ]]; then
   if [[ $URL == http://localhost* || $URL == http://127.* ]]; then
     ok "$(t "Address $URL is for this machine only" "Osoite $URL on vain tälle koneelle")"
   else
     http_ok "$URL/api/health" >/dev/null 2>&1; rc=$?
-    if ((rc == 0)); then ok "$(t "Address $URL responds" "Osoite $URL vastaa")"
+    if ((rc == 0)); then URL_RESPONDS=true; ok "$(t "Address $URL responds" "Osoite $URL vastaa")"
     elif ((rc == 2)); then warn "$(t "The address cannot be tried without curl." "Osoitetta ei voi kokeilla ilman curlia.")" "sudo apt install curl"
     else
       case $URL in
@@ -274,10 +275,12 @@ fi
 
 # ── home network address ─────────────────────────────────────────────────────
 # `ip` needs a netlink socket, which the helper's systemd unit does not allow (RestrictAddressFamilies): there it fails
-# with no output, and an empty list would read as "the address is gone". A failing `ip` skips the check.
+# with no output, and an empty list would read as "the address is gone". A failing `ip` skips the check. So does an
+# address that responds above: the machine's own list may not show it (another network namespace, a bridge), and a
+# warning that the address is gone next to "responds" says two things at once.
 host_addr_list() { local out; out=$(ip -4 -o addr show 2>/dev/null) || return 1; awk '{split($4, a, "/"); print a[1]}' <<<"$out"; }
 if [[ -f .env && -n ${BIND:-} && $BIND != 127.0.0.1 && $BIND != localhost && $BIND != 0.0.0.0 && $BIND != "::" ]] && command -v ip >/dev/null \
-  && HOST_ADDRS=$(host_addr_list) && [[ -n $HOST_ADDRS ]]; then
+  && HOST_ADDRS=$(host_addr_list) && [[ -n $HOST_ADDRS ]] && { ! $URL_RESPONDS || grep -xF "$BIND" <<<"$HOST_ADDRS" >/dev/null; }; then
   head_ "Home network address" "Kotiverkon osoite"
   if grep -xF "$BIND" <<<"$HOST_ADDRS" >/dev/null; then
     ok "$(t "The machine has the address $BIND" "Koneella on osoite $BIND")"
