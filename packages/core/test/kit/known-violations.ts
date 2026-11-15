@@ -66,7 +66,10 @@ function months(first: string, last: string): string[] {
 const WITH_EVENTS = (n: number) => `generated:${n}:said:savings:unconnected:benefit-rule+payment-app+namesake+member-fee+refund:1`;
 const JOINT_LOAN = "generated:2:said:joint:connected:base:1";
 const CHECKING_LOAN = "generated:2:said:checking:connected:base:1";
-const YEAR = months("2025-05", "2026-05");
+const FULL_MONTHS = months("2025-04", "2026-05");
+/** The month of today, in which only the top-up of the loan's savings account has been made. */
+const LAST_MONTH = ["2026-06"];
+const JOINT_UNKNOWN = (n: number) => `generated:${n}:unknown:checking:connected:base:1`;
 
 /** The same line in the household view and in the view of the given members of one household. */
 const views = (household: string, view: readonly string[], by: readonly string[] = []): Where[] => view.map((v) => ({ household, view: v, months: by }));
@@ -76,7 +79,14 @@ const [ONE, TWO, THREE, FOUR] = [WITH_EVENTS(1), WITH_EVENTS(2), WITH_EVENTS(3),
 const EVENT_HOUSEHOLDS = [ONE, TWO, THREE, FOUR];
 
 /** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what savings accounts counted. */
-const bridge = (moved: number, saved: number) => `residual -61240, cards 0, moved ${moved}, outside the pool savings:saved ${saved}, savings:debt 61240`;
+const bridge = (moved: number, saved: number) => `residual -61240, moved ${moved}, outside the pool savings:saved ${saved}, savings:debt 61240`;
+/** A bridge line of a month with no savings top-up of the household's own (the month of today) or with the 200 euro one. */
+const topUps = (residual: number, moved: number, month: "full" | "last") => `residual ${residual}, moved ${moved}, outside the pool ${month === "full" ? "savings:saved 20000" : "none"}`;
+/** The joint account's top-ups from the other members' accounts that a member's view counts as income, in each month. */
+const joint = (n: number, view: string, residual: number, moved: number): KnownLine[] => [
+  { line: topUps(residual, moved, "full"), where: views(JOINT_UNKNOWN(n), [view], FULL_MONTHS) },
+  { line: topUps(residual, moved, "last"), where: views(JOINT_UNKNOWN(n), [view], LAST_MONTH) },
+];
 const poolBalance = (start: number, pool: number) => `Käytettävissä starts from ${start}, the pool holds ${pool}`;
 const WALLET_IN = (rows: number) => `${rows} rows: person income counted as income 0, consumption -1800, debt 0`;
 
@@ -86,12 +96,30 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
     check: "I1.bridge",
     reason: "A loan instalment paid from a savings account counts as spending at the lender and again as the top-up of the savings account that paid it, so Tulos is 61240 cents too low in each month.",
     lines: [
-      { line: bridge(0, 81240), where: [...views(ONE, ["household", "m1"], YEAR)] },
-      { line: bridge(0, 101240), where: views(TWO, ["household"], YEAR) },
-      { line: bridge(-9000, 81240), where: [...views(TWO, ["m1"], YEAR), ...views(FOUR, ["m1"], YEAR)] },
-      { line: bridge(0, 121240), where: views(THREE, ["household"], YEAR) },
-      { line: bridge(-5625, 81240), where: views(THREE, ["m1"], YEAR) },
-      { line: bridge(0, 141240), where: views(FOUR, ["household"], YEAR) },
+      { line: bridge(0, 81240), where: [...views(ONE, ["household", "m1"], FULL_MONTHS)] },
+      { line: bridge(0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
+      { line: bridge(-9000, 81240), where: [...views(TWO, ["m1"], FULL_MONTHS), ...views(FOUR, ["m1"], FULL_MONTHS)] },
+      { line: bridge(0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
+      { line: bridge(-5625, 81240), where: views(THREE, ["m1"], FULL_MONTHS) },
+      { line: bridge(0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
+      { line: bridge(0, 61240), where: [...sameIn(EVENT_HOUSEHOLDS, ["household"], LAST_MONTH), ...views(ONE, ["m1"], LAST_MONTH)] },
+      { line: bridge(-9000, 61240), where: [...views(TWO, ["m1"], LAST_MONTH), ...views(FOUR, ["m1"], LAST_MONTH)] },
+      { line: bridge(-5625, 61240), where: views(THREE, ["m1"], LAST_MONTH) },
+    ],
+  },
+  {
+    finding: "joint-top-up-of-another-member-counted-as-income",
+    check: "I1.bridge",
+    reason: "When the joint account is shared, another member's top-up of it arrives in a member's view from an account the view does not hold, and Tulos counts it as money earned, though it only moved between the household's own accounts.",
+    lines: [
+      ...joint(2, "m1", 45000, -45000),
+      ...joint(3, "m1", 90000, -90000),
+      ...joint(3, "m2", 45000, -90000),
+      ...joint(3, "m3", 45000, -90000),
+      ...joint(4, "m1", 135000, -135000),
+      ...joint(4, "m2", 90000, -135000),
+      ...joint(4, "m3", 90000, -135000),
+      ...joint(4, "m4", 90000, -135000),
     ],
   },
   {
@@ -101,6 +129,15 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
     lines: [
       { line: WALLET_IN(4), where: sameIn([ONE, TWO, FOUR], ["household", "m1"]) },
       { line: WALLET_IN(6), where: views(THREE, ["household", "m1"]) },
+    ],
+  },
+  {
+    finding: "wallet-payment-in-under-spending",
+    check: "I3a.money-in",
+    reason: "A payment in through the wallet that names no sender sits in a spending category (groceries), where it counts as spending taken back.",
+    lines: [
+      { line: "4 rows in, null as groceries", where: sameIn([ONE, TWO, FOUR], ["household", "m1"]) },
+      { line: "6 rows in, null as groceries", where: views(THREE, ["household", "m1"]) },
     ],
   },
   {

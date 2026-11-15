@@ -51,13 +51,18 @@ const RANGE = (h: GeneratedHousehold) => ({ from: "2026-01-01", to: h.today });
 const viewName = (v: HouseholdView) => v.member ?? "household";
 const found = (check: Check, h: GeneratedHousehold, v: HouseholdView, line: string, month: string | null = null): Violation => ({ check, household: h.name, view: viewName(v), month, line });
 
-/** I1: in every month, the edges of the history included, Tulos is the change of the pool, less the two named lines (the cards and the moves between daily accounts). */
+/**
+ * I1: in every month, the edges of the history included, Tulos is the change of the pool, less the two named lines (the
+ * cards and the moves between daily accounts). The line of a finding names the residual, the moved line and what the
+ * accounts outside the pool counted. The cards line is left out: it changes with every purchase, is no finding of its
+ * own, and the residual already has it taken off.
+ */
 export function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const pool = poolOf(v.balances);
   const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)).filter((i): i is string => i !== null));
   return bridgeByMonth(v.ctx.txs, v.accounts, pool.ids, daily)
     .filter((m) => m.residualCents !== 0)
-    .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, cards ${m.lines.cards.cents}, moved ${m.lines.moved.cents}, outside the pool ${m.counted.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
+    .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, moved ${m.lines.moved.cents}, outside the pool ${m.counted.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
 }
 
 /**
