@@ -26,7 +26,7 @@ host_if_addrs() { ip -o -4 addr show dev "$1" scope global 2>/dev/null | awk '{s
 # interface name, a Docker bridge and an interface that cannot be read count as one.
 host_if_tunnel() {
   local link
-  [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,31}$ && ! $1 =~ ^(wg|tun|tap|ppp|tailscale|zt|vpn|ipsec|vti|gre|sit|ipip|docker|br-|veth) ]] || return 0
+  [[ $1 =~ ^[A-Za-z0-9][A-Za-z0-9_.:-]{0,31}$ && ! $1 =~ ^(wg|wt|tun|tap|ppp|zt|vpn|ipsec|vti|gre|sit|ipip|docker|br-|veth) ]] || return 0
   link=$(ip -o link show dev "$1" 2>/dev/null) || return 0
   [[ -n $link && $link != *POINTOPOINT* ]] || return 0
   return 1
