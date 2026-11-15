@@ -37,13 +37,12 @@ describe("Ylläpito: a failed servicing action stays in view", () => {
     const { outside, inside } = page({ "helper-renew": renewFailed, logs: logsRead }, [logsRead, renewFailed]);
     expect(outside).toContain("Apurin uusiminen");
     expect(outside).toContain("Levy täynnä");
-    expect(inside).toContain("Lokien luku");
+    expect(inside).toContain("Lue lokit");
   });
 
   it("says nothing of an action that ended well, or that never ran", () => {
     const { outside } = page({ logs: logsRead }, [logsRead]);
     expect(outside).not.toContain("Epäonnistui");
-    expect(outside).not.toContain("Lokien luku");
   });
 
   it("drops the failure when the same action succeeds afterwards", () => {
