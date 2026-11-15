@@ -95,7 +95,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   // a finding of the status check is said outside the fold; its lines are inside
   await expect(page.getByText("Tilassa on huomautettavaa")).toBeVisible();
   await expect(page.locator(".ops-doctor")).toBeHidden();
-  await page.getByText("Näytä tekniset tiedot").click();
+  await page.locator("summary", { hasText: "Näytä tekniset tiedot" }).click();
   // a working helper has its controls on the page
   await expect(page.getByRole("button", { name: "Käynnistä sovellus uudelleen" })).toBeVisible();
   // a version 1 helper does not know logs, prune and helper-renew: the page says so and offers the command

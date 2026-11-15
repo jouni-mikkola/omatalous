@@ -75,7 +75,7 @@ export const EN_SET_OPS: Record<keyof typeof FI_SET_OPS, string> = {
   "ops.restarting_long": "If the page does not come back, restore the previous version on the server: {command}",
   "ops.checked_at": "Results from {time}",
   "ops.doctor_stale": "These results are from before the update. Run the check again.",
-  "ops.doctor_flagged": "The status has findings. See the details under Show technical details.",
+  "ops.doctor_flagged": "The status has findings. Open the technical details to read them.",
   "ops.technical": "Show technical details",
   "ops.action_check_update": "Check",
   "ops.action_update": "Update",

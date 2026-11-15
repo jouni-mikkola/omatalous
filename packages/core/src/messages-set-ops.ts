@@ -77,7 +77,7 @@ export const FI_SET_OPS = {
   "ops.restarting_long": "Jos sivu ei palaa, palauta edellinen versio palvelimella: {command}",
   "ops.checked_at": "Tulokset ajalta {time}",
   "ops.doctor_stale": "Tulokset ovat ajalta ennen päivitystä. Aja tarkistus uudelleen.",
-  "ops.doctor_flagged": "Tilassa on huomautettavaa. Katso tiedot kohdasta Näytä tekniset tiedot.",
+  "ops.doctor_flagged": "Tilassa on huomautettavaa. Avaa tekniset tiedot ja lue ne.",
   "ops.technical": "Näytä tekniset tiedot",
   "ops.action_check_update": "Tarkistus",
   "ops.action_update": "Päivitys",
