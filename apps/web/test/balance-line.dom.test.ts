@@ -116,6 +116,55 @@ describe("BalanceLine with a balance known only lately", () => {
     }
   });
 
+  describe("with days between that are not known", () => {
+    // October 1st to 30th: known 1.-5., not known 6.-10., one known day (11.), not known 12.-13., known 14.-30., and five days after it not known
+    const gap = (i: number): number | null => (i <= 4 || i === 10 || (i >= 13 && i <= 29) ? 100_000 + i * 1000 : null);
+    const gapped = { daily: { from: "2026-10-01", cents: Array.from({ length: 35 }, (_, i) => gap(i)) }, lowest: null, events: [], payDays: [] };
+    /** The points of a path's drawing commands, in order, with the command that drew each. */
+    const pointsOf = (d: string) => [...d.matchAll(/([ML])([\d.]+),([\d.]+)/g)].map((m) => ({ cmd: m[1]!, x: Number(m[2]), y: Number(m[3]) }));
+
+    it("lifts the line over the unknown days: three pieces, each where the known days are", () => {
+      const c = draw(900, gapped as never);
+      const pts = pointsOf(c.querySelector("path.qc-line")!.getAttribute("d")!);
+      // 30 days on the axis (the five unknown ones at the end are no part of it): the last known day is the right edge
+      const step = pts.at(-1)!.x / 29;
+      expect(pts.filter((p) => p.cmd === "M").map((p) => Math.round(p.x / step))).toEqual([0, 10, 13]);
+      expect(pts.map((p) => Math.round(p.x / step))).toEqual([...Array.from({ length: 5 }, (_, i) => i), 10, ...Array.from({ length: 17 }, (_, i) => 13 + i)]);
+      // nothing is drawn on a day with no balance
+      for (const day of [5, 6, 7, 8, 9, 11, 12]) expect(pts.some((p) => Math.abs(p.x - day * step) < 0.6), `day ${day}`).toBe(false);
+      // higher balance, higher on the page: the first piece climbs 1 000 € over four days
+      expect(pts[0]!.y).toBeGreaterThan(pts[4]!.y);
+    });
+
+    it("fills under the known days only, not under the unknown ones", () => {
+      const c = draw(900, gapped as never);
+      const line = pointsOf(c.querySelector("path.qc-line")!.getAttribute("d")!);
+      const step = line.at(-1)!.x / 29;
+      const fill = c.querySelector("path.qc-area")!.getAttribute("d")!;
+      expect(fill.match(/M/g)).toHaveLength(3);
+      expect(fill.match(/Z/g)).toHaveLength(3);
+      const xs = pointsOf(fill).map((p) => p.x / step);
+      for (const x of xs) {
+        const inGap = (x > 4.05 && x < 9.95) || (x > 10.05 && x < 12.95);
+        expect(inGap, `fill at day ${x.toFixed(2)}`).toBe(false);
+      }
+    });
+
+    it("marks a known day between two unknown ones with a dot of its own, and today's dot sits on the last known day", () => {
+      const c = draw(900, gapped as never);
+      const step = pointsOf(c.querySelector("path.qc-line")!.getAttribute("d")!).at(-1)!.x / 29;
+      const lone = [...c.querySelectorAll("circle[data-lone]")];
+      expect(lone).toHaveLength(1);
+      expect(Number(lone[0]!.getAttribute("cx")) / step).toBeCloseTo(10, 1);
+      const last = c.querySelector("circle.qc-dot:not([data-lone])")!;
+      expect(Number(last.getAttribute("cx")) / step).toBeCloseTo(29, 1);
+    });
+
+    it("ends the axis on the last known day: the month after it is not named", () => {
+      expect(monthsOf(draw(900, gapped as never)).map((m) => m.textContent)).toEqual(["loka"]);
+    });
+  });
+
   it("says why there is no line when one day is known", () => {
     const c = draw(366, { ...report, daily: { from: TO, cents: [120_000] }, payDays: [] });
     expect(c.querySelector("svg")).toBeNull();

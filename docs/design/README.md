@@ -111,10 +111,12 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 ### 1.5 Rows, Lisää and Asetukset
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
   Each row is date, name, category as text and amount. Group by merchant is a toolbar choice of the list.
-- Raportit has the list of its reports on every report page, as in 1.0.0: Rahankäyttö (what the tab opens),
-  Tulot (the kinds of income, their payers and months, and the tax year), Kiinteät menot (one table of what a month costs
-  before any choice, each line opening its payments of the last twelve months), Velat, Tilit ja saldot, and Yhteiset
-  menot only with a shared account. A report with nothing to show is not listed.
+- Raportit opens with three questions on every report page: Mihin raha menee? (Rahankäyttö, which the tab opens, with
+  Tulot, the kinds of income, their payers and months and the tax year, and Kiinteät menot, one table of what a month
+  costs before any choice, each line opening its payments of the last twelve months, as its refinements), Miten rahat
+  ja velat kehittyvät? (Tilit ja saldot and Velat) and Miten yhteiset menot jakautuvat? (Yhteiset menot, only with a
+  shared account). The reports of the open question stand under its name. A report with nothing to show is not
+  listed, and a question with no report is not either.
 - Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans), Jäsenet (admin only), Turvallisuus,
   Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
 - Tapahtumat has the two views of 1.0.0, Lista and Kauppiaat (`?view=merchants`), and the rules are under the merchants.
