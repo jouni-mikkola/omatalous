@@ -182,7 +182,9 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
     // money from the wallet with no sender is shares, sales or other income: never pay, never the member's own money
     const wallet = key === WALLET_PAYER_KEY;
     const options = wallet ? WALLET_ROLES : isPerson ? PAYER_ROLES : PAYER_ROLES.filter((r) => r !== "own_money");
-    items.push({ kind: "payer", key, merchant: largest.merchant, cents, count: open.length, rowIds: open.map((t) => t.id), lastDate, options, steady: typical !== undefined, proposal: roleProposal(largest, typical !== undefined, own, ownIbans), offMedianCents, ...(wallet ? { wallet: true as const } : {}) });
+    // a proposal is one of the options: the wallet has no account, so it is never proposed as the member's own money
+    const proposed = roleProposal(largest, typical !== undefined, own, ownIbans);
+    items.push({ kind: "payer", key, merchant: largest.merchant, cents, count: open.length, rowIds: open.map((t) => t.id), lastDate, options, steady: typical !== undefined, proposal: proposed && options.includes(proposed) ? proposed : null, offMedianCents, ...(wallet ? { wallet: true as const } : {}) });
     for (const t of open) covered.add(t.merchant);
   }
   return { items, covered };

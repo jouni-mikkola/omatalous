@@ -9,7 +9,7 @@ import { fold } from "./merchant.ts";
 export const SHARE_DAYS = 7;
 /** A share is the purchase divided by the number of payers, within this many cents. */
 const SHARE_TOLERANCE = 100;
-/** A lone share is also within this part of the exact share (a fifth), so a small row is no share of anything. */
+/** A share joining a group already matched is also within this part of the exact share (a fifth), so a small row is no share of anything. */
 const SHARE_PART = 5;
 /** The most people one purchase is split between, and the fewest. */
 const MIN_PAYERS = 2;
@@ -67,10 +67,12 @@ const isOthersTogether = (sum: number, purchase: number): boolean => {
 /**
  * Incoming row id → the purchase it paid a share of. A row looks at the purchases 0 to `SHARE_DAYS` days before it
  * (a purchase the row is not larger than): the nearest in time first, then the larger. A purchase takes it when the
- * row is about the purchase divided by 2 to 10, and the shares taken stay under the purchase; or, when the row alone is
- * no share, when it and the rows still unmatched in that purchase's window (two at least) together come to the purchase
- * less one share. A row nets against one purchase at most. Rows are read in date and id order and each is decided from
- * itself and the rows before it, so a row that arrives later never moves a match made already.
+ * row and the rows still unmatched in that purchase's window (two at least) together come to the purchase less one
+ * share. Once a purchase has shares, a later row joins it when the row is about the purchase divided by 2 to 10 and the
+ * shares taken stay under the purchase. A lone row is no match: a sum that fits a purchase once is a coincidence, and
+ * it stays income until the household answers (the payer question). A row nets against one purchase at most. Rows are
+ * read in date and id order and each is decided from itself and the rows before it, so a row that arrives later never
+ * moves a match made already.
  */
 export function matchMobilePayShares(purchases: readonly Dated[], incoming: readonly Dated[]): Map<string, string> {
   const rows = [...incoming].sort((a, b) => a.day - b.day || (a.id < b.id ? -1 : 1));
@@ -90,7 +92,7 @@ export function matchMobilePayShares(purchases: readonly Dated[], incoming: read
     pending.push(row);
     let done = false;
     for (const p of near) {
-      if ((taken.get(p.id) ?? 0) + row.cents < p.cents && isShareOf(row.cents, p.cents)) {
+      if ((taken.get(p.id) ?? 0) > 0 && (taken.get(p.id) ?? 0) + row.cents < p.cents && isShareOf(row.cents, p.cents)) {
         claim(p, [row]);
         done = true;
         break;
