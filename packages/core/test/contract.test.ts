@@ -100,7 +100,7 @@ describe("a contract from a series", () => {
 
   it("the pipeline pairs a refund that is the newest row once the day it is given is 76 or more days after the last payment", () => {
     const rows = [...lease(), refund(1800)];
-    const refundRow = (today?: string) => enrichTransactions(rows, [checking], [], undefined, undefined, undefined, today).find((t) => t.id === rows.at(-1)!.id);
+    const refundRow = (today?: string) => enrichTransactions(rows, [checking], [], undefined, undefined, today).find((t) => t.id === rows.at(-1)!.id);
     // the last rent is on 2026-01-05: day 75 is 2026-03-21
     expect(refundRow("2026-03-25")).toMatchObject({ category: "leasing", categorySource: "match" });
     expect(refundRow("2026-03-10")).toBeUndefined();
@@ -116,7 +116,7 @@ describe("a contract from a series", () => {
 
   it("a merchant island gives the answer of the full run, given the same day", () => {
     const rows = [...lease(), refund(1800)];
-    const full = enrichTransactions(rows, [checking], [], undefined, undefined, undefined, today);
+    const full = enrichTransactions(rows, [checking], [], undefined, undefined, today);
     const stored = rows.map((t) => full.find((c) => c.id === t.id) ?? t);
     expect(stored.at(-1)).toMatchObject({ category: "leasing", categorySource: "match" });
     const input = { rows: stored, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [] };

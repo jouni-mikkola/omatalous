@@ -113,7 +113,6 @@ const EN: Record<BaseCodes, string> = {
   "check.flag": "The value must be on or off.",
   "check.date_range": "Invalid period.",
   "check.date": "Invalid date.",
-  "check.loan": "Unknown loan.",
   "check.body_shape": "The request body has the wrong shape.",
   "check.field": "Unknown field: {name}",
   "check.field_bad": "Invalid field.",

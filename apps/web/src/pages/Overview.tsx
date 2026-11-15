@@ -68,7 +68,7 @@ export function Overview({
       <FirstFetch meta={meta} onReload={onReload} />
       {nyt ? (
         <>
-          <Tiles data={{ ...data, nyt }} scope={scope} />
+          <Tiles data={{ ...data, nyt }} />
           <Months data={data} today={meta.today} />
           <Bills data={{ ...data, nyt }} />
           <Categories data={{ ...data, nyt }} />
@@ -76,7 +76,7 @@ export function Overview({
       ) : (
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
-      <Holdings holdings={data.holdings} meta={meta} scope={scope} ahead={data.ahead} title={t("home.accounts_title")} />
+      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} title={t("home.accounts_title")} />
     </div>
   );
 }

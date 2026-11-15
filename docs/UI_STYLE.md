@@ -55,8 +55,8 @@ Finnish: *Lisää tilit Enable Bankingissa (API applications > Omatalous > Link 
 
 A glossary row is changed together with the text that breaks it. Rules 12 and 28 of the repo rules keep some older
 words out (*tilitapahtuma*, *löydös*, *kulut* for spending), and rule 35 keeps out the words named in the table:
-*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure, *linkitä*, *luokka* for a category, *odotettu* for what a month usually costs and *kello* before a time. The figure registry and
-the Why text of the expected figure keep ADR 0020's *Odotettu* until it is settled (`pending`). It also refuses the passive *Näin katetaan*, *katetaan*,
+*optimoi*, *Yli jäi*, *Tileillä* as the name of a figure, *linkitä*, *luokka* for a category, *odotettu* for what a month usually costs and *kello* before a time. The figure registry
+keeps ADR 0020's *Odotettu* until it is settled (`pending`). It also refuses the passive *Näin katetaan*, *katetaan*,
 a text that begins with *Luetaan*, *Testataan*, *Tarkistetaan* or *Lasketaan*, and a question heading that begins with
 *Mihin*, *Miten*, *Mistä*, *Mitkä*, *Milloin*, *Kuinka*, *Paljonko*, *Kestääkö* and the like. The last two are not yet
 enforced for the files of the parts still to come (`pending` in `tools/repo-rules/glossary.ts`).

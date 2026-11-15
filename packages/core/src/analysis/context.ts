@@ -1,7 +1,6 @@
 import type { RowParts } from "./row-parts.ts";
 import { type CategoryKind, getCategory } from "../categories.ts";
 import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
-import type { WhyCollector } from "../explain/types.ts";
 import { isMobilePay } from "../industry.ts";
 import type { ForeignDay } from "../foreign-rows.ts";
 import { fold } from "../merchant.ts";
@@ -133,8 +132,8 @@ export function standingById(ctx: Pick<AnalysisContext, "txs" | "standing">): Re
  * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money
  * will be in the account next month.
  */
-export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = [], why?: WhyCollector): AnalysisContext {
-  return drain(contextSteps(transactions, accounts, today, standing, foreignRows, history, statements, why));
+export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = []): AnalysisContext {
+  return drain(contextSteps(transactions, accounts, today, standing, foreignRows, history, statements));
 }
 
 /** Runs the stages of a build in one go. */
@@ -158,7 +157,7 @@ export async function createContextPausing(pause: () => Promise<void>, ...args: 
   return step.value;
 }
 
-function* contextSteps(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = [], why?: WhyCollector): Generator<void, AnalysisContext, void> {
+function* contextSteps(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = []): Generator<void, AnalysisContext, void> {
   const cut = standing && (yield* contextSteps(standing, accounts, today));
   const savingsIds = new Set(accounts.filter((a) => a.type === "savings").map((a) => a.id));
   // a loan payment account is no loan account: its transfers in are the household's own and its instalments out are the loan's payments
@@ -189,7 +188,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const byId = new Map(txs.map((t) => [t.id, t]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
   const returns = new Map<string, string>();
-  for (const [id, refund] of moneyIn(txs, ownIbans, why, today)) {
+  for (const [id, refund] of moneyIn(txs, ownIbans, today)) {
     const t = byId.get(id)!;
     if (!refund) {
       t.flows = incomeOf(t.amountCents);

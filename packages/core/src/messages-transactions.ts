@@ -130,6 +130,7 @@ export const FI_TRANSACTIONS = {
   "category.cash": "Käteisnostot",
   "category.p2p": "Maksut henkilöille",
   "category.card_bill": "Luottokortin lasku",
+  "spending.card_bill_unitemised": "Korttilaskut ilman erittelyä",
   "category.other": "Muut menot",
   "category.mortgage": "Asuntolaina",
   "category.loans": "Kulutusluotot",

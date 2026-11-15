@@ -19,10 +19,9 @@ import { date, money, moneyIn } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
 import { LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
-import type { DashboardData, Meta, ReconcileState, Scope } from "../../../types.ts";
+import type { DashboardData, Meta, ReconcileState } from "../../../types.ts";
 import { cardBankOf } from "../../../components/BankLogo.tsx";
 import { Figure } from "../../../components/Figure.tsx";
-import { Why } from "../../../components/Why.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
@@ -64,13 +63,13 @@ function Name({ name, href, mask }: { name: string; href: string; mask: string |
 }
 
 /** The last row of a group: its total, bold over a rule, set as a figure of the middle size. */
-function Total({ label, cents, note, door }: { label: ReactNode; cents: number | null; note?: string | undefined; door?: (text: string, figure: ReactNode) => ReactNode }) {
+function Total({ label, cents, note }: { label: ReactNode; cents: number | null; note?: string | undefined }) {
   return (
     <dl className="st-rows">
       <div className="st-row st-total">
         <dt className="st-name">{label}</dt>
         <dd className="st-num">
-          {door && cents !== null ? door(figure(cents), <Figure text={figure(cents)} size="m" />) : <Figure text={figure(cents)} size="m" />}
+          <Figure text={figure(cents)} size="m" />
         </dd>
         {note && <dd className="st-sub">{note}</dd>}
       </div>
@@ -223,15 +222,9 @@ function Cards({ holdings, meta, ahead }: { holdings: Answer; meta: Meta; ahead:
   );
 }
 
-/** Where a loan figure of the block opens its calculation: today's, in the view the page shows. */
-interface Door {
-  scope: Scope;
-  today: string;
-}
-
-function Loans({ holdings, door }: { holdings: Answer; door: Door }) {
+/** The loans show the figures of the report Lainat, whose calculations open there: no door is repeated here. */
+function Loans({ holdings }: { holdings: Answer }) {
   const { loans, loansCents } = holdings;
-  const day = { from: door.today, to: door.today };
   return (
     <section>
       <h3 className="st-cap">{t("holdings.loans")}</h3>
@@ -246,42 +239,24 @@ function Loans({ holdings, door }: { holdings: Answer; door: Door }) {
           >
             {!l.paidOff && (
               <FigureRow label={t("holdings.left")}>
-                {l.leftCents === null ? (
-                  figure(l.leftCents)
-                ) : (
-                  <Why figure="loan.balance" loan={l.id} title={t("holdings.left_named", { name: l.name })} range={day} scope={door.scope} text={money(l.leftCents)}>
-                    {money(l.leftCents)}
-                  </Why>
-                )}
+                {l.leftCents === null ? figure(l.leftCents) : money(l.leftCents)}
               </FigureRow>
             )}
             {l.monthlyPaymentCents !== null && (
               <FigureRow label={t("holdings.monthly")}>
-                <Why figure="loan.monthly" loan={l.id} title={t("holdings.monthly_named", { name: l.name })} range={day} scope={door.scope} text={money(l.monthlyPaymentCents)}>
-                  {money(l.monthlyPaymentCents)}
-                </Why>
+                {money(l.monthlyPaymentCents)}
               </FigureRow>
             )}
           </Unit>
         ))}
       </ul>
-      {loansCents !== null && loansCents > 0 && (
-        <Total
-          label={t("holdings.loans_total")}
-          cents={loansCents}
-          door={(text, shown) => (
-            <Why figure="holdings.loans" title={t("holdings.loans_total")} range={day} scope={door.scope} text={text}>
-              {shown}
-            </Why>
-          )}
-        />
-      )}
+      {loansCents !== null && loansCents > 0 && <Total label={t("holdings.loans_total")} cents={loansCents} />}
     </section>
   );
 }
 
 /** `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading. */
-export function Holdings({ holdings, meta, scope, ahead, title = t("holdings.title") }: { holdings: Answer; meta: Meta; scope: Scope; ahead?: Ahead | null; title?: string }) {
+export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string }) {
   const { accounts, cards, loans, debtCents, unsavedLoans, netCents } = holdings;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
@@ -315,7 +290,7 @@ export function Holdings({ holdings, meta, scope, ahead, title = t("holdings.tit
       </div>
       <div className={columns}>
         {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} />}
-        {loans.length > 0 && <Loans holdings={holdings} door={{ scope, today: meta.today }} />}
+        {loans.length > 0 && <Loans holdings={holdings} />}
         {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} />}
       </div>
       {(debts || unsaved) && (
@@ -324,9 +299,7 @@ export function Holdings({ holdings, meta, scope, ahead, title = t("holdings.tit
             <div className="st-row">
               <dt className="st-name st-strong">{t("holdings.debts_total")}</dt>
               <dd className="st-num st-strong">
-                <Why figure="loans.total" title={t("holdings.debts_total")} range={{ from: meta.today, to: meta.today }} scope={scope} text={money(debtCents)}>
-                  {money(debtCents)}
-                </Why>
+                {money(debtCents)}
               </dd>
             </div>
           )}

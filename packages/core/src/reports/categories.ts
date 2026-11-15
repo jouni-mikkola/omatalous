@@ -12,7 +12,7 @@ import { fromMonthIndex, monthIndex } from "../dates.ts";
 import { coverOf, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, previousRange, toDayRange } from "../analysis/period.ts";
 import { type CategoryPart, categoryParts } from "../analysis/row-parts.ts";
-import { categoryLabel } from "../category-names.ts";
+import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { themeName, THEMES } from "../themes.ts";
 import { carsOf, fullMonths, placeLabel, placeOf, rangeMonthIndexes, themeHeading } from "./shared.ts";
@@ -189,7 +189,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
       const parts = categoryParts(rowsOf.get(key) ?? [], ctx.rowParts, category);
       return {
         category,
-        label: placeLabel(theme, category, categoryLabel(c, lang), lang),
+        label: placeLabel(theme, category, spendingLabel(c, lang), lang),
         group: themeHeading(theme, lang),
         kind: c.kind,
         totalCents: e.total,

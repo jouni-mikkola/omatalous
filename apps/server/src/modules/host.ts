@@ -4,6 +4,7 @@
  * work, the rate limits) exists once, the app's own copy.
  */
 import * as core from "@banking/core";
+import { moduleApiOf } from "@banking/core";
 import * as hono from "hono";
 import * as cliArgs from "../cli-args.ts";
 import * as demoData from "../demo-data.ts";
@@ -32,7 +33,8 @@ export interface ModuleHost {
 /** The shared modules by the specifier docs/MODULES.md gives each. A new one is added there first. */
 const HOST_MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   hono,
-  "@banking/core": core,
+  // a module's `categorize` reads a user's rule by its direction, like the app's own rows do (repo rule 51)
+  "@banking/core": moduleApiOf(core),
   "cli-args": cliArgs,
   "demo-data": demoData,
   "platform/errors": errors,

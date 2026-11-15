@@ -167,7 +167,7 @@ const WEEKS_PER_MONTH = 52 / 12;
 const stillPaying = (b: IncomeBase, s: IncomeBase["series"][number]) => dayNumber(b.end) - s.rows[s.rows.length - 1]!.day <= s.gapDays + 10;
 
 /** The usual regular income of a month: the median of the complete months of the usual period, null under three or when it is not above 0. */
-export function usualRegularCents(cents: readonly number[]): number | null {
+function usualRegularCents(cents: readonly number[]): number | null {
   if (cents.length < MIN_COMPARE_MONTHS) return null;
   const mid = median(cents);
   return mid > 0 ? Math.round(mid) : null;

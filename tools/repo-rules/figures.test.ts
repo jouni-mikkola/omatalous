@@ -1,6 +1,6 @@
 import ts from "typescript6";
 import { describe, expect, it } from "vitest";
-import { figureProblems, figureWords, looseLimits, ownLevels, partWholeProblems, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
+import { figureProblems, figureWords, looseLimits, ownLevels, partWholeProblems, partWholeReads, rowProblems, shapeProblems, wordProblems } from "./figures.ts";
 
 const files: Record<string, string> = { "a.ts": "export function dueOf() { return { dueCents: 1 }; }", "b.ts": "export function billMonth() { return { dueCents: 2 }; }" };
 const read = (f: string) => files[f] ?? null;
@@ -107,6 +107,18 @@ describe("rule 52 detection", () => {
     const found = wordProblems(figureWords(doc), new Set<string>(), ["Gone"]);
     expect(found.map((p) => `${p.where} ${p.word}`)).toEqual(["doc Tulot", "doc Katettu luotolla", "doc Katettu säästöistä", "baseline Gone"]);
     expect(wordProblems(figureWords(doc), new Set(["tulot"]), ["Tulot", "Katettu luotolla", "Katettu säästöistä"]).map((p) => `${p.where} ${p.word}`)).toEqual(["baseline Tulot"]);
+  });
+
+  it("accepts an entry that has its row, in any case", () => {
+    expect(rowProblems({ a: { ...base, name: "tulot" } }, figureWords(doc))).toEqual([]);
+  });
+
+  it("refuses an entry with no row in the table, also one that a second table below it names", () => {
+    const found = rowProblems({ a: { ...base, name: "Menot" }, b: { ...base, name: "Other" }, c: { ...base, name: "Tulot" } }, figureWords(doc));
+    expect(found).toEqual([
+      { id: "a", why: expect.stringContaining("*Menot* has no row") },
+      { id: "b", why: expect.stringContaining("*Other* has no row") },
+    ]);
   });
 });
 

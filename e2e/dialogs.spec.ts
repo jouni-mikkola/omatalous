@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
 // Closing a dialog by Escape or by Peruuta puts the focus back on the button that opened it. One test per kind of
-// dialog: the question (ConfirmDialog), the loan form, the panel of a figure's rows (Why) and the password form.
+// dialog: the question (ConfirmDialog), the loan form and the password form.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 
@@ -44,25 +44,6 @@ test("the question about a loan and its form hand the focus back to the button t
     if (id) await context.request.delete(`/api/loans/${id}`, { headers: FETCH });
     await context.close();
   }
-});
-
-test("the panel of a figure's rows hands the focus back", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  // the Menot tile of Yhteenveto is a door to its rows: Rahankäyttö opens a category in place
-  await page.goto("/#/overview");
-  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  const opener = page.locator("[data-tile=spent] button.why-door");
-  await expect(opener).toBeVisible({ timeout: 15_000 });
-  await opener.click();
-  const panel = page.getByRole("dialog");
-  await expect(panel).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
-  await expect(opener).toBeFocused();
-  expect(seen.problems).toEqual([]);
-  await context.close();
 });
 
 test("the password form of a maintenance act hands the focus back", async ({ browser }) => {

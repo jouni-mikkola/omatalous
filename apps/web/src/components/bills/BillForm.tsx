@@ -85,7 +85,6 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
           </select>
         </label>
       </div>
-      <p className="muted small">{t("bills.form.note")}</p>
       <div className="form-row">
         <Button onClick={onCancel}>{t("form.cancel")}</Button>
         <Button variant="primary" type="submit" busy={saving}>

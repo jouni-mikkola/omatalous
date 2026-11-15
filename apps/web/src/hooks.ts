@@ -111,7 +111,7 @@ export function navigate(page: string, params: Record<string, string | undefined
   else window.location.hash = hash;
 }
 
-/** What App fetched from /api/meta, once per load: Notices and Why read it here instead of asking again. Null until the answer is there. */
+/** What App fetched from /api/meta, once per load: Notices reads it here instead of asking again. Null until the answer is there. */
 export const MetaContext = createContext<Meta | null>(null);
 
 export const useMeta = (): Meta | null => useContext(MetaContext);

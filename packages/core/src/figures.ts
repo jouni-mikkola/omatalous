@@ -8,7 +8,7 @@
  * that carries it and holds them equal. The limits the figures use are in `thresholds.ts`.
  *
  * Each figure says which view it is told for (`scope`) and whether the members' own views add up to the household's
- * (`additive`). Rule 52 holds the shape of an entry and the names of docs/MONEY_FLOWS.md to this list.
+ * (`additive`). Rule 52 holds the shape of an entry to this list, and the names of docs/MONEY_FLOWS.md and the entries here to each other.
  */
 
 type FigureUnit = "cents" | "share" | "months";

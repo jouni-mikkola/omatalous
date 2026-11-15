@@ -1,0 +1,10 @@
+/*
+ * An estimate has one mark: "≈" before the figure (.fig-approx), or a dotted underline in the muted colour (.fig-est)
+ * where the sign does not fit. A chart draws an estimate's line dashed (.est-line).
+ */
+@layer components {
+.fig-est { text-decoration: underline dotted var(--hairline) var(--muted); text-underline-offset: var(--sp-4); }
+.fig-approx { display: inline-flex; align-items: baseline; gap: var(--sp-4); }
+.fig-approx-sign { color: var(--text-2); font-weight: var(--w-regular); }
+.est-line { fill: none; stroke: var(--estimate-edge); stroke-dasharray: 4 4; }
+}

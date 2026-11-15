@@ -16,5 +16,10 @@ export function ownRuleOf(input: CategorizeInput, category: string, ownRules: re
   const own = ownRules.filter((r) => r.byUser);
   const all = categorizeInDirection(input, [...own, ...BUILTIN_RULES]);
   if (!all.byUser || all.category !== category) return null;
-  return own.find((r) => categorizeInDirection(input, [r, ...BUILTIN_RULES]).byUser) ?? null;
+  // the rule alone must give the row's category too: an earlier rule of spending that the direction stage passed by for money in still reads as the user's when the built-in rules file the row under spending as well
+  const givesCategory = (r: CompiledRule) => {
+    const alone = categorizeInDirection(input, [r, ...BUILTIN_RULES]);
+    return alone.byUser && alone.category === category;
+  };
+  return own.find(givesCategory) ?? null;
 }

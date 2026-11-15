@@ -23,8 +23,6 @@
  * The rows are the view's, as the view counts them: on a joint account the rule works on the member's part.
  */
 import { CLOSING_REFUND_DAYS, closedContract } from "../contract.ts";
-import { monthIndex } from "../dates.ts";
-import type { WhyCollector } from "../explain/types.ts";
 import type { IsoDate } from "../types.ts";
 import { isNamed, pairedReturns, REFUND_WINDOW_DAYS } from "../returns.ts";
 import type { AnalysisTx } from "./context.ts";
@@ -50,7 +48,7 @@ interface Payment {
  * Every row of money in that `flowsOf` reads as spending below zero, by its id: the refund it is, or null when it is
  * income. The result depends on the rows only, not on their order.
  */
-export function moneyIn(rows: readonly Row[], ownIbans: ReadonlySet<string>, why?: WhyCollector, today?: IsoDate): Map<string, Refund | null> {
+export function moneyIn(rows: readonly Row[], ownIbans: ReadonlySet<string>, today?: IsoDate): Map<string, Refund | null> {
   const out = new Map<string, Refund | null>();
   // the view's today; the newest row where the caller gives none
   const now = today ?? rows.reduce((day, t) => (t.bookingDate > day ? t.bookingDate : day), "0000-00-00");
@@ -101,13 +99,6 @@ export function moneyIn(rows: readonly Row[], ownIbans: ReadonlySet<string>, why
         lateRefundOf(t, ownLate ? late : undefined) ??
         (t.categorySource === "user" || t.categorySource === "payer" ? [] : null),
     );
-  }
-  if (why) {
-    const byId = new Map(rows.map((t) => [t.id, t]));
-    for (const [id, refund] of out) {
-      const at = monthIndex(byId.get(id)!.bookingDate.slice(0, 7));
-      for (const [paymentId, cents] of refund ?? []) why.add(id, { rule: "refund.net", purchase: paymentId, months: at - monthIndex(byId.get(paymentId)!.bookingDate.slice(0, 7)), cents });
-    }
   }
   return out;
 }

@@ -10,10 +10,4 @@ describe("the tiles of Yhteenveto", () => {
     expect(body(".home-tiles")).toMatch(/grid-template-columns: repeat\(4, minmax\(0, 1fr\)\)/);
     expect(body(".home-tiles")).toMatch(/grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
   });
-
-  // the tile that opens its rows' panel is a button (`why-door`, with no `why-fig`): it wore the browser's grey box and outset border
-  it("draw the button tile as the links beside it", () => {
-    expect(body("button.home-tile")).toMatch(/border: 0/);
-    expect(body("button.home-tile")).toMatch(/background: none/);
-  });
 });

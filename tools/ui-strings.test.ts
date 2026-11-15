@@ -188,7 +188,7 @@ describe("pnpm strings on this repository", () => {
   });
 
   it("runs from the command line: --file is the same lines as the whole list, an unknown option is refused", () => {
-    const file = "apps/web/src/components/NextDays.tsx";
+    const file = "apps/web/src/pages/Review.tsx";
     const one = spawnSync(process.execPath, ["tools/ui-strings.mjs", "--file", file], { cwd: REPO, encoding: "utf8" });
     expect(one.status).toBe(0);
     expect(one.stdout.trimEnd().split("\n")).toEqual(lines(repo).filter((l) => l.startsWith(`${file}:`)));

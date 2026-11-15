@@ -6,6 +6,7 @@ import * as React from "react";
 import * as jsxRuntime from "react/jsx-runtime";
 import * as ReactDom from "react-dom";
 import * as core from "@banking/core";
+import { moduleApiOf } from "@banking/core";
 import * as api from "./api.ts";
 import * as hooks from "./hooks.ts";
 import * as format from "./format.ts";
@@ -24,7 +25,6 @@ import * as Figure from "./components/Figure.tsx";
 import * as Loading from "./components/Loading.tsx";
 import * as More from "./components/More.tsx";
 import * as Section from "./components/Section.tsx";
-import * as Why from "./components/Why.tsx";
 import * as Cells from "./components/table/Cells.tsx";
 import * as KeyValue from "./components/table/KeyValue.tsx";
 import * as Table from "./components/table/Table.tsx";
@@ -37,7 +37,8 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   react: React,
   "react/jsx-runtime": jsxRuntime,
   "react-dom": ReactDom,
-  "@banking/core": core,
+  // a module's `categorize` reads a user's rule by its direction, like the app's own rows do (repo rule 51)
+  "@banking/core": moduleApiOf(core),
   api,
   hooks,
   format,
@@ -56,7 +57,6 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   "components/Loading": Loading,
   "components/More": More,
   "components/Section": Section,
-  "components/Why": Why,
   "components/table/Cells": Cells,
   "components/table/KeyValue": KeyValue,
   "components/table/Table": Table,

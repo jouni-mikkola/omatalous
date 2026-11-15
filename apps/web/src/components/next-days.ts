@@ -124,8 +124,6 @@ interface Line {
   pending?: boolean;
   /** A pay's sum as the table prints it ("noin 2 480 €", "2 100–2 900 €"), null when the pay has none; a bill's is its cents. */
   sum?: string | null;
-  /** The pay the window waits for: its sum as the door shows it, "≈" in front (`ahead.pay`). */
-  payday?: string;
 }
 
 const lineOf = (r: Payment): Line => ({ day: dayMonth(r.date), name: r.name, note: SOURCE[r.source].note(r), merchant: SOURCE[r.source].merchant ? r.name : null, cents: Math.abs(r.cents), estimate: isEstimate(r), ...(r.pending ? { pending: true } : {}) });
@@ -142,8 +140,6 @@ type Pay = NonNullable<Row["pay"]>;
 interface Arrival {
   date: string;
   name: string;
-  /** The pay the window waits for, whose estimate opens its basis (`ahead.pay`); other pay that lands inside it has none. */
-  payday?: true;
   /** The estimate of the pay, null when too few pays came to say a sum. */
   pay: Pay | null;
 }
@@ -155,7 +151,7 @@ interface Arrival {
 export function arrivals(ahead: Ahead): Arrival[] {
   const { payday, reason } = ahead;
   const list: Arrival[] = ahead.rows.filter((r) => r.source === "income").map((r) => ({ date: r.date, name: r.name, pay: r.pay ?? null }));
-  if (reason === "payday" && payday) list.push({ date: payday.expected ?? payday.date, name: payday.name, pay: payday.pay, payday: true });
+  if (reason === "payday" && payday) list.push({ date: payday.expected ?? payday.date, name: payday.name, pay: payday.pay });
   return list;
 }
 
@@ -170,14 +166,8 @@ const range = (low: number, high: number): string => `${figure(low)}–${money(h
  * floor to ceiling. Null without an estimate: the row has its day and no sum.
  */
 export function paySum(pay: Pay | null): string | null {
-  const f = payFigure(pay);
-  return f && pay!.kind === "steady" ? t("ahead.about", { sum: f }) : f;
-}
-
-/** The pay's sum without its word of estimate, for the door that marks it with "≈" (Why): the usual sum, or the range. */
-function payFigure(pay: Pay | null): string | null {
   if (!pay) return null;
-  return pay.kind === "steady" ? money(pay.usualCents, false) : range(pay.floorCents, pay.ceilCents);
+  return pay.kind === "steady" ? t("ahead.about", { sum: money(pay.usualCents, false) }) : range(pay.floorCents, pay.ceilCents);
 }
 
 /**
@@ -193,7 +183,7 @@ export function payNote({ payday, reason }: Ahead): string | null {
 
 /** The arrivals as the lines of the second table: every one is projected from the pays that came, so every one is an estimate. */
 export const incoming = (ahead: Ahead): Line[] =>
-  arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.pay?.floorCents ?? null, estimate: true, sum: paySum(a.pay), ...(a.payday && a.pay ? { payday: payFigure(a.pay)! } : {}) }));
+  arrivals(ahead).map((a) => ({ day: dayMonth(a.date), name: a.name, note: null, merchant: a.name, cents: a.pay?.floorCents ?? null, estimate: true, sum: paySum(a.pay) }));
 
 /** What the table of the payments is about, for a reader of the page that has no eyes for it. */
 export function paymentsCaption(ahead: Ahead): string {

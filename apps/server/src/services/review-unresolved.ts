@@ -3,7 +3,7 @@
  * `card_payer_unseen`): one notice for all of them, with the debt Käytettävissä takes off for them. Its answers are the
  * bank connections, where connecting the account that pays the card proves it, and a mark `dismissed` that holds until a
  * card joins that no dismissal named (core unresolved-answer.ts). A card paid from the counted accounts and from
- * others, and a balance no row proves, have no answer of the household's: they show in Miksi? and Tietojen laatu only.
+ * others, and a balance no row proves, have no answer of the household's: they show in Tietojen laatu only.
  */
 import { cashAhead, type UnresolvedReason, unresolvedDismissed, unresolvedSubject } from "@banking/core";
 import { requestInputs } from "./analysis.ts";
