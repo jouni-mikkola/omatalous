@@ -99,7 +99,7 @@ describe("the home loans of Asuminen", () => {
   it("only a home loan that is still owed is a row, and a loan that tells no payment leaves the total partial", () => {
     const { housing } = page([], [loan({ id: "other", kind: "consumer" }), loan({ id: "paid", balanceCents: 0 }), loan({ id: "open", repayment: null, intervalMonths: null, paymentCents: null }), loan({ id: "home" })]);
     expect(Object.fromEntries(housing!.loans.map((row) => [row.id, row.monthlyCents]))).toEqual({ open: null, home: 91_240 });
-    expect(housing).toMatchObject({ totalMonthlyCents: 91_240, partial: true, ask: false });
+    expect(housing).toMatchObject({ loansMonthlyCents: null, totalMonthlyCents: null, partial: true, ask: false });
     // a home loan paid off is no row, and nothing is asked of a household that saved one
     expect(page([], [loan({ id: "paid", balanceCents: 0 })]).housing).toBeNull();
   });
@@ -173,7 +173,7 @@ describe("the home loans of Asuminen", () => {
     const two = page([...instalments(), ...other], [bare]);
     const months = monthOf(two.ctx, "TOINEN PANKKI")[0]!;
     expect(shown(two.housing!)).toEqual([["home", "ESIMERKKIPANKKI", null], [null, "ESIMERKKIPANKKI", 91_240], [null, "TOINEN PANKKI", months]]);
-    expect(two.housing).toMatchObject({ totalMonthlyCents: 91_240 + months, partial: true });
+    expect(two.housing).toMatchObject({ loansMonthlyCents: null, chargesMonthlyCents: 0, totalMonthlyCents: null, partial: true });
 
     // two loans with no payment and one series: neither is told from the other, so the series stays a row of its own
     const both = page(instalments(), [bare, loan({ ...bare, id: "second" })]);
@@ -203,7 +203,7 @@ describe("the home loans of Asuminen", () => {
     // the partner typed nothing: the payments are a row without terms, at his part
     const partner = view(his, []);
     expect(shown(partner.housing!)).toEqual([[null, "ESIMERKKIPANKKI", 36_496]]);
-    expect(own.housing!.totalMonthlyCents + partner.housing!.totalMonthlyCents).toBe(household.housing!.totalMonthlyCents);
+    expect(own.housing!.totalMonthlyCents! + partner.housing!.totalMonthlyCents!).toBe(household.housing!.totalMonthlyCents);
     // near miss: the payments leave an account that is the viewer's whole, so the row is whole and says no part
     expect(page(instalments(), [typed], [], [checking, { ...joint, part: mine }]).housing).toMatchObject({ totalMonthlyCents: 91_240, atPart: false });
     // each row says whose part it holds: the loan that takes the payments, the payments with no loan, and no part on a whole row
@@ -404,12 +404,13 @@ describe("Asuminen against the first page's holdings", () => {
         const s = ctx.recurring.find((r) => r.id === c.seriesId);
         if (!s || (s.category !== "housing" && s.category !== "utilities") || s.monthlyCents !== c.monthlyCents) problems.push(`${seed}: the charge ${c.seriesId}`);
       }
-      const sum = [...housing.loans, ...housing.charges].reduce((total, row) => total + (row.monthlyCents ?? 0), 0);
+      // a row that tells no month leaves the sum null: no sum passes for the whole by leaving it out
+      const months = (of: readonly { monthlyCents: number | null }[]) => (of.some((row) => row.monthlyCents === null) ? null : of.reduce((total, row) => total + row.monthlyCents!, 0));
+      const sum = months([...housing.loans, ...housing.charges]);
       if (housing.totalMonthlyCents !== sum) problems.push(`${seed}: the total ${housing.totalMonthlyCents} against ${sum}`);
       // the two sums are the loans' rows and the charges' rows, and nothing is in both
-      const months = (of: readonly { monthlyCents: number | null }[]) => of.reduce((total, row) => total + (row.monthlyCents ?? 0), 0);
       if (housing.loansMonthlyCents !== months(housing.loans) || housing.chargesMonthlyCents !== months(housing.charges)) problems.push(`${seed}: the two sums`);
-      if (housing.loansMonthlyCents + housing.chargesMonthlyCents !== housing.totalMonthlyCents) problems.push(`${seed}: the sums against the total`);
+      if (housing.loansMonthlyCents === null ? housing.totalMonthlyCents !== null : housing.loansMonthlyCents + housing.chargesMonthlyCents !== housing.totalMonthlyCents) problems.push(`${seed}: the sums against the total`);
       if (housing.partial !== housing.loans.some((row) => row.monthlyCents === null)) problems.push(`${seed}: partial`);
       if (housing.ask) problems.push(`${seed}: asks with a home loan saved`);
       rows += housing.loans.length + housing.charges.length;
