@@ -29,7 +29,7 @@ const RULES: Record<RuleId, true> = {
   "return.shop": true, "return.person": true, "return.share": true, "return.wallet": true, "share.back": true, "share.open": true, "via.service": true, "refund.net": true, "part.use": true, "part.source": true, "role.payer": true,
   "settle.paid": true, "settle.owed": true, "settle.refund": true, "settle.credit_filled": true, "settle.unknown": true, "settle.open": true,
   "settle.closed": true, "agree.dated": true, "rounding.cent": true,
-  "card.payer_unseen": true, "card.payer_mixed": true, "balance.unproven": true,
+  "card.payer_unseen": true, "card.payer_mixed": true, "balance.unproven": true, "bill.spread": true, "bill.usual": true,
 };
 
 const h = demoHousehold();

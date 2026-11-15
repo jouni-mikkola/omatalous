@@ -55,7 +55,7 @@ export const FI_EXPLAIN = {
   "explain.bill_usual": "Kuukauden luku on laskun tavallinen kuukausisumma. Viimeinen veloitus voi olla toinen",
   // the methods of a median and of an estimate
   "explain.expected_rule": "Laskettu edellisistä päättyneistä kuukausista (enintään {months})",
-  "explain.expected_how": "Odotettu on kategorioiden odotettujen menojen summa. Laskemme jokaisesta kategoriasta kuukausien keskiarvon, {months} kuukauden välein tai harvemmin tulevat laskut ovat omassa kuukaudessaan ja kertaostot jäävät pois",
+  "explain.expected_how": "Tavallinen kuukausi on kategorioiden tavallisten menojen summa. Laskemme jokaisesta kategoriasta kuukausien keskiarvon, {months} kuukauden välein tai harvemmin tulevat laskut ovat omassa kuukaudessaan ja kertaostot jäävät pois",
   "explain.income_rule": "Säännölliset tulot viimeisiltä valmiilta kuukausilta (enintään {months})",
   "explain.median_odd": "Mediaani eli keskimmäinen kuukausi",
   "explain.median_even": "Mediaani eli kahden keskimmäisen kuukauden keskiarvo",

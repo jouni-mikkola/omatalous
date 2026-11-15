@@ -51,7 +51,7 @@ export const EN_EXPLAIN: Record<keyof typeof FI_EXPLAIN, string> = {
   "explain.bill_usual": "The figure is the bill's usual monthly sum. The latest charge may differ",
   // the methods of a median and of an estimate
   "explain.expected_rule": "Calculated from the previous finished months (at most {months})",
-  "explain.expected_how": "The expected figure is the sum of the categories' expected spending. We take the average of the months for each category, bills that come every {months} months or less often stand in their own month and one-off purchases are left out",
+  "explain.expected_how": "A usual month is the sum of the categories' usual spending. We take the average of the months for each category, bills that come every {months} months or less often stand in their own month and one-off purchases are left out",
   "explain.income_rule": "Regular income of the last finished months (at most {months})",
   "explain.median_odd": "The median, the month in the middle",
   "explain.median_even": "The median, the average of the two months in the middle",
