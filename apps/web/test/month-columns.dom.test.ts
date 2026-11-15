@@ -146,7 +146,7 @@ describe("Raportit: the months chart and the table under it", () => {
     const kept = bodyRows();
     expect(kept).toHaveLength(1);
     expect(kept[0]!.textContent).toContain("2026-09");
-    expect(screen.getByRole("status").textContent).toContain("Näytämme vain rivin");
+    expect(document.querySelector(".rt-filter")!.textContent).toContain("Näytämme vain rivin");
   });
 
   it("Enter on the same month again shows every row again", () => {
