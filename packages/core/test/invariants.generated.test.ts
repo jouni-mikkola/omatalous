@@ -6,20 +6,21 @@
  */
 import { describe, expect, it } from "vitest";
 import { generatedSet, generateHousehold } from "./kit/generate.ts";
-import { type Check, type Violation, violationsOf } from "./kit/invariants.ts";
+import { type Check, monthlyLoans, type Violation, violationsOf, walletQuestions } from "./kit/invariants.ts";
 import { foundIdentities, KNOWN_VIOLATIONS, listedIdentities } from "./kit/known-violations.ts";
 import type { GeneratedHousehold, Spec } from "./kit/truth.ts";
+import { viewsOf } from "../../../tools/findings/households.ts";
 
 const LONG = 60_000;
 
 /** The set and one household with no reference day, which only the proof check reads. */
 const UNPROVEN: Spec = { members: 2, joint: "said", loan: "checking", cards: "connected", reference: false };
 let all: Violation[] | null = null;
+const households = (): GeneratedHousehold[] => [...generatedSet(), generateHousehold(UNPROVEN, 1)];
 const violations = (): Violation[] => {
   if (all) return all;
   const twin = generateHousehold({ ...UNPROVEN, reference: true }, 1);
-  const households: GeneratedHousehold[] = [...generatedSet(), generateHousehold(UNPROVEN, 1)];
-  return (all = households.flatMap((h) => violationsOf(h, h.spec.reference === false ? twin : undefined)));
+  return (all = households().flatMap((h) => violationsOf(h, h.spec.reference === false ? twin : undefined)));
 };
 
 describe("the invariants over the generated households", () => {
@@ -52,11 +53,18 @@ describe("the invariants over the generated households", () => {
   });
 
   it(
-    "hold the checks that already pass: the wallet role and the loan parts",
+    "hold the checks that already pass: the wallet role and the loan parts, each over input that is not empty",
     () => {
       const held: Check[] = ["I3c.wallet-role", "I4.loan-parts"];
       expect(violations().filter((v) => held.includes(v.check))).toEqual([]);
       expect(KNOWN_VIOLATIONS.filter((k) => held.includes(k.check))).toEqual([]);
+      // a pass means something only when the checks had something to look at
+      for (const h of households()) {
+        const [whole, ...members] = viewsOf(h);
+        // the wallet's payments in are the first member's, so the household view and that member's view ask about them
+        if (h.spec.events?.includes("payment-app")) for (const v of [whole!, members[0] ?? whole!]) expect(walletQuestions(h, v).length, `${h.name} ${v.member ?? "household"}: wallet payer questions`).toBeGreaterThan(0);
+        if (h.spec.loan && h.spec.loan !== "none") expect(monthlyLoans(whole!).size, `${h.name}: loan proposals of the household view`).toBeGreaterThan(0);
+      }
     },
     LONG,
   );

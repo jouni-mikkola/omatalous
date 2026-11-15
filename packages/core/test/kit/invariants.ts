@@ -9,6 +9,7 @@
  */
 import { aheadBasis } from "../../src/analysis/ahead.ts";
 import { bridgeByMonth } from "../../src/analysis/conservation.ts";
+import { createContext } from "../../src/analysis/context.ts";
 import { dataQualityReport } from "../../src/analysis/data-quality.ts";
 import { poolOf } from "../../src/analysis/pool.ts";
 import { buildQuestions } from "../../src/analysis/questions.ts";
@@ -50,13 +51,11 @@ const RANGE = (h: GeneratedHousehold) => ({ from: "2026-01-01", to: h.today });
 const viewName = (v: HouseholdView) => v.member ?? "household";
 const found = (check: Check, h: GeneratedHousehold, v: HouseholdView, line: string, month: string | null = null): Violation => ({ check, household: h.name, view: viewName(v), month, line });
 
-/** I1: in each month Tulos is the change of the pool, less the two named lines (the cards and the moves between daily accounts). */
+/** I1: in every month, the edges of the history included, Tulos is the change of the pool, less the two named lines (the cards and the moves between daily accounts). */
 export function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const pool = poolOf(v.balances);
   const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)).filter((i): i is string => i !== null));
-  // the first and the last month are partial: a leg that pairs across the edge of the history is cut there
   return bridgeByMonth(v.ctx.txs, v.accounts, pool.ids, daily)
-    .slice(1, -1)
     .filter((m) => m.residualCents !== 0)
     .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, cards ${m.lines.cards.cents}, moved ${m.lines.moved.cents}, outside the pool ${m.counted.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
 }
@@ -75,6 +74,9 @@ export function onePool(h: GeneratedHousehold, v: HouseholdView, poolIds: Readon
   const start = basis.ahead.balance?.startCents;
   if (start !== undefined && start !== pool.cents) out.push(found("I1.pool-balance", h, v, `Käytettävissä starts from ${start}, the pool holds ${pool.cents}`));
   const payers = billPayers(h);
+  // I1.pool-cards judges the card debt against the pool of Tulos (`poolIds`), not against the accounts Käytettävissä counts.
+  // That is valid only while I1.pool-accounts reports the difference between the two: a card can pass here and still be
+  // paid from an account Käytettävissä leaves out. When that check passes, the two are the same accounts.
   for (const debt of basis.ahead.balance?.cardDebts ?? []) {
     const from = [...(payers.get(debt.cardId) ?? [])].sort();
     if (!from.some((id) => poolIds.has(id))) out.push(found("I1.pool-cards", h, v, `Käytettävissä takes off ${debt.cents} of ${debt.cardId}, whose bills are paid from ${from.join("+") || "no account"}, outside the pool`));
@@ -106,9 +108,9 @@ export function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[]
 const PREFIX = "MOBILEPAY ";
 const isOutflow = (category: string): boolean => ["expense", "debt"].includes(getCategory(category).kind);
 
-/** I3a: money in does not sit in a category of money out, unless a return pair took it back or the household set it. */
+/** I3a: money in does not sit in a category of money out, unless the labels say it is a refund or the household set it. */
 export function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
-  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && !v.ctx.returns.has(t.id));
+  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund");
   const by = new Map<string, number>();
   for (const t of bad) by.set(`${t.counterparty} as ${t.category}`, (by.get(`${t.counterparty} as ${t.category}`) ?? 0) + 1);
   return [...by].map(([what, n]) => found("I3a.money-in", h, v, `${n} rows in, ${what}`));
@@ -169,17 +171,31 @@ export function prefix(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   return out;
 }
 
-/** I3c: the payer of the wallet has no account, so the question never offers it as the member's own money. */
-function walletRole(h: GeneratedHousehold, v: HouseholdView): Violation[] {
-  const asked = buildQuestions(v.ctx, RANGE(h), { ...NO_INPUTS, payers: { memberId: viewName(v), roles: [] } }, [], Infinity);
-  return asked.items
-    .filter((i) => i.kind === "payer" && i.key === WALLET_PAYER_KEY && (i.options.includes("own_money") || i.proposal === "own_money"))
-    .map(() => found("I3c.wallet-role", h, v, "the wallet payer is offered own_money"));
+type WalletQuestion = Extract<ReturnType<typeof buildQuestions>["items"][number], { kind: "payer" }>;
+
+/**
+ * The questions the review asks of the wallet payer in a view. The wallet's payments in are read as the labels say
+ * (a person's payment in), since the figures count them as spending taken back today (a finding of its own, I3) and a
+ * row counted as that is never asked about as a payer, which would leave this check nothing to look at.
+ */
+export function walletQuestions(h: GeneratedHousehold, v: HouseholdView): WalletQuestion[] {
+  const rows = v.txs.map((t) => (h.truth.get(t.id)?.event === "payment-app" && h.truth.get(t.id)?.kind === "person" && t.amountCents > 0 ? { ...t, category: "p2p_in", categorySource: "default" as const, isTransfer: false } : t));
+  const ctx = createContext(rows, v.accounts, h.today);
+  const asked = buildQuestions(ctx, RANGE(h), { ...NO_INPUTS, payers: { memberId: viewName(v), roles: [] } }, [], Infinity);
+  return asked.items.filter((i): i is WalletQuestion => i.kind === "payer" && i.key === WALLET_PAYER_KEY);
 }
 
+/** I3c: the payer of the wallet has no account, so the question never offers it as the member's own money. */
+export function walletRole(h: GeneratedHousehold, v: HouseholdView, asked: readonly WalletQuestion[] = walletQuestions(h, v)): Violation[] {
+  return asked.filter((i) => i.options.includes("own_money") || i.proposal === "own_money").map(() => found("I3c.wallet-role", h, v, "the wallet payer is offered own_money"));
+}
+
+/** The monthly sum of each loan the views propose, by the loan's key. */
+export const monthlyLoans = (v: HouseholdView): Map<string, number> => new Map(loanProposals(v.ctx, NO_INPUTS).map((p) => [p.key, p.monthlyCents]));
+
 /** I4: the monthly sum of a loan in the household view is what its members' views add up to. */
-function loanParts(h: GeneratedHousehold, views: readonly HouseholdView[]): Violation[] {
-  const monthly = (v: HouseholdView) => new Map(loanProposals(v.ctx, NO_INPUTS).map((p) => [p.key, p.monthlyCents]));
+export function loanParts(h: GeneratedHousehold, views: readonly HouseholdView[]): Violation[] {
+  const monthly = monthlyLoans;
   const [whole, ...members] = views;
   if (!whole || !members.length) return [];
   const parts = members.map(monthly);

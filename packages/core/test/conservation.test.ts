@@ -2,29 +2,33 @@ import { describe, expect, it } from "vitest";
 import { bridgeByMonth, placeOf } from "../src/analysis/conservation.ts";
 import type { Flows } from "../src/analysis/flows.ts";
 import type { Account } from "../src/types.ts";
+import { ibanOf } from "./kit/generate-rows.ts";
 
 const NONE: Flows = { consumption: 0, debt: 0, saved: 0, income: 0, borrowed: 0 };
-const ACCOUNTS: Pick<Account, "id" | "type">[] = [
-  { id: "chk", type: "checking" },
-  { id: "chk-other", type: "checking" },
-  { id: "sav", type: "savings" },
-  { id: "card", type: "credit_card" },
-  { id: "loan", type: "loan" },
+// made-up account numbers: the first two are accounts of the view, the third is a daily account the view does not hold
+const [CHK_IBAN, SECOND_IBAN, OUTSIDE_IBAN] = [ibanOf(1), ibanOf(2), ibanOf(3)];
+const ACCOUNTS: Pick<Account, "id" | "type" | "iban">[] = [
+  { id: "chk", type: "checking", iban: CHK_IBAN },
+  { id: "chk-other", type: "checking", iban: SECOND_IBAN },
+  { id: "sav", type: "savings", iban: null },
+  { id: "card", type: "credit_card", iban: null },
+  { id: "loan", type: "loan", iban: null },
 ];
 const POOL = new Set(["chk"]);
-const OTHER_IBAN = "FI2112345600000785";
-const DAILY = new Set([OTHER_IBAN]);
+const TWO_POOL = new Set(["chk", "chk-other"]);
+const DAILY = new Set([CHK_IBAN, SECOND_IBAN, OUTSIDE_IBAN]);
 
 let n = 0;
-const row = (accountId: string, amountCents: number, flows: Partial<Flows> = {}, extra: { date?: string; iban?: string | null } = {}) => ({
+const row = (accountId: string, amountCents: number, flows: Partial<Flows> = {}, extra: { date?: string; iban?: string | null; wholeCents?: number } = {}) => ({
   id: `r${++n}`,
   accountId,
   bookingDate: extra.date ?? "2026-03-10",
   amountCents,
   counterpartyIban: extra.iban ?? null,
+  ...(extra.wholeCents === undefined ? {} : { wholeCents: extra.wholeCents }),
   flows: { ...NONE, ...flows },
 });
-const march = (rows: ReturnType<typeof row>[]) => bridgeByMonth(rows, ACCOUNTS, POOL, DAILY)[0]!;
+const march = (rows: ReturnType<typeof row>[], pool: ReadonlySet<string> = POOL) => bridgeByMonth(rows, ACCOUNTS, pool, DAILY)[0]!;
 
 describe("bridgeByMonth: Tulos is the change of the pool and two named lines", () => {
   it("balances pay that arrives and spending that leaves with no line", () => {
@@ -73,20 +77,55 @@ describe("bridgeByMonth: Tulos is the change of the pool and two named lines", (
     ]);
   });
 
-  it("names money moved to another daily account that no flow counts: the moved line takes it", () => {
-    const m = march([row("chk", -8_150, {}, { iban: OTHER_IBAN })]);
+  it("names money moved to a daily account the view does not hold: the moved line takes all of it", () => {
+    const m = march([row("chk", -8_150, {}, { iban: OUTSIDE_IBAN })]);
     expect(m).toMatchObject({ leftCents: 0, poolCents: -8_150, residualCents: 0 });
     expect(m.lines.moved.cents).toBe(8_150);
   });
 
-  it("leaves a payment to a daily account that a flow counted to the flow, not to the line", () => {
-    const m = march([row("chk", -8_150, { consumption: 8_150 }, { iban: OTHER_IBAN })]);
+  it("does not read the flows of a leg: a move that a flow counted shows as a residual", () => {
+    const m = march([row("chk", -8_150, { consumption: 8_150 }, { iban: OUTSIDE_IBAN })]);
+    expect(m.lines.moved.cents).toBe(8_150);
+    expect(m.residualCents).toBe(-8_150);
+  });
+
+  it("matches the two legs of a move between two accounts of the view: nothing is left", () => {
+    const out = row("chk", -8_150, {}, { iban: SECOND_IBAN });
+    const back = row("chk-other", 8_150, {}, { iban: CHK_IBAN });
+    const m = march([out, back], TWO_POOL);
+    expect(m).toMatchObject({ leftCents: 0, poolCents: 0, residualCents: 0 });
+    expect(m.lines.moved.rowIds.sort()).toEqual([out.id, back.id].sort());
+  });
+
+  it("leaves the fee of a move in the residual: legs of -8150 and +8000 leave 150 that Tulos does not count", () => {
+    const m = march([row("chk", -8_150, {}, { iban: SECOND_IBAN }), row("chk-other", 8_000, {}, { iban: CHK_IBAN })], TWO_POOL);
+    expect(m).toMatchObject({ leftCents: 0, poolCents: -150, residualCents: 150 });
     expect(m.lines.moved.cents).toBe(0);
+  });
+
+  it("lets a fee that a flow counted cancel against the pool, and the line still leaves only the fee", () => {
+    const m = march([row("chk", -8_150, { consumption: 150 }, { iban: SECOND_IBAN }), row("chk-other", 8_000, {}, { iban: CHK_IBAN })], TWO_POOL);
     expect(m.residualCents).toBe(0);
   });
 
+  it("takes a leg cut to a part in full: the bank's amount decides what matches, the part decides what the pool holds", () => {
+    const m = march([row("chk", -9_000, {}, { iban: SECOND_IBAN }), row("chk-other", 4_500, {}, { iban: CHK_IBAN, wholeCents: 9_000 })], TWO_POOL);
+    expect(m).toMatchObject({ leftCents: 0, poolCents: -4_500, residualCents: 0 });
+    expect(m.lines.moved.cents).toBe(4_500);
+  });
+
+  it("leaves a leg in the residual when the other account is in the view and its leg is not", () => {
+    expect(march([row("chk", -8_150, {}, { iban: SECOND_IBAN })], TWO_POOL)).toMatchObject({ residualCents: 8_150 });
+  });
+
+  it("matches only legs of one day: a leg of the next day is no mate", () => {
+    const m = march([row("chk", -8_150, {}, { iban: SECOND_IBAN }), row("chk-other", 8_150, {}, { iban: CHK_IBAN, date: "2026-03-11" }), row("chk-other", 8_150, {}, { iban: CHK_IBAN })], TWO_POOL);
+    expect(m.lines.moved.rowIds).toHaveLength(2);
+    expect(m.residualCents).toBe(-8_150);
+  });
+
   it("keeps each row in one line, by its id", () => {
-    const moved = row("chk", -8_150, {}, { iban: OTHER_IBAN });
+    const moved = row("chk", -8_150, {}, { iban: OUTSIDE_IBAN });
     const card = row("card", -5_000, { consumption: 5_000 });
     const m = march([moved, card, row("chk", 1_000, { income: 1_000 })]);
     expect(m.lines.moved.rowIds).toEqual([moved.id]);

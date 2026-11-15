@@ -1,3 +1,4 @@
+import { billCents } from "../account-use.ts";
 import { normalizeIban } from "../iban.ts";
 import type { Account, Transaction } from "../types.ts";
 import { type Flows, leftOf } from "./flows.ts";
@@ -8,12 +9,16 @@ import { type Flows, leftOf } from "./flows.ts";
  *
  * Decision: a month's Tulos is the change of the pool (`pool.ts`), so a household that reads Tulos can trust that no
  * row counted twice or not at all. Two kinds of row make the pool and Tulos differ by design, and each is its own named
- * line that the rows alone fix, never the engine's own verdict on them:
+ * line that the rows alone fix, never the engine's own verdict on them (what the flows count of a row is the result
+ * under test, so no line reads it):
  * - `cards`: a purchase on a connected card lowers Tulos when it is made and the pool when its bill is paid, so the
  *   change of what the cards hold is a line of its own;
- * - `moved`: money between two daily accounts of the household (a joint account's top-up, a transfer between members)
- *   that no flow counts. One leg can be in the view and the other not, or cut to a member's part, so the pool changes
- *   by it and Tulos does not.
+ * - `moved`: money between two daily accounts of the household (a joint account's top-up, a transfer between members).
+ *   Each leg names the other's IBAN. Two legs of one day that name each other, one in and one out, are matched, and the
+ *   line takes the matched amount: the smaller of the bank's two amounts, at the part the view counts of each leg. A fee
+ *   or any other difference between the legs is not matched and stays in the residual. A leg whose other account is
+ *   not in the view has nothing to match: the pool changes by all of it and so does the line. A leg whose other account
+ *   is in the view but whose other leg is not there stays in the residual.
  * What is left, `residualCents`, is a cent that Tulos counted twice or not at all.
  */
 
@@ -57,18 +62,54 @@ export interface MonthBridge {
   counted: CountedLine[];
 }
 
-type BridgeRow = Pick<Transaction, "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban"> & { flows: Flows };
+type BridgeRow = Pick<Transaction, "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban"> & Partial<Pick<Transaction, "wholeCents">> & { flows: Flows };
+type BridgeAccount = Pick<Account, "id" | "type" | "iban">;
 
 const COUNTED: readonly (keyof Flows)[] = ["consumption", "debt", "saved", "borrowed", "income"];
-const COUNTS_NOTHING = (f: Flows) => COUNTED.every((k) => f[k] === 0);
+
+/**
+ * What of each pool row is money moved between daily accounts, by row id, from the rows and the accounts alone. A row
+ * is a leg when its counterparty is a daily account of the household. Two legs of one day match when each names the
+ * other's account, one is in and one out; the pair is moved by the smaller of the bank's two amounts. A row cut to a
+ * part keeps its share of that amount, so a joint account's top-up cut to a member's part is moved in full.
+ */
+function movedPieces(rows: readonly BridgeRow[], accounts: readonly BridgeAccount[], poolIds: ReadonlySet<string>, dailyIbans: ReadonlySet<string>): Map<string, number> {
+  const ibanOf = new Map(accounts.map((a) => [a.id, normalizeIban(a.iban)]));
+  const inView = new Set([...ibanOf.values()].filter((i): i is string => i !== null));
+  const legs = rows.filter((t) => {
+    const other = normalizeIban(t.counterpartyIban);
+    return poolIds.has(t.accountId) && other !== null && dailyIbans.has(other);
+  });
+  const byDay = new Map<string, BridgeRow[]>();
+  for (const t of legs) (byDay.get(t.bookingDate) ?? byDay.set(t.bookingDate, []).get(t.bookingDate)!).push(t);
+  const whole = (t: BridgeRow) => Math.abs(billCents({ amountCents: t.amountCents, wholeCents: t.wholeCents }));
+  const share = (t: BridgeRow, cents: number) => (whole(t) === 0 ? 0 : Math.round((t.amountCents * cents) / whole(t)));
+  const pieces = new Map<string, number>();
+  const matched = new Set<string>();
+  for (const a of legs) {
+    if (matched.has(a.id)) continue;
+    const mine = ibanOf.get(a.accountId) ?? null;
+    const theirs = normalizeIban(a.counterpartyIban)!;
+    const mates = (byDay.get(a.bookingDate) ?? []).filter((b) => !matched.has(b.id) && b !== a && Math.sign(b.amountCents) === -Math.sign(a.amountCents) && mine !== null && ibanOf.get(b.accountId) === theirs && normalizeIban(b.counterpartyIban) === mine);
+    const b = mates.sort((x, y) => Math.abs(whole(x) - whole(a)) - Math.abs(whole(y) - whole(a)))[0];
+    if (b) {
+      const cents = Math.min(whole(a), whole(b));
+      matched.add(a.id).add(b.id);
+      pieces.set(a.id, share(a, cents));
+      pieces.set(b.id, share(b, cents));
+    } else if (!inView.has(theirs)) pieces.set(a.id, a.amountCents);
+  }
+  return pieces;
+}
 
 /**
  * The bridge of each month that has rows, in order. A loan account's rows add nothing: they repeat a payment counted
  * where it left. `dailyIbans` are the household's checking accounts, those of the view and those it does not hold: a row
- * of the pool that names one of them as its counterparty is money moved between daily accounts.
+ * of the pool that names one of them as its counterparty is a leg of money moved between daily accounts (`movedPieces`).
  */
-export function bridgeByMonth(rows: readonly BridgeRow[], accounts: readonly Pick<Account, "id" | "type">[], poolIds: ReadonlySet<string>, dailyIbans: ReadonlySet<string>): MonthBridge[] {
+export function bridgeByMonth(rows: readonly BridgeRow[], accounts: readonly BridgeAccount[], poolIds: ReadonlySet<string>, dailyIbans: ReadonlySet<string>): MonthBridge[] {
   const byId = new Map(accounts.map((a) => [a.id, a]));
+  const pieces = movedPieces(rows, accounts, poolIds, dailyIbans);
   const months = new Map<string, MonthBridge & { counts: Map<string, CountedLine> }>();
   for (const t of rows) {
     const account = byId.get(t.accountId)!;
@@ -83,10 +124,10 @@ export function bridgeByMonth(rows: readonly BridgeRow[], accounts: readonly Pic
     m.leftCents += leftOf(t.flows);
     if (place === "pool") {
       m.poolCents += t.amountCents;
-      const iban = normalizeIban(t.counterpartyIban);
-      if (iban && dailyIbans.has(iban) && COUNTS_NOTHING(t.flows)) {
+      const piece = pieces.get(t.id);
+      if (piece) {
         // the pool lost or gained it and Tulos counts no such move, so the line takes it off
-        m.lines.moved.cents -= t.amountCents;
+        m.lines.moved.cents -= piece;
         m.lines.moved.rowIds.push(t.id);
       }
     } else if (place === "card") {
