@@ -12,6 +12,7 @@ import { OpsLog } from "../../components/ops/OpsLog.tsx";
 import { OpsProgress } from "../../components/ops/OpsProgress.tsx";
 import { prereleaseAction, prereleaseOn, S, showsPrerelease } from "../../components/ops/ops-strings.ts";
 import { ResetCard } from "../../components/ops/ResetCard.tsx";
+import { ToolFailures } from "../../components/ops/ToolFailures.tsx";
 import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
@@ -115,8 +116,9 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
             onUpdate={() => setDialog("update")}
             onRollback={() => setDialog("rollback")}
           />
-          {/* a finding the household must act on is said outside the fold; its lines are inside */}
+          {/* what the household must act on is said outside the fold: a finding of the status check and each servicing action that failed; the lines and the list are inside */}
           {!helperOff && data.state.doctor?.items.some((i) => i.level !== "ok") && <Notice tone="warning" role="status">{S.doctorFlagged}</Notice>}
+          {!helperOff && <ToolFailures last={data.last} />}
           {!helperOff && (
             // the operator's cards (servicing list, status lines, event list) stay folded: the version, the update, the status line and any failure are the page
             <details className="ops-technical">
