@@ -50,7 +50,10 @@ function useSubmit<T>(fn: () => Promise<T>, onDone: (r: T) => void) {
   return { error, busy, submit };
 }
 
-export function Login({ onDone }: { onDone: (user: User) => void }) {
+/** The answer of a sign-in: `addOn` is there only when the server has an add-on module loaded. */
+export type SignedIn = { user: User; addOn?: boolean };
+
+export function Login({ onDone }: { onDone: (answer: SignedIn) => void }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   // after a right password of a member with a second factor the server waits for the code
@@ -59,17 +62,17 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
   const [code, setCode] = useState("");
   const [expired, setExpired] = useState<string | null>(null);
   const first = useSubmit(
-    () => api<{ user?: User; needsFactor?: boolean }>("/api/auth/login", { method: "POST", body: { username, password } }),
+    () => api<Partial<SignedIn> & { needsFactor?: boolean }>("/api/auth/login", { method: "POST", body: { username, password } }),
     (r) => {
       setExpired(null);
       if (r.needsFactor) setStep("code");
-      else onDone(r.user!);
+      else onDone({ user: r.user!, addOn: r.addOn });
     },
   );
   const second = useSubmit(
     async () => {
       try {
-        return await api<{ user: User }>("/api/auth/factor", { method: "POST", body: { code } });
+        return await api<SignedIn>("/api/auth/factor", { method: "POST", body: { code } });
       } catch (err) {
         // the five minutes passed, or the password changed meanwhile: the password goes first again
         if ((err as ApiError).code === "half_expired") {
@@ -82,7 +85,7 @@ export function Login({ onDone }: { onDone: (user: User) => void }) {
         throw err;
       }
     },
-    (r) => onDone(r.user),
+    (r) => onDone(r),
   );
   if (step === "code") {
     const cancel = () => {
