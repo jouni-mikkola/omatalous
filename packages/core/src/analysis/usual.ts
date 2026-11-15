@@ -67,12 +67,37 @@ function coveredMonth(ctx: AnalysisContext, month: string, ids: readonly string[
  * income average, and a kind of income paid only that month averages nothing.
  */
 export function isCompleteIncomeMonth(ctx: AnalysisContext, month: string): boolean {
-  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
-  // the household's gate of missing rows, as isCompleteMonth has it, without the cards
-  if (rowsMissing(ctx, month, undefined, cards)) return false;
+  return !incomeRowsMissing(ctx, month) && incomeCovered(ctx, month);
+}
+
+const cardIds = (ctx: AnalysisContext): ReadonlySet<string> => new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+
+/** The household's gate of missing rows, as `isCompleteMonth` has it, without the cards. */
+const incomeRowsMissing = (ctx: AnalysisContext, month: string): boolean => rowsMissing(ctx, month, undefined, cardIds(ctx));
+
+/** `coveredMonth` over the accounts with rows that are no card. */
+function incomeCovered(ctx: AnalysisContext, month: string): boolean {
+  const cards = cardIds(ctx);
   const own = [...accountsWithRows(ctx, month)].filter((id) => !cards.has(id));
   // spelled out: coveredMonth with no accounts would judge a month of card rows only by the card's first day
   return own.length ? coveredMonth(ctx, month, own) : monthEnd(month) < ctx.today && historyCovers(ctx, `${month}-01`);
+}
+
+/**
+ * The complete months for a reader of income right before `month`, at most `n`, oldest first: the months that pass
+ * `isCompleteIncomeMonth`, with the one run of months whose rows are missing skipped, as `completeMonthsBefore` does for
+ * spending. A card joining or paying bills never leaves a month out, since income never comes to a card.
+ */
+export function completeIncomeMonthsBefore(ctx: AnalysisContext, month: string, n: number = USUAL_MONTHS): string[] {
+  const out: string[] = [];
+  let skipped: number | null = null;
+  for (let i = monthIndex(month) - 1; out.length < n; i--) {
+    const label = fromMonthIndex(i);
+    if (isCompleteIncomeMonth(ctx, label)) out.push(label);
+    else if ((skipped === null || skipped === i + 1) && incomeRowsMissing(ctx, label) && incomeCovered(ctx, label)) skipped = i;
+    else break;
+  }
+  return out.reverse();
 }
 
 /**

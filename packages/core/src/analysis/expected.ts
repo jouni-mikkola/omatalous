@@ -25,7 +25,7 @@ import { flowSpendOf } from "./counted.ts";
 import { accountCovers } from "./coverage.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
 import { usualBase } from "./change-plan.ts";
-import { cardsBreakUsual, completeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
+import { cardsBreakUsual, completeIncomeMonthsBefore, completeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
 
 /** How a category's expected spending behaves: it grows day by day, falls on a date, comes in some months, or comes rarely. */
 type ExpectedKind = "daily" | "dated" | "periodic" | "sparse";
@@ -351,9 +351,9 @@ export function expectedLevel(values: readonly number[]): number | null {
   return values.length < MIN_COMPARE_MONTHS ? null : Math.round(sumOf(values) / values.length);
 }
 
-/** The expected earned income of `month`: the mean of the complete months before it (`earnedIncome`), null under `MIN_COMPARE_MONTHS`. Money from people, refunds and own money are left out. */
+/** The expected earned income of `month`: the mean of the complete income months before it (`completeIncomeMonthsBefore`, the months the income report calls complete) of `earnedIncome`, null under `MIN_COMPARE_MONTHS`. Money from people, refunds and own money are left out. */
 export function expectedIncome(ctx: AnalysisContext, month: string): number | null {
-  return expectedLevel(completeMonthsBefore(ctx, month).map((m) => earnedIncome(ctx, m)));
+  return expectedLevel(completeIncomeMonthsBefore(ctx, month).map((m) => earnedIncome(ctx, m)));
 }
 
 /** The expected everyday spending of a span of days, with the lower and the upper quartile of the base months around it. */
