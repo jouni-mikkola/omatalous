@@ -81,7 +81,10 @@ export function BeforePayday({ data }: { data: DashboardData }) {
           return (
             <li key={`${r.date}-${r.name}-${i}`} className="bp-row" data-kind="bill" data-first={first ? "" : undefined} data-active={active?.kind === "bill" && active.row === i ? "" : undefined} onPointerEnter={() => setActive({ kind: "bill", row: i })} onPointerLeave={() => setActive(null)}>
               <span className={first ? "bp-date" : "bp-date sr-only"}>{dayMonth(r.date)}</span>
-              <span className="bp-name">{r.name}</span>
+              <span className="bp-name">
+                {r.name}
+                {isEstimate(r) && <span className="mb-tag">{t("bills.legend_estimate")}</span>}
+              </span>
               <span className="bp-sum num">{money(Math.abs(r.cents ?? 0))}</span>
             </li>
           );

@@ -65,9 +65,14 @@ describe("Laskut: payments before the payday", () => {
     expect(section.querySelectorAll(".pb-axis li[data-payday]").length).toBe(1);
     expect(section.querySelectorAll(".pb-col[data-payday]").length).toBe(1);
     expect(section.querySelectorAll(".pb-piece").length).toBe(3);
+    // every payment here is an estimate: a recurring bill and a card bill with no balance basis
+    expect(section.querySelectorAll(".pb-piece[data-estimate]").length).toBe(3);
+    // 11.-25.11.2026: the weekends 14.-15. and 21.-22.
+    expect(section.querySelectorAll(".pb-col[data-weekend]").length).toBe(4);
     expect(section.querySelector("#before-payday-h")).toBeTruthy();
     const bills = [...section.querySelectorAll("[data-kind=bill]")].map((li) => flat(li.textContent));
-    expect(bills).toEqual(["12.11.Helen48,12 €", "15.11.Elisa29,14 €", "20.11.Visa1 822,28 €"]);
+    // the bars are hidden from a screen reader, so each row says itself that its sum is an estimate
+    expect(bills).toEqual(["12.11.HelenArvio48,12 €", "15.11.ElisaArvio29,14 €", "20.11.VisaArvio1 822,28 €"]);
     const sums = [...section.querySelectorAll("[data-kind=bill] .bp-sum")].map((e) => Number(flat(e.textContent).replace(/[^\d,]/g, "").replace(",", ".")) * 100);
     expect(Math.round(sums.reduce((a, b) => a + b, 0))).toBe(189954);
     expect(flat(section.querySelector("[data-kind=total]")?.textContent)).toContain("1 899,54 €");
