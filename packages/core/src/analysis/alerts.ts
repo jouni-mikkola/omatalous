@@ -408,13 +408,11 @@ function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: D
   const days = daysBetween(from, to) + 1;
   if (days < FEES_MIN_DAYS) return [];
   const byMerchant = new Map<string, number>();
-  const accountNames = new Map(ctx.accounts.map((a) => [a.id, a.name]));
   for (const t of current) {
-    // a fee the bank paid back counts at what is left of it
+    // a fee the bank paid back counts at what is left of it. The fee of a transfer that arrived short is the sending account's: the payee of that row is a person of the household
     const left = netSpend(t);
     if (!isBankFee(t) || left <= 0) continue;
-    // the fee of a transfer that arrived short is the sending account's: the payee of that row is a person of the household
-    const source = ctx.fees.has(t.id) ? (accountNames.get(t.accountId) ?? t.accountId) : t.merchant;
+    const source = ctx.fees.has(t.id) ? (ctx.accounts.find((a) => a.id === t.accountId)?.name ?? t.accountId) : t.merchant;
     byMerchant.set(source, (byMerchant.get(source) ?? 0) + left);
   }
   const total = [...byMerchant.values()].reduce((s, v) => s + v, 0);
