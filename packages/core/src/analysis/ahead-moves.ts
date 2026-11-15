@@ -115,7 +115,7 @@ export function expectedMoves(ctx: AnalysisContext, counted: ReadonlySet<string>
   // the bank's own text may carry the type of a card in brackets: a payee is printed without it
   const accountName = (id: string): string => cardName(accountOf.get(id)?.name ?? id);
   const followed = followLeft(ctx, counted, accountOf);
-  const { unapplied, unshown } = claimUnknown(followed, balances);
+  const { unapplied, unshown } = claimUnknown(followed, balances, ctx.today);
 
   const moves: Move[] = [];
   // a monthly series takes three payments to be one (`fitCadence`): under three nothing is guessed
@@ -183,10 +183,11 @@ function followLeft(ctx: AnalysisContext, counted: ReadonlySet<string>, accountO
  *
  * Then every payment to a card with no leg on the card is sorted by the card's balance day (`balanceAt`). Booked after
  * that day, the balance cannot hold it: `unapplied`, taken off the debt. Booked on that day or before, or with no
- * balance day, the balance may or may not hold it: `unshown`, left on the debt, so the money free is never more than it
- * is. A payment with a leg on the card is in the balance and is in neither.
+ * balance day (the day is then `today`), and within one statement gap (`STATEMENT_GAP_DAYS.max`) of it, the balance may
+ * or may not hold it: `unshown`, left on the debt, so the money free is never more than it is. An older payment is in
+ * the balance already and is in neither, as is a payment with a leg on the card.
  */
-function claimUnknown({ bills, others, unknown }: Followed, balances: readonly BalanceInput[]): { unapplied: Map<string, number>; unshown: Map<string, number> } {
+function claimUnknown({ bills, others, unknown }: Followed, balances: readonly BalanceInput[], today: IsoDate): { unapplied: Map<string, number>; unshown: Map<string, number> } {
   // A payment whose other leg the card does not show yet, or shows pending, went to the payee a card's paired bills
   // went to: it is that card's bill, already paid, so it is not expected again.
   const channel = new Map<string, Set<string>>();
@@ -212,7 +213,9 @@ function claimUnknown({ bills, others, unknown }: Followed, balances: readonly B
     const balanceDay = balances.find((b) => b.id === cardId)?.balanceAt?.slice(0, 10) ?? null;
     for (const b of paid) {
       if (b.legId !== null) continue;
-      const into = balanceDay !== null && b.out.bookingDate > balanceDay ? unapplied : unshown;
+      const after = balanceDay !== null && b.out.bookingDate > balanceDay;
+      if (!after && daysBetween(b.out.bookingDate, balanceDay ?? today) > STATEMENT_GAP_DAYS.max) continue;
+      const into = after ? unapplied : unshown;
       into.set(cardId, (into.get(cardId) ?? 0) - b.out.amountCents);
     }
   }
