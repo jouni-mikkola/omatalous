@@ -16,8 +16,9 @@ import { body, optionalString, requestInfo } from "./shared.ts";
 const shown = (typed: string) => (/^[a-z0-9._-]{3,32}$/i.test(typed.trim()) ? typed.trim() : "(ei käyttäjänimen muotoinen)");
 
 /**
- * The answer of a sign-in names the add-on module only to the member who just signed in, and only when one is loaded:
- * the sign-in page itself carries no mention of it, so this is how the page learns it must reload to load the module.
+ * An answer to a signed-in request (the sign-in, the code of a second factor, the state) names the add-on module, and
+ * only when one is loaded: the sign-in page itself carries no mention of it, so this is how a page served before the
+ * sign-in learns it must reload to load the module.
  */
 const addOnAnswer = (s: Services) => (s.modules?.start.state === "connected" ? { addOn: true } : {});
 
@@ -32,7 +33,8 @@ export function authRoutes(s: Services) {
     }
     const user = c.get("user") ?? null;
     // the zone the browser reads timestamps in: the instance's, not the device's
-    return c.json({ needsSetup: setup, user, timezone: s.instance.current.timezone });
+    // a signed-in answer only: a page served before the sign-in learns here that it lacks the module
+    return c.json({ needsSetup: setup, user, timezone: s.instance.current.timezone, ...(user ? addOnAnswer(s) : {}) });
   });
 
   app.post("/setup", async (c) => {

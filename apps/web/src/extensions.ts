@@ -36,12 +36,38 @@ export function addOnLoadFailed(): boolean {
 }
 
 /**
- * The sign-in answer says an add-on module is loaded on the server and this page has none: the page was served before
- * the sign-in and so does not name the module (its files go to a signed-in user only). The sign-in reloads the page once
- * to load it.
+ * A signed-in answer (the sign-in, the code of a second factor, or the state of a page that another tab signed in) says an
+ * add-on module is loaded on the server and this page has none: the page was served before the sign-in and so does not
+ * name the module (its files go to a signed-in user only).
  */
 export function addOnAwaitsSignIn(answer: { addOn?: boolean }): boolean {
   return answer.addOn === true && WEB_EXTENSIONS.length === 0;
+}
+
+const RELOADED = "omatalous-addon-reload";
+
+/**
+ * Reloads the page to load the module a signed-in answer names, once per browser session: when the module is still
+ * missing after that reload (its files failed, or the page came from a cache), the shell says so once and nothing
+ * reloads again. A page that has the module forgets the mark, so a later sign-in can reload again. Returns true when it
+ * started a reload.
+ */
+export function reloadForAddOn(answer: { addOn?: boolean }, reload: () => void = () => location.reload()): boolean {
+  try {
+    if (!addOnAwaitsSignIn(answer)) {
+      if (answer.addOn === true) sessionStorage.removeItem(RELOADED);
+      return false;
+    }
+    if (sessionStorage.getItem(RELOADED) === null) {
+      sessionStorage.setItem(RELOADED, "1");
+      reload();
+      return true;
+    }
+  } catch {
+    // a browser with no session storage cannot count: it does not reload
+  }
+  markAddOnFailed();
+  return false;
 }
 
 /** The extensions with a page, in the order they were added. */

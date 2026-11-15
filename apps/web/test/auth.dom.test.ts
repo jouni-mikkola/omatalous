@@ -60,6 +60,19 @@ describe("Login", () => {
     expect(seen.at(-1)).toMatchObject({ path: "/api/auth/factor", body: { code: "abcd-efgh" } });
   });
 
+  it("hands on that the server has an add-on module from the answer of the code step too", async () => {
+    stubApi({ "POST /api/auth/login": { needsFactor: true }, "POST /api/auth/factor": { user, addOn: true } });
+    const onDone = vi.fn();
+    render(h(Login, { onDone }));
+    type("Käyttäjätunnus", "maija");
+    type("Salasana", "salasana-123456");
+    submit("Kirjaudu sisään");
+    await screen.findByLabelText("Koodi sovelluksesta");
+    type("Koodi sovelluksesta", "123456");
+    submit("Kirjaudu sisään");
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ user, addOn: true }));
+  });
+
   it("goes back to the password when the half sign-in has expired, and shows the reason", async () => {
     stubApi({ "POST /api/auth/login": { needsFactor: true }, "POST /api/auth/factor": failing(401, { error: "Aika loppui. Kirjaudu uudelleen.", code: "half_expired" }) });
     render(h(Login, { onDone: vi.fn() }));
