@@ -20,9 +20,10 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 @media (max-width: 640px) {
   .card-head.tb { flex-wrap: wrap; }
   .card-head.tb > .card-tool { flex: 1 0 100%; padding-left: 0; }
+  /* the datum drops under the name when it does not fit beside it, and then takes the row's width and wraps its words, so a long label never pushes the page wide */
+  .card-head.tb > .card-datum { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: right; }
   /* a folded card of Raportit keeps its name and its sum on one row: the sum wraps in its own cell before it drops under the name */
   .q-page > details.card > summary.card-head.tb { flex-wrap: nowrap; }
-  .q-page > details.card > summary.card-head.tb > .card-datum { flex: 0 1 auto; min-width: 0; white-space: normal; text-align: right; }
 }
 
 /* Saldot's datum names its figure and day, so on a phone it wraps under the name instead of pushing the page sideways. It sits here, in the layer of the head's own rule, which a rule of `components` cannot beat. */

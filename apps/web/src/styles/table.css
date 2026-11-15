@@ -14,8 +14,9 @@
 .rt-wrap { position: relative; }
 /* holds the place of the toolbar while its chunk loads, so the table does not jump */
 .rt-toolbar-wait { min-block-size: var(--control-h); margin: 0 0 var(--sp-8); }
-.rt { width: 100%; border-collapse: collapse; font-size: var(--fs-body); line-height: 20px; font-variant-numeric: tabular-nums lining-nums; }
-.rt :is(th, td) { padding: 12px 0 12px 16px; border-bottom: 1px solid var(--grid); text-align: left; vertical-align: middle; font-weight: 400; }
+.rt { width: 100%; border-collapse: collapse; font-size: var(--fs-body); line-height: var(--lh-body); font-variant-numeric: tabular-nums lining-nums; }
+/* the padding is the same token as --reach-pad below: a target that takes it back with a negative margin stays in its cell at any text size */
+.rt :is(th, td) { padding: var(--sp-12) 0 var(--sp-12) var(--sp-16); border-bottom: 1px solid var(--grid); text-align: left; vertical-align: middle; font-weight: 400; }
 .rt :is(th, td):first-child { padding-left: 0; }
 .rt tbody tr:last-child > :is(th, td) { border-bottom: 0; }
 .rt tbody tr:has(+ .rt-detail) > *, .rt tbody tr:has(+ .rt-subrow) > * { border-bottom-color: transparent; }
@@ -66,7 +67,7 @@ th[aria-sort="ascending"] .rt-sort::after { content: "▲" / ""; color: var(--ac
 th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--accent-ink); }
 
 /* a group row: the day or group, its count and its subtotal, on the second surface */
-.rt tr.rt-group > * { padding-block: 8px; background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); }
+.rt tr.rt-group > * { padding-block: var(--sp-8); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); }
 .rt tr.rt-group > td { text-align: right; white-space: nowrap; }
 .rt tbody + tbody tr.rt-group > * { border-top: 0; }
 .rt-group-count { margin-left: 8px; font-weight: 400; color: var(--muted); }

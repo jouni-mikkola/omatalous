@@ -75,7 +75,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 /* ── the totals strip ────────────────────────────────────────────────────────────── */
 .tx-totals-wrap { position: relative; padding: var(--sp-8) 0; }
 .tx-totals { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
-.tx-totals-figs { grid-column: span 7; display: flex; flex-direction: column; gap: var(--sp-12); }
+.tx-totals-figs { grid-column: span 7; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-12); }
 .tx-totals-lead { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }
 .tx-totals-count { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; }
 .tx-totals-span { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
@@ -234,9 +234,11 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
   .tx-pop { box-shadow: var(--pop-shadow), 0 0 0 100vmax var(--backdrop); }
 
   .tx-totals-wrap, .tx-skel.tx-totals { padding: var(--sp-16); }
-  .tx-totals { gap: var(--sp-16); }
+  /* both parts stand over the whole width, so one column: twelve columns with a gap each would be wider than the card when the gap grows with the text */
+  .tx-totals { grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); }
   .tx-totals-figs, .tx-hist { grid-column: 1 / -1; }
-  .tx-totals-kv { gap: var(--sp-8); }
+  /* a third of the width each; with larger text a figure no longer fits its third and the row holds two, then one, so none runs past the card */
+  .tx-totals-kv { grid-template-columns: repeat(auto-fill, minmax(min(100%, max(30%, 4.5rem)), 1fr)); gap: var(--sp-8); }
   .tx-totals-kv > div { padding-left: var(--sp-8); }
   .tx-totals-kv .fig-m { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
 
