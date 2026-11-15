@@ -61,7 +61,8 @@ describe("the type scale and the spacing step in every stylesheet", () => {
 
   it("has five sizes in the scale, 12, 14, 16, 20 and 32 px, and the display size of 3.25 rem for the answer number only", () => {
     const tokens = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
-    const sizes = [...new Set([...tokens.matchAll(/--fs-[a-z0-9-]+:\s*(\d+)px/g)].map((m) => Number(m[1])))].sort((a, b) => a - b);
+    // the sizes are in rem, so the browser's font size scales them: 1 rem is 16 px at the default
+    const sizes = [...new Set([...tokens.matchAll(/--fs-(?!display)[a-z0-9-]+:\s*([\d.]+)rem/g)].map((m) => Number(m[1]) * 16))].sort((a, b) => a - b);
     expect(sizes).toEqual([12, 14, 16, 20, 32]);
     expect(/--fs-display:\s*([^;]+);/.exec(tokens)?.[1]).toBe("3.25rem");
     const users = sheets().flatMap(([f, css]) => (css.includes("var(--fs-display)") ? [f] : []));

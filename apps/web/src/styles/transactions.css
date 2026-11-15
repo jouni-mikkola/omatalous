@@ -159,6 +159,10 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 @media (pointer: coarse) {
   .rt-wrap:not([data-block]) .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > :is(th, td) { --reach-pad: var(--sp-4); }
 }
+/* a phone's block row has 4 px above and under it, so its arrow takes back 4 px, not the 12 px of a cell */
+@media (pointer: coarse) and (max-width: 600px) {
+  .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { --reach-pad: var(--sp-4); }
+}
 .rt-wrap[data-block] .rt.tx-table td.tx-category { grid-column: 2 / 4; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account::before, .rt-wrap[data-block] .rt.tx-table td.tx-category::before { content: none; }
 .tx-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; white-space: nowrap; }

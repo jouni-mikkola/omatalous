@@ -141,7 +141,15 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   // of two groups the first has five parts and the second seven
   const whole = (await holdings.boundingBox())!;
   // the groups run to the frame's edges; the rule between them is the register's split after the fifth column (--split-5)
-  const gap = await holdings.evaluate((el) => parseFloat(getComputedStyle(el).getPropertyValue("--gap")));
+  // --gap is in rem, so it is read as a width
+  const gap = await holdings.evaluate((el) => {
+    const probe = document.createElement("div");
+    probe.style.width = "var(--gap)";
+    el.append(probe);
+    const width = probe.getBoundingClientRect().width;
+    probe.remove();
+    return width;
+  });
   const column = (whole.width - 2 - 11 * gap) / 12;
   expect(Math.abs(cards!.x - (whole.x + 1 + 5 * column + 4.5 * gap - 1)), "the second group starts on the split after five columns").toBeLessThanOrEqual(2);
   expect(Math.abs(cards!.x + cards!.width - (whole.x + whole.width - 1)), "and runs to the frame's right edge").toBeLessThanOrEqual(2);

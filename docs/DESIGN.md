@@ -35,7 +35,7 @@ What there is:
 - `--estimate-fill` and `--estimate-edge` tint an estimate. `--ink` is the header band.
 - Role colours are `--role-income`, `--role-spending`, `--role-bills`, `--role-kept`, `--role-debt` and `--role-neutral`. A sum has the colour of its role in every chart and table (`bar.tone` of a table column). Each reads at 4.5 to 1 on the page and both surfaces.
 - Category colours are `--series-1` to `--series-7`, always in that order. The heat ladder has four steps and an ink for each.
-- The type scale is 12 px, 14 px, 16 px, 20 px and 32 px. Their tokens start with `--fs-`.
+- The type scale is 12 px, 14 px, 16 px, 20 px and 32 px at the browser's default size. Their tokens start with `--fs-` and are in rem, as are the line heights, `--sp-*`, `--pad`, `--gap`, the bar heights and the register's width, so the browser's font size setting scales the page. A touch target stays in px (`--tap-min` 44 px, `--tap-floor` 24 px, and `--control-h` on a finger) so it never gets smaller.
 - One display size, `--fs-display` (3.25 rem), is for the answer number of a page.
 - Weights are 400 and 600. Sums and tables use `font-variant-numeric: tabular-nums`.
 - The font is IBM Plex Sans Variable.

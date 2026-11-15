@@ -42,6 +42,8 @@
   .rt-wrap[data-block] .rt tr.rt-group > td:not([data-label]), .rt-wrap[data-block] .rt tr:is(.rt-detail, .rt-subrow) > td, .rt-wrap[data-block] .rt td[data-label], .rt-wrap[data-block] .rt td:not([data-label], [data-rt], :first-child), .rt-wrap[data-block] .rt td[colspan] { --reach-pad: 0px; }
 }
 @media (pointer: coarse) and (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--tap-min)); } }
+/* a window under 640 px with a mouse: the sort button is 24 px high and takes back exactly what it has over the head's line, so the first head row is 32 px and the second row sticks under it with no overlap (base.css takes back 0.2 rem, 1.6 px too little) */
+@media (max-width: 640px) and (not (pointer: coarse)) { .rt thead :is(th, td) :is(a[href], button) { margin-block: min(0px, calc((var(--lh-label) - var(--tap-floor)) / 2)); } }
 .rt caption { padding: 0 0 8px; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); caption-side: top; }
 .rt caption.sr-only { padding: 0; }
 
