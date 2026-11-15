@@ -229,13 +229,14 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const ctx = contextOf(h);
     // the households have no typed loan, so each is read with one added: with no loan every answer is null and nothing is compared
     const inputs = { ...h.inputs, loans: [...(h.inputs.loans ?? []), typedLoan(h)] };
-    // the instalments of every loan of the view added up; a loan without a counted payment adds nothing
-    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => (loans.length === 0 ? null : loans.reduce((sum, l) => sum + (l.monthlyPaymentCents ?? 0), 0));
+    // the instalments of every loan of the view added up; a loan whose payment is not counted makes the sum null, so no answer passes by leaving it out
+    const total = (cents: readonly (number | null)[]) => (cents.length === 0 || cents.some((c) => c === null) ? null : cents.reduce<number>((sum, c) => sum + c!, 0));
+    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => total(loans.map((l) => l.monthlyPaymentCents));
     const holdings = buildHoldings(ctx, h.balances, inputs);
     return {
       holdings: monthly(holdings.loans),
       dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
-      explain: holdings.loans.length === 0 ? null : holdings.loans.reduce((sum, l) => sum + (explainLoan("loan.monthly", ctx, h.balances, inputs, l.id)?.explanation.cents ?? 0), 0),
+      explain: total(holdings.loans.map((l) => explainLoan("loan.monthly", ctx, h.balances, inputs, l.id)?.explanation.cents ?? null)),
     };
   },
   periodLeft: (h) => {

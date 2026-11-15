@@ -164,6 +164,7 @@ function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], 
   const buffer = bufferReport(ctx, balances, inputs);
   const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents };
   const usual = { usualCents: buffer.expectedSpendCents, months: expectedFor(ctx, month)?.months.length ?? 0 };
+  // `spendingThrough` is the booked spending, the base of the buffer and Odotettu; no page shows this direction under Menot, so it needs no flows base
   const spent = completeMonthsBefore(ctx, month, DIRECTION_MONTHS).map((m) => spendingThrough(ctx, m));
   const averageCents = spent.length < MIN_COMPARE_MONTHS ? null : expectedLevel(spent);
   if (averageCents === null) return { ...usual, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };

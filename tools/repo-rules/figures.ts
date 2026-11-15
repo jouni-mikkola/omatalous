@@ -8,8 +8,8 @@
  * one for something else are in levels-baseline.txt, a list that only shrinks.
  *
  * Rule 52 (the one definition of a figure): every entry says its `scope` and whether it is `additive` and names one
- * function, and every figure word of docs/MONEY_FLOWS.md is the name of an entry or is in figure-words-baseline.txt, a
- * list that only shrinks. Rule 53 (part and whole): `paymentCents` and `wholeCents`, the whole of a bank's payment or a
+ * function, every figure word of docs/MONEY_FLOWS.md is the name of an entry or is in figure-words-baseline.txt, a
+ * list that only shrinks, and every entry has its row in that table. Rule 53 (part and whole): `paymentCents` and `wholeCents`, the whole of a bank's payment or a
  * row, are read only in the files of part-whole-baseline.txt and at most as often as its count, a list that only shrinks until one typed pair owns both.
  */
 import ts from "typescript6";
@@ -120,6 +120,14 @@ export function wordProblems(words: readonly FigureWord[], names: ReadonlySet<st
     else if (!seen.has(key)) found.push({ where: "baseline", word, line: i + 1, why: `*${word}* is no word of the table any more: delete the line` });
   });
   return found;
+}
+
+/** The entries whose name is no italic word of the table (`words`): a figure the registry defines and the document does not. */
+export function rowProblems(figures: Readonly<Record<string, FigureEntry>>, words: readonly FigureWord[]): FigureProblem[] {
+  const rows = new Set(words.map((w) => w.word.toLowerCase()));
+  return Object.entries(figures)
+    .filter(([, f]) => !rows.has(f.name.toLowerCase()))
+    .map(([id, f]) => ({ id, why: `*${f.name}* has no row in the table of docs/MONEY_FLOWS.md: add one with what it means and where core computes it` }));
 }
 
 const PART_WHOLE = new Set(["paymentCents", "wholeCents"]);

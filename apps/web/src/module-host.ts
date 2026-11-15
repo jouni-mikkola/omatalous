@@ -37,7 +37,8 @@ const MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   react: React,
   "react/jsx-runtime": jsxRuntime,
   "react-dom": ReactDom,
-  "@banking/core": core,
+  // a module's `categorize` reads a user's rule by its direction, like the app's own rows do (repo rule 51)
+  "@banking/core": { ...core, categorize: core.categorizeInDirection },
   api,
   hooks,
   format,

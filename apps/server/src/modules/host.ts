@@ -32,7 +32,8 @@ export interface ModuleHost {
 /** The shared modules by the specifier docs/MODULES.md gives each. A new one is added there first. */
 const HOST_MODULES: Readonly<Record<string, unknown>> = Object.freeze({
   hono,
-  "@banking/core": core,
+  // a module's `categorize` reads a user's rule by its direction, like the app's own rows do (repo rule 51)
+  "@banking/core": { ...core, categorize: core.categorizeInDirection },
   "cli-args": cliArgs,
   "demo-data": demoData,
   "platform/errors": errors,
