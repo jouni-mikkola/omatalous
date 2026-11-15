@@ -1,6 +1,6 @@
 import ts from "typescript6";
 import { describe, expect, it } from "vitest";
-import { figureProblems, figureWords, looseLimits, ownLevels, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
+import { figureProblems, figureWords, looseLimits, ownLevels, partWholeProblems, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
 
 const files: Record<string, string> = { "a.ts": "export function dueOf() { return { dueCents: 1 }; }", "b.ts": "export function billMonth() { return { dueCents: 2 }; }" };
 const read = (f: string) => files[f] ?? null;
@@ -123,5 +123,30 @@ describe("rule 52 detection", () => {
 
   it("leaves a write, a type, an object literal and an array destructuring alone", () => {
     expect(run("row.wholeCents = 5;\ninterface L { paymentCents: number }\nconst l = { paymentCents: 1, wholeCents: 2 };\nconst [paymentCents] = list;\nconst m = loan.monthlyCents;")).toEqual([]);
+  });
+
+  const read = (file: string, name: string, line: number) => ({ key: `${file}  ${name}`, line });
+
+  it("allows the reads a baseline line counts", () => {
+    expect(partWholeProblems([read("a.ts", "paymentCents", 3), read("a.ts", "paymentCents", 9)], ["a.ts  paymentCents  2"])).toEqual([]);
+  });
+
+  it("refuses a read past the count, naming the first one past it", () => {
+    const found = partWholeProblems([read("a.ts", "paymentCents", 3), read("a.ts", "paymentCents", 9), read("a.ts", "paymentCents", 12)], ["a.ts  paymentCents  2"]);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatchObject({ where: "source", line: 12, why: expect.stringContaining("more than the baseline's 2") });
+  });
+
+  it("refuses a read in a file or of a field the baseline does not list", () => {
+    const found = partWholeProblems([read("b.ts", "wholeCents", 4), read("a.ts", "wholeCents", 5)], ["a.ts  paymentCents  1"]);
+    expect(found.filter((p) => p.where === "source").map((p) => [p.key, p.line])).toEqual([["b.ts  wholeCents", 4], ["a.ts  wholeCents", 5]]);
+  });
+
+  it("refuses a count above the reads and a line with no reads, so the list only shrinks", () => {
+    const found = partWholeProblems([read("a.ts", "paymentCents", 3)], ["a.ts  paymentCents  2", "b.ts  wholeCents  1"]);
+    expect(found.map((p) => [p.where, p.line, p.why])).toEqual([
+      ["baseline", 1, expect.stringContaining("lower the count from 2")],
+      ["baseline", 2, expect.stringContaining("delete the line")],
+    ]);
   });
 });

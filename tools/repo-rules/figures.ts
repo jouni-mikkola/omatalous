@@ -10,7 +10,7 @@
  * Rule 51 (the one definition of a figure): every entry says its `scope` and whether it is `additive` and names one
  * function, and every figure word of docs/MONEY_FLOWS.md is the name of an entry or is in figure-words-baseline.txt, a
  * list that only shrinks. Rule 52 (part and whole): `paymentCents` and `wholeCents`, the whole of a bank's payment or a
- * row, are read only in the files of part-whole-baseline.txt, a list that only shrinks until one typed pair owns both.
+ * row, are read only in the files of part-whole-baseline.txt and at most as often as its count, a list that only shrinks until one typed pair owns both.
  */
 import ts from "typescript6";
 import { lineOf, walk } from "./lib.ts";
@@ -140,6 +140,51 @@ export function partWholeReads(sf: ts.SourceFile): { name: string; line: number 
         if (ts.isIdentifier(field) && PART_WHOLE.has(field.text)) found.push({ name: field.text, line: lineOf(sf, el) });
       }
     }
+  });
+  return found;
+}
+
+export interface PartWholeProblem {
+  /** "source": a read in a file; "baseline": a line of the baseline. */
+  where: "source" | "baseline";
+  /** `file  name`. */
+  key: string;
+  line: number;
+  why: string;
+}
+
+/**
+ * The reads of a file are counted by field: a baseline line `file  name  count` allows that many. A read past the count
+ * is new, and a count above the reads, or a line with no reads, is stale: the list only shrinks. `reads` is in source
+ * order, so the first read past the count is the one named.
+ */
+export function partWholeProblems(reads: readonly { key: string; line: number }[], baseline: readonly string[]): PartWholeProblem[] {
+  const allowed = new Map<string, { count: number; line: number }>();
+  baseline.forEach((text, i) => {
+    const m = /^(.+?)\s{2}(\d+)$/.exec(text);
+    if (m) allowed.set(m[1]!, { count: Number(m[2]), line: i + 1 });
+  });
+  const found: PartWholeProblem[] = [];
+  const count = new Map<string, number>();
+  for (const { key, line } of reads) {
+    const n = (count.get(key) ?? 0) + 1;
+    count.set(key, n);
+    const limit = allowed.get(key)?.count ?? 0;
+    if (n === limit + 1) {
+      const name = key.split("  ")[1];
+      const reads = limit === 0 ? `reads ${name}` : `reads ${name} more than the baseline's ${limit}`;
+      found.push({ where: "source", key, line, why: `${reads}: the whole beside the viewer's part. A figure of a shared loan or account is the part (monthlyCents, partCents), and the whole only names the loan or the row` });
+    }
+  }
+  baseline.forEach((text, i) => {
+    const m = /^(.+?)\s{2}(\d+)$/.exec(text);
+    if (!m) {
+      found.push({ where: "baseline", key: text, line: i + 1, why: `the line is not "file  field  count": ${text}` });
+      return;
+    }
+    const n = count.get(m[1]!) ?? 0;
+    if (n === 0) found.push({ where: "baseline", key: m[1]!, line: i + 1, why: `no longer reads the field, delete the line: ${m[1]}` });
+    else if (n < Number(m[2])) found.push({ where: "baseline", key: m[1]!, line: i + 1, why: `reads the field ${n} time${n === 1 ? "" : "s"} now, so lower the count from ${m[2]}: ${m[1]}` });
   });
   return found;
 }

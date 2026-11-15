@@ -186,7 +186,7 @@ export const isIncomeRow = (t: Pick<AnalysisTx, "flows">) => t.flows.income !== 
 /**
  * Earned income: an income row whose type is earned (`INCOME_TYPES`): not money from people, not a refund, and not the
  * member's own money, whether the category says so or it is money in on a spending category (`moneyIn`). The one
- * predicate behind every "odotetut tulot" (`usualIncome` in usual.ts) and the earned split of the income report.
+ * predicate behind every "tavalliset tulot" (`expectedIncome` in expected.ts) and the earned split of the income report.
  */
 export const isEarnedIncome = (t: Pick<AnalysisTx, "flows"> & IncomeRow, role: PayerRole | null = null) => isIncomeRow(t) && INCOME_TYPES[incomeTypeOf(t, role)].earned;
 

@@ -239,7 +239,7 @@ interface RegularMonth {
   rows: { id: string; day: IsoDate; cents: number; whole: number }[];
 }
 
-/** The complete months of the window with their regular income by pay period: the months "Odotetut tulot" is the median of. */
+/** The complete months of the window with their regular income by pay period: the months "Säännölliset tulot" is the median of. */
 function regularMonthsOf({ b, usual, parts }: Window, ctx: AnalysisContext): RegularMonth[] {
   const byMonth = new Map(usual.filter((m) => isCompleteIncomeMonth(ctx, m)).map((m) => [m, { month: m, cents: 0, rows: [] as RegularMonth["rows"] }]));
   for (const { t, type, cents } of parts) {

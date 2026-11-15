@@ -19,6 +19,7 @@ import { explainLoan } from "../src/explain/loans.ts";
 import { explainNow } from "../src/explain/now.ts";
 import { FIGURES } from "../src/figures.ts";
 import { USUAL_MONTHS } from "../src/thresholds.ts";
+import type { Loan } from "../src/types.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
@@ -34,6 +35,12 @@ const monthOfRange = (h: Household) => addMonths(monthOf(h.today), -1);
 const lastMonth = (h: Household) => ({ from: `${monthOfRange(h)}-01`, to: monthEnd(monthOfRange(h)) });
 /** A range that reaches today, as the first page reads when it is running. */
 const running = (h: Household) => ({ from: `${monthOf(h.today)}-01`, to: monthEnd(monthOf(h.today)) });
+
+/** A mortgage typed in by hand, with a payment and a balance of the month before the household's day. */
+const typedLoan = (h: Household): Loan => ({
+  id: "typed-mortgage", name: "Asuntolaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 14_823_055, balanceDate: `${monthOfRange(h)}-15`,
+  rateBp: 310, reference: "euribor_12", marginBp: 65, repayment: "annuity", intervalMonths: 1, paymentCents: 91_240, endDate: null, limitCents: null, seriesKey: null,
+});
 
 const ANSWERS: Record<FigureKey, Answers> = {
   spending: (h) => {
@@ -216,13 +223,15 @@ const ANSWERS: Record<FigureKey, Answers> = {
   },
   loanMonthly: (h) => {
     const ctx = contextOf(h);
+    // the households have no typed loan, so each is read with one added: with no loan every answer is null and nothing is compared
+    const inputs = { ...h.inputs, loans: [...(h.inputs.loans ?? []), typedLoan(h)] };
     // the instalments of every loan of the view added up; a loan without a counted payment adds nothing
-    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => loans.reduce((sum, l) => sum + (l.monthlyPaymentCents ?? 0), 0);
-    const holdings = buildHoldings(ctx, h.balances, h.inputs);
+    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => (loans.length === 0 ? null : loans.reduce((sum, l) => sum + (l.monthlyPaymentCents ?? 0), 0));
+    const holdings = buildHoldings(ctx, h.balances, inputs);
     return {
       holdings: monthly(holdings.loans),
-      dashboard: monthly(buildDashboard(ctx, running(h), h.balances, h.inputs).holdings.loans),
-      explain: holdings.loans.reduce((sum, l) => sum + (explainLoan("loan.monthly", ctx, h.balances, h.inputs, l.id)?.explanation.cents ?? 0), 0),
+      dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
+      explain: holdings.loans.length === 0 ? null : holdings.loans.reduce((sum, l) => sum + (explainLoan("loan.monthly", ctx, h.balances, inputs, l.id)?.explanation.cents ?? 0), 0),
     };
   },
   periodLeft: (h) => {

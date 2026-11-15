@@ -238,7 +238,7 @@ export const FIGURES = {
     source: { file: "holdings.ts", fn: "buildHoldings", field: "netCents" },
     unit: "cents",
     scope: "own",
-    additive: false,
+    additive: true,
     pages: ["Yhteenveto", "Raportit"],
   },
   cash: {
@@ -251,13 +251,13 @@ export const FIGURES = {
     pages: ["Yhteenveto", "Raportit"],
   },
   loanMonthly: {
-    name: "Lainan kuukausierä",
+    name: "Kuukausierä",
     definition: "What a loan costs a month, the viewer's part of it: the instalment of a loan on a shared account is cut by the viewer's part, and the bank's whole payment only names the loan (ADR 0016). Nothing for a loan whose payments are not known.",
     source: { file: "holdings.ts", fn: "buildHoldings", field: "monthlyPaymentCents" },
     unit: "cents",
     scope: "own",
     additive: true,
-    pages: ["Raportit"],
+    pages: ["Yhteenveto", "Raportit"],
   },
   periodLeft: {
     name: "Käteen jäi",

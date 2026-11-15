@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { FIGURES } from "../../packages/core/src/figures.ts";
 import { type Finding, expectNoFindings, lineIn, parse, readText, repoFiles, sourceFiles } from "./lib.ts";
-import { figureProblems, figureWords, looseLimits, ownLevels, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
+import { figureProblems, figureWords, looseLimits, ownLevels, partWholeProblems, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
 
 const REGISTRY = "packages/core/src/figures.ts";
 const BASELINE = "tools/repo-rules/limits-baseline.txt";
@@ -65,18 +65,17 @@ describe("repo rules: the one definition of a figure (ADR 0020)", () => {
     expectNoFindings("figure definitions", found, `give the entry its scope, additive and source.fn in ${REGISTRY}. A word of the table is a figure of the registry, and a word that is not yet one goes on the baseline only when it is no figure at all.`);
   });
 
-  it("rule 52: no new file reads paymentCents or wholeCents, the whole of a bank's payment or of a row beside the viewer's part (the baseline only shrinks)", () => {
-    const baseline = new Set(readText(PART_WHOLE_BASELINE).split("\n").filter(Boolean));
-    const seen = new Set<string>();
-    const found: Finding[] = [];
+  it("rule 52: no new read of paymentCents or wholeCents, the whole of a bank's payment or of a row beside the viewer's part: each file reads each field at most as often as its baseline line counts (the baseline only shrinks)", () => {
+    const baseline = readText(PART_WHOLE_BASELINE).split("\n").filter(Boolean);
+    const reads: { key: string; line: number }[] = [];
     for (const file of sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/")) {
-      for (const { name, line } of partWholeReads(parse(file))) {
-        const key = `${file}  ${name}`;
-        seen.add(key);
-        if (!baseline.has(key)) found.push({ file, line, why: `reads ${name}: the whole beside the viewer's part. A figure of a shared loan or account is the part (monthlyCents, partCents), and the whole only names the loan or the row` });
-      }
+      for (const { name, line } of partWholeReads(parse(file))) reads.push({ key: `${file}  ${name}`, line });
     }
-    for (const key of baseline) if (!seen.has(key)) found.push({ file: PART_WHOLE_BASELINE, line: lineIn(PART_WHOLE_BASELINE, key), why: `no longer reads the field, delete the line: ${key}` });
-    expectNoFindings("part and whole", found, "read the part of the figure and leave the whole to the code that names the loan or the row (ADR 0016). Do not add the file to the baseline.");
+    const found: Finding[] = partWholeProblems(reads, baseline).map((p) => ({
+      file: p.where === "source" ? p.key.split("  ")[0]! : PART_WHOLE_BASELINE,
+      line: p.line,
+      why: p.why,
+    }));
+    expectNoFindings("part and whole", found, "read the part of the figure and leave the whole to the code that names the loan or the row (ADR 0016). Do not raise a count in the baseline.");
   });
 });
