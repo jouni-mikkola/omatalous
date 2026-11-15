@@ -53,7 +53,7 @@ export async function householdIbans(settings: SettingsRepo, userId: string): Pr
 }
 
 /** The settings key that holds the IBANs a user's accounts had when the others last read them. */
-const OWN_IBANS = "household_ibans:";
+export const OWN_IBANS = "household_ibans:";
 
 /**
  * When a user's accounts changed their IBANs since the others last read them, the other members' rows are categorised
@@ -67,8 +67,9 @@ async function spreadToHousehold(repo: FinanceRepo, settings: SettingsRepo): Pro
   const key = `${OWN_IBANS}${repo.userId}`;
   const was = await settings.get(key);
   if (own === (was ?? "")) return;
-  await settings.set(key, own);
   for (const other of await reach.membersBesides(repo.userId)) await withUserLock(other, () => reprocessLocked(reach.finance(other), settings));
+  // saved last: a spread that failed halfway is tried again by the next run
+  await settings.set(key, own);
 }
 
 export interface ReprocessResult {

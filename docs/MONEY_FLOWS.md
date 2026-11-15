@@ -123,7 +123,7 @@ back has rows only, every one signed and the last *Tulos*, and nothing is told a
 | Refund from a shop | spending goes down in the category of the purchase when the shop was paid in the 120 days before and the refund is not larger than what is left of those payments; otherwise it is income ("Hyvitykset") | a refund cancels a purchase, see *Money that comes back* |
 | MobilePay to or from a person | spending / income ("Maksut henkilöille", "Maksut henkilöiltä") | names like Elisa or Helen are people here, not companies |
 | Transfer to a person's account with no payment reference | spending ("Maksut henkilöille") | a gift or a share, not a sole trader's invoice. Money in is not read this way. See *People* |
-| Money from another holder of your account (a partner), also when the bank calls it an own transfer | income that is not earned ("Maksut henkilöiltä") | it is her money, not your pay and not your saving. See *People* |
+| Money from another holder of your account (a partner), also when the bank calls it an own transfer | income that is not earned ("Maksut henkilöiltä") | it is her money, not your pay and not your saving. When the partner's account is one a member of the household connected (its IBAN is known), it is a transfer instead. See *People* |
 | A limited company with a word of lending in its name that no list knows | paid: debt (finance, credit, loan, bank). Money in: borrowing, for finance, credit or loan only | a bank also pays pay and bonuses. See *Lenders* |
 | Money out to the bank of a connected account, by its plain name | not debt by the name alone | a paper statement or a card bill paid by reference with sums that vary is no instalment: the same sum paid month after month under one reference is (see *Lenders*). The bank's finance company is a lender like any other |
 | MobilePay to a business (name ends or starts with Oy, Ky, ry and the like, or holds a trade word such as a pizzeria) | spending in the business's category | a company form or a trade word in the payee name rules out a person, with the app's name in front of it or without |
@@ -240,7 +240,10 @@ is often a shop's brand too (Elisa, Helen, Silja), so a person is told before th
   person (*Maksut henkilöiltä*, income that is not earned), whatever the text says, and also when the bank calls it an
   own transfer. Her *vuokra* is not your rent income and her *lainan lyhennys* is not borrowing. An own transfer in
   from you, or from a sender the row does not name, stays your saving. An own transfer out stays your saving, also to a
-  co-holder's account.
+  co-holder's account. Where the co-holder's account is one that another member of the household connected, the
+  money between the two is a transfer in both members' views: a member's categorisation reads the IBANs of the other
+  members' accounts, and nothing else of them, to tell it. When a member connects or removes an account, the other
+  members' rows are categorised again.
 - **A person on a plain transfer.** A payee shaped like a name (no company form, no trade word) with MobilePay words or
   the bank's own words for a payment between people (*MOBIILIMAKSU*, *SIIRTO-MAKSU*), and no card in the row, is a
   person: *Maksut henkilöille* or *Maksut henkilöiltä*. Rent paid to a person is housing. Money in from a person named
@@ -1001,8 +1004,9 @@ A category you set by hand never changes by itself, not even after an update.
 
 Known limits of the joint account:
 
-- The sums above the list on Tapahtumat go by the mark stored on a row. In Koko talous a payment between members, which
-  the first page counts as a transfer, can be in them: a partner's payment into a joint account is money in there.
+- The sums above the list on Tapahtumat go by the mark stored on a row. A payment between members is a transfer in
+  both members' views when the row names the other account's IBAN. A leg that names none and is paired by amount and
+  day is marked as a transfer in Koko talous only, so it can still be in those sums in a member's own view.
 - A card that only one partner linked, its bill paid from the joint account: in the Koko talous of the partner who did
   not link the card the bill is still counted beside the card's purchases. The own views and the linker's Koko talous
   are right.

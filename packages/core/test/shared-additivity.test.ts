@@ -1,9 +1,9 @@
 /**
  * A figure over an account several members use is a part and a whole (shared.ts). Over households of two to four
- * members, with the split of the joint account said and unknown: the members' parts of a loan's payment add up to the
- * household's, every view reads the bank's whole the same, and the unsaved loans total adds up on its part side. Where
- * the split is unknown a member counts the joint account whole (ADR 0017), so each member's part is the whole and the
- * household's figure is counted once.
+ * members, with the split of the joint account said and unknown. Where the split is said the members' parts of a loan's
+ * payment add up to the household's and the unsaved loans total adds up on its part side. Where it is unknown a member
+ * counts the joint account whole (ADR 0017, no guessing), so each member's part is the whole and the members' parts add
+ * up to the household's figure once for each member. Every view reads the bank's whole the same.
  */
 import { describe, expect, it } from "vitest";
 import { loanProposals } from "../src/loan-detect.ts";
@@ -50,9 +50,9 @@ const countedWhole = (spec: Spec): boolean => spec.joint === "unknown" && spec.l
 
 const SPECS: Spec[] = ([2, 3, 4] as const).flatMap((members) => (["said", "unknown"] as const).flatMap((joint) => (["joint", "checking"] as const).map((loan): Spec => ({ members, joint, loan, cards: "connected" }))));
 
-describe("the members of a household add up to it", () => {
+describe("the members of a household add up to it where the split is said, and count a joint account whole where it is unknown", () => {
   it(
-    "for each loan's payment: the parts add up to the household's, and every view reads the bank's whole the same",
+    "for each loan's payment: the parts add up to the household's (whole once for each member when the split is unknown), and every view reads the bank's whole the same",
     () => {
       for (const spec of SPECS) {
         const h = generateHousehold(spec, 1);
@@ -64,6 +64,8 @@ describe("the members of a household add up to it", () => {
         const byMember = members.map(proposals);
         for (const p of whole) {
           const mine = byMember.flatMap((list) => list.filter((x) => x.key === p.key));
+          // every member sees the loan, so the counted-whole case multiplies by all of them
+          if (countedWhole(spec)) expect(mine.length, `${h.name}: ${p.key}`).toBe(spec.members);
           expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(countedWhole(spec) ? p.monthlyCents * mine.length : p.monthlyCents);
           for (const x of mine) expect(x.paymentCents, `${h.name}: ${p.key}`).toBe(p.paymentCents);
         }
@@ -73,7 +75,7 @@ describe("the members of a household add up to it", () => {
   );
 
   it(
-    "for the unsaved loans total: the members' totals add up to the household's",
+    "for the unsaved loans total: the members' totals add up to the household's (whole once for each member when the split is unknown)",
     () => {
       for (const spec of SPECS) {
         const h = generateHousehold(spec, 1);

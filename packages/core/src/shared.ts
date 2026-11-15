@@ -1,9 +1,10 @@
 /**
  * A figure over an account several members use has two readings: the viewer's `part` and the bank's `whole`. A sum
- * names the side it adds up, so the parts of every member add up to the household's figure and the wholes are the
- * bank's own amounts, never a mix of the two. Rows carry the two as `amountCents` and `wholeCents` (account-use.ts);
- * code that sums or compares them reads the pair through this file, and `repo-rules` keeps direct reads of
- * `wholeCents` out of the rest.
+ * names the side it adds up, so the parts of every member add up to the household's figure where the split is said, and
+ * the wholes are the bank's own amounts, never a mix of the two. Where the split is unknown each member counts the
+ * account whole (ADR 0017), so the parts do not add up to the household's figure. Rows carry the two as `amountCents`
+ * and `wholeCents` (account-use.ts); code that sums or compares them reads the pair through this file, and `repo-rules`
+ * keeps direct reads of `wholeCents` and of a proposal's `paymentCents` out of the rest.
  */
 import type { LoanProposal } from "./loan-detect.ts";
 import type { Transaction } from "./types.ts";

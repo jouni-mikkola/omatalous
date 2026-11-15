@@ -52,7 +52,9 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   directory name) and never write `INSTANCE_NAME` into the `.env` of an install that has none.
 - Money is integer cents, negative = out. Dates are `YYYY-MM-DD` strings.
 - Financial rows are reached only through `FinanceRepo` (always `WHERE user_id = ?`). Cross-user reads only via
-  `HouseholdRepo` for explicitly shared accounts, read-only.
+  `HouseholdRepo` for explicitly shared accounts, read-only. The one other read across users is the set of IBANs of the
+  other members' accounts (`ibansOutside`), which categorisation uses only to recognise money between members as a
+  transfer; nothing else of another member's data is read.
 - After any change to transactions/accounts/rules call `reprocess(repo, settings)` (bumps the user's data version,
   `data_version:<user id>`, which keys the analysis cache). A change that touches only the account list, such as a
   balance, calls `settings.bumpUserDataVersion(userId)`, and sharing changes bump the owner and the viewer.
