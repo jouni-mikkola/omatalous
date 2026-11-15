@@ -131,6 +131,21 @@
         "NORDEA FINANCE"
       ]
     },
+    "MORTGAGE_BANK_WORDS": {
+      "about": "Banks that lend mortgages. A loan payment to one of them is the mortgage; Nordea's finance company lends for cars and cards instead and is left out by isMortgageBankText. apps/server/test/mortgage-banks.test.ts holds the list against the banks the app can connect.",
+      "alternatives": [
+        "NORDEA",
+        "OP",
+        "[A-Z]*OSUUSPANKKI",
+        "DANSKE",
+        "S-PANKKI",
+        "AKTIA",
+        "[A-Z]*SAASTOPANKKI",
+        "POP PANKKI",
+        "HANDELSBANKEN",
+        "ALANDSBANKEN"
+      ]
+    },
     "NORDEA_CARD_WORDS": {
       "about": "Names of Nordea's credit cards.",
       "alternatives": [

@@ -33,6 +33,7 @@ export const FI_SHELL = {
   "shell.offline_kept": "Ei yhteyttä palvelimeen. Näkyvät luvut ovat ajalta {time}.",
   "shell.fetch_again": "Hae uudelleen",
   "shell.offline_old": "Ei yhteyttä palvelimeen. Tiedot voivat olla vanhoja.",
+  "shell.addon_failed": "Lisäosa ei latautunut, joten sovellus toimii ilman sitä.",
   "shell.new_version": "Uusi versio {version} on valmis.",
   "shell.reload": "Lataa sivu uudelleen",
   "shell.rows_arrived_one": "{count} uusi tapahtuma",

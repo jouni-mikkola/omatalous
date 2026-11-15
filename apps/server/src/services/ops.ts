@@ -139,12 +139,24 @@ const view = (r: OpsRequest, language: Language = "fi") => ({
 /**
  * A helper that checked before an update and has not checked since still says "available" for the version that now
  * runs. Its latest_version tells: when that is not newer than the running version there is nothing to offer.
- * Compared only when both read as X.Y.Z; otherwise the stored answer stands.
+ * Compared only when both read as X.Y.Z; otherwise the stored answer stands. Only a release install is judged by its
+ * version: a source or private install is offered commits, and a version left over from an earlier release check says
+ * nothing about them.
  */
 function withoutStaleOffer(snapshot: OpsState, running: string): OpsState {
   const latest = snapshot.latest_version;
+  if (snapshot.channel === "source" || snapshot.channel === "private") return snapshot;
   if (latest === undefined || !XYZ.test(latest) || !XYZ.test(running) || !atOrAbove(running, latest)) return snapshot;
-  return { ...snapshot, update_available: false };
+  const served = { ...snapshot, update_available: false };
+  delete served.behind_commits;
+  return served;
+}
+
+/** The system check is stale when it ran under another version than the build now running (an update came after it). */
+function withDoctorAge(snapshot: OpsState, running: string): OpsState {
+  const ran = snapshot.doctor_version;
+  if (!snapshot.doctor || ran === undefined || !XYZ.test(ran) || !XYZ.test(running) || ran === running) return snapshot;
+  return { ...snapshot, doctor_stale: true };
 }
 
 /** The system check in the member's language; the English twin is absent for a result from an older doctor.sh, which stays Finnish. */
@@ -160,7 +172,7 @@ export async function opsState(s: Services, language: Language = "fi") {
     version: s.build.version,
     build: s.build.id,
     helper,
-    state: inLanguage(withoutStaleOffer(snapshot, s.build.version), language),
+    state: inLanguage(withDoctorAge(withoutStaleOffer(snapshot, s.build.version), s.build.version), language),
     requests: requests.map((r) => view(r, language)),
     /** How each action last ended, by action; the steps and output stay out (the list above carries the recent ones). */
     last: Object.fromEntries(last.map((r) => [r.action, { ...view(r, language), steps: [], output: null }])),

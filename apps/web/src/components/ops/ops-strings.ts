@@ -129,11 +129,17 @@ export const S = {
     return t("ops.run_doctor");
   },
   checkedAt: (time: string) => t("ops.checked_at", { time }),
+  get doctorStale() {
+    return t("ops.doctor_stale");
+  },
+  get doctorFlagged() {
+    return t("ops.doctor_flagged");
+  },
+  get technical() {
+    return t("ops.technical");
+  },
   get actionNames() {
     return { "check-update": t("ops.action_check_update"), update: t("ops.action_update"), rollback: t("ops.action_rollback") };
-  },
-  get neverRun() {
-    return t("ops.never_run");
   },
   lastAt: (time: string) => t("ops.last_at", { time }),
   lastRunning: (time: string) => t("ops.last_running", { time }),

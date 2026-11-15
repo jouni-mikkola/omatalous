@@ -220,12 +220,18 @@ or makes a request, and the card of Menot osittain is not there.
 
 ### Loading in the browser
 
-When a module is loaded on the server, the page (`index.html`) carries
-`<meta name="omatalous-module" content="/modules/<id>/<version>/">`; without one the page is the build's own file,
-byte for byte. `main.tsx` reads the tag before the first render, sets `globalThis.__omatalous`, imports
-`<content>web.mjs` and adds `<content>web.css` as a stylesheet. A failure is logged and the app renders without the
-module. The files under `/modules/` are served only to a signed-in user, from the extracted folder, with the app's own
-CSP; a signed-out page loads the module after the sign-in reloads it.
+When a module is loaded on the server, the page (`index.html`) of a signed-in request carries
+`<meta name="omatalous-module" content="/modules/<id>/<version>/">`; the page of a request with no session, the
+sign-in page included, and the page of an install with no module are the build's own file, byte for byte, so the sign-in
+page names no module. `main.tsx` reads the tag before the first render, sets `globalThis.__omatalous`, imports
+`<content>web.mjs` and adds `<content>web.css` as a stylesheet. A failure is logged, the app renders without the
+module and the shell shows one notice. The files under `/modules/` are served only to a signed-in user, from the
+extracted folder, with the app's own CSP. The answer of a sign-in (`POST /api/auth/login`, `POST /api/auth/factor`)
+and the state answer of a signed-in request (`GET /api/auth/state`) carry `addOn: true` while a module is loaded; no
+answer to a request with no session has the field. A page that has no module reloads once per browser session when such
+an answer arrives (a sign-in on the page, or another tab that signed in after the page was served), and the reloaded
+page names the module. If the module is still missing after that reload, the shell shows its one notice and the page
+does not reload again.
 
 ## Building a module (in its own repository)
 
