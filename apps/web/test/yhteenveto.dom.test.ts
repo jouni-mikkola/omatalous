@@ -76,7 +76,7 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("h2")?.textContent).toBe("Marraskuu 2026");
     expect(figuresIn(container)).toEqual([
       { id: "income", label: "Tulot", figure: "4 120 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 3 980 €"] },
-      { id: "spent", label: "Menot", figure: "1 500 €", lines: ["234 € yli tavallisen tähän päivään"] },
+      { id: "spent", label: "Menot ilman säästöistä maksettua", figure: "1 500 €", lines: ["234 € yli tavallisen tähän päivään"] },
       { id: "result", label: "Tulos", figure: "2 120 €", lines: ["Viime kuussa samaan päivään 1 900 €"] },
     ]);
   });

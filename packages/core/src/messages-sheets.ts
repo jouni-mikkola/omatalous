@@ -18,7 +18,6 @@ export const FI_SHEETS = {
   "tax.partial": "Vuosi on kesken. Luvut ovat väliltä {from}–{to}.",
   "tax.income": "Tulot lähteittäin",
   "tax.interest": "Lainojen ja luottojen korot",
-  "tax.interest_note": "Rivit kategoriasta Korot ja luottokulut. Lainanmaksussa korko ja lyhennys ovat yhdellä rivillä. Niiden jaon näet pankin vuosiyhteenvedosta.",
   "tax.loans": "Lainojen maksut",
   "tax.category": "Kategoria",
   "tax.count": "Rivejä",

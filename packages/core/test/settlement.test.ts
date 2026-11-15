@@ -8,9 +8,9 @@ import { dayNumber as d } from "../src/dates.ts";
 import type { Owner, TraceRow } from "../src/money-trace.ts";
 import { trace } from "../src/money-trace.ts";
 import { type AgreementRow, agreementRefusal, type Incomes } from "../src/settlement-agreements.ts";
-import { type SaidAnswer } from "../src/settlement-ledger.ts";
+import { type Entry, type SaidAnswer } from "../src/settlement-ledger.ts";
 import { cardHolderOf } from "../src/card-holder.ts";
-import { type ClosedMonth, type Settlement, settlement, transfersOf } from "../src/settlement.ts";
+import { type ClosedMonth, NETTED_SOURCE, type Settlement, settlement, transfersOf } from "../src/settlement.ts";
 
 const MATTI = "u:1";
 const MAIJA = "u:2";
@@ -53,6 +53,11 @@ const identity = (s: Settlement): Settlement => {
   expect(sum(s.members.map((m) => m.over))).toBe(s.unknownOwed - s.unknownPaid);
   expect(sum(s.members.map((m) => m.paid)) + s.unknownPaid).toBe(s.netCost);
   expect(sum(s.members.map((m) => m.owed)) + s.unknownOwed).toBe(s.netCost);
+  // the unknown sources of a side add up to its figure, and none has the other sign or is nothing
+  for (const [by, figure] of [[s.unknownPaidBy, s.unknownPaid], [s.unknownOwedBy, s.unknownOwed]] as const) {
+    expect(sum(by.map((e) => e.cents))).toBe(figure);
+    expect(by.every((e) => e.cents !== 0 && Math.sign(e.cents) === Math.sign(figure))).toBe(true);
+  }
   return s;
 };
 const of = (s: Settlement, owner: Owner): { paid: number; owed: number; over: number } => s.members.find((m) => m.owner === owner) ?? { paid: 0, owed: 0, over: 0 };
@@ -494,6 +499,7 @@ describe("a closed month is frozen", () => {
     expect(run("2026-09", rows, later)).toBe(sep);
     const oct = identity(run("2026-10", rows, later));
     expect(oct.lines.map((l) => [l.kind, l.key])).toEqual([["late_change", "2026-09"]]);
+    expect([...oct.lines[0]!.paid, ...oct.lines[0]!.owed].every((e) => e.cents !== 0)).toBe(true);
     expect([of(oct, MATTI).over, of(oct, MAIJA).over]).toEqual([-10000, 10000]);
     // the answer is dated in November, and no month carries an 'answered' line for a month that is frozen
     const nov = identity(run("2026-11", rows, later));
@@ -539,6 +545,32 @@ describe("a closed month is frozen", () => {
   it("carries nothing when nothing changed", () => {
     const sep = snapshot("2026-09", { answers: [matti], asOf: "2026-10-20" });
     expect(identity(run("2026-10", rows, { answers: [matti], asOf: "2026-10-25", closed: [sep] })).lines).toEqual([]);
+  });
+
+  describe("a stored month's unknown sources", () => {
+    const sep = snapshot("2026-09", { answers: [matti], asOf: "2026-10-20" });
+    const stored = (paidBy: Entry[], owedBy: Entry[] = []): ClosedMonth => ({ ...sep, unknownPaid: sum(paidBy.map((e) => e.cents)), unknownOwed: sum(owedBy.map((e) => e.cents)), unknownPaidBy: paidBy, unknownOwedBy: owedBy });
+    const served = (m: ClosedMonth): Settlement => run("2026-09", rows, { closed: [m] });
+    const acme = "g:text:acme";
+
+    it("stay as they are when each has the sign of its side's total", () => {
+      const same = stored([{ owner: acme, cents: 5000 }, { owner: "c", cents: 3000 }], [{ owner: acme, cents: -2000 }]);
+      expect(served(same)).toBe(same);
+    });
+
+    it("are one line with no source when the signs are mixed, and none when they cancel", () => {
+      const mixed = served(stored([{ owner: acme, cents: 8000 }, { owner: "c", cents: -3000 }], [{ owner: acme, cents: -8000 }, { owner: "c", cents: 3000 }]));
+      expect(mixed.unknownPaidBy).toEqual([{ owner: NETTED_SOURCE, cents: 5000 }]);
+      expect(mixed.unknownOwedBy).toEqual([{ owner: NETTED_SOURCE, cents: -5000 }]);
+      expect([mixed.unknownPaid, mixed.unknownOwed]).toEqual([5000, -5000]);
+      const cancelled = served(stored([{ owner: acme, cents: 5000 }, { owner: "c", cents: -5000 }]));
+      expect([cancelled.unknownPaidBy, cancelled.unknownPaid]).toEqual([[], 0]);
+    });
+
+    it("leave no late change in the next month, since a month is compared with itself as it is made of lines", () => {
+      const old = stored([{ owner: acme, cents: 5000 }, { owner: "c", cents: -5000 }]);
+      expect(identity(run("2026-10", rows, { answers: [matti], asOf: "2026-10-25", closed: [old] })).lines).toEqual([]);
+    });
   });
 });
 

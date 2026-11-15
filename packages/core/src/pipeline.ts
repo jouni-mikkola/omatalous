@@ -115,8 +115,13 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
 
 const HOLD_CATEGORY = "hold";
 
-/** A payment the bank has reserved and not booked carries no text, code or card class: a hold, until its booking names the payee and the row is sorted again. */
-const isHold = (t: Transaction): boolean => t.status === "pending" && t.amountCents < 0 && t.merchant === UNKNOWN_MERCHANT && !t.counterparty?.trim() && !t.description?.trim() && !t.mcc?.trim();
+/**
+ * A payment the bank has reserved and not booked carries no text, code, card class or counterparty account: a hold,
+ * until its booking names the payee and the row is sorted again. A reserved transfer names its account, so it is no hold
+ * and may still pair with its other leg.
+ */
+const isHold = (t: Transaction): boolean =>
+  t.status === "pending" && t.amountCents < 0 && t.merchant === UNKNOWN_MERCHANT && !t.counterparty?.trim() && !t.description?.trim() && !t.mcc?.trim() && !t.counterpartyIban?.trim() && !t.bankTxnCode?.trim();
 
 /** Before transfer detection: a card bill pairs with the connected card's payment row. */
 function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>): void {

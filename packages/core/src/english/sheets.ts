@@ -15,7 +15,6 @@ export const EN_SHEETS: Record<keyof typeof FI_SHEETS, string> = {
   "tax.partial": "The year is not over. The figures cover {from} to {to}.",
   "tax.income": "Income by source",
   "tax.interest": "Interest on loans and credit",
-  "tax.interest_note": "Rows of the category Interest and credit costs. A loan payment holds interest and principal in one row, so their split shows only in the bank's annual statement.",
   "tax.loans": "Loan payments",
   "tax.category": "Category",
   "tax.count": "Rows",

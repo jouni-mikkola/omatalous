@@ -5,7 +5,7 @@
  * others, the way they see an account only when it is theirs or shared with them.
  */
 import { isDeepStrictEqual } from "node:util";
-import { type AgreementRow, addMonths, type RunningPool, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, isRealDay, monthLast, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
+import { type AgreementRow, addMonths, type RunningPool, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, isRealDay, monthLast, nettedMonth, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
 import type { StoredAgreement, StoredClosedMonth, StoredMember } from "../db/agreement-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
@@ -257,7 +257,16 @@ export async function importedMonthRefusal(s: Services, userId: string, row: Rea
   if (why) return why;
   if (!cache.has(key)) cache.set(key, await recomputedMonths(s, userId, key));
   const own = cache.get(key)?.get(String(row.month));
-  return own && isDeepStrictEqual(JSON.parse(String(row.snapshot)), JSON.parse(JSON.stringify(own))) ? null : "differs";
+  return own && sameMonth(String(row.snapshot), own) ? null : "differs";
+}
+
+/** Whether a month's text is what this server works out, both with the unknown sources netted: an export from before the netting still agrees. */
+function sameMonth(snapshot: string, own: ClosedMonth): boolean {
+  try {
+    return isDeepStrictEqual(JSON.parse(JSON.stringify(nettedMonth(JSON.parse(snapshot) as ClosedMonth))), JSON.parse(JSON.stringify(nettedMonth(own))));
+  } catch {
+    return false;
+  }
 }
 
 /** The settlement of a month for every pool the member is weighted in and that has a trace. */

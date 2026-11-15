@@ -42,7 +42,7 @@ const closedWeekday = (day: number): boolean => {
 const DEPOSIT_PURCHASES = 3;
 
 /** Categories that describe the purpose of a payment rather than a purchase, so they may be one leg of a transfer. */
-const PAIRABLE_CATEGORIES = new Set(["card_bill", "credit_draw", "other", "income", "p2p", "p2p_in"]);
+const PAIRABLE_CATEGORIES = new Set(["card_bill", "credit_draw", "other", "hold", "income", "p2p", "p2p_in"]);
 
 export type TransferInput = Pick<
   Transaction,
@@ -64,7 +64,7 @@ export function mayBeTransferLeg(t: TransferInput): boolean {
 
 /** A purchase: money out in a spending category the rules chose, not the default nor a bank's fee. */
 const isPurchase = (t: TransferInput): boolean =>
-  t.categorySource !== "default" && t.category !== "other" && t.category !== "fees" && getCategory(t.category).kind === "expense";
+  t.categorySource !== "default" && t.category !== "other" && t.category !== "hold" && t.category !== "fees" && getCategory(t.category).kind === "expense";
 
 /** How a pair was formed. Today's pairs have one way, the amount on the days of the window; the links of the plan come with the readers' move. */
 export type PairLink = "amount-day";
