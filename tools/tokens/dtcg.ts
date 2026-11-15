@@ -7,6 +7,7 @@
  * place for goes under `$extensions`:
  *   fi.omatalous.media   { "<media query>": <value in the same shape> } the value the token takes under that query
  *   fi.omatalous.css     { "suffix": "%" | "em" } the unit of a `number` token that is written with one
+ * A dimension may also be `{ "max": [dimension, dimension] }`, written `max(a, b)`.
  */
 
 export type Oklch = { colorSpace: "oklch"; components: [number, number, number]; alpha?: number };
@@ -92,6 +93,8 @@ function invalid(type: string, v: unknown): string | null {
       return null;
     }
     case "dimension":
+      // the larger of two or more dimensions, for a floor that also grows: { max: [44px, 2rem] }
+      if (isNode(v) && Array.isArray(v.max)) return v.max.length >= 2 && v.max.every((d) => isNode(d) && !("max" in d) && invalid("dimension", d) === null) ? null : "max is a list of two or more dimensions";
       return isNode(v) && num(v.value) && (v.unit === "px" || v.unit === "rem") ? null : "a dimension is { value, unit: \"px\" | \"rem\" }";
     case "duration":
       return isNode(v) && num(v.value) && (v.unit === "ms" || v.unit === "s") ? null : "a duration is { value, unit: \"ms\" | \"s\" }";
@@ -158,6 +161,7 @@ export function cssValue(t: Token, value: unknown): string {
     }
     case "dimension":
     case "duration": {
+      if (isNode(value) && Array.isArray(value.max)) return `max(${value.max.map((d) => cssValue(t, d)).join(", ")})`;
       const d = value as { value: number; unit: string };
       return `${n(d.value)}${d.value === 0 && d.unit !== "ms" && d.unit !== "s" ? "" : d.unit}`;
     }

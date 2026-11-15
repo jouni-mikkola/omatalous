@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { tempDir } from "../lib/tmp-kit.ts";
 import { build, CSS_OUT, render, SOURCE } from "./build.ts";
-import { oklchToHex, plainNumber, readTokens } from "./dtcg.ts";
+import { cssValue, oklchToHex, plainNumber, readTokens } from "./dtcg.ts";
 
 const ROOT = join(import.meta.dirname, "../..");
 const WEB = join(ROOT, "apps/web/src");
@@ -86,6 +86,15 @@ describe("the DTCG reader", () => {
       const text = String(e);
       for (const part of ['the key "a" is also color.a', "color.b: oklch(0.5 0.4 140) is outside sRGB", "color.c: the alias {color.nope} names no token", "other.d: unknown or missing $type", "other.a: a duration is"]) expect(text).toContain(part);
     }
+  });
+
+  it("writes the larger of two dimensions as max() and refuses a max of one or of a colour", () => {
+    const dim = (x: unknown) => ({ size: { $type: "dimension", a: { $value: x, $extensions: { "fi.omatalous.media": { "(pointer: coarse)": x } } } } });
+    const good = { max: [{ value: 44, unit: "px" }, { value: 2, unit: "rem" }] };
+    const [token] = readTokens(dim(good));
+    expect(cssValue(token!, good)).toBe("max(44px, 2rem)");
+    expect(() => readTokens(dim({ max: [{ value: 44, unit: "px" }] }))).toThrow(/max is a list of two or more dimensions/);
+    expect(() => readTokens(dim({ max: [{ value: 44, unit: "px" }, 3] }))).toThrow(/max is a list/);
   });
 
   it("reads a good file and lists the tokens in file order", () => {

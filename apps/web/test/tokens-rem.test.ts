@@ -25,12 +25,12 @@ describe("the tokens that scale with the browser's text size", () => {
     expect(declared.find(([name]) => name === "--control-h")?.[1]).toBe("2rem");
   });
 
-  it("keeps a touch target in px: 44 px for a thumb, 24 px as the floor, and a control is 44 px where the pointer is a finger", () => {
+  it("keeps a touch target in px: 44 px for a thumb, 24 px as the floor, and a control is at least 44 px where the pointer is a finger, and grows with the text", () => {
     const px = (name: string) => declared.filter(([n]) => n === name).map(([, value]) => value);
     expect(px("--tap-min")).toEqual(["44px"]);
     expect(px("--tap-floor")).toEqual(["24px"]);
     expect(px("--row-h-roomy")).toEqual(["44px"]);
-    expect(px("--control-h")).toEqual(["2rem", "44px"]);
+    expect(px("--control-h")).toEqual(["2rem", "max(44px, 2rem)"]);
   });
 
   it("gives code the same sizes in px as before, 16 px to the rem", () => {

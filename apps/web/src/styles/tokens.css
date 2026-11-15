@@ -162,7 +162,7 @@
 }
 @media (pointer: coarse) {
   :root {
-    --control-h: 44px;
+    --control-h: max(44px, 2rem);
   }
 }
 @media (prefers-reduced-motion: reduce) {
