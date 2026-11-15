@@ -141,12 +141,13 @@ export async function auditTables(page: Page, width: number, touch = width < 600
   if (touch) await openDrills(page);
   const wide = await overflow(page);
   if (wide > 0) {
-    const past = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("body *"))
-        .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.25 || e.scrollWidth > e.clientWidth + 0.5 || (e instanceof SVGGraphicsElement && e.getBBox().x + e.getBBox().width > document.documentElement.clientWidth))
+    const past = await page.evaluate(() => {
+      const hit = Array.from(document.querySelectorAll("body *")).filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.25 || e.scrollWidth > e.clientWidth + 0.5);
+      return hit
+        .filter((e) => !hit.some((o) => o !== e && e.contains(o)))
         .slice(0, 12)
-        .map((e) => `${e.tagName.toLowerCase()}${typeof e.className === "string" && e.className ? `.${e.className.trim().split(/\s+/).join(".")}` : ""} "${(e.textContent ?? "").trim().slice(0, 24)}" in ${e.parentElement?.tagName.toLowerCase()}.${typeof e.parentElement?.className === "string" ? e.parentElement.className.trim().split(/\s+/).join(".") : ""} to ${e.getBoundingClientRect().right.toFixed(1)}`),
-    );
+        .map((e) => `${e.scrollWidth}/${e.clientWidth} ${e.tagName.toLowerCase()}${typeof e.className === "string" && e.className ? `.${e.className.trim().split(/\s+/).join(".")}` : ""} "${(e.textContent ?? "").trim().slice(0, 24)}" in ${e.parentElement?.tagName.toLowerCase()}.${typeof e.parentElement?.className === "string" ? e.parentElement.className.trim().split(/\s+/).join(".") : ""} to ${e.getBoundingClientRect().right.toFixed(1)}`);
+    });
     problems.push(`the page is ${wide} px wider than the window${past.length ? `, reached by ${past.join("; ")}` : ""}`);
   }
   const tables = await page.evaluate((w) => {
