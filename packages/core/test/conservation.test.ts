@@ -124,6 +124,19 @@ describe("bridgeByMonth: Tulos is the change of the pool and two named lines", (
     expect(m.residualCents).toBe(-8_150);
   });
 
+  it("pairs a tie by row id, so the order of the rows changes nothing", () => {
+    const rows = [
+      row("chk", -10_500, {}, { iban: SECOND_IBAN }),
+      row("chk", -9_500, {}, { iban: SECOND_IBAN }),
+      row("chk-other", 10_000, {}, { iban: CHK_IBAN }),
+      row("chk-other", 9_500, {}, { iban: CHK_IBAN }),
+    ];
+    const forward = march(rows, TWO_POOL);
+    const backward = march([...rows].reverse(), TWO_POOL);
+    expect([backward.lines.moved.cents, backward.residualCents]).toEqual([forward.lines.moved.cents, forward.residualCents]);
+    expect([...backward.lines.moved.rowIds].sort()).toEqual([...forward.lines.moved.rowIds].sort());
+  });
+
   it("keeps each row in one line, by its id", () => {
     const moved = row("chk", -8_150, {}, { iban: OUTSIDE_IBAN });
     const card = row("card", -5_000, { consumption: 5_000 });

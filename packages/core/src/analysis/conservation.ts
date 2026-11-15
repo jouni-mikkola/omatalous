@@ -13,8 +13,9 @@ import { type Flows, leftOf } from "./flows.ts";
  * under test, so no line reads it):
  * - `cards`: a purchase on a connected card lowers Tulos when it is made and the pool when its bill is paid, so the
  *   change of what the cards hold is a line of its own;
- * - `moved`: money between two daily accounts of the household (a joint account's top-up, a transfer between members).
- *   Each leg names the other's IBAN. Two legs of one day that name each other, one in and one out, are matched, and the
+ * - `moved`: a transfer between two daily accounts of the household, any member's, where at least one leg is on an
+ *   account of the view's pool. It is never income or spending in any view, a member's top-up of a joint account
+ *   included, and the rows alone decide it, never the engine's own reading. Each leg names the other's IBAN. Two legs of one day that name each other, one in and one out, are matched, and the
  *   line takes the matched amount: the smaller of the bank's two amounts, at the part the view counts of each leg. A fee
  *   or any other difference between the legs is not matched and stays in the residual. A leg whose other account is
  *   not in the view has nothing to match: the pool changes by all of it and so does the line. A leg whose other account
@@ -65,6 +66,8 @@ export interface MonthBridge {
 type BridgeRow = Pick<Transaction, "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban"> & Partial<Pick<Transaction, "wholeCents">> & { flows: Flows };
 type BridgeAccount = Pick<Account, "id" | "type" | "iban">;
 
+const byId = (x: Pick<BridgeRow, "id">, y: Pick<BridgeRow, "id">): number => (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+
 const COUNTED: readonly (keyof Flows)[] = ["consumption", "debt", "saved", "borrowed", "income"];
 
 /**
@@ -72,6 +75,11 @@ const COUNTED: readonly (keyof Flows)[] = ["consumption", "debt", "saved", "borr
  * is a leg when its counterparty is a daily account of the household. Two legs of one day match when each names the
  * other's account, one is in and one out; the pair is moved by the smaller of the bank's two amounts. A row cut to a
  * part keeps its share of that amount, so a joint account's top-up cut to a member's part is moved in full.
+ *
+ * Pairing is by the closest amount, then by row id, and the legs are visited in row id order, so the result does not
+ * depend on the order of the rows. With a fee on both legs and a tie, the rows alone cannot tell which legs belong
+ * together (legs of -105/+100 and -95/+95 on one day pair either way), and a wrong pairing leaves a false residual of the
+ * difference. The generated households have one fee on one pair, where no tie arises.
  */
 function movedPieces(rows: readonly BridgeRow[], accounts: readonly BridgeAccount[], poolIds: ReadonlySet<string>, dailyIbans: ReadonlySet<string>): Map<string, number> {
   const ibanOf = new Map(accounts.map((a) => [a.id, normalizeIban(a.iban)]));
@@ -80,6 +88,7 @@ function movedPieces(rows: readonly BridgeRow[], accounts: readonly BridgeAccoun
     const other = normalizeIban(t.counterpartyIban);
     return poolIds.has(t.accountId) && other !== null && dailyIbans.has(other);
   });
+  legs.sort(byId);
   const byDay = new Map<string, BridgeRow[]>();
   for (const t of legs) (byDay.get(t.bookingDate) ?? byDay.set(t.bookingDate, []).get(t.bookingDate)!).push(t);
   const whole = (t: BridgeRow) => Math.abs(billCents({ amountCents: t.amountCents, wholeCents: t.wholeCents }));
@@ -91,7 +100,7 @@ function movedPieces(rows: readonly BridgeRow[], accounts: readonly BridgeAccoun
     const mine = ibanOf.get(a.accountId) ?? null;
     const theirs = normalizeIban(a.counterpartyIban)!;
     const mates = (byDay.get(a.bookingDate) ?? []).filter((b) => !matched.has(b.id) && b !== a && Math.sign(b.amountCents) === -Math.sign(a.amountCents) && mine !== null && ibanOf.get(b.accountId) === theirs && normalizeIban(b.counterpartyIban) === mine);
-    const b = mates.sort((x, y) => Math.abs(whole(x) - whole(a)) - Math.abs(whole(y) - whole(a)))[0];
+    const b = mates.sort((x, y) => Math.abs(whole(x) - whole(a)) - Math.abs(whole(y) - whole(a)) || byId(x, y))[0];
     if (b) {
       const cents = Math.min(whole(a), whole(b));
       matched.add(a.id).add(b.id);

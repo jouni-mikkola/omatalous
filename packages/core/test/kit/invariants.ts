@@ -117,7 +117,10 @@ const isOutflow = (category: string): boolean => ["expense", "debt"].includes(ge
 export function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund");
   const by = new Map<string, number>();
-  for (const t of bad) by.set(`${t.counterparty} as ${t.category}`, (by.get(`${t.counterparty} as ${t.category}`) ?? 0) + 1);
+  for (const t of bad) {
+    const what = `${t.counterparty ?? "no sender"} as ${t.category}`;
+    by.set(what, (by.get(what) ?? 0) + 1);
+  }
   return [...by].map(([what, n]) => found("I3a.money-in", h, v, `${n} rows in, ${what}`));
 }
 

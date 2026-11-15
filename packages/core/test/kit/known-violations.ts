@@ -67,7 +67,7 @@ const WITH_EVENTS = (n: number) => `generated:${n}:said:savings:unconnected:bene
 const JOINT_LOAN = "generated:2:said:joint:connected:base:1";
 const CHECKING_LOAN = "generated:2:said:checking:connected:base:1";
 const FULL_MONTHS = months("2025-04", "2026-05");
-/** The month of today, in which only the top-up of the loan's savings account has been made. */
+/** The month of today, which is only partly over: the joint top-ups (day 3) and the loan's legs (day 4) have happened, the 200 euro top-up of savings has not. */
 const LAST_MONTH = ["2026-06"];
 const JOINT_UNKNOWN = (n: number) => `generated:${n}:unknown:checking:connected:base:1`;
 
@@ -110,7 +110,7 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
     finding: "joint-top-up-of-another-member-counted-as-income",
     check: "I1.bridge",
-    reason: "When the joint account is shared, another member's top-up of it arrives in a member's view from an account the view does not hold, and Tulos counts it as money earned, though it only moved between the household's own accounts.",
+    reason: "A joint account with an unknown split is read with the first member's accounts only, and every member's part of it is whole, so applyUse returns early (account-use.ts) before its rule that money into a shared account from a household account is a transfer. The other members' top-ups keep the first member's reading and arrive in a member's view from an account the view does not hold, though they only moved between the household's own accounts.",
     lines: [
       ...joint(2, "m1", 45000, -45000),
       ...joint(3, "m1", 90000, -90000),
@@ -136,8 +136,8 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
     check: "I3a.money-in",
     reason: "A payment in through the wallet that names no sender sits in a spending category (groceries), where it counts as spending taken back.",
     lines: [
-      { line: "4 rows in, null as groceries", where: sameIn([ONE, TWO, FOUR], ["household", "m1"]) },
-      { line: "6 rows in, null as groceries", where: views(THREE, ["household", "m1"]) },
+      { line: "4 rows in, no sender as groceries", where: sameIn([ONE, TWO, FOUR], ["household", "m1"]) },
+      { line: "6 rows in, no sender as groceries", where: views(THREE, ["household", "m1"]) },
     ],
   },
   {
