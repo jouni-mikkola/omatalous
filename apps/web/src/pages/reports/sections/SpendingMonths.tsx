@@ -45,11 +45,7 @@ function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
     <div className="sm-detail">
       {row.statementCents > 0 && <p className="muted">{t("rpt.sm_statement", { amount: money(row.statementCents, true) })}</p>}
       {row.lowered && <p className="muted">{t("rpt.sm_lowered")}</p>}
-      {row.category === "card_bill" && (
-        <p className="muted">
-          {t("rpt.sm_card_bills_note")} <a href={settingsCardHash(SETTINGS_ANCHOR.statement)}>{t("rpt.sm_import_statement")}</a>
-        </p>
-      )}
+      {row.category === "card_bill" && <a href={settingsCardHash(SETTINGS_ANCHOR.statement)}>{t("rpt.sm_import_statement")}</a>}
       <Table<MonthRow> caption={t("rpt.sm_months_of", { name: row.label })} rows={months} rowKey={(m) => m.month} columns={monthColumns} toolbar={false} csv={false} />
       <Table<PayeeRow>
         caption={t("rpt.sm_payees_of", { name: row.label })}

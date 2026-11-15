@@ -92,13 +92,13 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
     expect(plain(screen.getByRole("table", { name: "Kategoriat" }).querySelector("tfoot")!.textContent)).toContain("400 €");
   });
 
-  it("opens the card bills row on a note and the link to the statement import, and no other row does", () => {
+  it("opens the card bills row on a plain link to the statement import with no sentence, and no other row does", () => {
     show(report(true));
     const open = (id: string) => fireEvent.click(document.querySelector(`button.rt-drill[data-drill="${id}"]`)!);
     open("groceries");
     expect(screen.queryByRole("link", { name: "Tuo kortin tiliote" })).toBeNull();
     open("card_bill");
-    expect(plain(document.body.textContent)).toContain("Näiden laskujen ostot eivät näy kategorioissa.");
+    expect(plain(document.body.textContent)).not.toContain("Näiden laskujen ostot");
     expect(screen.getByRole("link", { name: "Tuo kortin tiliote" }).getAttribute("href")).toMatch(/^#\/settings/);
   });
 });
