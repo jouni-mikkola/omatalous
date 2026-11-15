@@ -96,7 +96,7 @@ export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
   {
     finding: "loan-from-savings-counted-twice",
     check: "I1.bridge",
-    reason: "A loan instalment paid from a savings account counts as spending at the lender and again as the top-up of the savings account that paid it, so Tulos is 61240 cents too low in each month. In the households with two or more members the same lines carry the monthly transfer between two members: its fee of 150 cents is counted by no flow and stays in the residual of the household view (the spec leaves a fee there), and in the first member's view the 8150 cents sent to the other member are counted as a payment to a person.",
+    reason: "A loan instalment paid from a savings account counts as spending at the lender and again as the top-up of the savings account that paid it, so Tulos is 61240 cents too low in each month. In the households with two or more members the same lines carry the monthly transfer between two members: its fee of 150 cents is counted by no flow and stays in the residual of the household view, as a fee does by design, and in the first member's view the 8150 cents sent to the other member are counted as a payment to a person.",
     lines: [
       { line: bridge(LOAN, 0, 81240), where: [...views(ONE, ["household", "m1"], FULL_MONTHS)] },
       { line: bridge(WITH_FEE, 0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
