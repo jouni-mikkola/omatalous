@@ -6,7 +6,7 @@
  * group of its own under it. One column holds the amount and, only when it differs, the month's share of it. A row opens in
  * place: how often it comes, a year of it and its earlier payments with their sum (DrillRows), and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
  * removal of a bill typed in. A bill the app found that is no recurring bill is removed the same way: the mark
- * `wrongBillSubject` takes it out of the list and of every sum of what is coming. The head's figure is core's fixed costs a month and opens its rows; the table adds nothing.
+ * `wrongBillSubject` takes it out of the list and of every sum of what is coming. The table adds nothing up: the fixed costs a month are the figure of Raportit > Kiinteät menot, which the head links to once.
  * Whether a service is still used is asked in Tarkistettavat, never here.
  */
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
@@ -16,13 +16,12 @@ import { CADENCE_LABEL, date, dayHeading, money, monthYear, seriesName } from ".
 import { t } from "../../text.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
-import { Figure } from "../Figure.tsx";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import { DeltaChip, MarkCell } from "../table/Cells.tsx";
 import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
-import { Why } from "../Why.tsx";
+import { reportHref } from "../home/Tiles.tsx";
 import { cadenceLabel } from "./BillForm.tsx";
 import { DrillRows } from "../table/DrillRows.tsx";
 import { hasOneKind, type Item, kindLabel, type TypedBill, wrongBillSubject } from "./items.ts";
@@ -47,24 +46,19 @@ function frequency(s: Series): string {
 
 export function BillsTable({
   items,
-  fixedCents,
   controls,
   label,
   cards,
   today,
-  range,
   scope,
   onRemoved,
 }: {
   items: Item[];
-  /** Core's fixed costs a month. */
-  fixedCents: number;
   controls: MarkControls;
   label: (id: string) => string;
   /** The ids of the credit card accounts: a series charged to one is "Kortilla". */
   cards: ReadonlySet<string>;
   today: string;
-  range: { from: string; to: string };
   scope: Scope;
   /** A bill typed in was removed: the page reads its answers again. */
   onRemoved: () => void;
@@ -188,10 +182,11 @@ export function BillsTable({
         <div className="card-name">
           <h2>{t("bills.title")}</h2>
         </div>
-        <div className="card-datum">
-          <Why figure="bills.fixed" title={t("bills.fixed_title")} range={range} scope={scope} text={t("bills.per_month_short", { amount: money(fixedCents, false) })}>
-            <Figure text={t("bills.per_month_short", { amount: money(fixedCents, false) })} size="s" />
-          </Why>
+        {/* the tool cell: a phone puts it under the name on its own row */}
+        <div className="card-tool">
+          <Button variant="link" href={reportHref("kiinteat")}>
+            {t("bills.fixed_report")}
+          </Button>
         </div>
       </div>
       {error && <Notice tone="error">{error}</Notice>}

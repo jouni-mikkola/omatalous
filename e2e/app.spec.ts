@@ -515,7 +515,9 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   // what the page holds: the 30 days with their sums and the one table with the fixed costs, and no old tile or list
   await page.goto("/#/bills");
   for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-  await expect(page.locator("#laskut-taulukko .card-datum")).toContainText("/kk");
+  // the head holds no fixed-costs sum, only the one link to its report
+  await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
+  await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteiden menojen raportti" })).toHaveAttribute("href", "#/reports?q=kiinteat");
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   await page.goto("/#/reports?q=kiinteat");
   // the report holds the one fixed-costs table; the sections of fixed and variable costs and of price changes are gone (T60)

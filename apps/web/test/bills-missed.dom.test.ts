@@ -45,7 +45,7 @@ describe("Laskut: a bill that did not come, opened", () => {
     stubApi({ "GET /api/transactions": { items: [], total: 0 } });
     const items = billItems({ series: [power], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
     const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
-    render(createElement(BillsTable, { items, fixedCents: 0, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, range: { from: "2026-10-01", to: TODAY }, scope: "own", onRemoved: () => {} }));
+    render(createElement(BillsTable, { items, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, scope: "own", onRemoved: () => {} }));
     const row = screen.getByRole("row", { name: /Sähköyhtiö/ });
     expect(within(row).getByText("Ei tullut 5.9.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Tiedot: Sähköyhtiö/ }));
@@ -61,7 +61,7 @@ describe("Laskut: Päättyneet", () => {
     const live = { ...power, active: true, lastDate: "2026-10-05", nextDate: "2026-11-05" };
     const items = billItems({ series: [live, ended], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
     const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
-    const { container } = render(createElement(BillsTable, { items, fixedCents: 0, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, range: { from: "2026-10-01", to: TODAY }, scope: "own", onRemoved: () => {} }));
+    const { container } = render(createElement(BillsTable, { items, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, scope: "own", onRemoved: () => {} }));
     const dateCell = (name: string) => within(screen.getByRole("row", { name: new RegExp(name) })).getAllByRole("cell").find((c) => c.classList.contains("next-col"))!;
     expect(dateCell("Vanhayhtiö").getAttribute("data-label")).toBe("Viimeksi");
     expect(dateCell("Vanhayhtiö").textContent).toBe("5.8.");

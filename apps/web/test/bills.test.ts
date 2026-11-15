@@ -50,13 +50,18 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const byCover = marksBySubject(marks);
     const cancelled = cancelledSubjects({ ...NO_INPUTS, marks });
     const items = billItems({ series: rows, typed: [], cancelled, marks: byCover, today: TODAY });
-    return flat(renderToStaticMarkup(createElement(BillsTable, { items, fixedCents: 2398, controls: controlsOf(marks), label, cards, today: TODAY, range: { from: "2026-10-01", to: "2026-10-31" }, scope: "own", onRemoved: () => {} })));
+    return flat(renderToStaticMarkup(createElement(BillsTable, { items, controls: controlsOf(marks), label, cards, today: TODAY, scope: "own", onRemoved: () => {} })));
   };
   const action = (s: Recurring, marks: UserMark[], name = s.merchant) => flat(renderToStaticMarkup(createElement(MarkAction, { s, name, controls: controlsOf(marks) })));
 
-  it("is one table with the toolbar, the head's figure is the server's and each series is a row once", () => {
+  it("is one table whose head links to the fixed costs report and adds up nothing, and each series is a row once", () => {
     const out = cardOf([spotify, storage], []);
     expect(out).toContain("Laskut, sopimukset ja tilaukset");
+    expect(out.match(/href="#\/reports\?q=kiinteat"/g)).toHaveLength(1);
+    expect(out).toContain("Kiinteiden menojen raportti");
+    // the month's fixed costs are the report's figure: the card shows no sum of its own
+    expect(out).not.toContain("23,98");
+    expect(out).not.toContain("Kiinteät menot kuussa");
     expect(out).toContain("Spotify");
     const items = billItems({ series: [spotify, storage], typed: [], cancelled: cancelledSubjects({ ...NO_INPUTS, marks: [] }), marks: marksBySubject([]), today: TODAY });
     expect(items.filter((i) => JSON.stringify(i).includes("Spotify"))).toHaveLength(1);
@@ -65,7 +70,6 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const withTwin = billItems({ series: [spotify, storage], typed: [twin], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
     expect(withTwin).toHaveLength(2);
     expect(withTwin.find((i) => i.name === "Spotify")!.twins).toEqual([twin]);
-    expect(out).toContain("24 €/kk");
   });
 
   // the tag is the only place a row says its kind, so it is on every row or on none

@@ -4,12 +4,12 @@
  * Tulossa (docs/design/README.md 1.3) is one list: the household's bills, contracts and subscriptions in the order of
  * their next day, with no timeline, no sum lines, no search and no sorting. A bill the history cannot know yet is added
  * by hand behind "Lisää lasku" and is a row of the same list. Every figure comes from one definition in core
- * (`fixedMonthlyCents`, `isSubscription`, `isContract`, `isSavingsPlan`) and opens its rows where the
- * app works it out; a subscription marked as cancelled is out of every total. A mark is on one series
+ * (`isSubscription`, `isContract`, `isSavingsPlan`) and opens its rows where the
+ * app works it out; the fixed costs a month are not summed here, the head links to their report; a subscription marked as cancelled is out of every total. A mark is on one series
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
  * in Tarkistettavat, never here.
  */
-import { cancelledSubjects, countingMark, fixedMonthlyCents, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
+import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../api.ts";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
@@ -82,8 +82,6 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
     clear: (mark) => save(mark.subject, null),
   };
   const cards = new Set(meta.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
-  // the fixed costs are a month as the series run today: their rows (each series' latest charge) open up to today
-  const nowRange = { from: `${meta.today.slice(0, 7)}-01`, to: meta.today };
   const items = billItems({ series, typed: reports.data.upcoming.manual, cancelled, marks, today: meta.today });
 
   return (
@@ -126,7 +124,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
       {markError && <Notice tone="error">{markError}</Notice>}
       {items.length > 0 ? (
         <div className="span-12">
-          <BillsTable items={items} fixedCents={fixedMonthlyCents(series, cancelled)} controls={controls} label={label} cards={cards} today={meta.today} range={nowRange} scope={scope} onRemoved={removed} />
+          <BillsTable items={items} controls={controls} label={label} cards={cards} today={meta.today} scope={scope} onRemoved={removed} />
         </div>
       ) : (
         <div className="card span-12 bills-first">
