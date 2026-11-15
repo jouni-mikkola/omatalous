@@ -3,6 +3,13 @@
 Date: 9 November 2026, at commit 593448c (Omatalous 1.0.0 and the roadmap). This page lists facts and options. It
 decides no feature: every move that removes something a user sees is marked "owner decides".
 
+Superseded in part: the figures and lists below are those of that commit. Since then remote access, reading a loan from
+a picture or PDF and the second-factor passkeys have left the app, and with them `@simplewebauthn/server`, `tesseract.js`,
+`pdfjs-dist` and the `@tesseract.js-data/*` packs, none of which any `package.json` lists now. The server's runtime
+dependencies are `@banking/core`, `@hono/node-server`, `croner` and `hono`; the web app's are `@banking/core`,
+`@fontsource-variable/ibm-plex-sans`, three TanStack packages, `react`, `react-aria-components` and `react-dom`. Read the
+dependency section and the rows on those features as history.
+
 Each figure has the command that made it, run from the repo root. Tools that are not in the repo were installed in a
 scratch folder (`npm i jscpd@4 knip@5 @biomejs/biome@2`) and are called as `$T/jscpd` and so on. knip, jscpd and biome
 need about 1 GB of heap: `NODE_OPTIONS=--max-old-space-size=4096`.
