@@ -422,7 +422,7 @@ more than a shop name or an amount:
 
 ## Alerts
 
-The overview shows up to six alerts above the insights, for the selected period. They are about money
+The overview shows up to six alerts for the selected period. They are about money
 that may be going to waste. Clicking one opens the transactions behind it.
 
 | Alert | When it shows |
@@ -437,7 +437,7 @@ that may be going to waste. Clicking one opens the transactions behind it.
 
 Alerts only read the data, so fixing a category or a transfer can remove one.
 
-## Periods, fixed costs and insights
+## Periods and fixed costs
 
 - Yhteenveto offers two months and names them (*Lokakuu 2026*, *Syyskuu 2026*): the running month, which runs to
   today and is compared with the same days of the previous month, and the month before it, whole. *3 kk*, *6 kk* and
@@ -459,9 +459,6 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   the balance pays before the payday is in no figure of the window; `ahead.outside` finds it to the payday also when
   that is more than 30 days off. Yhteenveto names its sum in a line under the answer's sum row, and Laskut lists it
   before the payday.
-- Insights say what changed in the period. A month is compared with its expected figure (*Odotettu*, the mean of the
-  six months before) and shown only when it is outside all of them. A longer period is compared with the
-  previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.
 
 ## The first page
 
@@ -787,7 +784,6 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 | The household's debts | Every saved loan the view holds, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
 | Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |
 | A connected account as a loan | A connected card, an account with a credit limit, or an account of type loan, read as a loan so that its debt and its use come from the same functions. Credit in use is a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank tells what is owed on a loan account with either sign, so the sync stores a loan account's plus as a minus (`storedBalanceCents`) and an update mends the balances stored before; a card's plus is money the bank owes the holder and stays. A loan account's kind comes from its name (home loan, student loan, car loan, else other loan), never card or credit line, and it has no rate, payment or plan until a saved loan is linked to it. The id is `account:<account id>` | `creditAccountLoan` |
-| What a card cost | The bank's own charges on the card account in the complete months before a day, twelve at most. A charge worded as interest is interest, less the interest the bank took back and never below zero, and every other charge is a fee, and a late fee stays the late fee alert's. A month carried a balance when the bank charged interest in it. Nothing is scaled up for a card connected later | `cardCosts` |
 
 - Money is whole cents and a rate is hundredths of a percent. Interest of one payment interval is balance × rate ×
   months / 12, rounded to the nearest cent with a half cent up (`loanPeriodInterest`). Banks count days, each in its
@@ -857,8 +853,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   step less certainty. Under six complete months there are no euros, under three only deadlines.
 - Each finding has a low, a mid and a high figure. The page shows the mid.
 - A finding needs a mid of at least 120 € a year. A deadline has no euros.
-- The car's running cost holds leasing, and a car bought is shown apart. *Muut havainnot* stand on the same complete
-  months as the findings. The answer counts the checks of the areas: all of them, those waiting for a number, a fact or
+- The car's running cost holds leasing, and a car bought is shown apart. The answer counts the checks of the areas: all of them, those waiting for a number, a fact or
   months, and those with no rows to read, which did not look at anything. No page shows the counts.
 - A one-off (`oneOffs` with the level policy, the one every view uses, ADR 0005): a purchase over three times its usual ticket (its merchant's median, else its category's in other months) and at least 50 €, or 150 € with no ticket. Listed struck and left out. Transfers never
   count, and an account whose first row falls inside the window is left out of it.

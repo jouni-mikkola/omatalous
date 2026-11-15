@@ -2,7 +2,7 @@
 
 ## Context
 
-The 0.9.0 audit found five one-off rules (insights, change, Optimoi, income, alerts), so the same sofa was a one-off
+The 0.9.0 audit found five one-off rules (spending insights, change, Optimoi, income, alerts), so the same sofa was a one-off
 on the overview and part of the level in Optimoi. Month ends, a month's length and net of refunds were written out in
 a dozen files. The change sentences named the household's own noise as causes on 126 to 180 of 200 steady households,
 and called a month dearer from the gap between the median of totals and the categories' medians.
@@ -11,7 +11,7 @@ and called a month dearer from the gap between the median of totals and the cate
 
 - `oneOffs(rows, policy)` in `analysis/one-offs.ts` owns one-offs. `LEVEL`: a purchase over three times its usual
   ticket (its merchant's median, else its category's in other months) and at least 50 €, or 150 € with no ticket;
-  bills set the ticket and are never struck. Insights (`monthOneOffs`), the change report,
+  bills set the ticket and are never struck. The change report,
   Optimoi (`levelWithoutOneOffs`) and the spike alert use it. `PAY` is the second policy: pay is a sequence, so a
   bonus is a one-off only when the next pay is back near the usual (income.ts).
   Superseded in part by ADR 0013: the spike alert reads the change report's rows and makes no call of its own.

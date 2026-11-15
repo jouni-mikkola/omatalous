@@ -4,7 +4,7 @@ const EUR = Object.fromEntries(
   LANGUAGES.map((l) => [l, [new Intl.NumberFormat(localeOf(l), { style: "currency", currency: "EUR" }), new Intl.NumberFormat(localeOf(l), { style: "currency", currency: "EUR", maximumFractionDigits: 0 })] as const]),
 ) as Record<Language, readonly [Intl.NumberFormat, Intl.NumberFormat]>;
 
-/** 123456 → "1 234,56 €" (or "1 235 €" without decimals); in English "€1,234.56". Used in insight texts. */
+/** 123456 → "1 234,56 €" (or "1 235 €" without decimals); in English "€1,234.56". */
 export function formatEur(cents: number, decimals = true, lang: Language = DEFAULT_LANGUAGE): string {
   // Intl prints "−0 €" for -0 and for a negative that rounds to zero; zero has no sign.
   const euros = cents / 100;

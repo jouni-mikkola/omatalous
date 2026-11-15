@@ -1,6 +1,6 @@
 /**
  * Fixed costs as a share of the usual income: one figure, read by the buffer report (Raportit > Kiinteät ja
- * muuttuvat, Säästövinkit > Tilanne) for today and by the commitments insight for the day it is judged on.
+ * muuttuvat, Säästövinkit > Tilanne) for today and, through `fixedShareOn`, for any day.
  */
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { monthOf } from "../dates.ts";

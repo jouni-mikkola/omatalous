@@ -1,14 +1,11 @@
 /**
  * Every lender paid each month is a debt the household sees: four made-up lenders, one by the word list, one by the
  * shape of its name, one small and one paid on no steady day, each get a proposal, count in the fixed costs and stand
- * beside the debt total until saved. An ended run tells its first and last row and their sum. Made-up names and sums.
+ * beside the debt total until saved. Made-up names and sums.
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { formatEur } from "../src/analysis/format.ts";
-import { stoppedPayments } from "../src/analysis/insights/stopped.ts";
-import type { InsightArgs } from "../src/analysis/insights/types.ts";
 import { addMonths } from "../src/dates.ts";
 import { lenderInstalments, loanProposals, notLoanMark } from "../src/loan-detect.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
@@ -16,7 +13,6 @@ import { enrichTransactions } from "../src/pipeline.ts";
 import { type Account, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { withoutSwedishTwin } from "../src/wording-lenders.ts";
 import { tx } from "./helpers.ts";
-import { view } from "./insight-view.ts";
 
 const TODAY = "2026-10-18";
 const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking", holder: "ESIMERKKI ERKKI" };
@@ -117,39 +113,6 @@ describe("a saved loan with a typed payment and no series linked", () => {
   it("takes one series of two that fit", () => {
     const other = monthly(12, -300, "MALLI RAHOITUS OY", "LAINA", { reference: () => "22223", day: () => 20 });
     expect(loanProposals(contextOf([...rows, ...other]), { ...NO_INPUTS, loans: [saved(30_000)] })).toHaveLength(1);
-  });
-});
-
-/** Texts with plain spaces: euro amounts carry no-break spaces. */
-const plain = (s: string) => s.replace(/[\u00a0\u202f]/g, " ");
-
-describe("an ended lender", () => {
-  // one lender, two loans: 300 € since May 2025 and 450 € since December 2025, both last paid in July 2026
-  const first = monthly(15, -300, "ESIMERKKI RAHOITUS OY", "LAINA 1", { ended: 3, reference: () => "11112" });
-  const second = monthly(8, -450, "ESIMERKKI RAHOITUS OY", "LAINA 2", { ended: 3, day: () => 20, reference: () => "22223" });
-
-  it("tells the run's first and last row and the sum of all of them, once", () => {
-    // the account books on after the last payment: a stop is counted to its last row
-    const ctx = contextOf([...first, ...second, row("ESIMERKKIMARKET", "OSTO", -42.5, "2026-10-16", null)]);
-    const found = stoppedPayments({ ctx, end: TODAY, gateMonthlyCents: 0, lang: "fi" } as unknown as InsightArgs).map(view);
-    expect(found).toHaveLength(1);
-    expect(plain(found[0]!.detail)).toBe(`Tavallisesti 450 € kuussa, 23 maksua 15.5.2025 alkaen, yhteensä ${plain(formatEur(15 * 30000 + 8 * 45000, false))}. Päätä, mihin vapautunut raha menee.`);
-    expect(found[0]!.rows).toHaveLength(23);
-  });
-
-  it("counts no loan of the same lender that ended years before", () => {
-    // 300 € a month through 2021, then 450 € a month from May 2025 to July 2026
-    const old = Array.from({ length: 12 }, (_, i) => row("ESIMERKKI RAHOITUS OY", "LAINA", -300, `2021-${String(i + 1).padStart(2, "0")}-15`, "11112"));
-    const ctx = contextOf([...old, ...monthly(15, -450, "ESIMERKKI RAHOITUS OY", "LAINA", { ended: 3, reference: () => "11112" }), row("ESIMERKKIMARKET", "OSTO", -42.5, "2026-10-16", null)]);
-    const found = stoppedPayments({ ctx, end: TODAY, gateMonthlyCents: 0, lang: "fi" } as unknown as InsightArgs).map(view);
-    expect(found.map((i) => plain(i.detail))).toEqual([`Tavallisesti 450 € kuussa, 15 maksua 15.5.2025 alkaen, yhteensä ${plain(formatEur(15 * 45000, false))}. Päätä, mihin vapautunut raha menee.`]);
-  });
-
-  it("keeps a run whole across a payment skipped once", () => {
-    const run = monthly(15, -450, "ESIMERKKI RAHOITUS OY", "LAINA", { ended: 3, reference: () => "11112" }).filter((_, i) => i !== 6);
-    const ctx = contextOf([...run, row("ESIMERKKIMARKET", "OSTO", -42.5, "2026-10-16", null)]);
-    const found = stoppedPayments({ ctx, end: TODAY, gateMonthlyCents: 0, lang: "fi" } as unknown as InsightArgs).map(view);
-    expect(found.map((i) => plain(i.detail))).toEqual([`Tavallisesti 413 € kuussa, 14 maksua 15.5.2025 alkaen, yhteensä ${plain(formatEur(14 * 45000, false))}. Päätä, mihin vapautunut raha menee.`]);
   });
 });
 

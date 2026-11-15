@@ -1,7 +1,6 @@
 /**
- * A new television for 1 499 € on the Gold card in September. 0.7.0 review (month explanation and insights): one
- * large payment explains its month and is no habit, no new subscription and no trend ("A single month shows no swing
- * insights and no largest purchase" in the 0.7.0 changelog).
+ * A new television for 1 499 € on the Gold card in September. 0.7.0 review (month explanation): one
+ * large payment explains its month and is no habit, no new subscription and no trend.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

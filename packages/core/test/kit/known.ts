@@ -14,9 +14,7 @@ export interface KnownEventStatement {
   why: string;
 }
 
-export const KNOWN_EVENT_STATEMENTS: readonly KnownEventStatement[] = [
-  { event: "card-connected-late", statement: "insights spending-growth", why: "the card's purchases since it was connected in May called growth in purchases (Ostokset +N % vuodessa)" },
-];
+export const KNOWN_EVENT_STATEMENTS: readonly KnownEventStatement[] = [];
 
 /** A detector that fires on more steady households than the noise budget allows, with how many of the 200 it fires on. */
 export interface KnownNoise {

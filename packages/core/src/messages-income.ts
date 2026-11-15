@@ -1,5 +1,5 @@
 /**
- * Income changes: the titles, details and working lines of what changed in the income (the report and the insights).
+ * Income changes: the titles, details and working lines of what changed in the income (the report).
  * Same shape and the same test as the tables of `messages.ts`.
  */
 export const FI_INCOME = {
