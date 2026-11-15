@@ -25,7 +25,7 @@ import { flowSpendOf } from "./counted.ts";
 import { accountCovers } from "./coverage.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
 import { usualBase } from "./change-plan.ts";
-import { cardsBreakUsual, completeIncomeMonthsBefore, completeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
+import { cardsBreakUsual, completeIncomeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
 
 /** How a category's expected spending behaves: it grows day by day, falls on a date, comes in some months, or comes rarely. */
 type ExpectedKind = "daily" | "dated" | "periodic" | "sparse";
