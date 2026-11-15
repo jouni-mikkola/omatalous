@@ -112,10 +112,10 @@ describe("setting a notice aside", () => {
 
   it("names the reason and a hash of the sorted card ids, and reads the reason back", () => {
     // pinned: a stored dismissal must keep matching after an update, so the hash never changes
-    expect(unresolvedSubject("card_payer_unseen", ["k2", "k1", "k2"])).toBe("question:unresolved:card_payer_unseen:02e5c6b418e12b");
-    expect(unresolvedSubject("card_payer_unseen", ["k1", "k2"])).toBe("question:unresolved:card_payer_unseen:02e5c6b418e12b");
-    expect(parseUnresolvedSubject("question:unresolved:card_payer_unseen:02e5c6b418e12b")).toEqual({ reason: "card_payer_unseen" });
-    for (const bad of ["question:unresolved:nothing:02e5c6b418e12b", "question:unresolved:card_payer_unseen:", "question:unresolved:card_payer_unseen:k1,k2", "question:unresolved:card_payer_unseen:02e5c6b418e12", "question:unresolved:card_payer_unseen@23000", "question:unresolved:too_few:02e5c6b418e12b", "question:mortgage", "alert:x"]) expect(parseUnresolvedSubject(bad), bad).toBeNull();
+    expect(unresolvedSubject("card_payer_unseen", ["k2", "k1", "k2"])).toBe("question:unresolved:card_payer_unseen:1ebc489babf171");
+    expect(unresolvedSubject("card_payer_unseen", ["k1", "k2"])).toBe("question:unresolved:card_payer_unseen:1ebc489babf171");
+    expect(parseUnresolvedSubject("question:unresolved:card_payer_unseen:1ebc489babf171")).toEqual({ reason: "card_payer_unseen" });
+    for (const bad of ["question:unresolved:nothing:1ebc489babf171", "question:unresolved:card_payer_unseen:", "question:unresolved:card_payer_unseen:k1,k2", "question:unresolved:card_payer_unseen:1ebc489babf17", "question:unresolved:card_payer_unseen@23000", "question:unresolved:too_few:1ebc489babf171", "question:mortgage", "alert:x"]) expect(parseUnresolvedSubject(bad), bad).toBeNull();
   });
 
   it("stays within the 200 characters of a mark's subject however many cards the notice names", () => {

@@ -1,8 +1,8 @@
 /**
  * "Älä muistuta tästä enää" on a notice of Tarkistettavat about a card whose payer the rows do not show. The household
  * cannot mend it from the page, so the answer is a mark `dismissed` on `question:unresolved:<reason>:<set>`, named
- * by the reason and a hash of the cards the notice named when it was dismissed (their ids sorted and joined with
- * commas). The hash keeps the subject short however many cards the notice names; the ids alone would pass the 200
+ * by the reason and a hash of the cards the notice named when it was dismissed (their ids sorted, as a JSON
+ * list). The hash keeps the subject short however many cards the notice names; the ids alone would pass the 200
  * characters a subject may have at about 7 cards.
  * The notice stays away while the cards it names are the set a dismissal of the same reason named. It comes back when
  * the set changes. The amount does not matter: a card's debt swings with every billing cycle, and a notice that
@@ -32,8 +32,8 @@ function hashOf(text: string): string {
   return (h2 & 0x1fffff).toString(16).padStart(6, "0") + (h1 >>> 0).toString(16).padStart(8, "0");
 }
 
-/** The subject of the dismissal of a notice about `reason` for these cards: the hash of their ids, sorted and without repeats. */
-export const unresolvedSubject = (reason: UnresolvedReason, cardIds: readonly string[]): string => `${UNRESOLVED}${reason}:${hashOf([...new Set(cardIds)].sort().join(","))}`;
+/** The subject of the dismissal of a notice about `reason` for these cards: the hash of their ids, sorted and without repeats (as a JSON list, so an id with a comma in it cannot pass for two). */
+export const unresolvedSubject = (reason: UnresolvedReason, cardIds: readonly string[]): string => `${UNRESOLVED}${reason}:${hashOf(JSON.stringify([...new Set(cardIds)].sort()))}`;
 
 /** The reason a dismissal subject names, or null for any other subject and a reason no notice has. */
 export function parseUnresolvedSubject(subject: string): { reason: UnresolvedReason } | null {
