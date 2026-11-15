@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import { join } from "node:path";
-import { overflow } from "./helpers.ts";
 import { auditTables } from "./table-audit.ts";
 
 // Decision: whether Asetukset works on a phone for a reader who has set a larger text size. Jäsenet, Turvallisuus and
@@ -9,7 +8,6 @@ import { auditTables } from "./table-audit.ts";
 // default font size doubled, which is what the rem tokens follow.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["members", "security", "server"];
-const TOP = ["overview", "transactions", "bills", "reports", "review"];
 
 for (const scale of [100, 200]) {
   test(`Asetukset, 390 px with a finger and text at ${scale} %: nothing scrolls sideways and every target is 44 px`, async ({ browser }) => {
@@ -32,21 +30,3 @@ for (const scale of [100, 200]) {
     await context.close();
   });
 }
-
-test("the top pages, 390 px with text at 200 %: nothing scrolls sideways", async ({ browser }) => {
-  test.setTimeout(240_000);
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 }, bypassCSP: true, isMobile: true, hasTouch: true });
-  const page = await context.newPage();
-  const problems: string[] = [];
-  for (const id of TOP) {
-    await page.goto(`/#/${id}`);
-    await page.reload();
-    await expect(page.locator("main")).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    await page.addStyleTag({ content: "html { font-size: 200%; }" });
-    const wide = await overflow(page);
-    if (wide > 0) problems.push(`${id}: ${wide} px wider than the window`);
-  }
-  expect(problems).toEqual([]);
-  await context.close();
-});

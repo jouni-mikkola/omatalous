@@ -159,10 +159,6 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 @media (pointer: coarse) {
   .rt-wrap:not([data-block]) .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > :is(th, td) { --reach-pad: var(--sp-4); }
 }
-/* a phone's block row has 4 px of padding above and under it: its arrow is as tall as the line and that padding, 24 px at the least, so it never reaches into the row above or below */
-@media (pointer: coarse) and (max-width: 600px) {
-  .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) .rt-drill { align-self: stretch; block-size: auto; min-height: var(--tap-floor); margin-block: calc(-1 * var(--sp-4)); }
-}
 .rt-wrap[data-block] .rt.tx-table td.tx-category { grid-column: 2 / 4; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account::before, .rt-wrap[data-block] .rt.tx-table td.tx-category::before { content: none; }
 .tx-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; white-space: nowrap; }
