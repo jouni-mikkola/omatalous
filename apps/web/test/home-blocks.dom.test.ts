@@ -193,13 +193,15 @@ describe("Menot kategorioittain", () => {
     // past its usual month the bar is the darker ink; at it or under, the plain one
     expect(rows.map((a) => fill(a).classList.contains("more"))).toEqual([false, true, false]);
     expect(rows.map((a) => flat(a.querySelector(".where-change")?.textContent) || null)).toEqual(["tavallisesti 1 000 €", "tavallisesti 400 €", null]);
-    expect(flat(container.querySelector(".where-foot")?.textContent)).toContain("Pystyviiva on kategorian tavallinen kuukausi (6 kuukauden keskiarvo). 3 muuta kategoriaa 71 €.");
+    // the rest is a line of its own, a name and a sum, and no sentence explains the marks
+    expect([...container.querySelectorAll(".where-rest > div")].map((r) => flat(r.textContent))).toEqual(["3 muuta kategoriaa71 €"]);
+    expect(container.querySelector(".where-foot")).toBeNull();
   });
 
-  it("names the debt paid from savings, which the categories hold and the Menot tile leaves out, only when there is some", () => {
-    const foot = (fromSavingsCents: number) => flat(render(createElement(Categories, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { ...categories, fromSavingsCents } } }) })).container.querySelector(".where-foot")?.textContent);
-    expect(foot(0)).not.toContain("Säästöistä maksettu");
-    expect(foot(46000)).toContain("Säästöistä maksettu 460 €. Menot-luku ei sisällä sitä.");
+  it("names the debt paid from savings, which the categories hold and Menot leaves out, only when there is some", () => {
+    const rest = (fromSavingsCents: number) => [...render(createElement(Categories, { data: data({ overview: { months: MONTHS, usualSpendCents: null, usualMonths: 0, categories: { ...categories, fromSavingsCents } } }) })).container.querySelectorAll(".where-rest > div")].map((r) => flat(r.textContent));
+    expect(rest(0).join("|")).not.toContain("Säästöistä maksettu");
+    expect(rest(46000)).toContain("Säästöistä maksettu460 €");
   });
 
   it("is nothing before the month has spending", () => {

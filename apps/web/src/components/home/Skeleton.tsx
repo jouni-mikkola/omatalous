@@ -1,24 +1,27 @@
 import { t } from "../../text.ts";
 /**
- * The loading frame of Yhteenveto: the tiles, the months, the bills, the categories, the accounts and the figures at their final size, with grey
+ * The loading frame of Yhteenveto: the month's figures, the months, the bills, the categories, the accounts and the figures at their final size, with grey
  * bars where the text stands (the same classes as the finished blocks give them their place, home.css), so nothing moves
  * when the answer lands.
  */
 export function HomeSkeleton() {
   return (
     <div className="page-grid front home-skeleton" role="status" aria-live="polite" aria-busy="true">
-      {/* the tiles' own boxes, so the row is as high as the tiles on every width */}
-      <ul className="home-tiles" aria-hidden="true">
-        {[0, 1, 2, 3].map((i) => (
-          <li key={i}>
-            <span className="home-tile">
-              <span className="sk-bar sk-tile-label" />
-              <span className="sk-bar sk-tile-fig" />
-              <span className="sk-bar sk-tile-line" />
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* the month's own boxes, so the block is as high as the finished one on every width */}
+      <section className="home-summary" aria-hidden="true">
+        <span className="sk-bar sk-line" />
+        <ul className="home-figs">
+          {(["income", "spent", "result"] as const).map((id) => (
+            <li key={id} data-fig={id}>
+              <span className="sk-bar" />
+              <span className="sk-bar sk-fig" />
+              <span className="home-gauge" />
+              <span className="sk-bar" />
+            </li>
+          ))}
+        </ul>
+        <span className="sk-bar sk-flow" />
+      </section>
       {/* the blocks in the page's own order and places: the months and the bills, then the categories and the accounts */}
       <section className="card home-months" aria-hidden="true">
         <span className="sk-bar sk-line" />

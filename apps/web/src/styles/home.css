@@ -1,36 +1,62 @@
-/* Yhteenveto: the four tiles, the month's pace with the largest categories beside it, and the accounts, cards and loans.
+/* Yhteenveto: the month (Tulot, Menot, Tulos and the use of the income), the months and the bills, the largest categories and the accounts, cards and loans.
    Sections are told apart by a heading and a hairline (the `.card` rule), so nothing here has a box. A block keeps its place from the first frame: the loading frame uses the same classes, so the page
    does not move when the answer lands. */
 
 @layer pages {
-/* four figures across the page, two by two on a phone: a label, the figure and one line, the whole tile a link to the rows behind it */
-.home-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; padding: 0; list-style: none; border-block: var(--hairline) solid var(--border); }
-.home-tiles > li { display: grid; min-inline-size: 0; border-inline-start: var(--hairline) solid var(--border); }
-.home-tiles > li:first-child { border-inline-start: 0; }
-.home-tile { display: grid; align-content: start; justify-items: start; gap: var(--sp-4); padding: var(--sp-16); color: var(--text); text-decoration: none; text-align: start; inline-size: 100%; }
-.home-tiles > li:first-child .home-tile { padding-inline-start: 0; }
-a.home-tile:hover { background: var(--surface-2); }
-a.home-tile:hover .home-tile-label { text-decoration: underline; }
-.home-tile-label { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.home-tile .fig-l { font-weight: var(--w-strong); white-space: nowrap; }
-.home-tile-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+/* the month: one period named once, three figures in the order the money moves, the last the largest */
+.home-summary { display: grid; gap: var(--sp-24); padding-block: var(--sp-16) var(--sp-8); border-block-start: var(--hairline) solid var(--border); }
+.home-period { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-16); }
+.home-period h2 { margin: 0; }
+.home-range { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
+.home-figs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); margin: 0; padding: 0; list-style: none; }
+.home-figs > li { display: grid; align-content: start; justify-items: start; gap: var(--sp-8); min-inline-size: 0; padding-inline: var(--sp-16); border-inline-start: var(--hairline) solid var(--grid); }
+.home-figs > li:first-child { padding-inline-start: 0; border-inline-start: 0; }
+.home-figs .fig-m { font-weight: var(--w-strong); }
+/* the display size is for one number: the one the page was opened for */
+.home-figs > li[data-fig="result"] .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); font-weight: var(--w-strong); }
+.home-fig-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
+.home-fig-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .home-short .fig { color: var(--bad); }
-/* a phone: two by two, a rule between the rows, the figure a step smaller so a sum of six digits fits half the width */
+
+/* a figure's bar: its length on the scale it shares with its comparison, the same day of last month as a mark, the usual level to this day as a band */
+.home-gauge { --tone: var(--role-neutral); position: relative; display: block; inline-size: 100%; block-size: var(--bar-h); background: var(--surface-2); }
+.home-summary [data-tone="income"] { --tone: var(--role-income); }
+.home-summary [data-tone="spending"] { --tone: var(--role-spending); }
+.home-summary [data-tone="kept"] { --tone: var(--role-kept); }
+.home-summary [data-tone="debt"] { --tone: var(--role-debt); }
+.home-summary [data-tone="neutral"] { --tone: var(--role-neutral); }
+.home-gauge-fill { display: block; block-size: 100%; background: var(--tone); }
+.home-gauge-mark { position: absolute; inset-block: calc(var(--sp-4) * -1); inline-size: calc(var(--hairline) * 2); margin-inline-start: calc(var(--hairline) * -1); background: var(--text); }
+.home-band { position: absolute; inset-block: calc(var(--sp-4) * -1); background: var(--estimate-fill); border-inline: var(--hairline) solid var(--estimate-edge); }
+
+/* where the income went: one bar in the order of the flows, then each part with its share and its sum */
+.home-flow { display: grid; gap: var(--sp-8); }
+.home-flow h3 { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); }
+.home-flow-bar { display: flex; gap: var(--hairline); block-size: calc(var(--bar-h) * 2); background: var(--surface-2); }
+.home-flow-bar > span { flex-grow: 0; flex-shrink: 1; flex-basis: 0; min-inline-size: calc(var(--hairline) * 2); background: var(--tone); }
+.home-flow-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); column-gap: var(--sp-24); margin: 0; padding: 0; list-style: none; }
+.home-flow-list > li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: baseline; gap: var(--sp-8); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
+.home-flow-swatch { align-self: center; inline-size: var(--sp-12); block-size: var(--sp-12); background: var(--tone, var(--role-neutral)); }
+.home-flow-name { overflow-wrap: anywhere; }
+.home-flow-share { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); text-align: end; white-space: nowrap; }
+.home-flow-sum { font-weight: var(--w-strong); text-align: end; white-space: nowrap; }
+
+/* what is left to the payday, with the bills it is made of */
+.home-left { display: grid; justify-items: start; gap: var(--sp-4); min-block-size: var(--tap-min); padding: var(--sp-12) 0; color: var(--text); text-decoration: none; border-block-end: var(--hairline) solid var(--grid); }
+.home-left .fig-m { font-weight: var(--w-strong); }
+a.home-left:hover .home-fig-label { text-decoration: underline; }
+
+/* a phone: the three figures one under the other, the largest at the size that fits the width at any text size */
 @media (max-width: 40rem) {
-  .home-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .home-tiles > li:nth-child(odd) { border-inline-start: 0; }
-  .home-tiles > li:nth-child(odd) .home-tile { padding-inline-start: 0; }
-  .home-tiles > li:nth-child(n + 3) { border-block-start: var(--hairline) solid var(--border); }
-  .home-tile { padding: var(--sp-8); }
-  .home-tile .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
-  /* a line takes two lines at half the width: each keeps the room of two, so the rows and the loading frame are one height */
-  .home-tile-line, .home-skeleton .home-tile .sk-tile-line { min-block-size: calc(var(--lh-label) * 2); }
-  .home-skeleton .home-tile .sk-tile-fig { block-size: var(--lh-fig-m); }
+  .home-figs { grid-template-columns: minmax(0, 1fr); }
+  .home-figs > li { padding: var(--sp-12) 0; border-inline-start: 0; border-block-start: var(--hairline) solid var(--grid); }
+  .home-figs > li:first-child { border-block-start: 0; }
+  .home-figs > li[data-fig="result"] .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }
 }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
 
 /* wide: the months on the left and the bills beside them, then the accounts on the left and the categories beside them.
-   The order in the source is the order a phone reads (tiles, months, bills, categories, accounts): the dense flow lets
+   The order in the source is the order a phone reads (month, months, bills, categories, accounts): the dense flow lets
    the accounts, which come last, fill the left of the row the categories open */
 @media (min-width: 1040px) {
   .front { grid-auto-flow: row dense; }
@@ -59,7 +85,11 @@ a.home-tile:hover .home-tile-label { text-decoration: underline; }
 /* the category's usual month: a line across the bar and a little past it, readable on the fill and on the track */
 .where-mark { position: absolute; inset-block: calc(var(--sp-4) * -1); inline-size: calc(var(--hairline) * 2); margin-inline-start: calc(var(--hairline) * -1); background: var(--text); }
 .where-change { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); white-space: nowrap; }
-.where-foot { margin-block-start: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); }
+/* what the bars leave out: the other categories and the debt paid from savings, each a line with its sum */
+.where-rest { margin: 0; display: grid; }
+.where-rest > div { display: flex; justify-content: space-between; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
+.where-rest dt { color: var(--text-2); }
+.where-rest dd { margin: 0; font-weight: var(--w-strong); white-space: nowrap; }
 
 /* the first fetch of a new bank */
 .first-fetch p { margin: 0; color: var(--text-2); }
@@ -68,8 +98,11 @@ a.home-tile:hover .home-tile-label { text-decoration: underline; }
 /* the loading frame: the same blocks, grey bars where the text will stand */
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
-.home-skeleton .home-tile .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-label); }
-.home-skeleton .home-tile .sk-tile-fig { inline-size: 80%; block-size: var(--lh-fig-l); }
+.home-skeleton .home-figs .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-label); }
+.home-skeleton .home-figs .sk-fig { inline-size: 80%; block-size: var(--lh-fig-m); }
+.home-skeleton .home-figs > li[data-fig="result"] .sk-fig { block-size: var(--lh-display); }
+.home-skeleton .home-figs .home-gauge { margin: 0; inline-size: 100%; }
+.home-skeleton .sk-flow { block-size: calc(var(--row-h-roomy) * 4); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .sk-chart { block-size: calc(var(--row-h-roomy) * 7); }
 .home-skeleton .sk-bills { block-size: calc(var(--row-h-roomy) * 7); }

@@ -1,13 +1,16 @@
-/** Yhteenveto's four tiles: each figure, its comparison and the page it leads to. */
+/** Yhteenveto's month (Tulot, Menot, Tulos and the use of the income) and the sum left to the payday. */
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { Tiles } from "../src/components/home/Tiles.tsx";
+import { Bills } from "../src/components/home/Bills.tsx";
+import { Summary } from "../src/components/home/Summary.tsx";
 import type { DashboardData } from "../src/types.ts";
 
 type NytData = NonNullable<DashboardData["nyt"]>;
+type Data = DashboardData & { nyt: NytData };
 
-const flat = (s: string | null | undefined) => (s ?? "").replace(/[\u00a0\u202f]/g, " ");
+const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ");
+const TODAY = "2026-11-11";
 
 function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0, paydayCents = 0): NytData {
   return {
@@ -20,102 +23,157 @@ function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0, paydayCe
   };
 }
 
-function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData } {
+const totalsOf = (incomeCents: number, consumptionCents: number, debtCents: number, savedCents: number) => ({
+  incomeCents,
+  consumptionCents,
+  debtCents,
+  expenseCents: consumptionCents + debtCents,
+  savedCents,
+  borrowedCents: 0,
+  netCents: incomeCents - consumptionCents - debtCents,
+  leftCents: incomeCents - consumptionCents - debtCents - savedCents,
+});
+
+function data(more: Partial<DashboardData> = {}): Data {
   // only the parts the blocks read; the rest of the answer is not drawn here. The month's bar holds a sum of its own (150000
-  // against the pace's 123400), so a tile that read the pace or the nyt figure instead of the bar would show another one
+  // against the pace's 123400), so a figure that read the pace or the nyt sum instead of the bar would show another one
   const rest = {
+    range: { from: "2026-11-01", to: "2026-11-30", previousFrom: "2026-10-01" },
+    comparable: true,
+    running: true,
+    totals: totalsOf(412000, 150000, 20000, 30000),
+    previousTotals: totalsOf(380000, 140000, 20000, 30000),
     pace: { month: "2026-11", daysInMonth: 30, current: [], expected: null, projection: null, previous: null, largest: null, payDays: [] },
     ahead: { from: "2026-11-11", to: "2026-11-24", rows: [], upcoming: [], outside: [] },
     home: { paceGap: null, pace: null },
-    top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
     overview: { income: { cents: 412000, earnedCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
   } as unknown as DashboardData;
   return { ...rest, ...more, nyt: nytOf(true) };
 }
 
-/** The tiles as a reader sees them: label, figure, line and where each leads. */
-function tilesIn(d: DashboardData & { nyt: NytData }) {
-  const { container } = render(createElement(Tiles, { data: d }));
-  return [...container.querySelectorAll(".home-tile")].map((a) => ({
-    label: a.querySelector(".home-tile-label")?.textContent,
-    figure: flat(a.querySelector(".fig")?.textContent),
-    line: flat(a.querySelector(".home-tile-line")?.textContent) || null,
-    href: a.getAttribute("href"),
-  }));
+function summaryIn(d: Data) {
+  const { container } = render(createElement(Summary, { data: d, today: TODAY }));
+  return container;
 }
 
-describe("Yhteenveto", () => {
-  it("four tiles: what is left to the payday a day, the month's spending against the usual, the month's income with its earned part, the net with its month's change, and where each leads", () => {
+/** The three figures as a reader sees them: label, figure and the lines under it. */
+const figuresIn = (container: HTMLElement) =>
+  [...container.querySelectorAll(".home-figs > li")].map((li) => ({
+    id: li.getAttribute("data-fig"),
+    label: li.querySelector(".home-fig-label")?.textContent,
+    figure: flat(li.querySelector(".fig")?.textContent),
+    lines: [...li.querySelectorAll(".home-fig-line")].map((l) => flat(l.textContent)),
+  }));
+
+describe("Yhteenveto's month", () => {
+  it("names the month once and tells Tulot, Menot and Tulos in that order, each with its comparison", () => {
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
-    expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
-      { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: "#/bills#ennen-palkkapaivaa" },
-      { label: "Menot tässä kuussa", figure: "1 500 €", line: "234 € yli tavallisen tähän päivään", href: null },
-      { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Ansiotulot 3 980 €", href: null },
-      { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
+    const container = summaryIn(data({ home: { paceGap: null, pace } } as never));
+    expect(container.querySelector("h2")?.textContent).toBe("Marraskuu 2026");
+    expect(figuresIn(container)).toEqual([
+      { id: "income", label: "Tulot", figure: "4 120 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 3 980 €"] },
+      { id: "spent", label: "Menot", figure: "1 500 €", lines: ["234 € yli tavallisen tähän päivään"] },
+      { id: "result", label: "Tulos", figure: "2 120 €", lines: ["Viime kuussa samaan päivään 1 900 €"] },
     ]);
   });
 
-  it("the income tile names the earned part only when it differs from the income, and a month with only unearned income or a negative adjustment shows it", () => {
-    const income = (cents: number, earnedCents: number) => tilesIn(data({ overview: { income: { cents, earnedCents }, net: null, months: [] } } as never))[2]!;
-    expect(income(412000, 412000).line).toBeNull();
-    expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", line: "Ansiotulot 0 €" });
-    expect(income(380000, 398000)).toMatchObject({ figure: "3 800 €", line: "Ansiotulot 3 980 €" });
+  it("the income names the earned part only when it differs from the income, and a month with only unearned income shows it", () => {
+    const income = (cents: number, earnedCents: number) => figuresIn(summaryIn(data({ overview: { income: { cents, earnedCents }, net: null, months: [] } } as never)))[0]!;
+    expect(income(412000, 412000).lines).toEqual(["Viime kuussa samaan päivään 3 800 €"]);
+    expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 0 €"] });
   });
 
-  // Laskut adds up the bills and Tapahtumat's money in and out take in more than the month's figures: those two tiles lead nowhere
-  it("the tile of what is left leads to Laskut and the tiles of spending and income are plain", () => {
-    const { container } = render(createElement(Tiles, { data: data() }));
-    expect(container.querySelector("[data-tile=left] a")?.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
-    expect(container.querySelectorAll("[data-tile=spent] a, [data-tile=income] a, button").length).toBe(0);
+  it("the figures hold no link or button: no list holds a month's Tulos", () => {
+    const container = summaryIn(data());
+    expect(container.querySelectorAll(".home-figs a, .home-figs button").length).toBe(0);
   });
 
-  it("on the payday the tile says so, not the whole sum as a day's", () => {
-    const d = data();
-    const today = { ...d.nyt, left: { ...(d.nyt.left as Extract<NytData["left"], { known: true }>), days: 0, perDayCents: 310046 } };
-    expect(tilesIn({ ...d, nyt: today })[0]!.line).toBe("Palkkapäivä tänään");
-  });
-
-  // the chart's words said it of a shorter month before; the tile said "to the same day" of the whole month
-  it("after a shorter month the spending tile names last month's sum as the whole month's", () => {
+  // the chart's words said it of a shorter month before; the figure said "to the same day" of the whole month
+  it("after a shorter month Menot names last month's sum as the whole month's", () => {
     const curve = Array.from({ length: 30 }, () => 300000);
     const d = data({ pace: { ...data().pace, month: "2026-12", previous: { month: "2026-11", curve, day: 30, toToday: 300000 } } } as never);
     const end = { ...d, nyt: { ...d.nyt, from: "2026-12-31", pace: { ...d.nyt.pace, day: 31 } } };
-    expect(tilesIn(end)[1]!.line).toBe("Koko viime kuussa 3 000 €");
+    expect(figuresIn(summaryIn(end))[1]!.lines).toEqual(["Koko viime kuussa 3 000 €"]);
     const same = { ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: 30 } } };
-    expect(tilesIn(same)[1]!.line).toBe("Viime kuussa samaan päivään 3 000 €");
+    expect(figuresIn(summaryIn(same))[1]!.lines).toEqual(["Viime kuussa samaan päivään 3 000 €"]);
   });
 
-  it("a tile without its figure says why, and one without a comparison says what it waits for", () => {
-    const d = data({ home: { paceGap: "history", pace: null }, overview: { income: { cents: 0, earnedCents: 0 }, net: null, months: [] } } as never);
-    const [left, spent, income, net] = tilesIn({ ...d, nyt: nytOf(false) });
-    // with no sum the tile still leads to Laskut, where the bills stand
-    expect(left).toMatchObject({ figure: "–", line: "Palkkapäivä ei vielä tiedossa", href: "#/bills#ennen-palkkapaivaa" });
-    expect(spent!.line).toBe("Vertailu näkyy, kun takana on kolme päättynyttä kuukautta");
-    expect(income!.line).toBeNull();
-    expect(net!.line).toBeNull();
-    // no net at all: a balance is missing, and the tile says so
-    const none = data({ holdings: { ...data().holdings, netCents: null }, overview: { ...data().overview, net: null } } as never);
-    expect(tilesIn(none)[3]).toMatchObject({ figure: "–", line: "Saldo puuttuu" });
+  it("without a comparison the figures say what they wait for or nothing", () => {
+    const d = data({ comparable: false, home: { paceGap: "history", pace: null } } as never);
+    const [income, spent, result] = figuresIn(summaryIn(d));
+    expect(income!.lines).toEqual(["Ansiotulot 3 980 €"]);
+    expect(spent!.lines).toEqual(["Vertailu näkyy, kun takana on kolme päättynyttä kuukautta"]);
+    expect(result!.lines).toEqual([]);
   });
 
   // 1.0.0 showed the sum left as a plain figure when the bills took more than the balance
-  it("less left than the bills take is the tile's problem colour", () => {
-    const d = data();
-    const { container } = render(createElement(Tiles, { data: { ...d, nyt: nytOf(true, 600000) } }));
-    expect(container.querySelector("[data-tile=left] .home-tile")?.classList.contains("home-short")).toBe(true);
-    expect(flat(container.querySelector("[data-tile=left] .fig")?.textContent)).toBe("−1 000 €");
+  it("a negative Tulos is the problem colour", () => {
+    const container = summaryIn(data({ totals: totalsOf(100000, 150000, 20000, 0) } as never));
+    expect(container.querySelector("[data-fig=result]")?.classList.contains("home-short")).toBe(true);
+    expect(flat(container.querySelector("[data-fig=result] .fig")?.textContent)).toBe("−700 €");
+    expect(container.querySelector("[data-fig=income]")?.classList.contains("home-short")).toBe(false);
   });
 
-  // the net figure holds no debt for a loan with no saved balance: the label said nothing of it
-  it("the net tile's label names the loans its figure lacks, as Tilit ja saldot does", () => {
-    const holdings = { accounts: [], cards: [], loans: [{ leftCents: 60000 }], accountsCents: 1300000, debtCents: 60000, netCents: 1240000, unsavedLoans: { count: 1, names: ["Rahoitus Oy"], paymentCents: 28900 } };
-    expect(tilesIn(data({ holdings } as never))[3]!.label).toBe("Varat velkojen jälkeen (ilman 1 lainaa)");
+  it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
+    const container = summaryIn(data());
+    const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => ({
+      part: li.getAttribute("data-part"),
+      name: li.querySelector(".home-flow-name")?.textContent,
+      sum: flat(li.querySelector(".home-flow-sum")?.textContent),
+    }));
+    expect(parts).toEqual([
+      { part: "consumption", name: "Kulutus", sum: "1 500 €" },
+      { part: "debt", name: "Maksettu velanhoito", sum: "200 €" },
+      { part: "saved", name: "Säästöön siirretty", sum: "300 €" },
+      { part: "left", name: "Tulos", sum: "2 120 €" },
+    ]);
+    expect(container.querySelectorAll(".home-flow-bar > span").length).toBe(4);
+  });
+
+  it("draws no bar with no income, and the parts stand as a list alone", () => {
+    const container = summaryIn(data({ totals: totalsOf(0, 150000, 0, 0) } as never));
+    expect(container.querySelector(".home-flow-bar")).toBeNull();
+    expect(container.querySelectorAll(".home-flow-list > li").length).toBeGreaterThan(0);
+  });
+});
+
+describe("Yhteenveto's sum left to the payday", () => {
+  const left = (d: Data) => {
+    const { container } = render(createElement(Bills, { data: d }));
+    return container.querySelector<HTMLElement>("[data-tile=left]")!;
+  };
+
+  it("is a link to Laskut with the sum a day and the payday", () => {
+    const el = left(data());
+    expect(el.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+    expect(el.querySelector(".home-fig-label")?.textContent).toBe("Käytettävissä palkkapäivään");
+    expect(flat(el.querySelector(".fig")?.textContent)).toBe("3 100 €");
+    expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("221 € päivässä, palkkapäivä 25.11.");
+  });
+
+  it("on the payday says so, not the whole sum as a day's", () => {
+    const d = data();
+    const today = { ...d.nyt, left: { ...(d.nyt.left as Extract<NytData["left"], { known: true }>), days: 0, perDayCents: 310046 } };
+    expect(flat(left({ ...d, nyt: today }).querySelector(".home-fig-line")?.textContent)).toBe("Palkkapäivä tänään");
+  });
+
+  it("without its sum says why, and still leads to Laskut", () => {
+    const el = left({ ...data(), nyt: nytOf(false) });
+    expect(flat(el.querySelector(".fig")?.textContent)).toBe("–");
+    expect(el.querySelector(".home-fig-line")?.textContent).toBe("Palkkapäivä ei vielä tiedossa");
+    expect(el.getAttribute("href")).toBe("#/bills#ennen-palkkapaivaa");
+  });
+
+  it("less left than the bills take is the problem colour", () => {
+    const el = left({ ...data(), nyt: nytOf(true, 600000) });
+    expect(el.classList.contains("home-short")).toBe(true);
+    expect(flat(el.querySelector(".fig")?.textContent)).toBe("−1 000 €");
   });
 
   // the notice of the payday's bills stood under the answer; it is no line of the page any more
-  it("no tile tells the payday's own bills", () => {
-    const { container } = render(createElement(Tiles, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) } }));
+  it("tells nothing of the payday's own bills", () => {
+    const { container } = render(createElement(Bills, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) } }));
     expect(container.textContent).not.toMatch(/Palkkapäivänä lähtee/);
   });
 });

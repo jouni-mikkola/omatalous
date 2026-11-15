@@ -20,22 +20,23 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
 Direction, 11.11.2026: an overview on one screen at 1440 px.
-- Tiles: four across the page, two by two on a phone (as drawn below). Each has a label, one figure and one line that compares it.
-  Only the first tile has a page to open.
-  - Käytettävissä palkkapäivään: what is left after the bills before payday (`nyt.left`), the sum a day and the payday.
-    Opens the bills before payday in Laskut.
-  - Menot tässä kuussa: spent so far against the usual level to the same day (`home.pace`), else last month to the same
-    day.
-  - Tulot tässä kuussa: the month's income, the figure of the income report's month table, with the earned part (*Ansiotulot*)
-    under it when that differs (`overview.income`). It has no usual line: *Tavalliset tulot* is the mean of the earned part only.
-  - Varat velkojen jälkeen: the accounts less the known debts (`holdings.netCents`) and its change since the same day a
-    month ago (`overview.net`). A loan with no saved balance is named in the label. Opens Tilit ja saldot.
+- The month: one heading with the month and the days it has run, then Tulot, Menot and Tulos in the order the money
+  moves, Tulos the largest. Three across the page, one under the other on a phone. Each has a label, one figure, a bar on
+  the scale it shares with its comparison and one line that says the comparison. None of them opens a page.
+  - Tulot: the month's income, the figure of the income report's month table, with the earned part (*Ansiotulot*) under it
+    when that differs (`overview.income`). The mark on its bar is the same day of last month (`previousTotals`).
+  - Menot: spent so far against the usual level to the same day (`home.pace`, drawn as a band on the bar), else last month
+    to the same day.
+  - Tulos: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
+  - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
+    and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list.
 - Tulot ja menot: the last twelve months, an income bar and a spending bar a month (`overview.months`), the usual
   month's spending as a dashed line (`overview.usualSpendCents`). The running month, and a month the accounts do not
   cover from its 1st, are lighter with a dashed edge; the running one says "kesken" under its name. A month opens its
   rows in Tapahtumat.
-- Tulevat laskut beside it: the bills before payday with date, payee and sum, at most six and the rest as a count, and
-  the tile's own sum of them all (`nyt.left.billsCents`); without a payday Laskut's 30 days. Opens Laskut.
+- Tulevat laskut beside it: what is left after the bills before payday (`nyt.left`, *Käytettävissä palkkapäivään*) with
+  the sum a day and the payday, a link to the same list in Laskut. Under it the bills with date, payee and sum, at most
+  six and the rest as a count, and the sum of them all (`nyt.left.billsCents`); without a payday Laskut's 30 days. Opens Laskut.
 - Tilit ja kortit: the block of Raportit > Tilit ja saldot. The accounts in their types (checking, savings, other), a
   type of two accounts or more with its total (`holdings.typeCents`), the cards with what is used, the limit and the
   next card bill (the card's row of `ahead.upcoming`), the loans with what is left. Every row names its bank and the
@@ -43,19 +44,22 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 - Menot kategorioittain beside it: this month's six largest categories with the rest as one sum
   (`overview.categories`), each a bar with its usual month as a mark, a bar past its mark in the darker ink. A row
   opens the category's rows of the month.
-- At 1440 px the months and the bills stand side by side, then the accounts and the categories. A phone reads tiles,
-  months, bills, categories, accounts in one column.
+- At 1440 px the months and the bills stand side by side, then the accounts and the categories. A phone reads the month,
+  the months, bills, categories, accounts in one column.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
- Käytettävissä palkkapäivään                 Menot tässä kuussa
- 4 424 €                                     2 018 €
- 277 € päivässä, palkkapäivä 25.11.          90 € yli tavallisen tähän päivään
- Tulot tässä kuussa                          Varat velkojen jälkeen
- 3 900 €                                     12 400 €
- Ansiotulot 3 500 €                        345 € enemmän kuin 9.10.
+ Marraskuu 2026                                                  1.–11.11.
+ Tulot            Menot                       Tulos
+ 3 900 €          2 018 €                     1 482 €
+ ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇
+ Ansiotulot       90 € yli tavallisen         Viime kuussa samaan
+ 3 500 €          tähän päivään               päivään 1 390 €
+ Tulojen käyttö   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
+ Kulutus 52 %  Maksettu velanhoito 6 %  Säästöön siirretty 4 %  Tulos 38 %
 
  Tulot ja menot                               Tulevat laskut      Palkkapäivään 25.11.
+                                              Käytettävissä palkkapäivään 3 100 €
  ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▆ ▆░      15.11.  Sähkö                     ≈ 48 €
  - - - - - - - - - - - - - - - - - -      20.11.  Puhelin                   ≈ 30 €
  joulu tammi ...              marras      Yhteensä                          78 €
