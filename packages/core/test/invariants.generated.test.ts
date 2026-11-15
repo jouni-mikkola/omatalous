@@ -27,7 +27,11 @@ describe("the invariants over the generated households", () => {
   it(
     "fail exactly where the list says, in each household, view and month, with each amount",
     () => {
-      expect(foundIdentities(violations())).toEqual(listedIdentities(KNOWN_VIOLATIONS));
+      const found = foundIdentities(violations());
+      const listed = listedIdentities(KNOWN_VIOLATIONS);
+      const extra = found.filter((x) => !listed.includes(x));
+      const missing = listed.filter((x) => !found.includes(x));
+      if (extra.length || missing.length) throw new Error(`DIAG ${JSON.stringify({ extra, missing })}`);
     },
     LONG,
   );
