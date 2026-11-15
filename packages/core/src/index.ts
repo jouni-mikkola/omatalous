@@ -56,6 +56,8 @@ export { buildHousing, MORTGAGE_QUESTION } from "./housing.ts";
 export * from "./loan-detect.ts";
 export * from "./plan-answer.ts";
 export * from "./bill-answer.ts";
+export * from "./unresolved-answer.ts";
+export { unprovenOf } from "./analysis/data-quality.ts";
 export * from "./pipeline.ts";
 export * from "./payer-role.ts";
 export * from "./returns.ts";

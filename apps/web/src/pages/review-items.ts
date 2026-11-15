@@ -2,7 +2,7 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole } from "@banking/core";
+import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
@@ -119,6 +119,20 @@ interface CardBalanceItem extends Base {
   currency?: string;
 }
 
+/**
+ * A figure the app cannot prove: balances no row proves, or cards whose payer the rows do not show. `cents` is the amount
+ * that rests on it, `subject` the mark that sets the notice aside at that amount. It is no question: the only answers are the mark and, for an unseen payer, the bank connections.
+ */
+interface UnresolvedItem extends Base {
+  kind: "unresolved";
+  reason: UnresolvedReason;
+  names: string[];
+  subject: string;
+  /** A mixed payer: what the rows show paid to the cards from the counted accounts and from outside them. */
+  paidFromPoolCents?: number;
+  paidFromOutsideCents?: number;
+}
+
 /** A bank consent that ended (`daysLeft` null) or ends soon: the bank is connected again in Asetukset. */
 interface ConsentItem extends Base {
   kind: "consent";
@@ -156,7 +170,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -190,7 +204,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, balance: true, card_balance: true, consent: true, bill: true, row: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -237,6 +251,8 @@ export function eyebrow(item: ReviewItem): string {
     case "consent":
     case "fetch":
       return t("set.ri.bank_connection");
+    case "unresolved":
+      return t("set.ri.unresolved");
     case "bill":
       return t("set.ri.missed_bill");
     case "row":
@@ -264,6 +280,8 @@ export function nameOf(item: ReviewItem): string {
     case "balance":
     case "card_balance":
       return item.accountName;
+    case "unresolved":
+      return item.names.join(", ");
     case "consent":
       return item.institution;
     case "fetch":
@@ -306,6 +324,8 @@ export function questionOf(item: ReviewItem): string {
       return t(item.currency ? "set.ri.card_balance_other_currency" : "set.ri.card_balance_missing");
     case "consent":
       return item.daysLeft === null ? t("set.ri.the_connection_has_ended") : t("set.ri.the_connection_is_ending");
+    case "unresolved":
+      return item.reason === "card_payer_unseen" ? t("set.ri.unresolved_card_payer_unseen") : item.reason === "card_payer_mixed" ? t("set.ri.unresolved_card_payer_mixed") : t("set.ri.unresolved_balance");
     case "bill":
       return t("set.ri.is_the_bill_still_coming");
     case "fetch":
@@ -314,6 +334,14 @@ export function questionOf(item: ReviewItem): string {
       return item.side === "in" ? t("set.ri.what_is_this_income") : t("set.ri.which_category_does_this_payment");
   }
 }
+
+/** Why a balance cannot be set against the rows, in the words the data quality report uses. */
+const PROOF_WHY = {
+  no_reference_day: "rep.q_unproven_no_reference_day",
+  only_available: "rep.q_unproven_only_available",
+  type_changed: "rep.q_unproven_type_changed",
+  too_few: "rep.q_unproven_too_few",
+} as const satisfies Partial<Record<UnresolvedReason, string>>;
 
 /** The item's figure and the line under it. */
 export function figureOf(item: ReviewItem): { text: string; unit?: string; line: string } {
@@ -352,6 +380,17 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
         unit: t("set.ri.in_total"),
         line: item.daysLeft === null ? t("set.ri.consent_ended_accounts", { accounts: item.accounts.join(", ") }) : tn(item.daysLeft, "set.ri.consent_ends_one", "set.ri.consent_ends_many", { accounts: item.accounts.join(", ") }),
       };
+    case "unresolved": {
+      const names = item.names.join(", ");
+      const sum = money(item.cents);
+      const line =
+        item.reason === "card_payer_unseen"
+          ? t("set.ri.unresolved_card_unseen_line", { sum, names })
+          : item.reason === "card_payer_mixed"
+            ? t("set.ri.unresolved_card_mixed_line", { sum, names, pool: money(item.paidFromPoolCents ?? 0), outside: money(item.paidFromOutsideCents ?? 0) })
+            : `${t("set.ri.unresolved_balance_line", { sum, names })} ${t(PROOF_WHY[item.reason])}`;
+      return { text: sum, unit: t("set.ri.in_total"), line };
+    }
     case "bill":
       return { text: money(item.cents), line: t("set.ri.the_bill_was_expected_on", { date: date(item.dueDate) }) };
     case "fetch":

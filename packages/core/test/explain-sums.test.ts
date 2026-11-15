@@ -29,6 +29,7 @@ const RULES: Record<RuleId, true> = {
   "return.shop": true, "return.person": true, "return.share": true, "return.wallet": true, "share.back": true, "share.open": true, "via.service": true, "refund.net": true, "part.use": true, "part.source": true, "role.payer": true,
   "settle.paid": true, "settle.owed": true, "settle.refund": true, "settle.credit_filled": true, "settle.unknown": true, "settle.open": true,
   "settle.closed": true, "agree.dated": true, "rounding.cent": true,
+  "card.payer_unseen": true, "card.payer_mixed": true, "balance.unproven": true,
 };
 
 const h = demoHousehold();
@@ -196,6 +197,9 @@ describe("explain: the worked cases", () => {
       expect(sentenceOf(reason).length, rule).toBeGreaterThan(5);
     }
     expect(sentenceOf({ rule: "category.builtin", source: "industry" })).toBe("Luokiteltu kaupan toimialan mukaan");
+    // a balance that no row proves says why, by the reconcile's reason
+    expect(sentenceOf({ rule: "balance.unproven", reason: "no_reference_day" })).toContain("mille päivälle saldo kuuluu");
+    expect(sentenceOf({ rule: "card.payer_mixed", pool: 10000, outside: 5000 })).toContain("sekä käyttötileiltä");
     // an agreement date is written d.m.yyyy, never ISO
     expect(sentenceOf({ rule: "agree.dated", valid_from: "2026-10-01" })).toBe("Sopimus on voimassa 1.10.2026 alkaen");
     expect(sentenceOf({ rule: "agree.dated", valid_from: "2026-12-15" })).toBe("Sopimus on voimassa 15.12.2026 alkaen");

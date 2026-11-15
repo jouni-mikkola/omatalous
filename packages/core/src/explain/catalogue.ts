@@ -10,6 +10,14 @@ const SOURCES: Record<string, string> = {
   default: "Ei luokiteltu",
 };
 
+/** Why a bank's balance is taken as it is, by the reason the reconcile gives. */
+const UNPROVEN: Record<string, string> = {
+  no_reference_day: "Pankki ei kerro, mille päivälle saldo kuuluu, joten emme voi tarkistaa sitä tapahtumista. Luku on pankin ilmoittama.",
+  only_available: "Pankki antaa vain käytettävissä olevan saldon, joten emme voi tarkistaa sitä tapahtumista. Luku on pankin ilmoittama.",
+  type_changed: "Pankki vaihtoi saldon lajia, joten emme voi verrata uutta saldoa vanhoihin. Luku on pankin ilmoittama.",
+  too_few: "Saldoja on vielä liian vähän, joten emme voi tarkistaa sitä tapahtumista. Luku on tilin saldo sellaisenaan.",
+};
+
 const fraction = (r: Reason) => `${Number(r.to) - Number(r.from)}/${r.of}`;
 
 /** The Finnish sentence of each rule, with the numbers of the reason in it. */
@@ -21,6 +29,9 @@ const CATALOGUE: Record<RuleId, (r: Reason) => string> = {
   "transfer.channel": () => "Luottokortin laskun maksu. Ostokset näkyvät kortin omina tapahtumina, joten maksua ei lasketa menoksi.",
   "card.bill": () => "Luottokortin lasku. Kortin ostoja ei näy, joten laskemme laskun velanhoitoon.",
   "card.unshown": (r) => `Kortille lähti maksu ${formatEur(Number(r.cents))}, joka ei ole vielä näkynyt kortilla. Emme vähennä sitä velasta, jotta käytettävissä oleva raha ei näytä todellista suuremmalta.`,
+  "card.payer_unseen": () => "Kortilla on velkaa, mutta emme ole nähneet maksua miltään tililtä. Vähennämme velan kokonaan, jotta luku ei näytä todellista suuremmalta.",
+  "card.payer_mixed": (r) => `Kortin laskuja on maksettu sekä käyttötileiltä (${formatEur(Number(r.pool))}) että muilta tileiltä (${formatEur(Number(r.outside))}). Emme tiedä, kumpi maksaa velan, joten vähennämme sen kokonaan.`,
+  "balance.unproven": (r) => UNPROVEN[String(r.reason)] ?? UNPROVEN.too_few!,
   "return.shop": () => "Palautus kaupasta",
   "return.person": () => "Sama henkilö maksoi rahat takaisin",
   "return.share": () => "Toisen osuus yhteisestä ostoksesta",

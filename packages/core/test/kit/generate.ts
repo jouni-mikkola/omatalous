@@ -92,7 +92,7 @@ export function generateHousehold(input: Spec, seed: number, today = GENERATED_T
   );
 
   const rules: CategoryRule[] = spec.events.includes("benefit-rule") ? [{ field: "merchant_exact", pattern: "Kela", category: "health", priority: 10 }] : [];
-  return {
+  const household: GeneratedHousehold = {
     name: `generated:${n}:${spec.joint}:${spec.loan}:${spec.cards}:${spec.events.join("+") || "base"}:${seed}`,
     today,
     txs,
@@ -107,6 +107,14 @@ export function generateHousehold(input: Spec, seed: number, today = GENERATED_T
     truth,
     anchors,
     openings,
+  };
+  // the server hands `reconcile`'s verdict to the figures with each balance; so does the kit
+  return {
+    ...household,
+    balances: household.balances.map((b) => {
+      const proof = proveAccount(household, b.id);
+      return proof ? { ...b, proof: { status: proof.status, reason: proof.reason } } : b;
+    }),
   };
 }
 

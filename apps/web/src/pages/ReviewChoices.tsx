@@ -122,6 +122,20 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
           </Button>
         </div>
       );
+    case "unresolved":
+      // the notice is set aside for good at this amount (core unresolved-answer.ts); an unseen payer is seen once the account that pays the card is connected
+      return (
+        <div className="review-choices">
+          {item.reason === "card_payer_unseen" && (
+            <Button className="review-choice" href={settingsHash("banks")}>
+              {t("set.rc.connect_the_paying_account")}
+            </Button>
+          )}
+          <ChoiceButton busy={busy} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
+            <span>{t("set.rc.do_not_remind_of_this")}</span>
+          </ChoiceButton>
+        </div>
+      );
     case "balance":
       // nothing here can make the rows add up: the account's own row tells the stretch, and a fetch or the bank's file brings the rows
       return (

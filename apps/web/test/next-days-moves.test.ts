@@ -23,7 +23,7 @@ const ALL: Row[] = [
   row({ date: "2026-10-21", name: "Pieni Esimerkki Oy", category: "income", cents: 20_000, source: "income", pay: steady(20_000) }),
 ];
 
-const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 300_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", cardDebts: [], cardDebtCents: 0, freeCents: 65_500, shortCents: 0, shortOn: null, ...over });
+const balance = (over: Partial<Balance> = {}): Balance => ({ startCents: 300_000, counts: "all", accounts: 1, balanceAt: "2026-10-12T06:00:00Z", cardDebts: [], unresolved: [], cardDebtCents: 0, freeCents: 65_500, shortCents: 0, shortOn: null, ...over });
 
 /** A window as core gives it: its totals are the sums of the rows by source, what is due is the three kinds of payment and an own transfer is counted apart. */
 function ahead(rows: Row[] = ALL, over: Partial<Ahead> = {}): Ahead {

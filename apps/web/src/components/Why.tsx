@@ -137,6 +137,12 @@ const viaOf = (why: readonly Reason[]): string | undefined => {
   return r ? sentenceOf(r) : undefined;
 };
 
+/** What the figure cannot prove about a line: a card whose payer is open, or a balance no row checks, as its own line under the row. */
+const unprovenOf = (why: readonly Reason[]): string | undefined => {
+  const r = why.find((x) => x.rule === "card.payer_unseen" || x.rule === "card.payer_mixed" || x.rule === "balance.unproven");
+  return r ? sentenceOf(r) : undefined;
+};
+
 /** What names a row of a part: the fraction of the user's part, and the cent no one could share. */
 function shareNote(why: readonly Reason[]): string | undefined {
   const use = why.find((r) => r.rule === "part.use");
@@ -221,11 +227,13 @@ function lineNote(l: Line, shown: Shown, kind: "counted" | "left" | "plain"): Re
   const reason = figure === "share.part" ? shareNote(l.why) : calculated ? partNote(l.why) : kind === "plain" ? undefined : reasonOf(l.why, names);
   const via = figure === "share.part" || calculated || kind === "plain" ? undefined : viaOf(l.why);
   const whole = l.whole !== undefined && figure !== "share.part";
-  if (!reason && !via && !whole) return null;
+  const unproven = figure === "ahead.free" ? unprovenOf(l.why) : undefined;
+  if (!reason && !via && !whole && !unproven) return null;
   return (
     <div className="why-more-in">
       {reason && <div className="why-reason">{reason}</div>}
       {via && <div className="why-reason">{via}</div>}
+      {unproven && <div className="why-reason">{unproven}</div>}
       {whole && <div className="why-reason">{t("why.whole", { sum: money(l.whole!) })}</div>}
     </div>
   );
