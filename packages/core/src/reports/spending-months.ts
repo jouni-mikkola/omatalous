@@ -68,6 +68,8 @@ export interface SpendingMonthsReport {
    * and `totals` keep the large purchases.
    */
   typicalCents: number | null;
+  /** `typicalCents` of the spending of the flows (`totals` less `fromSavings`): the usual month the first page's Menot are set against. */
+  typicalFlowCents: number | null;
   /** How many months `typicalCents` is the level of. */
   typicalMonths: number;
   /**
@@ -100,6 +102,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const fromSavings = indexes.map(() => 0);
   const large = largePurchases(ctx);
   const largeTotals = indexes.map(() => 0);
+  const largeFlowTotals = indexes.map(() => 0);
   const byCategory = new Map<string, { values: number[]; largeValues: number[]; payees: Map<string, SpendingPayee>; statementCents: number; lowered: boolean }>();
   const offStatement = new Set<unknown>(ctx.explained);
   for (const t of spendRows(ctx, toDayRange(shown))) {
@@ -113,6 +116,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     if (large.has(ctx.returns.get(t.id) ?? t.id)) {
       e.largeValues[i]! += t.spend;
       largeTotals[i]! += t.spend;
+      largeFlowTotals[i]! += flowSpendOf(t);
     }
     if (offStatement.has(t)) e.statementCents += t.spend;
     if (ctx.lowered.has(t.id)) e.lowered = true;
@@ -160,6 +164,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     fromSavings,
     fromSavingsCents: fromSavings.reduce((s, v) => s + v, 0),
     typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
+    typicalFlowCents: expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!)),
     typicalMonths: completeAt.length,
     categoryMonths: categoryAt.length,
     cardGap: categoryAt.length < completeAt.length,

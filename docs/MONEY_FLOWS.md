@@ -56,9 +56,12 @@ made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, t
 A loan paid from a savings account is counted once in Tulos: as *Säästöön* when the money leaves the pool, and not again
 as debt service when the savings account pays the lender. The row has no flows, so it is left out of the figures built
 from them: Tulos, the income, spending and difference of its identity (`totalsOf`) and the savings rate. The first page
-reads those figures too: its Menot tile, the month's curve and the Menot of *Tulot ja menot* are the spending of the
-flows (`flowSpendOf`, `overview.months`), so income less spending is the difference and less what went to savings is
-Tulos, with no exception. The row is still spending on its own terms (`spend` of the row, `spendCentsOf`), so it is in
+reads those figures too: its Menot tile, the month's curve, the Menot of *Tulot ja menot*, the usual month's line on
+its bars (`usualSpendCents`, from `typicalFlowCents` of *Menot kuukausittain*), the pace and the usual it is set against
+(`expectedFlowsFor`), the spending goal and the explanation of the tile are the spending of the flows (`flowSpendOf`,
+`overview.months`), so income less spending is the difference and less what went to savings is Tulos, with no
+exception. Every figure under Menot reads that one base, and `packages/core/test/menot-base.test.ts` holds it: the same
+household with and without a loan paid from savings gives the same Menot figures. The row is still spending on its own terms (`spend` of the row, `spendCentsOf`), so it is in
 the category totals, Velanhoito, spending by month and year over year, the tax-year interest and loan payments and the
 instalment interest, and it is a row of Laskut and the loan views. The spending total of the identity is therefore
 less than the sum of the categories by exactly these rows. Where a spending report's total stands beside the first
@@ -500,8 +503,9 @@ accounts*).
   loans, a row under all three groups gives `debtCents`: *Velat yhteensä*, the one debt total of `householdDebts`, in which
   the cards' use and the loans' balance add up to the cent.
 
-**Menot** is `monthPace` in `analysis/forecast.ts`. Spending is what the totals count, consumption and debt service.
-Nothing is forecast: both months are sums of real rows. The card shows the running month only; the month before is told
+**Menot** is `monthPace` in `analysis/forecast.ts`. Spending is what the totals count, consumption and debt service
+(`flowSpendSelect`), a debt paid from a savings account not among it, and the usual it is set against is read from the
+same rows (`expectedFlowsFor`). Nothing is forecast: both months are sums of real rows. The card shows the running month only; the month before is told
 by *Menojen muutos*.
 
 - **The figure** is the month's spending so far, `currentTotal` of `monthPace`: the cumulative spending to today, 0

@@ -144,7 +144,7 @@ export const FIGURES = {
   },
   paceGap: {
     name: "Ero odotettuun",
-    definition: "What the month has cost so far less what it is expected to have cost on the same day (Odotettu). Above zero the month is dearer. Its three largest categories and the rest add up to it to the cent.",
+    definition: "What the month has cost so far less what it is expected to have cost on the same day (Odotettu), both as the first page's Menot count spending: a debt paid from a savings account is in neither. Above zero the month is dearer. Its three largest categories and the rest add up to it to the cent.",
     source: { file: "home.ts", fn: "homePace", field: "diffCents" },
     unit: "cents",
     scope: "own",

@@ -100,6 +100,9 @@ const PAGES: readonly Concept[] = [
     readers: {
       "Tiles Menot: the running month of overview.months[].spendCents": (s) => (s.running ? s.runDash.overview.months.at(-1)?.spendCents : undefined),
       "MonthBars spending bar: overview.months[].spendCents": (s) => monthIn(s.runDash.overview.months, s.month)?.spendCents,
+      // the tile's line is the month so far less the usual one, worked out from the rows of the pace, not from the month list: both are Menot of the flows
+      "Tiles Menot line, the month so far: pace.currentTotal": (s) => (s.running ? s.runDash.pace.currentTotal : undefined),
+      "Tiles Menot line, the pace's day: nyt.pace.spentCents": (s) => (s.running ? s.runDash.nyt?.pace.spentCents : undefined),
       // the table's sum holds a debt paid from savings, which the first page counts once, as Säästöön; the note under the table names it
       "SpendingMonths (Rahankäyttö) months table: totals[] less fromSavings[]": (s) => {
         const at = s.window.spendingMonths.months.indexOf(s.month);
@@ -133,7 +136,8 @@ const PAGES: readonly Concept[] = [
     months: "running",
     readers: {
       "MonthBars dashed line: overview.usualSpendCents": (s) => s.runDash.overview.usualSpendCents,
-      "SpendingMonths (Rahankäyttö) typical total: typicalCents": (s) => s.window.spendingMonths.typicalCents,
+      // the table's typical month holds a debt paid from savings, which the first page's line leaves out, so the two agree where there is none
+      "SpendingMonths (Rahankäyttö) typical total: typicalCents": (s) => (s.window.spendingMonths.fromSavingsCents === 0 ? s.window.spendingMonths.typicalCents : undefined),
     },
   },
 ];

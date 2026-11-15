@@ -50,7 +50,6 @@ const BILL_WHOLE = [
   "analysis/credit.ts",
   "analysis/data-quality.ts",
   "analysis/fees.ts",
-  "analysis/forecast.ts",
   "analysis/insights/instalments.ts",
   "analysis/insights/seasons.ts",
   "analysis/insights/shared.ts",

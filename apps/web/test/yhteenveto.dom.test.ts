@@ -22,14 +22,15 @@ function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0, paydayCe
 }
 
 function data(more: Partial<DashboardData> = {}): DashboardData & { nyt: NytData } {
-  // only the parts the blocks read; the rest of the answer is not drawn here
+  // only the parts the blocks read; the rest of the answer is not drawn here. The month's bar holds a sum of its own (150000
+  // against the pace's 123400), so a tile that read the pace or the nyt figure instead of the bar would show another one
   const rest = {
     pace: { month: "2026-11", daysInMonth: 30, current: [], expected: null, projection: null, previous: null, largest: null, payDays: [] },
     ahead: { from: "2026-11-11", to: "2026-11-24", rows: [], upcoming: [], outside: [] },
     home: { paceGap: null, pace: null },
     top: { rows: [], otherCount: 0, otherCents: 0, totalCents: 0 },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
-    overview: { income: { cents: 412000, usualCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 123400, fromSavingsCents: 0, complete: false }] },
+    overview: { income: { cents: 412000, usualCents: 398000 }, net: { since: "2026-10-11", changeCents: 34500 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
   } as unknown as DashboardData;
   return { ...rest, ...more, nyt: nytOf(true) };
 }
@@ -51,7 +52,7 @@ describe("Yhteenveto", () => {
     expect(tilesIn(data({ home: { paceGap: null, pace } } as never))).toEqual([
       // a known sum opens the panel of its payments, as the spending does; the income and the net open theirs in the tests below
       { label: "Käytettävissä palkkapäivään", figure: "3 100 €", line: "221 € päivässä, palkkapäivä 25.11.", href: null },
-      { label: "Menot tässä kuussa", figure: "1 234 €", line: "234 € yli tavallisen tähän päivään", href: null },
+      { label: "Menot tässä kuussa", figure: "1 500 €", line: "234 € yli tavallisen tähän päivään", href: null },
       { label: "Tulot tässä kuussa", figure: "4 120 €", line: "Tavallisesti 3 980 € kuussa", href: null },
       { label: "Varat velkojen jälkeen", figure: "12 400 €", line: "345 € enemmän kuin 11.10.", href: "#/reports?q=saldot" },
     ]);

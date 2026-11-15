@@ -43,6 +43,7 @@ const report = (typical: boolean): Report => {
     fromSavings: MONTHS.map(() => 0),
     fromSavingsCents: 0,
     typicalCents: 44800,
+    typicalFlowCents: 44800,
     typicalMonths: 5,
     categoryMonths: typical ? 3 : 1,
     cardGap: true,

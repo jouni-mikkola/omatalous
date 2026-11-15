@@ -55,7 +55,7 @@ export interface Overview {
   net: { since: IsoDate; changeCents: number } | null;
   /** The months the history reaches of the last `OVERVIEW_MONTHS`, oldest first, the running month last. */
   months: OverviewMonth[];
-  /** The usual month's spending over the complete months of `months` (`typicalCents` of Menot kuukausittain, without large purchases); null under three of them. */
+  /** The usual month's spending over the complete months of `months`, on the base of the bars (`typicalFlowCents` of Menot kuukausittain, without large purchases); null under three of them. */
   usualSpendCents: number | null;
   /** How many complete months `usualSpendCents` is the mean of, which the chart's key names. */
   usualMonths: number;
@@ -88,7 +88,7 @@ export function buildOverview(ctx: AnalysisContext, balances: readonly BalanceIn
     income: { cents: earnedIncome(ctx, month), usualCents: expectedIncome(ctx, month) },
     net: now === null || before === null ? null : { since, changeCents: now - before },
     months: spending.months.map((m, i) => ({ month: m, incomeCents: earnedIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i]!, complete: spending.complete[i]! })),
-    usualSpendCents: spending.typicalCents,
+    usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
     categories: {
       rows: top,
