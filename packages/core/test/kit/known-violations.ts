@@ -50,48 +50,13 @@ export function listedIdentities(list: readonly KnownViolation[]): string[] {
   return list.flatMap((k) => k.lines.flatMap((l) => l.where.map((w) => identityOf(k.check, w.household, w.view, l.line, [...w.months].sort())))).sort();
 }
 
-/** The months from `first` to `last`, as `YYYY-MM`. */
-function months(first: string, last: string): string[] {
-  const out: string[] = [];
-  let index = Number(first.slice(0, 4)) * 12 + Number(first.slice(5)) - 1;
-  for (;;) {
-    const month = `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
-    out.push(month);
-    if (month === last) return out;
-    index += 1;
-  }
-}
-
 // The generated households, by the number of their members (generatedSet in kit/generate.ts).
-const WITH_EVENTS = (n: number) => `generated:${n}:said:savings:unconnected:benefit-rule+payment-app+namesake+member-fee+refund:1`;
 const CHECKING_LOAN = "generated:2:said:checking:connected:base:1";
-const FULL_MONTHS = months("2025-04", "2026-05");
-/** The month of today, which is only partly over: the joint top-ups (day 3) and the loan's legs (day 4) have happened, the 200 euro top-up of savings has not. */
-const LAST_MONTH = ["2026-06"];
 
 /** The same line in the household view and in the view of the given members of one household. */
 const views = (household: string, view: readonly string[], by: readonly string[] = []): Where[] => view.map((v) => ({ household, view: v, months: by }));
-const sameIn = (households: readonly string[], view: readonly string[], by: readonly string[] = []): Where[] => households.flatMap((h) => views(h, view, by));
-
-const [TWO, THREE, FOUR] = [WITH_EVENTS(2), WITH_EVENTS(3), WITH_EVENTS(4)] as const;
-
-/** The residual of the monthly transfer between two members (8000 cents, fee 150): the fee, in the household view. */
-const WITH_FEE = 150;
-/** A bridge line: the residual Tulos leaves, what the moves between daily accounts took, what savings accounts counted. */
-const bridge = (residual: number, moved: number, saved: number) => `residual ${residual}, moved ${moved}, outside the pool savings:saved ${saved}`;
 
 export const KNOWN_VIOLATIONS: readonly KnownViolation[] = [
-  {
-    finding: "member-transfer-fee-left-in-residual",
-    check: "I1.bridge",
-    reason: "The monthly transfer between two members has a fee of 150 cents. The fee is real money out of the pool, which Tulos does not count: no flow takes it, so it stays in the residual of the household view. The change that names the fee as a line of its own fixes it.",
-    lines: [
-      { line: bridge(WITH_FEE, 0, 101240), where: views(TWO, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, 121240), where: views(THREE, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, 141240), where: views(FOUR, ["household"], FULL_MONTHS) },
-      { line: bridge(WITH_FEE, 0, 61240), where: sameIn([TWO, THREE, FOUR], ["household"], LAST_MONTH) },
-    ],
-  },
   {
     finding: "unproven-balances-go-unsaid",
     check: "I5.unproven",

@@ -46,3 +46,12 @@ export function userNameOf(accounts: readonly Pick<Account, "holder">[]): Name |
   const top = names.filter((name) => accountsOf(name) === most);
   return top.length > 0 && top.every((name) => samePerson(name, top[0]!)) ? top[0]! : null;
 }
+
+/**
+ * The member a name belongs to, when it belongs to one member only. Two members of one name (a parent and a child of
+ * the same name) cannot be told apart by it, so the name is no one's then: the caller keeps the row unresolved and asks.
+ */
+export function memberNamed<M extends { name: Name | null }>(members: readonly M[], name: Name): M | null {
+  const hits = members.filter((m) => m.name !== null && samePerson(m.name, name));
+  return hits.length === 1 ? hits[0]! : null;
+}

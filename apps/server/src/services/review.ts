@@ -11,6 +11,7 @@ import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
+import { memberMoneyItems } from "./review-members.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
 type Asked = ReturnType<typeof buildQuestions>["items"][number];
@@ -435,15 +436,18 @@ const rows: Source = async (s, userId) => {
   });
 };
 
-const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, balances, cardBalances, consents, bills, rows];
+// the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
+const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, balances, cardBalances, consents, bills, rows, memberMoneyItems];
 
 /** The whole queue, the most money first; the page caps a sitting. */
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {
   const lists = await Promise.all(SOURCES.map((source) => source(s, userId)));
   const { ctx } = await s.analysis.get(s, userId, "own");
   const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
+  const seen = new Set<string>();
   const items = lists
     .flat()
+    .filter((item) => !seen.has(item.id) && !!seen.add(item.id))
     .map(({ rowIds, whole, ...item }): ReviewItem => {
       if (!rowIds) return item;
       const rows = rowIds.flatMap((id) => byId.get(id) ?? []).sort((a, b) => (a.bookingDate < b.bookingDate ? 1 : a.bookingDate > b.bookingDate ? -1 : 0));

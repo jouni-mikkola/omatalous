@@ -4,6 +4,7 @@ import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
 import type { WhyCollector } from "../explain/types.ts";
 import { isMobilePay } from "../industry.ts";
 import type { ForeignDay } from "../foreign-rows.ts";
+import { splitMemberFees } from "../member-fee.ts";
 import { fold } from "../merchant.ts";
 import { withContracts } from "../contract.ts";
 import { detectRecurring, type RecurringSeries } from "../recurring.ts";
@@ -165,7 +166,8 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const paying = loanPaymentAccounts(accounts, transactions, today);
   yield;
   const loanIds = new Set(accounts.filter((a) => a.type === "loan" && !paying.ids.has(a.id)).map((a) => a.id));
-  const txs = transactions
+  // the fee of a transfer between two accounts of the household is a bank fee row of its own, split off the leg that paid it
+  const txs = splitMemberFees(transactions, accounts)
     .map((t) => loanPaymentRow(t, paying))
     .map((t): AnalysisTx => {
       const category = getCategory(t.category);
