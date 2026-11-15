@@ -54,7 +54,7 @@ export interface Settlement {
 }
 
 const RANK = { cost: 0, refund: 1, credit_filled: 2, answered: 3, late_change: 4, fixed: 5 } as const;
-const total = (entries: readonly Entry[]): number => entries.reduce((s, e) => s + e.cents, 0);
+const total = (entries: readonly { cents: number }[]): number => entries.reduce((s, e) => s + e.cents, 0);
 /** A cost left out of the month: of a card whose holder is not known, or (`untold`) of a pool nobody has split. */
 const isUnknown = (t: { t: string; untold?: true }, untold: boolean): boolean => t.t === "unknown" && !!t.untold === untold;
 
@@ -212,6 +212,37 @@ export interface Transfer {
   from: string;
   to: string;
   cents: number;
+}
+
+/** The sums of a pool's month the settlement block shows, so the page adds up no money of its own. */
+interface SettlementSums {
+  /** Who pays whom to settle the month (`transfersOf`) and what they add up to. */
+  transfers: Transfer[];
+  owedCents: number;
+  /** The costs of a pool whose split nobody has told (`untold`): 0 when the split is known. */
+  untoldCents: number;
+  /** The bills of a card whose holder is not known (`unknownHolder`). */
+  heldBackCents: number;
+  /** What the members who paid over are owed in all, and what those who paid under owe in all. */
+  creditCents: number;
+  debtCents: number;
+  /** The part of the larger of the two that no member's figure pairs with: money nobody has told the owner of. */
+  openCents: number;
+}
+
+export function settlementSums(s: Pick<Settlement, "members" | "unknownHolder" | "untold">): SettlementSums {
+  const transfers = transfersOf(s.members);
+  const creditCents = s.members.reduce((sum, m) => sum + Math.max(m.over, 0), 0);
+  const debtCents = s.members.reduce((sum, m) => sum + Math.max(-m.over, 0), 0);
+  return {
+    transfers,
+    owedCents: total(transfers),
+    untoldCents: total(s.untold ?? []),
+    heldBackCents: total(s.unknownHolder),
+    creditCents,
+    debtCents,
+    openCents: Math.abs(creditCents - debtCents),
+  };
 }
 
 /**

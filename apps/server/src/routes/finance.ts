@@ -1,12 +1,13 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { accountDigits, ACCOUNT_TYPES, type AccountType, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, fromDayNumber, isKnownCategory, moneyBins, partCents, patternProblem, type RuleField, openingMonth, upcomingElsewhereCents, upcomingGroups } from "@banking/core";
+import { accountDigits, ACCOUNT_TYPES, type AccountType, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, fromDayNumber, isKnownCategory, patternProblem, type RuleField, openingMonth, upcomingElsewhereCents, upcomingGroups } from "@banking/core";
 import { Hono } from "hono";
-import { parseScope, proposalsFor, requestInputs, rowsInView, sharedInView, usesWithTraces } from "../services/analysis.ts";
+import { parseScope, proposalsFor, requestInputs, sharedInView, usesWithTraces } from "../services/analysis.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
-import { parseDateRange, parseLoanRef, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
+import { parseLoanRef, parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";
 import { categoriesIn, kindLabelsIn } from "../services/category-names.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
+import { memoOn } from "../services/context-memo.ts";
 import { dashboardOf } from "../services/dashboard-memo.ts";
 import { explainFigure, isExplained, MAX_ACCOUNTS } from "../services/explain.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
@@ -14,10 +15,10 @@ import { reconcileOf } from "../services/reconcile.ts";
 import { renewalOf } from "../services/consent-round.ts";
 import { accountsView, connectionView, deleteAccount, shareAccount, unshareAccount, updateAccount } from "../services/accounts.ts";
 import type { AppEnv, Services } from "../services/context.ts";
-import { extensionRowFields } from "../extensions.ts";
 import { sayAnswer, settledTrace, takeBackAnswer } from "../services/money-trace.ts";
 import { runningSettlement } from "../services/settlement.ts";
-import { addRule, deleteRule, ownRulesOfRows, parseCategoryUndo, publicTx, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
+import { addRule, deleteRule, parseCategoryUndo, setTransactionCategory, undoTransactionCategory } from "../services/rules.ts";
+import { transactionsView } from "../services/transactions-view.ts";
 import { withoutWrongBills } from "../services/wrong-bills.ts";
 import { body, optionalString, parseRange, parseReportIds, queryInt } from "./shared.ts";
 
@@ -25,14 +26,6 @@ const RULE_FIELDS: RuleField[] = ["merchant", "merchant_exact", "description", "
 
 /** A balance typed in by hand: whole cents, at most a billion euros either way. */
 const MAX_BALANCE_CENTS = 100_000_000_000;
-
-// the strip's histogram bins at most the last hundred years of a span (1 201 month bins, about 70 kB): no household's bank
-// rows reach that far, and a span of 1900 to 2199 would be 3 600 bins (210 kB) on every load of the list
-const HISTOGRAM_YEARS = 100;
-const histogramFrom = (span: { from: string; to: string }): string => {
-  const first = `${String(Number(span.to.slice(0, 4)) - HISTOGRAM_YEARS).padStart(4, "0")}-${span.to.slice(5, 7)}-01`;
-  return span.from > first ? span.from : first;
-};
 
 /** The question a viewer is asked, and the answer given, with the text their own row of that payer shows (the opening: its day). */
 async function tracedFields(s: Services, key: string, split: { by: "app" | "user"; at: string } | undefined, asker: boolean) {
@@ -164,18 +157,23 @@ export function financeRoutes(s: Services) {
     const userId = c.get("user").id;
     const { ctx, accounts } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, userId, accounts);
-    const ahead = cashAhead(withoutWrongBills(ctx, inputs.marks), balances, inputs);
-    // Laskut's groups of the bills ahead come with their sums: the page adds up nothing
-    const groups = upcomingGroups(ahead);
-    return c.json({ ahead: { ...ahead, groups, elsewhereCents: upcomingElsewhereCents(ahead.upcoming) } });
+    // the same answer on every page that asks while the data, the balances and the member's inputs stay as they are
+    const ahead = memoOn(ctx, "ahead", [balances, inputs], () => {
+      const walked = cashAhead(withoutWrongBills(ctx, inputs.marks), balances, inputs);
+      // Laskut's groups of the bills ahead come with their sums: the page adds up nothing
+      return { ...walked, groups: upcomingGroups(walked), elsewhereCents: upcomingElsewhereCents(walked.upcoming) };
+    });
+    return c.json({ ahead });
   });
 
   app.get("/reports", async (c) => {
     const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, c.get("user").id, accounts);
+    const range = parseRange(c, s.today());
+    const lang = c.get("user").language;
+    const only = parseReportIds(c.req.query("reports"));
     // a bill the member marked as no recurring bill is in no list and no sum of what is coming
-    const ctx = withoutWrongBills(all, inputs.marks);
-    return c.json(buildReports({ ctx, range: parseRange(c, s.today()), balances, inputs, lang: c.get("user").language }, parseReportIds(c.req.query("reports"))));
+    return c.json(memoOn(all, "reports", [range, balances, inputs, lang, only], () => buildReports({ ctx: withoutWrongBills(all, inputs.marks), range, balances, inputs, lang }, only)));
   });
 
   // "Miksi?": the rows of one figure and why each counts so; the figure's own access, no names in the answer
@@ -193,71 +191,15 @@ export function financeRoutes(s: Services) {
     const { ctx } = await s.analysis.get(s, userId, parseScope(c.req.query("scope")));
     // the household view shows the viewer's own marks, as the dashboard does
     const marks = await repoOf(userId).listMarks();
-    return c.json({ series: withoutWrongBills(ctx, marks).recurring.map(({ transactionIds: _ids, ...rest }) => rest), marks });
+    const series = memoOn(ctx, "recurring", marks, () => withoutWrongBills(ctx, marks).recurring.map(({ transactionIds: _ids, ...rest }) => rest));
+    return c.json({ series, marks });
   });
 
   // ── transactions ─────────────────────────────────────
-  /**
-   * The rows of the accounts in view as the bank booked them, in both views. In the own view a row of a joint account
-   * carries the viewer's part beside its amount (`partCents`), and `inCents` and `outCents` add up parts. A row has the
-   * category and the transfer mark the view counts it by, so the list, its sums and the front page say the same of it.
-   */
+  // the rows of the accounts in view as the bank booked them, with their sums (services/transactions-view.ts)
   app.get("/transactions", async (c) => {
-    const user = c.get("user");
     const q = c.req.query();
-    const range = parseDateRange(q.from || undefined, q.to || undefined);
-    const { shared, own } = await rowsInView(s, user.id, parseScope(q.scope));
-    const filter = {
-      from: range.from,
-      to: range.to,
-      accountId: q.accountId,
-      category: q.category,
-      kind: q.kind === "income" ? ("income" as const) : undefined,
-      merchant: q.merchant,
-      q: q.q?.slice(0, 100),
-      limit: queryInt(q.limit),
-      offset: queryInt(q.offset),
-      own,
-    };
-    const { total, inCents, outCents, days, items: stored } = await repoOf(user.id).listTransactions(filter, shared.map((a) => a.id));
-    // the list grouped by payee (`sums=merchant`): each listed payee's whole sums, as each listed day has its own
-    const merchantSums = q.sums === "merchant" ? await repoOf(user.id).merchantSums(filter, shared.map((a) => a.id), [...new Set(stored.map((t) => t.merchant))]) : undefined;
-    const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
-    // which company and industry an "industry" category came from, shown on hover; a shared
-    // row's category came from its owner's lookups, so the owners' requests count too
-    const industry = await repoOf(user.id).industryDetails(
-      items.filter((t) => t.categorySource === "industry").map((t) => t.merchant),
-      shared.map((a) => a.userId),
-    );
-    const extra = await extensionRowFields(s, user.id, items.filter((t) => t.userId === user.id));
-    // the viewer's own rule a row's category came from, which the row's detail names
-    const ownRules = await ownRulesOfRows(s, user.id, items);
-    // the period the sums cover: the filter's, or from the first to the last matching row
-    const span = days.length ? { from: range.from ?? days[0]!.date, to: range.to ?? days[days.length - 1]!.date } : null;
-    const onPage = new Set(items.map((t) => t.bookingDate));
-    return c.json({
-      total,
-      inCents,
-      outCents,
-      netCents: inCents - outCents,
-      span,
-      // the totals strip's histogram and each listed day's whole sums
-      histogram: span ? moneyBins(days, histogramFrom(span), span.to) : null,
-      daySums: days.filter((d) => onPage.has(d.date)),
-      ...(merchantSums ? { merchantSums } : {}),
-      items: items.map((t) => {
-        const part = own.parts.get(t.accountId);
-        const share = own.shares?.get(t.id);
-        return {
-          ...publicTx(t),
-          own: t.userId === user.id,
-          ...(share ? { partCents: share.cents, ...(share.openCents !== 0 ? { openCents: share.openCents } : {}) } : part ? { partCents: partCents(t.amountCents, part) } : {}),
-          ...(industry.has(t.merchant) && t.categorySource === "industry" ? { industry: industry.get(t.merchant) } : {}),
-          ...(ownRules.has(t.id) ? { ownRule: ownRules.get(t.id) } : {}),
-          ...extra.get(t.id),
-        };
-      }),
-    });
+    return c.json(await transactionsView(s, c.get("user").id, { ...q, limit: queryInt(q.limit), offset: queryInt(q.offset) }));
   });
 
   app.patch("/transactions/:id", async (c) => {

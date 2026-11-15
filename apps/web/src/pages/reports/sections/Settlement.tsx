@@ -9,8 +9,8 @@ import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
-import { isSharedCredit, transfersOf } from "@banking/core";
-import { hasNothing, holderNameOf, untoldTotal } from "./settlement-text.ts";
+import { isSharedCredit, settlementSums } from "@banking/core";
+import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { t } from "../../../text.ts";
@@ -49,21 +49,15 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
   const s = pool.settlement;
   // a correction that moved who paid and left the sum at 0,00 has no figure to show: the members' rows hold what it changed
   const late = s.lines.filter((l: SettlementLine) => l.kind === "late_change" && l.cents !== 0);
-  const heldBack = s.unknownHolder.reduce((sum, h) => sum + h.cents, 0);
+  // what the page shows is core's sums: it adds up nothing of its own
+  const { transfers, owedCents: owedTotal, untoldCents: untold, heldBackCents: heldBack, creditCents: credits, debtCents: debts, openCents: open } = settlementSums(s);
   // a block of its own after the users: money no user of the pool paid or owes reads as nobody's
   const unknown = [
     ...s.unknownPaidBy.map((e) => ({ label: t("rpt.se_paid_by", { name: unknownName(e.owner, pool.labels, holder) }), cents: e.cents })),
     ...s.unknownOwedBy.map((e) => ({ label: t("rpt.se_share_of", { name: unknownName(e.owner, pool.labels, holder) }), cents: e.cents })),
     ...(heldBack > 0 ? [{ label: t("rpt.se_card_holder"), cents: heldBack }] : []),
   ].filter((u) => u.cents !== 0);
-  const untold = untoldTotal(s);
   const nameOf = (owner: string): string => (owner === "u:" ? unknownName(owner, pool.labels, holder) : (pool.names[owner] ?? (pool.removed.includes(owner) ? t("rpt.se_removed") : owner)));
-  const transfers = transfersOf(s.members);
-  const owedTotal = transfers.reduce((sum, x) => sum + x.cents, 0);
-  // money nobody has told the owner of leaves a part of some member's over figure with no partner to pay it
-  const credits = s.members.reduce((sum, m) => sum + Math.max(m.over, 0), 0);
-  const debts = s.members.reduce((sum, m) => sum + Math.max(-m.over, 0), 0);
-  const open = Math.abs(credits - debts);
   // no split told: every member reads 0,00 paid and 0,00 share, so the block of the untold sum is all there is to say
   const noSplit = untold !== 0 && s.members.every((m) => m.paid === 0 && m.owed === 0);
   const even = credits === 0 && debts === 0 && unknown.length === 0 && untold === 0;
