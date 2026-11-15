@@ -64,6 +64,12 @@ services:
       - no-new-privileges:true
     mem_limit: 512m
     pids_limit: 200
+    # the log files stay under 30 MB; the helper of an install accepts only this driver and these two options
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
 
   # HTTPS with an automatic Let's Encrypt certificate for your own domain.
   # Needs DOMAIN and ACME_EMAIL in .env, a DNS A record to your public IP and
@@ -92,6 +98,11 @@ services:
       - caddy-config:/config
     security_opt:
       - no-new-privileges:true
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
   banking-data:
