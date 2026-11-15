@@ -25,26 +25,35 @@ interface Found {
 }
 
 /**
- * What a thumb must hit on a phone: a link-styled button reaches 44 px (its own box or the reach of its ::after), and a
- * checkbox or radio the user can see is 24 px wide and high.
+ * What a thumb must hit on a phone: every link, button, sort head and summary reaches 44 px (its own box or the reach of
+ * its ::after) and is 24 px wide, a mark drawn in a chart's svg is 24 px each way, and a checkbox or radio the user can
+ * see is 24 px wide and high. A link inside a sentence is exempt, as WCAG 2.5.8 has it.
  */
 async function smallTargets(page: Page): Promise<string[]> {
   return page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of Array.from(document.querySelectorAll<HTMLElement>("main .btn-link, main input[type=checkbox], main input[type=radio]"))) {
+    // one line for each kind of target, with how many there are: a table has a link on every row
+    const found = new Map<string, { name: string; n: number }>();
+    const sentence = (el: Element) => Array.from(el.parentElement?.childNodes ?? []).reduce((n, node) => n + (node.nodeType === 3 ? (node.textContent ?? "").trim().length : 0), 0) >= 8;
+    for (const el of Array.from(document.querySelectorAll<HTMLElement | SVGElement>("a[href], button, summary, [role=button], input[type=checkbox], input[type=radio]"))) {
       const r = el.getBoundingClientRect();
-      // a control that is not on the page (closed details, a hidden input) has no box
-      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden") continue;
+      // a control that is not on the page (closed details, a hidden input, the skip link's 1 px) has no box
+      if (r.width < 4 || r.height < 4 || getComputedStyle(el).visibility === "hidden" || el.closest("[hidden], [inert]")) continue;
       const name = (el.textContent || el.closest("label")?.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40);
+      const kind = `${el.tagName.toLowerCase()}${typeof el.className === "string" && el.className ? `.${el.className.trim().split(/\s+/).join(".")}` : ""}`;
+      let problem = "";
       if (el instanceof HTMLInputElement) {
-        if (r.width < 23.5 || r.height < 23.5) out.push(`checkbox "${name}" is ${Math.round(r.width)} x ${Math.round(r.height)} px, under 24`);
-        continue;
+        if (r.width < 23.5 || r.height < 23.5) problem = `is ${Math.round(r.width)} x ${Math.round(r.height)} px, under 24`;
+      } else if (el instanceof SVGElement) {
+        if (r.width < 23.5 || r.height < 23.5) problem = `is ${Math.round(r.width)} x ${Math.round(r.height)} px, under 24 in a chart`;
+      } else if (!(el instanceof HTMLAnchorElement && sentence(el))) {
+        const after = getComputedStyle(el, "::after");
+        const reach = Math.max(r.height, after.position === "absolute" && after.content !== "none" ? parseFloat(after.height) || 0 : 0);
+        if (reach < 43.5) problem = `reaches ${Math.round(reach)} px, under 44`;
+        else if (r.width < 23.5) problem = `is ${Math.round(r.width)} px wide, under 24`;
       }
-      const after = getComputedStyle(el, "::after");
-      const reach = Math.max(r.height, after.content === "none" ? 0 : parseFloat(after.height) || 0);
-      if (reach < 43.5) out.push(`link "${name}" reaches ${Math.round(reach)} px, under 44`);
+      if (problem) found.set(`${kind} ${problem}`, { name, n: 1 + (found.get(`${kind} ${problem}`)?.n ?? 0) });
     }
-    return out;
+    return Array.from(found, ([line, { name, n }]) => `${line}, as "${name}"${n > 1 ? ` and ${n - 1} more` : ""}`);
   });
 }
 

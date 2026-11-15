@@ -126,6 +126,14 @@ describe("misc", () => {
     expect(local.res.headers.get("set-cookie")).not.toMatch(/Secure/i);
   });
 
+  it("leaves the cookie without Secure when a trusted proxy says the request came over http, and reads the proxy's https as Secure", async () => {
+    const { admin, client } = await setupApp({ TRUST_PROXY: "true" });
+    await admin.call("PUT", "/api/admin/instance", { appBaseUrl: "https://talous.koti.example" });
+    const login = (headers: Record<string, string>) => client().call("POST", "/api/auth/login", { username: "aino", password: "aino-salasana-123" }, { Host: "talous.koti.example", ...headers });
+    expect((await login({ "X-Forwarded-Proto": "http" })).res.headers.get("set-cookie")).not.toMatch(/Secure/i);
+    expect((await login({ "X-Forwarded-Proto": "https" })).res.headers.get("set-cookie")).toMatch(/Secure/i);
+  });
+
   it("sharing an account twice is fine", async () => {
     const { admin, member, s, adminId } = await setupApp();
     const eero = await member("eero");
