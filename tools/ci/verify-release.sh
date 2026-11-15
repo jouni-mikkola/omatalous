@@ -14,6 +14,8 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 # shellcheck source=tools/lib/project.sh
 . tools/lib/project.sh
+# shellcheck source=tools/lib/newest-release.sh
+. tools/lib/newest-release.sh
 
 if [[ ${1:-} == --pull ]]; then
   version=${2:-}
@@ -59,10 +61,9 @@ tag=${1:-}
 if [[ -z $tag ]]; then
   tag=$(curl -fsS "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name // empty') || tag=
   if [[ -z $tag ]]; then
-    # GitHub's latest skips pre-releases and a new release is one for 48 hours, so 404 is no reason to stop: the newest
-    # release of any kind is the one to verify. An empty list leaves tag empty and fails below.
-    tag=$(curl -fsS "https://api.github.com/repos/$repo/releases?per_page=1" | jq -r '.[0].tag_name // empty')
-    [[ -z $tag ]] || echo "$repo has no latest release (only pre-releases): checking the newest, $tag."
+    # An empty list leaves tag empty and fails below.
+    tag=$(curl -fsS "https://api.github.com/repos/$repo/releases?per_page=1" | newest_release_tag)
+    [[ -z $tag ]] || no_latest_note "$repo" "$tag"
   fi
 fi
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "No release found in $repo ($tag)"; exit 1; }

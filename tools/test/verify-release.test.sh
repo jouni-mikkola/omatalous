@@ -113,6 +113,16 @@ out=$(first ok '[]' VERIFY_RELEASE_FIRST=); rc=$?
 check "no release at all still fails" test $rc -ne 0 -a "${out#*only pre-releases}" = "$out"
 [[ $out == *"No release found"* ]] && pass "says no release was found" || fail "says no release was found" "$out"
 
+# the helper both this script and drill 10 of tools/ci/drills.sh take the fallback from
+# shellcheck source=tools/lib/newest-release.sh
+. "$HERE/../lib/newest-release.sh"
+tag=$(printf '%s' '[{"tag_name":"v0.2.0","prerelease":true},{"tag_name":"v0.1.0","prerelease":true}]' | newest_release_tag)
+[[ $tag == v0.2.0 ]] && pass "newest_release_tag takes the first release of the list, a pre-release too" || fail "newest_release_tag takes the first release of the list, a pre-release too" "$tag"
+tag=$(printf '%s' '[]' | newest_release_tag)
+[[ -z $tag ]] && pass "newest_release_tag finds nothing in an empty list" || fail "newest_release_tag finds nothing in an empty list" "$tag"
+note=$(no_latest_note the-repo v0.2.0)
+[[ $note == "the-repo has no latest release (only pre-releases): checking the newest, v0.2.0." ]] && pass "no_latest_note names the repository and the tag" || fail "no_latest_note names the repository and the tag" "$note"
+
 echo
 echo "$PASS passed, $FAILED failed"
 [[ $FAILED -eq 0 ]]

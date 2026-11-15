@@ -307,6 +307,8 @@ drill_symlink() {
 }
 
 # ── 10 the release parser on GitHub's real answer ───────────────────────────
+# shellcheck source=tools/lib/newest-release.sh
+. "$SRC/tools/lib/newest-release.sh"
 # rel FUNCTION ARGS...: a function of this checkout's scripts/lib/release.sh, run in the checkout. The address asked is the
 # one that file holds (RELEASES_API). With the caller's auth=1 its curl also reads the token's config file.
 rel() { (cd "$SRC" && . scripts/lib/release.sh && { [[ -z ${auth:-} ]] || export CURL_HOME=$LOGS/curl-auth; } && "$@"); }
@@ -327,7 +329,7 @@ RELEASE_JS='
 # answer the product's own GET fetched is parsed twice, a refusal is asked again with the workflow's token when there is
 # one, and no answer at all is "skipped", never a failure of the parser.
 drill_release() {
-  local m f=$LOGS/release.json code rc got want all auth=""
+  local m f=$LOGS/release.json code rc got want all tag auth=""
   trap 'rm -rf "$LOGS/curl-auth"' EXIT
   step "scripts/lib/release.sh on GitHub's real answer: its GET, its parser against a JSON parser on the same bytes, then the whole call (awk: $(awk -W version 2>&1 | head -n 1 || true))"
   (cd "$SRC" && . scripts/lib/release.sh && declare -F release_get release_pick release_from_api >/dev/null) || die "scripts/lib/release.sh lacks release_get, release_pick or release_from_api"
@@ -344,6 +346,14 @@ drill_release() {
       auth=1; code=$(rel release_get "$m" "$f")
     fi
     no_answer "$code" && skip "GitHub gave no answer (HTTP $code for $m, with the token: ${auth:-no}): $(head -c 160 "$f" 2>/dev/null | tr '\n' ' ')"
+    if [[ $m == latest && $code == 404 ]]; then
+      # no latest release while the only releases are pre-releases: the newest-mode round below reads the same list, pre-releases included
+      code=$(rel release_get newest "$f")
+      no_answer "$code" && skip "GitHub gave no answer (HTTP $code for newest, after a 404 for latest): $(head -c 160 "$f" 2>/dev/null | tr '\n' ' ')"
+      tag=$(newest_release_tag <"$f") || tag=
+      if [[ $code == 200 && -n $tag ]]; then no_latest_note "the public repository" "$tag"; continue; fi
+      code=404
+    fi
     [[ $code == 200 ]] || die "$m: GitHub answered HTTP $code" "the answer: $(head -c 500 "$f" 2>/dev/null | tr '\n' ' ')"
     want=$(docker run --rm -i --network none --entrypoint node "$IMG" -e "$RELEASE_JS" "$m" <"$f" 2>&1) || die "$m: the answer could not be read as JSON" "$want" "the answer: $(head -c 300 "$f" | tr '\n' ' ')"
     rc=0; got=$(rel release_pick "$m" "$f") || rc=$?
