@@ -176,7 +176,7 @@ a link in the main menu, the header or the settings tabs leads there.
 | Transactions, merchants, rules (Tapahtumat) | pages/Transactions, TransactionRows, transactions/, Merchants, Rules | 2 063 web | menu; merchants and rules are a view and an anchor of it |
 | Reports, 7 question pages (Raportit) | web pages/reports, core reports/ | 3 787 web, 4 094 core | menu; Yhteiset only with a shared account |
 | Saving tips (Säästövinkit) | web Optimise.tsx, components/optimise; core optimise/ | 1 807 web, 5 060 core | menu |
-| Alerts on the overview (Huomioitavaa) | core analysis/alerts.ts and insights/ | part of analysis 10 552 | overview |
+| Alerts on the overview (Huomioitavaa) | core analysis/alerts.ts | part of analysis 10 552 | overview |
 | To check (Tarkistettavat) | Review.tsx, ReviewChoices.tsx, review-items.ts, services/review.ts | 1 123 | header count |
 | Settings, 6 tabs | pages/settings (44 files) | 7 314 web | user menu |
 | Remote access (Etäkäyttö) | settings/RemoteAccess* (7 files), remote-access-*, services/remote-access, access-request, providers/cloudflare, security/cf-access | 2 557 | settings > server |
@@ -305,7 +305,7 @@ remove. "Owner decides" marks a move that removes something a user sees.
 | 7 | Remove the 150 unused exports and 196 unused types knip lists (after move 6) | est. 300 to 600 | low | knip reports no unused export |
 | 8 | Delete dead web files: PriceLine, BasisSheet with basis.css, ui/Tabs, ui/Chip | 231 | low | the files are gone and `pnpm --filter @banking/web typecheck` passes |
 | 9 | Drop the English UI (owner decides) | 3 745 + key-parity tests | high: users on English devices | `packages/core/src/english/` is gone and `ui-strings.test.ts` checks Finnish only |
-| 10 | Merge alerts (`analysis/alerts.ts`, insights) and Säästövinkit findings into one source, shown on one page (owner decides which) | est. 800 to 1 500 | medium | one finding (e.g. a new recurring payment) appears on one page, tested in `optimise/quiet.test.ts` |
+| 10 | Merge alerts (`analysis/alerts.ts`) and Säästövinkit findings into one source, shown on one page (owner decides which) | est. 800 to 1 500 | medium | one finding (e.g. a new recurring payment) appears on one page, tested in `optimise/quiet.test.ts` |
 | 11 | Remote access managed in the app (Cloudflare tunnel, Access, trial and revert) replaced by a guide in ADVANCED.md (owner decides) | about 2 500 + tests 1 500 | high: users who set it up in the browser | `RemoteAccess*` and `providers/cloudflare` are gone and an install with a tunnel keeps working (install.test.sh) |
 | 12 | Maintenance from the browser (helper, ops requests) kept to update and rollback only (owner decides) | about 800 | high: host contract | `contracts/` helper output is unchanged for the kept actions and `ops.test.ts` passes |
 | 13 | Split `data-import.ts:101` (complexity 231) into one function per store | 0 net, −200 complexity | medium | biome reports it under 25 and `data-import` tests pass |

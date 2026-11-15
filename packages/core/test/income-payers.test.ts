@@ -5,11 +5,10 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { payDate } from "../src/analysis/income.ts";
-import { incomeInsights } from "../src/analysis/income-changes.ts";
 import { incomeBase, payPieces } from "../src/analysis/income-series.ts";
 import { addMonths } from "../src/dates.ts";
 import { incomeReport } from "../src/reports/income.ts";
-import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
+import type { Account, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
 const ACCOUNTS: Account[] = [{ id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" }];
@@ -36,7 +35,7 @@ const spend = (from: string, to: string) => series(from, 2, Math.floor((Date.par
 const read = (rows: Transaction[], today: string, to: string, accounts: Account[] = ACCOUNTS) => {
   const ctx = createContext(rows, accounts, today);
   const range = { from: `${addMonths(to.slice(0, 7), -11)}-01`, to };
-  return { ctx, range, report: incomeReport(ctx, range) };
+  return { report: incomeReport(ctx, range) };
 };
 const monthOf = (r: ReturnType<typeof incomeReport>, month: string) => r.months.find((m) => m.month === month)!;
 const payerKinds = ["payer_changed", "stopped", "new_source"];
@@ -140,23 +139,8 @@ describe("a change of payer against the chosen window", () => {
     expect(told(read(rows, TODAY, "2026-02-28").report)).toEqual([]);
   });
 
-  it("gives the first page the same change as the report", () => {
-    const { ctx, range, report } = read(rows, TODAY, "2026-06-30");
-    const alert = incomeInsights(ctx, range, NO_INPUTS).map((i) => i.id);
-    expect(alert).toHaveLength(1);
-    expect(alert).toEqual(report.changes.filter((c) => c.kind === "payer_changed").map((c) => c.id));
-  });
-
-  it("keeps the change on the first page for 120 days after the old payer's last payment, and in the report for the year", () => {
+  it("keeps the change in the report for the year", () => {
     // ESIMERKKI OY was last paid on 13.3.2026
-    const onPage = (to: string) => {
-      const { ctx, range } = read(rows, TODAY, to);
-      return incomeInsights(ctx, range, NO_INPUTS).map((i) => i.id);
-    };
-    expect(onPage("2026-07-11")).toHaveLength(1);
-    expect(onPage("2026-07-12")).toEqual([]);
-    expect(onPage("2026-12-31")).toEqual([]);
-    expect(onPage(TODAY)).toEqual([]);
     expect(told(read(rows, TODAY, "2026-12-31").report)).toHaveLength(1);
   });
 

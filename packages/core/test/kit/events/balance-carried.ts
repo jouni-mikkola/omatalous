@@ -23,8 +23,5 @@ export const balanceCarried: LifeEvent = {
   },
   // the bills of March to August in full give way to the 600 € above
   drop: (t, f) => t.id.startsWith("bill-") && t.bookingDate >= f.on(f.ago(7), 1) && t.bookingDate <= f.on(f.ago(2), 28),
-  allows: [
-    // the 209 € of interest, charged in six of the last twelve months
-    /^insights card-interest$/,
-  ],
+  allows: [],
 };

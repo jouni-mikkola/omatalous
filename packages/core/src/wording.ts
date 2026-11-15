@@ -230,11 +230,6 @@ export const isMunicipality = (folded: string) => MUNICIPALITY.test(folded);
 /** A reminder fee, late interest or a collection cost, as a regex alternation (analysis/fees.ts). */
 export const LATE_FEE_WORDS = alternation("LATE_FEE_WORDS");
 
-const PURCHASE_INTEREST = /KORKO/i;
-const NOT_PURCHASE_INTEREST = /VIIV[AÄ]STYS|PALKKIO|LUOTTOKULU|LUOTTOKUSTANNU|MAKSU/i;
-/** Interest on card purchases in a row's text: KORKO, and no late interest, fee or credit cost. */
-export const isPurchaseInterestText = (text: string) => PURCHASE_INTEREST.test(text) && !NOT_PURCHASE_INTEREST.test(text);
-
 /**
  * Payment services a purchase is paid through, at once or in parts, as a regex alternation: the instalment and
  * shopping rules of categorize.ts and `isLenderName` read it. Klarna Bank's every name holds KLARNA, and AfterPay is Riverty's old name.

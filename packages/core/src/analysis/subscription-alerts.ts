@@ -6,7 +6,7 @@
  */
 import { addDays, addMonths, monthOf } from "../dates.ts";
 import { parseSeriesId, type RecurringSeries, seriesId, type SeriesIdParts } from "../recurring.ts";
-import type { IsoDate, MarkKind, UserMark } from "../types.ts";
+import type { IsoDate, MarkKind, UserInputs, UserMark } from "../types.ts";
 import type { Alert } from "./alerts.ts";
 import type { AnalysisTx } from "./context.ts";
 import { formatEur, formatFiDate } from "./format.ts";
@@ -226,4 +226,39 @@ export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: Re
         merchant: last.merchant,
       };
     });
+}
+
+/** What the household said about a subscription, and on which day. */
+interface SubscriptionAnswer {
+  mark: "cancelled" | "in_use";
+  day: IsoDate;
+}
+
+/**
+ * The household's answers on subscriptions (`user_marks`): Lopetettu, or Käytössä within the last 12 months, the rule
+ * that quiets the forgotten-service question. A price rise or a new charge of an answered series is not asked about
+ * again. Keyed as `marksBySubject` keys the marks (a series' subject, or the merchant's name for an old mark on a
+ * merchant): read it with `answerOf`.
+ */
+export function answeredSubscriptions(inputs: UserInputs, today: IsoDate): ReadonlyMap<string, SubscriptionAnswer> {
+  const out = new Map<string, SubscriptionAnswer>();
+  for (const [key, m] of marksBySubject(inputs.marks)) {
+    // the server stores the mark in the instance's time zone, so its date part is the local day
+    if (m.mark === "cancelled" || (m.mark === "in_use" && inUseQuietsQuestion(m, today))) out.set(key, { mark: m.mark, day: markedDay(m) });
+  }
+  return out;
+}
+
+/** The answer on a series: its own, or an old one on its merchant, which covers every series of the merchant. */
+export function answerOf(answered: ReadonlyMap<string, SubscriptionAnswer>, s: MarkedSeries): SubscriptionAnswer | undefined {
+  return coveringMark(answered, s, (a) => a.day);
+}
+
+/**
+ * Whether an answer settles a statement whose news is from `since` (the day a price changed). Lopetettu always does;
+ * Käytössä only when it was given on or after that day, since an earlier answer did not know the new price.
+ */
+export function settledBy(answer: SubscriptionAnswer | undefined, since: IsoDate | null = null): boolean {
+  if (!answer) return false;
+  return answer.mark === "cancelled" || since === null || answer.day >= since;
 }

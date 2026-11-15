@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { incomeTypeOf, incomeTypes, isBankingDay, payDate, type PayRule, payDayOf } from "../src/analysis/income.ts";
-import { incomeBase, incomeChanges, incomeInsights } from "../src/analysis/income-changes.ts";
+import { incomeBase, incomeChanges } from "../src/analysis/income-changes.ts";
 import { residualTax } from "../src/analysis/income-events.ts";
 import { addDays, addMonths, daysInMonth } from "../src/dates.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { incomeReport } from "../src/reports/income.ts";
-import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
+import type { Account, Transaction } from "../src/types.ts";
 import { formatFiDate } from "../src/analysis/format.ts";
 import { series, tx } from "./helpers.ts";
 
@@ -156,7 +156,6 @@ describe("what changed", () => {
     const changes = incomeChanges(incomeBase(ctx, TODAY), true);
     expect(changes.map((c) => c.kind)).toEqual(["tax_card"]);
     expect(changes[0]!.title).toBe("Nettopalkka pieneni 100 € kuussa");
-    expect(incomeInsights(ctx, range(TODAY), NO_INPUTS)).toEqual([]);
   });
 
   it("tells a benefit that ended, with its pay day", () => {

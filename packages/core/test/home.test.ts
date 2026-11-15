@@ -6,7 +6,6 @@ import { expectedEveryday, expectedFor, expectedSpending } from "../src/analysis
 import { formatEur } from "../src/analysis/format.ts";
 import { gateFor } from "../src/analysis/usual.ts";
 import { addDays, dateIn, daysBetween, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
-import { OVERVIEW_INSIGHTS } from "../src/thresholds.ts";
 import { type Account, type BalanceInput, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -129,7 +128,7 @@ describe("home.pace", () => {
   });
 });
 
-describe("home.direction, home.notable and home.reliability", () => {
+describe("home.direction and home.reliability", () => {
   it("tells the usual month and where the last three stand against the year", () => {
     const { direction } = homeOf([...pays(), ...rents(), ...shopping("2026-03-01", 4000)]);
     expect(direction.usualCents).not.toBeNull();
@@ -178,12 +177,6 @@ describe("home.direction, home.notable and home.reliability", () => {
     const { direction } = homeOf([...pays().slice(-2), ...shopping("2026-10-01", 4000)]);
     expect(direction.usualCents).toBeNull();
     expect(direction.direction).toBeNull();
-  });
-
-  it("holds at most three findings, each with what it is worth a year", () => {
-    const { notable } = homeOf([...pays(), ...rents(), ...shopping("2026-03-01", 4000, 6000)]);
-    expect(notable.length).toBeLessThanOrEqual(OVERVIEW_INSIGHTS);
-    for (const i of notable) expect(i.effectPerYear?.cents ?? 0).not.toBe(0);
   });
 
   it("has no missing card purchases in a household with no card", () => {

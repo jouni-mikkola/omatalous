@@ -1,5 +1,5 @@
 /**
- * Whether a change stands out from the household's own month-to-month noise (ADR 0011). Every insight and alert that
+ * Whether a change stands out from the household's own month-to-month noise (ADR 0011). Every alert that
  * sets one window of months against another, or one month against its usual level, passes this test before it is
  * told, and so do Optimoi's food and habit areas.
  *
@@ -11,7 +11,7 @@ import { mean, sum } from "../stats.ts";
 
 /**
  * A change must stand this many standard errors from nothing. At 2.5 three of the kit's 200 steady households read as
- * spending growth; at 4 none of them as any insight or alert.
+ * spending growth; at 4 none of them as any alert.
  */
 export const MIN_T = 4;
 

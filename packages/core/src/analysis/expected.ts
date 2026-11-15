@@ -241,7 +241,7 @@ const inFlowSpend = (t: AnalysisTx): boolean => t.spend === 0 || flowSpendOf(t) 
 
 /** The figure of `month` read from `months`, the rows the month table counts (`spendRows`), or only those `keep` accepts (and the series that start in them). */
 function expectedOver(ctx: AnalysisContext, month: string, months: readonly string[], keep?: (t: AnalysisTx) => boolean): Expected {
-  // the one-offs are judged in the window of the month and its base, as the insights and the change report judge them
+  // the one-offs are judged in the window of the month and its base, as the change report judges them
   const oneOffs = expectedOneOffs(ctx, [...months, month]);
   const rows = keep ? (m: string) => rowsOf(ctx, m).filter(keep) : (m: string) => rowsOf(ctx, m);
   return expectedOf({ month, months, rows, series: keep ? seriesWhere(ctx, keep) : ctx.recurring, oneOffs, backfill: backfillOf(ctx) });

@@ -11,15 +11,14 @@ import { categoryRises } from "./change.ts";
 import { changeMonths, cutWords } from "./change-text.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, netPurchase, netSpend, recurringAt } from "./context.ts";
 import { isBankFee, isLateFee } from "./fees.ts";
-import { finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
-import { capitalise, countWord } from "./insights/shared.ts";
+import { countWord, finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
 import { shortDate } from "./income-series.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
 
 type AlertKind = "double_charge" | "late_fee" | "cancelled" | "uncategorised" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
 
-/** A cost trap or a mistake worth acting on. The overview shows these before insights. */
+/** A cost trap or a mistake worth acting on. */
 export interface Alert {
   /** Stable for the same data, e.g. "double:<txId>". */
   id: string;
@@ -30,7 +29,7 @@ export interface Alert {
   /** Where a click should go: a merchant or a category in the transactions list. */
   merchant?: string;
   category?: string;
-  /** On an alert about one row: the row, for a link that opens it. It says nothing of the payee, so no insight about the payee gives way to it. */
+  /** On an alert about one row: the row, for a link that opens it. It says nothing of the payee, so no alert about the payee gives way to it. */
   row?: { merchant: string; date: IsoDate };
   /** On a question about a forgotten service: the subject an answer is stored under, which names that one series. */
   markSubject?: string;
@@ -329,7 +328,7 @@ function overlapAlerts(recurring: readonly RecurringSeries[], lang: Language): {
       id: `overlap:${type}`,
       kind: "overlap",
       tone: type === "video" ? "info" : "warning",
-      title: messageIn(lang, "alr.overlap_title", { count: capitalise(countWord(distinct, lang)), noun: messageIn(lang, OVERLAP_NOUN[type]) }),
+      title: messageIn(lang, "alr.overlap_title", { count: countWord(distinct, lang), noun: messageIn(lang, OVERLAP_NOUN[type]) }),
       detail: messageIn(lang, "alr.overlap_detail", { names: finnishList(names, lang), amount: formatEur(monthly, true, lang) }),
       ...(categories.size === 1 ? { category: [...categories][0] } : {}),
     });
@@ -434,7 +433,7 @@ function bankFees(ctx: AnalysisContext, current: readonly AnalysisTx[], range: D
 // ── small frequent purchases ─────────────────────────────
 
 const HABIT_MIN_PER_MONTH = 8;
-/** A small purchase: under 10 €. The habit alert asks it of a payee's median; Pienet tavat and the small purchases insight read this one line. */
+/** A small purchase: under 10 €. The habit alert asks it of a payee's median; Pienet tavat reads this one line. */
 export const SMALL_PURCHASE_CENTS = 1000;
 const HABIT_WINDOW_DAYS = 90;
 const HABIT_MIN_DAYS = 45;

@@ -53,7 +53,7 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   pipeline.ts                categorize, transfers, merchant memory, industry; run after every change
   recurring.ts               subscriptions, bills, habits, income, price changes
   recurring-cadence.ts       the cadence table and fitting; recurring-cost.ts a series' cost
-  analysis/                  flows, analysis context (cached on the server), dashboard, insights
+  analysis/                  flows, analysis context (cached on the server), dashboard
   reports/                   one file per report, registered in reports/index.ts
   loans.ts                   every figure of a loan; household-debts.ts the list of debts behind each debt total
   holdings.ts                accounts, cards and loans as the first page shows them, with the total of the accounts
@@ -489,7 +489,7 @@ it when a page in the film changed, and read the captions it prints.
 
 ### Golden files
 
-`packages/core/test/golden/` holds every statement the product makes about money (alerts, insights, Säästövinkit, the
+`packages/core/test/golden/` holds every statement the product makes about money (alerts, Säästövinkit, the
 income and change reports and their outcomes, and the purchases and income set apart as large) for the demo, the kit's base household and seeds 1 to 5, one file per
 source. They are output and never edited by hand. `golden.test.ts` fails when the code says something else, and
 `pnpm findings --golden` writes the files again.
