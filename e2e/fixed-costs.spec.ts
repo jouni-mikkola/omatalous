@@ -17,7 +17,7 @@ for (const width of [390, 1440]) {
     await page.goto("/#/bills");
     const euros = (s: string) => plain(s).replace(/\D/g, "");
     await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-    await page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteiden menojen raportti" }).click();
+    await page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true }).click();
     await expect(page).toHaveURL(/#\/reports\?q=kiinteat/);
     const block = page.locator("#kiinteat-menot");
     await expect(block.getByRole("table", { name: "Kiinteät menot kuussa ja vuodessa" })).toBeVisible();

@@ -32,7 +32,7 @@ export const FI_BILLS = {
   "bills.amount": "Summa",
   "bills.since": "{month} alkaen",
   "bills.title": "Laskut, sopimukset ja tilaukset",
-  "bills.fixed_report": "Kiinteiden menojen raportti",
+  "bills.fixed_report": "Kiinteät menot",
   "bills.per_month_short": "{amount}/kk",
   "bills.details": "Tiedot: {name}",
   "bills.remove_ask": "Poista lasku {name}?",

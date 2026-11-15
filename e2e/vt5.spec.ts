@@ -9,7 +9,7 @@ import { watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const PAGES = [
-  { route: "/#/overview", name: "Yhteenveto", doors: false },
+  { route: "/#/overview", name: "Yhteenveto", doors: true },
   { route: "/#/bills", name: "Laskut", doors: false },
 ];
 

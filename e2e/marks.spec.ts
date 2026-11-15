@@ -1,7 +1,7 @@
 import { type Browser, type BrowserContext, expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { overflow, plain, watch } from "./helpers.ts";
 
 // A mark belongs to one subscription: a merchant with two of them has a row and a mark for each. The demo household
 // has two from one merchant on its card, Apple at 12,99 and at 0,99 a month. The rows are the demo data of a household
@@ -51,10 +51,13 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     const stopped = subs.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "Merkitty lopetetuksi" });
     // a stopped subscription waits in the folded Päättyneet
     const unfold = () => subs.locator("details.sub-ended").evaluate((d: HTMLDetailsElement) => (d.open = true));
-    // the month's fixed costs are the figure of Raportit > Kiinteät menot, read in whole euros as the report prints them
+    // the month's fixed costs are the figure of Raportit > Kiinteät menot, read from that page in whole euros as it prints them
+    const report = await context.newPage();
     const total = async () => {
-      const answer = (await (await context.request.get("/api/reports?reports=fixedCosts&scope=own")).json()) as { fixedCosts: { monthlyCents: number } };
-      return Math.round(answer.fixedCosts.monthlyCents / 100);
+      await report.goto("/#/reports?q=kiinteat");
+      await report.reload();
+      const datum = await report.locator("#kiinteat-menot .card-datum").first().innerText();
+      return Number(plain(datum).split(" kuussa")[0]!.replace(/\D/g, ""));
     };
     await expect(drill("0,99")).toHaveCount(1);
     await expect(drill("12,99")).toHaveCount(1);

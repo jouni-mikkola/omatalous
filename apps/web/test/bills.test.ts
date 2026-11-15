@@ -58,7 +58,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const out = cardOf([spotify, storage], []);
     expect(out).toContain("Laskut, sopimukset ja tilaukset");
     expect(out.match(/href="#\/reports\?q=kiinteat"/g)).toHaveLength(1);
-    expect(out).toContain("Kiinteiden menojen raportti");
+    expect(out).toContain(">Kiinteät menot</a>");
     // the month's fixed costs are the report's figure: the card shows no sum of its own
     expect(out).not.toContain("23,98");
     expect(out).not.toContain("Kiinteät menot kuussa");
