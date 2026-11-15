@@ -178,7 +178,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     dataNotice: quality.signals.find((x) => x.tone === "warning" && x.id !== "card_bills") ?? null,
     home: buildHome(ctx, { basis, pace, balances, inputs }),
     holdings: buildHoldings(ctx, balances, inputs, scopeProposals),
-    overview: buildOverview(ctx, balances, inputs, lang),
+    overview: buildOverview(ctx, lang),
     questions: withoutRowIds(buildQuestions(ctx, range, inputs, proposals)),
   };
 }

@@ -81,7 +81,7 @@ interface IncomeMonth {
   complete: boolean;
   /** All the money in, of every type. */
   totalCents: number;
-  /** The month's earned income (`earnedIncome`), the figure of Yhteenveto's income tile: money from people, refunds and unknown money are left out. */
+  /** The month's earned income (`earnedIncome`), the sub-line of Yhteenveto's Tulot: money from people, refunds and unknown money are left out. */
   earnedCents: number;
   /** The month's usual earned income (`expectedIncome`, "Tavalliset tulot"), null under three complete months before it. */
   usualCents: number | null;

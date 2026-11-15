@@ -3,7 +3,7 @@ import { MonthBars } from "../../charts/MonthBars.tsx";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Button } from "../ui/Button.tsx";
-import { reportHref } from "./Tiles.tsx";
+import { reportHref } from "./shared.ts";
 
 /**
  * Tulot ja menot: the last twelve months of income and spending as bars (MonthBars), the running month marked as not

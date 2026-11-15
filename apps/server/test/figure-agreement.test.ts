@@ -7,9 +7,9 @@
  * `PAGES` lists what a household sees. Each reader is a component and the field it draws, read from the component
  * itself: a field the page does not draw is no reader, since an agreement between figures nobody sees protects nobody.
  *
- * - Menot of a month: Tiles (Menot), MonthBars (spending bar) and Rahankäyttö (Menot kuukausittain).
- * - Tulot of a month: Tiles (Tulot), MonthBars (income bar) and the month table of the Tulot report.
- * - Varat velkojen jälkeen: Tiles (Varat), Holdings under Saldot and Saldot's own figures.
+ * - Menot of a month: Summary (Menot), MonthBars (spending bar) and Rahankäyttö (Menot kuukausittain).
+ * - Tulot of a month: Summary (Tulot), MonthBars (income bar) and the month table of the Tulot report.
+ * - Varat velkojen jälkeen: Holdings of Yhteenveto, Holdings under Saldot and Saldot's own figures.
  * - The usual month: MonthBars' dashed line and Rahankäyttö's typical month.
  *
  * `API_INVARIANTS` lists figures the routes must agree on and no page draws (the dashboard's `totals`, the cash flow
@@ -66,7 +66,7 @@ interface CashRow {
 interface Snap {
   month: string;
   running: boolean;
-  /** The running month's dashboard: the tiles, `overview` (the chart, whatever the range) and the holdings of today. */
+  /** The running month's dashboard: the month, `overview` (the chart, whatever the range) and the holdings of today. */
   runDash: Answer;
   /** The twelve months up to today: `income`, `spendingMonths` and `balances`. */
   window: Answer;
@@ -98,11 +98,11 @@ const PAGES: readonly Concept[] = [
     name: "Menot of a month",
     months: "window",
     readers: {
-      "Tiles Menot: the running month of overview.months[].spendCents": (s) => (s.running ? s.runDash.overview.months.at(-1)?.spendCents : undefined),
+      "Summary Menot: the running month of overview.months[].spendCents": (s) => (s.running ? s.runDash.overview.months.at(-1)?.spendCents : undefined),
       "MonthBars spending bar: overview.months[].spendCents": (s) => monthIn(s.runDash.overview.months, s.month)?.spendCents,
-      // the tile's line is the month so far less the usual one, worked out from the rows of the pace, not from the month list: both are Menot of the flows
-      "Tiles Menot line, the month so far: pace.currentTotal": (s) => (s.running ? s.runDash.pace.currentTotal : undefined),
-      "Tiles Menot line, the pace's day: nyt.pace.spentCents": (s) => (s.running ? s.runDash.nyt?.pace.spentCents : undefined),
+      // the comparison under the figure is the month so far less the usual one, worked out from the rows of the pace, not from the month list: both are Menot of the flows
+      "Summary Menot comparison, the month so far: pace.currentTotal": (s) => (s.running ? s.runDash.pace.currentTotal : undefined),
+      "Summary Menot comparison, the pace's day: nyt.pace.spentCents": (s) => (s.running ? s.runDash.nyt?.pace.spentCents : undefined),
       // the table's sum holds a debt paid from savings, which the first page counts once, as Säästöön; the note under the table names it
       "SpendingMonths (Rahankäyttö) months table: totals[] less fromSavings[]": (s) => {
         const at = s.window.spendingMonths.months.indexOf(s.month);
@@ -115,7 +115,7 @@ const PAGES: readonly Concept[] = [
     name: "Tulot of a month",
     months: "window",
     readers: {
-      "Tiles Tulot: overview.income.cents": (s) => (s.running ? s.runDash.overview.income.cents : undefined),
+      "Summary Tulot: overview.income.cents": (s) => (s.running ? s.runDash.overview.income.cents : undefined),
       "MonthBars income bar: overview.months[].incomeCents": (s) => monthIn(s.runDash.overview.months, s.month)?.incomeCents,
       "Tulot report month table: months[].totalCents": (s) => monthIn(s.window.income.months, s.month)?.totalCents,
     },
@@ -125,7 +125,7 @@ const PAGES: readonly Concept[] = [
     name: "Varat velkojen jälkeen today",
     months: "running",
     readers: {
-      "Tiles Varat: holdings.netCents": (s) => s.runDash.holdings.netCents,
+      "Yhteenveto Holdings: holdings.netCents": (s) => s.runDash.holdings.netCents,
       "Balances (Saldot) Holdings: balances.holdings.netCents": (s) => s.window.balances.holdings.netCents,
       // the datum is the newest known day of the line; the accounts added up and the cards with them are the same figure unless a saved loan with no account holds some of the debt
       "Balances (Saldot) datum: daily.cents, newest known day": (s) => (s.window.balances.debt.savedCents === 0 ? s.window.balances.daily.cents.findLast((v: number | null) => v !== null) : undefined),
@@ -157,7 +157,7 @@ const API_INVARIANTS: readonly Concept[] = [
   },
   {
     id: "A2a",
-    name: "Ansiotulot of a month: income report and the line under the Tulot tile",
+    name: "Ansiotulot of a month: income report and the line under Tulot",
     months: "window",
     readers: {
       "income report months[].earnedCents": (s) => monthIn(s.window.income.months, s.month)?.earnedCents,
