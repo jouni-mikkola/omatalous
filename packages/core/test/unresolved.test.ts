@@ -1,7 +1,7 @@
 /**
  * Figures the engine cannot prove carry `unresolved` with a reason: a card whose payer the rows do not show, and a
  * balance no row proves. The figure itself stays what it was (the debt comes off whole, however large), and the notice
- * that sets cards aside holds until a card joins it that was not set aside. Made-up accounts and sums.
+ * that sets cards aside holds while the cards are the set that was set aside. Made-up accounts and sums.
  */
 import { describe, expect, it } from "vitest";
 import { cashAhead } from "../src/analysis/ahead.ts";
@@ -110,10 +110,27 @@ describe("a balance no row proves", () => {
 describe("setting a notice aside", () => {
   const marks = (...cardIds: string[]) => [{ subject: unresolvedSubject("card_payer_unseen", cardIds), mark: "dismissed" as const }];
 
-  it("names the reason and the sorted card ids, and reads them back", () => {
-    expect(unresolvedSubject("card_payer_unseen", ["k2", "k1", "k2"])).toBe("question:unresolved:card_payer_unseen:k1,k2");
-    expect(parseUnresolvedSubject("question:unresolved:card_payer_unseen:k1,k2")).toEqual({ reason: "card_payer_unseen", cardIds: ["k1", "k2"] });
-    for (const bad of ["question:unresolved:nothing:k1", "question:unresolved:card_payer_unseen:", "question:unresolved:card_payer_unseen:k1,", "question:unresolved:card_payer_unseen@23000", "question:unresolved:too_few:k1", "question:mortgage", "alert:x"]) expect(parseUnresolvedSubject(bad), bad).toBeNull();
+  it("names the reason and a hash of the sorted card ids, and reads the reason back", () => {
+    // pinned: a stored dismissal must keep matching after an update, so the hash never changes
+    expect(unresolvedSubject("card_payer_unseen", ["k2", "k1", "k2"])).toBe("question:unresolved:card_payer_unseen:02e5c6b418e12b");
+    expect(unresolvedSubject("card_payer_unseen", ["k1", "k2"])).toBe("question:unresolved:card_payer_unseen:02e5c6b418e12b");
+    expect(parseUnresolvedSubject("question:unresolved:card_payer_unseen:02e5c6b418e12b")).toEqual({ reason: "card_payer_unseen" });
+    for (const bad of ["question:unresolved:nothing:02e5c6b418e12b", "question:unresolved:card_payer_unseen:", "question:unresolved:card_payer_unseen:k1,k2", "question:unresolved:card_payer_unseen:02e5c6b418e12", "question:unresolved:card_payer_unseen@23000", "question:unresolved:too_few:02e5c6b418e12b", "question:mortgage", "alert:x"]) expect(parseUnresolvedSubject(bad), bad).toBeNull();
+  });
+
+  it("stays within the 200 characters of a mark's subject however many cards the notice names", () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `account-${String(i).padStart(2, "0")}-${"x".repeat(50)}`);
+    const subject = unresolvedSubject("card_payer_unseen", ids);
+    expect(subject.slice("question:".length).length).toBeLessThanOrEqual(200);
+    expect(parseUnresolvedSubject(subject)).toEqual({ reason: "card_payer_unseen" });
+    expect(unresolvedDismissed([{ subject, mark: "dismissed" }], "card_payer_unseen", [...ids].reverse())).toBe(true);
+  });
+
+  it("gives every set of cards a subject of its own, in any order", () => {
+    const sets = [["k1"], ["k2"], ["k1", "k2"], ["k1", "k2", "k3"], ["k1k2"], ["k1,k2"]];
+    const subjects = sets.map((s) => unresolvedSubject("card_payer_unseen", s));
+    expect(new Set(subjects).size).toBe(sets.length);
+    expect(unresolvedSubject("card_payer_unseen", ["k3", "k1", "k2"])).toBe(subjects[3]);
   });
 
   it("holds whatever the debt does, since the amount is no part of the key", () => {
@@ -123,10 +140,10 @@ describe("setting a notice aside", () => {
     expect(unresolvedSubject("card_payer_unseen", ["card"])).toBe(set[0]!.subject);
   });
 
-  it("holds for fewer cards than were set aside, and returns when a card joins that was not set aside", () => {
+  it("holds for the set that was set aside, and returns when a card joins or leaves it", () => {
     const set = marks("k1", "k2");
-    expect(unresolvedDismissed(set, "card_payer_unseen", ["k1", "k2"])).toBe(true);
-    expect(unresolvedDismissed(set, "card_payer_unseen", ["k2"])).toBe(true);
+    expect(unresolvedDismissed(set, "card_payer_unseen", ["k2", "k1"])).toBe(true);
+    expect(unresolvedDismissed(set, "card_payer_unseen", ["k2"])).toBe(false);
     expect(unresolvedDismissed(set, "card_payer_unseen", ["k1", "k2", "k3"])).toBe(false);
     expect(unresolvedDismissed(set, "card_payer_unseen", ["k3"])).toBe(false);
   });

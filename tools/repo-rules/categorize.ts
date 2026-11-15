@@ -2,8 +2,8 @@
  * The detector behind rule 51 (code-rules.ts): a way to reach `categorize`, the rule table itself, that skips
  * `categorizeInDirection`. Pure: a parsed file in, the lines out, so the rule and its test share it.
  *
- * Found: a call or a read of `x.categorize` and `x["categorize"]`, a call of a bare `categorize`, an import or a
- * destructuring of the name (under any alias), and a namespace import of core (`import * as core from "@banking/core"`)
+ * Found: a call or a read of `x.categorize` and `x["categorize"]`, a call of a bare `categorize`, an import, a
+ * re-export (`export { categorize as run } from ...`) or a destructuring of the name (under any alias), and a namespace import of core (`import * as core from "@banking/core"`)
  * that is used as a whole, since the object carries `categorize` to whoever receives it. A whole use is allowed only as
  * the argument of `moduleApiOf`, which returns core with `categorize` reading by direction.
  *
@@ -39,6 +39,7 @@ export function directCategorizeUses(sf: ts.SourceFile): DirectUse[] {
   }
   const visit = (n: ts.Node, parent: ts.Node | undefined): void => {
     if (ts.isImportSpecifier(n) && isName(n.propertyName ?? n.name)) add(n, "imports categorize directly");
+    else if (ts.isExportSpecifier(n) && isName(n.propertyName ?? n.name)) add(n, "re-exports categorize");
     else if (ts.isBindingElement(n) && isName(n.propertyName ?? n.name)) add(n, "takes categorize out of an object");
     else if (ts.isCallExpression(n) && isName(n.expression)) add(n, "calls categorize directly");
     else if (ts.isPropertyAccessExpression(n) && isName(n.name)) add(n, "reaches categorize through a property");

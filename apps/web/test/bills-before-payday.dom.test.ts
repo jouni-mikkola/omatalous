@@ -129,6 +129,8 @@ describe("Laskut: payments before the payday", () => {
       return el!;
     });
     expect(within(next as HTMLElement).getByRole("heading").textContent).toBe("Seuraavaksi");
+    // the day is a weekday and a date, so the payment can be placed in the week
+    expect(flat(next.querySelector(".bills-next-day")?.textContent)).toBe("to 12.11.");
     const text = flat(next.textContent);
     expect(text).toContain("Helen");
     expect(text).toContain("48,12 €");

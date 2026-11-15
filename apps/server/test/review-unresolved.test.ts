@@ -1,10 +1,10 @@
 /**
  * Tarkistettavat's notice of cards whose payer the rows do not show (services/review-unresolved.ts), with the
- * dashboard's tile line beside it. "Älä muistuta tästä enää" is a mark `dismissed` on the cards it names: it holds
- * until a card joins that it did not name, whatever the debts do. A card paid from the counted accounts and from others,
+ * dashboard's tile line beside it. "Älä muistuta tästä enää" is a mark `dismissed` on the set of cards it names: it holds
+ * until a card joins or leaves that set, whatever the debts do. A card paid from the counted accounts and from others,
  * and a balance no row proves, are no notice. Made-up names and sums; the test clock is 9.10.2026.
  */
-import { type RawTransaction } from "@banking/core";
+import { type RawTransaction, unresolvedSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
@@ -47,7 +47,7 @@ async function addSecondCard(t: Setup) {
 describe("the notice of cards whose payer is not seen", () => {
   it("names a card nobody is seen to pay by its debt, and the tile says the same debt", async () => {
     const t = await cardWithoutPayer();
-    expect(await notices(t)).toEqual([expect.objectContaining({ id: "unresolved:card_payer_unseen", reason: "card_payer_unseen", names: ["Luottokortti"], cents: 23_000, subject: "question:unresolved:card_payer_unseen:card" })]);
+    expect(await notices(t)).toEqual([expect.objectContaining({ id: "unresolved:card_payer_unseen", reason: "card_payer_unseen", names: ["Luottokortti"], cents: 23_000, subject: unresolvedSubject("card_payer_unseen", ["card"]) })]);
     const ahead = await aheadOf(t);
     expect(ahead.balance.unresolved).toEqual([expect.objectContaining({ reason: "card_payer_unseen", cardId: "card", cents: 23_000 })]);
     expect(ahead.balance.cardDebtCents).toBe(23_000);
@@ -83,7 +83,25 @@ describe("the notice of cards whose payer is not seen", () => {
     expect(await notices(t)).toEqual([]);
     // a second card with no payer seen is a card the dismissal did not name
     await addSecondCard(t);
-    expect(await notices(t)).toEqual([expect.objectContaining({ names: ["Luottokortti", "Toinen kortti"], cents: 100_000, subject: "question:unresolved:card_payer_unseen:card,card2" })]);
+    expect(await notices(t)).toEqual([expect.objectContaining({ names: ["Luottokortti", "Toinen kortti"], cents: 100_000, subject: unresolvedSubject("card_payer_unseen", ["card", "card2"]) })]);
+  });
+
+  it("takes the dismissal of a notice that names many cards, and holds it", async () => {
+    const t = await cardWithoutPayer();
+    const repo = t.s.finance(t.adminId);
+    // 12 ids of 28 characters: the ids alone would pass the 200 characters a subject may have
+    const ids = Array.from({ length: 12 }, (_, i) => `credit-card-number-${String(i).padStart(2, "0")}-abcd`);
+    for (const id of ids) {
+      await repo.upsertAccount({ id, connectionId: null, provider: "csv", externalId: null, identity: null, name: `Kortti ${id}`, iban: null, currency: "EUR", type: "credit_card" });
+      await ingestTransactions(repo, id, [raw("2026-10-04", -10, "KIOSKI ESIMERKKI", "KORTTIOSTO")], "csv");
+      await repo.setAccountBalance(id, -10_000, "2026-10-09T06:00:00.000Z");
+    }
+    await reprocess(repo, t.s.settings);
+    const [item] = await notices(t);
+    expect(item!.names).toHaveLength(13);
+    expect(item!.subject).toBe(unresolvedSubject("card_payer_unseen", ["card", ...ids]));
+    expect((await t.admin.call("PUT", "/api/marks", { subject: item!.subject, mark: "dismissed" })).status).toBe(200);
+    expect(await notices(t)).toEqual([]);
   });
 
   it("is no notice for a card paid from the counted accounts and from others", async () => {
