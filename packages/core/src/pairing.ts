@@ -17,7 +17,9 @@
 import { getCategory } from "./categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "./dates.ts";
 import { normalizeIban } from "./iban.ts";
+import { hasTerminalShape } from "./industry.ts";
 import { isBankingDay } from "./pay-day.ts";
+import { isCardCode } from "./wording.ts";
 import type { TraceRow } from "./money-trace-lots.ts";
 import type { Account, Transaction } from "./types.ts";
 
@@ -48,7 +50,15 @@ export type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description">>;
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc" | "bankTxnCode">>;
+
+/**
+ * Money out that the bank booked as a card purchase (a merchant code, a card transaction code or a terminal's text)
+ * and no rule named: a purchase the categoriser could not place. It is never a leg of a transfer, whatever sum an
+ * account takes in near it. A row a rule named a transfer stays what the rule made it.
+ */
+const isUnplacedCardPurchase = (t: TransferInput): boolean =>
+  t.amountCents < 0 && t.categorySource === "default" && t.category === "other" && (!!t.mcc || isCardCode(t.bankTxnCode) || hasTerminalShape({ counterparty: t.counterparty ?? null, description: t.description ?? null }));
 
 /**
  * True when a transaction may be money moving between own accounts: nothing
@@ -139,7 +149,7 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
   if (accounts.length > 1) {
     // legs marked above can still be the partner of an unmarked leg (e.g. the card's "MAKSU, KIITOS"
     // pairs with the e-invoice that paid it); legs settled earlier never are
-    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || mayBeTransferLeg(t)));
+    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || (mayBeTransferLeg(t) && !isUnplacedCardPurchase(t))));
     // partners have the opposite amount, so only legs of that amount are compared. Per amount the legs are kept
     // per day in input order, so an outgoing leg looks at the eleven days of its window and not at every leg
     // of that amount (a fixed sum moved every week made this quadratic)
@@ -176,10 +186,10 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
       return undefined;
     };
 
-    for (const out of candidates) {
-      if (out.amountCents >= 0) continue;
+    /** The nearest unused incoming leg that can be the other leg of `out`, within the window. */
+    const partnerOf = (out: TransferInput): TransferInput | undefined => {
       const days = incoming.get(-out.amountCents);
-      if (!days) continue;
+      if (!days) return undefined;
       const day = dayNumber(out.bookingDate);
       // the nearest day first; on equal distance the leg that came first in the input. Each side counts the closed
       // weekdays between the legs, which the window does not
@@ -196,6 +206,24 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
         const after = gap === 0 || gap - closedAfter > PAIR_WINDOW_DAYS ? undefined : firstOn(days, day + gap, out);
         best = (before && after ? (before.seq < after.seq ? before : after) : (before ?? after))?.t;
       }
+      return best;
+    };
+
+    // A leg that names an own account is proved: it takes its partner before any leg without proof can, so a purchase
+    // or a payment to a person of the same sum never takes the money-in of a real transfer
+    const proved = new Map<string, TransferInput>();
+    for (const out of candidates) {
+      const outIban = normalizeIban(out.counterpartyIban);
+      if (out.amountCents >= 0 || !outIban || !ownIbans.has(outIban)) continue;
+      const partner = partnerOf(out);
+      if (!partner) continue;
+      used.add(partner.id);
+      proved.set(out.id, partner);
+    }
+
+    for (const out of candidates) {
+      if (out.amountCents >= 0) continue;
+      const best = proved.get(out.id) ?? partnerOf(out);
       if (best) {
         used.add(best.id);
         transfers.add(out.id);

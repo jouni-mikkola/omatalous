@@ -125,7 +125,12 @@ export function randomHistory(seed: number, count: number, opts: HistoryOptions 
       const t = pick(["groceries", "restaurants", "other", "transfer", "p2p", "savings"]);
       add({ bookingDate: d, amountCents: -Math.round(200 + r() * 6000), merchant: pick([...SHOPS, ...UNKNOWN]), category: t, categorySource: "user", accountId: pick(["chk", "card"]) });
     } else {
-      add({ bookingDate: d, amountCents: pick([1, -1]) * Math.round(100 + r() * 30000), merchant: pick(UNKNOWN), accountId: pick(["chk", "sav", "card"]), counterpartyIban: pick([null, null, "FI2112345600000785", "FI1410093000123458", "FI9900000000000009"]) });
+      const amountCents = pick([1, -1]) * Math.round(100 + r() * 30000);
+      const merchant = pick(UNKNOWN);
+      const accountId = pick(["chk", "sav", "card"]);
+      const iban = pick([null, null, "FI2112345600000785", "FI1410093000123458", "FI9900000000000009"]);
+      // a bank gives the payee's account on money out only
+      add({ bookingDate: d, amountCents, merchant, accountId, counterpartyIban: amountCents < 0 ? iban : null });
     }
   }
   if (settled) settle(seed, start, add, coded);

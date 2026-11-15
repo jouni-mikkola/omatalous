@@ -313,10 +313,23 @@ describe("a payment to the user's own name", () => {
     ["and written the other way round with a middle name", "Matti Juhani Meikäläinen", "siirto"],
     ["with the words of someone moving money to the savings", USER, "rahaa S-pankkiin"],
     ["and with no message at all", USER, null],
-  ] as const)("%s is no other person's: read as before", (_name, payee, message) => {
-    expect(category(payee, message, -500, none)).toBe("other");
+  ] as const)("%s is no other person's: the user's own money moved to an account outside the view", (_name, payee, message) => {
+    expect(category(payee, message, -500, none)).toBe("transfer");
     const { final } = month([tx({ accountId: "own", bookingDate: "2026-09-05", ...input(payee, message, -500, none) })], HOUSEHOLD);
-    expect(final[0]!.category).toBe("other");
+    expect(final[0]!.category).toBe("transfer");
+  });
+
+  it("money in from the user's own name with no pair is a transfer too, with or without the payer's account", () => {
+    expect(category(USER, "siirto", 500, none)).toBe("transfer");
+    expect(category(USER, "siirto", 500, { reference: null })).toBe("transfer");
+    expect(category(USER, null, 500)).toBe("transfer");
+    const { totals } = month([tx({ accountId: "own", bookingDate: "2026-09-05", ...input(USER, "siirto", 500) })], HOUSEHOLD);
+    expect(totals.incomeCents).toBe(0);
+  });
+
+  it("a company named after the user and a card purchase stay what the rules say", () => {
+    expect(category(`TMI ${USER}`, "kiitos", 500)).not.toBe("transfer");
+    expect(category(USER, "kiitos", -500, { mcc: "5411" })).not.toBe("transfer");
   });
 
   it("while the user is not known, or the payee is another person, it is a payment between people", () => {

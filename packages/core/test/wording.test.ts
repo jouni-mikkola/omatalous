@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isMobilePay } from "../src/industry.ts";
 import { fold } from "../src/merchant.ts";
-import { companyForms, type FormUse, hasPayeeForm, housingCharge, isCardIssuerText, isLenderName, isLoanText } from "../src/wording.ts";
+import { companyForms, declinedWords, type FormUse, hasPayeeForm, housingCharge, isCardIssuerText, isLenderName, isLoanText } from "../src/wording.ts";
 
 const forms = (use: FormUse) => [...companyForms(use)].sort();
 const words = (list: string) => list.split(" ").sort();
@@ -104,5 +104,25 @@ describe("the name of a charge of the home", () => {
     expect(name("HSY", "Vesilasku", true)).toBe("Vesi");
     // a landlord whose name holds a seller's is no electricity bill
     expect(name("Helena Meikäläinen", "Lasku")).toBeNull();
+  });
+});
+
+describe("the name of a service with a Finnish case ending", () => {
+  const wallet = declinedWords("REVOLUT|WISE EUROPE");
+  const ENDINGS = ["ISTA", "ISSA", "ILLA", "ILTA", "ILLE", "IIN", "STA", "SSA", "LLA", "LTA", "LLE", "KSI", "N", "A"];
+
+  it("matches the bare name and the name with every case ending", () => {
+    expect(wallet.test("LAHETETTY REVOLUT")).toBe(true);
+    for (const ending of ENDINGS) {
+      expect(wallet.test(`LAHETETTY REVOLUT${ending}`), ending).toBe(true);
+      expect(wallet.test(`SIIRTO WISE EUROPE${ending} 12`), ending).toBe(true);
+    }
+  });
+
+  it("does not match a longer different word, or a name glued to a number or to another word's start", () => {
+    expect(wallet.test("REVOLUTIONARY")).toBe(false);
+    expect(wallet.test("XREVOLUT")).toBe(false);
+    expect(wallet.test("REVOLUT123")).toBe(false);
+    expect(wallet.test("REVOLUTISTAX")).toBe(false);
   });
 });

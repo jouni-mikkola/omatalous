@@ -1,6 +1,7 @@
 // Money between the household's own connected accounts: the savings account, a joint account the bank typed as a loan,
 // a payee named by an IBAN the mapper read from a Finnish account number, and a pair held up by Easter.
 import { describe, expect, it } from "vitest";
+import { transferAllocations } from "../src/pairing.ts";
 import { detectTransfers } from "../src/transfers.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -68,5 +69,53 @@ describe("transfers between own connected accounts", () => {
   it("a row the user put in a category is never a leg", () => {
     const rows = [out("chk", "2026-03-02", 20000, { categorySource: "user" }), into("sav", "2026-03-02", 20000)];
     expect(detectTransfers(rows, [checking, savings]).size).toBe(0);
+  });
+});
+
+describe("a leg that is proved takes its partner, and a purchase is no leg", () => {
+  // the real transfer comes after the other rows in the input, and money in carries no IBAN, as a bank sends it
+  const proved = () => [out("chk", "2026-03-03", 30000, { counterpartyIban: savings.iban }), into("sav", "2026-03-03", 30000)];
+  const found = (rows: Transaction[]) => detectTransfers(rows, [checking, savings]);
+
+  it("a payment with a terminal's text and the same sum, a day before, does not take the money into the savings account", () => {
+    const purchase = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, description: "SUMUP *KUKKAKAUPPA ILO" });
+    const rows = [purchase, ...proved()];
+    expect([...found(rows)].sort()).toEqual([rows[1]!.id, rows[2]!.id].sort());
+  });
+
+  it("a payment with a merchant code and the same sum is no leg", () => {
+    const purchase = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, mcc: "5411" });
+    expect(found([purchase, ...proved()]).has(purchase.id)).toBe(false);
+  });
+
+  it("a card payment code makes a payment no leg", () => {
+    const purchase = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, bankTxnCode: "PMNT-CCRD-POSD" });
+    expect(found([purchase, ...proved()]).has(purchase.id)).toBe(false);
+  });
+
+  it("a payment to a person with the same sum, earlier in the input, does not take the money in of a proved transfer", () => {
+    const person = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, category: "p2p", categorySource: "rule" });
+    const rows = [person, ...proved()];
+    const result = found(rows);
+    expect(result.has(person.id)).toBe(false);
+    expect(result.has(rows[1]!.id) && result.has(rows[2]!.id)).toBe(true);
+  });
+
+  it("each row is in at most one pair", () => {
+    const rows = [
+      tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, category: "p2p", categorySource: "rule" }),
+      ...proved(),
+      into("sav", "2026-03-04", 30000),
+    ];
+    const { allocations } = transferAllocations(rows, [checking, savings]);
+    for (const [id, parts] of allocations) {
+      expect(parts.length).toBe(1);
+      expect(allocations.get(parts[0]!.partnerId)![0]!.partnerId).toBe(id);
+    }
+  });
+
+  it("a payment a rule made a transfer stays a leg, whatever text it has", () => {
+    const topUp = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, description: "SUMUP *OMA", category: "transfer", categorySource: "rule" });
+    expect(found([topUp, into("sav", "2026-03-03", 30000)]).size).toBe(2);
   });
 });

@@ -11,6 +11,7 @@ import { lexiconCategory } from "./lexicon.ts";
 import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
+import { applyPayerConsistency } from "./payer-consistency.ts";
 import { answeredWalletRows, applyPayerRoles, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
@@ -229,8 +230,10 @@ function* enrichSteps(
 
   yield* applyMerchantEvidence(next, accounts, industries);
   applyReturns(next, returns);
+  const locked = new Set([...byUserRule, ...returns.keys(), ...returns.values()]);
+  applyPayerConsistency(next, locked);
   // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
-  applyPayerRoles(next, new Set([...byUserRule, ...returns.keys(), ...returns.values()]), payers);
+  applyPayerRoles(next, locked, payers);
   return changedRows(next, txs);
 }
 
@@ -297,6 +300,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
   if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
   const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
+  if (rows.some((t) => t.amountCents > 0 && t.counterparty)) return { ok: false, reason: "a payer's rows read each other outside the merchant" };
   const ownIbans = ownIbansOf(accounts, input.household);
   const holders = holdersOf(accounts);
   const run = (txs: readonly Transaction[], userRules: readonly CategoryRule[]) => {

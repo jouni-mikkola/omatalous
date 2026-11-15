@@ -12,7 +12,7 @@ import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from ".
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
-import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -99,7 +99,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
 
   { category: "transfer", re: w(OWN_ACCOUNT_TRANSFER_WORDS), when: (text) => !isSavingsAccountText(text) },
   // own money moved to an own account abroad, either way: no spending, and no lender for the word BANK GMBH
-  { category: "transfer", re: w(String.raw`REVOLUT|WISE EUROPE|WISE PAYMENTS|TRANSFERWISE|N26 BANK|BUNQ`) },
+  { category: "transfer", re: declinedWords(String.raw`REVOLUT|WISE EUROPE|WISE PAYMENTS|TRANSFERWISE|N26 BANK|BUNQ`) },
 
   // ── debt service (money in from a lender becomes credit_draw, see categorize()) ──
   { category: "mortgage", re: w(HOME_LOAN_WORDS) },
