@@ -16,6 +16,7 @@
 import { dayNumber, fromDayNumber } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { cardLegOf } from "../pairing.ts";
+import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
 import { isLenderName } from "../wording.ts";
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
@@ -99,12 +100,6 @@ function lineOf(t: AnalysisTx, cardAccounts: ReadonlySet<string>, loanAccounts: 
  * and the money in is what was paid to the card; elsewhere the money out is the payment.
  */
 const paidTo = (key: string, t: AnalysisTx): number => (key.startsWith("account:") ? (t.accountId === key.slice("account:".length) && t.amountCents > 0 ? t.amountCents : 0) : Math.max(0, -t.amountCents));
-
-const median = (xs: readonly number[]): number => {
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = s.length >> 1;
-  return s.length % 2 ? s[mid]! : Math.round((s[mid - 1]! + s[mid]!) / 2);
-};
 
 export function creditStack(ctx: AnalysisContext): CreditStack {
   const today = dayNumber(ctx.today);
@@ -192,7 +187,7 @@ function linksOf(found: ReadonlyMap<string, { kind: CreditKind; rows: AnalysisTx
         const before = o.rows.filter((t) => t.day < d.day && paidTo(other, t) > 0).map((t) => paidTo(other, t));
         // a line with under three payments before the draw has no usual instalment to go beyond
         if (before.length < 3) continue;
-        const usual = median(before.slice(-6));
+        const usual = Math.round(median(before.slice(-6)));
         for (const t of o.rows) {
           if (paidTo(other, t) <= 0 || t.day <= d.day || t.day > d.day + LINK_DAYS || lineOfRow.get(t.id) !== other) continue;
           const beyond = paidTo(other, t) - usual;

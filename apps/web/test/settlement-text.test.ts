@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasNothing, holderNameOf, untoldTotal } from "../src/pages/reports/sections/settlement-text.ts";
+import { hasNothing, holderNameOf } from "../src/pages/reports/sections/settlement-text.ts";
 
 const quiet = { members: [{ paid: 0, owed: 0 }, { paid: 0, owed: 0 }], unknownPaidBy: [], unknownOwedBy: [], unknownHolder: [], lines: [] };
 
@@ -22,12 +22,10 @@ describe("the pools of a month in Yhteiset menot", () => {
 });
 
 describe("a pool whose split nobody has told", () => {
-  it("is listed for its costs, and the costs add up", () => {
+  it("is listed for its costs", () => {
     const untold = [{ cents: 4000 }, { cents: 1250 }];
     expect(hasNothing({ ...quiet, untold })).toBe(false);
     expect(hasNothing({ ...quiet, untold: [] })).toBe(true);
-    expect(untoldTotal({ untold })).toBe(5250);
-    expect(untoldTotal({})).toBe(0);
   });
 });
 

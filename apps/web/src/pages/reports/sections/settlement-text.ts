@@ -21,6 +21,3 @@ export const hasNothing = (s: MonthPool): boolean =>
   s.members.every((m) => m.paid === 0 && m.owed === 0) &&
   [...s.unknownPaidBy, ...s.unknownOwedBy, ...s.unknownHolder, ...(s.untold ?? [])].every((e) => e.cents === 0) &&
   s.lines.every((l) => l.kind !== "late_change" || l.cents === 0);
-
-/** What the month's costs came to where nobody has told the pool's split (core leaves them out of paid and owed): 0 when the split is known. */
-export const untoldTotal = (s: Pick<MonthPool, "untold">): number => (s.untold ?? []).reduce((sum, e) => sum + e.cents, 0);

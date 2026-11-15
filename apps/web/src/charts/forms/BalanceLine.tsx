@@ -1,5 +1,5 @@
 // Decision: is the buffer growing, and what took it down when it fell
-import type { BalanceReport } from "@banking/core";
+import { type BalanceReport, dayNumber, fromDayNumber } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { dayMonth, money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -10,7 +10,7 @@ import { placeMarkers } from "../kit/annotate.ts";
 import { axisRoom, frame, tickTarget } from "../kit/layout.ts";
 import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
 import { readoutText } from "../kit/readout.ts";
-import { dayNumber, isoDay, linear, monthStarts, points } from "../kit/scale.ts";
+import { linear, monthStarts, points } from "../kit/scale.ts";
 import { linePath } from "../kit/path.ts";
 import { moneyAxis } from "../kit/ticks.ts";
 import { Tip, ValueGrid } from "./parts.tsx";
@@ -61,7 +61,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const lead = Math.max(0, r.daily.cents.findIndex((v) => v !== null));
   const days = r.daily.cents.slice(lead);
   const from = dayNumber(r.daily.from) + lead;
-  const iso = (i: number) => isoDay(from + i);
+  const iso = (i: number) => fromDayNumber(from + i);
   const known = days.filter((v): v is number => v !== null);
   const bottom = 24 + (r.events.length ? LANE_H * LANES + 4 : 0);
   const draft = frame(width, { top: 20, right: 16, bottom, left: 48 }, { minHeight: 260, tallest: 340, ratio: 0.28 });

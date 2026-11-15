@@ -6,7 +6,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { valueAxis } from "../src/charts/scale.ts";
-import { band, dayNumber, isoDay, linear, monthStarts, points, time } from "../src/charts/kit/scale.ts";
+import { dayNumber, fromDayNumber } from "@banking/core";
+import { band, linear, monthStarts, points, time } from "../src/charts/kit/scale.ts";
 import { dayTicks, evenMonthTicks, moneyAxis, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
 import { axisRoom, frame, tickTarget } from "../src/charts/kit/layout.ts";
 import { boxPlace, DOT_PLOT_BELOW, gridStep, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
@@ -148,7 +149,7 @@ describe("bands, points and calendar days", () => {
 
   it("counts days by the calendar, over a leap day and a year end", () => {
     expect(dayNumber("2024-03-01") - dayNumber("2024-02-28")).toBe(2);
-    expect(isoDay(dayNumber("2026-12-31") + 1)).toBe("2027-01-01");
+    expect(fromDayNumber(dayNumber("2026-12-31") + 1)).toBe("2027-01-01");
     const t = time("2026-01-01", "2026-01-31", 300);
     expect(t.days).toBe(31);
     expect(t.x("2026-01-31")).toBe(300);

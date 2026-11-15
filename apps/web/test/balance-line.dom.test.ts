@@ -7,7 +7,7 @@ import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { BalanceLine } from "../src/charts/forms/BalanceLine.tsx";
 import { LABEL_CHAR_W } from "../src/charts/draw.ts";
-import { dayNumber, isoDay } from "../src/charts/kit/scale.ts";
+import { dayNumber, fromDayNumber } from "@banking/core";
 
 const FROM = "2025-12-01";
 const TO = "2026-11-12";
@@ -20,7 +20,7 @@ const report = {
   daily: { from: FROM, cents },
   lowest: null,
   events: [],
-  payDays: [isoDay(dayNumber(FROM) + PAY)],
+  payDays: [fromDayNumber(dayNumber(FROM) + PAY)],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 } as any;
 
@@ -110,7 +110,7 @@ describe("BalanceLine with a balance known only lately", () => {
     for (const width of [366, 900]) {
       // the pay lifts the balance the day before today, so its word stands well below today's label
       const late = Array.from({ length: DAYS }, (_, i) => 150_000 - i * 400 + (i === DAYS - 2 ? 100_000 : 0));
-      const c = draw(width, { ...report, daily: { from: FROM, cents: late }, payDays: [isoDay(dayNumber(FROM) + DAYS - 2)] });
+      const c = draw(width, { ...report, daily: { from: FROM, cents: late }, payDays: [fromDayNumber(dayNumber(FROM) + DAYS - 2)] });
       for (const p of [...c.querySelectorAll<SVGTextElement>("text.qc-end-sub, text.qc-note")].map(boxOf).filter((n) => n.text === "palkka")) expect(p.to, `${width} px`).toBeLessThanOrEqual(width);
       cleanup();
     }
