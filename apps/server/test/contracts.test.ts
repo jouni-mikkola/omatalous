@@ -114,13 +114,26 @@ function describeSchema(db: DatabaseSync): Schema {
   return out;
 }
 
+/**
+ * Tables a later migration drops on purpose because nothing reads or writes them: 0031 drops view_opens. Such a migration is
+ * breaking (no compat floor), so a build that lacks it refuses the database and a rollback restores the copy taken before.
+ */
+const RETIRED_TABLES = new Set(["view_opens"]);
+
+/** Is a plain index still served by a wider plain index that starts with the same columns? Unique and partial indexes make promises of their own. */
+function coveredByWider(ix: string, indexes: readonly string[]): boolean {
+  if (ix.startsWith("unique ") || ix.includes(" where ")) return false;
+  const lead = `${ix.slice(0, -1)}, `;
+  return indexes.some((other) => !other.startsWith("unique ") && !other.includes(" where ") && other.startsWith(lead));
+}
+
 /** What a newer database must still offer to code that knows only the contract. */
 function schemaProblems(contract: Schema, head: Schema): string[] {
   const out: string[] = [];
   for (const [table, c] of Object.entries(contract)) {
     const h = head[table];
     if (!h) {
-      out.push(`table ${table} is gone`);
+      if (!RETIRED_TABLES.has(table)) out.push(`table ${table} is gone`);
       continue;
     }
     const headColumns = new Map(h.columns.map((x) => [x.name, x]));
@@ -141,7 +154,7 @@ function schemaProblems(contract: Schema, head: Schema): string[] {
     }
     const headFks = h.foreignKeys.filter((f) => known.has(f.split(" -> ")[0]!));
     if (JSON.stringify(headFks) !== JSON.stringify(c.foreignKeys)) out.push(`foreign keys of ${table} changed: ${c.foreignKeys.join("; ") || "none"} became ${headFks.join("; ") || "none"}`);
-    for (const ix of c.indexes) if (!h.indexes.includes(ix)) out.push(`index ${ix} of ${table} is gone`);
+    for (const ix of c.indexes) if (!h.indexes.includes(ix) && !coveredByWider(ix, h.indexes)) out.push(`index ${ix} of ${table} is gone`);
     for (const ix of h.indexes) {
       const cols = /^unique \(([^)]*)\)$/.exec(ix)?.[1]?.split(", ");
       if (cols && !c.indexes.includes(ix) && cols.every((x) => known.has(x))) out.push(`new unique index ${ix} on ${table}, older code may break it`);
@@ -302,6 +315,17 @@ describe("contracts: schema", () => {
       // a column that is NOT NULL without a default only comes with a table rebuild
       const rebuilt = BASE.replace("body TEXT,", "body TEXT,\n        owner TEXT NOT NULL,");
       expect(schemaProblems(base, schemaOf(rebuilt)).join("; ")).toMatch(/new column notes\.owner is NOT NULL without a default/);
+    });
+
+    it("accepts a retired table and an index that a wider one covers, and still notices any other loss", () => {
+      const RETIRED = "CREATE TABLE view_opens (user_id TEXT NOT NULL, view TEXT NOT NULL, PRIMARY KEY (user_id, view));";
+      const NARROW = "CREATE INDEX idx_notes_user_only ON notes(user_id);";
+      expect(schemaProblems(schemaOf(`${BASE}\n${RETIRED}\n${NARROW}`), schemaOf(BASE))).toEqual([]);
+      // the wider index has to be there, and a unique or partial index is not served by a wider plain one
+      const noWider = BASE.replace("CREATE INDEX idx_notes_user ON notes(user_id, id);", "");
+      expect(schemaProblems(schemaOf(`${BASE}\n${NARROW}`), schemaOf(noWider)).join("; ")).toMatch(/index \(user_id\) of notes is gone/);
+      expect(schemaProblems(schemaOf(`${BASE}\nCREATE UNIQUE INDEX idx_notes_one ON notes(user_id);`), schemaOf(BASE)).join("; ")).toMatch(/index unique \(user_id\) of notes is gone/);
+      expect(schemaProblems(schemaOf(`${BASE}\nCREATE TABLE tags (id TEXT PRIMARY KEY);`), schemaOf(BASE)).join("; ")).toMatch(/table tags is gone/);
     });
   });
 });
