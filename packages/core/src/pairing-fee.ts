@@ -19,7 +19,7 @@ export const closedWeekday = (day: number): boolean => {
 };
 
 /** Days between two legs, a closed weekday between them not counted: what the window of a pair is measured in. */
-export function windowGap(a: number, b: number): number {
+function windowGap(a: number, b: number): number {
   const [low, high] = a < b ? [a, b] : [b, a];
   let closed = 0;
   for (let day = low + 1; day < high; day++) if (closedWeekday(day)) closed++;
