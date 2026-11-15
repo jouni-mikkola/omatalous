@@ -77,6 +77,7 @@ export { isLoanFigure, isOneLoan } from "./explain/loan-figures.ts";
 export { explainLoan } from "./explain/loans.ts";
 export { createWhy } from "./explain/why.ts";
 export { sentenceOf } from "./explain/catalogue.ts";
+export { basisLine } from "./explain/basis.ts";
 export type { Explanation, FigureId, LoanFigureId, Reason, WhyCollector } from "./explain/types.ts";
 export * from "./analysis/usual.ts";
 export * from "./thresholds.ts";

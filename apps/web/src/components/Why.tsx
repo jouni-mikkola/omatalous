@@ -1,9 +1,9 @@
 // Decision: the figure the app infers is itself the button that opens its rows in a panel; the names come from the list the page already reads
-import { type Explanation, type FigureId, isLoanFigure, type Reason, sentenceOf } from "@banking/core";
+import { basisLine, type Explanation, type FigureId, isLoanFigure, type Reason, sentenceOf } from "@banking/core";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { query } from "../api.ts";
-import { dateRange, dayMonth, money, monthLong } from "../format.ts";
+import { dateRange, dayMonth, language, money, monthLong } from "../format.ts";
 import { useApi, useMeta } from "../hooks.ts";
 import type { Scope } from "../types.ts";
 import { MarkCell } from "./table/Cells.tsx";
@@ -91,10 +91,13 @@ export function BasisDoor({ label, text, estimate = false, open, onToggle, contr
   );
 }
 
-/** The days a basis covers: "9.10.2026", or "1.10.–31.10.2026" for a range. */
-function periodText({ from, to }: { from: string; to: string }): string {
-  return dateRange(from, to);
+/** What the panel says its figure stands on: the basis of a usual month, a day or a year (core's `basisLine`), else the days of the range, "1.10.–31.10.2026". */
+function periodText(figure: FigureId, { from, to }: { from: string; to: string }, today: string | undefined): string {
+  return (today && basisLine(figure, today, language())) || dateRange(from, to);
 }
+
+/** The sentence of a reason in the reader's language. */
+const say = (r: Reason): string => sentenceOf(r, language());
 
 /** "Täsmää" when a sum adds up, the difference when it does not (never left out); a median or an estimate has no such line. */
 function checkText(check: Explanation["check"]): string | null {
@@ -126,7 +129,7 @@ function reasonOf(why: readonly Reason[], names: Names): string | undefined {
   for (const rule of ORDER) {
     const r = why.find((x) => x.rule === rule);
     // the reason holds the purchase's id and day; its shop is one of the rows the answer names
-    if (r) return sentenceOf(rule === "return.wallet" ? { ...r, shop: names.rows.get(String(r.purchase))?.merchant ?? "" } : r);
+    if (r) return say(rule === "return.wallet" ? { ...r, shop: names.rows.get(String(r.purchase))?.merchant ?? "" } : r);
   }
   return undefined;
 }
@@ -134,20 +137,26 @@ function reasonOf(why: readonly Reason[], names: Names): string | undefined {
 /** The payment service a row went through, as its own line under the row. */
 const viaOf = (why: readonly Reason[]): string | undefined => {
   const r = why.find((x) => x.rule === "via.service");
-  return r ? sentenceOf(r) : undefined;
+  return r ? say(r) : undefined;
 };
 
 /** What the figure cannot prove about a line: a card whose payer is open, or a balance no row checks, as its own line under the row. */
 const unprovenOf = (why: readonly Reason[]): string | undefined => {
   const r = why.find((x) => x.rule === "card.payer_unseen" || x.rule === "card.payer_mixed" || x.rule === "balance.unproven");
-  return r ? sentenceOf(r) : undefined;
+  return r ? say(r) : undefined;
+};
+
+/** Why a bill's month is not the sum the bank took: a bill that comes every few months counts its share of one, else the usual sum. */
+const billOf = (why: readonly Reason[]): string | undefined => {
+  const r = why.find((x) => x.rule === "bill.spread" || x.rule === "bill.usual");
+  return r ? say(r) : undefined;
 };
 
 /** What names a row of a part: the fraction of the user's part, and the cent no one could share. */
 function shareNote(why: readonly Reason[]): string | undefined {
   const use = why.find((r) => r.rule === "part.use");
   const cent = why.find((r) => r.rule === "rounding.cent");
-  const parts = [use ? t("why.share_of", { part: Number(use.to) - Number(use.from), of: String(use.of) }) : null, cent ? sentenceOf(cent) : null].filter(Boolean);
+  const parts = [use ? t("why.share_of", { part: Number(use.to) - Number(use.from), of: String(use.of) }) : null, cent ? say(cent) : null].filter(Boolean);
   return parts.length ? parts.join(". ") : undefined;
 }
 
@@ -193,7 +202,7 @@ const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Whom or what a line of the answer is about. */
 function nameOf(l: Line, figure: WhyFigureId, names: Names): string {
-  if (figure === "share.part") return l.id.startsWith("u:") ? (names.members.get(l.id.slice(2)) ?? "–") : l.why[0] ? sentenceOf(l.why[0]) : "–";
+  if (figure === "share.part") return l.id.startsWith("u:") ? (names.members.get(l.id.slice(2)) ?? "–") : l.why[0] ? say(l.why[0]) : "–";
   return names.rows.get(l.id)?.merchant ?? "–";
 }
 
@@ -228,6 +237,7 @@ function lineNote(l: Line, shown: Shown, kind: "counted" | "left" | "plain"): Re
   const via = figure === "share.part" || calculated || kind === "plain" ? undefined : viaOf(l.why);
   const whole = l.whole !== undefined && figure !== "share.part";
   const unproven = figure === "ahead.free" ? unprovenOf(l.why) : undefined;
+  const bill = whole ? billOf(l.why) : undefined;
   if (!reason && !via && !whole && !unproven) return null;
   return (
     <div className="why-more-in">
@@ -235,6 +245,7 @@ function lineNote(l: Line, shown: Shown, kind: "counted" | "left" | "plain"): Re
       {via && <div className="why-reason">{via}</div>}
       {unproven && <div className="why-reason">{unproven}</div>}
       {whole && <div className="why-reason">{t("why.whole", { sum: money(l.whole!) })}</div>}
+      {bill && <div className="why-reason">{bill}</div>}
     </div>
   );
 }
@@ -355,7 +366,7 @@ function WhyPanel({ figure, title, range, scope, category, row, account, loan, o
       }}
     >
       <h2 id="why-title">{title}</h2>
-      <p className="why-period">{periodText(range)}</p>
+      <p className="why-period">{periodText(figure, range, meta?.today)}</p>
       {why.error && <p role="alert">{why.error}</p>}
       {!e && !why.error && <p role="status">{t("load.loading")}</p>}
       {e && (

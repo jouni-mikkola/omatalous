@@ -35,7 +35,8 @@ async function opened(page: Page, door: Locator): Promise<Locator> {
   const panel = page.getByRole("dialog");
   await expect(panel).toBeVisible();
   await expect(panel.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(panel.locator(".why-period")).toHaveText(/^\d{1,2}\.(\d{1,2}\.|–)/);
+  // the days of a range, or the basis of a figure that is no range's rows (a usual month, a day, the year ahead)
+  await expect(panel.locator(".why-period")).toHaveText(/^(\d{1,2}\.(\d{1,2}\.|–)|Tavallinen kuukausi|Tilanne |Seuraavat 12 kuukautta|Seuraava maksuerä)/);
   // the panel stands under body, so nothing of the figure's cell reaches it: no underline, no right alignment, no capitals
   expect(await panel.evaluate((d) => d.parentElement === document.body)).toBe(true);
   expect(await panel.evaluate((d) => [getComputedStyle(d).textAlign, getComputedStyle(d.querySelector("h2")!).textTransform])).toEqual(["left", "none"]);

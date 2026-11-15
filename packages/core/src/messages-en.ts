@@ -12,6 +12,7 @@ import { EN_INCOME } from "./english/income.ts";
 import { EN_INSIGHTS } from "./english/insights.ts";
 import { EN_SHEETS } from "./english/sheets.ts";
 import { EN_BILLS } from "./english/bills.ts";
+import { EN_EXPLAIN } from "./english/explain.ts";
 import { EN_BANK_FILE } from "./english/bank-file.ts";
 import { EN_CARD_FILE } from "./english/card-file.ts";
 import { EN_OVERVIEW } from "./english/overview.ts";
@@ -123,4 +124,4 @@ const EN: Record<BaseCodes, string> = {
   "check.json": "The request body is not valid JSON.",
 };
 
-installEnglish({ ...EN, ...EN_SHELL, ...EN_OVERVIEW, ...EN_BILLS, ...EN_TRANSACTIONS, ...EN_TABLES, ...EN_FORECAST, ...EN_SHEETS, ...EN_REPORTS_1, ...EN_REPORTS_2, ...EN_REPORTS_3, ...EN_REPORTS_4, ...EN_REPORTS_5, ...EN_CALC, ...EN_INSIGHTS, ...EN_ALERTS, ...EN_OPTIMISE, ...EN_INCOME, ...EN_PRICES, ...EN_CARD_FILE, ...EN_SET_BANK_APP, ...EN_SET_SECURITY, ...EN_SET_CONNECTIONS, ...EN_SET_MEMBERS, ...EN_SET_IMPORT, ...EN_SET_ACCOUNTS, ...EN_SET_FACTOR, ...EN_SET_SPLIT, ...EN_SET_BANK_KEY, ...EN_SET_LOANS, ...EN_SET_WIZARD, ...EN_SET_RECONCILE, ...EN_SET_SYNC, ...EN_SET_USE_TS, ...EN_SET_ACUSE, ...EN_SET_ADDON, ...EN_SET_IFORM, ...EN_SET_STATUS, ...EN_SET_OPS, ...EN_SET_ASH, ...EN_SET_BANKS, ...EN_SET_BAPP, ...EN_SET_BRT, ...EN_SET_CV, ...EN_SET_DPAGE, ...EN_SET_DX, ...EN_SET_FR, ...EN_SET_MT, ...EN_SET_REC, ...EN_SET_RR, ...EN_SET_SV, ...EN_SET_TABS, ...EN_SET_RI, ...EN_SET_RV, ...EN_SET_RC, ...EN_BANK_FILE });
+installEnglish({ ...EN, ...EN_SHELL, ...EN_OVERVIEW, ...EN_BILLS, ...EN_TRANSACTIONS, ...EN_TABLES, ...EN_FORECAST, ...EN_SHEETS, ...EN_REPORTS_1, ...EN_REPORTS_2, ...EN_REPORTS_3, ...EN_REPORTS_4, ...EN_REPORTS_5, ...EN_CALC, ...EN_INSIGHTS, ...EN_ALERTS, ...EN_OPTIMISE, ...EN_INCOME, ...EN_PRICES, ...EN_CARD_FILE, ...EN_SET_BANK_APP, ...EN_SET_SECURITY, ...EN_SET_CONNECTIONS, ...EN_SET_MEMBERS, ...EN_SET_IMPORT, ...EN_SET_ACCOUNTS, ...EN_SET_FACTOR, ...EN_SET_SPLIT, ...EN_SET_BANK_KEY, ...EN_SET_LOANS, ...EN_SET_WIZARD, ...EN_SET_RECONCILE, ...EN_SET_SYNC, ...EN_SET_USE_TS, ...EN_SET_ACUSE, ...EN_SET_ADDON, ...EN_SET_IFORM, ...EN_SET_STATUS, ...EN_SET_OPS, ...EN_SET_ASH, ...EN_SET_BANKS, ...EN_SET_BAPP, ...EN_SET_BRT, ...EN_SET_CV, ...EN_SET_DPAGE, ...EN_SET_DX, ...EN_SET_FR, ...EN_SET_MT, ...EN_SET_REC, ...EN_SET_RR, ...EN_SET_SV, ...EN_SET_TABS, ...EN_SET_RI, ...EN_SET_RV, ...EN_SET_RC, ...EN_BANK_FILE, ...EN_EXPLAIN });

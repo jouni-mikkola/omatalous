@@ -27,3 +27,14 @@ export function memoOn<T>(ctx: AnalysisContext, name: string, args: unknown, bui
   answers.set(key, built);
   return built;
 }
+
+/** `memoOn` for an answer that is a promise: one that fails is dropped, so the next request builds it again and an error is never kept. */
+export function memoAsyncOn<T>(ctx: AnalysisContext, name: string, args: unknown, build: () => Promise<T>): Promise<T> {
+  const answer = memoOn(ctx, name, args, build);
+  answer.catch(() => {
+    const answers = held.get(ctx)?.get(name);
+    const key = JSON.stringify(args) ?? "";
+    if (answers?.get(key) === answer) answers.delete(key);
+  });
+  return answer;
+}

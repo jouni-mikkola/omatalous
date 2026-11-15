@@ -13,6 +13,7 @@ import { FI_INCOME } from "./messages-income.ts";
 import { FI_INSIGHTS } from "./messages-insights.ts";
 import { FI_SHEETS } from "./messages-sheets.ts";
 import { FI_BILLS } from "./messages-bills.ts";
+import { FI_EXPLAIN } from "./messages-explain.ts";
 import { FI_BANK_FILE } from "./messages-bank-file.ts";
 import { FI_CARD_FILE } from "./messages-card-file.ts";
 import { FI_OVERVIEW } from "./messages-overview.ts";
@@ -60,6 +61,6 @@ import { FI_TABLES } from "./messages-tables.ts";
 import { FI_TRANSACTIONS } from "./messages-transactions.ts";
 import { installLate } from "./messages.ts";
 
-export const FI_LATE = { ...FI_OVERVIEW, ...FI_BILLS, ...FI_TRANSACTIONS, ...FI_TABLES, ...FI_FORECAST, ...FI_SHEETS, ...FI_REPORTS_1, ...FI_REPORTS_2, ...FI_REPORTS_3, ...FI_REPORTS_4, ...FI_REPORTS_5, ...FI_CALC, ...FI_INSIGHTS, ...FI_ALERTS, ...FI_OPTIMISE, ...FI_INCOME, ...FI_PRICES, ...FI_CARD_FILE, ...FI_SET_BANK_APP, ...FI_SET_SECURITY, ...FI_SET_CONNECTIONS, ...FI_SET_MEMBERS, ...FI_SET_IMPORT, ...FI_SET_ACCOUNTS, ...FI_SET_FACTOR, ...FI_SET_SPLIT, ...FI_SET_BANK_KEY, ...FI_SET_LOANS, ...FI_SET_WIZARD, ...FI_SET_RECONCILE, ...FI_SET_SYNC, ...FI_SET_USE_TS, ...FI_SET_ACUSE, ...FI_SET_ADDON, ...FI_SET_IFORM, ...FI_SET_STATUS, ...FI_SET_OPS, ...FI_SET_ASH, ...FI_SET_BANKS, ...FI_SET_BAPP, ...FI_SET_BRT, ...FI_SET_CV, ...FI_SET_DPAGE, ...FI_SET_DX, ...FI_SET_FR, ...FI_SET_MT, ...FI_SET_REC, ...FI_SET_RR, ...FI_SET_SV, ...FI_SET_TABS, ...FI_SET_RI, ...FI_SET_RV, ...FI_SET_RC, ...FI_BANK_FILE } as const;
+export const FI_LATE = { ...FI_OVERVIEW, ...FI_BILLS, ...FI_TRANSACTIONS, ...FI_TABLES, ...FI_FORECAST, ...FI_SHEETS, ...FI_REPORTS_1, ...FI_REPORTS_2, ...FI_REPORTS_3, ...FI_REPORTS_4, ...FI_REPORTS_5, ...FI_CALC, ...FI_INSIGHTS, ...FI_ALERTS, ...FI_OPTIMISE, ...FI_INCOME, ...FI_PRICES, ...FI_CARD_FILE, ...FI_SET_BANK_APP, ...FI_SET_SECURITY, ...FI_SET_CONNECTIONS, ...FI_SET_MEMBERS, ...FI_SET_IMPORT, ...FI_SET_ACCOUNTS, ...FI_SET_FACTOR, ...FI_SET_SPLIT, ...FI_SET_BANK_KEY, ...FI_SET_LOANS, ...FI_SET_WIZARD, ...FI_SET_RECONCILE, ...FI_SET_SYNC, ...FI_SET_USE_TS, ...FI_SET_ACUSE, ...FI_SET_ADDON, ...FI_SET_IFORM, ...FI_SET_STATUS, ...FI_SET_OPS, ...FI_SET_ASH, ...FI_SET_BANKS, ...FI_SET_BAPP, ...FI_SET_BRT, ...FI_SET_CV, ...FI_SET_DPAGE, ...FI_SET_DX, ...FI_SET_FR, ...FI_SET_MT, ...FI_SET_REC, ...FI_SET_RR, ...FI_SET_SV, ...FI_SET_TABS, ...FI_SET_RI, ...FI_SET_RV, ...FI_SET_RC, ...FI_BANK_FILE, ...FI_EXPLAIN } as const;
 
 installLate(FI_LATE);

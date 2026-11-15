@@ -8,6 +8,7 @@ import { cancelledSubjects, createContext, createWhy, enrichTransactions, explai
 import { NotFound, UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { requestInputs, type Scope, scopeWithReasons } from "./analysis.ts";
+import { memoAsyncOn } from "./context-memo.ts";
 import { householdIbans, industryMap } from "./enrich.ts";
 import { reconcileOf, withProof } from "./reconcile.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
@@ -80,7 +81,18 @@ function namedIds(e: Explanation): Set<string> {
   return ids;
 }
 
+/**
+ * The same answer on every request that asks while the data, the balances and the member's inputs stay as they are: a panel
+ * opened twice, or by two members of one view, reads the whole history once. The request is the key; the cached context
+ * of the view drops the answers with its data version, and the marks and balances, which it does not hold, are in the key.
+ */
 export async function explainFigure(s: Services, userId: string, req: ExplainRequest): Promise<Explanation & { rows: NamedRow[] }> {
+  const { ctx, accounts } = await s.analysis.get(s, userId, req.scope);
+  const { balances, inputs } = await requestInputs(s, userId, accounts);
+  return memoAsyncOn(ctx, "explain", [userId, req, balances, inputs], () => explainUncached(s, userId, req));
+}
+
+async function explainUncached(s: Services, userId: string, req: ExplainRequest): Promise<Explanation & { rows: NamedRow[] }> {
   if (NOW.has(req.figure)) return explainToday(s, userId, req);
   if (isLoanFigure(req.figure)) return explainLoans(s, userId, req.figure, req);
   if (req.loanId) throw new UserError("Tuntematon raportti.");

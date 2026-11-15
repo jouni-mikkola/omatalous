@@ -1,13 +1,17 @@
 /*
- * The figure that opens its rows, and the panel of those rows one depth up like the confirmation dialog. A tappable figure
- * wears nothing at rest (VD0, owner rule): the pointer, a solid accent underline under the pointer or the keyboard's focus,
- * and its accessible name say it opens. The dotted underline and "≈" belong to estimates alone (.fig-est).
+ * The figure that opens its rows, and the panel of those rows one depth up like the confirmation dialog. A figure in text
+ * (.why-fig) says at rest that it opens: a dotted accent underline and a "?" after it, both drawn here, so the text of the
+ * page carries no link words (a test refuses them) and the accessible name stays the door's own. The pointer or the keyboard's
+ * focus make the underline solid. An estimate's dotted underline is muted and has the "≈" before it (.fig-est).
+ * The reach is 24 px on a phone and 44 px on a touch screen (base.css).
  */
 @layer components {
 /* every door (Why): the pointer and the focus ring, whatever it draws (a figure, a bar) */
 .why-door { cursor: pointer; }
 .why-door:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.why-fig { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: none; cursor: pointer; border-radius: var(--radius-s); }
+.why-fig { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-decoration: underline dotted 1px var(--accent); text-underline-offset: 0.2em; cursor: pointer; border-radius: var(--radius-s); }
+/* the "?" is a sign, not a word: an empty alternative keeps a screen reader from saying it, and a block keeps the underline off it */
+.why-fig::after { content: "?"; content: "?" / ""; display: inline-block; margin-inline-start: var(--sp-4); text-decoration: none; color: var(--accent); font-size: var(--fs-label); font-weight: 600; }
 .why-fig:hover, .why-fig:focus-visible { text-decoration: underline solid 1px var(--accent); text-underline-offset: 3px; }
 .why-fig:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* an estimate: a dotted underline in the muted colour, the "≈" before the figure is written by the caller */

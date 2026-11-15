@@ -14,6 +14,7 @@ import { buildHoldings } from "../holdings.ts";
 import { householdDebts } from "../household-debts.ts";
 import { divRound, payments, planOf } from "../loan-plan.ts";
 import { debtPaymentsPerMonth, loanBalanceOn, loanInterestNext12Months, loanNextPayment } from "../loans.ts";
+import { message } from "../messages.ts";
 import type { BalanceInput, IsoDate, Loan, Part, UserInputs } from "../types.ts";
 import type { Explanation, FigureId, Line, LoanFigureId } from "./types.ts";
 
@@ -47,7 +48,7 @@ function perLoan(day: IsoDate, cents: number | null, loans: readonly { id: strin
 /** The line that takes the other users' part off a whole figure: the whole less the viewer's part of it. */
 function othersLine(whole: Line[], part: Part, day: IsoDate): { line: Line; name: LoanName } {
   const sum = sumOf(whole);
-  return { line: { id: "part", day, cents: partCents(sum, part) - sum, why: [{ rule: "part.use", from: part.from, to: part.to, of: part.of }] }, name: named("part", "Muiden osuus") };
+  return { line: { id: "part", day, cents: partCents(sum, part) - sum, why: [{ rule: "part.use", from: part.from, to: part.to, of: part.of }] }, name: named("part", message("explain.loan_others")) };
 }
 
 /** Whole lines of a loan, then the other users' part where the debt is not all the viewer's. */
@@ -62,18 +63,18 @@ function cut(debt: Debt, day: IsoDate, cents: number | null, whole: (loan: Loan)
 /** The balance as told, then each amortisation due by the day; with no plan the told balance alone, or nothing left after the last due date. */
 function balanceLines(loan: Loan, day: IsoDate): { lines: Line[]; names: LoanName[] } {
   const told: Line = { id: "told", day: loan.balanceDate, cents: loan.balanceCents, why: [] };
-  const names = [named("told", loan.id.startsWith("account:") ? "Saldo pankissa" : "Saldo, jonka kerroit")];
+  const names = [named("told", message(loan.id.startsWith("account:") ? "explain.loan_told_bank" : "explain.loan_told_own"))];
   const plan = planOf(loan);
   if ("missing" in plan) {
     if (loanBalanceOn(loan, day).cents !== 0 || loan.balanceCents === 0) return { lines: [told], names };
-    return { lines: [told, { id: "end", day: loan.endDate ?? day, cents: -loan.balanceCents, why: [] }], names: [...names, named("end", "Viimeinen eräpäivä")] };
+    return { lines: [told, { id: "end", day: loan.endDate ?? day, cents: -loan.balanceCents, why: [] }], names: [...names, named("end", message("explain.loan_last_due"))] };
   }
   const paid: Line[] = [];
   for (const p of payments(loan, plan)) {
     if (p.date > day) break;
     paid.push({ id: `paid:${p.date}`, day: p.date, cents: -p.amortisationCents, why: [] });
   }
-  return { lines: [told, ...paid], names: [...names, ...paid.map((l) => named(l.id, "Lyhennys"))] };
+  return { lines: [told, ...paid], names: [...names, ...paid.map((l) => named(l.id, message("explain.loan_amortisation")))] };
 }
 
 /** The interest part of each payment due in the 12 months after the day; with no plan one line, the rate on the balance. */
@@ -81,7 +82,7 @@ function interestLines(loan: Loan, day: IsoDate): { lines: Line[]; names: LoanNa
   const plan = planOf(loan);
   if ("missing" in plan) {
     const cents = loanInterestNext12Months(loan, day).cents ?? 0;
-    return cents === 0 ? { lines: [], names: [] } : { lines: [{ id: "rate", day, cents, why: [] }], names: [named("rate", "Korko saldolle vuodessa")] };
+    return cents === 0 ? { lines: [], names: [] } : { lines: [{ id: "rate", day, cents, why: [] }], names: [named("rate", message("explain.loan_yearly_rate"))] };
   }
   const to = addMonthsToDate(day, 12);
   const lines: Line[] = [];
@@ -89,7 +90,7 @@ function interestLines(loan: Loan, day: IsoDate): { lines: Line[]; names: LoanNa
     if (p.date > to) break;
     if (p.date > day && p.interestCents) lines.push({ id: `interest:${p.date}`, day: p.date, cents: p.interestCents, why: [] });
   }
-  return { lines, names: lines.map((l) => named(l.id, "Korko")) };
+  return { lines, names: lines.map((l) => named(l.id, message("explain.loan_interest"))) };
 }
 
 /** A payment as its interest and amortisation where both are known, else the payment as typed. */
@@ -101,9 +102,9 @@ function paymentLines(next: ReturnType<typeof loanNextPayment>, day: IsoDate): {
         { id: "interest", day: on, cents: next.interestCents, why: [] },
         { id: "amortisation", day: on, cents: next.amortisationCents, why: [] },
       ].filter((l) => l.cents !== 0),
-      names: [named("interest", "Korko"), named("amortisation", "Lyhennys")],
+      names: [named("interest", message("explain.loan_interest")), named("amortisation", message("explain.loan_amortisation"))],
     };
-  return next.cents === null ? { lines: [], names: [] } : { lines: [{ id: "payment", day: on, cents: next.cents, why: [] }], names: [named("payment", "Maksuerä, jonka kerroit")] };
+  return next.cents === null ? { lines: [], names: [] } : { lines: [{ id: "payment", day: on, cents: next.cents, why: [] }], names: [named("payment", message("explain.loan_payment_told"))] };
 }
 
 /** A month of a payment: the payment, and where it falls due every N months the part of it the other months carry. */
@@ -113,7 +114,7 @@ function monthlyLines(loan: Loan, day: IsoDate): { lines: Line[]; names: LoanNam
   const months = next.intervalMonths;
   if (next.cents === null || months === null || months === 1) return { lines, names };
   const spread: Line = { id: "spread", day: next.date ?? day, cents: divRound(next.cents, months) - next.cents, why: [] };
-  return { lines: [...lines, spread], names: [...names, named("spread", `Erä jaettuna ${months} kuukaudelle`)] };
+  return { lines: [...lines, spread], names: [...names, named("spread", message("explain.loan_spread", { months }))] };
 }
 
 /**

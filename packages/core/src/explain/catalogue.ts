@@ -1,75 +1,94 @@
+/**
+ * The sentence of each rule, with the numbers of the reason in it. The words are in the message catalogue
+ * (`messages-explain.ts`), so the string rules read them; this file picks the code and fills the holes. A sentence
+ * made by the server (a method's rule) is Finnish, as the answer of the route is; `sentenceOf` takes the reader's language.
+ */
 import { formatEur, formatFiDate } from "../analysis/format.ts";
+import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
+import { type MessageCode, message, messageIn } from "../messages.ts";
 import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import type { Reason, RuleId } from "./types.ts";
 
-const SOURCES: Record<string, string> = {
-  rule: "Luokiteltu automaattisesti",
-  mcc: "Luokiteltu kaupan toimialakoodin mukaan",
-  merchant: "Luokiteltu saman kaupan aiempien ostojen mukaan",
-  industry: "Luokiteltu kaupan toimialan mukaan",
-  default: "Ei luokiteltu",
-};
+const SOURCES = {
+  rule: "explain.source_rule",
+  mcc: "explain.source_mcc",
+  merchant: "explain.source_merchant",
+  industry: "explain.source_industry",
+  default: "explain.source_default",
+} as const satisfies Record<string, MessageCode>;
 
 /** Why a bank's balance is taken as it is, by the reason the reconcile gives. */
-const UNPROVEN: Record<string, string> = {
-  no_reference_day: "Pankki ei kerro, mille päivälle saldo kuuluu, joten emme voi tarkistaa sitä tapahtumista. Luku on pankin ilmoittama.",
-  only_available: "Pankki antaa vain käytettävissä olevan saldon, joten emme voi tarkistaa sitä tapahtumista. Luku on pankin ilmoittama.",
-  type_changed: "Pankki vaihtoi saldon lajia, joten emme voi verrata uutta saldoa vanhoihin. Luku on pankin ilmoittama.",
-  too_few: "Saldoja on vielä liian vähän, joten emme voi tarkistaa saldoa tapahtumista. Luku on tilin saldo sellaisenaan.",
-};
+const UNPROVEN = {
+  no_reference_day: "explain.unproven_no_reference_day",
+  only_available: "explain.unproven_only_available",
+  type_changed: "explain.unproven_type_changed",
+  too_few: "explain.unproven_too_few",
+} as const satisfies Record<string, MessageCode>;
 
 const fraction = (r: Reason) => `${Number(r.to) - Number(r.from)}/${r.of}`;
 
-/** The Finnish sentence of each rule, with the numbers of the reason in it. */
-const CATALOGUE: Record<RuleId, (r: Reason) => string> = {
-  "category.hand": () => "Valitsit kategorian itse",
-  "category.own_rule": () => "Luokiteltu oman sääntösi mukaan",
-  "category.builtin": (r) => SOURCES[String(r.source)] ?? SOURCES.default!,
-  "transfer.pair": (r) => (r.people ? "Rahansiirto henkilöiden välillä" : "Oma tilisiirto, ei lasketa menoihin eikä tuloihin"),
-  "transfer.channel": () => "Luottokortin laskun maksu. Ostokset näkyvät kortin omina tapahtumina, joten maksua ei lasketa menoksi.",
-  "card.bill": () => "Luottokortin lasku. Kortin ostoja ei näy, joten laskemme laskun velanhoitoon.",
-  "card.unshown": (r) => `Kortille lähti maksu ${formatEur(Number(r.cents))}, joka ei ole vielä näkynyt kortilla. Emme vähennä sitä velasta, jotta käytettävissä oleva raha ei näytä todellista suuremmalta.`,
-  "card.payer_unseen": () => "Kortilla on velkaa, mutta emme ole nähneet maksua miltään tililtä. Vähennämme velan kokonaan, jotta luku ei näytä todellista suuremmalta.",
-  "card.payer_mixed": (r) => `Kortin laskuja on maksettu sekä käyttötileiltä (${formatEur(Number(r.pool))}) että muilta tileiltä (${formatEur(Number(r.outside))}). Emme tiedä, kumpi maksaa velan, joten vähennämme sen kokonaan.`,
-  "balance.unproven": (r) => UNPROVEN[String(r.reason)] ?? UNPROVEN.too_few!,
-  "return.shop": () => "Palautus kaupasta",
-  "return.person": () => "Sama henkilö maksoi rahat takaisin",
-  "return.share": () => "Toisen osuus yhteisestä ostoksesta",
+const sourceOf = (source: string) => (Object.hasOwn(SOURCES, source) ? SOURCES[source as keyof typeof SOURCES] : SOURCES.default);
+const unprovenOf = (reason: string) => (Object.hasOwn(UNPROVEN, reason) ? UNPROVEN[reason as keyof typeof UNPROVEN] : UNPROVEN.too_few);
+
+/** The sentence of each rule in a language, with the numbers of the reason in it. */
+const CATALOGUE: Record<RuleId, (r: Reason, lang: Language) => string> = {
+  "category.hand": (_r, lang) => messageIn(lang, "explain.category_hand"),
+  "category.own_rule": (_r, lang) => messageIn(lang, "explain.category_own_rule"),
+  "category.builtin": (r, lang) => messageIn(lang, sourceOf(String(r.source))),
+  "transfer.pair": (r, lang) => messageIn(lang, r.people ? "explain.transfer_people" : "explain.transfer_pair"),
+  "transfer.channel": (_r, lang) => messageIn(lang, "explain.transfer_channel"),
+  "card.bill": (_r, lang) => messageIn(lang, "explain.card_bill"),
+  "card.unshown": (r, lang) => messageIn(lang, "explain.card_unshown", { sum: formatEur(Number(r.cents), true, lang) }),
+  "card.payer_unseen": (_r, lang) => messageIn(lang, "explain.card_payer_unseen"),
+  "card.payer_mixed": (r, lang) => messageIn(lang, "explain.card_payer_mixed", { pool: formatEur(Number(r.pool), true, lang), outside: formatEur(Number(r.outside), true, lang) }),
+  "balance.unproven": (r, lang) => messageIn(lang, unprovenOf(String(r.reason))),
+  "return.shop": (_r, lang) => messageIn(lang, "explain.return_shop"),
+  "return.person": (_r, lang) => messageIn(lang, "explain.return_person"),
+  "return.share": (_r, lang) => messageIn(lang, "explain.return_share"),
   // the page puts the purchase's shop in `shop`: a reason holds ids and days, no names
-  "return.wallet": (r) => `Osuus ostoksesta ${r.shop ? `${r.shop} ` : ""}${formatFiDate(String(r.day))}`,
-  "share.back": (r) => `Takaisin saatu ${formatEur(Number(r.cents))} (${Number(r.count) === 1 ? "1 maksu" : `${r.count} maksua`})`,
-  "share.open": () => "Osuus yhteisistä ostoista",
-  "via.service": (r) => `Maksettu palvelun ${r.service} kautta`,
-  "refund.net": (r) => (Number(r.months) === 0 ? "Vähensimme palautuksen saman kuukauden ostosta" : Number(r.months) === 1 ? "Vähensimme palautuksen edellisen kuukauden ostosta" : `Vähensimme palautuksen ostosta, joka tehtiin ${r.months} kuukautta aiemmin`),
-  "part.use": (r) => `Osuutesi tilin rahoista on ${fraction(r)}`,
-  "part.source": (r) => (r.mine ? "Maksoit tämän osan omista rahoistasi" : "Toinen maksoi tämän osan omista rahoistaan"),
-  "role.payer": () => "Kerroit itse, mitä tämän maksajan maksut ovat",
-  "settle.paid": () => "Maksoit tämän itse",
-  "settle.owed": () => "Osuutesi tästä maksusta",
-  "settle.refund": () => "Jaoimme palautuksen samoin kuin ostoksen",
-  "settle.credit_filled": () => "Myöhemmin tilille tullut raha kattoi tämän maksun",
-  "settle.unknown": () => "Maksaja ei ole tiedossa",
-  "settle.open": () => "Kuukausi on vielä kesken",
-  "settle.closed": () => "Kuukausi on lukittu",
-  "agree.dated": (r) => `Sopimus on voimassa ${formatFiDate(String(r.valid_from))} alkaen`,
-  "rounding.cent": () => "Pyöristyksestä jäänyt sentti on merkitty ensimmäiselle käyttäjälle",
+  "return.wallet": (r, lang) => {
+    const date = formatFiDate(String(r.day), lang);
+    return r.shop ? messageIn(lang, "explain.return_wallet_shop", { shop: String(r.shop), date }) : messageIn(lang, "explain.return_wallet", { date });
+  },
+  "share.back": (r, lang) => messageIn(lang, Number(r.count) === 1 ? "explain.share_back_one" : "explain.share_back_many", { sum: formatEur(Number(r.cents), true, lang), count: Number(r.count) }),
+  "share.open": (_r, lang) => messageIn(lang, "explain.share_open"),
+  "via.service": (r, lang) => messageIn(lang, "explain.via_service", { service: String(r.service) }),
+  "refund.net": (r, lang) => {
+    const months = Number(r.months);
+    return months === 0 ? messageIn(lang, "explain.refund_same") : months === 1 ? messageIn(lang, "explain.refund_previous") : messageIn(lang, "explain.refund_months", { months });
+  },
+  "part.use": (r, lang) => messageIn(lang, "explain.part_use", { share: fraction(r) }),
+  "part.source": (r, lang) => messageIn(lang, r.mine ? "explain.part_source_mine" : "explain.part_source_other"),
+  "role.payer": (_r, lang) => messageIn(lang, "explain.role_payer"),
+  "settle.paid": (_r, lang) => messageIn(lang, "explain.settle_paid"),
+  "settle.owed": (_r, lang) => messageIn(lang, "explain.settle_owed"),
+  "settle.refund": (_r, lang) => messageIn(lang, "explain.settle_refund"),
+  "settle.credit_filled": (_r, lang) => messageIn(lang, "explain.settle_credit_filled"),
+  "settle.unknown": (_r, lang) => messageIn(lang, "explain.settle_unknown"),
+  "settle.open": (_r, lang) => messageIn(lang, "explain.settle_open"),
+  "settle.closed": (_r, lang) => messageIn(lang, "explain.settle_closed"),
+  "agree.dated": (r, lang) => messageIn(lang, "explain.agree_dated", { date: formatFiDate(String(r.valid_from), lang) }),
+  "rounding.cent": (_r, lang) => messageIn(lang, "explain.rounding_cent"),
+  "bill.spread": (r, lang) => messageIn(lang, "explain.bill_spread", { months: Number(r.months) }),
+  "bill.usual": (_r, lang) => messageIn(lang, "explain.bill_usual"),
 };
 
-export const sentenceOf = (r: Reason): string => CATALOGUE[r.rule](r);
+export const sentenceOf = (r: Reason, lang: Language = DEFAULT_LANGUAGE): string => CATALOGUE[r.rule](r, lang);
 
 /** The months the expected month reads. */
-export const expectedRule = (): string => `Laskettu edellisistä päättyneistä kuukausista (enintään ${USUAL_MONTHS})`;
+export const expectedRule = (): string => message("explain.expected_rule", { months: USUAL_MONTHS });
 /** How the listed months make the figure: a category at a time, not the months' totals. */
-export const expectedHow = (): string =>
-  `Odotettu on kategorioiden odotettujen menojen summa. Laskemme jokaisesta kategoriasta kuukausien keskiarvon, ${PERIODIC_MONTHS} kuukauden välein tai harvemmin tulevat laskut ovat omassa kuukaudessaan ja kertaostot jäävät pois`;
+export const expectedHow = (): string => message("explain.expected_how", { months: PERIODIC_MONTHS });
 /** The page's usual income: a median of the report's months, each the regular income of its pay period. */
-export const incomeRule = (): string => `Säännölliset tulot viimeisiltä valmiilta kuukausilta (enintään ${USUAL_MONTHS})`;
-export const medianTie = (count: number): string => (count % 2 ? "Mediaani eli keskimmäinen kuukausi" : "Mediaani eli kahden keskimmäisen kuukauden keskiarvo");
+export const incomeRule = (): string => message("explain.income_rule", { months: USUAL_MONTHS });
+export const medianTie = (count: number): string => message(count % 2 ? "explain.median_odd" : "explain.median_even");
 /**
  * The pay the window waits for, as the page says it: a steady pay by the median of its pays, one that varies by the range
  * from the quarter of the pays below to the quarter above; and the month of earlier years that moved it.
  */
-export const payRule = (count: number, steady: boolean, season: boolean): string =>
-  `${steady ? `Arvio on ${count} viimeisimmän palkan mediaani` : `Arvion alaraja on summa, jota pienempiä on ollut neljännes ${count} viimeisimmästä palkasta, ja yläraja summa, jota suurempia on ollut neljännes`}${season ? ". Saman kuun palkka on aiempina vuosina poikennut muista, ja arvio ottaa sen huomioon" : ""}`;
+export const payRule = (count: number, steady: boolean, season: boolean): string => {
+  const how = steady ? message("explain.pay_steady", { count }) : message("explain.pay_varying", { count });
+  return season ? `${how}. ${message("explain.pay_season")}` : how;
+};
 /** What a usual level says when the months are too few for one. */
-export const tooFewMonths = (count: number, needed: number = MIN_COMPARE_MONTHS): string => `Vertailuun tarvitsemme ${needed} kuukautta, tietoja on ${count}`;
+export const tooFewMonths = (count: number, needed: number = MIN_COMPARE_MONTHS): string => message("explain.too_few_months", { needed, count });

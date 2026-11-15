@@ -61,7 +61,9 @@ export type RuleId =
   | "settle.open"
   | "settle.closed"
   | "agree.dated"
-  | "rounding.cent";
+  | "rounding.cent"
+  | "bill.spread"
+  | "bill.usual";
 
 /**
  * One reason: the rule and its parameters. The parameters of each rule: `category.builtin` source; `transfer.pair`
@@ -70,7 +72,7 @@ export type RuleId =
  * `share.open` none (a share answered by the user, no purchase found); `share.back` cents, count (the shares that came back to a purchase); `via.service` service (a name of the closed
  * list of payment services, never a payee); `part.use` from, to, of (a `Part`) and cents when
  * only the unknown parts of a traced row are cut by it; `part.source` owner (`u:<id>` and the like), kind, cents,
- * passed, mine.
+ * passed, mine; `bill.spread` months (a bill that comes every N months counts 1/N of it in a month); `bill.usual` none (the month is the bill's usual sum, not its latest charge).
  */
 export interface Reason {
   readonly rule: RuleId;
