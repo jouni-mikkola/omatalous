@@ -35,20 +35,25 @@ function expectShape(i: Insight) {
 }
 
 describe("bills that come rarely", () => {
-  const history = [...monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), ...[2023, 2024, 2025].map((y) => tx({ bookingDate: `${y}-12-15`, amountCents: -20160, category: "insurance", merchant: "Vakuutus Oy" }))];
+  const history = [...monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), ...[2023, 2024, 2025].map((y) => tx({ bookingDate: `${y}-12-15`, amountCents: -72000, category: "insurance", merchant: "Vakuutus Oy" }))];
 
   it("hit: a yearly bill gives a reserve a month and names the next one", () => {
     const [found] = rareBills(argsOf(history, "2026-10-09"));
     expect(found).toMatchObject({ id: "rare-bills", comparison: { label: "reserve" }, action: { label: "seeBills" } });
     if (found?.fact.type !== "rare-bills") throw new Error("no rare-bills fact");
-    expect(found.fact.next).toMatchObject({ merchant: "Vakuutus Oy", date: "2026-12-15", cents: 20160 });
-    expect(found.fact.yearlyCents).toBe(20160);
-    expect(found.effectPerYear!.cents).toBe(-20160);
+    expect(found.fact.next).toMatchObject({ merchant: "Vakuutus Oy", date: "2026-12-15", cents: 72000 });
+    expect(found.fact.yearlyCents).toBe(72000);
+    expect(found.effectPerYear!.cents).toBe(-72000);
     expect(expectShape(found).detail).toContain("Vakuutus Oy");
   });
 
   it("near miss: nothing is told for a period that has ended", () => {
     expect(rareBills(argsOf(history, "2026-10-09", { running: false }))).toEqual([]);
+  });
+
+  it("near miss: a yearly bill under the reserve line is told nothing", () => {
+    const small = history.map((t) => (t.category === "insurance" ? { ...t, amountCents: -20160 } : t));
+    expect(rareBills(argsOf(small, "2026-10-09"))).toEqual([]);
   });
 
   it("near miss: a household with only monthly bills has none", () => {
@@ -105,7 +110,7 @@ describe("savings rate without person payments", () => {
   const base = [
     ...monthly("2025-09", 25, 14, 300000, { category: "salary", merchant: "Acme Oy" }),
     ...monthly("2025-09", 2, 14, -105000, { category: "housing", merchant: "Sato Oyj" }),
-    ...monthly("2025-09", 6, 14, -30000, { category: "investments", merchant: "Nordnet" }),
+    ...monthly("2025-09", 6, 14, -90000, { category: "investments", merchant: "Nordnet" }),
   ].filter((t) => t.bookingDate <= at);
 
   it("hit: the rate on own income is set against the rate with the payments from people", () => {
@@ -141,7 +146,7 @@ describe("a category this month against the months before", () => {
     const [i] = found;
     expect(i).toMatchObject({ id: "category-pace:groceries", comparison: { label: "recentUsual" }, action: { label: "seePace" } });
     if (i?.fact.type !== "category-pace") throw new Error("no category-pace fact");
-    expect(i.fact).toMatchObject({ nowCents: 18000, usualCents: 10000, percent: 80, day: 12, months: 3 });
+    expect(i.fact).toMatchObject({ nowCents: 18000, usualCents: 10000, percent: 80, day: 12, months: 6 });
     expect(i.comparison.value).toEqual({ unit: "cents", value: 10000 });
     // 8 000 € more by day 12 of 31 days: 80 € over the whole month, twelve times
     expect(i.effectPerYear!.cents).toBe(-Math.round((8000 * 31) / 12) * 12);
@@ -152,11 +157,16 @@ describe("a category this month against the months before", () => {
     expect(categoryPace(argsOf([...salary, ...earlier(5000), ...shop("2026-10", 5000)], at))).toEqual([]);
   });
 
-  it("near miss: before the tenth the few rows of a month say little", () => {
-    expect(categoryPace(argsOf([...salary, ...earlier(5000), ...shop("2026-10", 9000)], "2026-10-09"))).toEqual([]);
+  it("near miss: in the first week the few rows of a month say little", () => {
+    expect(categoryPace(argsOf([...salary, ...earlier(5000), ...shop("2026-10", 9000)], "2026-10-06"))).toEqual([]);
   });
 
-  it("near miss: a month above one of the months before and level with another is no shift", () => {
+  it("near miss: a month inside the swings of the months before is no shift", () => {
+    const swings = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].flatMap((m, i) => shop(m, 3000 + i * 2000));
+    expect(categoryPace(argsOf([...salary, ...swings, ...shop("2026-10", 9000)], at))).toEqual([]);
+  });
+
+  it("near miss: a month level with the months before, one of which was higher, is no shift", () => {
     const mixed = [...["2026-04", "2026-05", "2026-06", "2026-07"].flatMap((m) => shop(m, 5000)), ...shop("2026-08", 9000), ...shop("2026-09", 5000), ...shop("2026-10", 7000)];
     expect(categoryPace(argsOf([...salary, ...mixed], at))).toEqual([]);
   });

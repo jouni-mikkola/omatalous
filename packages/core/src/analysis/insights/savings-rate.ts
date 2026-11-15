@@ -3,10 +3,10 @@
  * paying back a dinner, a share of the rent). That money is in the income of the bridge, so it makes the savings rate
  * (`savingsRateOf`) look lower than what the household's own income saves. The insight tells the rate on income without
  * those payments, saved over income less them, from the same complete months and the same rows, and only when the
- * payments are `MIN_PERSON_SHARE` of the income or more: under that the two rates differ by a point or two.
+ * two rates, as shown, differ by `MIN_RATE_GAP_POINTS` or more.
  */
 import { monthEnd } from "../../dates.ts";
-import { MIN_COMPARE_MONTHS, MIN_PERSON_SHARE, SAVINGS_MONTHS } from "../../thresholds.ts";
+import { MIN_COMPARE_MONTHS, MIN_RATE_GAP_POINTS, SAVINGS_MONTHS } from "../../thresholds.ts";
 import { messageIn } from "../../messages.ts";
 import { savingsRateOf } from "../bridge.ts";
 import { spendRows } from "../context.ts";
@@ -26,8 +26,9 @@ export function savingsRateWithoutPersons({ ctx, end, lang }: InsightArgs): Insi
   const personCents = persons.reduce((sum, t) => sum + t.flows.income, 0);
   const ownCents = totals.incomeCents - personCents;
   // nothing saved over the months has no rate to tell: the percentage would be zero or below
-  if (totals.savedCents <= 0 || personCents <= 0 || ownCents <= 0 || personCents < MIN_PERSON_SHARE * totals.incomeCents) return [];
+  if (totals.savedCents <= 0 || personCents <= 0 || ownCents <= 0) return [];
   const percent = Math.round((totals.savedCents / ownCents) * 100);
+  if (percent - Math.round(rate * 100) < MIN_RATE_GAP_POINTS) return [];
   return [
     insightOf({
       lang,

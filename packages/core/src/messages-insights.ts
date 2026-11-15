@@ -37,7 +37,6 @@ export const FI_INSIGHTS = {
   "ins.debt_free": "Viimeinen laina päättyy {date}",
   "ins.savings_rate": "Säästöaste on {percent} omilla tuloilla",
   "ins.category_more": "{label}: {percent} tavallista enemmän",
-  "ins.category_less": "{label}: {percent} tavallista vähemmän",
   "ins.payday_bills": "Palkkapäivänä {date} erääntyy laskuja {amount}",
   "ins.cmp_before_rise": "Aiemmin {price}, uusi hinta {date} alkaen.",
   "ins.cmp_before_trial": "Kokeilu {date} maksoi {price}, ensimmäinen täysi veloitus {first}.",

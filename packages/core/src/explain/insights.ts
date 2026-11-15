@@ -122,7 +122,7 @@ function factText(f: InsightFact, lang: Language): string {
     case "savings-rate":
       return text("ins.savings_rate", { percent: pct(f.percent) });
     case "category-pace":
-      return text(f.percent > 0 ? "ins.category_more" : "ins.category_less", { label: f.label, percent: pct(Math.abs(f.percent)) });
+      return text("ins.category_more", { label: f.label, percent: pct(f.percent) });
     case "payday-bills":
       return text("ins.payday_bills", { date: date(f.date), amount: eurExact(f.billsCents) });
     case "income":

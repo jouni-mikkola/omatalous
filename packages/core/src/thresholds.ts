@@ -101,13 +101,11 @@ export const THRESHOLDS = {
   holeMonths: threshold(2, "months", "A judgement: a run of one or two empty months on an account in daily use is rows the bank or an export missed. A longer one is an account left unused for a while."),
   rareBillMinCents: threshold(1000, "cents", "A judgement: a small yearly charge (a 2 € storage plan) is not worth a line among the bills that are set aside for."),
   rareBillYearMonths: threshold(12, "months", "A year: the rare bills are counted over whole calendar months from this one, so every bill that comes once or twice a year falls in it once."),
-  recentMonths: threshold(3, "months", "A judgement: the month so far is set against the three complete months before it, a short enough run to show a change of habit and long enough that one odd month is not the level."),
-  recentShiftShare: threshold(0.3, "share", "A judgement: a category is told when its month so far differs 30 % or more from the mean of the same days of the three months before, and lies on the same side of each of them."),
+  rareBillsTellYearCents: threshold(60000, "cents", "A judgement: rare bills worth 600 € a year ask for a reserve of 50 € a month. Under it a month's pay carries them without setting money aside, and one yearly subscription is not an insight."),
   recentCategories: threshold(3, "count", "Three categories name what moved. A longer list is a table."),
-  recentMinDay: threshold(10, "days", "A judgement: before the 10th of a month a category holds a few rows, and a single payment moves it past any share."),
   savingsMonths: threshold(12, "months", "A year of complete months: the savings rate is pooled over them, so a bonus or a large purchase in one month does not set it."),
   paydaysYear: threshold(12, "count", "A judgement: a pay comes each month, so the bills dated on a payday come as many times a year."),
-  minPersonShare: threshold(0.05, "share", "A judgement: money from people under 5 % of the income moves the savings rate under a point or two, so it is not worth a line."),
+  minRateGapPoints: threshold(2, "points", "A judgement: two savings rates that differ by under two points of income read as the same rate, so the second one is not worth a line."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -192,10 +190,8 @@ export const DAILY_MONTHS_SHARE = THRESHOLDS.dailyMonthsShare.value;
 export const HOLE_MONTHS = THRESHOLDS.holeMonths.value;
 export const RARE_BILL_MIN_CENTS = THRESHOLDS.rareBillMinCents.value;
 export const RARE_BILL_YEAR_MONTHS = THRESHOLDS.rareBillYearMonths.value;
-export const RECENT_MONTHS = THRESHOLDS.recentMonths.value;
-export const RECENT_SHIFT_SHARE = THRESHOLDS.recentShiftShare.value;
+export const RARE_BILLS_TELL_YEAR_CENTS = THRESHOLDS.rareBillsTellYearCents.value;
 export const RECENT_CATEGORIES = THRESHOLDS.recentCategories.value;
-export const RECENT_MIN_DAY = THRESHOLDS.recentMinDay.value;
 export const SAVINGS_MONTHS = THRESHOLDS.savingsMonths.value;
-export const MIN_PERSON_SHARE = THRESHOLDS.minPersonShare.value;
+export const MIN_RATE_GAP_POINTS = THRESHOLDS.minRateGapPoints.value;
 export const PAYDAYS_YEAR = THRESHOLDS.paydaysYear.value;

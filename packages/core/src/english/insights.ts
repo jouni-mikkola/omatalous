@@ -34,7 +34,6 @@ export const EN_INSIGHTS = {
   "ins.debt_free": "The last loan ends {date}",
   "ins.savings_rate": "The savings rate is {percent} on your own income",
   "ins.category_more": "{label}: {percent} more than usual",
-  "ins.category_less": "{label}: {percent} less than usual",
   "ins.payday_bills": "On payday {date}, bills of {amount} fall due",
   "ins.cmp_before_rise": "Earlier {price}, new price from {date}.",
   "ins.cmp_before_trial": "The trial on {date} cost {price}, first full charge {first}.",

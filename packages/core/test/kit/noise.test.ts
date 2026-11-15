@@ -20,7 +20,7 @@ const CHUNK = 10;
  * comparisons, spending and habit changes, income changes, and the change sentences. Not the ones about a level or an event (a renewal, instalments, a double charge, a fee).
  */
 const TWO_WINDOW: readonly RegExp[] = [
-  /^insights (price|price-rises|stopped|new|seasons|spending-[a-z_]+|commitments-share|income|subscriptions-added)$/,
+  /^insights (price|price-rises|stopped|new|seasons|spending-[a-z_]+|commitments-share|income|subscriptions-added|category-pace)$/,
   /^alerts (spike|habit)$/,
   /^income (?!windfall)[a-z_]+$/,
   /^change (usual|season|year)$/,
