@@ -187,7 +187,7 @@ t_rebind_same_interface() {
   # no kept interface (the address was gone before this helper ever saw it), or a file that does not name it for this address
   addr_world; rm -f "$CL/ops/address-if"; missing_for 1200; tick
   check "no kept interface: nothing changes" untouched
-  for r in "eth0 192.168.1.51" "eth0" "-eth0 $OLD" "eth0 $OLD more" "wg0 $OLD" "tun3 $OLD" "ppp0 $OLD" "tap1 $OLD"; do
+  for r in "eth0 192.168.1.51" "eth0" "-eth0 $OLD" "eth0 $OLD more" "wg0 $OLD" "wt0 $OLD" "tun3 $OLD" "ppp0 $OLD" "tap1 $OLD"; do
     addr_world; echo "$r" >"$CL/ops/address-if"
     case $r in eth0* | -*) ;; *) echo "$NEW ${r%% *}" >"$S/addrs" ;; esac
     missing_for 1200; tick
