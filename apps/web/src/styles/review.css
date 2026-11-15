@@ -10,9 +10,9 @@
 .review-who .tc-mark { gap: var(--sp-12); }
 .review-who .tc-name { white-space: normal; }
 .review-name { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); color: var(--text); overflow-wrap: anywhere; }
-.review-figure { display: flex; align-items: baseline; gap: var(--sp-8); justify-self: start; text-align: left; }
+.review-figure { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-8); justify-self: start; text-align: left; }
 .review-unit { font-size: var(--fs-body); color: var(--text-2); }
-.review-line { margin: calc(-1 * var(--sp-8)) 0 0; font-size: var(--fs-body); line-height: 20px; color: var(--text-2); }
+.review-line { margin: calc(-1 * var(--sp-8)) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 
 /* the newest rows of the payee, the evidence the answer rests on; the figure opens the rest */
 .review-row-list { margin: 0; padding: 0; list-style: none; }

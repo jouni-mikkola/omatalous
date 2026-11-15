@@ -31,7 +31,8 @@ async function cardWithoutPayer() {
 }
 
 describe("the notices of figures that are not proven", () => {
-  const notices = async (t: Awaited<ReturnType<typeof cardWithoutPayer>>) => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "unresolved");
+  /** The cards' notices: the one balance of the checking account is a notice of its own (`too_few`), which another test holds. */
+  const notices = async (t: Awaited<ReturnType<typeof cardWithoutPayer>>) => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "unresolved" && String(i.reason).startsWith("card_payer"));
 
   it("names a card nobody is seen to pay by its debt, and the tile says the same debt", async () => {
     const t = await cardWithoutPayer();
@@ -64,6 +65,12 @@ describe("the notices of figures that are not proven", () => {
     // 230 € to 400 €: more than a quarter, it returns with the new amount
     expect((await t.admin.call("PATCH", "/api/accounts/card", { balanceCents: -40_000 })).status).toBe(200);
     expect(await notices(t)).toEqual([expect.objectContaining({ cents: 40_000, subject: "question:unresolved:card_payer_unseen@40000" })]);
+  });
+
+  it("names a balance no row can check by the figure it starts from", async () => {
+    const t = await cardWithoutPayer();
+    const items = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "unresolved" && i.reason === "too_few");
+    expect(items).toEqual([expect.objectContaining({ id: "unresolved:too_few", names: ["Käyttötili"], cents: 250_000 })]);
   });
 
   it("takes no answer but Ohita", async () => {

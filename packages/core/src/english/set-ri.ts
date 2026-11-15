@@ -31,7 +31,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.unresolved_balance": "The balance cannot be compared with the transactions",
   "set.ri.unresolved_card_unseen_line": "Available subtracts the debt of {sum} in full, because we have seen no payment from any account. Cards: {names}.",
   "set.ri.unresolved_card_mixed_line": "Available subtracts the debt of {sum} in full. Payments to the cards have come from the counted accounts ({pool}) and from other accounts ({outside}). Cards: {names}.",
-  "set.ri.unresolved_balance_line": "Available starts from account balances of {sum} that we cannot check against the transactions. Accounts: {names}.",
+  "set.ri.unresolved_balance_line": "Balances total {sum}. Accounts: {names}.",
   "set.ri.price_rose": "The price rose",
   "set.ri.new_charge": "New regular charge",
   "set.ri.row_without_name": "A transaction with no name",
