@@ -10,6 +10,7 @@
 import { aheadBasis } from "../../src/analysis/ahead.ts";
 import { bridgeByMonth } from "../../src/analysis/conservation.ts";
 import { createContext } from "../../src/analysis/context.ts";
+import { leftOf } from "../../src/analysis/flows.ts";
 import { dataQualityReport } from "../../src/analysis/data-quality.ts";
 import { poolOf } from "../../src/analysis/pool.ts";
 import { buildQuestions } from "../../src/analysis/questions.ts";
@@ -135,11 +136,13 @@ function wrongFlow(label: Truth, t: HouseholdView["ctx"]["txs"][number]): string
   return null;
 }
 
-/** I3: every labelled row of income, spending or debt is counted as what its label says, and only that. */
+/** I3: every labelled row of income, spending or debt is counted as what its label says, and only that. A debt paid from a savings account counts nothing: the money was counted as saved when it left the pool. */
 export function labelledFlow(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const by = new Map<string, number>();
+  const savings = new Set(v.accounts.filter((a) => a.type === "savings").map((a) => a.id));
   for (const t of v.ctx.txs) {
     const label = h.truth.get(t.id);
+    if (label?.flow === "debt" && savings.has(t.accountId) && leftOf(t.flows) === 0) continue;
     const wrong = label && wrongFlow(label, t);
     if (wrong) by.set(`${label.kind} ${wrong}`, (by.get(`${label.kind} ${wrong}`) ?? 0) + 1);
   }
