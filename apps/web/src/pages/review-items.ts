@@ -2,7 +2,7 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
+import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, type LoanTermsMissing, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
@@ -99,6 +99,17 @@ interface MortgageItem extends Base {
   kind: "mortgage";
 }
 
+/** A saved loan whose payments cannot be placed for want of one fact (`missing`): the loan's form answers it, Älä muistuta tästä enää is the mark on `subject`. */
+interface LoanTermsItem extends Base {
+  kind: "loan_terms";
+  loanId: string;
+  name: string;
+  owedCents: number;
+  balanceDate: string;
+  missing: LoanTermsMissing;
+  subject: string;
+}
+
 /** An account whose rows do not add up to the bank's balances over its newest stretch: `cents` is what they differ by. It goes when the rows add up again. */
 interface BalanceItem extends Base {
   kind: "balance";
@@ -167,7 +178,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -201,7 +212,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -232,6 +243,7 @@ export function eyebrow(item: ReviewItem): string {
     case "payer":
       return t("set.ri.money_received");
     case "loan":
+    case "loan_terms":
       return t("set.ri.loan");
     case "plan":
       return t("set.ri.instalment_plan");
@@ -270,6 +282,8 @@ export function nameOf(item: ReviewItem): string {
     case "loan":
     case "plan":
       return item.payee;
+    case "loan_terms":
+      return item.name;
     case "split":
       return item.question === "opening" ? t("set.ri.balance_before_date", { date: date(item.label) }) : item.label;
     case "mortgage":
@@ -313,6 +327,19 @@ export function questionOf(item: ReviewItem): string {
     case "subscription":
       // a charge that began lately has not run long enough to ask whether it is "still" used
       return item.reason === "new" && item.since ? t("set.ri.is_the_subscription_in_use") : t("set.ri.is_the_subscription_still_in");
+    case "loan_terms":
+      switch (item.missing) {
+        case "repayment":
+          return t("set.ri.loan_terms_repayment");
+        case "interval":
+          return t("set.ri.loan_terms_interval");
+        case "payment":
+          return t("set.ri.loan_terms_payment");
+        case "rate":
+          return t("set.ri.loan_terms_rate");
+        case "end_date":
+          return t("set.ri.loan_terms_end_date");
+      }
     case "mortgage":
       return t("set.ri.do_you_have_a_home");
     case "balance":
@@ -356,6 +383,8 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
             : t("set.ri.amount_a_year_last_date", { amount: money(item.cents), date: date(item.lastDate) });
       return { text: money(item.monthlyCents), unit: t("set.ri.a_month"), line };
     }
+    case "loan_terms":
+      return { text: money(item.owedCents), unit: t("set.ri.loan_terms_owed"), line: t("set.ri.loan_terms_balance_date", { date: date(item.balanceDate) }) };
     case "mortgage":
       return { text: "", line: t("set.ri.housing_costs_show_no_loan") };
     case "balance":

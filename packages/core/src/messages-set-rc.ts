@@ -25,5 +25,6 @@ export const FI_SET_RC = {
   "set.rc.save_month": "Tallenna kuukausi",
   "set.rc.i_don_t_know": "En tiedä",
   "set.rc.not_a_loan": "Ei ole laina",
+  "set.rc.complete_the_loan": "Täydennä laina",
   "set.rc.why": "Miksi ehdotamme tätä: {why}.",
 } as const;

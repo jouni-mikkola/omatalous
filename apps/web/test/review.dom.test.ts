@@ -78,6 +78,33 @@ describe("Tarkistettavat", () => {
     expect(seen[1]!.body).toEqual({ subject: "series:out:acc-1:Esimerkkisähkö", mark: "cancelled" });
   });
 
+  it("asks a saved loan for its missing fact, opens that loan's own form and goes once the loan is saved", async () => {
+    const loan = { id: "loan-7", name: "Asuntolaina", lender: null, kind: "mortgage", grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: null, limitCents: null, seriesKey: null };
+    const other = { ...loan, id: "loan-8", name: "Toinen laina" };
+    const seen = stubApi({ "GET /api/loans": { loans: [other, loan] }, "PUT /api/loans/loan-7": { loan }, "PUT /api/marks": {} });
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on lainan korko?");
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina", "Älä muistuta tästä enää"]);
+    fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
+    // the form is the one of the loan the item names, not another saved loan
+    expect(await screen.findByDisplayValue("Asuntolaina", {}, T)).toBeTruthy();
+    expect(screen.queryByDisplayValue("Toinen laina")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-7")).toBe(true), T);
+  });
+
+  it("sets a saved loan's question aside with the mark of the item", async () => {
+    const seen = stubApi({ "PUT /api/marks": {} });
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "payment", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    fireEvent.click(screen.getByRole("button", { name: "Älä muistuta tästä enää" }));
+    await waitFor(() => expect(seen).toHaveLength(1), T);
+    expect(seen[0]!.body).toEqual({ subject: "question:loan-terms:loan-7", mark: "dismissed" });
+  });
+
   it("has the focus on the next question's heading in the same moment its text shows", async () => {
     stubApi({ "PUT /api/marks": {} });
     const items: ReviewItem[] = ["a", "b", "c"].map((id) => ({ id, kind: "mortgage", cents: 0 }));

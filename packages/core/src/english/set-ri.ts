@@ -74,4 +74,11 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.one_left": "1 question is left. It waits for next time.",
   "set.ri.n_left": "{left} questions are left. They wait for next time.",
   "set.ri.old_value": "The previous value {value}, given {date}, is too old. ",
+  "set.ri.loan_terms_repayment": "How do you pay this loan back?",
+  "set.ri.loan_terms_interval": "How often do you pay this loan?",
+  "set.ri.loan_terms_payment": "How much is the loan's payment?",
+  "set.ri.loan_terms_rate": "What is the loan's rate?",
+  "set.ri.loan_terms_end_date": "When is the loan's last due date?",
+  "set.ri.loan_terms_owed": "owed",
+  "set.ri.loan_terms_balance_date": "Balance on {date}",
 };

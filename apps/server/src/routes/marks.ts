@@ -1,5 +1,5 @@
 /** Marks on subscriptions, alerts, proposed loans and the questions the first page asks of the signed-in user. Own rows only. */
-import { type MarkKind, MORTGAGE_QUESTION, notLoanKey, parseBillDueSubject, parseLoanKindSubject, parsePlanSubject, parseUnresolvedSubject, QUESTION_PAYEE, seriesOfMarkSubject } from "@banking/core";
+import { type MarkKind, MORTGAGE_QUESTION, notLoanKey, parseBillDueSubject, parseLoanKindSubject, parseLoanTermsSubject, parsePlanSubject, parseUnresolvedSubject, QUESTION_PAYEE, seriesOfMarkSubject } from "@banking/core";
 import { Hono } from "hono";
 import { isoIn } from "../platform/config.ts";
 import { UserError } from "../platform/errors.ts";
@@ -19,7 +19,7 @@ const MARK_KINDS: readonly MarkKind[] = ["in_use", "cancelled", "dismissed"];
  * for a payee set aside from the list of what has no category, and `question:loan-kind:<kind>:<series key>` for what a
  * proposed loan is, `question:plan-end:<month>:<key>` or `question:plan-unknown:<key>` for where an instalment plan ends, and
  * `question:bill-due:<day>:<key>` for a bill that did not come and will still come, core bill-answer.ts, and
- * `question:unresolved:<reason>:<card id>` for a card of a notice about cards whose payer the rows do not show that was set aside, core unresolved-answer.ts): 1 to 200 characters after the prefix and no control
+ * `question:unresolved:<reason>:<card id>` for a card of a notice about cards whose payer the rows do not show that was set aside, core unresolved-answer.ts, and `question:loan-terms:<loan id>` for a saved loan whose missing term was set aside, core loan-terms-answer.ts): 1 to 200 characters after the prefix and no control
  * characters. A series key of the longest stored name is under 100: a direction, an account id of
  * at most 28 characters, a name of at most 40 (core `normalizeMerchant`) and a price.
  */
@@ -46,7 +46,7 @@ function parseSubject(value: unknown): string {
   // a bill that is no recurring bill is named by the key of its series too
   if (form === "not-recurring" && wrongBillKey(value) === null) throw new UserError("Virheellinen kohde.");
   // the other question the first page asks (a payee is taken above)
-  if (form === "question" && value !== MORTGAGE_QUESTION && parseLoanKindSubject(value) === null && parsePlanSubject(value) === null && parseBillDueSubject(value) === null && parseUnresolvedSubject(value) === null) throw new UserError("Virheellinen kohde.");
+  if (form === "question" && value !== MORTGAGE_QUESTION && parseLoanKindSubject(value) === null && parsePlanSubject(value) === null && parseBillDueSubject(value) === null && parseUnresolvedSubject(value) === null && parseLoanTermsSubject(value) === null) throw new UserError("Virheellinen kohde.");
   return value;
 }
 
@@ -82,6 +82,8 @@ export function marksRoutes(s: Services) {
       // a notice is set aside or taken back, nothing else, and the mark is written for one card: a subject of several cards is what earlier versions stored, still read and taken away but never written
       const unresolved = parseUnresolvedSubject(subject);
       if (mark !== null && unresolved !== null && (mark !== "dismissed" || unresolved.cardIds.length !== 1)) throw new UserError("Virheellinen merkintä.");
+      // a saved loan's missing term is set aside or taken back, nothing else
+      if (mark !== null && mark !== "dismissed" && parseLoanTermsSubject(subject) !== null) throw new UserError("Virheellinen merkintä.");
       // what a loan is, is told or taken back, nothing else
       if (mark !== null && mark !== "in_use" && (parseLoanKindSubject(subject) !== null || parsePlanSubject(subject) !== null || parseBillDueSubject(subject) !== null)) throw new UserError("Virheellinen merkintä.");
     }

@@ -7,7 +7,7 @@ import type { Loan } from "@banking/core";
 import { useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
-import { formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
+import { formOfLoan, formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
 import type { LoanFieldKey } from "../components/loans/labels.ts";
 import { editorHelp } from "../components/loans/proposal-words.ts";
 import { useApi } from "../hooks.ts";
@@ -146,6 +146,8 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
           </Button>
         </div>
       );
+    case "loan_terms":
+      return <LoanTermsChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
     case "mortgage":
       // adding the loan is done on its own page; the question goes once the loan is saved
       return (
@@ -159,6 +161,46 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
         </div>
       );
   }
+}
+
+/**
+ * A saved loan that lacks a fact: its own form, as Asetukset > Lainat edits it, opens here, and the item goes once the
+ * loan is saved. Älä muistuta tästä enää sets the question aside with the mark of the item.
+ */
+function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+  const [editing, setEditing] = useState(false);
+  const loans = useApi<{ loans: Loan[] }>(editing ? "/api/loans" : null);
+  const loan = loans.data?.loans.find((l) => l.id === item.loanId);
+  const waiting = editing && !loans.data && !loans.error;
+  if (editing && loans.data && loan) {
+    return (
+      <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans }}>
+        <div className="review-loan">
+          <LoanEditor
+            initial={formOfLoan(loan)}
+            today={meta.today}
+            cancelLabel={t("set.rc.cancel")}
+            onSave={async (body) => {
+              // the editor shows its own error; the page moves on only after the loan is saved
+              await loanCalls.replace(loan.id, body);
+              onAnswer(async () => undefined);
+            }}
+            onCancel={() => setEditing(false)}
+          />
+        </div>
+      </LoanLinks.Provider>
+    );
+  }
+  return (
+    <div className="review-choices">
+      <ChoiceButton busy={busy || waiting} onClick={() => setEditing(true)}>
+        <span>{t("set.rc.complete_the_loan")}</span>
+      </ChoiceButton>
+      <ChoiceButton busy={busy || waiting} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
+        <span>{t("set.rc.do_not_remind_of_this")}</span>
+      </ChoiceButton>
+    </div>
+  );
 }
 
 /**

@@ -76,4 +76,11 @@ export const FI_SET_RI = {
   "set.ri.one_left": "1 kysymys jäi seuraavaan kertaan.",
   "set.ri.n_left": "{left} kysymystä jäi seuraavaan kertaan.",
   "set.ri.old_value": "Edellinen tieto {value}, annettu {date}, on liian vanha. ",
+  "set.ri.loan_terms_repayment": "Miten maksat tämän lainan takaisin?",
+  "set.ri.loan_terms_interval": "Kuinka usein lyhennät tätä lainaa?",
+  "set.ri.loan_terms_payment": "Paljonko lainan maksuerä on?",
+  "set.ri.loan_terms_rate": "Mikä on lainan korko?",
+  "set.ri.loan_terms_end_date": "Milloin lainan viimeinen eräpäivä on?",
+  "set.ri.loan_terms_owed": "velkaa",
+  "set.ri.loan_terms_balance_date": "Saldo päivältä {date}",
 } as const;

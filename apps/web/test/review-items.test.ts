@@ -159,14 +159,33 @@ describe("the choices", () => {
 });
 
 describe("the kinds the page has a card for", () => {
-  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "balance", "card_balance", "consent", "bill", "row"];
+  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "loan_terms", "balance", "card_balance", "consent", "bill", "row"];
   const of = (kind: string) => ({ kind, id: kind, cents: 0 }) as unknown as ReviewItem;
 
-  it("are the thirteen that stay: a number for the removed tips page is not one of them", () => {
+  it("are the fourteen that stay: a number for the removed tips page is not one of them", () => {
     expect(openItems(KINDS.map(of), NEW_SITTING).map((i) => i.kind)).toEqual(KINDS);
     // an older server may still send the question: it gets no card and is not counted
     expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
     expect(sittingView([of("input")], NEW_SITTING)).toEqual({ state: "empty" });
+  });
+});
+
+describe("a saved loan that lacks a fact", () => {
+  const loan = { kind: "loan_terms", id: "loan_terms:l1", cents: 0, loanId: "l1", name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:l1" } as unknown as ReviewItem;
+  it("is named by the loan and asks for the one fact it lacks", () => {
+    const asked = (missing: string) => questionOf({ ...loan, missing } as ReviewItem);
+    expect([eyebrow(loan), nameOf(loan)]).toEqual(["Laina", "Asuntolaina"]);
+    expect(["repayment", "interval", "payment", "rate", "end_date"].map(asked)).toEqual([
+      "Miten maksat tämän lainan takaisin?",
+      "Kuinka usein lyhennät tätä lainaa?",
+      "Paljonko lainan maksuerä on?",
+      "Mikä on lainan korko?",
+      "Milloin lainan viimeinen eräpäivä on?",
+    ]);
+  });
+  it("shows what the loan owes and the day of that balance", () => {
+    const f = figureOf(loan);
+    expect([f.text.replace(/\s/g, " "), f.unit, f.line]).toEqual(["150 000,00 €".replace(/\s/g, " "), "velkaa", "Saldo päivältä 1.10."]);
   });
 });
 
