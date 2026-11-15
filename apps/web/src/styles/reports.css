@@ -1,21 +1,15 @@
 /* Reports page: section nav, key figures, pivot and heat tables. */
 
 @layer pages {
-/* the frame of the question pages (pages/reports/Frame.tsx): the list of questions beside the open one; a phone folds the list behind a button */
+/* the frame of the question pages (pages/reports/Frame.tsx): the list of questions beside the open one; a phone shows it as two columns of targets above the page */
 .q-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); }
 .q-list { list-style: none; margin: 0; padding: 0; }
 .q-rail { display: grid; gap: var(--sp-8); align-content: start; }
-.q-rail .q-list { display: none; }
-.q-rail.open .q-list { display: block; }
-.q-list a { display: block; padding: var(--sp-8) var(--sp-12); border-left: var(--tick) solid transparent; color: var(--text); text-decoration: none; font-weight: 600; }
+.q-rail .q-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); }
+.q-list a { display: flex; align-items: center; block-size: 100%; min-block-size: var(--tap-min); padding: var(--sp-8) var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); border-left: var(--tick) solid transparent; color: var(--text); text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
 .q-list a:hover { background: var(--surface-2); }
 .q-list a[aria-current="page"] { border-left-color: var(--accent); background: var(--surface-2); }
-@media (pointer: coarse) { .q-list a { padding-block: var(--sp-12); } }
 .q-list small { display: block; margin-top: var(--sp-4); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
-/* the caret says the name opens a list: without it the button reads as a second heading */
-.q-switch::after { content: ""; display: inline-block; margin-left: var(--sp-8); border: var(--sp-4) solid transparent; border-top-color: currentColor; border-bottom-width: 0; vertical-align: middle; }
-.q-switch[aria-expanded="true"]::after { transform: rotate(180deg); }
-.q-switch { justify-self: start; min-height: var(--control-h); padding: 0 var(--sp-12); border: var(--hairline) solid var(--border); border-radius: var(--radius-m); background: var(--surface); color: var(--text); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
 .q-page { min-width: 0; }
 .q-head { display: grid; gap: var(--sp-12); }
 .q-title { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
@@ -41,7 +35,7 @@
 @media (min-width: 900px) {
   .q-frame { grid-template-columns: var(--rail-w) minmax(0, 1fr); gap: var(--sp-24); }
   .q-rail .q-list { display: block; }
-  .q-switch { display: none; }
+  .q-list a { block-size: auto; border: 0; border-left: var(--tick) solid transparent; border-radius: 0; }
 }
 /* the readouts: five across at most (a cell is a fifth of the row, 184 px at least so a sum with its share fits), two across on a phone */
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(184px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }

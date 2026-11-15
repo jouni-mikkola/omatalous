@@ -1,0 +1,21 @@
+/* The category bars of Raportit (charts/forms/CategoryBars.tsx): a row a category, its name and sum on one line, the bar
+   under them on the scale of the largest, and the newest month against the usual one beside the bar. */
+
+@layer components {
+.category-bars { margin-block-end: var(--sp-24); }
+.cb-head { margin: 0 0 var(--sp-4); text-align: end; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.cb-list { margin: 0; padding: 0; list-style: none; }
+.cb-list li { border-block-end: var(--hairline) solid var(--grid); }
+.cb-list li:last-child { border-block-end: 0; }
+.cb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-4) var(--sp-16); inline-size: 100%; min-block-size: var(--tap-min); padding: var(--sp-8) var(--sp-4); border: 0; background: none; color: var(--text); font: inherit; text-align: start; cursor: pointer; }
+.cb-row:hover { background: var(--control-hover); }
+.cb-row[aria-pressed="true"] { background: var(--well); box-shadow: inset var(--tick) 0 0 var(--role-spending); }
+.cb-name { min-inline-size: 0; overflow-wrap: anywhere; font-size: var(--fs-body); }
+.cb-sum { font-size: var(--fs-body); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-align: end; }
+.cb-track { display: block; block-size: var(--bar-h); background: var(--grid); border-radius: var(--radius-s); overflow: hidden; }
+.cb-track > span { display: block; block-size: 100%; background: var(--role-spending); }
+.cb-diff { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; text-align: end; color: var(--text-2); }
+.cb-diff[data-dir="up"] { color: var(--bad); }
+.cb-diff[data-dir="down"] { color: var(--good); }
+.cb-row:not(:has(.cb-diff)) .cb-track { grid-column: 1 / -1; }
+}

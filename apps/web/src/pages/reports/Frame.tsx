@@ -1,6 +1,6 @@
 // Decision: which report to open
 import type { QuestionId } from "@banking/core";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
 import { query } from "../../api.ts";
 import { t } from "../../text.ts";
 import type { ReportPage } from "./types.ts";
@@ -11,20 +11,15 @@ export const reportHref = (id: QuestionId, period: string | null): string => `#/
 
 /**
  * The list of reports, on every report page: each page that has something to show by its name, the
- * open one marked. On a phone it folds behind a button that says which report is open.
+ * open one marked. It stands open at every width: a column beside the page, and two columns of targets above it on a phone.
  */
 function ReportList({ pages, current, params }: { pages: readonly ReportPage[]; current: QuestionId; params: URLSearchParams }) {
-  const [open, setOpen] = useState(false);
-  const name = pages.find((p) => p.id === current)?.title;
   return (
-    <nav className={open ? "q-rail open" : "q-rail"} aria-label={t("nav.reports")}>
-      <button type="button" className="q-switch" aria-expanded={open} aria-controls="q-list" onClick={() => setOpen(!open)}>
-        {name ?? t("nav.reports")}
-      </button>
-      <ol id="q-list" className="q-list">
+    <nav className="q-rail" aria-label={t("nav.reports")}>
+      <ol className="q-list">
         {pages.map((p) => (
           <li key={p.id}>
-            <a href={reportHref(p.id, params.get("period"))} aria-current={p.id === current ? "page" : undefined} onClick={() => setOpen(false)}>
+            <a href={reportHref(p.id, params.get("period"))} aria-current={p.id === current ? "page" : undefined}>
               {p.title}
             </a>
           </li>

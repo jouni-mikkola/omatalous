@@ -1,5 +1,6 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
 import { monthEnd } from "@banking/core";
+import { CategoryBars } from "../../../charts/forms/CategoryBars.tsx";
 import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { KeyValue } from "../../../components/table/KeyValue.tsx";
@@ -84,14 +85,21 @@ function SpendingMonths({ ctx }: SectionProps) {
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
       <ChartWithTable
         chart={
-          <MonthColumns
-            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!], totalCents: r.totals[i]! }))}
-            series={[{ key: "spend", label: t("home.months_spend") }]}
-            tone="spending"
-            usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
-            running={ctx.running}
-            label={t("rpt.sm_months")}
-          />
+          <>
+            <CategoryBars
+              bars={r.categories.map((c) => ({ key: c.category, label: c.label, cents: c.totalCents, diffCents: usual && last ? c.lastDiffCents : null }))}
+              diffLabel={t("rpt.sm_last", { month: last ? monthLong(last) : "" })}
+              label={section.title}
+            />
+            <MonthColumns
+              months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!], totalCents: r.totals[i]! }))}
+              series={[{ key: "spend", label: t("home.months_spend") }]}
+              tone="spending"
+              usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
+              running={ctx.running}
+              label={t("rpt.sm_months")}
+            />
+          </>
         }
         table={
           <>
