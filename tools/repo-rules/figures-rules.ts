@@ -1,12 +1,15 @@
-/** Rules 37, 38 and 39. The detectors are in figures.ts, whose unit tests do not register the rules a second time. */
+/** Rules 37, 38, 39, 51 and 52. The detectors are in figures.ts, whose unit tests do not register the rules a second time. */
 import { describe, it } from "vitest";
 import { FIGURES } from "../../packages/core/src/figures.ts";
 import { type Finding, expectNoFindings, lineIn, parse, readText, repoFiles, sourceFiles } from "./lib.ts";
-import { figureProblems, looseLimits, ownLevels } from "./figures.ts";
+import { figureProblems, figureWords, looseLimits, ownLevels, partWholeReads, shapeProblems, wordProblems } from "./figures.ts";
 
 const REGISTRY = "packages/core/src/figures.ts";
 const BASELINE = "tools/repo-rules/limits-baseline.txt";
 const LEVELS_BASELINE = "tools/repo-rules/levels-baseline.txt";
+const WORDS_BASELINE = "tools/repo-rules/figure-words-baseline.txt";
+const PART_WHOLE_BASELINE = "tools/repo-rules/part-whole-baseline.txt";
+const MONEY_FLOWS = "docs/MONEY_FLOWS.md";
 /** Where a limit must come from thresholds.ts. */
 const LIMIT_DIRS = ["packages/core/src/analysis/", "packages/core/src/reports/"];
 
@@ -48,5 +51,32 @@ describe("repo rules: figures and limits", () => {
     }
     for (const key of baseline) if (!seen.has(key)) found.push({ file: LEVELS_BASELINE, line: lineIn(LEVELS_BASELINE, key), why: `no longer takes its own level, delete the line: ${key}` });
     expectNoFindings("levels", found, "call expectedLevel or the figure of analysis/expected.ts. Do not add the file to the baseline.");
+  });
+});
+
+describe("repo rules: the one definition of a figure (ADR 0020)", () => {
+  it("rule 51: every figure of the registry says its scope, whether it is additive and its one function, and every figure word of docs/MONEY_FLOWS.md is in the registry (the baseline only shrinks)", () => {
+    const found: Finding[] = shapeProblems(FIGURES).map((p) => ({ file: REGISTRY, line: lineIn(REGISTRY, `  ${p.id}: {`), why: `${p.id}: ${p.why}` }));
+    const words = figureWords(readText(MONEY_FLOWS));
+    expect(words.length, "the table of docs/MONEY_FLOWS.md has its figure words").toBeGreaterThan(10);
+    const names = new Set(Object.values(FIGURES).map((f) => f.name.toLowerCase()));
+    const baseline = readText(WORDS_BASELINE).split("\n").filter(Boolean);
+    for (const p of wordProblems(words, names, baseline)) found.push({ file: p.where === "doc" ? MONEY_FLOWS : WORDS_BASELINE, line: p.line, why: p.why });
+    expectNoFindings("figure definitions", found, `give the entry its scope, additive and source.fn in ${REGISTRY}. A word of the table is a figure of the registry, and a word that is not yet one goes on the baseline only when it is no figure at all.`);
+  });
+
+  it("rule 52: no new file reads paymentCents or wholeCents, the whole of a bank's payment or of a row beside the viewer's part (the baseline only shrinks)", () => {
+    const baseline = new Set(readText(PART_WHOLE_BASELINE).split("\n").filter(Boolean));
+    const seen = new Set<string>();
+    const found: Finding[] = [];
+    for (const file of sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/")) {
+      for (const { name, line } of partWholeReads(parse(file))) {
+        const key = `${file}  ${name}`;
+        seen.add(key);
+        if (!baseline.has(key)) found.push({ file, line, why: `reads ${name}: the whole beside the viewer's part. A figure of a shared loan or account is the part (monthlyCents, partCents), and the whole only names the loan or the row` });
+      }
+    }
+    for (const key of baseline) if (!seen.has(key)) found.push({ file: PART_WHOLE_BASELINE, line: lineIn(PART_WHOLE_BASELINE, key), why: `no longer reads the field, delete the line: ${key}` });
+    expectNoFindings("part and whole", found, "read the part of the figure and leave the whole to the code that names the loan or the row (ADR 0016). Do not add the file to the baseline.");
   });
 });

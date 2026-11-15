@@ -12,9 +12,10 @@ import { spendTotals } from "../src/analysis/context.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
-import { completeMonthsBefore } from "../src/analysis/usual.ts";
+import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { explain } from "../src/explain/explain.ts";
+import { explainLoan } from "../src/explain/loans.ts";
 import { explainNow } from "../src/explain/now.ts";
 import { FIGURES } from "../src/figures.ts";
 import { USUAL_MONTHS } from "../src/thresholds.ts";
@@ -152,10 +153,35 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const month = monthOfRange(h);
     return { usual: expectedSpending(ctx, month), explain: explain("expected.spend", ctx, { view: "own", range: lastMonth(h) }).cents, buffer: month === monthOf(h.today) ? bufferReport(ctx, h.balances, h.inputs).expectedSpendCents : expectedSpending(ctx, month) };
   },
-  expectedIncome: (h) => {
+  income: (h) => {
+    const ctx = contextOf(h);
+    const range = lastMonth(h);
+    return {
+      dashboard: buildDashboard(ctx, range, h.balances, h.inputs).totals.incomeCents,
+      cashflow: cashflowReport(ctx, range).totals.incomeCents,
+      explain: explain("income.month", ctx, { view: "own", range }).cents,
+    };
+  },
+  earnedIncome: (h) => {
     const ctx = contextOf(h);
     const month = monthOf(h.today);
-    return { usual: expectedIncome(ctx, month), buffer: bufferReport(ctx, h.balances, h.inputs).incomeMonthlyCents };
+    const range = running(h);
+    return {
+      tile: buildDashboard(ctx, range, h.balances, h.inputs).overview.income.cents,
+      report: incomeReport(ctx, range, h.balances).months.find((m) => m.month === month)?.earnedCents ?? null,
+      helper: earnedIncome(ctx, month),
+      explain: explain("income.earned", ctx, { view: "own", range }).cents,
+    };
+  },
+  usualIncome: (h) => {
+    const ctx = contextOf(h);
+    const month = monthOf(h.today);
+    return {
+      usual: expectedIncome(ctx, month),
+      buffer: bufferReport(ctx, h.balances, h.inputs).incomeMonthlyCents,
+      tile: buildDashboard(ctx, running(h), h.balances, h.inputs).overview.income.usualCents,
+      report: incomeReport(ctx, running(h), h.balances).months.find((m) => m.month === month)?.usualCents ?? null,
+    };
   },
   regularIncome: (h) => {
     const ctx = contextOf(h);
@@ -186,6 +212,17 @@ const ANSWERS: Record<FigureKey, Answers> = {
       holdings: buildHoldings(ctx, h.balances, h.inputs).accountsCents,
       dashboard: buildDashboard(ctx, running(h), h.balances, h.inputs).holdings.accountsCents,
       buffer: bufferReport(ctx, h.balances, h.inputs).cashCents,
+    };
+  },
+  loanMonthly: (h) => {
+    const ctx = contextOf(h);
+    // the instalments of every loan of the view added up; a loan without a counted payment adds nothing
+    const monthly = (loans: readonly { monthlyPaymentCents: number | null }[]) => loans.reduce((sum, l) => sum + (l.monthlyPaymentCents ?? 0), 0);
+    const holdings = buildHoldings(ctx, h.balances, h.inputs);
+    return {
+      holdings: monthly(holdings.loans),
+      dashboard: monthly(buildDashboard(ctx, running(h), h.balances, h.inputs).holdings.loans),
+      explain: holdings.loans.reduce((sum, l) => sum + (explainLoan("loan.monthly", ctx, h.balances, h.inputs, l.id)?.explanation.cents ?? 0), 0),
     };
   },
   periodLeft: (h) => {
@@ -226,7 +263,7 @@ describe("the figure registry", () => {
       const ctx = contextOf(h);
       const before = completeMonthsBefore(ctx, monthOf(h.today));
       expect(before.length, h.name).toBeLessThanOrEqual(USUAL_MONTHS);
-      // Säännölliset tulot reads the same months as Odotetut tulot and Tavallinen
+      // Säännölliset tulot reads the same months as Tavalliset tulot and Tavallinen
       expect(regularIncomeMonths(ctx, running(h)).map((m) => m.month), h.name).toEqual(before);
     }
   });
