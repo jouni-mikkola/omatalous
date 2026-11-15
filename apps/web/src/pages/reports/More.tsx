@@ -55,17 +55,6 @@ export function questionOf(open: readonly QuestionId[], asked: string | null, an
   return byAnchor ?? open.find((id) => id === asked) ?? open[0] ?? QUESTIONS[0];
 }
 
-/**
- * The line above a page opened in place of the one the address asked for, which has nothing to show (an old link or a bookmark).
- * Without it the address says one report and the page shows another.
- */
-export function askedNote(asked: string | null, shown: QuestionId): string | undefined {
-  if (!asked || asked === shown) return undefined;
-  if (asked === "yhteiset") return t("rpt.q_not_open");
-  const name = REPORT_PAGES.some((p) => p.id === asked) ? reportPage(asked as QuestionId).title : undefined;
-  return name ? t("rpt.q_empty", { name }) : undefined;
-}
-
 type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void };
 
 /** Every page's reports are asked for at once, so a switch of report needs no new answer. */
@@ -99,7 +88,7 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} pages={listedPages(questions)} params={open} note={askedNote(open.get("q"), page.id)}>
+      <Frame current={page.id} title={page.title} pages={listedPages(questions)} params={open}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

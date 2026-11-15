@@ -75,7 +75,7 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.fc_ended_datum": "{amount} a month freed",
   "rpt.fc_ended_caption": "Payments that ended recently",
   "rpt.fc_last": "Last payment",
-  "rpt.fc_share": "{label}: {share} (income {income} a month).",
+  "rpt.fc_income_base": "Income a month",
   "rpt.fc_empty": "No recurring payments found yet.",
   "rpt.fc_paid": "{name}: payments of the last 12 months",
   "rpt.month": "Month",

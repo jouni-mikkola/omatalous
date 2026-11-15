@@ -1,6 +1,10 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
 import { monthEnd } from "@banking/core";
+import { CategoryBars } from "../../../charts/forms/CategoryBars.tsx";
+import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { KeyValue } from "../../../components/table/KeyValue.tsx";
+import { ChartWithTable, OutsideFilter } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { money, monthLong, signedMoney } from "../../../format.ts";
@@ -12,7 +16,7 @@ import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["spendingMonths"];
 type Row = Report["categories"][number];
-type MonthRow = { month: string; cents: number; complete: boolean };
+type MonthRow = { month: string; cents: number; complete: boolean; savingsCents?: number };
 type PayeeRow = Row["payees"][number] & { rest?: boolean };
 
 const eur = (cents: number) => money(cents, false);
@@ -42,8 +46,7 @@ function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
   const payees: PayeeRow[] = row.otherPayeesCents > 0 ? [...row.payees, { name: "\u0000rest", cents: row.otherPayeesCents, count: 0, rest: true }] : row.payees;
   return (
     <div className="sm-detail">
-      {row.statementCents > 0 && <p className="muted">{t("rpt.sm_statement", { amount: money(row.statementCents, true) })}</p>}
-      {row.lowered && <p className="muted">{t("rpt.sm_lowered")}</p>}
+      {row.statementCents !== 0 && <KeyValue items={[[t("rpt.sm_statement_part"), eur(row.statementCents)]]} />}
       <Table<MonthRow> caption={t("rpt.sm_months_of", { name: row.label })} rows={months} rowKey={(m) => m.month} columns={monthColumns} toolbar={false} csv={false} />
       <Table<PayeeRow>
         caption={t("rpt.sm_payees_of", { name: row.label })}
@@ -80,30 +83,57 @@ function SpendingMonths({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
+      <ChartWithTable
+        chart={
+          <>
+            <CategoryBars
+              bars={r.categories.map((c) => ({ key: c.category, label: c.label, cents: c.totalCents, diffCents: usual && last ? c.lastDiffCents : null }))}
+              diffLabel={t("rpt.sm_last", { month: last ? monthLong(last) : "" })}
+              label={section.title}
+            />
+            <MonthColumns
+              months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!], totalCents: r.totals[i]! }))}
+              series={[{ key: "spend", label: t("home.months_spend") }]}
+              tone="spending"
+              usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
+              running={ctx.running}
+              label={t("rpt.sm_months")}
+            />
+          </>
+        }
+        table={
+          <>
       <Table<Row>
         caption={section.title}
         rows={r.categories}
         rowKey={(c) => c.category}
         columns={columns}
-        drill={(c) => <Detail row={c} r={r} ctx={ctx} />}
+        drill={(c) => (
+          <OutsideFilter>
+            <Detail row={c} r={r} ctx={ctx} />
+          </OutsideFilter>
+        )}
         drillLabel={(c) => c.label}
         total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents), ...(footTypical ? { typical: footTypical } : {}) } }}
         search={false}
       />
-      {r.fromSavingsCents !== 0 && <p className="muted">{t("rpt.sm_from_savings", { amount: eur(r.fromSavingsCents) })}</p>}
       <Table<MonthRow>
         caption={t("rpt.sm_months")}
         captionVisible
         className="sm-months"
-        rows={r.months.map((month, i) => ({ month, cents: r.totals[i]!, complete: r.complete[i]! }))}
+        rows={r.months.map((month, i) => ({ month, cents: r.totals[i]!, complete: r.complete[i]!, savingsCents: r.fromSavings[i]! }))}
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents, bar: { tone: "spending", value: (m) => m.cents, max: Math.max(1, ...r.totals) } },
+          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
+          ...(r.fromSavingsCents !== 0 ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? 0 }] satisfies Column<MonthRow>[]) : []),
         ]}
         total={r.typicalCents !== null ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents) } } : undefined}
         toolbar={false}
         csv={false}
+      />
+          </>
+        }
       />
     </ReportPanel>
   );

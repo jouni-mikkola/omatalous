@@ -9,6 +9,7 @@ import { CADENCE_LABEL, date, money, percent, seriesName } from "../../../format
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
+import { css } from "../../../css.ts";
 
 type Report = ReportsData["fixedCosts"];
 type Row = Report["rows"][number];
@@ -67,6 +68,25 @@ function Detail({ row, name }: { row: Row; name: string }) {
   );
 }
 
+/** The fixed costs against the income they are measured on: one bar that is the share, the income it is of beside it. */
+function FixedShare({ label, share, incomeCents }: { label: string; share: number; incomeCents: number }) {
+  return (
+    <div className="fc-share">
+      <div className="fc-share-head">
+        <span>{label}</span>
+        <strong>{percent(share)}</strong>
+      </div>
+      <div className="fc-share-track" role="img" aria-label={`${label}: ${percent(share)}`}>
+        <span ref={css({ width: `${(Math.min(1, Math.max(0, share)) * 100).toFixed(1)}%` })} />
+      </div>
+      <div className="fc-share-base">
+        <span>{t("rpt.fc_income_base")}</span>
+        <strong>{money(incomeCents, false)}</strong>
+      </div>
+    </div>
+  );
+}
+
 function FixedCosts({ ctx }: SectionProps) {
   const r = ctx.data.fixedCosts;
   if (!r.rows.length) {
@@ -87,7 +107,7 @@ function FixedCosts({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={t("rpt.fc_datum", { month: money(r.monthlyCents, false), year: money(r.yearlyCents, false) })}>
-      {r.fixedShare !== null && r.incomeMonthlyCents !== null && <p className="muted">{t("rpt.fc_share", { label: r.fixedShareLabel, share: percent(r.fixedShare), income: money(r.incomeMonthlyCents, false) })}</p>}
+      {r.fixedShare !== null && r.incomeMonthlyCents !== null && <FixedShare label={r.fixedShareLabel} share={r.fixedShare} incomeCents={r.incomeMonthlyCents} />}
       <Table<Row>
         caption={t("rpt.fc_calc_caption")}
         rows={r.rows}

@@ -3,14 +3,13 @@ import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { inSpan } from "../parts.tsx";
 import { money } from "../../../format.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { rich, t } from "../../../text.ts";
+import { t } from "../../../text.ts";
 
 function Borrowed({ ctx }: SectionProps) {
   const drawn = ctx.data.categories.creditDrawnCents;
   const rows = `#/transactions?category=credit_draw&from=${ctx.range.from}&to=${ctx.range.to}`;
   return (
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, money(drawn, false))}>
-      <p>{rich("rpt.borrowed_text", { amount: money(drawn, false) })}</p>
       <a href={rows}>{t("rpt.borrowed_link")}</a>
     </ReportPanel>
   );

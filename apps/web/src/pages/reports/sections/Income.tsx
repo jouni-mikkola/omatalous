@@ -1,5 +1,7 @@
 // Decision: whether the income holds: what came in over the period, from which kind of income, which payer and which payments, and in which months
+import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { date, money } from "../../../format.ts";
@@ -49,6 +51,19 @@ function Income({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={money(r.totalCents)}>
+      <ChartWithTable
+        chart={
+          <MonthColumns
+            months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents }))}
+            series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
+            tone="income"
+            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: t("home.months_usual", { sum: money(r.monthlyCents, false), months: r.completeMonths }) }}
+            running={ctx.running}
+            label={t("rpt.in_months")}
+          />
+        }
+        table={
+          <>
       <Table<Row>
         caption={t("rpt.in_types")}
         rows={r.types}
@@ -69,9 +84,12 @@ function Income({ ctx }: SectionProps) {
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running), csv: (m) => monthName(m, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents, bar: { tone: "income", value: (m) => m.totalCents, max: Math.max(1, ...r.months.map((m) => m.totalCents)) } },
+          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
         ]}
         search={false}
+      />
+          </>
+        }
       />
     </ReportPanel>
   );

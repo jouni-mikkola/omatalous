@@ -16,7 +16,7 @@ const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 describe("Raportit: Nostettu luotto", () => {
   it("tells the credit drawn and is quiet without a draw", () => {
     const flow = (creditDrawnCents: number) => ({ categories: { creditDrawnCents } });
-    expect(plain(html(borrowed, context(flow(50_000))))).toContain("Nostettu luotto ei ole tuloa");
+    expect(plain(html(borrowed, context(flow(50_000))))).toContain("Näytä nostot");
     expect(borrowed.visible?.(context(flow(0)))).toBe(false);
   });
 });
