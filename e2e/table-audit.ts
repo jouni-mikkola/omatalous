@@ -142,7 +142,16 @@ export async function auditTables(page: Page, width: number, touch = width < 600
   const wide = await overflow(page);
   if (wide > 0) {
     const past = await page.evaluate(() => {
-      const hit = Array.from(document.querySelectorAll("body *")).filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 0.25 || e.scrollWidth > e.clientWidth + 0.5);
+      // hide each element in turn: the ones whose absence narrows the page are what widens it
+      const root = document.documentElement;
+      const before = root.scrollWidth;
+      const hit = Array.from(document.querySelectorAll<HTMLElement>("body *")).filter((e) => {
+        const was = e.style.display;
+        e.style.display = "none";
+        const narrower = root.scrollWidth < before;
+        e.style.display = was;
+        return narrower;
+      });
       return hit
         .filter((e) => !hit.some((o) => o !== e && e.contains(o)))
         .slice(0, 12)
