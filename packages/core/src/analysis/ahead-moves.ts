@@ -29,7 +29,7 @@ const MIN_BILL_GAP_DAYS = 15;
 /** A bill this many days late is still expected, on the first day of the window. A later one did not come. */
 const LATE_DAYS = 5;
 /** No bill for this long after the last one: two bill days went by, so the card is not in use or is paid from elsewhere. */
-const STALE_DAYS = 62;
+export const STALE_DAYS = 62;
 /** The days between two monthly bills, a bill paid early or late included. Payments closer than this pay the card as it goes. */
 const STATEMENT_GAP_DAYS = { min: 21, max: 41 } as const;
 

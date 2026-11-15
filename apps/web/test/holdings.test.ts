@@ -218,9 +218,9 @@ describe("Holdings", () => {
       expect(foot(answer({ loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
     });
 
-    it("is the debt total core gives, also when a loan has no balance and is not in it", () => {
-      const markup = foot(answer({ cards: [owing(50_000)], loans: [loan({ leftCents: null })], debtCents: 50_000 }));
-      expect(markup.foot).toContain("Velat yhteensä 500,00 €");
+    it("is the debt total core gives, a dash when core cannot tell it because a loan has no balance on the day", () => {
+      const markup = foot(answer({ cards: [owing(50_000)], loans: [loan({ leftCents: null })], debtCents: null }));
+      expect(markup.foot).toContain("Velat yhteensä –");
       expect(text(markup.groups)).not.toContain("Lainat yhteensä");
     });
   });

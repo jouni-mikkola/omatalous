@@ -1069,27 +1069,27 @@
     "linkedAccount": null,
     "balance": {
      "cents": 63077,
-     "unknown": "repayment"
+     "unknown": null
     },
     "balanceDate": "2026-10-15",
-    "rateBp": null,
+    "rateBp": 0,
     "reference": null,
-    "repayment": null,
+    "repayment": "bullet",
     "payment": {
      "cents": null,
      "interestCents": null,
      "amortisationCents": null,
      "intervalMonths": null,
      "date": null,
-     "unknown": "repayment"
+     "unknown": null
     },
     "interest": {
-     "cents": null,
-     "unknown": "rate"
+     "cents": 0,
+     "unknown": null
     },
     "payoff": {
-     "date": null,
-     "unknown": "repayment",
+     "date": "2026-11-10",
+     "unknown": null,
      "never": false
     },
     "scenarios": []
@@ -1097,34 +1097,41 @@
   ],
   "total": {
    "cents": 63077,
-   "unknown": [
-    {
-     "loanId": "account:card",
-     "unknown": "repayment",
-     "counted": true
-    }
-   ]
+   "unknown": []
   },
   "totalKnown": true,
   "interest": {
    "cents": 0,
-   "unknown": [
-    {
-     "loanId": "account:card",
-     "unknown": "rate",
-     "counted": false
-    }
-   ]
+   "unknown": []
   },
-  "interestKnown": false,
-  "withoutRate": 1,
+  "interestKnown": true,
+  "withoutRate": 0,
   "payments": {
    "monthlyCents": 0,
    "counted": 0,
-   "unknown": 1,
-   "bullets": 0
+   "unknown": 0,
+   "bullets": 1
   },
-  "path": null,
+  "path": {
+   "days": [
+    "2026-10-15",
+    "2026-11-15"
+   ],
+   "balanceCents": [
+    63077,
+    0
+   ],
+   "interestCents": [
+    0,
+    0
+   ],
+   "tops": [
+    63077,
+    0
+   ],
+   "payoff": "2026-11-10",
+   "moves": []
+  },
   "maybeTwice": [],
   "overdraftTwice": []
  },

@@ -14,6 +14,7 @@
  */
 import { isUntold } from "./account-use.ts";
 import { balanceWalk } from "./analysis/balance-walk.ts";
+import { debtsOf } from "./analysis/card-settled.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
@@ -140,8 +141,8 @@ export interface Holdings {
   })[];
   /** The known `leftCents` of `loans` added once; a loan without a balance is not in it, as it is not in `debtCents`. Null when no loan has one. */
   loansCents: number | null;
-  /** What the household owes in all, the one debt total of `householdDebts`: the cards' `usedCents` and the loans' `leftCents` add up to it, to the cent. 0 without debt. */
-  debtCents: number;
+  /** What the household owes in all, the one debt total of `householdDebts`: the cards' `usedCents` and the loans' `leftCents` add up to it, to the cent. 0 without debt. Null when a loan's balance is not known on the day, as Lainat tells it: the total of a part is no total. */
+  debtCents: number | null;
   /** `accountsCents` less `debtCents`: what the household has net, the head figure of Varat ja velat. Null when `accountsCents` is. */
   netCents: number | null;
   /** The loans the rows show and nobody saved, which `debtCents` cannot hold: told beside it ("Lainoja, joiden saldo puuttuu: N (X €/kk)"). Left out with none. */
@@ -169,7 +170,7 @@ const PAID_QUIET_DAYS = 90;
 /** The holdings on the context's today, from the accounts in view, the user's saved loans and the loans the rows show unsaved (`loanProposals`). */
 export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): Holdings {
   const day: IsoDate = ctx.today;
-  const debts = householdDebts(balances, inputs, day);
+  const debts = debtsOf(ctx, balances, inputs);
 
   const numberOf = new Map(ctx.accounts.map((a) => [a.id, a.iban]));
   const accounts = balances.flatMap((b): Holdings["accounts"] =>
@@ -221,7 +222,7 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     cardsCents: sumKnown(cards.map((c) => c.usedCents)),
     loans,
     loansCents: sumKnown(loans.map((l) => l.leftCents)),
-    debtCents: debts.total.cents,
+    debtCents: debts.totalKnown ? debts.total.cents : null,
     ...unsaved,
   };
 }

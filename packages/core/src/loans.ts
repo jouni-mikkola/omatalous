@@ -22,7 +22,7 @@
  * Money flows do not read this file: an instalment is debt whether or not its loan is known.
  */
 import { partCents } from "./account-use.ts";
-import { addMonthsToDate, daysBetween } from "./dates.ts";
+import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, type Payment, payments, planOf } from "./loan-plan.ts";
 import type { Account, IsoDate, Loan, LoanReference, UserInputs } from "./types.ts";
@@ -200,6 +200,14 @@ export function creditAccountLoan(
     limitCents: account.creditLimitCents ?? null,
     seriesKey: null,
   };
+}
+
+/**
+ * A card whose statement is paid in full, as a loan: no interest, and the whole balance falls due on the day the
+ * statement is paid (`payDay`, at the earliest the day after the balance). It has no payment before then, as a bullet.
+ */
+export function settledCardLoan(card: Loan, payDay: IsoDate): Loan {
+  return { ...card, rateBp: 0, repayment: "bullet", endDate: payDay > card.balanceDate ? payDay : addDays(card.balanceDate, 1) };
 }
 
 function sumOf(loans: readonly Debt[], figure: (loan: Debt) => LoanFigure): DebtFigure {

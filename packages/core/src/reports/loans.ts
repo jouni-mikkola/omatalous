@@ -7,9 +7,10 @@
  * figure of a loan is `loans.ts`'s (ADR 0004). This file lays the figures side by side, with the debts that may be
  * in a figure twice because no link says they are one (`maybeTwice` and `overdraftTwice` of `household-debts.ts`).
  */
+import { debtsOf } from "../analysis/card-settled.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
-import { householdDebts, type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
+import { type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
 import {
   type DebtFigure,
   type DebtPayments,
@@ -115,8 +116,8 @@ export interface LoansReport {
 }
 
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
-export function loansReport(ctx: Pick<AnalysisContext, "today">, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
-  const debts = householdDebts(balances, inputs, ctx.today);
+export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
+  const debts = debtsOf(ctx, balances, inputs);
   const { day } = debts;
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const sourceOf = new Map(debts.sources.map((s) => [s.loanId, s]));

@@ -116,6 +116,8 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   // the card owes and has no rate, so the household's interest has no figure: the mortgage's own is in its row
   expect(tiles[1]).toBe("Korot seuraavan 12 kuukauden aikana (arvio) –");
   expect(tiles[2]).toBe("Maksut kuussa 1 000 €");
+  // and no path of the debts is drawn while a debt that owes cannot be projected
+  await expect(section.locator("#lainat-polku")).toHaveCount(0);
   // a figure the card lacks is a dash in its row, and no sentence tells which loans a sum leaves out
   await expect(section.locator(".loans-notes")).toHaveCount(0);
   await expect(section).not.toContainText(/puuttuu|ei tiedossa/);

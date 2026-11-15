@@ -299,7 +299,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
             <div className="st-row">
               <dt className="st-name st-strong">{t("holdings.debts_total")}</dt>
               <dd className="st-num st-strong">
-                {money(debtCents)}
+                {figure(debtCents)}
               </dd>
             </div>
           )}
