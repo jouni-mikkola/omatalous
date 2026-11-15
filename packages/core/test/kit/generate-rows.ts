@@ -172,8 +172,11 @@ function eventRows(plan: Plan, m: string, put: Put, pair: Pair): void {
   }
   if (has(plan, "payment-app")) {
     const plain = { kind: "business", flow: "consumption", member: me, event: "payment-app" } as const;
-    put({ date: f.on(m, 9), cents: -2400, counterparty: "MOBILEPAY KAHVILA SIPULI OY", description: "MOBILEPAY", account: chk(0) }, plain);
-    put({ date: f.on(m, 10), cents: -2400, counterparty: "KAHVILA SIPULI OY", description: "KORTTIOSTO", mcc: "5814", account: chk(0) }, plain);
+    // a pizzeria with no company form in its name: the prefix must not turn it into a person
+    put({ date: f.on(m, 9), cents: -2400, counterparty: "MOBILEPAY TAIKA PIZZA", description: "MOBILEPAY", account: chk(0) }, plain);
+    put({ date: f.on(m, 10), cents: -2400, counterparty: "TAIKA PIZZA", description: "KORTTIOSTO", mcc: "5814", account: chk(0) }, plain);
+    // money in through the wallet that names no sender: the payer is the wallet itself
+    put({ date: f.on(m, 17), cents: 1800, counterparty: null, description: "MOBILEPAY", account: chk(0) }, { kind: "person", flow: "income", member: me, event: "payment-app" });
     put({ date: f.on(m, 16), cents: -3000, counterparty: "MOBILEPAY KORHONEN LIISA", description: "MOBILEPAY", account: chk(0) }, { kind: "person", flow: "consumption", member: me, event: "payment-app" });
   }
   if (has(plan, "namesake") && members.length > 1) {
@@ -184,9 +187,9 @@ function eventRows(plan: Plan, m: string, put: Put, pair: Pair): void {
     const fee = 150;
     const amount = 8000;
     pair(
-      { date: f.on(m, 14), cents: -(amount + fee), counterparty: members[1]!.holder, description: "SIIRTO", iban: ibans.get(chk(1))!, account: chk(0) },
+      { date: f.on(m, 14), cents: -(amount + fee), counterparty: members[1]!.holder, description: "SIIRTO", iban: null, account: chk(0) },
       { kind: "member_transfer", flow: "transfer", member: me, event: "member-fee", feeCents: fee },
-      { date: f.on(m, 14), cents: amount, counterparty: first.holder, description: "SIIRTO", iban: ibans.get(chk(0))!, account: chk(1) },
+      { date: f.on(m, 14), cents: amount, counterparty: first.holder, description: "SIIRTO", iban: null, account: chk(1) },
       { kind: "member_transfer", flow: "transfer", member: members[1]!.id, event: "member-fee" },
     );
   }
