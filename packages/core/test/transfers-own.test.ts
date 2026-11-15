@@ -88,9 +88,19 @@ describe("a leg that is proved takes its partner, and a purchase is no leg", () 
     expect(found([purchase, ...proved()]).has(purchase.id)).toBe(false);
   });
 
-  it("a card payment code makes a payment no leg", () => {
-    const purchase = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, bankTxnCode: "PMNT-CCRD-POSD" });
-    expect(found([purchase, ...proved()]).has(purchase.id)).toBe(false);
+  it("a card payment code rules no payment out: a bank books a card's settlement with one, and the card's money in pairs with it", () => {
+    const card: Account = { id: "card", name: "Kortti", iban: "FI4950009420028730", currency: "EUR", type: "credit_card" };
+    const settlement = tx({ id: "settlement", accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, bankTxnCode: "PMNT-CCRD-POSC" });
+    const received = into("card", "2026-03-03", 30000, { id: "received" });
+    expect([...detectTransfers([settlement, received], [checking, card])].sort()).toEqual(["received", "settlement"]);
+  });
+
+  it("a purchase with a merchant code or a terminal's text takes no money in from a person, with nothing else to pair with", () => {
+    const gift = into("sav", "2026-03-03", 30000, { category: "p2p_in", categorySource: "rule" });
+    const bought = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, mcc: "5411" });
+    const sumup = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, description: "SUMUP *KUKKAKAUPPA ILO" });
+    expect(found([bought, gift]).size).toBe(0);
+    expect(found([sumup, gift]).size).toBe(0);
   });
 
   it("a payment to a person with the same sum, earlier in the input, does not take the money in of a proved transfer", () => {
@@ -139,5 +149,40 @@ describe("a leg that is proved takes its partner, and a purchase is no leg", () 
   it("a payment a rule made a transfer stays a leg, whatever text it has", () => {
     const topUp = tx({ accountId: "chk", bookingDate: "2026-03-02", amountCents: -30000, description: "SUMUP *OMA", category: "transfer", categorySource: "rule" });
     expect(found([topUp, into("sav", "2026-03-03", 30000)]).size).toBe(2);
+  });
+});
+
+describe("money between people is no transfer between own accounts without proof", () => {
+  const person = (accountId: string, bookingDate: string, cents: number, extra: Partial<Transaction> = {}) =>
+    tx({ accountId, bookingDate, amountCents: cents, category: cents < 0 ? "p2p" : "p2p_in", categorySource: "rule", ...extra });
+  const teuvo: Account = { ...checking, holder: "KORHONEN TEUVO" };
+  const aino: Account = { id: "chk2", name: "Toisen tili", iban: "FI4950009420028730", currency: "EUR", type: "checking", holder: "LEHTONEN AINO" };
+  const ownerOf = (accountId: string) => (accountId === "chk2" ? "b" : "a");
+
+  it("a payment to a person and money in from a person of the same sum stay person money", () => {
+    const rows = [person("chk", "2026-03-02", -20000), person("sav", "2026-03-03", 20000, { counterparty: "Kaisa Virtanen" })];
+    expect(detectTransfers(rows, [checking, savings]).size).toBe(0);
+  });
+
+  it("they pair when the money in names a holder of the account the payment left", () => {
+    const rows = [person("chk", "2026-03-02", -20000), person("sav", "2026-03-03", 20000, { counterparty: "Teuvo Korhonen" })];
+    expect(detectTransfers(rows, [teuvo, savings]).size).toBe(2);
+  });
+
+  it("in the household view money in that names a member pairs with that member's payment of the same sum", () => {
+    const sent = person("chk2", "2026-03-03", -45000, { id: "sent" });
+    const received = person("chk", "2026-03-03", 45000, { id: "received", counterparty: "Aino Lehtonen" });
+    const { allocations, between } = householdAllocations([sent, received], [teuvo, aino], ownerOf);
+    expect(allocations.get("sent")?.[0]?.partnerId).toBe("received");
+    expect(between.has("received")).toBe(true);
+  });
+
+  it("a stranger with a member's name and no payment of that sum from the member's account stays unpaired", () => {
+    const received = person("chk", "2026-03-03", 45000, { id: "received", counterparty: "Aino Lehtonen" });
+    const elsewhere = person("chk2", "2026-03-03", -45100, { id: "elsewhere" });
+    const { allocations, between } = householdAllocations([received, elsewhere], [teuvo, aino], ownerOf);
+    expect(allocations.size).toBe(0);
+    expect(between.has("received")).toBe(false);
+    expect(transfersBetweenMembers([received, elsewhere], [teuvo, aino], ownerOf).size).toBe(0);
   });
 });

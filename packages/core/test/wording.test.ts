@@ -109,7 +109,7 @@ describe("the name of a charge of the home", () => {
 
 describe("the name of a service with a Finnish case ending", () => {
   const wallet = declinedWords("REVOLUT|WISE EUROPE");
-  const ENDINGS = ["ISTA", "ISSA", "ILLA", "ILTA", "ILLE", "IIN", "STA", "SSA", "LLA", "LTA", "LLE", "KSI", "N", "A"];
+  const ENDINGS = ["ISTA", "ISSA", "ILLA", "ILTA", "ILLE", "IIN", "STA", "SSA", "LLA", "LTA", "LLE", "KSI", "IN", "IA", "N", "A"];
 
   it("matches the bare name and the name with every case ending", () => {
     expect(wallet.test("LAHETETTY REVOLUT")).toBe(true);
@@ -124,5 +124,11 @@ describe("the name of a service with a Finnish case ending", () => {
     expect(wallet.test("XREVOLUT")).toBe(false);
     expect(wallet.test("REVOLUT123")).toBe(false);
     expect(wallet.test("REVOLUTISTAX")).toBe(false);
+    expect(wallet.test("REVOLUTINX")).toBe(false);
+  });
+
+  it("matches the genitive and the partitive of a name that ends in a consonant", () => {
+    expect(wallet.test("SIIRTO REVOLUTIN KAUTTA")).toBe(true);
+    expect(wallet.test("MAKSU REVOLUTIA")).toBe(true);
   });
 });

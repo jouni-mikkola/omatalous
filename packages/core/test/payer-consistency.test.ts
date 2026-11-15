@@ -40,6 +40,25 @@ describe("money in from one payer", () => {
     expect(run(split)[2]!.category).toBe("income");
   });
 
+  it("needs two rows a rule decided: one is no pattern", () => {
+    expect(run([from(1, "Siirto-maksu"), from(2, "vapaa teksti")])[1]!.category).toBe("income");
+    expect(run([from(1, "Siirto-maksu"), from(2, "Siirto-maksu"), from(3, "vapaa teksti")])[2]!.category).toBe("p2p_in");
+  });
+
+  it("never turns the free messages into pay, whatever most of the decided rows say", () => {
+    const final = run([from(1, "PALKKA TOUKOKUU"), from(2, "PALKKA KESAKUU"), from(3, "PALKKA HEINAKUU"), from(4, "vapaa teksti")]);
+    expect(final[3]!.category).toBe("income");
+  });
+
+  it("a tie decides nothing, and a row added beside it moves only the undecided rows", () => {
+    const tie = [from(1, "Siirto-maksu"), from(2, "Siirto-maksu"), from(3, "PALKKA TOUKOKUU"), from(4, "PALKKA KESAKUU"), from(5, "vapaa teksti")];
+    const before = run(tie);
+    expect(before[4]!.category).toBe("income");
+    const after = run([...tie, from(6, "Siirto-maksu")]);
+    expect(after.slice(0, 4).map((t) => t.category)).toEqual(before.slice(0, 4).map((t) => t.category));
+    expect(after[4]!.category).toBe("p2p_in");
+  });
+
   it("does not move another payer's rows, nor a payer who has no name of two words", () => {
     const rows = [from(1, "Siirto-maksu"), from(2, "Siirto-maksu"), from(3, "kiitos", { counterparty: "LEHTONEN VEIKKO", merchant: "LEHTONEN VEIKKO" }), from(4, "kiitos", { counterparty: "KELA", merchant: "KELA" })];
     const final = run(rows);

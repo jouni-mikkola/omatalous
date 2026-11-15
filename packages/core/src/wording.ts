@@ -180,8 +180,8 @@ export function namesBusiness(folded: string): boolean {
 /** Whole words of a list, also next to "+", "'" and ".". `numbered`: a bank glues a document's number on ("MATKALASKU123456"), so only a letter ends the word. */
 export const words = (list: string, numbered = false) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?![A-Z${numbered ? "" : "0-9"}])`);
 
-/** The case endings Finnish puts after the name of a service or an institution: "Revolutista", "Wiselle", "Bunqiin". */
-const CASE_ENDINGS = "ISTA|ISSA|ILLA|ILTA|ILLE|IIN|STA|SSA|LLA|LTA|LLE|KSI|N|A";
+/** The case endings Finnish puts after the name of a service or an institution: "Revolutista", "Wiselle", "Bunqiin", "Revolutin", "Revolutia". */
+const CASE_ENDINGS = "ISTA|ISSA|ILLA|ILTA|ILLE|IIN|STA|SSA|LLA|LTA|LLE|KSI|IN|IA|N|A";
 
 /** `words` for the names of services and institutions: a case ending may follow the word, and a longer different word still does not match. */
 export const declinedWords = (list: string) => new RegExp(String.raw`(?<![A-Z0-9])(?:${list})(?:${CASE_ENDINGS})?(?![A-Z0-9])`);

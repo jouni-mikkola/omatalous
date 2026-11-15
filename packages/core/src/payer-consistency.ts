@@ -12,12 +12,16 @@ import { fold } from "./merchant.ts";
 import type { Transaction } from "./types.ts";
 import { isPersonShaped } from "./wording.ts";
 
+/** How many rows a rule decided for a payer before they speak for the payer's other rows. */
+const MIN_DECIDED = 2;
+
 /** The payer of a row: its merchant when the payee is named like a person, else null (a company, a shop, one word). */
 const payerOf = (t: Transaction): string | null => (t.counterparty && isPersonShaped(fold(t.counterparty)) ? t.merchant : null);
 
 /**
- * Money in that no rule recognised (`income` by default, no reference) takes the category most of the same payer's
- * rows were given by a rule, when more than half of those say it. `locked` rows (the user's own rules, a payment and
+ * Money in that no rule recognised (`income` by default, no reference) becomes money from a person (`p2p_in`) when
+ * more than half of the same payer's rows a rule decided say so, and at least two did: one row is no pattern, and a
+ * single "palkka" row of a relative never turns the free messages into pay. `locked` rows (the user's own rules, a payment and
  * its return) stay as they are. The caller runs it after the rules and the transfer pairing, so a transfer leg is never
  * a row here.
  */
@@ -34,7 +38,7 @@ export function applyPayerConsistency(next: readonly Transaction[], locked: Read
   for (const [key, counts] of decided) {
     const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
     const top = [...counts].sort((a, b) => b[1] - a[1])[0]!;
-    if (top[1] * 2 > total) winner.set(key, top[0]);
+    if (total >= MIN_DECIDED && top[0] === "p2p_in" && top[1] * 2 > total) winner.set(key, top[0]);
   }
   for (const t of next) {
     if (t.amountCents <= 0 || t.categorySource !== "default" || t.category !== "income" || t.isTransfer || locked.has(t.id) || referenceOf(t) !== "") continue;

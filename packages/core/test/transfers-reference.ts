@@ -1,11 +1,10 @@
 // The pairing as it was before the windowed version: a copy kept as the oracle for the differential test.
 import { getCategory } from "../src/categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "../src/dates.ts";
-import { hasTerminalShape } from "../src/industry.ts";
 import { fold } from "../src/merchant.ts";
+import { isUnplacedCardPurchase, namesHolder } from "../src/pairing-proof.ts";
 import { isBankingDay } from "../src/pay-day.ts";
 import type { Account, Transaction } from "../src/types.ts";
-import { isCardCode } from "../src/wording.ts";
 
 /** Max days between the two legs of a transfer between own accounts. */
 const PAIR_WINDOW_DAYS = 5;
@@ -25,11 +24,7 @@ type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc" | "bankTxnCode">>;
-
-/** Money out that the bank booked as a card purchase and no rule named: never a leg of a transfer. */
-const isUnplacedCardPurchase = (t: TransferInput): boolean =>
-  t.amountCents < 0 && t.categorySource === "default" && t.category === "other" && (!!t.mcc || isCardCode(t.bankTxnCode) || hasTerminalShape({ counterparty: t.counterparty ?? null, description: t.description ?? null }));
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc">>;
 
 export interface TransferOptions {
   /**
@@ -114,7 +109,7 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
   if (accounts.length > 1) {
     // legs marked above can still be the partner of an unmarked leg (e.g. the card's "MAKSU, KIITOS"
     // pairs with the e-invoice that paid it); legs settled earlier never are
-    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || (pairable(t) && !isUnplacedCardPurchase(t))));
+    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || pairable(t)));
     // partners have the opposite amount, so only legs of that amount are compared
     const incoming = new Map<number, TransferInput[]>();
     for (const t of candidates) if (t.amountCents > 0) incoming.set(t.amountCents, [...(incoming.get(t.amountCents) ?? []), t]);
@@ -131,6 +126,11 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
       // a leg paid to or from an outside IBAN is someone else's money, unless the card issuer is in between
       const external = (iban: string | null) => !!iban && !ownIbans.has(iban);
       if ((external(outIban) || external(incIban)) && !isCard(out) && !isCard(inc)) return false;
+      // money in from a person is never what a purchase the rules could not place was paid back with
+      if (inc.category === "p2p_in" && isUnplacedCardPurchase(out)) return false;
+      // a payment to a person and money in from a person are one movement only when an own account or a holder's name says so
+      const named = (iban: string | null) => !!iban && ownIbans.has(iban);
+      if (out.category === "p2p" && inc.category === "p2p_in" && !named(outIban) && !named(incIban) && !namesHolder(inc, accountById.get(out.accountId)) && !namesHolder(out, accountById.get(inc.accountId))) return false;
       return true;
     };
 

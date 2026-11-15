@@ -147,6 +147,7 @@ describe("categorize", () => {
     ["REVOLUT**1234*", null, 5000, "transfer"],
     ["Lähetetty Revolutista", null, 5000, "transfer"],
     ["Siirto Revolutiin", null, -5000, "transfer"],
+    ["Siirto Revolutin", null, -5000, "transfer"],
     ["Lähetetty Wise Europelta", null, 5000, "transfer"],
     ["WISE EUROPE SA", null, -5000, "transfer"],
     ["WISE PAYMENTS LTD", null, 5000, "transfer"],

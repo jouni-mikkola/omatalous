@@ -3,11 +3,10 @@
 import { getCategory } from "../src/categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "../src/dates.ts";
 import { normalizeIban } from "../src/iban.ts";
-import { hasTerminalShape } from "../src/industry.ts";
 import type { TraceRow } from "../src/money-trace-lots.ts";
+import { isUnplacedCardPurchase, namesHolder } from "../src/pairing-proof.ts";
 import { isBankingDay } from "../src/pay-day.ts";
 import type { Account, Transaction } from "../src/types.ts";
-import { isCardCode } from "../src/wording.ts";
 
 /**
  * Max days between the two legs of a transfer between own accounts, in either order. A weekday the banks are closed
@@ -36,11 +35,7 @@ type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc" | "bankTxnCode">>;
-
-/** Money out that the bank booked as a card purchase and no rule named: never a leg of a transfer. */
-const isUnplacedCardPurchase = (t: TransferInput): boolean =>
-  t.amountCents < 0 && t.categorySource === "default" && t.category === "other" && (!!t.mcc || isCardCode(t.bankTxnCode) || hasTerminalShape({ counterparty: t.counterparty ?? null, description: t.description ?? null }));
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc">>;
 
 /**
  * True when a transaction may be money moving between own accounts: nothing
@@ -124,7 +119,7 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
   if (accounts.length > 1) {
     // legs marked above can still be the partner of an unmarked leg (e.g. the card's "MAKSU, KIITOS"
     // pairs with the e-invoice that paid it); legs settled earlier never are
-    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || (pairable(t) && !isUnplacedCardPurchase(t))));
+    const candidates = txs.filter((t) => t.categorySource !== "user" && !skipped.has(t.id) && !settled(t) && !onLoan(t) && !toLoan(t) && (transfers.has(t.id) || pairable(t)));
     // partners have the opposite amount, so only legs of that amount are compared. Per amount the legs are kept
     // per day in input order, so an outgoing leg looks at the eleven days of its window and not at every leg
     // of that amount (a fixed sum moved every week made this quadratic)
@@ -152,6 +147,11 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
       // a leg paid to or from an outside IBAN is someone else's money, unless the card issuer is in between
       const external = (iban: string | null) => !!iban && !ownIbans.has(iban);
       if ((external(outIban) || external(incIban)) && !isCard(out) && !isCard(inc)) return false;
+      // money in from a person is never what a purchase the rules could not place was paid back with
+      if (inc.category === "p2p_in" && isUnplacedCardPurchase(out)) return false;
+      // a payment to a person and money in from a person are one movement only when an own account or a holder's name says so
+      const named = (iban: string | null) => !!iban && ownIbans.has(iban);
+      if (out.category === "p2p" && inc.category === "p2p_in" && !named(outIban) && !named(incIban) && !namesHolder(inc, accountById.get(out.accountId)) && !namesHolder(out, accountById.get(inc.accountId))) return false;
       return true;
     };
 
