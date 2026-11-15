@@ -7,9 +7,9 @@
  * own (`median`, `mean` from stats.ts): what a month is expected to be comes from `expected.ts`. The files that take
  * one for something else are in levels-baseline.txt, a list that only shrinks.
  *
- * Rule 51 (the one definition of a figure): every entry says its `scope` and whether it is `additive` and names one
+ * Rule 52 (the one definition of a figure): every entry says its `scope` and whether it is `additive` and names one
  * function, and every figure word of docs/MONEY_FLOWS.md is the name of an entry or is in figure-words-baseline.txt, a
- * list that only shrinks. Rule 52 (part and whole): `paymentCents` and `wholeCents`, the whole of a bank's payment or a
+ * list that only shrinks. Rule 53 (part and whole): `paymentCents` and `wholeCents`, the whole of a bank's payment or a
  * row, are read only in the files of part-whole-baseline.txt and at most as often as its count, a list that only shrinks until one typed pair owns both.
  */
 import ts from "typescript6";

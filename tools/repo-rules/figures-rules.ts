@@ -1,4 +1,4 @@
-/** Rules 37, 38, 39, 51 and 52. The detectors are in figures.ts, whose unit tests do not register the rules a second time. */
+/** Rules 37, 38, 39, 52 and 53. The detectors are in figures.ts, whose unit tests do not register the rules a second time. */
 import { describe, expect, it } from "vitest";
 import { FIGURES } from "../../packages/core/src/figures.ts";
 import { type Finding, expectNoFindings, lineIn, parse, readText, repoFiles, sourceFiles } from "./lib.ts";
@@ -55,7 +55,7 @@ describe("repo rules: figures and limits", () => {
 });
 
 describe("repo rules: the one definition of a figure (ADR 0020)", () => {
-  it("rule 51: every figure of the registry says its scope, whether it is additive and its one function, and every figure word of docs/MONEY_FLOWS.md is in the registry (the baseline only shrinks)", () => {
+  it("rule 52: every figure of the registry says its scope, whether it is additive and its one function, and every figure word of docs/MONEY_FLOWS.md is in the registry (the baseline only shrinks)", () => {
     const found: Finding[] = shapeProblems(FIGURES).map((p) => ({ file: REGISTRY, line: lineIn(REGISTRY, `  ${p.id}: {`), why: `${p.id}: ${p.why}` }));
     const words = figureWords(readText(MONEY_FLOWS));
     expect(words.length, "the table of docs/MONEY_FLOWS.md has its figure words").toBeGreaterThan(10);
@@ -65,7 +65,7 @@ describe("repo rules: the one definition of a figure (ADR 0020)", () => {
     expectNoFindings("figure definitions", found, `give the entry its scope, additive and source.fn in ${REGISTRY}. A word of the table is a figure of the registry, and a word that is not yet one goes on the baseline only when it is no figure at all.`);
   });
 
-  it("rule 52: no new read of paymentCents or wholeCents, the whole of a bank's payment or of a row beside the viewer's part: each file reads each field at most as often as its baseline line counts (the baseline only shrinks)", () => {
+  it("rule 53: no new read of paymentCents or wholeCents, the whole of a bank's payment or of a row beside the viewer's part: each file reads each field at most as often as its baseline line counts (the baseline only shrinks)", () => {
     const baseline = readText(PART_WHOLE_BASELINE).split("\n").filter(Boolean);
     const reads: { key: string; line: number }[] = [];
     for (const file of sourceFiles("packages/core/src/", "apps/server/src/", "apps/web/src/")) {

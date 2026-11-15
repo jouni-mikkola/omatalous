@@ -72,7 +72,7 @@ describe("rule 39 detection", () => {
   });
 });
 
-describe("rule 51 detection", () => {
+describe("rule 52 detection", () => {
   const base = { name: "X", source: { file: "a.ts", fn: "dueOf", field: "dueCents" } };
 
   it("accepts an entry with a scope, an additive flag and one function", () => {
@@ -110,7 +110,7 @@ describe("rule 51 detection", () => {
   });
 });
 
-describe("rule 52 detection", () => {
+describe("rule 53 detection", () => {
   const run = (src: string) => partWholeReads(ts.createSourceFile("x.ts", src, ts.ScriptTarget.ES2022, true));
 
   it("finds a read of the field and the name in a destructuring", () => {
