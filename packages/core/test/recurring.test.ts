@@ -45,7 +45,8 @@ describe("detectRecurring", () => {
     const raised = detectRecurring(series("2025-06-05", 30.44, 16, (i) => (i < 8 ? -42182 : -84364), lender), today);
     expect(raised.map((s) => [s.active, s.occurrences, s.typicalAmountCents, s.monthlyCents])).toEqual([[true, 16, 84364, 84364]]);
     const parallel = [...series("2026-01-05", 30.44, 10, -42182, lender), ...series("2026-01-19", 30.44, 10, -84364, lender)];
-    expect(detectRecurring(parallel, today).map((s) => [s.active, s.typicalAmountCents, s.monthlyCents]).sort((a, b) => a[1]! - b[1]!)).toEqual([[true, 42182, 42182], [true, 84364, 84364]]);
+    const found = detectRecurring(parallel, today).sort((a, b) => a.typicalAmountCents - b.typicalAmountCents);
+    expect(found.map((s) => [s.active, s.typicalAmountCents, s.monthlyCents])).toEqual([[true, 42182, 42182], [true, 84364, 84364]]);
   });
 
   it("detects a frequent irregular habit", () => {

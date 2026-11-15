@@ -185,8 +185,9 @@ describe("a loan's payments are matched whole", () => {
     expect(whole).toHaveLength(1);
     expect(whole[0]).toMatchObject({ paymentCents: 100_000, accountId: "joint" });
     expect(whole[0]!.key.endsWith("#100000")).toBe(true);
-    // the proposal is the same in both views, row ids apart: the payment and the key are the bank's
-    expect(cut.map((p) => ({ ...p, seriesId: "" }))).toEqual(whole.map((p) => ({ ...p, seriesId: "" })));
+    // the proposal is the same in both views, row ids and the monthly figure apart: the payment and the key are the bank's
+    expect(cut.map((p) => ({ ...p, seriesId: "", monthlyCents: 0 }))).toEqual(whole.map((p) => ({ ...p, seriesId: "", monthlyCents: 0 })));
+    expect([whole[0]!.monthlyCents, cut[0]!.monthlyCents]).toEqual([100_000, 50_000]);
     const saved = loan({ id: "home", balanceCents: 15_000_000, paymentCents: 100_000, seriesKey: whole[0]!.key });
     // money out, and a refund from the lender beside it
     expect(proposals(monthly(8, -100_000, AINO), saved)).toEqual([]);
