@@ -33,6 +33,7 @@ export const EN_SET_CONNECTIONS: Record<keyof typeof FI_SET_CONNECTIONS, string>
   "set.conn.bank": "Bank",
   "set.conn.state": "State",
   "set.conn.expires_soon": "expires soon",
+  "set.conn.next_expires": "Next to expire: {bank}, {date}.",
   "set.conn.add_a_reminder_to_the": "Add a reminder to the calendar",
   "set.conn.updated": "Updated",
   "set.conn.actions": "Actions",

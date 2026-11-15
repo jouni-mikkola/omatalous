@@ -162,7 +162,7 @@ describe("password change", () => {
 
   it("refuses a weak or unconfirmed password before asking the server", async () => {
     const seen = stubApi({});
-    render(h(ChangePassword, { onDone: vi.fn() }));
+    render(h(ChangePassword, { username: "mari", onDone: vi.fn() }));
     fill("aaaaaaaaaaaa", "aaaaaaaaaaaa");
     await screen.findByText(checkPassword("aaaaaaaaaaaa").problem!);
     fill("kuusi-hevosta-sataa", "kuusi-hevosta-sata");
@@ -173,7 +173,7 @@ describe("password change", () => {
   it("asks only the new password twice and sends it alone", async () => {
     const seen = stubApi({ "POST /api/auth/first-password": { ok: true } });
     const onDone = vi.fn();
-    render(h(ChangePassword, { onDone }));
+    render(h(ChangePassword, { username: "mari", onDone }));
     expect(screen.queryByLabelText("Väliaikainen salasana")).toBeNull();
     expect(screen.queryByLabelText("Nykyinen salasana")).toBeNull();
     fill("kuusi-hevosta-sataa", "kuusi-hevosta-sataa");
@@ -181,11 +181,23 @@ describe("password change", () => {
     expect(seen[0]!.body).toEqual({ next: "kuusi-hevosta-sataa" });
   });
 
+  it("names the user in a field nobody sees, in the forced and the voluntary form", () => {
+    for (const form of [h(ChangePassword, { username: "mari", onDone: vi.fn() }), h(PasswordForm, { username: "mari", onDone: vi.fn() })]) {
+      const { container, unmount } = render(form);
+      const field = container.querySelector<HTMLInputElement>("input[name=username]")!;
+      expect(field.value).toBe("mari");
+      expect(field.autocomplete).toBe("username");
+      expect(field.readOnly).toBe(true);
+      expect(field.hidden).toBe(true);
+      unmount();
+    }
+  });
+
   it("sends the current and the new password, and calls onCancel when offered", async () => {
     const seen = stubApi({ "POST /api/auth/password": { ok: true } });
     const onDone = vi.fn();
     const onCancel = vi.fn();
-    render(h(PasswordForm, { onDone, onCancel }));
+    render(h(PasswordForm, { username: "mari", onDone, onCancel }));
     type("Nykyinen salasana", "vanha-salasana-1");
     type(/^Uusi salasana \(/, "kuusi-hevosta-sataa");
     type("Uusi salasana uudelleen", "kuusi-hevosta-sataa");
@@ -208,7 +220,7 @@ describe("the language of the screens before a sign-in", () => {
     stubApi({ "POST /api/auth/login": { needsFactor: true } });
     rememberLanguage("en");
     setLanguage(null);
-    for (const screen_ of [h(Login, { onDone: vi.fn() }), h(Setup, { onDone: vi.fn() }), h(ChangePassword, { onDone: vi.fn() })]) {
+    for (const screen_ of [h(Login, { onDone: vi.fn() }), h(Setup, { onDone: vi.fn() }), h(ChangePassword, { username: "mari", onDone: vi.fn() })]) {
       const { container, unmount } = render(screen_);
       const found = finnishIn(container.textContent ?? "");
       expect(found, "Finnish words on a screen in English").toEqual([]);

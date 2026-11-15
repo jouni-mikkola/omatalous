@@ -25,6 +25,11 @@ for (const width of [1440, 390]) {
       await expect(form.getByLabel("Uusi salasana (vähintään 12 merkkiä)")).toBeVisible();
       await expect(form.getByLabel("Uusi salasana uudelleen")).toBeVisible();
       await expect(form.locator("input[type=password]")).toHaveCount(2);
+      // the user's name sits in a field nobody sees, so a password manager saves the new password under it
+      const name = form.locator("input[name=username]");
+      await expect(name).toHaveValue(username);
+      await expect(name).toHaveAttribute("autocomplete", "username");
+      await expect(name).toBeHidden();
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       if (process.env.E2E_SHOTS) await page.screenshot({ path: join(process.env.E2E_SHOTS, `first-password-${width}.png`) });
       await form.getByLabel("Uusi salasana (vähintään 12 merkkiä)").fill(`${username}-oma-salasana`);

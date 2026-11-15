@@ -16,6 +16,20 @@ describe("Shell: a page carries its tab's name", () => {
     expect(tabs().contains(review)).toBe(false);
   }, 60000);
 
+  it("shows the Tarkistettavat link with its count while something is open", async () => {
+    await startServer();
+    await openApp("#/overview");
+    await waitFor(() => expect(document.querySelector("header .review-link .nav-count")).not.toBeNull(), { timeout: 15000 });
+  }, 60000);
+
+  it("has no Tarkistettavat link while there is no data and nothing is open", async () => {
+    const server = await startServer({ demo: false });
+    await openApp("#/overview");
+    // the link shows while the count loads: wait until the server has answered it, then until the link is gone
+    await waitFor(() => expect(server.seen.some((s) => s.path === "/api/review/count")).toBe(true), { timeout: 15000 });
+    await waitFor(() => expect(document.querySelector("header .review-link")).toBeNull(), { timeout: 15000 });
+  }, 60000);
+
   it("titles each page with the name of its tab", async () => {
     await startServer();
     await openApp("#/overview");

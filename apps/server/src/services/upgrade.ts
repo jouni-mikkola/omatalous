@@ -16,6 +16,7 @@ import { atOrAbove } from "../db/migrate.ts";
 import type { FinanceRepo } from "../db/finance-repo.ts";
 import { bankTxnCode } from "../connectors/enable-banking/mapper.ts";
 import type { EbTransaction } from "../connectors/enable-banking/types.ts";
+import { randomBytes } from "node:crypto";
 import { rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -111,8 +112,26 @@ export interface UpgradeResult {
   skipped: string[];
 }
 
+/**
+ * The page's last update is read from the requests it made. An update done by hand on the host leaves none, so the
+ * first start of the new build adds one, worded as the helper words its own ("Päivitetty: a → b."). It is added only
+ * where an earlier build ran (`previousBuild`), and only when the newest successful update does not already end in
+ * this version, which is the case after one the page made. An update of the page that is still queued or running is
+ * not ended yet: the helper reports it after this build is healthy, and that report is the row's own result.
+ * Nothing is added then.
+ */
+async function recordHandUpdate(s: Services, previousBuild: string | null, buildId: string): Promise<void> {
+  if (previousBuild === null) return;
+  const from = releaseOf(previousBuild);
+  const to = releaseOf(buildId);
+  if (from === to) return;
+  const summary = `Päivitetty: ${from} → ${to}.`;
+  await s.ops.recordUpdateOnce({ id: `op_${randomBytes(8).toString("hex")}`, at: s.now().toISOString(), summary, summaryEnd: `→ ${to}.` });
+}
+
 export async function runUpgradeTasks(s: Services, buildId: string, steps: readonly DataStep[] = DATA_STEPS): Promise<UpgradeResult | null> {
-  if ((await s.settings.get(BUILD_KEY)) === buildId) return null;
+  const previousBuild = await s.settings.get(BUILD_KEY);
+  if (previousBuild === buildId) return null;
   // one process does it; another one started at the same time (a CLI command) skips
   if (!(await s.settings.tryLock(LOCK_KEY, 10 * 60_000))) {
     console.log(`upgrade tasks for ${buildId} skipped: another run holds ${LOCK_KEY}. The hourly tick tries again.`);
@@ -200,6 +219,9 @@ export async function runUpgradeTasks(s: Services, buildId: string, steps: reado
       result.users++;
       await s.settings.set(`${BUILD_KEY}:${user.id}`, buildId);
     }
+    // before the build is stored: a stop between the two leaves the build unrecorded, so the next start tries again,
+    // and the check in the statement keeps that second try from adding the row twice
+    await recordHandUpdate(s, previousBuild, buildId);
     await s.settings.set(BUILD_KEY, buildId);
     result.bankCodes = result.steps.bankCodes ?? 0;
     result.loanBalances = result.steps.loanBalances ?? 0;

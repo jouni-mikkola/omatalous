@@ -232,9 +232,10 @@ export function Setup({ onDone }: { onDone: (user: User) => void }) {
 /**
  * The fields of a password change: the current one and the new one twice. The forced change after a temporary password
  * asks only the new one twice and shows it on a page of its own;
- * a member who wants a new one finds it in Asetukset > Salasana.
+ * a member who wants a new one finds it in Asetukset > Salasana. The form names the user in a field nobody sees, so a
+ * password manager saves the new password under the right username.
  */
-export function PasswordForm({ forced, onDone, onCancel }: { forced?: boolean; onDone: () => void; onCancel?: () => void }) {
+export function PasswordForm({ username, forced, onDone, onCancel }: { username: string; forced?: boolean; onDone: () => void; onCancel?: () => void }) {
   const [form, setForm] = useState({ current: "", next: "", confirm: "" });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
   const { error, busy, submit } = useSubmit(async () => {
@@ -247,6 +248,7 @@ export function PasswordForm({ forced, onDone, onCancel }: { forced?: boolean; o
   }, onDone);
   return (
     <form className="auth-form" onSubmit={submit}>
+      <input type="text" name="username" autoComplete="username" value={username} readOnly hidden />
       {!forced && (
         <label>
           {t("pwchange.current")}
@@ -278,10 +280,10 @@ export function PasswordForm({ forced, onDone, onCancel }: { forced?: boolean; o
 }
 
 /** The page of the forced change: a member signs in with a temporary password and must pick their own. */
-export function ChangePassword({ onDone }: { onDone: () => void }) {
+export function ChangePassword({ username, onDone }: { username: string; onDone: () => void }) {
   return (
     <AuthCard device={false} title={t("pwchange.title")} intro={t("pwchange.intro")}>
-      <PasswordForm forced onDone={onDone} />
+      <PasswordForm username={username} forced onDone={onDone} />
     </AuthCard>
   );
 }

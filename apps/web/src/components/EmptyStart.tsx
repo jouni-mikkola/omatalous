@@ -8,25 +8,36 @@ import { Notice } from "./ui/Notice.tsx";
 import { SessionContext } from "../shell-context.ts";
 import { useLookAgain, waitsForFirstFetch } from "../first-fetch.ts";
 import { Empty } from "./ui/Empty.tsx";
+/** `service` is the administrator's set-up of the bank service, `connect` the connection of a bank, `fetch` the first fetch. */
 export interface FirstRunStep {
+  id: "service" | "connect" | "fetch";
   label: string;
   done: boolean;
 }
 
-/** What is left before the pages hold data, read from what /api/meta says. Nothing here is money. The app and its key are the administrator's work, so a member's list starts at the bank. */
-export function firstRunSteps(meta: Pick<Meta, "bank" | "connections" | "lastSync">, member = false): FirstRunStep[] {
-  const linked = meta.connections.some((c) => c.state === "active" && !c.history);
-  const fetched = meta.lastSync?.status === "ok" || meta.lastSync?.status === "partial";
-  const steps = [
-    { label: t("start.step_bank"), done: linked },
-    { label: t("start.step_fetch"), done: linked && fetched },
-  ];
-  return member ? steps : [{ label: t("start.step_app"), done: meta.bank.source !== null }, ...steps];
+/** The bank is linked: the last step of the wizard may say Valmis. */
+export function bankLinked(meta: Pick<Meta, "connections">): boolean {
+  return meta.connections.some((c) => c.state === "active" && !c.history);
 }
 
-/** The bank is linked: the last step of the wizard may say Valmis. */
-export function bankLinked(meta: Pick<Meta, "bank" | "connections" | "lastSync">): boolean {
-  return firstRunSteps(meta)[1]!.done;
+/** The administrator has set up the bank service (the household's application or one's own key): only then can a bank be connected. */
+export function bankServiceReady(meta: Pick<Meta, "bank">): boolean {
+  return meta.bank.source !== null;
+}
+
+/**
+ * What is left before the pages hold data, read from what /api/meta says. Nothing here is money. The set-up of the bank
+ * service is the administrator's work and is a step only while it is undone: a household that already has the service
+ * has nothing to tick there, and a member's list starts at the bank.
+ */
+export function firstRunSteps(meta: Pick<Meta, "bank" | "connections" | "lastSync">, member = false): FirstRunStep[] {
+  const linked = bankLinked(meta);
+  const fetched = meta.lastSync?.status === "ok" || meta.lastSync?.status === "partial";
+  const steps: FirstRunStep[] = [
+    { id: "connect", label: t("start.step_bank"), done: linked },
+    { id: "fetch", label: t("start.step_fetch"), done: linked && fetched },
+  ];
+  return member || bankServiceReady(meta) ? steps : [{ id: "service", label: t("start.step_service"), done: false }, ...steps];
 }
 
 /**
@@ -54,10 +65,13 @@ export function EmptyStart({ onDemo, meta, onReload }: { onDemo: () => Promise<v
   const member = use(SessionContext)?.user.role === "member";
   // a member with no bank app of the household has two ways on, both named: their own bank or an account another member shares
   const ownWay = member && !!meta && meta.bank.source === null && !linked;
-  // the example data is for a household that has none: with another member's accounts in it the button would only mislead
-  const showDemo = !meta?.householdHasAccounts;
+  // another member's accounts are in the household: they can be shared, and the example data would only mislead
+  const shared = !!meta?.householdHasAccounts;
+  const showDemo = !shared;
   // no bank app at all: the bank list would only end in "ask the administrator", so the statement file comes first
   const noApp = ownWay;
+  // the administrator's bank connection waits for the set-up of the bank service: no connecting is offered before it
+  const needsService = !!meta && !member && !bankServiceReady(meta) && !linked;
   const steps = meta && !ownWay ? firstRunSteps(meta, member) : [];
   const next = steps.findIndex((st) => !st.done);
   return (
@@ -67,8 +81,13 @@ export function EmptyStart({ onDemo, meta, onReload }: { onDemo: () => Promise<v
       headingRef={heading}
       action={
         <>
-          {noApp ? (
-            <Button variant="primary" onClick={() => { window.location.hash = settingsHash("banks", SETTINGS_ANCHOR.statement); }}>
+          {needsService && (
+            <Button variant="primary" onClick={() => { window.location.hash = settingsHash("banks", SETTINGS_ANCHOR.bankApp); }}>
+              {t("start.setup_service")}
+            </Button>
+          )}
+          {noApp || needsService ? (
+            <Button variant={noApp ? "primary" : "secondary"} onClick={() => { window.location.hash = settingsHash("banks", SETTINGS_ANCHOR.statement); }}>
               {t("start.statement")}
             </Button>
           ) : (
@@ -85,7 +104,8 @@ export function EmptyStart({ onDemo, meta, onReload }: { onDemo: () => Promise<v
       }
     >
       <p>
-        {ownWay ? t("start.no_app") : linked ? t("start.linked") : t("start.unlinked")}
+        {ownWay ? t("start.no_app") : needsService ? t("start.no_service") : linked ? t("start.linked") : t("start.unlinked")}
+        {shared && !linked && ` ${t("start.shared_hint")}`}
         {showDemo && !linked && ` ${t("start.demo_hint")}`}
       </p>
       {steps.length > 0 && (

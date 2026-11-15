@@ -6,7 +6,7 @@ import { autoSaveWanted, startDownload } from "../src/pages/settings/BankAppSetu
 import { bankSeen } from "../src/pages/settings/bank-seen.ts";
 import { BankConnections } from "../src/pages/settings/BankConnections.tsx";
 import { BankKey } from "../src/pages/settings/BankKey.tsx";
-import { bankLinked, firstRunSteps } from "../src/components/EmptyStart.tsx";
+import { bankLinked, bankServiceReady, firstRunSteps } from "../src/components/EmptyStart.tsx";
 import { WizardDone } from "../src/pages/Wizard.tsx";
 import type { BankCapability, InstanceState, Meta } from "../src/types.ts";
 
@@ -76,23 +76,34 @@ describe("Valmis only with a bank linked", () => {
 });
 
 describe("firstRunSteps for a member", () => {
-  it("starts at the bank: the app and its key are the administrator's", () => {
+  it("starts at the bank: the set-up of the bank service is the administrator's", () => {
     const m = { bank: { source: null }, connections: [], lastSync: null } as unknown as Meta;
     expect(firstRunSteps(m, true).map((s) => s.label)).toEqual(["Pankki yhdistetty", "Ensimmäinen haku tehty"]);
-    expect(firstRunSteps(m)).toHaveLength(3);
+    expect(firstRunSteps(m).map((s) => s.label)).toEqual(["Pankkipalvelun käyttöönotto", "Pankki yhdistetty", "Ensimmäinen haku tehty"]);
+  });
+  it("names its steps, so nothing reads them by position and the user's list never says Enable Banking", () => {
+    const m = { bank: { source: null }, connections: [], lastSync: null } as unknown as Meta;
+    expect(firstRunSteps(m).map((s) => s.id)).toEqual(["service", "connect", "fetch"]);
+    expect(firstRunSteps(m, true).map((s) => s.id)).toEqual(["connect", "fetch"]);
+    expect(firstRunSteps(m).map((s) => s.label).join(" ")).not.toContain("Enable Banking");
+  });
+  it("offers a connection only once the bank service is set up", () => {
+    expect(bankServiceReady({ bank: { source: null } } as unknown as Meta)).toBe(false);
+    expect(bankServiceReady({ bank: { source: "instance" } } as unknown as Meta)).toBe(true);
+    expect(bankServiceReady({ bank: { source: "user" } } as unknown as Meta)).toBe(true);
   });
 });
 
 describe("firstRunSteps", () => {
   const base = { bank: { source: null }, connections: [], lastSync: null } as unknown as Meta;
   const done = (m: Meta) => firstRunSteps(m).map((s) => s.done);
-  it("ticks the app key, the bank and the first fetch in turn", () => {
+  it("lists the set-up of the bank service only while it is undone, then the bank and the first fetch in turn", () => {
     expect(done(base)).toEqual([false, false, false]);
     const app = { ...base, bank: { source: "user" } } as unknown as Meta;
-    expect(done(app)).toEqual([true, false, false]);
+    expect(done(app)).toEqual([false, false]);
     const linked = { ...app, connections: [{ state: "active", history: false }] } as unknown as Meta;
-    expect(done(linked)).toEqual([true, true, false]);
-    expect(done({ ...linked, lastSync: { status: "ok" } } as unknown as Meta)).toEqual([true, true, true]);
+    expect(done(linked)).toEqual([true, false]);
+    expect(done({ ...linked, lastSync: { status: "ok" } } as unknown as Meta)).toEqual([true, true]);
     expect(bankLinked(linked)).toBe(true);
   });
   it("does not count a lapsed or history connection as linked", () => {
