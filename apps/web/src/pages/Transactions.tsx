@@ -393,7 +393,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       {/* a mark narrows the rows in the browser, so the server's sums would be of rows the list does not show */}
       {data && data.total > 0 && !filters.chip && (
         <div className="tx-totals-wrap">
-          <TotalsStrip totals={data} income={filters.kind === "income"} merchant={filters.merchant} today={meta.today} onPick={(p) => set(p)} />
+          <TotalsStrip totals={data} income={filters.kind === "income"} today={meta.today} onPick={(p) => set(p)} />
         </div>
       )}
 

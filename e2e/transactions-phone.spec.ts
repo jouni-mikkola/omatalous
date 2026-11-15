@@ -357,3 +357,46 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+test("390 px: a tap on a row opens it, a second tap closes it, and the chevron opens it once", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions");
+  const first = page.locator(DATA_ROW).first();
+  await expect(first).toBeVisible();
+  await expect(page.locator(".tx-detail-facts")).toHaveCount(0);
+  await first.locator(".tx-name").tap();
+  await expect(page.locator(".tx-detail-facts").first()).toBeVisible();
+  await first.locator(".tx-name").tap();
+  await expect(page.locator(".tx-detail-facts")).toHaveCount(0);
+  await first.getByRole("button", { name: /: 12 kuukautta$/ }).tap();
+  await expect(page.locator(".tx-detail-facts").first()).toBeVisible();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("1280 px: a search being typed takes one place in the history, however many pauses it has", async ({ browser }) => {
+  const context = await signedIn(browser, 1280, 900);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions");
+  const search = page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" });
+  await expect(search).toBeVisible();
+  await expect(page.locator(DATA_ROW).first()).toBeVisible();
+  const before = await page.evaluate(() => history.length);
+  await search.pressSequentially("ka");
+  await expect(page).toHaveURL(/q=ka$/);
+  await expect.poll(() => page.evaluate(() => history.length)).toBe(before + 1);
+  // a pause later the rest of the word replaces that place
+  await search.pressSequentially("hvi");
+  await expect(page).toHaveURL(/q=kahvi$/);
+  await search.pressSequentially("la");
+  await expect(page).toHaveURL(/q=kahvila$/);
+  expect(await page.evaluate(() => history.length), "history entries added by the whole search").toBe(before + 1);
+  // back leaves the search in one step, not one for each pause
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/transactions$/);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});

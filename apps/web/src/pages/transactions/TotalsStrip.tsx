@@ -117,7 +117,7 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
 }
 
 /** `income`: the limit is income only, so the histogram starts on money in. The period is the bar's chip; the sums are of what it and the other limits leave. */
-export function TotalsStrip({ totals, income, merchant, today, onPick }: { totals: Totals; income: boolean; merchant: string; today: string; onPick: (p: Period) => void }) {
+export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals; income: boolean; today: string; onPick: (p: Period) => void }) {
   const span = totals.span;
   const hist = totals.histogram;
   const [series, setSeries] = useState<Series>(income ? "in" : "out");
@@ -173,10 +173,6 @@ export function TotalsStrip({ totals, income, merchant, today, onPick }: { total
             </div>
           )}
         </dl>
-        <p className="tx-totals-note">
-          {merchant ? `${merchant}. ` : ""}
-          {t("tx.transfers_out")}
-        </p>
       </div>
       {/* a phone keeps the first row near the top: the picture waits behind its title until it is asked for */}
       {picture && (phone ? (

@@ -97,7 +97,6 @@ export const FI_TRANSACTIONS = {
   "tx.spending": "Rahaa ulos",
   "tx.income": "Rahaa sisään",
   "tx.difference": "Erotus",
-  "tx.transfers_out": "Lainanmaksut ja säästöt mukana, siirrot omien tilien välillä eivät.",
   // Categories
   "category.housing": "Vuokra ja vastike",
   "category.utilities": "Sähkö, vesi ja lämpö",

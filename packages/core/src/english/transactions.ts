@@ -95,7 +95,6 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.spending": "Money out",
   "tx.income": "Money in",
   "tx.difference": "Difference",
-  "tx.transfers_out": "With loan payments and savings, without transfers between your own accounts.",
   // Categories
   "category.housing": "Rent and maintenance charge",
   "category.utilities": "Electricity, water and heating",

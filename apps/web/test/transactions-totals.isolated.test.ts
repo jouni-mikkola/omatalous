@@ -1,4 +1,4 @@
-/** The sums above Tapahtumat are of the rows the filter shows and say that own transfers are not in them. */
+/** The sums above Tapahtumat are of the rows the filter shows; a list with no period is the whole history. */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -16,15 +16,14 @@ const meta = { accounts: [], sharedAccounts: [], categories: [], today: "2026-10
 const render = (params: string) => renderToStaticMarkup(createElement(Transactions, { meta, params: new URLSearchParams(params), scope: "own" })).replace(/[  ]/g, " ");
 
 describe("Tapahtumat totals", () => {
-  it("say that own transfers are left out, and that a list with no period is the whole history", () => {
+  it("say that a list with no period is the whole history", () => {
     const all = render("");
     expect(all).toContain("Rahaa ulos");
-    expect(all).toContain("Lainanmaksut ja säästöt mukana, siirrot omien tilien välillä eivät.");
     // the tab names the page: no heading repeats it
     expect(all).not.toMatch(/<h[12][^>]*>Tapahtumat</);
     expect(all).toContain("Koko historia");
     const september = render("from=2026-09-01&to=2026-09-30");
-    expect(september).toContain("siirrot omien tilien välillä eivät.");
+    expect(september).toContain("Rahaa ulos");
     expect(september).not.toContain("Koko historia");
   });
 
@@ -33,7 +32,10 @@ describe("Tapahtumat totals", () => {
     expect(render("chip=pending&from=2026-09-01")).not.toContain("Rahaa ulos");
   });
 
-  it("name the payee the list is filtered to", () => {
-    expect(render("merchant=Ruokakauppa&from=2026-09-01")).toMatch(/Ruokakauppa\. /);
+  it("name the payee the list is filtered to in its Kauppias chip, and in no note under the sums", () => {
+    const out = render("merchant=Ruokakauppa&from=2026-09-01");
+    expect(out).toMatch(/Kauppias[^]*Ruokakauppa/);
+    expect(out).not.toContain("tx-totals-note");
+    expect(out).not.toMatch(/Ruokakauppa\. /);
   });
 });
