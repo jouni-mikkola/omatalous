@@ -242,7 +242,7 @@ const front: Source = async (s, userId) => {
       if (q.kind === "payer") {
         const { offMedianCents: _off, ...rest } = q;
         // money from another member is never the viewer's own money at another bank, as the member's own question says too
-        const ofMember = q.rowIds.some((id) => {
+        const ofMember = (q.rowIds ?? []).some((id) => {
           const row = byId.get(id);
           const member = row && memberOfRow(members, row, userId);
           return !!member && member.id !== userId;
