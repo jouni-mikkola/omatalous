@@ -36,7 +36,7 @@ for (const width of [320, 360, 390]) {
     const page = await open(context);
     const seen = watch(page);
     // the lines of the one block in one column: none is beside another
-    const blocks = page.locator(".home-tiles, .home-months, .home-bills, .home-where, .holdings");
+    const blocks = page.locator(".home-summary, .home-months, .home-bills, .home-where, .holdings");
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -45,9 +45,9 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-tile-label, .home-tile .fig, .home-tile-line, .where-name, .where-sum")), "text cut").toEqual([]);
-    // the figure of every tile is inside the screen
-    for (const cell of await page.locator(".home-tile .fig").all()) {
+    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-flow-name, .home-flow-sum, .where-name, .where-sum")), "text cut").toEqual([]);
+    // every figure of the month is inside the screen
+    for (const cell of await page.locator(".home-figs .fig").all()) {
       const box = (await cell.boundingBox())!;
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);

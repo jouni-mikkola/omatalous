@@ -5,7 +5,7 @@ Status: accepted (0.9.0)
 ## Context
 
 Payee names, payment words, card issuers, lenders, tax words and card and industry codes were written into the
-modules that read them: Optimoi areas, insights, alerts, the income view, the pipeline. Two lists of the same names
+modules that read them: Optimoi areas, alerts, the income view, the pipeline. Two lists of the same names
 drifted apart. The electricity area knew LUMME and NORDIC GREEN, the rules knew LOISTE and HERRFORS, so a bill named
 one way was never read the other way.
 

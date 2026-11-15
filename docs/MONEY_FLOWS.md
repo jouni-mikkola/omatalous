@@ -19,10 +19,10 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 |---|---|---|
 | *Valmis kuukausi* | A month that has ended and that the history covers from the 1st. The running month and a first, partly fetched month are not complete. Neither is a month whose rows are missing: one or two months with no row at all, between months with rows, on an account in daily use (8 rows a month or more on average, spending in 85 % of the months it has rows in, and rows in three of four months from its first row to its last). The bank or the file missed them, so they are no months at 0 €. Such a month is incomplete for that account, and for the household when the account carries over 10 % of its spending. The usual level skips one such run and reads the months on both sides of it. The income report judges a month by the accounts other than credit cards: income comes to a card mostly as refunds, so the month a card was connected in holds all the income. Every income figure reads that judgement: the report's `complete` flag, the median of regular income and the months of Tavalliset tulot (`completeIncomeMonthsBefore`, which skips one run of missing rows as the usual spending level does) | `isCompleteMonth` in `analysis/usual.ts`, `rowsMissing` in `analysis/coverage.ts`, `isCompleteIncomeMonth` for the income figures |
 | *Odotettu* | What the month is expected to cost, in whole cents, made per category and added up: the headline is the sum of the categories, so the waterfall's bars and the change report's rows add up to it. The base is the last six complete months before the month in question, none under three. A category is the mean of what those months had spent by the same day. A bill or subscription that comes every three months or less often is expected whole in the month it falls due and in no other. An active monthly bill stands at its latest amount. A one-off (the level policy, ADR 0005) is left out and listed. The month a credit card is connected in is skipped when the month before it paid card bills, never the months before it: their card bills held the card's purchases. A month in which accounts joined late is also skipped, and the months before it still read, when those accounts carry under `LEFT_OUT_SHARE` (10 %) of the spending from that month to the month before, whatever their type. When any base month holds a card bill that is no transfer (a card never connected, or connected later and paid by bills before) or comes before the history of a linked card, the headline is true and the categories are not. The page shows the headline and leaves out the bars and the estimate. One line says why. Month totals are not affected, a bill counts as spending. The pages name the base: *odotettu 2 825 € (6 kuukauden keskiarvo)*. The buffer divides by this figure for the running month, all its days. The mean of twelve whole months, which holds every one-off of the year, is shown nowhere; it only gives the direction of the last three months its word | `expectedSpending`, `expectedFor`, `expectedOf` in `analysis/expected.ts`. `completeMonthsBefore`, `cardsBreakUsual` in `analysis/usual.ts` |
-| *Ansiotulot* | The income of a month that is earned: every income row except money from people, refunds, tax refunds and income of an unknown type (`INCOME_TYPES.unknown`), which the income report shows apart. Yhteenveto's income tile shows it under its figure when it differs from *Tulot*, and the income line of Kuukausi reads it | `earnedIncome` in `analysis/usual.ts`, `isEarnedIncome` in `analysis/income.ts` |
-| *Tulot* | All the income the rows of a period count, earned or not: *Ansiotulot* and the rest. Credit drawn, own transfers and the return of a purchase are not in it. Yhteenveto's income tile and the month table of the income report show the same figure for a month (`monthIncome` in `analysis/usual.ts`) | `PeriodTotals.incomeCents`, summed in `totalsOf` in `analysis/flows.ts` |
+| *Ansiotulot* | The income of a month that is earned: every income row except money from people, refunds, tax refunds and income of an unknown type (`INCOME_TYPES.unknown`), which the income report shows apart. Yhteenveto's Tulot shows it under its figure when it differs from *Tulot*, and the income line of Kuukausi reads it | `earnedIncome` in `analysis/usual.ts`, `isEarnedIncome` in `analysis/income.ts` |
+| *Tulot* | All the income the rows of a period count, earned or not: *Ansiotulot* and the rest. Credit drawn, own transfers and the return of a purchase are not in it. Yhteenveto's Tulot and the month table of the income report show the same figure for a month (`monthIncome` in `analysis/usual.ts`) | `PeriodTotals.incomeCents`, summed in `totalsOf` in `analysis/flows.ts` |
 | *Kuukausierä* | What a loan costs a month, the viewer's part of it. The bank's whole payment only names the loan (ADR 0016) | `monthlyPaymentCents` in `holdings.ts` |
-| *Tavalliset tulot* | The mean earned income of the last six complete income months (*Valmis kuukausi* as the income report judges it) before the month in question, in whole cents, and none under three. Earned income is every income row except money from people, refunds, tax refunds and income of an unknown type (`INCOME_TYPES.unknown`), which the income report shows apart. Several figures divide by this one: the buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit. Their sentences name the same income. The income line of Kuukausi reads the month's earned income and this figure through `IncomeMonth.earnedCents` and `usualCents` in the income report. Yhteenveto's income tile shows *Tulot*, which has no usual figure, so it has no usual line | `isEarnedIncome` in `analysis/income.ts`, `expectedIncome` in `analysis/expected.ts` |
+| *Tavalliset tulot* | The mean earned income of the last six complete income months (*Valmis kuukausi* as the income report judges it) before the month in question, in whole cents, and none under three. Earned income is every income row except money from people, refunds, tax refunds and income of an unknown type (`INCOME_TYPES.unknown`), which the income report shows apart. Several figures divide by this one: the buffer report, the fixed costs and debt service shares, the overview and *Tilanne* on Säästövinkit. Their sentences name the same income. The income line of Kuukausi reads the month's earned income and this figure through `IncomeMonth.earnedCents` and `usualCents` in the income report. Yhteenveto's Tulot has no usual figure, so it has no usual line | `isEarnedIncome` in `analysis/income.ts`, `expectedIncome` in `analysis/expected.ts` |
 | *Säännölliset tulot* | The median regular income of the last six complete months, none under three. It is the figure of *Säännölliset tulot kuussa* in Raportit > Tulot and is shown nowhere else. It counts regular series only, so it has its own name beside *Tavalliset tulot* | `incomeReport(...).stability.medianCents` in `reports/income.ts` |
 | *Säästöaste* | Saved / income, where saved is the savings flow (savings categories and transfers into your own savings accounts). It is negative when savings were drawn on and empty without income. A running period tells it from its complete months (`settled` in the dashboard) | `PeriodTotals.savingsRate` in `analysis/flows.ts` |
 | *Käteen jäi* | Tulos of the range, the running month in it: income and credit drawn, less consumption, debt service and saving. The headline of Tulot, the month rows of Tulot ja menot with its total row, and the sentence under them are this one sum, so they are the same figure on one page. Only the savings rate of a running range is told from its complete months | `cashflowReport(...).whole` in `reports/cashflow.ts` |
@@ -71,7 +71,7 @@ made. `packages/core/test/totals.test.ts` holds this to the cent for the demo, t
 A loan paid from a savings account is counted once in Tulos: as *Säästöön* when the money leaves the pool, and not again
 as debt service when the savings account pays the lender. The row has no flows, so it is left out of the figures built
 from them: Tulos, the income, spending and difference of its identity (`totalsOf`) and the savings rate. The first page
-reads those figures too: its Menot tile, the month's curve, the Menot of *Tulot ja menot*, the usual month's line on
+reads those figures too: its Menot figure, the month's curve, the Menot of *Tulot ja menot*, the usual month's line on
 its bars (`usualSpendCents`, from `typicalFlowCents` of *Menot kuukausittain*), the pace and the usual it is set against
 (`expectedFlowsFor`), the spending goal and the explanation of the tile are the spending of the flows (`flowSpendOf`,
 `overview.months`), so income less spending is the difference and less what went to savings is Tulos, with no
@@ -422,7 +422,7 @@ more than a shop name or an amount:
 
 ## Alerts
 
-The overview shows up to six alerts above the insights, for the selected period. They are about money
+The overview shows up to six alerts for the selected period. They are about money
 that may be going to waste. Clicking one opens the transactions behind it.
 
 | Alert | When it shows |
@@ -437,7 +437,7 @@ that may be going to waste. Clicking one opens the transactions behind it.
 
 Alerts only read the data, so fixing a category or a transfer can remove one.
 
-## Periods, fixed costs and insights
+## Periods and fixed costs
 
 - Yhteenveto offers two months and names them (*Lokakuu 2026*, *Syyskuu 2026*): the running month, which runs to
   today and is compared with the same days of the previous month, and the month before it, whole. *3 kk*, *6 kk* and
@@ -459,9 +459,6 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   the balance pays before the payday is in no figure of the window; `ahead.outside` finds it to the payday also when
   that is more than 30 days off. Yhteenveto names its sum in a line under the answer's sum row, and Laskut lists it
   before the payday.
-- Insights say what changed in the period. A month is compared with its expected figure (*Odotettu*, the mean of the
-  six months before) and shown only when it is outside all of them. A longer period is compared with the
-  previous one. A running month has none. Debt service is mentioned when it takes over 35 % of income.
 
 ## The first page
 
@@ -787,7 +784,6 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 | The household's debts | Every saved loan the view holds, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
 | Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |
 | A connected account as a loan | A connected card, an account with a credit limit, or an account of type loan, read as a loan so that its debt and its use come from the same functions. Credit in use is a balance below zero: what is owed is that balance with its sign turned, and nothing when the account is in credit. A bank tells what is owed on a loan account with either sign, so the sync stores a loan account's plus as a minus (`storedBalanceCents`) and an update mends the balances stored before; a card's plus is money the bank owes the holder and stays. A loan account's kind comes from its name (home loan, student loan, car loan, else other loan), never card or credit line, and it has no rate, payment or plan until a saved loan is linked to it. The id is `account:<account id>` | `creditAccountLoan` |
-| What a card cost | The bank's own charges on the card account in the complete months before a day, twelve at most. A charge worded as interest is interest, less the interest the bank took back and never below zero, and every other charge is a fee, and a late fee stays the late fee alert's. A month carried a balance when the bank charged interest in it. Nothing is scaled up for a card connected later | `cardCosts` |
 
 - Money is whole cents and a rate is hundredths of a percent. Interest of one payment interval is balance × rate ×
   months / 12, rounded to the nearest cent with a half cent up (`loanPeriodInterest`). Banks count days, each in its
@@ -857,8 +853,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   step less certainty. Under six complete months there are no euros, under three only deadlines.
 - Each finding has a low, a mid and a high figure. The page shows the mid.
 - A finding needs a mid of at least 120 € a year. A deadline has no euros.
-- The car's running cost holds leasing, and a car bought is shown apart. *Muut havainnot* stand on the same complete
-  months as the findings. The answer counts the checks of the areas: all of them, those waiting for a number, a fact or
+- The car's running cost holds leasing, and a car bought is shown apart. The answer counts the checks of the areas: all of them, those waiting for a number, a fact or
   months, and those with no rows to read, which did not look at anything. No page shows the counts.
 - A one-off (`oneOffs` with the level policy, the one every view uses, ADR 0005): a purchase over three times its usual ticket (its merchant's median, else its category's in other months) and at least 50 €, or 150 € with no ticket. Listed struck and left out. Transfers never
   count, and an account whose first row falls inside the window is left out of it.

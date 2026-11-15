@@ -824,7 +824,6 @@
   }
  ],
  "dataNotice": null,
- "insights": [],
  "home": {
   "runway": {
    "verdict": "enough",
@@ -878,7 +877,6 @@
    "months": 6
   },
   "paceGap": null,
-  "notable": [],
   "direction": {
    "usualCents": 337160,
    "months": 6,
@@ -992,10 +990,6 @@
   "income": {
    "cents": 0,
    "earnedCents": 0
-  },
-  "net": {
-   "since": "2026-09-15",
-   "changeCents": 36540
   },
   "months": [
    {

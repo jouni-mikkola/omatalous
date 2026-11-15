@@ -19,7 +19,7 @@ describe("the twelve-month change of the month report", () => {
     }
   }, 60_000);
 
-  it("gives every view the same plan and the same change with an explicit twelve as with the default, so what reads the default (the year view of Yhteenveto and the insights, which call spendingChange without a count) is unmoved", () => {
+  it("gives every view the same plan and the same change with an explicit twelve as with the default, so what reads the default (the year view of Yhteenveto, which calls spendingChange without a count) is unmoved", () => {
     for (const h of households) {
       const ctx = ctxOf(h);
       const { lastComplete } = changeMonths(ctx, { from: "2024-11-01", to: today });

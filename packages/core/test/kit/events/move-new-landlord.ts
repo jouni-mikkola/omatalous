@@ -1,8 +1,8 @@
 /**
  * The household moves in June to a flat of another landlord: SATO's rent ends, Kojamo's 1 180 € starts the same
- * month, with a deposit to Kojamo and SATO's deposit back a month later. 0.8.0 review (insights and Optimoi): the old
+ * month, with a deposit to Kojamo and SATO's deposit back a month later. 0.8.0 review (Optimoi): the old
  * rent is no stopped payment that frees money and the new one no new commitment; a new payee in the same category is a
- * switch ("stopped: a new provider in the same category is a switch" in insights.test.ts).
+ * switch.
  */
 import { type LifeEvent, rows } from "../frame.ts";
 

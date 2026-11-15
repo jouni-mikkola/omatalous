@@ -14,18 +14,15 @@
  *   a looser rule buys them with many false questions), and in about
  *   half the households the strict rule takes the dinner's two shares for an electricity bill first (returns.ts), so
  *   0,45.
- * - What the app does today and others change (gambling of BH1 and BH2, price rises of insights/prices.ts) is printed
+ * - What the app does today and others change (gambling of BH1 and BH2, price rises of recurring.ts) is printed
  *   with no bar, so a change shows in the table; BH1 sets the gambling bar when it lands.
  */
 import { contextOf } from "../../../../tools/findings/households.ts";
-import { monthToDate } from "../../../../tools/findings/statements.ts";
 import type { AnalysisContext } from "../../src/analysis/context.ts";
-import { insightInputOf, rankInsights } from "../../src/analysis/insights/index.ts";
 import { creditStack } from "../../src/behaviour/credit-stack.ts";
 import { paydayEffect } from "../../src/behaviour/payday.ts";
 import { splitCandidates } from "../../src/behaviour/split.ts";
 import { fold } from "../../src/merchant.ts";
-import { NO_INPUTS } from "../../src/types.ts";
 import type { Labelled, Truth } from "./world.ts";
 
 export interface Bar {
@@ -104,18 +101,8 @@ export const DETECTORS: readonly Detector[] = [
   {
     id: "D1 price rise seen (today)",
     unit: "merchant",
-    // what recurring.ts sees as a rise of an active series, before any gate of a told line
+    // what recurring.ts sees as a rise of an active series
     claimed: (ctx) => new Set(ctx.recurring.filter((s) => s.active && s.priceChange && s.priceChange.toCents > s.priceChange.fromCents).map((s) => fold(s.merchant))),
-    truth: (t) => t.priceRises,
-    bar: null,
-  },
-  {
-    id: "D1 price rise told (today)",
-    unit: "merchant",
-    claimed: (ctx, l) => {
-      const ids = new Set(rankInsights(insightInputOf(ctx, monthToDate(l.household.today), NO_INPUTS)).filter((i) => i.id.startsWith("price:")).map((i) => i.id.slice("price:".length)));
-      return new Set(ctx.recurring.filter((s) => ids.has(s.id)).map((s) => fold(s.merchant)));
-    },
     truth: (t) => t.priceRises,
     bar: null,
   },

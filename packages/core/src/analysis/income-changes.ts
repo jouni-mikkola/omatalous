@@ -1,27 +1,22 @@
 /**
  * What changed in the income: pay level per payer (with the tax-card guards), variable pay, benefits that ended,
  * started or changed, a new payer, pay that did not come, new sources, windfalls against last year and residual tax.
- * Each change has its number, its basis and its rows. `incomeInsights` returns the ones that are insights
- * (H-insights candidates 1 to 4 and 17); a missing salary is an alert and stays in the income report.
+ * Each change has its number, its basis and its rows. A missing salary is an alert and stays in the income report.
  */
 import { addDays, addMonths, dayNumber, fromDayNumber, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
-import type { IsoDate, UserInputs } from "../types.ts";
-import type { AnalysisContext } from "./context.ts";
+import type { IsoDate } from "../types.ts";
 import { accountCovers } from "./coverage.ts";
 import { formatEur, formatFiDate } from "./format.ts";
 import { addBankingDays, JOB_END_WORDS, nextPayDate, payerKey } from "./income.ts";
 import { newSources, residualTax, windfalls } from "./income-events.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { type MessageCode, type MessageParams, messageIn } from "../messages.ts";
-import { benefitName, eur, type IncomeBase, incomeBase, type IncomeChange, type IncomeChangeKind, type IncomeSeries, isKela, monthFrom, monthIn, passes, payDayWhen, type Period, shortDate } from "./income-series.ts";
-import type { DateRange } from "./period.ts";
+import { benefitName, eur, type IncomeBase, type IncomeChange, type IncomeSeries, isKela, monthFrom, monthIn, passes, payDayWhen, type Period, shortDate } from "./income-series.ts";
 import { expectedLevel } from "./expected.ts";
 import { completeMonthsBefore } from "./usual.ts";
-import { BASE_SPREAD, BENEFIT_GRACE_DAYS, FIRST_PAGE_DAYS, LEVEL_SPREAD, MIN_STEP_SHARE, PAY_GRACE_BANKING_DAYS, SWITCH_DAYS, SWITCH_LEVEL, SWITCH_PERIODS, VARIABLE_SPREAD } from "../thresholds.ts";
-import { insightOf, REPORT } from "./insights/shared.ts";
-import { type Insight, q } from "./insights/types.ts";
+import { BASE_SPREAD, BENEFIT_GRACE_DAYS, LEVEL_SPREAD, MIN_STEP_SHARE, PAY_GRACE_BANKING_DAYS, SWITCH_DAYS, SWITCH_LEVEL, SWITCH_PERIODS, VARIABLE_SPREAD } from "../thresholds.ts";
 
 export type { IncomeBase, IncomeChange } from "./income-series.ts";
 export { benefitName, incomeBase, payDayText } from "./income-series.ts";
@@ -357,49 +352,4 @@ export function incomeChanges(b: IncomeBase, today: boolean, lang: Language = DE
   const tax = residualTax(b, lang);
   if (tax) out.push(tax);
   return out.sort((x, y) => Math.abs(y.monthlyCents) - Math.abs(x.monthlyCents));
-}
-
-/** The insight kinds of H-insights candidates 1 to 4 and 17; a missing or stopped salary is an alert. */
-const INSIGHT_KINDS: ReadonlySet<IncomeChangeKind> = new Set([
-  "raise",
-  "cut",
-  "tax_limit",
-  "payer_changed",
-  "benefit_ended",
-  "benefit_started",
-  "benefit_changed",
-  "benefit_step",
-  // a windfall ("Lomaraha 3 463 € tuli 23.8.") repeats what came in and would outrank every real finding by its size;
-  // the income report lists it under Mikä muuttui
-  "residual_tax",
-  "new_source",
-]);
-
-/** A level change recurs every month; a new source or a residual tax is one event. */
-const SINGLE_KINDS: ReadonlySet<IncomeChangeKind> = new Set(["residual_tax", "new_source"]);
-
-/**
- * Income insights in the shape of analysis/insights/types.ts. The report keeps a change of payer for twelve months; the
- * first page drops one whose old payer was last paid over `FIRST_PAGE_DAYS` before the end of the view: there a change
- * is news for about four months, not for a year. The comparison is the level before; the change is worth twelve
- * months of the monthly difference.
- */
-export function incomeInsights(ctx: AnalysisContext, range: DateRange, _inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): Insight[] {
-  const end = range.to < ctx.today ? range.to : ctx.today;
-  const b = incomeBase(ctx, end);
-  return incomeChanges(b, end === ctx.today, lang)
-    .filter((c) => INSIGHT_KINDS.has(c.kind) && (!c.lastPaid || dayNumber(end) - dayNumber(c.lastPaid) <= FIRST_PAGE_DAYS))
-    .map((c) =>
-      insightOf({
-        id: c.id,
-        fact: { type: "income", change: c.kind, title: c.title, monthlyCents: c.monthlyCents },
-        comparison: c.unknownBefore ? { label: "lastInstalment", value: q.date(c.unknownBefore) } : { label: c.kind === "residual_tax" ? "yearAgo" : "incomeBefore", value: q.cents(c.beforeCents ?? 0) },
-        action: { label: "seeIncome", target: { page: "reports", anchor: REPORT.income } },
-        yearlyCents: c.monthlyCents * 12,
-        kind: SINGLE_KINDS.has(c.kind) ? "single" : "pattern",
-        rows: c.txIds,
-        ...(c.payer && c.payer !== "Kela" ? { merchant: c.payer } : {}),
-        calc: c.calc ?? [],
-      }),
-    );
 }

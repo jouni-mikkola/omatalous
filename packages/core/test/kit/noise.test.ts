@@ -16,17 +16,15 @@ const BUDGET = SEEDS / 100;
 const CHUNK = 10;
 
 /**
- * The detectors that set one window against another: price rises, stops, new subscriptions, year and season
- * comparisons, spending and habit changes, income changes, and the change sentences. Not the ones about a level or an event (a renewal, instalments, a double charge, a fee).
+ * The detectors that set one window against another: spike and habit alerts, income changes, and the change sentences. Not the ones about a level or an event (a renewal, instalments, a double charge, a fee).
  */
 const TWO_WINDOW: readonly RegExp[] = [
-  /^insights (price|price-rises|stopped|new|seasons|spending-[a-z_]+|commitments-share|income|subscriptions-added)$/,
   /^alerts (spike|habit)$/,
   /^income (?!windfall)[a-z_]+$/,
   /^change (usual|season|year)$/,
 ];
 
-/** A source and its kind: an insight's id up to the first colon (`spending-groceries`, `spending-growth`), an alert's kind. */
+/** A source and its kind: a change sentence's id up to the first colon, an alert's kind. */
 function detectorOf(s: Statement): string {
   return `${s.source} ${s.kind}`;
 }

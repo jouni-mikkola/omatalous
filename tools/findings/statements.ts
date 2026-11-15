@@ -1,6 +1,6 @@
 /**
- * Every statement the product makes about money, as stable text: what Säästövinkit says as Muut havainnot (insights,
- * alerts), Mikä muuttui (income) and the spending change sentences. One block
+ * Every statement the product makes about money, as stable text: what the alerts say, Mikä muuttui (income) and the
+ * spending change sentences. One block
  * per statement with its number and its calc, so a reviewer reads a change in what the product says as a text diff.
  * Last, the rows the product holds apart as large (`large`), what goes where by theme over the last twelve complete
  * months (`themes`) and the behaviour signals of BA1 (`behaviour`: credit stacking, the payday effect, split bill
@@ -9,30 +9,28 @@
 import { buildAlerts } from "../../packages/core/src/analysis/alerts.ts";
 import { type AnalysisContext, netSpend } from "../../packages/core/src/analysis/context.ts";
 import { incomeBase, incomeChanges } from "../../packages/core/src/analysis/income-changes.ts";
-import { insightInputOf, rankInsights } from "../../packages/core/src/analysis/insights/index.ts";
 import { largeIncome, largePurchases } from "../../packages/core/src/analysis/large.ts";
 import type { DateRange } from "../../packages/core/src/analysis/period.ts";
 import { themesReport } from "../../packages/core/src/analysis/themes-report.ts";
-import { insightText } from "../../packages/core/src/explain/insights.ts";
 import { creditStack } from "../../packages/core/src/behaviour/credit-stack.ts";
 import { paydayEffect } from "../../packages/core/src/behaviour/payday.ts";
 import { splitCandidates } from "../../packages/core/src/behaviour/split.ts";
 import { spendingChangeReport } from "../../packages/core/src/reports/spending-change.ts";
 import { contextOf, type Household } from "./households.ts";
 
-export const SOURCE_IDS = ["insights", "alerts", "income", "change", "large", "themes", "behaviour"] as const;
+export const SOURCE_IDS = ["alerts", "income", "change", "large", "themes", "behaviour"] as const;
 export type SourceId = (typeof SOURCE_IDS)[number];
 
 export interface Statement {
   source: SourceId;
   household: string;
   /**
-   * The product's own id: an insight, alert, finding or income change id; `change:<view>:<months>`, `outcome:<finding id>`,
+   * The product's own id: an alert, finding or income change id; `change:<view>:<months>`, `outcome:<finding id>`,
    * `large:<day>:<row id>`, `themes:<theme id>`, `themes:window`, `behaviour:credit`, `behaviour:payday` and
    * `behaviour:split:<purchase id>` here.
    */
   id: string;
-  /** The detector that made it: an insight's id prefix, an alert's kind, `<area>:<kind>`, an income change kind, a change view; `theme`, `window` or `none` of the themes. */
+  /** The detector that made it: an alert's kind, `<area>:<kind>`, an income change kind, a change view; `theme`, `window` or `none` of the themes. */
   kind: string;
   title: string;
   /** The number it stands on, "" when it has none (an alert). */
@@ -62,19 +60,6 @@ interface Run {
 type Maker = (r: Run) => Omit<Statement, "source" | "household">[];
 
 const MAKERS: Record<SourceId, Maker> = {
-  insights: ({ h, ctx, range }) =>
-    rankInsights(insightInputOf(ctx, range, h.inputs)).map((i) => {
-      const text = insightText(i);
-      return {
-        id: i.id,
-        kind: i.id.split(":")[0]!,
-        title: text.title,
-        figure: `${(i.effectPerYear?.cents ?? 0) < 0 ? "-" : ""}${eur(Math.abs(i.effectPerYear?.cents ?? 0))} a year`,
-        calc: [text.detail, `tone ${text.tone}`, `${i.kind} ${i.action.label}`],
-        rows: i.evidence.rows.length,
-        loud: true,
-      };
-    }),
   alerts: ({ h, ctx, range }) =>
     buildAlerts(ctx, range, h.inputs).map((a) => ({ id: a.id, kind: a.kind, title: a.title, figure: "", calc: [a.detail, `tone ${a.tone}`], rows: null, loud: true })),
   income: ({ ctx, range }) => {

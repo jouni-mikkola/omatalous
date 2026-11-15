@@ -268,7 +268,7 @@ async function desk(/** @type {Film} */ film) {
   await film.say("A new install is empty. The example data stands in for a bank.");
   await film.read();
   await film.click(load);
-  await page.locator(".home-tiles").waitFor({ state: "visible", timeout: 30_000 });
+  await page.locator(".home-summary").waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
   // the first page has its figures now; the pointer leaves it for Tapahtumat without opening the chart's readout
   await film.say("The example data is loaded.");
@@ -329,7 +329,7 @@ async function desk(/** @type {Film} */ film) {
   const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible" });
   const left = plain(await answer.locator(".fig").textContent());
-  const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-tile-line").textContent()))?.[1];
+  const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-fig-line").textContent()))?.[1];
   if (!payday) throw new Error("Yhteenveto names no payday");
   film.marks = [await film.box(answer)];
   await film.say(`Yhteenveto: ${euros(cents(left))} is left until payday, ${englishDate(payday)}, after the bills before it.`);

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { categoryRises, type ChangeView, type SpendingChange, spendingChange } from "../src/analysis/change.ts";
-import { spendingInsights } from "../src/analysis/insights/spending.ts";
 import { spendingChangeReport } from "../src/reports/spending-change.ts";
 import { expectedFor, expectedSpending } from "../src/analysis/expected.ts";
 import { completeMonthsBefore, spendingThrough } from "../src/analysis/usual.ts";
@@ -9,7 +8,6 @@ import { addMonths, daysInMonth, monthRange } from "../src/dates.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { rng } from "./gen.ts";
 import { tx } from "./helpers.ts";
-import { view } from "./insight-view.ts";
 import { lateCardContext } from "./late-card-household.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -326,7 +324,7 @@ describe("spendingChange", () => {
     expect(daysInMonth("2026-10")).toBe(31);
   });
 
-  it("the report has at most five bars that add up to the change, and the grocery insight tells price from visits", () => {
+  it("the report has at most five bars that add up to the change", () => {
     const visits = (from: string, to: string, factor: number) =>
       monthRange(from, to).flatMap((m) => Array.from({ length: 10 }, (_, i) => tx({ bookingDate: day(m, 2 + i * 3), amountCents: -Math.round((4000 + (i % 3) * 500) * factor), merchant: "K-Market", category: "groceries" })));
     const rows = [...pay("2024-10", "2026-10"), ...visits("2024-10", "2025-10", 1), ...visits("2025-11", "2026-10", 1.14)].filter((t) => t.bookingDate <= today);
@@ -340,11 +338,6 @@ describe("spendingChange", () => {
     }
     expect(report.views[2]!.sentence).toMatch(/^Lokakuu 2026: menot .* suuremmat kuin lokakuu 2025\. Ruokakauppa \+.* \(kalliimpi ostoskerta\)\.$/);
     expect(report.views[1]!.periodLabel).toBe("Lokakuu 2025–syyskuu 2026");
-    const insights = spendingInsights(ctx, range).map(view);
-    expect(insights[0]).toMatchObject({ id: "spending-groceries", title: expect.stringMatching(/^Ruokakaupan ostoskerta 1\d % kalliimpi$/) });
-    expect(insights[0]!.yearlyCents).toBeGreaterThan(0);
-    // fewer than eight visits a month: the insight keeps quiet
-    expect(spendingInsights(ctxOf(rows.filter((t) => Number(t.bookingDate.slice(8)) < 12)), range).find((i) => i.id === "spending-groceries")).toBeUndefined();
     // bars add up to the change, or there are none: a rest bar never stands alone
     for (let seed = 1; seed <= 10; seed++)
       for (const v of spendingChangeReport(ctxOf(household(seed)), range).views) {
@@ -497,43 +490,6 @@ describe("spendingChange", () => {
     expect(debt.pieces.map((p) => [p.kind, p.cents])).toEqual([["other", 10000]]);
   });
 
-  describe("insights", () => {
-    const visits = (merchant: string, from: string, to: string, count: number, cents = 4000) =>
-      monthRange(from, to).flatMap((m) => Array.from({ length: count }, (_, i) => tx({ bookingDate: day(m, 2 + i * 3), amountCents: -(cents + (i % 3) * 500), merchant, category: "groceries" })));
-    const range = { from: "2026-10-01", to: today };
-
-    it("a year-on-year change is told by the report, not as an insight", () => {
-      // K-Market is replaced by Lidl at a ticket 400 cents higher: the year view shows it, the insights stay quiet
-      const rows = [...pay("2024-10", "2026-10"), ...visits("K-Market", "2024-10", "2025-09", 10), ...visits("Lidl", "2025-10", "2026-09", 10, 4400)];
-      expect(spendingInsights(ctxOf(rows), range).map((i) => i.id)).not.toContain("spending-year-cause");
-    });
-
-    it("the grocery insight reads visits and ticket from the shops visited in both periods, and says so", () => {
-      // Prisma 10 visits a month before, 8 now, and 2 visits at Lidl: as many visits in all, fewer at the shop kept
-      const rows = [...pay("2024-10", "2026-10"), ...visits("Prisma", "2024-10", "2025-09", 10), ...visits("Prisma", "2025-10", "2026-09", 8), ...visits("Lidl", "2025-10", "2026-09", 2)];
-      const found = view(spendingInsights(ctxOf(rows), range).find((i) => i.id === "spending-groceries")!);
-      expect(found.title).toBe("Ruokakaupassa käyntejä 20 % vähemmän");
-      expect(found.detail).toMatch(/^Vuotta aiemmin käyntejä oli 10 kuussa, nyt 8, samoissa kaupoissa\./);
-    });
-
-    it("the grocery insight splits the change into ticket and visits as the sentence states them, and gives the year with its sign", () => {
-      // a September ago Prisma 10 × 40 € and Alepa 2 × 30 €, this September Prisma 9 × 45 € and Alepa 1 × 10 €. At those
-      // shops 12 visits at 38,33 € became 10 at 41,50 €: ticket 10 × 3,17 € = +32 €, visits −2 × 38,33 € = −77 €. Split
-      // shop by shop, Alepa's single visit would put its cheaper ticket into the visits (−90 €) and one visit fewer
-      // would read as 90 €. The months between are as a September ago, so two visits fewer stand out of the noise.
-      const buy = (month: string, merchant: string, count: number, cents: number) =>
-        Array.from({ length: count }, (_, i) => tx({ bookingDate: day(month, 2 + i * 2), amountCents: -cents, merchant, category: "groceries" }));
-      const before = monthRange("2025-09", "2026-08").flatMap((m) => [...buy(m, "Prisma", 10, 4000), ...buy(m, "Alepa", 2, 3000)]);
-      const rows = [...pay("2025-08", "2026-10"), ...before, ...buy("2026-09", "Prisma", 9, 4500), ...buy("2026-09", "Alepa", 1, 1000)];
-      const found = view(spendingInsights(ctxOf(rows), range).find((i) => i.id === "spending-groceries")!);
-      expect(found).toMatchObject({
-        title: "Ruokakaupassa käyntejä 17 % vähemmän",
-        detail: "Vuotta aiemmin käyntejä oli 12 kuussa, nyt 10, samoissa kaupoissa. Katso rivit ja arvioi, kuuluuko menon olla näin suuri.",
-        yearlyCents: 54000,
-        direction: -1,
-      });
-    });
-  });
 });
 
 describe("a card bill in the base months that is no transfer", () => {
