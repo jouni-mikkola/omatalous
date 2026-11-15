@@ -5,10 +5,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
+import { queryClient } from "../src/query-client.ts";
 import { Review } from "../src/pages/Review.tsx";
 import type { ReviewItem } from "../src/pages/review-items.ts";
 import type { Meta } from "../src/types.ts";
-import { openApp, startServer, stubApi } from "./dom-kit.ts";
+import { failing, openApp, startServer, stubApi } from "./dom-kit.ts";
 
 const T = { timeout: 15000 };
 const question = () => (document.getElementById("review-q") ? document.querySelector(".review-item")!.textContent : null);
@@ -78,25 +79,61 @@ describe("Tarkistettavat", () => {
     expect(seen[1]!.body).toEqual({ subject: "series:out:acc-1:Esimerkkisähkö", mark: "cancelled" });
   });
 
-  it("asks a saved loan for its missing fact, opens that loan's own form and goes once the loan is saved", async () => {
+  it("asks a saved loan for its missing fact, opens that loan's own form with that field alone and goes once the loan is saved", async () => {
+    queryClient.clear();
     const loan = { id: "loan-7", name: "Asuntolaina", lender: null, kind: "mortgage", grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: null, limitCents: null, seriesKey: null };
     const other = { ...loan, id: "loan-8", name: "Toinen laina" };
     const seen = stubApi({ "GET /api/loans": { loans: [other, loan] }, "PUT /api/loans/loan-7": { loan }, "PUT /api/marks": {} });
-    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
-    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on lainan korko?");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on lainan kokonaiskorko?");
     expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina", "Älä muistuta tästä enää"]);
     fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
+    // the missing fact alone is asked; the rest of the form is behind one button
+    await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
+    expect(screen.queryByLabelText(/^Maksuerä/)).toBeNull();
+    expect(screen.queryByLabelText(/^Lainaa jäljellä/)).toBeNull();
+    expect(screen.queryByLabelText("Nimi")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Näytä kaikki kentät" }));
     // the form is the one of the loan the item names, not another saved loan
     expect((await screen.findByLabelText("Nimi", {}, T) as HTMLInputElement).value).toBe("Asuntolaina");
+    expect(screen.getByLabelText(/^Maksuerä/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-7")).toBe(true), T);
   });
 
+  it("asks only the fact that is missing: the field of each answer, and a connected card's form is the one of a new loan linked to it", async () => {
+    queryClient.clear();
+    const card = { id: "card-1", name: "Luottokortti", type: "credit_card", balanceCents: -50_000, balanceAt: "2026-10-08", creditLimitCents: 200_000 };
+    const seen = stubApi({ "GET /api/loans": { loans: [] }, "POST /api/loans": { loan: { id: "loan-9" } }, "PUT /api/marks": {} });
+    const item = { id: "loan_terms:account:card-1", kind: "loan_terms", cents: 0, loanId: null, accountId: "card-1", name: "Luottokortti", owedCents: 50_000, balanceDate: "2026-10-08", missing: "rate", subject: "question:loan-terms:account:card-1" } as unknown as ReviewItem;
+    const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on kortin kokonaiskorko?");
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Tallenna kortin ehdot", "Älä muistuta tästä enää"]);
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna kortin ehdot" }));
+    fireEvent.change(await screen.findByLabelText(/^Kokonaiskorko/, {}, T), { target: { value: "19" } });
+    expect(screen.queryByLabelText("Nimi")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
+    const post = seen.find((s) => s.method === "POST" && s.path === "/api/loans")!;
+    expect(post.body).toMatchObject({ name: "Luottokortti", kind: "card", accountId: "card-1", balanceCents: 50_000, limitCents: 200_000, rateBp: 1_900 });
+  });
+
+  it("shows the error of the other forms when the loans cannot be read", async () => {
+    queryClient.clear();
+    stubApi({ "GET /api/loans": failing(500, { error: "Lainoja ei voitu lukea." }) });
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "payment", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
+    expect((await screen.findByRole("alert", {}, T)).textContent).toContain("Lainoja ei voitu lukea.");
+  });
+
   it("sets a saved loan's question aside with the mark of the item", async () => {
     const seen = stubApi({ "PUT /api/marks": {} });
-    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "payment", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "payment", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     fireEvent.click(screen.getByRole("button", { name: "Älä muistuta tästä enää" }));

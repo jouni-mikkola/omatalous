@@ -171,7 +171,7 @@ describe("the kinds the page has a card for", () => {
 });
 
 describe("a saved loan that lacks a fact", () => {
-  const loan = { kind: "loan_terms", id: "loan_terms:l1", cents: 0, loanId: "l1", name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:l1" } as unknown as ReviewItem;
+  const loan = { kind: "loan_terms", id: "loan_terms:l1", cents: 0, loanId: "l1", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:l1" } as unknown as ReviewItem;
   it("is named by the loan and asks for the one fact it lacks", () => {
     const asked = (missing: string) => questionOf({ ...loan, missing } as ReviewItem);
     expect([eyebrow(loan), nameOf(loan)]).toEqual(["Laina", "Asuntolaina"]);
@@ -179,9 +179,13 @@ describe("a saved loan that lacks a fact", () => {
       "Miten maksat tämän lainan takaisin?",
       "Kuinka usein lyhennät tätä lainaa?",
       "Paljonko lainan maksuerä on?",
-      "Mikä on lainan korko?",
+      "Mikä on lainan kokonaiskorko?",
       "Milloin lainan viimeinen eräpäivä on?",
     ]);
+  });
+  it("asks a connected card for its total rate", () => {
+    const card = { ...loan, id: "loan_terms:account:c1", loanId: null, accountId: "c1", name: "Luottokortti", missing: "rate" } as unknown as ReviewItem;
+    expect([eyebrow(card), nameOf(card), questionOf(card)]).toEqual(["Laina", "Luottokortti", "Mikä on kortin kokonaiskorko?"]);
   });
   it("shows what the loan owes and the day of that balance", () => {
     const f = figureOf(loan);

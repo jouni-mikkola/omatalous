@@ -24,5 +24,6 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.i_don_t_know": "I don't know",
   "set.rc.not_a_loan": "Not a loan",
   "set.rc.complete_the_loan": "Complete the loan",
+  "set.rc.save_the_card_terms": "Save the card's terms",
   "set.rc.why": "Why we suggest this: {why}.",
 };

@@ -99,10 +99,15 @@ interface MortgageItem extends Base {
   kind: "mortgage";
 }
 
-/** A saved loan whose payments cannot be placed for want of one fact (`missing`): the loan's form answers it, Älä muistuta tästä enää is the mark on `subject`. */
+/**
+ * A debt whose payments cannot be placed for want of one fact (`missing`): a saved loan (`loanId`), answered by its form,
+ * or a connected card no saved loan is linked to (`accountId`), answered by the form of a loan linked to the card. Älä
+ * muistuta tästä enää is the mark on `subject`.
+ */
 interface LoanTermsItem extends Base {
   kind: "loan_terms";
-  loanId: string;
+  loanId: string | null;
+  accountId: string | null;
   name: string;
   owedCents: number;
   balanceDate: string;
@@ -336,7 +341,7 @@ export function questionOf(item: ReviewItem): string {
         case "payment":
           return t("set.ri.loan_terms_payment");
         case "rate":
-          return t("set.ri.loan_terms_rate");
+          return t(item.accountId === null ? "set.ri.loan_terms_rate" : "set.ri.loan_terms_card_rate");
         case "end_date":
           return t("set.ri.loan_terms_end_date");
       }

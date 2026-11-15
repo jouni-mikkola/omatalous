@@ -38,6 +38,10 @@ describe("the mark that sets the question aside", () => {
     expect(parseLoanTermsSubject(subject)).toBe("loan-1");
     expect(parseLoanTermsSubject("question:loan-terms:")).toBeNull();
     expect(parseLoanTermsSubject("question:loan-terms:a:b")).toBeNull();
+    // a card no saved loan is linked to is named by its debt's id
+    expect(parseLoanTermsSubject(loanTermsSubject("account:acc-1"))).toBe("account:acc-1");
+    expect(parseLoanTermsSubject("question:loan-terms:account:")).toBeNull();
+    expect(parseLoanTermsSubject("question:loan-terms:account:a:b")).toBeNull();
     expect(parseLoanTermsSubject("question:payee:loan-1")).toBeNull();
   });
   it("holds for the loan it names and only as a dismissal", () => {
