@@ -10,6 +10,7 @@
 .q-list a { display: block; padding: var(--sp-8) var(--sp-12); border-left: var(--tick) solid transparent; color: var(--text); text-decoration: none; font-weight: 600; }
 .q-list a:hover { background: var(--surface-2); }
 .q-list a[aria-current="page"] { border-left-color: var(--accent); background: var(--surface-2); }
+@media (pointer: coarse) { .q-list a { padding-block: var(--sp-12); } }
 .q-list small { display: block; margin-top: var(--sp-4); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
 /* the caret says the name opens a list: without it the button reads as a second heading */
 .q-switch::after { content: ""; display: inline-block; margin-left: var(--sp-8); border: var(--sp-4) solid transparent; border-top-color: currentColor; border-bottom-width: 0; vertical-align: middle; }
