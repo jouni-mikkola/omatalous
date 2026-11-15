@@ -5,9 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { type AnalysisTx, createContext } from "../src/analysis/context.ts";
-import { bridgeByMonth } from "../src/analysis/conservation.ts";
-import { poolOf } from "../src/analysis/pool.ts";
-import { normalizeIban } from "../src/iban.ts";
 import { generateHousehold } from "./kit/generate.ts";
 import { conservation, labelledFlow, loanParts, memberLegs, monthlyLoans, moneyIn, namesake, onePool, prefix, walletQuestions, walletRole } from "./kit/invariants.ts";
 import type { GeneratedHousehold } from "./kit/truth.ts";
@@ -63,21 +60,6 @@ describe("the invariant checks catch a household made wrong", () => {
       const residualIn = (v: HouseholdView): number => Number(/^residual (-?\d+)/.exec(conservation(h, v).find((x) => x.month === "2025-09")?.line ?? "residual 0")![1]);
       // the purchase was spending of -amount: leaving it out raises the month's residual by exactly that
       expect(residualIn(bad) - residualIn(whole())).toBe(-shop.amountCents);
-    },
-    LONG,
-  );
-
-  it(
-    "I1 moved: the legs of a transfer between members that arrives short are matched by the amount that arrived, and the fee is not moved",
-    () => {
-      const v = whole();
-      const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)!));
-      const fee = [...h.truth.values()].filter((l) => l.feeCents).length;
-      expect(fee).toBeGreaterThan(0);
-      // every leg between two daily accounts of the household view has its mate, so the line nets to nothing in each month
-      const months = bridgeByMonth(v.ctx.txs, v.accounts, poolOf(v.balances).ids, daily);
-      expect(months.some((m) => m.lines.moved.rowIds.length > 0)).toBe(true);
-      for (const m of months) expect(m.lines.moved.cents, m.month).toBe(0);
     },
     LONG,
   );

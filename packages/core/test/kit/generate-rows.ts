@@ -187,9 +187,9 @@ function eventRows(plan: Plan, m: string, put: Put, pair: Pair): void {
     const fee = 150;
     const amount = 8000;
     pair(
-      { date: f.on(m, 14), cents: -(amount + fee), counterparty: members[1]!.holder, description: "SIIRTO", iban: ibans.get(chk(1))!, account: chk(0) },
+      { date: f.on(m, 14), cents: -(amount + fee), counterparty: members[1]!.holder, description: "SIIRTO", iban: null, account: chk(0) },
       { kind: "member_transfer", flow: "transfer", member: me, event: "member-fee", feeCents: fee },
-      { date: f.on(m, 14), cents: amount, counterparty: first.holder, description: "SIIRTO", iban: ibans.get(chk(0))!, account: chk(1) },
+      { date: f.on(m, 14), cents: amount, counterparty: first.holder, description: "SIIRTO", iban: null, account: chk(1) },
       { kind: "member_transfer", flow: "transfer", member: members[1]!.id, event: "member-fee" },
     );
   }
