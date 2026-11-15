@@ -3,7 +3,6 @@ import type { QuestionId } from "@banking/core";
 import { type ReactNode, useState } from "react";
 import { query } from "../../api.ts";
 import { t } from "../../text.ts";
-import { Notice } from "../../components/ui/Notice.tsx";
 import type { ReportPage } from "./types.ts";
 import "../../styles/reports.css";
 
@@ -38,14 +37,13 @@ function ReportList({ pages, current, params }: { pages: readonly ReportPage[]; 
 /**
  * The frame of every report page: the list of reports and the open one beside it, its name as the heading.
  */
-export function Frame({ current, title, pages, params, note, children }: { current: QuestionId; title: string; pages: readonly ReportPage[]; params: URLSearchParams; note?: string; children: ReactNode }) {
+export function Frame({ current, title, pages, params, children }: { current: QuestionId; title: string; pages: readonly ReportPage[]; params: URLSearchParams; children: ReactNode }) {
   return (
     <div className="q-frame">
       <ReportList pages={pages} current={current} params={params} />
       <div className="q-page stack">
         <header className="q-head">
           <h2 className="q-title">{title}</h2>
-          {note && <Notice>{note}</Notice>}
         </header>
         {children}
       </div>
