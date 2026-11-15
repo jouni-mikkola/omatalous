@@ -135,7 +135,7 @@ export type InsightFact =
   | { type: "small-purchases"; monthlyCents: number; perMonth: number; top: string[]; limitCents: number; up: boolean }
   | { type: "weekday"; weekday: number; cents: number; weeks: number }
   | { type: "rare-bills"; yearlyCents: number; reserveMonthlyCents: number; bills: number; next: { merchant: string; date: IsoDate; cents: number } }
-  | { type: "debt-free"; date: IsoDate; interestCents: number; loans: number; left: number }
+  | { type: "debt-free"; date: IsoDate; interestCents: number; loans: number }
   | { type: "savings-rate"; percent: number; allPercent: number; personCents: number; months: number }
   | { type: "category-pace"; label: string; nowCents: number; usualCents: number; percent: number; day: number; months: number }
   | { type: "payday-bills"; date: IsoDate; billsCents: number; beforeCents: number; payCents: number }
@@ -168,6 +168,11 @@ export interface Insight {
   action: Action;
   /** What the finding is worth over a year; null when its cost has no yearly figure. The ranking key. */
   effectPerYear: EffectLine | null;
+  /**
+   * The source said the finding has no yearly figure (`yearlyCents: null`), as against a figure that rounds to nothing,
+   * which is no finding. Set by `insightOf` only. Such an insight is told, after those with a figure, and says no yearly sum.
+   */
+  noYearly?: true;
   kind: "pattern" | "single";
   evidence: InsightEvidence;
 }

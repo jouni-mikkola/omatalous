@@ -87,5 +87,4 @@ export const EN_CALC = {
   "calc.pay_usual": "Usual pay",
   "calc.due_before_pay": "Bills before payday",
   "calc.due_on_pay": "Bills on payday",
-  "calc.paydays_year": "Paydays a year",
 };

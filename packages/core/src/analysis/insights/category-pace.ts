@@ -5,8 +5,8 @@
  * never disagree and the report's noise test decides what stands out. A category is told when its rise stands out and
  * is worth the report's gate; the `RECENT_CATEGORIES` that rose most are told. Spending below the usual is not told: a
  * bill that has not come yet or a bank that has not synced looks the same, and there is nothing to ease off. A card
- * bill is left out: it falls on the issuer's day, not the household's. The yearly effect is the rise scaled to the whole
- * month, a year of months like it.
+ * bill is left out: it falls on the issuer's day, not the household's. It has no yearly effect: one month's rise times
+ * twelve is a projection, and the month may still end level.
  */
 import { daysInMonth, monthOf } from "../../dates.ts";
 import { getCategory } from "../../categories.ts";
@@ -41,7 +41,7 @@ export function categoryPace(args: InsightArgs): Insight[] {
         fact: { type: "category-pace", label, nowCents: c.nowCents, usualCents: c.baseCents, percent, day, months },
         comparison: { label: "recentUsual", value: q.cents(c.baseCents) },
         action: { label: "seePace", target: { page: "transactions", filter: { category, from: `${month}-01`, to: through } } },
-        yearlyCents: -monthDiff * 12,
+        yearlyCents: null,
         kind: "pattern",
         link: { category, from: `${month}-01`, to: through },
         calc: [

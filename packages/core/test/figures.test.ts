@@ -81,6 +81,13 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const row = cashflowReport(ctx, lastMonth(h)).rows.find((r) => r.month === month);
     return { bridge: dash.bridge.month === month ? dash.bridge.totals.savingsRate : savingsRateOf(ctx, [month]).rate, cashflow: row?.savingsRate ?? null, helper: savingsRateOf(ctx, [month]).rate };
   },
+  ownSavingsRate: (h) => {
+    const ctx = contextOf(h);
+    const month = monthOfRange(h);
+    const { ownRate, totals, persons } = savingsRateOf(ctx, [month]);
+    // the one figure of the helper, read again from its own parts: saved over the income without the money from people
+    return { helper: ownRate, parts: totals.incomeCents - persons.cents > 0 ? totals.savedCents / (totals.incomeCents - persons.cents) : null };
+  },
   due: (h) => {
     const ctx = contextOf(h);
     const dash = buildDashboard(ctx, running(h), h.balances, h.inputs).ahead;

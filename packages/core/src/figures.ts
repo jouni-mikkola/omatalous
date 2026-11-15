@@ -88,6 +88,15 @@ export const FIGURES = {
     additive: false,
     pages: ["Yhteenveto", "Raportit"],
   },
+  ownSavingsRate: {
+    name: "Säästöaste omista tuloista",
+    definition: "Saved over income less the money from people (a friend paying back a dinner, a share of the rent), pooled over the same complete months and rows as Säästöaste. Säästöaste counts that money as income, so this one is the higher of the two when any came.",
+    source: { file: "analysis/bridge.ts", fn: "savingsRateOf", field: "ownRate" },
+    unit: "share",
+    scope: "own",
+    additive: false,
+    pages: ["Yhteenveto", "Säästövinkit"],
+  },
   due: {
     name: "Erääntyvät maksut",
     definition: "What the counted accounts pay before the next payday or in 30 days. It holds recurring bills, bills typed in and connected cards' bills. An own transfer is no payment, so it is not in it.",

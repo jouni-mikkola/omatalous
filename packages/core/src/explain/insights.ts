@@ -194,11 +194,8 @@ function comparisonText(c: Comparison, f: InsightFact, lang: Language): string {
         : text("ins.cmp_usual_stopped", { monthly: eur(f.monthlyCents), payments: f.payments, date: date(f.firstDate), paid: eurExact(f.paidCents), last: eurExact(f.lastCents) });
     case "reserve":
       return f.type === "rare-bills" ? text("ins.cmp_reserve", { reserve: value, merchant: f.next.merchant, date: date(f.next.date), price: eurExact(f.next.cents) }) : text("ins.cmp_usual", { value });
-    case "interestYear": {
-      if (f.type !== "debt-free") return text("ins.cmp_usual", { value });
-      const base = text("ins.cmp_debt_free", { interest: eur(f.interestCents), year: value });
-      return f.left > 0 ? `${base} ${text("ins.cmp_debt_left", { count: f.left })}` : base;
-    }
+    case "interestYear":
+      return f.type === "debt-free" ? text("ins.cmp_debt_free", { interest: eur(f.interestCents), year: value }) : text("ins.cmp_usual", { value });
     case "savingsRateAll":
       return f.type === "savings-rate" ? text("ins.cmp_savings_rate", { all: value, persons: eur(f.personCents), months: f.months }) : text("ins.cmp_usual", { value });
     case "recentUsual":

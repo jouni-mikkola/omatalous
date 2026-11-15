@@ -1,12 +1,11 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
-import { categoryLabel } from "../category-names.ts";
+import { spendingLabel } from "../category-names.ts";
 import { getCategory } from "../categories.ts";
 import { flowSpendOf } from "../analysis/counted.ts";
 import { type AnalysisContext, spendRows } from "../analysis/context.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { fromMonthIndex } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
-import { messageIn } from "../messages.ts";
 import { expectedLevel } from "../analysis/expected.ts";
 import { cardRowsMissingIn } from "../analysis/usual.ts";
 import { largePurchases } from "../analysis/large.ts";
@@ -145,7 +144,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
       return {
         category,
         // the card bills left whole are the part of the spending no purchase explains: named as that, not as a category the household chose
-        label: category === "card_bill" ? messageIn(lang, "rpt.sm_card_bills") : categoryLabel(getCategory(category), lang),
+        label: spendingLabel(getCategory(category), lang),
         values,
         totalCents,
         typicalCents,

@@ -64,9 +64,9 @@ const SOURCES: readonly InsightSource[] = [
   paydayBills,
 ];
 
-/** The order of the list: a pattern before a single row, then the larger yearly effect, then the id. */
+/** The order of the list: one with a yearly figure before one without, a pattern before a single row, then the larger yearly effect, then the id. */
 function compareInsights(a: Insight, b: Insight): number {
-  return Number(a.kind === "single") - Number(b.kind === "single") || yearlyOf(b) - yearlyOf(a) || a.id.localeCompare(b.id);
+  return Number(!!a.noYearly) - Number(!!b.noYearly) || Number(a.kind === "single") - Number(b.kind === "single") || yearlyOf(b) - yearlyOf(a) || a.id.localeCompare(b.id);
 }
 
 /** The yearly figure of an insight without its sign: what a dismissal is compared with. */
@@ -120,7 +120,8 @@ export function answeredInsights(input: InsightInput): AnsweredInsight[] {
   // what an alert names already (a merchant, a category) is not told twice
   const alerted = new Set(args.alerts.flatMap((a) => [a.merchant, a.category]).filter((x): x is string => !!x));
   return SOURCES.flatMap((source) => source(args))
-    .filter((i) => i.effectPerYear !== null && !(i.evidence.merchant && alerted.has(i.evidence.merchant)) && (i.kind === "pattern" || singleShown(args, i)))
+    // a figure that rounds to nothing is no finding; a finding the source gave no yearly figure (`noYearly`) is told
+    .filter((i) => (i.effectPerYear !== null || i.noYearly) && !(i.evidence.merchant && alerted.has(i.evidence.merchant)) && (i.kind === "pattern" || singleShown(args, i)))
     .sort(compareInsights)
     .map((insight) => ({ insight, dismissal: dismissalOf(insight, dismissals) }));
 }

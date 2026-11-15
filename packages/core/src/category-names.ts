@@ -4,7 +4,7 @@
  */
 import type { Category } from "./categories.ts";
 import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
-import { messageFromWire } from "./messages.ts";
+import { messageFromWire, messageIn } from "./messages.ts";
 
 /** The code part of each group's message (`cgroup.<code>`). */
 const GROUP_CODE: Record<string, string> = {
@@ -28,6 +28,13 @@ const GROUP_CODE: Record<string, string> = {
 
 /** The label of a category in a language. */
 export const categoryLabel = (c: Pick<Category, "id" | "label">, lang: Language = DEFAULT_LANGUAGE): string => messageFromWire(`category.${c.id}`, undefined, lang) ?? c.label;
+
+/**
+ * The name of a category in a view of the household's spending, where the card bills left whole (`card_bill`) are the
+ * part of the spending that no purchase explains: named as that and not as a category the household chose. Every view
+ * of spending by category names the row this way, so one row never has two names.
+ */
+export const spendingLabel = (c: Pick<Category, "id" | "label">, lang: Language = DEFAULT_LANGUAGE): string => (c.id === "card_bill" ? messageIn(lang, "rpt.sm_card_bills") : categoryLabel(c, lang));
 
 /** The name of a group (the Finnish group is the key) in a language. */
 export const groupLabel = (group: string, lang: Language = DEFAULT_LANGUAGE): string => messageFromWire(`cgroup.${GROUP_CODE[group] ?? ""}`, undefined, lang) ?? group;

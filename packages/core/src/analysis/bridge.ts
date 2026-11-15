@@ -10,6 +10,7 @@ import { messageIn } from "../messages.ts";
 import { fromMonthIndex, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { type AnalysisContext, spendRows, spendTotals } from "./context.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
+import { incomeTypeOf, isIncomeRow } from "./income.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 import { completeMonthsBefore, isCompleteMonth } from "./usual.ts";
 
@@ -33,6 +34,15 @@ export interface Bridge {
 interface SavingsRate {
   /** Saved / income over the complete months of the run; null without a complete month or without income. */
   rate: number | null;
+  /**
+   * Saved / own income over the same months and rows: the income less the money from people (a friend paying back a
+   * dinner, a share of the rent). Null without a complete month, or when nothing is left of the income without them.
+   */
+  ownRate: number | null;
+  /** The pooled totals of the complete months, which both rates are told from. */
+  totals: PeriodTotals;
+  /** The money from people counted as income in `totals`, and the rows it is made of. */
+  persons: { cents: number; rowIds: string[] };
   /** The months the rate is told from: the complete ones of the run, oldest first. */
   months: string[];
   /** "Säästöaste, viimeiset 12 kuukautta": the name of the figure with its window. */
@@ -46,8 +56,19 @@ interface SavingsRate {
  */
 export function savingsRateOf(ctx: AnalysisContext, months: readonly string[], lang: Language = DEFAULT_LANGUAGE): SavingsRate {
   const complete = months.filter((m) => isCompleteMonth(ctx, m));
-  const totals = totalsOf(complete.flatMap((m) => spendRows(ctx, toDayRange({ from: `${m}-01`, to: monthEnd(m) })).map((t) => t.flows)));
-  return { rate: complete.length ? totals.savingsRate : null, months: complete, label: complete.length === 1 ? messageIn(lang, "opt.sit_saving_one") : messageIn(lang, "opt.sit_saving_many", { n: complete.length }) };
+  const rows = complete.flatMap((m) => spendRows(ctx, toDayRange({ from: `${m}-01`, to: monthEnd(m) })));
+  const totals = totalsOf(rows.map((t) => t.flows));
+  const personRows = rows.filter((t) => isIncomeRow(t) && incomeTypeOf(t) === "persons");
+  const personCents = personRows.reduce((sum, t) => sum + t.flows.income, 0);
+  const ownIncomeCents = totals.incomeCents - personCents;
+  return {
+    rate: complete.length ? totals.savingsRate : null,
+    ownRate: complete.length && ownIncomeCents > 0 ? totals.savedCents / ownIncomeCents : null,
+    totals,
+    persons: { cents: personCents, rowIds: personRows.map((t) => t.id) },
+    months: complete,
+    label: complete.length === 1 ? messageIn(lang, "opt.sit_saving_one") : messageIn(lang, "opt.sit_saving_many", { n: complete.length }),
+  };
 }
 
 function monthTotals(ctx: AnalysisContext, month: string): PeriodTotals {

@@ -101,10 +101,8 @@ export const THRESHOLDS = {
   holeMonths: threshold(2, "months", "A judgement: a run of one or two empty months on an account in daily use is rows the bank or an export missed. A longer one is an account left unused for a while."),
   rareBillMinCents: threshold(1000, "cents", "A judgement: a small yearly charge (a 2 € storage plan) is not worth a line among the bills that are set aside for."),
   rareBillYearMonths: threshold(12, "months", "A year: the rare bills are counted over whole calendar months from this one, so every bill that comes once or twice a year falls in it once."),
-  rareBillsTellYearCents: threshold(60000, "cents", "A judgement: rare bills worth 600 € a year ask for a reserve of 50 € a month. Under it a month's pay carries them without setting money aside, and one yearly subscription is not an insight."),
   recentCategories: threshold(3, "count", "Three categories name what moved. A longer list is a table."),
   savingsMonths: threshold(12, "months", "A year of complete months: the savings rate is pooled over them, so a bonus or a large purchase in one month does not set it."),
-  paydaysYear: threshold(12, "count", "A judgement: a pay comes each month, so the bills dated on a payday come as many times a year."),
   minRateGapPoints: threshold(2, "points", "A judgement: two savings rates that differ by under two points of income read as the same rate, so the second one is not worth a line."),
 } as const;
 
@@ -190,8 +188,6 @@ export const DAILY_MONTHS_SHARE = THRESHOLDS.dailyMonthsShare.value;
 export const HOLE_MONTHS = THRESHOLDS.holeMonths.value;
 export const RARE_BILL_MIN_CENTS = THRESHOLDS.rareBillMinCents.value;
 export const RARE_BILL_YEAR_MONTHS = THRESHOLDS.rareBillYearMonths.value;
-export const RARE_BILLS_TELL_YEAR_CENTS = THRESHOLDS.rareBillsTellYearCents.value;
 export const RECENT_CATEGORIES = THRESHOLDS.recentCategories.value;
 export const SAVINGS_MONTHS = THRESHOLDS.savingsMonths.value;
 export const MIN_RATE_GAP_POINTS = THRESHOLDS.minRateGapPoints.value;
-export const PAYDAYS_YEAR = THRESHOLDS.paydaysYear.value;

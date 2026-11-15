@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { AheadData } from "../src/analysis/ahead.ts";
+import { type AheadData, aheadBasis } from "../src/analysis/ahead.ts";
+import { savingsRateOf } from "../src/analysis/bridge.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { insightInputOf, rankInsights } from "../src/analysis/insights/index.ts";
+import { insightOf } from "../src/analysis/insights/shared.ts";
 import { categoryPace } from "../src/analysis/insights/category-pace.ts";
 import { debtFree } from "../src/analysis/insights/debt-free.ts";
 import { paydayBills } from "../src/analysis/insights/payday-bills.ts";
@@ -24,13 +27,23 @@ function monthly(start: string, day: number, count: number, amount: number, part
 const argsOf = (txs: Transaction[], at: string, over: Partial<InsightArgs> = {}): InsightArgs =>
   ({ ctx: createContext(txs, [checking], at), end: at, running: true, inputs: NO_INPUTS, gateMonthlyCents: 0, ahead: null, lang: "fi", ...over }) as unknown as InsightArgs;
 
-/** The shapes every insight keeps: two sentences, a calc line that ends in its year, an action and a comparison. */
-function expectShape(i: Insight) {
+/**
+ * The shapes every insight keeps: two sentences, a calc line that ends in its year, an action and a comparison. Only
+ * the three findings that are no money the household gains or loses by acting have no yearly figure (`yearly: false`).
+ */
+function expectShape(i: Insight, { yearly = true } = {}) {
   const text = insightText(i);
   expect(text.title.split(/\s+/).length, text.title).toBeLessThanOrEqual(8);
   expect(plain(text.detail), text.detail).toMatch(/\.$/);
-  expect(i.evidence.calc.at(-1)).toEqual(i.effectPerYear);
-  expect(i.effectPerYear).not.toBeNull();
+  if (yearly) {
+    expect(i.evidence.calc.at(-1)).toEqual(i.effectPerYear);
+    expect(i.effectPerYear).not.toBeNull();
+    expect(text.effect).not.toBeNull();
+  } else {
+    expect(i.effectPerYear).toBeNull();
+    expect(i.noYearly).toBe(true);
+    expect(text.effect).toBeNull();
+  }
   return text;
 }
 
@@ -38,7 +51,7 @@ describe("bills that come rarely", () => {
   const history = [...monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), ...[2023, 2024, 2025].map((y) => tx({ bookingDate: `${y}-12-15`, amountCents: -72000, category: "insurance", merchant: "Vakuutus Oy" }))];
 
   it("hit: a yearly bill gives a reserve a month and names the next one", () => {
-    const [found] = rareBills(argsOf(history, "2026-10-09"));
+    const [found] = rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 2000 }));
     expect(found).toMatchObject({ id: "rare-bills", comparison: { label: "reserve" }, action: { label: "seeBills" } });
     if (found?.fact.type !== "rare-bills") throw new Error("no rare-bills fact");
     expect(found.fact.next).toMatchObject({ merchant: "Vakuutus Oy", date: "2026-12-15", cents: 72000 });
@@ -53,11 +66,17 @@ describe("bills that come rarely", () => {
 
   it("near miss: a yearly bill under the reserve line is told nothing", () => {
     const small = history.map((t) => (t.category === "insurance" ? { ...t, amountCents: -20160 } : t));
-    expect(rareBills(argsOf(small, "2026-10-09"))).toEqual([]);
+    expect(rareBills(argsOf(small, "2026-10-09", { gateMonthlyCents: 2000 }))).toEqual([]);
+  });
+
+  it("near miss: the line is twelve months of the household's gate, so a larger household needs larger bills", () => {
+    // 720 € a year is over twelve months of a 20 € gate (240 €) and under twelve months of an 80 € gate (960 €)
+    expect(rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 2000 }))).toHaveLength(1);
+    expect(rareBills(argsOf(history, "2026-10-09", { gateMonthlyCents: 8000 }))).toEqual([]);
   });
 
   it("near miss: a household with only monthly bills has none", () => {
-    expect(rareBills(argsOf(monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), "2026-10-09"))).toEqual([]);
+    expect(rareBills(argsOf(monthly("2023-01", 15, 45, 300000, { category: "salary", merchant: "Työnantaja Oy" }), "2026-10-09", { gateMonthlyCents: 2000 }))).toEqual([]);
   });
 });
 
@@ -90,8 +109,28 @@ describe("debt-free date", () => {
     if (found?.fact.type !== "debt-free") throw new Error("no debt-free fact");
     expect(found.fact.date).toBe(path.payoff);
     expect(found.fact.interestCents).toBe(path.interestCents[0]);
-    expect(found.fact.left).toBe(0);
+    expect(found.fact.loans).toBe(1);
     expect(found.effectPerYear!.cents).toBeLessThan(0);
+    expectShape(found);
+  });
+
+  it("near miss: a loan the plan cannot walk is left out, and then no date is told for the last loan", () => {
+    const open: Loan = { ...loan, id: "loan-2", name: "Opintolaina", rateBp: null, reference: null, marginBp: null, repayment: null, paymentCents: null, endDate: null };
+    expect(debtPath([loan, open], today).left.map((l) => l.id)).toEqual(["loan-2"]);
+    expect(debtFree(argsOf(salary, today, { inputs: { ...NO_INPUTS, loans: [loan] } }))).toHaveLength(1);
+    expect(debtFree(argsOf(salary, today, { inputs: { ...NO_INPUTS, loans: [loan, open] } }))).toEqual([]);
+  });
+
+  it("hit: a joint loan counts at the viewer's part, in the interest and in the yearly sum", () => {
+    const half = { ...loan, part: { from: 0, to: 1, of: 2 } } as Loan;
+    const [whole] = debtFree(argsOf(salary, today, { inputs: { ...NO_INPUTS, loans: [loan] } }));
+    const [found] = debtFree(argsOf(salary, today, { inputs: { ...NO_INPUTS, loans: [half] } }));
+    if (whole?.fact.type !== "debt-free" || found?.fact.type !== "debt-free") throw new Error("no debt-free fact");
+    // the same day, half of the interest (each payment's part is cut to the cent, so the halves differ by cents at most)
+    expect(found.fact.date).toBe(whole.fact.date);
+    expect(found.fact.interestCents).toBe(debtPath([half], today).interestCents[0]);
+    expect(Math.abs(2 * found.fact.interestCents - whole.fact.interestCents)).toBeLessThan(300);
+    expect(Math.abs(2 * found.effectPerYear!.cents - whole.effectPerYear!.cents)).toBeLessThan(300);
     expectShape(found);
   });
 
@@ -118,10 +157,24 @@ describe("savings rate without person payments", () => {
     const [found] = savingsRateWithoutPersons(argsOf([...base, ...people], at));
     expect(found).toMatchObject({ id: "savings-rate", comparison: { label: "savingsRateAll" }, action: { label: "seeSavingsRate" } });
     if (found?.fact.type !== "savings-rate") throw new Error("no savings-rate fact");
-    expect(found.fact.percent).toBeGreaterThan(found.fact.allPercent);
-    expect(found.fact.personCents).toBe(30000 * found.fact.months);
+    // 900 € saved of 3 000 € own income, and of 3 300 € with the 300 € from people, in each of the 12 months
+    expect(found.fact).toEqual({ type: "savings-rate", percent: 30, allPercent: 27, personCents: 360_000, months: 12 });
+    expect(found.comparison.value).toEqual({ unit: "percent", value: 27 });
     expect(found.evidence.rows.length).toBe(found.fact.months);
-    expectShape(found);
+    expect(plain(expectShape(found, { yearly: false }).title)).toBe("Säästöaste omista tuloista on 30 %");
+  });
+
+  it("reads the one figure of the bridge: the rate and the rate on own income come from the same totals", () => {
+    const people = monthly("2025-09", 12, 14, 30000, { category: "p2p_in", merchant: "Maija Meikäläinen" }).filter((t) => t.bookingDate <= at);
+    const ctx = createContext([...base, ...people], [checking], at);
+    const months = Array.from({ length: 12 }, (_, i) => addMonths("2025-10", i));
+    const { rate, ownRate, totals, persons } = savingsRateOf(ctx, months);
+    expect(rate).toBeCloseTo(0.27272727, 6);
+    expect(ownRate).toBeCloseTo(0.3, 10);
+    expect(totals.savedCents).toBe(1_080_000);
+    expect(persons.cents).toBe(360_000);
+    // without money from people the two are one figure
+    expect(savingsRateOf(createContext(base, [checking], at), months).ownRate).toBeCloseTo(savingsRateOf(createContext(base, [checking], at), months).rate!, 10);
   });
 
   it("near miss: no payments from people, no second rate", () => {
@@ -148,9 +201,8 @@ describe("a category this month against the months before", () => {
     if (i?.fact.type !== "category-pace") throw new Error("no category-pace fact");
     expect(i.fact).toMatchObject({ nowCents: 18000, usualCents: 10000, percent: 80, day: 12, months: 6 });
     expect(i.comparison.value).toEqual({ unit: "cents", value: 10000 });
-    // 8 000 € more by day 12 of 31 days: 80 € over the whole month, twelve times
-    expect(i.effectPerYear!.cents).toBe(-Math.round((8000 * 31) / 12) * 12);
-    expect(plain(expectShape(i).title)).toContain("80 %");
+    // one month's rise times twelve is a projection, so the finding says no yearly sum
+    expect(plain(expectShape(i, { yearly: false }).title)).toContain("80 %");
   });
 
   it("near miss: the same spending is told nothing", () => {
@@ -188,8 +240,25 @@ describe("bills on the payday itself", () => {
     expect(found).toMatchObject({ id: "payday-bills", comparison: { label: "payEstimate" }, action: { label: "seeBills" } });
     if (found?.fact.type !== "payday-bills") throw new Error("no payday-bills fact");
     expect(found.fact).toMatchObject({ date: "2026-12-10", billsCents: 78672, beforeCents: 120000, payCents: 271500 });
-    expect(found.effectPerYear!.cents).toBe(-78672 * 12);
-    expect(plain(expectShape(found).title)).toContain("786,72");
+    // the bills are paid anyway: no yearly sum
+    expect(plain(expectShape(found, { yearly: false }).title)).toContain("786,72");
+  });
+
+  it("hit: the sum is the one `aheadBasis` gives for the payday, from a pay and a rent on the same day", () => {
+    const today = "2026-12-03";
+    const history = [
+      ...monthly("2025-12", 10, 12, 271500, { category: "salary", merchant: "Työnantaja Oy" }),
+      ...monthly("2025-12", 10, 12, -78672, { category: "housing", merchant: "Sato Oyj" }),
+      ...monthly("2025-12", 5, 12, -12000, { category: "utilities", merchant: "Helen Oy" }),
+    ].filter((t) => t.bookingDate <= today);
+    const ctx = createContext(history, [checking], today);
+    const balances = [{ id: checking.id, name: checking.name, type: checking.type, balanceCents: 500_000, ownerName: null, balanceAt: today }];
+    const basis = aheadBasis(ctx, balances, NO_INPUTS).ahead;
+    expect(basis).toMatchObject({ reason: "payday", paydayCents: 78672 });
+    const [found] = paydayBills({ ...argsOf(history, today), ahead: basis });
+    if (found?.fact.type !== "payday-bills") throw new Error("no payday-bills fact");
+    expect(found.fact).toMatchObject({ date: "2026-12-10", billsCents: basis.paydayCents, beforeCents: basis.totals.dueCents, payCents: 271500 });
+    expectShape(found, { yearly: false });
   });
 
   it("near miss: no bills on the payday, no pay to wait for or a period that has ended", () => {
@@ -198,5 +267,32 @@ describe("bills on the payday itself", () => {
     expect(paydayBills(args({ ahead: ahead({ payday: { date: "2026-12-10", name: "Työnantaja Oy", pay: null } }) }))).toEqual([]);
     expect(paydayBills(args({ running: false }))).toEqual([]);
     expect(paydayBills(args({ ahead: null }))).toEqual([]);
+  });
+});
+
+describe("a finding with no yearly figure", () => {
+  const at = "2026-10-09";
+
+  it("is kept and ranked after the ones with a yearly figure", () => {
+    const txs = [
+      ...monthly("2023-01", 25, 45, 300000, { category: "salary", merchant: "Acme Oy" }),
+      ...monthly("2023-01", 2, 45, -105000, { category: "housing", merchant: "Sato Oyj" }),
+      ...monthly("2023-01", 6, 45, -90000, { category: "investments", merchant: "Nordnet" }),
+      ...monthly("2023-01", 12, 45, 30000, { category: "p2p_in", merchant: "Maija Meikäläinen" }),
+      ...[2023, 2024, 2025].map((y) => tx({ bookingDate: `${y}-12-15`, amountCents: -72000, category: "insurance", merchant: "Vakuutus Oy" })),
+    ].filter((t) => t.bookingDate <= at);
+    const ranked = rankInsights(insightInputOf(createContext(txs, [checking], at), { from: "2026-10-01", to: "2026-10-31" }, NO_INPUTS));
+    expect(ranked.map((i) => [i.id, i.effectPerYear?.cents ?? null, !!i.noYearly])).toEqual([
+      ["rare-bills", -72000, false],
+      ["savings-rate", null, true],
+    ]);
+  });
+
+  it("is marked by its source, and a figure that rounds to nothing is not: that one is no finding", () => {
+    const parts = { id: "x", fact: { type: "savings-rate", percent: 1, allPercent: 1, personCents: 1, months: 1 }, comparison: { label: "savingsRateAll", value: { unit: "percent", value: 1 } }, action: { label: "seeSavingsRate", target: { page: "bills" } }, kind: "pattern", calc: [] } as unknown as Parameters<typeof insightOf>[0];
+    expect(insightOf({ ...parts, yearlyCents: null })).toMatchObject({ effectPerYear: null, noYearly: true });
+    expect(insightOf({ ...parts, yearlyCents: 0.2 }).effectPerYear).toBeNull();
+    expect(insightOf({ ...parts, yearlyCents: 0.2 }).noYearly).toBeUndefined();
+    expect(insightOf({ ...parts, yearlyCents: -5000 })).toMatchObject({ effectPerYear: { cents: -5000 } });
   });
 });

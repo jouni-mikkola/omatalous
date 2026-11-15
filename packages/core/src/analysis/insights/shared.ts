@@ -49,7 +49,7 @@ interface InsightParts extends Pick<InsightEvidence, "link" | "merchant"> {
 export function insightOf(p: InsightParts): Insight {
   const effectPerYear = effectOf(p.yearlyCents, p.lang ?? DEFAULT_LANGUAGE);
   const { id, fact, comparison, action, kind, rows = [], link, merchant, calc } = p;
-  return { id, fact, comparison, action, effectPerYear, kind, evidence: { rows, ...(link ? { link } : {}), ...(merchant ? { merchant } : {}), calc: effectPerYear ? [...calc, effectPerYear] : calc } };
+  return { id, fact, comparison, action, effectPerYear, ...(p.yearlyCents === null ? { noYearly: true as const } : {}), kind, evidence: { rows, ...(link ? { link } : {}), ...(merchant ? { merchant } : {}), calc: effectPerYear ? [...calc, effectPerYear] : calc } };
 }
 
 /** The comparison "its share of the expected spending of a month", or null while no month is expected (under three complete months). */

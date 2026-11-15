@@ -17,10 +17,12 @@ const CHUNK = 10;
 
 /**
  * The detectors that set one window against another: price rises, stops, new subscriptions, year and season
- * comparisons, spending and habit changes, income changes, and the change sentences. Not the ones about a level or an event (a renewal, instalments, a double charge, a fee).
+ * comparisons, spending and habit changes, income changes, and the change sentences. Not the ones about an event (a renewal, instalments, a double charge, a fee).
+ * The insights about a level (rare bills, the savings rate on own income, bills on the payday, the debt-free date) are
+ * in the list as well: a steady household has nothing for them to find, so one that fires on it is noise.
  */
 const TWO_WINDOW: readonly RegExp[] = [
-  /^insights (price|price-rises|stopped|new|seasons|spending-[a-z_]+|commitments-share|income|subscriptions-added|category-pace)$/,
+  /^insights (price|price-rises|stopped|new|seasons|spending-[a-z_]+|commitments-share|income|subscriptions-added|category-pace|rare-bills|savings-rate|payday-bills|debt-free)$/,
   /^alerts (spike|habit)$/,
   /^income (?!windfall)[a-z_]+$/,
   /^change (usual|season|year)$/,

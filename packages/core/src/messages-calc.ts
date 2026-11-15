@@ -90,5 +90,4 @@ export const FI_CALC = {
   "calc.pay_usual": "Palkka tavallisesti",
   "calc.due_before_pay": "Laskut ennen palkkaa",
   "calc.due_on_pay": "Laskut palkkapäivänä",
-  "calc.paydays_year": "Palkkapäiviä vuodessa",
 } as const;
