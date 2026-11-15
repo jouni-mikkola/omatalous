@@ -29,10 +29,10 @@ describe("Raportit: the frame", () => {
     ]);
   });
 
-  it("a question that holds the open report links to that report, not to its first", () => {
+  it("a question that holds the open report is marked and still links to its first report, the one of its name", () => {
     draw("kiinteat");
     const [spending] = links(screen.getByRole("navigation", { name: "Raportit" }));
-    expect(spending).toEqual({ name: "Rahankäyttö", href: "#/reports?q=kiinteat&period=6m", current: "true" });
+    expect(spending).toEqual({ name: "Rahankäyttö", href: "#/reports?q=menot&period=6m", current: "true" });
   });
 
   it("shows the reports of the open question under its name, the open one marked, each with the period", () => {

@@ -10,8 +10,8 @@ import "../../styles/reports.css";
 export const reportHref = (id: QuestionId, period: string | null): string => `#/reports${query({ q: id, period })}`;
 
 /**
- * The three questions, on every report page: the open one marked. A question opens on the report it already shows,
- * else on its first. It stands open at every width: a column beside the page, and a short list of targets above it on a phone.
+ * The three questions, on every report page: the open one marked. A question always opens on its first report, the one
+ * that carries its name, so a link of one name leads to one place. It stands open at every width: a column beside the page, and a short list of targets above it on a phone.
  */
 function QuestionList({ questions, current, params }: { questions: readonly ListedQuestion[]; current: QuestionId; params: URLSearchParams }) {
   return (
@@ -21,7 +21,7 @@ function QuestionList({ questions, current, params }: { questions: readonly List
           const here = q.pages.some((p) => p.id === current);
           return (
             <li key={q.id}>
-              <a href={reportHref(here ? current : q.pages[0]!.id, params.get("period"))} aria-current={here ? "true" : undefined}>
+              <a href={reportHref(q.pages[0]!.id, params.get("period"))} aria-current={here ? "true" : undefined}>
                 {q.title}
               </a>
             </li>
