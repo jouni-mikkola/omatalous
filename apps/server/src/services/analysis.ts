@@ -375,11 +375,8 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
     const stored = new Map(txs.map((t) => [t.id, t]));
     const owners = new Map(read.map((a) => [a.id, a.userId]));
     // what is ahead keeps the stable cut: only a view with a pool cut by who paid reads the rows cut by the parts as well,
-    // and a series there is cut by who paid its recent rows. A pool whose weights nobody said is not cut by a guessed half (ADR 0017)
-    if (shares.size) {
-      const untold = new Set(read.filter((a) => a.traced && a.use?.mode === "source" && a.use.split === "unknown").map((a) => a.id));
-      standing = standingCut(applyUse(txs, read, parts, owners), untold, paid);
-    }
+    // and a series there is cut as the past cut its recent rows: by who paid them, the weights sharing what nobody owns
+    if (shares.size) standing = standingCut(applyUse(txs, read, parts, owners), parts, paid);
     txs = applyUse(txs, read, parts, owners, shares);
     // this is the one place that decides what a row counts as in the view: the sums read in SQL are handed the answer
     for (const { id, category, categorySource, isTransfer } of txs) {

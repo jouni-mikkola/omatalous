@@ -114,24 +114,34 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
   return questions.sort((a, b) => b.openCents - a.openCents || compareOwners(a.key, b.key));
 }
 
-/** What the parts of a row say of who paid it, in positive cents: the viewer's own, all that belongs to a user (the viewer's included), and the row's whole. The rest is money nobody owns. */
+/**
+ * What the parts of a row say of who paid it, in positive cents: the viewer's own, all that belongs to a user (the
+ * viewer's included), the row's whole, and what belongs to the users whose owner key sorts before the viewer's. The rest
+ * of the whole is money nobody owns. Members place their own cents one after the other in the order of their keys, so
+ * the parts the forward cut gives them never overlap.
+ */
 export interface PaidOf {
   own: number;
   known: number;
   whole: number;
+  before: number;
 }
 
 /** The one reading of a row's parts by owner: `shareOf` takes the viewer's cents from it, and the forward cut (`standing-cut.ts`) reads the same evidence. */
-export function paidOf(row: Pick<RowParts, "parts">, viewer: Owner): PaidOf {
+function paidOf(row: Pick<RowParts, "parts">, viewer: Owner): PaidOf {
   let own = 0;
   let known = 0;
   let whole = 0;
+  let before = 0;
   for (const p of row.parts) {
     whole += p.cents;
-    if (isUserOwner(p.owner)) known += p.cents;
+    if (isUserOwner(p.owner)) {
+      known += p.cents;
+      if (compareOwners(p.owner, viewer) < 0) before += p.cents;
+    }
     if (p.owner === viewer) own += p.cents;
   }
-  return { own, known, whole };
+  return { own, known, whole, before };
 }
 
 /** What the parts of each booked row say of who paid it, by the id of the row on each copy of the account: the evidence the forward cut of a series is made from. */

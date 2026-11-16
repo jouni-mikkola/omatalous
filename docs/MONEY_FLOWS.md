@@ -930,6 +930,11 @@ view holds.
   it, and the transaction export has the bank's amounts.
 - The balance and the credit limit of a joint account or a card are the member's part, so *Yhteensä* of Varat ja velat and
   a card's used and free credit follow.
+- Where a joint account is cut by who paid its rows (`mode: "source"`), the past counts each row by who paid it, and
+  what is ahead (the series, the fixed costs, the bills before the payday) counts each series at the viewer's part of its
+  recent rows (`standingCut`): what the trace says they paid, plus their weighted part of the money nobody owns, the way
+  the past counts a row. With no recent row in the trace the weights cut it. The members' amounts of a series add up to
+  the bank's, to the cent.
 - A view settles a bill only by the rows it holds: a bill another member paid from an account the viewer does not see
   stays due in the own view and is paid in *Koko talous*. Sums are compared as the bank booked them (`billCents`), so
   a bill the member's part of a joint account paid is settled by the bank's whole sum of the row.
