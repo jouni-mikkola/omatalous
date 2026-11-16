@@ -177,13 +177,25 @@ describe("Laskut: payments before the payday", () => {
     const base = dashboard(true);
     const counted = row("2026-11-25", "Vuokra", -78672, "recurring");
     const followsPay = { ...row("2026-11-25", "Sähkö", -5000, "recurring"), withPay: true };
-    await mount(true, false, { ...base, ahead: { ...base.ahead, to: "2026-11-25", upcoming: [counted, followsPay] } });
+    // the bill counted before the pay is in the answer's rows and in the payments figure, so it is listed before the payday row
+    const rows = [...base.ahead.rows.slice(0, 3), counted, base.ahead.rows[3]!];
+    const left = { ...base.nyt.left, billsCents: 189954 + 78672, leftCents: 310046 - 78672 };
+    await mount(true, false, { ...base, nyt: { ...base.nyt, left }, ahead: { ...base.ahead, to: "2026-11-25", rows, upcoming: [counted, followsPay] } });
     const section = await waitFor(() => {
       const el = document.getElementById("ennen-palkkapaivaa");
       expect(el).toBeTruthy();
       return el!;
     });
     expect([...section.querySelectorAll("[data-kind=after-pay]")].map((li) => flat(li.textContent))).toEqual(["25.11.SähköArvio50,00 €"]);
+    const kinds = [...section.querySelectorAll(".bp-rows > li")].map((li) => li.getAttribute("data-kind"));
+    expect(kinds).toEqual(["bill", "bill", "bill", "bill", "total", "income", "after-pay"]);
+    const listed = [...section.querySelectorAll("[data-kind=bill]")].map((li) => flat(li.textContent));
+    expect(listed[3]).toBe("25.11.VuokraArvio786,72 €");
+    // the listed rows add up to the payments figure
+    const sums = [...section.querySelectorAll("[data-kind=bill] .bp-sum")].map((e) => Math.round(Number(flat(e.textContent).replace(/[^\d,]/g, "").replace(",", ".")) * 100));
+    const tile = Math.round(Number(flat(section.querySelector(".bp-stat .fig")?.textContent).replace(/[^\d,]/g, "").replace(",", ".")) * 100);
+    expect(sums.reduce((a, b) => a + b, 0)).toBe(tile);
+    expect(tile).toBe(189954 + 78672);
   });
 
   it("opens with the next payment: its payee and its exact sum", async () => {

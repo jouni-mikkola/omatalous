@@ -126,7 +126,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 @media (min-width: 1000px) {
   .bills-answer:has(.bills-next) { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); column-gap: var(--sp-32); }
 }
-@media (max-width: 1099px) {
+@media (max-width: 1199px) {
   .bp-stats[data-cards] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {

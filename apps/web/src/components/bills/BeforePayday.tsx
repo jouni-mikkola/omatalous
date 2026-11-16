@@ -25,9 +25,9 @@ export function BeforePayday({ data }: { data: DashboardData }) {
   const ahead = data.ahead;
   if (!left?.known || !ahead?.payday) return null;
   const payday = ahead.payday;
-  const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
+  const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date <= ahead.to);
   // due before the payday from an account the balance leaves out: listed with that account's name, in no sum here; the answer's own `elsewhereCents` is a second figure under the first
-  const outside = ahead.outside.filter((r) => r.cents !== null && r.cents < 0 && r.date < left.payday.date);
+  const outside = ahead.outside.filter((r) => r.cents !== null && r.cents < 0 && r.date <= ahead.to);
   // the bills of the payday itself, paid from the pay: in no figure above (`left.paydayCents` is their sum), listed after the payday row.
   // A payment dated today with the pay still to come counts before it unless it follows the pay (`withPay`), as `paydayCents` does
   const afterPay = ahead.upcoming.filter((r) => isPayment(r) && r.source !== "income" && !r.outside && !r.onCard && r.date === left.payday.date && (r.withPay || r.date > ahead.to));
