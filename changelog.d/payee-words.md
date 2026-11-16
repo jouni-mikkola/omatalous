@@ -1,2 +1,2 @@
 section: Money and reports
-- Authorities, associations and McD rows are sorted into the right categories.
+- Authorities, associations and fast-food rows are sorted into the right categories.
