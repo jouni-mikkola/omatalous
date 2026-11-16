@@ -154,6 +154,8 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
   );
   return (
     <section className="card review-item" aria-labelledby="review-q" aria-busy={waiting || undefined}>
+      {/* the place is said once, in the heading; the line only shows it */}
+      <progress className="review-progress" value={position} max={of} aria-hidden="true" />
       <span className="review-kind">{eyebrow(item)}</span>
       <div className="review-who">
         <MarkCell name={name} mark={logo ? <BankLogo src={logo} name={name} size="sm" /> : undefined} person={isPerson(item) || undefined} size="l">
