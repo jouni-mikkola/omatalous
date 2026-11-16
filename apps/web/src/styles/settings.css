@@ -20,9 +20,9 @@
 .rt .sub.acc-line { max-width: none; white-space: normal; overflow: visible; }
 .conn-accounts { margin-top: 2px; }
 /* the calendar button beside the end day of the bank that ends first */
-.reminder-icon { inline-size: 16px; block-size: 16px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.reminder-icon { inline-size: var(--sp-16); block-size: var(--sp-16); fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 /* a row's Muokkaa is a 40 px target */
-.accounts-table [data-edit] { display: inline-flex; align-items: center; min-block-size: 40px; }
+.accounts-table [data-edit] { display: inline-flex; align-items: center; min-block-size: 2.5rem; }
 /* settings: how much of an account's credit limit is in use, under the line that says it */
 .credit-bar { position: relative; height: 8px; margin: 4px 0 8px; max-width: 14rem; background: var(--surface-2); }
 .credit-bar span { display: block; height: 100%; background: var(--series-1); }
