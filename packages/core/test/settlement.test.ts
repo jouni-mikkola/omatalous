@@ -617,9 +617,10 @@ describe("a closed month is final", () => {
   });
 
   it("still carries what a member says after the closing: an agreement that tells the split of an untold month", () => {
-    const sep = frozen("2026-09", rows, { agreements: [], split: "unknown", asOf: "2026-10-20" });
+    // a month with untold costs closes by time, 90 days after its end
+    const sep = frozen("2026-09", rows, { agreements: [], split: "unknown", asOf: "2027-01-05" });
     expect(sep.lines).toEqual([]);
-    const oct = identity(run("2026-10", rows, { agreements: [equal()], split: "unknown", asOf: "2026-10-25", closed: [sep] }));
+    const oct = identity(run("2026-10", rows, { agreements: [equal()], split: "unknown", asOf: "2027-01-10", closed: [sep] }));
     expect(oct.lines.map((l) => [l.kind, l.key, l.cents])).toEqual([["late_change", "2026-09", 10000]]);
     expect(moves(oct)).toBe(true);
     expect([of(oct, MATTI).over, of(oct, MAIJA).over]).toEqual([0, 0]);
