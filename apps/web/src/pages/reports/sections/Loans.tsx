@@ -88,9 +88,6 @@ function scenario(s: RateScenario): string | null {
 /** A word under a loan's name unless it only repeats the name: "Asuntolaina" under the name "Asuntolaina". */
 const unlessName = (word: string, name: string) => (word.trim().toLowerCase() === name.trim().toLowerCase() ? null : word);
 
-/** Where a loan's missing terms are told: the card Lainat of Asetukset. */
-const SETTINGS_LOANS = settingsCardHash(SETTINGS_ANCHOR.loans);
-
 /** `limitCents`: the limit of a connected card, when it has one to tell. */
 function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
   // a connected card is a card: what is used and the limit, none of a loan's terms
@@ -113,8 +110,6 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
         { label: t("rpt.ln_last_due"), value: lastPayment(l) },
       ];
   if (belowWhole(l.part)) figures.push({ label: t("rpt.ln_your_share"), value: percent((l.part.to - l.part.from) / l.part.of) });
-  // a loan of the viewer's own with a dash in it is theirs to complete: another member's loan is its typist's, and a connected account has no saved loan
-  const mend = l.accountType === null && !l.typedBy && figures.some((f) => f.value === null);
   return (
     <li>
       <div className="loan-head">
@@ -127,11 +122,6 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
         ))}
       </dl>
       {moves.length > 0 && <p className="loan-scenario">{moves.join(" ")}</p>}
-      {mend && (
-        <a className="loan-mend" href={SETTINGS_LOANS}>
-          {t("rpt.ln_complete")}
-        </a>
-      )}
     </li>
   );
 }
