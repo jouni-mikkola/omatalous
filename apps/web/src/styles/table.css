@@ -133,10 +133,12 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-more { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0; }
 
 /* "Lataa CSV" under a table */
-.rt-csv { margin: var(--sp-8) 0 0; }
+/* the 40 px link has the gap above it in its own box; with a mouse it also takes back the gap's room, as a row's targets do not reach the table's edge */
+.rt-csv { margin: 0; }
+@media (pointer: fine) and (min-width: 641px) { .rt-csv { margin-top: calc(-1 * var(--sp-8)); } }
 
-/* the links under a table (CSV, fewer rows, the next page of the transactions) are 40 px high, as the chips above it; the negative margin leaves the page about as high as before */
-:is(.rt-csv, .rt-more, .tx-cut) .btn-link { display: inline-flex; align-items: center; min-block-size: calc(var(--tap-min) - var(--sp-4)); margin-block: calc(-1 * var(--sp-8)); }
+/* the links under a table (CSV, fewer rows, the next page of the transactions) are 40 px high, as the chips above it */
+:is(.rt-csv, .rt-more, .tx-cut) .btn-link { display: inline-flex; align-items: center; min-block-size: calc(var(--tap-min) - var(--sp-4)); }
 
 /* the button that folds the months of a row into a list: only a block has it */
 .rt-fold { display: none; }
