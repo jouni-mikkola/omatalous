@@ -59,9 +59,9 @@ export function useRowPick<R>(rows: readonly R[], rowKey: (row: R) => string) {
 /** The row that is shown, as a chip above the table; its × gives the way back to all of them. */
 export function RowFilterNotice({ pick, name }: { pick: Pick; name: ReactNode }) {
   return (
-    <div className="rt-filter" role="status">
+    <div className="rt-filter">
       <span className="chip">
-        {name || t("table.only_row")}
+        <span role="status">{name || t("table.only_row")}</span>
         <IconButton label={t("table.show_all")} onClick={() => pick.select(null)}>
           ×
         </IconButton>

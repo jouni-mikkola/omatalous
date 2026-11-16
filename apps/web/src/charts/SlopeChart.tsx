@@ -29,9 +29,6 @@ export interface SlopeItem {
   tone: "rise" | "good" | "flat";
 }
 
-/** Names in a sentence, the last joined in the member's language: "A, B ja C". */
-const listed = (names: readonly string[]) => (names.length < 2 ? names.join("") : t("chart.slope_and", { first: names.slice(0, -1).join(", "), last: names[names.length - 1]! }));
-
 /** A name in lines of at most `max` characters, broken at spaces, two lines at most (the second cut with "…" past that). */
 function wrapName(label: string, max: number): string[] {
   const lines: string[] = [];
@@ -75,7 +72,7 @@ function crowded(strong: readonly SlopeItem[], [lo, hi]: readonly [number, numbe
 /**
  * Two periods side by side, a line for each item from its first figure to its second on one axis from zero, so a steep
  * line is a large change and a crossing a change of rank. The scale and the height come from the strong lines: a
- * context line that would run off it is left out of the picture and named under it (the table view has its figures).
+ * context line that would run off it is left out of the picture (the table view has its figures).
  * Strong lines run from the grey of the past into their tone, figure at the left, name, figure and change at the right
  * (moved apart by `spreadLabels`), the largest change with a halo. A line reads out by pointer, tap and arrow keys.
  */
@@ -108,7 +105,6 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
   const [lo, hi] = y.domain;
   const fits = (i: SlopeItem) => i.from >= lo && i.from <= hi && i.to >= lo && i.to <= hi;
   const quiet = items.filter((i) => !i.strong && fits(i));
-  const off = items.filter((i) => !i.strong && !fits(i));
   const drawn = [...strong, ...quiet];
   const x1 = Math.max(x0 + 60, Math.min(x0 + 360, width - side));
   const left = spreadLabels(strong.map((i) => ({ key: i.key, y: y(i.from) })), innerH, GAP);
@@ -210,11 +206,6 @@ export function SlopeChart({ items, fromLabel, toLabel, label }: { items: readon
             ))}
           </g>
         </svg>
-      )}
-      {off.length > 0 && (
-        <p className="slope-off">
-          {t(off.length === 1 ? "chart.slope_off_single" : "chart.slope_off_several", { names: listed(off.map((i) => i.label)) })}
-        </p>
       )}
       {read && active && <Tip x={x1} left={0} width={width} title={read.title} rows={read.rows} />}
       <LiveReadout text={read ? readoutText(read.title, read.rows) : ""} />

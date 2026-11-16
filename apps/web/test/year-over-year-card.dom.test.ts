@@ -29,6 +29,8 @@ const yearOverYear = (comparable: boolean) => ({
   categories: comparable
     ? [
         { category: "groceries", currentCents: 5_350_00, previousCents: 5_000_00, changeCents: 350_00 },
+        { category: "clothing", currentCents: 900_00, previousCents: 600_00, changeCents: 300_00 },
+        { category: "travel", currentCents: 400_00, previousCents: 700_00, changeCents: -300_00 },
         { category: "rent", currentCents: 10_500_00, previousCents: 10_500_00, changeCents: 0 },
         { category: "consumer_credit", currentCents: 4_200_00, previousCents: 0, changeCents: 4_200_00 },
       ]
@@ -44,9 +46,9 @@ const yearOverYear = (comparable: boolean) => ({
 function draw(comparable: boolean) {
   const data = {
     yearOverYear: yearOverYear(comparable),
-    categories: { groups: [{ categories: [{ category: "rent", fixedShare: 1 }, { category: "consumer_credit", fixedShare: 1 }, { category: "groceries", fixedShare: 0 }] }] },
+    categories: { groups: [{ categories: [{ category: "rent", fixedShare: 1 }, { category: "consumer_credit", fixedShare: 1 }, { category: "groceries", fixedShare: 0 }, { category: "clothing", fixedShare: 0 }, { category: "travel", fixedShare: 0 }] }] },
   } as unknown as ReportsData;
-  const meta = { today: "2026-11-11", categories: [{ id: "groceries", label: "Ruokakauppa" }, { id: "rent", label: "Vuokra" }, { id: "consumer_credit", label: "Kulutusluotot" }, { id: "card_bill", label: "Luottokortin lasku" }] } as unknown as Meta;
+  const meta = { today: "2026-11-11", categories: [{ id: "groceries", label: "Ruokakauppa" }, { id: "rent", label: "Vuokra" }, { id: "consumer_credit", label: "Kulutusluotot" }, { id: "clothing", label: "Vaatteet" }, { id: "travel", label: "Matkat" }, { id: "card_bill", label: "Luottokortin lasku" }] } as unknown as Meta;
   const ctx = reportContext(data, meta, { from: "2026-01-01", to: "2026-11-11" }, "own" as Scope);
   return { ctx, ...render(createElement(section.Component, { ctx })) };
 }
@@ -56,10 +58,12 @@ describe("Vuosivertailu", () => {
     const { container } = draw(true);
     const text = plain(container.textContent);
     expect(text).toContain("Menoja on");
+    // the fixed costs are not drawn, and the three categories that are make a chart
+    expect(container.querySelector(".slope-chart")).not.toBeNull();
     expect(text).not.toContain("Kiinteät menot eivät ole kuvassa");
+    expect(text).not.toContain("ei mahdu kuvaan");
     expect(text).not.toContain("Vertailussa on");
     expect(text).not.toContain("Mukana eivät ole tilit");
-    expect(container.querySelector(".slope-off")).toBeNull();
   });
 
   it("still says why there is no comparison when too few months are compared", () => {

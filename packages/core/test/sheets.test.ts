@@ -54,7 +54,13 @@ describe("tax-year sheet", () => {
     expect(sheet.interest.rows.reduce((s, x) => s + x.cents, 0)).toBe(sheet.interest.cents);
   });
 
-  it("gives mortgage payments as the spending figure counts them and leaves consumer credit out", () => {
+  it("keeps a student loan's payments on the sheet", () => {
+    const withStudentLoan = createContext([...rows(), tx({ bookingDate: "2026-02-10", amountCents: -12500, category: "student_loan", merchant: "Opintolaina" })], [checking], today);
+    const own = buildReports({ ctx: withStudentLoan, range, balances }).taxYear;
+    expect(own.loanPayments).toEqual([{ category: "student_loan", cents: 12500, count: 1 }]);
+  });
+
+  it("gives loan payments as the spending figure counts them and leaves consumer credit out", () => {
     const categories = buildReports({ ctx, range: sheet.range, balances }).categories;
     for (const p of sheet.loanPayments) expect(p.cents).toBe(categories.groups.flatMap((g) => g.categories).filter((c) => c.category === p.category).reduce((s, c) => s + c.totalCents, 0));
     // the year holds consumer-credit payments, and none of them is a line of the return
