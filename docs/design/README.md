@@ -39,8 +39,9 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   six and the rest as a count, and the sum of them all (`nyt.left.billsCents`); without a payday Laskut's 30 days. Opens Laskut.
 - Tilit ja kortit: the block of Raportit > Tilit ja saldot. The accounts in their types (checking, savings, other), a
   type of two accounts or more with its total (`holdings.typeCents`), the cards with what is used, the limit and the
-  next card bill (the card's row of `ahead.upcoming`), the loans with what is left. Every row names its bank and the
-  day of its balance and opens its rows.
+  next card bill (the card's row of `ahead.upcoming`), the loans with what is left. The day of the balances stands once in
+  the heading and a row names its own only when it differs; a row names its bank only when the accounts are at
+  several banks. A row opens its rows.
 - Menot kategorioittain beside it: this month's six largest categories with the rest as one sum
   (`overview.categories`), each a bar with its usual month as a mark, a bar past its mark in the darker ink. A row
   opens the category's rows of the month.

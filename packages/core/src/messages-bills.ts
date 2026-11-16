@@ -203,6 +203,5 @@ export const FI_BILLS = {
   "holdings.title": "Varat ja velat",
   "holdings.debts_total": "Velat yhteensä",
   "holdings.no_balance": "Lainoja, joiden saldo puuttuu",
-  "holdings.add_balances_short": "Lisää saldot",
   "holdings.unsaved": "{count} ({amount}/kk)",
 } as const;

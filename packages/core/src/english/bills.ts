@@ -201,6 +201,5 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.title": "Assets and debts",
   "holdings.debts_total": "Debts total",
   "holdings.no_balance": "Loans with no balance",
-  "holdings.add_balances_short": "Add the balances",
   "holdings.unsaved": "{count} ({amount}/mo)",
 };
