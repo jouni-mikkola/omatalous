@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { matchPrevious } from "../src/analysis/matched-fixed.ts";
-import { addMonths } from "../src/dates.ts";
+import { addMonths, monthEnd } from "../src/dates.ts";
 import type { RecurringSeries } from "../src/recurring.ts";
 import type { Account, IsoDate, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -111,6 +111,41 @@ describe("the same-day comparison of a running month", () => {
   });
 });
 
+/**
+ * A salary on the 1st and a rent on the last day of each month through `lastMonth`, a grocery purchase on the 5th of
+ * `lastMonth` and of the month of `today`, which has not booked its rent.
+ */
+function monthEndHousehold(today: IsoDate, lastMonth: string): Transaction[] {
+  const months = Array.from({ length: 24 }, (_, i) => addMonths("2025-09", i));
+  return [
+    ...months.filter((m) => m <= today.slice(0, 7)).map((m) => tx({ bookingDate: `${m}-01`, amountCents: 300_000, category: "salary", merchant: "Acme Oy" })),
+    ...months.filter((m) => m <= lastMonth).map((m) => tx({ bookingDate: monthEnd(m), amountCents: -105_000, category: "housing", merchant: "Sato Oyj" })),
+    tx({ bookingDate: `${lastMonth}-05`, amountCents: -10_000, merchant: "Prisma", category: "groceries" }),
+    tx({ bookingDate: `${today.slice(0, 7)}-05`, amountCents: -12_000, merchant: "Prisma", category: "groceries" }),
+  ];
+}
+
+describe("the last days of a month", () => {
+  it.each([
+    ["2026-04-30", "2026-03"],
+    ["2027-02-28", "2027-01"],
+  ] as const)("on %s a rent the month before booked on its last day is no part of Menot's days and is left out of Tulos's whole month", (today, lastMonth) => {
+    const d = buildDashboard(createContext(monthEndHousehold(today, lastMonth), [checking], today), { from: `${today.slice(0, 7)}-01`, to: today });
+    expect(d.pace.previous!.day).toBeLessThan(31);
+    expect(d.range.previousFrom).toBe(`${lastMonth}-01`);
+    // the rent of the 31st is the payment this month has not booked, and no row of the first 28 or 30 days
+    expect(lines(d)).toEqual({ menot: 10_000, tulos: 10_000 });
+  });
+
+  it("reads a month before that is shorter than today's day whole, with its last payment, in both lines", () => {
+    // 31.10. against September: its rent on the 30th is part of the whole month the line says it shows
+    const d = buildDashboard(createContext(monthEndHousehold("2026-10-31", "2026-09"), [checking], "2026-10-31"), { from: "2026-10-01", to: "2026-10-31" });
+    expect(d.pace.previous!.day).toBeLessThan(31);
+    expect(lines(d)).toEqual({ menot: 115_000, tulos: 115_000 });
+    expect(d.previousMonthTotals!.totals.expenseCents).toBe(115_000);
+  });
+});
+
 describe("matchPrevious", () => {
   const rows = createContext(household(true), [checking], "2026-10-16").txs;
   const ofSeries = rows.filter((t) => t.merchant === "Esimerkkivakuutus");
@@ -139,6 +174,24 @@ describe("matchPrevious", () => {
     const paid = series({ transactionIds: own, settled: [{ due: "2026-10-16", paidOn: "2026-10-16", id: idOf("2026-10"), pending: false }] });
     expect(matchPrevious([paid], new Set(), octRows, septSame, septLate)).toEqual({ dropped: new Set(), added: new Set() });
     expect([...matchPrevious([series({ transactionIds: own })], new Set(), octRows, septSame, septLate).dropped]).toEqual([idOf("2026-09")]);
+  });
+
+  it("leaves out the latest of two payments in the month before and adds the earliest of two it books later", () => {
+    const all = createContext(
+      ["2026-09-02", "2026-09-09", "2026-09-20", "2026-09-25", "2026-10-03", "2026-10-10"].map((bookingDate) => tx({ bookingDate, amountCents: -35_000, ...insurance })),
+      [checking],
+      "2026-10-16",
+    ).txs;
+    const at = (...dates: string[]) => dates.map((date) => all.find((t) => t.bookingDate === date)!);
+    const own = series({ transactionIds: all.map((t) => t.id) });
+    // one payment this month, two in the month before by this day: the later one goes, whichever order the rows come in
+    const dropped = matchPrevious([own], new Set(), at("2026-10-03"), at("2026-09-09", "2026-09-02"), []);
+    expect([...dropped.dropped]).toEqual([at("2026-09-09")[0]!.id]);
+    expect(dropped.added.size).toBe(0);
+    // two payments this month, one in the month before by this day: the earlier of its two later ones comes in
+    const added = matchPrevious([own], new Set(), at("2026-10-03", "2026-10-10"), at("2026-09-02"), at("2026-09-25", "2026-09-20"));
+    expect([...added.added]).toEqual([at("2026-09-20")[0]!.id]);
+    expect(added.dropped.size).toBe(0);
   });
 
   it("changes nothing when both months have the payment, nor for a series that is no monthly fixed cost", () => {

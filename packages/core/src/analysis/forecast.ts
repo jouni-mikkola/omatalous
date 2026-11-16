@@ -101,14 +101,20 @@ function comparesWith(ctx: AnalysisContext, before: string, month: string): bool
   return !paidCardBills(ctx, before) && !paidCardBills(ctx, month);
 }
 
-/** The month before's spending by its day `day`, moved to the matched basis: its dropped payments taken off, its later added ones put on. */
-function matchedToToday(ctx: AnalysisContext, before: string, atDay: number, matched: MatchedPrevious | null): number {
+/**
+ * The month before's spending by its day `day` (`atDay`), moved to the matched basis: its dropped payments taken off, its
+ * later added ones put on. A dropped payment booked after `day` is no part of `atDay`, so it is not taken off: today the
+ * last day of a month shorter than the one before (30.4. against 31.3.) leaves Tulos the whole month before and this
+ * line its first 30 days.
+ */
+function matchedToToday(ctx: AnalysisContext, before: string, day: number, atDay: number, matched: MatchedPrevious | null): number {
   if (!matched) return atDay;
-  const days = { fromDay: dayNumber(`${before}-01`), toDay: dayNumber(monthEnd(before)) };
+  const first = dayNumber(`${before}-01`);
   let cents = atDay;
-  for (const t of flowSpendSelect(ctx, days).counted) {
-    if (matched.dropped.has(t.id)) cents -= flowSpendOf(t);
-    else if (matched.added.has(t.id)) cents += flowSpendOf(t);
+  for (const t of flowSpendSelect(ctx, { fromDay: first, toDay: dayNumber(monthEnd(before)) }).counted) {
+    if (matched.dropped.has(t.id)) {
+      if (t.day <= first + day - 1) cents -= flowSpendOf(t);
+    } else if (matched.added.has(t.id)) cents += flowSpendOf(t);
   }
   return cents;
 }
@@ -131,7 +137,7 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate, m
     daysInMonth: days,
     current: cur.map((v, i) => (i < lastDay ? v : null)),
     currentTotal: lastDay ? cur[lastDay - 1]! : 0,
-    previous: curve && { month: before, curve, day, toToday: day ? matchedToToday(ctx, before, curve[day - 1]!, matched) : 0 },
+    previous: curve && { month: before, curve, day, toToday: day ? matchedToToday(ctx, before, day, curve[day - 1]!, matched) : 0 },
     ...expectedPace(ctx, month, lastDay, lastDay ? cur[lastDay - 1]! : 0),
     payDays: payDaysOf(ctx, month, lastDay),
   };

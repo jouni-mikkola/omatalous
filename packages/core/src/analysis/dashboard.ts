@@ -110,10 +110,13 @@ function settledTotals(ctx: AnalysisContext, range: DateRange): PeriodTotals | n
  * The month before read on the matched basis (`matchPrevious`) when `range` is the running month to date, else as it
  * is: its same-day rows less the dropped payments plus the added ones from the rest of that month. Other running
  * ranges (a year so far, a span of months) count payments a series is ahead by as real differences, so they stay as they are.
+ * So does a month whose month before is shorter than today's day of the month (31.10. against September): that month is
+ * read whole and its figure is labelled as the whole month, which a dropped payment would make smaller.
  */
 function matchedPrevious(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, rows: AnalysisTx[], sameDay: AnalysisTx[], previousTo: IsoDate): { matched: MatchedPrevious | null; previousRows: AnalysisTx[] } {
   const month = monthOf(ctx.today);
-  if (range.from !== `${month}-01` || range.to < ctx.today || monthOf(range.to) !== month) return { matched: null, previousRows: sameDay };
+  const shorter = Number(previousTo.slice(8, 10)) < Number(ctx.today.slice(8, 10));
+  if (range.from !== `${month}-01` || range.to < ctx.today || monthOf(range.to) !== month || shorter) return { matched: null, previousRows: sameDay };
   const later = spendRows(ctx, toDayRange({ from: addDays(previousTo, 1), to: monthEnd(monthOf(previousTo)) }));
   const matched = matchPrevious(fixedSeriesAt(ctx, ctx.today), cancelledSubjects(inputs, ctx.today), rows, sameDay, later);
   return { matched, previousRows: [...sameDay.filter((t) => !matched.dropped.has(t.id)), ...later.filter((t) => matched.added.has(t.id))] };

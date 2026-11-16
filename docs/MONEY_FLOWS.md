@@ -454,7 +454,10 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   series' payment. A rent the previous month booked on the 16th is not set against a month that has not booked it yet,
   and an insurance this month booked on the 15th is set against last month's on the 18th. The month's own totals and
   the whole month before always hold every row. A period that is over, and a running range that is no month to date, is
-  compared as it is. A fixed cost that moves to a new payee shows as a difference until the new payee has three
+  compared as it is, and so is a running month whose month before is shorter than today's day of the month (31.10.
+  against September), which is read whole. Menot leaves a payment of the month before out only when it was booked on
+  one of the days Menot reads: on 30.4. a rent booked on 31.3. is no part of its first 30 days, and Tulos, which reads
+  all of March, leaves it out. A fixed cost that moves to a new payee shows as a difference until the new payee has three
   payments and is a series.
 - *Menojen muutos* (on Yhteenveto, with the month before the running one chosen) sets the month against its
   expected total and splits the change into causes by category. A category's base is its expected figure (*Odotettu*),
