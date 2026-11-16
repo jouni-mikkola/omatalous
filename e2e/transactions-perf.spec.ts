@@ -87,14 +87,14 @@ test("a filter and the search stay in the address and come back after a reload",
   await page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" }).fill("k-");
   await expect(page).toHaveURL(/q=k-/);
   const shown = async () => (await page.locator(`${DATA_ROW} .tx-category .tx-chip-label`).allInnerTexts()).map((t) => t.trim());
-  await expect(page.locator(".tx-fchip.set")).toContainText("Ruokakauppa");
+  await expect(page.locator(".tx-fchips .tx-fchip.set")).toContainText("Ruokakauppa");
   const before = await shown();
   expect(before.length).toBeGreaterThan(0);
 
   await page.reload();
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   await expect(page).toHaveURL(/category=groceries/);
-  await expect(page.locator(".tx-fchip.set")).toContainText("Ruokakauppa");
+  await expect(page.locator(".tx-fchips .tx-fchip.set")).toContainText("Ruokakauppa");
   await expect(page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" })).toHaveValue("k-");
   expect(await shown()).toEqual(before);
   expect(seen.problems).toEqual([]);
