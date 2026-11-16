@@ -4,7 +4,7 @@ import { addDays, addMonths, dateIn, DAYS_PER_MONTH, daysBetween, monthEnd, mont
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { followDay, type PayFollow, payFollowOf } from "./pay-follow.ts";
 import { addMonthsKeepDay, CADENCES, type Cadence, type CadenceDef, fitCadence, nextDateOf, SEMIMONTHLY } from "./recurring-cadence.ts";
-import { chargesPerYear, isFixedAmount, latestPriceChange, priceStepsOf, yearlyCostOf } from "./recurring-cost.ts";
+import { chargesPerYear, isFixedAmount, latestPriceChange, priceStepsOf, typicalAmountOf, yearlyCostOf } from "./recurring-cost.ts";
 import { type Occurrence, type SeriesInput, toOccurrences } from "./recurring-occurrence.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
 import { median, sum } from "./stats.ts";
@@ -63,7 +63,7 @@ export interface RecurringSeries {
   nextDate: IsoDate | null;
   /** Set on a series that follows a pay (pay-follow.ts): its dates are the days of that pay, not days of its own. */
   follows?: PayFollow;
-  /** Always positive. Median of the latest charges. */
+  /** Always positive. Median of the latest charges, or the lower price the latest charge is back on (`typicalAmountOf`). */
   typicalAmountCents: number;
   lastAmountCents: number;
   /** Cost (or income) normalised to one month, positive: the yearly cost / 12. */
@@ -128,7 +128,7 @@ function buildSeries(
     ? last.cents
     : cadence.id === "semimonthly" && !fixedAmount
       ? Math.round(sum(occ.slice(-4).map((o) => o.cents)) / Math.min(4, occ.length))
-      : Math.round(median(occ.slice(-3).map((o) => o.cents)));
+      : typicalAmountOf(occ);
   const perYear = chargesPerYear(occ, cadence, others);
   const yearly = yearlyCostOf(occ, cadence, kind, typical, perYear);
   const nextDate = nextDateOf(occ, cadence);
