@@ -137,10 +137,12 @@ export function dataRoutes(s: Services) {
       return csvResponse(c, `${words.fileNames.cashflow}${range.from}_${range.to}.csv`, csv(rows));
     }
     const p = pivotReport(ctx, range, lang, Infinity);
+    // a sheet's total is the sum of its cells: a month the data does not reach is an empty cell and adds nothing
+    const shown = (values: readonly (number | null)[]): number => values.reduce<number>((a, v) => a + (v ?? 0), 0);
     const rows = [
       [...words.pivotStart, ...p.months, ...words.pivotEnd],
-      ...p.rows.map((r) => [r.label, r.group, ...r.values.map((v) => centsOrEmpty(v)), cents(r.totalCents), centsOrEmpty(r.averageCents)]),
-      [words.sum, "", ...p.monthTotals.map((v) => centsOrEmpty(v)), cents(p.totalCents), ""],
+      ...p.rows.map((r) => [r.label, r.group, ...r.values.map((v) => centsOrEmpty(v)), cents(shown(r.values)), centsOrEmpty(r.averageCents)]),
+      [words.sum, "", ...p.monthTotals.map((v) => centsOrEmpty(v)), cents(shown(p.monthTotals)), ""],
     ];
     return csvResponse(c, `${words.fileNames.pivot}${range.from}_${range.to}.csv`, csv(rows));
   });
