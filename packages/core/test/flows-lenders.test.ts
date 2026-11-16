@@ -7,7 +7,8 @@ import { describe, expect, it } from "vitest";
 import { type Flows, flowsOf, totalsOf } from "../src/analysis/flows.ts";
 import { fold, normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
-import type { Account, Transaction } from "../src/types.ts";
+import { seriesId } from "../src/series-id.ts";
+import type { Account, Loan, Transaction } from "../src/types.ts";
 import { isCarFinanceText } from "../src/wording.ts";
 import { tx } from "./helpers.ts";
 
@@ -204,5 +205,48 @@ describe("peer lending", () => {
   it("interest and dividends from anyone else stay investment income", () => {
     check(["NORDNET BANK AB", "OSINKO", 80, "investment_income", { income: 8000 }]);
     check(["S-PANKKI OYJ", "TALLETUSKORKO", 12, "investment_income", { income: 1200 }]);
+  });
+});
+
+describe("a saved home loan names the series that is the mortgage", () => {
+  const instalments = () => ["2026-06-20", "2026-07-20", "2026-08-20", "2026-09-20"].map((day) => row("chk", day, -950, "LASKU 44512", "SANTANDER CONSUMER FINANCE OY"));
+  const loanOf = (rows: Transaction[], kind: Loan["kind"], payment = 95000): Loan => ({
+    id: "home", name: "Kodin laina", lender: null, kind, grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-09-01", rateBp: null, reference: null, marginBp: null,
+    repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: seriesId({ direction: "out", accountId: "chk", merchant: rows[0]!.merchant, product: payment }),
+  });
+  const enriched = (rows: Transaction[], loans?: Loan[]) => {
+    const changed = new Map(enrichTransactions(rows, [checking], [], undefined, undefined, undefined, undefined, loans).map((t) => [t.id, t]));
+    return rows.map((t) => changed.get(t.id) ?? t);
+  };
+  const categories = (rows: Transaction[], loans?: Loan[]) => enriched(rows, loans).map((t) => t.category);
+
+  it("reads a lender's reference-only instalments as the mortgage", () => {
+    const rows = instalments();
+    expect(categories(rows, [loanOf(rows, "mortgage")])).toEqual(Array(4).fill("mortgage"));
+  });
+
+  it("keeps the lender's instalments consumer credit without a saved loan", () => {
+    expect(categories(instalments())).toEqual(Array(4).fill("loans"));
+    expect(categories(instalments(), [])).toEqual(Array(4).fill("loans"));
+  });
+
+  it("takes nothing from a saved loan of another kind, an unlinked one or another series", () => {
+    const rows = instalments();
+    expect(categories(rows, [loanOf(rows, "consumer")])).toEqual(Array(4).fill("loans"));
+    expect(categories(rows, [{ ...loanOf(rows, "mortgage"), seriesKey: null }])).toEqual(Array(4).fill("loans"));
+    expect(categories(rows, [loanOf(rows, "mortgage", 31000)])).toEqual(Array(4).fill("loans"));
+    expect(categories(rows, [{ ...loanOf(rows, "mortgage"), seriesKey: "out:other:SANTANDER CONSUMER FINANCE OY#95000" }])).toEqual(Array(4).fill("loans"));
+  });
+
+  it("leaves a row the household set by hand", () => {
+    const rows = instalments();
+    rows[1] = { ...rows[1]!, category: "other", categorySource: "user" };
+    expect(categories(rows, [loanOf(rows, "mortgage")])).toEqual(["mortgage", "other", "mortgage", "mortgage"]);
+  });
+
+  it("counts the mortgage as debt service", () => {
+    const rows = instalments();
+    const flows = enriched(rows, [loanOf(rows, "mortgage")]).map((t) => flowsOf(t, new Set(), new Set()));
+    expect(totalsOf(flows)).toMatchObject({ debtCents: 380000, consumptionCents: 0 });
   });
 });

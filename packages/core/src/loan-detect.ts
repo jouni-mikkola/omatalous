@@ -38,7 +38,7 @@ import { NOT_LOAN_SUBJECT } from "./loan-mark.ts";
 import type { RecurringSeries } from "./recurring.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
 import { STEADY_BAND, steadyBy } from "./returns.ts";
-import type { IsoDate, LoanKind, UserInputs } from "./types.ts";
+import type { IsoDate, LoanKind, Transaction, UserInputs } from "./types.ts";
 import { hasLoanText, isFinanceCompanyName, withoutSwedishTwin } from "./wording-lenders.ts";
 import { CONSUMER_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, housingCharge, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
@@ -155,7 +155,7 @@ export function sameSeriesKey(a: string, b: string, others: readonly string[] = 
  * contract can be, and reads the key as a mark on the series. Every charge is asked, so a key holds after the rate has
  * moved the payment many times. A key without a payment names every series the payee has on the account.
  */
-function names(key: string, s: RecurringSeries, amounts: readonly number[], others: readonly string[] = []): boolean {
+function names(key: string, s: Pick<RecurringSeries, "id" | "merchant">, amounts: readonly number[], others: readonly string[] = []): boolean {
   const named = parseSeriesId(key);
   const own = parseSeriesId(s.id);
   if (!named || !own || named.direction !== own.direction || named.accountId !== own.accountId || !(spelledAlone(key, others) ? named.merchant === own.merchant : sameName(named.merchant, own.merchant))) return false;
@@ -163,6 +163,14 @@ function names(key: string, s: RecurringSeries, amounts: readonly number[], othe
   const subject = seriesMarkSubject({ id: seriesId({ ...named, merchant: own.merchant }), kind: "bill", typicalAmountCents: 0 });
   if (typeof named.product !== "number") return named.product === null;
   return amounts.some((cents) => covers(subject, { id: s.id, merchant: s.merchant, kind: "subscription", typicalAmountCents: cents, priceChange: null }));
+}
+
+/**
+ * Whether a bank row pays the series a saved loan's key names: asked as `names` asks it of a series, with the row's own
+ * payee, account and payment. `others` are the keys of the household's saved loans.
+ */
+export function paysSeries(key: string, t: Pick<Transaction, "accountId" | "merchant" | "amountCents">, others: readonly string[]): boolean {
+  return names(key, { id: seriesId({ direction: "out", accountId: t.accountId, merchant: t.merchant, product: null }), merchant: t.merchant }, [-t.amountCents], others);
 }
 
 /**

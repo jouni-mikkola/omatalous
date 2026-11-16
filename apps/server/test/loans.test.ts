@@ -375,17 +375,18 @@ describe("loans", () => {
     expect((await requestInputs(s, adminId, [])).inputs.loans).toEqual([mine]);
   });
 
-  it("a loan reaches the request inputs at once, with no data version bump, and leaves with its delete", async () => {
+  it("a loan reaches the request inputs at once, with no data version bump unless it names a home loan's series, and leaves with its delete", async () => {
     const { admin, adminId, s } = await setupApp();
     await admin.call("POST", "/api/demo");
     const version = await s.settings.dataVersionOf([adminId]);
     expect((await requestInputs(s, adminId, [])).inputs.loans).toEqual([]);
 
-    const a = (await admin.call("POST", "/api/loans", mortgage)).body.loan;
+    const unlinked = { ...mortgage, seriesKey: null };
+    const a = (await admin.call("POST", "/api/loans", unlinked)).body.loan;
     const b = (await admin.call("POST", "/api/loans", creditLine)).body.loan;
     expect((await requestInputs(s, adminId, [])).inputs.loans).toEqual([a, b]);
 
-    const changed = (await admin.call("PUT", `/api/loans/${a.id}`, { ...mortgage, balanceCents: 15_000_000 })).body.loan;
+    const changed = (await admin.call("PUT", `/api/loans/${a.id}`, { ...unlinked, balanceCents: 15_000_000 })).body.loan;
     expect((await requestInputs(s, adminId, [])).inputs.loans).toEqual([changed, b]);
     await admin.call("DELETE", `/api/loans/${b.id}`);
     expect((await requestInputs(s, adminId, [])).inputs.loans).toEqual([changed]);

@@ -1,3 +1,4 @@
+import { applyDeclaredMortgages } from "./declared-loans.ts";
 import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
 import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
@@ -17,7 +18,7 @@ import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { mayBeTransferLeg } from "./pairing.ts";
 import { normalizeIban } from "./transfers.ts";
-import type { Account, CategoryRule, IsoDate, PayerInput, Transaction } from "./types.ts";
+import type { Account, CategoryRule, IsoDate, Loan, PayerInput, Transaction } from "./types.ts";
 import { isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
@@ -31,7 +32,7 @@ import { isCardIssuerText, isLoanText } from "./wording.ts";
  * Money that comes back (see matchReturns) takes its payment's category. Last, the member's payer roles (`payers`)
  * move the rows of the payers they name (`applyPayerRoles`). `household` holds the IBANs of the accounts of the
  * household's other members: money to or from one of them is a transfer in every view, though the rows of the
- * other account are not among these.
+ * other account are not among these. `loans` are the member's saved loans: the rows of a series a home loan is linked to are the mortgage.
  */
 export function enrichTransactions(
   txs: readonly Transaction[],
@@ -41,8 +42,9 @@ export function enrichTransactions(
   payers?: PayerInput,
   today?: IsoDate,
   household?: ReadonlySet<string>,
+  loans?: readonly Loan[],
 ): Transaction[] {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers, today, household);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, today, household, loans);
   let step = steps.next();
   while (!step.done) step = steps.next();
   return step.value;
@@ -61,8 +63,9 @@ export async function enrichTransactionsPausing(
   payers?: PayerInput,
   today?: IsoDate,
   household?: ReadonlySet<string>,
+  loans?: readonly Loan[],
 ): Promise<Transaction[]> {
-  const steps = enrichSteps(txs, accounts, userRules, industries, payers, today, household);
+  const steps = enrichSteps(txs, accounts, userRules, industries, payers, today, household, loans);
   let step = steps.next();
   while (!step.done) {
     await pause();
@@ -203,6 +206,7 @@ function* enrichSteps(
   payers?: PayerInput,
   today?: IsoDate,
   household?: ReadonlySet<string>,
+  loans?: readonly Loan[],
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
@@ -239,6 +243,7 @@ function* enrichSteps(
   applyPayerConsistency(next, locked);
   // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
   applyPayerRoles(next, locked, payers);
+  applyDeclaredMortgages(next, locked, loans);
   return changedRows(next, txs);
 }
 
@@ -268,6 +273,7 @@ export interface IslandInput {
   outsideMatches: readonly (Pick<Transaction, "accountId" | "bookingDate" | "amountCents"> & { wallet?: boolean })[];
   /** The member's payer roles. */
   payers?: PayerInput;
+  loans?: readonly Loan[]; // a home loan's payments are the mortgage row by row, so they stay inside the merchant
   /**
    * Every row of the history that is money in, as far as a payer is told from it (payer, sum, day): a payer's median reads
    * rows outside the island. Needed when `payers` has a role; without it the full run answers.
@@ -325,6 +331,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     const locked = new Set([...staged.byUserRule, ...staged.returns.keys(), ...staged.returns.values()]);
     applyPayerConsistency(next, locked);
     applyPayerRoles(next, locked, input.payers, typicals);
+    applyDeclaredMortgages(next, locked, input.loans);
     return next;
   };
   // Whether a ledger (an account's rows of one source) carries payee accounts is known from the island's rows as far
@@ -412,7 +419,6 @@ const transferKey = (t: Transaction): string => {
 
 /** What returns look at in a row's state (the rest of what they read is in the bank's fields, which a change does not touch). */
 const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolean) => returnClassOf(t, ownIbans, locked);
-
 
 /**
  * Payments to a card issuer that a rule called "loans" but whose amounts
