@@ -23,7 +23,7 @@ function screenWidth(phone: boolean) {
 /** Changes the category of the first row, undoes it, and returns once the undone line is up (timers faked from the undo on). */
 async function undoOneChange() {
   await startServer();
-  await openApp("#/transactions", "Tapahtumat");
+  await openApp("#/transactions?period=all", "Tapahtumat");
   fireEvent.click((await screen.findAllByRole("button", { name: /^Avaa .*: 12 kuukautta$/ }, T))[0]!);
   fireEvent.click(await screen.findByRole("button", { name: /^Muuta: / }, T));
   fireEvent.click(await screen.findByRole("menuitem", { name: /^Kategoria: / }, T));

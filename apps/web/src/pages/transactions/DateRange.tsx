@@ -25,6 +25,26 @@ export function periodOf(params: URLSearchParams): Period {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const monthStart = (iso: string) => `${iso.slice(0, 7)}-01`;
+
+/** The address keys of a limit that a link from another page sets; one without a period means the whole history. A word typed in the search box is not one: it searches the month. */
+const LIMIT_KEYS = ["category", "kind", "accountId", "merchant", "chip"];
+
+/** The value of `period` in the address for the whole history, so that the choice is not mistaken for no choice. */
+export const ALL_HISTORY = "all";
+
+/**
+ * The period the list shows. A bare Tapahtumat opens on the running month, as Yhteenveto does. The address keeps the
+ * reader's choice: a period of its own days, `period=all` for the whole history, and a link that names a limit (a
+ * merchant, an account) without a period keeps meaning all the rows of that limit.
+ */
+export function listPeriodOf(params: URLSearchParams, today: string): Period {
+  const read = periodOf(params);
+  if (read.from || read.to || params.get("period") === ALL_HISTORY || LIMIT_KEYS.some((k) => params.get(k))) return read;
+  return { from: monthStart(today), to: today };
+}
+
+/** The address parameters of a period: its days, or `period=all` for the whole history, which a list without one would read as the month. */
+export const periodParams = (p: Period): { from: string; to: string; period: string | undefined } => ({ ...p, period: p.from || p.to ? undefined : ALL_HISTORY });
 const shiftMonth = (month: string, by: number): string => {
   const n = Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7)) - 1 + by;
   return `${Math.floor(n / 12)}-${pad((n % 12) + 1)}`;

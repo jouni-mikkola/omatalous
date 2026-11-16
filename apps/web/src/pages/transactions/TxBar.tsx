@@ -3,13 +3,12 @@
  *
  * The period and the search box come first. One action, Suodata, opens the rest (category, account, income only,
  * the marks the reader or the bank made). A limit that is set stands under the bar as a named chip with an x, so the
- * list is never narrowed by something the reader cannot see. The address holds every limit and the grouping, so a
+ * list is never narrowed by something the reader cannot see. The address holds every limit, so a
  * limited list can be linked and the back button undoes a limit. A search being typed takes one place in the history,
  * not one for each pause (the page's `onSearch`).
  */
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { SEARCH_DELAY_MS } from "../../components/FilterInputs.tsx";
-import { Segmented } from "../../components/ui/Segmented.tsx";
 import { t } from "../../text.ts";
 import type { Category } from "../../types.ts";
 import { AccountMark, type AccountLook } from "./Marks.tsx";
@@ -19,15 +18,11 @@ import { DateRange, type Period, periodLabel } from "./DateRange.tsx";
 import { type Filters } from "./FilterChips.tsx";
 import { Popover } from "./Popover.tsx";
 
-/** What the list is grouped by: the days (the default) or the payees. */
-type Grouping = "day" | "merchant";
-
 const BAR_ID = "tx-bar";
 
 /**
  * On a phone a long list leaves the bar far above. While the bar is out of sight past the top of the screen this button
- * sticks to the foot of the screen at the end of the list's card, so it never covers what stands after the list (tx-bar.css),
- * and takes the reader back to the bar, on its Suodata button.
+ * stands under the last row, so it covers no row (tx-bar.css), and takes the reader back to the bar, on its Suodata button.
  */
 export function FilterShortcut() {
   const [away, setAway] = useState(false);
@@ -59,7 +54,7 @@ const Caret = () => (
   </svg>
 );
 
-/** The period, always there: "Koko historia" until one is set, then its name with an x that returns to the whole history. */
+/** The period, always there: "Koko historia" when none is set, else its name with an x that returns to the whole history. The list opens on the running month. */
 function PeriodControl({ period, today, set }: { period: Period; today: string; set: (patch: Partial<Filters>) => void }) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
@@ -261,22 +256,6 @@ function LimitChip({ name, value, icon, onClear }: { name: string; value?: strin
         </svg>
       </button>
     </span>
-  );
-}
-
-/** How the list is laid out: by day, or under each payee. Not a limit, so it has no chip. */
-export function GroupChoice({ group, onGroup }: { group: Grouping; onGroup: (g: Grouping) => void }) {
-  return (
-    <Segmented<Grouping>
-      className="tx-group"
-      label={t("table.group")}
-      value={group}
-      options={[
-        { value: "day", label: t("tx.group_day") },
-        { value: "merchant", label: t("tx.group_merchant") },
-      ]}
-      onChange={onGroup}
-    />
   );
 }
 

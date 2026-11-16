@@ -26,7 +26,6 @@
 @media (pointer: coarse) { .tx-fchips .tx-fchip-x { width: var(--tap-min); } }
 
 /* the choice that is no limit: how the rows are laid out, over the list at the right */
-.tx-view-line { display: flex; justify-content: flex-end; padding: var(--sp-8) 0; }
 
 /* what Suodata opens */
 .tx-fgroup { padding: var(--sp-8) var(--sp-8) var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
@@ -37,8 +36,8 @@
 .tx-frow-go { flex: none; inline-size: 0.625rem; block-size: 0.625rem; fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .tx-fback { color: var(--text-2); }
 
-/* a long list leaves the bar far above: this button sticks to the foot of the screen over the list, ends with the list's card and takes the reader back to the bar */
-.tx-shortcut { position: sticky; display: flex; inline-size: fit-content; margin-inline-start: auto; inset-block-end: var(--sp-16); z-index: var(--z-pop); box-shadow: var(--pop-shadow); }
+/* a long list leaves the bar far above: this button stands under the last row, over no row's amount, and takes the reader back to the bar */
+.tx-shortcut { display: flex; inline-size: fit-content; margin-block-start: var(--sp-8); margin-inline-start: auto; }
 
 /* a phone: the search box takes its own line, the period and Suodata share the next */
 @media (max-width: 600px) {
@@ -46,6 +45,5 @@
   .tx-bar-main > .tx-period { flex: 1 1 0; min-width: 0; }
   .tx-period .tx-fchip-main { flex: 1 1 auto; min-width: 0; }
   .tx-period .tx-fchip-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .tx-shortcut { inset-block-end: calc(var(--tabbar-h) + var(--sp-16) + env(safe-area-inset-bottom)); }
 }
 }

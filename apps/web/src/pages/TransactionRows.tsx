@@ -12,7 +12,7 @@ import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
 import { CategoryLabel, CategoryMenu, SharedCategory } from "./transactions/CategoryChip.tsx";
-import { AccountMark, type AccountLook, oneBankLogo, PayeeMark } from "./transactions/Marks.tsx";
+import { AccountMark, type AccountLook, PayeeMark } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
 import { RowMenu } from "./transactions/RowMenu.tsx";
 // The rows of Tapahtumat: the shared table with a group for each day. A row says who, which account, which category and
@@ -52,14 +52,6 @@ function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[]
 /** What all the filter's rows of one day add up to, the server's (`daySums`), also on a day the page limit cuts. */
 export interface DaySum {
   date: string;
-  count: number;
-  inCents: number;
-  outCents: number;
-}
-
-/** What all the filter's rows of one payee add up to, the server's (`merchantSums`), asked for when the list is grouped by payee. */
-export interface PayeeSum {
-  merchant: string;
   count: number;
   inCents: number;
   outCents: number;
@@ -126,9 +118,9 @@ export interface RowProps extends StatementProps {
   onRemember?: (on: boolean) => void;
 }
 
-/** The row's figure is plain text; its basis belongs to the opened detail. */
+/** The row's figure is plain text; its basis belongs to the opened detail. An own transfer is outside the day's sums, so its figure is quiet. */
 function Amount({ t }: { t: ListedRow }) {
-  return <span className={`tx-amount${t.amountCents > 0 ? " in" : ""}`}>{signed(shownCents(t))}</span>;
+  return <span className={`tx-amount${t.isTransfer ? " moved" : t.amountCents > 0 ? " in" : ""}`}>{signed(shownCents(t))}</span>;
 }
 
 /** The bank's amount under the viewer's part; the way to name the payer is in the detail. */
@@ -269,7 +261,7 @@ export const rowChips = () => [
   { key: "pending", label: msg("row.chip_pending"), test: (t: ListedRow) => t.status === "pending" },
 ];
 
-/** A day's or a payee's sums in its group row: what went out and what came in, own transfers left out; nothing for transfers only. */
+/** A day's sums in its group row: what went out and what came in, own transfers left out; nothing for transfers only. */
 function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents"> | undefined }) {
   if (!sum) return null;
   return (
@@ -283,18 +275,16 @@ function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents"> | undefine
 /**
  * The list: a day is a group, its row says the day, how many rows it has in the filter and what they add up to (the
  * server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
- * server sends them. The toolbar's grouping puts the same rows under their payee instead, whose row says the payee's sums
- * (the server's too). An opened row shows its payee's twelve months under it.
+ * server sends them. An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, payeeSums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; /** Each payee's sums for the grouping by payee; a payee with none has its count only. */ payeeSums?: Map<string, PayeeSum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
+export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
   const days = byDay(items);
   // the page's bar has no note of its own, so a mark none of the rows has says so under the empty list
   const chosen = rowChips().find((c) => c.key === view.chip);
   const noMatch = !!chosen && !items.some(chosen.test);
-  const accountClass = severalAccounts && oneBankLogo(items.map((t) => rowProps(t).look)) ? "tx-account tx-one-bank" : "tx-account";
   const columns: Column<ListedRow>[] = [
-    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, group: nameOf, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
-    ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => accountClass, headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
+    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
+    ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
     // the marks Suodata names narrow the rows (view.chip); one no row has filters to nothing and the list says so
     { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips(), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {
@@ -342,11 +332,6 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
           rows: d.items,
         };
       })}
-      // a chip narrows the rows in the browser, so the server's sums would be of rows the group does not show
-      sectionFigure={(sec) => {
-        const sum = view.chip ? undefined : payeeSums?.get(sec.rows[0]!.merchant);
-        return sum ? { figure: <DaySums sum={sum} />, span: 2 } : null;
-      }}
       // on a phone the whole row opens it (the chevron stays as the keyboard's and the screen reader's control); a control in the row keeps its own click
       rowProps={(t) => ({
         onClick: (e) => {

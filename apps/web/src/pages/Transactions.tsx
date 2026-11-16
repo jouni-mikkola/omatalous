@@ -8,12 +8,12 @@ import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
 import { Merchants } from "./Merchants.tsx";
-import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, type PayeeSum, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
-import { periodOf } from "./transactions/DateRange.tsx";
+import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
+import { listPeriodOf, periodOf, periodParams } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import type { Filters } from "./transactions/FilterChips.tsx";
 import { StripSkeleton, type Totals, TotalsStrip } from "./transactions/TotalsStrip.tsx";
-import { FilterShortcut, GroupChoice, TxBar } from "./transactions/TxBar.tsx";
+import { FilterShortcut, TxBar } from "./transactions/TxBar.tsx";
 import "../styles/transactions.css";
 import "../styles/tx-bar.css";
 import type { TableView } from "../components/table/Table.tsx";
@@ -95,20 +95,17 @@ function Facts({ facts }: { facts: [string, string][] }) {
 /** A count of rows with its thousands set apart, as the cut mark prints it. */
 const count = (n: number): string => n.toLocaleString(LOCALE);
 
-/** The value of `group` in the address and the column of the table it groups the rows by. */
-const GROUP_MERCHANT = "merchant";
-const MERCHANT_COLUMN = "who";
-
 /**
- * Two views of the same rows, as in 1.0.0: the list (by day or, when the toolbar's grouping says so, by merchant), and
- * the merchants with the rules under them (`?view=merchants`). The merchant list takes a period (`from`, `to`) that the
- * list shares, so a merchant's rows open for the period its figures add up.
+ * Two views: the list of payments by day, which opens on the running month, and the merchants with the rules under
+ * them (`?view=merchants`), the one place that adds up the rows by merchant. The merchant list takes a period
+ * (`from`, `to`) that the list shares, so a merchant's rows open for the period its figures add up.
  */
 export function Transactions({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
   // the table parts load while the first answer is on its way, so the rows come with their toolbar
   useEffect(() => void loadTableParts(), []);
   const merchants = params.get("view") === "merchants";
-  const period = { from: params.get("from") ?? "", to: params.get("to") ?? "" };
+  // the period the open view shows; the other view opens on the same one
+  const range = merchants ? periodOf(params) : listPeriodOf(params, meta.today);
   return (
     <div className="stack">
       <Segmented
@@ -116,7 +113,7 @@ export function Transactions({ meta, params, scope, anchor }: { meta: Meta; para
         label={t("tx.tabs")}
         value={merchants ? "merchants" : "transactions"}
         options={[{ value: "transactions", label: t("tx.tab_list") }, { value: "merchants", label: t("tx.tab_merchants") }]}
-        onChange={(v) => navigate("transactions", v === "merchants" ? { view: "merchants", ...period } : period)}
+        onChange={(v) => navigate("transactions", v === "merchants" ? { view: "merchants", ...range } : periodParams(range))}
       />
       {merchants ? <Merchants meta={meta} params={params} scope={scope} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
     </div>
@@ -126,8 +123,6 @@ export function Transactions({ meta, params, scope, anchor }: { meta: Meta; para
 interface ListAnswer extends Totals {
   items: ListedRow[];
   daySums?: DaySum[];
-  /** Asked for with `sums=merchant`: what each listed payee's rows of the filter add up to. */
-  merchantSums?: PayeeSum[];
 }
 
 function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
@@ -140,15 +135,14 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     // a shared account stays in the address after switching back to the own view
     accountId: accounts.some((a) => a.id === params.get("accountId")) ? params.get("accountId")! : "",
     merchant: params.get("merchant") ?? "",
-    ...periodOf(params),
+    ...listPeriodOf(params, meta.today),
   };
-  // the grouping is in the address beside the filters, and a change of filter keeps it
-  const group = params.get("group") === GROUP_MERCHANT ? GROUP_MERCHANT : "";
-  const open = (next: Partial<Filters> = {}, grouped = group) => navigate("transactions", { ...next, group: grouped });
-  // a chip and the grouping by payee are made by the table from the rows it has, so under them the list is whole: every
+  // a filter in the address keeps the period it shows, the whole history included; no argument is the page as it opens
+  const open = (next?: Partial<Filters>) => navigate("transactions", next ? { ...next, ...periodParams({ from: next.from ?? "", to: next.to ?? "" }) } : {});
+  // a chip is made by the table from the rows it has, so under it the list is whole: every
   // page of the filter is fetched (up to MAX_LIST_ROWS rows) and there are no pages to turn
-  const whole = group !== "" || filters.chip !== "";
-  // the page of the list is in the address too (`?page=2`); a change of filter or grouping starts from the first again
+  const whole = filters.chip !== "";
+  // the page of the list is in the address too (`?page=2`); a change of filter starts from the first again
   const pageNo = whole ? 1 : pageOf(params);
   const pageHref = (n: number) => hashOf({ page: "transactions", params: withParams(params, { page: n > 1 ? String(n) : undefined }) });
   const filterKey = `${scope}?${params.toString()}`;
@@ -167,7 +161,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   const [opened, setOpened] = useState<string | null>(null);
   // the chip narrows the rows the table has; the server does not know it
   const serverFilters = { ...filters, chip: undefined };
-  const listPath = (offset: number) => `/api/transactions${query({ ...serverFilters, scope, limit: PAGE_ROWS, offset: offset || undefined, sums: group ? "merchant" : undefined })}`;
+  const listPath = (offset: number) => `/api/transactions${query({ ...serverFilters, scope, limit: PAGE_ROWS, offset: offset || undefined })}`;
   const { data, error: listError, loading, reload } = useApi<ListAnswer>(listPath((pageNo - 1) * PAGE_ROWS));
   // the page the answer on screen is of: while the next page is on its way the rows are still the page before's
   const answered = useRef<{ data: ListAnswer | null; page: number }>({ data: null, page: pageNo });
@@ -195,7 +189,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   };
   // the pages after the first of a whole list, fetched page by page once the first says how many rows there are
   const restKey = whole ? listPath(0) : null;
-  const [rest, setRest] = useState<{ key: string; items: ListedRow[]; daySums: DaySum[]; merchantSums: PayeeSum[] } | null>(null);
+  const [rest, setRest] = useState<{ key: string; items: ListedRow[]; daySums: DaySum[] } | null>(null);
   const [restError, setRestError] = useState<string | null>(null);
   useEffect(() => {
     setRestError(null);
@@ -203,7 +197,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     let stale = false;
     pagesFrom(PAGE_ROWS, data.total)
       .then((answers) => {
-        if (!stale) setRest({ key: restKey, items: answers.flatMap((a) => a.items), daySums: answers.flatMap((a) => a.daySums ?? []), merchantSums: answers.flatMap((a) => a.merchantSums ?? []) });
+        if (!stale) setRest({ key: restKey, items: answers.flatMap((a) => a.items), daySums: answers.flatMap((a) => a.daySums ?? []) });
       })
       .catch((err: Error) => {
         if (!stale) setRestError(err.message);
@@ -243,8 +237,6 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
   merchantOf.current = new Map(items.map((t) => [t.id, t.merchant]));
   const looks = useMemo(() => accountLooks(meta), [meta]);
   const daySums = useMemo(() => new Map([...(data?.daySums ?? []), ...(restOf?.daySums ?? [])].map((d) => [d.date, d])), [data, restOf]);
-  // a payee on two pages has the same sums on both
-  const payeeSums = useMemo(() => new Map([...(data?.merchantSums ?? []), ...(restOf?.merchantSums ?? [])].map((m) => [m.merchant, m])), [data, restOf]);
 
   // a search being typed takes one place in the history: its first words open it, the rest of the typing replaces it
   // (the box's pause), and leaving the box or Enter closes it, so the next search is a place of its own
@@ -254,13 +246,13 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     open({ ...filters, ...patch });
   };
   const onSearch = (q: string, settled: boolean) => {
-    if (q !== filters.q) navigate("transactions", { ...filters, q, group }, false, typing.current);
+    // a word typed on the page's own month stays in it: the address keeps only the period it already names
+    if (q !== filters.q) navigate("transactions", { ...filters, q, from: params.get("from") ?? "", to: params.get("to") ?? "", period: params.get("period") ?? "" }, false, typing.current);
     typing.current = !settled;
   };
-  const view: TableView = { query: "", chip: filters.chip || null, group: group ? MERCHANT_COLUMN : null, sort: null };
+  const view: TableView = { query: "", chip: filters.chip || null, group: null, sort: null };
   const onView = (next: TableView) => {
-    const grouped = next.group === MERCHANT_COLUMN ? GROUP_MERCHANT : "";
-    if ((next.chip ?? "") !== filters.chip || grouped !== group) open({ ...filters, chip: next.chip ?? "" }, grouped);
+    if ((next.chip ?? "") !== filters.chip) open({ ...filters, chip: next.chip ?? "" });
   };
   const categoryLabel = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
 
@@ -331,7 +323,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
     return () => window.clearTimeout(timer);
   }, [phone, undone]);
 
-  const anyFilter = Object.values(filters).some(Boolean);
+  // nothing asked: the whole history and no limit, so an empty answer is an empty account, not an empty month
+  const nothingAsked = !Object.values(filters).some(Boolean);
   const note = remember ? t("tx.note_remember") : t("tx.note_only");
   const rowProps = (t: ListedRow) => ({
     t,
@@ -444,21 +437,16 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
               </Notice>
             )}
           </div>
-          {data && data.items.length > 0 && (
-            <div className="tx-view-line">
-              <GroupChoice group={group ? "merchant" : "day"} onGroup={(g) => open(filters, g === "merchant" ? GROUP_MERCHANT : "")} />
-            </div>
-          )}
           <div>
-            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} payeeSums={payeeSums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} />}
+            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {(!data || (!ready && data.items.length > 0)) && !error && <RowsSkeleton />}
             {data && !data.items.length && (
               <Empty>
-                {anyFilter ? (
+                {!nothingAsked ? (
                   <>
                     {t("tx.no_match")}{" "}
-                    <Button variant="link" onClick={() => open()}>
+                    <Button variant="link" onClick={() => open({ from: "", to: "" })}>
                       {t("tx.clear")}
                     </Button>
                   </>

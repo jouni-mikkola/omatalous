@@ -113,7 +113,7 @@ test("a phone has the sort choice above the rows in place of the head", async ({
 test("Tapahtumat: the search finds a payee the list shows and the CSV has its names and amounts", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 }, acceptDownloads: true });
   const page = await context.newPage();
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
   const bar = page.locator(".tx-bar");
   await expect(bar).toBeVisible();

@@ -278,7 +278,7 @@ test("Tapahtumat has Lista and Kauppiaat: old addresses open Kauppiaat, the rule
   for (const r of ordinals.filter((x) => x.unranked)) expect(r.mark).toBe('""');
 
   // the two views are a click apart
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await page.getByRole("button", { name: "Kauppiaat", exact: true }).click();
   await expect.poll(hash).toBe("#/transactions?view=merchants");
   await expect.poll(() => rows.count()).toBe(all);
@@ -321,7 +321,7 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   await expect(summary.getByRole("heading", { name: merchant })).toBeVisible();
   for (const term of ["Menot yhteensä", "Tulot yhteensä", "Maksuja"]) await expect(summary.getByText(term, { exact: true })).toHaveCount(0);
   // without a merchant filter there is no summary, and the strip holds the figures, once each
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
   for (const term of ["Rahaa ulos", "Rahaa sisään", "Erotus"]) await expect(page.getByText(term, { exact: true })).toHaveCount(1);
   await expect(page.getByText(/omia siirtoja ei lasketa/)).toHaveCount(0);
@@ -335,7 +335,7 @@ test("an empty Tapahtumat says so: with a filter that it matches nothing, withou
   const seen = watch(page);
   // a household with no rows at all: the list's answer is empty whatever the address asks
   await page.route("**/api/transactions?*", (route) => route.fulfill({ json: { total: 0, inCents: 0, outCents: 0, items: [] } }));
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const empty = page.locator(".tx-card .empty");
   await expect(empty).toHaveText(/^Tapahtumia ei vielä ole\.\s*Yhdistä pankki, niin tapahtumat tulevat tähän\.$/);
   await expect(empty.getByRole("link", { name: "Yhdistä pankki" })).toHaveAttribute("href", "#/settings/banks?add=1");
@@ -351,7 +351,7 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const rows = page.locator("tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)");
   await expect(rows.first()).toBeVisible();
 

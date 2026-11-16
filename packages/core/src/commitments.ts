@@ -121,6 +121,9 @@ export function subscriptionsMonthlyCents(
 /** A merchant without an active series is counted over this many complete months at most. */
 const MERCHANT_MONTHS = 12;
 
+/** A merchant without a series is paid regularly when money went out in this many of those months; a one-off purchase has no monthly figure. */
+const MERCHANT_MIN_PAID_MONTHS = 3;
+
 /** What a merchant's figure per month reads: the last complete months, oldest first, and the active spending series. */
 export interface MerchantBasis {
   /** At most `MERCHANT_MONTHS`; none for a history without a complete month. */
@@ -142,7 +145,7 @@ export function merchantBasis(ctx: AnalysisContext): MerchantBasis {
 
 /** A merchant's figure per month and the year it comes from. */
 export interface MerchantMonthly {
-  /** Positive cents; null without an active series and without a complete month. */
+  /** Positive cents; null without an active series and without money out in at least `MERCHANT_MIN_PAID_MONTHS` of the basis months. */
   monthlyCents: number | null;
   /** The series' year, or the money out of the months counted. */
   yearCents: number;
@@ -154,13 +157,14 @@ export interface MerchantMonthly {
 /**
  * A merchant's figure per month, one definition for Laskut, Kauppiaat and the merchant summary: an active series gives
  * its own cost; any other merchant the money out of the basis months (`outInMonths`, own transfers left out) over their
- * number, so the running month and the months before the history began never pull it down.
+ * number, so the running month and the months before the history began never pull it down. That holds only for a payee
+ * paid in at least `MERCHANT_MIN_PAID_MONTHS` of those months (`paidMonths`): one purchase is not a monthly cost.
  */
-export function merchantMonthly(basis: MerchantBasis, merchant: string, outInMonths: number): MerchantMonthly {
+export function merchantMonthly(basis: MerchantBasis, merchant: string, outInMonths: number, paidMonths: number): MerchantMonthly {
   const series = basis.series.get(merchant);
   if (series) return { monthlyCents: series.monthlyCents, yearCents: series.yearlyCents, months: 0, fromSeries: true };
   const n = basis.months.length;
-  return { monthlyCents: n ? Math.round(outInMonths / n) : null, yearCents: outInMonths, months: n, fromSeries: false };
+  return { monthlyCents: n && paidMonths >= MERCHANT_MIN_PAID_MONTHS ? Math.round(outInMonths / n) : null, yearCents: outInMonths, months: n, fromSeries: false };
 }
 
 const CADENCE_MONTHS = { quarterly: 3, semiannual: 6, yearly: 12 } as const;

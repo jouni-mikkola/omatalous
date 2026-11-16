@@ -13,17 +13,17 @@ const drills = () => [...document.querySelectorAll<HTMLButtonElement>("button.rt
 describe("Tapahtumat", () => {
   it("keeps the typed search word in the address", async () => {
     await startServer();
-    await openApp("#/transactions", "Tapahtumat");
+    await openApp("#/transactions?period=all", "Tapahtumat");
     await waitFor(() => expect(drills().length).toBeGreaterThan(10), T);
     // the toolbar is a chunk of its own, so the box arrives a moment after the rows
     fireEvent.change(await screen.findByPlaceholderText("Hae kauppiasta tai viestiä", {}, T), { target: { value: "Wolt" } });
     // the address follows the typed word after a pause, so a link keeps the search
-    await waitFor(() => expect(window.location.hash).toBe("#/transactions?q=Wolt"), T);
+    await waitFor(() => expect(window.location.hash).toBe("#/transactions?q=Wolt&period=all"), T);
   }, 60000);
 
   it("opens a row to its details and closes it again", async () => {
     await startServer();
-    await openApp("#/transactions", "Tapahtumat");
+    await openApp("#/transactions?period=all", "Tapahtumat");
     await waitFor(() => expect(drills().length).toBeGreaterThan(0), T);
     const first = drills()[0]!;
     fireEvent.click(first);
@@ -45,17 +45,6 @@ describe("Tapahtumat", () => {
       return cells;
     }, T);
     expect(new Set(names).size).toBe(names.length);
-  }, 60000);
-
-  it("groups the rows by merchant when the address says so", async () => {
-    await startServer();
-    await openApp("#/transactions?group=merchant", "Tapahtumat");
-    await waitFor(() => expect(drills().length).toBeGreaterThan(10), T);
-    // a group is a merchant with the count of its rows, where a day stood
-    const heads = [...document.querySelectorAll("tr.rt-group th")].map((th) => th.textContent ?? "");
-    expect(heads.length).toBeGreaterThan(1);
-    expect(new Set(heads).size).toBe(heads.length);
-    expect(heads.every((h) => !/\d{1,2}\.\d{1,2}\./.test(h))).toBe(true);
   }, 60000);
 
   it("lists the rules under the merchants, where the rules card of Asetukset leads too, and adds a rule", async () => {

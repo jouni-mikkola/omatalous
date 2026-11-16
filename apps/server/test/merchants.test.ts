@@ -39,10 +39,10 @@ describe("GET /api/merchants", () => {
     const items = await list(admin);
     expect(await months(admin)).toBe(1);
     expect(items).toEqual([
-      { merchant: "Lidl", category: "groceries", count: 3, totalCents: 7215, inCents: 0, monthlyCents: 7215, lastDate: "2026-09-14", rule: null, otherCategories: [] },
-      { merchant: "Qwerty Puoti", category: "other", count: 1, totalCents: 5550, inCents: 0, monthlyCents: 5550, lastDate: "2026-09-10", rule: null, otherCategories: [] },
-      { merchant: "Xyzzy Tuntematon", category: "other", count: 3, totalCents: 4200, inCents: 3500, monthlyCents: 4200, lastDate: "2026-09-20", rule: null, otherCategories: [{ category: "income", count: 1, totalCents: 0, inCents: 3500 }] },
-      { merchant: "Kärkkäinen", category: "other", count: 1, totalCents: 700, inCents: 0, monthlyCents: 700, lastDate: "2026-09-15", rule: null, otherCategories: [] },
+      { merchant: "Lidl", category: "groceries", count: 3, totalCents: 7215, inCents: 0, monthlyCents: null, lastDate: "2026-09-14", rule: null, otherCategories: [] },
+      { merchant: "Qwerty Puoti", category: "other", count: 1, totalCents: 5550, inCents: 0, monthlyCents: null, lastDate: "2026-09-10", rule: null, otherCategories: [] },
+      { merchant: "Xyzzy Tuntematon", category: "other", count: 3, totalCents: 4200, inCents: 3500, monthlyCents: null, lastDate: "2026-09-20", rule: null, otherCategories: [{ category: "income", count: 1, totalCents: 0, inCents: 3500 }] },
+      { merchant: "Kärkkäinen", category: "other", count: 1, totalCents: 700, inCents: 0, monthlyCents: null, lastDate: "2026-09-15", rule: null, otherCategories: [] },
     ]);
   });
 
@@ -120,12 +120,12 @@ describe("GET /api/merchants for a period", () => {
     const { admin } = await withSpread();
     // the history starts on 10.5. and today is in October: June to September are the complete months
     expect(await months(admin)).toBe(4);
-    // May's 30 € is in a month the history does not cover from the 1st, so Kuussa is 60 + 90 € over four
-    expect(await one(admin, "Lidl")).toMatchObject({ count: 3, totalCents: 18000, monthlyCents: 3750, lastDate: "2026-09-05" });
+    // May's 30 € is in a month the history does not cover from the 1st, and Lidl is paid in two of the four months: no figure per month
+    expect(await one(admin, "Lidl")).toMatchObject({ count: 3, totalCents: 18000, monthlyCents: null, lastDate: "2026-09-05" });
 
     const q = "?from=2026-07-01&to=2026-09-30";
     expect(await months(admin, q)).toBe(4);
-    expect((await list(admin, q)).find((i) => i.merchant === "Lidl")).toMatchObject({ count: 2, totalCents: 15000, monthlyCents: 3750 });
+    expect((await list(admin, q)).find((i) => i.merchant === "Lidl")).toMatchObject({ count: 2, totalCents: 15000, monthlyCents: null });
     // a merchant with no row in the period is not listed
     expect(names(await list(admin, "?from=2026-05-01&to=2026-05-31"))).toEqual(["Lidl"]);
   });
@@ -142,10 +142,37 @@ describe("GET /api/merchants for a period", () => {
     for (const q of ["?from=yesterday", "?to=2026-02-30", "?from=2026-1-1"]) expect((await admin.call("GET", `/api/merchants${q}`)).status, q).toBe(400);
   });
 
-  it("keeps a merchant that is only paid at 0 € a month", async () => {
+  it("keeps a merchant that is only paid, with no figure per month", async () => {
     const { admin, s } = await setupApp();
     await seedCsv(s, admin, { content: file(`2026/09/01;2500,00;;${CHECKING};ACME OY;PALKKA;;EUR`), accountName: "Käyttötili" });
-    expect(await list(admin)).toMatchObject([{ inCents: 250000, totalCents: 0, monthlyCents: 0 }]);
+    expect(await list(admin)).toMatchObject([{ inCents: 250000, totalCents: 0, monthlyCents: null }]);
+  });
+
+  it("gives a figure per month only to a merchant paid in at least three of the complete months", async () => {
+    const { admin, s } = await setupApp();
+    // the history starts on 10.5. and today is in October: June to September are the complete months
+    await seedCsv(s, admin, {
+      content: file(
+        `2026/05/10;-30,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+        `2026/06/20;-30,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+        `2026/07/12;-60,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+        `2026/09/05;-90,00;${CHECKING};;;LIDL TIKKURILA;;EUR`,
+        `2026/08/10;-1329,90;${CHECKING};;;SOFA OY;;EUR`,
+      ),
+      accountName: "Käyttötili",
+    });
+    // 30 + 60 + 90 € in three months, over the four months: 45 €
+    expect(await one(admin, "Lidl")).toMatchObject({ count: 4, totalCents: 21000, monthlyCents: 4500 });
+    // one purchase of 1 329,90 € is not 332,48 € a month
+    expect((await list(admin)).find((i) => i.totalCents === 132990)).toMatchObject({ count: 1, monthlyCents: null });
+  });
+
+  it("leaves the payment of a card bill out: it is no merchant", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content: file(`2026/09/18;-120,00;${CHECKING};;;KORTTILASKU;;EUR`, `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`), accountName: "Käyttötili" });
+    const rows = (await admin.call("GET", "/api/transactions?limit=50")).body.items as { category: string }[];
+    expect(rows.some((t) => t.category === "card_bill"), "the bill is a card bill").toBe(true);
+    expect(names(await list(admin))).toEqual(["Lidl"]);
   });
 });
 

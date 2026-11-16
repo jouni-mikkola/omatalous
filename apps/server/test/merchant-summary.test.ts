@@ -34,8 +34,8 @@ describe("GET /api/merchants/summary", () => {
       lastDate: "2026-09-20",
       transfers: 0,
       category: "other",
-      // the history starts on 24.12., so January to September are the complete months: 30 + 12 € over nine
-      monthly: { monthlyCents: 467, yearCents: 4200, months: 9, fromSeries: false },
+      // the history starts on 24.12., so January to September are the complete months; 42 € in one of them is no monthly cost
+      monthly: { monthlyCents: null, yearCents: 4200, months: 9, fromSeries: false },
       recurring: null,
     });
   });
@@ -49,6 +49,17 @@ describe("GET /api/merchants/summary", () => {
     const listed = (await admin.call("GET", "/api/merchants")).body.items as { merchant: string; monthlyCents: number }[];
     expect(listed.find((m) => m.merchant === "Spotify")!.monthlyCents).toBe(series.monthlyCents);
     expect(listed.find((m) => m.merchant === "Xyzzy Tuntematon")!.monthlyCents).toBe((await summary(admin, "Xyzzy Tuntematon")).body.summary.monthly.monthlyCents);
+  });
+
+  it("gives a figure per month for a merchant paid in at least three of the complete months", async () => {
+    const { admin, s } = await setupApp();
+    const rows = [`2025/12/24;-10,00;${CHECKING};;;XYZZY TUNTEMATON;;EUR`, `2026/02/14;-20,00;${CHECKING};;;KIOSKI ESIMERKKI;;EUR`, `2026/04/03;-35,00;${CHECKING};;;KIOSKI ESIMERKKI;;EUR`, `2026/08/22;-10,00;${CHECKING};;;KIOSKI ESIMERKKI;;EUR`];
+    await seedCsv(s, admin, { content: [HEADER, ...rows].join("\n"), accountName: "Käyttötili" });
+    // 65 € in three of the nine complete months
+    const kiosk = (await summary(admin, "Kioski Esimerkki")).body.summary;
+    expect(kiosk.monthly).toEqual({ monthlyCents: 722, yearCents: 6500, months: 9, fromSeries: false });
+    const listed = (await admin.call("GET", "/api/merchants")).body.items as { merchant: string; monthlyCents: number | null }[];
+    expect(listed.find((m) => m.merchant === "Kioski Esimerkki")!.monthlyCents).toBe(722);
   });
 
   it("counts own transfers as rows but not in the sums or the category", async () => {

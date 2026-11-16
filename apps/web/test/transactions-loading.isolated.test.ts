@@ -14,7 +14,7 @@ vi.mock("../src/pages/TransactionRows.tsx", async (orig) => ({ ...(await orig<ty
 
 const { Transactions } = await import("../src/pages/Transactions.tsx");
 const meta = { accounts: [], sharedAccounts: [], categories: [], today: "2026-10-13" } as unknown as Meta;
-const render = () => renderToStaticMarkup(createElement(Transactions, { meta, params: new URLSearchParams(), scope: "own" }));
+const render = (query = "period=all") => renderToStaticMarkup(createElement(Transactions, { meta, params: new URLSearchParams(query), scope: "own" }));
 const row = { id: "t1", merchant: "ESIMERKKI OY", bookingDate: "2026-10-12", amountCents: -1250, category: "other", accountId: "a", own: true };
 
 describe("Tapahtumat first load", () => {
@@ -37,5 +37,12 @@ describe("Tapahtumat first load", () => {
     const out = render();
     expect(out).toContain("Tapahtumia ei vielä ole");
     expect(out).not.toContain('class="stack" role="status"');
+  });
+
+  it("says an empty running month matches nothing, since older months may have rows", () => {
+    answer = { total: 0, inCents: 0, outCents: 0, items: [] };
+    const out = render("");
+    expect(out).toContain("Näillä rajauksilla ei ole tapahtumia.");
+    expect(out).not.toContain("Tapahtumia ei vielä ole");
   });
 });

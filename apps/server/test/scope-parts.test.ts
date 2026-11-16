@@ -607,9 +607,8 @@ describe("Kauppiaat and the unrecognised spending follow the view", () => {
     const [own, whole] = [await shopIn(""), await shopIn("?scope=household")];
     expect(own).toMatchObject({ count: 4, totalCents: sum([-6000, -8437, -1], hers), inCents: partCents(1599, hers) });
     expect(whole).toMatchObject({ count: 4, totalCents: 14438, inCents: 1599 });
-    // the figure per month is a part of the whole one too
-    expect(whole.monthlyCents).toBeGreaterThan(0);
-    expect(Math.abs(own.monthlyCents * 2 - whole.monthlyCents)).toBeLessThanOrEqual(2);
+    // paid in two months only, the shop has no figure per month in either view
+    expect([own.monthlyCents, whole.monthlyCents]).toEqual([null, null]);
     const kiosk = async (query: string) => (await get(aino, `/api/merchants/uncategorised${query}`)).items.find((m: { merchant: string }) => m.merchant === KIOSK);
     expect(await kiosk("?scope=household")).toMatchObject({ totalCents: 1234, count: 1 });
     expect(await kiosk("")).toMatchObject({ totalCents: partCents(1234, hers), count: 1 });

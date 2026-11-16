@@ -2,7 +2,7 @@
  * The marks of a row of Tapahtumat: the payee's (VT4's MerchantAvatar) and the account's (VT4's AccountMark, the bank's
  * logo or the account's initials) with the short text beside it. Nothing is fetched but the bank logos the app serves.
  */
-import { AccountMark as BankMark, bankLogoOf } from "../../components/BankLogo.tsx";
+import { AccountMark as BankMark } from "../../components/BankLogo.tsx";
 import { MerchantAvatar } from "../../components/MerchantAvatar.tsx";
 import { t } from "../../text.ts";
 import type { Account, AccountType, BankOption, Meta } from "../../types.ts";
@@ -39,15 +39,6 @@ export function accountLooks(meta: Meta): Map<string, AccountLook> {
     looks.set(a.id, { name, bank, banks: meta.bank.banks, short: shortOf(a) });
   }
   return looks;
-}
-
-/**
- * Every account of the rows shows one and the same bank's logo. A phone's row has the mark alone, and one logo on every
- * row tells nothing, so the list leaves it out there. Initials differ by account and stay.
- */
-export function oneBankLogo(looks: readonly (AccountLook | undefined)[]): boolean {
-  const logos = new Set(looks.map((l) => (l ? bankLogoOf(l.name, l.bank || null, l.banks)?.src ?? null : null)));
-  return logos.size === 1 && !logos.has(null);
 }
 
 /** An account on a row: its mark and the short text. The name is the title and the screen reader's text. */
