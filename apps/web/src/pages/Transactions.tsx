@@ -378,7 +378,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         marks={rowChips().map(({ key, label }) => ({ key, label }))}
         today={meta.today}
         set={set}
-        clear={() => open()}
+        clear={() => open({ from: "", to: "" })}
         onSearch={onSearch}
       />
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}

@@ -29,8 +29,6 @@
   .tx-fchip .tx-fchip-x::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 50%; block-size: var(--tap-min); transform: translateY(-50%); }
 }
 
-/* the choice that is no limit: how the rows are laid out, over the list at the right */
-
 /* what Suodata opens */
 .tx-fgroup { padding: var(--sp-8) var(--sp-8) var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
 .tx-frow, .tx-fback { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: var(--sp-8); inline-size: 100%; min-height: var(--control-h); padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-body); cursor: pointer; }
