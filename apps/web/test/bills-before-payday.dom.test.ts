@@ -159,7 +159,7 @@ describe("Laskut: payments before the payday", () => {
       return el!;
     });
     const after = [...section.querySelectorAll("[data-kind=after-pay]")].map((li) => flat(li.textContent));
-    expect(after).toEqual(["25.11.Vuokra786,72 €"]);
+    expect(after).toEqual(["25.11.VuokraArvio786,72 €"]);
     // after the payday row, in the same list
     const kinds = [...section.querySelectorAll(".bp-rows > li")].map((li) => li.getAttribute("data-kind"));
     expect(kinds.slice(-2)).toEqual(["income", "after-pay"]);
