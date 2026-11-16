@@ -224,7 +224,7 @@ export type SeriesColor = (typeof series)[number];
 
 /** The opaque colours as #rrggbb, for the contrast test and for a canvas that cannot read a variable. */
 export const hex = {
-  page: "#f4f4f1",
+  page: "#ebeae8",
   surface: "#ffffff",
   "surface-2": "#e8ecf1",
   well: "#f4f6f9",
