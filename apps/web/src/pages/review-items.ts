@@ -248,8 +248,9 @@ export function eyebrow(item: ReviewItem): string {
     case "payer":
       return t("set.ri.money_received");
     case "loan":
-    case "loan_terms":
       return t("set.ri.loan");
+    case "loan_terms":
+      return t(item.accountId === null ? "set.ri.loan" : "set.ri.credit_card");
     case "plan":
       return t("set.ri.instalment_plan");
     case "split":

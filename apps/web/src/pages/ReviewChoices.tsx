@@ -4,7 +4,7 @@
  */
 import { LOAN_KIND_ANSWERS, type LoanKind, loanKindSubject, type LoanTermsMissing, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
 import type { Loan } from "@banking/core";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
 import { formOfCard, formOfLoan, formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
@@ -175,8 +175,8 @@ const ASKED_FOR: Record<LoanTermsMissing, LoanFieldKey[]> = {
 
 /**
  * A debt that lacks a fact. A saved loan's own form, as Asetukset > Lainat edits it, opens here; a connected card with no
- * saved loan gets the form of a new loan linked to it, filled with the bank's balance and limit. The item goes once the
- * loan is saved. Älä muistuta tästä enää sets the question aside with the mark of the item.
+ * saved loan gets the form of a new loan linked to it, filled with the bank's balance and limit, and one whose linked
+ * loan has no rate gets that loan's form. The item goes once the loan is saved with the fact. Älä muistuta tästä enää sets the question aside with the mark of the item.
  */
 function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   const [editing, setEditing] = useState(false);
@@ -185,10 +185,16 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
   const card = meta.accounts.find((a) => a.id === item.accountId);
   const initial = loan ? formOfLoan(loan) : card ? formOfCard(card, meta.today) : null;
   const waiting = editing && !loans.data && !loans.error;
+  const formShown = editing && loans.data !== null && initial !== null;
+  const formBox = useRef<HTMLDivElement>(null);
+  // the form opens at its first field, so the answer can be typed at once
+  useEffect(() => {
+    if (formShown) formBox.current?.querySelector<HTMLElement>("input, select")?.focus();
+  }, [formShown]);
   if (editing && loans.data && initial) {
     return (
       <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans }}>
-        <div className="review-loan">
+        <div className="review-loan" ref={formBox}>
           <LoanEditor
             initial={initial}
             today={meta.today}
@@ -216,7 +222,7 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
             loans.reload();
           }}
         >
-          <span>{t(item.accountId === null ? "set.rc.complete_the_loan" : "set.rc.save_the_card_terms")}</span>
+          <span>{t(item.accountId === null ? "set.rc.complete_the_loan" : "set.rc.complete_the_card_terms")}</span>
         </ChoiceButton>
         <ChoiceButton busy={busy || waiting} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
           <span>{t("set.rc.do_not_remind_of_this")}</span>
