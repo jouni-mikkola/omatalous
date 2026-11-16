@@ -229,7 +229,7 @@ export function settlement(month: string, pool: SettlementPool, agreements: read
     if (first !== month) continue;
     const now = worked(c.month);
     // rows untold today, of this and the closed months before it: a refund or a deposit line names its cost in `of`
-    const untoldNow = new Set(closed.filter((x) => x.month <= c.month).flatMap((x) => worked(x.month).untold ?? []).map((u) => u.key));
+    const untoldNow = new Set(pool.split !== "unknown" ? [] : closed.filter((x) => x.month <= c.month).flatMap((x) => worked(x.month).untold ?? []).map((u) => u.key));
     const settled: ClosedMonth = untoldNow.size ? { ...c, lines: c.lines.filter((l) => l.kind === "late_change" || !(untoldNow.has(l.key) || (l.of !== undefined && untoldNow.has(l.of)))) } : c;
     const taken = closed.flatMap((x) => x.lines.filter((l) => l.kind === "late_change" && l.key === c.month));
     const diff = (side: "paid" | "owed"): Entry[] => merge([...entriesOf(now, side), ...negate(entriesOf(settled, side)), ...c.lines.filter((l) => l.kind === "late_change").flatMap((l) => l[side]), ...negate(taken.flatMap((l) => l[side]))]);
