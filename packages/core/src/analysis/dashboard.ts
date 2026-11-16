@@ -1,5 +1,5 @@
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
-import { addMonths, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
+import { addDays, addMonths, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
 import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
 import { flagLoanPayment } from "../loan-payment.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
@@ -13,7 +13,7 @@ import { type Bridge, buildBridge } from "./bridge.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows, spendTotals } from "./context.ts";
 import { accountsCoverage, comparableWith } from "./coverage.ts";
 import { fixedSeriesAt } from "./fixed-share.ts";
-import { unmatchedFixed } from "./matched-fixed.ts";
+import { type MatchedPrevious, matchPrevious } from "./matched-fixed.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type NytAnswer, nytAnswer } from "./nyt.ts";
@@ -38,8 +38,9 @@ export interface DashboardData {
   /**
    * False when the history does not reach back over the previous period on enough of the accounts (those left out may
    * carry at most a tenth of the period's spending): deltas and swings are hidden. Otherwise `previousTotals` and the
-   * categories' `previousCents` are the sums of the accounts both periods have. In a running period a monthly fixed cost
-   * the previous period booked by this day and this period has not booked yet is left out (`unmatchedFixed`); `totals` never is.
+   * categories' `previousCents` are the sums of the accounts both periods have. In the running month the previous month is
+   * read on a matched basis (`matchPrevious`): each monthly fixed series counts as many payments as this month has, and
+   * `pace.previous.toToday` reads the same basis. `totals` never changes.
    */
   comparable: boolean;
   /** An account with rows in only one of the two periods is left out of the comparison (shown or hidden): the page says so. */
@@ -105,6 +106,19 @@ function settledTotals(ctx: AnalysisContext, range: DateRange): PeriodTotals | n
   return months.size ? totalsOf(spendRows(ctx, toDayRange(range)).filter((t) => months.has(t.month)).map((t) => t.flows)) : null;
 }
 
+/**
+ * The month before read on the matched basis (`matchPrevious`) when `range` is the running month to date, else as it
+ * is: its same-day rows less the dropped payments plus the added ones from the rest of that month. Other running
+ * ranges (a year so far, a span of months) count payments a series is ahead by as real differences, so they stay as they are.
+ */
+function matchedPrevious(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, rows: AnalysisTx[], sameDay: AnalysisTx[], previousTo: IsoDate): { matched: MatchedPrevious | null; previousRows: AnalysisTx[] } {
+  const month = monthOf(ctx.today);
+  if (range.from !== `${month}-01` || range.to < ctx.today || monthOf(range.to) !== month) return { matched: null, previousRows: sameDay };
+  const later = spendRows(ctx, toDayRange({ from: addDays(previousTo, 1), to: monthEnd(monthOf(previousTo)) }));
+  const matched = matchPrevious(fixedSeriesAt(ctx, ctx.today), cancelledSubjects(inputs, ctx.today), rows, sameDay, later);
+  return { matched, previousRows: [...sameDay.filter((t) => !matched.dropped.has(t.id)), ...later.filter((t) => matched.added.has(t.id))] };
+}
+
 /** How an account's bank balances stand against its rows, the tick beside its balance: they add up, they do not, or it cannot be told. */
 export type ReconcileVerdict = "ok" | "diff" | "unknown";
 
@@ -147,18 +161,19 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const rows = spendRows(ctx, toDayRange(range));
   const previousRows = spendRows(ctx, toDayRange(span));
   const totals = spendTotals(ctx, toDayRange(range));
-  // a monthly fixed cost booked on only one side by now is a matter of timing: it is left out of that side's comparison figure, never of the totals
-  const timing = running ? unmatchedFixed(fixedSeriesAt(ctx, ctx.today), cancelledSubjects(inputs, ctx.today), rows, previousRows) : null;
-  const matchedBefore = onShared(timing ? previousRows.filter((t) => !timing.previous.has(t.id)) : previousRows);
+  // a monthly fixed cost one month booked by now and the other has not is a matter of timing: the month before is read with
+  // as many payments of it as this month has, in the two same-day lines alike. This month's own totals never change.
+  const { matched, previousRows: previousMatched } = matchedPrevious(ctx, range, inputs, rows, previousRows, previousTo);
+  const matchedBefore = onShared(previousMatched);
   const previousTotals = totalsOf(matchedBefore.map((t) => t.flows));
   const comparedNow = new Map<string, number>();
-  for (const t of onShared(rows)) if (t.spend && !timing?.now.has(t.id)) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
+  for (const t of onShared(rows)) if (t.spend) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
   const categories = categoryTotals(rows, matchedBefore).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
   const alerts = buildAlerts(ctx, range, inputs, lang);
   const quality = dataQualityReport(ctx, range, balances);
   const settled = running ? settledTotals(ctx, range) : null;
   const basis = running ? aheadBasis(ctx, balances, inputs) : null;
-  const pace = monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to);
+  const pace = monthPace(ctx, monthOf(running ? ctx.today : range.to), ctx.today < range.to ? ctx.today : range.to, matched);
 
   return {
     range: { from: range.from, to: range.to, previousFrom },

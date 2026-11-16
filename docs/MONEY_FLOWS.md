@@ -445,12 +445,17 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
 - Yhteenveto offers two months and names them (*Lokakuu 2026*, *Syyskuu 2026*): the running month, which runs to
   today and is compared with the same days of the previous month, and the month before it, whole. *3 kk*, *6 kk* and
   *12 kk* on Raportit are the last whole months. *Tämä vuosi* on Raportit runs to today. Its savings rate counts its
-  complete months, because the running month has its bills but often not yet its salary. The same-day comparison is
-  matched on monthly fixed costs: a monthly fixed series (`unmatchedFixed` in `analysis/matched-fixed.ts`) that has more
-  payments by this day in one period than in the other leaves its latest payments out of that period's comparison
-  figure, the previous month's `previousTotals` and categories' `previousCents`, or this month's `comparedCents`. A rent
-  the previous month booked on the 16th is not set against a month that has not booked it yet. The month's own totals
-  always hold every row. A period that is over is compared as it is.
+  complete months, because the running month has its bills but often not yet its salary. The same-day comparison
+  of the running month reads one matched basis (`matchPrevious` in `analysis/matched-fixed.ts`), the "last month, same
+  day" lines of Menot (`pace.previous.toToday`) and of Tulos (`previousTotals`, the categories' `previousCents`) alike.
+  Each monthly fixed series counts as many payments in the previous month as this month has booked: when the previous
+  month has more by this day, its latest ones are left out; when it has fewer, the earliest it books later in that
+  month are added. A payment from another account or under another payee name that settled an occurrence is the
+  series' payment. A rent the previous month booked on the 16th is not set against a month that has not booked it yet,
+  and an insurance this month booked on the 15th is set against last month's on the 18th. The month's own totals and
+  the whole month before always hold every row. A period that is over, and a running range that is no month to date, is
+  compared as it is. A fixed cost that moves to a new payee shows as a difference until the new payee has three
+  payments and is a series.
 - *Menojen muutos* (on Yhteenveto, with the month before the running one chosen) sets the month against its
   expected total and splits the change into causes by category. A category's base is its expected figure (*Odotettu*),
   and the month's is their sum, so the rows add up to the headline and *Muut* holds nothing of its own. Inside a

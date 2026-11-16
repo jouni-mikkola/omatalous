@@ -14,6 +14,7 @@ import { earnedOf, earnedSelect, flowSpendOf, flowSpendSelect } from "./counted.
 import { type AnalysisContext, inDays, standingOf } from "./context.ts";
 import { accountsCoverage, monthSpan } from "./coverage.ts";
 import { coversCategories, expectedFlowsFor, expectedIncome, usualGap } from "./expected.ts";
+import type { MatchedPrevious } from "./matched-fixed.ts";
 import { paidCardBills } from "./usual.ts";
 
 export interface MonthPace {
@@ -36,7 +37,11 @@ export interface MonthPace {
     curve: number[];
     /** The day of that month that `toToday` runs to: today's day of the month, or its last day when it is shorter. 0 before the 1st. */
     day: number;
-    /** Its cumulative spending on its days 1 to `day`. */
+    /**
+     * Its cumulative spending on its days 1 to `day`. With `matched` (the running month against the month before, see
+     * `matchPrevious`) it is on the matched basis Tulos reads too, so it can differ from `curve` at `day`, which stays the
+     * month as it was booked.
+     */
     toToday: number;
   } | null;
   /**
@@ -96,11 +101,24 @@ function comparesWith(ctx: AnalysisContext, before: string, month: string): bool
   return !paidCardBills(ctx, before) && !paidCardBills(ctx, month);
 }
 
+/** The month before's spending by its day `day`, moved to the matched basis: its dropped payments taken off, its later added ones put on. */
+function matchedToToday(ctx: AnalysisContext, before: string, atDay: number, matched: MatchedPrevious | null): number {
+  if (!matched) return atDay;
+  const days = { fromDay: dayNumber(`${before}-01`), toDay: dayNumber(monthEnd(before)) };
+  let cents = atDay;
+  for (const t of flowSpendSelect(ctx, days).counted) {
+    if (matched.dropped.has(t.id)) cents -= flowSpendOf(t);
+    else if (matched.added.has(t.id)) cents += flowSpendOf(t);
+  }
+  return cents;
+}
+
 /**
  * What the month has cost so far, day by day, and what the month before had cost by the same day: both are sums of
  * the rows the month table counts and Tulos adds up (`flowSpendSelect`), nothing is estimated, so the figure and the month's Menot agree.
+ * `matched` moves the month before's figure to the basis Tulos reads (`MatchedPrevious`); the month's own never moves.
  */
-export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): MonthPace {
+export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate, matched: MatchedPrevious | null = null): MonthPace {
   const days = daysInMonth(month);
   const cur = spendingCurve(ctx, month);
   const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
@@ -113,7 +131,7 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate): 
     daysInMonth: days,
     current: cur.map((v, i) => (i < lastDay ? v : null)),
     currentTotal: lastDay ? cur[lastDay - 1]! : 0,
-    previous: curve && { month: before, curve, day, toToday: day ? curve[day - 1]! : 0 },
+    previous: curve && { month: before, curve, day, toToday: day ? matchedToToday(ctx, before, curve[day - 1]!, matched) : 0 },
     ...expectedPace(ctx, month, lastDay, lastDay ? cur[lastDay - 1]! : 0),
     payDays: payDaysOf(ctx, month, lastDay),
   };
