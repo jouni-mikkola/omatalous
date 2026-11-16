@@ -37,8 +37,8 @@ describe("Yhteiset menot: the member bars", () => {
     expect(container.querySelector(".mbr-key")).toBeNull();
     const lines = [...container.querySelectorAll(".mbr-member")].map((m) => [...m.querySelectorAll(".mbr-line .mbr-fig")].map((f) => plain(f.textContent)));
     expect(lines).toEqual([
-      ["Maksanut 300 €", "Osuus 200 €"],
-      ["Maksanut 100 €", "Osuus 200 €"],
+      ["Maksanut 300,00 €", "Osuus 200,00 €"],
+      ["Maksanut 100,00 €", "Osuus 200,00 €"],
     ]);
   });
 
@@ -46,7 +46,7 @@ describe("Yhteiset menot: the member bars", () => {
     const members = [{ ...MEMBERS[0]!, over: { label: "Maksoi yli osuutensa", cents: 10000 } }, { ...MEMBERS[1]!, over: null }];
     const { container } = render(createElement(MemberBars, { members, paidLabel: "Maksanut", shareLabel: "Osuus" }));
     expect(container.querySelector("[aria-hidden]")).toBeNull();
-    expect([...container.querySelectorAll(".mbr-over")].map((o) => plain(o.textContent))).toEqual(["Maksoi yli osuutensa 100 €"]);
+    expect([...container.querySelectorAll(".mbr-over")].map((o) => plain(o.textContent))).toEqual(["Maksoi yli osuutensa 100,00 €"]);
     expect(container.querySelector(".mbr-member .mbr-over")?.parentElement?.querySelector(".mbr-name")?.textContent).toBe("Aino");
   });
 
@@ -82,7 +82,7 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
     const bars = container.querySelector(".member-bars")!;
     expect([...bars.querySelectorAll(".mbr-name")].map((n) => n.textContent)).toEqual(["Aino", "Eero"]);
-    expect([...bars.querySelectorAll(".mbr-fig")].map((f) => plain(f.textContent))).toEqual(["Maksanut 300 €", "Osuus 200 €", "Maksanut 100 €", "Osuus 200 €"]);
+    expect([...bars.querySelectorAll(".mbr-fig")].map((f) => plain(f.textContent))).toEqual(["Maksanut 300,00 €", "Osuus 200,00 €", "Maksanut 100,00 €", "Osuus 200,00 €"]);
   });
 
   it("prints each member's Maksanut and Osuus once, the over line once, and sends the reader nowhere", async () => {
@@ -99,11 +99,11 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     const { container } = render(createElement(section.Component, { ctx: context }));
     const group = await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
     const text = plain(group.textContent);
-    expect(text.match(/Maksanut 300 €/g)).toHaveLength(1);
-    expect(text.match(/Maksanut 100 €/g)).toHaveLength(1);
-    expect(text.match(/Osuus 200 €/g)).toHaveLength(2);
-    expect(text.match(/Maksoi yli osuutensa 100 €/g)).toHaveLength(1);
-    expect(text.match(/Maksoi osuuttaan vähemmän 100 €/g)).toHaveLength(1);
+    expect(text.match(/Maksanut 300,00 €/g)).toHaveLength(1);
+    expect(text.match(/Maksanut 100,00 €/g)).toHaveLength(1);
+    expect(text.match(/Osuus 200,00 €/g)).toHaveLength(2);
+    expect(text.match(/Maksoi yli osuutensa 100,00 €/g)).toHaveLength(1);
+    expect(text.match(/Maksoi osuuttaan vähemmän 100,00 €/g)).toHaveLength(1);
     expect(text).not.toContain("Kuka on velkaa kenelle");
     expect(container.querySelectorAll("a")).toHaveLength(0);
     expect(text).not.toContain("Kerro, miten tili jakautuu");
