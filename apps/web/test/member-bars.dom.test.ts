@@ -1,5 +1,6 @@
 /** Raportit > Yhteiset menot: the member bars and their place in the settlement block. */
 import { cleanup, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import "@banking/core/late";
@@ -41,6 +42,20 @@ describe("Yhteiset menot: the member bars", () => {
     ]);
   });
 
+  it("is read as text, with the over line of a member under their name", () => {
+    const members = [{ ...MEMBERS[0]!, over: { label: "Maksoi yli osuutensa", cents: 10000 } }, { ...MEMBERS[1]!, over: null }];
+    const { container } = render(createElement(MemberBars, { members, paidLabel: "Maksanut", shareLabel: "Osuus" }));
+    expect(container.querySelector("[aria-hidden]")).toBeNull();
+    expect([...container.querySelectorAll(".mbr-over")].map((o) => plain(o.textContent))).toEqual(["Maksoi yli osuutensa 100 €"]);
+    expect(container.querySelector(".mbr-member .mbr-over")?.parentElement?.querySelector(".mbr-name")?.textContent).toBe("Aino");
+  });
+
+  it("puts the figure of a bar on the line above that bar", () => {
+    const css = readFileSync(new URL("../src/styles/member-bars.css", import.meta.url), "utf8");
+    expect(css).not.toMatch(/\.mbr-line\s*\{[^}]*grid-template-columns/);
+    expect(css).toMatch(/\.mbr-fig\s*\{[^}]*order: -1;/);
+  });
+
   it("draws a bar of a negative figure with no width", () => {
     const { container } = render(createElement(MemberBars, { members: [{ key: "u1", name: "Aino", paidCents: -2000, shareCents: 4000 }], paidLabel: "Maksanut", shareLabel: "Osuus" }));
     expect([...container.querySelectorAll(".mbr-track > span")].map(widthOf)).toEqual(["0.0%", "100.0%"]);
@@ -68,6 +83,33 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     const bars = container.querySelector(".member-bars")!;
     expect([...bars.querySelectorAll(".mbr-name")].map((n) => n.textContent)).toEqual(["Aino", "Eero"]);
     expect([...bars.querySelectorAll(".mbr-fig")].map((f) => plain(f.textContent))).toEqual(["Maksanut 300 €", "Osuus 200 €", "Maksanut 100 €", "Osuus 200 €"]);
+  });
+
+  it("prints each member's Maksanut and Osuus once, the over line once, and sends the reader nowhere", async () => {
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 10000, owed: 20000, over: -10000 },
+        ],
+        unknownPaidBy: [{ owner: "x", cents: -684 }],
+        untold: [{ key: "bill", day: 20500, cents: 4000 }],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    const group = await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    const text = plain(group.textContent);
+    expect(text.match(/Maksanut 300 €/g)).toHaveLength(1);
+    expect(text.match(/Maksanut 100 €/g)).toHaveLength(1);
+    expect(text.match(/Osuus 200 €/g)).toHaveLength(2);
+    expect(text.match(/Maksoi yli osuutensa 100 €/g)).toHaveLength(1);
+    expect(text.match(/Maksoi osuuttaan vähemmän 100 €/g)).toHaveLength(1);
+    expect(text).not.toContain("Kuka on velkaa kenelle");
+    expect(container.querySelectorAll("a")).toHaveLength(0);
+    expect(text).not.toContain("Kerro, miten tili jakautuu");
+    // the answer's blocks keep their names for readers of the page
+    expect(screen.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Ei tiedossa" })).toBeTruthy();
   });
 
   it("draws no bars where nobody has told the split: the untold sum is all there is", async () => {
