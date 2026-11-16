@@ -113,8 +113,11 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   // the totals: both loans are owed
   const tiles = await texts(page, "#lainat .kv > div");
   expect(tiles[0]).toBe("Velkaa yhteensä 121 240 €");
-  expect(tiles[1]).toMatch(/^Korot seuraavan 12 kuukauden aikana \(arvio\) \d[\d ]* €$/);
+  // the card owes and has no rate, so the household's interest has no figure: the mortgage's own is in its row
+  expect(tiles[1]).toBe("Korot seuraavan 12 kuukauden aikana (arvio) –");
   expect(tiles[2]).toBe("Maksut kuussa 1 000 €");
+  // and no path of the debts is drawn while a debt that owes cannot be projected
+  await expect(section.locator("#lainat-polku")).toHaveCount(0);
   // a figure the card lacks is a dash in its row, and no sentence tells which loans a sum leaves out
   await expect(section.locator(".loans-notes")).toHaveCount(0);
   await expect(section).not.toContainText(/puuttuu|ei tiedossa/);
@@ -129,7 +132,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   await expect(home.locator(".loan-head")).toHaveText(/Kodin laina\s*Asuntolaina · Esimerkkipankki/);
   const figures = (await home.locator(".loan-figures > div").allInnerTexts()).map(plain);
   expect(figures.slice(0, 3)).toEqual(["Velkaa 120 000,00 €", "Korko 4,00 % 12 kuukauden Euribor", "Maksu 1 000,00 €/kk Korko 400,00 € Lyhennys 600,00 €"]);
-  expect(figures[3]).toBe(tiles[1]);
+  expect(figures[3]).toMatch(/^Korot seuraavan 12 kuukauden aikana \(arvio\) \d[\d ]* €$/);
   expect(figures[4]).toMatch(/^Viimeinen maksupäivä \d{1,2}\.\d{1,2}\.\d{4}$/);
 
   // a point down the payment is smaller and a point up larger, and so is the year's interest
@@ -139,7 +142,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   const [downPay, downInterest, upPay, upInterest] = moved!.slice(1).map(cents);
   expect(downPay!).toBeLessThan(100000);
   expect(upPay!).toBeGreaterThan(100000);
-  const interest = cents(tiles[1]!.replace("Korot seuraavan 12 kuukauden aikana (arvio) ", ""));
+  const interest = cents(figures[3]!.replace("Korot seuraavan 12 kuukauden aikana (arvio) ", ""));
   expect(downInterest!).toBeLessThan(interest);
   expect(upInterest!).toBeGreaterThan(interest);
 

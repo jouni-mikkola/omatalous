@@ -7,9 +7,10 @@
  * figure of a loan is `loans.ts`'s (ADR 0004). This file lays the figures side by side, with the debts that may be
  * in a figure twice because no link says they are one (`maybeTwice` and `overdraftTwice` of `household-debts.ts`).
  */
+import { debtsOf } from "../analysis/card-settled.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
-import { householdDebts, type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
+import { type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
 import {
   type DebtFigure,
   type DebtPayments,
@@ -92,9 +93,11 @@ export interface LoansReport {
   loans: LoanRow[];
   /** What is owed in all (`householdDebts`). */
   total: DebtFigure;
-  /** Interest of the 12 months after the day (`householdDebts`). A loan in `unknown` with `counted: false` owes and has no rate: it is left out. */
+  /** False when a loan is left out of `total` for its balance date (`householdDebts`): the total reads "ei tiedossa". */
+  totalKnown: boolean;
+  /** Interest of the 12 months after the day (`householdDebts`). A loan in `unknown` with `counted: false` is left out. */
   interest: DebtFigure;
-  /** False when no loan that owes has a rate: the interest reads "ei tiedossa". */
+  /** False when any loan is left out of `interest`: the interest reads "ei tiedossa", never the part that is known. */
   interestKnown: boolean;
   /** Loans that `interest` leaves out for their rate (`loansWithoutRate`). */
   withoutRate: number;
@@ -102,9 +105,10 @@ export interface LoansReport {
   payments: DebtPayments;
   /**
    * The loans from the day to the day they are paid (`debtPath`): what is owed and the interest still to come, with a
-   * line for each move of `RATE_SHIFTS_BP`. The Lainat chart draws it.
+   * line for each move of `RATE_SHIFTS_BP`. The Lainat chart draws it. Null when a debt that owes cannot be projected:
+   * the path of the rest would tell a part as the whole.
    */
-  path: DebtPath;
+  path: DebtPath | null;
   /** Saved loans beside connected cards and loan accounts that may tell the same debt and are not linked: both are in `total`. */
   maybeTwice: readonly MaybeTwice[];
   /** Saved credit lines beside accounts below zero: the debt may be twice in the accounts less the debts, and is once in `total`. */
@@ -112,8 +116,8 @@ export interface LoansReport {
 }
 
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
-export function loansReport(ctx: Pick<AnalysisContext, "today">, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
-  const debts = householdDebts(balances, inputs, ctx.today);
+export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
+  const debts = debtsOf(ctx, balances, inputs);
   const { day } = debts;
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const sourceOf = new Map(debts.sources.map((s) => [s.loanId, s]));
@@ -148,6 +152,7 @@ export function loansReport(ctx: Pick<AnalysisContext, "today">, balances: reado
     saved: loansOf(inputs).length,
     loans,
     total: debts.total,
+    totalKnown: debts.totalKnown,
     interest: debts.interest,
     interestKnown: debts.interestKnown,
     withoutRate: loansWithoutRate(debts.interest),

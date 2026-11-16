@@ -9,7 +9,7 @@ import { partCents } from "./account-use.ts";
 import type { Debt } from "./debt-part.ts";
 import type { LoanProposal } from "./loan-detect.ts";
 import { paymentOf, type Side, sumShared } from "./shared.ts";
-import { creditAccountLoan, type DebtFigure, debtInterestNext12Months, debtTotalOn, loanBalanceOn, loanLastDueDate, loansOf } from "./loans.ts";
+import { creditAccountLoan, type DebtFigure, debtInterestNext12Months, debtTotalOn, loanBalanceOn, loanLastDueDate, loansOf, settledCardLoan } from "./loans.ts";
 import { belowWhole } from "./part-shape.ts";
 import { parseSeriesId } from "./series-id.ts";
 import { type Account, type BalanceInput, type IsoDate, isRevolving, type Loan, type Part, type UserInputs } from "./types.ts";
@@ -88,11 +88,16 @@ interface HouseholdDebts {
   parts: ReadonlyMap<string, Part>;
   /** What is owed in all on the day: `debtTotalOn` of `loans`. */
   total: DebtFigure;
+  /**
+   * False when a loan is left out of `total` because its balance is dated after the day: what it owed on the day is
+   * not known, since the balance date is the day the sum was told, not the day the loan began. Such a sum has no figure.
+   */
+  totalKnown: boolean;
   /** What the debt costs over the 12 months after the day: `debtInterestNext12Months` of `loans`. */
   interest: DebtFigure;
   /**
-   * False when the interest has no figure to tell: a loan is left out for its rate and no loan that owes is counted.
-   * Such a sum reads "ei tiedossa", never zero.
+   * False when any loan is left out of the interest, for its rate or for its balance date. A sum with a part missing
+   * has no figure to tell: it reads "ei tiedossa", never the part that is known.
    */
   interestKnown: boolean;
 }
@@ -101,6 +106,9 @@ interface HouseholdDebts {
  * The debts of the household on a day.
  * - A saved loan counts as typed, and a connected card or loan account that owes something counts as the bank tells
  *   it (`creditAccountLoan`).
+ * - A card whose statement is paid in full (`settled`: its id and the day the next statement is paid) owes no interest
+ *   and nothing after that day (`settledCardLoan`). A card not in `settled` has no rate and no plan, so its interest is
+ *   not known.
  * - A saved loan that names such an account (`Loan.accountId`) is that account's debt, and the pair counts once: the
  *   balance is the account's, since the bank knows what is owed today, and the name, kind, rate, plan and last due
  *   date are the saved loan's, so its payment, interest and payoff stay known. The limit is the saved loan's, or the
@@ -123,7 +131,7 @@ interface HouseholdDebts {
  *   has the part of the account its payments leave (`paidFrom`) and stays whole in this list, where `loans.ts` cuts
  *   every figure of it, so the users' parts add up to the loan on every day. With no payments linked it is whole.
  */
-export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInputs, day: IsoDate): HouseholdDebts {
+export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInputs, day: IsoDate, settled: ReadonlyMap<string, IsoDate> = new Map()): HouseholdDebts {
   const typed = loansOf(inputs);
   const holders = new Map<string, Loan>();
   for (const loan of typed) {
@@ -140,7 +148,7 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
     if (!told) continue;
     const part = belowWhole(account.part) ? account.part : null;
     const holder = holders.get(account.id);
-    if (holder && !linked.has(holder) && (account.balanceCents ?? 0) <= 0) {
+    if (holder && !linked.has(holder) && account.balanceCents !== null && account.balanceCents <= 0) {
       linked.add(holder);
       const terms = part ? atPart(holder, part) : holder;
       const pair = { ...terms, limitCents: terms.limitCents ?? told.limitCents };
@@ -150,7 +158,8 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
       sources.push({ loanId: holder.id, accountId: account.id, linked: true, typed: part ? { ...holder, part } : holder });
       if (part) parts.set(holder.id, part);
     } else if (told.balanceCents > 0) {
-      connected.push(told);
+      const payDay = account.type === "credit_card" ? settled.get(account.id) : undefined;
+      connected.push(payDay ? settledCardLoan(told, payDay) : told);
       sources.push({ loanId: told.id, accountId: account.id, linked: false, typed: null });
       if (part) parts.set(told.id, part);
     }
@@ -165,8 +174,8 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
   const loans = [...saved, ...connected];
   const interest = debtInterestNext12Months(loans, day);
   const out = new Set(interest.unknown.filter((u) => !u.counted).map((u) => u.loanId));
-  const interestKnown = out.size === 0 || loans.some((loan) => !out.has(loan.id) && loanBalanceOn(loan, day).cents !== 0);
-  return { day, saved, connected, sources, loans, parts, total: debtTotalOn(loans, day), interest, interestKnown };
+  const total = debtTotalOn(loans, day);
+  return { day, saved, connected, sources, loans, parts, total, totalKnown: total.unknown.every((u) => u.counted), interest, interestKnown: out.size === 0 };
 }
 
 /**

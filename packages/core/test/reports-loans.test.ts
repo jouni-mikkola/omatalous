@@ -110,6 +110,13 @@ describe("bullets, loans without a rate and loans that owe nothing", () => {
     const owing = run([undrawn, paid, loan({ id: "card", kind: "card", balanceCents: 124000 })]).loans;
     expect(owing.interestKnown).toBe(false);
     expect(owing.interest.unknown.filter((u) => !u.counted).map((u) => u.loanId)).toEqual(["card"]);
+    // a loan with a rate beside it does not make the sum known: its interest alone is not the household's
+    const rated = annuity({ id: "rated", balanceCents: 1000000, paymentCents: 20000 });
+    const mixed = run([rated, loan({ id: "card", kind: "card", balanceCents: 124000 })]).loans;
+    expect(mixed.interestKnown).toBe(false);
+    expect(mixed.interest.cents).toBeGreaterThan(0);
+    expect(mixed.loans[0]!.interest.cents).toBe(mixed.interest.cents);
+    expect(run([rated]).loans.interestKnown).toBe(true);
   });
 });
 
@@ -197,6 +204,9 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
     // the interest leaves it out for its balance: its rate is known
     expect(r.interest.unknown).toEqual([{ loanId: "home", unknown: "before_balance_date", counted: false }]);
     expect(r.withoutRate).toBe(0);
+    // what it owed today is not known, so neither the debt total nor the interest has a figure, and nor has the path
+    expect([r.totalKnown, r.interestKnown, r.path]).toEqual([false, false, null]);
+    expect(run([annuity({ id: "now", balanceCents: 1000000, paymentCents: 20000 })]).loans).toMatchObject({ totalKnown: true, interestKnown: true });
     // beside it a card that owes and has no rate, and one that owes nothing
     expect(run([later, loan({ id: "card", kind: "card", balanceCents: 124000 }), loan({ id: "undrawn", kind: "card", balanceCents: 0 })]).loans.withoutRate).toBe(1);
   });

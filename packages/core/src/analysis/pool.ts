@@ -21,8 +21,8 @@ export interface Pool {
   accounts: readonly BalanceInput[];
   /** "part": some account is counted at less than its whole; "all": every account is counted whole. */
   kind: "all" | "part";
-  /** What the pool holds, each account at the viewer's part; an account with no known balance adds nothing. */
-  cents: number;
+  /** What the pool holds, each account at the viewer's part. Null when an account of the pool has no known balance: a sum without it would pass for the whole. */
+  cents: number | null;
 }
 
 /** An account is in the pool when it is a checking account (a joint one included) of which the viewer has some part. */
@@ -32,7 +32,7 @@ export function poolOf(balances: readonly BalanceInput[]): Pool {
     ids: new Set(accounts.map((b) => b.id)),
     accounts,
     kind: accounts.some((b) => b.part && !isWhole(b.part)) ? "part" : "all",
-    cents: accounts.reduce((sum, b) => sum + (b.balanceCents ?? 0), 0),
+    cents: accounts.some((b) => b.balanceCents === null) ? null : accounts.reduce((sum, b) => sum + b.balanceCents!, 0),
   };
 }
 

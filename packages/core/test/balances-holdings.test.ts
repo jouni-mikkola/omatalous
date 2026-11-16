@@ -241,10 +241,23 @@ describe("holdings of the balance report", () => {
     expect(clear.holdings.debtCents).toBe(0);
   });
 
+  it("a loan whose balance is dated after today leaves the debt total unknown in the block, in Saldot and in Lainat alike", () => {
+    const later = loan({ id: "later", balanceCents: 400_000, balanceDate: "2026-12-01" });
+    const { ctx, report, holdings } = household([input("c1", "Käyttötili", "checking", 10_000), input("k1", "Kortti", "credit_card", -1_000, { creditLimitCents: 300_000 })], [later]);
+    const lainat = loansReport(ctx, [input("c1", "Käyttötili", "checking", 10_000), input("k1", "Kortti", "credit_card", -1_000, { creditLimitCents: 300_000 })], inputsOf([later]));
+    expect(lainat.totalKnown).toBe(false);
+    expect(holdings.debtCents).toBeNull();
+    expect(report.debt.cents).toBeNull();
+    // the accounts less a part of the debt is no net: the head of the block is unknown too
+    expect(holdings.accountsCents).toBe(10_000);
+    expect(holdings.netCents).toBeNull();
+    expect(report.holdings.netCents).toBeNull();
+  });
+
   it("the net figure is the accounts' total less the debt total, and null when no account has a balance", () => {
     const owing = household([input("c1", "Käyttötili", "checking", 10_000), input("k1", "Kortti", "credit_card", -1_000, { creditLimitCents: 300_000 }), input("l1", "Autolaina", "loan", -300_000)]);
     expect(owing.holdings.netCents).toBe(10_000 - 301_000);
-    expect(owing.holdings.netCents).toBe(owing.holdings.accountsCents! - owing.holdings.debtCents);
+    expect(owing.holdings.netCents).toBe(owing.holdings.accountsCents! - owing.holdings.debtCents!);
     expect(household([input("c1", "Käyttötili", "checking", null), input("l1", "Autolaina", "loan", -300_000)]).holdings.netCents).toBeNull();
   });
 

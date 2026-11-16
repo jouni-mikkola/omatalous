@@ -1099,27 +1099,27 @@
     "linkedAccount": null,
     "balance": {
      "cents": 285586,
-     "unknown": "repayment"
+     "unknown": null
     },
     "balanceDate": "2026-10-09",
-    "rateBp": null,
+    "rateBp": 0,
     "reference": null,
-    "repayment": null,
+    "repayment": "bullet",
     "payment": {
      "cents": null,
      "interestCents": null,
      "amortisationCents": null,
      "intervalMonths": null,
      "date": null,
-     "unknown": "repayment"
+     "unknown": null
     },
     "interest": {
-     "cents": null,
-     "unknown": "rate"
+     "cents": 0,
+     "unknown": null
     },
     "payoff": {
-     "date": null,
-     "unknown": "repayment",
+     "date": "2026-10-10",
+     "unknown": null,
      "never": false
     },
     "scenarios": []
@@ -1127,54 +1127,40 @@
   ],
   "total": {
    "cents": 285586,
-   "unknown": [
-    {
-     "loanId": "account:demo-5fdaaadecf9ef83ca8f355d3",
-     "unknown": "repayment",
-     "counted": true
-    }
-   ]
+   "unknown": []
   },
+  "totalKnown": true,
   "interest": {
    "cents": 0,
-   "unknown": [
-    {
-     "loanId": "account:demo-5fdaaadecf9ef83ca8f355d3",
-     "unknown": "rate",
-     "counted": false
-    }
-   ]
+   "unknown": []
   },
-  "interestKnown": false,
-  "withoutRate": 1,
+  "interestKnown": true,
+  "withoutRate": 0,
   "payments": {
    "monthlyCents": 0,
    "counted": 0,
-   "unknown": 1,
-   "bullets": 0
+   "unknown": 0,
+   "bullets": 1
   },
   "path": {
    "days": [
-    "2026-10-09"
+    "2026-10-09",
+    "2026-11-09"
    ],
    "balanceCents": [
+    285586,
     0
    ],
    "interestCents": [
+    0,
     0
    ],
    "tops": [
+    285586,
     0
    ],
-   "payoff": null,
-   "moves": [],
-   "left": [
-    {
-     "id": "account:demo-5fdaaadecf9ef83ca8f355d3",
-     "name": "Nordea Gold (esimerkki)",
-     "unknown": "rate"
-    }
-   ]
+   "payoff": "2026-10-10",
+   "moves": []
   },
   "maybeTwice": [],
   "overdraftTwice": []
