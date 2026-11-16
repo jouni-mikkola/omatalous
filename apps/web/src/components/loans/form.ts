@@ -60,6 +60,17 @@ export function formOfProposal(proposal: LoanProposalRow, today: string, account
   return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, accountId: told?.id ?? "" };
 }
 
+/**
+ * A connected card or credit line no saved loan holds, as the form of a new loan linked to it: the account's name, the
+ * balance the bank tells as an amount owed on the day it told it, and its limit. The household types the terms.
+ */
+export function formOfCard(account: Account, today: string): LoanForm {
+  const owed = Math.max(0, -(account.balanceCents ?? 0));
+  const limit = account.creditLimitCents;
+  const values = { ...blank(), balanceCents: eurosText(owed), balanceDate: balanceDayOf(account.balanceAt, today), limitCents: limit === null ? "" : eurosText(limit) };
+  return { id: null, seriesKey: null, name: account.name, kind: account.type === "credit_card" ? "card" : "credit_line", values, accountId: account.id };
+}
+
 /** A saved loan as a form, for editing. */
 export function formOfLoan(loan: Loan): LoanForm {
   const values = blank();
