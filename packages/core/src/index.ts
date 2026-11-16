@@ -51,6 +51,7 @@ export * from "./recurring.ts";
 export * from "./commitments.ts";
 export * from "./loans.ts";
 export * from "./household-debts.ts";
+export { debtsOf } from "./analysis/card-settled.ts";
 export { cardLimitCents } from "./holdings.ts";
 export { buildHousing, MORTGAGE_QUESTION } from "./housing.ts";
 export * from "./loan-detect.ts";
