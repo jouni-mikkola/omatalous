@@ -90,7 +90,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* the chevron stands at the left of the first line of the cell it opens */
 .rt-lead { display: flex; align-items: flex-start; min-width: 0; }
 .rt-lead-body { flex: 1 1 auto; min-width: 0; }
-/* 40 px high; the negative margin takes back what it has over the 24 px line, so a row keeps its height */
+/* 40 px high; the negative margin takes back what it has over the 24 px the row gives it, so a row keeps its height */
 .rt-drill { flex: none; inline-size: 32px; block-size: calc(var(--tap-min) - var(--sp-4)); margin: calc(-1 * var(--sp-8)) var(--sp-4) calc(-1 * var(--sp-8)) calc(-1 * var(--sp-8)); padding: 0; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); font-size: var(--fs-h2); line-height: 1; cursor: pointer; vertical-align: middle; }
 .rt-drill:hover { background: var(--control-hover); color: var(--text); }
 .rt-drill:focus-visible, .rt-fold:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -137,8 +137,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-csv { margin: 0; }
 @media (pointer: fine) and (min-width: 641px) { .rt-csv { margin-top: calc(-1 * var(--sp-8)); } }
 
-/* the links under a table (CSV, fewer rows, the next page of the transactions) are 40 px high, as the chips above it */
-:is(.rt-csv, .rt-more, .tx-cut) .btn-link { display: inline-flex; align-items: center; min-block-size: calc(var(--tap-min) - var(--sp-4)); }
+/* the links under a table (CSV, fewer rows, the next page of the transactions) are 40 px high, as the chips above it. `.btn.btn-link`: the 24 px floor of a phone in base.css names `.btn-link` inside an `:is()` that weighs as much as its heaviest argument, so a lighter selector loses to it */
+:is(.rt-csv, .rt-more, .tx-cut) .btn.btn-link { display: inline-flex; align-items: center; min-block-size: calc(var(--tap-min) - var(--sp-4)); }
 
 /* the button that folds the months of a row into a list: only a block has it */
 .rt-fold { display: none; }
