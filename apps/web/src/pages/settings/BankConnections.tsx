@@ -240,7 +240,17 @@ export function BankConnections({
   const accountLinesOf = (b: BankRow) => activeOf(b).flatMap((c) => accountsOf(c.id).map((a) => [a.name, accountNumber(a)].filter(Boolean).join(" · ")));
   const removeBank = async (b: BankRow) => {
     await run(`del-${b.key}`, async () => {
-      for (const c of activeOf(b)) await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
+      let ended = 0;
+      try {
+        for (const c of activeOf(b)) {
+          await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
+          ended += 1;
+        }
+      } catch (err) {
+        // a consent that did end before the bank stopped answering leaves the list at once, so the row shows what is still active
+        if (ended > 0) onChange();
+        throw err;
+      }
       return t("set.conn.connection_removed");
     });
     setRemoving(null);
