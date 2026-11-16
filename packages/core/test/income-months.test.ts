@@ -29,7 +29,7 @@ describe("income months", () => {
     expect(r.window).toEqual({ from: "2025-10-01", to: "2026-09-30" });
     const september = r.months.find((m) => m.month === "2026-09")!;
     expect(september.totalCents).toBe(300_000 + 619_000);
-    expect(r.months.reduce((s, m) => s + m.totalCents, 0)).toBe(12 * 300_000 + 619_000);
+    expect(r.months.reduce((s, m) => s + m.totalCents!, 0)).toBe(12 * 300_000 + 619_000);
   });
 
   it("3 kk gives three rows", () => {

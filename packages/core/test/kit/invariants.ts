@@ -5,13 +5,16 @@
  *
  * I1 and I1b read the rows and the pool (src/analysis/conservation.ts, pool.ts), I3 the verdicts against the labels of
  * the generator, I4 the sum of the members against the household, I5 the proof of the balances. I6 reads a pool cut by
- * who paid, which the generator makes no household of: it takes the pool's rows and trace itself. Each check is exported
+ * who paid, which the generator makes no household of: it takes the pool's rows and trace itself. I7 reads the monthly
+ * series of the reports over a range that starts before the data: an unknown month is never 0.
+ * Each check is exported
  * so a test can hand it a household made wrong on purpose and see it fail (invariants.teeth.test.ts).
  */
 import { aheadBasis } from "../../src/analysis/ahead.ts";
 import { bridgeByMonth } from "../../src/analysis/conservation.ts";
 import { createContext } from "../../src/analysis/context.ts";
 import { leftOf } from "../../src/analysis/flows.ts";
+import { monthKnown } from "../../src/analysis/coverage.ts";
 import { dataQualityReport } from "../../src/analysis/data-quality.ts";
 import { poolOf } from "../../src/analysis/pool.ts";
 import { buildQuestions } from "../../src/analysis/questions.ts";
@@ -21,6 +24,7 @@ import { loanProposals } from "../../src/loan-detect.ts";
 import { applyUse } from "../../src/account-use.ts";
 import type { Owner, RowParts } from "../../src/money-trace.ts";
 import { paidRows } from "../../src/money-trace-answers.ts";
+import { buildReports } from "../../src/reports/index.ts";
 import { standingCut } from "../../src/standing-cut.ts";
 import { WALLET_PAYER_KEY } from "../../src/payer-role.ts";
 import { type Account, NO_INPUTS, type Part, type Transaction } from "../../src/types.ts";
@@ -42,7 +46,8 @@ export type Check =
   | "I3c.wallet-role"
   | "I3d.namesake"
   | "I4.loan-parts"
-  | "I5.unproven";
+  | "I5.unproven"
+  | "I7.unknown-month";
 
 /** One failed invariant: where it failed and the line that says what. */
 export interface Violation {
@@ -278,8 +283,37 @@ export function standingSum(name: string, pool: SourcePool, cut: typeof standing
   });
 }
 
+/**
+ * I7: a month the data does not reach (`monthKnown`) has no figure in a report's monthly series: null, never 0. The
+ * range starts long before any generated household, so its first months are unknown. `reports` is a parameter so a test
+ * can hand the check reports made wrong on purpose.
+ */
+export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: typeof buildReports = buildReports): Violation[] {
+  const r = reports({ ctx: v.ctx, range: { from: "2020-01-01", to: h.today }, balances: v.balances }, ["spendingMonths", "income", "balances"]);
+  const out: Violation[] = [];
+  const check = (report: string, series: string, months: readonly string[], values: readonly (number | null)[]) =>
+    months.forEach((month, i) => {
+      if (!monthKnown(v.ctx, month) && values[i] !== null) out.push(found("I7.unknown-month", h, v, `${report} ${series} is ${values[i]} in a month the data does not reach`, month));
+    });
+  const s = r.spendingMonths;
+  check("spendingMonths", "totals", s.months, s.totals);
+  check("spendingMonths", "fromSavings", s.months, s.fromSavings);
+  for (const c of s.categories) check("spendingMonths", c.category, s.months, c.values);
+  const months = r.income.months.map((m) => m.month);
+  check("income", "total", months, r.income.months.map((m) => m.totalCents));
+  check("income", "earned", months, r.income.months.map((m) => m.earnedCents));
+  check("income", "usual", months, r.income.months.map((m) => m.usualCents));
+  for (const t of r.income.types) check("income", t.type, months, t.months);
+  for (const k of r.income.kinds) check("income", k.id, months, k.months);
+  const b = r.balances;
+  check("balances", "total", b.months, b.total);
+  check("balances", "change", b.months, b.monthChange);
+  check("balances", "less debt", b.months, b.accountsLessDebt);
+  return out;
+}
+
 /** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 export function violationsOf(h: GeneratedHousehold, twin?: GeneratedHousehold): Violation[] {
   const views = viewsOf(h);
-  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
+  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v), ...unknownMonth(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
 }

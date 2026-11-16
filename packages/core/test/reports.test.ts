@@ -42,16 +42,16 @@ describe("reports", () => {
     expect(s.months).toEqual(["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);
     expect(s.categories.length).toBeGreaterThan(3);
     s.months.forEach((_, i) => expect(s.categories.reduce((sum, c) => sum + c.values[i]!, 0)).toBe(s.totals[i]));
-    expect(s.totals.reduce((a, b) => a + b, 0)).toBe(s.totalCents);
+    expect(s.totals.reduce((a, b) => a! + b!, 0)).toBe(s.totalCents);
     // the same spending as the category report of the same range
     expect(s.totalCents).toBe(r.categories.totalCents);
     for (const c of s.categories) {
-      expect(c.values.reduce((a, b) => a + b, 0)).toBe(c.totalCents);
+      expect(c.values.reduce((a, b) => a! + b!, 0)).toBe(c.totalCents);
       expect(c.payees.reduce((sum, p) => sum + p.cents, 0) + c.otherPayeesCents).toBe(c.totalCents);
       expect(c.totalCents).toBe(r.categories.groups.flatMap((g) => g.categories).find((x) => x.category === c.category)?.totalCents);
     }
     // the average month is the mean of the complete months, which a running month is not among, so the categories' averages add up to it
-    const whole = s.totals.filter((_, i) => s.complete[i]);
+    const whole = s.totals.filter((_, i) => s.complete[i]) as number[];
     expect(s.typicalMonths).toBe(whole.length);
     expect(s.typicalCents).toBe(Math.round(whole.reduce((a, b) => a + b, 0) / whole.length));
     expect(Math.abs(s.categories.reduce((sum, c) => sum + c.typicalCents!, 0) - s.typicalCents!)).toBeLessThanOrEqual(s.categories.length);
@@ -129,7 +129,7 @@ describe("reports", () => {
     expect(s.categoryMonths).toBe(9);
     const bill = s.categories.find((c) => c.category === "card_bill")!;
     expect(bill.values.slice(7, 9)).toEqual([104_000, 0]);
-    expect(bill.typicalCents).toBe(expectedLevel(bill.values.slice(0, 9)));
+    expect(bill.typicalCents).toBe(expectedLevel(bill.values.slice(0, 9) as number[]));
     expect(bill.lastDiffCents).toBe(-bill.typicalCents!);
   });
 
@@ -572,8 +572,8 @@ describe("a report over more than 24 months", () => {
     const all = pivotReport(ctx, range, undefined, Infinity);
     expect(all.months).toHaveLength(41);
     expect(all.months[0]).toBe("2023-05");
-    for (const r of all.rows) expect(r.values.reduce((s, v) => s + v, 0)).toBe(r.totalCents);
-    expect(all.monthTotals.reduce((s, v) => s + v, 0)).toBe(all.totalCents);
+    for (const r of all.rows) expect(r.values.reduce((s, v) => s! + v!, 0)).toBe(r.totalCents);
+    expect(all.monthTotals.reduce((s, v) => s! + v!, 0)).toBe(all.totalCents);
     expect(cashflowReport(ctx, range).rows).toHaveLength(24);
     const flow = cashflowReport(ctx, range, [], Infinity).rows;
     expect(flow).toHaveLength(41);

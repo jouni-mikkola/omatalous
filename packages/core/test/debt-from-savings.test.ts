@@ -77,8 +77,8 @@ describe("a debt paid from a savings account", () => {
     expect(month.spendCents).toBe(20_000);
     // income less spending less what went to savings is Tulos
     expect(month.incomeCents).toBe(d.totals.incomeCents);
-    expect(month.incomeCents - month.spendCents - d.totals.savedCents).toBe(d.totals.leftCents);
-    expect(month.incomeCents - month.spendCents).toBe(d.totals.netCents);
+    expect(month.incomeCents! - month.spendCents! - d.totals.savedCents).toBe(d.totals.leftCents);
+    expect(month.incomeCents! - month.spendCents!).toBe(d.totals.netCents);
     // the categories hold the debt paid from savings, so the first page names it beside them
     const { rows: top, otherCents, totalCents, fromSavingsCents } = d.overview.categories;
     expect(totalCents).toBe(month.spendCents);

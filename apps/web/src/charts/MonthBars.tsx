@@ -31,9 +31,9 @@ const monthRowsHref = (month: string, today: string) =>
 /** What a month says in its readout and its link's name: the two sums, and that the month is not whole. */
 function monthRows(m: Month, running: boolean): { name: string; value: string }[] {
   return [
-    { name: t("home.months_income"), value: money(m.incomeCents, false) },
-    { name: t("home.fig_spent"), value: money(m.spendCents, false) },
-    ...(running ? [{ name: t("home.months_running"), value: "" }] : !m.complete ? [{ name: t("home.months_partial"), value: "" }] : []),
+    { name: t("home.months_income"), value: m.incomeCents === null ? "–" : money(m.incomeCents, false) },
+    { name: t("home.fig_spent"), value: m.spendCents === null ? "–" : money(m.spendCents, false) },
+    ...(running ? [{ name: t("home.months_running"), value: "" }] : !m.complete && m.spendCents !== null ? [{ name: t("home.months_partial"), value: "" }] : []),
   ];
 }
 
@@ -50,7 +50,8 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const hatch = `mbh-${useId().replace(/\W/g, "")}`;
   const width = measured || UNMEASURED;
   const { months, usualSpendCents: usual, usualMonths } = overview;
-  const values = [...months.flatMap((m) => [m.incomeCents, m.spendCents]), ...(usual === null ? [] : [usual])];
+  // a month the data does not reach (null) is no bar and no value of the axis
+  const values = [...months.flatMap((m) => [m.incomeCents, m.spendCents].flatMap((v) => (v === null ? [] : [v]))), ...(usual === null ? [] : [usual])];
   const options = { minHeight: 200, tallest: 220, ratio: 0.3 };
   const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
   const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
@@ -66,7 +67,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
     new Set(months.flatMap((m, i) => (running(i) || m.month.endsWith("-01") ? [i] : []))),
   );
   const yearOf = (i: number) => (ticks[i]!.printed && months[i]!.month.endsWith("-01") ? months[i]!.month.slice(0, 4) : null);
-  const anyPartial = months.some((m, i) => !m.complete || running(i));
+  const anyPartial = months.some((m, i) => (!m.complete && m.spendCents !== null) || running(i));
   const top = (v: number) => Math.min(y(v), y(0));
   const height = (v: number) => Math.abs(y(v) - y(0));
   const title = (m: Month) => monthLong(m.month);
@@ -116,8 +117,12 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
               const left = x.x(i);
               return (
                 <g key={m.month} className={whole ? "mb-month" : "mb-month mb-partial"}>
-                  <rect className={whole ? "mb-income" : "mb-income-part"} fill={whole ? undefined : `url(#${hatch}-income)`} x={left} y={top(m.incomeCents)} width={bar} height={height(m.incomeCents)} />
-                  <rect className={whole ? "mb-spend" : "mb-spend-part"} fill={whole ? undefined : `url(#${hatch}-spend)`} x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />
+                  {m.incomeCents !== null && (
+                    <rect className={whole ? "mb-income" : "mb-income-part"} fill={whole ? undefined : `url(#${hatch}-income)`} x={left} y={top(m.incomeCents)} width={bar} height={height(m.incomeCents)} />
+                  )}
+                  {m.spendCents !== null && (
+                    <rect className={whole ? "mb-spend" : "mb-spend-part"} fill={whole ? undefined : `url(#${hatch}-spend)`} x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />
+                  )}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
                   {ticks[i]!.printed && (
                     <text x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">

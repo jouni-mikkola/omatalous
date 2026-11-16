@@ -10,7 +10,7 @@ import { expectedLevel } from "../analysis/expected.ts";
 import { cardRowsMissingIn } from "../analysis/usual.ts";
 import { largePurchases } from "../analysis/large.ts";
 import { SPENDING_PAYEES } from "../thresholds.ts";
-import { fullMonths, rangeMonthIndexes } from "./shared.ts";
+import { fullMonths, knownMonths, rangeMonthIndexes, whereKnown } from "./shared.ts";
 
 interface SpendingPayee {
   name: string;
@@ -21,9 +21,9 @@ interface SpendingPayee {
 interface SpendingCategory {
   category: string;
   label: string;
-  /** One per month of `months`. */
-  values: number[];
-  /** The sum of `values`. */
+  /** One per month of `months`; null in a month the data does not reach (`knownMonths`). */
+  values: (number | null)[];
+  /** The sum of the category's rows over the range, those of a month the data does not reach too. */
   totalCents: number;
   /**
    * The expected level of the category over `categoryMonths` (`expectedLevel`, their mean) without its large purchases
@@ -49,16 +49,16 @@ export interface SpendingMonthsReport {
   from: string;
   /** Per month: it has ended and the accounts were in the data from its 1st. An incomplete month is no monthly figure. */
   complete: boolean[];
-  /** Spending per month (`spendRows`: consumption and debt service, a card's purchases on their own days). */
-  totals: number[];
-  /** The sum of `totals`. */
+  /** Spending per month (`spendRows`: consumption and debt service, a card's purchases on their own days); null in a month the data does not reach, which is no month's spending and in no average. */
+  totals: (number | null)[];
+  /** The sum of the rows of the range: `totals` and the months they leave out. */
   totalCents: number;
   /**
    * Per month, what `totals` holds of debt paid from a savings account (Säästöistä maksettu). Tulos and the first page's Menot
    * count it once, as Säästöön, so `totals` less this is the Menot of the first page.
    */
-  fromSavings: number[];
-  /** The sum of `fromSavings`. */
+  fromSavings: (number | null)[];
+  /** The sum of `fromSavings` and of the months it leaves out. */
   fromSavingsCents: number;
   /**
    * The expected level of the complete months' totals without their large purchases (`largePurchases`), which the
@@ -96,6 +96,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const shown = { from: range.from > `${months[0]}-01` ? range.from : `${months[0]}-01`, to: range.to };
   const full = new Set(fullMonths(ctx, range, indexes).map((m) => m - first));
   const complete = indexes.map((_, i) => full.has(i));
+  const known = knownMonths(ctx, months);
   const totals = indexes.map(() => 0);
   const fromSavings = indexes.map(() => 0);
   const large = largePurchases(ctx);
@@ -141,7 +142,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
       return {
         category,
         label: spendingLabel(getCategory(category), lang),
-        values,
+        values: whereKnown(values, known),
         totalCents,
         typicalCents,
         lastDiffCents: typicalCents !== null && last !== null ? values[last]! - typicalCents : null,
@@ -155,9 +156,10 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     months,
     from: shown.from,
     complete,
-    totals,
+    // the cells of an unknown month are null, the sums still hold every row: money spent is money spent
+    totals: whereKnown(totals, known),
     totalCents: totals.reduce((s, v) => s + v, 0),
-    fromSavings,
+    fromSavings: whereKnown(fromSavings, known),
     fromSavingsCents: fromSavings.reduce((s, v) => s + v, 0),
     typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
     typicalFlowCents: expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!)),

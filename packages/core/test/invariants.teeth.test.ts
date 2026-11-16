@@ -5,9 +5,13 @@
  */
 import { describe, expect, it } from "vitest";
 import { type AnalysisTx, createContext } from "../src/analysis/context.ts";
+import { monthKnown } from "../src/analysis/coverage.ts";
+import { addMonths, dateIn, monthOf } from "../src/dates.ts";
+import { buildReports } from "../src/reports/index.ts";
 import { generateHousehold } from "./kit/generate.ts";
-import { conservation, labelledFlow, loanParts, memberLegs, monthlyLoans, moneyIn, namesake, onePool, ownTransfers, prefix, walletQuestions, walletRole } from "./kit/invariants.ts";
+import { conservation, labelledFlow, loanParts, memberLegs, monthlyLoans, moneyIn, namesake, onePool, ownTransfers, prefix, unknownMonth, walletQuestions, walletRole } from "./kit/invariants.ts";
 import type { GeneratedHousehold } from "./kit/truth.ts";
+import { tx } from "./helpers.ts";
 import { type HouseholdView, viewsOf } from "../../../tools/findings/households.ts";
 
 const LONG = 60_000;
@@ -104,6 +108,27 @@ describe("the invariant checks catch a household made wrong", () => {
       const lost: HouseholdView = { ...payer, txs, ctx: createContext(txs, payer.accounts, h.today) };
       expect(txs.length).toBeLessThan(payer.ctx.txs.length);
       expect(loanParts(h, [views[0]!, lost, ...views.slice(2)]).map((v) => v.check)).toContain("I4.loan-parts");
+    },
+    LONG,
+  );
+
+  it(
+    "I7 unknown month: a report that gives a month the data does not reach a zero",
+    () => {
+      // a small account with rows from three months before the household's first row: those months are unknown
+      const first = whole().ctx.txs.map((t) => t.bookingDate).sort()[0]!;
+      const old = { id: "sav-old", name: "Vanha säästötili", iban: null, currency: "EUR", type: "savings" } as const;
+      const rows = [0, 1].map((i) => tx({ bookingDate: dateIn(addMonths(monthOf(first), -3 + i), 15), amountCents: 100, accountId: "sav-old", merchant: "Pankki", category: "other", categorySource: "rule" }));
+      const txs = [...whole().ctx.txs, ...rows];
+      const v: HouseholdView = { ...whole(), accounts: [...whole().accounts, old], txs, ctx: createContext(txs, [...whole().accounts, old], h.today) };
+      expect(monthKnown(v.ctx, addMonths(monthOf(first), -1))).toBe(false);
+      expect(unknownMonth(h, v)).toEqual([]);
+      const zeroed: typeof buildReports = (input, only) => {
+        const r = buildReports(input, only);
+        r.spendingMonths.totals = r.spendingMonths.totals.map((x) => x ?? 0);
+        return r;
+      };
+      expect(unknownMonth(h, v, zeroed).map((x) => x.check)).toContain("I7.unknown-month");
     },
     LONG,
   );

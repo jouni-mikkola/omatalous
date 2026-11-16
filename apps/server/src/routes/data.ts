@@ -16,7 +16,7 @@ import { csvWords, reportWords } from "../platform/csv-words.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { body, cents, csv, csvBody, csvResponse, parseRange, requestInfo } from "./shared.ts";
 
-/** An average the report has none of (no complete month in the range) is an empty cell, never a zero. */
+/** An average the report has none of (no complete month in the range), or a month the data does not reach, is an empty cell, never a zero. */
 const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
 
 export function dataRoutes(s: Services) {
@@ -137,10 +137,12 @@ export function dataRoutes(s: Services) {
       return csvResponse(c, `${words.fileNames.cashflow}${range.from}_${range.to}.csv`, csv(rows));
     }
     const p = pivotReport(ctx, range, lang, Infinity);
+    // a sheet's total is the sum of its cells: a month the data does not reach is an empty cell and adds nothing
+    const shown = (values: readonly (number | null)[]): number => values.reduce<number>((a, v) => a + (v ?? 0), 0);
     const rows = [
       [...words.pivotStart, ...p.months, ...words.pivotEnd],
-      ...p.rows.map((r) => [r.label, r.group, ...r.values.map(cents), cents(r.totalCents), centsOrEmpty(r.averageCents)]),
-      [words.sum, "", ...p.monthTotals.map(cents), cents(p.totalCents), ""],
+      ...p.rows.map((r) => [r.label, r.group, ...r.values.map((v) => centsOrEmpty(v)), cents(shown(r.values)), centsOrEmpty(r.averageCents)]),
+      [words.sum, "", ...p.monthTotals.map((v) => centsOrEmpty(v)), cents(shown(p.monthTotals)), ""],
     ];
     return csvResponse(c, `${words.fileNames.pivot}${range.from}_${range.to}.csv`, csv(rows));
   });

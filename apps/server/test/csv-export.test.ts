@@ -73,6 +73,12 @@ describe("report CSV without a complete month", () => {
     const pivot = rows((await admin.call("GET", "/api/export/report.csv?report=pivot&from=2026-10-01&to=2026-10-09")).body);
     for (const row of pivot.slice(1, -1)) expect(row.at(-1)).toBe("");
 
+    // a total is the sum of the month cells shown beside it, the sum row as well (an empty cell adds nothing)
+    const year = rows((await admin.call("GET", "/api/export/report.csv?report=pivot&from=2025-01-01&to=2026-10-09")).body);
+    const n = year[0]!.filter((h) => /^\d{4}-\d{2}$/.test(h)).length;
+    const num = (c: string) => (c === "" ? 0 : Math.round(Number(c.replace(",", ".")) * 100));
+    for (const row of year.slice(1)) expect(row.slice(2, 2 + n).reduce((a, c) => a + num(c), 0)).toBe(num(row[2 + n]!));
+
     const month = rows((await admin.call("GET", "/api/export/report.csv?report=categories&from=2026-09-01&to=2026-09-30")).body);
     for (const row of month.slice(1)) expect(row.slice(6, 9).every((c) => c !== "")).toBe(true);
   });

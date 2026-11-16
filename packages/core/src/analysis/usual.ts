@@ -10,7 +10,7 @@
 import { dayNumber, fromMonthIndex, monthEnd, monthIndex } from "../dates.ts";
 import { GATE_FLOOR_CENTS, GATE_SHARE, MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../thresholds.ts";
 import { type AnalysisContext, historyCovers, spendRows } from "./context.ts";
-import { accountCovers, coverage, LEFT_OUT_SHARE, rowsMissing } from "./coverage.ts";
+import { accountCovers, coverage, LEFT_OUT_SHARE, monthKnown, rowsMissing } from "./coverage.ts";
 import { bookedSpendSelect, earnedOf, earnedSelect, incomeCentsOf, incomeSelect, spendOf, sumOf } from "./counted.ts";
 import type { IsoDate } from "../types.ts";
 import type { expectedFor } from "./expected.ts";
@@ -53,6 +53,8 @@ export function isCompleteMonth(ctx: AnalysisContext, month: string, accounts?: 
 /** `isCompleteMonth` but for missing rows: the month has ended and the accounts were in the data from its 1st. */
 function coveredMonth(ctx: AnalysisContext, month: string, ids: readonly string[] | undefined, rows?: RowBounds): boolean {
   if (monthEnd(month) >= (rows?.today ?? ctx.today)) return false;
+  // a month before the accounts the household lives on were connected: a small account's rows there are no month's money
+  if (!monthKnown(ctx, month)) return false;
   const from = `${month}-01`;
   if (rows && !historyCovers({ dataFrom: rows.from }, from)) return false;
   if (ids) return accountCovers(ctx, ids, from);
@@ -78,6 +80,7 @@ const incomeRowsMissing = (ctx: AnalysisContext, month: string): boolean => rows
 /** `coveredMonth` over the accounts with rows that are no card. */
 function incomeCovered(ctx: AnalysisContext, month: string): boolean {
   const cards = cardIds(ctx);
+  if (!monthKnown(ctx, month)) return false;
   const own = [...accountsWithRows(ctx, month)].filter((id) => !cards.has(id));
   // spelled out: coveredMonth with no accounts would judge a month of card rows only by the card's first day
   return own.length ? coveredMonth(ctx, month, own) : monthEnd(month) < ctx.today && historyCovers(ctx, `${month}-01`);

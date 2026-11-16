@@ -83,7 +83,7 @@ function Income({ ctx }: SectionProps) {
         rows={r.months}
         rowKey={(m) => m.month}
         columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running), csv: (m) => monthName(m, ctx.running) },
+          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running) },
           { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
         ]}
         search={false}
