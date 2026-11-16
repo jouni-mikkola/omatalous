@@ -4,7 +4,7 @@ import type { IsoDate } from "./types.ts";
 import type { CadenceDef } from "./recurring-cadence.ts";
 import { amountsDiffer, type Occurrence } from "./recurring-occurrence.ts";
 import type { PriceChange, PriceStep, RecurringKind } from "./recurring.ts";
-import { sum } from "./stats.ts";
+import { median, sum } from "./stats.ts";
 
 export function latestPriceChange(occ: readonly Occurrence[]): PriceChange | null {
   for (let i = occ.length - 1; i > 0; i--) {
@@ -101,6 +101,25 @@ function lastTwelveMonths(occ: readonly Occurrence[], cadence: CadenceDef): Occu
   const last = monthIndex(occ[occ.length - 1]!.date);
   if (last - monthIndex(occ[0]!.date) < 11) return null;
   return occ.filter((o) => monthIndex(o.date) > last - 12);
+}
+
+/** How many of the latest charges decide the level a series stands on. */
+const LEVEL_CHARGES = 5;
+
+/**
+ * What the next charge is expected to be: the median of the latest three, which keeps one extra repayment out. A
+ * series that moves between two prices (400, 400, 450, 450, 400) and whose latest charge is back on the lower one,
+ * a price it held within those charges, stands on that price: the median of three would stay on the higher price that the two
+ * charges before it held. A latest charge above the median is never followed, since one larger sum is an extra
+ * repayment, and a price the series did not hold lately is no step yet.
+ */
+export function typicalAmountOf(occ: readonly Occurrence[]): number {
+  const cents = occ.map((o) => o.cents);
+  const typical = Math.round(median(cents.slice(-3)));
+  const last = cents[cents.length - 1]!;
+  const onTwoLevels = cents.slice(-LEVEL_CHARGES).every((c) => !amountsDiffer(c, last) || !amountsDiffer(c, typical));
+  const heldBefore = cents.slice(-LEVEL_CHARGES, -1).some((c) => !amountsDiffer(c, last));
+  return last < typical && amountsDiffer(last, typical) && onTwoLevels && heldBefore ? last : typical;
 }
 
 /**

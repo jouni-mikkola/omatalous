@@ -49,7 +49,6 @@ export const FI_REPORTS_5 = {
   "rpt.ln_interest12": "Korot seuraavan 12 kuukauden aikana (arvio)",
   "rpt.ln_last_due": "Viimeinen maksupäivä",
   "rpt.ln_your_share": "Osuutesi",
-  "rpt.ln_complete": "Täydennä",
   "rpt.ln_and": "ja",
   "rpt.ln_or": "tai",
   "rpt.ln_acct_one": "yhdistetty tili {names}",
