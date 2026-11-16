@@ -227,7 +227,7 @@ test("every address of Asetukset lands on the card it names, on the target that 
   await context.close();
 });
 
-test("a member's targets have their own cards and none of the admin's, and Hae nyt is a row of Päivitykset", async ({ browser }) => {
+test("a member's targets have their own cards and none of the admin's, and Hae nyt is a row of Pankkihaut", async ({ browser }) => {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 1440, height: 800 } });
   // without a connection there is nothing to fetch: no button, no sentence about it
   const before = await context.newPage();
@@ -252,11 +252,10 @@ test("a member's targets have their own cards and none of the admin's, and Hae n
   await banks.getByRole("button", { name: "Hae nyt" }).click();
   await expect(page.locator(".notice").filter({ hasText: /uutta tapahtumaa|uusi tapahtuma/ })).toBeVisible();
 
-  // the fetch is a row of Päivitykset, on the same target
+  // the fetch is a row of Pankkihaut, on the same target; earlier runs that succeeded are not listed
   await expect.poll(hash).toBe("#/settings/banks");
   const runs = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Pankkihaut", exact: true }) });
   await expect(runs.getByRole("row").filter({ hasText: "käsin" })).toHaveCount(1);
-  await expect(runs.getByRole("row").filter({ hasText: "uusi yhteys" })).toHaveCount(1);
   await expect(page.getByText("Ei hakuja.")).toHaveCount(0);
 
   // a member sees the cards that are theirs, whichever old address opens Asetukset

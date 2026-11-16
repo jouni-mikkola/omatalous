@@ -360,8 +360,6 @@ export function Shell() {
             <div className="menu" onClick={(e) => ((e.currentTarget.parentElement as HTMLDetailsElement).open = false)}>
               <div className="muted">
                 {user.username} · {user.role === "admin" ? t("shell.role_admin") : t("shell.role_member")}
-                <br />
-                Omatalous {m.version.app}
               </div>
               <button type="button" disabled={changingLanguage} onClick={() => void chooseLanguage(otherLanguage)} lang={otherLanguage}>
                 {LANGUAGE_NAME[otherLanguage]}

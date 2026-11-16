@@ -8,7 +8,7 @@ apps/web/src/pages/ReviewChoices.tsx  paymentCents  1
 apps/web/src/pages/reports/holdings/Holdings.tsx  paymentCents  1
 apps/web/src/pages/reports/sections/Loans.tsx  paymentCents  2
 apps/web/src/pages/review-items.ts  paymentCents  2
-apps/web/src/pages/settings/Loans.tsx  paymentCents  3
+apps/web/src/pages/settings/Loans.tsx  paymentCents  2
 packages/core/src/analysis/conservation.ts  wholeCents  1
 packages/core/src/analysis/questions.ts  paymentCents  2
 packages/core/src/analysis/statement-explain.ts  wholeCents  4
