@@ -44,6 +44,12 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
         expect(l.right, `${l.text}: right edge`).toBeLessThanOrEqual(width);
       }
     }).toPass();
+    if (width >= 1000) {
+      // the payee of every row of the payday list has the wide column, a row without a visible day too
+      const names = await page.locator(".before-payday .bp-name").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", width: Math.round(el.getBoundingClientRect().width) })));
+      expect(names.length, "rows of the payday list").toBeGreaterThan(0);
+      for (const n of names) expect(n.width, `${n.text}: width of the payee`).toBeGreaterThan(120);
+    }
     await expect(page.locator(".bills-next-day"), "the day of the next payment").toHaveText(/^\p{L}{2} \d{1,2}\.\d{1,2}\./u);
     if (process.env.E2E_SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();
