@@ -242,13 +242,9 @@ export function BankConnections({
     await run(`del-${b.key}`, async () => {
       let ended = 0;
       try {
-        for (const c of activeOf(b)) {
-          await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
-          ended += 1;
-        }
+        for (const c of activeOf(b)) { await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" }); ended += 1; }
       } catch (err) {
-        // a consent that did end before the bank stopped answering leaves the list at once, so the row shows what is still active
-        if (ended > 0) onChange();
+        if (ended > 0) onChange(); // a consent that ended before the bank stopped answering leaves the list at once
         throw err;
       }
       return t("set.conn.connection_removed");
