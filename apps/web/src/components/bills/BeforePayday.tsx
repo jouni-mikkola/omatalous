@@ -13,10 +13,10 @@ import "../../styles/bills.css";
 import "../../styles/charts.css";
 
 /**
- * The block `nyt.left` answers: the payments before the payday, what the counted accounts hold and what is left of it,
- * all three as the answer's own figures. Under them the same payments as bars on the days to the payday, and the rows
+ * The block `nyt.left` answers: the payments before the payday, what the counted accounts hold, what the cards owe with
+ * no bill yet (when they owe) and what is left of it, all as the answer's own figures. Under them the same payments as bars on the days to the payday, and the rows
  * `nyt.left.billsCents` is made of, grouped by day (a day's name stands on its first row): the payments of the dashboard
- * answer's `ahead.rows` before the payday (the card bill too), then the payday itself as one income row. Nothing is
+ * answer's `ahead.rows` before the payday (the card bill too), then the payday itself as one income row and the bills of that day after it. Nothing is
  * added up here. Not drawn when the answer has no sum (`nyt.left.known` false).
  */
 export function BeforePayday({ data }: { data: DashboardData }) {
@@ -28,11 +28,13 @@ export function BeforePayday({ data }: { data: DashboardData }) {
   const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
   // due before the payday from an account the balance leaves out: listed with that account's name, in no sum here; the answer's own `elsewhereCents` is a second figure under the first
   const outside = ahead.outside.filter((r) => r.cents !== null && r.cents < 0 && r.date < left.payday.date);
+  // the bills of the payday itself, paid from the pay: in no figure above (`left.paydayCents` is their sum), listed after the payday row
+  const afterPay = ahead.upcoming.filter((r) => isPayment(r) && r.source !== "income" && !r.outside && !r.onCard && r.date === left.payday.date);
   const pay = payday.pay?.floorCents ?? null;
   const line = paydayLine(ahead, rows, left.payday.date);
   return (
     <section className="before-payday" id="ennen-palkkapaivaa" aria-labelledby="before-payday-h">
-      <div className="bp-stats">
+      <div className="bp-stats" data-cards={left.cardDebtCents > 0 ? "" : undefined}>
         <div className="bp-stat">
           <h3 id="before-payday-h" className="bp-label">
             {t("home.payments_before_payday")}
@@ -43,6 +45,12 @@ export function BeforePayday({ data }: { data: DashboardData }) {
           <span className="bp-label">{t("ahead.balance")}</span>
           <Figure text={money(left.balanceCents, false)} size="l" />
         </div>
+        {left.cardDebtCents > 0 && (
+          <div className="bp-stat" data-kind="card-debt">
+            <span className="bp-label">{t("ahead.card_debt")}</span>
+            <Figure text={money(left.cardDebtCents, false)} size="l" />
+          </div>
+        )}
         <div className="bp-stat" data-short={left.leftCents < 0 ? "" : undefined}>
           <span className="bp-label">{t("home.tile_left")}</span>
           <Figure text={money(left.leftCents, false)} size="l" />
@@ -113,6 +121,16 @@ export function BeforePayday({ data }: { data: DashboardData }) {
           </span>
           <span className="bp-sum num">{pay !== null ? money(pay) : ""}</span>
         </li>
+        {afterPay.map((r, i) => (
+          <li key={`after-${r.name}-${i}`} className="bp-row bp-after" data-kind="after-pay">
+            <span className="bp-date sr-only">{dayMonth(r.date)}</span>
+            <span className="bp-name">
+              {r.name}
+              {isEstimate(r) && <span className="mb-tag">{t("bills.legend_estimate")}</span>}
+            </span>
+            <span className="bp-sum num">{money(Math.abs(r.cents ?? 0))}</span>
+          </li>
+        ))}
       </ul>
     </section>
   );

@@ -2,7 +2,7 @@
  * Laskut starts with the payments Nyt takes off before the payday: the rows of `ahead.rows` of the dashboard answer
  * (the card bill too) and the payday as one income row; with no sum in Nyt the section is not drawn.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import type { Meta } from "../src/types.ts";
@@ -118,6 +118,54 @@ describe("Laskut: payments before the payday", () => {
     const out = [...section.querySelectorAll("[data-kind=outside]")].map((li) => flat(li.textContent));
     expect(out).toEqual(["16.11.Laina Yhteinen tili ·· 0381421,82 €", "14.12.Laina muulta tililtä421,82 €"]);
     expect(flat(section.querySelector(".bp-elsewhere")?.textContent)).toBe("Muilta tileiltä843,64 €");
+  });
+
+  // the answer's free sum takes the card debt off, and a page that drew only the bills and the balance read as a wrong sum
+  it("draws the card debt between the balance and what is free, and none without card debt", async () => {
+    const base = dashboard(true, true);
+    const left = { ...base.nyt.left, balanceCents: 8372, billsCents: 0, cardDebtCents: 61839, leftCents: 8372 - 61839, elsewhereCents: 0 };
+    await mount(true, true, { ...base, nyt: { ...base.nyt, left }, ahead: { ...base.ahead, upcoming: [], outside: [] } });
+    const section = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    const stats = [...section.querySelectorAll(".bp-stat")].map((e) => flat(e.textContent));
+    expect(stats).toEqual(["Maksut ennen palkkapäivää0 €", "Saldo84 €", "Korttien velka ilman laskua618 €", "Käytettävissä palkkapäivään−535 €"]);
+    expect(section.querySelector(".bp-stats")?.hasAttribute("data-cards")).toBe(true);
+    cleanup();
+    await mount(true, true);
+    const plain = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect(plain.querySelector("[data-kind=card-debt]")).toBeNull();
+    expect(plain.querySelector(".bp-stats")?.hasAttribute("data-cards")).toBe(false);
+    expect(plain.querySelectorAll(".bp-stat").length).toBe(3);
+  });
+
+  // `paydayCents` is in no figure above the list, so the bills of that day stood nowhere on the page
+  it("lists the bills of the payday after the payday row and keeps them out of the total", async () => {
+    const base = dashboard(true);
+    const onPayday = row("2026-11-25", "Vuokra", -78672, "recurring");
+    const elsewhere = { ...row("2026-11-25", "Laina", -42182, "recurring"), outside: true };
+    const card = { ...row("2026-11-25", "Netflix", -1299, "recurring"), onCard: true };
+    const before = row("2026-11-24", "Sähkö", -5000, "recurring");
+    await mount(true, false, { ...base, nyt: { ...base.nyt, left: { ...base.nyt.left, paydayCents: 78672 } }, ahead: { ...base.ahead, upcoming: [before, onPayday, elsewhere, card] } });
+    const section = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    const after = [...section.querySelectorAll("[data-kind=after-pay]")].map((li) => flat(li.textContent));
+    expect(after).toEqual(["25.11.Vuokra786,72 €"]);
+    // after the payday row, in the same list
+    const kinds = [...section.querySelectorAll(".bp-rows > li")].map((li) => li.getAttribute("data-kind"));
+    expect(kinds.slice(-2)).toEqual(["income", "after-pay"]);
+    // the total is the bills before the payday, as before
+    expect(flat(section.querySelector("[data-kind=total]")?.textContent)).toContain("1 899,54 €");
+    expect(section.querySelectorAll("[data-kind=bill]").length).toBe(3);
   });
 
   it("opens with the next payment: its payee and its exact sum", async () => {
