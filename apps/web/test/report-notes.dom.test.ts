@@ -20,8 +20,9 @@ const row = (id: string, name: string, cents: number) => ({ id, date: "2025-03-1
 type Tax = ReportsData["taxYear"];
 const taxReport = (partial: boolean): Tax =>
   ({
-    year: 2025,
-    range: { from: "2025-01-01", to: partial ? "2025-10-09" : "2025-12-31" },
+    year: partial ? 2026 : 2025,
+    // A year in progress is the running year of the fixed clock (2026-11-11), whose days a date writes without the year.
+    range: partial ? { from: "2026-01-01", to: "2026-11-11" } : { from: "2025-01-01", to: "2025-12-31" },
     partial,
     income: { totalCents: 0, types: [] },
     refunds: { cents: 40000, rows: [row("r1", "Verotoimisto", 40000)] },
@@ -44,10 +45,10 @@ describe("Verovuoden rivit", () => {
 
   it("names the days it covers in the caption, for a year in progress and a whole one", () => {
     const part = showTax(taxReport(true));
-    expect(plain(part.container.querySelector(".card-datum")!.textContent)).toMatch(/^1\.1\.2025.9\.10\.2025$/);
+    expect(plain(part.container.querySelector(".card-datum")!.textContent)).toBe("1.1.–11.11.2026");
     cleanup();
     const whole = showTax(taxReport(false));
-    expect(plain(whole.container.querySelector(".card-datum")!.textContent)).toMatch(/^1\.1\.2025.31\.12\.2025$/);
+    expect(plain(whole.container.querySelector(".card-datum")!.textContent)).toBe("1.1.–31.12.2025");
   });
 });
 

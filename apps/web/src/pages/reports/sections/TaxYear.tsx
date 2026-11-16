@@ -1,5 +1,5 @@
 // Decision: which rows of one calendar year the household checks against the pre-filled tax return, and whether a refund or a residual tax is on the accounts
-import { messageIn, taxYearCsv, type TaxRow } from "@banking/core";
+import { formatFiRange, messageIn, taxYearCsv, type TaxRow } from "@banking/core";
 import "../../../styles/sheets.css";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { SheetActions } from "../../../components/SheetActions.tsx";
@@ -31,7 +31,7 @@ function TaxYear({ ctx }: SectionProps) {
   const r = ctx.data.taxYear;
   const say = (code: Parameters<typeof messageIn>[1], params?: Record<string, string | number>) => messageIn(language(), code, params as never);
   return (
-    <ReportPanel id={section.id} title={t("tax.title")} datum={`${date(r.range.from)}–${date(r.range.to)}`} actions={<SheetActions id={section.id} name={t("tax.csv_name")} csv={() => taxYearCsv(r, say, ctx.label)} />}>
+    <ReportPanel id={section.id} title={t("tax.title")} datum={formatFiRange(r.range.from, r.range.to, language())} actions={<SheetActions id={section.id} name={t("tax.csv_name")} csv={() => taxYearCsv(r, say, ctx.label)} />}>
       <Rows caption={t("tax.refunds")} rows={r.refunds.rows} />
       <Rows caption={t("tax.interest")} rows={r.interest.rows} />
       {r.loanPayments.length > 0 && (
