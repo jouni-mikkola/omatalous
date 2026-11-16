@@ -4,7 +4,7 @@
  * so a finding that is listed there must keep failing and nothing else may fail.
  *
  * I1 and I1b read the rows and the pool (src/analysis/conservation.ts, pool.ts), I3 the verdicts against the labels of
- * the generator, I4 the sum of the members against the household, I5 the proof of the balances. B0 reads a pool cut by
+ * the generator, I4 the sum of the members against the household, I5 the proof of the balances. I6 reads a pool cut by
  * who paid, which the generator makes no household of: it takes the pool's rows and trace itself. Each check is exported
  * so a test can hand it a household made wrong on purpose and see it fail (invariants.teeth.test.ts).
  */
@@ -29,7 +29,7 @@ import { proveAccount } from "./generate.ts";
 import type { GeneratedHousehold, Truth } from "./truth.ts";
 
 export type Check =
-  | "B0.standing-sum"
+  | "I6.standing-sum"
   | "I1.bridge"
   | "I1.pool-accounts"
   | "I1.pool-balance"
@@ -261,7 +261,7 @@ export interface SourcePool {
 }
 
 /**
- * B0: for a pool cut by who paid, the members' standing amounts of each row (what a series is read from for what is
+ * I6: for a pool cut by who paid, the members' standing amounts of each row (what a series is read from for what is
  * ahead) add up to the bank's whole amount of it, the money nobody owns included: never more, and no cent lost. A row
  * a member has no part of counts 0 for them. `cut` is what is judged.
  */
@@ -274,7 +274,7 @@ export function standingSum(name: string, pool: SourcePool, cut: typeof standing
   }
   return pool.rows.flatMap((t) => {
     const sum = sums.get(t.id) ?? 0;
-    return sum === t.amountCents ? [] : [{ check: "B0.standing-sum" as const, household: name, view: "members", month: null, line: `${t.id}: the bank's ${t.amountCents}, the members' standing amounts add up to ${sum}` }];
+    return sum === t.amountCents ? [] : [{ check: "I6.standing-sum" as const, household: name, view: "members", month: null, line: `${t.id}: the bank's ${t.amountCents}, the members' standing amounts add up to ${sum}` }];
   });
 }
 
