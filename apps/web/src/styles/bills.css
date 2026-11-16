@@ -76,7 +76,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bills-next-day { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .bills-next-name { font-weight: var(--w-strong); overflow-wrap: anywhere; }
 
-/* ── Ennen seuraavaa tuloa: three figures, the bars of the days, the rows by day */
+/* ── Ennen seuraavaa tuloa: three or four figures, the bars of the days, the rows by day */
 .before-payday { padding-block-start: var(--sp-16); border-block-start: 1px solid var(--border); }
 .bp-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-16); }
 .bp-stats[data-cards] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -125,6 +125,9 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .before-payday .bp-row[data-active] { background: var(--surface-2); }
 @media (min-width: 1000px) {
   .bills-answer:has(.bills-next) { display: grid; grid-template-columns: minmax(0, 16rem) minmax(0, 1fr); column-gap: var(--sp-32); }
+}
+@media (max-width: 1099px) {
+  .bp-stats[data-cards] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
   .bp-stats, .bp-stats[data-cards] { grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }

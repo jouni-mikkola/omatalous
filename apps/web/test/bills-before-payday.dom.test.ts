@@ -59,7 +59,7 @@ describe("Laskut: payments before the payday", () => {
     // it stands in the card of Tulevat maksut, the three figures of the answer over the bars and the rows
     expect(section.closest("#tulossa")).toBeTruthy();
     const stats = [...section.querySelectorAll(".bp-stat")].map((e) => flat(e.textContent));
-    expect(stats).toEqual(["Maksut ennen palkkapäivää1 900 €", "Saldo5 000 €", "Käytettävissä palkkapäivään3 100 €"]);
+    expect(stats).toEqual(["Maksut ennen palkkapäivää1 899,54 €", "Saldo5 000,00 €", "Käytettävissä palkkapäivään3 100,46 €"]);
     // the bars: the days from today to the payday, one piece to each payment of the list and none to the pay
     expect(section.querySelectorAll(".pb-axis li").length).toBe(15);
     expect(section.querySelectorAll(".pb-axis li[data-payday]").length).toBe(1);
@@ -131,7 +131,11 @@ describe("Laskut: payments before the payday", () => {
       return el!;
     });
     const stats = [...section.querySelectorAll(".bp-stat")].map((e) => flat(e.textContent));
-    expect(stats).toEqual(["Maksut ennen palkkapäivää0 €", "Saldo84 €", "Korttien velka ilman laskua618 €", "Käytettävissä palkkapäivään−535 €"]);
+    expect(stats).toEqual(["Maksut ennen palkkapäivää0,00 €", "Saldo83,72 €", "Korttien velka ilman laskua618,39 €", "Käytettävissä palkkapäivään−534,67 €"]);
+    // the shown figures add up: balance - payments - card debt = what is free, read from the page and not from the fixture
+    const shown = [...section.querySelectorAll(".bp-stat .fig")].map((e) => Math.round(Number(flat(e.textContent).replace("−", "-").replace(/[^\d,-]/g, "").replace(",", ".")) * 100));
+    expect(shown).toEqual([0, 8372, 61839, -53467]);
+    expect(shown[1]! - shown[0]! - shown[2]!).toBe(shown[3]);
     expect(section.querySelector(".bp-stats")?.hasAttribute("data-cards")).toBe(true);
     cleanup();
     await mount(true, true);
@@ -166,6 +170,20 @@ describe("Laskut: payments before the payday", () => {
     // the total is the bills before the payday, as before
     expect(flat(section.querySelector("[data-kind=total]")?.textContent)).toContain("1 899,54 €");
     expect(section.querySelectorAll("[data-kind=bill]").length).toBe(3);
+  });
+
+  // on the payday itself with the pay not booked yet, a payment of the day counts before the pay unless it follows the pay
+  it("lists a bill of the payday after the pay only when it follows the pay", async () => {
+    const base = dashboard(true);
+    const counted = row("2026-11-25", "Vuokra", -78672, "recurring");
+    const followsPay = { ...row("2026-11-25", "Sähkö", -5000, "recurring"), withPay: true };
+    await mount(true, false, { ...base, ahead: { ...base.ahead, to: "2026-11-25", upcoming: [counted, followsPay] } });
+    const section = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    expect([...section.querySelectorAll("[data-kind=after-pay]")].map((li) => flat(li.textContent))).toEqual(["25.11.SähköArvio50,00 €"]);
   });
 
   it("opens with the next payment: its payee and its exact sum", async () => {
