@@ -265,6 +265,8 @@ export const NORDEA_FINANCE_WORDS = alternation("NORDEA_FINANCE_WORDS");
 /** A bank that lends mortgages (a text of Nordea's finance company is not one). The list is data: wordlists.json. */
 const MORTGAGE_BANK = words(String.raw`(?!${NORDEA_FINANCE_WORDS})(?:${alternation("MORTGAGE_BANK_WORDS")})`);
 export const isMortgageBankText = (folded: string) => MORTGAGE_BANK.test(folded);
+/** The loan words a bank writes as the payee of its own loan payments ("<bank> Lainat", "<bank> Lån"); with a mortgage bank's name they are the mortgage. */
+export const BANK_LOAN_PAYEE_WORDS = alternation("BANK_LOAN_PAYEE_WORDS");
 /** Nordea's cards by name. They name a card and no issuer, so `isCardIssuerText` does not read them. */
 export const NORDEA_CARD_WORDS = alternation("NORDEA_CARD_WORDS");
 export const CARD_ISSUER_WORDS = `${NORDEA_FINANCE_WORDS}|${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}|${RESURS_WORDS}`;

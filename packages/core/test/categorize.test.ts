@@ -737,3 +737,42 @@ describe("the user's own rule behind a row's category", () => {
     });
   });
 });
+
+describe("payee words of a bank's loan, an authority, an association and a burger bar", () => {
+  const out = (merchant: string, euros: number) => categorize(tx(merchant, Math.round(euros * 100)), rules).category;
+
+  it.each([
+    ["Danske Bank Lainat Lån", "mortgage"],
+    ["Aktia Laina", "mortgage"],
+    ["Handelsbanken Lån", "mortgage"],
+    ["OP Lainat", "mortgage"],
+    // a finance company and a lender that is no mortgage bank stay consumer credit
+    ["Nordea Rahoitus Lainat", "loans"],
+    ["Komplett Bank Laina", "loans"],
+    // a loan named by a longer word, a loan of another kind, and a row that names interest keep their own category
+    ["Danske Bank Kulutuslaina", "loans"],
+    ["Aktia Opintolaina", "student_loan"],
+    ["Aktia Laina korko", "interest"],
+  ])("%s → %s", (merchant, category) => {
+    expect(out(merchant, -732.5)).toBe(category);
+  });
+
+  it("loan words with no bank named stay loans", () => {
+    expect(out("Lainat", -732.5)).toBe("loans");
+  });
+
+  it("an authority paid by credit transfer is a tax or fee, never a person", () => {
+    const input = { merchant: "Rannikko- ja saaristovirasto", counterparty: "Rannikko- ja saaristovirasto", description: null, mcc: null, reference: null, counterpartyIban: "FI2112345600000785", amountCents: -15768 };
+    expect(categorize(input, rules).category).toBe("taxes");
+  });
+
+  it.each([
+    ["Kalastajaliitto", "memberships"],
+    ["Kalastajaliitto ry", "memberships"],
+    ["Mannerheimin Lastensuojeluliitto", "gifts_donations"],
+    ["MCD Espoo", "restaurants"],
+    ["McDonald's Espoo", "restaurants"],
+  ])("%s → %s", (merchant, category) => {
+    expect(out(merchant, -28)).toBe(category);
+  });
+});

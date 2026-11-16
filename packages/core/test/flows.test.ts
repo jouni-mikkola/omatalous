@@ -784,3 +784,19 @@ describe("the bank's own transaction codes, on rows whose wording decides nothin
     expect(totals).toMatchObject({ incomeCents: 0, consumptionCents: 0 });
   });
 });
+
+describe("a mortgage bank's own loan payee", () => {
+  it("is the mortgage, debt service, and a finance company's loan payee stays consumer credit", () => {
+    const { final, totals } = run(
+      [
+        row("chk", "2026-09-20", -732.5, "LAINAT LÅN", "DANSKE BANK OYJ"),
+        row("chk", "2026-10-20", -732.5, "LAINAT LÅN", "DANSKE BANK OYJ"),
+        row("chk", "2026-09-22", -250, "LAINAT", "NORDEA RAHOITUS SUOMI OY"),
+        row("chk", "2026-10-22", -250, "LAINAT", "NORDEA RAHOITUS SUOMI OY"),
+      ],
+      [checking],
+    );
+    expect(final.map((t) => t.category)).toEqual(["mortgage", "mortgage", "loans", "loans"]);
+    expect(totals).toMatchObject({ debtCents: 2 * 73250 + 2 * 25000, consumptionCents: 0 });
+  });
+});

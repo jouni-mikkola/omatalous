@@ -146,6 +146,14 @@
         "ALANDSBANKEN"
       ]
     },
+    "BANK_LOAN_PAYEE_WORDS": {
+      "about": "The loan words a bank puts on its own loan payments, whole and not inside a longer word (Finnish, and Swedish folded to LAN). With the name of a bank that lends mortgages the payee is the mortgage; a loan named by a longer word (AUTOLAINA) stays consumer credit.",
+      "alternatives": [
+        "LAINA",
+        "LAINAT",
+        "LAN"
+      ]
+    },
     "NORDEA_CARD_WORDS": {
       "about": "Names of Nordea's credit cards.",
       "alternatives": [
