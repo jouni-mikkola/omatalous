@@ -10,7 +10,8 @@ type Screen = "mouse" | "touch";
 /** The declaration of a custom property in the `@media (pointer: coarse)` root block of tokens.css, if it has one. */
 function coarseToken(name: string): string | undefined {
   const block = /@media \(pointer: coarse\)\s*\{\s*:root\s*\{([^}]*)\}/.exec(read("tokens.css"));
-  return block && new RegExp(`${name}:\\s*([^;]+);`).exec(block[1]!)?.[1];
+  if (!block) return undefined;
+  return new RegExp(`${name}:\\s*([^;]+);`).exec(block[1]!)?.[1];
 }
 
 /** The pixels a token stands for (`:root` of tokens.css, a `rem` at 16 px); on a touch screen the coarse block wins. */
