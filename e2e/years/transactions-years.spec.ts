@@ -47,13 +47,13 @@ test(`five years of rows: the list shows its first rows in under a second at ${C
   const total = (await (await page.request.get("/api/transactions?limit=1")).json()).total as number;
   expect(total, "rows in the history").toBeGreaterThanOrEqual(MIN_ROWS);
   // the code, the route's chunk and the answer are fetched once before, as transactions-perf.spec.ts does: the time is the page's own
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   await page.goto("/#/overview");
   const cdp = await context.newCDPSession(page);
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_SLOWDOWN });
   const started = Date.now();
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   const took = Date.now() - started;
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 });

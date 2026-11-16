@@ -33,7 +33,7 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const headers = page.locator("table.tx-table tr.rt-group th");
   await expect(headers.first()).toBeVisible();
   // a page of 100 rows has several days, and the strip above does not push the list off the first screen
@@ -83,25 +83,26 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   await context.close();
 });
 
-test("390 px: no row is taller than 72 px, no short name is cut and the row shows no account digits", async ({ browser }) => {
+test("390 px: no row is taller than 72 px, no short name is cut and every row names its account by its digits, not by a logo", async ({ browser }) => {
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const rows = page.locator(DATA_ROW);
   await expect(rows.first()).toBeVisible();
   if (process.env.E2E_SHOTS) await page.screenshot({ path: join(process.env.E2E_SHOTS, "transactions-390.png") });
   // walk down the list and measure the rows each screen draws
   const tall: string[] = [];
   const cutNames: string[] = [];
-  const withDigits: string[] = [];
+  const withoutDigits: string[] = [];
+  const withLogo: string[] = [];
   let seenRows = 0;
   let reachedEnd = false;
   for (let step = 0; step < 120; step++) {
     const found = await rows.evaluateAll((els) =>
       els.map((row) => {
         const name = row.querySelector<HTMLElement>(".tx-name");
-        return { id: row.id, height: row.getBoundingClientRect().height, name: name?.textContent?.trim() ?? "", cut: !!name && name.scrollWidth > name.clientWidth, digits: !!row.querySelector(".tx-acct-short") && getComputedStyle(row.querySelector(".tx-acct-short")!).display !== "none" };
+        return { id: row.id, height: row.getBoundingClientRect().height, name: name?.textContent?.trim() ?? "", cut: !!name && name.scrollWidth > name.clientWidth, digits: !!row.querySelector(".tx-acct-short") && getComputedStyle(row.querySelector(".tx-acct-short")!).display !== "none", logo: (row.querySelector(".tx-account .acc-mark")?.getClientRects().length ?? 0) > 0 };
       }),
     );
     for (const r of found) {
@@ -109,7 +110,8 @@ test("390 px: no row is taller than 72 px, no short name is cut and the row show
       // the chevron's 44 px stands inside the row, over its second line of 24 px, with 4 px above and below
       if (r.height > 72) tall.push(`${r.name} ${Math.round(r.height)} px`);
       if (r.name.length <= 20 && r.cut) cutNames.push(r.name);
-      if (r.digits) withDigits.push(r.name);
+      if (!r.digits) withoutDigits.push(r.name);
+      if (r.logo) withLogo.push(r.name);
     }
     const atEnd = await page.evaluate(() => {
       window.scrollBy(0, 600);
@@ -124,7 +126,7 @@ test("390 px: no row is taller than 72 px, no short name is cut and the row show
   if (process.env.E2E_SHOTS) {
     const wide = await signedIn(browser, 1440, 900);
     const desk = await wide.newPage();
-    await desk.goto("/#/transactions");
+    await desk.goto("/#/transactions?period=all");
     await expect(desk.locator(DATA_ROW).first()).toBeVisible();
     await desk.screenshot({ path: join(process.env.E2E_SHOTS, "transactions-1440.png") });
     await wide.close();
@@ -133,16 +135,17 @@ test("390 px: no row is taller than 72 px, no short name is cut and the row show
   expect(seenRows, "rows measured").toBeGreaterThan(50);
   expect(tall, "rows over 72 px").toEqual([]);
   expect(cutNames, "names of 20 characters or fewer that are cut").toEqual([]);
-  expect(withDigits, "rows that show the account's digits").toEqual([]);
+  expect(withoutDigits, "rows that do not show the account's digits").toEqual([]);
+  expect(withLogo, "rows that show a bank's logo").toEqual([]);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
 
-test("390 px: every row's account is its bank's mark, whole and under nothing, and the opened row names the account with its digits", async ({ browser }) => {
+test("390 px: every row's account is its digits, whole and under nothing, and the opened row names the account with its digits", async ({ browser }) => {
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const rows = page.locator(DATA_ROW);
   await expect(rows.first()).toBeVisible();
   const n = Math.min(await rows.count(), 40);
@@ -170,7 +173,7 @@ test("390 px: Suodata opens its list as a sheet, narrows the list, names the lim
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const search = page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" });
   await expect(search).toBeVisible();
   await expect(page.locator(DATA_ROW).first()).toBeInViewport();
@@ -182,7 +185,7 @@ test("390 px: Suodata opens its list as a sheet, narrows the list, names the lim
   await expect(sheet).toBeVisible();
   await sheet.getByRole("button", { name: /^Kategoria/ }).click();
   await sheet.getByRole("option", { name: "Ruokakauppa" }).click();
-  await expect(page).toHaveURL(/#\/transactions\?category=groceries$/);
+  await expect(page).toHaveURL(/#\/transactions\?category=groceries&period=all$/);
   await expect(sheet).toHaveCount(0);
   await expect(page.locator(".tx-fchip.set")).toContainText("Ruokakauppa");
   await expect.poll(async () => (await page.locator(`${DATA_ROW} .tx-category .tx-chip-label`).allInnerTexts()).filter((t) => t.trim() !== "Ruokakauppa").length).toBe(0);
@@ -196,7 +199,7 @@ test("390 px: Suodata opens its list as a sheet, narrows the list, names the lim
   await expect(page.getByRole("button", { name: "Suodata", exact: true })).toBeFocused();
 
   await page.getByRole("button", { name: "Poista rajaus: Kategoria" }).click();
-  await expect(page).toHaveURL(/#\/transactions$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
   await expect(page.getByRole("button", { name: "Tyhjennä rajaukset" })).toHaveCount(0);
   await expect(search).toBeVisible();
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
@@ -208,7 +211,7 @@ test("390 px: a category changed in an opened row saves, shows its answer on the
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const rows = page.locator(DATA_ROW);
   await expect(rows.first()).toBeVisible();
 
@@ -250,7 +253,7 @@ test("1366 px: the page is the table under the filter chips, the download in the
   const context = await signedIn(browser, 1366, 800);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa"]);
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   // the day is the group row above its rows, with how many there are
@@ -303,7 +306,7 @@ for (const width of [1366, 1000, 700, 601]) {
       json.items[1].partCents = -123_456;
       await route.fulfill({ response, json });
     });
-    await page.goto("/#/transactions");
+    await page.goto("/#/transactions?period=all");
     await expect(page.locator(DATA_ROW).first()).toBeVisible();
     const block = (await page.locator(".rt-wrap").first().getAttribute("data-block")) !== null;
     if (width >= 1000) expect(block, "a table where there is room").toBe(false);
@@ -340,7 +343,7 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   const context = await signedIn(browser, 1280, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
   await expect(strip.locator("dt").first()).toBeVisible();
   const cells = await strip.locator(".tx-totals-kv > div").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
@@ -362,7 +365,7 @@ test("390 px: a tap on a row opens it, a second tap closes it, and the chevron o
   const context = await signedIn(browser, 390, 844);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const first = page.locator(DATA_ROW).first();
   await expect(first).toBeVisible();
   await expect(page.locator(".tx-detail-facts")).toHaveCount(0);
@@ -380,23 +383,24 @@ test("1280 px: a search being typed takes one place in the history, however many
   const context = await signedIn(browser, 1280, 900);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const search = page.getByRole("searchbox", { name: "Hae kauppiasta tai viestiä" });
   await expect(search).toBeVisible();
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   const before = await page.evaluate(() => history.length);
+  const asked = () => new URLSearchParams(page.url().split("?")[1] ?? "").get("q");
   await search.pressSequentially("ka");
-  await expect(page).toHaveURL(/q=ka$/);
+  await expect.poll(asked).toBe("ka");
   await expect.poll(() => page.evaluate(() => history.length)).toBe(before + 1);
   // a pause later the rest of the word replaces that place
   await search.pressSequentially("hvi");
-  await expect(page).toHaveURL(/q=kahvi$/);
+  await expect.poll(asked).toBe("kahvi");
   await search.pressSequentially("la");
-  await expect(page).toHaveURL(/q=kahvila$/);
+  await expect.poll(asked).toBe("kahvila");
   expect(await page.evaluate(() => history.length), "history entries added by the whole search").toBe(before + 1);
   // back leaves the search in one step, not one for each pause
   await page.goBack();
-  await expect(page).toHaveURL(/#\/transactions$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

@@ -19,7 +19,7 @@ const rows = (page: Page) => page.locator("table.tx-table tbody tr:not(.rt-group
 const heights = (page: Page, n: number) => rows(page).evaluateAll((els, n) => els.slice(0, n).map((el) => Math.round(el.getBoundingClientRect().height)), n);
 
 test("a row is one line of 33 px, a day's row about 25 px", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, "/#/transactions");
+  const { context, page, seen } = await open(browser, "/#/transactions?period=all");
   await expect(rows(page).first()).toBeVisible();
   // a linked document (private build) or a joint part adds a line; the plain rows of the demo are one line each
   const roomy = await heights(page, 20);
@@ -34,7 +34,7 @@ test("a row is one line of 33 px, a day's row about 25 px", async ({ browser }) 
 });
 
 test("a day's row says the server's whole-day sums, also for a day the page cuts", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, "/#/transactions");
+  const { context, page, seen } = await open(browser, "/#/transactions?period=all");
   const answer = (await (await page.request.get("/api/transactions?limit=100&scope=own")).json()) as { items: { bookingDate: string }[]; daySums: { date: string; count: number; outCents: number }[] };
   await expect(rows(page).first()).toBeVisible();
   const first = page.locator("table.tx-table tr.rt-group").first();
@@ -89,7 +89,7 @@ test("the period is a named one or two days on our own calendar, never a browser
   const url = new URLSearchParams(page.url().split("?")[1]);
   expect(url.get("to")! > url.get("from")!).toBe(true);
   await page.getByRole("button", { name: "Poista rajaus: Aikaväli" }).click();
-  await expect(page).toHaveURL(/#\/transactions$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -109,7 +109,7 @@ test("Enter on the histogram narrows the list to its tallest bin, and a filter t
   // the strip waits for rows; the chips stay so a filter can be undone one at a time
   await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" })).toHaveCount(0);
   await page.getByRole("button", { name: "Tyhjennä rajaukset" }).click();
-  await expect(page).toHaveURL(/#\/transactions$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
   await expect(rows(page).first()).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -130,7 +130,7 @@ test("before its answer the page stands at its final shape: the strip's frame an
 });
 
 test("390 px: a row keeps its chevron before the name, and the drill opens under the row", async ({ browser }) => {
-  const { context, page, seen } = await open(browser, "/#/transactions", 390, 844);
+  const { context, page, seen } = await open(browser, "/#/transactions?period=all", 390, 844);
   const row = rows(page).first();
   await expect(row).toBeVisible();
   const box = (await row.boundingBox())!;

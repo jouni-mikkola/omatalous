@@ -70,6 +70,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 /* ── the marks: VT4's payee plate and account mark, with the account's short text ─────── */
 .tx-acct { display: inline-flex; align-items: center; gap: var(--sp-4); max-width: 100%; min-width: 0; color: var(--text-2); }
 /* the digits, a short own name or the type's word: never cut, so the cell is as wide as its longest */
+.tx-acct-logo { display: contents; }
 .tx-acct-short { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 
 /* ── the totals strip ────────────────────────────────────────────────────────────── */
@@ -141,11 +142,9 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account, .rt-wrap[data-block] .rt.tx-table td.tx-category { display: block; grid-row: 2; padding: 0; width: auto; min-width: 0; }
 .rt-wrap[data-block] .rt.tx-table td.num { width: auto; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account { grid-column: 1; }
-/* a phone's row is two lines of about 60 px: the account is its bank's mark alone and the bank's text is left to the opened row, which says both */
+/* a phone's row is two lines of about 60 px: the account is its short text (the last digits) and the bank's logo is left to the opened row, since a logo tells accounts of one bank apart no better than none */
 @media (max-width: 600px) {
-  .rt-wrap[data-block] .tx-acct-short { display: none; }
-  /* the same bank's logo on every row tells nothing: the account is in the opened row */
-  .rt-wrap[data-block] .rt.tx-table td.tx-account.tx-one-bank { display: none; }
+  .rt-wrap[data-block] .tx-acct-logo { display: none; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { padding-block: var(--sp-4); row-gap: 0; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { display: flex; align-items: center; padding-block: 0; }
   .rt-wrap[data-block] .tx-table .rt-lead { align-items: center; }
@@ -170,6 +169,8 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 
 .tx-amount { display: block; font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .tx-amount.in { color: var(--good); }
+/* an own transfer is outside the day's sums: its figure is quiet, so the rows read as they add up */
+.tx-amount.moved { color: var(--text-2); font-weight: var(--w-regular); }
 .tx-part { display: block; margin-top: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); }
 
 /* the opened row: what the bank sent and why the category, the row's menu, then the payee's months */

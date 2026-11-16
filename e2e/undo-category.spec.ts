@@ -13,7 +13,7 @@ test("Kumoa returns every row to its category and the message names the rule", a
     expect((await context.request.post("/api/demo", { headers: FETCH })).status()).toBe(200);
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/transactions");
+    await page.goto("/#/transactions?period=all");
     const rows = page.locator("tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)");
     await expect(rows.first()).toBeVisible();
     const row = rows.filter({ hasNot: page.locator(".tx-chip-manual") }).filter({ hasNotText: /Omat siirrot|Luottokortin lasku|Luotonnostot/ }).first();

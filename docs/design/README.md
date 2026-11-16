@@ -111,7 +111,7 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 
 ### 1.5 Rows, Lisää and Asetukset
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
-  Each row is date, name, category as text and amount. Group by merchant is a toolbar choice of the list.
+  Each row is date, name, category as text and amount. Kauppiaat is the view by merchant.
 - Raportit has three questions on every report page, named as short nouns (docs/UI_STYLE.md): Rahankäyttö (where the
   money goes: the report Rahankäyttö, which the tab opens, with Tulot, the kinds of income, their payers and months and
   the tax year, and Kiinteät menot, one table of what a month costs before any choice, each line opening its payments

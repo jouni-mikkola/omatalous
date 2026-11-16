@@ -72,11 +72,12 @@ export function merchantRoutes(s: Services) {
     // the row drill of Tapahtumat: twelve months up to the newest row, each with its count, sum and mean purchase
     const { months, year } = merchantMonths(outByMonth, countByMonth, history.lastDate);
     const outInMonths = basis.months.reduce((n, m) => n + (outByMonth[m] ?? 0), 0);
+    const paidMonths = basis.months.filter((m) => (outByMonth[m] ?? 0) > 0).length;
     return c.json({
       summary: {
         merchant,
         ...totals,
-        monthly: merchantMonthly(basis, merchant, outInMonths),
+        monthly: merchantMonthly(basis, merchant, outInMonths, paidMonths),
         months,
         year,
         recurring: series?.cadence ? { cadence: series.cadence, active: series.active, nextDate: series.active ? series.nextDate : null, typicalAmountCents: series.typicalAmountCents } : null,

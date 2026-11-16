@@ -1,4 +1,4 @@
-/** The sums above Tapahtumat are of the rows the filter shows; a list with no period is the whole history. */
+/** The sums above Tapahtumat are of the rows the filter shows; a list with no period is the running month, and period=all is the whole history. */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -16,8 +16,10 @@ const meta = { accounts: [], sharedAccounts: [], categories: [], today: "2026-10
 const render = (params: string) => renderToStaticMarkup(createElement(Transactions, { meta, params: new URLSearchParams(params), scope: "own" })).replace(/[  ]/g, " ");
 
 describe("Tapahtumat totals", () => {
-  it("say that a list with no period is the whole history", () => {
-    const all = render("");
+  it("say that a list with no period is the running month and period=all the whole history", () => {
+    expect(render("")).toContain("Tämä kuu");
+    expect(render("")).not.toContain("Koko historia");
+    const all = render("period=all");
     expect(all).toContain("Rahaa ulos");
     // the tab names the page: no heading repeats it
     expect(all).not.toMatch(/<h[12][^>]*>Tapahtumat</);

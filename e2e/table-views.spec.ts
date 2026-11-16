@@ -185,7 +185,7 @@ test("Tapahtumat pages by 100: the next link reaches the last row, the page is i
     }
   };
 
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   await page.reload();
   const rows = page.locator(TX_ROWS);
   await expect(rows).toHaveCount(PAGE_ROWS);
@@ -196,13 +196,13 @@ test("Tapahtumat pages by 100: the next link reaches the last row, the page is i
 
   const next = page.locator("main").getByRole("link", { name: "Seuraava", exact: true });
   await next.click();
-  await expect(page).toHaveURL(/#\/transactions\?page=2$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all&page=2$/);
   await expect(rows.first()).toContainText(`Keksitty kauppa ${PAGE_ROWS + 1}`);
   await expect(rows).toHaveCount(PAGE_ROWS);
   await daysAddUp(PAGE_ROWS, 2 * PAGE_ROWS);
 
   await next.click();
-  await expect(page).toHaveURL(/#\/transactions\?page=3$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all&page=3$/);
   await expect(rows.last()).toContainText(`Keksitty kauppa ${MADE_ROWS}`);
   await expect(rows).toHaveCount(MADE_ROWS - 2 * PAGE_ROWS);
   await daysAddUp(2 * PAGE_ROWS, MADE_ROWS);
@@ -214,20 +214,12 @@ test("Tapahtumat pages by 100: the next link reaches the last row, the page is i
   expect(asked.every((a) => a.limit === PAGE_ROWS), "every question is for one page").toBe(true);
   expect([...new Set(asked.map((a) => a.offset))].sort((a, b) => a - b)).toEqual([0, PAGE_ROWS, 2 * PAGE_ROWS]);
 
-  // the file of a page is the whole list, and so is the list under the grouping by payee: both ask for every page, by 100
+  // the file of a page is the whole list: it asks for every page, by 100
   const csv = page.locator(".rt-wrap:has(.tx-table) ~ .rt-csv").getByRole("button", { name: "Lataa CSV" });
   const savedRows = async () => {
     const [download] = await Promise.all([page.waitForEvent("download"), csv.click()]);
     return (await readFile((await download.path())!, "utf8")).split("\r\n").filter((l) => l.includes("Keksitty kauppa")).length;
   };
   expect(await savedRows(), "the file of the last page has every row").toBe(MADE_ROWS);
-  asked.length = 0;
-  await page.goto("/#/transactions?group=merchant");
-  await expect(page.locator(".loading")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.locator("table.tx-table")).toBeVisible();
-  await expect(next, "a grouped list has no pages").toHaveCount(0);
-  expect(asked.every((a) => a.limit === PAGE_ROWS), "every question is for one page").toBe(true);
-  expect([...new Set(asked.map((a) => a.offset))].sort((a, b) => a - b)).toEqual([0, PAGE_ROWS, 2 * PAGE_ROWS]);
-  expect(await savedRows(), "the file of the grouped list has every row").toBe(MADE_ROWS);
   await context.close();
 });

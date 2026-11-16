@@ -64,8 +64,6 @@ export const FI_TRANSACTIONS = {
   "fchip.filter": "Suodata",
   "fchip.limits": "Rajaus",
   "fchip.search_clear": "Tyhjennä haku",
-  "tx.group_day": "Päivittäin",
-  "tx.group_merchant": "Kauppiaittain",
   "tx.series": "Suunta",
   "tx.series_out": "Ulos",
   "tx.series_in": "Sisään",

@@ -116,7 +116,7 @@ test(`five years and a 60-character payee at ${WIDTH} px: no view scrolls sidewa
   for (const [view, ms] of Object.entries(took)) expect(ms, `${view} answered after ${ms} ms`).toBeLessThan(FIRST_ANSWER_MS);
 
   // the long payee is in the rows list, newest first, cut to its line (so asked for by its start), and its sum is whole beside it
-  await page.goto("/#/transactions");
+  await page.goto("/#/transactions?period=all");
   const row = page.locator("main").getByText(LONG.slice(0, 20)).filter({ visible: true }).first();
   await expect(row).toBeVisible();
   const sum = page.locator("main").getByText(/123[\s  ]?456,78/).first();
