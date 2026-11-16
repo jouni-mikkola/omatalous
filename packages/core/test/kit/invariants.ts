@@ -283,7 +283,6 @@ export function standingSum(name: string, pool: SourcePool, cut: typeof standing
   });
 }
 
-/** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 /**
  * I7: a month the data does not reach (`monthKnown`) has no figure in a report's monthly series: null, never 0. The
  * range starts long before any generated household, so its first months are unknown. `reports` is a parameter so a test
@@ -313,6 +312,7 @@ export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: t
   return out;
 }
 
+/** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 export function violationsOf(h: GeneratedHousehold, twin?: GeneratedHousehold): Violation[] {
   const views = viewsOf(h);
   return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v), ...unknownMonth(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];

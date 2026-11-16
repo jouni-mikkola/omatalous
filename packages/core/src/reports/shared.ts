@@ -25,16 +25,15 @@ export const monthLabels = (indexes: readonly number[]) => indexes.map(fromMonth
 
 /**
  * Which of `months` (`YYYY-MM`) the household's data reaches into (`monthKnown`). A month before the accounts the
- * household lives on were connected is unknown: its figure is null (`whereKnown`), never 0, and it is in no average.
- * Every monthly series of a report starts here, so a new series inherits the rule.
+ * household lives on were connected is unknown: its cell is null (`whereKnown`), never 0, and it is in no average. The
+ * sums of a range, type, payer or category still add every row, so the money of an unknown month is not lost. The
+ * monthly series of the spending, income, balance, category and month-by-category reports start here, so a new series
+ * inherits the rule; the cash flow report (`cashflow.ts`) does not yet.
  */
 export const knownMonths = (ctx: AnalysisContext, months: readonly string[]): boolean[] => months.map((m) => monthKnown(ctx, m));
 
 /** `values` with null in each unknown month (`knownMonths`). */
 export const whereKnown = (values: readonly number[], known: readonly boolean[]): (number | null)[] => values.map((v, i) => (known[i] ? v : null));
-
-/** The sum of the figures of a series, an unknown month (null) counted as nothing. */
-export const sumKnown = (values: readonly (number | null)[]): number => values.reduce<number>((sum, v) => sum + (v ?? 0), 0);
 
 type MonthContext = AnalysisContext;
 

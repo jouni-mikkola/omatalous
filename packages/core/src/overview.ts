@@ -6,6 +6,7 @@ import { addMonths, monthOf } from "./dates.ts";
 import { earnedIncome, monthIncome } from "./analysis/usual.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
+import { knownMonths } from "./reports/shared.ts";
 import { spendingMonthsReport } from "./reports/spending-months.ts";
 
 /** How many months the chart of Yhteenveto draws, the running one included. */
@@ -15,16 +16,16 @@ const OVERVIEW_CATEGORIES = 6;
 
 interface OverviewMonth {
   month: string;
-  /** All income (`monthIncome`, Tulot): in the running month Yhteenveto's Tulot. */
-  incomeCents: number;
+  /** All income (`monthIncome`, Tulot): in the running month Yhteenveto's Tulot. Null in a month the data does not reach (`knownMonths`), as the other two sums are. */
+  incomeCents: number | null;
   /**
    * Spending as the bridge counts it (`flowSpendOf`, the consumption and debt of the flows): in the running month Yhteenveto's
    * Menot. Income less this, less what went to savings, is Tulos. A debt paid from a savings account is not in it
    * (it is Säästöön), which Raportit's Menot kuukausittain counts as spending: `fromSavingsCents` is the difference.
    */
-  spendCents: number;
+  spendCents: number | null;
   /** What the month's rows of Raportit's Menot kuukausittain hold beyond `spendCents`: debt paid from a savings account (`fromSavings` of `spendingMonthsReport`). */
-  fromSavingsCents: number;
+  fromSavingsCents: number | null;
   /** Ended, and the accounts were in the data from its 1st (`isCompleteMonth`). The running month never is. */
   complete: boolean;
 }
@@ -66,8 +67,9 @@ export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LAN
   const spending = spendingMonthsReport(ctx, { from: `${addMonths(month, 1 - OVERVIEW_MONTHS)}-01`, to: ctx.today }, lang);
   const at = spending.months.length - 1;
   // the months' Menot are the bridge's spending, so a month's bars and Tulos add up; the report's sum is that and the debt paid from savings
-  const spent = spending.totals.map((cents, i) => (cents ?? 0) - (spending.fromSavings[i] ?? 0));
+  const spent = spending.totals.map((cents, i) => (cents === null ? null : cents - (spending.fromSavings[i] ?? 0)));
   const totalCents = spent[at] ?? 0;
+  const known = knownMonths(ctx, spending.months);
   const top = spending.categories
     .filter((c) => (c.values[at] ?? 0) > 0)
     .sort((a, b) => b.values[at]! - a.values[at]! || a.category.localeCompare(b.category))
@@ -75,7 +77,7 @@ export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LAN
     .map((c): OverviewCategory => ({ category: c.category, label: c.label, cents: c.values[at]!, usualCents: c.typicalCents }));
   return {
     income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
-    months: spending.months.map((m, i) => ({ month: m, incomeCents: monthIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i] ?? 0, complete: spending.complete[i]! })),
+    months: spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
     categories: {

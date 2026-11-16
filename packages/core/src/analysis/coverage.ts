@@ -126,24 +126,30 @@ const householdKnownFromOf = new WeakMap<AnalysisContext, IsoDate | null>();
 
 /**
  * The first day the household's money is known from: the earliest first known day (`coverage`) of the accounts that pay
- * out more than `LEFT_OUT_SHARE` of the household's spending. A savings account that earned interest long before the
- * accounts the household lives on were connected does not make those months known: what came in and went out of them is
- * not in the data. null when no account pays out (nothing to judge by), which leaves every month known.
+ * out more than `LEFT_OUT_SHARE` of the household's spending over the months the account has rows in (as `holes` judges
+ * it), so an account's standing does not change when accounts of later months are connected. A savings account
+ * that earned interest long before the accounts the household lives on were connected does not make those months known:
+ * what came in and went out of them is not in the data. null when no account pays out (nothing to judge by), which leaves
+ * every month known.
  */
 export function householdKnownFrom(ctx: AnalysisContext): IsoDate | null {
   if (householdKnownFromOf.has(ctx)) return householdKnownFromOf.get(ctx)!;
   const spend = new Map<string, number>();
-  let all = 0;
+  const rowMonths = new Map<string, Set<number>>();
+  const spendOf = new Map<number, number>();
   for (const t of ctx.txs) {
+    (rowMonths.get(t.accountId) ?? rowMonths.set(t.accountId, new Set()).get(t.accountId)!).add(t.month);
     if (t.spend <= 0) continue;
     spend.set(t.accountId, (spend.get(t.accountId) ?? 0) + t.spend);
-    all += t.spend;
+    spendOf.set(t.month, (spendOf.get(t.month) ?? 0) + t.spend);
   }
   const { from } = startDays(ctx);
   let day: IsoDate | null = null;
   for (const [id, cents] of spend) {
     const mine = from.get(id);
-    if (mine && cents > LEFT_OUT_SHARE * all && (day === null || mine < day)) day = mine;
+    let household = 0;
+    for (const m of rowMonths.get(id)!) household += spendOf.get(m) ?? 0;
+    if (mine && cents > LEFT_OUT_SHARE * household && (day === null || mine < day)) day = mine;
   }
   householdKnownFromOf.set(ctx, day);
   return day;

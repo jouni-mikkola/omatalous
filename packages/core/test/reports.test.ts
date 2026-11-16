@@ -572,8 +572,8 @@ describe("a report over more than 24 months", () => {
     const all = pivotReport(ctx, range, undefined, Infinity);
     expect(all.months).toHaveLength(41);
     expect(all.months[0]).toBe("2023-05");
-    for (const r of all.rows) expect(r.values.reduce((s, v) => s + v, 0)).toBe(r.totalCents);
-    expect(all.monthTotals.reduce((s, v) => s + v, 0)).toBe(all.totalCents);
+    for (const r of all.rows) expect(r.values.reduce((s, v) => s! + v!, 0)).toBe(r.totalCents);
+    expect(all.monthTotals.reduce((s, v) => s! + v!, 0)).toBe(all.totalCents);
     expect(cashflowReport(ctx, range).rows).toHaveLength(24);
     const flow = cashflowReport(ctx, range, [], Infinity).rows;
     expect(flow).toHaveLength(41);

@@ -10,7 +10,7 @@ import { expectedLevel } from "../analysis/expected.ts";
 import { cardRowsMissingIn } from "../analysis/usual.ts";
 import { largePurchases } from "../analysis/large.ts";
 import { SPENDING_PAYEES } from "../thresholds.ts";
-import { fullMonths, knownMonths, rangeMonthIndexes, sumKnown, whereKnown } from "./shared.ts";
+import { fullMonths, knownMonths, rangeMonthIndexes, whereKnown } from "./shared.ts";
 
 interface SpendingPayee {
   name: string;
@@ -23,7 +23,7 @@ interface SpendingCategory {
   label: string;
   /** One per month of `months`; null in a month the data does not reach (`knownMonths`). */
   values: (number | null)[];
-  /** The sum of `values`. */
+  /** The sum of the category's rows over the range, those of a month the data does not reach too. */
   totalCents: number;
   /**
    * The expected level of the category over `categoryMonths` (`expectedLevel`, their mean) without its large purchases
@@ -51,14 +51,14 @@ export interface SpendingMonthsReport {
   complete: boolean[];
   /** Spending per month (`spendRows`: consumption and debt service, a card's purchases on their own days); null in a month the data does not reach, which is no month's spending and in no average. */
   totals: (number | null)[];
-  /** The sum of `totals`. */
+  /** The sum of the rows of the range: `totals` and the months they leave out. */
   totalCents: number;
   /**
    * Per month, what `totals` holds of debt paid from a savings account (Säästöistä maksettu). Tulos and the first page's Menot
    * count it once, as Säästöön, so `totals` less this is the Menot of the first page.
    */
   fromSavings: (number | null)[];
-  /** The sum of `fromSavings`. */
+  /** The sum of `fromSavings` and of the months it leaves out. */
   fromSavingsCents: number;
   /**
    * The expected level of the complete months' totals without their large purchases (`largePurchases`), which the
@@ -107,8 +107,6 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   for (const t of spendRows(ctx, toDayRange(shown))) {
     if (!t.spend || t.month < first) continue;
     const i = t.month - first;
-    // a month before the household's accounts began holds a small account's rows at most: no month's spending
-    if (!known[i]) continue;
     totals[i]! += t.spend;
     fromSavings[i]! += t.spend - flowSpendOf(t);
     const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0 };
@@ -158,10 +156,11 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     months,
     from: shown.from,
     complete,
+    // the cells of an unknown month are null, the sums still hold every row: money spent is money spent
     totals: whereKnown(totals, known),
-    totalCents: sumKnown(totals),
+    totalCents: totals.reduce((s, v) => s + v, 0),
     fromSavings: whereKnown(fromSavings, known),
-    fromSavingsCents: sumKnown(fromSavings),
+    fromSavingsCents: fromSavings.reduce((s, v) => s + v, 0),
     typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
     typicalFlowCents: expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!)),
     typicalMonths: completeAt.length,

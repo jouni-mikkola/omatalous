@@ -95,7 +95,7 @@ describe("one expected figure on every page that reads it", () => {
     const sofa = tx({ bookingDate: "2026-08-12", amountCents: -180_000, merchant: "Sotka", category: "home" });
     const report = pivotReport(ctxOf(household([sofa])), { from: "2026-04-01", to: "2026-09-30" });
     const home = report.rows.find((r) => r.category === "home")!;
-    expect(home.values.reduce((a, b) => a + b, 0)).toBe(180_000);
+    expect(home.values.reduce((a, b) => a! + b!, 0)).toBe(180_000);
     expect(home.expectedCents).toBe(0);
   });
 

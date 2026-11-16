@@ -7,9 +7,11 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { householdKnownFrom, monthKnown } from "../src/analysis/coverage.ts";
 import { addMonths, dateIn } from "../src/dates.ts";
+import { buildOverview } from "../src/overview.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { incomeReport } from "../src/reports/income.ts";
 import { spendingMonthsReport } from "../src/reports/spending-months.ts";
+import { taxYearDays, taxYearReport } from "../src/reports/tax-year.ts";
 import type { Account, BalanceInput, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -118,5 +120,71 @@ describe("a month before the household's data", () => {
       expect(change, r.months[i]).toBe(r.total[i]! - r.total[i - 1]!);
     });
     expect(checked).toBeGreaterThan(3);
+  });
+});
+
+describe("the money of an unknown month", () => {
+  // the savings account also earns a little in June, so the share it pays out is judged against the months it has rows in
+  const old = [
+    tx({ bookingDate: "2025-02-10", amountCents: 50_000, merchant: "Vanha Työnantaja Oy", counterparty: "Vanha Työnantaja Oy", category: "salary", categorySource: "rule", accountId: "sav-1" }),
+    tx({ bookingDate: "2025-02-12", amountCents: -5_000, merchant: "Kioski", counterparty: "Kioski", category: "groceries", categorySource: "rule", accountId: "sav-1" }),
+    tx({ bookingDate: "2025-06-15", amountCents: 100, merchant: "Pankki", counterparty: "Pankki", category: "other", categorySource: "rule", accountId: "sav-1" }),
+  ];
+  const withOld = createContext([...rows, ...old], [checking, savings], TODAY);
+
+  it("has no cell, but the totals, the types and the tax year still add its rows", () => {
+    expect(monthKnown(withOld, "2025-02")).toBe(false);
+    const r = incomeReport(withOld, RANGE, balances);
+    expect(r.months.find((m) => m.month === "2025-02")!.totalCents).toBeNull();
+    for (const type of r.types) expect(type.months[r.months.findIndex((m) => m.month === "2025-02")], type.type).toBeNull();
+    expect(r.totalCents).toBe(9 * 250_000 + 50_000);
+    expect(r.types.reduce((a, t) => a + t.totalCents, 0)).toBe(r.totalCents);
+    const year = taxYearReport(withOld, RANGE, incomeReport(withOld, taxYearDays(withOld, RANGE), balances));
+    expect(year.income.totalCents).toBe(9 * 250_000 + 50_000);
+    const s = spendingMonthsReport(withOld, RANGE);
+    expect(s.totals[s.months.indexOf("2025-02")]).toBeNull();
+    expect(s.totalCents).toBe(9 * 130_000 + 5_000);
+    // the groceries of February are in the category's total and in no cell
+    const groceries = s.categories.find((c) => c.category === "groceries")!;
+    expect(groceries.totalCents).toBe(9 * 40_000 + 5_000);
+    expect(groceries.values.reduce<number>((a, v) => a + (v ?? 0), 0)).toBe(9 * 40_000);
+  });
+
+  it("gives the first page's twelve months no figure for an unknown month", () => {
+    const o = buildOverview(createContext(rows, [checking, savings], "2025-12-20"));
+    for (const m of o.months.filter((x) => UNKNOWN.includes(x.month))) {
+      expect(m.incomeCents, m.month).toBeNull();
+      expect(m.spendCents, m.month).toBeNull();
+      expect(m.fromSavingsCents, m.month).toBeNull();
+    }
+    for (const m of o.months.filter((x) => KNOWN.includes(x.month))) expect(m.incomeCents, m.month).toBe(250_000);
+  });
+});
+
+describe("the months a household is known from do not change as accounts come and go", () => {
+  const own = (id: string): Account => ({ id, name: id, iban: null, currency: "EUR", type: "checking", bank: "Pankki" });
+  const knownOf = (c: ReturnType<typeof createContext>, months: readonly string[]) => months.map((m) => monthKnown(c, m));
+
+  it("keeps the months known when a partner's account with large spending joins later", () => {
+    const partner = monthly(["2026-01", "2026-02"], -10_000_000, "Kumppanin kauppa", "groceries", "partner-1", 8);
+    const joined = createContext([...rows, ...partner], [checking, savings, own("partner-1")], "2026-03-05");
+    // acc-1 pays out all of the household's spending in the months it has rows in, so April stays the first known month
+    expect(knownOf(joined, [...UNKNOWN, ...KNOWN])).toEqual([...UNKNOWN.map(() => false), ...KNOWN.map(() => true)]);
+  });
+
+  it("keeps the months known when the account that began them is closed and another takes over", () => {
+    const first = ["2025-04", "2025-05", "2025-06", "2025-07", "2025-08"];
+    const second = ["2025-09", "2025-10", "2025-11", "2025-12"];
+    const closing = [
+      ...monthly(first, 250_000, "Acme Oy", "salary", "acc-1", 5),
+      ...monthly(first, -130_000, "Ruokakauppa", "groceries", "acc-1", 10),
+      ...monthly(second, 250_000, "Acme Oy", "salary", "acc-2", 5),
+      ...monthly(second, -130_000, "Ruokakauppa", "groceries", "acc-2", 10),
+      ...monthly(UNKNOWN, 100, "Pankki", "other", "sav-1", 15),
+    ];
+    const c = createContext(closing, [checking, savings, own("acc-2")], TODAY);
+    expect(knownOf(c, [...UNKNOWN, ...first, ...second])).toEqual([...UNKNOWN, ...first, ...second].map((m) => !UNKNOWN.includes(m)));
+    const s = spendingMonthsReport(c, RANGE);
+    for (const m of [...first, ...second]) expect(s.totals[s.months.indexOf(m)], m).toBe(130_000);
   });
 });

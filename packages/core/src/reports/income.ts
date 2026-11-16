@@ -288,10 +288,10 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
       previousByType.set(type, (previousByType.get(type) ?? 0) + cents);
     }
     const m = byMonth.get(month);
-    // a month before the household's accounts began holds a small account's rows at most: no month's income
-    if (!m || m.totalCents === null) continue;
+    if (!m) continue;
     if (m.complete && INCOME_TYPES[type].earned) earnedComplete += cents;
-    m.byGroup[INCOME_TYPES[type].group] += cents;
+    // an unknown month has no cell (the chart draws none), but its rows are money that came in: types, payers and totals hold them
+    if (m.totalCents !== null) m.byGroup[INCOME_TYPES[type].group] += cents;
     let row = typeRows.get(type);
     if (!row) typeRows.set(type, (row = { total: 0, complete: 0, months: months.map(() => 0), payers: new Map() }));
     row.total += cents;
