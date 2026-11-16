@@ -14,7 +14,7 @@ const DAYS = ["2026-03-12", "2026-04-12", "2026-05-12", "2026-06-12", "2026-07-1
 const BILL = -84364;
 
 /** The pool's rows as `applyUse` hands them to a viewer who has half of it by the weights of an account cut by who paid. */
-function halves(extra: Partial<Transaction> = {}): Transaction[] {
+function halves(extra: Partial<Transaction> = {}): readonly Transaction[] {
   const use: AccountUse = { users: [{ userId: "u-1", label: "A", weight: 1 }, { userId: "u-2", label: "B", weight: 1 }], source: "bank", split: "unknown", mode: "source" };
   const rows = DAYS.map((bookingDate) => tx({ accountId: "pool", bookingDate, amountCents: BILL, merchant: "Lainat", ...extra }));
   return applyUse(rows, [POOL], new Map([["pool", partOf(use, "u-1")]]));

@@ -134,6 +134,17 @@ export function paidOf(row: Pick<RowParts, "parts">, viewer: Owner): PaidOf {
   return { own, known, whole };
 }
 
+/** What the parts of each booked row say of who paid it, by the id of the row on each copy of the account: the evidence the forward cut of a series is made from. */
+export function paidRows(rows: readonly RowParts[], viewer: Owner): Map<string, PaidOf> {
+  const paid = new Map<string, PaidOf>();
+  for (const row of rows) {
+    if (row.pending || !row.parts.length) continue;
+    const own = paidOf(row, viewer);
+    for (const id of row.ids) paid.set(id, own);
+  }
+  return paid;
+}
+
 /**
  * One viewer's signed cents of a row: the parts that are theirs and their part of the unknown ones, with the row's
  * sign. `openCents` (signed like `cents`) is their part of the parts a question stands for. A transfer is money in from

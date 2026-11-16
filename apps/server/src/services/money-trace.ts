@@ -27,8 +27,6 @@ import {
   OTHER_HOLDER,
   openOf,
   type Owner,
-  type PaidOf,
-  paidOf,
   type Part,
   type Payers,
   type Question,
@@ -479,17 +477,6 @@ export function sharesOf(t: SettledTrace, viewerId: string, part: Part): Map<str
     for (const id of row.ids) shares.set(id, share);
   }
   return shares;
-}
-
-/** What the trace says of who paid each booked row of a settled trace, by the id of the row on each copy: the evidence the forward cut of a series is made from. */
-export function paidRowsOf(t: SettledTrace, viewerId: string): Map<string, PaidOf> {
-  const paid = new Map<string, PaidOf>();
-  for (const row of t.trace.rows) {
-    if (row.pending || !row.parts.length) continue;
-    const own = paidOf(row, `u:${viewerId}`);
-    for (const id of row.ids) paid.set(id, own);
-  }
-  return paid;
 }
 
 /**

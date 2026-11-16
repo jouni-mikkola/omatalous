@@ -24,6 +24,7 @@ import {
   loanProposals,
   type Part,
   type PaidOf,
+  paidRows,
   partCents,
   type RowShare,
   standingCut,
@@ -45,7 +46,7 @@ import { type HeldLocks, lockedOutside, runsEnded, whenUnlocked, writesOf } from
 import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
 import { statementsInView } from "./statements.ts";
-import { ensureTrace, paidRowsOf, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
+import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
 
 /**
  * own = what I use: my accounts and the ones shared with me that I have a part of, a joint account at my part, and
@@ -350,7 +351,7 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
       }
       const own = sharesOf(t, userId, a.part);
       for (const [id, share] of own) shares.set(id, share);
-      for (const [id, evidence] of paidRowsOf(t, userId)) paid.set(id, evidence);
+      for (const [id, evidence] of paidRows(t.trace.rows, `u:${userId}`)) paid.set(id, evidence);
       return { ...a, tracedCents: tracedBalance(t, userId, a.part, dayNumber(balanceDayOf(localDay(s, a.balanceAt), today)), own) };
     }),
   );
