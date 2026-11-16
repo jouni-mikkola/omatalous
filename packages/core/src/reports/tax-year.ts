@@ -24,8 +24,8 @@ interface TaxIncomeRow {
   totalCents: number;
 }
 
-/** The categories of a loan's payment: interest and principal together, since the bank row does not split them. */
-const LOAN_PAYMENT_CATEGORIES = ["mortgage", "loans", "student_loan"] as const;
+/** The categories of a loan's payment that a return may ask about, interest and principal together, since the bank row does not split them. Consumer credit and student loans are no part of a return. */
+const LOAN_PAYMENT_CATEGORIES = ["mortgage"] as const;
 
 interface TaxLoanPayment {
   category: (typeof LOAN_PAYMENT_CATEGORIES)[number];

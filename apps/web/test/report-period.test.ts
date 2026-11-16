@@ -19,6 +19,8 @@ describe("the period switch of a report page", () => {
     const ask = async (id: QuestionId, period: string) => {
       const page = REPORT_PAGES.find((p) => p.id === id)!;
       const today = new Set(page.sections.flatMap((s) => s.ofToday ?? []));
+      // a page that reads no report has nothing of the period to change (an empty list asks the server for every report)
+      if (reportsOfPage(page).length === 0) return [];
       const { from, to } = periodRange(period, TODAY, "last-month");
       const res = await app.admin.call("GET", `/api/reports?from=${from}&to=${to}&scope=own&reports=${reportsOfPage(page).join(",")}`);
       expect(res.status).toBe(200);

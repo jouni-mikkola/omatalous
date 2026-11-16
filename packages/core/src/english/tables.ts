@@ -32,7 +32,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "table.csv": "Download CSV",
   "table.csv_group": "Group",
   "table.csv_name": "table",
-  "table.only_row": "Showing only the row",
+  "table.only_row": "Selected row",
   "table.show_all": "Show all rows",
   "table.sort_az": "alphabetical",
   "table.sort_za": "reverse alphabetical",

@@ -7,7 +7,7 @@
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { t } from "../../text.ts";
-import { Button } from "../ui/Button.tsx";
+import { IconButton } from "../ui/IconButton.tsx";
 
 export interface Pick {
   selected: string | null;
@@ -56,16 +56,16 @@ export function useRowPick<R>(rows: readonly R[], rowKey: (row: R) => string) {
   return { pick, kept, keptRow, only };
 }
 
-/** Says above the table that one row is shown, and gives the way back to all of them. */
+/** The row that is shown, as a chip above the table; its × gives the way back to all of them. */
 export function RowFilterNotice({ pick, name }: { pick: Pick; name: ReactNode }) {
   return (
-    <p className="rt-filter" role="status">
-      <span>
-        {t("table.only_row")}{name ? <>: <strong>{name}</strong></> : ""}.
+    <div className="rt-filter" role="status">
+      <span className="chip">
+        {name || t("table.only_row")}
+        <IconButton label={t("table.show_all")} onClick={() => pick.select(null)}>
+          ×
+        </IconButton>
       </span>
-      <Button variant="link" onClick={() => pick.select(null)}>
-        {t("table.show_all")}
-      </Button>
-    </p>
+    </div>
   );
 }

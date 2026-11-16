@@ -34,7 +34,7 @@ export const FI_TABLES = {
   "table.csv": "Lataa CSV",
   "table.csv_group": "Ryhmä",
   "table.csv_name": "taulukko",
-  "table.only_row": "Näytämme vain rivin",
+  "table.only_row": "Valittu rivi",
   "table.show_all": "Näytä kaikki rivit",
   "table.sort_az": "aakkosjärjestys",
   "table.sort_za": "käänteinen aakkosjärjestys",

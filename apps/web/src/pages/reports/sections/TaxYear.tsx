@@ -4,8 +4,9 @@ import "../../../styles/sheets.css";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { SheetActions } from "../../../components/SheetActions.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
-import { date, language } from "../../../format.ts";
+import { date, language, money } from "../../../format.ts";
 import { t } from "../../../text.ts";
+import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { TAX_YEAR_ID } from "./ids.ts";
 
@@ -14,6 +15,14 @@ const rowColumns = (): Column<TaxRow>[] => [
   { key: "name", label: t("sheet.name"), kind: "text", rowHead: true, cell: (r) => r.name },
   { key: "date", label: t("sheet.date"), kind: "date", cell: (r) => date(r.date) },
   { key: "amount", label: t("sheet.amount"), kind: "money", main: true, precision: "cents", cents: (r) => r.cents },
+];
+
+type TaxIncomeRow = ReportsData["taxYear"]["income"]["types"][number];
+
+/** The income of the year by source, the sum the income report gives for each type; the sheet prints it with the rest. */
+const incomeColumns = (): Column<TaxIncomeRow>[] => [
+  { key: "name", label: t("sheet.name"), kind: "text", rowHead: true, cell: (r) => r.label },
+  { key: "amount", label: t("sheet.amount"), kind: "money", main: true, precision: "cents", cents: (r) => r.totalCents },
 ];
 
 /** A part with no rows is left out: a "no rows" line under a heading says nothing the household can act on. */
@@ -32,6 +41,19 @@ function TaxYear({ ctx }: SectionProps) {
   const say = (code: Parameters<typeof messageIn>[1], params?: Record<string, string | number>) => messageIn(language(), code, params as never);
   return (
     <ReportPanel id={section.id} title={t("tax.title")} datum={formatFiRange(r.range.from, r.range.to, language())} actions={<SheetActions id={section.id} name={t("tax.csv_name")} csv={() => taxYearCsv(r, say, ctx.label)} />}>
+      {r.income.types.length > 0 && (
+        <>
+          <h3 className="sheet-part">{t("tax.income")}</h3>
+          <Table<TaxIncomeRow>
+            caption={t("tax.income")}
+            rows={r.income.types}
+            rowKey={(x) => x.type}
+            columns={incomeColumns()}
+            total={{ label: t("sheet.total"), cells: { amount: money(r.income.totalCents) } }}
+            toolbar={false}
+          />
+        </>
+      )}
       <Rows caption={t("tax.refunds")} rows={r.refunds.rows} />
       <Rows caption={t("tax.interest")} rows={r.interest.rows} />
       {r.loanPayments.length > 0 && (

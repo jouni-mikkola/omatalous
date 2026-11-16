@@ -113,7 +113,8 @@ export function Table<R>({
   const live = touched ? sortMessage(sortedColumn ? textOf(sortedColumn) : "", sort?.dir ?? null, sortedColumn?.kind === "text") : "";
   const summed = new Set(sums ?? []);
   const figureCh = figureWidths(columns, rows);
-  const totals = total === undefined ? [] : Array.isArray(total) ? total : [total];
+  // a picked mark leaves one row: the page's total sums every row, so it is not drawn beside that one
+  const totals = total === undefined || kept !== null ? [] : Array.isArray(total) ? total : [total];
   const cls = (c: Column<R>, extra?: string) =>
     [
       FIGURE.includes(c.kind) ? "num" : "",

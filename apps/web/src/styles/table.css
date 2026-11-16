@@ -214,9 +214,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-spark circle { fill: var(--series-1); }
 .rt-spark-usual { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 3 3; }
 
-/* the row a chart's picked mark leaves: what is shown, and the way back to every row */
-.rt-filter { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-8); margin: 0 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-.rt-filter strong { color: var(--text); font-weight: var(--w-strong); }
+/* the row a chart's picked mark leaves: a chip with the row's name, and its x as the way back to every row */
+.rt-filter { margin: 0 0 var(--sp-8); }
 
 /* the groups a windowed table leaves out (use-window.ts): one body as high as they would be */
 .rt-wrap .rt tbody.rt-spacer > tr { display: block; padding: 0; border: 0; }

@@ -9,7 +9,7 @@ import { useApi } from "../../../hooks.ts";
 import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { isSharedCredit, NETTED_SOURCE, settlementSums } from "@banking/core";
+import { addMonths, isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
@@ -19,18 +19,10 @@ interface Answer {
   pools: { accountId: string; name: string; names: Record<string, string>; removed: string[]; labels: Record<string, string>; settlement: Settlement }[];
 }
 
-/** The months from the start of the shown range to `to`, newest first. */
-function monthsOf(from: string, to: string): string[] {
-  const out: string[] = [];
-  let [y = 0, m = 1] = to.slice(0, 7).split("-").map(Number);
-  const first = from.slice(0, 7);
-  for (let i = 0; i < 36; i++) {
-    const month = `${y}-${String(m).padStart(2, "0")}`;
-    if (month < first) break;
-    out.push(month);
-    if (--m === 0) [y, m] = [y - 1, 12];
-  }
-  return out;
+/** The running month and the eleven before it, newest first: the page has its own month menu and takes nothing from the period. */
+function settlementMonths(today: string): string[] {
+  const running = today.slice(0, 7);
+  return monthRange(addMonths(running, -11), running).reverse();
 }
 
 /** What an unknown source is called on the page: the words of the payer's own rows where the answer has them. */
@@ -156,17 +148,16 @@ function Month({ month, meta }: { month: string; meta: Meta }) {
 }
 
 function Settlements({ ctx }: SectionProps) {
-  // the month that is running is in the list: a correction to a closed month lands there
-  const last = ctx.range.to.slice(0, 7);
-  const months = monthsOf(ctx.range.from, ctx.meta.today > ctx.range.to ? ctx.meta.today : ctx.range.to);
-  const [month, setMonth] = useState(months.includes(last) ? last : (months[0] ?? last));
+  // the month that is running is in the list and opens first: a correction to a closed month lands there
+  const months = settlementMonths(ctx.meta.today);
+  const [month, setMonth] = useState(months[0]!);
   return (
     <Section
       id={section.id}
       title={section.title}
       actions={
         <select value={month} aria-label={t("rpt.month")} onChange={(e) => setMonth(e.target.value)}>
-          {(months.length ? months : [month]).map((m) => (
+          {months.map((m) => (
             <option key={m} value={m}>
               {monthLong(m)}
             </option>
