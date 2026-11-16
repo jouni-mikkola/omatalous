@@ -209,8 +209,9 @@ test("390 px: the consents and the buttons fit without sideways scroll", async (
   // each consent is a block of its own, so its buttons are on the screen and not behind a sideways scroll
   for (const row of [0, 1]) {
     const renew = card(page).getByRole("button", { name: "Yhdistä uudelleen" }).nth(row);
+    const remove = card(page).getByRole("button", { name: /^Poista pankkiyhteys: / }).nth(row);
     await renew.scrollIntoViewIfNeeded();
-    for (const button of [renew]) {
+    for (const button of [renew, remove]) {
       const box = (await button.boundingBox())!;
       expect(box.x, `row ${row}`).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, `row ${row}`).toBeLessThanOrEqual(390);
@@ -226,7 +227,7 @@ test("390 px: the consents and the buttons fit without sideways scroll", async (
 
 // A bank that gives one consent per account is one row: the day its first consent ends, one reminder, one renewal.
 for (const width of [390, 1280]) {
-  test(`${width} px: the consents of one bank are one row, with the earliest end day and no Poista`, async ({ browser }) => {
+  test(`${width} px: the consents of one bank are one row, with the earliest end day and one Poista for the bank`, async ({ browser }) => {
     const connections = [consent("n1", "Nordea", 159, "2027-03-20T00:00:00Z"), consent("n2", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("n3", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("o1", "OP", 93, "2027-01-14T00:00:00Z")];
     const accounts = [account("Käyttötili", "n1", { iban: IBANS.chk }), account("Säästötili", "n2", { iban: IBANS.sav }), account("Nordea Gold", "n3", { type: "credit_card", cardMask: "•••• 1144" }), account("OP-tili", "o1")];
     const { context, page, seen } = await open(browser, () => ({ connections, accounts }), width);
@@ -241,8 +242,10 @@ for (const width of [390, 1280]) {
     // the row has the first day, and the account of the consent that ends later says its own
     await expect(nordea.getByText("voimassa 14.1.2027 asti")).toHaveCount(1);
     await expect(nordea.locator(".conn-own-state")).toHaveText(["voimassa 20.3.2027 asti"]);
-    await expect(card(page).getByRole("button", { name: /^Poista/ })).toHaveCount(0);
-    for (const button of [nordea.getByRole("button", { name: "Yhdistä uudelleen" })]) {
+    // one Poista for each bank row, none for each account
+    await expect(card(page).getByRole("button", { name: /^Poista/ })).toHaveCount(2);
+    await expect(nordea.getByRole("button", { name: /^Poista/ })).toHaveCount(1);
+    for (const button of [nordea.getByRole("button", { name: "Yhdistä uudelleen" }), nordea.getByRole("button", { name: "Poista pankkiyhteys: Nordea" })]) {
       await button.scrollIntoViewIfNeeded();
       const box = (await button.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
@@ -254,6 +257,29 @@ for (const width of [390, 1280]) {
   });
 }
 
+// A connection is a consent at the bank: its one Poista asks first, names the accounts it stops reading and ends every consent of the bank.
+test("Poista on a bank's row asks, lists the accounts it stops reading and removes the bank's consents", async ({ browser }) => {
+  const connections = [consent("n1", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("n2", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("o1", "OP", 93, "2027-01-14T00:00:00Z")];
+  const accounts = [account("Käyttötili", "n1", { iban: IBANS.chk }), account("Säästötili", "n2", { iban: IBANS.sav }), account("OP-tili", "o1")];
+  const { context, page, seen } = await open(browser, () => ({ connections, accounts }));
+  const removed: string[] = [];
+  await page.route(/\/api\/connections\/[no]\d$/, async (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    removed.push(new URL(route.request().url()).pathname);
+    await route.fulfill({ json: {} });
+  });
+  await page.goto("/#/settings");
+  await card(page).getByRole("button", { name: "Poista pankkiyhteys: Nordea" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Poistetaanko pankkiyhteys Nordea?");
+  await expect(dialog.getByRole("listitem")).toHaveText(["Käyttötili · FI21 1234 5600 0007 85", "Säästötili · FI49 5000 9420 0287 30"]);
+  expect(removed).toEqual([]);
+  await dialog.getByRole("button", { name: "Poista pankkiyhteys" }).click();
+  await expect.poll(() => removed).toEqual(["/api/connections/n1", "/api/connections/n2"]);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
 test("a second press after the browser has left for the bank starts nothing more", async ({ browser }) => {
   const connections = [consent("n1", "Nordea", 93, "2027-01-14T00:00:00Z")];
   const { context, page, seen, started } = await open(browser, () => ({ connections, accounts: [account("Käyttötili", "n1")] }));
@@ -263,6 +289,7 @@ test("a second press after the browser has left for the bank starts nothing more
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks?connected=1");
   // the address is set: the buttons stay disabled for as long as this page is there, so a late press posts nothing
   await expect(renew).toBeDisabled();
+  await expect(card(page).getByRole("button", { name: "Poista pankkiyhteys: Nordea" })).toBeDisabled();
   await renew.click({ force: true });
   await page.waitForLoadState("networkidle");
   expect(started).toHaveLength(1);

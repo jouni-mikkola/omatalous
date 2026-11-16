@@ -3,7 +3,8 @@
  * (components/BankPicker.tsx: the banks the server offers), the list
  * has one row per bank (bank-rows.ts): the day its first consent ends with the calendar button of the first one to end, and
  * under the bank's name the accounts of each consent (name and IBAN); a consent whose state is not the row's says its own.
- * A consent is removed from the Muokkaa of its account (Accounts.tsx).
+ * A bank connection is a consent at the bank, so its one Poista is on the bank's row, not in the form of an account: it asks first and names
+ * the accounts it stops reading, or says it reads none.
  * A fallback finishes a consent whose redirect page did not open. Every bank has "Yhdistä uudelleen", which starts
  * the same bank again, and the calendar button saves a file with a reminder before the first consent ends. When two or more consents are due, one round
  * renews them all, one after the other (RenewalRound.tsx). After a link the page lists the accounts
@@ -14,7 +15,7 @@ import { Table } from "../../components/table/Table.tsx";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api.ts";
 import { bankIdForInstitution } from "../../banks.ts";
-import { bankRows, lastFetched } from "./bank-rows.ts";
+import { bankRows, lastFetched, type BankRow } from "./bank-rows.ts";
 import { BankPicker, lastUsedBank } from "../../components/BankPicker.tsx";
 import { WARN_DAYS, type RoundView } from "@banking/core";
 import { CONTROL_PANEL, reminderDay, renewalReminder, unlinkedAccounts, unlinkedStep, unlinkedTitle, validityText } from "../../consent-notices.ts";
@@ -23,6 +24,7 @@ import { accountNumber, date, dateTime, localDay } from
 import type { Account, BankOption, Connection, Meta } from "../../types.ts";
 import { LinkQuestion } from "./AccountUse.tsx";
 import { RenewalRound } from "./RenewalRound.tsx";
+import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Button } from "../../components/ui/Button.tsx";
 import { IconButton } from "../../components/ui/IconButton.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
@@ -149,6 +151,8 @@ export function BankConnections({
   const [busy, setBusy] = useState<string | null>(null);
   const [pasted, setPasted] = useState("");
   const [pasteOpen, setPasteOpen] = useState(false);
+  // the bank whose Poista was pressed, until its question is answered
+  const [removing, setRemoving] = useState<BankRow | null>(null);
   const mode = meta.bank.redirectMode;
   // a consent that owns no account is not listed: its accounts moved to a newer one, or it never had any
   const current = meta.connections.filter((c) => !c.history);
@@ -231,6 +235,16 @@ export function BankConnections({
     });
   const closeRound = () => void run("round-close", () => api("/api/connections/round", { method: "DELETE" }).then(() => undefined));
   const canReconnect = (c: Connection) => c.state !== "removed";
+  // the consents a bank's Poista ends: the active ones, with or without accounts
+  const activeOf = (b: BankRow) => b.consents.filter((c) => c.state === "active");
+  const accountLinesOf = (b: BankRow) => activeOf(b).flatMap((c) => accountsOf(c.id).map((a) => [a.name, accountNumber(a)].filter(Boolean).join(" · ")));
+  const removeBank = async (b: BankRow) => {
+    await run(`del-${b.key}`, async () => {
+      for (const c of activeOf(b)) await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
+      return t("set.conn.connection_removed");
+    });
+    setRemoving(null);
+  };
   const stateText = (c: Connection) => validityText(c) || connectionStateText(c, meta.today);
   const banks = bankRows(current, meta.bank.banks);
   // the reminder is offered while its day has not passed
@@ -392,15 +406,23 @@ export function BankConnections({
               headHidden: true,
               kind: "text",
               className: () => "num",
-              cell: ({ lead: c, consents }) => (
+              cell: (b) => {
+                const { lead: c, consents } = b;
+                return (
                 <span className="row-actions">
                   {consents.some(canReconnect) && (
                     <Button variant={consents.some((x) => renewalLine(x)) ? "primary" : "link"} disabled={busy !== null} aria-busy={busy === `connect-${renewalBank(meta.bank.banks, c.institution, canStart)}` || undefined} onClick={() => reconnect(c)}>
                       {t("set.conn.reconnect")}
                     </Button>
                   )}
+                  {activeOf(b).length > 0 && (
+                    <Button variant="link" disabled={busy !== null} aria-busy={busy === `del-${b.key}` || undefined} aria-label={t("set.conn.remove_of", { bank: c.institution })} onClick={() => setRemoving(b)}>
+                      {t("set.conn.remove")}
+                    </Button>
+                  )}
                 </span>
-              ),
+                );
+              },
             },
           ]}
         />
@@ -442,6 +464,29 @@ export function BankConnections({
         </details>
       )}
     </div>
+    {removing && (
+      <ConfirmDialog
+        title={t("set.conn.remove_title", { bank: removing.lead.institution })}
+        confirmLabel={t("set.conn.remove_confirm")}
+        busy={busy === `del-${removing.key}`}
+        onConfirm={() => void removeBank(removing)}
+        onCancel={() => setRemoving(null)}
+      >
+        {accountLinesOf(removing).length > 0 ? (
+          <>
+            <p>{t("set.conn.remove_stops_reading")}</p>
+            <ul>
+              {accountLinesOf(removing).map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p>{t("set.conn.remove_reads_none")}</p>
+        )}
+        <p>{t("set.conn.remove_keeps")}</p>
+      </ConfirmDialog>
+    )}
     {linked && <LinkQuestion meta={meta} onChange={onChange} onSaved={onMessage} />}
     </>
   );
