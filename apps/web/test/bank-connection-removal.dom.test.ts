@@ -53,7 +53,7 @@ describe("Poista on the row of a bank", () => {
     expect(screen.getAllByRole("button", { name: /^Poista pankkiyhteys: / })).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Poista pankkiyhteys: Nordea" }));
     const dialog = await screen.findByRole("dialog", { hidden: true });
-    expect(dialog.textContent).toContain("Poistetaanko pankkiyhteys Nordea?");
+    expect(dialog.textContent).toContain("Poista pankkiyhteys Nordea?");
     expect(dialog.textContent).toContain("Käyttötili · FI21 1234 5600 0007 85");
     expect(dialog.textContent).toContain("Säästötili · FI49 5000 9420 0287 30");
     expect(dialog.textContent).toContain("Nordea Gold");
@@ -69,7 +69,7 @@ describe("Poista on the row of a bank", () => {
     fireEvent.click(screen.getByRole("button", { name: "Poista pankkiyhteys: Nordea" }));
     const dialog = await screen.findByRole("dialog", { hidden: true });
     expect(dialog.textContent).toContain("Yhteys ei lue yhtään tiliä.");
-    expect(dialog.textContent).not.toContain("lopettaa näiden tilien lukemisen");
+    expect(dialog.textContent).not.toContain("näiden tilien lukemisen");
     fireEvent.click(within(dialog).getByRole("button", { name: "Poista pankkiyhteys", hidden: true }));
     await waitFor(() => expect(deletes(seen)).toEqual(["/api/connections/a"]), T);
   }, 60000);

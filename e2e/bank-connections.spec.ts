@@ -271,7 +271,7 @@ test("Poista on a bank's row asks, lists the accounts it stops reading and remov
   await page.goto("/#/settings");
   await card(page).getByRole("button", { name: "Poista pankkiyhteys: Nordea" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog).toContainText("Poistetaanko pankkiyhteys Nordea?");
+  await expect(dialog).toContainText("Poista pankkiyhteys Nordea?");
   await expect(dialog.getByRole("listitem")).toHaveText(["Käyttötili · FI21 1234 5600 0007 85", "Säästötili · FI49 5000 9420 0287 30"]);
   expect(removed).toEqual([]);
   await dialog.getByRole("button", { name: "Poista pankkiyhteys" }).click();
