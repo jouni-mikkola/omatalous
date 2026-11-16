@@ -1,3 +1,0 @@
-- Months before your bank history begins now show "–" instead of 0 €, and averages leave them out.
-- Yhteiset menot keeps a closed month as it was settled and no longer sends false corrections.
-- Tapahtumat opens on the current month; Kauppiaat gives a monthly figure only for regular payees.

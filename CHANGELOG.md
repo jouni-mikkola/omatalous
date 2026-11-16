@@ -3,6 +3,26 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.5.4
+
+- Months before your bank history begins now show "–" instead of 0 €, and averages leave them out.
+- Yhteiset menot keeps a closed month as it was settled and no longer sends false corrections.
+- Tapahtumat opens on the current month; Kauppiaat gives a monthly figure only for regular payees.
+
+Money and reports
+
+- Yhteenveto, Raportit: months before your accounts began show "–", not 0 €, and stay out of averages.
+- Raportit: Verovuoden rivit without consumer credit, Vuosivertailu without notes.
+- Tarkistettavat no longer asks whose money moved between the household's own joint accounts.
+- Yhteiset menot: a closed month stays as it was settled and no longer gets false corrections.
+- Tapahtumat opens on the running month, and Kauppiaat is the one view by merchant.
+
+Look
+
+- Laskut: the payee names of the payday list keep their full width on a wide screen.
+- Asetukset: Lainat, Lisäosa, Pankit ja tilit show less and say each thing once.
+- Asetukset and add-on pages show a title, and Oma/Koko talous shows only on pages it changes.
+
 ## 1.5.3
 
 - Laskut shows the card debt and the bills due on payday beside the sum that is free.
