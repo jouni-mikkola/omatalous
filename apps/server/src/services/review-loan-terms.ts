@@ -64,7 +64,8 @@ export const loanTermsItems = async (s: Services, userId: string): Promise<LoanT
   const cards = debts.sources.flatMap((src, at): LoanTermsItem[] => {
     const debt = debts.connected[at]!;
     const account = own.find((b) => b.id === src.accountId);
-    if (!account || !isRevolving(debt.kind) || debt.rateBp !== null || loanTermsDismissed(marks, debt.id) || (src.linked && paidInFull(account.id))) return [];
+    // a card owing nothing has no rate to ask, a linked pair included; a credit line drawn on another kind of account is no card
+    if (!account || account.type !== "credit_card" || !isRevolving(debt.kind) || debt.balanceCents <= 0 || debt.rateBp !== null || loanTermsDismissed(marks, debt.id) || (src.linked && paidInFull(account.id))) return [];
     const loan = src.linked ? saved.find((l) => l.id === src.loanId) : undefined;
     // a typed balance newer than the account's is the newer word of the two, as for a saved loan
     const accountDay = balanceDayOf(account.balanceAt, debts.day);

@@ -8,6 +8,7 @@ import type { AccountType } from "@banking/core";
 import { loanTermsSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
+import { ingestTransactions } from "../src/services/ingest.ts";
 import { setupApp } from "./helpers.ts";
 
 type Item = { id: string; kind: string; cents: number; [field: string]: unknown };
@@ -84,10 +85,38 @@ describe("the question of a loan whose payments cannot be placed", () => {
   });
 });
 
-const account = async (t: Awaited<ReturnType<typeof setupApp>>, userId: string, id: string, type: AccountType, balanceCents: number) => {
+const account = async (t: Awaited<ReturnType<typeof setupApp>>, userId: string, id: string, type: AccountType, balanceCents: number, balanceAt = "2026-10-09T06:00:00.000Z") => {
   const repo = t.s.finance(userId);
   await repo.upsertAccount({ id, connectionId: null, provider: "csv", externalId: null, identity: null, name: id, iban: null, currency: "EUR", type });
-  await repo.setAccountBalance(id, balanceCents, "2026-10-09T06:00:00.000Z");
+  await repo.setAccountBalance(id, balanceCents, balanceAt);
+  await reprocess(repo, t.s.settings);
+};
+
+const raw = (bookingDate: string, amountCents: number, counterparty: string, description: string | null = null) => ({
+  externalId: `${bookingDate}|${amountCents}|${counterparty}`, bookingDate, valueDate: null, amountCents, currency: "EUR", status: "booked" as const, counterparty, counterpartyIban: null, description, reference: null, mcc: null,
+});
+const addDay = (day: string) => new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * A card that shows paid in full: 10 euros of purchases a day from 1.3. and, on each 9th from April to September, a bill
+ * from the checking account for what the days since the 9th before came to. The card owes the 30 days since the last bill
+ * and the 9 days before the first one, 39 000 cents in all.
+ */
+const paidInFullCard = async (t: Awaited<ReturnType<typeof setupApp>>) => {
+  const repo = t.s.finance(t.adminId);
+  await account(t, t.adminId, "chk", "checking", 100_000);
+  await account(t, t.adminId, "card", "credit_card", -39_000);
+  const card = [];
+  for (let d = "2026-03-01"; d <= "2026-10-09"; d = addDay(d)) card.push(raw(d, -1_000, "Kahvila"));
+  const chk = [];
+  const ninths = ["03", "04", "05", "06", "07", "08", "09"].map((m) => `2026-${m}-09`);
+  for (let i = 1; i < ninths.length; i++) {
+    const cents = ((Date.parse(ninths[i]!) - Date.parse(ninths[i - 1]!)) / 86_400_000) * 1_000;
+    chk.push(raw(ninths[i]!, -cents, "NORDEA RAHOITUS", "KORTTILASKU"));
+    card.push(raw(ninths[i]!, cents, "Maksu kiitos"));
+  }
+  await ingestTransactions(repo, "chk", chk, "enablebanking");
+  await ingestTransactions(repo, "card", card, "enablebanking");
   await reprocess(repo, t.s.settings);
 };
 
@@ -138,6 +167,35 @@ describe("the question of a connected card with no terms", () => {
     await account(t, t.adminId, "card", "credit_card", -50_000);
     const id = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
     expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("asks nothing of a card the rows show paid in full, whether a loan without a rate is linked to it or not", async () => {
+    const t = await setupApp();
+    await paidInFullCard(t);
+    expect(await queue(t.admin)).toEqual([]);
+    await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 39_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("asks nothing of a linked card that owes nothing, though its loan has no rate", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "card", "credit_card", 0);
+    await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("takes the typed balance and its day when they are newer than the account's", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "card", "credit_card", -50_000, "2026-10-05T06:00:00.000Z");
+    const id = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 40_000, balanceDate: "2026-10-07", limitCents: 200_000, accountId: "card" });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, owedCents: 40_000, balanceDate: "2026-10-07", missing: "rate" })]);
+  });
+
+  it("asks nothing of a credit line drawn on an account that is no card", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "mortgage", "loan", -2_000_000);
+    await save(t.admin, { name: "Luottoraja", kind: "credit_line", balanceCents: 2_000_000, balanceDate: "2026-10-01", limitCents: 3_000_000, accountId: "mortgage" });
     expect(await queue(t.admin)).toEqual([]);
   });
 

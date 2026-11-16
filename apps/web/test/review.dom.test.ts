@@ -124,6 +124,22 @@ describe("Tarkistettavat", () => {
     expect(post.body).toMatchObject({ name: "Luottokortti", kind: "card", accountId: "card-1", balanceCents: 50_000, limitCents: 200_000, rateBp: 1_900 });
   });
 
+  it("opens the form of the loan linked to a card and saves the rate to that loan", async () => {
+    queryClient.clear();
+    const card = { id: "card-1", name: "Luottokortti", type: "credit_card", balanceCents: -50_000, balanceAt: "2026-10-08", creditLimitCents: 200_000 };
+    const loan = { id: "loan-9", name: "Kortti", lender: null, kind: "card", grantedCents: null, balanceCents: 40_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 200_000, seriesKey: null, accountId: "card-1" };
+    const seen = stubApi({ "GET /api/loans": { loans: [loan] }, "PUT /api/loans/loan-9": { loan }, "PUT /api/marks": {} });
+    const item = { id: "loan_terms:loan-9", kind: "loan_terms", cents: 0, loanId: "loan-9", accountId: "card-1", name: "Luottokortti", owedCents: 50_000, balanceDate: "2026-10-08", missing: "rate", subject: "question:loan-terms:loan-9" } as unknown as ReviewItem;
+    const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
+    fireEvent.change(await screen.findByLabelText(/^Kokonaiskorko/, {}, T), { target: { value: "19" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")).toBe(true), T);
+    expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(false);
+    expect(seen.find((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")!.body).toMatchObject({ kind: "card", accountId: "card-1", rateBp: 1_900 });
+  });
+
   it("shows the error of the other forms when the loans cannot be read", async () => {
     queryClient.clear();
     stubApi({ "GET /api/loans": failing(500, { error: "Lainoja ei voitu lukea." }) });
