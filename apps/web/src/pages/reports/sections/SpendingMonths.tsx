@@ -126,7 +126,7 @@ function SpendingMonths({ ctx }: SectionProps) {
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running) },
           { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
-          ...(r.fromSavingsCents !== 0 ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? 0 }] satisfies Column<MonthRow>[]) : []),
+          ...(r.fromSavings.some((c) => c !== 0) ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? 0 }] satisfies Column<MonthRow>[]) : []),
         ]}
         total={r.typicalCents !== null ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents) } } : undefined}
         toolbar={false}
