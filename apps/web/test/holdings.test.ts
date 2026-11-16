@@ -383,7 +383,7 @@ describe("Holdings", () => {
     it("has the total core gives at the right of the group's heading, with two cards or more, and none for one", () => {
       const two = withCards([card({ usedCents: 120_000, freeCents: 180_000 }), card({ id: "k2", usedCents: 30_000, freeCents: 270_000 })], 150_000);
       expect(undated(two)).toContain("Luottokortit Luottokortit yhteensä 1 500,00 € Esimerkkikortti 40 %");
-      expect(two).toContain('<header class="holding-cards-head"><h3 class="st-cap">Luottokortit</h3><dl class="holding-inline"><dt>Luottokortit yhteensä</dt><dd>');
+      expect(two).toContain('<header class="holding-cards-head"><h3 class="st-cap">Luottokortit</h3><span class="holding-date">Saldo päivältä 12.10.</span><dl class="holding-inline"><dt>Luottokortit yhteensä</dt><dd>');
       // the cards end on their own rows: no total row after them
       expect(two).not.toContain("st-total");
       expect(text(withCards([card()], 0))).not.toContain("yhteensä");

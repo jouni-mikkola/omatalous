@@ -43,7 +43,7 @@
 /* a total is not underlined: its rule above it and its weight set it apart */
 .holdings .st-total .st-num { text-decoration: none; }
 /* the day most balances are from, on the line of a group heading so the block is no taller for it */
-.holdings .holding-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-12); margin-bottom: 4px; }
+.holdings .holding-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-12); margin-bottom: var(--sp-4); }
 .holdings .holding-head .st-cap { margin: 0; }
 .holding-cards-head .holding-date { margin-right: auto; }
 .holdings .holding-date { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
