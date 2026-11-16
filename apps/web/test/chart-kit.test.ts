@@ -40,6 +40,33 @@ describe("the linear scale", () => {
     expect(s(s.domain[1])).toBe(0);
   });
 
+  it("tops values up to 2 023 600 at 3 000 000 on two steps, not 4 000 000, and keeps the line charts' axis the same", () => {
+    const s = linear([0, 1_000_000, 2_023_600], [100, 0], { target: 2 });
+    expect(s.ticks).toEqual([0, 1_000_000, 2_000_000, 3_000_000]);
+    expect(s.ticks).toEqual(valueAxis([0, 1_000_000, 2_023_600], 2).ticks);
+    // the axis is as high as the step allows, so every value stays on it
+    expect(s.domain[1]).toBeGreaterThanOrEqual(2_023_600);
+  });
+
+  it("keeps the usual step while the axis runs no more than a third of the span past the values, and tightens beyond it", () => {
+    // 1 500 000 on two steps: the top 2 000 000 is exactly a third of the span past the values
+    expect(linear([0, 1_500_000], [100, 0], { target: 2 }).ticks).toEqual([0, 1_000_000, 2_000_000]);
+    expect(linear([0, 1_499_999], [100, 0], { target: 2 }).ticks).toEqual([0, 500_000, 1_000_000, 1_500_000]);
+    // an axis that already fits keeps its ticks, so the line charts do not move
+    expect(linear([0, 40_000, 123_400], [100, 0]).ticks).toEqual([0, 50_000, 100_000, 150_000]);
+  });
+
+  it("never tightens to fewer than two steps or more than one over the target", () => {
+    for (const target of [2, 3, 4, 5]) {
+      for (const max of [1_100, 20_236, 2_023_600, 51_234_567]) {
+        const s = linear([0, max], [100, 0], { target });
+        expect(s.ticks.length - 1, `${max} at ${target}`).toBeGreaterThanOrEqual(2);
+        expect(s.ticks.length - 1, `${max} at ${target}`).toBeLessThanOrEqual(target + 1);
+        expect(s.domain[1], `${max} at ${target}`).toBeGreaterThanOrEqual(max);
+      }
+    }
+  });
+
   it("inverts a pixel back to its value", () => {
     const s = linear([0, 1000], [100, 0]);
     expect(s.invert(s(370))).toBeCloseTo(370, 9);

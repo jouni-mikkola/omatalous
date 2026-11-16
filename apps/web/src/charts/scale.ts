@@ -10,6 +10,40 @@ export function niceTicks(maxValue: number, target = 4): { ticks: number[]; max:
   return { ticks, max };
 }
 
+/** The axis a step gives over `lo`..`hi`: its bottom and top tick, the top at least one step up. */
+function reach(lo: number, hi: number, step: number): { min: number; max: number } {
+  const min = Math.floor(lo / step) * step || 0; // avoid a "−0 €" tick
+  return { min, max: Math.max(Math.ceil(hi / step) * step, min + step) };
+}
+
+/**
+ * The step of a value axis over `lo`..`hi`: the smallest round step that gives about `target` steps. When that axis
+ * runs more than a third of the span past the values (2 023 600 on two steps gives a top of 4 000 000), the round
+ * step with the shortest axis that has from `target` to `target` + 1 steps wins instead (a top of 3 000 000). One
+ * step for the whole span: a step taken from the positive side alone becomes tiny when everything is negative (a
+ * credit card only) and the tick loop never ends.
+ */
+export function axisStep(lo: number, hi: number, target = 4): number {
+  const span = Math.max(hi - lo, 1);
+  const usual = niceTicks(span, target).ticks[1]!;
+  const length = (step: number) => {
+    const { min, max } = reach(lo, hi, step);
+    return max - min;
+  };
+  if (length(usual) - span <= span / 3) return usual;
+  let best = usual;
+  const power = Math.floor(Math.log10(usual));
+  for (const exponent of [power - 1, power]) {
+    for (const m of [1, 2, 2.5, 5]) {
+      const step = m * 10 ** exponent;
+      const steps = Math.round(length(step) / step);
+      if (steps < Math.max(2, target) || steps > target + 1) continue;
+      if (length(step) < length(best) || (length(step) === length(best) && step > best)) best = step;
+    }
+  }
+  return best;
+}
+
 /**
  * Value axis of a line chart: round ticks from zero, or from the lowest value when it is below zero, to the highest.
  * `at` is the place of a value on it as a share of the height, 0 on the bottom line and 1 on the top one: the lowest
@@ -18,11 +52,8 @@ export function niceTicks(maxValue: number, target = 4): { ticks: number[]; max:
 export function valueAxis(values: readonly number[], target = 4): { ticks: number[]; at: (v: number) => number } {
   const lo = Math.min(0, ...values);
   const hi = Math.max(0, ...values);
-  // one step for the whole span: a step taken from the positive side alone becomes tiny when
-  // everything is negative (a credit card only) and the tick loop never ends
-  const step = niceTicks(Math.max(hi - lo, 1), target).ticks[1]!;
-  const min = Math.floor(lo / step) * step || 0; // avoid a "−0 €" tick
-  const max = Math.max(Math.ceil(hi / step) * step, min + step);
+  const step = axisStep(lo, hi, target);
+  const { min, max } = reach(lo, hi, step);
   const ticks: number[] = [];
   for (let v = min; v <= max + step / 2 && ticks.length < 12; v += step) ticks.push(v);
   return { ticks, at: (v) => (v - min) / (max - min) };

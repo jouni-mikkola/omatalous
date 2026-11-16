@@ -1,5 +1,11 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import "./fixed-clock.ts";
+import { section } from "../src/pages/reports/sections/Balances.tsx";
 import { hasNothing, holderNameOf } from "../src/pages/reports/sections/settlement-text.ts";
+import type { ReportContext } from "../src/pages/reports/types.ts";
+import { t } from "../src/text.ts";
 
 const quiet = { members: [{ paid: 0, owed: 0 }, { paid: 0, owed: 0 }], unknownPaidBy: [], unknownOwedBy: [], unknownHolder: [], lines: [] };
 
@@ -26,6 +32,37 @@ describe("a pool whose split nobody has told", () => {
     const untold = [{ cents: 4000 }, { cents: 1250 }];
     expect(hasNothing({ ...quiet, untold })).toBe(false);
     expect(hasNothing({ ...quiet, untold: [] })).toBe(true);
+  });
+});
+
+describe("the wording of the settlement answer", () => {
+  it("names the member who paid above the share without the passive form", () => {
+    expect(t("rpt.se_over_more")).toBe("Maksoi yli osuutensa");
+    expect(t("rpt.se_over_less")).toBe("Maksoi osuuttaan vähemmän");
+  });
+});
+
+describe("the answer under the balance chart", () => {
+  const answerOf = (balances: object) => {
+    const ctx = { data: { loans: { maybeTwice: [], overdraftTwice: [], loans: [] }, balances }, meta: { today: "2026-10-11", accounts: [] }, running: "2026-10", scope: "own", exportHref: () => "" } as unknown as ReportContext;
+    const html = renderToStaticMarkup(createElement(section.Component, { ctx })).replace(/[\s  ]+/g, " ");
+    return /<p class="qc-a">(.*?)<\/p>/.exec(html)?.[1] ?? null;
+  };
+  const data = {
+    months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, null], payDays: [],
+    daily: { from: "2026-09-30", cents: [100_000, 120_000] }, change: null, holdings: { accounts: [], cards: [], loans: [], debtCents: 0, unsavedLoans: null, netCents: null },
+    accounts: [{ accountId: "a", name: "Käyttötili", asOf: "2026-10-11", values: [100_000, 120_000], changeCents: 20_000 }], debt: { day: "2026-10-11", cents: 0, savedCents: 0 },
+  };
+  const purchase = { day: "2026-10-05", label: "Esimerkkiputiikki", cents: -1_329_900, step: null };
+
+  it("names the lowest balance and picks out no purchase", () => {
+    const answer = answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 }, events: [purchase] });
+    expect(answer).toContain("Alin saldo");
+    expect(answer).not.toMatch(/kertaosto|Esimerkkiputiikki|13\s?299/);
+  });
+
+  it("has no answer line when there is no lowest balance, however large a purchase was", () => {
+    expect(answerOf({ ...data, lowest: null, events: [purchase] })).toBe("");
   });
 });
 
