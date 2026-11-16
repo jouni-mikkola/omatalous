@@ -180,8 +180,11 @@ function eventRows(plan: Plan, m: string, put: Put, pair: Pair): void {
     put({ date: f.on(m, 16), cents: -3000, counterparty: "MOBILEPAY KORHONEN LIISA", description: "MOBILEPAY", account: chk(0) }, { kind: "person", flow: "consumption", member: me, event: "payment-app" });
   }
   if (has(plan, "namesake") && members.length > 1) {
-    // a stranger with a member's name pays the household back: not the member's own money
-    put({ date: f.on(m, 12), cents: 2500, counterparty: members[1]!.holder, description: "SIIRTO-MAKSU", iban: ibans.get("stranger")!, account: chk(0) }, { kind: "person", flow: "income", member: me, event: "namesake" });
+    // a stranger with a member's name pays the household back, and that is another person's money. One bank gives the payer's
+    // account (a stranger's, so no account of the household), another gives none
+    const label = { kind: "person", flow: "income", member: me, event: "namesake" } as const;
+    put({ date: f.on(m, 12), cents: 2500, counterparty: members[1]!.holder, description: "SIIRTO-MAKSU", iban: ibans.get("stranger")!, ibanIn: true, account: chk(0) }, label);
+    put({ date: f.on(m, 13), cents: 1900, counterparty: members[1]!.holder, description: "SIIRTO-MAKSU", account: chk(0) }, label);
   }
   if (has(plan, "member-fee") && members.length > 1) {
     const fee = 150;

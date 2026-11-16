@@ -2,6 +2,7 @@
 import { getCategory } from "../src/categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "../src/dates.ts";
 import { fold } from "../src/merchant.ts";
+import { isUnplacedCardPurchase, namesHolder } from "../src/pairing-proof.ts";
 import { isBankingDay } from "../src/pay-day.ts";
 import type { Account, Transaction } from "../src/types.ts";
 
@@ -23,7 +24,7 @@ type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description">>;
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc">>;
 
 export interface TransferOptions {
   /**
@@ -125,11 +126,16 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
       // a leg paid to or from an outside IBAN is someone else's money, unless the card issuer is in between
       const external = (iban: string | null) => !!iban && !ownIbans.has(iban);
       if ((external(outIban) || external(incIban)) && !isCard(out) && !isCard(inc)) return false;
+      // money in from a person is never what a purchase the rules could not place was paid back with
+      if (inc.category === "p2p_in" && isUnplacedCardPurchase(out)) return false;
+      // a payment to a person and money in from a person are one movement only when an own account or a holder's name says so
+      const named = (iban: string | null) => !!iban && ownIbans.has(iban);
+      if (out.category === "p2p" && inc.category === "p2p_in" && !named(outIban) && !named(incIban) && !namesHolder(inc, accountById.get(out.accountId)) && !namesHolder(out, accountById.get(inc.accountId))) return false;
       return true;
     };
 
-    for (const out of candidates) {
-      if (out.amountCents >= 0) continue;
+    /** The nearest unused incoming leg compatible with `out`; the first of equal distance. */
+    const partnerOf = (out: TransferInput): TransferInput | undefined => {
       const day = dayNumber(out.bookingDate);
       let best: TransferInput | undefined;
       let bestGap = Number.POSITIVE_INFINITY;
@@ -145,6 +151,23 @@ export function detectTransfersReference(txs: readonly TransferInput[], accounts
           bestGap = gap;
         }
       }
+      return best;
+    };
+
+    // a leg that names an own account takes its partner before any leg without proof can
+    const proved = new Map<string, TransferInput>();
+    for (const out of candidates) {
+      const outIban = normalizeIban(out.counterpartyIban);
+      if (out.amountCents >= 0 || !outIban || !ownIbans.has(outIban)) continue;
+      const partner = partnerOf(out);
+      if (!partner) continue;
+      used.add(partner.id);
+      proved.set(out.id, partner);
+    }
+
+    for (const out of candidates) {
+      if (out.amountCents >= 0) continue;
+      const best = proved.get(out.id) ?? partnerOf(out);
       if (best) {
         used.add(best.id);
         transfers.add(out.id);

@@ -29,6 +29,7 @@ export type Check =
   | "I1.pool-balance"
   | "I1.pool-cards"
   | "I1b.member-legs"
+  | "I1c.own-transfer"
   | "I3.labelled-flow"
   | "I3a.money-in"
   | "I3b.prefix"
@@ -61,7 +62,16 @@ const found = (check: Check, h: GeneratedHousehold, v: HouseholdView, line: stri
 export function conservation(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const pool = poolOf(v.balances);
   const daily = new Set(h.accounts.filter((a) => a.type === "checking").map((a) => normalizeIban(a.iban)).filter((i): i is string => i !== null));
-  return bridgeByMonth(v.ctx.txs, v.accounts, pool.ids, daily)
+  // A bank often gives no payer account on money in, so the generated rows carry none. The bridge names the legs of a move by both
+  // accounts, and the label of the generator knows the other leg, so the leg's counterparty is read from it here.
+  const ibanOf = new Map(h.accounts.map((a) => [a.id, a.iban]));
+  const accountOf = new Map(h.txs.map((t) => [t.id, t.accountId]));
+  const withPayer = v.ctx.txs.map((t) => {
+    const other = t.counterpartyIban ? undefined : h.truth.get(t.id)?.pair;
+    const iban = other ? ibanOf.get(accountOf.get(other) ?? "") : null;
+    return iban ? { ...t, counterpartyIban: iban } : t;
+  });
+  return bridgeByMonth(withPayer, v.accounts, pool.ids, daily)
     .filter((m) => m.residualCents !== 0)
     .map((m) => found("I1.bridge", h, v, `residual ${m.residualCents}, moved ${m.lines.moved.cents}, outside the pool ${m.counted.map((l) => `${l.accountType}:${l.flow} ${l.cents}`).join(", ") || "none"}`, m.month));
 }
@@ -103,12 +113,23 @@ function billPayers(h: GeneratedHousehold): Map<string, Set<string>> {
   return out;
 }
 
-/** I1b: in the household view a row the generator labelled a transfer or a mirror (between members, own accounts, a card's bill, a loan's own row) is neither income nor spending. */
+/** I1b: in the household view a row the generator labelled a transfer or a mirror (between members, own accounts, a card's bill, a loan's own row) is neither income nor spending, save the bank fee its label names (`feeCents`), which is the payer's spending exactly. */
 export function memberLegs(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   if (v.view !== "household") return [];
-  const moved = v.ctx.txs.filter((t) => ["transfer", "mirror"].includes(h.truth.get(t.id)?.flow ?? "") && (t.flows.income !== 0 || t.flows.consumption !== 0 || t.flows.debt !== 0));
+  const moved = v.ctx.txs.filter((t) => ["transfer", "mirror"].includes(h.truth.get(t.id)?.flow ?? "") && (t.flows.income !== 0 || t.flows.consumption !== (h.truth.get(t.id)?.feeCents ?? 0) || t.flows.debt !== 0));
   const kinds = [...new Set(moved.map((t) => h.truth.get(t.id)!.kind))].sort();
   return moved.length ? [found("I1b.member-legs", h, v, `${moved.length} legs (${kinds.join("/")}) count as ${[...new Set(moved.map((t) => t.category))].sort().join("/")}`)] : [];
+}
+
+/**
+ * I1c: a row the generator labelled an own transfer is a transfer in every view, the household's and each member's:
+ * never income, a refund or spending. Both legs are on one member's accounts, so a member's view holds the pair. The
+ * joint account's in-leg has no member (`member: null`) and is the other member's own view's too; each view that
+ * holds a labelled leg is judged on that leg alone.
+ */
+export function ownTransfers(h: GeneratedHousehold, v: HouseholdView): Violation[] {
+  const read = v.ctx.txs.filter((t) => h.truth.get(t.id)?.kind === "own_transfer" && t.amountCents !== 0 && !t.isTransfer);
+  return read.length ? [found("I1c.own-transfer", h, v, `${read.length} legs (own_transfer) read as ${[...new Set(read.map((t) => `${t.amountCents > 0 ? "in" : "out"} ${t.category}`))].sort().join("/")}`)] : [];
 }
 
 const PREFIX = "MOBILEPAY ";
@@ -228,5 +249,5 @@ export function unproven(h: GeneratedHousehold, twin: GeneratedHousehold): Viola
 /** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 export function violationsOf(h: GeneratedHousehold, twin?: GeneratedHousehold): Violation[] {
   const views = viewsOf(h);
-  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
+  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
 }

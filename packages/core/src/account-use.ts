@@ -179,13 +179,18 @@ export const billCents = (t: Pick<Transaction, "amountCents" | "wholeCents">): n
  *
  * What a member's categorisation decided of that member's rows stays: a stored transfer keeps its other leg, and two
  * rows it left unpaired are never paired here. A category set by hand stays. When every account of `accounts` counts
- * whole the rows come back as they were given, the same array, whatever `shares` holds.
+ * whole the rows come back as they were given, the same array unless a holder's money in changes, whatever `shares` holds.
  *
  * `shares` holds the viewer's own cents of a row by its id, where the account's money is told by who paid it. A row
  * with one counts those cents, signed: `amountCents` is the share's, `wholeCents` the bank's, and `openCents` is set
  * when the share has some open. A share that is a transfer makes the row one, unless the category was set by hand, and
  * the reading of the other end of a movement does not apply to it; a share that is none leaves the category as the row
  * has it. A share of 0 drops the row. A row without one is cut by the part, on the same account too.
+ *
+ * Where every account counts whole, one change is left: money in from a declared holder of an account whose line lists
+ * more than one holder is a transfer there too, as it is where the account is cut, unless the row names a payer account
+ * that is none of the accounts given: the holder's name is then a namesake's. Only a view of one member's accounts runs
+ * this (`applyUse` is not run in the household view, where each leg of a movement is paired instead).
  */
 export function applyUse<T extends Transaction>(
   txs: readonly T[],
@@ -195,11 +200,26 @@ export function applyUse<T extends Transaction>(
   shares?: ReadonlyMap<string, RowShare>,
 ): readonly T[] {
   const partIn = (accountId: string): Part => parts.get(accountId) ?? WHOLE;
-  // a part of an account that is not in the view cuts nothing in it
-  if (accounts.every((a) => isWhole(partIn(a.id)))) return txs;
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+  const fromHolder = (t: T): boolean => {
+    const payer = t.counterparty ? nameOf(t.counterparty) : null;
+    return !!payer && t.category === "p2p_in" && holdersIn(accountById.get(t.accountId)?.holder).some((holder) => samePerson(payer, holder.name));
+  };
+  const transfer = (t: T): T => (t.isTransfer ? t : { ...t, category: "transfer", isTransfer: true });
+  // A part of an account that is not in the view cuts nothing in it. What a holder of an account that lists several
+  // pays into it is still the household's own money, whole or cut: the line of the bank declares the holder.
+  if (accounts.every((a) => isWhole(partIn(a.id)))) {
+    // money in that names a payer account which is no account of the household is a namesake's, whatever the name says
+    const ibans = new Set(accounts.flatMap((a) => normalizeIban(a.iban) ?? []));
+    const strangerAccount = (t: T) => {
+      const iban = normalizeIban(t.counterpartyIban);
+      return iban !== null && !ibans.has(iban);
+    };
+    const held = (t: T) => t.amountCents > 0 && t.categorySource !== "user" && holdersIn(accountById.get(t.accountId)?.holder).length > 1 && fromHolder(t) && !strangerAccount(t);
+    return txs.some(held) ? txs.map((t) => (held(t) ? transfer(t) : t)) : txs;
+  }
   const gone = (accountId: string) => isNone(partIn(accountId));
   const ownerOf = (accountId: string) => owners.get(accountId) ?? "";
-  const accountById = new Map(accounts.map((a) => [a.id, a]));
   const byIban = new Map(accounts.flatMap((a): [string, string][] => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id]] : [])));
   const accountOf = new Map(txs.map((t) => [t.id, t.accountId]));
   const settled = (t: T) => t.categorySource === "transfer";
@@ -217,11 +237,6 @@ export function applyUse<T extends Transaction>(
     // a row its member's categorisation left a payment names an account of that member in vain
     return settled(t) || (between.has(t.id) && ownerOf(named) !== ownerOf(t.accountId)) ? named : undefined;
   };
-  const fromHolder = (t: T): boolean => {
-    const payer = t.counterparty ? nameOf(t.counterparty) : null;
-    return !!payer && t.category === "p2p_in" && holdersIn(accountById.get(t.accountId)?.holder).some((holder) => samePerson(payer, holder.name));
-  };
-  const transfer = (t: T): T => (t.isTransfer ? t : { ...t, category: "transfer", isTransfer: true });
 
   const out: T[] = [];
   for (const t of txs) {

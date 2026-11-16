@@ -4,6 +4,7 @@ import { getCategory } from "../src/categories.ts";
 import { dayNumber, fromDayNumber, weekdayOf } from "../src/dates.ts";
 import { normalizeIban } from "../src/iban.ts";
 import type { TraceRow } from "../src/money-trace-lots.ts";
+import { isUnplacedCardPurchase, namesHolder } from "../src/pairing-proof.ts";
 import { isBankingDay } from "../src/pay-day.ts";
 import type { Account, Transaction } from "../src/types.ts";
 
@@ -34,7 +35,7 @@ type TransferInput = Pick<
   Transaction,
   "id" | "accountId" | "bookingDate" | "amountCents" | "counterpartyIban" | "category" | "categorySource"
 > &
-  Partial<Pick<Transaction, "merchant" | "counterparty" | "description">>;
+  Partial<Pick<Transaction, "merchant" | "counterparty" | "description" | "mcc">>;
 
 /**
  * True when a transaction may be money moving between own accounts: nothing
@@ -146,6 +147,11 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
       // a leg paid to or from an outside IBAN is someone else's money, unless the card issuer is in between
       const external = (iban: string | null) => !!iban && !ownIbans.has(iban);
       if ((external(outIban) || external(incIban)) && !isCard(out) && !isCard(inc)) return false;
+      // money in from a person is never what a purchase the rules could not place was paid back with
+      if (inc.category === "p2p_in" && isUnplacedCardPurchase(out)) return false;
+      // a payment to a person and money in from a person are one movement only when an own account or a holder's name says so
+      const named = (iban: string | null) => !!iban && ownIbans.has(iban);
+      if (out.category === "p2p" && inc.category === "p2p_in" && !named(outIban) && !named(incIban) && !namesHolder(inc, accountById.get(out.accountId)) && !namesHolder(out, accountById.get(inc.accountId))) return false;
       return true;
     };
 
@@ -155,10 +161,9 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
       return undefined;
     };
 
-    for (const out of candidates) {
-      if (out.amountCents >= 0) continue;
+    const partnerOf = (out: TransferInput): TransferInput | undefined => {
       const days = incoming.get(-out.amountCents);
-      if (!days) continue;
+      if (!days) return undefined;
       const day = dayNumber(out.bookingDate);
       // the nearest day first; on equal distance the leg that came first in the input. Each side counts the closed
       // weekdays between the legs, which the window does not
@@ -175,6 +180,23 @@ export function pairTransfers(txs: readonly TransferInput[], accounts: readonly 
         const after = gap === 0 || gap - closedAfter > PAIR_WINDOW_DAYS ? undefined : firstOn(days, day + gap, out);
         best = (before && after ? (before.seq < after.seq ? before : after) : (before ?? after))?.t;
       }
+      return best;
+    };
+
+    // a leg that names an own account takes its partner before any leg without proof can
+    const proved = new Map<string, TransferInput>();
+    for (const out of candidates) {
+      const outIban = normalizeIban(out.counterpartyIban);
+      if (out.amountCents >= 0 || !outIban || !ownIbans.has(outIban)) continue;
+      const partner = partnerOf(out);
+      if (!partner) continue;
+      used.add(partner.id);
+      proved.set(out.id, partner);
+    }
+
+    for (const out of candidates) {
+      if (out.amountCents >= 0) continue;
+      const best = proved.get(out.id) ?? partnerOf(out);
       if (best) {
         used.add(best.id);
         transfers.add(out.id);
@@ -332,6 +354,12 @@ export function householdLegsReference<T extends Transaction>(txs: readonly T[],
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const accountOf = new Map(txs.map((t) => [t.id, t.accountId]));
   const settled = (t: T) => t.categorySource === "transfer";
+  const ownerOfIban = new Map<string, string>();
+  for (const a of accounts) if (normalizeIban(a.iban)) ownerOfIban.set(normalizeIban(a.iban)!, ownerOf(a.id));
+  const toOther = (t: T) => {
+    const owner = ownerOfIban.get(normalizeIban(t.counterpartyIban) ?? "");
+    return owner !== undefined && owner !== ownerOf(t.accountId);
+  };
   const otherLeg = new Map<string, string>();
   const link = (pairs: ReadonlyMap<string, string>) => {
     for (const [out, into] of pairs) {
@@ -347,7 +375,8 @@ export function householdLegsReference<T extends Transaction>(txs: readonly T[],
   if (members.length > 1) {
     const open = txs.filter((t) => !settled(t) && t.categorySource !== "match");
     for (const member of members) {
-      const found = pairTransfers(open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), accounts);
+      const sent = txs.filter((t) => settled(t) && t.amountCents < 0 && toOther(t) && !otherLeg.has(t.id) && ownerOf(t.accountId) === member).map((t) => ({ ...t, categorySource: "default" as const }));
+      const found = pairTransfers([...open.filter((t) => !otherLeg.has(t.id) && t.amountCents < 0 === (ownerOf(t.accountId) === member)), ...sent], accounts);
       link(found.pairs);
       for (const id of found.transfers) between.add(id);
     }

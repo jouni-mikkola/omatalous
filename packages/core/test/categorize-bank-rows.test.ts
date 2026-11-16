@@ -387,7 +387,8 @@ describe("a person's payout", () => {
   it("a card's credit moved to the own account makes the holder no lender: the payer is the user's own name", () => {
     const held: Account = { ...checking, holder: "Matti Juhani Pekka Antero Meikalainen" };
     const rows = [payout, row(payout.counterparty, null, -200), row(payout.counterparty, "VIIKKORAHA", -40)];
-    expect(run(rows, { accounts: [held, card] }).categories).toEqual(["credit_draw", "other", "other"]);
+    // the money sent on to the own name is a move of the user's own money, and with no pair it is saved, as the bank's own code is
+    expect(run(rows, { accounts: [held, card] }).categories).toEqual(["credit_draw", "savings", "savings"]);
   });
 
   it("a payee shaped like a person is no lender by what it paid", () => {

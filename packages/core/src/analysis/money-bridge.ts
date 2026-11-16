@@ -21,7 +21,7 @@ interface MoneyBridgeLine {
   key: BridgeLineKey;
   /** What the line's rows did to the accounts: money in is above zero, money out below. The lines add up to `changeCents` with plain plus. */
   cents: number;
-  /** The filter to the rows: the booked rows of the line, on the accounts the change counts, between `from` (not included) and `to`. */
+  /** The filter to the rows: the booked rows of the line, on the accounts the change counts, between `from` (not included) and `to`. A payment that arrived short is in two lines: its fee in Kulutus, the rest in its own. */
   rowIds: string[];
 }
 
@@ -36,16 +36,18 @@ export interface MoneyBridge {
 
 /**
  * Which line a row belongs to. Income, consumption and debt are what the money flows (`Flows`) say. Money put in a
- * savings category is `investedOut`, and a transfer, which is neutral between two connected accounts, shows as
+ * savings category is `investedOut` (money taken back from there is a transfer from outside the accounts), and a transfer, which is neutral between two connected accounts, shows as
  * `transfersOut` only for what is left when one end is outside the accounts. A loan account's own rows mirror payments
- * counted from the checking account (`flowsOf`), so they are a line of their own.
+ * counted from the checking account (`flowsOf`), so they are a line of their own. The fee of a payment that arrived short
+ * is consumption, taken out of the payment's line in `moneyBridge`.
  */
 function bridgeLineOf(t: Pick<AnalysisTx, "flows" | "isTransfer">, onLoanAccount: boolean): BridgeLineKey {
   const f = t.flows;
   if (f.income !== 0) return "income";
-  if (f.consumption !== 0) return "consumption";
+  if (f.consumption !== 0 && !t.isTransfer) return "consumption";
   if (f.debt !== 0) return "debt";
-  if (f.saved !== 0 && !t.isTransfer) return "investedOut";
+  // only money put aside: money taken back from savings outside the accounts is money in from outside, a transfer line
+  if (f.saved > 0 && !t.isTransfer) return "investedOut";
   if (f.borrowed !== 0) return "borrowed";
   return onLoanAccount ? "loanAccounts" : "transfersOut";
 }
@@ -65,8 +67,17 @@ export function moneyBridge(ctx: AnalysisContext, range: DateRange, balances: re
   const first = dayNumber(change.from);
   for (const t of ctx.txs) {
     if (t.status !== "booked" || !counted.has(t.accountId) || t.day <= first || t.day > toDay) continue;
+    // the fee of a payment that arrived short is spending, as in Tulos: it is the row's share of the Kulutus line, and the money that arrived stays in the row's own line
+    const fee = ctx.fees.get(t.id) ?? 0;
+    if (fee > 0) {
+      const spending = lines.get("consumption")!;
+      spending.cents -= fee;
+      spending.rowIds.push(t.id);
+    }
+    const rest = t.amountCents + fee;
+    if (fee > 0 && rest === 0) continue;
     const line = lines.get(bridgeLineOf(t, loans.has(t.accountId)))!;
-    line.cents += t.amountCents;
+    line.cents += rest;
     line.rowIds.push(t.id);
   }
   return { from: change.from, to: change.to, basis: change.basis, changeCents: change.cents, lines: [...lines.values()].filter((l) => ALWAYS.has(l.key) || l.rowIds.length) };

@@ -2,13 +2,13 @@
  * What the transactions page and the export read: the filter, its two sides (own rows and shared accounts) and
  * the pages. Every side starts with a user_id condition, so a filter can never reach another member's rows.
  * The rows are the bank's, whole, in every view; the sums above the list are sums of the viewer's parts, and they and
- * the category filter count a row as the view does (`toldSql`).
+ * the category filter count a row as the view does (`toldSql`, `listSumsSql`): a payment that arrived short adds its fee.
  */
 import { CATEGORIES, fold, MAX_LIST_ROWS } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
-import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
+import { listSumsSql, notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
 
 const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id);
 
@@ -128,8 +128,7 @@ export class TransactionListRepo {
     // money in and out over every matching row, so the list says what the whole filter adds up to. An own transfer
     // leaves one account and lands on another: counted, it would add the same money to both sums. A row of a joint
     // account adds the viewer's part, as it does in every report, and a transfer is what the view counts as one.
-    const part = partSql(f.own?.parts ?? new Map(), "amount_cents");
-    const { moved } = toldSql(f.own);
+    const { amount: part, moved } = listSumsSql(f.own);
     let total = 0;
     let inCents = 0;
     let outCents = 0;
@@ -171,8 +170,7 @@ export class TransactionListRepo {
    */
   async merchantSums(f: TransactionFilter, accountIds: readonly string[] | undefined, merchants: readonly string[]): Promise<MerchantSum[]> {
     if (!merchants.length) return [];
-    const part = partSql(f.own?.parts ?? new Map(), "amount_cents");
-    const { moved } = toldSql(f.own);
+    const { amount: part, moved } = listSumsSql(f.own);
     const byMerchant = new Map<string, MerchantSum>();
     for (const side of this.filterSides(f, accountIds)) {
       const rows = await this.ctx.db.all<{ m: string; c: number; inc: number | null; outc: number | null }>(

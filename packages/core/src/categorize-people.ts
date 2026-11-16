@@ -10,7 +10,7 @@ import { dropCardAccountPrefix, fold } from "./merchant.ts";
 import { partyKind } from "./party-kind.ts";
 import { holdersIn, type Name, nameOf, samePerson, userNameOf } from "./person-names.ts";
 import type { Account } from "./types.ts";
-import { hasPayeeForm, INVOICE_WORDS, isBusinessPaymentText, isCardCode, isPersonShaped, isRent, MOBILEPAY_SHOP_PREFIX, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_WORDS, words } from "./wording.ts";
+import { hasPayeeForm, INVOICE_WORDS, isBusinessPaymentText, isCardCode, isPersonShaped, isRefundText, isRent, MOBILEPAY_SHOP_PREFIX, MOBILEPAY_WORDS, namesBusiness, PERSON_PAYMENT_WORDS, words } from "./wording.ts";
 import { isOrganisationName, isPurchaseText, isWorkText } from "./wording-lenders.ts";
 
 export interface Holders {
@@ -120,18 +120,43 @@ export function peopleRules(
    * no other person: both are read as before, and a steady payee keeps its series. A company the lexicon names (a
    * brand that is the whole name) is no person.
    */
+  /** The message names a purpose: an invoice, a reference, a purchase, a shop or service, rent or pay for work, or a payee the lexicon knows. */
+  const namesPurpose = (input: CategorizeInput, message: string, out: boolean): boolean =>
+    isBusinessPaymentText(message) ||
+    INVOICE_TEXT.test(message) ||
+    REFERENCE_TEXT.test(message) ||
+    isPurchaseText(message) ||
+    (out ? namesShopOrService(message) : isRent(message) || isWorkText(message)) ||
+    !!lexiconCategory({ merchant: input.merchant, counterparty: input.counterparty, description: input.description, counterpartyIban: input.counterpartyIban });
+
   const unreferenced = (input: CategorizeInput, holders: Holders): boolean => {
-    // a row built without the field (the kit's, the demo's) says nothing, and a row without the payee's account is no credit transfer
-    if (input.reference === undefined || input.reference?.trim() || !input.counterpartyIban?.trim() || !noCard(input)) return false;
+    const out = input.amountCents < 0;
+    // a row built without the field (the kit's, the demo's) says nothing. Money out without the payee's account is no credit transfer; money in is not asked for the payer's account, which a bank often gives none of
+    if (input.reference === undefined || input.reference?.trim() || (out && !input.counterpartyIban?.trim()) || !noCard(input)) return false;
     if (input.steadyPayee || isUserName(input.counterparty ?? "", holders)) return false;
     const message = fold(input.description ?? "");
-    const out = input.amountCents < 0;
-    if (!person(payeeOf(input), message, true) || isBusinessPaymentText(message) || INVOICE_TEXT.test(message) || REFERENCE_TEXT.test(message) || isPurchaseText(message)) return false;
-    if (out ? namesShopOrService(message) : isRent(message) || isWorkText(message)) return false;
-    return !lexiconCategory({ merchant: input.merchant, counterparty: input.counterparty, description: input.description, counterpartyIban: input.counterpartyIban });
+    if (!out && isRefundText(message)) return false;
+    return person(payeeOf(input), message, true) && !namesPurpose(input, message, out);
   };
 
   const rule = (category: string, direction: "in" | "out", test: CompiledRule["test"]): CompiledRule => ({ category, income: false, field: "any", direction, test });
+  // Money to or from the user's own name with no row on another of the user's accounts to pair with: the other account is
+  // not connected. It is the user's money moved, either way, unless the row names a purpose (an invoice of a sole
+  // trader, rent, a refund) or is a company named after its owner. It is saved like the bank's own code for such a
+  // move (`CODE_RULES`), so Tulos adds up and the data quality card sees it (`own_unconnected`); a pair found later
+  // makes it a transfer. Money in that names an account which is no account of the household may be a namesake's, unless
+  // the user's own name sent money to that account (`fromOwnAccount`): then it is the money coming back. A bank often
+  // gives no payer account on money in.
+  const ownName: CompiledRule = {
+    category: "savings",
+    income: false,
+    field: "any",
+    test: (_text, input, holders) => {
+      if (!noCard(input) || hasPayeeForm(payeeOf(input)) || !isUserName(input.counterparty ?? "", holders) || input.reference?.trim() || (input.amountCents > 0 && input.counterpartyIban?.trim() && !input.fromOwnAccount)) return false;
+      const message = fold(input.description ?? "");
+      return !(input.amountCents > 0 && isRefundText(message)) && !namesPurpose(input, message, input.amountCents < 0);
+    },
+  };
   return {
     first: [
       rule("p2p_in", "in", (_text, input) => viaMobilePay(input)),
@@ -139,6 +164,6 @@ export function peopleRules(
       rule("p2p_in", "in", (_text, input, holders) => noCard(input) && isCoHolder(input, holders)),
     ],
     // rent paid to a person is rent: a private landlord, or the share paid to the one who pays it
-    plain: [rule("p2p_in", "in", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders)), rule("housing", "out", (text, input, holders) => isRent(text) && plain(text, input, holders)), rule("p2p", "out", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders))],
+    plain: [ownName, rule("p2p_in", "in", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders)), rule("housing", "out", (text, input, holders) => isRent(text) && plain(text, input, holders)), rule("p2p", "out", (text, input, holders) => plain(text, input, holders) || unreferenced(input, holders))],
   };
 }

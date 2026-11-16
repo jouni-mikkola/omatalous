@@ -48,6 +48,13 @@ that is removed or a card connected later change the verdict on the next run, an
 - A rule of the household's that sends the channel's payee to a debt, savings or *Muut* category does not hold for the
   rows that could pair. A rule to a purchase category and a category set by hand stay.
 
+## The fee of a payment that arrived short
+
+The same rule holds for the bank fee of a payment between the household's accounts that arrived a little short
+(`analysis/fee-short.ts`). The pair counts what arrived; what is left of the payment is derived from the pairing on every
+run, becomes spending under *Pankkikulut* in `flowsOf` and is stored nowhere. A view that holds one leg has no pair and
+no fee.
+
 ## When to think again
 
 - When the bank's connection gives the account number of the card and the payment's reference in a field that links them

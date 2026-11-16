@@ -7,7 +7,7 @@
 import { fold, isIndustryCodeSet, isUnnamedMobilePay, type MerchantBasis, merchantMonthly, monthEnd, type RegisterAnswer, type Transaction } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { FinanceContext } from "./context.ts";
-import { notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
+import { listSumsSql, notLeftSql, type OwnRows, partSql, toldSql } from "./part-sql.ts";
 import type { RulesRepo } from "./rules.ts";
 import type { TransactionListRepo } from "./transaction-list.ts";
 
@@ -173,7 +173,8 @@ export class MerchantsRepo {
   /**
    * One merchant's whole history in one grouped read per side (own rows, shared accounts in the household view).
    * It runs on idx_tx_user_merchant_date, so it reads only that merchant's rows however long the history is.
-   * The same rows as the transaction list filtered to the merchant, so the counts agree.
+   * The same rows as the transaction list filtered to the merchant, so the counts and the sums agree (`listSumsSql`). A
+   * payment that arrived short adds its fee to the money out; it is named by its stored category, never by Pankkikulut.
    */
   async merchantHistory(merchant: string, accountIds?: readonly string[], own?: OwnRows): Promise<MerchantHistory | null> {
     // own transfers apart: they are rows of the merchant, but neither paid nor received, and not its category
@@ -186,23 +187,25 @@ export class MerchantsRepo {
     let inCents = 0;
     let firstDate = "";
     let lastDate = "";
-    const part = partSql(own?.parts ?? new Map(), "amount_cents");
+    const sums = listSumsSql(own);
     const told = toldSql(own);
     for (const side of this.list.filterSides({ merchant, own }, accountIds)) {
-      const rows = await this.ctx.db.all<{ cat: string; m: string; moved: number; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
-        `SELECT ${told.category.sql} AS cat, substr(booking_date, 1, 7) AS m, ${told.moved.sql} != 0 AS moved, COUNT(*) AS n, SUM(CASE WHEN amount_cents > 0 THEN ${part.sql} END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 THEN ${part.sql} END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
-         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY cat, m, moved`,
-        [...told.category.params, ...told.moved.params, ...part.params, ...part.params, ...side.params],
+      // `moved` is the mark the view tells, `held` the one the sums use: they differ for a payment that arrived short
+      const rows = await this.ctx.db.all<{ cat: string; stored: string; m: string; moved: number; held: number; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
+        `SELECT ${told.category.sql} AS cat, category AS stored, substr(booking_date, 1, 7) AS m, ${told.moved.sql} != 0 AS moved, ${sums.moved.sql} != 0 AS held, COUNT(*) AS n,
+                SUM(CASE WHEN amount_cents > 0 THEN ${sums.amount.sql} END) AS inc, -SUM(CASE WHEN amount_cents < 0 THEN ${sums.amount.sql} END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
+         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY cat, stored, m, moved, held`,
+        [...told.category.params, ...told.moved.params, ...sums.moved.params, ...sums.amount.params, ...sums.amount.params, ...side.params],
       );
       for (const r of rows) {
         const n = Number(r.n);
         count += n;
         const kept = Number(r.moved) ? categories.moved : categories.paid;
-        kept.set(r.cat, (kept.get(r.cat) ?? 0) + n);
+        const name = Number(r.moved) && !Number(r.held) ? r.stored : r.cat;
+        kept.set(name, (kept.get(name) ?? 0) + n);
         if (!firstDate || r.first < firstDate) firstDate = r.first;
         if (r.last > lastDate) lastDate = r.last;
-        if (Number(r.moved)) {
+        if (Number(r.held)) {
           transfers += n;
           continue;
         }
