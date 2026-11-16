@@ -91,7 +91,7 @@ test("the focus of a link shows whole, inside the name that is cut", async ({ br
   await context.close();
 });
 
-test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits, the day of its balance and one figure", async ({ browser }) => {
+test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure, with the day of the balances once in the heading", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -103,9 +103,8 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const tilit = groupOf(page, "Tilit");
   const edges = await rights(tilit.locator(".st-num"));
   expect(edges.length, "the total and two accounts").toBe(3);
-  // the accounts add up to the total, so the bracket takes 8 px right of their sums (--mark-gap); the total's own sum stands past it
-  expect(new Set(edges.slice(0, -1)).size, `the sums of the accounts end at ${edges.join(", ")}`).toBe(1);
-  expect(edges[2]! - edges[0]!, "the bracket's gutter").toBe(8);
+  // no bracket stands beside the accounts, so the total's sum ends where theirs do
+  expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
 
   // a row of an account is 54 px with its hairline: room for the curve that will stand between the name and the sum
   // (measured once the page's entry has ended: it reads 53.99998 while it runs)
@@ -122,13 +121,15 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   });
   expect(weights).toEqual(["400", "600"]);
 
-  // the demo's card has a name, its last digits, the day of its balance and what is used: no limit row, no meter, and no line without words
+  // the heading names the day of the balances, and the rows repeat it nowhere
+  await expect(holdings.locator(".holding-date")).toHaveText(/^Saldo päivältä \d/);
+  // the demo's card has a name, its last digits and what is used: no limit row, no meter, and no line without words
   const card = groupOf(page, "Luottokortit").locator(".holding-unit");
-  await expect(card.locator(".st-row")).toHaveCount(2);
+  await expect(card.locator(".st-row")).toHaveCount(1);
   await expect(card.locator(".st-row").last().locator(".st-name")).toHaveText("Käytetty luotto");
   await expect(card.locator(".card-face")).toHaveCount(1);
   await expect(card.locator(".card-face-mask")).toHaveText("•••• 4242");
-  await expect(card.locator(".st-sub")).toHaveText(/^Saldo päivältä \d/);
+  await expect(card.locator(".st-sub")).toHaveCount(0);
   await expect(card.locator(".card-meter, .sr-only")).toHaveCount(0);
   // no limit, so no arc and no picture beyond the row
   await expect(card.locator(".credit-arc, .holding-unit-body svg, .holding-unit-body img")).toHaveCount(0);

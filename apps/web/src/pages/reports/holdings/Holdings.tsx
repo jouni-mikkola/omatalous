@@ -288,8 +288,10 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
     <section className="card holdings" aria-labelledby="holdings-h">
       <div className="card-head tb">
         <div className="card-name">
-          <h2 id="holdings-h">{title}</h2>
-          {common && <span className="holding-date">{t("ahead.balance_on", { date: common })}</span>}
+          <div className="holding-title">
+            <h2 id="holdings-h">{title}</h2>
+            {common && <span className="holding-date">{t("ahead.balance_on", { date: common })}</span>}
+          </div>
         </div>
         {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown */}
         {(netCents !== null || (accountsCents !== null && debtCents === null)) && (
