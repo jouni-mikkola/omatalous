@@ -1,5 +1,5 @@
 import { dayNumber, fromDayNumber } from "@banking/core";
-import { niceTicks } from "../scale.ts";
+import { axisStep } from "../scale.ts";
 import { robustDomain } from "./domain.ts";
 
 /**
@@ -40,7 +40,7 @@ export function linear(values: readonly number[], range: readonly [number, numbe
     lo = Math.min(0, lo);
     hi = Math.max(0, hi);
   }
-  const step = niceTicks(Math.max(hi - lo, 1), target).ticks[1]!;
+  const step = axisStep(lo, hi, target);
   const min = Math.floor(lo / step) * step || 0; // no "−0" tick
   const max = Math.max(Math.ceil(hi / step) * step, min + step);
   const ticks: number[] = [];
