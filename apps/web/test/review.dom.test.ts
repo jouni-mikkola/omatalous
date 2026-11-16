@@ -62,6 +62,9 @@ describe("Tarkistettavat", () => {
     // once per question: the place is in the heading the focus moves to, and nowhere else in the card
     expect(document.activeElement).toBe(heading());
     expect(document.querySelector(".review-item")!.textContent!.match(/2 \/ 3/g)).toHaveLength(1);
+    // the progress line shows the same place
+    const line = document.querySelector<HTMLProgressElement>(".review-progress")!;
+    expect([line.value, line.max]).toEqual([2, 3]);
   });
 
   it("answers a bill that did not come with Tulee vielä for its due day or Lopetettu for its series", async () => {
