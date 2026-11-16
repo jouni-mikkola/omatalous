@@ -244,7 +244,7 @@ test("Tapahtumat has Lista and Kauppiaat: old addresses open Kauppiaat, the rule
 
   // the tabs: Lista is the list, and a period carries over to it
   await page.getByRole("button", { name: "Lista", exact: true }).click();
-  await expect(page).toHaveURL(/#\/transactions$/);
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
   await expect(page.getByRole("heading", { name: "Luokittelematta" }).or(page.getByRole("region", { name: "Tapahtumat" })).first()).toBeVisible();
   await page.goto("/#/transactions?view=merchants&from=2026-01-01&to=2026-03-31");
   await page.getByRole("button", { name: "Lista", exact: true }).click();

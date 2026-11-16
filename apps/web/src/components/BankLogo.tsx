@@ -48,7 +48,7 @@ const NAMES_A_BANK = /pankki|bank/i;
  * The logo of the bank an account is at: the bank its own name says when that is one with a logo, else the connection's
  * bank, unless the name says another bank that has none (a card of another bank on this connection).
  */
-export function bankLogoOf(name: string, institution: string | null, banks: readonly BankOption[]): { bank: string; src: string } | null {
+function bankLogoOf(name: string, institution: string | null, banks: readonly BankOption[]): { bank: string; src: string } | null {
   const own = logoForInstitution(name, banks);
   if (own) return { bank: name, src: own };
   if (!institution || NAMES_A_BANK.test(name)) return null;

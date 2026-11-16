@@ -143,7 +143,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .rt-wrap[data-block] .rt.tx-table td.tx-account { grid-column: 1; }
 /* a phone's row is two lines of about 60 px: the account is its short text (the last digits) and the bank's logo is left to the opened row, since a logo tells accounts of one bank apart no better than none */
 @media (max-width: 600px) {
-  .rt-wrap[data-block] .tx-acct .acc-mark { display: none; }
+  .rt-wrap[data-block] .tx-acct-logo { display: none; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) { padding-block: var(--sp-4); row-gap: 0; }
   .rt-wrap[data-block] .rt.tx-table tbody tr:not(.rt-group, .rt-detail) > th { display: flex; align-items: center; padding-block: 0; }
   .rt-wrap[data-block] .tx-table .rt-lead { align-items: center; }

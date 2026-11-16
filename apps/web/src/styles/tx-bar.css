@@ -22,8 +22,12 @@
 .tx-fchips .tx-fchip { min-width: 0; max-inline-size: 100%; }
 .tx-fchip-static { cursor: default; min-width: 0; padding-inline-end: var(--sp-4); }
 .tx-fchip-static .tx-fchip-value { min-width: 0; }
-/* the x of a chip is 28 px wide on a pointer, a finger's width on a phone */
-@media (pointer: coarse) { .tx-fchips .tx-fchip-x { width: var(--tap-min); } }
+/* the x of a chip is 28 px wide on a pointer and never squeezed, a finger's width and height on a phone (the chip's border takes 2 px of its 44) */
+.tx-fchip .tx-fchip-x { flex: none; }
+@media (pointer: coarse) {
+  .tx-fchip .tx-fchip-x { position: relative; width: var(--tap-min); }
+  .tx-fchip .tx-fchip-x::after { content: ""; position: absolute; inset-inline: 0; inset-block-start: 50%; block-size: var(--tap-min); transform: translateY(-50%); }
+}
 
 /* the choice that is no limit: how the rows are laid out, over the list at the right */
 

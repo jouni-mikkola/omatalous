@@ -30,7 +30,7 @@ const monthStart = (iso: string) => `${iso.slice(0, 7)}-01`;
 const LIMIT_KEYS = ["category", "kind", "accountId", "merchant", "chip"];
 
 /** The value of `period` in the address for the whole history, so that the choice is not mistaken for no choice. */
-export const ALL_HISTORY = "all";
+const ALL_HISTORY = "all";
 
 /**
  * The period the list shows. A bare Tapahtumat opens on the running month, as Yhteenveto does. The address keeps the

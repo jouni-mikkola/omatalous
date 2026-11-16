@@ -46,7 +46,9 @@ export function AccountMark({ look, fallback }: { look: AccountLook | undefined;
   const name = look?.name ?? fallback;
   return (
     <span className="tx-acct" title={name}>
-      <BankMark name={name} institution={look?.bank || null} banks={look?.banks ?? []} size="s" />
+      <span className="tx-acct-logo">
+        <BankMark name={name} institution={look?.bank || null} banks={look?.banks ?? []} size="s" />
+      </span>
       <span className="sr-only">{name}</span>
       <span className="tx-acct-short" aria-hidden="true">
         {look?.short ?? "Tili"}

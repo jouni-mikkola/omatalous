@@ -102,7 +102,7 @@ test("390 px: no row is taller than 72 px, no short name is cut and every row na
     const found = await rows.evaluateAll((els) =>
       els.map((row) => {
         const name = row.querySelector<HTMLElement>(".tx-name");
-        return { id: row.id, height: row.getBoundingClientRect().height, name: name?.textContent?.trim() ?? "", cut: !!name && name.scrollWidth > name.clientWidth, digits: !!row.querySelector(".tx-acct-short") && getComputedStyle(row.querySelector(".tx-acct-short")!).display !== "none", logo: !!row.querySelector(".acc-mark") && getComputedStyle(row.querySelector(".acc-mark")!).display !== "none" };
+        return { id: row.id, height: row.getBoundingClientRect().height, name: name?.textContent?.trim() ?? "", cut: !!name && name.scrollWidth > name.clientWidth, digits: !!row.querySelector(".tx-acct-short") && getComputedStyle(row.querySelector(".tx-acct-short")!).display !== "none", logo: (row.querySelector(".tx-account .acc-mark")?.getClientRects().length ?? 0) > 0 };
       }),
     );
     for (const r of found) {
