@@ -737,3 +737,22 @@ describe("the user's own rule behind a row's category", () => {
     });
   });
 });
+
+describe("payee words of an authority, an association and a burger bar", () => {
+  const out = (merchant: string, euros: number) => categorize(tx(merchant, Math.round(euros * 100)), rules).category;
+
+  it("an authority paid by credit transfer is a tax or fee, never a person", () => {
+    const input = { merchant: "Rannikko- ja saaristovirasto", counterparty: "Rannikko- ja saaristovirasto", description: null, mcc: null, reference: null, counterpartyIban: "FI2112345600000785", amountCents: -15768 };
+    expect(categorize(input, rules).category).toBe("taxes");
+  });
+
+  it.each([
+    ["Kalastajaliitto", "memberships"],
+    ["Kalastajaliitto ry", "memberships"],
+    ["Mannerheimin Lastensuojeluliitto", "gifts_donations"],
+    ["MCD Espoo", "restaurants"],
+    ["McDonald's Espoo", "restaurants"],
+  ])("%s → %s", (merchant, category) => {
+    expect(out(merchant, -28)).toBe(category);
+  });
+});
