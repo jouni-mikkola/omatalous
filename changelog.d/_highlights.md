@@ -1,0 +1,5 @@
+- A saved home loan's payments count as Asuntolaina, and Tarkistettavat asks for what a loan lacks.
+- A joint account's coming payments follow who paid them, so the forecast matches past months.
+- A total with a missing part shows a dash instead of a figure that is too small.
+- Transfers, money to your own name and transfer fees are recognised more reliably.
+- The page background is a calmer off-white.

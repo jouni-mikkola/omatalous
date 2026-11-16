@@ -111,7 +111,7 @@ function traced(t: Transaction, owners: readonly [string, number][]): RowParts {
 const isUser = (owner: string): boolean => owner.startsWith("u:");
 const rowsOf = (cents: readonly number[], merchant = "Lainat"): Transaction[] => cents.map((amountCents, i) => tx({ accountId: "pool", bookingDate: DAYS[i % DAYS.length]!, amountCents, merchant }));
 
-describe("B0: the members' standing amounts of a series add up to the bank's amount", () => {
+describe("I6: the members' standing amounts of a series add up to the bank's amount", () => {
   const sum = (name: string, rows: Transaction[], paying: (t: Transaction) => [string, number][], members = TWO) => standingSum(name, { account: POOL, rows, trace: rows.filter((t) => paying(t).length).map((t) => traced(t, paying(t))), members });
 
   it("one member paid it all", () => {
@@ -143,7 +143,7 @@ describe("B0: the members' standing amounts of a series add up to the bank's amo
     const whole: typeof standingCut = (rowsIn) => rowsIn.map(uncutRow);
     const found = standingSum("whole", { account: POOL, rows, trace: rows.map((t) => traced(t, [["o", 84364]])), members: TWO }, whole);
     expect(found).toHaveLength(rows.length);
-    expect(found[0]!.check).toBe("B0.standing-sum");
+    expect(found[0]!.check).toBe("I6.standing-sum");
   });
 
   it("each member's evidence is read from the same trace", () => {
