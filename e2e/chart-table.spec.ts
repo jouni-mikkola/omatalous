@@ -28,7 +28,8 @@ test("a click on a mark keeps its row in the table under the chart, and the way 
   const box = (await plot.boundingBox())!;
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(rows).toHaveCount(1);
-  await expect(part.locator(".rt-filter")).toContainText("Näytämme vain rivin");
+  await expect(part.locator(".rt-filter .chip")).toBeVisible();
+  await expect(part.locator(".rt-filter")).not.toContainText("Näytämme");
 
   await part.getByRole("button", { name: "Näytä kaikki rivit" }).click();
   await expect(rows).toHaveCount(all);
@@ -80,7 +81,7 @@ test("a slope chart: arrows move between the lines and Enter keeps that category
   await expect.poll(async () => (await live.innerText()).trim()).not.toBe(first);
   await page.keyboard.press("Enter");
   await expect(part.locator("table.rt tbody tr")).toHaveCount(1);
-  await expect(part.locator(".rt-filter")).toContainText("Näytämme vain rivin");
+  await expect(part.locator(".rt-filter .chip")).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

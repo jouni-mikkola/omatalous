@@ -43,6 +43,22 @@ describe("Verovuoden rivit", () => {
     for (const name of ["Veronpalautukset", "Jäännösverot", "Rivit, jotka voivat liittyä kotitalousvähennykseen"]) expect(screen.getByRole("table", { name })).toBeTruthy();
   });
 
+  it("shows the income by source with its total, as the printed sheet and the CSV carry it", () => {
+    const types = [
+      { type: "salary", label: "Palkka", group: "earned", earned: true, totalCents: 3_000_000 },
+      { type: "benefit", label: "Etuudet", group: "benefit", earned: false, totalCents: 120_050 },
+    ];
+    showTax({ ...taxReport(false), income: { totalCents: 3_120_050, types } } as unknown as Tax);
+    const table = screen.getByRole("table", { name: "Tulot lähteittäin" });
+    const text = plain(table.textContent);
+    expect(text).toContain("Palkka");
+    expect(text).toContain("30 000,00 €");
+    expect(text).toContain("Etuudet");
+    expect(text).toContain("1 200,50 €");
+    expect(text).toMatch(/Yhteensä\s*31 200,50 €/);
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+  });
+
   it("names the days it covers in the caption, for a year in progress and a whole one", () => {
     const part = showTax(taxReport(true));
     expect(plain(part.container.querySelector(".card-datum")!.textContent)).toBe("1.1.–11.11.2026");

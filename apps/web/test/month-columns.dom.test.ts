@@ -146,7 +146,40 @@ describe("Raportit: the months chart and the table under it", () => {
     const kept = bodyRows();
     expect(kept).toHaveLength(1);
     expect(kept[0]!.textContent).toContain("2026-09");
-    expect(document.querySelector(".rt-filter")!.textContent).toContain("Näytämme vain rivin");
+    // the kept row is a chip with its name and a way back, and no sentence
+    const chip = document.querySelector(".rt-filter .chip")!;
+    expect(chip.textContent).toContain("2026-09");
+    expect(chip.textContent).not.toContain("Näytämme");
+    expect(within(chip as HTMLElement).getByRole("button", { name: "Näytä kaikki rivit" })).toBeTruthy();
+  });
+
+  it("draws no total beside a picked row, as the total sums every row, and draws it again when all rows are back", () => {
+    render(
+      createElement(ChartWithTable, {
+        chart: createElement(MonthColumns, props()),
+        table: createElement(Table<(typeof rows)[number]>, {
+          caption: "Kuukaudet",
+          rows,
+          rowKey: (r) => r.month,
+          columns: [
+            { key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (r) => r.month },
+            { key: "sum", label: "Summa", kind: "money", cents: () => 100 },
+          ],
+          total: { label: "Yhteensä", cells: { sum: "3,00 €" } },
+          search: false,
+          toolbar: false,
+          csv: false,
+        }),
+      }),
+    );
+    const table = screen.getByRole("table", { name: "Kuukaudet" });
+    expect(within(table).getByText("3,00 €")).toBeTruthy();
+    const chart = screen.getByRole("group", { name: /Tulot kuukausittain/ });
+    fireEvent.focus(chart);
+    fireEvent.keyDown(chart, { key: "Enter" });
+    expect(within(table).queryByText("3,00 €")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Näytä kaikki rivit" }));
+    expect(within(table).getByText("3,00 €")).toBeTruthy();
   });
 
   it("Enter on the same month again shows every row again", () => {

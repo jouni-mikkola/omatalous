@@ -1235,13 +1235,7 @@
    "cents": 0,
    "rows": []
   },
-  "loanPayments": [
-   {
-    "category": "loans",
-    "cents": 289000,
-    "count": 10
-   }
-  ],
+  "loanPayments": [],
   "household": {
    "cents": 0,
    "rows": []

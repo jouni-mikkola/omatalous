@@ -85,6 +85,7 @@ table { font-variant-numeric: tabular-nums lining-nums; }
 /* a filter that is on, with the mark that takes it off */
 .chip { display: inline-flex; align-items: center; gap: var(--sp-4); min-height: 28px; padding: 0 0 0 var(--sp-12); border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface); color: var(--text-2); font-size: var(--fs-body); }
 .chip .btn-icon { min-width: 28px; min-height: 28px; border-radius: var(--radius-s); }
+@media (pointer: coarse) { .chip .btn-icon { min-width: var(--tap-min); min-height: var(--tap-min); } }
 
 /* a thing you type into (every input but the ones that are not typed into, so one without a type has the edge too) has the well's colour and an edge */
 input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="hidden"], [type="button"], [type="submit"], [type="color"]), select, textarea, .select-lite {

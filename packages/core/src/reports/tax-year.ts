@@ -24,8 +24,12 @@ interface TaxIncomeRow {
   totalCents: number;
 }
 
-/** The categories of a loan's payment: interest and principal together, since the bank row does not split them. */
-const LOAN_PAYMENT_CATEGORIES = ["mortgage", "loans", "student_loan"] as const;
+/**
+ * The categories of a loan's payment that a return may ask about, interest and principal together, since the bank row
+ * does not split them. A student loan's interest is deductible from capital income and its principal is what the
+ * study-loan credit rests on; consumer credit asks nothing of a return and is left out.
+ */
+const LOAN_PAYMENT_CATEGORIES = ["mortgage", "student_loan"] as const;
 
 interface TaxLoanPayment {
   category: (typeof LOAN_PAYMENT_CATEGORIES)[number];

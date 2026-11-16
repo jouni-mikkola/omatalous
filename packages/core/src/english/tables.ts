@@ -32,7 +32,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "table.csv": "Download CSV",
   "table.csv_group": "Group",
   "table.csv_name": "table",
-  "table.only_row": "Showing only the row",
+  "table.only_row": "Selected row",
   "table.show_all": "Show all rows",
   "table.sort_az": "alphabetical",
   "table.sort_za": "reverse alphabetical",
@@ -42,9 +42,6 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "chart.pick_hint": "{label} Enter shows the mark's row in the table.",
   "chart.slope_keys": "{label}. Arrow keys move from line to line, Enter shows the row in the table.",
   "chart.slope_change": "Change",
-  "chart.slope_and": "{first} and {last}",
-  "chart.slope_off_single": "{names} does not fit in the chart. Its figures are in the table.",
-  "chart.slope_off_several": "{names} do not fit in the chart. Their figures are in the table.",
   // Rows
   "row.whole": "full amount {amount}",
   "row.card_bill": "Card bill: purchases not shown",
