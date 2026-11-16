@@ -29,5 +29,8 @@ export const paymentOf = (p: Pick<LoanProposal, "paymentCents" | "monthlyCents">
 /** Whether the row is cut to a part of the bank's amount (`applyUse` set `wholeCents`). */
 export const isCut = (t: Pick<Transaction, "wholeCents">): boolean => t.wholeCents !== undefined;
 
+/** The row as the bank booked it: its whole amount, and `isCut` says it was not cut. */
+export const uncutRow = <T extends Pick<Transaction, "amountCents" | "wholeCents">>(t: T): T => (isCut(t) ? { ...t, amountCents: sharedRow(t).whole, wholeCents: undefined } : t);
+
 /** The figures added up on one side. */
 export const sumShared = (figures: readonly Shared[], side: Side): number => figures.reduce((sum, f) => sum + f[side], 0);

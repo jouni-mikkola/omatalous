@@ -114,6 +114,26 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
   return questions.sort((a, b) => b.openCents - a.openCents || compareOwners(a.key, b.key));
 }
 
+/** What the parts of a row say of who paid it, in positive cents: the viewer's own, all that belongs to a user (the viewer's included), and the row's whole. The rest is money nobody owns. */
+export interface PaidOf {
+  own: number;
+  known: number;
+  whole: number;
+}
+
+/** The one reading of a row's parts by owner: `shareOf` takes the viewer's cents from it, and the forward cut (`standing-cut.ts`) reads the same evidence. */
+export function paidOf(row: Pick<RowParts, "parts">, viewer: Owner): PaidOf {
+  let own = 0;
+  let known = 0;
+  let whole = 0;
+  for (const p of row.parts) {
+    whole += p.cents;
+    if (isUserOwner(p.owner)) known += p.cents;
+    if (p.owner === viewer) own += p.cents;
+  }
+  return { own, known, whole };
+}
+
 /**
  * One viewer's signed cents of a row: the parts that are theirs and their part of the unknown ones, with the row's
  * sign. `openCents` (signed like `cents`) is their part of the parts a question stands for. A transfer is money in from
@@ -121,12 +141,11 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
  */
 export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: SourcePart) => boolean): { cents: number; openCents: number; transfer: boolean } {
   const sign = row.cents < 0 ? -1 : 1;
-  let own = 0;
+  const { own } = paidOf(row, viewer);
   let unknown = 0;
   let asked = 0;
   for (const p of row.parts) {
-    if (p.owner === viewer) own += p.cents;
-    else if (!isUserOwner(p.owner)) {
+    if (p.owner !== viewer && !isUserOwner(p.owner)) {
       unknown += p.cents;
       if (open(p)) asked += p.cents;
     }
