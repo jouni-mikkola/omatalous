@@ -48,7 +48,7 @@ describe("report fields of the Raportit charts", () => {
     expect(income.fromPeopleCents).toBe(income.notEarnedCents - income.unknownCents - (income.types.find((t) => t.type === "tax_refund")?.totalCents ?? 0));
     const salary = income.types.find((t) => t.type === "salary")!;
     expect(salary.months).toHaveLength(income.months.length);
-    expect(salary.months.reduce((a, b) => a + b, 0)).toBe(salary.totalCents);
+    expect(salary.months.reduce((a, b) => a! + b!, 0)).toBe(salary.totalCents);
     expect(salary.previousCents).toBe(9 * 300000);
     expect(salary.changeCents).toBe(salary.totalCents - salary.previousCents!);
     const earned = income.kinds.find((k) => k.earned)!;

@@ -11,7 +11,7 @@ import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import { lineName, themeName, THEMES, themeOf } from "../themes.ts";
-import { carsOf, fullMonths, monthLabels, placeLabel, placeOf, rangeMonthIndexes, themeHeading } from "./shared.ts";
+import { carsOf, fullMonths, knownMonths, monthLabels, placeLabel, placeOf, rangeMonthIndexes, themeHeading, whereKnown } from "./shared.ts";
 import { heatLevels } from "../analysis/heat.ts";
 import { printedParts } from "../analysis/printed.ts";
 
@@ -28,8 +28,8 @@ const CAR_PURCHASE = "vehicle_purchase";
 
 /** Figures of a row in every month shown, over the range, against the months before. */
 interface PivotFigures {
-  /** One per month of `months`; a month before the first shown counts in `totalCents` only. */
-  values: number[];
+  /** One per month of `months`, null in a month the data does not reach (`knownMonths`); a month before the first shown counts in `totalCents` only. */
+  values: (number | null)[];
   totalCents: number;
   /** The median of the complete months before the newest complete month, also those before the range; null under three. */
   expectedCents: number | null;
@@ -40,7 +40,7 @@ interface PivotFigures {
 /** A payee of a line, or the rest of them: its sums by month. */
 interface PivotPayee {
   name: string;
-  values: number[];
+  values: (number | null)[];
   totalCents: number;
 }
 
@@ -74,7 +74,8 @@ interface PivotRow {
   category: string;
   label: string;
   group: string;
-  values: number[];
+  /** One per month of `months`, null in a month the data does not reach; `totalCents` still holds every row. */
+  values: (number | null)[];
   totalCents: number;
   /** `totalCents` as the whole euros Kategoriat prints for the category (the same rounding together, `printedParts`). */
   printedCents: number;
@@ -107,7 +108,8 @@ interface PivotReport {
   /** Per month: it has ended, the range covers it from the 1st and the history does too. An incomplete month is "vajaa". */
   complete: boolean[];
   rows: PivotRow[];
-  monthTotals: number[];
+  /** The month's spending, null in a month the data does not reach; `totalCents` still holds every row. */
+  monthTotals: (number | null)[];
   totalCents: number;
   /** Total per month over complete months (the average of the total row); null without a complete month. */
   averageCents: number | null;
@@ -200,6 +202,7 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange, lang: Langua
   });
   const out = unprinted.map((r) => ({ ...r, printedCents: printed.get(r)! }));
   const monthTotals = months.map((_, i) => out.reduce((s, r) => s + r.values[i]!, 0));
+  const known = knownMonths(ctx, monthLabels(months));
   const last = averaged.length ? averaged[averaged.length - 1]! : null;
   const stripped = averaged.slice(-STRIP_MONTHS);
   const strip = stripped.length >= STRIP_MIN ? stripped : [];
@@ -217,12 +220,12 @@ export function pivotReport(ctx: AnalysisContext, range: DateRange, lang: Langua
   return {
     months: monthLabels(months),
     complete: completeAt,
-    rows: out,
-    monthTotals,
+    rows: out.map((r) => ({ ...r, values: whereKnown(r.values, known) })),
+    monthTotals: whereKnown(monthTotals, known),
     totalCents,
     averageCents: averaged.length ? Math.round(averaged.reduce((s, i) => s + monthTotals[i]!, 0) / averaged.length) : null,
     averageMonths: averaged.length,
-    ...byTheme(ctx, range, months, last, totalCents, peak, lang),
+    ...byTheme(ctx, range, months, known, last, totalCents, peak, lang),
     last,
     strip,
     peak,
@@ -242,7 +245,7 @@ const CATEGORY_IDS: ReadonlySet<string> = new Set(CATEGORIES.map((c) => c.id));
  * level is the expected month (`expectedPart`) from the months before it, also those before the range, that the row's own accounts cover
  * (`completeMonthsBefore` with its accounts), so a card linked late takes the expected level of its own rows only.
  */
-function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number[], last: number | null, grandTotal: number, peak: number | null, lang: Language) {
+function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number[], known: readonly boolean[], last: number | null, grandTotal: number, peak: number | null, lang: Language) {
   const n = months.length;
   const first = months[0]!;
   const lastLabel = last === null ? null : fromMonthIndex(months[last]!);
@@ -302,7 +305,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
     const before = base.map((m) => a.before[monthIndex(m) - beforeFirst]!);
     const usual = lastLabel === null || base.length < MIN_COMPARE_MONTHS ? null : expectedPart(ctx, lastLabel, base, (t) => !!t.spend && !apart(t) && keep(t), struck);
     const outside = now !== null && (now < Math.min(...before) || now > Math.max(...before));
-    return { values: a.values, totalCents: a.total, expectedCents: usual, diffCents: usual !== null && now !== null && outside && Math.abs(now - usual) >= gate ? now - usual : null };
+    return { values: whereKnown(a.values, known), totalCents: a.total, expectedCents: usual, diffCents: usual !== null && now !== null && outside && Math.abs(now - usual) >= gate ? now - usual : null };
   };
 
   const all: PivotTheme[] = THEMES.flatMap((def) => {
@@ -312,9 +315,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
       const key = `${def.id}/${l.id}`;
       const a = lineAcc.get(key);
       if (!a || nothing(a)) return [];
-      const named = [...(payeeAcc.get(key) ?? [])]
-        .map(([name, p]): PivotPayee => ({ name, values: p.values, totalCents: p.total }))
-        .sort((x, y) => y.totalCents - x.totalCents || (x.name < y.name ? -1 : 1));
+      const named = [...(payeeAcc.get(key) ?? [])].sort(([xName, x], [yName, y]) => y.total - x.total || (xName < yName ? -1 : 1));
       const rest = named.slice(PAYEES);
       return [
         {
@@ -322,8 +323,8 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
           label: lineName(def, l, lang),
           category: def.id !== "car" && CATEGORY_IDS.has(l.id) ? l.id : null,
           ...figures(a, (t) => themeOf(ctx, t, cars).theme === def.id && themeOf(ctx, t, cars).line === l.id),
-          payees: named.slice(0, PAYEES),
-          other: rest.length ? { name: messageIn(lang, "rep.other"), values: addUp(rest.map((p) => p.values), n), totalCents: rest.reduce((s, p) => s + p.totalCents, 0) } : null,
+          payees: named.slice(0, PAYEES).map(([name, p]): PivotPayee => ({ name, values: whereKnown(p.values, known), totalCents: p.total })),
+          other: rest.length ? { name: messageIn(lang, "rep.other"), values: whereKnown(addUp(rest.map(([, p]) => p.values), n), known), totalCents: rest.reduce((s, [, p]) => s + p.total, 0) } : null,
         },
       ];
     });
@@ -335,7 +336,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
   const themes = all.filter((t) => listed.includes(t));
   const others = all.filter((t) => !listed.includes(t));
   const restAcc: Acc = {
-    values: addUp(others.map((t) => t.values), n),
+    values: addUp(others.map((t) => themeAcc.get(t.id)!.values), n),
     total: others.reduce((s, t) => s + t.totalCents, 0),
     before: addUp(others.map((t) => themeAcc.get(t.id)!.before), USUAL_MONTHS),
     accounts: new Set(others.flatMap((t) => [...themeAcc.get(t.id)!.accounts])),
@@ -343,7 +344,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
 
   const peakRows: PivotPeakRow[] = [];
   if (peak !== null) {
-    for (const t of all) for (const l of t.lines) peakRows.push({ key: `${t.id}/${l.id}`, label: t.id === "car" && l.id === "other" ? t.label : l.label, cents: l.values[peak]!, category: l.category });
+    for (const t of all) for (const l of t.lines) peakRows.push({ key: `${t.id}/${l.id}`, label: t.id === "car" && l.id === "other" ? t.label : l.label, cents: l.values[peak] ?? 0, category: l.category });
     peakRows.push({ key: "large", label: messageIn(lang, "rep.large_purchases"), cents: big.values[peak]!, category: null });
     peakRows.sort((a, b) => b.cents - a.cents);
     peakRows.splice(PEAK_ROWS);
@@ -352,7 +353,7 @@ function byTheme(ctx: AnalysisContext, range: DateRange, months: readonly number
     themes,
     rest: others.length ? { ...figures(restAcc, (t) => others.some((o) => o.id === themeOf(ctx, t, cars).theme)), themes: others } : null,
     // a large purchase is no expected level and no change: it is the month's one-off
-    large: nothing(big) ? null : { values: big.values, totalCents: big.total, expectedCents: null, diffCents: null, count: bigCount },
+    large: nothing(big) ? null : { values: whereKnown(big.values, known), totalCents: big.total, expectedCents: null, diffCents: null, count: bigCount },
     peakRows: peakRows.filter((r) => r.cents > 0),
   };
 }

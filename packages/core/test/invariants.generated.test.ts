@@ -53,9 +53,9 @@ describe("the invariants over the generated households", () => {
   });
 
   it(
-    "hold the checks that already pass: the wallet role and the loan parts, each over input that is not empty",
+    "hold the checks that already pass: the wallet role, the loan parts and the unknown months, each over input that is not empty",
     () => {
-      const held: Check[] = ["I3c.wallet-role", "I4.loan-parts"];
+      const held: Check[] = ["I3c.wallet-role", "I4.loan-parts", "I7.unknown-month"];
       expect(violations().filter((v) => held.includes(v.check))).toEqual([]);
       expect(KNOWN_VIOLATIONS.filter((k) => held.includes(k.check))).toEqual([]);
       // a pass means something only when the checks had something to look at

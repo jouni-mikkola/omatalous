@@ -1,4 +1,5 @@
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
+import { monthKnown } from "../analysis/coverage.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { themeWindow } from "../analysis/themes-report.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
@@ -21,6 +22,18 @@ export function rangeMonthIndexes(range: DateRange, max = 24, ctx?: Pick<Analysi
 }
 
 export const monthLabels = (indexes: readonly number[]) => indexes.map(fromMonthIndex);
+
+/**
+ * Which of `months` (`YYYY-MM`) the household's data reaches into (`monthKnown`). A month before the accounts the
+ * household lives on were connected is unknown: its cell is null (`whereKnown`), never 0, and it is in no average. The
+ * sums of a range, type, payer or category still add every row, so the money of an unknown month is not lost. The
+ * monthly series of the spending, income, balance, category and month-by-category reports start here, so a new series
+ * inherits the rule; the cash flow report (`cashflow.ts`) does not yet.
+ */
+export const knownMonths = (ctx: AnalysisContext, months: readonly string[]): boolean[] => months.map((m) => monthKnown(ctx, m));
+
+/** `values` with null in each unknown month (`knownMonths`). */
+export const whereKnown = (values: readonly number[], known: readonly boolean[]): (number | null)[] => values.map((v, i) => (known[i] ? v : null));
 
 type MonthContext = AnalysisContext;
 

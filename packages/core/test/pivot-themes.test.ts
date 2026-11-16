@@ -25,7 +25,7 @@ const TODAY = "2026-11-10";
 const HALF: Part = { from: 0, to: 1, of: 2 };
 
 const cents = (euros: number) => Math.round(euros * 100);
-const sum = (xs: readonly number[]) => xs.reduce((a, b) => a + b, 0);
+const sum = (xs: readonly (number | null)[]) => xs.reduce<number>((a, b) => a + (b ?? 0), 0);
 const paid = (bookingDate: string, euros: number, merchant: string, category: string) =>
   tx({ bookingDate, amountCents: -cents(euros), merchant, category, categorySource: "rule" });
 const got = (bookingDate: string, euros: number, merchant: string, category: string) =>
@@ -54,7 +54,7 @@ describe("the rows add up", () => {
       const r = pivotReport(ctx, { from: "2025-01-01", to: h.today });
       const parts = allRows(r);
       expect(sum(parts.map((p) => p.totalCents)), name).toBe(r.totalCents);
-      r.months.forEach((_, i) => expect(sum(parts.map((p) => p.values[i]!)), `${name} ${r.months[i]}`).toBe(r.monthTotals[i]));
+      r.months.forEach((_, i) => expect(sum(parts.map((p) => p.values[i]!)), `${name} ${r.months[i]}`).toBe(r.monthTotals[i] ?? 0));
       for (const t of [...r.themes, ...(r.rest?.themes ?? [])]) {
         expect(sum(t.lines.map((l) => l.totalCents)), t.label).toBe(t.totalCents);
         expect(sum(t.lines.flatMap((l) => l.values)), t.label).toBe(sum(t.values));

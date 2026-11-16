@@ -15,6 +15,7 @@ import { fold } from "../merchant.ts";
 import { median } from "../stats.ts";
 import { MIN_COMPARE_MONTHS, MIN_COMPOSITION_MONTHS, PREVIOUS_YEAR_MONTHS, STEADY_SPREAD, USUAL_MONTHS } from "../thresholds.ts";
 import type { BalanceInput, IsoDate, Part } from "../types.ts";
+import { knownMonths, whereKnown } from "./shared.ts";
 
 interface IncomeRowRef {
   id: string;
@@ -47,8 +48,8 @@ interface IncomeTypeRow {
   monthlyCents: number | null;
   /** Share of earned income, null for money that is not earned. */
   share: number | null;
-  /** The type's money of each of the report's `months`, in their order. */
-  months: number[];
+  /** The type's money of each of the report's `months`, in their order; null in a month the data does not reach. */
+  months: (number | null)[];
   /**
    * The complete months of the range against the same months a year before: their money then, and now less then. Null
    * when the history does not cover every one of those months a year back, as `earnedChange` is.
@@ -71,7 +72,7 @@ interface IncomeKind {
   totalCents: number;
   /** Over the complete months, as a type's is; null without one. */
   monthlyCents: number | null;
-  months: number[];
+  months: (number | null)[];
   /** Its types' `changeCents` added up; null when theirs are. */
   changeCents: number | null;
 }
@@ -79,10 +80,10 @@ interface IncomeKind {
 interface IncomeMonth {
   month: string;
   complete: boolean;
-  /** All the money in, of every type. */
-  totalCents: number;
-  /** The month's earned income (`earnedIncome`), the sub-line of Yhteenveto's Tulot: money from people, refunds and unknown money are left out. */
-  earnedCents: number;
+  /** All the money in, of every type; null in a month the data does not reach (`knownMonths`): no month's income, and in no average. */
+  totalCents: number | null;
+  /** The month's earned income (`earnedIncome`), the sub-line of Yhteenveto's Tulot: money from people, refunds and unknown money are left out. Null as `totalCents` is. */
+  earnedCents: number | null;
   /** The month's usual earned income (`expectedIncome`, "Tavalliset tulot"), null under three complete months before it. */
   usualCents: number | null;
   byGroup: Record<IncomeGroup, number>;
@@ -264,7 +265,15 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
   const inWindow = new Set(labels);
   const typeOf = (id: string) => b.types.get(id)!;
 
-  const months: IncomeMonth[] = labels.map((month) => ({ month, complete: isCompleteIncomeMonth(ctx, month), totalCents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month), usualCents: expectedIncome(ctx, month), byGroup: zeroGroups() }));
+  const known = knownMonths(ctx, labels);
+  const months: IncomeMonth[] = labels.map((month, i) => ({
+    month,
+    complete: isCompleteIncomeMonth(ctx, month),
+    totalCents: known[i] ? monthIncome(ctx, month) : null,
+    earnedCents: known[i] ? earnedIncome(ctx, month) : null,
+    usualCents: known[i] ? expectedIncome(ctx, month) : null,
+    byGroup: zeroGroups(),
+  }));
   const byMonth = new Map(months.map((m) => [m.month, m]));
   // a month in progress has no counterpart yet: the comparison reads the complete months and the same ones a year before
   const prevLabels = new Set(months.filter((m) => m.complete).map((m) => addMonths(m.month, -12)));
@@ -281,7 +290,8 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     const m = byMonth.get(month);
     if (!m) continue;
     if (m.complete && INCOME_TYPES[type].earned) earnedComplete += cents;
-    m.byGroup[INCOME_TYPES[type].group] += cents;
+    // an unknown month has no cell (the chart draws none), but its rows are money that came in: types, payers and totals hold them
+    if (m.totalCents !== null) m.byGroup[INCOME_TYPES[type].group] += cents;
     let row = typeRows.get(type);
     if (!row) typeRows.set(type, (row = { total: 0, complete: 0, months: months.map(() => 0), payers: new Map() }));
     row.total += cents;
@@ -325,7 +335,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
       totalCents: r.total,
       monthlyCents: completeMonths ? Math.round(r.complete / completeMonths) : null,
       share: def.earned && earnedCents > 0 ? r.total / earnedCents : null,
-      months: r.months,
+      months: whereKnown(r.months, known),
       previousCents: previousCovered ? (previousByType.get(type) ?? 0) : null,
       changeCents: previousCovered ? r.complete - (previousByType.get(type) ?? 0) : null,
       payers,
@@ -348,7 +358,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
         label,
         totalCents: own.reduce((sum, t) => sum + t.totalCents, 0),
         monthlyCents: completeMonths ? Math.round(complete / completeMonths) : null,
-        months: months.map((_, i) => own.reduce((sum, t) => sum + t.months[i]!, 0)),
+        months: months.map((_, i) => (known[i] ? own.reduce((sum, t) => sum + (t.months[i] ?? 0), 0) : null)),
         changeCents: previousCovered ? own.reduce((sum, t) => sum + t.changeCents!, 0) : null,
       },
     ];

@@ -50,6 +50,72 @@ export function sameName(a: Name, b: Name): boolean {
   return samePerson(a, b) && !hasForm(a) && !hasForm(b);
 }
 
+/**
+ * One person, one key: the key `payerKeyOf` gives, except that the keys of one person's rows are one. A person whose rows
+ * name them two ways ("Matti Meikalainen" and "Meikalainen Matti Juhani", or an account number on some rows and the
+ * name alone on others) is one payer, so a question about their money is asked once with one name. The key kept is
+ * the name key with the most rows, since a role stored under a name reaches the rows of that name whatever their
+ * account number (`roleIn`). `sameName` is not transitive ("Matti Meikalainen" is in the names of two sons), so name
+ * keys merge only when every pair of them matches, and an account number joins a group only when every name it is
+ * written with matches every name of the group. Where that fails the keys stay apart: a question twice is better
+ * than one answer given to two people.
+ */
+export function payerKeysOf(rows: readonly PayerRow[]): (t: PayerRow) => string | null {
+  const counts = new Map<string, number>();
+  // the distinct names an account number key is written with, by key
+  const written = new Map<string, Map<string, Name>>();
+  for (const t of rows) {
+    const key = payerKeyOf(t);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const name = nameOf(payerNameOf(t));
+    if (key.startsWith("iban:") && name.size) written.set(key, (written.get(key) ?? new Map()).set([...name].sort().join(" "), name));
+  }
+  const nameKeys = [...counts.keys()].filter((k) => k.startsWith("name:")).sort();
+  // the name keys by word: only keys that share a word can be one person
+  const byWord = new Map<string, string[]>();
+  for (const key of nameKeys) for (const word of nameOfKey(key)) byWord.set(word, [...(byWord.get(word) ?? []), key]);
+  // keys that match in pairs chain into a candidate group, which stands only when every pair in it matches
+  const parent = new Map(nameKeys.map((key) => [key, key]));
+  const find = (key: string): string => (parent.get(key) === key ? key : find(parent.get(key)!));
+  for (const key of nameKeys) for (const word of nameOfKey(key)) for (const other of byWord.get(word) ?? []) if (other !== key && sameName(nameOfKey(key), nameOfKey(other))) parent.set(find(key), find(other));
+  const candidates = new Map<string, string[]>();
+  for (const key of nameKeys) candidates.set(find(key), [...(candidates.get(find(key)) ?? []), key]);
+  const allMatch = (names: readonly Name[]) => names.every((a, i) => names.slice(i + 1).every((b) => sameName(a, b)));
+  interface Group {
+    keys: string[];
+    names: Name[];
+  }
+  const groupOf = new Map<string, Group>();
+  for (const keys of candidates.values()) {
+    const whole = allMatch(keys.map(nameOfKey));
+    for (const part of whole ? [keys] : keys.map((key) => [key])) {
+      const group = { keys: part, names: part.map(nameOfKey) };
+      for (const key of part) groupOf.set(key, group);
+    }
+  }
+  for (const key of [...written.keys()].sort()) {
+    const names = [...written.get(key)!.values()];
+    // the groups the names of this account number's rows match: it joins only when there is one and every name fits
+    const near = new Set<Group>();
+    for (const name of names) for (const word of name) for (const other of byWord.get(word) ?? []) if (sameName(name, nameOfKey(other))) near.add(groupOf.get(other)!);
+    const [group] = [...near];
+    if (near.size === 1 && allMatch([...group!.names, ...names])) {
+      group!.names.push(...names);
+      groupOf.set(key, group!);
+    }
+  }
+  // the key kept by a group: the name key with most rows, the first by order on a tie
+  const kept = new Map<Group, string>();
+  for (const group of new Set(groupOf.values())) kept.set(group, group.keys.reduce((best, key) => (counts.get(key)! > counts.get(best)! ? key : best)));
+  return (t) => {
+    const key = payerKeyOf(t);
+    // a row with no name keeps its account number: an answer by name could never reach it
+    const group = key === null || !nameOf(payerNameOf(t)).size ? undefined : groupOf.get(key);
+    return group ? kept.get(group)! : key;
+  };
+}
+
 const CONFLICT = "conflict";
 
 /** One scope's answer for a row: an IBAN answer first, then the name answers; two names that disagree leave none. */

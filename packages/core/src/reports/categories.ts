@@ -15,7 +15,7 @@ import { type CategoryPart, categoryParts } from "../analysis/row-parts.ts";
 import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { themeName, THEMES } from "../themes.ts";
-import { carsOf, fullMonths, placeLabel, placeOf, rangeMonthIndexes, themeHeading } from "./shared.ts";
+import { carsOf, fullMonths, knownMonths, placeLabel, placeOf, rangeMonthIndexes, themeHeading } from "./shared.ts";
 
 interface CategoryStat {
   category: string;
@@ -48,6 +48,7 @@ interface CategoryStat {
   averageMonths: number;
   minMonthCents: number | null;
   maxMonthCents: number | null;
+  /** The months of the range the data reaches (`knownMonths`) in which the category had spending. */
   monthsActive: number;
   previousCents: number;
   /** `totalCents` on the accounts both periods have the whole of: what `previousCents` is set against. 0 when not comparable. */
@@ -113,6 +114,7 @@ interface CategoryReport {
 export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): CategoryReport {
   const months = rangeMonthIndexes(range, 120, ctx);
   const firstMonth = months[0]!;
+  const known = knownMonths(ctx, months.map(fromMonthIndex));
   // the rows `spendRows` gives (context.ts), and the ones that count: the select `explain` lists
   const { rows: current, counted } = spendSelect(ctx, toDayRange(range));
   // a running period is compared with the same days of the previous one
@@ -204,7 +206,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
         minMonthCents: averagedAt.length ? Math.min(...averagedAt.map((i) => e.monthly[i]!)) : null,
         maxMonthCents: averagedAt.length ? Math.max(...averagedAt.map((i) => e.monthly[i]!)) : null,
         averageMonths: averagedAt.length,
-        monthsActive: e.monthly.filter((v) => v > 0).length,
+        monthsActive: e.monthly.filter((v, i) => v > 0 && known[i]).length,
         previousCents: prev.get(key) ?? 0,
         comparedCents: comparedNow.get(key) ?? 0,
         changeCents: comparable ? (comparedNow.get(key) ?? 0) - (prev.get(key) ?? 0) : null,

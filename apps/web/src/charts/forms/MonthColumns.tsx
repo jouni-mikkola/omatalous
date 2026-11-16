@@ -24,8 +24,8 @@ interface MonthColumn {
   complete: boolean;
   /** One sum per series, in the order of `series`; a column stacks them from the bottom (a negative one from zero downwards). */
   parts: readonly number[];
-  /** The month's total as the report gives it: the axis and the readout read it, nothing is added up here for them. */
-  totalCents: number;
+  /** The month's total as the report gives it: the axis and the readout read it, nothing is added up here for them. Null in a month the data does not reach: no column, and the readout says "–". */
+  totalCents: number | null;
 }
 
 /** The width the first paint draws at, before the box is measured. */
@@ -61,7 +61,7 @@ export function MonthColumns({
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
   const width = measured || UNMEASURED;
-  const values = [...months.map((m) => m.totalCents), ...(usual ? [usual.cents] : [])];
+  const values = [...months.flatMap((m) => (m.totalCents === null ? [] : [m.totalCents])), ...(usual ? [usual.cents] : [])];
   const options = { minHeight: 200, tallest: 260, ratio: 0.3 };
   const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
   const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
@@ -77,9 +77,9 @@ export function MonthColumns({
   const yearOf = (i: number) => (ticks[i]!.printed && (i === first || months[i]!.month.endsWith("-01")) ? months[i]!.month.slice(0, 4) : null);
   const whole = (m: MonthColumn) => m.complete && m.month !== running;
   const rows = (m: MonthColumn) => [
-    ...series.map((s, k) => ({ name: s.label, value: money(m.parts[k] ?? 0, false), key: <span className={`ms-key ms-s${k}`} /> })),
-    ...(series.length > 1 ? [{ name: t("rpt.total"), value: money(m.totalCents, false) }] : []),
-    ...(whole(m) ? [] : [{ name: t(m.month === running ? "home.months_running" : "home.months_partial"), value: "" }]),
+    ...series.map((s, k) => ({ name: s.label, value: m.totalCents === null ? "–" : money(m.parts[k] ?? 0, false), key: <span className={`ms-key ms-s${k}`} /> })),
+    ...(series.length > 1 ? [{ name: t("rpt.total"), value: m.totalCents === null ? "–" : money(m.totalCents, false) }] : []),
+    ...(whole(m) || m.totalCents === null ? [] : [{ name: t(m.month === running ? "home.months_running" : "home.months_partial"), value: "" }]),
   ];
   const keys = months.map((m) => m.month);
   return (
