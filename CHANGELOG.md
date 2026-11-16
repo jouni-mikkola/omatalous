@@ -3,6 +3,34 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.5.3
+
+- Laskut shows the card debt and the bills due on payday beside the sum that is free.
+- Menot and Tulos compare this month with the same days of last month.
+- Tarkistettavat asks fewer and clearer questions, and uses the page width.
+- Each bank in Pankkiyhteydet has one Poista that names the accounts it stops reading.
+
+Money and reports
+
+- Laskut shows the card debt and the bills due on the payday itself beside the sum that is free.
+- Tarkistettavat keeps asking for a connected card's rate until one is saved.
+- Menot and Tulos compare the same days of last month, with each fixed payment counted alike.
+- Tarkistettavat asks who owned an opening balance only after payments spent 100 euros of it.
+- Authorities, associations and fast-food rows are sorted into the right categories.
+
+Look
+
+- A chart's value axis ends closer to its highest value.
+- Varat ja velat shows the balance day once, and the bank only when there are several.
+- Verovuoden rivit shows its date range in the heading.
+- Rahankäyttö shows the column for debt paid from savings only in months that have some.
+- Tarkistettavat uses the page width and shows a progress line.
+- Pankkiyhteydet has one Poista per bank, which first names the accounts it stops reading.
+- The fetch log has no search box.
+- Yhteiset menot shows each member's figures once, to the cent.
+- The balance chart answer no longer names the largest purchase.
+- Header switch, table chips and the links under a table are easier to hit.
+
 ## 1.5.2
 
 - A saved home loan's payments count as Asuntolaina, and Tarkistettavat asks for what a loan lacks.

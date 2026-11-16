@@ -1,4 +1,0 @@
-- Laskut shows the card debt and the bills due on payday beside the sum that is free.
-- Menot and Tulos compare this month with the same days of last month.
-- Tarkistettavat asks fewer and clearer questions, and uses the page width.
-- Each bank in Pankkiyhteydet has one Poista that names the accounts it stops reading.
