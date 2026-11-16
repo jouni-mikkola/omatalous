@@ -10,17 +10,21 @@ import { labelTable, t } from "../../text.ts";
 
 const RUN_STATUS: Record<string, string> = labelTable({ ok: () => t("set.sync.succeeded"), partial: () => t("set.sync.partly"), failed: () => t("set.sync.failed"), running: () => t("set.sync.running") });
 
-/** The fetch runs. A column with nothing in any row is not drawn; one message brings it back. */
+/**
+ * The latest fetch and every earlier one that did not succeed: a run that found nothing new says nothing, a failed one
+ * is what the household looks for. The server sends the 20 newest, newest first. A column with nothing in any row is not
+ * drawn; one message brings it back.
+ */
 export function RunsTable({ runs }: { runs: SyncRun[] }) {
-  const hasMessage = runs.some((r) => !!r.message);
+  const shown = runs.filter((r, i) => i === 0 || r.status !== "ok");
+  const hasMessage = shown.some((r) => !!r.message);
   return (
     <Table
       caption={t("set.sync.fetches")}
-      rows={runs}
+      rows={shown}
       rowKey={(r) => String(r.id)}
-      // the server sends the 20 newest; the latest few answer "did the fetch run", the rest wait behind Näytä lisää
       page={10}
-      // twenty rows of one kind are read from the top: a search box finds nothing the eye misses
+      // a few rows are read from the top: a search box finds nothing the eye misses
       search={false}
       columns={[
         { key: "started", label: t("set.sync.started"), kind: "date", rowHead: true, cell: (r) => <span className="run-when">{dateTime(r.startedAt)}</span> },

@@ -33,7 +33,8 @@ export function BankApp({ meta, onChange, onLoaded }: { meta: Meta; onChange: ()
   // the guide and the buttons are folded once the Application ID works, and open as soon as something needs doing again
   const works = !!app && app.source !== null && !app.inactiveMessage && app.pendingSince === null;
   const folded = !admin || own || (which === "household" && (works || !app));
-  const sub = which === "own" ? (own ? t("set.key.own_key_in_use") : t("set.key.not_set_up")) : !admin ? t("set.bapp.household_in_use") : works ? t("set.bapp.works", { id: app.appId ?? "" }) : undefined;
+  // the application's ID is in the opened card, not in the line under its name
+  const sub = which === "own" ? (own ? t("set.key.own_key_in_use") : t("set.key.not_set_up")) : !admin ? t("set.bapp.household_in_use") : works ? t("set.bapp.works") : undefined;
 
   return (
     <FoldCard id={SETTINGS_ANCHOR.bankApp} title={t("set.bapp.bank_app")} sub={sub} folded={folded}>

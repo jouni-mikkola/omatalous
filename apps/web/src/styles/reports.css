@@ -10,11 +10,6 @@
 /* these sit on the bare page, which --surface-2 now equals, so their ground is the page tinted toward the text */
 .q-list a:hover { background: color-mix(in srgb, var(--text) 7%, var(--page)); }
 .q-list :is(a, .q-here)[aria-current] { border-left-color: var(--accent); background: color-mix(in srgb, var(--text) 7%, var(--page)); }
-/* the reports that refine the open question: a row of targets under its name, the open one with a bar under it as well as a ground */
-.q-refine ul { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); list-style: none; margin: 0; padding: 0; }
-.q-refine a { display: inline-flex; align-items: center; min-block-size: var(--tap-min); padding: var(--sp-4) var(--sp-12); border-block-end: var(--tick) solid transparent; border-radius: var(--radius-m); color: var(--text-2); text-decoration: none; font-weight: 600; }
-.q-refine a:hover { background: color-mix(in srgb, var(--text) 7%, var(--page)); color: var(--text); }
-.q-refine a[aria-current="page"] { border-block-end-color: var(--accent); background: color-mix(in srgb, var(--text) 7%, var(--page)); color: var(--text); }
 .q-list small { display: block; margin-top: var(--sp-4); color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; }
 .q-page { min-width: 0; }
 .q-head { display: grid; gap: var(--sp-12); }

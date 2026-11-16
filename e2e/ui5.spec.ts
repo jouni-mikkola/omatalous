@@ -7,7 +7,8 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 for (const width of [1000, 1099]) {
   for (const route of ["overview", "review"]) {
-    test(`#/${route} at ${width} px with the view switch: the header wraps and nothing scrolls sideways`, async ({ browser }) => {
+    // Tarkistettavat does not read the scope, so its header has no switch; the shared account is there all the same
+    test(`#/${route} at ${width} px ${route === "review" ? "without" : "with"} the view switch: the header wraps and nothing scrolls sideways`, async ({ browser }) => {
       const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 } });
       // a shared account brings the switch Oma / Koko talous, the widest state of the header row
       await context.route(/\/api\/meta(\?|$)/, async (r) => {
@@ -19,7 +20,9 @@ for (const width of [1000, 1099]) {
       const page = await context.newPage();
       const seen = watch(page);
       await page.goto(`/#/${route}`);
-      await expect(page.locator(".scope-toggle")).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator(".user-menu .avatar")).toBeVisible({ timeout: 15_000 });
+      if (route === "review") await expect(page.locator(".scope-toggle")).toHaveCount(0);
+      else await expect(page.locator(".scope-toggle")).toBeVisible();
       const avatar = (await page.locator(".user-menu .avatar").boundingBox())!;
       expect(avatar.x + avatar.width, "the avatar is inside the band").toBeLessThanOrEqual(width);
       expect(await overflow(page), "the page scrolls sideways").toBeLessThanOrEqual(1);

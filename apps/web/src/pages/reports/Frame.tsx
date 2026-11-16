@@ -3,6 +3,7 @@ import type { QuestionId } from "@banking/core";
 import type { ReactNode } from "react";
 import { query } from "../../api.ts";
 import { t } from "../../text.ts";
+import { Tabs } from "../../components/ui/Tabs.tsx";
 import type { ListedQuestion } from "./question-groups.ts";
 import "../../styles/reports.css";
 
@@ -43,17 +44,13 @@ function QuestionList({ questions, current, params }: { questions: readonly List
 function Refinements({ question, current, params }: { question: ListedQuestion; current: QuestionId; params: URLSearchParams }) {
   if (question.pages.length < 2) return null;
   return (
-    <nav className="q-refine" aria-label={question.title}>
-      <ul>
-        {question.pages.map((p) => (
-          <li key={p.id}>
-            <a href={reportHref(p.id, params.get("period"))} aria-current={p.id === current ? "page" : undefined}>
-              {p.title}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+    <Tabs label={question.title}>
+      {question.pages.map((p) => (
+        <a key={p.id} href={reportHref(p.id, params.get("period"))} aria-current={p.id === current ? "page" : undefined}>
+          {p.title}
+        </a>
+      ))}
+    </Tabs>
   );
 }
 
