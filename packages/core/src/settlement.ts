@@ -207,6 +207,8 @@ function holderKnown(pool: SettlementPool, agreements: readonly AgreementRow[]):
  * `closed` holds the snapshots of the pool's closed months: such a month is returned as it is. What it would read
  * differently today (a later answer, a member gone) lands as one `late_change` line per closed month in the first month
  * after it that has no snapshot, less what a later snapshot has taken in already. Snapshot months in order, oldest first.
+ * A closed month is final: a cost whose split is not told today (ADR 0017) stays as the snapshot settled it, in the
+ * comparison and so in the correction, since an unknown split says nothing new.
  */
 export function settlement(month: string, pool: SettlementPool, agreements: readonly AgreementRow[], household: ReadonlySet<Owner>, cards: readonly CardUse[], incomes: Incomes, asOf: string, closedAsStored: readonly ClosedMonth[] = []): Settlement {
   const closed = closedAsStored.map(nettedMonth);
@@ -215,13 +217,22 @@ export function settlement(month: string, pool: SettlementPool, agreements: read
   if (snapshot) return snapshot;
   const frozen = new Set(closed.map((c) => c.month));
   const late: SettlementLine[] = [];
+  const nowOf = new Map<string, Settlement>();
+  const worked = (m: string): Settlement => {
+    let s = nowOf.get(m);
+    if (!s) nowOf.set(m, (s = compute(m, pool, agreements, members, cards, incomes, asOf, frozen, [], true)));
+    return s;
+  };
   for (const c of closed) {
     let first = addMonths(c.month, 1);
     while (frozen.has(first)) first = addMonths(first, 1);
     if (first !== month) continue;
-    const now = compute(c.month, pool, agreements, members, cards, incomes, asOf, frozen, [], true);
+    const now = worked(c.month);
+    // rows untold today, of this and the closed months before it: a refund or a deposit line names its cost in `of`
+    const untoldNow = new Set(pool.split !== "unknown" ? [] : closed.filter((x) => x.month <= c.month).flatMap((x) => worked(x.month).untold ?? []).map((u) => u.key));
+    const settled: ClosedMonth = untoldNow.size ? { ...c, lines: c.lines.filter((l) => l.kind === "late_change" || !(untoldNow.has(l.key) || (l.of !== undefined && untoldNow.has(l.of)))) } : c;
     const taken = closed.flatMap((x) => x.lines.filter((l) => l.kind === "late_change" && l.key === c.month));
-    const diff = (side: "paid" | "owed"): Entry[] => merge([...entriesOf(now, side), ...negate(entriesOf(c, side)), ...c.lines.filter((l) => l.kind === "late_change").flatMap((l) => l[side]), ...negate(taken.flatMap((l) => l[side]))]);
+    const diff = (side: "paid" | "owed"): Entry[] => merge([...entriesOf(now, side), ...negate(entriesOf(settled, side)), ...c.lines.filter((l) => l.kind === "late_change").flatMap((l) => l[side]), ...negate(taken.flatMap((l) => l[side]))]);
     const paid = diff("paid");
     const owed = diff("owed");
     if (paid.length || owed.length) late.push({ kind: "late_change", key: c.month, day: dayNumber(asOf), cents: total(paid), paid, owed });
