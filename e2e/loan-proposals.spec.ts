@@ -5,8 +5,7 @@ import { overflow, watch } from "./helpers.ts";
 
 // A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the page asks
 // about it. It is saved as a loan, with the balance typed in; removing the loan in Asetukset > Lainat asks again, and then
-// it is answered "Ei ole laina". The
-// rows are the demo data of a household member made here and removed at the end, so the demo household of the other
+// it is answered "Ei ole laina". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
 // specs stays as it was. Every payee and sum here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -121,9 +120,10 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await saved.getByRole("button", { name: /Poista laina/ }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Poista laina", exact: true }).click();
     await expect(card.getByRole("status").filter({ hasText: "Laina poistettu." })).toBeVisible();
-    // the payments are listed there too, until a balance is added or they are answered Ei ole laina
-    await expect(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toBeVisible();
-    await expect(card.getByRole("row").filter({ hasText: COMPANY }).getByRole("button", { name: `Lisää saldo: ${COMPANY}` })).toBeVisible();
+    // the payments are asked in Tarkistettavat only: the card of the loans does not list them
+    await expect(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toHaveCount(0);
+    await expect(card.getByText(COMPANY)).toHaveCount(0);
+    await expect(card.getByText("Ei lainoja.")).toBeVisible();
     expect(await queued()).toHaveLength(1);
 
     // Ei ole laina: the item goes at once, and the mark is stored under the subject of its own
