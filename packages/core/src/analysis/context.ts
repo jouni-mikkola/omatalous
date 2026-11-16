@@ -132,9 +132,9 @@ export function standingById(ctx: Pick<AnalysisContext, "txs" | "standing">): Re
 }
 
 /**
- * `standing`: the same rows cut by the part of each account instead of by who paid, given only when a pool is cut by who
- * paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: nobody knows whose money
- * will be in the account next month.
+ * `standing`: the same rows cut once for each series instead of row by row by who paid, given only when a pool is cut by
+ * who paid. What is ahead (the series, their next day, the fixed costs) then keeps the stable cut: a series is cut by who
+ * paid its recent rows (`standingCut`), as the past cuts them, and by the weights where the trace says nothing.
  */
 export function createContext(transactions: readonly Transaction[], accounts: readonly Account[], today: IsoDate, standing?: readonly Transaction[], foreignRows: readonly ForeignDay[] = [], history: readonly AccountHistory[] = [], statements: readonly StatementBill[] = []): AnalysisContext {
   return drain(contextSteps(transactions, accounts, today, standing, foreignRows, history, statements));

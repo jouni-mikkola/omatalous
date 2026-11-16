@@ -4,7 +4,8 @@
  * so a finding that is listed there must keep failing and nothing else may fail.
  *
  * I1 and I1b read the rows and the pool (src/analysis/conservation.ts, pool.ts), I3 the verdicts against the labels of
- * the generator, I4 the sum of the members against the household, I5 the proof of the balances. Each check is exported
+ * the generator, I4 the sum of the members against the household, I5 the proof of the balances. B0 reads a pool cut by
+ * who paid, which the generator makes no household of: it takes the pool's rows and trace itself. Each check is exported
  * so a test can hand it a household made wrong on purpose and see it fail (invariants.teeth.test.ts).
  */
 import { aheadBasis } from "../../src/analysis/ahead.ts";
@@ -17,13 +18,18 @@ import { buildQuestions } from "../../src/analysis/questions.ts";
 import { getCategory } from "../../src/categories.ts";
 import { normalizeIban } from "../../src/iban.ts";
 import { loanProposals } from "../../src/loan-detect.ts";
+import { applyUse } from "../../src/account-use.ts";
+import type { Owner, RowParts } from "../../src/money-trace.ts";
+import { paidRows } from "../../src/money-trace-answers.ts";
+import { standingCut } from "../../src/standing-cut.ts";
 import { WALLET_PAYER_KEY } from "../../src/payer-role.ts";
-import { NO_INPUTS } from "../../src/types.ts";
+import { type Account, NO_INPUTS, type Part, type Transaction } from "../../src/types.ts";
 import { type HouseholdView, viewsOf } from "../../../../tools/findings/households.ts";
 import { proveAccount } from "./generate.ts";
 import type { GeneratedHousehold, Truth } from "./truth.ts";
 
 export type Check =
+  | "B0.standing-sum"
   | "I1.bridge"
   | "I1.pool-accounts"
   | "I1.pool-balance"
@@ -244,6 +250,32 @@ export function unproven(h: GeneratedHousehold, twin: GeneratedHousehold): Viola
   const [v, other] = [viewsOf(h)[0]!, viewsOf(twin)[0]!];
   const said = (x: HouseholdView, g: GeneratedHousehold) => JSON.stringify(dataQualityReport(x.ctx, RANGE(g), x.balances).signals.map((s) => [s.id, s.title, s.detail]));
   return said(v, h) === said(other, twin) ? [found("I5.unproven", h, v, `${unknown.length} accounts have no proof (${proveAccount(h, unknown[0]!.id)?.reason}) and the report says nothing`)] : [];
+}
+
+/** A pool cut by who paid, as the members' own views read it: the bank's rows, the trace of them, and each member's owner key and part of the account. */
+export interface SourcePool {
+  account: Account;
+  rows: readonly Transaction[];
+  trace: readonly RowParts[];
+  members: readonly { owner: Owner; part: Part }[];
+}
+
+/**
+ * B0: for a pool cut by who paid, the members' standing amounts of each row (what a series is read from for what is
+ * ahead) add up to the bank's whole amount of it, the money nobody owns included: never more, and no cent lost. A row
+ * a member has no part of counts 0 for them. `cut` is what is judged.
+ */
+export function standingSum(name: string, pool: SourcePool, cut: typeof standingCut = standingCut): Violation[] {
+  const sums = new Map<string, number>();
+  for (const m of pool.members) {
+    const parts = new Map([[pool.account.id, m.part]]);
+    const standing = cut(applyUse(pool.rows, [pool.account], parts), parts, paidRows(pool.trace, m.owner));
+    for (const t of standing) sums.set(t.id, (sums.get(t.id) ?? 0) + t.amountCents);
+  }
+  return pool.rows.flatMap((t) => {
+    const sum = sums.get(t.id) ?? 0;
+    return sum === t.amountCents ? [] : [{ check: "B0.standing-sum" as const, household: name, view: "members", month: null, line: `${t.id}: the bank's ${t.amountCents}, the members' standing amounts add up to ${sum}` }];
+  });
 }
 
 /** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */

@@ -115,18 +115,58 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
 }
 
 /**
+ * What the parts of a row say of who paid it, in positive cents: the viewer's own, all that belongs to a user (the
+ * viewer's included), the row's whole, and what belongs to the users whose owner key sorts before the viewer's. The rest
+ * of the whole is money nobody owns. Members place their own cents one after the other in the order of their keys, so
+ * the parts the forward cut gives them never overlap.
+ */
+export interface PaidOf {
+  own: number;
+  known: number;
+  whole: number;
+  before: number;
+}
+
+/** The one reading of a row's parts by owner: `shareOf` takes the viewer's cents from it, and the forward cut (`standing-cut.ts`) reads the same evidence. */
+function paidOf(row: Pick<RowParts, "parts">, viewer: Owner): PaidOf {
+  let own = 0;
+  let known = 0;
+  let whole = 0;
+  let before = 0;
+  for (const p of row.parts) {
+    whole += p.cents;
+    if (isUserOwner(p.owner)) {
+      known += p.cents;
+      if (compareOwners(p.owner, viewer) < 0) before += p.cents;
+    }
+    if (p.owner === viewer) own += p.cents;
+  }
+  return { own, known, whole, before };
+}
+
+/** What the parts of each booked row say of who paid it, by the id of the row on each copy of the account: the evidence the forward cut of a series is made from. */
+export function paidRows(rows: readonly RowParts[], viewer: Owner): Map<string, PaidOf> {
+  const paid = new Map<string, PaidOf>();
+  for (const row of rows) {
+    if (row.pending || !row.parts.length) continue;
+    const own = paidOf(row, viewer);
+    for (const id of row.ids) paid.set(id, own);
+  }
+  return paid;
+}
+
+/**
  * One viewer's signed cents of a row: the parts that are theirs and their part of the unknown ones, with the row's
  * sign. `openCents` (signed like `cents`) is their part of the parts a question stands for. A transfer is money in from
  * a person's own account, a payment by a person or another pool, and money out for one person or to a pool.
  */
 export function shareOf(row: RowParts, viewer: Owner, part: Part, open: (p: SourcePart) => boolean): { cents: number; openCents: number; transfer: boolean } {
   const sign = row.cents < 0 ? -1 : 1;
-  let own = 0;
+  const { own } = paidOf(row, viewer);
   let unknown = 0;
   let asked = 0;
   for (const p of row.parts) {
-    if (p.owner === viewer) own += p.cents;
-    else if (!isUserOwner(p.owner)) {
+    if (p.owner !== viewer && !isUserOwner(p.owner)) {
       unknown += p.cents;
       if (open(p)) asked += p.cents;
     }

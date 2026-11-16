@@ -23,8 +23,11 @@ import {
   type LoanProposal,
   loanProposals,
   type Part,
+  type PaidOf,
+  paidRows,
   partCents,
   type RowShare,
+  standingCut,
   transfersBetweenMembers,
   type UserInputs,
 } from "@banking/core";
@@ -336,8 +339,9 @@ function tracedBalance(t: SettledTrace, userId: string, part: Part, day: number,
 }
 
 /** The traced accounts of the own view: the viewer's cents of their rows and each one's balance. An account whose trace is gone counts by its part. */
-async function tracedShares(s: Services, userId: string, accounts: readonly ScopeAccount[], today: string): Promise<{ accounts: ScopeAccount[]; shares: Map<string, RowShare> }> {
+async function tracedShares(s: Services, userId: string, accounts: readonly ScopeAccount[], today: string): Promise<{ accounts: ScopeAccount[]; shares: Map<string, RowShare>; paid: Map<string, PaidOf> }> {
   const shares = new Map<string, RowShare>();
+  const paid = new Map<string, PaidOf>();
   const counted = await Promise.all(
     accounts.map(async (a): Promise<ScopeAccount> => {
       const t = a.traced && a.part ? await settledTrace(s, accountKey(a)) : null;
@@ -347,16 +351,17 @@ async function tracedShares(s: Services, userId: string, accounts: readonly Scop
       }
       const own = sharesOf(t, userId, a.part);
       for (const [id, share] of own) shares.set(id, share);
+      for (const [id, evidence] of paidRows(t.trace.rows, `u:${userId}`)) paid.set(id, evidence);
       return { ...a, tracedCents: tracedBalance(t, userId, a.part, dayNumber(balanceDayOf(localDay(s, a.balanceAt), today)), own) };
     }),
   );
-  return { accounts: counted, shares };
+  return { accounts: counted, shares, paid };
 }
 
 async function loadScope(s: Services, userId: string, inView: InView, today: string): Promise<ScopeData> {
   const { view, left, parts } = inView;
-  const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today) : { accounts: inView.accounts, shares: new Map<string, RowShare>() };
-  const { accounts, shares } = traced;
+  const traced = view === "own" ? await tracedShares(s, userId, inView.accounts, today) : { accounts: inView.accounts, shares: new Map<string, RowShare>(), paid: new Map<string, PaidOf>() };
+  const { accounts, shares, paid } = traced;
   const theirs = accounts.filter((a) => a.userId !== userId).map((a) => a.id);
   let txs: readonly StoredTransaction[] = await s.finance(userId).allTransactions();
   if (theirs.length) txs = [...txs, ...(await s.household.transactionsOfAccounts(theirs))];
@@ -369,8 +374,9 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
     const read = [...accounts, ...left];
     const stored = new Map(txs.map((t) => [t.id, t]));
     const owners = new Map(read.map((a) => [a.id, a.userId]));
-    // what is ahead keeps the stable cut: only a view with a pool cut by who paid reads the rows cut by the parts as well
-    if (shares.size) standing = applyUse(txs, read, parts, owners);
+    // what is ahead keeps the stable cut: only a view with a pool cut by who paid reads the rows cut by the parts as well,
+    // and a series there is cut as the past cut its recent rows: by who paid them, the weights sharing what nobody owns
+    if (shares.size) standing = standingCut(applyUse(txs, read, parts, owners), parts, paid);
     txs = applyUse(txs, read, parts, owners, shares);
     // this is the one place that decides what a row counts as in the view: the sums read in SQL are handed the answer
     for (const { id, category, categorySource, isTransfer } of txs) {
