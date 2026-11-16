@@ -7,7 +7,7 @@
  * A pool is a real account with two users or more. Only a pool with a balance has a trace. The payers are this pool's
  * users: money from anybody else is unknown money, and an answer's owner must be one of them. A pool is traced after
  * the pools it receives from; where two pools pay each other no movement between them is carried, and each money-in
- * row is unknown money that is asked about once.
+ * row is unknown money of the household's own pool that nobody is asked about.
  */
 import { createHash } from "node:crypto";
 import {
@@ -292,6 +292,10 @@ function rawOf(h: Household, key: string): Raw | null {
             const other = keyOfAccount(h, leg.accountId);
             const parts = other === key || reaches(h, other, key) ? undefined : rawOf(h, other)?.partsById.get(leg.id);
             return parts?.map((part) => (isUserOwner(part.owner) && !users.has(part.owner) ? { ...part, owner: "c" } : part));
+          },
+          paysBack: (leg: Transaction) => {
+            const other = keyOfAccount(h, leg.accountId);
+            return other !== key && reaches(h, other, key);
           },
         }
       : {}),

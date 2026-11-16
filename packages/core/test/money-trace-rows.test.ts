@@ -277,12 +277,18 @@ describe("traceRows", () => {
     expect(again[1]!.group).toBe(`g:credit:iban:${BANK}`);
   });
 
-  it("asks once for two pools that pay each other: each row is unknown money of the other pool", () => {
-    // pool Y paid this pool 500,00 and this pool paid Y 500,00: neither is traced before the other
-    const rows = read([at("1", "2025-08-03", 50000, { counterpartyIban: POOL_Y }), at("2", "2025-08-04", -50000, { counterpartyIban: POOL_Y })], who({ others: [at("y", "2025-08-02", -50000, { counterpartyIban: POOL }, "pool-y")] }));
-    const t = trace(rows, 0, d("2025-08-03"));
+  it("asks nothing for two pools that pay each other: the money moved between the household's own accounts", () => {
+    // pool Y paid this pool 500,00 and this pool paid Y 500,00: neither is traced before the other, so no part is carried
+    const others = [at("y", "2025-08-02", -50000, { counterpartyIban: POOL }, "pool-y")];
+    const mine = () => [at("1", "2025-08-03", 50000, { counterpartyIban: POOL_Y }), at("2", "2025-08-04", -50000, { counterpartyIban: POOL_Y })];
+    const rows = read(mine(), who({ others, paysBack: () => true }));
     expect(rows[1]!.to).toBe("pool");
-    expect(questionsOf(t, []).map((q) => [q.key, q.cents])).toEqual([[`g:iban:${POOL_Y}`, 50000]]);
+    expect(rows[0]!.from).toBeUndefined();
+    expect(rows[0]!.group).toBe(`g:pool:${POOL_Y}`);
+    expect(questionsOf(trace(rows, 0, d("2025-08-03")), [])).toEqual([]);
+    // near miss: where the other pool does not pay this one back, its money is still unknown money and is asked about once
+    const alone = read(mine(), who({ others }));
+    expect(questionsOf(trace(alone, 0, d("2025-08-03")), []).map((q) => [q.key, q.cents])).toEqual([[`g:iban:${POOL_Y}`, 50000]]);
   });
 
   describe("a leg on another pool", () => {

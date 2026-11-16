@@ -37,6 +37,11 @@ describe("memberMoney", () => {
     expect(found([{ counterparty: "TESTAAJA PEKKA" }, { counterparty: "Pekka Testaaja", amountCents: 1000 }], [ME, PARTNER])).toEqual([["name:PEKKA TESTAAJA", 6000, 2]]);
   });
 
+  it("asks once about a member whose rows name them by account number and by name", () => {
+    const rows = [{ counterparty: "Testaaja Pekka", counterpartyIban: PARTNERS }, { counterparty: "Pekka Testaaja", amountCents: 2500 }, { counterparty: "Pekka Testaaja", amountCents: 1000 }];
+    expect(found(rows, [ME, PARTNER])).toEqual([["name:PEKKA TESTAAJA", 8500, 3]]);
+  });
+
   it("leaves two members of one name unresolved", () => {
     const twin = member("twin", "Pekka Testaaja", ibanOf(9));
     expect(found([{ counterparty: "Pekka Testaaja" }], [ME, PARTNER, twin])).toEqual([]);

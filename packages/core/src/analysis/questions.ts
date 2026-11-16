@@ -2,7 +2,7 @@ import { dayNumber } from "../dates.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import { ASK_LIMIT } from "../money-trace.ts";
-import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerRoleOf, sameName, steadyPayers, WALLET_PAYER_KEY } from "../payer-role.ts";
+import { isOffMedian, isPersonName, PAYER_ROLES, payerKeysOf, payerRoleOf, sameName, steadyPayers, WALLET_PAYER_KEY } from "../payer-role.ts";
 import { serviceNamed } from "../payment-services.ts";
 import { nameOf, userNameOf } from "../person-names.ts";
 import { normalizeIban } from "../transfers.ts";
@@ -157,8 +157,10 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
   // the run's median: every row of the member's, not the window's (applyPayerRoles reads the same rows)
   const steady = steadyPayers(ctx.txs);
   const byPayer = new Map<string, AnalysisTx[]>();
+  // one person is one payer, however their rows name them (the same keys Tarkistettavat's member money reads)
+  const keyOf = payerKeysOf(ctx.txs.filter((t) => t.amountCents > 0));
   for (const t of money) {
-    const key = payerKeyOf(t);
+    const key = keyOf(t);
     const list = key ? byPayer.get(key) : undefined;
     if (list) list.push(t);
     else if (key) byPayer.set(key, [t]);
@@ -168,8 +170,9 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
   const items: PayerQuestion[] = [];
   const covered = new Set<string>();
   for (const [key, all] of byPayer) {
-    const open = all.filter(isOpenIncome);
-    if (!open.length || open.some((t) => payerRoleOf(payers.roles, t, payers.memberId))) continue;
+    // a row an answer reaches is the answer's to say; a payer whose rows were answered by account number may have others by name
+    const open = all.filter((t) => isOpenIncome(t) && !payerRoleOf(payers.roles, t, payers.memberId));
+    if (!open.length) continue;
     const cents = open.reduce((sum, t) => sum + t.flows.income, 0);
     const typical = steady.get(key);
     if (typical === undefined && cents < ASK_LIMIT) continue;

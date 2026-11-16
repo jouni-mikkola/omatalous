@@ -88,6 +88,13 @@ export const isUserOwner = (owner: Owner): boolean => owner.startsWith("u:") || 
  * at their parts like any unknown money, and never a question of whose money it was.
  */
 export const isSharedCredit = (owner: Owner): boolean => owner.startsWith("g:credit:");
+/**
+ * The group of money that came from another pool of the household, when that pool pays this one too: neither is traced
+ * before the other, so no part is carried. The money moved between the household's own accounts, so nobody is asked
+ * whose it was.
+ */
+export const poolMoneyGroup = (iban: string): Owner => `g:pool:${iban}`;
+export const isPoolMoney = (owner: Owner): boolean => owner.startsWith("g:pool:");
 export const sumCents = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 
 /** The order of the parts: members by key (as code units compare), the holder nobody names, groups by key, the opening, credit. */

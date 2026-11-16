@@ -50,6 +50,46 @@ export function sameName(a: Name, b: Name): boolean {
   return samePerson(a, b) && !hasForm(a) && !hasForm(b);
 }
 
+/**
+ * One person, one key: the key `payerKeyOf` gives, except that the keys of one person's rows are one. A person whose rows
+ * name them two ways ("Matti Meikalainen" and "Meikalainen Matti Juhani", or an account number on some rows and the
+ * name alone on others) is one payer, so a question about their money is asked once with one name. The key kept is
+ * the name key with the most rows, since a role stored under a name reaches the rows of that name whatever their
+ * account number (`roleIn`). Two rows are one person when `sameName` says so, as `roleIn` reads them.
+ */
+export function payerKeysOf(rows: readonly PayerRow[]): (t: PayerRow) => string | null {
+  const counts = new Map<string, number>();
+  // the names an account number key is written with, by key
+  const written = new Map<string, Name[]>();
+  for (const t of rows) {
+    const key = payerKeyOf(t);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    const name = nameOf(payerNameOf(t));
+    if (key.startsWith("iban:") && name.size) written.set(key, [...(written.get(key) ?? []), name]);
+  }
+  const parent = new Map([...counts.keys()].map((key) => [key, key]));
+  const find = (key: string): string => (parent.get(key) === key ? key : find(parent.get(key)!));
+  const join = (a: string, b: string) => parent.set(find(a), find(b));
+  // the name keys by word: only keys that share a word can be one person
+  const byWord = new Map<string, string[]>();
+  for (const key of counts.keys()) if (key.startsWith("name:")) for (const word of nameOfKey(key)) byWord.set(word, [...(byWord.get(word) ?? []), key]);
+  for (const key of counts.keys()) {
+    const names = key.startsWith("name:") ? [nameOfKey(key)] : (written.get(key) ?? []);
+    for (const name of names) for (const word of name) for (const other of byWord.get(word) ?? []) if (other !== key && sameName(name, nameOfKey(other))) join(key, other);
+  }
+  const best = new Map<string, string>();
+  for (const key of [...counts.keys()].filter((k) => k.startsWith("name:")).sort()) {
+    const root = find(key);
+    const held = best.get(root);
+    if (held === undefined || counts.get(key)! > counts.get(held)!) best.set(root, key);
+  }
+  return (t) => {
+    const key = payerKeyOf(t);
+    return key === null || !parent.has(key) ? key : (best.get(find(key)) ?? key);
+  };
+}
+
 const CONFLICT = "conflict";
 
 /** One scope's answer for a row: an IBAN answer first, then the name answers; two names that disagree leave none. */
