@@ -23,3 +23,8 @@ account (`standingCut`) is derived from the recent rows of each series on every 
 says the viewer paid, plus their weighted part of what nobody owns. This is the sliding window 0016 declined for the
 weights, and it moves no month's spending: the series and the figures read from them (fixed costs, price rises, housing
 charges) use it, and each row of a month stays as it was counted.
+
+A closed month of Yhteiset menot is final. A later change reaches the next open month as a correction only when a member
+said something after the closing, such as an answer, a use or an agreement. A cost whose split is not told today says
+nothing new, so the comparison leaves it as the month settled it (`settlement`). A change of the app's own rules is no
+word of the household either, and must not be read as one.

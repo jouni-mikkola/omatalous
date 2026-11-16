@@ -3,6 +3,7 @@
  * (the card bill too) and the payday as one income row; with no sum in Nyt the section is not drawn.
  */
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import type { Meta } from "../src/types.ts";
@@ -231,5 +232,40 @@ describe("Laskut: payments before the payday", () => {
     await waitFor(() => expect(seen.some((r) => r.path === "/api/dashboard")).toBe(true));
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));
     expect(document.getElementById("ennen-palkkapaivaa")).toBeNull();
+  });
+});
+
+// jsdom lays nothing out, so the widths are read from the sheet: the payee of every row lands in the one wide column of the
+// grid at desktop width, also on a row whose day is only for a screen reader and so is out of the grid
+describe("Laskut: the layout of the payday list", () => {
+  const sheet = readFileSync(new URL("../src/styles/bills.css", import.meta.url), "utf8").replace(/\/\*[^]*?\*\//g, "");
+  const wide = sheet.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, "");
+  const rule = (css: string, selector: string) => new RegExp(`${selector.replace(/[.[\]]/g, "\\$&")} \\{([^}]*)\\}`).exec(css)?.[1] ?? "";
+
+  it("puts the payee in the wide column and the sum in the last one at desktop width", () => {
+    const columns = /grid-template-columns:\s*([^;]+);/.exec(rule(wide, ".before-payday .bp-row"))?.[1]?.match(/minmax\([^)]*\)|\S+/g) ?? [];
+    expect(columns).toEqual(["4.5rem", "minmax(0, 1fr)", "auto"]);
+    const at = (selector: string) => Number(/grid-column:\s*(\d+)/.exec(rule(wide, selector))?.[1]);
+    expect(columns[at(".before-payday .bp-name") - 1]).toBe("minmax(0, 1fr)");
+    expect(columns[at(".before-payday .bp-sum") - 1]).toBe("auto");
+  });
+
+  it("keeps a row without a visible day with the payee in the same column as a row with one", async () => {
+    const base = dashboard(true);
+    const same = [row("2026-11-12", "Helen", -4812, "recurring"), row("2026-11-12", "Elisa", -2914, "recurring"), base.ahead.rows[3]!];
+    await mount(true, false, { ...base, ahead: { ...base.ahead, rows: same } });
+    const section = await waitFor(() => {
+      const el = document.getElementById("ennen-palkkapaivaa");
+      expect(el).toBeTruthy();
+      return el!;
+    });
+    const bills = [...section.querySelectorAll("[data-kind=bill]")];
+    expect(bills.map((li) => li.querySelector(".bp-date")?.classList.contains("sr-only"))).toEqual([false, true]);
+    // the payee is a child of the row, so the sheet's column of the payee applies to both
+    for (const li of bills) expect([...li.children].map((c) => c.className.split(" ")[0])).toContain("bp-name");
+  });
+
+  it("starts the next-payment card at the top of its grid area instead of stretching its rows", () => {
+    expect(rule(sheet, ".bills-next")).toContain("align-content: start");
   });
 });
