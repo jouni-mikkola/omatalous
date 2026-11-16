@@ -4,7 +4,7 @@
  * Yhteenveto shows it under the heading Tilit ja kortit, Raportit > Tilit ja saldot under Varat ja velat; the next bill of
  * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
- * heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
+ * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
  * the accounts have more than one. Tilit and Lainat stand side by side, the cards in a row of their own under
  * them; where a group is missing the others close up, so a household with no loan has Tilit and its cards side by
  * side and no hole. A card and a loan have one form: the name as a link, then its figures as rows; a card has its picture
@@ -39,7 +39,7 @@ type Ahead = NonNullable<DashboardData["ahead"]>;
 const figure = (cents: number | null, foreign?: { currency: string; cents: number } | null): string =>
   foreign ? moneyIn(foreign.cents, foreign.currency) : cents === null ? "–" : money(cents);
 
-/** The day most balances are from as the page writes it, the latest on a tie: the heading says it once. */
+/** The day most balances are from as the page writes it, the latest on a tie: the first group's heading says it once. */
 function commonDay(rows: { balanceAt: string | null }[], today: string): string | null {
   const counts = new Map<string, number>();
   const latestFirst = rows.flatMap((r) => (r.balanceAt ? [r.balanceAt] : [])).sort().reverse();
@@ -173,27 +173,31 @@ function AccountRows({ holdings, meta, types, common }: { holdings: Answer; meta
   );
 }
 
-function Accounts({ holdings, meta, common }: { holdings: Answer; meta: Meta; common: string | null }) {
+function Accounts({ holdings, meta, common, stamp }: { holdings: Answer; meta: Meta; common: string | null; stamp: ReactNode }) {
   const { accounts, accountsCents } = holdings;
   // an account in another currency has a balance: it is shown with its currency and is in no total, so it is not missing
   const missing = accounts.filter((a) => a.balanceCents === null && !a.foreign).length;
   const types = ACCOUNT_TYPES.map((type) => ({ type, rows: accounts.filter((a) => a.type === type) })).filter((g) => g.rows.length > 0);
   return (
     <section>
-      <h3 className="st-cap">{t("holdings.accounts")}</h3>
+      <header className="holding-head">
+        <h3 className="st-cap">{t("holdings.accounts")}</h3>
+        {stamp}
+      </header>
       <AccountRows holdings={holdings} meta={meta} types={types.length > 1 ? types : null} common={common} />
       <Total label={t("holdings.accounts_total")} cents={accountsCents} note={missing > 0 ? tn(missing, "holdings.missing_one", "holdings.missing_many") : undefined} />
     </section>
   );
 }
 
-function Cards({ holdings, meta, ahead, common }: { holdings: Answer; meta: Meta; ahead: Ahead | undefined; common: string | null }) {
+function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; meta: Meta; ahead: Ahead | undefined; common: string | null; stamp: ReactNode }) {
   const { cards, cardsCents } = holdings;
   const masks = cardMasks(cards);
   return (
     <section className="holding-cards">
       <header className="holding-cards-head">
         <h3 className="st-cap">{t("holdings.cards")}</h3>
+        {stamp}
         {cards.length > 1 && (
           <dl className="holding-inline">
             <dt>{t("holdings.cards_total")}</dt>
@@ -279,8 +283,9 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
   const debts = loans.length > 0 && cardsOwe(cards);
   // loans nobody saved: `netCents` holds no debt for them, so its name says so
   const netLabel = netLabelOf(holdings);
-  // the day most balances are from, said once under the heading
+  // the day most balances are from, said once, beside the heading of the first group that has balances
   const common = commonDay([...accounts, ...cards], meta.today);
+  const stamp = common ? <span className="holding-date">{t("ahead.balance_on", { date: common })}</span> : null;
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
   const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
 
@@ -288,10 +293,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
     <section className="card holdings" aria-labelledby="holdings-h">
       <div className="card-head tb">
         <div className="card-name">
-          <div className="holding-title">
-            <h2 id="holdings-h">{title}</h2>
-            {common && <span className="holding-date">{t("ahead.balance_on", { date: common })}</span>}
-          </div>
+          <h2 id="holdings-h">{title}</h2>
         </div>
         {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown */}
         {(netCents !== null || (accountsCents !== null && debtCents === null)) && (
@@ -302,9 +304,9 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
         )}
       </div>
       <div className={columns}>
-        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} common={common} />}
+        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} common={common} stamp={stamp} />}
         {loans.length > 0 && <Loans holdings={holdings} />}
-        {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} common={common} />}
+        {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} common={common} stamp={accounts.length > 0 ? null : stamp} />}
       </div>
       {(debts || unsaved) && (
         <dl className="st-rows holding-foot">
