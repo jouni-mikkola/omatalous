@@ -491,7 +491,7 @@ describe("the questions about a payer", () => {
 
 describe("payerKeysOf", () => {
   const keyed = (rows: Partial<Transaction>[]) => {
-    const all = rows.map((r) => tx({ amountCents: eur(10), ...r }));
+    const all = rows.map((r) => tx({ bookingDate: "2026-10-01", amountCents: eur(10), ...r }));
     const keyOf = payerKeysOf(all);
     return all.map((t) => keyOf(t));
   };

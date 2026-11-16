@@ -293,10 +293,7 @@ function rawOf(h: Household, key: string): Raw | null {
             const parts = other === key || reaches(h, other, key) ? undefined : rawOf(h, other)?.partsById.get(leg.id);
             return parts?.map((part) => (isUserOwner(part.owner) && !users.has(part.owner) ? { ...part, owner: "c" } : part));
           },
-          paysBack: (leg: Transaction) => {
-            const other = keyOfAccount(h, leg.accountId);
-            return other !== key && reaches(h, other, key);
-          },
+          paysBack: (leg: Transaction) => keyOfAccount(h, leg.accountId) !== key && reaches(h, keyOfAccount(h, leg.accountId), key),
         }
       : {}),
   });
