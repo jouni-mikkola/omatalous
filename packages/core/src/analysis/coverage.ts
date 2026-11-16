@@ -122,6 +122,43 @@ export function accountCovers(ctx: AnalysisContext, accountIds: Iterable<string>
   return any;
 }
 
+const householdKnownFromOf = new WeakMap<AnalysisContext, IsoDate | null>();
+
+/**
+ * The first day the household's money is known from: the earliest first known day (`coverage`) of the accounts that pay
+ * out more than `LEFT_OUT_SHARE` of the household's spending. A savings account that earned interest long before the
+ * accounts the household lives on were connected does not make those months known: what came in and went out of them is
+ * not in the data. null when no account pays out (nothing to judge by), which leaves every month known.
+ */
+export function householdKnownFrom(ctx: AnalysisContext): IsoDate | null {
+  if (householdKnownFromOf.has(ctx)) return householdKnownFromOf.get(ctx)!;
+  const spend = new Map<string, number>();
+  let all = 0;
+  for (const t of ctx.txs) {
+    if (t.spend <= 0) continue;
+    spend.set(t.accountId, (spend.get(t.accountId) ?? 0) + t.spend);
+    all += t.spend;
+  }
+  const { from } = startDays(ctx);
+  let day: IsoDate | null = null;
+  for (const [id, cents] of spend) {
+    const mine = from.get(id);
+    if (mine && cents > LEFT_OUT_SHARE * all && (day === null || mine < day)) day = mine;
+  }
+  householdKnownFromOf.set(ctx, day);
+  return day;
+}
+
+/**
+ * Does the household's data reach into `month` (`2026-03`)? A month that ends before `householdKnownFrom` is unknown: its
+ * money is not in the data, so a figure of it is no figure (null, never 0) and it is in no average. The month it falls
+ * in is known; whether it is whole is `isCompleteMonth`'s question.
+ */
+export function monthKnown(ctx: AnalysisContext, month: string): boolean {
+  const day = householdKnownFrom(ctx);
+  return day === null || monthEnd(month) >= day;
+}
+
 /*
  * An account in daily use: `DAILY_ROWS` rows a month on average over the months it has rows in, spending in
  * `DAILY_PAID_SHARE` of those months or more, and rows in `DAILY_MONTHS_SHARE` of the months from its first row to its

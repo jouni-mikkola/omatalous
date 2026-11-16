@@ -66,22 +66,22 @@ export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LAN
   const spending = spendingMonthsReport(ctx, { from: `${addMonths(month, 1 - OVERVIEW_MONTHS)}-01`, to: ctx.today }, lang);
   const at = spending.months.length - 1;
   // the months' Menot are the bridge's spending, so a month's bars and Tulos add up; the report's sum is that and the debt paid from savings
-  const spent = spending.totals.map((cents, i) => cents - spending.fromSavings[i]!);
+  const spent = spending.totals.map((cents, i) => (cents ?? 0) - (spending.fromSavings[i] ?? 0));
   const totalCents = spent[at] ?? 0;
   const top = spending.categories
-    .filter((c) => c.values[at]! > 0)
+    .filter((c) => (c.values[at] ?? 0) > 0)
     .sort((a, b) => b.values[at]! - a.values[at]! || a.category.localeCompare(b.category))
     .slice(0, OVERVIEW_CATEGORIES)
     .map((c): OverviewCategory => ({ category: c.category, label: c.label, cents: c.values[at]!, usualCents: c.typicalCents }));
   return {
     income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
-    months: spending.months.map((m, i) => ({ month: m, incomeCents: monthIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i]!, complete: spending.complete[i]! })),
+    months: spending.months.map((m, i) => ({ month: m, incomeCents: monthIncome(ctx, m), spendCents: spent[i]!, fromSavingsCents: spending.fromSavings[i] ?? 0, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
     categories: {
       rows: top,
       otherCents: (spending.totals[at] ?? 0) - top.reduce((sum, c) => sum + c.cents, 0),
-      otherCount: spending.categories.filter((c) => c.values[at] !== 0).length - top.length,
+      otherCount: spending.categories.filter((c) => (c.values[at] ?? 0) !== 0).length - top.length,
       totalCents,
       fromSavingsCents: spending.fromSavings[at] ?? 0,
       // a category's usual reads its own months, fewer than the chart's when a card's rows are missing from some

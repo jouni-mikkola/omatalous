@@ -1,4 +1,5 @@
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
+import { monthKnown } from "../analysis/coverage.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { themeWindow } from "../analysis/themes-report.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
@@ -21,6 +22,19 @@ export function rangeMonthIndexes(range: DateRange, max = 24, ctx?: Pick<Analysi
 }
 
 export const monthLabels = (indexes: readonly number[]) => indexes.map(fromMonthIndex);
+
+/**
+ * Which of `months` (`YYYY-MM`) the household's data reaches into (`monthKnown`). A month before the accounts the
+ * household lives on were connected is unknown: its figure is null (`whereKnown`), never 0, and it is in no average.
+ * Every monthly series of a report starts here, so a new series inherits the rule.
+ */
+export const knownMonths = (ctx: AnalysisContext, months: readonly string[]): boolean[] => months.map((m) => monthKnown(ctx, m));
+
+/** `values` with null in each unknown month (`knownMonths`). */
+export const whereKnown = (values: readonly number[], known: readonly boolean[]): (number | null)[] => values.map((v, i) => (known[i] ? v : null));
+
+/** The sum of the figures of a series, an unknown month (null) counted as nothing. */
+export const sumKnown = (values: readonly (number | null)[]): number => values.reduce<number>((sum, v) => sum + (v ?? 0), 0);
 
 type MonthContext = AnalysisContext;
 

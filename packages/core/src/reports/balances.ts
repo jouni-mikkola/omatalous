@@ -10,7 +10,7 @@ import { dayNumber, fromDayNumber, fromMonthIndex, monthEnd } from "../dates.ts"
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { debtOutsideAccountsOn } from "../household-debts.ts";
 import { type AccountType, type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
-import { monthLabels, rangeMonthIndexes } from "./shared.ts";
+import { knownMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 /** Defined in types.ts, below analysis and reports, because the dashboard reads balances too. */
 export type { BalanceInput };
@@ -44,7 +44,8 @@ export interface BalanceReport {
   /**
    * The accounts added up at each month end, cards and loans with the sign the bank reports them (a card in debt takes
    * from it). An account that has not started yet adds nothing, so early months are an estimate; null when no account
-   * has a value yet.
+   * has a value yet, and in a month before the household's accounts began (`knownMonths`): the sum of a small account
+   * alone is no picture of the household.
    */
   total: (number | null)[];
   /**
@@ -81,9 +82,9 @@ export interface BalanceReport {
    */
   events: { day: IsoDate; label: string; cents: number; step: { beforeCents: number; afterCents: number } | null }[];
   /**
-   * The change at each month end from the month before, over the accounts that have a value at both ends (their own
-   * `values[i]` less `values[i - 1]`, added up); null for the first month, where `total` of either month is unknown, or
-   * where no account has both.
+   * The change at each month end from the month before: `total[i]` less `total[i - 1]`, so the column is the plain
+   * difference of the balances shown. An account that has its first value in month `i` brings its whole balance with it, and
+   * one that has no value any more takes it away; null where `total` of either month is unknown.
    */
   monthChange: (number | null)[];
   /**
@@ -134,7 +135,9 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
     const values = monthEnds.map((end) => walk.at(Math.min(end, ctx.todayDay)));
     return [{ accountId: a.id, name: a.name, type: a.type, ownerName: a.ownerName, balanceAt: a.balanceAt, asOf: fromDayNumber(walk.asOfDay), values, changeCents: null as number | null }];
   });
+  const known = knownMonths(ctx, monthLabels(months));
   const total = monthEnds.map((end, m) => {
+    if (!known[m]) return null;
     // an account blanked by a row in another currency makes the day's total unknown: a total without it would read as the whole
     if (series.some((s) => walks.get(s.accountId)!.blanked(Math.min(end, ctx.todayDay)))) return null;
     let sum = 0;
@@ -182,13 +185,8 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   const moved = balanceChange(all, dailyFrom, toDay);
   const withChange = series.map((s) => ({ ...s, changeCents: moved?.byAccount.get(s.accountId) ?? null }));
   const change = moved && { from: moved.from, to: moved.to, cents: moved.cents, basis: moved.basis };
-  // over the accounts with a value at both month ends: one that starts in between would count its whole balance as change, so it is left out
-  const comparable = (m: number) => series.filter((s) => s.values[m] !== null && s.values[m - 1] !== null);
-  const monthChange = total.map((t, m) => {
-    if (t === null || m === 0 || total[m - 1] === null) return null;
-    const same = comparable(m);
-    return same.length === 0 ? null : same.reduce((sum, s) => sum + (s.values[m]! - s.values[m - 1]!), 0);
-  });
+  // the difference of the totals shown, so an account that opens in between is in the change by its balance and the column reads as what it is
+  const monthChange = total.map((t, m) => (t === null || m === 0 || total[m - 1] === null ? null : t - total[m - 1]!));
   // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
   const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
   const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));

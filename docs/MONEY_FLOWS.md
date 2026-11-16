@@ -762,6 +762,11 @@ fetch records: `asked_from`, `first_row_day`, `source`), which the analysis cont
   first day is unknown (*alkupäivä ei tiedossa*), the reports use its first row as before, and its next consent asks
   for the longest history and records the day.
 - **A joint account** linked by two members is recorded once by each: the earliest day of the copies counts for all.
+- **A month the data does not reach.** The household's data starts on the earliest first day of the accounts that
+  pay out more than a tenth of its spending (`householdKnownFrom`). A month that ends before it (`monthKnown`) is
+  unknown: a small account's rows there are no month's money. The reports give it no figure (null, never 0), no
+  comparison, and leave it out of every average and usual level. `knownMonths` in `reports/shared.ts` is where a
+  monthly series starts. Saldot's change column is the plain difference of the totals it shows.
 - **A card account.** Where the bank gives a card account (the type code `CARD`, or a masked card number, in
   `accountType`; the link log's `cash_account_type` shows it), its rows are the card's purchases, and the first known
   day of the account is the day purchases are known from (`purchasesFrom`). An account that is no card account gives

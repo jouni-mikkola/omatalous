@@ -16,7 +16,7 @@ import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["spendingMonths"];
 type Row = Report["categories"][number];
-type MonthRow = { month: string; cents: number; complete: boolean; savingsCents?: number };
+type MonthRow = { month: string; cents: number | null; complete: boolean; savingsCents?: number | null };
 type PayeeRow = Row["payees"][number] & { rest?: boolean };
 
 const eur = (cents: number) => money(cents, false);
@@ -31,11 +31,11 @@ export function rowsHref(ctx: Pick<ReportContext, "range">, category: string, mo
 
 /** Under a category: its months, each a link to its rows, and the payees that got the most. Every figure is the server's. */
 function Detail({ row, r, ctx }: { row: Row; r: Report; ctx: ReportContext }) {
-  const months: MonthRow[] = r.months.map((month, i) => ({ month, cents: row.values[i]!, complete: r.complete[i]! }));
-  const monthText = (m: MonthRow) => monthName(m, ctx.running);
+  const months: MonthRow[] = r.months.map((month, i) => ({ month, cents: row.values[i] ?? null, complete: r.complete[i]! }));
+  const monthText = (m: MonthRow) => monthName({ ...m, unknown: m.cents === null }, ctx.running);
   const monthColumns: Column<MonthRow>[] = [
     { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => (m.cents ? <a href={rowsHref(ctx, row.category, m.month, undefined, r.from)}>{monthText(m)}</a> : monthText(m)) },
-    { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.cents, bar: { tone: "spending", value: (m) => m.cents, max: Math.max(1, ...row.values) } },
+    { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.cents, bar: { tone: "spending", value: (m) => m.cents ?? 0, max: Math.max(1, ...row.values.map((v) => v ?? 0)) } },
   ];
   const payeeColumns: Column<PayeeRow>[] = [
     { key: "name", label: t("table.payee"), kind: "text", rowHead: true, cell: (p) => (p.rest ? t("rpt.sm_other_payees") : p.name ? <a href={rowsHref(ctx, row.category, undefined, p.name, r.from)}>{p.name}</a> : t("rpt.sm_no_name")) },
@@ -92,7 +92,7 @@ function SpendingMonths({ ctx }: SectionProps) {
               label={section.title}
             />
             <MonthColumns
-              months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i]!], totalCents: r.totals[i]! }))}
+              months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null }))}
               series={[{ key: "spend", label: t("home.months_spend") }]}
               tone="spending"
               usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
@@ -121,12 +121,12 @@ function SpendingMonths({ ctx }: SectionProps) {
         caption={t("rpt.sm_months")}
         captionVisible
         className="sm-months"
-        rows={r.months.map((month, i) => ({ month, cents: r.totals[i]!, complete: r.complete[i]!, savingsCents: r.fromSavings[i]! }))}
+        rows={r.months.map((month, i) => ({ month, cents: r.totals[i] ?? null, complete: r.complete[i]!, savingsCents: r.fromSavings[i] ?? null }))}
         rowKey={(m) => m.month}
         columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName(m, ctx.running) },
+          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.cents === null }, ctx.running) },
           { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
-          ...(r.fromSavings.some((c) => c !== 0) ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? 0 }] satisfies Column<MonthRow>[]) : []),
+          ...(r.fromSavings.some((c) => !!c) ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? null }] satisfies Column<MonthRow>[]) : []),
         ]}
         total={r.typicalCents !== null ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents) } } : undefined}
         toolbar={false}
