@@ -176,9 +176,9 @@ export async function industryMap(repo: FinanceRepo): Promise<Map<string, string
 export async function reprocessLocked(repo: FinanceRepo, settings: SettingsRepo, rows?: StoredTransaction[]): Promise<ReprocessResult> {
   // read before the rows are: an import that lands while this runs sets a new mark, and that one stays
   const mark = await repo.unprocessedMark();
-  const [txs, accounts, rules, industries, roles, household] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles(), householdIbans(settings, repo.userId)]);
+  const [txs, accounts, rules, industries, roles, household, loans] = await Promise.all([rows ?? repo.allTransactions(), repo.listAccounts(), repo.listRules(), industryMap(repo), repo.payerRoles(), householdIbans(settings, repo.userId), repo.listLoans()]);
   const before = new Map(txs.map((t) => [t.id, t.category]));
-  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, clocks.get(settings)?.(), household);
+  const changed = await enrichTransactionsPausing(txs, accounts, rules, industries, yieldToLoop, { memberId: repo.userId, roles }, clocks.get(settings)?.(), household, loans);
   // the version moves with the last piece of the rows: the analysis is built before the run or after it (AnalysisCache)
   await writeEnrichment(repo, changed);
   await afterHooks.get(settings)?.(repo.userId, new Set([repo.userId]));
@@ -221,7 +221,7 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
       const names = new Set(merchants.map((m) => fold(m)));
       merchants = (await repo.merchantNames()).filter((m) => names.has(fold(m)));
     }
-    const [rows, accounts, rules, industries, outsideMatches, roles, household] = await Promise.all([
+    const [rows, accounts, rules, industries, outsideMatches, roles, household, loans] = await Promise.all([
       repo.transactionsOfMerchants(merchants),
       repo.listAccounts(),
       repo.listRules(),
@@ -229,11 +229,12 @@ export async function reprocessMerchantChange(repo: FinanceRepo, settings: Setti
       repo.matchedRowsOutside(merchants),
       repo.payerRoles(),
       householdIbans(settings, repo.userId),
+      repo.listLoans(),
     ]);
     if (rows.length > ISLAND_MAX_ROWS) return reprocessLocked(repo, settings);
     // a payer's median reads rows of other merchants: their payer, sum and day, nothing more
     const payerRows = roles.length ? await repo.incomingPayerRows() : undefined;
-    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows, today: clocks.get(settings)?.(), household });
+    const island = enrichIsland({ rows, before: change.before, accounts, rules, oldRules: change.oldRules, industries, outsideMatches, payers: { memberId: repo.userId, roles }, payerRows, today: clocks.get(settings)?.(), household, loans });
     if (!island.ok) return reprocessLocked(repo, settings);
     await writeEnrichment(repo, island.changed);
     await afterHooks.get(settings)?.(repo.userId, new Set([repo.userId]));

@@ -314,6 +314,7 @@ export interface Loan {
 /**
  * What the user typed in, next to the bank history: marks, expected bills and loans. The server reads them per request
  * and hands them to core, so they are not part of the cached analysis context and a change needs no data version bump.
+ * The one exception is a home loan's series key: the categories of its rows follow it, so such a change reprocesses.
  */
 export interface UserInputs {
   marks: readonly UserMark[];

@@ -6,8 +6,9 @@
 import { describe, expect, it } from "vitest";
 import { type Flows, flowsOf, totalsOf } from "../src/analysis/flows.ts";
 import { fold, normalizeMerchant } from "../src/merchant.ts";
-import { enrichTransactions } from "../src/pipeline.ts";
-import type { Account, Transaction } from "../src/types.ts";
+import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
+import { seriesId } from "../src/series-id.ts";
+import type { Account, Loan, Transaction } from "../src/types.ts";
 import { isCarFinanceText } from "../src/wording.ts";
 import { tx } from "./helpers.ts";
 
@@ -204,5 +205,89 @@ describe("peer lending", () => {
   it("interest and dividends from anyone else stay investment income", () => {
     check(["NORDNET BANK AB", "OSINKO", 80, "investment_income", { income: 8000 }]);
     check(["S-PANKKI OYJ", "TALLETUSKORKO", 12, "investment_income", { income: 1200 }]);
+  });
+});
+
+describe("a saved home loan names the series that is the mortgage", () => {
+  const instalments = () => ["2026-06-20", "2026-07-20", "2026-08-20", "2026-09-20"].map((day) => row("chk", day, -950, "LASKU 44512", "SANTANDER CONSUMER FINANCE OY"));
+  const loanOf = (rows: Transaction[], kind: Loan["kind"], payment = 95000): Loan => ({
+    id: "home", name: "Kodin laina", lender: null, kind, grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-09-01", rateBp: null, reference: null, marginBp: null,
+    repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: seriesId({ direction: "out", accountId: "chk", merchant: rows[0]!.merchant, product: payment }),
+  });
+  const enriched = (rows: Transaction[], loans?: Loan[]) => {
+    const changed = new Map(enrichTransactions(rows, [checking], [], undefined, undefined, undefined, undefined, loans).map((t) => [t.id, t]));
+    return rows.map((t) => changed.get(t.id) ?? t);
+  };
+  const categories = (rows: Transaction[], loans?: Loan[]) => enriched(rows, loans).map((t) => t.category);
+
+  it("reads a lender's reference-only instalments as the mortgage", () => {
+    const rows = instalments();
+    expect(categories(rows, [loanOf(rows, "mortgage")])).toEqual(Array(4).fill("mortgage"));
+  });
+
+  it("keeps the lender's instalments consumer credit without a saved loan", () => {
+    expect(categories(instalments())).toEqual(Array(4).fill("loans"));
+    expect(categories(instalments(), [])).toEqual(Array(4).fill("loans"));
+  });
+
+  it("takes nothing from a saved loan of another kind, an unlinked one or another series", () => {
+    const rows = instalments();
+    expect(categories(rows, [loanOf(rows, "consumer")])).toEqual(Array(4).fill("loans"));
+    expect(categories(rows, [{ ...loanOf(rows, "mortgage"), seriesKey: null }])).toEqual(Array(4).fill("loans"));
+    expect(categories(rows, [loanOf(rows, "mortgage", 31000)])).toEqual(Array(4).fill("loans"));
+    expect(categories(rows, [{ ...loanOf(rows, "mortgage"), seriesKey: "out:other:SANTANDER CONSUMER FINANCE OY#95000" }])).toEqual(Array(4).fill("loans"));
+  });
+
+  it("leaves a row the household set by hand", () => {
+    const rows = instalments();
+    rows[1] = { ...rows[1]!, category: "other", categorySource: "user" };
+    expect(categories(rows, [loanOf(rows, "mortgage")])).toEqual(["mortgage", "other", "mortgage", "mortgage"]);
+  });
+
+  it("counts the mortgage as debt service", () => {
+    const rows = instalments();
+    const flows = enriched(rows, [loanOf(rows, "mortgage")]).map((t) => flowsOf(t, new Set(), new Set()));
+    expect(totalsOf(flows)).toMatchObject({ debtCents: 380000, consumptionCents: 0 });
+  });
+
+  const MONTHS = ["2026-06-20", "2026-07-20", "2026-08-20", "2026-09-20"];
+  const lender = "SANTANDER CONSUMER FINANCE OY";
+  const stepping = () => [950, 1050, 1160, 1280].map((euros, i) => row("chk", MONTHS[i]!, -euros, "LASKU 44512", lender));
+
+  it("reads every payment of a series whose payment steps with the rate, whichever of them the saved key names", () => {
+    for (const named of [95000, 105000, 116000, 128000]) {
+      const rows = stepping();
+      expect(categories(rows, [loanOf(rows, "mortgage", named)])).toEqual(Array(4).fill("mortgage"));
+    }
+  });
+
+  it("does not step over a gap of more than a month and a half or a jump of more than a seventh", () => {
+    const rows = [row("chk", "2026-03-20", -1150, "LASKU 44512", lender), ...stepping().slice(0, 1), row("chk", "2026-07-20", -1300, "LASKU 44512", lender)];
+    expect(categories(rows, [loanOf(rows, "mortgage")])).toEqual(["loans", "mortgage", "loans"]);
+  });
+
+  it("leaves the other loan of the same lender and account as it was", () => {
+    const home = stepping();
+    const consumer = MONTHS.map((day) => row("chk", day, -310, "LASKU 77123", lender));
+    const rows = [...home, ...consumer];
+    const loans = [loanOf(rows, "mortgage", 105000), { ...loanOf(rows, "consumer", 31000), id: "car" }];
+    expect(categories(rows, loans)).toEqual([...Array(4).fill("mortgage"), ...Array(4).fill("loans")]);
+  });
+
+  it("takes the payment nearest in size when two of the lender fall in one month", () => {
+    const home = MONTHS.map((day) => row("chk", day, -1000, "LASKU 44512", lender));
+    const other = MONTHS.map((day) => row("chk", `${day.slice(0, 8)}22`, -1140, "LASKU 77123", lender));
+    const rows = [...home, ...other];
+    expect(categories(rows, [loanOf(rows, "mortgage", 100000)])).toEqual([...Array(4).fill("mortgage"), ...Array(4).fill("loans")]);
+  });
+
+  it("keeps the rows of the lender alone as the whole history left them, when a run of that merchant alone is made", () => {
+    const rows = stepping();
+    const loans = [loanOf(rows, "mortgage", 116000)];
+    const stored = enriched(rows, loans);
+    expect(stored.map((t) => t.category)).toEqual(Array(4).fill("mortgage"));
+    // a hand-set category elsewhere in the history runs the lender's rows again, as stored, with the saved loans
+    const island = enrichIsland({ rows: stored, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], loans });
+    expect(island).toEqual({ ok: true, changed: [] });
   });
 });

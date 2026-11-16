@@ -1,7 +1,7 @@
 /**
  * GET /api/loans/proposals: the loans the bank rows show and the household has not answered. A proposal goes when a loan
- * with its series key is saved and when "Ei ole laina" is marked, at once and with no data version moving; another user's
- * rows give nothing.
+ * with its series key is saved and when "Ei ole laina" is marked, at once and with no data version moving (a home loan's
+ * key reprocesses the categories of its rows); another user's rows give nothing.
  */
 import { notLoanMark, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
@@ -73,6 +73,21 @@ describe("loan proposals", () => {
     expect(await t.s.settings.dataVersionOf([t.adminId])).toBe(version);
     expect((await t.admin.call("DELETE", `/api/loans/${saved.body.loan.id}`)).status).toBe(200);
     expect((await t.proposals()).map((p) => p.key)).toEqual([proposal!.key]);
+  });
+
+  it("reads the rows of a series as the mortgage once a home loan is saved with its key, and as a loan again when it is removed", async () => {
+    const t = await withLoanRows();
+    const [proposal] = await t.proposals();
+    const categories = async () => [...new Set((await t.s.finance(t.adminId).allTransactions()).filter((r) => r.amountCents < 0).map((r) => r.category))];
+    expect(await categories()).toEqual(["loans"]);
+    const home = { name: "Asuntolaina", kind: "mortgage", balanceCents: 15_000_000, balanceDate: "2026-10-01", paymentCents: 25000, intervalMonths: 1, seriesKey: proposal!.key };
+    // a loan of another kind moves no category
+    const other = await t.admin.call("POST", "/api/loans", { ...home, kind: "consumer" });
+    expect(await categories()).toEqual(["loans"]);
+    expect((await t.admin.call("PUT", `/api/loans/${other.body.loan.id}`, home)).status).toBe(200);
+    expect(await categories()).toEqual(["mortgage"]);
+    expect((await t.admin.call("DELETE", `/api/loans/${other.body.loan.id}`)).status).toBe(200);
+    expect(await categories()).toEqual(["loans"]);
   });
 
   it("goes when Ei ole laina is marked, at once, and comes back when the mark is taken away", async () => {

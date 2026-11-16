@@ -6,13 +6,14 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
 import { isIsoDate, strictObject, UNSEEN } from "../platform/validate.ts";
 import { proposalsFor } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
+import { reprocess } from "../services/enrich.ts";
 import { body } from "./shared.ts";
 
 type LoanFields = Omit<Loan, "id">;
@@ -177,6 +178,21 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
 export function loanRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
+  /**
+   * The home loans' series are the household's word for which payments are the mortgage, and the categories of those rows
+   * follow it (core `applyDeclaredMortgages`), which also reads every saved loan's key to keep another loan's rows out. So
+   * while a home loan is saved a change of any key reprocesses; any other change of a loan moves no category and is read
+   * per request.
+   */
+  const mortgageSeries = async (userId: string) => {
+    const loans = await s.finance(userId).listLoans();
+    const mortgages = mortgageSeriesKeys(loans);
+    return mortgages.length ? JSON.stringify([mortgages, loans.flatMap((loan) => loan.seriesKey ?? []).sort()]) : "";
+  };
+  const afterSave = async (userId: string, before: string) => {
+    if ((await mortgageSeries(userId)) !== before) await reprocess(s.finance(userId), s.settings);
+  };
+
   app.get("/loans", async (c) => c.json({ loans: await s.finance(c.get("user").id).listLoans() }));
 
   /**
@@ -195,9 +211,10 @@ export function loanRoutes(s: Services) {
     const input = await parseLoan(await body(c), s.today(), repo);
     if ((await repo.listLoans()).length >= MAX_LOANS) throw new UserError(`Lainoja voi olla enintään ${MAX_LOANS}. Poista ensin turhat.`);
     const loan: Loan = { id: randomToken(), ...input };
-    // loans are read per request, so nothing is cached and no data version moves
+    const before = await mortgageSeries(repo.userId);
     const holder = await repo.addLoan(loan, s.now().toISOString());
     if (holder) throw heldBy(holder);
+    await afterSave(repo.userId, before);
     return c.json({ loan });
   });
 
@@ -205,15 +222,20 @@ export function loanRoutes(s: Services) {
   app.put("/loans/:id", async (c) => {
     const repo = s.finance(c.get("user").id);
     const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(await body(c), s.today(), repo)) };
+    const before = await mortgageSeries(repo.userId);
     const saved = await repo.updateLoan(loan, s.now().toISOString());
     // another member's loan is not this user's row: the same 404 as an id that never existed
     if (saved === false) throw new NotFound("Lainaa ei löydy.");
     if (saved !== true) throw heldBy(saved);
+    await afterSave(repo.userId, before);
     return c.json({ loan });
   });
 
   app.delete("/loans/:id", async (c) => {
-    if (!(await s.finance(c.get("user").id).deleteLoan(c.req.param("id")))) throw new NotFound("Lainaa ei löydy.");
+    const userId = c.get("user").id;
+    const before = await mortgageSeries(userId);
+    if (!(await s.finance(userId).deleteLoan(c.req.param("id")))) throw new NotFound("Lainaa ei löydy.");
+    await afterSave(userId, before);
     return c.json({ ok: true });
   });
 

@@ -63,7 +63,8 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   account, so a service that moves to another account is a new series, `alert:<id>`, `loan-proposal:<key>`, or
   `merchant:<name>` from before 0.8.7), expected bills (`expected_bills`, `/api/expected-bills`) and loans (`loans`,
   `db/finance/loans.ts`, `/api/loans`, whose values `routes/loans.ts` bounds because core trusts them) are read per
-  request (`requestInputs`) and are not part of the cached context.
+  request (`requestInputs`) and are not part of the cached context. A loan of kind mortgage with a series key sets the
+  categories of that series' rows (`applyDeclaredMortgages`), so a change of those keys calls `reprocess`.
 - `category_source = 'user'` is never overwritten by automation. Likewise `accounts.custom_name` (the user's name for an
   account) is written only by `PATCH /accounts/:id` and by an import of the user's own export into an account it creates; `accounts.name` is the bank's and every link rewrites it.
   `StoredAccount.name` is the display name (the user's, else the bank's); matching reads the bank's (`bankName`).
