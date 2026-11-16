@@ -6,7 +6,7 @@
 import { partCents } from "./account-use.ts";
 import { addMonthsToDate } from "./dates.ts";
 import { type Debt, partly } from "./debt-part.ts";
-import { type Payment, planOf } from "./loan-plan.ts";
+import { endOf, type Payment, planOf } from "./loan-plan.ts";
 import { hasReferenceRate, loanBalanceOn, type LoanUnknown, movedRate, planFrom } from "./loans.ts";
 import type { IsoDate } from "./types.ts";
 
@@ -25,8 +25,9 @@ interface DebtPathMove {
 /**
  * Where the loans go from a day to the day they are paid: on the day and on the same day of each month after it, what
  * they owe and the interest of their payments still to come, each loan by its own plan (`payments`). The two stacked are
- * what is still to pay in all. A debt the plan cannot move forward (a card, a credit line, a loan lacking a field or one
- * that never ends) is left out and named in `left`. `moves` draws the same with the reference rate moved by each shift.
+ * what is still to pay in all. A debt that owes and that the plan cannot move forward (a card, a credit line, a loan
+ * lacking a field or one that never ends) leaves the whole path unknown (`debtPath` is null): the others alone would
+ * tell a part as the whole. `moves` draws the same with the reference rate moved by each shift.
  */
 export interface DebtPath {
   days: IsoDate[];
@@ -40,8 +41,6 @@ export interface DebtPath {
   payoff: IsoDate | null;
   /** Only when a loan of the path has a reference rate, and only the moves that change what is still to pay. */
   moves: DebtPathMove[];
-  /** The debts that owe on the day and are not in the path, with the field that would have put them there. */
-  left: { id: string; name: string; unknown: LoanUnknown }[];
 }
 
 /** The payments of one loan from the day on at a shift, cut to its part, or why it has none. */
@@ -57,6 +56,11 @@ function pathPayments(loan: Debt, day: IsoDate, shiftBp: number): { start: numbe
   if (day < loan.balanceDate) return "before_balance_date";
   if ((loanBalanceOn(loan, day).cents ?? 1) <= 0) return null;
   if (loan.rateBp === null) return "rate";
+  // a bullet that costs no interest (a card paid in full) pays its whole balance on its last due date: its one payment
+  if (loan.repayment === "bullet" && loan.rateBp === 0) {
+    const end = endOf(loan);
+    return end === null ? "end_date" : { start: loan.balanceCents, list: [{ date: end, interestCents: 0, amortisationCents: loan.balanceCents, balanceCents: 0 }] };
+  }
   const plan = planOf(loan);
   if ("missing" in plan) return plan.missing ?? "repayment";
   const from = planFrom(loan, plan, day, hasReferenceRate(loan) ? movedRate(loan.rateBp, loan.marginBp, shiftBp) : loan.rateBp);
@@ -66,15 +70,17 @@ function pathPayments(loan: Debt, day: IsoDate, shiftBp: number): { start: numbe
   return { start: from.balanceCents, list: list.map((p) => ({ ...p, interestCents: p.interestCents ?? 0 })) };
 }
 
-/** The path of `DebtPath` from `day`, with a line for each reference rate move of `shiftsBp`. */
-export function debtPath(loans: readonly Debt[], day: IsoDate, shiftsBp: readonly number[] = []): DebtPath {
-  const left: DebtPath["left"] = [];
+/**
+ * The path of `DebtPath` from `day`, with a line for each reference rate move of `shiftsBp`. Null when a debt that owes
+ * has no plan to move it forward: what the rest owes is not what the household owes.
+ */
+export function debtPath(loans: readonly Debt[], day: IsoDate, shiftsBp: readonly number[] = []): DebtPath | null {
   const base: { loan: Debt; start: number; list: Payment[] }[] = [];
   for (const loan of loans) {
     const p = pathPayments(loan, day, 0);
     if (p === null) continue;
-    if (typeof p === "string") left.push({ id: loan.id, name: loan.name, unknown: p });
-    else base.push({ loan, ...p });
+    if (typeof p === "string") return null;
+    base.push({ loan, ...p });
   }
   // a move that leaves a loan with no plan (an annuity that would never end) has no line to draw
   const shifted = shiftsBp.flatMap((shiftBp) => {
@@ -115,6 +121,5 @@ export function debtPath(loans: readonly Debt[], day: IsoDate, shiftsBp: readonl
     tops: now!.tops,
     payoff: ends[0] ?? null,
     moves: moved.flatMap((m, k) => (m.interest[0] === now!.interest[0] ? [] : [{ shiftBp: shifted[k]!.shiftBp, tops: m.tops, payoff: ends[k + 1]!, extraCents: m.interest[0]! - now!.interest[0]! }])),
-    left,
   };
 }

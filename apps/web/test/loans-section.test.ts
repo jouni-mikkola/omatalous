@@ -20,9 +20,9 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
     ...over,
   }) as LoanRow;
 /** No loan the path can move forward: no chart. */
-const NO_PATH: LoansReport["path"] = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [], left: [] };
+const NO_PATH: NonNullable<LoansReport["path"]> = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] };
 const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
-  day, saved: rows.length, loans: rows, total: { cents: 12_000_000, unknown: [] }, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
+  day, saved: rows.length, loans: rows, total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
   withoutRate: 0, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
 });
 const balanceData = {
@@ -49,14 +49,16 @@ const card = (over: Partial<LoanRow> = {}) =>
   row({ id: "account:c1", name: "Esimerkkikortti Gold", lender: null, kind: "card", accountType: "credit_card", balance: { cents: 124_000, unknown: "repayment" }, rateBp: null, reference: null, repayment: null, payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "repayment" }, interest: { cents: null, unknown: "rate" }, payoff: { date: null, unknown: "repayment", never: false }, ...over });
 
 describe("Raportit: Lainat", () => {
-  it("draws the way to the payoff under its question, with what a rise of the rate adds and the debts it leaves out", () => {
-    const path: LoansReport["path"] = {
+  it("draws the way to the payoff under its question, with what a rise of the rate adds, and no chart where a debt cannot be projected", () => {
+    const path: NonNullable<LoansReport["path"]> = {
       days: ["2026-10-11", "2026-11-11", "2026-12-11"], balanceCents: [12_000_000, 6_000_000, 0], interestCents: [300_000, 100_000, 0], tops: [12_300_000, 6_100_000, 0],
-      payoff: "2026-12-01", moves: [{ shiftBp: 100, tops: [12_400_000, 6_150_000, 0], payoff: "2026-12-01", extraCents: 100_000 }], left: [{ id: "c", name: "Luottoraja", unknown: "repayment" }],
+      payoff: "2026-12-01", moves: [{ shiftBp: 100, tops: [12_400_000, 6_150_000, 0], payoff: "2026-12-01", extraCents: 100_000 }],
     };
     const out = html(loans, context(report([row()], { path })));
     expect(out).toContain("Velkapolku");
-    expect(out).toContain("Viimeinen laina on maksettu joulukuussa 2026. Velkaa on nyt 120 000 €, ja korkoa tulee sen päälle vielä 3 000 €. Jos viitekorko nousee prosenttiyksikön, korkoa tulee arviolta 1 000 € enemmän. Luottoraja ei ole kuvassa: sen maksuja ei voi laskea eteenpäin.");
+    expect(out).toContain("Viimeinen laina on maksettu joulukuussa 2026. Velkaa on nyt 120 000 €, ja korkoa tulee sen päälle vielä 3 000 €. Jos viitekorko nousee prosenttiyksikön, korkoa tulee arviolta 1 000 € enemmän.");
+    expect(out).not.toContain("ei ole kuvassa");
+    expect(html(loans, context(report([row()], { path: null })))).not.toContain("Velkapolku");
     expect(html(loans, context(report([row()])))).not.toContain("Milloin velat on maksettu");
   });
 
@@ -89,8 +91,10 @@ describe("Raportit: Lainat", () => {
   it("tells the day of a balance no plan moved forward, and a balance dated ahead, in the words of the form", () => {
     const kept = row({ balance: { cents: 124_000, unknown: "repayment" }, balanceDate: "2026-03-01" });
     expect(html(loans, context(report([kept])))).toContain(`<dt>Velkaa</dt><dd>1 240,00 €<small>jäljellä 1.3.</small></dd>`);
-    const ahead = report([row()], { total: { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } });
-    expect(html(loans, context(ahead))).toContain("Velan summasta puuttuu yksi laina, jonka jäljellä oleva summa on kirjattu tulevalle päivälle.");
+    const ahead = report([row()], { total: { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] }, totalKnown: false });
+    const out = html(loans, context(ahead));
+    expect(out).toContain(tile("Velkaa yhteensä", "–"));
+    expect(out).not.toContain("puuttuu");
   });
 
   it("a bullet has no payment to tell, in its row, after a move of the rate or in the payments of a month", () => {
@@ -220,21 +224,11 @@ describe("Raportit: Lainat", () => {
     expect(html(loans, context(report([row({ name: "Asuntolaina 2" })])))).toContain("<strong>Asuntolaina 2</strong><span>Asuntolaina · Esimerkkipankki</span>");
   });
 
-  it("a loan the household can complete has a dash and one link to Lainat in Asetukset, and a loan nobody here can complete has none", () => {
-    const link = '<a class="loan-mend" href="#/settings/household#lainat">Täydennä</a>';
+  it("a loan with a figure not told has a dash and no link: Tarkistettavat asks for what is missing", () => {
     const untold = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" } } as const;
     const mine = html(loans, context(report([row(untold)])));
     expect(mine).toContain(figure("Korko", "–").replace("<dd>", '<dd class="unknown">'));
-    expect(mine.split("Täydennä").length - 1).toBe(1);
-    expect(mine.trimEnd()).toMatch(/Täydennä<\/a><\/li><\/ul><\/section>$/);
-    expect(mine).toContain(link);
-    // every figure told: nothing to complete. A payment of nothing is a dash that was told, not one that is missing
-    const done = { cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: null };
-    expect(html(loans, context(report([row()])))).not.toContain("Täydennä");
-    expect(html(loans, context(report([row({ balance: { cents: 0, unknown: null }, payment: done, interest: { cents: 0, unknown: null }, payoff: { date: null, unknown: null, never: false } })])))).not.toContain("Täydennä");
-    // another member's loan is its typist's to change, and a connected loan account has no saved loan
-    expect(html(loans, context(report([row({ ...untold, typedBy: "Aino" })])))).not.toContain("Täydennä");
-    expect(html(loans, context(report([row({ ...untold, accountType: "loan" })])))).not.toContain("Täydennä");
+    expect(mine).not.toContain("Täydennä");
   });
 
   it("a connected card has its used credit and, when the account has a limit, the limit; none of a loan's terms and no link", () => {

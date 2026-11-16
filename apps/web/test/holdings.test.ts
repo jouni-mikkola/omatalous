@@ -54,18 +54,20 @@ describe("Holdings", () => {
       expect(text(html(answer({ ...base, netCents: 100_000 })))).not.toContain("Varat velkojen jälkeen");
     });
 
-    it("is named Varat korttivelan jälkeen with a link to the loans when no loan has a balance, saved or not", () => {
-      const saved = html(answer({ ...base, netCents: 100_000, loans: [loan({ leftCents: null })] }));
-      expect(text(saved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
-      expect(links(saved)).toContain("#/settings/household#lainat");
+    it("is named Varat korttivelan jälkeen with a link to the loans when only loans nobody saved are left out", () => {
       const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 } }));
       expect(text(unsaved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
       expect(links(unsaved)).toContain("#/settings/household#lainat");
     });
 
-    it("counts the loans left out when only some have a balance", () => {
-      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan(), loan({ id: "l2", leftCents: null })], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans: { count: 1, names: [], paymentCents: 30_000 } }));
+    it("counts the loans left out when the saved ones all have a balance", () => {
+      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 } }));
       expect(text(some)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 2 lainaa) −119 000 €");
+    });
+
+    it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
+      const unknown = html(answer({ ...base, netCents: null, debtCents: null, loans: [loan({ leftCents: null })] }));
+      expect(text(unknown)).toContain("Varat ja velat Varat velkojen jälkeen –");
     });
   });
 
@@ -218,9 +220,9 @@ describe("Holdings", () => {
       expect(foot(answer({ loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
     });
 
-    it("is the debt total core gives, also when a loan has no balance and is not in it", () => {
-      const markup = foot(answer({ cards: [owing(50_000)], loans: [loan({ leftCents: null })], debtCents: 50_000 }));
-      expect(markup.foot).toContain("Velat yhteensä 500,00 €");
+    it("is the debt total core gives, a dash when core cannot tell it because a loan has no balance on the day", () => {
+      const markup = foot(answer({ cards: [owing(50_000)], loans: [loan({ leftCents: null })], debtCents: null }));
+      expect(markup.foot).toContain("Velat yhteensä –");
       expect(text(markup.groups)).not.toContain("Lainat yhteensä");
     });
   });

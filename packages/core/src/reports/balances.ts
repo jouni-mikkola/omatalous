@@ -1,13 +1,14 @@
 // Decision: is the buffer growing and the debt shrinking
 import { type BalanceChange, balanceChange, balanceDays, totalOn } from "../analysis/balance-change.ts";
 import { type BalanceWalk, balanceWalk } from "../analysis/balance-walk.ts";
+import { debtsOf } from "../analysis/card-settled.ts";
 import { type AnalysisContext, inDays } from "../analysis/context.ts";
 import { largePurchases } from "../analysis/large.ts";
 import { payDays } from "../behaviour/payday.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { dayNumber, fromDayNumber, fromMonthIndex, monthEnd } from "../dates.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
-import { debtOutsideAccountsOn, householdDebts } from "../household-debts.ts";
+import { debtOutsideAccountsOn } from "../household-debts.ts";
 import { type AccountType, type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { monthLabels, rangeMonthIndexes } from "./shared.ts";
 
@@ -58,10 +59,11 @@ export interface BalanceReport {
    */
   accountsLessDebt: (number | null)[];
   /**
-   * What the household owes today, the one debt total (`householdDebts`), and the part of it no account holds, the
-   * saved loans that are linked to none: what today's `accountsLessDebt` takes from `total`.
+   * What the household owes today, the one debt total (`householdDebts`; null when a loan's balance is not known on the
+   * day, as in Lainat), and the part of it no account holds, the saved loans that are linked to none: what today's
+   * `accountsLessDebt` takes from `total`.
    */
-  debt: { day: IsoDate; cents: number; savedCents: number };
+  debt: { day: IsoDate; cents: number | null; savedCents: number };
   /**
    * The accounts added up at the end of each day from `from` to the range's end or today: the line the balance chart
    * draws, so its dips are the days the money went. null on a day an account is not known yet or is blanked.
@@ -145,7 +147,7 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
     }
     return any ? sum : null;
   });
-  const debts = householdDebts(accounts, inputs, ctx.today);
+  const debts = debtsOf(ctx, accounts, inputs);
   // a linked loan counts as typed on a day its account has no balance for yet: `total` does not hold it there
   const outside = (day: number) => debtOutsideAccountsOn(debts, fromDayNumber(day), (id) => (walks.get(id)?.at(day) ?? null) !== null);
   const accountsLessDebt = monthEnds.map((end, m) => {
@@ -154,7 +156,7 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
     // a loan that is left out was not told yet on that day: what was owed then is not known
     return saved.unknown.some((u) => !u.counted) ? null : total[m]! - saved.cents;
   });
-  const debt = { day: debts.day, cents: debts.total.cents, savedCents: outside(ctx.todayDay).cents };
+  const debt = { day: debts.day, cents: debts.totalKnown ? debts.total.cents : null, savedCents: outside(ctx.todayDay).cents };
   const fromDay = dayNumber(range.from);
   const toDay = Math.min(dayNumber(range.to), ctx.todayDay);
   const low = lowestDayBalance([...walks.values()], fromDay, toDay);

@@ -103,7 +103,7 @@ describe("a real loan account (b) and a paid off loan (c)", () => {
     expect(w.holdings.loans).toMatchObject([{ id: "account:acc-2", leftCents: 14_800_000, paidOff: false }]);
     expect(w.holdings.debtCents).toBe(14_800_000);
     const earlier = world([...salary, ...paidIn, ...interest], [checking, loanAccount({ balanceCents: -14_890_000 })]);
-    expect(earlier.holdings.debtCents - w.holdings.debtCents).toBe(90_000);
+    expect(earlier.holdings.debtCents! - w.holdings.debtCents!).toBe(90_000);
   });
 
   const home: Loan = {

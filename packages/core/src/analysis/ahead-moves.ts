@@ -17,7 +17,7 @@ import { median } from "../stats.ts";
 import { incomingLegFinder } from "../pairing.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
-import { balanceWalk } from "./balance-walk.ts";
+import { type BalanceWalk, balanceWalk } from "./balance-walk.ts";
 import { owedAfter } from "./card-payments.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
 import { USUAL_MONTHS } from "../thresholds.ts";
@@ -29,7 +29,7 @@ const MIN_BILL_GAP_DAYS = 15;
 /** A bill this many days late is still expected, on the first day of the window. A later one did not come. */
 const LATE_DAYS = 5;
 /** No bill for this long after the last one: two bill days went by, so the card is not in use or is paid from elsewhere. */
-const STALE_DAYS = 62;
+export const STALE_DAYS = 62;
 /** The days between two monthly bills, a bill paid early or late included. Payments closer than this pay the card as it goes. */
 const STATEMENT_GAP_DAYS = { min: 21, max: 41 } as const;
 
@@ -60,6 +60,8 @@ export interface Settling {
   cardId: string;
   /** The day the bill is paid, never before the window's first day. */
   date: IsoDate;
+  /** The card was proven paid in full: each of its last bills covered what it owed, and no interest row came since (`paidInFull`). The window's figures do not read it. */
+  inFull: boolean;
 }
 
 /**
@@ -230,6 +232,24 @@ interface BilledCard {
   unappliedCents: number;
 }
 
+/**
+ * Whether a card is shown paid in full each time: each of its last `MIN_PAYMENTS` bills was at least what the card owed
+ * at the end of the day the bill before it reached the card (so the bill before the first of them must exist), and the
+ * card has no interest row since the first of those bills. A card with a balance that revolves has one of the two
+ * wrong; a card with no balance walk is not proven. The last bill alone (`paidWhole` of `cardBills`) sizes the next bill, which is
+ * all the window of the coming days needs; the interest figures need this.
+ */
+function paidInFull(ctx: AnalysisContext, cardId: string, walk: BalanceWalk | null, paid: readonly PaidBill[]): boolean {
+  if (!walk || paid.length <= MIN_PAYMENTS) return false;
+  const bills = paid.slice(-MIN_PAYMENTS);
+  const covered = bills.every((b, i) => {
+    const held = walk.at(paid[paid.length - MIN_PAYMENTS + i - 1]!.cardDay);
+    return held !== null && -held <= -b.out.amountCents;
+  });
+  const since = bills[0]!.out.bookingDate;
+  return covered && !ctx.txs.some((t) => t.accountId === cardId && t.category === "interest" && t.bookingDate >= since);
+}
+
 /** Adds the bills of one card expected from `from` to `until`, its payments in the order of their days, to `into`. */
 function cardBills(ctx: AnalysisContext, card: BilledCard, paid: readonly PaidBill[], from: IsoDate, until: IsoDate, into: Pick<Moves, "moves" | "settling">): void {
   const last = paid.at(-1)!;
@@ -242,8 +262,10 @@ function cardBills(ctx: AnalysisContext, card: BilledCard, paid: readonly PaidBi
   // never more than the card owes: a payment its balance may not hold yet is taken off
   const owed = used === null ? null : owedAfter(used, card.unappliedCents);
   // what the card held at the end of the day the bill before the last reached it: under zero is owed
-  const heldThen = card.balance ? (balanceWalk(ctx, card.balance)?.at(paid.at(-2)!.cardDay) ?? null) : null;
+  const walk = card.balance ? balanceWalk(ctx, card.balance) : null;
+  const heldThen = walk?.at(paid.at(-2)!.cardDay) ?? null;
   const paidWhole = heldThen !== null && -heldThen <= lastCents;
+  const inFull = paidInFull(ctx, card.id, walk, paid);
   let first = true;
   for (let month = monthOf(last.out.bookingDate); ; month = addMonths(month, 1)) {
     const date = dateIn(month, day);
@@ -251,7 +273,7 @@ function cardBills(ctx: AnalysisContext, card: BilledCard, paid: readonly PaidBi
     if (date > until || sinceLast > STALE_DAYS) break;
     if (sinceLast < MIN_BILL_GAP_DAYS || daysBetween(date, from) > LATE_DAYS) continue;
     const basis = first && owed !== null && paidWhole && date >= from ? "balance" : "usual";
-    if (basis === "balance") into.settling.push({ cardId: card.id, date: date < from ? from : date });
+    if (basis === "balance") into.settling.push({ cardId: card.id, date: date < from ? from : date, inFull });
     first = false;
     const amountCents = basis === "balance" ? owed! : owed === null ? usual : Math.min(usual, owed);
     if (amountCents > 0) into.moves.push({ date: date < from ? from : date, name: card.name, amountCents, source: "card", basis, cardId: card.id });

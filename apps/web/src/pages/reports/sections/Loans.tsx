@@ -88,9 +88,6 @@ function scenario(s: RateScenario): string | null {
 /** A word under a loan's name unless it only repeats the name: "Asuntolaina" under the name "Asuntolaina". */
 const unlessName = (word: string, name: string) => (word.trim().toLowerCase() === name.trim().toLowerCase() ? null : word);
 
-/** Where a loan's missing terms are told: the card Lainat of Asetukset. */
-const SETTINGS_LOANS = settingsCardHash(SETTINGS_ANCHOR.loans);
-
 /** `limitCents`: the limit of a connected card, when it has one to tell. */
 function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
   // a connected card is a card: what is used and the limit, none of a loan's terms
@@ -113,8 +110,6 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
         { label: t("rpt.ln_last_due"), value: lastPayment(l) },
       ];
   if (belowWhole(l.part)) figures.push({ label: t("rpt.ln_your_share"), value: percent((l.part.to - l.part.from) / l.part.of) });
-  // a loan of the viewer's own with a dash in it is theirs to complete: another member's loan is its typist's, and a connected account has no saved loan
-  const mend = l.accountType === null && !l.typedBy && figures.some((f) => f.value === null);
   return (
     <li>
       <div className="loan-head">
@@ -127,11 +122,6 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
         ))}
       </dl>
       {moves.length > 0 && <p className="loan-scenario">{moves.join(" ")}</p>}
-      {mend && (
-        <a className="loan-mend" href={SETTINGS_LOANS}>
-          {t("rpt.ln_complete")}
-        </a>
-      )}
     </li>
   );
 }
@@ -203,12 +193,10 @@ interface Note {
   offers?: Offer[];
 }
 
-/** What the debt total leaves out, and a debt that may be in a figure twice. `less`: the accounts less the debts are shown. `own`: the ids of the viewer's own accounts. */
+/** A debt that may be in a figure twice. `less`: the accounts less the debts are shown. `own`: the ids of the viewer's own accounts. */
 function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] {
-  const late = r.total.unknown.filter((u) => !u.counted).length;
   const typists = new Map(r.loans.flatMap((l): [string, string][] => (l.typedBy ? [[l.id, l.typedBy]] : [])));
   return [
-    ...(late ? [{ text: late === 1 ? t("rpt.ln_late_one") : t("rpt.ln_late_n", { n: late }) }] : []),
     ...r.maybeTwice.map((twin) => {
       const links = offers(twin, own, typists);
       return { key: `twice ${idsOf(twin)}`, text: twice(twin, links.length > 0, removers(twin, typists)), warn: true, offers: links };
@@ -220,15 +208,13 @@ function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] 
 /** "maaliskuussa 2041": the month a date falls in, in the inessive (every month's name ends in -kuu). */
 const inMonth = (day: string) => monthLongIn(day.slice(0, 7));
 
-/** The answer under the path: when the last loan is paid, what is still to pay, what a rise of the reference rate adds, and the debts left out. */
-function pathAnswer(path: LoansReport["path"]): string {
+/** The answer under the path: when the last loan is paid, what is still to pay, and what a rise of the reference rate adds. */
+function pathAnswer(path: NonNullable<LoansReport["path"]>): string {
   const up = path.moves.find((m) => m.shiftBp > 0);
-  const left = path.left.map((l) => l.name);
   return [
     path.payoff && t("rpt.ln_path_last", { month: inMonth(path.payoff) }),
     t("rpt.ln_path_now", { debt: money(path.balanceCents[0]!, false), interest: money(path.interestCents[0]!, false) }),
     up && t("rpt.ln_path_up", { amount: money(up.extraCents, false) }),
-    left.length > 0 && t(left.length === 1 ? "rpt.ln_path_left_one" : "rpt.ln_path_left_many", { names: listed(left, and()) }),
   ]
     .filter(Boolean)
     .join(" ");
@@ -236,6 +222,7 @@ function pathAnswer(path: LoansReport["path"]): string {
 
 function Loans({ ctx }: SectionProps) {
   const r = ctx.data.loans;
+  const { path } = r;
   const b = ctx.data.balances;
   // the accounts less the debts are told for today only, as the debts are: a range that ends before today has no point for them
   const last = b.months.length - 1;
@@ -244,7 +231,7 @@ function Loans({ ctx }: SectionProps) {
   // only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
   const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? DASH : p.bullets > 0 ? t("rpt.ln_no_payments") : money(0, false);
   const items: [label: string, value: string, sub?: string][] = [
-    [t("rpt.ln_total"), money(r.total.cents, false)],
+    [t("rpt.ln_total"), r.totalKnown ? money(r.total.cents, false) : DASH],
     [t("rpt.ln_interest12"), r.interestKnown ? money(r.interest.cents, false) : DASH],
     [t("rpt.ln_payments_month"), monthly],
     ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false), accountsLessDebt().sub] as [string, string, string]]),
@@ -287,12 +274,12 @@ function Loans({ ctx }: SectionProps) {
           })}
         </ul>
       )}
-      {r.path.tops[0]! > 0 && (
-        <QuestionChart id="lainat-polku" question={t("rpt.ln_q_path")} answer={pathAnswer(r.path)} table={<DebtPathTable path={r.path} />}>
-          <DebtPath path={r.path} />
+      {path && path.tops[0]! > 0 && (
+        <QuestionChart id="lainat-polku" question={t("rpt.ln_q_path")} answer={pathAnswer(path)} table={<DebtPathTable path={path} />}>
+          <DebtPath path={path} />
         </QuestionChart>
       )}
-      {r.path.tops[0]! > 0 && <hr className="qc-rule" />}
+      {path && path.tops[0]! > 0 && <hr className="qc-rule" />}
       <ul className="loan-list">
         {r.loans.map((l) => (
           <Loan key={l.id} l={l} limitCents={limitOf(l)} />

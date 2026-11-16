@@ -257,7 +257,7 @@ function Loans({ holdings }: { holdings: Answer }) {
 
 /** `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading. */
 export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string }) {
-  const { accounts, cards, loans, debtCents, unsavedLoans, netCents } = holdings;
+  const { accounts, accountsCents, cards, loans, debtCents, unsavedLoans, netCents } = holdings;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
   // two groups stand side by side; of three, Tilit and Lainat do, with the cards under them across the block: a group
@@ -265,8 +265,8 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
   const columns = `holding-groups holding-groups-${groups}`;
   // the debts of the block are more than the loans only when a card owes: then they have their own line at its foot
   const debts = loans.length > 0 && cardsOwe(cards);
-  // loans whose balance nobody gave: `netCents` holds no debt for them, so its name says so
-  const { label: netLabel, lacking: unknown } = netLabelOf(holdings);
+  // loans nobody saved: `netCents` holds no debt for them, so its name says so
+  const netLabel = netLabelOf(holdings);
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
   const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
 
@@ -276,15 +276,11 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
         <div className="card-name">
           <h2 id="holdings-h">{title}</h2>
         </div>
-        {/* what the household has net, the accounts less the debts (core's netCents) */}
-        {netCents !== null && (
+        {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown */}
+        {(netCents !== null || (accountsCents !== null && debtCents === null)) && (
           <div className="card-datum">
-            {netLabel && (
-              <span className="datum-label">
-                {unknown === 0 || unsaved ? netLabel : <a href={settingsCardHash(SETTINGS_ANCHOR.loans)} title={t("holdings.add_balances")}>{netLabel}</a>}
-              </span>
-            )}
-            <Figure text={money(netCents, false)} size="s" />
+            {netLabel && <span className="datum-label">{netLabel}</span>}
+            <Figure text={netCents === null ? "–" : money(netCents, false)} size="s" />
           </div>
         )}
       </div>
@@ -299,7 +295,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
             <div className="st-row">
               <dt className="st-name st-strong">{t("holdings.debts_total")}</dt>
               <dd className="st-num st-strong">
-                {money(debtCents)}
+                {figure(debtCents)}
               </dd>
             </div>
           )}

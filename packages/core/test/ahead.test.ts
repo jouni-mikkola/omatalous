@@ -153,6 +153,11 @@ describe("cash ahead", () => {
     }
   });
 
+  it("one checking account with no balance leaves the figures unsaid, not the sum of the others", () => {
+    const d = cashAhead(ctx, [balance(100_000), balance(null, { id: "acc-2", ownerName: "Maija" })], NO_INPUTS);
+    expect(d).toMatchObject({ balance: null, missing: "balance" });
+  });
+
   it("checking balances of the household add up, shared ones too", () => {
     const d = cashAhead(ctx, [balance(100_000), balance(50_000, { id: "acc-2", ownerName: "Maija", balanceAt: "2026-10-08T06:00:00Z" }), balance(900_000, { id: "sav", type: "savings" })], NO_INPUTS);
     expect(d.balance).toMatchObject({ startCents: 150_000, accounts: 2, balanceAt: "2026-10-08T06:00:00Z" });

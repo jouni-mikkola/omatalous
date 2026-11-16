@@ -26,15 +26,12 @@ export function loanPeriodInterest(balanceCents: number, rateBp: number, months:
   return divRound(balanceCents * rateBp * months, 120_000);
 }
 
-/** The payments a loan promises. */
-export interface Instalments {
-  months: number;
-  paymentCents: number;
-  /** Null only for equal principal, whose balance moves without the rate. */
-  rateBp: number | null;
-  /** The payment holds the interest (annuity, fixed instalment). Otherwise the interest comes on top. */
-  withInterest: boolean;
-}
+/**
+ * The payments a loan promises. A payment that holds its interest (annuity, fixed instalment) has its rate, or the split
+ * of the payment into interest and repayment would be a guess; otherwise the interest comes on top, and equal principal
+ * moves its balance without the rate.
+ */
+export type Instalments = { months: number; paymentCents: number } & ({ withInterest: true; rateBp: number } | { withInterest: false; rateBp: number | null });
 
 /** No payments to place: the balance stays as stated. `missing` names the field that would have given a plan. */
 interface Kept {
@@ -55,9 +52,11 @@ export function planOf(loan: Loan): Instalments | Kept {
   const months = intervalOf(loan);
   if (months === null) return { missing: "interval" };
   if (loan.paymentCents === null || loan.paymentCents <= 0) return { missing: "payment" };
-  const withInterest = loan.repayment !== "equal_principal";
-  if (withInterest && loan.rateBp === null) return { missing: "rate" };
-  return { months, paymentCents: loan.paymentCents, rateBp: loan.rateBp, withInterest };
+  const { rateBp } = loan;
+  const terms = { months, paymentCents: loan.paymentCents };
+  if (loan.repayment === "equal_principal") return { ...terms, rateBp, withInterest: false };
+  if (rateBp === null) return { missing: "rate" };
+  return { ...terms, rateBp, withInterest: true };
 }
 
 /** The due dates after the balance date, oldest first, each a whole number of intervals from its anchor. */
@@ -113,8 +112,9 @@ export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: n
   for (const date of dueDates(loan, plan.months)) {
     if (date <= from.after) continue;
     if (balance <= 0) return;
-    const interest = plan.rateBp === null ? null : loanPeriodInterest(balance, plan.rateBp, plan.months);
-    const planned = plan.withInterest ? plan.paymentCents - (interest ?? 0) : plan.paymentCents;
+    const interestAt = (rateBp: number) => loanPeriodInterest(balance, rateBp, plan.months);
+    const interest = plan.rateBp === null ? null : interestAt(plan.rateBp);
+    const planned = plan.withInterest ? plan.paymentCents - interestAt(plan.rateBp) : plan.paymentCents;
     const amortisation = date === end || planned > balance ? balance : planned;
     balance -= amortisation;
     yield { date, interestCents: interest, amortisationCents: amortisation, balanceCents: balance };

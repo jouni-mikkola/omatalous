@@ -22,7 +22,7 @@
  * Money flows do not read this file: an instalment is debt whether or not its loan is known.
  */
 import { partCents } from "./account-use.ts";
-import { addMonthsToDate, daysBetween } from "./dates.ts";
+import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, type Payment, payments, planOf } from "./loan-plan.ts";
 import type { Account, IsoDate, Loan, LoanReference, UserInputs } from "./types.ts";
@@ -125,7 +125,10 @@ export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
   let cents = 0;
   for (const p of payments(loan, plan)) {
     if (p.date > to) break;
-    if (p.date > day) cents += p.interestCents ?? 0;
+    if (p.date <= day) continue;
+    // a payment whose interest is unknown leaves the sum unknown, never a sum without it
+    if (p.interestCents === null) return { cents: null, unknown: "rate" };
+    cents += p.interestCents;
   }
   return { cents, unknown: null };
 }
@@ -199,6 +202,14 @@ export function creditAccountLoan(
   };
 }
 
+/**
+ * A card whose statement is paid in full, as a loan: no interest, and the whole balance falls due on the day the
+ * statement is paid (`payDay`, at the earliest the day after the balance). It has no payment before then, as a bullet.
+ */
+export function settledCardLoan(card: Loan, payDay: IsoDate): Loan {
+  return { ...card, rateBp: 0, repayment: "bullet", endDate: payDay > card.balanceDate ? payDay : addDays(card.balanceDate, 1) };
+}
+
 function sumOf(loans: readonly Debt[], figure: (loan: Debt) => LoanFigure): DebtFigure {
   let cents = 0;
   const unknown: DebtFigure["unknown"][number][] = [];
@@ -246,8 +257,9 @@ export function typedBill(loan: Debt, today: IsoDate): number | null {
  * The next payment after `day`, read from the plan's own payments (`payments`): the last one is what is left with its
  * interest, and a loan that owes nothing has none. Equal principal pays its interval's interest on top of the typed
  * amortisation. A loan without a plan (a card, a credit line, a loan that lacks its interval or its rate) keeps its
- * balance: a payment typed for it is told as typed, at most what is owed with the interest that can be counted, and
- * neither its split nor its due date is known. A bullet has no payment before its last due date.
+ * balance: a payment typed for it is told as typed, at most what is owed with its interest (none where the balance
+ * is below the payment and the rate or the interval is missing), and neither its split nor its due date is known.
+ * A bullet has no payment before its last due date.
  */
 export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   const cut = partly(loan);
@@ -277,8 +289,12 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   if (loan.paymentCents === null || loan.paymentCents <= 0) return none(plan.missing);
   // the typed amortisation is known, the interest on top of it is not
   if (loan.repayment === "equal_principal") return { ...none(plan.missing), amortisationCents: Math.min(loan.paymentCents, owed) };
-  const interest = loan.rateBp !== null && intervalMonths !== null ? loanPeriodInterest(owed, loan.rateBp, intervalMonths) : 0;
-  return { ...none(plan.missing), cents: Math.min(loan.paymentCents, owed + interest) };
+  // the typed payment is the cap whatever the interest is, once the balance alone reaches it; a smaller balance is
+  // paid with an interest that is unknown here, so the payment is too
+  const typed = loan.paymentCents;
+  if (owed >= typed) return { ...none(plan.missing), cents: typed };
+  if (loan.rateBp === null || intervalMonths === null) return none(plan.missing);
+  return { ...none(plan.missing), cents: Math.min(typed, owed + loanPeriodInterest(owed, loan.rateBp, intervalMonths)) };
 }
 
 /** The payments of a month over a list of loans. */

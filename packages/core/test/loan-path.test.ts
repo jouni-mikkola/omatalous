@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { debtPath } from "../src/loan-path.ts";
+import { debtPath as pathOrNull } from "../src/loan-path.ts";
 import { loanInterestNext12Months, loanPayoffDate } from "../src/loans.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -24,6 +24,8 @@ const loan = (over: Partial<Loan> = {}): Loan => ({
   ...over,
 });
 const day = "2026-10-19";
+/** The path of loans that all have a plan: it is there. */
+const debtPath = (...args: Parameters<typeof pathOrNull>) => pathOrNull(...args)!;
 
 describe("debtPath", () => {
   const home = loan();
@@ -59,20 +61,18 @@ describe("debtPath", () => {
     expect(debtPath([car], day, [-100, 100]).moves).toEqual([]);
   });
 
-  it("leaves out a debt with no plan and names why, and a paid one altogether", () => {
+  it("has no path where a debt that owes has no plan, whatever the other loans do, and a paid one is no debt", () => {
     const line = loan({ id: "line", name: "Luottoraja", kind: "credit_line", repayment: null, intervalMonths: null, paymentCents: null, endDate: null, balanceCents: 50_000 });
     const paid = loan({ id: "paid", balanceCents: 0 });
     const noRate = loan({ id: "norate", rateBp: null });
-    const q = debtPath([home, line, paid, noRate], day);
-    expect(q.left).toEqual([
-      { id: "line", name: "Luottoraja", unknown: "repayment" },
-      { id: "norate", name: "Asuntolaina", unknown: "rate" },
-    ]);
-    expect(q.balanceCents[0]).toBe(debtPath([home], day).balanceCents[0]);
+    const later = loan({ id: "later", balanceDate: "2026-12-01" });
+    for (const left of [line, noRate, later]) expect(pathOrNull([home, left], day, [100]), left.id).toBeNull();
+    expect(pathOrNull([home, line, paid, noRate], day)).toBeNull();
+    expect(pathOrNull([home, paid], day)).toEqual(debtPath([home], day));
   });
 
   it("is empty with no loan to draw", () => {
-    expect(debtPath([], day, [100])).toEqual({ days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [], left: [] });
+    expect(debtPath([], day, [100])).toEqual({ days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] });
   });
 
   it("cuts a debt at a part to the part", () => {

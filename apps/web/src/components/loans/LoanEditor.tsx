@@ -126,7 +126,7 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
 
   return (
     <form className="loan-form" onSubmit={(e) => void submit(e)} noValidate>
-      {compact && <p className="small muted loan-note">{prefilledLine(form)}</p>}
+      {compact && form.id === null && form.seriesKey !== null && <p className="small muted loan-note">{prefilledLine(form)}</p>}
       {!compact && (
       <div className="loan-fields">
         <div className="loan-field">
