@@ -96,11 +96,16 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
 /** The groups a question stands for: unknown money of the asking sum nobody answered. Shared credit is never asked. */
 const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key));
 
-/** Whether a part is one a question stands for: unknown money of an unanswered group of the asking sum, or the unanswered opening once a row took it. */
+/** Whether the opening is asked: unanswered, and the rows took at least `ASK_LIMIT` of it. A smaller part stays unknown money and no question stands for it. */
+const openingAsked = (t: Trace, said: ReadonlySet<string>): boolean =>
+  t.openingTaken && !said.has("o") && sumCents(t.rows.flatMap((r) => r.parts.filter((p) => p.owner === "o").map((p) => p.cents))) >= ASK_LIMIT;
+
+/** Whether a part is one a question stands for: unknown money of an unanswered group of the asking sum, or the unanswered opening once rows took `ASK_LIMIT` of it. */
 export function openOf(t: Trace, answers: readonly Answer[]): (p: SourcePart) => boolean {
   const said = new Set(answers.map((a) => a.key));
   const asked = new Set(askedGroups(t, said).map((g) => g.key));
-  return (p) => (p.owner === "o" ? t.openingTaken && !said.has("o") : asked.has(p.owner));
+  const opening = openingAsked(t, said);
+  return (p) => (p.owner === "o" ? opening : asked.has(p.owner));
 }
 
 /** The questions that stand, the one with most open cents first. */
@@ -110,7 +115,7 @@ export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
   for (const r of t.rows) for (const p of r.parts) if (open(p)) openBy.set(p.owner, (openBy.get(p.owner) ?? 0) + p.cents);
   const said = new Set(answers.map((a) => a.key));
   const questions: Question[] = askedGroups(t, said).map((g) => ({ kind: "in", key: g.key, cents: g.cents, day: g.firstDay, openCents: openBy.get(g.key) ?? 0 }));
-  if (t.openingTaken && !said.has("o")) questions.push({ kind: "opening", key: "o", cents: t.openingCents, day: t.openingDay, openCents: openBy.get("o") ?? 0 });
+  if (openingAsked(t, said)) questions.push({ kind: "opening", key: "o", cents: t.openingCents, day: t.openingDay, openCents: openBy.get("o") ?? 0 });
   return questions.sort((a, b) => b.openCents - a.openCents || compareOwners(a.key, b.key));
 }
 
