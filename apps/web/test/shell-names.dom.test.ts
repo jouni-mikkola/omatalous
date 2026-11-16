@@ -93,6 +93,8 @@ describe("Shell: a page carries its tab's name", () => {
     // the version is the one figure of the foot: no part of it ends in a day ("12.11." or "12.11.2026")
     expect(parts.filter((p) => /\d{1,2}\.\d{1,2}\.(\d{4})?$/.test(p))).toEqual([]);
     expect(parts[0]).toContain("Omatalous");
+    // the version is in the foot and in Palvelin ja ylläpito, not a third time in the menu of the user
+    expect(document.querySelector(".user-menu .menu")?.textContent).not.toContain("Omatalous");
     expect(parts.filter((p) => /^(Oma|Koko talous)$/.test(p))).toEqual([]);
   }, 60000);
 
