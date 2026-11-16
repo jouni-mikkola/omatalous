@@ -245,7 +245,8 @@ describe("data versions", () => {
   const MOVES_EVERYONE = ["DELETE /api/users/:id"];
   // Moves it only when a row changed (CLAUDE.md: a sync that changed nothing does not): sync.ts decides.
   const MOVES_WHEN_ROWS_CHANGE = ["POST /api/sync", "POST /api/sync/open", "POST /api/card-file", "POST /api/bank-file"];
-  // Read for each request (requestInputs), never cached: saving them moves no version.
+  // Read for each request (requestInputs), never cached: saving them moves no version. A loan linked to a home loan's series
+  // reprocesses the user's categories (routes/loans.ts); the steps below save a car loan, which moves none.
   const PER_REQUEST = [
     "PUT /api/marks",
     "PUT /api/language",

@@ -1,7 +1,7 @@
 /**
  * GET /api/loans/proposals: the loans the bank rows show and the household has not answered. A proposal goes when a loan
- * with its series key is saved and when "Ei ole laina" is marked, at once and with no data version moving; another user's
- * rows give nothing.
+ * with its series key is saved and when "Ei ole laina" is marked, at once and with no data version moving (a home loan's
+ * key reprocesses the categories of its rows); another user's rows give nothing.
  */
 import { notLoanMark, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";

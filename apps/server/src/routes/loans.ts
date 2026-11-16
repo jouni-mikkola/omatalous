@@ -180,9 +180,15 @@ export function loanRoutes(s: Services) {
 
   /**
    * The home loans' series are the household's word for which payments are the mortgage, and the categories of those rows
-   * follow it (core `applyDeclaredMortgages`). Any other change of a loan moves no category and is read per request.
+   * follow it (core `applyDeclaredMortgages`), which also reads every saved loan's key to keep another loan's rows out. So
+   * while a home loan is saved a change of any key reprocesses; any other change of a loan moves no category and is read
+   * per request.
    */
-  const mortgageSeries = async (userId: string) => mortgageSeriesKeys(await s.finance(userId).listLoans()).join("\n");
+  const mortgageSeries = async (userId: string) => {
+    const loans = await s.finance(userId).listLoans();
+    const mortgages = mortgageSeriesKeys(loans);
+    return mortgages.length ? JSON.stringify([mortgages, loans.flatMap((loan) => loan.seriesKey ?? []).sort()]) : "";
+  };
   const afterSave = async (userId: string, before: string) => {
     if ((await mortgageSeries(userId)) !== before) await reprocess(s.finance(userId), s.settings);
   };

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { type Flows, flowsOf, totalsOf } from "../src/analysis/flows.ts";
 import { fold, normalizeMerchant } from "../src/merchant.ts";
-import { enrichTransactions } from "../src/pipeline.ts";
+import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
 import { seriesId } from "../src/series-id.ts";
 import type { Account, Loan, Transaction } from "../src/types.ts";
 import { isCarFinanceText } from "../src/wording.ts";
@@ -248,5 +248,48 @@ describe("a saved home loan names the series that is the mortgage", () => {
     const rows = instalments();
     const flows = enriched(rows, [loanOf(rows, "mortgage")]).map((t) => flowsOf(t, new Set(), new Set()));
     expect(totalsOf(flows)).toMatchObject({ debtCents: 380000, consumptionCents: 0 });
+  });
+
+  const MONTHS = ["2026-06-20", "2026-07-20", "2026-08-20", "2026-09-20"];
+  const lender = "SANTANDER CONSUMER FINANCE OY";
+  const stepping = () => [950, 1050, 1160, 1280].map((euros, i) => row("chk", MONTHS[i]!, -euros, "LASKU 44512", lender));
+
+  it("reads every payment of a series whose payment steps with the rate, whichever of them the saved key names", () => {
+    for (const named of [95000, 105000, 116000, 128000]) {
+      const rows = stepping();
+      expect(categories(rows, [loanOf(rows, "mortgage", named)])).toEqual(Array(4).fill("mortgage"));
+    }
+  });
+
+  it("does not step over a gap of more than a month and a half or a jump of more than a seventh", () => {
+    const rows = [row("chk", "2026-03-20", -1150, "LASKU 44512", lender), ...stepping().slice(0, 1), row("chk", "2026-07-20", -1300, "LASKU 44512", lender)];
+    expect(categories(rows, [loanOf(rows, "mortgage")])).toEqual(["loans", "mortgage", "loans"]);
+  });
+
+  it("leaves the other loan of the same lender and account as it was", () => {
+    const home = stepping();
+    const consumer = MONTHS.map((day) => row("chk", day, -310, "LASKU 77123", lender));
+    const rows = [...home, ...consumer];
+    const loans = [loanOf(rows, "mortgage", 105000), { ...loanOf(rows, "consumer", 31000), id: "car" }];
+    expect(categories(rows, loans)).toEqual([...Array(4).fill("mortgage"), ...Array(4).fill("loans")]);
+  });
+
+  it("takes the payment nearest in size when two of the lender fall in one month", () => {
+    const home = MONTHS.map((day) => row("chk", day, -1000, "LASKU 44512", lender));
+    const other = MONTHS.map((day) => row("chk", `${day.slice(0, 8)}22`, -1140, "LASKU 77123", lender));
+    const rows = [...home, ...other];
+    expect(categories(rows, [loanOf(rows, "mortgage", 100000)])).toEqual([...Array(4).fill("mortgage"), ...Array(4).fill("loans")]);
+  });
+
+  it("agrees in a run of the lender's rows alone with the run of the whole history", () => {
+    const rows = [...stepping(), row("chk", "2026-09-21", -12, "KAUPPA", "S-MARKET")];
+    const loans = [loanOf(rows, "mortgage", 116000)];
+    const full = enriched(rows, loans);
+    const lenders = rows.filter((t) => t.merchant === rows[0]!.merchant);
+    const island = enrichIsland({ rows: lenders, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], loans });
+    expect(island.ok).toBe(true);
+    const changed = new Map(island.ok ? island.changed.map((t) => [t.id, t.category]) : []);
+    expect(lenders.map((t) => changed.get(t.id) ?? t.category)).toEqual(full.filter((t) => t.merchant === rows[0]!.merchant).map((t) => t.category));
+    expect(full.slice(0, 4).map((t) => t.category)).toEqual(Array(4).fill("mortgage"));
   });
 });
