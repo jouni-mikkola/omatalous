@@ -76,7 +76,8 @@ describe("a month before the household's data", () => {
       for (const kind of r.kinds) expect(kind.months[at(month)], `${month} ${kind.id}`).toBeNull();
     }
     for (const month of KNOWN) expect(r.months[at(month)]!.totalCents, month).toBe(250_000);
-    expect(r.totalCents).toBe(9 * 250_000);
+    // the three small rows of the unknown months are money that came in: the range total holds them, no cell does
+    expect(r.totalCents).toBe(9 * 250_000 + 3 * 100);
     expect(r.completeMonths).toBe(9);
     const salary = r.types.find((t) => t.type === "salary")!;
     // three zero months would give 187 500
@@ -137,10 +138,10 @@ describe("the money of an unknown month", () => {
     const r = incomeReport(withOld, RANGE, balances);
     expect(r.months.find((m) => m.month === "2025-02")!.totalCents).toBeNull();
     for (const type of r.types) expect(type.months[r.months.findIndex((m) => m.month === "2025-02")], type.type).toBeNull();
-    expect(r.totalCents).toBe(9 * 250_000 + 50_000);
+    expect(r.totalCents).toBe(9 * 250_000 + 50_000 + 4 * 100);
     expect(r.types.reduce((a, t) => a + t.totalCents, 0)).toBe(r.totalCents);
     const year = taxYearReport(withOld, RANGE, incomeReport(withOld, taxYearDays(withOld, RANGE), balances));
-    expect(year.income.totalCents).toBe(9 * 250_000 + 50_000);
+    expect(year.income.totalCents).toBe(9 * 250_000 + 50_000 + 4 * 100);
     const s = spendingMonthsReport(withOld, RANGE);
     expect(s.totals[s.months.indexOf("2025-02")]).toBeNull();
     expect(s.totalCents).toBe(9 * 130_000 + 5_000);
