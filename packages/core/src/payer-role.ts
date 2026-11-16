@@ -110,7 +110,8 @@ export function payerKeysOf(rows: readonly PayerRow[]): (t: PayerRow) => string 
   for (const group of new Set(groupOf.values())) kept.set(group, group.keys.reduce((best, key) => (counts.get(key)! > counts.get(best)! ? key : best)));
   return (t) => {
     const key = payerKeyOf(t);
-    const group = key === null ? undefined : groupOf.get(key);
+    // a row with no name keeps its account number: an answer by name could never reach it
+    const group = key === null || !nameOf(payerNameOf(t)).size ? undefined : groupOf.get(key);
     return group ? kept.get(group)! : key;
   };
 }

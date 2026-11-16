@@ -548,6 +548,10 @@ describe("payerKeysOf", () => {
     });
   });
 
+  it("keeps the account number for a row of a joined number that has no name, which a name answer cannot reach", () => {
+    expect(keyed([{ counterparty: "Jarkko Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: null, counterpartyIban: VILLE_IBAN }, { counterparty: "Jarkko Esimerkki" }])).toEqual(["name:ESIMERKKI JARKKO", VILLE, "name:ESIMERKKI JARKKO"]);
+  });
+
   it("leaves an account number alone when no name of its rows is another key's", () => {
     expect(keyed([{ counterparty: "Jarkko Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: "Matti Meikalainen" }])).toEqual([VILLE, "name:MATTI MEIKALAINEN"]);
   });
