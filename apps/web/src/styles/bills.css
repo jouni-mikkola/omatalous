@@ -70,7 +70,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bills-head h2 { margin: 0; min-inline-size: 0; }
 
 /* ── Seuraavaksi: the next payment, its day and payee over its exact sum */
-.bills-next { display: grid; gap: var(--sp-4); padding-block: var(--sp-16); border-block-start: 1px solid var(--border); }
+.bills-next { display: grid; align-content: start; gap: var(--sp-4); padding-block: var(--sp-16); border-block-start: 1px solid var(--border); }
 .bills-next-label { margin: 0; font-size: var(--fs-body); font-weight: var(--w-regular); color: var(--text-2); }
 .bills-next-what { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-8); margin: 0; }
 .bills-next-day { color: var(--text-2); font-variant-numeric: tabular-nums; }
@@ -116,8 +116,9 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .before-payday .bp-row[data-first] { border-block-start: 1px solid var(--border); }
 .before-payday .bp-row:first-child { border-block-start: 0; }
 .before-payday .bp-date { color: var(--text-2); font-variant-numeric: tabular-nums; }
-.before-payday .bp-name { overflow-wrap: anywhere; min-inline-size: 0; }
-.before-payday .bp-sum { text-align: end; white-space: nowrap; }
+/* the payee and the sum name their columns: a row whose day is only for a screen reader (out of the grid) keeps its payee in the wide column */
+.before-payday .bp-name { grid-column: 2; overflow-wrap: anywhere; min-inline-size: 0; }
+.before-payday .bp-sum { grid-column: 3; text-align: end; white-space: nowrap; }
 .before-payday .bp-total { font-weight: var(--w-strong); border-block-start: 1px solid var(--axis); }
 .before-payday .bp-outside, .before-payday .bp-outside small { color: var(--text-2); }
 .before-payday .bp-income { color: var(--good); font-weight: var(--w-strong); }
@@ -136,5 +137,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .before-payday .bp-row { grid-template-columns: minmax(0, 1fr) auto; }
   .before-payday .bp-date { grid-column: 1 / -1; }
   .before-payday .bp-date.sr-only { grid-column: auto; }
+  .before-payday .bp-name { grid-column: 1; }
+  .before-payday .bp-sum { grid-column: 2; }
 }
 }
