@@ -14,7 +14,8 @@ import type { Account, BalanceInput, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking", bank: "Pankki" };
-const savings: Account = { id: "sav-1", name: "Säästötili", iban: null, currency: "EUR", type: "savings", bank: "Pankki" };
+// another bank: a bank that gave the savings account its history from January would be read as giving the daily account the same
+const savings: Account = { id: "sav-1", name: "Säästötili", iban: null, currency: "EUR", type: "savings", bank: "Säästöpankki" };
 const TODAY = "2026-01-05";
 const RANGE = { from: "2025-01-01", to: "2025-12-31" };
 const UNKNOWN = ["2025-01", "2025-02", "2025-03"];
@@ -106,7 +107,7 @@ describe("a month before the household's data", () => {
 
   it("makes the change of a month an account joined in the plain difference, its whole balance in it", () => {
     // a second savings account with its first row in August: its balance is in the totals from then on
-    const late: Account = { id: "sav-2", name: "Uusi säästötili", iban: null, currency: "EUR", type: "savings", bank: "Pankki" };
+    const late: Account = { id: "sav-2", name: "Uusi säästötili", iban: null, currency: "EUR", type: "savings", bank: "Säästöpankki" };
     const withLate = createContext([...rows, tx({ bookingDate: "2025-08-12", amountCents: 50_000, merchant: "Siirto", category: "transfer", isTransfer: true, accountId: "sav-2" })], [checking, savings, late], TODAY);
     const more: BalanceInput[] = [...balances, { id: "sav-2", name: "Uusi säästötili", type: "savings", balanceCents: 50_000, ownerName: null, balanceAt: null }];
     const r = balanceReport(withLate, RANGE, more);

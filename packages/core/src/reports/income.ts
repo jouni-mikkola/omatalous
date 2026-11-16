@@ -72,7 +72,7 @@ interface IncomeKind {
   totalCents: number;
   /** Over the complete months, as a type's is; null without one. */
   monthlyCents: number | null;
-  months: number[];
+  months: (number | null)[];
   /** Its types' `changeCents` added up; null when theirs are. */
   changeCents: number | null;
 }
