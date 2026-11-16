@@ -7,7 +7,7 @@
  * a payer's role) and any other category of the same payee stay as they are. Nothing here reads a name or an amount
  * alone: the row must be a payment of the saved series (`paysSeries`), or the next or previous payment of one. A
  * variable rate moves the payment many times, and a row `paysSeries` does not reach is still the series' when it follows
- * a payment taken within `STEP_DAYS`, on the same account and payee, and within `STEP_PERCENT` of it in size. Of the rows
+ * a payment taken a month on or back (`STEP_DAYS_MIN` to `STEP_DAYS` apart), on the same account and payee, and within `STEP_PERCENT` of it in size. Of the rows
  * in one reach the nearest in size is taken, so another loan of the same lender stays as it was, and a row another saved
  * loan's key names is never taken. Every step reads the rows of one payee, so a run of a single merchant
  * (`enrichIsland`) agrees with the full run.
@@ -24,7 +24,8 @@ export function mortgageSeriesKeys(loans: readonly Loan[]): string[] {
 const SETTLED = new Set(["user", "transfer", "match", "payer"]);
 /** A payment follows the one before it within this share of the smaller, or 1 EUR, as a rate reset moves it. */
 const STEP_PERCENT = 15;
-/** The longest gap between two payments of one series: a month and the slack of a late payment. */
+/** The gap between two payments of one series: a month, less the slack of a payment moved to a weekday, to a month and a half. */
+const STEP_DAYS_MIN = 20;
 const STEP_DAYS = 45;
 
 const stepFits = (a: number, b: number) => Math.abs(a - b) <= Math.max(100, (STEP_PERCENT / 100) * Math.min(Math.abs(a), Math.abs(b)));
@@ -42,7 +43,7 @@ function walk(rows: readonly Transaction[], seeds: ReadonlySet<string>, taken: S
       for (let i = lastAt + 1; i < rows.length; i++) {
         const gap = Math.abs(daysBetween(last.bookingDate, rows[i]!.bookingDate));
         if (gap > STEP_DAYS) break;
-        if (gap === 0 || !stepFits(last.amountCents, rows[i]!.amountCents)) continue;
+        if (gap < STEP_DAYS_MIN || !stepFits(last.amountCents, rows[i]!.amountCents)) continue;
         if (best < 0 || Math.abs(last.amountCents - rows[i]!.amountCents) < Math.abs(last.amountCents - rows[best]!.amountCents)) best = i;
       }
       if (best < 0) break;

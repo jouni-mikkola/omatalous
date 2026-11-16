@@ -281,15 +281,13 @@ describe("a saved home loan names the series that is the mortgage", () => {
     expect(categories(rows, [loanOf(rows, "mortgage", 100000)])).toEqual([...Array(4).fill("mortgage"), ...Array(4).fill("loans")]);
   });
 
-  it("agrees in a run of the lender's rows alone with the run of the whole history", () => {
-    const rows = [...stepping(), row("chk", "2026-09-21", -12, "KAUPPA", "S-MARKET")];
+  it("keeps the rows of the lender alone as the whole history left them, when a run of that merchant alone is made", () => {
+    const rows = stepping();
     const loans = [loanOf(rows, "mortgage", 116000)];
-    const full = enriched(rows, loans);
-    const lenders = rows.filter((t) => t.merchant === rows[0]!.merchant);
-    const island = enrichIsland({ rows: lenders, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], loans });
-    expect(island.ok).toBe(true);
-    const changed = new Map(island.ok ? island.changed.map((t) => [t.id, t.category]) : []);
-    expect(lenders.map((t) => changed.get(t.id) ?? t.category)).toEqual(full.filter((t) => t.merchant === rows[0]!.merchant).map((t) => t.category));
-    expect(full.slice(0, 4).map((t) => t.category)).toEqual(Array(4).fill("mortgage"));
+    const stored = enriched(rows, loans);
+    expect(stored.map((t) => t.category)).toEqual(Array(4).fill("mortgage"));
+    // a hand-set category elsewhere in the history runs the lender's rows again, as stored, with the saved loans
+    const island = enrichIsland({ rows: stored, before: new Map(), accounts: [checking], rules: [], oldRules: [], industries: new Map(), outsideMatches: [], loans });
+    expect(island).toEqual({ ok: true, changed: [] });
   });
 });
