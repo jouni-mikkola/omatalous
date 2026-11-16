@@ -111,9 +111,12 @@ describe("Tarkistettavat", () => {
     const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on kortin kokonaiskorko?");
-    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Tallenna kortin ehdot", "Älä muistuta tästä enää"]);
-    fireEvent.click(screen.getByRole("button", { name: "Tallenna kortin ehdot" }));
-    fireEvent.change(await screen.findByLabelText(/^Kokonaiskorko/, {}, T), { target: { value: "19" } });
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä kortin ehdot", "Älä muistuta tästä enää"]);
+    fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
+    const rate = await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
+    // the form opens at its first field
+    await waitFor(() => expect(document.activeElement).toBe(rate), T);
+    fireEvent.change(rate, { target: { value: "19" } });
     expect(screen.queryByLabelText("Nimi")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);

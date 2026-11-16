@@ -16,6 +16,7 @@ export const FI_SET_RI = {
   "set.ri.unclassified_income": "Luokittelematon tulo",
   "set.ri.money_received": "Saapunut raha",
   "set.ri.loan": "Laina",
+  "set.ri.credit_card": "Luottokortti",
   "set.ri.instalment_plan": "Osamaksu",
   "set.ri.joint_account_account": "Yhteinen tili {account}",
   "set.ri.subscription": "Tilaus",

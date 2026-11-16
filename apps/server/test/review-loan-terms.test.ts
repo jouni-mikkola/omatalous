@@ -1,8 +1,8 @@
 /**
  * Tarkistettavat's question of a saved loan whose payments cannot be placed (services/review-loan-terms.ts): it names the
  * one fact the loan lacks, goes when the loan's form is saved with it, and is set aside with a mark `dismissed`. A loan
- * linked to a connected account owes what the account says. A connected card that owes with no saved loan linked to it is
- * asked for its rate. Only the member's own loans and cards are asked. Made-up names and sums; the test clock is 9.10.2026.
+ * linked to a connected account owes what the account says. A connected card that owes is asked for its rate until a rate
+ * is saved for it, whether a loan is linked to it or not. Only the member's own loans and cards are asked. Made-up names and sums; the test clock is 9.10.2026.
  */
 import type { AccountType } from "@banking/core";
 import { loanTermsSubject } from "@banking/core";
@@ -40,6 +40,13 @@ describe("the question of a loan whose payments cannot be placed", () => {
     expect(await missing({ ...BASE, repayment: "annuity", intervalMonths: 1, rateBp: 350 })).toBe("payment");
     expect(await missing({ ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 })).toBe("rate");
     expect(await missing({ ...BASE, repayment: "bullet", endDate: "2030-01-01" })).toBeUndefined();
+  });
+
+  it("keeps asking while a saved loan still lacks the fact", async () => {
+    const t = await setupApp();
+    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...BASE, name: "Uusi nimi", repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, name: "Uusi nimi", missing: "rate" })]);
   });
 
   it("goes once the loan is saved with the fact", async () => {
@@ -101,12 +108,36 @@ describe("the question of a loan linked to a connected account", () => {
 });
 
 describe("the question of a connected card with no terms", () => {
-  it("asks for the rate of a card that owes, and goes once a loan is linked to the card", async () => {
+  it("asks for the rate of a card that owes, and goes once a loan with a rate is linked to the card", async () => {
     const t = await setupApp();
     await account(t, t.adminId, "card", "credit_card", -50_000);
     expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: "loan_terms:account:card", loanId: null, accountId: "card", name: "card", owedCents: 50_000, missing: "rate", subject: loanTermsSubject("account:card") })]);
     const saved = await t.admin.call("POST", "/api/loans", { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, rateBp: 1_900, accountId: "card" });
     expect(saved.status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("keeps asking for the rate of a card whose linked loan saved none, and names that loan for the form", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "card", "credit_card", -50_000);
+    const id = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 40_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: `loan_terms:${id}`, loanId: id, accountId: "card", owedCents: 50_000, balanceDate: "2026-10-09", missing: "rate", subject: loanTermsSubject(id) })]);
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { name: "Kortti", kind: "card", balanceCents: 40_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card", rateBp: 1_900 })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("counts a saved rate of 0 as a rate", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "card", "credit_card", -50_000);
+    await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, rateBp: 0, accountId: "card" });
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("is set aside for a linked card by the loan's own mark", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "card", "credit_card", -50_000);
+    const id = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
+    expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
     expect(await queue(t.admin)).toEqual([]);
   });
 

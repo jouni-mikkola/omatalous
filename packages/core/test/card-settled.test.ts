@@ -4,6 +4,7 @@
  * A card the rows do not show paid in full stays unknown. Made-up accounts and loans only.
  */
 import { describe, expect, it } from "vitest";
+import { debtsOf } from "../src/analysis/card-settled.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { addDays, daysBetween } from "../src/dates.ts";
 import { loansReport } from "../src/reports/loans.ts";
@@ -99,5 +100,24 @@ describe("a card beside a rated loan in Lainat", () => {
     const r = run([], -11_000);
     expect(r.interestKnown).toBe(false);
     expect(r.path).toBeNull();
+  });
+});
+
+describe("the debts of a card paid in full", () => {
+  const rateOf = (rows: Transaction[], loans: Loan[]) => {
+    const balances = [bal(own, 600_000), bal(card, -11_000)];
+    const debts = debtsOf(createContext(rows, [own, card], today), balances, { marks: [], expectedBills: [], loans });
+    return debts.connected[debts.sources.findIndex((s) => s.accountId === "card")]!.rateBp;
+  };
+  const linked: Loan = { ...mortgage, id: "card-loan", name: "Kortti", kind: "card", balanceCents: 11_000, rateBp: null, repayment: null, intervalMonths: null, paymentCents: null, limitCents: 200_000, accountId: "card" };
+
+  it("is told as a rate of 0, and a card the rows do not show paid in full has none", () => {
+    expect(rateOf([...days(1000), ...statements(1000)], [])).toBe(0);
+    expect(rateOf([...days(300), ...minimums()], [])).toBeNull();
+  });
+
+  it("keeps the rate of the loan linked to it, so a card with a loan saved without a rate shows no 0", () => {
+    expect(rateOf([...days(1000), ...statements(1000)], [linked])).toBeNull();
+    expect(rateOf([...days(1000), ...statements(1000)], [{ ...linked, rateBp: 1_900 }])).toBe(1_900);
   });
 });
