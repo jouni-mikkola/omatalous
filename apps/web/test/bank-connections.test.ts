@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../src/banks.ts";
 import { waitsForFirstFetch } from "../src/first-fetch.ts";
+import { Accounts } from "../src/pages/settings/Accounts.tsx";
 import { BankConnections, connectionStateText, renewalLine } from "../src/pages/settings/BankConnections.tsx";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
@@ -140,9 +141,9 @@ describe("Pankkiyhteydet: Yhdistä uudelleen", () => {
     expect(renews(html([conn("a", "removed", null)]))).toBe(0);
   });
 
-  it("an expiring connection keeps Poista beside it", () => {
+  it("an expiring connection says so and has no Poista in the list", () => {
     const out = html([conn("a", "active", 5)]);
-    expect(out).toContain("Poista");
+    expect(out).not.toContain("Poista");
     expect(out).toContain("vanhenee pian");
   });
 
@@ -213,19 +214,22 @@ describe("Pankkiyhteydet: one row per bank", () => {
   const JAN = "2027-01-14T00:00:00Z";
   const MAR = "2027-03-20T00:00:00Z";
 
-  it("a bank with one consent is one row with its accounts, its end day, one reminder and one Poista", () => {
+  it("a bank with one consent is one row with its accounts, its end day printed once and one reminder", () => {
     const out = html([conn("a", "active", 93, { validUntil: JAN })], true, [account("Käyttötili", "a", { iban: "FI2112345600000785" }), account("Säästötili", "a", { iban: "FI4950009420028730" })]);
     expect(rowsOf(out)).toBe(1);
     expect(count(out, "voimassa 14.1.2027 asti")).toBe(1);
+    // the end day is in the row alone: no sentence repeats it
+    expect(count(out, "14.1.2027")).toBe(1);
+    expect(out).not.toContain("Seuraava vanhenee");
     expect(count(out, "Lisää muistutus kalenteriin")).toBe(1);
+    expect(count(out, 'aria-label="Lisää muistutus kalenteriin 7.1.2027"')).toBe(1);
     expect(renews(out)).toBe(1);
-    // one consent reads both accounts: one Poista, which names them
-    expect(count(out, ">Poista</button>")).toBe(1);
-    expect(out).toContain('aria-label="Poista yhteys: Käyttötili · FI21 1234 5600 0007 85, Säästötili · FI49 5000 9420 0287 30"');
+    // removing a connection is in the form of its account
+    expect(out).not.toContain("Poista");
     expect(out).not.toContain("conn-own-state");
   });
 
-  it("consents of one bank that end the same day are one row: one end day, one reminder, a Poista on each account", () => {
+  it("consents of one bank that end the same day are one row: one end day, one reminder, no Poista", () => {
     const consents = ["a", "b", "c"].map((id) => conn(id, "active", 93, { validUntil: JAN }));
     const out = html(consents, true, [account("Käyttötili", "a"), account("Säästötili", "b"), account("Nordea Gold", "c")]);
     expect(rowsOf(out)).toBe(1);
@@ -233,8 +237,8 @@ describe("Pankkiyhteydet: one row per bank", () => {
     expect(count(out, "voimassa 14.1.2027 asti")).toBe(1);
     expect(count(out, "Lisää muistutus kalenteriin")).toBe(1);
     expect(renews(out)).toBe(1);
-    expect(count(out, ">Poista</button>")).toBe(3);
-    for (const name of ["Käyttötili", "Säästötili", "Nordea Gold"]) expect(out).toContain(`aria-label="Poista yhteys: ${name}"`);
+    expect(count(out, "14.1.2027")).toBe(1);
+    expect(out).not.toContain("Poista");
     expect(out).not.toContain("conn-own-state");
   });
 
@@ -249,12 +253,16 @@ describe("Pankkiyhteydet: one row per bank", () => {
     expect(count(out, "voimassa 14.1.2027 asti")).toBe(1);
   });
 
-  it("banks that end on different days give one line, Seuraava vanhenee, with the reminder of the first one", () => {
+  it("banks that end on different days give the reminder button to the row of the first one, and no sentence", () => {
     const consents = [conn("a", "active", 159, { validUntil: MAR }), conn("o", "active", 93, { validUntil: JAN, institution: "OP" })];
     const out = html(consents, true, [account("Käyttötili", "a"), account("OP-tili", "o")]);
     expect(rowsOf(out)).toBe(2);
-    expect(count(out, "Seuraava vanhenee: OP, 14.1.2027.")).toBe(1);
+    expect(out).not.toContain("Seuraava vanhenee");
     expect(count(out, "Lisää muistutus kalenteriin")).toBe(1);
+    // the button sits in the OP row, which is the second one
+    expect(out.indexOf("Lisää muistutus kalenteriin")).toBeGreaterThan(out.indexOf('<span class="bank-cell">OP</span>'));
+    expect(count(out, "14.1.2027")).toBe(1);
+    expect(count(out, "20.3.2027")).toBe(1);
     expect(count(out, "voimassa 14.1.2027 asti")).toBe(1);
     expect(count(out, "voimassa 20.3.2027 asti")).toBe(1);
     // an ended consent has no day to come
@@ -266,8 +274,32 @@ describe("Pankkiyhteydet: one row per bank", () => {
     const out = html(consents, true, [account("Käyttötili", "a"), account("Vanha tili", "b"), account("OP-tili", "o")]);
     expect(rowsOf(out)).toBe(2);
     expect(out).toMatch(/Vanha tili<\/div><div class="[^"]*conn-own-state">vanhentui 1\.9\.<\/div>/);
-    // the ended consent has nothing to remove
-    expect(count(out, ">Poista</button>")).toBe(2);
+    expect(out).not.toContain("Poista");
+  });
+});
+
+describe("Tilit: removing from the form of an account", () => {
+  const count = (out: string, text: string) => out.split(text).length - 1;
+  const full = (id: string, connectionId: string | null, extra: Partial<Account> = {}) => ({ ...account(id, connectionId ?? "", extra), connectionId, userId: "u1", holder: null, creditLimitCents: null, customName: null, currency: "EUR", type: "checking", provider: "enablebanking", balanceCents: null, balanceAt: null }) as unknown as Account;
+  const markup = (accounts: Account[]) =>
+    renderToStaticMarkup(
+      createElement(Accounts, {
+        meta: { today: TODAY, user: { id: "u1", role: "member" }, members: [{ id: "u1", displayName: "Matti" }], shares: [], bank: { configured: true, banks: BANKS, redirectMode: "own", source: "user" }, connections: [conn("a", "active", 93)], accounts, renewal: { due: [], round: null } } as unknown as Meta,
+        onChange: () => {},
+      }),
+    );
+
+  it("has no Poista on a row: every account has Muokkaa and removal waits in its form", () => {
+    const out = markup([full("Käyttötili", "a"), full("Tuotu tili", null, { provider: "csv" })]);
+    expect(out).not.toContain("Poista");
+    expect(count(out, "data-edit=")).toBe(2);
+  });
+
+  it("tells accounts of one name apart by the last four digits, and leaves a name alone that nothing else has", () => {
+    const out = markup([full("a1", "a", { name: "Käyttötili", iban: "FI2112345600000785" }), full("a2", "a", { name: "Käyttötili", iban: "FI4950009420028730" }), full("a3", "a", { name: "Säästötili", iban: "FI7412345600000801" })]);
+    expect(out).toContain('<div class="acc-name">Käyttötili •••• 0785</div>');
+    expect(out).toContain('<div class="acc-name">Käyttötili •••• 8730</div>');
+    expect(out).toContain('<div class="acc-name">Säästötili</div>');
   });
 });
 

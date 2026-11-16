@@ -104,7 +104,7 @@ test("the calendar file: one all-day event seven days before the end, with the a
   const { context, page, seen } = await open(browser, () => ({ connections, accounts: [account("Käyttötili", "n1", { iban: IBANS.chk })] }));
   await page.goto("/#/settings");
   await expect(card(page).getByText("voimassa 14.1.2027 asti")).toBeVisible();
-  await expect(card(page).getByText("7.1.2027")).toBeVisible();
+  await expect(card(page).getByRole("button", { name: "Lisää muistutus kalenteriin 7.1.2027" })).toBeVisible();
 
   const [download] = await Promise.all([page.waitForEvent("download"), card(page).getByRole("button", { name: "Lisää muistutus kalenteriin" }).click()]);
   expect(download.suggestedFilename()).toBe("pankkiyhteys-nordea-2027-01-14.ics");
@@ -209,9 +209,8 @@ test("390 px: the consents and the buttons fit without sideways scroll", async (
   // each consent is a block of its own, so its buttons are on the screen and not behind a sideways scroll
   for (const row of [0, 1]) {
     const renew = card(page).getByRole("button", { name: "Yhdistä uudelleen" }).nth(row);
-    const remove = card(page).getByRole("button", { name: "Poista" }).nth(row);
     await renew.scrollIntoViewIfNeeded();
-    for (const button of [renew, remove]) {
+    for (const button of [renew]) {
       const box = (await button.boundingBox())!;
       expect(box.x, `row ${row}`).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, `row ${row}`).toBeLessThanOrEqual(390);
@@ -227,7 +226,7 @@ test("390 px: the consents and the buttons fit without sideways scroll", async (
 
 // A bank that gives one consent per account is one row: the day its first consent ends, one reminder, one renewal.
 for (const width of [390, 1280]) {
-  test(`${width} px: the consents of one bank are one row, with the earliest end day and a Poista on each account`, async ({ browser }) => {
+  test(`${width} px: the consents of one bank are one row, with the earliest end day and no Poista`, async ({ browser }) => {
     const connections = [consent("n1", "Nordea", 159, "2027-03-20T00:00:00Z"), consent("n2", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("n3", "Nordea", 93, "2027-01-14T00:00:00Z"), consent("o1", "OP", 93, "2027-01-14T00:00:00Z")];
     const accounts = [account("Käyttötili", "n1", { iban: IBANS.chk }), account("Säästötili", "n2", { iban: IBANS.sav }), account("Nordea Gold", "n3", { type: "credit_card", cardMask: "•••• 1144" }), account("OP-tili", "o1")];
     const { context, page, seen } = await open(browser, () => ({ connections, accounts }), width);
@@ -236,17 +235,14 @@ for (const width of [390, 1280]) {
     const nordea = table.getByRole("row", { name: /Nordea/ });
     await expect(nordea).toHaveCount(1);
     await expect(table.getByRole("button", { name: "Yhdistä uudelleen" })).toHaveCount(2);
-    // the reminder is in one line above the list, for the consent that ends first
-    await expect(table.getByRole("button", { name: "Lisää muistutus kalenteriin" })).toHaveCount(0);
-    await expect(card(page).locator(".next-expiry")).toHaveText(/^Seuraava vanhenee: (Nordea|OP), 14\.1\.2027\./);
-    await expect(card(page).getByRole("button", { name: "Lisää muistutus kalenteriin" })).toHaveCount(1);
+    // one reminder button, on the row of the bank that ends first, and no sentence repeats the day
+    await expect(card(page).getByText("Seuraava vanhenee")).toHaveCount(0);
+    await expect(table.getByRole("button", { name: "Lisää muistutus kalenteriin 7.1.2027" })).toHaveCount(1);
     // the row has the first day, and the account of the consent that ends later says its own
     await expect(nordea.getByText("voimassa 14.1.2027 asti")).toHaveCount(1);
     await expect(nordea.locator(".conn-own-state")).toHaveText(["voimassa 20.3.2027 asti"]);
-    const removes = nordea.getByRole("button", { name: /^Poista yhteys: / });
-    await expect(removes).toHaveCount(3);
-    await expect(nordea.getByRole("button", { name: "Poista yhteys: Säästötili · FI49 5000 9420 0287 30" })).toBeVisible();
-    for (const button of [...(await removes.all()), nordea.getByRole("button", { name: "Yhdistä uudelleen" })]) {
+    await expect(card(page).getByRole("button", { name: /^Poista/ })).toHaveCount(0);
+    for (const button of [nordea.getByRole("button", { name: "Yhdistä uudelleen" })]) {
       await button.scrollIntoViewIfNeeded();
       const box = (await button.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
@@ -267,7 +263,6 @@ test("a second press after the browser has left for the bank starts nothing more
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks?connected=1");
   // the address is set: the buttons stay disabled for as long as this page is there, so a late press posts nothing
   await expect(renew).toBeDisabled();
-  await expect(card(page).getByRole("button", { name: "Poista" })).toBeDisabled();
   await renew.click({ force: true });
   await page.waitForLoadState("networkidle");
   expect(started).toHaveLength(1);

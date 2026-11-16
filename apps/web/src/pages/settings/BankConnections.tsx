@@ -1,10 +1,11 @@
 /**
  * The member's bank consents: "Yhdistä pankki" opens a bank picker
  * (components/BankPicker.tsx: the banks the server offers), the list
- * has one row per bank (bank-rows.ts): the day its first consent ends, and under the bank's name the accounts of each
- * consent (name and IBAN) with the Poista of that consent; a consent whose state is not the row's says its own.
+ * has one row per bank (bank-rows.ts): the day its first consent ends with the calendar button of the first one to end, and
+ * under the bank's name the accounts of each consent (name and IBAN); a consent whose state is not the row's says its own.
+ * A consent is removed from the Muokkaa of its account (Accounts.tsx).
  * A fallback finishes a consent whose redirect page did not open. Every bank has "Yhdistä uudelleen", which starts
- * the same bank again, and a calendar file with a reminder before its first consent ends. When two or more consents are due, one round
+ * the same bank again, and the calendar button saves a file with a reminder before the first consent ends. When two or more consents are due, one round
  * renews them all, one after the other (RenewalRound.tsx). After a link the page lists the accounts
  * the bank handed over that Enable Banking does not let the app read, and offers the next bank, and asks who uses a new
  * joint account (LinkQuestion, on that visit only).
@@ -23,6 +24,7 @@ import type { Account, BankOption, Connection, Meta } from "../../types.ts";
 import { LinkQuestion } from "./AccountUse.tsx";
 import { RenewalRound } from "./RenewalRound.tsx";
 import { Button } from "../../components/ui/Button.tsx";
+import { IconButton } from "../../components/ui/IconButton.tsx";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
 import { SETTINGS_ANCHOR, settingsHash } from "../../routes.ts";
@@ -236,7 +238,7 @@ export function BankConnections({
     const day = c.state === "active" ? reminderDay(c.validUntil) : null;
     return day && day >= (meta.today ?? "") ? day : null;
   };
-  // one line for the whole list: the consent that ends first, with its reminder; the rows keep only their own end day
+  // the consent that ends first has the reminder button, on its bank's row
   const next = banks.map((b) => b.lead).filter((c) => c.state === "active" && c.validUntil).sort((a, b) => a.validUntil!.localeCompare(b.validUntil!))[0];
   const saveReminder = (c: Connection) => {
     const reminder = renewalReminder(c, window.location.origin, new Date());
@@ -322,21 +324,6 @@ export function BankConnections({
       )}
 
       {current.length > 0 ? (
-        <>
-        {next && (
-          <p className="small next-expiry">
-            {t("set.conn.next_expires", { bank: next.institution, date: date(next.validUntil) })}
-            {reminderOf(next) && (
-              <>
-                {" "}
-                <Button variant="link" onClick={() => saveReminder(next)}>
-                  {t("set.conn.add_a_reminder_to_the")}
-                </Button>{" "}
-                <span className="muted">{date(reminderOf(next))}</span>
-              </>
-            )}
-          </p>
-        )}
         <Table
           caption={t("set.conn.bank_connections")}
           rows={banks}
@@ -358,33 +345,15 @@ export function BankConnections({
                       // the bank's Päivitetty is its newest fetch: a consent none of whose accounts has come says why here
                       const unfetched = c.state === "active" && own.length > 0 && own.every((a) => !a.lastSyncedAt) && b.consents.length > 1;
                       return (
-                        <div key={c.id} className="conn-consent">
-                          <div>
-                            {lines.map((line, i) => (
-                              <div key={i} className="sub muted small acc-line">
-                                {line}
-                              </div>
-                            ))}
-                            {/* a consent that ends another day, or has ended, says so: the row has the bank's first day */}
-                            {stateText(c) !== stateText(b.lead) && <div className="sub muted small acc-line conn-own-state">{stateText(c)}</div>}
-                            {unfetched && <div className="sub muted small acc-line">{fetchedText(c, meta.accounts)}</div>}
-                          </div>
-                          {c.state === "active" && (
-                            <Button
-                              variant="link"
-                              disabled={busy !== null}
-                              aria-busy={busy === `del-${c.id}` || undefined}
-                              aria-label={lines.length ? t("set.conn.remove_of", { accounts: lines.join(", ") }) : undefined}
-                              onClick={() =>
-                                run(`del-${c.id}`, async () => {
-                                  await api(`/api/connections/${encodeURIComponent(c.id)}`, { method: "DELETE" });
-                                  return t("set.conn.connection_removed");
-                                })
-                              }
-                            >
-                              {t("set.conn.remove")}
-                            </Button>
-                          )}
+                        <div key={c.id}>
+                          {lines.map((line, i) => (
+                            <div key={i} className="sub muted small acc-line">
+                              {line}
+                            </div>
+                          ))}
+                          {/* a consent that ends another day, or has ended, says so: the row has the bank's first day */}
+                          {stateText(c) !== stateText(b.lead) && <div className="sub muted small acc-line conn-own-state">{stateText(c)}</div>}
+                          {unfetched && <div className="sub muted small acc-line">{fetchedText(c, meta.accounts)}</div>}
                         </div>
                       );
                     })}
@@ -399,6 +368,13 @@ export function BankConnections({
               cell: ({ lead: c, consents }) => (
                 <>
                   {stateText(c)}
+                  {c === next && reminderOf(c) && (
+                    <IconButton label={t("set.conn.add_a_reminder_on", { date: date(reminderOf(c)) })} onClick={() => saveReminder(c)}>
+                      <svg className="reminder-icon" viewBox="0 0 16 16">
+                        <path d="M2.5 4h11v9.5h-11zM2.5 7h11M5.5 2v3M10.5 2v3" />
+                      </svg>
+                    </IconButton>
+                  )}
                   {c.state === "active" && c.daysLeft !== null && c.daysLeft <= WARN_DAYS && <span className="badge warn">{t("set.conn.expires_soon")}</span>}
                   {consents.some((x) => renewalLine(x)) && <div>{t("set.conn.the_bank_connection_ended")}</div>}
                 </>
@@ -428,7 +404,6 @@ export function BankConnections({
             },
           ]}
         />
-        </>
       ) : (
         !picking && <Empty>{t("set.conn.none")}</Empty>
       )}

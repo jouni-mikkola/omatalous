@@ -2,7 +2,7 @@
  * Asetukset > Tilit: every account with its name, IBAN or card number, holder and
  * type (the bank's code is a guess for savings, so the type can be changed) and who uses it (AccountUse.tsx); the user's own name for any account;
  * balance and removal for the accounts the user brought in themselves (an earlier CSV import, demo). A bank account's balance comes
- * from the bank. Tietojen laatu sits under the table.
+ * from the bank, and the bank connection of an account is removed in its form too. Tietojen laatu sits under the table.
  */
 import { cardLimitCents, creditAccountLoan, creditUse } from "@banking/core";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
@@ -90,6 +90,28 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     }
   };
 
+  // a bank connection is removed from the Muokkaa of its account: the bank's list has no Poista to press by mistake
+  const disconnect = async (a: Account) => {
+    setBusy(a.id);
+    setMessage(null);
+    try {
+      await api(`/api/connections/${encodeURIComponent(a.connectionId!)}`, { method: "DELETE" });
+      setEditing(null);
+      setMessage({ tone: "good", text: t("set.conn.connection_removed") });
+      onChange();
+    } catch (err) {
+      setMessage({ tone: "warning", text: (err as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  };
+  const connectionActive = (a: Account) => meta.connections.some((c) => c.id === a.connectionId && c.state === "active");
+  // accounts that share a name are told apart by the last digits of their number
+  const shownName = (a: Account) => {
+    const digits = (a.iban ?? a.cardMask ?? "").replace(/\D/g, "").slice(-4);
+    return digits && meta.accounts.some((o) => o.id !== a.id && o.name === a.name) ? t("set.conn.name_ending", { name: a.name, digits }) : a.name;
+  };
+
   // the rows in another currency, by account: none of them is in a euro figure
   const { data: foreign } = useApi<Record<string, ForeignCurrency[]>>("/api/foreign-rows");
 
@@ -142,7 +164,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     const credit = limit === null ? null : t("set.acc.credit_limit", { limit: money(limit, false) }) + (used ? t("set.acc.credit_used", { used: money(used, false) }) + over : "");
     return (
       <>
-        <div className="acc-name">{a.name}</div>
+        <div className="acc-name">{shownName(a)}</div>
         {accountNumber(a) && <div className="sub acc-line">{accountNumber(a)}</div>}
         {a.customName && <div className="sub acc-line">{t("set.acc.bank_name", { name: a.bankName })}</div>}
         {holder && <div className="sub acc-line">{holder}</div>}
@@ -224,6 +246,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                       busy={busy !== null}
                       removing={busy === a.id}
                       canRemove={removable(a)}
+                      onDisconnect={connectionActive(a) ? () => void disconnect(a) : null}
                       onCancel={() => close(a.id)}
                       onSaved={() => {
                         close(a.id);
@@ -286,6 +309,7 @@ function AccountForm({
   busy,
   removing,
   canRemove,
+  onDisconnect,
   onCancel,
   onSaved,
   onRemove,
@@ -303,6 +327,8 @@ function AccountForm({
   /** This account's removal is on its way. */
   removing: boolean;
   canRemove: boolean;
+  /** Removes the bank connection the account comes from; null when it has no active one. */
+  onDisconnect: (() => void) | null;
   onCancel: () => void;
   onSaved: () => void;
   onRemove: () => void;
@@ -374,6 +400,11 @@ function AccountForm({
         {canRemove && (
           <Button disabled={saving || busy} aria-busy={removing || undefined} onClick={onRemove}>
             {t("set.acc.remove_account")}
+          </Button>
+        )}
+        {onDisconnect && (
+          <Button disabled={saving || busy} aria-busy={removing || undefined} onClick={onDisconnect}>
+            {t("set.conn.remove_connection")}
           </Button>
         )}
       </div>

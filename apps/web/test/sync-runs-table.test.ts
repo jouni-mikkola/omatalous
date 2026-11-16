@@ -26,4 +26,9 @@ describe("RunsTable", () => {
     expect(out.match(/<tbody[\s\S]*<\/tbody>/)![0].match(/<tr/g)).toHaveLength(10);
     expect(out).toMatch(/Näytä 10 lisää/);
   });
+  it("has no search box, however many runs there are", () => {
+    const out = html(Array.from({ length: 20 }, (_, i) => run(20 - i, null)));
+    expect(out).not.toContain("Hae: Pankkihaut");
+    expect(out).not.toContain("rtb-search");
+  });
 });
