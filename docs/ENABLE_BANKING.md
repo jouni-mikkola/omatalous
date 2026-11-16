@@ -47,8 +47,8 @@ first month under *Tapahtumat* and change what is wrong.
   *Yhdistä pankki*.
 - If the browser does not come back to Omatalous after the bank login, copy the whole address from the address bar,
   paste it under *Jos yhdistäminen jäi kesken* in *Asetukset > Pankit ja tilit* and press *Viimeistele*.
-- *Poista* on a connection's row ends the right to read that bank. The accounts and transactions already fetched
-  stay.
+- *Poista* on a bank's row asks first, lists the accounts it stops reading and ends the right to read that bank. The
+  accounts and transactions already fetched stay.
 
 ## Errors
 

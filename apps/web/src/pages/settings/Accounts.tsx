@@ -90,6 +90,12 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     }
   };
 
+  // accounts that share a name are told apart by the last digits of their number
+  const shownName = (a: Account) => {
+    const digits = (a.iban ?? a.cardMask ?? "").replace(/\D/g, "").slice(-4);
+    return digits && meta.accounts.some((o) => o.id !== a.id && o.name === a.name) ? t("set.conn.name_ending", { name: a.name, digits }) : a.name;
+  };
+
   // the rows in another currency, by account: none of them is in a euro figure
   const { data: foreign } = useApi<Record<string, ForeignCurrency[]>>("/api/foreign-rows");
 
@@ -142,7 +148,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     const credit = limit === null ? null : t("set.acc.credit_limit", { limit: money(limit, false) }) + (used ? t("set.acc.credit_used", { used: money(used, false) }) + over : "");
     return (
       <>
-        <div className="acc-name">{a.name}</div>
+        <div className="acc-name">{shownName(a)}</div>
         {accountNumber(a) && <div className="sub acc-line">{accountNumber(a)}</div>}
         {a.customName && <div className="sub acc-line">{t("set.acc.bank_name", { name: a.bankName })}</div>}
         {holder && <div className="sub acc-line">{holder}</div>}
