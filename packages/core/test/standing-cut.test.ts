@@ -119,7 +119,7 @@ describe("B0: the members' standing amounts of a series add up to the bank's amo
   });
 
   it("each paid half", () => {
-    expect(sum("halves", rowsOf(DAYS.map(() => BILL)), (t) => [[A, 42182], [B, 42182]])).toEqual([]);
+    expect(sum("halves", rowsOf(DAYS.map(() => BILL)), () => [[A, 42182], [B, 42182]])).toEqual([]);
   });
 
   it("money nobody owns, whole and in part, and rows the trace does not hold", () => {
