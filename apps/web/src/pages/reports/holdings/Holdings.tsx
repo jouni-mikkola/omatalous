@@ -283,7 +283,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
   const debts = loans.length > 0 && cardsOwe(cards);
   // loans nobody saved: `netCents` holds no debt for them, so its name says so
   const netLabel = netLabelOf(holdings);
-  // the day most balances are from, said once, beside the heading of the first group that has balances
+  // the day most balances are from, said once, beside the heading of Tilit when one of its accounts has a balance, else beside that of the cards
   const common = commonDay([...accounts, ...cards], meta.today);
   const stamp = common ? <span className="holding-date">{t("ahead.balance_on", { date: common })}</span> : null;
   // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
@@ -304,9 +304,9 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
         )}
       </div>
       <div className={columns}>
-        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} common={common} stamp={stamp} />}
+        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} common={common} stamp={accounts.some((a) => a.balanceAt) ? stamp : null} />}
         {loans.length > 0 && <Loans holdings={holdings} />}
-        {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} common={common} stamp={accounts.length > 0 ? null : stamp} />}
+        {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} common={common} stamp={accounts.some((a) => a.balanceAt) ? null : stamp} />}
       </div>
       {(debts || unsaved) && (
         <dl className="st-rows holding-foot">

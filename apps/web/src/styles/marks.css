@@ -58,13 +58,7 @@ td.share { min-width: var(--share-w); }
 
 /* M12 the sum bracket: these rows add up, to the cent, to the sum it runs into (addsUp) */
 .adds-up { --mark-gutter: var(--mark-gap); }
-.adds-up > .st-row { padding-right: var(--mark-gap); }
-/* the bracket is drawn on the .st-row itself; a table's is on its cell (table.css) */
-.adds-up > .st-row:not(.st-total) { box-shadow: inset -1px 0 0 var(--axis); background-repeat: no-repeat; background-size: 4px 1px; }
-.adds-up > .part-first:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 0; }
-.adds-up > .part-last:where(:not(tr)) { background-image: linear-gradient(var(--axis), var(--axis)); background-position: 100% 100%; }
-/* it runs from the first part to the last: a row above or below them (a heading, a row with no figure) has none */
-.adds-up > .st-row:where(:not(tr)):has(~ .part-first), .adds-up > .part-last ~ .st-row:where(:not(tr)) { box-shadow: none; }
+/* a table draws the bracket on its cells (table.css) */
 
 /* M15 the ordinal: the browser counts the rows that are there; only on a table sorted by its own figure column.
    A row marked .unranked, and the opened detail of a row, is outside that ranking: it takes no number and does not count (the indent stays). */

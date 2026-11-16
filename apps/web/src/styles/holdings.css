@@ -47,7 +47,7 @@
 .holdings .holding-head .st-cap { margin: 0; }
 .holding-cards-head .holding-date { margin-right: auto; }
 .holdings .holding-date { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
-/* the heading of a type: a row of the list, so the bracket and the tracks run past it, with the type's total at the right
+/* the heading of a type: a row of the list, so the tracks run past it, with the type's total at the right
    in the quieter ink; a step of room above every heading but the first, and no rule under it */
 .holdings .holding-type-head { justify-content: space-between; padding-bottom: 0; border-bottom: 0; color: var(--text-2); }
 .holdings .holding-type-head:not(:first-child) { padding-top: var(--sp-12); }

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -27,6 +28,13 @@ const undated = (markup: string) => text(markup).replace(/ Saldo päivältä \d+
 const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
 const headingDate = (markup: string) => markup.match(/<span class="holding-date">([^<]*)<\/span>/)?.[1];
 const links = (markup: string) => [...markup.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]);
+
+describe("Holdings look", () => {
+  it("leaves the sum of a total plain, as the rows around it are", () => {
+    const css = readFileSync(new URL("../src/styles/holdings.css", import.meta.url), "utf8");
+    expect(css).toMatch(/\.holdings \.st-total \.st-num \{ text-decoration: none; \}/);
+  });
+});
 
 describe("Holdings", () => {
   it("is nothing for a household with no account, card or loan", () => {
@@ -143,7 +151,7 @@ describe("Holdings", () => {
     it("draws no track when the answer gives no shares", () => {
       const out = marks([150_000, -50_000], true, null);
       expect(out).not.toContain("share");
-      expect(marks([100_000], false, null)).not.toMatch(/adds-up|share/);
+      expect(marks([100_000], false, null)).not.toContain("share");
     });
     it("leaves a row without a balance out of the tracks", () => {
       const out = marks([70_000, null, 30_000], true, [70, null, 30]);
@@ -441,6 +449,10 @@ describe("Holdings", () => {
       expect(same.match(/Saldo päivältä/g)).toHaveLength(1);
       // no balance, no day
       expect(html(answer({ accounts: [account("a", "Käyttötili", null)] }))).not.toContain("holding-date");
+      // the accounts have no balance and the cards do: the day stands beside the cards heading
+      const onCards = html(answer({ accounts: [account("a", "Käyttötili", null)], cards: [card()] }));
+      expect(onCards).toMatch(/<h3 class="st-cap">Luottokortit<\/h3><span class="holding-date">Saldo päivältä 12\.10\.<\/span>/);
+      expect(onCards.match(/holding-date/g)).toHaveLength(1);
     });
 
     it("names an account's bank only when the accounts are at more than one bank", () => {
