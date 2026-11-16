@@ -13,6 +13,7 @@ import { type Bridge, buildBridge } from "./bridge.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows, spendTotals } from "./context.ts";
 import { accountsCoverage, comparableWith } from "./coverage.ts";
 import { fixedSeriesAt } from "./fixed-share.ts";
+import { unmatchedFixed } from "./matched-fixed.ts";
 import { type PeriodTotals, totalsOf } from "./flows.ts";
 import { type MonthPace, monthPace } from "./forecast.ts";
 import { type NytAnswer, nytAnswer } from "./nyt.ts";
@@ -37,7 +38,8 @@ export interface DashboardData {
   /**
    * False when the history does not reach back over the previous period on enough of the accounts (those left out may
    * carry at most a tenth of the period's spending): deltas and swings are hidden. Otherwise `previousTotals` and the
-   * categories' `previousCents` are the sums of the accounts both periods have.
+   * categories' `previousCents` are the sums of the accounts both periods have. In a running period a monthly fixed cost
+   * the previous period booked by this day and this period has not booked yet is left out (`unmatchedFixed`); `totals` never is.
    */
   comparable: boolean;
   /** An account with rows in only one of the two periods is left out of the comparison (shown or hidden): the page says so. */
@@ -145,10 +147,13 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const rows = spendRows(ctx, toDayRange(range));
   const previousRows = spendRows(ctx, toDayRange(span));
   const totals = spendTotals(ctx, toDayRange(range));
-  const previousTotals = totalsOf(onShared(previousRows).map((t) => t.flows));
+  // a monthly fixed cost booked on only one side by now is a matter of timing: it is left out of that side's comparison figure, never of the totals
+  const timing = running ? unmatchedFixed(fixedSeriesAt(ctx, ctx.today), cancelledSubjects(inputs, ctx.today), rows, previousRows) : null;
+  const previousCompared = onShared(timing ? previousRows.filter((t) => !timing.previous.has(t.id)) : previousRows);
+  const previousTotals = totalsOf(previousCompared.map((t) => t.flows));
   const comparedNow = new Map<string, number>();
-  for (const t of onShared(rows)) if (t.spend) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
-  const categories = categoryTotals(rows, onShared(previousRows)).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
+  for (const t of onShared(rows)) if (t.spend && !timing?.now.has(t.id)) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
+  const categories = categoryTotals(rows, previousCompared).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
   const alerts = buildAlerts(ctx, range, inputs, lang);
   const quality = dataQualityReport(ctx, range, balances);
   const settled = running ? settledTotals(ctx, range) : null;
