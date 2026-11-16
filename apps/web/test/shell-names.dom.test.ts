@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { openApp, startServer } from "./dom-kit.ts";
 
 const tabs = () => screen.getByRole("navigation", { name: "Päävalikko" });
@@ -97,4 +97,62 @@ describe("Shell: a page carries its tab's name", () => {
     expect(document.querySelector(".user-menu .menu")?.textContent).not.toContain("Omatalous");
     expect(parts.filter((p) => /^(Oma|Koko talous)$/.test(p))).toEqual([]);
   }, 60000);
+
+  it("draws the title of a page that has no heading of its own, and keeps the hidden one on the pages that have", async () => {
+    const { WEB_EXTENSIONS } = await import("../src/extensions.ts");
+    WEB_EXTENSIONS.push({ id: "esimerkki", page: { label: "Esimerkki", component: () => null } });
+    try {
+      await startServer();
+      await openApp("#/overview");
+      const { router } = await import("../src/router.tsx");
+      const pages: [string, string, boolean][] = [
+        ["/overview", "Yhteenveto", false],
+        ["/bills", "Laskut", false],
+        ["/transactions", "Tapahtumat", false],
+        ["/reports", "Raportit", false],
+        ["/review", "Tarkistettavat", false],
+        ["/settings/security", "Asetukset", true],
+        ["/esimerkki", "Esimerkki", true],
+      ];
+      for (const [href, name, drawn] of pages) {
+        await router.navigate({ href });
+        await waitFor(() => expect(document.title).toMatch(new RegExp(`^${name}`)));
+        const h1 = screen.getByRole("heading", { level: 1 });
+        expect(h1.classList.contains("page-title"), href).toBe(drawn);
+        expect(h1.classList.contains("sr-only"), href).toBe(!drawn);
+      }
+      // Asetukset is drawn as its name alone; the section is in the tab row and in the name a screen reader reads
+      await router.navigate({ href: "/settings/security" });
+      await waitFor(() => expect(screen.getByRole("heading", { level: 1, name: "Asetukset: Turvallisuus" }).textContent).toBe("Asetukset"));
+    } finally {
+      WEB_EXTENSIONS.length = 0;
+    }
+  }, 90000);
+
+  it("offers Oma and Koko talous on the four pages and on none that does not read the scope", async () => {
+    await startServer();
+    // the viewer has half of an account: the household has a view of its own, so the switch is there where it means something
+    const real = globalThis.fetch;
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      const res = await real(input, init);
+      if (new URL(input, "http://localhost").pathname !== "/api/meta") return res;
+      const meta = (await res.json()) as { accounts: object[] };
+      meta.accounts = meta.accounts.map((a, i) => (i === 0 ? { ...a, part: { from: 0, to: 1, of: 2 } } : a));
+      return new Response(JSON.stringify(meta), { status: res.status, headers: { "content-type": "application/json" } });
+    });
+    await openApp("#/overview");
+    const { router } = await import("../src/router.tsx");
+    const switchOn = (href: string, title: RegExp, shown: boolean) =>
+      waitFor(async () => {
+        await router.navigate({ href });
+        expect(document.title).toMatch(title);
+        expect(document.querySelector(".topbar .scope-toggle") !== null, href).toBe(shown);
+      });
+    await switchOn("/overview", /^Yhteenveto/, true);
+    await switchOn("/bills", /^Laskut/, true);
+    await switchOn("/transactions", /^Tapahtumat/, true);
+    await switchOn("/reports", /^Raportit/, true);
+    await switchOn("/review", /^Tarkistettavat/, false);
+    await switchOn("/settings/security", /^Asetukset/, false);
+  }, 90000);
 });

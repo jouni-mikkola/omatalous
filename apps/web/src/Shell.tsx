@@ -13,7 +13,7 @@ import { dateRange, dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
-import { NAV, REVIEW, SETTINGS } from "./nav.ts";
+import { NAV, namesItself, readsScope, REVIEW, SETTINGS } from "./nav.ts";
 import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
@@ -96,6 +96,8 @@ export function Shell() {
   const [reportQuestion, setReportQuestion] = useState<string | null>(null);
   // Raportit and Asetukset name their open tab or section, so two tabs of the browser tell apart
   const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageTitle(pageName, page, reportQuestion, location.pathname.split("/")[2]);
+  // a page with no heading of its own shows the name the menu gives it; the accessible name adds the open tab or section, as the title of the browser tab does
+  const titleShown = pageName ?? "";
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
   const [wizardClosed, setWizardClosed] = useState(() => readWizardClosed(user.id));
   const [menuError, setMenuError] = useState<string | null>(null);
@@ -324,7 +326,7 @@ export function Shell() {
             ))}
           </nav>
           <span className="spacer" />
-          {hasHousehold && (
+          {hasHousehold && readsScope(page) && (
             <Segmented
               className="scope-toggle"
               label={t("shell.scope")}
@@ -421,7 +423,13 @@ export function Shell() {
         ))}
 
         <main id="main" tabIndex={-1}>
-        <h1 className="sr-only">{pageLabel}</h1>
+        {namesItself(page) ? (
+          <h1 className="sr-only">{pageLabel}</h1>
+        ) : (
+          <h1 className="page-title" aria-label={pageLabel}>
+            {titleShown}
+          </h1>
+        )}
         {presets.length > 0 && (m.accounts.length > 0 || hasHousehold) && (
           <div className="filters" role="toolbar" aria-label={t("shell.period")}>
             <Segmented

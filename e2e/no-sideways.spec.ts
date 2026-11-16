@@ -7,15 +7,20 @@ import { overflow } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["overview", "transactions", "bills", "reports", "review"];
 
-// A row of tabs wraps; it holds no sideways scroll that hides the last tabs on a phone.
-test("the tabs of Asetukset all fit their row at 390 px", async ({ browser }) => {
+// A row of tabs never wraps: it scrolls inside itself, the page does not, and the open tab is in sight.
+test("the tabs of Asetukset stay one row at 390 px with the open tab in sight", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 } });
   const page = await context.newPage();
   await page.goto("/#/settings/banks");
-  await expect(page.locator("main .tabs").first()).toBeVisible();
-  const rows = await page.locator(".tabs").evaluateAll((els) => els.map((e) => e.scrollWidth - e.clientWidth));
-  expect(rows.length).toBeGreaterThan(0);
-  expect(Math.max(...rows)).toBeLessThanOrEqual(0);
+  const row = page.locator("main .tabs").first();
+  await expect(row).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  const tops = await row.getByRole("link").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+  expect(new Set(tops).size, "one line of tabs").toBe(1);
+  const open = (await row.locator("[aria-current]").boundingBox())!;
+  const view = (await row.boundingBox())!;
+  expect(open.x).toBeGreaterThanOrEqual(view.x - 1);
+  expect(open.x + open.width).toBeLessThanOrEqual(view.x + view.width + 1);
   await context.close();
 });
 
