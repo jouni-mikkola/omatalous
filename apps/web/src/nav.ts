@@ -25,6 +25,12 @@ export const NAV: readonly NavEntry[] = [
 export const readsScope = (page: string): boolean => NAV.some((e) => e.id === page);
 
 /**
+ * Whether the page opens with a heading of its own, so its name needs no line above it: the four pages of the header and
+ * Tarkistettavat, whose cards are named. Asetukset and the page of an add-on module have none, and the shell draws theirs.
+ */
+export const namesItself = (page: string): boolean => readsScope(page) || page === REVIEW.id;
+
+/**
  * Tarkistettavat is a link at the right of the header, with the count of open items when there are any: the one place
  * that asks what the app cannot settle itself, not a page about money.
  */

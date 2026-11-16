@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV, readsScope, REVIEW, SETTINGS } from "../src/nav.ts";
+import { NAV, namesItself, readsScope, REVIEW, SETTINGS } from "../src/nav.ts";
 
 describe("NAV", () => {
   it("is Yhteenveto | Laskut | Tapahtumat | Raportit: no entry hides behind a flag", () => {
@@ -19,6 +19,11 @@ describe("NAV", () => {
   it("offers the scope on the four pages and on no page that does not read it", () => {
     expect(NAV.map((e) => readsScope(e.id))).toEqual([true, true, true, true]);
     expect([REVIEW.id, SETTINGS.id, "esimerkki", ""].map(readsScope)).toEqual([false, false, false, false]);
+  });
+
+  it("leaves the title to the shell on Asetukset and on the page of an add-on module", () => {
+    expect([...NAV.map((e) => e.id), REVIEW.id].map(namesItself)).toEqual([true, true, true, true, true]);
+    expect([SETTINGS.id, "esimerkki"].map(namesItself)).toEqual([false, false]);
   });
 
   it("Tarkistettavat is the header's link with the count, not one of the tabs", () => {

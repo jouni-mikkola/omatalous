@@ -45,11 +45,10 @@ afterEach(() => {
 });
 
 const row = (open: string) =>
-  createElement(
-    Tabs,
-    { label: "Esimerkki" },
-    ...Object.keys(LEFT).map((id) => createElement("a", { key: id, href: `#/${id}`, "data-tab": id, "aria-current": id === open ? "page" : undefined }, id)),
-  );
+  createElement(Tabs, {
+    label: "Esimerkki",
+    children: Object.keys(LEFT).map((id) => createElement("a", { key: id, href: `#/${id}`, "data-tab": id, "aria-current": id === open ? "page" : undefined }, id)),
+  });
 const nav = () => screen.getByRole("navigation", { name: "Esimerkki" });
 
 describe("the pure parts of the row", () => {
