@@ -21,4 +21,5 @@ of not guessing, and the household view still counts the account once.
 Where the rows are cut by who paid, the part is not a guess, so the two views do add up. What is ahead of such an
 account (`standingCut`) is derived from the recent rows of each series on every read, as the past is: what the trace
 says the viewer paid, plus their weighted part of what nobody owns. This is the sliding window 0016 declined for the
-weights, and it moves no month: only the forecast reads it, and the amounts of past months stay as they were counted.
+weights, and it moves no month's spending: the series and the figures read from them (fixed costs, price rises, housing
+charges) use it, and each row of a month stays as it was counted.
