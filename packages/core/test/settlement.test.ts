@@ -42,10 +42,11 @@ interface Setup {
   asOf?: string;
   opening?: number;
   closed?: ClosedMonth[];
+  split?: "unknown";
 }
 const run = (month: string, rows: readonly TraceRow[], o: Setup = {}): Settlement => {
   const t = trace(rows, o.opening ?? 0, Math.min(...rows.map((r) => r.day)));
-  return settlement(month, { key: POOL, trace: t, answers: o.answers ?? [], users: o.users ?? BOTH }, o.agreements ?? [equal()], new Set(o.members ?? [MATTI, MAIJA]), o.cards ?? [], o.incomes ?? new Map(), o.asOf ?? "2026-12-01", o.closed ?? []);
+  return settlement(month, { key: POOL, trace: t, answers: o.answers ?? [], users: o.users ?? BOTH, ...(o.split ? { split: o.split } : {}) }, o.agreements ?? [equal()], new Set(o.members ?? [MATTI, MAIJA]), o.cards ?? [], o.incomes ?? new Map(), o.asOf ?? "2026-12-01", o.closed ?? []);
 };
 const sum = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 /** The identity of every month, and that what was paid and what was owed are both the net cost. */
@@ -571,6 +572,67 @@ describe("a closed month is frozen", () => {
       const old = stored([{ owner: acme, cents: 5000 }, { owner: "c", cents: -5000 }]);
       expect(identity(run("2026-10", rows, { answers: [matti], asOf: "2026-10-25", closed: [old] })).lines).toEqual([]);
     });
+  });
+});
+
+describe("a closed month is final", () => {
+  const rows = [deposit(MATTI, "2026-09-01", 100000), deposit(MAIJA, "2026-09-01", 100000), row("shop", "2026-09-10", -10000)];
+  /** What a closed month must not carry: a correction that moves nothing. */
+  const moves = (s: Settlement): boolean => s.lines.filter((l) => l.kind === "late_change").every((l) => [...l.paid, ...l.owed].some((e) => e.cents !== 0));
+  const frozen = (month: string, source: readonly TraceRow[], o: Setup): ClosedMonth => {
+    const s = run(month, source, o);
+    expect(s.status.open).toBe(false);
+    return s as ClosedMonth;
+  };
+
+  it("keeps September as it settled when its costs are untold today, and shows no correction, paid, owed or over", () => {
+    const sep = frozen("2026-09", rows, { asOf: "2026-10-20" });
+    expect([of(sep, MATTI).owed, of(sep, MAIJA).owed]).toEqual([5000, 5000]);
+    const oct = identity(run("2026-10", rows, { agreements: [], split: "unknown", asOf: "2026-10-25", closed: [sep] }));
+    expect(oct.lines).toEqual([]);
+    expect(oct.members.map((m) => [m.paid, m.owed, m.over])).toEqual([[0, 0, 0], [0, 0, 0]]);
+    expect([oct.unknownPaid, oct.unknownOwed]).toEqual([0, 0]);
+    expect(run("2026-09", rows, { agreements: [], split: "unknown", asOf: "2026-10-25", closed: [sep] })).toBe(sep);
+  });
+
+  it("keeps a month that took in a refund and a deposit of an earlier cost, when that cost is untold today", () => {
+    const cost = row("cost", "2026-09-03", -10001);
+    const credited = [row("seed", "2026-09-01", 1, own(MATTI)), cost, row("refund", "2026-10-05", 4000, refundOf(cost)), row("deposit", "2026-10-10", 6000, own(MAIJA)), row("deposit", "2026-11-02", 10000, own(MATTI)), row("food", "2026-11-10", -3000)];
+    const asOf = "2027-02-01";
+    const sep = frozen("2026-09", credited, { asOf });
+    const oct = frozen("2026-10", credited, { asOf, closed: [sep] });
+    expect(oct.lines.map((l) => [l.kind, l.of])).toEqual([["refund", cost.key], ["credit_filled", cost.key]]);
+    const nov = identity(run("2026-11", credited, { agreements: [], split: "unknown", asOf, closed: [sep, oct] }));
+    expect(nov.lines).toEqual([]);
+    expect(nov.untold).toEqual([{ key: credited[5]!.key, day: credited[5]!.day, cents: 3000 }]);
+  });
+
+  it("keeps the identity of an open month with untold costs: sum(over) = unknownOwed - unknownPaid", () => {
+    const sep = frozen("2026-09", rows, { asOf: "2026-10-20" });
+    const more = [...rows, deposit(MATTI, "2026-10-02", 5000), row("food", "2026-10-12", -3000)];
+    const oct = identity(run("2026-10", more, { agreements: [], split: "unknown", asOf: "2026-10-25", closed: [sep] }));
+    expect(oct.lines).toEqual([]);
+    expect(oct.untold).toMatchObject([{ cents: 3000 }]);
+    expect(oct.members.reduce((s, m) => s + m.over, 0)).toBe(oct.unknownOwed - oct.unknownPaid);
+  });
+
+  it("still carries what a member says after the closing: an agreement that tells the split of an untold month", () => {
+    // a month with untold costs closes by time, 90 days after its end
+    const sep = frozen("2026-09", rows, { agreements: [], split: "unknown", asOf: "2027-01-05" });
+    expect(sep.lines).toEqual([]);
+    const oct = identity(run("2026-10", rows, { agreements: [equal()], split: "unknown", asOf: "2027-01-10", closed: [sep] }));
+    expect(oct.lines.map((l) => [l.kind, l.key, l.cents])).toEqual([["late_change", "2026-09", 10000]]);
+    expect(moves(oct)).toBe(true);
+    expect([of(oct, MATTI).over, of(oct, MAIJA).over]).toEqual([0, 0]);
+  });
+
+  it("emits no correction that moves nothing", () => {
+    const sep = frozen("2026-09", rows, { asOf: "2026-10-20" });
+    for (const o of [{ asOf: "2026-10-25" }, { asOf: "2026-10-25", agreements: [equal(), agree("2026-01-01", "equal", { who: [MAIJA, MATTI] }, "other-pool")] }]) {
+      const oct = run("2026-10", rows, { ...o, closed: [sep] });
+      expect(oct.lines).toEqual([]);
+      expect(moves(oct)).toBe(true);
+    }
   });
 });
 
