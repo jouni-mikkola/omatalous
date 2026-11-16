@@ -4,7 +4,7 @@ import { buildQuestions } from "../src/analysis/questions.ts";
 import { expectedIncome } from "../src/analysis/expected.ts";
 import { earnedIncome } from "../src/analysis/usual.ts";
 import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
-import { applyPayerRoles, PAYER_ROLES, payerKeyOf, payerRoleOf } from "../src/payer-role.ts";
+import { applyPayerRoles, PAYER_ROLES, payerKeyOf, payerKeysOf, payerRoleOf } from "../src/payer-role.ts";
 import { type Account, type CategoryRule, NO_INPUTS, type PayerRole, type PayerRoleRow, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -466,5 +466,93 @@ describe("the questions about a payer", () => {
     const old = [fromVille(300, "2025-01-03"), fromVille(300, "2025-02-03"), fromVille(300, "2025-03-03"), fromVille(60, "2026-10-03", { description: "MobilePay" }), fromVille(60, "2026-10-04")];
     const q = payersOf(ask([anchor(), ...old], []));
     expect(q).toMatchObject([{ steady: true, offMedianCents: [eur(60), eur(60)] }]);
+  });
+
+  it("asks once about a person whose rows name them by account number and by name, under one key", () => {
+    const rows = [
+      fromVille(300, "2026-10-03", { counterparty: "Jarkko Esimerkki", merchant: "Jarkko Esimerkki" }),
+      fromVille(300, "2026-10-10", { counterparty: "Jarkko Esimerkki", merchant: "Jarkko Esimerkki" }),
+      fromVille(300, "2026-10-17", { counterparty: "Esimerkki Jarkko Matias", merchant: "Esimerkki Jarkko Matias", counterpartyIban: null }),
+      fromVille(300, "2026-10-24", { counterparty: "Esimerkki Jarkko Matias", merchant: "Esimerkki Jarkko Matias", counterpartyIban: null }),
+    ];
+    const q = payersOf(ask(rows, []));
+    expect(q.map((i) => [i.key, i.count, i.cents])).toEqual([["name:ESIMERKKI JARKKO MATIAS", 4, eur(1200)]]);
+  });
+
+  it("reads a steady payer's usual sum across the account number and the name, and keeps a dismissal made under the account number", () => {
+    const split = [
+      fromVille(30, "2026-08-03", { counterparty: "Jarkko Esimerkki", merchant: "Jarkko Esimerkki" }),
+      fromVille(30, "2026-09-03", { counterparty: "Jarkko Esimerkki", merchant: "Jarkko Esimerkki" }),
+      fromVille(30, "2026-10-03", { counterparty: "Esimerkki Jarkko Matias", merchant: "Esimerkki Jarkko Matias", counterpartyIban: null }),
+    ];
+    // 90,00 is under the asking sum: the question stands only because the three rows together are steady
+    expect(payersOf(ask([anchor(), ...split], [])).map((i) => [i.key, i.steady, i.proposal])).toEqual([["name:ESIMERKKI JARKKO MATIAS", true, "cost_share"]]);
+    const mark = [{ subject: `question:payee:${VILLE}`, mark: "dismissed" as const, markedAt: "2026-10-01T10:00:00" }];
+    expect(payersOf(ask([anchor(), ...split], [], [checking], mark))).toEqual([]);
+    // near miss: a dismissal of another account number leaves the question
+    const other = [{ ...mark[0]!, subject: "question:payee:iban:FI9900000000000003" }];
+    expect(payersOf(ask([anchor(), ...split], [], [checking], other))).toHaveLength(1);
+  });
+
+  it("still asks about the rows an answer by account number does not reach", () => {
+    const rows = [
+      fromVille(300, "2026-10-03", { counterparty: "Jarkko Esimerkki", merchant: "Jarkko Esimerkki" }),
+      fromVille(300, "2026-10-17", { counterparty: "Jarkko Esimerkki", merchant: "Jarkko Esimerkki", counterpartyIban: null }),
+    ];
+    const q = payersOf(ask(rows, [household(VILLE, "gift")]));
+    expect(q.map((i) => [i.count, i.cents])).toEqual([[1, eur(300)]]);
+  });
+});
+
+describe("payerKeysOf", () => {
+  const keyed = (rows: Partial<Transaction>[]) => {
+    const all = rows.map((r) => tx({ bookingDate: "2026-10-01", amountCents: eur(10), ...r }));
+    const keyOf = payerKeysOf(all);
+    return all.map((t) => keyOf(t));
+  };
+
+  it("gives one key to a person written in two orders, with a middle name left out, and by account number", () => {
+    expect(
+      keyed([
+        { counterparty: "Jarkko Esimerkki", counterpartyIban: VILLE_IBAN },
+        { counterparty: "Esimerkki Jarkko Matias" },
+        { counterparty: "Esimerkki Jarkko Matias" },
+        { counterparty: "ESIMERKKI JARKKO" },
+      ]),
+    ).toEqual(["name:ESIMERKKI JARKKO MATIAS", "name:ESIMERKKI JARKKO MATIAS", "name:ESIMERKKI JARKKO MATIAS", "name:ESIMERKKI JARKKO MATIAS"]);
+  });
+
+  it("keeps two people apart, and a company with a person's words", () => {
+    expect(keyed([{ counterparty: "Jarkko Esimerkki" }, { counterparty: "Matti Esimerkki" }, { counterparty: "Jarkko Esimerkki Kiinteistot Oy" }])).toEqual(["name:ESIMERKKI JARKKO", "name:ESIMERKKI MATTI", "name:ESIMERKKI JARKKO KIINTEISTOT OY"]);
+  });
+
+  describe("never joins two people", () => {
+    const apart = (rows: Partial<Transaction>[]) => {
+      const all = rows.map((r) => tx({ bookingDate: "2026-10-01", amountCents: eur(10), ...r }));
+      const keyOf = payerKeysOf(all);
+      expect(all.map((t) => keyOf(t))).toEqual(all.map((t) => payerKeyOf(t)));
+    };
+
+    it("when one name matches two longer names that do not match each other (a father and a son)", () => {
+      apart([{ counterparty: "Jarkko Esimerkki" }, { counterparty: "Esimerkki Jarkko Matias" }, { counterparty: "Esimerkki Jarkko Pekka" }]);
+      // an account number written with the short name belongs to none of the three
+      apart([{ counterparty: "Jarkko Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: "Esimerkki Jarkko Matias" }, { counterparty: "Esimerkki Jarkko Pekka" }]);
+    });
+
+    it("when a couple is written in one name next to the names of each", () => {
+      apart([{ counterparty: "Matti ja Liisa Esimerkki" }, { counterparty: "Matti Esimerkki" }, { counterparty: "Liisa Esimerkki" }]);
+    });
+
+    it("when a joint account number is written with the names of two holders", () => {
+      apart([{ counterparty: "Matti Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: "Liisa Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: "Matti Esimerkki" }, { counterparty: "Liisa Esimerkki" }]);
+    });
+  });
+
+  it("keeps the account number for a row of a joined number that has no name, which a name answer cannot reach", () => {
+    expect(keyed([{ counterparty: "Jarkko Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: null, counterpartyIban: VILLE_IBAN }, { counterparty: "Jarkko Esimerkki" }])).toEqual(["name:ESIMERKKI JARKKO", VILLE, "name:ESIMERKKI JARKKO"]);
+  });
+
+  it("leaves an account number alone when no name of its rows is another key's", () => {
+    expect(keyed([{ counterparty: "Jarkko Esimerkki", counterpartyIban: VILLE_IBAN }, { counterparty: "Matti Meikalainen" }])).toEqual([VILLE, "name:MATTI MEIKALAINEN"]);
   });
 });

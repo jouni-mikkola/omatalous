@@ -78,6 +78,8 @@ export interface Trace {
   openingTaken: boolean;
   /** What the pool owes its own spending: the cents rows took that no money covered yet. */
   creditCents: number;
+  /** Groups no question stands for: money from a pool of the household that this pool pays too, so it moved between the household's own accounts. An answer to one still counts. */
+  unasked?: ReadonlySet<Owner>;
 }
 
 export const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
