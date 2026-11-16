@@ -104,8 +104,8 @@ describe("a card beside a rated loan in Lainat", () => {
 });
 
 describe("the debts of a card paid in full", () => {
-  const rateOf = (rows: Transaction[], loans: Loan[]) => {
-    const balances = [bal(own, 600_000), bal(card, -11_000)];
+  const rateOf = (rows: Transaction[], loans: Loan[], cardCents = -11_000) => {
+    const balances = [bal(own, 600_000), bal(card, cardCents)];
     const debts = debtsOf(createContext(rows, [own, card], today), balances, { marks: [], expectedBills: [], loans });
     return debts.connected[debts.sources.findIndex((s) => s.accountId === "card")]!.rateBp;
   };
@@ -113,7 +113,7 @@ describe("the debts of a card paid in full", () => {
 
   it("is told as a rate of 0, and a card the rows do not show paid in full has none", () => {
     expect(rateOf([...days(1000), ...statements(1000)], [])).toBe(0);
-    expect(rateOf([...days(300), ...minimums()], [])).toBeNull();
+    expect(rateOf([...days(300), ...minimums()], [], -200_000)).toBeNull();
   });
 
   it("keeps the rate of the loan linked to it, so a card with a loan saved without a rate shows no 0", () => {

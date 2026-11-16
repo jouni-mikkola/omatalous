@@ -185,7 +185,7 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
   const card = meta.accounts.find((a) => a.id === item.accountId);
   const initial = loan ? formOfLoan(loan) : card ? formOfCard(card, meta.today) : null;
   const waiting = editing && !loans.data && !loans.error;
-  const formShown = editing && loans.data !== undefined && initial !== null;
+  const formShown = editing && loans.data !== null && initial !== null;
   const formBox = useRef<HTMLDivElement>(null);
   // the form opens at its first field, so the answer can be typed at once
   useEffect(() => {
