@@ -70,6 +70,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 /* ── the marks: VT4's payee plate and account mark, with the account's short text ─────── */
 .tx-acct { display: inline-flex; align-items: center; gap: var(--sp-4); max-width: 100%; min-width: 0; color: var(--text-2); }
 /* the digits, a short own name or the type's word: never cut, so the cell is as wide as its longest */
+.tx-acct-logo { display: contents; }
 .tx-acct-short { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 
 /* ── the totals strip ────────────────────────────────────────────────────────────── */
