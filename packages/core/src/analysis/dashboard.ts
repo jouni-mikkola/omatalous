@@ -149,11 +149,11 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
   const totals = spendTotals(ctx, toDayRange(range));
   // a monthly fixed cost booked on only one side by now is a matter of timing: it is left out of that side's comparison figure, never of the totals
   const timing = running ? unmatchedFixed(fixedSeriesAt(ctx, ctx.today), cancelledSubjects(inputs, ctx.today), rows, previousRows) : null;
-  const previousCompared = onShared(timing ? previousRows.filter((t) => !timing.previous.has(t.id)) : previousRows);
-  const previousTotals = totalsOf(previousCompared.map((t) => t.flows));
+  const matchedBefore = onShared(timing ? previousRows.filter((t) => !timing.previous.has(t.id)) : previousRows);
+  const previousTotals = totalsOf(matchedBefore.map((t) => t.flows));
   const comparedNow = new Map<string, number>();
   for (const t of onShared(rows)) if (t.spend && !timing?.now.has(t.id)) comparedNow.set(t.category, (comparedNow.get(t.category) ?? 0) + t.spend);
-  const categories = categoryTotals(rows, previousCompared).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
+  const categories = categoryTotals(rows, matchedBefore).map((c) => ({ ...c, comparedCents: comparedNow.get(c.category) ?? 0 }));
   const alerts = buildAlerts(ctx, range, inputs, lang);
   const quality = dataQualityReport(ctx, range, balances);
   const settled = running ? settledTotals(ctx, range) : null;
