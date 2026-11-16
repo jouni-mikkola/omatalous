@@ -40,6 +40,10 @@
 .holdings .holding-account .st-sub { grid-column: 1 / -1; }
 /* M7: the track lies on the row's own rule, so the box it is drawn in reaches the border */
 .holdings .holding-account.share { background-origin: border-box; }
+/* a total is not underlined: its rule above it and its weight set it apart */
+.holdings .st-total .st-num { text-decoration: none; }
+/* the day most balances are from, under the heading */
+.holdings .holding-date { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
 /* the heading of a type: a row of the list, so the bracket and the tracks run past it, with the type's total at the right
    in the quieter ink; a step of room above every heading but the first, and no rule under it */
 .holdings .holding-type-head { justify-content: space-between; padding-bottom: 0; border-bottom: 0; color: var(--text-2); }
