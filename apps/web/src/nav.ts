@@ -19,6 +19,12 @@ export const NAV: readonly NavEntry[] = [
 ];
 
 /**
+ * Whether the open page shows figures that Oma and Koko talous change: the four pages of the header. Tarkistettavat,
+ * Asetukset and the page of an add-on module do not read the scope, so the switch is not offered there.
+ */
+export const readsScope = (page: string): boolean => NAV.some((e) => e.id === page);
+
+/**
  * Tarkistettavat is a link at the right of the header, with the count of open items when there are any: the one place
  * that asks what the app cannot settle itself, not a page about money.
  */

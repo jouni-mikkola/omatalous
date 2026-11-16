@@ -81,9 +81,9 @@ describe("the type scale and the spacing step in every stylesheet", () => {
 
   it("sets the bare h3 and p of Asetukset to the body size and the spacing tokens", () => {
     const css = readFileSync(new URL("../src/styles/settings.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    // the scope is the markup of Settings.tsx: a .stack whose direct child is the .tabs nav
+    // the scope is the markup of Settings.tsx: a .stack whose direct child is the row of Tabs, which draws the .tabs nav
     const page = readFileSync(new URL("../src/pages/Settings.tsx", import.meta.url), "utf8");
-    expect(page).toMatch(/<div className="stack">\s*<nav className="tabs"/);
+    expect(page).toMatch(/<div className="stack">\s*<Tabs /);
     for (const tag of ["h3", "p"]) {
       const rule = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].find((m) => m[1]!.trim() === `:where(.stack:has(> .tabs)) ${tag}:not([class])`);
       expect(rule, tag).toBeDefined();

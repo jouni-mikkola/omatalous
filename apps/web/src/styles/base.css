@@ -72,7 +72,12 @@ table { font-variant-numeric: tabular-nums lining-nums; }
 .segmented button:hover { color: var(--text); }
 .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 /* tabs: views of one subject (buttons) or targets of one page (links); the chosen one carries the 2 px accent foot */
-.tabs { display: flex; flex-wrap: wrap; gap: var(--sp-4); margin-bottom: var(--sp-8); }
+/* the row never wraps: where the tabs do not fit it scrolls sideways and fades at the end that has more (components/ui/Tabs.tsx marks the ends) */
+.tabs { position: relative; display: flex; gap: var(--sp-4); margin-bottom: var(--sp-8); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs:is([data-fade-start], [data-fade-end]) { --fade-start: 0%; --fade-end: 0%; mask-image: linear-gradient(to right, transparent, var(--text) var(--fade-start), var(--text) calc(100% - var(--fade-end)), transparent); }
+.tabs[data-fade-start] { --fade-start: var(--sp-32); }
+.tabs[data-fade-end] { --fade-end: var(--sp-32); }
 .tabs button, .tabs a { flex: none; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 0; background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: var(--w-strong); cursor: pointer; text-decoration: none; box-shadow: inset 0 -2px 0 transparent; white-space: nowrap; }
 .tabs button:hover, .tabs a:hover { color: var(--text); }
 .tabs button[aria-selected="true"], .tabs a[aria-current="page"] { color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }

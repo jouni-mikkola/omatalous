@@ -1,5 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { openApp, startServer } from "./dom-kit.ts";
 
 const tabs = () => screen.getByRole("navigation", { name: "Päävalikko" });
@@ -95,4 +95,58 @@ describe("Shell: a page carries its tab's name", () => {
     expect(parts[0]).toContain("Omatalous");
     expect(parts.filter((p) => /^(Oma|Koko talous)$/.test(p))).toEqual([]);
   }, 60000);
+
+  it("shows the same visible heading on every page, the name the menu gives it", async () => {
+    await startServer();
+    await openApp("#/overview");
+    const { router } = await import("../src/router.tsx");
+    const names: [string, string][] = [
+      ["/overview", "Yhteenveto"],
+      ["/bills", "Laskut"],
+      ["/transactions", "Tapahtumat"],
+      ["/reports", "Raportit"],
+      ["/settings/security", "Asetukset"],
+      ["/review", "Tarkistettavat"],
+    ];
+    for (const [href, name] of names) {
+      await router.navigate({ href });
+      await waitFor(() => expect(document.title).toMatch(new RegExp(`^${name}`)));
+      const h1 = screen.getByRole("heading", { level: 1 });
+      expect(h1.className, href).toBe("page-title");
+      // the first text is the visible one: the open tab or section follows it for a screen reader only
+      expect(h1.firstChild?.textContent, href).toMatch(new RegExp(`^${name}`));
+      expect(h1.querySelector(".sr-only")?.textContent ?? "", href).not.toMatch(new RegExp(name));
+    }
+    // the section of Asetukset is read, not shown twice: the tab row names it
+    await router.navigate({ href: "/settings/security" });
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Asetukset: Turvallisuus"));
+    expect(screen.getByRole("heading", { level: 1 }).firstChild?.textContent).toBe("Asetukset");
+  }, 90000);
+
+  it("offers Oma and Koko talous on the four pages and on none that does not read the scope", async () => {
+    await startServer();
+    // the viewer has half of an account: the household has a view of its own, so the switch is there where it means something
+    const real = globalThis.fetch;
+    vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+      const res = await real(input, init);
+      if (new URL(input, "http://localhost").pathname !== "/api/meta") return res;
+      const meta = (await res.json()) as { accounts: object[] };
+      meta.accounts = meta.accounts.map((a, i) => (i === 0 ? { ...a, part: { from: 0, to: 1, of: 2 } } : a));
+      return new Response(JSON.stringify(meta), { status: res.status, headers: { "content-type": "application/json" } });
+    });
+    await openApp("#/overview");
+    const { router } = await import("../src/router.tsx");
+    const switchOn = (href: string, title: RegExp, shown: boolean) =>
+      waitFor(async () => {
+        await router.navigate({ href });
+        expect(document.title).toMatch(title);
+        expect(document.querySelector(".topbar .scope-toggle") !== null, href).toBe(shown);
+      });
+    await switchOn("/overview", /^Yhteenveto/, true);
+    await switchOn("/bills", /^Laskut/, true);
+    await switchOn("/transactions", /^Tapahtumat/, true);
+    await switchOn("/reports", /^Raportit/, true);
+    await switchOn("/review", /^Tarkistettavat/, false);
+    await switchOn("/settings/security", /^Asetukset/, false);
+  }, 90000);
 });

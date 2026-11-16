@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { NAV, REVIEW, SETTINGS } from "../src/nav.ts";
+import { NAV, readsScope, REVIEW, SETTINGS } from "../src/nav.ts";
 
 describe("NAV", () => {
   it("is Yhteenveto | Laskut | Tapahtumat | Raportit: no entry hides behind a flag", () => {
@@ -14,6 +14,11 @@ describe("NAV", () => {
   it("Asetukset is in the user menu, not a nav entry, and a page of its own", () => {
     expect(NAV.map((e) => e.id)).not.toContain("settings");
     expect(SETTINGS).toEqual({ id: "settings", label: "Asetukset" });
+  });
+
+  it("offers the scope on the four pages and on no page that does not read it", () => {
+    expect(NAV.map((e) => readsScope(e.id))).toEqual([true, true, true, true]);
+    expect([REVIEW.id, SETTINGS.id, "esimerkki", ""].map(readsScope)).toEqual([false, false, false, false]);
   });
 
   it("Tarkistettavat is the header's link with the count, not one of the tabs", () => {
