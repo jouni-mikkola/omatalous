@@ -96,11 +96,17 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
 /** The groups a question stands for: unknown money of the asking sum nobody answered. Shared credit is never asked. */
 const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key));
 
-/** Whether the opening is asked: unanswered, and the rows took at least `ASK_LIMIT` of it. A smaller part stays unknown money and no question stands for it. */
+/**
+ * Whether the opening is asked: unanswered, and the booked payments spent at least `ASK_LIMIT` of it. The sum is of the
+ * opening's parts on booked outgoing rows, as `openingTaken` is: a pending row takes nothing and an incoming row's
+ * opening part is a refund coming back. A smaller part stays unknown money and no question stands for it.
+ */
 const openingAsked = (t: Trace, said: ReadonlySet<string>): boolean =>
-  t.openingTaken && !said.has("o") && sumCents(t.rows.flatMap((r) => r.parts.filter((p) => p.owner === "o").map((p) => p.cents))) >= ASK_LIMIT;
+  t.openingTaken &&
+  !said.has("o") &&
+  sumCents(t.rows.filter((r) => !r.pending && r.cents < 0).flatMap((r) => r.parts.filter((p) => p.owner === "o").map((p) => p.cents))) >= ASK_LIMIT;
 
-/** Whether a part is one a question stands for: unknown money of an unanswered group of the asking sum, or the unanswered opening once rows took `ASK_LIMIT` of it. */
+/** Whether a part is one a question stands for: unknown money of an unanswered group of the asking sum, or the unanswered opening once booked payments spent `ASK_LIMIT` of it. */
 export function openOf(t: Trace, answers: readonly Answer[]): (p: SourcePart) => boolean {
   const said = new Set(answers.map((a) => a.key));
   const asked = new Set(askedGroups(t, said).map((g) => g.key));

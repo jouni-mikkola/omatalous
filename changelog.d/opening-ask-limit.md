@@ -1,2 +1,2 @@
 section: Money and reports
-- Tarkistettavat no longer asks about an opening balance of less than 100 euros.
+- Tarkistettavat asks whose an account's opening balance was only once the rows have spent 100 euros of it.
