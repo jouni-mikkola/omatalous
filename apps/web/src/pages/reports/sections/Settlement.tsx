@@ -9,7 +9,6 @@ import { useApi } from "../../../hooks.ts";
 import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
 import { isSharedCredit, NETTED_SOURCE, settlementSums } from "@banking/core";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
@@ -63,17 +62,15 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
   // no split told: every member reads 0,00 paid and 0,00 share, so the block of the untold sum is all there is to say
   const noSplit = untold !== 0 && s.members.every((m) => m.paid === 0 && m.owed === 0);
   const even = credits === 0 && debts === 0 && unknown.length === 0 && untold === 0;
+  const owes = even || transfers.length > 0 || open > 0;
   return (
     <div className="settle-pool" role="group" aria-label={t("rpt.se_group", { name: pool.name })}>
       <h3 className="use-head">
         {pool.name}
         {!s.status.open && s.status.closedOn && <span className="badge">{` ${t("rpt.se_closed", { date: date(s.status.closedOn) })}`}</span>}
       </h3>
-      {!noSplit && (
+      {!noSplit && owes && (
         <div className="st-rows" role="group" aria-label={t("rpt.se_who")}>
-          <div className="st-row">
-            <strong className="st-name">{t("rpt.se_who")}</strong>
-          </div>
           {even && (
             <div className="st-row">
               <span className="st-name">{t("rpt.se_even")}</span>
@@ -99,34 +96,8 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
           )}
         </div>
       )}
-      {!noSplit && s.members.length > 0 && <MemberBars members={s.members.map((m) => ({ key: m.owner, name: nameOf(m.owner), paidCents: m.paid, shareCents: m.owed }))} paidLabel={t("rpt.se_paid")} shareLabel={t("rpt.se_share")} />}
-      {!noSplit &&
-        s.members.map((m) => {
-          const line = overLine(m.over);
-          // the holder with no login is a party of its own where core knows their share (two holders, an equal split)
-          const name = nameOf(m.owner);
-          return (
-            <div key={m.owner} className="st-rows" role="group" aria-label={name}>
-              <div className="st-row">
-                <strong className="st-name">{name}</strong>
-              </div>
-              <div className="st-row">
-                <span className="st-name">{t("rpt.se_paid")}</span>
-                <span className="st-num">{money(m.paid)}</span>
-              </div>
-              <div className="st-row">
-                <span className="st-name">{t("rpt.se_share")}</span>
-                <span className="st-num">{money(m.owed)}</span>
-              </div>
-              {line && (
-                <div className="st-row">
-                  <span className="st-name">{line.label}</span>
-                  <span className="st-num">{money(line.cents)}</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* the holder with no login is a party of its own where core knows their share (two holders, an equal split) */}
+      {!noSplit && s.members.length > 0 && <MemberBars members={s.members.map((m) => ({ key: m.owner, name: nameOf(m.owner), paidCents: m.paid, shareCents: m.owed, over: overLine(m.over) }))} paidLabel={t("rpt.se_paid")} shareLabel={t("rpt.se_share")} />}
       {untold !== 0 && (
         <div className="st-rows" role="group" aria-label={t("rpt.se_untold")}>
           <div className="st-row">
@@ -135,9 +106,6 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
           <div className="st-row">
             <span className="st-name">{t("rpt.se_no_shares")}</span>
             <span className="st-num">{money(untold)}</span>
-          </div>
-          <div className="st-row">
-            <a href={settingsCardHash(SETTINGS_ANCHOR.accounts)}>{t("rpt.se_tell")}</a>
           </div>
         </div>
       )}
@@ -152,9 +120,6 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
               <span className="st-num">{money(u.cents)}</span>
             </div>
           ))}
-          <div className="st-row">
-            <a href={settingsCardHash(SETTINGS_ANCHOR.accounts)}>{t("rpt.se_tell")}</a>
-          </div>
         </div>
       )}
       {late.length > 0 && (
