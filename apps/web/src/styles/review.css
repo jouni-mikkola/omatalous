@@ -1,10 +1,10 @@
 /* Tarkistettavat (Review.tsx): one item at a time, the card as wide as the page like the header and footer around it. */
 
 @layer pages {
-.review { display: grid; gap: var(--gap); }
+.review { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
 /* the card has the page's width, what it says has a measure: a row's sum stays near its payee and a line stays readable (as .lead in base.css) */
 .review-line, .review-row-list, .review-q, .review-choices, .review-plan, .review-note, .review-later { max-inline-size: 62ch; }
-.review-item { display: grid; gap: var(--sp-12); }
+.review-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 .review-skeleton { min-height: 420px; }
 .review-kind { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-weight: var(--w-strong); letter-spacing: var(--track-name); overflow-wrap: anywhere; }
 
