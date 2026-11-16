@@ -147,6 +147,57 @@ describe("one funds: the old balance has an owner or not", () => {
   it("gives one answer for 100 shuffles", () => expectStable(rows, 312045));
 });
 
+describe("an opening below the asking sum", () => {
+  const spend = (opening: number) => {
+    return replay([row("mort", "2025-07-03", -opening)], opening);
+  };
+
+  it("asks nothing about a 2-cent opening and keeps its money unknown, not zero", () => {
+    const t = spend(2);
+    expect(t.openingTaken).toBe(true);
+    expect(cutOf(t, "mort")).toEqual([0, 0, 2]);
+    expect(questionsOf(t, [])).toEqual([]);
+    const open = openOf(t, []);
+    expect(rowOf(t, "mort").parts.some(open)).toBe(false);
+    expect(shareOf(rowOf(t, "mort"), AINO, HALF, open)).toEqual({ cents: -1, openCents: 0, transfer: false });
+    expect(shareOf(rowOf(t, "mort"), VILLE, { from: 1, to: 2, of: 2 }, open)).toEqual({ cents: -1, openCents: 0, transfer: false });
+  });
+
+  it("asks about a 188 euro opening a row took", () => {
+    const t = spend(18800);
+    expect(questionsOf(t, [])).toEqual([{ kind: "opening", key: "o", cents: 18800, day: d("2025-07-03"), openCents: 18800 }]);
+    expect(rowOf(t, "mort").parts.some(openOf(t, []))).toBe(true);
+  });
+
+  it("asks when rows took ASK_LIMIT of the opening and not one cent less", () => {
+    expect(questionsOf(spend(ASK_LIMIT), []).map((q) => q.key)).toEqual(["o"]);
+    expect(questionsOf(spend(ASK_LIMIT - 1), [])).toEqual([]);
+  });
+
+  it("goes by what the rows spent of the opening, not by the size of the opening", () => {
+    const small = replay([row("mort", "2025-07-03", -(ASK_LIMIT - 1))], 312045);
+    expect(small.openingTaken).toBe(true);
+    expect(questionsOf(small, [])).toEqual([]);
+    expect(rowOf(small, "mort").parts.some(openOf(small, []))).toBe(false);
+    const enough = replay([row("mort", "2025-07-03", -ASK_LIMIT)], 312045);
+    expect(questionsOf(enough, []).map((q) => q.key)).toEqual(["o"]);
+  });
+
+  it("does not count a pending row towards the limit", () => {
+    const t = replay([row("mort", "2025-07-03", -(ASK_LIMIT - 1)), row("wait", "2025-07-10", -1000, { pending: true })], 312045);
+    expect(rowOf(t, "wait").parts.some((p) => p.owner === "o")).toBe(true);
+    expect(questionsOf(t, [])).toEqual([]);
+    expect(rowOf(t, "wait").parts.some(openOf(t, []))).toBe(false);
+  });
+
+  it("does not count a refund's opening part as spent", () => {
+    const purchase = row("mort", "2025-07-03", -6000);
+    const t = replay([purchase, row("back", "2025-07-10", 6000, { from: { refundOf: purchase.key } })], 312045);
+    expect(rowOf(t, "back").parts.some((p) => p.owner === "o")).toBe(true);
+    expect(questionsOf(t, [])).toEqual([]);
+  });
+});
+
 describe("the split", () => {
   const base = [row("in-a", "2025-07-01", 115000, own(AINO)), row("in-v", "2025-07-01", 5000, payment(VILLE)), row("mort", "2025-07-03", -110437), row("esim", "2025-07-05", -4563)];
 
