@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { dayNumber as d } from "../src/dates.ts";
 import { type Joined, joinCopies, type Payers, traceRows } from "../src/money-trace-rows.ts";
-import { questionsOf } from "../src/money-trace-answers.ts";
+import { questionsOf, settle } from "../src/money-trace-answers.ts";
 import { type SourcePart, trace } from "../src/money-trace.ts";
 import { nameOf } from "../src/person-names.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -281,14 +281,19 @@ describe("traceRows", () => {
     // pool Y paid this pool 500,00 and this pool paid Y 500,00: neither is traced before the other, so no part is carried
     const others = [at("y", "2025-08-02", -50000, { counterpartyIban: POOL }, "pool-y")];
     const mine = () => [at("1", "2025-08-03", 50000, { counterpartyIban: POOL_Y }), at("2", "2025-08-04", -50000, { counterpartyIban: POOL_Y })];
-    const rows = read(mine(), who({ others, paysBack: () => true }));
+    const rows = read(mine(), who({ others }));
     expect(rows[1]!.to).toBe("pool");
     expect(rows[0]!.from).toBeUndefined();
-    expect(rows[0]!.group).toBe(`g:pool:${POOL_Y}`);
-    expect(questionsOf(trace(rows, 0, d("2025-08-03")), [])).toEqual([]);
-    // near miss: where the other pool does not pay this one back, its money is still unknown money and is asked about once
-    const alone = read(mine(), who({ others }));
-    expect(questionsOf(trace(alone, 0, d("2025-08-03")), []).map((q) => [q.key, q.cents])).toEqual([[`g:iban:${POOL_Y}`, 50000]]);
+    // the group keeps its key, so an answer saved before still reaches it
+    expect(rows[0]!.group).toBe(`g:iban:${POOL_Y}`);
+    const t = trace(rows, 0, d("2025-08-03"));
+    const unasked = { ...t, unasked: new Set([`g:iban:${POOL_Y}`]) };
+    expect(questionsOf(unasked, [])).toEqual([]);
+    // near miss: where the other pool does not pay this one back, its money is asked about once
+    expect(questionsOf(t, []).map((q) => [q.key, q.cents])).toEqual([[`g:iban:${POOL_Y}`, 50000]]);
+    // an answer saved for the group still moves its money
+    const users = [{ owner: AINO, weight: 1 }, { owner: VILLE, weight: 1 }];
+    expect(settle(unasked, [{ kind: "in", key: `g:iban:${POOL_Y}`, owner: AINO }], users).rows[0]!.parts).toMatchObject([{ owner: AINO, cents: 50000 }]);
   });
 
   describe("a leg on another pool", () => {

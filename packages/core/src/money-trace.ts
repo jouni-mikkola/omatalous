@@ -17,7 +17,6 @@ import {
   type CreditEntry,
   type CreditFill,
   cut,
-  isPoolMoney,
   isSharedCredit,
   isUserOwner,
   type Lot,
@@ -35,7 +34,7 @@ import {
 } from "./money-trace-lots.ts";
 import { moveAllocations, movesOf } from "./pairing.ts";
 
-export { compareOwners, isPoolMoney, isSharedCredit, isUserOwner, sumCents };
+export { compareOwners, isSharedCredit, isUserOwner, sumCents };
 export type { CreditFill, Owner, RowParts, SourcePart, Trace, TraceRow };
 
 /** Unknown money in is asked about from this sum on (100,00): below it the app does not trouble the household. */

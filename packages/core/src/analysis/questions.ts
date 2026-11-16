@@ -2,9 +2,10 @@ import { dayNumber } from "../dates.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { isUnknownMerchant } from "../merchant.ts";
 import { ASK_LIMIT } from "../money-trace.ts";
-import { isOffMedian, isPersonName, PAYER_ROLES, payerKeysOf, payerRoleOf, sameName, steadyPayers, WALLET_PAYER_KEY } from "../payer-role.ts";
+import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerKeysOf, payerRoleOf, sameName, WALLET_PAYER_KEY } from "../payer-role.ts";
 import { serviceNamed } from "../payment-services.ts";
 import { nameOf, userNameOf } from "../person-names.ts";
+import { steadyBy } from "../returns.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate, PayerInput, PayerRole, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
@@ -154,11 +155,18 @@ function roleProposal(t: AnalysisTx, steady: boolean, own: ReturnType<typeof use
 /** One question per payer that no role answers and that is steady or reaches `ASK_LIMIT`; `covered`: the merchants whose own question they take over. */
 function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payers: PayerInput, dismissed: ReadonlySet<string>): { items: PayerQuestion[]; covered: Set<string> } {
   const money = rows.filter((t) => t.amountCents > 0);
-  // the run's median: every row of the member's, not the window's (applyPayerRoles reads the same rows)
-  const steady = steadyPayers(ctx.txs);
-  const byPayer = new Map<string, AnalysisTx[]>();
   // one person is one payer, however their rows name them (the same keys Tarkistettavat's member money reads)
-  const keyOf = payerKeysOf(ctx.txs.filter((t) => t.amountCents > 0));
+  const incoming = ctx.txs.filter((t) => t.amountCents > 0);
+  const keyOf = payerKeysOf(incoming);
+  // the run's median: every row of the member's, not the window's (applyPayerRoles reads the same rows)
+  const steady = steadyBy(incoming, keyOf);
+  // the keys a payer's rows were known by before they were one: a payer put aside under any of them stays aside
+  const rawKeys = new Map<string, Set<string>>();
+  for (const t of incoming) {
+    const [key, raw] = [keyOf(t), payerKeyOf(t)];
+    if (key && raw) rawKeys.set(key, (rawKeys.get(key) ?? new Set()).add(raw));
+  }
+  const byPayer = new Map<string, AnalysisTx[]>();
   for (const t of money) {
     const key = keyOf(t);
     const list = key ? byPayer.get(key) : undefined;
@@ -176,7 +184,7 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
     const cents = open.reduce((sum, t) => sum + t.flows.income, 0);
     const typical = steady.get(key);
     if (typical === undefined && cents < ASK_LIMIT) continue;
-    if (dismissed.has(key) || open.some((t) => dismissed.has(t.merchant))) continue;
+    if ([...(rawKeys.get(key) ?? [key])].some((k) => dismissed.has(k)) || open.some((t) => dismissed.has(t.merchant))) continue;
     // own money is only for a person: a company or a lender (rows read by a rule of their own) is never the member's
     const isPerson = all.every((t) => (t.category === "p2p_in" || (t.categorySource === "default" && t.category === "income")) && isPersonName(t.counterparty));
     const largest = all.reduce((a, b) => (b.amountCents > a.amountCents ? b : a));

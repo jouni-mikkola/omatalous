@@ -8,7 +8,6 @@ import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
 import type { Owner, SourcePart, TraceRow } from "./money-trace.ts";
 import { isUserOwner, TRACE_PAIR_DAYS } from "./money-trace.ts";
-import { poolMoneyGroup } from "./money-trace-lots.ts";
 import { type Name, nameOf, samePerson } from "./person-names.ts";
 import { matchReturns } from "./returns.ts";
 import { type PoolLeg, pairsOf, poolLegFinder, transferAllocations } from "./pairing.ts";
@@ -47,8 +46,6 @@ export interface Payers {
   names: readonly { owner: Owner; name: Name }[];
   /** The parts the money-out leg took in the pool it left; undefined where that pool is not traced before this one. */
   legParts?: (leg: Transaction) => readonly SourcePart[] | undefined;
-  /** Whether the pool a leg is on also receives from this pool, so that neither is traced before the other and no part is carried. */
-  paysBack?: (leg: Transaction) => boolean;
 }
 
 const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -259,8 +256,6 @@ function paidByPayee(booked: readonly JoinedRow[]): Paid {
 function fromPool({ who, ibanOf }: Book, pooled: Transaction | undefined, other: string | undefined): { from?: Source; group: Owner } {
   const iban = (pooled ? ibanOf.get(pooled.accountId) : null) ?? other ?? "";
   const parts = pooled ? who.legParts?.(pooled) : undefined;
-  // two pools that pay each other move the household's own money: no payer to ask about
-  if (pooled && !parts && who.paysBack?.(pooled)) return { group: poolMoneyGroup(iban) };
   const from = parts ? { parts: parts.filter((p) => p.cents > 0).map((p): SourcePart => ({ owner: isUserOwner(p.owner) || p.owner.startsWith("g:") ? p.owner : `g:iban:${iban}`, kind: "pool", cents: p.cents })) } : undefined;
   return { ...(from ? { from } : {}), group: `g:iban:${iban}` };
 }

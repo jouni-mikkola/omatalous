@@ -8,7 +8,6 @@ import {
   ASK_LIMIT,
   compareOwners,
   type CreditFill,
-  isPoolMoney,
   isSharedCredit,
   isUserOwner,
   type Owner,
@@ -94,8 +93,8 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
   };
 }
 
-/** The groups a question stands for: unknown money of the asking sum nobody answered. Shared credit and money between the household's own pools are never asked. */
-const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key) && !isPoolMoney(g.key));
+/** The groups a question stands for: unknown money of the asking sum nobody answered. Shared credit and the trace's `unasked` groups are never asked. */
+const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key) && !t.unasked?.has(g.key));
 
 /**
  * Whether the opening is asked: unanswered, and the booked payments spent at least `ASK_LIMIT` of it. The sum is of the

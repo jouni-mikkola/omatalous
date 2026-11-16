@@ -343,11 +343,11 @@ describe("two copies of one account and two pools", () => {
     }
   });
 
-  it("T9, both ways: where two pools pay each other no movement is carried, each money-in row is unknown money of the household's own pool, and nobody is asked", async () => {
+  it("T9, both ways: where two pools pay each other no movement is carried, each money-in row is unknown money of the household's own pool under its own group, and nobody is asked", async () => {
     const w = await pools([...money, ["2026-09-05", -500, "POOL Y", POOL_Y], ["2026-09-08", 200, "POOL Y", POOL_Y]], [["2026-09-05", 500, "POOL X", IBAN.pool], ["2026-09-08", -200, "POOL X", IBAN.pool]], [70000, 30000]);
     const [x, y] = [(await settledTrace(w.s, "idn-x"))!, (await settledTrace(w.s, "idn-y"))!];
-    expect(x.trace.rows.find((r) => r.cents === 20000)!.parts).toEqual([{ owner: `g:pool:${POOL_Y}`, kind: "unknown", cents: 20000 }]);
-    expect(y.trace.rows.find((r) => r.cents === 50000)!.parts).toEqual([{ owner: `g:pool:${IBAN.pool}`, kind: "unknown", cents: 50000 }]);
+    expect(x.trace.rows.find((r) => r.cents === 20000)!.parts).toEqual([{ owner: `g:iban:${POOL_Y}`, kind: "unknown", cents: 20000 }]);
+    expect(y.trace.rows.find((r) => r.cents === 50000)!.parts).toEqual([{ owner: `g:iban:${IBAN.pool}`, kind: "unknown", cents: 50000 }]);
     expect([x.questions, y.questions]).toEqual([[], []]);
     // no question reaches the member's account list either
     const meta = (await w.as(w.aino).call("GET", "/api/meta")).body.accounts;

@@ -78,6 +78,8 @@ export interface Trace {
   openingTaken: boolean;
   /** What the pool owes its own spending: the cents rows took that no money covered yet. */
   creditCents: number;
+  /** Groups no question stands for: money from a pool of the household that this pool pays too, so it moved between the household's own accounts. An answer to one still counts. */
+  unasked?: ReadonlySet<Owner>;
 }
 
 export const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -88,13 +90,6 @@ export const isUserOwner = (owner: Owner): boolean => owner.startsWith("u:") || 
  * at their parts like any unknown money, and never a question of whose money it was.
  */
 export const isSharedCredit = (owner: Owner): boolean => owner.startsWith("g:credit:");
-/**
- * The group of money that came from another pool of the household, when that pool pays this one too: neither is traced
- * before the other, so no part is carried. The money moved between the household's own accounts, so nobody is asked
- * whose it was.
- */
-export const poolMoneyGroup = (iban: string): Owner => `g:pool:${iban}`;
-export const isPoolMoney = (owner: Owner): boolean => owner.startsWith("g:pool:");
 export const sumCents = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 
 /** The order of the parts: members by key (as code units compare), the holder nobody names, groups by key, the opening, credit. */
