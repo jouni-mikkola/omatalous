@@ -14,7 +14,7 @@
 .rtb-clear:hover { color: var(--text); }
 .rtb-search[data-empty] .rtb-clear { display: none; }
 .rtb-chips { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
-.rtb-chip { display: inline-flex; align-items: center; gap: var(--sp-4); min-block-size: var(--control-h); padding: 0 var(--sp-12); border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: var(--fs-body); cursor: pointer; }
+.rtb-chip { display: inline-flex; align-items: center; gap: var(--sp-4); min-block-size: calc(var(--tap-min) - var(--sp-4)); padding: 0 var(--sp-12); border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-2); font: inherit; font-size: var(--fs-body); cursor: pointer; }
 .rtb-chip b { font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; }
 .rtb-chip[data-hovered] { background: var(--control-hover); color: var(--text); }
 .rtb-chip[data-selected] { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
