@@ -17,12 +17,11 @@ const rowColumns = (): Column<TaxRow>[] => [
 ];
 
 /** A part with no rows is left out: a "no rows" line under a heading says nothing the household can act on. */
-function Rows({ caption, rows, note }: { caption: string; rows: readonly TaxRow[]; note?: string }) {
+function Rows({ caption, rows }: { caption: string; rows: readonly TaxRow[] }) {
   if (rows.length === 0) return null;
   return (
     <>
       <h3 className="sheet-part">{caption}</h3>
-      {note && <p className="sheet-note">{note}</p>}
       <Table<TaxRow> caption={caption} rows={rows} rowKey={(r) => r.id} columns={rowColumns()} toolbar={false} />
     </>
   );
@@ -32,8 +31,7 @@ function TaxYear({ ctx }: SectionProps) {
   const r = ctx.data.taxYear;
   const say = (code: Parameters<typeof messageIn>[1], params?: Record<string, string | number>) => messageIn(language(), code, params as never);
   return (
-    <ReportPanel id={section.id} title={t("tax.title")} actions={<SheetActions id={section.id} name={t("tax.csv_name")} csv={() => taxYearCsv(r, say, ctx.label)} />}>
-      {r.partial && <p className="sheet-note">{t("tax.partial", { from: date(r.range.from), to: date(r.range.to) })}</p>}
+    <ReportPanel id={section.id} title={t("tax.title")} datum={`${date(r.range.from)}–${date(r.range.to)}`} actions={<SheetActions id={section.id} name={t("tax.csv_name")} csv={() => taxYearCsv(r, say, ctx.label)} />}>
       <Rows caption={t("tax.refunds")} rows={r.refunds.rows} />
       <Rows caption={t("tax.interest")} rows={r.interest.rows} />
       {r.loanPayments.length > 0 && (
@@ -52,8 +50,8 @@ function TaxYear({ ctx }: SectionProps) {
           />
         </>
       )}
-      <Rows caption={t("tax.household")} rows={r.household.rows} note={t("tax.household_note")} />
-      <Rows caption={t("tax.residual")} rows={r.residual.rows} note={t("tax.residual_note")} />
+      <Rows caption={t("tax.household")} rows={r.household.rows} />
+      <Rows caption={t("tax.residual")} rows={r.residual.rows} />
     </ReportPanel>
   );
 }
