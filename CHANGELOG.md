@@ -3,6 +3,46 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.5.2
+
+- A saved home loan's payments count as Asuntolaina, and Tarkistettavat asks for what a loan lacks.
+- A joint account's coming payments follow who paid them, so the forecast matches past months.
+- A total with a missing part shows a dash instead of a figure that is too small.
+- Transfers, money to your own name and transfer fees are recognised more reliably.
+- The page background is a calmer off-white.
+
+Money and reports
+
+- A card purchase pairs with money in from a person only when an own account or a holder's name ties them.
+- Money to or from your own name counts as saved, and Tietojen laatu lists it.
+- Money back from a wallet named with a Finnish case ending, such as "Revolutista", is a transfer.
+- Money in from a payer whose other rows are money from a person counts as money from a person too.
+- A transfer between household accounts that arrives a little short counts its fee under Pankkikulut.
+- Money a holder pays into a joint account is a transfer in their own view, unless an outside payer is named.
+- A joint account's coming payments follow who paid its recent rows, so the forecast matches past months.
+- Lainat shows no 12-month interest total while any loan that owes has no rate.
+- Lainat, Varat ja velat and Tilit ja kortit show no debt total while a loan's balance is dated after today.
+- Varat velkojen jälkeen shows a dash while the debt total is unknown.
+- Lainat shows no debt path while a debt that owes cannot be projected.
+- A card paid in full each month costs no interest in Lainat and keeps the interest total and the debt path.
+- The next payment of a loan with no plan is unknown when a missing rate could change it.
+- Tarkistettavat asks for the one fact a saved loan lacks, such as its payment or rate.
+- Tarkistettavat asks for the rate of a connected card that owes and has no terms saved.
+- Payments of a saved home loan count as Asuntolaina, also when the bank row names only the lender.
+- A recurring payment or income that is back on a lower price it held before is forecast at that price.
+- Tasaus shows the unknown payers of a side with one sign instead of paid lines that cancel, also in closed months.
+- A reserved payment with no text shows as Varaus and stays in spending until the bank books it.
+- Yhteenveto names its spending figure "Menot ilman säästöistä maksettua" on the tile and on the bars.
+
+Look
+
+- The actions of an opened row in Tapahtumat keep apart on a second line on a touch screen.
+- Yhteenveto and the question list of Raportit link to each place once.
+- The days under the bars in Laskut no longer overlap at a large text size.
+- The page background is a calmer off-white, so the white cards stand out.
+- Explanatory sentences are gone from Tasaus, Verovuoden rivit, Pankit ja tilit, Lisäosa and the empty views.
+- The tab rows wrap on a phone, so every tab shows without a sideways swipe.
+
 ## 1.5.1
 
 Reliability
