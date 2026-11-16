@@ -6,7 +6,7 @@ import { DeltaChip } from "../../../components/table/Cells.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
-import { date, dayMonth, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
+import { date, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -23,19 +23,13 @@ function Balances({ ctx }: SectionProps) {
   // the month in progress has no end yet: its point is the balance of today
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
   const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
-  const biggest = r.events.reduce<(typeof r.events)[number] | null>((b, e) => (b === null || e.cents < b.cents ? e : b), null);
   const days = r.daily.cents;
   const nowAt = days.findLastIndex((v) => v !== null);
   const now = nowAt >= 0 ? days[nowAt]! : null;
   // the report's window is whole months, so the newest known day is often the last month's end, not today
   const nowDay = nowAt >= 0 ? addDays(r.daily.from, nowAt) : null;
   // the balance of the newest day and its change are the panel's figure above: the answer says only what that leaves out
-  const answer = (
-    <>
-      {r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) })}
-      {biggest && `${r.lowest ? " " : ""}${t("rpt.bal_biggest", { label: biggest.label, day: dayMonth(biggest.day), amount: money(-biggest.cents, false) })}`}
-    </>
-  );
+  const answer = r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) });
   const monthRows = r.months.map((_, i) => i);
   const tableColumns: Column<number>[] = [
     {

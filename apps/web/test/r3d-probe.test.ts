@@ -56,8 +56,9 @@ describe("a card linked this month", () => {
   const data = dashboardOf([...household(), ...card]);
   it("keeps the comparison, told on the old account", () => {
     expect(data.comparable).toBe(true);
-    // September 1-16 on the old account: rent, three grocery purchases
-    expect(data.previousTotals.expenseCents).toBe(90_000 + 3 * 4_000);
+    // September 1-16 on the old account: rent, three grocery purchases, and the monthly café payment of the 26th, which
+    // this month booked on the 16th, so the matched basis counts September's as well
+    expect(data.previousTotals.expenseCents).toBe(90_000 + 3 * 4_000 + 2_000);
   });
 
   it("does not tell the card's purchases as a change in groceries: the row is compared on the shared account on both sides", () => {

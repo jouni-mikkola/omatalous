@@ -185,7 +185,7 @@ describe("a saved loan that lacks a fact", () => {
   });
   it("asks a connected card for its total rate", () => {
     const card = { ...loan, id: "loan_terms:account:c1", loanId: null, accountId: "c1", name: "Luottokortti", missing: "rate" } as unknown as ReviewItem;
-    expect([eyebrow(card), nameOf(card), questionOf(card)]).toEqual(["Laina", "Luottokortti", "Mikä on kortin kokonaiskorko?"]);
+    expect([eyebrow(card), nameOf(card), questionOf(card)]).toEqual(["Luottokortti", "Luottokortti", "Mikä on kortin kokonaiskorko?"]);
   });
   it("shows what the loan owes and the day of that balance", () => {
     const f = figureOf(loan);
