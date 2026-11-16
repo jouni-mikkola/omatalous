@@ -1,8 +1,10 @@
-/* Tarkistettavat (Review.tsx): one item at a time in a column a phone's width, centred on a wide screen. */
+/* Tarkistettavat (Review.tsx): one item at a time, the card as wide as the page like the header and footer around it. */
 
 @layer pages {
-.review { display: grid; gap: var(--gap); max-width: 640px; margin: 0 auto; }
-.review-item { display: grid; gap: var(--sp-12); }
+.review { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); }
+/* the card has the page's width, what it says has a measure: a row's sum stays near its payee and a line stays readable (as .lead in base.css) */
+.review-line, .review-row-list, .review-q, .review-choices, .review-plan, .review-note, .review-later { max-inline-size: 62ch; }
+.review-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 .review-skeleton { min-height: 420px; }
 .review-kind { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-weight: var(--w-strong); letter-spacing: var(--track-name); overflow-wrap: anywhere; }
 
@@ -26,12 +28,17 @@
 
 .review-q { margin: var(--sp-8) 0 0; padding-top: var(--sp-16); border-top: 1px solid var(--grid); font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: var(--w-strong); color: var(--text); }
 /* the place in the sitting: a quiet line of its own over the question, inside its heading */
-.review-place { display: block; margin-bottom: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--track-name); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.review-place { display: block; margin-bottom: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* the sitting's progress: a thin line over the card, filled to the item's place */
+.review-progress { appearance: none; display: block; inline-size: 100%; block-size: var(--sp-4); border: 0; border-radius: var(--radius-s); background: var(--grid); color: var(--accent); overflow: hidden; }
+.review-progress::-webkit-progress-bar { background: var(--grid); }
+.review-progress::-webkit-progress-value { background: var(--accent); }
+.review-progress::-moz-progress-bar { background: var(--accent); }
 .review-q:focus { outline: none; }
 .review-q:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* the choices: large, a column on a phone, two to a row from 480 px; the guess first and filled */
-/* a wrapped grid: two to a row on a phone, three in the 640 px column, so a list of kinds or categories stays short */
+/* a wrapped grid: two to a row on a phone, as many as fit on a wide card, so a list of kinds or categories stays short */
 .review-choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(9.375rem, 100%), 1fr)); gap: var(--sp-8); }
 /* a word longer than its choice breaks rather than push the page wide */
 .review-choice { min-width: 0; overflow-wrap: anywhere; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-4) var(--sp-8); min-height: 48px; padding: var(--sp-4) var(--sp-16); font-size: var(--fs-body); text-align: left; white-space: normal; }
@@ -43,7 +50,7 @@
 .review-choice:active:not(:disabled) .review-guess, .review-choice[aria-busy="true"] .review-guess { color: var(--on-fill); }
 
 /* a plan's end: a count or a month, each with its own save, then "En tiedä" */
-.review-plan { display: grid; gap: var(--sp-12); }
+.review-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 .review-plan-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: end; }
 .review-plan-field { display: grid; gap: var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .review-plan-field input { min-height: 48px; width: 100%; font-size: var(--fs-body); }
@@ -72,7 +79,7 @@
   .review-sheet { inline-size: 100vw; max-inline-size: 100vw; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; max-block-size: 85vh; }
 }
 
-.review-loan { display: grid; gap: var(--sp-12); }
+.review-loan { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 
 /* the end is the shared empty card of base.css (.card.empty); only its mark is the page's own */
 /* a drawn tick in a ring: the queue is done, nothing more */
