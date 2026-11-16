@@ -51,7 +51,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const width = measured || UNMEASURED;
   const { months, usualSpendCents: usual, usualMonths } = overview;
   const values = [...months.flatMap((m) => [m.incomeCents, m.spendCents]), ...(usual === null ? [] : [usual])];
-  const options = { minHeight: 180, tallest: 220, ratio: 0.3 };
+  const options = { minHeight: 240, tallest: 240 };
   const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
   const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
   const f = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(moneyAxis)) }, options);
