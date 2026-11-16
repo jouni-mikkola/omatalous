@@ -50,7 +50,7 @@
 .review-choice:active:not(:disabled) .review-guess, .review-choice[aria-busy="true"] .review-guess { color: var(--on-fill); }
 
 /* a plan's end: a count or a month, each with its own save, then "En tiedä" */
-.review-plan { display: grid; gap: var(--sp-12); }
+.review-plan { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 .review-plan-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-8); align-items: end; }
 .review-plan-field { display: grid; gap: var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .review-plan-field input { min-height: 48px; width: 100%; font-size: var(--fs-body); }
@@ -79,7 +79,7 @@
   .review-sheet { inline-size: 100vw; max-inline-size: 100vw; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; max-block-size: 85vh; }
 }
 
-.review-loan { display: grid; gap: var(--sp-12); }
+.review-loan { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 
 /* the end is the shared empty card of base.css (.card.empty); only its mark is the page's own */
 /* a drawn tick in a ring: the queue is done, nothing more */
