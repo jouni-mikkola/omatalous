@@ -29,7 +29,7 @@
 
 /* the head: the label of the figures under it, in 12 px, with the axis under it. It stays in view while the rows scroll
    under it, and from 1100 px under the rail, which is sticky too */
-.rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--page); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
+.rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--well); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
 @media (min-width: 1100px) { .rt thead :is(th, td) { top: var(--rail-h); } }
 .rt thead tr + tr :is(th, td) { top: calc(var(--lh-label) + 16px); }
 @media (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--lh-label) + 16px); } }

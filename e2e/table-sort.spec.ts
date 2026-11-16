@@ -120,14 +120,26 @@ test("Tapahtumat: the search finds a payee the list shows and the CSV has its na
   const rows = page.locator(".tx-table tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer):not(.rt-subrow)");
   const shown = await rows.count();
   expect(shown).toBeGreaterThan(1);
-  const name = (await rows.first().locator(".tx-name").innerText()).trim();
-  const word = name.split(/\s+/).find((w) => w.length >= 3) ?? name;
+  // The page offers "Lataa CSV" only for more than ten found rows (LONG_LIST_ROWS), and which payee is newest changes with the day
+  // the data is made for. So the word is the first of the shown payees' words that finds more than ten rows, and fewer than all.
+  const everything = ((await (await page.request.get("/api/transactions?limit=1")).json()) as { total: number }).total;
+  let word: string | undefined;
+  for (const name of await rows.locator(".tx-name").allInnerTexts()) {
+    const candidate = name.trim().split(/\s+/).find((w) => w.length >= 3);
+    if (!candidate) continue;
+    const count = ((await (await page.request.get(`/api/transactions?limit=1&q=${encodeURIComponent(candidate)}`)).json()) as { total: number }).total;
+    if (count > 10 && count < everything) {
+      word = candidate;
+      break;
+    }
+  }
+  expect(word, "a shown payee that finds more than ten rows, and not all").toBeDefined();
   // the search is the server's: the list is drawn in windows, so the CSV (every found row) is compared with the answer's total
-  const [found] = await Promise.all([page.waitForResponse((r) => /\/api\/transactions\?.*q=/.test(r.url())), bar.getByRole("searchbox").fill(word)]);
+  const [found] = await Promise.all([page.waitForResponse((r) => /\/api\/transactions\?.*q=/.test(r.url())), bar.getByRole("searchbox").fill(word!)]);
   const total = (await found.json()).total as number;
   await expect(page.getByText("Ladataan…")).toHaveCount(0);
   await expect(rows.first()).toBeVisible();
-  expect(total, "the search narrowed the list").toBeLessThan((await (await page.request.get("/api/transactions?limit=1")).json()).total);
+  expect(total, "the search narrowed the list").toBeLessThan(everything);
   const [download] = await Promise.all([page.waitForEvent("download"), page.locator(".rt-wrap:has(.tx-table) ~ .rt-csv").getByRole("button", { name: "Lataa CSV" }).click()]);
   const lines = (await (await import("node:fs/promises")).readFile((await download.path())!, "utf8")).replace(/^﻿/, "").trim().split("\r\n").slice(1);
   expect(lines.length).toBe(total);

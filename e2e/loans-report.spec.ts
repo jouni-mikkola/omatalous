@@ -146,10 +146,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   expect(downInterest!).toBeLessThan(interest);
   expect(upInterest!).toBeGreaterThan(interest);
 
-  // the mortgage has everything: nothing to complete
-  await expect(home.getByRole("link", { name: "Täydennä" })).toHaveCount(0);
-
-  // the card: the balance is known, and the rest is a dash instead of a zero, with one link to complete it
+  // the card: the balance is known, and the rest is a dash instead of a zero; Tarkistettavat asks for what is missing
   const card = rows.nth(1);
   expect((await card.locator(".loan-figures > div").allInnerTexts()).map(plain)).toEqual([
     `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.`, // a day of the running year has no year (format.ts `date`)
@@ -159,8 +156,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
     "Viimeinen maksupäivä –",
   ]);
   await expect(card.locator(".loan-scenario")).toHaveCount(0);
-  await expect(card.getByRole("link")).toHaveCount(1);
-  await expect(card.getByRole("link", { name: "Täydennä", exact: true })).toHaveAttribute("href", "#/settings/household#lainat");
+  await expect(card.getByRole("link")).toHaveCount(0);
 
   expect(await overflow(page)).toBe(0);
   await shot(page, 1280);
@@ -171,15 +167,6 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
 test("the loan figures are plain text, with no button to open a calculation", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
   await expect(page.locator("#lainat").getByRole("button", { name: /^Näytä laskelma/ })).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("Täydennä opens Asetukset at the card Lainat, where the loan can be changed", async ({ browser }) => {
-  const { page, seen, context } = await open(browser, 1280);
-  await page.locator("#lainat .loan-list > li").nth(1).getByRole("link", { name: "Täydennä", exact: true }).click();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/household#lainat");
-  await expect(page.getByRole("button", { name: "Muokkaa lainaa Kaupan kortti" })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

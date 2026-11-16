@@ -46,7 +46,6 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_interest12": "Interest over the next 12 months (estimate)",
   "rpt.ln_last_due": "Last due date",
   "rpt.ln_your_share": "Your share",
-  "rpt.ln_complete": "Complete",
   "rpt.ln_and": "and",
   "rpt.ln_or": "or",
   "rpt.ln_acct_one": "connected account {names}",

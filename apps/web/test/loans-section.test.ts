@@ -224,21 +224,11 @@ describe("Raportit: Lainat", () => {
     expect(html(loans, context(report([row({ name: "Asuntolaina 2" })])))).toContain("<strong>Asuntolaina 2</strong><span>Asuntolaina · Esimerkkipankki</span>");
   });
 
-  it("a loan the household can complete has a dash and one link to Lainat in Asetukset, and a loan nobody here can complete has none", () => {
-    const link = '<a class="loan-mend" href="#/settings/household#lainat">Täydennä</a>';
+  it("a loan with a figure not told has a dash and no link: Tarkistettavat asks for what is missing", () => {
     const untold = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" } } as const;
     const mine = html(loans, context(report([row(untold)])));
     expect(mine).toContain(figure("Korko", "–").replace("<dd>", '<dd class="unknown">'));
-    expect(mine.split("Täydennä").length - 1).toBe(1);
-    expect(mine.trimEnd()).toMatch(/Täydennä<\/a><\/li><\/ul><\/section>$/);
-    expect(mine).toContain(link);
-    // every figure told: nothing to complete. A payment of nothing is a dash that was told, not one that is missing
-    const done = { cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: null };
-    expect(html(loans, context(report([row()])))).not.toContain("Täydennä");
-    expect(html(loans, context(report([row({ balance: { cents: 0, unknown: null }, payment: done, interest: { cents: 0, unknown: null }, payoff: { date: null, unknown: null, never: false } })])))).not.toContain("Täydennä");
-    // another member's loan is its typist's to change, and a connected loan account has no saved loan
-    expect(html(loans, context(report([row({ ...untold, typedBy: "Aino" })])))).not.toContain("Täydennä");
-    expect(html(loans, context(report([row({ ...untold, accountType: "loan" })])))).not.toContain("Täydennä");
+    expect(mine).not.toContain("Täydennä");
   });
 
   it("a connected card has its used credit and, when the account has a limit, the limit; none of a loan's terms and no link", () => {

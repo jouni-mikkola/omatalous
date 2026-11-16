@@ -840,8 +840,8 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   and a move with no figure has no line. A payment made less often than monthly is spread over its interval, and a payment
   without an interval is shown without one. The interest and the amortisation of a payment, and the viewer's part of a loan,
   are values with a label of their own. The date a loan ends is "Viimeinen eräpäivä". What is not known is a dash on the page,
-  never zero; a saved loan of the viewer's own with a dash in it has the link *Täydennä* to *Asetukset* > *Lainat*, and a loan
-  another member typed in has none. A connected credit card is a row of *Käytetty luotto* and, when the account has a limit
+  never zero; the page asks nothing, and *Tarkistettavat* asks for the one fact a saved loan or a connected card that owes
+  lacks. A connected credit card is a row of *Käytetty luotto* and, when the account has a limit
   and the viewer has the whole card, *Luottoraja*, with none of a loan's terms.
 - The Säästövinkit loan area reads a saved mortgage where there is one: its margin and reference rate answer for the
   `loan_rate` question, its balance is the loan's balance today (the bank's balance when the mortgage is linked to its
