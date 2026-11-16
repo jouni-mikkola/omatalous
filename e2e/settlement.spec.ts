@@ -65,22 +65,22 @@ async function open(browser: Browser, who: Member, path: string, width = 1280) {
 }
 
 const poolOf = (page: Page) => page.getByRole("group", { name: "Yhteiset menot: Yhteistili" });
-/** The figure of a labelled row inside `scope`, in cents; null when it has no such row. */
+/** The figure written after `label` in a line of a member's bars, in cents; null when the member has no such line. */
 async function figure(scope: Locator, label: string): Promise<number | null> {
-  const row = scope.locator(".st-row").filter({ has: scope.page().getByText(label, { exact: true }) });
-  return (await row.count()) ? cents(await row.locator(".st-num").innerText()) : null;
+  const line = scope.locator(".mbr-fig, .mbr-over").filter({ hasText: new RegExp(`^${label}\\s`) });
+  return (await line.count()) ? cents((await line.first().innerText()).slice(label.length)) : null;
 }
 /**
  * What a member paid over (positive) or under (negative) the share, and the share, in the block of the pool.
  * The block is read again until the figures stand in it: a read made as the page renders finds no row yet.
  */
 async function standing(page: Page, name: string): Promise<{ paid: number; owed: number; over: number }> {
-  const block = poolOf(page).getByRole("group", { name, exact: true });
+  const block = poolOf(page).locator(".mbr-member").filter({ has: page.getByText(name, { exact: true }) });
   const read = async () => {
     const paid = await figure(block, "Maksanut");
     const owed = await figure(block, "Osuus");
     if (paid === null || owed === null) return null;
-    const over = (await figure(block, "Maksoi osuuttaan enemmän")) ?? -((await figure(block, "Maksoi osuuttaan vähemmän")) ?? 0);
+    const over = (await figure(block, "Maksoi yli osuutensa")) ?? -((await figure(block, "Maksoi osuuttaan vähemmän")) ?? 0);
     return { paid, owed, over };
   };
   // a row can go away between the count and the read while the page renders: that is one more round, not a failure
@@ -311,7 +311,7 @@ for (const width of [390, 1440]) {
       await showMonth(page, LAST);
       const pool = poolOf(page);
       await expect(pool.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeVisible();
-      await expect(pool.getByRole("link", { name: "Kerro, miten tili jakautuu" })).toBeVisible();
+      await expect(pool.getByRole("link")).toHaveCount(0);
       await expect(pool.getByText("Menot, joille ei ole osuuksia")).toBeVisible();
       await expect(pool.getByText("Maksanut", { exact: true })).toHaveCount(0);
       await expect(pool.getByText("Osuus", { exact: true })).toHaveCount(0);
