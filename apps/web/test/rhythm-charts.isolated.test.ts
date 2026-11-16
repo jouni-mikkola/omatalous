@@ -64,14 +64,14 @@ describe("CalendarHeat", () => {
 describe("SlopeChart", () => {
   const item = (key: string, from: number, to: number, strong: boolean) => ({ key, label: key, from, to, change: to - from, strong, tone: to > from ? ("rise" as const) : ("good" as const) });
 
-  it("takes 24 px a strong line and at least 220 px, its scale from the strong lines, and names a context line that runs off it", () => {
+  it("takes 24 px a strong line and at least 220 px, its scale from the strong lines, and leaves a context line that runs off it out of the picture", () => {
     measured = 900;
     const few = renderToStaticMarkup(createElement(SlopeChart, { items: [item("Kahvi", 4000, 5200, true), item("Matkat", 60_000, 20_000, true)], fromLabel: "Ennen", toLabel: "Nyt", label: "x" }));
     expect(few).toMatch(/<svg width="900" height="220"/);
     const many = Array.from({ length: 10 }, (_, i) => item(`K${i}`, 1000 * i, 1000 * i + 5000, true));
     const tall = renderToStaticMarkup(createElement(SlopeChart, { items: [...many, item("Asuminen", 900_000, 910_000, false)], fromLabel: "Ennen", toLabel: "Nyt", label: "x" }));
     expect(tall).toMatch(/<svg width="900" height="342"/);
-    expect(text(tall)).toContain("Asuminen ei mahdu kuvaan. Sen luvut ovat taulukossa.");
+    expect(text(tall)).not.toContain("Asuminen");
   });
 
   it("draws a rise of spending in the accent and keeps red, which marks a problem, out of the slope", () => {
