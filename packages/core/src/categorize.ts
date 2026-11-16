@@ -12,7 +12,7 @@ import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from ".
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
-import { BANK_LOAN_PAYEE_WORDS, CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -115,8 +115,6 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   // money in from enforcement is a refund or a share of a debt collected for the user, not a loan
   { category: "collection", direction: "out", re: w(String.raw`ULOSOTTO[A-Z]*`) },
   { category: "interest", re: w(String.raw`KORKO|KORKOKULU|LUOTONKORKO|LUOTTOKORKO|VIIVASTYSKORKO|LUOTTOKULU[A-Z]*|LUOTTOKUSTANNUS|NOSTOPALKKIO`) },
-  // a mortgage bank's own loan payee ("<bank> Lainat"); after interest, so a row that names interest stays interest. A consumer loan has a longer word (KULUTUSLAINA) and stays loans below
-  { category: "mortgage", re: w(BANK_LOAN_PAYEE_WORDS), when: isMortgageBankText },
   { category: "loans", re: w(String.raw`(?:${NORDEA_FINANCE_WORDS})[A-Z ]*|${LOAN_WORDS}|LUOTTO|${RESURS_WORDS}|${CARD_ISSUER_BANK_WORDS}|${CONSUMER_LENDER_WORDS}`) },
   // credit named by a compound, and the finance companies; a card purchase, a lease, a bond, a housing company's own loan and a refund stay what the rules below make them
   { category: "loans", re: w(`${CREDIT_WORDS}|${FINANCE_LENDER_WORDS}`), when: (text, input) => noCard(input) && !isNoCreditText(text) && !(input.amountCents > 0 && FOREIGN_FINANCIER.test(text)) && !isHousingCompanyName(fold(input.counterparty ?? "")) && !(input.amountCents > 0 && isRefundText(text)) },
@@ -152,7 +150,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
     category: "taxes",
     direction: "out",
     re: w(
-      String.raw`VEROHALLINTO|${RESIDUAL_TAX_WORDS}|${OTHER_TAX_WORDS}|LAHDEVERO|TRAFICOM|[A-Z]*VIRASTO|YLEISRADIO|POLIISI[A-Z]*|OIKEUSREKISTERIKESKUS|RIKESAKKO|SAKKO|PYSAKOINTIVIRHE[A-Z]*|PYSAKOINNINVALVONTA|VALVONTAMAKSU|TARKASTUSMAKSU|PARKKIPATE|TULLI|DIGI- JA VAESTOTIETOVIRASTO|DVV|MAANMITTAUSLAITOS|PATENTTI- JA REKISTERIHALLITUS|MAAHANMUUTTOVIRASTO|MIGRI`,
+      String.raw`VEROHALLINTO|${RESIDUAL_TAX_WORDS}|${OTHER_TAX_WORDS}|LAHDEVERO|TRAFICOM|[A-Z]*VIRASTO|YLEISRADIO|POLIISI[A-Z]*|OIKEUSREKISTERIKESKUS|RIKESAKKO|SAKKO|PYSAKOINTIVIRHE[A-Z]*|PYSAKOINNINVALVONTA|VALVONTAMAKSU|TARKASTUSMAKSU|PARKKIPATE|TULLI|DVV|MAANMITTAUSLAITOS|PATENTTI- JA REKISTERIHALLITUS|MIGRI`,
     ),
   },
 ];
