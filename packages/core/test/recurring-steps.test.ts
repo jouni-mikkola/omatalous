@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { detectRecurring } from "../src/recurring.ts";
+import { typicalAmountOf } from "../src/recurring-cost.ts";
 import { series } from "./helpers.ts";
 
 const today = "2026-10-09";
@@ -39,5 +40,30 @@ describe("a subscription keeps every price it had", () => {
     expect(helen.priceSteps).toBeUndefined();
     // a price between the first and the newest held only twice is no step
     expect(monthly([999, 999, 1199, 1199, 1399, 1399]).kind).toBe("bill");
+  });
+});
+
+describe("the typical amount of a series", () => {
+  const occurrences = (amounts: number[]) => amounts.map((cents, i) => ({ date: `2026-0${i + 1}-16`, cents, ids: [`r${i}`] }));
+  const lender = (amounts: number[]) =>
+    detectRecurring(series(addStart(amounts.length), 30.44, amounts.length, (i) => -amounts[i]!, { merchant: "Example Lender", category: "loans" }), today)[0]!;
+
+  it("follows the latest charge when the series is back on a price it held before", () => {
+    expect(typicalAmountOf(occurrences([40000, 40000, 45000, 45000, 40000]))).toBe(40000);
+    expect(lender([40000, 40000, 45000, 45000, 40000]).typicalAmountCents).toBe(40000);
+  });
+
+  it("leaves one extra repayment out", () => {
+    expect(typicalAmountOf(occurrences([40000, 40000, 40000, 100000, 40000]))).toBe(40000);
+    expect(typicalAmountOf(occurrences([40000, 40000, 40000, 40000, 100000]))).toBe(40000);
+    expect(lender([40000, 40000, 40000, 100000, 40000, 40000]).typicalAmountCents).toBe(40000);
+  });
+
+  it("keeps the median for a lower charge that is no price it held before", () => {
+    expect(typicalAmountOf(occurrences([45000, 45000, 45000, 40000]))).toBe(45000);
+  });
+
+  it("keeps the median of a sum that moves every month", () => {
+    expect(typicalAmountOf(occurrences([6120, 7480, 5530, 4210, 6120]))).toBe(5530);
   });
 });
