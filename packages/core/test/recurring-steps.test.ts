@@ -44,7 +44,7 @@ describe("a subscription keeps every price it had", () => {
 });
 
 describe("the typical amount of a series", () => {
-  const occurrences = (amounts: number[]) => amounts.map((cents, i) => ({ date: `2026-0${i + 1}-16`, cents, ids: [`r${i}`] }));
+  const occurrences = (amounts: number[]) => amounts.map((cents, i) => ({ date: `2026-${String(i + 1).padStart(2, "0")}-16`, cents, ids: [`r${i}`] }));
   const lender = (amounts: number[]) =>
     detectRecurring(series(addStart(amounts.length), 30.44, amounts.length, (i) => -amounts[i]!, { merchant: "Example Lender", category: "loans" }), today)[0]!;
 
@@ -60,10 +60,17 @@ describe("the typical amount of a series", () => {
   });
 
   it("keeps the median for a lower charge that is no price it held before", () => {
+    // the helper alone: detection reads a series like this as a fixed price with a step
     expect(typicalAmountOf(occurrences([45000, 45000, 45000, 40000]))).toBe(45000);
+  });
+
+  it("keeps the median for a lower charge that is a price from long ago", () => {
+    expect(typicalAmountOf(occurrences([40000, ...Array<number>(8).fill(45000), 40000]))).toBe(45000);
   });
 
   it("keeps the median of a sum that moves every month", () => {
     expect(typicalAmountOf(occurrences([6120, 7480, 5530, 4210, 6120]))).toBe(5530);
+    // the latest charge is lower and was seen before, yet the sums are on no two levels
+    expect(typicalAmountOf(occurrences([4210, 7480, 5530, 6120, 4210]))).toBe(5530);
   });
 });
