@@ -244,9 +244,9 @@ describe("the own view of a joint account", () => {
     // the two own views of the joint account add up to it, the odd cents included
     expect(sum(jointCents(out), hers) + sum(jointCents(out), his)).toBe(sum(jointCents(out)));
     expect(sum(jointCents(into), hers) + sum(jointCents(into), his)).toBe(300001);
-    // a month with a refund: the list adds its part as money in
+    // a month with a refund: the strip lowers Menot by its part, as the first page does, and adds no money in
     const august = await get(aino, "/api/transactions?from=2026-08-01&to=2026-08-31");
-    expect([august.inCents, august.outCents]).toEqual([partCents(1599, hers), partCents(6000, hers)]);
+    expect([august.inCents, august.outCents]).toEqual([0, partCents(6000, hers) - partCents(1599, hers)]);
   });
 
   it("the household view counts the account whole, for the member who linked it and for the one it is shared with", async () => {
