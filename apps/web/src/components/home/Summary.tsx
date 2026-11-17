@@ -68,6 +68,20 @@ interface Item {
   line: string | null;
   /** A second line under the first: the part of the income that is earned. */
   extra?: string;
+  /** The terms between Menot and Tulos that are not spending: what moved to or from savings and what credit drew or took back. */
+  terms?: string[];
+}
+
+/**
+ * What Tulot less Menot leaves out of Tulos: money moved to savings (less), taken out of them (more), credit drawn (more) or
+ * paid back (less). Each is a sum of `totals`, told with its direction, so the page's terms add up to Tulos.
+ */
+function termsOf(totals: Data["totals"]): string[] {
+  const line = (key: "home.term_saved" | "home.term_savings_drawn" | "home.term_credit_drawn" | "home.term_credit_repaid", cents: number) => (Math.abs(cents) < 50 ? [] : [t(key, { sum: answerMoney(Math.abs(cents)) })]);
+  return [
+    ...line(totals.savedCents >= 0 ? "home.term_saved" : "home.term_savings_drawn", totals.savedCents),
+    ...line(totals.borrowedCents >= 0 ? "home.term_credit_drawn" : "home.term_credit_repaid", totals.borrowedCents),
+  ];
 }
 
 function itemsOf(data: Data): Item[] {
@@ -113,6 +127,7 @@ function itemsOf(data: Data): Item[] {
       cents: totals.leftCents,
       gauge: { cents: totals.leftCents, scaleCents, tone: totals.leftCents < 0 ? "debt" : "income", markCents: sameSign(totals.leftCents, previousResult), band: null },
       line: previousLine(previousResult),
+      terms: termsOf(totals),
     },
   ];
 }
@@ -129,6 +144,8 @@ function flowLabel(key: string): string {
     case "credit": return t("home.bridge_credit");
     case "savings": return t("home.bridge_savings");
     case "accounts": return t("home.bridge_accounts");
+    case "savings-left": return t("home.bridge_savings_left");
+    case "credit-left": return t("home.bridge_credit_left");
     default: return t("home.fig_result");
   }
 }
@@ -200,6 +217,7 @@ export function Summary({ data, today }: { data: Data; today: string }) {
             <span className="home-fig-label">{item.label}</span>
             <Figure text={answerMoney(item.cents)} size={item.id === "result" ? "l" : "m"} />
             <Bar gauge={item.gauge} />
+            {item.terms?.map((term) => <span key={term} className="home-fig-term">{term}</span>)}
             {item.line && <span className="home-fig-line">{item.line}</span>}
             {item.extra && <span className="home-fig-line">{item.extra}</span>}
           </li>

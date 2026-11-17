@@ -50,7 +50,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     offset: q.offset,
     own,
   };
-  const { total, inCents, outCents, days, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
+  const { total, inCents, outCents, savedCents, days, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
   // the list grouped by payee (`sums=merchant`): each listed payee's whole sums, as each listed day has its own
   const merchantSums = q.sums === "merchant" ? await repo.merchantSums(filter, shared.map((a) => a.id), [...new Set(stored.map((t) => t.merchant))]) : undefined;
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
@@ -73,6 +73,8 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     inCents,
     outCents,
     netCents: inCents - outCents,
+    // what the rows move onto savings accounts or into savings categories (negative: taken out); Tulos is netCents less this
+    savedCents,
     span,
     // the totals strip's histogram and each listed day's whole sums
     histogram: span ? moneyBins(days, histogramFrom(span), span.to) : null,

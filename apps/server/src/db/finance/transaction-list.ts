@@ -8,7 +8,7 @@ import { CATEGORIES, fold, MAX_LIST_ROWS } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
-import { listSumsSql, notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
+import { listSumsSql, notLeftSql, type OwnRows, savedSql, toldSql } from "./part-sql.ts";
 
 const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id);
 
@@ -123,24 +123,29 @@ export class TransactionListRepo {
     return rows.map(toTransaction);
   }
 
-  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; inCents: number; outCents: number; days: DaySum[]; items: StoredTransaction[] }> {
+  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; inCents: number; outCents: number; savedCents: number; days: DaySum[]; items: StoredTransaction[] }> {
     const sides = this.filterSides(f, accountIds);
     // money in and out over every matching row, so the list says what the whole filter adds up to. An own transfer
     // leaves one account and lands on another: counted, it would add the same money to both sums. A row of a joint
     // account adds the viewer's part, as it does in every report, and a transfer is what the view counts as one.
+    // money in and out leave out the rows of a savings category, as Tulot and Menot of the front page do; what the rows
+    // save is told apart (`savedSql`), so the strip's terms add up to the month's Tulos
     const { amount: part, moved } = listSumsSql(f.own);
+    const { kept, saved } = savedSql(f.own, part);
+    const sums = [...moved.params, ...kept.params, ...part.params];
     let total = 0;
     let inCents = 0;
     let outCents = 0;
+    let savedCents = 0;
     const byDay = new Map<string, DaySum>();
     for (const side of sides) {
       // the same sums per booking day: the day's group row and the totals strip's histogram read them, so a day the
       // page limit cuts still says what all its rows add up to
       const days = await this.ctx.db.all<{ d: string; c: number; inc: number | null; outc: number | null }>(
-        `SELECT booking_date AS d, COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS outc
+        `SELECT booking_date AS d, COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 AND ${kept.sql} THEN ${part.sql} END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 AND ${kept.sql} THEN ${part.sql} END) AS outc
          FROM transactions WHERE ${side.where.join(" AND ")} GROUP BY booking_date`,
-        [...moved.params, ...part.params, ...moved.params, ...part.params, ...side.params],
+        [...sums, ...sums, ...side.params],
       );
       for (const r of days) {
         const day = byDay.get(r.d) ?? { date: r.d, count: 0, inCents: 0, outCents: 0 };
@@ -149,19 +154,21 @@ export class TransactionListRepo {
         day.outCents += Number(r.outc ?? 0);
         byDay.set(r.d, day);
       }
-      const r = await this.ctx.db.first<{ c: number; inc: number | null; outc: number | null }>(
-        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS outc
+      const r = await this.ctx.db.first<{ c: number; inc: number | null; outc: number | null; sav: number | null }>(
+        `SELECT COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 AND ${kept.sql} THEN ${part.sql} END) AS inc,
+                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 AND ${kept.sql} THEN ${part.sql} END) AS outc,
+                ${saved.sql} AS sav
          FROM transactions WHERE ${side.where.join(" AND ")}`,
-        [...moved.params, ...part.params, ...moved.params, ...part.params, ...side.params],
+        [...sums, ...sums, ...saved.params, ...side.params],
       );
       total += Number(r?.c ?? 0);
       inCents += Number(r?.inc ?? 0);
       outCents += Number(r?.outc ?? 0);
+      savedCents += Number(r?.sav ?? 0);
     }
     const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), MAX_LIST_ROWS), Math.max(f.offset ?? 0, 0));
     const days = [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
-    return { total, inCents, outCents, days, items };
+    return { total, inCents, outCents, savedCents, days, items };
   }
 
   /**

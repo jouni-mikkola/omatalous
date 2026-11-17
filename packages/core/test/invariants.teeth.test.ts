@@ -5,11 +5,12 @@
  */
 import { describe, expect, it } from "vitest";
 import { type AnalysisTx, createContext } from "../src/analysis/context.ts";
+import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { monthKnown } from "../src/analysis/coverage.ts";
 import { addMonths, dateIn, monthOf } from "../src/dates.ts";
 import { buildReports } from "../src/reports/index.ts";
 import { generateHousehold } from "./kit/generate.ts";
-import { conservation, labelledFlow, loanParts, memberLegs, monthlyLoans, moneyIn, namesake, onePool, ownTransfers, prefix, unknownMonth, walletQuestions, walletRole } from "./kit/invariants.ts";
+import { conservation, labelledFlow, loanParts, memberLegs, monthlyLoans, moneyIn, monthResult, namesake, onePool, ownTransfers, prefix, unknownMonth, walletQuestions, walletRole } from "./kit/invariants.ts";
 import type { GeneratedHousehold } from "./kit/truth.ts";
 import { tx } from "./helpers.ts";
 import { type HouseholdView, viewsOf } from "../../../tools/findings/households.ts";
@@ -129,6 +130,27 @@ describe("the invariant checks catch a household made wrong", () => {
         return r;
       };
       expect(unknownMonth(h, v, zeroed).map((x) => x.check)).toContain("I7.unknown-month");
+    },
+    LONG,
+  );
+
+  it(
+    "I8 month result: an income the page tells higher than the terms under it",
+    () => {
+      const v = whole();
+      expect(monthResult(h, v)).toEqual([]);
+      const high: typeof buildDashboard = (...args) => {
+        const page = buildDashboard(...args);
+        page.overview.income.cents += 20_000;
+        return page;
+      };
+      expect(monthResult(h, v, high).map((x) => x.check)).toContain("I8.month-result");
+      const short: typeof buildDashboard = (...args) => {
+        const page = buildDashboard(...args);
+        page.totals.leftCents -= 20_000;
+        return page;
+      };
+      expect(monthResult(h, v, short).map((x) => x.check)).toContain("I8.month-result");
     },
     LONG,
   );

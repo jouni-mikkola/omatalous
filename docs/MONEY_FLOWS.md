@@ -56,8 +56,17 @@ average without one complete month is empty. A year comparison needs three whole
 own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
 names the sum and the largest payees, so a missing connection shows.
 
-Tapahtumat's *maksettu* and *saatu* leave own transfers out, and so do a merchant summary's sums and its category. The
-row count still includes them, and the page says the transfers are not in the sums.
+Tapahtumat's strip leaves own transfers out of its sums, and so do a merchant summary's sums and its category. The row
+count still includes them. The strip reads a row as the first page does: Menot and Tulot leave out the rows of a savings
+category, and *Siirrot ja säästöt* adds up what the rows save (`savedCents` of the list: a savings category's amount
+reversed, and money moved onto a savings account), so Erotus less *Siirrot ja säästöt* is Tulos of the same rows.
+
+One month has one result. On the first page the terms under Tulos add up: Tulot less Menot, less what moved to savings
+(or more, what was taken out of them), more credit drawn (or less, credit paid back) is Tulos. The list of Tulojen käyttö
+holds what was taken out of savings or drawn on credit and stayed as money in beside the income, so its parts add up to the
+income and that money, and their shares to 100 (`bridgeView`). The cash flow report's row of the month has the same Tulos
+(`leftCents`) and the same difference of income less consumption and debt service. `monthResult` in
+`packages/core/test/kit/invariants.ts` holds all of it for every generated household.
 
 ## Tulos and borrowed money
 

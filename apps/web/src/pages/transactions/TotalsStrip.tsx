@@ -26,6 +26,8 @@ export interface Totals {
   inCents: number;
   outCents: number;
   netCents?: number;
+  /** What the rows move onto savings or into savings categories, negative when taken out: Tulos is `netCents` less this. */
+  savedCents?: number;
   span?: Period | null;
   histogram?: { unit: "day" | "week" | "month"; bins: MoneyBin[] } | null;
 }
@@ -169,6 +171,14 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               <dt>{t("tx.difference")}</dt>
               <dd>
                 <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="s" />
+              </dd>
+            </div>
+          )}
+          {totals.savedCents !== undefined && totals.savedCents !== 0 && (
+            <div>
+              <dt>{t("tx.saved")}</dt>
+              <dd>
+                <Figure text={money(-totals.savedCents, false)} size="s" />
               </dd>
             </div>
           )}

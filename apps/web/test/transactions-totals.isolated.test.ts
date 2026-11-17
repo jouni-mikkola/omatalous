@@ -20,18 +20,18 @@ describe("Tapahtumat totals", () => {
     expect(render("")).toContain("Tämä kuu");
     expect(render("")).not.toContain("Koko historia");
     const all = render("period=all");
-    expect(all).toContain("Rahaa ulos");
+    expect(all).toContain("Menot");
     // the tab names the page: no heading repeats it
     expect(all).not.toMatch(/<h[12][^>]*>Tapahtumat</);
     expect(all).toContain("Koko historia");
     const september = render("from=2026-09-01&to=2026-09-30");
-    expect(september).toContain("Rahaa ulos");
+    expect(september).toContain("Menot");
     expect(september).not.toContain("Koko historia");
   });
 
   it("are not shown under a chip, which narrows the rows in the browser: the server's sums would be of other rows", () => {
-    expect(render("chip=manual")).not.toContain("Rahaa ulos");
-    expect(render("chip=pending&from=2026-09-01")).not.toContain("Rahaa ulos");
+    expect(render("chip=manual")).not.toContain("Erotus");
+    expect(render("chip=pending&from=2026-09-01")).not.toContain("Erotus");
   });
 
   it("name the payee the list is filtered to in its Kauppias chip, and in no note under the sums", () => {

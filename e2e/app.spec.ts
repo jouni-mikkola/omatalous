@@ -315,7 +315,7 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // the strip above states the filtered sums; the card's whole history stands once, and not at all when the merchant is
   // the only filter (the strip then says the same)
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
-  await expect(strip.getByText("Rahaa ulos", { exact: true })).toBeVisible();
+  await expect(strip.getByText("Menot", { exact: true })).toBeVisible();
   for (const term of ["Menot yhteensä", "Tulot yhteensä", "Maksuja"]) expect(await page.getByText(term, { exact: true }).count()).toBeLessThanOrEqual(1);
   await page.goto(`/#/transactions?merchant=${encodeURIComponent(merchant)}`);
   await expect(summary.getByRole("heading", { name: merchant })).toBeVisible();
@@ -323,7 +323,7 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // without a merchant filter there is no summary, and the strip holds the figures, once each
   await page.goto("/#/transactions?period=all");
   await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
-  for (const term of ["Rahaa ulos", "Rahaa sisään", "Erotus"]) await expect(page.getByText(term, { exact: true })).toHaveCount(1);
+  for (const term of ["Menot", "Tulot", "Erotus"]) await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" }).locator("dt", { hasText: new RegExp(`^${term}$`) })).toHaveCount(1);
   await expect(page.getByText(/omia siirtoja ei lasketa/)).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();

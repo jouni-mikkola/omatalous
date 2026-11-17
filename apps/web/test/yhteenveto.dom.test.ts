@@ -87,6 +87,16 @@ describe("Yhteenveto's month", () => {
     expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 0 €"] });
   });
 
+  // Tulot less Menot was 570 € above Tulos in a month with 200 € taken out of savings, and the page never showed the 200 €
+  it("Tulos names the terms between Menot and Tulos: money moved to or taken out of savings, credit drawn or paid back", () => {
+    const terms = (totals: object) => [...summaryIn(data({ totals } as never)).querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent));
+    expect(terms(totalsOf(412000, 150000, 20000, 30000))).toEqual(["Säästöön siirretty 300 €"]);
+    expect(terms(totalsOf(342800, 150000, 20000, -20000))).toEqual(["Otettu säästöistä 200 €"]);
+    expect(terms({ ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 })).toEqual(["Nostettu luottoa 400 €"]);
+    expect(terms({ ...totalsOf(100000, 50000, 0, 0), borrowedCents: -40000, leftCents: 10000 })).toEqual(["Luottoa maksettu takaisin 400 €"]);
+    expect(terms(totalsOf(412000, 150000, 20000, 0))).toEqual([]);
+  });
+
   it("the figures hold no link or button: no list holds a month's Tulos", () => {
     const container = summaryIn(data());
     expect(container.querySelectorAll(".home-figs a, .home-figs button").length).toBe(0);
@@ -189,6 +199,14 @@ describe("Yhteenveto's month", () => {
     expect(barOf(container, "sources").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
     expect(rowsOf(container).map((r) => r[0])).toEqual(["consumption", "credit", "accounts"]);
     expect(rowsOf(container)[1]).toEqual(["credit", "Katettu luotolla", "400 €"]);
+  });
+
+  // 1 928 € stayed of 3 428 € income and 200 € taken out of savings: the list names the 200 €, and the shares are of the 3 628 € together
+  it("names what was taken out of savings and stayed, and the shares of the parts add up to 100", () => {
+    const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20000) } as never));
+    expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Tulos", "1 928 €"]]);
+    const shares = [...container.querySelectorAll(".home-flow-share")].map((el) => Number.parseInt(flat(el.textContent), 10)).filter((n) => !Number.isNaN(n));
+    expect(shares.reduce((sum, n) => sum + n, 0)).toBe(100);
   });
 
   it("draws no bar with no income, and the parts stand as a list alone", () => {

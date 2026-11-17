@@ -7,11 +7,11 @@ const csv = (rows: string[]) => ["Kirjauspäivä;Määrä;Nimi;Otsikko", ...rows
 describe("Tapahtumat totals", () => {
   it("add the rows the filter shows, without the money moved between own accounts", async () => {
     const app = await setupApp();
-    await seedCsv(app.s, app.admin, {
+    const checking = (await seedCsv(app.s, app.admin, {
       content: csv(["2026/08/20;-40,00;Ruokakauppa;Ostos", "2026/09/03;-25,50;Ruokakauppa;Ostos", "2026/09/05;-500,00;Oma Säästötili;Siirto", "2026/09/15;2000,00;Työnantaja Oy;Palkka"]),
       accountName: "Käyttötili",
       accountType: "checking",
-    });
+    })).body.accountId as string;
     await seedCsv(app.s, app.admin, { content: csv(["2026/09/05;500,00;Oma Käyttötili;Siirto"]), accountName: "Säästötili", accountType: "savings" });
     const moved = (await app.s.finance(app.adminId).allTransactions()).filter((t) => t.isTransfer).map((t) => t.amountCents);
     expect(moved.sort((a, b) => a - b)).toEqual([-50000, 50000]);
@@ -20,7 +20,12 @@ describe("Tapahtumat totals", () => {
     // the pair is listed, and in neither sum
     expect(september.total).toBe(4);
     expect(september).toMatchObject({ outCents: 2550, inCents: 200000 });
+    // the 500 € that landed on the savings account is told apart as saved, and Tulos is the difference less it
+    expect(september.savedCents).toBe(50000);
+    expect(september.netCents - september.savedCents).toBe(200000 - 2550 - 50000);
     const all = (await app.admin.call("GET", "/api/transactions")).body;
-    expect(all).toMatchObject({ total: 5, outCents: 6550, inCents: 200000 });
+    expect(all).toMatchObject({ total: 5, outCents: 6550, inCents: 200000, savedCents: 50000 });
+    // a list of the checking account alone holds the leg that left it, which saves nothing there
+    expect((await app.admin.call("GET", `/api/transactions?accountId=${checking}`)).body.savedCents).toBe(0);
   });
 });

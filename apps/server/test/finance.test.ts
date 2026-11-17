@@ -1,4 +1,4 @@
-import { CATEGORIES, REPORTS } from "@banking/core";
+import { CATEGORIES, getCategory, REPORTS } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { seedCsv } from "./csv-seed.ts";
 import { checkingAccount, setupApp } from "./helpers.ts";
@@ -86,10 +86,11 @@ describe("dashboard and reports on demo data", () => {
     const { body: all } = await admin.call("GET", "/api/transactions?from=2026-09-01&to=2026-09-30&limit=5000");
     expect(page.items).toHaveLength(5);
     expect(all.items).toHaveLength(all.total);
-    type Row = { amountCents: number; isTransfer: boolean };
+    type Row = { amountCents: number; isTransfer: boolean; category: string };
     // an own transfer leaves one account and lands on another: in both sums it would count the same money twice
     expect(all.items.some((t: Row) => t.isTransfer)).toBe(true);
-    const paid = all.items.filter((t: Row) => !t.isTransfer);
+    // a row of a savings category is saved, told apart from money out and in (`savedCents`)
+    const paid = all.items.filter((t: Row) => !t.isTransfer && getCategory(t.category).kind !== "savings");
     expect(page.outCents).toBe(-paid.filter((t: Row) => t.amountCents < 0).reduce((s: number, t: Row) => s + t.amountCents, 0));
     expect(page.inCents).toBe(paid.filter((t: Row) => t.amountCents > 0).reduce((s: number, t: Row) => s + t.amountCents, 0));
     expect(page.total).toBe(all.items.length);

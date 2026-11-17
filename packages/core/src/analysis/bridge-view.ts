@@ -19,11 +19,11 @@ interface BridgePiece {
 
 /** A figure that may also be told as a share of the income. */
 interface IncomeShare {
-  /** The figure is a share of the income, so it is also told as one. */
+  /** The figure is a share of the money the period had (the income, and what was taken out of savings or drawn on credit and stayed), so it is also told as one. */
   ofIncome: boolean;
-  /** Whole percents of the income, rounded with the other parts so they add up (`roundedShares`); null outside that rounding. */
+  /** Whole percents of that money, rounded with the other parts so they add up (`roundedShares`); null outside that rounding. */
   incomeUnits: number | null;
-  /** cents / income, for a share outside the rounding; null without income. */
+  /** cents / that money, for a share outside the rounding; null without income. */
   incomeShare: number | null;
 }
 
@@ -112,8 +112,12 @@ export function bridgeView(totals: BridgeTotals): BridgeView {
           { key: "credit-left", cents: c.creditLeftCents },
           { key: "savings-left", cents: c.savingsLeftCents },
         ]);
-  // what stayed is a share of the income only when the income was all the money
-  const leftOfIncome = draws && totals.leftCents >= 0 && sources.length === 0;
+  // The income paid everything (no gap): what was taken out of savings or drawn on credit then stayed, so the parts and what
+  // stayed add up to the income and that money together, and their shares are shares of it. With a gap, the income alone is
+  // the base and what stayed is no share of it.
+  const shared = draws && c.gapCents === 0;
+  const whole = shared ? totals.incomeCents + c.creditLeftCents + c.savingsLeftCents : totals.incomeCents;
+  const leftOfIncome = shared && totals.leftCents >= 0;
 
   type Raw = Omit<BridgeRow, "incomeUnits" | "incomeShare">;
   const rawRows: Raw[] = ([
@@ -127,16 +131,21 @@ export function bridgeView(totals: BridgeTotals): BridgeView {
   // the parts told as shares are rounded together, so the table and the legend both add up to the 100 % they are
   // parts of; the income's own row is that whole
   const rounded = rawRows.filter((r) => r.ofIncome && r.key !== "income");
-  const units = new Map<string, number | null>(roundedShares(rounded.map((r) => r.cents), totals.incomeCents).map((u, i) => [rounded[i]!.key, u]));
+  const units = new Map<string, number | null>(roundedShares(rounded.map((r) => r.cents), whole).map((u, i) => [rounded[i]!.key, u]));
   const shareOf = (key: string, cents: number, ofIncome: boolean): IncomeShare => ({
     ofIncome,
     incomeUnits: ofIncome ? (units.get(key) ?? null) : null,
-    incomeShare: ofIncome && totals.incomeCents !== 0 ? cents / totals.incomeCents : null,
+    incomeShare: ofIncome && whole !== 0 ? cents / whole : null,
   });
 
   const cover = sources.filter((p) => (p.key === "credit" || p.key === "savings" || p.key === "accounts") && prints(p.cents));
   const figures: BridgeFigure[] = [
     { key: "income" as const, cents: totals.incomeCents, ...shareOf("income", totals.incomeCents, false) },
+    // what was drawn and stayed is money in beside the income: without its row the parts and Tulos add up to more than the
+    // income. It is a source, not a part, so it has no share of its own.
+    ...sources
+      .filter((p) => (p.key === "credit-left" || p.key === "savings-left") && prints(p.cents))
+      .map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, false) })),
     ...went.filter((p) => p.key !== "left" && (p.key !== "saved" || totals.savedCents >= 0)).map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, p.key !== "repaid") })),
     ...cover.map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, false) })),
     ...(totals.leftCents >= 0 ? went.filter((p) => p.key === "left").map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, leftOfIncome) })) : []),

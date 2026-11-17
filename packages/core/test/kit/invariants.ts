@@ -6,15 +6,18 @@
  * I1 and I1b read the rows and the pool (src/analysis/conservation.ts, pool.ts), I3 the verdicts against the labels of
  * the generator, I4 the sum of the members against the household, I5 the proof of the balances. I6 reads a pool cut by
  * who paid, which the generator makes no household of: it takes the pool's rows and trace itself. I7 reads the monthly
- * series of the reports over a range that starts before the data: an unknown month is never 0.
+ * series of the reports over a range that starts before the data: an unknown month is never 0. I8 reads the running
+ * month as Yhteenveto and the cash flow report tell it: the terms shown add up to Tulos.
  * Each check is exported
  * so a test can hand it a household made wrong on purpose and see it fail (invariants.teeth.test.ts).
  */
 import { aheadBasis } from "../../src/analysis/ahead.ts";
+import { bridgeView } from "../../src/analysis/bridge-view.ts";
 import { bridgeByMonth } from "../../src/analysis/conservation.ts";
 import { createContext } from "../../src/analysis/context.ts";
 import { leftOf } from "../../src/analysis/flows.ts";
 import { monthKnown } from "../../src/analysis/coverage.ts";
+import { buildDashboard } from "../../src/analysis/dashboard.ts";
 import { dataQualityReport } from "../../src/analysis/data-quality.ts";
 import { poolOf } from "../../src/analysis/pool.ts";
 import { buildQuestions } from "../../src/analysis/questions.ts";
@@ -22,9 +25,10 @@ import { getCategory } from "../../src/categories.ts";
 import { normalizeIban } from "../../src/iban.ts";
 import { loanProposals } from "../../src/loan-detect.ts";
 import { applyUse } from "../../src/account-use.ts";
+import { monthEnd, monthOf } from "../../src/dates.ts";
 import type { Owner, RowParts } from "../../src/money-trace.ts";
 import { paidRows } from "../../src/money-trace-answers.ts";
-import { buildReports } from "../../src/reports/index.ts";
+import { buildReports, cashflowReport } from "../../src/reports/index.ts";
 import { standingCut } from "../../src/standing-cut.ts";
 import { WALLET_PAYER_KEY } from "../../src/payer-role.ts";
 import { type Account, NO_INPUTS, type Part, type Transaction } from "../../src/types.ts";
@@ -47,7 +51,8 @@ export type Check =
   | "I3d.namesake"
   | "I4.loan-parts"
   | "I5.unproven"
-  | "I7.unknown-month";
+  | "I7.unknown-month"
+  | "I8.month-result";
 
 /** One failed invariant: where it failed and the line that says what. */
 export interface Violation {
@@ -312,8 +317,45 @@ export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: t
   return out;
 }
 
+/** The sums of Tulojen käyttö that print to the whole euro are left out of its list under 50 cents each: the list adds up to the cent but for those. */
+const LIST_SLACK_CENTS = 300;
+
+/**
+ * I8: one month has one result. In the running month the figures Yhteenveto shows add up to each other: Tulot less Menot,
+ * less what was moved to savings (plus what was taken out of them) and plus what was drawn on credit is Tulos; the list
+ * of Tulojen käyttö adds up to the money it lists, and its shares to 100 when the income paid everything; and the cash flow
+ * report's row of the month says the same Tulos. The line of a finding names the sums.
+ */
+export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: typeof buildDashboard = buildDashboard): Violation[] {
+  const month = monthOf(h.today);
+  const range = { from: `${month}-01`, to: monthEnd(month) };
+  const page = dashboard(v.ctx, range, v.balances, NO_INPUTS);
+  const out: Violation[] = [];
+  const say = (line: string) => out.push(found("I8.month-result", h, v, line, month));
+  const totals = page.totals;
+  const income = page.overview.income.cents;
+  const spent = page.overview.months.at(-1)?.spendCents ?? 0;
+  const terms = income - spent - totals.savedCents + totals.borrowedCents;
+  if (terms !== totals.leftCents) say(`Tulot ${income} - Menot ${spent} - saved ${totals.savedCents} + credit ${totals.borrowedCents} is ${terms}, Tulos is ${totals.leftCents}`);
+  const view = bridgeView(totals);
+  const sum = (keys: readonly string[]) => view.figures.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.cents, 0);
+  const went = sum(["consumption", "debt", "saved", "repaid", "left"]);
+  const came = totals.incomeCents + sum(["credit", "savings", "accounts", "credit-left", "savings-left"]);
+  if (Math.abs(went - came) > LIST_SLACK_CENTS) say(`Tulojen käyttö lists ${went} went against ${came} that came`);
+  const shares = view.figures.flatMap((f) => (f.incomeUnits === null ? [] : [f.incomeUnits]));
+  const shown = shares.reduce((s, n) => s + n, 0);
+  if (view.draws && view.cover.gapCents === 0 && view.cover.creditRepaidCents === 0 && shown !== 100) say(`Tulojen käyttö shares add up to ${shown}`);
+  const row = cashflowReport(v.ctx, range, v.balances).rows.find((r) => r.month === month);
+  if (row) {
+    if (row.leftCents !== totals.leftCents) say(`the cash flow report's Tulos ${row.leftCents} is not the page's ${totals.leftCents}`);
+    const difference = row.incomeCents - row.consumptionCents - row.debtCents;
+    if (difference !== row.netCents) say(`the cash flow report's row has income ${row.incomeCents} less spending ${row.consumptionCents + row.debtCents}, its difference is ${row.netCents}`);
+  }
+  return out;
+}
+
 /** Every violation of a household, in each view; `twin` is the same household with reference days, for I5. */
 export function violationsOf(h: GeneratedHousehold, twin?: GeneratedHousehold): Violation[] {
   const views = viewsOf(h);
-  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v), ...unknownMonth(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
+  return [...views.flatMap((v) => [...conservation(h, v), ...onePool(h, v), ...memberLegs(h, v), ...ownTransfers(h, v), ...labelledFlow(h, v), ...moneyIn(h, v), ...prefix(h, v), ...namesake(h, v), ...walletRole(h, v), ...unknownMonth(h, v), ...monthResult(h, v)]), ...loanParts(h, views), ...(twin ? unproven(h, twin) : [])];
 }
