@@ -14,6 +14,8 @@ import { loanPaymentAccounts } from "../loan-payment.ts";
 import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsOf } from "./flows.ts";
 import { shortFees } from "./fee-short.ts";
 import { moneyIn } from "./money-in.ts";
+import { splitShareIds } from "../behaviour/split.ts";
+import { netPersons } from "./person-netting.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
 
@@ -77,6 +79,8 @@ export interface AnalysisContext {
   txs: readonly AnalysisTx[];
   /** Money in that takes a payment back (`moneyIn`): the returning row's id to the payment whose category it lowers. */
   returns: ReadonlyMap<string, string>;
+  /** The rows of money from a person that settled payments to the same person (`netPersons`): they moved to Maksut henkilöille, and the split guess still reads them as money from a person. */
+  netted: ReadonlySet<string>;
   recurring: readonly RecurringSeries[];
   /**
    * The rows read off card statements, as spending on their own days (`statement-explain.ts`). They are in none of `txs`,
@@ -197,23 +201,42 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const byId = new Map(txs.map((t) => [t.id, t]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
   const returns = new Map<string, string>();
-  for (const [id, refund] of moneyIn(txs, ownIbans, today)) {
+  const lower = (id: string, refund: readonly (readonly [paymentId: string, cents: number])[]) => {
     const t = byId.get(id)!;
-    if (!refund) {
-      t.flows = incomeOf(t.amountCents);
-      t.spend = 0;
-      continue;
-    }
     // a refund by the user's word alone takes back no payment and stays in the category it was put in
-    if (!refund.length) continue;
+    if (!refund.length) return;
     const first = byId.get(refund[0]![0])!;
-    if (first.category !== t.category) {
+    // a row of money from a person was income until now, whatever category it has
+    if (first.category !== t.category || t.flows.income !== 0) {
       Object.assign(t, { category: first.category, kind: first.kind, group: first.group });
       t.flows = flowsOf(t, savingsIds, loanIds);
       t.spend = spendCentsOf(t, t.flows, savingsIds, loanIds);
     }
     for (const [paymentId, cents] of refund) byId.get(paymentId)!.refunded += cents;
     returns.set(id, first.id);
+  };
+  for (const [id, refund] of moneyIn(txs, ownIbans, today)) {
+    if (refund) {
+      lower(id, refund);
+      continue;
+    }
+    const t = byId.get(id)!;
+    t.flows = incomeOf(t.amountCents);
+    t.spend = 0;
+  }
+  // money from a person nets against what was sent to the same person in its month: after the refunds, which it never
+  // takes, and leaving the friends' shares that the split guess asks about
+  const netted = new Set<string>();
+  for (const [id, netting] of netPersons(txs, () => splitShareIds({ today, txs, returns, netted }))) {
+    netted.add(id);
+    lower(id, netting);
+    // a month that sent less than came in keeps the rest as income
+    const t = byId.get(id)!;
+    const rest = t.amountCents - netting.reduce((sum, [, cents]) => sum + cents, 0);
+    if (rest > 0) {
+      t.flows = { ...t.flows, income: rest, consumption: t.flows.consumption + rest };
+      t.spend += rest;
+    }
   }
   yield;
 
@@ -232,7 +255,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
 
   return {
-    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
+    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, netted, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

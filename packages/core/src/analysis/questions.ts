@@ -129,15 +129,23 @@ function add(groups: Map<string, Group>, t: AnalysisTx, cents: number): void {
 const askedName = (q: FrontQuestion) => (q.kind === "loan" || q.kind === "plan" ? q.payee : q.merchant);
 const compare = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
+/**
+ * A row that settled payments to its payer (`ctx.netted`) still is money from that person and is asked about as it
+ * came in: the answer of the household overrides the netting, so it has to be reachable.
+ */
+const isFromPeople = (t: AnalysisTx, netted: ReadonlySet<string>) => t.category === "p2p_in" || netted.has(t.id);
+/** The income of a row before the netting took part or all of it into the payments. */
+const incomeAsAsked = (t: AnalysisTx, netted: ReadonlySet<string>) => (netted.has(t.id) ? t.amountCents : t.flows.income);
+
 /** What the household is asked about a payer's money: not decided by hand, a rule, pairing or a role, and read as money from people or as unknown income. */
-const isOpenIncome = (t: AnalysisTx) =>
+const isOpenIncome = (t: AnalysisTx, netted: ReadonlySet<string>) =>
   t.amountCents > 0 &&
-  t.flows.income !== 0 &&
+  incomeAsAsked(t, netted) !== 0 &&
   t.categorySource !== "user" &&
   t.categorySource !== "match" &&
   t.categorySource !== "transfer" &&
   t.categorySource !== "payer" &&
-  (t.category === "p2p_in" || (t.categorySource === "default" && UNTOLD_IN.has(incomeTypeOf(t))));
+  (isFromPeople(t, netted) || (t.categorySource === "default" && UNTOLD_IN.has(incomeTypeOf(t))));
 
 /**
  * The role to propose for a payer, by its largest row of the window: pay or a benefit, a sale, the member's own money
@@ -179,17 +187,17 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
   const covered = new Set<string>();
   for (const [key, all] of byPayer) {
     // a row an answer reaches is the answer's to say; a payer whose rows were answered by account number may have others by name
-    const open = all.filter((t) => isOpenIncome(t) && !payerRoleOf(payers.roles, t, payers.memberId));
+    const open = all.filter((t) => isOpenIncome(t, ctx.netted) && !payerRoleOf(payers.roles, t, payers.memberId));
     if (!open.length) continue;
-    const cents = open.reduce((sum, t) => sum + t.flows.income, 0);
+    const cents = open.reduce((sum, t) => sum + incomeAsAsked(t, ctx.netted), 0);
     const typical = steady.get(key);
     if (typical === undefined && cents < ASK_LIMIT) continue;
     if ([...(rawKeys.get(key) ?? [key])].some((k) => dismissed.has(k)) || open.some((t) => dismissed.has(t.merchant))) continue;
     // own money is only for a person: a company or a lender (rows read by a rule of their own) is never the member's
-    const isPerson = all.every((t) => (t.category === "p2p_in" || (t.categorySource === "default" && t.category === "income")) && isPersonName(t.counterparty));
+    const isPerson = all.every((t) => (isFromPeople(t, ctx.netted) || (t.categorySource === "default" && t.category === "income")) && isPersonName(t.counterparty));
     const largest = all.reduce((a, b) => (b.amountCents > a.amountCents ? b : a));
     const lastDate = open.reduce((d, t) => (t.bookingDate > d ? t.bookingDate : d), open[0]!.bookingDate);
-    const offMedianCents = typical === undefined ? [] : open.filter((t) => isOffMedian(t.amountCents, typical)).map((t) => t.flows.income);
+    const offMedianCents = typical === undefined ? [] : open.filter((t) => isOffMedian(t.amountCents, typical)).map((t) => incomeAsAsked(t, ctx.netted));
     // money from the wallet with no sender is shares, sales or other income: never pay, never the member's own money
     const wallet = key === WALLET_PAYER_KEY;
     const options = wallet ? WALLET_ROLES : isPerson ? PAYER_ROLES : PAYER_ROLES.filter((r) => r !== "own_money");
