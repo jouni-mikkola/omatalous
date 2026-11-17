@@ -79,6 +79,8 @@ export interface AnalysisContext {
   txs: readonly AnalysisTx[];
   /** Money in that takes a payment back (`moneyIn`): the returning row's id to the payment whose category it lowers. */
   returns: ReadonlyMap<string, string>;
+  /** The rows of money from a person that settled payments to the same person (`netPersons`): they moved to Maksut henkilöille, and the split guess still reads them as money from a person. */
+  netted: ReadonlySet<string>;
   recurring: readonly RecurringSeries[];
   /**
    * The rows read off card statements, as spending on their own days (`statement-explain.ts`). They are in none of `txs`,
@@ -224,7 +226,9 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   }
   // money from a person nets against what was sent to the same person in its month: after the refunds, which it never
   // takes, and leaving the friends' shares that the split guess asks about
-  for (const [id, netting] of netPersons(txs, () => splitShareIds({ today, txs, returns }))) {
+  const netted = new Set<string>();
+  for (const [id, netting] of netPersons(txs, () => splitShareIds({ today, txs, returns, netted }))) {
+    netted.add(id);
     lower(id, netting);
     // a month that sent less than came in keeps the rest as income
     const t = byId.get(id)!;
@@ -251,7 +255,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
 
   return {
-    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, recurring, explained, lowered, statements: states, foreignRows, history,
+    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, netted, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

@@ -78,13 +78,14 @@ const isPurchase = (t: AnalysisTx) =>
   t.amountCents < 0 && !t.isTransfer && t.kind === "expense" && isSharedPurchase(t.category) && !NEVER_SHARED.has(t.category) && -t.amountCents >= MIN_PURCHASE_CENTS;
 
 /** Questions about the purchases of the last `days` days: an old court booking is not worth asking about. */
-export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "returns">, days = 90): SplitCandidates {
+export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "returns" | "netted">, days = 90): SplitCandidates {
   const today = dayNumber(ctx.today);
-  const incoming = ctx.txs.filter(isFromPerson);
+  // a row that settled payments to its payer moved to Maksut henkilöille but is still money from a person, so the steady and busy payers stay what they were
+  const incoming = ctx.txs.filter((t) => isFromPerson(t) || ctx.netted.has(t.id));
   const busy = busyPayersOf(incoming, today);
   const busyKeys = new Set(busy.map((b) => b.key));
   const steady = steadyPayers(incoming);
-  const matched = new Set(ctx.returns.keys());
+  const matched = new Set([...ctx.returns.keys()].filter((id) => !ctx.netted.has(id)));
   const purchases = ctx.txs.filter((t) => isPurchase(t) && t.refunded === 0 && today - t.day <= days);
 
   const eligible = incoming.filter((t) => {
@@ -134,7 +135,7 @@ export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "re
 }
 
 /** The ids of the payments the questions of `splitCandidates` take for shares: `netPersons` leaves them to the household's answer. */
-export const splitShareIds = (ctx: Pick<AnalysisContext, "today" | "txs" | "returns">): Set<string> =>
+export const splitShareIds = (ctx: Pick<AnalysisContext, "today" | "txs" | "returns" | "netted">): Set<string> =>
   new Set(splitCandidates(ctx).questions.flatMap((q) => q.shares.evidence.slice(1)));
 
 /**

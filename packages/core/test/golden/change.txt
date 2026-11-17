@@ -45,5 +45,5 @@ change · bank:danske-family · change:season:2026-10..2026-10 (quiet)
   = 530.64 € (now 2475.35 €, base 1944.71 €, gate 38.89 €)
 
 change · plain:4 · change:expected:2025-11..2025-11 (quiet)
-  Marraskuu: menot 44 €, tavallinen 1 118 € (viime 6 kuukauden keskiarvo).
-  = -1074.08 € (now 44.22 €, base 1118.30 €, gate 22.37 €)
+  Marraskuu: menot 44 €, tavallinen 1 126 € (viime 6 kuukauden keskiarvo).
+  = -1081.58 € (now 44.22 €, base 1125.80 €, gate 22.52 €)
