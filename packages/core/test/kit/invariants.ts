@@ -149,7 +149,7 @@ const isOutflow = (category: string): boolean => ["expense", "debt"].includes(ge
 /** I3a: money in does not sit in a category of money out, unless the labels say it is a refund or the household set it. */
 export function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   // money from a person nets against what was sent to the same person in its month (`netPersons`): it sits in Maksut henkilöille, below zero, then
-  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund" && !(t.category === "p2p" && t.flows.consumption < 0));
+  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund" && !v.ctx.netted.has(t.id));
   const by = new Map<string, number>();
   for (const t of bad) {
     const what = `${t.counterparty ?? "no sender"} as ${t.category}`;

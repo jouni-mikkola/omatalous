@@ -14,6 +14,7 @@ import { applyUse } from "../src/account-use.ts";
 import { type AnalysisContext, createContext, createContextPausing, inDays } from "../src/analysis/context.ts";
 import { categoryTotals } from "../src/analysis/category-totals.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildQuestions } from "../src/analysis/questions.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
 import { incomeTypes } from "../src/analysis/income.ts";
 import { toDayRange } from "../src/analysis/period.ts";
@@ -21,7 +22,7 @@ import { earnedIncome } from "../src/analysis/usual.ts";
 import { addDays, addMonths, daysInMonth, monthOf } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { REFUND_WINDOW_DAYS } from "../src/returns.ts";
-import type { Account, Part, Transaction } from "../src/types.ts";
+import { type Account, NO_INPUTS, type Part, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -378,6 +379,38 @@ describe("money from a person", () => {
     const ctx = contextOf([sent, got("2026-10-06", 80, MATTI, "p2p"), paid("2026-10-07", 12, SHOP, "groceries")]);
     expect(monthOn(ctx)).toMatchObject({ spent: 1_200, income: 0, rows: { groceries: 1_200 } });
     expect(ctx.txs.find((t) => t.id === sent.id)!.refunded).toBe(8_000);
+  });
+
+  it("nets nothing for money that names nobody: unnamed wallet money in and out is no one person", () => {
+    const wallet = { counterparty: null, description: "Tiedot MobilePay-sovelluksessa" };
+    const [sent, back] = [paid("2026-10-04", 50, "MobilePay", "p2p", wallet), got("2026-10-11", 30, "MobilePay", "p2p_in", wallet)];
+    const ctx = contextOf([sent, back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
+  it("nets nothing for a row already on Maksut henkilöille: it is not money from a person to settle anything", () => {
+    const back = got("2026-10-11", 30, MATTI, "p2p", { counterparty: MATTI });
+    const ctx = contextOf([to("2026-10-04", 50, MATTI), back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
+  describe("the question about a payer", () => {
+    const asked = (rows: readonly Transaction[]) =>
+      buildQuestions(contextOf(rows), { from: "2026-10-01", to: TODAY }, { ...NO_INPUTS, payers: { memberId: "m", roles: [] } }).items.filter((i) => i.kind === "payer");
+
+    it("is asked for a payer whose money settled payments whole, at the sum that came in", () => {
+      const rows = [to("2026-10-04", 200, MATTI), from("2026-10-11", 150, MATTI)];
+      expect(contextOf(rows).netted.size).toBe(1);
+      expect(asked(rows)).toMatchObject([{ cents: 15_000, count: 1, options: expect.arrayContaining(["own_money"]) }]);
+    });
+
+    it("is asked for a payer whose money settled payments in part, and for the rows that settled nothing", () => {
+      const rows = [to("2026-10-04", 50, MATTI), from("2026-10-11", 150, MATTI), from("2026-11-02", 30, MATTI)];
+      expect(contextOf(rows).netted.size).toBe(1);
+      expect(asked(rows)).toMatchObject([{ cents: 18_000, count: 2, options: expect.arrayContaining(["own_money"]) }]);
+    });
   });
 
   it("friends' shares of a bill still lower the bill's category", () => {

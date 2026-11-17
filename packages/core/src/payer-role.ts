@@ -39,6 +39,15 @@ export function payerKeyOf(t: PayerRow): string | null {
   return words.length ? `name:${words.join(" ")}` : null;
 }
 
+/**
+ * The payer of a row when the row itself identifies one: an account number or a name. A row that names nobody (the
+ * stand-in key of unnamed wallet money) is the key of every such row at once, so it tells no one person from another.
+ */
+export function identifiedPayerKeyOf(t: PayerRow): string | null {
+  const key = payerKeyOf(t);
+  return key && (key.startsWith("iban:") || !isUnnamedMobilePay(t)) ? key : null;
+}
+
 const nameOfKey = (key: string): Name => new Set(key.slice("name:".length).split(" "));
 
 /** A word that is a company form ("Oy", "Ky") anywhere in the name: the words of a key are sorted, so not only at an end. */

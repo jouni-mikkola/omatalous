@@ -3,18 +3,19 @@
  * of what the household sent to that same person.
  *
  * Money from a person that no rule, pair or answer placed (Maksut henkilöiltä, income that is not earned) settles what
- * the household sent to the same person (Maksut henkilöille, one payer key, `payerKeyOf`) in the same month. The row
+ * the household sent to the same person (Maksut henkilöille, one payer key, `identifiedPayerKeyOf`) in the same month. The row
  * takes what is left of those payments, oldest first, and lowers Maksut henkilöille by that much, as a row with its
  * minus. Only the rest of the row stays income, as Maksut henkilöiltä, which is no earned income. Income less spending
  * stays what it was, since the cents leave the income and the spending together, and Tulos is the same with and
- * without the netting. Payments to other people are not touched.
+ * without the netting. Payments to other people are not touched, and a row that names nobody (unnamed wallet money) nets
+ * with nothing, since its key is the key of every such row.
  *
  * A row the user categorised, or whose payer the user answered for (a role), is the user's word and is never netted.
  * Neither is money from a steady payer (a lodger's rent, an allowance): that is regular income whatever else the month
  * sent. A row the split guess claims (`splitShareIds`) is a friend's share of a bill, which is asked about, and is left
  * alone. The result depends on the rows only, not on their order.
  */
-import { payerKeyOf, steadyPayers } from "../payer-role.ts";
+import { identifiedPayerKeyOf, steadyPayers } from "../payer-role.ts";
 import type { AnalysisTx } from "./context.ts";
 
 /** Maksut henkilöille: money in on it is from a person. */
@@ -42,7 +43,7 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
       (t) =>
         t.amountCents > 0 &&
         !t.isTransfer &&
-        (t.category === FROM_PERSONS || t.category === TO_PERSONS) &&
+        t.category === FROM_PERSONS &&
         t.categorySource !== "user" &&
         t.categorySource !== "payer" &&
         // income as the flows read it: a refund that `moneyIn` already placed is no candidate
@@ -53,7 +54,7 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
   const open = new Map<string, { id: string; left: number }[]>();
   for (const t of [...rows].sort(byDay)) {
     const left = t.spend - t.refunded;
-    const payer = payerKeyOf(t);
+    const payer = identifiedPayerKeyOf(t);
     if (t.category !== TO_PERSONS || t.amountCents >= 0 || t.isTransfer || left <= 0 || !payer) continue;
     const key = `${monthOfRow(t)}|${payer}`;
     const list = open.get(key);
@@ -64,7 +65,7 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
   const steady = steadyPayers(rows);
   const split = claimed();
   for (const t of incoming) {
-    const payer = payerKeyOf(t);
+    const payer = identifiedPayerKeyOf(t);
     if (!payer || steady.has(payer) || split.has(t.id)) continue;
     const taken: [string, number][] = [];
     let rest = t.amountCents;
