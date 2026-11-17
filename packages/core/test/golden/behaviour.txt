@@ -1,4 +1,4 @@
-# behaviour: 31 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+# behaviour: 30 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
 
 behaviour · demo · behaviour:credit (quiet)
   2 consumer credit lines running, 0 opened in 180 days (estimated)
@@ -63,16 +63,10 @@ behaviour · plain:1 · behaviour:credit (quiet)
   rows 179
 
 behaviour · plain:1 · behaviour:payday (quiet)
-  days after pay at 0.99 times the days before, chance 0.144 (estimated)
-  = -1.06 € a cycle beyond the pace before
+  days after pay at 0.99 times the days before, chance 0.142 (estimated)
+  = -2.53 € a cycle beyond the pace before
   | 7 cycles counted
   rows 34
-
-behaviour · plain:1 · behaviour:split:g1-000373 (quiet)
-  Kahvila Ilo 2025-09-30: 25.00 € + 30.00 € back (guess)
-  = 90.00 €
-  | left to the household 35.00 €
-  rows 3
 
 behaviour · plain:2 · behaviour:credit (quiet)
   1 consumer credit lines running, 0 opened in 180 days (estimated)
@@ -81,8 +75,8 @@ behaviour · plain:2 · behaviour:credit (quiet)
   rows 179
 
 behaviour · plain:2 · behaviour:payday (quiet)
-  days after pay at 0.78 times the days before, chance 0.598 (estimated)
-  = -53.08 € a cycle beyond the pace before
+  days after pay at 0.78 times the days before, chance 0.559 (estimated)
+  = -51.00 € a cycle beyond the pace before
   | 8 cycles counted
   rows 36
 
@@ -104,11 +98,11 @@ behaviour · plain:4 · behaviour:credit (quiet)
   rows 185
 
 behaviour · plain:4 · behaviour:payday (quiet)
-  days after pay at 0.79 times the days before, chance 0.806 (estimated)
-  = -42.24 € a cycle beyond the pace before
+  days after pay at 0.75 times the days before, chance 0.866 (estimated)
+  = -51.57 € a cycle beyond the pace before
   | 7 cycles counted
   | skipped 6 as short
-  rows 36
+  rows 34
 
 behaviour · plain:5 · behaviour:credit (quiet)
   1 consumer credit lines running, 0 opened in 180 days (estimated)
@@ -172,8 +166,8 @@ behaviour · settled:4 · behaviour:credit (quiet)
   rows 553
 
 behaviour · settled:4 · behaviour:payday (quiet)
-  days after pay at 1 times the days before, chance 0.509 (estimated)
-  = 0.23 € a cycle beyond the pace before
+  days after pay at 0.99 times the days before, chance 0.502 (estimated)
+  = -1.25 € a cycle beyond the pace before
   | 12 cycles counted
   rows 50
 

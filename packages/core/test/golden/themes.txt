@@ -201,8 +201,8 @@ themes · bank:s-pankki-single · themes:media (quiet)
 
 themes · bank:s-pankki-single · themes:other (quiet)
   Raha-asiat
-  = 16.34 € a month, 196.10 € a year
-  | Maksut henkilöille: 16.34 € a month, 196.10 € a year
+  = 13.34 € a month, 160.11 € a year
+  | Maksut henkilöille: 13.34 € a month, 160.11 € a year
 
 themes · bank:s-pankki-single · themes:shopping (quiet)
   Ostokset
@@ -211,8 +211,8 @@ themes · bank:s-pankki-single · themes:shopping (quiet)
 
 themes · bank:s-pankki-single · themes:window (quiet)
   2025-10..2026-09, 12 months
-  = 13628.00 € spending
-  | themes 13628.00 €: 1135.66 € a month, 13628.00 € a year
+  = 13592.01 € spending
+  | themes 13592.01 €: 1132.66 € a month, 13592.01 € a year
   | large purchases 0.00 €
   rows 0
 
@@ -296,8 +296,8 @@ themes · plain:1 · themes:media (quiet)
 
 themes · plain:1 · themes:other (quiet)
   Raha-asiat
-  = 347.18 € a month, no year
-  | Maksut henkilöille: 33.76 € a month, no year
+  = 336.18 € a month, no year
+  | Maksut henkilöille: 22.76 € a month, no year
   | Luottokortin lasku: 34.80 € a month, no year
   | Muut menot: 278.62 € a month, no year
 
@@ -309,8 +309,8 @@ themes · plain:1 · themes:shopping (quiet)
 
 themes · plain:1 · themes:window (quiet)
   2025-01..2025-10, 10 months
-  = 21414.94 € spending
-  | themes 21414.94 €: 2141.50 € a month, no year
+  = 21304.94 € spending
+  | themes 21304.94 €: 2130.50 € a month, no year
   | large purchases 0.00 €
   rows 0
 
@@ -344,8 +344,8 @@ themes · plain:2 · themes:media (quiet)
 
 themes · plain:2 · themes:other (quiet)
   Raha-asiat
-  = 464.76 € a month, no year
-  | Maksut henkilöille: 44.47 € a month, no year
+  = 438.09 € a month, no year
+  | Maksut henkilöille: 17.80 € a month, no year
   | Muut menot: 420.29 € a month, no year
 
 themes · plain:2 · themes:shopping (quiet)
@@ -356,8 +356,8 @@ themes · plain:2 · themes:shopping (quiet)
 
 themes · plain:2 · themes:window (quiet)
   2025-02..2025-10, 9 months
-  = 20150.02 € spending
-  | themes 20150.02 €: 2238.90 € a month, no year
+  = 19910.02 € spending
+  | themes 19910.02 €: 2212.23 € a month, no year
   | large purchases 0.00 €
   rows 0
 
@@ -391,8 +391,8 @@ themes · plain:3 · themes:media (quiet)
 
 themes · plain:3 · themes:other (quiet)
   Raha-asiat
-  = 257.92 € a month, no year
-  | Maksut henkilöille: 34.11 € a month, no year
+  = 231.92 € a month, no year
+  | Maksut henkilöille: 8.11 € a month, no year
   | Muut menot: 223.81 € a month, no year
 
 themes · plain:3 · themes:shopping (quiet)
@@ -403,8 +403,8 @@ themes · plain:3 · themes:shopping (quiet)
 
 themes · plain:3 · themes:window (quiet)
   2025-02..2025-10, 9 months
-  = 20301.91 € spending
-  | themes 20301.91 €: 2255.76 € a month, no year
+  = 20067.91 € spending
+  | themes 20067.91 €: 2229.76 € a month, no year
   | large purchases 0.00 €
   rows 0
 
@@ -438,8 +438,8 @@ themes · plain:4 · themes:media (quiet)
 
 themes · plain:4 · themes:other (quiet)
   Raha-asiat
-  = 414.26 € a month, no year
-  | Maksut henkilöille: 62.25 € a month, no year
+  = 394.26 € a month, no year
+  | Maksut henkilöille: 42.25 € a month, no year
   | Muut menot: 352.01 € a month, no year
 
 themes · plain:4 · themes:shopping (quiet)
@@ -450,8 +450,8 @@ themes · plain:4 · themes:shopping (quiet)
 
 themes · plain:4 · themes:window (quiet)
   2025-02..2025-10, 9 months
-  = 21627.60 € spending
-  | themes 21627.60 €: 2403.07 € a month, no year
+  = 21447.60 € spending
+  | themes 21447.60 €: 2383.07 € a month, no year
   | large purchases 0.00 €
   rows 0
 
@@ -485,8 +485,8 @@ themes · plain:5 · themes:media (quiet)
 
 themes · plain:5 · themes:other (quiet)
   Raha-asiat
-  = 250.64 € a month, no year
-  | Maksut henkilöille: 53.42 € a month, no year
+  = 230.08 € a month, no year
+  | Maksut henkilöille: 32.86 € a month, no year
   | Muut menot: 197.22 € a month, no year
 
 themes · plain:5 · themes:shopping (quiet)
@@ -497,8 +497,8 @@ themes · plain:5 · themes:shopping (quiet)
 
 themes · plain:5 · themes:window (quiet)
   2025-02..2025-10, 9 months
-  = 18567.18 € spending
-  | themes 18567.18 €: 2063.02 € a month, no year
+  = 18382.18 € spending
+  | themes 18382.18 €: 2042.46 € a month, no year
   | large purchases 0.00 €
   rows 0
 
@@ -676,9 +676,9 @@ themes · settled:4 · themes:media (quiet)
 
 themes · settled:4 · themes:other (quiet)
   Raha-asiat
-  = 84.21 € a month, 1010.57 € a year, -43 %
-  | Maksut henkilöille: 53.58 € a month, 642.93 € a year
-  | Muut menot: 30.63 € a month, 367.64 € a year, -69 %
+  = 68.63 € a month, 823.57 € a year, -48 %
+  | Maksut henkilöille: 37.99 € a month, 455.93 € a year
+  | Muut menot: 30.64 € a month, 367.64 € a year, -69 %
 
 themes · settled:4 · themes:shopping (quiet)
   Ostokset
@@ -688,8 +688,8 @@ themes · settled:4 · themes:shopping (quiet)
 
 themes · settled:4 · themes:window (quiet)
   2024-11..2025-10, 12 months
-  = 33142.62 € spending
-  | themes 33142.62 €: 2761.88 € a month, 33142.62 € a year
+  = 32955.62 € spending
+  | themes 32955.62 €: 2746.30 € a month, 32955.62 € a year
   | large purchases 0.00 €
   rows 0
 
