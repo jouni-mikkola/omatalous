@@ -18,9 +18,9 @@ const ALERT_SUBJECT = "alert:";
 const MERCHANT_SUBJECT = "merchant:";
 const SERIES_SUBJECT = "series:";
 
-/** The ids of the alerts the user said not to show again (the subject is `alert:<id>`). */
+/** The ids of the alerts the user answered, whichever the answer, so the alert and the review item of it agree (the subject is `alert:<id>`). */
 export function dismissedIds(marks: readonly UserMark[]): ReadonlySet<string> {
-  return new Set(marks.filter((m) => m.mark === "dismissed" && m.subject.startsWith(ALERT_SUBJECT)).map((m) => m.subject.slice(ALERT_SUBJECT.length)));
+  return new Set(marks.filter((m) => m.subject.startsWith(ALERT_SUBJECT)).map((m) => m.subject.slice(ALERT_SUBJECT.length)));
 }
 
 /** What a mark reads of a series. The page's series, which come without their transaction ids, have all of it. */

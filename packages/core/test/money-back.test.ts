@@ -65,7 +65,8 @@ describe("a charge after Lopetettu", () => {
     const rows = gym();
     const [item, ...rest] = backOf(rows, [cancelled]);
     expect(rest).toEqual([]);
-    expect(item).toMatchObject({ id: "cancelled:merchant:Elixia@2026-09-15", kind: "cancelled", merchant: "Elixia", cents: 5900, rowIds: [rows[4]!.id], lastDate: "2026-10-01", askedOn: null });
+    expect(item).toMatchObject({ kind: "cancelled", merchant: "Elixia", cents: 5900, rowIds: [rows[4]!.id], lastDate: "2026-10-01", askedOn: null });
+    expect(item!.id).toMatch(new RegExp(`^cancelled:[a-z0-9]+@2026-09-15@${rows[4]!.id}$`));
   });
 
   it("asks nothing before the mark or when the merchant paid the charge back", () => {
@@ -155,6 +156,9 @@ describe("a charge after Lopetettu and its answer", () => {
     const alertIds = (marks: UserMark[]) => buildAlerts(createContext(all, [checking], today), { from: "2026-07-01", to: today }, { ...NO_INPUTS, marks }).filter((a) => a.kind === "cancelled").map((a) => a.id);
     expect(alertIds([cancelled])).toEqual([first.id]);
     expect(backOf(all.slice(0, 3), [cancelled]).map((m) => m.id)).toEqual([first.id]);
+    for (const answer of ["dismissed", "in_use", "cancelled"] as const) {
+      expect(alertIds([cancelled, mark(first.subject, answer, "2026-10-02"), mark(segmentOf(all[3]!).subject, answer, "2026-10-06")])).toEqual([]);
+    }
     expect(alertIds([cancelled, mark(first.subject, "dismissed", "2026-10-02")])).toEqual([segmentOf(all[3]!).id]);
     expect(alertIds([cancelled, mark(first.subject, "dismissed", "2026-10-02"), mark(segmentOf(all[3]!).subject, "dismissed", "2026-10-06")])).toEqual([]);
   });
