@@ -89,7 +89,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.money_back_cancelled_question": "Did the service charge you although you cancelled it?",
   "set.ri.money_back_unit": "back",
   "set.ri.money_back_double_line": "{count} identical charges, latest {last}.",
-  "set.ri.money_back_cancelled_one": "Charged {last}, although you marked the subscription as ended.",
-  "set.ri.money_back_cancelled_many": "{count} charges, latest {last}, although you marked the subscription as ended.",
+  "set.ri.money_back_cancelled_one": "Charged {last}.",
+  "set.ri.money_back_cancelled_many": "{count} charges, latest {last}.",
   "set.ri.money_back_asked": "You asked for a refund on {date}, but none has arrived.",
 };

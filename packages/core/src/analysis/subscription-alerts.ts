@@ -191,6 +191,8 @@ interface CancelledCharges {
   /** `cancelled:<id of the last charge>`, the id of the alert. */
   id: string;
   merchant: string;
+  /** The Lopetettu mark the charges come after. */
+  mark: UserMark;
   /** Oldest first. */
   charges: AnalysisTx[];
   /** What they came to, the refunds taken off. */
@@ -210,7 +212,7 @@ export function cancelledCharges(charges: readonly AnalysisTx[], marks: Readonly
   });
   const seriesOf = new Map<string, RecurringSeries>();
   if (onSeries.length) for (const s of recurring) for (const id of s.transactionIds) seriesOf.set(id, s);
-  const byMark = new Map<string, AnalysisTx[]>();
+  const byMark = new Map<string, { mark: UserMark; list: AnalysisTx[] }>();
   for (const t of charges) {
     const onMerchant = marks.get(t.merchant);
     let mark = onMerchant?.mark === "cancelled" ? onMerchant : undefined;
@@ -218,15 +220,15 @@ export function cancelledCharges(charges: readonly AnalysisTx[], marks: Readonly
     for (const o of onSeries) if (chargeIsUnder(o.parts, t, seriesOf.get(t.id)) && (!mark || o.mark.markedAt > mark.markedAt)) mark = o.mark;
     // a charge the merchant paid back is settled
     if (!mark || t.bookingDate <= addDays(markedDay(mark), PENDING_GRACE_DAYS) || -t.amountCents - t.refunded <= 0) continue;
-    const list = byMark.get(mark.subject);
-    if (list) list.push(t);
-    else byMark.set(mark.subject, [t]);
+    const hit = byMark.get(mark.subject);
+    if (hit) hit.list.push(t);
+    else byMark.set(mark.subject, { mark, list: [t] });
   }
   return [...byMark.values()]
-    .sort((a, b) => b[b.length - 1]!.day - a[a.length - 1]!.day)
-    .map((list) => {
+    .sort((a, b) => b.list[b.list.length - 1]!.day - a.list[a.list.length - 1]!.day)
+    .map(({ mark, list }) => {
       const last = list[list.length - 1]!;
-      return { id: `cancelled:${last.id}`, merchant: last.merchant, charges: list, netCents: list.reduce((sum, t) => sum - t.amountCents - t.refunded, 0) };
+      return { id: `cancelled:${last.id}`, merchant: last.merchant, mark, charges: list, netCents: list.reduce((sum, t) => sum - t.amountCents - t.refunded, 0) };
     });
 }
 

@@ -40,6 +40,11 @@ describe("a charge made twice", () => {
     expect(backOf(twice("2026-05-16", -16743))).toEqual([]);
   });
 
+  it("takes a partial refund off what the merchant owes", () => {
+    const part = tx({ ...shop, bookingDate: "2026-09-27", amountCents: 5000 });
+    expect(backOf([...twice("2026-09-20", -16743), part]).map((m) => m.cents)).toEqual([11743]);
+  });
+
   it("closes by itself when the merchant pays one of them back", () => {
     const back = tx({ ...shop, bookingDate: "2026-09-27", amountCents: 16743 });
     expect(backOf([...twice("2026-09-20", -16743), back])).toEqual([]);
@@ -59,13 +64,40 @@ describe("a charge after Lopetettu", () => {
     const rows = gym();
     const [item, ...rest] = backOf(rows, [cancelled]);
     expect(rest).toEqual([]);
-    expect(item).toMatchObject({ id: `cancelled:${rows[4]!.id}`, kind: "cancelled", merchant: "Elixia", cents: 5900, rowIds: [rows[4]!.id], lastDate: "2026-10-01", askedOn: null });
+    expect(item).toMatchObject({ id: "cancelled:merchant:Elixia@2026-09-15", kind: "cancelled", merchant: "Elixia", cents: 5900, rowIds: [rows[4]!.id], lastDate: "2026-10-01", askedOn: null });
   });
 
   it("asks nothing before the mark or when the merchant paid the charge back", () => {
     expect(backOf(gym())).toEqual([]);
     const back = tx({ merchant: "Elixia", category: "fitness", bookingDate: "2026-10-05", amountCents: 5900 });
     expect(backOf([...gym(), back], [cancelled])).toEqual([]);
+  });
+});
+
+describe("a charge after Lopetettu and its answer", () => {
+  const cancelled = mark("merchant:Elixia", "cancelled", "2026-07-15");
+  const id = "cancelled:merchant:Elixia@2026-07-15";
+  const subject = `alert:${id}`;
+  /** The monthly charges of August, September and October, and a later one of another price. */
+  const rows = () => [...gym().slice(2), tx({ merchant: "Elixia", category: "fitness", bookingDate: "2026-10-05", amountCents: -6200 })];
+
+  it("Veloitus on oikein closes the item, and a later charge asks again for only the new charge", () => {
+    const all = rows();
+    expect(backOf(all.slice(0, 3), [cancelled, mark(subject, "dismissed", "2026-10-02")])).toEqual([]);
+    expect(backOf(all, [cancelled, mark(subject, "dismissed", "2026-10-02")])).toMatchObject([{ id, cents: 6200, rowIds: [all[3]!.id], askedOn: null }]);
+  });
+
+  it("Pyydän hyvityksen holds for 30 days even when another charge comes, then asks with the day it was asked", () => {
+    const all = rows();
+    expect(backOf(all, [cancelled, mark(subject, "in_use", "2026-09-20")])).toEqual([]);
+    expect(backOf(all, [cancelled, mark(subject, "in_use", "2026-09-05")])).toMatchObject([{ id, askedOn: "2026-09-05", cents: 5900 * 3 + 6200 }]);
+    expect(backOf(all, [cancelled, mark(subject, "cancelled", "2026-10-02")])).toMatchObject([{ id, cents: 6200 }]);
+  });
+
+  it("is one question when the charge is also a double charge", () => {
+    const pair = twice("2026-10-05", -4000, { merchant: "Elixia", category: "fitness" });
+    expect(backOf(pair, [cancelled])).toMatchObject([{ id, kind: "cancelled", cents: 8000 }]);
+    expect(backOf(pair, [cancelled, mark(subject, "dismissed", "2026-10-06")])).toEqual([]);
   });
 });
 
@@ -87,6 +119,12 @@ describe("the answer", () => {
     expect(backOf(rows, [mark(subject, "cancelled", "2026-10-09")])).toEqual([]);
     const back = tx({ ...shop, bookingDate: "2026-10-08", amountCents: 16743 });
     expect(backOf([...rows, back], [mark(subject, "in_use", "2026-08-01")])).toEqual([]);
+  });
+
+  it("the 120 days of a question that comes back are counted from the day the refund was asked", () => {
+    const old = twice("2026-05-16", -16743);
+    expect(backOf(old)).toEqual([]);
+    expect(backOf(old, [mark(`alert:double:${old[1]!.id}`, "in_use", "2026-05-20")])).toMatchObject([{ cents: 16743, askedOn: "2026-05-20" }]);
   });
 
   it("a mark on another alert leaves it open", () => {

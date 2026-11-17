@@ -23,6 +23,8 @@ interface DoubleCharge {
   /** What one charge came to, positive. */
   amountCents: number;
   count: number;
+  /** What the merchant has paid back of them so far, positive. */
+  refundedCents: number;
   /** The days it was charged on, oldest first: the one day, or the bill's two. */
   dates: IsoDate[];
   rowIds: string[];
@@ -72,7 +74,7 @@ export function findDoubleCharges(ctx: AnalysisContext, current: readonly Analys
     // the merchant has already paid one of them back
     if (group.some((x) => x.refunded >= -x.amountCents)) continue;
     if ((routine.get(`${t.accountId}|${t.merchant}`) ?? 0) - 1 >= 2) continue;
-    out.push({ id: `double:${t.id}`, merchant: t.merchant, amountCents: -t.amountCents, count: group.length, dates: [t.bookingDate], rowIds: group.map((x) => x.id) });
+    out.push({ id: `double:${t.id}`, merchant: t.merchant, amountCents: -t.amountCents, count: group.length, refundedCents: group.reduce((sum, x) => sum + x.refunded, 0), dates: [t.bookingDate], rowIds: group.map((x) => x.id) });
   }
 
   // a monthly bill paid twice a few days apart (an e-invoice and a reminder of it)
@@ -92,7 +94,7 @@ export function findDoubleCharges(ctx: AnalysisContext, current: readonly Analys
       if (gap < 1 || gap > BILL_DOUBLE_DAYS || a.amountCents !== b.amountCents || -b.amountCents < DOUBLE_MIN_CENTS || !inRange.has(b.id)) continue;
       // the biller has already paid one of them back
       if (a.refunded >= -a.amountCents || b.refunded >= -b.amountCents) continue;
-      out.push({ id: `double:${b.id}`, merchant: b.merchant, amountCents: -b.amountCents, count: 2, dates: [a.bookingDate, b.bookingDate], rowIds: [a.id, b.id] });
+      out.push({ id: `double:${b.id}`, merchant: b.merchant, amountCents: -b.amountCents, count: 2, refundedCents: a.refunded + b.refunded, dates: [a.bookingDate, b.bookingDate], rowIds: [a.id, b.id] });
     }
   }
   // the latest first

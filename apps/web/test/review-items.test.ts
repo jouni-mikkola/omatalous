@@ -206,8 +206,8 @@ describe("money a merchant may owe back", () => {
 
   it("asks of a charge after Lopetettu", () => {
     expect([eyebrow(cancelled), questionOf(cancelled)]).toEqual(["Veloitus lopetuksen jälkeen", "Veloittiko palvelu, vaikka lopetit sen?"]);
-    expect(figureOf(cancelled).line).toBe("Veloitus 1.10., vaikka merkitsit tilauksen lopetetuksi.");
-    expect(figureOf({ ...cancelled, count: 2 } as ReviewItem).line).toBe("2 veloitusta, viimeksi 1.10., vaikka merkitsit tilauksen lopetetuksi.");
+    expect(figureOf(cancelled).line).toBe("Veloitus 1.10.");
+    expect(figureOf({ ...cancelled, count: 2 } as ReviewItem).line).toBe("2 veloitusta, viimeksi 1.10.");
   });
 
   it("says the day the refund was asked when it comes back", () => {

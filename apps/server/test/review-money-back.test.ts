@@ -75,6 +75,21 @@ describe("the question of money a merchant may owe back", () => {
     expect(await queue(t.admin)).toEqual([expect.objectContaining({ merchant: "Elixia", reason: "cancelled", cents: 5_900, count: 1, lastDate: "2026-10-01" })]);
   });
 
+  it("keeps the answer to a charge after Lopetettu when the next charge comes", async () => {
+    const t = await setupApp();
+    const monthly = ["2026-06-01", "2026-07-01", "2026-08-01", "2026-09-01", "2026-10-01"].map((d) => raw(d, -5_900, "Elixia"));
+    await load(t, t.adminId, "chk", monthly);
+    await t.s.finance(t.adminId).setMarks(["merchant:Elixia"], "cancelled", "2026-09-15T10:00:00+03:00");
+    const [item] = await queue(t.admin);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: item!.subject, mark: "dismissed" })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+    // the answer is dated before the next charge, which the test clock's day cannot show
+    await t.s.finance(t.adminId).setMarks([item!.subject as string], "dismissed", "2026-10-02T10:00:00+03:00");
+    await ingestTransactions(t.s.finance(t.adminId), "chk", [raw("2026-10-08", -6_200, "Elixia")], "enablebanking");
+    await reprocess(t.s.finance(t.adminId), t.s.settings);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: item!.id, cents: 6_200, count: 1 })]);
+  });
+
   it("orders the items by the money, the most first", async () => {
     const t = await setupApp();
     await load(t, t.adminId, "chk", [...twice("2026-09-25", -2_500, "Kahvila"), ...twice("2026-09-01", -9_000, "Verkkokauppa Oy")]);
