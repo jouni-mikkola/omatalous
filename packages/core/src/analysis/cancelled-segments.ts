@@ -49,7 +49,7 @@ export interface CancelledSegment extends ChargesAfterMark {
 }
 
 /** The first day of any Lopetettu mark on a merchant or a series, or null when there is none. */
-export function lopetettuSince(marks: readonly UserMark[]): IsoDate | null {
+function lopetettuSince(marks: readonly UserMark[]): IsoDate | null {
   let first: IsoDate | null = null;
   for (const m of marks) {
     const day = markedDay(m);
