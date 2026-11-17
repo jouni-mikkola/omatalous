@@ -14,7 +14,8 @@ import { isBankFee, isLateFee } from "./fees.ts";
 import { countWord, finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
 import { shortDate } from "./income-series.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
-import { findDoubleCharges, isCharge } from "./double-charges.ts";
+import { findDoubleCharges } from "./double-charges.ts";
+import { chargesSinceMarks } from "./cancelled-segments.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
 
 type AlertKind = "double_charge" | "late_fee" | "cancelled" | "uncategorised" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
@@ -54,7 +55,7 @@ export function buildAlerts(ctx: AnalysisContext, range: DateRange, inputs: User
     [
       ...doubleCharges(ctx, current, recurring, range, lang),
       ...lateFees(current, lang),
-      ...chargedAfterCancelling(current.filter(isCharge), merchantMarks, ctx.recurring, lang),
+      ...chargedAfterCancelling(chargesSinceMarks(ctx, inputs.marks, range.to), merchantMarks, ctx.recurring, lang, inputs.marks, range.from),
       ...uncategorised(ctx, range, dismissed, lang),
       ...overlaps.alerts,
       ...spikes(ctx, range, lang),

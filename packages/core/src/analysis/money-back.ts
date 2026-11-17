@@ -7,21 +7,23 @@
  * The answer is the mark of the alert, `alert:<id>`: `dismissed` is "the charge is right", `in_use` is "I asked for the
  * refund", and `cancelled` is "I asked again", which closes the question for good. A question asked for a refund waits
  * `REFUND_WAIT_DAYS`, then comes back once with the day it was asked.
- * The id of a charge after Lopetettu is the mark's (`cancelled:<mark subject>@<day>`), so one answer covers the item
- * while charges keep coming. An answer settles the charges booked up to its day: a later charge is a new question for
- * only the new charges.
+ * The charges after Lopetettu are cut into segments (cancelled-segments.ts): an answer covers the charges of its
+ * segment up to its day, so the refund asked for is those charges, and a later charge is a new item with its own id.
+ * A charge that arrives late and is dated on or before the answer's day counts as covered: the rows carry no day
+ * they were first seen on.
  */
 import { addDays } from "../dates.ts";
 import { MONEY_BACK_DAYS, REFUND_WAIT_DAYS } from "../thresholds.ts";
 import type { IsoDate, UserMark } from "../types.ts";
-import type { AnalysisContext, AnalysisTx } from "./context.ts";
+import type { AnalysisContext } from "./context.ts";
 import { inDays } from "./context.ts";
-import { findDoubleCharges, isCharge } from "./double-charges.ts";
+import { alertSubject, cancelledSegments, chargesSinceMarks, markedDay } from "./cancelled-segments.ts";
+import { findDoubleCharges } from "./double-charges.ts";
 import { toDayRange } from "./period.ts";
-import { cancelledCharges, markedDay, marksBySubject } from "./subscription-alerts.ts";
+import { cancelledCharges, marksBySubject } from "./subscription-alerts.ts";
 
 export interface MoneyBack {
-  /** The id of the alert it is: `double:<row>` for a double charge, `cancelled:<mark subject>@<day>` after Lopetettu. */
+  /** The id of the alert it is: `double:<row>` for a double charge, `cancelled:<hash>@<day>@<first charge>` after Lopetettu. */
   id: string;
   kind: "double" | "cancelled";
   merchant: string;
@@ -36,21 +38,13 @@ export interface MoneyBack {
   askedOn: IsoDate | null;
 }
 
-/** What is found before the answers: `charges` are the rows of a charge after Lopetettu, which an answer can settle in part. */
-type Finding = Omit<MoneyBack, "subject" | "askedOn"> & { charges?: AnalysisTx[] };
-
-/** The subject of the answer to an alert about money back. */
-const moneyBackSubject = (id: string): string => `alert:${id}`;
-
-/** What an answer means on `today`: whether the question is open, the day the refund was asked, and the day up to which charges are settled. */
-function answerOn(mark: UserMark | undefined, today: IsoDate): { open: boolean; askedOn: IsoDate | null; settledThrough: IsoDate | null } {
-  if (!mark) return { open: true, askedOn: null, settledThrough: null };
-  if (mark.mark !== "in_use") return { open: true, askedOn: null, settledThrough: markedDay(mark) };
+/** What an answer means on `today`: whether the question is open, and the day the refund was asked when it comes back for it. */
+function answerOn(mark: UserMark | undefined, today: IsoDate): { open: boolean; askedOn: IsoDate | null } {
+  if (!mark) return { open: true, askedOn: null };
+  if (mark.mark !== "in_use") return { open: false, askedOn: null };
   const asked = markedDay(mark);
-  return today >= addDays(asked, REFUND_WAIT_DAYS) ? { open: true, askedOn: asked, settledThrough: null } : { open: false, askedOn: null, settledThrough: null };
+  return today >= addDays(asked, REFUND_WAIT_DAYS) ? { open: true, askedOn: asked } : { open: false, askedOn: null };
 }
-
-const owedBy = (charges: readonly AnalysisTx[]) => charges.reduce((sum, t) => sum - t.amountCents - t.refunded, 0);
 
 /**
  * The open questions of money back on `today`, the most money first: the last `MONEY_BACK_DAYS` days of the household's
@@ -62,32 +56,29 @@ export function moneyBackOf(ctx: AnalysisContext, marks: readonly UserMark[], to
   const asked = marks.filter((m) => m.mark === "in_use" && m.subject.startsWith("alert:")).map(markedDay);
   const range = { from: asked.reduce((min, d) => (startOf(d) < min ? startOf(d) : min), startOf(today)), to: today };
   const current = inDays(ctx, toDayRange(range));
-  const cancelled: Finding[] = cancelledCharges(current.filter(isCharge), marksBySubject(marks), ctx.recurring).map((c) => ({
-    id: `cancelled:${c.mark.subject}@${markedDay(c.mark)}`,
-    kind: "cancelled" as const,
-    merchant: c.merchant,
-    cents: c.netCents,
-    rowIds: c.charges.map((t) => t.id),
-    lastDate: c.charges[c.charges.length - 1]!.bookingDate,
-    charges: c.charges,
-  }));
+  const segments = cancelledSegments(cancelledCharges(chargesSinceMarks(ctx, marks, today), marksBySubject(marks), ctx.recurring), marks);
   // the same rows are asked about once: a double charge after Lopetettu is the charge after Lopetettu
-  const covered = new Set(cancelled.flatMap((c) => c.rowIds));
-  const doubles: Finding[] = findDoubleCharges(ctx, current, ctx.recurring, range)
-    .filter((d) => !d.rowIds.some((id) => covered.has(id)))
-    .map((d) => ({ id: d.id, kind: "double" as const, merchant: d.merchant, cents: d.amountCents * (d.count - 1) - d.refundedCents, rowIds: d.rowIds, lastDate: d.dates[d.dates.length - 1]! }));
+  const covered = new Set(segments.flatMap((s) => s.charges.map((t) => t.id)));
 
-  return [...doubles, ...cancelled]
-    .flatMap((f): MoneyBack[] => {
-      const subject = moneyBackSubject(f.id);
-      const { open, askedOn, settledThrough } = answerOn(answers.get(subject), today);
-      if (!open) return [];
-      const from = startOf(askedOn ?? today);
-      if (f.kind === "double") return settledThrough === null && f.lastDate >= from && f.cents > 0 ? [{ ...f, subject, askedOn }] : [];
-      const charges = (f.charges ?? []).filter((t) => t.bookingDate >= from && (settledThrough === null || t.bookingDate > settledThrough));
-      const cents = owedBy(charges);
-      if (!charges.length || cents <= 0) return [];
-      return [{ id: f.id, kind: f.kind, merchant: f.merchant, cents, rowIds: charges.map((t) => t.id), lastDate: charges[charges.length - 1]!.bookingDate, subject, askedOn }];
-    })
-    .sort((a, b) => b.cents - a.cents || b.lastDate.localeCompare(a.lastDate));
+  const doubles = findDoubleCharges(ctx, current, ctx.recurring, range)
+    .filter((d) => !d.rowIds.some((id) => covered.has(id)))
+    .flatMap((d): MoneyBack[] => {
+      const subject = alertSubject(d.id);
+      const { open, askedOn } = answerOn(answers.get(subject), today);
+      const cents = d.amountCents * (d.count - 1) - d.refundedCents;
+      const lastDate = d.dates[d.dates.length - 1]!;
+      return open && lastDate >= startOf(askedOn ?? today) && cents > 0 ? [{ id: d.id, kind: "double", merchant: d.merchant, cents, rowIds: d.rowIds, lastDate, subject, askedOn }] : [];
+    });
+
+  const afterLopetettu = segments.flatMap((s): MoneyBack[] => {
+    const subject = alertSubject(s.id);
+    const { open, askedOn } = answerOn(s.answer, today);
+    const from = startOf(askedOn ?? today);
+    const charges = s.charges.filter((t) => t.bookingDate >= from);
+    const cents = charges.reduce((sum, t) => sum - t.amountCents - t.refunded, 0);
+    if (!open || !charges.length || cents <= 0) return [];
+    return [{ id: s.id, kind: "cancelled", merchant: s.merchant, cents, rowIds: charges.map((t) => t.id), lastDate: charges[charges.length - 1]!.bookingDate, subject, askedOn }];
+  });
+
+  return [...doubles, ...afterLopetettu].sort((a, b) => b.cents - a.cents || b.lastDate.localeCompare(a.lastDate));
 }

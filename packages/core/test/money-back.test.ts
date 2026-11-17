@@ -3,10 +3,11 @@
  * by the definitions the alerts use, and each question's answer. Made-up merchants and sums; the day is 9.10.2026.
  */
 import { describe, expect, it } from "vitest";
+import { buildAlerts } from "../src/analysis/alerts.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { moneyBackOf } from "../src/analysis/money-back.ts";
 import { monthRange } from "../src/dates.ts";
-import type { Account, Transaction, UserMark } from "../src/types.ts";
+import { type Account, NO_INPUTS, type Transaction, type UserMark } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -76,28 +77,86 @@ describe("a charge after Lopetettu", () => {
 
 describe("a charge after Lopetettu and its answer", () => {
   const cancelled = mark("merchant:Elixia", "cancelled", "2026-07-15");
-  const id = "cancelled:merchant:Elixia@2026-07-15";
-  const subject = `alert:${id}`;
   /** The monthly charges of August, September and October, and a later one of another price. */
-  const rows = () => [...gym().slice(2), tx({ merchant: "Elixia", category: "fitness", bookingDate: "2026-10-05", amountCents: -6200 })];
+  const fixed = [...gym().slice(2), tx({ merchant: "Elixia", category: "fitness", bookingDate: "2026-10-05", amountCents: -6200 })];
+  const rows = () => fixed;
+  /** The id of the segment that starts at a row and the subject of its answer: the mark's hash is read off the first item. */
+  const segmentOf = (row: Transaction) => {
+    const id = `${backOf(fixed.slice(0, 3), [cancelled])[0]!.id.split("@")[0]}@2026-07-15@${row.id}`;
+    return { id, subject: `alert:${id}` };
+  };
+  const backOn = (day: string, txs: Transaction[], marks: UserMark[]) => moneyBackOf(createContext(txs, [checking], day), marks, day);
 
-  it("Veloitus on oikein closes the item, and a later charge asks again for only the new charge", () => {
+  it("the id is made of the mark and the first charge, and holds while later charges come", () => {
     const all = rows();
-    expect(backOf(all.slice(0, 3), [cancelled, mark(subject, "dismissed", "2026-10-02")])).toEqual([]);
-    expect(backOf(all, [cancelled, mark(subject, "dismissed", "2026-10-02")])).toMatchObject([{ id, cents: 6200, rowIds: [all[3]!.id], askedOn: null }]);
+    const [item] = backOf(all.slice(0, 3), [cancelled]);
+    expect(item!.id).toMatch(/^cancelled:[a-z0-9]+@2026-07-15@/);
+    expect(item!.id.endsWith(all[0]!.id)).toBe(true);
+    expect(backOf(all, [cancelled]).map((m) => m.id)).toEqual([item!.id]);
   });
 
-  it("Pyydän hyvityksen holds for 30 days even when another charge comes, then asks with the day it was asked", () => {
+  it("Veloitus on oikein closes the segment, and a later charge is a new item for only the new charge", () => {
     const all = rows();
-    expect(backOf(all, [cancelled, mark(subject, "in_use", "2026-09-20")])).toEqual([]);
-    expect(backOf(all, [cancelled, mark(subject, "in_use", "2026-09-05")])).toMatchObject([{ id, askedOn: "2026-09-05", cents: 5900 * 3 + 6200 }]);
-    expect(backOf(all, [cancelled, mark(subject, "cancelled", "2026-10-02")])).toMatchObject([{ id, cents: 6200 }]);
+    const first = segmentOf(all[0]!);
+    expect(backOf(all.slice(0, 3), [cancelled, mark(first.subject, "dismissed", "2026-10-02")])).toEqual([]);
+    const [next, ...rest] = backOf(all, [cancelled, mark(first.subject, "dismissed", "2026-10-02")]);
+    expect(rest).toEqual([]);
+    expect(next).toMatchObject({ cents: 6200, rowIds: [all[3]!.id], askedOn: null });
+    expect(next!.id).not.toBe(first.id);
+    expect(next!.id.endsWith(all[3]!.id)).toBe(true);
+  });
+
+  it("dismissed, a new charge, Pyydän hyvityksen: the item that returns shows only the new charge", () => {
+    const all = rows();
+    const first = segmentOf(all[0]!);
+    const second = segmentOf(all[3]!);
+    const answers = [cancelled, mark(first.subject, "dismissed", "2026-10-02"), mark(second.subject, "in_use", "2026-10-06")];
+    expect(backOf(all, answers)).toEqual([]);
+    expect(backOn("2026-11-20", all, answers)).toMatchObject([{ id: second.id, cents: 6200, rowIds: [all[3]!.id], askedOn: "2026-10-06" }]);
+  });
+
+  it("Pyydän hyvityksen, a new charge during the wait: the new charge is a separate item, and the first returns with its own charges", () => {
+    const all = rows();
+    const first = segmentOf(all[0]!);
+    const second = segmentOf(all[3]!);
+    const answers = [cancelled, mark(first.subject, "in_use", "2026-10-02")];
+    expect(backOf(all, answers)).toMatchObject([{ id: second.id, cents: 6200, rowIds: [all[3]!.id], askedOn: null }]);
+    expect(backOn("2026-11-05", all, answers)).toMatchObject([
+      { id: first.id, cents: 5900 * 3, rowIds: all.slice(0, 3).map((t) => t.id), askedOn: "2026-10-02" },
+      { id: second.id, cents: 6200, askedOn: null },
+    ]);
+  });
+
+  it("the second answer closes a segment for good and leaves the next one open", () => {
+    const all = rows();
+    const first = segmentOf(all[0]!);
+    expect(backOf(all, [cancelled, mark(first.subject, "cancelled", "2026-10-02")])).toMatchObject([{ cents: 6200 }]);
   });
 
   it("is one question when the charge is also a double charge", () => {
     const pair = twice("2026-10-05", -4000, { merchant: "Elixia", category: "fitness" });
-    expect(backOf(pair, [cancelled])).toMatchObject([{ id, kind: "cancelled", cents: 8000 }]);
-    expect(backOf(pair, [cancelled, mark(subject, "dismissed", "2026-10-06")])).toEqual([]);
+    const [item] = backOf(pair, [cancelled]);
+    expect(item).toMatchObject({ kind: "cancelled", cents: 8000 });
+    expect(backOf(pair, [cancelled, mark(item!.subject, "dismissed", "2026-10-06")])).toEqual([]);
+  });
+
+  it("can be answered when the merchant's name is long: the subject stays within what a mark may hold", () => {
+    const merchant = "Pitkä kauppa ".repeat(15).trim();
+    const long = monthRange("2026-06", "2026-10").map((m) => tx({ merchant, category: "fitness", bookingDate: `${m}-01`, amountCents: -5900 }));
+    const [item] = backOf(long, [mark(`merchant:${merchant}`, "cancelled", "2026-09-15")]);
+    expect(item).toMatchObject({ kind: "cancelled", cents: 5900 });
+    expect(item!.subject).toMatch(/^alert:[^\p{Cc}]{1,200}$/u);
+    expect(item!.subject.length).toBeLessThan(80);
+  });
+
+  it("the alert of a charge after cancelling has the id of the item, so one answer hides both", () => {
+    const all = rows();
+    const first = segmentOf(all[0]!);
+    const alertIds = (marks: UserMark[]) => buildAlerts(createContext(all, [checking], today), { from: "2026-07-01", to: today }, { ...NO_INPUTS, marks }).filter((a) => a.kind === "cancelled").map((a) => a.id);
+    expect(alertIds([cancelled])).toEqual([first.id]);
+    expect(backOf(all.slice(0, 3), [cancelled]).map((m) => m.id)).toEqual([first.id]);
+    expect(alertIds([cancelled, mark(first.subject, "dismissed", "2026-10-02")])).toEqual([segmentOf(all[3]!).id]);
+    expect(alertIds([cancelled, mark(first.subject, "dismissed", "2026-10-02"), mark(segmentOf(all[3]!).subject, "dismissed", "2026-10-06")])).toEqual([]);
   });
 });
 

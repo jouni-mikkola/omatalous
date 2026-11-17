@@ -87,7 +87,13 @@ describe("the question of money a merchant may owe back", () => {
     await t.s.finance(t.adminId).setMarks([item!.subject as string], "dismissed", "2026-10-02T10:00:00+03:00");
     await ingestTransactions(t.s.finance(t.adminId), "chk", [raw("2026-10-08", -6_200, "Elixia")], "enablebanking");
     await reprocess(t.s.finance(t.adminId), t.s.settings);
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: item!.id, cents: 6_200, count: 1 })]);
+    const [next, ...rest] = await queue(t.admin);
+    expect(rest).toEqual([]);
+    expect(next).toMatchObject({ cents: 6_200, count: 1, lastDate: "2026-10-08" });
+    // the new charge is an item of its own, and its answer is a mark of its own: the first answer stays
+    expect(next!.id).not.toBe(item!.id);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: next!.subject, mark: "dismissed" })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
   });
 
   it("orders the items by the money, the most first", async () => {
