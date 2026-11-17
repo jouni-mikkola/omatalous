@@ -20,9 +20,11 @@ import { median } from "../src/stats.ts";
 import type { Loan } from "../src/types.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
+import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
+import { upcomingReport } from "../src/reports/upcoming.ts";
 
 type FigureKey = keyof typeof FIGURES;
 
@@ -238,6 +240,12 @@ const ANSWERS: Record<FigureKey, Answers> = {
       holdings: monthly(holdings.loans),
       dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
     };
+  },
+  billsYear: (h) => {
+    const ctx = contextOf(h);
+    // the typed bills of the demo household have none of the rare ones, so a typed yearly bill is added to be read as well
+    const inputs = { ...h.inputs, expectedBills: [...h.inputs.expectedBills, { id: "typed-insurance", name: "Esimerkkivakuutus", amountCents: 24_000, dueDate: addMonths(monthOf(h.today), 2) + "-10", cadence: "yearly" as const, category: "insurance", reference: null, payeeIban: null }] };
+    return { calendar: billCalendar(ctx, inputs).yearlyCents, upcoming: upcomingReport(ctx, inputs).yearlyCents };
   },
   periodLeft: (h) => {
     const ctx = contextOf(h);

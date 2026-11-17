@@ -15,7 +15,7 @@ const PURCHASE_LIKE = new Set(["groceries", "restaurants", "food_delivery", "alc
 /** A small yearly charge (a 2 € storage plan) is not worth a line. */
 const MIN_CENTS = 1000;
 /** The year the costs are counted over, from the month of today. */
-const YEAR_MONTHS = 12;
+export const YEAR_MONTHS = 12;
 /** Days after today in which the next due date of a typed-in bill is looked for (a yearly bill is at most a year away). */
 const NEXT_DATE_DAYS = 400;
 
@@ -32,17 +32,6 @@ interface UpcomingBill {
   amountCents: number;
   /** Found in the bank history, or typed in by the user. */
   source: BillSource;
-}
-
-/** Rare bills that fall due in one calendar month. */
-interface BillMonth {
-  /** `YYYY-MM`. */
-  month: string;
-  cents: number;
-  /** Which bills, the dearest first. */
-  names: string[];
-  /** The bills of the month already paid, with the day: a bill paid on the 5th is not coming. */
-  paid: { merchant: string; date: IsoDate }[];
 }
 
 /** A bill the user typed in, for the list where it can be removed. */
@@ -70,14 +59,12 @@ export interface UpcomingReport {
   reserveMonthlyCents: number;
   /** The rare bills of the twelve months from the start of this month. */
   yearlyCents: number;
-  /** Twelve months, this one first. */
-  months: BillMonth[];
   /** Every bill the user typed in, the soonest first. */
   manual: ManualBill[];
 }
 
 /** One due date of a bill, found or typed in. */
-interface Occurrence {
+export interface Occurrence {
   merchant: string;
   category: string | null;
   cadence: Cadence | ExpectedCadence;
@@ -98,7 +85,7 @@ interface Occurrence {
  * debt category, not a shop and not a small charge. One that is a few days overdue is still a bill: it counts in
  * the year, so the figure does not drop on the day its due date passes.
  */
-function rareSeries(ctx: AnalysisContext): RecurringSeries[] {
+export function rareSeries(ctx: AnalysisContext): RecurringSeries[] {
   return ctx.recurring.filter((s) => {
     if (!s.active || !s.cadence || !RARE.has(s.cadence) || (s.kind !== "subscription" && s.kind !== "bill")) return false;
     const kind = getCategory(s.category).kind;
@@ -107,18 +94,12 @@ function rareSeries(ctx: AnalysisContext): RecurringSeries[] {
 }
 
 /**
- * Bills that do not come every month: quarterly insurance, yearly taxes and memberships, found in the bank history
- * or typed in by the user (a yearly bill needs two charges before it is found). The monthly ones are in the forecast
- * and on the recurring page; these are the ones that surprise. Always about today, whatever period the page shows.
- *
- * The year runs over whole calendar months from this one and counts what was already paid this month, by the series'
- * own row or by a payment from another account that settled the bill, so the figure does not change when a bill is paid
- * or goes overdue and stays the same all month. A one-off bill is not a
- * yearly cost: it adds to the year, and its amount is spread over the months from this one to the month it is due.
+ * The due dates of the rare bills in the twelve calendar months from this one, found or typed in, with what was already
+ * paid this month, by the series' own row or by a payment from another account that settled the bill. `isDuplicate`
+ * tells a typed-in bill that the history already found under the same name: the found one is counted.
  */
-export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): UpcomingReport {
+export function rareOccurrences(ctx: AnalysisContext, inputs: UserInputs): { occurrences: Occurrence[]; isDuplicate: (name: string) => boolean } {
   const from = ctx.today;
-  const to = addDays(from, HORIZON_DAYS);
   const firstMonth = monthOf(from);
   const lastMonth = addMonths(firstMonth, YEAR_MONTHS - 1);
   const windowStart = `${firstMonth}-01`;
@@ -147,6 +128,38 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
     // from the start of the month for every cadence, so a one-off due on the 20th counts all month, not until the 20th
     for (const d of expectedDates(b, windowStart, windowEnd)) occurrences.push({ ...base, date: d, inYear: true, ahead: d >= from, paid: false });
   }
+  return { occurrences, isDuplicate };
+}
+
+/**
+ * What the rare bills of the year come to, and what to set aside each month for them. Repeating bills: a twelfth of the
+ * year each month. A one-off: its amount over the months until its due month.
+ */
+export function rareYear(occurrences: readonly Occurrence[], today: IsoDate): { yearlyCents: number; reserveMonthlyCents: number } {
+  const firstMonth = monthOf(today);
+  let monthly = 0;
+  let yearlyCents = 0;
+  for (const o of occurrences) {
+    if (!o.inYear) continue;
+    yearlyCents += o.amountCents;
+    monthly += o.cadence === "once" ? o.amountCents / (monthIndex(monthOf(o.date)) - monthIndex(firstMonth) + 1) : o.amountCents / YEAR_MONTHS;
+  }
+  return { yearlyCents, reserveMonthlyCents: Math.round(monthly) };
+}
+
+/**
+ * Bills that do not come every month: quarterly insurance, yearly taxes and memberships, found in the bank history
+ * or typed in by the user (a yearly bill needs two charges before it is found). The monthly ones are in the forecast
+ * and on the recurring page; these are the ones that surprise. Always about today, whatever period the page shows.
+ *
+ * The year runs over whole calendar months from this one and counts what was already paid this month, so the figure
+ * does not change when a bill is paid or goes overdue and stays the same all month. A one-off bill is not a
+ * yearly cost: it adds to the year, and its amount is spread over the months from this one to the month it is due.
+ */
+export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): UpcomingReport {
+  const from = ctx.today;
+  const to = addDays(from, HORIZON_DAYS);
+  const { occurrences, isDuplicate } = rareOccurrences(ctx, inputs);
 
   const items: UpcomingBill[] = occurrences
     .filter((o) => o.ahead && o.date <= to)
@@ -154,18 +167,7 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
     .map(({ inYear: _inYear, ahead: _ahead, paid: _paid, ...bill }) => bill);
   const totalCents = items.reduce((s, i) => s + i.amountCents, 0);
 
-  const months: BillMonth[] = Array.from({ length: YEAR_MONTHS }, (_, i) => {
-    const month = addMonths(firstMonth, i);
-    const here = occurrences.filter((o) => o.inYear && monthOf(o.date) === month).sort((a, b) => b.amountCents - a.amountCents || a.merchant.localeCompare(b.merchant));
-    const paid = here.filter((o) => o.paid).map((o) => ({ merchant: o.merchant, date: o.date }));
-    return { month, cents: here.reduce((s, o) => s + o.amountCents, 0), names: [...new Set(here.map((o) => o.merchant))], paid };
-  });
-  const yearlyCents = months.reduce((s, m) => s + m.cents, 0);
-
-  // repeating bills: a twelfth of the year each month. A one-off: its amount over the months until its due month.
-  let monthly = 0;
-  for (const o of occurrences) if (o.inYear) monthly += o.cadence === "once" ? o.amountCents / (monthIndex(monthOf(o.date)) - monthIndex(firstMonth) + 1) : o.amountCents / YEAR_MONTHS;
-  const reserveMonthlyCents = Math.round(monthly);
+  const { yearlyCents, reserveMonthlyCents } = rareYear(occurrences, from);
 
   const manual = inputs.expectedBills
     .map((b): ManualBill => ({
@@ -180,5 +182,5 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
     }))
     .sort((a, b) => (a.nextDate ?? "9999").localeCompare(b.nextDate ?? "9999") || a.name.localeCompare(b.name));
 
-  return { from, to, items, totalCents, reserveMonthlyCents, yearlyCents, months, manual };
+  return { from, to, items, totalCents, reserveMonthlyCents, yearlyCents, manual };
 }

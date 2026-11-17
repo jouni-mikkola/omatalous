@@ -97,6 +97,15 @@ export const FIGURES = {
     additive: false,
     pages: ["Yhteenveto", "Laskut"],
   },
+  billsYear: {
+    name: "Laskut 12 kk",
+    definition: "The bills that come every second month or less often, found in the history or typed in, over the twelve calendar months from the one of today, a bill paid this month included. Laskut and the report of rare bills read the one figure.",
+    source: { file: "reports/bill-calendar.ts", fn: "billCalendar", field: "yearlyCents" },
+    unit: "cents",
+    scope: "own",
+    additive: false,
+    pages: ["Laskut"],
+  },
   ownTransfers: {
     name: "Siirrot omille tileille",
     definition: "Regular transfers from the counted accounts to accounts the balance does not count, in the same window as Erääntyvät maksut. They leave the balance and are no payments.",

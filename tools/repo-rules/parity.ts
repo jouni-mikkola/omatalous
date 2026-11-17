@@ -120,7 +120,8 @@ describe("repo rules: parity", () => {
     // summary: Vuosivertailu tells the year's change by category from yearOverYear (PD-raportit), and its CSV stays
     // conclusions: the frame of the question pages shows it (pages/reports/Frame.tsx), no section does
     // spendingChange: no page shows it; the findings tool and the figure tests of the server read its views
-    const NO_SECTION = new Set<string>(["upcoming", "income", "housing", "spendingChange"]);
+    // billCalendar: Laskut reads its months for its one list, with no section of its own
+    const NO_SECTION = new Set<string>(["upcoming", "billCalendar", "income", "housing", "spendingChange"]);
     const sectionFiles = repoFiles().filter((f) => f.startsWith(SECTIONS) && /^[^/]+\.tsx$/.test(f.slice(SECTIONS.length)));
     expect(sectionFiles.length, "the web report sections are found").toBeGreaterThan(5);
     const shown = new Set<string>();

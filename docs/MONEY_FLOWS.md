@@ -31,6 +31,7 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 | *Kulutus* | Goods and services of a period, net of refunds: *Menot* less the debt service | `PeriodTotals.consumptionCents`, summed in `totalsOf` in `analysis/flows.ts` |
 | *Säästöön siirretty* | The savings categories and the transfers into the household's own savings accounts, less what was taken out of them | `PeriodTotals.savedCents`, summed in `totalsOf` in `analysis/flows.ts` |
 | *Erääntyvät maksut* | What the counted accounts pay before the next payday or in 30 days: recurring bills, bills typed in and the bills of connected cards. An own transfer is no payment, so it is not in it | `dueCents` in `aheadBasis` in `analysis/ahead.ts` |
+| *Laskut 12 kk* | The bills that come every second month or less often, found in the history or typed in, over the twelve calendar months from the one of today. A bill paid this month is in it, so the figure holds all month | `yearlyCents` in `billCalendar` in `reports/bill-calendar.ts` |
 | *Siirrot omille tileille* | Regular transfers from the counted accounts to accounts the balance does not count, in the window of *Erääntyvät maksut*. They leave the balance and are no payments | `transferCents` in `aheadBasis` in `analysis/ahead.ts` |
 | *Käytettävissä* | The balance of the counted accounts today less *Erääntyvät maksut*, *Siirrot omille tileille* and what the connected cards owe today that no bill holds. A card's whole debt is taken off, so the day its bill falls is not guessed. A card with no balance leaves the figure unsaid | `freeCents` in `aheadBasis` in `analysis/ahead.ts` |
 | *Jää palkkapäivänä* | What the counted accounts hold on the day before the next payday: today's balance less the payments and own transfers of *Käytettävissä* and the everyday spending expected on the days to the payday, with a range from the lower to the upper quartile of the base months. Empty without a known payday, a balance or three complete months | `leftCents` in `runwayOf` in `analysis/runway.ts` |
@@ -506,6 +507,16 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   the balance pays before the payday is in no figure of the window; `ahead.outside` finds it to the payday also when
   that is more than 30 days off. Yhteenveto names its sum in a line under the answer's sum row, and Laskut lists it
   before the payday.
+- The bill calendar (`billCalendar` in `reports/bill-calendar.ts`) lists the twelve calendar months from the one of
+  today, a row for each bill, loan payment and pay, with the sums of each month. A row is *known* when the sum is fixed:
+  a bill typed in, a series of one price, a loan payment of the loan's own plan, a pay the two next paydays find. It is an
+  *estimate* when the sum varies: a monthly series with a charge in the same month of last year takes that charge,
+  any other its typical sum, and a regular pay beyond the two next paydays comes at its typical sum. A charge made this
+  month is *paid* and no part of what is still to come. A bill typed in under the name of a rare bill the history
+  found counts once, as the found one. A loan a series pays is the series' row. A pay that is late, money from people
+  and a settlement between members are no income row. A bill or loan whose sum or date is not known has no row, and
+  `unknownCount` counts it: no row reads 0. The bills of the first days to the payday are the sum of *Erääntyvät maksut*
+  less the cards' bills and the own transfers, which the calendar does not hold.
 
 ## The first page
 
